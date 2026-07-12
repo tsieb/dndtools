@@ -423,6 +423,34 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	// I10 S10.1.3 / S10.4.2: structured EQUIPMENT / CURRENCY / ENCUMBRANCE — owner-or-DM authoring of a
+	// character's equipment list and coin purse (carried weight / encumbrance / derived AC are computed
+	// on read, never stored). `claim-party-inventory-item` moves a stash item into personal equipment.
+	| {
+			type: 'character.upsert-equipment-item';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'character.remove-equipment-item';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'character.move-equipment-item';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| { type: 'character.set-currency'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'character.claim-party-inventory-item';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	// CHAR-012 / CHAR-016: character journal — owner/DM author; per-entry visibility; a visibility
 	// change is the cross-surface invalidation trigger.
 	| { type: 'character.add-journal-entry'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -1155,6 +1183,14 @@ export type CoreEvent =
 	// CHAR-011 — the party record (marching order / inventory) changed.
 	| {
 			kind: 'character.party-changed';
+			revision: number;
+			actorId: ActorId;
+	  }
+	// I10 S10.1.3 / S10.4.2 — a character's structured equipment / currency (inventory) changed. The
+	// GUI re-derives carried weight / encumbrance / computed AC for that character on this signal.
+	| {
+			kind: 'character.inventory-changed';
+			characterId: string;
 			revision: number;
 			actorId: ActorId;
 	  }

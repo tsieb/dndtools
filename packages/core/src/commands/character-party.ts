@@ -108,6 +108,8 @@ export function handleUpsertPartyInventoryItem(
 			...(parsed.data.id !== undefined ? { id: parsed.data.id } : {}),
 			name: parsed.data.name,
 			detail: parsed.data.detail,
+			...(parsed.data.quantity !== undefined ? { quantity: parsed.data.quantity } : {}),
+			...(parsed.data.weight !== undefined ? { weight: parsed.data.weight } : {}),
 			visibility: parsed.data.visibility,
 			sharedWith: parsed.data.sharedWith,
 		},

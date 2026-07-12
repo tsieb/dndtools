@@ -163,6 +163,13 @@ import {
 	handleUpsertPartyInventoryItem,
 } from './character-party';
 import {
+	handleClaimPartyInventoryItem,
+	handleMoveEquipmentItem,
+	handleRemoveEquipmentItem,
+	handleSetCurrency,
+	handleUpsertEquipmentItem,
+} from './character-inventory';
+import {
 	handleAddJournalEntry,
 	handleRemoveJournalEntry,
 	handleSetJournalEntryVisibility,
@@ -552,6 +559,16 @@ export function dispatchCommand(
 			return handleUpsertPartyInventoryItem(state, env, command.actorId, command.payload);
 		case 'character.remove-party-inventory-item':
 			return handleRemovePartyInventoryItem(state, env, command.actorId, command.payload);
+		case 'character.upsert-equipment-item':
+			return handleUpsertEquipmentItem(state, env, command.actorId, command.payload);
+		case 'character.remove-equipment-item':
+			return handleRemoveEquipmentItem(state, env, command.actorId, command.payload);
+		case 'character.move-equipment-item':
+			return handleMoveEquipmentItem(state, env, command.actorId, command.payload);
+		case 'character.set-currency':
+			return handleSetCurrency(state, env, command.actorId, command.payload);
+		case 'character.claim-party-inventory-item':
+			return handleClaimPartyInventoryItem(state, env, command.actorId, command.payload);
 		case 'character.add-journal-entry':
 			return handleAddJournalEntry(state, env, command.actorId, command.payload);
 		case 'character.update-journal-entry':

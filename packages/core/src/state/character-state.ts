@@ -3,6 +3,7 @@ import type { VisibilityLevel } from '../permissions/visibility-filter';
 import { DEFAULT_VISIBILITY, normalizeVisibilityLevel } from '../permissions/visibility-filter';
 import type { CharacterCollaboration } from './character-collaboration';
 import type { CharacterResources } from './character-resources';
+import type { CharacterInventory } from './character-inventory';
 import type { CharacterJournalState } from './character-journal';
 import { EMPTY_CHARACTER_JOURNAL_STATE, ensureCharacterJournalState } from './character-journal';
 
@@ -188,6 +189,13 @@ export interface Character {
 	 * {@link ensureCharacterProficiencies}).
 	 */
 	proficiencies?: CharacterProficiencies;
+	/**
+	 * I10 S10.1.3 — structured EQUIPMENT / CURRENCY state (the coin purse + the equipment list whose
+	 * weights drive the derived encumbrance). Optional so a character persisted before this slice
+	 * hydrates safely (absent ⇒ empty inventory via `ensureCharacterInventory`). Like `resources`, it
+	 * EXTENDS the model; carried weight / encumbrance / computed AC are DERIVED on read, never stored.
+	 */
+	inventory?: CharacterInventory;
 	schemaVersion: typeof CHARACTER_STATE_SCHEMA_VERSION;
 }
 
@@ -249,6 +257,17 @@ export interface PartyInventoryItem {
 	name: string;
 	/** Free-form quantity/detail text for the prototype (e.g. "3 torches", "Bag of Holding"). */
 	detail: string;
+	/**
+	 * I10 S10.4.2 — how many of the item are in the stash (whole number ≥ 0). Drives the stash's
+	 * derived total weight for the party-encumbrance baseline. Defaults to 1.
+	 */
+	quantity: number;
+	/**
+	 * I10 S10.4.2 — per-UNIT weight in pounds (≥ 0). The stash's total weight (Σ quantity × weight) is
+	 * compared against the strongest visible character's carry capacity for the stash encumbrance
+	 * indicator. Defaults to 0 (weightless / unweighed loot).
+	 */
+	weight: number;
 	/** Per-item canonical visibility (Contract 3 Axis 1). Fails closed to `dm-only`. */
 	visibility: VisibilityLevel;
 	/** Actor ids a `shared` item is explicitly delivered to. Ignored for other levels. */
@@ -305,7 +324,13 @@ export function partyRecordOf(state: CharacterState): PartyRecord {
 	return state.party
 		? {
 				marchingOrder: [...state.party.marchingOrder],
-				inventory: state.party.inventory.map((item) => ({ ...item, sharedWith: [...item.sharedWith] })),
+				// Default weight/quantity for items persisted before S10.4.2 added those fields (hydrate safe).
+				inventory: state.party.inventory.map((item) => ({
+					...item,
+					quantity: typeof item.quantity === 'number' && item.quantity >= 0 ? item.quantity : 1,
+					weight: typeof item.weight === 'number' && item.weight >= 0 ? item.weight : 0,
+					sharedWith: [...item.sharedWith],
+				})),
 				revision: state.party.revision,
 			}
 		: { ...EMPTY_PARTY_RECORD };
@@ -335,6 +360,8 @@ export interface UpsertPartyInventoryInput {
 	id?: string;
 	name: string;
 	detail?: string;
+	quantity?: number;
+	weight?: number;
 	visibility?: VisibilityLevel;
 	sharedWith?: ActorId[];
 }
@@ -351,10 +378,14 @@ export function upsertPartyInventoryItem(
 	const party = partyRecordOf(state);
 	const id = input.id ?? idFor();
 	const existing = party.inventory.find((item) => item.id === id);
+	const nonNeg = (value: number | undefined, fallback: number): number =>
+		typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback;
 	const item: PartyInventoryItem = {
 		id,
 		name: input.name,
 		detail: input.detail ?? existing?.detail ?? '',
+		quantity: nonNeg(input.quantity, existing?.quantity ?? 1),
+		weight: nonNeg(input.weight, existing?.weight ?? 0),
 		visibility: normalizeVisibilityLevel(input.visibility ?? existing?.visibility ?? DEFAULT_VISIBILITY),
 		sharedWith: [...new Set(input.sharedWith ?? existing?.sharedWith ?? [])],
 		revision: (existing?.revision ?? 0) + 1,

@@ -2,11 +2,13 @@ import { useMemo, useState } from 'react';
 import {
 	advancementStateOf,
 	checkAdvancementEligibility,
+	computeEncumbrance,
 	effectiveProficiencyBonus,
 	getCharacterForActor,
 	getCharacterJournalForActor,
 	getPartyOverviewForActor,
 	hasGrantedCapability,
+	inventoryOf,
 	listCharactersForActor,
 	passivePerception,
 	resourcesOf,
@@ -15,9 +17,12 @@ import {
 	xpForLevel,
 	CHARACTER_ENTITY_TYPE,
 	type AdvancementState,
+	type CharacterInventory,
 	type CharacterResources,
 	type CharacterView,
 	type EligibilityResult,
+	type EncumbranceState,
+	type EquipmentItem,
 	type JournalEntryView,
 	type PartyOverview,
 } from '@dndtools/core';
@@ -55,9 +60,11 @@ import { useRuntime } from '../runtime/RuntimeContext';
  * same player-safe pattern as `resourcesOf`). A signed-in player may control MULTIPLE PCs: the
  * vitals bar carries a PC switcher (the actor-filtered PC list; the hardcoded first-PC pick is gone).
  *
- * HONEST GAP (labeled in the UI, not simulated): the structured equipment / currency taxonomy has
- * NO core model home yet — those panels were mock fiction and are removed, replaced by a visible
- * note. // no core field
+ * I10 S10.1.3 / S10.4.2: the structured EQUIPMENT / CURRENCY / ENCUMBRANCE panel is now REAL — items
+ * (name/qty/weight/equipped) and the five-coin purse are read from the durable character's `inventory`
+ * via {@link inventoryOf}, the encumbrance band + carry capacity are DERIVED on read via
+ * {@link computeEncumbrance}, and every mutation dispatches a `character.upsert/remove-equipment-item`
+ * / `character.set-currency` command (owner-or-DM authority, re-enforced by the core).
  */
 
 const ABIL_ORDER = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
@@ -99,6 +106,11 @@ interface PlayerData {
 	profBonus: number | null;
 	journal: JournalEntryView[];
 	canAuthorJournal: boolean;
+	/** I10 S10.1.3 / S10.4.2 — the durable structured inventory + the DERIVED encumbrance read model. */
+	inventory: CharacterInventory | null;
+	encumbrance: EncumbranceState | null;
+	/** Owner-or-DM: whether the active actor may mutate this character's equipment/currency. */
+	canManageInventory: boolean;
 	party: PartyOverview;
 	/** Real advancement standing from the CHAR-009 model (level, xp, staged draft). */
 	advancement: AdvancementState | null;
@@ -147,6 +159,11 @@ export function Player() {
 			profBonus: record ? effectiveProficiencyBonus(record) : null,
 			journal: journalView?.entries ?? [],
 			canAuthorJournal: isDm || isOwner,
+			// Structured inventory + encumbrance from the durable record (same post-gate pattern as
+			// `resourcesOf`); encumbrance is derived on read so it can never drift from items/coins/STR.
+			inventory: record ? inventoryOf(record) : null,
+			encumbrance: record ? computeEncumbrance(record) : null,
+			canManageInventory: isDm || isOwner,
 			party,
 			advancement: record ? advancementStateOf(record) : null,
 			xpEligible: record ? checkAdvancementEligibility(record, 'xp') : null,
@@ -283,7 +300,7 @@ export function Player() {
 
 			<Page max={1180}>
 				<div style={{ marginBottom: 18 }}><Tabs value={activeTab} onChange={setTab} tabs={tabs} /></div>
-				{activeTab === 'sheet' && <PlayerSheet C={C} level={level} isDm={data.isDm} charId={charId} actorId={actorId} passive={data.passive} profBonus={data.profBonus} dispatch={dispatch} />}
+				{activeTab === 'sheet' && <PlayerSheet C={C} level={level} isDm={data.isDm} charId={charId} actorId={actorId} passive={data.passive} profBonus={data.profBonus} inventory={data.inventory} encumbrance={data.encumbrance} canManageInventory={data.canManageInventory} dispatch={dispatch} />}
 				{activeTab === 'resources' && <PlayerResources charId={charId} resources={data.resources} actorId={actorId} dispatch={dispatch} />}
 				{activeTab === 'party' && <PlayerParty party={data.party} selfId={charId} isDm={data.isDm} actorId={actorId} dispatch={dispatch} />}
 				{activeTab === 'levelup' && data.canAdvance && (
@@ -313,7 +330,7 @@ const IDENTITY_FIELDS: { key: string; label: string; hint?: string }[] = [
 	{ key: 'init', label: 'Initiative bonus', hint: 'e.g. +2' },
 ];
 
-function PlayerSheet({ C, level, isDm, charId, actorId, passive, profBonus, dispatch }: {
+function PlayerSheet({ C, level, isDm, charId, actorId, passive, profBonus, inventory, encumbrance, canManageInventory, dispatch }: {
 	C: CharacterView;
 	level: number | null;
 	isDm: boolean;
@@ -322,6 +339,10 @@ function PlayerSheet({ C, level, isDm, charId, actorId, passive, profBonus, disp
 	/** Pure derived reads (passivePerception / effectiveProficiencyBonus), computed post-gate. */
 	passive: number | null;
 	profBonus: number | null;
+	/** I10 S10.1.3 / S10.4.2 — structured inventory + derived encumbrance, plus the owner-or-DM gate. */
+	inventory: CharacterInventory | null;
+	encumbrance: EncumbranceState | null;
+	canManageInventory: boolean;
 	dispatch: Dispatch;
 }) {
 	const [editing, setEditing] = useState(false);
@@ -510,14 +531,152 @@ function PlayerSheet({ C, level, isDm, charId, actorId, passive, profBonus, disp
 						</div>
 					)}
 				</Panel>
-				{/* no core field — the structured equipment/currency taxonomy has no core model home yet.
-				    Stated plainly instead of rendering a fictional sheet. */}
-				<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderRadius: 10, background: T.alt, border: `1px dashed ${T.bdS}` }}>
-					<Icon name="hidden" size={15} color={T.ter} />
-					<span style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						Equipment and currency aren't part of the core character model yet — they'll appear here when the model carries them.
-					</span>
-				</div>
+				{/* I10 S10.1.3 / S10.4.2 — REAL structured equipment / currency / encumbrance, core-backed. */}
+				<PlayerEquipment
+					charId={charId}
+					actorId={actorId}
+					inventory={inventory}
+					encumbrance={encumbrance}
+					canManage={canManageInventory}
+					dispatch={dispatch}
+				/>
+			</div>
+		</div>
+	);
+}
+
+// ── Equipment / currency / encumbrance — REAL structured inventory (I10 S10.1.3 / S10.4.2) ────────
+const COIN_ORDER: { key: 'pp' | 'gp' | 'ep' | 'sp' | 'cp'; label: string }[] = [
+	{ key: 'pp', label: 'PP' },
+	{ key: 'gp', label: 'GP' },
+	{ key: 'ep', label: 'EP' },
+	{ key: 'sp', label: 'SP' },
+	{ key: 'cp', label: 'CP' },
+];
+const ENCUMBRANCE_META: Record<EncumbranceState['level'], { label: string; status: 'success' | 'warning' | 'error' }> = {
+	unencumbered: { label: 'Unencumbered', status: 'success' },
+	encumbered: { label: 'Encumbered', status: 'warning' },
+	'heavily-encumbered': { label: 'Heavily encumbered', status: 'warning' },
+	overloaded: { label: 'Overloaded', status: 'error' },
+};
+
+function PlayerEquipment({ charId, actorId, inventory, encumbrance, canManage, dispatch }: {
+	charId: string;
+	actorId: string;
+	inventory: CharacterInventory | null;
+	encumbrance: EncumbranceState | null;
+	canManage: boolean;
+	dispatch: Dispatch;
+}) {
+	const [name, setName] = useState('');
+	const [qty, setQty] = useState('1');
+	const [weight, setWeight] = useState('');
+	const items = inventory?.items ?? [];
+	const currency = inventory?.currency ?? { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 };
+
+	// Every write is a durable `character.*` command; the core re-checks owner-or-DM authority and the
+	// error banner surfaces any rejection (so a non-owner preview never silently mutates).
+	const addItem = async () => {
+		if (!name.trim()) return;
+		const quantity = Math.max(0, Math.trunc(Number(qty) || 0));
+		const w = weight.trim() === '' ? 0 : Math.max(0, Number(weight) || 0);
+		const ok = await dispatch({
+			type: 'character.upsert-equipment-item',
+			actorId,
+			payload: { characterId: charId, name: name.trim(), quantity, weight: w },
+		});
+		if (ok) { setName(''); setQty('1'); setWeight(''); }
+	};
+	const removeItem = (item: EquipmentItem) =>
+		dispatch({ type: 'character.remove-equipment-item', actorId, payload: { characterId: charId, itemId: item.id } });
+	// Quantity step / equipped toggle both go through the PATCH-semantics upsert (id preserves the item;
+	// `name` is required by the schema so the existing name is re-sent).
+	const stepQty = (item: EquipmentItem, delta: number) =>
+		dispatch({ type: 'character.upsert-equipment-item', actorId, payload: { characterId: charId, id: item.id, name: item.name, quantity: Math.max(0, item.quantity + delta) } });
+	const toggleEquipped = (item: EquipmentItem) =>
+		dispatch({ type: 'character.upsert-equipment-item', actorId, payload: { characterId: charId, id: item.id, name: item.name, equipped: !item.equipped } });
+	// Currency: signed per-coin adjust (fail-closed on overspend in the core — the banner explains).
+	const adjustCoin = (coin: string, delta: number) =>
+		dispatch({ type: 'character.set-currency', actorId, payload: { characterId: charId, mode: 'adjust', currency: { [coin]: delta } } });
+	const consolidate = () =>
+		dispatch({ type: 'character.set-currency', actorId, payload: { characterId: charId, consolidate: true } });
+
+	const enc = encumbrance;
+	const encMeta = enc ? ENCUMBRANCE_META[enc.level] : null;
+
+	return (
+		<div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16, alignItems: 'start' }}>
+			<Panel title={`Equipment (${items.length})`}>
+				{items.length === 0 ? (
+					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No equipment carried yet.</div>
+				) : (
+					<div style={{ display: 'flex', flexDirection: 'column' }}>
+						{items.map((item, i) => (
+							<div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
+								<Icon name={item.equipped ? 'shield' : 'tag'} size={14} color={item.equipped ? T.acc : T.ter} />
+								<div style={{ flex: 1, minWidth: 0 }}>
+									<div style={{ font: `600 12.5px ${T.sans}` }}>{item.name}{item.equipped && <span style={{ marginLeft: 6 }}><Badge status="accent">equipped</Badge></span>}</div>
+									<div style={{ font: `11px ${T.mono}`, color: T.ter }}>{item.weight} lb each · {(item.quantity * item.weight).toFixed(item.weight % 1 ? 1 : 0)} lb total{item.notes ? ` · ${item.notes}` : ''}</div>
+								</div>
+								{canManage ? (
+									<div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+										<IconButton icon="chevron-down" label={`One fewer ${item.name}`} variant="ghost" size="sm" onClick={() => void stepQty(item, -1)} />
+										<span style={{ font: `700 12px ${T.mono}`, minWidth: 22, textAlign: 'center' }}>{item.quantity}</span>
+										<IconButton icon="chevron-up" label={`One more ${item.name}`} variant="ghost" size="sm" onClick={() => void stepQty(item, 1)} />
+										<button type="button" aria-pressed={item.equipped} onClick={() => void toggleEquipped(item)} style={{ padding: '3px 9px', borderRadius: 14, cursor: 'pointer', font: `11px ${T.sans}`, border: `1px solid ${item.equipped ? T.accBd : T.bd}`, background: item.equipped ? T.accSub : T.surf, color: item.equipped ? T.acc : T.ter }}>{item.equipped ? 'Equipped' : 'Equip'}</button>
+										<IconButton icon="close" label={`Remove ${item.name}`} variant="ghost" size="sm" onClick={() => void removeItem(item)} />
+									</div>
+								) : (
+									<span style={{ font: `12px ${T.mono}`, color: T.ter }}>×{item.quantity}</span>
+								)}
+							</div>
+						))}
+					</div>
+				)}
+				{canManage && (
+					<div style={{ display: 'flex', gap: 8, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.bd}`, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+						<Field label="Item"><Input value={name} onChange={(e: any) => setName(e.target.value)} placeholder="Longsword…" /></Field>
+						<Field label="Qty"><Input type="number" value={qty} onChange={(e: any) => setQty(e.target.value)} style={{ width: 70 }} /></Field>
+						<Field label="Weight (lb)"><Input type="number" value={weight} onChange={(e: any) => setWeight(e.target.value)} placeholder="0" style={{ width: 90 }} /></Field>
+						<Button variant="secondary" size="sm" icon="add" disabled={!name.trim()} onClick={addItem}>Add</Button>
+					</div>
+				)}
+			</Panel>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+				<Panel title="Encumbrance">
+					{enc && encMeta ? (
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+							<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+								<Badge status={encMeta.status}>{encMeta.label}</Badge>
+								{enc.speedPenalty !== 0 && <span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>Speed {enc.speedPenalty} ft</span>}
+							</div>
+							<ProgressMeter value={Math.min(enc.carriedWeight, enc.carryCapacity)} max={enc.carryCapacity || 1} label={`${enc.carriedWeight.toFixed(enc.carriedWeight % 1 ? 1 : 0)} / ${enc.carryCapacity} lb`} />
+							<div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+								<Stat label="Items" value={`${enc.itemWeight.toFixed(enc.itemWeight % 1 ? 1 : 0)} lb`} />
+								<Stat label="Coins" value={`${enc.coinWeight.toFixed(enc.coinWeight % 1 ? 1 : 0)} lb`} />
+								<Stat label="Capacity" value={`${enc.carryCapacity} lb`} />
+							</div>
+						</div>
+					) : (
+						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No encumbrance data.</div>
+					)}
+				</Panel>
+				<Panel title="Currency" action={canManage ? <Button variant="ghost" size="sm" onClick={() => void consolidate()}>Consolidate</Button> : undefined}>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+						{COIN_ORDER.map((coin) => (
+							<div key={coin.key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0' }}>
+								<span style={{ font: `700 12px ${T.mono}`, color: T.acc, width: 26 }}>{coin.label}</span>
+								<span style={{ flex: 1, font: `13px ${T.mono}` }}>{currency[coin.key]}</span>
+								{canManage && (
+									<div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+										<IconButton icon="chevron-down" label={`Spend one ${coin.label}`} variant="ghost" size="sm" onClick={() => void adjustCoin(coin.key, -1)} />
+										<IconButton icon="chevron-up" label={`Add one ${coin.label}`} variant="ghost" size="sm" onClick={() => void adjustCoin(coin.key, 1)} />
+									</div>
+								)}
+							</div>
+						))}
+					</div>
+				</Panel>
 			</div>
 		</div>
 	);
