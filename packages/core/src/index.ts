@@ -2289,10 +2289,14 @@ export {
 	calendarById,
 	contentItemById,
 	contentItemVisibilityMetadata,
+	countObjectsOfSubtype,
+	customObjectTypeById,
+	defineCustomObjectType,
 	ensureVaultContentState,
 	isLiveContentItem,
 	liveContentItems,
 	removeContentEmbed,
+	removeCustomObjectType,
 	restoreContentItem,
 	setContentFieldVisibility,
 	setContentItemVisibility,
@@ -3100,6 +3104,48 @@ export {
 	syncObjectToNote,
 	validateObjectFrontmatter,
 } from './state/vault-object';
+
+// CONTENT-005 (custom types): USER-DEFINED VAULT OBJECT TYPES — the DM's own object types, first-class
+// alongside the built-in subtypes. A custom type is a durable definition (id in the reserved `custom:`
+// namespace so it can never collide with a built-in, a label, and an ordered field schema) that PROJECTS to
+// a `VaultObjectSchema`, so its instances flow through the SAME validate/sync/project path a built-in uses.
+// Defined/updated/deleted through the DM-only `content.*-object-type` commands; delete is refused while any
+// live instance still references the type (fail closed — never orphan an instance).
+export type {
+	CustomObjectFieldDefinition,
+	CustomObjectTypeDefinition,
+	CustomObjectTypeDraft,
+	CustomObjectTypeIssue,
+	CustomObjectTypeIssueCode,
+	CustomObjectTypeMap,
+	CustomObjectTypeSummary,
+	CustomObjectTypeValidationResult,
+} from './state/custom-object-type';
+export {
+	CUSTOM_OBJECT_FIELD_KEY_PATTERN,
+	CUSTOM_OBJECT_TYPE_ENTITY_TYPE,
+	CUSTOM_OBJECT_TYPE_ID_PATTERN,
+	CUSTOM_OBJECT_TYPE_ID_PREFIX,
+	CUSTOM_OBJECT_TYPE_MAX_FIELDS,
+	CUSTOM_OBJECT_TYPE_MAX_LABEL,
+	CUSTOM_OBJECT_TYPE_SCHEMA_VERSION,
+	RESERVED_BUILTIN_SUBTYPE_IDS,
+	buildCustomObjectType,
+	buildCustomObjectTypeSchemaRegistry,
+	customObjectTypeToSchema,
+	ensureCustomObjectTypeMap,
+	isCustomObjectTypeId,
+	listCustomObjectTypeSummaries,
+	summarizeCustomObjectType,
+	suggestCustomObjectTypeId,
+	validateCustomObjectTypeDefinition,
+} from './state/custom-object-type';
+export {
+	VAULT_OBJECT_FIELD_TYPES,
+	isVaultObjectFieldType,
+	resolveVaultObjectSchema,
+} from './state/vault-object-schema';
+export type { VaultObjectSchemaRegistry } from './state/vault-object-schema';
 
 // CONTENT-006: the PURE WIKILINK LIFECYCLE engine — create / resolve / rename-propagation / repair, PRESERVING
 // per-source conventions (reuses the source constraint descriptors). All deterministic functions of explicit

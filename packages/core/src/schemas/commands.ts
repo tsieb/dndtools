@@ -8,6 +8,11 @@ import {
 	widgetDockSchema,
 } from './scene';
 import { widgetPackageDefinitionSchema } from './widget-package';
+import {
+	CUSTOM_OBJECT_TYPE_ID_PATTERN,
+	CUSTOM_OBJECT_TYPE_MAX_FIELDS,
+	CUSTOM_OBJECT_TYPE_MAX_LABEL,
+} from '../state/custom-object-type';
 
 const idSchema = z.string().min(1);
 
@@ -1745,12 +1750,21 @@ const vaultObjectSubtypeSchema = z.enum([
 	'spell',
 ]);
 
+// A USER-DEFINED (custom) object-type id: the reserved `custom:<slug>` namespace, distinct from every
+// built-in subtype. The type's EXISTENCE is enforced at dispatch (it must resolve in the custom registry,
+// else `object-schema-invalid`); this only admits the well-formed shape so an instance can name a custom type.
+const customObjectTypeIdSchema = z.string().regex(CUSTOM_OBJECT_TYPE_ID_PATTERN);
+
+// The subtype an instance names: a built-in subtype OR a well-formed custom type id (both flow through the
+// same schema-validated create/update path).
+const vaultObjectInstanceSubtypeSchema = z.union([vaultObjectSubtypeSchema, customObjectTypeIdSchema]);
+
 // CONTENT-005 — create a structured Vault Object as a note-backed content item (DM-only authoring). The
 // frontmatter `fields` are validated against the subtype schema at dispatch (fail closed); the body is the
 // markdown prose. Visibility fails closed to the subtype default (dm-only) when omitted.
 export const createVaultObjectInputSchema = z
 	.object({
-		subtype: vaultObjectSubtypeSchema,
+		subtype: vaultObjectInstanceSubtypeSchema,
 		title: z.string().min(1, 'A title is required'),
 		fields: z.record(z.string(), z.unknown()).default({}),
 		body: z.string().default(''),
@@ -1774,6 +1788,53 @@ export const updateVaultObjectInputSchema = z
 		(value) => value.title !== undefined || value.fields !== undefined || value.body !== undefined,
 		{ message: 'Provide at least one field to update.' },
 	);
+
+// --- CONTENT-005 (custom types) — user-defined object types --------------------------------------
+
+// One declared field of a custom object type. `type` is admitted as a string here and validated against the
+// CLOSED field-kind set at dispatch (so the authoring UI gets a precise `unknown-field-kind` issue rather
+// than an opaque zod enum error). Key/uniqueness/reserved-key checks also run in the state validator.
+const customObjectFieldDraftSchema = z
+	.object({
+		key: z.string().min(1, 'A field key is required'),
+		type: z.string().min(1, 'A field kind is required'),
+		required: z.boolean().optional(),
+		description: z.string().optional(),
+		dmOnly: z.boolean().optional(),
+	})
+	.strict();
+
+// CONTENT-005 — DEFINE a new user-defined object type (DM-only). The id must be a well-formed `custom:<slug>`
+// (it can never collide with a built-in subtype); the full draft is structurally validated at dispatch and a
+// define is refused fail-closed if a type already exists under the id.
+export const defineCustomObjectTypeInputSchema = z
+	.object({
+		id: customObjectTypeIdSchema,
+		label: z.string().min(1, 'A type label is required').max(CUSTOM_OBJECT_TYPE_MAX_LABEL),
+		fields: z.array(customObjectFieldDraftSchema).max(CUSTOM_OBJECT_TYPE_MAX_FIELDS).default([]),
+		defaultVisibility: contentVisibilitySchema.optional(),
+	})
+	.strict();
+
+// CONTENT-005 — UPDATE an existing user-defined object type (DM-only). Replaces the label / field schema /
+// default visibility of the type at `id`; the definition's revision is bumped and its createdAt/author are
+// preserved. The target must already exist.
+export const updateCustomObjectTypeInputSchema = z
+	.object({
+		id: customObjectTypeIdSchema,
+		label: z.string().min(1, 'A type label is required').max(CUSTOM_OBJECT_TYPE_MAX_LABEL),
+		fields: z.array(customObjectFieldDraftSchema).max(CUSTOM_OBJECT_TYPE_MAX_FIELDS).default([]),
+		defaultVisibility: contentVisibilitySchema.optional(),
+	})
+	.strict();
+
+// CONTENT-005 — DELETE a user-defined object type (DM-only). Refused fail-closed while any LIVE instance of
+// the type still exists (never orphans an instance); the DM must remove the instances first.
+export const deleteCustomObjectTypeInputSchema = z
+	.object({
+		id: customObjectTypeIdSchema,
+	})
+	.strict();
 
 // --- CONTENT-006 — wikilink lifecycle (rename-propagation, repair) ------------------------------
 

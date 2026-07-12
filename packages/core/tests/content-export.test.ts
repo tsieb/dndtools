@@ -62,6 +62,7 @@ function vaultWithMixedVisibility(): VaultContentState {
 	return {
 		calendars: {},
 		savedSearches: {},
+		customObjectTypes: {},
 		schemaVersion: 1,
 		items: {
 			'i-secret': item(

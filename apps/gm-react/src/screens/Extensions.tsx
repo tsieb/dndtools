@@ -5,12 +5,16 @@ import {
 	exportWidgetPackage,
 	getContentItemsForActor,
 	listCharactersForActor,
+	listCustomObjectTypeSummaries,
 	listVaultObjectSchemas,
 	previewSystemSwitch,
 	scaffoldCustomWidgetPackageDraft,
+	suggestCustomObjectTypeId,
 	VAULT_OBJECT_SUBTYPE_KEY,
 	type CommandResult,
+	type CustomObjectTypeDefinition,
 	type SystemSwitchPreviewResult,
+	type VaultObjectFieldType,
 	type WidgetPackageDefinition,
 } from '@dndtools/core';
 import { Badge, Button, Checkbox, Dialog, EmptyState, HPBar, Icon, Input, SegmentedControl, Select, Skeleton, Switch, Tabs, Textarea, Toaster, VisibilityChip } from '../ds';
@@ -1038,15 +1042,377 @@ function ExtObjects() {
 					})}
 				</div>
 			</Panel>
-			<Panel title="Custom object types" action={<Badge status="neutral">not supported yet</Badge>}>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter }}>
-					Defining your own object types isn't supported yet — the Core has no define-object-type command,
-					so a schema editor here would save nowhere. Every type above is schema-defined in the Core; if you
-					need a custom shape today, a note with structured fields or a custom widget package (Plugins tab)
-					is the honest workaround.
+			<CustomObjectTypes />
+		</div>
+	);
+}
+
+/* ---- Custom object types (REAL — `content.define/update/delete-object-type` + `content.create/update-object`) */
+
+const FIELD_KIND_OPTIONS: { value: VaultObjectFieldType; label: string }[] = [
+	{ value: 'string', label: 'Text' },
+	{ value: 'number', label: 'Number' },
+	{ value: 'boolean', label: 'Boolean' },
+	{ value: 'string-array', label: 'Text list' },
+	{ value: 'object', label: 'Object' },
+	{ value: 'object-array', label: 'Object list' },
+];
+
+interface FieldDraft {
+	key: string;
+	type: VaultObjectFieldType;
+	required: boolean;
+	dmOnly: boolean;
+}
+
+const emptyField = (): FieldDraft => ({ key: '', type: 'string', required: false, dmOnly: false });
+
+function CustomObjectTypes() {
+	const runtime = useRuntime();
+	const dmId = runtime.defaultActorId;
+	const previewing = !!runtime.preview;
+	const isDm = runtime.state.permissions.actors[dmId]?.role === 'dm';
+	const canWrite = isDm && !previewing;
+
+	const summaries = useMemo(
+		() => listCustomObjectTypeSummaries(runtime.state.content.customObjectTypes),
+		[runtime.state.content.customObjectTypes],
+	);
+	const items = getContentItemsForActor(runtime.state.content, runtime.state.permissions, dmId);
+	const countFor = (typeId: string): number =>
+		items.filter((i) => i.kind === 'object' && i.fields[VAULT_OBJECT_SUBTYPE_KEY] === typeId).length;
+
+	// The type-authoring form. `editId` non-null ⇒ we are updating an existing type (revision bump) rather
+	// than defining a new one.
+	const [editId, setEditId] = useState<string | null>(null);
+	const [label, setLabel] = useState('');
+	const [fields, setFields] = useState<FieldDraft[]>([emptyField()]);
+	const [busy, setBusy] = useState(false);
+	const [instanceOf, setInstanceOf] = useState<CustomObjectTypeDefinition | null>(null);
+
+	const resetForm = () => {
+		setEditId(null);
+		setLabel('');
+		setFields([emptyField()]);
+	};
+
+	const startEdit = (def: CustomObjectTypeDefinition) => {
+		setEditId(def.id);
+		setLabel(def.label);
+		setFields(
+			def.fields.length
+				? def.fields.map((f) => ({ key: f.key, type: f.type, required: f.required, dmOnly: f.dmOnly }))
+				: [emptyField()],
+		);
+	};
+
+	const targetId = editId ?? suggestCustomObjectTypeId(label);
+	const declaredFields = fields.filter((f) => f.key.trim() !== '');
+	const canSubmit = canWrite && !busy && label.trim() !== '' && targetId !== 'custom:';
+
+	const submitType = async () => {
+		if (!canSubmit) return;
+		setBusy(true);
+		try {
+			const payload = {
+				id: targetId,
+				label: label.trim(),
+				fields: declaredFields.map((f) => ({
+					key: f.key.trim(),
+					type: f.type,
+					required: f.required,
+					dmOnly: f.dmOnly,
+				})),
+			};
+			const res = await runtime.dispatch(
+				editId
+					? { type: 'content.update-object-type', actorId: dmId, payload }
+					: { type: 'content.define-object-type', actorId: dmId, payload },
+			);
+			if (res.status === 'rejected') {
+				const issues = res.rejection.issues?.map((i) => `${i.path}: ${i.message}`).join(' · ');
+				Toaster.error(issues ? `${res.rejection.message} ${issues}` : res.rejection.message);
+				return;
+			}
+			Toaster.success(editId ? `Updated "${payload.label}"` : `Defined "${payload.label}"`);
+			resetForm();
+		} catch (error) {
+			Toaster.error(error instanceof Error ? error.message : String(error));
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	const deleteType = async (def: CustomObjectTypeDefinition) => {
+		if (!canWrite || busy) return;
+		setBusy(true);
+		try {
+			const res = await runtime.dispatch({
+				type: 'content.delete-object-type',
+				actorId: dmId,
+				payload: { id: def.id },
+			});
+			if (res.status === 'rejected') {
+				Toaster.error(res.rejection.message);
+				return;
+			}
+			Toaster.success(`Deleted "${def.label}"`);
+			if (editId === def.id) resetForm();
+		} catch (error) {
+			Toaster.error(error instanceof Error ? error.message : String(error));
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	return (
+		<>
+			<Panel
+				title="Custom object types"
+				action={<Badge status={summaries.length ? 'accent' : 'neutral'}>{summaries.length} defined</Badge>}
+			>
+				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
+					Define your own vault-object types with a small field schema. A custom type is first-class — its
+					objects create, validate, and list alongside the built-in types above. Deleting a type is blocked
+					while any of its objects still exist.
+				</div>
+				{summaries.length === 0 ? (
+					<div style={{ font: `12px ${T.sans}`, color: T.ter, padding: '4px 0' }}>No custom types yet.</div>
+				) : (
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+						{summaries.map((s) => {
+							const def = runtime.state.content.customObjectTypes[s.id];
+							const count = countFor(s.id);
+							return (
+								<div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, border: `1px solid ${T.bd}`, borderRadius: 10, background: T.surf }}>
+									<span style={{ width: 36, height: 36, borderRadius: 9, background: T.alt, color: T.acc, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto' }}>
+										<Icon name="tag" size="md" />
+									</span>
+									<div style={{ flex: 1, minWidth: 0 }}>
+										<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+											<span style={{ font: `600 13.5px ${T.sans}` }}>{s.label}</span>
+											<Badge status="neutral">Custom</Badge>
+											{s.dmOnlyFields.length > 0 && <Badge status="accent">{s.dmOnlyFields.length} DM-only {s.dmOnlyFields.length === 1 ? 'field' : 'fields'}</Badge>}
+										</div>
+										<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+											<span style={mono}>{s.id}</span> · {s.fieldCount} {s.fieldCount === 1 ? 'field' : 'fields'} · defaults to {s.defaultVisibility}
+										</div>
+									</div>
+									<span style={{ font: `12px ${T.mono}`, color: count ? T.ink : T.ter }}>{count} in vault</span>
+									{def && (
+										<Button variant="secondary" size="sm" icon="add" disabled={!canWrite || busy} onClick={() => setInstanceOf(def)}>
+											New
+										</Button>
+									)}
+									{def && (
+										<Button variant="ghost" size="sm" icon="edit" disabled={!canWrite || busy} onClick={() => startEdit(def)}>
+											Edit
+										</Button>
+									)}
+									{def && (
+										<Button variant="ghost" size="sm" icon="delete" disabled={!canWrite || busy} onClick={() => deleteType(def)}>
+											Delete
+										</Button>
+									)}
+								</div>
+							);
+						})}
+					</div>
+				)}
+			</Panel>
+
+			<Panel title={editId ? `Edit type · ${editId}` : 'Define a new type'} accent={!!editId}>
+				{!canWrite && (
+					<div style={{ font: `12px ${T.sans}`, color: T.ter, marginBottom: 4 }}>
+						{previewing ? 'Exit preview to author types.' : 'Only the DM may define custom object types.'}
+					</div>
+				)}
+				<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+					<span style={{ flex: 1, minWidth: 160 }}>
+						<label style={{ font: `11.5px ${T.sans}`, color: T.sub, display: 'block', marginBottom: 4 }}>Label</label>
+						<Input
+							value={label}
+							onChange={(e: { target: { value: string } }) => setLabel(e.target.value)}
+							placeholder="e.g. Tavern"
+							aria-label="Custom type label"
+							disabled={!canWrite}
+						/>
+					</span>
+					<span style={{ font: `11.5px ${T.mono}`, color: T.ter, paddingBottom: 8 }}>{targetId}</span>
+				</div>
+
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+					<span style={{ font: `11.5px ${T.sans}`, color: T.sub }}>Fields</span>
+					{fields.map((f, i) => (
+						<div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+							<span style={{ flex: 1, minWidth: 120 }}>
+								<Input
+									value={f.key}
+									onChange={(e: { target: { value: string } }) =>
+										setFields((prev) => prev.map((p, j) => (j === i ? { ...p, key: e.target.value } : p)))
+									}
+									placeholder="field key (e.g. proprietor)"
+									aria-label={`Field ${i + 1} key`}
+									disabled={!canWrite}
+								/>
+							</span>
+							<span style={{ flex: '0 0 130px' }}>
+								<Select
+									aria-label={`Field ${i + 1} kind`}
+									options={FIELD_KIND_OPTIONS}
+									value={f.type}
+									onChange={(e: { target: { value: string } }) =>
+										setFields((prev) => prev.map((p, j) => (j === i ? { ...p, type: e.target.value as VaultObjectFieldType } : p)))
+									}
+								/>
+							</span>
+							<Checkbox
+								checked={f.required}
+								onChange={(v: boolean) => setFields((prev) => prev.map((p, j) => (j === i ? { ...p, required: v } : p)))}
+								label="Required"
+							/>
+							<Checkbox
+								checked={f.dmOnly}
+								onChange={(v: boolean) => setFields((prev) => prev.map((p, j) => (j === i ? { ...p, dmOnly: v } : p)))}
+								label="DM-only"
+							/>
+							<Button
+								variant="ghost"
+								size="sm"
+								icon="delete"
+								disabled={!canWrite || fields.length === 1}
+								onClick={() => setFields((prev) => (prev.length === 1 ? prev : prev.filter((_, j) => j !== i)))}
+								aria-label={`Remove field ${i + 1}`}
+							/>
+						</div>
+					))}
+					<span>
+						<Button variant="ghost" size="sm" icon="add" disabled={!canWrite || fields.length >= 40} onClick={() => setFields((prev) => [...prev, emptyField()])}>
+							Add field
+						</Button>
+					</span>
+				</div>
+
+				<div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+					<Button variant="primary" size="sm" icon={editId ? 'check' : 'add'} disabled={!canSubmit} onClick={submitType}>
+						{busy ? 'Saving…' : editId ? 'Save changes' : 'Define type'}
+					</Button>
+					{editId && (
+						<Button variant="ghost" size="sm" onClick={resetForm} disabled={busy}>
+							Cancel edit
+						</Button>
+					)}
 				</div>
 			</Panel>
-		</div>
+
+			{instanceOf && (
+				<CustomObjectInstanceDialog def={instanceOf} onClose={() => setInstanceOf(null)} />
+			)}
+		</>
+	);
+}
+
+/* ---- Create an instance of a custom type (dispatches `content.create-object` with the custom subtype) */
+function CustomObjectInstanceDialog({ def, onClose }: { def: CustomObjectTypeDefinition; onClose: () => void }) {
+	const runtime = useRuntime();
+	const navigate = useNavigate();
+	const dmId = runtime.defaultActorId;
+	const [title, setTitle] = useState('');
+	const [values, setValues] = useState<Record<string, string>>({});
+	const [busy, setBusy] = useState(false);
+
+	const setValue = (key: string, v: string) => setValues((prev) => ({ ...prev, [key]: v }));
+
+	// Coerce a form string into the field's declared kind (fail-closed validation still runs in the Core).
+	const coerce = (type: VaultObjectFieldType, raw: string): unknown => {
+		const trimmed = raw.trim();
+		if (trimmed === '') return undefined;
+		if (type === 'number') return Number(trimmed);
+		if (type === 'boolean') return trimmed === 'true';
+		if (type === 'string-array') return trimmed.split(',').map((s) => s.trim()).filter(Boolean);
+		return trimmed;
+	};
+
+	const create = async () => {
+		if (busy || title.trim() === '') return;
+		setBusy(true);
+		try {
+			const built: Record<string, unknown> = {};
+			for (const f of def.fields) {
+				const v = coerce(f.type, values[f.key] ?? '');
+				if (v !== undefined) built[f.key] = v;
+			}
+			const res = await runtime.dispatch({
+				type: 'content.create-object',
+				actorId: dmId,
+				payload: { subtype: def.id, title: title.trim(), fields: built },
+			});
+			if (res.status === 'rejected') {
+				const issues = res.rejection.issues?.map((i) => `${i.path}: ${i.message}`).join(' · ');
+				Toaster.error(issues ? `${res.rejection.message} ${issues}` : res.rejection.message);
+				return;
+			}
+			const id = eventField(res, 'content.object-changed', 'itemId');
+			Toaster.success(
+				`Created ${title.trim()} (DM-only)`,
+				id ? { action: 'Open', onAction: () => navigate(`/knowledge/${id}`) } : undefined,
+			);
+			onClose();
+		} catch (error) {
+			Toaster.error(error instanceof Error ? error.message : String(error));
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	return (
+		<Dialog
+			open
+			onClose={onClose}
+			title={`New ${def.label}`}
+			description={def.id}
+			size="md"
+			footer={
+				<>
+					<Button variant="secondary" size="sm" disabled={busy} onClick={onClose}>Cancel</Button>
+					<Button variant="primary" size="sm" icon="add" disabled={busy || title.trim() === ''} onClick={create}>
+						{busy ? 'Creating…' : 'Create'}
+					</Button>
+				</>
+			}
+		>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+				<span>
+					<label style={{ font: `11.5px ${T.sans}`, color: T.sub, display: 'block', marginBottom: 4 }}>Title</label>
+					<Input value={title} onChange={(e: { target: { value: string } }) => setTitle(e.target.value)} placeholder="Title" aria-label="Object title" />
+				</span>
+				{def.fields.map((f) => (
+					<span key={f.key}>
+						<label style={{ font: `11.5px ${T.sans}`, color: T.sub, display: 'flex', gap: 6, marginBottom: 4 }}>
+							{f.key}
+							<span style={{ color: T.ter }}>· {f.type}</span>
+							{f.required && <span style={{ color: T.acc }}>required</span>}
+							{f.dmOnly && <span style={{ color: T.acc }}>DM-only</span>}
+						</label>
+						{f.type === 'boolean' ? (
+							<Select
+								aria-label={f.key}
+								options={[{ value: '', label: '—' }, { value: 'true', label: 'True' }, { value: 'false', label: 'False' }]}
+								value={values[f.key] ?? ''}
+								onChange={(e: { target: { value: string } }) => setValue(f.key, e.target.value)}
+							/>
+						) : (
+							<Input
+								value={values[f.key] ?? ''}
+								onChange={(e: { target: { value: string } }) => setValue(f.key, e.target.value)}
+								placeholder={f.type === 'string-array' ? 'comma-separated' : f.type}
+								aria-label={f.key}
+							/>
+						)}
+					</span>
+				))}
+			</div>
+		</Dialog>
 	);
 }
 

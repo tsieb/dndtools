@@ -4,6 +4,12 @@ import { CALENDAR_SCHEMA_VERSION } from './calendar';
 import type { EntityVisibilityMetadata, VisibilityLevel, VisibilityRule } from '../permissions/visibility-filter';
 import { normalizeVisibilityLevel } from '../permissions/visibility-filter';
 import { ensureSavedSearches, type SavedSearchMap } from './saved-search';
+import {
+	ensureCustomObjectTypeMap,
+	type CustomObjectTypeDefinition,
+	type CustomObjectTypeMap,
+} from './custom-object-type';
+import { VAULT_OBJECT_SUBTYPE_KEY } from './vault-object';
 
 /**
  * CONTENT-011 — the durable VAULT CONTENT model: calendar-aware notes and structured objects.
@@ -161,6 +167,13 @@ export interface VaultContentState {
 	 * through the actor-filtered search (no stale result can leak a now-hidden item — SRCH-003 AC4).
 	 */
 	savedSearches: SavedSearchMap;
+	/**
+	 * CONTENT-005 (custom types) — durable DM-authored USER-DEFINED object types keyed by their
+	 * `custom:<slug>` id. Each is a first-class {@link CustomObjectTypeDefinition}: it projects to a
+	 * `VaultObjectSchema` so instances flow through the SAME validate/sync/project path as a built-in
+	 * subtype. Hydrated fail-closed (a malformed record is dropped, never poisons the registry).
+	 */
+	customObjectTypes: CustomObjectTypeMap;
 	schemaVersion: typeof VAULT_CONTENT_SCHEMA_VERSION;
 }
 
@@ -168,6 +181,7 @@ export const EMPTY_VAULT_CONTENT_STATE: VaultContentState = Object.freeze({
 	calendars: {},
 	items: {},
 	savedSearches: {},
+	customObjectTypes: {},
 	schemaVersion: VAULT_CONTENT_SCHEMA_VERSION,
 });
 
@@ -196,6 +210,10 @@ export function ensureVaultContentState(
 		// existed restores with no saved searches (never undefined); a record with missing visibility
 		// hydrates to the `dm-only` safe default and its filter is re-normalized.
 		savedSearches: ensureSavedSearches(state?.savedSearches),
+		// CONTENT-005 (custom types) — hydrate the user-defined type registry fail-closed: a content
+		// document persisted before this slice existed restores with no custom types (never undefined); a
+		// malformed/hostile record is dropped so it can never widen what the resolver trusts.
+		customObjectTypes: ensureCustomObjectTypeMap(state?.customObjectTypes),
 		schemaVersion: VAULT_CONTENT_SCHEMA_VERSION,
 	};
 }
@@ -223,6 +241,57 @@ export function calendarById(
 /** The content item with this id, or `undefined`. Pure. */
 export function contentItemById(state: VaultContentState, itemId: string): ContentItem | undefined {
 	return state.items[itemId];
+}
+
+// --- Custom object types (CONTENT-005) -----------------------------------------------------------
+
+/** The user-defined object-type definition with this id, or `undefined`. Pure. */
+export function customObjectTypeById(
+	state: VaultContentState,
+	typeId: string,
+): CustomObjectTypeDefinition | undefined {
+	return state.customObjectTypes[typeId];
+}
+
+/** Register (or replace) a user-defined object-type definition. Pure: returns a new state. */
+export function defineCustomObjectType(
+	state: VaultContentState,
+	def: CustomObjectTypeDefinition,
+): VaultContentState {
+	return {
+		...state,
+		customObjectTypes: {
+			...state.customObjectTypes,
+			[def.id]: def,
+		},
+	};
+}
+
+/** Remove a user-defined object-type definition by id. Pure: returns a new state (no-op when absent). */
+export function removeCustomObjectType(state: VaultContentState, typeId: string): VaultContentState {
+	if (!(typeId in state.customObjectTypes)) return state;
+	const next = { ...state.customObjectTypes };
+	delete next[typeId];
+	return { ...state, customObjectTypes: next };
+}
+
+/**
+ * The count of LIVE content items that are structured objects of the given subtype (built-in or custom).
+ * Used to fail a custom-type DELETE closed while instances still reference it (never orphan an instance).
+ * Pure — reads the durable envelope key directly (no visibility filter; this is an authoring-integrity read).
+ */
+export function countObjectsOfSubtype(state: VaultContentState, subtype: string): number {
+	let count = 0;
+	for (const item of Object.values(state.items)) {
+		if (
+			isLiveContentItem(item) &&
+			item.kind === 'object' &&
+			item.fields[VAULT_OBJECT_SUBTYPE_KEY] === subtype
+		) {
+			count += 1;
+		}
+	}
+	return count;
 }
 
 // --- Pure reducers (CONTENT-011) -----------------------------------------------------------------

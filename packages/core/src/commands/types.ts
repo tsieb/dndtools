@@ -447,6 +447,12 @@ export type CoreCommand =
 	// rule in `state/vault-object.ts`.
 	| { type: 'content.create-object'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'content.update-object'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// CONTENT-005 (custom types): DEFINE / UPDATE / DELETE a USER-DEFINED vault-object type (DM-only). The
+	// draft field schema is validated at dispatch (fail closed); a define/update rejects an id that collides
+	// with a built-in subtype, and a delete is REFUSED while any live instance of the type still exists.
+	| { type: 'content.define-object-type'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'content.update-object-type'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'content.delete-object-type'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// CONTENT-006: RENAME a wikilink target (rename the note + propagate the rename to every referring link in
 	// the actor's visible notes) and REPAIR a broken wikilink (rewrite a broken target to a visible, available
 	// fix). Both are actor-filtered + fail-closed (never touch a hidden target; never a destructive offline
@@ -1174,6 +1180,15 @@ export type CoreEvent =
 			invalidatedActorIds: ActorId[];
 			actorId: ActorId;
 	  }
+	// CONTENT-005 (custom types) — a user-defined object type was defined/updated/deleted. Carries the type
+	// id + the mutation so the object-aware surfaces re-read the custom-type registry. Definition changes are
+	// DM-only authoring acts; the audience is the DM (custom-type metadata is never player-delivered).
+	| {
+			kind: 'content.object-type-changed';
+			typeId: string;
+			mutation: 'define' | 'update' | 'delete';
+			actorId: ActorId;
+	  }
 	// CONTENT-006 — a wikilink target was renamed: the target note's title changed AND the rename propagated to
 	// referring links. Carries the renamed item, old/new titles, and the ids of the notes whose bodies were
 	// rewritten + total links rewritten, so the audit records exactly what propagated (deterministic).
@@ -1472,6 +1487,13 @@ export type RejectionCode =
 	| 'object-schema-invalid'
 	// CONTENT-005 — the target content item exists but is not a structured object (its subtype is absent).
 	| 'not-a-vault-object'
+	// CONTENT-005 (custom types) — a user-defined object-type definition was rejected fail-closed: its
+	// draft failed structural validation (bad id/label/field), it collided with / already exists under an
+	// id, the target type does not exist, or a delete was refused because live instances still use it.
+	| 'custom-type-invalid'
+	| 'custom-type-exists'
+	| 'custom-type-not-found'
+	| 'custom-type-in-use'
 	// CONTENT-006 — a wikilink repair was refused fail-closed: the broken source is unavailable/uncached (no
 	// destructive offline rewrite), or the chosen fix does not resolve to a visible, available target.
 	| 'wikilink-source-unavailable'

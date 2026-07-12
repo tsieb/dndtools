@@ -19,7 +19,11 @@ import {
 	validateObjectFrontmatter,
 	type VaultObjectValidationResult,
 } from '../state/vault-object';
-import { VAULT_OBJECT_SCHEMAS, type VaultObjectSubtype } from '../state/vault-object-schema';
+import {
+	resolveVaultObjectSchema,
+	type VaultObjectSchemaRegistry,
+} from '../state/vault-object-schema';
+import { buildCustomObjectTypeSchemaRegistry } from '../state/custom-object-type';
 import {
 	applyLinkRepairForActor,
 	propagateRenameForActor,
@@ -84,13 +88,18 @@ function objectInvalidRejection(result: VaultObjectValidationResult): CommandRej
 	};
 }
 
-/** The declared-field subset of a fields map for a subtype, dropping the namespaced envelope key. */
+/**
+ * The declared-field subset of a fields map for a subtype (built-in OR custom), dropping the namespaced
+ * envelope key AND any key the subtype's schema does not declare. An unknown subtype (a removed custom type)
+ * resolves to no schema, so NO stored key survives — fail closed (never persist an undeclared field).
+ */
 function declaredFields(
-	subtype: VaultObjectSubtype,
+	subtype: string,
 	fields: Record<string, unknown>,
+	customTypes: VaultObjectSchemaRegistry,
 ): Record<string, unknown> {
-	const schema = VAULT_OBJECT_SCHEMAS[subtype];
-	const allowed = new Set(schema.fields.map((f) => f.key));
+	const schema = resolveVaultObjectSchema(subtype, customTypes);
+	const allowed = new Set((schema?.fields ?? []).map((f) => f.key));
 	const out: Record<string, unknown> = {};
 	for (const [key, value] of Object.entries(fields)) {
 		if (allowed.has(key)) out[key] = value;
@@ -98,13 +107,15 @@ function declaredFields(
 	return out;
 }
 
-/** Read the persisted subtype from a stored object's fields, or `null` when the item is not an object. */
-function storedSubtype(item: ContentItem): VaultObjectSubtype | null {
+/**
+ * Read the persisted subtype from a stored object's fields, or `null` when the item is not an object whose
+ * subtype resolves in the built-in OR custom registry (fail closed — a removed custom type's instance is not
+ * editable through this path until the type is re-defined).
+ */
+function storedSubtype(item: ContentItem, customTypes: VaultObjectSchemaRegistry): string | null {
 	const raw = item.fields[VAULT_OBJECT_SUBTYPE_KEY];
 	if (typeof raw !== 'string') return null;
-	return (VAULT_OBJECT_SCHEMAS as Record<string, unknown>)[raw]
-		? (raw as VaultObjectSubtype)
-		: null;
+	return resolveVaultObjectSchema(raw, customTypes) ? raw : null;
 }
 
 // --- CONTENT-005 — create a structured Vault Object (DM-only; schema-validated, fail closed) ------
@@ -126,21 +137,23 @@ export function handleCreateVaultObject(
 		);
 	}
 
+	// Resolve the user-defined type registry so a custom subtype validates through the SAME schema path.
+	const content = ensureContentStateSlice(state.content);
+	const customTypes = buildCustomObjectTypeSchemaRegistry(content.customObjectTypes);
+
 	// SCHEMA-VALIDATE the frontmatter BEFORE any state change (fail closed; no invalid revision committed).
-	const validation = validateObjectFrontmatter(parsed.data.subtype, parsed.data.fields);
+	const validation = validateObjectFrontmatter(parsed.data.subtype, parsed.data.fields, customTypes);
 	if (!validation.valid) return reject(objectInvalidRejection(validation), state);
 
 	const subtype = validation.subtype!;
-	const schema = VAULT_OBJECT_SCHEMAS[subtype];
+	const schema = resolveVaultObjectSchema(subtype, customTypes)!;
 	// Persist the declared fields + the namespaced subtype envelope key, so the item is recognizable as an
 	// object on reload. Visibility fails closed to the subtype default when omitted.
 	const persistedFields: Record<string, unknown> = {
-		...declaredFields(subtype, parsed.data.fields),
+		...declaredFields(subtype, parsed.data.fields, customTypes),
 		[VAULT_OBJECT_SUBTYPE_KEY]: subtype,
 	};
 	const visibility = parsed.data.visibility ?? schema.defaultVisibility;
-
-	const content = ensureContentStateSlice(state.content);
 	const item = buildContentItem(
 		{
 			kind: 'object',
@@ -196,6 +209,7 @@ export function handleUpdateVaultObject(
 
 	const now = env.clock();
 	const content = ensureContentStateSlice(state.content);
+	const customTypes = buildCustomObjectTypeSchemaRegistry(content.customObjectTypes);
 	const existing: ContentItem | undefined = contentItemById(content, parsed.data.itemId);
 	if (!existing) {
 		return reject(
@@ -215,7 +229,7 @@ export function handleUpdateVaultObject(
 			state,
 		);
 	}
-	const subtype = storedSubtype(existing);
+	const subtype = storedSubtype(existing, customTypes);
 	if (subtype === null) {
 		return reject(
 			{ code: 'not-a-vault-object', message: `Content item ${parsed.data.itemId} is not a structured object.` },
@@ -226,10 +240,10 @@ export function handleUpdateVaultObject(
 	// Merge the incoming declared fields over the existing declared fields, then RE-VALIDATE the merged result
 	// before committing (fail closed: an edit can never persist an invalid object).
 	const mergedDeclared: Record<string, unknown> = {
-		...declaredFields(subtype, existing.fields),
-		...(parsed.data.fields !== undefined ? declaredFields(subtype, parsed.data.fields) : {}),
+		...declaredFields(subtype, existing.fields, customTypes),
+		...(parsed.data.fields !== undefined ? declaredFields(subtype, parsed.data.fields, customTypes) : {}),
 	};
-	const validation = validateObjectFrontmatter(subtype, mergedDeclared);
+	const validation = validateObjectFrontmatter(subtype, mergedDeclared, customTypes);
 	if (!validation.valid) return reject(objectInvalidRejection(validation), state);
 
 	const nextContent = updateContentItem(
