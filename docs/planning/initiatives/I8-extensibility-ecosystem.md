@@ -1,6 +1,16 @@
 # Initiative 8 — Extensibility & Ecosystem
 
-## Status: NOT STARTED
+## Status: DELIVERED — except community extension discovery (2026-07-11)
+
+<!-- The platform extension points shipped: the widget/package system (install/enable/disable/
+remove/upgrade via widget.package.*), campaign-system switch, and now user-defined CUSTOM VAULT
+OBJECT TYPES (ADR-023 — "a plugin author can add a new object type"): DM-authored types in a
+reserved custom: namespace projected through the same VaultObjectSchema path as built-ins. The one
+remaining piece is COMMUNITY extension discovery/curation (browse/share others' extensions), which
+needs a curation service out of local-first scope — honestly labeled "not wired" in Extensions, no
+dead control. Evidence: FEATURE-GAPS.md §0★★★★; core content-custom-object-type.test.ts; e2e
+custom-types.spec.ts. -->
+
 
 **Outcome:** DND Tools is a platform, not just an application. Campaign systems,
 content types, and integrations are modular. A plugin author can add a new object type,

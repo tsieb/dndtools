@@ -1,6 +1,13 @@
 # Initiative 11 — Atmosphere, Audio & Immersive Scene Management
 
-## Status: NOT STARTED
+## Status: DELIVERED (2026-07-11)
+
+<!-- Both headline epics shipped and are covered by unit + e2e tests: Epic 11.2 atmosphere scene
+cards (scene_card type, queue/transitions, chrome-less #/display, player-push banner, scene history)
+and Epic 11.3 audio presets + scene packages (built-in atmosphere library + audio.apply/save/delete-
+preset), on top of the completion-pass audio playback/ambience/automation + setSinkId routing.
+Evidence: docs/requirements/FEATURE-GAPS.md §0★★★★; e2e scene-cards.spec.ts + audio-presets.spec.ts. -->
+
 
 **Outcome:** DND Tools creates a multi-sensory session experience. The DM can set
 the mood with ambient audio, display scene images on a secondary screen or TV,

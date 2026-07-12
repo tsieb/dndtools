@@ -1,6 +1,14 @@
 # Initiative 12 — Community & Content Ecosystem
 
-## Status: DEFERRED
+## Status: DELIVERED — except community discovery/curation (2026-07-11)
+
+<!-- Module publish + the app-api marketplace (list/fetch/publish/delete, Cognito-scoped) and
+campaign WIKI hosting (PUT/GET/DELETE /wiki + public reader) shipped; content export/import bundles
+and Open5e/SRD compendium landed in the completion pass. The remaining piece is community
+DISCOVERY/curation of shared templates & scene packages, which needs a curation/moderation service
+out of local-first scope — honestly labeled, no dead control. Evidence: FEATURE-GAPS.md §0★★★★;
+cloud app-api handler.test.ts (wiki); e2e wiki.spec.ts. -->
+
 
 **Outcome:** DND Tools is a platform. DMs can publish campaign modules, share custom
 content, discover community-created templates and scene packages, and collectively

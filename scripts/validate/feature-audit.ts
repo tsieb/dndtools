@@ -71,8 +71,12 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 function extractHonestStubs(gapsText: string): string[] {
-	// Update passes are prepended newest-first, so the FIRST match top-down is latest.
-	const m = gapsText.match(/Honest stubs remaining[^:]*:\*\*\s*([\s\S]*?)(?:\n\n|\n\*\*|\n## )/i);
+	// Update passes are prepended newest-first. Scope the search to ONLY the newest "## 0" section
+	// (up to the next "## " heading): an older pass's stub list must never resurrect stubs the
+	// newest pass declared closed. A newest section that lists no "Honest stubs remaining" ⇒ none.
+	const firstSection = gapsText.match(/##\s*0[^\n]*\n([\s\S]*?)(?=\n##\s)/);
+	const scope = firstSection ? firstSection[1] : gapsText;
+	const m = scope.match(/Honest stubs remaining[^:]*:\*\*\s*([\s\S]*?)(?:\n\n|\n\*\*|\n## )/i);
 	if (!m) return [];
 	return m[1]
 		.replace(/\n/g, ' ')
@@ -141,6 +145,10 @@ export function auditFeatures(repoRoot: string): FeatureAuditResult {
 	mockCampaignImporters.sort();
 
 	// Screen wiring probe: the route surfaces live in src/screens/*.tsx.
+	// Allowlist: surfaces that are core-free BY DESIGN. WikiReader is the chrome-less PUBLIC wiki
+	// reader — unauthenticated, no local vault/runtime, it only fetches published pages from the
+	// app-api. Flagging it as "unwired" is a false positive, so it is excluded from the probe.
+	const NON_CORE_SCREENS = new Set(['WikiReader.tsx']);
 	const appDir = path.join(repoRoot, SRC, 'screens');
 	const screens: FeatureAuditResult['screens'] = [];
 	try {
@@ -150,6 +158,7 @@ export function auditFeatures(repoRoot: string): FeatureAuditResult {
 			if (!statSync(full).isFile()) continue;
 			// Screen components are PascalCase; skip obvious non-screens.
 			if (!/^[A-Z]/.test(name)) continue;
+			if (NON_CORE_SCREENS.has(name)) continue;
 			const content = readFileSync(full, 'utf8');
 			screens.push({ file: path.relative(repoRoot, full), wired: WIRING_RE.test(content) });
 		}
