@@ -87,6 +87,26 @@ export type VaultObjectFieldType =
 	// frontmatter as JSON entries; validated entry-by-entry as non-null, non-array objects.
 	| 'object-array';
 
+/**
+ * The CLOSED set of declared field kinds, in stable order. The one source of truth the validator,
+ * the command schemas, and the CUSTOM object-type authoring path all check against — an unknown kind
+ * is rejected fail-closed (a custom type can never declare a field of a kind the projection/sync path
+ * does not understand).
+ */
+export const VAULT_OBJECT_FIELD_TYPES: readonly VaultObjectFieldType[] = [
+	'string',
+	'number',
+	'boolean',
+	'string-array',
+	'object',
+	'object-array',
+] as const;
+
+/** Whether a string is one of the closed, understood field kinds (fail closed). */
+export function isVaultObjectFieldType(value: string): value is VaultObjectFieldType {
+	return (VAULT_OBJECT_FIELD_TYPES as readonly string[]).includes(value);
+}
+
 /** One declared frontmatter field of a subtype. */
 export interface VaultObjectFieldSchema {
 	/** The frontmatter key. */
@@ -378,15 +398,43 @@ export function isSceneEntityType(entityType: string): boolean {
 	return entityType === SCENE_ENTITY_TYPE;
 }
 
-/** Whether a string is a registered Vault Object subtype. Scene is never one. */
+/** Whether a string is a registered BUILT-IN Vault Object subtype. Scene is never one. */
 export function isVaultObjectSubtype(value: string): value is VaultObjectSubtype {
 	return (VAULT_OBJECT_SUBTYPES as readonly string[]).includes(value);
 }
 
+/**
+ * An immutable lookup of USER-DEFINED (custom) object-type schemas keyed by their type id, resolved
+ * from a {@link CustomObjectTypeDefinition} map. A custom type is a FIRST-CLASS Vault Object subtype:
+ * it flows through the SAME validate / sync / project path as a built-in, so it is presented to those
+ * functions as an ordinary {@link VaultObjectSchema}. Built-in subtypes ALWAYS win over a custom id of
+ * the same name (a custom id can never collide with a built-in — the define-type command rejects it —
+ * but resolving built-in-first is the belt-and-braces fail-safe against a hostile persisted map).
+ */
+export type VaultObjectSchemaRegistry = Readonly<Record<string, VaultObjectSchema>>;
+
+/**
+ * Resolve the schema for a subtype from the BUILT-IN registry first, then the optional CUSTOM registry.
+ * Returns `null` when the subtype is registered in neither (fail closed — an unknown subtype is never
+ * silently treated as an open/free-form object).
+ */
+export function resolveVaultObjectSchema(
+	subtype: string,
+	customTypes?: VaultObjectSchemaRegistry,
+): VaultObjectSchema | null {
+	if (isVaultObjectSubtype(subtype)) return VAULT_OBJECT_SCHEMAS[subtype];
+	if (customTypes && Object.prototype.hasOwnProperty.call(customTypes, subtype)) {
+		return customTypes[subtype] ?? null;
+	}
+	return null;
+}
+
 /** Resolve the schema for a subtype, or `null` when it is not a registered subtype (fail closed). */
-export function vaultObjectSchema(subtype: string): VaultObjectSchema | null {
-	if (!isVaultObjectSubtype(subtype)) return null;
-	return VAULT_OBJECT_SCHEMAS[subtype];
+export function vaultObjectSchema(
+	subtype: string,
+	customTypes?: VaultObjectSchemaRegistry,
+): VaultObjectSchema | null {
+	return resolveVaultObjectSchema(subtype, customTypes);
 }
 
 /** The DM-only field keys of a subtype (the fields omitted from a non-DM projection). Pure. */

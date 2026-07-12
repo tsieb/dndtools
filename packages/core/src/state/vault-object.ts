@@ -5,12 +5,12 @@ import {
 	type ParsedMarkdownNote,
 } from './markdown';
 import {
-	VAULT_OBJECT_SCHEMAS,
 	isSceneEntityType,
-	vaultObjectSchema,
+	resolveVaultObjectSchema,
 	type VaultObjectFieldSchema,
 	type VaultObjectFieldType,
-	type VaultObjectSubtype,
+	type VaultObjectSchema,
+	type VaultObjectSchemaRegistry,
 } from './vault-object-schema';
 import { normalizeVisibilityLevel, type VisibilityLevel } from '../permissions/visibility-filter';
 
@@ -63,7 +63,12 @@ export interface VaultObjectValidationIssue {
 /** The result of validating an object's frontmatter against its subtype schema. `valid` blocks the write. */
 export interface VaultObjectValidationResult {
 	valid: boolean;
-	subtype: VaultObjectSubtype | null;
+	/**
+	 * The resolved subtype id when the frontmatter validated against a KNOWN schema — a built-in
+	 * `VaultObjectSubtype` OR a user-defined custom type id (both flow through this one path). `null`
+	 * when the subtype was unknown/rejected (Scene, unregistered).
+	 */
+	subtype: string | null;
 	issues: VaultObjectValidationIssue[];
 }
 
@@ -114,6 +119,7 @@ const ENVELOPE_KEYS: ReadonlySet<string> = new Set([VAULT_OBJECT_SUBTYPE_KEY]);
 export function validateObjectFrontmatter(
 	subtype: string,
 	fields: Record<string, unknown>,
+	customTypes?: VaultObjectSchemaRegistry,
 ): VaultObjectValidationResult {
 	if (isSceneEntityType(subtype)) {
 		return {
@@ -128,7 +134,7 @@ export function validateObjectFrontmatter(
 			],
 		};
 	}
-	const schema = vaultObjectSchema(subtype);
+	const schema = resolveVaultObjectSchema(subtype, customTypes);
 	if (!schema) {
 		return {
 			valid: false,
@@ -185,7 +191,8 @@ export function validateObjectFrontmatter(
  * still a `ContentItem`. The subtype + fields ARE the `ContentItem.fields`; the body IS the `ContentItem.body`.
  */
 export interface VaultObject {
-	subtype: VaultObjectSubtype;
+	/** The subtype id — a built-in `VaultObjectSubtype` OR a user-defined custom type id. */
+	subtype: string;
 	/** The subtype-declared frontmatter fields (excludes the namespaced subtype envelope key). */
 	fields: Record<string, unknown>;
 	/** The markdown prose body beneath the frontmatter. */
@@ -252,12 +259,18 @@ function serializeFieldValue(value: unknown): string | string[] {
  * The structured fields are authoritative for the frontmatter, so editing a field and re-syncing reflects in
  * the note text. Pure — reuses the existing serializer; no clock/locale.
  */
-export function syncObjectToNote(object: VaultObject): string {
+export function syncObjectToNote(
+	object: VaultObject,
+	customTypes?: VaultObjectSchemaRegistry,
+): string {
 	const properties: Record<string, string | string[]> = {
 		[VAULT_OBJECT_SUBTYPE_KEY]: object.subtype,
 	};
-	const schema = VAULT_OBJECT_SCHEMAS[object.subtype];
-	for (const f of schema.fields) {
+	const schema = resolveVaultObjectSchema(object.subtype, customTypes);
+	// An unknown subtype (a removed custom type) serializes ONLY the envelope + body — no declared
+	// fields are invented, so the note text stays honest rather than leaking arbitrary stored keys.
+	const fields: readonly VaultObjectFieldSchema[] = schema ? schema.fields : [];
+	for (const f of fields) {
 		const value = object.fields[f.key];
 		if (value === undefined) continue;
 		properties[f.key] = serializeFieldValue(value);
@@ -274,11 +287,15 @@ export function syncObjectToNote(object: VaultObject): string {
  * This is a pure transform; it does NOT validate. The caller runs {@link validateObjectFrontmatter} on the
  * returned `fields` before any durable write (fail closed).
  */
-export function syncNoteToObject(subtype: VaultObjectSubtype, noteText: string): VaultObject {
+export function syncNoteToObject(
+	subtype: string,
+	noteText: string,
+	customTypes?: VaultObjectSchemaRegistry,
+): VaultObject {
 	const parsed: ParsedMarkdownNote = parseMarkdownNote(noteText);
-	const schema = VAULT_OBJECT_SCHEMAS[subtype];
+	const schema: VaultObjectSchema | null = resolveVaultObjectSchema(subtype, customTypes);
 	const fields: Record<string, unknown> = {};
-	for (const f of schema.fields) {
+	for (const f of schema ? schema.fields : []) {
 		const raw = parsed.properties[f.key];
 		const value = coerceFieldValue(raw, f.type);
 		if (value !== undefined) fields[f.key] = value;
@@ -287,7 +304,8 @@ export function syncNoteToObject(subtype: VaultObjectSubtype, noteText: string):
 		subtype,
 		fields,
 		body: parsed.body,
-		defaultVisibility: normalizeVisibilityLevel(schema.defaultVisibility),
+		// An unknown subtype fails visibility CLOSED to `dm-only` (it is never inferred player-visible).
+		defaultVisibility: normalizeVisibilityLevel(schema ? schema.defaultVisibility : 'dm-only'),
 	};
 }
 
@@ -295,12 +313,15 @@ export function syncNoteToObject(subtype: VaultObjectSubtype, noteText: string):
  * Read the subtype declared in a note's namespaced frontmatter key, or `null` when absent/unregistered. Used
  * to route a raw note to its subtype schema before sync/validation. Pure.
  */
-export function readObjectSubtype(noteText: string): VaultObjectSubtype | null {
+export function readObjectSubtype(
+	noteText: string,
+	customTypes?: VaultObjectSchemaRegistry,
+): string | null {
 	const parsed = parseMarkdownNote(noteText);
 	const raw = parsed.properties[VAULT_OBJECT_SUBTYPE_KEY];
 	const value = Array.isArray(raw) ? raw[0] : raw;
 	if (typeof value !== 'string') return null;
-	return vaultObjectSchema(value)?.subtype ?? null;
+	return resolveVaultObjectSchema(value, customTypes)?.subtype ?? null;
 }
 
 /**
@@ -309,12 +330,16 @@ export function readObjectSubtype(noteText: string): VaultObjectSubtype | null {
  * never appear in the projected fields (CONTENT-013 AC3, fail closed). The DM sees every field. Pure.
  */
 export function projectObjectFieldsForRole(
-	subtype: VaultObjectSubtype,
+	subtype: string,
 	fields: Record<string, unknown>,
 	role: 'dm' | 'co-dm' | 'player' | 'observer',
+	customTypes?: VaultObjectSchemaRegistry,
 ): Record<string, unknown> {
 	if (hasDmAuthority(role)) return { ...fields };
-	const schema = VAULT_OBJECT_SCHEMAS[subtype];
+	const schema = resolveVaultObjectSchema(subtype, customTypes);
+	// FAIL CLOSED on an unknown subtype (e.g. a removed custom type): with no schema we cannot know
+	// which fields are DM-only, so a non-DM projection reveals NOTHING rather than risk leaking a secret.
+	if (!schema) return {};
 	const hiddenKeys = new Set(schema.fields.filter((f) => f.dmOnly === true).map((f) => f.key));
 	const projected: Record<string, unknown> = {};
 	for (const [key, value] of Object.entries(fields)) {

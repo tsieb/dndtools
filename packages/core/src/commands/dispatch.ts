@@ -194,6 +194,11 @@ import {
 	handleRepairWikilink,
 	handleUpdateVaultObject,
 } from './vault-object';
+import {
+	handleDefineCustomObjectType,
+	handleDeleteCustomObjectType,
+	handleUpdateCustomObjectType,
+} from './custom-object-type';
 import { handleCreateFromTemplate, handleInsertSnippet } from './content-templates';
 import {
 	handleAddContentEmbed,
@@ -604,6 +609,12 @@ export function dispatchCommand(
 			return handleCreateVaultObject(state, env, command.actorId, command.payload);
 		case 'content.update-object':
 			return handleUpdateVaultObject(state, env, command.actorId, command.payload);
+		case 'content.define-object-type':
+			return handleDefineCustomObjectType(state, env, command.actorId, command.payload);
+		case 'content.update-object-type':
+			return handleUpdateCustomObjectType(state, env, command.actorId, command.payload);
+		case 'content.delete-object-type':
+			return handleDeleteCustomObjectType(state, env, command.actorId, command.payload);
 		case 'content.rename-wikilink-target':
 			return handleRenameWikilinkTarget(state, env, command.actorId, command.payload);
 		case 'content.repair-wikilink':
