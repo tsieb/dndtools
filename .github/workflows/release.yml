@@ -1,13 +1,14 @@
 name: Desktop Release
 
-# Builds the gm-react desktop app (macOS .dmg + Linux .AppImage, unsigned) and attaches the installers
-# to a DRAFT GitHub Release. macOS binaries can't be built on Linux, so this fans out across a
-# macos-latest + ubuntu-latest matrix — each runner builds its own OS and publishes into the same draft.
+# Builds the gm-react desktop app (macOS .dmg + Linux .AppImage + Windows .exe, unsigned) and attaches
+# the installers to a DRAFT GitHub Release. Each OS's binary must be built on its own runner, so this
+# fans out across a macos-latest + ubuntu-latest + windows-latest matrix — each runner builds its own
+# OS and publishes into the same draft.
 #
 # Trigger: push a tag `vX.Y.Z` (matching apps/gm-react/package.json "version", e.g. 0.2.0 -> v0.2.0).
 # After the run, open the draft release on GitHub, sanity-check the artifacts, and publish it.
-# Unsigned — testers follow apps/gm-react/INSTALL-ALPHA.md to get past Gatekeeper / mark the AppImage
-# executable.
+# Unsigned — testers follow apps/gm-react/INSTALL-ALPHA.md to get past Gatekeeper (macOS), SmartScreen
+# (Windows), or to mark the AppImage executable (Linux).
 
 on:
   push:
@@ -28,6 +29,7 @@ jobs:
         os:
           - macos-latest
           - ubuntu-latest
+          - windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -54,8 +56,8 @@ jobs:
         run: pnpm --filter @dndtools/gm-react build
 
       - name: Package + publish (electron-builder)
-        # Builds for the host OS only (dmg on macOS, AppImage on Linux) and publishes to the draft
-        # release for this tag. Unsigned: disable macOS signing autodiscovery.
+        # Builds for the host OS only (dmg on macOS, AppImage on Linux, NSIS exe on Windows) and
+        # publishes to the draft release for this tag. Unsigned: disable macOS signing autodiscovery.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'

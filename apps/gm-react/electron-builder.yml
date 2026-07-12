@@ -1,4 +1,4 @@
-# electron-builder config for the DND Tools GM desktop shell (macOS + Linux, unsigned alpha).
+# electron-builder config for the DND Tools GM desktop shell (macOS + Linux + Windows, unsigned alpha).
 #
 # The renderer is the Vite build in `dist/` — react, dexie, @fontsource and @dndtools/core are all
 # bundled there, so the packaged app needs NO node_modules at runtime. `files` therefore ships only
@@ -47,7 +47,28 @@ linux:
     entry:
       Name: DND Tools GM
 
-# CI (release.yml) attaches the built dmg/AppImage to a DRAFT GitHub Release for the pushed tag.
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  # Unsigned alpha: no code-signing certificate. electron-builder's signing auto-discovery is
+  # disabled in CI (CSC_IDENTITY_AUTO_DISCOVERY=false); testers get past SmartScreen once via
+  # "More info -> Run anyway", documented in INSTALL-ALPHA.md. The .ico is auto-generated from
+  # build-resources/icon.png (1024x1024).
+
+# Assisted NSIS installer, tuned for beta testers: a per-user install (no admin/UAC prompt), a
+# visible wizard that lets them pick the folder, Start-menu + desktop shortcuts, and a clean
+# uninstaller registered in Add/Remove Programs.
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: DND Tools GM
+
+# CI (release.yml) attaches the built dmg/AppImage/exe to a DRAFT GitHub Release for the pushed tag.
 publish:
   - provider: github
     owner: tsieb
