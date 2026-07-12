@@ -8,6 +8,7 @@ import {
 	normalizeMembers,
 	type PlayerGroup,
 } from '../state/player-group';
+import { hasDmAuthority } from '../state/permission-state';
 import type { CommandRejection, CommandResult, CoreEnvironment, CoreStateSlice } from './types';
 import { appendOperationDraft, parseInput, reject, requireActor, requireDm } from './helpers';
 
@@ -36,7 +37,7 @@ function validateMembers(
 ): CommandRejection | null {
 	for (const memberId of memberActorIds) {
 		const member = state.permissions.actors[memberId];
-		if (!member || member.role === 'dm') {
+		if (!member || hasDmAuthority(member.role)) {
 			return {
 				code: 'invalid-payload',
 				message: `Player group member ${memberId} must be a registered player or observer.`,

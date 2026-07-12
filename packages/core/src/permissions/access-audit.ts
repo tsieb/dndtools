@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { PermissionState } from '../state/permission-state';
 import type { ConsistencyEntityRecord, ConsistencyEntityVisibility } from './consistency';
@@ -196,7 +197,7 @@ export function auditAccessAttempt(
 	if (!actor) {
 		return denial(actorId, { entityType, entityId, access }, 'unknown-actor');
 	}
-	if (actor.role === 'dm') {
+	if (hasDmAuthority(actor.role)) {
 		return { kind: 'not-a-denial' };
 	}
 

@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { PermissionState } from '../state/permission-state';
 import type { SessionState } from '../state/session-state';
@@ -68,7 +69,7 @@ export function getSessionRecoveryPrompt(
 	actorId: ActorId,
 ): SessionRecoveryPrompt {
 	const actor = state.permissions.actors[actorId];
-	if (!actor || actor.role !== 'dm') return NO_PROMPT;
+	if (!actor || !hasDmAuthority(actor.role)) return NO_PROMPT;
 
 	const session = state.session;
 	if (session.workflow !== 'active' && session.workflow !== 'paused') {

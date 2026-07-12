@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { Actor, PermissionState } from '../state/permission-state';
 import type { WidgetCommandDescriptor } from '../state/widget-package-state';
 import { hasGrantedCapability } from './grants';
@@ -128,7 +129,7 @@ export function decideWidgetCommandAuthority(
 	now?: string,
 ): WidgetCommandAuthorityDecision {
 	const kind = classifyWidgetCommand(descriptor);
-	if (actor.role === 'dm') return { authorized: true, kind, via: 'dm' };
+	if (hasDmAuthority(actor.role)) return { authorized: true, kind, via: 'dm' };
 	if (actor.role === 'observer') return { authorized: false, kind, reason: 'observer' };
 
 	const isOperator = hasGrantedCapability(

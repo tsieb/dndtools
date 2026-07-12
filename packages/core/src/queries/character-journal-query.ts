@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { Actor, PermissionState } from '../state/permission-state';
 import type {
 	CharacterJournal,
@@ -62,7 +63,7 @@ function actorIsOwner(
 	actor: Actor,
 	characterId: string,
 ): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	return hasGrantedCapability(permissions, actor, 'character', characterId, 'owner');
 }
 
@@ -82,7 +83,7 @@ function entryVisibleToActor(
 	_permissions: PermissionState,
 	_characterId: string,
 ): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (isOwner) return true;
 	if (entry.visibility === 'dm-only') return false;
 	if (entry.visibility === 'player-visible') return actor.role === 'player';
@@ -145,7 +146,7 @@ export function getCharacterJournalForActor(
 
 	const journal = journalForCharacter(journalsOf(characters), characterId);
 	const isOwner = actorIsOwner(permissions, actor, characterId);
-	const isDm = actor.role === 'dm';
+	const isDm = hasDmAuthority(actor.role);
 
 	const entries: JournalEntryView[] = [];
 	for (const entry of journal.entries) {

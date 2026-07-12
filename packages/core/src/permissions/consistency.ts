@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { PermissionGrant, PermissionState } from '../state/permission-state';
 import {
@@ -277,7 +278,7 @@ function entityVisibleToActor(
 	actorRole: string,
 	actorId: ActorId,
 ): boolean {
-	if (actorRole === 'dm') return true;
+	if (hasDmAuthority(actorRole)) return true;
 	if (!record) return false;
 	if (record.visibility === 'dm-only') return false;
 	if (record.visibility === 'player-visible') return true;
@@ -369,7 +370,7 @@ export function auditEntityPermissionConsistency(
 		// Only meaningful for grants the participant could otherwise act on, i.e. non-observers; an
 		// observer write grant is already reported above. Skip when the entity is unknown (already
 		// reported as deleted) so we don't double-fire on the same root cause.
-		if (writeCapable && role !== 'observer' && role !== 'dm' && knownKeys.has(key)) {
+		if (writeCapable && role !== 'observer' && !hasDmAuthority(role) && knownKeys.has(key)) {
 			const record = recordByKey.get(key);
 			if (!entityVisibleToActor(record, role, grant.playerActorId)) {
 				problems.push({
@@ -421,7 +422,7 @@ export function auditEntityPermissionConsistency(
 	for (const binding of input.playerViewWidgetBindings ?? []) {
 		const actor = permissions.actors[binding.playerActorId];
 		const role = actor?.role ?? 'observer';
-		if (role === 'dm') continue; // a DM player-view is not a player-facing trust boundary.
+		if (hasDmAuthority(role)) continue; // a DM player-view is not a player-facing trust boundary.
 		const key = entityKey(binding.boundEntityType, binding.boundEntityId);
 		const record = recordByKey.get(key);
 		if (!entityVisibleToActor(record, role, binding.playerActorId)) {

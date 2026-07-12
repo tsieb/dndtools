@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import {
 	createCharacterDraftInputSchema,
 	editCharacterFieldInputSchema,
@@ -668,7 +669,7 @@ export function handleEditCharacterField(
 	// unaffected by any player grant, so the DM still edits everything after granting `owner` to a
 	// player (CHAR-003). A non-DM may edit a field ONLY when it is not DM-only AND they hold the
 	// capability set that field requires (CHAR-010, field-scoped by `character-field-authority`).
-	const isDm = actor.role === 'dm';
+	const isDm = hasDmAuthority(actor.role);
 	if (!isDm) {
 		// A non-DM may never write a DM-only field. Checked FIRST and with the SAME generic message
 		// regardless of capability, so a backstory-editor probing a DM-only path cannot distinguish

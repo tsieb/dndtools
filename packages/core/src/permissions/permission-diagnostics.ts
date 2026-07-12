@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { PermissionState } from '../state/permission-state';
 import {
@@ -136,7 +137,7 @@ export function actorCanViewPermissionDiagnostics(
 ): boolean {
 	if (actorId === null || actorId === undefined || actorId === '') return false;
 	const actor = permissions.actors[actorId];
-	return !!actor && actor.role === 'dm';
+	return !!actor && hasDmAuthority(actor.role);
 }
 
 /**
@@ -214,7 +215,7 @@ export function getPermissionDiagnostics(
 			message: UNAUTHORIZED_MESSAGE,
 		};
 	}
-	if (actor.role !== 'dm') {
+	if (!hasDmAuthority(actor.role)) {
 		return {
 			kind: 'permission-diagnostics-redacted',
 			reason: 'unavailable',

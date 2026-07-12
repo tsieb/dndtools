@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
 import type { QuickReferencePanel, QuickReferenceTargetKind, SessionState } from '../state/session-state';
 import type { VaultContentState } from '../state/content';
@@ -153,7 +154,7 @@ export function getQuickReferencePanelsForActor(
 	actorId: string,
 ): QuickReferencePanelView[] {
 	const actor = permissions.actors[actorId];
-	if (!actor || actor.role !== 'dm') return [];
+	if (!actor || !hasDmAuthority(actor.role)) return [];
 	const inputs: ResolveInputs = { session, content, characters, permissions, actorId };
 	return Object.values(session.quickReferencePanels)
 		.sort((a, b) => (a.order === b.order ? a.id.localeCompare(b.id) : a.order - b.order))

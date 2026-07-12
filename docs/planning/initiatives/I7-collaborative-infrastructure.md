@@ -1,6 +1,13 @@
 # Initiative 7 — Collaborative Infrastructure
 
-## Status: DEFERRED
+## Status: DELIVERED (2026-07-11)
+
+<!-- The cloud (Cognito + E2EE sync + signaling/TURN) and LAN P2P remote-play transports shipped in
+the cloud-backend + completion passes; the e2e-readiness pass closed the last deferred piece, the
+Co-DM elevated role (ADR-022): hasDmAuthority vs isCampaignOwnerRole split, owner-only seat-gated
+permission.assign-role, elevated P2P view-model, PlayerView elevated tier. Evidence: FEATURE-GAPS.md
+§0★★★★; core co-dm-role.test.ts; e2e co-dm.spec.ts. -->
+
 
 **Outcome:** Groups of DMs and players can share a live session from any device. The
 DM controls what content is visible, and that content appears in real time for players.

@@ -13,14 +13,38 @@ vi.hoisted(() => {
 	process.env.MODULES_BUCKET = 'modules';
 	process.env.USER_POOL_ID = 'ca-central-1_pool';
 	process.env.AWS_REGION = 'ca-central-1';
+	// Invite-email delivery is configured by default so the send path is exercised; the
+	// "not-configured" test deletes INVITE_SENDER at runtime (the handler reads it lazily).
+	process.env.INVITE_SENDER = 'invites@dndtools.example';
+	process.env.WEB_ORIGIN = 'https://app.example.test';
 });
 
 const store = vi.hoisted(() => {
 	const items = new Map<string, Record<string, string>>(); // `${pk}|${sk}` -> row
 	const objects = new Map<string, unknown>(); // s3 key -> value
 	const cognitoCalls: { name: string; input: Record<string, unknown> }[] = [];
-	return { items, objects, cognitoCalls };
+	const sesCalls: Record<string, unknown>[] = []; // SendEmail inputs
+	const ses = { shouldThrow: false };
+	return { items, objects, cognitoCalls, sesCalls, ses };
 });
+
+// SESv2 fake: records every SendEmail input and can be told to reject (unverified/sandbox).
+vi.mock('@aws-sdk/client-sesv2', () => ({
+	SESv2Client: class {
+		async send(cmd: { input: Record<string, unknown> }) {
+			store.sesCalls.push(cmd.input);
+			if (store.ses.shouldThrow) {
+				const err = new Error('rejected');
+				err.name = 'MessageRejected';
+				throw err;
+			}
+			return { MessageId: 'msg-1' };
+		}
+	},
+	SendEmailCommand: class {
+		constructor(public input: Record<string, unknown>) {}
+	},
+}));
 
 vi.mock('../lib/aws.ts', () => ({
 	putItem: async (_table: string, obj: Record<string, string | number | undefined>) => {
@@ -135,6 +159,11 @@ beforeEach(() => {
 	store.items.clear();
 	store.objects.clear();
 	store.cognitoCalls.length = 0;
+	store.sesCalls.length = 0;
+	store.ses.shouldThrow = false;
+	// Restore the default email config (a test may delete it to simulate not-configured).
+	process.env.INVITE_SENDER = 'invites@dndtools.example';
+	process.env.WEB_ORIGIN = 'https://app.example.test';
 });
 
 describe('app-api handler — auth gate', () => {
@@ -249,10 +278,42 @@ describe('invites', () => {
 		expect(pub.body).toEqual({
 			campaignName: 'The Sunken Outpost',
 			note: 'Thursdays 7pm',
+			role: 'player',
 			invitedBy: 'Sam the GM',
 			expiresAt: body.expiresAt,
 		});
 		expect(JSON.stringify(pub.body)).not.toContain('user-1');
+	});
+
+	it('mints a CO-DM invite: the role is stored, listed, and resolved (defaults to player otherwise)', async () => {
+		const res = await call(
+			event('POST /invites', {
+				name: 'Sam the GM',
+				body: { campaignName: 'The Sunken Outpost', role: 'co-dm' },
+			}),
+		);
+		expect(res.status).toBe(200);
+		expect(res.body.role).toBe('co-dm');
+
+		const list = await call(event('GET /invites'));
+		expect(list.body.invites[0].role).toBe('co-dm');
+
+		const pub = await call(
+			event('GET /invites/resolve/{token}', { sub: null, params: { token: res.body.token } }),
+		);
+		expect(pub.body.role).toBe('co-dm');
+
+		// An invite minted without a role defaults to an ordinary player seat.
+		const plain = await mint();
+		expect(plain.body.role).toBe('player');
+	});
+
+	it('an unknown/garbage role fails closed to a player seat', async () => {
+		const res = await call(
+			event('POST /invites', { body: { campaignName: 'Camp', role: 'admin' } }),
+		);
+		expect(res.status).toBe(200);
+		expect(res.body.role).toBe('player');
 	});
 
 	it('answers 404 for an absent, malformed, or expired token', async () => {
@@ -281,6 +342,224 @@ describe('invites', () => {
 		const { body } = await mint('owner-1');
 		const res = await call(event('DELETE /invites/{inviteId}', { sub: 'intruder-2', params: { inviteId: body.inviteId } }));
 		expect(res.status).toBe(404);
+	});
+
+	it('preserves an optional co-DM role field on both rows and echoes it back', async () => {
+		const res = await call(
+			event('POST /invites', { name: 'Sam the GM', body: { campaignName: 'Co-run', role: 'co-dm' } }),
+		);
+		expect(res.status).toBe(200);
+		expect(res.body.role).toBe('co-dm');
+		// round-trips through the owner list and the public resolve response
+		const list = await call(event('GET /invites'));
+		expect(list.body.invites[0].role).toBe('co-dm');
+		const pub = await call(event('GET /invites/resolve/{token}', { sub: null, params: { token: res.body.token } }));
+		expect(pub.body.role).toBe('co-dm');
+	});
+});
+
+describe('invite email delivery (optional, fail-open)', () => {
+	const mintWithEmail = (body: Record<string, unknown>) =>
+		call(event('POST /invites', { name: 'Sam the GM', body: { campaignName: 'The Sunken Outpost', ...body } }));
+
+	it('emails the invite via SES when a recipient is supplied — link carries the token', async () => {
+		const res = await mintWithEmail({ email: 'player@example.com', note: 'Thursdays 7pm' });
+		expect(res.status).toBe(200);
+		expect(res.body.emailStatus).toBe('sent');
+		expect(res.body.emailedTo).toBe('player@example.com');
+		expect(res.body.token).toMatch(/^[A-Za-z0-9_-]{43}$/); // invite still minted normally
+		// SES was called once, from the configured sender, to the recipient, with the join link.
+		expect(store.sesCalls).toHaveLength(1);
+		const input = store.sesCalls[0] as {
+			FromEmailAddress: string;
+			Destination: { ToAddresses: string[] };
+			Content: { Simple: { Body: { Text: { Data: string } } } };
+		};
+		expect(input.FromEmailAddress).toBe('invites@dndtools.example');
+		expect(input.Destination.ToAddresses).toEqual(['player@example.com']);
+		const bodyText = input.Content.Simple.Body.Text.Data;
+		expect(bodyText).toContain(`https://app.example.test/#/join?token=${res.body.token}`);
+	});
+
+	it('link-only invite (no email) does not call SES and reports emailStatus none', async () => {
+		const res = await mintWithEmail({});
+		expect(res.body.emailStatus).toBe('none');
+		expect(res.body.emailedTo).toBeUndefined();
+		expect(store.sesCalls).toHaveLength(0);
+	});
+
+	it('SES failure is non-fatal: the invite is still returned with emailStatus failed', async () => {
+		store.ses.shouldThrow = true;
+		const res = await mintWithEmail({ email: 'player@example.com' });
+		expect(res.status).toBe(200);
+		expect(res.body.token).toMatch(/^[A-Za-z0-9_-]{43}$/); // link + QR still work
+		expect(res.body.emailStatus).toBe('failed');
+		expect(res.body.emailedTo).toBeUndefined();
+		// The minted invite is still queryable (mint never rolls back on a send failure).
+		expect((await call(event('GET /invites'))).body.invites).toHaveLength(1);
+	});
+
+	it('unconfigured sender is non-fatal: mints the invite with emailStatus not-configured', async () => {
+		delete process.env.INVITE_SENDER; // no verified sender wired into this deployment
+		const res = await mintWithEmail({ email: 'player@example.com' });
+		expect(res.status).toBe(200);
+		expect(res.body.emailStatus).toBe('not-configured');
+		expect(store.sesCalls).toHaveLength(0); // never touches SES without a sender
+		expect(res.body.token).toBeTruthy();
+	});
+
+	it('rejects a malformed email BEFORE minting (400 — a DM typo, not a send failure)', async () => {
+		const res = await mintWithEmail({ email: 'not-an-email' });
+		expect(res.status).toBe(400);
+		expect(store.sesCalls).toHaveLength(0);
+		// nothing was minted — the DM can fix the typo and retry
+		expect((await call(event('GET /invites'))).body.invites).toHaveLength(0);
+	});
+
+	it('rejects an over-long email (400, length bound)', async () => {
+		const res = await mintWithEmail({ email: `${'a'.repeat(250)}@x.co` });
+		expect(res.status).toBe(400);
+	});
+});
+
+describe('campaign wiki', () => {
+	const PAGES = [
+		{ slug: 'welcome', title: 'Welcome', markdown: '# Hi\nplayer-safe **lore**' },
+		{ slug: 'factions', title: 'Factions', markdown: '- The Ashen Circle' },
+	];
+	// Publishing is Beacon-gated; put the caller on Beacon first.
+	const asBeacon = async (sub = 'user-1') => {
+		await call(event('POST /account/entitlements', { sub, body: { plan: 'beacon' } }));
+	};
+	const publish = (body: unknown, sub = 'user-1') => call(event('PUT /wiki', { sub, body }));
+
+	it('refuses to publish on a non-Beacon plan (403) — gate is honest even though plans are simulated', async () => {
+		const res = await publish({ title: 'My Wiki', access: 'unlisted', pages: PAGES });
+		expect(res.status).toBe(403);
+		expect(res.body.error).toMatch(/beacon/i);
+		// Nothing was written — no public site row exists.
+		expect([...store.items.keys()].some((k) => k.startsWith('wiki#'))).toBe(false);
+	});
+
+	it('publishes on Beacon, returns a stable wikiId + status, and stores the bundle in S3', async () => {
+		await asBeacon();
+		const res = await publish({ title: 'My Wiki', access: 'unlisted', pages: PAGES });
+		expect(res.status).toBe(200);
+		expect(res.body.wikiId).toMatch(/^[A-Za-z0-9_-]{8,32}$/);
+		expect(res.body).toMatchObject({ title: 'My Wiki', access: 'unlisted', pageCount: 2 });
+		expect(res.body.size).toBeGreaterThan(0);
+		// The status is readable back by the owner; the S3 bundle exists.
+		const own = await call(event('GET /wiki'));
+		expect(own.body).toMatchObject({ wikiId: res.body.wikiId, pageCount: 2 });
+		expect(store.objects.has(`wikis/${res.body.wikiId}.json`)).toBe(true);
+	});
+
+	it('re-publish keeps the SAME wikiId + first publishedAt (readers’ links survive)', async () => {
+		await asBeacon();
+		const first = await publish({ title: 'V1', access: 'public', pages: PAGES });
+		const again = await publish({ title: 'V2', access: 'unlisted', pages: [PAGES[0]] });
+		expect(again.body.wikiId).toBe(first.body.wikiId);
+		expect(again.body.publishedAt).toBe(first.body.publishedAt);
+		expect(again.body.pageCount).toBe(1);
+		expect(again.body.title).toBe('V2');
+	});
+
+	it('reads a public wiki with NO auth and never leaks the owner sub', async () => {
+		await asBeacon('owner-9');
+		const pub = await publish({ title: 'Public Lore', access: 'public', pages: PAGES }, 'owner-9');
+		const read = await call(event('GET /wikis/{wikiId}', { sub: null, params: { wikiId: pub.body.wikiId } }));
+		expect(read.status).toBe(200);
+		expect(read.body).toMatchObject({ wikiId: pub.body.wikiId, title: 'Public Lore', pageCount: 2 });
+		expect(read.body.pages).toHaveLength(2);
+		expect(read.body.pages[0]).toMatchObject({ slug: 'welcome', title: 'Welcome' });
+		expect(JSON.stringify(read.body)).not.toContain('owner-9');
+		expect(read.body.ownerSub).toBeUndefined();
+		expect(read.body.passwordHash).toBeUndefined();
+	});
+
+	it('answers 404 for an absent or malformed wiki id (hostile input is bounded)', async () => {
+		expect((await call(event('GET /wikis/{wikiId}', { sub: null, params: { wikiId: 'ABCDEFGH' } }))).status).toBe(404);
+		expect((await call(event('GET /wikis/{wikiId}', { sub: null, params: { wikiId: '../../etc' } }))).status).toBe(404);
+	});
+
+	it('password wikis: 401 without/with a wrong password, 200 with the right one — pages hidden until then', async () => {
+		await asBeacon();
+		const pub = await publish({ title: 'Secret', access: 'password', password: 'dragons', pages: PAGES });
+		expect(pub.status).toBe(200);
+
+		const noPw = await call(event('GET /wikis/{wikiId}', { sub: null, params: { wikiId: pub.body.wikiId } }));
+		expect(noPw.status).toBe(401);
+		expect(noPw.body.pages).toBeUndefined(); // content withheld
+
+		const wrong = { ...event('GET /wikis/{wikiId}', { sub: null, params: { wikiId: pub.body.wikiId } }), headers: { 'x-wiki-password': 'nope' } };
+		expect((await call(wrong as never)).status).toBe(401);
+
+		const right = { ...event('GET /wikis/{wikiId}', { sub: null, params: { wikiId: pub.body.wikiId } }), headers: { 'x-wiki-password': 'dragons' } };
+		const ok = await call(right as never);
+		expect(ok.status).toBe(200);
+		expect(ok.body.pages).toHaveLength(2);
+	});
+
+	it('rejects a password wiki with a too-short/absent password (400)', async () => {
+		await asBeacon();
+		expect((await publish({ title: 'S', access: 'password', password: '123', pages: PAGES })).status).toBe(400);
+		expect((await publish({ title: 'S', access: 'password', pages: PAGES })).status).toBe(400);
+	});
+
+	it('validates page shape: bad slug, duplicate slug, empty pages, bad access (400)', async () => {
+		await asBeacon();
+		expect((await publish({ title: 'T', access: 'public', pages: [] })).status).toBe(400);
+		expect((await publish({ title: 'T', access: 'public', pages: [{ slug: 'Not Kebab', title: 'x', markdown: '' }] })).status).toBe(400);
+		expect((await publish({ title: 'T', access: 'public', pages: [{ slug: 'a', title: 'x', markdown: '' }, { slug: 'a', title: 'y', markdown: '' }] })).status).toBe(400);
+		expect((await publish({ title: 'T', access: 'sometimes', pages: PAGES })).status).toBe(400);
+	});
+
+	it('drops unknown/hostile page fields — only text fields are persisted (no script survives)', async () => {
+		await asBeacon();
+		const pub = await publish({
+			title: 'Clean',
+			access: 'public',
+			pages: [{ slug: 'p', title: 'P', markdown: 'ok', onclick: 'alert(1)', __proto__: { polluted: true } }],
+		});
+		const bundle = store.objects.get(`wikis/${pub.body.wikiId}.json`) as { pages: Record<string, unknown>[] };
+		expect(Object.keys(bundle.pages[0]).sort()).toEqual(['markdown', 'slug', 'title', 'updatedAt']);
+	});
+
+	it('rejects an oversized bundle (400, size cap)', async () => {
+		await asBeacon();
+		const huge = [{ slug: 'big', title: 'Big', markdown: 'x'.repeat(600 * 1024) }];
+		const res = await publish({ title: 'T', access: 'public', pages: huge });
+		expect(res.status).toBe(400);
+		expect(res.body.error).toMatch(/too large/i);
+	});
+
+	it('unpublish kills the public link immediately and leaves no S3 bundle', async () => {
+		await asBeacon();
+		const pub = await publish({ title: 'Bye', access: 'public', pages: PAGES });
+		const del = await call(event('DELETE /wiki'));
+		expect(del.status).toBe(200);
+		const gone = await call(event('GET /wikis/{wikiId}', { sub: null, params: { wikiId: pub.body.wikiId } }));
+		expect(gone.status).toBe(404);
+		expect((await call(event('GET /wiki'))).status).toBe(404);
+		expect(store.objects.has(`wikis/${pub.body.wikiId}.json`)).toBe(false);
+	});
+
+	it('is tenant-isolated: another account has no wiki even after this one publishes', async () => {
+		await asBeacon('owner-1');
+		await publish({ title: 'Mine', access: 'public', pages: PAGES }, 'owner-1');
+		const other = await call(event('GET /wiki', { sub: 'intruder-2' }));
+		expect(other.status).toBe(404);
+	});
+
+	it('export + delete-account include and purge the published wiki', async () => {
+		await asBeacon();
+		const pub = await publish({ title: 'Exported', access: 'unlisted', pages: PAGES });
+		const exp = await call(event('POST /account/export'));
+		expect(exp.body.publishedWiki).toMatchObject({ wikiId: pub.body.wikiId, title: 'Exported' });
+
+		await call(event('DELETE /account'));
+		expect(store.objects.has(`wikis/${pub.body.wikiId}.json`)).toBe(false);
+		expect([...store.items.keys()].some((k) => k.startsWith('wiki#'))).toBe(false);
 	});
 });
 

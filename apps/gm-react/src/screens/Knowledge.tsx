@@ -8,6 +8,7 @@ import {
 } from '@dndtools/core';
 import { Button, Card, EmptyState, Icon, IconButton, Input, Select, Textarea, Toaster, VisibilityChip } from '../ds';
 import { BackBar, Page, Panel, Seg, T } from '../app/screen-kit';
+import { useViewport } from '../app/useViewport';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { pickTextFiles } from '../platform/filePick';
 import { ConnectedSourcesPanel } from '../app/ConnectedSources';
@@ -171,6 +172,7 @@ function NoteViewer({
 }) {
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
+	const isPhone = useViewport() === 'phone';
 	const [editing, setEditing] = useState(false);
 	const [title, setTitle] = useState(note.title);
 	const [body, setBody] = useState(note.body);
@@ -240,7 +242,7 @@ function NoteViewer({
 	return (
 		<Page max={1080}>
 			<BackBar label="Notes" onClick={onBack} />
-			<div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 280px', gap: 20, alignItems: 'start' }}>
+			<div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0,1fr) 280px', gap: 20, alignItems: 'start' }}>
 				<Panel pad={26}>
 					<div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
 						<VisibilityChip level={VIS_CHIP[note.visibility] || 'dm-only'} />
@@ -249,7 +251,9 @@ function NoteViewer({
 						{canAuthor && !editing && (
 							<>
 								<IconButton icon="note-edit" label="Edit" variant="ghost" size="sm" onClick={startEdit} />
-								<IconButton icon="send" label="Push to players" variant="ghost" size="sm" onClick={() => setVisibility('player-visible')} />
+								{note.visibility !== 'player-visible' && (
+									<IconButton icon="send" label="Push to players" variant="ghost" size="sm" onClick={() => setVisibility('player-visible')} />
+								)}
 							</>
 						)}
 					</div>

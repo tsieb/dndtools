@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import {
 	setCharacterProficienciesInputSchema,
 	setCharacterSharingInputSchema,
@@ -53,7 +54,7 @@ function actorMayEditSheet(
 	characterId: string,
 	now: string,
 ): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (actor.role === 'observer') return false;
 	return hasGrantedCapability(
 		state.permissions,

@@ -9,6 +9,7 @@ import {
 } from '@dndtools/core';
 import { Badge, Button, EmptyState, Icon, IconButton, MapCreationForm, POIPopover, Skeleton, StatusDot, Switch, Toaster, VisibilityChip } from '../ds';
 import { Page, Panel, T } from '../app/screen-kit';
+import { useViewport } from '../app/useViewport';
 import { fogRegionSummary } from '../app/fogRegions';
 import { pickRasterAssetId } from '../app/mapGeometry';
 import {
@@ -54,6 +55,7 @@ function MapChipThumb({ assetId, active }: { assetId: string | null; active: boo
 
 export function Atlas() {
 	const runtime = useRuntime();
+	const isPhone = useViewport() === 'phone';
 	// One actor id for EVERY query AND every dispatch payload — this is what makes "view as player"
 	// render player-safe rather than just visually filtered (Contract 3). `defaultActorId` tracks the
 	// active "view as" actor in this runtime.
@@ -394,7 +396,7 @@ export function Atlas() {
 				</div>
 			)}
 
-			<div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 18, alignItems: 'start' }}>
+			<div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0,1fr) 320px', gap: 18, alignItems: 'start' }}>
 				{/* canvas — the REAL shared geometry renderer (grid, layer features, fog mask composed from
 				    durable ops, DS POI markers, tokens), actor-filtered. Read-only here; authoring gestures
 				    live in the MapBuilder overlay. */}

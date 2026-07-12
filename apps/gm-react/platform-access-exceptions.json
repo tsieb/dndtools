@@ -3,13 +3,13 @@
   "exceptions": [
     {
       "id": "app-shell-responsive-matchmedia",
-      "path": "apps/gm-react/src/app/AppShell.tsx",
+      "path": "apps/gm-react/src/app/useViewport.ts",
       "primitives": [
         "viewport-sniff"
       ],
       "owner": "SHELL (adaptive shell)",
-      "rationale": "The adaptive shell resolves the layout profile (phone/rail/desktop) from matchMedia breakpoint queries — event-driven, no resize thrash. Until a typed platform-profile provider exists in the React app, this is the single place that reads the raw viewport, and it does so behind live MediaQueryList listeners.",
-      "removalCriteria": "Remove when the React app grows a platform-profile provider (the analogue of the Svelte app's src/lib/platform layer) that probes the viewport once and exposes the resolved profile via context; AppShell then consumes the profile instead of matchMedia."
+      "rationale": "The adaptive shell resolves the layout profile (phone/rail/desktop) from matchMedia breakpoint queries — event-driven, no resize thrash. This hook is the SINGLE place that reads the raw viewport; AppShell and the fixed main+sidebar detail screens (Atlas/Knowledge/Graph) consume the resolved profile through it rather than sniffing the viewport themselves.",
+      "removalCriteria": "Remove when the React app grows a typed platform-profile provider (the analogue of the Svelte app's src/lib/platform layer) that probes the viewport once and exposes the resolved profile via context; this hook then reads the profile instead of matchMedia."
     },
     {
       "id": "onboarding-invite-localstorage",
@@ -100,6 +100,16 @@
       ],
       "owner": "MAP (atlas)",
       "rationale": "Copy-POI-deep-link uses navigator.clipboard.writeText as a pure UI convenience; denial degrades honestly by showing the URL in the notice bar for manual copy. No durable state, no capability assumption.",
+      "removalCriteria": "Route through a typed platform-clipboard adapter once one exists (DEBT-2026-001)."
+    },
+    {
+      "id": "community-wiki-link-clipboard",
+      "path": "apps/gm-react/src/screens/Community.tsx",
+      "primitives": [
+        "navigator"
+      ],
+      "owner": "COMMUNITY (campaign wiki)",
+      "rationale": "Copy-public-wiki-link uses navigator.clipboard.writeText as a pure UI convenience after publishing a campaign wiki; denial degrades honestly with a toast telling the user to copy the shown link manually. No durable state, no capability assumption — identical rationale to the atlas/mapbuilder POI-link clipboard entries.",
       "removalCriteria": "Route through a typed platform-clipboard adapter once one exists (DEBT-2026-001)."
     }
   ]

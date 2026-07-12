@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { Actor, PermissionState } from '../state/permission-state';
 import { type VaultContentState, CONTENT_ITEM_ENTITY_TYPE } from '../state/content';
 import { parseMarkdownNote } from '../state/markdown';
@@ -66,7 +67,7 @@ function itemSource(view: ContentItemView): ContentSourceId {
  * `contributor` grant, or no grant, is NOT write authority for a link repair — fail closed. Pure.
  */
 function actorCanEditItem(permissions: PermissionState, actor: Actor, itemId: string): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (actor.role === 'observer') return false;
 	// `section-editor` is the note/object authoring capability; it implies `contributor`+`viewer`, but a
 	// bare `contributor`/`viewer` may NOT rewrite an existing link, so we require `section-editor` here.

@@ -13,6 +13,10 @@ import { fileURLToPath } from 'node:url';
 export default defineConfig({
 	resolve: {
 		alias: {
+			// More specific subpath first so it wins over the bare-package alias.
+			'@dndtools/core/testing': fileURLToPath(
+				new URL('./packages/core/src/testing/index.ts', import.meta.url),
+			),
 			'@dndtools/core': fileURLToPath(new URL('./packages/core/src/index.ts', import.meta.url)),
 		},
 	},

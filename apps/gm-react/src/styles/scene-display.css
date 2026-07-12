@@ -1,0 +1,51 @@
+/*
+ * I11 S11.2.3 — scene display transitions. Durations use the design-token vars, so the app-wide
+ * [data-motion='reduced'] contract (index.css) collapses them to ~0ms automatically — no per-component
+ * prefers-reduced-motion query. `cut` has no animation by design.
+ */
+.scene-display {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	background: #05070c;
+}
+
+.scene-display__card {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-end;
+}
+
+@keyframes sd-crossfade {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes sd-slide {
+	from {
+		opacity: 0;
+		transform: translateX(5%);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+.scene-display__card--crossfade {
+	animation: sd-crossfade var(--duration-slow, 600ms) var(--easing-standard, ease) both;
+}
+
+.scene-display__card--slide {
+	animation: sd-slide var(--duration-slow, 600ms) var(--easing-standard, ease) both;
+}
+
+.scene-display__card--cut {
+	animation: none;
+}

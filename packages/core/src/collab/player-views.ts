@@ -1,5 +1,6 @@
 import type { ActorId } from '../state/ids';
 import type { Actor, PermissionState } from '../state/permission-state';
+import { hasDmAuthority } from '../state/permission-state';
 import type { SceneState } from '../state/scene-state';
 import type { SessionPlayerViewAssignment, SessionState } from '../state/session-state';
 import { actorCanCoEditScene } from '../permissions/grants';
@@ -140,7 +141,8 @@ export function projectPlayerViews(
 			excluded.push({ actorId, reason: 'unknown-actor' });
 			continue;
 		}
-		if (actor.role === 'dm') {
+		// A DM / co-DM has full dm-authority visibility — they never receive a filtered player view.
+		if (hasDmAuthority(actor.role)) {
 			excluded.push({ actorId, reason: 'is-dm' });
 			continue;
 		}

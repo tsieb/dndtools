@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { Actor, PermissionState } from '../state/permission-state';
 import type { VaultContentState } from '../state/content';
 import type { MapState } from '../state/map-state';
@@ -57,7 +58,7 @@ function savedSearchVisibleToActor(
 	actor: Actor,
 	permissions: PermissionState,
 ): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (search.visibility === 'dm-only') return false;
 	if (search.visibility === 'player-visible') return actor.role === 'player' || actor.role === 'observer';
 	// `shared`: delivered only through an explicit channel — `sharedWith` membership OR a viewer grant on
@@ -162,5 +163,5 @@ export function runSavedSearchForActor(
 /** Whether an actor may AUTHOR saved searches (the DM). The command layer re-checks fail-closed. */
 export function actorCanAuthorSavedSearch(permissions: PermissionState, actorId: string): boolean {
 	const actor = permissions.actors[actorId];
-	return !!actor && actor.role === 'dm';
+	return !!actor && hasDmAuthority(actor.role);
 }

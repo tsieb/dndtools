@@ -1,15 +1,67 @@
 # @dndtools/gm-react — Feature Inventory & Gap Audit
 
-**Audited:** 2026-06-20 · **Branch:** `main` · **Auditor:** automated, evidence-based.
+**Audited:** 2026-07-11 (latest pass §0★★★★; original gap audit 2026-06-20) · **Branch:** `feat/full-e2e-readiness` · **Auditor:** automated, evidence-based.
 
 > **Scope of this document.** `apps/gm-react` is the **primary GM app**. This is the severity-rated
 > feature inventory of that app: what each surface does today, and the gaps between the intended,
 > fully-populated GM command center and the runtime reality measured from the code and the running
 > app. It complements [PROTOTYPE.md](../../apps/gm-react/PROTOTYPE.md) (visual contract) and
 > [README.md](../../apps/gm-react/README.md) (wiring contract), both of which describe the design
-> intent. **Current state: see §0★★★ below** — the 2026-07 completion pass closed every remaining
-> stub; §1–§9 are the historical gap audit (dated 2026-06-20, when the app was an early build) kept
-> for the record.
+> intent. **Current state: see §0★★★★ below** — the 2026-07-11 e2e-readiness pass closed the last
+> deliberate deferrals and put comprehensive e2e coverage on every feature; §0★★★ was the 2026-07-10
+> completion pass; §1–§9 are the historical gap audit (dated 2026-06-20, when the app was an early
+> build) kept for the record.
+
+---
+
+## 0★★★★. 2026-07-11 UPDATE — e2e-readiness pass: every deferral closed, all flows under e2e
+
+The last "deliberate deferrals" from §0★★★ are now built, wired, tested, and merged
+(branch `feat/full-e2e-readiness`). Every feature reachable in a local-first build is functional.
+The only things NOT built are items that require an external service/process explicitly out of
+scope: a real **payment processor** (checkout stays SIMULATED by design), **official signed desktop
+builds**, and **community-extension discovery/curation** (Extensions → Community marketplace needs a
+curation service; it is honestly labeled "not wired — needs a network backend", no dead control —
+the real *module* marketplace publish/discover over app-api DOES work in the Community screen). No
+surface presents a fake or dead affordance; every unavailable capability states why in-UI.
+
+**Each former deferral, and what closed it:**
+- *Co-DM / Trusted role* → real `co-dm` base role (ADR-022): `hasDmAuthority` (dm+co-dm) vs
+  `isCampaignOwnerRole` (dm-only) split, owner-only seat-gated `permission.assign-role`, elevated
+  P2P view-model payload, PlayerView elevated tier unlocked, Settings promote/demote + seat gating.
+- *Provider-connected AI transport* → client-side BYO-key transport (ADR-021): Anthropic Messages
+  API / any OpenAI-compatible endpoint, key held device-local (never localStorage/vault/op-log),
+  model tool-calls routed through the existing MCP agent pipeline as staged proposals; fail-closed
+  with no key.
+- *Community wiki hosting* → app-api `PUT/GET/DELETE /wiki` + public `GET /wikis/{id}` (password/
+  unlisted/public), Community publish UI, chrome-less `#/wiki` reader; fail-closed when the account
+  backend is unconfigured.
+- *Custom vault-object types* (ADR-023) → DM-authored types in a reserved `custom:` id namespace,
+  projected through the SAME `VaultObjectSchema` validate/sync/project path as built-ins; define/
+  update/delete reuse the vault-authoring gate; delete refused while instances exist (fail closed).
+- *SES-emailed invites* → best-effort `sendInviteEmail` (SESv2) behind an optional recipient field;
+  link + QR remain the primary path and a send failure never fails invite creation.
+- *Structured equipment/currency/encumbrance* (I10 S10.1.3/S10.4.2) → `character-inventory` core
+  model + commands, `PlayerEquipment` sheet panel (items, five-coin purse, STR-derived encumbrance).
+- *Audio presets + scene packages* (I11 Epic 11.3) → built-in atmosphere library + `audio.apply/
+  save/delete-preset`, Audio Presets tab.
+- *Atmosphere scene cards* (I11 Epic 11.2) → `scene_card` type + queue/transitions, chrome-less
+  `#/display`, player-push banner, scene history.
+
+**Comprehensive e2e:** 20 Playwright specs / **156 tests** on desktop + mobile profiles drive every
+feature and previously-uncovered surface through the real UI against the live Core (ai-assistant,
+co-dm, wiki, scene-cards, audio-presets, equipment, custom-types, command-palette, backup-restore,
+upgrade, join, knowledge, campaign, graph, plus the prior collab/sync/canvas/permissions/isolation
+guards). Writing them surfaced and FIXED four real degraded-behavior bugs (mobile main+sidebar grids
+never collapsed; the `Field` required-`*` polluted the control's accessible name; a redundant
+"Push to players" affordance; a faction reload-persistence race). Zero-degradation is enforced: the
+e2e/verify dev servers are forced local-first (VITE_* blanked in both playwright.config and the
+validate harness) so no test can reach live cloud, asserted by `isolation-guard.spec.ts`.
+
+**Gates (this pass):** core 3306 · app 147 · cloud 169 · tooling 41 · 156 e2e (both profiles) ·
+typecheck ✓ · build ✓ (prod `__rt` guard: absent from 44 assets) · eslint 0 errors · boundary +
+a11y gates ✓ · **`pnpm validate` 22 pass / 0 fail / 2 warn** (warns = repo-wide Prettier
+non-uniformity [documented, not adopted] + this ledger's historical stub prose).
 
 ---
 

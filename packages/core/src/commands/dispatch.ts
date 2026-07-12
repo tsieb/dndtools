@@ -41,6 +41,19 @@ import {
 	handleDeletePlayerGroup,
 	handleUpdatePlayerGroup,
 } from './player-group';
+import {
+	handleActivateSceneCard,
+	handleAdvanceSceneCardQueue,
+	handleCreateSceneCard,
+	handleDequeueSceneCard,
+	handleDeleteSceneCard,
+	handleEnqueueSceneCard,
+	handleReorderSceneCardQueue,
+	handleRestoreSceneCard,
+	handleSetSceneCardTransition,
+	handleSetSceneCardVisibility,
+	handleUpdateSceneCard,
+} from './scene-card';
 import { handlePinQuickReference, handleUnpinQuickReference } from './quick-reference';
 import {
 	handleLinkCalendarDate,
@@ -48,6 +61,7 @@ import {
 	handleUnlinkCalendarDate,
 } from './calendar-continuity';
 import { handleGrantCapabilitySet, handleRevokeGrant, handleTransferOwnership } from './grant';
+import { handleAssignRole } from './assign-role';
 import {
 	handleAuthorRecap,
 	handleProjectActiveMap,
@@ -149,6 +163,13 @@ import {
 	handleUpsertPartyInventoryItem,
 } from './character-party';
 import {
+	handleClaimPartyInventoryItem,
+	handleMoveEquipmentItem,
+	handleRemoveEquipmentItem,
+	handleSetCurrency,
+	handleUpsertEquipmentItem,
+} from './character-inventory';
+import {
 	handleAddJournalEntry,
 	handleRemoveJournalEntry,
 	handleSetJournalEntryVisibility,
@@ -173,6 +194,11 @@ import {
 	handleRepairWikilink,
 	handleUpdateVaultObject,
 } from './vault-object';
+import {
+	handleDefineCustomObjectType,
+	handleDeleteCustomObjectType,
+	handleUpdateCustomObjectType,
+} from './custom-object-type';
 import { handleCreateFromTemplate, handleInsertSnippet } from './content-templates';
 import {
 	handleAddContentEmbed,
@@ -211,6 +237,11 @@ import {
 	handleSetSessionAudioVolume,
 	handleStopSessionAudio,
 } from './audio-playback';
+import {
+	handleApplyAudioPreset,
+	handleDeleteAudioPreset,
+	handleSaveAudioPreset,
+} from './audio-preset';
 import { handleSetPresence } from './presence';
 import { handleResolveVaultConflict } from './conflict-resolution';
 import {
@@ -363,6 +394,29 @@ export function dispatchCommand(
 			return handleUpdatePlayerGroup(state, env, command.actorId, command.payload);
 		case 'session.delete-player-group':
 			return handleDeletePlayerGroup(state, env, command.actorId, command.payload);
+		// I11 S11.2.1–S11.2.4 — SCENE CARD (atmosphere) authoring, display, queue, and player push.
+		case 'scene-card.create':
+			return handleCreateSceneCard(state, env, command.actorId, command.payload);
+		case 'scene-card.update':
+			return handleUpdateSceneCard(state, env, command.actorId, command.payload);
+		case 'scene-card.delete':
+			return handleDeleteSceneCard(state, env, command.actorId, command.payload);
+		case 'scene-card.restore':
+			return handleRestoreSceneCard(state, env, command.actorId, command.payload);
+		case 'scene-card.set-visibility':
+			return handleSetSceneCardVisibility(state, env, command.actorId, command.payload);
+		case 'scene-card.activate':
+			return handleActivateSceneCard(state, env, command.actorId, command.payload);
+		case 'scene-card.set-transition':
+			return handleSetSceneCardTransition(state, env, command.actorId, command.payload);
+		case 'scene-card.enqueue':
+			return handleEnqueueSceneCard(state, env, command.actorId, command.payload);
+		case 'scene-card.dequeue':
+			return handleDequeueSceneCard(state, env, command.actorId, command.payload);
+		case 'scene-card.reorder-queue':
+			return handleReorderSceneCardQueue(state, env, command.actorId, command.payload);
+		case 'scene-card.advance':
+			return handleAdvanceSceneCardQueue(state, env, command.actorId, command.payload);
 		case 'session.pin-quick-reference':
 			return handlePinQuickReference(state, env, command.actorId, command.payload);
 		case 'session.unpin-quick-reference':
@@ -383,6 +437,8 @@ export function dispatchCommand(
 			return handleRevokeGrant(state, env, command.actorId, command.payload);
 		case 'permission.transfer-ownership':
 			return handleTransferOwnership(state, env, command.actorId, command.payload);
+		case 'permission.assign-role':
+			return handleAssignRole(state, env, command.actorId, command.payload);
 		case 'map.create-layer':
 			return handleCreateMapLayer(state, env, command.actorId, command.payload);
 		case 'map.rename-layer':
@@ -513,6 +569,16 @@ export function dispatchCommand(
 			return handleUpsertPartyInventoryItem(state, env, command.actorId, command.payload);
 		case 'character.remove-party-inventory-item':
 			return handleRemovePartyInventoryItem(state, env, command.actorId, command.payload);
+		case 'character.upsert-equipment-item':
+			return handleUpsertEquipmentItem(state, env, command.actorId, command.payload);
+		case 'character.remove-equipment-item':
+			return handleRemoveEquipmentItem(state, env, command.actorId, command.payload);
+		case 'character.move-equipment-item':
+			return handleMoveEquipmentItem(state, env, command.actorId, command.payload);
+		case 'character.set-currency':
+			return handleSetCurrency(state, env, command.actorId, command.payload);
+		case 'character.claim-party-inventory-item':
+			return handleClaimPartyInventoryItem(state, env, command.actorId, command.payload);
 		case 'character.add-journal-entry':
 			return handleAddJournalEntry(state, env, command.actorId, command.payload);
 		case 'character.update-journal-entry':
@@ -543,6 +609,12 @@ export function dispatchCommand(
 			return handleCreateVaultObject(state, env, command.actorId, command.payload);
 		case 'content.update-object':
 			return handleUpdateVaultObject(state, env, command.actorId, command.payload);
+		case 'content.define-object-type':
+			return handleDefineCustomObjectType(state, env, command.actorId, command.payload);
+		case 'content.update-object-type':
+			return handleUpdateCustomObjectType(state, env, command.actorId, command.payload);
+		case 'content.delete-object-type':
+			return handleDeleteCustomObjectType(state, env, command.actorId, command.payload);
 		case 'content.rename-wikilink-target':
 			return handleRenameWikilinkTarget(state, env, command.actorId, command.payload);
 		case 'content.repair-wikilink':
@@ -601,6 +673,12 @@ export function dispatchCommand(
 			return handleRemoveAmbienceLayer(state, env, command.actorId, command.payload);
 		case 'session.audio.set-output-device':
 			return handleSetAudioOutputDevice(state, env, command.actorId, command.payload);
+		case 'session.audio.apply-preset':
+			return handleApplyAudioPreset(state, env, command.actorId, command.payload);
+		case 'audio.save-preset':
+			return handleSaveAudioPreset(state, env, command.actorId, command.payload);
+		case 'audio.delete-preset':
+			return handleDeleteAudioPreset(state, env, command.actorId, command.payload);
 		case 'session.author-recap':
 			return handleAuthorRecap(state, env, command.actorId, command.payload);
 		case 'session.set-presence':

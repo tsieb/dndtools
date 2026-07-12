@@ -16,6 +16,7 @@ import { CommandPalette } from './CommandPalette';
 import { ViewAsControl } from './ViewAsControl';
 import { ProjectionControl } from './ProjectionControl';
 import { HostSessionButton, AccountButton } from '../net/SessionPanel';
+import { useViewport } from './useViewport';
 import {
 	LIBRARY,
 	PLATFORM,
@@ -28,6 +29,8 @@ import {
 	type NavSection,
 } from './nav';
 import { T } from './screen-kit';
+import { SceneDisplayOverlay, useSceneDisplayBroadcast } from './SceneDisplayOverlay';
+import { getSceneDisplayForActor } from '@dndtools/core';
 
 /**
  * AppShell — the React port of the online prototype's shell (app.jsx Sidebar + Topbar): a 264px
@@ -60,28 +63,7 @@ const SECTION_PATH: Record<string, string> = {
 
 /* ── Responsive breakpoints (UX nav-profiles): ≥1025px the full sidebar, 641–1024px the icon
  * NavRail (same IA, presentation change only), ≤640px a BottomTabBar of the hot destinations
- * plus a "More" sheet. One hook, live via matchMedia — no resize listeners, no layout thrash. */
-type Viewport = 'desktop' | 'rail' | 'phone';
-
-function computeViewport(): Viewport {
-	if (typeof window === 'undefined') return 'desktop';
-	if (window.matchMedia('(max-width: 640px)').matches) return 'phone';
-	if (window.matchMedia('(max-width: 1024px)').matches) return 'rail';
-	return 'desktop';
-}
-
-function useViewport(): Viewport {
-	const [vp, setVp] = useState<Viewport>(() => computeViewport());
-	useEffect(() => {
-		const queries = [window.matchMedia('(max-width: 640px)'), window.matchMedia('(max-width: 1024px)')];
-		const onChange = () => setVp(computeViewport());
-		for (const q of queries) q.addEventListener('change', onChange);
-		return () => {
-			for (const q of queries) q.removeEventListener('change', onChange);
-		};
-	}, []);
-	return vp;
-}
+ * plus a "More" sheet. The matchMedia hook lives in ./useViewport (shared with detail screens). */
 
 type SceneStatus = 'live' | 'ready' | 'draft';
 const SCENE_STATUS: Record<SceneStatus, { dot: 'live' | 'idle' | 'off'; label: string }> = {
@@ -703,17 +685,53 @@ function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
 
 export function AppShell({ children }: { children: ReactNode }) {
 	const [paletteOpen, setPaletteOpen] = useState(false);
+	// I11 S11.2.2 — the in-window fullscreen scene display (Ctrl+Shift+S toggles; Escape exits).
+	const [displayOpen, setDisplayOpen] = useState(false);
 	const viewport = useViewport();
+	const runtime = useRuntime();
+	// I11 S11.2.2 — keep any open second-screen window live with the DM window's edits.
+	useSceneDisplayBroadcast(runtime);
 	useEffect(() => {
 		function onKey(e: KeyboardEvent) {
 			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
 				e.preventDefault();
 				setPaletteOpen((v) => !v);
+				return;
+			}
+			// I11 S11.2.2 — Ctrl/Cmd+Shift+S enters/exits the fullscreen scene display.
+			if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 's') {
+				e.preventDefault();
+				setDisplayOpen((v) => !v);
+				return;
+			}
+			// I11 S11.2.3 — Ctrl/Cmd+Right advances the scene queue during play (only when a card is queued).
+			if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowRight') {
+				const display = getSceneDisplayForActor(
+					runtime.state.session,
+					runtime.state.permissions,
+					runtime.defaultActorId,
+				);
+				if (display.queuedCount > 0) {
+					e.preventDefault();
+					void runtime.dispatch({
+						type: 'scene-card.advance',
+						actorId: runtime.defaultActorId,
+						payload: {},
+					});
+				}
+				return;
+			}
+			// Exit the fullscreen display on Escape.
+			if (e.key === 'Escape') {
+				setDisplayOpen((wasOpen) => {
+					if (wasOpen) e.preventDefault();
+					return false;
+				});
 			}
 		}
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
-	}, []);
+	}, [runtime]);
 	return (
 		<div
 			style={{
@@ -754,6 +772,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 				{viewport === 'phone' && <PhoneNav />}
 			</div>
 			<CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+			<SceneDisplayOverlay open={displayOpen} onClose={() => setDisplayOpen(false)} />
 			<ToastViewport placement="bottom-right" />
 		</div>
 	);

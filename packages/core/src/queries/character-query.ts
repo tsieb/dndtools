@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
 import type {
 	Character,
@@ -126,7 +127,7 @@ export function getCharacterForActor(
 	const character = state.characters[characterId];
 	if (!character) return null;
 	if (!characterVisibleToActor(character, actor, permissions)) return null;
-	return redactCharacter(character, actor.role === 'dm');
+	return redactCharacter(character, hasDmAuthority(actor.role));
 }
 
 /** Every character the actor may see, omitting hidden ones entirely, sorted by name. */
@@ -137,7 +138,7 @@ export function listCharactersForActor(
 ): CharacterView[] {
 	const actor = permissions.actors[actorId];
 	if (!actor) return [];
-	const isDm = actor.role === 'dm';
+	const isDm = hasDmAuthority(actor.role);
 	return Object.values(state.characters)
 		.filter((character) => characterVisibleToActor(character, actor, permissions))
 		.map((character) => redactCharacter(character, isDm))
@@ -190,7 +191,7 @@ export function getDraftForActor(
 	const draft = state.drafts[draftId];
 	if (!draft) return null;
 	const isOwner = isDraftOwner(draft, actorId);
-	if (actor.role !== 'dm' && !isOwner) return null; // fail closed: no draft fields for non-owners
+	if (!hasDmAuthority(actor.role) && !isOwner) return null; // fail closed: no draft fields for non-owners
 	return draftView(draft, actorId);
 }
 
@@ -205,7 +206,7 @@ export function listDraftsForActor(
 ): CharacterDraftView[] {
 	const actor = permissions.actors[actorId];
 	if (!actor || actor.role === 'observer') return [];
-	const isDm = actor.role === 'dm';
+	const isDm = hasDmAuthority(actor.role);
 	return Object.values(state.drafts)
 		.filter((draft) => isDm || isDraftOwner(draft, actorId))
 		.map((draft) => draftView(draft, actorId))

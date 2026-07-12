@@ -19,6 +19,7 @@ import {
 	type WidgetLayout,
 } from '../state/scene-state';
 import { resolveDeliveryTarget } from '../collab/player-groups';
+import { hasDmAuthority } from '../state/permission-state';
 import { handoutRecipientSealed } from '../queries/handout-query';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import {
@@ -162,7 +163,9 @@ export function handleDeliverHandout(
 	// against the resolved individual recipients, so a later membership change never retroactively delivers.
 	for (const recipientId of input.recipientActorIds) {
 		const recipient = state.permissions.actors[recipientId];
-		if (!recipient || recipient.role === 'dm') {
+		// A DM / co-DM already sees everything (dm-authority read) — they are never a delivery
+		// recipient. Fail closed on any elevated or unknown id (COLLAB-012).
+		if (!recipient || hasDmAuthority(recipient.role)) {
 			return reject(
 				{
 					code: 'invalid-payload',
@@ -444,7 +447,7 @@ export function handleAcknowledgeHandout(
 ): CommandResult {
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
-	if (actor.role === 'dm') {
+	if (hasDmAuthority(actor.role)) {
 		return reject(
 			{ code: 'invalid-state', message: 'The DM does not acknowledge handout delivery.' },
 			state,

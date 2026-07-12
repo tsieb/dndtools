@@ -347,7 +347,9 @@ export function isSectionAvailableForRole(
 	role: ActorRole | undefined,
 ): boolean {
 	if (!role) return false;
-	return section.availability[role];
+	// A co-DM has DM-grade authority: it reaches every section the DM reaches.
+	const key = role === 'co-dm' ? 'dm' : role;
+	return section.availability[key];
 }
 
 /**

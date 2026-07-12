@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
 	exportWidgetPackage,
 	getContentItemsForActor,
@@ -8,13 +9,20 @@ import { Badge, Button, Dialog, EmptyState, Icon, Input, Skeleton, Stat, Switch,
 import { Page, Panel, T, eb } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useAuth } from '../cloud/AuthContext';
+import { useEntitlements } from '../cloud/entitlements';
 import { isAccountApiConfigured } from '../cloud/config';
 import {
 	deleteModule,
 	getModule,
+	getMyWiki,
 	listModules,
 	publishModule,
+	publishWiki,
+	unpublishWiki,
 	type ModuleListing,
+	type WikiAccess,
+	type WikiPage,
+	type WikiStatus,
 } from '../cloud/appApi';
 import { downloadJsonFile, downloadTextFile, fileDateStamp } from '../platform/download';
 
@@ -28,10 +36,12 @@ import { downloadJsonFile, downloadTextFile, fileDateStamp } from '../platform/d
  *     when the cloud backend isn't configured or the user is signed out.
  *   - Export: dispatches the real `content.export` (mode + item-type scope are REAL core params) and
  *     DOWNLOADS the result — one markdown file exports as .md, multiple as a .json bundle.
- *   - Wiki eligibility counts come from the live actor-filtered content read.
- *
- * HONEST STUB (clearly noted in-panel): wiki HOSTING has no backend — eligibility is real, the
- * publish button is a local preview.
+ *   - Campaign wiki: publishes the player-visible notes as a hosted, account-less-readable wiki via
+ *     the app-api (publish/unpublish + a stable public link). Eligibility counts and the page bundle
+ *     come from the live actor-filtered content read; DM-only notes are never included. Publishing is
+ *     a Beacon-plan feature (server-enforced); readers open the link with NO account. Fail-closed:
+ *     when the cloud backend isn't configured (or the user is signed out) this stays a labeled LOCAL
+ *     PREVIEW, and a non-Beacon plan sees an honest upgrade gate instead of a dead button.
  */
 
 const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Something went wrong — try again.');
@@ -50,12 +60,47 @@ function radioGroupKeyDown(e: React.KeyboardEvent) {
 	next.click();
 }
 
-// Wiki access vocabulary for the preview-only publish settings (hosting has no backend — noted in-panel).
-const WIKI_ACCESS_MODES = [
-	{ value: 'public', label: 'Public', note: 'Indexed by search engines' },
-	{ value: 'unlisted', label: 'Unlisted', note: 'Direct link only, not indexed' },
-	{ value: 'password', label: 'Password', note: 'Visitors enter a password once' },
-] as const;
+// Wiki access vocabulary shown in the publish settings. `value` matches the server's WikiAccess enum.
+const WIKI_ACCESS_MODES: { value: WikiAccess; label: string; note: string }[] = [
+	{ value: 'public', label: 'Public', note: 'Anyone with the link; fine to index' },
+	{ value: 'unlisted', label: 'Unlisted', note: 'Direct link only — relies on the link’s secrecy' },
+	{ value: 'password', label: 'Password', note: 'Readers enter a password once' },
+];
+
+/** Lowercase kebab-case slug matching the server's WIKI_SLUG_RE (`[a-z0-9][a-z0-9-]{0,119}`). */
+function slugify(s: string): string {
+	return s
+		.toLowerCase()
+		.normalize('NFKD')
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '')
+		.slice(0, 120);
+}
+
+interface EligibleNote {
+	id: string;
+	title: string;
+	body: string;
+	updatedAt: string;
+}
+
+/** Build the player-safe page bundle the server persists: one page per player-visible note, with a
+ *  stable, de-duplicated slug. Only text fields cross the wire — the reader renders the markdown as
+ *  React nodes (never innerHTML), so hosted content can't script a reader. */
+function buildWikiPages(notes: EligibleNote[]): WikiPage[] {
+	const seen = new Set<string>();
+	return notes.map((n) => {
+		const root = slugify(n.title) || 'page';
+		let slug = root;
+		for (let i = 2; seen.has(slug); i++) slug = `${root}-${i}`.slice(0, 120);
+		seen.add(slug);
+		return { slug, title: n.title, markdown: n.body, updatedAt: n.updatedAt };
+	});
+}
+
+/** The public reader URL for a published wiki (chrome-less `#/wiki?id=…` route, HashRouter-safe). */
+const wikiPublicUrl = (wikiId: string) =>
+	`${window.location.origin}${window.location.pathname}#/wiki?id=${encodeURIComponent(wikiId)}`;
 
 export function Community() {
 	const [tab, setTab] = useState('discover');
@@ -302,6 +347,13 @@ function CommExport() {
 
 	// REAL counts from the live actor-filtered content read (the DM sees every item).
 	const items = useMemo(() => getContentItemsForActor(runtime.state.content, runtime.state.permissions, dmId), [runtime.state.content, runtime.state.permissions, dmId]);
+	// A portable export is evaluated from a REPRESENTATIVE PLAYER's perspective (core fails closed to an
+	// empty bundle for a DM/unknown viewer, so a portable export MUST name a real player actor or it
+	// silently exports nothing). Pick any player; absent one, '' keeps the fail-closed empty result.
+	const portableViewerId = useMemo(
+		() => (Object.values(runtime.state.permissions.actors) as { id: string; role: string }[]).find((a) => a.role === 'player')?.id ?? '',
+		[runtime.state.permissions],
+	);
 	const dmOnlyCount = items.filter((i) => i.visibility === 'dm-only').length;
 	const playerCount = items.length - dmOnlyCount;
 
@@ -334,6 +386,7 @@ function CommExport() {
 			actorId: dmId,
 			payload: {
 				mode: priv ? 'dm-backup' : 'portable',
+				...(priv ? {} : { portableViewerActorId: portableViewerId }),
 				...(allSelected ? {} : { itemTypes: selectedKinds }),
 			},
 		});
@@ -582,24 +635,202 @@ function CommPublish() {
 
 function CommWiki() {
 	const runtime = useRuntime();
+	const auth = useAuth();
+	const navigate = useNavigate();
+	const { plan, loading: planLoading } = useEntitlements();
 	const dmId = runtime.defaultActorId;
-	const [access, setAccess] = useState<string>('unlisted');
-	// Honest-local: hosting a public wiki has no backend — local preview only (noted in-panel).
-	const [published, setPublished] = useState(false);
+	const cloudReady = isAccountApiConfigured && auth.status === 'signed-in';
+	// Publishing is a Beacon feature (the server enforces it too — this only keeps the UI honest).
+	const canPublish = cloudReady && plan === 'beacon';
 
-	// REAL: only player-visible notes are eligible for a published wiki (DM-only blocks are stripped).
+	const [title, setTitle] = useState('My Campaign Wiki');
+	const [access, setAccess] = useState<WikiAccess>('unlisted');
+	const [password, setPassword] = useState('');
+	// undefined → the initial status fetch is in flight; null → nothing published; else the live status.
+	const [status, setStatus] = useState<WikiStatus | null | undefined>(cloudReady ? undefined : null);
+	const [statusFailed, setStatusFailed] = useState(false);
+	const [busy, setBusy] = useState(false);
+	const [confirmUnpublish, setConfirmUnpublish] = useState(false);
+
+	// REAL: only player-visible notes are eligible (DM-only notes never leave the vault).
 	const items = useMemo(() => getContentItemsForActor(runtime.state.content, runtime.state.permissions, dmId), [runtime.state.content, runtime.state.permissions, dmId]);
 	const notes = items.filter((i) => i.kind === 'note');
 	const eligibleNotes = notes.filter((i) => i.visibility === 'player-visible');
 	const eligible = eligibleNotes.length;
+	const pages = useMemo(() => buildWikiPages(eligibleNotes), [eligibleNotes]);
 
-	return (
-		<div style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr', gap: 18, alignItems: 'start' }}>
-			<Panel title="Publish settings">
-				<div style={{ ...eb }}>Public address</div>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px', borderRadius: 9, background: T.alt, border: `1px solid ${T.bd}` }}>
-					<Icon name="globe" size={15} color={T.acc} /><span style={{ font: `12.5px ${T.mono}`, color: T.ter, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Assigned at publish — hosting is preview-only</span>
+	// Load the caller's current published-wiki status; adopt its title/access into the form so a
+	// re-publish edits the live wiki rather than resetting it.
+	const loadStatus = useCallback(() => {
+		if (!canPublish) return;
+		setStatusFailed(false);
+		setStatus(undefined);
+		getMyWiki()
+			.then((s) => {
+				setStatus(s);
+				if (s) {
+					setTitle(s.title);
+					setAccess(s.access);
+				}
+			})
+			.catch(() => setStatusFailed(true));
+	}, [canPublish]);
+	useEffect(() => {
+		if (canPublish) loadStatus();
+		else setStatus(cloudReady ? undefined : null);
+	}, [canPublish, cloudReady, loadStatus]);
+
+	const publish = () => {
+		if (pages.length === 0) {
+			Toaster.error('Mark at least one note player-visible in Knowledge before publishing.');
+			return;
+		}
+		if (!title.trim()) {
+			Toaster.error('Give the wiki a title.');
+			return;
+		}
+		if (access === 'password' && password.trim().length < 6) {
+			Toaster.error('A password wiki needs a password of at least 6 characters.');
+			return;
+		}
+		setBusy(true);
+		publishWiki({ title: title.trim(), access, pages, ...(access === 'password' ? { password: password.trim() } : {}) })
+			.then((s) => {
+				setStatus(s);
+				setPassword('');
+				Toaster.success(status ? 'Wiki updated — the public link is unchanged.' : 'Wiki published — share the public link.');
+			})
+			.catch((e: unknown) => Toaster.error(errText(e)))
+			.finally(() => setBusy(false));
+	};
+
+	const unpublish = () => {
+		setBusy(true);
+		unpublishWiki()
+			.then(() => {
+				setStatus(null);
+				setConfirmUnpublish(false);
+				Toaster.success('Wiki unpublished — the public link is now dead.');
+			})
+			.catch((e: unknown) => Toaster.error(errText(e)))
+			.finally(() => setBusy(false));
+	};
+
+	const copyLink = async (url: string) => {
+		try {
+			await navigator.clipboard.writeText(url);
+			Toaster.success('Public link copied.');
+		} catch {
+			Toaster.error('Could not copy — copy the link manually.');
+		}
+	};
+
+	// The settings/publish column adapts to the tier; the reading preview is always shown.
+	let settings: React.ReactNode;
+	if (!isAccountApiConfigured) {
+		settings = (
+			<Panel title="Publish settings" action={<Badge status="neutral">Local-only build</Badge>}>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					This build isn’t connected to a cloud backend, so a wiki can’t be hosted. Eligibility below is
+					real — the reading preview shows exactly what would publish.
 				</div>
+				<EligibilityStat eligible={eligible} total={notes.length} />
+			</Panel>
+		);
+	} else if (auth.status !== 'signed-in') {
+		settings = (
+			<Panel title="Publish settings" action={<Badge status="neutral">Signed out</Badge>}>
+				<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+					<div style={{ flex: '1 1 220px', font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+						Sign in to publish a hosted campaign wiki. Everything else here works without an account.
+					</div>
+					<Button variant="primary" size="sm" icon="UserCircle" onClick={() => auth.openAuthModal()}>Sign in</Button>
+				</div>
+				<EligibilityStat eligible={eligible} total={notes.length} />
+			</Panel>
+		);
+	} else if (!canPublish) {
+		settings = (
+			<Panel title="Publish settings" action={<Badge status="accent">Beacon</Badge>}>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					{planLoading
+						? 'Checking your plan…'
+						: 'Publishing a hosted campaign wiki is a Beacon feature. Your player-visible notes are ready — switch to Beacon (plans are simulated, nothing is charged) to publish.'}
+				</div>
+				<Button variant="primary" size="md" icon="sparkle" disabled={planLoading} onClick={() => navigate('/upgrade')}>See plans</Button>
+				<EligibilityStat eligible={eligible} total={notes.length} />
+			</Panel>
+		);
+	} else if (status === undefined) {
+		settings = (
+			<Panel title="Publish settings">
+				<div role="status" aria-label="Loading wiki status" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+					<Skeleton height={44} />
+					<Skeleton height={96} />
+				</div>
+			</Panel>
+		);
+	} else if (statusFailed) {
+		settings = (
+			<Panel title="Publish settings">
+				<EmptyState
+					inset
+					icon="warning"
+					title="Couldn’t load your wiki"
+					description="Check your connection and try again."
+					action={<Button variant="secondary" size="sm" icon="retry" onClick={loadStatus}>Retry</Button>}
+				/>
+			</Panel>
+		);
+	} else if (status) {
+		const url = wikiPublicUrl(status.wikiId);
+		settings = (
+			<Panel title="Published wiki" action={<Badge status="ok">Live</Badge>}>
+				<div style={{ ...eb }}>Public link</div>
+				<div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px', borderRadius: 9, background: T.alt, border: `1px solid ${T.bd}` }}>
+					<Icon name="globe" size={15} color={T.acc} />
+					<span style={{ font: `12px ${T.mono}`, color: T.sub, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{url}</span>
+					<Button variant="ghost" size="sm" icon="link" onClick={() => void copyLink(url)}>Copy</Button>
+				</div>
+				<div style={{ display: 'flex', gap: 14, marginTop: 6 }}>
+					<Stat label="Access" value={WIKI_ACCESS_MODES.find((m) => m.value === status.access)?.label ?? status.access} icon="lock" />
+					<Stat label="Pages" value={String(status.pageCount)} icon="knowledge-book" />
+					<Stat label="Size" value={kb(status.size)} icon="upload" />
+				</div>
+				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
+					Published {new Date(status.publishedAt).toLocaleDateString()} · updated {new Date(status.updatedAt).toLocaleString()}.
+					Re-publishing overwrites the pages and keeps this same link.
+				</div>
+				<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+					<Button variant="secondary" size="md" icon="upload" disabled={busy} onClick={publish}>{busy ? 'Working…' : 'Re-publish current notes'}</Button>
+					<Button variant="ghost" size="md" icon="delete" disabled={busy} onClick={() => setConfirmUnpublish(true)}>Unpublish</Button>
+				</div>
+				<Dialog
+					open={confirmUnpublish}
+					onClose={() => setConfirmUnpublish(false)}
+					title="Unpublish this wiki?"
+					description="The public link stops working immediately — this cannot be undone."
+					tone="danger"
+					size="sm"
+					footer={
+						<>
+							<Button variant="secondary" size="sm" disabled={busy} onClick={() => setConfirmUnpublish(false)}>Cancel</Button>
+							<Button variant="danger" size="sm" icon="delete" disabled={busy} onClick={unpublish}>{busy ? 'Unpublishing…' : 'Unpublish wiki'}</Button>
+						</>
+					}
+				>
+					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+						Anyone holding the link loses access at once. Your notes stay in the vault — you can publish again later (a new link is minted).
+					</div>
+				</Dialog>
+			</Panel>
+		);
+	} else {
+		// Signed-in, Beacon, nothing published yet: the publish form.
+		settings = (
+			<Panel title="Publish settings">
+				<div style={{ ...eb }}>Title</div>
+				<Input value={title} onChange={(e: { target: { value: string } }) => setTitle(e.target.value)} placeholder="Campaign wiki title" aria-label="Wiki title" maxLength={120} />
 				<div style={{ ...eb, marginTop: 10 }}>Access</div>
 				<div role="radiogroup" aria-label="Wiki access" onKeyDown={radioGroupKeyDown} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 					{WIKI_ACCESS_MODES.map((m) => (
@@ -609,21 +840,27 @@ function CommWiki() {
 						</button>
 					))}
 				</div>
-				<div style={{ display: 'flex', gap: 14, marginTop: 6 }}>
-					<Stat label="Eligible pages" value={`${eligible}/${notes.length}`} icon="knowledge-book" />
-					<Stat label="Theme" value="Parchment" icon="theme" />
-				</div>
+				{access === 'password' && (
+					<Input type="password" value={password} onChange={(e: { target: { value: string } }) => setPassword(e.target.value)} placeholder="Reader password (min 6 characters)" aria-label="Wiki password" maxLength={100} />
+				)}
+				<EligibilityStat eligible={eligible} total={notes.length} />
 				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
-					Eligibility is real — only player-visible notes publish; DM-only blocks are stripped. Hosting itself is preview-only.
+					Only player-visible notes publish — DM-only notes never leave the vault. Readers need no account.
 				</div>
-				<Button variant="primary" size="md" icon="upload" disabled={published} onClick={() => setPublished(true)}>
-					{published ? 'Published (preview)' : 'Publish wiki'}
+				<Button variant="primary" size="md" icon="upload" disabled={busy || eligible === 0} onClick={publish}>
+					{busy ? 'Publishing…' : 'Publish wiki'}
 				</Button>
 			</Panel>
+		);
+	}
+
+	return (
+		<div style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr', gap: 18, alignItems: 'start' }}>
+			{settings}
 			<Panel title="Reading preview">
 				<div data-theme="parchment" style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid var(--color-border)`, background: 'var(--color-bg)', color: 'var(--color-text-primary)' }}>
 					<div style={{ padding: '18px 20px', borderBottom: `1px solid var(--color-border)`, background: 'var(--color-surface)' }}>
-						<div style={{ font: `700 19px var(--font-display)`, color: 'var(--color-text-primary)' }}>Your campaign wiki</div>
+						<div style={{ font: `700 19px var(--font-display)`, color: 'var(--color-text-primary)' }}>{title.trim() || 'Your campaign wiki'}</div>
 						<div style={{ font: `12px var(--font-sans)`, color: 'var(--color-text-tertiary)' }}>A campaign wiki · {eligible} {eligible === 1 ? 'page' : 'pages'}</div>
 					</div>
 					<div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -646,6 +883,16 @@ function CommWiki() {
 				</div>
 				<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>Only player-visible notes appear. DM-only blocks are stripped from the published page.</div>
 			</Panel>
+		</div>
+	);
+}
+
+/** The shared eligibility stat row (eligible player-visible notes / total notes). */
+function EligibilityStat({ eligible, total }: { eligible: number; total: number }) {
+	return (
+		<div style={{ display: 'flex', gap: 14, marginTop: 6 }}>
+			<Stat label="Eligible pages" value={`${eligible}/${total}`} icon="knowledge-book" />
+			<Stat label="Theme" value="Parchment" icon="theme" />
 		</div>
 	);
 }

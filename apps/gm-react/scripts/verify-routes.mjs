@@ -14,7 +14,7 @@ const BASE = process.env.REACT_URL ?? 'http://localhost:5273';
 const routes = [
 	'/', '/board', '/scenes', '/session', '/characters', '/atlas', '/campaign',
 	'/knowledge', '/graph', '/audio', '/extensions', '/community', '/player',
-	'/play', '/upgrade', '/settings',
+	'/play', '/upgrade', '/settings', '/wiki',
 ];
 
 const browser = await chromium.launch();

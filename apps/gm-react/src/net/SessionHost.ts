@@ -1,3 +1,4 @@
+import { isCampaignOwnerRole } from '@dndtools/core';
 import type { CoreCommand, CoreStateSlice, SyncOperation } from '@dndtools/core';
 import type { SceneRuntime } from '../runtime/SceneRuntime';
 import { PeerLink } from './PeerConnection';
@@ -38,7 +39,7 @@ export interface HostPeer {
 	peerId: string;
 	actorId: string;
 	displayName: string;
-	role: 'player' | 'observer';
+	role: 'player' | 'observer' | 'co-dm';
 	connected: boolean;
 	status: 'online' | 'away';
 	hand: boolean;
@@ -115,9 +116,18 @@ export class SessionHost {
 	 */
 	async invite(actorId: string): Promise<HostInvitation> {
 		const actor = this.runtime.authoritativeState.permissions.actors[actorId];
-		if (!actor || (actor.role !== 'player' && actor.role !== 'observer')) {
-			throw new Error('Can only invite a registered player or observer participant.');
+		// A credential can never invent or elevate an identity: the actor must already exist with a
+		// JOINABLE role. Every non-owner role joins remotely — player, observer, or the elevated co-DM
+		// (whose snapshot carries the Co-DM tier). The campaign-owner DM runs the host and is never a peer.
+		if (!actor || isCampaignOwnerRole(actor.role)) {
+			throw new Error('Can only invite a registered player, observer, or Co-DM participant.');
 		}
+		// The owner `dm` was rejected above, so the remaining role is a joinable peer role.
+		const joinRole: 'player' | 'observer' | 'co-dm' = actor.role === 'co-dm'
+			? 'co-dm'
+			: actor.role === 'observer'
+				? 'observer'
+				: 'player';
 		const key = await generateSessionKey();
 		const { pc, channel, sdp } = await createOffer();
 		const peerId = `peer-${this.sessionId}-${actorId}-${this.seq++}`;
@@ -127,7 +137,7 @@ export class SessionHost {
 			peerId,
 			actorId,
 			displayName: actor.displayName,
-			role: actor.role,
+			role: joinRole,
 			connected: false,
 			status: 'away',
 			hand: false,
@@ -160,7 +170,7 @@ export class SessionHost {
 			sessionId: this.sessionId,
 			actorId,
 			displayName: actor.displayName,
-			participantRole: actor.role,
+			participantRole: joinRole,
 			keyB64: await exportKeyBase64(key),
 			sdp,
 		};

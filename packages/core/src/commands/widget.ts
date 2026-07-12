@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import {
 	addWidgetInputSchema,
 	configureWidgetInputSchema,
@@ -66,7 +67,7 @@ function requireSceneCoEditor(
 	actor: Actor,
 	scene: Scene,
 ): ReturnType<typeof reject>['rejection'] | null {
-	if (actor.role === 'dm') return null;
+	if (hasDmAuthority(actor.role)) return null;
 	if (!actorCanCoEditScene(state.permissions, actor.id, scene.id)) {
 		return {
 			code: 'actor-not-authorized',
@@ -93,7 +94,7 @@ function requireWidgetManager(
 	widget: WidgetInstance,
 	now?: string,
 ): ReturnType<typeof reject>['rejection'] | null {
-	if (actor.role === 'dm') return null;
+	if (hasDmAuthority(actor.role)) return null;
 	if (hasGrantedCapability(state.permissions, actor, 'widget', widget.id, 'manager', now)) {
 		return null;
 	}
@@ -113,7 +114,7 @@ function requireBindingCapability(
 	binding: WidgetBinding | null,
 	now?: string,
 ): ReturnType<typeof reject>['rejection'] | null {
-	if (!binding || actor.role === 'dm') return null;
+	if (!binding || hasDmAuthority(actor.role)) return null;
 	if (
 		hasGrantedCapability(
 			state.permissions,

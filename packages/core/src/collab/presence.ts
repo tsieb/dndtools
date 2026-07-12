@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { Actor, PermissionState } from '../state/permission-state';
 import type { SyncOperation } from '../sync/operation-log';
@@ -107,7 +108,7 @@ function stripHiddenSceneHints(
 	viewer: Actor,
 	resolveSceneVisibility: PresenceSceneVisibilitySource | undefined,
 ): PresenceEntry {
-	if (viewer.role === 'dm' || !resolveSceneVisibility) return entry;
+	if (hasDmAuthority(viewer.role) || !resolveSceneVisibility) return entry;
 	const next: PresenceEntry = { ...entry };
 	if (next.activeSceneId && !resolveSceneVisibility(viewer, next.activeSceneId)) {
 		delete next.activeSceneId;

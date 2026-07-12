@@ -6,6 +6,7 @@ import {
 	FEATURE_TIERS,
 	MCP_BASELINE_TOOL_IDS,
 	MCP_POLICY_MODES,
+	countCoDmActors,
 	describeCapabilitySet,
 	deriveVaultConflicts,
 	getContentItemsForActor,
@@ -37,6 +38,7 @@ import {
 	revokeDevice,
 	revokeInvite as apiRevokeInvite,
 	updateProfile,
+	type CreateInviteResult,
 	type Device,
 	type Invite,
 	type Profile,
@@ -48,7 +50,21 @@ import { exportFullVault, importFullVault, validateVaultBackup, type VaultBackup
 import { ONBOARDED_KEY, REPLAY_EVENT } from '../app/Onboarding';
 import { isFsSourceSupported, listFolderSources, disconnectFolderSource, type FolderSourceRecord } from '../platform/fsSource';
 import { GOOGLE_DOCS_SETUP_RUNBOOK, addGdocConnection, isGoogleDocsConfigured, listGdocConnections, removeGdocConnection, type GdocConnection } from '../cloud/googleDocs';
-import { PLAN_CARDS, useEntitlements } from '../cloud/entitlements';
+import { PLAN_CARDS, coDmSeatsForPlan, useEntitlements } from '../cloud/entitlements';
+import {
+	DEFAULT_ANTHROPIC_MODEL,
+	clearAiProviderKey,
+	getAiProviderKey,
+	getAiProviderSettings,
+	isAiProviderConfigured,
+	resolveAiProviderConfig,
+	saveAiProviderSettings,
+	setAiProviderKey,
+	type AiProviderKind,
+} from '../ai/providerConfig';
+import { sendAiChat } from '../ai/transport';
+import { buildAiToolSpecs, runAssistantExchange, type AssistantEvent } from '../ai/mcpBridge';
+import type { AiTurn } from '../ai/transport';
 
 /**
  * Settings — the category-rail section. The subpages now split by how much of the app Core backs:
@@ -616,7 +632,10 @@ function SettingsSubscription() {
 }
 
 /* ---- Players (REAL — the live actor roster the Core enforces visibility against) ---------------- */
-const ROLE_LABEL: Record<string, string> = { dm: 'Dungeon Master', player: 'Player', observer: 'Observer' };
+const ROLE_LABEL: Record<string, string> = { dm: 'Dungeon Master', 'co-dm': 'Co-DM', player: 'Player', observer: 'Observer' };
+/** Badge tone per role — the Co-DM shares the DM's accent (elevated), players `info`, observers neutral. */
+const roleBadgeTone = (role: string): 'accent' | 'info' | 'neutral' =>
+	role === 'dm' || role === 'co-dm' ? 'accent' : role === 'observer' ? 'neutral' : 'info';
 /** The web join link an invite token redeems at — the /join route outside the DM shell. */
 const inviteJoinUrl = (token: string) =>
 	`${window.location.origin}${window.location.pathname}#/join?token=${encodeURIComponent(token)}`;
@@ -632,12 +651,16 @@ const copyText = async (text: string, okMessage: string) => {
 
 /** Pending invites — REAL server-minted join links (app-api) when configured + signed in. */
 function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: boolean; createOpen: boolean; onCloseCreate: () => void }) {
+	const ent = useEntitlements();
+	const coDmSeats = coDmSeatsForPlan(ent.plan);
 	const [invites, setInvites] = useState<Invite[] | null>(null);
 	const [failed, setFailed] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [campaignName, setCampaignName] = useState('');
 	const [note, setNote] = useState('');
-	const [minted, setMinted] = useState<Invite | null>(null);
+	const [role, setRole] = useState<'player' | 'co-dm'>('player');
+	const [email, setEmail] = useState('');
+	const [minted, setMinted] = useState<CreateInviteResult | null>(null);
 	const [qr, setQr] = useState<string | null>(null);
 	// Revoking kills the link server-side for good (no undo exists), so it confirms first.
 	const [pendingRevoke, setPendingRevoke] = useState<Invite | null>(null);
@@ -672,6 +695,8 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 		setMinted(null);
 		setCampaignName('');
 		setNote('');
+		setRole('player');
+		setEmail('');
 		onCloseCreate();
 	};
 	const mint = () => {
@@ -680,11 +705,22 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 			Toaster.error('Give the invite a campaign name.');
 			return;
 		}
+		if (role === 'co-dm' && coDmSeats <= 0) {
+			Toaster.error('Your plan has no Co-DM seats — upgrade to invite a Co-DM.');
+			return;
+		}
+		const to = email.trim();
+		// Catch an obvious typo client-side; the server validates authoritatively.
+		if (to && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+			Toaster.error('Enter a valid email address, or leave it blank to just get a link.');
+			return;
+		}
 		setBusy(true);
-		apiCreateInvite({ campaignName: name, note: note.trim() || undefined })
+		apiCreateInvite({ campaignName: name, note: note.trim() || undefined, role, email: to || undefined })
 			.then((invite) => {
 				setMinted(invite);
 				setInvites((list) => (list ? [invite, ...list] : [invite]));
+				if (invite.emailStatus === 'sent') Toaster.success(`Invite emailed to ${invite.emailedTo ?? to}.`);
 			})
 			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not create the invite.')))
 			.finally(() => setBusy(false));
@@ -722,7 +758,10 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 						<div key={v.inviteId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
 							<Icon name="send" size={15} color={T.ter} />
 							<div style={{ flex: 1, minWidth: 0 }}>
-								<div style={{ font: `600 13px ${T.sans}` }}>{v.campaignName}</div>
+								<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+									<span style={{ font: `600 13px ${T.sans}` }}>{v.campaignName}</span>
+									{v.role === 'co-dm' && <Badge status="accent">Co-DM</Badge>}
+								</div>
 								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{v.note ? `${v.note} · ` : ''}expires {new Date(v.expiresAt * 1000).toLocaleDateString()}</div>
 							</div>
 							<Button variant="secondary" size="sm" icon="link" disabled={busy} onClick={() => void copyText(inviteJoinUrl(v.token), 'Join link copied.')}>Copy link</Button>
@@ -753,7 +792,7 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 				open={createOpen}
 				onClose={close}
 				title={minted ? 'Invite ready to share' : 'Invite a player'}
-				description={minted ? 'Send this link however you like — it works for 14 days or until you revoke it.' : 'Mints a shareable join link — no email is sent.'}
+				description={minted ? 'Send this link however you like — it works for 14 days or until you revoke it.' : 'Mints a shareable join link — add an email to send it, or share the link yourself.'}
 				icon="send"
 				size="md"
 				footer={
@@ -769,6 +808,29 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 			>
 				{minted ? (
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+						{minted.emailStatus !== 'none' && (
+							<div
+								role="status"
+								style={{
+									width: '100%',
+									display: 'flex',
+									alignItems: 'flex-start',
+									gap: 8,
+									padding: '8px 10px',
+									borderRadius: 8,
+									border: `1px solid ${T.bd}`,
+									font: `12px/1.5 ${T.sans}`,
+									color: minted.emailStatus === 'sent' ? T.sub : T.ter,
+								}}
+							>
+								<Icon name={minted.emailStatus === 'sent' ? 'check' : 'info'} size={14} color={minted.emailStatus === 'sent' ? T.ok : T.ter} />
+								<span>
+									{minted.emailStatus === 'sent'
+										? `Emailed to ${minted.emailedTo}. They can also use the link below.`
+										: 'Email couldn’t be sent — email delivery isn’t set up for this app. Share the link below instead.'}
+								</span>
+							</div>
+						)}
 						{/* deliberate literal #fff: a QR quiet zone must stay white for scanners, whatever the theme */}
 						{qr && <img src={qr} alt="QR code for the join link" style={{ width: 168, height: 168, borderRadius: 10, border: `1px solid ${T.bd}`, background: '#fff', padding: 8 }} />}
 						<code style={{ font: `11.5px ${T.mono}`, color: T.sub, wordBreak: 'break-all', textAlign: 'center' }}>{inviteJoinUrl(minted.token)}</code>
@@ -778,6 +840,24 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 						<Input value={campaignName} onChange={(e: { target: { value: string } }) => setCampaignName(e.target.value)} placeholder="Campaign name (shown to the invitee)" aria-label="Campaign name" maxLength={80} />
 						<Textarea value={note} onChange={(e: { target: { value: string } }) => setNote(e.target.value)} placeholder="Note (optional) — e.g. “We play Fridays at 7”" aria-label="Invite note" rows={2} maxLength={200} />
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+							<span style={{ font: `600 11.5px ${T.sans}`, color: T.ter, textTransform: 'uppercase', letterSpacing: '.06em' }}>Seat</span>
+							<Seg
+								value={role}
+								onChange={(v: string) => setRole(v as 'player' | 'co-dm')}
+								options={[
+									{ value: 'player', label: 'Player' },
+									{ value: 'co-dm', label: coDmSeats > 0 ? 'Co-DM' : 'Co-DM (no seats)' },
+								]}
+							/>
+							<span style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
+								{role === 'co-dm'
+									? 'A Co-DM sees your DM-only prep and helps run the table. Finish the promotion from the Players roster once they join your session.'
+									: 'An ordinary player seat — sees only what you share with the table.'}
+							</span>
+						</div>
+						<Input type="email" value={email} onChange={(e: { target: { value: string } }) => setEmail(e.target.value)} placeholder="Email invite to… (optional)" aria-label="Recipient email" autoComplete="off" maxLength={254} />
+						<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>Leave email blank to just get a shareable link + QR code. When set, we’ll also email the invite if this app has email delivery configured.</div>
 					</div>
 				)}
 			</Dialog>
@@ -788,10 +868,31 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 function SettingsPlayers() {
 	const runtime = useRuntime();
 	const auth = useAuth();
+	const ent = useEntitlements();
 	const cloudReady = isAccountApiConfigured && auth.status === 'signed-in';
 	const [inviteOpen, setInviteOpen] = useState(false);
 	const actors = Object.values(runtime.state.permissions.actors) as { id: string; role: string; displayName: string }[];
 	const sorted = [...actors].sort((a, b) => (a.role === 'dm' ? -1 : b.role === 'dm' ? 1 : a.displayName.localeCompare(b.displayName)));
+
+	// Co-DM seat entitlement — the plan's seats vs. the live co-DM headcount. The Core `assign-role`
+	// command re-checks this and fails closed; the UI mirrors it so the affordance is honest.
+	const coDmSeats = coDmSeatsForPlan(ent.plan);
+	const coDmInUse = countCoDmActors(runtime.state.permissions);
+	const dmActorId = runtime.defaultActorId;
+
+	const assignRole = (targetActorId: string, role: 'co-dm' | 'player' | 'observer', displayName: string) => {
+		void runtime
+			.dispatch({ type: 'permission.assign-role', actorId: dmActorId, payload: { targetActorId, role, coDmSeatLimit: coDmSeats } })
+			.then((res: CommandResult) => {
+				if (res.status !== 'accepted') {
+					Toaster.error(res.rejection.message);
+					return;
+				}
+				Toaster.success(`${displayName} is now ${ROLE_LABEL[role]}.`);
+			})
+			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not change that role.')));
+	};
+
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<Panel
@@ -812,19 +913,46 @@ function SettingsPlayers() {
 				}
 			>
 				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>{sorted.length} {sorted.length === 1 ? 'actor' : 'actors'} in this campaign — the real permission actors the Core filters every view against.</div>
+				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 8 }}>
+					{coDmSeats > 0
+						? <>Co-DM seats: <strong style={{ color: T.ink }}>{coDmInUse} of {coDmSeats}</strong> used. A Co-DM sees your DM-only content and can run the table, but never manages roles, grants, invites, or the vault.</>
+						: <>Your plan has no Co-DM seats — upgrade to promote a trusted player to Co-DM.</>}
+				</div>
 				<div style={{ display: 'flex', flexDirection: 'column' }}>
-					{sorted.map((a, i) => (
-						<div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
-							<Avatar name={a.displayName} size="sm" ring={a.role === 'dm' ? 'active' : undefined} />
-							<div style={{ flex: 1, minWidth: 0 }}>
-								<div style={{ font: `600 13px ${T.sans}` }}>{a.displayName}</div>
-								<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{a.id}</div>
+					{sorted.map((a, i) => {
+						const promotable = a.role !== 'dm';
+						const roleOptions = [
+							{ value: 'player', label: 'Player' },
+							{ value: 'observer', label: 'Observer' },
+							{ value: 'co-dm', label: coDmSeats > 0 ? `Co-DM (${coDmInUse}/${coDmSeats})` : 'Co-DM (no seats)' },
+						];
+						return (
+							<div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
+								<Avatar name={a.displayName} size="sm" ring={a.role === 'dm' || a.role === 'co-dm' ? 'active' : undefined} />
+								<div style={{ flex: 1, minWidth: 0 }}>
+									<div style={{ font: `600 13px ${T.sans}` }}>{a.displayName}</div>
+									<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{a.id}</div>
+								</div>
+								{/* No presence dot here: this roster has no live session/connection state to derive one
+								    from, and a role-derived "live" would be a fake claim. The role badge carries the row. */}
+								{promotable ? (
+									<span style={{ minWidth: 150 }}>
+										<Select
+											aria-label={`Role for ${a.displayName}`}
+											value={a.role}
+											onChange={(e: { target: { value: string } }) => {
+												const next = e.target.value as 'co-dm' | 'player' | 'observer';
+												if (next !== a.role) assignRole(a.id, next, a.displayName);
+											}}
+											options={roleOptions}
+										/>
+									</span>
+								) : (
+									<Badge status={roleBadgeTone(a.role)}>{ROLE_LABEL[a.role] ?? a.role}</Badge>
+								)}
 							</div>
-							{/* No presence dot here: this roster has no live session/connection state to derive one
-							    from, and a role-derived "live" would be a fake claim. The role badge carries the row. */}
-							<Badge status={a.role === 'dm' ? 'accent' : a.role === 'observer' ? 'neutral' : 'info'}>{ROLE_LABEL[a.role] ?? a.role}</Badge>
-						</div>
-					))}
+						);
+					})}
 				</div>
 			</Panel>
 			<InvitesPanel cloudReady={cloudReady} createOpen={inviteOpen} onCloseCreate={() => setInviteOpen(false)} />
@@ -839,13 +967,16 @@ function SettingsPermissions() {
 	const actors = runtime.state.permissions.actors as Record<string, { id: string; role: string; displayName: string }>;
 	const grants = runtime.state.permissions.grants;
 	const scenes = Object.values(runtime.state.scenes.scenes) as { id: string; name: string }[];
-	const players = Object.values(actors).filter((a) => a.role !== 'dm');
+	// Grant targets are players/observers only — a DM / Co-DM already has full authority, so granting to
+	// them is meaningless (and a Co-DM must never be a grant target from this owner-only surface).
+	const players = Object.values(actors).filter((a) => a.role !== 'dm' && a.role !== 'co-dm');
 	const sceneSets = listGrantableCapabilitySets('scene');
 
-	const roleCounts = { dm: 0, player: 0, observer: 0 } as Record<string, number>;
+	const roleCounts = { dm: 0, 'co-dm': 0, player: 0, observer: 0 } as Record<string, number>;
 	for (const a of Object.values(actors)) roleCounts[a.role] = (roleCounts[a.role] ?? 0) + 1;
 	const roleCards = [
 		{ id: 'dm', name: 'Dungeon Master', desc: 'Full authority — authors content, grants, and the live session.', tone: 'accent' },
+		{ id: 'co-dm', name: 'Co-DM', desc: 'Sees DM-only content and runs the table, but never manages roles, grants, invites, or the vault.', tone: 'accent' },
 		{ id: 'player', name: 'Player', desc: 'Owns their character; sees only what the DM shares.', tone: 'info' },
 		{ id: 'observer', name: 'Observer', desc: 'Read-only; never holds character data.', tone: 'neutral' },
 	];
@@ -907,7 +1038,7 @@ function SettingsPermissions() {
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<Panel title="Roles">
-				<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
 					{roleCards.map((r) => (
 						<div key={r.id} style={{ padding: 13, borderRadius: 10, border: `1px solid ${r.tone === 'accent' ? T.accBd : T.bd}`, background: T.surf }}>
 							<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1323,17 +1454,275 @@ function LocalBackupPanel() {
 	);
 }
 
-/* ---- AI & tools (REAL — the durable MCP identity/policy/staged-writes slice + `mcp.*` commands.
- * The POLICY layer is fully real: master enable, per-agent bindings/modes/allowlists, staged-proposal
- * review and the audit trail all dispatch validated Core commands and persist. What does NOT exist in
- * this build is any provider/agent TRANSPORT — nothing can connect yet, and the panel says so plainly
- * instead of showing fake "connected" agents. Fail-closed: MCP is OFF by default.) ------------------ */
+/* ---- AI & tools (REAL — the durable MCP identity/policy/staged-writes slice + `mcp.*` commands,
+ * PLUS the client-side provider transport (ADR-021, closing the ADR-014 deferral). The POLICY layer:
+ * master enable, per-agent bindings/modes/allowlists, staged-proposal review and the audit trail all
+ * dispatch validated Core commands and persist. The TRANSPORT layer: a BYO-key Anthropic / OpenAI-
+ * compatible chat client (src/ai/) whose tool calls route through the SAME fail-closed agent
+ * pipeline — reads are actor-filtered, writes become the staged proposals reviewed below. Fail
+ * closed twice over: MCP is OFF by default, and with no API key every AI surface stays off. -------- */
 const MCP_MODE_LABEL: Record<McpPolicyMode, string> = {
 	disabled: 'Disabled',
 	strict_review: 'Strict review',
 	balanced: 'Balanced',
 	trusted_direct: 'Trusted direct',
 };
+
+/** The offered tool surface, projected once from the Core's declared registry (pure). */
+const AI_TOOL_SPECS = buildAiToolSpecs();
+
+/** Provider configuration — BYO key, device-local custody, fail-closed until complete. */
+function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => void }) {
+	const [settings, setSettings] = useState(() => getAiProviderSettings());
+	const [keyDraft, setKeyDraft] = useState('');
+	const [hasKey, setHasKey] = useState(() => getAiProviderKey() !== null);
+	const configured = isAiProviderConfigured();
+
+	const patch = (p: Partial<typeof settings>) => {
+		setSettings(saveAiProviderSettings(p));
+		onConfiguredChange();
+	};
+	const saveKey = () => {
+		if (keyDraft.trim() === '') return;
+		setAiProviderKey(keyDraft);
+		setKeyDraft('');
+		setHasKey(true);
+		Toaster.success('API key stored on this device.');
+		onConfiguredChange();
+	};
+	const forgetKey = () => {
+		clearAiProviderKey();
+		setHasKey(false);
+		Toaster.success('API key forgotten.');
+		onConfiguredChange();
+	};
+
+	return (
+		<Panel
+			title="AI provider"
+			action={<Badge status={configured ? 'success' : 'neutral'}>{configured ? 'Configured' : 'Not configured'}</Badge>}
+		>
+			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+				Bring your own key — this build ships no key and proxies nothing through a server. The key stays on this
+				device (memory + this browser session; OS-encrypted storage on desktop) and is never written to the
+				vault, the op-log, or cloud sync. Until a key is saved, every AI surface stays off.
+			</div>
+			<SetRow
+				label="Provider"
+				help="Anthropic's API directly, or any OpenAI-compatible endpoint (local runner, proxy, other vendor)."
+				control={
+					<Seg
+						value={settings.provider}
+						ariaLabel="AI provider"
+						onChange={(v) => {
+							const provider = v as AiProviderKind;
+							patch({ provider, model: provider === 'anthropic' ? DEFAULT_ANTHROPIC_MODEL : settings.model });
+						}}
+						options={[
+							{ value: 'anthropic', label: 'Anthropic' },
+							{ value: 'openai-compatible', label: 'OpenAI-compatible' },
+						]}
+					/>
+				}
+			/>
+			<SetRow
+				label="Model"
+				help={settings.provider === 'anthropic' ? `Defaults to ${DEFAULT_ANTHROPIC_MODEL}.` : 'The model id the endpoint expects.'}
+				control={
+					<span style={{ flex: '0 0 240px' }}>
+						<Input
+							value={settings.model}
+							aria-label="Model id"
+							onChange={(e: { target: { value: string } }) => patch({ model: e.target.value })}
+						/>
+					</span>
+				}
+			/>
+			{settings.provider === 'openai-compatible' && (
+				<SetRow
+					label="Base URL"
+					help="The API base, e.g. https://api.example.com/v1 — /chat/completions is appended."
+					control={
+						<span style={{ flex: '0 0 300px' }}>
+							<Input
+								value={settings.baseUrl}
+								aria-label="API base URL"
+								placeholder="https://api.example.com/v1"
+								onChange={(e: { target: { value: string } }) => patch({ baseUrl: e.target.value })}
+							/>
+						</span>
+					}
+				/>
+			)}
+			<SetRow
+				label="API key"
+				help={hasKey ? 'A key is stored on this device. Paste a new one to replace it.' : 'Paste your provider API key to turn the assistant on.'}
+				control={
+					<span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+						<span style={{ flex: '1 1 220px', minWidth: 180 }}>
+							<Input
+								type="password"
+								value={keyDraft}
+								aria-label="Provider API key"
+								placeholder={hasKey ? '••••••••  (stored)' : 'sk-…'}
+								onChange={(e: { target: { value: string } }) => setKeyDraft(e.target.value)}
+							/>
+						</span>
+						<Button variant="primary" size="sm" icon="check" disabled={keyDraft.trim() === ''} onClick={saveKey}>
+							Save key
+						</Button>
+						{hasKey && (
+							<Button variant="ghost" size="sm" icon="trash" onClick={forgetKey}>
+								Forget key
+							</Button>
+						)}
+					</span>
+				}
+			/>
+		</Panel>
+	);
+}
+
+/** One rendered assistant-feed entry (the user ask, assistant text, or a tool-call outcome). */
+type AssistantFeedItem = { kind: 'user'; text: string } | ({ kind: 'event' } & AssistantEvent);
+
+const TOOL_OUTCOME_BADGE: Record<string, { status: string; label: string }> = {
+	read: { status: 'info', label: 'read' },
+	staged: { status: 'warning', label: 'staged' },
+	'direct-write': { status: 'success', label: 'committed' },
+	denied: { status: 'error', label: 'denied' },
+	error: { status: 'error', label: 'failed' },
+};
+
+/**
+ * The assistant — one ask at a time, run AS a registered agent connection through the Core's
+ * fail-closed pipeline. Reads come back actor-filtered; writes surface as staged proposals in the
+ * review panel below. Disabled honestly (with the reason) until every prerequisite is real:
+ * provider key, MCP master switch, a registered binding, DM + not previewing.
+ */
+function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
+	const runtime = useRuntime();
+	const mcp = runtime.state.mcp;
+	const bindings = Object.values(mcp.bindings);
+	// `configured` re-reads on every render; the parent bumps its own state on a provider-config
+	// change (see SettingsAI), which re-renders this sibling — no local mirror of ai/ module state.
+	const configured = isAiProviderConfigured();
+	const [agentId, setAgentId] = useState<string>(bindings[0]?.agentId ?? '');
+	const [input, setInput] = useState('');
+	const [feed, setFeed] = useState<AssistantFeedItem[]>([]);
+	const [turns, setTurns] = useState<AiTurn[]>([]);
+	const [asking, setAsking] = useState(false);
+
+	const selectedAgent = mcp.bindings[agentId] ? agentId : (bindings[0]?.agentId ?? '');
+	const blocker = !configured
+		? 'Add a provider API key above to turn the assistant on.'
+		: !mcp.enabled
+			? 'Enable MCP above — the master switch gates every agent capability.'
+			: bindings.length === 0
+				? 'Register an agent connection below — the assistant speaks as a bound actor.'
+				: !canWrite
+					? 'The assistant is DM-only and unavailable while previewing.'
+					: null;
+
+	const ask = () => {
+		const text = input.trim();
+		if (text === '' || asking || blocker !== null || selectedAgent === '') return;
+		setAsking(true);
+		setInput('');
+		setFeed((prev) => [...prev, { kind: 'user', text }]);
+		const config = resolveAiProviderConfig();
+		void runAssistantExchange({
+			send: (req) => sendAiChat(config, req),
+			invoke: (toolId, toolInput) => runtime.invokeAgentTool({ agentId: selectedAgent, toolId, input: toolInput }),
+			tools: AI_TOOL_SPECS,
+			turns,
+			userText: text,
+		})
+			.then((result) => {
+				setTurns(result.turns);
+				setFeed((prev) => [...prev, ...result.events.map((event) => ({ kind: 'event' as const, ...event }))]);
+			})
+			.catch((e: unknown) => Toaster.error(errMsg(e, 'The assistant request failed.')))
+			.finally(() => setAsking(false));
+	};
+
+	return (
+		<Panel title="Assistant" action={asking ? <Badge status="info">Thinking…</Badge> : undefined}>
+			<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter }}>
+				Ask about the campaign. The assistant reads through the Core's actor-filtered tools as the agent you
+				pick, and anything it tries to write lands as a staged proposal in the review panel below — nothing
+				commits without you.
+			</div>
+			{blocker !== null ? (
+				<div style={{ padding: '9px 12px', borderRadius: 9, border: `1px solid ${T.bd}`, background: T.alt, font: `12px/1.6 ${T.sans}`, color: T.ter }}>
+					{blocker}
+				</div>
+			) : (
+				<>
+					{feed.length > 0 && (
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto', padding: '4px 0' }}>
+							{feed.map((item, i) => {
+								if (item.kind === 'user') {
+									return (
+										<div key={i} style={{ alignSelf: 'flex-end', maxWidth: '85%', padding: '7px 11px', borderRadius: 10, background: T.accSub, border: `1px solid ${T.accBd}`, font: `12.5px/1.55 ${T.sans}`, color: T.ink, whiteSpace: 'pre-wrap' }}>
+											{item.text}
+										</div>
+									);
+								}
+								if (item.type === 'text') {
+									return (
+										<div key={i} style={{ alignSelf: 'flex-start', maxWidth: '85%', padding: '7px 11px', borderRadius: 10, background: T.alt, border: `1px solid ${T.bd}`, font: `12.5px/1.55 ${T.sans}`, color: T.ink, whiteSpace: 'pre-wrap' }}>
+											{item.text}
+										</div>
+									);
+								}
+								const badge = TOOL_OUTCOME_BADGE[item.outcome] ?? TOOL_OUTCOME_BADGE.error;
+								return (
+									<div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, font: `11.5px ${T.sans}`, color: T.ter }}>
+										<Icon name="sparkle" size={13} color={T.ter} />
+										<span style={{ font: `11.5px ${T.mono}` }}>{item.toolId}</span>
+										<Badge status={badge.status}>{badge.label}</Badge>
+										<span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.detail}</span>
+									</div>
+								);
+							})}
+						</div>
+					)}
+					<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+						<span style={{ flex: '0 0 200px' }}>
+							<Select
+								aria-label="Agent connection the assistant speaks as"
+								value={selectedAgent}
+								disabled={asking}
+								onChange={(e: { target: { value: string } }) => setAgentId(e.target.value)}
+								options={bindings.map((b) => ({ value: b.agentId, label: b.label || b.agentId }))}
+							/>
+						</span>
+						<span style={{ flex: '1 1 240px', minWidth: 200 }}>
+							<Textarea
+								value={input}
+								rows={2}
+								aria-label="Ask the assistant"
+								placeholder="e.g. What loose threads should tonight's session pick up?"
+								disabled={asking}
+								onChange={(e: { target: { value: string } }) => setInput(e.target.value)}
+								onKeyDown={(e: { key: string; shiftKey: boolean; preventDefault: () => void }) => {
+									if (e.key === 'Enter' && !e.shiftKey) {
+										e.preventDefault();
+										ask();
+									}
+								}}
+							/>
+						</span>
+						<Button variant="primary" size="sm" icon="sparkle" disabled={asking || input.trim() === ''} onClick={ask}>
+							{asking ? 'Asking…' : 'Ask'}
+						</Button>
+					</div>
+				</>
+			)}
+		</Panel>
+	);
+}
 
 function SettingsAI() {
 	const runtime = useRuntime();
@@ -1342,6 +1731,9 @@ function SettingsAI() {
 	const isDm = runtime.state.permissions.actors[actorId]?.role === 'dm';
 	const canWrite = isDm && !runtime.preview;
 	const [busy, setBusy] = useState(false);
+	// Bumped when the provider panel saves/forgets a key so the assistant panel re-reads its
+	// configured state (the key lives in the ai/ module, not in Core state or React).
+	const [, bumpAiConfig] = useState(0);
 	const actors = Object.values(runtime.state.permissions.actors) as { id: string; role: string; displayName: string }[];
 
 	// Register-agent form (a binding names WHICH actor a future connection speaks as — no capability).
@@ -1429,6 +1821,10 @@ function SettingsAI() {
 					}
 				/>
 			</Panel>
+
+			<AiProviderPanel onConfiguredChange={() => bumpAiConfig((v) => v + 1)} />
+
+			<AiAssistantPanel canWrite={canWrite} />
 
 			<Panel title="Agent connections" action={<Badge status="neutral">{bindings.length}</Badge>}>
 				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 4 }}>

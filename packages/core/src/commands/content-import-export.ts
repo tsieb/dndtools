@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import {
 	commitContentImportInputSchema,
 	exportContentInputSchema,
@@ -57,7 +58,7 @@ function contentWith(state: CoreStateSlice, content: VaultContentState): CoreSta
 
 /** Vault-level authoring (import/export): DM only. Fail closed otherwise. */
 function actorMayAuthorVault(actor: Actor): boolean {
-	return actor.role === 'dm';
+	return hasDmAuthority(actor.role);
 }
 
 // --- CONTENT-007 — commit a transactional, resumable import --------------------------------------

@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { MapEntity, MapLayer, MapState } from '../state/map-state';
 import type { Actor, PermissionState } from '../state/permission-state';
@@ -155,7 +156,7 @@ function levelVisibleToActor(
 	actor: Actor,
 	delivered: boolean,
 ): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (level === 'dm-only') return false;
 	if (level === 'player-visible') return true;
 	return delivered; // `shared` requires explicit delivery.
@@ -221,7 +222,7 @@ export function getMapViewForActor(
 		return { kind: 'unavailable', mapId };
 	}
 
-	const isDm = actor.role === 'dm';
+	const isDm = hasDmAuthority(actor.role);
 
 	// Which layers the actor may see — the precedence root for every annotation on this map.
 	const visibleLayerIds = new Set<string>();

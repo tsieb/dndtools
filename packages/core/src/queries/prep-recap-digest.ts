@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
 import type { SessionArchiveSnapshot, SessionState } from '../state/session-state';
 import type { VaultContentState } from '../state/content';
@@ -187,7 +188,7 @@ export function getPrepRecapDigest(
 ): PrepRecapDigest {
 	const actor = permissions.actors[actorId];
 	// Hard DM-only gate: a non-DM (or unknown actor) never receives ANY digest content (fail closed).
-	if (!actor || actor.role !== 'dm') return emptyDigest(mode);
+	if (!actor || !hasDmAuthority(actor.role)) return emptyDigest(mode);
 
 	const format = options?.format ?? 'medium';
 	const recentLimit = options?.recentChangeLimit ?? DEFAULT_RECENT_CHANGE_LIMIT;

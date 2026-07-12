@@ -8,6 +8,12 @@ import {
 	widgetDockSchema,
 } from './scene';
 import { widgetPackageDefinitionSchema } from './widget-package';
+import { SCENE_CARD_FLAVOR_MAX_LENGTH } from '../state/scene-card';
+import {
+	CUSTOM_OBJECT_TYPE_ID_PATTERN,
+	CUSTOM_OBJECT_TYPE_MAX_FIELDS,
+	CUSTOM_OBJECT_TYPE_MAX_LABEL,
+} from '../state/custom-object-type';
 
 const idSchema = z.string().min(1);
 
@@ -317,6 +323,85 @@ export const deletePlayerGroupInputSchema = z
 		groupId: idSchema,
 	})
 	.strict();
+
+// I11 S11.2.1–S11.2.4 — SCENE CARD (atmosphere) command inputs. All DM-only (authority enforced in the
+// reducer). A card is presentation content only (title/mood/hero image/flavor/audio ref/visibility); the
+// queue + active display + player push live on the same slice. Enums mirror the closed sets in
+// `state/scene-card.ts`; flavor is bounded to SCENE_CARD_FLAVOR_MAX_LENGTH.
+const sceneCardMoodSchema = z.enum(['combat', 'exploration', 'mystery', 'social', 'rest']);
+const sceneCardVisibilitySchema = z.enum(['dm-only', 'player-visible']);
+const sceneCardTransitionStyleSchema = z.enum(['crossfade', 'slide', 'cut']);
+const sceneCardHeroImageSchema = z
+	.object({
+		kind: z.enum(['vault-asset', 'url']),
+		ref: z.string().min(1),
+	})
+	.strict();
+const sceneCardFlavorSchema = z.string().max(SCENE_CARD_FLAVOR_MAX_LENGTH);
+
+export const createSceneCardInputSchema = z
+	.object({
+		/** Reuse an existing id (idempotent create) or omit to mint a new one. */
+		cardId: idSchema.optional(),
+		title: z.string().min(1, 'A scene card needs a title.'),
+		mood: sceneCardMoodSchema.default('exploration'),
+		heroImage: z.union([z.null(), sceneCardHeroImageSchema]).default(null),
+		flavorText: sceneCardFlavorSchema.default(''),
+		audioAssociationId: z.union([z.null(), idSchema]).default(null),
+		visibility: sceneCardVisibilitySchema.default('dm-only'),
+	})
+	.strict();
+
+export const updateSceneCardInputSchema = z
+	.object({
+		cardId: idSchema,
+		title: z.string().min(1).optional(),
+		mood: sceneCardMoodSchema.optional(),
+		/** Provide `null` to clear the hero image; omit to leave unchanged. */
+		heroImage: z.union([z.null(), sceneCardHeroImageSchema]).optional(),
+		flavorText: sceneCardFlavorSchema.optional(),
+		/** Provide `null` to clear the audio cue; omit to leave unchanged. */
+		audioAssociationId: z.union([z.null(), idSchema]).optional(),
+	})
+	.strict();
+
+export const deleteSceneCardInputSchema = z.object({ cardId: idSchema }).strict();
+
+export const restoreSceneCardInputSchema = z.object({ cardId: idSchema }).strict();
+
+export const setSceneCardVisibilityInputSchema = z
+	.object({
+		cardId: idSchema,
+		visibility: sceneCardVisibilitySchema,
+	})
+	.strict();
+
+// Activate a card onto the display (or `null` to clear the display). A player-visible activation pushes.
+export const activateSceneCardInputSchema = z
+	.object({
+		cardId: z.union([z.null(), idSchema]),
+	})
+	.strict();
+
+export const setSceneCardTransitionInputSchema = z
+	.object({
+		transitionStyle: sceneCardTransitionStyleSchema,
+	})
+	.strict();
+
+export const enqueueSceneCardInputSchema = z.object({ cardId: idSchema }).strict();
+
+export const dequeueSceneCardInputSchema = z.object({ cardId: idSchema }).strict();
+
+// Full replacement of the queue order (a permutation of currently-queued live cards).
+export const reorderSceneCardQueueInputSchema = z
+	.object({
+		queue: z.array(idSchema),
+	})
+	.strict();
+
+// Advance the queue: activate the head card and remove it from the queue. No arguments.
+export const advanceSceneCardQueueInputSchema = z.object({}).strict();
 
 export const setSessionWorkflowInputSchema = z
 	.object({
@@ -1098,6 +1183,20 @@ export const transferOwnershipInputSchema = z
 	})
 	.strict();
 
+// PERM-011 (Co-DM) — assign a BASE ROLE to an existing participant actor. Owner-only (the DM);
+// the reducer refuses to touch the owner's own row or to mint/settle a `dm` role (ownership moves
+// only through `permission.transfer-ownership`). The assignable roles are the non-owner base roles.
+// `coDmSeatLimit` is the caller's plan entitlement (co-DM seats): the reducer fails closed when
+// promoting to `co-dm` would exceed it, so an over-seat promotion can never be replayed in.
+export const assignRoleInputSchema = z
+	.object({
+		targetActorId: idSchema,
+		role: z.enum(['co-dm', 'player', 'observer']),
+		/** Plan entitlement for co-DM seats (0 on plans without them). Enforced only for `co-dm`. */
+		coDmSeatLimit: z.number().int().nonnegative().default(0),
+	})
+	.strict();
+
 // --- CHAR-001 / CHAR-002 / CHAR-013 — character command input schemas ---------------------------
 
 const characterVisibilitySchema = z.enum(['dm-only', 'player-visible', 'shared']);
@@ -1485,12 +1584,15 @@ export const setMarchingOrderInputSchema = z
 	})
 	.strict();
 
-// CHAR-011 — add/update a party-inventory item. DM-only. Visibility fails closed to `dm-only`.
+// CHAR-011 / I10 S10.4.2 — add/update a party-inventory item. DM-only. Visibility fails closed to
+// `dm-only`. Optional structured `quantity`/`weight` (S10.4.2) drive the stash encumbrance baseline.
 export const upsertPartyInventoryItemInputSchema = z
 	.object({
 		id: idSchema.optional(),
 		name: z.string().min(1, 'Item name is required'),
 		detail: z.string().default(''),
+		quantity: z.number().int().min(0).optional(),
+		weight: z.number().min(0).optional(),
 		visibility: characterVisibilitySchema.default('dm-only'),
 		sharedWith: z.array(idSchema).default([]),
 	})
@@ -1500,6 +1602,102 @@ export const upsertPartyInventoryItemInputSchema = z
 export const removePartyInventoryItemInputSchema = z
 	.object({
 		itemId: idSchema,
+	})
+	.strict();
+
+// --- I10 S10.1.3 / S10.4.2 — structured equipment / currency / encumbrance ----------------------
+
+// The five 5e coin denominations. Every field optional so a currency command carries only the coins
+// it changes (set replaces them; adjust applies signed deltas — see setCurrencyInputSchema).
+const currencySetSchema = z
+	.object({
+		cp: z.number().int().min(0).optional(),
+		sp: z.number().int().min(0).optional(),
+		ep: z.number().int().min(0).optional(),
+		gp: z.number().int().min(0).optional(),
+		pp: z.number().int().min(0).optional(),
+	})
+	.strict();
+
+const currencyAdjustSchema = z
+	.object({
+		cp: z.number().int().optional(),
+		sp: z.number().int().optional(),
+		ep: z.number().int().optional(),
+		gp: z.number().int().optional(),
+		pp: z.number().int().optional(),
+	})
+	.strict();
+
+// Optional armor metadata: an equipped item with `armor` set contributes to the derived AC (S10.1.3).
+const equipmentArmorSchema = z
+	.object({
+		category: z.enum(['light', 'medium', 'heavy', 'shield']),
+		baseAc: z.number().int().min(0).max(40),
+		addDex: z.boolean(),
+		maxDexBonus: z.number().int().min(0).max(20).nullable(),
+	})
+	.strict();
+
+// S10.1.3 — add/update an equipment item (owner or DM). No `id` ⇒ a NEW item (the handler assigns
+// one); an id ⇒ PATCH the item in place (an omitted optional field preserves its value).
+export const upsertEquipmentItemInputSchema = z
+	.object({
+		characterId: idSchema,
+		id: idSchema.optional(),
+		name: z.string().min(1, 'Item name is required').max(120),
+		quantity: z.number().int().min(0).optional(),
+		weight: z.number().min(0).optional(),
+		equipped: z.boolean().optional(),
+		attuned: z.boolean().optional(),
+		vaultObjectId: idSchema.nullable().optional(),
+		container: z.string().max(80).nullable().optional(),
+		armor: equipmentArmorSchema.nullable().optional(),
+		notes: z.string().max(500).optional(),
+	})
+	.strict();
+
+// S10.1.3 — remove an equipment item (owner or DM).
+export const removeEquipmentItemInputSchema = z
+	.object({
+		characterId: idSchema,
+		itemId: idSchema,
+	})
+	.strict();
+
+// S10.1.3 — move an equipment item to a container/slot (or `null` for loose). Owner or DM.
+export const moveEquipmentItemInputSchema = z
+	.object({
+		characterId: idSchema,
+		itemId: idSchema,
+		container: z.string().max(80).nullable(),
+	})
+	.strict();
+
+// S10.1.3 — set or adjust a character's coin purse (owner or DM). `set` replaces the supplied
+// denominations; `adjust` applies signed deltas (fail-closed on insufficient funds). `consolidate`
+// re-expresses the purse in the fewest coins afterwards.
+export const setCurrencyInputSchema = z
+	.object({
+		characterId: idSchema,
+		mode: z.enum(['set', 'adjust']).default('set'),
+		currency: z.union([currencySetSchema, currencyAdjustSchema]).optional(),
+		consolidate: z.boolean().optional(),
+	})
+	.strict()
+	.refine((value) => value.currency !== undefined || value.consolidate === true, {
+		message: 'Provide currency changes and/or consolidate.',
+	});
+
+// S10.4.2 — CLAIM an item from the shared party stash into a character's personal equipment. Any
+// connected participant may do this for a character they may edit (owner or DM). The item leaves the
+// stash and becomes an equipment line on the character.
+export const claimPartyInventoryItemInputSchema = z
+	.object({
+		characterId: idSchema,
+		itemId: idSchema,
+		/** How many to claim; defaults to the whole stack. Fewer ⇒ the stash keeps the remainder. */
+		quantity: z.number().int().min(1).optional(),
 	})
 	.strict();
 
@@ -1745,12 +1943,21 @@ const vaultObjectSubtypeSchema = z.enum([
 	'spell',
 ]);
 
+// A USER-DEFINED (custom) object-type id: the reserved `custom:<slug>` namespace, distinct from every
+// built-in subtype. The type's EXISTENCE is enforced at dispatch (it must resolve in the custom registry,
+// else `object-schema-invalid`); this only admits the well-formed shape so an instance can name a custom type.
+const customObjectTypeIdSchema = z.string().regex(CUSTOM_OBJECT_TYPE_ID_PATTERN);
+
+// The subtype an instance names: a built-in subtype OR a well-formed custom type id (both flow through the
+// same schema-validated create/update path).
+const vaultObjectInstanceSubtypeSchema = z.union([vaultObjectSubtypeSchema, customObjectTypeIdSchema]);
+
 // CONTENT-005 — create a structured Vault Object as a note-backed content item (DM-only authoring). The
 // frontmatter `fields` are validated against the subtype schema at dispatch (fail closed); the body is the
 // markdown prose. Visibility fails closed to the subtype default (dm-only) when omitted.
 export const createVaultObjectInputSchema = z
 	.object({
-		subtype: vaultObjectSubtypeSchema,
+		subtype: vaultObjectInstanceSubtypeSchema,
 		title: z.string().min(1, 'A title is required'),
 		fields: z.record(z.string(), z.unknown()).default({}),
 		body: z.string().default(''),
@@ -1774,6 +1981,53 @@ export const updateVaultObjectInputSchema = z
 		(value) => value.title !== undefined || value.fields !== undefined || value.body !== undefined,
 		{ message: 'Provide at least one field to update.' },
 	);
+
+// --- CONTENT-005 (custom types) — user-defined object types --------------------------------------
+
+// One declared field of a custom object type. `type` is admitted as a string here and validated against the
+// CLOSED field-kind set at dispatch (so the authoring UI gets a precise `unknown-field-kind` issue rather
+// than an opaque zod enum error). Key/uniqueness/reserved-key checks also run in the state validator.
+const customObjectFieldDraftSchema = z
+	.object({
+		key: z.string().min(1, 'A field key is required'),
+		type: z.string().min(1, 'A field kind is required'),
+		required: z.boolean().optional(),
+		description: z.string().optional(),
+		dmOnly: z.boolean().optional(),
+	})
+	.strict();
+
+// CONTENT-005 — DEFINE a new user-defined object type (DM-only). The id must be a well-formed `custom:<slug>`
+// (it can never collide with a built-in subtype); the full draft is structurally validated at dispatch and a
+// define is refused fail-closed if a type already exists under the id.
+export const defineCustomObjectTypeInputSchema = z
+	.object({
+		id: customObjectTypeIdSchema,
+		label: z.string().min(1, 'A type label is required').max(CUSTOM_OBJECT_TYPE_MAX_LABEL),
+		fields: z.array(customObjectFieldDraftSchema).max(CUSTOM_OBJECT_TYPE_MAX_FIELDS).default([]),
+		defaultVisibility: contentVisibilitySchema.optional(),
+	})
+	.strict();
+
+// CONTENT-005 — UPDATE an existing user-defined object type (DM-only). Replaces the label / field schema /
+// default visibility of the type at `id`; the definition's revision is bumped and its createdAt/author are
+// preserved. The target must already exist.
+export const updateCustomObjectTypeInputSchema = z
+	.object({
+		id: customObjectTypeIdSchema,
+		label: z.string().min(1, 'A type label is required').max(CUSTOM_OBJECT_TYPE_MAX_LABEL),
+		fields: z.array(customObjectFieldDraftSchema).max(CUSTOM_OBJECT_TYPE_MAX_FIELDS).default([]),
+		defaultVisibility: contentVisibilitySchema.optional(),
+	})
+	.strict();
+
+// CONTENT-005 — DELETE a user-defined object type (DM-only). Refused fail-closed while any LIVE instance of
+// the type still exists (never orphans an instance); the DM must remove the instances first.
+export const deleteCustomObjectTypeInputSchema = z
+	.object({
+		id: customObjectTypeIdSchema,
+	})
+	.strict();
 
 // --- CONTENT-006 — wikilink lifecycle (rename-propagation, repair) ------------------------------
 
@@ -2412,6 +2666,42 @@ export const setAudioOutputDeviceInputSchema = z
 	.object({
 		deviceId: z.union([z.literal(null), z.string().min(1)]),
 		label: z.string().min(1).optional(),
+	})
+	.strict();
+
+// AUDIO-014 (Epic 11.3) — APPLY an audio PRESET / scene package to the SESSION-OWNED audio (DM-only). The
+// preset id resolves to a built-in library preset OR a user preset; the handler drives the SAME session
+// audio model (primary track + ambience layers) through the EXISTING AUDIO-009/010/004 gates, fail closed —
+// only a layer bound to a ready, licensed, available source becomes audible (never a guessed track). The
+// optional device inputs feed the AUDIO-010 availability gate (default online + locally available).
+export const applyAudioPresetInputSchema = z
+	.object({
+		presetId: idSchema,
+		assetLocallyAvailable: z.boolean().optional(),
+		assetCached: z.boolean().optional(),
+		cacheEvicted: z.boolean().optional(),
+		online: z.boolean().optional(),
+	})
+	.strict();
+
+// AUDIO-014 (Epic 11.3) — SAVE the CURRENT session audio (primary track + ambience layers) as a named,
+// categorized USER preset / scene package (DM-only). `presetId` optional: absent creates a new preset;
+// present UPDATES an existing user preset (a built-in id is refused). The category is validated by the
+// fail-closed `buildAudioPreset` builder (an undeclared category is rejected), never here.
+export const saveAudioPresetInputSchema = z
+	.object({
+		name: z.string().min(1).max(120),
+		category: z.string().min(1),
+		presetId: idSchema.optional(),
+	})
+	.strict();
+
+// AUDIO-014 (Epic 11.3) — DELETE a USER audio preset / scene package by id (DM-only). Fail closed: a
+// built-in preset id is refused (shipped code, non-deletable — copy to customize) and an unknown id is
+// rejected (nothing to remove).
+export const deleteAudioPresetInputSchema = z
+	.object({
+		presetId: idSchema,
 	})
 	.strict();
 

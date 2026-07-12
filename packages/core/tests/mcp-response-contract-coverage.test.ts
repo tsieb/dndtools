@@ -42,6 +42,7 @@ const VALID_INPUT: Record<string, unknown> = {
 	'bundle.coverage-gaps': { referenceInstant: '2026-06-05T00:00:00.000Z' },
 	'bundle.campaign-health': { referenceInstant: '2026-06-05T00:00:00.000Z' },
 	'note.create': { title: 'Drafted', body: 'by the agent' },
+	'create_scene_card': { title: 'Ambush at the Bridge', mood: 'combat', flavorText: 'Steel rings.' },
 };
 
 /** An invalid input per tool (mirrors the MCP-005 coverage manifest's rejected inputs). */
@@ -61,6 +62,7 @@ const INVALID_INPUT: Record<string, unknown> = {
 	'bundle.coverage-gaps': {}, // missing required referenceInstant
 	'bundle.campaign-health': { referenceInstant: 123 },
 	'note.create': { title: '' },
+	'create_scene_card': { title: '' },
 };
 
 function run(toolId: string, input: unknown, actorId: string): McpToolResult {

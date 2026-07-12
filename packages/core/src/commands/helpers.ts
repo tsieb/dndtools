@@ -1,6 +1,7 @@
 import type { ZodError, ZodType } from 'zod';
 import type { CommandRejection, CoreEnvironment, CoreStateSlice } from './types';
 import type { Actor, PermissionState } from '../state/permission-state';
+import { hasDmAuthority, isCampaignOwnerRole } from '../state/permission-state';
 import type { Scene, SceneState, WidgetInstance } from '../state/scene-state';
 import type { ActorId } from '../state/ids';
 import { appendOperation, type OperationLog, type SyncOperation } from '../sync/operation-log';
@@ -12,6 +13,7 @@ import { SESSION_STATE_SCHEMA_VERSION } from '../state/session-state';
 import { ensureSessionAudioState } from '../state/session-audio';
 import { ensurePlayerGroups } from '../state/player-group';
 import { ensureCalendarContinuityState } from '../state/calendar-continuity';
+import { ensureSceneCardState } from '../state/scene-card';
 import { ensureSessionCombatState } from '../state/combat-tracker';
 import type { EncounterState } from '../state/encounter';
 import { ensureEncounterState } from '../state/encounter';
@@ -43,9 +45,29 @@ export function requireActor(state: CoreStateSlice, actorId: ActorId): Actor | C
 	return actor;
 }
 
+/**
+ * DM-grade AUTHORING authority: the DM or a co-DM. Every "DM-only" command that is campaign
+ * authoring (scenes, content, session control, combat, …) gates here, so a co-DM can run the
+ * table like a DM. Owner-scoped administration must use {@link requireCampaignOwner} instead.
+ */
 export function requireDm(actor: Actor): CommandRejection | null {
-	if (actor.role !== 'dm') {
+	if (!hasDmAuthority(actor.role)) {
 		return { code: 'actor-not-authorized', message: 'Only the DM may perform this action.' };
+	}
+	return null;
+}
+
+/**
+ * Campaign-OWNER authority: the DM only, never a co-DM. Gates the powers that administer the
+ * permission model itself — role assignment, grants/revokes/transfers (and, app-side, invites and
+ * vault/account settings) — so a co-DM can never widen anyone's access, including their own.
+ */
+export function requireCampaignOwner(actor: Actor): CommandRejection | null {
+	if (!isCampaignOwnerRole(actor.role)) {
+		return {
+			code: 'actor-not-authorized',
+			message: 'Only the campaign owner (DM) may perform this action.',
+		};
 	}
 	return null;
 }
@@ -260,6 +282,10 @@ export function ensureSessionState(state: SessionState | undefined): SessionStat
 		// SES-012 — hydrate campaign calendar continuity fail-closed: a session document persisted before
 		// this slice restores with no current date and no links (never undefined).
 		calendarContinuity: ensureCalendarContinuityState(state?.calendarContinuity),
+		// I11 S11.2 — hydrate scene cards fail-closed: a session document persisted before this slice
+		// restores with no cards/queue/history (never undefined), and a corrupt record collapses to
+		// dm-only/exploration/crossfade with dangling queue/active/push refs dropped.
+		sceneCards: ensureSceneCardState(state?.sceneCards),
 		recapArchiveId: state?.recapArchiveId ?? null,
 		archives: state?.archives ?? {},
 		schemaVersion: SESSION_STATE_SCHEMA_VERSION,

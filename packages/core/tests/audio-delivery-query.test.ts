@@ -64,6 +64,7 @@ function library(): AudioState {
 		sources: { [source.id]: source },
 		automationRules: {},
 		associations: {},
+		presets: {},
 		schemaVersion: 1,
 	};
 }

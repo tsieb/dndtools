@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import {
 	createContentItemInputSchema,
 	defineCalendarInputSchema,
@@ -62,7 +63,7 @@ function contentWith(state: CoreStateSlice, content: VaultContentState): CoreSta
 
 /** Vault-level authoring (define calendar / create item): DM only. Fail closed otherwise. */
 function actorMayAuthorVault(actor: Actor): boolean {
-	return actor.role === 'dm';
+	return hasDmAuthority(actor.role);
 }
 
 /**

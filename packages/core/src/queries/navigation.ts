@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { ActorRole, PermissionState } from '../state/permission-state';
 import { DEEP_LINK_UNAVAILABLE_MESSAGE } from './deep-links';
@@ -228,7 +229,7 @@ export function resolveSectionRouteAccess(
 	const dmOnlyCapability = !section.availability.player && !section.availability.observer;
 	if (!dmOnlyCapability) return { kind: 'available' };
 	const role = roleOf(permission, actorId);
-	if (role === 'dm') return { kind: 'available' };
+	if (hasDmAuthority(role)) return { kind: 'available' };
 	return { kind: 'unavailable', message: DEEP_LINK_UNAVAILABLE_MESSAGE };
 }
 

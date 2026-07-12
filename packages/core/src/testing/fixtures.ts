@@ -103,6 +103,14 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 			},
 			playerGroups: { ...EMPTY_SESSION_STATE.playerGroups },
 			calendarContinuity: { ...EMPTY_SESSION_STATE.calendarContinuity },
+			sceneCards: {
+				cards: { ...EMPTY_SESSION_STATE.sceneCards.cards },
+				queue: [...EMPTY_SESSION_STATE.sceneCards.queue],
+				activeCardId: EMPTY_SESSION_STATE.sceneCards.activeCardId,
+				transitionStyle: EMPTY_SESSION_STATE.sceneCards.transitionStyle,
+				pushHistory: [...EMPTY_SESSION_STATE.sceneCards.pushHistory],
+				schemaVersion: EMPTY_SESSION_STATE.sceneCards.schemaVersion,
+			},
 			recapArchiveId: EMPTY_SESSION_STATE.recapArchiveId,
 			archives: { ...EMPTY_SESSION_STATE.archives },
 			schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
@@ -122,6 +130,7 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 			calendars: { ...EMPTY_VAULT_CONTENT_STATE.calendars },
 			items: { ...EMPTY_VAULT_CONTENT_STATE.items },
 			savedSearches: { ...EMPTY_VAULT_CONTENT_STATE.savedSearches },
+			customObjectTypes: { ...EMPTY_VAULT_CONTENT_STATE.customObjectTypes },
 			schemaVersion: EMPTY_VAULT_CONTENT_STATE.schemaVersion,
 		},
 		encounters: {
@@ -133,6 +142,7 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 			sources: { ...EMPTY_AUDIO_STATE.sources },
 			automationRules: { ...EMPTY_AUDIO_STATE.automationRules },
 			associations: { ...EMPTY_AUDIO_STATE.associations },
+			presets: { ...EMPTY_AUDIO_STATE.presets },
 			schemaVersion: EMPTY_AUDIO_STATE.schemaVersion,
 		},
 		mcp: {

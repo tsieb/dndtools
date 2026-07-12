@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { Actor, PermissionState } from '../state/permission-state';
 import type { Character, CharacterState } from '../state/character-state';
 import {
@@ -92,7 +93,7 @@ export interface CollaborativeCharacterView {
  * the value list, the history, OR the conflict list.
  */
 function fieldVisibleToActor(character: Character, actor: Actor, path: CharacterFieldPath): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	return !isDmOnlyFieldPath(character, path);
 }
 
@@ -155,7 +156,7 @@ export function getCollaborativeCharacterView(
 	if (!characterVisibleToActor(character, actor, permissions)) return null;
 
 	const collaboration = ensureCollaboration(character.collaboration);
-	const isDm = actor.role === 'dm';
+	const isDm = hasDmAuthority(actor.role);
 
 	const unresolvedByPath = new Set(
 		collaboration.conflicts.filter((c) => c.resolvedAt === null).map((c) => c.path),
@@ -167,7 +168,7 @@ export function getCollaborativeCharacterView(
 		// attribution, not even the path. So the field list cannot reveal a hidden field's existence.
 		if (!fieldVisibleToActor(character, actor, path)) continue;
 		const author = collaboration.fieldAuthors[path];
-		const dmAuthored = author?.authorRole === 'dm';
+		const dmAuthored = hasDmAuthority(author?.authorRole);
 		const authorKind: FieldAuthorKind = !author
 			? 'original'
 			: dmAuthored

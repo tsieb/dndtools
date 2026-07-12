@@ -46,18 +46,75 @@ export interface ModuleWithPackage extends ModuleListing {
   package: unknown;
 }
 
+/** The seat an invite grants. Absent/`player` is an ordinary seat; `co-dm` is the elevated seat. */
+export type InviteRole = 'player' | 'co-dm';
+
+// --- campaign wiki ------------------------------------------------------------------------
+export type WikiAccess = 'public' | 'unlisted' | 'password';
+export const WIKI_ACCESS_VALUES: readonly WikiAccess[] = ['public', 'unlisted', 'password'] as const;
+
+/** One player-safe wiki page: text only — the reader renders markdown as React nodes. */
+export interface WikiPage {
+  slug: string;
+  title: string;
+  markdown: string;
+  updatedAt?: string;
+}
+
+/** The owner's published-wiki status (never contains page content). */
+export interface WikiStatus {
+  /** Stable high-entropy id minted at first publish — survives re-publishes. */
+  wikiId: string;
+  title: string;
+  access: WikiAccess;
+  pageCount: number;
+  size: number;
+  publishedAt: string;
+  updatedAt: string;
+}
+
+/** A published wiki as served to anonymous readers (never carries the owner's identity). */
+export interface PublicWiki {
+  wikiId: string;
+  title: string;
+  access: WikiAccess;
+  publishedAt: string;
+  updatedAt: string;
+  pageCount: number;
+  pages: WikiPage[];
+}
+
 export interface Invite {
   inviteId: string;
   token: string;
   campaignName: string;
   note: string;
+  /** The seat this invite grants (defaults to `player` when the server omits it). */
+  role: InviteRole;
   createdAt: string;
   /** Epoch seconds (14-day TTL). */
   expiresAt: number;
 }
+
+/**
+ * Outcome of the OPTIONAL invite-email delivery. The link + QR always work regardless:
+ *  • `none`           — no recipient was supplied (link-only invite).
+ *  • `sent`           — SES accepted the message (`emailedTo` echoes the address).
+ *  • `not-configured` — this deployment has no verified sender wired in — share the link.
+ *  • `failed`         — SES rejected the send (unverified/sandbox) — share the link.
+ */
+export type InviteEmailStatus = 'none' | 'sent' | 'not-configured' | 'failed';
+
+/** createInvite result — the minted Invite plus the (best-effort) email-delivery status. */
+export interface CreateInviteResult extends Invite {
+  emailStatus: InviteEmailStatus;
+  /** Present only when emailStatus === 'sent' — the address the invite went to. */
+  emailedTo?: string;
+}
 export interface ResolvedInvite {
   campaignName: string;
   note: string;
+  role: InviteRole;
   invitedBy: string;
   expiresAt: number;
 }
@@ -165,9 +222,71 @@ export async function deleteModule(moduleId: string): Promise<void> {
   });
 }
 
+// --- Campaign wiki ---------------------------------------------------------------------------
+/** Publish (or re-publish — same stable wikiId) the player-safe page bundle. Beacon-plan gated
+ *  server-side; `password` is required exactly when `access === 'password'`. */
+export function publishWiki(input: {
+  title: string;
+  access: WikiAccess;
+  pages: WikiPage[];
+  password?: string;
+}): Promise<WikiStatus> {
+  return authedFetch<WikiStatus>('/wiki', { method: 'PUT', body: JSON.stringify(input) });
+}
+
+/** The caller's own published-wiki status, or null when nothing is published. */
+export async function getMyWiki(): Promise<WikiStatus | null> {
+  try {
+    return await authedFetch<WikiStatus>('/wiki');
+  } catch (e) {
+    if (e instanceof AppApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
+/** Unpublish: the public wiki page dies immediately; local content is untouched. */
+export async function unpublishWiki(): Promise<void> {
+  await authedFetch<{ ok: true }>('/wiki', { method: 'DELETE' });
+}
+
+/** UNAUTHENTICATED — readers need no account. Needs only the API URL. A password-protected
+ *  wiki answers 401 until the right password rides the x-wiki-password header. */
+export async function getPublicWiki(wikiId: string, password?: string): Promise<PublicWiki> {
+  if (!cloudConfig.appApiUrl)
+    throw new AppApiError('Cloud account backend is not configured for this build.', 'not-configured');
+  let res: Response;
+  try {
+    res = await fetch(`${base()}/wikis/${encodeURIComponent(wikiId)}`, {
+      headers: password ? { 'x-wiki-password': password } : {},
+    });
+  } catch {
+    throw new AppApiError('Could not reach the cloud service — check your connection.', 'network');
+  }
+  if (res.status === 401)
+    throw new AppApiError(
+      password ? 'That password is not right — try again.' : 'This wiki is password-protected.',
+      'http',
+      401,
+    );
+  if (res.status === 404 || res.status === 410)
+    throw new AppApiError('This wiki link is invalid or the wiki was unpublished.', 'http', res.status);
+  return parse<PublicWiki>(res);
+}
+
 // --- Invites --------------------------------------------------------------------------------
-export function createInvite(input: { campaignName: string; note?: string }): Promise<Invite> {
-  return authedFetch<Invite>('/invites', post(input));
+/**
+ * Mint a server-side join link (+ token the UI renders as a QR). `email` is OPTIONAL: when
+ * supplied the backend also tries to send the invite via SES — but delivery is best-effort,
+ * so the link/QR are returned no matter what and `emailStatus` reports whether the mail went.
+ * `role` selects the seat the invite grants (defaults to a plain player seat server-side).
+ */
+export function createInvite(input: {
+  campaignName: string;
+  note?: string;
+  email?: string;
+  role?: InviteRole;
+}): Promise<CreateInviteResult> {
+  return authedFetch<CreateInviteResult>('/invites', post(input));
 }
 
 export async function listInvites(): Promise<Invite[]> {

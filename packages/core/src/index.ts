@@ -11,6 +11,9 @@ export {
 	EMPTY_PERMISSION_STATE,
 	PERMISSION_STATE_SCHEMA_VERSION,
 	getActor,
+	hasDmAuthority,
+	isCampaignOwnerRole,
+	countCoDmActors,
 } from './state/permission-state';
 
 export type {
@@ -2189,6 +2192,49 @@ export {
 	upsertPartyInventoryItem,
 } from './state/character-state';
 
+// I10 S10.1.3 / S10.4.2: the durable STRUCTURED EQUIPMENT / CURRENCY model plus the PURE deterministic
+// policy that mutates and derives it — equipment items (qty/weight/equipped/armor), the five-coin purse,
+// and the DERIVED carried weight / encumbrance band / computed AC (never stored, so they cannot drift).
+export type {
+	ArmorCategory,
+	CharacterInventory,
+	CoinType,
+	CurrencyError,
+	CurrencyPurse,
+	EncumbranceLevel,
+	EncumbranceState,
+	EquipmentArmor,
+	EquipmentError,
+	EquipmentItem,
+	UpsertEquipmentInput,
+} from './state/character-inventory';
+export {
+	CHARACTER_INVENTORY_SCHEMA_VERSION,
+	COINS_PER_POUND,
+	COIN_TYPES,
+	COIN_VALUE_CP,
+	EMPTY_CHARACTER_INVENTORY,
+	EMPTY_CURRENCY,
+	adjustCurrency,
+	carriedItemWeight,
+	coinCount,
+	coinWeight,
+	computeEncumbrance,
+	consolidateCurrency,
+	currencyValueCp,
+	currencyValueGp,
+	derivedArmorClass,
+	effectiveStrength,
+	encumbranceLevelFor,
+	ensureCharacterInventory,
+	ensureCurrency,
+	inventoryOf,
+	moveEquipmentItem,
+	removeEquipmentItem,
+	setCurrency,
+	upsertEquipmentItem,
+} from './state/character-inventory';
+
 // CHAR-012 / CHAR-016: the durable CHARACTER JOURNAL model — per-character entries (bookmarks, NPC
 // impressions, personal quests, session highlights) each carrying their OWN canonical visibility.
 // A new entry fails closed to `shared`-to-owner (owner-readable, DM-auditable, NOT player-visible).
@@ -2289,10 +2335,14 @@ export {
 	calendarById,
 	contentItemById,
 	contentItemVisibilityMetadata,
+	countObjectsOfSubtype,
+	customObjectTypeById,
+	defineCustomObjectType,
 	ensureVaultContentState,
 	isLiveContentItem,
 	liveContentItems,
 	removeContentEmbed,
+	removeCustomObjectType,
 	restoreContentItem,
 	setContentFieldVisibility,
 	setContentItemVisibility,
@@ -3101,6 +3151,48 @@ export {
 	validateObjectFrontmatter,
 } from './state/vault-object';
 
+// CONTENT-005 (custom types): USER-DEFINED VAULT OBJECT TYPES — the DM's own object types, first-class
+// alongside the built-in subtypes. A custom type is a durable definition (id in the reserved `custom:`
+// namespace so it can never collide with a built-in, a label, and an ordered field schema) that PROJECTS to
+// a `VaultObjectSchema`, so its instances flow through the SAME validate/sync/project path a built-in uses.
+// Defined/updated/deleted through the DM-only `content.*-object-type` commands; delete is refused while any
+// live instance still references the type (fail closed — never orphan an instance).
+export type {
+	CustomObjectFieldDefinition,
+	CustomObjectTypeDefinition,
+	CustomObjectTypeDraft,
+	CustomObjectTypeIssue,
+	CustomObjectTypeIssueCode,
+	CustomObjectTypeMap,
+	CustomObjectTypeSummary,
+	CustomObjectTypeValidationResult,
+} from './state/custom-object-type';
+export {
+	CUSTOM_OBJECT_FIELD_KEY_PATTERN,
+	CUSTOM_OBJECT_TYPE_ENTITY_TYPE,
+	CUSTOM_OBJECT_TYPE_ID_PATTERN,
+	CUSTOM_OBJECT_TYPE_ID_PREFIX,
+	CUSTOM_OBJECT_TYPE_MAX_FIELDS,
+	CUSTOM_OBJECT_TYPE_MAX_LABEL,
+	CUSTOM_OBJECT_TYPE_SCHEMA_VERSION,
+	RESERVED_BUILTIN_SUBTYPE_IDS,
+	buildCustomObjectType,
+	buildCustomObjectTypeSchemaRegistry,
+	customObjectTypeToSchema,
+	ensureCustomObjectTypeMap,
+	isCustomObjectTypeId,
+	listCustomObjectTypeSummaries,
+	summarizeCustomObjectType,
+	suggestCustomObjectTypeId,
+	validateCustomObjectTypeDefinition,
+} from './state/custom-object-type';
+export {
+	VAULT_OBJECT_FIELD_TYPES,
+	isVaultObjectFieldType,
+	resolveVaultObjectSchema,
+} from './state/vault-object-schema';
+export type { VaultObjectSchemaRegistry } from './state/vault-object-schema';
+
 // CONTENT-006: the PURE WIKILINK LIFECYCLE engine — create / resolve / rename-propagation / repair, PRESERVING
 // per-source conventions (reuses the source constraint descriptors). All deterministic functions of explicit
 // inputs; the actor-filtered candidate index lives in the query layer so a target the editor cannot see is
@@ -3623,6 +3715,11 @@ export {
 	removeContentItemInputSchema,
 	removeJournalEntryInputSchema,
 	removePartyInventoryItemInputSchema,
+	removeEquipmentItemInputSchema,
+	moveEquipmentItemInputSchema,
+	upsertEquipmentItemInputSchema,
+	setCurrencyInputSchema,
+	claimPartyInventoryItemInputSchema,
 	resolveCharacterConflictInputSchema,
 	restCharacterInputSchema,
 	restoreContentItemInputSchema,
@@ -3954,6 +4051,61 @@ export {
 	normalizeMembers,
 } from './state/player-group';
 
+// I11 S11.2 — the durable SCENE CARD (atmosphere) model: a DM-authored title/mood/hero-image/flavor/audio
+// card, the ordered display queue, the active card, the transition style, and the player push history.
+// Distinct from the Command Center `Scene` (canvas of widgets) — a card is presentation content only.
+export type {
+	SceneCard,
+	SceneCardHeroImage,
+	SceneCardMood,
+	SceneCardPushRecord,
+	SceneCardState,
+	SceneCardTransitionStyle,
+	SceneCardVisibility,
+} from './state/scene-card';
+export {
+	EMPTY_SCENE_CARD_STATE,
+	SCENE_CARD_DISPLAY_ENTITY_ID,
+	SCENE_CARD_ENTITY_TYPE,
+	SCENE_CARD_FLAVOR_MAX_LENGTH,
+	SCENE_CARD_MOODS,
+	SCENE_CARD_SCHEMA_VERSION,
+	SCENE_CARD_TRANSITION_STYLES,
+	SCENE_CARD_VISIBILITIES,
+	ensureSceneCardState,
+	isLiveSceneCard,
+	isSceneCardMood,
+	isSceneCardTransitionStyle,
+	isSceneCardVisibility,
+} from './state/scene-card';
+
+// I11 S11.2 — the actor-filtered SCENE CARD read models (display surface, management list, DM queue, and
+// the player-reviewable push history — all fail-closed on visibility).
+export type { SceneCardPushView, SceneCardView, SceneDisplayView } from './queries/scene-card';
+export {
+	getActiveSceneCardForActor,
+	getSceneCardForActor,
+	getSceneCardPushHistoryForActor,
+	getSceneCardQueueForActor,
+	getSceneDisplayForActor,
+	listSceneCardsForActor,
+} from './queries/scene-card';
+
+// I11 S11.2 — SCENE CARD command input schemas (all DM-only; validated fail-closed before each reducer).
+export {
+	activateSceneCardInputSchema,
+	advanceSceneCardQueueInputSchema,
+	createSceneCardInputSchema,
+	dequeueSceneCardInputSchema,
+	deleteSceneCardInputSchema,
+	enqueueSceneCardInputSchema,
+	reorderSceneCardQueueInputSchema,
+	restoreSceneCardInputSchema,
+	setSceneCardTransitionInputSchema,
+	setSceneCardVisibilityInputSchema,
+	updateSceneCardInputSchema,
+} from './schemas/commands';
+
 // COLLAB-005 — the DM controls DIFFERENT PLAYER VIEW assignments for DIFFERENT players during the SAME
 // session (Contract 4 Player View Rules). The COLLAB layer over the CANVAS player-view machinery:
 // `projectPlayerViews` resolves EACH connected, non-DM participant's OWN filtered player view (assigned
@@ -4221,9 +4373,49 @@ export {
 	audioAssetById,
 	audioAssociationById,
 	audioAutomationRuleById,
+	audioPresetById,
 	audioSourceById,
 	ensureAudioState,
+	listUserAudioPresets,
 } from './state/audio-state';
+
+// AUDIO-014 (Epic 11.3) — CATEGORIZED AUDIO PRESETS + SCENE PACKAGES: a durable, named, multi-layer
+// atmosphere mixer the DM applies to the session audio in one action (`session.audio.apply-preset`), plus a
+// built-in library of shipped presets and the ability to capture the live session audio as a reusable user
+// preset (`audio.save-preset` / `delete-preset`). References audio only — never asset bytes (Contract 2).
+export type {
+	AudioPreset,
+	AudioPresetCategory,
+	AudioPresetLayer,
+	AudioPresetLayerSourceKind,
+	AudioPresetResult,
+	AudioPresetRejectionReason,
+	BuildAudioPresetInput,
+	BuildAudioPresetLayerInput,
+} from './state/audio-preset';
+export {
+	AUDIO_PRESET_CATEGORIES,
+	AUDIO_PRESET_CATEGORY_LABELS,
+	AUDIO_PRESET_ENTITY_TYPE,
+	AUDIO_PRESET_LAYER_SOURCE_KINDS,
+	AUDIO_PRESET_SCHEMA_VERSION,
+	MAX_AUDIO_PRESET_LAYERS,
+	buildAudioPreset,
+	cloneAudioPreset,
+	ensureAudioPreset,
+	isAudioPresetCategory,
+	isAudioPresetLayerSourceKind,
+} from './state/audio-preset';
+export {
+	BUILTIN_AUDIO_PRESETS,
+	BUILTIN_AUDIO_PRESET_COUNT,
+	builtinAudioPresetById,
+	builtinPresetId,
+	copyPresetForUser,
+	isBuiltinAudioPresetId,
+	listBuiltinAudioPresets,
+	listBuiltinAudioPresetsByCategory,
+} from './state/audio-preset-library';
 
 // MCP-001 / MCP-003 / MCP-009 / MCP-011 — the durable MCP IDENTITY, POLICY, and STAGED-WRITES VaultState
 // slice: the vault-wide MASTER ENABLE switch (MCP-001 — off by default, fail-closed on hydration), agent →
@@ -4495,6 +4687,7 @@ export {
 	createBaselineMcpToolRegistry,
 	createMcpToolRegistry,
 	mcpBundleInputSchema,
+	mcpCreateSceneCardInputSchema,
 	mcpDiceRollInputSchema,
 	mcpEmptyInputSchema,
 	mcpEntityIdInputSchema,
@@ -4678,6 +4871,7 @@ export type {
 } from './queries/preview-mode';
 export {
 	PREVIEW_EXIT_ANNOUNCEMENT,
+	PREVIEW_CODM_ACTOR_ID,
 	PREVIEW_OBSERVER_ACTOR_ID,
 	PREVIEW_PLAYER_ACTOR_ID,
 	PREVIEW_READONLY_MESSAGE,

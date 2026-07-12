@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import { hasGrantedCapability } from '../permissions/grants';
 import type { Actor } from '../state/permission-state';
 import { CONTENT_ITEM_ENTITY_TYPE, contentItemById } from '../state/content';
@@ -23,7 +24,7 @@ export function actorMayEditItem(
 	itemId: string,
 	now: string,
 ): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (actor.role === 'observer') return false;
 	// Fail closed: a dm-only item is never writable by a non-DM, regardless of any grant (CONTENT-009 AC4).
 	const item = contentItemById(state.content, itemId);

@@ -5,7 +5,7 @@ import type { CommandCenterState } from '../state/command-center-state';
 import type { MapState } from '../state/map-state';
 import type { MapLayerMutationKind } from '../state/map-layers';
 import type { MapImportAdapterRegistry } from '../state/map-import';
-import type { PermissionState } from '../state/permission-state';
+import type { ActorRole, PermissionState } from '../state/permission-state';
 import type { SceneState } from '../state/scene-state';
 import type {
 	DiceRollSourceKind,
@@ -13,6 +13,7 @@ import type {
 	SessionWorkflowState,
 	SessionState,
 } from '../state/session-state';
+import type { SceneCardTransitionStyle, SceneCardVisibility } from '../state/scene-card';
 import type { WidgetPackageState } from '../state/widget-package-state';
 import type { VaultContentState } from '../state/content';
 import type { AudioState } from '../state/audio-state';
@@ -230,6 +231,21 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	// I11 S11.2.1–S11.2.4 — SCENE CARD (atmosphere) authoring + display. All DM-only. Create/update/delete
+	// (soft tombstone) / restore / set-visibility a card; activate a card onto the display (null clears);
+	// set-transition + enqueue/dequeue/reorder-queue/advance drive the queue (S11.2.3); a player-visible
+	// activation pushes the card banner to player devices and records the durable push history (S11.2.4).
+	| { type: 'scene-card.create'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.update'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.delete'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.restore'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.set-visibility'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.activate'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.set-transition'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.enqueue'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.dequeue'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.reorder-queue'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.advance'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'session.set-active-map'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| {
 			type: 'session.project-active-map';
@@ -250,6 +266,7 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	| { type: 'permission.assign-role'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'map.create-layer'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'map.rename-layer'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'map.reorder-layer'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -406,6 +423,34 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	// I10 S10.1.3 / S10.4.2: structured EQUIPMENT / CURRENCY / ENCUMBRANCE — owner-or-DM authoring of a
+	// character's equipment list and coin purse (carried weight / encumbrance / derived AC are computed
+	// on read, never stored). `claim-party-inventory-item` moves a stash item into personal equipment.
+	| {
+			type: 'character.upsert-equipment-item';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'character.remove-equipment-item';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'character.move-equipment-item';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| { type: 'character.set-currency'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'character.claim-party-inventory-item';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	// CHAR-012 / CHAR-016: character journal — owner/DM author; per-entry visibility; a visibility
 	// change is the cross-surface invalidation trigger.
 	| { type: 'character.add-journal-entry'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -447,6 +492,12 @@ export type CoreCommand =
 	// rule in `state/vault-object.ts`.
 	| { type: 'content.create-object'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'content.update-object'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// CONTENT-005 (custom types): DEFINE / UPDATE / DELETE a USER-DEFINED vault-object type (DM-only). The
+	// draft field schema is validated at dispatch (fail closed); a define/update rejects an id that collides
+	// with a built-in subtype, and a delete is REFUSED while any live instance of the type still exists.
+	| { type: 'content.define-object-type'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'content.update-object-type'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'content.delete-object-type'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// CONTENT-006: RENAME a wikilink target (rename the note + propagate the rename to every referring link in
 	// the actor's visible notes) and REPAIR a broken wikilink (rewrite a broken target to a visible, available
 	// fix). Both are actor-filtered + fail-closed (never touch a hidden target; never a destructive offline
@@ -554,6 +605,14 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	// AUDIO-014 (Epic 11.3): APPLY a categorized audio PRESET / scene package to the session audio in one
+	// action — the primary track + ambience layers are driven through the EXISTING AUDIO-009/010/004 gates
+	// (only a ready, bound layer becomes audible; never a guessed track). DM-only.
+	| { type: 'session.audio.apply-preset'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// AUDIO-014 (Epic 11.3): SAVE the current session audio as a named USER preset / scene package (capture
+	// track + ambience as references), and DELETE a user preset (a built-in id is refused). DM-only.
+	| { type: 'audio.save-preset'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'audio.delete-preset'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// SES-009 — AUTHOR a recap (markdown) onto a session archive. DM-only; fails closed with no archive.
 	| { type: 'session.author-recap'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// COLLAB-004 — set/clear ephemeral session PRESENCE. Actor-scoped (a player sets only their own;
@@ -666,6 +725,35 @@ export type CoreEvent =
 			actorId: ActorId;
 	  }
 	| { kind: 'session.player-group-deleted'; groupId: string; actorId: ActorId }
+	// I11 S11.2.1–S11.2.4 — SCENE CARD lifecycle + display + player push events.
+	| { kind: 'scene-card.created'; cardId: string; actorId: ActorId }
+	| { kind: 'scene-card.updated'; cardId: string; actorId: ActorId }
+	| { kind: 'scene-card.deleted'; cardId: string; actorId: ActorId }
+	| { kind: 'scene-card.restored'; cardId: string; actorId: ActorId }
+	| {
+			kind: 'scene-card.visibility-changed';
+			cardId: string;
+			visibility: SceneCardVisibility;
+			actorId: ActorId;
+	  }
+	// A card was put on (or cleared from, `cardId: null`) the scene display. `pushed` ⇒ it was
+	// player-visible and its banner was pushed to player devices (a `scene-card.pushed` also fires).
+	| { kind: 'scene-card.activated'; cardId: string | null; pushed: boolean; actorId: ActorId }
+	// S11.2.4 — a player-visible card was pushed to player devices (on the session event timeline).
+	| { kind: 'scene-card.pushed'; cardId: string; pushRecordId: string; actorId: ActorId }
+	// S11.2.3 — the scene queue changed (a card enqueued/dequeued, the order reordered, or advanced).
+	| {
+			kind: 'scene-card.queue-changed';
+			mutation: 'enqueue' | 'dequeue' | 'reorder' | 'advance';
+			cardId: string | null;
+			actorId: ActorId;
+	  }
+	// S11.2.3 — the display transition style changed.
+	| {
+			kind: 'scene-card.transition-changed';
+			transitionStyle: SceneCardTransitionStyle;
+			actorId: ActorId;
+	  }
 	// SES-007 — a quick-reference panel was pinned. `kind_` is the panel kind (the `kind` key is the event
 	// discriminant). Carries the REFERENCE (kind + target id), never the target's content.
 	| {
@@ -892,6 +980,14 @@ export type CoreEvent =
 			actorId: ActorId;
 	  }
 	| {
+			kind: 'permission.role-assigned';
+			targetActorId: ActorId;
+			role: ActorRole;
+			previousRole: ActorRole;
+			/** The owner (DM) who made the assignment. */
+			actorId: ActorId;
+	  }
+	| {
 			kind: 'map.layer-changed';
 			mapId: string;
 			layerId: string;
@@ -1036,7 +1132,7 @@ export type CoreEvent =
 			characterId: string;
 			path: string;
 			revision: number;
-			authorRole: 'dm' | 'player' | 'observer';
+			authorRole: 'dm' | 'co-dm' | 'player' | 'observer';
 			actorId: ActorId;
 	  }
 	| {
@@ -1101,6 +1197,14 @@ export type CoreEvent =
 	// CHAR-011 — the party record (marching order / inventory) changed.
 	| {
 			kind: 'character.party-changed';
+			revision: number;
+			actorId: ActorId;
+	  }
+	// I10 S10.1.3 / S10.4.2 — a character's structured equipment / currency (inventory) changed. The
+	// GUI re-derives carried weight / encumbrance / computed AC for that character on this signal.
+	| {
+			kind: 'character.inventory-changed';
+			characterId: string;
 			revision: number;
 			actorId: ActorId;
 	  }
@@ -1172,6 +1276,15 @@ export type CoreEvent =
 			mutation: 'create' | 'update';
 			visibility: string;
 			invalidatedActorIds: ActorId[];
+			actorId: ActorId;
+	  }
+	// CONTENT-005 (custom types) — a user-defined object type was defined/updated/deleted. Carries the type
+	// id + the mutation so the object-aware surfaces re-read the custom-type registry. Definition changes are
+	// DM-only authoring acts; the audience is the DM (custom-type metadata is never player-delivered).
+	| {
+			kind: 'content.object-type-changed';
+			typeId: string;
+			mutation: 'define' | 'update' | 'delete';
 			actorId: ActorId;
 	  }
 	// CONTENT-006 — a wikilink target was renamed: the target note's title changed AND the rename propagated to
@@ -1328,6 +1441,10 @@ export type CoreEvent =
 			deviceId: string | null;
 			actorId: ActorId;
 	  }
+	// AUDIO-014 (Epic 11.3) — a USER audio preset / scene package was saved (created or updated).
+	| { kind: 'audio.preset-saved'; presetId: string; actorId: ActorId }
+	// AUDIO-014 (Epic 11.3) — a USER audio preset / scene package was deleted.
+	| { kind: 'audio.preset-deleted'; presetId: string; actorId: ActorId }
 	// SES-009 — a recap was authored onto a session archive. Carries the archive id + revision only.
 	| {
 			kind: 'session.recap-authored';
@@ -1472,6 +1589,13 @@ export type RejectionCode =
 	| 'object-schema-invalid'
 	// CONTENT-005 — the target content item exists but is not a structured object (its subtype is absent).
 	| 'not-a-vault-object'
+	// CONTENT-005 (custom types) — a user-defined object-type definition was rejected fail-closed: its
+	// draft failed structural validation (bad id/label/field), it collided with / already exists under an
+	// id, the target type does not exist, or a delete was refused because live instances still use it.
+	| 'custom-type-invalid'
+	| 'custom-type-exists'
+	| 'custom-type-not-found'
+	| 'custom-type-in-use'
 	// CONTENT-006 — a wikilink repair was refused fail-closed: the broken source is unavailable/uncached (no
 	// destructive offline rewrite), or the chosen fix does not resolve to a visible, available target.
 	| 'wikilink-source-unavailable'
@@ -1550,6 +1674,17 @@ export type RejectionCode =
 	| 'audio-track-unavailable'
 	// AUDIO-002 — pause/stop/set-volume targeted a session with no active track (nothing to do, fail closed).
 	| 'audio-not-playing'
+	// AUDIO-014 (Epic 11.3) — apply/delete targeted a preset id that resolves to neither a built-in nor a
+	// user preset (fail closed: never a guessed atmosphere).
+	| 'audio-preset-not-found'
+	// AUDIO-014 — apply targeted a preset with no layer bound to a ready/licensed/available source (nothing
+	// audible to apply — never a guessed track).
+	| 'audio-preset-not-playable'
+	// AUDIO-014 — save/delete targeted a BUILT-IN preset id (shipped code — non-deletable, non-overwritable;
+	// copy to customize).
+	| 'audio-preset-builtin'
+	// AUDIO-014 — save was invoked with nothing playing (no track, no ambience) so there is nothing to capture.
+	| 'audio-preset-empty'
 	// MCP-011 — an agent binding targeted an actor that is not a registered participant (fail closed: an
 	// agent can never be bound to an actor that does not exist). Distinct so the DM authoring UI can guide.
 	| 'mcp-actor-not-registered'
@@ -1576,6 +1711,11 @@ export type RejectionCode =
 	// cannot be restored (mirrors content-item-deleted / content-item-not-deleted).
 	| 'scene-deleted'
 	| 'scene-not-deleted'
+	// I11 S11.2.1 — a scene card target does not exist; is already soft-deleted (must be restored before
+	// editing); or a live card cannot be restored. Mirrors scene-deleted / scene-not-deleted, fail closed.
+	| 'scene-card-not-found'
+	| 'scene-card-deleted'
+	| 'scene-card-not-deleted'
 	// A system-package switch would DROP widget content per the dry-run and the caller did not
 	// acknowledge the loss (mirrors content-write-loss-unacknowledged). Fail closed: never silent.
 	| 'system-switch-loss-unacknowledged';

@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { Actor, PermissionState } from '../state/permission-state';
 import type { SyncOperation } from '../sync/operation-log';
@@ -189,7 +190,7 @@ export function assertCatchUpRestoresNoRevokedAccess(
 	resolveVisibility: ReplicationVisibilitySource,
 	permission: PermissionState,
 ): void {
-	if (recipient && recipient.role === 'dm') return;
+	if (recipient && hasDmAuthority(recipient.role)) return;
 	// Re-run the SAME source-side filter the delivery used; any delivered op that is not now-visible is a leak.
 	const recheck = filterCatchUpStream(
 		delivered,

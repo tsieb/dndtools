@@ -54,6 +54,30 @@ Each debt item must include:
 - `Owner`: platform
 - `Resolution Window`: 2026 Q3
 - `Targets`: `apps/gm-react/tests/e2e/` (port from `archive/gm-svelte/tests/e2e/`).
+- `Status`: largely resolved (2026-07-11). The e2e-readiness pass added 14 new specs / 94 tests over
+  the previously-thin surfaces — content (knowledge/campaign/graph), shell (command-palette,
+  backup-restore, upgrade, join), and every new feature (ai-assistant, co-dm, wiki, scene-cards,
+  audio-presets, equipment, custom-types). The suite is now 20 specs / 156 tests on both profiles.
+  Residual: onboarding-completion and a dedicated navigation/nav-profile spec are still light.
+
+### DEBT-2026-005 — Preview ("view as") tooling has minor honest-but-confusing edges
+
+- `Severity`: low
+- `Impact`: Three non-blocking preview-mode UX warts surfaced while authoring the e2e suite; none is a
+  correctness or data bug (each is honest/fail-closed): (a) `SceneRuntime.dispatch()` globally rejects
+  writes while previewing, but when previewing as a SPECIFIC owning player the Player sheet's
+  Equipment/Currency manage controls still render actionable — a click yields the generic
+  preview-read-only toast rather than the controls being hidden/disabled; (b) the generic "view as
+  player" (zero-grant preview actor) shows "No character yet" on `/player` because that actor owns no
+  PC; (c) `enterPreview({role:'co-dm'})` does not unlock the `/play` elevated tier because
+  `PlayerView` hardcodes `viewer = PLAYER_ACTOR_ID` — the tier is role-driven (a real co-dm seat
+  unlocks it, which works) and there is no ViewAsControl on `/play`, so the preview seam simply
+  doesn't re-point that surface's viewer. Consider hiding manage controls in read-only preview,
+  and deciding whether `/play` should honor a co-dm preview actor.
+- `Owner`: platform
+- `Resolution Window`: 2026 Q4
+- `Targets`: `apps/gm-react/src/screens/Player.tsx`, `apps/gm-react/src/screens/PlayerView.tsx`,
+  `apps/gm-react/src/runtime/SceneRuntime.ts` (preview write-gate + control disabling).
 - `Status`: open
 
 ### DEBT-2026-004 — Design-system P2 polish deferred from the completion-pass UX review

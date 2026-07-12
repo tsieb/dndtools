@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { MapEntity, MapLayer } from '../state/map-state';
 import type { SceneVisibility } from '../state/scene-state';
@@ -312,7 +313,7 @@ export function auditMapProjectionConsistency(
  * with this before returning a report.
  */
 export function actorCanViewMapProjectionConsistency(actorRole: string): boolean {
-	return actorRole === 'dm';
+	return hasDmAuthority(actorRole);
 }
 
 /** Convenience: the actor-gated report. A non-DM actor gets `null` (the report is never leaked). */

@@ -97,9 +97,18 @@ export function Join() {
 					<>
 						<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub }}>
 							<strong style={{ color: T.ink }}>{state.invite.invitedBy}</strong> invited you to join{' '}
-							<strong style={{ color: T.ink }}>{state.invite.campaignName}</strong>.
-							{state.invite.note ? ` “${state.invite.note}”` : ''}
+							<strong style={{ color: T.ink }}>{state.invite.campaignName}</strong>
+							{state.invite.role === 'co-dm' ? (
+								<> as a <strong style={{ color: T.acc }}>Co-DM</strong></>
+							) : null}
+							.{state.invite.note ? ` “${state.invite.note}”` : ''}
 						</div>
+						{state.invite.role === 'co-dm' && (
+							<div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 10, background: T.accSub, border: `1px solid ${T.accBd}`, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+								<Icon name="session-bolt" size="sm" />
+								<span>A Co-DM seat sees the DM’s prep and helps run the table. Your DM finishes the promotion when you join their live session.</span>
+							</div>
+						)}
 						<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
 							Invite expires {new Date(state.invite.expiresAt * 1000).toLocaleDateString()}.
 						</div>

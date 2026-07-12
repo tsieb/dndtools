@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { Actor, CapabilitySet, PermissionState } from '../state/permission-state';
 import { capabilitySetGrants, inheritedCapabilitySets } from './capability-sets';
@@ -21,7 +22,7 @@ export function hasGrantedCapability(
 	required: CapabilitySet,
 	now?: string,
 ): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (actor.role === 'observer') return false;
 	for (const grant of permission.grants) {
 		if (grant.playerActorId !== actor.id) continue;
@@ -62,7 +63,7 @@ export function effectiveCapabilitySetsForActorOnEntity(
 }
 
 export function actorCanAuthorScene(actor: Actor | undefined): boolean {
-	return !!actor && actor.role === 'dm';
+	return !!actor && hasDmAuthority(actor.role);
 }
 
 export function actorCanCoEditScene(
@@ -73,6 +74,6 @@ export function actorCanCoEditScene(
 ): boolean {
 	const actor = permission.actors[actorId];
 	if (!actor) return false;
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	return hasGrantedCapability(permission, actor, 'scene', sceneId, 'co-editor', now);
 }

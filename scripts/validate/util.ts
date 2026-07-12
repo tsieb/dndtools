@@ -109,13 +109,13 @@ export function exec(
 }
 
 /** Spawn a long-lived process; returns a handle with a kill() that tears down the group. */
-export function spawnServer(command: string, logPath: string) {
+export function spawnServer(command: string, logPath: string, env?: Record<string, string>) {
 	mkdirSync(path.dirname(logPath), { recursive: true });
 	const logStream = createWriteStream(logPath, { flags: 'w' });
 	const child = spawn(command, {
 		cwd: REPO_ROOT,
 		shell: '/bin/bash',
-		env: { ...process.env, FORCE_COLOR: '0' },
+		env: { ...process.env, FORCE_COLOR: '0', ...env },
 		detached: true,
 	});
 	logStream.write(`$ ${command}\n\n`);

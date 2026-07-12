@@ -7,6 +7,7 @@ import {
 	setSessionWorkflowInputSchema,
 } from '../schemas/commands';
 import { EMPTY_PRESENCE_STATE } from '../state/presence-state';
+import { hasDmAuthority } from '../state/permission-state';
 import type { MapEntity } from '../state/map-state';
 import {
 	type ActiveMapDeliveryStatus,
@@ -817,7 +818,7 @@ export function handleProjectActiveMap(
 
 	for (const playerActorId of parsed.data.playerActorIds) {
 		const player = state.permissions.actors[playerActorId];
-		if (!player || player.role === 'dm') {
+		if (!player || hasDmAuthority(player.role)) {
 			return reject(
 				{
 					code: 'invalid-payload',

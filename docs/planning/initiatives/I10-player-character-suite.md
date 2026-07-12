@@ -1,6 +1,13 @@
 # Initiative 10 — Player Character Suite
 
-## Status: NOT STARTED
+## Status: DELIVERED (2026-07-11)
+
+<!-- The character suite shipped across the completion pass (builder, sheet, skills/saves/passive-
+perception, custom attacks, sharing, PC switcher, JSON import) and the e2e-readiness pass closed the
+last mechanical gap: structured equipment/currency/encumbrance (S10.1.3 / S10.4.2) — the
+character-inventory core model + PlayerEquipment sheet panel (items, five-coin purse, STR-derived
+encumbrance). Evidence: FEATURE-GAPS.md §0★★★★; core character-inventory.test.ts; e2e equipment.spec.ts. -->
+
 
 **Outcome:** Players have a complete, first-class character management experience.
 Every mechanical element of a D&D 5e character is tracked, managed, and accessible

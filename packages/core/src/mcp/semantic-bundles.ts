@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
 import type { SessionState } from '../state/session-state';
 import type { VaultContentState } from '../state/content';
@@ -426,7 +427,7 @@ export function buildSemanticBundle(
 	const format = options.format ?? 'medium';
 	const mode = digestModeFor(kind);
 	const actor = inputs.permissions.actors[inputs.actorId];
-	const isDm = actor?.role === 'dm';
+	const isDm = hasDmAuthority(actor?.role);
 
 	// NON-DM / UNKNOWN ACTOR — fail closed: NO findings, NO citations, NO exact dates. ONLY a generalized
 	// coverage summary (MCP-006 AC1, dm-only) so even an aggregate count cannot betray hidden content. The

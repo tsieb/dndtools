@@ -7,16 +7,24 @@ import {
 	getContentItemsForActor,
 	getCombatTrackerForActor,
 	getDiceHistoryForActor,
+	getActiveSceneCardForActor,
+	getSceneCardPushHistoryForActor,
 	listCharactersForActor,
+	listScenesForActor,
+	hasDmAuthority,
 	resourcesOf,
 	type ActorId,
 	type CoreStateSlice,
 	type CommandCenterHomeView,
 	type PartyOverview,
 	type CharacterView,
+	type CombatTrackerView,
 	type DiceRollView,
 	type JournalEntryView,
 	type ContentItemView,
+	type SceneCardView,
+	type SceneCardPushView,
+	type SceneListEntry,
 } from '@dndtools/core';
 import { resolveProjectedMapForViewer, type ProjectedMapInfo } from '../app/projectedMap';
 
@@ -72,8 +80,34 @@ export interface PlayerData {
 	 */
 	projectedMap: ProjectedMapInfo | null;
 	displayName: string;
-	/** The role the Core resolved for this viewer (`player` | `observer`) — drives the tier gate. */
-	role: 'player' | 'observer';
+	/** The role the Core resolved for this viewer (`player` | `observer` | `co-dm`) — drives the
+	 *  tier gate. A `co-dm` unlocks the elevated tier and carries the {@link ElevatedData} payload. */
+	role: 'player' | 'observer' | 'co-dm';
+	/**
+	 * I11 S11.2.4 — the ACTIVE player-visible scene card pushed to this viewer (null when the display is
+	 * idle or the active card is dm-only). Rendered as the dismissible hero+flavor banner in PlayerView.
+	 * Actor-filtered, so a dm-only card never reaches a player device.
+	 */
+	activeSceneCard: SceneCardView | null;
+	/** I11 S11.2.4 — the viewer's reviewable SCENE HISTORY (player-visible pushes), oldest-first. */
+	sceneHistory: SceneCardPushView[];
+	/**
+	 * Present ONLY for a `co-dm` viewer (the elevated seat): DM-grade read models that a player/observer
+	 * snapshot never carries. Built through the SAME actor-filtered queries, so it is still safe BY
+	 * CONSTRUCTION — a co-DM legitimately sees dm-only scenes, hidden combatants, and the creature roster.
+	 * `null` for every non-elevated viewer, so the wire never leaks elevated content to a player.
+	 */
+	elevated: ElevatedData | null;
+}
+
+/** The Co-DM-only elevated read models. Every field is an actor-filtered query result for the co-DM. */
+export interface ElevatedData {
+	/** Every scene the co-DM may see (INCLUDING dm-only) — the Atlas/Maps panel. */
+	scenes: SceneListEntry[];
+	/** The full combat tracker (hidden combatants + full stat blocks visible) — the Combat assist panel. */
+	combat: CombatTrackerView;
+	/** The DM's creature/NPC roster the co-DM may see (non-PC characters) — the Bestiary panel. */
+	bestiary: CharacterView[];
 }
 
 /**
@@ -84,7 +118,8 @@ export interface PlayerData {
  */
 export function buildPlayerData(state: CoreStateSlice, viewer: ActorId): PlayerData {
 	const actor = state.permissions.actors[viewer];
-	const role: 'player' | 'observer' = actor?.role === 'observer' ? 'observer' : 'player';
+	const role: 'player' | 'observer' | 'co-dm' =
+		actor?.role === 'co-dm' ? 'co-dm' : actor?.role === 'observer' ? 'observer' : 'player';
 
 	const home = resolveCommandCenterHome(state, viewer, { widgetPackages: state.widgets });
 	const strip = home.kind === 'participant' || home.kind === 'dm' ? home.statusStrip : null;
@@ -122,6 +157,19 @@ export function buildPlayerData(state: CoreStateSlice, viewer: ActorId): PlayerD
 	const handouts = getContentItemsForActor(state.content, state.permissions, viewer);
 	const dice = getDiceHistoryForActor(state.session, state.permissions, viewer);
 
+	// ELEVATED — only a co-DM (dm-authority) carries the elevated read models. Built through the same
+	// actor-filtered queries, so it is safe by construction; `null` for every player/observer.
+	const elevated: ElevatedData | null =
+		role === 'co-dm' && hasDmAuthority(actor?.role)
+			? {
+					scenes: listScenesForActor(state.scenes, state.permissions, viewer),
+					combat,
+					bestiary: listCharactersForActor(state.characters, state.permissions, viewer).filter(
+						(c) => c.kind !== 'pc',
+					),
+				}
+			: null;
+
 	return {
 		home,
 		live: Boolean(live),
@@ -141,5 +189,8 @@ export function buildPlayerData(state: CoreStateSlice, viewer: ActorId): PlayerD
 		projectedMap: resolveProjectedMapForViewer(state, viewer),
 		displayName: home.kind === 'participant' ? home.displayName : (actor?.displayName ?? 'Player'),
 		role,
+		activeSceneCard: getActiveSceneCardForActor(state.session, state.permissions, viewer),
+		sceneHistory: getSceneCardPushHistoryForActor(state.session, state.permissions, viewer),
+		elevated,
 	};
 }

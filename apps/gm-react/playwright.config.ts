@@ -26,5 +26,21 @@ export default defineConfig({
 		port: 5273,
 		reuseExistingServer: !process.env.CI,
 		timeout: 300_000,
+		// Force the e2e dev server to be local-first even if a developer has pulled real cloud
+		// coordinates into .env.local (scripts/pull-cloud-env.mjs). Process env outranks .env files
+		// in Vite, so blanking these guarantees isCloudConfigured === false for every e2e run —
+		// no spec can ever reach Cognito/signaling/sync/app-api. tests/e2e/isolation-guard.spec.ts
+		// asserts this invariant. NOTE: only effective when Playwright starts the server itself;
+		// with reuseExistingServer a manually-started `pnpm dev` keeps its own env (the guard spec
+		// still catches that case by failing loudly instead of silently going live).
+		env: {
+			VITE_CLOUD_REGION: '',
+			VITE_COGNITO_USER_POOL_ID: '',
+			VITE_COGNITO_CLIENT_ID: '',
+			VITE_SIGNALING_WS_URL: '',
+			VITE_SYNC_API_URL: '',
+			VITE_APP_API_URL: '',
+			VITE_GOOGLE_CLIENT_ID: '',
+		},
 	},
 });

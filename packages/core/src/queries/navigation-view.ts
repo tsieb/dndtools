@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId, SceneId } from '../state/ids';
 import type { PermissionState } from '../state/permission-state';
 import type { SceneState } from '../state/scene-state';
@@ -211,7 +212,7 @@ export function resolveNavigationView(
 		// Backlinks: player-view projections targeting this Scene. This is DM-only
 		// session detail — players and observers must not learn who else is being
 		// projected to, so it is gated to the DM (fail closed).
-		if (actor.role === 'dm') {
+		if (hasDmAuthority(actor.role)) {
 			for (const assignment of Object.values(state.session.playerViewAssignments)) {
 				if (assignment.target.sceneId !== openScene.id) continue;
 				const player = state.permissions.actors[assignment.playerActorId];

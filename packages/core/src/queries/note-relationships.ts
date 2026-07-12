@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
 import type { ContentItem, VaultContentState } from '../state/content';
 import { contentItemVisibilityMetadata } from '../state/content';
@@ -65,7 +66,7 @@ function actorSeesFullBody(
 	if (declaredSectionIds.length === 0 && declaredFieldPaths.length === 0) return true;
 	const actor = permissions.actors[actorId];
 	if (!actor) return false;
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	const meta = contentItemVisibilityMetadata(item);
 	const fieldPaths = Object.fromEntries(
 		Object.entries(item.fields).map(([key, value]) => [contentFieldPath(key), value]),

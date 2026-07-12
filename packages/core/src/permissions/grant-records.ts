@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId, GrantId } from '../state/ids';
 import type { CapabilitySet, PermissionGrant, PermissionState } from '../state/permission-state';
 import {
@@ -93,7 +94,7 @@ export function validateGrantRecord(
 			message: 'Observers cannot receive grants. Change the participant to a Player first.',
 		};
 	}
-	if (actor.role === 'dm') {
+	if (hasDmAuthority(actor.role)) {
 		return {
 			ok: false,
 			error: 'dm-needs-no-grant',

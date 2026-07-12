@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { Actor, PermissionState } from '../state/permission-state';
 import { hasGrantedCapability } from './grants';
@@ -192,7 +193,7 @@ export function evaluateVisibility(
 	permission?: PermissionState,
 ): VisibilityDecision {
 	if (!actor) return { visible: false, reason: 'unknown-actor', scope: 'entity' };
-	if (actor.role === 'dm') return { visible: true };
+	if (hasDmAuthority(actor.role)) return { visible: true };
 
 	// 1. Entity ancestor. A hidden entity hides everything below it.
 	const entityRule: VisibilityRule = meta.entity ?? { level: DEFAULT_VISIBILITY };
@@ -308,7 +309,7 @@ export function filterEntityForActor(
 	const entityDecision = evaluateVisibility(meta, {}, actor, permission);
 	if (!entityDecision.visible) return HIDDEN_RESULT(entityDecision.reason);
 
-	const isDm = actor.role === 'dm';
+	const isDm = hasDmAuthority(actor.role);
 	const inputSections = content.sectionIds ?? [];
 	const inputFields = content.fields ?? {};
 

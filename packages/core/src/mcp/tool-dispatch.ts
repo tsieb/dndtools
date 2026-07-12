@@ -270,6 +270,16 @@ function writeCommandPayload(
 			// `dm-only`, so an agent can never publish content to players by a tool call alone.
 			return { kind, title, body };
 		}
+		case 'scene-card.create': {
+			const { title, mood, flavorText } = input as {
+				title: string;
+				mood: string;
+				flavorText: string;
+			};
+			// Agent-safe presentation fields only. No `visibility` ⇒ the card fails closed to `dm-only`
+			// (never pushed to players); no hero-image/audio refs (an agent cannot bind vault assets).
+			return { title, mood, flavorText };
+		}
 		default:
 			// A registered write tool with an unmapped command forwards its raw input; the command's
 			// own validator still re-checks it fail-closed. Unreachable for the baseline registry.

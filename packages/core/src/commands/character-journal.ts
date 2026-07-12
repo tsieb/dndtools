@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import {
 	addJournalEntryInputSchema,
 	removeJournalEntryInputSchema,
@@ -69,7 +70,7 @@ function characterOwnerActorId(state: CoreStateSlice, characterId: string): stri
 
 /** CHAR-012 write authority: the DM (administrator) OR the character `owner`. Fail closed otherwise. */
 function actorMayAuthorJournal(state: CoreStateSlice, actor: Actor, characterId: string): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (actor.role === 'observer') return false;
 	return hasGrantedCapability(state.permissions, actor, CHARACTER_ENTITY_TYPE, characterId, 'owner');
 }

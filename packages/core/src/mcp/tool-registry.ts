@@ -101,6 +101,10 @@ export const MCP_BASELINE_TOOL_IDS = [
 	// A representative WRITE tool whose enforcement this branch proves end-to-end (the staged note
 	// create — Glossary "Staged Write" / MCP-004 AC2). It dispatches the existing content-create command.
 	'note.create',
+	// I11 S11.2.1 — the staged SCENE CARD create. Dispatches `scene-card.create`; visibility is NOT an
+	// accepted argument, so an agent-authored card always defaults fail-closed to `dm-only` (never pushed
+	// to players by a tool call alone).
+	'create_scene_card',
 ] as const;
 
 export type McpBaselineToolId = (typeof MCP_BASELINE_TOOL_IDS)[number];
@@ -217,6 +221,20 @@ export const mcpNoteCreateInputSchema = z
 		title: nonEmpty,
 		body: z.string().default(''),
 		kind: z.enum(['note', 'object']).default('note'),
+	})
+	.strict();
+
+/**
+ * The `create_scene_card` WRITE tool input (I11 S11.2.1). Deliberately NARROWER than the command payload:
+ * only the agent-safe presentation fields (title/mood/flavor). It omits `visibility` (so the card fails
+ * closed to `dm-only` — an agent can never push atmosphere to players), and it omits the hero-image and
+ * audio references (an agent cannot bind vault assets). The command re-validates the full payload.
+ */
+export const mcpCreateSceneCardInputSchema = z
+	.object({
+		title: nonEmpty,
+		mood: z.enum(['combat', 'exploration', 'mystery', 'social', 'rest']).default('exploration'),
+		flavorText: z.string().max(500).default(''),
 	})
 	.strict();
 
@@ -340,6 +358,14 @@ export function createBaselineMcpToolRegistry(): McpToolRegistry {
 			writeRisk: 'durable',
 			inputSchema: mcpNoteCreateInputSchema,
 			title: 'Create a note (staged)',
+		},
+		{
+			id: 'create_scene_card',
+			kind: 'write',
+			commandType: 'scene-card.create',
+			writeRisk: 'durable',
+			inputSchema: mcpCreateSceneCardInputSchema,
+			title: 'Create a scene card (staged)',
 		},
 	]);
 }

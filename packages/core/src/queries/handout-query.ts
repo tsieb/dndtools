@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { Actor, PermissionState } from '../state/permission-state';
 import type {
 	HandoutDeliveryRecord,
@@ -119,7 +120,7 @@ function sectionVisible(
 
 /** Whether a recipient holds PERSISTENT access (the handout survives revocation). The DM always does. */
 export function handoutRecipientPersistent(handout: SessionHandout, actor: Actor): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	return (handout.persistentRecipientActorIds ?? []).includes(actor.id);
 }
 
@@ -129,7 +130,7 @@ export function handoutRecipientPersistent(handout: SessionHandout, actor: Actor
  * to them with no content leak. The DM is never sealed; a persistent recipient is never sealed.
  */
 export function handoutRecipientSealed(handout: SessionHandout, actor: Actor): boolean {
-	if (actor.role === 'dm') return false;
+	if (hasDmAuthority(actor.role)) return false;
 	if (handoutRecipientPersistent(handout, actor)) return false;
 	return (handout.revocations ?? []).some((revocation) => revocation.recipientActorId === actor.id);
 }
@@ -171,7 +172,7 @@ export function getHandoutForActor(
 	}
 
 	const acknowledged =
-		actor.role !== 'dm' &&
+		!hasDmAuthority(actor.role) &&
 		(handout.acknowledgements ?? []).some((ack) => ack.recipientActorId === actor.id);
 
 	return {
@@ -180,7 +181,7 @@ export function getHandoutForActor(
 		handoutKind: handout.kind ?? 'handout',
 		title: handout.title,
 		sections,
-		isRecipient: actor.role === 'dm' || handout.recipientActorIds.includes(actor.id),
+		isRecipient: hasDmAuthority(actor.role) || handout.recipientActorIds.includes(actor.id),
 		acknowledged,
 		persistent: handoutRecipientPersistent(handout, actor),
 		updatedAt: handout.updatedAt,
@@ -225,7 +226,7 @@ export function getHandoutDeliveryHistory(
 	actorId: string,
 ): HandoutDeliveryView[] {
 	const actor = permissions.actors[actorId];
-	if (!actor || actor.role !== 'dm') return [];
+	if (!actor || !hasDmAuthority(actor.role)) return [];
 	const rows: HandoutDeliveryView[] = [];
 	for (const handout of Object.values(session.handouts)) {
 		for (const delivery of handout.deliveries) {
@@ -274,7 +275,7 @@ export function getHandoutStatusForDm(
 	actorId: string,
 ): HandoutStatusView[] {
 	const actor = permissions.actors[actorId];
-	if (!actor || actor.role !== 'dm') return [];
+	if (!actor || !hasDmAuthority(actor.role)) return [];
 	return Object.values(session.handouts)
 		.sort((a, b) =>
 			a.createdAt === b.createdAt ? a.id.localeCompare(b.id) : a.createdAt.localeCompare(b.createdAt),

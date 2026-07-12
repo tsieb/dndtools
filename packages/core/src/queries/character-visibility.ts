@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import { CHARACTER_ENTITY_TYPE, type Character } from '../state/character-state';
 import type { Actor, PermissionState } from '../state/permission-state';
 import { hasGrantedCapability } from '../permissions/grants';
@@ -19,7 +20,7 @@ export function characterVisibleToActor(
 	actor: Actor,
 	permissions: PermissionState,
 ): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (actor.role === 'observer') return false;
 	if (character.visibility === 'player-visible') return actor.role === 'player';
 	if (character.visibility === 'dm-only') return false;

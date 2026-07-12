@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
 import type { ContentEmbed, ContentItem, VaultContentState } from '../state/content';
 import {
@@ -125,7 +126,7 @@ export function resolveContentEmbedForActor(
 	const actor = permissions.actors[actorId];
 	// An unknown actor sees nothing. Treat as a non-DM for reason coarsening.
 	if (!actor) return unavailable(embed, 'target-hidden', false);
-	const isDm = actor.role === 'dm';
+	const isDm = hasDmAuthority(actor.role);
 
 	const target: ContentItem | undefined = content.items[embed.targetItemId];
 	if (!target || !isLiveContentItem(target)) {

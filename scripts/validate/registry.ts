@@ -123,6 +123,14 @@ export const CHECKS: Check[] = [
 		command: 'pnpm test:cloud',
 	},
 	{
+		id: 'test:app',
+		title: 'React app unit suite',
+		layer: 'unit',
+		stage: 0,
+		description: 'gm-react component/logic/AI/view-model vitest suite (vitest.app.config.ts).',
+		command: 'pnpm test:app',
+	},
+	{
 		id: 'verify:p2p',
 		title: 'P2P crypto gate (offline)',
 		layer: 'unit',
