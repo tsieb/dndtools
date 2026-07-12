@@ -88,6 +88,40 @@ describe('authed requests', () => {
 		await expect(api.listDevices()).resolves.toEqual([{ deviceKey: 'd1' }]);
 	});
 
+	it('createInvite forwards the optional email and surfaces the email-delivery status', async () => {
+		configured();
+		const api = await loadApi();
+
+		// email supplied → sent back with emailStatus/emailedTo
+		fetchMock.mockResolvedValueOnce(
+			jsonResponse(200, {
+				inviteId: 'i1',
+				token: 'tok',
+				campaignName: 'Camp',
+				note: '',
+				createdAt: 't',
+				expiresAt: 1,
+				emailStatus: 'sent',
+				emailedTo: 'player@example.com',
+			}),
+		);
+		const sent = await api.createInvite({ campaignName: 'Camp', email: 'player@example.com' });
+		expect(sent.emailStatus).toBe('sent');
+		expect(sent.emailedTo).toBe('player@example.com');
+		const [url, init] = fetchMock.mock.calls[0];
+		expect(url).toBe('https://api.example.com/dev/invites');
+		expect(init.method).toBe('POST');
+		expect(JSON.parse(init.body)).toEqual({ campaignName: 'Camp', email: 'player@example.com' });
+
+		// unconfigured/failed delivery still resolves with the honest fallback status
+		fetchMock.mockResolvedValueOnce(
+			jsonResponse(200, { inviteId: 'i2', token: 'tok2', campaignName: 'Camp', note: '', createdAt: 't', expiresAt: 1, emailStatus: 'not-configured' }),
+		);
+		const fallback = await api.createInvite({ campaignName: 'Camp', email: 'player@example.com' });
+		expect(fallback.emailStatus).toBe('not-configured');
+		expect(fallback.emailedTo).toBeUndefined();
+	});
+
 	it('publishes a module (returns moduleId) and deletes with the DELETE method', async () => {
 		configured();
 		const api = await loadApi();

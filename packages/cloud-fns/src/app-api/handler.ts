@@ -22,6 +22,7 @@ import {
 	AdminUpdateUserAttributesCommand,
 	AdminUserGlobalSignOutCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
+import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
 import { putItem, getItem, deleteItem, queryPartition } from '../lib/aws.ts';
 import { putJson, getJson, deleteObject } from '../lib/s3.ts';
 
@@ -30,6 +31,7 @@ const MODULES_BUCKET = process.env.MODULES_BUCKET!;
 const USER_POOL_ID = process.env.USER_POOL_ID!;
 
 const cognito = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
+const ses = new SESv2Client({ region: process.env.AWS_REGION });
 
 const nowIso = () => new Date().toISOString();
 const nowSec = () => Math.floor(Date.now() / 1000);
@@ -41,11 +43,16 @@ const MAX_SUMMARY_CHARS = 400;
 const MAX_DISPLAY_NAME_CHARS = 60;
 const MAX_CAMPAIGN_NAME_CHARS = 80;
 const MAX_NOTE_CHARS = 400;
+const MAX_EMAIL_CHARS = 254; // RFC 5321 max address length — a cheap DoS bound before validation
 const MAX_BROWSE_RESULTS = 100;
 const INVITE_TTL_SECONDS = 14 * 24 * 60 * 60; // 14 days
 const VERSION_RE = /^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]{1,40})?$/;
 // Invite tokens are 32 random bytes base64url (43 chars); accept a bounded shape only.
 const TOKEN_RE = /^[A-Za-z0-9_-]{16,128}$/;
+// Deliberately conservative address shape: exactly one @, non-empty local + dotted host,
+// no whitespace. Real deliverability is decided by SES, not this regex — this only rejects
+// obvious garbage before we ever hand an address to SES.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // --- key layout (single table; see infra/app-api/template.yaml) ------------------------
 const accountPk = (sub: string) => `account#${sub}`;
@@ -326,6 +333,64 @@ async function deleteModule(caller: Caller, rawModuleId: string | undefined) {
 	return json(200, { ok: true });
 }
 
+// --- Invite email delivery (optional, fail-open) ---------------------------------------
+// `none` — the DM did not ask to email it. `sent` — SES accepted the message. `not-configured`
+// — no verified sender is wired into this stack (INVITE_SENDER/WEB_ORIGIN unset), so nothing
+// was sent. `failed` — SES rejected (unverified/sandbox/throttled). Every non-`sent` status is
+// non-fatal: the invite (link + QR) is minted regardless, and the client shows the honest
+// fallback. The join link in the email is built from the stack's OWN WEB_ORIGIN, never from
+// caller input, so a verified sender can never be coerced into mailing an attacker's URL.
+type InviteEmailStatus = 'none' | 'sent' | 'not-configured' | 'failed';
+
+/** The web join link an invite token redeems at — must mirror the client's inviteJoinUrl(). */
+const inviteJoinUrl = (webOrigin: string, token: string) =>
+	`${webOrigin.replace(/\/$/, '')}/#/join?token=${encodeURIComponent(token)}`;
+
+async function sendInviteEmail(input: {
+	to: string;
+	campaignName: string;
+	invitedBy: string;
+	note: string;
+	token: string;
+}): Promise<InviteEmailStatus> {
+	// Read config lazily so the stack ships email-disabled by default (fail-closed): with no
+	// verified sender the invite still mints and the API answers `not-configured` honestly.
+	const sender = process.env.INVITE_SENDER?.trim();
+	const webOrigin = process.env.WEB_ORIGIN?.trim();
+	if (!sender || !webOrigin) return 'not-configured';
+	const joinUrl = inviteJoinUrl(webOrigin, input.token);
+	const noteLine = input.note ? `\n\nA note from ${input.invitedBy}:\n${input.note}` : '';
+	const text =
+		`${input.invitedBy} invited you to join the campaign “${input.campaignName}”.` +
+		`${noteLine}\n\nOpen this link to join (it works for 14 days):\n${joinUrl}\n\n` +
+		`If you weren’t expecting this, you can ignore this email.`;
+	const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!);
+	const html =
+		`<p>${esc(input.invitedBy)} invited you to join the campaign <strong>${esc(input.campaignName)}</strong>.</p>` +
+		(input.note ? `<p><em>${esc(input.note)}</em></p>` : '') +
+		`<p><a href="${esc(joinUrl)}">Open this link to join</a> — it works for 14 days.</p>` +
+		`<p style="color:#888;font-size:12px">If you weren’t expecting this, you can ignore this email.</p>`;
+	try {
+		await ses.send(
+			new SendEmailCommand({
+				FromEmailAddress: sender,
+				Destination: { ToAddresses: [input.to] },
+				Content: {
+					Simple: {
+						Subject: { Data: `Join “${input.campaignName}” on DND Tools` },
+						Body: { Text: { Data: text }, Html: { Data: html } },
+					},
+				},
+			}),
+		);
+		return 'sent';
+	} catch (err) {
+		// Never log the recipient address; the SES fault name is enough to diagnose.
+		console.error('invite email send failed', { campaignName: input.campaignName, err: (err as { name?: string })?.name });
+		return 'failed';
+	}
+}
+
 // --- Invites: owner row (account#<sub>|invite#<id>) + redeem row (invite#<token>|redeem).
 // --- Both carry the TTL `expiresAt` so DynamoDB reclaims them; reads still filter on it
 // --- (TTL deletion is lazy). The redeem row holds ONLY what an anonymous invitee may see.
@@ -333,6 +398,12 @@ async function createInvite(caller: Caller, body: string | undefined) {
 	const parsed = parseBody(body);
 	const campaignName = requireString(parsed.campaignName, 'campaignName', MAX_CAMPAIGN_NAME_CHARS);
 	const note = optionalString(parsed.note, 'note', MAX_NOTE_CHARS);
+	// Optional recipient. A malformed address is a client typo → 400 BEFORE minting (so the DM
+	// fixes it) — distinct from a configured-but-undeliverable send, which is fail-open below.
+	const email = optionalString(parsed.email, 'email', MAX_EMAIL_CHARS);
+	if (email && !EMAIL_RE.test(email)) throw new BadRequest('email must be a valid address');
+	// Pass unknown fields (e.g. a future co-DM `role`) through unchanged — never stripped here.
+	const role = optionalString(parsed.role, 'role', 40);
 	const inviteId = randomUUID();
 	const token = randomBytes(32).toString('base64url');
 	const createdAt = nowIso();
@@ -345,6 +416,7 @@ async function createInvite(caller: Caller, body: string | undefined) {
 		token,
 		campaignName,
 		note,
+		role: role || undefined,
 		createdAt,
 		expiresAt,
 	});
@@ -355,11 +427,28 @@ async function createInvite(caller: Caller, body: string | undefined) {
 		inviteId,
 		campaignName,
 		note,
+		role: role || undefined,
 		invitedBy,
 		createdAt,
 		expiresAt,
 	});
-	return json(200, { inviteId, token, campaignName, note, createdAt, expiresAt });
+	// Delivery is best-effort and MUST NOT fail the invite: a bad/absent sender config or an
+	// SES rejection still returns the minted invite with an honest email status. The recipient
+	// address is never persisted (privacy) — it is only echoed back to the owner who typed it.
+	const emailStatus: InviteEmailStatus = email
+		? await sendInviteEmail({ to: email, campaignName, invitedBy, note, token })
+		: 'none';
+	return json(200, {
+		inviteId,
+		token,
+		campaignName,
+		note,
+		...(role ? { role } : {}),
+		createdAt,
+		expiresAt,
+		emailStatus,
+		...(emailStatus === 'sent' ? { emailedTo: email } : {}),
+	});
 }
 
 async function listInvites(caller: Caller) {
@@ -376,6 +465,7 @@ async function listInvites(caller: Caller) {
 			token: row.token, // the owner's own token — needed to re-show the join link
 			campaignName: row.campaignName,
 			note: row.note ?? '',
+			...(row.role ? { role: row.role } : {}), // preserve co-DM role when present
 			createdAt: row.createdAt,
 			expiresAt: Number(row.expiresAt),
 		}));
@@ -404,6 +494,7 @@ async function resolveInvite(rawToken: string | undefined) {
 	return json(200, {
 		campaignName: row.campaignName,
 		note: row.note ?? '',
+		...(row.role ? { role: row.role } : {}), // preserve co-DM role when present
 		invitedBy: row.invitedBy || 'a GM',
 		expiresAt: Number(row.expiresAt),
 	});

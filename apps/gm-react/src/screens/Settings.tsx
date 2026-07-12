@@ -37,6 +37,7 @@ import {
 	revokeDevice,
 	revokeInvite as apiRevokeInvite,
 	updateProfile,
+	type CreateInviteResult,
 	type Device,
 	type Invite,
 	type Profile,
@@ -637,7 +638,8 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 	const [busy, setBusy] = useState(false);
 	const [campaignName, setCampaignName] = useState('');
 	const [note, setNote] = useState('');
-	const [minted, setMinted] = useState<Invite | null>(null);
+	const [email, setEmail] = useState('');
+	const [minted, setMinted] = useState<CreateInviteResult | null>(null);
 	const [qr, setQr] = useState<string | null>(null);
 	// Revoking kills the link server-side for good (no undo exists), so it confirms first.
 	const [pendingRevoke, setPendingRevoke] = useState<Invite | null>(null);
@@ -672,6 +674,7 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 		setMinted(null);
 		setCampaignName('');
 		setNote('');
+		setEmail('');
 		onCloseCreate();
 	};
 	const mint = () => {
@@ -680,11 +683,18 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 			Toaster.error('Give the invite a campaign name.');
 			return;
 		}
+		const to = email.trim();
+		// Catch an obvious typo client-side; the server validates authoritatively.
+		if (to && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+			Toaster.error('Enter a valid email address, or leave it blank to just get a link.');
+			return;
+		}
 		setBusy(true);
-		apiCreateInvite({ campaignName: name, note: note.trim() || undefined })
+		apiCreateInvite({ campaignName: name, note: note.trim() || undefined, email: to || undefined })
 			.then((invite) => {
 				setMinted(invite);
 				setInvites((list) => (list ? [invite, ...list] : [invite]));
+				if (invite.emailStatus === 'sent') Toaster.success(`Invite emailed to ${invite.emailedTo ?? to}.`);
 			})
 			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not create the invite.')))
 			.finally(() => setBusy(false));
@@ -753,7 +763,7 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 				open={createOpen}
 				onClose={close}
 				title={minted ? 'Invite ready to share' : 'Invite a player'}
-				description={minted ? 'Send this link however you like — it works for 14 days or until you revoke it.' : 'Mints a shareable join link — no email is sent.'}
+				description={minted ? 'Send this link however you like — it works for 14 days or until you revoke it.' : 'Mints a shareable join link — add an email to send it, or share the link yourself.'}
 				icon="send"
 				size="md"
 				footer={
@@ -769,6 +779,29 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 			>
 				{minted ? (
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+						{minted.emailStatus !== 'none' && (
+							<div
+								role="status"
+								style={{
+									width: '100%',
+									display: 'flex',
+									alignItems: 'flex-start',
+									gap: 8,
+									padding: '8px 10px',
+									borderRadius: 8,
+									border: `1px solid ${T.bd}`,
+									font: `12px/1.5 ${T.sans}`,
+									color: minted.emailStatus === 'sent' ? T.sub : T.ter,
+								}}
+							>
+								<Icon name={minted.emailStatus === 'sent' ? 'check' : 'info'} size={14} color={minted.emailStatus === 'sent' ? T.ok : T.ter} />
+								<span>
+									{minted.emailStatus === 'sent'
+										? `Emailed to ${minted.emailedTo}. They can also use the link below.`
+										: 'Email couldn’t be sent — email delivery isn’t set up for this app. Share the link below instead.'}
+								</span>
+							</div>
+						)}
 						{/* deliberate literal #fff: a QR quiet zone must stay white for scanners, whatever the theme */}
 						{qr && <img src={qr} alt="QR code for the join link" style={{ width: 168, height: 168, borderRadius: 10, border: `1px solid ${T.bd}`, background: '#fff', padding: 8 }} />}
 						<code style={{ font: `11.5px ${T.mono}`, color: T.sub, wordBreak: 'break-all', textAlign: 'center' }}>{inviteJoinUrl(minted.token)}</code>
@@ -778,6 +811,8 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 						<Input value={campaignName} onChange={(e: { target: { value: string } }) => setCampaignName(e.target.value)} placeholder="Campaign name (shown to the invitee)" aria-label="Campaign name" maxLength={80} />
 						<Textarea value={note} onChange={(e: { target: { value: string } }) => setNote(e.target.value)} placeholder="Note (optional) — e.g. “We play Fridays at 7”" aria-label="Invite note" rows={2} maxLength={200} />
+						<Input type="email" value={email} onChange={(e: { target: { value: string } }) => setEmail(e.target.value)} placeholder="Email invite to… (optional)" aria-label="Recipient email" autoComplete="off" maxLength={254} />
+						<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>Leave email blank to just get a shareable link + QR code. When set, we’ll also email the invite if this app has email delivery configured.</div>
 					</div>
 				)}
 			</Dialog>
