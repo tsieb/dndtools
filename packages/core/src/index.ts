@@ -2661,7 +2661,7 @@ export type {
 	CapabilitySetGovernanceProblem,
 	CapabilitySetGovernanceSummary,
 	RawFieldListGrantFinding,
-} from './con/capability-set-sustainability';
+} from './constraints/capability-set-sustainability';
 export {
 	CAPABILITY_SET_SUSTAINABILITY_VERSION,
 	MAX_CAPABILITY_SETS_PER_ENTITY_TYPE,
@@ -2671,7 +2671,7 @@ export {
 	isGovernedCapabilitySet,
 	isRawFieldListGrant,
 	summarizeCapabilitySetGovernance,
-} from './con/capability-set-sustainability';
+} from './constraints/capability-set-sustainability';
 
 // CON-003 + CON-006 — THE SCOPE-BOUNDARY CONSTRAINT GATE. The declared invariant that keeps v2 inside its
 // declared scope boundaries: no community marketplace / public directory / plugin ecosystem / third-party
@@ -2690,7 +2690,7 @@ export type {
 	ScopeProposal,
 	ScopeViolationFinding,
 	TopLevelScopeAxis,
-} from './con/scope-constraints';
+} from './constraints/scope-constraints';
 export {
 	DECLARED_CONTENT_SOURCES,
 	DECLARED_PLATFORM_TARGETS,
@@ -2705,7 +2705,7 @@ export {
 	isDeclaredInScopeForAxis,
 	isInScopeWidgetDistribution,
 	summarizeScopeBoundary,
-} from './con/scope-constraints';
+} from './constraints/scope-constraints';
 
 // CON-001 — THE "GUI HIDING IS NEVER AUTHORITATIVE" CONSTRAINT GATE. The declared invariant that the
 // data/storage/query layer — never the GUI — is the authoritative enforcement point for visibility,
@@ -2721,7 +2721,7 @@ export type {
 	GuiHidingConstraintSummary,
 	GuiHidingProblem,
 	NonDmDeliverySurface,
-} from './con/gui-hiding-not-authoritative';
+} from './constraints/gui-hiding-not-authoritative';
 export {
 	GUI_HIDING_CONSTRAINT_VERSION,
 	NON_DM_DELIVERY_SURFACES,
@@ -2730,7 +2730,7 @@ export {
 	findDmOnlyFieldLeaks,
 	projectEntityForActor,
 	summarizeGuiHidingConstraint,
-} from './con/gui-hiding-not-authoritative';
+} from './constraints/gui-hiding-not-authoritative';
 
 // CON-002 — THE "NETWORK / MCP / AI / CLOUD IS NEVER REQUIRED" CONSTRAINT GATE. The declared invariant that
 // no external dependency may be REQUIRED for core local workflows (Contract 2 Local-First Invariant;
@@ -2747,7 +2747,7 @@ export type {
 	ExternalOutageProfile,
 	NetworkNotRequiredSummary,
 	WorkflowOutageResult,
-} from './con/network-not-required';
+} from './constraints/network-not-required';
 export {
 	EXTERNAL_DEPENDENCY_CLASSES,
 	EXTERNAL_DEPENDENCY_POSTURE,
@@ -2758,7 +2758,7 @@ export {
 	auditExternalDependencyRequirement,
 	evaluateWorkflowsUnderOutage,
 	summarizeNetworkNotRequired,
-} from './con/network-not-required';
+} from './constraints/network-not-required';
 
 // CON-005 — THE SOURCE-OF-TRUTH CONSTRAINT GATE. The declared invariant that the LOCAL vault / owning
 // durable state document is the authoritative copy of core vault content; cloud storage, external sources,
@@ -2777,7 +2777,7 @@ export type {
 	SourceOfTruthSummary,
 	WidgetSourceOfTruthFinding,
 	WidgetSourceOfTruthReason,
-} from './con/source-of-truth';
+} from './constraints/source-of-truth';
 export {
 	AUTHORITATIVE_OWNERS,
 	CANONICAL_FIELD_SIGNAL_KEYS,
@@ -2789,7 +2789,7 @@ export {
 	isWidgetLocalSourceOfTruth,
 	summarizeSourceOfTruth,
 	vaultUsableWithoutCloud,
-} from './con/source-of-truth';
+} from './constraints/source-of-truth';
 
 // SEC-010 — STREAM-PRIVACY PROOF + COVERAGE HARNESS. The shared, fail-closed proof that a player/observer
 // replication stream (or any `*ForActor` projection) carries NO hidden value/title/id/edge/snippet/count,

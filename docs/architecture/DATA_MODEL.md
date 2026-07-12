@@ -17,7 +17,7 @@ persisted.
 - **Commands** — `packages/core/src/commands`. **Reducers** — `packages/core/src/state`.
   **Permissions / visibility** — `packages/core/src/permissions`. **Actor-scoped
   queries** — `packages/core/src/queries`. **Source-of-truth registry** —
-  `packages/core/src/con/source-of-truth.ts`.
+  `packages/core/src/constraints/source-of-truth.ts`.
 
 There is no `src/lib/types/*` layer and no filesystem markdown-vault model; those
 belonged to the retired v1/Svelte runtimes.

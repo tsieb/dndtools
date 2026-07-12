@@ -16,7 +16,7 @@ import {
 } from '../permissions/grant-records';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import { appendOperationDraft, parseInput, reject, requireActor, requireCampaignOwner } from './helpers';
-import { findRawFieldListGrant } from '../con/capability-set-sustainability';
+import { findRawFieldListGrant } from '../constraints/capability-set-sustainability';
 
 /**
  * PERM-004 / PERM-013 / CON-004 — durable grant + transfer commands (Architecture Contract 3, Axis 2).

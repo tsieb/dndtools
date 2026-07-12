@@ -103,7 +103,7 @@ The core owns:
 - permission/visibility evaluation and actor-scoped queries (`src/permissions`, `src/queries`),
 - zod schemas (`src/schemas`),
 - the declared, owned registries:
-  - source-of-truth registry — `src/con/source-of-truth.ts`
+  - source-of-truth registry — `src/constraints/source-of-truth.ts`
   - quality-gate registry — `src/platform/quality-gates.ts`
   - performance-budget registry — `src/perf/budget-registry.ts`
   - security regression gates — `src/security/regression-gates.ts`
