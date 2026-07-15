@@ -111,6 +111,16 @@
       "owner": "COMMUNITY (campaign wiki)",
       "rationale": "Copy-public-wiki-link uses navigator.clipboard.writeText as a pure UI convenience after publishing a campaign wiki; denial degrades honestly with a toast telling the user to copy the shown link manually. No durable state, no capability assumption — identical rationale to the atlas/mapbuilder POI-link clipboard entries.",
       "removalCriteria": "Route through a typed platform-clipboard adapter once one exists (DEBT-2026-001)."
+    },
+    {
+      "id": "map-generate-seed-clipboard",
+      "path": "apps/gm-react/src/app/map/generate/GeneratePanel.tsx",
+      "primitives": [
+        "navigator"
+      ],
+      "owner": "MAP (generate tool)",
+      "rationale": "Copy-generation-seed uses navigator.clipboard.writeText as a pure UI convenience so a DM can share/reuse a reproducible seed; denial degrades honestly (the seed is always visible and editable in the adjacent field for manual copy). No durable state, no capability assumption — identical rationale to the atlas/mapbuilder/community clipboard entries.",
+      "removalCriteria": "Route through a typed platform-clipboard adapter once one exists (DEBT-2026-001)."
     }
   ]
 }

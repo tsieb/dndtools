@@ -1,17 +1,14 @@
 import { createRoot } from 'react-dom/client';
+import type { ReactNode } from 'react';
 import './styles/index.css';
 import { Toaster } from './ds';
 import { App } from './App';
-import { captureGoogleAuthRedirect } from './cloud/googleDocs';
 import { hydrateAiProviderKey } from './ai/providerConfig';
+import { bindWindowChromeTheme } from './platform/windowChrome';
+import { StandaloneSceneDisplay } from './screens/SceneDisplay';
 
-// A popup-blocked Google sign-in returns with the OAuth token in the URL FRAGMENT, which HashRouter
-// would consume as a route — capture it (and restore the real route) before the router mounts.
-captureGoogleAuthRedirect();
-
-// Desktop only: load the OS-encrypted AI provider key back into memory so a returning user's
-// assistant is configured without re-pasting. Best-effort and async — the UI reads it on demand.
-void hydrateAiProviderKey();
+// Synchronize the browser/native title surface before React paints, then follow live theme changes.
+bindWindowChromeTheme();
 
 // Safety net for a durable-write failure: `SceneRuntime.dispatch` rolls back and RE-THROWS on a persist
 // failure (PLAT-018), so a caller that only inspects `result.status` would let it escape as an unhandled
@@ -38,4 +35,26 @@ if (import.meta.env.VITE_DEMO_MODE === '1') {
 
 const container = document.getElementById('root');
 if (!container) throw new Error('Root container #root not found');
-createRoot(container).render(<App />);
+const nativeDisplay = Boolean(
+	(globalThis as typeof globalThis & { dndtoolsSceneDisplay?: boolean }).dndtoolsSceneDisplay,
+);
+const nativeTitle = nativeDisplay ? 'Scene display' : 'DND Tools GM';
+
+const render = (app: ReactNode) =>
+	createRoot(container).render(
+		<>
+			<div className="electron-titlebar" aria-hidden="true">
+				<span>{nativeTitle}</span>
+			</div>
+			{app}
+		</>,
+	);
+
+// Desktop only: finish loading the OS-encrypted provider key before the Settings tree can read it.
+// The operation is a no-op on the web and handles its own failure, so startup never depends on a
+// credential store; this only prevents a returning desktop user from briefly seeing “Not configured.”
+if (nativeDisplay) render(<StandaloneSceneDisplay />);
+else {
+	const hydrationTimeout = new Promise<void>((resolve) => window.setTimeout(resolve, 3000));
+	void Promise.race([hydrateAiProviderKey(), hydrationTimeout]).finally(() => render(<App />));
+}

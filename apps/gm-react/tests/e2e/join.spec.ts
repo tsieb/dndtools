@@ -29,14 +29,20 @@ test.describe('join: the invite-redeem landing (cloud fail-closed)', () => {
 		await expect(page.getByRole('button', { name: 'Go to the app' })).toBeVisible();
 	});
 
-	test('with a token it renders the honest not-configured/invalid state without hanging', async ({ page }) => {
+	test('with a token it renders the honest not-configured/invalid state without hanging', async ({
+		page,
+	}) => {
 		await page.goto('/#/join?token=e2e-fake-invite-token', { waitUntil: 'domcontentloaded' });
 
 		await expect(page.getByRole('main', { name: 'Campaign invite' })).toBeVisible();
 
 		// resolveInvite fails closed (no backend) — the loading state MUST resolve to an honest
 		// invalid message, not spin forever.
-		await expect(page.getByText(/not configured for this build/)).toBeVisible({ timeout: 10_000 });
+		await expect(
+			page.getByText(/Online account services are not available in this edition/),
+		).toBeVisible({
+			timeout: 10_000,
+		});
 		await expect(page.getByText('Checking your invite…')).toHaveCount(0);
 		await expect(page.getByRole('button', { name: 'Go to the app' })).toBeVisible();
 	});

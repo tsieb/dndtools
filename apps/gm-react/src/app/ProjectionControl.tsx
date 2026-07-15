@@ -1,4 +1,8 @@
-import { allowedTransitionsFrom, listScenesForActor, type SessionWorkflowState } from '@dndtools/core';
+import {
+	allowedTransitionsFrom,
+	listScenesForActor,
+	type SessionWorkflowState,
+} from '@dndtools/core';
 import { Button, StatusDot, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { T } from './screen-kit';
@@ -10,7 +14,7 @@ import { T } from './screen-kit';
  * projection reach players, and ending returns the table to standby (`idle`). The pill reflects the
  * real `session.workflow`, persisted across reload. DM-only; rejected while previewing.
  */
-export function ProjectionControl() {
+export function ProjectionControl({ compact = false }: { compact?: boolean } = {}) {
 	const runtime = useRuntime();
 	const workflow = runtime.state.session.workflow;
 	const live = workflow === 'active';
@@ -24,9 +28,11 @@ export function ProjectionControl() {
 	function resolveActiveScene(): string | null {
 		const existing = runtime.state.session.activeSceneId ?? runtime.state.commandCenter.homeSceneId;
 		if (existing && runtime.state.scenes.scenes[existing]) return existing;
-		const first = listScenesForActor(runtime.state.scenes, runtime.state.permissions, runtime.defaultActorId).filter(
-			(s) => !s.isTemplate,
-		)[0];
+		const first = listScenesForActor(
+			runtime.state.scenes,
+			runtime.state.permissions,
+			runtime.defaultActorId,
+		).filter((s) => !s.isTemplate)[0];
 		return first?.id ?? null;
 	}
 
@@ -51,36 +57,46 @@ export function ProjectionControl() {
 
 	return (
 		<>
-			<div
-				style={{
-					display: 'flex',
-					alignItems: 'center',
-					gap: 9,
-					padding: '6px 11px',
-					borderRadius: 9,
-					background: T.surf,
-					border: `1px solid ${live ? T.accBd : T.bd}`,
-					flex: '0 0 auto',
-				}}
-			>
-				<StatusDot status={live ? 'live' : 'idle'} pulse={live} label="Session" />
-				<span style={{ font: `12px ${T.sans}`, color: T.sub, whiteSpace: 'nowrap' }}>
-					{live ? 'Live' : workflow === 'idle' ? 'Standby' : workflow}
-				</span>
-			</div>
+			{!compact && (
+				<div
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: 9,
+						padding: '6px 11px',
+						borderRadius: 9,
+						background: T.surf,
+						border: `1px solid ${live ? T.accBd : T.bd}`,
+						flex: '0 0 auto',
+					}}
+				>
+					<StatusDot status={live ? 'live' : 'idle'} pulse={live} label="Session" />
+					<span style={{ font: `12px ${T.sans}`, color: T.sub, whiteSpace: 'nowrap' }}>
+						{live ? 'Live' : workflow === 'idle' ? 'Standby' : workflow}
+					</span>
+				</div>
+			)}
 			<Button
 				variant={live ? 'secondary' : 'primary'}
 				size="md"
 				icon={live ? 'audio-off' : 'visibility-players'}
 				disabled={previewing || (!live && !canGoLive)}
-				title={!live && !canGoLive ? `Can’t go live directly from ${workflow} — return to standby first` : undefined}
+				title={
+					!live && !canGoLive
+						? `Can’t go live directly from ${workflow} — return to standby first`
+						: live
+							? 'End live session'
+							: 'Go live'
+				}
+				aria-label={live ? 'End live session' : 'Go live'}
+				style={compact ? { width: 44, minHeight: 44, padding: 0, flex: '0 0 auto' } : undefined}
 				onClick={() =>
 					live
 						? setWorkflow('idle', 'Session ended — players returned to standby')
 						: setWorkflow('active', 'You are live — combat, dice & projection now reach players')
 				}
 			>
-				{live ? 'End' : 'Go live'}
+				{compact ? null : live ? 'End' : 'Go live'}
 			</Button>
 		</>
 	);

@@ -1,5 +1,10 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// The whole-app validation harness owns the Vite process so every browser check shares the
+// same local-only server. GitHub Actions sets CI=1, where standalone Playwright runs must still
+// reject an already-listening port; this explicit signal distinguishes the managed harness.
+const reuseValidationServer = process.env.DNDTOOLS_PLAYWRIGHT_REUSE_MANAGED_SERVER === '1';
+
 // Playwright config for the React GM app (@dndtools/gm-react).
 //
 // The specs MUST run against the Vite DEV server (`pnpm dev`, port 5273), not `vite preview`:
@@ -16,6 +21,8 @@ export default defineConfig({
 	use: {
 		baseURL: 'http://localhost:5273',
 		trace: 'on-first-retry',
+		screenshot: 'only-on-failure',
+		video: 'retain-on-failure',
 	},
 	projects: [
 		{ name: 'desktop-chromium', use: { ...devices['Desktop Chrome'] } },
@@ -24,7 +31,7 @@ export default defineConfig({
 	webServer: {
 		command: 'pnpm dev',
 		port: 5273,
-		reuseExistingServer: !process.env.CI,
+		reuseExistingServer: reuseValidationServer || !process.env.CI,
 		timeout: 300_000,
 		// Force the e2e dev server to be local-first even if a developer has pulled real cloud
 		// coordinates into .env.local (scripts/pull-cloud-env.mjs). Process env outranks .env files
@@ -40,6 +47,7 @@ export default defineConfig({
 			VITE_SIGNALING_WS_URL: '',
 			VITE_SYNC_API_URL: '',
 			VITE_APP_API_URL: '',
+			VITE_PUBLIC_APP_URL: '',
 			VITE_GOOGLE_CLIENT_ID: '',
 		},
 	},

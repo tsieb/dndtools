@@ -42,10 +42,7 @@ function cfg<T = unknown>(widget: BoardWidget, key: string): T | undefined {
 }
 
 /** Dispatch a widget-declared durable command; undefined while editing (bodies stay inert). */
-export type WidgetCommandHandler = (
-	commandType: string,
-	payload: Record<string, unknown>,
-) => void;
+export type WidgetCommandHandler = (commandType: string, payload: Record<string, unknown>) => void;
 
 const bodyWrap: React.CSSProperties = {
 	height: '100%',
@@ -56,7 +53,13 @@ const bodyWrap: React.CSSProperties = {
 	overflow: 'hidden',
 };
 
-function Chip({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: 'neutral' | 'accent' }) {
+function Chip({
+	children,
+	tone = 'neutral',
+}: {
+	children: React.ReactNode;
+	tone?: 'neutral' | 'accent';
+}) {
 	const accent = tone === 'accent';
 	return (
 		<span
@@ -142,7 +145,12 @@ function StatPill({ label, value }: { label: string; value: string }) {
 			>
 				{label}
 			</span>
-			<span style={{ font: '700 var(--text-sm) var(--font-display)', color: 'var(--color-text-primary)' }}>
+			<span
+				style={{
+					font: '700 var(--text-sm) var(--font-display)',
+					color: 'var(--color-text-primary)',
+				}}
+			>
 				{value}
 			</span>
 		</div>
@@ -151,7 +159,11 @@ function StatPill({ label, value }: { label: string; value: string }) {
 
 function Muted({ children }: { children: React.ReactNode }) {
 	return (
-		<div style={{ font: 'var(--text-xs)/1.5 var(--font-sans)', color: 'var(--color-text-tertiary)' }}>{children}</div>
+		<div
+			style={{ font: 'var(--text-xs)/1.5 var(--font-sans)', color: 'var(--color-text-tertiary)' }}
+		>
+			{children}
+		</div>
 	);
 }
 
@@ -162,12 +174,23 @@ function NoteBody({ widget }: { widget: BoardWidget }) {
 	return (
 		<div style={{ ...bodyWrap, gap: 6 }}>
 			{heading && (
-				<div style={{ font: '700 var(--text-sm) var(--font-display)', color: 'var(--color-text-primary)' }}>
+				<div
+					style={{
+						font: '700 var(--text-sm) var(--font-display)',
+						color: 'var(--color-text-primary)',
+					}}
+				>
 					{heading}
 				</div>
 			)}
 			{body && (
-				<div style={{ font: 'var(--text-xs)/1.6 var(--font-sans)', color: 'var(--color-text-secondary)', overflow: 'hidden' }}>
+				<div
+					style={{
+						font: 'var(--text-xs)/1.6 var(--font-sans)',
+						color: 'var(--color-text-secondary)',
+						overflow: 'hidden',
+					}}
+				>
 					{body}
 				</div>
 			)}
@@ -175,7 +198,13 @@ function NoteBody({ widget }: { widget: BoardWidget }) {
 	);
 }
 
-function DiceBody({ widget, onCommand }: { widget: BoardWidget; onCommand?: WidgetCommandHandler }) {
+function DiceBody({
+	widget,
+	onCommand,
+}: {
+	widget: BoardWidget;
+	onCommand?: WidgetCommandHandler;
+}) {
 	const runtime = useRuntime();
 	const formulas = (cfg<string>(widget, 'formulas') ?? 'd20')
 		.split(',')
@@ -223,7 +252,10 @@ function DiceBody({ widget, onCommand }: { widget: BoardWidget; onCommand?: Widg
 				/>
 				{lastRoll && (
 					<span
-						style={{ font: '700 var(--text-sm) var(--font-mono)', color: 'var(--color-text-primary)' }}
+						style={{
+							font: '700 var(--text-sm) var(--font-mono)',
+							color: 'var(--color-text-primary)',
+						}}
 						aria-label={`Last result for ${lastRoll.expression}: ${lastRoll.total}`}
 					>
 						= {lastRoll.total}
@@ -240,7 +272,13 @@ const URGENCY_COLOR: Record<string, string> = {
 	normal: 'var(--color-text-primary)',
 };
 
-function TimerBody({ widget, onCommand }: { widget: BoardWidget; onCommand?: WidgetCommandHandler }) {
+function TimerBody({
+	widget,
+	onCommand,
+}: {
+	widget: BoardWidget;
+	onCommand?: WidgetCommandHandler;
+}) {
 	const runtime = useRuntime();
 	const configured = Number(cfg<number>(widget, 'durationSeconds') ?? 60) || 60;
 	// The DURABLE session timer for this widget instance (SES-005); the countdown view is a pure
@@ -275,7 +313,15 @@ function TimerBody({ widget, onCommand }: { widget: BoardWidget; onCommand?: Wid
 				</div>
 				{countdown.status !== 'stopped' && <Muted>{countdown.statusLabel}</Muted>}
 			</div>
-			<div style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+			<div
+				style={{
+					marginLeft: 'auto',
+					display: 'flex',
+					flexDirection: 'column',
+					alignItems: 'flex-end',
+					gap: 4,
+				}}
+			>
 				{(countdown.status === 'stopped' || countdown.status === 'expired') && (
 					<OpChip
 						icon="play"
@@ -284,8 +330,12 @@ function TimerBody({ widget, onCommand }: { widget: BoardWidget; onCommand?: Wid
 						onPress={op('timer.start', { durationSeconds: configured })}
 					/>
 				)}
-				{countdown.status === 'running' && <OpChip icon="pause" label="Pause" onPress={op('timer.pause')} />}
-				{countdown.status === 'paused' && <OpChip icon="play" label="Resume" onPress={op('timer.resume')} />}
+				{countdown.status === 'running' && (
+					<OpChip icon="pause" label="Pause" onPress={op('timer.pause')} />
+				)}
+				{countdown.status === 'paused' && (
+					<OpChip icon="play" label="Resume" onPress={op('timer.resume')} />
+				)}
 				{countdown.status !== 'stopped' && declares('timer.reset') && (
 					<OpChip icon="retry" label="Reset" onPress={op('timer.reset')} />
 				)}
@@ -335,12 +385,22 @@ function AudioBody() {
 				<Icon name={playing ? 'play' : 'pause'} size="sm" />
 			</span>
 			<div style={{ minWidth: 0 }}>
-				<div style={{ font: '600 var(--text-sm) var(--font-sans)', color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+				<div
+					style={{
+						font: '600 var(--text-sm) var(--font-sans)',
+						color: 'var(--color-text-primary)',
+						overflow: 'hidden',
+						textOverflow: 'ellipsis',
+						whiteSpace: 'nowrap',
+					}}
+				>
 					{title}
 				</div>
 				<Muted>
 					{playing ? 'Playing' : 'Paused'} · vol {Math.round(track.volume * 100)}%
-					{ambienceCount > 0 ? ` · ${ambienceCount} ambience ${ambienceCount === 1 ? 'layer' : 'layers'}` : ''}
+					{ambienceCount > 0
+						? ` · ${ambienceCount} ambience ${ambienceCount === 1 ? 'layer' : 'layers'}`
+						: ''}
 				</Muted>
 			</div>
 		</div>
@@ -394,13 +454,23 @@ function CharacterBody({ widget }: { widget: BoardWidget }) {
 	// Resolve the BOUND character through the actor-filtered query (redacted per viewer).
 	const boundId = widget.bindingRef?.entityType === 'character' ? widget.bindingRef.entityId : null;
 	const view = boundId
-		? getCharacterForActor(runtime.state.characters, runtime.state.permissions, runtime.defaultActorId, boundId)
+		? getCharacterForActor(
+				runtime.state.characters,
+				runtime.state.permissions,
+				runtime.defaultActorId,
+				boundId,
+			)
 		: null;
 	const scores = (view?.abilityScores ?? {}) as Record<string, number | undefined>;
 	return (
 		<div style={bodyWrap}>
 			{view && (
-				<div style={{ font: '700 var(--text-sm) var(--font-display)', color: 'var(--color-text-primary)' }}>
+				<div
+					style={{
+						font: '700 var(--text-sm) var(--font-display)',
+						color: 'var(--color-text-primary)',
+					}}
+				>
 					{view.name}
 				</div>
 			)}
@@ -423,22 +493,37 @@ function CharacterBody({ widget }: { widget: BoardWidget }) {
 
 function MapBody({ widget }: { widget: BoardWidget }) {
 	const runtime = useRuntime();
+	const isDm = runtime.state.permissions.actors[runtime.defaultActorId]?.role === 'dm';
 	// Resolve the BOUND map through the actor-filtered view (hidden maps collapse to unavailable),
 	// then pick its raster base layer exactly like Atlas does. Hooks run before any early return.
 	const boundId = widget.bindingRef?.entityType === 'map' ? widget.bindingRef.entityId : null;
 	const view = boundId
-		? getMapViewForActor(runtime.state.maps, runtime.state.permissions, runtime.defaultActorId, boundId)
+		? getMapViewForActor(
+				runtime.state.maps,
+				runtime.state.permissions,
+				runtime.defaultActorId,
+				boundId,
+			)
 		: null;
 	const rasterId =
 		view && view.kind === 'available'
-			? pickRasterAssetId(runtime.state.maps.maps[view.mapId]?.assetIds ?? [], runtime.state.maps.assets)
+			? pickRasterAssetId(
+					runtime.state.maps.maps[view.mapId]?.assetIds ?? [],
+					runtime.state.maps.assets,
+				)
 			: null;
 	const rasterUrl = useAssetObjectUrl(rasterId);
 	if (widget.requiresBinding && widget.status !== 'available') {
 		return <Muted>No map bound — bind a map to display its layers.</Muted>;
 	}
 	if (!view || view.kind !== 'available') {
-		return <Muted>The bound map isn’t available to you.</Muted>;
+		return (
+			<Muted>
+				{isDm
+					? 'The bound map is missing or was removed. Choose another map in edit mode.'
+					: 'The bound map isn’t available to you.'}
+			</Muted>
+		);
 	}
 	return (
 		<div style={{ ...bodyWrap, gap: 6 }}>
@@ -463,15 +548,23 @@ function MapBody({ widget }: { widget: BoardWidget }) {
 				)}
 			</div>
 			<Muted>
-				{view.name} · {view.pois.length} {view.pois.length === 1 ? 'POI' : 'POIs'} · {view.tokens.length}{' '}
-				{view.tokens.length === 1 ? 'token' : 'tokens'}
+				{view.name} · {view.pois.length} {view.pois.length === 1 ? 'POI' : 'POIs'} ·{' '}
+				{view.tokens.length} {view.tokens.length === 1 ? 'token' : 'tokens'}
 				{view.fog.length > 0 ? ` · fog ×${view.fog.length}` : ''}
 			</Muted>
 		</div>
 	);
 }
 
-function ListBody({ widget, kind, unit }: { widget: BoardWidget; kind: 'note' | 'object'; unit: string }) {
+function ListBody({
+	widget,
+	kind,
+	unit,
+}: {
+	widget: BoardWidget;
+	kind: 'note' | 'object';
+	unit: string;
+}) {
 	const runtime = useRuntime();
 	// The SAME visibility-respecting content read Knowledge lists with — a player-viewed board never
 	// shows a DM-only row here. `count` is the widget's configured row cap.

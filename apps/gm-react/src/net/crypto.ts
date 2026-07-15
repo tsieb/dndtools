@@ -1,5 +1,8 @@
 import type { PeerMessage } from './messages';
 
+export const MAX_SEALED_FRAME_CHARS = 4 * 1024 * 1024;
+const MAX_PLAINTEXT_FRAME_BYTES = 3 * 1024 * 1024;
+
 /**
  * P2P application-layer message encryption (Epic 7.3 S7.3.4). Each session/invitation carries a
  * short-lived 256-bit AES-GCM key; every data-channel message is sealed with it. The key is exchanged
@@ -28,7 +31,10 @@ function bytesToBase64(bytes: Uint8Array): string {
 	return btoa(binary);
 }
 
-function base64ToBytes(b64: string): Uint8Array {
+function base64ToBytes(b64: string, maxChars = MAX_SEALED_FRAME_CHARS): Uint8Array {
+	if (b64.length > maxChars || !/^[A-Za-z0-9+/]*={0,2}$/.test(b64)) {
+		throw new Error('Malformed base64 frame.');
+	}
 	const binary = atob(b64);
 	const bytes = new Uint8Array(binary.length);
 	for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
@@ -59,7 +65,9 @@ export async function exportKeyBase64(key: CryptoKey): Promise<string> {
 
 /** Import a base64 raw AES-GCM key received in a pairing payload. */
 export async function importKeyBase64(b64: string): Promise<CryptoKey> {
-	return subtle().importKey('raw', toArrayBuffer(base64ToBytes(b64)), { name: 'AES-GCM' }, true, [
+	const raw = base64ToBytes(b64, 64);
+	if (raw.byteLength !== 32) throw new Error('Invalid session key.');
+	return subtle().importKey('raw', toArrayBuffer(raw), { name: 'AES-GCM' }, true, [
 		'encrypt',
 		'decrypt',
 	]);
@@ -72,8 +80,14 @@ export async function importKeyBase64(b64: string): Promise<CryptoKey> {
 export async function seal(key: CryptoKey, message: PeerMessage): Promise<string> {
 	const iv = crypto.getRandomValues(new Uint8Array(12));
 	const plaintext = new TextEncoder().encode(JSON.stringify(message));
+	if (plaintext.byteLength > MAX_PLAINTEXT_FRAME_BYTES)
+		throw new Error('Peer message is too large.');
 	const ct = new Uint8Array(
-		await subtle().encrypt({ name: 'AES-GCM', iv: toArrayBuffer(iv) }, key, toArrayBuffer(plaintext)),
+		await subtle().encrypt(
+			{ name: 'AES-GCM', iv: toArrayBuffer(iv) },
+			key,
+			toArrayBuffer(plaintext),
+		),
 	);
 	return `${bytesToBase64(iv)}.${bytesToBase64(ct)}`;
 }
@@ -83,13 +97,19 @@ export async function seal(key: CryptoKey, message: PeerMessage): Promise<string
  * authentication failure) — the caller treats a throw as a hostile/garbled frame and drops it. A peer
  * that has been revoked (its key rotated away) can no longer produce frames this opens.
  */
-export async function open(key: CryptoKey, sealed: string): Promise<PeerMessage> {
+export async function open(key: CryptoKey, sealed: string): Promise<unknown> {
+	if (sealed.length < 1 || sealed.length > MAX_SEALED_FRAME_CHARS)
+		throw new Error('Sealed frame is too large.');
 	const dot = sealed.indexOf('.');
-	if (dot < 0) throw new Error('Malformed sealed frame.');
-	const iv = base64ToBytes(sealed.slice(0, dot));
+	if (dot < 0 || sealed.indexOf('.', dot + 1) >= 0) throw new Error('Malformed sealed frame.');
+	const iv = base64ToBytes(sealed.slice(0, dot), 32);
+	if (iv.byteLength !== 12) throw new Error('Malformed sealed frame.');
 	const ct = base64ToBytes(sealed.slice(dot + 1));
+	if (ct.byteLength < 17 || ct.byteLength > MAX_PLAINTEXT_FRAME_BYTES + 16) {
+		throw new Error('Malformed sealed frame.');
+	}
 	const plaintext = new Uint8Array(
 		await subtle().decrypt({ name: 'AES-GCM', iv: toArrayBuffer(iv) }, key, toArrayBuffer(ct)),
 	);
-	return JSON.parse(new TextDecoder().decode(plaintext)) as PeerMessage;
+	return JSON.parse(new TextDecoder().decode(plaintext)) as unknown;
 }

@@ -22,13 +22,28 @@ import {
 	type AudioPresetCategory,
 	type AudioSourceClassification,
 } from '@dndtools/core';
-import { Badge, Button, EmptyState, Field, Icon, Input, Select, Slider, StatusDot, Switch, Tabs, Toaster } from '../ds';
+import {
+	Badge,
+	Button,
+	EmptyState,
+	Field,
+	Icon,
+	Input,
+	Select,
+	Slider,
+	StatusDot,
+	Switch,
+	Tabs,
+	Toaster,
+} from '../ds';
 import { Page, Panel, T, eb } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { ensureAudioPlayback } from '../runtime/audio-playback';
 import { AUDIO_IMPORT_ACCEPT, importAudioFile } from '../runtime/audio-import';
 import { pickBinaryFile } from '../platform/filePick';
 import { hasAssetBytes } from '../platform/storage/assetStore';
+import { useViewport } from '../app/useViewport';
+import { isNativeDesktopRuntime } from '../platform/windowChrome';
 
 /**
  * Audio — soundboard + session-audio transport, wired to the live Processing Core. The now-playing
@@ -95,7 +110,10 @@ function useAssetBytesPresence(assetIds: string[]): Record<string, BytesPresence
 		}
 		let cancelled = false;
 		void Promise.all(
-			ids.map(async (id) => [id, (await hasAssetBytes(id).catch(() => false)) ? 'present' : 'missing'] as const),
+			ids.map(
+				async (id) =>
+					[id, (await hasAssetBytes(id).catch(() => false)) ? 'present' : 'missing'] as const,
+			),
 		).then((pairs) => {
 			if (!cancelled) setPresence(Object.fromEntries(pairs));
 		});
@@ -112,7 +130,10 @@ interface OutputDeviceOption {
 }
 
 /** Enumerate the device's audio OUTPUTS (feature-detected; refreshed on devicechange). */
-function useAudioOutputDevices(enabled: boolean): { outputs: OutputDeviceOption[]; note: string | null } {
+function useAudioOutputDevices(enabled: boolean): {
+	outputs: OutputDeviceOption[];
+	note: string | null;
+} {
 	const [outputs, setOutputs] = useState<OutputDeviceOption[]>([]);
 	const [note, setNote] = useState<string | null>(null);
 	useEffect(() => {
@@ -132,8 +153,15 @@ function useAudioOutputDevices(enabled: boolean): { outputs: OutputDeviceOption[
 					// and dedupe by id so the picker never offers colliding options.
 					const outs = devices.filter((d) => d.kind === 'audiooutput' && d.deviceId !== '');
 					const seen = new Set<string>();
-					const unique = outs.filter((d) => (seen.has(d.deviceId) ? false : (seen.add(d.deviceId), true)));
-					setOutputs(unique.map((d, i) => ({ deviceId: d.deviceId, label: d.label || `Output device ${i + 1}` })));
+					const unique = outs.filter((d) =>
+						seen.has(d.deviceId) ? false : (seen.add(d.deviceId), true),
+					);
+					setOutputs(
+						unique.map((d, i) => ({
+							deviceId: d.deviceId,
+							label: d.label || `Output device ${i + 1}`,
+						})),
+					);
 					setNote(
 						unique.length === 0 || unique.some((d) => !d.label)
 							? 'Device names appear once the browser has granted media permission; unnamed outputs still work.'
@@ -157,6 +185,10 @@ function useAudioOutputDevices(enabled: boolean): { outputs: OutputDeviceOption[
 
 export function Audio() {
 	const runtime = useRuntime();
+	const viewport = useViewport();
+	const isPhone = viewport === 'phone';
+	const isDesktop = viewport === 'desktop';
+	const nativeDesktop = isNativeDesktopRuntime();
 	const dmId = runtime.defaultActorId;
 	const state = runtime.state;
 	const previewing = !!runtime.preview;
@@ -166,16 +198,29 @@ export function Audio() {
 	// Start (idempotently) the app-lifetime device-output driver and follow its honest status. The driver
 	// is keyed per runtime, so StrictMode double-render / remount reuses the same element and subscription.
 	const playback = useMemo(() => ensureAudioPlayback(runtime), [runtime]);
-	const playbackState = useSyncExternalStore(playback.subscribe, playback.getSnapshot, playback.getSnapshot);
+	const playbackState = useSyncExternalStore(
+		playback.subscribe,
+		playback.getSnapshot,
+		playback.getSnapshot,
+	);
 
 	const audioView = useMemo(
 		() => getSessionAudioView(state.audio, state.session.audioPlayback, state.permissions, dmId),
 		[state.audio, state.session.audioPlayback, state.permissions, dmId],
 	);
 	const dmView = audioView.role === 'dm' ? audioView : null;
-	const assets = useMemo(() => listAudioAssetsForActor(state.audio, state.permissions, dmId), [state.audio, state.permissions, dmId]);
-	const sources = useMemo(() => listAudioSourceClassificationsForActor(state.audio, state.permissions, dmId), [state.audio, state.permissions, dmId]);
-	const associations = useMemo(() => listAudioAssociationsForActor(state.audio, state.permissions, dmId), [state.audio, state.permissions, dmId]);
+	const assets = useMemo(
+		() => listAudioAssetsForActor(state.audio, state.permissions, dmId),
+		[state.audio, state.permissions, dmId],
+	);
+	const sources = useMemo(
+		() => listAudioSourceClassificationsForActor(state.audio, state.permissions, dmId),
+		[state.audio, state.permissions, dmId],
+	);
+	const associations = useMemo(
+		() => listAudioAssociationsForActor(state.audio, state.permissions, dmId),
+		[state.audio, state.permissions, dmId],
+	);
 	const automationRules = useMemo(
 		() => listAudioAutomationRulesForActor(state.audio, state.permissions, dmId),
 		[state.audio, state.permissions, dmId],
@@ -193,12 +238,13 @@ export function Audio() {
 	const track = audioView.track;
 	const playing = track?.status === 'playing';
 	const trackLabel = track
-		? (track.assetId ? assets.find((a) => a.id === track.assetId)?.title : undefined) ??
+		? ((track.assetId ? assets.find((a) => a.id === track.assetId)?.title : undefined) ??
 			sources.find((s) => s.sourceId === track.sourceId)?.displayName ??
 			track.assetId ??
-			track.sourceId
+			track.sourceId)
 		: 'Nothing playing';
-	const webStreamSource = sources.find((s) => s.type === 'web-stream');
+	const usableSources = nativeDesktop ? sources.filter((s) => s.type !== 'web-stream') : sources;
+	const webStreamSource = nativeDesktop ? undefined : sources.find((s) => s.type === 'web-stream');
 
 	const [tab, setTab] = useState<'playback' | 'presets' | 'automation'>('playback');
 	const [pulse, setPulse] = useState<string | null>(null);
@@ -207,7 +253,9 @@ export function Audio() {
 	// Add-track form (audio.configure-source — the same declared-cache path the demo seed uses).
 	const [trackName, setTrackName] = useState('');
 	const [trackUrl, setTrackUrl] = useState('');
-	const [trackKind, setTrackKind] = useState<SourceKind>('web-stream');
+	const [trackKind, setTrackKind] = useState<SourceKind>(() =>
+		isNativeDesktopRuntime() ? 'bundled-preset' : 'web-stream',
+	);
 	const [addBusy, setAddBusy] = useState(false);
 	const [addError, setAddError] = useState<string | null>(null);
 	const [addedName, setAddedName] = useState<string | null>(null);
@@ -227,7 +275,11 @@ export function Audio() {
 		if (!picked) return;
 		setImportBusy(true);
 		try {
-			const outcome = await importAudioFile(runtime, dmId, { name: picked.name, mime: picked.mime, bytes: picked.bytes });
+			const outcome = await importAudioFile(runtime, dmId, {
+				name: picked.name,
+				mime: picked.mime,
+				bytes: picked.bytes,
+			});
 			if (!outcome.ok) {
 				setImportError(outcome.message);
 				return;
@@ -238,7 +290,9 @@ export function Audio() {
 					: `“${outcome.title}” imported to the soundboard.`,
 			);
 			if (outcome.needsLicenseReview) {
-				Toaster.warning(`“${outcome.title}” has no declared license — review it before sharing or export.`);
+				Toaster.warning(
+					`“${outcome.title}” has no declared license — review it before sharing or export.`,
+				);
 			}
 		} finally {
 			setImportBusy(false);
@@ -273,6 +327,10 @@ export function Audio() {
 	const addTrack = async (e: FormEvent) => {
 		e.preventDefault();
 		if (addBusy || !trackName.trim()) return;
+		if (nativeDesktop && trackKind === 'web-stream') {
+			setAddError('The desktop app blocks remote streams. Import the audio file instead.');
+			return;
+		}
 		if (trackKind === 'web-stream' && !trackUrl.trim()) {
 			setAddError('A web stream needs a stream URL.');
 			return;
@@ -305,7 +363,7 @@ export function Audio() {
 
 	// Play a configured STREAM source as the session track (the stream IS the track).
 	const playSource = (s: AudioSourceClassification) => {
-		if (s.type !== 'web-stream' || !s.playbackEnabled) return;
+		if (nativeDesktop || s.type !== 'web-stream' || !s.playbackEnabled) return;
 		dispatch({
 			type: 'session.audio.play',
 			actorId: dmId,
@@ -343,7 +401,7 @@ export function Audio() {
 	);
 	const [ambienceSourceId, setAmbienceSourceId] = useState('');
 	const [ambienceError, setAmbienceError] = useState<string | null>(null);
-	const layerSources = sources.filter((s) => s.playbackEnabled);
+	const layerSources = usableSources.filter((s) => s.playbackEnabled);
 
 	const setLayer = async (layerId: string, sourceId: string, volume: number, muted: boolean) => {
 		setAmbienceError(null);
@@ -389,7 +447,10 @@ export function Audio() {
 	const { outputs, note: outputsNote } = useAudioOutputDevices(SUPPORTS_SINK_SELECTION);
 	const selectedOutputId = dmView?.outputDevice?.deviceId ?? '';
 	const outputOptions = useMemo(() => {
-		const options = [{ value: '', label: 'Platform default' }, ...outputs.map((o) => ({ value: o.deviceId, label: o.label }))];
+		const options = [
+			{ value: '', label: 'Platform default' },
+			...outputs.map((o) => ({ value: o.deviceId, label: o.label })),
+		];
 		// A stored selection whose device is currently unplugged still shows honestly (and can be cleared).
 		if (selectedOutputId && !outputs.some((o) => o.deviceId === selectedOutputId)) {
 			options.push({
@@ -428,7 +489,10 @@ export function Audio() {
 		const result = await runtime.dispatch({
 			type: 'session.audio.apply-preset',
 			actorId: dmId,
-			payload: { presetId: preset.id, online: typeof navigator === 'undefined' ? true : navigator.onLine !== false },
+			payload: {
+				presetId: preset.id,
+				online: typeof navigator === 'undefined' ? true : navigator.onLine !== false,
+			},
 		});
 		if (result.status === 'accepted') Toaster.success(`Applied “${preset.name}”.`);
 		else Toaster.error(result.rejection.message);
@@ -504,7 +568,10 @@ export function Audio() {
 	const [ruleBusy, setRuleBusy] = useState(false);
 	const [ruleError, setRuleError] = useState<string | null>(null);
 
-	const ruleFormSourceId = ruleSourceId || sources[0]?.sourceId || '';
+	const selectedRuleSource = usableSources.some((source) => source.sourceId === ruleSourceId)
+		? ruleSourceId
+		: '';
+	const ruleFormSourceId = selectedRuleSource || usableSources[0]?.sourceId || '';
 	const ruleSourceAssets = assets.filter((a) => a.sourceId === ruleFormSourceId);
 
 	const createRule = async (e: FormEvent) => {
@@ -586,7 +653,8 @@ export function Audio() {
 						},
 					})
 					.then((restored) => {
-						if (restored.status !== 'accepted') Toaster.error(`Undo failed: ${restored.rejection.message}`);
+						if (restored.status !== 'accepted')
+							Toaster.error(`Undo failed: ${restored.rejection.message}`);
 					});
 			},
 		});
@@ -655,21 +723,52 @@ export function Audio() {
 					<div style={{ ...eb, marginBottom: 2 }}>Now playing</div>
 					<div style={{ font: `700 17px ${T.disp}` }}>{trackLabel}</div>
 				</div>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 8, font: `12.5px ${T.sans}`, color: T.sub }}>
-					<StatusDot status={playing ? 'live' : 'idle'} pulse={playing} /> {track ? (playing ? 'Playing' : 'Paused') : 'Idle'}
+				<div
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: 8,
+						font: `12.5px ${T.sans}`,
+						color: T.sub,
+					}}
+				>
+					<StatusDot status={playing ? 'live' : 'idle'} pulse={playing} />{' '}
+					{track ? (playing ? 'Playing' : 'Paused') : 'Idle'}
 				</div>
 				{track && (
 					<div style={{ display: 'flex', gap: 7 }}>
 						{playing ? (
-							<Button variant="ghost" size="sm" icon="pause" disabled={!canEdit} onClick={() => dispatch({ type: 'session.audio.pause', actorId: dmId, payload: {} })}>
+							<Button
+								variant="ghost"
+								size="sm"
+								icon="pause"
+								disabled={!canEdit}
+								onClick={() =>
+									dispatch({ type: 'session.audio.pause', actorId: dmId, payload: {} })
+								}
+							>
 								Pause
 							</Button>
 						) : (
-							<Button variant="ghost" size="sm" icon="play" disabled={!canEdit} onClick={() => dispatch({ type: 'session.audio.resume', actorId: dmId, payload: {} })}>
+							<Button
+								variant="ghost"
+								size="sm"
+								icon="play"
+								disabled={!canEdit}
+								onClick={() =>
+									dispatch({ type: 'session.audio.resume', actorId: dmId, payload: {} })
+								}
+							>
 								Resume
 							</Button>
 						)}
-						<Button variant="ghost" size="sm" icon="close" disabled={!canEdit} onClick={() => dispatch({ type: 'session.audio.stop', actorId: dmId, payload: {} })}>
+						<Button
+							variant="ghost"
+							size="sm"
+							icon="close"
+							disabled={!canEdit}
+							onClick={() => dispatch({ type: 'session.audio.stop', actorId: dmId, payload: {} })}
+						>
 							Stop
 						</Button>
 					</div>
@@ -690,7 +789,13 @@ export function Audio() {
 					<Slider
 						value={masterPct}
 						disabled={!track || !canEdit}
-						onChange={(v: number) => dispatch({ type: 'session.audio.set-volume', actorId: dmId, payload: { volume: v / 100 } })}
+						onChange={(v: number) =>
+							dispatch({
+								type: 'session.audio.set-volume',
+								actorId: dmId,
+								payload: { volume: v / 100 },
+							})
+						}
 						valueLabel={`${masterPct}%`}
 						steppers
 						aria-label="Master volume"
@@ -699,11 +804,24 @@ export function Audio() {
 				</div>
 				{/* The device-output driver's honest silent states — the durable track says "playing", this
 				    line says why THIS device is (or isn't) actually sounding. Nothing fancy by design. */}
-				{track && (playbackState.status === 'blocked' || playbackState.status === 'no-stream' || playbackState.status === 'error') && (
-					<div role="status" style={{ flexBasis: '100%', font: `11.5px/1.5 ${T.sans}`, color: T.ter, display: 'flex', alignItems: 'center', gap: 6 }}>
-						<Icon name="audio" size={13} color={T.ter} /> {playbackState.detail}
-					</div>
-				)}
+				{track &&
+					(playbackState.status === 'blocked' ||
+						playbackState.status === 'no-stream' ||
+						playbackState.status === 'error') && (
+						<div
+							role="status"
+							style={{
+								flexBasis: '100%',
+								font: `11.5px/1.5 ${T.sans}`,
+								color: T.ter,
+								display: 'flex',
+								alignItems: 'center',
+								gap: 6,
+							}}
+						>
+							<Icon name="audio" size={13} color={T.ter} /> {playbackState.detail}
+						</div>
+					)}
 			</div>
 
 			<Tabs
@@ -718,7 +836,14 @@ export function Audio() {
 			/>
 
 			{tab === 'playback' && (
-				<div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 18, alignItems: 'start' }}>
+				<div
+					style={{
+						display: 'grid',
+						gridTemplateColumns: isDesktop ? '1.3fr 1fr' : 'minmax(0,1fr)',
+						gap: 18,
+						alignItems: 'start',
+					}}
+				>
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 						{/* soundboard — real library assets; each tile dispatches session.audio.play */}
 						<Panel
@@ -728,14 +853,25 @@ export function Audio() {
 									<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
 										{assets.length} {assets.length === 1 ? 'asset' : 'assets'}
 									</span>
-									<Button variant="secondary" size="sm" icon="import" disabled={!canEdit || importBusy} onClick={() => void importAudio()}>
+									<Button
+										variant="secondary"
+										size="sm"
+										icon="import"
+										disabled={!canEdit || importBusy}
+										onClick={() => void importAudio()}
+									>
 										{importBusy ? 'Importing…' : 'Import audio…'}
 									</Button>
 								</div>
 							}
 						>
 							{importError && (
-								<div role="status" style={{ font: `11.5px/1.5 ${T.sans}`, color: 'var(--color-status-error-text)' }}>{importError}</div>
+								<div
+									role="status"
+									style={{ font: `11.5px/1.5 ${T.sans}`, color: 'var(--color-status-error-text)' }}
+								>
+									{importError}
+								</div>
 							)}
 							{assets.length === 0 ? (
 								<EmptyState
@@ -745,7 +881,13 @@ export function Audio() {
 									description="Import a local audio file to build your soundboard, or add a stream track below — either becomes real session audio."
 									action={
 										canEdit ? (
-											<Button variant="secondary" size="sm" icon="import" disabled={importBusy} onClick={() => void importAudio()}>
+											<Button
+												variant="secondary"
+												size="sm"
+												icon="import"
+												disabled={importBusy}
+												onClick={() => void importAudio()}
+											>
 												{importBusy ? 'Importing…' : 'Import audio…'}
 											</Button>
 										) : undefined
@@ -771,7 +913,8 @@ export function Audio() {
 													textAlign: 'left',
 													border: `1px solid ${lit ? T.acc : T.bd}`,
 													background: lit ? `color-mix(in srgb, ${T.acc} 18%, ${T.surf})` : T.surf,
-													transition: 'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard)',
+													transition:
+														'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard)',
 												}}
 											>
 												<span
@@ -790,12 +933,26 @@ export function Audio() {
 													<Icon name="play" size="md" />
 												</span>
 												<span style={{ flex: 1, minWidth: 0 }}>
-													<span style={{ display: 'block', font: `600 13px ${T.sans}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title || a.fileName}</span>
-													<span style={{ display: 'block', font: `10.5px ${T.sans}`, color: T.ter }}>
+													<span
+														style={{
+															display: 'block',
+															font: `600 13px ${T.sans}`,
+															whiteSpace: 'nowrap',
+															overflow: 'hidden',
+															textOverflow: 'ellipsis',
+														}}
+													>
+														{a.title || a.fileName}
+													</span>
+													<span
+														style={{ display: 'block', font: `10.5px ${T.sans}`, color: T.ter }}
+													>
 														{bytes === 'unknown'
 															? 'Checking this device…'
 															: bytes === 'present'
-																? (a.tags.length ? a.tags.join(' · ') : a.mimeType)
+																? a.tags.length
+																	? a.tags.join(' · ')
+																	: a.mimeType
 																: 'File bytes missing on this device — re-import to restore'}
 													</span>
 												</span>
@@ -806,23 +963,37 @@ export function Audio() {
 								</div>
 							)}
 							{playError && (
-								<div role="status" style={{ font: `11.5px/1.5 ${T.sans}`, color: 'var(--color-status-error-text)' }}>{playError}</div>
+								<div
+									role="status"
+									style={{ font: `11.5px/1.5 ${T.sans}`, color: 'var(--color-status-error-text)' }}
+								>
+									{playError}
+								</div>
 							)}
 						</Panel>
 
 						{/* tracks & sources — ADD a source in-app (audio.configure-source) + play a stream directly */}
 						<Panel
 							title="Tracks &amp; sources"
-							action={<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{sources.length} {sources.length === 1 ? 'source' : 'sources'}</span>}
+							action={
+								<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+									{sources.length} {sources.length === 1 ? 'source' : 'sources'}
+								</span>
+							}
 						>
 							{canEdit ? (
-								<form onSubmit={addTrack} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+								<form
+									onSubmit={addTrack}
+									style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+								>
 									<div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 10 }}>
 										<Field label="Track name" htmlFor="audio-track-name" required>
 											<Input
 												id="audio-track-name"
 												value={trackName}
-												onChange={(e: { target: { value: string } }) => setTrackName(e.target.value)}
+												onChange={(e: { target: { value: string } }) =>
+													setTrackName(e.target.value)
+												}
 												placeholder="Tavern murmur"
 											/>
 										</Field>
@@ -830,38 +1001,73 @@ export function Audio() {
 											<Select
 												id="audio-track-kind"
 												value={trackKind}
-												onChange={(e: { target: { value: string } }) => setTrackKind(e.target.value as SourceKind)}
-												options={[...SOURCE_KIND_OPTIONS]}
+												onChange={(e: { target: { value: string } }) =>
+													setTrackKind(e.target.value as SourceKind)
+												}
+												options={SOURCE_KIND_OPTIONS.filter(
+													(option) => !nativeDesktop || option.value !== 'web-stream',
+												)}
 											/>
 										</Field>
 									</div>
-									<Field
-										label="Stream URL"
-										htmlFor="audio-track-url"
-										required={trackKind === 'web-stream'}
-										help={
-											trackKind === 'web-stream'
-												? 'A direct audio URL — the stream is the track, no file import needed.'
-												: 'Only web streams take a URL. For local files, use “Import audio…” above — it stores the bytes and creates the source in one step.'
-										}
-									>
-										<Input
-											id="audio-track-url"
-											value={trackUrl}
-											disabled={trackKind !== 'web-stream'}
-											onChange={(e: { target: { value: string } }) => setTrackUrl(e.target.value)}
-											placeholder="https://example.com/ambience.mp3"
-										/>
-									</Field>
+									{!nativeDesktop && (
+										<Field
+											label="Stream URL"
+											htmlFor="audio-track-url"
+											required={trackKind === 'web-stream'}
+											help={
+												trackKind === 'web-stream'
+													? 'A direct audio URL — the stream is the track, no file import needed.'
+													: 'Only web streams take a URL. For local files, use “Import audio…” above — it stores the bytes and creates the source in one step.'
+											}
+										>
+											<Input
+												id="audio-track-url"
+												value={trackUrl}
+												disabled={trackKind !== 'web-stream'}
+												onChange={(e: { target: { value: string } }) => setTrackUrl(e.target.value)}
+												placeholder="https://example.com/ambience.mp3"
+											/>
+										</Field>
+									)}
+									{nativeDesktop && (
+										<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
+											The desktop app blocks remote audio links. Import audio above to keep playback
+											local and available offline.
+										</div>
+									)}
 									<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-										<Button type="submit" variant="secondary" size="sm" icon="add" disabled={addBusy || !trackName.trim()}>
+										<Button
+											type="submit"
+											variant="secondary"
+											size="sm"
+											icon="add"
+											disabled={addBusy || !trackName.trim()}
+										>
 											{addBusy ? 'Adding…' : 'Add track'}
 										</Button>
 										{addError && (
-											<span role="status" style={{ font: `11.5px ${T.sans}`, color: 'var(--color-status-error-text)' }}>{addError}</span>
+											<span
+												role="status"
+												style={{
+													font: `11.5px ${T.sans}`,
+													color: 'var(--color-status-error-text)',
+												}}
+											>
+												{addError}
+											</span>
 										)}
 										{!addError && addedName && (
-											<span role="status" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, font: `11.5px ${T.sans}`, color: 'var(--color-status-success-text)' }}>
+											<span
+												role="status"
+												style={{
+													display: 'inline-flex',
+													alignItems: 'center',
+													gap: 5,
+													font: `11.5px ${T.sans}`,
+													color: 'var(--color-status-success-text)',
+												}}
+											>
 												<Icon name="success" size="sm" /> “{addedName}” added
 											</span>
 										)}
@@ -869,22 +1075,50 @@ export function Audio() {
 								</form>
 							) : (
 								<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
-									Audio configuration is DM-only{previewing ? ' — exit preview to add tracks.' : '.'}
+									Audio configuration is DM-only
+									{previewing ? ' — exit preview to add tracks.' : '.'}
 								</div>
 							)}
 							{sources.length > 0 && (
 								<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 									{sources.map((s) => {
-										const streamPlayable = s.type === 'web-stream' && s.playbackEnabled;
+										const desktopBlocked = nativeDesktop && s.type === 'web-stream';
+										const streamPlayable =
+											!desktopBlocked && s.type === 'web-stream' && s.playbackEnabled;
 										const isActive = track?.sourceId === s.sourceId;
 										return (
-											<div key={s.sourceId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', border: `1px solid ${isActive ? T.accBd : T.bd}`, borderRadius: 9, background: T.surf }}>
-												<Icon name="audio" size={15} color={s.playbackEnabled ? T.acc : T.ter} />
+											<div
+												key={s.sourceId}
+												style={{
+													display: 'flex',
+													alignItems: 'center',
+													gap: 10,
+													padding: '9px 11px',
+													border: `1px solid ${isActive ? T.accBd : T.bd}`,
+													borderRadius: 9,
+													background: T.surf,
+												}}
+											>
+												<Icon
+													name="audio"
+													size={15}
+													color={s.playbackEnabled && !desktopBlocked ? T.acc : T.ter}
+												/>
 												<div style={{ flex: 1, minWidth: 0 }}>
 													<div style={{ font: `600 12.5px ${T.sans}` }}>{s.displayName}</div>
-													<div style={{ font: `11px ${T.sans}`, color: T.ter }}>{s.type} · {s.cacheBehavior} · {s.offlineAvailability}</div>
+													<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+														{s.type} · {s.cacheBehavior} · {s.offlineAvailability}
+													</div>
 												</div>
-												<Badge status={s.playbackEnabled ? 'success' : 'neutral'}>{s.playbackEnabled ? 'Playback ready' : 'Disabled'}</Badge>
+												<Badge
+													status={s.playbackEnabled && !desktopBlocked ? 'success' : 'neutral'}
+												>
+													{desktopBlocked
+														? 'Blocked on desktop'
+														: s.playbackEnabled
+															? 'Playback ready'
+															: 'Disabled'}
+												</Badge>
 												{streamPlayable ? (
 													<Button
 														variant="ghost"
@@ -897,8 +1131,15 @@ export function Audio() {
 														{isActive && playing ? 'Playing' : 'Play'}
 													</Button>
 												) : (
-													<span style={{ font: `10.5px ${T.sans}`, color: T.ter }} title="Play this source's imported files from the soundboard above.">
-														Via soundboard
+													<span
+														style={{ font: `10.5px ${T.sans}`, color: T.ter }}
+														title={
+															desktopBlocked
+																? 'Remote streams are blocked by the desktop security policy.'
+																: "Play this source's imported files from the soundboard above."
+														}
+													>
+														{desktopBlocked ? 'Import instead' : 'Via soundboard'}
 													</span>
 												)}
 											</div>
@@ -913,10 +1154,14 @@ export function Audio() {
 						{/* ambience mixer — REAL session state (set-ambience-layer / remove-ambience-layer) */}
 						<Panel
 							title="Ambience mixer"
-							action={<Badge status="neutral">{ambienceLayers.filter(([, l]) => !l.muted).length} live</Badge>}
+							action={
+								<Badge status="neutral">
+									{ambienceLayers.filter(([, l]) => !l.muted).length} live
+								</Badge>
+							}
 						>
 							<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, marginBottom: 10 }}>
-								Looping beds mixed under the main track — session-authoritative, synced like the track itself.
+								Looping beds mixed under the main track and saved with this campaign.
 							</div>
 							{ambienceLayers.length === 0 && (
 								<EmptyState
@@ -928,7 +1173,9 @@ export function Audio() {
 							)}
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
 								{ambienceLayers.map(([layerId, layer]) => {
-									const sourceName = sources.find((s) => s.sourceId === layer.sourceId)?.displayName ?? layer.sourceId;
+									const sourceName =
+										sources.find((s) => s.sourceId === layer.sourceId)?.displayName ??
+										layer.sourceId;
 									const device = playbackState.ambience.find((l) => l.layerId === layerId);
 									const on = !layer.muted;
 									return (
@@ -936,7 +1183,9 @@ export function Audio() {
 											<button
 												type="button"
 												disabled={!canEdit}
-												onClick={() => void setLayer(layerId, layer.sourceId, layer.volume, !layer.muted)}
+												onClick={() =>
+													void setLayer(layerId, layer.sourceId, layer.volume, !layer.muted)
+												}
 												aria-label={on ? `Mute ${sourceName}` : `Unmute ${sourceName}`}
 												style={{
 													width: 32,
@@ -956,50 +1205,106 @@ export function Audio() {
 											</button>
 											<div style={{ flex: 1, minWidth: 0 }}>
 												<div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-													<span style={{ font: `600 12.5px ${T.sans}`, color: on ? T.ink : T.ter, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sourceName}</span>
-													{device && !device.sounding && device.detail && device.detail !== 'Muted.' && (
-														<span style={{ font: `10.5px ${T.sans}`, color: T.ter, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={device.detail}>
-															{device.detail}
-														</span>
-													)}
+													<span
+														style={{
+															font: `600 12.5px ${T.sans}`,
+															color: on ? T.ink : T.ter,
+															whiteSpace: 'nowrap',
+															overflow: 'hidden',
+															textOverflow: 'ellipsis',
+														}}
+													>
+														{sourceName}
+													</span>
+													{device &&
+														!device.sounding &&
+														device.detail &&
+														device.detail !== 'Muted.' && (
+															<span
+																style={{
+																	font: `10.5px ${T.sans}`,
+																	color: T.ter,
+																	whiteSpace: 'nowrap',
+																	overflow: 'hidden',
+																	textOverflow: 'ellipsis',
+																}}
+																title={device.detail}
+															>
+																{device.detail}
+															</span>
+														)}
 												</div>
 												<Slider
 													value={Math.round(layer.volume * 100)}
 													disabled={!canEdit}
-													onChange={(v: number) => void setLayer(layerId, layer.sourceId, v / 100, layer.muted)}
+													onChange={(v: number) =>
+														void setLayer(layerId, layer.sourceId, v / 100, layer.muted)
+													}
 													valueLabel={`${Math.round(layer.volume * 100)}%`}
 													steppers
 													aria-label={`${sourceName} volume`}
 												/>
 											</div>
-											<Button variant="ghost" size="sm" icon="close" disabled={!canEdit} aria-label={`Remove ${sourceName} layer`} onClick={() => void removeLayer(layerId, layer, sourceName)} />
+											<Button
+												variant="ghost"
+												size="sm"
+												icon="close"
+												disabled={!canEdit}
+												aria-label={`Remove ${sourceName} layer`}
+												onClick={() => void removeLayer(layerId, layer, sourceName)}
+											/>
 										</div>
 									);
 								})}
 							</div>
 							{canEdit && (
-								<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-									<div style={{ flex: 1 }}>
+								<div
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: 8,
+										marginTop: 4,
+										flexWrap: 'wrap',
+									}}
+								>
+									<div style={{ flex: '1 1 220px', minWidth: 0 }}>
 										<Select
 											aria-label="Ambience layer source"
 											value={ambienceSourceId || layerSources[0]?.sourceId || ''}
-											onChange={(e: { target: { value: string } }) => setAmbienceSourceId(e.target.value)}
-											options={layerSources.map((s) => ({ value: s.sourceId, label: s.displayName }))}
+											onChange={(e: { target: { value: string } }) =>
+												setAmbienceSourceId(e.target.value)
+											}
+											options={layerSources.map((s) => ({
+												value: s.sourceId,
+												label: s.displayName,
+											}))}
 											disabled={layerSources.length === 0}
 										/>
 									</div>
-									<Button variant="secondary" size="sm" icon="add" disabled={layerSources.length === 0} onClick={() => void addAmbienceLayer()}>
+									<Button
+										variant="secondary"
+										size="sm"
+										icon="add"
+										disabled={layerSources.length === 0}
+										onClick={() => void addAmbienceLayer()}
+									>
 										Add layer
 									</Button>
 								</div>
 							)}
 							{canEdit && layerSources.length === 0 && (
 								<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
-									No playback-ready sources yet — import an audio file or add a stream track first.
+									No playback-ready sources yet — import an audio file
+									{nativeDesktop ? '.' : ' or add a stream track first.'}
 								</div>
 							)}
 							{ambienceError && (
-								<div role="status" style={{ font: `11.5px/1.5 ${T.sans}`, color: 'var(--color-status-error-text)' }}>{ambienceError}</div>
+								<div
+									role="status"
+									style={{ font: `11.5px/1.5 ${T.sans}`, color: 'var(--color-status-error-text)' }}
+								>
+									{ambienceError}
+								</div>
 							)}
 						</Panel>
 
@@ -1007,12 +1312,17 @@ export function Audio() {
 						<Panel title="Output device">
 							{!SUPPORTS_SINK_SELECTION ? (
 								<div style={{ font: `12px/1.55 ${T.sans}`, color: T.ter }}>
-									This browser cannot route audio to a specific output device (no <code>setSinkId</code> — e.g.
-									Firefox). Session audio uses the platform default output.
+									This browser cannot route audio to a specific output device (no{' '}
+									<code>setSinkId</code> — e.g. Firefox). Session audio uses the platform default
+									output.
 								</div>
 							) : (
 								<>
-									<Field label="Session host output" htmlFor="audio-output-device" help="Where THIS device plays session audio. Player devices route locally — this never changes theirs.">
+									<Field
+										label="Session host output"
+										htmlFor="audio-output-device"
+										help="Where THIS device plays session audio. Player devices route locally — this never changes theirs."
+									>
 										<Select
 											id="audio-output-device"
 											value={selectedOutputId}
@@ -1021,13 +1331,24 @@ export function Audio() {
 											options={outputOptions}
 										/>
 									</Field>
-									{outputsNote && <div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>{outputsNote}</div>}
-									<div style={{ display: 'flex', alignItems: 'center', gap: 8, font: `11.5px ${T.sans}`, color: T.sub }}>
+									{outputsNote && (
+										<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>{outputsNote}</div>
+									)}
+									<div
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: 8,
+											font: `11.5px ${T.sans}`,
+											color: T.sub,
+										}}
+									>
 										<StatusDot status={playbackState.routing === 'unavailable' ? 'warn' : 'idle'} />
 										{playbackState.routing === 'routed'
 											? 'Routed to the selected device.'
 											: playbackState.routing === 'unavailable'
-												? (playbackState.routingDetail ?? 'Routing unavailable — using the platform default output.')
+												? (playbackState.routingDetail ??
+													'Routing unavailable — using the platform default output.')
 												: 'Platform default output.'}
 									</div>
 								</>
@@ -1047,18 +1368,40 @@ export function Audio() {
 							{scenes.map((s, i) => {
 								const bound = sceneAssociationsFor(s.id);
 								return (
-									<div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
+									<div
+										key={s.id}
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: 11,
+											padding: '9px 0',
+											borderTop: i ? `1px solid ${T.bd}` : 'none',
+										}}
+									>
 										<Icon name="scene" size={16} color={bound.length ? T.acc : T.ter} />
 										<div style={{ flex: 1, minWidth: 0 }}>
 											<div style={{ font: `600 12.5px ${T.sans}` }}>{s.name}</div>
-											<div style={{ font: `11px ${T.sans}`, color: T.ter }}>{bound.length} {bound.length === 1 ? 'cue' : 'cues'}</div>
+											<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+												{bound.length} {bound.length === 1 ? 'cue' : 'cues'}
+											</div>
 										</div>
 										{bound.length ? (
-											<Button variant="ghost" size="sm" icon="close" onClick={() => unbindScene(bound[0].id)}>
+											<Button
+												variant="ghost"
+												size="sm"
+												icon="close"
+												onClick={() => unbindScene(bound[0].id)}
+											>
 												Unbind
 											</Button>
 										) : (
-											<Button variant="ghost" size="sm" icon="link" disabled={!webStreamSource} onClick={() => bindScene(s.id, s.name)}>
+											<Button
+												variant="ghost"
+												size="sm"
+												icon="link"
+												disabled={!webStreamSource}
+												onClick={() => bindScene(s.id, s.name)}
+											>
 												Bind
 											</Button>
 										)}
@@ -1067,7 +1410,9 @@ export function Audio() {
 							})}
 							{!webStreamSource && scenes.length > 0 && (
 								<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 8 }}>
-									Add a web-stream track (in Tracks &amp; sources) to bind scenes.
+									{nativeDesktop
+										? 'Remote stream scene bindings are unavailable in the desktop app.'
+										: 'Add a web-stream track (in Tracks & sources) to bind scenes.'}
 								</div>
 							)}
 						</Panel>
@@ -1076,18 +1421,32 @@ export function Audio() {
 			)}
 
 			{tab === 'presets' && (
-				<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, alignItems: 'start' }}>
+				<div
+					style={{
+						display: 'grid',
+						gridTemplateColumns: isDesktop ? '1fr 1fr' : 'minmax(0,1fr)',
+						gap: 18,
+						alignItems: 'start',
+					}}
+				>
 					{/* your scene packages — captured from the LIVE session audio; apply/delete are real commands */}
 					<Panel
 						title="Your scene packages"
-						action={<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{userPresets.length} {userPresets.length === 1 ? 'package' : 'packages'}</span>}
+						action={
+							<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+								{userPresets.length} {userPresets.length === 1 ? 'package' : 'packages'}
+							</span>
+						}
 					>
 						<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, marginBottom: 10 }}>
-							Save the current track + ambience as a reusable atmosphere, then re-apply it in one action — it
-							drives the real session audio, synced like the track itself.
+							Save the current track and ambience as a reusable atmosphere, then apply it again in
+							one action.
 						</div>
 						{canEdit ? (
-							<form onSubmit={saveCurrentPreset} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+							<form
+								onSubmit={saveCurrentPreset}
+								style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}
+							>
 								<div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 10 }}>
 									<Field label="Package name" htmlFor="preset-name" required>
 										<Input
@@ -1101,20 +1460,38 @@ export function Audio() {
 										<Select
 											id="preset-category"
 											value={presetCategory}
-											onChange={(e: { target: { value: string } }) => setPresetCategory(e.target.value as AudioPresetCategory)}
-											options={AUDIO_PRESET_CATEGORIES.map((c) => ({ value: c, label: AUDIO_PRESET_CATEGORY_LABELS[c] }))}
+											onChange={(e: { target: { value: string } }) =>
+												setPresetCategory(e.target.value as AudioPresetCategory)
+											}
+											options={AUDIO_PRESET_CATEGORIES.map((c) => ({
+												value: c,
+												label: AUDIO_PRESET_CATEGORY_LABELS[c],
+											}))}
 										/>
 									</Field>
 								</div>
 								<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-									<Button type="submit" variant="secondary" size="sm" icon="add" disabled={!canSavePreset || presetBusy || !presetName.trim()}>
+									<Button
+										type="submit"
+										variant="secondary"
+										size="sm"
+										icon="add"
+										disabled={!canSavePreset || presetBusy || !presetName.trim()}
+									>
 										{presetBusy ? 'Saving…' : 'Save current audio'}
 									</Button>
 									{!canSavePreset && (
-										<span style={{ font: `11px ${T.sans}`, color: T.ter }}>Play a track or add an ambience layer to capture.</span>
+										<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
+											Play a track or add an ambience layer to capture.
+										</span>
 									)}
 									{presetError && (
-										<span role="status" style={{ font: `11.5px ${T.sans}`, color: 'var(--color-status-error-text)' }}>{presetError}</span>
+										<span
+											role="status"
+											style={{ font: `11.5px ${T.sans}`, color: 'var(--color-status-error-text)' }}
+										>
+											{presetError}
+										</span>
 									)}
 								</div>
 							</form>
@@ -1133,18 +1510,44 @@ export function Audio() {
 						) : (
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 								{userPresets.map((preset) => (
-									<div key={preset.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', border: `1px solid ${T.bd}`, borderRadius: 9, background: T.surf }}>
+									<div
+										key={preset.id}
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: 10,
+											padding: '9px 11px',
+											border: `1px solid ${T.bd}`,
+											borderRadius: 9,
+											background: T.surf,
+										}}
+									>
 										<Icon name="sparkle" size={15} color={T.acc} />
 										<div style={{ flex: 1, minWidth: 0 }}>
 											<div style={{ font: `600 12.5px ${T.sans}` }}>{preset.name}</div>
 											<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
-												{AUDIO_PRESET_CATEGORY_LABELS[preset.category]} · {preset.layers.length} {preset.layers.length === 1 ? 'layer' : 'layers'}
+												{AUDIO_PRESET_CATEGORY_LABELS[preset.category]} · {preset.layers.length}{' '}
+												{preset.layers.length === 1 ? 'layer' : 'layers'}
 											</div>
 										</div>
-										<Button variant="ghost" size="sm" icon="play" disabled={!canEdit} aria-label={`Apply ${preset.name}`} onClick={() => void applyPreset(preset)}>
+										<Button
+											variant="ghost"
+											size="sm"
+											icon="play"
+											disabled={!canEdit}
+											aria-label={`Apply ${preset.name}`}
+											onClick={() => void applyPreset(preset)}
+										>
 											Apply
 										</Button>
-										<Button variant="ghost" size="sm" icon="delete" disabled={!canEdit} aria-label={`Delete ${preset.name}`} onClick={() => void deletePreset(preset)} />
+										<Button
+											variant="ghost"
+											size="sm"
+											icon="delete"
+											disabled={!canEdit}
+											aria-label={`Delete ${preset.name}`}
+											onClick={() => void deletePreset(preset)}
+										/>
 									</div>
 								))}
 							</div>
@@ -1154,8 +1557,8 @@ export function Audio() {
 					{/* built-in atmosphere library — a browsable catalog of recipes, grouped by category */}
 					<Panel title="Atmosphere library">
 						<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, marginBottom: 10 }}>
-							Shipped atmosphere recipes, grouped by scene type. Apply one once its layers are bound to your
-							own sources — otherwise the app tells you what to bind, never guesses a track.
+							Shipped atmosphere recipes, grouped by scene type. Apply one once its layers are bound
+							to your own sources — otherwise the app tells you what to bind, never guesses a track.
 						</div>
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 							{AUDIO_PRESET_CATEGORIES.map((category) => {
@@ -1163,15 +1566,47 @@ export function Audio() {
 								if (presets.length === 0) return null;
 								return (
 									<div key={category}>
-										<div style={{ ...eb, marginBottom: 8 }}>{AUDIO_PRESET_CATEGORY_LABELS[category]}</div>
+										<div style={{ ...eb, marginBottom: 8 }}>
+											{AUDIO_PRESET_CATEGORY_LABELS[category]}
+										</div>
 										<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
 											{presets.map((preset) => (
-												<div key={preset.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: `1px solid ${T.bd}`, borderRadius: 9, background: T.surf }}>
+												<div
+													key={preset.id}
+													style={{
+														display: 'flex',
+														alignItems: 'center',
+														gap: 8,
+														padding: '8px 10px',
+														border: `1px solid ${T.bd}`,
+														borderRadius: 9,
+														background: T.surf,
+													}}
+												>
 													<div style={{ flex: 1, minWidth: 0 }}>
-														<div style={{ font: `600 12px ${T.sans}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{preset.name}</div>
-														<div style={{ font: `10.5px ${T.sans}`, color: T.ter }}>{preset.layers.length} {preset.layers.length === 1 ? 'layer' : 'layers'}</div>
+														<div
+															style={{
+																font: `600 12px ${T.sans}`,
+																whiteSpace: 'nowrap',
+																overflow: 'hidden',
+																textOverflow: 'ellipsis',
+															}}
+														>
+															{preset.name}
+														</div>
+														<div style={{ font: `10.5px ${T.sans}`, color: T.ter }}>
+															{preset.layers.length}{' '}
+															{preset.layers.length === 1 ? 'layer' : 'layers'}
+														</div>
 													</div>
-													<Button variant="ghost" size="sm" icon="play" disabled={!canEdit} aria-label={`Apply ${preset.name}`} onClick={() => void applyPreset(preset)} />
+													<Button
+														variant="ghost"
+														size="sm"
+														icon="play"
+														disabled={!canEdit}
+														aria-label={`Apply ${preset.name}`}
+														onClick={() => void applyPreset(preset)}
+													/>
 												</div>
 											))}
 										</div>
@@ -1184,15 +1619,27 @@ export function Audio() {
 			)}
 
 			{tab === 'automation' && (
-				<div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 18, alignItems: 'start' }}>
+				<div
+					style={{
+						display: 'grid',
+						gridTemplateColumns: isDesktop ? '1.3fr 1fr' : 'minmax(0,1fr)',
+						gap: 18,
+						alignItems: 'start',
+					}}
+				>
 					<Panel
 						title="Automation rules"
-						action={<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{automationRules.length} {automationRules.length === 1 ? 'rule' : 'rules'}</span>}
+						action={
+							<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+								{automationRules.length} {automationRules.length === 1 ? 'rule' : 'rules'}
+							</span>
+						}
 					>
 						<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
-							Each rule maps a session event to a declared audio command. The status below is the core
-							resolver&rsquo;s deterministic verdict against the current library and this device&rsquo;s real file
-							availability — a blocked rule is flagged, never silently bypassed.
+							Each rule maps a session event to a declared audio command. The status below is the
+							core resolver&rsquo;s deterministic verdict against the current library and this
+							device&rsquo;s real file availability — a blocked rule is flagged, never silently
+							bypassed.
 						</div>
 						{automationRules.length === 0 && (
 							<EmptyState
@@ -1205,18 +1652,43 @@ export function Audio() {
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 							{automationRules.map((rule) => {
 								const outcome = ruleOutcomes.get(rule.id);
-								const sourceName = sources.find((s) => s.sourceId === rule.sourceId)?.displayName ?? rule.sourceId;
-								const assetName = rule.assetId ? (assets.find((a) => a.id === rule.assetId)?.title ?? rule.assetId) : null;
-								const scopeName = rule.trigger === 'scene-activation' ? sceneNameById(rule.triggerScopeId) : rule.triggerScopeId;
+								const sourceName =
+									sources.find((s) => s.sourceId === rule.sourceId)?.displayName ?? rule.sourceId;
+								const assetName = rule.assetId
+									? (assets.find((a) => a.id === rule.assetId)?.title ?? rule.assetId)
+									: null;
+								const scopeName =
+									rule.trigger === 'scene-activation'
+										? sceneNameById(rule.triggerScopeId)
+										: rule.triggerScopeId;
 								return (
-									<div key={rule.id} style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 12px', border: `1px solid ${T.bd}`, borderRadius: 9, background: T.surf }}>
+									<div
+										key={rule.id}
+										style={{
+											display: 'flex',
+											flexDirection: 'column',
+											gap: 6,
+											padding: '10px 12px',
+											border: `1px solid ${T.bd}`,
+											borderRadius: 9,
+											background: T.surf,
+										}}
+									>
 										<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 											<Icon name="wand" size={15} color={rule.enabled ? T.acc : T.ter} />
 											<div style={{ flex: 1, minWidth: 0 }}>
-												<div style={{ font: `600 12.5px ${T.sans}`, color: rule.enabled ? T.ink : T.ter }}>{rule.label}</div>
+												<div
+													style={{
+														font: `600 12.5px ${T.sans}`,
+														color: rule.enabled ? T.ink : T.ter,
+													}}
+												>
+													{rule.label}
+												</div>
 												<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
 													{TRIGGER_LABELS[rule.trigger]}
-													{scopeName ? ` (${scopeName})` : ' (any)'} → {ACTION_LABELS[rule.action]} · {sourceName}
+													{scopeName ? ` (${scopeName})` : ' (any)'} → {ACTION_LABELS[rule.action]}{' '}
+													· {sourceName}
 													{assetName ? ` · ${assetName}` : ''}
 												</div>
 											</div>
@@ -1229,16 +1701,43 @@ export function Audio() {
 											) : outcome?.status === 'blocked' ? (
 												<Badge status="warning">Blocked</Badge>
 											) : null}
-											<Switch checked={rule.enabled} disabled={!canEdit} onChange={(v: boolean) => toggleRuleEnabled(rule, v)} aria-label={`Enable ${rule.label}`} />
+											<Switch
+												checked={rule.enabled}
+												disabled={!canEdit}
+												onChange={(v: boolean) => toggleRuleEnabled(rule, v)}
+												aria-label={`Enable ${rule.label}`}
+											/>
 											{outcome !== 'checking' && outcome?.status === 'requested' && (
-												<Button variant="ghost" size="sm" icon="play" disabled={!canEdit} aria-label={`Run ${rule.label} now`} onClick={() => void runRuleNow(rule)}>
+												<Button
+													variant="ghost"
+													size="sm"
+													icon="play"
+													disabled={!canEdit}
+													aria-label={`Run ${rule.label} now`}
+													onClick={() => void runRuleNow(rule)}
+												>
 													Run now
 												</Button>
 											)}
-											<Button variant="ghost" size="sm" icon="delete" disabled={!canEdit} aria-label={`Delete ${rule.label}`} onClick={() => void deleteRule(rule)} />
+											<Button
+												variant="ghost"
+												size="sm"
+												icon="delete"
+												disabled={!canEdit}
+												aria-label={`Delete ${rule.label}`}
+												onClick={() => void deleteRule(rule)}
+											/>
 										</div>
 										{rule.enabled && outcome !== 'checking' && outcome?.status === 'blocked' && (
-											<div role="status" style={{ font: `11px/1.5 ${T.sans}`, color: 'var(--color-status-warning-text)' }}>{outcome.message}</div>
+											<div
+												role="status"
+												style={{
+													font: `11px/1.5 ${T.sans}`,
+													color: 'var(--color-status-warning-text)',
+												}}
+											>
+												{outcome.message}
+											</div>
 										)}
 									</div>
 								);
@@ -1248,8 +1747,15 @@ export function Audio() {
 
 					<Panel title="New rule">
 						{canEdit ? (
-							<form onSubmit={createRule} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-								<Field label="Label" htmlFor="automation-label" help="Optional — defaults to “action on trigger”.">
+							<form
+								onSubmit={createRule}
+								style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+							>
+								<Field
+									label="Label"
+									htmlFor="automation-label"
+									help="Optional — defaults to “action on trigger”."
+								>
 									<Input
 										id="automation-label"
 										value={ruleLabel}
@@ -1257,7 +1763,13 @@ export function Audio() {
 										placeholder="Battle drums on combat"
 									/>
 								</Field>
-								<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+								<div
+									style={{
+										display: 'grid',
+										gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1fr 1fr',
+										gap: 10,
+									}}
+								>
 									<Field label="When" htmlFor="automation-trigger">
 										<Select
 											id="automation-trigger"
@@ -1266,25 +1778,42 @@ export function Audio() {
 												setRuleTrigger(e.target.value as AudioAutomationTriggerKind);
 												setRuleScopeId('');
 											}}
-											options={AUDIO_AUTOMATION_TRIGGER_KINDS.map((t) => ({ value: t, label: TRIGGER_LABELS[t] }))}
+											options={AUDIO_AUTOMATION_TRIGGER_KINDS.map((t) => ({
+												value: t,
+												label: TRIGGER_LABELS[t],
+											}))}
 										/>
 									</Field>
 									<Field label="Do" htmlFor="automation-action">
 										<Select
 											id="automation-action"
 											value={ruleAction}
-											onChange={(e: { target: { value: string } }) => setRuleAction(e.target.value as AudioAutomationAction)}
-											options={AUDIO_AUTOMATION_ACTIONS.map((a) => ({ value: a, label: ACTION_LABELS[a] }))}
+											onChange={(e: { target: { value: string } }) =>
+												setRuleAction(e.target.value as AudioAutomationAction)
+											}
+											options={AUDIO_AUTOMATION_ACTIONS.map((a) => ({
+												value: a,
+												label: ACTION_LABELS[a],
+											}))}
 										/>
 									</Field>
 								</div>
 								{ruleTrigger === 'scene-activation' && (
-									<Field label="Scene" htmlFor="automation-scope" help="Fire for one scene, or any.">
+									<Field
+										label="Scene"
+										htmlFor="automation-scope"
+										help="Fire for one scene, or any."
+									>
 										<Select
 											id="automation-scope"
 											value={ruleScopeId}
-											onChange={(e: { target: { value: string } }) => setRuleScopeId(e.target.value)}
-											options={[{ value: '', label: 'Any scene' }, ...scenes.map((s) => ({ value: s.id, label: s.name }))]}
+											onChange={(e: { target: { value: string } }) =>
+												setRuleScopeId(e.target.value)
+											}
+											options={[
+												{ value: '', label: 'Any scene' },
+												...scenes.map((s) => ({ value: s.id, label: s.name })),
+											]}
 										/>
 									</Field>
 								)}
@@ -1292,12 +1821,15 @@ export function Audio() {
 									<Select
 										id="automation-source"
 										value={ruleFormSourceId}
-										disabled={sources.length === 0}
+										disabled={usableSources.length === 0}
 										onChange={(e: { target: { value: string } }) => {
 											setRuleSourceId(e.target.value);
 											setRuleAssetId('');
 										}}
-										options={sources.map((s) => ({ value: s.sourceId, label: s.displayName }))}
+										options={usableSources.map((s) => ({
+											value: s.sourceId,
+											label: s.displayName,
+										}))}
 									/>
 								</Field>
 								{ruleAction !== 'stop' && (
@@ -1309,23 +1841,41 @@ export function Audio() {
 										<Select
 											id="automation-asset"
 											value={ruleAssetId}
-											onChange={(e: { target: { value: string } }) => setRuleAssetId(e.target.value)}
+											onChange={(e: { target: { value: string } }) =>
+												setRuleAssetId(e.target.value)
+											}
 											options={[
 												{ value: '', label: '— none (stream is the track) —' },
-												...ruleSourceAssets.map((a) => ({ value: a.id, label: a.title || a.fileName })),
+												...ruleSourceAssets.map((a) => ({
+													value: a.id,
+													label: a.title || a.fileName,
+												})),
 											]}
 										/>
 									</Field>
 								)}
 								<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-									<Button type="submit" variant="secondary" size="sm" icon="add" disabled={ruleBusy || sources.length === 0}>
+									<Button
+										type="submit"
+										variant="secondary"
+										size="sm"
+										icon="add"
+										disabled={ruleBusy || usableSources.length === 0}
+									>
 										{ruleBusy ? 'Saving…' : 'Add rule'}
 									</Button>
-									{sources.length === 0 && (
-										<span style={{ font: `11px ${T.sans}`, color: T.ter }}>Add a track or import audio first — a rule needs a source.</span>
+									{usableSources.length === 0 && (
+										<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
+											Add a track or import audio first — a rule needs a source.
+										</span>
 									)}
 									{ruleError && (
-										<span role="status" style={{ font: `11.5px ${T.sans}`, color: 'var(--color-status-error-text)' }}>{ruleError}</span>
+										<span
+											role="status"
+											style={{ font: `11.5px ${T.sans}`, color: 'var(--color-status-error-text)' }}
+										>
+											{ruleError}
+										</span>
 									)}
 								</div>
 							</form>

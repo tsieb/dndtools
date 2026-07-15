@@ -15,10 +15,13 @@ vi.mock('../cloud/config', () => ({
 	},
 	isCloudConfigured: true,
 }));
-vi.mock('./signaling', () => ({ setRtcIceServers: vi.fn() }));
+vi.mock('./signaling', () => ({
+	setRtcIceServers: vi.fn(),
+	clearRtcIceServers: vi.fn(),
+}));
 
 import { createCloudBridge } from './cloudBridge';
-import { setRtcIceServers } from './signaling';
+import { clearRtcIceServers, setRtcIceServers } from './signaling';
 import { generateEcdhKeyPair, deriveWrapKey, wrapCode, unwrapCode } from './cloudCrypto';
 
 // --- fake WebSocket -------------------------------------------------------------
@@ -67,6 +70,14 @@ const flush = async (n = 3) => {
 	// open, in the cloud bridge's transparent code wrap) has time to settle.
 	for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r));
 };
+
+async function waitForAction(sock: FakeWebSocket, action: string): Promise<void> {
+	for (let attempt = 0; attempt < 50; attempt += 1) {
+		if (sock.lastSent?.action === action) return;
+		await new Promise((resolve) => setTimeout(resolve, 2));
+	}
+	throw new Error(`Timed out waiting for client action ${action}.`);
+}
 const token = () => Promise.resolve<string | null>('id-token');
 
 let originalWS: unknown;
@@ -75,13 +86,16 @@ beforeEach(() => {
 	originalWS = (globalThis as Record<string, unknown>).WebSocket;
 	(globalThis as Record<string, unknown>).WebSocket = FakeWebSocket;
 	vi.mocked(setRtcIceServers).mockClear();
+	vi.mocked(clearRtcIceServers).mockClear();
 });
 afterEach(() => {
 	(globalThis as Record<string, unknown>).WebSocket = originalWS;
 });
 
 /** Kick an op, let the socket be created, open it, and return the live fake socket. */
-async function withOpenSocket(kick: () => Promise<unknown>): Promise<{ p: Promise<unknown>; sock: FakeWebSocket }> {
+async function withOpenSocket(
+	kick: () => Promise<unknown>,
+): Promise<{ p: Promise<unknown>; sock: FakeWebSocket }> {
 	const p = kick();
 	p.catch(() => {}); // avoid unhandled-rejection noise before we await
 	await flush();
@@ -129,6 +143,30 @@ describe('createCloudBridge — advertise (host)', () => {
 		sock.deliver({ type: 'advertised', sessionId: 'sess-1' });
 		await expect(p).resolves.toEqual({ ok: true });
 	});
+
+	it('refreshes TURN again immediately before each approved host offer', async () => {
+		const bridge = createCloudBridge(token);
+		const { p, sock } = await withOpenSocket(() => bridge.advertise('sess-1', 'Strahd'));
+		sock.deliver({
+			type: 'turn-credentials',
+			ttl: 3600,
+			iceServers: [{ urls: 'turn:first' }],
+		});
+		await flush();
+		sock.deliver({ type: 'advertised', sessionId: 'sess-1' });
+		await p;
+
+		const prepare = bridge.prepareOffer();
+		await flush();
+		expect(sock.lastSent).toEqual({ action: 'turnCredentials' });
+		sock.deliver({
+			type: 'turn-credentials',
+			ttl: 3600,
+			iceServers: [{ urls: 'turn:fresh' }],
+		});
+		await prepare;
+		expect(setRtcIceServers).toHaveBeenLastCalledWith([{ urls: 'turn:fresh' }]);
+	});
 });
 
 describe('createCloudBridge — browse (client)', () => {
@@ -140,18 +178,23 @@ describe('createCloudBridge — browse (client)', () => {
 		const { p, sock } = await withOpenSocket(() => bridge.browseStart());
 		expect(sock.lastSent).toEqual({ action: 'browse' });
 
-		sock.deliver({ type: 'services', services: [{ sessionId: 's-1', name: 'One', host: 'cloud', port: 0 }] });
+		sock.deliver({
+			type: 'services',
+			services: [{ sessionId: 's-1', name: 'One', host: 'cloud', port: 0 }],
+		});
 		expect(services).toEqual([{ sessionId: 's-1', name: 'One', host: 'cloud', port: 0 }]);
 		await p;
 	});
 
 	it('connect() refreshes TURN and sends a join for the chosen service', async () => {
 		const bridge = createCloudBridge(token);
-		const { p, sock } = await withOpenSocket(() => bridge.connect({ sessionId: 's-1', name: 'One', host: 'cloud', port: 0 }));
+		const { p, sock } = await withOpenSocket(() =>
+			bridge.connect({ sessionId: 's-1', name: 'One', host: 'cloud', port: 0 }),
+		);
 
 		expect(sock.sent[0]).toEqual({ action: 'turnCredentials' });
 		sock.deliver({ type: 'turn-credentials', iceServers: [{ urls: 'turn:x' }] });
-		await flush();
+		await waitForAction(sock, 'join');
 		// The join now carries the joiner's ephemeral ECDH public key (for the E2E code wrap).
 		const join = sock.lastSent as { action: string; sessionId: string; pubKey: string };
 		expect(join.action).toBe('join');
@@ -187,7 +230,7 @@ describe('createCloudBridge — offer/answer relay callbacks', () => {
 			bridge.connect({ sessionId: 's-1', name: 'One', host: 'cloud', port: 0 }, PIN),
 		);
 		sock.deliver({ type: 'turn-credentials', iceServers: [{ urls: 'turn:x' }] });
-		await flush();
+		await waitForAction(sock, 'join');
 		const join = sock.lastSent as { action: string; pubKey: string };
 		expect(join.action).toBe('join');
 
@@ -199,9 +242,15 @@ describe('createCloudBridge — offer/answer relay callbacks', () => {
 
 		const got: Array<[string, string]> = [];
 		bridge.onOffer((reqId, code) => got.push([reqId, code]));
-		sock.deliver({ type: 'offer', reqId: 'player-conn', offerCode: sealedOffer, pubKey: hostKp.publicKeyB64 });
-		await flush();
-		expect(got).toEqual([['player-conn', 'OFFER-PLAINTEXT']]); // decrypted for SessionClient
+		sock.deliver({
+			type: 'offer',
+			reqId: 'player-conn',
+			offerCode: sealedOffer,
+			pubKey: hostKp.publicKeyB64,
+		});
+		await vi.waitFor(() => {
+			expect(got).toEqual([['player-conn', 'OFFER-PLAINTEXT']]);
+		}); // decrypted for SessionClient
 
 		// The answer the joiner sends back must be sealed with the same shared key.
 		await bridge.respondAnswer('player-conn', 'ANSWER-PLAINTEXT');
@@ -222,7 +271,7 @@ describe('createCloudBridge — offer/answer relay callbacks', () => {
 			bridge.connect({ sessionId: 's-1', name: 'One', host: 'cloud', port: 0 }, 'WRONG-PIN'),
 		);
 		sock.deliver({ type: 'turn-credentials', iceServers: [{ urls: 'turn:x' }] });
-		await flush();
+		await waitForAction(sock, 'join');
 		const join = sock.lastSent as { action: string; pubKey: string };
 
 		// Host seals the offer under the REAL PIN.
@@ -231,12 +280,46 @@ describe('createCloudBridge — offer/answer relay callbacks', () => {
 		const sealedOffer = await wrapCode(hostWrap, 'OFFER-PLAINTEXT');
 
 		const got: Array<[string, string]> = [];
+		const errors: string[] = [];
 		bridge.onOffer((reqId, code) => got.push([reqId, code]));
-		sock.deliver({ type: 'offer', reqId: 'player-conn', offerCode: sealedOffer, pubKey: hostKp.publicKeyB64 });
-		await flush();
+		bridge.onError((error) => errors.push(error.message));
+		sock.deliver({
+			type: 'offer',
+			reqId: 'player-conn',
+			offerCode: sealedOffer,
+			pubKey: hostKp.publicKeyB64,
+		});
+		await vi.waitFor(() => {
+			expect(errors).toEqual([
+				'The DM did not accept this join code. Check the code and ask them to try again.',
+			]);
+		});
 		// The joiner could not decrypt — no plaintext offer surfaced to SessionClient.
 		expect(got).toEqual([]);
 		await p;
+	});
+
+	it('sends an encrypted decline that the requester can authenticate', async () => {
+		const { bridge, sock } = await connectedBridge();
+		const joinerKp = await generateEcdhKeyPair();
+		sock.deliver({
+			type: 'offer-request',
+			reqId: 'declined-player',
+			pubKey: joinerKp.publicKeyB64,
+		});
+		await flush();
+
+		await expect(bridge.rejectOffer('declined-player')).resolves.toBe(true);
+		const refusal = sock.lastSent as {
+			action: string;
+			reqId: string;
+			offerCode: string;
+			pubKey: string;
+		};
+		expect(refusal.action).toBe('offer');
+		expect(refusal.offerCode).not.toContain('declined');
+		const key = await deriveWrapKey(joinerKp.privateKey, refusal.pubKey, '');
+		expect(await unwrapCode(key, refusal.offerCode)).toBe('dndtools:join-declined:v1');
 	});
 
 	// Host side, full ECDH round-trip: an offer-request delivers the joiner's public key; the
@@ -250,7 +333,12 @@ describe('createCloudBridge — offer/answer relay callbacks', () => {
 		await flush();
 
 		await bridge.respondOffer('player-conn', 'OFFER#1');
-		const offer = sock.lastSent as { action: string; reqId: string; offerCode: string; pubKey: string };
+		const offer = sock.lastSent as {
+			action: string;
+			reqId: string;
+			offerCode: string;
+			pubKey: string;
+		};
 		expect(offer.action).toBe('offer');
 		expect(offer.reqId).toBe('player-conn');
 		expect(offer.offerCode).not.toContain('OFFER#1'); // sealed on the wire
@@ -267,8 +355,9 @@ describe('createCloudBridge — offer/answer relay callbacks', () => {
 		bridge.onAnswer((code) => answers.push(code));
 		const sealedAnswer = await wrapCode(joinerWrap, 'ANSWER#1');
 		sock.deliver({ type: 'answer', reqId: 'player-conn', answerCode: sealedAnswer });
-		await flush();
-		expect(answers).toEqual(['ANSWER#1']);
+		await vi.waitFor(() => {
+			expect(answers).toEqual(['ANSWER#1']);
+		});
 	});
 
 	it('respondOffer fails closed if it never saw the joiner public key', async () => {
@@ -300,5 +389,21 @@ describe('createCloudBridge — teardown', () => {
 		bridge.close();
 		await expect(p).rejects.toThrow(/closed/i);
 		expect(sock.readyState).toBe(FakeWebSocket.CLOSED);
+		expect(clearRtcIceServers).toHaveBeenCalled();
+	});
+
+	it('cannot resurrect a socket that opens after close()', async () => {
+		const bridge = createCloudBridge(token);
+		const pending = bridge.browseStart();
+		pending.catch(() => {});
+		await flush();
+		const sock = FakeWebSocket.instances.at(-1)!;
+
+		bridge.close();
+		await expect(pending).rejects.toThrow(/cancelled|closed|reach/i);
+		sock.open();
+		await flush();
+		expect(sock.readyState).toBe(FakeWebSocket.CLOSED);
+		expect(sock.sent).toEqual([]);
 	});
 });

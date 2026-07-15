@@ -22,12 +22,19 @@ const BLOCKING_IMPACTS = new Set(['critical', 'serious']);
 // Primary durable workspaces that currently render in the React app.
 const ROUTES: ReadonlyArray<{ path: string; slug: string }> = [
 	{ path: '/', slug: 'command-center' },
+	{ path: '/board', slug: 'board' },
 	{ path: '/scenes', slug: 'scenes' },
 	{ path: '/atlas', slug: 'atlas' },
 	{ path: '/characters', slug: 'characters' },
 	{ path: '/knowledge', slug: 'knowledge' },
 	{ path: '/campaign', slug: 'campaign' },
 	{ path: '/session', slug: 'session' },
+	{ path: '/graph', slug: 'graph' },
+	{ path: '/audio', slug: 'audio' },
+	{ path: '/extensions', slug: 'extensions' },
+	{ path: '/community', slug: 'community' },
+	{ path: '/upgrade', slug: 'upgrade' },
+	{ path: '/player', slug: 'player' },
 	{ path: '/settings', slug: 'settings' },
 ];
 

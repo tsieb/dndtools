@@ -13,6 +13,7 @@ import { Avatar, Badge, Button, Card, Icon, StatusDot } from '../ds';
 import { Page, T, eb } from '../app/screen-kit';
 import { LIBRARY } from '../app/nav';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { useViewport } from '../app/useViewport';
 
 /**
  * CommandCenter — the navigational hub (port of app.jsx HomeSection), wired to the live
@@ -24,7 +25,14 @@ import { useRuntime } from '../runtime/RuntimeContext';
 
 function HubLabel({ children, action }: { children: ReactNode; action?: ReactNode }) {
 	return (
-		<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 11 }}>
+		<div
+			style={{
+				display: 'flex',
+				alignItems: 'center',
+				justifyContent: 'space-between',
+				marginBottom: 11,
+			}}
+		>
 			<span style={eb}>{children}</span>
 			{action}
 		</div>
@@ -36,7 +44,17 @@ function statusOf(scene: SceneListEntry, activeSceneId: string | null): 'live' |
 	return scene.visibility === 'dm-only' ? 'draft' : 'ready';
 }
 
-function SceneTile({ scene, status, widgetCount, onOpen }: { scene: SceneListEntry; status: 'live' | 'ready' | 'draft'; widgetCount: number; onOpen: () => void }) {
+function SceneTile({
+	scene,
+	status,
+	widgetCount,
+	onOpen,
+}: {
+	scene: SceneListEntry;
+	status: 'live' | 'ready' | 'draft';
+	widgetCount: number;
+	onOpen: () => void;
+}) {
 	const live = status === 'live';
 	const [h, setH] = useState(false);
 	return (
@@ -58,7 +76,13 @@ function SceneTile({ scene, status, widgetCount, onOpen }: { scene: SceneListEnt
 					'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), box-shadow var(--duration-fast) var(--easing-standard)',
 			}}
 		>
-			<div style={{ position: 'relative', height: 96, background: 'linear-gradient(135deg,#2a2117,#14100b)' }}>
+			<div
+				style={{
+					position: 'relative',
+					height: 96,
+					background: 'linear-gradient(135deg,#2a2117,#14100b)',
+				}}
+			>
 				<div
 					style={{
 						position: 'absolute',
@@ -70,7 +94,9 @@ function SceneTile({ scene, status, widgetCount, onOpen }: { scene: SceneListEnt
 				/>
 				<div style={{ position: 'absolute', top: 9, right: 9 }}>
 					{live ? (
-						<Badge status="success" icon="visibility-players">Live</Badge>
+						<Badge status="success" icon="visibility-players">
+							Live
+						</Badge>
 					) : status === 'ready' ? (
 						<Badge status="info">Ready</Badge>
 					) : (
@@ -93,7 +119,17 @@ function SceneTile({ scene, status, widgetCount, onOpen }: { scene: SceneListEnt
 	);
 }
 
-function LaunchTile({ icon, label, sub, onClick }: { icon: string; label: string; sub?: string; onClick: () => void }) {
+function LaunchTile({
+	icon,
+	label,
+	sub,
+	onClick,
+}: {
+	icon: string;
+	label: string;
+	sub?: string;
+	onClick: () => void;
+}) {
 	const [h, setH] = useState(false);
 	return (
 		<button
@@ -112,7 +148,8 @@ function LaunchTile({ icon, label, sub, onClick }: { icon: string; label: string
 				textAlign: 'left',
 				border: `1px solid ${h ? T.accBd : T.bd}`,
 				background: h ? T.accSub : T.surf,
-				transition: 'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard)',
+				transition:
+					'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard)',
 			}}
 		>
 			<span
@@ -130,8 +167,14 @@ function LaunchTile({ icon, label, sub, onClick }: { icon: string; label: string
 				<Icon name={icon} size="md" />
 			</span>
 			<span style={{ minWidth: 0 }}>
-				<span style={{ display: 'block', font: `600 12.5px ${T.sans}`, color: T.ink }}>{label}</span>
-				{sub && <span style={{ display: 'block', font: `11px ${T.sans}`, color: T.ter, marginTop: 2 }}>{sub}</span>}
+				<span style={{ display: 'block', font: `600 12.5px ${T.sans}`, color: T.ink }}>
+					{label}
+				</span>
+				{sub && (
+					<span style={{ display: 'block', font: `11px ${T.sans}`, color: T.ter, marginTop: 2 }}>
+						{sub}
+					</span>
+				)}
 			</span>
 		</button>
 	);
@@ -140,19 +183,32 @@ function LaunchTile({ icon, label, sub, onClick }: { icon: string; label: string
 export function CommandCenter() {
 	const navigate = useNavigate();
 	const runtime = useRuntime();
+	const viewport = useViewport();
 	const actorId = runtime.defaultActorId;
 
 	const data = useMemo(() => {
-		const homeView = resolveCommandCenterHome(runtime.state, actorId, { widgetPackages: runtime.state.widgets });
+		const homeView = resolveCommandCenterHome(runtime.state, actorId, {
+			widgetPackages: runtime.state.widgets,
+		});
 		const homeSceneId = runtime.state.commandCenter.homeSceneId;
 		// The GM Screen's backing scene (named "Command Center") is not a table scene — keep it out
 		// of the Scenes board (it has its own nav destination).
-		const scenes = listScenesForActor(runtime.state.scenes, runtime.state.permissions, actorId).filter(
-			(s) => !s.isTemplate && s.id !== homeSceneId,
+		const scenes = listScenesForActor(
+			runtime.state.scenes,
+			runtime.state.permissions,
+			actorId,
+		).filter((s) => !s.isTemplate && s.id !== homeSceneId);
+		const characters = listCharactersForActor(
+			runtime.state.characters,
+			runtime.state.permissions,
+			actorId,
 		);
-		const characters = listCharactersForActor(runtime.state.characters, runtime.state.permissions, actorId);
 		const maps = listMapsForActor(runtime.state.maps, runtime.state.permissions, actorId);
-		const items = getContentItemsForActor(runtime.state.content, runtime.state.permissions, actorId);
+		const items = getContentItemsForActor(
+			runtime.state.content,
+			runtime.state.permissions,
+			actorId,
+		);
 		const notes = items.filter((n) => n.kind === 'note');
 		const factionCount = items.filter(
 			(n) => n.kind === 'object' && n.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'faction',
@@ -168,7 +224,8 @@ export function CommandCenter() {
 			scenes[0] ??
 			null;
 		const party = characters.filter((c) => c.kind === 'pc');
-		const widgetCountFor = (sceneId: string) => runtime.state.scenes.scenes[sceneId]?.widgets.length ?? 0;
+		const widgetCountFor = (sceneId: string) =>
+			runtime.state.scenes.scenes[sceneId]?.widgets.length ?? 0;
 		return {
 			homeView,
 			scenes,
@@ -191,11 +248,36 @@ export function CommandCenter() {
 	// arrival; the sub-line says what the thing is in GM vocabulary, since the labels alone
 	// ("widget"?) didn't tell a new user where NPCs, locations, or lore go.
 	const create = [
-		{ icon: 'scene', label: 'New scene', sub: 'A canvas for the table', run: () => navigate('/scenes') },
-		{ icon: 'new-character', label: 'New character', sub: 'PC, NPC, or monster', run: () => navigate('/characters', { state: { create: true } }) },
-		{ icon: 'new-map', label: 'New map', sub: 'Battle map or region', run: () => navigate('/atlas', { state: { create: true } }) },
-		{ icon: 'widget', label: 'New widget', sub: 'A GM Screen tracker', run: () => navigate('/board', { state: { addWidget: true } }) },
-		{ icon: 'note-edit', label: 'New note', sub: 'Lore, quest, or handout', run: () => navigate('/knowledge', { state: { create: true } }) },
+		{
+			icon: 'scene',
+			label: 'New scene',
+			sub: 'A canvas for the table',
+			run: () => navigate('/scenes'),
+		},
+		{
+			icon: 'new-character',
+			label: 'New character',
+			sub: 'PC, NPC, or monster',
+			run: () => navigate('/characters', { state: { create: true } }),
+		},
+		{
+			icon: 'new-map',
+			label: 'New map',
+			sub: 'Battle map or region',
+			run: () => navigate('/atlas', { state: { create: true } }),
+		},
+		{
+			icon: 'widget',
+			label: 'New widget',
+			sub: 'A GM Screen tracker',
+			run: () => navigate('/board', { state: { addWidget: true } }),
+		},
+		{
+			icon: 'note-edit',
+			label: 'New note',
+			sub: 'Lore, quest, or handout',
+			run: () => navigate('/knowledge', { state: { create: true } }),
+		},
 	];
 
 	const manage = [
@@ -215,13 +297,27 @@ export function CommandCenter() {
 	if (data.homeView.kind === 'participant') {
 		return (
 			<Page max={1100}>
-				<Card accent elevation="raised" padding="lg" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+				<Card
+					accent
+					elevation="raised"
+					padding="lg"
+					style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}
+				>
 					<StatusDot status={isLive ? 'live' : 'idle'} pulse={isLive} />
 					<div style={{ flex: 1, minWidth: 200 }}>
-						<div style={{ font: `600 11px ${T.sans}`, letterSpacing: '.09em', textTransform: 'uppercase', color: T.acc }}>
+						<div
+							style={{
+								font: `600 11px ${T.sans}`,
+								letterSpacing: '.09em',
+								textTransform: 'uppercase',
+								color: T.acc,
+							}}
+						>
 							{data.homeView.observerMode ? 'Observer mode' : 'Player view'}
 						</div>
-						<div style={{ font: `700 22px/1.1 ${T.disp}`, marginTop: 2 }}>{data.homeView.displayName}</div>
+						<div style={{ font: `700 22px/1.1 ${T.disp}`, marginTop: 2 }}>
+							{data.homeView.displayName}
+						</div>
 						<div style={{ font: `13px ${T.sans}`, color: T.sub, marginTop: 3 }}>
 							{data.homeView.readOnly
 								? 'Your read-only view of the live table.'
@@ -240,11 +336,24 @@ export function CommandCenter() {
 				accent
 				elevation="raised"
 				padding="lg"
-				style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', marginBottom: 26 }}
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					gap: 20,
+					flexWrap: 'wrap',
+					marginBottom: 26,
+				}}
 			>
 				<StatusDot status={isLive ? 'live' : 'idle'} pulse={isLive} />
 				<div style={{ flex: 1, minWidth: 200 }}>
-					<div style={{ font: `600 11px ${T.sans}`, letterSpacing: '.09em', textTransform: 'uppercase', color: T.acc }}>
+					<div
+						style={{
+							font: `600 11px ${T.sans}`,
+							letterSpacing: '.09em',
+							textTransform: 'uppercase',
+							color: T.acc,
+						}}
+					>
 						{isLive ? 'Session live' : 'Command Center'}
 					</div>
 					<div style={{ font: `700 23px/1.1 ${T.disp}`, marginTop: 2 }}>
@@ -263,7 +372,11 @@ export function CommandCenter() {
 							<span
 								key={p.id}
 								title={p.name}
-								style={{ marginLeft: i ? -8 : 0, borderRadius: '50%', boxShadow: '0 0 0 2px var(--color-surface-raised)' }}
+								style={{
+									marginLeft: i ? -8 : 0,
+									borderRadius: '50%',
+									boxShadow: '0 0 0 2px var(--color-surface-raised)',
+								}}
 							>
 								<Avatar name={p.name} size="sm" ring="active" />
 							</span>
@@ -274,14 +387,23 @@ export function CommandCenter() {
 						size="lg"
 						iconRight="enter"
 						disabled={!data.liveScene}
-						onClick={() => (data.liveScene ? navigate(`/scene/${data.liveScene.id}`) : navigate('/scenes'))}
+						onClick={() =>
+							data.liveScene ? navigate(`/scene/${data.liveScene.id}`) : navigate('/scenes')
+						}
 					>
 						{isLive ? 'Enter scene' : 'Open scene'}
 					</Button>
 				</div>
 			</Card>
 
-			<div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.5fr) minmax(0,1fr)', gap: 28, alignItems: 'start' }}>
+			<div
+				style={{
+					display: 'grid',
+					gridTemplateColumns: viewport === 'phone' ? '1fr' : 'minmax(0,1.5fr) minmax(0,1fr)',
+					gap: viewport === 'phone' ? 24 : 28,
+					alignItems: 'start',
+				}}
+			>
 				<div>
 					<HubLabel
 						action={
@@ -295,12 +417,24 @@ export function CommandCenter() {
 					{data.scenes.length === 0 ? (
 						<Card elevation="flat" padding="lg" style={{ textAlign: 'center', color: T.ter }}>
 							<div style={{ font: `13px ${T.sans}` }}>No scenes yet.</div>
-							<Button variant="secondary" size="sm" icon="add" onClick={() => navigate('/scenes')} style={{ marginTop: 10 }}>
+							<Button
+								variant="secondary"
+								size="sm"
+								icon="add"
+								onClick={() => navigate('/scenes')}
+								style={{ marginTop: 10 }}
+							>
 								Create your first scene
 							</Button>
 						</Card>
 					) : (
-						<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 14 }}>
+						<div
+							style={{
+								display: 'grid',
+								gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))',
+								gap: 14,
+							}}
+						>
 							{data.scenes.map((s) => (
 								<SceneTile
 									key={s.id}
@@ -318,13 +452,23 @@ export function CommandCenter() {
 						<HubLabel>Create</HubLabel>
 						<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 11 }}>
 							{create.map((c) => (
-								<LaunchTile key={c.label} icon={c.icon} label={c.label} sub={c.sub} onClick={c.run} />
+								<LaunchTile
+									key={c.label}
+									icon={c.icon}
+									label={c.label}
+									sub={c.sub}
+									onClick={c.run}
+								/>
 							))}
 						</div>
 					</div>
 					<div>
 						<HubLabel>Manage</HubLabel>
-						<Card elevation="flat" padding="sm" style={{ display: 'flex', flexDirection: 'column' }}>
+						<Card
+							elevation="flat"
+							padding="sm"
+							style={{ display: 'flex', flexDirection: 'column' }}
+						>
 							{manage.map((m, i) => (
 								<button
 									key={m.id}
@@ -345,8 +489,12 @@ export function CommandCenter() {
 								>
 									<Icon name={m.icon} size="sm" color={T.sub} />
 									<span style={{ flex: 1, minWidth: 0 }}>
-										<span style={{ display: 'block', font: `600 12.5px ${T.sans}`, color: T.ink }}>{m.label}</span>
-										<span style={{ display: 'block', font: `11px ${T.sans}`, color: T.ter }}>{m.meta}</span>
+										<span style={{ display: 'block', font: `600 12.5px ${T.sans}`, color: T.ink }}>
+											{m.label}
+										</span>
+										<span style={{ display: 'block', font: `11px ${T.sans}`, color: T.ter }}>
+											{m.meta}
+										</span>
 									</span>
 									<Icon name="chevron-right" size="sm" color={T.ter} />
 								</button>
@@ -358,7 +506,13 @@ export function CommandCenter() {
 
 			<div style={{ marginTop: 28 }}>
 				<HubLabel>Library</HubLabel>
-				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 14 }}>
+				<div
+					style={{
+						display: 'grid',
+						gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))',
+						gap: 14,
+					}}
+				>
 					{LIBRARY.map((l) => (
 						<Card
 							key={l.id}
@@ -385,7 +539,9 @@ export function CommandCenter() {
 							</span>
 							<div style={{ flex: 1, minWidth: 0 }}>
 								<div style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>{l.label}</div>
-								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{libraryCounts[l.id] ?? l.sub}</div>
+								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+									{libraryCounts[l.id] ?? l.sub}
+								</div>
 							</div>
 							<Icon name="chevron-right" size="sm" color={T.ter} />
 						</Card>

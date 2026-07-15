@@ -4,8 +4,8 @@ import {
 	docEndIndex,
 	docToMarkdown,
 	extractDocIdFromInput,
+	isGoogleDocsRuntimeSupported,
 	markdownToDocRequests,
-	parseTokenFragment,
 	type GDocDocument,
 } from './googleDocs';
 
@@ -20,25 +20,13 @@ describe('bytesToBase64Url', () => {
 	});
 });
 
-describe('parseTokenFragment', () => {
-	it('parses a token-grant fragment with a matching state', () => {
-		const grant = parseTokenFragment(
-			'#state=abc123&access_token=ya29.tok&token_type=Bearer&expires_in=3599&scope=drive.file',
-			'abc123',
-		);
-		expect(grant).toEqual({ accessToken: 'ya29.tok', expiresIn: 3599 });
-	});
-
-	it('rejects a state mismatch and a fragment without a token', () => {
-		expect(parseTokenFragment('#access_token=ya29.tok&state=evil', 'abc123')).toBeNull();
-		expect(parseTokenFragment('#error=access_denied&state=abc123', 'abc123')).toBeNull();
-		expect(parseTokenFragment('#/atlas?map=m1', 'abc123')).toBeNull();
-	});
-
-	it('defaults a missing or malformed expires_in to one hour', () => {
-		expect(parseTokenFragment('#access_token=t&state=s', 's')?.expiresIn).toBe(3600);
-		expect(parseTokenFragment('#access_token=t&state=s&expires_in=nope', 's')?.expiresIn).toBe(3600);
-		expect(parseTokenFragment('#access_token=t&state=s&expires_in=-5', 's')?.expiresIn).toBe(3600);
+describe('Google Identity Services runtime support', () => {
+	it('allows real web origins and fails closed for packaged app schemes', () => {
+		expect(isGoogleDocsRuntimeSupported('https:', 'https://app.example.test')).toBe(true);
+		expect(isGoogleDocsRuntimeSupported('http:', 'http://localhost:5273')).toBe(true);
+		expect(isGoogleDocsRuntimeSupported('dndtools:', 'dndtools://app')).toBe(false);
+		expect(isGoogleDocsRuntimeSupported('file:', 'null')).toBe(false);
+		expect(isGoogleDocsRuntimeSupported('https:', 'null')).toBe(false);
 	});
 });
 
@@ -47,11 +35,13 @@ describe('parseTokenFragment', () => {
 describe('extractDocIdFromInput', () => {
 	it('extracts the id from Docs URLs (including /u/N/ and trailing /edit)', () => {
 		expect(
-			extractDocIdFromInput('https://docs.google.com/document/d/1AbC-def_123456789/edit#heading=h.x'),
+			extractDocIdFromInput(
+				'https://docs.google.com/document/d/1AbC-def_123456789/edit#heading=h.x',
+			),
 		).toBe('1AbC-def_123456789');
-		expect(extractDocIdFromInput('https://docs.google.com/document/u/0/d/1AbC-def_123456789/')).toBe(
-			'1AbC-def_123456789',
-		);
+		expect(
+			extractDocIdFromInput('https://docs.google.com/document/u/0/d/1AbC-def_123456789/'),
+		).toBe('1AbC-def_123456789');
 	});
 
 	it('accepts a raw plausible id and rejects everything else', () => {

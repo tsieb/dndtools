@@ -1,5 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, enterPreview, exitPreview, gotoRoute, markOnboarded, ops, seedFresh, waitReady } from './_helpers';
+import {
+	dispatch,
+	enterPreview,
+	exitPreview,
+	gotoRoute,
+	markOnboarded,
+	ops,
+	seedFresh,
+	waitReady,
+} from './_helpers';
 
 // SCENE CARDS — I11 S11.2 atmosphere scene cards against the live Processing Core. The DM authoring
 // surface (SceneCardsPanel, embedded in ScenesCreator at `/scenes`) creates/queues/activates cards
@@ -22,7 +31,9 @@ interface SceneCardLite {
 
 function findCard(page: Page, title: string): Promise<SceneCardLite | null> {
 	return page.evaluate((t) => {
-		const cards = (window.__rt!.state.session as { sceneCards: { cards: Record<string, SceneCardLite> } }).sceneCards.cards;
+		const cards = (
+			window.__rt!.state.session as { sceneCards: { cards: Record<string, SceneCardLite> } }
+		).sceneCards.cards;
 		return Object.values(cards).find((c) => c.title === t) ?? null;
 	}, title);
 }
@@ -30,16 +41,18 @@ function findCard(page: Page, title: string): Promise<SceneCardLite | null> {
 /** The active card id off the raw slice (what `/display` and the DM control surface project). */
 function activeCardId(page: Page): Promise<string | null> {
 	return page.evaluate(
-		() => (window.__rt!.state.session as { sceneCards: { activeCardId: string | null } }).sceneCards.activeCardId,
+		() =>
+			(window.__rt!.state.session as { sceneCards: { activeCardId: string | null } }).sceneCards
+				.activeCardId,
 	);
 }
 
 /** The durable push history, oldest→newest, as card ids (the S11.2.4 push record order). */
 function pushHistoryCardIds(page: Page): Promise<string[]> {
 	return page.evaluate(() =>
-		(window.__rt!.state.session as { sceneCards: { pushHistory: Array<{ cardId: string }> } }).sceneCards.pushHistory.map(
-			(r) => r.cardId,
-		),
+		(
+			window.__rt!.state.session as { sceneCards: { pushHistory: Array<{ cardId: string }> } }
+		).sceneCards.pushHistory.map((r) => r.cardId),
 	);
 }
 
@@ -53,7 +66,12 @@ function queueCardIds(page: Page): Promise<string[]> {
 /** Seed a prerequisite scene card through the command choke point; returns its id (post-persist). */
 async function createCardViaCore(
 	page: Page,
-	opts: { title: string; visibility: 'dm-only' | 'player-visible'; mood?: string; flavorText?: string },
+	opts: {
+		title: string;
+		visibility: 'dm-only' | 'player-visible';
+		mood?: string;
+		flavorText?: string;
+	},
 ): Promise<string> {
 	const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
 	const result = await dispatch(page, {
@@ -77,14 +95,20 @@ async function createCardViaCore(
 /** Activate a card onto the display (a player-visible activation records a push) — post-persist. */
 async function activateViaCore(page: Page, cardId: string | null): Promise<void> {
 	const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
-	const result = await dispatch(page, { type: 'scene-card.activate', actorId, payload: { cardId } });
+	const result = await dispatch(page, {
+		type: 'scene-card.activate',
+		actorId,
+		payload: { cardId },
+	});
 	expect(result.status).toBe('accepted');
 }
 
 /** `/play` and `/display` are chrome-less (mount OUTSIDE the DM AppShell → no `#main-content`), so the
  *  shared `waitReady` cannot gate on that landmark. Wait on the DEV runtime seam + a route-local signal. */
 async function waitRuntime(page: Page): Promise<void> {
-	await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, { timeout: 20_000 });
+	await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
+		timeout: 20_000,
+	});
 }
 
 test.describe('scene cards: atmosphere authoring, push, and display', () => {
@@ -97,9 +121,13 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		await page.locator('#main-content').waitFor({ state: 'attached' });
 	});
 
-	test('the composer authors a player-visible scene card that survives reload', async ({ page }) => {
+	test('the composer authors a player-visible scene card that survives reload', async ({
+		page,
+	}) => {
 		// A fresh vault seeds no scene cards.
-		await expect(page.getByText('No scene cards yet. Create one to display it or push it to players.')).not.toHaveCount(0);
+		await expect(
+			page.getByText('No scene cards yet. Create one to display it or push it to players.'),
+		).not.toHaveCount(0);
 
 		const title = `The Gates of Barovia ${Date.now()}`;
 		const before = await ops(page);
@@ -107,7 +135,9 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		// Real UI: fill the New scene card form and set it player-visible (the visibility select is
 		// scoped by its own control id — the page also carries a New scene form with a "Visibility" label).
 		await page.getByLabel('Title', { exact: true }).fill(title);
-		await page.getByLabel('Flavor text').fill('Mist coils between the iron spikes of the outer gate.');
+		await page
+			.getByLabel('Flavor text')
+			.fill('Mist coils between the iron spikes of the outer gate.');
 		await page.locator('#card-visibility').selectOption('player-visible');
 		await page.getByRole('button', { name: 'Create scene card' }).click();
 
@@ -147,12 +177,24 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 
 		// Advance plays the queue head onto the display, then the next — in order.
 		await page.getByRole('button', { name: 'Advance' }).click();
-		await page.waitForFunction((id) => (window.__rt!.state.session as { sceneCards: { activeCardId: string | null } }).sceneCards.activeCardId === id, firstId, { timeout: 10_000 });
+		await page.waitForFunction(
+			(id) =>
+				(window.__rt!.state.session as { sceneCards: { activeCardId: string | null } }).sceneCards
+					.activeCardId === id,
+			firstId,
+			{ timeout: 10_000 },
+		);
 		await expect(page.getByText('On display')).not.toHaveCount(0);
 		expect(await queueCardIds(page)).toEqual([secondId]);
 
 		await page.getByRole('button', { name: 'Advance' }).click();
-		await page.waitForFunction((id) => (window.__rt!.state.session as { sceneCards: { activeCardId: string | null } }).sceneCards.activeCardId === id, secondId, { timeout: 10_000 });
+		await page.waitForFunction(
+			(id) =>
+				(window.__rt!.state.session as { sceneCards: { activeCardId: string | null } }).sceneCards
+					.activeCardId === id,
+			secondId,
+			{ timeout: 10_000 },
+		);
 		expect(await queueCardIds(page)).toEqual([]);
 		expect(await activeCardId(page)).toBe(secondId);
 	});
@@ -179,21 +221,31 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		await expect(page.getByText(secret)).not.toHaveCount(0);
 	});
 
-	test('the Display button pushes a player-visible card and records a durable push', async ({ page }) => {
+	test('the Display button pushes a player-visible card and records a durable push', async ({
+		page,
+	}) => {
 		const title = `Whispers in the Crypt ${Date.now()}`;
 		const cardId = await createCardViaCore(page, { title, visibility: 'player-visible' });
 		expect(await pushHistoryCardIds(page)).toEqual([]);
 
 		// Real UI: activating a player-visible card onto the display records a push (S11.2.4).
 		await page.getByRole('button', { name: 'Display', exact: true }).click();
-		await page.waitForFunction((id) => (window.__rt!.state.session as { sceneCards: { activeCardId: string | null } }).sceneCards.activeCardId === id, cardId, { timeout: 10_000 });
+		await page.waitForFunction(
+			(id) =>
+				(window.__rt!.state.session as { sceneCards: { activeCardId: string | null } }).sceneCards
+					.activeCardId === id,
+			cardId,
+			{ timeout: 10_000 },
+		);
 
 		expect(await activeCardId(page)).toBe(cardId);
 		expect(await pushHistoryCardIds(page)).toEqual([cardId]);
 		await expect(page.getByText('On display')).not.toHaveCount(0);
 	});
 
-	test('the player banner shows the active player-visible card and never a dm-only card', async ({ page }) => {
+	test('the player banner shows the active player-visible card and never a dm-only card', async ({
+		page,
+	}) => {
 		const stamp = Date.now();
 		const shared = `The Beacon Fires ${stamp}`;
 		const secret = `The Assassin Waits ${stamp}`;
@@ -204,7 +256,7 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		// actor), so its scene banner IS the S11.2.4 push a real player receives — the same runtime.
 		await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
 		await waitRuntime(page);
-		await expect(page.getByText('Player view')).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Now playing' })).toBeVisible();
 
 		// Push the player-visible card: the hero banner announces it (aria-live, "Now on scene").
 		await activateViaCore(page, sharedId);
@@ -218,10 +270,16 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		await expect(page.getByText(secret)).toHaveCount(0);
 	});
 
-	test('the chrome-less /display route mounts and shows the active card, then idles when cleared', async ({ page }) => {
+	test('the chrome-less /display route mounts and shows the active card, then idles when cleared', async ({
+		page,
+	}) => {
 		const title = `The Ninth Bell Tolls ${Date.now()}`;
 		const flavor = 'A cold wind carries the sound of a bell that no longer hangs.';
-		const cardId = await createCardViaCore(page, { title, visibility: 'player-visible', flavorText: flavor });
+		const cardId = await createCardViaCore(page, {
+			title,
+			visibility: 'player-visible',
+			flavorText: flavor,
+		});
 		await activateViaCore(page, cardId);
 
 		// The second-screen display is chrome-less; it falls back to this window's loaded runtime state.
@@ -256,7 +314,7 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		// The player's reviewable Scene history lists every push newest-first.
 		await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
 		await waitRuntime(page);
-		await expect(page.getByText('Player view')).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Now playing' })).toBeVisible();
 		await page.getByRole('button', { name: 'Journal' }).click();
 		await expect(page.getByText('Scene history (3)')).toBeVisible({ timeout: 10_000 });
 

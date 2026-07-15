@@ -13,6 +13,7 @@ import { Avatar, Badge, Button, Icon, IconButton, Input, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { resetCoreStorage } from '../platform/storage/coreStore';
 import { T } from './screen-kit';
+import { useViewport } from './useViewport';
 
 /**
  * Onboarding — the first-run overlay from the design prototype (onboarding.jsx): a fixed split-pane
@@ -26,8 +27,8 @@ import { T } from './screen-kit';
  *   • EXPERIENCE — the same device-local feature-tier convention Settings uses (one source of truth:
  *     `dndtools:react:tier` + `data-feature-tier`), with each card's reveals read live from the
  *     Core's `visibleFeatures()` query.
- *   • PLAYERS — invite emails are DEVICE-LOCAL (persisted to localStorage) and say so: the local-first
- *     core has no invite transport, so pretending to send mail would be fiction.
+ *   • PLAYERS — optional party notes are DEVICE-LOCAL (persisted to localStorage). No invitation is
+ *     implied or sent from onboarding; real account-backed invites live in Settings.
  *   • READY — the checklist is derived from the real vault (scenes/party/maps/notes staged, live
  *     scene not yet started), so it doubles as a truthful "what to do next".
  *
@@ -41,8 +42,14 @@ export const REPLAY_EVENT = 'dndtools:onboarding-replay';
 const INVITES_KEY = 'dndtools:react:invites';
 const TIER_KEY = 'dndtools:react:tier';
 const TIER_ATTR = 'data-feature-tier';
+const MAX_PARTY_NOTES = 20;
+const MAX_PARTY_NOTE_CHARS = 120;
 // Mirrors Settings' complexity mapping — design vocabulary level → real core FeatureTier.
-const LEVEL_TO_TIER: Record<string, FeatureTier> = { beginner: 'core', standard: 'intermediate', expert: 'advanced' };
+const LEVEL_TO_TIER: Record<string, FeatureTier> = {
+	beginner: 'core',
+	standard: 'intermediate',
+	expert: 'advanced',
+};
 
 // The experience-step card copy (design vocabulary). Each card's REVEALS list stays live — read from
 // the Core's `visibleFeatures()` for the mapped tier, never from static copy.
@@ -52,7 +59,8 @@ const COMPLEXITY_LEVELS = [
 		name: 'Beginner',
 		icon: 'Sprout',
 		rec: false,
-		blurb: 'The essentials only. Guided prompts, presets over fields, advanced panels hidden until you ask.',
+		blurb:
+			'The essentials only. Guided prompts, presets over fields, advanced panels hidden until you ask.',
 	},
 	{
 		id: 'standard',
@@ -66,7 +74,7 @@ const COMPLEXITY_LEVELS = [
 		name: 'Expert',
 		icon: 'Wrench',
 		rec: false,
-		blurb: 'Everything on, nothing hidden. Code widgets, raw tokens, automation hooks, API surface.',
+		blurb: 'All advanced controls, automation, permissions, extensions, and diagnostics.',
 	},
 ] as const;
 
@@ -94,6 +102,37 @@ function removeStorage(key: string) {
 	}
 }
 
+/** Reload after a vault reset while preserving a HashRouter destination under both http(s) and file. */
+function reloadAtRoute(route?: string) {
+	if (route) {
+		const next = new URL(window.location.href);
+		next.hash = route;
+		window.history.replaceState(null, '', next.href);
+	}
+	window.location.reload();
+}
+
+function readStoredTier(): FeatureTier {
+	const value = readStorage(TIER_KEY);
+	return value === 'core' || value === 'intermediate' || value === 'advanced'
+		? value
+		: DEFAULT_FEATURE_TIER;
+}
+
+function readStoredPartyNotes(): string[] {
+	try {
+		const value = JSON.parse(readStorage(INVITES_KEY) ?? '[]') as unknown;
+		if (!Array.isArray(value)) return [];
+		return value
+			.filter((entry): entry is string => typeof entry === 'string')
+			.map((entry) => entry.trim().slice(0, MAX_PARTY_NOTE_CHARS))
+			.filter(Boolean)
+			.slice(0, MAX_PARTY_NOTES);
+	} catch {
+		return [];
+	}
+}
+
 /** ARIA radio-group contract: arrows move selection (selection follows focus), Tab skips the group. */
 function radioGroupKeyDown(e: React.KeyboardEvent) {
 	if (!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'].includes(e.key)) return;
@@ -111,7 +150,7 @@ const ONB_STEPS = [
 	{ id: 'welcome', title: 'Welcome', icon: 'sparkle' },
 	{ id: 'vault', title: 'Your vault', icon: 'vault' },
 	{ id: 'experience', title: 'Experience', icon: 'sliders' },
-	{ id: 'players', title: 'Invite players', icon: 'players' },
+	{ id: 'players', title: 'Your party', icon: 'players' },
 	{ id: 'ready', title: 'Ready', icon: 'flag' },
 ] as const;
 
@@ -154,25 +193,48 @@ function ChoiceCard({
 				border: `1px solid ${on ? T.accBd : T.bd}`,
 				background: on ? T.accSub : T.surf,
 				boxShadow: on ? T.smd : 'none',
-				transition: 'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard)',
+				transition:
+					'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard)',
 			}}
 		>
 			<span
-				style={{ width: 40, height: 40, borderRadius: 10, flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: on ? T.acc : T.alt, color: on ? T.accFg : T.acc }}
+				style={{
+					width: 40,
+					height: 40,
+					borderRadius: 10,
+					flex: '0 0 auto',
+					display: 'inline-flex',
+					alignItems: 'center',
+					justifyContent: 'center',
+					background: on ? T.acc : T.alt,
+					color: on ? T.accFg : T.acc,
+				}}
 			>
 				<Icon name={icon} size="md" />
 			</span>
 			<span style={{ flex: 1, minWidth: 0 }}>
-				<span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+				<span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
 					<span style={{ font: `600 14px ${T.sans}`, color: on ? T.acc : T.ink }}>{title}</span>
 					{badge && <Badge status="neutral">{badge}</Badge>}
 				</span>
-				<span style={{ display: 'block', font: `12px/1.5 ${T.sans}`, color: T.sub, marginTop: 2 }}>{desc}</span>
+				<span style={{ display: 'block', font: `12px/1.5 ${T.sans}`, color: T.sub, marginTop: 2 }}>
+					{desc}
+				</span>
 				{children}
 			</span>
 			<span
 				aria-hidden="true"
-				style={{ width: 20, height: 20, borderRadius: '50%', flex: '0 0 auto', border: `2px solid ${on ? T.acc : T.bdS}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginTop: 2 }}
+				style={{
+					width: 20,
+					height: 20,
+					borderRadius: '50%',
+					flex: '0 0 auto',
+					border: `2px solid ${on ? T.acc : T.bdS}`,
+					display: 'inline-flex',
+					alignItems: 'center',
+					justifyContent: 'center',
+					marginTop: 2,
+				}}
 			>
 				{on && <span style={{ width: 9, height: 9, borderRadius: '50%', background: T.acc }} />}
 			</span>
@@ -182,12 +244,15 @@ function ChoiceCard({
 
 export function Onboarding() {
 	const runtime = useRuntime();
+	const viewport = useViewport();
+	const isPhone = viewport === 'phone';
+	const isDesktop = viewport === 'desktop';
 	const navigate = useNavigate();
 	const [open, setOpen] = useState(() => readStorage(ONBOARDED_KEY) === null);
 	const [i, setI] = useState(0);
 	const [vault, setVault] = useState<'sample' | 'fresh'>('sample');
-	const [tier, setTier] = useState<FeatureTier>(DEFAULT_FEATURE_TIER);
-	const [emails, setEmails] = useState<string[]>([]);
+	const [tier, setTier] = useState<FeatureTier>(readStoredTier);
+	const [emails, setEmails] = useState<string[]>(readStoredPartyNotes);
 	const [draft, setDraft] = useState('');
 	const [wiping, setWiping] = useState(false);
 	const panelRef = useRef<HTMLDivElement>(null);
@@ -196,44 +261,55 @@ export function Onboarding() {
 	useEffect(() => {
 		function onReplay() {
 			setI(0);
+			setVault(readStorage(VAULT_CHOICE_KEY) === 'fresh' ? 'fresh' : 'sample');
+			setTier(readStoredTier());
+			setEmails(readStoredPartyNotes());
+			setDraft('');
 			setOpen(true);
 		}
 		window.addEventListener(REPLAY_EVENT, onReplay);
 		return () => window.removeEventListener(REPLAY_EVENT, onReplay);
 	}, []);
 
-	// Focus placement: first-focusable ONLY on open (the DS Dialog contract). On step CHANGES focus
-	// the content region instead — the first focusable is the "Skip setup" button, and parking focus
-	// there on every Continue both mis-announces the step and arms a destructive Enter.
+	// Announce the current step without arming the nearby "Skip setup" action. The content region is
+	// deliberately focused both on first open and after step changes; Tab then enters the controls.
 	const contentRef = useRef<HTMLDivElement>(null);
-	const placedRef = useRef(false);
 	useEffect(() => {
-		if (!open) {
-			placedRef.current = false;
-			return;
-		}
-		if (!placedRef.current) {
-			placedRef.current = true;
-			const first = panelRef.current?.querySelector<HTMLElement>(FOCUSABLE);
-			(first ?? panelRef.current)?.focus();
-			return;
-		}
-		contentRef.current?.focus();
+		if (open) (contentRef.current ?? panelRef.current)?.focus();
 	}, [open, i]);
 
 	const actorId = runtime.defaultActorId;
 	const vaultFacts = useMemo(() => {
 		if (!open) return { scenes: 0, pcs: 0, npcs: 0, maps: 0, notes: 0 };
-		const scenes = listScenesForActor(runtime.state.scenes, runtime.state.permissions, actorId).filter((s) => !s.isTemplate);
-		const characters = listCharactersForActor(runtime.state.characters, runtime.state.permissions, actorId);
+		const scenes = listScenesForActor(
+			runtime.state.scenes,
+			runtime.state.permissions,
+			actorId,
+		).filter((s) => !s.isTemplate);
+		const characters = listCharactersForActor(
+			runtime.state.characters,
+			runtime.state.permissions,
+			actorId,
+		);
 		const maps = listMapsForActor(runtime.state.maps, runtime.state.permissions, actorId);
-		const notes = getContentItemsForActor(runtime.state.content, runtime.state.permissions, actorId);
+		const notes = getContentItemsForActor(
+			runtime.state.content,
+			runtime.state.permissions,
+			actorId,
+		);
 		const pcs = characters.filter((c) => c.kind === 'pc').length;
-		return { scenes: scenes.length, pcs, npcs: characters.length - pcs, maps: maps.length, notes: notes.length };
+		return {
+			scenes: scenes.length,
+			pcs,
+			npcs: characters.length - pcs,
+			maps: maps.length,
+			notes: notes.length,
+		};
 	}, [open, runtime.state, actorId]);
 	// A replayed setup on a device that went fresh sees an EMPTY vault — the step copy must offer to
 	// load the sample, not claim it "is already loaded" beside a card full of zeros.
-	const vaultEmpty = vaultFacts.scenes + vaultFacts.pcs + vaultFacts.npcs + vaultFacts.maps + vaultFacts.notes === 0;
+	const vaultEmpty =
+		vaultFacts.scenes + vaultFacts.pcs + vaultFacts.npcs + vaultFacts.maps + vaultFacts.notes === 0;
 
 	if (!open) return null;
 
@@ -247,12 +323,13 @@ export function Onboarding() {
 	}
 
 	// The SINGLE completion path — the ready-step checklist shortcuts route through here too (with
-	// their destination), so the vault choice / tier / invites are never silently discarded.
+	// their destination), so the vault choice / tier / party notes are never silently discarded.
 	async function finish(to?: string) {
 		// Apply the experience tier with the same one-source-of-truth convention Settings uses.
 		document.documentElement.setAttribute(TIER_ATTR, tier);
 		writeStorage(TIER_KEY, tier);
 		if (emails.length > 0) writeStorage(INVITES_KEY, JSON.stringify(emails));
+		else removeStorage(INVITES_KEY);
 		writeStorage(ONBOARDED_KEY, 'done');
 		if (vault === 'fresh') {
 			// The user explicitly chose to clear the sample campaign. Record the choice FIRST so the
@@ -264,8 +341,7 @@ export function Onboarding() {
 			} catch {
 				/* the reload below re-runs load() either way */
 			}
-			if (to) window.location.assign(to);
-			else window.location.reload();
+			reloadAtRoute(to);
 			return;
 		}
 		// Choosing the sample must UNDO a prior "start fresh" (a replayed setup would otherwise keep
@@ -275,8 +351,7 @@ export function Onboarding() {
 		removeStorage(VAULT_CHOICE_KEY);
 		if (hadFresh) {
 			setWiping(true);
-			if (to) window.location.assign(to);
-			else window.location.reload();
+			reloadAtRoute(to);
 			return;
 		}
 		setOpen(false);
@@ -287,6 +362,14 @@ export function Onboarding() {
 	function addEmail() {
 		const v = draft.trim();
 		if (!v) return;
+		if (v.length > MAX_PARTY_NOTE_CHARS) {
+			Toaster.error(`Keep each player note under ${MAX_PARTY_NOTE_CHARS} characters.`);
+			return;
+		}
+		if (emails.length >= MAX_PARTY_NOTES) {
+			Toaster.error(`You can note up to ${MAX_PARTY_NOTES} players during setup.`);
+			return;
+		}
 		setEmails((e) => (e.includes(v) ? e : [...e, v]));
 		setDraft('');
 	}
@@ -296,12 +379,29 @@ export function Onboarding() {
 		{ id: 'party', label: 'The party is rostered', done: vaultFacts.pcs > 0, to: '/characters' },
 		{ id: 'map', label: 'A map is in the atlas', done: vaultFacts.maps > 0, to: '/atlas' },
 		{ id: 'notes', label: 'Session notes started', done: vaultFacts.notes > 0, to: '/knowledge' },
-		{ id: 'live', label: 'Go live from Session', done: runtime.state.session.activeSceneId !== null, to: '/session' },
+		{
+			id: 'live',
+			label: 'Go live from Session',
+			done: runtime.state.session.activeSceneId !== null,
+			to: '/session',
+		},
 	];
 	const tour = [
-		{ id: 'tr1', title: 'This is your Command Center', body: 'The board of live-play widgets — session, combat, dice, maps. Everything you run at the table starts here.' },
-		{ id: 'tr2', title: 'Press ⌘K to go anywhere', body: 'Search every entity in your vault — notes, maps, handouts, rolls — without leaving the table.' },
-		{ id: 'tr3', title: 'Player-safe by design', body: 'Preview as any player from the top bar. DM-only content never renders for a player actor.' },
+		{
+			id: 'tr1',
+			title: 'This is your Command Center',
+			body: 'The board of live-play widgets — session, combat, dice, maps. Everything you run at the table starts here.',
+		},
+		{
+			id: 'tr2',
+			title: 'Press ⌘K to go anywhere',
+			body: 'Search every entity in your vault — notes, maps, handouts, rolls — without leaving the table.',
+		},
+		{
+			id: 'tr3',
+			title: 'Player-safe by design',
+			body: 'Preview as any player from the top bar. DM-only content stays hidden in that player’s view.',
+		},
 	];
 
 	function onKeyDown(e: React.KeyboardEvent) {
@@ -328,68 +428,247 @@ export function Onboarding() {
 
 	return (
 		<div
+			className="app-fixed-viewport"
 			role="dialog"
 			aria-modal="true"
 			aria-label="First-run setup"
 			onKeyDown={onKeyDown}
-			style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'var(--color-backdrop)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+			style={{
+				position: 'fixed',
+				inset: 0,
+				zIndex: 400,
+				background: 'var(--color-backdrop)',
+				display: 'flex',
+				alignItems: 'center',
+				justifyContent: 'center',
+				padding: isPhone ? 8 : 24,
+			}}
 		>
 			<div
 				ref={panelRef}
 				tabIndex={-1}
-				style={{ width: 880, maxWidth: '96vw', height: 560, maxHeight: '92vh', display: 'flex', background: T.raised, border: `1px solid ${T.bdS}`, borderRadius: 18, boxShadow: 'var(--shadow-lg)', overflow: 'hidden', outline: 'none' }}
+				style={{
+					width: 880,
+					maxWidth: isPhone ? '100%' : '96vw',
+					height: isPhone ? 'calc(var(--app-viewport-height) - 16px)' : 560,
+					maxHeight: isPhone ? 'none' : 'calc(var(--app-viewport-height) - 48px)',
+					display: 'flex',
+					flexDirection: isPhone ? 'column' : 'row',
+					background: T.raised,
+					border: `1px solid ${T.bdS}`,
+					borderRadius: isPhone ? 12 : 18,
+					boxShadow: 'var(--shadow-lg)',
+					overflow: 'hidden',
+					outline: 'none',
+				}}
 			>
 				{/* step rail */}
-				<div style={{ width: 248, flex: '0 0 248px', background: `linear-gradient(180deg, ${T.accSub}, ${T.surf})`, borderRight: `1px solid ${T.bd}`, padding: '24px 20px', display: 'flex', flexDirection: 'column' }}>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 24 }}>
-						<span style={{ width: 30, height: 30, borderRadius: 7, background: T.acc, color: T.accFg, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+				<div
+					style={{
+						width: isPhone ? '100%' : 248,
+						flex: isPhone ? '0 0 auto' : '0 0 248px',
+						background: `linear-gradient(180deg, ${T.accSub}, ${T.surf})`,
+						borderRight: isPhone ? 'none' : `1px solid ${T.bd}`,
+						borderBottom: isPhone ? `1px solid ${T.bd}` : 'none',
+						padding: isPhone ? '12px 14px' : '24px 20px',
+						display: 'flex',
+						flexDirection: 'column',
+					}}
+				>
+					<div
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: 9,
+							marginBottom: isPhone ? 0 : 24,
+						}}
+					>
+						<span
+							style={{
+								width: 30,
+								height: 30,
+								borderRadius: 7,
+								background: T.acc,
+								color: T.accFg,
+								display: 'inline-flex',
+								alignItems: 'center',
+								justifyContent: 'center',
+							}}
+						>
 							<Icon name="dice" size="sm" />
 						</span>
-						<div style={{ font: `700 15px ${T.disp}`, letterSpacing: '.02em' }}>
-							DND<span style={{ color: T.acc }}>Tools</span>
+						<div
+							style={{
+								font: `700 15px ${T.disp}`,
+								letterSpacing: '.02em',
+								flex: isPhone ? 1 : undefined,
+							}}
+						>
+							DND <span style={{ color: T.acc }}>Tools</span>
 						</div>
+						{isPhone && (
+							<span style={{ font: `600 12px ${T.sans}`, color: T.sub }}>
+								{step.title} · {i + 1}/{ONB_STEPS.length}
+							</span>
+						)}
 					</div>
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }} aria-hidden="true">
-						{ONB_STEPS.map((s, j) => {
-							const done = j < i;
-							const on = j === i;
-							return (
-								<div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 10px', borderRadius: 9, background: on ? T.raised : 'transparent', border: `1px solid ${on ? T.accBd : 'transparent'}` }}>
-									<span style={{ width: 24, height: 24, borderRadius: '50%', flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: done ? T.ok : on ? T.acc : T.alt, color: done || on ? T.accFg : T.ter }}>
-										{done ? <Icon name="check" size={13} /> : <span style={{ font: `700 11px ${T.mono}` }}>{j + 1}</span>}
-									</span>
-									<span style={{ font: `${on ? 600 : 500} 13px ${T.sans}`, color: on ? T.ink : T.sub }}>{s.title}</span>
-								</div>
-							);
-						})}
-					</div>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 7, font: `11.5px ${T.sans}`, color: T.ter }}>
-						<Icon name="recent" size={13} /> About 2 minutes to your first scene
-					</div>
+					{!isPhone && (
+						<div
+							style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}
+							aria-hidden="true"
+						>
+							{ONB_STEPS.map((s, j) => {
+								const done = j < i;
+								const on = j === i;
+								return (
+									<div
+										key={s.id}
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: 11,
+											padding: '9px 10px',
+											borderRadius: 9,
+											background: on ? T.raised : 'transparent',
+											border: `1px solid ${on ? T.accBd : 'transparent'}`,
+										}}
+									>
+										<span
+											style={{
+												width: 24,
+												height: 24,
+												borderRadius: '50%',
+												flex: '0 0 auto',
+												display: 'inline-flex',
+												alignItems: 'center',
+												justifyContent: 'center',
+												background: done ? T.ok : on ? T.acc : T.alt,
+												color: done || on ? T.accFg : T.ter,
+											}}
+										>
+											{done ? (
+												<Icon name="check" size={13} />
+											) : (
+												<span style={{ font: `700 11px ${T.mono}` }}>{j + 1}</span>
+											)}
+										</span>
+										<span
+											style={{
+												font: `${on ? 600 : 500} 13px ${T.sans}`,
+												color: on ? T.ink : T.sub,
+											}}
+										>
+											{s.title}
+										</span>
+									</div>
+								);
+							})}
+						</div>
+					)}
+					{!isPhone && (
+						<div
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 7,
+								font: `11.5px ${T.sans}`,
+								color: T.ter,
+							}}
+						>
+							<Icon name="recent" size={13} /> About 2 minutes to your first scene
+						</div>
+					)}
 				</div>
 
 				{/* content */}
-				<div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-					<div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 16px 0' }}>
+				<div
+					style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+				>
+					<div
+						style={{
+							display: 'flex',
+							justifyContent: 'flex-end',
+							padding: isPhone ? '6px 8px 0' : '14px 16px 0',
+						}}
+					>
 						<Button variant="ghost" size="sm" onClick={skip}>
 							Skip setup
 						</Button>
 					</div>
-					<div ref={contentRef} tabIndex={-1} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px 36px 24px', outline: 'none' }}>
+					<div
+						ref={contentRef}
+						data-onboarding-content
+						tabIndex={-1}
+						style={{
+							flex: 1,
+							minHeight: 0,
+							overflowY: 'auto',
+							padding: isPhone ? '6px 16px 18px' : '8px 36px 24px',
+							outline: 'none',
+						}}
+					>
 						{step.id === 'welcome' && (
-							<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', height: '100%', gap: 16 }}>
-								<span style={{ width: 60, height: 60, borderRadius: 16, background: T.acc, color: T.accFg, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+							<div
+								style={{
+									display: 'flex',
+									flexDirection: 'column',
+									alignItems: 'flex-start',
+									justifyContent: 'center',
+									minHeight: '100%',
+									gap: 16,
+								}}
+							>
+								<span
+									style={{
+										width: 60,
+										height: 60,
+										borderRadius: 16,
+										background: T.acc,
+										color: T.accFg,
+										display: 'inline-flex',
+										alignItems: 'center',
+										justifyContent: 'center',
+									}}
+								>
 									<Icon name="sparkle" size="xl" />
 								</span>
 								<div>
-									<h2 style={{ margin: 0, font: `700 28px ${T.disp}`, letterSpacing: '-.01em' }}>Run a better table.</h2>
-									<p style={{ margin: '8px 0 0', font: `14px/1.6 ${T.sans}`, color: T.sub, maxWidth: 440 }}>
-										DND Tools is a candle-lit command center for live play — combat, dice, maps, party vitals and what your players see, all in one spatial board. Let's get yours set up.
+									<h2 style={{ margin: 0, font: `700 28px ${T.disp}`, letterSpacing: '-.01em' }}>
+										Run a better table.
+									</h2>
+									<p
+										style={{
+											margin: '8px 0 0',
+											font: `14px/1.6 ${T.sans}`,
+											color: T.sub,
+											maxWidth: 440,
+										}}
+									>
+										DND Tools is a candle-lit command center for live play — combat, dice, maps,
+										party vitals and what your players see, all in one spatial board. Let's get
+										yours set up.
 									</p>
 								</div>
 								<div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-									{['Any system — D&D 5e, narrative, or your own', 'Local-first, sync when you want', 'Player-safe by design'].map((t) => (
-										<span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 11px', borderRadius: 20, background: T.surf, border: `1px solid ${T.bd}`, font: `12px ${T.sans}`, color: T.sub }}>
+									{[
+										'Any system — D&D 5e, narrative, or your own',
+										'Local-first, cloud backup only when you choose',
+										'Player-safe by design',
+									].map((t) => (
+										<span
+											key={t}
+											style={{
+												display: 'inline-flex',
+												alignItems: 'center',
+												gap: 7,
+												padding: '7px 11px',
+												borderRadius: 20,
+												background: T.surf,
+												border: `1px solid ${T.bd}`,
+												font: `12px ${T.sans}`,
+												color: T.sub,
+											}}
+										>
 											<Icon name="check" size={13} color={T.acc} />
 											{t}
 										</span>
@@ -398,8 +677,15 @@ export function Onboarding() {
 							</div>
 						)}
 						{step.id === 'vault' && (
-							<div style={{ paddingTop: 14 }} role="radiogroup" aria-label="Vault choice" onKeyDown={radioGroupKeyDown}>
-								<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>Where should your world live?</h2>
+							<div
+								style={{ paddingTop: 14 }}
+								role="radiogroup"
+								aria-label="Vault choice"
+								onKeyDown={radioGroupKeyDown}
+							>
+								<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>
+									Where should your world live?
+								</h2>
 								<p style={{ margin: '0 0 18px', font: `13px ${T.sans}`, color: T.ter }}>
 									{vaultEmpty
 										? 'Your vault lives on this device — every note, map, and character. This device started fresh, so the vault is currently empty.'
@@ -424,24 +710,48 @@ export function Onboarding() {
 										title="Start fresh"
 										desc={
 											vaultEmpty
-												? 'Keeps this device\'s vault empty. Your own campaign from a blank page.'
+												? "Keeps this device's vault empty. Your own campaign from a blank page."
 												: 'Clears the sample campaign from this device and boots an empty vault. Your own campaign from a blank page.'
 										}
 										onPick={() => setVault('fresh')}
 									/>
 								</div>
-								<p style={{ margin: '14px 0 0', font: `12px ${T.sans}`, color: T.ter, display: 'flex', alignItems: 'center', gap: 7 }}>
-									<Icon name="import" size={13} /> Importing from Obsidian, Google Docs or a Roll20 export lives in Settings → Vault connections.
+								<p
+									style={{
+										margin: '14px 0 0',
+										font: `12px ${T.sans}`,
+										color: T.ter,
+										display: 'flex',
+										alignItems: 'center',
+										gap: 7,
+									}}
+								>
+									<Icon name="import" size={13} /> Importing from Obsidian, Google Docs or a Roll20
+									export lives in Settings → Vault connections.
 								</p>
 							</div>
 						)}
 						{step.id === 'experience' && (
-							<div style={{ paddingTop: 14 }} role="radiogroup" aria-label="Experience complexity" onKeyDown={radioGroupKeyDown}>
-								<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>How much do you want on screen?</h2>
+							<div
+								style={{ paddingTop: 14 }}
+								role="radiogroup"
+								aria-label="Experience complexity"
+								onKeyDown={radioGroupKeyDown}
+							>
+								<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>
+									How much do you want on screen?
+								</h2>
 								<p style={{ margin: '0 0 18px', font: `13px ${T.sans}`, color: T.ter }}>
-									You can change this any time in Settings. It only affects how much is revealed — never what you can do.
+									You can change this any time in Settings. It only affects how much is revealed —
+									never what you can do.
 								</p>
-								<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+								<div
+									style={{
+										display: 'grid',
+										gridTemplateColumns: isDesktop ? 'repeat(3,minmax(0,1fr))' : '1fr',
+										gap: 12,
+									}}
+								>
 									{COMPLEXITY_LEVELS.map((l) => {
 										const levelTier = LEVEL_TO_TIER[l.id] ?? DEFAULT_FEATURE_TIER;
 										const on = levelTier === tier;
@@ -454,19 +764,56 @@ export function Onboarding() {
 												aria-checked={on}
 												tabIndex={on ? 0 : -1}
 												onClick={() => setTier(levelTier)}
-												style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 9, padding: 14, borderRadius: 12, cursor: 'pointer', border: `1px solid ${on ? T.accBd : T.bd}`, background: on ? T.accSub : T.surf, boxShadow: on ? T.smd : 'none' }}
+												style={{
+													textAlign: 'left',
+													display: 'flex',
+													flexDirection: 'column',
+													gap: 9,
+													padding: 14,
+													borderRadius: 12,
+													cursor: 'pointer',
+													border: `1px solid ${on ? T.accBd : T.bd}`,
+													background: on ? T.accSub : T.surf,
+													boxShadow: on ? T.smd : 'none',
+												}}
 											>
-												<span style={{ width: 32, height: 32, borderRadius: 9, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: on ? T.acc : T.alt, color: on ? T.accFg : T.acc }}>
+												<span
+													style={{
+														width: 32,
+														height: 32,
+														borderRadius: 9,
+														display: 'inline-flex',
+														alignItems: 'center',
+														justifyContent: 'center',
+														background: on ? T.acc : T.alt,
+														color: on ? T.accFg : T.acc,
+													}}
+												>
 													<Icon name={l.icon} size="sm" />
 												</span>
 												<span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-													<span style={{ font: `700 14px ${T.disp}`, color: on ? T.acc : T.ink }}>{l.name}</span>
+													<span style={{ font: `700 14px ${T.disp}`, color: on ? T.acc : T.ink }}>
+														{l.name}
+													</span>
 													{l.rec && !on && <Badge status="neutral">Recommended</Badge>}
 												</span>
-												<span style={{ font: `11.5px/1.5 ${T.sans}`, color: T.sub }}>{l.blurb}</span>
-												<span style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 2 }}>
+												<span style={{ font: `11.5px/1.5 ${T.sans}`, color: T.sub }}>
+													{l.blurb}
+												</span>
+												<span
+													style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 2 }}
+												>
 													{reveals.slice(0, 4).map((r) => (
-														<span key={r} style={{ display: 'flex', alignItems: 'center', gap: 6, font: `11px ${T.sans}`, color: T.ter }}>
+														<span
+															key={r}
+															style={{
+																display: 'flex',
+																alignItems: 'center',
+																gap: 6,
+																font: `11px ${T.sans}`,
+																color: T.ter,
+															}}
+														>
 															<Icon name="check" size={12} color={on ? T.acc : T.ter} />
 															{r}
 														</span>
@@ -482,9 +829,10 @@ export function Onboarding() {
 							<div style={{ paddingTop: 14 }}>
 								<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>Bring your party.</h2>
 								<p style={{ margin: '0 0 18px', font: `13px ${T.sans}`, color: T.ter }}>
-									Note who's at your table — optional, you can run solo prep first. Invites stay on this device: the local-first build has no mail transport, so nothing is sent.
+									Optionally note who is at your table. These details stay on this device;
+									onboarding does not send invitations.
 								</p>
-								<div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+								<div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
 									<Input
 										value={draft}
 										onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDraft(e.target.value)}
@@ -494,9 +842,10 @@ export function Onboarding() {
 												addEmail();
 											}
 										}}
-										placeholder="player@email.com"
-										aria-label="Player email"
-										style={{ flex: 1 }}
+										placeholder="Player name or email"
+										aria-label="Player name or email"
+										maxLength={MAX_PARTY_NOTE_CHARS}
+										style={{ flex: 1, minWidth: 0 }}
 									/>
 									<Button variant="secondary" icon="add" onClick={addEmail}>
 										Add
@@ -504,24 +853,66 @@ export function Onboarding() {
 								</div>
 								<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 									{emails.map((e, j) => (
-										<div key={e} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 12px', borderRadius: 10, background: T.surf, border: `1px solid ${T.bd}` }}>
+										<div
+											key={e}
+											style={{
+												display: 'flex',
+												alignItems: 'center',
+												gap: 11,
+												padding: '9px 12px',
+												borderRadius: 10,
+												background: T.surf,
+												border: `1px solid ${T.bd}`,
+											}}
+										>
 											<Avatar name={e.split('@')[0]} size="sm" />
-											<span style={{ flex: 1, font: `12.5px ${T.sans}` }}>{e}</span>
-											<Badge status="info">Device-local</Badge>
-											<IconButton icon="close" label={`Remove ${e}`} variant="ghost" size="sm" onClick={() => setEmails((arr) => arr.filter((_, k) => k !== j))} />
+											<span
+												style={{
+													flex: 1,
+													minWidth: 0,
+													font: `12.5px ${T.sans}`,
+													overflowWrap: 'anywhere',
+												}}
+											>
+												{e}
+											</span>
+											<span style={{ flex: '0 0 auto' }}>
+												<Badge status="info">Saved here</Badge>
+											</span>
+											<IconButton
+												icon="close"
+												label={`Remove ${e}`}
+												variant="ghost"
+												size="sm"
+												onClick={() => setEmails((arr) => arr.filter((_, k) => k !== j))}
+											/>
 										</div>
 									))}
-									{emails.length === 0 && <div style={{ font: `12.5px ${T.sans}`, color: T.ter, padding: '10px 0' }}>No invites yet — that's fine, you can run solo prep first.</div>}
+									{emails.length === 0 && (
+										<div style={{ font: `12.5px ${T.sans}`, color: T.ter, padding: '10px 0' }}>
+											No players noted yet — that is fine; you can start with solo prep.
+										</div>
+									)}
 								</div>
 							</div>
 						)}
 						{step.id === 'ready' && (
 							<div style={{ paddingTop: 14 }}>
-								<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>You're ready to run.</h2>
+								<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>
+									You're ready to run.
+								</h2>
 								<p style={{ margin: '0 0 18px', font: `13px ${T.sans}`, color: T.ter }}>
-									Your table-readiness checklist, read live from the vault — jump to any unfinished item.
+									Your table-readiness checklist, read live from the vault — jump to any unfinished
+									item.
 								</p>
-								<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
+								<div
+									style={{
+										display: 'grid',
+										gridTemplateColumns: isDesktop ? '1fr 1fr' : '1fr',
+										gap: 16,
+										alignItems: 'start',
+									}}
+								>
 									<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 										{checklist.map((c) => (
 											<button
@@ -529,20 +920,64 @@ export function Onboarding() {
 												type="button"
 												disabled={wiping}
 												onClick={() => void finish(c.to)}
-												style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: T.surf, border: `1px solid ${c.done ? T.bd : T.accBd}`, cursor: 'pointer', textAlign: 'left' }}
+												style={{
+													display: 'flex',
+													alignItems: 'center',
+													gap: 10,
+													padding: '10px 12px',
+													borderRadius: 10,
+													background: T.surf,
+													border: `1px solid ${c.done ? T.bd : T.accBd}`,
+													cursor: 'pointer',
+													textAlign: 'left',
+												}}
 											>
-												<span style={{ width: 20, height: 20, borderRadius: '50%', flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: c.done ? T.ok : 'transparent', border: `1.5px solid ${c.done ? T.ok : T.bdS}`, color: T.accFg }}>
+												<span
+													style={{
+														width: 20,
+														height: 20,
+														borderRadius: '50%',
+														flex: '0 0 auto',
+														display: 'inline-flex',
+														alignItems: 'center',
+														justifyContent: 'center',
+														background: c.done ? T.ok : 'transparent',
+														border: `1.5px solid ${c.done ? T.ok : T.bdS}`,
+														color: T.accFg,
+													}}
+												>
 													{c.done && <Icon name="check" size={12} />}
 												</span>
-												<span style={{ flex: 1, font: `12.5px ${T.sans}`, color: c.done ? T.ter : T.ink, textDecoration: c.done ? 'line-through' : 'none' }}>{c.label}</span>
+												<span
+													style={{
+														flex: 1,
+														font: `12.5px ${T.sans}`,
+														color: c.done ? T.ter : T.ink,
+														textDecoration: c.done ? 'line-through' : 'none',
+													}}
+												>
+													{c.label}
+												</span>
 												<Icon name="chevron-right" size={13} color={T.ter} />
 											</button>
 										))}
 									</div>
 									<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 										{tour.map((t) => (
-											<div key={t.id} style={{ padding: 12, borderRadius: 10, background: T.accSub, border: `1px solid ${T.accBd}` }}>
-												<div style={{ font: `600 12.5px ${T.sans}`, color: T.acc, marginBottom: 3 }}>{t.title}</div>
+											<div
+												key={t.id}
+												style={{
+													padding: 12,
+													borderRadius: 10,
+													background: T.accSub,
+													border: `1px solid ${T.accBd}`,
+												}}
+											>
+												<div
+													style={{ font: `600 12.5px ${T.sans}`, color: T.acc, marginBottom: 3 }}
+												>
+													{t.title}
+												</div>
 												<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.sub }}>{t.body}</div>
 											</div>
 										))}
@@ -551,7 +986,16 @@ export function Onboarding() {
 							</div>
 						)}
 					</div>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 24px', borderTop: `1px solid ${T.bd}` }}>
+					<div
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: 10,
+							padding: isPhone ? '10px 12px' : '14px 24px',
+							borderTop: `1px solid ${T.bd}`,
+							flexWrap: 'wrap',
+						}}
+					>
 						{i > 0 && (
 							<Button variant="ghost" onClick={back} icon="chevron-left">
 								Back
@@ -566,8 +1010,19 @@ export function Onboarding() {
 								{step.id === 'welcome' ? 'Get started' : 'Continue'}
 							</Button>
 						) : (
-							<Button variant="primary" icon="check" onClick={() => void finish()} disabled={wiping}>
-								{wiping ? (vault === 'fresh' ? 'Clearing vault…' : 'Restoring sample…') : vault === 'fresh' ? 'Clear sample & start fresh' : 'Enter Command Center'}
+							<Button
+								variant="primary"
+								icon="check"
+								onClick={() => void finish()}
+								disabled={wiping}
+							>
+								{wiping
+									? vault === 'fresh'
+										? 'Clearing vault…'
+										: 'Restoring sample…'
+									: vault === 'fresh'
+										? 'Clear sample & start fresh'
+										: 'Enter Command Center'}
 							</Button>
 						)}
 					</div>

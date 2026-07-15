@@ -31,10 +31,15 @@ export interface AnswerPayload {
 	v: number;
 	role: 'answer';
 	sessionId: string;
+	/** Echoed from the offer so concurrent replies are applied to the intended participant. */
+	actorId: string;
 	sdp: string;
 }
 
 export const SIGNALING_VERSION = 1 as const;
+export const MAX_CONNECTION_CODE_CHARS = 256 * 1024;
+const MAX_SIGNALING_JSON_BYTES = 1024 * 1024;
+const MAX_SDP_CHARS = 768 * 1024;
 
 // LAN play leaves this empty (host candidates only). Internet remote play injects
 // minted STUN/TURN via setRtcIceServers() BEFORE creating/accepting an offer, so
@@ -55,10 +60,14 @@ export function clearRtcIceServers(): void {
 // LAN host candidates gather in well under a second, but allocating a TURN relay
 // candidate over the internet (cold coturn, TCP fallback, loaded network) can take
 // several seconds — so the cap is longer whenever ICE servers are configured.
-const iceGatherCapMs = (): number => (RTC_CONFIG.iceServers && RTC_CONFIG.iceServers.length > 0 ? 8000 : 4000);
+const iceGatherCapMs = (): number =>
+	RTC_CONFIG.iceServers && RTC_CONFIG.iceServers.length > 0 ? 8000 : 4000;
 
 /** Resolve once ICE gathering is complete (or after a short cap — LAN host candidates gather fast). */
-function waitForIceGatheringComplete(pc: RTCPeerConnection, capMs = iceGatherCapMs()): Promise<void> {
+function waitForIceGatheringComplete(
+	pc: RTCPeerConnection,
+	capMs = iceGatherCapMs(),
+): Promise<void> {
 	if (pc.iceGatheringState === 'complete') return Promise.resolve();
 	return new Promise((resolve) => {
 		const done = () => {
@@ -126,6 +135,7 @@ function bytesToBase64Url(bytes: Uint8Array): string {
 }
 
 function base64UrlToBytes(s: string): Uint8Array {
+	if (!/^[A-Za-z0-9_-]+$/.test(s)) throw new Error('Connection code contains invalid characters.');
 	const b64 = s.replace(/-/g, '+').replace(/_/g, '/');
 	const binary = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
 	const bytes = new Uint8Array(binary.length);
@@ -143,15 +153,44 @@ async function gzip(bytes: Uint8Array): Promise<Uint8Array> {
 	// CompressionStream is available in Chromium/Electron; fall back to identity if absent.
 	const CS = (globalThis as { CompressionStream?: typeof CompressionStream }).CompressionStream;
 	if (!CS) return bytes;
-	const stream = new Response(new Blob([toArrayBuffer(bytes)]).stream().pipeThrough(new CS('gzip')));
+	const stream = new Response(
+		new Blob([toArrayBuffer(bytes)]).stream().pipeThrough(new CS('gzip')),
+	);
 	return new Uint8Array(await stream.arrayBuffer());
 }
 
 async function gunzip(bytes: Uint8Array): Promise<Uint8Array> {
-	const DS = (globalThis as { DecompressionStream?: typeof DecompressionStream }).DecompressionStream;
-	if (!DS) return bytes;
-	const stream = new Response(new Blob([toArrayBuffer(bytes)]).stream().pipeThrough(new DS('gzip')));
-	return new Uint8Array(await stream.arrayBuffer());
+	const DS = (globalThis as { DecompressionStream?: typeof DecompressionStream })
+		.DecompressionStream;
+	if (!DS) {
+		if (bytes.byteLength > MAX_SIGNALING_JSON_BYTES)
+			throw new Error('Connection code is too large.');
+		return bytes;
+	}
+	const reader = new Blob([toArrayBuffer(bytes)]).stream().pipeThrough(new DS('gzip')).getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	try {
+		for (;;) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			total += value.byteLength;
+			if (total > MAX_SIGNALING_JSON_BYTES) {
+				await reader.cancel();
+				throw new Error('Connection code expands beyond the allowed size.');
+			}
+			chunks.push(value);
+		}
+	} finally {
+		reader.releaseLock();
+	}
+	const output = new Uint8Array(total);
+	let offset = 0;
+	for (const chunk of chunks) {
+		output.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return output;
 }
 
 // A 1-byte header flags whether the body is gzipped, so decode works whether or not the platform had
@@ -159,9 +198,41 @@ async function gunzip(bytes: Uint8Array): Promise<Uint8Array> {
 const FLAG_GZIP = 0x01;
 const FLAG_RAW = 0x00;
 
+function isBoundedString(value: unknown, max: number): value is string {
+	return typeof value === 'string' && value.length > 0 && value.length <= max;
+}
+
+function validatePayload(value: unknown): OfferPayload | AnswerPayload {
+	if (!value || typeof value !== 'object')
+		throw new Error('Connection code has an invalid payload.');
+	const rec = value as Record<string, unknown>;
+	if (
+		rec.v !== SIGNALING_VERSION ||
+		!isBoundedString(rec.sessionId, 128) ||
+		!isBoundedString(rec.actorId, 128) ||
+		!isBoundedString(rec.sdp, MAX_SDP_CHARS)
+	)
+		throw new Error('Connection code has an invalid payload.');
+	if (rec.role === 'answer') {
+		return rec as unknown as AnswerPayload;
+	}
+	if (
+		rec.role !== 'offer' ||
+		!isBoundedString(rec.displayName, 160) ||
+		!['player', 'observer', 'co-dm'].includes(String(rec.participantRole)) ||
+		!isBoundedString(rec.keyB64, 256) ||
+		!/^[A-Za-z0-9+/]+={0,2}$/.test(rec.keyB64)
+	)
+		throw new Error('Connection code has an invalid payload.');
+	return rec as unknown as OfferPayload;
+}
+
 /** Encode a pairing payload to a compact, copy/paste- and QR-friendly connection code. */
 export async function encodeCode(payload: OfferPayload | AnswerPayload): Promise<string> {
-	const json = new TextEncoder().encode(JSON.stringify(payload));
+	const validated = validatePayload(payload);
+	const json = new TextEncoder().encode(JSON.stringify(validated));
+	if (json.byteLength > MAX_SIGNALING_JSON_BYTES)
+		throw new Error('Connection payload is too large.');
 	const compressed = await gzip(json);
 	const useGzip = compressed.length < json.length;
 	const body = useGzip ? compressed : json;
@@ -173,10 +244,21 @@ export async function encodeCode(payload: OfferPayload | AnswerPayload): Promise
 
 /** Decode a connection code back to its pairing payload. Throws on a malformed code. */
 export async function decodeCode<T extends OfferPayload | AnswerPayload>(code: string): Promise<T> {
-	const bytes = base64UrlToBytes(code.trim());
+	const trimmed = code.trim();
+	if (trimmed.length > MAX_CONNECTION_CODE_CHARS) throw new Error('Connection code is too large.');
+	const bytes = base64UrlToBytes(trimmed);
 	if (bytes.length < 2) throw new Error('Connection code is too short.');
 	const flag = bytes[0]!;
+	if (flag !== FLAG_GZIP && flag !== FLAG_RAW)
+		throw new Error('Connection code has an unknown format.');
 	const body = bytes.slice(1);
 	const json = flag === FLAG_GZIP ? await gunzip(body) : body;
-	return JSON.parse(new TextDecoder().decode(json)) as T;
+	if (json.byteLength > MAX_SIGNALING_JSON_BYTES) throw new Error('Connection code is too large.');
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(new TextDecoder().decode(json));
+	} catch {
+		throw new Error('Connection code is not valid.');
+	}
+	return validatePayload(parsed) as T;
 }

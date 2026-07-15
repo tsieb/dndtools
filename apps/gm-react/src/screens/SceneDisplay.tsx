@@ -6,16 +6,24 @@ import {
 } from '@dndtools/core';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useAssetObjectUrl } from '../platform/assetUrl';
-import { subscribeSceneDisplay, type SceneDisplayPayload } from '../platform/sceneDisplayChannel';
+import {
+	requestSceneDisplay,
+	subscribeSceneDisplay,
+	type SceneDisplayPayload,
+} from '../platform/sceneDisplayChannel';
 import { moodTheme } from '../app/sceneCardMood';
+import { isNativeDesktopRuntime } from '../platform/windowChrome';
 import '../styles/scene-display.css';
 
 /** Resolve a card's hero image to a renderable URL (direct for `url`, asset-store for `vault-asset`). */
-function useHeroImageUrl(card: SceneCardView | null): string | null {
-	const vaultAssetId = card?.heroImage?.kind === 'vault-asset' ? card.heroImage.ref : null;
+function useHeroImageUrl(card: SceneCardView | null, resolveVaultAssets: boolean): string | null {
+	const vaultAssetId =
+		resolveVaultAssets && card?.heroImage?.kind === 'vault-asset' ? card.heroImage.ref : null;
 	const resolved = useAssetObjectUrl(vaultAssetId);
 	if (!card?.heroImage) return null;
-	if (card.heroImage.kind === 'url') return card.heroImage.ref;
+	if (card.heroImage.kind === 'url') {
+		return isNativeDesktopRuntime() ? null : card.heroImage.ref;
+	}
 	return resolved;
 }
 
@@ -29,11 +37,13 @@ function useHeroImageUrl(card: SceneCardView | null): string | null {
 export function SceneDisplaySurface({
 	active,
 	transitionStyle,
+	resolveVaultAssets = true,
 }: {
 	active: SceneCardView | null;
 	transitionStyle: SceneCardTransitionStyle;
+	resolveVaultAssets?: boolean;
 }) {
-	const heroUrl = useHeroImageUrl(active);
+	const heroUrl = useHeroImageUrl(active, resolveVaultAssets);
 
 	if (!active) {
 		return (
@@ -90,6 +100,7 @@ export function SceneDisplaySurface({
 				<div
 					style={{
 						position: 'relative',
+						minWidth: 0,
 						padding: 'clamp(28px, 6vw, 88px)',
 						display: 'flex',
 						flexDirection: 'column',
@@ -115,9 +126,11 @@ export function SceneDisplaySurface({
 					<h1
 						style={{
 							margin: 0,
+							maxWidth: '100%',
 							color: theme.ink,
 							font: '800 clamp(30px, 5.4vw, 76px) var(--font-display, Georgia, serif)',
 							lineHeight: 1.04,
+							overflowWrap: 'anywhere',
 							textShadow: '0 2px 24px rgba(0,0,0,0.55)',
 						}}
 					>
@@ -132,6 +145,7 @@ export function SceneDisplaySurface({
 								maxWidth: 820,
 								font: '400 clamp(15px, 1.9vw, 26px) var(--font-sans, system-ui)',
 								lineHeight: 1.5,
+								overflowWrap: 'anywhere',
 								textShadow: '0 1px 16px rgba(0,0,0,0.5)',
 								whiteSpace: 'pre-wrap',
 							}}
@@ -171,8 +185,39 @@ export function SceneDisplay() {
 	const transitionStyle = payload ? payload.transitionStyle : local.transitionStyle;
 
 	return (
-		<div style={{ position: 'fixed', inset: 0, background: '#05070c' }}>
+		<div
+			className="app-fixed-viewport"
+			style={{ position: 'fixed', inset: 0, background: '#05070c' }}
+		>
 			<SceneDisplaySurface active={active} transitionStyle={transitionStyle} />
+		</div>
+	);
+}
+
+/**
+ * Electron projector receiver. It deliberately has no RuntimeProvider, vault, auth, backup, session,
+ * or audio tree; the primary window sends only the already-filtered scene-display DTO. Vault-backed
+ * hero bytes are omitted in this isolated surface until they can travel over a dedicated byte channel.
+ */
+export function StandaloneSceneDisplay() {
+	const [payload, setPayload] = useState<SceneDisplayPayload | null>(null);
+
+	useEffect(() => {
+		const unsubscribe = subscribeSceneDisplay(setPayload);
+		requestSceneDisplay();
+		return unsubscribe;
+	}, []);
+
+	return (
+		<div
+			className="app-fixed-viewport"
+			style={{ position: 'fixed', inset: 0, background: '#05070c' }}
+		>
+			<SceneDisplaySurface
+				active={payload?.active ?? null}
+				transitionStyle={payload?.transitionStyle ?? 'cut'}
+				resolveVaultAssets={false}
+			/>
 		</div>
 	);
 }

@@ -11,6 +11,16 @@ export interface PickedFile {
 	file: File;
 }
 
+export class PickedFileSizeError extends Error {
+	constructor(
+		readonly byteLength: number,
+		readonly maxBytes: number,
+	) {
+		super(`Selected file is ${byteLength} bytes; the safe import limit is ${maxBytes} bytes.`);
+		this.name = 'PickedFileSizeError';
+	}
+}
+
 function pick(accept: string, multiple: boolean): Promise<File[]> {
 	return new Promise((resolve) => {
 		const input = document.createElement('input');
@@ -38,9 +48,15 @@ async function toPicked(file: File): Promise<PickedFile> {
 }
 
 /** Pick one file and read it as text. Null when cancelled. */
-export async function pickTextFile(accept: string): Promise<(PickedFile & { text: string }) | null> {
+export async function pickTextFile(
+	accept: string,
+	maxBytes?: number,
+): Promise<(PickedFile & { text: string }) | null> {
 	const [file] = await pick(accept, false);
 	if (!file) return null;
+	if (maxBytes !== undefined && file.size > maxBytes) {
+		throw new PickedFileSizeError(file.size, maxBytes);
+	}
 	return { ...(await toPicked(file)), text: await file.text() };
 }
 
@@ -54,9 +70,7 @@ export async function pickBinaryFile(
 }
 
 /** Pick many files and read them as text (multi-file markdown import). */
-export async function pickTextFiles(
-	accept: string,
-): Promise<Array<PickedFile & { text: string }>> {
+export async function pickTextFiles(accept: string): Promise<Array<PickedFile & { text: string }>> {
 	const files = await pick(accept, true);
 	return Promise.all(
 		files.map(async (file) => ({ ...(await toPicked(file)), text: await file.text() })),

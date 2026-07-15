@@ -11,6 +11,7 @@ const ENV = {
 	ws: 'VITE_SIGNALING_WS_URL',
 	sync: 'VITE_SYNC_API_URL',
 	appApi: 'VITE_APP_API_URL',
+	publicApp: 'VITE_PUBLIC_APP_URL',
 } as const;
 
 async function importFresh() {
@@ -30,7 +31,8 @@ describe('cloud config gates', () => {
 		vi.stubEnv(ENV.ws, 'wss://sig.example.com/dev');
 		vi.stubEnv(ENV.sync, 'https://sync.example.com/dev');
 
-		const { cloudConfig, isCloudConfigured, isAuthConfigured, isSyncConfigured } = await importFresh();
+		const { cloudConfig, isCloudConfigured, isAuthConfigured, isSyncConfigured } =
+			await importFresh();
 
 		expect(isCloudConfigured).toBe(true);
 		expect(isAuthConfigured).toBe(true);
@@ -42,6 +44,7 @@ describe('cloud config gates', () => {
 			signalingWsUrl: 'wss://sig.example.com/dev',
 			syncApiUrl: 'https://sync.example.com/dev',
 			appApiUrl: '',
+			publicAppUrl: '',
 		});
 	});
 
@@ -58,6 +61,17 @@ describe('cloud config gates', () => {
 		// app-api URL without identity must stay closed — no anonymous account surface.
 		vi.stubEnv(ENV.pool, '');
 		expect((await importFresh()).isAccountApiConfigured).toBe(false);
+	});
+
+	it('accepts only a credential-free HTTPS public app URL', async () => {
+		vi.stubEnv(ENV.publicApp, 'https://play.example.com/app/');
+		expect((await importFresh()).isPublicAppConfigured).toBe(true);
+
+		vi.stubEnv(ENV.publicApp, 'http://play.example.com/');
+		expect((await importFresh()).isPublicAppConfigured).toBe(false);
+
+		vi.stubEnv(ENV.publicApp, 'https://play.example.com/#token');
+		expect((await importFresh()).isPublicAppConfigured).toBe(false);
 	});
 
 	it('is auth-configured but NOT sync-configured when the sync URL is absent', async () => {
@@ -107,5 +121,22 @@ describe('cloud config gates', () => {
 
 		expect(cloudConfig.region).toBe('ca-central-1');
 		expect(cloudConfig.signalingWsUrl).toBe('wss://sig/dev');
+	});
+
+	it('fails closed for malformed identity values and protocol-confused API URLs', async () => {
+		vi.stubEnv(ENV.region, 'ca-central-1');
+		vi.stubEnv(ENV.pool, 'us-east-1_wrongregion');
+		vi.stubEnv(ENV.client, 'client-with-punctuation');
+		vi.stubEnv(ENV.ws, 'https://sig.example.com/dev');
+		vi.stubEnv(ENV.sync, 'wss://sync.example.com/dev');
+		vi.stubEnv(ENV.appApi, 'https://app.example.com/dev?redirect=elsewhere');
+
+		const { isAuthConfigured, isCloudConfigured, isSyncConfigured, isAccountApiConfigured } =
+			await importFresh();
+
+		expect(isAuthConfigured).toBe(false);
+		expect(isCloudConfigured).toBe(false);
+		expect(isSyncConfigured).toBe(false);
+		expect(isAccountApiConfigured).toBe(false);
 	});
 });

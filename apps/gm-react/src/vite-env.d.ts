@@ -17,6 +17,10 @@ interface ImportMetaEnv {
 	readonly VITE_SIGNALING_WS_URL?: string;
 	readonly VITE_SYNC_API_URL?: string;
 	readonly VITE_APP_API_URL?: string;
+	/** Public HTTPS SPA entry used for join/wiki links in packaged Electron builds. */
+	readonly VITE_PUBLIC_APP_URL?: string;
+	/** Space-separated HTTPS origins mirrored in CSP; hosted AI calls are denied when this is empty. */
+	readonly VITE_AI_ALLOWED_ORIGINS?: string;
 
 	// Google Docs vault-source OAuth client id (WS-7). Absent ⇒ the Google Docs source option
 	// is hidden entirely (fail-closed); see docs/runbooks/google-oauth-setup.md.

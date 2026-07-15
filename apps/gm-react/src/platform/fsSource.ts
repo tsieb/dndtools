@@ -110,7 +110,7 @@ export async function listFolderSources(): Promise<FolderSourceRecord[]> {
  */
 export async function connectFolderSource(): Promise<FolderSourceRecord | null> {
 	if (!isFsSourceSupported()) {
-		throw new Error('Local folder connections need the File System Access API (Chrome/Edge).');
+		throw new Error('This browser cannot connect a local folder. Use the desktop app or Chromium.');
 	}
 	let handle: FsDirHandleLike;
 	try {

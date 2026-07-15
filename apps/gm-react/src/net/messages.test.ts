@@ -8,9 +8,40 @@ import { describe, it, expect } from 'vitest';
 
 import {
 	parsePresenceBeatMessage,
+	parseClientMessage,
+	parseHostMessage,
 	presenceBeatToSetPresencePayload,
 	PEER_PRESENCE_STATUSES,
 } from './messages';
+
+describe('peer message validation', () => {
+	it('accepts a bounded player request and rejects missing or oversized fields', () => {
+		expect(
+			parseClientMessage({
+				kind: 'command-request',
+				requestId: 'req-1',
+				command: { type: 'dice.roll', payload: { formula: '1d20' } },
+			}),
+		).not.toBeNull();
+		expect(
+			parseClientMessage({ kind: 'command-request', requestId: 'req-1', command: null }),
+		).toBeNull();
+		expect(
+			parseClientMessage({
+				kind: 'command-request',
+				requestId: 'x'.repeat(129),
+				command: { type: 'dice.roll', payload: {} },
+			}),
+		).toBeNull();
+	});
+
+	it('rejects malformed host state and unknown message kinds', () => {
+		expect(parseHostMessage({ kind: 'snapshot', seq: 2, data: {} })).not.toBeNull();
+		expect(parseHostMessage({ kind: 'snapshot', seq: -1, data: {} })).toBeNull();
+		expect(parseHostMessage({ kind: 'presence', entries: new Array(501).fill({}) })).toBeNull();
+		expect(parseHostMessage({ kind: 'surprise', value: true })).toBeNull();
+	});
+});
 
 describe('parsePresenceBeatMessage', () => {
 	it('accepts a minimal beat (status only)', () => {
@@ -69,8 +100,14 @@ describe('parsePresenceBeatMessage', () => {
 describe('presenceBeatToSetPresencePayload', () => {
 	it('maps status from the beat and device from the join-time hello (never the beat)', () => {
 		const beat = parsePresenceBeatMessage({ kind: 'presence-beat', status: 'away', hand: true })!;
-		expect(presenceBeatToSetPresencePayload(beat, 'web')).toEqual({ status: 'away', device: 'web' });
-		expect(presenceBeatToSetPresencePayload(beat, 'desktop')).toEqual({ status: 'away', device: 'desktop' });
+		expect(presenceBeatToSetPresencePayload(beat, 'web')).toEqual({
+			status: 'away',
+			device: 'web',
+		});
+		expect(presenceBeatToSetPresencePayload(beat, 'desktop')).toEqual({
+			status: 'away',
+			device: 'desktop',
+		});
 	});
 
 	it('produces a payload that carries NO actor identity — the dispatch site stamps it', () => {

@@ -8,7 +8,16 @@ import {
 	VAULT_OBJECT_SUBTYPE_KEY,
 	type SceneListEntry,
 } from '@dndtools/core';
-import { Avatar, BottomTabBar, Icon, IconButton, NavRail, Sheet, StatusDot, ToastViewport } from '../ds';
+import {
+	Avatar,
+	BottomTabBar,
+	Icon,
+	IconButton,
+	NavRail,
+	Sheet,
+	StatusDot,
+	ToastViewport,
+} from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useCloudSync } from '../cloud/CloudSyncContext';
 import { useSession } from '../net/SessionContext';
@@ -16,7 +25,7 @@ import { CommandPalette } from './CommandPalette';
 import { ViewAsControl } from './ViewAsControl';
 import { ProjectionControl } from './ProjectionControl';
 import { HostSessionButton, AccountButton } from '../net/SessionPanel';
-import { useViewport } from './useViewport';
+import { useCompactTopBar, useViewport } from './useViewport';
 import {
 	LIBRARY,
 	PLATFORM,
@@ -96,7 +105,11 @@ function SceneSideRow({
 	const st = SCENE_STATUS[status];
 	const sub = scene.tags[0] ? `${st.label} · ${scene.tags[0]}` : st.label;
 	return (
-		<div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{ position: 'relative' }}>
+		<div
+			onMouseEnter={() => setHov(true)}
+			onMouseLeave={() => setHov(false)}
+			style={{ position: 'relative' }}
+		>
 			<button
 				type="button"
 				onClick={onOpen}
@@ -116,7 +129,19 @@ function SceneSideRow({
 					transition: 'background var(--duration-fast) var(--easing-standard)',
 				}}
 			>
-				{active && <span style={{ position: 'absolute', left: -6, top: 7, bottom: 7, width: 3, borderRadius: 3, background: T.acc }} />}
+				{active && (
+					<span
+						style={{
+							position: 'absolute',
+							left: -6,
+							top: 7,
+							bottom: 7,
+							width: 3,
+							borderRadius: 3,
+							background: T.acc,
+						}}
+					/>
+				)}
 				<span style={{ flex: '0 0 auto', display: 'inline-flex' }}>
 					{status === 'draft' ? (
 						<Icon name="lock" size={14} color={T.ter} />
@@ -125,8 +150,30 @@ function SceneSideRow({
 					)}
 				</span>
 				<span style={{ flex: 1, minWidth: 0 }}>
-					<span style={{ display: 'block', font: `${active ? 600 : 500} 13px ${T.sans}`, color: active ? T.acc : T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{scene.name}</span>
-					<span style={{ display: 'block', font: `10.5px ${T.sans}`, color: T.ter, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</span>
+					<span
+						style={{
+							display: 'block',
+							font: `${active ? 600 : 500} 13px ${T.sans}`,
+							color: active ? T.acc : T.ink,
+							whiteSpace: 'nowrap',
+							overflow: 'hidden',
+							textOverflow: 'ellipsis',
+						}}
+					>
+						{scene.name}
+					</span>
+					<span
+						style={{
+							display: 'block',
+							font: `10.5px ${T.sans}`,
+							color: T.ter,
+							whiteSpace: 'nowrap',
+							overflow: 'hidden',
+							textOverflow: 'ellipsis',
+						}}
+					>
+						{sub}
+					</span>
 				</span>
 			</button>
 		</div>
@@ -173,12 +220,21 @@ function SideRow({
 				position: 'relative',
 				background: active ? T.accSub : hov ? T.hover : 'transparent',
 				color: active ? T.acc : T.sub,
-				transition: 'background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard)',
+				transition:
+					'background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard)',
 			}}
 		>
 			{active && (
 				<span
-					style={{ position: 'absolute', left: -6, top: 8, bottom: 8, width: 3, borderRadius: 3, background: T.acc }}
+					style={{
+						position: 'absolute',
+						left: -6,
+						top: 8,
+						bottom: 8,
+						width: 3,
+						borderRadius: 3,
+						background: T.acc,
+					}}
 				/>
 			)}
 			<Icon name={icon} size="sm" color={active ? T.acc : color || 'currentColor'} />
@@ -218,7 +274,7 @@ function SideRow({
 
 /**
  * The DM-footer presence dot — REAL state, not a hardcoded "Online": the live P2P session role wins
- * (hosting / joined), then the cloud-sync engine (error / syncing / synced), else the honest
+ * (hosting / joined), then the cloud-backup engine (error / backing up / current), else the honest
  * local-only baseline. The label doubles as the row's status caption.
  */
 function usePresenceStatus(): { dot: 'live' | 'idle' | 'error' | 'pending'; label: string } {
@@ -226,19 +282,33 @@ function usePresenceStatus(): { dot: 'live' | 'idle' | 'error' | 'pending'; labe
 	const cloud = useCloudSync();
 	if (session.role === 'host') {
 		const n = session.peers.length;
-		return { dot: 'live', label: n > 0 ? `Hosting · ${n} connected` : 'Hosting — waiting for players' };
+		return {
+			dot: 'live',
+			label: n > 0 ? `Hosting · ${n} connected` : 'Hosting — waiting for players',
+		};
 	}
 	if (session.role === 'joined') return { dot: 'live', label: 'Joined a table' };
 	if (cloud.available && cloud.enabled) {
 		const es = cloud.engineStatus;
-		if (es?.lastError) return { dot: 'error', label: 'Cloud sync error' };
-		if (es?.busy) return { dot: 'pending', label: 'Syncing…' };
-		return { dot: 'live', label: es?.lastSyncedAt ? 'Cloud sync up to date' : 'Cloud sync on' };
+		if (es?.lastError) return { dot: 'error', label: 'Cloud backup error' };
+		if (es?.busy) return { dot: 'pending', label: 'Backing up…' };
+		return {
+			dot: 'live',
+			label: es?.lastSyncedAt ? 'Cloud backup up to date' : 'Cloud backup on',
+		};
 	}
 	return { dot: 'idle', label: 'Local-only — this device' };
 }
 
-function SideGroup({ label, action, children }: { label: string; action?: ReactNode; children: ReactNode }) {
+function SideGroup({
+	label,
+	action,
+	children,
+}: {
+	label: string;
+	action?: ReactNode;
+	children: ReactNode;
+}) {
 	const eb: CSSProperties = {
 		font: `600 11px ${T.sans}`,
 		letterSpacing: '.09em',
@@ -247,7 +317,14 @@ function SideGroup({ label, action, children }: { label: string; action?: ReactN
 	};
 	return (
 		<div style={{ marginTop: 14 }}>
-			<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 10px 6px' }}>
+			<div
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'space-between',
+					padding: '0 10px 6px',
+				}}
+			>
 				<span style={eb}>{label}</span>
 				{action}
 			</div>
@@ -272,12 +349,22 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 		// The GM Screen's backing home scene is reachable via its own nav row — listing it among the
 		// table scenes (as a scene literally named "Command Center") only reads as a mystery scene.
 		const homeSceneId = runtime.state.commandCenter.homeSceneId;
-		const allScenes = listScenesForActor(runtime.state.scenes, runtime.state.permissions, actorId).filter(
-			(s) => !s.isTemplate && s.id !== homeSceneId,
+		const allScenes = listScenesForActor(
+			runtime.state.scenes,
+			runtime.state.permissions,
+			actorId,
+		).filter((s) => !s.isTemplate && s.id !== homeSceneId);
+		const characters = listCharactersForActor(
+			runtime.state.characters,
+			runtime.state.permissions,
+			actorId,
 		);
-		const characters = listCharactersForActor(runtime.state.characters, runtime.state.permissions, actorId);
 		const maps = listMapsForActor(runtime.state.maps, runtime.state.permissions, actorId);
-		const items = getContentItemsForActor(runtime.state.content, runtime.state.permissions, actorId);
+		const items = getContentItemsForActor(
+			runtime.state.content,
+			runtime.state.permissions,
+			actorId,
+		);
 		// Count what each screen actually lists: Notes shows kind==='note' only; Story's tabs surface
 		// those notes as threads plus the faction dossiers (a raw item count here once claimed
 		// "9 notes" while the Notes screen showed 6).
@@ -288,7 +375,8 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 		const pcCount = characters.filter((c) => c.kind === 'pc').length;
 		const npcCount = characters.length - pcCount;
 		const ordered = [...allScenes].sort((a, b) => {
-			const rank = (s: SceneListEntry) => (s.id === activeSceneId ? 0 : s.visibility === 'dm-only' ? 2 : 1);
+			const rank = (s: SceneListEntry) =>
+				s.id === activeSceneId ? 0 : s.visibility === 'dm-only' ? 2 : 1;
 			return rank(a) - rank(b) || b.updatedAt.localeCompare(a.updatedAt);
 		});
 		const recentScenes = [...allScenes]
@@ -333,7 +421,7 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 			style={{
 				width: 264,
 				flex: '0 0 264px',
-				height: '100vh',
+				height: '100%',
 				display: 'flex',
 				flexDirection: 'column',
 				background: T.surf,
@@ -359,10 +447,16 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 				</span>
 				<div style={{ flex: 1, minWidth: 0 }}>
 					<div style={{ font: `700 15px ${T.disp}`, letterSpacing: '.02em' }}>
-						DND<span style={{ color: T.acc }}>Tools</span>
+						DND <span style={{ color: T.acc }}>Tools</span>
 					</div>
 				</div>
-				<IconButton icon="search" label="Search (⌘K)" variant="ghost" size="sm" onClick={onOpenPalette} />
+				<IconButton
+					icon="search"
+					label="Search (⌘K)"
+					variant="ghost"
+					size="sm"
+					onClick={onOpenPalette}
+				/>
 			</div>
 
 			{/* campaign chip — a "which campaign am I in" affordance; it goes HOME (the campaign hub),
@@ -385,14 +479,26 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 			>
 				<Icon name="campaign-scroll" size="sm" color={T.acc} />
 				<span style={{ flex: 1, minWidth: 0 }}>
-					<span style={{ display: 'block', font: `600 12.5px ${T.sans}`, color: T.ink }}>Your campaign</span>
-					<span style={{ display: 'block', font: `10.5px ${T.sans}`, color: T.ter }}>{scenes.length} scenes · {counts.characters}</span>
+					<span style={{ display: 'block', font: `600 12.5px ${T.sans}`, color: T.ink }}>
+						Your campaign
+					</span>
+					<span style={{ display: 'block', font: `10.5px ${T.sans}`, color: T.ter }}>
+						{scenes.length} scenes · {counts.characters}
+					</span>
 				</span>
 				{/* chevron-right = "this navigates"; chevron-down here implied a dropdown that never opened */}
 				<Icon name="chevron-right" size={13} color={T.ter} />
 			</button>
 
-			<div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '4px 12px 16px' }}>
+			<div
+				style={{
+					flex: 1,
+					minHeight: 0,
+					overflowY: 'auto',
+					overflowX: 'hidden',
+					padding: '4px 12px 16px',
+				}}
+			>
 				<nav role="navigation" aria-label="Primary">
 					<SideGroup label="Run the table">
 						{RUN.map((s) =>
@@ -418,10 +524,20 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 
 					<SideGroup
 						label="Scenes"
-						action={<IconButton icon="add" label="New scene" variant="ghost" size="sm" onClick={() => navigate('/scenes')} />}
+						action={
+							<IconButton
+								icon="add"
+								label="New scene"
+								variant="ghost"
+								size="sm"
+								onClick={() => navigate('/scenes')}
+							/>
+						}
 					>
 						{visibleScenes.length === 0 && (
-							<div style={{ padding: '6px 10px', font: `11.5px ${T.sans}`, color: T.ter }}>No scenes yet.</div>
+							<div style={{ padding: '6px 10px', font: `11.5px ${T.sans}`, color: T.ter }}>
+								No scenes yet.
+							</div>
 						)}
 						{visibleScenes.map((s) => {
 							const status = sceneStatus(s, activeSceneId);
@@ -439,9 +555,25 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 							<button
 								type="button"
 								onClick={() => setShowAllScenes((v) => !v)}
-								style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', border: 'none', borderRadius: 8, cursor: 'pointer', background: 'transparent', color: T.ter, font: `12px ${T.sans}` }}
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: 8,
+									width: '100%',
+									padding: '7px 10px',
+									border: 'none',
+									borderRadius: 8,
+									cursor: 'pointer',
+									background: 'transparent',
+									color: T.ter,
+									font: `12px ${T.sans}`,
+								}}
 							>
-								<Icon name={showAllScenes ? 'chevron-up' : 'chevron-down'} size={14} color={T.ter} />
+								<Icon
+									name={showAllScenes ? 'chevron-up' : 'chevron-down'}
+									size={14}
+									color={T.ter}
+								/>
 								{showAllScenes ? 'Show fewer' : `All scenes (${scenes.length})`}
 							</button>
 						)}
@@ -468,12 +600,23 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 								borderRadius: 8,
 							}}
 						>
-							<span style={{ font: `600 11px ${T.sans}`, letterSpacing: '.09em', textTransform: 'uppercase', color: T.ter }}>
+							<span
+								style={{
+									font: `600 11px ${T.sans}`,
+									letterSpacing: '.09em',
+									textTransform: 'uppercase',
+									color: T.ter,
+								}}
+							>
 								More · tools &amp; platform
 							</span>
 							<Icon name={moreExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={T.ter} />
 						</button>
-						{moreExpanded && <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>{PLATFORM.map((s) => row(s))}</div>}
+						{moreExpanded && (
+							<div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+								{PLATFORM.map((s) => row(s))}
+							</div>
+						)}
 					</div>
 				</nav>
 
@@ -481,7 +624,12 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 					<nav aria-label="Shortcuts">
 						<SideGroup label="Recent scenes">
 							{recent.map((s) => (
-								<SideRow key={s.id} icon="scene" label={s.name} onClick={() => navigate(`/scene/${s.id}`)} />
+								<SideRow
+									key={s.id}
+									icon="scene"
+									label={s.name}
+									onClick={() => navigate(`/scene/${s.id}`)}
+								/>
 							))}
 						</SideGroup>
 					</nav>
@@ -509,11 +657,24 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 					<Avatar name={dmActor?.displayName ?? 'DM'} size="sm" ring="active" />
 					<div style={{ flex: 1, minWidth: 0 }}>
 						<div style={{ font: `600 12.5px ${T.sans}` }}>{dmActor?.displayName ?? 'DM'}</div>
-						<div style={{ font: `10.5px ${T.sans}`, color: T.ter, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={presence.label}>
+						<div
+							style={{
+								font: `10.5px ${T.sans}`,
+								color: T.ter,
+								whiteSpace: 'nowrap',
+								overflow: 'hidden',
+								textOverflow: 'ellipsis',
+							}}
+							title={presence.label}
+						>
 							Dungeon Master · {presence.label}
 						</div>
 					</div>
-					<StatusDot status={presence.dot} label={presence.label} pulse={presence.dot === 'pending'} />
+					<StatusDot
+						status={presence.dot}
+						label={presence.label}
+						pulse={presence.dot === 'pending'}
+					/>
 				</div>
 			</div>
 		</aside>
@@ -522,7 +683,13 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 
 /** All sections in rail order — the same IA as the sidebar, flattened (a presentation change,
  * never an IA change). */
-const ALL_SECTIONS: NavSection[] = [...RUN, ...LIBRARY, ...PLATFORM, PLAYER_SECTION, SETTINGS_SECTION];
+const ALL_SECTIONS: NavSection[] = [
+	...RUN,
+	...LIBRARY,
+	...PLATFORM,
+	PLAYER_SECTION,
+	SETTINGS_SECTION,
+];
 
 /** Tablet: the DS NavRail — icon-only, labels move to the accessible name/tooltip. */
 function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
@@ -534,15 +701,40 @@ function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 	return (
 		<NavRail
 			width={64}
-			items={ALL_SECTIONS.map((s) => ({ key: s.id, icon: s.icon, label: s.label, badge: s.id === 'session' && liveDot ? '•' : undefined }))}
+			items={ALL_SECTIONS.map((s) => ({
+				key: s.id,
+				icon: s.icon,
+				label: s.label,
+				badge: s.id === 'session' && liveDot ? '•' : undefined,
+			}))}
 			active={active}
 			onSelect={(id: string) => navigate(SECTION_PATH[id] ?? '/')}
 			header={
-				<span style={{ width: 30, height: 30, borderRadius: 7, background: T.acc, color: T.accFg, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: T.ssm }}>
+				<span
+					style={{
+						width: 30,
+						height: 30,
+						borderRadius: 7,
+						background: T.acc,
+						color: T.accFg,
+						display: 'inline-flex',
+						alignItems: 'center',
+						justifyContent: 'center',
+						boxShadow: T.ssm,
+					}}
+				>
 					<Icon name="dice" size="sm" />
 				</span>
 			}
-			footer={<IconButton icon="search" label="Search (⌘K)" variant="ghost" size="sm" onClick={onOpenPalette} />}
+			footer={
+				<IconButton
+					icon="search"
+					label="Search (⌘K)"
+					variant="ghost"
+					size="sm"
+					onClick={onOpenPalette}
+				/>
+			}
 		/>
 	);
 }
@@ -563,7 +755,12 @@ function PhoneNav() {
 		<>
 			<BottomTabBar
 				items={[
-					...PHONE_TABS.map((s) => ({ key: s.id, icon: s.icon, label: s.id === 'home' ? 'Home' : s.label, badge: s.id === 'session' && liveDot ? '•' : undefined })),
+					...PHONE_TABS.map((s) => ({
+						key: s.id,
+						icon: s.icon,
+						label: s.id === 'home' ? 'Home' : s.label,
+						badge: s.id === 'session' && liveDot ? '•' : undefined,
+					})),
 					{ key: 'more', icon: 'chevron-up', label: 'More' },
 				]}
 				active={hotIds.has(active) ? active : 'more'}
@@ -576,7 +773,14 @@ function PhoneNav() {
 				}}
 			/>
 			<Sheet open={moreOpen} onClose={() => setMoreOpen(false)} side="bottom" title="All sections">
-				<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, paddingBottom: 8 }}>
+				<div
+					style={{
+						display: 'grid',
+						gridTemplateColumns: 'minmax(0,1fr)',
+						gap: 4,
+						paddingBottom: 8,
+					}}
+				>
 					{rest.map((s) => (
 						<SideRow
 							key={s.id}
@@ -596,90 +800,158 @@ function PhoneNav() {
 	);
 }
 
-function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
+function TopBar({
+	onOpenPalette,
+	viewport,
+	compactToolbar,
+}: {
+	onOpenPalette: () => void;
+	viewport: ReturnType<typeof useViewport>;
+	compactToolbar: boolean;
+}) {
 	const location = useLocation();
+	const [controlsOpen, setControlsOpen] = useState(false);
 	const id = activeSectionId(location.pathname);
 	const title = sectionLabel(id);
 	const sub = sectionSubtitle(id);
+	const compact = viewport !== 'desktop' || compactToolbar;
 	return (
-		<header
-			style={{
-				display: 'flex',
-				alignItems: 'center',
-				gap: 14,
-				padding: '13px 24px',
-				borderBottom: `1px solid ${T.bd}`,
-				background: 'color-mix(in srgb, var(--color-bg) 86%, transparent)',
-				backdropFilter: 'blur(6px)',
-				flex: '0 0 auto',
-			}}
-		>
-			<div style={{ minWidth: 0, flex: '2 1 200px' }}>
-				<h1
-					style={{
-						margin: 0,
-						font: `700 21px ${T.disp}`,
-						letterSpacing: '-.01em',
-						lineHeight: 1.15,
-						whiteSpace: 'nowrap',
-						overflow: 'hidden',
-						textOverflow: 'ellipsis',
-					}}
-				>
-					{title}
-				</h1>
-				<div
-					style={{
-						font: `12.5px ${T.sans}`,
-						color: T.ter,
-						marginTop: 1,
-						whiteSpace: 'nowrap',
-						overflow: 'hidden',
-						textOverflow: 'ellipsis',
-					}}
-				>
-					{sub}
-				</div>
-			</div>
-			<button
-				type="button"
-				onClick={onOpenPalette}
+		<>
+			<header
 				style={{
 					display: 'flex',
 					alignItems: 'center',
-					gap: 8,
-					padding: '8px 12px',
-					flex: '1 1 150px',
-					minWidth: 46,
-					background: T.surf,
-					border: `1px solid ${T.bd}`,
-					borderRadius: 9,
-					cursor: 'pointer',
-					color: T.ter,
+					gap: compact ? 6 : 14,
+					padding: viewport === 'phone' ? '10px 12px' : compact ? '11px 16px' : '13px 24px',
+					borderBottom: `1px solid ${T.bd}`,
+					background: 'color-mix(in srgb, var(--color-bg) 86%, transparent)',
+					backdropFilter: 'blur(6px)',
+					flex: '0 0 auto',
 				}}
 			>
-				<Icon name="search" size="sm" />
-				<span
-					style={{
-						flex: 1,
-						textAlign: 'left',
-						font: `13px ${T.sans}`,
-						whiteSpace: 'nowrap',
-						overflow: 'hidden',
-						textOverflow: 'ellipsis',
-					}}
+				<div style={{ minWidth: 0, flex: '1 1 auto' }}>
+					<h1
+						style={{
+							margin: 0,
+							font: `700 ${viewport === 'phone' ? 17 : 21}px ${T.disp}`,
+							letterSpacing: '-.01em',
+							lineHeight: 1.15,
+							whiteSpace: 'nowrap',
+							overflow: 'hidden',
+							textOverflow: 'ellipsis',
+						}}
+					>
+						{title}
+					</h1>
+					{!compact && (
+						<div
+							style={{
+								font: `12.5px ${T.sans}`,
+								color: T.ter,
+								marginTop: 1,
+								whiteSpace: 'nowrap',
+								overflow: 'hidden',
+								textOverflow: 'ellipsis',
+							}}
+						>
+							{sub}
+						</div>
+					)}
+				</div>
+				{compact ? (
+					<IconButton
+						icon="search"
+						label="Search"
+						variant="outline"
+						size="lg"
+						onClick={onOpenPalette}
+					/>
+				) : (
+					<button
+						type="button"
+						onClick={onOpenPalette}
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: 8,
+							padding: '8px 12px',
+							flex: '1 1 150px',
+							minWidth: 46,
+							background: T.surf,
+							border: `1px solid ${T.bd}`,
+							borderRadius: 9,
+							cursor: 'pointer',
+							color: T.ter,
+						}}
+					>
+						<Icon name="search" size="sm" />
+						<span
+							style={{
+								flex: 1,
+								textAlign: 'left',
+								font: `13px ${T.sans}`,
+								whiteSpace: 'nowrap',
+								overflow: 'hidden',
+								textOverflow: 'ellipsis',
+							}}
+						>
+							Search everything…
+						</span>
+						<span
+							style={{
+								font: `11px ${T.mono}`,
+								color: T.ter,
+								border: `1px solid ${T.bd}`,
+								borderRadius: 5,
+								padding: '1px 5px',
+							}}
+						>
+							⌘K
+						</span>
+					</button>
+				)}
+				{viewport === 'phone' ? (
+					<IconButton
+						icon="session-bolt"
+						label="Table controls"
+						variant="outline"
+						size="lg"
+						onClick={() => setControlsOpen(true)}
+					/>
+				) : (
+					<>
+						<HostSessionButton compact />
+						<ViewAsControl compact />
+						<ProjectionControl compact />
+						<AccountButton compact />
+					</>
+				)}
+			</header>
+			{viewport === 'phone' && (
+				<Sheet
+					open={controlsOpen}
+					onClose={() => setControlsOpen(false)}
+					side="bottom"
+					title="Table controls"
 				>
-					Search everything…
-				</span>
-				<span style={{ font: `11px ${T.mono}`, color: T.ter, border: `1px solid ${T.bd}`, borderRadius: 5, padding: '1px 5px' }}>
-					⌘K
-				</span>
-			</button>
-			<HostSessionButton />
-			<ViewAsControl />
-			<ProjectionControl />
-			<AccountButton />
-		</header>
+					<div
+						className="table-controls-sheet"
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							flexWrap: 'wrap',
+							gap: 10,
+							paddingBottom: 8,
+						}}
+					>
+						<HostSessionButton />
+						<ViewAsControl />
+						<ProjectionControl />
+						<AccountButton />
+					</div>
+				</Sheet>
+			)}
+		</>
 	);
 }
 
@@ -688,11 +960,15 @@ export function AppShell({ children }: { children: ReactNode }) {
 	// I11 S11.2.2 — the in-window fullscreen scene display (Ctrl+Shift+S toggles; Escape exits).
 	const [displayOpen, setDisplayOpen] = useState(false);
 	const viewport = useViewport();
+	const compactToolbar = useCompactTopBar();
 	const runtime = useRuntime();
 	// I11 S11.2.2 — keep any open second-screen window live with the DM window's edits.
 	useSceneDisplayBroadcast(runtime);
 	useEffect(() => {
 		function onKey(e: KeyboardEvent) {
+			// A full-screen editor overlay (e.g. the map editor) owns the keyboard while open and provides
+			// its own command palette / shortcuts; don't double-fire the global shortcuts beneath it.
+			if (document.querySelector('[data-fullscreen-overlay]')) return;
 			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
 				e.preventDefault();
 				setPaletteOpen((v) => !v);
@@ -734,12 +1010,15 @@ export function AppShell({ children }: { children: ReactNode }) {
 	}, [runtime]);
 	return (
 		<div
+			className="app-shell"
 			style={{
 				display: 'flex',
-				height: '100vh',
+				height: '100%',
+				position: 'relative',
 				overflow: 'hidden',
 				background: T.bg,
-				backgroundImage: 'radial-gradient(1200px 620px at 50% -240px, var(--color-accent-subtle), transparent 70%)',
+				backgroundImage:
+					'radial-gradient(1200px 620px at 50% -240px, var(--color-accent-subtle), transparent 70%)',
 			}}
 		>
 			<a
@@ -747,7 +1026,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 				style={{
 					position: 'fixed',
 					left: 8,
-					top: -48,
+					top: 'calc(var(--native-titlebar-height) - 48px)',
 					zIndex: 100,
 					padding: '8px 14px',
 					borderRadius: 8,
@@ -757,16 +1036,24 @@ export function AppShell({ children }: { children: ReactNode }) {
 					textDecoration: 'none',
 					transition: 'top var(--duration-fast) var(--easing-standard)',
 				}}
-				onFocus={(e) => (e.currentTarget.style.top = '8px')}
-				onBlur={(e) => (e.currentTarget.style.top = '-48px')}
+				onFocus={(e) => (e.currentTarget.style.top = 'calc(var(--native-titlebar-height) + 8px)')}
+				onBlur={(e) => (e.currentTarget.style.top = 'calc(var(--native-titlebar-height) - 48px)')}
 			>
 				Skip to content
 			</a>
 			{viewport === 'desktop' && <Sidebar onOpenPalette={() => setPaletteOpen(true)} />}
 			{viewport === 'rail' && <RailNav onOpenPalette={() => setPaletteOpen(true)} />}
 			<div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-				<TopBar onOpenPalette={() => setPaletteOpen(true)} />
-				<main id="main-content" tabIndex={-1} style={{ flex: 1, overflowY: 'auto', outline: 'none' }}>
+				<TopBar
+					onOpenPalette={() => setPaletteOpen(true)}
+					viewport={viewport}
+					compactToolbar={compactToolbar}
+				/>
+				<main
+					id="main-content"
+					tabIndex={-1}
+					style={{ flex: 1, overflowY: 'auto', outline: 'none' }}
+				>
 					{children}
 				</main>
 				{viewport === 'phone' && <PhoneNav />}

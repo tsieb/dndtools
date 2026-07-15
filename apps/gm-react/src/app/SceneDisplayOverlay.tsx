@@ -3,7 +3,11 @@ import { getSceneDisplayForActor } from '@dndtools/core';
 import type { SceneRuntime } from '../runtime/SceneRuntime';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { SceneDisplaySurface } from '../screens/SceneDisplay';
-import { openSecondScreen, postSceneDisplay } from '../platform/sceneDisplayChannel';
+import {
+	openSecondScreen,
+	postSceneDisplay,
+	subscribeSceneDisplayRequests,
+} from '../platform/sceneDisplayChannel';
 import { Button, IconButton } from '../ds';
 
 /**
@@ -21,10 +25,19 @@ export function useSceneDisplayBroadcast(runtime: SceneRuntime): void {
 				runtime.defaultActorId,
 			);
 			seq.current += 1;
-			postSceneDisplay({ active: view.active, transitionStyle: view.transitionStyle, seq: seq.current });
+			postSceneDisplay({
+				active: view.active,
+				transitionStyle: view.transitionStyle,
+				seq: seq.current,
+			});
 		}
 		publish();
-		return runtime.onDispatched(() => publish());
+		const stopDispatch = runtime.onDispatched(() => publish());
+		const stopRequests = subscribeSceneDisplayRequests(publish);
+		return () => {
+			stopDispatch();
+			stopRequests();
+		};
 	}, [runtime]);
 }
 
@@ -54,6 +67,7 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 
 	return (
 		<div
+			className="app-fixed-viewport"
 			role="dialog"
 			aria-modal="true"
 			aria-label="Scene display"
@@ -85,18 +99,19 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 				>
 					Advance{display.queuedCount > 0 ? ` (${display.queuedCount})` : ''}
 				</Button>
-				<Button
-					variant="ghost"
-					size="sm"
-					disabled={!display.active}
-					onClick={() => void clear()}
-				>
+				<Button variant="ghost" size="sm" disabled={!display.active} onClick={() => void clear()}>
 					Clear
 				</Button>
 				<Button variant="ghost" size="sm" icon="display" onClick={() => openSecondScreen()}>
 					Second screen
 				</Button>
-				<IconButton icon="close" label="Exit scene display" variant="ghost" size="sm" onClick={onClose} />
+				<IconButton
+					icon="close"
+					label="Exit scene display"
+					variant="ghost"
+					size="sm"
+					onClick={onClose}
+				/>
 			</div>
 		</div>
 	);

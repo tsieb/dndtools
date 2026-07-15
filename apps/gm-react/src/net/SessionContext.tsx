@@ -2,6 +2,7 @@ import {
 	createContext,
 	useCallback,
 	useContext,
+	useEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -9,6 +10,7 @@ import {
 } from 'react';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useAuth } from '../cloud/AuthContext';
+import { useEntitlements } from '../cloud/entitlements';
 import { isCloudConfigured } from '../cloud/config';
 import { SessionHost, type HostInvitation, type HostPeer } from './SessionHost';
 import { SessionClient, type ClientState, type JoinedIdentity } from './SessionClient';
@@ -26,6 +28,13 @@ import { clearRtcIceServers } from './signaling';
  */
 export type SessionRole = 'solo' | 'host' | 'joined';
 
+export interface PendingJoinRequest {
+	/** Stable UI id; the transport's opaque request id is kept out of React state. */
+	id: string;
+	transport: 'nearby' | 'online';
+	expiresAt: number;
+}
+
 export interface SessionContextValue {
 	role: SessionRole;
 	// Host
@@ -39,14 +48,22 @@ export interface SessionContextValue {
 	client: ClientState | null;
 	join: (offerCode: string) => Promise<{ answerCode: string; joined: Promise<JoinedIdentity> }>;
 	requestCommand: (command: CommandRequest) => Promise<{ ok: boolean; message?: string }>;
-	sendPresenceBeat: (patch: { status?: 'online' | 'away'; hand?: boolean; ready?: boolean }) => void;
+	sendPresenceBeat: (patch: {
+		status?: 'online' | 'away';
+		hand?: boolean;
+		ready?: boolean;
+	}) => void;
 	leave: () => void;
 	// LAN auto-discovery (Electron only; empty/no-op elsewhere)
 	discoveryAvailable: boolean;
 	discovered: DiscoveredService[];
+	/** Nearby and online devices waiting for explicit DM approval and participant assignment. */
+	pendingJoins: PendingJoinRequest[];
 	browseTables: () => void;
 	stopBrowseTables: () => void;
 	connectDiscovered: (service: DiscoveredService) => Promise<void>;
+	approveJoin: (requestId: string, actorId: string) => Promise<void>;
+	rejectJoin: (requestId: string) => Promise<void>;
 	// Cloud (internet) remote play — auth-gated, only when cloud is configured.
 	cloudAvailable: boolean;
 	/** Resolves true only if the table is actually being advertised online (false on cancel/failure). */
@@ -82,34 +99,92 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 	const [peers, setPeers] = useState<HostPeer[]>([]);
 	const [client, setClient] = useState<ClientState | null>(null);
 	const [discovered, setDiscovered] = useState<DiscoveredService[]>([]);
+	const [pendingJoins, setPendingJoins] = useState<PendingJoinRequest[]>([]);
 	const [onlineJoinCode, setOnlineJoinCode] = useState<string | null>(null);
-	const discoveryCleanup = useRef<Array<() => void>>([]);
+	const browseOffRef = useRef<(() => void) | null>(null);
 	const discovery = getDiscovery();
 	const auth = useAuth();
+	const entitlements = useEntitlements();
+	const cloudIncludedInPlan = entitlements.plan !== 'hearth';
 	const cloudBridgeRef = useRef<CloudBridge | null>(null);
-	// Whether the cloud bridge is already wired for hosting (avoids double-advertise),
-	// plus the live unsubscribe handles for the cloud browse/join listeners so they
-	// can be torn down independently of the host-side discoveryCleanup array.
 	const cloudWiredRef = useRef(false);
 	const cloudOfferOffRef = useRef<(() => void) | null>(null);
+	const cloudErrorOffRef = useRef<(() => void) | null>(null);
+	const cloudModeRef = useRef<'host' | 'joiner' | null>(null);
+	const onlineClientRef = useRef(false);
+	const onlineStartRef = useRef<Promise<boolean> | null>(null);
+	const lifecycleRef = useRef(0);
+	const hostWireCleanupRef = useRef(new Map<DiscoveryBridge, () => void>());
+	const pendingJoinRef = useRef(
+		new Map<
+			string,
+			{
+				requestId: string;
+				transport: 'nearby' | 'online';
+				bridge: DiscoveryBridge;
+				host: SessionHost;
+				timer: ReturnType<typeof setTimeout>;
+			}
+		>(),
+	);
+
+	const removePendingJoin = useCallback((id: string) => {
+		const pending = pendingJoinRef.current.get(id);
+		if (pending) clearTimeout(pending.timer);
+		pendingJoinRef.current.delete(id);
+		setPendingJoins((current) => current.filter((request) => request.id !== id));
+	}, []);
+
+	const queuePendingJoin = useCallback(
+		(
+			requestId: string,
+			transport: 'nearby' | 'online',
+			bridge: DiscoveryBridge,
+			host: SessionHost,
+		) => {
+			const id = `${transport}:${requestId}`;
+			if (pendingJoinRef.current.has(id)) return;
+			const lifetimeMs = transport === 'nearby' ? 60_500 : 90_000;
+			const expiresAt = Date.now() + lifetimeMs;
+			const timer = setTimeout(() => {
+				const pending = pendingJoinRef.current.get(id);
+				if (!pending) return;
+				removePendingJoin(id);
+				void pending.bridge.rejectOffer(pending.requestId).catch(() => {});
+			}, lifetimeMs);
+			pendingJoinRef.current.set(id, { requestId, transport, bridge, host, timer });
+			setPendingJoins((current) => [...current, { id, transport, expiresAt }]);
+		},
+		[removePendingJoin],
+	);
 	const getCloudBridge = useCallback((): CloudBridge => {
-		if (!cloudBridgeRef.current) cloudBridgeRef.current = createCloudBridge(() => auth.getIdToken());
+		if (!cloudBridgeRef.current)
+			cloudBridgeRef.current = createCloudBridge(() => auth.getIdToken());
 		return cloudBridgeRef.current;
 	}, [auth]);
 	const teardownCloudBridge = useCallback(() => {
 		cloudOfferOffRef.current?.();
 		cloudOfferOffRef.current = null;
-		cloudBridgeRef.current?.close();
+		cloudErrorOffRef.current?.();
+		cloudErrorOffRef.current = null;
+		const bridge = cloudBridgeRef.current;
+		if (bridge) {
+			hostWireCleanupRef.current.get(bridge)?.();
+			for (const [id, pending] of pendingJoinRef.current) {
+				if (pending.bridge === bridge) removePendingJoin(id);
+			}
+			bridge.close();
+		}
 		cloudBridgeRef.current = null;
 		cloudWiredRef.current = false;
+		cloudModeRef.current = null;
 		// Cloud sessions inject internet STUN/TURN into the shared RTC config; clear
 		// it so a subsequent LAN-only session gathers host candidates only (privacy).
 		clearRtcIceServers();
-	}, []);
+	}, [removePendingJoin]);
 
-	// Wire a host to a discovery bridge (LAN mDNS OR cloud WS — same DiscoveryBridge interface): advertise
-	// the table and, when a joiner arrives, auto-invite the first participant without a live peer and accept
-	// their answer. The offer/answer codes are opaque and already AES-GCM sealed regardless of bridge.
+	// Wire a host to either rendezvous transport. Discovery proves only that a device can reach the
+	// rendezvous; every request still waits for the DM to select a registered participant explicitly.
 	const ensureHost = useCallback((): SessionHost => {
 		if (hostRef.current) return hostRef.current;
 		const host = new SessionHost(runtime, randomSessionId());
@@ -121,33 +196,56 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 	}, [runtime]);
 
 	const wireHost = useCallback(
-		async (host: SessionHost, bridge: DiscoveryBridge, name: string, pin = '') => {
-			const offAsk = bridge.onOfferRequest(async (reqId) => {
-				const taken = new Set(host.connectedPeers.map((p) => p.actorId));
-				const target = runtime.actors.find(
-					(a) => (a.role === 'player' || a.role === 'observer') && !taken.has(a.id),
-				);
-				if (!target) return;
-				// The offer embeds the session key but is sealed to the joiner under the PIN-bound
-				// key (cloud) — a joiner without the PIN cannot open it or complete the handshake,
-				// so auto-selecting the first open seat here does not admit an uninvited stranger.
-				const inv = await host.invite(target.id);
-				setPeers(host.connectedPeers);
-				await bridge.respondOffer(reqId, inv.offerCode);
+		async (
+			host: SessionHost,
+			bridge: DiscoveryBridge,
+			name: string,
+			pin = '',
+			transport: 'nearby' | 'online' = 'nearby',
+		) => {
+			if (hostWireCleanupRef.current.has(bridge)) return;
+			let active = true;
+			const offAsk = bridge.onOfferRequest((requestId) => {
+				if (!active || hostRef.current !== host) {
+					void bridge.rejectOffer(requestId).catch(() => {});
+					return;
+				}
+				queuePendingJoin(requestId, transport, bridge, host);
 			});
 			const offAns = bridge.onAnswer(async (answerCode) => {
+				if (!active || hostRef.current !== host) return;
 				try {
 					await host.acceptAnswer(answerCode);
 				} catch {
 					/* stale/duplicate answer — ignore */
 				}
 			});
-			discoveryCleanup.current.push(offAsk, offAns);
+			const cleanup = () => {
+				if (!active) return;
+				active = false;
+				offAsk();
+				offAns();
+				if (hostWireCleanupRef.current.get(bridge) === cleanup) {
+					hostWireCleanupRef.current.delete(bridge);
+				}
+			};
+			// Register cleanup before the first await so Stop cannot race a slow advertise and leave
+			// listeners or a late-opened socket behind.
+			hostWireCleanupRef.current.set(bridge, cleanup);
 			// Advertise last, and await it so callers learn whether hosting actually
 			// started (the cloud bridge can reject: no token, unreachable, timeout).
-			await bridge.advertise(host.sessionId, name, pin);
+			try {
+				await bridge.advertise(host.sessionId, name, pin);
+				if (!active || hostRef.current !== host) {
+					await bridge.stopAdvertise().catch(() => {});
+					throw new Error('Hosting was stopped before the table became available.');
+				}
+			} catch (error) {
+				cleanup();
+				throw error;
+			}
 		},
-		[runtime],
+		[queuePendingJoin],
 	);
 
 	const startHosting = useCallback(() => {
@@ -155,25 +253,58 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 		const host = ensureHost();
 		// LAN advertise is fire-and-forget; swallow its rejection so it can't become
 		// an unhandled promise rejection.
-		if (discovery) void wireHost(host, discovery, 'DND Tools table').catch(() => {});
+		if (discovery) void wireHost(host, discovery, 'DND Tools table', '', 'nearby').catch(() => {});
 	}, [discovery, ensureHost, wireHost]);
 
 	// Make the table joinable over the internet (auth-gated). Can be combined with LAN
 	// hosting. Returns true only once the table is actually advertised online.
 	const startHostingOnline = useCallback(async (): Promise<boolean> => {
-		if (!isCloudConfigured) return false;
+		if (!isCloudConfigured || !cloudIncludedInPlan) return false;
 		if (cloudWiredRef.current) return true; // already joinable online — don't double-wire
-		if (!(await auth.requireAuth())) return false;
-		const host = ensureHost();
-		// Mint a per-session join secret (the cloud admission credential) and publish the
-		// out-of-band join code the DM shares. The secret is folded into the pairing key and
-		// never transits the relay.
-		const pin = generateJoinPin();
-		await wireHost(host, getCloudBridge(), 'DND Tools table', pin);
-		cloudWiredRef.current = true;
-		setOnlineJoinCode(encodeJoinCode(host.sessionId, pin));
-		return true;
-	}, [auth, ensureHost, wireHost, getCloudBridge]);
+		if (onlineStartRef.current) return onlineStartRef.current;
+		const lifecycle = lifecycleRef.current;
+		const start = (async () => {
+			if (!(await auth.requireAuth())) return false;
+			if (lifecycle !== lifecycleRef.current) return false;
+			const hadHost = hostRef.current !== null;
+			const host = ensureHost();
+			const bridge = getCloudBridge();
+			cloudModeRef.current = 'host';
+			// Mint a per-session join secret. It is folded into the pairing key and never
+			// transits the signaling relay; the same code remains valid only while this host runs.
+			const pin = generateJoinPin();
+			try {
+				await wireHost(host, bridge, 'DND Tools table', pin, 'online');
+				if (lifecycle !== lifecycleRef.current || hostRef.current !== host) {
+					throw new Error('Hosting was stopped before the table became available.');
+				}
+				cloudWiredRef.current = true;
+				setOnlineJoinCode(encodeJoinCode(host.sessionId, pin));
+				cloudErrorOffRef.current?.();
+				cloudErrorOffRef.current = bridge.onError(() => {
+					setOnlineJoinCode(null);
+					teardownCloudBridge();
+				});
+				return true;
+			} catch (error) {
+				setOnlineJoinCode(null);
+				teardownCloudBridge();
+				if (!hadHost && hostRef.current === host) {
+					host.stop();
+					hostRef.current = null;
+					setPeers([]);
+					setRole('solo');
+				}
+				throw error;
+			}
+		})();
+		onlineStartRef.current = start;
+		try {
+			return await start;
+		} finally {
+			if (onlineStartRef.current === start) onlineStartRef.current = null;
+		}
+	}, [auth, cloudIncludedInPlan, ensureHost, wireHost, getCloudBridge, teardownCloudBridge]);
 
 	const invite = useCallback(async (actorId: string) => {
 		if (!hostRef.current) throw new Error('Start hosting first.');
@@ -187,34 +318,88 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 		await hostRef.current.acceptAnswer(answerCode);
 	}, []);
 
+	const approveJoin = useCallback(
+		async (id: string, actorId: string) => {
+			const pending = pendingJoinRef.current.get(id);
+			const host = hostRef.current;
+			if (!pending || !host || pending.host !== host) {
+				throw new Error('That join request is no longer waiting.');
+			}
+			let invitation: HostInvitation | null = null;
+			try {
+				if (pending.transport === 'online') {
+					await (pending.bridge as CloudBridge).prepareOffer();
+				}
+				invitation = await host.invite(actorId);
+				const delivered = await pending.bridge.respondOffer(
+					pending.requestId,
+					invitation.offerCode,
+				);
+				if (!delivered) throw new Error('That join request expired. Ask the player to try again.');
+				setPeers(host.connectedPeers);
+			} catch (error) {
+				if (invitation) host.revoke(invitation.peerId);
+				await pending.bridge.rejectOffer(pending.requestId).catch(() => {});
+				throw error;
+			} finally {
+				removePendingJoin(id);
+			}
+		},
+		[removePendingJoin],
+	);
+
+	const rejectJoin = useCallback(
+		async (id: string) => {
+			const pending = pendingJoinRef.current.get(id);
+			if (!pending) return;
+			try {
+				await pending.bridge.rejectOffer(pending.requestId);
+			} finally {
+				removePendingJoin(id);
+			}
+		},
+		[removePendingJoin],
+	);
+
 	const revoke = useCallback((peerId: string) => {
 		hostRef.current?.revoke(peerId);
 		setPeers(hostRef.current?.connectedPeers ?? []);
 	}, []);
 
 	const stopHosting = useCallback(() => {
+		lifecycleRef.current += 1;
 		hostRef.current?.stop();
 		hostRef.current = null;
 		setPeers([]);
-		for (const off of discoveryCleanup.current) off();
-		discoveryCleanup.current = [];
+		for (const cleanup of [...hostWireCleanupRef.current.values()]) cleanup();
+		hostWireCleanupRef.current.clear();
+		browseOffRef.current?.();
+		browseOffRef.current = null;
+		void discovery?.browseStop();
+		setDiscovered([]);
 		void discovery?.stopAdvertise();
+		for (const [id, pending] of pendingJoinRef.current) {
+			void pending.bridge.rejectOffer(pending.requestId).catch(() => {});
+			removePendingJoin(id);
+		}
 		setOnlineJoinCode(null);
 		// Close the authenticated signaling socket and clear injected ICE servers,
 		// rather than leaving them alive for the server-side connection TTL. The
 		// server deletes the room on $disconnect.
 		teardownCloudBridge();
 		setRole((r) => (r === 'host' ? 'solo' : r));
-	}, [discovery, teardownCloudBridge]);
+	}, [discovery, removePendingJoin, teardownCloudBridge]);
 
 	const browseTables = useCallback(() => {
 		if (!discovery) return;
-		const off = discovery.onServices((services) => setDiscovered(services));
-		discoveryCleanup.current.push(off);
+		browseOffRef.current?.();
+		browseOffRef.current = discovery.onServices((services) => setDiscovered(services));
 		void discovery.browseStart();
 	}, [discovery]);
 
 	const stopBrowseTables = useCallback(() => {
+		browseOffRef.current?.();
+		browseOffRef.current = null;
 		void discovery?.browseStop();
 		setDiscovered([]);
 	}, [discovery]);
@@ -247,6 +432,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 	const leave = useCallback(() => {
 		clientRef.current?.leave();
 		clientRef.current = null;
+		onlineClientRef.current = false;
 		setClient(null);
 		// Drop the cloud join listener + socket and reset injected ICE servers so a
 		// later LAN session isn't left with internet relay candidates.
@@ -258,14 +444,39 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 		async (service: DiscoveredService) => {
 			if (!discovery) return;
 			// The host will send us an offer over the LAN rendezvous; join with it and return the answer.
-			const off = discovery.onOffer(async (reqId, offerCode) => {
-				const { answerCode } = await join(offerCode);
-				await discovery.respondAnswer(reqId, answerCode);
+			let off = () => {};
+			off = discovery.onOffer(async (reqId, offerCode) => {
+				try {
+					const { answerCode } = await join(offerCode);
+					await discovery.respondAnswer(reqId, answerCode);
+				} finally {
+					off();
+				}
 			});
-			discoveryCleanup.current.push(off);
-			await discovery.connect(service);
+			try {
+				await discovery.connect(service);
+			} catch (error) {
+				off();
+				throw error;
+			}
 		},
 		[discovery, join],
+	);
+
+	useEffect(
+		() => () => {
+			browseOffRef.current?.();
+			for (const cleanup of [...hostWireCleanupRef.current.values()]) cleanup();
+			hostWireCleanupRef.current.clear();
+			for (const pending of pendingJoinRef.current.values()) clearTimeout(pending.timer);
+			pendingJoinRef.current.clear();
+			void discovery?.browseStop();
+			void discovery?.stopAdvertise();
+			hostRef.current?.stop();
+			clientRef.current?.leave();
+			teardownCloudBridge();
+		},
+		[discovery, teardownCloudBridge],
 	);
 
 	// --- Cloud (internet) join via the DM's out-of-band join code, auth-gated. -------
@@ -273,22 +484,106 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 	// The joiner must hold the DM's join code (session id + PIN); the PIN gates admission.
 	const connectOnlineByCode = useCallback(
 		async (joinCode: string) => {
-			if (!isCloudConfigured) return;
+			if (!isCloudConfigured) throw new Error('Online play is not configured in this build.');
+			if (!cloudIncludedInPlan) {
+				throw new Error(
+					'Internet remote play is included in the Lantern and Beacon preview plans.',
+				);
+			}
 			// decodeJoinCode throws on a malformed code — surfaced to the caller's catch.
 			const { sessionId, pin } = decodeJoinCode(joinCode);
-			if (!(await auth.requireAuth())) return;
+			if (!(await auth.requireAuth())) throw new Error('Sign in to join an online table.');
 			const bridge = getCloudBridge();
-			// The host sends us an offer over the cloud rendezvous; join with it and return the answer.
-			// Replace any prior handler so a second connect can't fire two joins on one offer.
+			cloudModeRef.current = 'joiner';
+			// Wait for all three stages: the host's explicit approval, our sealed answer reaching the
+			// host, and the WebRTC channel admitting the selected participant. No stage can hang forever.
 			cloudOfferOffRef.current?.();
-			cloudOfferOffRef.current = bridge.onOffer(async (reqId, offerCode) => {
-				const { answerCode } = await join(offerCode);
-				await bridge.respondAnswer(reqId, answerCode);
-			});
-			await bridge.connect({ sessionId, name: 'Online table', host: 'cloud', port: 0 }, pin);
+			cloudErrorOffRef.current?.();
+			let approvalTimer: ReturnType<typeof setTimeout> | null = null;
+			try {
+				await new Promise<void>((resolve, reject) => {
+					let settled = false;
+					const finish = (error?: Error) => {
+						if (settled) return;
+						settled = true;
+						if (approvalTimer) clearTimeout(approvalTimer);
+						if (error) reject(error);
+						else resolve();
+					};
+					approvalTimer = setTimeout(
+						() =>
+							finish(
+								new Error('The DM did not approve this request in time. Ask them to try again.'),
+							),
+						90_000,
+					);
+					cloudErrorOffRef.current = bridge.onError((error) => finish(error));
+					cloudOfferOffRef.current = bridge.onOffer((requestId, offerCode) => {
+						void (async () => {
+							const { answerCode, joined } = await join(offerCode);
+							await bridge.respondAnswer(requestId, answerCode);
+							await Promise.race([
+								joined,
+								new Promise<never>((_, rejectJoined) =>
+									setTimeout(
+										() =>
+											rejectJoined(
+												new Error('The direct connection did not open. Please try again.'),
+											),
+										30_000,
+									),
+								),
+							]);
+							finish();
+						})().catch((error) =>
+							finish(error instanceof Error ? error : new Error('Could not join the table.')),
+						);
+					});
+					void bridge
+						.connect({ sessionId, name: 'Online table', host: 'cloud', port: 0 }, pin)
+						.catch((error) =>
+							finish(
+								error instanceof Error ? error : new Error('Could not reach the online table.'),
+							),
+						);
+				});
+				// Signaling is no longer needed after WebRTC is live; close it and clear the
+				// temporary relay configuration without disturbing the established data channel.
+				onlineClientRef.current = true;
+				teardownCloudBridge();
+			} catch (error) {
+				clientRef.current?.leave();
+				clientRef.current = null;
+				onlineClientRef.current = false;
+				setClient(null);
+				setRole((current) => (current === 'joined' ? 'solo' : current));
+				teardownCloudBridge();
+				throw error;
+			} finally {
+				if (approvalTimer) clearTimeout(approvalTimer);
+				cloudOfferOffRef.current?.();
+				cloudOfferOffRef.current = null;
+				cloudErrorOffRef.current?.();
+				cloudErrorOffRef.current = null;
+			}
 		},
-		[auth, getCloudBridge, join],
+		[auth, cloudIncludedInPlan, getCloudBridge, join, teardownCloudBridge],
 	);
+
+	useEffect(() => {
+		if (auth.status === 'signed-in' && cloudIncludedInPlan) return;
+		if (!cloudBridgeRef.current && !onlineClientRef.current) return;
+		const mode = cloudModeRef.current;
+		setOnlineJoinCode(null);
+		if (mode === 'joiner' || onlineClientRef.current) {
+			clientRef.current?.leave();
+			clientRef.current = null;
+			onlineClientRef.current = false;
+			setClient(null);
+			setRole((current) => (current === 'joined' ? 'solo' : current));
+		}
+		teardownCloudBridge();
+	}, [auth.status, cloudIncludedInPlan, teardownCloudBridge]);
 
 	const value = useMemo<SessionContextValue>(
 		() => ({
@@ -306,10 +601,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 			leave,
 			discoveryAvailable: discovery !== null,
 			discovered,
+			pendingJoins,
 			browseTables,
 			stopBrowseTables,
 			connectDiscovered,
-			cloudAvailable: isCloudConfigured,
+			approveJoin,
+			rejectJoin,
+			cloudAvailable: isCloudConfigured && cloudIncludedInPlan,
 			startHostingOnline,
 			onlineJoinCode,
 			connectOnlineByCode,
@@ -329,12 +627,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 			leave,
 			discovery,
 			discovered,
+			pendingJoins,
 			browseTables,
 			stopBrowseTables,
 			connectDiscovered,
+			approveJoin,
+			rejectJoin,
 			startHostingOnline,
 			onlineJoinCode,
 			connectOnlineByCode,
+			cloudIncludedInPlan,
 		],
 	);
 

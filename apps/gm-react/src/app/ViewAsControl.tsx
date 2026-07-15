@@ -10,7 +10,7 @@ import { T } from './screen-kit';
  * player/observer projects the actor-filtered, player-safe view and makes every mutation read-only
  * (the runtime rejects writes while previewing); "Back to DM" exits. DM-only, fail-closed.
  */
-export function ViewAsControl() {
+export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 	const runtime = useRuntime();
 	const [open, setOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement>(null);
@@ -27,7 +27,9 @@ export function ViewAsControl() {
 		if (restoreFocus) triggerRef.current?.focus();
 	}
 	const ownerActor = runtime.state.permissions.actors[runtime.defaultActorId];
-	const isDm = runtime.actors.some((a) => a.role === 'dm' && a.id === runtime.defaultActorId) || ownerActor?.role === 'dm';
+	const isDm =
+		runtime.actors.some((a) => a.role === 'dm' && a.id === runtime.defaultActorId) ||
+		ownerActor?.role === 'dm';
 
 	const players = runtime.actors.filter((a) => a.role === 'player');
 	const coDms = runtime.actors.filter((a) => a.role === 'co-dm');
@@ -55,12 +57,17 @@ export function ViewAsControl() {
 				type="button"
 				aria-haspopup="menu"
 				aria-expanded={open}
+				aria-label={preview ? `Previewing as ${label}` : 'Preview as another role'}
+				title={preview ? `Previewing as ${label}` : 'Preview as another role'}
 				onClick={() => setOpen((v) => !v)}
 				style={{
 					display: 'flex',
 					alignItems: 'center',
-					gap: 8,
-					padding: '6px 11px',
+					justifyContent: 'center',
+					gap: compact ? 0 : 8,
+					width: compact ? 44 : undefined,
+					height: compact ? 44 : undefined,
+					padding: compact ? 0 : '6px 11px',
 					borderRadius: 9,
 					background: preview ? T.accSub : T.surf,
 					border: `1px solid ${preview ? T.accBd : T.bd}`,
@@ -69,12 +76,20 @@ export function ViewAsControl() {
 				}}
 			>
 				<Icon name="visibility-players" size="sm" />
-				<span style={{ font: `12px ${T.sans}`, whiteSpace: 'nowrap' }}>{preview ? `Preview: ${label}` : 'View as'}</span>
-				<Icon name="chevron-down" size={12} />
+				{!compact && (
+					<span style={{ font: `12px ${T.sans}`, whiteSpace: 'nowrap' }}>
+						{preview ? `Preview: ${label}` : 'View as'}
+					</span>
+				)}
+				{!compact && <Icon name="chevron-down" size={12} />}
 			</button>
 			{open && (
 				<>
-					<div onClick={() => close()} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+					<div
+						className="app-fixed-viewport"
+						onClick={() => close()}
+						style={{ position: 'fixed', inset: 0, zIndex: 40 }}
+					/>
 					<div
 						role="menu"
 						ref={menuRef}
@@ -149,13 +164,31 @@ export function ViewAsControl() {
 
 function MenuLabel({ children }: { children: ReactNode }) {
 	return (
-		<div style={{ font: `600 10px ${T.sans}`, letterSpacing: '.08em', textTransform: 'uppercase', color: T.ter, padding: '6px 8px 2px' }}>
+		<div
+			style={{
+				font: `600 10px ${T.sans}`,
+				letterSpacing: '.08em',
+				textTransform: 'uppercase',
+				color: T.ter,
+				padding: '6px 8px 2px',
+			}}
+		>
 			{children}
 		</div>
 	);
 }
 
-function MenuItem({ icon, label, active, onClick }: { icon: string; label: string; active?: boolean; onClick: () => void }) {
+function MenuItem({
+	icon,
+	label,
+	active,
+	onClick,
+}: {
+	icon: string;
+	label: string;
+	active?: boolean;
+	onClick: () => void;
+}) {
 	const [hov, setHov] = useState(false);
 	return (
 		<button

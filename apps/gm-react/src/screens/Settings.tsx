@@ -8,24 +8,38 @@ import {
 	MCP_POLICY_MODES,
 	countCoDmActors,
 	describeCapabilitySet,
-	deriveVaultConflicts,
 	getContentItemsForActor,
 	isFeatureVisible,
 	listGrantableCapabilitySets,
 	listScenesForActor,
-	unresolvedConflicts,
 	visibleFeatures,
 	type CommandResult,
 	type FeatureTier,
 	type McpPolicyMode,
 	type McpStagedProposal,
-	type VaultConflictRecord,
 } from '@dndtools/core';
-import { Avatar, Badge, Button, Chip, DataTable, Dialog, EmptyState, Icon, Input, Select, Skeleton, StatusDot, Switch, Textarea, Toaster } from '../ds';
+import {
+	Avatar,
+	Badge,
+	Button,
+	Chip,
+	DataTable,
+	Dialog,
+	EmptyState,
+	Icon,
+	Input,
+	Select,
+	Skeleton,
+	StatusDot,
+	Switch,
+	Textarea,
+	Toaster,
+} from '../ds';
 import { Page, Panel, Seg, SetRow, T } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useCloudSync } from '../cloud/CloudSyncContext';
 import { useAuth } from '../cloud/AuthContext';
+import { forgetCloudSyncAccount } from '../cloud/cloudSync';
 import { isAccountApiConfigured } from '../cloud/config';
 import {
 	createInvite as apiCreateInvite,
@@ -46,18 +60,43 @@ import {
 import { qrDataUrl } from '../net/qr';
 import { downloadJsonFile, fileDateStamp } from '../platform/download';
 import { pickTextFile } from '../platform/filePick';
-import { exportFullVault, importFullVault, validateVaultBackup, type VaultBackup } from '../platform/backup';
+import { publicAppBaseUrl, publicAppHashUrl } from '../platform/publicAppUrl';
+import {
+	MAX_VAULT_BACKUP_FILE_BYTES,
+	exportFullVault,
+	importFullVault,
+	validateVaultBackup,
+	type VaultBackup,
+} from '../platform/backup';
 import { ONBOARDED_KEY, REPLAY_EVENT } from '../app/Onboarding';
-import { isFsSourceSupported, listFolderSources, disconnectFolderSource, type FolderSourceRecord } from '../platform/fsSource';
-import { GOOGLE_DOCS_SETUP_RUNBOOK, addGdocConnection, isGoogleDocsConfigured, listGdocConnections, removeGdocConnection, type GdocConnection } from '../cloud/googleDocs';
+import { useViewport } from '../app/useViewport';
+import {
+	isFsSourceSupported,
+	listFolderSources,
+	disconnectFolderSource,
+	type FolderSourceRecord,
+} from '../platform/fsSource';
+import {
+	addGdocConnection,
+	isGoogleDocsConfigured,
+	listGdocConnections,
+	removeGdocConnection,
+	type GdocConnection,
+} from '../cloud/googleDocs';
 import { PLAN_CARDS, coDmSeatsForPlan, useEntitlements } from '../cloud/entitlements';
 import {
 	DEFAULT_ANTHROPIC_MODEL,
+	MAX_API_KEY_CHARS,
+	MAX_BASE_URL_CHARS,
+	MAX_MODEL_CHARS,
 	clearAiProviderKey,
+	clearLegacyAiProviderKey,
 	getAiProviderKey,
 	getAiProviderSettings,
+	hasLegacyAiProviderKey,
 	isAiProviderConfigured,
 	resolveAiProviderConfig,
+	resolveAiProviderDestination,
 	saveAiProviderSettings,
 	setAiProviderKey,
 	type AiProviderKind,
@@ -91,7 +130,7 @@ const SETTINGS_NAV = [
 	{ id: 'players', label: 'Players', icon: 'players' },
 	{ id: 'permissions', label: 'Permissions', icon: 'permissions' },
 	{ id: 'vault', label: 'Vault connections', icon: 'vault' },
-	{ id: 'sync', label: 'Sync & offline', icon: 'connection' },
+	{ id: 'sync', label: 'Backup & history', icon: 'connection' },
 	{ id: 'ai', label: 'AI & tools', icon: 'sparkle' },
 	{ id: 'plugins', label: 'Plugins', icon: 'widget' },
 	{ id: 'systems', label: 'Extensions & systems', icon: 'scroll' },
@@ -130,10 +169,36 @@ const TIER_ATTR = 'data-feature-tier';
 const TIER_EVENT = 'dndtools:react:tier-changed';
 
 /** The three authored complexity levels — each maps 1:1 onto a real Core `FeatureTier`. */
-const COMPLEXITY_LEVELS: { id: string; name: string; icon: string; tier: FeatureTier; rec?: boolean; blurb: string }[] = [
-	{ id: 'beginner', name: 'Beginner', icon: 'Sprout', tier: 'core', blurb: 'The essentials only. Advanced panels stay hidden until you ask for them.' },
-	{ id: 'standard', name: 'Standard', icon: 'SlidersHorizontal', tier: 'intermediate', rec: true, blurb: 'The full table toolkit with sensible defaults. Most DMs live here.' },
-	{ id: 'expert', name: 'Expert', icon: 'Wrench', tier: 'advanced', blurb: 'Everything on, nothing hidden — permission grants, plugins, systems, diagnostics.' },
+const COMPLEXITY_LEVELS: {
+	id: string;
+	name: string;
+	icon: string;
+	tier: FeatureTier;
+	rec?: boolean;
+	blurb: string;
+}[] = [
+	{
+		id: 'beginner',
+		name: 'Beginner',
+		icon: 'Sprout',
+		tier: 'core',
+		blurb: 'The essentials only. Advanced panels stay hidden until you ask for them.',
+	},
+	{
+		id: 'standard',
+		name: 'Standard',
+		icon: 'SlidersHorizontal',
+		tier: 'intermediate',
+		rec: true,
+		blurb: 'The full table toolkit with sensible defaults. Most DMs live here.',
+	},
+	{
+		id: 'expert',
+		name: 'Expert',
+		icon: 'Wrench',
+		tier: 'advanced',
+		blurb: 'Everything on, nothing hidden — permission grants, plugins, systems, diagnostics.',
+	},
 ];
 
 function readTier(): FeatureTier {
@@ -145,44 +210,170 @@ function readTier(): FeatureTier {
 			candidate = null;
 		}
 	}
-	return (FEATURE_TIERS as readonly string[]).includes(candidate ?? '') ? (candidate as FeatureTier) : DEFAULT_FEATURE_TIER;
+	return (FEATURE_TIERS as readonly string[]).includes(candidate ?? '')
+		? (candidate as FeatureTier)
+		: DEFAULT_FEATURE_TIER;
 }
 
 /* ---- Appearance ------------------------------------------------------------------------- */
 function SettingsAppearance() {
-	const [theme, setTheme] = useState<string>(document.documentElement.getAttribute('data-theme') || 'tavern');
-	const [density, setDensity] = useState<string>(document.documentElement.getAttribute('data-density') || 'standard');
-	const [motion, setMotion] = useState<string>(document.documentElement.getAttribute('data-motion') || 'full');
+	const [theme, setTheme] = useState<string>(
+		document.documentElement.getAttribute('data-theme') || 'tavern',
+	);
+	const [density, setDensity] = useState<string>(
+		document.documentElement.getAttribute('data-density') || 'standard',
+	);
+	const [motion, setMotion] = useState<string>(
+		document.documentElement.getAttribute('data-motion') || 'full',
+	);
 	const [tier, setTier] = useState<FeatureTier>(() => readTier());
 	const activeLvl = COMPLEXITY_LEVELS.find((l) => l.tier === tier) ?? COMPLEXITY_LEVELS[1];
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<Panel title="Appearance" style={{ gap: 0 }}>
-				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 8 }}>These swap the whole surface live — the design system drives theme, density and motion from one attribute each.</div>
-				<SetRow label="Theme" help="Candle-lit dark, warm vellum, or the accessibility floor." control={<Seg value={theme} ariaLabel="Theme" onChange={(v) => { setTheme(v); setDocAttr('data-theme', 'dndtools:react:theme', v); }} options={[{ value: 'tavern', label: 'Tavern' }, { value: 'parchment', label: 'Parchment' }, { value: 'high-contrast', label: 'High contrast' }]} />} />
-				<SetRow label="Density" help="Comfortable enlarges controls for play at the table; Compact tightens them." control={<Seg value={density} ariaLabel="Interface density" onChange={(v) => { setDensity(v); setDocAttr('data-density', 'dndtools:react:density', v); }} options={[{ value: 'standard', label: 'Standard' }, { value: 'comfortable', label: 'Comfortable' }, { value: 'compact', label: 'Compact' }]} />} />
-				<SetRow label="Motion" help="Reduce collapses transitions and stops looping animations." control={<Seg value={motion} ariaLabel="Motion" onChange={(v) => { setMotion(v); setDocAttr('data-motion', 'dndtools:react:motion', v); }} options={[{ value: 'full', label: 'Full' }, { value: 'reduced', label: 'Reduced' }]} />} />
+				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 8 }}>
+					Changes apply immediately and stay with this device.
+				</div>
+				<SetRow
+					label="Theme"
+					help="Candle-lit dark, warm vellum, or the accessibility floor."
+					control={
+						<Seg
+							value={theme}
+							ariaLabel="Theme"
+							onChange={(v) => {
+								setTheme(v);
+								setDocAttr('data-theme', 'dndtools:react:theme', v);
+							}}
+							options={[
+								{ value: 'tavern', label: 'Tavern' },
+								{ value: 'parchment', label: 'Parchment' },
+								{ value: 'high-contrast', label: 'High contrast' },
+							]}
+						/>
+					}
+				/>
+				<SetRow
+					label="Density"
+					help="Comfortable enlarges controls for play at the table; Compact tightens them."
+					control={
+						<Seg
+							value={density}
+							ariaLabel="Interface density"
+							onChange={(v) => {
+								setDensity(v);
+								setDocAttr('data-density', 'dndtools:react:density', v);
+							}}
+							options={[
+								{ value: 'standard', label: 'Standard' },
+								{ value: 'comfortable', label: 'Comfortable' },
+								{ value: 'compact', label: 'Compact' },
+							]}
+						/>
+					}
+				/>
+				<SetRow
+					label="Motion"
+					help="Reduce collapses transitions and stops looping animations."
+					control={
+						<Seg
+							value={motion}
+							ariaLabel="Motion"
+							onChange={(v) => {
+								setMotion(v);
+								setDocAttr('data-motion', 'dndtools:react:motion', v);
+							}}
+							options={[
+								{ value: 'full', label: 'Full' },
+								{ value: 'reduced', label: 'Reduced' },
+							]}
+						/>
+					}
+				/>
 			</Panel>
 
-			<Panel title="Experience complexity" action={<Badge status="neutral">{activeLvl.name}</Badge>}>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 4 }}>How much of the toolkit shows at once. Separate from density — each level maps to a real feature tier, and the reveals below come live from the Core's <code style={{ font: `11.5px ${T.mono}` }}>visibleFeatures()</code> query.</div>
-				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+			<Panel
+				title="Experience complexity"
+				action={<Badge status="neutral">{activeLvl.name}</Badge>}
+			>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 4 }}>
+					Choose how much of the toolkit you want to see. This is separate from interface density,
+					and you can change it at any time.
+				</div>
+				<div
+					style={{
+						display: 'grid',
+						gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
+						gap: 12,
+					}}
+				>
 					{COMPLEXITY_LEVELS.map((l) => {
 						const levelTier = l.tier;
 						const on = levelTier === tier;
 						const reveals = visibleFeatures(levelTier).map((f) => f.label);
 						return (
-							<button key={l.id} type="button" onClick={() => { setTier(levelTier); setDocAttr(TIER_ATTR, TIER_KEY, levelTier); }} style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 9, padding: 14, borderRadius: 12, cursor: 'pointer', border: `1px solid ${on ? T.accBd : T.bd}`, background: on ? T.accSub : T.surf, boxShadow: on ? T.smd : 'none' }}>
+							<button
+								key={l.id}
+								type="button"
+								onClick={() => {
+									setTier(levelTier);
+									setDocAttr(TIER_ATTR, TIER_KEY, levelTier);
+								}}
+								style={{
+									textAlign: 'left',
+									display: 'flex',
+									flexDirection: 'column',
+									gap: 9,
+									padding: 14,
+									borderRadius: 12,
+									cursor: 'pointer',
+									border: `1px solid ${on ? T.accBd : T.bd}`,
+									background: on ? T.accSub : T.surf,
+									boxShadow: on ? T.smd : 'none',
+								}}
+							>
 								<div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-									<span style={{ width: 30, height: 30, borderRadius: 8, flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: on ? T.acc : T.alt, color: on ? T.accFg : T.acc }}><Icon name={l.icon} size="sm" /></span>
-									<span style={{ font: `700 14px ${T.disp}`, color: on ? T.acc : T.ink }}>{l.name}</span>
+									<span
+										style={{
+											width: 30,
+											height: 30,
+											borderRadius: 8,
+											flex: '0 0 auto',
+											display: 'inline-flex',
+											alignItems: 'center',
+											justifyContent: 'center',
+											background: on ? T.acc : T.alt,
+											color: on ? T.accFg : T.acc,
+										}}
+									>
+										<Icon name={l.icon} size="sm" />
+									</span>
+									<span style={{ font: `700 14px ${T.disp}`, color: on ? T.acc : T.ink }}>
+										{l.name}
+									</span>
 									{l.rec && !on && <Badge status="neutral">Recommended</Badge>}
-									{on && <span style={{ marginLeft: 'auto' }}><Icon name="check" size={16} color={T.acc} /></span>}
+									{on && (
+										<span style={{ marginLeft: 'auto' }}>
+											<Icon name="check" size={16} color={T.acc} />
+										</span>
+									)}
 								</div>
 								<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.sub }}>{l.blurb}</div>
 								<div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 2 }}>
 									{reveals.map((r) => (
-										<span key={r} style={{ display: 'flex', alignItems: 'center', gap: 6, font: `11px ${T.sans}`, color: T.ter }}><Icon name="check" size={12} color={on ? T.acc : T.ter} />{r}</span>
+										<span
+											key={r}
+											style={{
+												display: 'flex',
+												alignItems: 'center',
+												gap: 6,
+												font: `11px ${T.sans}`,
+												color: T.ter,
+											}}
+										>
+											<Icon name="check" size={12} color={on ? T.acc : T.ter} />
+											{r}
+										</span>
 									))}
 								</div>
 							</button>
@@ -197,7 +388,8 @@ function SettingsAppearance() {
 /* ---- Account — REAL app-api backend when configured + signed in (profile edit, devices,
  * export, delete); honest labeled fallback otherwise. ------------------------------------------- */
 
-const errMsg = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback);
+const errMsg = (e: unknown, fallback: string) =>
+	e instanceof Error && e.message ? e.message : fallback;
 
 /** Profile from Cognito via the app-api: display-name edit is a REAL account write. */
 function AccountProfilePanel() {
@@ -237,18 +429,37 @@ function AccountProfilePanel() {
 	};
 	const shownName = profile?.displayName || profile?.email || '…';
 	return (
-		<Panel title="Profile" action={<Badge status="success" icon="check">Cloud account</Badge>}>
+		<Panel
+			title="Profile"
+			action={
+				<Badge status="success" icon="check">
+					Cloud account
+				</Badge>
+			}
+		>
 			{failed ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Couldn’t load your profile — check your connection and reopen this tab.</div>
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+					Couldn’t load your profile — check your connection and reopen this tab.
+				</div>
 			) : (
 				<div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
 					<Avatar name={shownName} size="lg" ring="active" />
 					<div style={{ flex: 1, minWidth: 0 }}>
 						{editing ? (
 							<div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: 380 }}>
-								<Input value={draft} onChange={(e: { target: { value: string } }) => setDraft(e.target.value)} placeholder="Display name" aria-label="Display name" maxLength={60} />
-								<Button variant="primary" size="sm" icon="check" disabled={busy} onClick={save}>Save</Button>
-								<Button variant="ghost" size="sm" disabled={busy} onClick={() => setEditing(false)}>Cancel</Button>
+								<Input
+									value={draft}
+									onChange={(e: { target: { value: string } }) => setDraft(e.target.value)}
+									placeholder="Display name"
+									aria-label="Display name"
+									maxLength={60}
+								/>
+								<Button variant="primary" size="sm" icon="check" disabled={busy} onClick={save}>
+									Save
+								</Button>
+								<Button variant="ghost" size="sm" disabled={busy} onClick={() => setEditing(false)}>
+									Cancel
+								</Button>
 							</div>
 						) : (
 							<div style={{ font: `700 18px ${T.disp}` }}>{shownName}</div>
@@ -256,7 +467,9 @@ function AccountProfilePanel() {
 						<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>{profile?.email ?? ''}</div>
 						{profile?.createdAt && (
 							<div style={{ display: 'flex', gap: 7, marginTop: 7, flexWrap: 'wrap' }}>
-								<Badge status="neutral">Member since {new Date(profile.createdAt).toLocaleDateString()}</Badge>
+								<Badge status="neutral">
+									Member since {new Date(profile.createdAt).toLocaleDateString()}
+								</Badge>
 							</div>
 						)}
 					</div>
@@ -280,7 +493,35 @@ function AccountProfilePanel() {
 	);
 }
 
-/** Signed-in devices from Cognito device tracking: per-device revoke + global sign-out. */
+function friendlyDeviceName(raw: string): string {
+	const value = raw.trim();
+	if (!value) return 'Remembered device';
+	const platform = /iPhone|iPad/i.test(value)
+		? 'iPhone or iPad'
+		: /Android/i.test(value)
+			? 'Android device'
+			: /Windows/i.test(value)
+				? 'Windows PC'
+				: /Macintosh|Mac OS/i.test(value)
+					? 'Mac'
+					: /Linux/i.test(value)
+						? 'Linux device'
+						: null;
+	const browser = /Edg\//.test(value)
+		? 'Edge'
+		: /Firefox\//.test(value)
+			? 'Firefox'
+			: /Chrome\//.test(value)
+				? 'Chrome'
+				: /Safari\//.test(value)
+					? 'Safari'
+					: null;
+	if (browser && platform) return `${browser} on ${platform}`;
+	if (platform) return platform;
+	return value.length > 60 ? `${value.slice(0, 57)}…` : value;
+}
+
+/** Devices remembered by Cognito, plus the separate global sign-out action. */
 function AccountDevicesPanel() {
 	const auth = useAuth();
 	const [devices, setDevices] = useState<Device[] | null>(null);
@@ -302,9 +543,11 @@ function AccountDevicesPanel() {
 			.then(() => {
 				setDevices((list) => (list ? list.filter((d) => d.deviceKey !== deviceKey) : list));
 				setPendingRevoke(null);
-				Toaster.success('Device revoked — it has to sign in again.');
+				Toaster.success(
+					'Device forgotten. A session already open there may continue until it expires.',
+				);
 			})
-			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not revoke that device.')))
+			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not forget that device.')))
 			.finally(() => setBusy(false));
 	};
 	const signOutEverywhere = () => {
@@ -312,7 +555,9 @@ function AccountDevicesPanel() {
 		revokeAllSessions()
 			.then(async () => {
 				setSignOutOpen(false);
-				Toaster.success('Signed out everywhere — sign in again to continue.');
+				Toaster.success(
+					'Sign-out requested everywhere. Open sessions may continue until they expire.',
+				);
 				await auth.signOut(); // the global revoke killed this session's refresh token too
 			})
 			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not sign out everywhere.')))
@@ -320,31 +565,83 @@ function AccountDevicesPanel() {
 	};
 	return (
 		<Panel
-			title="Signed-in devices"
-			action={<Button variant="ghost" size="sm" icon="close" disabled={busy} onClick={() => setSignOutOpen(true)}>Sign out everywhere</Button>}
+			title="Remembered devices"
+			action={
+				<Button
+					variant="ghost"
+					size="sm"
+					icon="close"
+					disabled={busy}
+					onClick={() => setSignOutOpen(true)}
+				>
+					Sign out everywhere
+				</Button>
+			}
 		>
 			<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
-				Devices your account has signed in from. Revoking one forgets it; “Sign out everywhere” revokes every session, including this one.
+				Devices this account recognizes after sign-in. Forgetting one does not erase its local data
+				or immediately close a session already open there. “Sign out everywhere” prevents those
+				sessions from renewing.
 			</div>
 			{failed ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Couldn’t load your devices — check your connection and reopen this tab.</div>
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+					Couldn’t load your devices — check your connection and reopen this tab.
+				</div>
 			) : devices === null ? (
-				<div role="status" aria-label="Loading devices" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+				<div
+					role="status"
+					aria-label="Loading devices"
+					style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+				>
 					<Skeleton height={46} />
 					<Skeleton height={46} />
 				</div>
 			) : devices.length === 0 ? (
-				<EmptyState inset icon="Monitor" title="No remembered devices yet" description="Devices appear here after they sign in." />
+				<EmptyState
+					inset
+					icon="Monitor"
+					title="No remembered devices yet"
+					description="Devices appear here after they sign in."
+				/>
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column' }}>
 					{devices.map((d, i) => (
-						<div key={d.deviceKey} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
-							<span style={{ width: 34, height: 34, borderRadius: 8, flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: T.alt, color: T.sub }}><Icon name="Monitor" size="sm" /></span>
+						<div
+							key={d.deviceKey}
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 12,
+								padding: '11px 0',
+								borderTop: i ? `1px solid ${T.bd}` : 'none',
+							}}
+						>
+							<span
+								style={{
+									width: 34,
+									height: 34,
+									borderRadius: 8,
+									flex: '0 0 auto',
+									display: 'inline-flex',
+									alignItems: 'center',
+									justifyContent: 'center',
+									background: T.alt,
+									color: T.sub,
+								}}
+							>
+								<Icon name="Monitor" size="sm" />
+							</span>
 							<div style={{ flex: 1, minWidth: 0 }}>
-								<div style={{ font: `600 13px ${T.sans}` }}>{d.name}</div>
-								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{d.lastSeen ? `Last seen ${new Date(d.lastSeen).toLocaleString()}` : 'Last seen: unknown'}</div>
+								<div style={{ font: `600 13px ${T.sans}` }}>{friendlyDeviceName(d.name)}</div>
+								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+									{d.lastSeen
+										? `Last seen ${new Date(d.lastSeen).toLocaleString()}`
+										: 'Last seen: unknown'}
+								</div>
 							</div>
-							<Button variant="ghost" size="sm" disabled={busy} onClick={() => setPendingRevoke(d)}>Revoke</Button>
+							<Button variant="ghost" size="sm" disabled={busy} onClick={() => setPendingRevoke(d)}>
+								Forget
+							</Button>
 						</div>
 					))}
 				</div>
@@ -352,37 +649,64 @@ function AccountDevicesPanel() {
 			<Dialog
 				open={pendingRevoke !== null}
 				onClose={() => setPendingRevoke(null)}
-				title="Revoke this device?"
-				description="Revocation happens on the server and cannot be undone."
+				title="Forget this device?"
+				description="Remove it from your account’s remembered-device list."
 				tone="danger"
 				size="sm"
 				footer={
 					<>
-						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setPendingRevoke(null)}>Cancel</Button>
-						<Button variant="danger" size="sm" disabled={busy} onClick={() => pendingRevoke && revoke(pendingRevoke.deviceKey)}>{busy ? 'Revoking…' : 'Revoke device'}</Button>
+						<Button
+							variant="secondary"
+							size="sm"
+							disabled={busy}
+							onClick={() => setPendingRevoke(null)}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="danger"
+							size="sm"
+							disabled={busy}
+							onClick={() => pendingRevoke && revoke(pendingRevoke.deviceKey)}
+						>
+							{busy ? 'Forgetting…' : 'Forget device'}
+						</Button>
 					</>
 				}
 			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					<strong style={{ color: T.ink }}>{pendingRevoke?.name}</strong> is forgotten immediately and has to sign in again. Nothing stored on that device is touched — only its session.
+					<strong style={{ color: T.ink }}>{friendlyDeviceName(pendingRevoke?.name ?? '')}</strong>{' '}
+					will no longer be recognized as a remembered device. Nothing on it is erased, and its
+					current session may remain open until it expires; use “Sign out everywhere” to prevent
+					account sessions from renewing.
 				</div>
 			</Dialog>
 			<Dialog
 				open={signOutOpen}
 				onClose={() => setSignOutOpen(false)}
 				title="Sign out everywhere?"
-				description="Every session is revoked — including this one."
+				description="Stop future token refresh on every device, including this one."
 				tone="danger"
 				size="sm"
 				footer={
 					<>
-						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setSignOutOpen(false)}>Cancel</Button>
-						<Button variant="danger" size="sm" disabled={busy} onClick={signOutEverywhere}>{busy ? 'Signing out…' : 'Sign out everywhere'}</Button>
+						<Button
+							variant="secondary"
+							size="sm"
+							disabled={busy}
+							onClick={() => setSignOutOpen(false)}
+						>
+							Cancel
+						</Button>
+						<Button variant="danger" size="sm" disabled={busy} onClick={signOutEverywhere}>
+							{busy ? 'Signing out…' : 'Sign out everywhere'}
+						</Button>
 					</>
 				}
 			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					This device signs out too, right now — you land back at the sign-in screen. Other devices lose their session the next time they reach the server. This cannot be undone.
+					This device signs out now. Other devices cannot refresh their sessions, but access tokens
+					already issued to them can remain valid until they expire (normally within an hour).
 				</div>
 			</Dialog>
 		</Panel>
@@ -393,6 +717,7 @@ function AccountDevicesPanel() {
 const DELETE_PHRASE = 'delete my account';
 function AccountDangerPanel() {
 	const auth = useAuth();
+	const cloud = useCloudSync();
 	const [busy, setBusy] = useState(false);
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const [phrase, setPhrase] = useState('');
@@ -401,54 +726,129 @@ function AccountDangerPanel() {
 		exportAccountData()
 			.then((data) => {
 				downloadJsonFile(`dndtools-account-${fileDateStamp()}.json`, data);
-				Toaster.success('Account data downloaded.');
+				Toaster.success('Online account record downloaded.');
 			})
-			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not export your account data.')))
+			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not download your account record.')))
 			.finally(() => setBusy(false));
 	};
-	const destroy = () => {
+	const destroy = async () => {
+		const accountId = auth.user?.sub;
+		if (!accountId) {
+			Toaster.error('Sign in again before deleting the account.');
+			return;
+		}
 		setBusy(true);
-		apiDeleteAccount()
-			.then(async () => {
-				setConfirmOpen(false);
-				Toaster.success('Your account has been deleted. Local vaults stay on this device.');
+		try {
+			await apiDeleteAccount();
+			const cleanupWarnings: string[] = [];
+			// Stop the engine before removing its key: a queued backup must not recreate key custody
+			// between a successful server deletion and local sign-out.
+			try {
+				await cloud.disable();
+			} catch {
+				// forgetCloudSyncAccount repeats the persistent metadata cleanup and reports key failures.
+			}
+			try {
+				await forgetCloudSyncAccount(accountId);
+			} catch (error) {
+				cleanupWarnings.push(errMsg(error, 'the local encrypted-backup key was not removed'));
+			}
+			try {
 				await auth.signOut();
-			})
-			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not delete your account.')))
-			.finally(() => setBusy(false));
+			} catch {
+				cleanupWarnings.push('the local sign-out could not be verified');
+			}
+			setConfirmOpen(false);
+			if (cleanupWarnings.length > 0) {
+				Toaster.error(
+					`Your online account was deleted, but ${cleanupWarnings.join(' and ')}. Close and reopen the app to retry queued key removal. If the warning returns, remove the saved DND Tools credential with your operating-system credential manager.`,
+				);
+			} else {
+				Toaster.success('Your account has been deleted. Local vaults stay on this device.');
+			}
+		} catch (e) {
+			Toaster.error(errMsg(e, 'Could not delete your account.'));
+		} finally {
+			setBusy(false);
+		}
 	};
 	return (
 		<Panel title="Danger zone" style={{ borderColor: 'var(--color-status-error-border)' }}>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
 				<div style={{ flex: '1 1 240px' }}>
-					<div style={{ font: `600 13px ${T.sans}` }}>Export or delete your account data</div>
+					<div style={{ font: `600 13px ${T.sans}` }}>Download or delete your online account</div>
 					<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-						Download everything the cloud backend holds for this account (vault content is end-to-end encrypted and exports from the app itself), or permanently close the account. Local vaults are never touched.
+						The account record includes your profile, preview plan, invites, and published module
+						and wiki metadata. It cannot include encrypted campaign contents; download a local vault
+						backup separately. Deleting the account never deletes campaigns stored on this device.
 					</div>
 				</div>
-				<Button variant="secondary" size="sm" icon="download" disabled={busy} onClick={exportData}>Export my data</Button>
-				<Button variant="danger" size="sm" icon="trash" disabled={busy} onClick={() => { setPhrase(''); setConfirmOpen(true); }}>Delete account</Button>
+				<Button variant="secondary" size="sm" icon="download" disabled={busy} onClick={exportData}>
+					Download account record
+				</Button>
+				<Button
+					variant="danger"
+					size="sm"
+					icon="trash"
+					disabled={busy}
+					onClick={() => {
+						setPhrase('');
+						setConfirmOpen(true);
+					}}
+				>
+					Delete account
+				</Button>
 			</div>
 			<Dialog
 				open={confirmOpen}
 				onClose={() => setConfirmOpen(false)}
 				title="Delete this account?"
-				description="Permanent: cloud entitlements, invites and published modules are removed and the sign-in is deleted."
+				description="Permanent: the encrypted cloud copy, invites, published content, plan data, and sign-in are removed."
 				icon="warning"
 				size="md"
+				dismissible={!busy}
+				initialFocus="#delete-account-confirmation"
+				role="alertdialog"
+				aria-busy={busy}
 				footer={
 					<>
-						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setConfirmOpen(false)}>Cancel</Button>
-						<Button variant="danger" size="sm" icon="trash" disabled={busy || phrase.trim().toLowerCase() !== DELETE_PHRASE} onClick={destroy}>
+						<Button
+							variant="secondary"
+							size="sm"
+							disabled={busy}
+							onClick={() => setConfirmOpen(false)}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="danger"
+							size="sm"
+							icon="trash"
+							disabled={busy || phrase.trim().toLowerCase() !== DELETE_PHRASE}
+							onClick={destroy}
+						>
 							{busy ? 'Deleting…' : 'Delete forever'}
 						</Button>
 					</>
 				}
 			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 10 }}>
-					Your vaults stay on this device — only the cloud account and everything it stores server-side are destroyed. This cannot be undone. Type <strong style={{ color: T.ink }}>{DELETE_PHRASE}</strong> to confirm.
+					Campaigns on this device are not touched. The service first locks the account and removes
+					the encrypted cloud copy; only after that purge is confirmed does it remove account data
+					and the sign-in. If any step cannot be confirmed, deletion stops so you can retry safely.
+					This cannot be undone. Type <strong style={{ color: T.ink }}>{DELETE_PHRASE}</strong> to
+					confirm.
 				</div>
-				<Input value={phrase} onChange={(e: { target: { value: string } }) => setPhrase(e.target.value)} placeholder={DELETE_PHRASE} aria-label={`Type "${DELETE_PHRASE}" to confirm`} />
+				<Input
+					id="delete-account-confirmation"
+					value={phrase}
+					onChange={(e: { target: { value: string } }) => setPhrase(e.target.value)}
+					placeholder={DELETE_PHRASE}
+					aria-label={`Type "${DELETE_PHRASE}" to confirm`}
+					autoComplete="off"
+					maxLength={DELETE_PHRASE.length}
+					disabled={busy}
+				/>
 			</Dialog>
 		</Panel>
 	);
@@ -461,9 +861,8 @@ function CloudAccountGate() {
 		return (
 			<Panel title="Cloud account" action={<Badge status="neutral">Local-only build</Badge>}>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					This build isn’t connected to a cloud backend, so there is no account to manage — everything
-					works locally on this device. Profile, devices, invites and plans appear here when a cloud
-					backend is configured.
+					Account-management services aren’t available in this edition. Your campaigns and core
+					table tools remain saved locally on this device.
 				</div>
 			</Panel>
 		);
@@ -472,50 +871,22 @@ function CloudAccountGate() {
 		<Panel title="Cloud account" action={<Badge status="neutral">Signed out</Badge>}>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
 				<div style={{ flex: '1 1 240px', font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					Sign in to manage your profile, signed-in devices, campaign invites and plan. The app stays
-					fully usable locally without an account.
+					Sign in to manage your profile, remembered devices, campaign invites, and preview plan.
+					Your local campaign does not require an account.
 				</div>
-				<Button variant="primary" size="sm" icon="UserCircle" onClick={() => auth.openAuthModal()}>Sign in</Button>
+				<Button variant="primary" size="sm" icon="UserCircle" onClick={() => auth.openAuthModal()}>
+					Sign in
+				</Button>
 			</div>
 		</Panel>
 	);
 }
 
-const NOTIF_KEY = 'dndtools:react:notifications';
-/** Device-local notification preferences (persisted). These gate REAL surfaces where they exist —
- * session-join and staged-write review are live features; the list never claims a delivery channel
- * (email/push) this build doesn't have. */
-const NOTIFICATION_PREFS: { id: string; label: string; on: boolean }[] = [
-	{ id: 'session-join', label: 'A player joins the live session', on: true },
-	{ id: 'sync-conflict', label: 'Sync conflicts need resolving', on: true },
-	{ id: 'mcp-staged', label: 'An agent staged a change for review', on: true },
-	{ id: 'release-notes', label: 'Product news & release notes', on: false },
-];
 function SettingsAccount() {
 	const auth = useAuth();
 	// The account surface is REAL (app-api) when the backend is configured AND the user is signed
 	// in; otherwise it shows an honest gate — no fake profile pretending to be yours.
 	const cloudReady = isAccountApiConfigured && auth.status === 'signed-in';
-	// Notification prefs survive reload (persisted to localStorage) since they are a sensible device pref.
-	const [notif, setNotif] = useState<boolean[]>(() => {
-		try {
-			const raw = window.localStorage.getItem(NOTIF_KEY);
-			if (raw) return JSON.parse(raw) as boolean[];
-		} catch {
-			/* ignore */
-		}
-		return NOTIFICATION_PREFS.map((n) => n.on);
-	});
-	const toggleNotif = (i: number) =>
-		setNotif((arr) => {
-			const next = arr.map((v, j) => (j === i ? !v : v));
-			try {
-				window.localStorage.setItem(NOTIF_KEY, JSON.stringify(next));
-			} catch {
-				/* ignore */
-			}
-			return next;
-		});
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			{cloudReady ? (
@@ -548,17 +919,9 @@ function SettingsAccount() {
 					</Button>
 				}
 			>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>Re-run the guided first-time setup, revisit the product tour, or reopen the table-readiness checklist any time.</div>
-			</Panel>
-
-			<Panel title="Notifications">
-				<div style={{ display: 'flex', flexDirection: 'column' }}>
-					{NOTIFICATION_PREFS.map((n, i) => (
-						<div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
-							<span style={{ flex: 1, font: `12.5px ${T.sans}`, color: T.sub }}>{n.label}</span>
-							<Switch checked={notif[i]} onChange={() => toggleNotif(i)} label="" />
-						</div>
-					))}
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					Re-run the guided first-time setup, revisit the product tour, or reopen the
+					table-readiness checklist any time.
 				</div>
 			</Panel>
 
@@ -575,7 +938,9 @@ function SettingsSubscription() {
 	const current = PLAN_CARDS.find((p) => p.id === ent.plan) ?? PLAN_CARDS[0];
 	const sourceBadge =
 		ent.source === 'server' ? (
-			<Badge status="success" icon="check">Account plan</Badge>
+			<Badge status="success" icon="check">
+				Account preview
+			</Badge>
 		) : ent.source === 'cache' ? (
 			<Badge status="warning">Last known (offline)</Badge>
 		) : (
@@ -583,48 +948,180 @@ function SettingsSubscription() {
 		);
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '18px 20px', borderRadius: 14, border: `1px solid ${T.accBd}`, background: `linear-gradient(135deg, ${T.accSub}, ${T.raised})`, boxShadow: T.smd, flexWrap: 'wrap' }}>
-				<span style={{ width: 46, height: 46, borderRadius: 12, flex: '0 0 auto', background: T.acc, color: T.accFg, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={current.cloud ? 'connection' : 'home'} size="lg" /></span>
+			<div
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					gap: 16,
+					padding: '18px 20px',
+					borderRadius: 14,
+					border: `1px solid ${T.accBd}`,
+					background: `linear-gradient(135deg, ${T.accSub}, ${T.raised})`,
+					boxShadow: T.smd,
+					flexWrap: 'wrap',
+				}}
+			>
+				<span
+					style={{
+						width: 46,
+						height: 46,
+						borderRadius: 12,
+						flex: '0 0 auto',
+						background: T.acc,
+						color: T.accFg,
+						display: 'inline-flex',
+						alignItems: 'center',
+						justifyContent: 'center',
+					}}
+				>
+					<Icon name={current.cloud ? 'connection' : 'home'} size="lg" />
+				</span>
 				<div style={{ flex: '1 1 220px' }}>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}><span style={{ font: `700 19px ${T.disp}` }}>{ent.loading ? '…' : current.name}</span>{sourceBadge}</div>
-					<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>{current.tagline} · {current.price ? `$${current.price}/mo` : 'No charges'} · simulated — no payment is processed</div>
+					<div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+						<span style={{ font: `700 19px ${T.disp}` }}>{ent.loading ? '…' : current.name}</span>
+						{sourceBadge}
+					</div>
+					<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
+						{current.tagline} · {current.price ? `$${current.price}/mo planned` : 'Free'} · preview
+						access, no payment
+					</div>
 				</div>
-				<Button variant="secondary" size="sm" icon="arrow-up" onClick={() => navigate('/upgrade')}>Compare plans</Button>
+				<Button variant="secondary" size="sm" icon="arrow-up" onClick={() => navigate('/upgrade')}>
+					Compare preview plans
+				</Button>
 			</div>
 
-			<Panel title="Plans" action={<Button variant="ghost" size="sm" iconRight="arrow-right" onClick={() => navigate('/upgrade')}>Full comparison</Button>}>
-				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+			<Panel
+				title="Plan preview"
+				action={
+					<Button
+						variant="ghost"
+						size="sm"
+						iconRight="arrow-right"
+						onClick={() => navigate('/upgrade')}
+					>
+						Full comparison
+					</Button>
+				}
+			>
+				<div
+					style={{
+						display: 'grid',
+						gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
+						gap: 14,
+					}}
+				>
 					{PLAN_CARDS.map((pl) => {
 						const on = pl.id === ent.plan;
 						return (
-							<div key={pl.id} style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 16, borderRadius: 13, position: 'relative', border: `1px solid ${on ? T.accBd : pl.popular ? T.bdS : T.bd}`, background: on ? T.accSub : T.surf, boxShadow: on ? T.smd : 'none' }}>
-								{pl.popular && !on && <span style={{ position: 'absolute', top: -9, right: 14, font: `600 10px ${T.sans}`, letterSpacing: '.06em', textTransform: 'uppercase', color: T.accFg, background: T.acc, padding: '2px 8px', borderRadius: 20 }}>Popular</span>}
+							<div
+								key={pl.id}
+								style={{
+									display: 'flex',
+									flexDirection: 'column',
+									gap: 12,
+									padding: 16,
+									borderRadius: 13,
+									position: 'relative',
+									border: `1px solid ${on ? T.accBd : pl.popular ? T.bdS : T.bd}`,
+									background: on ? T.accSub : T.surf,
+									boxShadow: on ? T.smd : 'none',
+								}}
+							>
+								{pl.popular && !on && (
+									<span
+										style={{
+											position: 'absolute',
+											top: -9,
+											right: 14,
+											font: `600 10px ${T.sans}`,
+											letterSpacing: '.06em',
+											textTransform: 'uppercase',
+											color: T.accFg,
+											background: T.acc,
+											padding: '2px 8px',
+											borderRadius: 20,
+										}}
+									>
+										Recommended
+									</span>
+								)}
 								<div>
-									<div style={{ font: `700 16px ${T.disp}`, color: on ? T.acc : T.ink }}>{pl.name}</div>
+									<div style={{ font: `700 16px ${T.disp}`, color: on ? T.acc : T.ink }}>
+										{pl.name}
+									</div>
 									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{pl.tagline}</div>
 								</div>
 								<div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-									<span style={{ font: `700 26px ${T.mono}`, color: T.ink }}>{pl.price ? `$${pl.price}` : 'Free'}</span>
-									{pl.price > 0 && <span style={{ font: `12px ${T.sans}`, color: T.ter }}>/mo</span>}
+									<span style={{ font: `700 26px ${T.mono}`, color: T.ink }}>
+										{pl.price ? `$${pl.price}` : 'Free'}
+									</span>
+									{pl.price > 0 && (
+										<span style={{ font: `12px ${T.sans}`, color: T.ter }}>/mo</span>
+									)}
 								</div>
 								<div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
 									{pl.features.map((f: string) => (
-										<span key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, font: `11.5px/1.4 ${T.sans}`, color: T.sub }}><span style={{ marginTop: 1 }}><Icon name="check" size={12} color={pl.cloud ? T.acc : T.ter} /></span>{f}</span>
+										<span
+											key={f}
+											style={{
+												display: 'flex',
+												alignItems: 'flex-start',
+												gap: 7,
+												font: `11.5px/1.4 ${T.sans}`,
+												color: T.sub,
+											}}
+										>
+											<span style={{ marginTop: 1 }}>
+												<Icon name="check" size={12} color={pl.cloud ? T.acc : T.ter} />
+											</span>
+											{f}
+										</span>
 									))}
 								</div>
-								{on ? <Button variant="secondary" size="sm" disabled>Current plan</Button> : <Button variant={pl.price > (current.price || 0) ? 'primary' : 'secondary'} size="sm" icon={pl.price > (current.price || 0) ? 'arrow-up' : undefined} onClick={() => navigate('/upgrade')}>{pl.price > (current.price || 0) ? 'Upgrade' : 'Switch'}</Button>}
+								{on ? (
+									<Button variant="secondary" size="sm" disabled>
+										Current plan
+									</Button>
+								) : (
+									<Button
+										variant={pl.price > (current.price || 0) ? 'primary' : 'secondary'}
+										size="sm"
+										icon={pl.price > (current.price || 0) ? 'arrow-up' : undefined}
+										onClick={() => navigate('/upgrade')}
+									>
+										{ent.serverBacked && !ent.canChangePlan
+											? 'View plan'
+											: pl.cloud
+												? 'Try preview'
+												: 'Switch'}
+									</Button>
+								)}
 							</div>
 						);
 					})}
 				</div>
 			</Panel>
 
-			<Panel title="Billing">
+			<Panel
+				title={ent.serverBacked && !ent.canChangePlan ? 'Plan availability' : 'Preview access'}
+			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter }}>
-					There is no billing history and no stored payment method: every plan in this product is{' '}
-					<strong style={{ color: T.ink }}>simulated</strong> — no payment processor exists anywhere, so
-					nothing is ever charged. Plan changes happen on the <strong style={{ color: T.ink }}>Plans &amp; cloud</strong> page
-					and are stored {ent.serverBacked ? 'on your account' : 'on this device'}.
+					{ent.serverBacked && !ent.canChangePlan ? (
+						<>
+							Self-service cloud plan changes are not available in this release. The app cannot take
+							a payment or activate a paid plan. See{' '}
+							<strong style={{ color: T.ink }}>Plans &amp; cloud</strong> for planned hosted
+							features; local play remains available.
+						</>
+					) : (
+						<>
+							Cloud plans are currently a free preview. Listed prices are planned launch prices; the
+							app does not request a payment method or charge you. Your selection is stored{' '}
+							{ent.serverBacked ? 'on your account' : 'on this device'} and can be changed from{' '}
+							<strong style={{ color: T.ink }}>Plans &amp; cloud</strong>.
+						</>
+					)}
 				</div>
 			</Panel>
 		</div>
@@ -632,13 +1129,17 @@ function SettingsSubscription() {
 }
 
 /* ---- Players (REAL — the live actor roster the Core enforces visibility against) ---------------- */
-const ROLE_LABEL: Record<string, string> = { dm: 'Dungeon Master', 'co-dm': 'Co-DM', player: 'Player', observer: 'Observer' };
+const ROLE_LABEL: Record<string, string> = {
+	dm: 'Dungeon Master',
+	'co-dm': 'Co-DM',
+	player: 'Player',
+	observer: 'Observer',
+};
 /** Badge tone per role — the Co-DM shares the DM's accent (elevated), players `info`, observers neutral. */
 const roleBadgeTone = (role: string): 'accent' | 'info' | 'neutral' =>
 	role === 'dm' || role === 'co-dm' ? 'accent' : role === 'observer' ? 'neutral' : 'info';
 /** The web join link an invite token redeems at — the /join route outside the DM shell. */
-const inviteJoinUrl = (token: string) =>
-	`${window.location.origin}${window.location.pathname}#/join?token=${encodeURIComponent(token)}`;
+const inviteJoinUrl = (token: string) => publicAppHashUrl('/join', { token });
 
 const copyText = async (text: string, okMessage: string) => {
 	try {
@@ -650,7 +1151,15 @@ const copyText = async (text: string, okMessage: string) => {
 };
 
 /** Pending invites — REAL server-minted join links (app-api) when configured + signed in. */
-function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: boolean; createOpen: boolean; onCloseCreate: () => void }) {
+function InvitesPanel({
+	cloudReady,
+	createOpen,
+	onCloseCreate,
+}: {
+	cloudReady: boolean;
+	createOpen: boolean;
+	onCloseCreate: () => void;
+}) {
 	const ent = useEntitlements();
 	const coDmSeats = coDmSeatsForPlan(ent.plan);
 	const [invites, setInvites] = useState<Invite[] | null>(null);
@@ -661,6 +1170,7 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 	const [role, setRole] = useState<'player' | 'co-dm'>('player');
 	const [email, setEmail] = useState('');
 	const [minted, setMinted] = useState<CreateInviteResult | null>(null);
+	const mintedJoinUrl = minted ? inviteJoinUrl(minted.token) : null;
 	const [qr, setQr] = useState<string | null>(null);
 	// Revoking kills the link server-side for good (no undo exists), so it confirms first.
 	const [pendingRevoke, setPendingRevoke] = useState<Invite | null>(null);
@@ -679,18 +1189,18 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 		};
 	}, [cloudReady]);
 	useEffect(() => {
-		if (!minted) {
+		if (!mintedJoinUrl) {
 			setQr(null);
 			return;
 		}
 		let cancelled = false;
-		void qrDataUrl(inviteJoinUrl(minted.token)).then((url) => {
+		void qrDataUrl(mintedJoinUrl).then((url) => {
 			if (!cancelled) setQr(url);
 		});
 		return () => {
 			cancelled = true;
 		};
-	}, [minted]);
+	}, [mintedJoinUrl]);
 	const close = () => {
 		setMinted(null);
 		setCampaignName('');
@@ -700,13 +1210,21 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 		onCloseCreate();
 	};
 	const mint = () => {
+		if (!publicAppBaseUrl()) {
+			Toaster.error('Shareable links are not configured for this desktop build.');
+			return;
+		}
 		const name = campaignName.trim();
 		if (!name) {
 			Toaster.error('Give the invite a campaign name.');
 			return;
 		}
 		if (role === 'co-dm' && coDmSeats <= 0) {
-			Toaster.error('Your plan has no Co-DM seats — upgrade to invite a Co-DM.');
+			Toaster.error(
+				ent.canChangePlan
+					? 'Try the Lantern or Beacon preview to invite a Co-DM at no charge.'
+					: 'Your current plan has no Co-DM seats, and plan changes are unavailable in this release.',
+			);
 			return;
 		}
 		const to = email.trim();
@@ -716,11 +1234,17 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 			return;
 		}
 		setBusy(true);
-		apiCreateInvite({ campaignName: name, note: note.trim() || undefined, role, email: to || undefined })
+		apiCreateInvite({
+			campaignName: name,
+			note: note.trim() || undefined,
+			role,
+			email: to || undefined,
+		})
 			.then((invite) => {
 				setMinted(invite);
 				setInvites((list) => (list ? [invite, ...list] : [invite]));
-				if (invite.emailStatus === 'sent') Toaster.success(`Invite emailed to ${invite.emailedTo ?? to}.`);
+				if (invite.emailStatus === 'sent')
+					Toaster.success(`Invite emailed to ${invite.emailedTo ?? to}.`);
 			})
 			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not create the invite.')))
 			.finally(() => setBusy(false));
@@ -740,34 +1264,78 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 		<Panel title="Pending invites">
 			{!cloudReady ? (
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter }}>
-					Invite links are minted by the cloud backend so they work before the invitee ever opens the
-					app. {isAccountApiConfigured ? 'Sign in to create and manage them.' : 'This build has no cloud backend configured — share your session room name and PIN directly instead.'}
+					Online invite links work before the invitee opens the app.{' '}
+					{isAccountApiConfigured
+						? 'Sign in to create and manage them.'
+						: 'Online invite links are unavailable here — share a live-table code directly instead.'}
 				</div>
 			) : failed ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Couldn’t load your invites — check your connection and reopen this tab.</div>
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+					Couldn’t load your invites — check your connection and reopen this tab.
+				</div>
 			) : invites === null ? (
-				<div role="status" aria-label="Loading invites" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+				<div
+					role="status"
+					aria-label="Loading invites"
+					style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+				>
 					<Skeleton height={44} />
 					<Skeleton height={44} />
 				</div>
 			) : invites.length === 0 ? (
-				<EmptyState inset icon="send" title="No pending invites" description="“Invite player” mints a shareable join link (it expires after 14 days)." />
+				<EmptyState
+					inset
+					icon="send"
+					title="No pending invites"
+					description="“Invite player” mints a shareable join link (it expires after 14 days)."
+				/>
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column' }}>
-					{invites.map((v, i) => (
-						<div key={v.inviteId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
-							<Icon name="send" size={15} color={T.ter} />
-							<div style={{ flex: 1, minWidth: 0 }}>
-								<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-									<span style={{ font: `600 13px ${T.sans}` }}>{v.campaignName}</span>
-									{v.role === 'co-dm' && <Badge status="accent">Co-DM</Badge>}
+					{invites.map((v, i) => {
+						const joinUrl = inviteJoinUrl(v.token);
+						return (
+							<div
+								key={v.inviteId}
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: 10,
+									padding: '10px 0',
+									borderTop: i ? `1px solid ${T.bd}` : 'none',
+								}}
+							>
+								<Icon name="send" size={15} color={T.ter} />
+								<div style={{ flex: 1, minWidth: 0 }}>
+									<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+										<span style={{ font: `600 13px ${T.sans}` }}>{v.campaignName}</span>
+										{v.role === 'co-dm' && <Badge status="accent">Co-DM</Badge>}
+									</div>
+									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+										{v.note ? `${v.note} · ` : ''}expires{' '}
+										{new Date(v.expiresAt * 1000).toLocaleDateString()}
+									</div>
 								</div>
-								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{v.note ? `${v.note} · ` : ''}expires {new Date(v.expiresAt * 1000).toLocaleDateString()}</div>
+								<Button
+									variant="secondary"
+									size="sm"
+									icon="link"
+									disabled={busy || !joinUrl}
+									title={joinUrl ? undefined : 'Public app URL is not configured'}
+									onClick={() => joinUrl && void copyText(joinUrl, 'Join link copied.')}
+								>
+									Copy link
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									disabled={busy}
+									onClick={() => setPendingRevoke(v)}
+								>
+									Revoke
+								</Button>
 							</div>
-							<Button variant="secondary" size="sm" icon="link" disabled={busy} onClick={() => void copyText(inviteJoinUrl(v.token), 'Join link copied.')}>Copy link</Button>
-							<Button variant="ghost" size="sm" disabled={busy} onClick={() => setPendingRevoke(v)}>Revoke</Button>
-						</div>
-					))}
+						);
+					})}
 				</div>
 			)}
 			<Dialog
@@ -779,29 +1347,55 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 				size="sm"
 				footer={
 					<>
-						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setPendingRevoke(null)}>Cancel</Button>
-						<Button variant="danger" size="sm" disabled={busy} onClick={() => pendingRevoke && revoke(pendingRevoke.inviteId)}>{busy ? 'Revoking…' : 'Revoke invite'}</Button>
+						<Button
+							variant="secondary"
+							size="sm"
+							disabled={busy}
+							onClick={() => setPendingRevoke(null)}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="danger"
+							size="sm"
+							disabled={busy}
+							onClick={() => pendingRevoke && revoke(pendingRevoke.inviteId)}
+						>
+							{busy ? 'Revoking…' : 'Revoke invite'}
+						</Button>
 					</>
 				}
 			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					The join link for <strong style={{ color: T.ink }}>{pendingRevoke?.campaignName}</strong> stops working immediately, even if it was already shared. Anyone who already joined keeps their seat — mint a new invite to replace it.
+					The join link for <strong style={{ color: T.ink }}>{pendingRevoke?.campaignName}</strong>{' '}
+					stops working immediately, even if it was already shared. Anyone who already joined keeps
+					their seat — mint a new invite to replace it.
 				</div>
 			</Dialog>
 			<Dialog
 				open={createOpen}
 				onClose={close}
 				title={minted ? 'Invite ready to share' : 'Invite a player'}
-				description={minted ? 'Send this link however you like — it works for 14 days or until you revoke it.' : 'Mints a shareable join link — add an email to send it, or share the link yourself.'}
+				description={
+					minted
+						? 'Send this link however you like — it works for 14 days or until you revoke it.'
+						: 'Mints a shareable join link — add an email to send it, or share the link yourself.'
+				}
 				icon="send"
 				size="md"
 				footer={
 					minted ? (
-						<Button variant="primary" size="sm" onClick={close}>Done</Button>
+						<Button variant="primary" size="sm" onClick={close}>
+							Done
+						</Button>
 					) : (
 						<>
-							<Button variant="secondary" size="sm" disabled={busy} onClick={close}>Cancel</Button>
-							<Button variant="primary" size="sm" icon="send" disabled={busy} onClick={mint}>{busy ? 'Creating…' : 'Create invite'}</Button>
+							<Button variant="secondary" size="sm" disabled={busy} onClick={close}>
+								Cancel
+							</Button>
+							<Button variant="primary" size="sm" icon="send" disabled={busy} onClick={mint}>
+								{busy ? 'Creating…' : 'Create invite'}
+							</Button>
 						</>
 					)
 				}
@@ -823,7 +1417,11 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 									color: minted.emailStatus === 'sent' ? T.sub : T.ter,
 								}}
 							>
-								<Icon name={minted.emailStatus === 'sent' ? 'check' : 'info'} size={14} color={minted.emailStatus === 'sent' ? T.ok : T.ter} />
+								<Icon
+									name={minted.emailStatus === 'sent' ? 'check' : 'info'}
+									size={14}
+									color={minted.emailStatus === 'sent' ? T.ok : T.ter}
+								/>
 								<span>
 									{minted.emailStatus === 'sent'
 										? `Emailed to ${minted.emailedTo}. They can also use the link below.`
@@ -832,16 +1430,68 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 							</div>
 						)}
 						{/* deliberate literal #fff: a QR quiet zone must stay white for scanners, whatever the theme */}
-						{qr && <img src={qr} alt="QR code for the join link" style={{ width: 168, height: 168, borderRadius: 10, border: `1px solid ${T.bd}`, background: '#fff', padding: 8 }} />}
-						<code style={{ font: `11.5px ${T.mono}`, color: T.sub, wordBreak: 'break-all', textAlign: 'center' }}>{inviteJoinUrl(minted.token)}</code>
-						<Button variant="secondary" size="sm" icon="link" onClick={() => void copyText(inviteJoinUrl(minted.token), 'Join link copied.')}>Copy link</Button>
+						{qr && (
+							<img
+								src={qr}
+								alt="QR code for the join link"
+								style={{
+									width: 168,
+									height: 168,
+									borderRadius: 10,
+									border: `1px solid ${T.bd}`,
+									background: '#fff',
+									padding: 8,
+								}}
+							/>
+						)}
+						<code
+							style={{
+								font: `11.5px ${T.mono}`,
+								color: T.sub,
+								wordBreak: 'break-all',
+								textAlign: 'center',
+							}}
+						>
+							{mintedJoinUrl ?? 'Public app URL is not configured.'}
+						</code>
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="link"
+							disabled={!mintedJoinUrl}
+							onClick={() => mintedJoinUrl && void copyText(mintedJoinUrl, 'Join link copied.')}
+						>
+							Copy link
+						</Button>
 					</div>
 				) : (
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-						<Input value={campaignName} onChange={(e: { target: { value: string } }) => setCampaignName(e.target.value)} placeholder="Campaign name (shown to the invitee)" aria-label="Campaign name" maxLength={80} />
-						<Textarea value={note} onChange={(e: { target: { value: string } }) => setNote(e.target.value)} placeholder="Note (optional) — e.g. “We play Fridays at 7”" aria-label="Invite note" rows={2} maxLength={200} />
+						<Input
+							value={campaignName}
+							onChange={(e: { target: { value: string } }) => setCampaignName(e.target.value)}
+							placeholder="Campaign name (shown to the invitee)"
+							aria-label="Campaign name"
+							maxLength={80}
+						/>
+						<Textarea
+							value={note}
+							onChange={(e: { target: { value: string } }) => setNote(e.target.value)}
+							placeholder="Note (optional) — e.g. “We play Fridays at 7”"
+							aria-label="Invite note"
+							rows={2}
+							maxLength={200}
+						/>
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-							<span style={{ font: `600 11.5px ${T.sans}`, color: T.ter, textTransform: 'uppercase', letterSpacing: '.06em' }}>Seat</span>
+							<span
+								style={{
+									font: `600 11.5px ${T.sans}`,
+									color: T.ter,
+									textTransform: 'uppercase',
+									letterSpacing: '.06em',
+								}}
+							>
+								Seat
+							</span>
 							<Seg
 								value={role}
 								onChange={(v: string) => setRole(v as 'player' | 'co-dm')}
@@ -856,8 +1506,19 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 									: 'An ordinary player seat — sees only what you share with the table.'}
 							</span>
 						</div>
-						<Input type="email" value={email} onChange={(e: { target: { value: string } }) => setEmail(e.target.value)} placeholder="Email invite to… (optional)" aria-label="Recipient email" autoComplete="off" maxLength={254} />
-						<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>Leave email blank to just get a shareable link + QR code. When set, we’ll also email the invite if this app has email delivery configured.</div>
+						<Input
+							type="email"
+							value={email}
+							onChange={(e: { target: { value: string } }) => setEmail(e.target.value)}
+							placeholder="Email invite to… (optional)"
+							aria-label="Recipient email"
+							autoComplete="off"
+							maxLength={254}
+						/>
+						<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
+							Leave email blank to just get a shareable link + QR code. When set, we’ll also email
+							the invite if this app has email delivery configured.
+						</div>
 					</div>
 				)}
 			</Dialog>
@@ -871,8 +1532,14 @@ function SettingsPlayers() {
 	const ent = useEntitlements();
 	const cloudReady = isAccountApiConfigured && auth.status === 'signed-in';
 	const [inviteOpen, setInviteOpen] = useState(false);
-	const actors = Object.values(runtime.state.permissions.actors) as { id: string; role: string; displayName: string }[];
-	const sorted = [...actors].sort((a, b) => (a.role === 'dm' ? -1 : b.role === 'dm' ? 1 : a.displayName.localeCompare(b.displayName)));
+	const actors = Object.values(runtime.state.permissions.actors) as {
+		id: string;
+		role: string;
+		displayName: string;
+	}[];
+	const sorted = [...actors].sort((a, b) =>
+		a.role === 'dm' ? -1 : b.role === 'dm' ? 1 : a.displayName.localeCompare(b.displayName),
+	);
 
 	// Co-DM seat entitlement — the plan's seats vs. the live co-DM headcount. The Core `assign-role`
 	// command re-checks this and fails closed; the UI mirrors it so the affordance is honest.
@@ -880,9 +1547,17 @@ function SettingsPlayers() {
 	const coDmInUse = countCoDmActors(runtime.state.permissions);
 	const dmActorId = runtime.defaultActorId;
 
-	const assignRole = (targetActorId: string, role: 'co-dm' | 'player' | 'observer', displayName: string) => {
+	const assignRole = (
+		targetActorId: string,
+		role: 'co-dm' | 'player' | 'observer',
+		displayName: string,
+	) => {
 		void runtime
-			.dispatch({ type: 'permission.assign-role', actorId: dmActorId, payload: { targetActorId, role, coDmSeatLimit: coDmSeats } })
+			.dispatch({
+				type: 'permission.assign-role',
+				actorId: dmActorId,
+				payload: { targetActorId, role, coDmSeatLimit: coDmSeats },
+			})
 			.then((res: CommandResult) => {
 				if (res.status !== 'accepted') {
 					Toaster.error(res.rejection.message);
@@ -905,18 +1580,38 @@ function SettingsPlayers() {
 						onClick={() => {
 							if (cloudReady) setInviteOpen(true);
 							else if (isAccountApiConfigured) auth.openAuthModal();
-							else Toaster.info('Invite links need the cloud backend — share your session room name and PIN directly.');
+							else
+								Toaster.info(
+									'Online invite links are unavailable here — share a live-table code directly.',
+								);
 						}}
 					>
 						Invite player
 					</Button>
 				}
 			>
-				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>{sorted.length} {sorted.length === 1 ? 'actor' : 'actors'} in this campaign — the real permission actors the Core filters every view against.</div>
+				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
+					{sorted.length} {sorted.length === 1 ? 'person' : 'people'} in this campaign. Each person
+					sees only the scenes and tools their role allows.
+				</div>
 				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 8 }}>
-					{coDmSeats > 0
-						? <>Co-DM seats: <strong style={{ color: T.ink }}>{coDmInUse} of {coDmSeats}</strong> used. A Co-DM sees your DM-only content and can run the table, but never manages roles, grants, invites, or the vault.</>
-						: <>Your plan has no Co-DM seats — upgrade to promote a trusted player to Co-DM.</>}
+					{coDmSeats > 0 ? (
+						<>
+							Co-DM seats:{' '}
+							<strong style={{ color: T.ink }}>
+								{coDmInUse} of {coDmSeats}
+							</strong>{' '}
+							used. A Co-DM sees your DM-only content and can run the table, but never manages
+							roles, grants, invites, or the vault.
+						</>
+					) : (
+						<>
+							Your plan has no Co-DM seats.{' '}
+							{ent.canChangePlan
+								? 'You can try the Lantern or Beacon preview at no charge to promote a trusted player.'
+								: 'Plan changes are unavailable in this release.'}
+						</>
+					)}
 				</div>
 				<div style={{ display: 'flex', flexDirection: 'column' }}>
 					{sorted.map((a, i) => {
@@ -924,11 +1619,27 @@ function SettingsPlayers() {
 						const roleOptions = [
 							{ value: 'player', label: 'Player' },
 							{ value: 'observer', label: 'Observer' },
-							{ value: 'co-dm', label: coDmSeats > 0 ? `Co-DM (${coDmInUse}/${coDmSeats})` : 'Co-DM (no seats)' },
+							{
+								value: 'co-dm',
+								label: coDmSeats > 0 ? `Co-DM (${coDmInUse}/${coDmSeats})` : 'Co-DM (no seats)',
+							},
 						];
 						return (
-							<div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
-								<Avatar name={a.displayName} size="sm" ring={a.role === 'dm' || a.role === 'co-dm' ? 'active' : undefined} />
+							<div
+								key={a.id}
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: 12,
+									padding: '10px 0',
+									borderTop: i ? `1px solid ${T.bd}` : 'none',
+								}}
+							>
+								<Avatar
+									name={a.displayName}
+									size="sm"
+									ring={a.role === 'dm' || a.role === 'co-dm' ? 'active' : undefined}
+								/>
 								<div style={{ flex: 1, minWidth: 0 }}>
 									<div style={{ font: `600 13px ${T.sans}` }}>{a.displayName}</div>
 									<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{a.id}</div>
@@ -955,7 +1666,11 @@ function SettingsPlayers() {
 					})}
 				</div>
 			</Panel>
-			<InvitesPanel cloudReady={cloudReady} createOpen={inviteOpen} onCloseCreate={() => setInviteOpen(false)} />
+			<InvitesPanel
+				cloudReady={cloudReady}
+				createOpen={inviteOpen}
+				onCloseCreate={() => setInviteOpen(false)}
+			/>
 		</div>
 	);
 }
@@ -964,7 +1679,10 @@ function SettingsPlayers() {
 function SettingsPermissions() {
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
-	const actors = runtime.state.permissions.actors as Record<string, { id: string; role: string; displayName: string }>;
+	const actors = runtime.state.permissions.actors as Record<
+		string,
+		{ id: string; role: string; displayName: string }
+	>;
 	const grants = runtime.state.permissions.grants;
 	const scenes = Object.values(runtime.state.scenes.scenes) as { id: string; name: string }[];
 	// Grant targets are players/observers only — a DM / Co-DM already has full authority, so granting to
@@ -975,15 +1693,41 @@ function SettingsPermissions() {
 	const roleCounts = { dm: 0, 'co-dm': 0, player: 0, observer: 0 } as Record<string, number>;
 	for (const a of Object.values(actors)) roleCounts[a.role] = (roleCounts[a.role] ?? 0) + 1;
 	const roleCards = [
-		{ id: 'dm', name: 'Dungeon Master', desc: 'Full authority — authors content, grants, and the live session.', tone: 'accent' },
-		{ id: 'co-dm', name: 'Co-DM', desc: 'Sees DM-only content and runs the table, but never manages roles, grants, invites, or the vault.', tone: 'accent' },
-		{ id: 'player', name: 'Player', desc: 'Owns their character; sees only what the DM shares.', tone: 'info' },
-		{ id: 'observer', name: 'Observer', desc: 'Read-only; never holds character data.', tone: 'neutral' },
+		{
+			id: 'dm',
+			name: 'Dungeon Master',
+			desc: 'Full authority — authors content, grants, and the live session.',
+			tone: 'accent',
+		},
+		{
+			id: 'co-dm',
+			name: 'Co-DM',
+			desc: 'Sees DM-only content and runs the table, but never manages roles, grants, invites, or the vault.',
+			tone: 'accent',
+		},
+		{
+			id: 'player',
+			name: 'Player',
+			desc: 'Owns their character; sees only what the DM shares.',
+			tone: 'info',
+		},
+		{
+			id: 'observer',
+			name: 'Observer',
+			desc: 'Read-only; never holds character data.',
+			tone: 'neutral',
+		},
 	];
 
 	const [grantPlayer, setGrantPlayer] = useState<string>(players[0]?.id ?? '');
 	const [grantScene, setGrantScene] = useState<string>(scenes[0]?.id ?? '');
 	const [grantSet, setGrantSet] = useState<string>(sceneSets[0]?.capabilitySet ?? 'viewer');
+	const selectedGrantPlayer = players.some((player) => player.id === grantPlayer)
+		? grantPlayer
+		: (players[0]?.id ?? '');
+	const selectedGrantScene = scenes.some((scene) => scene.id === grantScene)
+		? grantScene
+		: (scenes[0]?.id ?? '');
 
 	const grantRows = grants.map((g) => ({
 		grantId: g.id,
@@ -1014,7 +1758,13 @@ function SettingsPermissions() {
 									.dispatch({
 										type: 'permission.grant-capability-set',
 										actorId,
-										payload: { entityType: g.entityType, entityId: g.entityId, playerActorId: g.playerActorId, capabilitySet: g.capabilitySet, expiresAt: g.expiresAt ?? null },
+										payload: {
+											entityType: g.entityType,
+											entityId: g.entityId,
+											playerActorId: g.playerActorId,
+											capabilitySet: g.capabilitySet,
+											expiresAt: g.expiresAt ?? null,
+										},
 									})
 									.then((r2: CommandResult) => {
 										if (r2.status === 'accepted') Toaster.success(`Access re-granted to ${who}.`);
@@ -1027,23 +1777,54 @@ function SettingsPermissions() {
 			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not revoke that grant.')));
 	};
 	const grant = () => {
-		if (!grantPlayer || !grantScene) return;
+		if (!selectedGrantPlayer || !selectedGrantScene) return;
 		void runtime.dispatch({
 			type: 'permission.grant-capability-set',
 			actorId,
-			payload: { entityType: 'scene', entityId: grantScene, playerActorId: grantPlayer, capabilitySet: grantSet, expiresAt: null },
+			payload: {
+				entityType: 'scene',
+				entityId: selectedGrantScene,
+				playerActorId: selectedGrantPlayer,
+				capabilitySet: grantSet,
+				expiresAt: null,
+			},
 		});
 	};
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<Panel title="Roles">
-				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+				<div
+					style={{
+						display: 'grid',
+						gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+						gap: 12,
+					}}
+				>
 					{roleCards.map((r) => (
-						<div key={r.id} style={{ padding: 13, borderRadius: 10, border: `1px solid ${r.tone === 'accent' ? T.accBd : T.bd}`, background: T.surf }}>
-							<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-								<span style={{ font: `600 13.5px ${T.sans}`, color: r.tone === 'accent' ? T.acc : T.ink }}>{r.name}</span>
-								<span style={{ font: `11px ${T.mono}`, color: T.ter }}>×{roleCounts[r.id] ?? 0}</span>
+						<div
+							key={r.id}
+							style={{
+								padding: 13,
+								borderRadius: 10,
+								border: `1px solid ${r.tone === 'accent' ? T.accBd : T.bd}`,
+								background: T.surf,
+							}}
+						>
+							<div
+								style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+							>
+								<span
+									style={{
+										font: `600 13.5px ${T.sans}`,
+										color: r.tone === 'accent' ? T.acc : T.ink,
+									}}
+								>
+									{r.name}
+								</span>
+								<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
+									×{roleCounts[r.id] ?? 0}
+								</span>
 							</div>
 							<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginTop: 4 }}>{r.desc}</div>
 						</div>
@@ -1052,19 +1833,42 @@ function SettingsPermissions() {
 			</Panel>
 
 			<Panel title="Grant scene access">
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>Grant a player a named capability set on a real scene. This dispatches the durable <code style={{ font: `11.5px ${T.mono}` }}>permission.grant-capability-set</code> command; the Core caps it to the role ceiling and fails closed for non-DMs.</div>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					Choose what a player can do in a specific scene. Their role still sets the maximum access
+					they can receive, and only the DM can change these grants.
+				</div>
 				{players.length === 0 || scenes.length === 0 ? (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{players.length === 0 ? 'No player actors to grant to.' : 'No scenes to grant on yet.'}</div>
+					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						{players.length === 0
+							? 'Add a player before granting scene access.'
+							: 'Create a scene before granting access.'}
+					</div>
 				) : (
 					<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
 						<span style={{ flex: 1, minWidth: 140 }}>
-							<Select aria-label="Player" value={grantPlayer} onChange={(e: { target: { value: string } }) => setGrantPlayer(e.target.value)} options={players.map((pl) => ({ value: pl.id, label: pl.displayName }))} />
+							<Select
+								aria-label="Player"
+								value={selectedGrantPlayer}
+								onChange={(e: { target: { value: string } }) => setGrantPlayer(e.target.value)}
+								options={players.map((pl) => ({ value: pl.id, label: pl.displayName }))}
+							/>
 						</span>
 						<span style={{ flex: 1, minWidth: 140 }}>
-							<Select aria-label="Scene" value={grantScene} onChange={(e: { target: { value: string } }) => setGrantScene(e.target.value)} options={scenes.map((sc) => ({ value: sc.id, label: sc.name }))} />
+							<Select
+								aria-label="Scene"
+								value={selectedGrantScene}
+								onChange={(e: { target: { value: string } }) => setGrantScene(e.target.value)}
+								options={scenes.map((sc) => ({ value: sc.id, label: sc.name }))}
+							/>
 						</span>
-						<Seg value={grantSet} onChange={setGrantSet} options={sceneSets.map((s) => ({ value: s.capabilitySet, label: s.label }))} />
-						<Button variant="primary" size="sm" icon="check" onClick={grant}>Grant</Button>
+						<Seg
+							value={grantSet}
+							onChange={setGrantSet}
+							options={sceneSets.map((s) => ({ value: s.capabilitySet, label: s.label }))}
+						/>
+						<Button variant="primary" size="sm" icon="check" onClick={grant}>
+							Grant
+						</Button>
 					</div>
 				)}
 			</Panel>
@@ -1077,7 +1881,16 @@ function SettingsPermissions() {
 						{ key: 'entity', header: 'Entity' },
 						{ key: 'to', header: 'Granted to' },
 						{ key: 'expires', header: 'Expires', align: 'right', render: (v: any) => v || '—' },
-						{ key: 'grantId', header: '', align: 'right', render: (id: any) => <Button variant="ghost" size="sm" icon="trash" onClick={() => revoke(id)}>Revoke</Button> },
+						{
+							key: 'grantId',
+							header: '',
+							align: 'right',
+							render: (id: any) => (
+								<Button variant="ghost" size="sm" icon="trash" onClick={() => revoke(id)}>
+									Revoke
+								</Button>
+							),
+						},
 					]}
 					rows={grantRows}
 					rowKey={(r: any) => r.grantId}
@@ -1102,14 +1915,17 @@ function SettingsVault() {
 		void listFolderSources().then(setFolders);
 		setGdocs(listGdocConnections());
 	}, []);
-	const when = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'never');
+	const when = (iso: string | null) =>
+		iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'never';
 	const disconnectFolder = (f: FolderSourceRecord) => {
 		void disconnectFolderSource(f.id)
 			.then(listFolderSources)
 			.then((list) => {
 				setFolders(list);
 				setPendingDisconnect(null);
-				Toaster.success(`“${f.name}” disconnected — reconnect it any time from Knowledge → Sources.`);
+				Toaster.success(
+					`“${f.name}” disconnected — reconnect it any time from Knowledge → Sources.`,
+				);
 			})
 			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not disconnect that folder.')));
 	};
@@ -1145,11 +1961,27 @@ function SettingsVault() {
 	];
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-			<Panel title="Vault connections" action={<Button variant="secondary" size="sm" icon="import" onClick={() => navigate('/knowledge')}>Manage in Knowledge</Button>}>
+			<Panel
+				title="Vault connections"
+				action={
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="import"
+						onClick={() => navigate('/knowledge')}
+					>
+						Manage in Knowledge
+					</Button>
+				}
+			>
 				{/* Real WS-7 source registry (fsSource + googleDocs) — import/write-back actions live in the
 				    Knowledge → Sources panel, which dispatches content.commit-import / content.write-to-source. */}
 				{loading ? (
-					<div role="status" aria-label="Loading vault connections" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+					<div
+						role="status"
+						aria-label="Loading vault connections"
+						style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+					>
 						<Skeleton height={52} />
 						<Skeleton height={52} />
 					</div>
@@ -1159,19 +1991,55 @@ function SettingsVault() {
 						icon="vault"
 						title="No sources connected"
 						description={`Connect a local markdown folder${isGoogleDocsConfigured ? ' or a Google Doc' : ''} from Knowledge → Sources; pull and push live there too.`}
-						action={<Button variant="secondary" size="sm" icon="import" onClick={() => navigate('/knowledge')}>Open Knowledge → Sources</Button>}
+						action={
+							<Button
+								variant="secondary"
+								size="sm"
+								icon="import"
+								onClick={() => navigate('/knowledge')}
+							>
+								Open Knowledge → Sources
+							</Button>
+						}
 					/>
 				) : (
 					<div style={{ display: 'flex', flexDirection: 'column' }}>
 						{rows.map((s, i) => (
-							<div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
-								<span style={{ width: 36, height: 36, borderRadius: 8, background: T.alt, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: T.acc, flex: '0 0 auto' }}><Icon name="vault" size="md" /></span>
+							<div
+								key={s.key}
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: 12,
+									padding: '12px 0',
+									borderTop: i ? `1px solid ${T.bd}` : 'none',
+								}}
+							>
+								<span
+									style={{
+										width: 36,
+										height: 36,
+										borderRadius: 8,
+										background: T.alt,
+										display: 'inline-flex',
+										alignItems: 'center',
+										justifyContent: 'center',
+										color: T.acc,
+										flex: '0 0 auto',
+									}}
+								>
+									<Icon name="vault" size="md" />
+								</span>
 								<div style={{ flex: 1, minWidth: 0 }}>
 									<div style={{ font: `600 13px ${T.sans}` }}>{s.name}</div>
-									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{s.kind} · {s.meta}</div>
+									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+										{s.kind} · {s.meta}
+									</div>
 								</div>
 								<Badge status="success">connected</Badge>
-								<Button variant="ghost" size="sm" icon="trash" onClick={s.disconnect}>Disconnect</Button>
+								<Button variant="ghost" size="sm" icon="trash" onClick={s.disconnect}>
+									Disconnect
+								</Button>
 							</div>
 						))}
 					</div>
@@ -1185,54 +2053,105 @@ function SettingsVault() {
 					size="sm"
 					footer={
 						<>
-							<Button variant="secondary" size="sm" onClick={() => setPendingDisconnect(null)}>Cancel</Button>
-							<Button variant="danger" size="sm" icon="trash" onClick={() => pendingDisconnect && disconnectFolder(pendingDisconnect)}>Disconnect</Button>
+							<Button variant="secondary" size="sm" onClick={() => setPendingDisconnect(null)}>
+								Cancel
+							</Button>
+							<Button
+								variant="danger"
+								size="sm"
+								icon="trash"
+								onClick={() => pendingDisconnect && disconnectFolder(pendingDisconnect)}
+							>
+								Disconnect
+							</Button>
 						</>
 					}
 				>
 					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-						Disconnecting <strong style={{ color: T.ink }}>{pendingDisconnect?.name}</strong> drops this app’s permission to the folder. Nothing on disk or in your vault is deleted — but reconnecting means picking the folder again in Knowledge → Sources.
+						Disconnecting <strong style={{ color: T.ink }}>{pendingDisconnect?.name}</strong> drops
+						this app’s permission to the folder. Nothing on disk or in your vault is deleted — but
+						reconnecting means picking the folder again in Knowledge → Sources.
 					</div>
 				</Dialog>
 				{!isFsSourceSupported() && (
-					<div style={{ font: `11.5px/1.6 ${T.sans}`, color: T.ter }}>Local folder connections need the File System Access API (Chrome or Edge) — unavailable in this browser.</div>
+					<div style={{ font: `11.5px/1.6 ${T.sans}`, color: T.ter }}>
+						This browser cannot connect a local folder. Use the desktop app or a supported Chromium
+						browser instead.
+					</div>
 				)}
 				{!isGoogleDocsConfigured && (
-					<div style={{ font: `11.5px/1.6 ${T.sans}`, color: T.ter }}>Google Docs sync is off in this build — no <code style={{ font: `11px ${T.mono}` }}>VITE_GOOGLE_CLIENT_ID</code> is configured; setup is a one-time step, see <code style={{ font: `11px ${T.mono}` }}>{GOOGLE_DOCS_SETUP_RUNBOOK}</code>.</div>
+					<div style={{ font: `11.5px/1.6 ${T.sans}`, color: T.ter }}>
+						Google Docs connections aren’t available in this edition.
+					</div>
 				)}
 			</Panel>
 		</div>
 	);
 }
 
-/* ---- Sync (REAL — derived from the durable op-log + the Core's vault-conflict derivation) -------- */
+/* ---- Backup activity: local operation history + optional encrypted off-device copy. -------------- */
 function humanizeOp(opType: string): string {
-	return opType.replace(/[._-]/g, ' ');
+	const [scope = 'change', action = 'updated'] = opType.split('.', 2);
+	const [verb = 'updated', ...detail] = action.split(/[-_]/g);
+	const pastTense: Record<string, string> = {
+		add: 'added',
+		advance: 'advanced',
+		assign: 'assigned',
+		create: 'created',
+		delete: 'deleted',
+		deliver: 'delivered',
+		end: 'ended',
+		import: 'imported',
+		move: 'moved',
+		remove: 'removed',
+		reorder: 'reordered',
+		revoke: 'revoked',
+		set: 'changed',
+		start: 'started',
+		stop: 'stopped',
+		update: 'updated',
+	};
+	const subject = (detail.length > 0 ? detail : scope.split(/[-_]/g)).join(' ');
+	const readableSubject = subject.charAt(0).toUpperCase() + subject.slice(1);
+	return `${readableSubject} ${pastTense[verb] ?? verb}`;
 }
-/** Real E2EE cloud sync/backup controls (Stage 3). The core gate decides whether sync MAY be enabled;
- *  this panel reflects that and drives the engine (enable / sync now / restore). Local-first fallback
- *  when the sync backend isn't configured in this build. */
+
+function humanizeEntity(entityType: string): string {
+	const readable = entityType.replace(/[._-]+/g, ' ').trim();
+	return readable ? readable.charAt(0).toUpperCase() + readable.slice(1) : 'Campaign item';
+}
+/** E2EE cloud-backup controls. This is an off-device copy for the current key-holding device, not a
+ *  bidirectional multi-device sync surface; restore is explicit and destructive. */
 function CloudSyncPanel({ online, localChanges }: { online: boolean; localChanges: number }) {
 	const cloud = useCloudSync();
+	const ent = useEntitlements();
 	const [busy, setBusy] = useState(false);
+	const [restoreOpen, setRestoreOpen] = useState(false);
 
 	if (!cloud.available) {
 		return (
-			<Panel title="Cloud sync">
+			<Panel title="Encrypted cloud backup">
 				<div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
 					<StatusDot status={online ? 'live' : 'error'} pulse={online} />
 					<div style={{ flex: 1 }}>
-						<div style={{ font: `600 13.5px ${T.sans}` }}>{online ? 'Online' : 'Offline'} · local-only</div>
-						<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{localChanges} change(s) recorded on this device · cloud sync isn’t configured in this build (work stays on this device).</div>
+						<div style={{ font: `600 13.5px ${T.sans}` }}>
+							{online ? 'Online' : 'Offline'} · local-only
+						</div>
+						<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+							{localChanges} {localChanges === 1 ? 'change is' : 'changes are'} recorded locally ·
+							cloud backup is unavailable in this build.
+						</div>
 					</div>
-					<Button variant="secondary" size="sm" icon="retry" disabled>Sync now</Button>
+					<Button variant="secondary" size="sm" icon="retry" disabled>
+						Back up now
+					</Button>
 				</div>
 			</Panel>
 		);
 	}
 
 	const gate = cloud.gate;
-	const canEnable = gate?.canEnableOnThisDevice ?? false;
+	const canEnable = cloud.includedInPlan && (gate?.canEnableOnThisDevice ?? false);
 	const es = cloud.engineStatus;
 	const lastSynced = es?.lastSyncedAt ? new Date(es.lastSyncedAt).toLocaleTimeString() : 'never';
 
@@ -1243,43 +2162,138 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 			if (r === 'no-snapshot') Toaster.info('No cloud backup found for this account yet.');
 			else Toaster.success(okMsg);
 		} catch (e) {
-			Toaster.error(e instanceof Error ? e.message : 'Cloud sync failed.');
+			Toaster.error(e instanceof Error ? e.message : 'Cloud backup failed.');
 		} finally {
 			setBusy(false);
 		}
 	};
 
 	return (
-		<Panel title="Cloud sync" action={<Badge status={cloud.enabled ? 'success' : 'neutral'}>{cloud.enabled ? 'On' : 'Off'}</Badge>}>
+		<Panel
+			title="Encrypted cloud backup"
+			action={
+				<Badge status={cloud.enabled ? 'success' : 'neutral'}>{cloud.enabled ? 'On' : 'Off'}</Badge>
+			}
+		>
 			<SetRow
 				label="End-to-end encrypted cloud backup"
 				help={
-					canEnable
-						? 'Encrypted on this device before upload — the server only ever stores ciphertext. Off by default; recovery is unsupported by design (lose every device + its key = lose the cloud copy; local data is unaffected).'
-						: gate?.custodyAvailable === false
-							? 'Unavailable on this device: durable cloud sync needs an OS credential store to hold your key (available in the desktop app).'
-							: 'The release-approved security model prerequisites are not met on this device.'
+					!cloud.includedInPlan
+						? ent.canChangePlan
+							? 'Included in the Lantern and Beacon preview plans. You can change preview plans at no charge.'
+							: 'Not included in your current plan. Self-service plan changes are unavailable in this release.'
+						: canEnable
+							? 'Campaign state is encrypted on this device before upload, so the online service stores only unreadable data. Device-local media bytes are not uploaded. Off by default. Keep a local backup: recovery-key export is not available yet, and losing every authorized device also loses access to the cloud copy.'
+							: gate?.custodyAvailable === false
+								? 'Unavailable on this device: encrypted cloud backup needs an OS credential store to protect your key (available in the desktop app).'
+								: 'Secure cloud backup is not available on this device.'
 				}
 				control={
 					<Switch
 						checked={cloud.enabled}
 						disabled={!canEnable || busy}
-						label=""
-						onChange={() => void run(() => (cloud.enabled ? cloud.disable() : cloud.enable()), cloud.enabled ? 'Cloud sync turned off.' : 'Cloud sync enabled.')}
+						aria-label="End-to-end encrypted cloud backup"
+						onChange={() =>
+							void run(
+								() => (cloud.enabled ? cloud.disable() : cloud.enable()),
+								cloud.enabled ? 'Cloud backup turned off.' : 'Cloud backup enabled.',
+							)
+						}
 					/>
 				}
 			/>
 			{cloud.enabled && canEnable ? (
-				<div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
-					<StatusDot status={es?.lastError ? 'error' : es?.busy || busy ? 'pending' : 'live'} pulse={es?.busy} />
+				<div
+					role="status"
+					aria-live="polite"
+					aria-atomic="true"
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: 12,
+						marginTop: 12,
+						flexWrap: 'wrap',
+					}}
+				>
+					<StatusDot
+						status={es?.lastError ? 'error' : es?.busy || busy ? 'pending' : 'live'}
+						pulse={es?.busy}
+					/>
 					<div style={{ flex: 1, minWidth: 180 }}>
-						<div style={{ font: `600 13px ${T.sans}` }}>{es?.busy ? 'Syncing…' : es?.lastError ? 'Sync error' : 'Up to date'}</div>
+						<div style={{ font: `600 13px ${T.sans}` }}>
+							{es?.busy || busy
+								? 'Backing up…'
+								: es?.lastError
+									? 'Backup error'
+									: es?.lastSyncedAt
+										? 'Backup up to date'
+										: 'Backup waiting to start'}
+						</div>
 						<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-							{es?.lastError ? es.lastError : `Last backed up: ${lastSynced} · ${localChanges} local change(s)`}
+							{es?.lastError ? es.lastError : `Last backed up: ${lastSynced}`}
 						</div>
 					</div>
-					<Button variant="secondary" size="sm" icon="retry" disabled={busy || es?.busy} onClick={() => void run(cloud.syncNow, 'Backed up to the cloud.')}>Sync now</Button>
-					<Button variant="ghost" size="sm" icon="download" disabled={busy || es?.busy} onClick={() => void run(cloud.restore, 'Restored from the cloud backup.')}>Restore</Button>
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="retry"
+						disabled={busy || es?.busy}
+						onClick={() => void run(cloud.syncNow, 'Backed up to the cloud.')}
+					>
+						Back up now
+					</Button>
+					<Button
+						variant="ghost"
+						size="sm"
+						icon="download"
+						disabled={busy || es?.busy}
+						onClick={() => setRestoreOpen(true)}
+					>
+						Restore this device
+					</Button>
+					<Dialog
+						open={restoreOpen}
+						onClose={() => setRestoreOpen(false)}
+						title="Replace this device’s vault?"
+						description="Restore the latest encrypted cloud copy using this device’s existing key."
+						tone="danger"
+						size="sm"
+						dismissible={!busy}
+						initialFocus="#cancel-cloud-restore"
+						role="alertdialog"
+						aria-busy={busy}
+						footer={
+							<>
+								<Button
+									id="cancel-cloud-restore"
+									variant="secondary"
+									size="sm"
+									disabled={busy}
+									onClick={() => setRestoreOpen(false)}
+								>
+									Cancel
+								</Button>
+								<Button
+									variant="danger"
+									size="sm"
+									disabled={busy}
+									onClick={() => {
+										setRestoreOpen(false);
+										void run(cloud.restore, 'Restored from the cloud backup.');
+									}}
+								>
+									Replace local vault
+								</Button>
+							</>
+						}
+					>
+						<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+							This overwrites the campaign data currently stored on this device. Export a local
+							backup first if you may need to return to it. The cloud copy can only be opened with
+							the key already held by this device. It does not contain media bytes; only matching
+							media already stored on this device remains available.
+						</div>
+					</Dialog>
 				</div>
 			) : null}
 		</Panel>
@@ -1289,7 +2303,9 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 function SettingsSync() {
 	const runtime = useRuntime();
 	const ops = runtime.state.sync.operations;
-	const [online, setOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
+	const [online, setOnline] = useState<boolean>(
+		typeof navigator !== 'undefined' ? navigator.onLine : true,
+	);
 	useEffect(() => {
 		const on = () => setOnline(true);
 		const off = () => setOnline(false);
@@ -1300,33 +2316,7 @@ function SettingsSync() {
 			window.removeEventListener('offline', off);
 		};
 	}, []);
-	// REAL conflict read: the Core derives vault-conflict records straight from the op-log substrate. A
-	// transport-less local-first build seeds no conflict ops, so this is honestly empty here.
-	const conflicts = unresolvedConflicts(deriveVaultConflicts(ops, ops));
 	const recent = [...ops].slice(-8).reverse();
-	// SYNC-013 — resolution IS a validated core command: it references the record's actual source
-	// revisions (a stale pair is rejected), records the audit, and yields a non-conflicted revision.
-	const resolveConflict = (cf: VaultConflictRecord, side: 'local' | 'remote') => {
-		void runtime
-			.dispatch({
-				type: 'conflict.resolve',
-				actorId: runtime.defaultActorId,
-				payload: {
-					entityType: cf.entityType,
-					entityId: cf.entityId,
-					conflictId: cf.id,
-					selectedValue: side === 'local' ? cf.local.value : cf.remote.value,
-					sourceLocalRevision: cf.local.revision,
-					sourceRemoteRevision: cf.remote.revision,
-					notes: side === 'local' ? 'Kept this device’s value.' : 'Took the other revision’s value.',
-				},
-			})
-			.then((res: CommandResult) => {
-				if (res.status === 'accepted') Toaster.success('Conflict resolved — the entity is consistent again.');
-				else Toaster.error(res.rejection.message);
-			})
-			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not resolve the conflict.')));
-	};
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<CloudSyncPanel online={online} localChanges={ops.length} />
@@ -1336,28 +2326,28 @@ function SettingsSync() {
 					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No changes recorded yet.</div>
 				) : (
 					recent.map((q) => (
-						<div key={q.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', font: `12.5px ${T.sans}`, color: T.sub }}>
-							<Icon name="connection" size={15} color={T.ter} /><Badge status="info">{humanizeOp(q.opType)}</Badge><span style={{ flex: 1, font: `11.5px ${T.mono}`, color: T.ter }}>{q.entityType} · {q.entityId}</span>
-						</div>
-					))
-				)}
-			</Panel>
-			<Panel title="Conflicts" action={<Badge status={conflicts.length ? 'warning' : 'success'}>{conflicts.length}</Badge>}>
-				{conflicts.length === 0 ? (
-					<div style={{ display: 'flex', alignItems: 'center', gap: 8, font: `12.5px ${T.sans}`, color: T.ter }}>
-						<Icon name="success" size={16} color={T.ok} />Every entity is consistent. Conflicts appear here only when a transport delivers a diverging revision.
-					</div>
-				) : (
-					conflicts.map((cf) => (
-						<div key={cf.id} style={{ padding: 12, border: `1px solid ${T.bd}`, borderRadius: 10, marginBottom: 10 }}>
-							<div style={{ font: `600 13px ${T.sans}`, marginBottom: 4 }}>{cf.entityType} · {cf.entityId}{cf.path ? ` · ${cf.path}` : ''}</div>
-							<div style={{ font: `12px ${T.sans}`, color: T.ter }}>Reason: {cf.reason} · mine rev {cf.local.revision} vs theirs rev {cf.remote.revision} · detected {new Date(cf.detectedAt).toLocaleString()}</div>
-							{/* REAL: dispatches `conflict.resolve` with the record's values + source revisions (DM-only,
-							    fail-closed in core — a rejection surfaces as a toast, never a silent no-op). */}
-							<div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-								<Button variant="secondary" size="sm" icon="check" onClick={() => resolveConflict(cf, 'local')}>Keep mine</Button>
-								<Button variant="secondary" size="sm" onClick={() => resolveConflict(cf, 'remote')}>Take theirs</Button>
-							</div>
+						<div
+							key={q.id}
+							title={`${humanizeEntity(q.entityType)} change`}
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 10,
+								padding: '7px 0',
+								font: `12.5px ${T.sans}`,
+								color: T.sub,
+								flexWrap: 'wrap',
+							}}
+						>
+							<Icon name="connection" size={15} color={T.ter} />
+							<Badge status="info">{humanizeOp(q.opType)}</Badge>
+							<span style={{ flex: '1 1 150px', font: `11.5px ${T.sans}`, color: T.ter }}>
+								Saved{' '}
+								{new Date(q.issuedAt).toLocaleString(undefined, {
+									dateStyle: 'medium',
+									timeStyle: 'short',
+								})}
+							</span>
 						</div>
 					))
 				)}
@@ -1370,6 +2360,7 @@ function SettingsSync() {
  * byte in one JSON file. Restore is authoritative and destructive — it replaces the current vault
  * (validated fail-closed first), then hard-reloads so every runtime rebuilds from the restored data. */
 function LocalBackupPanel() {
+	const runtime = useRuntime();
 	const [busy, setBusy] = useState(false);
 	const [pendingRestore, setPendingRestore] = useState<VaultBackup | null>(null);
 	const backup = () => {
@@ -1377,15 +2368,17 @@ function LocalBackupPanel() {
 		exportFullVault()
 			.then((data) => {
 				downloadJsonFile(`dndtools-vault-backup-${fileDateStamp()}.json`, data);
-				Toaster.success(`Backup downloaded — ${data.assets.length} media ${data.assets.length === 1 ? 'asset' : 'assets'} included.`);
+				Toaster.success(
+					`Backup downloaded — ${data.assets.length} media ${data.assets.length === 1 ? 'asset' : 'assets'} included.`,
+				);
 			})
 			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not build the backup.')))
 			.finally(() => setBusy(false));
 	};
 	const pickBackup = async () => {
-		const file = await pickTextFile('.json');
-		if (!file) return;
 		try {
+			const file = await pickTextFile('.json', MAX_VAULT_BACKUP_FILE_BYTES);
+			if (!file) return;
 			// validateVaultBackup is fail-closed: anything structurally off is rejected with a reason
 			// BEFORE the confirm dialog ever offers to overwrite the current vault.
 			setPendingRestore(validateVaultBackup(JSON.parse(file.text)));
@@ -1396,22 +2389,18 @@ function LocalBackupPanel() {
 	const restore = () => {
 		if (!pendingRestore) return;
 		setBusy(true);
-		importFullVault(pendingRestore)
-			.then(({ restoredAssets, skippedAssets }) => {
-				if (skippedAssets > 0) {
-					// Surface the partial-media outcome in the app's own voice, then hold the reload just
-					// long enough for the toast to be read (a reload wipes it; `busy` stays true meanwhile).
-					Toaster.warning(
-						`Vault restored — ${restoredAssets} media ${restoredAssets === 1 ? 'asset' : 'assets'} kept, ${skippedAssets} skipped as oversized or corrupt. Reloading…`,
-						{ duration: 4000 },
-					);
-					window.setTimeout(() => window.location.reload(), 4000);
-				} else {
-					window.location.reload();
-				}
+		runtime
+			.runExclusiveMaintenance(async () => {
+				await importFullVault(pendingRestore);
+				// Keep later commands behind the maintenance lock until the runtime reflects the restored
+				// vault. Otherwise a queued command could persist stale in-memory state before reload.
+				await runtime.reloadFromStorage();
 			})
+			.then(() => window.location.reload())
 			.catch((e: unknown) => {
-				Toaster.error(errMsg(e, 'Restore failed — your current vault is unchanged only if the error happened during validation; reload to see its state.'));
+				Toaster.error(
+					errMsg(e, 'Restore did not finish. Reload the app before making more changes.'),
+				);
 				setBusy(false);
 			});
 	};
@@ -1421,32 +2410,63 @@ function LocalBackupPanel() {
 				<div style={{ flex: '1 1 260px' }}>
 					<div style={{ font: `600 13px ${T.sans}` }}>Back up or restore this device’s vault</div>
 					<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
-						One JSON file with everything: notes, scenes, characters, maps, session state and stored
-						media bytes. Restoring replaces the current vault on this device.
+						One JSON file with campaign data and stored media bytes. It does not include app
+						preferences, connected-folder permissions, account credentials, or AI provider keys.
+						Restoring replaces the current vault on this device.
 					</div>
 				</div>
-				<Button variant="secondary" size="sm" icon="download" disabled={busy} onClick={backup}>Download backup</Button>
-				<Button variant="secondary" size="sm" icon="import" disabled={busy} onClick={() => void pickBackup()}>Restore from backup…</Button>
+				<Button variant="secondary" size="sm" icon="download" disabled={busy} onClick={backup}>
+					Download backup
+				</Button>
+				<Button
+					variant="secondary"
+					size="sm"
+					icon="import"
+					disabled={busy}
+					onClick={() => void pickBackup()}
+				>
+					Restore from backup…
+				</Button>
 			</div>
 			<Dialog
 				open={pendingRestore !== null}
 				onClose={() => setPendingRestore(null)}
 				title="Replace this vault?"
-				description="Restoring is authoritative — everything currently in this vault is replaced by the backup."
+				description="The backup replaces all campaign data and stored media in this vault."
 				icon="warning"
 				size="md"
+				dismissible={!busy}
+				initialFocus="#cancel-local-restore"
+				role="alertdialog"
+				aria-busy={busy}
 				footer={
 					<>
-						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setPendingRestore(null)}>Cancel</Button>
-						<Button variant="danger" size="sm" icon="import" disabled={busy} onClick={restore}>{busy ? 'Restoring…' : 'Replace vault & reload'}</Button>
+						<Button
+							id="cancel-local-restore"
+							variant="secondary"
+							size="sm"
+							disabled={busy}
+							onClick={() => setPendingRestore(null)}
+						>
+							Cancel
+						</Button>
+						<Button variant="danger" size="sm" icon="import" disabled={busy} onClick={restore}>
+							{busy ? 'Restoring…' : 'Replace vault & reload'}
+						</Button>
 					</>
 				}
 			>
 				{pendingRestore && (
 					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-						Backup from <strong style={{ color: T.ink }}>{new Date(pendingRestore.createdAt).toLocaleString()}</strong> with{' '}
-						{pendingRestore.assets.length} media {pendingRestore.assets.length === 1 ? 'asset' : 'assets'}. Consider downloading a
-						backup of the CURRENT vault first — this cannot be undone.
+						Backup from{' '}
+						<strong style={{ color: T.ink }}>
+							{new Date(pendingRestore.createdAt).toLocaleString()}
+						</strong>{' '}
+						with {pendingRestore.assets.length} media{' '}
+						{pendingRestore.assets.length === 1 ? 'asset' : 'assets'}. The file is checked
+						completely before campaign data and media are replaced together; a failed restore leaves
+						this vault unchanged. Download a backup of the current vault first if you may need to
+						return to it.
 					</div>
 				)}
 			</Dialog>
@@ -1476,37 +2496,121 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 	const [settings, setSettings] = useState(() => getAiProviderSettings());
 	const [keyDraft, setKeyDraft] = useState('');
 	const [hasKey, setHasKey] = useState(() => getAiProviderKey() !== null);
+	const [hasLegacyKey, setHasLegacyKey] = useState(() => hasLegacyAiProviderKey());
+	const [keyBusy, setKeyBusy] = useState(false);
+	const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
+	const [forgetConfirmOpen, setForgetConfirmOpen] = useState(false);
+	const [legacyConfirmOpen, setLegacyConfirmOpen] = useState(false);
 	const configured = isAiProviderConfigured();
+	const destination = resolveAiProviderDestination(settings);
+	const destinationProviderLabel =
+		destination?.provider === 'anthropic' ? 'Anthropic' : 'the OpenAI-compatible provider';
 
 	const patch = (p: Partial<typeof settings>) => {
+		const next = { ...settings, ...p };
+		if (
+			hasKey &&
+			resolveAiProviderDestination(next)?.scope !== resolveAiProviderDestination(settings)?.scope
+		) {
+			Toaster.warning('Forget the current key before changing its provider or destination.');
+			return;
+		}
 		setSettings(saveAiProviderSettings(p));
 		onConfiguredChange();
 	};
-	const saveKey = () => {
-		if (keyDraft.trim() === '') return;
-		setAiProviderKey(keyDraft);
+	const saveKey = async () => {
+		if (keyDraft.trim() === '' || !destination) return;
+		setKeyBusy(true);
+		const result = await setAiProviderKey(keyDraft);
+		setKeyBusy(false);
+		if (!result.saved) {
+			Toaster.error(
+				`That API key is too long. The limit is ${MAX_API_KEY_CHARS.toLocaleString()} characters.`,
+			);
+			return;
+		}
+		setSaveConfirmOpen(false);
 		setKeyDraft('');
 		setHasKey(true);
-		Toaster.success('API key stored on this device.');
+		if (result.storage === 'os-encrypted') {
+			Toaster.success('API key saved in OS-encrypted storage.');
+		} else if (result.durableError) {
+			Toaster.warning('Saved for this session, but OS-encrypted storage is unavailable.');
+		} else {
+			Toaster.success('API key saved for this browser session.');
+		}
 		onConfiguredChange();
 	};
-	const forgetKey = () => {
-		clearAiProviderKey();
+	const forgetKey = async () => {
+		setKeyBusy(true);
+		const result = await clearAiProviderKey();
+		setKeyBusy(false);
+		if (!result.cleared) {
+			Toaster.error(
+				result.durableError
+					? 'Could not remove the key from OS-encrypted storage. It remains available in this session.'
+					: 'The key changed before it could be forgotten. Try again.',
+			);
+			return;
+		}
+		setForgetConfirmOpen(false);
 		setHasKey(false);
 		Toaster.success('API key forgotten.');
 		onConfiguredChange();
+	};
+	const forgetLegacyKey = async () => {
+		setKeyBusy(true);
+		const result = await clearLegacyAiProviderKey();
+		setKeyBusy(false);
+		if (!result.cleared) {
+			Toaster.error('Could not remove the older key from OS-encrypted storage. Try again.');
+			return;
+		}
+		setLegacyConfirmOpen(false);
+		setHasLegacyKey(false);
+		Toaster.success('Older unassigned key removed.');
 	};
 
 	return (
 		<Panel
 			title="AI provider"
-			action={<Badge status={configured ? 'success' : 'neutral'}>{configured ? 'Configured' : 'Not configured'}</Badge>}
+			action={
+				<Badge status={configured ? 'success' : 'neutral'}>
+					{configured ? 'Configured' : 'Not configured'}
+				</Badge>
+			}
 		>
 			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-				Bring your own key — this build ships no key and proxies nothing through a server. The key stays on this
-				device (memory + this browser session; OS-encrypted storage on desktop) and is never written to the
-				vault, the op-log, or cloud sync. Until a key is saved, every AI surface stays off.
+				Bring your own key — DND Tools does not include one or send it through our servers. The key
+				stays on this device (memory + this browser session; OS-encrypted storage on desktop) and is
+				never written to the campaign, its history, or cloud backups. Until a key is saved, the
+				assistant stays off.
 			</div>
+			{hasLegacyKey && (
+				<div
+					style={{
+						marginTop: 12,
+						padding: '10px 12px',
+						borderRadius: 8,
+						border: `1px solid ${T.warn}`,
+						background: `color-mix(in srgb, ${T.warn} 10%, transparent)`,
+						font: `12px/1.55 ${T.sans}`,
+						color: T.sub,
+					}}
+				>
+					An older key without a verified destination was found. For safety, it is not active and
+					will never be sent automatically. Check the destination below and re-enter the key if you
+					still want to use it.{' '}
+					<Button
+						variant="ghost"
+						size="sm"
+						disabled={keyBusy}
+						onClick={() => setLegacyConfirmOpen(true)}
+					>
+						Remove older copy
+					</Button>
+				</div>
+			)}
 			<SetRow
 				label="Provider"
 				help="Anthropic's API directly, or any OpenAI-compatible endpoint (local runner, proxy, other vendor)."
@@ -1516,22 +2620,34 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 						ariaLabel="AI provider"
 						onChange={(v) => {
 							const provider = v as AiProviderKind;
-							patch({ provider, model: provider === 'anthropic' ? DEFAULT_ANTHROPIC_MODEL : settings.model });
+							patch({
+								provider,
+								model: provider === 'anthropic' ? DEFAULT_ANTHROPIC_MODEL : settings.model,
+							});
 						}}
 						options={[
-							{ value: 'anthropic', label: 'Anthropic' },
-							{ value: 'openai-compatible', label: 'OpenAI-compatible' },
+							{ value: 'anthropic', label: 'Anthropic', disabled: hasKey },
+							{
+								value: 'openai-compatible',
+								label: 'OpenAI-compatible',
+								disabled: hasKey,
+							},
 						]}
 					/>
 				}
 			/>
 			<SetRow
 				label="Model"
-				help={settings.provider === 'anthropic' ? `Defaults to ${DEFAULT_ANTHROPIC_MODEL}.` : 'The model id the endpoint expects.'}
+				help={
+					settings.provider === 'anthropic'
+						? `Defaults to ${DEFAULT_ANTHROPIC_MODEL}.`
+						: 'The model id the endpoint expects.'
+				}
 				control={
 					<span style={{ flex: '0 0 240px' }}>
 						<Input
 							value={settings.model}
+							maxLength={MAX_MODEL_CHARS}
 							aria-label="Model id"
 							onChange={(e: { target: { value: string } }) => patch({ model: e.target.value })}
 						/>
@@ -1541,11 +2657,17 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 			{settings.provider === 'openai-compatible' && (
 				<SetRow
 					label="Base URL"
-					help="The API base, e.g. https://api.example.com/v1 — /chat/completions is appended."
+					help={
+						hasKey
+							? 'Forget the current key before changing this destination.'
+							: 'The API base, e.g. https://api.example.com/v1 — /chat/completions is appended.'
+					}
 					control={
 						<span style={{ flex: '0 0 300px' }}>
 							<Input
 								value={settings.baseUrl}
+								maxLength={MAX_BASE_URL_CHARS}
+								disabled={hasKey}
 								aria-label="API base URL"
 								placeholder="https://api.example.com/v1"
 								onChange={(e: { target: { value: string } }) => patch({ baseUrl: e.target.value })}
@@ -1555,30 +2677,161 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 				/>
 			)}
 			<SetRow
+				label="Credential destination"
+				help="Your key is bound to this provider and receiving origin. It cannot be reused after the provider or host changes."
+				control={
+					<span
+						style={{
+							display: 'block',
+							maxWidth: 360,
+							wordBreak: 'break-word',
+							font: `12px/1.5 ${T.mono}`,
+							color: destination ? T.ink : T.err,
+						}}
+					>
+						{destination ? destination.baseUrl : 'Enter a valid API base URL'}
+					</span>
+				}
+			/>
+			<SetRow
 				label="API key"
-				help={hasKey ? 'A key is stored on this device. Paste a new one to replace it.' : 'Paste your provider API key to turn the assistant on.'}
+				help={
+					hasKey
+						? 'A key is stored on this device. Paste a new one to replace it.'
+						: 'Paste your provider API key to turn the assistant on.'
+				}
 				control={
 					<span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
 						<span style={{ flex: '1 1 220px', minWidth: 180 }}>
 							<Input
 								type="password"
+								maxLength={MAX_API_KEY_CHARS}
 								value={keyDraft}
 								aria-label="Provider API key"
 								placeholder={hasKey ? '••••••••  (stored)' : 'sk-…'}
 								onChange={(e: { target: { value: string } }) => setKeyDraft(e.target.value)}
 							/>
 						</span>
-						<Button variant="primary" size="sm" icon="check" disabled={keyDraft.trim() === ''} onClick={saveKey}>
-							Save key
+						<Button
+							variant="primary"
+							size="sm"
+							icon="check"
+							disabled={keyBusy || keyDraft.trim() === '' || !destination}
+							onClick={() => setSaveConfirmOpen(true)}
+						>
+							{keyBusy ? 'Saving…' : 'Save key'}
 						</Button>
 						{hasKey && (
-							<Button variant="ghost" size="sm" icon="trash" onClick={forgetKey}>
+							<Button
+								variant="ghost"
+								size="sm"
+								icon="trash"
+								disabled={keyBusy}
+								onClick={() => setForgetConfirmOpen(true)}
+							>
 								Forget key
 							</Button>
 						)}
 					</span>
 				}
 			/>
+			<Dialog
+				open={saveConfirmOpen}
+				onClose={() => !keyBusy && setSaveConfirmOpen(false)}
+				title="Confirm credential destination"
+				description="Check where this provider key will be sent before saving it."
+				size="sm"
+				footer={
+					<>
+						<Button
+							variant="secondary"
+							size="sm"
+							disabled={keyBusy}
+							onClick={() => setSaveConfirmOpen(false)}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="primary"
+							size="sm"
+							disabled={keyBusy || !destination}
+							onClick={() => void saveKey()}
+						>
+							{keyBusy ? 'Saving…' : 'Confirm and save'}
+						</Button>
+					</>
+				}
+			>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					This key will be available only to{' '}
+					<strong style={{ color: T.ink }}>{destinationProviderLabel}</strong> at{' '}
+					<strong style={{ color: T.ink, wordBreak: 'break-word' }}>{destination?.origin}</strong>.
+					Requests use the API base{' '}
+					<span style={{ fontFamily: T.mono }}>{destination?.baseUrl}</span>.
+				</div>
+			</Dialog>
+			<Dialog
+				open={forgetConfirmOpen}
+				onClose={() => !keyBusy && setForgetConfirmOpen(false)}
+				title="Forget this provider key?"
+				description="The assistant will stay off until you confirm a destination and enter a key again."
+				tone="danger"
+				size="sm"
+				footer={
+					<>
+						<Button
+							variant="secondary"
+							size="sm"
+							disabled={keyBusy}
+							onClick={() => setForgetConfirmOpen(false)}
+						>
+							Cancel
+						</Button>
+						<Button variant="danger" size="sm" disabled={keyBusy} onClick={() => void forgetKey()}>
+							{keyBusy ? 'Forgetting…' : 'Forget key'}
+						</Button>
+					</>
+				}
+			>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					This removes the key scoped to{' '}
+					<strong style={{ color: T.ink }}>{destination?.origin}</strong> from this session and,
+					when available, OS-encrypted storage.
+				</div>
+			</Dialog>
+			<Dialog
+				open={legacyConfirmOpen}
+				onClose={() => !keyBusy && setLegacyConfirmOpen(false)}
+				title="Remove the older unassigned key?"
+				description="It is already inactive and will not be migrated automatically."
+				tone="danger"
+				size="sm"
+				footer={
+					<>
+						<Button
+							variant="secondary"
+							size="sm"
+							disabled={keyBusy}
+							onClick={() => setLegacyConfirmOpen(false)}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="danger"
+							size="sm"
+							disabled={keyBusy}
+							onClick={() => void forgetLegacyKey()}
+						>
+							{keyBusy ? 'Removing…' : 'Remove older copy'}
+						</Button>
+					</>
+				}
+			>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					This permanently removes the unassigned key. Re-enter it above only after confirming the
+					receiving provider and address.
+				</div>
+			</Dialog>
 		</Panel>
 	);
 }
@@ -1617,9 +2870,9 @@ function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 	const blocker = !configured
 		? 'Add a provider API key above to turn the assistant on.'
 		: !mcp.enabled
-			? 'Enable MCP above — the master switch gates every agent capability.'
+			? 'Enable agent access above to let the assistant use campaign tools.'
 			: bindings.length === 0
-				? 'Register an agent connection below — the assistant speaks as a bound actor.'
+				? 'Register an agent connection below and choose the campaign identity it should use.'
 				: !canWrite
 					? 'The assistant is DM-only and unavailable while previewing.'
 					: null;
@@ -1633,14 +2886,18 @@ function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 		const config = resolveAiProviderConfig();
 		void runAssistantExchange({
 			send: (req) => sendAiChat(config, req),
-			invoke: (toolId, toolInput) => runtime.invokeAgentTool({ agentId: selectedAgent, toolId, input: toolInput }),
+			invoke: (toolId, toolInput) =>
+				runtime.invokeAgentTool({ agentId: selectedAgent, toolId, input: toolInput }),
 			tools: AI_TOOL_SPECS,
 			turns,
 			userText: text,
 		})
 			.then((result) => {
 				setTurns(result.turns);
-				setFeed((prev) => [...prev, ...result.events.map((event) => ({ kind: 'event' as const, ...event }))]);
+				setFeed((prev) => [
+					...prev,
+					...result.events.map((event) => ({ kind: 'event' as const, ...event })),
+				]);
 			})
 			.catch((e: unknown) => Toaster.error(errMsg(e, 'The assistant request failed.')))
 			.finally(() => setAsking(false));
@@ -1649,40 +2906,101 @@ function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 	return (
 		<Panel title="Assistant" action={asking ? <Badge status="info">Thinking…</Badge> : undefined}>
 			<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter }}>
-				Ask about the campaign. The assistant reads through the Core's actor-filtered tools as the agent you
-				pick, and anything it tries to write lands as a staged proposal in the review panel below — nothing
-				commits without you.
+				Ask about the campaign. The assistant sees only what the identity you choose is allowed to
+				see. Any change it suggests lands in the review panel below and waits for your approval.
 			</div>
 			{blocker !== null ? (
-				<div style={{ padding: '9px 12px', borderRadius: 9, border: `1px solid ${T.bd}`, background: T.alt, font: `12px/1.6 ${T.sans}`, color: T.ter }}>
+				<div
+					style={{
+						padding: '9px 12px',
+						borderRadius: 9,
+						border: `1px solid ${T.bd}`,
+						background: T.alt,
+						font: `12px/1.6 ${T.sans}`,
+						color: T.ter,
+					}}
+				>
 					{blocker}
 				</div>
 			) : (
 				<>
 					{feed.length > 0 && (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto', padding: '4px 0' }}>
+						<div
+							style={{
+								display: 'flex',
+								flexDirection: 'column',
+								gap: 8,
+								maxHeight: 320,
+								overflowY: 'auto',
+								padding: '4px 0',
+							}}
+						>
 							{feed.map((item, i) => {
 								if (item.kind === 'user') {
 									return (
-										<div key={i} style={{ alignSelf: 'flex-end', maxWidth: '85%', padding: '7px 11px', borderRadius: 10, background: T.accSub, border: `1px solid ${T.accBd}`, font: `12.5px/1.55 ${T.sans}`, color: T.ink, whiteSpace: 'pre-wrap' }}>
+										<div
+											key={i}
+											style={{
+												alignSelf: 'flex-end',
+												maxWidth: '85%',
+												padding: '7px 11px',
+												borderRadius: 10,
+												background: T.accSub,
+												border: `1px solid ${T.accBd}`,
+												font: `12.5px/1.55 ${T.sans}`,
+												color: T.ink,
+												whiteSpace: 'pre-wrap',
+											}}
+										>
 											{item.text}
 										</div>
 									);
 								}
 								if (item.type === 'text') {
 									return (
-										<div key={i} style={{ alignSelf: 'flex-start', maxWidth: '85%', padding: '7px 11px', borderRadius: 10, background: T.alt, border: `1px solid ${T.bd}`, font: `12.5px/1.55 ${T.sans}`, color: T.ink, whiteSpace: 'pre-wrap' }}>
+										<div
+											key={i}
+											style={{
+												alignSelf: 'flex-start',
+												maxWidth: '85%',
+												padding: '7px 11px',
+												borderRadius: 10,
+												background: T.alt,
+												border: `1px solid ${T.bd}`,
+												font: `12.5px/1.55 ${T.sans}`,
+												color: T.ink,
+												whiteSpace: 'pre-wrap',
+											}}
+										>
 											{item.text}
 										</div>
 									);
 								}
 								const badge = TOOL_OUTCOME_BADGE[item.outcome] ?? TOOL_OUTCOME_BADGE.error;
 								return (
-									<div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, font: `11.5px ${T.sans}`, color: T.ter }}>
+									<div
+										key={i}
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: 8,
+											font: `11.5px ${T.sans}`,
+											color: T.ter,
+										}}
+									>
 										<Icon name="sparkle" size={13} color={T.ter} />
 										<span style={{ font: `11.5px ${T.mono}` }}>{item.toolId}</span>
 										<Badge status={badge.status}>{badge.label}</Badge>
-										<span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.detail}</span>
+										<span
+											style={{
+												minWidth: 0,
+												overflow: 'hidden',
+												textOverflow: 'ellipsis',
+												whiteSpace: 'nowrap',
+											}}
+										>
+											{item.detail}
+										</span>
 									</div>
 								);
 							})}
@@ -1714,7 +3032,13 @@ function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 								}}
 							/>
 						</span>
-						<Button variant="primary" size="sm" icon="sparkle" disabled={asking || input.trim() === ''} onClick={ask}>
+						<Button
+							variant="primary"
+							size="sm"
+							icon="sparkle"
+							disabled={asking || input.trim() === ''}
+							onClick={ask}
+						>
 							{asking ? 'Asking…' : 'Ask'}
 						</Button>
 					</div>
@@ -1734,12 +3058,21 @@ function SettingsAI() {
 	// Bumped when the provider panel saves/forgets a key so the assistant panel re-reads its
 	// configured state (the key lives in the ai/ module, not in Core state or React).
 	const [, bumpAiConfig] = useState(0);
-	const actors = Object.values(runtime.state.permissions.actors) as { id: string; role: string; displayName: string }[];
+	const actors = Object.values(runtime.state.permissions.actors) as {
+		id: string;
+		role: string;
+		displayName: string;
+	}[];
 
 	// Register-agent form (a binding names WHICH actor a future connection speaks as — no capability).
 	const [newAgentId, setNewAgentId] = useState('');
 	const [newLabel, setNewLabel] = useState('');
-	const [newActorId, setNewActorId] = useState<string>(actors.find((a) => a.role !== 'dm')?.id ?? actors[0]?.id ?? '');
+	const [newActorId, setNewActorId] = useState<string>(
+		actors.find((a) => a.role !== 'dm')?.id ?? actors[0]?.id ?? '',
+	);
+	const selectedNewActorId = actors.some((actor) => actor.id === newActorId)
+		? newActorId
+		: (actors.find((actor) => actor.role !== 'dm')?.id ?? actors[0]?.id ?? '');
 
 	const run = (command: Parameters<typeof runtime.dispatch>[0], okMsg: string) => {
 		setBusy(true);
@@ -1754,19 +3087,27 @@ function SettingsAI() {
 	};
 
 	const bindings = Object.values(mcp.bindings);
-	const pending = (Object.values(mcp.proposals) as McpStagedProposal[]).filter((pr) => pr.status === 'pending');
+	const pending = (Object.values(mcp.proposals) as McpStagedProposal[]).filter(
+		(pr) => pr.status === 'pending',
+	);
 	const recentAudit = mcp.auditEntries.slice(-5).reverse();
 	const actorName = (id: string) => runtime.state.permissions.actors[id]?.displayName ?? id;
 
 	const registerAgent = () => {
 		const agentId = newAgentId.trim();
-		if (!agentId || !newActorId) {
-			Toaster.error('Give the agent connection an id and pick the actor it speaks as.');
+		if (!agentId || !selectedNewActorId) {
+			Toaster.error(
+				'Give the agent connection an id and choose the campaign identity it should use.',
+			);
 			return;
 		}
 		run(
-			{ type: 'mcp.set-agent-binding', actorId, payload: { agentId, actorId: newActorId, label: newLabel.trim() } },
-			`Registered ${agentId} — it inherits the vault default (${MCP_MODE_LABEL[mcp.vaultDefaultMode]}) until you set a policy.`,
+			{
+				type: 'mcp.set-agent-binding',
+				actorId,
+				payload: { agentId, actorId: selectedNewActorId, label: newLabel.trim() },
+			},
+			`Registered ${agentId} — it starts with the campaign default (${MCP_MODE_LABEL[mcp.vaultDefaultMode]}) until you set a policy.`,
 		);
 		setNewAgentId('');
 		setNewLabel('');
@@ -1775,10 +3116,12 @@ function SettingsAI() {
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			{!canWrite && (
-				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>MCP administration is DM-only and read-only while previewing — the controls below are disabled.</div>
+				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+					Agent access is DM-only and cannot be changed while previewing as a player.
+				</div>
 			)}
 			<Panel
-				title="AI & agent access (MCP)"
+				title="AI & agent access"
 				action={
 					<Switch
 						checked={mcp.enabled}
@@ -1787,31 +3130,47 @@ function SettingsAI() {
 						onChange={() =>
 							run(
 								{ type: 'mcp.set-enabled', actorId, payload: { enabled: !mcp.enabled } },
-								mcp.enabled ? 'MCP disabled — every agent capability is removed.' : 'MCP enabled — agent policy below now applies.',
+								mcp.enabled
+									? 'Agent access turned off.'
+									: 'Agent access turned on — the policies below now apply.',
 							)
 						}
 					/>
 				}
 			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					The vault-wide kill switch (durable, fail-closed OFF). While off, no agent tool call can resolve — the
-					gate denies everything before identity or policy is even consulted.
+					This switch controls every assistant connection for this campaign. Turning it off
+					immediately blocks all campaign tool access, regardless of the saved provider key or
+					individual agent policy.
 				</div>
-				<div style={{ marginTop: 8, padding: '9px 12px', borderRadius: 9, border: `1px solid ${T.bd}`, background: T.alt, font: `12px/1.6 ${T.sans}`, color: T.ter }}>
-					<strong style={{ color: T.ink }}>Honestly:</strong> no AI provider or agent transport ships in this build, so
-					nothing can connect yet. Everything on this page is the real, durable policy registry that a future
-					connection will be enforced against — not a fake “connected” status.
+				<div
+					style={{
+						marginTop: 8,
+						padding: '9px 12px',
+						borderRadius: 9,
+						border: `1px solid ${T.bd}`,
+						background: T.alt,
+						font: `12px/1.6 ${T.sans}`,
+						color: T.ter,
+					}}
+				>
+					The built-in assistant uses the provider configured below. Each agent also needs an
+					identity and policy, so you stay in control of what it can read and whether proposed
+					changes need review.
 				</div>
 				<SetRow
 					label="Default posture for new agents"
-					help="What a never-configured agent falls back to. Restricted to the two safe defaults; never direct-write."
+					help="The starting policy for a new connection. New agents can be disabled or require review; they never start with direct write access."
 					control={
 						<Seg
 							value={mcp.vaultDefaultMode}
 							ariaLabel="Vault default agent posture"
 							onChange={(v) => {
 								if (!canWrite || busy) return;
-								run({ type: 'mcp.set-vault-default', actorId, payload: { mode: v } }, `New agents now default to ${MCP_MODE_LABEL[v as McpPolicyMode]}.`);
+								run(
+									{ type: 'mcp.set-vault-default', actorId, payload: { mode: v } },
+									`New agents now default to ${MCP_MODE_LABEL[v as McpPolicyMode]}.`,
+								);
 							}}
 							options={[
 								{ value: 'strict_review', label: 'Strict review' },
@@ -1828,11 +3187,15 @@ function SettingsAI() {
 
 			<Panel title="Agent connections" action={<Badge status="neutral">{bindings.length}</Badge>}>
 				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
-					A binding names which vault actor an agent connection speaks as — it confers no capability, and the
-					agent can never see or do more than that actor. The mode decides whether its writes are staged.
+					Each connection uses one campaign identity and gains no permissions of its own. It can
+					never see or do more than that identity, and its policy decides whether changes require
+					review.
 				</div>
 				{bindings.length === 0 ? (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No agent connections registered yet — register one below to author its policy ahead of time.</div>
+					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						No agent connections registered yet — register one below to author its policy ahead of
+						time.
+					</div>
 				) : (
 					<div style={{ display: 'flex', flexDirection: 'column' }}>
 						{bindings.map((b, i) => {
@@ -1840,13 +3203,25 @@ function SettingsAI() {
 							const mode: McpPolicyMode = policy?.mode ?? mcp.vaultDefaultMode;
 							const allowlisted = (policy?.allowedToolIds ?? []).length > 0;
 							return (
-								<div key={b.agentId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 0', borderTop: i ? `1px solid ${T.bd}` : 'none', flexWrap: 'wrap' }}>
+								<div
+									key={b.agentId}
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: 10,
+										padding: '11px 0',
+										borderTop: i ? `1px solid ${T.bd}` : 'none',
+										flexWrap: 'wrap',
+									}}
+								>
 									<Icon name="sparkle" size={16} color={T.acc} />
 									<div style={{ flex: '1 1 180px', minWidth: 0 }}>
 										<div style={{ font: `600 13px ${T.sans}` }}>{b.label || b.agentId}</div>
-										<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{b.agentId} → {actorName(b.actorId)}</div>
+										<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
+											{b.agentId} → {actorName(b.actorId)}
+										</div>
 									</div>
-									<Badge status="neutral">never connected</Badge>
+									<Badge status="neutral">Policy saved</Badge>
 									<span style={{ flex: '0 0 150px' }}>
 										<Select
 											aria-label={`Policy mode for ${b.label || b.agentId}`}
@@ -1857,12 +3232,20 @@ function SettingsAI() {
 													{
 														type: 'mcp.set-agent-policy',
 														actorId,
-														payload: { agentId: b.agentId, mode: e.target.value, allowedToolIds: policy?.allowedToolIds ?? [], auditVisible: policy?.auditVisible ?? true },
+														payload: {
+															agentId: b.agentId,
+															mode: e.target.value,
+															allowedToolIds: policy?.allowedToolIds ?? [],
+															auditVisible: policy?.auditVisible ?? true,
+														},
 													},
 													`${b.label || b.agentId} set to ${MCP_MODE_LABEL[e.target.value as McpPolicyMode]}.`,
 												)
 											}
-											options={MCP_POLICY_MODES.map((m) => ({ value: m, label: MCP_MODE_LABEL[m] }))}
+											options={MCP_POLICY_MODES.map((m) => ({
+												value: m,
+												label: MCP_MODE_LABEL[m],
+											}))}
 										/>
 									</span>
 									<Switch
@@ -1874,9 +3257,16 @@ function SettingsAI() {
 												{
 													type: 'mcp.set-agent-policy',
 													actorId,
-													payload: { agentId: b.agentId, mode, allowedToolIds: allowlisted ? [] : [...MCP_BASELINE_TOOL_IDS], auditVisible: policy?.auditVisible ?? true },
+													payload: {
+														agentId: b.agentId,
+														mode,
+														allowedToolIds: allowlisted ? [] : [...MCP_BASELINE_TOOL_IDS],
+														auditVisible: policy?.auditVisible ?? true,
+													},
 												},
-												allowlisted ? 'Allowlist cleared — every tool is denied for this agent.' : 'Baseline tool set allowlisted for this agent.',
+												allowlisted
+													? 'Baseline tools removed — every tool is now denied for this agent.'
+													: 'Baseline tools granted to this agent.',
 											)
 										}
 									/>
@@ -1885,7 +3275,16 @@ function SettingsAI() {
 										size="sm"
 										icon="trash"
 										disabled={!canWrite || busy}
-										onClick={() => run({ type: 'mcp.remove-agent-binding', actorId, payload: { agentId: b.agentId } }, `${b.label || b.agentId} removed — its pending proposals expire.`)}
+										onClick={() =>
+											run(
+												{
+													type: 'mcp.remove-agent-binding',
+													actorId,
+													payload: { agentId: b.agentId },
+												},
+												`${b.label || b.agentId} removed — its pending proposals expire.`,
+											)
+										}
 									>
 										Remove
 									</Button>
@@ -1894,36 +3293,104 @@ function SettingsAI() {
 						})}
 					</div>
 				)}
-				<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+				<div
+					style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}
+				>
 					<span style={{ flex: '1 1 140px', minWidth: 120 }}>
-						<Input value={newAgentId} onChange={(e: { target: { value: string } }) => setNewAgentId(e.target.value)} placeholder="Agent id (e.g. prep-assistant)" aria-label="Agent connection id" maxLength={60} />
+						<Input
+							value={newAgentId}
+							onChange={(e: { target: { value: string } }) => setNewAgentId(e.target.value)}
+							placeholder="Agent id (e.g. prep-assistant)"
+							aria-label="Agent connection id"
+							maxLength={60}
+						/>
 					</span>
 					<span style={{ flex: '1 1 140px', minWidth: 120 }}>
-						<Input value={newLabel} onChange={(e: { target: { value: string } }) => setNewLabel(e.target.value)} placeholder="Label (optional)" aria-label="Agent label" maxLength={80} />
+						<Input
+							value={newLabel}
+							onChange={(e: { target: { value: string } }) => setNewLabel(e.target.value)}
+							placeholder="Label (optional)"
+							aria-label="Agent label"
+							maxLength={80}
+						/>
 					</span>
 					<span style={{ flex: '0 0 170px' }}>
-						<Select aria-label="Actor the agent speaks as" value={newActorId} onChange={(e: { target: { value: string } }) => setNewActorId(e.target.value)} options={actors.map((a) => ({ value: a.id, label: `${a.displayName} (${a.role})` }))} />
+						<Select
+							aria-label="Campaign identity the agent uses"
+							value={selectedNewActorId}
+							onChange={(e: { target: { value: string } }) => setNewActorId(e.target.value)}
+							options={actors.map((a) => ({ value: a.id, label: `${a.displayName} (${a.role})` }))}
+						/>
 					</span>
-					<Button variant="primary" size="sm" icon="add" disabled={!canWrite || busy} onClick={registerAgent}>Register</Button>
+					<Button
+						variant="primary"
+						size="sm"
+						icon="add"
+						disabled={!canWrite || busy}
+						onClick={registerAgent}
+					>
+						Register
+					</Button>
 				</div>
 			</Panel>
 
-			<Panel title="Staged writes awaiting review" action={<Badge status={pending.length ? 'warning' : 'success'}>{pending.length}</Badge>}>
+			<Panel
+				title="Staged writes awaiting review"
+				action={<Badge status={pending.length ? 'warning' : 'success'}>{pending.length}</Badge>}
+			>
 				{pending.length === 0 ? (
 					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						Nothing staged. Under strict review, every agent write lands here as a proposal you approve or
-						reject — nothing an agent does commits without you.
+						Nothing staged. Under strict review, every agent write lands here as a proposal you
+						approve or reject — nothing an agent does commits without you.
 					</div>
 				) : (
 					pending.map((pr, i) => (
-						<div key={pr.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: i ? `1px solid ${T.bd}` : 'none', flexWrap: 'wrap' }}>
+						<div
+							key={pr.id}
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 10,
+								padding: '10px 0',
+								borderTop: i ? `1px solid ${T.bd}` : 'none',
+								flexWrap: 'wrap',
+							}}
+						>
 							<Icon name="warning" size={15} color={T.warn} />
 							<div style={{ flex: '1 1 200px', minWidth: 0 }}>
 								<div style={{ font: `600 13px ${T.sans}` }}>{pr.commandType}</div>
-								<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{pr.agentId} as {actorName(pr.actorId)} · {pr.toolId} · {pr.writeRisk}</div>
+								<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
+									{pr.agentId} as {actorName(pr.actorId)} · {pr.toolId} · {pr.writeRisk}
+								</div>
 							</div>
-							<Button variant="secondary" size="sm" icon="check" disabled={!canWrite || busy} onClick={() => run({ type: 'mcp.approve-proposal', actorId, payload: { proposalId: pr.id } }, 'Proposal approved and committed through the normal dispatch.')}>Approve</Button>
-							<Button variant="ghost" size="sm" icon="close" disabled={!canWrite || busy} onClick={() => run({ type: 'mcp.reject-proposal', actorId, payload: { proposalId: pr.id } }, 'Proposal rejected — nothing was written.')}>Reject</Button>
+							<Button
+								variant="secondary"
+								size="sm"
+								icon="check"
+								disabled={!canWrite || busy}
+								onClick={() =>
+									run(
+										{ type: 'mcp.approve-proposal', actorId, payload: { proposalId: pr.id } },
+										'Proposal approved and committed through the normal dispatch.',
+									)
+								}
+							>
+								Approve
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								icon="close"
+								disabled={!canWrite || busy}
+								onClick={() =>
+									run(
+										{ type: 'mcp.reject-proposal', actorId, payload: { proposalId: pr.id } },
+										'Proposal rejected — nothing was written.',
+									)
+								}
+							>
+								Reject
+							</Button>
 						</div>
 					))
 				)}
@@ -1931,22 +3398,52 @@ function SettingsAI() {
 
 			<Panel title="Tool registry (baseline)">
 				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
-					The Core's declared baseline tool set — what the per-agent allowlist above grants. Reads are
-					actor-filtered; the one write tool stages through review.
+					The campaign tools an agent may be granted. Read results respect its chosen identity, and
+					changes wait for review unless you explicitly choose a more permissive policy.
 				</div>
 				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
 					{MCP_BASELINE_TOOL_IDS.map((t) => (
-						<Chip key={t} tone="neutral">{t}</Chip>
+						<Chip key={t} tone="neutral">
+							{t}
+						</Chip>
 					))}
 				</div>
 				{recentAudit.length > 0 && (
 					<div style={{ marginTop: 12 }}>
-						<div style={{ font: `600 11px ${T.sans}`, letterSpacing: '.08em', textTransform: 'uppercase', color: T.ter, marginBottom: 6 }}>Recent agent activity</div>
+						<div
+							style={{
+								font: `600 11px ${T.sans}`,
+								letterSpacing: '.08em',
+								textTransform: 'uppercase',
+								color: T.ter,
+								marginBottom: 6,
+							}}
+						>
+							Recent agent activity
+						</div>
 						{recentAudit.map((a) => (
-							<div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', font: `12px ${T.sans}`, color: T.sub }}>
-								<Badge status={a.mode === 'denied' ? 'error' : a.mode === 'staged' ? 'warning' : 'info'}>{a.mode}</Badge>
-								<span style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{a.agentId} · {a.toolId}</span>
-								<span style={{ marginLeft: 'auto', font: `11px ${T.sans}`, color: T.ter }}>{new Date(a.recordedAt).toLocaleString()}</span>
+							<div
+								key={a.id}
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: 8,
+									padding: '5px 0',
+									font: `12px ${T.sans}`,
+									color: T.sub,
+								}}
+							>
+								<Badge
+									status={a.mode === 'denied' ? 'error' : a.mode === 'staged' ? 'warning' : 'info'}
+								>
+									{a.mode}
+								</Badge>
+								<span style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
+									{a.agentId} · {a.toolId}
+								</span>
+								<span style={{ marginLeft: 'auto', font: `11px ${T.sans}`, color: T.ter }}>
+									{new Date(a.recordedAt).toLocaleString()}
+								</span>
 							</div>
 						))}
 					</div>
@@ -1966,10 +3463,17 @@ function SettingsPlugins() {
 	return (
 		<Panel title="Plugins">
 			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-				Installed widget packages — their capabilities, host-permission review, and enable/disable — are
-				managed in <strong style={{ color: T.ink }}>Extensions</strong>, backed by the live widget registry.
+				Installed widget packages — their capabilities, host-permission review, and enable/disable —
+				are managed in <strong style={{ color: T.ink }}>Extensions</strong>, backed by the live
+				widget registry.
 			</div>
-			<Button variant="secondary" size="sm" icon="widget" onClick={() => navigate('/extensions')} style={{ alignSelf: 'flex-start' }}>
+			<Button
+				variant="secondary"
+				size="sm"
+				icon="widget"
+				onClick={() => navigate('/extensions')}
+				style={{ alignSelf: 'flex-start' }}
+			>
 				Open Extensions
 			</Button>
 		</Panel>
@@ -1983,11 +3487,18 @@ function SettingsSystems() {
 	return (
 		<Panel title="Extensions & systems">
 			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-				Switching the campaign rules system — including the non-destructive migration dry-run that has to
-				come back clean first — lives in <strong style={{ color: T.ink }}>Extensions → System</strong>, backed by the live
-				widget-package registry and the Core's switch command.
+				Switching the campaign rules system — including the non-destructive migration dry-run that
+				has to come back clean first — lives in{' '}
+				<strong style={{ color: T.ink }}>Extensions → System</strong>, backed by the live extension
+				registry and the same safe migration check used throughout the app.
 			</div>
-			<Button variant="secondary" size="sm" icon="scroll" onClick={() => navigate('/extensions')} style={{ alignSelf: 'flex-start' }}>
+			<Button
+				variant="secondary"
+				size="sm"
+				icon="scroll"
+				onClick={() => navigate('/extensions')}
+				style={{ alignSelf: 'flex-start' }}
+			>
 				Open Extensions
 			</Button>
 		</Panel>
@@ -2000,9 +3511,11 @@ function SettingsSystems() {
 const REAL_SHORTCUTS: { keys: string; action: string }[] = [
 	{ keys: '⌘K / Ctrl+K', action: 'Open the command palette — search the whole vault' },
 	{ keys: 'Tab', action: 'Move focus; first press reveals “Skip to content”' },
-	{ keys: '← ↑ ↓ →', action: 'Walk the canvas widgets in focus order' },
+	{
+		keys: '← ↑ ↓ →',
+		action: 'Move between canvas widgets; move the selected widget while editing',
+	},
 	{ keys: 'Enter / Space', action: 'Select the focused widget (opens the inspector in edit mode)' },
-	{ keys: '⌘/Ctrl + Arrows', action: 'Move the selected widget (canvas edit mode)' },
 	{ keys: 'Shift + Arrows', action: 'Resize the selected widget (canvas edit mode)' },
 	{ keys: 'Delete', action: 'Remove the selected widget (canvas edit mode)' },
 	{ keys: 'Esc', action: 'Close dialog / deselect widget / exit preview' },
@@ -2010,65 +3523,156 @@ const REAL_SHORTCUTS: { keys: string; action: string }[] = [
 function SettingsAccessibility() {
 	const runtime = useRuntime();
 	// Single source of truth = the live <html> attribute (the same one Appearance + index.html restore).
-	const [theme, setTheme] = useState<string>(document.documentElement.getAttribute('data-theme') || 'tavern');
-	const [motion, setMotion] = useState<string>(document.documentElement.getAttribute('data-motion') || 'full');
+	const [theme, setTheme] = useState<string>(
+		document.documentElement.getAttribute('data-theme') || 'tavern',
+	);
+	const [motion, setMotion] = useState<string>(
+		document.documentElement.getAttribute('data-motion') || 'full',
+	);
 	const reduceMotion = motion === 'reduced';
 	const highContrast = theme === 'high-contrast';
 
 	// REAL player-safety checks: run the SAME actor-filtered reads a player actor gets and assert no
 	// dm-only entity leaks through them. Computed live against the current vault, not authored flags.
 	const leakChecks = (() => {
-		const players = (Object.values(runtime.state.permissions.actors) as { id: string; role: string }[]).filter((a) => a.role === 'player');
+		const players = (
+			Object.values(runtime.state.permissions.actors) as { id: string; role: string }[]
+		).filter((a) => a.role === 'player');
 		const checks: { id: string; ok: boolean; label: string }[] = [];
 		let sceneLeaks = 0;
 		let contentLeaks = 0;
 		for (const p of players) {
-			sceneLeaks += listScenesForActor(runtime.state.scenes, runtime.state.permissions, p.id).filter((s) => s.visibility === 'dm-only').length;
-			contentLeaks += getContentItemsForActor(runtime.state.content, runtime.state.permissions, p.id).filter((c) => c.visibility === 'dm-only').length;
+			sceneLeaks += listScenesForActor(
+				runtime.state.scenes,
+				runtime.state.permissions,
+				p.id,
+			).filter((s) => s.visibility === 'dm-only').length;
+			contentLeaks += getContentItemsForActor(
+				runtime.state.content,
+				runtime.state.permissions,
+				p.id,
+			).filter((c) => c.visibility === 'dm-only').length;
 		}
 		checks.push({
 			id: 'scenes',
 			ok: sceneLeaks === 0,
-			label: players.length === 0 ? 'DM-only scenes: no player actors to check against yet' : `DM-only scenes are hidden from all ${players.length} player actors (checked live)`,
+			label:
+				players.length === 0
+					? 'DM-only scenes: add a player to run this check'
+					: `DM-only scenes are hidden from all ${players.length} players`,
 		});
 		checks.push({
 			id: 'content',
 			ok: contentLeaks === 0,
-			label: players.length === 0 ? 'DM-only notes/handouts: no player actors to check against yet' : `DM-only notes & handouts are excluded from every player read (checked live)`,
+			label:
+				players.length === 0
+					? 'DM-only notes and handouts: add a player to run this check'
+					: 'DM-only notes and handouts are hidden from every player view',
 		});
-		checks.push({ id: 'preview', ok: true, label: 'Preview-as-player rejects every write command (enforced fail-closed in the runtime)' });
+		checks.push({
+			id: 'preview',
+			ok: true,
+			label: 'Player preview is read-only, so campaign changes are blocked',
+		});
 		return checks;
 	})();
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<Panel title="Display & motion">
-				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>These write the same persisted preferences as Appearance, so they take effect instantly and survive a reload.</div>
+				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
+					These mirror your Appearance settings, take effect immediately, and stay selected next
+					time.
+				</div>
 				<SetRow
 					label="Reduce motion"
-					help="Collapses every transition to 0ms — mirrors Appearance → Motion."
-					control={<Switch checked={reduceMotion} onChange={() => { const v = reduceMotion ? 'full' : 'reduced'; setMotion(v); setDocAttr('data-motion', 'dndtools:react:motion', v); }} label="" />}
+					help="Turns off interface animation while keeping every action available."
+					control={
+						<Switch
+							checked={reduceMotion}
+							aria-label="Reduce motion"
+							onChange={() => {
+								const v = reduceMotion ? 'full' : 'reduced';
+								setMotion(v);
+								setDocAttr('data-motion', 'dndtools:react:motion', v);
+							}}
+						/>
+					}
 				/>
 				<SetRow
 					label="High-contrast theme"
 					help="Switches to the accessibility-floor theme; turning it off restores the Tavern theme."
-					control={<Switch checked={highContrast} onChange={() => { const v = highContrast ? 'tavern' : 'high-contrast'; setTheme(v); setDocAttr('data-theme', 'dndtools:react:theme', v); }} label="" />}
+					control={
+						<Switch
+							checked={highContrast}
+							aria-label="High-contrast theme"
+							onChange={() => {
+								const v = highContrast ? 'tavern' : 'high-contrast';
+								setTheme(v);
+								setDocAttr('data-theme', 'dndtools:react:theme', v);
+							}}
+						/>
+					}
 				/>
 			</Panel>
 			<Panel title="Keyboard shortcuts">
-				<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 24px' }}>
+				<div
+					style={{
+						display: 'grid',
+						gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,280px),1fr))',
+						gap: '8px 24px',
+					}}
+				>
 					{REAL_SHORTCUTS.map((s, i) => (
-						<div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-							<span style={{ font: `12px ${T.mono}`, color: T.ink, border: `1px solid ${T.bd}`, borderRadius: 5, padding: '2px 7px', background: T.alt, whiteSpace: 'nowrap' }}>{s.keys}</span>
-							<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>{s.action}</span>
+						<div
+							key={i}
+							style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0 }}
+						>
+							<span
+								style={{
+									font: `12px ${T.mono}`,
+									color: T.ink,
+									border: `1px solid ${T.bd}`,
+									borderRadius: 5,
+									padding: '2px 7px',
+									background: T.alt,
+									whiteSpace: 'nowrap',
+								}}
+							>
+								{s.keys}
+							</span>
+							<span
+								style={{
+									minWidth: 0,
+									font: `12.5px ${T.sans}`,
+									color: T.sub,
+									overflowWrap: 'anywhere',
+								}}
+							>
+								{s.action}
+							</span>
 						</div>
 					))}
 				</div>
 			</Panel>
 			<Panel title="Player-safety checks">
-				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>Run live against your vault: each check re-reads the world AS each player actor and asserts nothing DM-only comes back.</div>
+				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
+					These checks use the same views your players receive and confirm DM-only content stays
+					hidden.
+				</div>
 				{leakChecks.map((c) => (
-					<div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', font: `12.5px ${T.sans}`, color: T.sub }}>
-						<Icon name={c.ok ? 'success' : 'error'} size={16} color={c.ok ? T.ok : T.err} /><span>{c.label}</span>
+					<div
+						key={c.id}
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: 10,
+							padding: '6px 0',
+							font: `12.5px ${T.sans}`,
+							color: T.sub,
+						}}
+					>
+						<Icon name={c.ok ? 'success' : 'error'} size={16} color={c.ok ? T.ok : T.err} />
+						<span>{c.label}</span>
 					</div>
 				))}
 			</Panel>
@@ -2133,6 +3737,7 @@ export function Settings() {
 	// (Command Center rows, empty-state CTAs) land on the right panel, not the section root.
 	const location = useLocation();
 	const navigate = useNavigate();
+	const viewport = useViewport();
 	const [tier, setTier] = useState<FeatureTier>(() => readTier());
 	useEffect(() => {
 		const onTier = () => setTier(readTier());
@@ -2144,21 +3749,89 @@ export function Settings() {
 	const tab = urlTab && urlTab in SUBPAGES ? urlTab : 'appearance';
 	const setTab = (next: string) => navigate(`/settings?tab=${next}`, { replace: true });
 	const Sub = SUBPAGES[tab] || SettingsAppearance;
+	const visibleNav = SETTINGS_NAV.filter((s) => !gatedOff(s.id));
 	return (
-		<Page max={1180} style={{ display: 'grid', gridTemplateColumns: '232px minmax(0,1fr)', gap: 24, alignItems: 'start' }}>
-			<nav aria-label="Settings navigation" style={{ position: 'sticky', top: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-				{SETTINGS_NAV.filter((s) => !gatedOff(s.id)).map((s) => {
-					const on = s.id === tab;
-					return (
-						<button key={s.id} type="button" onClick={() => setTab(s.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 8, border: 'none', cursor: 'pointer', textAlign: 'left', position: 'relative', background: on ? T.accSub : 'transparent', color: on ? T.acc : T.sub }}>
-							{on && <span style={{ position: 'absolute', left: -6, top: 8, bottom: 8, width: 3, borderRadius: 3, background: T.acc }} />}
-							<Icon name={s.icon} size="sm" color={on ? T.acc : 'currentColor'} />
-							<span style={{ font: `${on ? 600 : 500} 13px ${T.sans}`, color: on ? T.acc : T.ink }}>{s.label}</span>
-						</button>
-					);
-				})}
+		<Page
+			max={1180}
+			style={{
+				display: 'grid',
+				gridTemplateColumns:
+					viewport === 'phone'
+						? '1fr'
+						: viewport === 'rail'
+							? '190px minmax(0,1fr)'
+							: '232px minmax(0,1fr)',
+				gap: viewport === 'phone' ? 16 : 24,
+				alignItems: 'start',
+			}}
+		>
+			<nav
+				aria-label="Settings navigation"
+				style={{
+					position: viewport === 'phone' ? 'static' : 'sticky',
+					top: 0,
+					display: viewport === 'phone' ? 'block' : 'flex',
+					flexDirection: 'column',
+					gap: 2,
+				}}
+			>
+				{viewport === 'phone' && (
+					<Select
+						aria-label="Settings section"
+						value={tab}
+						onChange={(e: { target: { value: string } }) => setTab(e.target.value)}
+						options={visibleNav.map((s) => ({ value: s.id, label: s.label }))}
+					/>
+				)}
+				{viewport !== 'phone' &&
+					visibleNav.map((s) => {
+						const on = s.id === tab;
+						return (
+							<button
+								key={s.id}
+								type="button"
+								aria-current={on ? 'page' : undefined}
+								onClick={() => setTab(s.id)}
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: 10,
+									padding: '9px 11px',
+									borderRadius: 8,
+									border: 'none',
+									cursor: 'pointer',
+									textAlign: 'left',
+									position: 'relative',
+									background: on ? T.accSub : 'transparent',
+									color: on ? T.acc : T.sub,
+								}}
+							>
+								{on && (
+									<span
+										style={{
+											position: 'absolute',
+											left: -6,
+											top: 8,
+											bottom: 8,
+											width: 3,
+											borderRadius: 3,
+											background: T.acc,
+										}}
+									/>
+								)}
+								<Icon name={s.icon} size="sm" color={on ? T.acc : 'currentColor'} />
+								<span
+									style={{ font: `${on ? 600 : 500} 13px ${T.sans}`, color: on ? T.acc : T.ink }}
+								>
+									{s.label}
+								</span>
+							</button>
+						);
+					})}
 			</nav>
-			<div style={{ minWidth: 0 }}>{gatedOff(tab) ? <GatedTab gateId={TAB_GATE[tab]} tier={tier} /> : <Sub />}</div>
+			<div style={{ minWidth: 0 }}>
+				{gatedOff(tab) ? <GatedTab gateId={TAB_GATE[tab]} tier={tier} /> : <Sub />}
+			</div>
 		</Page>
 	);
 }

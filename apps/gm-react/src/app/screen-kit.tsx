@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '../ds';
+import { useViewport } from './useViewport';
 
 /**
  * screen-kit — the shared token shorthand + layout primitives ported verbatim from the online
@@ -65,6 +66,7 @@ export function Panel({
 	return (
 		<section
 			style={{
+				minWidth: 0,
 				display: 'flex',
 				flexDirection: 'column',
 				gap: 12,
@@ -77,7 +79,15 @@ export function Panel({
 			}}
 		>
 			{title && (
-				<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+				<div
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						justifyContent: 'space-between',
+						gap: 10,
+						flexWrap: 'wrap',
+					}}
+				>
 					<h2 style={{ font: `700 14px ${T.disp}`, color: T.ink, margin: 0 }}>{title}</h2>
 					{action}
 				</div>
@@ -87,8 +97,30 @@ export function Panel({
 	);
 }
 
-export function Page({ children, max = 1180, style }: { children?: ReactNode; max?: number; style?: CSSProperties }) {
-	return <div style={{ padding: '24px 28px 56px', maxWidth: max, margin: '0 auto', ...style }}>{children}</div>;
+export function Page({
+	children,
+	max = 1180,
+	style,
+}: {
+	children?: ReactNode;
+	max?: number;
+	style?: CSSProperties;
+}) {
+	const viewport = useViewport();
+	return (
+		<div
+			style={{
+				width: '100%',
+				minWidth: 0,
+				padding: viewport === 'phone' ? '16px 14px 76px' : '24px 28px 56px',
+				maxWidth: max,
+				margin: '0 auto',
+				...style,
+			}}
+		>
+			{children}
+		</div>
+	);
 }
 
 export function Seg({
@@ -109,6 +141,8 @@ export function Seg({
 			aria-label={ariaLabel}
 			style={{
 				display: 'inline-flex',
+				flexWrap: 'wrap',
+				maxWidth: '100%',
 				gap: 2,
 				padding: 3,
 				borderRadius: 9,
@@ -152,7 +186,15 @@ export function Seg({
  * detail routes (app.jsx `BackBar`). Pass a route `to` (navigated via react-router) or an explicit
  * `onClick`; `label` is the destination name shown beside the chevron.
  */
-export function BackBar({ to, label, onClick }: { to?: string; label: ReactNode; onClick?: () => void }) {
+export function BackBar({
+	to,
+	label,
+	onClick,
+}: {
+	to?: string;
+	label: ReactNode;
+	onClick?: () => void;
+}) {
 	const navigate = useNavigate();
 	return (
 		<nav aria-label="Breadcrumb" style={{ marginBottom: 14 }}>
@@ -178,7 +220,15 @@ export function BackBar({ to, label, onClick }: { to?: string; label: ReactNode;
 	);
 }
 
-export function SetRow({ label, help, control }: { label: ReactNode; help?: ReactNode; control?: ReactNode }) {
+export function SetRow({
+	label,
+	help,
+	control,
+}: {
+	label: ReactNode;
+	help?: ReactNode;
+	control?: ReactNode;
+}) {
 	return (
 		<div
 			style={{
@@ -194,7 +244,7 @@ export function SetRow({ label, help, control }: { label: ReactNode; help?: Reac
 				<div style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>{label}</div>
 				{help && <div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: 2 }}>{help}</div>}
 			</div>
-			{control}
+			<div style={{ minWidth: 0, maxWidth: '100%' }}>{control}</div>
 		</div>
 	);
 }

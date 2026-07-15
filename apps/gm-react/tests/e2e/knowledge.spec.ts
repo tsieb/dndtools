@@ -1,5 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, enterPreview, exitPreview, gotoRoute, markOnboarded, ops, seedFresh, waitReady } from './_helpers';
+import {
+	dispatch,
+	enterPreview,
+	exitPreview,
+	gotoRoute,
+	markOnboarded,
+	ops,
+	seedFresh,
+	waitReady,
+} from './_helpers';
 import { promises as fs } from 'node:fs';
 
 // KNOWLEDGE — the /knowledge/:id? notes/handouts workbench against the live Processing Core.
@@ -38,7 +47,12 @@ function itemIdFrom(result: { events?: Array<Record<string, unknown>> }): string
 	return null;
 }
 
-async function createNoteViaCore(page: Page, title: string, body: string, visibility: string): Promise<string> {
+async function createNoteViaCore(
+	page: Page,
+	title: string,
+	body: string,
+	visibility: string,
+): Promise<string> {
 	const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
 	const result = await dispatch(page, {
 		type: 'content.create-item',
@@ -75,9 +89,9 @@ test.describe('knowledge: notes workbench', () => {
 
 		await page.waitForFunction(
 			(t) =>
-				Object.values((window.__rt!.state.content as { items: Record<string, { title: string }> }).items).some(
-					(i) => i.title === t,
-				),
+				Object.values(
+					(window.__rt!.state.content as { items: Record<string, { title: string }> }).items,
+				).some((i) => i.title === t),
 			title,
 			{ timeout: 10_000 },
 		);
@@ -89,7 +103,9 @@ test.describe('knowledge: notes workbench', () => {
 
 		// The create-navigation landed on the note's own URL and the viewer shows it. Wait for the
 		// router hash to settle (the redirect trails the state write, and is slower on mobile).
-		await page.waitForURL((url) => url.hash.includes(`/knowledge/${item!.id}`), { timeout: 10_000 });
+		await page.waitForURL((url) => url.hash.includes(`/knowledge/${item!.id}`), {
+			timeout: 10_000,
+		});
 		await expect(page.getByText(title)).not.toHaveCount(0);
 
 		// Reload-persistence: the durable op-log round-trips through IndexedDB.
@@ -101,7 +117,12 @@ test.describe('knowledge: notes workbench', () => {
 
 	test('the editor updates title and body through content.update-item', async ({ page }) => {
 		const stamp = Date.now();
-		const noteId = await createNoteViaCore(page, `Tide Journal ${stamp}`, 'First entry.', 'dm-only');
+		const noteId = await createNoteViaCore(
+			page,
+			`Tide Journal ${stamp}`,
+			'First entry.',
+			'dm-only',
+		);
 
 		await gotoRoute(page, `/knowledge/${noteId}`);
 		await page.getByRole('button', { name: 'Edit', exact: true }).click();
@@ -115,7 +136,11 @@ test.describe('knowledge: notes workbench', () => {
 		// The save closed the editor and the persisted item carries the new title+body.
 		await page.waitForFunction(
 			(arg) => {
-				const items = (window.__rt!.state.content as { items: Record<string, { id: string; title: string; body: string }> }).items;
+				const items = (
+					window.__rt!.state.content as {
+						items: Record<string, { id: string; title: string; body: string }>;
+					}
+				).items;
 				const item = items[arg.id];
 				return !!item && item.title === arg.title && item.body === arg.body;
 			},
@@ -123,7 +148,9 @@ test.describe('knowledge: notes workbench', () => {
 			{ timeout: 10_000 },
 		);
 		await expect(page.getByText(newTitle)).not.toHaveCount(0);
-		await expect(page.getByText('The tide returns at dusk and the pier goes quiet.')).not.toHaveCount(0);
+		await expect(
+			page.getByText('The tide returns at dusk and the pier goes quiet.'),
+		).not.toHaveCount(0);
 
 		// Reload-persistence for the edit.
 		await page.reload({ waitUntil: 'domcontentloaded' });
@@ -148,8 +175,8 @@ test.describe('knowledge: notes workbench', () => {
 		await page.getByRole('radio', { name: 'Players' }).click();
 		await page.waitForFunction(
 			(id) =>
-				(window.__rt!.state.content as { items: Record<string, { visibility: string }> }).items[id]?.visibility ===
-				'player-visible',
+				(window.__rt!.state.content as { items: Record<string, { visibility: string }> }).items[id]
+					?.visibility === 'player-visible',
 			noteId,
 			{ timeout: 10_000 },
 		);
@@ -230,7 +257,9 @@ test.describe('knowledge: notes workbench', () => {
 		const download = await downloadPromise;
 
 		// Multiple items ⇒ a JSON bundle named by mode+date (portable is the default: secrets redacted).
-		expect(download.suggestedFilename()).toMatch(/^dndtools-export-portable-\d{4}-\d{2}-\d{2}\.json$/);
+		expect(download.suggestedFilename()).toMatch(
+			/^dndtools-export-portable-\d{4}-\d{2}-\d{2}\.json$/,
+		);
 		const path = await download.path();
 		const bundle = JSON.parse(await fs.readFile(path!, 'utf8')) as {
 			format: string;
@@ -255,7 +284,9 @@ test.describe('knowledge: notes workbench', () => {
 
 		// Google Docs is fail-closed: no OAuth client id on this server, so the panel says so and
 		// offers NO sign-in affordance (never a dead button).
-		await expect(page.getByText(/Google Docs sync is off in this build/)).not.toHaveCount(0);
+		await expect(
+			page.getByText(/Google Docs connections are not available in this release/),
+		).not.toHaveCount(0);
 		await expect(page.getByRole('button', { name: 'Sign in with Google' })).toHaveCount(0);
 
 		// Folder sources: either the File System Access API is present (Chromium) and no folder is

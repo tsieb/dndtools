@@ -1,10 +1,10 @@
 /**
- * googleDocs — the GOOGLE DOCS vault source (WS-7, product decision E). OAuth 2 TOKEN grant from a
- * popup (GIS-style `response_type=token` — the access token comes back in the redirect fragment, so
- * there is NO token-endpoint call: Google requires `client_secret` at that endpoint for
- * Web-application clients, and a browser bundle must never carry a secret). Requests ONLY the
- * non-restricted `drive.file` scope, so the app can reach just the Docs the user created through it
- * or explicitly connected.
+ * googleDocs — the GOOGLE DOCS vault source (WS-7, product decision E). Browser authorization uses
+ * Google Identity Services' token client. The access token arrives through the GIS popup callback —
+ * never a URL fragment — and there is no client secret in the bundle. Requests ONLY the
+ * non-restricted `drive.file` scope, so the app can reach just the Docs it creates for the user.
+ * Direct OAuth implicit endpoints are deliberately not used; connecting arbitrary existing Docs
+ * remains disabled until a Google Picker grant flow is implemented.
  *
  * FAIL CLOSED: the entire feature is hidden/disabled until the build carries a client id in
  * `VITE_GOOGLE_CLIENT_ID` ({@link isGoogleDocsConfigured} — same pattern as cloud/config.ts). The
@@ -35,7 +35,8 @@ export const googleDocsClientId: string = (() => {
 /** True only when the build carries a Google OAuth client id. Absent ⇒ the feature stays hidden. */
 export const isGoogleDocsConfigured: boolean = googleDocsClientId !== '';
 
-const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
+const GOOGLE_IDENTITY_SCRIPT = 'https://accounts.google.com/gsi/client';
+const GOOGLE_IDENTITY_SCRIPT_ID = 'dndtools-google-identity-services';
 const DOCS_API_BASE = 'https://docs.googleapis.com/v1/documents';
 /** Per-file access to files the user creates/opens with this app. Non-restricted; never widen it. */
 const GOOGLE_DOCS_SCOPE = 'https://www.googleapis.com/auth/drive.file';
@@ -52,7 +53,6 @@ export function bytesToBase64Url(bytes: Uint8Array): string {
 // --- token custody (memory + sessionStorage ONLY — never localStorage) ---------------------------
 
 const TOKEN_SESSION_KEY = 'dndtools.gdocs.token';
-const PENDING_AUTH_KEY = 'dndtools.gdocs.pending-auth';
 
 interface StoredToken {
 	accessToken: string;
@@ -110,74 +110,92 @@ export function signOutGoogle(): void {
 	}
 }
 
-// --- OAuth flow (popup-first token grant; full-redirect fallback) ---------------------------------
+// --- OAuth flow (Google Identity Services token client; popup callback) ---------------------------
 
-function authRedirectUri(): string {
-	// HashRouter: origin + pathname is stable regardless of the in-app route (no fragment allowed
-	// in a registered redirect URI).
-	return `${window.location.origin}${window.location.pathname}`;
+interface GoogleTokenResponse {
+	access_token?: string;
+	expires_in?: number | string;
+	error?: string;
+	error_description?: string;
 }
 
-function buildAuthUrl(state: string, redirectUri: string): string {
-	const params = new URLSearchParams({
-		client_id: googleDocsClientId,
-		redirect_uri: redirectUri,
-		response_type: 'token',
-		scope: GOOGLE_DOCS_SCOPE,
-		state,
-	});
-	return `${GOOGLE_AUTH_URL}?${params.toString()}`;
+interface GoogleTokenClient {
+	requestAccessToken(options?: { prompt?: string }): void;
 }
 
-interface TokenGrant {
-	accessToken: string;
-	expiresIn: number;
-}
-
-/**
- * Parse a token-grant redirect FRAGMENT (`#access_token=…&expires_in=…&state=…`). Null when the
- * fragment carries no token or the anti-CSRF state doesn't match. Pure (unit-tested in Node).
- */
-export function parseTokenFragment(hash: string, expectedState: string): TokenGrant | null {
-	const params = new URLSearchParams(hash.replace(/^#/, ''));
-	const accessToken = params.get('access_token');
-	if (!accessToken || params.get('state') !== expectedState) return null;
-	const expiresIn = Number(params.get('expires_in'));
-	return {
-		accessToken,
-		expiresIn: Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600,
+interface GoogleIdentityApi {
+	accounts?: {
+		oauth2?: {
+			initTokenClient(config: {
+				client_id: string;
+				scope: string;
+				callback(response: GoogleTokenResponse): void;
+				error_callback?(error: { type?: string }): void;
+			}): GoogleTokenClient;
+		};
 	};
 }
 
-/** Poll a popup until it returns to our origin carrying the token fragment, closes, or times out. */
-function pollPopupForToken(popup: Window, state: string): Promise<TokenGrant | null> {
-	return new Promise((resolve) => {
-		const startedAt = Date.now();
-		const timer = window.setInterval(() => {
-			if (popup.closed) {
-				window.clearInterval(timer);
-				resolve(null);
+const googleIdentityApi = (): GoogleIdentityApi | undefined =>
+	(globalThis as unknown as { google?: GoogleIdentityApi }).google;
+
+let googleIdentityLoad: Promise<GoogleIdentityApi> | null = null;
+
+function loadGoogleIdentityServices(): Promise<GoogleIdentityApi> {
+	const loaded = googleIdentityApi();
+	if (loaded?.accounts?.oauth2) return Promise.resolve(loaded);
+	if (googleIdentityLoad) return googleIdentityLoad;
+	googleIdentityLoad = new Promise((resolve, reject) => {
+		const script =
+			(document.getElementById(GOOGLE_IDENTITY_SCRIPT_ID) as HTMLScriptElement | null) ??
+			document.createElement('script');
+		let settled = false;
+		let timeout = 0;
+		const cleanup = () => {
+			window.clearTimeout(timeout);
+			script.removeEventListener('load', finish);
+			script.removeEventListener('error', onError);
+		};
+		const fail = (message: string) => {
+			if (settled) return;
+			settled = true;
+			cleanup();
+			// A failed script element will not emit another load/error event. Remove it so the next
+			// user action creates a fresh request instead of reusing a permanently rejected promise.
+			if (!googleIdentityApi()?.accounts?.oauth2) script.remove();
+			googleIdentityLoad = null;
+			reject(new Error(message));
+		};
+		const finish = () => {
+			const api = googleIdentityApi();
+			if (!api?.accounts?.oauth2) {
+				fail('Google sign-in did not initialize.');
 				return;
 			}
-			if (Date.now() - startedAt > 5 * 60_000) {
-				window.clearInterval(timer);
-				popup.close();
-				resolve(null);
-				return;
-			}
-			// Cross-origin access throws while the popup is on accounts.google.com; that's expected.
-			try {
-				const url = new URL(popup.location.href);
-				if (url.origin !== window.location.origin) return;
-				const grant = parseTokenFragment(url.hash, state);
-				window.clearInterval(timer);
-				popup.close();
-				resolve(grant);
-			} catch {
-				/* still on the Google origin */
-			}
-		}, 250);
+			if (settled) return;
+			settled = true;
+			cleanup();
+			resolve(api);
+		};
+		const onError = () => fail('Google sign-in could not be loaded.');
+		timeout = window.setTimeout(() => fail('Google sign-in took too long to load.'), 15_000);
+		script.addEventListener('load', finish, { once: true });
+		script.addEventListener('error', onError, { once: true });
+		if (!script.id) {
+			script.id = GOOGLE_IDENTITY_SCRIPT_ID;
+			script.src = GOOGLE_IDENTITY_SCRIPT;
+			script.async = true;
+			script.defer = true;
+			document.head.appendChild(script);
+		}
 	});
+	return googleIdentityLoad;
+}
+
+/** GIS web clients require a real HTTP(S) origin. Packaged Electron must use a
+ * separate installed-app PKCE/loopback client, which is intentionally not faked. */
+export function isGoogleDocsRuntimeSupported(protocol: string, origin: string): boolean {
+	return (protocol === 'https:' || protocol === 'http:') && origin !== 'null';
 }
 
 export type GoogleAuthOutcome =
@@ -186,10 +204,8 @@ export type GoogleAuthOutcome =
 	| { status: 'failed'; message: string };
 
 /**
- * Start the sign-in: open the Google consent POPUP and store the granted token when it returns. If
- * the popup is blocked, falls back to a FULL-PAGE redirect (the pending state is stashed in
- * sessionStorage and {@link captureGoogleAuthRedirect} — called from main.tsx BEFORE the router
- * mounts — picks the token out of the return fragment).
+ * Start Google Identity Services' token popup and store the callback token. GIS
+ * owns popup messaging and origin validation; no access token ever enters the URL.
  */
 export async function connectGoogleAccount(): Promise<GoogleAuthOutcome> {
 	if (!isGoogleDocsConfigured) {
@@ -198,55 +214,50 @@ export async function connectGoogleAccount(): Promise<GoogleAuthOutcome> {
 			message: `Google Docs isn’t configured in this build (see ${GOOGLE_DOCS_SETUP_RUNBOOK}).`,
 		};
 	}
-	const state = bytesToBase64Url(crypto.getRandomValues(new Uint8Array(16)));
-	const redirectUri = authRedirectUri();
-	const url = buildAuthUrl(state, redirectUri);
-	const popup = window.open(url, 'dndtools-google-auth', 'popup,width=480,height=680');
-	if (!popup) {
-		try {
-			sessionStorage.setItem(
-				PENDING_AUTH_KEY,
-				JSON.stringify({ state, returnHash: window.location.hash }),
-			);
-		} catch {
-			return { status: 'failed', message: 'Sign-in needs sessionStorage, which is unavailable.' };
-		}
-		window.location.assign(url);
-		return { status: 'redirecting' };
+	if (!isGoogleDocsRuntimeSupported(window.location.protocol, window.location.origin)) {
+		return {
+			status: 'failed',
+			message:
+				'Google Docs is available in the web app. Desktop authorization needs a separate Google installed-app setup and is disabled in this release.',
+		};
 	}
-	const grant = await pollPopupForToken(popup, state);
-	if (!grant) return { status: 'failed', message: 'Google sign-in was cancelled.' };
-	storeToken(grant.accessToken, grant.expiresIn);
-	return { status: 'signed-in' };
-}
-
-/**
- * Finish a FULL-REDIRECT sign-in (popup-blocked fallback). The token arrives in the URL FRAGMENT,
- * which HashRouter would otherwise consume as a route — so main.tsx MUST call this synchronously
- * BEFORE rendering the app. No-op unless a pending auth is stashed and the fragment carries a
- * matching token; on capture it stores the token and restores the hash route the user started from.
- */
-export function captureGoogleAuthRedirect(): boolean {
-	let pendingRaw: string | null;
 	try {
-		pendingRaw = sessionStorage.getItem(PENDING_AUTH_KEY);
-	} catch {
-		return false;
-	}
-	if (!pendingRaw) return false;
-	if (!/[#&]access_token=/.test(window.location.hash)) return false;
-	try {
-		// One-shot: the pending stash is consumed whether or not the fragment validates.
-		sessionStorage.removeItem(PENDING_AUTH_KEY);
-		const pending = JSON.parse(pendingRaw) as { state: string; returnHash?: string };
-		const grant = parseTokenFragment(window.location.hash, pending.state);
-		if (!grant) return false;
-		storeToken(grant.accessToken, grant.expiresIn);
-		const hash = pending.returnHash || '#/';
-		window.history.replaceState(null, '', `${window.location.pathname}${hash}`);
-		return true;
-	} catch {
-		return false;
+		const api = await loadGoogleIdentityServices();
+		return await new Promise<GoogleAuthOutcome>((resolve) => {
+			let settled = false;
+			const finish = (outcome: GoogleAuthOutcome) => {
+				if (settled) return;
+				settled = true;
+				resolve(outcome);
+			};
+			const client = api.accounts!.oauth2!.initTokenClient({
+				client_id: googleDocsClientId,
+				scope: GOOGLE_DOCS_SCOPE,
+				callback: (response) => {
+					if (response.error || !response.access_token) {
+						finish({ status: 'failed', message: 'Google sign-in was cancelled or denied.' });
+						return;
+					}
+					const expiresIn = Number(response.expires_in);
+					storeToken(
+						response.access_token,
+						Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600,
+					);
+					finish({ status: 'signed-in' });
+				},
+				error_callback: () =>
+					finish({
+						status: 'failed',
+						message: 'Google sign-in was cancelled or the popup was blocked.',
+					}),
+			});
+			client.requestAccessToken({ prompt: '' });
+		});
+	} catch (error) {
+		return {
+			status: 'failed',
+			message: error instanceof Error ? error.message : 'Google sign-in could not be started.',
+		};
 	}
 }
 
@@ -302,9 +313,7 @@ export function touchGdocConnection(
 	docId: string,
 	patch: Partial<Pick<GdocConnection, 'title' | 'lastPullAt' | 'lastPushAt'>>,
 ): void {
-	saveConnections(
-		listGdocConnections().map((c) => (c.docId === docId ? { ...c, ...patch } : c)),
-	);
+	saveConnections(listGdocConnections().map((c) => (c.docId === docId ? { ...c, ...patch } : c)));
 }
 
 /** Extract a Doc id from a pasted URL or a raw id. Null when the input has no plausible id. */
@@ -357,7 +366,9 @@ async function docsApi<T>(path: string, init: RequestInit): Promise<T> {
 		);
 	}
 	if (!response.ok) {
-		const detail = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+		const detail = (await response.json().catch(() => null)) as {
+			error?: { message?: string };
+		} | null;
 		throw new GoogleDocsError(
 			'api',
 			response.status,
@@ -623,7 +634,6 @@ export function markdownToDocRequests(markdown: string, docEndIndex: number): GD
 
 export const __testing = {
 	TOKEN_SESSION_KEY,
-	PENDING_AUTH_KEY,
 	CONNECTIONS_KEY,
 	storeToken,
 };

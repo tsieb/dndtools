@@ -13,26 +13,74 @@ export interface NavSection {
 /** Run the table — the live-play destinations. */
 export const RUN: NavSection[] = [
 	{ id: 'home', label: 'Command Center', icon: 'home', path: '/', sub: 'Campaign home' },
-	{ id: 'board', label: 'GM Screen', icon: 'widget', path: '/board', sub: 'Dice, initiative & trackers' },
-	{ id: 'session', label: 'Session', icon: 'session-bolt', path: '/session', sub: 'Live play & combat' },
+	{
+		id: 'board',
+		label: 'GM Screen',
+		icon: 'widget',
+		path: '/board',
+		sub: 'Dice, initiative & trackers',
+	},
+	{
+		id: 'session',
+		label: 'Session',
+		icon: 'session-bolt',
+		path: '/session',
+		sub: 'Live play & combat',
+	},
 ];
 
 /** The content library — the four browse-able sections. The sidebar overrides `sub` with live
  * counts; these static subs describe what each section OWNS (shown on the phone More sheet). */
 export const LIBRARY: NavSection[] = [
-	{ id: 'characters', label: 'Characters', icon: 'characters-person', path: '/characters', sub: 'PCs, NPCs & bestiary' },
+	{
+		id: 'characters',
+		label: 'Characters',
+		icon: 'characters-person',
+		path: '/characters',
+		sub: 'PCs, NPCs & bestiary',
+	},
 	{ id: 'atlas', label: 'Maps', icon: 'atlas-map', path: '/atlas', sub: 'Maps & locations' },
-	{ id: 'campaign', label: 'Story', icon: 'campaign-scroll', path: '/campaign', sub: 'Threads, factions & timeline' },
-	{ id: 'knowledge', label: 'Notes', icon: 'knowledge-book', path: '/knowledge', sub: 'Notes & handouts' },
+	{
+		id: 'campaign',
+		label: 'Story',
+		icon: 'campaign-scroll',
+		path: '/campaign',
+		sub: 'Threads, factions & timeline',
+	},
+	{
+		id: 'knowledge',
+		label: 'Notes',
+		icon: 'knowledge-book',
+		path: '/knowledge',
+		sub: 'Notes & handouts',
+	},
 ];
 
 /** Platform surfaces — graph, audio, extensions, community, plans & cloud. */
 export const PLATFORM: NavSection[] = [
 	{ id: 'graph', label: 'Graph & Search', icon: 'group', path: '/graph', sub: 'Relationships' },
 	{ id: 'audio', label: 'Audio', icon: 'audio', path: '/audio', sub: 'Soundboard · ambience' },
-	{ id: 'extensibility', label: 'Extensions', icon: 'widget', path: '/extensions', sub: 'Plugins · systems' },
-	{ id: 'community', label: 'Community', icon: 'globe', path: '/community', sub: 'Browse · publish' },
-	{ id: 'pricing', label: 'Plans & cloud', icon: 'CreditCard', path: '/upgrade', sub: 'Compare · upgrade' },
+	{
+		id: 'extensibility',
+		label: 'Extensions',
+		icon: 'widget',
+		path: '/extensions',
+		sub: 'Plugins · systems',
+	},
+	{
+		id: 'community',
+		label: 'Community',
+		icon: 'globe',
+		path: '/community',
+		sub: 'Browse · publish',
+	},
+	{
+		id: 'pricing',
+		label: 'Plans & cloud',
+		icon: 'CreditCard',
+		path: '/upgrade',
+		sub: 'Compare · preview',
+	},
 ];
 
 export const PLAYER_SECTION: NavSection = {
@@ -62,11 +110,17 @@ export const SECTION_TITLES: Record<string, [string, string]> = {
 	campaign: ['Story', 'Threads, factions, NPCs, and the timeline'],
 	knowledge: ['Notes', 'Notes, handouts, and read-aloud text'],
 	scenes: ['Scenes', 'The canvases your table plays on — build, edit, and stage them'],
-	graph: ['Graph & Search', 'Every entity and how it connects — actor-filtered'],
+	graph: ['Graph & Search', 'Every entity and connection visible to your current role'],
 	audio: ['Audio & Atmosphere', 'Soundboard cues, layered ambience, and scene bindings'],
-	extensibility: ['Extensions & Systems', 'Plugins, the compendium, custom objects, and the rules module'],
+	extensibility: [
+		'Extensions & Systems',
+		'Plugins, the compendium, custom objects, and the rules module',
+	],
 	community: ['Community', 'Browse modules, export your work, and publish the campaign wiki'],
-	pricing: ['Plans & cloud', 'Local-first is free. Cloud features are paid to cover what they cost to run'],
+	pricing: [
+		'Plans & cloud',
+		'Local play stays free. Optional hosted plans are in a no-charge preview',
+	],
 	player: ['Player', 'The second persona: your own sheet, resources, and journal'],
 	settings: ['Settings', 'Appearance, players, permissions, and systems'],
 };
@@ -75,7 +129,8 @@ export const SECTION_TITLES: Record<string, [string, string]> = {
 export function activeSectionId(pathname: string): string {
 	// Scene routes are their own pseudo-section (the sidebar Scenes group, not a nav row): without
 	// this the fallback is 'home' and the top bar claims "Command Center" while editing a scene.
-	if (pathname === '/scenes' || pathname === '/scene' || pathname.startsWith('/scene/')) return 'scenes';
+	if (pathname === '/scenes' || pathname === '/scene' || pathname.startsWith('/scene/'))
+		return 'scenes';
 	let best: NavSection | null = null;
 	for (const section of ALL) {
 		if (section.path === '/') {

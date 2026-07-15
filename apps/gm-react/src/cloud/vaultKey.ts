@@ -1,112 +1,226 @@
-// CLIENT-HELD VAULT KEY CUSTODY (ADR-017 / SEC-004). The per-vault E2EE keyring is a SECRET: it holds
-// the raw AES-256 content keys that decrypt cloud artifacts. It must live ONLY in the OS-encrypted
-// credential store (Electron safeStorage via durableSecretStore) — never in IndexedDB, localStorage,
-// the op log, exports, or logs. This is the concrete realization of the `client-held` key custodian the
-// release-approved cloud security model declares: the server never receives any of this material.
-//
-// Fail-closed device capability: durable custody requires the OS credential store. On the web (no
-// keychain) durableSecretStore persists nothing, so a keyring generated there is MEMORY-ONLY and lost on
-// reload — which would make cloud-synced data unrecoverable. So `custodyAvailable()` is false on web, and
-// the cloud-sync gate (see cloudSync.ts) will not offer enablement on a device that cannot durably hold
-// the client key. Encryption still works in-session; only durable cloud sync is gated off.
+// CLIENT-HELD VAULT KEY CUSTODY (ADR-017 / SEC-004). Keyrings are secrets and live only in the
+// Electron OS credential store. Every durable key namespace includes the authenticated account and
+// vault, while every encryption additionally binds account/vault/artifact kind/revision through AES-GCM
+// associated data in the core crypto module.
 
 import {
+	VAULT_KEYRING_SCHEMA_VERSION,
 	createVaultKeyring,
 	decryptFromKeyring,
 	encryptForKeyring,
 	rotateVaultKeyring,
+	type ContextBoundEncryptedEnvelope,
 	type EncryptedEnvelope,
 	type ParticipantKeyHolding,
+	type VaultArtifactContext,
 	type VaultKeyring,
 } from '@dndtools/core';
 import { durableSecretStore } from './secureStore';
 
 const NS = 'vaultkey:';
+const SCOPED_VERSION = 'v2';
+const MAX_KEY_EPOCHS = 1_024;
 
-/** In-memory cache of decoded keyrings, keyed by vaultId, to avoid re-reading the OS store per op. */
+/** In-memory cache, account + vault scoped. */
 const cache = new Map<string, VaultKeyring>();
+/** A deletion-session barrier: an in-flight backup cannot recreate a key after account cleanup. */
+const forgotten = new Set<string>();
+let mutationTail: Promise<void> = Promise.resolve();
 
-async function readDurable(vaultId: string): Promise<VaultKeyring | null> {
-	const raw = await durableSecretStore.get(NS + vaultId);
-	if (!raw) return null;
-	try {
-		const parsed = JSON.parse(raw) as VaultKeyring;
-		// Minimal shape guard — a corrupt record fails closed (treated as absent).
-		// Require the current-epoch key to actually be present: a truncated/partial write that
-		// dropped it must be rebuilt (fail closed), not loaded and then made to throw inside encrypt.
-		if (
-			parsed &&
-			typeof parsed.currentEpoch === 'number' &&
-			parsed.keys &&
-			typeof parsed.keys[parsed.currentEpoch] === 'string'
-		)
-			return parsed;
-	} catch {
-		/* fall through — corrupt keyring is treated as absent (fail closed) */
-	}
-	return null;
+function cacheKey(accountId: string, vaultId: string): string {
+	return JSON.stringify([accountId, vaultId]);
 }
 
-async function persistDurable(vaultId: string, keyring: VaultKeyring): Promise<boolean> {
-	return durableSecretStore.set(NS + vaultId, JSON.stringify(keyring));
+function toBase64Url(bytes: Uint8Array): string {
+	let binary = '';
+	for (const byte of bytes) binary += String.fromCharCode(byte);
+	return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-/**
- * Get the vault's keyring, creating and durably persisting a fresh one on first use. Throws fail-closed
- * when durable custody is unavailable (web): we refuse to mint a key we cannot safely persist, because a
- * lost key means unrecoverable cloud data under the unsupported-by-design recovery model.
- */
-async function getOrCreateKeyring(vaultId: string): Promise<VaultKeyring> {
-	const cached = cache.get(vaultId);
-	if (cached) return cached;
-
-	const existing = await readDurable(vaultId);
-	if (existing) {
-		cache.set(vaultId, existing);
-		return existing;
-	}
-
-	if (!(await durableSecretStore.available())) {
+async function digestName(value: string): Promise<string> {
+	if (!globalThis.crypto?.subtle) {
 		throw new Error(
-			'Vault key custody requires an OS credential store; this device cannot durably hold the client key (fail closed).',
+			'WebCrypto is unavailable; vault keys cannot be safely namespaced (fail closed).',
 		);
 	}
-	const fresh = createVaultKeyring();
-	const stored = await persistDurable(vaultId, fresh);
-	if (!stored) throw new Error('Failed to persist the vault keyring to the OS credential store (fail closed).');
-	cache.set(vaultId, fresh);
-	return fresh;
+	const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+	return toBase64Url(new Uint8Array(digest));
+}
+
+async function scopedStorageKey(accountId: string, vaultId: string): Promise<string> {
+	return `${NS}${SCOPED_VERSION}:${await digestName(JSON.stringify([accountId, vaultId]))}`;
+}
+
+async function legacyClaimKey(vaultId: string): Promise<string> {
+	return `${NS}legacy-claim:${await digestName(vaultId)}`;
+}
+
+function validateNamespace(accountId: string, vaultId: string): void {
+	const hasControlCharacter = (value: string) =>
+		Array.from(value).some((character) => {
+			const code = character.codePointAt(0) ?? 0;
+			return code <= 0x1f || code === 0x7f;
+		});
+	if (
+		typeof accountId !== 'string' ||
+		accountId.length < 1 ||
+		accountId.length > 256 ||
+		typeof vaultId !== 'string' ||
+		vaultId.length < 1 ||
+		vaultId.length > 128 ||
+		hasControlCharacter(accountId) ||
+		hasControlCharacter(vaultId)
+	) {
+		throw new Error('A valid account and vault are required for client-held key custody.');
+	}
+}
+
+function decodeKeyring(raw: string, storageKey: string): VaultKeyring {
+	let candidate: unknown;
+	try {
+		candidate = JSON.parse(raw);
+	} catch {
+		throw new Error(`The stored vault keyring ${storageKey} is damaged; it was not replaced.`);
+	}
+	if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+		throw new Error(`The stored vault keyring ${storageKey} is invalid; it was not replaced.`);
+	}
+	const parsed = candidate as Partial<VaultKeyring>;
+	const epochs = parsed.keys ? Object.entries(parsed.keys) : [];
+	if (
+		JSON.stringify(Object.keys(candidate).sort()) !==
+			JSON.stringify(['currentEpoch', 'keys', 'schemaVersion']) ||
+		parsed.schemaVersion !== VAULT_KEYRING_SCHEMA_VERSION ||
+		!Number.isSafeInteger(parsed.currentEpoch) ||
+		Number(parsed.currentEpoch) < 0 ||
+		!parsed.keys ||
+		typeof parsed.keys !== 'object' ||
+		Array.isArray(parsed.keys) ||
+		epochs.length < 1 ||
+		epochs.length > MAX_KEY_EPOCHS ||
+		epochs.some(
+			([epoch, material]) =>
+				!/^\d+$/.test(epoch) ||
+				!Number.isSafeInteger(Number(epoch)) ||
+				typeof material !== 'string' ||
+				!/^[A-Za-z0-9_-]{43}$/.test(material),
+		) ||
+		typeof parsed.keys[Number(parsed.currentEpoch)] !== 'string'
+	) {
+		throw new Error(`The stored vault keyring ${storageKey} is invalid; it was not replaced.`);
+	}
+	return parsed as VaultKeyring;
+}
+
+async function readDurableAt(storageKey: string): Promise<VaultKeyring | null> {
+	const raw = await durableSecretStore.get(storageKey);
+	return raw === null ? null : decodeKeyring(raw, storageKey);
+}
+
+async function persistDurableAt(storageKey: string, keyring: VaultKeyring): Promise<void> {
+	if (!(await durableSecretStore.set(storageKey, JSON.stringify(keyring)))) {
+		throw new Error(
+			'Failed to persist the vault keyring to the OS credential store (fail closed).',
+		);
+	}
+}
+
+function serialized<T>(operation: () => Promise<T>): Promise<T> {
+	const result = mutationTail.then(operation, operation);
+	mutationTail = result.then(
+		() => undefined,
+		() => undefined,
+	);
+	return result;
 }
 
 /**
- * Get an EXISTING keyring, or throw fail-closed. Unlike {@link getOrCreateKeyring} this NEVER mints key
- * material — decrypt must never fabricate a key. A device that holds no keyring cannot decrypt the vault's
- * artifacts (they were sealed under a key held only on the originating device), so minting a fresh random
- * keyring here would (a) fail the AES-GCM tag with a cryptic error and, worse, (b) durably persist a wrong
- * key that then re-seals NEW content under a divergent key — permanently forking/locking out the vault.
+ * Claim the released v0.2.0 `vaultkey:<vaultId>` key for at most one account. The claim is written
+ * before the scoped copy, so a failed write can retry for the same account but can never copy one
+ * legacy key into two account namespaces. The original remains for downgrade until `forget`.
  */
-async function requireExistingKeyring(vaultId: string): Promise<VaultKeyring> {
-	const cached = cache.get(vaultId);
-	if (cached) return cached;
-	const existing = await readDurable(vaultId);
-	if (!existing) {
-		throw new Error('This device holds no vault key; the cloud artifact cannot be decrypted here (fail closed).');
+async function claimLegacyKeyring(
+	accountId: string,
+	vaultId: string,
+	storageKey: string,
+): Promise<VaultKeyring | null> {
+	const legacyStorageKey = NS + vaultId;
+	const legacy = await readDurableAt(legacyStorageKey);
+	if (!legacy) return null;
+	const claimStorageKey = await legacyClaimKey(vaultId);
+	const existingClaim = await durableSecretStore.get(claimStorageKey);
+	if (existingClaim !== null && existingClaim !== storageKey) return null;
+	if (existingClaim === null && !(await durableSecretStore.set(claimStorageKey, storageKey))) {
+		throw new Error('Failed to reserve the legacy vault key for this account (fail closed).');
 	}
-	cache.set(vaultId, existing);
-	return existing;
+	await persistDurableAt(storageKey, legacy);
+	return legacy;
+}
+
+/** Caller must hold `serialized`; this function may read, claim, create, persist, and fill the cache. */
+async function loadScopedKeyring(
+	accountId: string,
+	vaultId: string,
+	create: boolean,
+): Promise<VaultKeyring> {
+	validateNamespace(accountId, vaultId);
+	const memoryKey = cacheKey(accountId, vaultId);
+	if (forgotten.has(memoryKey)) {
+		throw new Error('Vault key custody was removed for this deleted account.');
+	}
+	const cached = cache.get(memoryKey);
+	if (cached) return cached;
+
+	const storageKey = await scopedStorageKey(accountId, vaultId);
+	let keyring = await readDurableAt(storageKey);
+	if (!keyring) keyring = await claimLegacyKeyring(accountId, vaultId, storageKey);
+	if (!keyring && create) {
+		if (!(await durableSecretStore.available())) {
+			throw new Error(
+				'Vault key custody requires an OS credential store; this device cannot durably hold the client key (fail closed).',
+			);
+		}
+		keyring = createVaultKeyring();
+		await persistDurableAt(storageKey, keyring);
+	}
+	if (!keyring) {
+		throw new Error(
+			'This account has no vault key on this device; the cloud artifact cannot be decrypted here (fail closed).',
+		);
+	}
+	cache.set(memoryKey, keyring);
+	return keyring;
+}
+
+async function getScopedKeyring(
+	accountId: string,
+	vaultId: string,
+	create: boolean,
+): Promise<VaultKeyring> {
+	validateNamespace(accountId, vaultId);
+	const memoryKey = cacheKey(accountId, vaultId);
+	if (forgotten.has(memoryKey)) {
+		throw new Error('Vault key custody was removed for this deleted account.');
+	}
+	const cached = cache.get(memoryKey);
+	if (cached) return cached;
+	return serialized(() => loadScopedKeyring(accountId, vaultId, create));
 }
 
 export interface VaultKeyManager {
 	/** Whether this device can durably hold the client-held key (OS credential store present). */
 	custodyAvailable(): Promise<boolean>;
-	/** Seal a value into an opaque envelope under the vault's current key epoch. */
-	encrypt(vaultId: string, plaintext: unknown): Promise<EncryptedEnvelope>;
-	/** Open an envelope with the vault's key for its epoch. Throws fail-closed if this device lacks that key. */
-	decrypt(vaultId: string, envelope: EncryptedEnvelope): Promise<unknown>;
-	/** Rotate the vault key on a participant revocation (mints a fresh epoch key the revoked party never holds). */
-	rotate(vaultId: string, revoked: ParticipantKeyHolding): Promise<void>;
-	/** Forget a vault's keyring from this device (cache + OS store). Does NOT affect the server or other devices. */
-	forget(vaultId: string): Promise<void>;
+	/** Seal a value under an account-scoped key and exact artifact context. */
+	encrypt(
+		context: VaultArtifactContext,
+		plaintext: unknown,
+	): Promise<ContextBoundEncryptedEnvelope>;
+	/** Open only a context-bound envelope for this account/vault/artifact/revision. */
+	decrypt(context: VaultArtifactContext, envelope: EncryptedEnvelope): Promise<unknown>;
+	/** Rotate one account + vault key on participant revocation. */
+	rotate(accountId: string, vaultId: string, revoked: ParticipantKeyHolding): Promise<void>;
+	/** Forget one account + vault keyring from cache and the OS store. */
+	forget(accountId: string, vaultId: string): Promise<void>;
 }
 
 export const vaultKeyManager: VaultKeyManager = {
@@ -114,26 +228,64 @@ export const vaultKeyManager: VaultKeyManager = {
 		return durableSecretStore.available();
 	},
 
-	async encrypt(vaultId, plaintext) {
-		const keyring = await getOrCreateKeyring(vaultId);
-		return encryptForKeyring(keyring, plaintext);
+	async encrypt(context, plaintext) {
+		const keyring = await getScopedKeyring(context.accountId, context.vaultId, true);
+		return encryptForKeyring(keyring, plaintext, context);
 	},
 
-	async decrypt(vaultId, envelope) {
-		const keyring = await requireExistingKeyring(vaultId); // NEVER mint on decrypt (fail closed)
-		return decryptFromKeyring(keyring, envelope);
+	async decrypt(context, envelope) {
+		const keyring = await getScopedKeyring(context.accountId, context.vaultId, false);
+		return decryptFromKeyring(keyring, envelope, context);
 	},
 
-	async rotate(vaultId, revoked) {
-		const keyring = await getOrCreateKeyring(vaultId);
-		const { keyring: rotated } = rotateVaultKeyring(keyring, revoked);
-		const stored = await persistDurable(vaultId, rotated);
-		if (!stored) throw new Error('Failed to persist the rotated vault keyring (fail closed).');
-		cache.set(vaultId, rotated);
+	async rotate(accountId, vaultId, revoked) {
+		validateNamespace(accountId, vaultId);
+		await serialized(async () => {
+			// Read + rotate + persist as one serialized mutation. Concurrent participant removals must
+			// advance two epochs, never mint competing keys for the same epoch and lose one write.
+			const keyring = await loadScopedKeyring(accountId, vaultId, true);
+			if (Object.keys(keyring.keys).length >= MAX_KEY_EPOCHS) {
+				throw new Error(
+					'The vault keyring reached its safe epoch limit; rotation stopped fail closed.',
+				);
+			}
+			const { keyring: rotated } = rotateVaultKeyring(keyring, revoked);
+			const storageKey = await scopedStorageKey(accountId, vaultId);
+			await persistDurableAt(storageKey, rotated);
+			cache.set(cacheKey(accountId, vaultId), rotated);
+		});
 	},
 
-	async forget(vaultId) {
-		cache.delete(vaultId);
-		await durableSecretStore.remove(NS + vaultId);
+	async forget(accountId, vaultId) {
+		validateNamespace(accountId, vaultId);
+		const memoryKey = cacheKey(accountId, vaultId);
+		// Set this synchronously before joining the mutation queue. Work already ahead of this deletion
+		// may finish, but no later backup can create or cache replacement custody in this app session.
+		forgotten.add(memoryKey);
+		await serialized(async () => {
+			const storageKey = await scopedStorageKey(accountId, vaultId);
+			cache.delete(memoryKey);
+			if (!(await durableSecretStore.remove(storageKey))) {
+				throw new Error('Could not remove this account’s vault key from the OS credential store.');
+			}
+			const claimStorageKey = await legacyClaimKey(vaultId);
+			if ((await durableSecretStore.get(claimStorageKey)) === storageKey) {
+				if (!(await durableSecretStore.remove(NS + vaultId))) {
+					throw new Error('Could not remove the claimed legacy vault key.');
+				}
+				if (!(await durableSecretStore.remove(claimStorageKey))) {
+					throw new Error('Could not remove the legacy vault-key claim.');
+				}
+			}
+		});
 	},
+};
+
+export const __testing = {
+	clearCache(): void {
+		cache.clear();
+		forgotten.clear();
+		mutationTail = Promise.resolve();
+	},
+	scopedStorageKey,
 };

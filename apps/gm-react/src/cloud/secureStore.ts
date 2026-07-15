@@ -6,34 +6,41 @@
 // requiredSecretLocation(osAvailable): os-credential-store else device-local.
 
 export interface DurableSecretStore {
-  /** Whether durable, encrypted persistence is available. */
-  available(): Promise<boolean>;
-  get(key: string): Promise<string | null>;
-  set(key: string, value: string): Promise<boolean>;
-  remove(key: string): Promise<void>;
-  keys(): Promise<string[]>;
+	/** Whether durable, encrypted persistence is available. */
+	available(): Promise<boolean>;
+	get(key: string): Promise<string | null>;
+	set(key: string, value: string): Promise<boolean>;
+	/** True only when the durable copy was removed successfully. */
+	remove(key: string): Promise<boolean>;
+	keys(): Promise<string[]>;
 }
 
 interface ElectronSecureStoreBridge {
-  available(): Promise<boolean>;
-  get(key: string): Promise<string | null>;
-  set(key: string, value: string): Promise<boolean>;
-  remove(key: string): Promise<void>;
-  keys(): Promise<string[]>;
+	available(): Promise<boolean>;
+	get(key: string): Promise<string | null>;
+	set(key: string, value: string): Promise<boolean>;
+	remove(key: string): Promise<boolean>;
+	keys(): Promise<string[]>;
 }
 
 function electronBridge(): ElectronSecureStoreBridge | null {
-  return (globalThis as unknown as { dndtoolsSecureStore?: ElectronSecureStoreBridge })
-    .dndtoolsSecureStore ?? null;
+	return (
+		(globalThis as unknown as { dndtoolsSecureStore?: ElectronSecureStoreBridge })
+			.dndtoolsSecureStore ?? null
+	);
 }
 
 // Web fallback — no durable persistence (see file header).
 const memoryOnly: DurableSecretStore = {
-  available: async () => false,
-  get: async () => null,
-  set: async () => false,
-  remove: async () => {},
-  keys: async () => [],
+	available: async () => false,
+	get: async () => null,
+	set: async () => false,
+	remove: async () => false,
+	keys: async () => [],
 };
 
-export const durableSecretStore: DurableSecretStore = electronBridge() ?? memoryOnly;
+const bridge = electronBridge();
+
+/** Distinguishes a web session from a desktop whose OS keychain is temporarily unavailable. */
+export const hasDurableSecretStoreBridge = bridge !== null;
+export const durableSecretStore: DurableSecretStore = bridge ?? memoryOnly;

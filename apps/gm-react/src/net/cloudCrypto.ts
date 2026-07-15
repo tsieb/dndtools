@@ -46,7 +46,10 @@ function bytesToBase64(bytes: Uint8Array): string {
 	return btoa(binary);
 }
 
-function base64ToBytes(b64: string): Uint8Array {
+function base64ToBytes(b64: string, maxChars = 512 * 1024): Uint8Array {
+	if (b64.length > maxChars || !/^[A-Za-z0-9+/]*={0,2}$/.test(b64)) {
+		throw new Error('Malformed base64 data.');
+	}
 	const binary = atob(b64);
 	const bytes = new Uint8Array(binary.length);
 	for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
@@ -86,9 +89,11 @@ export async function deriveWrapKey(
 	peerPublicKeyB64: string,
 	pin: string,
 ): Promise<CryptoKey> {
+	if (peerPublicKeyB64.length > 128 || pin.length > 256)
+		throw new Error('Invalid pairing credentials.');
 	const peer = await subtle().importKey(
 		'raw',
-		ab(base64ToBytes(peerPublicKeyB64)),
+		ab(base64ToBytes(peerPublicKeyB64, 128)),
 		{ name: 'ECDH', namedCurve: 'P-256' },
 		false,
 		[],
@@ -118,7 +123,12 @@ export function generateJoinPin(): string {
 	return toB64Url(bytesToBase64(bytes));
 }
 
-const toB64Url = (b64: string): string => b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+export const MAX_ONLINE_JOIN_CODE_CHARS = 2048;
+const MAX_WRAPPED_CODE_CHARS = 384 * 1024;
+const MAX_WRAPPED_PLAINTEXT_CHARS = 256 * 1024;
+
+const toB64Url = (b64: string): string =>
+	b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const fromB64Url = (u: string): string => u.replace(/-/g, '+').replace(/_/g, '/');
 
 /**
@@ -127,20 +137,37 @@ const fromB64Url = (u: string): string => u.replace(/-/g, '+').replace(/_/g, '/'
  * base64url of a compact JSON tuple; opaque to anyone without it.
  */
 export function encodeJoinCode(sessionId: string, pin: string): string {
+	if (!/^sess-[a-zA-Z0-9-]{1,96}$/.test(sessionId) || !/^[A-Za-z0-9_-]{16,128}$/.test(pin)) {
+		throw new Error('Cannot create an invalid online join code.');
+	}
 	const json = JSON.stringify({ s: sessionId, p: pin });
 	return toB64Url(bytesToBase64(new TextEncoder().encode(json)));
 }
 
 /** Reverse {@link encodeJoinCode}. Throws on a malformed code. */
 export function decodeJoinCode(code: string): { sessionId: string; pin: string } {
+	const trimmed = code.trim();
+	if (
+		trimmed.length < 1 ||
+		trimmed.length > MAX_ONLINE_JOIN_CODE_CHARS ||
+		!/^[A-Za-z0-9_-]+$/.test(trimmed)
+	)
+		throw new Error('That online join code is not valid.');
 	let obj: unknown;
 	try {
-		obj = JSON.parse(new TextDecoder().decode(base64ToBytes(fromB64Url(code.trim()))));
+		obj = JSON.parse(
+			new TextDecoder().decode(base64ToBytes(fromB64Url(trimmed), MAX_ONLINE_JOIN_CODE_CHARS)),
+		);
 	} catch {
 		throw new Error('That online join code is not valid.');
 	}
 	const rec = obj as { s?: unknown; p?: unknown };
-	if (typeof rec?.s !== 'string' || typeof rec?.p !== 'string' || !rec.s) {
+	if (
+		typeof rec?.s !== 'string' ||
+		typeof rec?.p !== 'string' ||
+		!/^sess-[a-zA-Z0-9-]{1,96}$/.test(rec.s) ||
+		!/^[A-Za-z0-9_-]{16,128}$/.test(rec.p)
+	) {
 		throw new Error('That online join code is not valid.');
 	}
 	return { sessionId: rec.s, pin: rec.p };
@@ -148,19 +175,30 @@ export function decodeJoinCode(code: string): { sessionId: string; pin: string }
 
 /** AES-GCM seal a code string with a fresh 96-bit IV → compact "<ivB64>.<ctB64>". */
 export async function wrapCode(key: CryptoKey, plaintext: string): Promise<string> {
+	if (plaintext.length < 1 || plaintext.length > MAX_WRAPPED_PLAINTEXT_CHARS) {
+		throw new Error('Pairing code is too large.');
+	}
 	const iv = crypto.getRandomValues(new Uint8Array(12));
 	const ct = new Uint8Array(
-		await subtle().encrypt({ name: 'AES-GCM', iv: ab(iv) }, key, ab(new TextEncoder().encode(plaintext))),
+		await subtle().encrypt(
+			{ name: 'AES-GCM', iv: ab(iv) },
+			key,
+			ab(new TextEncoder().encode(plaintext)),
+		),
 	);
 	return `${bytesToBase64(iv)}.${bytesToBase64(ct)}`;
 }
 
 /** Reverse {@link wrapCode}. Throws on a malformed frame or authentication failure. */
 export async function unwrapCode(key: CryptoKey, sealed: string): Promise<string> {
+	if (sealed.length < 1 || sealed.length > MAX_WRAPPED_CODE_CHARS)
+		throw new Error('Malformed wrapped code.');
 	const dot = sealed.indexOf('.');
-	if (dot < 0) throw new Error('Malformed wrapped code.');
-	const iv = base64ToBytes(sealed.slice(0, dot));
+	if (dot < 0 || sealed.indexOf('.', dot + 1) >= 0) throw new Error('Malformed wrapped code.');
+	const iv = base64ToBytes(sealed.slice(0, dot), 32);
+	if (iv.byteLength !== 12) throw new Error('Malformed wrapped code.');
 	const ct = base64ToBytes(sealed.slice(dot + 1));
+	if (ct.byteLength > MAX_WRAPPED_PLAINTEXT_CHARS + 16) throw new Error('Malformed wrapped code.');
 	const pt = new Uint8Array(await subtle().decrypt({ name: 'AES-GCM', iv: ab(iv) }, key, ab(ct)));
 	return new TextDecoder().decode(pt);
 }

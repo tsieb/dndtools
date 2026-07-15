@@ -74,22 +74,48 @@ describe('backup validation (fail closed)', () => {
 			VaultBackupValidationError,
 		);
 		const real = await exportFullVault();
-		expect(() => validateVaultBackup({ ...real, version: 999 })).toThrow(/newer/);
+		expect(() => validateVaultBackup({ ...real, version: 999 })).toThrow(/not supported/);
 		const { characters: _dropped, ...partialSlice } = real.slice;
 		expect(() => validateVaultBackup({ ...real, slice: partialSlice })).toThrow(/characters/);
 		expect(() =>
 			validateVaultBackup({ ...real, assets: [{ id: 'x', mime: 3, base64: 'AA==' }] }),
-		).toThrow(/malformed asset/);
+		).toThrow(/malformed.*asset/);
 	});
 
-	it('a corrupt asset entry skips without aborting the restore', async () => {
+	it('accepts the released v1 derived sync field but normalizes it out', async () => {
+		const real = await exportFullVault();
+		const releasedV1 = JSON.parse(JSON.stringify(real)) as Record<string, unknown>;
+		const slice = releasedV1.slice as Record<string, unknown>;
+		(slice.sync as Record<string, unknown>).idempotencyKeys = {};
+
+		const validated = validateVaultBackup(releasedV1);
+		expect(Object.keys(validated.slice.sync)).toEqual(['operations']);
+	});
+
+	it('rejects corrupt media before changing state or existing asset bytes', async () => {
 		await __testing.putRawDocument(__testing.SCENE_STATE_KEY, {
-			scenes: {},
+			scenes: { sentinel: { id: 'sentinel' } },
 			schemaVersion: 1,
 		});
+		const existingId = await putAssetBytes(bytesOf('keep-current-vault'), 'text/plain');
 		const backup = await exportFullVault();
-		backup.assets.push({ id: 'fnv1a64-bogus', mime: 'audio/mpeg', base64: '' });
-		const result = await importFullVault(backup);
-		expect(result.skippedAssets).toBe(1);
+		backup.assets[0]!.base64 = bytesToBase64(bytesOf('different-bytes'));
+
+		await expect(importFullVault(backup)).rejects.toThrow(/does not match/i);
+		expect((await loadCoreState()).scenes.scenes).toHaveProperty('sentinel');
+		expect(await getAssetBytes(existingId)).not.toBeNull();
+	});
+});
+
+describe('authoritative asset replacement', () => {
+	it('removes blobs that are not present in the restored backup', async () => {
+		const restoredId = await putAssetBytes(bytesOf('belongs-to-backup'), 'text/plain');
+		const backup = await exportFullVault();
+		const priorOnlyId = await putAssetBytes(bytesOf('belongs-to-current-vault'), 'text/plain');
+
+		await importFullVault(backup);
+
+		expect(await getAssetBytes(restoredId)).not.toBeNull();
+		expect(await getAssetBytes(priorOnlyId)).toBeNull();
 	});
 });

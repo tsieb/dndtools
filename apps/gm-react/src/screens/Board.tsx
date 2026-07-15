@@ -11,6 +11,7 @@ import { Button, Card, Icon, IconButton, Input, Switch } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { SceneBoardCanvas, WidgetGlyph } from '../app/SceneBoardCanvas';
 import { boardWidgetsOf, payloadIndex, type BoardWidget } from '../app/board-helpers';
+import { useViewport } from '../app/useViewport';
 
 /**
  * Board (`/board`) — the Command Center spatial board: the application's home Scene rendered as a
@@ -26,6 +27,7 @@ import { boardWidgetsOf, payloadIndex, type BoardWidget } from '../app/board-hel
  */
 export function Board() {
 	const runtime = useRuntime();
+	const viewport = useViewport();
 	const actorId = runtime.defaultActorId;
 	const isDm = runtime.state.permissions.actors[actorId]?.role === 'dm';
 
@@ -107,26 +109,48 @@ export function Board() {
 
 	function move(widgetInstanceId: string, x: number, y: number) {
 		if (!homeSceneId) return;
-		return dispatch({ type: 'scene.move-widget', actorId, payload: { sceneId: homeSceneId, widgetInstanceId, x, y } });
+		return dispatch({
+			type: 'scene.move-widget',
+			actorId,
+			payload: { sceneId: homeSceneId, widgetInstanceId, x, y },
+		});
 	}
 	function resize(widgetInstanceId: string, w: number, h: number) {
 		if (!homeSceneId) return;
-		return dispatch({ type: 'scene.resize-widget', actorId, payload: { sceneId: homeSceneId, widgetInstanceId, w, h } });
+		return dispatch({
+			type: 'scene.resize-widget',
+			actorId,
+			payload: { sceneId: homeSceneId, widgetInstanceId, w, h },
+		});
 	}
 	function remove(widgetInstanceId: string) {
 		if (!homeSceneId) return;
 		setSelectedId((cur) => (cur === widgetInstanceId ? null : cur));
-		return dispatch({ type: 'scene.destroy-widget', actorId, payload: { sceneId: homeSceneId, widgetInstanceId } });
+		return dispatch({
+			type: 'scene.destroy-widget',
+			actorId,
+			payload: { sceneId: homeSceneId, widgetInstanceId },
+		});
 	}
 	// VIEW-mode widget operation (SES-005/SES-003): a widget-DECLARED durable command through the one
 	// envelope the core accepts — fresh idempotencyKey per press + the scene's current revision.
-	async function operateWidget(widgetInstanceId: string, commandType: string, payload: Record<string, unknown>) {
+	async function operateWidget(
+		widgetInstanceId: string,
+		commandType: string,
+		payload: Record<string, unknown>,
+	) {
 		if (!homeSceneId) return;
 		const ok = await dispatch({
 			type: 'widget.dispatch-command',
 			actorId,
 			idempotencyKey: crypto.randomUUID(),
-			payload: { sceneId: homeSceneId, widgetInstanceId, commandType, payload, expectedRevision: sceneRevision },
+			payload: {
+				sceneId: homeSceneId,
+				widgetInstanceId,
+				commandType,
+				payload,
+				expectedRevision: sceneRevision,
+			},
 		});
 		if (ok) setStatus(null);
 	}
@@ -134,7 +158,10 @@ export function Board() {
 		if (!homeSceneId) return;
 		const count = widgets.length;
 		const cascade = (count % 6) * 28;
-		const command = resolveAddWidgetCommand(entry, homeSceneId, { x: 48 + cascade, y: 48 + cascade });
+		const command = resolveAddWidgetCommand(entry, homeSceneId, {
+			x: 48 + cascade,
+			y: 48 + cascade,
+		});
 		if (!command) return;
 		const ok = await dispatch({ type: command.type, actorId, payload: command.payload });
 		if (ok) {
@@ -144,7 +171,11 @@ export function Board() {
 	}
 	async function savePreset() {
 		if (!presetName.trim()) return;
-		const ok = await dispatch({ type: 'command-center.save-preset', actorId, payload: { name: presetName.trim() } });
+		const ok = await dispatch({
+			type: 'command-center.save-preset',
+			actorId,
+			payload: { name: presetName.trim() },
+		});
 		if (ok) {
 			setStatus(`Layout “${presetName.trim()}” saved.`);
 			setPresetName('');
@@ -159,7 +190,11 @@ export function Board() {
 	}
 	async function applyPreset(presetId: string, name: string) {
 		await snapshotSafePoint();
-		const ok = await dispatch({ type: 'command-center.apply-preset', actorId, payload: { presetId } });
+		const ok = await dispatch({
+			type: 'command-center.apply-preset',
+			actorId,
+			payload: { presetId },
+		});
 		if (ok) setStatus(`Layout “${name}” applied — restore the safe point to undo.`);
 	}
 	async function restoreSafePoint() {
@@ -170,11 +205,25 @@ export function Board() {
 	if (!isDm) {
 		return (
 			<div style={{ maxWidth: 640, margin: '0 auto' }}>
-				<Card elevation="raised" padding="lg" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-					<span style={{ font: '700 var(--text-lg) var(--font-display)', color: 'var(--color-text-primary)' }}>
+				<Card
+					elevation="raised"
+					padding="lg"
+					style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
+				>
+					<span
+						style={{
+							font: '700 var(--text-lg) var(--font-display)',
+							color: 'var(--color-text-primary)',
+						}}
+					>
 						The GM Screen is the DM&apos;s dashboard
 					</span>
-					<span style={{ font: 'var(--text-sm) var(--font-sans)', color: 'var(--color-text-secondary)' }}>
+					<span
+						style={{
+							font: 'var(--text-sm) var(--font-sans)',
+							color: 'var(--color-text-secondary)',
+						}}
+					>
 						The GM Screen is authored by the DM. Switch back to the DM view to arrange it.
 					</span>
 				</Card>
@@ -183,14 +232,57 @@ export function Board() {
 	}
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', height: 'calc(100vh - var(--space-8))' }}>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flex: '0 0 auto' }}>
-				<span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 'var(--radius-md)', background: 'var(--color-accent)', color: 'var(--color-accent-foreground)', flex: '0 0 auto' }}>
+		<div
+			style={{
+				display: 'flex',
+				flexDirection: 'column',
+				gap: 'var(--space-3)',
+				height:
+					viewport === 'phone'
+						? 'calc(var(--app-viewport-height) - 164px)'
+						: 'calc(var(--app-viewport-height) - var(--space-8))',
+				minHeight: 360,
+			}}
+		>
+			<div
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					gap: 'var(--space-2)',
+					flex: '0 0 auto',
+					flexWrap: 'wrap',
+				}}
+			>
+				<span
+					style={{
+						display: 'inline-flex',
+						alignItems: 'center',
+						justifyContent: 'center',
+						width: 30,
+						height: 30,
+						borderRadius: 'var(--radius-md)',
+						background: 'var(--color-accent)',
+						color: 'var(--color-accent-foreground)',
+						flex: '0 0 auto',
+					}}
+				>
 					<Icon name="home" size="sm" />
 				</span>
-				<div style={{ minWidth: 0 }}>
-					<div style={{ font: '700 var(--text-xl) var(--font-display)', color: 'var(--color-text-primary)' }}>GM Screen</div>
-					<div style={{ font: 'var(--text-2xs) var(--font-sans)', color: 'var(--color-text-tertiary)' }}>
+				<div style={{ minWidth: 0, flex: '1 1 160px' }}>
+					<div
+						style={{
+							font: '700 var(--text-xl) var(--font-display)',
+							color: 'var(--color-text-primary)',
+						}}
+					>
+						GM Screen
+					</div>
+					<div
+						style={{
+							font: 'var(--text-2xs) var(--font-sans)',
+							color: 'var(--color-text-tertiary)',
+						}}
+					>
 						{widgets.length} widget{widgets.length === 1 ? '' : 's'} · home · fits to screen
 					</div>
 				</div>
@@ -200,7 +292,16 @@ export function Board() {
 						<Switch
 							checked={snap}
 							onChange={setSnap}
-							label={<span style={{ font: 'var(--text-2xs) var(--font-sans)', color: 'var(--color-text-secondary)' }}>Snap</span>}
+							label={
+								<span
+									style={{
+										font: 'var(--text-2xs) var(--font-sans)',
+										color: 'var(--color-text-secondary)',
+									}}
+								>
+									Snap
+								</span>
+							}
 						/>
 						<Button variant="secondary" size="sm" icon="add" onClick={() => setAddOpen((v) => !v)}>
 							Add
@@ -224,12 +325,29 @@ export function Board() {
 			</div>
 
 			{status && (
-				<div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, font: 'var(--text-xs) var(--font-sans)', color: 'var(--color-text-secondary)', flex: '0 0 auto' }}>
+				<div
+					style={{
+						display: 'inline-flex',
+						alignItems: 'center',
+						gap: 6,
+						font: 'var(--text-xs) var(--font-sans)',
+						color: 'var(--color-text-secondary)',
+						flex: '0 0 auto',
+					}}
+				>
 					<Icon name="info" size="sm" /> {status}
 				</div>
 			)}
 
-			<div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 'var(--space-3)', position: 'relative' }}>
+			<div
+				style={{
+					flex: 1,
+					minHeight: 0,
+					display: 'flex',
+					gap: 'var(--space-3)',
+					position: 'relative',
+				}}
+			>
 				<SceneBoardCanvas
 					widgets={widgets}
 					policy="bounded"
@@ -243,33 +361,91 @@ export function Board() {
 					onRemove={remove}
 					onWidgetCommand={operateWidget}
 					emptyHint={
-						ready
-							? 'Press Edit layout, then Add to place a widget.'
-							: 'Preparing your home board…'
+						ready ? 'Press Edit layout, then Add to place a widget.' : 'Preparing your home board…'
 					}
 				/>
 
 				{addOpen && (
-					<Card elevation="overlay" padding="md" style={{ width: 300, flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', maxHeight: '100%', overflow: 'auto' }}>
+					<Card
+						elevation="overlay"
+						padding="md"
+						style={{
+							width: viewport === 'phone' ? 'min(300px, 100%)' : 300,
+							flex: '0 0 auto',
+							display: 'flex',
+							flexDirection: 'column',
+							gap: 'var(--space-2)',
+							maxHeight: '100%',
+							overflow: 'auto',
+							...(viewport === 'phone'
+								? { position: 'absolute', right: 0, top: 0, bottom: 0, zIndex: 4 }
+								: {}),
+						}}
+					>
 						<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-							<span style={{ flex: 1, font: '700 var(--text-md) var(--font-display)', color: 'var(--color-text-primary)' }}>Add widget</span>
-							<IconButton icon="close" label="Close" variant="ghost" size="sm" onClick={() => setAddOpen(false)} />
+							<span
+								style={{
+									flex: 1,
+									font: '700 var(--text-md) var(--font-display)',
+									color: 'var(--color-text-primary)',
+								}}
+							>
+								Add widget
+							</span>
+							<IconButton
+								icon="close"
+								label="Close"
+								variant="ghost"
+								size="sm"
+								onClick={() => setAddOpen(false)}
+							/>
 						</div>
 						{library.length === 0 ? (
-							<div style={{ font: 'var(--text-xs) var(--font-sans)', color: 'var(--color-text-tertiary)' }}>No widgets available to add.</div>
+							<div
+								style={{
+									font: 'var(--text-xs) var(--font-sans)',
+									color: 'var(--color-text-tertiary)',
+								}}
+							>
+								No widgets available to add.
+							</div>
 						) : (
 							library.map((entry) => (
 								<button
 									key={`${entry.packageId}:${entry.type}`}
 									type="button"
 									onClick={() => addWidget(entry)}
-									style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', padding: 'var(--space-2)', textAlign: 'left', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface-alt)', cursor: 'pointer' }}
+									style={{
+										display: 'flex',
+										alignItems: 'flex-start',
+										gap: 'var(--space-2)',
+										padding: 'var(--space-2)',
+										textAlign: 'left',
+										border: '1px solid var(--color-border)',
+										borderRadius: 'var(--radius-md)',
+										background: 'var(--color-surface-alt)',
+										cursor: 'pointer',
+									}}
 								>
 									<WidgetGlyph icon={entry.icon ?? 'widget'} size="sm" />
 									<div style={{ minWidth: 0 }}>
-										<div style={{ font: '600 var(--text-sm) var(--font-sans)', color: 'var(--color-text-primary)' }}>{entry.displayName}</div>
+										<div
+											style={{
+												font: '600 var(--text-sm) var(--font-sans)',
+												color: 'var(--color-text-primary)',
+											}}
+										>
+											{entry.displayName}
+										</div>
 										{entry.description && (
-											<div style={{ font: 'var(--text-2xs)/1.4 var(--font-sans)', color: 'var(--color-text-tertiary)' }}>{entry.description}</div>
+											<div
+												style={{
+													font: 'var(--text-2xs)/1.4 var(--font-sans)',
+													color: 'var(--color-text-tertiary)',
+												}}
+											>
+												{entry.description}
+											</div>
 										)}
 									</div>
 								</button>
@@ -279,33 +455,88 @@ export function Board() {
 				)}
 
 				{editing && !addOpen && (
-					<Card elevation="overlay" padding="md" style={{ width: 260, flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', maxHeight: '100%', overflow: 'auto' }}>
-						<span style={{ font: '700 var(--text-md) var(--font-display)', color: 'var(--color-text-primary)' }}>Layouts</span>
+					<Card
+						elevation="overlay"
+						padding="md"
+						style={{
+							width: viewport === 'phone' ? 'min(280px, 100%)' : 260,
+							flex: '0 0 auto',
+							display: 'flex',
+							flexDirection: 'column',
+							gap: 'var(--space-3)',
+							maxHeight: '100%',
+							overflow: 'auto',
+							...(viewport === 'phone'
+								? { position: 'absolute', right: 0, top: 0, bottom: 0, zIndex: 4 }
+								: {}),
+						}}
+					>
+						<span
+							style={{
+								font: '700 var(--text-md) var(--font-display)',
+								color: 'var(--color-text-primary)',
+							}}
+						>
+							Layouts
+						</span>
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-							<span style={{ font: '600 var(--text-xs) var(--font-sans)', color: 'var(--color-text-secondary)' }}>Save current as preset</span>
+							<span
+								style={{
+									font: '600 var(--text-xs) var(--font-sans)',
+									color: 'var(--color-text-secondary)',
+								}}
+							>
+								Save current as preset
+							</span>
 							<div style={{ display: 'flex', gap: 6 }}>
 								<Input
 									value={presetName}
 									onChange={(e: { target: { value: string } }) => setPresetName(e.target.value)}
 									placeholder="e.g. Combat night"
 								/>
-								<Button variant="secondary" size="sm" icon="check" disabled={!presetName.trim()} onClick={savePreset}>
+								<Button
+									variant="secondary"
+									size="sm"
+									icon="check"
+									disabled={!presetName.trim()}
+									onClick={savePreset}
+								>
 									Save
 								</Button>
 							</div>
 						</div>
 						{presets.length > 0 && (
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-								<span style={{ font: '600 var(--text-xs) var(--font-sans)', color: 'var(--color-text-secondary)' }}>Apply a saved layout</span>
+								<span
+									style={{
+										font: '600 var(--text-xs) var(--font-sans)',
+										color: 'var(--color-text-secondary)',
+									}}
+								>
+									Apply a saved layout
+								</span>
 								{presets.map((preset) => (
-									<Button key={preset.id} variant="ghost" size="sm" icon="scene" onClick={() => applyPreset(preset.id, preset.name)} style={{ justifyContent: 'flex-start' }}>
+									<Button
+										key={preset.id}
+										variant="ghost"
+										size="sm"
+										icon="scene"
+										onClick={() => applyPreset(preset.id, preset.name)}
+										style={{ justifyContent: 'flex-start' }}
+									>
 										{preset.name}
 									</Button>
 								))}
 							</div>
 						)}
 						{runtime.state.commandCenter.autoSave && (
-							<Button variant="ghost" size="sm" icon="retry" onClick={restoreSafePoint} style={{ alignSelf: 'flex-start' }}>
+							<Button
+								variant="ghost"
+								size="sm"
+								icon="retry"
+								onClick={restoreSafePoint}
+								style={{ alignSelf: 'flex-start' }}
+							>
 								Restore safe point
 							</Button>
 						)}

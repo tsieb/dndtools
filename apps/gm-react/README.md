@@ -43,8 +43,10 @@ node apps/gm-react/scripts/verify-canvas.mjs      # canvas surfaces: /board + /s
   (actor-filtered) and `runtime.defaultActorId`. While previewing, every command is rejected read-only.
 - **`src/runtime/RuntimeContext.tsx`** — `useRuntime()` subscribes via `useSyncExternalStore`; any
   state change re-renders. In DEV it also exposes `window.__rt` (used by the verify scripts + e2e).
-- **`src/net/`, `src/cloud/`** — LAN/serverless WebRTC remote play and the AWS cloud sync + Cognito
-  auth client. `electron/` is the desktop shell (CommonJS main/preload + LAN discovery).
+- **`src/net/`, `src/cloud/`** — LAN/serverless WebRTC remote play and the AWS encrypted-backup +
+  Cognito auth client. The backup path uploads a recovery copy and restores only on explicit request;
+  it does not merge changes between devices. `electron/` is the desktop shell (CommonJS main/preload +
+  LAN discovery).
 - **`src/app/AppShell.tsx`, `src/app/nav.ts`** — shared chrome + the section IA. **Shared — do not
   edit when porting a screen.**
 - **`src/App.tsx`** — `RuntimeProvider` + `HashRouter` + routes. **Shared — the parent wires new

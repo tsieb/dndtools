@@ -14,7 +14,7 @@ vi.stubGlobal('fetch', fetchMock);
 function configured() {
 	vi.stubEnv('VITE_CLOUD_REGION', 'ca-central-1');
 	vi.stubEnv('VITE_COGNITO_USER_POOL_ID', 'ca-central-1_pool');
-	vi.stubEnv('VITE_COGNITO_CLIENT_ID', 'client-id');
+	vi.stubEnv('VITE_COGNITO_CLIENT_ID', 'clientid123');
 	vi.stubEnv('VITE_APP_API_URL', 'https://api.example.com/dev');
 }
 
@@ -59,7 +59,7 @@ describe('fail-closed guards', () => {
 describe('authed requests', () => {
 	it('attaches the Bearer token and unwraps the entitlements response', async () => {
 		configured();
-		const body = { plan: 'lantern', simulated: true, features: [] };
+		const body = { plan: 'lantern', simulated: true, canChangePlan: true, features: [] };
 		fetchMock.mockResolvedValue(jsonResponse(200, body));
 		const api = await loadApi();
 
@@ -73,7 +73,9 @@ describe('authed requests', () => {
 		configured();
 		const api = await loadApi();
 
-		fetchMock.mockResolvedValueOnce(jsonResponse(200, { plan: 'beacon', simulated: true, features: [] }));
+		fetchMock.mockResolvedValueOnce(
+			jsonResponse(200, { plan: 'beacon', simulated: true, canChangePlan: true, features: [] }),
+		);
 		await api.setPlan('beacon');
 		expect(fetchMock.mock.calls[0][1].method).toBe('POST');
 		expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ plan: 'beacon' });
@@ -92,12 +94,23 @@ describe('authed requests', () => {
 		configured();
 		const api = await loadApi();
 		fetchMock.mockResolvedValueOnce(
-			jsonResponse(200, { inviteId: 'i1', token: 't', campaignName: 'Camp', note: '', role: 'co-dm', createdAt: 'now', expiresAt: 1 }),
+			jsonResponse(200, {
+				inviteId: 'i1',
+				token: 't',
+				campaignName: 'Camp',
+				note: '',
+				role: 'co-dm',
+				createdAt: 'now',
+				expiresAt: 1,
+			}),
 		);
 		const invite = await api.createInvite({ campaignName: 'Camp', role: 'co-dm' });
 		expect(invite.role).toBe('co-dm');
 		expect(fetchMock.mock.calls[0][1].method).toBe('POST');
-		expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ campaignName: 'Camp', role: 'co-dm' });
+		expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+			campaignName: 'Camp',
+			role: 'co-dm',
+		});
 	});
 
 	it('createInvite forwards the optional email and surfaces the email-delivery status', async () => {
@@ -127,7 +140,15 @@ describe('authed requests', () => {
 
 		// unconfigured/failed delivery still resolves with the honest fallback status
 		fetchMock.mockResolvedValueOnce(
-			jsonResponse(200, { inviteId: 'i2', token: 'tok2', campaignName: 'Camp', note: '', createdAt: 't', expiresAt: 1, emailStatus: 'not-configured' }),
+			jsonResponse(200, {
+				inviteId: 'i2',
+				token: 'tok2',
+				campaignName: 'Camp',
+				note: '',
+				createdAt: 't',
+				expiresAt: 1,
+				emailStatus: 'not-configured',
+			}),
 		);
 		const fallback = await api.createInvite({ campaignName: 'Camp', email: 'player@example.com' });
 		expect(fallback.emailStatus).toBe('not-configured');
@@ -153,7 +174,9 @@ describe('authed requests', () => {
 		configured();
 		const api = await loadApi();
 
-		fetchMock.mockResolvedValueOnce(jsonResponse(400, { error: 'module package too large (256 KiB max)' }));
+		fetchMock.mockResolvedValueOnce(
+			jsonResponse(400, { error: 'module package too large (256 KiB max)' }),
+		);
 		await expect(api.listModules()).rejects.toMatchObject({
 			code: 'http',
 			status: 400,
@@ -173,6 +196,82 @@ describe('authed requests', () => {
 		fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
 		await expect(api.getProfile()).rejects.toMatchObject({ code: 'network' });
 	});
+
+	it('accepts an already-complete account deletion without touching sync', async () => {
+		configured();
+		vi.stubEnv('VITE_SYNC_API_URL', 'https://sync.example.com/dev');
+		const api = await loadApi();
+		fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+
+		await api.deleteAccount();
+		expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+			'https://api.example.com/dev/account',
+		]);
+		expect(fetchMock.mock.calls[0]?.[1].method).toBe('DELETE');
+	});
+
+	it('locks the account first, purges every sync page, then retries identity deletion', async () => {
+		configured();
+		vi.stubEnv('VITE_SYNC_API_URL', 'https://sync.example.com/dev');
+		const api = await loadApi();
+		fetchMock
+			.mockResolvedValueOnce(jsonResponse(202, { ok: false, code: 'cloud-backup-purge-required' }))
+			.mockResolvedValueOnce(jsonResponse(200, { deleted: 500, hasMore: true }))
+			.mockResolvedValueOnce(jsonResponse(200, { deleted: 2, hasMore: false }))
+			.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+
+		await api.deleteAccount();
+		expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+			'https://api.example.com/dev/account',
+			'https://sync.example.com/dev/vaults/primary',
+			'https://sync.example.com/dev/vaults/primary',
+			'https://api.example.com/dev/account',
+		]);
+		expect(fetchMock.mock.calls.every(([, init]) => init.method === 'DELETE')).toBe(true);
+		expect(
+			fetchMock.mock.calls.every(([, init]) => init.headers.authorization === 'Bearer JWT-TOKEN'),
+		).toBe(true);
+	});
+
+	it('fails closed when the app asks for a purge but sync is not configured', async () => {
+		configured();
+		const api = await loadApi();
+		fetchMock.mockResolvedValueOnce(
+			jsonResponse(202, { ok: false, code: 'cloud-backup-purge-required' }),
+		);
+
+		await expect(api.deleteAccount()).rejects.toMatchObject({ code: 'not-configured' });
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(fetchMock.mock.calls[0]?.[0]).toBe('https://api.example.com/dev/account');
+	});
+
+	it('rejects malformed handshake and purge responses without claiming deletion', async () => {
+		configured();
+		vi.stubEnv('VITE_SYNC_API_URL', 'https://sync.example.com/dev');
+		let api = await loadApi();
+		fetchMock.mockResolvedValueOnce(jsonResponse(202, { code: 'something-else' }));
+		await expect(api.deleteAccount()).rejects.toThrow(/invalid account-deletion response/i);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+
+		fetchMock.mockReset();
+		api = await loadApi();
+		fetchMock
+			.mockResolvedValueOnce(jsonResponse(202, { code: 'cloud-backup-purge-required' }))
+			.mockResolvedValueOnce(jsonResponse(200, { deleted: 0, hasMore: true }));
+		await expect(api.deleteAccount()).rejects.toThrow(/could not be fully removed/i);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
+	it('does not remove sync data when the initial account tombstone request fails', async () => {
+		configured();
+		vi.stubEnv('VITE_SYNC_API_URL', 'https://sync.example.com/dev');
+		const api = await loadApi();
+		fetchMock.mockResolvedValueOnce(jsonResponse(503, { error: 'try later' }));
+
+		await expect(api.deleteAccount()).rejects.toMatchObject({ status: 503 });
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(fetchMock.mock.calls[0]?.[0]).toBe('https://api.example.com/dev/account');
+	});
 });
 
 describe('campaign wiki', () => {
@@ -180,11 +279,21 @@ describe('campaign wiki', () => {
 
 	it('publishes with PUT /wiki and the Bearer token, returning the status', async () => {
 		configured();
-		const status = { wikiId: 'w1', title: 'My Wiki', access: 'unlisted', pageCount: 1, size: 40, publishedAt: 't', updatedAt: 't' };
+		const status = {
+			wikiId: 'w1',
+			title: 'My Wiki',
+			access: 'unlisted',
+			pageCount: 1,
+			size: 40,
+			publishedAt: 't',
+			updatedAt: 't',
+		};
 		fetchMock.mockResolvedValueOnce(jsonResponse(200, status));
 		const api = await loadApi();
 
-		await expect(api.publishWiki({ title: 'My Wiki', access: 'unlisted', pages: PAGES })).resolves.toEqual(status);
+		await expect(
+			api.publishWiki({ title: 'My Wiki', access: 'unlisted', pages: PAGES }),
+		).resolves.toEqual(status);
 		const [url, init] = fetchMock.mock.calls[0];
 		expect(url).toBe('https://api.example.com/dev/wiki');
 		expect(init.method).toBe('PUT');
@@ -215,7 +324,15 @@ describe('campaign wiki', () => {
 	it('getPublicWiki fetches unauthenticated (no Authorization) and works signed out', async () => {
 		configured();
 		token.value = null; // readers have no account
-		const wiki = { wikiId: 'w1', title: 'Lore', access: 'public', publishedAt: 't', updatedAt: 't', pageCount: 1, pages: PAGES };
+		const wiki = {
+			wikiId: 'w1',
+			title: 'Lore',
+			access: 'public',
+			publishedAt: 't',
+			updatedAt: 't',
+			pageCount: 1,
+			pages: PAGES,
+		};
 		fetchMock.mockResolvedValueOnce(jsonResponse(200, wiki));
 		const api = await loadApi();
 

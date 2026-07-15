@@ -165,6 +165,10 @@ export class SceneRuntime {
 	private version = 0;
 	private readonly listeners = new Set<() => void>();
 	private readonly dispatchListeners = new Set<DispatchListener>();
+	/** Serializes every durable mutation and destructive maintenance operation to prevent lost updates. */
+	private mutationTail: Promise<void> = Promise.resolve();
+	/** StrictMode/retry clicks share one initial hydration instead of racing duplicate demo seeding. */
+	private loadAttempt: Promise<void> | null = null;
 	// The Core's declared MCP tool allowlist — built once; construction fails closed on wiring errors.
 	private readonly mcpToolRegistry: McpToolRegistry = createBaselineMcpToolRegistry();
 
@@ -191,7 +195,10 @@ export class SceneRuntime {
 	 *  reserved zero-grant generic preview actors; the raw state is never mutated. */
 	get state(): CoreStateSlice {
 		return this.previewState
-			? { ...this.innerState, permissions: permissionsWithPreviewActors(this.innerState.permissions) }
+			? {
+					...this.innerState,
+					permissions: permissionsWithPreviewActors(this.innerState.permissions),
+				}
 			: this.innerState;
 	}
 
@@ -282,47 +289,97 @@ export class SceneRuntime {
 	}
 
 	// ── Lifecycle ─────────────────────────────────────────────────────────────────────────────
-	async load(): Promise<void> {
+	load(): Promise<void> {
+		if (this.loadAttempt) return this.loadAttempt;
+		this.loadAttempt = this.performInitialLoad();
+		return this.loadAttempt;
+	}
+
+	private async performInitialLoad(): Promise<void> {
 		this.loadFailed = false;
+		this.isLoaded = false;
+		this.emit();
 		try {
-			const loaded = await loadCoreState();
-			this.innerState = this.ensureDefaultActor(loaded);
-			// Populate a fresh vault with representative content (guarded by per-slice emptiness) so every
-			// screen resembles the populated design-studio prototype rather than an empty shell. Seeds via
-			// the real command path, so it persists and survives reload exactly like user-authored content.
-			// EXCEPT when onboarding's "Start fresh" recorded an explicit empty-vault choice — that wipe
-			// would otherwise be undone right here on the post-wipe reload.
-			if (!this.freshVaultChosen()) await seedDemoContent(this);
-			// A seed command is not a user action — don't let it surface as the last lifecycle (which some
-			// screens reflect, e.g. ScenesCreator's "Saved" affordance).
-			this.lifecycle = null;
-			this.error = null;
-			this.isLoaded = true;
+			await this.hydrateFromStorage(true);
 		} catch (error) {
 			// A thrown load (Dexie blocked in private mode, storage quota, a corrupt persisted slice)
 			// must not leave the shell stuck on an un-rejectable boot. Surface it so the shell can offer
 			// a retry, and don't let it escape as an unhandled rejection.
 			this.error = error instanceof Error ? error.message : String(error);
 			this.loadFailed = true;
+		} finally {
+			this.loadAttempt = null;
 		}
 		this.emit();
+	}
+
+	/**
+	 * Reload after an authoritative, already-validated storage replacement. Unlike initial `load`, this
+	 * does not seed demo content and it REJECTS on failure so the caller can atomically roll storage back.
+	 */
+	async reloadFromStorage(): Promise<void> {
+		this.loadFailed = false;
+		try {
+			await this.hydrateFromStorage(false);
+		} catch (error) {
+			this.error = error instanceof Error ? error.message : String(error);
+			this.loadFailed = true;
+			this.emit();
+			throw error;
+		}
+		this.emit();
+	}
+
+	private async hydrateFromStorage(seedDemo: boolean): Promise<void> {
+		const loaded = await loadCoreState();
+		this.innerState = this.ensureDefaultActor(loaded, seedDemo);
+		// Populate only on initial boot. A restore is authoritative and must not silently add demo data.
+		if (seedDemo && !this.freshVaultChosen()) await seedDemoContent(this);
+		this.lifecycle = null;
+		this.error = null;
+		this.isLoaded = true;
+	}
+
+	private enqueueMutation<T>(operation: () => Promise<T>): Promise<T> {
+		const result = this.mutationTail.then(operation, operation);
+		this.mutationTail = result.then(
+			() => undefined,
+			() => undefined,
+		);
+		return result;
+	}
+
+	/**
+	 * Queue a destructive storage maintenance action behind accepted commands and hold later commands
+	 * until it finishes. Cloud/local restore uses this to avoid interleaving a table replacement with a
+	 * command persist. The callback must use `reloadFromStorage`, not the queued public `load` path.
+	 */
+	runExclusiveMaintenance<T>(operation: () => Promise<T>): Promise<T> {
+		return this.enqueueMutation(operation);
 	}
 
 	/** Onboarding's "Start fresh" records an explicit empty-vault choice (device-local); honor it on
 	 * every subsequent boot by skipping BOTH demo-population paths (command seed + demo map state). */
 	private freshVaultChosen(): boolean {
 		try {
-			return typeof window !== 'undefined' && window.localStorage.getItem('dndtools:react:vault-choice') === 'fresh';
+			return (
+				typeof window !== 'undefined' &&
+				window.localStorage.getItem('dndtools:react:vault-choice') === 'fresh'
+			);
 		} catch {
 			return false;
 		}
 	}
 
-	private ensureDefaultActor(slice: CoreStateSlice): CoreStateSlice {
+	private ensureDefaultActor(slice: CoreStateSlice, includeDemoContent: boolean): CoreStateSlice {
 		const id = this.options.defaultActorId;
+		const includeDemoFixtures = includeDemoContent && !this.freshVaultChosen();
 		const withDefaultWidgets = {
 			...slice,
-			maps: Object.keys(slice.maps.maps).length > 0 || this.freshVaultChosen() ? slice.maps : createDemoMapState(),
+			maps:
+				Object.keys(slice.maps.maps).length > 0 || !includeDemoFixtures
+					? slice.maps
+					: createDemoMapState(),
 			widgets: mergeSystemWidgetPackages(slice.widgets),
 		};
 		const actors = withDefaultWidgets.permissions.actors;
@@ -330,8 +387,10 @@ export class SceneRuntime {
 			...actors,
 			...(actors[id] ? {} : { [id]: { id, role: 'dm' as const, displayName: 'Default DM' } }),
 		};
-		for (const participant of DEFAULT_DEMO_PARTICIPANTS) {
-			nextActors[participant.id] ??= participant;
+		if (includeDemoFixtures) {
+			for (const participant of DEFAULT_DEMO_PARTICIPANTS) {
+				nextActors[participant.id] ??= participant;
+			}
 		}
 		const session = {
 			...withDefaultWidgets.session,
@@ -371,7 +430,11 @@ export class SceneRuntime {
 	 * reaches the core or storage. On acceptance the new state is committed and persisted; a failed
 	 * durable write rolls the in-memory state back and surfaces the error (PLAT-018).
 	 */
-	async dispatch(command: CoreCommand): Promise<CommandResult> {
+	dispatch(command: CoreCommand): Promise<CommandResult> {
+		return this.enqueueMutation(() => this.dispatchNow(command));
+	}
+
+	private async dispatchNow(command: CoreCommand): Promise<CommandResult> {
 		if (this.previewState) {
 			const rejection = {
 				code: 'actor-not-authorized' as const,
@@ -399,9 +462,7 @@ export class SceneRuntime {
 				// Notify the P2P host (if any) of the operations this dispatch appended, so it can replicate
 				// the player-visible ones. Isolated from the durable path: a listener throw must never roll
 				// back or fail the (already-persisted) command.
-				const newOperations = result.nextState.sync.operations.slice(
-					before.sync.operations.length,
-				);
+				const newOperations = result.nextState.sync.operations.slice(before.sync.operations.length);
 				if (newOperations.length > 0 && this.dispatchListeners.size > 0) {
 					for (const listener of this.dispatchListeners) {
 						try {
@@ -438,7 +499,11 @@ export class SceneRuntime {
 	 * and skip persistence entirely. Preview mode throws (the assistant UI is disabled there);
 	 * the model never sees a previewed view. Not a user command, so it never touches `lifecycle`.
 	 */
-	async invokeAgentTool(invocation: McpAgentInvocation): Promise<McpAgentToolResult> {
+	invokeAgentTool(invocation: McpAgentInvocation): Promise<McpAgentToolResult> {
+		return this.enqueueMutation(() => this.invokeAgentToolNow(invocation));
+	}
+
+	private async invokeAgentToolNow(invocation: McpAgentInvocation): Promise<McpAgentToolResult> {
 		if (this.previewState) {
 			throw new Error(PREVIEW_READONLY_MESSAGE);
 		}

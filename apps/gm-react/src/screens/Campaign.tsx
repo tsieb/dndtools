@@ -84,14 +84,23 @@ const FACTION_KIND_OPTIONS = [
 ];
 
 // Core visibility → the safety-critical VisibilityChip level (same map as Knowledge).
-const VIS_CHIP: Record<string, string> = { 'dm-only': 'dm-only', 'player-visible': 'players', shared: 'players' };
+const VIS_CHIP: Record<string, string> = {
+	'dm-only': 'dm-only',
+	'player-visible': 'players',
+	shared: 'players',
+};
 const VIS_OPTIONS = [
 	{ value: 'dm-only', label: 'DM only' },
 	{ value: 'player-visible', label: 'Players' },
 	{ value: 'shared', label: 'Shared' },
 ];
 
-const KIND_LABEL: Record<string, string> = { pc: 'PC', npc: 'NPC', monster: 'Monster', sidekick: 'Sidekick' };
+const KIND_LABEL: Record<string, string> = {
+	pc: 'PC',
+	npc: 'NPC',
+	monster: 'Monster',
+	sidekick: 'Sidekick',
+};
 
 /** First non-heading body line, marker-stripped — the one-line summary for list cards. */
 function bodySummary(body: string, fallback: string): string {
@@ -100,7 +109,11 @@ function bodySummary(body: string, fallback: string): string {
 		.map((l) => l.trim())
 		.find((l) => l && !l.startsWith('#'));
 	if (!line) return fallback;
-	return line.replace(/^[>\-*]\s+/, '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\[\[([^\]]+)\]\]/g, '$1').slice(0, 180);
+	return line
+		.replace(/^[>\-*]\s+/, '')
+		.replace(/\*\*([^*]+)\*\*/g, '$1')
+		.replace(/\[\[([^\]]+)\]\]/g, '$1')
+		.slice(0, 180);
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
@@ -144,7 +157,15 @@ interface FactionRow {
  * handler merges declared fields, so each write sends ONLY the field it changes — except objectives,
  * which are one declared array and therefore always written whole.
  */
-function QuestCardRow({ row, canAuthor, onEdit }: { row: QuestRow; canAuthor: boolean; onEdit: () => void }) {
+function QuestCardRow({
+	row,
+	canAuthor,
+	onEdit,
+}: {
+	row: QuestRow;
+	canAuthor: boolean;
+	onEdit: () => void;
+}) {
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
 	const status = str(row.fields.status) || 'active';
@@ -170,7 +191,9 @@ function QuestCardRow({ row, canAuthor, onEdit }: { row: QuestRow; canAuthor: bo
 				onToggleObjective={
 					canAuthor
 						? (i: number) =>
-								void update({ objectives: objectives.map((o, j) => (j === i ? { ...o, done: !o.done } : o)) })
+								void update({
+									objectives: objectives.map((o, j) => (j === i ? { ...o, done: !o.done } : o)),
+								})
 						: undefined
 				}
 			/>
@@ -181,13 +204,21 @@ function QuestCardRow({ row, canAuthor, onEdit }: { row: QuestRow; canAuthor: bo
 				{canAuthor && (
 					<>
 						<div style={{ flex: 1 }} />
-						<IconButton icon="note-edit" label={`Edit ${row.view.title}`} variant="ghost" size="sm" onClick={onEdit} />
+						<IconButton
+							icon="note-edit"
+							label={`Edit ${row.view.title}`}
+							variant="ghost"
+							size="sm"
+							onClick={onEdit}
+						/>
 						<span style={{ ...eb }}>Status</span>
 						<Select
 							aria-label={`Status of ${row.view.title}`}
 							options={QUEST_STATUS_OPTIONS}
 							value={status}
-							onChange={(e: { target: { value: string } }) => void update({ status: e.target.value })}
+							onChange={(e: { target: { value: string } }) =>
+								void update({ status: e.target.value })
+							}
 						/>
 					</>
 				)}
@@ -208,7 +239,9 @@ function QuestEditor({ quest, onClose }: { quest: QuestRow | null; onClose: () =
 	const existingObjectives = objectiveArray(quest?.fields.objectives);
 	const [title, setTitle] = useState(quest?.view.title ?? '');
 	const [status, setStatus] = useState(str(quest?.fields.status) || 'active');
-	const [objectivesText, setObjectivesText] = useState(existingObjectives.map((o) => o.text).join('\n'));
+	const [objectivesText, setObjectivesText] = useState(
+		existingObjectives.map((o) => o.text).join('\n'),
+	);
 	const [body, setBody] = useState(quest?.view.body ?? '');
 	const [visibility, setVisibility] = useState<string>(quest?.view.visibility ?? 'dm-only');
 	const [busy, setBusy] = useState(false);
@@ -229,18 +262,25 @@ function QuestEditor({ quest, onClose }: { quest: QuestRow | null; onClose: () =
 			.map((t) => t.trim())
 			.filter(Boolean)
 			.map((text, i) =>
-				existingObjectives[i] ? { ...existingObjectives[i], text } : { id: `obj-${stamp}-${i}`, text, done: false },
+				existingObjectives[i]
+					? { ...existingObjectives[i], text }
+					: { id: `obj-${stamp}-${i}`, text, done: false },
 			);
 		const result = quest
 			? // content.update-object — authorized-editor edit; merged frontmatter is re-validated.
-			  await runtime.dispatch({
+				await runtime.dispatch({
 					type: 'content.update-object',
 					actorId,
-					payload: { itemId: quest.view.id, title: title.trim(), fields: { title: title.trim(), status, objectives }, body },
-			  })
+					payload: {
+						itemId: quest.view.id,
+						title: title.trim(),
+						fields: { title: title.trim(), status, objectives },
+						body,
+					},
+				})
 			: // content.create-object — DM-only vault authoring against the declared `quest` schema
-			  // (validated fail-closed before any durable write); visibility fails closed to dm-only.
-			  await runtime.dispatch({
+				// (validated fail-closed before any durable write); visibility fails closed to dm-only.
+				await runtime.dispatch({
 					type: 'content.create-object',
 					actorId,
 					payload: {
@@ -250,7 +290,7 @@ function QuestEditor({ quest, onClose }: { quest: QuestRow | null; onClose: () =
 						body,
 						visibility,
 					},
-			  });
+				});
 		if (result.status !== 'accepted') {
 			setBusy(false);
 			setErr(result.rejection.message);
@@ -275,23 +315,51 @@ function QuestEditor({ quest, onClose }: { quest: QuestRow | null; onClose: () =
 
 	return (
 		<Panel title={quest ? `Edit ${quest.view.title}` : 'New quest'} accent>
-			<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
+			<div
+				style={{
+					display: 'grid',
+					gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))',
+					gap: 12,
+				}}
+			>
 				<Field label="Title" required>
-					<Input value={title} onChange={(e: { target: { value: string } }) => setTitle(e.target.value)} placeholder="Wake of the Drowned God" />
+					<Input
+						value={title}
+						onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
+						placeholder="Wake of the Drowned God"
+					/>
 				</Field>
 				<Field label="Status">
-					<Select options={QUEST_STATUS_OPTIONS} value={status} onChange={(e: { target: { value: string } }) => setStatus(e.target.value)} />
+					<Select
+						options={QUEST_STATUS_OPTIONS}
+						value={status}
+						onChange={(e: { target: { value: string } }) => setStatus(e.target.value)}
+					/>
 				</Field>
 			</div>
 			<Field label="Objectives" help="One objective per line — each becomes a checklist item.">
-				<Textarea value={objectivesText} onChange={(e: { target: { value: string } }) => setObjectivesText(e.target.value)} rows={3} placeholder={'Find who is buying the shipments\nMap the flooded vault level'} />
+				<Textarea
+					value={objectivesText}
+					onChange={(e: { target: { value: string } }) => setObjectivesText(e.target.value)}
+					rows={3}
+					placeholder={'Find who is buying the shipments\nMap the flooded vault level'}
+				/>
 			</Field>
 			<Field label="Hook & journal" help="Markdown prose — the hook, rewards, session journal.">
-				<Textarea value={body} onChange={(e: { target: { value: string } }) => setBody(e.target.value)} rows={4} placeholder="Mother Sild wants the party to trace the tithe barrels back upriver…" />
+				<Textarea
+					value={body}
+					onChange={(e: { target: { value: string } }) => setBody(e.target.value)}
+					rows={4}
+					placeholder="Mother Sild wants the party to trace the tithe barrels back upriver…"
+				/>
 			</Field>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
 				<Field label="Visibility">
-					<Select options={VIS_OPTIONS} value={visibility} onChange={(e: { target: { value: string } }) => setVisibility(e.target.value)} />
+					<Select
+						options={VIS_OPTIONS}
+						value={visibility}
+						onChange={(e: { target: { value: string } }) => setVisibility(e.target.value)}
+					/>
 				</Field>
 				<div style={{ flex: 1 }} />
 				{err && (
@@ -310,7 +378,15 @@ function QuestEditor({ quest, onClose }: { quest: QuestRow | null; onClose: () =
 	);
 }
 
-function FactionCard({ row, canAuthor, onEdit }: { row: FactionRow; canAuthor: boolean; onEdit: () => void }) {
+function FactionCard({
+	row,
+	canAuthor,
+	onEdit,
+}: {
+	row: FactionRow;
+	canAuthor: boolean;
+	onEdit: () => void;
+}) {
 	const { view, fields } = row;
 	const stance = str(fields.stance) || 'neutral';
 	const kind = str(fields.kind);
@@ -320,15 +396,33 @@ function FactionCard({ row, canAuthor, onEdit }: { row: FactionRow; canAuthor: b
 	const secret = str(fields.secret);
 	return (
 		<Panel style={{ gap: 10 }}>
-			<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-				<span style={{ font: `700 15px ${T.disp}`, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+			<div
+				style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}
+			>
+				<span
+					style={{
+						font: `700 15px ${T.disp}`,
+						minWidth: 0,
+						overflow: 'hidden',
+						textOverflow: 'ellipsis',
+						whiteSpace: 'nowrap',
+					}}
+				>
 					{view.title}
 				</span>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
 					<Badge status={STANCE_TONE[stance] || 'neutral'}>
 						{STANCE_OPTIONS.find((o) => o.value === stance)?.label ?? stance}
 					</Badge>
-					{canAuthor && <IconButton icon="note-edit" label={`Edit ${view.title}`} variant="ghost" size="sm" onClick={onEdit} />}
+					{canAuthor && (
+						<IconButton
+							icon="note-edit"
+							label={`Edit ${view.title}`}
+							variant="ghost"
+							size="sm"
+							onClick={onEdit}
+						/>
+					)}
 				</div>
 			</div>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -341,13 +435,34 @@ function FactionCard({ row, canAuthor, onEdit }: { row: FactionRow; canAuthor: b
 					</span>
 				)}
 			</div>
-			<div style={{ font: `13px/1.5 ${T.sans}`, color: T.sub }}>{bodySummary(view.body, 'No dossier written yet.')}</div>
+			<div style={{ font: `13px/1.5 ${T.sans}`, color: T.sub }}>
+				{bodySummary(view.body, 'No dossier written yet.')}
+			</div>
 			{goals.length > 0 && (
 				<div>
 					<div style={{ ...eb, marginBottom: 4 }}>Goals</div>
 					{goals.map((goal, i) => (
-						<div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 7, font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-							<span aria-hidden style={{ width: 5, height: 5, borderRadius: '50%', background: T.accBd, flexShrink: 0, transform: 'translateY(-2px)' }} />
+						<div
+							key={i}
+							style={{
+								display: 'flex',
+								alignItems: 'baseline',
+								gap: 7,
+								font: `12.5px/1.6 ${T.sans}`,
+								color: T.sub,
+							}}
+						>
+							<span
+								aria-hidden
+								style={{
+									width: 5,
+									height: 5,
+									borderRadius: '50%',
+									background: T.accBd,
+									flexShrink: 0,
+									transform: 'translateY(-2px)',
+								}}
+							/>
 							<span style={{ minWidth: 0 }}>{goal}</span>
 						</div>
 					))}
@@ -398,22 +513,25 @@ function FactionEditor({ faction, onClose }: { faction: FactionRow | null; onClo
 			kind,
 			stance,
 			leader: leader.trim(),
-			goals: goalsText.split('\n').map((g) => g.trim()).filter(Boolean),
+			goals: goalsText
+				.split('\n')
+				.map((g) => g.trim())
+				.filter(Boolean),
 			secret: secret.trim(),
 		};
 		const result = faction
 			? // content.update-object — authorized-editor edit; merged frontmatter is re-validated.
-			  await runtime.dispatch({
+				await runtime.dispatch({
 					type: 'content.update-object',
 					actorId,
 					payload: { itemId: faction.view.id, title: name.trim(), fields, body },
-			  })
+				})
 			: // content.create-object — DM-only vault authoring; visibility fails closed to dm-only.
-			  await runtime.dispatch({
+				await runtime.dispatch({
 					type: 'content.create-object',
 					actorId,
 					payload: { subtype: 'faction', title: name.trim(), fields, body, visibility },
-			  });
+				});
 		if (result.status !== 'accepted') {
 			setBusy(false);
 			setErr(result.rejection.message);
@@ -438,32 +556,72 @@ function FactionEditor({ faction, onClose }: { faction: FactionRow | null; onClo
 
 	return (
 		<Panel title={faction ? `Edit ${faction.view.title}` : 'New faction'} accent>
-			<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
+			<div
+				style={{
+					display: 'grid',
+					gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))',
+					gap: 12,
+				}}
+			>
 				<Field label="Name" required>
-					<Input value={name} onChange={(e: { target: { value: string } }) => setName(e.target.value)} placeholder="The Brine Hand" />
+					<Input
+						value={name}
+						onChange={(e: { target: { value: string } }) => setName(e.target.value)}
+						placeholder="The Brine Hand"
+					/>
 				</Field>
 				<Field label="Kind">
-					<Select options={FACTION_KIND_OPTIONS} value={kind} onChange={(e: { target: { value: string } }) => setKind(e.target.value)} />
+					<Select
+						options={FACTION_KIND_OPTIONS}
+						value={kind}
+						onChange={(e: { target: { value: string } }) => setKind(e.target.value)}
+					/>
 				</Field>
 				<Field label="Stance">
-					<Select options={STANCE_OPTIONS} value={stance} onChange={(e: { target: { value: string } }) => setStance(e.target.value)} />
+					<Select
+						options={STANCE_OPTIONS}
+						value={stance}
+						onChange={(e: { target: { value: string } }) => setStance(e.target.value)}
+					/>
 				</Field>
 				<Field label="Leader">
-					<Input value={leader} onChange={(e: { target: { value: string } }) => setLeader(e.target.value)} placeholder="Mother Sild" />
+					<Input
+						value={leader}
+						onChange={(e: { target: { value: string } }) => setLeader(e.target.value)}
+						placeholder="Mother Sild"
+					/>
 				</Field>
 			</div>
 			<Field label="Goals" help="One goal per line.">
-				<Textarea value={goalsText} onChange={(e: { target: { value: string } }) => setGoalsText(e.target.value)} rows={3} placeholder={'Wake what sleeps below the vaults\nKeep the shipment route open'} />
+				<Textarea
+					value={goalsText}
+					onChange={(e: { target: { value: string } }) => setGoalsText(e.target.value)}
+					rows={3}
+					placeholder={'Wake what sleeps below the vaults\nKeep the shipment route open'}
+				/>
 			</Field>
 			<Field label="Dossier notes" help="Markdown prose — summary, holdings, history.">
-				<Textarea value={body} onChange={(e: { target: { value: string } }) => setBody(e.target.value)} rows={5} placeholder="A drowned-god cult that took the Sunken Outpost as a smuggling waypoint…" />
+				<Textarea
+					value={body}
+					onChange={(e: { target: { value: string } }) => setBody(e.target.value)}
+					rows={5}
+					placeholder="A drowned-god cult that took the Sunken Outpost as a smuggling waypoint…"
+				/>
 			</Field>
-			<Field label="DM secret" help="Never shown to players — omitted from their projection by the Core.">
-				<Input value={secret} onChange={(e: { target: { value: string } }) => setSecret(e.target.value)} placeholder="Sild translates for the cult rather than leading it." />
+			<Field label="DM secret" help="Visible only to DMs; it never appears in a player view.">
+				<Input
+					value={secret}
+					onChange={(e: { target: { value: string } }) => setSecret(e.target.value)}
+					placeholder="Sild translates for the cult rather than leading it."
+				/>
 			</Field>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
 				<Field label="Visibility">
-					<Select options={VIS_OPTIONS} value={visibility} onChange={(e: { target: { value: string } }) => setVisibility(e.target.value)} />
+					<Select
+						options={VIS_OPTIONS}
+						value={visibility}
+						onChange={(e: { target: { value: string } }) => setVisibility(e.target.value)}
+					/>
 				</Field>
 				<div style={{ flex: 1 }} />
 				{err && (
@@ -523,8 +681,17 @@ export function Campaign() {
 			.filter((n) => n.kind === 'object' && n.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'faction')
 			.map((n) => ({ view: n, fields: projectObjectFieldsForRole('faction', n.fields, role) }));
 		const calendarId = Object.values(content.calendars)[0]?.id ?? null;
-		const timeline = calendarId ? getCalendarTimelineForActor(content, permissions, actorId, calendarId, 'long') : [];
-		const continuity = getCalendarContinuityForActor(session, content, maps, permissions, actorId, 'long');
+		const timeline = calendarId
+			? getCalendarTimelineForActor(content, permissions, actorId, calendarId, 'long')
+			: [];
+		const continuity = getCalendarContinuityForActor(
+			session,
+			content,
+			maps,
+			permissions,
+			actorId,
+			'long',
+		);
 		return { npcs, quests, factions, timeline, currentDate: continuity.currentDate };
 	}, [runtime.state, actorId]);
 
@@ -535,26 +702,42 @@ export function Campaign() {
 		{ id: 'timeline', label: 'Timeline', icon: 'recent' },
 	];
 
-	const editingFaction = factionEditor?.id ? data.factions.find((f) => f.view.id === factionEditor.id) ?? null : null;
-	const editingQuest = questEditor?.id ? data.quests.find((q) => q.view.id === questEditor.id) ?? null : null;
+	const editingFaction = factionEditor?.id
+		? (data.factions.find((f) => f.view.id === factionEditor.id) ?? null)
+		: null;
+	const editingQuest = questEditor?.id
+		? (data.quests.find((q) => q.view.id === questEditor.id) ?? null)
+		: null;
 
 	return (
 		<Page>
 			<div style={{ marginBottom: 18 }}>
 				<Tabs value={tab} onChange={setTab} tabs={tabs} />
 			</div>
+			<h2 className="visually-hidden">
+				{tabs.find((item) => item.id === tab)?.label ?? 'Campaign'}
+			</h2>
 
 			{tab === 'quests' && (
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 					{canAuthor && !questEditor && data.quests.length > 0 && (
 						<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-							<Button variant="primary" size="sm" icon="add" onClick={() => setQuestEditor({ id: null })}>
+							<Button
+								variant="primary"
+								size="sm"
+								icon="add"
+								onClick={() => setQuestEditor({ id: null })}
+							>
 								New quest
 							</Button>
 						</div>
 					)}
 					{canAuthor && questEditor && (
-						<QuestEditor key={questEditor.id ?? 'new'} quest={editingQuest} onClose={() => setQuestEditor(null)} />
+						<QuestEditor
+							key={questEditor.id ?? 'new'}
+							quest={editingQuest}
+							onClose={() => setQuestEditor(null)}
+						/>
 					)}
 					{data.quests.length === 0 ? (
 						<EmptyState
@@ -567,16 +750,33 @@ export function Campaign() {
 							}
 							action={
 								canAuthor && !questEditor ? (
-									<Button variant="primary" size="sm" icon="add" onClick={() => setQuestEditor({ id: null })}>
+									<Button
+										variant="primary"
+										size="sm"
+										icon="add"
+										onClick={() => setQuestEditor({ id: null })}
+									>
 										Create the first quest
 									</Button>
 								) : undefined
 							}
 						/>
 					) : (
-						<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(330px,1fr))', gap: 16, alignItems: 'start' }}>
+						<div
+							style={{
+								display: 'grid',
+								gridTemplateColumns: 'repeat(auto-fill,minmax(330px,1fr))',
+								gap: 16,
+								alignItems: 'start',
+							}}
+						>
 							{data.quests.map((q) => (
-								<QuestCardRow key={q.view.id} row={q} canAuthor={canAuthor} onEdit={() => setQuestEditor({ id: q.view.id })} />
+								<QuestCardRow
+									key={q.view.id}
+									row={q}
+									canAuthor={canAuthor}
+									onEdit={() => setQuestEditor({ id: q.view.id })}
+								/>
 							))}
 						</div>
 					)}
@@ -591,14 +791,26 @@ export function Campaign() {
 						description="NPCs and monsters you create in Characters appear here."
 						action={
 							canAuthor ? (
-								<Button variant="primary" size="sm" icon="new-character" onClick={() => navigate('/characters', { state: { create: true, kind: 'npc' } })}>
+								<Button
+									variant="primary"
+									size="sm"
+									icon="new-character"
+									onClick={() => navigate('/characters', { state: { create: true, kind: 'npc' } })}
+								>
 									New NPC
 								</Button>
 							) : undefined
 						}
 					/>
 				) : (
-					<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: 16, alignItems: 'start' }}>
+					<div
+						style={{
+							display: 'grid',
+							gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))',
+							gap: 16,
+							alignItems: 'start',
+						}}
+					>
 						{data.npcs.map((n) => (
 							<div
 								key={n.id}
@@ -606,7 +818,12 @@ export function Campaign() {
 								tabIndex={0}
 								aria-label={`Open ${n.name}’s sheet in Characters`}
 								onClick={() => navigate(`/characters/${n.id}`)}
-								onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/characters/${n.id}`); } }}
+								onKeyDown={(e) => {
+									if (e.key === 'Enter' || e.key === ' ') {
+										e.preventDefault();
+										navigate(`/characters/${n.id}`);
+									}
+								}}
 								style={{ cursor: 'pointer' }}
 							>
 								<NpcCard
@@ -626,13 +843,22 @@ export function Campaign() {
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 					{canAuthor && !factionEditor && (
 						<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-							<Button variant="primary" size="sm" icon="add" onClick={() => setFactionEditor({ id: null })}>
+							<Button
+								variant="primary"
+								size="sm"
+								icon="add"
+								onClick={() => setFactionEditor({ id: null })}
+							>
 								New faction
 							</Button>
 						</div>
 					)}
 					{canAuthor && factionEditor && (
-						<FactionEditor key={factionEditor.id ?? 'new'} faction={editingFaction} onClose={() => setFactionEditor(null)} />
+						<FactionEditor
+							key={factionEditor.id ?? 'new'}
+							faction={editingFaction}
+							onClose={() => setFactionEditor(null)}
+						/>
 					)}
 					{data.factions.length === 0 ? (
 						<EmptyState
@@ -646,9 +872,21 @@ export function Campaign() {
 							action={undefined}
 						/>
 					) : (
-						<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 16, alignItems: 'start' }}>
+						<div
+							style={{
+								display: 'grid',
+								gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))',
+								gap: 16,
+								alignItems: 'start',
+							}}
+						>
 							{data.factions.map((f) => (
-								<FactionCard key={f.view.id} row={f} canAuthor={canAuthor} onEdit={() => setFactionEditor({ id: f.view.id })} />
+								<FactionCard
+									key={f.view.id}
+									row={f}
+									canAuthor={canAuthor}
+									onEdit={() => setFactionEditor({ id: f.view.id })}
+								/>
 							))}
 						</div>
 					)}
@@ -660,7 +898,8 @@ export function Campaign() {
 					<div style={{ font: `12.5px ${T.sans}`, color: T.sub, marginBottom: 4 }}>
 						{data.currentDate ? (
 							<>
-								Current campaign date: <strong style={{ color: T.ink }}>{data.currentDate.display}</strong>
+								Current campaign date:{' '}
+								<strong style={{ color: T.ink }}>{data.currentDate.display}</strong>
 							</>
 						) : (
 							'No campaign date set — set it from the Session screen.'

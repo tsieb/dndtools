@@ -16,7 +16,7 @@
  * pipeline. With no config it throws `not-configured` BEFORE any network I/O (fail closed).
  */
 
-import type { ResolvedAiProviderConfig } from './providerConfig';
+import { authorizeAiProviderNetworkAccess, type ResolvedAiProviderConfig } from './providerConfig';
 
 const ANTHROPIC_BASE_URL = 'https://api.anthropic.com';
 const ANTHROPIC_VERSION = '2023-06-01';
@@ -87,18 +87,32 @@ export class AiTransportError extends Error {
  *  message so a bad key / bad model id is actionable; 5xx stays generic. */
 async function toTransportError(response: Response): Promise<AiTransportError> {
 	if (response.status === 401 || response.status === 403) {
-		return new AiTransportError('auth', response.status, 'The provider rejected the API key — check it in Settings → AI & tools.');
+		return new AiTransportError(
+			'auth',
+			response.status,
+			'The provider rejected the API key — check it in Settings → AI & tools.',
+		);
 	}
 	if (response.status === 429) {
-		return new AiTransportError('rate-limit', 429, 'The provider is rate-limiting requests — wait a moment and try again.');
+		return new AiTransportError(
+			'rate-limit',
+			429,
+			'The provider is rate-limiting requests — wait a moment and try again.',
+		);
 	}
 	let detail = '';
 	if (response.status < 500) {
-		const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+		const body = (await response.json().catch(() => null)) as {
+			error?: { message?: string };
+		} | null;
 		const message = body?.error?.message;
 		if (typeof message === 'string' && message.length > 0) detail = `: ${message.slice(0, 300)}`;
 	}
-	return new AiTransportError('api', response.status, `AI provider request failed (${response.status})${detail}.`);
+	return new AiTransportError(
+		'api',
+		response.status,
+		`AI provider request failed (${response.status})${detail}.`,
+	);
 }
 
 // --- Anthropic Messages API shaping ----------------------------------------------------------------
@@ -108,7 +122,9 @@ type AnthropicContentBlock =
 	| { type: 'tool_use'; id: string; name: string; input: unknown }
 	| { type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean };
 
-function anthropicMessages(turns: AiTurn[]): Array<{ role: 'user' | 'assistant'; content: AnthropicContentBlock[] }> {
+function anthropicMessages(
+	turns: AiTurn[],
+): Array<{ role: 'user' | 'assistant'; content: AnthropicContentBlock[] }> {
 	return turns.map((turn) => {
 		if (turn.role === 'user') {
 			return { role: 'user' as const, content: [{ type: 'text' as const, text: turn.text }] };
@@ -145,8 +161,15 @@ function parseAnthropicReply(body: AnthropicResponse): AiReply {
 		.map((block) => block.text as string)
 		.join('');
 	const toolCalls: AiToolCall[] = (body.content ?? [])
-		.filter((block) => block.type === 'tool_use' && typeof block.id === 'string' && typeof block.name === 'string')
-		.map((block) => ({ id: block.id as string, name: block.name as string, input: block.input ?? {} }));
+		.filter(
+			(block) =>
+				block.type === 'tool_use' && typeof block.id === 'string' && typeof block.name === 'string',
+		)
+		.map((block) => ({
+			id: block.id as string,
+			name: block.name as string,
+			input: block.input ?? {},
+		}));
 	const stopReason: AiReply['stopReason'] =
 		body.stop_reason === 'end_turn'
 			? 'end'
@@ -160,7 +183,10 @@ function parseAnthropicReply(body: AnthropicResponse): AiReply {
 	return { text, toolCalls, stopReason };
 }
 
-async function sendAnthropic(config: ResolvedAiProviderConfig, request: AiChatRequest): Promise<AiReply> {
+async function sendAnthropic(
+	config: ResolvedAiProviderConfig,
+	request: AiChatRequest,
+): Promise<AiReply> {
 	const body = {
 		model: config.model,
 		max_tokens: MAX_TOKENS,
@@ -180,6 +206,8 @@ async function sendAnthropic(config: ResolvedAiProviderConfig, request: AiChatRe
 	try {
 		response = await fetch(`${ANTHROPIC_BASE_URL}/v1/messages`, {
 			method: 'POST',
+			// A redirect must never carry a provider credential beyond its confirmed origin.
+			redirect: 'error',
 			headers: {
 				'content-type': 'application/json',
 				'x-api-key': config.apiKey,
@@ -190,7 +218,11 @@ async function sendAnthropic(config: ResolvedAiProviderConfig, request: AiChatRe
 			body: JSON.stringify(body),
 		});
 	} catch {
-		throw new AiTransportError('network', null, 'Could not reach the AI provider — check your connection.');
+		throw new AiTransportError(
+			'network',
+			null,
+			'Could not reach the AI provider — check your connection.',
+		);
 	}
 	if (!response.ok) throw await toTransportError(response);
 	return parseAnthropicReply((await response.json()) as AnthropicResponse);
@@ -203,7 +235,11 @@ type OpenAiMessage =
 	| {
 			role: 'assistant';
 			content: string | null;
-			tool_calls?: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }>;
+			tool_calls?: Array<{
+				id: string;
+				type: 'function';
+				function: { name: string; arguments: string };
+			}>;
 	  }
 	| { role: 'tool'; tool_call_id: string; content: string };
 
@@ -230,7 +266,11 @@ function openAiMessages(system: string, turns: AiTurn[]): OpenAiMessage[] {
 			// tool-results — OpenAI carries each as its own role:"tool" message.
 			for (const result of turn.results) {
 				const prefix = result.isError ? 'ERROR: ' : '';
-				messages.push({ role: 'tool', tool_call_id: result.toolCallId, content: `${prefix}${result.content}` });
+				messages.push({
+					role: 'tool',
+					tool_call_id: result.toolCallId,
+					content: `${prefix}${result.content}`,
+				});
 			}
 		}
 	}
@@ -264,11 +304,20 @@ function parseOpenAiReply(body: OpenAiResponse): AiReply {
 		});
 	const finish = choice?.finish_reason;
 	const stopReason: AiReply['stopReason'] =
-		finish === 'stop' ? 'end' : finish === 'tool_calls' ? 'tool-use' : finish === 'length' ? 'max-tokens' : 'other';
+		finish === 'stop'
+			? 'end'
+			: finish === 'tool_calls'
+				? 'tool-use'
+				: finish === 'length'
+					? 'max-tokens'
+					: 'other';
 	return { text: choice?.message?.content ?? '', toolCalls, stopReason };
 }
 
-async function sendOpenAiCompatible(config: ResolvedAiProviderConfig, request: AiChatRequest): Promise<AiReply> {
+async function sendOpenAiCompatible(
+	config: ResolvedAiProviderConfig,
+	request: AiChatRequest,
+): Promise<AiReply> {
 	const base = config.baseUrl.replace(/\/+$/, '');
 	const body = {
 		model: config.model,
@@ -277,7 +326,11 @@ async function sendOpenAiCompatible(config: ResolvedAiProviderConfig, request: A
 			? {
 					tools: request.tools.map((tool) => ({
 						type: 'function' as const,
-						function: { name: tool.name, description: tool.description, parameters: tool.inputSchema },
+						function: {
+							name: tool.name,
+							description: tool.description,
+							parameters: tool.inputSchema,
+						},
 					})),
 				}
 			: {}),
@@ -286,6 +339,8 @@ async function sendOpenAiCompatible(config: ResolvedAiProviderConfig, request: A
 	try {
 		response = await fetch(`${base}/chat/completions`, {
 			method: 'POST',
+			// A redirect must never carry a provider credential beyond its confirmed origin.
+			redirect: 'error',
 			headers: {
 				'content-type': 'application/json',
 				authorization: `Bearer ${config.apiKey}`,
@@ -293,7 +348,11 @@ async function sendOpenAiCompatible(config: ResolvedAiProviderConfig, request: A
 			body: JSON.stringify(body),
 		});
 	} catch {
-		throw new AiTransportError('network', null, 'Could not reach the AI provider — check the base URL and your connection.');
+		throw new AiTransportError(
+			'network',
+			null,
+			'Could not reach the AI provider — check the base URL and your connection.',
+		);
 	}
 	if (!response.ok) throw await toTransportError(response);
 	return parseOpenAiReply((await response.json()) as OpenAiResponse);
@@ -310,9 +369,22 @@ export async function sendAiChat(
 	request: AiChatRequest,
 ): Promise<AiReply> {
 	if (config === null) {
-		throw new AiTransportError('not-configured', null, 'No AI provider is configured — add your API key in Settings → AI & tools.');
+		throw new AiTransportError(
+			'not-configured',
+			null,
+			'No AI provider is configured — add your API key in Settings → AI & tools.',
+		);
 	}
-	return config.provider === 'anthropic' ? sendAnthropic(config, request) : sendOpenAiCompatible(config, request);
+	if (!(await authorizeAiProviderNetworkAccess(config))) {
+		throw new AiTransportError(
+			'network',
+			null,
+			'This provider address is not allowed by the application network policy. Check the HTTPS base URL or the deployment allowlist.',
+		);
+	}
+	return config.provider === 'anthropic'
+		? sendAnthropic(config, request)
+		: sendOpenAiCompatible(config, request);
 }
 
 export const __testing = { ANTHROPIC_BASE_URL, ANTHROPIC_VERSION, MAX_TOKENS };

@@ -4,54 +4,25 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="color-scheme" content="light dark" />
+		<meta name="referrer" content="no-referrer" />
+		<meta name="theme-color" content="#1f1810" />
+		<meta
+			name="description"
+			content="A local-first campaign workspace for preparing and running tabletop RPG sessions."
+		/>
+		<link rel="icon" type="image/svg+xml" href="/icon.svg" />
 		<title>DND Tools — Command Center</title>
 		<!--
 			Resolve theme / motion / density before first paint, at the document boot,
 			so there is no flash of the wrong theme and the layout does not shift
 			after hydration. These are the same contracts the design-package tokens read.
 		-->
-		<script>
-			(function () {
-				try {
-					var DARK = { tavern: 1, 'high-contrast': 1 };
-					var NAMED = { tavern: 1, parchment: 1, 'high-contrast': 1 };
-					var pref = null;
-					try { pref = window.localStorage.getItem('dndtools:react:theme'); } catch (e) { pref = null; }
-					// Hero theme is tavern (the prototype's hardcoded default); honor an explicit saved
-					// preference, but default to tavern regardless of OS so the app matches the design.
-					var applied = NAMED[pref] ? pref : 'tavern';
-					var root = document.documentElement;
-					root.setAttribute('data-theme', applied);
-					root.style.colorScheme = DARK[applied] ? 'dark' : 'light';
-				} catch (e) { /* fail open to tavern */ }
-			})();
-			(function () {
-				try {
-					var pref = null;
-					try { pref = window.localStorage.getItem('dndtools:react:motion'); } catch (e) { pref = null; }
-					var osReduce = typeof window.matchMedia === 'function'
-						? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false;
-					document.documentElement.setAttribute('data-motion', pref === 'reduced' || osReduce ? 'reduced' : 'full');
-				} catch (e) { /* fail open */ }
-			})();
-			(function () {
-				try {
-					var w = window.innerWidth;
-					var viewportClass = w <= 720 ? 'compact' : w >= 1200 ? 'expanded' : 'medium';
-					var pref = null;
-					try { pref = window.localStorage.getItem('dndtools:react:density'); } catch (e) { pref = null; }
-					var allowed = { standard: 1, compact: 1, comfortable: 1 };
-					var desktop = allowed[pref] ? pref : 'standard';
-					document.documentElement.setAttribute('data-density', viewportClass === 'expanded' ? desktop : 'comfortable');
-				} catch (e) { /* fail open */ }
-			})();
-		</script>
+		<script src="/prepaint.js"></script>
 		<!--
 			Brand webfonts: Inter (UI), Cinzel (display ≥24px), JetBrains Mono (numerals/dice/IDs).
 			Self-hosted, not CDN — the @font-face rules live in src/styles/tokens/fonts.css (vendored
 			from @fontsource/*) and are bundled by Vite, so the app renders the real faces fully offline.
-		-->
-	</head>
+		--></head>
 	<body>
 		<div id="root"></div>
 		<script type="module" src="/src/main.tsx"></script>

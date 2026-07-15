@@ -26,7 +26,8 @@ const SEEDED_NOTE = 'Campaign Primer';
 
 function seededNoteExists(page: Page): Promise<boolean> {
 	return page.evaluate((t) => {
-		const items = (window.__rt!.state.content as { items: Record<string, { title: string }> }).items;
+		const items = (window.__rt!.state.content as { items: Record<string, { title: string }> })
+			.items;
 		return Object.values(items).some((i) => i.title === t);
 	}, SEEDED_NOTE);
 }
@@ -43,7 +44,9 @@ test.describe('backup & restore: full-vault portability', () => {
 		await expect(page.getByText('Local backup')).not.toHaveCount(0);
 	});
 
-	test('exporting the vault fires a real download of a well-formed backup bundle', async ({ page }) => {
+	test('exporting the vault fires a real download of a well-formed backup bundle', async ({
+		page,
+	}) => {
 		const downloadPromise = page.waitForEvent('download');
 		await page.getByRole('button', { name: 'Download backup' }).click();
 		const download = await downloadPromise;
@@ -63,7 +66,9 @@ test.describe('backup & restore: full-vault portability', () => {
 		await expect(page.getByText(/Backup downloaded/)).not.toHaveCount(0);
 	});
 
-	test('a structurally-invalid file is rejected fail-closed and never opens the replace dialog', async ({ page }) => {
+	test('a structurally-invalid file is rejected fail-closed and never opens the replace dialog', async ({
+		page,
+	}) => {
 		// Write a plausible-but-invalid .json (valid JSON, wrong shape) to a temp file.
 		const badPath = join(tmpdir(), `dndtools-bad-backup-${Date.now()}.json`);
 		await fs.writeFile(badPath, JSON.stringify({ not: 'a vault backup' }), 'utf8');
@@ -75,13 +80,15 @@ test.describe('backup & restore: full-vault portability', () => {
 
 		// Validation is fail-closed: the file is rejected with an honest reason and the DESTRUCTIVE
 		// "Replace this vault?" dialog is never offered.
-		await expect(page.getByRole('status').filter({ hasText: /backup|invalid/i })).not.toHaveCount(0);
+		await expect(page.getByRole('alert').filter({ hasText: /backup|invalid/i })).not.toHaveCount(0);
 		await expect(page.getByText('Replace this vault?')).toHaveCount(0);
 
 		await fs.rm(badPath, { force: true });
 	});
 
-	test('a real backup round-trips through the confirmation and rebuilds the vault', async ({ page }) => {
+	test('a real backup round-trips through the confirmation and rebuilds the vault', async ({
+		page,
+	}) => {
 		// 1) Export the current seeded vault to a real file.
 		const downloadPromise = page.waitForEvent('download');
 		await page.getByRole('button', { name: 'Download backup' }).click();
@@ -97,15 +104,24 @@ test.describe('backup & restore: full-vault portability', () => {
 
 		// A valid bundle passes validation and the authoritative confirm dialog appears, honestly
 		// describing what will be replaced.
-		await expect(page.getByText('Replace this vault?')).toBeVisible();
-		await expect(page.getByText(/Restoring is authoritative/)).not.toHaveCount(0);
+		const confirmation = page.getByRole('alertdialog', { name: 'Replace this vault?' });
+		await expect(confirmation).toBeVisible();
+		await expect(
+			confirmation.getByText(
+				/checked completely before campaign data and media are replaced together/i,
+			),
+		).toBeVisible();
 
 		// 3) Confirm the replace: importFullVault writes IndexedDB then hard-reloads. A sentinel on
 		// window survives only until that reload, so its disappearance marks the fresh boot.
-		await page.evaluate(() => ((window as unknown as { __preRestore?: boolean }).__preRestore = true));
+		await page.evaluate(
+			() => ((window as unknown as { __preRestore?: boolean }).__preRestore = true),
+		);
 		await page.getByRole('button', { name: 'Replace vault & reload' }).click();
 		await page.waitForFunction(
-			() => !(window as unknown as { __preRestore?: boolean }).__preRestore && window.__rt?.loaded === true,
+			() =>
+				!(window as unknown as { __preRestore?: boolean }).__preRestore &&
+				window.__rt?.loaded === true,
 			null,
 			{ timeout: 20_000 },
 		);

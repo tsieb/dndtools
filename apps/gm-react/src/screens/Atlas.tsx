@@ -7,7 +7,20 @@ import {
 	queryMapLayers,
 	type SceneVisibility,
 } from '@dndtools/core';
-import { Badge, Button, EmptyState, Icon, IconButton, MapCreationForm, POIPopover, Skeleton, StatusDot, Switch, Toaster, VisibilityChip } from '../ds';
+import {
+	Badge,
+	Button,
+	EmptyState,
+	Icon,
+	IconButton,
+	MapCreationForm,
+	POIPopover,
+	Skeleton,
+	StatusDot,
+	Switch,
+	Toaster,
+	VisibilityChip,
+} from '../ds';
 import { Page, Panel, T } from '../app/screen-kit';
 import { useViewport } from '../app/useViewport';
 import { fogRegionSummary } from '../app/fogRegions';
@@ -42,7 +55,13 @@ import { useRuntime } from '../runtime/RuntimeContext';
  * fog rect / center-POI shortcuts are gone.
  */
 
-const ghostBtn = { border: 'none', background: 'transparent', cursor: 'pointer', padding: 2, display: 'inline-flex' } as const;
+const ghostBtn = {
+	border: 'none',
+	background: 'transparent',
+	cursor: 'pointer',
+	padding: 2,
+	display: 'inline-flex',
+} as const;
 
 /** Map-switcher chip thumbnail: the map's real raster bytes when they exist on this device
  *  (content-addressed asset store), else the atlas glyph. Missing bytes degrade to the glyph —
@@ -50,7 +69,13 @@ const ghostBtn = { border: 'none', background: 'transparent', cursor: 'pointer',
 function MapChipThumb({ assetId, active }: { assetId: string | null; active: boolean }) {
 	const url = useAssetObjectUrl(assetId);
 	if (!url) return <Icon name="atlas-map" size={14} color={active ? T.acc : T.ter} />;
-	return <img src={url} alt="" style={{ width: 18, height: 18, borderRadius: 4, objectFit: 'cover', flex: '0 0 auto' }} />;
+	return (
+		<img
+			src={url}
+			alt=""
+			style={{ width: 18, height: 18, borderRadius: 4, objectFit: 'cover', flex: '0 0 auto' }}
+		/>
+	);
 }
 
 export function Atlas() {
@@ -72,7 +97,9 @@ export function Atlas() {
 	const [notice, setNotice] = useState<string | null>(null);
 	// The full-screen authoring overlay. Opening with a tool (fog/poi) drops the DM straight into
 	// that gesture; non-DM actors get the same surface as a pan/zoom viewer (writes are disabled).
-	const [builder, setBuilder] = useState<{ tool: MapTool; fogMode?: 'reveal' | 'conceal' } | null>(null);
+	const [builder, setBuilder] = useState<{ tool: MapTool; fogMode?: 'reveal' | 'conceal' } | null>(
+		null,
+	);
 	// Preview-canvas marker selection (popover for POIs, highlight ring for tokens).
 	const [selPoiId, setSelPoiId] = useState<string | null>(null);
 	const [selTokenId, setSelTokenId] = useState<string | null>(null);
@@ -129,7 +156,7 @@ export function Atlas() {
 
 	// Async load → `maps` is empty on the first paint, so never index `maps[0]` in a state initializer.
 	// Selection falls back to the first visible map and clears if the selected map is no longer visible.
-	const selectedId = mapId && maps.some((mp) => mp.id === mapId) ? mapId : maps[0]?.id ?? null;
+	const selectedId = mapId && maps.some((mp) => mp.id === mapId) ? mapId : (maps[0]?.id ?? null);
 	const selectedEntry = maps.find((mp) => mp.id === selectedId) ?? null;
 
 	const view = useMemo(
@@ -146,7 +173,9 @@ export function Atlas() {
 	const layerResult = useMemo(
 		() =>
 			selectedId
-				? queryMapLayers(runtime.state.maps, runtime.state.permissions, actorId, { mapId: selectedId })
+				? queryMapLayers(runtime.state.maps, runtime.state.permissions, actorId, {
+						mapId: selectedId,
+					})
 				: { layers: [], hiddenMatchCount: 0 },
 		[runtime.state.maps, runtime.state.permissions, actorId, selectedId],
 	);
@@ -184,7 +213,13 @@ export function Atlas() {
 	// The DS form's draft → the real `map.create` payload: scale becomes the core's
 	// {unitsPerMap, unit} (or null when unset), the form's `mercator` value maps to the core's
 	// `web-mercator` projection kind, and DS visibility values go through `dsToVis`.
-	async function createMap(draft: { name: string; scale: number | null; unit: string; projection: string; visibility: string }) {
+	async function createMap(draft: {
+		name: string;
+		scale: number | null;
+		unit: string;
+		projection: string;
+		visibility: string;
+	}) {
 		const visibility = dsToVis(draft.visibility);
 		const res = await run({
 			type: 'map.create',
@@ -192,8 +227,14 @@ export function Atlas() {
 			payload: {
 				name: draft.name,
 				visibility,
-				scale: draft.scale && draft.scale > 0 ? { unitsPerMap: draft.scale, unit: draft.unit.trim() || 'miles' } : null,
-				projection: { kind: draft.projection === 'mercator' ? 'web-mercator' : draft.projection, rotationDegrees: 0 },
+				scale:
+					draft.scale && draft.scale > 0
+						? { unitsPerMap: draft.scale, unit: draft.unit.trim() || 'miles' }
+						: null,
+				projection: {
+					kind: draft.projection === 'mercator' ? 'web-mercator' : draft.projection,
+					rotationDegrees: 0,
+				},
 				initialLayers: [{ name: 'Base', category: 'base', visibility }],
 			},
 		});
@@ -213,7 +254,12 @@ export function Atlas() {
 		void run({
 			type: 'map.create-layer',
 			actorId,
-			payload: { mapId: selectedId, name: `Layer ${layers.length + 1}`, category: 'dm-annotations', visibility: 'dm-only' },
+			payload: {
+				mapId: selectedId,
+				name: `Layer ${layers.length + 1}`,
+				category: 'dm-annotations',
+				visibility: 'dm-only',
+			},
 		});
 	}
 	function toggleLayerVisibility(layerId: string, visibility: SceneVisibility) {
@@ -221,16 +267,28 @@ export function Atlas() {
 		void run({
 			type: 'map.set-layer-visibility',
 			actorId,
-			payload: { mapId: selectedId, layerId, visibility: visibility === 'dm-only' ? 'player-visible' : 'dm-only' },
+			payload: {
+				mapId: selectedId,
+				layerId,
+				visibility: visibility === 'dm-only' ? 'player-visible' : 'dm-only',
+			},
 		});
 	}
 	function toggleLayerEnabled(layerId: string, enabled: boolean) {
 		if (!selectedId) return;
-		void run({ type: 'map.set-layer-enabled', actorId, payload: { mapId: selectedId, layerId, enabled: !enabled } });
+		void run({
+			type: 'map.set-layer-enabled',
+			actorId,
+			payload: { mapId: selectedId, layerId, enabled: !enabled },
+		});
 	}
 	function reorderLayer(layerId: string, toOrder: number) {
 		if (!selectedId) return;
-		void run({ type: 'map.reorder-layer', actorId, payload: { mapId: selectedId, layerId, toOrder } });
+		void run({
+			type: 'map.reorder-layer',
+			actorId,
+			payload: { mapId: selectedId, layerId, toOrder },
+		});
 	}
 
 	function togglePoiVisibility(poiId: string, visibility: SceneVisibility) {
@@ -238,12 +296,20 @@ export function Atlas() {
 		void run({
 			type: 'map.update-poi',
 			actorId,
-			payload: { mapId: selectedId, poiId, visibility: visibility === 'dm-only' ? 'player-visible' : 'dm-only' },
+			payload: {
+				mapId: selectedId,
+				poiId,
+				visibility: visibility === 'dm-only' ? 'player-visible' : 'dm-only',
+			},
 		});
 	}
 	function setPoiVisibility(poiId: string, visibility: SceneVisibility) {
 		if (!selectedId) return;
-		void run({ type: 'map.update-poi', actorId, payload: { mapId: selectedId, poiId, visibility } });
+		void run({
+			type: 'map.update-poi',
+			actorId,
+			payload: { mapId: selectedId, poiId, visibility },
+		});
 	}
 	// Delete is a durable core op with no inverse-op log — capture the POI's prior payload BEFORE
 	// dispatching and raise an Undo toast that re-creates it via the real `map.create-poi` (the
@@ -303,12 +369,18 @@ export function Atlas() {
 	// the chip row's live dot then marks the delivered map.
 	async function projectToPlayers() {
 		if (!selectedId) return;
-		const players = Object.values(runtime.state.permissions.actors).filter((a) => a.role === 'player');
+		const players = Object.values(runtime.state.permissions.actors).filter(
+			(a) => a.role === 'player',
+		);
 		if (players.length === 0) {
-			setNotice('No player actors exist yet — projection needs at least one player.');
+			setNotice('Add at least one player before projecting a map.');
 			return;
 		}
-		const staged = await run({ type: 'session.set-active-map', actorId, payload: { mapId: selectedId } });
+		const staged = await run({
+			type: 'session.set-active-map',
+			actorId,
+			payload: { mapId: selectedId },
+		});
 		if (!staged) return;
 		if (staged.status !== 'accepted') {
 			setNotice(staged.rejection.message);
@@ -344,9 +416,26 @@ export function Atlas() {
 								setSelPoiId(null);
 								setSelTokenId(null);
 							}}
-							style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderRadius: 9, cursor: 'pointer', border: `1px solid ${on ? T.accBd : T.bd}`, background: on ? T.accSub : T.surf, color: on ? T.acc : T.sub, font: `600 12.5px ${T.sans}` }}
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 8,
+								padding: '7px 12px',
+								borderRadius: 9,
+								cursor: 'pointer',
+								border: `1px solid ${on ? T.accBd : T.bd}`,
+								background: on ? T.accSub : T.surf,
+								color: on ? T.acc : T.sub,
+								font: `600 12.5px ${T.sans}`,
+							}}
 						>
-							<MapChipThumb assetId={pickRasterAssetId(runtime.state.maps.maps[mp.id]?.assetIds ?? [], runtime.state.maps.assets)} active={on} />
+							<MapChipThumb
+								assetId={pickRasterAssetId(
+									runtime.state.maps.maps[mp.id]?.assetIds ?? [],
+									runtime.state.maps.assets,
+								)}
+								active={on}
+							/>
 							{mp.name}
 							{delivered.has(mp.id) && <StatusDot status="live" pulse />}
 						</button>
@@ -361,21 +450,47 @@ export function Atlas() {
 					</>
 				)}
 				{maps.length === 0 && !loading && (
-					<span style={{ font: `13px ${T.sans}`, color: T.ter, padding: '7px 4px' }}>No maps are visible to you.</span>
+					<span style={{ font: `13px ${T.sans}`, color: T.ter, padding: '7px 4px' }}>
+						{isDm ? 'No maps yet.' : 'No maps are visible to you.'}
+					</span>
 				)}
 				<div style={{ flex: 1 }} />
-				<Button variant="ghost" size="sm" icon="edit" disabled={!selectedId} onClick={() => openBuilder('select')}>
+				<Button
+					variant="ghost"
+					size="sm"
+					icon="edit"
+					disabled={!selectedId}
+					onClick={() => openBuilder('select')}
+				>
 					Open in builder
 				</Button>
 				{isDm && (
-					<Button variant="secondary" size="sm" icon="new-map" onClick={() => setCreating((c) => !c)}>
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="new-map"
+						onClick={() => setCreating((c) => !c)}
+					>
 						New map
 					</Button>
 				)}
 			</div>
 
 			{notice && (
-				<div style={{ marginBottom: 14, padding: '9px 12px', borderRadius: 9, background: T.alt, border: `1px solid ${T.bd}`, font: `12.5px ${T.sans}`, color: T.sub, display: 'flex', alignItems: 'center', gap: 10 }}>
+				<div
+					style={{
+						marginBottom: 14,
+						padding: '9px 12px',
+						borderRadius: 9,
+						background: T.alt,
+						border: `1px solid ${T.bd}`,
+						font: `12.5px ${T.sans}`,
+						color: T.sub,
+						display: 'flex',
+						alignItems: 'center',
+						gap: 10,
+					}}
+				>
 					<Icon name="info" size={15} color={T.info} />
 					<span style={{ flex: 1 }}>{notice}</span>
 					<button type="button" onClick={() => setNotice(null)} style={ghostBtn} title="Dismiss">
@@ -385,18 +500,38 @@ export function Atlas() {
 			)}
 
 			{creating && isDm && (
-				<div style={{ marginBottom: 16, padding: 16, borderRadius: 10, background: T.raised, border: `1px solid ${T.accBd}`, maxWidth: 520 }}>
+				<div
+					style={{
+						marginBottom: 16,
+						padding: 16,
+						borderRadius: 10,
+						background: T.raised,
+						border: `1px solid ${T.accBd}`,
+						maxWidth: 520,
+					}}
+				>
 					<MapCreationForm
 						submitting={busy}
 						onCancel={() => setCreating(false)}
-						onCreate={(draft: { name: string; scale: number | null; unit: string; projection: string; visibility: string }) =>
-							void createMap(draft)
-						}
+						onCreate={(draft: {
+							name: string;
+							scale: number | null;
+							unit: string;
+							projection: string;
+							visibility: string;
+						}) => void createMap(draft)}
 					/>
 				</div>
 			)}
 
-			<div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0,1fr) 320px', gap: 18, alignItems: 'start' }}>
+			<div
+				style={{
+					display: 'grid',
+					gridTemplateColumns: isPhone ? '1fr' : 'minmax(0,1fr) 320px',
+					gap: 18,
+					alignItems: 'start',
+				}}
+			>
 				{/* canvas — the REAL shared geometry renderer (grid, layer features, fog mask composed from
 				    durable ops, DS POI markers, tokens), actor-filtered. Read-only here; authoring gestures
 				    live in the MapBuilder overlay. */}
@@ -413,7 +548,12 @@ export function Atlas() {
 					onSelectToken={setSelTokenId}
 					renderPoiPopover={(poi, anchor, placement) => (
 						<POIPopover
-							poi={{ name: poi.label, category: POI_MARKER_CAT[poi.category] ?? 'location', categoryLabel: poi.category, visibility: visToDs(poi.visibility) }}
+							poi={{
+								name: poi.label,
+								category: POI_MARKER_CAT[poi.category] ?? 'location',
+								categoryLabel: poi.category,
+								visibility: visToDs(poi.visibility),
+							}}
 							anchor={anchor}
 							placement={placement}
 							readOnly={!isDm}
@@ -426,31 +566,119 @@ export function Atlas() {
 						/>
 					)}
 				>
-					<div style={{ position: 'absolute', top: 12, left: 14, maxWidth: 'calc(100% - 190px)', display: 'flex', flexDirection: 'column', gap: 2, padding: '5px 11px', borderRadius: 8, background: 'color-mix(in oklab, var(--map-canvas-bg) 72%, transparent)', backdropFilter: 'blur(2px)', border: `1px solid ${T.bd}` }}>
-						<span style={{ font: `700 16px ${T.disp}`, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+					<div
+						style={{
+							position: 'absolute',
+							top: 12,
+							left: 14,
+							maxWidth: 'calc(100% - 190px)',
+							display: 'flex',
+							flexDirection: 'column',
+							gap: 2,
+							padding: '5px 11px',
+							borderRadius: 8,
+							background: 'color-mix(in oklab, var(--map-canvas-bg) 72%, transparent)',
+							backdropFilter: 'blur(2px)',
+							border: `1px solid ${T.bd}`,
+						}}
+					>
+						<span
+							style={{
+								font: `700 16px ${T.disp}`,
+								color: T.ink,
+								whiteSpace: 'nowrap',
+								overflow: 'hidden',
+								textOverflow: 'ellipsis',
+							}}
+						>
 							{mapView?.name ?? selectedEntry?.name ?? 'No map selected'}
 						</span>
 						{selectedEntry && (
-							<span style={{ display: 'flex', alignItems: 'center', gap: 7, font: `11px ${T.sans}`, color: T.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+							<span
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: 7,
+									font: `11px ${T.sans}`,
+									color: T.sub,
+									whiteSpace: 'nowrap',
+									overflow: 'hidden',
+									textOverflow: 'ellipsis',
+								}}
+							>
 								<VisibilityChip level={VIS_CHIP[selectedEntry.visibility] ?? 'dm-only'} />
 								{selectedEntry.description || 'No description'}
 							</span>
 						)}
 					</div>
 					<div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 6 }}>
-						<IconButton icon="zoom-in" label="Zoom in" variant="outline" size="sm" onClick={() => zoom(0.2)} />
-						<IconButton icon="zoom-out" label="Zoom out" variant="outline" size="sm" onClick={() => zoom(-0.2)} />
-						<IconButton icon="zoom-fit" label="Fit" variant="outline" size="sm" onClick={() => zoom(undefined, true)} />
-						<span style={{ display: 'inline-flex', alignItems: 'center', padding: '0 8px', borderRadius: 7, background: 'color-mix(in oklab, var(--map-canvas-bg) 78%, transparent)', font: `11px ${T.mono}`, color: T.ink }}>{Math.round(mapZoom * 100)}%</span>
+						<IconButton
+							icon="zoom-in"
+							label="Zoom in"
+							variant="outline"
+							size="sm"
+							onClick={() => zoom(0.2)}
+						/>
+						<IconButton
+							icon="zoom-out"
+							label="Zoom out"
+							variant="outline"
+							size="sm"
+							onClick={() => zoom(-0.2)}
+						/>
+						<IconButton
+							icon="zoom-fit"
+							label="Fit"
+							variant="outline"
+							size="sm"
+							onClick={() => zoom(undefined, true)}
+						/>
+						<span
+							style={{
+								display: 'inline-flex',
+								alignItems: 'center',
+								padding: '0 8px',
+								borderRadius: 7,
+								background: 'color-mix(in oklab, var(--map-canvas-bg) 78%, transparent)',
+								font: `11px ${T.mono}`,
+								color: T.ink,
+							}}
+						>
+							{Math.round(mapZoom * 100)}%
+						</span>
 					</div>
 					{view?.kind === 'unavailable' && (
-						<div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `13px ${T.sans}`, color: T.sub }}>
+						<div
+							style={{
+								position: 'absolute',
+								inset: 0,
+								display: 'flex',
+								alignItems: 'center',
+								justifyContent: 'center',
+								font: `13px ${T.sans}`,
+								color: T.sub,
+							}}
+						>
 							This map is unavailable to you.
 						</div>
 					)}
-					<div style={{ position: 'absolute', bottom: 12, left: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+					<div
+						style={{
+							position: 'absolute',
+							bottom: 12,
+							left: 14,
+							display: 'flex',
+							gap: 8,
+							flexWrap: 'wrap',
+						}}
+					>
 						{isDm && mapView && (
-							<Button variant="primary" size="sm" icon="layer-fog" onClick={() => openBuilder('fog', 'reveal')}>
+							<Button
+								variant="primary"
+								size="sm"
+								icon="layer-fog"
+								onClick={() => openBuilder('fog', 'reveal')}
+							>
 								Fog of war
 							</Button>
 						)}
@@ -476,41 +704,106 @@ export function Atlas() {
 								Layers
 								<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
 									{layers.length}
-									{isDm && layerResult.hiddenMatchCount > 0 ? ` · ${layerResult.hiddenMatchCount} hidden` : ''}
+									{isDm && layerResult.hiddenMatchCount > 0
+										? ` · ${layerResult.hiddenMatchCount} hidden`
+										: ''}
 								</span>
 							</span>
 						}
-						action={isDm && selectedId ? <IconButton icon="add" label="Add layer" variant="ghost" size="sm" disabled={busy} onClick={addLayer} /> : undefined}
+						action={
+							isDm && selectedId ? (
+								<IconButton
+									icon="add"
+									label="Add layer"
+									variant="ghost"
+									size="sm"
+									disabled={busy}
+									onClick={addLayer}
+								/>
+							) : undefined
+						}
 					>
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
 							{layers.map((l, i) => (
-								<div key={l.layerId} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 6px', borderRadius: 8, background: l.enabled ? 'transparent' : T.alt }}>
+								<div
+									key={l.layerId}
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: 9,
+										padding: '8px 6px',
+										borderRadius: 8,
+										background: l.enabled ? 'transparent' : T.alt,
+									}}
+								>
 									{isDm ? (
 										<span style={{ display: 'flex', flexDirection: 'column' }}>
-											<button type="button" title="Move up" disabled={busy || i === 0} onClick={() => reorderLayer(l.layerId, i - 1)} style={{ ...ghostBtn, opacity: i === 0 ? 0.3 : 1 }}>
+											<button
+												type="button"
+												title="Move up"
+												disabled={busy || i === 0}
+												onClick={() => reorderLayer(l.layerId, i - 1)}
+												style={{ ...ghostBtn, opacity: i === 0 ? 0.3 : 1 }}
+											>
 												<Icon name="chevron-up" size={12} color={T.ter} />
 											</button>
-											<button type="button" title="Move down" disabled={busy || i === layers.length - 1} onClick={() => reorderLayer(l.layerId, i + 1)} style={{ ...ghostBtn, opacity: i === layers.length - 1 ? 0.3 : 1 }}>
+											<button
+												type="button"
+												title="Move down"
+												disabled={busy || i === layers.length - 1}
+												onClick={() => reorderLayer(l.layerId, i + 1)}
+												style={{ ...ghostBtn, opacity: i === layers.length - 1 ? 0.3 : 1 }}
+											>
 												<Icon name="chevron-down" size={12} color={T.ter} />
 											</button>
 										</span>
 									) : (
 										<Icon name="drag-handle" size={14} color={T.ter} />
 									)}
-									<span style={{ width: 10, height: 10, borderRadius: 3, background: `var(${CATEGORY_VAR[l.category] ?? '--layer-base'})`, flex: '0 0 auto' }} />
+									<span
+										style={{
+											width: 10,
+											height: 10,
+											borderRadius: 3,
+											background: `var(${CATEGORY_VAR[l.category] ?? '--layer-base'})`,
+											flex: '0 0 auto',
+										}}
+									/>
 									<div style={{ flex: 1, minWidth: 0 }}>
-										<div style={{ font: `12.5px ${T.sans}`, color: l.enabled ? T.ink : T.ter, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</div>
+										<div
+											style={{
+												font: `12.5px ${T.sans}`,
+												color: l.enabled ? T.ink : T.ter,
+												whiteSpace: 'nowrap',
+												overflow: 'hidden',
+												textOverflow: 'ellipsis',
+											}}
+										>
+											{l.name}
+										</div>
 										<div style={{ font: `10.5px ${T.mono}`, color: T.ter }}>
-											{CATEGORY_LABEL[l.category] ?? l.category} · {Math.round(l.opacity * 100)}% · {l.content.length} marks
+											{CATEGORY_LABEL[l.category] ?? l.category} · {Math.round(l.opacity * 100)}% ·{' '}
+											{l.content.length} marks
 										</div>
 									</div>
 									{isDm ? (
 										<>
 											{/* compact chip = the grayscale-safe status display; the button stays the toggle */}
-											<button type="button" title={`Visibility: ${VIS_LABEL[l.visibility] ?? l.visibility} — click to toggle DM-only ↔ player-visible`} aria-label={`Toggle ${l.name} player visibility`} disabled={busy} onClick={() => toggleLayerVisibility(l.layerId, l.visibility)} style={ghostBtn}>
+											<button
+												type="button"
+												title={`Visibility: ${VIS_LABEL[l.visibility] ?? l.visibility} — click to toggle DM-only ↔ player-visible`}
+												aria-label={`Toggle ${l.name} player visibility`}
+												disabled={busy}
+												onClick={() => toggleLayerVisibility(l.layerId, l.visibility)}
+												style={ghostBtn}
+											>
 												<VisibilityChip level={VIS_CHIP[l.visibility] ?? 'dm-only'} compact />
 											</button>
-											<Switch checked={l.enabled} aria-label={`Display ${l.name}`} onChange={() => toggleLayerEnabled(l.layerId, l.enabled)} />
+											<Switch
+												checked={l.enabled}
+												aria-label={`Display ${l.name}`}
+												onChange={() => toggleLayerEnabled(l.layerId, l.enabled)}
+											/>
 										</>
 									) : (
 										<VisibilityChip level={VIS_CHIP[l.visibility] ?? 'dm-only'} />
@@ -521,7 +814,12 @@ export function Atlas() {
 								(loading ? (
 									<Skeleton height={44} />
 								) : (
-									<EmptyState inset icon="layers" title="No layers are visible to you" description={isDm && selectedId ? 'Add one with the + above.' : undefined} />
+									<EmptyState
+										inset
+										icon="layers"
+										title="No layers are visible to you"
+										description={isDm && selectedId ? 'Add one with the + above.' : undefined}
+									/>
 								))}
 						</div>
 					</Panel>
@@ -532,40 +830,85 @@ export function Atlas() {
 								Points of interest
 								<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
 									{mapView?.pois.length ?? 0}
-									{isDm && mapView && mapView.hidden.pois > 0 ? ` · ${mapView.hidden.pois} hidden` : ''}
+									{isDm && mapView && mapView.hidden.pois > 0
+										? ` · ${mapView.hidden.pois} hidden`
+										: ''}
 								</span>
 							</span>
 						}
 					>
 						{isDm && mapView && (
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingBottom: 10, borderBottom: `1px solid ${T.bd}` }}>
+							<div
+								style={{
+									display: 'flex',
+									flexDirection: 'column',
+									gap: 6,
+									paddingBottom: 10,
+									borderBottom: `1px solid ${T.bd}`,
+								}}
+							>
 								<Button variant="secondary" size="sm" icon="poi" onClick={() => openBuilder('poi')}>
 									Place POI in builder
 								</Button>
 								<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
-									The builder's POI tool places at the exact clicked map position; drag a marker to move it.
+									The builder's POI tool places at the exact clicked map position; drag a marker to
+									move it.
 								</div>
 							</div>
 						)}
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
 							{mapView?.pois.map((poi) => (
-								<div key={poi.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 4px' }}>
+								<div
+									key={poi.id}
+									style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 4px' }}
+								>
 									<button
 										type="button"
 										title="Show on map"
 										onClick={() => setSelPoiId(poi.id === selPoiId ? null : poi.id)}
-										style={{ ...ghostBtn, flex: 1, minWidth: 0, flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}
+										style={{
+											...ghostBtn,
+											flex: 1,
+											minWidth: 0,
+											flexDirection: 'column',
+											alignItems: 'flex-start',
+											textAlign: 'left',
+										}}
 									>
-										<span style={{ font: `12.5px ${T.sans}`, color: poi.id === selPoiId ? T.acc : T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{poi.label}</span>
+										<span
+											style={{
+												font: `12.5px ${T.sans}`,
+												color: poi.id === selPoiId ? T.acc : T.ink,
+												whiteSpace: 'nowrap',
+												overflow: 'hidden',
+												textOverflow: 'ellipsis',
+												maxWidth: '100%',
+											}}
+										>
+											{poi.label}
+										</span>
 										<span style={{ font: `10.5px ${T.mono}`, color: T.ter }}>{poi.category}</span>
 									</button>
 									{isDm ? (
 										<>
 											{/* compact chip = the grayscale-safe status display; the button stays the toggle */}
-											<button type="button" title={`Visibility: ${VIS_LABEL[poi.visibility] ?? poi.visibility} — click to toggle DM-only ↔ player-visible`} aria-label={`Toggle ${poi.label} player visibility`} disabled={busy} onClick={() => togglePoiVisibility(poi.id, poi.visibility)} style={ghostBtn}>
+											<button
+												type="button"
+												title={`Visibility: ${VIS_LABEL[poi.visibility] ?? poi.visibility} — click to toggle DM-only ↔ player-visible`}
+												aria-label={`Toggle ${poi.label} player visibility`}
+												disabled={busy}
+												onClick={() => togglePoiVisibility(poi.id, poi.visibility)}
+												style={ghostBtn}
+											>
 												<VisibilityChip level={VIS_CHIP[poi.visibility] ?? 'dm-only'} compact />
 											</button>
-											<button type="button" title="Delete POI" disabled={busy} onClick={() => void deletePoi(poi.id)} style={ghostBtn}>
+											<button
+												type="button"
+												title="Delete POI"
+												disabled={busy}
+												onClick={() => void deletePoi(poi.id)}
+												style={ghostBtn}
+											>
 												<Icon name="delete" size={14} color={T.ter} />
 											</button>
 										</>
@@ -578,15 +921,25 @@ export function Atlas() {
 								<EmptyState
 									inset
 									icon="poi"
-									title={isDm ? 'No points of interest yet' : 'No points of interest are visible to you'}
-									description={isDm ? 'The builder’s POI tool places one at the exact clicked position.' : undefined}
+									title={
+										isDm ? 'No points of interest yet' : 'No points of interest are visible to you'
+									}
+									description={
+										isDm
+											? 'The builder’s POI tool places one at the exact clicked position.'
+											: undefined
+									}
 								/>
 							)}
 							{!mapView &&
 								(loading ? (
 									<Skeleton height={44} />
 								) : (
-									<EmptyState inset icon="atlas-map" title="Open a map to see its points of interest" />
+									<EmptyState
+										inset
+										icon="atlas-map"
+										title="Open a map to see its points of interest"
+									/>
 								))}
 						</div>
 					</Panel>
@@ -595,19 +948,35 @@ export function Atlas() {
 						title={
 							<span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
 								Fog of war
-								<span style={{ font: `11px ${T.mono}`, color: T.ter }}>{mapView?.fog.length ?? 0} ops</span>
+								<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
+									{mapView?.fog.length ?? 0} ops
+								</span>
 							</span>
 						}
 					>
 						<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.sub }}>
-							Reveal/conceal regions are durable, append-only fog ops — the canvas composes the real mask in sequence order (a later op overrides an earlier overlap). Draw regions in the builder.
+							Reveal/conceal regions are durable, append-only fog ops — the canvas composes the real
+							mask in sequence order (a later op overrides an earlier overlap). Draw regions in the
+							builder.
 						</div>
 						{isDm && mapView && (
 							<div style={{ display: 'flex', gap: 8 }}>
-								<Button variant="secondary" size="sm" icon="reveal" disabled={!selectedId} onClick={() => openBuilder('fog', 'reveal')}>
+								<Button
+									variant="secondary"
+									size="sm"
+									icon="reveal"
+									disabled={!selectedId}
+									onClick={() => openBuilder('fog', 'reveal')}
+								>
 									Reveal area
 								</Button>
-								<Button variant="secondary" size="sm" icon="conceal" disabled={!selectedId} onClick={() => openBuilder('fog', 'conceal')}>
+								<Button
+									variant="secondary"
+									size="sm"
+									icon="conceal"
+									disabled={!selectedId}
+									onClick={() => openBuilder('fog', 'conceal')}
+								>
 									Conceal area
 								</Button>
 							</div>
@@ -615,7 +984,16 @@ export function Atlas() {
 						{mapView && mapView.fog.length > 0 && (
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
 								{mapView.fog.slice(-4).map((op) => (
-									<div key={op.id} style={{ display: 'flex', alignItems: 'center', gap: 8, font: `11px ${T.mono}`, color: T.ter }}>
+									<div
+										key={op.id}
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: 8,
+											font: `11px ${T.mono}`,
+											color: T.ter,
+										}}
+									>
 										<Badge status={op.kind === 'reveal' ? 'success' : 'neutral'}>{op.kind}</Badge>
 										seq {op.sequence} · {fogRegionSummary(op.region)}
 									</div>

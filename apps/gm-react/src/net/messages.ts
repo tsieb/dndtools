@@ -118,7 +118,10 @@ export interface PresenceBeatMessage {
 }
 
 /** The presence statuses a peer may broadcast (`offline` is host-derived from the link, never claimed). */
-export const PEER_PRESENCE_STATUSES: readonly PeerPresenceStatus[] = Object.freeze(['online', 'away']);
+export const PEER_PRESENCE_STATUSES: readonly PeerPresenceStatus[] = Object.freeze([
+	'online',
+	'away',
+]);
 
 /**
  * FAIL-CLOSED validation of an incoming presence beat. Presence is a SIDE-CHANNEL: it deliberately does
@@ -136,7 +139,10 @@ export function parsePresenceBeatMessage(value: unknown): PresenceBeatMessage | 
 	if (!(PEER_PRESENCE_STATUSES as readonly unknown[]).includes(v.status)) return null;
 	if (v.hand !== undefined && typeof v.hand !== 'boolean') return null;
 	if (v.ready !== undefined && typeof v.ready !== 'boolean') return null;
-	const message: PresenceBeatMessage = { kind: 'presence-beat', status: v.status as PeerPresenceStatus };
+	const message: PresenceBeatMessage = {
+		kind: 'presence-beat',
+		status: v.status as PeerPresenceStatus,
+	};
 	if (v.hand !== undefined) message.hand = v.hand;
 	if (v.ready !== undefined) message.ready = v.ready;
 	return message;
@@ -167,3 +173,93 @@ export type ClientMessage =
 	| PingMessage;
 
 export type PeerMessage = HostMessage | ClientMessage;
+
+const boundedString = (value: unknown, max: number): value is string =>
+	typeof value === 'string' && value.length > 0 && value.length <= max;
+const finiteNumber = (value: unknown): value is number =>
+	typeof value === 'number' && Number.isFinite(value);
+
+/** Validate messages received by the authoritative host before any application handler sees them. */
+export function parseClientMessage(value: unknown): ClientMessage | null {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+	const rec = value as Record<string, unknown>;
+	switch (rec.kind) {
+		case 'hello':
+			if (
+				rec.protocolVersion !== PEER_PROTOCOL_VERSION ||
+				!boundedString(rec.displayName, 160) ||
+				!['desktop', 'web', 'unknown'].includes(String(rec.deviceKind))
+			)
+				return null;
+			return rec as unknown as HelloMessage;
+		case 'command-request': {
+			if (!boundedString(rec.requestId, 128) || !rec.command || typeof rec.command !== 'object')
+				return null;
+			const command = rec.command as Record<string, unknown>;
+			if (!boundedString(command.type, 128) || !('payload' in command)) return null;
+			return rec as unknown as CommandRequestMessage;
+		}
+		case 'presence-beat':
+			return parsePresenceBeatMessage(rec);
+		case 'ping':
+			return finiteNumber(rec.t) ? (rec as unknown as PingMessage) : null;
+		default:
+			return null;
+	}
+}
+
+/** Validate host messages before they can mutate the joined player's replicated UI state. */
+export function parseHostMessage(value: unknown): HostMessage | null {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+	const rec = value as Record<string, unknown>;
+	switch (rec.kind) {
+		case 'join-result':
+			if (typeof rec.ok !== 'boolean') return null;
+			if (!rec.ok) {
+				return boundedString(rec.reason, 128) && boundedString(rec.message, 500)
+					? (rec as unknown as JoinResultMessage)
+					: null;
+			}
+			return boundedString(rec.sessionId, 128) &&
+				boundedString(rec.actorId, 128) &&
+				boundedString(rec.displayName, 160) &&
+				['player', 'observer', 'co-dm'].includes(String(rec.role))
+				? (rec as unknown as JoinResultMessage)
+				: null;
+		case 'snapshot':
+			return Number.isSafeInteger(rec.seq) &&
+				Number(rec.seq) >= 0 &&
+				rec.data !== null &&
+				typeof rec.data === 'object'
+				? (rec as unknown as SnapshotMessage)
+				: null;
+		case 'command-ack':
+			return boundedString(rec.requestId, 128) &&
+				typeof rec.ok === 'boolean' &&
+				(rec.message === undefined ||
+					(typeof rec.message === 'string' && rec.message.length <= 500))
+				? (rec as unknown as CommandAckMessage)
+				: null;
+		case 'presence': {
+			if (!Array.isArray(rec.entries) || rec.entries.length > 500) return null;
+			const valid = rec.entries.every((entry) => {
+				if (!entry || typeof entry !== 'object') return false;
+				const item = entry as Record<string, unknown>;
+				return (
+					boundedString(item.actorId, 128) &&
+					boundedString(item.displayName, 160) &&
+					(PEER_PRESENCE_STATUSES as readonly unknown[]).includes(item.status) &&
+					(item.hand === undefined || typeof item.hand === 'boolean') &&
+					(item.ready === undefined || typeof item.ready === 'boolean')
+				);
+			});
+			return valid ? (rec as unknown as PresenceMessage) : null;
+		}
+		case 'rekey':
+			return boundedString(rec.key, 128) ? (rec as unknown as RekeyMessage) : null;
+		case 'pong':
+			return finiteNumber(rec.t) ? (rec as unknown as PongMessage) : null;
+		default:
+			return null;
+	}
+}

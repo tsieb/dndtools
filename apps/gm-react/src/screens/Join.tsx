@@ -21,7 +21,7 @@ type JoinState =
 	| { phase: 'ready'; invite: ResolvedInvite };
 
 const WRAP: React.CSSProperties = {
-	minHeight: '100vh',
+	minHeight: 'var(--app-viewport-height)',
 	display: 'flex',
 	alignItems: 'center',
 	justifyContent: 'center',
@@ -45,8 +45,13 @@ export function Join() {
 	const location = useLocation();
 	const navigate = useNavigate();
 	const auth = useAuth();
-	const token = useMemo(() => new URLSearchParams(location.search).get('token') ?? '', [location.search]);
-	const [state, setState] = useState<JoinState>(token ? { phase: 'loading' } : { phase: 'missing' });
+	const token = useMemo(
+		() => new URLSearchParams(location.search).get('token') ?? '',
+		[location.search],
+	);
+	const [state, setState] = useState<JoinState>(
+		token ? { phase: 'loading' } : { phase: 'missing' },
+	);
 
 	useEffect(() => {
 		if (!token) {
@@ -62,7 +67,9 @@ export function Join() {
 			.catch((e: unknown) => {
 				if (cancelled) return;
 				const message =
-					e instanceof AppApiError ? e.message : 'This invite link could not be checked — try again.';
+					e instanceof AppApiError
+						? e.message
+						: 'This invite link could not be checked — try again.';
 				setState({ phase: 'invalid', message });
 			});
 		return () => {
@@ -75,14 +82,27 @@ export function Join() {
 		<div style={WRAP}>
 			<div style={CARD} role="main" aria-label="Campaign invite">
 				<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-					<span style={{ width: 38, height: 38, borderRadius: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: T.accSub, color: T.acc }}>
+					<span
+						style={{
+							width: 38,
+							height: 38,
+							borderRadius: 10,
+							display: 'inline-flex',
+							alignItems: 'center',
+							justifyContent: 'center',
+							background: T.accSub,
+							color: T.acc,
+						}}
+					>
 						<Icon name="send" size="md" />
 					</span>
 					<div style={{ font: `700 17px ${T.disp}`, color: T.ink }}>You’re invited</div>
 				</div>
 
 				{state.phase === 'loading' && (
-					<div style={{ font: `13px ${T.sans}`, color: T.ter }} role="status" aria-live="polite">Checking your invite…</div>
+					<div style={{ font: `13px ${T.sans}`, color: T.ter }} role="status" aria-live="polite">
+						Checking your invite…
+					</div>
 				)}
 				{state.phase === 'missing' && (
 					<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub }}>
@@ -99,24 +119,58 @@ export function Join() {
 							<strong style={{ color: T.ink }}>{state.invite.invitedBy}</strong> invited you to join{' '}
 							<strong style={{ color: T.ink }}>{state.invite.campaignName}</strong>
 							{state.invite.role === 'co-dm' ? (
-								<> as a <strong style={{ color: T.acc }}>Co-DM</strong></>
+								<>
+									{' '}
+									as a <strong style={{ color: T.acc }}>Co-DM</strong>
+								</>
 							) : null}
 							.{state.invite.note ? ` “${state.invite.note}”` : ''}
 						</div>
 						{state.invite.role === 'co-dm' && (
-							<div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 10, background: T.accSub, border: `1px solid ${T.accBd}`, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+							<div
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: 8,
+									padding: '9px 12px',
+									borderRadius: 10,
+									background: T.accSub,
+									border: `1px solid ${T.accBd}`,
+									font: `12px/1.5 ${T.sans}`,
+									color: T.sub,
+								}}
+							>
 								<Icon name="session-bolt" size="sm" />
-								<span>A Co-DM seat sees the DM’s prep and helps run the table. Your DM finishes the promotion when you join their live session.</span>
+								<span>
+									A Co-DM seat sees the DM’s prep and helps run the table. Your DM finishes the
+									promotion when you join their live session.
+								</span>
 							</div>
 						)}
 						<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
 							Invite expires {new Date(state.invite.expiresAt * 1000).toLocaleDateString()}.
 						</div>
 						{signedOut && (
-							<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: T.surf, border: `1px solid ${T.bd}`, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+							<div
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: 10,
+									padding: '10px 12px',
+									borderRadius: 10,
+									background: T.surf,
+									border: `1px solid ${T.bd}`,
+									font: `12px/1.5 ${T.sans}`,
+									color: T.sub,
+								}}
+							>
 								<Icon name="UserCircle" size="sm" />
-								<span style={{ flex: 1 }}>Sign in (or create a free account) first if your table plays over the internet.</span>
-								<Button variant="secondary" size="sm" onClick={() => auth.openAuthModal()}>Sign in</Button>
+								<span style={{ flex: 1 }}>
+									Sign in (or create a free account) first if your table plays over the internet.
+								</span>
+								<Button variant="secondary" size="sm" onClick={() => auth.openAuthModal()}>
+									Sign in
+								</Button>
 							</div>
 						)}
 						<Button variant="primary" icon="play" onClick={() => navigate('/play')}>
@@ -128,7 +182,9 @@ export function Join() {
 					</>
 				)}
 				{(state.phase === 'invalid' || state.phase === 'missing') && (
-					<Button variant="secondary" onClick={() => navigate('/')}>Go to the app</Button>
+					<Button variant="secondary" onClick={() => navigate('/')}>
+						Go to the app
+					</Button>
 				)}
 			</div>
 		</div>

@@ -15,7 +15,10 @@ export function computeViewport(): Viewport {
 export function useViewport(): Viewport {
 	const [vp, setVp] = useState<Viewport>(() => computeViewport());
 	useEffect(() => {
-		const queries = [window.matchMedia('(max-width: 640px)'), window.matchMedia('(max-width: 1024px)')];
+		const queries = [
+			window.matchMedia('(max-width: 640px)'),
+			window.matchMedia('(max-width: 1024px)'),
+		];
 		const onChange = () => setVp(computeViewport());
 		for (const q of queries) q.addEventListener('change', onChange);
 		return () => {
@@ -23,4 +26,19 @@ export function useViewport(): Viewport {
 		};
 	}, []);
 	return vp;
+}
+
+/** Full sidebar + full-label table actions need more room than the navigation breakpoint alone.
+ * Keep the toolbar compact in ordinary split-screen desktop windows, then expand it at 1280px. */
+export function useCompactTopBar(): boolean {
+	const [compact, setCompact] = useState(() =>
+		typeof window === 'undefined' ? false : window.matchMedia('(max-width: 1279px)').matches,
+	);
+	useEffect(() => {
+		const query = window.matchMedia('(max-width: 1279px)');
+		const onChange = () => setCompact(query.matches);
+		query.addEventListener('change', onChange);
+		return () => query.removeEventListener('change', onChange);
+	}, []);
+	return compact;
 }

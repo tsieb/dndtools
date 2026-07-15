@@ -6,6 +6,7 @@ import { exportKeyBase64, generateSessionKey } from './crypto';
 import { buildPlayerData } from './viewModels';
 import {
 	parsePresenceBeatMessage,
+	parseClientMessage,
 	presenceBeatToSetPresencePayload,
 	type ClientMessage,
 	type PeerPresenceEntry,
@@ -82,6 +83,7 @@ export class SessionHost {
 	private unsubscribe: (() => void) | null = null;
 	private seq = 0;
 	private changeHandler: (() => void) | null = null;
+	private readonly invitationTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	// `applyAnswer` needs the RTCPeerConnection, which PeerLink owns privately; thread it per-peer.
 	private readonly pcByPeer = new WeakMap<InternalPeer, RTCPeerConnection>();
 
@@ -122,12 +124,12 @@ export class SessionHost {
 		if (!actor || isCampaignOwnerRole(actor.role)) {
 			throw new Error('Can only invite a registered player, observer, or Co-DM participant.');
 		}
+		if ([...this.peers.values()].some((peer) => peer.actorId === actorId)) {
+			throw new Error(`${actor.displayName} is already invited or connected.`);
+		}
 		// The owner `dm` was rejected above, so the remaining role is a joinable peer role.
-		const joinRole: 'player' | 'observer' | 'co-dm' = actor.role === 'co-dm'
-			? 'co-dm'
-			: actor.role === 'observer'
-				? 'observer'
-				: 'player';
+		const joinRole: 'player' | 'observer' | 'co-dm' =
+			actor.role === 'co-dm' ? 'co-dm' : actor.role === 'observer' ? 'observer' : 'player';
 		const key = await generateSessionKey();
 		const { pc, channel, sdp } = await createOffer();
 		const peerId = `peer-${this.sessionId}-${actorId}-${this.seq++}`;
@@ -149,12 +151,23 @@ export class SessionHost {
 		};
 		this.peers.set(peerId, peer);
 		this.pcByPeer.set(peer, pc);
+		this.invitationTimers.set(
+			peerId,
+			setTimeout(() => {
+				const waiting = this.peers.get(peerId);
+				if (waiting && !waiting.connected) this.revoke(peerId);
+			}, 120_000),
+		);
 
 		link.onStateChange((state) => {
 			peer.connected = state === 'open';
 			peer.status = state === 'open' ? 'online' : 'away';
-			if (state === 'open') void this.pushSnapshot(peer);
+			if (state === 'open') {
+				this.clearInvitationTimer(peerId);
+				void this.pushSnapshot(peer);
+			}
 			if (state === 'closed') {
+				this.clearInvitationTimer(peerId);
 				this.peers.delete(peerId);
 				// The peer is gone: clear its ephemeral core presence entry (DM-authored offline clear).
 				this.clearPeerPresence(peer);
@@ -162,7 +175,10 @@ export class SessionHost {
 			this.broadcastPresence();
 			this.changeHandler?.();
 		});
-		link.onMessage((message) => this.onPeerMessage(peer, message as ClientMessage));
+		link.onMessage((value) => {
+			const message = parseClientMessage(value);
+			if (message) this.onPeerMessage(peer, message);
+		});
 
 		const offer: OfferPayload = {
 			v: SIGNALING_VERSION,
@@ -184,9 +200,12 @@ export class SessionHost {
 		if (answer.role !== 'answer' || answer.sessionId !== this.sessionId) {
 			throw new Error('This answer code does not match the current session.');
 		}
-		// Find the most recent not-yet-connected invite to apply the answer to.
-		const pending = [...this.peers.values()].reverse().find((p) => !p.connected);
-		if (!pending) throw new Error('No pending invitation is waiting for an answer.');
+		// Match the identity echoed from the offer. This keeps simultaneous manual/LAN invitations from
+		// applying one player's SDP to another player's peer connection.
+		const pending = [...this.peers.values()]
+			.reverse()
+			.find((p) => !p.connected && p.actorId === answer.actorId);
+		if (!pending) throw new Error('No matching invitation is waiting for this answer.');
 		await applyAnswer(this.pcOf(pending), answer.sdp);
 	}
 
@@ -194,6 +213,7 @@ export class SessionHost {
 	revoke(peerId: string): void {
 		const peer = this.peers.get(peerId);
 		if (!peer) return;
+		this.clearInvitationTimer(peerId);
 		peer.link.close();
 		this.peers.delete(peerId);
 		this.clearPeerPresence(peer);
@@ -205,6 +225,8 @@ export class SessionHost {
 		this.unsubscribe?.();
 		this.unsubscribe = null;
 		for (const peer of this.peers.values()) peer.link.close();
+		for (const timer of this.invitationTimers.values()) clearTimeout(timer);
+		this.invitationTimers.clear();
 		this.peers.clear();
 		this.changeHandler?.();
 	}
@@ -215,6 +237,12 @@ export class SessionHost {
 		const pc = this.pcByPeer.get(peer);
 		if (!pc) throw new Error('Missing peer connection handle.');
 		return pc;
+	}
+
+	private clearInvitationTimer(peerId: string): void {
+		const timer = this.invitationTimers.get(peerId);
+		if (timer) clearTimeout(timer);
+		this.invitationTimers.delete(peerId);
 	}
 
 	private onOpGrowth(_ops: SyncOperation[], next: CoreStateSlice): void {
@@ -239,7 +267,9 @@ export class SessionHost {
 				// The identity was bound at invite time from the registered roster (fail-closed). Confirm and
 				// send the first snapshot.
 				peer.deviceKind =
-					message.deviceKind === 'desktop' || message.deviceKind === 'web' ? message.deviceKind : 'unknown';
+					message.deviceKind === 'desktop' || message.deviceKind === 'web'
+						? message.deviceKind
+						: 'unknown';
 				void peer.link.send({
 					kind: 'join-result',
 					ok: true,

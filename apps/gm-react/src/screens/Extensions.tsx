@@ -17,7 +17,24 @@ import {
 	type VaultObjectFieldType,
 	type WidgetPackageDefinition,
 } from '@dndtools/core';
-import { Badge, Button, Checkbox, Dialog, EmptyState, HPBar, Icon, Input, SegmentedControl, Select, Skeleton, Switch, Tabs, Textarea, Toaster, VisibilityChip } from '../ds';
+import {
+	Badge,
+	Button,
+	Checkbox,
+	Dialog,
+	EmptyState,
+	HPBar,
+	Icon,
+	Input,
+	SegmentedControl,
+	Select,
+	Skeleton,
+	Switch,
+	Tabs,
+	Textarea,
+	Toaster,
+	VisibilityChip,
+} from '../ds';
 import { Page, Panel, T, eb, mono } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 import {
@@ -80,7 +97,11 @@ import type {
  * it, dispatching through the runtime like every other panel.
  */
 
-const TRUST_TONE: Record<string, string> = { trusted: 'success', unreviewed: 'warning', denied: 'error' };
+const TRUST_TONE: Record<string, string> = {
+	trusted: 'success',
+	unreviewed: 'warning',
+	denied: 'error',
+};
 const HOST_PERM_LABEL: Record<string, string> = {
 	filesystem: 'Filesystem',
 	clipboard: 'Clipboard',
@@ -148,7 +169,9 @@ function ExtPlugins() {
 		if (result.status === 'accepted') {
 			Toaster.success(okText);
 		} else {
-			const issues = (result.rejection.issues ?? []).map((i) => `${i.path}: ${i.message}`).join(' · ');
+			const issues = (result.rejection.issues ?? [])
+				.map((i) => `${i.path}: ${i.message}`)
+				.join(' · ');
 			Toaster.error(issues ? `${result.rejection.message} ${issues}` : result.rejection.message);
 		}
 	};
@@ -156,7 +179,9 @@ function ExtPlugins() {
 		if (busy) return;
 		setBusy(true);
 		void fn()
-			.catch((error: unknown) => Toaster.error(error instanceof Error ? error.message : String(error)))
+			.catch((error: unknown) =>
+				Toaster.error(error instanceof Error ? error.message : String(error)),
+			)
 			.finally(() => setBusy(false));
 	};
 
@@ -164,7 +189,11 @@ function ExtPlugins() {
 		guard(async () => {
 			if (enabled) {
 				finish(
-					await runtime.dispatch({ type: 'widget.package.enable', actorId: dmId, payload: { packageId } }),
+					await runtime.dispatch({
+						type: 'widget.package.enable',
+						actorId: dmId,
+						payload: { packageId },
+					}),
 					`Enabled ${packageId}.`,
 				);
 			} else {
@@ -183,7 +212,11 @@ function ExtPlugins() {
 		guard(async () => {
 			setConfirmRemoveId(null);
 			finish(
-				await runtime.dispatch({ type: 'widget.package.remove', actorId: dmId, payload: { packageId } }),
+				await runtime.dispatch({
+					type: 'widget.package.remove',
+					actorId: dmId,
+					payload: { packageId },
+				}),
 				`Removed ${packageId} — its placed widgets remain as disabled placeholders.`,
 			);
 		});
@@ -196,14 +229,18 @@ function ExtPlugins() {
 					actorId: dmId,
 					payload: { package: buildStarterPackage(entry) },
 				}),
-				`Installed ${entry.name} — unreviewed, every host permission denied (fail-closed). Flip its switch above to enable it.`,
+				`Installed ${entry.name} in a disabled, restricted state. Review it above before enabling it.`,
 			);
 		});
 
 	// Prefill the JSON box with a card's real definition — the working upgrade path: export, bump
 	// `version` (declare `migrations` for placed widgets), paste back, and Install/upgrade.
 	const exportToDraft = (packageId: string) => {
-		const exported = exportWidgetPackage(runtime.state.widgets, { ids: () => runtime.newId() }, packageId);
+		const exported = exportWidgetPackage(
+			runtime.state.widgets,
+			{ ids: () => runtime.newId() },
+			packageId,
+		);
 		if ('kind' in exported) {
 			Toaster.error(`Package ${packageId} could not be exported (${exported.reason}).`);
 			return;
@@ -217,6 +254,10 @@ function ExtPlugins() {
 
 	const applyJson = () =>
 		guard(async () => {
+			if (jsonDraft.length > 1024 * 1024) {
+				Toaster.error('That package file is too large. The limit is 1 MB.');
+				return;
+			}
 			let parsed: unknown;
 			try {
 				parsed = JSON.parse(jsonDraft);
@@ -226,17 +267,21 @@ function ExtPlugins() {
 			}
 			// Accept a raw package definition or the { package: ... } export wrapper.
 			const definition = (
-				parsed && typeof parsed === 'object' && 'package' in parsed ? (parsed as { package: unknown }).package : parsed
+				parsed && typeof parsed === 'object' && 'package' in parsed
+					? (parsed as { package: unknown }).package
+					: parsed
 			) as WidgetPackageDefinition;
 			const id = definition && typeof definition === 'object' ? definition.id : undefined;
 			if (typeof id !== 'string' || !id) {
-				Toaster.error('Package JSON needs a top-level "id" (or an export wrapper with "package.id").');
+				Toaster.error(
+					'Package JSON needs a top-level "id" (or an export wrapper with "package.id").',
+				);
 				return;
 			}
 			const existing = runtime.state.widgets.packages[id];
 			const isUpgrade = !!existing && !existing.removedAt;
 			if (isUpgrade && id.startsWith('system.')) {
-				Toaster.error('System packages are code-defined — their definitions cannot be upgraded from JSON.');
+				Toaster.error('Built-in system packages cannot be replaced with a package file.');
 				return;
 			}
 			const result = await runtime.dispatch({
@@ -247,8 +292,8 @@ function ExtPlugins() {
 			finish(
 				result,
 				isUpgrade
-					? `Upgraded ${id} — declared migrations ran against every placed widget.`
-					: `Installed ${id} — unreviewed, every host permission denied (fail-closed). Flip its switch above to enable it.`,
+					? `Upgraded ${id} and updated its placed widgets.`
+					: `Installed ${id} in a disabled, restricted state. Review it above before enabling it.`,
 			);
 			if (result.status === 'accepted') setJsonDraft('');
 		});
@@ -257,40 +302,75 @@ function ExtPlugins() {
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			{!canWrite && (
 				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-					Package management is DM-only and read-only while previewing — the controls below are disabled.
+					Package management is DM-only and read-only while previewing — the controls below are
+					disabled.
 				</div>
 			)}
-			<Panel title="Installed packages" action={<Badge status="neutral">{packages.length} installed</Badge>}>
+			<Panel
+				title="Installed packages"
+				action={<Badge status="neutral">{packages.length} installed</Badge>}
+			>
 				<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
-					Each package runs in a capability sandbox. The badges below are exactly what its manifest is permitted to do —
-					computed live from the package, nothing more. Enable/disable, remove and upgrade all dispatch real Core
-					commands and persist.
+					Each package is isolated and receives only the permissions shown below. Changes to
+					installed packages are saved with this campaign.
 				</div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-					{packages.length === 0 && <div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No widget packages installed.</div>}
+					{packages.length === 0 && (
+						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+							No widget packages installed.
+						</div>
+					)}
 					{packages.map((rec: any) => {
 						const def = rec.package;
 						const isSystem = def.id.startsWith('system.');
 						const review = buildWidgetPackageReviewSummary(def);
-						const needsReview = rec.trust.state === 'unreviewed' || review.trustRecommendation !== 'trusted-after-review';
+						const needsReview =
+							rec.trust.state === 'unreviewed' ||
+							review.trustRecommendation !== 'trusted-after-review';
 						const perms: string[] = review.requestedHostPermissions;
 						const widgetCount = def.widgets.length;
 						return (
-							<div key={def.id} style={{ display: 'flex', gap: 12, padding: 13, border: `1px solid ${needsReview ? T.accBd : T.bd}`, borderRadius: 11, background: T.surf }}>
-								<span style={{ width: 38, height: 38, borderRadius: 9, background: T.accSub, color: T.acc, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto' }}>
+							<div
+								key={def.id}
+								style={{
+									display: 'flex',
+									gap: 12,
+									padding: 13,
+									border: `1px solid ${needsReview ? T.accBd : T.bd}`,
+									borderRadius: 11,
+									background: T.surf,
+								}}
+							>
+								<span
+									style={{
+										width: 38,
+										height: 38,
+										borderRadius: 9,
+										background: T.accSub,
+										color: T.acc,
+										display: 'inline-flex',
+										alignItems: 'center',
+										justifyContent: 'center',
+										flex: '0 0 auto',
+									}}
+								>
 									<Icon name="widget" size="md" />
 								</span>
 								<div style={{ flex: 1, minWidth: 0 }}>
 									<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
 										<span style={{ font: `600 13.5px ${T.sans}` }}>{def.displayName}</span>
-										<Badge status={TRUST_TONE[rec.trust.state] as 'neutral'}>{rec.trust.state}</Badge>
+										<Badge status={TRUST_TONE[rec.trust.state] as 'neutral'}>
+											{rec.trust.state}
+										</Badge>
 										{isSystem && <Badge status="neutral">built-in</Badge>}
 										{needsReview && (
 											<Badge status="warning" icon="warning">
 												Needs review
 											</Badge>
 										)}
-										{review.customCodeWidgets.length > 0 && <Badge status="info">custom code</Badge>}
+										{review.customCodeWidgets.length > 0 && (
+											<Badge status="info">custom code</Badge>
+										)}
 										{rec.migrationStatus?.state === 'failed' && (
 											<Badge status="error" icon="warning">
 												migration failed
@@ -298,7 +378,8 @@ function ExtPlugins() {
 										)}
 									</div>
 									<div style={{ font: `11.5px ${T.sans}`, color: T.ter, marginBottom: 6 }}>
-										v{def.version} · {widgetCount} {widgetCount === 1 ? 'widget' : 'widgets'} · {review.trustRecommendation}
+										v{def.version} · {widgetCount} {widgetCount === 1 ? 'widget' : 'widgets'} ·{' '}
+										{review.trustRecommendation}
 									</div>
 									<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
 										{perms.length === 0 ? (
@@ -317,7 +398,15 @@ function ExtPlugins() {
 										))}
 									</div>
 								</div>
-								<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flex: '0 0 auto' }}>
+								<div
+									style={{
+										display: 'flex',
+										flexDirection: 'column',
+										alignItems: 'flex-end',
+										gap: 8,
+										flex: '0 0 auto',
+									}}
+								>
 									<Switch
 										checked={rec.enabled}
 										disabled={!canWrite || busy}
@@ -330,19 +419,39 @@ function ExtPlugins() {
 										<div style={{ display: 'flex', gap: 6 }}>
 											{confirmRemoveId === def.id ? (
 												<>
-													<Button variant="danger" size="sm" disabled={!canWrite || busy} onClick={() => removePackage(def.id)}>
+													<Button
+														variant="danger"
+														size="sm"
+														disabled={!canWrite || busy}
+														onClick={() => removePackage(def.id)}
+													>
 														Confirm remove
 													</Button>
-													<Button variant="ghost" size="sm" onClick={() => setConfirmRemoveId(null)}>
+													<Button
+														variant="ghost"
+														size="sm"
+														onClick={() => setConfirmRemoveId(null)}
+													>
 														Keep
 													</Button>
 												</>
 											) : (
 												<>
-													<Button variant="ghost" size="sm" icon="upload" onClick={() => exportToDraft(def.id)}>
+													<Button
+														variant="ghost"
+														size="sm"
+														icon="upload"
+														onClick={() => exportToDraft(def.id)}
+													>
 														Export JSON
 													</Button>
-													<Button variant="ghost" size="sm" icon="delete" disabled={!canWrite || busy} onClick={() => setConfirmRemoveId(def.id)}>
+													<Button
+														variant="ghost"
+														size="sm"
+														icon="delete"
+														disabled={!canWrite || busy}
+														onClick={() => setConfirmRemoveId(def.id)}
+													>
 														Remove
 													</Button>
 												</>
@@ -357,27 +466,54 @@ function ExtPlugins() {
 			</Panel>
 			<Panel title="Starter library" action={<Badge status="neutral">bundled · no network</Badge>}>
 				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
-					Installable packages scaffolded by the Core itself — installing dispatches the real{' '}
-					<span style={mono}>widget.package.install</span>, so each lands unreviewed with every host permission denied
-					(fail-closed sandbox). Enable it from the installed list above.
+					These packages are bundled with DND Tools and need no network connection. Each installs
+					disabled with all host permissions blocked; review it in the installed list before
+					enabling it.
 				</div>
-				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }}>
+				<div
+					style={{
+						display: 'grid',
+						gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))',
+						gap: 12,
+					}}
+				>
 					{STARTER_LIBRARY.map((entry) => {
 						const rec = runtime.state.widgets.packages[entry.packageId];
 						const installed = !!rec && !rec.removedAt;
 						return (
-							<div key={entry.packageId} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 13, border: `1px solid ${T.bd}`, borderRadius: 11, background: T.surf }}>
+							<div
+								key={entry.packageId}
+								style={{
+									display: 'flex',
+									flexDirection: 'column',
+									gap: 8,
+									padding: 13,
+									border: `1px solid ${T.bd}`,
+									borderRadius: 11,
+									background: T.surf,
+								}}
+							>
 								<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-									<span style={{ font: `600 13px ${T.sans}`, flex: 1, minWidth: 0 }}>{entry.name}</span>
+									<span style={{ font: `600 13px ${T.sans}`, flex: 1, minWidth: 0 }}>
+										{entry.name}
+									</span>
 									<Badge status="info">sandboxed</Badge>
 								</div>
-								<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub, flex: 1 }}>{entry.desc}</div>
+								<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub, flex: 1 }}>
+									{entry.desc}
+								</div>
 								{installed ? (
 									<Badge status="success" icon="check">
 										Installed
 									</Badge>
 								) : (
-									<Button variant="secondary" size="sm" icon="import" disabled={!canWrite || busy} onClick={() => installStarter(entry)}>
+									<Button
+										variant="secondary"
+										size="sm"
+										icon="import"
+										disabled={!canWrite || busy}
+										onClick={() => installStarter(entry)}
+									>
 										Install
 									</Button>
 								)}
@@ -388,8 +524,9 @@ function ExtPlugins() {
 			</Panel>
 			<Panel title="Install or upgrade from JSON">
 				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
-					Paste a widget-package definition (or an export from a card above). A new id installs; an already-installed
-					id upgrades in place — the Core validates the manifest either way and runs declared migrations on upgrade.
+					Paste a widget-package definition (or an export from a card above). A new id installs; an
+					already-installed id upgrades in place. DND Tools validates the package and safely runs
+					any declared upgrade steps.
 				</div>
 				<Textarea
 					value={jsonDraft}
@@ -397,17 +534,23 @@ function ExtPlugins() {
 					rows={10}
 					placeholder='{ "id": "my-package", "version": "1.0.0", "displayName": "My Package", "widgets": [ … ] }'
 					aria-label="Widget package definition JSON"
+					maxLength={1024 * 1024}
 					style={{ fontFamily: T.mono, fontSize: 12 }}
 				/>
-				<Button variant="primary" size="sm" icon="import" disabled={!canWrite || busy || !jsonDraft.trim()} onClick={applyJson}>
+				<Button
+					variant="primary"
+					size="sm"
+					icon="import"
+					disabled={!canWrite || busy || !jsonDraft.trim()}
+					onClick={applyJson}
+				>
 					Install / upgrade package
 				</Button>
 			</Panel>
-			<Panel title="Community marketplace" action={<Badge status="neutral">not wired — needs a network backend</Badge>}>
+			<Panel title="Community marketplace" action={<Badge status="neutral">Unavailable</Badge>}>
 				<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.ter }}>
-					Browsing and fetching community packages needs a marketplace service this local-first build does not have —
-					nothing here is fetched, and no fake listing is shown. Install from the starter library or paste package
-					JSON above instead.
+					The community marketplace is not available in this edition. Install from the starter
+					library or add a trusted package file above instead.
 				</div>
 			</Panel>
 		</div>
@@ -446,8 +589,12 @@ const spellMeta = (s: CompendiumSpell) =>
 	`${s.level === 0 ? 'Cantrip' : `Level ${s.level}`} ${s.school} · ${s.castingTime} · ${s.range}`;
 
 const ABILITY_COLUMNS: Array<[label: string, key: string]> = [
-	['STR', 'strength'], ['DEX', 'dexterity'], ['CON', 'constitution'],
-	['INT', 'intelligence'], ['WIS', 'wisdom'], ['CHA', 'charisma'],
+	['STR', 'strength'],
+	['DEX', 'dexterity'],
+	['CON', 'constitution'],
+	['INT', 'intelligence'],
+	['WIS', 'wisdom'],
+	['CHA', 'charisma'],
 ];
 
 /** One labeled detail line in the entry panel (rendered only when there is a value). */
@@ -466,7 +613,14 @@ function DetailLine({ label, value }: { label: string; value?: string | null }) 
  * button into an explicit two-step "Import again → Import copy / Keep" confirm — never silent.
  */
 function ImportControl({
-	name, inVault, busy, disabled, confirming, onConfirmChange, onImport, size = 'sm',
+	name,
+	inVault,
+	busy,
+	disabled,
+	confirming,
+	onConfirmChange,
+	onImport,
+	size = 'sm',
 }: {
 	name: string;
 	inVault: boolean;
@@ -504,7 +658,13 @@ function ImportControl({
 		);
 	}
 	return (
-		<Button variant="secondary" size={size} icon="import" disabled={disabled || busy} onClick={onImport}>
+		<Button
+			variant="secondary"
+			size={size}
+			icon="import"
+			disabled={disabled || busy}
+			onClick={onImport}
+		>
 			{busy ? 'Importing…' : 'Import'}
 		</Button>
 	);
@@ -523,7 +683,9 @@ function ExtCompendium() {
 	const [cr, setCr] = useState('any');
 	const [level, setLevel] = useState('any');
 	const [loading, setLoading] = useState(true);
-	const [result, setResult] = useState<CompendiumResult<CompendiumMonster | CompendiumSpell> | null>(null);
+	const [result, setResult] = useState<CompendiumResult<
+		CompendiumMonster | CompendiumSpell
+	> | null>(null);
 	const [selKey, setSelKey] = useState<string | null>(null);
 	const [busyKey, setBusyKey] = useState<string | null>(null);
 	const [confirmKey, setConfirmKey] = useState<string | null>(null);
@@ -584,7 +746,9 @@ function ExtCompendium() {
 		() =>
 			new Set(
 				getContentItemsForActor(runtime.state.content, runtime.state.permissions, dmId)
-					.filter((item) => item.kind === 'object' && item.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'spell')
+					.filter(
+						(item) => item.kind === 'object' && item.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'spell',
+					)
 					.map((item) => item.title.trim().toLowerCase()),
 			),
 		[runtime.state.content, runtime.state.permissions, dmId],
@@ -646,7 +810,11 @@ function ExtCompendium() {
 		if (docs || docsError) return;
 		listDocuments()
 			.then(setDocs)
-			.catch(() => setDocsError('The Open5e source list could not be reached — only the bundled SRD is available offline.'));
+			.catch(() =>
+				setDocsError(
+					'The Open5e source list could not be reached — only the bundled SRD is available offline.',
+				),
+			);
 	};
 	const pendingDoc = docs?.find((d) => d.key === pendingDocKey) ?? null;
 
@@ -655,20 +823,29 @@ function ExtCompendium() {
 	const sourceBadge = loading ? (
 		<Badge status="neutral">searching…</Badge>
 	) : result?.source === 'live' ? (
-		<Badge status="success" icon="check">Live · Open5e API</Badge>
+		<Badge status="success" icon="check">
+			Live · Open5e API
+		</Badge>
 	) : result ? (
-		<Badge status="warning" icon="warning">Offline — bundled SRD</Badge>
+		<Badge status="warning" icon="warning">
+			Offline — bundled SRD
+		</Badge>
 	) : (
-		<Badge status="error" icon="warning">unavailable</Badge>
+		<Badge status="error" icon="warning">
+			unavailable
+		</Badge>
 	);
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-			<div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 18, alignItems: 'start' }}>
+			<div
+				style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 18, alignItems: 'start' }}
+			>
 				<Panel title="Open5e compendium" action={sourceBadge}>
 					{!canWrite && (
 						<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 8 }}>
-							Importing is DM-only and read-only while previewing — browsing works, the import buttons are disabled.
+							Importing is DM-only and read-only while previewing — browsing works, the import
+							buttons are disabled.
 						</div>
 					)}
 					{/* kind selector */}
@@ -689,7 +866,9 @@ function ExtCompendium() {
 										<>
 											<Icon name="monster-claw" size={14} />
 											Monsters
-											{kind === 'monster' && result ? <span style={{ opacity: 0.75 }}>{result.total}</span> : null}
+											{kind === 'monster' && result ? (
+												<span style={{ opacity: 0.75 }}>{result.total}</span>
+											) : null}
 										</>
 									),
 								},
@@ -699,7 +878,9 @@ function ExtCompendium() {
 										<>
 											<Icon name="spell-sparkle" size={14} />
 											Spells
-											{kind === 'spell' && result ? <span style={{ opacity: 0.75 }}>{result.total}</span> : null}
+											{kind === 'spell' && result ? (
+												<span style={{ opacity: 0.75 }}>{result.total}</span>
+											) : null}
 										</>
 									),
 								},
@@ -712,24 +893,55 @@ function ExtCompendium() {
 							<Input
 								value={search}
 								onChange={(e: { target: { value: string } }) => setSearch(e.target.value)}
-								placeholder={kind === 'monster' ? 'Search monsters by name…' : 'Search spells by name…'}
+								placeholder={
+									kind === 'monster' ? 'Search monsters by name…' : 'Search spells by name…'
+								}
 								aria-label="Search the compendium by name"
 							/>
 						</span>
 						<span style={{ flex: '0 0 130px' }}>
 							{kind === 'monster' ? (
-								<Select aria-label="Filter by challenge rating" options={CR_OPTIONS} value={cr} onChange={(e: { target: { value: string } }) => setCr(e.target.value)} />
+								<Select
+									aria-label="Filter by challenge rating"
+									options={CR_OPTIONS}
+									value={cr}
+									onChange={(e: { target: { value: string } }) => setCr(e.target.value)}
+								/>
 							) : (
-								<Select aria-label="Filter by spell level" options={LEVEL_OPTIONS} value={level} onChange={(e: { target: { value: string } }) => setLevel(e.target.value)} />
+								<Select
+									aria-label="Filter by spell level"
+									options={LEVEL_OPTIONS}
+									value={level}
+									onChange={(e: { target: { value: string } }) => setLevel(e.target.value)}
+								/>
 							)}
 						</span>
 					</div>
 					{/* source document (non-SRD needs an explicit opt-in that shows the source's license) */}
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 10px', border: `1px solid ${T.bd}`, borderRadius: 9, background: T.alt, marginBottom: 12 }}>
+					<div
+						style={{
+							display: 'flex',
+							flexDirection: 'column',
+							gap: 8,
+							padding: '8px 10px',
+							border: `1px solid ${T.bd}`,
+							borderRadius: 9,
+							background: T.alt,
+							marginBottom: 12,
+						}}
+					>
 						<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 							<span style={{ font: `12px ${T.sans}`, color: T.sub, flex: 1, minWidth: 0 }}>
-								Source: <span style={{ font: `600 12px ${T.sans}`, color: T.ink }}>{activeDoc ? activeDoc.name : 'SRD 5.1'}</span>{' '}
-								<span style={{ color: T.ter }}>· {activeDoc ? activeDoc.licenses.map((l) => l.name).join(', ') || 'see publisher' : 'CC-BY-4.0'}</span>
+								Source:{' '}
+								<span style={{ font: `600 12px ${T.sans}`, color: T.ink }}>
+									{activeDoc ? activeDoc.name : 'SRD 5.1'}
+								</span>{' '}
+								<span style={{ color: T.ter }}>
+									·{' '}
+									{activeDoc
+										? activeDoc.licenses.map((l) => l.name).join(', ') || 'see publisher'
+										: 'CC-BY-4.0'}
+								</span>
 							</span>
 							{!sourceUiOpen && (
 								<Button variant="ghost" size="sm" onClick={openSourcePicker}>
@@ -740,20 +952,32 @@ function ExtCompendium() {
 						{sourceUiOpen && (
 							<>
 								{!docs && !docsError && <Skeleton height={30} />}
-								{docsError && <div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>{docsError}</div>}
+								{docsError && (
+									<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>{docsError}</div>
+								)}
 								{docs && (
 									<>
 										<Select
 											aria-label="Choose a source document"
-											options={docs.map((d) => ({ value: d.key, label: `${d.name} — ${d.publisher}` }))}
+											options={docs.map((d) => ({
+												value: d.key,
+												label: `${d.name} — ${d.publisher}`,
+											}))}
 											value={pendingDocKey}
-											onChange={(e: { target: { value: string } }) => setPendingDocKey(e.target.value)}
+											onChange={(e: { target: { value: string } }) =>
+												setPendingDocKey(e.target.value)
+											}
 										/>
 										{pendingDoc && (
 											<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
-												License: <span style={{ color: T.sub }}>{pendingDoc.licenses.map((l) => l.name).join(', ') || 'see the publisher’s terms'}</span>
-												{pendingDoc.permalink ? ` · ${pendingDoc.permalink}` : ''}. Content from this source is fetched live
-												from the Open5e API and remains under its publisher’s license.
+												License:{' '}
+												<span style={{ color: T.sub }}>
+													{pendingDoc.licenses.map((l) => l.name).join(', ') ||
+														'see the publisher’s terms'}
+												</span>
+												{pendingDoc.permalink ? ` · ${pendingDoc.permalink}` : ''}. Content from
+												this source is fetched live from the Open5e API and remains under its
+												publisher’s license.
 											</div>
 										)}
 										<div style={{ display: 'flex', gap: 6 }}>
@@ -762,7 +986,9 @@ function ExtCompendium() {
 												size="sm"
 												disabled={!pendingDoc}
 												onClick={() => {
-													setActiveDoc(pendingDoc && pendingDoc.key !== SRD_DOCUMENT_KEY ? pendingDoc : null);
+													setActiveDoc(
+														pendingDoc && pendingDoc.key !== SRD_DOCUMENT_KEY ? pendingDoc : null,
+													);
 													setSourceUiOpen(false);
 													setSelKey(null);
 												}}
@@ -779,13 +1005,17 @@ function ExtCompendium() {
 						)}
 						{activeDoc && result?.source === 'bundled' && (
 							<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.err }}>
-								{activeDoc.name} needs the live API — offline results below are the bundled SRD instead.
+								{activeDoc.name} needs the live API — offline results below are the bundled SRD
+								instead.
 							</div>
 						)}
 					</div>
 					{/* results */}
 					{loading && (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 9 }} aria-label="Loading results">
+						<div
+							style={{ display: 'flex', flexDirection: 'column', gap: 9 }}
+							aria-label="Loading results"
+						>
 							{[0, 1, 2, 3].map((i) => (
 								<Skeleton key={i} height={62} />
 							))}
@@ -847,7 +1077,9 @@ function ExtCompendium() {
 												)}
 											</div>
 											<div style={{ font: `11.5px ${T.mono}`, color: T.ter, margin: '2px 0 0' }}>
-												{kind === 'monster' ? monsterMeta(entry as CompendiumMonster) : spellMeta(entry as CompendiumSpell)}
+												{kind === 'monster'
+													? monsterMeta(entry as CompendiumMonster)
+													: spellMeta(entry as CompendiumSpell)}
 											</div>
 										</div>
 										<span onClick={(e) => e.stopPropagation()} style={{ alignSelf: 'center' }}>
@@ -865,124 +1097,219 @@ function ExtCompendium() {
 								);
 							})}
 							{result && result.total > entries.length && (
-								<div style={{ font: `11.5px ${T.sans}`, color: T.ter, textAlign: 'center', padding: '2px 0 0' }}>
-									Showing the first {entries.length} of {result.total} matches — refine the search to narrow it down.
+								<div
+									style={{
+										font: `11.5px ${T.sans}`,
+										color: T.ter,
+										textAlign: 'center',
+										padding: '2px 0 0',
+									}}
+								>
+									Showing the first {entries.length} of {result.total} matches — refine the search
+									to narrow it down.
 								</div>
 							)}
 						</div>
 					)}
 				</Panel>
 				{/* detail panel */}
-				<Panel accent title={selected ? selected.name : 'Entry details'} action={selected && <Badge status="info">{kind === 'monster' ? 'Monster' : 'Spell'}</Badge>}>
+				<Panel
+					accent
+					title={selected ? selected.name : 'Entry details'}
+					action={
+						selected && <Badge status="info">{kind === 'monster' ? 'Monster' : 'Spell'}</Badge>
+					}
+				>
 					{!selected && (
 						<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.ter }}>
-							Select an entry to review its statblock before importing. Monsters land in the roster as DM-only
-							quick-create characters (usable in the Encounter Builder); spells become DM-only vault objects on
-							the Knowledge screen.
+							Select an entry to review its statblock before importing. Monsters land in the roster
+							as DM-only quick-create characters (usable in the Encounter Builder); spells become
+							DM-only vault objects on the Knowledge screen.
 						</div>
 					)}
-					{selected && kind === 'monster' && (() => {
-						const m = selected as CompendiumMonster;
-						const scores = m.abilityScores;
-						return (
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-								<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{monsterMeta(m)} · {m.alignment}</div>
-								{scores && (
-									<div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6 }}>
-										{ABILITY_COLUMNS.map(([label, key]) => (
-											<div key={key} style={{ textAlign: 'center', padding: '6px 2px', border: `1px solid ${T.bd}`, borderRadius: 8, background: T.surf }}>
-												<div style={{ font: `600 10px ${T.sans}`, color: T.ter }}>{label}</div>
-												<div style={{ font: `600 13px ${T.mono}` }}>{scores[key] ?? '—'}</div>
-											</div>
-										))}
+					{selected &&
+						kind === 'monster' &&
+						(() => {
+							const m = selected as CompendiumMonster;
+							const scores = m.abilityScores;
+							return (
+								<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+									<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
+										{monsterMeta(m)} · {m.alignment}
 									</div>
-								)}
-								<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-									<DetailLine label="Armor Class" value={m.ac != null ? `${m.ac}${m.acDetail ? ` (${m.acDetail})` : ''}` : undefined} />
-									<DetailLine label="Hit Points" value={m.hp != null ? `${m.hp}${m.hitDice ? ` (${m.hitDice})` : ''}` : undefined} />
-									<DetailLine
-										label="Speed"
-										value={Object.entries(m.speed ?? {}).filter(([, v]) => typeof v === 'number' && v > 0).map(([mode, v]) => `${mode} ${v} ft.`).join(', ') || undefined}
-									/>
-									<DetailLine
-										label="Senses"
-										value={[...Object.entries(m.senses ?? {}).map(([s, r]) => `${s} ${r} ft.`), ...(m.passivePerception != null ? [`passive Perception ${m.passivePerception}`] : [])].join(', ') || undefined}
-									/>
-									<DetailLine label="Languages" value={m.languages} />
-									<DetailLine label="Damage immunities" value={m.damageImmunities} />
-									<DetailLine label="Damage resistances" value={m.damageResistances} />
-									<DetailLine label="Condition immunities" value={m.conditionImmunities} />
-								</div>
-								{((m.traits?.length ?? 0) > 0 || (m.actions?.length ?? 0) > 0) && (
-									<div style={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', border: `1px solid ${T.bd}`, borderRadius: 10, background: T.surf }}>
-										{(m.traits ?? []).map((t) => (
-											<div key={`t-${t.name}`} style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
-												<span style={{ font: `600 italic 12px ${T.sans}`, color: T.ink }}>{t.name}. </span>
-												{t.desc}
-											</div>
-										))}
-										{(m.actions ?? []).length > 0 && <div style={{ ...eb, marginTop: 2 }}>Actions</div>}
-										{(m.actions ?? []).map((a) => (
-											<div key={`a-${a.name}`} style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
-												<span style={{ font: `600 12px ${T.sans}`, color: T.ink }}>
-													{a.name}
-													{a.actionType === 'LEGENDARY_ACTION' ? ' (legendary)' : ''}.{' '}
-												</span>
-												{a.desc}
-											</div>
-										))}
+									{scores && (
+										<div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6 }}>
+											{ABILITY_COLUMNS.map(([label, key]) => (
+												<div
+													key={key}
+													style={{
+														textAlign: 'center',
+														padding: '6px 2px',
+														border: `1px solid ${T.bd}`,
+														borderRadius: 8,
+														background: T.surf,
+													}}
+												>
+													<div style={{ font: `600 10px ${T.sans}`, color: T.ter }}>{label}</div>
+													<div style={{ font: `600 13px ${T.mono}` }}>{scores[key] ?? '—'}</div>
+												</div>
+											))}
+										</div>
+									)}
+									<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+										<DetailLine
+											label="Armor Class"
+											value={
+												m.ac != null ? `${m.ac}${m.acDetail ? ` (${m.acDetail})` : ''}` : undefined
+											}
+										/>
+										<DetailLine
+											label="Hit Points"
+											value={
+												m.hp != null ? `${m.hp}${m.hitDice ? ` (${m.hitDice})` : ''}` : undefined
+											}
+										/>
+										<DetailLine
+											label="Speed"
+											value={
+												Object.entries(m.speed ?? {})
+													.filter(([, v]) => typeof v === 'number' && v > 0)
+													.map(([mode, v]) => `${mode} ${v} ft.`)
+													.join(', ') || undefined
+											}
+										/>
+										<DetailLine
+											label="Senses"
+											value={
+												[
+													...Object.entries(m.senses ?? {}).map(([s, r]) => `${s} ${r} ft.`),
+													...(m.passivePerception != null
+														? [`passive Perception ${m.passivePerception}`]
+														: []),
+												].join(', ') || undefined
+											}
+										/>
+										<DetailLine label="Languages" value={m.languages} />
+										<DetailLine label="Damage immunities" value={m.damageImmunities} />
+										<DetailLine label="Damage resistances" value={m.damageResistances} />
+										<DetailLine label="Condition immunities" value={m.conditionImmunities} />
 									</div>
-								)}
-								<ImportControl
-									name={m.name}
-									inVault={inVault(m.name)}
-									busy={busyKey === m.key}
-									disabled={!canWrite || (busyKey !== null && busyKey !== m.key)}
-									confirming={confirmKey === m.key}
-									onConfirmChange={(on) => setConfirmKey(on ? m.key : null)}
-									onImport={() => void importEntry(m)}
-									size="md"
-								/>
-							</div>
-						);
-					})()}
-					{selected && kind === 'spell' && (() => {
-						const s = selected as CompendiumSpell;
-						return (
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-								<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
-									{spellMeta(s)}
-									{s.ritual ? ' · ritual' : ''}
+									{((m.traits?.length ?? 0) > 0 || (m.actions?.length ?? 0) > 0) && (
+										<div
+											style={{
+												maxHeight: 300,
+												overflowY: 'auto',
+												display: 'flex',
+												flexDirection: 'column',
+												gap: 8,
+												padding: '10px 12px',
+												border: `1px solid ${T.bd}`,
+												borderRadius: 10,
+												background: T.surf,
+											}}
+										>
+											{(m.traits ?? []).map((t) => (
+												<div
+													key={`t-${t.name}`}
+													style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}
+												>
+													<span style={{ font: `600 italic 12px ${T.sans}`, color: T.ink }}>
+														{t.name}.{' '}
+													</span>
+													{t.desc}
+												</div>
+											))}
+											{(m.actions ?? []).length > 0 && (
+												<div style={{ ...eb, marginTop: 2 }}>Actions</div>
+											)}
+											{(m.actions ?? []).map((a) => (
+												<div
+													key={`a-${a.name}`}
+													style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}
+												>
+													<span style={{ font: `600 12px ${T.sans}`, color: T.ink }}>
+														{a.name}
+														{a.actionType === 'LEGENDARY_ACTION' ? ' (legendary)' : ''}.{' '}
+													</span>
+													{a.desc}
+												</div>
+											))}
+										</div>
+									)}
+									<ImportControl
+										name={m.name}
+										inVault={inVault(m.name)}
+										busy={busyKey === m.key}
+										disabled={!canWrite || (busyKey !== null && busyKey !== m.key)}
+										confirming={confirmKey === m.key}
+										onConfirmChange={(on) => setConfirmKey(on ? m.key : null)}
+										onImport={() => void importEntry(m)}
+										size="md"
+									/>
 								</div>
-								<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-									<DetailLine label="Casting time" value={s.castingTime} />
-									<DetailLine label="Range" value={s.range} />
-									<DetailLine label="Components" value={s.components} />
-									<DetailLine label="Duration" value={spellDuration(s)} />
-									<DetailLine label="Classes" value={s.classes?.join(', ')} />
+							);
+						})()}
+					{selected &&
+						kind === 'spell' &&
+						(() => {
+							const s = selected as CompendiumSpell;
+							return (
+								<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+									<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
+										{spellMeta(s)}
+										{s.ritual ? ' · ritual' : ''}
+									</div>
+									<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+										<DetailLine label="Casting time" value={s.castingTime} />
+										<DetailLine label="Range" value={s.range} />
+										<DetailLine label="Components" value={s.components} />
+										<DetailLine label="Duration" value={spellDuration(s)} />
+										<DetailLine label="Classes" value={s.classes?.join(', ')} />
+									</div>
+									<div
+										style={{
+											maxHeight: 300,
+											overflowY: 'auto',
+											font: `12.5px/1.6 ${T.sans}`,
+											color: T.sub,
+											padding: '10px 12px',
+											border: `1px solid ${T.bd}`,
+											borderRadius: 10,
+											background: T.surf,
+											whiteSpace: 'pre-line',
+										}}
+									>
+										{s.desc}
+										{s.higherLevel ? `\n\nAt higher levels. ${s.higherLevel}` : ''}
+									</div>
+									<ImportControl
+										name={s.name}
+										inVault={inVault(s.name)}
+										busy={busyKey === s.key}
+										disabled={!canWrite || (busyKey !== null && busyKey !== s.key)}
+										confirming={confirmKey === s.key}
+										onConfirmChange={(on) => setConfirmKey(on ? s.key : null)}
+										onImport={() => void importEntry(s)}
+										size="md"
+									/>
 								</div>
-								<div style={{ maxHeight: 300, overflowY: 'auto', font: `12.5px/1.6 ${T.sans}`, color: T.sub, padding: '10px 12px', border: `1px solid ${T.bd}`, borderRadius: 10, background: T.surf, whiteSpace: 'pre-line' }}>
-									{s.desc}
-									{s.higherLevel ? `\n\nAt higher levels. ${s.higherLevel}` : ''}
-								</div>
-								<ImportControl
-									name={s.name}
-									inVault={inVault(s.name)}
-									busy={busyKey === s.key}
-									disabled={!canWrite || (busyKey !== null && busyKey !== s.key)}
-									confirming={confirmKey === s.key}
-									onConfirmChange={(on) => setConfirmKey(on ? s.key : null)}
-									onImport={() => void importEntry(s)}
-									size="md"
-								/>
-							</div>
-						);
-					})()}
+							);
+						})()}
 				</Panel>
 			</div>
 			{/* LEGAL: the license attribution for the rendered material must stay visible on this surface. */}
 			{result && (
-				<div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 14px', border: `1px solid ${T.bd}`, borderRadius: 10, background: T.alt }}>
+				<div
+					style={{
+						display: 'flex',
+						gap: 10,
+						alignItems: 'flex-start',
+						padding: '10px 14px',
+						border: `1px solid ${T.bd}`,
+						borderRadius: 10,
+						background: T.alt,
+					}}
+				>
 					<Badge status="neutral">{result.license}</Badge>
 					<span style={{ font: `11px/1.6 ${T.sans}`, color: T.ter }}>{result.attribution}</span>
 				</div>
@@ -1012,33 +1339,69 @@ function ExtObjects() {
 	const countFor = (subtype: string): number =>
 		subtype === 'note'
 			? items.filter((i) => i.kind === 'note').length
-			: items.filter((i) => i.kind === 'object' && i.fields[VAULT_OBJECT_SUBTYPE_KEY] === subtype).length;
+			: items.filter((i) => i.kind === 'object' && i.fields[VAULT_OBJECT_SUBTYPE_KEY] === subtype)
+					.length;
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-			<Panel title="Object types" action={<Badge status="neutral">{schemas.length} schema-defined</Badge>}>
+			<Panel
+				title="Object types"
+				action={<Badge status="neutral">{schemas.length} schema-defined</Badge>}
+			>
 				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
-					The Core's declared vault-object schema registry — these fields drive the forms and columns
-					everywhere a type appears. Counts are live from your vault (visibility-filtered).
+					These definitions control the fields and columns shown wherever each object type appears.
+					Counts reflect the campaign items visible to you now.
 				</div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 					{schemas.map((s) => {
 						const count = countFor(s.subtype);
 						return (
-							<div key={s.subtype} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, border: `1px solid ${T.bd}`, borderRadius: 10, background: T.surf }}>
-								<span style={{ width: 36, height: 36, borderRadius: 9, background: T.alt, color: T.acc, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto' }}>
+							<div
+								key={s.subtype}
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: 12,
+									padding: 12,
+									border: `1px solid ${T.bd}`,
+									borderRadius: 10,
+									background: T.surf,
+								}}
+							>
+								<span
+									style={{
+										width: 36,
+										height: 36,
+										borderRadius: 9,
+										background: T.alt,
+										color: T.acc,
+										display: 'inline-flex',
+										alignItems: 'center',
+										justifyContent: 'center',
+										flex: '0 0 auto',
+									}}
+								>
 									<Icon name={SUBTYPE_ICON[s.subtype] ?? 'tag'} size="md" />
 								</span>
 								<div style={{ flex: 1, minWidth: 0 }}>
 									<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
 										<span style={{ font: `600 13.5px ${T.sans}` }}>{s.displayName}</span>
 										<Badge status="neutral">Built-in</Badge>
-										{s.dmOnlyFields.length > 0 && <Badge status="accent">{s.dmOnlyFields.length} DM-only {s.dmOnlyFields.length === 1 ? 'field' : 'fields'}</Badge>}
+										{s.dmOnlyFields.length > 0 && (
+											<Badge status="accent">
+												{s.dmOnlyFields.length} DM-only{' '}
+												{s.dmOnlyFields.length === 1 ? 'field' : 'fields'}
+											</Badge>
+										)}
 									</div>
 									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-										<span style={mono}>{s.subtype}</span> · defaults to {s.defaultVisibility} · {s.requiredFields.length} required {s.requiredFields.length === 1 ? 'field' : 'fields'}
+										<span style={mono}>{s.subtype}</span> · defaults to {s.defaultVisibility} ·{' '}
+										{s.requiredFields.length} required{' '}
+										{s.requiredFields.length === 1 ? 'field' : 'fields'}
 									</div>
 								</div>
-								<span style={{ font: `12px ${T.mono}`, color: count ? T.ink : T.ter }}>{count} in vault</span>
+								<span style={{ font: `12px ${T.mono}`, color: count ? T.ink : T.ter }}>
+									{count} in vault
+								</span>
 							</div>
 						);
 					})}
@@ -1082,7 +1445,8 @@ function CustomObjectTypes() {
 	);
 	const items = getContentItemsForActor(runtime.state.content, runtime.state.permissions, dmId);
 	const countFor = (typeId: string): number =>
-		items.filter((i) => i.kind === 'object' && i.fields[VAULT_OBJECT_SUBTYPE_KEY] === typeId).length;
+		items.filter((i) => i.kind === 'object' && i.fields[VAULT_OBJECT_SUBTYPE_KEY] === typeId)
+			.length;
 
 	// The type-authoring form. `editId` non-null ⇒ we are updating an existing type (revision bump) rather
 	// than defining a new one.
@@ -1103,7 +1467,12 @@ function CustomObjectTypes() {
 		setLabel(def.label);
 		setFields(
 			def.fields.length
-				? def.fields.map((f) => ({ key: f.key, type: f.type, required: f.required, dmOnly: f.dmOnly }))
+				? def.fields.map((f) => ({
+						key: f.key,
+						type: f.type,
+						required: f.required,
+						dmOnly: f.dmOnly,
+					}))
 				: [emptyField()],
 		);
 	};
@@ -1171,48 +1540,103 @@ function CustomObjectTypes() {
 		<>
 			<Panel
 				title="Custom object types"
-				action={<Badge status={summaries.length ? 'accent' : 'neutral'}>{summaries.length} defined</Badge>}
+				action={
+					<Badge status={summaries.length ? 'accent' : 'neutral'}>{summaries.length} defined</Badge>
+				}
 			>
 				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
-					Define your own vault-object types with a small field schema. A custom type is first-class — its
-					objects create, validate, and list alongside the built-in types above. Deleting a type is blocked
-					while any of its objects still exist.
+					Define your own vault-object types with a small field schema. A custom type is first-class
+					— its objects create, validate, and list alongside the built-in types above. Deleting a
+					type is blocked while any of its objects still exist.
 				</div>
 				{summaries.length === 0 ? (
-					<div style={{ font: `12px ${T.sans}`, color: T.ter, padding: '4px 0' }}>No custom types yet.</div>
+					<div style={{ font: `12px ${T.sans}`, color: T.ter, padding: '4px 0' }}>
+						No custom types yet.
+					</div>
 				) : (
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 						{summaries.map((s) => {
 							const def = runtime.state.content.customObjectTypes[s.id];
 							const count = countFor(s.id);
 							return (
-								<div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, border: `1px solid ${T.bd}`, borderRadius: 10, background: T.surf }}>
-									<span style={{ width: 36, height: 36, borderRadius: 9, background: T.alt, color: T.acc, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto' }}>
+								<div
+									key={s.id}
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: 12,
+										padding: 12,
+										border: `1px solid ${T.bd}`,
+										borderRadius: 10,
+										background: T.surf,
+									}}
+								>
+									<span
+										style={{
+											width: 36,
+											height: 36,
+											borderRadius: 9,
+											background: T.alt,
+											color: T.acc,
+											display: 'inline-flex',
+											alignItems: 'center',
+											justifyContent: 'center',
+											flex: '0 0 auto',
+										}}
+									>
 										<Icon name="tag" size="md" />
 									</span>
 									<div style={{ flex: 1, minWidth: 0 }}>
-										<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+										<div
+											style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
+										>
 											<span style={{ font: `600 13.5px ${T.sans}` }}>{s.label}</span>
 											<Badge status="neutral">Custom</Badge>
-											{s.dmOnlyFields.length > 0 && <Badge status="accent">{s.dmOnlyFields.length} DM-only {s.dmOnlyFields.length === 1 ? 'field' : 'fields'}</Badge>}
+											{s.dmOnlyFields.length > 0 && (
+												<Badge status="accent">
+													{s.dmOnlyFields.length} DM-only{' '}
+													{s.dmOnlyFields.length === 1 ? 'field' : 'fields'}
+												</Badge>
+											)}
 										</div>
 										<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-											<span style={mono}>{s.id}</span> · {s.fieldCount} {s.fieldCount === 1 ? 'field' : 'fields'} · defaults to {s.defaultVisibility}
+											<span style={mono}>{s.id}</span> · {s.fieldCount}{' '}
+											{s.fieldCount === 1 ? 'field' : 'fields'} · defaults to {s.defaultVisibility}
 										</div>
 									</div>
-									<span style={{ font: `12px ${T.mono}`, color: count ? T.ink : T.ter }}>{count} in vault</span>
+									<span style={{ font: `12px ${T.mono}`, color: count ? T.ink : T.ter }}>
+										{count} in vault
+									</span>
 									{def && (
-										<Button variant="secondary" size="sm" icon="add" disabled={!canWrite || busy} onClick={() => setInstanceOf(def)}>
+										<Button
+											variant="secondary"
+											size="sm"
+											icon="add"
+											disabled={!canWrite || busy}
+											onClick={() => setInstanceOf(def)}
+										>
 											New
 										</Button>
 									)}
 									{def && (
-										<Button variant="ghost" size="sm" icon="edit" disabled={!canWrite || busy} onClick={() => startEdit(def)}>
+										<Button
+											variant="ghost"
+											size="sm"
+											icon="edit"
+											disabled={!canWrite || busy}
+											onClick={() => startEdit(def)}
+										>
 											Edit
 										</Button>
 									)}
 									{def && (
-										<Button variant="ghost" size="sm" icon="delete" disabled={!canWrite || busy} onClick={() => deleteType(def)}>
+										<Button
+											variant="ghost"
+											size="sm"
+											icon="delete"
+											disabled={!canWrite || busy}
+											onClick={() => deleteType(def)}
+										>
 											Delete
 										</Button>
 									)}
@@ -1226,12 +1650,18 @@ function CustomObjectTypes() {
 			<Panel title={editId ? `Edit type · ${editId}` : 'Define a new type'} accent={!!editId}>
 				{!canWrite && (
 					<div style={{ font: `12px ${T.sans}`, color: T.ter, marginBottom: 4 }}>
-						{previewing ? 'Exit preview to author types.' : 'Only the DM may define custom object types.'}
+						{previewing
+							? 'Exit preview to author types.'
+							: 'Only the DM may define custom object types.'}
 					</div>
 				)}
 				<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
 					<span style={{ flex: 1, minWidth: 160 }}>
-						<label style={{ font: `11.5px ${T.sans}`, color: T.sub, display: 'block', marginBottom: 4 }}>Label</label>
+						<label
+							style={{ font: `11.5px ${T.sans}`, color: T.sub, display: 'block', marginBottom: 4 }}
+						>
+							Label
+						</label>
 						<Input
 							value={label}
 							onChange={(e: { target: { value: string } }) => setLabel(e.target.value)}
@@ -1240,18 +1670,25 @@ function CustomObjectTypes() {
 							disabled={!canWrite}
 						/>
 					</span>
-					<span style={{ font: `11.5px ${T.mono}`, color: T.ter, paddingBottom: 8 }}>{targetId}</span>
+					<span style={{ font: `11.5px ${T.mono}`, color: T.ter, paddingBottom: 8 }}>
+						{targetId}
+					</span>
 				</div>
 
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
 					<span style={{ font: `11.5px ${T.sans}`, color: T.sub }}>Fields</span>
 					{fields.map((f, i) => (
-						<div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+						<div
+							key={i}
+							style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}
+						>
 							<span style={{ flex: 1, minWidth: 120 }}>
 								<Input
 									value={f.key}
 									onChange={(e: { target: { value: string } }) =>
-										setFields((prev) => prev.map((p, j) => (j === i ? { ...p, key: e.target.value } : p)))
+										setFields((prev) =>
+											prev.map((p, j) => (j === i ? { ...p, key: e.target.value } : p)),
+										)
 									}
 									placeholder="field key (e.g. proprietor)"
 									aria-label={`Field ${i + 1} key`}
@@ -1264,18 +1701,26 @@ function CustomObjectTypes() {
 									options={FIELD_KIND_OPTIONS}
 									value={f.type}
 									onChange={(e: { target: { value: string } }) =>
-										setFields((prev) => prev.map((p, j) => (j === i ? { ...p, type: e.target.value as VaultObjectFieldType } : p)))
+										setFields((prev) =>
+											prev.map((p, j) =>
+												j === i ? { ...p, type: e.target.value as VaultObjectFieldType } : p,
+											),
+										)
 									}
 								/>
 							</span>
 							<Checkbox
 								checked={f.required}
-								onChange={(v: boolean) => setFields((prev) => prev.map((p, j) => (j === i ? { ...p, required: v } : p)))}
+								onChange={(v: boolean) =>
+									setFields((prev) => prev.map((p, j) => (j === i ? { ...p, required: v } : p)))
+								}
 								label="Required"
 							/>
 							<Checkbox
 								checked={f.dmOnly}
-								onChange={(v: boolean) => setFields((prev) => prev.map((p, j) => (j === i ? { ...p, dmOnly: v } : p)))}
+								onChange={(v: boolean) =>
+									setFields((prev) => prev.map((p, j) => (j === i ? { ...p, dmOnly: v } : p)))
+								}
 								label="DM-only"
 							/>
 							<Button
@@ -1283,20 +1728,34 @@ function CustomObjectTypes() {
 								size="sm"
 								icon="delete"
 								disabled={!canWrite || fields.length === 1}
-								onClick={() => setFields((prev) => (prev.length === 1 ? prev : prev.filter((_, j) => j !== i)))}
+								onClick={() =>
+									setFields((prev) => (prev.length === 1 ? prev : prev.filter((_, j) => j !== i)))
+								}
 								aria-label={`Remove field ${i + 1}`}
 							/>
 						</div>
 					))}
 					<span>
-						<Button variant="ghost" size="sm" icon="add" disabled={!canWrite || fields.length >= 40} onClick={() => setFields((prev) => [...prev, emptyField()])}>
+						<Button
+							variant="ghost"
+							size="sm"
+							icon="add"
+							disabled={!canWrite || fields.length >= 40}
+							onClick={() => setFields((prev) => [...prev, emptyField()])}
+						>
 							Add field
 						</Button>
 					</span>
 				</div>
 
 				<div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-					<Button variant="primary" size="sm" icon={editId ? 'check' : 'add'} disabled={!canSubmit} onClick={submitType}>
+					<Button
+						variant="primary"
+						size="sm"
+						icon={editId ? 'check' : 'add'}
+						disabled={!canSubmit}
+						onClick={submitType}
+					>
 						{busy ? 'Saving…' : editId ? 'Save changes' : 'Define type'}
 					</Button>
 					{editId && (
@@ -1315,7 +1774,13 @@ function CustomObjectTypes() {
 }
 
 /* ---- Create an instance of a custom type (dispatches `content.create-object` with the custom subtype) */
-function CustomObjectInstanceDialog({ def, onClose }: { def: CustomObjectTypeDefinition; onClose: () => void }) {
+function CustomObjectInstanceDialog({
+	def,
+	onClose,
+}: {
+	def: CustomObjectTypeDefinition;
+	onClose: () => void;
+}) {
 	const runtime = useRuntime();
 	const navigate = useNavigate();
 	const dmId = runtime.defaultActorId;
@@ -1331,7 +1796,11 @@ function CustomObjectInstanceDialog({ def, onClose }: { def: CustomObjectTypeDef
 		if (trimmed === '') return undefined;
 		if (type === 'number') return Number(trimmed);
 		if (type === 'boolean') return trimmed === 'true';
-		if (type === 'string-array') return trimmed.split(',').map((s) => s.trim()).filter(Boolean);
+		if (type === 'string-array')
+			return trimmed
+				.split(',')
+				.map((s) => s.trim())
+				.filter(Boolean);
 		return trimmed;
 	};
 
@@ -1376,8 +1845,16 @@ function CustomObjectInstanceDialog({ def, onClose }: { def: CustomObjectTypeDef
 			size="md"
 			footer={
 				<>
-					<Button variant="secondary" size="sm" disabled={busy} onClick={onClose}>Cancel</Button>
-					<Button variant="primary" size="sm" icon="add" disabled={busy || title.trim() === ''} onClick={create}>
+					<Button variant="secondary" size="sm" disabled={busy} onClick={onClose}>
+						Cancel
+					</Button>
+					<Button
+						variant="primary"
+						size="sm"
+						icon="add"
+						disabled={busy || title.trim() === ''}
+						onClick={create}
+					>
 						{busy ? 'Creating…' : 'Create'}
 					</Button>
 				</>
@@ -1385,12 +1862,29 @@ function CustomObjectInstanceDialog({ def, onClose }: { def: CustomObjectTypeDef
 		>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 				<span>
-					<label style={{ font: `11.5px ${T.sans}`, color: T.sub, display: 'block', marginBottom: 4 }}>Title</label>
-					<Input value={title} onChange={(e: { target: { value: string } }) => setTitle(e.target.value)} placeholder="Title" aria-label="Object title" />
+					<label
+						style={{ font: `11.5px ${T.sans}`, color: T.sub, display: 'block', marginBottom: 4 }}
+					>
+						Title
+					</label>
+					<Input
+						value={title}
+						onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
+						placeholder="Title"
+						aria-label="Object title"
+					/>
 				</span>
 				{def.fields.map((f) => (
 					<span key={f.key}>
-						<label style={{ font: `11.5px ${T.sans}`, color: T.sub, display: 'flex', gap: 6, marginBottom: 4 }}>
+						<label
+							style={{
+								font: `11.5px ${T.sans}`,
+								color: T.sub,
+								display: 'flex',
+								gap: 6,
+								marginBottom: 4,
+							}}
+						>
 							{f.key}
 							<span style={{ color: T.ter }}>· {f.type}</span>
 							{f.required && <span style={{ color: T.acc }}>required</span>}
@@ -1399,7 +1893,11 @@ function CustomObjectInstanceDialog({ def, onClose }: { def: CustomObjectTypeDef
 						{f.type === 'boolean' ? (
 							<Select
 								aria-label={f.key}
-								options={[{ value: '', label: '—' }, { value: 'true', label: 'True' }, { value: 'false', label: 'False' }]}
+								options={[
+									{ value: '', label: '—' },
+									{ value: 'true', label: 'True' },
+									{ value: 'false', label: 'False' },
+								]}
 								value={values[f.key] ?? ''}
 								onChange={(e: { target: { value: string } }) => setValue(f.key, e.target.value)}
 							/>
@@ -1425,7 +1923,11 @@ const SWITCH_UNAVAILABLE_COPY: Record<string, string> = {
 	'package-disabled': 'That package is disabled — enable it on the Plugins tab first.',
 	'already-active': 'That package is already the active system.',
 };
-const FINDING_TONE: Record<string, 'success' | 'warning' | 'error'> = { keep: 'success', remap: 'warning', drop: 'error' };
+const FINDING_TONE: Record<string, 'success' | 'warning' | 'error'> = {
+	keep: 'success',
+	remap: 'warning',
+	drop: 'error',
+};
 
 function SystemSwitchDialog({
 	targetId,
@@ -1459,7 +1961,9 @@ function SystemSwitchDialog({
 			size="md"
 			footer={
 				<>
-					<Button variant="secondary" size="sm" disabled={busy} onClick={onClose}>Cancel</Button>
+					<Button variant="secondary" size="sm" disabled={busy} onClick={onClose}>
+						Cancel
+					</Button>
 					<Button
 						variant={destructive ? 'danger' : 'primary'}
 						size="sm"
@@ -1474,49 +1978,101 @@ function SystemSwitchDialog({
 		>
 			{!available && (
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					{SWITCH_UNAVAILABLE_COPY[preview.reason] ?? 'The switch is unavailable.'} Nothing was changed.
+					{SWITCH_UNAVAILABLE_COPY[preview.reason] ?? 'The switch is unavailable.'} Nothing was
+					changed.
 				</div>
 			)}
 			{available && (
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 8, font: `12.5px ${T.sans}`, color: T.sub }}>
+					<div
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: 8,
+							font: `12.5px ${T.sans}`,
+							color: T.sub,
+						}}
+					>
 						<Icon name={blocked ? 'error' : 'success'} size={16} color={blocked ? T.err : T.ok} />
 						{blocked
-							? 'The vault cannot be safely migrated — the switch is blocked (fail-closed).'
-							: 'Vault migration dry-run is clean.'}
+							? 'This campaign cannot be migrated safely, so the switch is blocked.'
+							: 'The campaign passed its migration safety check.'}
 					</div>
 					{blocked && (
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
 							{preview.vault.blockingIssues.map((issue, i) => (
-								<div key={i} style={{ font: `12px/1.5 ${T.sans}`, color: T.err }}>{issue.documentId}: {issue.reason}</div>
+								<div key={i} style={{ font: `12px/1.5 ${T.sans}`, color: T.err }}>
+									{issue.documentId}: {issue.reason}
+								</div>
 							))}
 						</div>
 					)}
 					{preview.findings.length === 0 ? (
-						<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>No widget-vocabulary changes — the current system declares no types the target lacks.</div>
+						<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+							No widget-vocabulary changes — the current system declares no types the target lacks.
+						</div>
 					) : (
-						<div style={{ display: 'flex', flexDirection: 'column', border: `1px solid ${T.bd}`, borderRadius: 10, overflow: 'hidden' }}>
+						<div
+							style={{
+								display: 'flex',
+								flexDirection: 'column',
+								border: `1px solid ${T.bd}`,
+								borderRadius: 10,
+								overflow: 'hidden',
+							}}
+						>
 							{preview.findings.map((f, i) => (
-								<div key={f.widgetType} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderTop: i ? `1px solid ${T.bd}` : 'none', background: i % 2 ? T.alt : 'transparent' }}>
-									<span style={{ font: `600 12.5px ${T.mono}`, width: 140, flex: '0 0 auto' }}>{f.widgetType}</span>
+								<div
+									key={f.widgetType}
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: 12,
+										padding: '10px 14px',
+										borderTop: i ? `1px solid ${T.bd}` : 'none',
+										background: i % 2 ? T.alt : 'transparent',
+									}}
+								>
+									<span style={{ font: `600 12.5px ${T.mono}`, width: 140, flex: '0 0 auto' }}>
+										{f.widgetType}
+									</span>
 									<Badge status={FINDING_TONE[f.effect] ?? 'neutral'}>{f.effect}</Badge>
-									<span style={{ font: `11.5px ${T.mono}`, color: T.ter, width: 60, flex: '0 0 auto' }}>×{f.instanceCount}</span>
-									<span style={{ flex: 1, font: `12px/1.4 ${T.sans}`, color: T.sub }}>{f.note}</span>
+									<span
+										style={{ font: `11.5px ${T.mono}`, color: T.ter, width: 60, flex: '0 0 auto' }}
+									>
+										×{f.instanceCount}
+									</span>
+									<span style={{ flex: 1, font: `12px/1.4 ${T.sans}`, color: T.sub }}>
+										{f.note}
+									</span>
 								</div>
 							))}
 						</div>
 					)}
 					{destructive && !blocked && (
-						<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 9, border: `1px solid ${T.accBd}`, background: T.accSub }}>
+						<div
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 10,
+								padding: '10px 12px',
+								borderRadius: 9,
+								border: `1px solid ${T.accBd}`,
+								background: T.accSub,
+							}}
+						>
 							<div style={{ flex: 1, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
-								Dropped types above have live widgets on your scenes — they would be disabled (recoverable
-								by switching back). The command fails closed unless you acknowledge this.
+								Dropped types above have live widgets on your scenes — they would be disabled
+								(recoverable by switching back). The command fails closed unless you acknowledge
+								this.
 							</div>
 							<Checkbox checked={ack} onChange={(v: boolean) => setAck(v)} label="I understand" />
 						</div>
 					)}
 					{preview.clean && (
-						<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ok }}>Clean dry-run: the switch applies without losing anything.</div>
+						<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ok }}>
+							Clean dry-run: the switch applies without losing anything.
+						</div>
 					)}
 				</div>
 			)}
@@ -1546,7 +2102,11 @@ function ExtSystem() {
 		if (!targetId || busy) return;
 		setBusy(true);
 		void runtime
-			.dispatch({ type: 'widget.package.switch-system', actorId: dmId, payload: { packageId: targetId, acknowledgeLoss } })
+			.dispatch({
+				type: 'widget.package.switch-system',
+				actorId: dmId,
+				payload: { packageId: targetId, acknowledgeLoss },
+			})
 			.then((res: CommandResult) => {
 				if (res.status === 'accepted') {
 					Toaster.success(`Active system switched to ${targetName}.`);
@@ -1555,7 +2115,9 @@ function ExtSystem() {
 					Toaster.error(res.rejection.message);
 				}
 			})
-			.catch((error: unknown) => Toaster.error(error instanceof Error ? error.message : String(error)))
+			.catch((error: unknown) =>
+				Toaster.error(error instanceof Error ? error.message : String(error)),
+			)
 			.finally(() => setBusy(false));
 	};
 
@@ -1563,25 +2125,57 @@ function ExtSystem() {
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<Panel title="Campaign system" accent>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					The widget vocabulary the whole interface reads at runtime. Switching runs the Core's
-					non-destructive dry-run first and fails closed on anything unsafe — a switch that would drop
-					live widgets needs your explicit acknowledgment.
-					{activeId === null && ' No explicit system package is set yet; the built-in scene widgets act as the default until you switch.'}
+					The campaign system controls which widget types are available throughout the app. Before
+					switching, DND Tools checks the campaign without changing it. Unsafe switches are blocked,
+					and any switch that would remove live widgets requires your explicit confirmation.
+					{activeId === null &&
+						' No explicit system package is set yet; the built-in scene widgets act as the default until you switch.'}
 				</div>
 				{!canWrite && (
-					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>Switching is DM-only and read-only while previewing.</div>
+					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+						Switching is DM-only and read-only while previewing.
+					</div>
 				)}
 			</Panel>
-			<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 14 }}>
+			<div
+				style={{
+					display: 'grid',
+					gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))',
+					gap: 14,
+				}}
+			>
 				{packages.map((rec) => {
 					const def = rec.package;
 					const active = def.id === activeId;
 					return (
-						<div key={def.id} style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 16, borderRadius: 12, border: `1px solid ${active ? T.accBd : T.bd}`, background: T.surf, boxShadow: active ? T.smd : 'none' }}>
-							<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-								<span style={{ font: `700 15px ${T.disp}`, color: active ? T.acc : T.ink }}>{def.displayName}</span>
+						<div
+							key={def.id}
+							style={{
+								display: 'flex',
+								flexDirection: 'column',
+								gap: 10,
+								padding: 16,
+								borderRadius: 12,
+								border: `1px solid ${active ? T.accBd : T.bd}`,
+								background: T.surf,
+								boxShadow: active ? T.smd : 'none',
+							}}
+						>
+							<div
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									justifyContent: 'space-between',
+									gap: 8,
+								}}
+							>
+								<span style={{ font: `700 15px ${T.disp}`, color: active ? T.acc : T.ink }}>
+									{def.displayName}
+								</span>
 								{active ? (
-									<Badge status="accent" icon="check">Active</Badge>
+									<Badge status="accent" icon="check">
+										Active
+									</Badge>
 								) : rec.enabled ? (
 									<Badge status="neutral">v{def.version}</Badge>
 								) : (
@@ -1590,12 +2184,21 @@ function ExtSystem() {
 							</div>
 							<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{def.id}</div>
 							<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub, flex: 1 }}>
-								{def.widgets.length} {def.widgets.length === 1 ? 'widget type' : 'widget types'} declared.
+								{def.widgets.length} {def.widgets.length === 1 ? 'widget type' : 'widget types'}{' '}
+								declared.
 							</div>
 							{active ? (
-								<Button variant="secondary" size="sm" disabled>Current system</Button>
+								<Button variant="secondary" size="sm" disabled>
+									Current system
+								</Button>
 							) : (
-								<Button variant="primary" size="sm" icon="retry" disabled={busy} onClick={() => setTargetId(def.id)}>
+								<Button
+									variant="primary"
+									size="sm"
+									icon="retry"
+									disabled={busy}
+									onClick={() => setTargetId(def.id)}
+								>
 									Preview switch
 								</Button>
 							)}
@@ -1604,8 +2207,9 @@ function ExtSystem() {
 				})}
 			</div>
 			<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
-				Want a system that isn't listed? Install its widget package on the Plugins tab (starter library or
-				package JSON) — every installed, enabled package can be previewed as the active system.
+				Want a system that isn't listed? Install its widget package on the Plugins tab (starter
+				library or package JSON) — every installed, enabled package can be previewed as the active
+				system.
 			</div>
 			{targetId && preview && (
 				<SystemSwitchDialog
@@ -1634,13 +2238,36 @@ const THEME_PRESETS = [
 ];
 // The semantic tokens the design system actually drives — read LIVE off the document, never authored.
 const TOKEN_GROUPS: { label: string; tokens: string[] }[] = [
-	{ label: 'Surfaces', tokens: ['--color-bg', '--color-surface', '--color-surface-raised', '--color-surface-sunken', '--color-border'] },
-	{ label: 'Text', tokens: ['--color-text-primary', '--color-text-secondary', '--color-text-tertiary'] },
-	{ label: 'Accent & status', tokens: ['--color-accent', '--color-accent-subtle', '--color-status-success', '--color-status-warning', '--color-status-error'] },
+	{
+		label: 'Surfaces',
+		tokens: [
+			'--color-bg',
+			'--color-surface',
+			'--color-surface-raised',
+			'--color-surface-sunken',
+			'--color-border',
+		],
+	},
+	{
+		label: 'Text',
+		tokens: ['--color-text-primary', '--color-text-secondary', '--color-text-tertiary'],
+	},
+	{
+		label: 'Accent & status',
+		tokens: [
+			'--color-accent',
+			'--color-accent-subtle',
+			'--color-status-success',
+			'--color-status-warning',
+			'--color-status-error',
+		],
+	},
 ];
 
 function ExtTheme() {
-	const [theme, setTheme] = useState<string>(document.documentElement.getAttribute('data-theme') || 'tavern');
+	const [theme, setTheme] = useState<string>(
+		document.documentElement.getAttribute('data-theme') || 'tavern',
+	);
 	// REAL + PERSISTED: the same data-theme attr + localStorage key Settings → Appearance writes, so
 	// the choice survives reload (index.html restores it pre-paint) and both surfaces always agree.
 	const applyTheme = (v: string) => {
@@ -1660,12 +2287,15 @@ function ExtTheme() {
 		void attr;
 		const styles = getComputedStyle(document.documentElement);
 		const out: Record<string, string> = {};
-		for (const g of TOKEN_GROUPS) for (const name of g.tokens) out[name] = styles.getPropertyValue(name).trim() || '—';
+		for (const g of TOKEN_GROUPS)
+			for (const name of g.tokens) out[name] = styles.getPropertyValue(name).trim() || '—';
 		return out;
 	}, [theme]);
 	const tokenValue = (name: string) => tokenValues[name] ?? '—';
 	return (
-		<div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 18, alignItems: 'start' }}>
+		<div
+			style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 18, alignItems: 'start' }}
+		>
 			<Panel title="Theme preset" action={<Badge status="neutral">active: {theme}</Badge>}>
 				<div style={{ marginBottom: 14 }}>
 					<SegmentedControl
@@ -1679,9 +2309,9 @@ function ExtTheme() {
 					</div>
 				</div>
 				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, marginBottom: 12 }}>
-					The preset choice is real and persists (the same setting as Settings → Appearance). Presets are the
-					theming architecture — per-token overrides aren't supported, so the rows below are the live,
-					read-only token values of the active preset.
+					The preset choice is real and persists (the same setting as Settings → Appearance).
+					Presets are the theming architecture — per-token overrides aren't supported, so the rows
+					below are the live, read-only token values of the active preset.
 				</div>
 				{TOKEN_GROUPS.map((g) => (
 					<div key={g.label} style={{ marginBottom: 14 }}>
@@ -1689,8 +2319,28 @@ function ExtTheme() {
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
 							{g.tokens.map((name) => (
 								<div key={name} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-									<span style={{ width: 26, height: 26, borderRadius: 7, flex: '0 0 auto', background: `var(${name})`, border: `1px solid ${T.bd}` }} />
-									<span style={{ flex: 1, font: `11.5px ${T.mono}`, color: T.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
+									<span
+										style={{
+											width: 26,
+											height: 26,
+											borderRadius: 7,
+											flex: '0 0 auto',
+											background: `var(${name})`,
+											border: `1px solid ${T.bd}`,
+										}}
+									/>
+									<span
+										style={{
+											flex: 1,
+											font: `11.5px ${T.mono}`,
+											color: T.sub,
+											whiteSpace: 'nowrap',
+											overflow: 'hidden',
+											textOverflow: 'ellipsis',
+										}}
+									>
+										{name}
+									</span>
 									<span style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{tokenValue(name)}</span>
 								</div>
 							))}
@@ -1699,9 +2349,30 @@ function ExtTheme() {
 				))}
 			</Panel>
 			<Panel title="Live preview">
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 16, borderRadius: 12, background: T.bg, border: `1px solid ${T.bd}` }}>
+				<div
+					style={{
+						display: 'flex',
+						flexDirection: 'column',
+						gap: 12,
+						padding: 16,
+						borderRadius: 12,
+						background: T.bg,
+						border: `1px solid ${T.bd}`,
+					}}
+				>
 					<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-						<span style={{ width: 30, height: 30, borderRadius: 7, background: T.acc, color: T.accFg, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+						<span
+							style={{
+								width: 30,
+								height: 30,
+								borderRadius: 7,
+								background: T.acc,
+								color: T.accFg,
+								display: 'inline-flex',
+								alignItems: 'center',
+								justifyContent: 'center',
+							}}
+						>
 							<Icon name="dice" size="sm" />
 						</span>
 						<span style={{ font: `700 15px ${T.disp}` }}>Sample surface</span>
@@ -1720,7 +2391,8 @@ function ExtTheme() {
 						<VisibilityChip level="dm-only" compact />
 					</div>
 					<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>
-						Body copy renders in the secondary text token. Numbers like <span style={mono}>1d20+7</span> use the mono face.
+						Body copy renders in the secondary text token. Numbers like{' '}
+						<span style={mono}>1d20+7</span> use the mono face.
 					</div>
 				</div>
 			</Panel>

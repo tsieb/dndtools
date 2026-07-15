@@ -131,12 +131,15 @@ await trial('Characters · New character', '/characters', async (p) => {
 	await click(p, /create character/i);
 	await p.waitForFunction(() => window.__rt.state.sync.operations.some((o) => o.opType === 'character.finalize-draft'), null, { timeout: 8000 });
 });
-// Atlas — Map builder overlay: Place-POI tool → click the canvas → a real map.create-poi op at the
-// clicked position (strict op-type assert — opening the overlay alone dispatches nothing).
+// Atlas — Map editor overlay: open the Foundry-style Notes group, pick the Point-of-interest tool,
+// then click the canvas → a real map.create-poi op at the clicked position (strict op-type assert —
+// opening the overlay and switching tools alone dispatches nothing).
 await trial('Atlas · builder POI place', '/atlas', async (p) => {
 	await click(p, /open in builder/i);
 	await p.waitForTimeout(600);
-	await p.getByRole('button', { name: /^place poi$/i }).click({ timeout: 5000 });
+	// The rail is layer GROUPS that reveal a sub-tool flyout; open "Notes", then arm "Point of interest".
+	await p.getByRole('button', { name: 'Notes', exact: true }).click({ timeout: 5000 });
+	await p.getByRole('button', { name: /point of interest/i }).click({ timeout: 5000 });
 	await p.locator('[role="dialog"] [data-testid="map-canvas-well"]').click({ position: { x: 220, y: 160 }, timeout: 5000 });
 	// The map.create-poi command logs its durable op as 'map.poi.create'.
 	await p.waitForFunction(() => window.__rt.state.sync.operations.some((o) => o.opType === 'map.poi.create'), null, { timeout: 5000 });

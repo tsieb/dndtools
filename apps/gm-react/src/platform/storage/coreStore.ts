@@ -1,6 +1,8 @@
 import Dexie, { type Table } from 'dexie';
 import {
 	DURABLE_STATE_DOCUMENT_IDS,
+	MAX_ASSET_BLOB_BYTES,
+	assetId,
 	EMPTY_CHARACTER_STATE,
 	EMPTY_COMMAND_CENTER_STATE,
 	EMPTY_MAP_STATE,
@@ -8,6 +10,7 @@ import {
 	EMPTY_SCENE_STATE,
 	EMPTY_SESSION_STATE,
 	EMPTY_WIDGET_PACKAGE_STATE,
+	TARGET_SCHEMA_VERSIONS,
 	createOperationLog,
 	createStoragePlatformServiceRegistry,
 	ensureAudioState,
@@ -18,8 +21,10 @@ import {
 	ensureSessionAudioState,
 	ensureSessionCombatState,
 	ensureVaultContentState,
+	hashAssetBytes,
 	mergeSystemWidgetPackages,
 	recoverFromJournal,
+	validateSyncOperationShape,
 	validatePlatformRequest,
 	type AudioState,
 	type CharacterState,
@@ -144,7 +149,48 @@ function db(): V2Database {
 
 async function readMigrationJournal(): Promise<MigrationJournalEntry | null> {
 	const record = await db().migrationJournal.get(MIGRATION_JOURNAL_KEY);
-	return record?.entry ?? null;
+	if (!record) return null;
+	const untrusted: unknown = record.entry;
+	if (
+		!plainRecord(untrusted) ||
+		untrusted.schemaVersion !== 1 ||
+		typeof untrusted.migrationId !== 'string' ||
+		untrusted.migrationId.length === 0 ||
+		typeof untrusted.phase !== 'string' ||
+		!plainRecord(untrusted.targetVersions) ||
+		!plainRecord(untrusted.snapshot)
+	) {
+		throw new Error(
+			'Stored migration recovery data is damaged. No recovery changes were applied; restore a known-good local backup.',
+		);
+	}
+	const snapshot = untrusted.snapshot;
+	if (
+		typeof snapshot.id !== 'string' ||
+		snapshot.id.length === 0 ||
+		snapshot.migrationId !== untrusted.migrationId ||
+		!plainRecord(snapshot.fromVersions) ||
+		!plainRecord(snapshot.documents)
+	) {
+		throw new Error(
+			'Stored migration recovery data is damaged. No recovery changes were applied; restore a known-good local backup.',
+		);
+	}
+	for (const documentId of DURABLE_STATE_DOCUMENT_IDS) {
+		const targetVersion = untrusted.targetVersions[documentId];
+		const previousVersion = snapshot.fromVersions[documentId];
+		if (
+			!Number.isSafeInteger(targetVersion) ||
+			Number(targetVersion) < 1 ||
+			(previousVersion !== null &&
+				(!Number.isSafeInteger(previousVersion) || Number(previousVersion) < 1))
+		) {
+			throw new Error(
+				'Stored migration recovery data is damaged. No recovery changes were applied; restore a known-good local backup.',
+			);
+		}
+	}
+	return untrusted as unknown as MigrationJournalEntry;
 }
 
 export async function writeMigrationJournal(entry: MigrationJournalEntry): Promise<void> {
@@ -153,6 +199,180 @@ export async function writeMigrationJournal(entry: MigrationJournalEntry): Promi
 
 async function clearMigrationJournal(): Promise<void> {
 	await db().migrationJournal.delete(MIGRATION_JOURNAL_KEY);
+}
+
+/** Minimum containers that every released document of this kind has always required. */
+const REQUIRED_PERSISTED_RECORD_FIELDS: Partial<Record<DurableStateDocumentId, readonly string[]>> =
+	{
+		scenes: ['scenes'],
+		maps: ['maps'],
+		permissions: ['actors'],
+		widgets: ['packages'],
+		commandCenter: ['presets'],
+	};
+
+/** Containers added compatibly over time: absence is safe, but a present wrong type is corruption. */
+const OPTIONAL_PERSISTED_RECORD_FIELDS: Partial<Record<DurableStateDocumentId, readonly string[]>> =
+	{
+		maps: ['assets'],
+		session: [
+			'timers',
+			'playerViewAssignments',
+			'activeMapProjections',
+			'handouts',
+			'quickReferencePanels',
+			'playerGroups',
+			'archives',
+		],
+		characters: ['characters', 'drafts'],
+		content: ['calendars', 'items', 'savedSearches', 'customObjectTypes'],
+		encounters: ['encounters'],
+		audio: ['assets', 'sources', 'automationRules', 'associations', 'presets'],
+		mcp: ['bindings', 'policies', 'proposals'],
+	};
+
+const OPTIONAL_PERSISTED_OBJECT_FIELDS: Partial<Record<DurableStateDocumentId, readonly string[]>> =
+	{
+		session: ['activeMap', 'combat', 'audioPlayback', 'calendarContinuity', 'sceneCards'],
+		commandCenter: ['autoSave'],
+		characters: ['party', 'journals'],
+	};
+
+const REQUIRED_PERSISTED_ARRAY_FIELDS: Partial<Record<DurableStateDocumentId, readonly string[]>> =
+	{ permissions: ['grants'] };
+
+const OPTIONAL_PERSISTED_ARRAY_FIELDS: Partial<Record<DurableStateDocumentId, readonly string[]>> =
+	{ session: ['diceHistory'], mcp: ['auditEntries'] };
+
+function damagedPersistedDocument(documentId: DurableStateDocumentId): Error {
+	return new Error(`Stored ${documentId} state is damaged and was not loaded.`);
+}
+
+function validatePersistedDocumentContainers(
+	document: Record<string, unknown>,
+	documentId: DurableStateDocumentId,
+): void {
+	const validateRecordMap = (field: string, required: boolean): void => {
+		const value = document[field];
+		if (value === undefined && !required) return;
+		if (!plainRecord(value) || Object.values(value).some((entry) => !plainRecord(entry))) {
+			throw damagedPersistedDocument(documentId);
+		}
+	};
+	for (const field of REQUIRED_PERSISTED_RECORD_FIELDS[documentId] ?? []) {
+		validateRecordMap(field, true);
+	}
+	for (const field of OPTIONAL_PERSISTED_RECORD_FIELDS[documentId] ?? []) {
+		validateRecordMap(field, false);
+	}
+	for (const field of OPTIONAL_PERSISTED_OBJECT_FIELDS[documentId] ?? []) {
+		const value = document[field];
+		if (value !== undefined && value !== null && !plainRecord(value)) {
+			throw damagedPersistedDocument(documentId);
+		}
+	}
+	for (const field of REQUIRED_PERSISTED_ARRAY_FIELDS[documentId] ?? []) {
+		if (!Array.isArray(document[field])) throw damagedPersistedDocument(documentId);
+	}
+	for (const field of OPTIONAL_PERSISTED_ARRAY_FIELDS[documentId] ?? []) {
+		const value = document[field];
+		if (value !== undefined && !Array.isArray(value)) throw damagedPersistedDocument(documentId);
+	}
+
+	if (documentId === 'scenes') {
+		for (const [id, scene] of Object.entries(document.scenes as Record<string, unknown>)) {
+			if ((scene as Record<string, unknown>).id !== id) throw damagedPersistedDocument(documentId);
+		}
+	}
+	if (documentId === 'permissions') {
+		for (const [id, actor] of Object.entries(document.actors as Record<string, unknown>)) {
+			const candidate = actor as Record<string, unknown>;
+			if (
+				candidate.id !== id ||
+				typeof candidate.displayName !== 'string' ||
+				!['dm', 'co-dm', 'player', 'observer'].includes(String(candidate.role))
+			) {
+				throw damagedPersistedDocument(documentId);
+			}
+		}
+		if ((document.grants as unknown[]).some((grant) => !plainRecord(grant))) {
+			throw damagedPersistedDocument(documentId);
+		}
+	}
+	if (documentId === 'session') {
+		if (
+			(document.workflow !== undefined &&
+				!['idle', 'prep', 'active', 'paused', 'ending', 'recap', 'archived'].includes(
+					String(document.workflow),
+				)) ||
+			(document.workflowRevision !== undefined &&
+				(!Number.isSafeInteger(document.workflowRevision) ||
+					Number(document.workflowRevision) < 0)) ||
+			(document.activeSceneId !== undefined &&
+				document.activeSceneId !== null &&
+				typeof document.activeSceneId !== 'string') ||
+			(document.recapArchiveId !== undefined &&
+				document.recapArchiveId !== null &&
+				typeof document.recapArchiveId !== 'string')
+		) {
+			throw damagedPersistedDocument(documentId);
+		}
+	}
+}
+
+function trustedPersistedDocument<T>(
+	record: DocumentRecord | undefined,
+	documentId: DurableStateDocumentId,
+): T | undefined {
+	if (!record) return undefined;
+	const document = record.doc;
+	if (!plainRecord(document) || !Number.isSafeInteger(document.schemaVersion)) {
+		throw new Error(`Stored ${documentId} state is damaged and was not loaded.`);
+	}
+	const version = Number(document.schemaVersion);
+	const target = TARGET_SCHEMA_VERSIONS[documentId];
+	if (version > target) {
+		throw new Error(
+			`Stored ${documentId} state was written by a newer app version (schema ${version}; this build supports ${target}). Upgrade the app before opening this vault.`,
+		);
+	}
+	if (version < 1) {
+		throw new Error(`Stored ${documentId} state has an invalid schema version and was not loaded.`);
+	}
+	validatePersistedDocumentContainers(document, documentId);
+	return document as T;
+}
+
+function trustedPersistedOperations(records: readonly OperationRecord[]): SyncOperation[] {
+	const ids = new Set<string>();
+	return records.map((record, sequence) => {
+		const untrustedRecord: unknown = record;
+		if (!plainRecord(untrustedRecord) || !plainRecord(untrustedRecord.op)) {
+			throw new Error(
+				`Stored operation history is damaged at sequence ${sequence}; the vault was not partially loaded.`,
+			);
+		}
+		const operation = untrustedRecord.op;
+		const operationId = operation.id;
+		const issuedAt = operation.issuedAt;
+		const validation = validateSyncOperationShape(operation);
+		if (
+			untrustedRecord.sequence !== sequence ||
+			untrustedRecord.id !== operationId ||
+			!validation.conformant ||
+			typeof operationId !== 'string' ||
+			typeof issuedAt !== 'string' ||
+			issuedAt.length > 40 ||
+			!Number.isFinite(Date.parse(issuedAt)) ||
+			ids.has(operationId)
+		) {
+			throw new Error(
+				`Stored operation history is damaged at sequence ${sequence}; the vault was not partially loaded.`,
+			);
+		}
+		ids.add(operationId);
+		return operation as unknown as SyncOperation;
+	});
 }
 
 /**
@@ -166,14 +386,46 @@ export async function recoverPendingMigration(): Promise<RecoveryDecision> {
 	const entry = await readMigrationJournal();
 	const decision = recoverFromJournal(entry);
 	if (decision.action === 'roll-back' && decision.snapshot) {
-		const writes = DURABLE_STATE_DOCUMENT_IDS.map((documentId) =>
-			db().documents.put({
+		const database = db();
+		const restored: DocumentRecord[] = [];
+		const absent: string[] = [];
+		for (const documentId of DURABLE_STATE_DOCUMENT_IDS) {
+			const previousVersion = decision.snapshot.fromVersions[documentId];
+			if (previousVersion === null) {
+				// Preserve exact absence. Writing `{ doc: undefined }` would turn an absent legacy slice
+				// into a damaged record under fail-closed hydration.
+				absent.push(DOCUMENT_KEY_BY_ID[documentId]);
+				continue;
+			}
+			if (!Number.isSafeInteger(previousVersion) || Number(previousVersion) < 1) {
+				throw new Error(
+					`Migration snapshot for ${documentId} has an invalid prior schema version.`,
+				);
+			}
+			const snapshotDocument = decision.snapshot.documents[documentId];
+			const trusted = trustedPersistedDocument<unknown>(
+				{ key: DOCUMENT_KEY_BY_ID[documentId], doc: snapshotDocument },
+				documentId,
+			);
+			if ((snapshotDocument as { schemaVersion?: unknown }).schemaVersion !== previousVersion) {
+				throw new Error(
+					`Migration snapshot for ${documentId} does not match its declared prior schema version.`,
+				);
+			}
+			restored.push({
 				key: DOCUMENT_KEY_BY_ID[documentId],
-				doc: decision.snapshot?.documents[documentId],
-			}),
-		);
-		await Promise.all(writes);
-		await clearMigrationJournal();
+				doc: trusted,
+			});
+		}
+		// Recovery itself must be crash-safe. Restoring documents and clearing the journal in one
+		// transaction prevents a quota/clone failure from leaving another partial rollback behind.
+		await database.transaction('rw', database.documents, database.migrationJournal, async () => {
+			await Promise.all([
+				database.documents.bulkDelete(absent),
+				database.documents.bulkPut(restored),
+			]);
+			await database.migrationJournal.delete(MIGRATION_JOURNAL_KEY);
+		});
 	} else if (decision.action === 'clear-journal') {
 		await clearMigrationJournal();
 	}
@@ -211,14 +463,14 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		database.documents.get(AUDIO_STATE_KEY),
 		database.documents.get(MCP_POLICY_STATE_KEY),
 	]);
-	const scenes = (sceneDoc?.doc as SceneState | undefined) ?? {
+	const scenes = trustedPersistedDocument<SceneState>(sceneDoc, 'scenes') ?? {
 		scenes: {},
 		schemaVersion: EMPTY_SCENE_STATE.schemaVersion,
 	};
 	// No persisted map document defaults EMPTY, not demo: SceneRuntime.ensureDefaultActor owns
 	// demo-map population, and it must be able to honor onboarding's "start fresh" vault choice —
 	// substituting the demo state here would make that guard unreachable on the post-wipe reload.
-	const maps = (mapDoc?.doc as MapState | undefined) ?? {
+	const maps = trustedPersistedDocument<MapState>(mapDoc, 'maps') ?? {
 		maps: { ...EMPTY_MAP_STATE.maps },
 		assets: { ...EMPTY_MAP_STATE.assets },
 		schemaVersion: EMPTY_MAP_STATE.schemaVersion,
@@ -227,12 +479,12 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	// MAP-002: a map document persisted before the content-addressed asset store existed has no
 	// `assets` map; default it so older vaults stay readable without a destructive migration.
 	maps.assets ??= { ...EMPTY_MAP_STATE.assets };
-	const permissions = (permissionDoc?.doc as PermissionState | undefined) ?? {
+	const permissions = trustedPersistedDocument<PermissionState>(permissionDoc, 'permissions') ?? {
 		actors: {},
 		grants: [],
 		schemaVersion: EMPTY_PERMISSION_STATE.schemaVersion,
 	};
-	const session = (sessionDoc?.doc as SessionState | undefined) ?? {
+	const session = trustedPersistedDocument<SessionState>(sessionDoc, 'session') ?? {
 		workflow: EMPTY_SESSION_STATE.workflow,
 		workflowRevision: EMPTY_SESSION_STATE.workflowRevision,
 		activeSceneId: EMPTY_SESSION_STATE.activeSceneId,
@@ -282,12 +534,15 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	session.recapArchiveId ??= null;
 	session.archives ??= {};
 	const widgets = mergeSystemWidgetPackages(
-		(widgetPackageDoc?.doc as WidgetPackageState | undefined) ?? {
+		trustedPersistedDocument<WidgetPackageState>(widgetPackageDoc, 'widgets') ?? {
 			packages: {},
 			schemaVersion: EMPTY_WIDGET_PACKAGE_STATE.schemaVersion,
 		},
 	);
-	const commandCenter = (commandCenterDoc?.doc as CommandCenterState | undefined) ?? {
+	const commandCenter = trustedPersistedDocument<CommandCenterState>(
+		commandCenterDoc,
+		'commandCenter',
+	) ?? {
 		homeSceneId: EMPTY_COMMAND_CENTER_STATE.homeSceneId,
 		presets: {},
 		schemaVersion: EMPTY_COMMAND_CENTER_STATE.schemaVersion,
@@ -295,7 +550,7 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	// CHAR-001/002: the durable character slice. A vault persisted before this slice existed has no
 	// character document; default it so older prototype vaults stay readable without a destructive
 	// migration (safe-default hydration).
-	const characters = (characterDoc?.doc as CharacterState | undefined) ?? {
+	const characters = trustedPersistedDocument<CharacterState>(characterDoc, 'characters') ?? {
 		characters: {},
 		drafts: {},
 		schemaVersion: EMPTY_CHARACTER_STATE.schemaVersion,
@@ -307,22 +562,26 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	// through `ensureVaultContentState` so older prototype vaults stay readable without a destructive
 	// migration (safe-default, fail-closed hydration — saved searches default to an empty map and any
 	// persisted saved search re-normalizes its filter and defaults its visibility to `dm-only`).
-	const content = ensureVaultContentState(contentDoc?.doc as VaultContentState | undefined);
+	const content = ensureVaultContentState(
+		trustedPersistedDocument<VaultContentState>(contentDoc, 'content'),
+	);
 	// SES-006: the durable encounter slice. A vault persisted before this slice has no encounter
 	// document; default it so older prototype vaults stay readable (safe-default hydration).
-	const encounters = ensureEncounterState(encounterDoc?.doc as EncounterState | undefined);
+	const encounters = ensureEncounterState(
+		trustedPersistedDocument<EncounterState>(encounterDoc, 'encounters'),
+	);
 	// AUDIO-004/009/010: the durable audio slice (asset library + declared source registry). A vault
 	// persisted before this slice has no audio document; route it through `ensureAudioState` so older
 	// vaults stay readable without a destructive migration (safe-default, fail-closed hydration — an
 	// undeclared asset license stays `unknown` and a source with undeclared cache behavior stays
 	// playback-disabled).
-	const audio = ensureAudioState(audioDoc?.doc as AudioState | undefined);
+	const audio = ensureAudioState(trustedPersistedDocument<AudioState>(audioDoc, 'audio'));
 	// MCP-003/009/011: the durable MCP identity/policy/staged-writes slice. A vault persisted before this
 	// slice has no MCP document; route it through `ensureMcpPolicyState` so older vaults stay readable
 	// without a destructive migration (safe-default, fail-closed hydration — an unknown policy mode or
 	// proposal status collapses to the most restrictive, and the vault default stays `strict_review`).
-	const mcp = ensureMcpPolicyState(mcpDoc?.doc as McpPolicyState | undefined);
-	const sync = createOperationLog(operationRecords.map((r) => r.op));
+	const mcp = ensureMcpPolicyState(trustedPersistedDocument<McpPolicyState>(mcpDoc, 'mcp'));
+	const sync = createOperationLog(trustedPersistedOperations(operationRecords));
 	return {
 		scenes,
 		maps,
@@ -454,20 +713,204 @@ export async function persistFullState(
 	if (durableStateChanged && newOperations.length === 0) {
 		throw new Error('Durable state changed without an accepted Processing Core operation.');
 	}
-	await Promise.all([
-		persistSceneState(next.scenes),
-		persistMapState(next.maps),
-		persistPermissionState(next.permissions),
-		persistSessionState(next.session),
-		persistWidgetPackageState(next.widgets),
-		persistCommandCenterState(next.commandCenter),
-		persistCharacterState(next.characters),
-		persistContentState(next.content),
-		persistEncounterState(next.encounters),
-		persistAudioState(next.audio),
-		persistMcpPolicyState(next.mcp),
-		appendOperations(newOperations),
-	]);
+	const database = db();
+	// State documents and the operation tail are one logical command commit. Dexie rolls the whole
+	// transaction back if quota, cloning, or any individual store write fails, so reload can never see
+	// a new slice without its audit operation (or vice versa).
+	await database.transaction('rw', database.documents, database.operations, async () => {
+		await Promise.all([
+			persistSceneState(next.scenes),
+			persistMapState(next.maps),
+			persistPermissionState(next.permissions),
+			persistSessionState(next.session),
+			persistWidgetPackageState(next.widgets),
+			persistCommandCenterState(next.commandCenter),
+			persistCharacterState(next.characters),
+			persistContentState(next.content),
+			persistEncounterState(next.encounters),
+			persistAudioState(next.audio),
+			persistMcpPolicyState(next.mcp),
+			appendOperations(newOperations),
+		]);
+	});
+}
+
+const RESTORE_STATE_KEYS = [
+	'audio',
+	'characters',
+	'commandCenter',
+	'content',
+	'encounters',
+	'maps',
+	'mcp',
+	'permissions',
+	'scenes',
+	'session',
+	'sync',
+	'widgets',
+] as const;
+/** Server accepts operation revisions 0..250000, i.e. at most 250001 operations. */
+const MAX_RESTORED_OPERATIONS = 250_001;
+const MAX_RESTORED_JSON_BYTES = 16 * 1024 * 1024;
+
+const RESTORE_DOCUMENT_IDS: Record<
+	Exclude<(typeof RESTORE_STATE_KEYS)[number], 'sync'>,
+	DurableStateDocumentId
+> = {
+	audio: 'audio',
+	characters: 'characters',
+	commandCenter: 'commandCenter',
+	content: 'content',
+	encounters: 'encounters',
+	maps: 'maps',
+	mcp: 'mcp',
+	permissions: 'permissions',
+	scenes: 'scenes',
+	session: 'session',
+	widgets: 'widgets',
+};
+
+const REQUIRED_OBJECT_FIELDS: Partial<Record<DurableStateDocumentId, readonly string[]>> = {
+	scenes: ['scenes'],
+	maps: ['maps', 'assets'],
+	permissions: ['actors'],
+	widgets: ['packages'],
+	commandCenter: ['presets'],
+	characters: ['characters', 'drafts'],
+	content: ['calendars', 'items', 'savedSearches', 'customObjectTypes'],
+	encounters: ['encounters'],
+	audio: ['assets', 'sources', 'automationRules', 'associations', 'presets'],
+	mcp: ['bindings', 'policies', 'proposals'],
+};
+
+const REQUIRED_ARRAY_FIELDS: Partial<Record<DurableStateDocumentId, readonly string[]>> = {
+	permissions: ['grants'],
+	mcp: ['auditEntries'],
+};
+
+function plainRecord(value: unknown): value is Record<string, unknown> {
+	if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+	const prototype = Object.getPrototypeOf(value);
+	return prototype === Object.prototype || prototype === null;
+}
+
+/**
+ * Validate an untrusted decrypted cloud snapshot completely before storage mutation. This is deliberately
+ * stricter than tolerant local hydration: a backup claiming the current schema must contain every current
+ * durable slice, matching schema versions, sane containers, and a canonical unique operation log.
+ */
+export function validateRestoredCoreState(candidate: unknown): CoreStateSlice {
+	let serialized: string;
+	try {
+		serialized = JSON.stringify(candidate);
+	} catch {
+		throw new Error('Cloud backup is not valid JSON state; the local campaign was not changed.');
+	}
+	if (!serialized || new TextEncoder().encode(serialized).byteLength > MAX_RESTORED_JSON_BYTES) {
+		throw new Error(
+			'Cloud backup exceeds the safe restore size; the local campaign was not changed.',
+		);
+	}
+	if (
+		!plainRecord(candidate) ||
+		JSON.stringify(Object.keys(candidate).sort()) !== JSON.stringify(RESTORE_STATE_KEYS)
+	) {
+		throw new Error(
+			'Cloud backup has an unexpected state shape; the local campaign was not changed.',
+		);
+	}
+
+	for (const [stateKey, documentId] of Object.entries(RESTORE_DOCUMENT_IDS) as Array<
+		[Exclude<(typeof RESTORE_STATE_KEYS)[number], 'sync'>, DurableStateDocumentId]
+	>) {
+		const document = candidate[stateKey];
+		if (!plainRecord(document) || document.schemaVersion !== TARGET_SCHEMA_VERSIONS[documentId]) {
+			throw new Error(
+				`Cloud backup ${stateKey} schema is unsupported; the local campaign was not changed.`,
+			);
+		}
+		for (const field of REQUIRED_OBJECT_FIELDS[documentId] ?? []) {
+			if (!plainRecord(document[field])) {
+				throw new Error(
+					`Cloud backup ${stateKey}.${field} is invalid; the local campaign was not changed.`,
+				);
+			}
+		}
+		for (const field of REQUIRED_ARRAY_FIELDS[documentId] ?? []) {
+			if (!Array.isArray(document[field])) {
+				throw new Error(
+					`Cloud backup ${stateKey}.${field} is invalid; the local campaign was not changed.`,
+				);
+			}
+		}
+		try {
+			// Apply the same released-data compatibility checks used by startup hydration before any
+			// restore transaction begins. This keeps an apparently valid backup from replacing the
+			// current vault only to fail on the next boot (while still accepting v0.2 documents whose
+			// later, optional containers are absent).
+			validatePersistedDocumentContainers(document, documentId);
+		} catch {
+			throw new Error(
+				`Cloud backup ${stateKey} data is invalid; the local campaign was not changed.`,
+			);
+		}
+	}
+	try {
+		const session = candidate.session as unknown as SessionState;
+		ensureSessionCombatState(session.combat);
+		ensureSessionAudioState(session.audioPlayback);
+		ensureCalendarContinuityState(session.calendarContinuity);
+		ensureSceneCardState(session.sceneCards);
+		mergeSystemWidgetPackages(candidate.widgets as unknown as WidgetPackageState);
+		ensureVaultContentState(candidate.content as unknown as VaultContentState);
+		ensureEncounterState(candidate.encounters as unknown as EncounterState);
+		ensureAudioState(candidate.audio as unknown as AudioState);
+		ensureMcpPolicyState(candidate.mcp as unknown as McpPolicyState);
+	} catch {
+		throw new Error(
+			'Cloud backup contains damaged nested state; the local campaign was not changed.',
+		);
+	}
+
+	const sync = candidate.sync;
+	if (
+		!plainRecord(sync) ||
+		JSON.stringify(Object.keys(sync).sort()) !== JSON.stringify(['operations']) ||
+		!Array.isArray(sync.operations) ||
+		sync.operations.length > MAX_RESTORED_OPERATIONS
+	) {
+		throw new Error('Cloud backup operation log is invalid; the local campaign was not changed.');
+	}
+	const operationIds = new Set<string>();
+	for (const operation of sync.operations) {
+		const validation = validateSyncOperationShape(operation);
+		if (
+			!validation.conformant ||
+			!plainRecord(operation) ||
+			!Number.isFinite(Date.parse(String(operation.issuedAt))) ||
+			operationIds.has(String(operation.id))
+		) {
+			throw new Error(
+				'Cloud backup contains an invalid or duplicate operation; the local campaign was not changed.',
+			);
+		}
+		operationIds.add(String(operation.id));
+	}
+
+	return {
+		scenes: candidate.scenes as unknown as SceneState,
+		maps: candidate.maps as unknown as MapState,
+		permissions: candidate.permissions as unknown as PermissionState,
+		session: candidate.session as unknown as SessionState,
+		widgets: candidate.widgets as unknown as WidgetPackageState,
+		commandCenter: candidate.commandCenter as unknown as CommandCenterState,
+		characters: candidate.characters as unknown as CharacterState,
+		content: candidate.content as unknown as VaultContentState,
+		encounters: candidate.encounters as unknown as EncounterState,
+		audio: candidate.audio as unknown as AudioState,
+		mcp: candidate.mcp as unknown as McpPolicyState,
+		sync: createOperationLog(sync.operations as SyncOperation[]),
+	};
 }
 
 /**
@@ -481,37 +924,143 @@ export async function persistFullState(
  * local blobs here would orphan bytes the restored metadata still references. Callers that need a
  * true wipe use resetCoreStorage; unreferenced blobs are reclaimed by assetStore.collectGarbage.
  */
-export async function restoreCoreState(slice: CoreStateSlice): Promise<void> {
-	await clearStateTables();
-	await Promise.all([
-		persistSceneState(slice.scenes),
-		persistMapState(slice.maps),
-		persistPermissionState(slice.permissions),
-		persistSessionState(slice.session),
-		persistWidgetPackageState(slice.widgets),
-		persistCommandCenterState(slice.commandCenter),
-		persistCharacterState(slice.characters),
-		persistContentState(slice.content),
-		persistEncounterState(slice.encounters),
-		persistAudioState(slice.audio),
-		persistMcpPolicyState(slice.mcp),
-		appendOperations(slice.sync.operations),
-	]);
+export async function restoreCoreState(candidate: unknown): Promise<void> {
+	const slice = validateRestoredCoreState(candidate);
+	const database = db();
+	const { documents, operations } = restoredRecords(slice);
+	// One IndexedDB transaction makes the replacement all-or-nothing. If any document or operation
+	// write fails, the preceding clears roll back too and the current local vault remains intact.
+	await database.transaction(
+		'rw',
+		database.documents,
+		database.operations,
+		database.migrationJournal,
+		async () => {
+			await Promise.all([
+				database.documents.clear(),
+				database.operations.clear(),
+				database.migrationJournal.clear(),
+			]);
+			await Promise.all([
+				database.documents.bulkPut(documents),
+				database.operations.bulkPut(operations),
+			]);
+		},
+	);
 }
 
-async function clearStateTables(): Promise<void> {
+function restoredRecords(slice: CoreStateSlice): {
+	documents: DocumentRecord[];
+	operations: OperationRecord[];
+} {
+	const documents: DocumentRecord[] = [
+		{ key: SCENE_STATE_KEY, doc: slice.scenes },
+		{ key: MAP_STATE_KEY, doc: slice.maps },
+		{ key: PERMISSION_STATE_KEY, doc: slice.permissions },
+		{ key: SESSION_STATE_KEY, doc: slice.session },
+		{ key: WIDGET_PACKAGE_STATE_KEY, doc: slice.widgets },
+		{ key: COMMAND_CENTER_STATE_KEY, doc: slice.commandCenter },
+		{ key: CHARACTER_STATE_KEY, doc: slice.characters },
+		{ key: CONTENT_STATE_KEY, doc: slice.content },
+		{ key: ENCOUNTER_STATE_KEY, doc: slice.encounters },
+		{ key: AUDIO_STATE_KEY, doc: slice.audio },
+		{ key: MCP_POLICY_STATE_KEY, doc: slice.mcp },
+	];
+	const operations: OperationRecord[] = slice.sync.operations.map((op, sequence) => ({
+		id: op.id,
+		op,
+		sequence,
+	}));
+	return { documents, operations };
+}
+
+/**
+ * Authoritative local-backup restore: atomically replaces durable state AND every asset blob. Cloud
+ * restore intentionally uses `restoreCoreState` instead because cloud snapshots do not carry bytes.
+ */
+export async function restoreFullVaultState(
+	candidate: unknown,
+	assetRecords: readonly AssetBlobRecord[],
+): Promise<void> {
+	const slice = validateRestoredCoreState(candidate);
+	if (!Array.isArray(assetRecords) || assetRecords.length > 10_000) {
+		throw new Error(
+			'Vault backup asset collection is invalid; the local campaign was not changed.',
+		);
+	}
+	const seen = new Set<string>();
+	for (const record of assetRecords) {
+		const untrusted: unknown = record;
+		if (!plainRecord(untrusted)) {
+			throw new Error(
+				'Vault backup contains an invalid asset; the local campaign was not changed.',
+			);
+		}
+		const { id, bytes, byteLength: rawByteLength, mime, createdAt } = untrusted;
+		const byteLength = Number(rawByteLength);
+		if (
+			typeof id !== 'string' ||
+			seen.has(id) ||
+			!(bytes instanceof ArrayBuffer) ||
+			!Number.isSafeInteger(byteLength) ||
+			byteLength < 1 ||
+			byteLength > MAX_ASSET_BLOB_BYTES ||
+			byteLength !== bytes.byteLength ||
+			assetId(hashAssetBytes(new Uint8Array(bytes))) !== id ||
+			typeof mime !== 'string' ||
+			mime.length < 1 ||
+			mime.length > 255 ||
+			typeof createdAt !== 'string' ||
+			!Number.isFinite(Date.parse(createdAt))
+		) {
+			throw new Error(
+				'Vault backup contains an invalid asset; the local campaign was not changed.',
+			);
+		}
+		seen.add(id);
+	}
 	const database = db();
-	await Promise.all([
-		database.documents.clear(),
-		database.operations.clear(),
-		database.migrationJournal.clear(),
-	]);
+	const { documents, operations } = restoredRecords(slice);
+	await database.transaction(
+		'rw',
+		database.documents,
+		database.operations,
+		database.migrationJournal,
+		database.assetBlobs,
+		async () => {
+			await Promise.all([
+				database.documents.clear(),
+				database.operations.clear(),
+				database.migrationJournal.clear(),
+				database.assetBlobs.clear(),
+			]);
+			await Promise.all([
+				database.documents.bulkPut(documents),
+				database.operations.bulkPut(operations),
+				database.assetBlobs.bulkPut([...assetRecords]),
+			]);
+		},
+	);
 }
 
 /** Full wipe (onboarding "start fresh"): durable state AND asset bytes. */
 export async function resetCoreStorage(): Promise<void> {
-	await clearStateTables();
-	await db().assetBlobs.clear();
+	const database = db();
+	await database.transaction(
+		'rw',
+		database.documents,
+		database.operations,
+		database.migrationJournal,
+		database.assetBlobs,
+		async () => {
+			await Promise.all([
+				database.documents.clear(),
+				database.operations.clear(),
+				database.migrationJournal.clear(),
+				database.assetBlobs.clear(),
+			]);
+		},
+	);
 }
 
 /**
@@ -549,6 +1098,9 @@ export const __testing = {
 	// simulate a corrupting mid-write before recovery runs.
 	putRawDocument: async (key: string, doc: unknown): Promise<void> => {
 		await db().documents.put({ key, doc });
+	},
+	putRawOperation: async (id: string, sequence: number, op: unknown): Promise<void> => {
+		await db().operations.put({ id, sequence, op: op as SyncOperation });
 	},
 	DB_NAME,
 	SCENE_STATE_KEY,

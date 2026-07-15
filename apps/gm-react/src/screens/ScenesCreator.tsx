@@ -1,9 +1,22 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listScenesForActor } from '@dndtools/core';
-import { Badge, Button, Card, Dialog, Field, Icon, IconButton, Input, Select, Textarea, Toaster } from '../ds';
+import {
+	Badge,
+	Button,
+	Card,
+	Dialog,
+	Field,
+	Icon,
+	IconButton,
+	Input,
+	Select,
+	Textarea,
+	Toaster,
+} from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { parseTags, sceneStatus, statusLabel } from '../app/scene-helpers';
+import { useViewport } from '../app/useViewport';
 import { SceneCardsPanel } from './SceneCardsPanel';
 
 type Visibility = 'dm-only' | 'shared' | 'player-visible';
@@ -19,6 +32,7 @@ type Visibility = 'dm-only' | 'shared' | 'player-visible';
 export function ScenesCreator() {
 	const runtime = useRuntime();
 	const navigate = useNavigate();
+	const isDesktop = useViewport() === 'desktop';
 
 	const [name, setName] = useState('');
 	const [description, setDescription] = useState('');
@@ -33,9 +47,12 @@ export function ScenesCreator() {
 
 	const actorId = runtime.defaultActorId;
 	const activeSceneId = runtime.state.session.activeSceneId;
-	const scenes = listScenesForActor(runtime.state.scenes, runtime.state.permissions, actorId).filter(
-		(scene) => !scene.isTemplate,
-	);
+	const homeSceneId = runtime.state.commandCenter.homeSceneId;
+	const scenes = listScenesForActor(
+		runtime.state.scenes,
+		runtime.state.permissions,
+		actorId,
+	).filter((scene) => !scene.isTemplate && scene.id !== homeSceneId);
 
 	const lifecycle = runtime.lastLifecycle;
 	const createLifecycle = lifecycle && lifecycle.commandType === 'scene.create' ? lifecycle : null;
@@ -98,7 +115,11 @@ export function ScenesCreator() {
 		const { id, name } = deleteTarget;
 		setDeleting(true);
 		try {
-			const result = await runtime.dispatch({ type: 'scene.delete', actorId, payload: { sceneId: id } });
+			const result = await runtime.dispatch({
+				type: 'scene.delete',
+				actorId,
+				payload: { sceneId: id },
+			});
 			setDeleteTarget(null);
 			if (result.status !== 'accepted') {
 				Toaster.error(result.rejection.message ?? 'The scene could not be deleted.');
@@ -122,17 +143,124 @@ export function ScenesCreator() {
 
 	return (
 		<>
-		<div
-			style={{
-				display: 'grid',
-				gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)',
-				gap: 'var(--space-6)',
-				maxWidth: 1180,
-				margin: '0 auto',
-				alignItems: 'start',
-			}}
-		>
-			<Card elevation="raised" padding="lg" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+			<div
+				style={{
+					display: 'grid',
+					gridTemplateColumns: isDesktop ? 'minmax(0, 1fr) minmax(0, 1.2fr)' : 'minmax(0, 1fr)',
+					gap: 'var(--space-6)',
+					maxWidth: 1180,
+					margin: '0 auto',
+					alignItems: 'start',
+				}}
+			>
+				<Card
+					elevation="raised"
+					padding="lg"
+					style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
+				>
+					<div>
+						<div
+							style={{
+								font: '600 var(--text-2xs) var(--font-sans)',
+								letterSpacing: 'var(--tracking-wider)',
+								textTransform: 'uppercase',
+								color: 'var(--color-text-tertiary)',
+							}}
+						>
+							Create
+						</div>
+						<div
+							style={{
+								font: '700 var(--text-xl) var(--font-display)',
+								color: 'var(--color-text-primary)',
+							}}
+						>
+							New scene
+						</div>
+					</div>
+
+					<form
+						onSubmit={submit}
+						style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
+					>
+						<Field label="Name" htmlFor="scene-name" required>
+							<Input
+								id="scene-name"
+								value={name}
+								onChange={(e: { target: { value: string } }) => setName(e.target.value)}
+								placeholder="The Sunken Crypt"
+							/>
+						</Field>
+						<Field label="Description" htmlFor="scene-description">
+							<Textarea
+								id="scene-description"
+								value={description}
+								onChange={(e: { target: { value: string } }) => setDescription(e.target.value)}
+								placeholder="A flooded antechamber beneath the old keep…"
+							/>
+						</Field>
+						<Field label="Visibility" htmlFor="scene-visibility" help="Who can see this scene.">
+							<Select
+								id="scene-visibility"
+								value={visibility}
+								onChange={(e: { target: { value: string } }) =>
+									setVisibility(e.target.value as Visibility)
+								}
+								options={[
+									{ value: 'dm-only', label: 'DM only' },
+									{ value: 'shared', label: 'Shared' },
+									{ value: 'player-visible', label: 'Player visible' },
+								]}
+							/>
+						</Field>
+						<Field label="Tags" htmlFor="scene-tags" help="Comma-separated.">
+							<Input
+								id="scene-tags"
+								value={tagsRaw}
+								onChange={(e: { target: { value: string } }) => setTagsRaw(e.target.value)}
+								placeholder="dungeon, combat"
+							/>
+						</Field>
+
+						<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+							<Button
+								type="submit"
+								variant="primary"
+								icon="add"
+								disabled={submitting || !name.trim()}
+							>
+								{submitting ? 'Creating…' : 'Create scene'}
+							</Button>
+							{status === 'success' && (
+								<span
+									style={{
+										display: 'inline-flex',
+										alignItems: 'center',
+										gap: 6,
+										color: 'var(--color-status-success-text)',
+										font: 'var(--text-sm) var(--font-sans)',
+									}}
+								>
+									<Icon name="success" size="sm" /> Saved
+								</span>
+							)}
+							{status === 'failure' && (
+								<span
+									style={{
+										display: 'inline-flex',
+										alignItems: 'center',
+										gap: 6,
+										color: 'var(--color-status-error-text)',
+										font: 'var(--text-sm) var(--font-sans)',
+									}}
+								>
+									<Icon name="error" size="sm" /> {runtime.lastError ?? 'Failed'}
+								</span>
+							)}
+						</div>
+					</form>
+				</Card>
+
 				<div>
 					<div
 						style={{
@@ -140,192 +268,165 @@ export function ScenesCreator() {
 							letterSpacing: 'var(--tracking-wider)',
 							textTransform: 'uppercase',
 							color: 'var(--color-text-tertiary)',
+							marginBottom: 'var(--space-3)',
 						}}
 					>
-						Create
+						Scenes · {scenes.length}
 					</div>
-					<div style={{ font: '700 var(--text-xl) var(--font-display)', color: 'var(--color-text-primary)' }}>
-						New scene
-					</div>
-				</div>
-
-				<form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-					<Field label="Name" htmlFor="scene-name" required>
-						<Input
-							id="scene-name"
-							value={name}
-							onChange={(e: { target: { value: string } }) => setName(e.target.value)}
-							placeholder="The Sunken Crypt"
-						/>
-					</Field>
-					<Field label="Description" htmlFor="scene-description">
-						<Textarea
-							id="scene-description"
-							value={description}
-							onChange={(e: { target: { value: string } }) => setDescription(e.target.value)}
-							placeholder="A flooded antechamber beneath the old keep…"
-						/>
-					</Field>
-					<Field label="Visibility" htmlFor="scene-visibility" help="Who can see this scene.">
-						<Select
-							id="scene-visibility"
-							value={visibility}
-							onChange={(e: { target: { value: string } }) => setVisibility(e.target.value as Visibility)}
-							options={[
-								{ value: 'dm-only', label: 'DM only' },
-								{ value: 'shared', label: 'Shared' },
-								{ value: 'player-visible', label: 'Player visible' },
-							]}
-						/>
-					</Field>
-					<Field label="Tags" htmlFor="scene-tags" help="Comma-separated.">
-						<Input
-							id="scene-tags"
-							value={tagsRaw}
-							onChange={(e: { target: { value: string } }) => setTagsRaw(e.target.value)}
-							placeholder="dungeon, combat"
-						/>
-					</Field>
-
-					<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-						<Button type="submit" variant="primary" icon="add" disabled={submitting || !name.trim()}>
-							{submitting ? 'Creating…' : 'Create scene'}
-						</Button>
-						{status === 'success' && (
-							<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--color-status-success-text)', font: 'var(--text-sm) var(--font-sans)' }}>
-								<Icon name="success" size="sm" /> Saved
-							</span>
-						)}
-						{status === 'failure' && (
-							<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--color-status-error-text)', font: 'var(--text-sm) var(--font-sans)' }}>
-								<Icon name="error" size="sm" /> {runtime.lastError ?? 'Failed'}
-							</span>
-						)}
-					</div>
-				</form>
-			</Card>
-
-			<div>
-				<div
-					style={{
-						font: '600 var(--text-2xs) var(--font-sans)',
-						letterSpacing: 'var(--tracking-wider)',
-						textTransform: 'uppercase',
-						color: 'var(--color-text-tertiary)',
-						marginBottom: 'var(--space-3)',
-					}}
-				>
-					Scenes · {scenes.length}
-				</div>
-				{scenes.length === 0 ? (
-					<Card elevation="flat" padding="lg">
-						<div style={{ font: 'var(--text-sm) var(--font-sans)', color: 'var(--color-text-secondary)' }}>
-							No scenes yet. Create one to see it persist across reloads.
-						</div>
-					</Card>
-				) : (
-					<Card elevation="flat" padding="sm" style={{ display: 'flex', flexDirection: 'column' }}>
-						{scenes.map((scene, i) => {
-							const s = sceneStatus(scene, activeSceneId);
-							const rowEditing = editingId === scene.id;
-							return (
-								<div key={scene.id} style={{ borderTop: i ? '1px solid var(--color-border)' : 'none' }}>
-									<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-										<button
-											type="button"
-											onClick={() => navigate(`/scene/${scene.id}`)}
-											style={{
-												flex: 1,
-												minWidth: 0,
-												display: 'flex',
-												alignItems: 'center',
-												gap: 'var(--space-3)',
-												padding: 'var(--space-3)',
-												border: 'none',
-												borderRadius: 'var(--radius-sm)',
-												background: 'transparent',
-												cursor: 'pointer',
-												textAlign: 'left',
-											}}
-											onMouseEnter={(e) => {
-												e.currentTarget.style.background = 'var(--color-interactive-hover)';
-											}}
-											onMouseLeave={(e) => {
-												e.currentTarget.style.background = 'transparent';
-											}}
-										>
-											<Icon name={s === 'draft' ? 'lock' : 'atlas-map'} size="sm" color="var(--color-text-secondary)" />
-											<div style={{ flex: 1, minWidth: 0 }}>
-												<div style={{ font: '600 var(--text-sm) var(--font-sans)', color: 'var(--color-text-primary)' }}>
-													{scene.name}
+					{scenes.length === 0 ? (
+						<Card elevation="flat" padding="lg">
+							<div
+								style={{
+									font: 'var(--text-sm) var(--font-sans)',
+									color: 'var(--color-text-secondary)',
+								}}
+							>
+								No scenes yet. Create one to see it persist across reloads.
+							</div>
+						</Card>
+					) : (
+						<Card
+							elevation="flat"
+							padding="sm"
+							style={{ display: 'flex', flexDirection: 'column' }}
+						>
+							{scenes.map((scene, i) => {
+								const s = sceneStatus(scene, activeSceneId);
+								const rowEditing = editingId === scene.id;
+								return (
+									<div
+										key={scene.id}
+										style={{ borderTop: i ? '1px solid var(--color-border)' : 'none' }}
+									>
+										<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+											<button
+												type="button"
+												onClick={() => navigate(`/scene/${scene.id}`)}
+												style={{
+													flex: 1,
+													minWidth: 0,
+													display: 'flex',
+													alignItems: 'center',
+													gap: 'var(--space-3)',
+													padding: 'var(--space-3)',
+													border: 'none',
+													borderRadius: 'var(--radius-sm)',
+													background: 'transparent',
+													cursor: 'pointer',
+													textAlign: 'left',
+												}}
+												onMouseEnter={(e) => {
+													e.currentTarget.style.background = 'var(--color-interactive-hover)';
+												}}
+												onMouseLeave={(e) => {
+													e.currentTarget.style.background = 'transparent';
+												}}
+											>
+												<Icon
+													name={s === 'draft' ? 'lock' : 'atlas-map'}
+													size="sm"
+													color="var(--color-text-secondary)"
+												/>
+												<div style={{ flex: 1, minWidth: 0 }}>
+													<div
+														style={{
+															font: '600 var(--text-sm) var(--font-sans)',
+															color: 'var(--color-text-primary)',
+														}}
+													>
+														{scene.name}
+													</div>
+													<div
+														style={{
+															font: 'var(--text-xs) var(--font-sans)',
+															color: 'var(--color-text-tertiary)',
+														}}
+													>
+														{scene.tags?.[0] ?? 'Scene'}
+													</div>
 												</div>
-												<div style={{ font: 'var(--text-xs) var(--font-sans)', color: 'var(--color-text-tertiary)' }}>
-													{scene.tags?.[0] ?? 'Scene'}
-												</div>
-											</div>
-											<Badge status={s === 'live' ? 'success' : s === 'ready' ? 'info' : 'neutral'}>
-												{statusLabel(s)}
-											</Badge>
-										</button>
-										<IconButton
-											icon="edit"
-											label={`Edit details of ${scene.name}`}
-											variant="ghost"
-											size="sm"
-											onClick={() => setEditingId(rowEditing ? null : scene.id)}
-											style={{ flex: '0 0 auto' }}
-										/>
-										<IconButton
-											icon="delete"
-											label={`Delete ${scene.name}`}
-											variant="ghost"
-											size="sm"
-											onClick={() => setDeleteTarget({ id: scene.id, name: scene.name })}
-											style={{ marginRight: 'var(--space-2)', flex: '0 0 auto' }}
-										/>
+												<Badge
+													status={s === 'live' ? 'success' : s === 'ready' ? 'info' : 'neutral'}
+												>
+													{statusLabel(s)}
+												</Badge>
+											</button>
+											<IconButton
+												icon="edit"
+												label={`Edit details of ${scene.name}`}
+												variant="ghost"
+												size="sm"
+												onClick={() => setEditingId(rowEditing ? null : scene.id)}
+												style={{ flex: '0 0 auto' }}
+											/>
+											<IconButton
+												icon="delete"
+												label={`Delete ${scene.name}`}
+												variant="ghost"
+												size="sm"
+												onClick={() => setDeleteTarget({ id: scene.id, name: scene.name })}
+												style={{ marginRight: 'var(--space-2)', flex: '0 0 auto' }}
+											/>
+										</div>
+										{rowEditing && (
+											<SceneRowMetaEditor
+												name={scene.name}
+												description={runtime.state.scenes.scenes[scene.id]?.description ?? ''}
+												tags={scene.tags}
+												onSave={(meta) => saveRowMeta(scene.id, meta)}
+												onClose={() => setEditingId(null)}
+											/>
+										)}
 									</div>
-									{rowEditing && (
-										<SceneRowMetaEditor
-											name={scene.name}
-											description={runtime.state.scenes.scenes[scene.id]?.description ?? ''}
-											tags={scene.tags}
-											onSave={(meta) => saveRowMeta(scene.id, meta)}
-											onClose={() => setEditingId(null)}
-										/>
-									)}
-								</div>
-							);
-						})}
-					</Card>
-				)}
-			</div>
-
-			{/* Delete confirm — the DS Dialog manages focus; Delete stays one honest, undoable step. */}
-			<Dialog
-				open={!!deleteTarget}
-				onClose={() => setDeleteTarget(null)}
-				title={`Delete “${deleteTarget?.name ?? ''}”?`}
-				description="The scene leaves every list and board. You can undo right after — it stays recoverable."
-				icon="delete"
-				size="sm"
-				footer={
-					<>
-						<Button variant="secondary" size="sm" disabled={deleting} onClick={() => setDeleteTarget(null)}>
-							Cancel
-						</Button>
-						<Button variant="danger" size="sm" icon="delete" disabled={deleting} onClick={() => void confirmDelete()}>
-							{deleting ? 'Deleting…' : 'Delete scene'}
-						</Button>
-					</>
-				}
-			>
-				<div style={{ font: 'var(--text-sm) var(--font-sans)', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-					The live scene and the Command Center home scene can’t be deleted — if this is one of
-					those, the delete is refused and nothing changes.
+								);
+							})}
+						</Card>
+					)}
 				</div>
-			</Dialog>
-		</div>
-		<SceneCardsPanel />
+
+				{/* Delete confirm — the DS Dialog manages focus; Delete stays one honest, undoable step. */}
+				<Dialog
+					open={!!deleteTarget}
+					onClose={() => setDeleteTarget(null)}
+					title={`Delete “${deleteTarget?.name ?? ''}”?`}
+					description="The scene leaves every list and board. You can undo right after — it stays recoverable."
+					icon="delete"
+					size="sm"
+					footer={
+						<>
+							<Button
+								variant="secondary"
+								size="sm"
+								disabled={deleting}
+								onClick={() => setDeleteTarget(null)}
+							>
+								Cancel
+							</Button>
+							<Button
+								variant="danger"
+								size="sm"
+								icon="delete"
+								disabled={deleting}
+								onClick={() => void confirmDelete()}
+							>
+								{deleting ? 'Deleting…' : 'Delete scene'}
+							</Button>
+						</>
+					}
+				>
+					<div
+						style={{
+							font: 'var(--text-sm) var(--font-sans)',
+							color: 'var(--color-text-secondary)',
+							lineHeight: 1.5,
+						}}
+					>
+						The live scene and the Command Center home scene can’t be deleted — if this is one of
+						those, the delete is refused and nothing changes.
+					</div>
+				</Dialog>
+			</div>
+			<SceneCardsPanel />
 		</>
 	);
 }
@@ -389,7 +490,10 @@ function SceneRowMetaEditor({
 			}}
 		>
 			<Field label="Name" required>
-				<Input value={draftName} onChange={(e: { target: { value: string } }) => setDraftName(e.target.value)} />
+				<Input
+					value={draftName}
+					onChange={(e: { target: { value: string } }) => setDraftName(e.target.value)}
+				/>
 			</Field>
 			<Field label="Description">
 				<Textarea
@@ -406,12 +510,26 @@ function SceneRowMetaEditor({
 				/>
 			</Field>
 			{error && (
-				<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--color-status-error-text)', font: 'var(--text-xs) var(--font-sans)' }}>
+				<span
+					style={{
+						display: 'inline-flex',
+						alignItems: 'center',
+						gap: 6,
+						color: 'var(--color-status-error-text)',
+						font: 'var(--text-xs) var(--font-sans)',
+					}}
+				>
 					<Icon name="error" size="sm" /> {error}
 				</span>
 			)}
 			<div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-				<Button variant="primary" size="sm" icon="check" disabled={saving || !draftName.trim()} onClick={save}>
+				<Button
+					variant="primary"
+					size="sm"
+					icon="check"
+					disabled={saving || !draftName.trim()}
+					onClick={save}
+				>
 					{saving ? 'Saving…' : 'Save details'}
 				</Button>
 				<Button variant="ghost" size="sm" onClick={onClose}>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
 	findWidgetDefinition,
@@ -8,7 +8,18 @@ import {
 	type WidgetConfigField,
 	type WidgetLibraryEntry,
 } from '@dndtools/core';
-import { Badge, Button, Card, Field, Icon, IconButton, Input, Select, Switch, Textarea } from '../ds';
+import {
+	Badge,
+	Button,
+	Card,
+	Field,
+	Icon,
+	IconButton,
+	Input,
+	Select,
+	Switch,
+	Textarea,
+} from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { SceneBoardCanvas, WidgetGlyph } from '../app/SceneBoardCanvas';
 import { boardWidgetsOf, payloadIndex, TIER_LABEL, type BoardWidget } from '../app/board-helpers';
@@ -113,7 +124,11 @@ export function SceneEditor() {
 	// VIEW-mode widget operation (SES-005/SES-003): dispatch a widget-DECLARED durable command through
 	// the one envelope the core accepts — fresh idempotencyKey per press + the scene's current revision
 	// (`expectedRevision`, packages/core/src/commands/widget-command.ts).
-	function operateWidget(widgetInstanceId: string, commandType: string, payload: Record<string, unknown>) {
+	function operateWidget(
+		widgetInstanceId: string,
+		commandType: string,
+		payload: Record<string, unknown>,
+	) {
 		if (!rawScene) return;
 		return dispatch({
 			type: 'widget.dispatch-command',
@@ -168,15 +183,40 @@ export function SceneEditor() {
 	if (denied || !rawScene) {
 		return (
 			<div style={{ maxWidth: 720, margin: '0 auto' }}>
-				<Card elevation="raised" padding="lg" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--color-status-error-text)' }}>
+				<Card
+					elevation="raised"
+					padding="lg"
+					style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}
+				>
+					<div
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: 'var(--space-2)',
+							color: 'var(--color-status-error-text)',
+						}}
+					>
 						<Icon name="error" size="sm" />
-						<span style={{ font: '700 var(--text-lg) var(--font-display)' }}>Scene unavailable</span>
+						<span style={{ font: '700 var(--text-lg) var(--font-display)' }}>
+							Scene unavailable
+						</span>
 					</div>
-					<div style={{ font: 'var(--text-sm) var(--font-sans)', color: 'var(--color-text-secondary)' }}>
-						{denied && 'kind' in summary ? `Cannot open this scene: ${summary.reason}.` : 'This scene no longer exists.'}
+					<div
+						style={{
+							font: 'var(--text-sm) var(--font-sans)',
+							color: 'var(--color-text-secondary)',
+						}}
+					>
+						{denied && 'kind' in summary
+							? `Cannot open this scene: ${summary.reason}.`
+							: 'This scene no longer exists.'}
 					</div>
-					<Button variant="secondary" icon="arrow-left" onClick={() => navigate('/scenes')} style={{ alignSelf: 'flex-start' }}>
+					<Button
+						variant="secondary"
+						icon="arrow-left"
+						onClick={() => navigate('/scenes')}
+						style={{ alignSelf: 'flex-start' }}
+					>
 						Back to scenes
 					</Button>
 				</Card>
@@ -185,15 +225,42 @@ export function SceneEditor() {
 	}
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', height: 'calc(100vh - var(--space-8))' }}>
+		<div
+			style={{
+				display: 'flex',
+				flexDirection: 'column',
+				gap: 'var(--space-3)',
+				height: 'calc(var(--app-viewport-height) - var(--space-8))',
+			}}
+		>
 			{/* edit toolbar */}
-			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flex: '0 0 auto' }}>
-				<IconButton icon="arrow-left" label="Back to scenes" variant="ghost" onClick={() => navigate('/scenes')} />
+			<div
+				style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flex: '0 0 auto' }}
+			>
+				<IconButton
+					icon="arrow-left"
+					label="Back to scenes"
+					variant="ghost"
+					onClick={() => navigate('/scenes')}
+				/>
 				<div style={{ minWidth: 0 }}>
-					<div style={{ font: '700 var(--text-xl) var(--font-display)', color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+					<div
+						style={{
+							font: '700 var(--text-xl) var(--font-display)',
+							color: 'var(--color-text-primary)',
+							overflow: 'hidden',
+							textOverflow: 'ellipsis',
+							whiteSpace: 'nowrap',
+						}}
+					>
 						{summary.name}
 					</div>
-					<div style={{ font: 'var(--text-2xs) var(--font-sans)', color: 'var(--color-text-tertiary)' }}>
+					<div
+						style={{
+							font: 'var(--text-2xs) var(--font-sans)',
+							color: 'var(--color-text-tertiary)',
+						}}
+					>
 						{widgets.length} widget{widgets.length === 1 ? '' : 's'} · canvas · pan &amp; zoom
 					</div>
 				</div>
@@ -213,7 +280,16 @@ export function SceneEditor() {
 						<Switch
 							checked={snap}
 							onChange={setSnap}
-							label={<span style={{ font: 'var(--text-2xs) var(--font-sans)', color: 'var(--color-text-secondary)' }}>Snap</span>}
+							label={
+								<span
+									style={{
+										font: 'var(--text-2xs) var(--font-sans)',
+										color: 'var(--color-text-secondary)',
+									}}
+								>
+									Snap
+								</span>
+							}
 						/>
 						<Button
 							variant="secondary"
@@ -243,13 +319,30 @@ export function SceneEditor() {
 			</div>
 
 			{error && (
-				<div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, font: 'var(--text-xs) var(--font-sans)', color: 'var(--color-status-error-text)', flex: '0 0 auto' }}>
+				<div
+					style={{
+						display: 'inline-flex',
+						alignItems: 'center',
+						gap: 6,
+						font: 'var(--text-xs) var(--font-sans)',
+						color: 'var(--color-status-error-text)',
+						flex: '0 0 auto',
+					}}
+				>
 					<Icon name="error" size="sm" /> {error}
 				</div>
 			)}
 
 			{/* canvas + side panels */}
-			<div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 'var(--space-3)', position: 'relative' }}>
+			<div
+				style={{
+					flex: 1,
+					minHeight: 0,
+					display: 'flex',
+					gap: 'var(--space-3)',
+					position: 'relative',
+				}}
+			>
 				<SceneBoardCanvas
 					widgets={widgets}
 					policy="canvas"
@@ -262,7 +355,9 @@ export function SceneEditor() {
 					focusOrder={summary.focusOrder.map((entry) => entry.widgetInstanceId)}
 					onRemove={destroy}
 					onWidgetCommand={operateWidget}
-					emptyHint={editing ? 'Press Add to place your first widget.' : 'Press Edit, then add a widget.'}
+					emptyHint={
+						editing ? 'Press Add to place your first widget.' : 'Press Edit, then add a widget.'
+					}
 				/>
 
 				{metaOpen && (
@@ -328,13 +423,33 @@ function SceneMetaPanel({
 					onClose();
 				}
 			}}
-			style={{ width: 300, flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', maxHeight: '100%', overflow: 'auto' }}
+			style={{
+				width: 300,
+				flex: '0 0 auto',
+				display: 'flex',
+				flexDirection: 'column',
+				gap: 'var(--space-3)',
+				maxHeight: '100%',
+				overflow: 'auto',
+			}}
 		>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-				<span style={{ flex: 1, font: '700 var(--text-md) var(--font-display)', color: 'var(--color-text-primary)' }}>
+				<span
+					style={{
+						flex: 1,
+						font: '700 var(--text-md) var(--font-display)',
+						color: 'var(--color-text-primary)',
+					}}
+				>
 					Scene details
 				</span>
-				<IconButton icon="close" label="Close scene details" variant="ghost" size="sm" onClick={onClose} />
+				<IconButton
+					icon="close"
+					label="Close scene details"
+					variant="ghost"
+					size="sm"
+					onClick={onClose}
+				/>
 			</div>
 			<Field label="Name" htmlFor="scene-meta-name" required>
 				<Input
@@ -365,7 +480,11 @@ function SceneMetaPanel({
 				icon="check"
 				disabled={!draftName.trim()}
 				onClick={() =>
-					onSave({ name: draftName.trim(), description: draftDescription.trim(), tags: parseTags(draftTags) })
+					onSave({
+						name: draftName.trim(),
+						description: draftDescription.trim(),
+						tags: parseTags(draftTags),
+					})
 				}
 				style={{ alignSelf: 'flex-start' }}
 			>
@@ -388,14 +507,32 @@ function AddWidgetPanel({
 		<Card
 			elevation="overlay"
 			padding="md"
-			style={{ width: 300, flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', maxHeight: '100%', overflow: 'auto' }}
+			style={{
+				width: 300,
+				flex: '0 0 auto',
+				display: 'flex',
+				flexDirection: 'column',
+				gap: 'var(--space-2)',
+				maxHeight: '100%',
+				overflow: 'auto',
+			}}
 		>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-				<span style={{ flex: 1, font: '700 var(--text-md) var(--font-display)', color: 'var(--color-text-primary)' }}>Add widget</span>
+				<span
+					style={{
+						flex: 1,
+						font: '700 var(--text-md) var(--font-display)',
+						color: 'var(--color-text-primary)',
+					}}
+				>
+					Add widget
+				</span>
 				<IconButton icon="close" label="Close" variant="ghost" size="sm" onClick={onClose} />
 			</div>
 			{library.length === 0 ? (
-				<div style={{ font: 'var(--text-xs) var(--font-sans)', color: 'var(--color-text-tertiary)' }}>
+				<div
+					style={{ font: 'var(--text-xs) var(--font-sans)', color: 'var(--color-text-tertiary)' }}
+				>
 					No widgets are available to add on this profile.
 				</div>
 			) : (
@@ -418,11 +555,21 @@ function AddWidgetPanel({
 					>
 						<WidgetGlyph icon={entry.icon ?? 'widget'} size="sm" />
 						<div style={{ minWidth: 0 }}>
-							<div style={{ font: '600 var(--text-sm) var(--font-sans)', color: 'var(--color-text-primary)' }}>
+							<div
+								style={{
+									font: '600 var(--text-sm) var(--font-sans)',
+									color: 'var(--color-text-primary)',
+								}}
+							>
 								{entry.displayName}
 							</div>
 							{entry.description && (
-								<div style={{ font: 'var(--text-2xs)/1.4 var(--font-sans)', color: 'var(--color-text-tertiary)' }}>
+								<div
+									style={{
+										font: 'var(--text-2xs)/1.4 var(--font-sans)',
+										color: 'var(--color-text-tertiary)',
+									}}
+								>
 									{entry.description}
 								</div>
 							)}
@@ -470,16 +617,49 @@ function Inspector({
 			elevation="overlay"
 			padding="md"
 			data-testid="widget-inspector"
-			style={{ width: 288, flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', maxHeight: '100%', overflow: 'auto' }}
+			style={{
+				width: 288,
+				flex: '0 0 auto',
+				display: 'flex',
+				flexDirection: 'column',
+				gap: 'var(--space-1)',
+				maxHeight: '100%',
+				overflow: 'auto',
+			}}
 		>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingBottom: 'var(--space-2)' }}>
+			<div
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					gap: 'var(--space-2)',
+					paddingBottom: 'var(--space-2)',
+				}}
+			>
 				<WidgetGlyph icon={widget.icon} size="sm" />
-				<span style={{ flex: 1, minWidth: 0, font: '700 var(--text-md) var(--font-display)', color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+				<span
+					style={{
+						flex: 1,
+						minWidth: 0,
+						font: '700 var(--text-md) var(--font-display)',
+						color: 'var(--color-text-primary)',
+						overflow: 'hidden',
+						textOverflow: 'ellipsis',
+						whiteSpace: 'nowrap',
+					}}
+				>
 					{widget.title}
 				</span>
-				<IconButton icon="close" label="Close inspector" variant="ghost" size="sm" onClick={onClose} />
+				<IconButton
+					icon="close"
+					label="Close inspector"
+					variant="ghost"
+					size="sm"
+					onClick={onClose}
+				/>
 			</div>
-			<Badge status={widget.tier === 'system' ? 'neutral' : 'accent'}>{TIER_LABEL[widget.tier]}</Badge>
+			<Badge status={widget.tier === 'system' ? 'neutral' : 'accent'}>
+				{TIER_LABEL[widget.tier]}
+			</Badge>
 
 			{(settingsFields.length > 0 || widget.requiresBinding) && (
 				<Section label="Settings">
@@ -514,7 +694,9 @@ function Inspector({
 			<Section label="Visibility">
 				<Select
 					value={widget.visibility}
-					onChange={(e: { target: { value: string } }) => onVisibility(e.target.value as Visibility)}
+					onChange={(e: { target: { value: string } }) =>
+						onVisibility(e.target.value as Visibility)
+					}
 					options={[
 						{ value: 'dm-only', label: 'DM only' },
 						{ value: 'shared', label: 'Shared' },
@@ -537,7 +719,9 @@ function Inspector({
 						</Button>
 					))}
 				</div>
-				<div style={{ font: 'var(--text-2xs) var(--font-mono)', color: 'var(--color-text-tertiary)' }}>
+				<div
+					style={{ font: 'var(--text-2xs) var(--font-mono)', color: 'var(--color-text-tertiary)' }}
+				>
 					{widget.w} × {widget.h}
 				</div>
 			</Section>
@@ -563,13 +747,21 @@ function Inspector({
 						</Button>
 					)}
 				</div>
-				<div style={{ font: 'var(--text-2xs) var(--font-mono)', color: 'var(--color-text-tertiary)' }}>
+				<div
+					style={{ font: 'var(--text-2xs) var(--font-mono)', color: 'var(--color-text-tertiary)' }}
+				>
 					{focusOrder === null ? 'Auto (layout order)' : `Position ${focusOrder + 1}`}
 				</div>
 			</Section>
 
 			<div style={{ paddingTop: 'var(--space-3)' }}>
-				<Button variant="danger" size="sm" icon="delete" onClick={onRemove} style={{ alignSelf: 'flex-start' }}>
+				<Button
+					variant="danger"
+					size="sm"
+					icon="delete"
+					onClick={onRemove}
+					style={{ alignSelf: 'flex-start' }}
+				>
 					Remove widget
 				</Button>
 			</div>
@@ -621,7 +813,13 @@ function FieldControl({
 	const current = value ?? field.default;
 
 	if (field.control === 'text' || field.control === 'textarea') {
-		return <TextFieldControl field={field} initial={current == null ? '' : String(current)} onCommit={onCommit} />;
+		return (
+			<TextFieldControl
+				field={field}
+				initial={current == null ? '' : String(current)}
+				onCommit={onCommit}
+			/>
+		);
 	}
 	if (field.control === 'number') {
 		return <NumberFieldControl field={field} initial={Number(current ?? 0)} onCommit={onCommit} />;
@@ -631,7 +829,16 @@ function FieldControl({
 			<Switch
 				checked={Boolean(current)}
 				onChange={(v: boolean) => onCommit(v)}
-				label={<span style={{ font: 'var(--text-xs) var(--font-sans)', color: 'var(--color-text-secondary)' }}>{field.label}</span>}
+				label={
+					<span
+						style={{
+							font: 'var(--text-xs) var(--font-sans)',
+							color: 'var(--color-text-secondary)',
+						}}
+					>
+						{field.label}
+					</span>
+				}
 			/>
 		);
 	}
@@ -653,7 +860,15 @@ function FieldControl({
 					type="color"
 					value={String(current ?? '#000000')}
 					onChange={(e) => onCommit(e.target.value)}
-					style={{ width: 44, height: 28, padding: 0, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'transparent', cursor: 'pointer' }}
+					style={{
+						width: 44,
+						height: 28,
+						padding: 0,
+						border: '1px solid var(--color-border)',
+						borderRadius: 'var(--radius-sm)',
+						background: 'transparent',
+						cursor: 'pointer',
+					}}
 				/>
 			</Field>
 		);
@@ -671,6 +886,7 @@ function TextFieldControl({
 	onCommit: (value: unknown) => void;
 }) {
 	const [draft, setDraft] = useState(initial);
+	useEffect(() => setDraft(initial), [initial]);
 	const commit = () => {
 		if (draft !== initial) onCommit(draft);
 	};
@@ -708,6 +924,7 @@ function NumberFieldControl({
 	onCommit: (value: unknown) => void;
 }) {
 	const [draft, setDraft] = useState(String(initial));
+	useEffect(() => setDraft(String(initial)), [initial]);
 	const commit = () => {
 		const n = Number(draft);
 		if (!Number.isFinite(n) || n === initial) return;

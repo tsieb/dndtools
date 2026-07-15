@@ -6,7 +6,18 @@ import {
 	getNoteRelationshipsForActor,
 	type ContentItemView,
 } from '@dndtools/core';
-import { Button, Card, EmptyState, Icon, IconButton, Input, Select, Textarea, Toaster, VisibilityChip } from '../ds';
+import {
+	Button,
+	Card,
+	EmptyState,
+	Icon,
+	IconButton,
+	Input,
+	Select,
+	Textarea,
+	Toaster,
+	VisibilityChip,
+} from '../ds';
 import { BackBar, Page, Panel, Seg, T } from '../app/screen-kit';
 import { useViewport } from '../app/useViewport';
 import { useRuntime } from '../runtime/RuntimeContext';
@@ -26,7 +37,11 @@ import { ConnectedSourcesPanel } from '../app/ConnectedSources';
 
 // Core visibility (`dm-only` / `player-visible` / `shared`) → the safety-critical VisibilityChip level.
 // The Core never emits a "hidden" level for a returned item (hidden items are omitted entirely).
-const VIS_CHIP: Record<string, string> = { 'dm-only': 'dm-only', 'player-visible': 'players', shared: 'players' };
+const VIS_CHIP: Record<string, string> = {
+	'dm-only': 'dm-only',
+	'player-visible': 'players',
+	shared: 'players',
+};
 const VIS_OPTIONS = [
 	{ value: 'dm-only', label: 'DM only' },
 	{ value: 'player-visible', label: 'Players' },
@@ -83,17 +98,42 @@ function parseArchive(raw: string): { path: string; text: string }[] {
 function boldify(s: string): ReactNode {
 	const parts = s.split(/(\*\*[^*]+\*\*|\[\[[^\]]+\]\])/g);
 	return parts.map((p, i) => {
-		if (p.startsWith('**')) return <strong key={i} style={{ color: T.ink }}>{p.slice(2, -2)}</strong>;
-		if (p.startsWith('[[')) return <span key={i} style={{ color: T.acc }}>{p.slice(2, -2)}</span>;
+		if (p.startsWith('**'))
+			return (
+				<strong key={i} style={{ color: T.ink }}>
+					{p.slice(2, -2)}
+				</strong>
+			);
+		if (p.startsWith('[['))
+			return (
+				<span key={i} style={{ color: T.acc }}>
+					{p.slice(2, -2)}
+				</span>
+			);
 		return p;
 	});
 }
 
 function mdToNodes(md: string): ReactNode {
-	if (!md.trim()) return <p style={{ font: `13.5px/1.7 ${T.sans}`, color: T.ter, fontStyle: 'italic' }}>This note is empty.</p>;
+	if (!md.trim())
+		return (
+			<p style={{ font: `13.5px/1.7 ${T.sans}`, color: T.ter, fontStyle: 'italic' }}>
+				This note is empty.
+			</p>
+		);
 	return md.split('\n').map((ln, i) => {
-		if (ln.startsWith('### ')) return <h4 key={i} style={{ font: `700 14px ${T.disp}`, margin: '14px 0 4px' }}>{ln.slice(4)}</h4>;
-		if (ln.startsWith('## ')) return <h3 key={i} style={{ font: `700 18px ${T.disp}`, margin: '4px 0 8px' }}>{ln.slice(3)}</h3>;
+		if (ln.startsWith('### '))
+			return (
+				<h4 key={i} style={{ font: `700 14px ${T.disp}`, margin: '14px 0 4px' }}>
+					{ln.slice(4)}
+				</h4>
+			);
+		if (ln.startsWith('## '))
+			return (
+				<h3 key={i} style={{ font: `700 18px ${T.disp}`, margin: '4px 0 8px' }}>
+					{ln.slice(3)}
+				</h3>
+			);
 		if (ln.startsWith('> '))
 			return (
 				<blockquote
@@ -111,13 +151,32 @@ function mdToNodes(md: string): ReactNode {
 					{ln.slice(2)}
 				</blockquote>
 			);
-		if (ln.startsWith('- ')) return <li key={i} style={{ font: `13.5px/1.6 ${T.sans}`, color: T.sub, marginLeft: 18 }}>{boldify(ln.slice(2))}</li>;
+		if (ln.startsWith('- '))
+			return (
+				<li key={i} style={{ font: `13.5px/1.6 ${T.sans}`, color: T.sub, marginLeft: 18 }}>
+					{boldify(ln.slice(2))}
+				</li>
+			);
 		if (!ln.trim()) return <div key={i} style={{ height: 6 }} />;
-		return <p key={i} style={{ font: `13.5px/1.7 ${T.sans}`, color: T.sub, margin: '0 0 6px' }}>{boldify(ln)}</p>;
+		return (
+			<p key={i} style={{ font: `13.5px/1.7 ${T.sans}`, color: T.sub, margin: '0 0 6px' }}>
+				{boldify(ln)}
+			</p>
+		);
 	});
 }
 
-function RelRow({ icon, title, kind, onClick }: { icon: string; title: string; kind: string; onClick?: () => void }) {
+function RelRow({
+	icon,
+	title,
+	kind,
+	onClick,
+}: {
+	icon: string;
+	title: string;
+	kind: string;
+	onClick?: () => void;
+}) {
 	const [hov, setHov] = useState(false);
 	// Clickable rows read as LINKS (accent + hover underline) — as plain grey text nobody tried them.
 	return (
@@ -180,7 +239,13 @@ function NoteViewer({
 	const [err, setErr] = useState<string | null>(null);
 
 	const rel = useMemo(
-		() => getNoteRelationshipsForActor(runtime.state.content, runtime.state.permissions, actorId, note.id),
+		() =>
+			getNoteRelationshipsForActor(
+				runtime.state.content,
+				runtime.state.permissions,
+				actorId,
+				note.id,
+			),
 		[runtime.state, actorId, note.id],
 	);
 
@@ -199,7 +264,11 @@ function NoteViewer({
 		setBusy(true);
 		// content.update-item — the authorized-editor write. Strict payload: itemId/title/body only
 		// (visibility is a SEPARATE command; baseRevision omitted exactly as NotesWorkbench does).
-		const result = await runtime.dispatch({ type: 'content.update-item', actorId, payload: { itemId: note.id, title, body } });
+		const result = await runtime.dispatch({
+			type: 'content.update-item',
+			actorId,
+			payload: { itemId: note.id, title, body },
+		});
 		setBusy(false);
 		if (result.status === 'accepted') setEditing(false);
 		else setErr(result.rejection.message);
@@ -209,7 +278,11 @@ function NoteViewer({
 		setBusy(true);
 		// content.set-item-visibility — the cross-surface invalidation trigger. "Push to players" is the
 		// same command with `player-visible`.
-		const result = await runtime.dispatch({ type: 'content.set-item-visibility', actorId, payload: { itemId: note.id, visibility } });
+		const result = await runtime.dispatch({
+			type: 'content.set-item-visibility',
+			actorId,
+			payload: { itemId: note.id, visibility },
+		});
 		setBusy(false);
 		if (result.status !== 'accepted') setErr(result.rejection.message);
 	}
@@ -219,7 +292,11 @@ function NoteViewer({
 		// content.remove-item — recoverable soft-delete (the item leaves every actor-filtered read),
 		// so Delete acts immediately and the toast's Undo dispatches the counterpart
 		// content.restore-item (same delete→undo pattern as ScenesCreator).
-		const result = await runtime.dispatch({ type: 'content.remove-item', actorId, payload: { itemId: note.id } });
+		const result = await runtime.dispatch({
+			type: 'content.remove-item',
+			actorId,
+			payload: { itemId: note.id },
+		});
 		setBusy(false);
 		if (result.status === 'accepted') {
 			const itemId = note.id;
@@ -242,17 +319,38 @@ function NoteViewer({
 	return (
 		<Page max={1080}>
 			<BackBar label="Notes" onClick={onBack} />
-			<div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'minmax(0,1fr) 280px', gap: 20, alignItems: 'start' }}>
+			<div
+				style={{
+					display: 'grid',
+					gridTemplateColumns: isPhone ? '1fr' : 'minmax(0,1fr) 280px',
+					gap: 20,
+					alignItems: 'start',
+				}}
+			>
 				<Panel pad={26}>
 					<div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
 						<VisibilityChip level={VIS_CHIP[note.visibility] || 'dm-only'} />
-						<span style={{ font: `11px ${T.sans}`, color: T.ter }}>Note · updated {formatStamp(note.updatedAt)}</span>
+						<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
+							Note · updated {formatStamp(note.updatedAt)}
+						</span>
 						<div style={{ flex: 1 }} />
 						{canAuthor && !editing && (
 							<>
-								<IconButton icon="note-edit" label="Edit" variant="ghost" size="sm" onClick={startEdit} />
+								<IconButton
+									icon="note-edit"
+									label="Edit"
+									variant="ghost"
+									size="sm"
+									onClick={startEdit}
+								/>
 								{note.visibility !== 'player-visible' && (
-									<IconButton icon="send" label="Push to players" variant="ghost" size="sm" onClick={() => setVisibility('player-visible')} />
+									<IconButton
+										icon="send"
+										label="Push to players"
+										variant="ghost"
+										size="sm"
+										onClick={() => setVisibility('player-visible')}
+									/>
 								)}
 							</>
 						)}
@@ -260,7 +358,11 @@ function NoteViewer({
 
 					{editing ? (
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-							<Input value={title} onChange={(e: { target: { value: string } }) => setTitle(e.target.value)} placeholder="Note title" />
+							<Input
+								value={title}
+								onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
+								placeholder="Note title"
+							/>
 							<Textarea
 								value={body}
 								onChange={(e: { target: { value: string } }) => setBody(e.target.value)}
@@ -288,7 +390,9 @@ function NoteViewer({
 						<>
 							<h2 style={{ font: `700 22px ${T.disp}`, margin: '0 0 12px' }}>{note.title}</h2>
 							<div>{mdToNodes(note.body)}</div>
-							{err && <div style={{ marginTop: 10, font: `12px ${T.sans}`, color: T.err }}>{err}</div>}
+							{err && (
+								<div style={{ marginTop: 10, font: `12px ${T.sans}`, color: T.err }}>{err}</div>
+							)}
 						</>
 					)}
 				</Panel>
@@ -305,13 +409,22 @@ function NoteViewer({
 							<>
 								<Seg options={VIS_OPTIONS} value={note.visibility} onChange={setVisibility} />
 								{note.visibility !== 'player-visible' && (
-									<Button variant="secondary" size="sm" icon="send" disabled={busy} onClick={() => setVisibility('player-visible')} style={{ width: '100%' }}>
+									<Button
+										variant="secondary"
+										size="sm"
+										icon="send"
+										disabled={busy}
+										onClick={() => setVisibility('player-visible')}
+										style={{ width: '100%' }}
+									>
 										Push to players
 									</Button>
 								)}
 							</>
 						) : (
-							<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>Shared with you by the DM.</span>
+							<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+								Shared with you by the DM.
+							</span>
 						)}
 						{/* no core command — real-time multi-user editing PRESENCE (the prototype's live-collab
 						    panel) is not modeled by the Processing Core; this panel surfaces the real,
@@ -323,7 +436,13 @@ function NoteViewer({
 							<span style={{ font: `12px ${T.sans}`, color: T.ter }}>No notes link here yet.</span>
 						) : (
 							rel.backlinks.map((b) => (
-								<RelRow key={b.sourceId} icon="link" title={b.sourceTitle} kind="Note" onClick={() => onOpen(b.sourceId)} />
+								<RelRow
+									key={b.sourceId}
+									icon="link"
+									title={b.sourceTitle}
+									kind="Note"
+									onClick={() => onOpen(b.sourceId)}
+								/>
 							))
 						)}
 					</Panel>
@@ -333,7 +452,13 @@ function NoteViewer({
 							<span style={{ font: `12px ${T.sans}`, color: T.ter }}>No linked notes yet.</span>
 						) : (
 							rel.related.map((r) => (
-								<RelRow key={r.relatedId} icon="knowledge-book" title={r.relatedTitle} kind="Note" onClick={() => onOpen(r.relatedId)} />
+								<RelRow
+									key={r.relatedId}
+									icon="knowledge-book"
+									title={r.relatedTitle}
+									kind="Note"
+									onClick={() => onOpen(r.relatedId)}
+								/>
 							))
 						)}
 					</Panel>
@@ -343,10 +468,22 @@ function NoteViewer({
 	);
 }
 
-function Composer({ onCreate, onCancel, busy }: { onCreate: (title: string) => void; onCancel: () => void; busy: boolean }) {
+function Composer({
+	onCreate,
+	onCancel,
+	busy,
+}: {
+	onCreate: (title: string) => void;
+	onCancel: () => void;
+	busy: boolean;
+}) {
 	const [title, setTitle] = useState('');
 	return (
-		<Card elevation="flat" padding="md" style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
+		<Card
+			elevation="flat"
+			padding="md"
+			style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}
+		>
 			<Input
 				value={title}
 				autoFocus
@@ -357,7 +494,13 @@ function Composer({ onCreate, onCancel, busy }: { onCreate: (title: string) => v
 					if (e.key === 'Enter' && title.trim()) onCreate(title.trim());
 				}}
 			/>
-			<Button variant="primary" size="sm" icon="check" disabled={busy || !title.trim()} onClick={() => onCreate(title.trim())}>
+			<Button
+				variant="primary"
+				size="sm"
+				icon="check"
+				disabled={busy || !title.trim()}
+				onClick={() => onCreate(title.trim())}
+			>
 				Create
 			</Button>
 			<Button variant="ghost" size="sm" disabled={busy} onClick={onCancel}>
@@ -374,7 +517,10 @@ function pickedFilesToArchiveText(files: Array<{ name: string; text: string }>):
 	for (const file of files) {
 		if (file.name.toLowerCase().endsWith('.json')) {
 			try {
-				const parsed = JSON.parse(file.text) as { format?: unknown; files?: Array<{ path?: unknown; markdown?: unknown }> };
+				const parsed = JSON.parse(file.text) as {
+					format?: unknown;
+					files?: Array<{ path?: unknown; markdown?: unknown }>;
+				};
 				if (parsed.format === 'dndtools-content-export' && Array.isArray(parsed.files)) {
 					for (const entry of parsed.files) {
 						if (typeof entry.path === 'string' && typeof entry.markdown === 'string') {
@@ -392,7 +538,17 @@ function pickedFilesToArchiveText(files: Array<{ name: string; text: string }>):
 	return parts.join('\n\n');
 }
 
-function ImportPanel({ onImport, onCancel, busy, message }: { onImport: (text: string, policy: string) => void; onCancel: () => void; busy: boolean; message: string | null }) {
+function ImportPanel({
+	onImport,
+	onCancel,
+	busy,
+	message,
+}: {
+	onImport: (text: string, policy: string) => void;
+	onCancel: () => void;
+	busy: boolean;
+	message: string | null;
+}) {
 	const [text, setText] = useState('');
 	const [policy, setPolicy] = useState('skip');
 	const pickFiles = async () => {
@@ -404,15 +560,30 @@ function ImportPanel({ onImport, onCancel, busy, message }: { onImport: (text: s
 		setText((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${archive}` : archive));
 	};
 	return (
-		<Card elevation="flat" padding="md" style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+		<Card
+			elevation="flat"
+			padding="md"
+			style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10 }}
+		>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-				<div style={{ flex: 1, font: `600 13px ${T.sans}`, color: T.ink }}>Import a markdown vault</div>
-				<Button variant="secondary" size="sm" icon="import" disabled={busy} onClick={() => void pickFiles()}>
+				<div style={{ flex: 1, font: `600 13px ${T.sans}`, color: T.ink }}>
+					Import a markdown vault
+				</div>
+				<Button
+					variant="secondary"
+					size="sm"
+					icon="import"
+					disabled={busy}
+					onClick={() => void pickFiles()}
+				>
 					Import files…
 				</Button>
 			</div>
 			<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-				Paste markdown or pick <code style={{ fontFamily: T.mono }}>.md</code> / exported <code style={{ fontFamily: T.mono }}>.json</code> bundles — files land in the box below for review. Separate multiple notes with <code style={{ fontFamily: T.mono }}>===== path.md =====</code> headers.
+				Paste markdown or pick <code style={{ fontFamily: T.mono }}>.md</code> / exported{' '}
+				<code style={{ fontFamily: T.mono }}>.json</code> bundles — files land in the box below for
+				review. Separate multiple notes with{' '}
+				<code style={{ fontFamily: T.mono }}>===== path.md =====</code> headers.
 			</div>
 			<Textarea
 				value={text}
@@ -422,10 +593,20 @@ function ImportPanel({ onImport, onCancel, busy, message }: { onImport: (text: s
 				style={{ fontFamily: T.mono, fontSize: 12.5 }}
 			/>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-				<Select options={IMPORT_POLICIES} value={policy} onChange={(e: { target: { value: string } }) => setPolicy(e.target.value)} />
+				<Select
+					options={IMPORT_POLICIES}
+					value={policy}
+					onChange={(e: { target: { value: string } }) => setPolicy(e.target.value)}
+				/>
 				<div style={{ flex: 1 }} />
 				{message && <span style={{ font: `12px ${T.sans}`, color: T.sub }}>{message}</span>}
-				<Button variant="primary" size="sm" icon="import" disabled={busy || !text.trim()} onClick={() => onImport(text, policy)}>
+				<Button
+					variant="primary"
+					size="sm"
+					icon="import"
+					disabled={busy || !text.trim()}
+					onClick={() => onImport(text, policy)}
+				>
 					Import
 				</Button>
 				<Button variant="ghost" size="sm" disabled={busy} onClick={onCancel}>
@@ -447,7 +628,10 @@ export function Knowledge() {
 	const canAuthor = actorCanAuthorContent(runtime.state.permissions, actorId);
 
 	const notes = useMemo(
-		() => getContentItemsForActor(runtime.state.content, runtime.state.permissions, actorId).filter((n) => n.kind === 'note'),
+		() =>
+			getContentItemsForActor(runtime.state.content, runtime.state.permissions, actorId).filter(
+				(n) => n.kind === 'note',
+			),
 		[runtime.state, actorId],
 	);
 
@@ -468,7 +652,7 @@ export function Knowledge() {
 		}
 	}, [location.state, location.pathname, navigate]);
 
-	const open = detailId ? notes.find((n) => n.id === detailId) ?? null : null;
+	const open = detailId ? (notes.find((n) => n.id === detailId) ?? null) : null;
 	// `key={open.id}` REMOUNTS the editor when navigating between notes (e.g. via a backlink/related
 	// row), resetting the draft/edit state — without it React reuses the instance and a Save could
 	// persist note A's draft into note B. Same-note re-renders keep the instance (id unchanged).
@@ -487,11 +671,17 @@ export function Knowledge() {
 		setBusy(true);
 		// content.create-item — vault-level authoring (DM only). Strict payload; visibility fails closed
 		// to dm-only. The new id is read from the emitted `content.item-changed` event (demo-seed pattern).
-		const result = await runtime.dispatch({ type: 'content.create-item', actorId, payload: { kind: 'note', title, body: '', visibility: 'dm-only' } });
+		const result = await runtime.dispatch({
+			type: 'content.create-item',
+			actorId,
+			payload: { kind: 'note', title, body: '', visibility: 'dm-only' },
+		});
 		setBusy(false);
 		setComposing(false);
 		if (result.status === 'accepted') {
-			const created = result.events.find((e) => (e as { kind?: string }).kind === 'content.item-changed') as { itemId?: string } | undefined;
+			const created = result.events.find(
+				(e) => (e as { kind?: string }).kind === 'content.item-changed',
+			) as { itemId?: string } | undefined;
 			if (created?.itemId) navigate(`/knowledge/${created.itemId}`);
 		}
 	}
@@ -509,9 +699,9 @@ export function Knowledge() {
 		});
 		setBusy(false);
 		if (result.status === 'accepted') {
-			const ev = result.events.find((e) => (e as { kind?: string }).kind === 'content.import-committed') as
-				| { createdItemIds?: string[]; overwrittenItemIds?: string[] }
-				| undefined;
+			const ev = result.events.find(
+				(e) => (e as { kind?: string }).kind === 'content.import-committed',
+			) as { createdItemIds?: string[]; overwrittenItemIds?: string[] } | undefined;
 			const created = ev?.createdItemIds?.length ?? 0;
 			const over = ev?.overwrittenItemIds?.length ?? 0;
 			setImportMsg(`Imported ${created} new${over ? `, ${over} overwritten` : ''}.`);
@@ -522,8 +712,16 @@ export function Knowledge() {
 
 	return (
 		<Page max={1180}>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-				<div style={{ flex: 1 }} />
+			<div
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'flex-end',
+					flexWrap: 'wrap',
+					gap: 12,
+					marginBottom: 18,
+				}}
+			>
 				{canAuthor && (
 					<>
 						<Button
@@ -566,9 +764,19 @@ export function Knowledge() {
 				)}
 			</div>
 
-			{canAuthor && composing && <Composer busy={busy} onCreate={createNote} onCancel={() => setComposing(false)} />}
+			{canAuthor && composing && (
+				<Composer busy={busy} onCreate={createNote} onCancel={() => setComposing(false)} />
+			)}
 			{canAuthor && importing && (
-				<ImportPanel busy={busy} message={importMsg} onImport={runImport} onCancel={() => { setImporting(false); setImportMsg(null); }} />
+				<ImportPanel
+					busy={busy}
+					message={importMsg}
+					onImport={runImport}
+					onCancel={() => {
+						setImporting(false);
+						setImportMsg(null);
+					}}
+				/>
 			)}
 			{/* WS-7 — connected vault sources (local folder / Google Docs) pull+push panel. */}
 			{canAuthor && showSources && <ConnectedSourcesPanel />}
@@ -580,17 +788,41 @@ export function Knowledge() {
 					description="Notes, handouts and read-aloud text live here. Backlinks connect them automatically."
 					action={
 						canAuthor ? (
-							<Button variant="primary" size="sm" icon="note-edit" onClick={() => setComposing(true)}>
+							<Button
+								variant="primary"
+								size="sm"
+								icon="note-edit"
+								onClick={() => setComposing(true)}
+							>
 								New note
 							</Button>
 						) : undefined
 					}
 				/>
 			) : (
-				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 14 }}>
+				<div
+					style={{
+						display: 'grid',
+						gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))',
+						gap: 14,
+					}}
+				>
 					{notes.map((n) => (
-						<Card key={n.id} elevation="flat" interactive onClick={() => navigate(`/knowledge/${n.id}`)}>
-							<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 7 }}>
+						<Card
+							key={n.id}
+							elevation="flat"
+							interactive
+							onClick={() => navigate(`/knowledge/${n.id}`)}
+						>
+							<div
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									justifyContent: 'space-between',
+									gap: 8,
+									marginBottom: 7,
+								}}
+							>
 								<span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
 									<Icon name="knowledge-book" size={15} color={T.acc} />
 									<span style={{ font: `11px ${T.sans}`, color: T.ter }}>Note</span>
@@ -610,7 +842,9 @@ export function Knowledge() {
 							>
 								{snippetOf(n.body)}
 							</div>
-							<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 9 }}>updated {formatStamp(n.updatedAt)}</div>
+							<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 9 }}>
+								updated {formatStamp(n.updatedAt)}
+							</div>
 						</Card>
 					))}
 				</div>

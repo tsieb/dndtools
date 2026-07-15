@@ -1,10 +1,19 @@
-import { Component, Suspense, lazy, useEffect, type CSSProperties, type ReactNode } from 'react';
-// HashRouter (not BrowserRouter): the built app is loaded from disk in the Electron desktop shell
-// (`file://` via loadFile), where the History API's path-based URLs 404 on reload/deep-link. Hash
-// routing resolves entirely client-side, so it works identically under `file://` and a web origin —
-// the only web-visible difference is a cosmetic `#` in the URL.
+import {
+	Component,
+	Suspense,
+	lazy,
+	useEffect,
+	useState,
+	type CSSProperties,
+	type ReactNode,
+} from 'react';
+// HashRouter (not BrowserRouter): the static build is served by Electron's `dndtools://app` protocol
+// as well as CloudFront/Vite. Hash routing keeps deep links inside that single static entry document
+// in every runtime; the only web-visible difference is a cosmetic `#` in the URL.
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { RuntimeProvider, useRuntime } from './runtime/RuntimeContext';
+import type { SceneRuntime } from './runtime/SceneRuntime';
+import type { VaultBackup } from './platform/backup';
 import { AuthProvider } from './cloud/AuthContext';
 import { EntitlementsProvider } from './cloud/entitlements';
 import { CloudSyncProvider } from './cloud/CloudSyncContext';
@@ -13,40 +22,52 @@ import { ensureAudioPlayback } from './runtime/audio-playback';
 import { AppShell } from './app/AppShell';
 import { Onboarding } from './app/Onboarding';
 import { CommandCenter } from './screens/CommandCenter';
+import { SceneDisplay } from './screens/SceneDisplay';
 
 // Route-level code-splitting: every section except the landing Command Center is a lazy chunk, so
 // the boot bundle carries only the shell + hub and each surface loads on first visit (all behind
 // the one <Suspense> below — same Boot fallback everywhere). `/play` (PlayerView) brings its OWN
 // chrome, so it mounts OUTSIDE <AppShell>; `/player` is the in-shell player section.
-const ScenesCreator = lazy(() => import('./screens/ScenesCreator').then((m) => ({ default: m.ScenesCreator })));
-const SceneEditor = lazy(() => import('./screens/SceneEditor').then((m) => ({ default: m.SceneEditor })));
+const ScenesCreator = lazy(() =>
+	import('./screens/ScenesCreator').then((m) => ({ default: m.ScenesCreator })),
+);
+const SceneEditor = lazy(() =>
+	import('./screens/SceneEditor').then((m) => ({ default: m.SceneEditor })),
+);
 const Board = lazy(() => import('./screens/Board').then((m) => ({ default: m.Board })));
 const Session = lazy(() => import('./screens/Session').then((m) => ({ default: m.Session })));
-const Characters = lazy(() => import('./screens/Characters').then((m) => ({ default: m.Characters })));
+const Characters = lazy(() =>
+	import('./screens/Characters').then((m) => ({ default: m.Characters })),
+);
 const Atlas = lazy(() => import('./screens/Atlas').then((m) => ({ default: m.Atlas })));
 const Campaign = lazy(() => import('./screens/Campaign').then((m) => ({ default: m.Campaign })));
 const Knowledge = lazy(() => import('./screens/Knowledge').then((m) => ({ default: m.Knowledge })));
 const Settings = lazy(() => import('./screens/Settings').then((m) => ({ default: m.Settings })));
 const Graph = lazy(() => import('./screens/Graph').then((m) => ({ default: m.Graph })));
 const Audio = lazy(() => import('./screens/Audio').then((m) => ({ default: m.Audio })));
-const Extensions = lazy(() => import('./screens/Extensions').then((m) => ({ default: m.Extensions })));
+const Extensions = lazy(() =>
+	import('./screens/Extensions').then((m) => ({ default: m.Extensions })),
+);
 const Community = lazy(() => import('./screens/Community').then((m) => ({ default: m.Community })));
 const Player = lazy(() => import('./screens/Player').then((m) => ({ default: m.Player })));
 const Upgrade = lazy(() => import('./screens/Upgrade').then((m) => ({ default: m.Upgrade })));
-const PlayerView = lazy(() => import('./screens/PlayerView').then((m) => ({ default: m.PlayerView })));
+const PlayerView = lazy(() =>
+	import('./screens/PlayerView').then((m) => ({ default: m.PlayerView })),
+);
 const Join = lazy(() => import('./screens/Join').then((m) => ({ default: m.Join })));
-const WikiReader = lazy(() => import('./screens/WikiReader').then((m) => ({ default: m.WikiReader })));
-// I11 S11.2.2 — the chrome-less scene DISPLAY surface for the second screen / projector window
-// (opened via `window.open('#/display')`). Like `/play` it mounts OUTSIDE the DM AppShell.
-const SceneDisplay = lazy(() => import('./screens/SceneDisplay').then((m) => ({ default: m.SceneDisplay })));
-
+const WikiReader = lazy(() =>
+	import('./screens/WikiReader').then((m) => ({ default: m.WikiReader })),
+);
 const CENTERED: CSSProperties = {
 	display: 'flex',
 	flexDirection: 'column',
 	alignItems: 'center',
 	justifyContent: 'center',
 	gap: 16,
-	height: '100vh',
+	height: 'var(--app-viewport-height)',
+	width: '100%',
+	boxSizing: 'border-box',
+	overflowY: 'auto',
 	padding: 24,
 	textAlign: 'center',
 	background: 'var(--color-bg)',
@@ -59,7 +80,11 @@ const CENTERED: CSSProperties = {
  * lazy surface is fetched) so nothing renders against an empty, un-seeded slice. */
 function Boot() {
 	return (
-		<div style={{ ...CENTERED, color: 'var(--color-text-tertiary)' }} role="status" aria-live="polite">
+		<div
+			style={{ ...CENTERED, color: 'var(--color-text-tertiary)' }}
+			role="status"
+			aria-live="polite"
+		>
 			Loading your vault…
 		</div>
 	);
@@ -67,28 +92,246 @@ function Boot() {
 
 /** A recoverable failure surface with a retry/reload action, used for both a thrown initial load
  * (Dexie unavailable / corrupt slice) and an uncaught render error (the ErrorBoundary fallback). */
-function FailScreen({ title, detail, actionLabel, onAction }: { title: string; detail?: string | null; actionLabel: string; onAction: () => void }) {
+function FailScreen({
+	title,
+	detail,
+	actionLabel,
+	onAction,
+	secondaryActionLabel,
+	onSecondaryAction,
+	busy = false,
+	extra,
+}: {
+	title: string;
+	detail?: string | null;
+	actionLabel: string;
+	onAction: () => void;
+	secondaryActionLabel?: string;
+	onSecondaryAction?: () => void;
+	busy?: boolean;
+	extra?: ReactNode;
+}) {
 	return (
 		<div style={CENTERED} role="alert">
-			<div style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--color-text-primary)' }}>{title}</div>
-			{detail ? <div style={{ maxWidth: 420, color: 'var(--color-text-tertiary)' }}>{detail}</div> : null}
-			<button
-				type="button"
-				onClick={onAction}
+			<div
+				style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--color-text-primary)' }}
+			>
+				{title}
+			</div>
+			{detail ? (
+				<div style={{ maxWidth: 420, color: 'var(--color-text-tertiary)' }}>{detail}</div>
+			) : null}
+			<div
 				style={{
+					display: 'flex',
+					flexWrap: 'wrap',
+					justifyContent: 'center',
+					gap: 10,
 					marginTop: 4,
-					padding: '8px 18px',
-					borderRadius: 'var(--radius-md, 6px)',
-					border: '1px solid var(--color-border)',
-					background: 'var(--color-accent)',
-					color: 'var(--color-accent-contrast, #1a140c)',
-					font: '600 13px var(--font-sans)',
-					cursor: 'pointer',
 				}}
 			>
-				{actionLabel}
-			</button>
+				<button
+					type="button"
+					disabled={busy}
+					onClick={onAction}
+					style={{
+						minHeight: 44,
+						padding: '8px 18px',
+						borderRadius: 'var(--radius-md, 6px)',
+						border: '1px solid var(--color-border)',
+						background: 'var(--color-accent)',
+						color: 'var(--color-accent-foreground)',
+						font: '600 13px var(--font-sans)',
+						cursor: busy ? 'wait' : 'pointer',
+					}}
+				>
+					{actionLabel}
+				</button>
+				{secondaryActionLabel && onSecondaryAction ? (
+					<button
+						type="button"
+						disabled={busy}
+						onClick={onSecondaryAction}
+						style={{
+							minHeight: 44,
+							padding: '8px 18px',
+							borderRadius: 'var(--radius-md, 6px)',
+							border: '1px solid var(--color-border)',
+							background: 'var(--color-surface)',
+							color: 'var(--color-text-primary)',
+							font: '600 13px var(--font-sans)',
+							cursor: busy ? 'wait' : 'pointer',
+						}}
+					>
+						{secondaryActionLabel}
+					</button>
+				) : null}
+			</div>
+			{extra}
 		</div>
+	);
+}
+
+function vaultLoadFailureDetail(error: string | null): string {
+	if (/newer app version|upgrade the app/i.test(error ?? '')) {
+		return 'This vault was saved by a newer DND Tools version. Update the app, then try again. Your local data was not changed.';
+	}
+	if (/damaged|operation history|invalid schema|migration snapshot/i.test(error ?? '')) {
+		return 'DND Tools found invalid local vault data and stopped before changing it. You can restore a known-good local backup below.';
+	}
+	return 'DND Tools could not access local storage. Close any other app windows, check that storage is available, then try again. Your local data was not erased.';
+}
+
+/** Recovery must remain available even when the normal Settings screen cannot mount. The selected
+ * file is size-bounded and validated completely before this screen offers the destructive action. */
+function VaultLoadFailure({ runtime }: { runtime: SceneRuntime }) {
+	const [pendingBackup, setPendingBackup] = useState<VaultBackup | null>(null);
+	const [busy, setBusy] = useState(false);
+	const [recoveryError, setRecoveryError] = useState<string | null>(null);
+
+	const pickBackup = async () => {
+		setBusy(true);
+		setRecoveryError(null);
+		try {
+			const [{ pickTextFile }, backupModule] = await Promise.all([
+				import('./platform/filePick'),
+				import('./platform/backup'),
+			]);
+			const file = await pickTextFile('.json', backupModule.MAX_VAULT_BACKUP_FILE_BYTES);
+			if (!file) return;
+			let parsed: unknown;
+			try {
+				parsed = JSON.parse(file.text);
+			} catch {
+				throw new Error('That file is not valid JSON and cannot be a DND Tools vault backup.');
+			}
+			setPendingBackup(backupModule.validateVaultBackup(parsed));
+		} catch (error) {
+			setRecoveryError(
+				error instanceof Error ? error.message : 'That vault backup could not be opened.',
+			);
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	const restoreBackup = async () => {
+		if (!pendingBackup) return;
+		setBusy(true);
+		setRecoveryError(null);
+		try {
+			const { importFullVault } = await import('./platform/backup');
+			await runtime.runExclusiveMaintenance(async () => {
+				await importFullVault(pendingBackup);
+				// Prove the replacement can hydrate before releasing queued commands. Without this,
+				// a background command could run against the stale in-memory vault between the import
+				// transaction and the page reload, overwriting the newly restored records.
+				await runtime.reloadFromStorage();
+			});
+			window.location.reload();
+		} catch (error) {
+			setRecoveryError(
+				error instanceof Error
+					? error.message
+					: 'Restore could not be completed. The selected backup is still available to retry.',
+			);
+			setBusy(false);
+		}
+	};
+
+	if (pendingBackup) {
+		return (
+			<div
+				style={CENTERED}
+				role="alertdialog"
+				aria-modal="true"
+				aria-labelledby="vault-recovery-title"
+				aria-describedby="vault-recovery-detail"
+				aria-busy={busy}
+			>
+				<div
+					id="vault-recovery-title"
+					style={{
+						fontSize: 'var(--text-lg)',
+						fontWeight: 600,
+						color: 'var(--color-text-primary)',
+					}}
+				>
+					Replace this vault from backup?
+				</div>
+				<div
+					id="vault-recovery-detail"
+					style={{ maxWidth: 480, color: 'var(--color-text-tertiary)' }}
+				>
+					The backup was created {new Date(pendingBackup.createdAt).toLocaleString()} and includes{' '}
+					{pendingBackup.assets.length} media{' '}
+					{pendingBackup.assets.length === 1 ? 'asset' : 'assets'}. Restoring replaces the
+					unreadable local vault only after one final validation; a failed transaction leaves it
+					unchanged.
+				</div>
+				<div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 10 }}>
+					<button
+						type="button"
+						autoFocus
+						disabled={busy}
+						onClick={() => setPendingBackup(null)}
+						style={{
+							minHeight: 44,
+							padding: '8px 18px',
+							border: '1px solid var(--color-border-strong)',
+							borderRadius: 'var(--radius-md, 6px)',
+							background: 'var(--color-surface-raised)',
+							color: 'var(--color-text-primary)',
+							font: '600 13px var(--font-sans)',
+							cursor: busy ? 'wait' : 'pointer',
+						}}
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						disabled={busy}
+						onClick={() => void restoreBackup()}
+						style={{
+							minHeight: 44,
+							padding: '8px 18px',
+							border: '1px solid var(--color-status-error)',
+							borderRadius: 'var(--radius-md, 6px)',
+							background: 'var(--color-status-error)',
+							color: 'var(--color-text-inverse)',
+							font: '600 13px var(--font-sans)',
+							cursor: busy ? 'wait' : 'pointer',
+						}}
+					>
+						{busy ? 'Restoring…' : 'Replace vault & reload'}
+					</button>
+				</div>
+				{recoveryError ? (
+					<div role="alert" style={{ maxWidth: 480, color: 'var(--color-status-error-text)' }}>
+						{recoveryError}
+					</div>
+				) : null}
+			</div>
+		);
+	}
+
+	return (
+		<FailScreen
+			title="Couldn’t open your vault"
+			detail={vaultLoadFailureDetail(runtime.lastError)}
+			actionLabel="Try again"
+			onAction={() => void runtime.load()}
+			secondaryActionLabel={busy ? 'Opening backup…' : 'Restore local backup…'}
+			onSecondaryAction={() => void pickBackup()}
+			busy={busy}
+			extra={
+				recoveryError ? (
+					<div role="alert" style={{ maxWidth: 480, color: 'var(--color-status-error-text)' }}>
+						{recoveryError}
+					</div>
+				) : null
+			}
+		/>
 	);
 }
 
@@ -105,7 +348,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 			return (
 				<FailScreen
 					title="Something went wrong"
-					detail={this.state.error.message}
+					detail="This screen could not be displayed. Reload the app to return to your saved vault."
 					actionLabel="Reload"
 					onAction={() => window.location.reload()}
 				/>
@@ -159,14 +402,7 @@ function Shell() {
 		if (runtime.loaded) ensureAudioPlayback(runtime);
 	}, [runtime, runtime.loaded]);
 	if (runtime.hasLoadError) {
-		return (
-			<FailScreen
-				title="Couldn’t open your vault"
-				detail={runtime.lastError ?? 'Local storage may be unavailable in this browser.'}
-				actionLabel="Try again"
-				onAction={() => void runtime.load()}
-			/>
-		);
+		return <VaultLoadFailure runtime={runtime} />;
 	}
 	if (!runtime.loaded) return <Boot />;
 	// `/play` is the standalone player-view app: it renders its own chrome, so it sits OUTSIDE the

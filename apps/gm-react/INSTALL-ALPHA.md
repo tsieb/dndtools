@@ -1,5 +1,8 @@
 # DND Tools GM — Alpha Install Guide
 
+> This guide applies only to **unsigned preview builds**. Production releases are built through the
+> signing-required release channel and must not ask users to bypass Gatekeeper or SmartScreen.
+
 Thanks for helping test **DND Tools GM**, an offline Game-Master workspace for tabletop RPGs. It runs
 entirely on your machine — **no account, no internet required** — and opens into a ready-to-explore
 sample campaign so you can poke around immediately.
@@ -14,14 +17,14 @@ past it.
 
 Grab the latest build from the project's **GitHub Releases** page and pick the file for your machine:
 
-| Your machine | File to download |
-| --- | --- |
-| **Windows** (10/11, 64-bit) | `DND-Tools-GM-<version>-x64.exe` |
-| **Mac — Apple Silicon** (M1/M2/M3/M4) | `DND-Tools-GM-<version>-arm64.dmg` |
-| **Mac — Intel** | `DND-Tools-GM-<version>-x64.dmg` |
-| **Linux** (x64) | `DND-Tools-GM-<version>-x86_64.AppImage` |
+| Your machine                          | File to download                         |
+| ------------------------------------- | ---------------------------------------- |
+| **Windows** (10/11, 64-bit)           | `DND-Tools-GM-<version>-x64.exe`         |
+| **Mac — Apple Silicon** (M1/M2/M3/M4) | `DND-Tools-GM-<version>-arm64.dmg`       |
+| **Mac — Intel**                       | `DND-Tools-GM-<version>-x64.dmg`         |
+| **Linux** (x64)                       | `DND-Tools-GM-<version>-x86_64.AppImage` |
 
-> Not sure which Mac you have? Apple menu →  **About This Mac**. "Apple M…" = Apple Silicon; "Intel" = Intel.
+> Not sure which Mac you have? Apple menu → **About This Mac**. "Apple M…" = Apple Silicon; "Intel" = Intel.
 
 ---
 
@@ -34,7 +37,8 @@ Grab the latest build from the project's **GitHub Releases** page and pick the f
    no admin password prompt) and click **Install**. It adds a **Start-menu** and **desktop** shortcut and
    launches when done.
 4. To remove it later: **Settings → Apps → Installed apps → DND Tools GM → Uninstall** (or "Add or remove
-   programs"). Your saved data isn't touched by uninstalling — see the reset section below to clear it.
+   programs"). Uninstalling does not remove your local workspace, online account, or credentials held by
+   the operating-system credential manager; see the reset section below.
 
 ## 2b. Install on macOS
 
@@ -64,7 +68,7 @@ Grab the latest build from the project's **GitHub Releases** page and pick the f
 3. **If it fails to start with a FUSE error**, either install FUSE 2…
    - Debian/Ubuntu: `sudo apt install libfuse2`
    - Fedora: `sudo dnf install fuse`
-   …**or** skip FUSE entirely by running:
+     …**or** skip FUSE entirely by running:
    ```sh
    ./DND-Tools-GM-*-x86_64.AppImage --appimage-extract-and-run
    ```
@@ -73,16 +77,28 @@ Grab the latest build from the project's **GitHub Releases** page and pick the f
 
 ## 3. Your data — where it lives & how to reset
 
-Everything you create stays **on your computer only**. Nothing is uploaded.
+Everything you create is **local by default**. Data leaves your computer only when you explicitly
+configure and enable an online feature such as cloud backup, internet play, Google Docs, or an AI
+provider; the app explains the destination before enabling those features.
 
-| OS | Data folder |
-| --- | --- |
+| OS      | Data folder                                                               |
+| ------- | ------------------------------------------------------------------------- |
 | Windows | `%APPDATA%\DND Tools GM\` (paste that into the File Explorer address bar) |
-| macOS | `~/Library/Application Support/DND Tools GM/` |
-| Linux | `~/.config/DND Tools GM/` |
+| macOS   | `~/Library/Application Support/DND Tools GM/`                             |
+| Linux   | `~/.config/DND Tools GM/`                                                 |
 
-**To wipe everything and start fresh:** fully quit the app, delete that folder, and relaunch — the sample
-campaign will re-seed automatically.
+**To reset the local workspace:** first download a local backup if you may need it, fully quit the app,
+delete that folder, and relaunch. The sample campaign will re-seed automatically. Deleting the folder does
+**not** delete an online account or its encrypted cloud copy, and it may not remove tokens, vault keys, or
+AI provider keys held by the operating-system credential manager. Remove online account data from
+**Settings → Account** and saved AI credentials from **Settings → AI & tools** before resetting. If the app
+cannot open, remove any remaining DND Tools entries with your operating system's credential manager.
+
+When upgrading from v0.2.0, the first launch copies the old desktop vault into the app's new secure
+storage origin before the workspace opens. The old copy is retained, the new copy is verified, and a
+failed or interrupted move is retried rather than opening an empty workspace. Locally connected folders
+must be reconnected once after this upgrade because operating-system folder permissions cannot be moved
+between origins.
 
 ---
 
@@ -91,5 +107,9 @@ campaign will re-seed automatically.
 - **Unsigned build** — hence the one-time security prompt above. A signed release will remove it later.
 - **No auto-update yet** — when a new build is announced, download it from the Releases page and reinstall
   (your local data in the folder above is untouched by reinstalling).
+- **Cloud backup is a recovery copy, not device sync** — restore is manual and replaces the local vault;
+  it does not merge edits made on different devices. Recovery-key export and automatic key transfer are
+  not available yet, so losing every device that holds the vault key also loses access to the cloud copy.
+  Keep a downloaded local vault backup; unlike the cloud copy, it includes stored media bytes.
 - Found a bug or something confusing? Please send it along with your OS and what you were doing — that
   feedback is exactly what this alpha is for. 🎲

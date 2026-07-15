@@ -26,7 +26,13 @@ const offer: OfferPayload = {
 	sdp: 'v=0\r\no=- 1 1 IN IP4 0.0.0.0\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\n',
 };
 
-const answer: AnswerPayload = { v: 1, role: 'answer', sessionId: 'sess-123', sdp: 'v=0\r\na=answer\r\n' };
+const answer: AnswerPayload = {
+	v: 1,
+	role: 'answer',
+	sessionId: 'sess-123',
+	actorId: 'actor-7',
+	sdp: 'v=0\r\na=answer\r\n',
+};
 
 describe('connection code encode/decode', () => {
 	it('round-trips an offer payload exactly', async () => {
@@ -52,6 +58,15 @@ describe('connection code encode/decode', () => {
 
 	it('throws on a code that is too short to be valid (decodes to < 2 bytes)', async () => {
 		await expect(decodeCode('AA')).rejects.toThrow(/too short/i);
+	});
+
+	it('rejects oversized input before base64 allocation', async () => {
+		await expect(decodeCode('A'.repeat(256 * 1024 + 1))).rejects.toThrow(/too large/i);
+	});
+
+	it('rejects structurally incomplete payloads', async () => {
+		const malformed = { ...answer, actorId: '' };
+		await expect(encodeCode(malformed as AnswerPayload)).rejects.toThrow(/invalid payload/i);
 	});
 });
 

@@ -44,6 +44,9 @@ async function rejectedWith(p: Promise<unknown>): Promise<AiTransportError> {
 
 beforeEach(() => {
 	fetchMock.mockReset();
+	// Network authorization is a separate guard. These transport-shaping cases opt into only the
+	// two destinations they exercise, mirroring a configured development/production build.
+	vi.stubEnv('VITE_AI_ALLOWED_ORIGINS', 'https://api.anthropic.com https://api.example.com');
 });
 
 describe('fail closed', () => {
@@ -52,6 +55,15 @@ describe('fail closed', () => {
 			name: 'AiTransportError',
 			kind: 'not-configured',
 		});
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it('does not send the credential when the destination is outside the web allowlist', async () => {
+		vi.stubEnv('VITE_AI_ALLOWED_ORIGINS', 'https://api.anthropic.com');
+
+		await expect(
+			sendAiChat(openAiConfig, { system: 's', turns: [], tools: [] }),
+		).rejects.toMatchObject({ kind: 'network', status: null });
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 });
@@ -64,10 +76,13 @@ describe('Anthropic Messages API shaping', () => {
 	};
 
 	it('POSTs to /v1/messages with the key, version, and direct-browser-access headers', async () => {
-		fetchMock.mockResolvedValue(jsonResponse(200, { content: [{ type: 'text', text: 'hi' }], stop_reason: 'end_turn' }));
+		fetchMock.mockResolvedValue(
+			jsonResponse(200, { content: [{ type: 'text', text: 'hi' }], stop_reason: 'end_turn' }),
+		);
 		await sendAiChat(anthropicConfig, request);
 		const { url, init, body } = lastFetch();
 		expect(url).toBe(`${__testing.ANTHROPIC_BASE_URL}/v1/messages`);
+		expect(init.redirect).toBe('error');
 		const headers = init.headers as Record<string, string>;
 		expect(headers['x-api-key']).toBe('sk-ant-key');
 		expect(headers['anthropic-version']).toBe(__testing.ANTHROPIC_VERSION);
@@ -76,12 +91,18 @@ describe('Anthropic Messages API shaping', () => {
 		expect(body.max_tokens).toBe(__testing.MAX_TOKENS);
 		expect(body.system).toBe('you are the assistant');
 		expect(body.messages).toEqual([{ role: 'user', content: [{ type: 'text', text: 'hello' }] }]);
-		expect(body.tools).toEqual([{ name: 'note__read', description: 'Read a note', input_schema: { type: 'object' } }]);
+		expect(body.tools).toEqual([
+			{ name: 'note__read', description: 'Read a note', input_schema: { type: 'object' } },
+		]);
 	});
 
 	it('omits the tools field entirely when no tools are offered', async () => {
 		fetchMock.mockResolvedValue(jsonResponse(200, { content: [], stop_reason: 'end_turn' }));
-		await sendAiChat(anthropicConfig, { system: 's', turns: [{ role: 'user', text: 'hi' }], tools: [] });
+		await sendAiChat(anthropicConfig, {
+			system: 's',
+			turns: [{ role: 'user', text: 'hi' }],
+			tools: [],
+		});
 		expect(lastFetch().body).not.toHaveProperty('tools');
 	});
 
@@ -104,26 +125,43 @@ describe('Anthropic Messages API shaping', () => {
 	it('maps refusal and max_tokens stop reasons', async () => {
 		fetchMock.mockResolvedValueOnce(jsonResponse(200, { content: [], stop_reason: 'refusal' }));
 		expect((await sendAiChat(anthropicConfig, request)).stopReason).toBe('refusal');
-		fetchMock.mockResolvedValueOnce(jsonResponse(200, { content: [{ type: 'text', text: 'x' }], stop_reason: 'max_tokens' }));
+		fetchMock.mockResolvedValueOnce(
+			jsonResponse(200, { content: [{ type: 'text', text: 'x' }], stop_reason: 'max_tokens' }),
+		);
 		expect((await sendAiChat(anthropicConfig, request)).stopReason).toBe('max-tokens');
 	});
 
 	it('replays assistant tool_use + tool_result turns as wire-valid Anthropic blocks', async () => {
-		fetchMock.mockResolvedValue(jsonResponse(200, { content: [{ type: 'text', text: 'done' }], stop_reason: 'end_turn' }));
+		fetchMock.mockResolvedValue(
+			jsonResponse(200, { content: [{ type: 'text', text: 'done' }], stop_reason: 'end_turn' }),
+		);
 		await sendAiChat(anthropicConfig, {
 			system: 's',
 			turns: [
 				{ role: 'user', text: 'read n1' },
-				{ role: 'assistant', text: '', toolCalls: [{ id: 'tu_1', name: 'note__read', input: { id: 'n1' } }] },
-				{ role: 'tool-results', results: [{ toolCallId: 'tu_1', content: 'note body', isError: false }] },
+				{
+					role: 'assistant',
+					text: '',
+					toolCalls: [{ id: 'tu_1', name: 'note__read', input: { id: 'n1' } }],
+				},
+				{
+					role: 'tool-results',
+					results: [{ toolCallId: 'tu_1', content: 'note body', isError: false }],
+				},
 			],
 			tools: [],
 		});
 		const messages = lastFetch().body.messages as Array<{ role: string; content: unknown[] }>;
 		// assistant turn with empty text drops the text block, keeps the tool_use block
-		expect(messages[1]).toEqual({ role: 'assistant', content: [{ type: 'tool_use', id: 'tu_1', name: 'note__read', input: { id: 'n1' } }] });
+		expect(messages[1]).toEqual({
+			role: 'assistant',
+			content: [{ type: 'tool_use', id: 'tu_1', name: 'note__read', input: { id: 'n1' } }],
+		});
 		// tool-results ride back as a user message of tool_result blocks
-		expect(messages[2]).toEqual({ role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tu_1', content: 'note body' }] });
+		expect(messages[2]).toEqual({
+			role: 'user',
+			content: [{ type: 'tool_result', tool_use_id: 'tu_1', content: 'note body' }],
+		});
 	});
 });
 
@@ -135,15 +173,21 @@ describe('OpenAI-compatible shaping', () => {
 	};
 
 	it('POSTs to {baseUrl}/chat/completions with a Bearer key and a system message', async () => {
-		fetchMock.mockResolvedValue(jsonResponse(200, { choices: [{ message: { content: 'hi' }, finish_reason: 'stop' }] }));
+		fetchMock.mockResolvedValue(
+			jsonResponse(200, { choices: [{ message: { content: 'hi' }, finish_reason: 'stop' }] }),
+		);
 		await sendAiChat(openAiConfig, request);
 		const { url, init, body } = lastFetch();
 		expect(url).toBe('https://api.example.com/v1/chat/completions'); // trailing slash on baseUrl normalized
+		expect(init.redirect).toBe('error');
 		expect((init.headers as Record<string, string>).authorization).toBe('Bearer sk-oai-key');
 		const messages = body.messages as Array<{ role: string }>;
 		expect(messages[0]).toEqual({ role: 'system', content: 'sys' });
 		expect(body.tools).toEqual([
-			{ type: 'function', function: { name: 'note__read', description: 'Read', parameters: { type: 'object' } } },
+			{
+				type: 'function',
+				function: { name: 'note__read', description: 'Read', parameters: { type: 'object' } },
+			},
 		]);
 	});
 
@@ -154,7 +198,9 @@ describe('OpenAI-compatible shaping', () => {
 					{
 						message: {
 							content: 'looking',
-							tool_calls: [{ id: 'c1', function: { name: 'note__read', arguments: '{"id":"n1"}' } }],
+							tool_calls: [
+								{ id: 'c1', function: { name: 'note__read', arguments: '{"id":"n1"}' } },
+							],
 						},
 						finish_reason: 'tool_calls',
 					},
@@ -169,7 +215,15 @@ describe('OpenAI-compatible shaping', () => {
 	it('degrades malformed tool arguments to an empty input (so the Core denies, never a silent success)', async () => {
 		fetchMock.mockResolvedValue(
 			jsonResponse(200, {
-				choices: [{ message: { content: null, tool_calls: [{ id: 'c1', function: { name: 'note__read', arguments: '{bad' } }] }, finish_reason: 'tool_calls' }],
+				choices: [
+					{
+						message: {
+							content: null,
+							tool_calls: [{ id: 'c1', function: { name: 'note__read', arguments: '{bad' } }],
+						},
+						finish_reason: 'tool_calls',
+					},
+				],
 			}),
 		);
 		const reply = await sendAiChat(openAiConfig, request);
@@ -180,17 +234,23 @@ describe('OpenAI-compatible shaping', () => {
 describe('error surfaces', () => {
 	it('maps 401 to a typed auth error', async () => {
 		fetchMock.mockResolvedValue(jsonResponse(401, { error: { message: 'bad key' } }));
-		await expect(sendAiChat(anthropicConfig, { system: 's', turns: [], tools: [] })).rejects.toMatchObject({ kind: 'auth', status: 401 });
+		await expect(
+			sendAiChat(anthropicConfig, { system: 's', turns: [], tools: [] }),
+		).rejects.toMatchObject({ kind: 'auth', status: 401 });
 	});
 
 	it('maps 429 to a typed rate-limit error', async () => {
 		fetchMock.mockResolvedValue(jsonResponse(429, {}));
-		await expect(sendAiChat(anthropicConfig, { system: 's', turns: [], tools: [] })).rejects.toMatchObject({ kind: 'rate-limit', status: 429 });
+		await expect(
+			sendAiChat(anthropicConfig, { system: 's', turns: [], tools: [] }),
+		).rejects.toMatchObject({ kind: 'rate-limit', status: 429 });
 	});
 
 	it('surfaces the provider message on a 4xx (actionable bad-model errors)', async () => {
 		fetchMock.mockResolvedValue(jsonResponse(400, { error: { message: 'model not found' } }));
-		const err = await rejectedWith(sendAiChat(anthropicConfig, { system: 's', turns: [], tools: [] }));
+		const err = await rejectedWith(
+			sendAiChat(anthropicConfig, { system: 's', turns: [], tools: [] }),
+		);
 		expect(err.kind).toBe('api');
 		expect(err.message).toContain('model not found');
 	});
@@ -198,7 +258,9 @@ describe('error surfaces', () => {
 	it('keeps 5xx generic and never reads the body', async () => {
 		const body = { error: { message: 'internal secret detail' } };
 		fetchMock.mockResolvedValue(jsonResponse(500, body));
-		const err = await rejectedWith(sendAiChat(anthropicConfig, { system: 's', turns: [], tools: [] }));
+		const err = await rejectedWith(
+			sendAiChat(anthropicConfig, { system: 's', turns: [], tools: [] }),
+		);
 		expect(err.kind).toBe('api');
 		expect(err.status).toBe(500);
 		expect(err.message).not.toContain('internal secret detail');
@@ -206,6 +268,8 @@ describe('error surfaces', () => {
 
 	it('maps a thrown fetch (offline) to a typed network error', async () => {
 		fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
-		await expect(sendAiChat(openAiConfig, { system: 's', turns: [], tools: [] })).rejects.toMatchObject({ kind: 'network', status: null });
+		await expect(
+			sendAiChat(openAiConfig, { system: 's', turns: [], tools: [] }),
+		).rejects.toMatchObject({ kind: 'network', status: null });
 	});
 });

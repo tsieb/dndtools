@@ -60,18 +60,33 @@ try {
 	const exported = await crypto.exportKeyBase64(key);
 	const reimported = await crypto.importKeyBase64(exported);
 	const opened2 = await crypto.open(reimported, sealed);
-	check('exported→imported key still opens the frame', JSON.stringify(opened2) === JSON.stringify(msg));
+	check(
+		'exported→imported key still opens the frame',
+		JSON.stringify(opened2) === JSON.stringify(msg),
+	);
 
 	// 4 — connection-code encode/decode round-trips the offer + answer payloads.
 	const offer = {
-		v: 1, role: 'offer', sessionId: 'sess-1', actorId: 'actor-player',
-		displayName: 'Aria', participantRole: 'player', keyB64: exported, sdp: 'v=0\r\no=- 1 1 IN IP4 0.0.0.0\r\n',
+		v: 1,
+		role: 'offer',
+		sessionId: 'sess-1',
+		actorId: 'actor-player',
+		displayName: 'Aria',
+		participantRole: 'player',
+		keyB64: exported,
+		sdp: 'v=0\r\no=- 1 1 IN IP4 0.0.0.0\r\n',
 	};
 	const offerCode = await signaling.encodeCode(offer);
 	const decodedOffer = await signaling.decodeCode(offerCode);
 	check('offer code round-trips', JSON.stringify(decodedOffer) === JSON.stringify(offer));
 
-	const answer = { v: 1, role: 'answer', sessionId: 'sess-1', sdp: 'v=0\r\no=- 2 2 IN IP4 0.0.0.0\r\n' };
+	const answer = {
+		v: 1,
+		role: 'answer',
+		sessionId: 'sess-1',
+		actorId: 'actor-player',
+		sdp: 'v=0\r\no=- 2 2 IN IP4 0.0.0.0\r\n',
+	};
 	const answerCode = await signaling.encodeCode(answer);
 	const decodedAnswer = await signaling.decodeCode(answerCode);
 	check('answer code round-trips', JSON.stringify(decodedAnswer) === JSON.stringify(answer));

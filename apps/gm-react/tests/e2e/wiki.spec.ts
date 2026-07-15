@@ -21,12 +21,16 @@ test.describe('wiki: publish surface fail-closed (Community → Campaign wiki)',
 		await page.locator('#main-content').waitFor({ state: 'attached' });
 	});
 
-	test('the compose surface is honestly local-only with no dead publish button', async ({ page }) => {
+	test('the compose surface is honestly local-only with no dead publish button', async ({
+		page,
+	}) => {
 		await page.getByRole('tab', { name: 'Campaign wiki' }).click();
 
 		// Fail closed: the publish column states plainly there is no cloud backend to host a wiki.
 		await expect(page.getByText('Local-only build')).not.toHaveCount(0);
-		await expect(page.getByText(/This build isn’t connected to a cloud backend/)).not.toHaveCount(0);
+		await expect(
+			page.getByText(/Public wiki hosting is not available in this edition/),
+		).not.toHaveCount(0);
 
 		// No dead publish/unpublish affordances that would throw against an unconfigured backend.
 		await expect(page.getByRole('button', { name: 'Publish wiki' })).toHaveCount(0);
@@ -51,7 +55,9 @@ test.describe('wiki: public reader route (#/wiki)', () => {
 		await markOnboarded(page);
 	});
 
-	test('with no id it renders the honest "no wiki link" notice, not a blank page', async ({ page }) => {
+	test('with no id it renders the honest "no wiki link" notice, not a blank page', async ({
+		page,
+	}) => {
 		await page.goto('/#/wiki', { waitUntil: 'domcontentloaded' });
 
 		// The reader mounts standalone and shows an honest missing-link notice (its card is the page main).
@@ -60,12 +66,16 @@ test.describe('wiki: public reader route (#/wiki)', () => {
 		await expect(page.getByText(/missing its wiki id/)).not.toHaveCount(0);
 	});
 
-	test('with an id and no backend it renders the honest invalid-link message, not a crash', async ({ page }) => {
+	test('with an id and no backend it renders the honest invalid-link message, not a crash', async ({
+		page,
+	}) => {
 		await page.goto('/#/wiki?id=not-a-real-wiki-id', { waitUntil: 'domcontentloaded' });
 
 		// getPublicWiki has no API URL configured on the e2e server, so the fetch fails closed and the
 		// reader resolves to its honest invalid state (after the brief loading phase) — never blank.
 		await expect(page.getByText('Wiki unavailable')).not.toHaveCount(0);
-		await expect(page.getByText(/not configured for this build/)).not.toHaveCount(0);
+		await expect(
+			page.getByText(/Online account services are not available in this edition/),
+		).not.toHaveCount(0);
 	});
 });

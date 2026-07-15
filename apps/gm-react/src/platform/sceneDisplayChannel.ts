@@ -15,6 +15,7 @@ import type { SceneCardTransitionStyle, SceneCardView } from '@dndtools/core';
  */
 
 const CHANNEL_NAME = 'dndtools:scene-display';
+const WIRE_VERSION = 1 as const;
 
 /** The JSON-serializable display view-model sent between windows (a subset of the core display read). */
 export interface SceneDisplayPayload {
@@ -23,6 +24,10 @@ export interface SceneDisplayPayload {
 	/** Monotonic counter so the receiver can ignore stale/duplicate posts and force a re-render. */
 	seq: number;
 }
+
+type SceneDisplayWireMessage =
+	| { v: typeof WIRE_VERSION; kind: 'state'; payload: SceneDisplayPayload }
+	| { v: typeof WIRE_VERSION; kind: 'request-state' };
 
 function supported(): boolean {
 	return typeof BroadcastChannel !== 'undefined';
@@ -38,17 +43,47 @@ function getChannel(): BroadcastChannel | null {
 
 /** Broadcast the current display view-model to any open display windows. No-op without BroadcastChannel. */
 export function postSceneDisplay(payload: SceneDisplayPayload): void {
-	getChannel()?.postMessage(payload);
+	getChannel()?.postMessage({
+		v: WIRE_VERSION,
+		kind: 'state',
+		payload,
+	} satisfies SceneDisplayWireMessage);
 }
 
 /**
  * Subscribe to display view-model updates (used by the `/display` window). Returns an unsubscribe. When
  * BroadcastChannel is unavailable the callback is never invoked and the unsubscribe is a no-op.
  */
-export function subscribeSceneDisplay(listener: (payload: SceneDisplayPayload) => void): () => void {
+export function subscribeSceneDisplay(
+	listener: (payload: SceneDisplayPayload) => void,
+): () => void {
 	const ch = getChannel();
 	if (!ch) return () => {};
-	const handler = (event: MessageEvent) => listener(event.data as SceneDisplayPayload);
+	const handler = (event: MessageEvent) => {
+		const message = event.data as Partial<SceneDisplayWireMessage> | null;
+		if (message?.v === WIRE_VERSION && message.kind === 'state' && message.payload)
+			listener(message.payload);
+	};
+	ch.addEventListener('message', handler);
+	return () => ch.removeEventListener('message', handler);
+}
+
+/** Ask the already-open primary window for its current display DTO. */
+export function requestSceneDisplay(): void {
+	getChannel()?.postMessage({
+		v: WIRE_VERSION,
+		kind: 'request-state',
+	} satisfies SceneDisplayWireMessage);
+}
+
+/** Primary-window subscription used to answer a newly opened projector before the next dispatch. */
+export function subscribeSceneDisplayRequests(listener: () => void): () => void {
+	const ch = getChannel();
+	if (!ch) return () => {};
+	const handler = (event: MessageEvent) => {
+		const message = event.data as Partial<SceneDisplayWireMessage> | null;
+		if (message?.v === WIRE_VERSION && message.kind === 'request-state') listener();
+	};
 	ch.addEventListener('message', handler);
 	return () => ch.removeEventListener('message', handler);
 }
@@ -62,6 +97,6 @@ export function openSecondScreen(): Window | null {
 	return window.open(
 		'#/display',
 		'dndtools-scene-display',
-		'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no',
+		'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no,noopener',
 	);
 }

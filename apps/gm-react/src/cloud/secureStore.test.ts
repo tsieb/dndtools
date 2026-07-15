@@ -26,7 +26,7 @@ describe('durableSecretStore fallback (web — no Electron bridge)', () => {
 		expect(await durableSecretStore.set('k', 'v')).toBe(false); // write is refused
 		expect(await durableSecretStore.get('k')).toBeNull(); // and nothing comes back
 		expect(await durableSecretStore.keys()).toEqual([]);
-		await expect(durableSecretStore.remove('k')).resolves.toBeUndefined();
+		expect(await durableSecretStore.remove('k')).toBe(false);
 	});
 });
 
@@ -36,7 +36,7 @@ describe('durableSecretStore (Electron — OS-encrypted bridge present)', () => 
 			available: vi.fn(async () => true),
 			get: vi.fn(async () => 'stored-value'),
 			set: vi.fn(async () => true),
-			remove: vi.fn(async () => {}),
+			remove: vi.fn(async () => true),
 			keys: vi.fn(async () => ['cog:idToken']),
 		};
 		(globalThis as G)[KEY] = bridge;
@@ -46,6 +46,7 @@ describe('durableSecretStore (Electron — OS-encrypted bridge present)', () => 
 		expect(await durableSecretStore.available()).toBe(true);
 		expect(await durableSecretStore.get('cog:idToken')).toBe('stored-value');
 		expect(await durableSecretStore.set('cog:idToken', 'x')).toBe(true);
+		expect(await durableSecretStore.remove('cog:idToken')).toBe(true);
 		expect(await durableSecretStore.keys()).toEqual(['cog:idToken']);
 		expect(bridge.set).toHaveBeenCalledWith('cog:idToken', 'x');
 	});

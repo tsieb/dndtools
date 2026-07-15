@@ -53,6 +53,7 @@ import { Page, Panel, Seg, SetRow, T, eb, mono } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useSession } from '../net/SessionContext';
 import type { HostPeer } from '../net/SessionHost';
+import { useViewport } from '../app/useViewport';
 
 /**
  * Session — the live-play console, wired to the real Processing Core (was a local-reducer mock).
@@ -85,6 +86,7 @@ type CombatantRow = CombatTrackerView['combatants'][number];
 
 export function Session() {
 	const runtime = useRuntime();
+	const viewport = useViewport();
 	const session = useSession();
 	const actorId = runtime.defaultActorId;
 	const workflow = runtime.state.session.workflow;
@@ -119,20 +121,30 @@ export function Session() {
 		const characters = listCharactersForActor(runtime.state.characters, perms, actorId);
 		const scenes = listScenesForActor(runtime.state.scenes, perms, actorId);
 		const activeSceneId = session.activeSceneId;
-		const audioView = getSessionAudioView(runtime.state.audio, session.audioPlayback, perms, actorId);
+		const audioView = getSessionAudioView(
+			runtime.state.audio,
+			session.audioPlayback,
+			perms,
+			actorId,
+		);
 		// Resolve the now-playing track to a friendly title (asset title, else source display name) — the
 		// track view carries only ids, so a raw uuid would otherwise show in the "Now playing" strip.
 		const aTrack = audioView.track;
 		const audioLabel = aTrack
 			? ((aTrack.assetId
-					? listAudioAssetsForActor(runtime.state.audio, perms, actorId).find((a) => a.id === aTrack.assetId)?.title
+					? listAudioAssetsForActor(runtime.state.audio, perms, actorId).find(
+							(a) => a.id === aTrack.assetId,
+						)?.title
 					: undefined) ??
-				listAudioSourceClassificationsForActor(runtime.state.audio, perms, actorId).find((s) => s.sourceId === aTrack.sourceId)?.displayName ??
+				listAudioSourceClassificationsForActor(runtime.state.audio, perms, actorId).find(
+					(s) => s.sourceId === aTrack.sourceId,
+				)?.displayName ??
 				aTrack.assetId ??
 				aTrack.sourceId)
 			: null;
 		// SES-012 — the campaign calendar + current date (the Campaign timeline reads the same view).
-		const calendar = (Object.values(runtime.state.content.calendars)[0] ?? null) as CalendarDefinition | null;
+		const calendar = (Object.values(runtime.state.content.calendars)[0] ??
+			null) as CalendarDefinition | null;
 		const campaignDate = getCalendarContinuityForActor(
 			session,
 			runtime.state.content,
@@ -201,7 +213,10 @@ export function Session() {
 	// The combatant id the condition-picker dialog is open for (the design-b condPick modal pattern).
 	const [condPickFor, setCondPickFor] = useState<string | null>(null);
 
-	async function dispatch(command: Parameters<typeof runtime.dispatch>[0], ok?: string): Promise<boolean> {
+	async function dispatch(
+		command: Parameters<typeof runtime.dispatch>[0],
+		ok?: string,
+	): Promise<boolean> {
 		const result = await runtime.dispatch(command);
 		if (result.status === 'accepted') {
 			if (ok) Toaster.success(ok);
@@ -215,13 +230,19 @@ export function Session() {
 		const sceneId =
 			runtime.state.session.activeSceneId ??
 			runtime.state.commandCenter.homeSceneId ??
-			listScenesForActor(runtime.state.scenes, runtime.state.permissions, actorId).filter((s) => !s.isTemplate)[0]?.id;
+			listScenesForActor(runtime.state.scenes, runtime.state.permissions, actorId).filter(
+				(s) => !s.isTemplate,
+			)[0]?.id;
 		if (!sceneId) {
 			Toaster.warning('Create a scene first.');
 			return;
 		}
 		await dispatch(
-			{ type: 'session.set-workflow', actorId, payload: { workflow: 'active', activeSceneId: sceneId } },
+			{
+				type: 'session.set-workflow',
+				actorId,
+				payload: { workflow: 'active', activeSceneId: sceneId },
+			},
 			'You are live — combat & dice are open',
 		);
 	}
@@ -243,7 +264,9 @@ export function Session() {
 				actorId,
 				payload: {
 					title,
-					sections: [{ heading: title, body: handoutBody.trim(), visibility: 'player-visible' as const }],
+					sections: [
+						{ heading: title, body: handoutBody.trim(), visibility: 'player-visible' as const },
+					],
 					sceneId: activeSceneId,
 					recipientActorIds: players.map((p) => p.id),
 				},
@@ -262,22 +285,54 @@ export function Session() {
 
 	return (
 		<Page max={1280}>
-			<SessionHeader workflow={workflow} sceneName={activeSceneName} onSetWorkflow={(w) => setWorkflow(w)} />
+			<SessionHeader
+				workflow={workflow}
+				sceneName={activeSceneName}
+				onSetWorkflow={(w) => setWorkflow(w)}
+			/>
 
 			{!isLive && (
-				<Card elevation="flat" padding="md" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18, borderColor: T.accBd, background: T.accSub }}>
+				<Card
+					elevation="flat"
+					padding="md"
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: 14,
+						marginBottom: 18,
+						borderColor: T.accBd,
+						background: T.accSub,
+						flexWrap: 'wrap',
+					}}
+				>
 					<Icon name="info" size="md" color={T.acc} />
 					<div style={{ flex: 1 }}>
 						<div style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>Session is in standby</div>
-						<div style={{ font: `12px ${T.sans}`, color: T.sub }}>Go live to open combat, dice, handouts, and what players see.</div>
+						<div style={{ font: `12px ${T.sans}`, color: T.sub }}>
+							Go live to open combat, dice, handouts, and what players see.
+						</div>
 					</div>
-					<Button variant="primary" size="sm" icon="visibility-players" disabled={previewing || !isDm} onClick={goLive}>
+					<Button
+						variant="primary"
+						size="sm"
+						icon="visibility-players"
+						disabled={previewing || !isDm}
+						onClick={goLive}
+					>
 						Go live
 					</Button>
 				</Card>
 			)}
 
-			<div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.6fr) minmax(0,1fr)', gap: 16, alignItems: 'start' }}>
+			<div
+				style={{
+					display: 'grid',
+					gridTemplateColumns:
+						viewport === 'phone' ? 'minmax(0,1fr)' : 'minmax(0,1.6fr) minmax(0,1fr)',
+					gap: 16,
+					alignItems: 'start',
+				}}
+			>
 				<CombatPanel
 					tracker={tracker}
 					isLive={isLive}
@@ -292,21 +347,40 @@ export function Session() {
 					onPrevious={() => dispatch({ type: 'combat.previous-turn', actorId, payload: {} })}
 					onEnd={() => dispatch({ type: 'combat.end', actorId, payload: {} }, 'Combat ended')}
 					onHp={(combatantId, delta) =>
-						dispatch({ type: 'combat.apply-resource', actorId, payload: { combatantId, kind: 'hp', delta } })
+						dispatch({
+							type: 'combat.apply-resource',
+							actorId,
+							payload: { combatantId, kind: 'hp', delta },
+						})
 					}
 					onCondition={(combatantId, condition, present) =>
-						dispatch({ type: 'combat.apply-resource', actorId, payload: { combatantId, kind: 'condition', condition, present } })
+						dispatch({
+							type: 'combat.apply-resource',
+							actorId,
+							payload: { combatantId, kind: 'condition', condition, present },
+						})
 					}
 					onPickCondition={(combatantId) => setCondPickFor(combatantId)}
 					onRemove={(combatantId, name) =>
-						dispatch({ type: 'combat.remove-combatant', actorId, payload: { combatantId } }, `${name} removed from combat`)
+						dispatch(
+							{ type: 'combat.remove-combatant', actorId, payload: { combatantId } },
+							`${name} removed from combat`,
+						)
 					}
 					onReorder={(combatantId, direction) =>
-						dispatch({ type: 'combat.reorder-combatant', actorId, payload: { combatantId, direction } })
+						dispatch({
+							type: 'combat.reorder-combatant',
+							actorId,
+							payload: { combatantId, direction },
+						})
 					}
 					onVisibility={(combatantId, hidden) =>
 						dispatch(
-							{ type: 'combat.set-combatant-visibility', actorId, payload: { combatantId, hidden } },
+							{
+								type: 'combat.set-combatant-visibility',
+								actorId,
+								payload: { combatantId, hidden },
+							},
 							hidden ? 'Hidden from players' : 'Revealed to players',
 						)
 					}
@@ -319,7 +393,9 @@ export function Session() {
 						previewing={previewing}
 						expr={diceExpr}
 						onExpr={setDiceExpr}
-						onRoll={(expression) => dispatch({ type: 'dice.roll', actorId, payload: { expression } })}
+						onRoll={(expression) =>
+							dispatch({ type: 'dice.roll', actorId, payload: { expression } })
+						}
 					/>
 					<HandoutsPanel
 						handouts={handouts}
@@ -333,8 +409,18 @@ export function Session() {
 						onTitle={setHandoutTitle}
 						onBody={setHandoutBody}
 						onDeliver={deliverHandout}
-						onRevoke={(id) => dispatch({ type: 'session.revoke-handout', actorId, payload: { handoutId: id } }, 'Handout revoked')}
-						onAcknowledge={(id) => dispatch({ type: 'session.acknowledge-handout', actorId, payload: { handoutId: id } }, 'Marked read')}
+						onRevoke={(id) =>
+							dispatch(
+								{ type: 'session.revoke-handout', actorId, payload: { handoutId: id } },
+								'Handout revoked',
+							)
+						}
+						onAcknowledge={(id) =>
+							dispatch(
+								{ type: 'session.acknowledge-handout', actorId, payload: { handoutId: id } },
+								'Marked read',
+							)
+						}
 					/>
 					<AudioPanel
 						audio={audio}
@@ -343,8 +429,12 @@ export function Session() {
 						previewing={previewing}
 						onPause={() => dispatch({ type: 'session.audio.pause', actorId, payload: {} })}
 						onResume={() => dispatch({ type: 'session.audio.resume', actorId, payload: {} })}
-						onStop={() => dispatch({ type: 'session.audio.stop', actorId, payload: {} }, 'Audio stopped')}
-						onVolume={(volume) => dispatch({ type: 'session.audio.set-volume', actorId, payload: { volume } })}
+						onStop={() =>
+							dispatch({ type: 'session.audio.stop', actorId, payload: {} }, 'Audio stopped')
+						}
+						onVolume={(volume) =>
+							dispatch({ type: 'session.audio.set-volume', actorId, payload: { volume } })
+						}
 					/>
 					<StagePanel
 						maps={maps}
@@ -352,14 +442,23 @@ export function Session() {
 						isDm={isDm}
 						isLive={isLive}
 						previewing={previewing}
-						onSelect={(mapId) => dispatch({ type: 'session.set-active-map', actorId, payload: { mapId } }, 'Active map set')}
+						onSelect={(mapId) =>
+							dispatch(
+								{ type: 'session.set-active-map', actorId, payload: { mapId } },
+								'Active map set',
+							)
+						}
 						onProject={() => {
 							if (players.length === 0) {
 								Toaster.warning('No players connected.');
 								return;
 							}
 							void dispatch(
-								{ type: 'session.project-active-map', actorId, payload: { playerActorIds: players.map((p) => p.id) } },
+								{
+									type: 'session.project-active-map',
+									actorId,
+									payload: { playerActorIds: players.map((p) => p.id) },
+								},
 								'Map shown to players',
 							);
 						}}
@@ -369,7 +468,9 @@ export function Session() {
 							calendar={calendar}
 							current={campaignDate}
 							previewing={previewing}
-							onSet={(date, ok) => void dispatch({ type: 'session.set-campaign-date', actorId, payload: { date } }, ok)}
+							onSet={(date, ok) =>
+								void dispatch({ type: 'session.set-campaign-date', actorId, payload: { date } }, ok)
+							}
 						/>
 					)}
 					{isDm && (
@@ -379,7 +480,10 @@ export function Session() {
 							defaultArchiveId={recapArchiveId}
 							previewing={previewing}
 							onAuthor={(archiveId, markdown) =>
-								dispatch({ type: 'session.author-recap', actorId, payload: { archiveId, markdown } }, 'Recap saved')
+								dispatch(
+									{ type: 'session.author-recap', actorId, payload: { archiveId, markdown } },
+									'Recap saved',
+								)
 							}
 						/>
 					)}
@@ -435,7 +539,9 @@ function SessionHeader({
 	// enabled regardless (Seg keeps the checked option active).
 	const allowed = new Set<string>(allowedTransitionsFrom(workflow as SessionWorkflowState));
 	return (
-		<div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
+		<div
+			style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}
+		>
 			<div style={{ minWidth: 0 }}>
 				<div style={eb}>Live session</div>
 				<div style={{ font: `700 19px/1.1 ${T.disp}` }}>{sceneName ?? 'No active scene'}</div>
@@ -451,10 +557,20 @@ function SessionHeader({
 				]}
 			/>
 			<div style={{ flex: 1 }} />
-			<span style={{ display: 'flex', alignItems: 'center', gap: 7, font: `12.5px ${T.sans}`, color: T.sub }}>
+			<span
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					gap: 7,
+					font: `12.5px ${T.sans}`,
+					color: T.sub,
+				}}
+			>
 				<StatusDot status={workflow === 'active' ? 'live' : 'idle'} pulse={workflow === 'active'} />
 				{workflow === 'active' ? (
-					<>players see <strong style={{ color: T.ink }}>{sceneName ?? 'the scene'}</strong></>
+					<>
+						players see <strong style={{ color: T.ink }}>{sceneName ?? 'the scene'}</strong>
+					</>
 				) : (
 					<>standby</>
 				)}
@@ -508,7 +624,12 @@ function CombatPanel({
 	const lowest = tracker.combatants
 		.filter((c) => c.resources)
 		.reduce<CombatantRow | null>(
-			(m, c) => (!m || (c.resources!.hp / Math.max(1, c.resources!.maxHp)) < (m.resources!.hp / Math.max(1, m.resources!.maxHp)) ? c : m),
+			(m, c) =>
+				!m ||
+				c.resources!.hp / Math.max(1, c.resources!.maxHp) <
+					m.resources!.hp / Math.max(1, m.resources!.maxHp)
+					? c
+					: m,
 			null,
 		);
 	const selectedIndex = selected ? tracker.combatants.findIndex((c) => c.id === selected.id) : -1;
@@ -520,7 +641,13 @@ function CombatPanel({
 				running ? (
 					<div style={{ display: 'flex', gap: 7 }}>
 						{isDm && (
-							<Button variant="secondary" size="sm" icon="add" disabled={previewing} onClick={onAdd}>
+							<Button
+								variant="secondary"
+								size="sm"
+								icon="add"
+								disabled={previewing}
+								onClick={onAdd}
+							>
 								Add
 							</Button>
 						)}
@@ -529,7 +656,13 @@ function CombatPanel({
 						</Button>
 					</div>
 				) : (
-					<Button variant="primary" size="sm" icon="sword" disabled={!isLive || previewing || !isDm} onClick={onStart}>
+					<Button
+						variant="primary"
+						size="sm"
+						icon="sword"
+						disabled={!isLive || previewing || !isDm}
+						onClick={onStart}
+					>
 						Build encounter
 					</Button>
 				)
@@ -551,11 +684,28 @@ function CombatPanel({
 						<StatPill label="Round" value={String(tracker.round)} tone="accent" />
 						<StatPill label="Turn" value={String(tracker.turn + 1)} />
 						{lowest && lowest.resources && (
-							<StatPill label="Lowest HP" value={`${lowest.resources.hp}/${lowest.resources.maxHp}`} tone="error" />
+							<StatPill
+								label="Lowest HP"
+								value={`${lowest.resources.hp}/${lowest.resources.maxHp}`}
+								tone="error"
+							/>
 						)}
 						<div style={{ flex: 1 }} />
-						<IconButton icon="chevron-left" label="Previous turn" variant="ghost" size="sm" disabled={previewing} onClick={onPrevious} />
-						<Button variant="primary" size="sm" iconRight="skip" disabled={previewing} onClick={onAdvance}>
+						<IconButton
+							icon="chevron-left"
+							label="Previous turn"
+							variant="ghost"
+							size="sm"
+							disabled={previewing}
+							onClick={onPrevious}
+						/>
+						<Button
+							variant="primary"
+							size="sm"
+							iconRight="skip"
+							disabled={previewing}
+							onClick={onAdvance}
+						>
 							Next turn
 						</Button>
 					</div>
@@ -599,13 +749,30 @@ function CombatPanel({
 										opacity: c.hidden ? 0.75 : 1,
 									}}
 								>
-									<span style={{ minWidth: 28, textAlign: 'center', font: `700 14px ${T.mono}`, color: active ? T.acc : T.sub }}>
+									<span
+										style={{
+											minWidth: 28,
+											textAlign: 'center',
+											font: `700 14px ${T.mono}`,
+											color: active ? T.acc : T.sub,
+										}}
+									>
 										{c.statBlock.initiative ?? '—'}
 									</span>
 									<Avatar name={c.name} size="sm" ring={active ? 'turn' : undefined} />
 									<div style={{ flex: 1, minWidth: 0 }}>
 										<div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-											<span style={{ font: `600 13.5px ${T.sans}`, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
+											<span
+												style={{
+													font: `600 13.5px ${T.sans}`,
+													color: T.ink,
+													whiteSpace: 'nowrap',
+													overflow: 'hidden',
+													textOverflow: 'ellipsis',
+												}}
+											>
+												{c.name}
+											</span>
 											{c.hidden && <VisibilityChip level="dm-only" compact />}
 											{active && <Badge status="success">Active</Badge>}
 											{c.isBloodied && <Badge status="warning">Bloodied</Badge>}
@@ -616,11 +783,16 @@ function CombatPanel({
 												<div style={{ flex: 1, minWidth: 0 }}>
 													<HPBar current={res.hp} max={res.maxHp} size="sm" />
 												</div>
-												<span style={{ font: `11px ${T.mono}`, color: T.ter }}>AC {c.statBlock.ac ?? '—'}</span>
+												<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
+													AC {c.statBlock.ac ?? '—'}
+												</span>
 											</div>
 										)}
 										{res && res.conditions.length > 0 && (
-											<div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }} onClick={(e) => e.stopPropagation()}>
+											<div
+												style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}
+												onClick={(e) => e.stopPropagation()}
+											>
 												{res.conditions.map((cond) => (
 													<ConditionBadge
 														key={cond}
@@ -633,9 +805,26 @@ function CombatPanel({
 										)}
 									</div>
 									{res && (
-										<div style={{ display: 'flex', flexDirection: 'column', gap: 3 }} onClick={(e) => e.stopPropagation()}>
-											<IconButton icon="add" label="Heal 1" variant="ghost" size="sm" disabled={previewing} onClick={() => onHp(c.id, 1)} />
-											<IconButton icon="remove" label="Damage 1" variant="ghost" size="sm" disabled={previewing} onClick={() => onHp(c.id, -1)} />
+										<div
+											style={{ display: 'flex', flexDirection: 'column', gap: 3 }}
+											onClick={(e) => e.stopPropagation()}
+										>
+											<IconButton
+												icon="add"
+												label="Heal 1"
+												variant="ghost"
+												size="sm"
+												disabled={previewing}
+												onClick={() => onHp(c.id, 1)}
+											/>
+											<IconButton
+												icon="remove"
+												label="Damage 1"
+												variant="ghost"
+												size="sm"
+												disabled={previewing}
+												onClick={() => onHp(c.id, -1)}
+											/>
 										</div>
 									)}
 								</div>
@@ -644,17 +833,34 @@ function CombatPanel({
 					</div>
 
 					{selected && (
-						<div style={{ borderTop: `1px solid ${T.bd}`, paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+						<div
+							style={{
+								borderTop: `1px solid ${T.bd}`,
+								paddingTop: 12,
+								display: 'flex',
+								flexDirection: 'column',
+								gap: 10,
+							}}
+						>
 							<div style={{ ...eb }}>Selected · {selected.name}</div>
 							<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
 								{selected.resources && (
-									<Button variant="secondary" size="sm" icon="add" disabled={previewing} onClick={() => onPickCondition(selected.id)}>
+									<Button
+										variant="secondary"
+										size="sm"
+										icon="add"
+										disabled={previewing}
+										onClick={() => onPickCondition(selected.id)}
+									>
 										Add condition
 									</Button>
 								)}
 								{isDm && (
 									<>
-										<span aria-hidden="true" style={{ width: 1, height: 20, background: T.bd, margin: '0 4px' }} />
+										<span
+											aria-hidden="true"
+											style={{ width: 1, height: 20, background: T.bd, margin: '0 4px' }}
+										/>
 										<IconButton
 											icon="chevron-up"
 											label={`Move ${selected.name} earlier in initiative`}
@@ -668,7 +874,11 @@ function CombatPanel({
 											label={`Move ${selected.name} later in initiative`}
 											variant="ghost"
 											size="sm"
-											disabled={previewing || selectedIndex < 0 || selectedIndex >= tracker.combatants.length - 1}
+											disabled={
+												previewing ||
+												selectedIndex < 0 ||
+												selectedIndex >= tracker.combatants.length - 1
+											}
 											onClick={() => onReorder(selected.id, 'later')}
 										/>
 										<Button
@@ -680,7 +890,13 @@ function CombatPanel({
 										>
 											{selected.hidden ? 'Reveal' : 'Hide'}
 										</Button>
-										<Button variant="ghost" size="sm" icon="close" disabled={previewing} onClick={() => onRemove(selected.id, selected.name)}>
+										<Button
+											variant="ghost"
+											size="sm"
+											icon="close"
+											disabled={previewing}
+											onClick={() => onRemove(selected.id, selected.name)}
+										>
 											Remove
 										</Button>
 									</>
@@ -734,7 +950,9 @@ function ConditionPickerDialog({
 					</button>
 				))}
 				{keys.length === 0 && (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Every catalog condition is already applied.</div>
+					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						Every catalog condition is already applied.
+					</div>
 				)}
 			</div>
 		</Dialog>
@@ -783,7 +1001,12 @@ function CampaignDatePanel({
 	function setDate() {
 		if (!calendar) return;
 		onSet(
-			{ calendarId: calendar.id, year: Math.trunc(year), month, day: Math.min(maxDay, Math.max(1, Math.trunc(day))) },
+			{
+				calendarId: calendar.id,
+				year: Math.trunc(year),
+				month,
+				day: Math.min(maxDay, Math.max(1, Math.trunc(day))),
+			},
 			'Campaign date set',
 		);
 	}
@@ -796,15 +1019,31 @@ function CampaignDatePanel({
 
 	return (
 		<Panel title="Campaign date">
-			<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
 				<Icon name="recent" size="sm" color={current ? T.acc : T.ter} />
-				<div style={{ flex: 1, minWidth: 0 }}>
-					<div style={{ font: `600 13px ${T.sans}`, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+				<div style={{ flex: '1 1 180px', minWidth: 0 }}>
+					<div
+						style={{
+							font: `600 13px ${T.sans}`,
+							color: T.ink,
+							whiteSpace: 'nowrap',
+							overflow: 'hidden',
+							textOverflow: 'ellipsis',
+						}}
+					>
 						{current ? current.display : 'No date set'}
 					</div>
-					<div style={{ font: `11px ${T.sans}`, color: T.ter }}>{calendar.name} · drives the Campaign timeline</div>
+					<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+						{calendar.name} · drives the Campaign timeline
+					</div>
 				</div>
-				<Button variant="secondary" size="sm" icon="skip" disabled={previewing || !current} onClick={advanceDay}>
+				<Button
+					variant="secondary"
+					size="sm"
+					icon="skip"
+					disabled={previewing || !current}
+					onClick={advanceDay}
+				>
 					+1 day
 				</Button>
 			</div>
@@ -829,7 +1068,9 @@ function CampaignDatePanel({
 						max={maxDay}
 						value={day}
 						disabled={previewing}
-						onChange={(e: { target: { value: string } }) => setDay(Math.min(maxDay, Math.max(1, Math.trunc(Number(e.target.value) || 1))))}
+						onChange={(e: { target: { value: string } }) =>
+							setDay(Math.min(maxDay, Math.max(1, Math.trunc(Number(e.target.value) || 1))))
+						}
 					/>
 				</Field>
 				<Field label="Year" style={{ width: 84 }}>
@@ -837,7 +1078,9 @@ function CampaignDatePanel({
 						type="number"
 						value={year}
 						disabled={previewing}
-						onChange={(e: { target: { value: string } }) => setYear(Math.trunc(Number(e.target.value) || 0))}
+						onChange={(e: { target: { value: string } }) =>
+							setYear(Math.trunc(Number(e.target.value) || 0))
+						}
 					/>
 				</Field>
 				<Button variant="primary" size="sm" icon="check" disabled={previewing} onClick={setDate}>
@@ -878,7 +1121,8 @@ function RecapPanel({
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [draft, setDraft] = useState('');
 	const [busy, setBusy] = useState(false);
-	const target = archives.find((a) => a.id === (selectedId ?? defaultArchiveId)) ?? archives[0] ?? null;
+	const target =
+		archives.find((a) => a.id === (selectedId ?? defaultArchiveId)) ?? archives[0] ?? null;
 
 	// Seed the editor from the canonical authored recap whenever the target archive (or its authored
 	// revision) changes — same sync-from-canonical pattern as CampaignDatePanel.
@@ -908,15 +1152,42 @@ function RecapPanel({
 					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>Nothing to carry over yet.</div>
 				) : (
 					prompts.map((p) => (
-						<div key={p.id} style={{ display: 'flex', alignItems: 'baseline', gap: 7, font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-							<span aria-hidden style={{ width: 5, height: 5, borderRadius: '50%', background: T.accBd, flexShrink: 0, transform: 'translateY(-2px)' }} />
+						<div
+							key={p.id}
+							style={{
+								display: 'flex',
+								alignItems: 'baseline',
+								gap: 7,
+								font: `12.5px/1.6 ${T.sans}`,
+								color: T.sub,
+							}}
+						>
+							<span
+								aria-hidden
+								style={{
+									width: 5,
+									height: 5,
+									borderRadius: '50%',
+									background: T.accBd,
+									flexShrink: 0,
+									transform: 'translateY(-2px)',
+								}}
+							/>
 							<span style={{ minWidth: 0 }}>{p.text}</span>
 						</div>
 					))
 				)}
 			</div>
 
-			<div style={{ borderTop: `1px solid ${T.bd}`, paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+			<div
+				style={{
+					borderTop: `1px solid ${T.bd}`,
+					paddingTop: 10,
+					display: 'flex',
+					flexDirection: 'column',
+					gap: 8,
+				}}
+			>
 				<div style={eb}>Session archives</div>
 				{archives.length === 0 ? (
 					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
@@ -975,7 +1246,14 @@ function DicePanel({
 	onExpr,
 	onRoll,
 }: {
-	rolls: { id: string; expression: string; total: number; label: string | null; dice: number[]; modifier: number }[];
+	rolls: {
+		id: string;
+		expression: string;
+		total: number;
+		label: string | null;
+		dice: number[];
+		modifier: number;
+	}[];
 	isLive: boolean;
 	previewing: boolean;
 	expr: string;
@@ -990,26 +1268,60 @@ function DicePanel({
 	return (
 		<Panel title="Dice">
 			{!isLive && (
-				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>Dice rolls record to the live session — go live to roll.</div>
+				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+					Dice rolls record to the live session — go live to roll.
+				</div>
 			)}
 			<div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
 				{presets.map((p) => (
-					<Button key={p} variant="secondary" size="sm" disabled={disabled} onClick={() => onRoll(p)}>
+					<Button
+						key={p}
+						variant="secondary"
+						size="sm"
+						disabled={disabled}
+						onClick={() => onRoll(p)}
+					>
 						{p}
 					</Button>
 				))}
 			</div>
 			<div style={{ display: 'flex', gap: 8 }}>
-				<Input value={expr} onChange={(e: { target: { value: string } }) => onExpr(e.target.value)} placeholder="e.g. 3d6+2" style={{ flex: 1 }} />
-				<Button variant="accent" icon="dice" disabled={disabled || !expr.trim()} onClick={() => onRoll(expr.trim())}>
+				<Input
+					value={expr}
+					onChange={(e: { target: { value: string } }) => onExpr(e.target.value)}
+					placeholder="e.g. 3d6+2"
+					style={{ flex: 1 }}
+				/>
+				<Button
+					variant="accent"
+					icon="dice"
+					disabled={disabled || !expr.trim()}
+					onClick={() => onRoll(expr.trim())}
+				>
 					Roll
 				</Button>
 			</div>
-			{last && <DiceResult notation={last.expression} total={last.total} rolls={last.dice} modifier={last.modifier} />}
+			{last && (
+				<DiceResult
+					notation={last.expression}
+					total={last.total}
+					rolls={last.dice}
+					modifier={last.modifier}
+				/>
+			)}
 			{recent.length > 1 && (
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
 					{recent.slice(1, 6).map((d) => (
-						<div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, font: `12px ${T.sans}`, color: T.ter }}>
+						<div
+							key={d.id}
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 8,
+								font: `12px ${T.sans}`,
+								color: T.ter,
+							}}
+						>
 							<span style={{ ...mono, color: T.sub }}>{d.expression}</span>
 							<span style={{ flex: 1, borderBottom: `1px dotted ${T.bd}` }} />
 							<span style={{ ...mono, color: T.ink, fontWeight: 700 }}>{d.total}</span>
@@ -1061,20 +1373,32 @@ function HandoutsPanel({
 						</div>
 					)}
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-						<Input value={title} onChange={(e: { target: { value: string } }) => onTitle(e.target.value)} placeholder="Handout title" />
+						<Input
+							value={title}
+							onChange={(e: { target: { value: string } }) => onTitle(e.target.value)}
+							placeholder="Handout title"
+						/>
 						<Textarea
 							value={body}
 							onChange={(e: { target: { value: string } }) => onBody(e.target.value)}
 							placeholder="What the players read…"
 							rows={3}
 						/>
-						<Button variant="primary" size="sm" icon="send" disabled={!canDeliver || !title.trim()} onClick={onDeliver}>
+						<Button
+							variant="primary"
+							size="sm"
+							icon="send"
+							disabled={!canDeliver || !title.trim()}
+							onClick={onDeliver}
+						>
 							Push to players
 						</Button>
 					</div>
 				</>
 			) : (
-				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>Handouts the DM has shared with you appear here.</div>
+				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+					Handouts the DM has shared with you appear here.
+				</div>
 			)}
 
 			{handouts.length === 0 ? (
@@ -1099,20 +1423,41 @@ function HandoutsPanel({
 								}}
 							>
 								<div style={{ flex: 1, minWidth: 0 }}>
-									<div style={{ font: `600 13px ${T.sans}`, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+									<div
+										style={{
+											font: `600 13px ${T.sans}`,
+											color: T.ink,
+											whiteSpace: 'nowrap',
+											overflow: 'hidden',
+											textOverflow: 'ellipsis',
+										}}
+									>
 										{h.title}
 									</div>
 									<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
-										{h.handoutKind} · {h.sections.length} {h.sections.length === 1 ? 'section' : 'sections'}
+										{h.handoutKind} · {h.sections.length}{' '}
+										{h.sections.length === 1 ? 'section' : 'sections'}
 										{isDm ? ` · ${opened}/${delivered} opened` : ''}
 									</div>
 								</div>
 								{isDm ? (
-									<IconButton icon="close" label="Revoke handout" variant="ghost" size="sm" disabled={previewing} onClick={() => onRevoke(h.id)} />
+									<IconButton
+										icon="close"
+										label="Revoke handout"
+										variant="ghost"
+										size="sm"
+										disabled={previewing}
+										onClick={() => onRevoke(h.id)}
+									/>
 								) : h.acknowledged ? (
 									<Badge status="success">Read</Badge>
 								) : (
-									<Button variant="secondary" size="sm" disabled={previewing} onClick={() => onAcknowledge(h.id)}>
+									<Button
+										variant="secondary"
+										size="sm"
+										disabled={previewing}
+										onClick={() => onAcknowledge(h.id)}
+									>
 										Mark read
 									</Button>
 								)}
@@ -1148,7 +1493,15 @@ function AudioPanel({
 	return (
 		<Panel title="Now playing">
 			{!track ? (
-				<div style={{ display: 'flex', alignItems: 'center', gap: 10, font: `12.5px ${T.sans}`, color: T.ter }}>
+				<div
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: 10,
+						font: `12.5px ${T.sans}`,
+						color: T.ter,
+					}}
+				>
 					<Icon name="audio" size="sm" color={T.ter} />
 					Nothing playing. Start ambience from the Audio library.
 				</div>
@@ -1157,7 +1510,15 @@ function AudioPanel({
 					<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 						<Icon name="audio" size="sm" color={track.status === 'playing' ? T.acc : T.sub} />
 						<div style={{ flex: 1, minWidth: 0 }}>
-							<div style={{ font: `600 13px ${T.sans}`, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+							<div
+								style={{
+									font: `600 13px ${T.sans}`,
+									color: T.ink,
+									whiteSpace: 'nowrap',
+									overflow: 'hidden',
+									textOverflow: 'ellipsis',
+								}}
+							>
 								{trackLabel ?? track.assetId ?? track.sourceId}
 							</div>
 							<div style={{ font: `11px ${T.sans}`, color: T.ter }}>session audio</div>
@@ -1170,15 +1531,33 @@ function AudioPanel({
 						<>
 							<div style={{ display: 'flex', gap: 7 }}>
 								{track.status === 'playing' ? (
-									<Button variant="secondary" size="sm" icon="pause" disabled={previewing} onClick={onPause}>
+									<Button
+										variant="secondary"
+										size="sm"
+										icon="pause"
+										disabled={previewing}
+										onClick={onPause}
+									>
 										Pause
 									</Button>
 								) : (
-									<Button variant="secondary" size="sm" icon="play" disabled={previewing} onClick={onResume}>
+									<Button
+										variant="secondary"
+										size="sm"
+										icon="play"
+										disabled={previewing}
+										onClick={onResume}
+									>
 										Resume
 									</Button>
 								)}
-								<Button variant="ghost" size="sm" icon="close" disabled={previewing} onClick={onStop}>
+								<Button
+									variant="ghost"
+									size="sm"
+									icon="close"
+									disabled={previewing}
+									onClick={onStop}
+								>
 									Stop
 								</Button>
 							</div>
@@ -1221,7 +1600,9 @@ function StagePanel({
 	return (
 		<Panel title="Stage">
 			{maps.length === 0 ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No maps yet — create one in the Atlas.</div>
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+					No maps yet — create one in the Atlas.
+				</div>
 			) : (
 				<>
 					<SetRow
@@ -1232,7 +1613,10 @@ function StagePanel({
 								aria-label="Active map"
 								value={activeMapId ?? ''}
 								disabled={previewing}
-								options={[{ value: '', label: '— none —' }, ...maps.map((m) => ({ value: m.id, label: m.name }))]}
+								options={[
+									{ value: '', label: '— none —' },
+									...maps.map((m) => ({ value: m.id, label: m.name })),
+								]}
 								onChange={(e: { target: { value: string } }) => {
 									if (e.target.value) onSelect(e.target.value);
 								}}
@@ -1276,11 +1660,18 @@ function RosterPanel({
 	return (
 		<Panel
 			title="Table roster"
-			action={hosting ? <Badge status={connected.length > 0 ? 'success' : 'neutral'}>{connected.length} connected</Badge> : undefined}
+			action={
+				hosting ? (
+					<Badge status={connected.length > 0 ? 'success' : 'neutral'}>
+						{connected.length} connected
+					</Badge>
+				) : undefined
+			}
 		>
 			{!hosting ? (
 				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-					No live table — use <strong style={{ color: T.sub }}>Host</strong> in the top bar to open your table, then connected players and their presence appear here.
+					No live table — use <strong style={{ color: T.sub }}>Host</strong> in the top bar to open
+					your table, then connected players and their presence appear here.
 				</div>
 			) : peers.length === 0 ? (
 				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
@@ -1307,7 +1698,15 @@ function RosterPanel({
 								<StatusDot status={status === 'online' ? 'live' : 'idle'} pulse={p.hand} />
 								<Avatar name={p.displayName} size="sm" />
 								<div style={{ flex: 1, minWidth: 0 }}>
-									<div style={{ font: `600 13px ${T.sans}`, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+									<div
+										style={{
+											font: `600 13px ${T.sans}`,
+											color: T.ink,
+											whiteSpace: 'nowrap',
+											overflow: 'hidden',
+											textOverflow: 'ellipsis',
+										}}
+									>
 										{p.displayName}
 									</div>
 									<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
@@ -1318,9 +1717,13 @@ function RosterPanel({
 								</div>
 								{p.connected &&
 									(p.hand ? (
-										<Badge status="accent" icon="flag">Hand raised</Badge>
+										<Badge status="accent" icon="flag">
+											Hand raised
+										</Badge>
 									) : p.ready ? (
-										<Badge status="success" icon="check">Ready</Badge>
+										<Badge status="success" icon="check">
+											Ready
+										</Badge>
 									) : (
 										<Badge status="neutral">Idle</Badge>
 									))}
@@ -1333,7 +1736,11 @@ function RosterPanel({
 	);
 }
 
-function PartyPanel({ party }: { party: { id: string; name: string; combat?: { hp: number; maxHp: number } }[] }) {
+function PartyPanel({
+	party,
+}: {
+	party: { id: string; name: string; combat?: { hp: number; maxHp: number } }[];
+}) {
 	return (
 		<Panel title="Party">
 			{party.length === 0 ? (
@@ -1343,7 +1750,12 @@ function PartyPanel({ party }: { party: { id: string; name: string; combat?: { h
 					{party.map((p) => (
 						<div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 							<div style={{ flex: 1, minWidth: 0 }}>
-								<HPBar current={p.combat?.hp ?? 0} max={p.combat?.maxHp ?? 1} label={p.name} size="sm" />
+								<HPBar
+									current={p.combat?.hp ?? 0}
+									max={p.combat?.maxHp ?? 1}
+									label={p.name}
+									size="sm"
+								/>
 							</div>
 						</div>
 					))}

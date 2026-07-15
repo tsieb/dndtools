@@ -18,6 +18,15 @@ body,
 	height: 100%;
 }
 
+:root {
+	--native-titlebar-height: 0px;
+	--app-viewport-height: 100dvh;
+}
+
+#root {
+	height: var(--app-viewport-height);
+}
+
 body {
 	margin: 0;
 	background: var(--color-bg);
@@ -25,6 +34,143 @@ body {
 	font-family: var(--font-sans);
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
+}
+
+/* The packaged desktop shell keeps native traffic-light/window controls in a compact overlay.
+   This reserved drag strip prevents those controls from covering the app toolbar and follows the
+   same theme tokens as the rest of the window. It is absent in the browser build. */
+.electron-titlebar {
+	display: none;
+}
+
+html[data-electron='true'] {
+	--native-titlebar-height: 36px;
+	--app-viewport-height: calc(100dvh - var(--native-titlebar-height));
+}
+
+html[data-electron='true'] #root {
+	margin-top: var(--native-titlebar-height);
+}
+
+html[data-electron='true'] .electron-titlebar {
+	-webkit-app-region: drag;
+	position: fixed;
+	z-index: 1000;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: var(--native-titlebar-height);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--color-surface);
+	border-bottom: 1px solid var(--color-border);
+	color: var(--color-text-tertiary);
+	font: 600 11px var(--font-sans);
+	letter-spacing: 0.025em;
+	user-select: none;
+}
+
+/* Full-window dialogs remain below the native controls in the desktop shell. Their inline `inset: 0`
+   still fills the browser viewport; this one Electron-only override reserves the title surface. */
+html[data-electron='true'] .app-fixed-viewport {
+	top: var(--native-titlebar-height) !important;
+}
+
+.table-controls-sheet button {
+	min-height: 44px;
+}
+
+/* Standalone player companion: rail at tablet widths, bottom icon navigation on phones. */
+@media (max-width: 1024px) {
+	.player-view-sidebar {
+		width: 64px !important;
+	}
+
+	.player-view-brand,
+	.player-view-footer {
+		padding: 12px 10px !important;
+	}
+
+	.player-view-brand-copy,
+	.player-view-footer > div > div,
+	.player-view-nav-row > span,
+	.player-view-elevated-label > span:first-child,
+	.player-view-elevated-label > span:nth-child(2) {
+		display: none !important;
+	}
+
+	.player-view-nav {
+		align-items: center;
+		padding: 10px !important;
+	}
+
+	.player-view-nav-row {
+		width: 44px !important;
+		height: 44px;
+		padding: 0 !important;
+		justify-content: center;
+		border-left: none !important;
+	}
+}
+
+@media (max-width: 640px) {
+	.player-view-shell {
+		/* Six primary destinations plus the three Co-DM tools need two rows at phone widths. Keeping
+		   every 44px target visible is more discoverable than a bottom bar whose final action starts
+		   off-screen with no scroll affordance. */
+		padding-bottom: calc(107px + env(safe-area-inset-bottom, 0px));
+	}
+
+	.player-view-sidebar {
+		position: fixed !important;
+		z-index: 80;
+		left: 0;
+		right: 0;
+		top: auto !important;
+		bottom: 0;
+		width: 100% !important;
+		height: auto !important;
+		border-right: none !important;
+		border-top: 1px solid var(--color-border);
+		flex-direction: row !important;
+	}
+
+	.player-view-brand,
+	.player-view-footer,
+	.player-view-elevated-label {
+		display: none !important;
+	}
+
+	.player-view-nav {
+		width: 100%;
+		flex-direction: row !important;
+		flex-wrap: wrap;
+		justify-content: space-around;
+		overflow-x: hidden !important;
+		overflow-y: hidden !important;
+		padding: 8px max(8px, env(safe-area-inset-right, 0px))
+			calc(8px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)) !important;
+	}
+
+	.player-view-nav-row {
+		flex: 0 0 44px;
+	}
+
+	.player-view-toolbar > span:nth-child(2) {
+		display: none !important;
+	}
+
+	.player-view-toast-viewport {
+		left: 12px !important;
+		right: 12px !important;
+		bottom: calc(119px + env(safe-area-inset-bottom, 0px)) !important;
+	}
+
+	.player-view-toast-viewport > div {
+		min-width: 0 !important;
+		max-width: none !important;
+	}
 }
 
 .visually-hidden {

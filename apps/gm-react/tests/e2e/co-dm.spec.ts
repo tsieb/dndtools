@@ -1,5 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, exitPreview, gotoRoute, markOnboarded, ops, seedFresh, waitReady } from './_helpers';
+import {
+	dispatch,
+	exitPreview,
+	gotoRoute,
+	markOnboarded,
+	ops,
+	seedFresh,
+	waitReady,
+} from './_helpers';
 
 // CO-DM — the elevated `co-dm` base role (ADR-022). A co-DM sees and authors DM-grade content
 // (dm-only scenes/notes, the creature roster, the full combat tracker) but never inherits the
@@ -38,7 +46,9 @@ async function enterPreviewRole(page: Page, role: 'player' | 'observer' | 'co-dm
 /** Read an actor's live base role off the raw Core state. */
 function roleOf(page: Page, actorId: string): Promise<string | undefined> {
 	return page.evaluate(
-		(id) => (window.__rt!.state.permissions as { actors: Record<string, { role?: string }> }).actors[id]?.role,
+		(id) =>
+			(window.__rt!.state.permissions as { actors: Record<string, { role?: string }> }).actors[id]
+				?.role,
 		actorId,
 	);
 }
@@ -63,15 +73,23 @@ function assignRole(
 }
 
 /** Create a scene of a given visibility through the dispatch choke point (as the owner DM). */
-async function createScene(page: Page, name: string, visibility: 'dm-only' | 'player-visible'): Promise<void> {
+async function createScene(
+	page: Page,
+	name: string,
+	visibility: 'dm-only' | 'player-visible',
+): Promise<void> {
 	const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
-	const result = await dispatch(page, { type: 'scene.create', actorId, payload: { name, visibility } });
+	const result = await dispatch(page, {
+		type: 'scene.create',
+		actorId,
+		payload: { name, visibility },
+	});
 	expect(result.status).toBe('accepted');
 	await page.waitForFunction(
 		(n) =>
-			Object.values((window.__rt!.state.scenes as { scenes: Record<string, { name: string }> }).scenes).some(
-				(s) => s.name === n,
-			),
+			Object.values(
+				(window.__rt!.state.scenes as { scenes: Record<string, { name: string }> }).scenes,
+			).some((s) => s.name === n),
 		name,
 		{ timeout: 10_000 },
 	);
@@ -100,7 +118,9 @@ async function bootShell(page: Page, route: string, plan?: string): Promise<void
  *  so it has no #main-content landmark — wait on the runtime + the sidebar header instead). */
 async function bootPlay(page: Page): Promise<void> {
 	await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
-	await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, { timeout: 20_000 });
+	await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
+		timeout: 20_000,
+	});
 	await page.getByText('Player view').first().waitFor({ state: 'attached', timeout: 20_000 });
 }
 
@@ -134,7 +154,9 @@ test.describe('co-dm: elevated role', () => {
 		await exitPreview(page);
 	});
 
-	test('a Co-DM seat unlocks the /play elevated tier that a player never gets', async ({ page }) => {
+	test('a Co-DM seat unlocks the /play elevated tier that a player never gets', async ({
+		page,
+	}) => {
 		await bootShell(page, '/knowledge');
 		const stamp = Date.now();
 		const dmScene = `Sealed Sanctum ${stamp}`;
@@ -156,8 +178,8 @@ test.describe('co-dm: elevated role', () => {
 		expect(promote.status).toBe('accepted');
 		await page.waitForFunction(
 			(id) =>
-				(window.__rt!.state.permissions as { actors: Record<string, { role?: string }> }).actors[id]?.role ===
-				'co-dm',
+				(window.__rt!.state.permissions as { actors: Record<string, { role?: string }> }).actors[id]
+					?.role === 'co-dm',
 			PLAYER_ACTOR,
 			{ timeout: 10_000 },
 		);
@@ -178,13 +200,17 @@ test.describe('co-dm: elevated role', () => {
 
 		// The elevation is durable: the promoted role survives a reload and the tier stays unlocked.
 		await page.reload({ waitUntil: 'domcontentloaded' });
-		await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, { timeout: 20_000 });
+		await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
+			timeout: 20_000,
+		});
 		await page.getByText('Player view').first().waitFor({ state: 'attached', timeout: 20_000 });
 		expect(await roleOf(page, PLAYER_ACTOR)).toBe('co-dm');
 		await expect(page.getByRole('button', { name: 'Maps' })).toBeEnabled();
 	});
 
-	test('permission.assign-role is owner-only and Co-DM-seat-gated in the core', async ({ page }) => {
+	test('permission.assign-role is owner-only and Co-DM-seat-gated in the core', async ({
+		page,
+	}) => {
 		await bootShell(page, '/knowledge');
 
 		// Owner promotes a player to co-DM with one seat available: accepted, role mutated, op-log grew.
@@ -237,13 +263,15 @@ test.describe('co-dm: elevated role', () => {
 
 		// Choosing it dispatches the real command, which fails closed: a rejection toast, role unchanged.
 		await roleSelect.selectOption('co-dm');
-		await expect(page.getByRole('status').filter({ hasText: /no Co-DM seats/i })).not.toHaveCount(0);
+		await expect(page.getByRole('alert').filter({ hasText: /no Co-DM seats/i })).not.toHaveCount(0);
 		expect(await roleOf(page, PLAYER_ACTOR)).toBe('player');
 
 		// Cloud invites are fail-closed in e2e: the invite button shows its honest not-configured state
 		// and opens NO dialog (no dead "Seat" picker behind a backend that isn't there).
 		await page.getByRole('button', { name: 'Invite player' }).click();
-		await expect(page.getByRole('status').filter({ hasText: /cloud backend/i })).not.toHaveCount(0);
+		await expect(
+			page.getByRole('status').filter({ hasText: /Online invite links are unavailable here/i }),
+		).not.toHaveCount(0);
 		await expect(page.getByText('Invite a player')).toHaveCount(0);
 	});
 
@@ -263,8 +291,8 @@ test.describe('co-dm: elevated role', () => {
 		await expect(page.getByRole('status').filter({ hasText: /is now Co-DM/i })).not.toHaveCount(0);
 		await page.waitForFunction(
 			(id) =>
-				(window.__rt!.state.permissions as { actors: Record<string, { role?: string }> }).actors[id]?.role ===
-				'co-dm',
+				(window.__rt!.state.permissions as { actors: Record<string, { role?: string }> }).actors[id]
+					?.role === 'co-dm',
 			PLAYER_ACTOR,
 			{ timeout: 10_000 },
 		);

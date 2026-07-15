@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // providerConfig.ts owns the DEVICE-LOCAL AI settings + BYO-key custody. These tests drive OUR
 // logic: the non-secret settings survive in localStorage (metadata only), the key lives in
@@ -49,6 +49,11 @@ beforeEach(() => {
 	vi.stubGlobal('sessionStorage', sessionStore);
 });
 
+afterEach(() => {
+	vi.unstubAllEnvs();
+	vi.unstubAllGlobals();
+});
+
 describe('non-secret settings (localStorage, metadata only)', () => {
 	it('defaults to the Anthropic provider + claude-sonnet-5 model when nothing is stored', async () => {
 		const cfg = await loadConfig();
@@ -61,7 +66,11 @@ describe('non-secret settings (localStorage, metadata only)', () => {
 
 	it('persists a settings patch and reads it back after a reload', async () => {
 		let cfg = await loadConfig();
-		cfg.saveAiProviderSettings({ provider: 'openai-compatible', model: 'local-model', baseUrl: 'https://x/v1' });
+		cfg.saveAiProviderSettings({
+			provider: 'openai-compatible',
+			model: 'local-model',
+			baseUrl: 'https://x/v1',
+		});
 		// simulate a reload: fresh module, same backing localStorage
 		cfg = await import('./providerConfig');
 		const s = cfg.getAiProviderSettings();
@@ -88,7 +97,7 @@ describe('non-secret settings (localStorage, metadata only)', () => {
 describe('key custody (memory + sessionStorage, never localStorage)', () => {
 	it('stores the key in sessionStorage and memory but NEVER in localStorage', async () => {
 		const cfg = await loadConfig();
-		cfg.setAiProviderKey('sk-secret-123');
+		await cfg.setAiProviderKey('sk-secret-123');
 		expect(cfg.getAiProviderKey()).toBe('sk-secret-123');
 		expect(sessionStore.values()).toContain('sk-secret-123');
 		// the whole point: no credential ever reaches localStorage (which can be inspected / backed up)
@@ -97,27 +106,180 @@ describe('key custody (memory + sessionStorage, never localStorage)', () => {
 
 	it('trims the key and treats a blank key as a clear', async () => {
 		const cfg = await loadConfig();
-		cfg.setAiProviderKey('  sk-trim  ');
+		await cfg.setAiProviderKey('  sk-trim  ');
 		expect(cfg.getAiProviderKey()).toBe('sk-trim');
-		cfg.setAiProviderKey('   ');
+		await cfg.setAiProviderKey('   ');
 		expect(cfg.getAiProviderKey()).toBeNull();
 	});
 
 	it('forgets the key from both memory and sessionStorage on clear', async () => {
 		const cfg = await loadConfig();
-		cfg.setAiProviderKey('sk-x');
-		cfg.clearAiProviderKey();
+		await cfg.setAiProviderKey('sk-x');
+		await cfg.clearAiProviderKey();
 		expect(cfg.getAiProviderKey()).toBeNull();
-		expect(sessionStore.has('dndtools.ai.provider-key')).toBe(false);
+		expect(
+			sessionStore.has('dndtools.ai.provider-key:v2:anthropic:https://api.anthropic.com'),
+		).toBe(false);
 	});
 
 	it('recovers the key from sessionStorage when module memory was reset (page reload)', async () => {
 		let cfg = await loadConfig();
-		cfg.setAiProviderKey('sk-persist');
+		await cfg.setAiProviderKey('sk-persist');
 		// fresh module (memory cleared) but the same sessionStorage backing
 		cfg = await import('./providerConfig');
 		cfg.__testing.resetMemory();
 		expect(cfg.getAiProviderKey()).toBe('sk-persist');
+	});
+
+	it('waits for the desktop encrypted store and reports durable custody truthfully', async () => {
+		const bridge = {
+			available: vi.fn(async () => true),
+			get: vi.fn(async () => null),
+			set: vi.fn(async () => true),
+			remove: vi.fn(async () => true),
+			keys: vi.fn(async () => []),
+		};
+		vi.stubGlobal('dndtoolsSecureStore', bridge);
+		const cfg = await loadConfig();
+
+		await expect(cfg.setAiProviderKey('sk-desktop')).resolves.toEqual({
+			saved: true,
+			storage: 'os-encrypted',
+			durableError: false,
+		});
+		expect(bridge.set).toHaveBeenCalledWith(
+			'ai:provider-key:v2:anthropic:https://api.anthropic.com',
+			'sk-desktop',
+		);
+	});
+
+	it('does not claim a key was forgotten when durable deletion fails', async () => {
+		const bridge = {
+			available: vi.fn(async () => true),
+			get: vi.fn(async () => null),
+			set: vi.fn(async () => true),
+			remove: vi.fn(async () => false),
+			keys: vi.fn(async () => []),
+		};
+		vi.stubGlobal('dndtoolsSecureStore', bridge);
+		const cfg = await loadConfig();
+		await cfg.setAiProviderKey('sk-still-there');
+
+		await expect(cfg.clearAiProviderKey()).resolves.toEqual({
+			cleared: false,
+			durableError: true,
+		});
+		expect(cfg.getAiProviderKey()).toBe('sk-still-there');
+		expect(sessionStore.values()).toContain('sk-still-there');
+	});
+
+	it('never carries a key across provider origins or silently reactivates it after switching back', async () => {
+		const cfg = await loadConfig();
+		await cfg.setAiProviderKey('sk-anthropic');
+
+		cfg.saveAiProviderSettings({
+			provider: 'openai-compatible',
+			baseUrl: 'https://api.example.com/v1',
+		});
+		expect(cfg.getAiProviderKey()).toBeNull();
+		expect(cfg.resolveAiProviderConfig()).toBeNull();
+
+		cfg.saveAiProviderSettings({ provider: 'anthropic' });
+		expect(cfg.getAiProviderKey()).toBeNull();
+		expect(sessionStore.values()).toContain('sk-anthropic');
+	});
+
+	it('scopes OpenAI-compatible credentials by normalized origin, not API path', async () => {
+		const cfg = await loadConfig();
+		cfg.saveAiProviderSettings({
+			provider: 'openai-compatible',
+			baseUrl: 'https://API.Example.com/v1/',
+		});
+		await cfg.setAiProviderKey('sk-origin');
+		const destination = cfg.resolveAiProviderDestination();
+		expect(destination).toMatchObject({
+			origin: 'https://api.example.com',
+			scope: 'openai-compatible:https://api.example.com',
+		});
+
+		cfg.saveAiProviderSettings({ baseUrl: 'https://api.example.com/another-api' });
+		expect(cfg.getAiProviderKey()).toBe('sk-origin');
+	});
+
+	it('detects but never auto-binds the legacy unscoped key', async () => {
+		sessionStore.setItem('dndtools.ai.provider-key', 'sk-legacy-unassigned');
+		const cfg = await loadConfig();
+
+		expect(cfg.hasLegacyAiProviderKey()).toBe(true);
+		expect(cfg.getAiProviderKey()).toBeNull();
+		expect(cfg.resolveAiProviderConfig()).toBeNull();
+		expect(sessionStore.values()).toContain('sk-legacy-unassigned');
+	});
+
+	it('removes a legacy copy without disturbing the newly scoped credential', async () => {
+		sessionStore.setItem('dndtools.ai.provider-key', 'sk-legacy-unassigned');
+		const cfg = await loadConfig();
+		await cfg.setAiProviderKey('sk-current-scoped');
+
+		await expect(cfg.clearLegacyAiProviderKey()).resolves.toEqual({
+			cleared: true,
+			durableError: false,
+		});
+		expect(cfg.hasLegacyAiProviderKey()).toBe(false);
+		expect(cfg.getAiProviderKey()).toBe('sk-current-scoped');
+	});
+
+	it('detects a legacy desktop key without reading or migrating its secret', async () => {
+		const bridge = {
+			available: vi.fn(async () => true),
+			get: vi.fn(async () => 'must-not-be-read'),
+			set: vi.fn(async () => true),
+			remove: vi.fn(async () => true),
+			keys: vi.fn(async () => ['ai:provider-key']),
+		};
+		vi.stubGlobal('dndtoolsSecureStore', bridge);
+		const cfg = await loadConfig();
+		await cfg.hydrateAiProviderKey();
+
+		expect(cfg.hasLegacyAiProviderKey()).toBe(true);
+		expect(cfg.getAiProviderKey()).toBeNull();
+		expect(bridge.get).not.toHaveBeenCalled();
+	});
+
+	it('hydrates only a scoped desktop key with a matching active binding', async () => {
+		const durableKey = 'ai:provider-key:v2:anthropic:https://api.anthropic.com';
+		const scope = 'anthropic:https://api.anthropic.com';
+		localStore.setItem('dndtools.ai.active-credential-scope', scope);
+		const bridge = {
+			available: vi.fn(async () => true),
+			get: vi.fn(async (key: string) => (key === durableKey ? 'sk-scoped-desktop' : null)),
+			set: vi.fn(async () => true),
+			remove: vi.fn(async () => true),
+			keys: vi.fn(async () => [durableKey]),
+		};
+		vi.stubGlobal('dndtoolsSecureStore', bridge);
+		const cfg = await loadConfig();
+		await cfg.hydrateAiProviderKey();
+
+		expect(cfg.getAiProviderKey()).toBe('sk-scoped-desktop');
+		expect(bridge.get).toHaveBeenCalledWith(durableKey);
+	});
+
+	it('does not hydrate a scoped desktop key after its active binding was removed', async () => {
+		const durableKey = 'ai:provider-key:v2:anthropic:https://api.anthropic.com';
+		const bridge = {
+			available: vi.fn(async () => true),
+			get: vi.fn(async () => 'sk-must-stay-inactive'),
+			set: vi.fn(async () => true),
+			remove: vi.fn(async () => true),
+			keys: vi.fn(async () => [durableKey]),
+		};
+		vi.stubGlobal('dndtoolsSecureStore', bridge);
+		const cfg = await loadConfig();
+		await cfg.hydrateAiProviderKey();
+
+		expect(cfg.getAiProviderKey()).toBeNull();
+		expect(bridge.get).not.toHaveBeenCalled();
 	});
 });
 
@@ -130,29 +292,100 @@ describe('resolveAiProviderConfig — fail closed', () => {
 
 	it('resolves a full Anthropic config once a key is set', async () => {
 		const cfg = await loadConfig();
-		cfg.setAiProviderKey('sk-a');
+		await cfg.setAiProviderKey('sk-a');
 		const resolved = cfg.resolveAiProviderConfig();
-		expect(resolved).toEqual({ provider: 'anthropic', model: 'claude-sonnet-5', baseUrl: '', apiKey: 'sk-a' });
+		expect(resolved).toEqual({
+			provider: 'anthropic',
+			model: 'claude-sonnet-5',
+			baseUrl: '',
+			apiKey: 'sk-a',
+		});
 		expect(cfg.isAiProviderConfigured()).toBe(true);
 	});
 
 	it('stays unconfigured for an OpenAI-compatible provider that lacks a base URL, even with a key', async () => {
 		const cfg = await loadConfig();
 		cfg.saveAiProviderSettings({ provider: 'openai-compatible', baseUrl: '' });
-		cfg.setAiProviderKey('sk-a');
+		await cfg.setAiProviderKey('sk-a');
 		expect(cfg.resolveAiProviderConfig()).toBeNull();
 		expect(cfg.isAiProviderConfigured()).toBe(false);
 	});
 
 	it('resolves an OpenAI-compatible config once a base URL is provided', async () => {
 		const cfg = await loadConfig();
-		cfg.saveAiProviderSettings({ provider: 'openai-compatible', model: 'm', baseUrl: 'https://api.example.com/v1' });
-		cfg.setAiProviderKey('sk-a');
+		cfg.saveAiProviderSettings({
+			provider: 'openai-compatible',
+			model: 'm',
+			baseUrl: 'https://api.example.com/v1',
+		});
+		await cfg.setAiProviderKey('sk-a');
 		expect(cfg.resolveAiProviderConfig()).toEqual({
 			provider: 'openai-compatible',
 			model: 'm',
 			baseUrl: 'https://api.example.com/v1',
 			apiKey: 'sk-a',
 		});
+	});
+
+	it('rejects provider URLs that could expose a key over cleartext or URL credentials', async () => {
+		const cfg = await loadConfig();
+		for (const baseUrl of [
+			'http://api.example.com/v1',
+			'https://user:pass@api.example.com/v1',
+			'file:///tmp/provider',
+			'https://api.example.com/v1?redirect=evil',
+		]) {
+			cfg.saveAiProviderSettings({ provider: 'openai-compatible', baseUrl });
+			await cfg.setAiProviderKey('sk-a');
+			expect(cfg.resolveAiProviderConfig()).toBeNull();
+		}
+	});
+
+	it('allows HTTP only for a loopback local runner and normalizes trailing slashes', async () => {
+		const cfg = await loadConfig();
+		expect(cfg.validateAiBaseUrl('http://127.0.0.1:11434/v1/')).toMatchObject({
+			valid: true,
+			normalized: 'http://127.0.0.1:11434/v1',
+			origin: 'http://127.0.0.1:11434',
+		});
+		expect(cfg.validateAiBaseUrl('http://192.168.1.20:11434/v1').valid).toBe(false);
+	});
+
+	it('enforces the hosted-web origin allowlist before a provider request', async () => {
+		vi.stubEnv('VITE_AI_ALLOWED_ORIGINS', 'https://api.openai.com https://api.anthropic.com');
+		const cfg = await loadConfig();
+		const base = { provider: 'openai-compatible' as const, model: 'm', apiKey: 'sk-a' };
+		expect(
+			await cfg.authorizeAiProviderNetworkAccess({ ...base, baseUrl: 'https://api.openai.com/v1' }),
+		).toBe(true);
+		expect(
+			await cfg.authorizeAiProviderNetworkAccess({ ...base, baseUrl: 'https://evil.example/v1' }),
+		).toBe(false);
+	});
+
+	it('fails closed for hosted providers when the web allowlist is empty', async () => {
+		vi.stubEnv('VITE_AI_ALLOWED_ORIGINS', '');
+		const cfg = await loadConfig();
+		const base = { provider: 'openai-compatible' as const, model: 'm', apiKey: 'sk-a' };
+
+		expect(
+			await cfg.authorizeAiProviderNetworkAccess({
+				...base,
+				baseUrl: 'https://api.example.com/v1',
+			}),
+		).toBe(false);
+	});
+
+	it('allows an explicitly selected loopback runner during local development', async () => {
+		vi.stubEnv('VITE_AI_ALLOWED_ORIGINS', '');
+		const cfg = await loadConfig();
+		const allowed = await cfg.authorizeAiProviderNetworkAccess({
+			provider: 'openai-compatible',
+			model: 'local',
+			apiKey: 'local-key',
+			baseUrl: 'http://127.0.0.1:11434/v1',
+		});
+
+		expect(allowed).toBe(import.meta.env.DEV);
 	});
 });

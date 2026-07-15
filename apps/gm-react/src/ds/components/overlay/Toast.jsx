@@ -17,11 +17,13 @@ import { Icon } from '../core/Icon.jsx';
 let _items = [];
 let _id = 0;
 const _listeners = new Set();
-const _emit = () => { _listeners.forEach((fn) => fn(_items)); };
+const _emit = () => {
+	_listeners.forEach((fn) => fn(_items));
+};
 
 export const Toaster = {
 	show(input) {
-		const opts = typeof input === 'string' ? { message: input } : (input || {});
+		const opts = typeof input === 'string' ? { message: input } : input || {};
 		const id = opts.id != null ? opts.id : ++_id;
 		const toast = { id, status: 'info', duration: 4500, ...opts };
 		_items = [..._items.filter((t) => t.id !== id), toast];
@@ -31,13 +33,31 @@ export const Toaster = {
 		}
 		return id;
 	},
-	success(message, opts) { return Toaster.show({ status: 'success', message, ...opts }); },
-	warning(message, opts) { return Toaster.show({ status: 'warning', message, ...opts }); },
-	error(message, opts) { return Toaster.show({ status: 'error', message, duration: 7000, ...opts }); },
-	info(message, opts) { return Toaster.show({ status: 'info', message, ...opts }); },
-	dismiss(id) { _items = _items.filter((t) => t.id !== id); _emit(); },
-	clear() { _items = []; _emit(); },
-	subscribe(fn) { _listeners.add(fn); fn(_items); return () => _listeners.delete(fn); },
+	success(message, opts) {
+		return Toaster.show({ status: 'success', message, ...opts });
+	},
+	warning(message, opts) {
+		return Toaster.show({ status: 'warning', message, ...opts });
+	},
+	error(message, opts) {
+		return Toaster.show({ status: 'error', message, duration: 7000, ...opts });
+	},
+	info(message, opts) {
+		return Toaster.show({ status: 'info', message, ...opts });
+	},
+	dismiss(id) {
+		_items = _items.filter((t) => t.id !== id);
+		_emit();
+	},
+	clear() {
+		_items = [];
+		_emit();
+	},
+	subscribe(fn) {
+		_listeners.add(fn);
+		fn(_items);
+		return () => _listeners.delete(fn);
+	},
 };
 
 // ── Presentational row ───────────────────────────────────────────────────────────────────────
@@ -48,15 +68,28 @@ const STATUS_COLOR = {
 	info: 'var(--color-status-info)',
 };
 
-export function Toast({ status = 'info', title, message, action, onAction, onDismiss, style, ...rest }) {
+export function Toast({
+	status = 'info',
+	title,
+	message,
+	action,
+	onAction,
+	onDismiss,
+	style,
+	...rest
+}) {
 	const accent = STATUS_COLOR[status] || STATUS_COLOR.info;
 	return (
 		<div
-			role="status"
-			aria-live={status === 'error' ? 'assertive' : 'polite'}
+			role={status === 'error' ? 'alert' : 'status'}
+			aria-atomic="true"
 			style={{
-				display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)',
-				width: 360, maxWidth: '92vw', boxSizing: 'border-box',
+				display: 'flex',
+				alignItems: 'flex-start',
+				gap: 'var(--space-3)',
+				width: 360,
+				maxWidth: '92vw',
+				boxSizing: 'border-box',
 				padding: 'var(--space-3) var(--space-3-5, 14px)',
 				background: 'var(--color-surface-overlay)',
 				border: '1px solid var(--color-border-strong)',
@@ -69,23 +102,103 @@ export function Toast({ status = 'info', title, message, action, onAction, onDis
 			}}
 			{...rest}
 		>
-			<style>{'@keyframes dndToastIn{from{opacity:0;transform:translateY(-8px) scale(.98)}to{opacity:1;transform:none}}'}</style>
-			<span style={{ display: 'inline-flex', flex: '0 0 auto', color: accent, marginTop: 1 }}><Icon name={status} size="sm" /></span>
-			<div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-0-5, 2px)' }}>
-				{title && <div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-weight-semibold)', lineHeight: 1.3 }}>{title}</div>}
-				{message && <div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', lineHeight: 1.45, color: title ? 'var(--color-text-secondary)' : 'var(--color-text-primary)' }}>{message}</div>}
+			<style>
+				{
+					'@keyframes dndToastIn{from{opacity:0;transform:translateY(-8px) scale(.98)}to{opacity:1;transform:none}}'
+				}
+			</style>
+			<span style={{ display: 'inline-flex', flex: '0 0 auto', color: accent, marginTop: 1 }}>
+				<Icon name={status} size="sm" />
+			</span>
+			<div
+				style={{
+					flex: 1,
+					minWidth: 0,
+					display: 'flex',
+					flexDirection: 'column',
+					gap: 'var(--space-0-5, 2px)',
+				}}
+			>
+				{title && (
+					<div
+						style={{
+							fontFamily: 'var(--font-sans)',
+							fontSize: 'var(--text-sm)',
+							fontWeight: 'var(--font-weight-semibold)',
+							lineHeight: 1.3,
+						}}
+					>
+						{title}
+					</div>
+				)}
+				{message && (
+					<div
+						style={{
+							fontFamily: 'var(--font-sans)',
+							fontSize: 'var(--text-sm)',
+							lineHeight: 1.45,
+							color: title ? 'var(--color-text-secondary)' : 'var(--color-text-primary)',
+						}}
+					>
+						{message}
+					</div>
+				)}
 			</div>
 			{action && (
-				<button type="button" onClick={onAction} style={{ flex: '0 0 auto', border: 'none', background: 'transparent', color: 'var(--color-accent)', fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-weight-semibold)', cursor: 'pointer', padding: 'var(--space-1) var(--space-1-5)', borderRadius: 'var(--radius-sm)', whiteSpace: 'nowrap' }}
-					onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-interactive-hover)'; }}
-					onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-				>{action}</button>
+				<button
+					type="button"
+					onClick={onAction}
+					style={{
+						flex: '0 0 auto',
+						border: 'none',
+						background: 'transparent',
+						color: 'var(--color-accent)',
+						fontFamily: 'var(--font-sans)',
+						fontSize: 'var(--text-sm)',
+						fontWeight: 'var(--font-weight-semibold)',
+						cursor: 'pointer',
+						padding: 'var(--space-1) var(--space-1-5)',
+						borderRadius: 'var(--radius-sm)',
+						whiteSpace: 'nowrap',
+					}}
+					onMouseEnter={(e) => {
+						e.currentTarget.style.background = 'var(--color-interactive-hover)';
+					}}
+					onMouseLeave={(e) => {
+						e.currentTarget.style.background = 'transparent';
+					}}
+				>
+					{action}
+				</button>
 			)}
 			{onDismiss && (
-				<button type="button" aria-label="Dismiss" onClick={onDismiss} style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, border: 'none', background: 'transparent', color: 'var(--color-text-tertiary)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', marginTop: -1 }}
-					onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-text-primary)'; }}
-					onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-tertiary)'; }}
-				><Icon name="close" size="micro" /></button>
+				<button
+					type="button"
+					aria-label="Dismiss"
+					onClick={onDismiss}
+					style={{
+						flex: '0 0 auto',
+						display: 'inline-flex',
+						alignItems: 'center',
+						justifyContent: 'center',
+						width: 24,
+						height: 24,
+						border: 'none',
+						background: 'transparent',
+						color: 'var(--color-text-tertiary)',
+						borderRadius: 'var(--radius-sm)',
+						cursor: 'pointer',
+						marginTop: -1,
+					}}
+					onMouseEnter={(e) => {
+						e.currentTarget.style.color = 'var(--color-text-primary)';
+					}}
+					onMouseLeave={(e) => {
+						e.currentTarget.style.color = 'var(--color-text-tertiary)';
+					}}
+				>
+					<Icon name="close" size="micro" />
+				</button>
 			)}
 		</div>
 	);
@@ -96,7 +209,13 @@ const PLACEMENT = {
 	'top-right': { top: 0, right: 0, alignItems: 'flex-end' },
 	'top-center': { top: 0, left: '50%', transform: 'translateX(-50%)', alignItems: 'center' },
 	'bottom-right': { bottom: 0, right: 0, alignItems: 'flex-end', flexDirection: 'column-reverse' },
-	'bottom-center': { bottom: 0, left: '50%', transform: 'translateX(-50%)', alignItems: 'center', flexDirection: 'column-reverse' },
+	'bottom-center': {
+		bottom: 0,
+		left: '50%',
+		transform: 'translateX(-50%)',
+		alignItems: 'center',
+		flexDirection: 'column-reverse',
+	},
 };
 
 export function ToastViewport({ placement = 'top-right', style, ...rest }) {
@@ -105,13 +224,18 @@ export function ToastViewport({ placement = 'top-right', style, ...rest }) {
 	const pos = PLACEMENT[placement] || PLACEMENT['top-right'];
 	return (
 		<div
-			aria-live="polite"
 			style={{
-				position: 'fixed', zIndex: 'var(--z-toast)',
-				display: 'flex', flexDirection: 'column', gap: 'var(--space-2)',
-				padding: 'var(--space-4)', pointerEvents: 'none',
-				maxHeight: '100vh', overflow: 'hidden',
-				...pos, ...style,
+				position: 'fixed',
+				zIndex: 'var(--z-toast)',
+				display: 'flex',
+				flexDirection: 'column',
+				gap: 'var(--space-2)',
+				padding: 'var(--space-4)',
+				pointerEvents: 'none',
+				maxHeight: '100vh',
+				overflow: 'hidden',
+				...pos,
+				...style,
 			}}
 			{...rest}
 		>
@@ -122,7 +246,14 @@ export function ToastViewport({ placement = 'top-right', style, ...rest }) {
 						title={t.title}
 						message={t.message}
 						action={t.action}
-						onAction={t.action ? () => { if (t.onAction) t.onAction(); Toaster.dismiss(t.id); } : undefined}
+						onAction={
+							t.action
+								? () => {
+										if (t.onAction) t.onAction();
+										Toaster.dismiss(t.id);
+									}
+								: undefined
+						}
 						onDismiss={() => Toaster.dismiss(t.id)}
 					/>
 				</div>

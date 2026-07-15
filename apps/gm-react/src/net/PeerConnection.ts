@@ -1,4 +1,4 @@
-import { open, seal } from './crypto';
+import { MAX_SEALED_FRAME_CHARS, open, seal } from './crypto';
 import type { PeerMessage } from './messages';
 
 export type LinkState = 'connecting' | 'open' | 'closed';
@@ -13,7 +13,7 @@ export class PeerLink {
 	private key: CryptoKey;
 	private readonly pc: RTCPeerConnection;
 	private readonly channel: RTCDataChannel;
-	private messageHandler: ((message: PeerMessage) => void) | null = null;
+	private messageHandler: ((message: unknown) => void) | null = null;
 	private stateHandler: ((state: LinkState) => void) | null = null;
 	private closed = false;
 
@@ -23,7 +23,7 @@ export class PeerLink {
 		this.key = key;
 
 		channel.onmessage = (ev: MessageEvent) => {
-			if (typeof ev.data !== 'string') return;
+			if (typeof ev.data !== 'string' || ev.data.length > MAX_SEALED_FRAME_CHARS) return;
 			void this.receive(ev.data);
 		};
 		channel.onopen = () => this.stateHandler?.('open');
@@ -39,7 +39,7 @@ export class PeerLink {
 		return this.channel.readyState === 'open' ? 'open' : 'connecting';
 	}
 
-	onMessage(handler: (message: PeerMessage) => void): void {
+	onMessage(handler: (message: unknown) => void): void {
 		this.messageHandler = handler;
 	}
 

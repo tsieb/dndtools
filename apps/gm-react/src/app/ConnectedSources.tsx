@@ -19,14 +19,13 @@ import {
 	type PushPlanNote,
 } from '../platform/fsSource';
 import {
-	GOOGLE_DOCS_SETUP_RUNBOOK,
 	addGdocConnection,
 	connectGoogleAccount,
 	createGoogleDoc,
 	docToMarkdown,
-	extractDocIdFromInput,
 	fetchGoogleDoc,
 	isGoogleDocsConfigured,
+	isGoogleDocsRuntimeSupported,
 	isGoogleSignedIn,
 	listGdocConnections,
 	pushMarkdownToDoc,
@@ -38,7 +37,7 @@ import {
 
 /**
  * ConnectedSources — the vault-source panel (WS-7, product decision E): LOCAL FOLDERS via the File
- * System Access API (Chromium; the affordance is hidden elsewhere) and GOOGLE DOCS via OAuth PKCE
+ * System Access API (Chromium; the affordance is hidden elsewhere) and GOOGLE DOCS via the GIS token
  * (hidden fail-closed until `VITE_GOOGLE_CLIENT_ID` is configured — see the setup runbook).
  *
  * Every source row offers PULL (source → `content.commit-import`, the core's transactional import)
@@ -71,7 +70,13 @@ function slugStem(title: string, fallback: string): string {
 }
 
 function viewToPlanNote(note: ContentItemView): PushPlanNote {
-	return { id: note.id, title: note.title, body: note.body, fields: note.fields, visibility: note.visibility };
+	return {
+		id: note.id,
+		title: note.title,
+		body: note.body,
+		fields: note.fields,
+		visibility: note.visibility,
+	};
 }
 
 function errText(error: unknown): string {
@@ -113,8 +118,29 @@ function SourceRow({
 	first?: boolean;
 }) {
 	return (
-		<div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderTop: first ? 'none' : `1px solid ${T.bd}`, flexWrap: 'wrap' }}>
-			<span style={{ width: 36, height: 36, borderRadius: 8, background: T.alt, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: T.acc, flex: '0 0 auto' }}>
+		<div
+			style={{
+				display: 'flex',
+				alignItems: 'center',
+				gap: 12,
+				padding: '12px 0',
+				borderTop: first ? 'none' : `1px solid ${T.bd}`,
+				flexWrap: 'wrap',
+			}}
+		>
+			<span
+				style={{
+					width: 36,
+					height: 36,
+					borderRadius: 8,
+					background: T.alt,
+					display: 'inline-flex',
+					alignItems: 'center',
+					justifyContent: 'center',
+					color: T.acc,
+					flex: '0 0 auto',
+				}}
+			>
 				<Icon name={icon} size={18} />
 			</span>
 			<div style={{ flex: 1, minWidth: 180 }}>
@@ -131,7 +157,10 @@ export function ConnectedSourcesPanel() {
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
 	const notes = useMemo(
-		() => getContentItemsForActor(runtime.state.content, runtime.state.permissions, actorId).filter((n) => n.kind === 'note'),
+		() =>
+			getContentItemsForActor(runtime.state.content, runtime.state.permissions, actorId).filter(
+				(n) => n.kind === 'note',
+			),
 		[runtime.state, actorId],
 	);
 
@@ -142,7 +171,13 @@ export function ConnectedSourcesPanel() {
 	const [policy, setPolicy] = useState('skip');
 	const [pendingPush, setPendingPush] = useState<PendingPush | null>(null);
 	const [disconnectTarget, setDisconnectTarget] = useState<DisconnectTarget | null>(null);
-	const [googleSignedIn, setGoogleSignedIn] = useState(isGoogleSignedIn());
+	const googleRuntimeSupported = isGoogleDocsRuntimeSupported(
+		window.location.protocol,
+		window.location.origin,
+	);
+	const [googleSignedIn, setGoogleSignedIn] = useState(
+		googleRuntimeSupported && isGoogleSignedIn(),
+	);
 	const [docInput, setDocInput] = useState('');
 	const [pushNoteBySource, setPushNoteBySource] = useState<Record<string, string>>({});
 
@@ -152,10 +187,21 @@ export function ConnectedSourcesPanel() {
 	};
 
 	useEffect(() => {
-		// A popup-blocked full-redirect sign-in was already captured pre-router (main.tsx →
-		// captureGoogleAuthRedirect), so the initial isGoogleSignedIn() state reflects it.
 		void refresh();
 	}, []);
+
+	// Google access tokens expire while this long-lived panel can remain mounted. Reconcile on focus
+	// and once a minute so actions and badges return to “Sign in” instead of showing stale access.
+	useEffect(() => {
+		if (!googleRuntimeSupported) return;
+		const reconcileGoogleAuth = () => setGoogleSignedIn(isGoogleSignedIn());
+		const timer = window.setInterval(reconcileGoogleAuth, 60_000);
+		window.addEventListener('focus', reconcileGoogleAuth);
+		return () => {
+			window.clearInterval(timer);
+			window.removeEventListener('focus', reconcileGoogleAuth);
+		};
+	}, [googleRuntimeSupported]);
 
 	const setStatusFor = (key: string, message: string) =>
 		setStatusBySource((prev) => ({ ...prev, [key]: message }));
@@ -167,7 +213,10 @@ export function ConnectedSourcesPanel() {
 			const record = await connectFolderSource();
 			if (!record) return; // user cancelled the picker
 			await refresh();
-			setStatusFor(record.id, 'Connected. Pull walks its .md files into the vault; Push writes notes back.');
+			setStatusFor(
+				record.id,
+				'Connected. Pull walks its .md files into the vault; Push writes notes back.',
+			);
 		} catch (error) {
 			setStatusFor('connect-folder', errText(error));
 		}
@@ -178,7 +227,10 @@ export function ConnectedSourcesPanel() {
 		try {
 			const ok = await ensureFolderPermission(record.handle, 'read');
 			if (!ok) {
-				setStatusFor(record.id, 'Folder access was denied or revoked. Disconnect and reconnect the folder to grant it again.');
+				setStatusFor(
+					record.id,
+					'Folder access was denied or revoked. Disconnect and reconnect the folder to grant it again.',
+				);
 				return;
 			}
 			const walked = await importFromFolder(record.handle);
@@ -189,12 +241,17 @@ export function ConnectedSourcesPanel() {
 			const result = await runtime.dispatch({
 				type: 'content.commit-import',
 				actorId,
-				payload: { sourceKind: 'markdown-archive', policy, files: walked.files, appliedEntryIds: [] },
+				payload: {
+					sourceKind: 'markdown-archive',
+					policy,
+					files: walked.files,
+					appliedEntryIds: [],
+				},
 			});
 			if (result.status === 'accepted') {
-				const ev = result.events.find((e) => (e as { kind?: string }).kind === 'content.import-committed') as
-					| { createdItemIds?: string[]; overwrittenItemIds?: string[] }
-					| undefined;
+				const ev = result.events.find(
+					(e) => (e as { kind?: string }).kind === 'content.import-committed',
+				) as { createdItemIds?: string[]; overwrittenItemIds?: string[] } | undefined;
 				const created = ev?.createdItemIds?.length ?? 0;
 				const over = ev?.overwrittenItemIds?.length ?? 0;
 				await touchFolderSource(record.id, { lastImportAt: new Date().toISOString() });
@@ -222,11 +279,20 @@ export function ConnectedSourcesPanel() {
 		const ok = await ensureFolderPermission(record.handle, 'readwrite');
 		setBusy(null);
 		if (!ok) {
-			setStatusFor(record.id, 'Write access was denied or revoked. Disconnect and reconnect the folder to grant it again.');
+			setStatusFor(
+				record.id,
+				'Write access was denied or revoked. Disconnect and reconnect the folder to grant it again.',
+			);
 			return;
 		}
 		const plan = planNotesPush(notes.map(viewToPlanNote), 'local-markdown');
-		const pending: PendingPush = { kind: 'folder', sourceKey: record.id, label: record.name, plan, record };
+		const pending: PendingPush = {
+			kind: 'folder',
+			sourceKey: record.id,
+			label: record.name,
+			plan,
+			record,
+		};
 		if (plan.requiresAcknowledgment) setPendingPush(pending);
 		else void executePush(pending);
 	}
@@ -249,16 +315,20 @@ export function ConnectedSourcesPanel() {
 						itemId: entry.itemId,
 						source: pending.plan.source,
 						noteText: entry.noteText,
-						...(entry.check.acknowledgmentToken ? { acknowledgmentToken: entry.check.acknowledgmentToken } : {}),
+						...(entry.check.acknowledgmentToken
+							? { acknowledgmentToken: entry.check.acknowledgmentToken }
+							: {}),
 					},
 				});
 				if (result.status !== 'accepted') {
 					firstError ??= `“${entry.title}”: ${result.rejection.message}`;
 					continue;
 				}
-				const event = result.events.find((e) => (e as { kind?: string }).kind === 'content.written-to-source');
+				const event = result.events.find(
+					(e) => (e as { kind?: string }).kind === 'content.written-to-source',
+				);
 				if (!event) {
-					firstError ??= `“${entry.title}”: the core accepted the write but emitted no write event.`;
+					firstError ??= `“${entry.title}”: the app could not prepare the source update.`;
 					continue;
 				}
 				try {
@@ -298,31 +368,11 @@ export function ConnectedSourcesPanel() {
 		setBusy(null);
 		if (outcome.status === 'signed-in') {
 			setGoogleSignedIn(true);
-			setStatusFor('google', 'Signed in. Connect a Doc below, or create one from a note.');
+			setStatusFor('google', 'Signed in. Create a Doc below, then push a note into it.');
 		} else if (outcome.status === 'failed') {
 			setStatusFor('google', outcome.message);
 		}
 		// 'redirecting' — the page is navigating away; nothing to render.
-	}
-
-	async function connectExistingDoc() {
-		const docId = extractDocIdFromInput(docInput);
-		if (!docId) {
-			setStatusFor('google', 'Paste a Google Doc URL or its document id.');
-			return;
-		}
-		setBusy('google-connect');
-		try {
-			const doc = await fetchGoogleDoc(docId);
-			addGdocConnection(docId, doc.title ?? 'Untitled document');
-			setDocInput('');
-			setStatusFor('google', `Connected “${doc.title ?? docId}”.`);
-			await refresh();
-		} catch (error) {
-			setStatusFor('google', errText(error));
-		} finally {
-			setBusy(null);
-		}
 	}
 
 	async function createNewDoc() {
@@ -363,13 +413,16 @@ export function ConnectedSourcesPanel() {
 				},
 			});
 			if (result.status === 'accepted') {
-				const ev = result.events.find((e) => (e as { kind?: string }).kind === 'content.import-committed') as
-					| { createdItemIds?: string[]; overwrittenItemIds?: string[] }
-					| undefined;
+				const ev = result.events.find(
+					(e) => (e as { kind?: string }).kind === 'content.import-committed',
+				) as { createdItemIds?: string[]; overwrittenItemIds?: string[] } | undefined;
 				const created = ev?.createdItemIds?.length ?? 0;
 				const over = ev?.overwrittenItemIds?.length ?? 0;
 				touchGdocConnection(conn.docId, { title, lastPullAt: new Date().toISOString() });
-				setStatusFor(conn.docId, `Imported ${created} new${over ? `, ${over} overwritten` : ''} from the Doc.`);
+				setStatusFor(
+					conn.docId,
+					`Imported ${created} new${over ? `, ${over} overwritten` : ''} from the Doc.`,
+				);
 			} else {
 				setStatusFor(conn.docId, result.rejection.message);
 			}
@@ -396,7 +449,14 @@ export function ConnectedSourcesPanel() {
 		// A dm-only note leaving the vault for an external, shareable Doc is confirmed even when the
 		// push itself is lossless — the exposure risk deserves its own explicit gate.
 		const dmOnlyToExternal = note.visibility === 'dm-only';
-		const pending: PendingPush = { kind: 'gdoc', sourceKey: conn.docId, label: conn.title, plan, conn, dmOnlyToExternal };
+		const pending: PendingPush = {
+			kind: 'gdoc',
+			sourceKey: conn.docId,
+			label: conn.title,
+			plan,
+			conn,
+			dmOnlyToExternal,
+		};
 		if (plan.requiresAcknowledgment || dmOnlyToExternal) setPendingPush(pending);
 		else void executePush(pending);
 	}
@@ -420,16 +480,29 @@ export function ConnectedSourcesPanel() {
 	// --- render ---------------------------------------------------------------------------------
 
 	const fsSupported = isFsSourceSupported();
-	const noteOptions = [{ value: '', label: 'Choose a note…' }, ...notes.map((n) => ({ value: n.id, label: n.title }))];
+	const noteOptions = [
+		{ value: '', label: 'Choose a note…' },
+		...notes.map((n) => ({ value: n.id, label: n.title })),
+	];
 
 	return (
 		<Panel
 			title="Connected sources"
 			action={
 				<div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-					<Select options={PULL_POLICIES} value={policy} onChange={(e: { target: { value: string } }) => setPolicy(e.target.value)} />
+					<Select
+						options={PULL_POLICIES}
+						value={policy}
+						onChange={(e: { target: { value: string } }) => setPolicy(e.target.value)}
+					/>
 					{fsSupported && (
-						<Button variant="secondary" size="sm" icon="add" disabled={busy !== null} onClick={() => void connectFolder()}>
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="add"
+							disabled={busy !== null}
+							onClick={() => void connectFolder()}
+						>
 							Connect folder…
 						</Button>
 					)}
@@ -438,8 +511,8 @@ export function ConnectedSourcesPanel() {
 			style={{ marginBottom: 14 }}
 		>
 			<div style={{ font: `11.5px/1.6 ${T.sans}`, color: T.ter }}>
-				Pull imports a source’s markdown into the vault (<code style={{ fontFamily: T.mono }}>content.commit-import</code>); Push writes notes back through the core’s
-				fail-closed <code style={{ fontFamily: T.mono }}>content.write-to-source</code> gate — a write that would lose note structure asks first.
+				Pull imports Markdown into your campaign. Push writes selected notes back to their source,
+				and asks for confirmation before a format change could leave out structured details.
 			</div>
 
 			{/* Push confirm — a data-writing gate, so it gets the DS Dialog's modal contract (focus-in,
@@ -461,8 +534,16 @@ export function ConnectedSourcesPanel() {
 							<Button variant="ghost" size="sm" onClick={() => setPendingPush(null)}>
 								Cancel
 							</Button>
-							<Button variant="primary" size="sm" icon="check" disabled={busy !== null} onClick={() => void executePush(pendingPush)}>
-								{pendingPush.plan.requiresAcknowledgment ? 'Acknowledge loss & push' : 'Push anyway'}
+							<Button
+								variant="primary"
+								size="sm"
+								icon="check"
+								disabled={busy !== null}
+								onClick={() => void executePush(pendingPush)}
+							>
+								{pendingPush.plan.requiresAcknowledgment
+									? 'Acknowledge loss & push'
+									: 'Push anyway'}
 							</Button>
 						</>
 					}
@@ -471,7 +552,9 @@ export function ConnectedSourcesPanel() {
 						{pendingPush.dmOnlyToExternal && (
 							<div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
 								<VisibilityChip level="dm-only" compact />
-								<span style={{ font: `12px/1.6 ${T.sans}`, color: 'var(--color-status-warning-text)' }}>
+								<span
+									style={{ font: `12px/1.6 ${T.sans}`, color: 'var(--color-status-warning-text)' }}
+								>
 									This note is DM-only. Pushing copies it into an external Google Doc — anyone that
 									document is shared with can read it there.
 								</span>
@@ -479,7 +562,10 @@ export function ConnectedSourcesPanel() {
 						)}
 						<div style={{ font: `12px/1.6 ${T.sans}`, color: T.sub }}>
 							{pendingPush.plan.droppedFeatures.length > 0 && (
-								<>Dropped (cannot be represented): {pendingPush.plan.droppedFeatures.join(', ')}. </>
+								<>
+									Dropped (cannot be represented): {pendingPush.plan.droppedFeatures.join(', ')}
+									.{' '}
+								</>
 							)}
 							{pendingPush.plan.lossyFeatures.length > 0 && (
 								<>Downgraded: {pendingPush.plan.lossyFeatures.join(', ')}. </>
@@ -510,7 +596,12 @@ export function ConnectedSourcesPanel() {
 							<Button variant="ghost" size="sm" onClick={() => setDisconnectTarget(null)}>
 								Cancel
 							</Button>
-							<Button variant="danger" size="sm" icon="trash" onClick={() => void confirmDisconnect()}>
+							<Button
+								variant="danger"
+								size="sm"
+								icon="trash"
+								onClick={() => void confirmDisconnect()}
+							>
 								Disconnect
 							</Button>
 						</>
@@ -527,11 +618,14 @@ export function ConnectedSourcesPanel() {
 			{/* Local folders (File System Access API — Chromium only; hidden as an affordance elsewhere) */}
 			{!fsSupported && (
 				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-					Local folder connections need the File System Access API (Chrome or Edge) — this browser doesn’t support it.
+					This browser cannot connect a local folder. Use the desktop app or a supported Chromium
+					browser instead.
 				</div>
 			)}
 			{statusBySource['connect-folder'] && (
-				<div style={{ font: `12px ${T.sans}`, color: T.err }}>{statusBySource['connect-folder']}</div>
+				<div style={{ font: `12px ${T.sans}`, color: T.err }}>
+					{statusBySource['connect-folder']}
+				</div>
 			)}
 			{folders.map((record, i) => (
 				<div key={record.id} style={{ display: 'flex', flexDirection: 'column' }}>
@@ -542,10 +636,22 @@ export function ConnectedSourcesPanel() {
 						badge={<Badge status="success">connected</Badge>}
 						first={i === 0}
 					>
-						<Button variant="secondary" size="sm" icon="import" disabled={busy !== null} onClick={() => void pullFolder(record)}>
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="import"
+							disabled={busy !== null}
+							onClick={() => void pullFolder(record)}
+						>
 							Pull
 						</Button>
-						<Button variant="secondary" size="sm" icon="send" disabled={busy !== null} onClick={() => void startFolderPush(record)}>
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="send"
+							disabled={busy !== null}
+							onClick={() => void startFolderPush(record)}
+						>
 							Push
 						</Button>
 						<Button
@@ -553,103 +659,173 @@ export function ConnectedSourcesPanel() {
 							size="sm"
 							icon="trash"
 							disabled={busy !== null}
-							onClick={() => setDisconnectTarget({ kind: 'folder', id: record.id, name: record.name })}
+							onClick={() =>
+								setDisconnectTarget({ kind: 'folder', id: record.id, name: record.name })
+							}
 						>
 							Disconnect
 						</Button>
 					</SourceRow>
 					{statusBySource[record.id] && (
-						<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub, paddingBottom: 8 }}>{statusBySource[record.id]}</div>
+						<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub, paddingBottom: 8 }}>
+							{statusBySource[record.id]}
+						</div>
 					)}
 				</div>
 			))}
 			{fsSupported && folders.length === 0 && (
-				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>No folders connected yet. Connect an Obsidian vault or any markdown folder.</div>
+				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+					No folders connected yet. Connect an Obsidian vault or any markdown folder.
+				</div>
 			)}
 
-			{/* Google Docs (fail-closed until VITE_GOOGLE_CLIENT_ID is configured) */}
-			<div style={{ borderTop: `1px solid ${T.bd}`, paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+			{/* Google Docs is enabled only when this build and runtime can complete GIS authorization. */}
+			<div
+				style={{
+					borderTop: `1px solid ${T.bd}`,
+					paddingTop: 12,
+					display: 'flex',
+					flexDirection: 'column',
+					gap: 10,
+				}}
+			>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 					<div style={{ font: `600 12.5px ${T.sans}`, color: T.ink, flex: 1 }}>Google Docs</div>
 					{isGoogleDocsConfigured &&
+						googleRuntimeSupported &&
 						(googleSignedIn ? (
-							<Button variant="ghost" size="sm" onClick={() => { signOutGoogle(); setGoogleSignedIn(false); }}>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={() => {
+									signOutGoogle();
+									setGoogleSignedIn(false);
+								}}
+							>
 								Sign out
 							</Button>
 						) : (
-							<Button variant="secondary" size="sm" disabled={busy !== null} onClick={() => void signInGoogle()}>
+							<Button
+								variant="secondary"
+								size="sm"
+								disabled={busy !== null}
+								onClick={() => void signInGoogle()}
+							>
 								Sign in with Google
 							</Button>
 						))}
 				</div>
 				{!isGoogleDocsConfigured ? (
 					<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter }}>
-						Google Docs sync is off in this build: no OAuth client id is configured (<code style={{ fontFamily: T.mono }}>VITE_GOOGLE_CLIENT_ID</code>). A one-time
-						Google Cloud setup enables it — see <code style={{ fontFamily: T.mono }}>{GOOGLE_DOCS_SETUP_RUNBOOK}</code>.
+						Google Docs connections are not available in this release. Local folders and files
+						remain available above.
+					</div>
+				) : !googleRuntimeSupported ? (
+					<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter }}>
+						Google Docs connections are currently available in the web app. Desktop authorization
+						will arrive in a future release.
 					</div>
 				) : (
 					<>
 						{!googleSignedIn && (
 							<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-								Sign in to connect Docs. Access uses the per-file <code style={{ fontFamily: T.mono }}>drive.file</code> scope — only Docs created here or explicitly connected are reachable.
+								Sign in to connect Docs. Access uses the per-file{' '}
+								<code style={{ fontFamily: T.mono }}>drive.file</code> scope — only Docs created
+								here are reachable.
 							</div>
 						)}
 						<div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
 							<Input
 								value={docInput}
 								onChange={(e: { target: { value: string } }) => setDocInput(e.target.value)}
-								placeholder="Doc URL / id to connect — or a title to create"
+								placeholder="Title for a new Google Doc"
 								style={{ flex: 1, minWidth: 220 }}
 							/>
-							<Button variant="secondary" size="sm" icon="link" disabled={busy !== null || !googleSignedIn} onClick={() => void connectExistingDoc()}>
-								Connect Doc
-							</Button>
-							<Button variant="secondary" size="sm" icon="add" disabled={busy !== null || !googleSignedIn} onClick={() => void createNewDoc()}>
+							<Button
+								variant="secondary"
+								size="sm"
+								icon="add"
+								disabled={busy !== null || !googleSignedIn}
+								onClick={() => void createNewDoc()}
+							>
 								Create new Doc
 							</Button>
 						</div>
-						{statusBySource['google'] && <div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>{statusBySource['google']}</div>}
+						<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
+							Existing Docs cannot be connected in this release because the limited Google scope
+							requires a Picker grant. DND Tools does not request broader Drive access.
+						</div>
+						{statusBySource['google'] && (
+							<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+								{statusBySource['google']}
+							</div>
+						)}
 						{gdocs.map((conn, i) => {
 							const pushNote = notes.find((n) => n.id === pushNoteBySource[conn.docId]) ?? null;
 							return (
-							<div key={conn.docId} style={{ display: 'flex', flexDirection: 'column' }}>
-								<SourceRow
-									icon="knowledge-book"
-									name={conn.title}
-									meta={`Google Doc · pulled ${when(conn.lastPullAt)} · pushed ${when(conn.lastPushAt)}`}
-									badge={<Badge status={googleSignedIn ? 'success' : 'warning'}>{googleSignedIn ? 'connected' : 'needs sign-in'}</Badge>}
-									first={i === 0}
-								>
-									<Select
-										options={noteOptions}
-										value={pushNoteBySource[conn.docId] ?? ''}
-										onChange={(e: { target: { value: string } }) =>
-											setPushNoteBySource((prev) => ({ ...prev, [conn.docId]: e.target.value }))
+								<div key={conn.docId} style={{ display: 'flex', flexDirection: 'column' }}>
+									<SourceRow
+										icon="knowledge-book"
+										name={conn.title}
+										meta={`Google Doc · pulled ${when(conn.lastPullAt)} · pushed ${when(conn.lastPushAt)}`}
+										badge={
+											<Badge status={googleSignedIn ? 'success' : 'warning'}>
+												{googleSignedIn ? 'connected' : 'needs sign-in'}
+											</Badge>
 										}
-									/>
-									{/* The selected note's visibility, visible BEFORE pushing — a dm-only note headed
-									    for an external Doc should never be a surprise. */}
-									{pushNote && <VisibilityChip level={pushNote.visibility === 'dm-only' ? 'dm-only' : 'players'} compact />}
-									<Button variant="secondary" size="sm" icon="import" disabled={busy !== null} onClick={() => void pullGdoc(conn)}>
-										Pull
-									</Button>
-									<Button variant="secondary" size="sm" icon="send" disabled={busy !== null} onClick={() => startGdocPush(conn)}>
-										Push
-									</Button>
-									<Button
-										variant="ghost"
-										size="sm"
-										icon="trash"
-										disabled={busy !== null}
-										onClick={() => setDisconnectTarget({ kind: 'gdoc', id: conn.docId, name: conn.title })}
+										first={i === 0}
 									>
-										Disconnect
-									</Button>
-								</SourceRow>
-								{statusBySource[conn.docId] && (
-									<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub, paddingBottom: 8 }}>{statusBySource[conn.docId]}</div>
-								)}
-							</div>
+										<Select
+											options={noteOptions}
+											value={pushNoteBySource[conn.docId] ?? ''}
+											onChange={(e: { target: { value: string } }) =>
+												setPushNoteBySource((prev) => ({ ...prev, [conn.docId]: e.target.value }))
+											}
+										/>
+										{/* The selected note's visibility, visible BEFORE pushing — a dm-only note headed
+									    for an external Doc should never be a surprise. */}
+										{pushNote && (
+											<VisibilityChip
+												level={pushNote.visibility === 'dm-only' ? 'dm-only' : 'players'}
+												compact
+											/>
+										)}
+										<Button
+											variant="secondary"
+											size="sm"
+											icon="import"
+											disabled={busy !== null}
+											onClick={() => void pullGdoc(conn)}
+										>
+											Pull
+										</Button>
+										<Button
+											variant="secondary"
+											size="sm"
+											icon="send"
+											disabled={busy !== null}
+											onClick={() => startGdocPush(conn)}
+										>
+											Push
+										</Button>
+										<Button
+											variant="ghost"
+											size="sm"
+											icon="trash"
+											disabled={busy !== null}
+											onClick={() =>
+												setDisconnectTarget({ kind: 'gdoc', id: conn.docId, name: conn.title })
+											}
+										>
+											Disconnect
+										</Button>
+									</SourceRow>
+									{statusBySource[conn.docId] && (
+										<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub, paddingBottom: 8 }}>
+											{statusBySource[conn.docId]}
+										</div>
+									)}
+								</div>
 							);
 						})}
 					</>
