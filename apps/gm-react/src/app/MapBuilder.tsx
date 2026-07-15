@@ -10,12 +10,8 @@ import {
 	type ReactNode,
 } from 'react';
 import {
-	MAP_POI_CATEGORIES,
 	NATIVE_ASSET_MIME_TYPES,
-	deliveredMapIdsForActor,
-	getMapViewForActor,
 	previewMapImport,
-	queryMapLayers,
 	type MapFeature,
 	type MapFogRegion,
 	type MapImportElementKind,
@@ -30,33 +26,19 @@ import {
 import {
 	Button,
 	Dialog,
-	EmptyState,
 	Field,
-	FogControls,
-	GenerationPanel,
 	Icon,
-	IconButton,
-	Input,
-	Minimap,
 	POIMarker,
-	POIPopover,
 	SegmentedControl,
 	Select,
-	Slider,
 	Stepper,
-	Switch,
-	Textarea,
-	Toaster,
-	ToolPalette,
 	VisibilityChip,
 } from '../ds';
 import { FogRegionShape } from './fogRegions';
 import {
-	MAX_FOG_POINTS,
 	appendPolygonVertex,
 	appendStrokePoint,
 	closePolygonRegion,
-	pickRasterAssetId,
 	rectRegionFromDrag,
 	strokeRegionFromPoints,
 	type NormPoint,
@@ -65,6 +47,7 @@ import { T, eb } from './screen-kit';
 import { useAssetObjectUrl } from '../platform/assetUrl';
 import { putAssetBytes } from '../platform/storage/assetStore';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { MapEditor } from './map/MapEditor';
 
 /**
  * MapBuilder — real spatial map authoring (ports the STRUCTURE of the online prototype's
@@ -130,7 +113,11 @@ export const VIS_OPTIONS = [
 ];
 /** Core visibility → the safety-critical VisibilityChip level (same map as Knowledge/Campaign).
  *  `shared` reads as "players can see it" — the chip's players level is the honest signal. */
-export const VIS_CHIP: Record<string, string> = { 'dm-only': 'dm-only', 'player-visible': 'players', shared: 'players' };
+export const VIS_CHIP: Record<string, string> = {
+	'dm-only': 'dm-only',
+	'player-visible': 'players',
+	shared: 'players',
+};
 
 /** Core POI category → the DS POIMarker/POIPopover glyph family (the DS knows 6 tones, core 9). */
 export const POI_MARKER_CAT: Record<MapPoiCategory, string> = {
@@ -154,15 +141,6 @@ export function dsToVis(v: string): SceneVisibility {
 }
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
-const FOCUSABLE =
-	'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-const ghostBtn = {
-	border: 'none',
-	background: 'transparent',
-	cursor: 'pointer',
-	padding: 2,
-	display: 'inline-flex',
-} as const;
 
 // ── MapCanvas — the shared engine-free geometry renderer ────────────────────────────────────────
 
@@ -224,23 +202,168 @@ export interface MapCanvasProps {
 	style?: CSSProperties;
 }
 
-/** One painted layer feature (MAP-003 normalized geometry) as SVG in the 0–100 viewBox. */
-function FeatureShape({ feature, color }: { feature: MapFeature; color: string }) {
-	const pts = feature.points.map((p) => `${(p.x * 100).toFixed(2)},${(p.y * 100).toFixed(2)}`).join(' ');
+/** A rect from `room`/`fill`'s two corner points, as an `x,y,w,h` tuple in the 0–100 viewBox. */
+function rectOf(feature: MapFeature): { x: number; y: number; w: number; h: number } {
+	const a = feature.points[0] ?? { x: 0, y: 0 };
+	const b = feature.points[1] ?? a;
+	const x = Math.min(a.x, b.x) * 100;
+	const y = Math.min(a.y, b.y) * 100;
+	return { x, y, w: Math.abs(b.x - a.x) * 100, h: Math.abs(b.y - a.y) * 100 };
+}
+
+/**
+ * One painted/generated layer feature (MAP-003 / MAP-021 normalized geometry) as SVG in the 0–100
+ * viewBox. `color` is the layer-category tint; a feature may override presentation through `props`
+ * (e.g. a light's own colour), but never geometry. Every kind the core can emit renders here — a kind
+ * this switch does not know still falls through to a visible polyline rather than vanishing, so a
+ * forward-compatible core never produces an invisible map.
+ */
+export function FeatureShape({ feature, color }: { feature: MapFeature; color: string }) {
+	const pts = feature.points
+		.map((p) => `${(p.x * 100).toFixed(2)},${(p.y * 100).toFixed(2)}`)
+		.join(' ');
+	const props = feature.props ?? {};
 	switch (feature.kind) {
 		case 'fill':
-		case 'room':
-			return <polygon points={pts} fill={color} fillOpacity={0.3} stroke={color} strokeWidth={1.4} vectorEffect="non-scaling-stroke" />;
+		case 'room': {
+			const r = rectOf(feature);
+			return (
+				<rect
+					x={r.x}
+					y={r.y}
+					width={r.w}
+					height={r.h}
+					fill={color}
+					fillOpacity={0.3}
+					stroke={color}
+					strokeWidth={1.4}
+					vectorEffect="non-scaling-stroke"
+				/>
+			);
+		}
+		case 'polygon': {
+			// The workhorse: caves, biomes, wards, landmasses. A `props.hole` polygon is an interior
+			// void (a pillar, a lake in land) — render it as a knock-out tint so it reads as "not floor".
+			const isHole = props.hole === true;
+			return (
+				<polygon
+					points={pts}
+					fill={isHole ? 'var(--map-canvas-bg)' : color}
+					fillOpacity={isHole ? 0.9 : 0.32}
+					stroke={color}
+					strokeWidth={1.2}
+					vectorEffect="non-scaling-stroke"
+					strokeLinejoin="round"
+				/>
+			);
+		}
+		case 'water': {
+			// A river is a flowing polyline (width from props.width); a lake/sea is a filled ring. The
+			// two are distinguished by the style token / props, NOT by point count — a river naturally has
+			// many vertices, so counting points would wrongly render every river as a filled lake.
+			const isRiver =
+				feature.style.includes('river') || props.biome === 'river' || props.flow !== undefined;
+			const width = typeof props.width === 'number' ? Math.max(0.4, props.width * 100) : 1.6;
+			return isRiver ? (
+				<polyline
+					points={pts}
+					fill="none"
+					stroke="var(--layer-water)"
+					strokeWidth={width}
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				/>
+			) : (
+				<polygon
+					points={pts}
+					fill="var(--layer-water)"
+					fillOpacity={0.45}
+					stroke="var(--layer-water)"
+					strokeWidth={1}
+					vectorEffect="non-scaling-stroke"
+				/>
+			);
+		}
 		case 'marker': {
 			const p = feature.points[0]!;
 			return <circle cx={p.x * 100} cy={p.y * 100} r={1.1} fill={color} />;
 		}
+		case 'prop': {
+			const p = feature.points[0]!;
+			const scale = typeof props.scale === 'number' ? props.scale : 1;
+			return <circle cx={p.x * 100} cy={p.y * 100} r={Math.max(0.5, 0.9 * scale)} fill={color} fillOpacity={0.85} />;
+		}
+		case 'light': {
+			const p = feature.points[0]!;
+			const radius = typeof props.radius === 'number' ? props.radius * 100 : 6;
+			const lightColor = typeof props.color === 'string' ? props.color : '#ffd6aa';
+			return (
+				<g>
+					<circle cx={p.x * 100} cy={p.y * 100} r={radius} fill={lightColor} fillOpacity={0.1} stroke={lightColor} strokeOpacity={0.35} strokeWidth={0.8} vectorEffect="non-scaling-stroke" />
+					<circle cx={p.x * 100} cy={p.y * 100} r={0.9} fill={lightColor} />
+				</g>
+			);
+		}
+		case 'door': {
+			// A door spans a wall opening. Solid = closed/locked, dashed = open/archway.
+			const state = props.state;
+			const open = state === 'open' || props.portal === 'archway';
+			return (
+				<polyline
+					points={pts}
+					fill="none"
+					stroke={props.portal === 'secret' ? 'var(--layer-dm)' : 'var(--layer-roads)'}
+					strokeWidth={3.2}
+					strokeLinecap="butt"
+					strokeDasharray={open ? '3 2' : props.portal === 'secret' ? '1 2' : undefined}
+					vectorEffect="non-scaling-stroke"
+				/>
+			);
+		}
+		case 'text': {
+			const p = feature.points[0]!;
+			const text = typeof props.text === 'string' ? props.text : '';
+			const size = typeof props.size === 'number' ? props.size : 3;
+			return (
+				<text x={p.x * 100} y={p.y * 100} fill={color} fontSize={size} textAnchor="middle" style={{ font: `${size}px var(--font-display, serif)` }}>
+					{text}
+				</text>
+			);
+		}
 		case 'road':
-			return <polyline points={pts} fill="none" stroke={color} strokeWidth={1.6} strokeDasharray="5 3" vectorEffect="non-scaling-stroke" />;
+			return (
+				<polyline
+					points={pts}
+					fill="none"
+					stroke={color}
+					strokeWidth={1.6}
+					strokeDasharray="5 3"
+					vectorEffect="non-scaling-stroke"
+				/>
+			);
 		case 'wall':
-			return <polyline points={pts} fill="none" stroke={color} strokeWidth={2.4} vectorEffect="non-scaling-stroke" strokeLinecap="round" />;
+			return (
+				<polyline
+					points={pts}
+					fill="none"
+					stroke={color}
+					strokeWidth={2.4}
+					vectorEffect="non-scaling-stroke"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				/>
+			);
 		default: // 'stroke'
-			return <polyline points={pts} fill="none" stroke={color} strokeWidth={1.4} vectorEffect="non-scaling-stroke" strokeLinecap="round" />;
+			return (
+				<polyline
+					points={pts}
+					fill="none"
+					stroke={color}
+					strokeWidth={1.4}
+					vectorEffect="non-scaling-stroke"
+					strokeLinecap="round"
+				/>
+			);
 	}
 }
 
@@ -360,9 +483,43 @@ export function MapCanvas({
 	);
 
 	const contentLayers = useMemo(
-		() => layers.filter((l) => l.enabled && l.content.length > 0).slice().sort((a, b) => a.order - b.order),
+		() =>
+			layers
+				.filter((l) => l.enabled && l.content.length > 0)
+				.slice()
+				.sort((a, b) => a.order - b.order),
 		[layers],
 	);
+
+	// PERF (MAP-021): a generated world holds thousands of features. When zoomed in, cull features whose
+	// bounds fall entirely outside the visible viewport so a dense map never freezes the editor. At
+	// zoom ≤ 1 (the Atlas preview and the fit view) the visible box covers the whole map, so nothing is
+	// culled and the shared renderer behaves exactly as before.
+	const visibleFeatures = useMemo(() => {
+		const half = 0.5 / zoom;
+		const vx0 = center.x - half - 0.02;
+		const vx1 = center.x + half + 0.02;
+		const vy0 = center.y - half - 0.02;
+		const vy1 = center.y + half + 0.02;
+		const cullNeeded = zoom > 1.001;
+		return contentLayers.map((l) => {
+			if (!cullNeeded) return { layer: l, features: l.content };
+			const features = l.content.filter((f) => {
+				let minX = Infinity;
+				let minY = Infinity;
+				let maxX = -Infinity;
+				let maxY = -Infinity;
+				for (const p of f.points) {
+					if (p.x < minX) minX = p.x;
+					if (p.x > maxX) maxX = p.x;
+					if (p.y < minY) minY = p.y;
+					if (p.y > maxY) maxY = p.y;
+				}
+				return maxX >= vx0 && minX <= vx1 && maxY >= vy0 && minY <= vy1;
+			});
+			return { layer: l, features };
+		});
+	}, [contentLayers, zoom, center.x, center.y]);
 
 	// ── Well-level gestures (fog rect/brush draw · polygon vertices · pan · click-to-place) ────
 	const onWellPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -424,7 +581,12 @@ export function MapCanvas({
 	// ── Marker press/drag. Selection resolves on POINTERUP (under pointer capture the follow-up
 	// click's target is browser-dependent — Chrome retargets it to the capture element — so the
 	// inner button's onClick cannot be the pointer path; it remains the keyboard path). ──────────
-	const markerDragHandlers = (kind: 'poi' | 'token', id: string, canDrag: boolean, onSelect: () => void) => ({
+	const markerDragHandlers = (
+		kind: 'poi' | 'token',
+		id: string,
+		canDrag: boolean,
+		onSelect: () => void,
+	) => ({
 		onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
 			if (e.button !== 0) return;
 			e.stopPropagation();
@@ -470,10 +632,15 @@ export function MapCanvas({
 	const selectedPoi = view?.pois.find((p) => p.id === selectedPoiId) ?? null;
 
 	const cursor =
-		editable && tool === 'fog' ? 'crosshair'
-		: editable && (tool === 'poi' || tool === 'token') ? 'copy'
-		: editable && tool === 'pan' ? (drag?.kind === 'pan' ? 'grabbing' : 'grab')
-		: 'default';
+		editable && tool === 'fog'
+			? 'crosshair'
+			: editable && (tool === 'poi' || tool === 'token')
+				? 'copy'
+				: editable && tool === 'pan'
+					? drag?.kind === 'pan'
+						? 'grabbing'
+						: 'grab'
+					: 'default';
 
 	return (
 		<div
@@ -520,18 +687,36 @@ export function MapCanvas({
 					<svg
 						viewBox="0 0 100 100"
 						preserveAspectRatio="none"
-						style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible' }}
+						style={{
+							position: 'absolute',
+							inset: 0,
+							width: '100%',
+							height: '100%',
+							pointerEvents: 'none',
+							overflow: 'visible',
+						}}
 					>
 						{/* raster base layer — the imported image bytes, content-addressed. Rendered FIRST so
 						    every vector layer, annotation, and (critically) the fog mask covers it. */}
 						{rasterUrl && (
-							<image href={rasterUrl} x={0} y={0} width={100} height={100} preserveAspectRatio="none" />
+							<image
+								href={rasterUrl}
+								x={0}
+								y={0}
+								width={100}
+								height={100}
+								preserveAspectRatio="none"
+							/>
 						)}
 						{/* painted layer features (MAP-003), in render order, tinted by layer category */}
-						{contentLayers.map((l) => (
+						{visibleFeatures.map(({ layer: l, features }) => (
 							<g key={l.layerId} opacity={l.opacity}>
-								{l.content.map((f) => (
-									<FeatureShape key={f.id} feature={f} color={`var(${CATEGORY_VAR[l.category] ?? '--layer-custom'})`} />
+								{features.map((f) => (
+									<FeatureShape
+										key={f.id}
+										feature={f}
+										color={`var(${CATEGORY_VAR[l.category] ?? '--layer-custom'})`}
+									/>
 								))}
 							</g>
 						))}
@@ -541,16 +726,28 @@ export function MapCanvas({
 							.map((r) => (
 								<g key={r.id}>
 									<polyline
-										points={r.waypoints.map((w) => `${w.position.x * 100},${w.position.y * 100}`).join(' ')}
+										points={r.waypoints
+											.map((w) => `${w.position.x * 100},${w.position.y * 100}`)
+											.join(' ')}
 										fill="none"
-										stroke={r.visibility === 'dm-only' ? 'var(--layer-dm)' : 'var(--color-route-player)'}
+										stroke={
+											r.visibility === 'dm-only' ? 'var(--layer-dm)' : 'var(--color-route-player)'
+										}
 										strokeWidth={2}
 										strokeDasharray="6 4"
 										vectorEffect="non-scaling-stroke"
 										opacity={0.85}
 									/>
 									{r.waypoints.map((w) => (
-										<circle key={w.id} cx={w.position.x * 100} cy={w.position.y * 100} r={0.9} fill={r.visibility === 'dm-only' ? 'var(--layer-dm)' : 'var(--color-route-player)'} />
+										<circle
+											key={w.id}
+											cx={w.position.x * 100}
+											cy={w.position.y * 100}
+											r={0.9}
+											fill={
+												r.visibility === 'dm-only' ? 'var(--layer-dm)' : 'var(--color-route-player)'
+											}
+										/>
 									))}
 								</g>
 							))}
@@ -558,16 +755,36 @@ export function MapCanvas({
 						{fogOps.length > 0 && (
 							<>
 								<defs>
-									<mask id={fogMaskId} maskUnits="userSpaceOnUse" x={0} y={0} width={100} height={100}>
+									<mask
+										id={fogMaskId}
+										maskUnits="userSpaceOnUse"
+										x={0}
+										y={0}
+										width={100}
+										height={100}
+									>
 										<rect x={0} y={0} width={100} height={100} fill="black" />
 										{fogOps.map((op) => (
 											<g key={op.id}>
-												<FogRegionShape region={op.region} paint={op.kind === 'conceal' ? 'white' : 'black'} mode="fill" feather={op.feather} />
+												<FogRegionShape
+													region={op.region}
+													paint={op.kind === 'conceal' ? 'white' : 'black'}
+													mode="fill"
+													feather={op.feather}
+												/>
 											</g>
 										))}
 									</mask>
 								</defs>
-								<rect x={0} y={0} width={100} height={100} fill="var(--map-fog-fill)" opacity={fogOpacity} mask={`url(#${fogMaskId})`} />
+								<rect
+									x={0}
+									y={0}
+									width={100}
+									height={100}
+									fill="var(--map-fog-fill)"
+									opacity={fogOpacity}
+									mask={`url(#${fogMaskId})`}
+								/>
 							</>
 						)}
 						{/* DM authoring aid: dashed per-op outlines */}
@@ -575,7 +792,11 @@ export function MapCanvas({
 							isDm &&
 							fogOps.map((op) => (
 								<g key={`o-${op.id}`}>
-									<FogRegionShape region={op.region} paint={op.kind === 'reveal' ? 'var(--color-accent)' : 'var(--map-fog-fill)'} mode="outline" />
+									<FogRegionShape
+										region={op.region}
+										paint={op.kind === 'reveal' ? 'var(--color-accent)' : 'var(--map-fog-fill)'}
+										mode="outline"
+									/>
 								</g>
 							))}
 						{/* ghost previews while a fog gesture is in progress (rect drag · brush sweep · polygon) */}
@@ -585,7 +806,11 @@ export function MapCanvas({
 								y={Math.min(drag.start.y, drag.cur.y) * 100}
 								width={Math.abs(drag.cur.x - drag.start.x) * 100}
 								height={Math.abs(drag.cur.y - drag.start.y) * 100}
-								fill={fogMode === 'reveal' ? 'color-mix(in oklab, var(--color-accent) 18%, transparent)' : 'color-mix(in oklab, var(--map-fog-fill) 45%, transparent)'}
+								fill={
+									fogMode === 'reveal'
+										? 'color-mix(in oklab, var(--color-accent) 18%, transparent)'
+										: 'color-mix(in oklab, var(--map-fog-fill) 45%, transparent)'
+								}
 								stroke={fogMode === 'reveal' ? 'var(--color-accent)' : 'var(--map-fog-fill)'}
 								strokeWidth={1.4}
 								strokeDasharray="4 3"
@@ -596,7 +821,11 @@ export function MapCanvas({
 							<g opacity={0.7}>
 								<FogRegionShape
 									region={{ shape: 'stroke', points: drag.points, radius: fogBrushRadius }}
-									paint={fogMode === 'reveal' ? 'color-mix(in oklab, var(--color-accent) 30%, transparent)' : 'color-mix(in oklab, var(--map-fog-fill) 55%, transparent)'}
+									paint={
+										fogMode === 'reveal'
+											? 'color-mix(in oklab, var(--color-accent) 30%, transparent)'
+											: 'color-mix(in oklab, var(--map-fog-fill) 55%, transparent)'
+									}
 									mode="fill"
 								/>
 							</g>
@@ -605,14 +834,26 @@ export function MapCanvas({
 							<g>
 								<polyline
 									points={polyPoints.map((p) => `${p.x * 100},${p.y * 100}`).join(' ')}
-									fill={polyPoints.length >= 3 ? (fogMode === 'reveal' ? 'color-mix(in oklab, var(--color-accent) 14%, transparent)' : 'color-mix(in oklab, var(--map-fog-fill) 35%, transparent)') : 'none'}
+									fill={
+										polyPoints.length >= 3
+											? fogMode === 'reveal'
+												? 'color-mix(in oklab, var(--color-accent) 14%, transparent)'
+												: 'color-mix(in oklab, var(--map-fog-fill) 35%, transparent)'
+											: 'none'
+									}
 									stroke={fogMode === 'reveal' ? 'var(--color-accent)' : 'var(--map-fog-fill)'}
 									strokeWidth={1.4}
 									strokeDasharray="4 3"
 									vectorEffect="non-scaling-stroke"
 								/>
 								{polyPoints.map((p, i) => (
-									<circle key={i} cx={p.x * 100} cy={p.y * 100} r={0.8} fill={fogMode === 'reveal' ? 'var(--color-accent)' : 'var(--map-fog-fill)'} />
+									<circle
+										key={i}
+										cx={p.x * 100}
+										cy={p.y * 100}
+										r={0.8}
+										fill={fogMode === 'reveal' ? 'var(--color-accent)' : 'var(--map-fog-fill)'}
+									/>
 								))}
 							</g>
 						)}
@@ -623,7 +864,25 @@ export function MapCanvas({
 			{/* honest missing-bytes state: asset metadata names a raster, but the bytes are not in this
 			    device's asset store (evicted / imported elsewhere). Geometry still renders; no crash. */}
 			{view && rasterAssetId && !rasterUrl && (
-				<div style={{ position: 'absolute', left: '50%', bottom: 14, transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 11px', borderRadius: 8, background: 'color-mix(in oklab, var(--map-canvas-bg) 80%, transparent)', border: `1px solid ${T.bd}`, font: `11.5px ${T.sans}`, color: T.sub, pointerEvents: 'none', zIndex: 2 }}>
+				<div
+					style={{
+						position: 'absolute',
+						left: '50%',
+						bottom: 14,
+						transform: 'translateX(-50%)',
+						display: 'inline-flex',
+						alignItems: 'center',
+						gap: 7,
+						padding: '5px 11px',
+						borderRadius: 8,
+						background: 'color-mix(in oklab, var(--map-canvas-bg) 80%, transparent)',
+						border: `1px solid ${T.bd}`,
+						font: `11.5px ${T.sans}`,
+						color: T.sub,
+						pointerEvents: 'none',
+						zIndex: 2,
+					}}
+				>
 					<Icon name="warning" size={13} color={T.warn} />
 					Map image bytes aren't on this device — showing geometry only
 				</div>
@@ -687,7 +946,19 @@ export function MapCanvas({
 								>
 									{t.label[0]}
 								</button>
-								<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, font: `10px ${T.sans}`, color: T.sub, background: 'color-mix(in oklab, var(--map-canvas-bg) 72%, transparent)', padding: '1px 5px', borderRadius: 4, whiteSpace: 'nowrap' }}>
+								<span
+									style={{
+										display: 'inline-flex',
+										alignItems: 'center',
+										gap: 4,
+										font: `10px ${T.sans}`,
+										color: T.sub,
+										background: 'color-mix(in oklab, var(--map-canvas-bg) 72%, transparent)',
+										padding: '1px 5px',
+										borderRadius: 4,
+										whiteSpace: 'nowrap',
+									}}
+								>
 									{t.label}
 									{t.visibility === 'dm-only' && <VisibilityChip level="dm-only" compact />}
 								</span>
@@ -727,7 +998,17 @@ export function MapCanvas({
 									active={p.id === selectedPoiId}
 									onClick={clickGuard(selectPoi)}
 								/>
-								<span style={{ font: `10px ${T.sans}`, color: T.ink, background: 'color-mix(in oklab, var(--map-canvas-bg) 72%, transparent)', padding: '1px 6px', borderRadius: 5, whiteSpace: 'nowrap', marginTop: -6 }}>
+								<span
+									style={{
+										font: `10px ${T.sans}`,
+										color: T.ink,
+										background: 'color-mix(in oklab, var(--map-canvas-bg) 72%, transparent)',
+										padding: '1px 6px',
+										borderRadius: 5,
+										whiteSpace: 'nowrap',
+										marginTop: -6,
+									}}
+								>
 									{p.label}
 								</span>
 							</div>
@@ -742,8 +1023,18 @@ export function MapCanvas({
 								const v = toVisual(selectedPoi.position);
 								const placement = v.y < 0.42 ? 'bottom' : 'top';
 								return (
-									<div style={{ position: 'absolute', inset: 0, pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
-										{renderPoiPopover(selectedPoi, { x: `${v.x * 100}%`, y: `${(placement === 'top' ? v.y - 0.045 : v.y + 0.01) * 100}%` }, placement)}
+									<div
+										style={{ position: 'absolute', inset: 0, pointerEvents: 'auto' }}
+										onClick={(e) => e.stopPropagation()}
+									>
+										{renderPoiPopover(
+											selectedPoi,
+											{
+												x: `${v.x * 100}%`,
+												y: `${(placement === 'top' ? v.y - 0.045 : v.y + 0.01) * 100}%`,
+											},
+											placement,
+										)}
 									</div>
 								);
 							})()}
@@ -753,7 +1044,11 @@ export function MapCanvas({
 			</div>
 
 			{/* HUD overlays — clicks never fall through to the map */}
-			<div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} style={{ display: 'contents' }}>
+			<div
+				onClick={(e) => e.stopPropagation()}
+				onPointerDown={(e) => e.stopPropagation()}
+				style={{ display: 'contents' }}
+			>
 				{children}
 			</div>
 		</div>
@@ -762,52 +1057,16 @@ export function MapCanvas({
 
 // ── Builder-internal primitives ─────────────────────────────────────────────────────────────────
 
-/** Range input committing ONE durable op on release (never per input tick). */
-function CommitRange({
-	value,
-	min = 0,
-	max = 100,
-	label,
-	disabled,
-	onCommit,
-}: {
-	value: number;
-	min?: number;
-	max?: number;
-	label: string;
-	disabled?: boolean;
-	onCommit: (v: number) => void;
-}) {
-	const [local, setLocal] = useState<number | null>(null);
-	const commit = () => {
-		if (local !== null && local !== value) onCommit(local);
-		setLocal(null);
-	};
-	// DS Slider spreads extra props onto its <input type="range">, so the commit-on-release contract
-	// (pointerup / arrow-keyup / blur) survives the swap — dragging never dispatches per tick.
-	return (
-		<Slider
-			min={min}
-			max={max}
-			step={1}
-			value={local ?? value}
-			aria-label={label}
-			disabled={disabled}
-			onChange={(v: number) => setLocal(v)}
-			onPointerUp={commit}
-			onKeyUp={(e: { key: string }) => {
-				if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Home' || e.key === 'End') commit();
-			}}
-			onBlur={commit}
-			valueLabel={`${local ?? value}%`}
-			style={{ flex: 1 }}
-		/>
-	);
-}
-
 function PanelLabel({ children, action }: { children: ReactNode; action?: ReactNode }) {
 	return (
-		<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '2px 0 8px' }}>
+		<div
+			style={{
+				display: 'flex',
+				alignItems: 'center',
+				justifyContent: 'space-between',
+				margin: '2px 0 8px',
+			}}
+		>
 			<span style={eb}>{children}</span>
 			{action}
 		</div>
@@ -828,10 +1087,30 @@ const IMPORT_ELEMENT_KINDS: MapImportElementKind[] = [
 ];
 
 const SUPPORT_PILL: Record<string, { tone: string; bg: string; label: string; icon: string }> = {
-	importable: { tone: 'var(--color-status-success)', bg: 'var(--color-status-success-subtle)', label: 'Importable', icon: 'success' },
-	lossy: { tone: 'var(--color-status-warning)', bg: 'var(--color-status-warning-subtle)', label: 'Lossy', icon: 'warning' },
-	unsupported: { tone: 'var(--color-status-error)', bg: 'var(--color-status-error-subtle)', label: 'Unsupported', icon: 'error' },
-	blocked: { tone: 'var(--color-text-tertiary)', bg: 'var(--color-surface-sunken)', label: 'Blocked', icon: 'lock' },
+	importable: {
+		tone: 'var(--color-status-success)',
+		bg: 'var(--color-status-success-subtle)',
+		label: 'Importable',
+		icon: 'success',
+	},
+	lossy: {
+		tone: 'var(--color-status-warning)',
+		bg: 'var(--color-status-warning-subtle)',
+		label: 'Lossy',
+		icon: 'warning',
+	},
+	unsupported: {
+		tone: 'var(--color-status-error)',
+		bg: 'var(--color-status-error-subtle)',
+		label: 'Unsupported',
+		icon: 'error',
+	},
+	blocked: {
+		tone: 'var(--color-text-tertiary)',
+		bg: 'var(--color-surface-sunken)',
+		label: 'Blocked',
+		icon: 'lock',
+	},
 };
 
 interface PickedFile {
@@ -840,7 +1119,15 @@ interface PickedFile {
 	dimensions: { width: number; height: number } | null;
 }
 
-function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: string; onClose: () => void }) {
+export function ImportMapDialog({
+	mapId,
+	mapName,
+	onClose,
+}: {
+	mapId: string;
+	mapName: string;
+	onClose: () => void;
+}) {
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
 	const [step, setStep] = useState(0);
@@ -849,10 +1136,19 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 	const [readError, setReadError] = useState<string | null>(null);
 	const formats = runtime.mapImportAdapters.formats();
 	const [formatId, setFormatId] = useState(formats[0] ?? '');
-	const [declared, setDeclared] = useState<MapImportElementKind[]>(['dimensions', 'grid', 'background-image']);
+	const [declared, setDeclared] = useState<MapImportElementKind[]>([
+		'dimensions',
+		'grid',
+		'background-image',
+	]);
 	const [busy, setBusy] = useState(false);
 	const [commitError, setCommitError] = useState<string | null>(null);
-	const [result, setResult] = useState<{ assetId: string | null; deduped: boolean; dropped: number; byteError: string | null } | null>(null);
+	const [result, setResult] = useState<{
+		assetId: string | null;
+		deduped: boolean;
+		dropped: number;
+		byteError: string | null;
+	} | null>(null);
 
 	const nativeMimes = Object.keys(NATIVE_ASSET_MIME_TYPES);
 
@@ -887,7 +1183,12 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 			if (!picked) return null;
 			return previewMapImport(runtime.mapImportAdapters, {
 				formatId: null,
-				asset: { bytes: picked.bytes, mimeType: picked.file.type, fileName: picked.file.name, dimensions: picked.dimensions },
+				asset: {
+					bytes: picked.bytes,
+					mimeType: picked.file.type,
+					fileName: picked.file.name,
+					dimensions: picked.dimensions,
+				},
 				declaredElements: [],
 				importedBy: actorId,
 				importedAt: now,
@@ -915,7 +1216,11 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 							payload: {
 								mapId,
 								bytes: Array.from(picked?.bytes ?? []),
-								asset: { mimeType: picked?.file.type ?? '', fileName: picked?.file.name ?? '', dimensions: picked?.dimensions ?? null },
+								asset: {
+									mimeType: picked?.file.type ?? '',
+									fileName: picked?.file.name ?? '',
+									dimensions: picked?.dimensions ?? null,
+								},
 							},
 						}
 					: {
@@ -925,9 +1230,16 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 						},
 			);
 			if (res.status === 'accepted') {
-				const ev = (res.events as Array<{ kind: string; assetId?: string | null; assetDeduped?: boolean; droppedElementCount?: number }> | undefined)?.find(
-					(e) => e.kind === 'map.import-committed',
-				);
+				const ev = (
+					res.events as
+						| Array<{
+								kind: string;
+								assetId?: string | null;
+								assetDeduped?: boolean;
+								droppedElementCount?: number;
+						  }>
+						| undefined
+				)?.find((e) => e.kind === 'map.import-committed');
 				// Store the REAL bytes in the app-side content-addressed store (same hash id as the core
 				// metadata record, so the canvas can resolve them). A byte-store failure is reported
 				// honestly on the result step — the metadata record stands, the raster just won't render.
@@ -939,7 +1251,12 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 						byteError = err instanceof Error ? err.message : String(err);
 					}
 				}
-				setResult({ assetId: ev?.assetId ?? null, deduped: ev?.assetDeduped ?? false, dropped: ev?.droppedElementCount ?? 0, byteError });
+				setResult({
+					assetId: ev?.assetId ?? null,
+					deduped: ev?.assetDeduped ?? false,
+					dropped: ev?.droppedElementCount ?? 0,
+					byteError,
+				});
 				setStep(2);
 			} else {
 				setCommitError(res.rejection.message);
@@ -949,12 +1266,16 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 		}
 	}
 
-	const canPreview = source === 'native' ? picked !== null : declared.length > 0 && formatId.length > 0;
+	const canPreview =
+		source === 'native' ? picked !== null : declared.length > 0 && formatId.length > 0;
 	const meta: Array<[string, string]> = picked
 		? [
 				['Filename', picked.file.name],
 				['MIME type', picked.file.type || 'unknown'],
-				['Dimensions', picked.dimensions ? `${picked.dimensions.width} × ${picked.dimensions.height} px` : '—'],
+				[
+					'Dimensions',
+					picked.dimensions ? `${picked.dimensions.width} × ${picked.dimensions.height} px` : '—',
+				],
 				['Byte size', `${(picked.bytes.length / 1024).toFixed(1)} KB`],
 			]
 		: [];
@@ -964,7 +1285,7 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 			open
 			onClose={onClose}
 			title="Import map"
-			description={`Attach an asset or external scene to “${mapName}”. Nothing is written before the explicit commit; cancelling leaves zero state.`}
+			description={`Attach an image or external scene to “${mapName}”. Review the preview before importing; cancel at any time to leave the map unchanged.`}
 			icon="import"
 			size="md"
 		>
@@ -1002,25 +1323,40 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 									type="file"
 									accept={nativeMimes.join(',')}
 									style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
-									onChange={(e: { target: { files: FileList | null } }) => void pickFile(e.target.files?.[0])}
+									onChange={(e: { target: { files: FileList | null } }) =>
+										void pickFile(e.target.files?.[0])
+									}
 								/>
 								<Icon name="upload" size={26} color={T.ter} />
 								{picked ? (
 									<span style={{ font: `13px ${T.sans}`, color: T.sub }}>
-										<strong style={{ color: T.ink }}>{picked.file.name}</strong> · {(picked.bytes.length / 1024).toFixed(1)} KB
+										<strong style={{ color: T.ink }}>{picked.file.name}</strong> ·{' '}
+										{(picked.bytes.length / 1024).toFixed(1)} KB
 									</span>
 								) : (
-									<span style={{ font: `13px ${T.sans}`, color: T.sub }}>Choose an image or SVG</span>
+									<span style={{ font: `13px ${T.sans}`, color: T.sub }}>
+										Choose an image or SVG
+									</span>
 								)}
 								<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
-									PNG · JPG · WebP · GIF · SVG — up to {Math.round((8 * 1024 * 1024) / (1024 * 1024))} MB
+									PNG · JPG · WebP · GIF · SVG — up to{' '}
+									{Math.round((8 * 1024 * 1024) / (1024 * 1024))} MB
 								</span>
-								{readError && <span style={{ font: `12px ${T.sans}`, color: T.err }}>{readError}</span>}
+								{readError && (
+									<span style={{ font: `12px ${T.sans}`, color: T.err }}>{readError}</span>
+								)}
 							</label>
 						) : (
 							<>
-								<Field label="Declared adapter" help="External formats need a declared adapter — undeclared formats are rejected fail-closed.">
-									<Select value={formatId} options={formats.map((f) => ({ value: f, label: f }))} onChange={(e: { target: { value: string } }) => setFormatId(e.target.value)} />
+								<Field
+									label="Import format"
+									help="Choose the format that created this file. Unsupported formats are left untouched."
+								>
+									<Select
+										value={formatId}
+										options={formats.map((f) => ({ value: f, label: f }))}
+										onChange={(e: { target: { value: string } }) => setFormatId(e.target.value)}
+									/>
 								</Field>
 								<div>
 									<PanelLabel>Elements the file contains</PanelLabel>
@@ -1028,11 +1364,27 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 										{IMPORT_ELEMENT_KINDS.map((k) => {
 											const on = declared.includes(k);
 											return (
-												<label key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, border: `1px solid ${on ? T.accBd : T.bd}`, background: on ? T.accSub : 'transparent', cursor: 'pointer', font: `12px ${T.sans}`, color: on ? T.acc : T.sub }}>
+												<label
+													key={k}
+													style={{
+														display: 'flex',
+														alignItems: 'center',
+														gap: 8,
+														padding: '6px 8px',
+														borderRadius: 8,
+														border: `1px solid ${on ? T.accBd : T.bd}`,
+														background: on ? T.accSub : 'transparent',
+														cursor: 'pointer',
+														font: `12px ${T.sans}`,
+														color: on ? T.acc : T.sub,
+													}}
+												>
 													<input
 														type="checkbox"
 														checked={on}
-														onChange={() => setDeclared((d) => (on ? d.filter((x) => x !== k) : [...d, k]))}
+														onChange={() =>
+															setDeclared((d) => (on ? d.filter((x) => x !== k) : [...d, k]))
+														}
 														style={{ accentColor: 'var(--color-accent)' }}
 													/>
 													{k}
@@ -1041,7 +1393,9 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 										})}
 									</div>
 									<div style={{ marginTop: 8, font: `11px/1.5 ${T.sans}`, color: T.ter }}>
-										Scene files are not parsed in this build — declare what the file contains and the adapter classifies each element. Unsupported elements are reported, never silently dropped.
+										Scene files are not parsed in this build — declare what the file contains and
+										the adapter classifies each element. Unsupported elements are reported, never
+										silently dropped.
 									</div>
 								</div>
 							</>
@@ -1050,7 +1404,13 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 							<Button variant="ghost" size="sm" onClick={onClose}>
 								Cancel
 							</Button>
-							<Button variant="primary" size="sm" icon="preview" disabled={!canPreview} onClick={() => setStep(1)}>
+							<Button
+								variant="primary"
+								size="sm"
+								icon="preview"
+								disabled={!canPreview}
+								onClick={() => setStep(1)}
+							>
 								Preview
 							</Button>
 						</div>
@@ -1060,20 +1420,49 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 				{step === 1 && preview && (
 					<>
 						{!preview.ok ? (
-							<div style={{ display: 'flex', gap: 8, padding: 12, borderRadius: 9, background: 'var(--color-status-error-subtle)', border: `1px solid ${T.err}` }}>
+							<div
+								style={{
+									display: 'flex',
+									gap: 8,
+									padding: 12,
+									borderRadius: 9,
+									background: 'var(--color-status-error-subtle)',
+									border: `1px solid ${T.err}`,
+								}}
+							>
 								<Icon name="error" size={16} color={T.err} />
-								<span style={{ font: `13px ${T.sans}`, color: 'var(--color-status-error-text)' }}>{preview.message} There is no commit path.</span>
+								<span style={{ font: `13px ${T.sans}`, color: 'var(--color-status-error-text)' }}>
+									{preview.message} There is no commit path.
+								</span>
 							</div>
 						) : (
 							<>
 								{source === 'native' && preview.asset && (
-									<div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 6, columnGap: 14, font: `13px ${T.sans}` }}>
-										{[...meta, ['Content hash', preview.asset.id] as [string, string]].map(([k, v]) => (
-											<span key={k} style={{ display: 'contents' }}>
-												<span style={{ color: T.ter }}>{k}</span>
-												<span style={{ color: T.ink, fontFamily: k === 'Content hash' ? T.mono : undefined, wordBreak: 'break-all' }}>{v}</span>
-											</span>
-										))}
+									<div
+										style={{
+											display: 'grid',
+											gridTemplateColumns: 'auto 1fr',
+											rowGap: 6,
+											columnGap: 14,
+											font: `13px ${T.sans}`,
+										}}
+									>
+										{[...meta, ['Content hash', preview.asset.id] as [string, string]].map(
+											([k, v]) => (
+												<span key={k} style={{ display: 'contents' }}>
+													<span style={{ color: T.ter }}>{k}</span>
+													<span
+														style={{
+															color: T.ink,
+															fontFamily: k === 'Content hash' ? T.mono : undefined,
+															wordBreak: 'break-all',
+														}}
+													>
+														{v}
+													</span>
+												</span>
+											),
+										)}
 									</div>
 								)}
 								{preview.diagnostics.length > 0 && (
@@ -1081,9 +1470,31 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 										{preview.diagnostics.map((d, i) => {
 											const s = SUPPORT_PILL[d.support] ?? SUPPORT_PILL.unsupported!;
 											return (
-												<div key={d.kind} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '7px 11px', background: i % 2 ? T.alt : 'transparent' }}>
+												<div
+													key={d.kind}
+													style={{
+														display: 'flex',
+														alignItems: 'center',
+														justifyContent: 'space-between',
+														gap: 8,
+														padding: '7px 11px',
+														background: i % 2 ? T.alt : 'transparent',
+													}}
+												>
 													<span style={{ font: `13px ${T.sans}`, color: T.ink }}>{d.kind}</span>
-													<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, background: s.bg, color: s.tone, border: `1px solid ${s.tone}`, font: `600 10.5px ${T.sans}` }}>
+													<span
+														style={{
+															display: 'inline-flex',
+															alignItems: 'center',
+															gap: 4,
+															padding: '2px 8px',
+															borderRadius: 999,
+															background: s.bg,
+															color: s.tone,
+															border: `1px solid ${s.tone}`,
+															font: `600 10.5px ${T.sans}`,
+														}}
+													>
 														<Icon name={s.icon} size={12} /> {s.label}
 													</span>
 												</div>
@@ -1093,29 +1504,50 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 								)}
 								{preview.droppedElements.length > 0 && (
 									<div style={{ font: `12px ${T.sans}`, color: T.sub }}>
-										These elements will NOT be imported (reported on the durable op): <strong style={{ color: T.ink }}>{preview.droppedElements.join(', ')}</strong>
+										These elements will not be imported and will remain listed in the import report:{' '}
+										<strong style={{ color: T.ink }}>{preview.droppedElements.join(', ')}</strong>
 									</div>
 								)}
-								<div style={{ display: 'flex', gap: 8, padding: '9px 12px', borderRadius: 9, background: T.alt, border: `1px solid ${T.bd}`, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+								<div
+									style={{
+										display: 'flex',
+										gap: 8,
+										padding: '9px 12px',
+										borderRadius: 9,
+										background: T.alt,
+										border: `1px solid ${T.bd}`,
+										font: `12px/1.5 ${T.sans}`,
+										color: T.sub,
+									}}
+								>
 									<Icon name="info" size={15} color={T.info} />
 									<span>
-										The core records the content-addressed <strong>metadata</strong> (hash, size, MIME, dimensions); the image bytes are stored on this device under the same hash, and the builder canvas renders the raster as its base layer.
+										DND Tools saves the file details and image bytes on this device. The image
+										becomes this map’s base layer.
 									</span>
 								</div>
 							</>
 						)}
-						{commitError && <div style={{ font: `12.5px ${T.sans}`, color: T.err }}>{commitError}</div>}
+						{commitError && (
+							<div style={{ font: `12.5px ${T.sans}`, color: T.err }}>{commitError}</div>
+						)}
 						<div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
 							<Button variant="ghost" size="sm" icon="chevron-left" onClick={() => setStep(0)}>
 								Back
 							</Button>
 							<div style={{ display: 'flex', gap: 8 }}>
 								<Button variant="ghost" size="sm" onClick={onClose}>
-									Cancel (rollback)
+									Cancel
 								</Button>
 								{preview.ok && (
-									<Button variant="primary" size="sm" icon="check" disabled={busy} onClick={() => void commit()}>
-										{busy ? 'Committing…' : 'Commit import'}
+									<Button
+										variant="primary"
+										size="sm"
+										icon="check"
+										disabled={busy}
+										onClick={() => void commit()}
+									>
+										{busy ? 'Importing…' : 'Import'}
 									</Button>
 								)}
 							</div>
@@ -1125,7 +1557,17 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 
 				{step === 2 && result && (
 					<>
-						<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, borderRadius: 9, background: 'var(--color-status-success-subtle)', border: `1px solid ${T.ok}` }}>
+						<div
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 10,
+								padding: 12,
+								borderRadius: 9,
+								background: 'var(--color-status-success-subtle)',
+								border: `1px solid ${T.ok}`,
+							}}
+						>
 							<Icon name="success" size={20} color={T.ok} />
 							<div style={{ font: `13px ${T.sans}` }}>
 								<div style={{ fontWeight: 600, color: T.ink }}>Import committed to “{mapName}”</div>
@@ -1133,20 +1575,36 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 									{result.assetId ? (
 										<>
 											Asset <span style={{ fontFamily: T.mono }}>{result.assetId}</span>
-											{result.deduped ? ' (deduped — identical bytes already imported)' : ' recorded'}
+											{result.deduped
+												? ' (deduped — identical bytes already imported)'
+												: ' recorded'}
 										</>
 									) : (
 										'Scene elements recorded'
 									)}
-									{result.dropped > 0 ? ` · ${result.dropped} unsupported element${result.dropped === 1 ? '' : 's'} reported & dropped` : ''}
+									{result.dropped > 0
+										? ` · ${result.dropped} unsupported element${result.dropped === 1 ? '' : 's'} reported & dropped`
+										: ''}
 								</div>
 							</div>
 						</div>
 						{result.byteError && (
-							<div style={{ display: 'flex', gap: 8, padding: '9px 12px', borderRadius: 9, background: 'var(--color-status-warning-subtle)', border: `1px solid ${T.warn}`, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+							<div
+								style={{
+									display: 'flex',
+									gap: 8,
+									padding: '9px 12px',
+									borderRadius: 9,
+									background: 'var(--color-status-warning-subtle)',
+									border: `1px solid ${T.warn}`,
+									font: `12px/1.5 ${T.sans}`,
+									color: T.sub,
+								}}
+							>
 								<Icon name="warning" size={15} color={T.warn} />
 								<span>
-									The metadata record was committed, but the image bytes could not be stored on this device: {result.byteError} The canvas will show geometry only.
+									The metadata record was committed, but the image bytes could not be stored on this
+									device: {result.byteError} The canvas will show geometry only.
 								</span>
 							</div>
 						)}
@@ -1162,91 +1620,12 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 	);
 }
 
-// ── Right panel: layers ─────────────────────────────────────────────────────────────────────────
-
-function BuilderLayerRow({
-	l,
-	index,
-	count,
-	active,
-	busy,
-	onActivate,
-	onReorder,
-	onVis,
-	onLock,
-	onEnabled,
-	onOpacity,
-}: {
-	l: MapLayerQueryEntry;
-	index: number;
-	count: number;
-	active: boolean;
-	busy: boolean;
-	onActivate: () => void;
-	onReorder: (to: number) => void;
-	onVis: () => void;
-	onLock: () => void;
-	onEnabled: () => void;
-	onOpacity: (v: number) => void;
-}) {
-	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 8px 9px', borderRadius: 8, background: active ? T.accSub : 'transparent', border: `1px solid ${active ? T.accBd : 'transparent'}` }}>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-				<span style={{ display: 'flex', flexDirection: 'column' }}>
-					<button type="button" title="Move up" aria-label={`Move ${l.name} up`} disabled={busy || index === 0} onClick={() => onReorder(index - 1)} style={{ ...ghostBtn, opacity: index === 0 ? 0.3 : 1 }}>
-						<Icon name="chevron-up" size={12} color={T.ter} />
-					</button>
-					<button type="button" title="Move down" aria-label={`Move ${l.name} down`} disabled={busy || index === count - 1} onClick={() => onReorder(index + 1)} style={{ ...ghostBtn, opacity: index === count - 1 ? 0.3 : 1 }}>
-						<Icon name="chevron-down" size={12} color={T.ter} />
-					</button>
-				</span>
-				<button
-					type="button"
-					aria-pressed={active}
-					title={active ? 'Active layer (new POIs/tokens land here)' : 'Set as active layer'}
-					onClick={onActivate}
-					style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, textAlign: 'left' }}
-				>
-					<span style={{ width: 22, height: 22, borderRadius: 6, flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: `color-mix(in oklab, var(${CATEGORY_VAR[l.category] ?? '--layer-custom'}) 26%, transparent)`, color: `var(${CATEGORY_VAR[l.category] ?? '--layer-custom'})` }}>
-						<Icon name={`layer-${l.category === 'dm-annotations' ? 'dm' : l.category === 'player-overlay' ? 'player' : l.category === 'terrain' ? 'height' : l.category}`} size={13} />
-					</span>
-					<span style={{ flex: 1, minWidth: 0 }}>
-						<span style={{ display: 'block', font: `12.5px ${T.sans}`, color: l.enabled ? T.ink : T.ter, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-							{l.name}
-							{active && <span style={{ color: T.acc }}> · active</span>}
-						</span>
-						<span style={{ display: 'block', font: `10px ${T.mono}`, color: T.ter }}>
-							{CATEGORY_LABEL[l.category] ?? l.category} · {Math.round(l.opacity * 100)}% · {l.content.length} marks
-							{l.locked ? ' · locked' : ''}
-						</span>
-					</span>
-				</button>
-				<button type="button" title={`Visibility: ${VIS_LABEL[l.visibility] ?? l.visibility} — click to toggle DM-only ↔ player-visible`} aria-label={`Toggle ${l.name} player visibility`} disabled={busy} onClick={onVis} style={ghostBtn}>
-					{/* compact chip (icon-only, distinct glyph per level) — the display; the button stays the toggle */}
-					<VisibilityChip level={VIS_CHIP[l.visibility] ?? 'dm-only'} compact />
-				</button>
-				<button type="button" title={l.locked ? 'Unlock layer' : 'Lock layer'} disabled={busy} onClick={onLock} style={ghostBtn}>
-					<Icon name={l.locked ? 'lock' : 'unlock'} size={14} color={l.locked ? T.acc : T.ter} />
-				</button>
-				<Switch checked={l.enabled} aria-label={`Display ${l.name}`} onChange={onEnabled} />
-			</div>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 30 }}>
-				<Icon name="opacity" size={12} color={T.ter} />
-				<CommitRange value={Math.round(l.opacity * 100)} label={`${l.name} opacity`} disabled={busy} onCommit={(v) => onOpacity(v / 100)} />
-			</div>
-		</div>
-	);
-}
-
 // ── MapBuilder — the full-screen authoring overlay ──────────────────────────────────────────────
-
-const BUILDER_TOOLS = [
-	{ id: 'select', icon: 'tool-select', label: 'Select & move' },
-	{ id: 'pan', icon: 'Hand', label: 'Pan' },
-	{ id: 'poi', icon: 'poi', label: 'Place POI' },
-	{ id: 'token', icon: 'tool-token', label: 'Place token' },
-	{ id: 'fog', icon: 'layer-fog', label: 'Fog of war' },
-];
+//
+// MAP-021: the shell is now the rebuilt professional editor (`app/map/MapEditor.tsx`). This wrapper
+// keeps `MapBuilder`'s public signature so `screens/Atlas.tsx` (which imports it plus `MapCanvas` and
+// the shared vocab above) keeps compiling and working unchanged. `MapTool` is a subset of the editor's
+// `ToolId`, so the Atlas launcher's initial tool/fog mode pass straight through.
 
 export function MapBuilder({
 	mapId,
@@ -1256,913 +1635,15 @@ export function MapBuilder({
 }: {
 	mapId: string;
 	initialTool?: MapTool;
-	/** Which fog mode the fog tool starts in (Atlas's Conceal shortcut opens straight into conceal). */
 	initialFogMode?: 'reveal' | 'conceal';
 	onClose: () => void;
 }) {
-	const runtime = useRuntime();
-	const actorId = runtime.defaultActorId;
-	const isDm = runtime.state.permissions.actors[actorId]?.role === 'dm';
-
-	const [tool, setTool] = useState<MapTool>(initialTool);
-	const [fogMode, setFogMode] = useState<'reveal' | 'conceal'>(initialFogMode);
-	const [fogShape, setFogShape] = useState<FogShape>('rect');
-	/** DS FogControls brush size (5..200); dispatched as a normalized radius of brushSize/1000. */
-	const [brushSize, setBrushSize] = useState(24);
-	const [featherOn, setFeatherOn] = useState(false);
-	/** Feather width as % of the map (1..20 → the core's 0.01..0.2 normalized bound). */
-	const [featherPct, setFeatherPct] = useState(4);
-	const [zoom, setZoom] = useState(1);
-	const [center, setCenter] = useState({ x: 0.5, y: 0.5 });
-	const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
-	const [selPoiId, setSelPoiId] = useState<string | null>(null);
-	const [selTokenId, setSelTokenId] = useState<string | null>(null);
-	const [poiForm, setPoiForm] = useState({ label: '', category: 'landmark' as MapPoiCategory, visibility: 'dm-only' as SceneVisibility });
-	const [tokenForm, setTokenForm] = useState({ label: '', visibility: 'dm-only' as SceneVisibility });
-	const [rightTab, setRightTab] = useState<'layers' | 'generate' | 'map'>('layers');
-	const [busy, setBusy] = useState(false);
-	const [saved, setSaved] = useState(false);
-	const [notice, setNotice] = useState<string | null>(null);
-	const [importOpen, setImportOpen] = useState(false);
-	const [poiEdit, setPoiEdit] = useState<MapPoiView | null>(null);
-	const [poiDraft, setPoiDraft] = useState({ label: '', category: 'landmark' as MapPoiCategory, visibility: 'dm-only' as SceneVisibility, notes: '' });
-	const [confirmConcealAll, setConfirmConcealAll] = useState(false);
-	// Reveal-all is the SAFETY-CRITICAL direction (players see the whole map) — it confirms, exactly
-	// like its conceal-all sibling.
-	const [confirmRevealAll, setConfirmRevealAll] = useState(false);
-	/** Generation progress driven around the awaited `map.generate-layers` dispatch (start → phase → done). */
-	const [genProgress, setGenProgress] = useState<{ value: number; phase: string } | null>(null);
-	const genClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-	// Map metadata drafts (rename / re-describe — `map.update-metadata`). Re-seeded from the core
-	// values whenever they change (e.g. after a save), never on unrelated state ticks.
-	const [metaName, setMetaName] = useState('');
-	const [metaDesc, setMetaDesc] = useState('');
-
-	const rootRef = useRef<HTMLDivElement>(null);
-
-	const delivered = useMemo(() => deliveredMapIdsForActor(runtime.state.session, actorId), [runtime.state.session, actorId]);
-	const viewResult = useMemo(
-		() => getMapViewForActor(runtime.state.maps, runtime.state.permissions, actorId, mapId, { deliveredMapIds: delivered }),
-		[runtime.state.maps, runtime.state.permissions, actorId, mapId, delivered],
-	);
-	const view = viewResult.kind === 'available' ? viewResult : null;
-	const viewName = view?.name ?? '';
-	const viewDescription = view?.description ?? '';
-	useEffect(() => {
-		setMetaName(viewName);
-		setMetaDesc(viewDescription);
-	}, [viewName, viewDescription]);
-	const layerResult = useMemo(
-		() => queryMapLayers(runtime.state.maps, runtime.state.permissions, actorId, { mapId }),
-		[runtime.state.maps, runtime.state.permissions, actorId, mapId],
-	);
-	const layers = layerResult.layers;
-
-	// Command targets: the active layer receives POIs/tokens; fog prefers the fog-category layer.
-	const activeId = activeLayerId && layers.some((l) => l.layerId === activeLayerId) ? activeLayerId : layers[0]?.layerId ?? null;
-	const fogLayerId = view?.layers.find((l) => l.category === 'fog')?.id ?? activeId;
-
-	// DM-only asset metadata list (no core asset QUERY exists yet; the builder itself is DM-gated,
-	// and asset records are authoring metadata — hash/size/MIME — never player content).
-	const mapAssets = useMemo(() => {
-		if (!isDm) return [];
-		const entity = runtime.state.maps.maps[mapId];
-		if (!entity) return [];
-		return entity.assetIds.map((id) => runtime.state.maps.assets[id]).filter((a) => a !== undefined);
-	}, [isDm, runtime.state.maps, mapId]);
-
-	// Raster base layer. Gated on the actor-filtered view being AVAILABLE (`view` below): a hidden
-	// map already collapsed to the unavailable overlay before this id can reach the canvas.
-	const rasterAssetId = useMemo(() => {
-		const entity = runtime.state.maps.maps[mapId];
-		return entity ? pickRasterAssetId(entity.assetIds, runtime.state.maps.assets) : null;
-	}, [runtime.state.maps, mapId]);
-
-	// Focus containment: focus the overlay on open, restore the opener on close (dialog semantics).
-	useEffect(() => {
-		const opener = document.activeElement as HTMLElement | null;
-		rootRef.current?.focus();
-		return () => opener?.focus?.();
-	}, []);
-
-	// Escape closes the TOPMOST surface only (popover/dialogs handle their own Escape first).
-	const overlayOpenRef = useRef(false);
-	overlayOpenRef.current = importOpen || poiEdit !== null || confirmConcealAll || confirmRevealAll || selPoiId !== null;
-	useEffect(() => {
-		const onKey = (e: KeyboardEvent) => {
-			const target = e.target as HTMLElement | null;
-			const typing = target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
-			if (e.key === 'Escape') {
-				if (overlayOpenRef.current) return; // the open popover/dialog consumes this Escape
-				if (typing) {
-					target?.blur(); // Escape in a label field exits the FIELD, never the whole builder
-					return;
-				}
-				e.stopPropagation();
-				onCloseRef.current();
-			} else if ((e.key === 'Delete' || e.key === 'Backspace') && !typing && !overlayOpenRef.current && selTokenRef.current) {
-				// The overlay guard matters: without it, Backspace behind an open Import/POI dialog
-				// silently deletes the selected token off-screen. The delete itself now raises an Undo
-				// toast that re-creates the token from its prior payload.
-				void deleteTokenRef.current(selTokenRef.current);
-			} else if (e.key === 'Tab' && !overlayOpenRef.current) {
-				// aria-modal contract: wrap Tab inside the builder (same trap as CharBuilder's Overlay) —
-				// the AppShell stays mounted underneath and must never receive focus. Open dialogs/popovers
-				// stack above and own their Tab cycle, hence the overlay guard.
-				const root = rootRef.current;
-				if (!root) return;
-				const nodes = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((n) => n.offsetParent !== null);
-				if (nodes.length === 0) {
-					e.preventDefault();
-					root.focus();
-					return;
-				}
-				const firstNode = nodes[0];
-				const lastNode = nodes[nodes.length - 1];
-				const active = document.activeElement;
-				if (e.shiftKey && (active === firstNode || active === root)) {
-					e.preventDefault();
-					lastNode.focus();
-				} else if (!e.shiftKey && active === lastNode) {
-					e.preventDefault();
-					firstNode.focus();
-				} else if (active instanceof HTMLElement && !root.contains(active)) {
-					e.preventDefault();
-					firstNode.focus(); // focus escaped (e.g. devtools round-trip) — pull it back in
-				}
-			}
-		};
-		document.addEventListener('keydown', onKey);
-		return () => document.removeEventListener('keydown', onKey);
-	}, []);
-	const onCloseRef = useRef(onClose);
-	onCloseRef.current = onClose;
-	const selTokenRef = useRef<string | null>(null);
-	selTokenRef.current = selTokenId;
-
-	// ── The single durable write path (re-entrancy-guarded; rejections surface as a notice) ────
-	const run = async (command: Parameters<typeof runtime.dispatch>[0]) => {
-		if (busy) return undefined;
-		setBusy(true);
-		try {
-			const res = await runtime.dispatch(command);
-			if (res.status === 'accepted') setSaved(true);
-			else setNotice(res.rejection.message);
-			return res;
-		} finally {
-			setBusy(false);
-		}
-	};
-
-	function appendFog(region: MapFogRegion, kind: 'reveal' | 'conceal') {
-		if (!fogLayerId) return;
-		void run({
-			type: 'map.append-fog',
-			actorId,
-			payload: {
-				mapId,
-				layerId: fogLayerId,
-				kind,
-				region,
-				...(featherOn ? { feather: Math.min(0.2, Math.max(0, featherPct / 100)) } : {}),
-				visibility: 'shared',
-				connectionState: 'connected',
-			},
-		});
-	}
-
-	async function placePoi(position: { x: number; y: number }) {
-		if (!activeId) return;
-		const res = await run({
-			type: 'map.create-poi',
-			actorId,
-			payload: {
-				mapId,
-				layerId: activeId,
-				label: poiForm.label.trim() || 'New POI',
-				category: poiForm.category,
-				position,
-				visibility: poiForm.visibility,
-			},
-		});
-		if (res?.status === 'accepted') {
-			const ev = (res.events as Array<{ kind: string; poiId?: string }> | undefined)?.find((e) => e.kind === 'map.poi-changed');
-			if (ev?.poiId) {
-				setSelPoiId(ev.poiId);
-				setTool('select');
-			}
-		}
-	}
-
-	function placeToken(position: { x: number; y: number }) {
-		if (!activeId || !view) return;
-		void run({
-			type: 'map.create-token',
-			actorId,
-			payload: {
-				mapId,
-				layerId: activeId,
-				label: tokenForm.label.trim() || `Token ${view.tokens.length + 1}`,
-				linkedActorId: null,
-				position,
-				size: 1,
-				visibility: tokenForm.visibility,
-				controllerActorId: null,
-			},
-		});
-	}
-
-	const movePoi = (poiId: string, position: { x: number; y: number }) =>
-		void run({ type: 'map.update-poi', actorId, payload: { mapId, poiId, position } });
-	const moveToken = (tokenId: string, position: { x: number; y: number }) =>
-		void run({ type: 'map.move-token', actorId, payload: { mapId, tokenId, position } });
-	// Deletes are durable core ops with no inverse-op log — so each capture the entity's prior
-	// payload BEFORE dispatching and raise an Undo toast that re-creates it via the real create
-	// command (a re-created entity gets a fresh id; visibility/notes/links are preserved).
-	const deletePoi = async (poiId: string) => {
-		const prior = view?.pois.find((p) => p.id === poiId) ?? null;
-		setSelPoiId(null);
-		const res = await run({ type: 'map.delete-poi', actorId, payload: { mapId, poiId } });
-		if (res?.status !== 'accepted' || !prior) return;
-		Toaster.success(`POI “${prior.label}” deleted`, {
-			action: 'Undo',
-			onAction: () => {
-				void runtime
-					.dispatch({
-						type: 'map.create-poi',
-						actorId,
-						payload: {
-							mapId,
-							layerId: prior.layerId,
-							label: prior.label,
-							category: prior.category,
-							position: prior.position,
-							visibility: prior.visibility,
-							notes: prior.notes,
-							linkedEntityType: prior.linkedEntityType,
-							linkedEntityId: prior.linkedEntityId,
-						},
-					})
-					.then((restored) => {
-						if (restored.status === 'accepted') Toaster.success(`“${prior.label}” restored`);
-						else Toaster.error(restored.rejection.message ?? 'The POI could not be restored.');
-					});
-			},
-		});
-	};
-	const deleteToken = async (tokenId: string) => {
-		const prior = view?.tokens.find((t) => t.id === tokenId) ?? null;
-		setSelTokenId(null);
-		const res = await run({ type: 'map.delete-token', actorId, payload: { mapId, tokenId } });
-		if (res?.status !== 'accepted' || !prior) return;
-		Toaster.success(`Token “${prior.label}” deleted`, {
-			action: 'Undo',
-			onAction: () => {
-				void runtime
-					.dispatch({
-						type: 'map.create-token',
-						actorId,
-						payload: {
-							mapId,
-							layerId: prior.layerId,
-							label: prior.label,
-							linkedActorId: prior.linkedActorId,
-							position: prior.position,
-							size: prior.size,
-							visibility: prior.visibility,
-							controllerActorId: prior.controllerActorId,
-						},
-					})
-					.then((restored) => {
-						if (restored.status === 'accepted') Toaster.success(`“${prior.label}” restored`);
-						else Toaster.error(restored.rejection.message ?? 'The token could not be restored.');
-					});
-			},
-		});
-	};
-	const deleteTokenRef = useRef(deleteToken);
-	deleteTokenRef.current = deleteToken;
-
-	/** GenerationPanel sizes (Small…Huge) → grid cells within the core's [2, 24] generation cap. */
-	const GENERATION_DIMENSIONS = [8, 12, 18, 24] as const;
-
-	// MAP-004 — the panel's parameters map onto the deterministic `map.generate-layers` command.
-	// The id prefix is carried IN the durable command, so replay on another device regenerates the
-	// exact same layer/feature ids.
-	async function generateLayers(params: { type: string; seed: string; size: number; density: number }) {
-		const dim = GENERATION_DIMENSIONS[Math.min(3, Math.max(0, Math.round(params.size)))] ?? 12;
-		const seed = params.seed.trim() || 'seed';
-		// Drive the panel's phase-labelled progress bar around the awaited dispatch. Generation is
-		// deterministic and fast, so the staging is coarse — but the bar (never null) tells the DM the
-		// command is running, and GenerationPanel disables Accept while progress < 1.
-		if (genClearRef.current) clearTimeout(genClearRef.current);
-		setGenProgress({ value: 0.15, phase: `Preparing deterministic seed “${seed}”…` });
-		await new Promise((resolve) => setTimeout(resolve, 120)); // let the starting phase paint
-		setGenProgress({ value: 0.6, phase: `Generating ${params.type} layers…` });
-		const res = await run({
-			type: 'map.generate-layers',
-			actorId,
-			payload: {
-				mapId,
-				kind: params.type,
-				seed,
-				width: dim,
-				height: dim,
-				density: Math.min(1, Math.max(0, params.density / 100)),
-				visibility: 'dm-only',
-				idPrefix: `gen-${Date.now().toString(36)}`,
-			},
-		});
-		if (res?.status === 'accepted') {
-			setGenProgress({ value: 1, phase: 'Done — layers added' });
-			genClearRef.current = setTimeout(() => setGenProgress(null), 1500);
-			setNotice(`Generated ${params.type} layers from seed “${seed}” — they're in the Layers tab, DM-only until revealed.`);
-			setRightTab('layers');
-		} else {
-			// Rejected (or re-entered while busy) — clear the bar; the rejection message is in the notice.
-			setGenProgress(null);
-		}
-	}
-
-	// POI deep link: a shareable hash URL the Atlas consumes (`?map=…&poi=…` selects the map and
-	// highlights the POI). Clipboard denial degrades to showing the link in the notice bar.
-	async function copyPoiLink(poiId: string) {
-		const url = `${location.origin}${location.pathname}${location.search}#/atlas?map=${encodeURIComponent(mapId)}&poi=${encodeURIComponent(poiId)}`;
-		try {
-			await navigator.clipboard.writeText(url);
-			setNotice('POI link copied — opening it selects this map and highlights the POI.');
-		} catch {
-			setNotice(`POI link (copy failed — copy it manually): ${url}`);
-		}
-	}
-
-	function savePoiEdit() {
-		if (!poiEdit || !poiDraft.label.trim()) return;
-		void run({
-			type: 'map.update-poi',
-			actorId,
-			payload: { mapId, poiId: poiEdit.id, label: poiDraft.label.trim(), category: poiDraft.category, visibility: poiDraft.visibility, notes: poiDraft.notes },
-		});
-		setPoiEdit(null);
-	}
-
-	const zoomBy = (delta?: number, fit?: boolean) => {
-		if (fit) {
-			setZoom(1);
-			setCenter({ x: 0.5, y: 0.5 });
-			return;
-		}
-		setZoom((z) => Math.min(2.6, Math.max(0.6, +(z + (delta ?? 0)).toFixed(2))));
-	};
-
-	const selToken = view?.tokens.find((t) => t.id === selTokenId) ?? null;
-	const toolMeta = BUILDER_TOOLS.find((t) => t.id === tool);
-
-	if (!view) {
-		// Fail-closed: hidden map (or stale id) collapses to a generic unavailable overlay.
-		return (
-			<div ref={rootRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Map builder" style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.bg, color: T.sub, font: `13px ${T.sans}`, flexDirection: 'column', gap: 14 }}>
-				This map is unavailable to you.
-				<Button variant="secondary" size="sm" icon="arrow-left" onClick={onClose}>
-					Back to Atlas
-				</Button>
-			</div>
-		);
-	}
-
 	return (
-		// zIndex 300 = --z-overlay (below DS Dialog's --z-modal 400, so wizards stack above).
-		<div
-			ref={rootRef}
-			tabIndex={-1}
-			role="dialog"
-			aria-modal="true"
-			aria-label={`Map builder — ${view.name}`}
-			style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex', flexDirection: 'column', background: T.bg, color: T.ink, fontFamily: T.sans, outline: 'none', backgroundImage: 'radial-gradient(1200px 600px at 50% -280px, var(--color-accent-subtle), transparent 70%)' }}
-		>
-			{/* ── top bar ── */}
-			<header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 14px', borderBottom: `1px solid ${T.bd}`, background: T.surf, flex: '0 0 auto', flexWrap: 'wrap' }}>
-				<IconButton icon="arrow-left" label="Back to Atlas" variant="ghost" size="sm" onClick={onClose} />
-				<nav aria-label="Breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: 7, font: `12px ${T.sans}`, color: T.ter }}>
-					<span>Atlas</span>
-					<Icon name="chevron-right" size={13} color={T.ter} />
-					<span style={{ color: T.ink, fontWeight: 600 }}>{view.name}</span>
-				</nav>
-				<VisibilityChip level={VIS_CHIP[view.visibility] ?? 'dm-only'} />
-				<div style={{ flex: 1 }} />
-				{saved && (
-					<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, font: `11.5px ${T.sans}`, color: T.ter }}>
-						<Icon name="success" size={13} color={T.ok} />
-						Saved — every edit is a durable core op
-					</span>
-				)}
-				<Button variant="secondary" size="sm" icon="import" onClick={() => setImportOpen(true)}>
-					Import
-				</Button>
-			</header>
-
-			{notice && (
-				<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', background: T.alt, borderBottom: `1px solid ${T.bd}`, font: `12.5px ${T.sans}`, color: T.sub }}>
-					<Icon name="info" size={15} color={T.info} />
-					<span style={{ flex: 1 }}>{notice}</span>
-					<button type="button" onClick={() => setNotice(null)} style={ghostBtn} title="Dismiss" aria-label="Dismiss notice">
-						<Icon name="close" size={14} color={T.ter} />
-					</button>
-				</div>
-			)}
-
-			{/* ── workspace ── */}
-			<div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '56px minmax(0,1fr) 332px' }}>
-				{/* tool rail — DS ToolPalette (undo/redo cluster stays disabled: no inverse-op undo yet) */}
-				<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '10px 0', borderRight: `1px solid ${T.bd}`, background: T.surf, overflowY: 'auto' }}>
-					<ToolPalette
-						tools={BUILDER_TOOLS}
-						active={tool}
-						onSelect={(id: string) => setTool(id as MapTool)}
-						orientation="vertical"
-						overflow={false}
-						canUndo={false}
-						canRedo={false}
-						style={{ border: 'none', background: 'transparent' }}
-					/>
-				</div>
-
-				{/* canvas well */}
-				<div style={{ position: 'relative', minWidth: 0, background: 'var(--map-canvas-bg)' }}>
-					<MapCanvas
-						view={view}
-						layers={layers}
-						isDm={isDm}
-						zoom={zoom}
-						center={center}
-						tool={tool}
-						fogMode={fogMode}
-						fogShape={fogShape}
-						fogBrushRadius={brushSize / 1000}
-						rasterAssetId={rasterAssetId}
-						editable={isDm && !busy}
-						showFogOutlines={tool === 'fog'}
-						height="100%"
-						style={{ borderRadius: 0, border: 'none' }}
-						selectedPoiId={selPoiId}
-						selectedTokenId={selTokenId}
-						onSelectPoi={setSelPoiId}
-						onSelectToken={setSelTokenId}
-						onPlace={(pos) => (tool === 'poi' ? void placePoi(pos) : placeToken(pos))}
-						onFogRegion={(region) => appendFog(region, fogMode)}
-						onMovePoi={movePoi}
-						onMoveToken={moveToken}
-						onPan={setCenter}
-						renderPoiPopover={(poi, anchor, placement) => (
-							<POIPopover
-								poi={{ name: poi.label, category: POI_MARKER_CAT[poi.category] ?? 'location', categoryLabel: poi.category, visibility: visToDs(poi.visibility) }}
-								anchor={anchor}
-								placement={placement}
-								readOnly={!isDm}
-								onClose={() => setSelPoiId(null)}
-								onVisibilityChange={(v: string) => void run({ type: 'map.update-poi', actorId, payload: { mapId, poiId: poi.id, visibility: dsToVis(v) } })}
-								onFocus={() => {
-									setCenter({ ...poi.position });
-									setSelPoiId(null);
-								}}
-								onEdit={() => {
-									setPoiDraft({ label: poi.label, category: poi.category, visibility: poi.visibility, notes: poi.notes });
-									setPoiEdit(poi);
-									setSelPoiId(null);
-								}}
-								onDeepLink={() => void copyPoiLink(poi.id)}
-								onDelete={() => void deletePoi(poi.id)}
-							/>
-						)}
-					>
-						{/* contextual strip (varies by tool) */}
-						<div style={{ position: 'absolute', top: 12, left: 12, zIndex: 6, maxWidth: 'calc(100% - 24px)' }}>
-							{tool === 'fog' && isDm && (
-								<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-									<FogControls
-										mode={fogMode}
-										onModeChange={(m: string) => setFogMode(m as 'reveal' | 'conceal')}
-										shape={fogShape}
-										onShapeChange={(s: string) => setFogShape(s as FogShape)}
-										brushSize={brushSize}
-										onBrushSize={(v: number) => setBrushSize(v)}
-										unit="map‰"
-										feather={featherOn}
-										onFeather={() => setFeatherOn((f) => !f)}
-										syncStatus={busy ? 'syncing' : 'synced'}
-										onRevealAll={() => setConfirmRevealAll(true)}
-										onResetFog={() => setConfirmConcealAll(true)}
-									/>
-									{featherOn && (
-										<div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 11px', borderRadius: 8, background: 'var(--color-surface-raised)', border: `1px solid ${T.bd}`, font: `11px ${T.sans}`, color: T.sub }}>
-											Feather width
-											<Slider
-												min={1}
-												max={20}
-												step={1}
-												value={featherPct}
-												aria-label="Feather width (% of map)"
-												valueLabel={`${featherPct}%`}
-												onChange={(v: number) => setFeatherPct(v)}
-												style={{ flex: 1 }}
-											/>
-										</div>
-									)}
-									<span style={{ alignSelf: 'flex-start', padding: '4px 9px', borderRadius: 7, background: 'color-mix(in oklab, var(--map-canvas-bg) 78%, transparent)', border: `1px solid ${T.bd}`, font: `11px ${T.sans}`, color: T.sub }}>
-										{fogShape === 'rect' && `Drag on the map to ${fogMode} a rectangle`}
-										{fogShape === 'brush' && `Drag to sweep a ${fogMode} stroke (radius ${brushSize}‰ of the map)`}
-										{fogShape === 'polygon' && `Click to add vertices (up to ${MAX_FOG_POINTS}) · double-click or Enter closes · Esc cancels`}
-									</span>
-								</div>
-							)}
-							{tool === 'poi' && isDm && (
-								<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: 'color-mix(in oklab, var(--map-canvas-bg) 82%, transparent)', backdropFilter: 'blur(3px)', border: `1px solid ${T.bd}`, boxShadow: T.smd, flexWrap: 'wrap' }}>
-									<span style={{ ...eb, fontSize: 10 }}>New POI</span>
-									<Input value={poiForm.label} placeholder="Label (default: New POI)" onChange={(e: { target: { value: string } }) => setPoiForm((f) => ({ ...f, label: e.target.value }))} style={{ width: 170 }} />
-									<Select value={poiForm.category} options={MAP_POI_CATEGORIES.map((c) => ({ value: c, label: c }))} onChange={(e: { target: { value: string } }) => setPoiForm((f) => ({ ...f, category: e.target.value as MapPoiCategory }))} />
-									<Select value={poiForm.visibility} options={VIS_OPTIONS} onChange={(e: { target: { value: string } }) => setPoiForm((f) => ({ ...f, visibility: e.target.value as SceneVisibility }))} />
-									<span style={{ font: `11px ${T.sans}`, color: T.sub }}>Click the map to place</span>
-								</div>
-							)}
-							{tool === 'token' && isDm && (
-								<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: 'color-mix(in oklab, var(--map-canvas-bg) 82%, transparent)', backdropFilter: 'blur(3px)', border: `1px solid ${T.bd}`, boxShadow: T.smd, flexWrap: 'wrap' }}>
-									<span style={{ ...eb, fontSize: 10 }}>New token</span>
-									<Input value={tokenForm.label} placeholder="Label (default: Token N)" onChange={(e: { target: { value: string } }) => setTokenForm((f) => ({ ...f, label: e.target.value }))} style={{ width: 170 }} />
-									<Select value={tokenForm.visibility} options={VIS_OPTIONS} onChange={(e: { target: { value: string } }) => setTokenForm((f) => ({ ...f, visibility: e.target.value as SceneVisibility }))} />
-									<span style={{ font: `11px ${T.sans}`, color: T.sub }}>Click the map to drop</span>
-								</div>
-							)}
-							{tool === 'select' && selToken && isDm && (
-								<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px', borderRadius: 10, background: 'color-mix(in oklab, var(--map-canvas-bg) 82%, transparent)', backdropFilter: 'blur(3px)', border: `1px solid ${T.bd}`, boxShadow: T.smd }}>
-									<Icon name="tool-token" size={14} color={T.acc} />
-									<span style={{ font: `600 12.5px ${T.sans}`, color: T.ink }}>{selToken.label}</span>
-									{/* the chip is the display; the wrapping button keeps the toggle functional */}
-									<button
-										type="button"
-										title={`Visibility: ${VIS_LABEL[selToken.visibility] ?? selToken.visibility} — click to toggle DM-only ↔ player-visible`}
-										aria-label="Toggle player visibility"
-										disabled={busy}
-										onClick={() => void run({ type: 'map.update-token', actorId, payload: { mapId, tokenId: selToken.id, visibility: selToken.visibility === 'dm-only' ? 'player-visible' : 'dm-only' } })}
-										style={ghostBtn}
-									>
-										<VisibilityChip level={VIS_CHIP[selToken.visibility] ?? 'dm-only'} />
-									</button>
-									<Button variant="danger" size="sm" icon="delete" disabled={busy} onClick={() => void deleteToken(selToken.id)}>
-										Delete
-									</Button>
-									<span style={{ font: `11px ${T.sans}`, color: T.sub }}>drag to move · Delete key removes</span>
-								</div>
-							)}
-							{tool === 'select' && !selToken && (
-								<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderRadius: 9, background: 'color-mix(in oklab, var(--map-canvas-bg) 78%, transparent)', border: `1px solid ${T.bd}`, font: `11.5px ${T.sans}`, color: T.sub }}>
-									<Icon name="info" size={14} color={T.ter} />
-									Click a marker to open it · drag a POI or token to move it
-								</span>
-							)}
-							{tool === 'pan' && (
-								<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderRadius: 9, background: 'color-mix(in oklab, var(--map-canvas-bg) 78%, transparent)', border: `1px solid ${T.bd}`, font: `11.5px ${T.sans}`, color: T.sub }}>
-									<Icon name="Hand" size={14} color={T.ter} />
-									Drag to pan the map
-								</span>
-							)}
-						</div>
-
-						{/* title card */}
-						<div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1, padding: '5px 11px', borderRadius: 8, background: 'color-mix(in oklab, var(--map-canvas-bg) 72%, transparent)', backdropFilter: 'blur(2px)', border: `1px solid ${T.bd}` }}>
-							<span style={{ font: `700 16px ${T.disp}`, color: T.ink }}>{view.name}</span>
-							<span style={{ font: `10.5px ${T.mono}`, color: T.sub }}>
-								{view.scale ? `${view.scale.unitsPerMap} ${view.scale.unit} across` : 'no scale set'}
-							</span>
-						</div>
-
-						{/* zoom cluster */}
-						<div style={{ position: 'absolute', right: 16, bottom: 176, display: 'flex', flexDirection: 'column', gap: 6, zIndex: 5 }}>
-							<IconButton icon="zoom-in" label="Zoom in" variant="outline" size="sm" onClick={() => zoomBy(0.2)} />
-							<IconButton icon="zoom-out" label="Zoom out" variant="outline" size="sm" onClick={() => zoomBy(-0.2)} />
-							<IconButton icon="zoom-fit" label="Fit" variant="outline" size="sm" onClick={() => zoomBy(undefined, true)} />
-							<span style={{ textAlign: 'center', padding: '2px 0', borderRadius: 7, background: 'color-mix(in oklab, var(--map-canvas-bg) 78%, transparent)', font: `10.5px ${T.mono}`, color: T.ink }}>{Math.round(zoom * 100)}%</span>
-						</div>
-
-						{/* minimap (viewport = the zoom/pan window; click to jump) */}
-						<div style={{ position: 'absolute', right: 16, bottom: 18, zIndex: 5 }}>
-							<Minimap
-								viewport={{ x: clamp01(center.x - 0.5 / zoom), y: clamp01(center.y - 0.5 / zoom), w: Math.min(1, 1 / zoom), h: Math.min(1, 1 / zoom) }}
-								onJump={(p: { x: number; y: number }) => setCenter({ x: clamp01(p.x), y: clamp01(p.y) })}
-								width={168}
-							/>
-						</div>
-					</MapCanvas>
-				</div>
-
-				{/* right inspector */}
-				<div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, borderLeft: `1px solid ${T.bd}`, background: T.surf }}>
-					<div role="tablist" aria-label="Builder panels" style={{ display: 'flex', gap: 2, padding: '8px 8px 0', borderBottom: `1px solid ${T.bd}` }}>
-						{(
-							[
-								['layers', 'Layers', 'layers'],
-								['generate', 'Generate', 'generate'],
-								['map', 'Map', 'tool-grid'],
-							] as const
-						).map(([id, lbl, ic]) => {
-							const on = rightTab === id;
-							return (
-								<button
-									key={id}
-									type="button"
-									role="tab"
-									aria-selected={on}
-									onClick={() => setRightTab(id)}
-									style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 4px', border: 'none', borderBottom: `2px solid ${on ? T.acc : 'transparent'}`, background: 'transparent', cursor: 'pointer', color: on ? T.acc : T.sub, font: `${on ? 600 : 500} 12px ${T.sans}` }}
-								>
-									<Icon name={ic} size={14} color={on ? T.acc : T.ter} />
-									{lbl}
-								</button>
-							);
-						})}
-					</div>
-					<div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 14 }}>
-						{rightTab === 'layers' && (
-							<div>
-								<PanelLabel
-									action={
-										isDm ? (
-											<IconButton
-												icon="add"
-												label="Add layer"
-												variant="ghost"
-												size="sm"
-												disabled={busy}
-												onClick={() =>
-													void run({
-														type: 'map.create-layer',
-														actorId,
-														payload: { mapId, name: `Layer ${layers.length + 1}`, category: 'dm-annotations', visibility: 'dm-only' },
-													})
-												}
-											/>
-										) : undefined
-									}
-								>
-									Layers · {layers.length}
-									{isDm && layerResult.hiddenMatchCount > 0 ? ` (+${layerResult.hiddenMatchCount} hidden)` : ''}
-								</PanelLabel>
-								<div style={{ display: 'flex', flexDirection: 'column', gap: 2, border: `1px solid ${T.bd}`, borderRadius: 10, padding: 4, background: T.raised }}>
-									{layers.map((l, i) => (
-										<BuilderLayerRow
-											key={l.layerId}
-											l={l}
-											index={i}
-											count={layers.length}
-											active={l.layerId === activeId}
-											busy={busy || !isDm}
-											onActivate={() => setActiveLayerId(l.layerId)}
-											onReorder={(to) => void run({ type: 'map.reorder-layer', actorId, payload: { mapId, layerId: l.layerId, toOrder: to } })}
-											onVis={() =>
-												void run({
-													type: 'map.set-layer-visibility',
-													actorId,
-													payload: { mapId, layerId: l.layerId, visibility: l.visibility === 'dm-only' ? 'player-visible' : 'dm-only' },
-												})
-											}
-											onLock={() => void run({ type: 'map.lock-layer', actorId, payload: { mapId, layerId: l.layerId, locked: !l.locked } })}
-											onEnabled={() => void run({ type: 'map.set-layer-enabled', actorId, payload: { mapId, layerId: l.layerId, enabled: !l.enabled } })}
-											onOpacity={(v) => void run({ type: 'map.set-layer-opacity', actorId, payload: { mapId, layerId: l.layerId, opacity: v } })}
-										/>
-									))}
-									{layers.length === 0 && <EmptyState inset icon="layers" title="No layers are visible to you" description={isDm ? 'Add a layer with the + above, or generate some in the Generate tab.' : undefined} />}
-								</div>
-								<div style={{ marginTop: 9, font: `11px/1.5 ${T.sans}`, color: T.ter }}>
-									The <strong style={{ color: T.sub }}>active</strong> layer receives new POIs and tokens. Fog ops land on the fog layer{fogLayerId && view.layers.find((l) => l.id === fogLayerId)?.category !== 'fog' ? ' (none here — using the active layer)' : ''}.
-								</div>
-							</div>
-						)}
-						{rightTab === 'generate' && (
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-								<div style={{ display: 'flex', gap: 8, padding: '9px 12px', borderRadius: 9, background: T.alt, border: `1px solid ${T.bd}`, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
-									<Icon name="info" size={15} color={T.info} />
-									<span>
-										Deterministic procedural generation (MAP-004): the same type, seed, size, and density always produce identical layers. Accept appends them as editable layers (DM-only until you reveal them).
-									</span>
-								</div>
-								<GenerationPanel
-									progress={genProgress?.value ?? null}
-									phase={genProgress?.phase ?? null}
-									onAccept={(params: { type: string; seed: string; size: number; density: number }) =>
-										void generateLayers(params)
-									}
-									onDiscard={() => setRightTab('layers')}
-									style={{ width: '100%' }}
-								/>
-							</div>
-						)}
-						{rightTab === 'map' && (
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-								<div>
-									<PanelLabel>Map</PanelLabel>
-									<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-										{isDm ? (
-											<>
-												<Field label="Name">
-													<Input value={metaName} onChange={(e: { target: { value: string } }) => setMetaName(e.target.value)} />
-												</Field>
-												<Field label="Description">
-													<Textarea rows={2} value={metaDesc} onChange={(e: { target: { value: string } }) => setMetaDesc(e.target.value)} />
-												</Field>
-												<Button
-													variant="secondary"
-													size="sm"
-													icon="check"
-													disabled={busy || !metaName.trim() || (metaName.trim() === view.name && metaDesc === view.description)}
-													onClick={() =>
-														void run({
-															type: 'map.update-metadata',
-															actorId,
-															payload: { mapId, name: metaName.trim(), description: metaDesc },
-														})
-													}
-												>
-													Save name & description
-												</Button>
-											</>
-										) : (
-											<div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, font: `12.5px ${T.sans}`, color: T.sub }}>
-												<span>Name</span>
-												<span style={{ color: T.ink, textAlign: 'right' }}>{view.name}</span>
-											</div>
-										)}
-										<div style={{ display: 'flex', flexDirection: 'column', gap: 7, font: `12.5px ${T.sans}`, color: T.sub }}>
-											<div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-												<span>Visibility</span>
-												<VisibilityChip level={VIS_CHIP[view.visibility] ?? 'dm-only'} />
-											</div>
-											<div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-												<span>Scale</span>
-												<span style={{ font: `12px ${T.mono}`, color: T.ink }}>{view.scale ? `${view.scale.unitsPerMap} ${view.scale.unit}` : '—'}</span>
-											</div>
-										</div>
-									</div>
-									<div style={{ marginTop: 8, font: `11px/1.5 ${T.sans}`, color: T.ter }}>Scale is set at creation; name and description are durable `map.update-metadata` edits.</div>
-								</div>
-								<div>
-									<PanelLabel>Stats</PanelLabel>
-									<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-										{(
-											[
-												['Layers', layers.length],
-												['Points of interest', view.pois.length],
-												['Fog ops', view.fog.length],
-												['Tokens', view.tokens.length],
-												['Routes', view.routes.length],
-											] as const
-										).map(([k, v]) => (
-											<div key={k} style={{ display: 'flex', justifyContent: 'space-between', font: `12px ${T.sans}`, color: T.sub }}>
-												<span>{k}</span>
-												<span style={{ font: `12px ${T.mono}`, color: T.ink }}>{v}</span>
-											</div>
-										))}
-									</div>
-								</div>
-								{isDm && (
-									<div>
-										<PanelLabel>Imported assets · {mapAssets.length}</PanelLabel>
-										{mapAssets.length === 0 ? (
-											<EmptyState inset icon="import" title="No assets imported yet" description="Use Import in the top bar to attach an image or scene file." />
-										) : (
-											<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-												{mapAssets.map((a) => (
-													<div key={a.id} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '7px 9px', borderRadius: 8, border: `1px solid ${T.bd}`, background: T.raised }}>
-														<span style={{ font: `12.5px ${T.sans}`, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.fileName}</span>
-														<span style={{ font: `10px ${T.mono}`, color: T.ter, wordBreak: 'break-all' }}>
-															{a.kind} · {(a.byteLength / 1024).toFixed(1)} KB{a.dimensions ? ` · ${a.dimensions.width}×${a.dimensions.height}` : ''} · {a.id}
-														</span>
-													</div>
-												))}
-												<div style={{ font: `10.5px/1.5 ${T.sans}`, color: T.ter }}>
-													Content-addressed records — the bytes live in this device's asset store under the same hash. The newest image renders as the canvas base layer; if its bytes are missing here, the canvas says so.
-												</div>
-											</div>
-										)}
-									</div>
-								)}
-							</div>
-						)}
-					</div>
-				</div>
-			</div>
-
-			{/* status bar */}
-			<div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '5px 14px', borderTop: `1px solid ${T.bd}`, background: T.surf, font: `10.5px ${T.mono}`, color: T.ter, flex: '0 0 auto', flexWrap: 'wrap' }}>
-				<span style={{ textTransform: 'capitalize', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-					<Icon name={toolMeta?.icon ?? 'tool-select'} size={12} color={T.ter} />
-					{toolMeta?.label ?? tool}
-				</span>
-				<span>active layer: {layers.find((l) => l.layerId === activeId)?.name ?? '—'}</span>
-				<span>{view.fog.length} fog ops</span>
-				<div style={{ flex: 1 }} />
-				<span>{Math.round(zoom * 100)}%</span>
-			</div>
-
-			{/* ── overlays ── */}
-			{importOpen && <ImportMapDialog mapId={mapId} mapName={view.name} onClose={() => setImportOpen(false)} />}
-
-			{poiEdit && (
-				<Dialog
-					open
-					onClose={() => setPoiEdit(null)}
-					title={`Edit POI — ${poiEdit.label}`}
-					icon="poi"
-					size="sm"
-					footer={
-						<>
-							<Button variant="ghost" size="sm" onClick={() => setPoiEdit(null)}>
-								Cancel
-							</Button>
-							<Button variant="primary" size="sm" icon="check" disabled={busy || !poiDraft.label.trim()} onClick={savePoiEdit}>
-								Save
-							</Button>
-						</>
-					}
-				>
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-						<Field label="Label">
-							<Input value={poiDraft.label} onChange={(e: { target: { value: string } }) => setPoiDraft((d) => ({ ...d, label: e.target.value }))} />
-						</Field>
-						<div style={{ display: 'flex', gap: 10 }}>
-							<Field label="Kind" style={{ flex: 1 }}>
-								<Select value={poiDraft.category} options={MAP_POI_CATEGORIES.map((c) => ({ value: c, label: c }))} onChange={(e: { target: { value: string } }) => setPoiDraft((d) => ({ ...d, category: e.target.value as MapPoiCategory }))} />
-							</Field>
-							<Field label="Visibility" style={{ flex: 1 }}>
-								<Select value={poiDraft.visibility} options={VIS_OPTIONS} onChange={(e: { target: { value: string } }) => setPoiDraft((d) => ({ ...d, visibility: e.target.value as SceneVisibility }))} />
-							</Field>
-						</div>
-						<Field label="Note" help="DM note — a player only ever sees a player-visible POI's note.">
-							<Textarea rows={3} value={poiDraft.notes} onChange={(e: { target: { value: string } }) => setPoiDraft((d) => ({ ...d, notes: e.target.value }))} />
-						</Field>
-					</div>
-				</Dialog>
-			)}
-
-			{confirmRevealAll && (
-				<Dialog
-					open
-					onClose={() => setConfirmRevealAll(false)}
-					title="Reveal the whole map to players?"
-					description="Appends a full-map reveal op — players will immediately see the entire map, including anything the fog was hiding. You can re-conceal afterwards, but what players have seen can't be unseen."
-					tone="danger"
-					icon="reveal"
-					size="sm"
-					footer={
-						<>
-							<Button variant="ghost" size="sm" onClick={() => setConfirmRevealAll(false)}>
-								Cancel
-							</Button>
-							<Button
-								variant="danger"
-								size="sm"
-								icon="reveal"
-								disabled={busy}
-								onClick={() => {
-									setConfirmRevealAll(false);
-									appendFog({ shape: 'rect', x: 0, y: 0, w: 1, h: 1 }, 'reveal');
-								}}
-							>
-								Reveal everything
-							</Button>
-						</>
-					}
-				/>
-			)}
-
-			{confirmConcealAll && (
-				<Dialog
-					open
-					onClose={() => setConfirmConcealAll(false)}
-					title="Re-conceal the whole map?"
-					description="Appends a full-map conceal op — players will see nothing until you reveal again. The op history is preserved (fog is append-only)."
-					tone="warning"
-					icon="conceal"
-					size="sm"
-					footer={
-						<>
-							<Button variant="ghost" size="sm" onClick={() => setConfirmConcealAll(false)}>
-								Cancel
-							</Button>
-							<Button
-								variant="danger"
-								size="sm"
-								icon="conceal"
-								disabled={busy}
-								onClick={() => {
-									setConfirmConcealAll(false);
-									appendFog({ shape: 'rect', x: 0, y: 0, w: 1, h: 1 }, 'conceal');
-								}}
-							>
-								Conceal everything
-							</Button>
-						</>
-					}
-				/>
-			)}
-		</div>
+		<MapEditor
+			mapId={mapId}
+			initialTool={initialTool}
+			initialFogMode={initialFogMode}
+			onClose={onClose}
+		/>
 	);
 }

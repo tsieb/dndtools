@@ -29,10 +29,9 @@ const GRID = 20;
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
 const snapTo = (n: number, snap: boolean) => (snap ? Math.round(n / GRID) * GRID : Math.round(n));
 
-// Widget definition icons are EITHER a semantic registry key ('map', 'dice', …) OR an emoji glyph
-// (the core's system widgets ship emoji: ⏱ 🎲 📝 🗺 …). Registry keys are kebab-ascii; anything else
-// is rendered as its own emoji — which is the design's actual chosen glyph, so more faithful than
-// forcing it through Lucide.
+// Widget definition icons are normally semantic registry keys ('map', 'dice', …). Third-party
+// packages created by older builds may still contain an emoji glyph, so retain a decorative legacy
+// fallback instead of replacing persisted package content with a broken square.
 const isRegistryKey = (icon: string) => /^[a-z0-9-]+$/i.test(icon);
 
 export function WidgetGlyph({
@@ -71,7 +70,11 @@ export interface SceneBoardCanvasProps {
 	onRemove?: (id: string) => void;
 	/** VIEW-mode widget operation: dispatch a widget-declared durable command
 	 *  (`widget.dispatch-command`). Bodies render inert chips when omitted. */
-	onWidgetCommand?: (widgetInstanceId: string, commandType: string, payload: Record<string, unknown>) => void;
+	onWidgetCommand?: (
+		widgetInstanceId: string,
+		commandType: string,
+		payload: Record<string, unknown>,
+	) => void;
 	emptyHint?: string;
 }
 
@@ -110,6 +113,7 @@ export function SceneBoardCanvas({
 	emptyHint,
 }: SceneBoardCanvasProps) {
 	const wrapRef = useRef<HTMLDivElement | null>(null);
+	const [wrapWidth, setWrapWidth] = useState(0);
 	const dragRef = useRef<Drag | null>(null);
 	// Keyboard roving-tabindex state: live frame elements by id + the last-focused widget.
 	const frameRefs = useRef(new Map<string, HTMLDivElement>());
@@ -153,22 +157,64 @@ export function SceneBoardCanvas({
 		});
 	}, [widgets]);
 
-	const scale = policy === 'canvas' ? view.scale : 1;
-	const tx = policy === 'canvas' ? view.tx : 0;
-	const ty = policy === 'canvas' ? view.ty : 0;
+	useEffect(() => {
+		const node = wrapRef.current;
+		if (!node) return;
+		const update = () => setWrapWidth(node.clientWidth);
+		update();
+		const observer = new ResizeObserver(update);
+		observer.observe(node);
+		return () => observer.disconnect();
+	}, []);
+
+	// The bounded GM Screen is a composed dashboard, not a free-panning canvas. At narrow window
+	// sizes fit the authored board width into view so controls on right-hand widgets remain reachable.
+	// Canvas-mode scenes keep their explicit user-controlled zoom unchanged.
+	const boundedExtent = useMemo(() => {
+		let right = 0;
+		let bottom = 0;
+		for (const widget of widgets) {
+			const pos = posDraft[widget.id] ?? widget;
+			const size = sizeDraft[widget.id] ?? widget;
+			right = Math.max(right, pos.x + size.w);
+			bottom = Math.max(bottom, pos.y + size.h);
+		}
+		return { width: Math.max(1, right), height: Math.max(1, bottom) };
+	}, [widgets, posDraft, sizeDraft]);
+	const boundedScale =
+		policy === 'bounded' && wrapWidth > 0
+			? clamp((wrapWidth - 16) / boundedExtent.width, 0.4, 1)
+			: 1;
+	const scale = policy === 'canvas' ? view.scale : boundedScale;
+	const tx = policy === 'canvas' ? view.tx : boundedScale < 1 ? 8 : 0;
+	const ty = policy === 'canvas' ? view.ty : boundedScale < 1 ? 8 : 0;
 
 	const startMove = (e: React.PointerEvent, w: BoardWidget) => {
 		e.stopPropagation();
 		onSelect(w.id);
 		if (!editing) return;
 		const cur = posDraft[w.id] ?? { x: w.x, y: w.y };
-		dragRef.current = { mode: 'move', id: w.id, sx: e.clientX, sy: e.clientY, ox: cur.x, oy: cur.y };
+		dragRef.current = {
+			mode: 'move',
+			id: w.id,
+			sx: e.clientX,
+			sy: e.clientY,
+			ox: cur.x,
+			oy: cur.y,
+		};
 		document.body.style.userSelect = 'none';
 	};
 	const startResize = (e: React.PointerEvent, w: BoardWidget) => {
 		e.stopPropagation();
 		const cur = sizeDraft[w.id] ?? { w: w.w, h: w.h };
-		dragRef.current = { mode: 'resize', id: w.id, sx: e.clientX, sy: e.clientY, ow: cur.w, oh: cur.h };
+		dragRef.current = {
+			mode: 'resize',
+			id: w.id,
+			sx: e.clientX,
+			sy: e.clientY,
+			ow: cur.w,
+			oh: cur.h,
+		};
 		document.body.style.userSelect = 'none';
 	};
 	const onBgDown = (e: React.PointerEvent) => {
@@ -191,12 +237,18 @@ export function SceneBoardCanvas({
 			if (d.mode === 'move') {
 				setPosDraft((prev) => ({
 					...prev,
-					[d.id]: { x: Math.max(0, snapTo(d.ox + dx, snap)), y: Math.max(0, snapTo(d.oy + dy, snap)) },
+					[d.id]: {
+						x: Math.max(0, snapTo(d.ox + dx, snap)),
+						y: Math.max(0, snapTo(d.oy + dy, snap)),
+					},
 				}));
 			} else {
 				setSizeDraft((prev) => ({
 					...prev,
-					[d.id]: { w: Math.max(180, snapTo(d.ow + dx, snap)), h: Math.max(120, snapTo(d.oh + dy, snap)) },
+					[d.id]: {
+						w: Math.max(180, snapTo(d.ow + dx, snap)),
+						h: Math.max(120, snapTo(d.oh + dy, snap)),
+					},
 				}));
 			}
 		};
@@ -302,9 +354,17 @@ export function SceneBoardCanvas({
 			if (e.shiftKey) {
 				const resizable = canResize ? canResize(w) : w.tier !== 'system';
 				if (!resizable) return;
-				void onResize(w.id, Math.max(180, size.w + delta[0] * GRID), Math.max(120, size.h + delta[1] * GRID));
+				void onResize(
+					w.id,
+					Math.max(180, size.w + delta[0] * GRID),
+					Math.max(120, size.h + delta[1] * GRID),
+				);
 			} else {
-				void onMove(w.id, Math.max(0, pos.x + delta[0] * GRID), Math.max(0, pos.y + delta[1] * GRID));
+				void onMove(
+					w.id,
+					Math.max(0, pos.x + delta[0] * GRID),
+					Math.max(0, pos.y + delta[1] * GRID),
+				);
 			}
 			return;
 		}
@@ -372,7 +432,8 @@ export function SceneBoardCanvas({
 				style={{
 					position: 'absolute',
 					inset: 0,
-					background: 'radial-gradient(120% 80% at 50% -10%, rgba(224,176,111,.07), transparent 60%)',
+					background:
+						'radial-gradient(120% 80% at 50% -10%, rgba(224,176,111,.07), transparent 60%)',
 					pointerEvents: 'none',
 				}}
 			/>
@@ -383,7 +444,8 @@ export function SceneBoardCanvas({
 					top: 0,
 					transformOrigin: '0 0',
 					transform: `translate(${tx}px, ${ty}px) scale(${scale})`,
-					minWidth: '100%',
+					minWidth: policy === 'bounded' ? boundedExtent.width : '100%',
+					height: policy === 'bounded' ? boundedExtent.height : undefined,
 				}}
 			>
 				{editing && (
@@ -431,7 +493,11 @@ export function SceneBoardCanvas({
 						{Math.round(scale * 100)}%
 					</span>
 					<ZoomBtn icon="zoom-in" label="Zoom in" onClick={() => zoom(1.2)} />
-					<ZoomBtn icon="zoom-fit" label="Reset view" onClick={() => setView({ tx: 32, ty: 32, scale: 1 })} />
+					<ZoomBtn
+						icon="zoom-fit"
+						label="Reset view"
+						onClick={() => setView({ tx: 32, ty: 32, scale: 1 })}
+					/>
 				</div>
 			)}
 
@@ -451,10 +517,21 @@ export function SceneBoardCanvas({
 					}}
 				>
 					<Icon name="widget" size="xl" color="var(--color-text-tertiary)" />
-					<div style={{ font: '700 var(--text-lg) var(--font-display)', color: 'var(--color-text-secondary)' }}>
+					<div
+						style={{
+							font: '700 var(--text-lg) var(--font-display)',
+							color: 'var(--color-text-secondary)',
+						}}
+					>
 						An empty scene
 					</div>
-					<div style={{ font: 'var(--text-sm) var(--font-sans)', color: 'var(--color-text-tertiary)', maxWidth: 320 }}>
+					<div
+						style={{
+							font: 'var(--text-sm) var(--font-sans)',
+							color: 'var(--color-text-tertiary)',
+							maxWidth: 320,
+						}}
+					>
 						{emptyHint ?? 'Press Edit, then add a widget.'}
 					</div>
 				</div>
@@ -567,7 +644,9 @@ function WidgetFrame({
 					pointerEvents: editing ? 'none' : 'auto',
 				}}
 			>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flex: '0 0 auto' }}>
+				<div
+					style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flex: '0 0 auto' }}
+				>
 					<WidgetGlyph icon={w.icon} size="sm" />
 					<span
 						style={{
@@ -589,7 +668,9 @@ function WidgetFrame({
 							gap: 4,
 							padding: '2px 7px',
 							borderRadius: 'var(--radius-full)',
-							background: chip.players ? 'var(--color-accent-subtle)' : 'var(--color-surface-sunken)',
+							background: chip.players
+								? 'var(--color-accent-subtle)'
+								: 'var(--color-surface-sunken)',
 							color: chip.players ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
 							font: '600 var(--text-2xs) var(--font-sans)',
 							whiteSpace: 'nowrap',
