@@ -1,15 +1,34 @@
 ---
 name: heuristic-commit-after-deploy
-description: This repo deploys-then-commits, so infra commit timestamps lag the real stack update by a few minutes — don't false-flag drift
+description: Use GitHub Actions run logs (not commit-vs-LastUpdatedTime, and not AWS creds) as the cheapest and most reliable drift signal for this repo
 metadata:
   type: feedback
 ---
 
-The repo-side drift heuristic ("commit newer than LastUpdatedTime ⇒ undeployed") produces FALSE POSITIVES here because the operator's workflow is **deploy first, then commit the template**. Observed gaps where the stack was in fact current:
+**The best drift signal in this repo needs no AWS credentials at all: read `deploy.yml`'s own run logs.**
 
-- foundation: stack updated 2026-07-09 07:05:09Z, commit `6fac7e8` at 07:07:01Z (+2 min) — but live trust policy proved it deployed.
-- web-hosting: created 04:54:42Z, commit `e4940a7` at 04:59:53Z (+5 min) — current.
-- sync-api: updated 00:35:02Z, commit `2814dc7` at 00:40:52Z (+6 min) — template current.
+```bash
+gh run list --workflow=deploy.yml --limit 10
+gh run view <run-id> --json jobs \
+  --jq '.jobs[] | select(.name=="deploy infra") | .steps[] | "\(.conclusion)\t\(.name)"'
+```
 
-**Why:** a few-minutes commit-after-update gap is normal deploy-then-commit lag, NOT drift. Genuine undeployment here looks like HOURS/DAYS of gap (the hardening commit `9fd2a73` sits ~11h after the identity/turn/signaling stack updates — that one IS real drift, see [[dev-deploy-state]]).
-**How to apply:** when the commit-vs-update gap is only minutes, corroborate with a live signal (deployed params, trust policy, or template compare) before calling a stack stale. Reserve the "undeployed" verdict for gaps large enough to exclude deploy-then-commit ordering.
+The per-step conclusions literally say `success` / `skipped` for **`Deploy foundation`, `Deploy identity`,
+`Deploy turn`, `Deploy app-api`, `Deploy signaling`, `Deploy sync-api`, `Deploy web-hosting`**. That tells
+you exactly which stack was deployed, at which commit, and whether it succeeded — which is *more* than
+`LastUpdatedTime` gives you, and it works when the SSO session is expired (it usually is).
+
+Do this FIRST, before `aws cloudformation describe-stacks`. Only fall back to AWS reads for things CI cannot
+tell you: resource-level drift (out-of-band console edits), live IAM trust policies, SSM parameter values,
+and service quotas.
+
+### The older timestamp heuristic and its trap (still true, still secondary)
+"commit newer than `LastUpdatedTime` ⇒ undeployed" produces FALSE POSITIVES here, because the human workflow
+was **deploy first, then commit the template**. Observed gaps where the stack was in fact current: foundation
++2 min, web-hosting +5 min, sync-api +6 min. Reserve the "undeployed" verdict for HOURS/DAYS of gap.
+
+**Why:** since 2026-07-09 the human almost never deploys by hand — pushing to `main` does it (path-filtered).
+So "what did the repo deploy" is a GitHub question, not an AWS one. Relying on stack timestamps alone is how
+the retired "pre-hardening infra is still live" claim survived ~5 days after it stopped being true.
+**How to apply:** always corroborate a "stack is current/stale" verdict with the run-log check above before
+saying it out loud. See [[dev-deploy-state]].

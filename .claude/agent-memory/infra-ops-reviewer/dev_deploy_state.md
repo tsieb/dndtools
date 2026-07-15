@@ -1,24 +1,44 @@
 ---
 name: dev-deploy-state
-description: Live-audited deploy state of the six dev stacks as of 2026-07-09, incl. undeployed security hardening and prod status
+description: Deploy state of the 7 dev stacks — CI auto-deploy has kept them current with main since 2026-07-09; the old "pre-hardening infra still live" claim is now FALSE
 metadata:
   type: project
 ---
 
-Live audit 2026-07-09 (profile dndtools, ca-central-1, acct 703621193648). Stack `LastUpdatedTime` (UTC) vs last infra commit:
+## Correction (2026-07-14): the "hardening not redeployed" claim is DEAD. Stop repeating it.
 
-- **foundation** — UPDATE_COMPLETE, updated 2026-07-09 07:05:09Z. CURRENT: deployed `GitHubBranch=main`, OIDC trust verified on `main` (see [[oidc-trust-subject]]).
-- **identity** — UPDATE_COMPLETE, updated 2026-07-06 22:34:36Z. **STALE**: last infra commit is the hardening pass `9fd2a73` (2026-07-07 09:26:52Z), never deployed.
-- **turn** — CREATE_COMPLETE, updated 2026-07-06 22:09:52Z (never updated since create). **STALE**: hardening `9fd2a73` undeployed.
-- **signaling** — CREATE_COMPLETE, updated 2026-07-06 22:32:50Z (never updated). **STALE**: hardening `9fd2a73` undeployed (template AND its cloud-fns Lambda bundle).
-- **sync-api** — UPDATE_COMPLETE, updated 2026-07-07 00:35:02Z. Template dir current, BUT its Lambda bundles `@dndtools/cloud-fns`, which the hardening `9fd2a73` also touched — that bundle was never redeployed, so sync-api runs pre-hardening Lambda code.
-- **web-hosting** — CREATE_COMPLETE, created 2026-07-07 04:54:42Z. Current (not part of the hardening pass).
+The `feat/cloud-backend` auto-memory warning — *"hardened infra templates still NOT redeployed; live dev
+stacks run original pre-hardening infra"* — and my own 2026-07-09 snapshot (below) are **both stale**. They
+were true on 2026-07-09. They stopped being true the moment CI auto-deploy went live.
 
-**Net: the 2026-07-07 security-hardening pass (commit `9fd2a73`) is NOT deployed to dev.** It touched infra/identity, infra/turn, infra/signaling, and packages/cloud-fns; all live dev stacks still run pre-hardening infra/Lambda code. This confirms the auto-memory warning "hardened infra templates still NOT redeployed."
+**`deploy.yml` is the real deploy mechanism now, not a human running `infra/deploy.sh`.** It has run and
+**succeeded on every push to `main` since 2026-07-09**. Evidence (`gh run list --workflow=deploy.yml`, and
+`gh run view <id> --json jobs` for the step-level detail):
 
-**prod: entirely undeployed.** No `dndtools-prod-*` stacks exist and `/dndtools/prod` SSM namespace is empty.
+| run | date (UTC) | commit | result |
+|---|---|---|---|
+| 29181386322 | 2026-07-12 05:35 | `ea8356f` (= HEAD) | success — infra *skipped*, web republished |
+| 29180438555 | 2026-07-12 04:56 | merge full-e2e-readiness | success — **deployed signaling + sync-api + app-api** |
+| 29124506329 | 2026-07-10 21:22 | merge completion-pass | success |
+| 29000651756 | 2026-07-09 07:08 | foundation OIDC pin | success |
 
-Redeploy order when hardening ships: turn → signaling → sync-api → identity (identity has no downstream SSM dep so order-flexible). Verify with infra/verify-turn.sh, verify-signaling.sh, verify-sync.sh.
+The hardening commit `9fd2a73` is an ancestor of HEAD, so each of those deploys shipped it.
+**Net: the 7 dev stacks (foundation, identity, turn, app-api, signaling, sync-api, web-hosting) are current
+with committed `main` (`ea8356f`).** The only gap is the large **uncommitted** working-tree change set
+(observability/alarms/PITR/prod-OIDC isolation/CSP tightening/nodejs24/pinned coturn digest) — that is not
+drift, it is simply unshipped work.
 
-**Why:** answers the recurring "is hardening live yet?" question with timestamps instead of guessing.
-**How to apply:** treat as a snapshot — re-check `LastUpdatedTime` before asserting; a redeploy of any of identity/turn/signaling/sync-api after 2026-07-07 09:26Z clears the stale flag.
+**prod: still entirely undeployed**, and as of 2026-07-14 still *un-standupable* — see [[prod-readiness-gaps]].
+
+**Note there are 7 stacks, not 6.** `app-api` was added 2026-07-09 (`dc0f05e`) and now sits at position 3 in
+the order (foundation → identity → app-api → turn → signaling → sync-api → web-hosting), because signaling
+and sync-api resolve its `/app-api/table-name` from SSM.
+
+**Why:** this repo's drift question is now answered by GitHub Actions run logs, not by a human's deploy log.
+**How to apply:** before ever calling a stack stale, run the run-log check in
+[[heuristic-commit-after-deploy]]. Do not carry forward the "pre-hardening" claim; it is retired.
+
+---
+### Superseded snapshot (2026-07-09) — kept only to explain why the old claim existed
+identity/turn/signaling were then genuinely behind `9fd2a73`; foundation had just been redeployed for the
+`main` rename. CI has since redeployed all of them.
