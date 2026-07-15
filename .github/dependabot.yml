@@ -1,0 +1,35 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: America/Vancouver
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 6
+    groups:
+      runtime-patches:
+        dependency-type: production
+        update-types: [patch, minor]
+      tooling-patches:
+        dependency-type: development
+        update-types: [patch, minor]
+    # Majors remain ungrouped so breaking changes get focused review instead of disappearing from
+    # the update queue. This also leaves Dependabot free to propose a major-only security fix.
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:30'
+      timezone: America/Vancouver
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 4
+    groups:
+      actions:
+        patterns: ['*']

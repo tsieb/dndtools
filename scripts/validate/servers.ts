@@ -11,7 +11,8 @@ import { isPortOpen, spawnServer, waitForPort, c } from './util.ts';
  * The server all browser checks depend on:
  *  - `react-dev`: the React app under `vite dev` on :5273. The Playwright e2e/axe gates and the
  *    verify-* gates all need the DEV-only `window.__rt` seam, so this must be the dev server, not
- *    a production preview. Playwright's own config reuses this existing server when not in CI.
+ *    a production preview. Playwright checks receive the validation harness's explicit managed-server
+ *    signal, so the config reuses this process locally and in CI.
  */
 export const SERVERS: Record<string, ServerSpec> = {
 	'react-dev': {
@@ -32,6 +33,7 @@ export const SERVERS: Record<string, ServerSpec> = {
 			VITE_SIGNALING_WS_URL: '',
 			VITE_SYNC_API_URL: '',
 			VITE_APP_API_URL: '',
+			VITE_PUBLIC_APP_URL: '',
 			VITE_GOOGLE_CLIENT_ID: '',
 		},
 	},
@@ -57,7 +59,11 @@ export class ServerManager {
 			return;
 		}
 		console.log(c.dim(`   · starting ${spec.name} → :${spec.port} …`));
-		const handle = spawnServer(spec.command, path.join(this.logDir, `server-${spec.name}.log`), spec.env);
+		const handle = spawnServer(
+			spec.command,
+			path.join(this.logDir, `server-${spec.name}.log`),
+			spec.env,
+		);
 		this.running.set(name, { spec, handle });
 		try {
 			await waitForPort(spec.port, spec.readyTimeoutMs);

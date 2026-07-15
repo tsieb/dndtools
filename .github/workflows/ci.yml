@@ -15,23 +15,49 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: detect runtime changes
+    runs-on: ubuntu-latest
+    outputs:
+      runtime: ${{ steps.filter.outputs.runtime }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4
+        id: filter
+        with:
+          filters: |
+            runtime:
+              - 'apps/gm-react/**'
+              - 'packages/core/**'
+              - 'scripts/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'vitest.*.config.ts'
+              - '.github/workflows/ci.yml'
+
   build-and-test:
     name: build-and-test
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
-          version: 10
+          version: 10.34.5
 
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
@@ -40,8 +66,14 @@ jobs:
       - name: Enforce tiered quality gates (PLAT-010)
         run: pnpm gates
 
+      - name: Scan tracked files for high-confidence credentials
+        run: pnpm security:secrets
+
+      - name: Enforce the incremental formatting baseline
+        run: pnpm format:check:changed
+
       # `pnpm gates` only cross-checks gate metadata; it runs no compiler or linter.
-      # `pnpm format:check` is deliberately absent: the repo has never been Prettier-uniform.
+      # The changed-file format gate advances the baseline without reformatting historical files.
       - name: Lint (eslint + boundary + non-text contrast)
         run: pnpm lint
 
@@ -53,3 +85,126 @@ jobs:
 
       - name: Run unit tests
         run: pnpm test
+
+      - name: Enforce core and security coverage floors
+        run: pnpm test:coverage:core
+
+      - name: Upload core coverage report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: core-coverage
+          path: coverage/core
+          if-no-files-found: warn
+          retention-days: 14
+
+  browser-e2e:
+    name: browser E2E (${{ matrix.name }})
+    needs: [changes, build-and-test]
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: 1/2
+            name: 1-of-2
+          - shard: 2/2
+            name: 2-of-2
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm --filter @dndtools/gm-react exec playwright install --with-deps chromium
+      - name: Run Playwright shard
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report
+          PLAYWRIGHT_SHARD: ${{ matrix.shard }}
+        run: >-
+          pnpm --filter @dndtools/gm-react exec playwright test
+          --shard="$PLAYWRIGHT_SHARD" --reporter=line,html
+      - name: Upload Playwright diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: browser-e2e-${{ matrix.name }}
+          path: |
+            apps/gm-react/playwright-report
+            apps/gm-react/test-results
+          if-no-files-found: warn
+          retention-days: 14
+
+  accessibility:
+    name: accessibility (desktop + mobile)
+    needs: [changes, build-and-test]
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm --filter @dndtools/gm-react exec playwright install --with-deps chromium
+      - name: Run axe scan
+        run: pnpm a11y:axe
+      - name: Apply accessibility release policy
+        if: always()
+        run: pnpm a11y:report
+      - name: Upload accessibility diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: accessibility-report
+          path: |
+            apps/gm-react/test-results
+            tmp/a11y
+          if-no-files-found: warn
+          retention-days: 14
+
+  desktop-smoke:
+    name: Electron smoke (Linux)
+    needs: [changes, build-and-test]
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies (including Electron)
+        run: pnpm install --frozen-lockfile
+      - name: Boot packaged renderer twice and verify persistence
+        run: xvfb-run --auto-servernum pnpm --filter @dndtools/gm-react desktop:smoke

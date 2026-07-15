@@ -6,8 +6,8 @@
 // Design notes:
 //  - The React browser checks (Playwright e2e / axe + verify-*) need the DEV `window.__rt`
 //    seam, so they run against the managed `react-dev` server and share the `react` group to
-//    avoid IndexedDB races between gates hitting the same origin. Playwright's own webServer
-//    reuses that existing server when not in CI.
+//    avoid IndexedDB races between gates hitting the same origin. Playwright receives an explicit
+//    managed-server signal so it also reuses this server when the validation harness runs in CI.
 
 import type { Check } from './types.ts';
 import { runFeatureAudit } from './feature-audit.ts';
@@ -29,7 +29,8 @@ export const CHECKS: Check[] = [
 		title: 'ESLint',
 		layer: 'static',
 		stage: 0,
-		description: 'Lint the React app + core + cloud-fns + tooling (typescript-eslint + react-hooks).',
+		description:
+			'Lint the React app + core + cloud-fns + tooling (typescript-eslint + react-hooks).',
 		command: 'pnpm exec eslint .',
 	},
 	{
@@ -162,7 +163,8 @@ export const CHECKS: Check[] = [
 
 	// ---- Stage 2: browser-driven checks -------------------------------------
 	// react group: managed `react-dev` server (DEV `window.__rt` seam), sequential to avoid
-	// IndexedDB races. Playwright's own webServer reuses this existing server when not in CI.
+	// IndexedDB races. The Playwright checks explicitly opt into reusing this managed server,
+	// including under CI where a standalone Playwright invocation remains fail-closed.
 	{
 		id: 'e2e',
 		title: 'React E2E (desktop + mobile)',
@@ -171,11 +173,13 @@ export const CHECKS: Check[] = [
 		group: 'react',
 		servers: ['react-dev'],
 		timeoutMs: 25 * 60_000,
-		description: 'Playwright critical-path specs (collab, sync, canvas, permissions) on both profiles.',
+		description:
+			'Playwright critical-path specs (collab, sync, canvas, permissions) on both profiles.',
 		// Match the CI gate's tolerance: playwright.config uses retries:2 under CI but 0 locally,
 		// so a run here would be STRICTER than CI and red on a known-flaky timing race. Force
 		// retries:2 (keeping parallel workers) so a genuine failure still fails, but flake self-heals.
-		command: 'pnpm --filter @dndtools/gm-react exec playwright test --retries=2',
+		command:
+			'DNDTOOLS_PLAYWRIGHT_REUSE_MANAGED_SERVER=1 pnpm --filter @dndtools/gm-react exec playwright test --retries=2',
 	},
 	{
 		id: 'a11y:axe',
@@ -185,7 +189,7 @@ export const CHECKS: Check[] = [
 		group: 'react',
 		servers: ['react-dev'],
 		description: 'Axe-core scan on both device profiles (writes per-worker artifacts).',
-		command: 'pnpm a11y:axe',
+		command: 'DNDTOOLS_PLAYWRIGHT_REUSE_MANAGED_SERVER=1 pnpm a11y:axe',
 	},
 	{
 		id: 'a11y:report',
@@ -257,7 +261,8 @@ export const CHECKS: Check[] = [
 		offByDefault: true,
 		requires: ['electron', 'display'],
 		timeoutMs: 15 * 60_000,
-		description: 'Packaged app boots from file://, honors CSP, persists IndexedDB across restart.',
+		description:
+			'Packaged app boots from its secure custom origin, honors CORS/CSP, and persists IndexedDB across restart.',
 		command: 'pnpm desktop:smoke',
 	},
 

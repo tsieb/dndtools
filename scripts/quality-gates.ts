@@ -9,11 +9,11 @@ import {
 	type GateProblem,
 } from '../packages/core/src/platform/quality-gates.ts';
 import { validateSupportStatus } from '../packages/core/src/platform/support-status.ts';
-import { auditCapabilitySetGovernance } from '../packages/core/src/con/capability-set-sustainability.ts';
-import { auditScopeBoundary } from '../packages/core/src/con/scope-constraints.ts';
-import { auditGuiHidingReliance } from '../packages/core/src/con/gui-hiding-not-authoritative.ts';
-import { auditExternalDependencyRequirement } from '../packages/core/src/con/network-not-required.ts';
-import { auditSourceOfTruthOwnership } from '../packages/core/src/con/source-of-truth.ts';
+import { auditCapabilitySetGovernance } from '../packages/core/src/constraints/capability-set-sustainability.ts';
+import { auditScopeBoundary } from '../packages/core/src/constraints/scope-constraints.ts';
+import { auditGuiHidingReliance } from '../packages/core/src/constraints/gui-hiding-not-authoritative.ts';
+import { auditExternalDependencyRequirement } from '../packages/core/src/constraints/network-not-required.ts';
+import { auditSourceOfTruthOwnership } from '../packages/core/src/constraints/source-of-truth.ts';
 
 /**
  * PLAT-010 + PLAT-014 + CON-004 + CON-003/CON-006 + CON-001/CON-002/CON-005 enforcement: validate the

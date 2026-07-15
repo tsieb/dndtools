@@ -34,6 +34,9 @@ overrides:
   serialize-javascript@6.0.2: 7.0.5
   tar@7.5.9: 7.5.16
   tmp@0.2.5: 0.2.7
+  # Vitest/jsdom and Electron currently resolve the vulnerable 7.27.0 line.
+  # Keep electron-builder's unrelated undici 6.x line untouched.
+  'undici@7.27.0': 7.28.0
   yaml@1.10.2: 1.10.3
 
 allowBuilds:
@@ -50,5 +53,8 @@ onlyBuiltDependencies:
 ignoredBuiltDependencies:
   - electron-winstaller
 
+# Delay newly published versions for one day so compromised releases have time to be reported before
+# an intentional dependency refresh can select them. Frozen-lockfile CI remains fully deterministic.
+minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - '@codemirror/autocomplete@6.20.3'

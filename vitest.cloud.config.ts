@@ -25,7 +25,7 @@ export default defineConfig({
 		include: [
 			'packages/cloud-fns/**/*.test.ts',
 			'apps/gm-react/src/net/**/*.test.ts',
-			'apps/gm-react/src/cloud/**/*.test.ts',
+			'apps/gm-react/src/cloud/**/*.test.{ts,tsx}',
 		],
 		environment: 'node',
 		globals: false,

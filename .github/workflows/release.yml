@@ -1,64 +1,396 @@
 name: Desktop Release
 
-# Builds the gm-react desktop app (macOS .dmg + Linux .AppImage + Windows .exe, unsigned) and attaches
-# the installers to a DRAFT GitHub Release. Each OS's binary must be built on its own runner, so this
-# fans out across a macos-latest + ubuntu-latest + windows-latest matrix — each runner builds its own
-# OS and publishes into the same draft.
-#
-# Trigger: push a tag `vX.Y.Z` (matching apps/gm-react/package.json "version", e.g. 0.2.0 -> v0.2.0).
-# After the run, open the draft release on GitHub, sanity-check the artifacts, and publish it.
-# Unsigned — testers follow apps/gm-react/INSTALL-ALPHA.md to get past Gatekeeper (macOS), SmartScreen
-# (Windows), or to mark the AppImage executable (Linux).
+# Builds all documented desktop installers from one verified semver tag. Installers are staged as
+# workflow artifacts first, checked as a complete set, and only then attached to a draft release.
 
 on:
   push:
     tags:
       - 'v*.*.*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing semver tag to package (for example v0.2.0)'
+        required: true
+        type: string
+      channel:
+        description: 'Preview is unsigned; production requires signing and notarization credentials'
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - production
+
+concurrency:
+  group: desktop-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 permissions:
-  contents: write # create/update the GitHub Release and upload assets
+  contents: read
+
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  # Tag pushes are deliberately previews. A production build is an explicit manual action so the
+  # workflow can fail closed when signing/notarization credentials are not configured.
+  RELEASE_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'preview' }}
 
 jobs:
-  release:
-    name: package (${{ matrix.os }})
+  verify:
+    name: release gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    outputs:
+      release_sha: ${{ steps.release_ref.outputs.sha }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Pin a release tag reachable from main
+        id: release_ref
+        shell: bash
+        run: |
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          TAG_REF="refs/tags/$RELEASE_TAG"
+          git show-ref --verify --quiet "$TAG_REF"
+          TAG_SHA=$(git rev-parse "$TAG_REF^{commit}")
+          test "$(git rev-parse HEAD)" = "$TAG_SHA"
+          git merge-base --is-ancestor "$TAG_SHA" refs/remotes/origin/main
+          echo "sha=$TAG_SHA" >> "$GITHUB_OUTPUT"
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify tag and package versions
+        run: pnpm release:verify version --tag "$RELEASE_TAG"
+      - name: Scan tracked files for credentials
+        run: pnpm security:secrets
+      - name: Reject high-severity dependency advisories
+        run: pnpm audit --audit-level high
+      - name: Run static, type, and unit release gates
+        run: pnpm check
+      - name: Enforce core and security coverage floors
+        run: pnpm test:coverage:core
+      - name: Run full lint policy
+        run: pnpm lint
+      - name: Build production bundles
+        run: pnpm build
+      - name: Install Chromium
+        run: pnpm --filter @dndtools/gm-react exec playwright install --with-deps chromium
+      - name: Run browser release suite
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report
+        run: pnpm --filter @dndtools/gm-react exec playwright test --reporter=line,html
+      - name: Apply accessibility release policy
+        run: pnpm a11y:report
+      - name: Run Electron boot and persistence smoke
+        run: xvfb-run --auto-servernum pnpm --filter @dndtools/gm-react desktop:smoke
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          path: .
+          format: spdx-json
+          output-file: dndtools.spdx.json
+          upload-artifact: false
+      - name: Upload release-gate diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-gate-diagnostics
+          path: |
+            apps/gm-react/playwright-report
+            apps/gm-react/test-results
+            tmp/a11y
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Stage SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-sbom
+          path: dndtools.spdx.json
+          if-no-files-found: error
+
+  production-cloud-config:
+    name: read trusted production cloud config
+    if: github.event_name == 'workflow_dispatch' && inputs.channel == 'production'
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      id-token: write # read authoritative build coordinates through the production AWS role
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ needs.verify.outputs.release_sha }}
+          persist-credentials: false
+      - name: Require production OIDC role configuration
+        env:
+          ROLE_ARN: ${{ vars.AWS_PROD_DEPLOY_ROLE_ARN }}
+        run: test -n "$ROLE_ARN"
+      - uses: aws-actions/configure-aws-credentials@517a711dbcd0e402f90c77e7e2f81e849156e31d # v6
+        with:
+          role-to-assume: ${{ vars.AWS_PROD_DEPLOY_ROLE_ARN }}
+          aws-region: ca-central-1
+      - name: Materialize the profile used by the env puller
+        shell: bash
+        run: |
+          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID" --profile dndtools
+          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY" --profile dndtools
+          aws configure set aws_session_token "$AWS_SESSION_TOKEN" --profile dndtools
+          aws configure set region ca-central-1 --profile dndtools
+      - name: Pull and validate authoritative SSM coordinates
+        run: |
+          node apps/gm-react/scripts/pull-cloud-env.mjs prod
+          node --env-file=apps/gm-react/.env.local apps/gm-react/scripts/validate-cloud-env.mjs --required
+      - name: Stage trusted build coordinates
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: production-cloud-config
+          path: apps/gm-react/.env.local
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  package:
+    name: package (${{ matrix.label }})
+    needs: [verify, production-cloud-config]
+    if: >-
+      always() && needs.verify.result == 'success' &&
+      ((github.event_name == 'workflow_dispatch' && inputs.channel == 'production' &&
+        needs.production-cloud-config.result == 'success') ||
+       ((github.event_name != 'workflow_dispatch' || inputs.channel != 'production') &&
+        needs.production-cloud-config.result == 'skipped'))
     runs-on: ${{ matrix.os }}
+    environment: desktop-release
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - macos-latest
-          - ubuntu-latest
-          - windows-latest
+        include:
+          - os: macos-latest
+            label: macOS
+            artifact: desktop-macos
+            installers: apps/gm-react/release/*.dmg
+          - os: ubuntu-latest
+            label: Linux
+            artifact: desktop-linux
+            installers: apps/gm-react/release/*.AppImage
+          - os: windows-latest
+            label: Windows
+            artifact: desktop-windows
+            installers: apps/gm-react/release/*.exe
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v5
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          version: 10
-
-      - name: Setup Node
-        uses: actions/setup-node@v5
+          ref: ${{ needs.verify.outputs.release_sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
-          node-version: 22
-          cache: pnpm
-
+          version: 10.34.5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          package-manager-cache: false
       - name: Install dependencies
-        # electron-builder downloads its own Electron distributable, so the electron package's
-        # postinstall binary isn't needed here — skip the ~200 MB download to keep installs fast.
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
         run: pnpm install --frozen-lockfile
-
-      - name: Build web bundle
+      - name: Require macOS signing and notarization credentials
+        if: env.RELEASE_CHANNEL == 'production' && runner.os == 'macOS'
+        shell: bash
+        env:
+          MACOS_CSC_LINK: ${{ secrets.MACOS_CSC_LINK }}
+          MACOS_CSC_KEY_PASSWORD: ${{ secrets.MACOS_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          test -n "$MACOS_CSC_LINK"
+          test -n "$MACOS_CSC_KEY_PASSWORD"
+          test -n "$APPLE_ID"
+          test -n "$APPLE_APP_SPECIFIC_PASSWORD"
+          test -n "$APPLE_TEAM_ID"
+      - name: Require Windows signing credentials
+        if: env.RELEASE_CHANNEL == 'production' && runner.os == 'Windows'
+        shell: bash
+        env:
+          WINDOWS_CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+          WINDOWS_CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
+        run: |
+          test -n "$WINDOWS_CSC_LINK"
+          test -n "$WINDOWS_CSC_KEY_PASSWORD"
+      - name: Bundle Electron LAN discovery
+        run: pnpm --filter @dndtools/gm-react desktop:bundle-discovery
+      - name: Download trusted production cloud coordinates
+        if: env.RELEASE_CHANNEL == 'production'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: production-cloud-config
+          path: apps/gm-react
+      - name: Require production cloud coordinates
+        if: env.RELEASE_CHANNEL == 'production'
+        run: >-
+          node --env-file=apps/gm-react/.env.local
+          apps/gm-react/scripts/validate-cloud-env.mjs --required
+      - name: Build preview renderer
+        if: env.RELEASE_CHANNEL != 'production'
+        env:
+          VITE_CLOUD_REGION: ${{ vars.VITE_CLOUD_REGION }}
+          VITE_COGNITO_USER_POOL_ID: ${{ vars.VITE_COGNITO_USER_POOL_ID }}
+          VITE_COGNITO_CLIENT_ID: ${{ vars.VITE_COGNITO_CLIENT_ID }}
+          VITE_SIGNALING_WS_URL: ${{ vars.VITE_SIGNALING_WS_URL }}
+          VITE_SYNC_API_URL: ${{ vars.VITE_SYNC_API_URL }}
+          VITE_APP_API_URL: ${{ vars.VITE_APP_API_URL }}
+          VITE_PUBLIC_APP_URL: ${{ vars.VITE_PUBLIC_APP_URL }}
+          VITE_AI_ALLOWED_ORIGINS: ${{ vars.VITE_AI_ALLOWED_ORIGINS }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
         run: pnpm --filter @dndtools/gm-react build
+      - name: Build production renderer from trusted coordinates
+        if: env.RELEASE_CHANNEL == 'production'
+        run: pnpm --filter @dndtools/gm-react build
+      - name: Verify packaged network policy
+        if: env.RELEASE_CHANNEL == 'production'
+        run: >-
+          node --env-file=apps/gm-react/.env.local
+          apps/gm-react/scripts/validate-cloud-env.mjs --required
+          --policy apps/gm-react/dist/electron-network-policy.json
+      - name: Package unsigned preview installers
+        if: env.RELEASE_CHANNEL != 'production'
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: pnpm --filter @dndtools/gm-react exec electron-builder --publish never
+      - name: Package signed production installers
+        if: env.RELEASE_CHANNEL == 'production'
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ runner.os == 'Linux' && 'false' || 'true' }}
+          CSC_LINK: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_LINK || runner.os == 'Windows' && secrets.WINDOWS_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_KEY_PASSWORD || runner.os == 'Windows' && secrets.WINDOWS_CSC_KEY_PASSWORD || '' }}
+          APPLE_ID: ${{ runner.os == 'macOS' && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ runner.os == 'macOS' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ runner.os == 'macOS' && secrets.APPLE_TEAM_ID || '' }}
+          TARGET_OS: ${{ runner.os }}
+        shell: bash
+        run: |
+          if [ "$TARGET_OS" = macOS ]; then
+            pnpm --filter @dndtools/gm-react exec electron-builder --publish never --config.mac.notarize=true
+          else
+            pnpm --filter @dndtools/gm-react exec electron-builder --publish never
+          fi
+      - name: Verify macOS signature and notarization ticket
+        if: env.RELEASE_CHANNEL == 'production' && runner.os == 'macOS'
+        shell: bash
+        run: |
+          APP_PATH=$(find apps/gm-react/release -type d -name 'DND Tools GM.app' -print -quit)
+          test -n "$APP_PATH"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          for installer in apps/gm-react/release/*.dmg; do xcrun stapler validate "$installer"; done
+      - name: Verify Windows Authenticode signature
+        if: env.RELEASE_CHANNEL == 'production' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installers = Get-ChildItem apps/gm-react/release/*.exe
+          if ($installers.Count -eq 0) { throw 'No Windows installer was produced.' }
+          foreach ($installer in $installers) {
+            $signature = Get-AuthenticodeSignature $installer.FullName
+            if ($signature.Status -ne 'Valid') {
+              throw "Invalid Authenticode signature on $($installer.Name): $($signature.Status)"
+            }
+            if ($null -eq $signature.TimeStamperCertificate) {
+              throw "Authenticode signature on $($installer.Name) has no trusted timestamp."
+            }
+          }
+      - name: Stage installers
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.installers }}
+          if-no-files-found: error
+          retention-days: 30
 
-      - name: Package + publish (electron-builder)
-        # Builds for the host OS only (dmg on macOS, AppImage on Linux, NSIS exe on Windows) and
-        # publishes to the draft release for this tag. Unsigned: disable macOS signing autodiscovery.
+  draft-release:
+    name: verify and draft release
+    needs: [verify, package]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create or refresh the draft GitHub release
+      id-token: write # obtain the Sigstore identity used to sign build provenance
+      attestations: write # publish signed provenance for the release artifacts
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ needs.verify.outputs.release_sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: desktop-*
+          path: release-artifacts
+          merge-multiple: true
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-sbom
+          path: release-artifacts
+      - name: Verify installer completeness
+        run: pnpm release:verify artifacts --tag "$RELEASE_TAG" --dir release-artifacts
+      - name: Write SHA-256 checksums
+        working-directory: release-artifacts
+        run: sha256sum -- ./* > SHA256SUMS.txt
+      - name: Protect published and signed releases from preview replacement
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: pnpm --filter @dndtools/gm-react exec electron-builder --publish always
+        run: |
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            exit 0
+          fi
+          IS_DRAFT=$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft')
+          test "$IS_DRAFT" = true || {
+            echo "refusing to mutate an already-published release: $RELEASE_TAG" >&2
+            exit 1
+          }
+          if [ "$RELEASE_CHANNEL" = preview ]; then
+            EXISTING_TITLE=$(gh release view "$RELEASE_TAG" --json name --jq '.name')
+            test "$EXISTING_TITLE" = "DND Tools GM $RELEASE_TAG (Unsigned Preview)" || {
+              echo "refusing to replace a signed production draft with unsigned preview artifacts" >&2
+              exit 1
+            }
+          fi
+      - name: Sign build provenance for installers, checksums, and SBOM
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: 'release-artifacts/*'
+      - name: Create or refresh draft GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "$RELEASE_CHANNEL" = production ]; then
+            TITLE="DND Tools GM $RELEASE_TAG"
+            NOTES="Signed and notarized production desktop builds. Review the staged installers, checksums, SBOM, and release-gate artifacts before publishing."
+          else
+            TITLE="DND Tools GM $RELEASE_TAG (Unsigned Preview)"
+            NOTES="Unsigned preview builds for testing only. Review the staged installers, checksums, SBOM, and release-gate artifacts before publishing. Do not promote these artifacts as a production release."
+          fi
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-artifacts/* --clobber
+            gh release edit "$RELEASE_TAG" --draft --title "$TITLE" --notes "$NOTES"
+          else
+            gh release create "$RELEASE_TAG" release-artifacts/* \
+              --draft --verify-tag --title "$TITLE" --notes "$NOTES"
+          fi
