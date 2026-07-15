@@ -1,4 +1,6 @@
-# electron-builder config for the DND Tools GM desktop shell (macOS + Linux + Windows, unsigned alpha).
+# electron-builder config for the DND Tools GM desktop shell (macOS + Linux + Windows).
+# Preview CI explicitly disables certificate discovery; production CI supplies platform signing
+# credentials and enables macOS notarization. See docs/development/RELEASING.md.
 #
 # The renderer is the Vite build in `dist/` — react, dexie, @fontsource and @dndtools/core are all
 # bundled there, so the packaged app needs NO node_modules at runtime. `files` therefore ships only
@@ -30,10 +32,12 @@ mac:
         - arm64
         - x64
   category: public.app-category.productivity
-  # Unsigned alpha: skip signing/notarization. Testers bypass Gatekeeper per INSTALL-ALPHA.md.
-  identity: null
-  hardenedRuntime: false
+  hardenedRuntime: true
   gatekeeperAssess: false
+  extendInfo:
+    NSLocalNetworkUsageDescription: DND Tools uses your local network to find and connect to nearby game tables.
+    NSBonjourServices:
+      - _dndtools._tcp
 
 linux:
   executableName: dndtools-gm
@@ -52,10 +56,8 @@ win:
     - target: nsis
       arch:
         - x64
-  # Unsigned alpha: no code-signing certificate. electron-builder's signing auto-discovery is
-  # disabled in CI (CSC_IDENTITY_AUTO_DISCOVERY=false); testers get past SmartScreen once via
-  # "More info -> Run anyway", documented in INSTALL-ALPHA.md. The .ico is auto-generated from
-  # build-resources/icon.png (1024x1024).
+  # Preview CI disables signing auto-discovery; production CI provides the certificate. The .ico is
+  # auto-generated from build-resources/icon.png (1024x1024).
 
 # Assisted NSIS installer, tuned for beta testers: a per-user install (no admin/UAC prompt), a
 # visible wizard that lets them pick the folder, Start-menu + desktop shortcuts, and a clean

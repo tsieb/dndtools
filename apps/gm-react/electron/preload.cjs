@@ -25,7 +25,9 @@ contextBridge.exposeInMainWorld('dndtoolsDiscovery', {
 		ipcRenderer.on('discovery:offer-request', h);
 		return () => ipcRenderer.removeListener('discovery:offer-request', h);
 	},
-	respondOffer: (reqId, offerCode) => ipcRenderer.invoke('discovery:offer-response', { reqId, offerCode }),
+	respondOffer: (reqId, offerCode) =>
+		ipcRenderer.invoke('discovery:offer-response', { reqId, offerCode }),
+	rejectOffer: (reqId) => ipcRenderer.invoke('discovery:offer-reject', { reqId }),
 	onAnswer: (cb) => {
 		const h = (_e, data) => cb(data.answerCode);
 		ipcRenderer.on('discovery:answer', h);
@@ -38,7 +40,8 @@ contextBridge.exposeInMainWorld('dndtoolsDiscovery', {
 		ipcRenderer.on('discovery:offer', h);
 		return () => ipcRenderer.removeListener('discovery:offer', h);
 	},
-	respondAnswer: (reqId, answerCode) => ipcRenderer.invoke('discovery:answer-response', { reqId, answerCode }),
+	respondAnswer: (reqId, answerCode) =>
+		ipcRenderer.invoke('discovery:answer-response', { reqId, answerCode }),
 
 	// Joiner side: the discovered-services roster.
 	onServices: (cb) => {
@@ -56,4 +59,24 @@ contextBridge.exposeInMainWorld('dndtoolsSecureStore', {
 	set: (key, value) => ipcRenderer.invoke('secure-store:set', { key, value }),
 	remove: (key) => ipcRenderer.invoke('secure-store:remove', { key }),
 	keys: () => ipcRenderer.invoke('secure-store:keys'),
+});
+
+// Theme-only native-window surface. The renderer sends a named, non-arbitrary theme; the main
+// process owns the actual color palette and rejects unknown values.
+contextBridge.exposeInMainWorld('dndtoolsWindow', {
+	setTheme: (themeName) => {
+		if (!['tavern', 'parchment', 'high-contrast'].includes(themeName))
+			return Promise.resolve(false);
+		return ipcRenderer.invoke('window:set-theme', themeName);
+	},
+});
+
+// A custom OpenAI-compatible endpoint must be admitted before fetch. Validation happens on both
+// sides of the bridge; main.cjs canonicalizes the origin and enforces HTTPS (or loopback HTTP).
+contextBridge.exposeInMainWorld('dndtoolsNetworkPolicy', {
+	allowAiOrigin: (origin) => {
+		if (typeof origin !== 'string' || origin.length === 0 || origin.length > 2048)
+			return Promise.resolve(false);
+		return ipcRenderer.invoke('network-policy:allow-ai-origin', origin);
+	},
 });
