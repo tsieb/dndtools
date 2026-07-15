@@ -1,6 +1,6 @@
 // dndtools app-api — the application backend for account-scoped features that are NOT
-// E2EE vault sync: plan entitlements (simulated checkout — no payment processor, every
-// response is explicitly marked simulated), the marketplace (plaintext widget-package
+// E2EE vault sync: plan entitlements (an explicit dev-only preview; production never
+// accepts self-service simulated upgrades), the marketplace (plaintext widget-package
 // payloads, published for sharing), player invites (server-minted join links), the
 // public campaign wiki (player-safe published pages, readable without an account), and
 // account/device management against the caller's OWN Cognito identity.
@@ -15,6 +15,11 @@
 import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 import {
+	QueryCommand,
+	TransactWriteItemsCommand,
+	type AttributeValue,
+} from '@aws-sdk/client-dynamodb';
+import {
 	CognitoIdentityProviderClient,
 	AdminDeleteUserCommand,
 	AdminForgetDeviceCommand,
@@ -24,10 +29,26 @@ import {
 	AdminUserGlobalSignOutCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
-import { putItem, getItem, deleteItem, queryPartition } from '../lib/aws.ts';
-import { putJson, getJson, deleteObject } from '../lib/s3.ts';
+import {
+	ddb,
+	toItem,
+	fromItem,
+	putItemConditional,
+	getItem,
+	deleteItem,
+	queryPartition,
+	incrementCounterBelow,
+	transactWrite,
+} from '../lib/aws.ts';
+import {
+	putJsonVersioned,
+	getJsonVersioned,
+	deleteObject,
+	deleteObjectVersion,
+} from '../lib/s3.ts';
 
 const APP_TABLE = process.env.APP_TABLE!;
+const SYNC_OPS_TABLE = process.env.SYNC_OPS_TABLE!;
 const MODULES_BUCKET = process.env.MODULES_BUCKET!;
 const USER_POOL_ID = process.env.USER_POOL_ID!;
 
@@ -46,8 +67,16 @@ const MAX_CAMPAIGN_NAME_CHARS = 80;
 const MAX_NOTE_CHARS = 400;
 const MAX_EMAIL_CHARS = 254; // RFC 5321 max address length — a cheap DoS bound before validation
 const MAX_BROWSE_RESULTS = 100;
+const MAX_ACTIVE_MODULES_PER_ACCOUNT = 50;
+const MAX_ACTIVE_INVITES_PER_ACCOUNT = 50;
+const MODULE_PUBLISHES_PER_DAY = 25;
+const INVITES_CREATED_PER_DAY = 50;
+const WIKI_PUBLISHES_PER_DAY = 20;
 const INVITE_TTL_SECONDS = 14 * 24 * 60 * 60; // 14 days
+const DELETION_MARKER_TTL_SECONDS = 45 * 24 * 60 * 60;
+const PUBLISH_BUDGET_WINDOW_SECONDS = 24 * 60 * 60;
 const VERSION_RE = /^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]{1,40})?$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 // Invite tokens are 32 random bytes base64url (43 chars); accept a bounded shape only.
 const TOKEN_RE = /^[A-Za-z0-9_-]{16,128}$/;
 // --- campaign wiki bounds (player-safe markdown pages; text by design, small on purpose) -
@@ -68,6 +97,8 @@ const WIKI_SLUG_RE = /^[a-z0-9][a-z0-9-]{0,119}$/;
 // no whitespace. Real deliverability is decided by SES, not this regex — this only rejects
 // obvious garbage before we ever hand an address to SES.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const WIKI_PASSWORD_FAILURE_LIMIT = 5;
+const WIKI_PASSWORD_WINDOW_SECONDS = 15 * 60;
 
 // --- key layout (single table; see infra/app-api/template.yaml) ------------------------
 const accountPk = (sub: string) => `account#${sub}`;
@@ -80,8 +111,11 @@ const modulePk = (moduleId: string) => `module#${moduleId}`;
 const SK_LISTING = 'listing';
 const BROWSE_PK = 'modules'; // browse partition: one query lists every listing, no scan
 const browseSk = (moduleId: string) => `listing#${moduleId}`;
+const ownedModuleSk = (moduleId: string) => `module#${moduleId}`;
 const moduleS3Key = (moduleId: string) => `modules/${moduleId}.json`;
 const SK_WIKI = 'wiki'; // owner's wiki row under account#<sub> — ONE wiki per account
+const SYNC_USAGE_SK = 'usage#quota';
+const primaryVaultPk = (sub: string) => `${sub}#primary`;
 const wikiPk = (wikiId: string) => `wiki#${wikiId}`;
 const SK_SITE = 'site'; // public wikiId → site lookup (mirrors the invite redeem row)
 const wikiS3Key = (wikiId: string) => `wikis/${wikiId}.json`;
@@ -113,26 +147,37 @@ export const FEATURE_MATRIX: FeatureGroup[] = [
 		rows: [
 			{ label: 'On-device vault', hearth: true, lantern: true, beacon: true },
 			{ label: 'Core widgets, maps & fog', hearth: true, lantern: true, beacon: true },
-			{ label: 'Players at the table', hearth: '4', lantern: '6', beacon: '12' },
 			{ label: 'Co-DM seats', hearth: false, lantern: '1', beacon: '3' },
-			{ label: 'Community modules (read-only)', hearth: true, lantern: true, beacon: true },
+			{ label: 'Manual & nearby-device play', hearth: true, lantern: true, beacon: true },
+			{ label: 'Bring-your-own AI assistant', hearth: true, lantern: true, beacon: true },
 		],
 	},
 	{
 		group: 'Cloud',
 		rows: [
-			{ label: 'Sync across devices', cloud: true, hearth: false, lantern: true, beacon: true },
-			{ label: 'Off-device backup', cloud: true, hearth: false, lantern: true, beacon: true },
-			{ label: 'Vault storage', cloud: true, hearth: '—', lantern: '20 GB', beacon: '200 GB' },
-			{ label: 'Live audio projection', cloud: true, hearth: false, lantern: true, beacon: true },
+			{
+				label: 'Encrypted off-device backup',
+				cloud: true,
+				hearth: false,
+				lantern: true,
+				beacon: true,
+			},
+			{
+				label: 'Manual restore with the same vault key',
+				cloud: true,
+				hearth: false,
+				lantern: true,
+				beacon: true,
+			},
+			{ label: 'Internet remote play', cloud: true, hearth: false, lantern: true, beacon: true },
 		],
 	},
 	{
-		group: 'Assist & publish',
+		group: 'Community & publish',
 		rows: [
-			{ label: 'AI assist credits', cloud: true, hearth: false, lantern: '500 / mo', beacon: 'Unlimited' },
+			{ label: 'Browse community modules', hearth: true, lantern: true, beacon: true },
+			{ label: 'Publish community modules', hearth: true, lantern: true, beacon: true },
 			{ label: 'Public campaign wikis', cloud: true, hearth: false, lantern: false, beacon: true },
-			{ label: 'Priority sync & support', cloud: true, hearth: false, lantern: false, beacon: true },
 		],
 	},
 ];
@@ -143,11 +188,23 @@ export const FEATURE_MATRIX: FeatureGroup[] = [
  * with a generic 500 — never echoing internal detail back to the caller.
  */
 class BadRequest extends Error {}
+class Forbidden extends Error {}
 
-function json(statusCode: number, body: unknown) {
+class TooManyRequests extends Error {
+	constructor(
+		message: string,
+		readonly retryAfterSeconds: number,
+	) {
+		super(message);
+	}
+}
+
+class AccountDeleted extends Error {}
+
+function json(statusCode: number, body: unknown, headers: Record<string, string> = {}) {
 	return {
 		statusCode,
-		headers: { 'content-type': 'application/json' },
+		headers: { 'content-type': 'application/json', ...headers },
 		body: JSON.stringify(body),
 	};
 }
@@ -164,7 +221,8 @@ function parseBody(body: string | undefined): Record<string, unknown> {
 function requireString(value: unknown, field: string, maxChars: number): string {
 	if (typeof value !== 'string' || !value.trim()) throw new BadRequest(`${field} is required`);
 	const trimmed = value.trim();
-	if (trimmed.length > maxChars) throw new BadRequest(`${field} must be at most ${maxChars} characters`);
+	if (trimmed.length > maxChars)
+		throw new BadRequest(`${field} must be at most ${maxChars} characters`);
 	return trimmed;
 }
 
@@ -173,8 +231,20 @@ function optionalString(value: unknown, field: string, maxChars: number): string
 	if (value === undefined || value === null || value === '') return '';
 	if (typeof value !== 'string') throw new BadRequest(`${field} must be a string`);
 	const trimmed = value.trim();
-	if (trimmed.length > maxChars) throw new BadRequest(`${field} must be at most ${maxChars} characters`);
+	if (trimmed.length > maxChars)
+		throw new BadRequest(`${field} must be at most ${maxChars} characters`);
 	return trimmed;
+}
+
+function decodePathId(raw: string, field: string, pattern: RegExp): string {
+	let decoded: string;
+	try {
+		decoded = decodeURIComponent(raw);
+	} catch {
+		throw new BadRequest(`${field} has invalid encoding`);
+	}
+	if (!pattern.test(decoded)) throw new BadRequest(`${field} has an invalid format`);
+	return decoded;
 }
 
 interface Caller {
@@ -185,6 +255,80 @@ interface Caller {
 	displayName: string;
 }
 
+type AccountTransactionWrite =
+	| { put: Record<string, string | number | undefined> }
+	| { delete: Record<string, string> };
+
+/**
+ * Atomically gate a public/account-owned write on the account-deletion tombstone.
+ * The request-level read is useful for a quick 410, but only this transaction closes
+ * the race where DELETE /account starts while a module/wiki/invite publish is in flight.
+ */
+async function transactWhileAccountActive(
+	caller: Caller,
+	writes: readonly AccountTransactionWrite[],
+): Promise<void> {
+	if (writes.length < 1 || writes.length > 99) throw new Error('invalid account transaction size');
+	try {
+		await ddb.send(
+			new TransactWriteItemsCommand({
+				ClientRequestToken: randomUUID(),
+				TransactItems: [
+					{
+						ConditionCheck: {
+							TableName: APP_TABLE,
+							Key: toItem({ pk: accountPk(caller.sub), sk: SK_ENTITLEMENT }),
+							ConditionExpression: 'attribute_not_exists(#deletedAt)',
+							ExpressionAttributeNames: { '#deletedAt': 'deletedAt' },
+						},
+					},
+					...writes.map((write) =>
+						'put' in write
+							? { Put: { TableName: APP_TABLE, Item: toItem(write.put) } }
+							: { Delete: { TableName: APP_TABLE, Key: toItem(write.delete) } },
+					),
+				],
+			}),
+		);
+	} catch (error) {
+		// A canceled transaction can omit cancellation reasons in local/test-compatible
+		// services. A strong read is the authoritative classification and also handles a
+		// deletion that won concurrently with an unrelated service/transport failure.
+		const accountState = await getItem(
+			APP_TABLE,
+			{ pk: accountPk(caller.sub), sk: SK_ENTITLEMENT },
+			true,
+		);
+		if (accountState?.deletedAt) throw new AccountDeleted();
+		throw error;
+	}
+}
+
+/** Strong, fully paginated account-partition read used before irreversible deletion. */
+async function queryAccountRowsStrong(sub: string): Promise<Record<string, string>[]> {
+	const rows: Record<string, string>[] = [];
+	let exclusiveStartKey: Record<string, AttributeValue> | undefined;
+	do {
+		const response = await ddb.send(
+			new QueryCommand({
+				TableName: APP_TABLE,
+				KeyConditionExpression: '#pk = :pk',
+				ExpressionAttributeNames: { '#pk': 'pk' },
+				ExpressionAttributeValues: toItem({ ':pk': accountPk(sub) }),
+				ConsistentRead: true,
+				ExclusiveStartKey: exclusiveStartKey,
+			}),
+		);
+		rows.push(
+			...(response.Items ?? [])
+				.map(fromItem)
+				.filter((row): row is Record<string, string> => Boolean(row)),
+		);
+		exclusiveStartKey = response.LastEvaluatedKey;
+	} while (exclusiveStartKey);
+	return rows;
+}
+
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 	const routeKey = event.routeKey;
 	try {
@@ -193,7 +337,11 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 			return await resolveInvite(event.pathParameters?.token);
 		}
 		if (routeKey === 'GET /wikis/{wikiId}') {
-			return await readWiki(event.pathParameters?.wikiId, event.headers?.['x-wiki-password']);
+			return await readWiki(
+				event.pathParameters?.wikiId,
+				event.headers?.['x-wiki-password'],
+				event.requestContext.http.sourceIp || 'unknown',
+			);
 		}
 
 		// Everything else: the JWT authorizer guarantees verified claims; `sub` namespaces
@@ -208,6 +356,16 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 			username: claims?.['cognito:username'] ? String(claims['cognito:username']) : sub,
 			displayName: typeof claims?.name === 'string' && claims.name.trim() ? claims.name.trim() : '',
 		};
+		// Account deletion keeps a marker in the entitlement row for 45 days after cleanup. Cognito
+		// sign-out revokes refresh tokens but cannot revoke an already-issued ID token, so every
+		// protected request checks this marker before it can recreate account-scoped state. Keep
+		// DELETE retryable so an interrupted deletion can finish its cleanup.
+		const accountState = await getItem(
+			APP_TABLE,
+			{ pk: accountPk(caller.sub), sk: SK_ENTITLEMENT },
+			true,
+		);
+		if (accountState?.deletedAt && routeKey !== 'DELETE /account') throw new AccountDeleted();
 
 		switch (routeKey) {
 			// Entitlements (simulated checkout) ------------------------------------------
@@ -259,36 +417,105 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 		// internal fault — log it (with context) and return a generic 500 so AWS SDK error
 		// text (table/bucket/pool/request-id detail) never reaches the caller.
 		if (err instanceof BadRequest) return json(400, { error: err.message });
+		if (err instanceof Forbidden) return json(403, { error: err.message });
+		if (err instanceof AccountDeleted) return json(410, { error: 'account has been deleted' });
+		if (err instanceof TooManyRequests) {
+			return json(429, { error: err.message }, { 'retry-after': String(err.retryAfterSeconds) });
+		}
 		if (err instanceof SyntaxError) return json(400, { error: 'malformed request body' });
 		console.error('app-api error', { routeKey, err });
 		return json(500, { error: 'internal error' });
 	}
 };
 
-// --- Entitlements: GET returns the stored plan (or the free default); POST is the -------
-// --- SIMULATED plan change. Both always answer simulated:true + the feature matrix. -----
+type PublishBudgetKind = 'module' | 'invite' | 'wiki';
+
+/**
+ * Per-account durable-write budget. API Gateway throttling bounds bursts; this
+ * fixed-window budget bounds lasting S3/DynamoDB growth and invite-email abuse over
+ * time. Atomic counters prevent concurrent requests from bypassing the limit; rows expire automatically.
+ */
+async function consumePublishBudget(
+	caller: Caller,
+	kind: PublishBudgetKind,
+	limit: number,
+): Promise<Record<string, string>> {
+	const now = nowSec();
+	const windowStart =
+		Math.floor(now / PUBLISH_BUDGET_WINDOW_SECONDS) * PUBLISH_BUDGET_WINDOW_SECONDS;
+	const windowEnd = windowStart + PUBLISH_BUDGET_WINDOW_SECONDS;
+	const key = { pk: accountPk(caller.sub), sk: `budget#${kind}#${windowStart}` };
+	const allowed = await incrementCounterBelow(
+		APP_TABLE,
+		key,
+		limit,
+		windowEnd + PUBLISH_BUDGET_WINDOW_SECONDS,
+	);
+	if (!allowed) {
+		throw new TooManyRequests(
+			`Daily ${kind} publishing limit reached. Try again later.`,
+			Math.max(1, windowEnd - now),
+		);
+	}
+	return key;
+}
+
+// --- Entitlements: GET returns the stored plan (or free default). Self-service ---------
+// --- simulated plan changes are explicitly enabled only in non-production previews. ----
+function entitlementPreviewEnabled(): boolean {
+	return process.env.ENTITLEMENT_PREVIEW_ENABLED === 'true';
+}
+
+function entitlementResponse(plan: PlanId) {
+	const canChangePlan = entitlementPreviewEnabled();
+	return { plan, simulated: canChangePlan, canChangePlan, features: FEATURE_MATRIX };
+}
+
 /** The caller's stored plan, failing CLOSED to the free default. */
 async function currentPlan(caller: Caller): Promise<PlanId> {
-	const row = await getItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_ENTITLEMENT });
-	return row && (PLAN_IDS as readonly string[]).includes(row.plan) ? (row.plan as PlanId) : DEFAULT_PLAN;
+	try {
+		const row = await getItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_ENTITLEMENT });
+		return row && !row.deletedAt && (PLAN_IDS as readonly string[]).includes(row.plan)
+			? (row.plan as PlanId)
+			: DEFAULT_PLAN;
+	} catch (err) {
+		// Entitlement availability must never grant paid capabilities. The request-level
+		// account-state check still fails the whole request on a DynamoDB outage; this fallback
+		// protects direct/internal plan reads from ever failing open.
+		console.error('entitlement read failed closed', { sub: caller.sub.slice(0, 8), err });
+		return DEFAULT_PLAN;
+	}
 }
 
 async function getEntitlements(caller: Caller) {
 	const plan = await currentPlan(caller);
-	return json(200, { plan, simulated: true, features: FEATURE_MATRIX });
+	return json(200, entitlementResponse(plan as PlanId));
 }
 
 async function setEntitlements(caller: Caller, body: string | undefined) {
+	if (!entitlementPreviewEnabled()) {
+		throw new Forbidden(
+			'Self-service cloud plan changes are not available in this release. No plan was changed.',
+		);
+	}
 	const { plan } = parseBody(body);
 	if (typeof plan !== 'string' || !(PLAN_IDS as readonly string[]).includes(plan))
 		throw new BadRequest(`plan must be one of: ${PLAN_IDS.join(', ')}`);
-	await putItem(APP_TABLE, {
-		pk: accountPk(caller.sub),
-		sk: SK_ENTITLEMENT,
-		plan,
-		updatedAt: nowIso(),
-	});
-	return json(200, { plan, simulated: true, features: FEATURE_MATRIX });
+	const written = await putItemConditional(
+		APP_TABLE,
+		{
+			pk: accountPk(caller.sub),
+			sk: SK_ENTITLEMENT,
+			plan,
+			updatedAt: nowIso(),
+		},
+		{
+			expression: 'attribute_not_exists(#deletedAt)',
+			names: { '#deletedAt': 'deletedAt' },
+		},
+	);
+	if (!written) throw new AccountDeleted();
+	return json(200, entitlementResponse(plan as PlanId));
 }
 
 // --- Marketplace: plaintext widget-package payloads in S3, listing rows in Dynamo. ------
@@ -316,10 +543,26 @@ async function publishModule(caller: Caller, body: string | undefined) {
 	const summary = requireString(parsed.summary, 'summary', MAX_SUMMARY_CHARS);
 	const version = requireString(parsed.version, 'version', 40);
 	if (!VERSION_RE.test(version)) throw new BadRequest('version must be semver (e.g. 1.2.0)');
-	if (parsed.package === undefined || parsed.package === null) throw new BadRequest('package is required');
+	if (parsed.package === undefined || parsed.package === null)
+		throw new BadRequest('package is required');
 	const payloadJson = JSON.stringify(parsed.package);
 	const size = Buffer.byteLength(payloadJson, 'utf8');
-	if (size > MAX_MODULE_PACKAGE_BYTES) throw new BadRequest('module package too large (256 KiB max)');
+	if (size > MAX_MODULE_PACKAGE_BYTES)
+		throw new BadRequest('module package too large (256 KiB max)');
+	const activeRows = await queryPartition(
+		APP_TABLE,
+		{ name: 'pk', value: accountPk(caller.sub) },
+		{ name: 'sk', lo: 'module#', hi: 'module#\uffff' },
+		MAX_ACTIVE_MODULES_PER_ACCOUNT + 1,
+		MAX_ACTIVE_MODULES_PER_ACCOUNT + 1,
+	);
+	if (activeRows.length >= MAX_ACTIVE_MODULES_PER_ACCOUNT) {
+		throw new TooManyRequests(
+			`An account can publish at most ${MAX_ACTIVE_MODULES_PER_ACCOUNT} active modules. Remove one before publishing another.`,
+			3600,
+		);
+	}
+	const publishBudgetKey = await consumePublishBudget(caller, 'module', MODULE_PUBLISHES_PER_DAY);
 
 	const moduleId = randomUUID();
 	const contentHash = createHash('sha256').update(payloadJson).digest('hex');
@@ -333,37 +576,76 @@ async function publishModule(caller: Caller, body: string | undefined) {
 		contentHash,
 		size,
 	};
-	await putJson(MODULES_BUCKET, moduleS3Key(moduleId), parsed.package);
-	await putItem(APP_TABLE, { pk: modulePk(moduleId), sk: SK_LISTING, ...listing });
-	await putItem(APP_TABLE, { pk: BROWSE_PK, sk: browseSk(moduleId), ...listing });
+	const s3VersionId = await putJsonVersioned(MODULES_BUCKET, moduleS3Key(moduleId), parsed.package);
+	try {
+		await transactWhileAccountActive(caller, [
+			{ put: { pk: modulePk(moduleId), sk: SK_LISTING, ...listing, s3VersionId } },
+			{ put: { pk: BROWSE_PK, sk: browseSk(moduleId), ...listing, s3VersionId } },
+			{
+				put: { pk: accountPk(caller.sub), sk: ownedModuleSk(moduleId), ...listing, s3VersionId },
+			},
+		]);
+	} catch (error) {
+		// A transport error may arrive after DynamoDB committed. Strongly verify all three
+		// transaction rows before deciding the new S3 version is unreferenced and safe to delete.
+		const rows = await Promise.all([
+			getItem(APP_TABLE, { pk: modulePk(moduleId), sk: SK_LISTING }, true),
+			getItem(APP_TABLE, { pk: BROWSE_PK, sk: browseSk(moduleId) }, true),
+			getItem(APP_TABLE, { pk: accountPk(caller.sub), sk: ownedModuleSk(moduleId) }, true),
+		]);
+		const references = rows.filter((row) => row?.s3VersionId === s3VersionId).length;
+		if (references === rows.length) return json(200, { moduleId });
+		if (references === 0) {
+			await deleteObjectVersion(MODULES_BUCKET, moduleS3Key(moduleId), s3VersionId);
+		}
+		if (error instanceof AccountDeleted) await deleteItem(APP_TABLE, publishBudgetKey);
+		throw error;
+	}
 	return json(200, { moduleId });
 }
 
 async function listModules(caller: Caller) {
-	const rows = await queryPartition(APP_TABLE, { name: 'pk', value: BROWSE_PK });
-	const modules = rows.slice(0, MAX_BROWSE_RESULTS).map((row) => listingResponse(row, caller.sub));
+	const rows = await queryPartition(
+		APP_TABLE,
+		{ name: 'pk', value: BROWSE_PK },
+		undefined,
+		MAX_BROWSE_RESULTS,
+		MAX_BROWSE_RESULTS,
+	);
+	const modules = rows.map((row) => listingResponse(row, caller.sub));
 	return json(200, { modules });
 }
 
 async function getModule(caller: Caller, rawModuleId: string | undefined) {
 	if (!rawModuleId) throw new BadRequest('missing moduleId');
-	const moduleId = decodeURIComponent(rawModuleId);
+	const moduleId = decodePathId(rawModuleId, 'moduleId', UUID_RE);
 	const row = await getItem(APP_TABLE, { pk: modulePk(moduleId), sk: SK_LISTING });
 	if (!row) return json(404, { error: 'module not found' });
-	const pkg = await getJson(MODULES_BUCKET, moduleS3Key(moduleId));
+	const pkg = await getJsonVersioned(
+		MODULES_BUCKET,
+		moduleS3Key(moduleId),
+		row.s3VersionId || undefined,
+	);
 	if (pkg === null) return json(404, { error: 'module payload missing' });
 	return json(200, { ...listingResponse(row, caller.sub), package: pkg });
 }
 
 async function deleteModule(caller: Caller, rawModuleId: string | undefined) {
 	if (!rawModuleId) throw new BadRequest('missing moduleId');
-	const moduleId = decodeURIComponent(rawModuleId);
+	const moduleId = decodePathId(rawModuleId, 'moduleId', UUID_RE);
 	const row = await getItem(APP_TABLE, { pk: modulePk(moduleId), sk: SK_LISTING });
 	if (!row) return json(404, { error: 'module not found' });
 	if (row.ownerSub !== caller.sub) return json(403, { error: 'not your module' });
-	await deleteItem(APP_TABLE, { pk: modulePk(moduleId), sk: SK_LISTING });
-	await deleteItem(APP_TABLE, { pk: BROWSE_PK, sk: browseSk(moduleId) });
-	await deleteObject(MODULES_BUCKET, moduleS3Key(moduleId));
+	await transactWrite(APP_TABLE, [
+		{ delete: { pk: modulePk(moduleId), sk: SK_LISTING } },
+		{ delete: { pk: BROWSE_PK, sk: browseSk(moduleId) } },
+		{ delete: { pk: accountPk(caller.sub), sk: ownedModuleSk(moduleId) } },
+	]);
+	if (row.s3VersionId) {
+		await deleteObjectVersion(MODULES_BUCKET, moduleS3Key(moduleId), row.s3VersionId);
+	} else {
+		await deleteObject(MODULES_BUCKET, moduleS3Key(moduleId));
+	}
 	return json(200, { ok: true });
 }
 
@@ -412,18 +694,23 @@ function wikiPasswordMatches(presented: string, stored: string): boolean {
 
 /** Validate + rebuild the page list so ONLY the known text fields ever persist. */
 function sanitizeWikiPages(value: unknown): WikiPage[] {
-	if (!Array.isArray(value) || value.length === 0) throw new BadRequest('pages must be a non-empty array');
-	if (value.length > MAX_WIKI_PAGES) throw new BadRequest(`a wiki can hold at most ${MAX_WIKI_PAGES} pages`);
+	if (!Array.isArray(value) || value.length === 0)
+		throw new BadRequest('pages must be a non-empty array');
+	if (value.length > MAX_WIKI_PAGES)
+		throw new BadRequest(`a wiki can hold at most ${MAX_WIKI_PAGES} pages`);
 	const seen = new Set<string>();
 	return value.map((raw, i) => {
-		if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new BadRequest(`pages[${i}] must be an object`);
+		if (!raw || typeof raw !== 'object' || Array.isArray(raw))
+			throw new BadRequest(`pages[${i}] must be an object`);
 		const page = raw as Record<string, unknown>;
 		const slug = requireString(page.slug, `pages[${i}].slug`, 120);
-		if (!WIKI_SLUG_RE.test(slug)) throw new BadRequest(`pages[${i}].slug must be lowercase kebab-case`);
+		if (!WIKI_SLUG_RE.test(slug))
+			throw new BadRequest(`pages[${i}].slug must be lowercase kebab-case`);
 		if (seen.has(slug)) throw new BadRequest(`pages[${i}].slug is duplicated (${slug})`);
 		seen.add(slug);
 		const title = requireString(page.title, `pages[${i}].title`, MAX_WIKI_PAGE_TITLE_CHARS);
-		if (typeof page.markdown !== 'string') throw new BadRequest(`pages[${i}].markdown must be a string`);
+		if (typeof page.markdown !== 'string')
+			throw new BadRequest(`pages[${i}].markdown must be a string`);
 		const updatedAt = optionalString(page.updatedAt, `pages[${i}].updatedAt`, 40);
 		return { slug, title, markdown: page.markdown, updatedAt };
 	});
@@ -432,8 +719,13 @@ function sanitizeWikiPages(value: unknown): WikiPage[] {
 async function publishWiki(caller: Caller, body: string | undefined) {
 	// Plan gate FIRST (the feature matrix's "Public campaign wikis" row is Beacon-only).
 	if ((await currentPlan(caller)) !== 'beacon') {
-		return json(403, { error: 'publishing a campaign wiki needs the Beacon plan (change plans on the Plans & cloud screen — plans are simulated, nothing is charged)' });
+		return json(403, {
+			error: entitlementPreviewEnabled()
+				? 'Publishing a campaign wiki needs the Beacon plan. You can enable the Beacon preview from Plans & cloud.'
+				: 'Publishing a campaign wiki needs the Beacon plan. Self-service cloud plan changes are not available in this release.',
+		});
 	}
+	const publishBudgetKey = await consumePublishBudget(caller, 'wiki', WIKI_PUBLISHES_PER_DAY);
 	const parsed = parseBody(body);
 	const title = requireString(parsed.title, 'title', MAX_WIKI_TITLE_CHARS);
 	const access = typeof parsed.access === 'string' ? parsed.access : '';
@@ -453,7 +745,14 @@ async function publishWiki(caller: Caller, body: string | undefined) {
 	if (size > MAX_WIKI_BUNDLE_BYTES) throw new BadRequest('wiki bundle too large (512 KiB max)');
 
 	// Re-publish keeps the stable wikiId (readers' bookmarks survive) and the first publishedAt.
-	const existing = await getItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_WIKI });
+	const existing = await getItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_WIKI }, true);
+	if (existing?.retiredS3VersionId && existing.wikiId) {
+		await deleteObjectVersion(
+			MODULES_BUCKET,
+			wikiS3Key(existing.wikiId),
+			existing.retiredS3VersionId,
+		);
+	}
 	const wikiId = existing?.wikiId ?? randomBytes(9).toString('base64url');
 	const publishedAt = existing?.publishedAt ?? nowIso();
 	const updatedAt = nowIso();
@@ -466,17 +765,51 @@ async function publishWiki(caller: Caller, body: string | undefined) {
 		publishedAt,
 		updatedAt,
 	};
-	await putJson(MODULES_BUCKET, wikiS3Key(wikiId), bundle);
-	await putItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_WIKI, ...status });
+	const s3VersionId = await putJsonVersioned(MODULES_BUCKET, wikiS3Key(wikiId), bundle);
 	// The site row is the PUBLIC lookup. PutItem REPLACES the row, so switching away from
 	// password mode drops the old hash. `ownerSub` stays server-side (never echoed to readers).
-	await putItem(APP_TABLE, {
-		pk: wikiPk(wikiId),
-		sk: SK_SITE,
-		ownerSub: caller.sub,
-		...status,
-		...(passwordHash ? { passwordHash } : {}),
-	});
+	const retiredS3VersionId = existing?.s3VersionId;
+	try {
+		await transactWhileAccountActive(caller, [
+			{
+				put: {
+					pk: accountPk(caller.sub),
+					sk: SK_WIKI,
+					...status,
+					s3VersionId,
+					retiredS3VersionId,
+				},
+			},
+			{
+				put: {
+					pk: wikiPk(wikiId),
+					sk: SK_SITE,
+					ownerSub: caller.sub,
+					...status,
+					s3VersionId,
+					retiredS3VersionId,
+					...(passwordHash ? { passwordHash } : {}),
+				},
+			},
+		]);
+	} catch (error) {
+		const rows = await Promise.all([
+			getItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_WIKI }, true),
+			getItem(APP_TABLE, { pk: wikiPk(wikiId), sk: SK_SITE }, true),
+		]);
+		const references = rows.filter((row) => row?.s3VersionId === s3VersionId).length;
+		if (references === 0) {
+			await deleteObjectVersion(MODULES_BUCKET, wikiS3Key(wikiId), s3VersionId);
+			if (error instanceof AccountDeleted) await deleteItem(APP_TABLE, publishBudgetKey);
+			throw error;
+		}
+		if (references !== rows.length) throw error;
+		// All transaction rows reference the new version: the response was ambiguous,
+		// but the publish committed. Continue with superseded-version cleanup.
+	}
+	if (retiredS3VersionId) {
+		await deleteObjectVersion(MODULES_BUCKET, wikiS3Key(wikiId), retiredS3VersionId);
+	}
 	return json(200, status);
 }
 
@@ -492,7 +825,11 @@ async function unpublishWiki(caller: Caller) {
 	// Remove the public surface FIRST — readers must lose access even if later deletes fail.
 	if (row.wikiId) {
 		await deleteItem(APP_TABLE, { pk: wikiPk(row.wikiId), sk: SK_SITE });
-		await deleteObject(MODULES_BUCKET, wikiS3Key(row.wikiId));
+		if (row.s3VersionId) {
+			await deleteObjectVersion(MODULES_BUCKET, wikiS3Key(row.wikiId), row.s3VersionId);
+		} else {
+			await deleteObject(MODULES_BUCKET, wikiS3Key(row.wikiId));
+		}
 	}
 	await deleteItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_WIKI });
 	return json(200, { ok: true });
@@ -500,19 +837,61 @@ async function unpublishWiki(caller: Caller) {
 
 /** UNAUTHENTICATED. Hostile input: strict id shape, 404 for absent/malformed, a 401 with
  *  no content for password-protected wikis, and the response never carries the owner's sub. */
-async function readWiki(rawWikiId: string | undefined, presentedPassword: string | undefined) {
+async function readWiki(
+	rawWikiId: string | undefined,
+	presentedPassword: string | undefined,
+	sourceIp: string,
+) {
 	if (!rawWikiId) return json(404, { error: 'wiki not found' });
-	const wikiId = decodeURIComponent(rawWikiId);
+	let wikiId: string;
+	try {
+		wikiId = decodeURIComponent(rawWikiId);
+	} catch {
+		return json(404, { error: 'wiki not found' });
+	}
 	if (!WIKI_ID_RE.test(wikiId)) return json(404, { error: 'wiki not found' });
 	const row = await getItem(APP_TABLE, { pk: wikiPk(wikiId), sk: SK_SITE });
 	if (!row) return json(404, { error: 'wiki not found' });
 	if (row.passwordHash) {
+		// Key attempts by a one-way hash of wiki + API-Gateway source IP. The raw address is neither
+		// persisted nor logged. The atomic fixed-window counter is consumed BEFORE synchronous scrypt,
+		// so concurrent requests cannot race around the CPU-abuse/password-guessing limit.
+		const sourceKey = createHash('sha256').update(`${wikiId}\0${sourceIp}`).digest('hex');
+		const now = nowSec();
+		const windowStart =
+			Math.floor(now / WIKI_PASSWORD_WINDOW_SECONDS) * WIKI_PASSWORD_WINDOW_SECONDS;
+		const windowEnd = windowStart + WIKI_PASSWORD_WINDOW_SECONDS;
+		const attemptKey = {
+			pk: `wiki-password-attempt#${sourceKey}`,
+			sk: `window#${windowStart}`,
+		};
+		const allowed = await incrementCounterBelow(
+			APP_TABLE,
+			attemptKey,
+			WIKI_PASSWORD_FAILURE_LIMIT,
+			windowEnd + WIKI_PASSWORD_WINDOW_SECONDS,
+		);
+		if (!allowed)
+			throw new TooManyRequests(
+				'Too many password attempts. Try again later.',
+				Math.max(1, windowEnd - now),
+			);
 		const presented = typeof presentedPassword === 'string' ? presentedPassword : '';
-		if (!presented || presented.length > MAX_WIKI_PASSWORD_CHARS || !wikiPasswordMatches(presented, row.passwordHash)) {
+		if (
+			!presented ||
+			presented.length > MAX_WIKI_PASSWORD_CHARS ||
+			!wikiPasswordMatches(presented, row.passwordHash)
+		) {
 			return json(401, { error: 'password required', passwordProtected: true });
 		}
+		// A correct password clears this caller's current-window failures.
+		await deleteItem(APP_TABLE, attemptKey);
 	}
-	const bundle = await getJson<{ title?: unknown; pages?: unknown }>(MODULES_BUCKET, wikiS3Key(wikiId));
+	const bundle = await getJsonVersioned<{ title?: unknown; pages?: unknown }>(
+		MODULES_BUCKET,
+		wikiS3Key(wikiId),
+		row.s3VersionId || undefined,
+	);
 	if (bundle === null) return json(404, { error: 'wiki not found' });
 	return json(200, {
 		wikiId,
@@ -556,7 +935,8 @@ async function sendInviteEmail(input: {
 		`${input.invitedBy} invited you to join the campaign “${input.campaignName}”.` +
 		`${noteLine}\n\nOpen this link to join (it works for 14 days):\n${joinUrl}\n\n` +
 		`If you weren’t expecting this, you can ignore this email.`;
-	const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!);
+	const esc = (s: string) =>
+		s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!);
 	const html =
 		`<p>${esc(input.invitedBy)} invited you to join the campaign <strong>${esc(input.campaignName)}</strong>.</p>` +
 		(input.note ? `<p><em>${esc(input.note)}</em></p>` : '') +
@@ -578,7 +958,10 @@ async function sendInviteEmail(input: {
 		return 'sent';
 	} catch (err) {
 		// Never log the recipient address; the SES fault name is enough to diagnose.
-		console.error('invite email send failed', { campaignName: input.campaignName, err: (err as { name?: string })?.name });
+		console.error('invite email send failed', {
+			campaignName: input.campaignName,
+			err: (err as { name?: string })?.name,
+		});
 		return 'failed';
 	}
 }
@@ -594,6 +977,21 @@ async function createInvite(caller: Caller, body: string | undefined) {
 	// fixes it) — distinct from a configured-but-undeliverable send, which is fail-open below.
 	const email = optionalString(parsed.email, 'email', MAX_EMAIL_CHARS);
 	if (email && !EMAIL_RE.test(email)) throw new BadRequest('email must be a valid address');
+	const activeInvites = await queryPartition(
+		APP_TABLE,
+		{ name: 'pk', value: accountPk(caller.sub) },
+		{ name: 'sk', lo: 'invite#', hi: 'invite#\uffff' },
+		MAX_ACTIVE_INVITES_PER_ACCOUNT + 1,
+		MAX_ACTIVE_INVITES_PER_ACCOUNT + 1,
+	);
+	const activeCount = activeInvites.filter((row) => Number(row.expiresAt) > nowSec()).length;
+	if (activeCount >= MAX_ACTIVE_INVITES_PER_ACCOUNT) {
+		throw new TooManyRequests(
+			`An account can have at most ${MAX_ACTIVE_INVITES_PER_ACCOUNT} active invites. Revoke one before creating another.`,
+			3600,
+		);
+	}
+	const publishBudgetKey = await consumePublishBudget(caller, 'invite', INVITES_CREATED_PER_DAY);
 	// The seat the invite grants. Strict allowlist, fail closed to an ordinary `player` seat.
 	const role = parsed.role === 'co-dm' ? 'co-dm' : 'player';
 	const inviteId = randomUUID();
@@ -601,29 +999,40 @@ async function createInvite(caller: Caller, body: string | undefined) {
 	const createdAt = nowIso();
 	const expiresAt = nowSec() + INVITE_TTL_SECONDS;
 	const invitedBy = caller.displayName || 'a GM';
-	await putItem(APP_TABLE, {
-		pk: accountPk(caller.sub),
-		sk: inviteSk(inviteId),
-		inviteId,
-		token,
-		campaignName,
-		note,
-		role,
-		createdAt,
-		expiresAt,
-	});
-	// The redeem row NEVER stores the owner's sub/email — resolve is unauthenticated.
-	await putItem(APP_TABLE, {
-		pk: redeemPk(token),
-		sk: SK_REDEEM,
-		inviteId,
-		campaignName,
-		note,
-		role,
-		invitedBy,
-		createdAt,
-		expiresAt,
-	});
+	try {
+		await transactWhileAccountActive(caller, [
+			{
+				put: {
+					pk: accountPk(caller.sub),
+					sk: inviteSk(inviteId),
+					inviteId,
+					token,
+					campaignName,
+					note,
+					role,
+					createdAt,
+					expiresAt,
+				},
+			},
+			// The redeem row NEVER stores the owner's sub/email — resolve is unauthenticated.
+			{
+				put: {
+					pk: redeemPk(token),
+					sk: SK_REDEEM,
+					inviteId,
+					campaignName,
+					note,
+					role,
+					invitedBy,
+					createdAt,
+					expiresAt,
+				},
+			},
+		]);
+	} catch (error) {
+		if (error instanceof AccountDeleted) await deleteItem(APP_TABLE, publishBudgetKey);
+		throw error;
+	}
 	// Delivery is best-effort and MUST NOT fail the invite: a bad/absent sender config or an
 	// SES rejection still returns the minted invite with an honest email status. The recipient
 	// address is never persisted (privacy) — it is only echoed back to the owner who typed it.
@@ -666,12 +1075,13 @@ async function listInvites(caller: Caller) {
 
 async function revokeInvite(caller: Caller, rawInviteId: string | undefined) {
 	if (!rawInviteId) throw new BadRequest('missing inviteId');
-	const inviteId = decodeURIComponent(rawInviteId);
+	const inviteId = decodePathId(rawInviteId, 'inviteId', UUID_RE);
 	const row = await getItem(APP_TABLE, { pk: accountPk(caller.sub), sk: inviteSk(inviteId) });
 	if (!row) return json(404, { error: 'invite not found' });
-	// Remove the redeem row FIRST — the join link must die even if the owner-row delete fails.
-	if (row.token) await deleteItem(APP_TABLE, { pk: redeemPk(row.token), sk: SK_REDEEM });
-	await deleteItem(APP_TABLE, { pk: accountPk(caller.sub), sk: inviteSk(inviteId) });
+	await transactWrite(APP_TABLE, [
+		...(row.token ? [{ delete: { pk: redeemPk(row.token), sk: SK_REDEEM } } as const] : []),
+		{ delete: { pk: accountPk(caller.sub), sk: inviteSk(inviteId) } },
+	]);
 	return json(200, { ok: true });
 }
 
@@ -679,7 +1089,12 @@ async function revokeInvite(caller: Caller, rawInviteId: string | undefined) {
  *  and the response contains ONLY invitee-safe join metadata (never the owner's sub). */
 async function resolveInvite(rawToken: string | undefined) {
 	if (!rawToken) return json(404, { error: 'invite not found' });
-	const token = decodeURIComponent(rawToken);
+	let token: string;
+	try {
+		token = decodeURIComponent(rawToken);
+	} catch {
+		return json(404, { error: 'invite not found' });
+	}
 	if (!TOKEN_RE.test(token)) return json(404, { error: 'invite not found' });
 	const row = await getItem(APP_TABLE, { pk: redeemPk(token), sk: SK_REDEEM });
 	if (!row || Number(row.expiresAt) <= nowSec()) return json(404, { error: 'invite not found' });
@@ -770,20 +1185,18 @@ async function revokeDevices(caller: Caller, body: string | undefined) {
  *  published module LISTINGS. Vault content is NOT here by design — it lives in sync-api
  *  as end-to-end-encrypted ciphertext this service cannot read. */
 async function gatherAccountData(caller: Caller) {
-	const [entitlementRow, inviteRows, browseRows, wikiRow] = await Promise.all([
-		getItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_ENTITLEMENT }),
-		queryPartition(
-			APP_TABLE,
-			{ name: 'pk', value: accountPk(caller.sub) },
-			{ name: 'sk', lo: 'invite#', hi: 'invite#\uffff' },
-		),
-		queryPartition(APP_TABLE, { name: 'pk', value: BROWSE_PK }),
-		getItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_WIKI }),
+	const [entitlementRow, accountRows, wikiRow] = await Promise.all([
+		getItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_ENTITLEMENT }, true),
+		queryAccountRowsStrong(caller.sub),
+		getItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_WIKI }, true),
 	]);
 	return {
 		entitlementRow,
-		inviteRows,
-		ownModules: browseRows.filter((r) => r.ownerSub === caller.sub),
+		accountRows,
+		inviteRows: accountRows.filter((row) => row.sk.startsWith('invite#')),
+		// Per-owner rows are written transactionally with every module from this release onward. Account
+		// export/deletion therefore stays partition-scoped instead of reading the global marketplace.
+		ownModules: accountRows.filter((row) => row.sk.startsWith('module#')),
 		wikiRow,
 	};
 }
@@ -798,7 +1211,8 @@ async function exportAccount(caller: Caller) {
 				data.entitlementRow && (PLAN_IDS as readonly string[]).includes(data.entitlementRow.plan)
 					? data.entitlementRow.plan
 					: DEFAULT_PLAN,
-			simulated: true,
+			simulated: entitlementPreviewEnabled(),
+			canChangePlan: entitlementPreviewEnabled(),
 		},
 		invites: data.inviteRows.map((row) => ({
 			inviteId: row.inviteId,
@@ -819,14 +1233,64 @@ async function exportAccount(caller: Caller) {
 	});
 }
 
-async function deleteAccount(caller: Caller) {
-	// 1. Kill every session first so nothing can race the deletion with a valid token.
-	await cognito.send(
-		new AdminUserGlobalSignOutCommand({ UserPoolId: USER_POOL_ID, Username: caller.username }),
+function isCognitoUserNotFound(error: unknown): boolean {
+	return (error as { name?: string })?.name === 'UserNotFoundException';
+}
+
+/** The sync API writes this 45-day proof marker only after every index row and S3 version is gone. */
+async function cloudBackupPurgeVerified(caller: Caller): Promise<boolean> {
+	if (!SYNC_OPS_TABLE) {
+		console.error('account deletion cannot verify sync purge: SYNC_OPS_TABLE is not configured');
+		return false;
+	}
+	const marker = await getItem(
+		SYNC_OPS_TABLE,
+		{ vaultId: primaryVaultPk(caller.sub), sk: SYNC_USAGE_SK },
+		true,
 	);
-	// 2. Remove every app-api row the account owns (+ marketplace payloads in S3).
+	return (
+		marker?.state === 'deleted' &&
+		Number(marker.storedBytes) === 0 &&
+		Number(marker.operationCount) === 0
+	);
+}
+
+async function deleteAccount(caller: Caller) {
+	// Phase 1: permanently lock the account BEFORE asking the client to purge sync. The
+	// conditional put retains the original deletion timestamp on every retry. A stale ID
+	// token cannot recreate app data, and sync writes fail their entitlement check; sync
+	// DELETE remains deliberately available so the caller can finish the purge.
+	await putItemConditional(
+		APP_TABLE,
+		{
+			pk: accountPk(caller.sub),
+			sk: SK_ENTITLEMENT,
+			deletedAt: nowIso(),
+		},
+		{
+			expression: 'attribute_not_exists(#deletedAt)',
+			names: { '#deletedAt': 'deletedAt' },
+		},
+	);
+
+	// Never delete the identity on a client assertion alone. This strongly consistent
+	// marker is the sync service's durable proof that its bounded DynamoDB/S3 purge ended.
+	if (!(await cloudBackupPurgeVerified(caller))) {
+		return json(
+			202,
+			{
+				ok: false,
+				code: 'cloud-backup-purge-required',
+				message:
+					'Your account is locked. Finish removing the encrypted cloud backup, then retry account deletion.',
+			},
+			{ 'retry-after': '1' },
+		);
+	}
+
+	// Phase 2: proof exists, so remove every app-api row the account owns
+	// (+ marketplace/wiki payloads in S3).
 	const data = await gatherAccountData(caller);
-	await deleteItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_ENTITLEMENT });
 	await deleteItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_PROFILE });
 	for (const row of data.inviteRows) {
 		if (row.token) await deleteItem(APP_TABLE, { pk: redeemPk(row.token), sk: SK_REDEEM });
@@ -835,16 +1299,69 @@ async function deleteAccount(caller: Caller) {
 	for (const row of data.ownModules) {
 		await deleteItem(APP_TABLE, { pk: modulePk(row.moduleId), sk: SK_LISTING });
 		await deleteItem(APP_TABLE, { pk: BROWSE_PK, sk: browseSk(row.moduleId) });
-		await deleteObject(MODULES_BUCKET, moduleS3Key(row.moduleId));
+		if (row.s3VersionId) {
+			await deleteObjectVersion(MODULES_BUCKET, moduleS3Key(row.moduleId), row.s3VersionId);
+		} else {
+			await deleteObject(MODULES_BUCKET, moduleS3Key(row.moduleId));
+		}
 	}
 	if (data.wikiRow?.wikiId) {
 		await deleteItem(APP_TABLE, { pk: wikiPk(data.wikiRow.wikiId), sk: SK_SITE });
-		await deleteObject(MODULES_BUCKET, wikiS3Key(data.wikiRow.wikiId));
-		await deleteItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_WIKI });
+		if (data.wikiRow.s3VersionId) {
+			await deleteObjectVersion(
+				MODULES_BUCKET,
+				wikiS3Key(data.wikiRow.wikiId),
+				data.wikiRow.s3VersionId,
+			);
+		} else {
+			await deleteObject(MODULES_BUCKET, wikiS3Key(data.wikiRow.wikiId));
+		}
 	}
-	// 3. Delete the Cognito identity itself.
-	await cognito.send(
-		new AdminDeleteUserCommand({ UserPoolId: USER_POOL_ID, Username: caller.username }),
+	// Remove every account-scoped row, including rate/budget/index rows introduced
+	// after the original account model. Public lookup rows and S3 objects were
+	// removed first above, so partial failure always closes public access first.
+	for (const row of data.accountRows) {
+		if (row.sk === SK_ENTITLEMENT) continue; // stale-token tombstone; retirement is scheduled below
+		await deleteItem(APP_TABLE, { pk: accountPk(caller.sub), sk: row.sk });
+	}
+	// The tombstone stays permanent while deletion is incomplete. Once content cleanup and sync proof
+	// succeeded, it only needs to outlive every stale ID token/retry. Schedule retirement before Cognito
+	// revocation so a lost final response never leaves a permanent account identifier.
+	const tombstoneRetirementScheduled = await putItemConditional(
+		APP_TABLE,
+		{
+			pk: accountPk(caller.sub),
+			sk: SK_ENTITLEMENT,
+			deletedAt: data.entitlementRow?.deletedAt ?? nowIso(),
+			expiresAt: nowSec() + DELETION_MARKER_TTL_SECONDS,
+		},
+		{
+			expression: 'attribute_exists(#deletedAt)',
+			names: { '#deletedAt': 'deletedAt' },
+		},
 	);
+	if (!tombstoneRetirementScheduled) {
+		throw new Error('account deletion tombstone could not be scheduled for retirement');
+	}
+	// Revoke sessions only after every fallible content cleanup, so a transient DynamoDB/S3
+	// fault cannot strand the user without a refresh token for retry. The tombstone already
+	// blocks every non-deletion action. UserNotFound is success when an earlier request
+	// committed despite a lost response.
+	try {
+		await cognito.send(
+			new AdminUserGlobalSignOutCommand({ UserPoolId: USER_POOL_ID, Username: caller.username }),
+		);
+	} catch (error) {
+		if (!isCognitoUserNotFound(error)) throw error;
+	}
+	// Delete the Cognito identity last. The app tombstone and sync purge marker deliberately
+	// outlive Cognito, making stale-token and lost-response retries fail closed.
+	try {
+		await cognito.send(
+			new AdminDeleteUserCommand({ UserPoolId: USER_POOL_ID, Username: caller.username }),
+		);
+	} catch (error) {
+		if (!isCognitoUserNotFound(error)) throw error;
+	}
 	return json(200, { ok: true });
 }

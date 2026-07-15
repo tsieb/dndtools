@@ -19,6 +19,13 @@ Parameters:
     Type: String
     Default: dev
     AllowedValues: [dev, prod]
+  AiConnectSources:
+    Type: String
+    Default: 'https://api.anthropic.com https://api.openai.com'
+    AllowedPattern: '^https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?(?: https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?)*$'
+    Description: >-
+      Space-separated HTTPS origins approved for browser AI API calls. Keep this
+      identical to the VITE_AI_ALLOWED_ORIGINS value published below.
 
 Resources:
   # --- Private origin bucket: holds dist/ assets; only CloudFront (OAC) may read. -----
@@ -47,6 +54,9 @@ Resources:
             Status: Enabled
             NoncurrentVersionExpiration:
               NoncurrentDays: 30
+          - Id: remove-expired-delete-markers
+            Status: Enabled
+            ExpiredObjectDeleteMarker: true
           - Id: abort-incomplete-multipart
             Status: Enabled
             AbortIncompleteMultipartUpload:
@@ -65,12 +75,13 @@ Resources:
 
   # --- Response Headers Policy: the web CSP + hardening headers. ----------------------
   # The CSP `connect-src` MUST stay in sync with the Electron shell
-  # (apps/gm-react/electron/main.cjs). `script-src`/`style-src` keep 'unsafe-inline'
-  # because index.html runs pre-paint theme/motion IIFEs and React sets inline styles.
-  # `connect-src` allows the same-origin app plus Cognito (SRP) and API Gateway
-  # (https REST + wss signaling) in this region, the Open5e compendium API, and the
-  # Google Docs API (vault source; the OAuth popup is a navigation, not a fetch, so
-  # accounts.google.com is NOT needed here). Fonts are self-hosted (@fontsource),
+  # (apps/gm-react/electron/main.cjs). The pre-paint preferences live in the
+  # same-origin /prepaint.js, so script-src needs no unsafe-inline. style-src keeps
+  # unsafe-inline because React uses style props. `connect-src` allows the app plus
+  # Cognito (SRP) and the EXACT API Gateway ids deployed for this stage (not another
+  # account's API in the same region), the Open5e compendium API, and Google Docs.
+  # Google Identity Services loads its script/frame from accounts.google.com and exchanges tokens
+  # with Google over the explicitly listed origins. Fonts are self-hosted (@fontsource),
   # so `font-src 'self' data:` (no external font host).
   WebHeadersPolicy:
     Type: AWS::CloudFront::ResponseHeadersPolicy
@@ -84,13 +95,16 @@ Resources:
             ContentSecurityPolicy: !Sub >-
               default-src 'self'; base-uri 'self'; object-src 'none';
               frame-ancestors 'none'; form-action 'self';
-              script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';
-              img-src 'self' data: blob:; media-src 'self' data: blob:;
+              script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline';
+              img-src 'self' data: blob: https:; media-src 'self' data: blob: https:;
               font-src 'self' data:; worker-src 'self' blob:;
+              frame-src https://accounts.google.com;
               connect-src 'self' https://cognito-idp.${AWS::Region}.amazonaws.com
-              https://*.execute-api.${AWS::Region}.amazonaws.com
-              wss://*.execute-api.${AWS::Region}.amazonaws.com
-              https://api.open5e.com https://docs.googleapis.com
+              https://{{resolve:ssm:/${ProjectName}/${Stage}/sync/api-id}}.execute-api.${AWS::Region}.amazonaws.com
+              https://{{resolve:ssm:/${ProjectName}/${Stage}/app-api/api-id}}.execute-api.${AWS::Region}.amazonaws.com
+              wss://{{resolve:ssm:/${ProjectName}/${Stage}/signaling/api-id}}.execute-api.${AWS::Region}.amazonaws.com
+              https://api.open5e.com https://docs.googleapis.com https://accounts.google.com
+              https://oauth2.googleapis.com ${AiConnectSources}
           StrictTransportSecurity:
             Override: true
             AccessControlMaxAgeSec: 31536000
@@ -103,7 +117,9 @@ Resources:
             FrameOption: DENY
           ReferrerPolicy:
             Override: true
-            ReferrerPolicy: strict-origin-when-cross-origin
+            # User-authored remote scene/audio URLs are allowed on web. Never disclose even the hosted
+            # app origin to those third-party media hosts.
+            ReferrerPolicy: no-referrer
           XSSProtection:
             Override: true
             Protection: true
@@ -177,6 +193,14 @@ Resources:
       Name: !Sub '/${ProjectName}/${Stage}/web/url'
       Type: String
       Value: !Sub 'https://${WebDistribution.DomainName}'
+
+  ParamAiConnectOrigins:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/web/ai-connect-origins'
+      Type: String
+      Value: !Ref AiConnectSources
+      Description: Browser AI origins compiled into the web app and allowed by CSP.
 
 Outputs:
   WebUrl:

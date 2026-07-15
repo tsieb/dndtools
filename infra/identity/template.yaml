@@ -33,6 +33,25 @@ Parameters:
     Type: CommaDelimitedList
     Default: 'http://localhost:5273/,http://localhost:4273/,dndtools://auth'
     Description: Allowed post-logout redirect URIs (same set as callbacks).
+  CognitoEmailSourceArn:
+    Type: String
+    Default: ''
+    Description: >-
+      Verified SES identity ARN used by Cognito in production. Required for prod; leave blank in dev.
+  CognitoEmailFrom:
+    Type: String
+    Default: ''
+    Description: >-
+      Verified From address displayed on Cognito confirmation and recovery messages. Required for prod.
+
+Rules:
+  ProductionEmailMustUseSes:
+    RuleCondition: !Equals [!Ref Stage, prod]
+    Assertions:
+      - Assert: !Not [!Equals [!Ref CognitoEmailSourceArn, '']]
+        AssertDescription: Production identity requires a verified CognitoEmailSourceArn.
+      - Assert: !Not [!Equals [!Ref CognitoEmailFrom, '']]
+        AssertDescription: Production identity requires a verified CognitoEmailFrom address.
 
 Conditions:
   # ADMIN_USER_PASSWORD_AUTH is a non-SRP password flow used only by automated
@@ -44,11 +63,22 @@ Conditions:
 Resources:
   UserPool:
     Type: AWS::Cognito::UserPool
+    # Cognito identities are durable account state. DeletionProtection blocks an
+    # ordinary delete; these policies also make replacement behavior explicit and
+    # preserve the old pool for a deliberate user-migration or decommission runbook.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       UserPoolName: !Sub '${ProjectName}-${Stage}'
       # Self-service signup with email as the username/login.
       UsernameAttributes:
         - email
+      UsernameConfiguration:
+        # Cognito cannot change this setting after a pool is created. The existing dev pool was
+        # created with Cognito's historical case-sensitive default, so preserve that immutable
+        # value there (the client still canonicalizes email addresses). Production is a new pool
+        # and uses the recommended case-insensitive behavior from its first deployment.
+        CaseSensitive: !If [IsDev, true, false]
       AutoVerifiedAttributes:
         - email
       AdminCreateUserConfig:
@@ -61,16 +91,21 @@ Resources:
           RequireNumbers: true
           RequireSymbols: false
           TemporaryPasswordValidityDays: 7
-      MfaConfiguration: 'OPTIONAL'
-      EnabledMfas:
-        - SOFTWARE_TOKEN_MFA
+      # The current client does not implement TOTP enrollment/challenges. Keep MFA off so an account
+      # cannot enter a challenge state the app cannot complete; re-enable with the matching client flow.
+      MfaConfiguration: 'OFF'
       AccountRecoverySetting:
         RecoveryMechanisms:
           - Name: verified_email
             Priority: 1
-      # Cognito's built-in email sender (50/day) is fine for dev; swap to SES for prod.
-      EmailConfiguration:
-        EmailSendingAccount: COGNITO_DEFAULT
+      # Dev uses Cognito's low-volume default sender. Production is required by the template rule above
+      # to use a verified SES identity so confirmation and recovery do not silently hit the 50/day cap.
+      EmailConfiguration: !If
+        - IsDev
+        - EmailSendingAccount: COGNITO_DEFAULT
+        - EmailSendingAccount: DEVELOPER
+          SourceArn: !Ref CognitoEmailSourceArn
+          From: !Ref CognitoEmailFrom
       UserAttributeUpdateSettings:
         AttributesRequireVerificationBeforeUpdate:
           - email

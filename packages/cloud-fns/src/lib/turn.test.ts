@@ -85,4 +85,19 @@ describe('mintTurnCredentials', () => {
 		expect(good.username).toBe(wrong.username); // same clock + id
 		expect(good.credential).not.toBe(wrong.credential); // but the secret differs
 	});
+
+	it('reuses one coturn username within a credential bucket', () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-07-06T00:01:00.000Z'));
+		const first = mintTurnCredentials(SECRET, 'id', URI, 3600).iceServers.find((server) =>
+			String(server.urls).includes('turn:'),
+		)!;
+		vi.setSystemTime(new Date('2026-07-06T00:04:59.000Z'));
+		const retry = mintTurnCredentials(SECRET, 'id', URI, 3600).iceServers.find((server) =>
+			String(server.urls).includes('turn:'),
+		)!;
+
+		expect(retry.username).toBe(first.username);
+		expect(retry.credential).toBe(first.credential);
+	});
 });

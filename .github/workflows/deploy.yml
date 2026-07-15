@@ -34,7 +34,6 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  id-token: write # request the GitHub OIDC token to assume the AWS deploy role
   contents: read
 
 env:
@@ -56,8 +55,10 @@ jobs:
       web_hosting: ${{ steps.filter.outputs.web_hosting }}
       app: ${{ steps.filter.outputs.app }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: dorny/paths-filter@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4
         id: filter
         with:
           filters: |
@@ -67,20 +68,51 @@ jobs:
               - 'infra/identity/**'
             signaling:
               - 'infra/signaling/**'
+              # A pool/client replacement changes the issuer/audience embedded in the authorizer.
+              - 'infra/identity/**'
+              # Signaling enforces hosted-play entitlements from app-api's table.
+              # A table replacement must refresh the SSM-resolved table name.
+              - 'infra/app-api/**'
+              # Signaling resolves TURN coordinates from SSM at deploy time. A TURN
+              # replacement must refresh those resolved values in signaling.
+              - 'infra/turn/**'
               - 'packages/cloud-fns/**'
+              - 'packages/core/**'
             turn:
               - 'infra/turn/**'
             sync_api:
               - 'infra/sync-api/**'
-              - 'packages/cloud-fns/**'
-            app_api:
+              # A pool/client replacement changes the issuer/audience embedded in the authorizer.
+              - 'infra/identity/**'
+              # Sync enforces backup entitlements from app-api's table.
               - 'infra/app-api/**'
               - 'packages/cloud-fns/**'
+              - 'packages/core/**'
+            app_api:
+              - 'infra/app-api/**'
+              # A pool/client replacement changes the issuer/audience embedded in the authorizer.
+              - 'infra/identity/**'
+              - 'packages/cloud-fns/**'
+              - 'packages/core/**'
             web_hosting:
               - 'infra/web-hosting/**'
+              # The CSP resolves the exact deployed API origins from SSM. Refresh it
+              # whenever a stack replacement can change one of those origins.
+              - 'infra/signaling/**'
+              - 'infra/sync-api/**'
+              - 'infra/app-api/**'
             app:
               - 'apps/gm-react/**'
               - 'packages/core/**'
+              # Identity replacements change the client-side pool/client coordinates.
+              - 'infra/identity/**'
+
+      - name: Report manual foundation rollout
+        if: steps.filter.outputs.foundation == 'true'
+        run: >-
+          echo "::warning title=Manual foundation rollout required::The OIDC deploy role is not
+          authorized to mutate its own role or permissions boundary. Validate this workflow run,
+          then deploy infra/foundation with the bootstrap administrator profile."
 
   # --- Is the cloud deploy activated? (repo variable AWS_DEPLOY_ROLE_ARN set?) --------
   # Runs with no AWS access. If the variable is unset we emit a notice and every deploy
@@ -110,35 +142,39 @@ jobs:
     needs: [changes, preflight]
     if: >-
       needs.preflight.outputs.configured == 'true' &&
-      (needs.changes.outputs.foundation == 'true' ||
-       needs.changes.outputs.identity == 'true' ||
+      (needs.changes.outputs.identity == 'true' ||
        needs.changes.outputs.signaling == 'true' ||
        needs.changes.outputs.turn == 'true' ||
        needs.changes.outputs.sync_api == 'true' ||
        needs.changes.outputs.app_api == 'true' ||
        needs.changes.outputs.web_hosting == 'true')
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # request the GitHub OIDC token to assume the AWS deploy role
+      contents: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
-          version: 10
+          version: 10.34.5
 
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Setup AWS SAM CLI
-        uses: aws-actions/setup-sam@v3
+        uses: aws-actions/setup-sam@89ddb14d60e682855e3fea4be85b3c56485de310 # v3
         with:
           use-installer: true
 
       - name: Assume deploy role (OIDC)
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@517a711dbcd0e402f90c77e7e2f81e849156e31d # v6
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -159,34 +195,50 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
         run: pnpm install --frozen-lockfile
 
-      # Deploy in dependency order; each step is a no-op unless its paths changed.
-      - name: Deploy foundation
-        if: needs.changes.outputs.foundation == 'true'
-        run: infra/deploy.sh foundation "$STAGE"
-
+      # Deploy in dependency order; foundation remains a separate bootstrap-admin operation.
       - name: Deploy identity
         if: needs.changes.outputs.identity == 'true'
         run: infra/deploy.sh identity "$STAGE"
-
-      - name: Deploy signaling
-        if: needs.changes.outputs.signaling == 'true'
-        run: infra/deploy.sh signaling "$STAGE"
 
       - name: Deploy turn
         if: needs.changes.outputs.turn == 'true'
         run: infra/deploy.sh turn "$STAGE"
 
+      - name: Deploy app-api
+        if: needs.changes.outputs.app_api == 'true'
+        run: infra/deploy.sh app-api "$STAGE"
+
+      - name: Deploy signaling
+        if: needs.changes.outputs.signaling == 'true'
+        run: infra/deploy.sh signaling "$STAGE"
+
       - name: Deploy sync-api
         if: needs.changes.outputs.sync_api == 'true'
         run: infra/deploy.sh sync-api "$STAGE"
 
-      - name: Deploy app-api
-        if: needs.changes.outputs.app_api == 'true'
+      - name: Refresh app-api sync purge verifier
+        # New stages must create app-api first because sync consumes its entitlement table. Once sync
+        # publishes its generated operations-table name, this bounded second pass grants app-api only
+        # GetItem on that table. Existing stages follow the same idempotent path on sync changes.
+        if: needs.changes.outputs.sync_api == 'true'
         run: infra/deploy.sh app-api "$STAGE"
 
       - name: Deploy web-hosting
         if: needs.changes.outputs.web_hosting == 'true'
         run: infra/deploy.sh web-hosting "$STAGE"
+
+      - name: Refresh identity callbacks with the deployed web origin
+        if: needs.changes.outputs.web_hosting == 'true'
+        run: |
+          WEB_ORIGIN=$(aws ssm get-parameter --name "/dndtools/$STAGE/web/url" --query 'Parameter.Value' --output text)
+          DNDTOOLS_WEB_ORIGIN="$WEB_ORIGIN" infra/deploy.sh identity "$STAGE"
+
+      - name: Refresh API CORS with the deployed web origin
+        if: needs.changes.outputs.web_hosting == 'true'
+        run: |
+          WEB_ORIGIN=$(aws ssm get-parameter --name "/dndtools/$STAGE/web/url" --query 'Parameter.Value' --output text)
+          DNDTOOLS_WEB_ORIGIN="$WEB_ORIGIN" infra/deploy.sh sync-api "$STAGE"
+          DNDTOOLS_WEB_ORIGIN="$WEB_ORIGIN" infra/deploy.sh app-api "$STAGE"
 
   # --- Build the SPA against deployed cloud coordinates, upload, invalidate. ---------
   web:
@@ -201,22 +253,27 @@ jobs:
       (needs.changes.outputs.app == 'true' || needs.changes.outputs.web_hosting == 'true') &&
       (needs.infra.result == 'success' || needs.infra.result == 'skipped')
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # request the GitHub OIDC token to assume the AWS deploy role
+      contents: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
-          version: 10
+          version: 10.34.5
 
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Assume deploy role (OIDC)
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@517a711dbcd0e402f90c77e7e2f81e849156e31d # v6
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -238,6 +295,11 @@ jobs:
         # carries the Cognito pool/client, signaling WS, and sync API URLs.
         run: node apps/gm-react/scripts/pull-cloud-env.mjs "$STAGE"
 
+      - name: Validate complete cloud coordinates
+        run: >-
+          node --env-file=apps/gm-react/.env.local
+          apps/gm-react/scripts/validate-cloud-env.mjs --required
+
       - name: Build web bundle
         run: pnpm --filter @dndtools/gm-react build
 
@@ -247,26 +309,37 @@ jobs:
           BUCKET=$(aws ssm get-parameter --name "/dndtools/$STAGE/web/bucket-name" --query 'Parameter.Value' --output text)
           DIST=$(aws ssm get-parameter --name "/dndtools/$STAGE/web/distribution-id" --query 'Parameter.Value' --output text)
           URL=$(aws ssm get-parameter --name "/dndtools/$STAGE/web/url" --query 'Parameter.Value' --output text)
-          echo "bucket=$BUCKET" >> "$GITHUB_OUTPUT"
-          echo "distribution=$DIST" >> "$GITHUB_OUTPUT"
-          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          {
+            echo "bucket=$BUCKET"
+            echo "distribution=$DIST"
+            echo "url=$URL"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Sync dist/ to S3
         # Long-cache the fingerprinted assets; short-cache index.html (the invalidation
         # below guarantees a fresh index even if an edge kept the old one).
+        env:
+          HOSTING_BUCKET: ${{ steps.target.outputs.bucket }}
         run: |
-          aws s3 sync apps/gm-react/dist "s3://${{ steps.target.outputs.bucket }}" \
+          aws s3 sync apps/gm-react/dist "s3://$HOSTING_BUCKET" \
             --delete \
             --cache-control 'public, max-age=31536000, immutable' \
             --exclude 'index.html'
-          aws s3 cp apps/gm-react/dist/index.html "s3://${{ steps.target.outputs.bucket }}/index.html" \
+          aws s3 cp apps/gm-react/dist/index.html "s3://$HOSTING_BUCKET/index.html" \
             --cache-control 'no-cache'
 
-      - name: Invalidate CloudFront
+      - name: Invalidate and wait for CloudFront
+        env:
+          DISTRIBUTION_ID: ${{ steps.target.outputs.distribution }}
         run: |
-          aws cloudfront create-invalidation \
-            --distribution-id "${{ steps.target.outputs.distribution }}" \
-            --paths '/*'
+          INVALIDATION=$(aws cloudfront create-invalidation \
+            --distribution-id "$DISTRIBUTION_ID" \
+            --paths '/*' --query Invalidation.Id --output text)
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "$DISTRIBUTION_ID" \
+            --id "$INVALIDATION"
 
       - name: Report
-        run: echo "Published to ${{ steps.target.outputs.url }}"
+        env:
+          PUBLISHED_URL: ${{ steps.target.outputs.url }}
+        run: echo "Published to $PUBLISHED_URL"

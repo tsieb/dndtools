@@ -9,17 +9,11 @@
 //   host:   advertise / stopAdvertise / onOfferRequest / respondOffer / onAnswer
 //   client: browse / join(connect) / onOffer / respondAnswer
 //
-// Security reuse: join attempts are throttled with @dndtools/core's
-// evaluateJoinRateLimit / recordFailedJoinAttempt (SEC-005), keyed by an opaque
-// per-user hash — never a session id.
-import { createHash } from 'node:crypto';
+// Join attempts are atomically throttled under @dndtools/core's declared SEC-005
+// ceiling, keyed by an opaque per-user hash — never a session id.
+import { createHash, ECDH } from 'node:crypto';
 import type { APIGatewayProxyWebsocketHandlerV2 } from 'aws-lambda';
-import {
-	evaluateJoinRateLimit,
-	recordFailedJoinAttempt,
-	DEFAULT_JOIN_RATE_LIMIT,
-	type JoinAttemptRecord,
-} from '@dndtools/core';
+import { DEFAULT_JOIN_RATE_LIMIT } from '@dndtools/core';
 import {
 	putItem,
 	getItem,
@@ -28,12 +22,15 @@ import {
 	managementClient,
 	postToConnection,
 	getSecretField,
+	incrementCounterBelow,
+	putItemConditional,
 } from '../lib/aws.ts';
 import { mintTurnCredentials } from '../lib/turn.ts';
 
 const CONNECTIONS_TABLE = process.env.CONNECTIONS_TABLE!;
 const ROOMS_TABLE = process.env.ROOMS_TABLE!;
 const ATTEMPTS_TABLE = process.env.ATTEMPTS_TABLE!;
+const APP_TABLE = process.env.APP_TABLE!;
 const TURN_SECRET_ARN = process.env.TURN_SECRET_ARN!;
 const TURN_URI = process.env.TURN_URI!;
 const TURN_TTL_SECONDS = Number(process.env.TURN_TTL_SECONDS ?? '86400');
@@ -45,7 +42,9 @@ const WS_ENDPOINT = process.env.WS_ENDPOINT!;
 // tabletop session (4–6h is routine) with headroom so a mid-session TTL sweep can't sever signaling.
 const CONNECTION_TTL_SECONDS = 12 * 60 * 60; // 12h
 const ROOM_TTL_SECONDS = 12 * 60 * 60; // 12h — a session stays discoverable/rejoinable as long as its host connection
-const ATTEMPT_TTL_SECONDS = 60 * 60; // 1h
+const JOIN_WINDOW_SECONDS = Math.ceil(DEFAULT_JOIN_RATE_LIMIT.windowMs / 1000);
+const TURN_CREDENTIAL_WINDOW_SECONDS = 5 * 60;
+const TURN_CREDENTIAL_REQUESTS_PER_WINDOW = 6;
 
 // Abuse bounds on client-supplied strings. Offer/answer codes are gzip+base64url
 // WebRTC SDP bundles (a few KB); the WS frame limit is 128KB. Reject anything an
@@ -53,9 +52,8 @@ const ATTEMPT_TTL_SECONDS = 60 * 60; // 1h
 const MAX_CODE_LEN = 64 * 1024;
 const MAX_NAME_LEN = 128;
 const MAX_SESSION_ID_LEN = 128;
-const MAX_PUBKEY_LEN = 512; // base64 raw P-256 public key is ~88 chars
+const MAX_PUBKEY_LEN = 128; // canonical base64 raw uncompressed P-256 key is 88 chars
 
-const nowIso = () => new Date().toISOString();
 const nowEpoch = () => Math.floor(Date.now() / 1000);
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 
@@ -74,6 +72,58 @@ interface ClientEnvelope {
 	pubKey?: string;
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasExactFields(value: Record<string, unknown>, allowed: readonly string[]): boolean {
+	const fields = new Set(allowed);
+	return Object.keys(value).every((field) => fields.has(field));
+}
+
+function isBoundedString(value: unknown, max: number): value is string {
+	return typeof value === 'string' && value.length > 0 && value.length <= max;
+}
+
+function isSessionId(value: unknown): value is string {
+	return isBoundedString(value, MAX_SESSION_ID_LEN) && /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value);
+}
+
+/** Canonical base64 of an uncompressed, on-curve P-256 public point. */
+function isCanonicalPublicKey(value: unknown): value is string {
+	if (
+		typeof value !== 'string' ||
+		value.length > MAX_PUBKEY_LEN ||
+		!/^[A-Za-z0-9+/]{87}=$/.test(value)
+	) {
+		return false;
+	}
+	try {
+		const decoded = Buffer.from(value, 'base64');
+		if (decoded.byteLength !== 65 || decoded[0] !== 0x04 || decoded.toString('base64') !== value) {
+			return false;
+		}
+		// convertKey rejects points that are correctly shaped but not on the named curve.
+		ECDH.convertKey(decoded, 'prime256v1');
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/** Authoritative cloud-plan check. Missing, malformed, tombstoned, and failed reads deny. */
+async function hasCloudPlan(sub: string): Promise<boolean> {
+	try {
+		// A downgrade/account-deletion tombstone must revoke an already-open socket
+		// immediately; never authorize from an eventually-consistent replica.
+		const row = await getItem(APP_TABLE, { pk: `account#${sub}`, sk: 'entitlement' }, true);
+		return !row?.deletedAt && (row?.plan === 'lantern' || row?.plan === 'beacon');
+	} catch (err) {
+		console.error('signaling entitlement read failed closed', { sub: sub.slice(0, 8), err });
+		return false;
+	}
+}
+
 export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
 	const { connectionId, routeKey } = event.requestContext;
 	const authSub = (event.requestContext as unknown as { authorizer?: { sub?: string } }).authorizer
@@ -90,6 +140,7 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
 			// and an empty sub would let unauthenticated/degraded connections share a
 			// single '' identity bucket.
 			if (!authSub) return { statusCode: 401, body: 'unauthorized' };
+			if (!(await hasCloudPlan(authSub))) return { statusCode: 403, body: 'plan required' };
 			await putItem(CONNECTIONS_TABLE, {
 				connectionId,
 				sub: authSub,
@@ -128,13 +179,23 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
 			});
 			return ok;
 		}
+		// Recheck on every application frame so an already-open socket cannot retain cloud
+		// capabilities after downgrade or account deletion. $disconnect above always remains free.
+		if (!(await hasCloudPlan(sub))) {
+			await postToConnection(mgmt, connectionId, {
+				type: 'error',
+				code: 'plan-required',
+				message: 'Online play requires the Lantern or Beacon plan.',
+			});
+			return ok;
+		}
 		// Opaque per-user key reused for both the join rate-limit (SEC-005) and the
 		// TURN credential id, so the two namespaces stay in lockstep. Derived from
 		// the authenticated sub only (never a spoofable connection id).
 		const sourceKey = sha256(sub);
-		let msg: ClientEnvelope = {};
+		let parsed: unknown;
 		try {
-			msg = event.body ? (JSON.parse(event.body) as ClientEnvelope) : {};
+			parsed = event.body ? JSON.parse(event.body) : {};
 		} catch {
 			await postToConnection(mgmt, connectionId, {
 				type: 'error',
@@ -143,15 +204,57 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
 			});
 			return ok;
 		}
+		if (!isPlainObject(parsed) || typeof parsed.action !== 'string') {
+			await postToConnection(mgmt, connectionId, {
+				type: 'error',
+				code: 'invalid-message',
+				message: 'Message must be a JSON object with an action.',
+			});
+			return ok;
+		}
+		const msg = parsed as ClientEnvelope & Record<string, unknown>;
+		const invalidMessage = async () => {
+			await postToConnection(mgmt, connectionId, {
+				type: 'error',
+				code: 'invalid-message',
+				message: 'Message fields are invalid.',
+			});
+		};
 
 		switch (msg.action) {
 			case 'advertise': {
-				if (!msg.sessionId || msg.sessionId.length > MAX_SESSION_ID_LEN) break;
-				// Don't let one user hijack another's live rendezvous by re-advertising
-				// its (browse-discoverable) session id. A host re-advertising or
-				// reconnecting keeps the same sub, so legitimate re-hosts still pass.
-				const existing = await getItem(ROOMS_TABLE, { sessionId: msg.sessionId });
-				if (existing && existing.sub !== sub) {
+				if (
+					!hasExactFields(msg, ['action', 'sessionId', 'name']) ||
+					!isSessionId(msg.sessionId) ||
+					(msg.name !== undefined &&
+						(typeof msg.name !== 'string' || msg.name.length > MAX_NAME_LEN))
+				) {
+					await invalidMessage();
+					break;
+				}
+				const now = nowEpoch();
+				// Reserve in one conditional write. The previous read-then-put allowed two
+				// different users racing on the same id to both observe it as free.
+				const reserved = await putItemConditional(
+					ROOMS_TABLE,
+					{
+						sessionId: msg.sessionId,
+						hostConnectionId: connectionId,
+						name: msg.name?.trim() || 'Session',
+						sub,
+						expiresAt: now + ROOM_TTL_SECONDS,
+					},
+					{
+						expression: 'attribute_not_exists(#sessionId) OR #sub = :sub OR #expiresAt < :now',
+						names: {
+							'#sessionId': 'sessionId',
+							'#sub': 'sub',
+							'#expiresAt': 'expiresAt',
+						},
+						values: { ':sub': sub, ':now': now },
+					},
+				);
+				if (!reserved) {
 					await postToConnection(mgmt, connectionId, {
 						type: 'error',
 						code: 'session-taken',
@@ -159,13 +262,6 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
 					});
 					break;
 				}
-				await putItem(ROOMS_TABLE, {
-					sessionId: msg.sessionId,
-					hostConnectionId: connectionId,
-					name: (msg.name ?? 'Session').slice(0, MAX_NAME_LEN),
-					sub,
-					expiresAt: nowEpoch() + ROOM_TTL_SECONDS,
-				});
 				await putItem(CONNECTIONS_TABLE, {
 					...conn,
 					connectionId,
@@ -181,6 +277,10 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
 			}
 
 			case 'stopAdvertise': {
+				if (!hasExactFields(msg, ['action'])) {
+					await invalidMessage();
+					break;
+				}
 				const sessionId = conn?.hostSessionId;
 				if (sessionId) {
 					const room = await getItem(ROOMS_TABLE, { sessionId });
@@ -199,6 +299,10 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
 			}
 
 			case 'browse': {
+				if (!hasExactFields(msg, ['action'])) {
+					await invalidMessage();
+					break;
+				}
 				// SCOPED DISCOVERY: never return a global roster. A stranger's live session is not
 				// enumerable — cross-tenant browse leaked every room's id+name to any authenticated
 				// user, and an id was all that a join needed. Online joiners now use the DM's
@@ -216,36 +320,37 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
 			}
 
 			case 'join': {
-				if (!msg.sessionId || msg.sessionId.length > MAX_SESSION_ID_LEN) break;
-				if (msg.pubKey && msg.pubKey.length > MAX_PUBKEY_LEN) break;
-				// Rate-limit joins per opaque user hash (SEC-005), reusing core policy.
-				const attemptRow = await getItem(ATTEMPTS_TABLE, { sourceKey });
-				const record: JoinAttemptRecord | undefined = attemptRow
-					? { sourceKey, failedAt: JSON.parse(attemptRow.failedAt || '[]') }
-					: undefined;
-				const decision = evaluateJoinRateLimit(record, nowIso(), DEFAULT_JOIN_RATE_LIMIT);
-				if (!decision.allowed) {
+				if (
+					!hasExactFields(msg, ['action', 'sessionId', 'pubKey']) ||
+					!isSessionId(msg.sessionId) ||
+					!isCanonicalPublicKey(msg.pubKey)
+				) {
+					await invalidMessage();
+					break;
+				}
+				// Count every attempt, not only unknown rooms: the relay cannot verify the out-of-band PIN,
+				// so an invalid-PIN request otherwise looked successful and could exhaust every host seat.
+				// The atomic update prevents parallel WebSocket messages from racing around the ceiling.
+				const now = nowEpoch();
+				const windowStart = Math.floor(now / JOIN_WINDOW_SECONDS) * JOIN_WINDOW_SECONDS;
+				const allowed = await incrementCounterBelow(
+					ATTEMPTS_TABLE,
+					{ sourceKey: `${sourceKey}#${windowStart}` },
+					DEFAULT_JOIN_RATE_LIMIT.maxFailedAttempts,
+					windowStart + JOIN_WINDOW_SECONDS * 2,
+				);
+				if (!allowed) {
 					await postToConnection(mgmt, connectionId, {
 						type: 'error',
 						code: 'rate-limited',
-						message: decision.message,
+						message:
+							'Too many attempts. Please wait and try again. Check your invitation with the DM.',
 					});
 					break;
 				}
 
 				const room = await getItem(ROOMS_TABLE, { sessionId: msg.sessionId });
 				if (!room?.hostConnectionId) {
-					const updated = recordFailedJoinAttempt(
-						record,
-						sourceKey,
-						nowIso(),
-						DEFAULT_JOIN_RATE_LIMIT,
-					);
-					await putItem(ATTEMPTS_TABLE, {
-						sourceKey,
-						failedAt: JSON.stringify(updated.failedAt),
-						expiresAt: nowEpoch() + ATTEMPT_TTL_SECONDS,
-					});
 					await postToConnection(mgmt, connectionId, {
 						type: 'error',
 						code: 'not-found',
@@ -285,8 +390,15 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
 
 			case 'offer': {
 				// Host → joining client. reqId is the target (joiner's) connection id.
-				if (!msg.reqId || !msg.offerCode || msg.offerCode.length > MAX_CODE_LEN) break;
-				if (msg.pubKey && msg.pubKey.length > MAX_PUBKEY_LEN) break;
+				if (
+					!hasExactFields(msg, ['action', 'reqId', 'offerCode', 'pubKey']) ||
+					!isBoundedString(msg.reqId, MAX_SESSION_ID_LEN) ||
+					!isBoundedString(msg.offerCode, MAX_CODE_LEN) ||
+					!isCanonicalPublicKey(msg.pubKey)
+				) {
+					await invalidMessage();
+					break;
+				}
 				// AUTHORIZATION: only the actual host of the session the target is joining
 				// may push it an offer. Without this, any authenticated user could inject
 				// a forged offer into an arbitrary connection (even cross-session) simply
@@ -310,7 +422,14 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
 
 			case 'answer': {
 				// Joining client → host. Route via the session this connection joined.
-				if (!msg.answerCode || msg.answerCode.length > MAX_CODE_LEN) break;
+				if (
+					!hasExactFields(msg, ['action', 'reqId', 'answerCode']) ||
+					!isBoundedString(msg.answerCode, MAX_CODE_LEN) ||
+					(msg.reqId !== undefined && !isBoundedString(msg.reqId, MAX_SESSION_ID_LEN))
+				) {
+					await invalidMessage();
+					break;
+				}
 				const sessionId = conn?.joiningSessionId;
 				if (!sessionId) break;
 				const room = await getItem(ROOMS_TABLE, { sessionId });
@@ -328,12 +447,34 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
 			}
 
 			case 'turnCredentials': {
+				if (!hasExactFields(msg, ['action'])) {
+					await invalidMessage();
+					break;
+				}
+				const now = nowEpoch();
+				const windowStart =
+					Math.floor(now / TURN_CREDENTIAL_WINDOW_SECONDS) * TURN_CREDENTIAL_WINDOW_SECONDS;
+				const allowed = await incrementCounterBelow(
+					ATTEMPTS_TABLE,
+					{ sourceKey: `${sourceKey}#turn#${windowStart}` },
+					TURN_CREDENTIAL_REQUESTS_PER_WINDOW,
+					windowStart + TURN_CREDENTIAL_WINDOW_SECONDS * 2,
+				);
+				if (!allowed) {
+					await postToConnection(mgmt, connectionId, {
+						type: 'error',
+						code: 'turn-rate-limited',
+						message: 'Relay credentials were requested too often. Wait a few minutes and retry.',
+					});
+					break;
+				}
 				const secret = await getSecretField(TURN_SECRET_ARN, 'secret');
 				const creds = mintTurnCredentials(
 					secret,
 					sourceKey.slice(0, 16),
 					TURN_URI,
 					TURN_TTL_SECONDS,
+					TURN_CREDENTIAL_WINDOW_SECONDS,
 				);
 				await postToConnection(mgmt, connectionId, { type: 'turn-credentials', ...creds });
 				break;

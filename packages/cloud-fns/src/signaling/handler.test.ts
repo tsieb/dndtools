@@ -4,8 +4,8 @@ import type { APIGatewayProxyWebsocketEventV2 } from 'aws-lambda';
 // The signaling handler is an UNTRUSTED relay: it brokers opaque encrypted
 // offer/answer strings between a DM host and joining players and never sees session
 // content. These tests drive the whole protocol against an in-memory fake of the AWS
-// layer (DynamoDB + API GW management), while the join rate-limiter runs the REAL
-// @dndtools/core policy (aliased to source in vitest.cloud.config.ts).
+// layer (DynamoDB + API GW management), while the join rate-limiter consumes the
+// @dndtools/core SEC-005 ceiling with an atomic DynamoDB counter.
 
 // --- Fake AWS layer, shared with the vi.mock factory via vi.hoisted -------------
 const aws = vi.hoisted(() => {
@@ -29,7 +29,16 @@ const aws = vi.hoisted(() => {
 		return out;
 	};
 
-	return { tables, pk, sent, dead, tbl, stringify };
+	return {
+		tables,
+		pk,
+		sent,
+		dead,
+		tbl,
+		stringify,
+		planReadFails: false,
+		appReadConsistency: [] as boolean[],
+	};
 });
 
 vi.mock('../lib/turn.ts', () => ({
@@ -49,7 +58,24 @@ vi.mock('../lib/aws.ts', () => ({
 		const key = String(obj[aws.pk[table]]);
 		aws.tbl(table).set(key, { ...obj });
 	},
-	getItem: async (table: string, key: Record<string, string>) => {
+	putItemConditional: async (
+		table: string,
+		obj: Record<string, unknown>,
+		condition: { values?: Record<string, string | number> },
+	) => {
+		const key = String(obj[aws.pk[table]]);
+		const existing = aws.tbl(table).get(key);
+		if (existing) {
+			const sameOwner = existing.sub === condition.values?.[':sub'];
+			const expired = Number(existing.expiresAt) < Number(condition.values?.[':now']);
+			if (!sameOwner && !expired) return false;
+		}
+		aws.tbl(table).set(key, { ...obj });
+		return true;
+	},
+	getItem: async (table: string, key: Record<string, string>, consistentRead = false) => {
+		if (table === 'app') aws.appReadConsistency.push(consistentRead);
+		if (table === 'app' && aws.planReadFails) throw new Error('simulated entitlement outage');
 		const rec = aws.tbl(table).get(String(Object.values(key)[0]));
 		return rec ? aws.stringify(rec) : undefined;
 	},
@@ -57,6 +83,18 @@ vi.mock('../lib/aws.ts', () => ({
 		aws.tbl(table).delete(String(Object.values(key)[0]));
 	},
 	scanAll: async (table: string) => [...aws.tbl(table).values()].map(aws.stringify),
+	incrementCounterBelow: async (
+		table: string,
+		key: Record<string, string>,
+		limit: number,
+		expiresAt: number,
+	) => {
+		const id = String(Object.values(key)[0]);
+		const current = Number(aws.tbl(table).get(id)?.requestCount ?? 0);
+		if (current >= limit) return false;
+		aws.tbl(table).set(id, { ...key, requestCount: current + 1, expiresAt });
+		return true;
+	},
 	postToConnection: async (_c: unknown, connectionId: string, payload: Record<string, unknown>) => {
 		if (aws.dead.has(connectionId)) return false;
 		aws.sent.push({ connectionId, payload });
@@ -68,6 +106,7 @@ vi.mock('../lib/aws.ts', () => ({
 process.env.CONNECTIONS_TABLE = 'connections';
 process.env.ROOMS_TABLE = 'rooms';
 process.env.ATTEMPTS_TABLE = 'attempts';
+process.env.APP_TABLE = 'app';
 process.env.TURN_SECRET_ARN = 'arn:aws:secretsmanager:region:acct:secret:turn';
 process.env.TURN_URI = 'turn:203.0.113.10:3478';
 process.env.TURN_TTL_SECONDS = '3600';
@@ -76,7 +115,16 @@ process.env.WS_ENDPOINT = 'https://ws.example.com/dev';
 const { handler } = await import('./handler.ts');
 
 // --- helpers --------------------------------------------------------------------
-type Ctx = { connectionId: string; routeKey: string; sub?: string };
+const VALID_PUB_KEY =
+	'BGsX0fLhLEJH+Lzm5WOkQPJ3A32BLeszoPShOUXYmMKWT+NC4v4af5uO5+tKfA+eFivOM1drMV7Oy7ZAaDe/UfU=';
+
+type Ctx = {
+	connectionId: string;
+	routeKey: string;
+	sub?: string;
+	/** null deliberately leaves the authoritative entitlement row absent. */
+	plan?: 'hearth' | 'lantern' | 'beacon' | null;
+};
 function event(ctx: Ctx, body?: unknown): APIGatewayProxyWebsocketEventV2 {
 	return {
 		requestContext: {
@@ -87,8 +135,27 @@ function event(ctx: Ctx, body?: unknown): APIGatewayProxyWebsocketEventV2 {
 		body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body),
 	} as unknown as APIGatewayProxyWebsocketEventV2;
 }
-const call = (ctx: Ctx, body?: unknown) =>
-	handler(event(ctx, body), {} as never, () => {}) as Promise<{ statusCode: number }>;
+const call = (ctx: Ctx, body?: unknown) => {
+	if (ctx.routeKey === '$connect' && ctx.sub && ctx.plan !== null) {
+		const pk = `account#${ctx.sub}`;
+		if (!aws.tbl('app').has(pk)) {
+			aws.tbl('app').set(pk, { pk, sk: 'entitlement', plan: ctx.plan ?? 'lantern' });
+		}
+	}
+	// Existing protocol tests predate mandatory ECDH keys. Supply one at the event boundary
+	// unless the test explicitly provided pubKey (including null) to exercise rejection.
+	let normalized = body;
+	if (
+		body &&
+		typeof body === 'object' &&
+		!Array.isArray(body) &&
+		['join', 'offer'].includes(String((body as { action?: unknown }).action)) &&
+		!Object.hasOwn(body, 'pubKey')
+	) {
+		normalized = { ...(body as Record<string, unknown>), pubKey: VALID_PUB_KEY };
+	}
+	return handler(event(ctx, normalized), {} as never, () => {}) as Promise<{ statusCode: number }>;
+};
 
 const sentTo = (connectionId: string) =>
 	aws.sent.filter((m) => m.connectionId === connectionId).map((m) => m.payload);
@@ -100,9 +167,12 @@ beforeEach(() => {
 	aws.tables.clear();
 	aws.sent.length = 0;
 	aws.dead.clear();
+	aws.planReadFails = false;
+	aws.appReadConsistency.length = 0;
 	aws.pk.connections = 'connectionId';
 	aws.pk.rooms = 'sessionId';
 	aws.pk.attempts = 'sourceKey';
+	aws.pk.app = 'pk';
 });
 
 describe('$connect / $disconnect', () => {
@@ -152,6 +222,23 @@ describe('advertise / stopAdvertise / browse', () => {
 			{ action: 'advertise', name: 'No id' },
 		);
 		expect(aws.tables.get('rooms')?.size ?? 0).toBe(0);
+		expect(lastTo('host')).toMatchObject({ type: 'error', code: 'invalid-message' });
+	});
+
+	it('atomically keeps a live session id reserved to its first owner', async () => {
+		await call({ connectionId: 'host-1', routeKey: '$connect', sub: 'dm-1' });
+		await call(
+			{ connectionId: 'host-1', routeKey: '$default' },
+			{ action: 'advertise', sessionId: 's-shared', name: 'Original' },
+		);
+		await call({ connectionId: 'host-2', routeKey: '$connect', sub: 'dm-2' });
+		await call(
+			{ connectionId: 'host-2', routeKey: '$default' },
+			{ action: 'advertise', sessionId: 's-shared', name: 'Hijack' },
+		);
+
+		expect(lastTo('host-2')).toMatchObject({ type: 'error', code: 'session-taken' });
+		expect(room('s-shared')).toMatchObject({ hostConnectionId: 'host-1', sub: 'dm-1' });
 	});
 
 	it('stopAdvertise deletes the hosted room', async () => {
@@ -218,7 +305,11 @@ describe('join → offer → answer relay', () => {
 			{ action: 'join', sessionId: 's-1' },
 		);
 
-		expect(lastTo('host')).toEqual({ type: 'offer-request', reqId: 'player' });
+		expect(lastTo('host')).toEqual({
+			type: 'offer-request',
+			reqId: 'player',
+			pubKey: VALID_PUB_KEY,
+		});
 		expect(conn('player')).toMatchObject({ joiningSessionId: 's-1' });
 	});
 
@@ -235,7 +326,12 @@ describe('join → offer → answer relay', () => {
 			{ action: 'offer', reqId: 'player', offerCode: 'OPAQUE-OFFER' },
 		);
 
-		expect(lastTo('player')).toEqual({ type: 'offer', reqId: 'player', offerCode: 'OPAQUE-OFFER' });
+		expect(lastTo('player')).toEqual({
+			type: 'offer',
+			reqId: 'player',
+			offerCode: 'OPAQUE-OFFER',
+			pubKey: VALID_PUB_KEY,
+		});
 	});
 
 	it('answer is routed back to the host via the session the joiner joined (client never learns the host id)', async () => {
@@ -278,6 +374,7 @@ describe('join → offer → answer relay', () => {
 			type: 'offer',
 			reqId: 'player',
 			offerCode: 'OFFER#1',
+			pubKey: VALID_PUB_KEY,
 		});
 		expect(sentTo('host')).toContainEqual({
 			type: 'answer',
@@ -296,7 +393,7 @@ describe('join failure handling', () => {
 		);
 
 		expect(lastTo('player')).toMatchObject({ type: 'error', code: 'not-found' });
-		// a failed attempt was recorded for later rate-limiting
+		// the attempt was recorded for later rate-limiting
 		expect(aws.tables.get('attempts')?.size).toBe(1);
 	});
 
@@ -318,9 +415,9 @@ describe('join failure handling', () => {
 		expect(room('s-1')).toBeUndefined();
 	});
 
-	it('throttles a source after the core rate limit (5 failures) and stays generic', async () => {
+	it('throttles a source after the core rate limit (5 attempts) and stays generic', async () => {
 		await call({ connectionId: 'player', routeKey: '$connect', sub: 'attacker' });
-		// 5 failed joins against non-existent sessions fill the window.
+		// 5 joins against non-existent sessions fill the window.
 		for (let i = 0; i < 5; i++) {
 			await call(
 				{ connectionId: 'player', routeKey: '$default' },
@@ -360,6 +457,16 @@ describe('turnCredentials', () => {
 		expect(Array.isArray(msg.iceServers)).toBe(true);
 		expect(msg.ttl).toBe(3600);
 	});
+
+	it('rate-limits credential minting across repeated requests from the same account', async () => {
+		await call({ connectionId: 'c-1', routeKey: '$connect', sub: 'user-1' });
+		for (let request = 0; request < 7; request += 1) {
+			await call({ connectionId: 'c-1', routeKey: '$default' }, { action: 'turnCredentials' });
+		}
+
+		expect(lastTo('c-1')).toMatchObject({ type: 'error', code: 'turn-rate-limited' });
+		expect(sentTo('c-1').filter((message) => message.type === 'turn-credentials')).toHaveLength(6);
+	});
 });
 
 describe('malformed / unknown messages', () => {
@@ -376,6 +483,47 @@ describe('malformed / unknown messages', () => {
 		expect(lastTo('c-1')).toMatchObject({ type: 'error', code: 'unknown-action' });
 	});
 
+	it('rejects non-object messages and unsupported fields instead of coercing them', async () => {
+		await call({ connectionId: 'c-1', routeKey: '$connect', sub: 'user-1' });
+		await call({ connectionId: 'c-1', routeKey: '$default' }, []);
+		expect(lastTo('c-1')).toMatchObject({ type: 'error', code: 'invalid-message' });
+
+		await call(
+			{ connectionId: 'c-1', routeKey: '$default' },
+			{ action: 'browse', plaintext: 'not an allowed field' },
+		);
+		expect(lastTo('c-1')).toMatchObject({ type: 'error', code: 'invalid-message' });
+	});
+
+	it('requires canonical on-curve P-256 public keys on join and offer frames', async () => {
+		await call({ connectionId: 'host', routeKey: '$connect', sub: 'dm' });
+		await call(
+			{ connectionId: 'host', routeKey: '$default' },
+			{ action: 'advertise', sessionId: 's-1', name: 'Game' },
+		);
+		await call({ connectionId: 'player', routeKey: '$connect', sub: 'p1' });
+
+		await call(
+			{ connectionId: 'player', routeKey: '$default' },
+			{ action: 'join', sessionId: 's-1', pubKey: null },
+		);
+		expect(lastTo('player')).toMatchObject({ type: 'error', code: 'invalid-message' });
+		expect(conn('player')).not.toHaveProperty('joiningSessionId');
+
+		const shapedButOffCurve = `${Buffer.concat([Buffer.from([4]), Buffer.alloc(64)]).toString('base64')}`;
+		await call(
+			{ connectionId: 'player', routeKey: '$default' },
+			{ action: 'join', sessionId: 's-1', pubKey: shapedButOffCurve },
+		);
+		expect(lastTo('player')).toMatchObject({ type: 'error', code: 'invalid-message' });
+
+		await call(
+			{ connectionId: 'host', routeKey: '$default' },
+			{ action: 'offer', reqId: 'player', offerCode: 'sealed', pubKey: 'not-base64' },
+		);
+		expect(lastTo('host')).toMatchObject({ type: 'error', code: 'invalid-message' });
+	});
+
 	it('rejects a request with no connectionId as a 400', async () => {
 		const res = await call({ connectionId: '', routeKey: '$default' }, { action: 'browse' });
 		expect(res.statusCode).toBe(400);
@@ -387,6 +535,37 @@ describe('authorization hardening', () => {
 		const res = await call({ connectionId: 'c-x', routeKey: '$connect' }); // no sub
 		expect(res.statusCode).toBe(401);
 		expect(conn('c-x')).toBeUndefined(); // nothing persisted for an unauthenticated connection
+	});
+
+	it('enforces Lantern/Beacon at connect and after an already-open socket is downgraded', async () => {
+		const missing = await call({
+			connectionId: 'free',
+			routeKey: '$connect',
+			sub: 'free-user',
+			plan: null,
+		});
+		expect(missing.statusCode).toBe(403);
+		expect(conn('free')).toBeUndefined();
+
+		await call({ connectionId: 'paid', routeKey: '$connect', sub: 'paid-user' });
+		aws.tbl('app').set('account#paid-user', {
+			pk: 'account#paid-user',
+			sk: 'entitlement',
+			plan: 'hearth',
+		});
+		await call({ connectionId: 'paid', routeKey: '$default' }, { action: 'browse' });
+		expect(lastTo('paid')).toMatchObject({ type: 'error', code: 'plan-required' });
+
+		aws.planReadFails = true;
+		const outage = await call({
+			connectionId: 'outage',
+			routeKey: '$connect',
+			sub: 'outage-user',
+		});
+		expect(outage.statusCode).toBe(403);
+		expect(conn('outage')).toBeUndefined();
+		expect(aws.appReadConsistency.length).toBeGreaterThan(0);
+		expect(aws.appReadConsistency.every(Boolean)).toBe(true);
 	});
 
 	it('$default rejects a message from a connection with no authenticated sub', async () => {

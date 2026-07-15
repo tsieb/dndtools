@@ -5,8 +5,8 @@ Description: >-
   are NOT E2EE vault sync: marketplace module publish/discover, player invites
   (server-minted join links), the public campaign wiki (player-safe published pages,
   readable without an account), account/device management, and plan entitlements
-  (simulated checkout — no payment processor; every entitlement row carries
-  simulated=true). One HTTP API with a native Cognito JWT authorizer, one on-demand
+  (explicit simulated preview in dev; production self-service plan changes are disabled).
+  One HTTP API with a native Cognito JWT authorizer, one on-demand
   single-table DynamoDB (pk/sk + TTL) for accounts/entitlements/invites/listings/wikis,
   one private S3 bucket for marketplace module payloads and wiki page bundles. Unlike
   sync-api this stack sees PLAINTEXT payloads (they are published for sharing, not
@@ -23,7 +23,7 @@ Parameters:
     AllowedValues: [dev, prod]
   WebOrigin:
     Type: String
-    Default: 'https://d1xn0o010v89mt.cloudfront.net'
+    Default: 'https://invalid.example'
     Description: Deployed web app origin allowed by CORS (localhost dev origins are always included). Also the trusted base for invite-email join links (built server-side, never from caller input).
   InviteSender:
     Type: String
@@ -34,14 +34,30 @@ Parameters:
       link + QR and the API returns emailStatus="not-configured". Set this ONLY to an
       address/domain already verified in SES for this account+region, or sends will fail
       (fail-open — the invite is still returned with emailStatus="failed").
+  SyncOpsTableName:
+    Type: String
+    Default: ''
+    Description: >-
+      Physical sync-api operations table used only to strongly verify the terminal account-purge
+      marker. A new stage deliberately deploys app-api once with this empty, then sync-api publishes
+      its generated table name and app-api is refreshed. Empty fails account deletion closed.
+  LogRetentionDays:
+    Type: Number
+    Default: 30
+    AllowedValues: [14, 30, 60, 90, 180, 365]
+
+Conditions:
+  IsProd: !Equals [!Ref Stage, prod]
+  HasSyncOpsTable: !Not [!Equals [!Ref SyncOpsTableName, '']]
 
 Globals:
   Function:
-    Runtime: nodejs20.x
+    Runtime: nodejs24.x
     Architectures: [arm64]
     MemorySize: 256
     Timeout: 20
     Tracing: Active
+    PermissionsBoundary: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/meta/permissions-boundary-arn}}'
 
 Resources:
   # --- Marketplace module payloads + wiki page bundles (`wikis/` prefix): -------
@@ -49,6 +65,10 @@ Resources:
   # --- reads are served THROUGH the handler, never as public bucket access). ----
   ModulesBucket:
     Type: AWS::S3::Bucket
+    # Published modules and campaign wikis are customer content. A stack removal or
+    # replacement must never turn an infrastructure change into a data-deletion event.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       OwnershipControls:
         Rules:
@@ -62,8 +82,17 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
       LifecycleConfiguration:
         Rules:
+          - Id: expire-old-noncurrent-versions
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 30
+          - Id: remove-expired-delete-markers
+            Status: Enabled
+            ExpiredObjectDeleteMarker: true
           - Id: abort-incomplete-multipart
             Status: Enabled
             AbortIncompleteMultipartUpload:
@@ -81,6 +110,11 @@ Resources:
   #   wiki#<wikiId>            | site                     — public wikiId → site lookup (pages in S3)
   AppTable:
     Type: AWS::DynamoDB::Table
+    # Account, entitlement, invite, listing, and wiki rows are durable application data.
+    # Explicit account-deletion routes still purge a user's rows; these policies only
+    # protect against CloudFormation stack deletion and replacement.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
@@ -92,12 +126,33 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: expiresAt
         Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  AppFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/${ProjectName}/${Stage}/lambda/app-api'
+      RetentionInDays: !Ref LogRetentionDays
+
+  AppAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/${ProjectName}/${Stage}/apigateway/app-api'
+      RetentionInDays: !Ref LogRetentionDays
 
   # --- HTTP API with a native Cognito JWT authorizer ---------------------------
   AppHttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: !Ref Stage
+      AccessLogSettings:
+        DestinationArn: !GetAtt AppAccessLogGroup.Arn
+        Format: >-
+          {"requestId":"$context.requestId","routeKey":"$context.routeKey","status":"$context.status","responseLength":"$context.responseLength","integrationError":"$context.integrationErrorMessage"}
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
       Auth:
         DefaultAuthorizer: CognitoJwt
         Authorizers:
@@ -108,10 +163,10 @@ Resources:
               audience:
                 - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/identity/app-client-id}}'
       CorsConfiguration:
-        AllowOrigins:
-          - 'http://localhost:5273'
-          - 'http://localhost:4273'
-          - !Ref WebOrigin
+        AllowOrigins: !If
+          - IsProd
+          - ['dndtools://app', !Ref WebOrigin]
+          - ['dndtools://app', 'http://localhost:5273', 'http://localhost:4273', !Ref WebOrigin]
         AllowHeaders:
           - authorization
           - content-type
@@ -131,18 +186,42 @@ Resources:
     Properties:
       CodeUri: ../../packages/cloud-fns/build/app-api-handler
       Handler: index.handler
+      ReservedConcurrentExecutions: 10
+      LoggingConfig:
+        LogFormat: JSON
+        ApplicationLogLevel: INFO
+        SystemLogLevel: WARN
+        LogGroup: !Ref AppFunctionLogGroup
       Environment:
         Variables:
           APP_TABLE: !Ref AppTable
+          SYNC_OPS_TABLE: !If [HasSyncOpsTable, !Ref SyncOpsTableName, '']
           MODULES_BUCKET: !Ref ModulesBucket
           USER_POOL_ID: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/identity/user-pool-id}}'
           # Invite email delivery (optional; empty INVITE_SENDER = disabled/fail-closed).
           # WEB_ORIGIN is the trusted base for the join link the email carries.
           INVITE_SENDER: !Ref InviteSender
           WEB_ORIGIN: !Ref WebOrigin
+          # Fail closed unless the template explicitly identifies a non-production preview.
+          ENTITLEMENT_PREVIEW_ENABLED: !If [IsProd, 'false', 'true']
       Policies:
         - DynamoDBCrudPolicy: { TableName: !Ref AppTable }
         - S3CrudPolicy: { BucketName: !Ref ModulesBucket }
+        # Account deletion reads one strongly consistent usage#quota marker from the sync table.
+        # No scan, query, write, or wildcard table permission is needed.
+        - !If
+          - HasSyncOpsTable
+          - Statement:
+              - Effect: Allow
+                Action: dynamodb:GetItem
+                Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${SyncOpsTableName}'
+          - !Ref AWS::NoValue
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObjectVersion
+                - s3:DeleteObjectVersion
+              Resource: !Sub '${ModulesBucket.Arn}/*'
         # Emailed invites: send ONLY as the configured verified sender (ses:FromAddress
         # condition), across whatever SES identity authorizes it. Harmless when
         # InviteSender is empty — the handler never calls SES without a sender configured.
@@ -204,7 +283,7 @@ Resources:
             ApiId: !Ref AppHttpApi
             Method: DELETE
             Path: /account
-        # Entitlements (simulated checkout) ----------------------------------------
+        # Entitlements (dev preview; production POST returns 403) -------------------
         GetEntitlements:
           Type: HttpApi
           Properties:
@@ -306,6 +385,78 @@ Resources:
             Auth:
               Authorizer: NONE
 
+  AppFunctionErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: App API Lambda returned one or more unhandled errors in five minutes.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AppFn
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/ops/alerts-topic-arn}}'
+
+  AppApi5xxMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref AppAccessLogGroup
+      FilterPattern: '{ $.status = 5* }'
+      MetricTransformations:
+        - MetricNamespace: Dndtools/Api
+          MetricName: !Sub '${ProjectName}-${Stage}-app-api-5xx'
+          MetricValue: '1'
+          DefaultValue: 0
+
+  AppApi5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: App API returned one or more 5xx responses in five minutes.
+      Namespace: Dndtools/Api
+      MetricName: !Sub '${ProjectName}-${Stage}-app-api-5xx'
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/ops/alerts-topic-arn}}'
+
+  AppFunctionThrottlesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: App API Lambda concurrency throttling was observed.
+      Namespace: AWS/Lambda
+      MetricName: Throttles
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AppFn
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/ops/alerts-topic-arn}}'
+
+  AppApiDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub '${ProjectName}-${Stage}-app-api'
+      DashboardBody: !Sub >-
+        {"widgets":[{"type":"metric","width":12,"height":6,"properties":{"title":"App API Lambda","region":"${AWS::Region}","stat":"Sum","period":300,"metrics":[["AWS/Lambda","Invocations","FunctionName","${AppFn}"],[".","Errors",".","."],[".","Throttles",".","."]]}},{"type":"metric","width":12,"height":6,"properties":{"title":"App API latency","region":"${AWS::Region}","stat":"p95","period":300,"metrics":[["AWS/Lambda","Duration","FunctionName","${AppFn}"]]}}]}
+
   # --- Publish the API URL for the client build --------------------------------
   ParamAppApiUrl:
     Type: AWS::SSM::Parameter
@@ -313,6 +464,20 @@ Resources:
       Name: !Sub '/${ProjectName}/${Stage}/app-api/url'
       Type: String
       Value: !Sub 'https://${AppHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}'
+
+  ParamAppApiId:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/app-api/api-id'
+      Type: String
+      Value: !Ref AppHttpApi
+
+  ParamAppTableName:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/app-api/table-name'
+      Type: String
+      Value: !Ref AppTable
 
 Outputs:
   AppApiUrl:
@@ -322,3 +487,5 @@ Outputs:
     Value: !Ref AppTable
   ModulesBucket:
     Value: !Ref ModulesBucket
+  ApiId:
+    Value: !Ref AppHttpApi

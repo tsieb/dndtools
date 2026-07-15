@@ -44,6 +44,13 @@ Parameters:
   ListeningPort:
     Type: Number
     Default: 3478
+  CoturnImage:
+    Type: String
+    Default: 'coturn/coturn@sha256:867607152c6ed9504a0b59a2546a9bd2872dcf74313b3bc6cf9b69cc81be6fb3'
+    AllowedPattern: '^coturn/coturn@sha256:[a-f0-9]{64}$'
+    Description: >-
+      Immutable multi-architecture coturn image manifest digest. Update only after
+      reviewing the release and verifying its linux/arm64 manifest.
 
 Resources:
   # Auto-generated shared secret for coturn use-auth-secret (TURN REST API).
@@ -92,6 +99,7 @@ Resources:
   TurnInstanceRole:
     Type: AWS::IAM::Role
     Properties:
+      PermissionsBoundary: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/meta/permissions-boundary-arn}}'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -108,6 +116,16 @@ Resources:
               - Effect: Allow
                 Action: secretsmanager:GetSecretValue
                 Resource: !Ref TurnSharedSecret
+        - PolicyName: publish-turn-health
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: cloudwatch:PutMetricData
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    cloudwatch:namespace: !Sub '${ProjectName}/TURN'
 
   TurnInstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -131,12 +149,15 @@ Resources:
       SecurityGroupIds: [!Ref TurnSecurityGroup]
       IamInstanceProfile: !Ref TurnInstanceProfile
       MetadataOptions:
-        HttpTokens: required        # IMDSv2 only
+        HttpEndpoint: enabled
+        HttpTokens: required # IMDSv2 only
+        HttpPutResponseHopLimit: 1
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
             VolumeSize: 8
             VolumeType: gp3
+            Encrypted: true
             DeleteOnTermination: true
       Tags:
         - { Key: Name, Value: !Sub '${ProjectName}-${Stage}-turn' }
@@ -224,10 +245,55 @@ Resources:
           #     mounted root-only config; -c points coturn at it. ---
           docker rm -f coturn 2>/dev/null || true
           docker run -d --name coturn --restart always --network host \
+            --log-driver json-file --log-opt max-size=10m --log-opt max-file=5 \
             --platform linux/arm64 \
             -v /etc/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro \
-            coturn/coturn:latest \
+            ${CoturnImage} \
             -c /etc/coturn/turnserver.conf
+
+          # Publish an application-level heartbeat. EC2 status checks only prove the VM is alive;
+          # this also proves the container is running and both UDP/TCP listeners exist. The timer
+          # is independent of Docker's restart policy, so a crash-loop or hung bootstrap alarms.
+          cat > /usr/local/bin/dndtools-turn-health <<'SCRIPT'
+          #!/bin/bash
+          set -u
+          HEALTHY=0
+          if [ "$(docker inspect -f '{{.State.Running}}' coturn 2>/dev/null || true)" = "true" ] \
+            && ss -H -lun | awk '$4 ~ /:${ListeningPort}$/ { found=1 } END { exit !found }' \
+            && ss -H -ltn | awk '$4 ~ /:${ListeningPort}$/ { found=1 } END { exit !found }'; then
+            HEALTHY=1
+          fi
+          aws cloudwatch put-metric-data \
+            --region '${AWS::Region}' \
+            --namespace '${ProjectName}/TURN' \
+            --metric-data "MetricName=Healthy,Dimensions=[{Name=Stage,Value=${Stage}}],Value=$HEALTHY,Unit=Count"
+          SCRIPT
+          chmod 0755 /usr/local/bin/dndtools-turn-health
+          cat > /etc/systemd/system/dndtools-turn-health.service <<'UNIT'
+          [Unit]
+          Description=Publish DND Tools TURN application health
+          After=docker.service network-online.target
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/bin/dndtools-turn-health
+          UNIT
+          cat > /etc/systemd/system/dndtools-turn-health.timer <<'UNIT'
+          [Unit]
+          Description=Check DND Tools TURN every minute
+
+          [Timer]
+          OnBootSec=30s
+          OnUnitActiveSec=60s
+          RandomizedDelaySec=10s
+          AccuracySec=5s
+          Persistent=true
+
+          [Install]
+          WantedBy=timers.target
+          UNIT
+          systemctl daemon-reload
+          systemctl enable --now dndtools-turn-health.timer
           echo "[turn-bootstrap] done"
 
   TurnEipAssociation:
@@ -235,6 +301,44 @@ Resources:
     Properties:
       AllocationId: !GetAtt TurnEip.AllocationId
       InstanceId: !Ref TurnInstance
+
+  TurnInstanceStatusAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: TURN EC2 instance or host status check failed.
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref TurnInstance
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+        - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/ops/alerts-topic-arn}}'
+
+  TurnApplicationHealthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: TURN container or UDP/TCP listener is unavailable.
+      Namespace: !Sub '${ProjectName}/TURN'
+      MetricName: Healthy
+      Dimensions:
+        - Name: Stage
+          Value: !Ref Stage
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+        - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/ops/alerts-topic-arn}}'
 
   # --- Publish coordinates for the signaling stack + client build. ----------
   ParamTurnUri:

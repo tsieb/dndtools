@@ -7,10 +7,11 @@ Description: >-
   bucket, and a metadata-only index in DynamoDB (the six ALLOWED_SERVER_METADATA
   classes — vault-id/participant-id/operation-revision/operation-size/content-hash/
   timestamp — never plaintext). Cognito-gated via a native JWT authorizer (no Lambda
-  authorizer). The handler imports @dndtools/core and re-runs the SAME security policy
-  the client uses (server-visibility assertion + replay validation) on every write.
-  Scale-to-zero: HTTP API + Lambda + on-demand DynamoDB + S3 — $0 idle. Cross-stack
-  values are read from SSM at deploy time (no ImportValue).
+  authorizer). The handler imports @dndtools/core and reuses the same policy for
+  server-visible metadata checks on every write; plaintext replay validation stays
+  client-side because the service intentionally cannot decrypt operations. Scale-to-zero:
+  HTTP API + Lambda + on-demand DynamoDB + S3 — $0 idle. Cross-stack values are read
+  from SSM at deploy time (no ImportValue).
 
 Parameters:
   ProjectName:
@@ -20,19 +21,47 @@ Parameters:
     Type: String
     Default: dev
     AllowedValues: [dev, prod]
+  WebOrigin:
+    Type: String
+    Default: 'https://invalid.example'
+    Description: Exact deployed web origin allowed to call sync-api (no trailing slash).
+  LogRetentionDays:
+    Type: Number
+    Default: 30
+    AllowedValues: [14, 30, 60, 90, 180, 365]
+  MaxVaultCiphertextBytes:
+    Type: Number
+    Default: 268435456
+    MinValue: 6291456
+    MaxValue: 17179869184
+    Description: Maximum accepted ciphertext bytes per primary vault (operations plus latest snapshot).
+  MaxVaultOperations:
+    Type: Number
+    Default: 50000
+    MinValue: 1
+    MaxValue: 250001
+    Description: Maximum immutable operation rows per primary vault.
+
+Conditions:
+  IsProd: !Equals [!Ref Stage, prod]
 
 Globals:
   Function:
-    Runtime: nodejs20.x
+    Runtime: nodejs24.x
     Architectures: [arm64]
     MemorySize: 256
     Timeout: 20
     Tracing: Active
+    PermissionsBoundary: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/meta/permissions-boundary-arn}}'
 
 Resources:
   # --- Ciphertext store: versioned, private, encrypted-at-rest S3 --------------
   CiphertextBucket:
     Type: AWS::S3::Bucket
+    # This bucket is the durable encrypted backup. Retain both on stack deletion and
+    # replacement so an infrastructure update cannot destroy a user's only cloud copy.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       VersioningConfiguration:
         Status: Enabled
@@ -54,6 +83,9 @@ Resources:
             Status: Enabled
             NoncurrentVersionExpiration:
               NoncurrentDays: 30
+          - Id: remove-expired-delete-markers
+            Status: Enabled
+            ExpiredObjectDeleteMarker: true
           - Id: abort-incomplete-multipart
             Status: Enabled
             AbortIncompleteMultipartUpload:
@@ -63,11 +95,16 @@ Resources:
   # PK vaultId ("<cognito-sub>#<vault>", tenant-isolated by the authenticated user),
   # SK sk: op rows use sk = "op#<zero-padded-revision>"; the latest snapshot pointer
   # uses sk = "snapshot#latest". The client-assigned monotonic `revision` is the
-  # deterministic sort key, so re-pushing an op overwrites the same row (idempotent —
-  # no counter or GSI needed). Rows carry ONLY the allowed server-visible metadata
-  # classes + the S3 key — never the decrypted operation (which lives, encrypted, in S3).
+  # deterministic sort key. A `usage#quota` row atomically accounts accepted ciphertext
+  # bytes + operation count and carries an active/deleting/deleted state that serializes
+  # account purge against writes. Rows carry ONLY allowed server-visible metadata and
+  # internal S3/accounting pointers — never decrypted operation content.
   SyncOpsTable:
     Type: AWS::DynamoDB::Table
+    # Snapshot pointers, operation indexes, and purge proofs must remain paired with
+    # retained ciphertext across destructive stack operations.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
@@ -76,12 +113,36 @@ Resources:
       KeySchema:
         - { AttributeName: vaultId, KeyType: HASH }
         - { AttributeName: sk, KeyType: RANGE }
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  SyncFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/${ProjectName}/${Stage}/lambda/sync-api'
+      RetentionInDays: !Ref LogRetentionDays
+
+  SyncAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/${ProjectName}/${Stage}/apigateway/sync-api'
+      RetentionInDays: !Ref LogRetentionDays
 
   # --- HTTP API with a native Cognito JWT authorizer --------------------------
   SyncHttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: !Ref Stage
+      AccessLogSettings:
+        DestinationArn: !GetAtt SyncAccessLogGroup.Arn
+        Format: >-
+          {"requestId":"$context.requestId","routeKey":"$context.routeKey","status":"$context.status","responseLength":"$context.responseLength","integrationError":"$context.integrationErrorMessage"}
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
       Auth:
         DefaultAuthorizer: CognitoJwt
         Authorizers:
@@ -92,9 +153,10 @@ Resources:
               audience:
                 - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/identity/app-client-id}}'
       CorsConfiguration:
-        AllowOrigins:
-          - 'http://localhost:5273'
-          - 'http://localhost:4273'
+        AllowOrigins: !If
+          - IsProd
+          - ['dndtools://app', !Ref WebOrigin]
+          - ['dndtools://app', 'http://localhost:5273', 'http://localhost:4273', !Ref WebOrigin]
         AllowHeaders:
           - authorization
           - content-type
@@ -102,6 +164,7 @@ Resources:
           - GET
           - POST
           - PUT
+          - DELETE
           - OPTIONS
 
   # --- The sync handler (reuses @dndtools/core policy) ------------------------
@@ -110,13 +173,45 @@ Resources:
     Properties:
       CodeUri: ../../packages/cloud-fns/build/sync-handler
       Handler: index.handler
+      ReservedConcurrentExecutions: 20
+      LoggingConfig:
+        LogFormat: JSON
+        ApplicationLogLevel: INFO
+        SystemLogLevel: WARN
+        LogGroup: !Ref SyncFunctionLogGroup
       Environment:
         Variables:
           SYNC_OPS_TABLE: !Ref SyncOpsTable
           CIPHERTEXT_BUCKET: !Ref CiphertextBucket
+          APP_TABLE: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/app-api/table-name}}'
+          MAX_VAULT_CIPHERTEXT_BYTES: !Ref MaxVaultCiphertextBytes
+          MAX_VAULT_OPERATIONS: !Ref MaxVaultOperations
       Policies:
         - DynamoDBCrudPolicy: { TableName: !Ref SyncOpsTable }
+        # DynamoDBCrudPolicy in the pinned SAM policy templates does not include
+        # transaction writes; quota + pointer/index updates must commit atomically.
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:TransactWriteItems
+              Resource: !GetAtt SyncOpsTable.Arn
         - S3CrudPolicy: { BucketName: !Ref CiphertextBucket }
+        # Entitlements are authoritative in app-api. GetItem only; missing/invalid/deleted
+        # rows deny every sync route except DELETE, which must remain usable for account purge.
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:GetItem
+              Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/{{resolve:ssm:/${ProjectName}/${Stage}/app-api/table-name}}'
+        # SAM's S3CrudPolicy does not include the version-list/delete permissions needed
+        # to physically purge a versioned bucket during account deletion.
+        - Statement:
+            - Effect: Allow
+              Action: s3:ListBucketVersions
+              Resource: !GetAtt CiphertextBucket.Arn
+            - Effect: Allow
+              Action:
+                - s3:GetObjectVersion
+                - s3:DeleteObjectVersion
+              Resource: !Sub '${CiphertextBucket.Arn}/*'
       Events:
         PushOps:
           Type: HttpApi
@@ -142,6 +237,84 @@ Resources:
             ApiId: !Ref SyncHttpApi
             Method: GET
             Path: /vaults/{vaultId}/snapshot/latest
+        DeleteVault:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncHttpApi
+            Method: DELETE
+            Path: /vaults/{vaultId}
+
+  SyncFunctionErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Sync Lambda returned one or more unhandled errors in five minutes.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref SyncFn
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/ops/alerts-topic-arn}}'
+
+  SyncApi5xxMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref SyncAccessLogGroup
+      FilterPattern: '{ $.status = 5* }'
+      MetricTransformations:
+        - MetricNamespace: Dndtools/Api
+          MetricName: !Sub '${ProjectName}-${Stage}-sync-api-5xx'
+          MetricValue: '1'
+          DefaultValue: 0
+
+  SyncApi5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Sync API returned one or more 5xx responses in five minutes.
+      Namespace: Dndtools/Api
+      MetricName: !Sub '${ProjectName}-${Stage}-sync-api-5xx'
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/ops/alerts-topic-arn}}'
+
+  SyncFunctionThrottlesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Sync Lambda concurrency throttling was observed.
+      Namespace: AWS/Lambda
+      MetricName: Throttles
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref SyncFn
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/ops/alerts-topic-arn}}'
+
+  SyncDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub '${ProjectName}-${Stage}-sync-api'
+      DashboardBody: !Sub >-
+        {"widgets":[{"type":"metric","width":12,"height":6,"properties":{"title":"Sync API Lambda","region":"${AWS::Region}","stat":"Sum","period":300,"metrics":[["AWS/Lambda","Invocations","FunctionName","${SyncFn}"],[".","Errors",".","."],[".","Throttles",".","."]]}},{"type":"metric","width":12,"height":6,"properties":{"title":"Sync latency","region":"${AWS::Region}","stat":"p95","period":300,"metrics":[["AWS/Lambda","Duration","FunctionName","${SyncFn}"]]}}]}
 
   # --- Publish the API URL for the client build -------------------------------
   ParamSyncApiUrl:
@@ -151,6 +324,20 @@ Resources:
       Type: String
       Value: !Sub 'https://${SyncHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}'
 
+  ParamSyncApiId:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/sync/api-id'
+      Type: String
+      Value: !Ref SyncHttpApi
+
+  ParamSyncOpsTableName:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/sync/ops-table-name'
+      Type: String
+      Value: !Ref SyncOpsTable
+
 Outputs:
   SyncApiUrl:
     Description: HTTP API base URL for cloud sync (send Authorization=<cognito-id-token>).
@@ -159,3 +346,5 @@ Outputs:
     Value: !Ref CiphertextBucket
   SyncOpsTable:
     Value: !Ref SyncOpsTable
+  ApiId:
+    Value: !Ref SyncHttpApi

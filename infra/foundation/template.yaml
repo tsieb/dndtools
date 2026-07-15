@@ -39,6 +39,24 @@ Parameters:
       Branch whose GitHub Actions runs may assume the deploy role. The OIDC
       subject condition is built as
       repo:<org>/<repo>:ref:refs/heads/<branch>. Widen only deliberately.
+  GitHubEnvironment:
+    Type: String
+    Default: production
+    Description: >-
+      Protected GitHub environment allowed to assume the prod deploy role. GitHub
+      environment jobs use an OIDC subject of repo:<org>/<repo>:environment:<name>
+      rather than a branch-ref subject.
+  CreateGitHubOidcProvider:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: >-
+      IAM permits only one provider for token.actions.githubusercontent.com per account.
+      Set false for an additional stage in an account where the shared provider already exists.
+
+Conditions:
+  IsProd: !Equals [!Ref Stage, prod]
+  ShouldCreateGitHubOidcProvider: !Equals [!Ref CreateGitHubOidcProvider, 'true']
 
 Resources:
   # --- Cost guardrail: a monthly budget with escalating email alerts. -------
@@ -57,7 +75,7 @@ Resources:
         - Notification:
             NotificationType: ACTUAL
             ComparisonOperator: GREATER_THAN
-            Threshold: 40           # ~$10 on a $25 ceiling — early warning
+            Threshold: 40 # ~$10 on a $25 ceiling — early warning
             ThresholdType: PERCENTAGE
           Subscribers:
             - SubscriptionType: EMAIL
@@ -65,7 +83,7 @@ Resources:
         - Notification:
             NotificationType: FORECASTED
             ComparisonOperator: GREATER_THAN
-            Threshold: 80           # projected to blow ~$20
+            Threshold: 80 # projected to blow ~$20
             ThresholdType: PERCENTAGE
           Subscribers:
             - SubscriptionType: EMAIL
@@ -73,7 +91,7 @@ Resources:
         - Notification:
             NotificationType: ACTUAL
             ComparisonOperator: GREATER_THAN
-            Threshold: 100          # hit the ceiling
+            Threshold: 100 # hit the ceiling
             ThresholdType: PERCENTAGE
           Subscribers:
             - SubscriptionType: EMAIL
@@ -82,6 +100,7 @@ Resources:
   # --- Keyless CI: GitHub Actions OIDC provider + scoped deploy role. --------
   GitHubOidcProvider:
     Type: AWS::IAM::OIDCProvider
+    Condition: ShouldCreateGitHubOidcProvider
     Properties:
       Url: https://token.actions.githubusercontent.com
       ClientIdList:
@@ -97,7 +116,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub '${ProjectName}-${Stage}-ci-deploy'
-      Description: >-
+      Description: !Sub >-
         Assumed by GitHub Actions (via OIDC) to run sam build/deploy for all
         dndtools stacks. This account is single-purpose, so compute/data access
         is broad within it (PowerUser), but IAM role/policy management is scoped
@@ -115,13 +134,18 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Federated: !Ref GitHubOidcProvider
+              Federated: !If
+                - ShouldCreateGitHubOidcProvider
+                - !Ref GitHubOidcProvider
+                - !Sub 'arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com'
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringEquals:
                 'token.actions.githubusercontent.com:aud': sts.amazonaws.com
-              StringLike:
-                'token.actions.githubusercontent.com:sub': !Sub 'repo:${GitHubOrg}/${GitHubRepo}:ref:refs/heads/${GitHubBranch}'
+                'token.actions.githubusercontent.com:sub': !If
+                  - IsProd
+                  - !Sub 'repo:${GitHubOrg}/${GitHubRepo}:environment:${GitHubEnvironment}'
+                  - !Sub 'repo:${GitHubOrg}/${GitHubRepo}:ref:refs/heads/${GitHubBranch}'
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/PowerUserAccess
       Policies:
@@ -183,6 +207,28 @@ Resources:
                   - 'iam:GetPolicyVersion'
                   - 'iam:ListPolicyVersions'
                 Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:policy/${ProjectName}-*'
+              # Foundation/bootstrap authority is deliberately outside the CI role. In particular,
+              # CI cannot mutate its own trust/inline policies or publish a new default version of
+              # the managed policy that is its permissions boundary.
+              - Sid: DenyDeployRoleAndBoundaryMutation
+                Effect: Deny
+                Action:
+                  - 'iam:DeleteRole'
+                  - 'iam:UpdateRole'
+                  - 'iam:UpdateAssumeRolePolicy'
+                  - 'iam:AttachRolePolicy'
+                  - 'iam:DetachRolePolicy'
+                  - 'iam:PutRolePolicy'
+                  - 'iam:DeleteRolePolicy'
+                  - 'iam:PutRolePermissionsBoundary'
+                  - 'iam:DeleteRolePermissionsBoundary'
+                  - 'iam:DeletePolicy'
+                  - 'iam:CreatePolicyVersion'
+                  - 'iam:DeletePolicyVersion'
+                  - 'iam:SetDefaultPolicyVersion'
+                Resource:
+                  - !Sub 'arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-${Stage}-ci-deploy'
+                  - !Ref CiDeployBoundary
               # PassRole is the escalation lever: constrain it to project roles AND
               # to the specific services SAM actually hands roles to, so CI can't
               # pass a role to an arbitrary/privileged principal.
@@ -239,6 +285,36 @@ Resources:
               - 'iam:CreateSAMLProvider'
               - 'iam:UpdateSAMLProvider'
             Resource: '*'
+          # Make the boundary transitive: even a CI-created role with a broad attached policy cannot
+          # create an unbounded successor or mutate the protected deploy role/boundary control plane.
+          - Sid: RequireBoundaryOnDescendantRoles
+            Effect: Deny
+            Action:
+              - 'iam:CreateRole'
+              - 'iam:PutRolePermissionsBoundary'
+            Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-*'
+            Condition:
+              StringNotEquals:
+                'iam:PermissionsBoundary': !Sub 'arn:aws:iam::${AWS::AccountId}:policy/${ProjectName}-${Stage}-ci-deploy-boundary'
+          - Sid: DenyProtectedDeploymentControlPlane
+            Effect: Deny
+            Action:
+              - 'iam:DeleteRole'
+              - 'iam:UpdateRole'
+              - 'iam:UpdateAssumeRolePolicy'
+              - 'iam:AttachRolePolicy'
+              - 'iam:DetachRolePolicy'
+              - 'iam:PutRolePolicy'
+              - 'iam:DeleteRolePolicy'
+              - 'iam:PutRolePermissionsBoundary'
+              - 'iam:DeleteRolePermissionsBoundary'
+              - 'iam:DeletePolicy'
+              - 'iam:CreatePolicyVersion'
+              - 'iam:DeletePolicyVersion'
+              - 'iam:SetDefaultPolicyVersion'
+            Resource:
+              - !Sub 'arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-${Stage}-ci-deploy'
+              - !Sub 'arn:aws:iam::${AWS::AccountId}:policy/${ProjectName}-${Stage}-ci-deploy-boundary'
 
   # --- SSM namespace: baseline meta params other stacks/build read. ---------
   ParamProject:
@@ -263,6 +339,40 @@ Resources:
       Value: !GetAtt CiDeployRole.Arn
       Description: ARN the GitHub Actions workflow assumes to deploy.
 
+  ParamPermissionsBoundaryArn:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/meta/permissions-boundary-arn'
+      Type: String
+      Value: !Ref CiDeployBoundary
+      Description: Required permissions boundary for every CI-created Lambda and EC2 service role.
+
+  # Shared destination for service alarms. Email subscription confirmation is
+  # required once per stage; downstream stacks resolve the topic ARN from SSM.
+  OperationalAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${ProjectName}-${Stage}-operational-alerts'
+      KmsMasterKeyId: alias/aws/sns
+      Tags:
+        - { Key: project, Value: !Ref ProjectName }
+        - { Key: stage, Value: !Ref Stage }
+
+  OperationalAlertsEmail:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref OperationalAlertsTopic
+      Protocol: email
+      Endpoint: !Ref NotificationEmail
+
+  ParamOperationalAlertsTopicArn:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/ops/alerts-topic-arn'
+      Type: String
+      Value: !Ref OperationalAlertsTopic
+      Description: Shared SNS destination for operational CloudWatch alarms.
+
 Outputs:
   CiDeployRoleArn:
     Description: Set this as the GitHub Actions `role-to-assume` (repo variable AWS_DEPLOY_ROLE_ARN).
@@ -275,3 +385,6 @@ Outputs:
   BudgetName:
     Description: The monthly cost budget name.
     Value: !Sub '${ProjectName}-${Stage}-monthly'
+  OperationalAlertsTopicArn:
+    Description: Confirm the email subscription before relying on alarm delivery.
+    Value: !Ref OperationalAlertsTopic

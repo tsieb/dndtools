@@ -5,9 +5,10 @@
 set -euo pipefail
 
 STAGE="${1:-dev}"
-# The test user has a hardcoded, repo-visible password; never leave one in prod.
-if [ "$STAGE" = prod ] && [ "${ALLOW_PROD:-}" != 1 ]; then
-  echo "refusing to run against prod (would create a known-credentials user); set ALLOW_PROD=1 to override" >&2
+# Production deliberately disables ADMIN_USER_PASSWORD_AUTH. Keep this privileged
+# synthetic-user flow dev-only; production uses the non-mutating promotion probes.
+if [ "$STAGE" != dev ]; then
+  echo "deep TURN verification is dev-only (production disables admin password auth)" >&2
   exit 1
 fi
 PROJECT="${DNDTOOLS_PROJECT:-dndtools}"
@@ -20,11 +21,19 @@ ssm() { aws ssm get-parameter --name "/$PROJECT/$STAGE/$1" --query 'Parameter.Va
 WS_URL="$(ssm signaling/ws-url)"
 POOL_ID="$(ssm identity/user-pool-id)"
 CLIENT_ID="$(ssm identity/app-client-id)"
-TEST_USER="signaling-verify@example.com"
-TEST_PASS="Verify-Signaling-2026"
+APP_TABLE="$(ssm app-api/table-name)"
+RUN_ID="$(date +%s)-$(openssl rand -hex 4)"
+TEST_USER="dndtools-verify-${RUN_ID}@example.invalid"
+TEST_PASS="Verify1!$(openssl rand -hex 24)"
+ACCOUNT_ID=""
 
 # Ephemeral test user: delete it on exit so no known-credentials account lingers.
 cleanup() {
+  if [ -n "$ACCOUNT_ID" ]; then
+    aws dynamodb delete-item --table-name "$APP_TABLE" \
+      --key "{\"pk\":{\"S\":\"account#$ACCOUNT_ID\"},\"sk\":{\"S\":\"entitlement\"}}" \
+      --profile "$PROFILE" --region "$REGION" >/dev/null 2>&1 || true
+  fi
   aws cognito-idp admin-delete-user --user-pool-id "$POOL_ID" --username "$TEST_USER" \
     --profile "$PROFILE" --region "$REGION" >/dev/null 2>&1 || true
 }
@@ -42,6 +51,11 @@ TOKEN="$(aws cognito-idp admin-initiate-auth --user-pool-id "$POOL_ID" --client-
   --auth-parameters USERNAME="$TEST_USER",PASSWORD="$TEST_PASS" \
   --query 'AuthenticationResult.IdToken' --output text --profile "$PROFILE" --region "$REGION")"
 [ -n "$TOKEN" ] && [ "$TOKEN" != "None" ] || { echo "failed to mint token"; exit 1; }
+ACCOUNT_ID="$(TOKEN="$TOKEN" node --input-type=module -e \
+  'const p=process.env.TOKEN?.split(".")[1]; const s=p && JSON.parse(Buffer.from(p,"base64url")).sub; if(!s) process.exit(1); process.stdout.write(s)')"
+aws dynamodb put-item --table-name "$APP_TABLE" \
+  --item "{\"pk\":{\"S\":\"account#$ACCOUNT_ID\"},\"sk\":{\"S\":\"entitlement\"},\"plan\":{\"S\":\"lantern\"},\"simulated\":{\"BOOL\":true}}" \
+  --profile "$PROFILE" --region "$REGION" >/dev/null
 
 echo "ws=$WS_URL"
 echo ""

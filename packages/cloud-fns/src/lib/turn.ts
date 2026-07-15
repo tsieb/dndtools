@@ -6,14 +6,14 @@
 import { createHmac } from 'node:crypto';
 
 export interface IceServer {
-  urls: string | string[];
-  username?: string;
-  credential?: string;
+	urls: string | string[];
+	username?: string;
+	credential?: string;
 }
 
 export interface TurnCredentials {
-  iceServers: IceServer[];
-  ttl: number;
+	iceServers: IceServer[];
+	ttl: number;
 }
 
 const PUBLIC_STUN = 'stun:stun.l.google.com:19302';
@@ -25,25 +25,31 @@ const PUBLIC_STUN = 'stun:stun.l.google.com:19302';
  * @param ttlSeconds   credential lifetime
  */
 export function mintTurnCredentials(
-  sharedSecret: string,
-  opaqueId: string,
-  turnUri: string,
-  ttlSeconds: number,
+	sharedSecret: string,
+	opaqueId: string,
+	turnUri: string,
+	ttlSeconds: number,
+	credentialBucketSeconds = 5 * 60,
 ): TurnCredentials {
-  const expiry = Math.floor(Date.now() / 1000) + ttlSeconds;
-  const username = `${expiry}:${opaqueId}`;
-  const credential = createHmac('sha1', sharedSecret).update(username).digest('base64');
+	const now = Math.floor(Date.now() / 1000);
+	const bucketSeconds = Math.max(1, Math.floor(credentialBucketSeconds));
+	// Keep one username/credential per account and short time bucket. Repeated requests no longer mint
+	// arbitrarily many coturn usernames that each receive an independent allocation quota.
+	const bucketStart = Math.floor(now / bucketSeconds) * bucketSeconds;
+	const expiry = bucketStart + ttlSeconds;
+	const username = `${expiry}:${opaqueId}`;
+	const credential = createHmac('sha1', sharedSecret).update(username).digest('base64');
 
-  return {
-    ttl: ttlSeconds,
-    iceServers: [
-      // Free public STUN handles most peers; our own TURN is the relay fallback.
-      { urls: PUBLIC_STUN },
-      {
-        urls: [`${turnUri}?transport=udp`, `${turnUri}?transport=tcp`],
-        username,
-        credential,
-      },
-    ],
-  };
+	return {
+		ttl: Math.max(1, expiry - now),
+		iceServers: [
+			// Free public STUN handles most peers; our own TURN is the relay fallback.
+			{ urls: PUBLIC_STUN },
+			{
+				urls: [`${turnUri}?transport=udp`, `${turnUri}?transport=tcp`],
+				username,
+				credential,
+			},
+		],
+	};
 }

@@ -1,0 +1,250 @@
+name: Promote Production
+
+# Manual-only, protected production promotion. Configure required reviewers on the `production`
+# GitHub environment and set AWS_PROD_DEPLOY_ROLE_ARN to the prod foundation stack's OIDC role.
+# To roll back, dispatch this workflow again with the previous known-good tag as `release_ref`.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_ref:
+        description: 'Existing semver tag from main to deploy (use a prior tag to roll back)'
+        required: true
+        type: string
+      reason:
+        description: 'Promotion or rollback reason recorded in the run'
+        required: true
+        type: string
+
+concurrency:
+  group: production-promotion
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ca-central-1
+  STAGE: prod
+  DNDTOOLS_PROFILE: dndtools
+  DNDTOOLS_STAGE: prod
+
+jobs:
+  preflight:
+    name: verify release candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      release_sha: ${{ steps.release_ref.outputs.sha }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ inputs.release_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require an immutable tag reachable from main
+        id: release_ref
+        env:
+          RELEASE_REF: ${{ inputs.release_ref }}
+        run: |
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          TAG_REF="refs/tags/$RELEASE_REF"
+          git show-ref --verify --quiet "$TAG_REF"
+          TAG_SHA=$(git rev-parse "$TAG_REF^{commit}")
+          test "$(git rev-parse HEAD)" = "$TAG_SHA"
+          git merge-base --is-ancestor "$TAG_SHA" refs/remotes/origin/main
+          echo "sha=$TAG_SHA" >> "$GITHUB_OUTPUT"
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: pnpm install --frozen-lockfile
+      - name: Verify tag and package versions
+        env:
+          RELEASE_REF: ${{ inputs.release_ref }}
+        run: pnpm release:verify version --tag "$RELEASE_REF"
+      - name: Scan repository files for credentials
+        run: pnpm security:secrets
+      - name: Run release-quality gates
+        run: pnpm check
+      - name: Run full lint policy
+        run: pnpm lint
+      - name: Reject high-severity dependency advisories
+        run: pnpm audit --audit-level high
+      - name: Build production bundles
+        run: pnpm build
+      - name: Install Chromium
+        run: pnpm --filter @dndtools/gm-react exec playwright install --with-deps chromium
+      - name: Run browser release suite
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report
+        run: pnpm --filter @dndtools/gm-react exec playwright test --reporter=line,html
+      - name: Apply accessibility release policy
+        run: pnpm a11y:report
+      - name: Upload preflight diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: production-preflight-${{ github.run_id }}
+          path: |
+            apps/gm-react/playwright-report
+            apps/gm-react/test-results
+            tmp/a11y
+          if-no-files-found: warn
+          retention-days: 30
+
+  promote:
+    name: deploy and verify production
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment:
+      name: production
+      url: ${{ steps.target.outputs.url }}
+    permissions:
+      id-token: write # exchange GitHub's OIDC token for the protected production deploy role
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          # Pin the exact commit verified before the environment approval wait. A mutable tag cannot
+          # switch the production source between preflight and deployment.
+          ref: ${{ needs.preflight.outputs.release_sha }}
+          persist-credentials: false
+      - name: Require production OIDC role configuration
+        env:
+          ROLE_ARN: ${{ vars.AWS_PROD_DEPLOY_ROLE_ARN }}
+        run: test -n "$ROLE_ARN"
+      - name: Require production Cognito email configuration
+        env:
+          EMAIL_SOURCE_ARN: ${{ vars.COGNITO_EMAIL_SOURCE_ARN }}
+          EMAIL_FROM: ${{ vars.COGNITO_EMAIL_FROM }}
+        run: |
+          test -n "$EMAIL_SOURCE_ARN"
+          test -n "$EMAIL_FROM"
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: aws-actions/setup-sam@89ddb14d60e682855e3fea4be85b3c56485de310 # v3
+        with:
+          use-installer: true
+      - uses: aws-actions/configure-aws-credentials@517a711dbcd0e402f90c77e7e2f81e849156e31d # v6
+        with:
+          role-to-assume: ${{ vars.AWS_PROD_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Materialize dndtools profile
+        run: |
+          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID" --profile dndtools
+          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY" --profile dndtools
+          aws configure set aws_session_token "$AWS_SESSION_TOKEN" --profile dndtools
+          aws configure set region "$AWS_REGION" --profile dndtools
+      - name: Install dependencies
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: pnpm install --frozen-lockfile
+      - name: Fail closed on out-of-band stack drift
+        run: pnpm cloud:drift prod
+      - name: Reuse the current production web origin when present
+        run: |
+          WEB_ORIGIN=$(aws ssm get-parameter --name "/dndtools/$STAGE/web/url" --query 'Parameter.Value' --output text 2>/dev/null || true)
+          echo "DNDTOOLS_WEB_ORIGIN=$WEB_ORIGIN" >> "$GITHUB_ENV"
+      - name: Deploy identity
+        env:
+          DNDTOOLS_COGNITO_EMAIL_SOURCE_ARN: ${{ vars.COGNITO_EMAIL_SOURCE_ARN }}
+          DNDTOOLS_COGNITO_EMAIL_FROM: ${{ vars.COGNITO_EMAIL_FROM }}
+        run: infra/deploy.sh identity "$STAGE"
+      - name: Deploy TURN
+        run: infra/deploy.sh turn "$STAGE"
+      - name: Deploy app API
+        run: infra/deploy.sh app-api "$STAGE"
+      - name: Deploy signaling
+        run: infra/deploy.sh signaling "$STAGE"
+      - name: Deploy sync API
+        run: infra/deploy.sh sync-api "$STAGE"
+      - name: Refresh app API sync purge verifier
+        run: infra/deploy.sh app-api "$STAGE"
+      - name: Deploy web hosting
+        run: infra/deploy.sh web-hosting "$STAGE"
+      - name: Refresh identity callbacks with the deployed web origin
+        env:
+          DNDTOOLS_COGNITO_EMAIL_SOURCE_ARN: ${{ vars.COGNITO_EMAIL_SOURCE_ARN }}
+          DNDTOOLS_COGNITO_EMAIL_FROM: ${{ vars.COGNITO_EMAIL_FROM }}
+        run: |
+          WEB_ORIGIN=$(aws ssm get-parameter --name "/dndtools/$STAGE/web/url" --query 'Parameter.Value' --output text)
+          DNDTOOLS_WEB_ORIGIN="$WEB_ORIGIN" infra/deploy.sh identity "$STAGE"
+      - name: Refresh API CORS with the deployed web origin
+        run: |
+          WEB_ORIGIN=$(aws ssm get-parameter --name "/dndtools/$STAGE/web/url" --query 'Parameter.Value' --output text)
+          DNDTOOLS_WEB_ORIGIN="$WEB_ORIGIN" infra/deploy.sh sync-api "$STAGE"
+          DNDTOOLS_WEB_ORIGIN="$WEB_ORIGIN" infra/deploy.sh app-api "$STAGE"
+      - name: Pull production cloud coordinates
+        run: node apps/gm-react/scripts/pull-cloud-env.mjs "$STAGE"
+      - name: Validate production cloud coordinates
+        run: >-
+          node --env-file=apps/gm-react/.env.local
+          apps/gm-react/scripts/validate-cloud-env.mjs --required
+      - name: Build production web app
+        run: pnpm --filter @dndtools/gm-react build
+      - name: Resolve production hosting target
+        id: target
+        run: |
+          BUCKET=$(aws ssm get-parameter --name "/dndtools/$STAGE/web/bucket-name" --query 'Parameter.Value' --output text)
+          DIST=$(aws ssm get-parameter --name "/dndtools/$STAGE/web/distribution-id" --query 'Parameter.Value' --output text)
+          URL=$(aws ssm get-parameter --name "/dndtools/$STAGE/web/url" --query 'Parameter.Value' --output text)
+          {
+            echo "bucket=$BUCKET"
+            echo "distribution=$DIST"
+            echo "url=$URL"
+          } >> "$GITHUB_OUTPUT"
+      - name: Publish immutable assets
+        env:
+          HOSTING_BUCKET: ${{ steps.target.outputs.bucket }}
+        run: |
+          aws s3 sync apps/gm-react/dist "s3://$HOSTING_BUCKET" \
+            --delete --cache-control 'public, max-age=31536000, immutable' --exclude 'index.html'
+          aws s3 cp apps/gm-react/dist/index.html "s3://$HOSTING_BUCKET/index.html" \
+            --cache-control 'no-cache'
+      - name: Invalidate and wait for CloudFront
+        env:
+          DISTRIBUTION_ID: ${{ steps.target.outputs.distribution }}
+        run: |
+          INVALIDATION=$(aws cloudfront create-invalidation \
+            --distribution-id "$DISTRIBUTION_ID" \
+            --paths '/*' --query Invalidation.Id --output text)
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "$DISTRIBUTION_ID" \
+            --id "$INVALIDATION"
+      - name: Run safe post-deploy production probes
+        run: >-
+          pnpm validate --only=cloud:config,cloud:web-headers,cloud:sync-unauth,cloud:cognito-oidc
+      - name: Record promotion summary
+        if: always()
+        env:
+          RELEASE_REF: ${{ inputs.release_ref }}
+          REASON: ${{ inputs.reason }}
+        run: |
+          {
+            echo "### Production promotion"
+            echo "- Ref: \`$RELEASE_REF\`"
+            echo "- Reason: $REASON"
+            echo "- Rollback: rerun this workflow from main with the previous known-good tag."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload post-deploy validation report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: production-validation-${{ github.run_id }}
+          path: test-results/validation
+          if-no-files-found: warn
+          retention-days: 30

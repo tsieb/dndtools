@@ -24,14 +24,19 @@ Parameters:
       Lifetime of minted TURN credentials. coturn use-auth-secret credentials are
       bearer tokens (the username:credential pair works for anyone holding it until
       expiry), so keep this short — 1h is ample to establish a relay allocation.
+  LogRetentionDays:
+    Type: Number
+    Default: 30
+    AllowedValues: [14, 30, 60, 90, 180, 365]
 
 Globals:
   Function:
-    Runtime: nodejs20.x
+    Runtime: nodejs24.x
     Architectures: [arm64]
     MemorySize: 256
     Timeout: 15
     Tracing: Active
+    PermissionsBoundary: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/meta/permissions-boundary-arn}}'
 
 Resources:
   # --- State tables (all on-demand + TTL: pay-per-use, auto-expiring) --------
@@ -71,6 +76,24 @@ Resources:
         AttributeName: expiresAt
         Enabled: true
 
+  AuthorizerFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/${ProjectName}/${Stage}/lambda/signaling-authorizer'
+      RetentionInDays: !Ref LogRetentionDays
+
+  SignalingFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/${ProjectName}/${Stage}/lambda/signaling-handler'
+      RetentionInDays: !Ref LogRetentionDays
+
+  SignalingAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/${ProjectName}/${Stage}/apigateway/signaling'
+      RetentionInDays: !Ref LogRetentionDays
+
   # --- WebSocket API --------------------------------------------------------
   SignalingApi:
     Type: AWS::ApiGatewayV2::Api
@@ -86,6 +109,12 @@ Resources:
       CodeUri: ../../packages/cloud-fns/build/signaling-authorizer
       Handler: index.handler
       Timeout: 10
+      ReservedConcurrentExecutions: 10
+      LoggingConfig:
+        LogFormat: JSON
+        ApplicationLogLevel: INFO
+        SystemLogLevel: WARN
+        LogGroup: !Ref AuthorizerFunctionLogGroup
       Environment:
         Variables:
           USER_POOL_ID: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/identity/user-pool-id}}'
@@ -96,11 +125,18 @@ Resources:
     Properties:
       CodeUri: ../../packages/cloud-fns/build/signaling-handler
       Handler: index.handler
+      ReservedConcurrentExecutions: 20
+      LoggingConfig:
+        LogFormat: JSON
+        ApplicationLogLevel: INFO
+        SystemLogLevel: WARN
+        LogGroup: !Ref SignalingFunctionLogGroup
       Environment:
         Variables:
           CONNECTIONS_TABLE: !Ref ConnectionsTable
           ROOMS_TABLE: !Ref RoomsTable
           ATTEMPTS_TABLE: !Ref AttemptsTable
+          APP_TABLE: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/app-api/table-name}}'
           TURN_SECRET_ARN: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/turn/secret-arn}}'
           TURN_URI: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/turn/uri}}'
           TURN_TTL_SECONDS: !Ref TurnTtlSeconds
@@ -109,6 +145,12 @@ Resources:
         - DynamoDBCrudPolicy: { TableName: !Ref ConnectionsTable }
         - DynamoDBCrudPolicy: { TableName: !Ref RoomsTable }
         - DynamoDBCrudPolicy: { TableName: !Ref AttemptsTable }
+        # Online play is a Lantern/Beacon capability. The handler reads only the
+        # caller's entitlement row and denies on missing/invalid/deleted/read failure.
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:GetItem
+              Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/{{resolve:ssm:/${ProjectName}/${Stage}/app-api/table-name}}'
         - Statement:
             - Effect: Allow
               Action: secretsmanager:GetSecretValue
@@ -165,6 +207,10 @@ Resources:
       ApiId: !Ref SignalingApi
       StageName: !Ref Stage
       AutoDeploy: true
+      AccessLogSettings:
+        DestinationArn: !GetAtt SignalingAccessLogGroup.Arn
+        Format: >-
+          {"requestId":"$context.requestId","routeKey":"$context.routeKey","status":"$context.status","responseLength":"$context.responseLength","integrationError":"$context.integrationErrorMessage"}
       # Cap per-connection message throughput so a single authenticated client
       # cannot flood $default (join-spam, unbounded turnCredentials minting, relay
       # abuse) and run up Lambda/DynamoDB cost. These are generous for real play
@@ -190,6 +236,78 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${SignalingApi}/*/*'
 
+  SignalingFunctionErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Signaling Lambda returned one or more unhandled errors in five minutes.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref SignalingFn
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/ops/alerts-topic-arn}}'
+
+  SignalingApi5xxMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref SignalingAccessLogGroup
+      FilterPattern: '{ $.status = 5* }'
+      MetricTransformations:
+        - MetricNamespace: Dndtools/Api
+          MetricName: !Sub '${ProjectName}-${Stage}-signaling-5xx'
+          MetricValue: '1'
+          DefaultValue: 0
+
+  SignalingApi5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Signaling API returned one or more 5xx responses in five minutes.
+      Namespace: Dndtools/Api
+      MetricName: !Sub '${ProjectName}-${Stage}-signaling-5xx'
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/ops/alerts-topic-arn}}'
+
+  SignalingFunctionThrottlesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Signaling Lambda concurrency throttling was observed.
+      Namespace: AWS/Lambda
+      MetricName: Throttles
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref SignalingFn
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/ops/alerts-topic-arn}}'
+
+  SignalingDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub '${ProjectName}-${Stage}-signaling'
+      DashboardBody: !Sub >-
+        {"widgets":[{"type":"metric","width":12,"height":6,"properties":{"title":"Signaling Lambda","region":"${AWS::Region}","stat":"Sum","period":300,"metrics":[["AWS/Lambda","Invocations","FunctionName","${SignalingFn}"],[".","Errors",".","."],[".","Throttles",".","."]]}},{"type":"metric","width":12,"height":6,"properties":{"title":"Authorizer","region":"${AWS::Region}","stat":"Sum","period":300,"metrics":[["AWS/Lambda","Invocations","FunctionName","${AuthorizerFn}"],[".","Errors",".","."]]}}]}
+
   # --- Publish the WS URL for the client build ------------------------------
   ParamSignalingWsUrl:
     Type: AWS::SSM::Parameter
@@ -197,6 +315,13 @@ Resources:
       Name: !Sub '/${ProjectName}/${Stage}/signaling/ws-url'
       Type: String
       Value: !Sub 'wss://${SignalingApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}'
+
+  ParamSignalingApiId:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/signaling/api-id'
+      Type: String
+      Value: !Ref SignalingApi
 
 Outputs:
   SignalingWsUrl:
