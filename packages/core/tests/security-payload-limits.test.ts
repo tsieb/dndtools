@@ -6,6 +6,7 @@ import {
 	MAX_IMPORT_TOTAL_BYTES,
 	byteLength,
 	dispatchCommand,
+	hasAsciiControlCharacter,
 	validateBodyLimit,
 	validateImportLimits,
 	type CommandResult,
@@ -64,7 +65,10 @@ describe('SEC-006 payload-limits — per-file and total-size ceilings (AC1)', ()
 		// Each file is half the per-file limit; enough of them exceed the total ceiling.
 		const half = 'a'.repeat(Math.floor(MAX_IMPORT_FILE_BYTES / 2));
 		const count = Math.ceil(MAX_IMPORT_TOTAL_BYTES / half.length) + 1;
-		const files = Array.from({ length: count }, (_unused, i) => ({ path: `n-${i}.md`, text: half }));
+		const files = Array.from({ length: count }, (_unused, i) => ({
+			path: `n-${i}.md`,
+			text: half,
+		}));
 		const rejection = reject(validateImportLimits(files));
 		expect(rejection.reason).toBe('total-too-large');
 		expect(rejection.path).toBe('files');
@@ -88,6 +92,13 @@ describe('SEC-006 payload-limits — body ceiling + byte measurement', () => {
 		// A 2-char string of 3-byte code points is 6 bytes, not 2.
 		expect(byteLength('€€')).toBe(6);
 		expect(byteLength('abc')).toBe(3);
+	});
+
+	it('detects every ASCII control range while allowing ordinary Unicode text', () => {
+		expect(hasAsciiControlCharacter('account\u0000id')).toBe(true);
+		expect(hasAsciiControlCharacter('vault\u001fid')).toBe(true);
+		expect(hasAsciiControlCharacter('vault\u007fid')).toBe(true);
+		expect(hasAsciiControlCharacter('Café campaign')).toBe(false);
 	});
 });
 
@@ -147,8 +158,6 @@ describe('SEC-006 AC2 — enum allowlist: unknown value yields structured reject
 		if (result.status !== 'rejected') throw new Error('expected rejected');
 		expect(result.rejection.code).toBe('invalid-payload');
 		// The path should name the nested field (visualSettings.background), not just `(root)`.
-		expect(
-			result.rejection.issues?.some((issue) => issue.path.includes('background')),
-		).toBe(true);
+		expect(result.rejection.issues?.some((issue) => issue.path.includes('background'))).toBe(true);
 	});
 });

@@ -91,6 +91,25 @@ export function isSafeUrl(rawUrl: string): boolean {
 }
 
 /**
+ * Strict URL policy for remotely fetched media. Unlike a normal link, media must be an absolute HTTP(S)
+ * URL and must not carry embedded credentials. This keeps script/data/file schemes, relative targets,
+ * and accidental `user:password@host` disclosure out of image/audio fetch paths.
+ */
+export function isSafeRemoteMediaUrl(rawUrl: string): boolean {
+	if (!isSafeUrl(rawUrl)) return false;
+	try {
+		const parsed = new URL(rawUrl);
+		return (
+			(parsed.protocol === 'https:' || parsed.protocol === 'http:') &&
+			parsed.username === '' &&
+			parsed.password === ''
+		);
+	} catch {
+		return false;
+	}
+}
+
+/**
  * SEC-003 — return a SAFE href for a target: the target itself when {@link isSafeUrl}, else the inert
  * {@link NEUTRALIZED_URL} sentinel. Used by the link/embed renderer so a dangerous scheme can never reach
  * an `href`/`src`. Pure.

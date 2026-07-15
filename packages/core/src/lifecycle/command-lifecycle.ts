@@ -58,6 +58,48 @@ export const UNDOABLE_COMMAND_TYPES: Partial<Record<CoreCommand['type'], CoreCom
 	// prior content. The forward and inverse share a command type because the operation is a content
 	// replacement, not a distinct destructive op.
 	'map.edit-layer': 'map.edit-layer',
+	// MAP-021 — every mutating map command. The INVERSE COMMANDS are built by `buildMapInverse`
+	// (`lifecycle/map-undo.ts`) from the command + the state BEFORE it applied; the undo STACK is
+	// app-side, local, and never durable (see that module's header for why a co-DM must not be able to
+	// undo your brush stroke from across the table).
+	'map.add-features': 'map.remove-features',
+	'map.update-features': 'map.update-features',
+	'map.remove-features': 'map.add-features',
+	// Generation/derivation and the layer lifecycle are undone at LAYER granularity: `map.restore-layers`
+	// removes the layers they created and puts back the ones they replaced (with their content, their
+	// order, and the POIs a generation planted).
+	'map.generate': 'map.restore-layers',
+	'map.derive-features': 'map.restore-layers',
+	'map.create-layer': 'map.delete-layer',
+	'map.duplicate-layer': 'map.delete-layer',
+	'map.delete-layer': 'map.restore-layers',
+	'map.rename-layer': 'map.rename-layer',
+	'map.reorder-layer': 'map.reorder-layer',
+	'map.lock-layer': 'map.lock-layer',
+	'map.set-layer-visibility': 'map.set-layer-visibility',
+	'map.set-layer-enabled': 'map.set-layer-enabled',
+	'map.set-layer-opacity': 'map.set-layer-opacity',
+	'map.set-layer-tags': 'map.set-layer-tags',
+	'map.create-poi': 'map.delete-poi',
+	'map.update-poi': 'map.update-poi',
+	'map.delete-poi': 'map.create-poi',
+	'map.create-route': 'map.delete-route',
+	'map.update-route': 'map.update-route',
+	'map.delete-route': 'map.create-route',
+	'map.create-token': 'map.delete-token',
+	'map.move-token': 'map.move-token',
+	'map.update-token': 'map.update-token',
+	'map.delete-token': 'map.create-token',
+	'map.append-fog': 'map.remove-fog',
+	'map.remove-fog': 'map.append-fog',
+	'map.set-overlay-mode': 'map.set-overlay-mode',
+	'map.configure-overlay': 'map.configure-overlay',
+	'map.create-region': 'map.delete-region',
+	'map.update-region': 'map.update-region',
+	'map.delete-region': 'map.create-region',
+	'map.set-scale': 'map.set-scale',
+	'map.set-projection': 'map.set-projection',
+	'map.update-metadata': 'map.update-metadata',
 	// CONTENT-001: a soft-delete is undone by restoring the same item. The tombstone keeps the record, so
 	// restore returns the exact prior content (no hidden prior revision re-exposed).
 	'content.remove-item': 'content.restore-item',

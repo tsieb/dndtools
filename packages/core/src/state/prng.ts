@@ -56,6 +56,16 @@ export interface SeededRng {
 	chance(p: number): boolean;
 	/** Pick one element from a non-empty array. */
 	pick<T>(items: readonly T[]): T;
+	/**
+	 * Next normally-distributed float (Box–Muller). Room sizes drawn from a normal distribution are
+	 * what give a dungeon a few grand halls among many small chambers; a uniform draw gives the
+	 * characteristic "every room is the same size" look of a naive generator.
+	 */
+	gaussian(mean: number, stdDev: number): number;
+	/** Pick one element with per-item weights (weights need not sum to 1). */
+	weighted<T>(items: readonly T[], weights: readonly number[]): T;
+	/** Fisher–Yates shuffle. Returns a NEW array; the input is never mutated. */
+	shuffle<T>(items: readonly T[]): T[];
 }
 
 export function createRng(seed: number | string): SeededRng {
@@ -77,6 +87,90 @@ export function createRng(seed: number | string): SeededRng {
 		pick<T>(items: readonly T[]): T {
 			if (items.length === 0) throw new Error('createRng.pick requires a non-empty array.');
 			return items[Math.floor(next() * items.length)] as T;
+		},
+		gaussian(mean: number, stdDev: number): number {
+			// Box–Muller. Guard u against 0 so log() never returns -Infinity.
+			const u = Math.max(next(), Number.EPSILON);
+			const v = next();
+			return mean + stdDev * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+		},
+		weighted<T>(items: readonly T[], weights: readonly number[]): T {
+			if (items.length === 0) throw new Error('createRng.weighted requires a non-empty array.');
+			if (weights.length !== items.length) {
+				throw new Error('createRng.weighted requires one weight per item.');
+			}
+			let total = 0;
+			for (const weight of weights) total += Math.max(0, weight);
+			// All-zero (or negative) weights degrade to a uniform pick rather than throwing, so a caller
+			// whose weight table happens to zero out still gets a deterministic result.
+			if (total <= 0) return items[Math.floor(next() * items.length)] as T;
+			let roll = next() * total;
+			for (let i = 0; i < items.length; i += 1) {
+				roll -= Math.max(0, weights[i] as number);
+				if (roll < 0) return items[i] as T;
+			}
+			return items[items.length - 1] as T;
+		},
+		shuffle<T>(items: readonly T[]): T[] {
+			// Fisher–Yates, descending — the canonical unbiased shuffle. Returns a new array; the input
+			// is never mutated (a generator that shuffled its own input would not be replay-safe).
+			const result = [...items];
+			for (let i = result.length - 1; i > 0; i -= 1) {
+				const j = Math.floor(next() * (i + 1));
+				[result[i], result[j]] = [result[j] as T, result[i] as T];
+			}
+			return result;
+		},
+	};
+}
+
+/**
+ * MAP-004 — derive an INDEPENDENT named sub-stream from a root seed.
+ *
+ * Why this exists: with a single shared RNG cursor, nudging any one parameter shifts every subsequent
+ * PRNG draw, so bumping `roomCount` from 12 to 13 also reshuffles every name, every treasure, and
+ * every river on the map. That makes a generator a slot machine rather than a tool. By deriving one
+ * stream per subsystem, a change confined to one subsystem's parameters leaves the others' draws
+ * untouched — the map stays recognizably "the same map, with one more room", which is the behaviour a
+ * GM expects when they drag a slider.
+ *
+ * The derivation mixes the root seed with the stream name through the same FNV-1a/mulberry hashing the
+ * rest of this module uses, so it stays dependency-free and byte-identical across platforms. Stream
+ * names are part of the determinism contract: renaming a stream changes its output.
+ */
+export function deriveStream(rootSeed: number | string, streamName: string): number {
+	const root = normalizeSeed(rootSeed);
+	const name = normalizeSeed(streamName);
+	// splitmix32-style avalanche of the two hashes so that adjacent root seeds (1, 2, 3 …) and similar
+	// stream names ("rooms" / "roads") do not produce correlated streams.
+	let mixed = (root ^ Math.imul(name ^ (name >>> 16), 0x45d9f3b)) >>> 0;
+	mixed = Math.imul(mixed ^ (mixed >>> 16), 0x45d9f3b) >>> 0;
+	mixed = Math.imul(mixed ^ (mixed >>> 16), 0x45d9f3b) >>> 0;
+	return (mixed ^ (mixed >>> 16)) >>> 0;
+}
+
+/**
+ * A lazily-instantiated set of named, independent RNG streams derived from one root seed. Each name
+ * yields the SAME cursor on every call within a run (so a subsystem that draws in two places shares
+ * one stream), and an independent stream across names. See {@link deriveStream} for why.
+ */
+export interface RngStreams {
+	/** The root seed every stream is derived from. Carried so it can be persisted with the output. */
+	readonly seed: number | string;
+	/** Get (creating on first use) the named stream. */
+	stream(name: string): SeededRng;
+}
+
+export function createRngStreams(seed: number | string): RngStreams {
+	const cursors = new Map<string, SeededRng>();
+	return {
+		seed,
+		stream(name: string): SeededRng {
+			const existing = cursors.get(name);
+			if (existing) return existing;
+			const created = createRng(deriveStream(seed, name));
+			cursors.set(name, created);
+			return created;
 		},
 	};
 }

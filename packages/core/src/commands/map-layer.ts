@@ -170,10 +170,13 @@ export function handleCreateMapLayer(
 	const pre = preamble(state, actorId, parsed.data.mapId);
 	if ('rejection' in pre) return pre.rejection;
 
+	// MAP-021 — an EXPLICIT id is the undo/replay path (`buildMapInverse` runs against the state BEFORE
+	// the command, so it cannot know an id the handler is about to mint). A collision is rejected
+	// fail-closed by the reducer's `duplicate-layer-id` check; omitted, the id is minted as before.
 	const result = createLayer(
 		pre.map.layers,
 		{
-			id: env.ids(),
+			id: parsed.data.id ?? env.ids(),
 			name: parsed.data.name,
 			category: parsed.data.category,
 			visibility: parsed.data.visibility,
@@ -258,7 +261,7 @@ export function handleDuplicateMapLayer(
 	const result = duplicateLayer(
 		pre.map.layers,
 		parsed.data.layerId,
-		env.ids(),
+		parsed.data.id ?? env.ids(),
 		stampFor(env, pre.actorId),
 	);
 	if ('error' in result) return rejectLayerError(result.error, state);

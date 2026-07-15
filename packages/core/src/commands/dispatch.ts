@@ -105,9 +105,25 @@ import {
 } from './map-layer';
 import { handleEditMapLayer, handleGenerateMapLayers } from './map-editing';
 import {
+	handleAddMapFeatures,
+	handleDeriveMapFeatures,
+	handleGenerateMap,
+	handleRemoveMapFeatures,
+	handleRestoreMapLayers,
+	handleUpdateMapFeatures,
+} from './map-features';
+import {
+	handleCreateMapRegion,
+	handleDeleteMapRegion,
+	handleUpdateMapRegion,
+} from './map-regions';
+import {
 	handleCommitMapImport,
 	handleCreateMap,
+	handleDeleteMap,
 	handleImportMapAsset,
+	handleSetMapProjection,
+	handleSetMapScale,
 	handleUpdateMapMetadata,
 } from './map-entity';
 import { handleEmbedChildMap, handleRemoveMapEmbed, handleUpdateMapEmbed } from './map-nesting';
@@ -463,6 +479,32 @@ export function dispatchCommand(
 			return handleEditMapLayer(state, env, command.actorId, command.payload);
 		case 'map.generate-layers':
 			return handleGenerateMapLayers(state, env, command.actorId, command.payload);
+		// MAP-021 — the generator-fleet ↔ editor bridge: incremental (delta-only) feature editing,
+		// registry-driven generation, auto-derivation, and the durable layer-set restore.
+		case 'map.add-features':
+			return handleAddMapFeatures(state, env, command.actorId, command.payload);
+		case 'map.update-features':
+			return handleUpdateMapFeatures(state, env, command.actorId, command.payload);
+		case 'map.remove-features':
+			return handleRemoveMapFeatures(state, env, command.actorId, command.payload);
+		case 'map.generate':
+			return handleGenerateMap(state, env, command.actorId, command.payload);
+		case 'map.derive-features':
+			return handleDeriveMapFeatures(state, env, command.actorId, command.payload);
+		case 'map.restore-layers':
+			return handleRestoreMapLayers(state, env, command.actorId, command.payload);
+		case 'map.delete':
+			return handleDeleteMap(state, env, command.actorId, command.payload);
+		case 'map.set-scale':
+			return handleSetMapScale(state, env, command.actorId, command.payload);
+		case 'map.set-projection':
+			return handleSetMapProjection(state, env, command.actorId, command.payload);
+		case 'map.create-region':
+			return handleCreateMapRegion(state, env, command.actorId, command.payload);
+		case 'map.update-region':
+			return handleUpdateMapRegion(state, env, command.actorId, command.payload);
+		case 'map.delete-region':
+			return handleDeleteMapRegion(state, env, command.actorId, command.payload);
 		case 'map.create':
 			return handleCreateMap(state, env, command.actorId, command.payload);
 		case 'map.import-asset':

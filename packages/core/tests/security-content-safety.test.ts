@@ -3,6 +3,7 @@ import {
 	NEUTRALIZED_URL,
 	isSafeMarkdownContent,
 	isSafeUrl,
+	isSafeRemoteMediaUrl,
 	neutralizeMarkdownLinks,
 	renderMarkdownPreview,
 	safeUrl,
@@ -110,7 +111,17 @@ describe('SEC-003 content-safety — dangerous URL schemes are neutralized (AC1)
 		expect(isSafeUrl('./relative/note.md')).toBe(true);
 		expect(isSafeUrl('#a-heading-anchor')).toBe(true);
 		// A legitimate markdown link is untouched.
-		expect(neutralizeMarkdownLinks('[home](https://example.com)')).toBe('[home](https://example.com)');
+		expect(neutralizeMarkdownLinks('[home](https://example.com)')).toBe(
+			'[home](https://example.com)',
+		);
+	});
+
+	it('uses a stricter absolute, credential-free policy for fetched media', () => {
+		expect(isSafeRemoteMediaUrl('https://cdn.example.test/scene.png')).toBe(true);
+		expect(isSafeRemoteMediaUrl('http://localhost:4173/audio.mp3')).toBe(true);
+		expect(isSafeRemoteMediaUrl('./scene.png')).toBe(false);
+		expect(isSafeRemoteMediaUrl('mailto:dm@example.test')).toBe(false);
+		expect(isSafeRemoteMediaUrl('https://user:secret@example.test/audio.mp3')).toBe(false);
 	});
 });
 

@@ -29,14 +29,88 @@ export type MapLayerCategory =
  * content array (the command captures before+after), it does not mutate a feature in place. `kind`
  * tells the renderer how to draw the geometry; `points` carries the geometry in normalized space.
  */
+export type MapFeatureKind =
+	// The original six kinds. Kept verbatim — persisted content uses them.
+	| 'stroke'
+	| 'fill'
+	| 'marker'
+	| 'room'
+	| 'wall'
+	| 'road'
+	// MAP-021 — the kinds the generator fleet and the paint tools need.
+	/** A closed, filled polygon: a cave chamber, a biome, a landmass, a city ward. The workhorse
+	 *  output of every vectorized (marching-squares) generator. */
+	| 'polygon'
+	/** A portal ON a wall — a door, secret door, archway, or portcullis. `points` is the two-point
+	 *  span it occupies; `props.portal` carries the kind and `props.state` open/closed/locked. */
+	| 'door'
+	/** A light source. `points` is a single point; `props` carries radius/color/intensity. Exported
+	 *  to UVTT `lights[]` and consumed by the line-of-sight query. */
+	| 'light'
+	/** Water: a river (polyline, width from `props.width`) or a lake/sea (closed polygon). */
+	| 'water'
+	/** A map label. `points` is the anchor; `props.text` is the string. */
+	| 'text'
+	/** A placed object/stamp (tree, crate, statue). `points` is the anchor; `props` carries the
+	 *  asset token, rotation, and scale. */
+	| 'prop';
+
+/**
+ * MAP-021 — bounded, serializable per-feature metadata.
+ *
+ * Deliberately a flat record of PRIMITIVES, not an open object graph. Two reasons, both load-bearing:
+ * it stays trivially JSON-serializable and byte-identical across devices (the Contract 2 determinism
+ * requirement that governs everything in this file), and it validates under a `.strict()` Zod schema
+ * without opening a hole through which arbitrary nested payloads could reach durable state.
+ *
+ * Conventional keys by feature kind (none are required; a reader must tolerate their absence):
+ *   door  — `portal`: 'door'|'secret'|'archway'|'portcullis', `state`: 'open'|'closed'|'locked'
+ *   light — `radius`, `dimRadius`, `color`, `intensity`, `angle`, `rotation`
+ *   water — `width` (normalized), `flow`
+ *   text  — `text`, `size`, `rotation`
+ *   prop  — `asset`, `rotation`, `scale`
+ *   any   — `elevation`, `role` (generator-assigned room role), `note`, `blocksSight`, `blocksMovement`
+ */
+export type MapFeatureProps = Record<string, string | number | boolean>;
+
 export interface MapFeature {
 	id: string;
-	kind: 'stroke' | 'fill' | 'marker' | 'room' | 'wall' | 'road';
-	/** Normalized (0..1) point list. A stroke/road/wall is a polyline; a fill/room is a rect's two
-	 *  corners; a marker is a single point. */
+	kind: MapFeatureKind;
+	/** Normalized (0..1) point list. A stroke/road/wall/water-river is a polyline; a fill/room is a
+	 *  rect's two corners; a polygon/water-lake is a closed ring; a marker/light/text/prop/door
+	 *  anchor is a single point (a door may carry two, spanning the wall opening). */
 	points: Array<{ x: number; y: number }>;
 	/** Stable style token (e.g. `terrain:forest`, `ink:black`). Presentation metadata, not geometry. */
 	style: string;
+	/**
+	 * MAP-021 — optional per-feature metadata (see {@link MapFeatureProps}). OPTIONAL, and absent on
+	 * every feature persisted before MAP-021: this extension is deliberately ADDITIVE and does NOT bump
+	 * `MAP_STATE_SCHEMA_VERSION`, because cloud-backup restore gates on exact schemaVersion equality
+	 * (`coreStore.ts` — a bump would make every existing backup unrestorable). Readers must treat a
+	 * missing `props` as `{}`; {@link normalizeMapFeature} does exactly that.
+	 */
+	props?: MapFeatureProps;
+}
+
+/**
+ * Normalize a single feature: deep-clone the geometry and backfill `props`. A feature persisted before
+ * MAP-021 has no `props`; it reads back as an empty record rather than `undefined`, so no consumer
+ * needs a null check.
+ */
+export function normalizeMapFeature(feature: MapFeature): MapFeature {
+	const normalized: MapFeature = {
+		id: feature.id,
+		kind: feature.kind,
+		points: feature.points.map((point) => ({ x: point.x, y: point.y })),
+		style: feature.style,
+	};
+	// Only attach `props` when there is something to carry, so a plain feature round-trips to the exact
+	// same JSON it had before MAP-021 (an unconditional `props: {}` would change every existing
+	// feature's serialization and so its content hash).
+	if (feature.props && Object.keys(feature.props).length > 0) {
+		normalized.props = { ...feature.props };
+	}
+	return normalized;
 }
 
 /**
@@ -309,10 +383,7 @@ export function normalizeMapLayer(
 		tags: [...(layer.tags ?? [])],
 		query: { ...(layer.query ?? {}) },
 		locked: layer.locked ?? false,
-		content: (layer.content ?? []).map((feature) => ({
-			...feature,
-			points: feature.points.map((point) => ({ ...point })),
-		})),
+		content: (layer.content ?? []).map(normalizeMapFeature),
 		order: layer.order ?? index,
 		revision: layer.revision ?? 1,
 		updatedBy: layer.updatedBy ?? null,

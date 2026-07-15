@@ -136,6 +136,31 @@ function layerExists(map: MapEntity, layerId: string): boolean {
 }
 
 /**
+ * MAP-021 — resolve the id a `create-*` command should use: the EXPLICIT id when the payload carries
+ * one (the undo/replay path — the inverse of a delete must recreate the record under its ORIGINAL id),
+ * otherwise a freshly minted one (the normal authoring path). An explicit id that already exists is
+ * REJECTED fail-closed: a create that silently overwrote an existing annotation would destroy content
+ * with no record of it.
+ */
+function resolveAnnotationId(
+	env: CoreEnvironment,
+	existingIds: ReadonlyArray<{ id: string }>,
+	requestedId: string | undefined,
+	label: string,
+): { id: string } | { rejection: CommandRejection } {
+	if (requestedId === undefined) return { id: env.ids() };
+	if (existingIds.some((record) => record.id === requestedId)) {
+		return {
+			rejection: {
+				code: 'invalid-state',
+				message: `${label} ${requestedId} already exists on this map.`,
+			},
+		};
+	}
+	return { id: requestedId };
+}
+
+/**
  * Shared commit tail: write the patched map back, bump its revision, append a durable op, emit events.
  * `patch` carries whichever annotation array changed; the others are inherited from the prior map.
  */
@@ -195,10 +220,12 @@ export function handleCreateMapPoi(
 			state,
 		);
 	}
+	const poiId = resolveAnnotationId(env, pre.map.pois, parsed.data.id, 'POI');
+	if ('rejection' in poiId) return reject(poiId.rejection, state);
 	const result = createPoi(
 		pre.map.pois,
 		{
-			id: env.ids(),
+			id: poiId.id,
 			layerId: parsed.data.layerId,
 			label: parsed.data.label,
 			category: parsed.data.category,
@@ -316,10 +343,12 @@ export function handleCreateMapRoute(
 			state,
 		);
 	}
+	const routeId = resolveAnnotationId(env, pre.map.routes, parsed.data.id, 'Route');
+	if ('rejection' in routeId) return reject(routeId.rejection, state);
 	const result = createRoute(
 		pre.map.routes,
 		{
-			id: env.ids(),
+			id: routeId.id,
 			layerId: parsed.data.layerId,
 			label: parsed.data.label,
 			visibility: parsed.data.visibility,
@@ -410,10 +439,12 @@ export function handleAppendMapFog(
 			state,
 		);
 	}
+	const fogId = resolveAnnotationId(env, pre.map.fog, parsed.data.id, 'Fog operation');
+	if ('rejection' in fogId) return reject(fogId.rejection, state);
 	const result = appendFogOp(
 		pre.map.fog,
 		{
-			id: env.ids(),
+			id: fogId.id,
 			layerId: parsed.data.layerId,
 			kind: parsed.data.kind,
 			region: parsed.data.region,
@@ -502,10 +533,12 @@ export function handleCreateMapToken(
 			state,
 		);
 	}
+	const tokenId = resolveAnnotationId(env, pre.map.tokens, parsed.data.id, 'Token');
+	if ('rejection' in tokenId) return reject(tokenId.rejection, state);
 	const result = createToken(
 		pre.map.tokens,
 		{
-			id: env.ids(),
+			id: tokenId.id,
 			layerId: parsed.data.layerId,
 			label: parsed.data.label,
 			linkedActorId: parsed.data.linkedActorId,

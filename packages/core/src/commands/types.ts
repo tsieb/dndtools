@@ -286,6 +286,31 @@ export type CoreCommand =
 	| { type: 'map.edit-layer'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// MAP-004: deterministic procedural generation saved as editable map layers.
 	| { type: 'map.generate-layers'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-021: INCREMENTAL feature editing. The durable op carries only the DELTA, not the layer's whole
+	// content — the difference between a ~200-byte brush stroke and a 10,000-feature op on a generated
+	// layer. `map.edit-layer` keeps its (shipped, tested) whole-array semantics for hand-drawn layers.
+	| { type: 'map.add-features'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.update-features'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.remove-features'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-021: REGISTRY-DRIVEN generation. The op records `{generatorId, generatorVersion, seed, params}`
+	// and NOT the geometry — a replaying device re-runs the generator and gets byte-identical layers.
+	| { type: 'map.generate'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-021: AUTO-DERIVATION of walls/doors/lights from floor geometry (VTT export + line-of-sight).
+	| { type: 'map.derive-features'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-021: the durable LAYER-SET RESTORE — remove layers, upsert layer snapshots, re-apply the order
+	// map. The inverse `buildMapInverse` returns for generate / derive / delete-layer.
+	| { type: 'map.restore-layers'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-021: DELETE a map. Refuses fail-closed to orphan an embed (unless forced, which removes them).
+	| { type: 'map.delete'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-021: scale/projection were WRITE-ONCE at creation; these make them editable, same fail-closed
+	// validation as `map.create`.
+	| { type: 'map.set-scale'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.set-projection'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-021: REGION CRUD. `MapRegion` had two readers and no writer. Deleting the default region CLEARS
+	// `defaultRegionId` rather than dangling it.
+	| { type: 'map.create-region'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.update-region'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.delete-region'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// MAP-001: create a map entity (name, scale, projection, default visibility, initial layers).
 	| { type: 'map.create'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// MAP-002: import a native image/SVG as a content-addressed map asset.
@@ -995,7 +1020,20 @@ export type CoreEvent =
 			actorId: ActorId;
 	  }
 	| { kind: 'map.created'; mapId: string; actorId: ActorId }
-	// Map name/description metadata changed (mirrors scene.metadata-changed).
+	// MAP-021 — a map was DELETED. Carries the id only; every reader degrades to the generic
+	// `unavailable` result for a missing map, so no name/content rides the event.
+	| { kind: 'map.deleted'; mapId: string; actorId: ActorId }
+	// MAP-021 — a REGION was created/updated/deleted. A delete that removed the map's default region also
+	// cleared `defaultRegionId` in the same commit.
+	| {
+			kind: 'map.region-changed';
+			mapId: string;
+			regionId: string;
+			mutation: 'create' | 'update' | 'delete';
+			actorId: ActorId;
+	  }
+	// Map name/description metadata changed (mirrors scene.metadata-changed). MAP-021 also emits this for
+	// a `scale` / `projection` change, with the changed path named.
 	| { kind: 'map.metadata-changed'; mapId: string; actorId: ActorId; paths: string[] }
 	// A scene was soft-deleted (tombstoned; recoverable) / restored.
 	| { kind: 'scene.deleted'; sceneId: SceneId; actorId: ActorId }
@@ -1554,6 +1592,18 @@ export type RejectionCode =
 	// this code (fail-closed, even against a forced transition). MAP-019 — a non-DM moving a token they
 	// do not control is rejected with `actor-not-authorized`.
 	| 'overlay-prerequisite-unmet'
+	// MAP-021 — `map.generate` named a generator id that is not in the registry. Fail closed: a map is
+	// never produced by a guessed generator.
+	| 'generator-not-found'
+	// MAP-021 — a REPLAYED `map.generate` carried a `generatorVersion` that no longer matches the shipped
+	// generator. Its PRNG call order (and so its geometry) has changed, so re-running it would SILENTLY
+	// produce a different map. The mismatch is surfaced instead — the honest answer is "no longer
+	// reproducible", never a different dungeon under the same name.
+	| 'generator-version-mismatch'
+	// MAP-021 — `map.delete` targeted a map that another map EMBEDS. Deleting it would leave the parent's
+	// embed pointing at nothing (Contract 4: the parent stores only a reference). Fail closed unless the
+	// delete is forced, which also removes those embeds.
+	| 'map-embedded-elsewhere'
 	// CHAR — a draft target does not exist.
 	| 'draft-not-found'
 	// CHAR-002 — the actor is not the single draft owner, so the edit fails closed (non-owner reject).

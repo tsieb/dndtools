@@ -71,6 +71,15 @@ export function byteLength(value: string): number {
 	return bytes;
 }
 
+/** True when a boundary string contains an ASCII control character, including DEL. */
+export function hasAsciiControlCharacter(value: string): boolean {
+	for (let index = 0; index < value.length; index += 1) {
+		const code = value.charCodeAt(index);
+		if (code <= 0x1f || code === 0x7f) return true;
+	}
+	return false;
+}
+
 /** One file in an import archive, for the limit check (a relative path + its raw text). */
 export interface BoundedImportFile {
 	path: string;

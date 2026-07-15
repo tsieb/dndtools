@@ -14,6 +14,7 @@ import {
 	CUSTOM_OBJECT_TYPE_MAX_FIELDS,
 	CUSTOM_OBJECT_TYPE_MAX_LABEL,
 } from '../state/custom-object-type';
+import { isSafeRemoteMediaUrl } from '../security/content-safety';
 
 const idSchema = z.string().min(1);
 
@@ -334,9 +335,18 @@ const sceneCardTransitionStyleSchema = z.enum(['crossfade', 'slide', 'cut']);
 const sceneCardHeroImageSchema = z
 	.object({
 		kind: z.enum(['vault-asset', 'url']),
-		ref: z.string().min(1),
+		ref: z.string().min(1).max(2048),
 	})
-	.strict();
+	.strict()
+	.superRefine((image, context) => {
+		if (image.kind === 'url' && !isSafeRemoteMediaUrl(image.ref)) {
+			context.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ['ref'],
+				message: 'A hero image must use an absolute http(s) URL without embedded credentials.',
+			});
+		}
+	});
 const sceneCardFlavorSchema = z.string().max(SCENE_CARD_FLAVOR_MAX_LENGTH);
 
 export const createSceneCardInputSchema = z
@@ -615,6 +625,8 @@ const mapLayerCategorySchema = z.enum([
 export const createMapLayerInputSchema = z
 	.object({
 		mapId: idSchema,
+		/** MAP-021 — explicit layer id (undo/replay path). Omitted ⇒ minted; a collision rejects. */
+		id: idSchema.optional(),
 		name: z.string().min(1, 'Layer name is required'),
 		category: mapLayerCategorySchema.default('dm-annotations'),
 		// `visibility` is the PLAYER-FACING visibility level (MAP-006). Defaults to `dm-only`
@@ -771,6 +783,8 @@ export const duplicateMapLayerInputSchema = z
 	.object({
 		mapId: idSchema,
 		layerId: idSchema,
+		/** MAP-021 — explicit id for the COPY (undo/replay path). Omitted ⇒ minted; a collision rejects. */
+		id: idSchema.optional(),
 	})
 	.strict();
 
@@ -864,6 +878,222 @@ export const generateMapLayersInputSchema = z
 		density: z.number().min(0).max(1).default(0.5),
 		visibility: sceneVisibilitySchema.default('dm-only'),
 		idPrefix: z.string().min(1),
+	})
+	.strict();
+
+// MAP-021 — the FULL feature schema: every {@link MapFeatureKind} the generator fleet and the paint
+// tools emit, plus the bounded `props` record. It is deliberately SEPARATE from `mapFeatureSchema`
+// above: `map.edit-layer` is shipped and its payload shape is frozen, so the new incremental commands
+// (and only they) accept the extended kinds/props. `props` is a flat record of PRIMITIVES — the same
+// bound `MapFeatureProps` declares — so a `.strict()` payload can never smuggle an arbitrary nested
+// object graph into durable state.
+const mapFeaturePropsSchema = z.record(
+	z.string().min(1),
+	z.union([z.string(), z.number().finite(), z.boolean()]),
+);
+
+const mapFeatureKindSchema = z.enum([
+	'stroke',
+	'fill',
+	'marker',
+	'room',
+	'wall',
+	'road',
+	'polygon',
+	'door',
+	'light',
+	'water',
+	'text',
+	'prop',
+]);
+
+const mapFeatureV2Schema = z
+	.object({
+		id: idSchema,
+		kind: mapFeatureKindSchema,
+		points: z.array(z.object({ x: z.number().finite(), y: z.number().finite() }).strict()).min(1),
+		style: z.string().min(1),
+		props: mapFeaturePropsSchema.optional(),
+	})
+	.strict();
+
+// MAP-021 — INCREMENTAL feature commands. `map.edit-layer` carries the layer's whole before+after
+// content in BOTH the payload and the durable op; on a generated layer holding thousands of features
+// that is a five-figure write per brush stroke. These three carry only the DELTA. Each is DM-only,
+// rejects a locked layer fail-closed, and appends exactly one op whose value is the delta.
+export const addMapFeaturesInputSchema = z
+	.object({
+		mapId: idSchema,
+		layerId: idSchema,
+		features: z.array(mapFeatureV2Schema).min(1),
+		/**
+		 * Optional insertion index per feature (aligned with `features`). Absent ⇒ appended. Present ⇒
+		 * each feature is spliced back in at its index — which is how undoing a `map.remove-features`
+		 * restores the EXACT prior array order rather than dumping the features back at the end.
+		 */
+		indices: z.union([z.literal(null), z.array(z.number().int().nonnegative())]).default(null),
+	})
+	.strict();
+
+export const updateMapFeaturesInputSchema = z
+	.object({
+		mapId: idSchema,
+		layerId: idSchema,
+		/** Replacement features, matched to the layer's content BY ID. An unknown id rejects fail-closed. */
+		features: z.array(mapFeatureV2Schema).min(1),
+	})
+	.strict();
+
+export const removeMapFeaturesInputSchema = z
+	.object({
+		mapId: idSchema,
+		layerId: idSchema,
+		featureIds: z.array(idSchema).min(1),
+	})
+	.strict();
+
+// MAP-021 — REGISTRY-DRIVEN generation. The payload names a generator by id and hands it a seed + a raw
+// param record; `resolveParams` validates that record against the generator's DECLARED param specs
+// (fail-closed, naming the offending knob), so this schema deliberately does NOT re-declare the params —
+// a generator's knobs live in exactly one place (its `ParamSpec[]`) and can never drift from a duplicate
+// schema here. The durable op records `{generatorId, generatorVersion, seed, params}` and NOT the
+// geometry, so a replaying device re-runs the generator and gets byte-identical layers.
+export const generateMapInputSchema = z
+	.object({
+		mapId: idSchema,
+		generatorId: z.string().min(1),
+		seed: z.union([z.number().finite(), z.string().min(1)]),
+		params: z.record(z.string().min(1), z.unknown()).default({}),
+		/** Deterministic id prefix for every generated layer/feature id. Never a clock, never a counter. */
+		idPrefix: z.string().min(1),
+		visibility: sceneVisibilitySchema.default('dm-only'),
+		/**
+		 * REPLAY GUARD. When a device replays a recorded generate op it passes the op's recorded
+		 * `generatorVersion`; if the local generator has since been bumped its PRNG call order (and so its
+		 * geometry) differs, and the replay would SILENTLY produce a different map. Supplying the recorded
+		 * version turns that into an explicit `generator-version-mismatch` rejection. Absent on a fresh
+		 * run (the handler records the current version).
+		 */
+		generatorVersion: z.number().int().nonnegative().optional(),
+		/** Existing layers this run REPLACES (a re-roll in place). Requires `replace: true`. */
+		targetLayerIds: z.union([z.literal(null), z.array(idSchema)]).default(null),
+		replace: z.boolean().default(false),
+	})
+	.strict();
+
+// MAP-021 — AUTO-DERIVATION. Walls/doors/lights are a pure function of the floor geometry the source
+// layers already hold (the boundary of the floor union IS the wall set), so this command is what turns
+// any generator's — or any hand-drawn — floors into a VTT-exportable scene with working line-of-sight.
+const deriveOptionsSchema = z
+	.object({
+		wallThickness: z.number().finite().positive().optional(),
+		simplifyTolerance: z.number().finite().positive().optional(),
+		resolution: z.number().int().min(16).max(1024).optional(),
+		corridorWidth: z.number().finite().positive().optional(),
+		doorChance: z.number().min(0).max(1).optional(),
+		secretDoorChance: z.number().min(0).max(1).optional(),
+		archwayChance: z.number().min(0).max(1).optional(),
+		portcullisChance: z.number().min(0).max(1).optional(),
+		lockedChance: z.number().min(0).max(1).optional(),
+		openChance: z.number().min(0).max(1).optional(),
+		doorWidth: z.number().finite().positive().max(1).optional(),
+		torchSpacing: z.number().finite().positive().max(1).optional(),
+		lightRadius: z.number().finite().positive().max(1).optional(),
+		lightDimRadius: z.number().finite().positive().max(1).optional(),
+		lightColor: z.string().min(1).optional(),
+		lightWallOffset: z.number().finite().positive().max(1).optional(),
+	})
+	.strict();
+
+export const deriveMapFeaturesInputSchema = z
+	.object({
+		mapId: idSchema,
+		/** The layers whose FLOOR geometry (rooms/chambers/polygons + corridor centrelines) is read. */
+		sourceLayerIds: z.array(idSchema).min(1),
+		/** The layer the derived features are written to. Absent/null ⇒ a new layer is created. */
+		targetLayerId: z.union([z.literal(null), idSchema]).default(null),
+		walls: z.boolean().default(true),
+		doors: z.boolean().default(true),
+		lights: z.boolean().default(true),
+		seed: z.union([z.number().finite(), z.string().min(1)]),
+		/** Deterministic id prefix for the derived features (`<prefix>-wall-3`, `<prefix>-door-1`, …). */
+		idPrefix: z.string().min(1),
+		/** Player-facing visibility of a NEWLY CREATED target layer. Fails closed to `dm-only`. */
+		visibility: sceneVisibilitySchema.default('dm-only'),
+		options: deriveOptionsSchema.default({}),
+	})
+	.strict();
+
+// MAP-021 — DELETE a map. DM-only. Refuses fail-closed to ORPHAN an embed: while any other map embeds
+// this one, the delete is rejected (the parent would keep a reference to a map that no longer exists,
+// which every consumer would then have to guess about). `force` deletes it anyway AND removes those
+// embeds from their parents, so the graph is left consistent either way — never dangling.
+export const deleteMapInputSchema = z
+	.object({
+		mapId: idSchema,
+		force: z.boolean().default(false),
+	})
+	.strict();
+
+// MAP-021 — scale and projection were WRITE-ONCE at `map.create`, so a DM who picked `feet` for a
+// regional map had to DELETE it and start over. These two make them editable, with exactly the same
+// fail-closed validation `map.create` applies (a non-positive/non-finite scale or an unknown projection
+// is rejected before any mutation).
+export const setMapScaleInputSchema = z
+	.object({
+		mapId: idSchema,
+		/** Null clears the scale (distance/travel-time then read as unavailable rather than guessed). */
+		scale: z.union([z.literal(null), mapScaleSchema]),
+	})
+	.strict();
+
+export const setMapProjectionInputSchema = z
+	.object({
+		mapId: idSchema,
+		projection: mapProjectionSchema,
+	})
+	.strict();
+
+// MAP-021 — REGION CRUD. `MapRegion` shipped as a type with two readers (`session.set-active-map` frames
+// the player view on one, `MapEntity.defaultRegionId` names the one a map opens on) and NO writer, so
+// no region could ever be authored. Bounds are validated fail-closed inside normalized [0,1] space.
+const mapRegionBoundsSchema = z
+	.object({
+		x: z.number().min(0).max(1),
+		y: z.number().min(0).max(1),
+		w: z.number().gt(0).max(1),
+		h: z.number().gt(0).max(1),
+	})
+	.strict();
+
+export const createMapRegionInputSchema = z
+	.object({
+		mapId: idSchema,
+		/** Explicit region id. Omitted ⇒ minted. Supplied when REPLAYING or UNDOING (the id must match). */
+		id: idSchema.optional(),
+		name: z.string().min(1, 'Region name is required'),
+		bounds: mapRegionBoundsSchema,
+		/** Make this the map's default region (the one it opens on). */
+		makeDefault: z.boolean().default(false),
+	})
+	.strict();
+
+export const updateMapRegionInputSchema = z
+	.object({
+		mapId: idSchema,
+		regionId: idSchema,
+		name: z.string().min(1).optional(),
+		bounds: mapRegionBoundsSchema.optional(),
+	})
+	.strict()
+	.refine((value) => value.name !== undefined || value.bounds !== undefined, {
+		message: 'Provide at least one region field to update.',
+	});
+
+export const deleteMapRegionInputSchema = z
+	.object({
+		mapId: idSchema,
+		regionId: idSchema,
 	})
 	.strict();
 
@@ -1010,9 +1240,19 @@ const mapPoiCategorySchema = z.enum([
 	'other',
 ]);
 
+/**
+ * MAP-021 — every map `create-*` command accepts an OPTIONAL explicit `id`. Omitted (the normal
+ * authoring path) the id is minted from `env.ids()`. Supplied, the record is created WITH that id and a
+ * collision is rejected fail-closed. This is what makes a create invertible: `buildMapInverse` runs
+ * against the state BEFORE the command, so it cannot know an id the handler is about to mint — the
+ * inverse of `map.delete-poi` must recreate the POI under its ORIGINAL id, and an undo/redo pair must
+ * not mint a fresh id on every cycle. The editor supplies the id; the id never comes from a clock or
+ * `Math.random`.
+ */
 export const createMapPoiInputSchema = z
 	.object({
 		mapId: idSchema,
+		id: idSchema.optional(),
 		layerId: idSchema,
 		label: z.string().min(1, 'POI label is required'),
 		category: mapPoiCategorySchema.default('other'),
@@ -1039,9 +1279,7 @@ export const updateMapPoiInputSchema = z
 	})
 	.strict();
 
-export const deleteMapPoiInputSchema = z
-	.object({ mapId: idSchema, poiId: idSchema })
-	.strict();
+export const deleteMapPoiInputSchema = z.object({ mapId: idSchema, poiId: idSchema }).strict();
 
 const routeWaypointSchema = z
 	.object({
@@ -1055,6 +1293,7 @@ const routeWaypointSchema = z
 export const createMapRouteInputSchema = z
 	.object({
 		mapId: idSchema,
+		id: idSchema.optional(),
 		layerId: idSchema,
 		label: z.string().min(1, 'Route label is required'),
 		visibility: sceneVisibilitySchema.default('dm-only'),
@@ -1072,9 +1311,7 @@ export const updateMapRouteInputSchema = z
 	})
 	.strict();
 
-export const deleteMapRouteInputSchema = z
-	.object({ mapId: idSchema, routeId: idSchema })
-	.strict();
+export const deleteMapRouteInputSchema = z.object({ mapId: idSchema, routeId: idSchema }).strict();
 
 // MAP-012 — fog reveal/conceal is an APPEND-ONLY durable op (a later op overrides an earlier overlap),
 // so the op-log replays deterministically and syncs to player views. `connectionState` drives the
@@ -1082,6 +1319,7 @@ export const deleteMapRouteInputSchema = z
 export const appendMapFogInputSchema = z
 	.object({
 		mapId: idSchema,
+		id: idSchema.optional(),
 		layerId: idSchema,
 		kind: z.enum(['reveal', 'conceal']),
 		region: normalizedRegionSchema,
@@ -1092,15 +1330,14 @@ export const appendMapFogInputSchema = z
 	})
 	.strict();
 
-export const removeMapFogInputSchema = z
-	.object({ mapId: idSchema, fogId: idSchema })
-	.strict();
+export const removeMapFogInputSchema = z.object({ mapId: idSchema, fogId: idSchema }).strict();
 
 // MAP-019 — combat token lifecycle. A token records its linked actor, normalized position, size (grid
 // cells), visibility, and optional controlling player (who may move it beyond the DM — MAP-019 AC4).
 export const createMapTokenInputSchema = z
 	.object({
 		mapId: idSchema,
+		id: idSchema.optional(),
 		layerId: idSchema,
 		label: z.string().min(1, 'Token label is required'),
 		linkedActorId: z.union([z.literal(null), idSchema]).default(null),
@@ -1131,9 +1368,77 @@ export const updateMapTokenInputSchema = z
 	})
 	.strict();
 
-export const deleteMapTokenInputSchema = z
-	.object({ mapId: idSchema, tokenId: idSchema })
+export const deleteMapTokenInputSchema = z.object({ mapId: idSchema, tokenId: idSchema }).strict();
+
+// MAP-021 — the durable LAYER-SET RESTORE: remove the named layers, upsert the supplied layer
+// snapshots, re-apply an explicit order map, and do the same for the POIs a generation seeded. It exists
+// because several map mutations are only exactly invertible at layer granularity (a generate created N
+// layers AND planted POIs; a delete-layer destroyed a layer's whole content AND repacked every other
+// layer's order), and `buildMapInverse` must return ONE command. It carries only the records it actually
+// restores — never the whole map.
+const mapLayerSnapshotSchema = z
+	.object({
+		id: idSchema,
+		name: z.string().min(1),
+		category: mapLayerCategorySchema,
+		visibility: sceneVisibilitySchema,
+		enabled: z.boolean(),
+		opacity: z.number().min(0).max(1),
+		tags: z.array(z.string().min(1)),
+		query: z.record(z.string().min(1), z.string()),
+		locked: z.boolean(),
+		content: z.array(mapFeatureV2Schema),
+		order: z.number().int().nonnegative(),
+		revision: z.number().int().nonnegative(),
+		updatedBy: z.union([z.literal(null), idSchema]),
+		updatedAt: z.union([z.literal(null), z.string().min(1)]),
+	})
 	.strict();
+
+/** A full POI record. A generation seeds real POIs alongside its layers, so undoing it must remove them. */
+const mapPoiSnapshotSchema = z
+	.object({
+		id: idSchema,
+		layerId: idSchema,
+		label: z.string().min(1),
+		category: mapPoiCategorySchema,
+		position: normalizedPointSchema,
+		visibility: sceneVisibilitySchema,
+		notes: z.string(),
+		linkedEntityType: z.union([z.literal(null), z.string().min(1)]),
+		linkedEntityId: z.union([z.literal(null), idSchema]),
+		revision: z.number().int().nonnegative(),
+		updatedBy: z.union([z.literal(null), idSchema]),
+		updatedAt: z.union([z.literal(null), z.string().min(1)]),
+	})
+	.strict();
+
+export const restoreMapLayersInputSchema = z
+	.object({
+		mapId: idSchema,
+		removeLayerIds: z.array(idSchema).default([]),
+		restoreLayers: z.array(mapLayerSnapshotSchema).default([]),
+		/**
+		 * The POIs a generation seeded alongside its layers. A `map.generate` is ONE act — layers plus the
+		 * POIs it planted — so its undo has to be one act too, or an undone dungeon leaves its entrance and
+		 * boss-chamber markers floating on an empty map.
+		 */
+		removePoiIds: z.array(idSchema).default([]),
+		restorePois: z.array(mapPoiSnapshotSchema).default([]),
+		/** Explicit `layerId → order` map re-applied after the restore, so a repacked order is undone. */
+		order: z
+			.union([z.literal(null), z.record(z.string().min(1), z.number().int().nonnegative())])
+			.default(null),
+	})
+	.strict()
+	.refine(
+		(value) =>
+			value.removeLayerIds.length > 0 ||
+			value.restoreLayers.length > 0 ||
+			value.removePoiIds.length > 0 ||
+			value.restorePois.length > 0,
+		{ message: 'Provide at least one layer or POI to remove or restore.' },
+	);
 
 // MAP-014 — explicit combat overlay MODE commands with declared prerequisite gating. Entering a mode
 // whose prerequisite is unmet is blocked with a reason UNLESS `autoSatisfyPrerequisites` is set (then
@@ -1296,13 +1601,7 @@ export const editCharacterFieldInputSchema = z
 	.object({
 		characterId: idSchema,
 		path: z.string().min(1),
-		value: z.union([
-			z.string(),
-			z.number(),
-			z.boolean(),
-			z.null(),
-			z.array(z.string().min(1)),
-		]),
+		value: z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(z.string().min(1))]),
 		baseRevision: z.number().int().nonnegative().optional(),
 	})
 	.strict();
@@ -1370,7 +1669,11 @@ const rechargeSchema = z.enum(['short', 'long', 'none']);
 export const updateCombatResourceInputSchema = z.discriminatedUnion('kind', [
 	z.object({ characterId: idSchema, kind: z.literal('hp'), delta: z.number().int() }).strict(),
 	z
-		.object({ characterId: idSchema, kind: z.literal('temp-hp'), value: z.number().int().nonnegative() })
+		.object({
+			characterId: idSchema,
+			kind: z.literal('temp-hp'),
+			value: z.number().int().nonnegative(),
+		})
 		.strict(),
 	z
 		.object({
@@ -1395,7 +1698,11 @@ export const updateCombatResourceInputSchema = z.discriminatedUnion('kind', [
 		})
 		.strict(),
 	z
-		.object({ characterId: idSchema, kind: z.literal('spell-slot'), level: z.number().int().min(0).max(9) })
+		.object({
+			characterId: idSchema,
+			kind: z.literal('spell-slot'),
+			level: z.number().int().min(0).max(9),
+		})
 		.strict(),
 	z
 		.object({
@@ -1457,9 +1764,7 @@ export const setCharacterSpellInputSchema = z
 export const setCharacterProficienciesInputSchema = z
 	.object({
 		characterId: idSchema,
-		skills: z
-			.record(z.string().min(1), z.enum(['none', 'proficient', 'expertise']))
-			.optional(),
+		skills: z.record(z.string().min(1), z.enum(['none', 'proficient', 'expertise'])).optional(),
 		saves: z.array(z.string().min(1)).optional(),
 		proficiencyBonus: z.union([z.literal(null), z.number().int().min(0).max(20)]).optional(),
 		hitDice: z
@@ -1727,8 +2032,7 @@ export const updateJournalEntryInputSchema = z
 	})
 	.strict()
 	.refine(
-		(value) =>
-			value.title !== undefined || value.body !== undefined || value.kind !== undefined,
+		(value) => value.title !== undefined || value.body !== undefined || value.kind !== undefined,
 		{ message: 'Provide at least one journal field to update.' },
 	);
 
@@ -1950,7 +2254,10 @@ const customObjectTypeIdSchema = z.string().regex(CUSTOM_OBJECT_TYPE_ID_PATTERN)
 
 // The subtype an instance names: a built-in subtype OR a well-formed custom type id (both flow through the
 // same schema-validated create/update path).
-const vaultObjectInstanceSubtypeSchema = z.union([vaultObjectSubtypeSchema, customObjectTypeIdSchema]);
+const vaultObjectInstanceSubtypeSchema = z.union([
+	vaultObjectSubtypeSchema,
+	customObjectTypeIdSchema,
+]);
 
 // CONTENT-005 — create a structured Vault Object as a note-backed content item (DM-only authoring). The
 // frontmatter `fields` are validated against the subtype schema at dispatch (fail closed); the body is the
@@ -2186,7 +2493,11 @@ export const previousCombatTurnInputSchema = z.object({}).strict();
 export const applyCombatResourceInputSchema = z.discriminatedUnion('kind', [
 	z.object({ combatantId: idSchema, kind: z.literal('hp'), delta: z.number().int() }).strict(),
 	z
-		.object({ combatantId: idSchema, kind: z.literal('temp-hp'), value: z.number().int().nonnegative() })
+		.object({
+			combatantId: idSchema,
+			kind: z.literal('temp-hp'),
+			value: z.number().int().nonnegative(),
+		})
 		.strict(),
 	z
 		.object({
@@ -2212,9 +2523,7 @@ export const applyCombatResourceInputSchema = z.discriminatedUnion('kind', [
 		.strict(),
 	// UX-SES-005 — resolve the at-0-HP confirmation: `value: true` ⇒ "Yes — defeated" (the defeated
 	// treatment applies while HP ≤ 0); `value: false` ⇒ "No — keep at 0" (dying, death saves active).
-	z
-		.object({ combatantId: idSchema, kind: z.literal('defeated'), value: z.boolean() })
-		.strict(),
+	z.object({ combatantId: idSchema, kind: z.literal('defeated'), value: z.boolean() }).strict(),
 ]);
 
 // UX-SES-008 — add combatant(s) to RUNNING combat (DM-only). `quantity` > 1 is a MASS add: the rows

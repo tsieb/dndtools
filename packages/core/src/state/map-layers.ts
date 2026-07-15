@@ -28,7 +28,14 @@ export type MapLayerMutationKind =
 	| 'set-tags'
 	// MAP-003 / MAP-004: a paint edit (content replacement) and a procedural generation (new layers).
 	| 'edit'
-	| 'generate';
+	| 'generate'
+	// MAP-021: the INCREMENTAL feature mutations (the op carries only the delta), auto-derivation of
+	// walls/doors/lights from floor geometry, and the durable layer-set restore (the undo tail).
+	| 'add-features'
+	| 'update-features'
+	| 'remove-features'
+	| 'derive'
+	| 'restore';
 
 /** A structured failure from a pure reducer; the command layer maps it to a `CommandRejection`. */
 export type MapLayerError =

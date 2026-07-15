@@ -25,7 +25,9 @@ import type { CoreEnvironment } from '../src/commands/types';
 
 function accept(result: CommandResult): Extract<CommandResult, { status: 'accepted' }> {
 	if (result.status !== 'accepted') {
-		throw new Error(`expected accepted, got rejected: ${result.rejection.code} — ${result.rejection.message}`);
+		throw new Error(
+			`expected accepted, got rejected: ${result.rejection.code} — ${result.rejection.message}`,
+		);
 	}
 	return result;
 }
@@ -86,10 +88,16 @@ describe('S11.2.1 — scene card authoring is DM-only + fail-closed visibility',
 		const { state, cardId } = createCard(base, env, { title: 'Hidden Crypt', mood: 'mystery' });
 
 		// The DM sees it; the player does not.
-		expect(getSceneCardForActor(state.session, state.permissions, DM_ACTOR.id, cardId)).not.toBeNull();
-		expect(getSceneCardForActor(state.session, state.permissions, PLAYER_ACTOR.id, cardId)).toBeNull();
+		expect(
+			getSceneCardForActor(state.session, state.permissions, DM_ACTOR.id, cardId),
+		).not.toBeNull();
+		expect(
+			getSceneCardForActor(state.session, state.permissions, PLAYER_ACTOR.id, cardId),
+		).toBeNull();
 		expect(listSceneCardsForActor(state.session, state.permissions, DM_ACTOR.id)).toHaveLength(1);
-		expect(listSceneCardsForActor(state.session, state.permissions, PLAYER_ACTOR.id)).toHaveLength(0);
+		expect(listSceneCardsForActor(state.session, state.permissions, PLAYER_ACTOR.id)).toHaveLength(
+			0,
+		);
 
 		// Widen to player-visible — now the player sees it.
 		const widened = accept(
@@ -126,6 +134,24 @@ describe('S11.2.1 — scene card authoring is DM-only + fail-closed visibility',
 		// flavorText was omitted ⇒ unchanged.
 		expect(updated.session.sceneCards.cards[cardId]?.flavorText).toBe('A sweeping view.');
 	});
+
+	it('rejects non-http and credential-bearing remote hero images', () => {
+		const env = makeEnvironment();
+		const base = buildInitialState(DM_ACTOR);
+		for (const ref of [
+			'javascript:alert(1)',
+			'data:image/svg+xml,<svg/>',
+			'./relative.png',
+			'https://user:secret@example.test/hero.png',
+		]) {
+			const result = dispatch(base, env, {
+				type: 'scene-card.create',
+				actorId: DM_ACTOR.id,
+				payload: { title: 'Unsafe image', heroImage: { kind: 'url', ref } },
+			});
+			expect(result.status).toBe('rejected');
+		}
+	});
 });
 
 describe('S11.2.4 — activating a player-visible card pushes to players + records history', () => {
@@ -148,11 +174,15 @@ describe('S11.2.4 — activating a player-visible card pushes to players + recor
 		const pushEvent = activated.events.find((e) => e.kind === 'scene-card.pushed');
 		expect(pushEvent).toBeDefined();
 		const activatedEvent = activated.events.find((e) => e.kind === 'scene-card.activated');
-		expect(activatedEvent && activatedEvent.kind === 'scene-card.activated' && activatedEvent.pushed).toBe(true);
+		expect(
+			activatedEvent && activatedEvent.kind === 'scene-card.activated' && activatedEvent.pushed,
+		).toBe(true);
 
 		const next = activated.nextState;
 		// The player sees the active card (banner) + a history row.
-		expect(getActiveSceneCardForActor(next.session, next.permissions, PLAYER_ACTOR.id)).not.toBeNull();
+		expect(
+			getActiveSceneCardForActor(next.session, next.permissions, PLAYER_ACTOR.id),
+		).not.toBeNull();
 		expect(
 			getSceneCardPushHistoryForActor(next.session, next.permissions, PLAYER_ACTOR.id),
 		).toHaveLength(1);
@@ -187,7 +217,11 @@ describe('S11.2.4 — activating a player-visible card pushes to players + recor
 			visibility: 'player-visible',
 		});
 		const pushed = accept(
-			dispatch(state, env, { type: 'scene-card.activate', actorId: DM_ACTOR.id, payload: { cardId } }),
+			dispatch(state, env, {
+				type: 'scene-card.activate',
+				actorId: DM_ACTOR.id,
+				payload: { cardId },
+			}),
 		).nextState;
 		expect(
 			getSceneCardPushHistoryForActor(pushed.session, pushed.permissions, PLAYER_ACTOR.id),
@@ -222,18 +256,33 @@ describe('S11.2.3 — queue + advance semantics', () => {
 		const b = createCard(s, env, { title: 'B', mood: 'combat' });
 		s = b.state;
 
-		s = accept(dispatch(s, env, { type: 'scene-card.enqueue', actorId: DM_ACTOR.id, payload: { cardId: a.cardId } })).nextState;
-		s = accept(dispatch(s, env, { type: 'scene-card.enqueue', actorId: DM_ACTOR.id, payload: { cardId: b.cardId } })).nextState;
-		expect(getSceneCardQueueForActor(s.session, s.permissions, DM_ACTOR.id).map((c) => c.id)).toEqual([
-			a.cardId,
-			b.cardId,
-		]);
+		s = accept(
+			dispatch(s, env, {
+				type: 'scene-card.enqueue',
+				actorId: DM_ACTOR.id,
+				payload: { cardId: a.cardId },
+			}),
+		).nextState;
+		s = accept(
+			dispatch(s, env, {
+				type: 'scene-card.enqueue',
+				actorId: DM_ACTOR.id,
+				payload: { cardId: b.cardId },
+			}),
+		).nextState;
+		expect(
+			getSceneCardQueueForActor(s.session, s.permissions, DM_ACTOR.id).map((c) => c.id),
+		).toEqual([a.cardId, b.cardId]);
 		// Players never see the queue.
 		expect(getSceneCardQueueForActor(s.session, s.permissions, PLAYER_ACTOR.id)).toHaveLength(0);
 
 		// A double enqueue is rejected.
 		expect(
-			dispatch(s, env, { type: 'scene-card.enqueue', actorId: DM_ACTOR.id, payload: { cardId: a.cardId } }).status,
+			dispatch(s, env, {
+				type: 'scene-card.enqueue',
+				actorId: DM_ACTOR.id,
+				payload: { cardId: a.cardId },
+			}).status,
 		).toBe('rejected');
 
 		// Reorder must be a permutation.
@@ -244,10 +293,9 @@ describe('S11.2.3 — queue + advance semantics', () => {
 				payload: { queue: [b.cardId, a.cardId] },
 			}),
 		).nextState;
-		expect(getSceneCardQueueForActor(s.session, s.permissions, DM_ACTOR.id).map((c) => c.id)).toEqual([
-			b.cardId,
-			a.cardId,
-		]);
+		expect(
+			getSceneCardQueueForActor(s.session, s.permissions, DM_ACTOR.id).map((c) => c.id),
+		).toEqual([b.cardId, a.cardId]);
 		expect(
 			dispatch(s, env, {
 				type: 'scene-card.reorder-queue',
@@ -257,24 +305,28 @@ describe('S11.2.3 — queue + advance semantics', () => {
 		).toBe('rejected');
 
 		// Advance activates the head (B) and removes it from the queue.
-		const advanced = accept(dispatch(s, env, { type: 'scene-card.advance', actorId: DM_ACTOR.id, payload: {} }));
+		const advanced = accept(
+			dispatch(s, env, { type: 'scene-card.advance', actorId: DM_ACTOR.id, payload: {} }),
+		);
 		expect(advanced.events.some((e) => e.kind === 'scene-card.queue-changed')).toBe(true);
 		s = advanced.nextState;
 		expect(s.session.sceneCards.activeCardId).toBe(b.cardId);
-		expect(getSceneCardQueueForActor(s.session, s.permissions, DM_ACTOR.id).map((c) => c.id)).toEqual([
-			a.cardId,
-		]);
+		expect(
+			getSceneCardQueueForActor(s.session, s.permissions, DM_ACTOR.id).map((c) => c.id),
+		).toEqual([a.cardId]);
 
 		// Advance again to A — A is player-visible, so it pushes.
-		const advancedA = accept(dispatch(s, env, { type: 'scene-card.advance', actorId: DM_ACTOR.id, payload: {} }));
+		const advancedA = accept(
+			dispatch(s, env, { type: 'scene-card.advance', actorId: DM_ACTOR.id, payload: {} }),
+		);
 		expect(advancedA.events.some((e) => e.kind === 'scene-card.pushed')).toBe(true);
 		s = advancedA.nextState;
 		expect(s.session.sceneCards.queue).toHaveLength(0);
 
 		// Advancing an empty queue is rejected.
-		expect(dispatch(s, env, { type: 'scene-card.advance', actorId: DM_ACTOR.id, payload: {} }).status).toBe(
-			'rejected',
-		);
+		expect(
+			dispatch(s, env, { type: 'scene-card.advance', actorId: DM_ACTOR.id, payload: {} }).status,
+		).toBe('rejected');
 	});
 
 	it('set-transition drives the display transition style', () => {
@@ -287,7 +339,9 @@ describe('S11.2.3 — queue + advance semantics', () => {
 				payload: { transitionStyle: 'slide' },
 			}),
 		).nextState;
-		expect(getSceneDisplayForActor(next.session, next.permissions, DM_ACTOR.id).transitionStyle).toBe('slide');
+		expect(
+			getSceneDisplayForActor(next.session, next.permissions, DM_ACTOR.id).transitionStyle,
+		).toBe('slide');
 	});
 });
 
@@ -296,25 +350,47 @@ describe('S11.2.1 — soft delete tombstones + queue/display cleanup', () => {
 		const env = makeEnvironment();
 		const base = buildInitialState(DM_ACTOR);
 		const { state, cardId } = createCard(base, env, { title: 'Doomed', mood: 'combat' });
-		let s = accept(dispatch(state, env, { type: 'scene-card.enqueue', actorId: DM_ACTOR.id, payload: { cardId } })).nextState;
-		s = accept(dispatch(s, env, { type: 'scene-card.activate', actorId: DM_ACTOR.id, payload: { cardId } })).nextState;
+		let s = accept(
+			dispatch(state, env, {
+				type: 'scene-card.enqueue',
+				actorId: DM_ACTOR.id,
+				payload: { cardId },
+			}),
+		).nextState;
+		s = accept(
+			dispatch(s, env, { type: 'scene-card.activate', actorId: DM_ACTOR.id, payload: { cardId } }),
+		).nextState;
 		expect(s.session.sceneCards.activeCardId).toBe(cardId);
 
-		s = accept(dispatch(s, env, { type: 'scene-card.delete', actorId: DM_ACTOR.id, payload: { cardId } })).nextState;
+		s = accept(
+			dispatch(s, env, { type: 'scene-card.delete', actorId: DM_ACTOR.id, payload: { cardId } }),
+		).nextState;
 		expect(getSceneCardForActor(s.session, s.permissions, DM_ACTOR.id, cardId)).toBeNull();
 		expect(s.session.sceneCards.queue).toHaveLength(0);
 		expect(s.session.sceneCards.activeCardId).toBeNull();
 
 		// Re-deleting is rejected distinctly.
-		const reDelete = dispatch(s, env, { type: 'scene-card.delete', actorId: DM_ACTOR.id, payload: { cardId } });
+		const reDelete = dispatch(s, env, {
+			type: 'scene-card.delete',
+			actorId: DM_ACTOR.id,
+			payload: { cardId },
+		});
 		expect(reDelete.status === 'rejected' && reDelete.rejection.code).toBe('scene-card-deleted');
 
 		// Restore brings it back.
-		s = accept(dispatch(s, env, { type: 'scene-card.restore', actorId: DM_ACTOR.id, payload: { cardId } })).nextState;
+		s = accept(
+			dispatch(s, env, { type: 'scene-card.restore', actorId: DM_ACTOR.id, payload: { cardId } }),
+		).nextState;
 		expect(getSceneCardForActor(s.session, s.permissions, DM_ACTOR.id, cardId)).not.toBeNull();
 		// Restoring a live card is rejected.
-		const reRestore = dispatch(s, env, { type: 'scene-card.restore', actorId: DM_ACTOR.id, payload: { cardId } });
-		expect(reRestore.status === 'rejected' && reRestore.rejection.code).toBe('scene-card-not-deleted');
+		const reRestore = dispatch(s, env, {
+			type: 'scene-card.restore',
+			actorId: DM_ACTOR.id,
+			payload: { cardId },
+		});
+		expect(reRestore.status === 'rejected' && reRestore.rejection.code).toBe(
+			'scene-card-not-deleted',
+		);
 	});
 });
 

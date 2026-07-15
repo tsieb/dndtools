@@ -233,6 +233,30 @@ export { createRng, normalizeSeed } from './state/prng';
 export type { ApplyLayerEditInput, MapEditError, MapEditStamp } from './state/map-editing';
 export { applyLayerEdit, featuresEqual, layerContent } from './state/map-editing';
 
+// MAP-021 — the INCREMENTAL feature reducers behind `map.add-features` / `map.update-features` /
+// `map.remove-features`. Their commands' durable ops carry only the DELTA, where `map.edit-layer`
+// carries the layer's entire before+after content — the difference between a ~200-byte brush stroke and
+// a 10,000-feature op on a generated layer.
+export type {
+	AddFeaturesInput,
+	MapFeatureBatchError,
+	RemoveFeaturesInput,
+	RemovedFeature,
+	UpdateFeaturesInput,
+} from './state/map-editing';
+export { MAX_FEATURE_BATCH, addFeatures, removeFeatures, updateFeatures } from './state/map-editing';
+
+// MAP-021 — map REGIONS. The type shipped with two readers and no writer; these are the pure reducers
+// behind the region CRUD commands. Deleting the map's default region CLEARS `defaultRegionId`.
+export type {
+	CreateRegionInput,
+	MapRegionBounds,
+	MapRegionError,
+	MapRegionStamp,
+	UpdateRegionPatch,
+} from './state/map-regions';
+export { createRegion, deleteRegion, updateRegion, validateRegionBounds } from './state/map-regions';
+
 // MAP-004: deterministic procedural generation of editable map layers from explicit params + seed.
 // Validates fail-closed first (no partial layers on rejection); same params ⇒ identical layers.
 export type {
@@ -990,6 +1014,20 @@ export {
 	playSessionAudioInputSchema,
 	setSessionAudioVolumeInputSchema,
 	projectSessionAudioInputSchema,
+	// MAP-021 — the editor bridge: incremental (delta-only) feature editing, registry-driven generation,
+	// auto-derivation, the durable layer-set restore, map delete / scale / projection, and region CRUD.
+	addMapFeaturesInputSchema,
+	updateMapFeaturesInputSchema,
+	removeMapFeaturesInputSchema,
+	generateMapInputSchema,
+	deriveMapFeaturesInputSchema,
+	restoreMapLayersInputSchema,
+	deleteMapInputSchema,
+	setMapScaleInputSchema,
+	setMapProjectionInputSchema,
+	createMapRegionInputSchema,
+	updateMapRegionInputSchema,
+	deleteMapRegionInputSchema,
 } from './schemas/commands';
 
 export { sceneSchema, sceneStateSchema } from './schemas/scene';
@@ -1649,10 +1687,7 @@ export type {
 	SystemSwitchPreviewResult,
 	SystemSwitchUnavailableReason,
 } from './queries/system-switch-query';
-export {
-	currentDocumentVersions,
-	previewSystemSwitch,
-} from './queries/system-switch-query';
+export { currentDocumentVersions, previewSystemSwitch } from './queries/system-switch-query';
 
 export type { WidgetPackageExport } from './commands/widget-package';
 export { exportWidgetPackage } from './commands/widget-package';
@@ -1660,6 +1695,14 @@ export { exportWidgetPackage } from './commands/widget-package';
 // MAP-003: build the inverse of a paint edit (before/after swapped) for the undo path. Pure — the
 // caller dispatches the returned `map.edit-layer` intent to restore the captured prior content.
 export { buildInverseMapEditCommand } from './commands/map-editing';
+
+// MAP-021 — THE UNDO CONTRACT. The core exports PURE INVERSE BUILDERS; the undo STACK lives app-side and
+// is neither durable nor synced (a co-DM must not be able to undo your brush stroke from across the
+// table, and undo state must never enter the op log). `buildMapInverse(command, stateBefore)` returns
+// the command that exactly undoes an accepted map command — dispatched through the normal command path,
+// so an undo is an ordinary authorized, logged mutation, never a back-door state write.
+export type { UndoableMapCommand } from './lifecycle/map-undo';
+export { buildMapInverse } from './lifecycle/map-undo';
 
 export type {
 	BeginMigrationInput,
@@ -2606,6 +2649,7 @@ export {
 	CONTENT_SAFETY_SCHEMA_VERSION,
 	NEUTRALIZED_URL,
 	isSafeMarkdownContent,
+	isSafeRemoteMediaUrl,
 	isSafeUrl,
 	neutralizeMarkdownLinks,
 	safeUrl,
@@ -2629,6 +2673,7 @@ export {
 	MAX_IMPORT_TOTAL_BYTES,
 	PAYLOAD_LIMITS_SCHEMA_VERSION,
 	byteLength,
+	hasAsciiControlCharacter,
 	validateBodyLimit,
 	validateImportLimits,
 } from './security/payload-limits';
@@ -3005,13 +3050,19 @@ export {
 // cloud artifact client-side under a per-epoch key held only in the OS credential store, so the server
 // stores/relays ciphertext only. Its existence makes the declared cloud security model TRUTHFUL.
 export type {
+	ContextBoundEncryptedEnvelope,
 	EncryptedEnvelope,
 	KeyringRotationResult,
+	LegacyEncryptedEnvelope,
+	VaultArtifactContext,
+	VaultArtifactKind,
 	VaultKeyring,
 } from './security/vault-crypto';
 export {
+	LEGACY_VAULT_CRYPTO_SCHEMA_VERSION,
 	VAULT_CRYPTO_ALG,
 	VAULT_CRYPTO_SCHEMA_VERSION,
+	VAULT_KEYRING_SCHEMA_VERSION,
 	createVaultKeyring,
 	decryptFromKeyring,
 	encryptForKeyring,
@@ -3021,6 +3072,7 @@ export {
 	openWithKeyMaterial,
 	rotateVaultKeyring,
 	sealWithKeyMaterial,
+	validateEncryptedEnvelope,
 } from './security/vault-crypto';
 
 // ADR-017 + ADR-015 (Accepted) — the RELEASE-APPROVED cloud security model + decision record, made truthful
@@ -4036,10 +4088,7 @@ export {
 // into individual deliverable recipients (fail closed: unknown group ⇒ no recipients; non-participant ⇒
 // skipped). `groupMembershipGrantsNoCapability` is the executable proof that membership grants nothing.
 export type { DeliveryTarget, ResolvedDeliveryTarget } from './collab/player-groups';
-export {
-	groupMembershipGrantsNoCapability,
-	resolveDeliveryTarget,
-} from './collab/player-groups';
+export { groupMembershipGrantsNoCapability, resolveDeliveryTarget } from './collab/player-groups';
 
 // COLLAB-012 — the durable PLAYER GROUP model (DM-authored delivery/projection target set). A group carries
 // NO permission data — it is a plain membership list, so membership can never be a permission backdoor.
@@ -4900,3 +4949,121 @@ export {
 	SESSION_PRIVACY_WINDOW_MS,
 	resolveSessionPrivacy,
 } from './queries/session-privacy';
+
+// MAP-021 — name generation. Syllable/morpheme composition over one shared phonology, so a settlement,
+// a river and a region generated for the same map read as one culture (research §3.11).
+export type { NameKind } from './generation/names';
+export { generateName, generateNames } from './generation/names';
+
+// MAP-021 — AUTO-DERIVATION. Walls/doors/lights fall out of the floor-polygon union, so every generator
+// emits floors only and gets correct, exportable line-of-sight for free (research §6.3).
+export type { DeriveInput, DeriveOptions } from './generation/derive';
+export {
+	deriveAll,
+	deriveDoors,
+	deriveLights,
+	deriveWalls,
+	featureRing,
+	wallSegments,
+} from './generation/derive';
+
+// MAP-021 — line of sight, cast against those same wall polylines. An OPEN door does not block.
+export type { VisibilityOptions } from './queries/map-los';
+export { computeVisibility, isVisible } from './queries/map-los';
+
+// MAP-021 — CONTENT STOCKING. Keyed rooms, motif-driven encounters, and keys that are always reachable
+// before the locks they open (research §8.1 — the donjon lesson).
+export type {
+	Motif,
+	RegionSite,
+	StockedLock,
+	StockedRoom,
+	StockOptions,
+	StockRegionOptions,
+	StockResult,
+} from './generation/stocking';
+export { MOTIFS, stockDungeon, stockRegion } from './generation/stocking';
+
+// MAP-021 — Universal VTT export. One exporter targets Foundry, Fantasy Grounds, Arkenforge, MapTool and
+// Above VTT at once (research §8.3). All coordinates are in GRID SQUARES, never pixels.
+export type {
+	UvttDocument,
+	UvttEnvironment,
+	UvttExportOptions,
+	UvttLight,
+	UvttPoint,
+	UvttPortal,
+	UvttResolution,
+} from './export/uvtt';
+export { exportUvtt, exportUvttJson } from './export/uvtt';
+
+// MAP-021 — THE GENERATOR REGISTRY. Generators publish their parameters as DATA (`ParamSpec[]`), so the
+// editor renders the entire generation UI — picker, knobs, presets, advanced disclosure — from this
+// registry alone. Adding a generator is a pure-core change: it appears in the UI with zero UI code, and
+// the knobs can never drift out of sync with the algorithm that reads them.
+export type {
+	BooleanParamSpec,
+	GeneratedGraph,
+	GeneratedPoi,
+	GeneratorContext,
+	GeneratorDefinition,
+	GeneratorGroup,
+	GeneratorOutput,
+	GeneratorParamError,
+	GeneratorPreset,
+	GeneratorScale,
+	NumberParamSpec,
+	ParamSpec,
+	ParamValue,
+	SelectParamSpec,
+	TagsParamSpec,
+} from './generation/types';
+export {
+	boolParam,
+	buildLayer,
+	feature,
+	norm,
+	normPoint,
+	numberParam,
+	resolveParams,
+	stringParam,
+	tagsParam,
+} from './generation/types';
+export {
+	GENERATOR_GROUPS,
+	GENERATORS,
+	generatorsByGroup,
+	generatorsByScale,
+	getGenerator,
+} from './generation/registry';
+
+// MAP-021 — the geometry kit the generators are built from. Exported because the APP needs several of
+// these too: the renderer contours and simplifies for display, and the editor's snapping/hit-testing
+// reuses the same intersection math the generators use, so both sides agree on what "on the wall" means.
+export type { CellGrid, ContourOptions, NoiseField, Point, Rect, Ring, Triangulation } from './geometry';
+export {
+	boundsOf,
+	centroid,
+	chaikin,
+	contourGrid,
+	createValueNoise,
+	delaunay,
+	dist,
+	fbm,
+	offsetPolyline,
+	pointInRing,
+	pointToSegmentDistance,
+	poissonDisk,
+	polylineLength,
+	raySegmentHit,
+	ringArea,
+	segmentIntersection,
+	segmentsIntersect,
+	simplify,
+	unionBoundary,
+} from './geometry';
+
+// MAP-021 — per-subsystem RNG streams. The reason a GM can nudge "room count" without their rivers,
+// names and treasure all reshuffling. See `deriveStream` for why this cannot be retrofitted later.
+export type { RngStreams } from './state/prng';
+export { createRngStreams, deriveStream } from './state/prng';

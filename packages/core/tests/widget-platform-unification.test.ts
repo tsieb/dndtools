@@ -28,8 +28,24 @@ describe('system widget platform — definitions', () => {
 		expect(SYSTEM.packages['system.command-center-widgets']).toBeDefined();
 	});
 
+	it('uses semantic design-system icon keys for every built-in widget', () => {
+		for (const record of Object.values(SYSTEM.packages)) {
+			for (const widget of record.package.widgets) {
+				expect(widget.icon, widget.type).toMatch(/^[a-z0-9-]+$/);
+			}
+		}
+	});
+
 	it('gives every system scene widget a render entrypoint, style tokens, and placement', () => {
-		for (const type of ['note', 'dice', 'timer', 'initiative-tracker', 'character', 'map', 'audio']) {
+		for (const type of [
+			'note',
+			'dice',
+			'timer',
+			'initiative-tracker',
+			'character',
+			'map',
+			'audio',
+		]) {
 			const widget = def(type);
 			expect(widget.renderEntrypoint).toBeDefined();
 			expect(widget.style?.tokens?.length ?? 0).toBeGreaterThan(0);
@@ -285,7 +301,10 @@ describe('readStyleTokenOverrides — the raw override map the customize surface
 
 	it('round-trips with resolveWidgetStyleVariables (non-empty overrides win, empties drop)', () => {
 		const definition = {
-			style: { isolation: 'host-scoped', tokens: [{ name: 'accent', value: 'var(--color-accent)' }] },
+			style: {
+				isolation: 'host-scoped',
+				tokens: [{ name: 'accent', value: 'var(--color-accent)' }],
+			},
 		} as unknown as WidgetDefinition;
 		const overrides = readStyleTokenOverrides({ styleTokens: { accent: '#abcabc', text: '' } });
 		const vars = resolveWidgetStyleVariables(definition, { styleTokens: overrides });

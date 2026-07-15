@@ -40,7 +40,11 @@ function rejected(result: CommandResult): Extract<CommandResult, { status: 'reje
 	return result;
 }
 
-function dispatch(state: CoreStateSlice, env: CoreEnvironment, command: CoreCommand): CommandResult {
+function dispatch(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	command: CoreCommand,
+): CommandResult {
 	return dispatchCommand(state, env, command);
 }
 
@@ -128,6 +132,26 @@ describe('AUDIO-009 — declared source-type registry + fail-closed configuratio
 		expect(badCache.ok).toBe(false);
 		if (!badCache.ok) expect(badCache.reason).toBe('cache-behavior-not-allowed');
 	});
+
+	it('rejects unsafe, relative, and credential-bearing stream URLs', () => {
+		for (const url of [
+			'javascript:alert(1)',
+			'data:audio/mpeg;base64,AA==',
+			'./relative.mp3',
+			'https://user:secret@example.test/stream.mp3',
+		]) {
+			const result = configureAudioSource({
+				id: 's-unsafe',
+				type: 'web-stream',
+				displayName: 'Unsafe stream',
+				url,
+				cacheBehavior: 'none',
+				createdBy: 'd',
+				createdAt: 't',
+			});
+			expect(result).toMatchObject({ ok: false, reason: 'unsafe-url' });
+		}
+	});
 });
 
 describe('AUDIO-009 — configure-source command', () => {
@@ -135,7 +159,15 @@ describe('AUDIO-009 — configure-source command', () => {
 		const state = buildInitialState(DM_ACTOR);
 		const env = makeEnvironment();
 		const result = accept(
-			dispatch(state, env, configureCommand({ type: 'bundled-preset', displayName: 'Tavern preset', cacheBehavior: 'local' })),
+			dispatch(
+				state,
+				env,
+				configureCommand({
+					type: 'bundled-preset',
+					displayName: 'Tavern preset',
+					cacheBehavior: 'local',
+				}),
+			),
 		);
 		expect(result.events[0]).toMatchObject({
 			kind: 'audio.source-configured',
@@ -166,7 +198,10 @@ describe('AUDIO-009 — configure-source command', () => {
 		const state = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
 		const env = makeEnvironment();
 		const result = rejected(
-			dispatch(state, env, { ...configureCommand({ type: 'local-file', displayName: 'Local', cacheBehavior: 'local' }), actorId: PLAYER_ACTOR.id }),
+			dispatch(state, env, {
+				...configureCommand({ type: 'local-file', displayName: 'Local', cacheBehavior: 'local' }),
+				actorId: PLAYER_ACTOR.id,
+			}),
 		);
 		expect(result.rejection.code).toBe('actor-not-authorized');
 	});
@@ -174,8 +209,16 @@ describe('AUDIO-009 — configure-source command', () => {
 	it('a player sees an EMPTY source classification list (no leak)', () => {
 		let state = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
 		const env = makeEnvironment();
-		state = accept(dispatch(state, env, configureCommand({ type: 'local-file', displayName: 'Local', cacheBehavior: 'local' }))).nextState;
-		expect(listAudioSourceClassificationsForActor(state.audio, state.permissions, PLAYER_ACTOR.id)).toHaveLength(0);
+		state = accept(
+			dispatch(
+				state,
+				env,
+				configureCommand({ type: 'local-file', displayName: 'Local', cacheBehavior: 'local' }),
+			),
+		).nextState;
+		expect(
+			listAudioSourceClassificationsForActor(state.audio, state.permissions, PLAYER_ACTOR.id),
+		).toHaveLength(0);
 	});
 });
 
@@ -218,10 +261,22 @@ describe('AUDIO-010 — cache/offline behavior as a playback prerequisite', () =
 	it('AC1: a local-file source offline uses local availability (no retry); missing reports missing-asset', () => {
 		const source = localSource();
 		expect(
-			resolveAudioPlaybackAvailability({ source, assetLocallyAvailable: true, assetCached: false, cacheEvicted: false, online: false }),
+			resolveAudioPlaybackAvailability({
+				source,
+				assetLocallyAvailable: true,
+				assetCached: false,
+				cacheEvicted: false,
+				online: false,
+			}),
 		).toBe('available');
 		expect(
-			resolveAudioPlaybackAvailability({ source, assetLocallyAvailable: false, assetCached: false, cacheEvicted: false, online: false }),
+			resolveAudioPlaybackAvailability({
+				source,
+				assetLocallyAvailable: false,
+				assetCached: false,
+				cacheEvicted: false,
+				online: false,
+			}),
 		).toBe('missing-asset');
 	});
 
@@ -239,15 +294,33 @@ describe('AUDIO-010 — cache/offline behavior as a playback prerequisite', () =
 		const source = result.source;
 		// Offline + not cached ⇒ unavailable.
 		expect(
-			resolveAudioPlaybackAvailability({ source, assetLocallyAvailable: false, assetCached: false, cacheEvicted: false, online: false }),
+			resolveAudioPlaybackAvailability({
+				source,
+				assetLocallyAvailable: false,
+				assetCached: false,
+				cacheEvicted: false,
+				online: false,
+			}),
 		).toBe('unavailable-offline');
 		// Offline + cached ⇒ available.
 		expect(
-			resolveAudioPlaybackAvailability({ source, assetLocallyAvailable: false, assetCached: true, cacheEvicted: false, online: false }),
+			resolveAudioPlaybackAvailability({
+				source,
+				assetLocallyAvailable: false,
+				assetCached: true,
+				cacheEvicted: false,
+				online: false,
+			}),
 		).toBe('available');
 		// Online ⇒ available regardless of cache.
 		expect(
-			resolveAudioPlaybackAvailability({ source, assetLocallyAvailable: false, assetCached: false, cacheEvicted: false, online: true }),
+			resolveAudioPlaybackAvailability({
+				source,
+				assetLocallyAvailable: false,
+				assetCached: false,
+				cacheEvicted: false,
+				online: true,
+			}),
 		).toBe('available');
 	});
 
@@ -285,10 +358,22 @@ describe('AUDIO-010 — cache/offline behavior as a playback prerequisite', () =
 		});
 		if (!result.ok) throw new Error('ok');
 		expect(
-			resolveAudioPlaybackAvailability({ source: result.source, assetLocallyAvailable: false, assetCached: false, cacheEvicted: false, online: true }),
+			resolveAudioPlaybackAvailability({
+				source: result.source,
+				assetLocallyAvailable: false,
+				assetCached: false,
+				cacheEvicted: false,
+				online: true,
+			}),
 		).toBe('available');
 		expect(
-			resolveAudioPlaybackAvailability({ source: result.source, assetLocallyAvailable: false, assetCached: false, cacheEvicted: false, online: false }),
+			resolveAudioPlaybackAvailability({
+				source: result.source,
+				assetLocallyAvailable: false,
+				assetCached: false,
+				cacheEvicted: false,
+				online: false,
+			}),
 		).toBe('unavailable-offline');
 	});
 
@@ -296,7 +381,7 @@ describe('AUDIO-010 — cache/offline behavior as a playback prerequisite', () =
 		const state = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
 		const audio = ensureAudioState({
 			assets: {},
-			sources: { 's': localSource() },
+			sources: { s: localSource() },
 			schemaVersion: 1 as const,
 		});
 		const withAudio = { ...state, audio };
@@ -324,7 +409,7 @@ describe('AUDIO-010 — cache/offline behavior as a playback prerequisite', () =
 		const audio = ensureAudioState({
 			assets: {},
 			sources: {
-				's': { ...localSource(), cacheBehavior: 'undeclared', playbackEnabled: true },
+				s: { ...localSource(), cacheBehavior: 'undeclared', playbackEnabled: true },
 			},
 			schemaVersion: 1 as const,
 		});

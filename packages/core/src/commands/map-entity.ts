@@ -1,7 +1,10 @@
 import {
 	commitMapImportInputSchema,
 	createMapInputSchema,
+	deleteMapInputSchema,
 	importMapAssetInputSchema,
+	setMapProjectionInputSchema,
+	setMapScaleInputSchema,
 	updateMapMetadataInputSchema,
 } from '../schemas/commands';
 import type { MapEntity, MapLayer, MapState } from '../state/map-state';
@@ -201,6 +204,213 @@ export function handleUpdateMapMetadata(
 		nextState: { ...state, maps: nextMaps, sync: nextLog },
 		events: [
 			{ kind: 'map.metadata-changed', mapId: map.id, actorId: dm.actorId, paths: changedPaths },
+		],
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * MAP-021: DELETE a map. DM-only.
+ *
+ * REFUSES TO ORPHAN AN EMBED. While any other map embeds this one, the delete is rejected: an embed is a
+ * typed REFERENCE to the child (Contract 4 — the parent stores only the child id, never a copy), so
+ * deleting the child out from under it leaves the parent pointing at nothing. `force: true` deletes the
+ * map anyway AND strips those embeds from their parents in the same commit, so the nesting graph is left
+ * consistent either way — a dangling reference is never a possible outcome.
+ *
+ * The map's content-addressed ASSETS are deliberately left in `MapState.assets`: they are deduplicated
+ * by content hash and may be referenced by other maps, so deleting a map must never delete bytes another
+ * map is still using.
+ */
+export function handleDeleteMap(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const parsed = parseInput(deleteMapInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const dm = requireMapDm(state, actorId);
+	if ('status' in dm) return dm;
+
+	const map = state.maps.maps[parsed.data.mapId];
+	if (!map) {
+		return reject(
+			{ code: 'map-not-found', message: `Map ${parsed.data.mapId} does not exist.` },
+			state,
+		);
+	}
+
+	// Every embed, in every OTHER map, that references this one.
+	const referencing = Object.values(state.maps.maps).flatMap((candidate) =>
+		candidate.id === map.id
+			? []
+			: candidate.embeds
+					.filter((embed) => embed.childMapId === map.id)
+					.map((embed) => ({ parentMapId: candidate.id, embedId: embed.id })),
+	);
+
+	if (referencing.length > 0 && !parsed.data.force) {
+		return reject(
+			{
+				code: 'map-embedded-elsewhere',
+				message: `Map ${map.id} is embedded in ${referencing.length} other map(s). Remove those embeds first, or delete with force to remove them as part of the delete.`,
+				issues: referencing.map((reference) => ({
+					path: `${reference.parentMapId}/embeds/${reference.embedId}`,
+					message: 'This embed references the map being deleted.',
+				})),
+			},
+			state,
+		);
+	}
+
+	const now = env.clock();
+	const nextMapRecords: Record<string, MapEntity> = {};
+	for (const [id, candidate] of Object.entries(state.maps.maps)) {
+		if (id === map.id) continue;
+		const orphaned = candidate.embeds.filter((embed) => embed.childMapId === map.id);
+		nextMapRecords[id] =
+			orphaned.length === 0
+				? candidate
+				: {
+						...candidate,
+						embeds: candidate.embeds.filter((embed) => embed.childMapId !== map.id),
+						updatedAt: now,
+						revision: candidate.revision + 1,
+					};
+	}
+	const nextMaps: MapState = { ...state.maps, maps: nextMapRecords };
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, dm.actorId, {
+		entityType: 'map',
+		entityId: map.id,
+		opType: 'map.delete',
+		path: '',
+		value: {
+			mutation: 'delete',
+			name: map.name,
+			forced: parsed.data.force,
+			// Reported, never silent: exactly which embeds were removed to keep the graph consistent.
+			removedEmbeds: referencing,
+		},
+		beforeRevision: map.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, maps: nextMaps, sync: nextLog },
+		events: [{ kind: 'map.deleted', mapId: map.id, actorId: dm.actorId }],
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * MAP-021: set (or clear) a map's physical SCALE. DM-only.
+ *
+ * Scale was write-once at `map.create`, which meant a DM who picked `feet` for a regional map had to
+ * DELETE the map and rebuild it. Validation is the same fail-closed gate `map.create` applies (the
+ * schema rejects a non-positive/non-finite `unitsPerMap` and an empty unit label before any mutation).
+ * `null` CLEARS the scale — MAP-013 distance/travel-time then read as unavailable rather than being
+ * silently computed against a guessed scale.
+ */
+export function handleSetMapScale(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const parsed = parseInput(setMapScaleInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const dm = requireMapDm(state, actorId);
+	if ('status' in dm) return dm;
+
+	const map = state.maps.maps[parsed.data.mapId];
+	if (!map) {
+		return reject(
+			{ code: 'map-not-found', message: `Map ${parsed.data.mapId} does not exist.` },
+			state,
+		);
+	}
+
+	const now = env.clock();
+	const nextMap: MapEntity = {
+		...map,
+		scale: parsed.data.scale ? { ...parsed.data.scale } : null,
+		updatedAt: now,
+		revision: map.revision + 1,
+	};
+	const nextMaps: MapState = { ...state.maps, maps: { ...state.maps.maps, [map.id]: nextMap } };
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, dm.actorId, {
+		entityType: 'map',
+		entityId: map.id,
+		opType: 'map.set-scale',
+		path: 'scale',
+		value: { mutation: 'set-scale', scale: nextMap.scale, before: map.scale },
+		beforeRevision: map.revision,
+		afterRevision: nextMap.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, maps: nextMaps, sync: nextLog },
+		events: [{ kind: 'map.metadata-changed', mapId: map.id, actorId: dm.actorId, paths: ['scale'] }],
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * MAP-021: set a map's PROJECTION. DM-only. Like scale, this was write-once at creation. The supported
+ * projection set is the fail-closed gate (the schema enum): an unknown projection is rejected rather
+ * than silently accepted and then rendered as `flat`.
+ */
+export function handleSetMapProjection(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const parsed = parseInput(setMapProjectionInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const dm = requireMapDm(state, actorId);
+	if ('status' in dm) return dm;
+
+	const map = state.maps.maps[parsed.data.mapId];
+	if (!map) {
+		return reject(
+			{ code: 'map-not-found', message: `Map ${parsed.data.mapId} does not exist.` },
+			state,
+		);
+	}
+
+	const now = env.clock();
+	const nextMap: MapEntity = {
+		...map,
+		projection: { ...parsed.data.projection },
+		updatedAt: now,
+		revision: map.revision + 1,
+	};
+	const nextMaps: MapState = { ...state.maps, maps: { ...state.maps.maps, [map.id]: nextMap } };
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, dm.actorId, {
+		entityType: 'map',
+		entityId: map.id,
+		opType: 'map.set-projection',
+		path: 'projection',
+		value: {
+			mutation: 'set-projection',
+			projection: nextMap.projection,
+			before: map.projection,
+		},
+		beforeRevision: map.revision,
+		afterRevision: nextMap.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, maps: nextMaps, sync: nextLog },
+		events: [
+			{ kind: 'map.metadata-changed', mapId: map.id, actorId: dm.actorId, paths: ['projection'] },
 		],
 		operationIds: [op.id],
 	};

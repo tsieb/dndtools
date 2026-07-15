@@ -21,6 +21,8 @@
  * renders the computed classification/availability.
  */
 
+import { isSafeRemoteMediaUrl } from '../security/content-safety';
+
 export const AUDIO_SOURCE_SCHEMA_VERSION = 1 as const;
 
 /** The entity type audio source registrations are addressed by in ops. Sources are DM-only config. */
@@ -36,7 +38,12 @@ export const AUDIO_SOURCE_ENTITY_TYPE = 'audio-source' as const;
  *   - `web-stream`     — a remote streaming URL. NOT offline-capable unless an asset is explicitly cached.
  *   - `unsupported`    — any provider that is not one of the declared types. Rejected before playback.
  */
-export type AudioSourceType = 'local-file' | 'bundled-preset' | 'web-stream' | 'unsupported' | (string & {});
+export type AudioSourceType =
+	| 'local-file'
+	| 'bundled-preset'
+	| 'web-stream'
+	| 'unsupported'
+	| (string & {});
 
 /** The three SUPPORTED, declared source types (excludes the catch-all `unsupported`). */
 export const SUPPORTED_AUDIO_SOURCE_TYPES = Object.freeze([
@@ -186,6 +193,7 @@ export type AudioSourceConfigResult =
 export type AudioSourceRejectionReason =
 	| 'unsupported-source-type'
 	| 'missing-url'
+	| 'unsafe-url'
 	| 'cache-behavior-not-allowed';
 
 export interface ConfigureAudioSourceInput {
@@ -233,12 +241,16 @@ export function configureAudioSource(input: ConfigureAudioSourceInput): AudioSou
 			message: `A ${capability.displayName} source requires a stream URL.`,
 		};
 	}
+	if (capability.requiresUrl && url && !isSafeRemoteMediaUrl(url)) {
+		return {
+			ok: false,
+			reason: 'unsafe-url',
+			message: 'A web stream URL must be an absolute http(s) URL without embedded credentials.',
+		};
+	}
 
 	const cacheBehavior: AudioCacheBehavior = input.cacheBehavior ?? 'undeclared';
-	if (
-		cacheBehavior !== 'undeclared' &&
-		!capability.allowedCacheBehaviors.includes(cacheBehavior)
-	) {
+	if (cacheBehavior !== 'undeclared' && !capability.allowedCacheBehaviors.includes(cacheBehavior)) {
 		return {
 			ok: false,
 			reason: 'cache-behavior-not-allowed',
