@@ -15,7 +15,7 @@ apps/
                plus an Electron desktop shell and LAN/cloud remote play)
 packages/
   core/        @dndtools/core     — the processing core (commands, reducers, permissions, queries)
-  cloud-fns/   @dndtools/cloud-fns — AWS Lambda handlers for signaling + encrypted sync
+  cloud-fns/   @dndtools/cloud-fns — AWS Lambda handlers for signaling + encrypted backup
 infra/         — AWS SAM stacks for the opt-in cloud backend (see infra/README.md)
 docs/          — architecture, ADRs, requirements, design, development, planning, reference
 scripts/       — workspace tooling (boundary lint, quality gates, a11y/token lints, validate harness)
@@ -35,9 +35,9 @@ The repository layout and the decision to make React the primary GM surface are 
 ```bash
 pnpm install          # install the workspace
 pnpm dev              # start the React GM app dev server (:5273)
-pnpm build            # build core, then the React GM app
-pnpm typecheck        # typecheck core + the React app
-pnpm test             # core + cloud/transport + repo tooling unit tests
+pnpm build            # build core, cloud functions, and the React GM app
+pnpm typecheck        # typecheck core, cloud functions, and the React GM app
+pnpm test             # core + cloud/transport + app + repo tooling unit tests
 pnpm e2e              # Playwright (desktop + mobile Chromium) against the React app
 pnpm a11y:gate        # non-text contrast + axe accessibility gate
 pnpm lint             # eslint + boundary lint + non-text contrast lint

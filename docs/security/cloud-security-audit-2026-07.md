@@ -9,8 +9,24 @@ mitigated. Nothing was treated as out of scope.
 authorization regression tests), `gm-react` typecheck, `cloud-fns` esbuild build, eslint,
 boundary lint, and CloudFormation template parse — all green.
 
-> ⚠️ **The infra fixes only take effect on `sam deploy`.** Redeploy the `foundation`,
-> `turn`, `signaling`, and `identity` stacks to apply them.
+> This is a historical audit snapshot, not an evergreen backlog. Findings were rechecked against the
+> current tree on 2026-07-14; use the revalidation below rather than assuming every residual item is open.
+
+## Revalidation — 2026-07-14
+
+- **Resolved in source:** the hosted response-header CSP now pins the exact SSM-resolved API ids; Lambda
+  and API logs have explicit retention; the sync and app tables enable PITR; coturn is pinned to an
+  immutable manifest digest; API, Lambda concurrency, per-principal publish/TURN, ciphertext, and
+  response budgets are bounded; alarms and dashboards are defined.
+- **Additional hardening:** cloud envelopes now authenticate the Cognito account, vault, artifact kind,
+  and revision; the sync service independently recomputes that context. Account deletion locks writes,
+  performs bounded physical S3/DynamoDB purge, requires a strongly consistent zero-usage proof, deletes
+  Cognito last, and retires deletion markers after 45 days.
+- **Still requires live verification:** current templates and handlers must be deployed with authorized
+  AWS credentials, then exercised by the post-deploy auth, signaling, TURN, tenant-isolation, backup,
+  and account-deletion smokes. Source validation is not evidence of deployed state.
+- **Still open by design:** TURN TLS plus multi-host failover, recovery-key/multi-device key transfer,
+  and the monitored beta decision to allow open self-signup.
 
 ---
 
@@ -18,13 +34,13 @@ boundary lint, and CloudFormation template parse — all green.
 
 ### Critical / High
 
-| # | Finding | File(s) | Fix |
-|---|---------|---------|-----|
-| 1 | **CI deploy role = account takeover.** PowerUser + `iam:PassRole Resource:'*'` (no condition) is the textbook escalation-to-admin combo. | `infra/foundation/template.yaml` | `PassRole` constrained to `dndtools-*` roles + `iam:PassedToService`; role/policy/instance-profile management scoped to the `${ProjectName}-*` namespace; **permissions boundary** added to the CI role and every role it creates, hard-denying IAM-user / Organizations / account-takeover actions. |
-| 2 | **coturn shared secret leaked.** `set -x` wrote the secret in cleartext to `/var/log/turn-bootstrap.log`; secret also passed as a CLI arg (`ps`, `docker inspect`). | `infra/turn/template.yaml` | Removed xtrace; secret now lives only in a `chmod 600` `turnserver.conf` mounted read-only (off the command line). |
-| 3 | **coturn open relay / SSRF.** No `denied-peer-ip`, so a client with valid TURN creds could relay into the VPC's private ranges and the `169.254.169.254` metadata endpoint. | `infra/turn/template.yaml` | Added `denied-peer-ip` for RFC1918, loopback, CGNAT, link-local (incl. metadata), and IPv6 ULA/link-local; added `total-quota`/`user-quota`/`max-bps` bandwidth caps. |
-| 4 | **`offer` relay had no authorization.** Any authenticated user could inject a forged offer into an arbitrary connection (even cross-session) by naming its `connectionId`. Sibling `answer` route was already safe. | `packages/cloud-fns/src/signaling/handler.ts` | Only the actual host of the session the target is joining may relay it an offer (server-side resolution mirrors the `answer` path). |
-| 5 | **Remote-play session key relayed in cleartext.** The offer code embeds the raw AES-GCM session key + SDP. LAN/QR exchange it out-of-band, but the cloud bridge relayed the same code through the signaling server, which could then decrypt all remote-play traffic — contradicting the "untrusted relay" model. | `apps/gm-react/src/net/cloudCrypto.ts` (new), `net/cloudBridge.ts`, `packages/cloud-fns/src/signaling/handler.ts` | Added ephemeral **ECDH (P-256) → AES-GCM** wrap. The cloud bridge now seals every relayed offer/answer under a per-pairing ECDH-derived key; the relay only ever sees each side's ephemeral **public** key + ciphertext. Transparent to `SessionHost`/`SessionClient` (the `DiscoveryBridge` contract is unchanged); the handler just forwards the two public keys. |
+| #   | Finding                                                                                                                                                                                                                                                                                                           | File(s)                                                                                                           | Fix                                                                                                                                                                                                                                                                                                                                                                 |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **CI deploy role = account takeover.** PowerUser + `iam:PassRole Resource:'*'` (no condition) is the textbook escalation-to-admin combo.                                                                                                                                                                          | `infra/foundation/template.yaml`                                                                                  | `PassRole` constrained to `dndtools-*` roles + `iam:PassedToService`; role/policy/instance-profile management scoped to the `${ProjectName}-*` namespace; **permissions boundary** added to the CI role and every role it creates, hard-denying IAM-user / Organizations / account-takeover actions.                                                                |
+| 2   | **coturn shared secret leaked.** `set -x` wrote the secret in cleartext to `/var/log/turn-bootstrap.log`; secret also passed as a CLI arg (`ps`, `docker inspect`).                                                                                                                                               | `infra/turn/template.yaml`                                                                                        | Removed xtrace; secret now lives only in a `chmod 600` `turnserver.conf` mounted read-only (off the command line).                                                                                                                                                                                                                                                  |
+| 3   | **coturn open relay / SSRF.** No `denied-peer-ip`, so a client with valid TURN creds could relay into the VPC's private ranges and the `169.254.169.254` metadata endpoint.                                                                                                                                       | `infra/turn/template.yaml`                                                                                        | Added `denied-peer-ip` for RFC1918, loopback, CGNAT, link-local (incl. metadata), and IPv6 ULA/link-local; added `total-quota`/`user-quota`/`max-bps` bandwidth caps.                                                                                                                                                                                               |
+| 4   | **`offer` relay had no authorization.** Any authenticated user could inject a forged offer into an arbitrary connection (even cross-session) by naming its `connectionId`. Sibling `answer` route was already safe.                                                                                               | `packages/cloud-fns/src/signaling/handler.ts`                                                                     | Only the actual host of the session the target is joining may relay it an offer (server-side resolution mirrors the `answer` path).                                                                                                                                                                                                                                 |
+| 5   | **Remote-play session key relayed in cleartext.** The offer code embeds the raw AES-GCM session key + SDP. LAN/QR exchange it out-of-band, but the cloud bridge relayed the same code through the signaling server, which could then decrypt all remote-play traffic — contradicting the "untrusted relay" model. | `apps/gm-react/src/net/cloudCrypto.ts` (new), `net/cloudBridge.ts`, `packages/cloud-fns/src/signaling/handler.ts` | Added ephemeral **ECDH (P-256) → AES-GCM** wrap. The cloud bridge now seals every relayed offer/answer under a per-pairing ECDH-derived key; the relay only ever sees each side's ephemeral **public** key + ciphertext. Transparent to `SessionHost`/`SessionClient` (the `DiscoveryBridge` contract is unchanged); the handler just forwards the two public keys. |
 
 ### Medium / Low
 
@@ -51,12 +67,16 @@ boundary lint, and CloudFormation template parse — all green.
 
 ## Residual / recommended (not forced — needs a deploy or a product decision)
 
-1. **Redeploy the hardened infra stacks** — the template fixes above are inert until `sam deploy`.
+1. **Deploy and verify the hardened infra stacks** — source changes are inert until promotion and live smokes.
 2. ~~**Active-MITM SAS (follow-up to #5)**~~ — **RESOLVED 2026-07-07** by the join-PIN work below: the PIN is folded into the HKDF that derives the pairing key, so a relay that swaps both public keys still cannot derive the wrap key (it never learns the PIN and cannot compute the ECDH secret). See the follow-up section.
-3. **CSP `connect-src`** is a `*.execute-api.<region>` wildcard (any AWS account's API GW in-region). Pin to the specific signaling/sync API IDs at build time. Also add an equivalent CSP **response header** to the Stage 4 web host (the Electron CSP doesn't cover the web deployment).
+3. ~~**CSP `connect-src` wildcard / missing hosted header**~~ — **RESOLVED IN SOURCE
+   2026-07-14:** CloudFront supplies a CSP response header whose API origins use exact SSM-resolved API
+   ids. Electron derives an explicit runtime policy for the configured endpoints. Deployment still
+   needs live verification.
 4. ~~**`browse` returns every live session globally**~~ — **RESOLVED 2026-07-07** (see follow-up): browse is now scoped to the caller's own rooms; strangers get an empty roster.
 5. **Open self-signup** — anyone can create an account (a valid principal against signaling/sync). Reasonable for a hobby tool where players self-serve, but consider an invite allow-list (`PreSignUp` trigger) and/or Cognito threat protection (`AdvancedSecurityMode`, paid) if abuse appears.
-6. **Observability / durability** — set Lambda CloudWatch log retention on both serverless stacks; enable PITR on `SyncOpsTable`; pin the `coturn/coturn` image to a digest; consider `turns:` (TLS) once a TURN hostname/cert exists.
+6. ~~**Log retention / PITR / coturn digest pin**~~ — **RESOLVED IN SOURCE 2026-07-14.** `turns:`
+   (TLS), tested secret rotation, and multi-host failover remain open production-network work.
 
 ---
 
@@ -73,17 +93,18 @@ the credential" trust model that LAN/QR gets for free from out-of-band exchange.
 
 **Fix (client-only crypto + one server scoping change):**
 
-| Part | File(s) | Change |
-|------|---------|--------|
-| **Join PIN as the admission credential** | `apps/gm-react/src/net/cloudCrypto.ts` | The pairing key is now `ECDH → HKDF-SHA256(salt = sha256(PIN)) → AES-256-GCM`. A per-session 128-bit PIN is minted by the host and folded into the salt. A joiner without the PIN derives a different key and **cannot open the sealed offer** (which carries the session key) nor complete the handshake — cryptographic admission, not a checkable flag. The PIN **never transits the relay**, so the relay can neither read it nor brute-force it offline (it lacks the ECDH private halves). This also closes residual #2 (active key-substitution MITM). |
-| **PIN plumbed through the bridge/host/UI** | `net/cloudBridge.ts`, `net/discovery.ts`, `net/SessionContext.tsx`, `net/SessionPanel.tsx` | Host mints the PIN on "Host online" and surfaces a single **online join code** (`base64url({sessionId, pin})`) to share out-of-band (copy). Joiner pastes that code; it decodes to id + PIN. LAN bridge ignores the optional PIN (proximity is its credential). |
-| **Scoped browse** | `packages/cloud-fns/src/signaling/handler.ts` | `browse` no longer returns a global roster — it filters to the caller's **own** rooms (`r.sub === sub`), so a stranger cannot enumerate anyone's live sessions. Online discovery is now exclusively via the out-of-band join code ("require exact sessionId"). Closes residual #4. |
+| Part                                       | File(s)                                                                                    | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Join PIN as the admission credential**   | `apps/gm-react/src/net/cloudCrypto.ts`                                                     | The pairing key is now `ECDH → HKDF-SHA256(salt = sha256(PIN)) → AES-256-GCM`. A per-session 128-bit PIN is minted by the host and folded into the salt. A joiner without the PIN derives a different key and **cannot open the sealed offer** (which carries the session key) nor complete the handshake — cryptographic admission, not a checkable flag. The PIN **never transits the relay**, so the relay can neither read it nor brute-force it offline (it lacks the ECDH private halves). This also closes residual #2 (active key-substitution MITM). |
+| **PIN plumbed through the bridge/host/UI** | `net/cloudBridge.ts`, `net/discovery.ts`, `net/SessionContext.tsx`, `net/SessionPanel.tsx` | Host mints the PIN on "Host online" and surfaces a single **online join code** (`base64url({sessionId, pin})`) to share out-of-band (copy). Joiner pastes that code; it decodes to id + PIN. LAN bridge ignores the optional PIN (proximity is its credential).                                                                                                                                                                                                                                                                                               |
+| **Scoped browse**                          | `packages/cloud-fns/src/signaling/handler.ts`                                              | `browse` no longer returns a global roster — it filters to the caller's **own** rooms (`r.sub === sub`), so a stranger cannot enumerate anyone's live sessions. Online discovery is now exclusively via the out-of-band join code ("require exact sessionId"). Closes residual #4.                                                                                                                                                                                                                                                                            |
 
-**Verification:** cloud suite **88/88** — includes a new *"a wrong join PIN cannot open the
-relayed offer (no admission)"* test and a rewritten *"browse is scoped to the caller"*
+**Verification:** cloud suite **88/88** — includes a new _"a wrong join PIN cannot open the
+relayed offer (no admission)"_ test and a rewritten _"browse is scoped to the caller"_
 cross-tenant-isolation test. gm-react + cloud-fns typecheck, cloud-fns Lambda bundle, and the
 `gm-react` app build all green.
 
 > ⚠️ **Deploy note:** the PIN change is client-only (the relay just forwards opaque public keys
-> + ciphertext, unchanged). The scoped-`browse` change requires a redeploy of the **signaling**
-> stack (`sam deploy`) to take effect server-side.
+>
+> - ciphertext, unchanged). The scoped-`browse` change requires a redeploy of the **signaling**
+>   stack (`sam deploy`) to take effect server-side.

@@ -3,7 +3,7 @@
 This document is the threat model for the **LAN / serverless peer-to-peer remote-player** feature in
 `apps/gm-react` (Epic 7.3 story S7.3.4). It covers only the LAN P2P transport. The **cloud** storage
 security model is separate (see ADR-015/ADR-017 and `packages/core/src/security/vault-crypto.ts`): cloud
-sync is end-to-end encrypted with client-held keys, stays **off by default** behind the fail-closed
+backup is end-to-end encrypted with client-held keys, stays **off by default** behind the fail-closed
 SYNC-017 gate (`packages/core/src/sync/cloud-sync-gate.ts`), and is **not** affected by this LAN feature.
 Internet remote play (Cognito accounts + a TURN-relayed WebRTC path) is also separate from this LAN model.
 
@@ -11,22 +11,22 @@ Internet remote play (Cognito accounts + a TURN-relayed WebRTC path) is also sep
 
 A DM (the **host**) shares a live session with **players** over the local network. The host device holds
 the single authoritative campaign state (`SceneRuntime`). Each player joins as a **non-authoritative view**
-and receives a player-safe snapshot of the table; players send back only *intents* (dice rolls, edits to
+and receives a player-safe snapshot of the table; players send back only _intents_ (dice rolls, edits to
 their own character). Transport is a **WebRTC data channel per player**, LAN-only, with **no STUN/TURN and
 no signaling server** — nothing is ever sent to a cloud or third party.
 
 ## Trust boundaries
 
-| Boundary | Trusted? | Notes |
-| --- | --- | --- |
-| DM host device | Yes (root of trust) | Holds authoritative state; the only writer to durable storage. |
-| The local network | **No** | Assumed hostile: other hosts may sniff mDNS and attempt to connect. |
-| A joined player | Partially | Authenticated to a specific participant identity; may act only as that actor. |
-| A player's device cache | **No** | Never authoritative (`con/source-of-truth.ts`); holds only player-safe view-models. |
+| Boundary                | Trusted?            | Notes                                                                               |
+| ----------------------- | ------------------- | ----------------------------------------------------------------------------------- |
+| DM host device          | Yes (root of trust) | Holds authoritative state; the only writer to durable storage.                      |
+| The local network       | **No**              | Assumed hostile: other hosts may sniff mDNS and attempt to connect.                 |
+| A joined player         | Partially           | Authenticated to a specific participant identity; may act only as that actor.       |
+| A player's device cache | **No**              | Never authoritative (`con/source-of-truth.ts`); holds only player-safe view-models. |
 
 ## Guarantees and how they are enforced
 
-1. **Hidden content never leaves the host.** DM→player replication sends *filtered view-models* built
+1. **Hidden content never leaves the host.** DM→player replication sends _filtered view-models_ built
    through the actor-filtered query layer (`buildPlayerData` → `*ForActor` queries, which run the core
    visibility engine). A player's snapshot is player-safe **by construction** — dm-only/unshared content is
    never serialized to it, so there is nothing to "hide in the UI." (Reinforces Contract 2 "filter before

@@ -4,8 +4,8 @@ This document defines the engineering rules that apply to every code change in t
 
 ## 1. Prerequisites
 
-- Node.js 20+
-- pnpm 9+
+- Node.js 22.13+
+- pnpm 10.34.5 (the exact version pinned in `package.json` and CI)
 - Electron desktop is optional; a packaged-app smoke run needs a display.
 
 ## 2. Script Surface
@@ -20,7 +20,7 @@ High-signal commands:
 
 - `pnpm check` - `gates` + boundary lint + typecheck + full test suite (pre-handoff gate)
 - `pnpm validate` - whole-application validation harness (see VALIDATION.md)
-- `pnpm test` - core unit + cloud/net + repo tooling tests
+- `pnpm test` - core unit + cloud/net + app + repo tooling tests
 - `pnpm e2e` - Playwright (desktop + mobile Chromium) against `apps/gm-react`
 - `pnpm a11y:gate` - contrast + axe accessibility gate
 

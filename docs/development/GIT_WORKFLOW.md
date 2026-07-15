@@ -66,11 +66,11 @@ flowchart LR
 
 ### 1.5 Test Tier By Boundary
 
-| Merge boundary                | Branch target           | Required gate                                  |
-| ----------------------------- | ----------------------- | ---------------------------------------------- |
-| Epic PR                       | `initiative/*`          | local `pnpm test:smoke` before push            |
-| Any PR (CI)                   | `main` / `initiative/*` | `ci.yml` `build-and-test` (`pnpm gates` + `pnpm test`) |
-| Full app rehearsal            | before release          | `pnpm validate` (`validate.yml`)               |
+| Merge boundary     | Branch target           | Required gate                                                              |
+| ------------------ | ----------------------- | -------------------------------------------------------------------------- |
+| Epic PR            | `initiative/*`          | local `pnpm test:smoke` before push                                        |
+| Any PR (CI)        | `main` / `initiative/*` | static + unit + build; runtime changes also run browser/a11y/Electron jobs |
+| Full app rehearsal | before release          | `pnpm validate` (`validate.yml`)                                           |
 
 ---
 
@@ -124,8 +124,8 @@ All feature, fix, refactor, CI, or tooling work uses the initiative/epic model.
 
 No git hooks are installed in this repo, so these are run by hand — run them before pushing rather than relying on a hook:
 
-| When              | Command                     |
-| ----------------- | --------------------------- |
+| When              | Command                                         |
+| ----------------- | ----------------------------------------------- |
 | Before every push | `pnpm test:smoke` (fast) or `pnpm check` (full) |
 
 ### 3.2 Smoke Gate
@@ -134,10 +134,12 @@ No git hooks are installed in this repo, so these are run by hand — run them b
 
 ### 3.3 CI Gate
 
-Every push to `main` and every pull request runs `.github/workflows/ci.yml` job `build-and-test`:
+Every push to `main` and every pull request runs `.github/workflows/ci.yml`:
 
-- `pnpm gates` — tiered quality-gate registry (fails closed)
-- `pnpm test` — core unit + cloud/net + repo tooling tests
+- `build-and-test` — credentials scan, quality gates, lint, typecheck, production build, and all unit suites
+- `browser-e2e` — path-filtered, two-shard Playwright suite with failure diagnostics
+- `accessibility` — path-filtered desktop/mobile axe scan and merged report
+- `desktop-smoke` — path-filtered Electron boot, CSP, and persistence smoke on Linux
 
 The whole-application harness `pnpm validate` runs in `.github/workflows/validate.yml` (desktop/cloud layers self-skip without a display or AWS creds). See `docs/development/VALIDATION.md`.
 
@@ -145,13 +147,13 @@ The whole-application harness `pnpm validate` runs in `.github/workflows/validat
 
 Run the domain-appropriate commands before opening a PR:
 
-| When                             | Command             |
-| -------------------------------- | ------------------- |
-| Pre-handoff full gate            | `pnpm check`        |
-| Whole-app rehearsal              | `pnpm validate`     |
-| UI routes or interaction changes | `pnpm e2e`          |
-| Accessibility-affecting changes  | `pnpm a11y:gate`    |
-| Electron desktop changes         | `pnpm desktop:build`|
+| When                             | Command              |
+| -------------------------------- | -------------------- |
+| Pre-handoff full gate            | `pnpm check`         |
+| Whole-app rehearsal              | `pnpm validate`      |
+| UI routes or interaction changes | `pnpm e2e`           |
+| Accessibility-affecting changes  | `pnpm a11y:gate`     |
+| Electron desktop changes         | `pnpm desktop:build` |
 
 ---
 
@@ -216,22 +218,24 @@ State what changed, why, and how it was validated (which of `check` / `validate`
 
 ## 6. Recovery Guidance
 
-| Situation                                | Action                                                                      |
-| ---------------------------------------- | --------------------------------------------------------------------------- |
-| Smoke fails on epic PR                   | Fix on the same `story/*` branch and push again                             |
-| Full gate fails on initiative PR         | Fix on the same initiative branch or merge the needed epic fix first        |
-| Initiative branch drifts behind `main` | Rebase or merge `main`, then re-run `pnpm check`                          |
-| Merged PR requires rollback              | Human decision only; use a new `git revert <sha>` PR                        |
-| Broken local commit not yet pushed       | `git commit --amend` is acceptable only for the immediately previous commit |
+| Situation                              | Action                                                                      |
+| -------------------------------------- | --------------------------------------------------------------------------- |
+| Smoke fails on epic PR                 | Fix on the same `story/*` branch and push again                             |
+| Full gate fails on initiative PR       | Fix on the same initiative branch or merge the needed epic fix first        |
+| Initiative branch drifts behind `main` | Rebase or merge `main`, then re-run `pnpm check`                            |
+| Merged PR requires rollback            | Human decision only; use a new `git revert <sha>` PR                        |
+| Broken local commit not yet pushed     | `git commit --amend` is acceptable only for the immediately previous commit |
 
 ---
 
 ## 7. CI Workflows
 
-- `.github/workflows/ci.yml` — `build-and-test` (`pnpm gates` + `pnpm test`) on every push to `main` and every PR; concurrency cancels superseded runs.
+- `.github/workflows/ci.yml` — static/unit/build gates plus path-filtered browser, accessibility, and Electron smoke jobs.
 - `.github/workflows/validate.yml` — whole-app `pnpm validate` harness (desktop/cloud layers self-skip without a display or AWS creds).
 - `.github/workflows/deploy.yml` — AWS cloud deploy (OIDC; path-filtered; skips cleanly when unconfigured).
-- `.github/workflows/release.yml` — desktop release packaging.
+- `.github/workflows/promote-production.yml` — protected, manual production promotion and safe post-deploy probes.
+- `.github/workflows/cloud-drift.yml` — scheduled dev CloudFormation drift detection.
+- `.github/workflows/release.yml` — gated, signed production or explicitly unsigned-preview desktop packaging.
 
 ---
 

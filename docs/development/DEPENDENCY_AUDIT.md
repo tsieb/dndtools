@@ -1,22 +1,47 @@
 # Dependency Audit
 
-> HISTORICAL ARTIFACT — point-in-time audit dated 2026-03-13. It predates the React pivot
-> (ADR-018) and audits the retired v1 desktop / browser / MCP-sidecar dependency tree. It does
-> NOT reflect the current dependencies of `apps/gm-react`, `packages/core`, `packages/cloud-fns`,
-> or `infra/`. Kept for history only; references below (MCP flows, vault/markdown ZIP export,
-> `tests/unit/repo-boundary-audit.test.ts`, Initiative 21) describe code that no longer exists.
-> Re-run a fresh audit against the current workspace before acting on anything here.
+Last reviewed: 2026-07-14
 
-Last reviewed: 2026-03-13
+## Release posture
 
-## Current posture
+- `pnpm audit` reports zero known vulnerabilities across 722 runtime, development, and optional
+  dependencies.
+- The locked graph installs with the release CI toolchain (`pnpm 10.34.5`) and the local pnpm 11
+  toolchain. CI pins pnpm exactly and uses Node 24; local development requires Node 22.13+.
+- Electron 43.1.0 and electron-builder 26.15.3 are the current releases on their selected lines.
+  A Linux unpacked package and the desktop persistence/origin-migration smoke pass with this pair.
+- Vite remains on the latest 7.x line (7.3.6). `@vitejs/plugin-react` 4.7.0 explicitly supports
+  Vite 7; Vite 8/plugin-react 6 is a coordinated major migration, not a release patch.
 
-- Runtime dependency health is currently acceptable for the active desktop, browser, and MCP flows.
-- No direct dependency removals were applied in this pass because each declared package is referenced by runtime code, build tooling, tests, or packaging workflows.
-- Boundary-risk checks are now enforced in `tests/unit/repo-boundary-audit.test.ts` and wired through `pnpm lint`.
+## Changes applied in this audit
 
-## Cleanup plan
+- Updated Electron 43.0.0 → 43.1.0 and Dexie 4.4.3 → 4.4.4.
+- Raised the plugin-react dependency floor to the installed Vite-7-compatible 4.7.0 release.
+- Replaced Lucide's all-icons runtime record with an explicit reviewed glyph allowlist. This also
+  fixed action names that previously rendered the generic square fallback.
+- Added stable Vite chunks for the processing core, React, validation, storage, and authentication.
+  The entry chunk fell from about 1.70 MB / 464 KB gzip to about 282 KB / 83 KB gzip, and production
+  builds no longer emit mixed static/dynamic import or chunk-size warnings.
+- Pinned pnpm 10.34.5 in the root package and every workflow so lockfile generation and CI installs
+  do not drift by pnpm minor release.
 
-1. Keep `fflate` as the browser-safe archive implementation for markdown ZIP export so browser mode no longer falls back to JSON-only vault exports.
-2. Revisit Electron-only packaging dependencies (`adm-zip`, `electron-builder`, `electron-updater`) if packaging moves into a dedicated workspace; they are still active and intentionally retained today.
-3. Re-run this audit when Initiative 21 decomposition work lands, because route/module extractions may create new opportunities to trim duplicated dependencies and shrink transitive install surface.
+## Deliberate deferrals
+
+- React 19, React Router 7, Vite 8/plugin-react 6, TypeScript 7, Lucide 1.x, and aws-jwt-verify 5 are
+  major upgrades. Migrate each with its framework/API tests after this release rather than combining
+  them with release hardening.
+- Newly published Vitest, AWS SDK, ESLint, Prettier, globals, and typescript-eslint patches/minors are
+  held by the dependency release-age policy. Re-evaluate after the quarantine window.
+- `boolean`, `glob@7`, `inflight`, and `rimraf@2` are deprecated transitive build-time dependencies
+  under electron-builder's packaging stack. They have no current advisory and no direct replacement
+  in this workspace; remove them when electron-builder replaces that chain.
+
+## Next audit actions
+
+1. Run `pnpm audit`, `pnpm -r outdated`, production build, desktop smoke, and an unpacked package on
+   every release candidate.
+2. Schedule Electron patch upgrades promptly and Electron major upgrades before the selected major
+   leaves upstream support.
+3. Add a gzip-aware initial-load budget to `check-prod-bundle.mjs`; the new cache boundaries prevent
+   a monolithic entry chunk, but the full statically imported startup graph is still roughly 372 KB
+   gzip and needs architectural deferral work to reach the historical 100 KB target.

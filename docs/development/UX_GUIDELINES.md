@@ -2,7 +2,7 @@
 
 Engineering-facing UX rules for the primary React GM app (`apps/gm-react`, `@dndtools/gm-react`).
 
-This doc covers UX *rules that engineers enforce in code*. Visual language, tokens, and component
+This doc covers UX _rules that engineers enforce in code_. Visual language, tokens, and component
 specs are owned by the design system — see `docs/design/`. Do not duplicate design-system content
 here; link to it.
 
@@ -44,7 +44,7 @@ read/light update).
   messaging, not silent loss.
 - Destructive actions require explicit confirmation; deletions are reversible unless a permanent
   delete is explicitly requested.
-- Long-running actions (imports, vault/cloud sync) show progress and result feedback.
+- Long-running actions (imports, vault/cloud backup) show progress and result feedback.
 
 ### Search
 
@@ -77,5 +77,5 @@ Full requirements and gates are in `docs/development/ACCESSIBILITY.md`. In short
 ## 7) Reliability UX
 
 - Trash/undo behaviour is reversible by default.
-- Vault-switch, import/export, and cloud-sync actions display progress and a clear result state,
+- Vault-switch, import/export, and cloud-backup actions display progress and a clear result state,
   including conflict reporting before applying a destructive merge.

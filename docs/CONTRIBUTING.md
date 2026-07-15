@@ -10,8 +10,8 @@ infra in `infra/`.
 
 ## 1. Prerequisites
 
-- Node.js 20+
-- pnpm 9+ (`npm install -g pnpm`)
+- Node.js 22.13+
+- pnpm 10+
 - Git
 - (Optional, desktop shell work) nothing extra — `electron-builder` self-downloads Electron.
 

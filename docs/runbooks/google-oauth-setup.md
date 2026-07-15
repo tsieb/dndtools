@@ -1,16 +1,15 @@
 # Google Docs Vault Source — OAuth Setup (manual, one-time)
 
 The Google Docs vault-source connection (import + write-back in the Knowledge/Community
-"Connected sources" panel) is **fail-closed**: the option is completely hidden until the
+"Connected sources" panel) is **fail-closed**: its sign-in controls stay disabled until the
 build carries a Google OAuth client id in `VITE_GOOGLE_CLIENT_ID`. Registering that client
 is a human step in the Google Cloud console — it cannot be automated from this repo.
 
-The integration uses the OAuth 2.0 **token grant** from the browser (GIS-style
-`response_type=token` in a popup — the access token comes back in the redirect fragment, so
-there is **no token-endpoint call and no client secret in the bundle**). It requests ONLY the
-`https://www.googleapis.com/auth/drive.file` scope (per-file access to files the user
-explicitly picks/creates). `drive.file` is a **non-restricted** scope, so no Google
-security review is required for testing or small-scale use.
+The integration uses a Google Identity Services token client. GIS returns the access token
+directly to its popup callback: no redirect fragment, token-endpoint call, or client secret is
+used. It requests only `https://www.googleapis.com/auth/drive.file`, so the app can access Docs
+it creates. Connecting arbitrary existing Docs is intentionally unavailable until a Google
+Picker grant flow is implemented; the app does not compensate by requesting broader Drive access.
 
 ## Steps
 
@@ -29,12 +28,7 @@ security review is required for testing or small-scale use.
      - `http://localhost:5273` (vite dev)
      - `http://localhost:4273` (vite preview)
      - `https://d1xn0o010v89mt.cloudfront.net` (deployed dev web app — adjust per stage)
-   - Authorized redirect URIs — the token grant returns to the app's own page URL
-     (popup-first with a full-redirect fallback), so that URL must be a registered
-     redirect URI (origin + path, no `#/…` fragment):
-     - `http://localhost:5273/`
-     - `http://localhost:4273/`
-     - `https://d1xn0o010v89mt.cloudfront.net/`
+   - No redirect URI is required for this GIS callback flow.
 5. **Provide the id to the build** (either):
    - Local dev: add `VITE_GOOGLE_CLIENT_ID=<client-id>.apps.googleusercontent.com` to
      `apps/gm-react/.env.local` (the file `pull-cloud-env.mjs` writes — re-running that
@@ -49,20 +43,17 @@ security review is required for testing or small-scale use.
 
      (`apps/gm-react/scripts/pull-cloud-env.mjs` reads `google/client-id` as an optional
      parameter; absent ⇒ feature stays hidden.)
+
 6. **Verify**: rebuild/restart the app signed in as a test user → Knowledge → Connected
-   sources → "Connect Google Docs" appears; connecting opens the Google popup; after
-   consent, an import of a picked Doc round-trips and write-back updates the Doc.
+   sources → Google Docs → Sign in with Google; after consent, create a Doc, push a note,
+   pull it back, and confirm write-back updates the same Doc.
 
 ## Notes / gotchas
 
-- **Why the token grant (and not authorization-code + PKCE)**: verified 2026-07-10 against a
-  freshly created Web-application client — Google's token endpoint refuses the secret-less
-  code exchange (`invalid_request: client_secret is missing.`) even with PKCE; Web clients
-  are treated as confidential there, and the app must never ship a secret in the bundle. The
-  token grant needs no token-endpoint call at all, which is exactly the model Google's own
-  GIS SDK uses for browser apps. The web client's issued `client_secret` is therefore unused;
-  it is parked in SSM (`/dndtools/dev/google/client-secret`, SecureString) purely so it never
-  lives in a file — nothing reads it.
+- The runtime uses Google's GIS token client and popup callback. Do not add a client secret,
+  implicit redirect/fragment parser, or authorization-code exchange to the browser bundle.
+- `drive.file` does not automatically grant access to an arbitrary pasted document id. A future
+  "connect existing" flow must use Google Picker and keep this same narrow scope.
 - **Testing mode tokens expire**: consent-screen "Testing" apps issue short-lived tokens
   without refresh; the app holds them in sessionStorage only and shows an honest
   "sign in again" state on expiry. Publish the consent screen only if/when this leaves

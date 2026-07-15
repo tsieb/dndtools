@@ -38,7 +38,7 @@ migrated (each operation carries its own schema version), so it is excluded from
 migration document set.
 
 Each slice declares a `schemaVersion`. `TARGET_SCHEMA_VERSIONS` records the version the
-current build writes. A document at a lower version is migrated; a document at a *higher*
+current build writes. A document at a lower version is migrated; a document at a _higher_
 version was written by a newer build and fails closed with an upgrade-required
 diagnostic rather than being partially parsed (Contract 2).
 
@@ -57,13 +57,22 @@ Renderer persistence is implemented once, in
 `apps/gm-react/src/platform/storage/coreStore.ts`. It is the only module that touches
 IndexedDB; its exported `storagePort` conforms to the type-only `StoragePort` contract.
 
-Database (`Dexie`): name `dndtools-v2`, version `2`, three object stores:
+Database (`Dexie`): name `dndtools-v2`, version `3`, four object stores:
 
-| Store              | Key schema     | Holds                                                             |
-| ------------------ | -------------- | ----------------------------------------------------------------- |
-| `documents`        | `&key`         | one record per durable slice (`doc` = the serialized slice)       |
-| `operations`       | `&id, sequence`| append-only sync operation log, ordered by `sequence`             |
-| `migrationJournal` | `&key`         | write-ahead journal for crash recovery of an in-flight migration  |
+| Store              | Key schema      | Holds                                                            |
+| ------------------ | --------------- | ---------------------------------------------------------------- |
+| `documents`        | `&key`          | one record per durable slice (`doc` = the serialized slice)      |
+| `operations`       | `&id, sequence` | append-only sync operation log, ordered by `sequence`            |
+| `migrationJournal` | `&key`          | write-ahead journal for crash recovery of an in-flight migration |
+| `assetBlobs`       | `&id`           | content-addressed map/audio bytes, separate from core documents  |
+
+Packaged desktop releases use the secure, persistent `dndtools://app` origin. The v0.2.0 release used
+`file://`; before the normal renderer starts, Electron exports that legacy database through an isolated
+hidden renderer, imports it in bounded binary-safe chunks, recomputes a content digest, and writes a
+completion marker. The source is never deleted. A main-process ownership marker makes an interrupted
+partial target safe to clear and retry, while a pre-existing nonempty target with a different digest
+fails closed. Only explicitly reviewed non-secret preferences migrate; session storage and origin-bound
+folder handles do not.
 
 Write path (`persistFullState(previous, next)`):
 
@@ -74,21 +83,33 @@ Write path (`persistFullState(previous, next)`):
 2. An op-growth guard enforces the core discipline: if any durable slice changed but no
    new accepted operation was produced, the write is rejected. This is what makes
    "durable state only ever changes through a command" a runtime invariant.
-3. Changed slices and any new operations are written in one `Promise.all`.
+3. All slice documents and the new operation tail are committed in one Dexie transaction. A clone,
+   quota, or individual-store failure rolls the entire command back, so a reload cannot observe state
+   without its audit operation (or an operation without its state).
 
 Load path (`loadCoreState`) first runs `recoverPendingMigration` (a no-op on a clean
-start; on a crashed migration it rolls back to the journal snapshot), then hydrates every
-slice **fail-closed**: a vault persisted before a given slice existed hydrates to a safe
-empty/most-restrictive default rather than being migrated destructively.
+start; on a crashed migration it rolls back to the journal snapshot). A slice that did not
+exist in an older vault hydrates to a safe empty/most-restrictive default, and known older
+fields pass through their compatibility hydrators. A malformed document, future schema, gap
+or duplicate in the operation sequence, malformed operation, or invalid issue time rejects
+the entire load; invalid history is never silently dropped to produce a partial vault.
 
-`restoreCoreState` performs an authoritative bulk load of a decrypted cloud snapshot
-(clearing every store first, then rewriting all slices and the whole op log); it
-deliberately bypasses the incremental op-growth guard. `resetCoreStorage` clears all
-three stores.
+`restoreCoreState` validates a decrypted cloud snapshot completely and atomically replaces
+documents, the operation log, and the migration journal. It deliberately preserves local media
+bytes because cloud backup carries metadata only. Local vault import uses
+`restoreFullVaultState`, which validates content-addressed asset ids/bytes and atomically replaces
+all four stores. `resetCoreStorage` atomically clears all four stores.
 
-## 5. Cloud sync artifacts (E2EE)
+## 5. Cloud backup artifacts (E2EE)
 
-Cloud sync is end-to-end encrypted. The wire contract is in
+Cloud backup is end-to-end encrypted. It is a recovery copy with explicit restore, not automatic
+multi-device merge. Current v2 envelopes authenticate the exact Cognito account, vault, artifact
+kind, and revision as AES-GCM additional data and repeat that binding inside the ciphertext. The
+sync service recomputes the expected context from the verified JWT and route metadata; ciphertext
+cannot be transplanted between tenants, vaults, artifact kinds, or revisions. Keys are scoped to the
+account plus vault in the OS credential store. Legacy unbound v1 envelopes are recognized only to
+give a migration message and are never restored; the originating local vault must upload a fresh v2
+copy. The wire contract is in
 `packages/core/src/sync/cloud-wire.ts`: the server stores an opaque ciphertext envelope
 plus a bounded set of allowed metadata classes only (e.g. `operation-size`,
 `content-hash` = SHA-256 of the ciphertext) — never plaintext content.
@@ -103,8 +124,8 @@ client. The client side (auth, vault key, sync engine) lives in `apps/gm-react/s
 
 - Every durable slice carries a `schemaVersion`; a schema change must bump it and ship a
   migration (`packages/core/src/migration`) plus tests.
-- Hydration must be fail-closed: an unknown/older document defaults to a safe state, never
-  a partial parse.
+- Hydration must be fail-closed: an absent legacy slice may use a documented safe default, but a
+  malformed persisted document or operation log must reject the whole load, never partially parse.
 - A future (higher) schema version must fail closed with an upgrade-required diagnostic.
 - Durable state must never change except through an accepted core operation (enforced by
   the `persistFullState` op-growth guard).

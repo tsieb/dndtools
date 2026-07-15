@@ -6,13 +6,13 @@ icons are drawn through one component so the UI is one family at one weight — 
 ## Source of truth
 
 - Component + registry: `apps/gm-react/src/ds/components/core/Icon.jsx`
-- Icon family: **Lucide**, resolved through the `lucide-react` package (`icons` record).
+- Icon family: **Lucide**, resolved through an explicit tree-shakeable `lucide-react` allowlist.
 
 The `ICON_REGISTRY` in `Icon.jsx` maps every **semantic name** used across the app (e.g. `session-bolt`,
 `dm-only`, `cond-poisoned`) to a Lucide **PascalCase** glyph (e.g. `Zap`, `Eye`, `FlaskConical`). The
 registry is the authoritative list; this document explains the conventions, and `Icon.jsx` holds the
-exact mapping. If a name is not in the registry, `Icon` falls back to a same-named Lucide glyph, then to
-`Square`.
+exact mapping. Unknown names fall back to `Square`; add new glyphs to the registry and the explicit
+import allowlist together.
 
 ## Usage
 

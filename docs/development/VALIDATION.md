@@ -5,9 +5,10 @@ has — across all packages, both apps, and every runtime environment — and em
 single consolidated report. It exists so that "is the whole application healthy?"
 is one command instead of a dozen half-remembered scripts.
 
-It does **not replace** the fast gates. `ci.yml` still runs `pnpm gates` + `pnpm test`
-on every push/PR. `validate` is the deep, on-demand sweep (local, plus a weekly +
-manual `validate.yml` workflow).
+It does **not replace** PR CI. `ci.yml` runs static analysis, the full unit suite, and a production
+build on every push/PR, plus path-filtered browser, accessibility, and Electron smoke jobs for runtime
+changes. `validate` is the deep, on-demand sweep (local, plus a weekly + manual `validate.yml`
+workflow).
 
 ## Quick start
 
@@ -25,18 +26,18 @@ Selectors: `--layer=unit,static` · `--only=e2e,test:core` · `--skip=e2e` · `-
 
 ## What it covers
 
-| Layer | Checks | Environment |
-|-------|--------|-------------|
-| **static** | eslint, boundary lint, quality-gate meta-gate, CI-guardrail audit, text + non-text contrast, typecheck ×3 (**core** / **gm-react** / **cloud-fns**), prettier | none |
-| **unit** | core suite, repo tooling suite, **cloud + transport suite** (`test:cloud`), P2P crypto gate | none |
-| **build** | production build of core, then gm-react | none |
-| **browser** | React Playwright E2E (`apps/gm-react/tests/e2e/`, desktop + mobile Chromium), axe scan + gate report, React verify (routes / round-trip / canvas / UI-dispatch), P2P live WebRTC handshake | headless Chromium + managed `react-dev` server |
-| **desktop** | Electron packaged smoke (file://, CSP, IndexedDB persistence across restart) | display + electron binary — *off by default* |
-| **cloud** | SSM config resolvable, CloudFront security headers, sync-API rejects anonymous, Cognito OIDC discovery, signaling e2e, TURN relay, E2EE sync round-trip + ciphertext-at-rest | live AWS dev stacks — *off by default, `--live`* |
-| **audit** | feature-gap drift (FEATURE-GAPS.md ↔ live code) | none |
+| Layer       | Checks                                                                                                                                                                                     | Environment                                      |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| **static**  | eslint, boundary lint, quality-gate meta-gate, CI-guardrail audit, text + non-text contrast, typecheck ×3 (**core** / **gm-react** / **cloud-fns**), prettier                              | none                                             |
+| **unit**    | core suite, React app suite, repo tooling suite, **cloud + transport suite** (`test:cloud`), P2P crypto gate                                                                               | none                                             |
+| **build**   | production build of core, cloud Lambda bundles, then gm-react                                                                                                                              | none                                             |
+| **browser** | React Playwright E2E (`apps/gm-react/tests/e2e/`, desktop + mobile Chromium), axe scan + gate report, React verify (routes / round-trip / canvas / UI-dispatch), P2P live WebRTC handshake | headless Chromium + managed `react-dev` server   |
+| **desktop** | Electron packaged smoke (secure `dndtools://app` origin, exact-origin CORS, CSP, IndexedDB persistence, renderer console errors, and startup privileged-IPC tripwires across restart)      | display + electron binary — _off by default_     |
+| **cloud**   | SSM config resolvable, CloudFront security headers, sync-API rejects anonymous, Cognito OIDC discovery, signaling e2e, TURN relay, E2EE backup round-trip + ciphertext-at-rest             | live AWS dev stacks — _off by default, `--live`_ |
+| **audit**   | feature-gap drift (FEATURE-GAPS.md ↔ live code)                                                                                                                                            | none                                             |
 
 The harness deliberately folds in the checks that were previously orphaned from
-both `check` and CI: `typecheck:react`, `typecheck:cloud-fns`, `test:cloud`,
+the basic `check` command: repo audit, text contrast, P2P crypto/browser checks,
 `a11y:*`, `e2e`, `verify:{routes,roundtrip,canvas,ui}`, and the P2P/desktop/cloud gates.
 
 ## How it runs
@@ -67,7 +68,7 @@ the feature audit — downgrade to `warn`).
 
 ## Feature-gap audit
 
-`FEATURE-GAPS.md` is a *layered, historical* ledger: its old gap sections were
+`FEATURE-GAPS.md` is a _layered, historical_ ledger: its old gap sections were
 remediated by later dated passes. So the audit keys off the **latest** "Honest
 stubs remaining" list and **probes live code** (stub markers + per-screen
 core-dispatch wiring) rather than echoing superseded gap tables. It surfaces:

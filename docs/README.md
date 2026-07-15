@@ -20,21 +20,22 @@ and the [ADRs](adr/README.md) for the repository layout.
 
 ## Quick Navigation
 
-| You want to...                   | Start here                                                            |
-| -------------------------------- | --------------------------------------------------------------------- |
-| Understand the system design     | [architecture/ARCHITECTURE.md](architecture/ARCHITECTURE.md)          |
-| Onboard as a new contributor     | [CONTRIBUTING.md](CONTRIBUTING.md)                                    |
-| Look up a domain term            | [GLOSSARY.md](GLOSSARY.md)                                            |
-| Read the product requirements    | [requirements/README.md](requirements/README.md)                     |
-| Find the design system + tokens  | [design/README.md](design/README.md)                                 |
-| See the roadmap and initiatives  | [planning/README.md](planning/README.md)                             |
-| Check the data model             | [architecture/DATA_MODEL.md](architecture/DATA_MODEL.md)              |
-| Understand dev standards         | [development/DEVELOPMENT.md](development/DEVELOPMENT.md)              |
-| Configure git workflow           | [development/GIT_WORKFLOW.md](development/GIT_WORKFLOW.md)            |
-| Understand testing + validation  | [development/TESTING.md](development/TESTING.md)                      |
-| Look up a workspace script       | [development/SCRIPTS.md](development/SCRIPTS.md)                      |
-| Understand the security model    | [security/README.md](security/README.md)                             |
-| Review architecture decisions    | [adr/README.md](adr/README.md)                                        |
+| You want to...                  | Start here                                                   |
+| ------------------------------- | ------------------------------------------------------------ |
+| Understand the system design    | [architecture/ARCHITECTURE.md](architecture/ARCHITECTURE.md) |
+| Onboard as a new contributor    | [CONTRIBUTING.md](CONTRIBUTING.md)                           |
+| Look up a domain term           | [GLOSSARY.md](GLOSSARY.md)                                   |
+| Read the product requirements   | [requirements/README.md](requirements/README.md)             |
+| Find the design system + tokens | [design/README.md](design/README.md)                         |
+| See the roadmap and initiatives | [planning/README.md](planning/README.md)                     |
+| Check the data model            | [architecture/DATA_MODEL.md](architecture/DATA_MODEL.md)     |
+| Understand dev standards        | [development/DEVELOPMENT.md](development/DEVELOPMENT.md)     |
+| Configure git workflow          | [development/GIT_WORKFLOW.md](development/GIT_WORKFLOW.md)   |
+| Understand testing + validation | [development/TESTING.md](development/TESTING.md)             |
+| Prepare a release or promotion  | [development/RELEASING.md](development/RELEASING.md)         |
+| Look up a workspace script      | [development/SCRIPTS.md](development/SCRIPTS.md)             |
+| Understand the security model   | [security/README.md](security/README.md)                     |
+| Review architecture decisions   | [adr/README.md](adr/README.md)                               |
 
 ---
 

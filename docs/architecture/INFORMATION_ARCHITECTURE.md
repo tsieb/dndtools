@@ -15,32 +15,32 @@ and **Library** groups; **Platform**, **Player**, and **Settings** round out the
 
 ### Run the table (live play)
 
-| Destination | Route | Purpose |
-| --- | --- | --- |
-| Command Center | `/` | Campaign hub — resume the live scene or jump anywhere |
-| GM Screen | `/board` | The table dashboard — dice, initiative, timers, and trackers |
-| Session | `/session` | The live scene: combat, dice, maps, and what players see |
+| Destination    | Route      | Purpose                                                      |
+| -------------- | ---------- | ------------------------------------------------------------ |
+| Command Center | `/`        | Campaign hub — resume the live scene or jump anywhere        |
+| GM Screen      | `/board`   | The table dashboard — dice, initiative, timers, and trackers |
+| Session        | `/session` | The live scene: combat, dice, maps, and what players see     |
 
 ### Library (browse-able content)
 
-| Destination | Route | Owns |
-| --- | --- | --- |
-| Characters | `/characters` | PCs, NPCs, and the bestiary |
-| Maps | `/atlas` | Maps, locations, fog, and projection |
-| Story | `/campaign` | Threads, factions, NPCs, and the timeline |
-| Notes | `/knowledge` | Notes, handouts, and read-aloud text |
+| Destination | Route         | Owns                                      |
+| ----------- | ------------- | ----------------------------------------- |
+| Characters  | `/characters` | PCs, NPCs, and the bestiary               |
+| Maps        | `/atlas`      | Maps, locations, fog, and projection      |
+| Story       | `/campaign`   | Threads, factions, NPCs, and the timeline |
+| Notes       | `/knowledge`  | Notes, handouts, and read-aloud text      |
 
 ### Platform, Player, Settings
 
-| Destination | Route | Purpose |
-| --- | --- | --- |
-| Graph & Search | `/graph` | Every entity and how it connects — actor-filtered |
-| Audio | `/audio` | Soundboard cues, layered ambience, scene bindings |
-| Extensions | `/extensions` | Plugins, compendium, custom objects, rules module |
-| Community | `/community` | Browse modules, export work, publish the campaign wiki |
-| Plans & cloud | `/upgrade` | Local-first is free; cloud features are paid |
-| Player view | `/player` | The second persona: own sheet, resources, journal |
-| Settings | `/settings` | Appearance, players, permissions, systems |
+| Destination    | Route         | Purpose                                                  |
+| -------------- | ------------- | -------------------------------------------------------- |
+| Graph & Search | `/graph`      | Every entity and how it connects — actor-filtered        |
+| Audio          | `/audio`      | Soundboard cues, layered ambience, scene bindings        |
+| Extensions     | `/extensions` | Plugins, compendium, custom objects, rules module        |
+| Community      | `/community`  | Browse modules, export work, publish the campaign wiki   |
+| Plans & cloud  | `/upgrade`    | Local play is free; optional hosted plans are in preview |
+| Player view    | `/player`     | The second persona: own sheet, resources, journal        |
+| Settings       | `/settings`   | Appearance, players, permissions, systems                |
 
 Each screen is implemented in `apps/gm-react/src/screens/*.tsx`.
 
