@@ -70,6 +70,7 @@ export function GeneratePanel({
 	announce,
 	onExit,
 	initialGeneratorId,
+	quickMapMode = false,
 }: {
 	editor: MapEditorApi;
 	setPreview: (preview: GenPreview | null) => void;
@@ -77,6 +78,8 @@ export function GeneratePanel({
 	onExit: () => void;
 	/** When set (e.g. from a ⌘K "Generate: …" entry), the panel opens primed on this generator. */
 	initialGeneratorId?: string;
+	/** Android accepts a preset as one explicit edit, then returns to navigation. */
+	quickMapMode?: boolean;
 }) {
 	const groupsWithGenerators = useMemo(
 		() => GENERATOR_GROUPS.filter((g) => generatorsByGroup(g.id).length > 0),
@@ -206,6 +209,7 @@ export function GeneratePanel({
 		announce(
 			`Generated ${definition.label}${out.summary ? ` — ${out.summary}` : ''}. Layers are DM-only until revealed.`,
 		);
+		if (quickMapMode) onExit();
 	}
 
 	async function deriveFrom(layerIds: string[], seedForDerive: string) {
@@ -384,7 +388,7 @@ export function GeneratePanel({
 			/>
 
 			{/* advanced disclosure with a count */}
-			{definition.params.some((p) => p.advanced) && (
+			{!quickMapMode && definition.params.some((p) => p.advanced) && (
 				<div>
 					<button
 						type="button"

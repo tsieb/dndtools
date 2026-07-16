@@ -9,6 +9,8 @@ import {
 	subscribeSceneDisplayRequests,
 } from '../platform/sceneDisplayChannel';
 import { Button, IconButton } from '../ds';
+import { registerBackHandler } from '../platform/backNavigation';
+import { usePlatformCapabilities } from '../platform/capabilities';
 
 /**
  * I11 S11.2.2/S11.2.3 — the BROADCAST DRIVER. Mounted once in the primary (DM) window, it pushes the live
@@ -49,12 +51,22 @@ export function useSceneDisplayBroadcast(runtime: SceneRuntime): void {
  */
 export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
 	const runtime = useRuntime();
+	const capabilities = usePlatformCapabilities();
 	const actorId = runtime.defaultActorId;
+	const onCloseRef = useRef(onClose);
+	onCloseRef.current = onClose;
 
 	const display = useMemo(
 		() => getSceneDisplayForActor(runtime.state.session, runtime.state.permissions, actorId),
 		[runtime.state, actorId],
 	);
+	useEffect(() => {
+		if (!open) return undefined;
+		return registerBackHandler('fullscreen', () => {
+			onCloseRef.current();
+			return true;
+		});
+	}, [open]);
 
 	if (!open) return null;
 
@@ -68,6 +80,7 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 	return (
 		<div
 			className="app-fixed-viewport"
+			data-scene-display-overlay="true"
 			role="dialog"
 			aria-modal="true"
 			aria-label="Scene display"
@@ -77,11 +90,14 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 			<div
 				style={{
 					position: 'fixed',
-					top: 16,
-					right: 16,
+					top: 'max(16px, var(--safe-area-top, 0px))',
+					right: 'max(16px, var(--safe-area-right, 0px))',
+					left: 'max(16px, var(--safe-area-left, 0px))',
 					zIndex: 121,
 					display: 'flex',
 					alignItems: 'center',
+					justifyContent: 'flex-end',
+					flexWrap: 'wrap',
 					gap: 8,
 					padding: '8px 10px',
 					borderRadius: 10,
@@ -102,7 +118,14 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 				<Button variant="ghost" size="sm" disabled={!display.active} onClick={() => void clear()}>
 					Clear
 				</Button>
-				<Button variant="ghost" size="sm" icon="display" onClick={() => openSecondScreen()}>
+				<Button
+					variant="ghost"
+					size="sm"
+					icon="display"
+					disabled={!capabilities.secondScreen.available}
+					title={capabilities.secondScreen.unavailableMessage ?? undefined}
+					onClick={() => openSecondScreen()}
+				>
 					Second screen
 				</Button>
 				<IconButton

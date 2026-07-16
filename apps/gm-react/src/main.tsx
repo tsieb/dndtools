@@ -50,7 +50,7 @@ const render = (app: ReactNode) =>
 		</>,
 	);
 
-// Desktop only: finish loading the OS-encrypted provider key before the Settings tree can read it.
+// Native apps: finish loading the OS-encrypted provider key before the Settings tree can read it.
 // The operation is a no-op on the web and handles its own failure, so startup never depends on a
 // credential store; this only prevents a returning desktop user from briefly seeing “Not configured.”
 if (nativeDisplay) render(<StandaloneSceneDisplay />);

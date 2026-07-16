@@ -8,6 +8,8 @@ import { qrDataUrl } from './qr';
 import type { HostInvitation } from './SessionHost';
 import { MAX_CONNECTION_CODE_CHARS } from './signaling';
 import { MAX_ONLINE_JOIN_CODE_CHARS } from './cloudCrypto';
+import { registerBackHandler } from '../platform/backNavigation';
+import { usePlatformCapabilities } from '../platform/capabilities';
 
 /**
  * The P2P session UI: a DM-side HOST control (topbar) and a player-side JOIN control (PlayerView). Both
@@ -30,14 +32,23 @@ function Modal({
 	width?: number;
 }) {
 	const ref = useRef<HTMLDivElement>(null);
+	const onCloseRef = useRef(onClose);
+	onCloseRef.current = onClose;
 	useEffect(() => {
 		ref.current?.focus();
 		const onKey = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') onClose();
+			if (e.key === 'Escape') onCloseRef.current();
 		};
 		document.addEventListener('keydown', onKey);
-		return () => document.removeEventListener('keydown', onKey);
-	}, [onClose]);
+		const unregisterBack = registerBackHandler('overlay', () => {
+			onCloseRef.current();
+			return true;
+		});
+		return () => {
+			document.removeEventListener('keydown', onKey);
+			unregisterBack();
+		};
+	}, []);
 	return (
 		<div
 			className="app-fixed-viewport"
@@ -55,7 +66,8 @@ function Modal({
 				display: 'flex',
 				alignItems: 'center',
 				justifyContent: 'center',
-				padding: 20,
+				padding:
+					'max(20px, var(--safe-area-top, 0px)) max(20px, var(--safe-area-right, 0px)) max(20px, var(--safe-area-bottom, 0px)) max(20px, var(--safe-area-left, 0px))',
 				background: 'rgba(8,5,3,.55)',
 				backdropFilter: 'blur(3px)',
 			}}
@@ -69,7 +81,7 @@ function Modal({
 				style={{
 					width,
 					maxWidth: '100%',
-					maxHeight: '86vh',
+					maxHeight: '100%',
 					overflow: 'auto',
 					background: T.surf,
 					border: `1px solid ${T.bd}`,
@@ -661,6 +673,7 @@ export function JoinSessionButton() {
 }
 
 function JoinModal({ onClose }: { onClose: () => void }) {
+	const capabilities = usePlatformCapabilities();
 	const session = useSession();
 	const [offer, setOffer] = useState('');
 	const [onlineCode, setOnlineCode] = useState('');
@@ -837,6 +850,11 @@ function JoinModal({ onClose }: { onClose: () => void }) {
 							)}
 							<div style={{ marginTop: 10, height: 1, background: T.bd }} />
 						</div>
+					)}
+					{capabilities.runtimeKind === 'android' && !session.discoveryAvailable && (
+						<p style={{ margin: '0 0 12px', font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+							{capabilities.localDiscovery.unavailableMessage}
+						</p>
 					)}
 					<p style={{ margin: '0 0 12px', font: `12.5px/1.5 ${T.sans}`, color: T.sub }}>
 						Or paste the invite code your DM shared. You’ll get a reply code to send back — then

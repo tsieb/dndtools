@@ -530,6 +530,13 @@ test.describe('map editor', () => {
 
 		// DM-side positive control: the dm-only layer IS listed for the DM.
 		await expect(page.getByText(secretLayer, { exact: true }).first()).toBeVisible();
+		// The compact dock is a real modal sheet. Close it before checking the editor canvas so the
+		// assertion follows the same topmost-modal accessibility ordering Android and TalkBack use.
+		if (isPhone(testInfo)) {
+			const sheet = page.getByRole('dialog', { name: 'Map panels' });
+			await sheet.getByRole('button', { name: 'Close' }).click();
+			await expect(sheet).toBeHidden();
+		}
 
 		// Switch to a previewed PLAYER actor (the "view as" seam the DM uses to check player safety).
 		await page.evaluate(() => window.__rt!.enterPreview({ role: 'player' }));

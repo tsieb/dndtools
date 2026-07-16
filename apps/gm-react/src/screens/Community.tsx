@@ -38,7 +38,12 @@ import {
 	type WikiPage,
 	type WikiStatus,
 } from '../cloud/appApi';
-import { downloadJsonFile, downloadTextFile, fileDateStamp } from '../platform/download';
+import {
+	downloadJsonFile,
+	downloadTextFile,
+	fileDateStamp,
+	type ExportResult,
+} from '../platform/download';
 import { publicAppBaseUrl, publicAppHashUrl } from '../platform/publicAppUrl';
 
 /**
@@ -514,6 +519,8 @@ function CommExport() {
 		setExporting(true);
 		try {
 			await doExport();
+		} catch (error) {
+			Toaster.error(errText(error));
 		} finally {
 			setExporting(false);
 		}
@@ -540,20 +547,31 @@ function CommExport() {
 		const files: { path: string; markdown: string }[] = ev.export?.files ?? [];
 		const mode: string = ev.mode;
 		let fileName: string;
+		let exportResult: ExportResult;
 		if (files.length === 1) {
 			// A single note downloads as plain markdown, named by its stable export path.
 			fileName = files[0].path.split('/').pop() || `export-${fileDateStamp()}.md`;
-			downloadTextFile(fileName, files[0].markdown, 'text/markdown');
+			exportResult = await downloadTextFile(
+				fileName,
+				files[0].markdown,
+				'text/markdown',
+				'Export campaign content',
+			);
 		} else {
 			// Multiple files ship as one JSON bundle (round-trips through the Knowledge import).
 			fileName = `dndtools-export-${mode}-${fileDateStamp()}.json`;
-			downloadJsonFile(fileName, {
-				format: 'dndtools-content-export',
-				version: 1,
-				mode,
-				files,
-			});
+			exportResult = await downloadJsonFile(
+				fileName,
+				{
+					format: 'dndtools-content-export',
+					version: 1,
+					mode,
+					files,
+				},
+				'Export campaign content',
+			);
 		}
+		if (exportResult.status === 'cancelled') return;
 		setResult({
 			exported: ev.exportedItems,
 			omitted: ev.omittedForVisibility,

@@ -2,12 +2,42 @@ import React from 'react';
 import { Icon } from '../core/Icon.jsx';
 
 const STATUS = {
-	success: { fg: 'var(--color-status-success-text)', bg: 'var(--color-status-success-subtle)', bd: 'var(--color-status-success)', icon: 'success' },
-	warning: { fg: 'var(--color-status-warning-text)', bg: 'var(--color-status-warning-subtle)', bd: 'var(--color-status-warning)', icon: 'warning' },
-	error: { fg: 'var(--color-status-error-text)', bg: 'var(--color-status-error-subtle)', bd: 'var(--color-status-error)', icon: 'error' },
-	info: { fg: 'var(--color-status-info-text)', bg: 'var(--color-status-info-subtle)', bd: 'var(--color-status-info)', icon: 'info' },
-	accent: { fg: 'var(--color-accent)', bg: 'var(--color-accent-subtle)', bd: 'var(--color-accent-border)', icon: null },
-	neutral: { fg: 'var(--color-text-secondary)', bg: 'var(--color-surface-overlay)', bd: 'var(--color-border-strong)', icon: null },
+	success: {
+		fg: 'var(--color-status-success-text)',
+		bg: 'var(--color-status-success-subtle)',
+		bd: 'var(--color-status-success)',
+		icon: 'success',
+	},
+	warning: {
+		fg: 'var(--color-status-warning-text)',
+		bg: 'var(--color-status-warning-subtle)',
+		bd: 'var(--color-status-warning)',
+		icon: 'warning',
+	},
+	error: {
+		fg: 'var(--color-status-error-text)',
+		bg: 'var(--color-status-error-subtle)',
+		bd: 'var(--color-status-error)',
+		icon: 'error',
+	},
+	info: {
+		fg: 'var(--color-status-info-text)',
+		bg: 'var(--color-status-info-subtle)',
+		bd: 'var(--color-status-info)',
+		icon: 'info',
+	},
+	accent: {
+		fg: 'var(--color-accent)',
+		bg: 'var(--color-accent-subtle)',
+		bd: 'var(--color-accent-border)',
+		icon: null,
+	},
+	neutral: {
+		fg: 'var(--color-text-secondary)',
+		bg: 'var(--color-surface-overlay)',
+		bd: 'var(--color-border-strong)',
+		icon: null,
+	},
 };
 
 /**
@@ -21,7 +51,10 @@ export function Badge({ status = 'neutral', icon, children, style, ...rest }) {
 		<span
 			style={{
 				display: 'inline-flex',
+				minWidth: 0,
+				maxWidth: '100%',
 				alignItems: 'center',
+				justifyContent: 'center',
 				gap: 'var(--space-1)',
 				padding: '2px var(--space-2)',
 				borderRadius: 'var(--radius-full)',
@@ -32,7 +65,9 @@ export function Badge({ status = 'neutral', icon, children, style, ...rest }) {
 				fontSize: 'var(--text-xs)',
 				fontWeight: 'var(--font-weight-semibold)',
 				lineHeight: 1.4,
-				whiteSpace: 'nowrap',
+				whiteSpace: 'normal',
+				overflowWrap: 'anywhere',
+				textAlign: 'center',
 				...style,
 			}}
 			{...rest}

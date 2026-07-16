@@ -14,6 +14,7 @@ import { moodTheme, SCENE_MOOD_THEME } from '../app/sceneCardMood';
 import { useViewport } from '../app/useViewport';
 import { openSecondScreen } from '../platform/sceneDisplayChannel';
 import { isNativeDesktopRuntime } from '../platform/windowChrome';
+import { isNetworkDestinationAllowed, usePlatformCapabilities } from '../platform/capabilities';
 
 /**
  * I11 S11.2.1–S11.2.3 — the DM authoring + control surface for ATMOSPHERE SCENE CARDS, embedded in
@@ -38,6 +39,8 @@ const TRANSITION_OPTIONS: { value: SceneCardTransitionStyle; label: string }[] =
 export function SceneCardsPanel() {
 	const runtime = useRuntime();
 	const isDesktop = useViewport() === 'desktop';
+	const capabilities = usePlatformCapabilities();
+	const android = capabilities.runtimeKind === 'android';
 	const actorId = runtime.defaultActorId;
 	const nativeDesktop = isNativeDesktopRuntime();
 	const { session, permissions } = runtime.state;
@@ -58,6 +61,15 @@ export function SceneCardsPanel() {
 	async function createCard(event: FormEvent) {
 		event.preventDefault();
 		if (!title.trim() || submitting) return;
+		const requestedHero = heroUrl.trim();
+		if (
+			android &&
+			requestedHero &&
+			!isNetworkDestinationAllowed(requestedHero, capabilities.runtimeKind)
+		) {
+			Toaster.error('Android scene images must use a valid HTTPS URL.');
+			return;
+		}
 		setSubmitting(true);
 		try {
 			const result = await runtime.dispatch({
@@ -68,7 +80,7 @@ export function SceneCardsPanel() {
 					mood,
 					flavorText: flavor.trim(),
 					visibility,
-					heroImage: !nativeDesktop && heroUrl.trim() ? { kind: 'url', ref: heroUrl.trim() } : null,
+					heroImage: !nativeDesktop && requestedHero ? { kind: 'url', ref: requestedHero } : null,
 				},
 			});
 			if (result.status === 'accepted') {
@@ -139,7 +151,14 @@ export function SceneCardsPanel() {
 					</div>
 				</div>
 				<span style={{ flex: '1 1 var(--space-4)' }} />
-				<Button variant="secondary" size="sm" icon="display" onClick={() => openSecondScreen()}>
+				<Button
+					variant="secondary"
+					size="sm"
+					icon="display"
+					disabled={!capabilities.secondScreen.available}
+					title={capabilities.secondScreen.unavailableMessage ?? undefined}
+					onClick={() => openSecondScreen()}
+				>
 					Second screen
 				</Button>
 				<span
@@ -150,7 +169,9 @@ export function SceneCardsPanel() {
 						flexBasis: isDesktop ? 'auto' : '100%',
 					}}
 				>
-					Ctrl+Shift+S fullscreen · Ctrl+→ advance
+					{capabilities.secondScreen.available
+						? 'Ctrl+Shift+S fullscreen · Ctrl+→ advance'
+						: capabilities.secondScreen.unavailableMessage}
 				</span>
 			</div>
 
@@ -216,7 +237,9 @@ export function SceneCardsPanel() {
 							help={
 								nativeDesktop
 									? 'Remote image links are blocked in the desktop app; scene cards use their mood backdrop.'
-									: 'Optional. A link; leave blank for a mood backdrop.'
+									: android
+										? 'Optional HTTPS link. Android blocks cleartext HTTP images.'
+										: 'Optional. A link; leave blank for a mood backdrop.'
 							}
 						>
 							<Input
@@ -318,6 +341,7 @@ export function SceneCardsPanel() {
 										queued={queuedIds.has(card.id)}
 										editing={editingId === card.id}
 										allowRemoteHero={!nativeDesktop}
+										requireHttpsHero={android}
 										onEditToggle={() => setEditingId((prev) => (prev === card.id ? null : card.id))}
 										onActivate={() =>
 											void run(
@@ -512,6 +536,7 @@ function SceneCardRow({
 	queued,
 	editing,
 	allowRemoteHero,
+	requireHttpsHero,
 	onEditToggle,
 	onActivate,
 	onEnqueue,
@@ -525,6 +550,7 @@ function SceneCardRow({
 	queued: boolean;
 	editing: boolean;
 	allowRemoteHero: boolean;
+	requireHttpsHero: boolean;
 	onEditToggle: () => void;
 	onActivate: () => void;
 	onEnqueue: () => void;
@@ -551,6 +577,23 @@ function SceneCardRow({
 		setDraftFlavor(card.flavorText);
 		setDraftHero(card.heroImage?.kind === 'url' ? card.heroImage.ref : '');
 	}, [editing, card.title, card.mood, card.flavorText, card.heroImage]);
+	const legacyHeroBlocked =
+		requireHttpsHero &&
+		!!draftHero.trim() &&
+		!isNetworkDestinationAllowed(draftHero.trim(), 'android');
+	const saveEdit = () => {
+		if (legacyHeroBlocked) {
+			Toaster.error('Android scene images must use a valid HTTPS URL.');
+			return;
+		}
+		onSaveEdit({
+			title: draftTitle.trim(),
+			mood: draftMood,
+			flavorText: draftFlavor.trim(),
+			heroImage:
+				allowRemoteHero && draftHero.trim() ? { kind: 'url', ref: draftHero.trim() } : null,
+		});
+	};
 
 	return (
 		<div
@@ -594,6 +637,7 @@ function SceneCardRow({
 				<Badge status={card.visibility === 'player-visible' ? 'info' : 'neutral'}>
 					{card.visibility === 'player-visible' ? 'Players' : 'DM only'}
 				</Badge>
+				{legacyHeroBlocked && <Badge status="warning">HTTPS image required</Badge>}
 				{active && <Badge status="success">On display</Badge>}
 				<Button
 					variant={active ? 'secondary' : 'primary'}
@@ -678,9 +722,13 @@ function SceneCardRow({
 					<Field
 						label="Hero image URL"
 						help={
-							allowRemoteHero
-								? undefined
-								: 'Remote image links are blocked in the desktop app. Saving clears this link.'
+							legacyHeroBlocked
+								? 'This legacy cleartext or invalid image URL is blocked on Android. Replace it with HTTPS or clear it.'
+								: allowRemoteHero
+									? requireHttpsHero
+										? 'Android scene images must use HTTPS.'
+										: undefined
+									: 'Remote image links are blocked in the desktop app. Saving clears this link.'
 						}
 					>
 						<Input
@@ -696,17 +744,7 @@ function SceneCardRow({
 							size="sm"
 							icon="check"
 							disabled={!draftTitle.trim()}
-							onClick={() =>
-								onSaveEdit({
-									title: draftTitle.trim(),
-									mood: draftMood,
-									flavorText: draftFlavor.trim(),
-									heroImage:
-										allowRemoteHero && draftHero.trim()
-											? { kind: 'url', ref: draftHero.trim() }
-											: null,
-								})
-							}
+							onClick={saveEdit}
 						>
 							Save
 						</Button>

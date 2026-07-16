@@ -345,7 +345,7 @@ export function CommandCenter() {
 				}}
 			>
 				<StatusDot status={isLive ? 'live' : 'idle'} pulse={isLive} />
-				<div style={{ flex: 1, minWidth: 200 }}>
+				<div style={{ flex: 1, minWidth: viewport === 'phone' ? 0 : 200 }}>
 					<div
 						style={{
 							font: `600 11px ${T.sans}`,
@@ -366,7 +366,16 @@ export function CommandCenter() {
 						{data.party.length ? ` · ${data.party.length} in the party` : ''}
 					</div>
 				</div>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+				<div
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: 14,
+						flexWrap: 'wrap',
+						minWidth: 0,
+						width: viewport === 'phone' ? '100%' : undefined,
+					}}
+				>
 					<div style={{ display: 'flex' }}>
 						{data.party.slice(0, 5).map((p, i) => (
 							<span
@@ -390,6 +399,11 @@ export function CommandCenter() {
 						onClick={() =>
 							data.liveScene ? navigate(`/scene/${data.liveScene.id}`) : navigate('/scenes')
 						}
+						style={{
+							maxWidth: '100%',
+							whiteSpace: viewport === 'phone' ? 'normal' : 'nowrap',
+							overflowWrap: 'anywhere',
+						}}
 					>
 						{isLive ? 'Enter scene' : 'Open scene'}
 					</Button>

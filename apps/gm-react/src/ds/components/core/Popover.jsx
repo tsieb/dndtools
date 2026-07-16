@@ -1,5 +1,6 @@
 import React from 'react';
 import { Icon } from './Icon.jsx';
+import { registerBackHandler } from '../../../platform/backNavigation';
 
 /**
  * Popover — the floating panel primitive POI markers, layer opacity, and tool options sit on.
@@ -11,23 +12,66 @@ import { Icon } from './Icon.jsx';
  *
  * Position it by passing `anchor={{x, y}}` (map/page coordinates) or render it inline (no anchor).
  */
-export function Popover({ open = true, onClose, anchor, title, headerAccessory, placement = 'top', width = 320, children, footer, style, ...rest }) {
+export function Popover({
+	open = true,
+	onClose,
+	anchor,
+	title,
+	headerAccessory,
+	placement = 'top',
+	width = 320,
+	children,
+	footer,
+	style,
+	...rest
+}) {
 	const ref = React.useRef(null);
+	const onCloseRef = React.useRef(onClose);
+	onCloseRef.current = onClose;
 
 	React.useEffect(() => {
 		if (!open) return;
-		const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose && onClose(); };
-		const onKey = (e) => { if (e.key === 'Escape') onClose && onClose(); };
+		const onDown = (e) => {
+			if (ref.current && !ref.current.contains(e.target)) onCloseRef.current?.();
+		};
+		const onKey = (e) => {
+			if (e.key === 'Escape') onCloseRef.current?.();
+		};
 		document.addEventListener('pointerdown', onDown, true);
 		document.addEventListener('keydown', onKey);
-		const t = setTimeout(() => { const f = ref.current && ref.current.querySelector('button, [href], input, select, textarea, [tabindex]'); if (f) f.focus(); }, 0);
-		return () => { document.removeEventListener('pointerdown', onDown, true); document.removeEventListener('keydown', onKey); clearTimeout(t); };
-	}, [open, onClose]);
+		const unregisterBack = registerBackHandler('overlay', () => {
+			onCloseRef.current?.();
+			return true;
+		});
+		const t = setTimeout(() => {
+			const f =
+				ref.current &&
+				ref.current.querySelector('button, [href], input, select, textarea, [tabindex]');
+			if (f) f.focus();
+		}, 0);
+		return () => {
+			document.removeEventListener('pointerdown', onDown, true);
+			document.removeEventListener('keydown', onKey);
+			unregisterBack();
+			clearTimeout(t);
+		};
+	}, [open]);
 
 	if (!open) return null;
 
 	const positioned = anchor
-		? { position: 'absolute', left: anchor.x, top: anchor.y, transform: placement === 'top' ? 'translate(-50%, calc(-100% - 12px))' : placement === 'bottom' ? 'translate(-50%, 12px)' : 'translate(-50%, -50%)', zIndex: 'var(--z-overlay)' }
+		? {
+				position: 'absolute',
+				left: anchor.x,
+				top: anchor.y,
+				transform:
+					placement === 'top'
+						? 'translate(-50%, calc(-100% - 12px))'
+						: placement === 'bottom'
+							? 'translate(-50%, 12px)'
+							: 'translate(-50%, -50%)',
+				zIndex: 'var(--z-overlay)',
+			}
 		: {};
 
 	return (
@@ -50,13 +94,55 @@ export function Popover({ open = true, onClose, anchor, title, headerAccessory, 
 			{...rest}
 		>
 			{(title || onClose) && (
-				<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-2-5, 10px) var(--space-3)', borderBottom: '1px solid var(--color-border)' }}>
+				<div
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: 'var(--space-2)',
+						padding: 'var(--space-2-5, 10px) var(--space-3)',
+						borderBottom: '1px solid var(--color-border)',
+					}}
+				>
 					{headerAccessory}
-					<div style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 'var(--font-weight-semibold)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+					<div
+						style={{
+							flex: 1,
+							minWidth: 0,
+							fontFamily: 'var(--font-sans)',
+							fontSize: 'var(--text-md)',
+							fontWeight: 'var(--font-weight-semibold)',
+							whiteSpace: 'nowrap',
+							overflow: 'hidden',
+							textOverflow: 'ellipsis',
+						}}
+					>
+						{title}
+					</div>
 					{onClose && (
-						<button type="button" aria-label="Close" onClick={onClose} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, border: 'none', background: 'transparent', color: 'var(--color-text-tertiary)', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
-							onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-interactive-hover)'; e.currentTarget.style.color = 'var(--color-text-primary)'; }}
-							onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-tertiary)'; }}
+						<button
+							type="button"
+							aria-label="Close"
+							onClick={onClose}
+							style={{
+								display: 'inline-flex',
+								alignItems: 'center',
+								justifyContent: 'center',
+								width: 28,
+								height: 28,
+								border: 'none',
+								background: 'transparent',
+								color: 'var(--color-text-tertiary)',
+								borderRadius: 'var(--radius-sm)',
+								cursor: 'pointer',
+							}}
+							onMouseEnter={(e) => {
+								e.currentTarget.style.background = 'var(--color-interactive-hover)';
+								e.currentTarget.style.color = 'var(--color-text-primary)';
+							}}
+							onMouseLeave={(e) => {
+								e.currentTarget.style.background = 'transparent';
+								e.currentTarget.style.color = 'var(--color-text-tertiary)';
+							}}
 						>
 							<Icon name="close" size={16} />
 						</button>
@@ -64,7 +150,20 @@ export function Popover({ open = true, onClose, anchor, title, headerAccessory, 
 				</div>
 			)}
 			<div style={{ padding: 'var(--space-3)' }}>{children}</div>
-			{footer && <div style={{ padding: 'var(--space-2-5, 10px) var(--space-3)', borderTop: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>{footer}</div>}
+			{footer && (
+				<div
+					style={{
+						padding: 'var(--space-2-5, 10px) var(--space-3)',
+						borderTop: '1px solid var(--color-border)',
+						display: 'flex',
+						alignItems: 'center',
+						gap: 'var(--space-2)',
+						flexWrap: 'wrap',
+					}}
+				>
+					{footer}
+				</div>
+			)}
 		</div>
 	);
 }

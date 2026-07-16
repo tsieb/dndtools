@@ -230,9 +230,10 @@ export function ToastViewport({ placement = 'top-right', style, ...rest }) {
 				display: 'flex',
 				flexDirection: 'column',
 				gap: 'var(--space-2)',
-				padding: 'var(--space-4)',
+				padding:
+					'calc(var(--space-4) + var(--safe-area-top, 0px)) calc(var(--space-4) + var(--safe-area-right, 0px)) calc(var(--space-4) + var(--safe-area-bottom, 0px)) calc(var(--space-4) + var(--safe-area-left, 0px))',
 				pointerEvents: 'none',
-				maxHeight: '100vh',
+				maxHeight: 'var(--app-viewport-height)',
 				overflow: 'hidden',
 				...pos,
 				...style,

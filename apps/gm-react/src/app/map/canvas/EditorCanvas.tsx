@@ -20,6 +20,7 @@ import {
 	type MapTool,
 } from '../../MapBuilder';
 import { clamp01 } from '../mapVocab';
+import { viewportForPinch } from '../quickMap';
 import { categoryForTool } from '../useMapEditor';
 import type { MapEditorApi } from '../useMapEditor';
 
@@ -68,12 +69,14 @@ export function EditorCanvas({
 	announce,
 	rasterAssetId,
 	onCursor,
+	quickMapMode = false,
 }: {
 	editor: MapEditorApi;
 	previewLayers: MapLayer[] | null;
 	announce: (message: string) => void;
 	rasterAssetId: string | null;
 	onCursor: (p: Pt | null) => void;
+	quickMapMode?: boolean;
 }) {
 	const { tool, options, zoom, center, layers } = editor;
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -94,8 +97,98 @@ export function EditorCanvas({
 	const [hoverPt, setHoverPt] = useState<Pt | null>(null);
 	const [spacePan, setSpacePan] = useState(false);
 	const ctrlRef = useRef(false);
+	const touchPointers = useRef(new Map<number, Pt>());
+	const touchNavigationBlocked = useRef(false);
+	const pinchRef = useRef<{
+		startZoom: number;
+		startCenter: Pt;
+		startCentroid: Pt;
+		startDistance: number;
+	} | null>(null);
+	const [pinching, setPinching] = useState(false);
+	// Remount MapCanvas when a second finger cancels one of its in-progress single-pointer gestures.
+	const [navigationEpoch, setNavigationEpoch] = useState(0);
 
 	const isDrawing = DRAWING_TOOLS.has(tool);
+
+	const localTouchPoint = (clientX: number, clientY: number): Pt => {
+		const rect = containerRef.current?.getBoundingClientRect();
+		return { x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) };
+	};
+	const firstTwoTouches = (): [Pt, Pt] | null => {
+		const points = [...touchPointers.current.values()];
+		return points.length >= 2 ? [points[0]!, points[1]!] : null;
+	};
+	const beginPinch = (target: HTMLDivElement) => {
+		const points = firstTwoTouches();
+		if (!points) return;
+		for (const pointerId of touchPointers.current.keys()) {
+			try {
+				target.setPointerCapture(pointerId);
+			} catch {
+				// A browser may have already retired one pointer between events; the remaining pair still works.
+			}
+		}
+		const [a, b] = points;
+		pinchRef.current = {
+			startZoom: zoomRef.current,
+			startCenter: centerRef.current,
+			startCentroid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+			startDistance: Math.hypot(b.x - a.x, b.y - a.y),
+		};
+		touchNavigationBlocked.current = true;
+		setPinching(true);
+		setG(null);
+		setPath([]);
+		setNavigationEpoch((value) => value + 1);
+	};
+	const onTouchDownCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
+		if (!quickMapMode || event.pointerType !== 'touch') return;
+		touchPointers.current.set(event.pointerId, localTouchPoint(event.clientX, event.clientY));
+		if (touchPointers.current.size >= 2) {
+			beginPinch(event.currentTarget);
+			event.preventDefault();
+			event.stopPropagation();
+		}
+	};
+	const onTouchMoveCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
+		if (!quickMapMode || event.pointerType !== 'touch') return;
+		if (touchPointers.current.has(event.pointerId)) {
+			touchPointers.current.set(event.pointerId, localTouchPoint(event.clientX, event.clientY));
+		}
+		if (!touchNavigationBlocked.current) return;
+		const points = firstTwoTouches();
+		const pinch = pinchRef.current;
+		const rect = containerRef.current?.getBoundingClientRect();
+		if (points && pinch && rect) {
+			const [a, b] = points;
+			const next = viewportForPinch({
+				...pinch,
+				centroid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+				distance: Math.hypot(b.x - a.x, b.y - a.y),
+				width: rect.width,
+				height: rect.height,
+			});
+			editor.setZoom(next.zoom);
+			editor.setCenter(next.center);
+		}
+		event.preventDefault();
+		event.stopPropagation();
+	};
+	const endTouchCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
+		if (!quickMapMode || event.pointerType !== 'touch') return;
+		const blocked = touchNavigationBlocked.current;
+		touchPointers.current.delete(event.pointerId);
+		if (touchPointers.current.size < 2) pinchRef.current = null;
+		if (touchPointers.current.size === 0) {
+			touchNavigationBlocked.current = false;
+			setPinching(false);
+		}
+		if (blocked) {
+			event.preventDefault();
+			event.stopPropagation();
+		}
+	};
 
 	// Active layer new content lands on: the explicit active layer, else one in the tool's category, else
 	// the first layer.
@@ -492,64 +585,81 @@ export function EditorCanvas({
 		(pos: Pt) => {
 			if (tool === 'poi') {
 				const id = editor.nextId('poi');
-				void editor.run({
-					type: 'map.create-poi',
-					actorId: editor.actorId,
-					payload: {
-						mapId: editor.mapId,
-						id,
-						layerId: activeId,
-						label: 'New POI',
-						category: 'landmark',
-						position: pos,
-						visibility: options.newVisibility,
-					},
-				} as never);
-				editor.setSelection([id]);
-				editor.setDock('inspector');
-				announce('POI placed.');
+				void editor
+					.run({
+						type: 'map.create-poi',
+						actorId: editor.actorId,
+						payload: {
+							mapId: editor.mapId,
+							id,
+							layerId: activeId,
+							label: 'New POI',
+							category: 'landmark',
+							position: pos,
+							visibility: options.newVisibility,
+						},
+					} as never)
+					.then((accepted) => {
+						if (!accepted) return;
+						editor.setSelection([id]);
+						editor.setDock('inspector');
+						announce('POI placed.');
+						if (quickMapMode) editor.setTool('pan');
+					});
 			} else if (tool === 'token') {
 				const id = editor.nextId('token');
-				void editor.run({
-					type: 'map.create-token',
-					actorId: editor.actorId,
-					payload: {
-						mapId: editor.mapId,
-						id,
-						layerId: activeId,
-						label: `Token ${(editor.map?.tokens.length ?? 0) + 1}`,
-						linkedActorId: null,
-						position: pos,
-						size: 1,
-						visibility: options.newVisibility,
-						controllerActorId: null,
-					},
-				} as never);
-				announce('Token placed.');
+				void editor
+					.run({
+						type: 'map.create-token',
+						actorId: editor.actorId,
+						payload: {
+							mapId: editor.mapId,
+							id,
+							layerId: activeId,
+							label: `Token ${(editor.map?.tokens.length ?? 0) + 1}`,
+							linkedActorId: null,
+							position: pos,
+							size: 1,
+							visibility: options.newVisibility,
+							controllerActorId: null,
+						},
+					} as never)
+					.then((accepted) => {
+						if (!accepted) return;
+						editor.setSelection([id]);
+						editor.setDock('inspector');
+						announce('Token placed.');
+						if (quickMapMode) editor.setTool('pan');
+					});
 			}
 		},
-		[tool, editor, activeId, options.newVisibility, announce],
+		[tool, editor, activeId, options.newVisibility, announce, quickMapMode],
 	);
 	const handleFog = useCallback(
 		(region: MapFogRegion) => {
 			if (!fogLayerId) return;
-			void editor.run({
-				type: 'map.append-fog',
-				actorId: editor.actorId,
-				payload: {
-					mapId: editor.mapId,
-					id: editor.nextId('fog'),
-					layerId: fogLayerId,
-					kind: options.fogMode,
-					region,
-					...(options.fogFeather > 0 ? { feather: Math.min(0.2, options.fogFeather) } : {}),
-					visibility: 'shared',
-					connectionState: 'connected',
-				},
-			} as never);
-			announce(options.fogMode === 'reveal' ? 'Fog revealed.' : 'Fog concealed.');
+			void editor
+				.run({
+					type: 'map.append-fog',
+					actorId: editor.actorId,
+					payload: {
+						mapId: editor.mapId,
+						id: editor.nextId('fog'),
+						layerId: fogLayerId,
+						kind: options.fogMode,
+						region,
+						...(options.fogFeather > 0 ? { feather: Math.min(0.2, options.fogFeather) } : {}),
+						visibility: 'shared',
+						connectionState: 'connected',
+					},
+				} as never)
+				.then((accepted) => {
+					if (!accepted) return;
+					announce(options.fogMode === 'reveal' ? 'Fog revealed.' : 'Fog concealed.');
+					if (quickMapMode) editor.setTool('pan');
+				});
 		},
-		[fogLayerId, editor, options.fogMode, options.fogFeather, announce],
+		[fogLayerId, editor, options.fogMode, options.fogFeather, announce, quickMapMode],
 	);
 	const handleMovePoi = useCallback(
 		(poiId: string, position: Pt) =>
@@ -602,6 +712,10 @@ export function EditorCanvas({
 			ref={containerRef}
 			role="application"
 			aria-label={`Map canvas — ${editor.map?.name ?? 'map'}. Drawing tool: ${tool}.`}
+			onPointerDownCapture={onTouchDownCapture}
+			onPointerMoveCapture={onTouchMoveCapture}
+			onPointerUpCapture={endTouchCapture}
+			onPointerCancelCapture={endTouchCapture}
 			style={{
 				position: 'relative',
 				width: '100%',
@@ -611,6 +725,7 @@ export function EditorCanvas({
 			}}
 		>
 			<MemoMapCanvas
+				key={navigationEpoch}
 				view={editor.map}
 				layers={layers}
 				isDm={editor.isDm}
@@ -621,7 +736,7 @@ export function EditorCanvas({
 				fogShape={options.fogShape === 'stroke' ? 'brush' : options.fogShape}
 				fogBrushRadius={options.brushSize / 1000}
 				rasterAssetId={rasterAssetId}
-				editable={canvasEditable}
+				editable={canvasEditable && !pinching}
 				showFogOutlines={tool === 'fog'}
 				height="100%"
 				style={{ borderRadius: 0, border: 'none' }}
@@ -799,7 +914,7 @@ export function EditorCanvas({
 				style={{
 					position: 'absolute',
 					right: 16,
-					bottom: 150,
+					bottom: quickMapMode ? 16 : 150,
 					display: 'flex',
 					flexDirection: 'column',
 					gap: 6,
@@ -843,18 +958,20 @@ export function EditorCanvas({
 					{Math.round(zoom * 100)}%
 				</span>
 			</div>
-			<div style={{ position: 'absolute', right: 16, bottom: 16, zIndex: 6 }}>
-				<Minimap
-					viewport={{
-						x: clamp01(center.x - 0.5 / zoom),
-						y: clamp01(center.y - 0.5 / zoom),
-						w: Math.min(1, 1 / zoom),
-						h: Math.min(1, 1 / zoom),
-					}}
-					onJump={(p: Pt) => editor.setCenter({ x: clamp01(p.x), y: clamp01(p.y) })}
-					width={160}
-				/>
-			</div>
+			{!quickMapMode && (
+				<div style={{ position: 'absolute', right: 16, bottom: 16, zIndex: 6 }}>
+					<Minimap
+						viewport={{
+							x: clamp01(center.x - 0.5 / zoom),
+							y: clamp01(center.y - 0.5 / zoom),
+							w: Math.min(1, 1 / zoom),
+							h: Math.min(1, 1 / zoom),
+						}}
+						onJump={(p: Pt) => editor.setCenter({ x: clamp01(p.x), y: clamp01(p.y) })}
+						width={160}
+					/>
+				</div>
+			)}
 			{measureText && (
 				<div
 					style={{

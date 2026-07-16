@@ -13,16 +13,24 @@ import {
 } from '../platform/sceneDisplayChannel';
 import { moodTheme } from '../app/sceneCardMood';
 import { isNativeDesktopRuntime } from '../platform/windowChrome';
+import { isNetworkDestinationAllowed, usePlatformCapabilities } from '../platform/capabilities';
 import '../styles/scene-display.css';
 
 /** Resolve a card's hero image to a renderable URL (direct for `url`, asset-store for `vault-asset`). */
 function useHeroImageUrl(card: SceneCardView | null, resolveVaultAssets: boolean): string | null {
+	const capabilities = usePlatformCapabilities();
 	const vaultAssetId =
 		resolveVaultAssets && card?.heroImage?.kind === 'vault-asset' ? card.heroImage.ref : null;
 	const resolved = useAssetObjectUrl(vaultAssetId);
 	if (!card?.heroImage) return null;
 	if (card.heroImage.kind === 'url') {
-		return isNativeDesktopRuntime() ? null : card.heroImage.ref;
+		if (isNativeDesktopRuntime()) return null;
+		if (
+			capabilities.runtimeKind === 'android' &&
+			!isNetworkDestinationAllowed(card.heroImage.ref, capabilities.runtimeKind)
+		)
+			return null;
+		return card.heroImage.ref;
 	}
 	return resolved;
 }

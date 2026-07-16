@@ -419,11 +419,15 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	return (
 		<aside
 			style={{
-				width: 264,
-				flex: '0 0 264px',
+				width: 'calc(264px + var(--safe-area-left, 0px))',
+				flex: '0 0 calc(264px + var(--safe-area-left, 0px))',
 				height: '100%',
 				display: 'flex',
 				flexDirection: 'column',
+				boxSizing: 'border-box',
+				paddingTop: 'var(--safe-area-top, 0px)',
+				paddingBottom: 'var(--safe-area-bottom, 0px)',
+				paddingLeft: 'var(--safe-area-left, 0px)',
 				background: T.surf,
 				borderRight: `1px solid ${T.bd}`,
 			}}
@@ -701,6 +705,11 @@ function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 	return (
 		<NavRail
 			width={64}
+			style={{
+				width: 'calc(64px + var(--safe-area-left, 0px))',
+				padding:
+					'calc(var(--space-2) + var(--safe-area-top, 0px)) var(--space-2) calc(var(--space-2) + var(--safe-area-bottom, 0px)) calc(var(--space-2) + var(--safe-area-left, 0px))',
+			}}
 			items={ALL_SECTIONS.map((s) => ({
 				key: s.id,
 				icon: s.icon,
@@ -822,7 +831,12 @@ function TopBar({
 					display: 'flex',
 					alignItems: 'center',
 					gap: compact ? 6 : 14,
-					padding: viewport === 'phone' ? '10px 12px' : compact ? '11px 16px' : '13px 24px',
+					padding:
+						viewport === 'phone'
+							? 'calc(10px + var(--safe-area-top, 0px)) max(12px, var(--safe-area-right, 0px)) 10px max(12px, var(--safe-area-left, 0px))'
+							: compact
+								? 'calc(11px + var(--safe-area-top, 0px)) max(16px, var(--safe-area-right, 0px)) 11px 16px'
+								: 'calc(13px + var(--safe-area-top, 0px)) max(24px, var(--safe-area-right, 0px)) 13px 24px',
 					borderBottom: `1px solid ${T.bd}`,
 					background: 'color-mix(in srgb, var(--color-bg) 86%, transparent)',
 					backdropFilter: 'blur(6px)',
@@ -968,7 +982,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 		function onKey(e: KeyboardEvent) {
 			// A full-screen editor overlay (e.g. the map editor) owns the keyboard while open and provides
 			// its own command palette / shortcuts; don't double-fire the global shortcuts beneath it.
-			if (document.querySelector('[data-fullscreen-overlay]')) return;
+			if (
+				document.querySelector(
+					'[data-fullscreen-overlay], [aria-modal="true"]:not([data-scene-display-overlay])',
+				)
+			)
+				return;
 			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
 				e.preventDefault();
 				setPaletteOpen((v) => !v);
@@ -1026,7 +1045,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 				style={{
 					position: 'fixed',
 					left: 8,
-					top: 'calc(var(--native-titlebar-height) - 48px)',
+					top: 'calc(var(--native-titlebar-height) + var(--safe-area-top, 0px) - 48px)',
 					zIndex: 100,
 					padding: '8px 14px',
 					borderRadius: 8,
@@ -1036,8 +1055,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 					textDecoration: 'none',
 					transition: 'top var(--duration-fast) var(--easing-standard)',
 				}}
-				onFocus={(e) => (e.currentTarget.style.top = 'calc(var(--native-titlebar-height) + 8px)')}
-				onBlur={(e) => (e.currentTarget.style.top = 'calc(var(--native-titlebar-height) - 48px)')}
+				onFocus={(e) =>
+					(e.currentTarget.style.top =
+						'calc(var(--native-titlebar-height) + var(--safe-area-top, 0px) + 8px)')
+				}
+				onBlur={(e) =>
+					(e.currentTarget.style.top =
+						'calc(var(--native-titlebar-height) + var(--safe-area-top, 0px) - 48px)')
+				}
 			>
 				Skip to content
 			</a>
@@ -1052,7 +1077,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 				<main
 					id="main-content"
 					tabIndex={-1}
-					style={{ flex: 1, overflowY: 'auto', outline: 'none' }}
+					style={{
+						flex: 1,
+						overflowY: 'auto',
+						outline: 'none',
+						boxSizing: 'border-box',
+						paddingLeft: viewport === 'phone' ? 'var(--safe-area-left, 0px)' : 0,
+						paddingRight: 'var(--safe-area-right, 0px)',
+					}}
 				>
 					{children}
 				</main>

@@ -12,6 +12,7 @@ import {
 	planSessionTrack,
 	type AudioByteResolution,
 } from './audio-plan';
+import { getPlatformCapabilities, isNetworkDestinationAllowed } from '../platform/capabilities';
 
 /**
  * audio-playback — the DEVICE-LOCAL audible output driver for the session's authoritative audio state
@@ -208,7 +209,9 @@ function createDriver(runtime: SceneRuntime): AudioPlaybackHandle {
 			(blob) => {
 				assetUrls.set(
 					assetId,
-					blob ? { kind: 'url', url: URL.createObjectURL(blob) } : { kind: 'missing', atEmit: emitSeq },
+					blob
+						? { kind: 'url', url: URL.createObjectURL(blob) }
+						: { kind: 'missing', atEmit: emitSeq },
 				);
 				sync();
 			},
@@ -228,7 +231,16 @@ function createDriver(runtime: SceneRuntime): AudioPlaybackHandle {
 		| { kind: 'silent'; detail: string };
 
 	const materialize = (resolution: AudioByteResolution): Materialized => {
-		if (resolution.url) return { kind: 'url', url: resolution.url };
+		if (resolution.url) {
+			const runtimeKind = getPlatformCapabilities().runtimeKind;
+			if (!isNetworkDestinationAllowed(resolution.url, runtimeKind)) {
+				return {
+					kind: 'silent',
+					detail: 'Android blocks cleartext audio streams. Use HTTPS or import the audio file.',
+				};
+			}
+			return { kind: 'url', url: resolution.url };
+		}
 		if (resolution.assetId) {
 			const url = resolveAssetUrl(resolution.assetId);
 			if (url) return { kind: 'url', url };
@@ -357,7 +369,10 @@ function createDriver(runtime: SceneRuntime): AudioPlaybackHandle {
 		// ── Output routing (AUDIO-012): resolve through the core degradation model, apply per element.
 		const desiredSinkId = state.session.audioPlayback.outputDevice?.deviceId ?? null;
 		let routing = resolveAudioOutputRouting(
-			normalizeAudioPlatformCapability({ canRouteOutput: supportsSinkSelection, canPlayAudio: true }),
+			normalizeAudioPlatformCapability({
+				canRouteOutput: supportsSinkSelection,
+				canPlayAudio: true,
+			}),
 			normalizeAudioParticipantPreferences({ outputRouteId: desiredSinkId }),
 		);
 		let routingDetail: string | null =
@@ -383,7 +398,9 @@ function createDriver(runtime: SceneRuntime): AudioPlaybackHandle {
 				silenceMain();
 				mainStatus = 'no-stream';
 				mainDetail =
-					media.kind === 'loading' ? 'Loading the track’s audio bytes from this device…' : media.detail;
+					media.kind === 'loading'
+						? 'Loading the track’s audio bytes from this device…'
+						: media.detail;
 			} else {
 				el.volume = trackPlan.volume;
 				applySink(el, sinkTarget);
@@ -421,13 +438,21 @@ function createDriver(runtime: SceneRuntime): AudioPlaybackHandle {
 				const layerEl = document.createElement('audio');
 				layerEl.preload = 'none';
 				layerEl.loop = true;
-				entry = { el: layerEl, currentUrl: null, seq: 0, sounding: false, detail: null, erroredUrl: null };
+				entry = {
+					el: layerEl,
+					currentUrl: null,
+					seq: 0,
+					sounding: false,
+					detail: null,
+					erroredUrl: null,
+				};
 				const created = entry;
 				layerEl.addEventListener('error', () => {
 					if (created.currentUrl === null) return;
 					created.erroredUrl = created.currentUrl;
 					created.sounding = false;
-					created.detail = 'This layer failed to load — check its source (no retry, no substitution).';
+					created.detail =
+						'This layer failed to load — check its source (no retry, no substitution).';
 					republish();
 				});
 				pool.set(plan.layerId, entry);
@@ -444,7 +469,10 @@ function createDriver(runtime: SceneRuntime): AudioPlaybackHandle {
 				continue;
 			}
 			if (!hadGesture) {
-				pauseLayer(entry, 'Sound starts after your first click or key press (browser autoplay rules).');
+				pauseLayer(
+					entry,
+					'Sound starts after your first click or key press (browser autoplay rules).',
+				);
 				armGestureRetry();
 				continue;
 			}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
 	DEFAULT_FEATURE_TIER,
@@ -11,6 +11,7 @@ import {
 } from '@dndtools/core';
 import { Avatar, Badge, Button, Icon, IconButton, Input, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { registerBackHandler } from '../platform/backNavigation';
 import { resetCoreStorage } from '../platform/storage/coreStore';
 import { T } from './screen-kit';
 import { useViewport } from './useViewport';
@@ -277,6 +278,17 @@ export function Onboarding() {
 	useEffect(() => {
 		if (open) (contentRef.current ?? panelRef.current)?.focus();
 	}, [open, i]);
+	const skip = useCallback(() => {
+		writeStorage(ONBOARDED_KEY, 'skipped');
+		setOpen(false);
+	}, []);
+	useEffect(() => {
+		if (!open) return undefined;
+		return registerBackHandler('overlay', () => {
+			skip();
+			return true;
+		});
+	}, [open, skip]);
 
 	const actorId = runtime.defaultActorId;
 	const vaultFacts = useMemo(() => {
@@ -316,11 +328,6 @@ export function Onboarding() {
 	const step = ONB_STEPS[i];
 	const next = () => setI((x) => Math.min(ONB_STEPS.length - 1, x + 1));
 	const back = () => setI((x) => Math.max(0, x - 1));
-
-	function skip() {
-		writeStorage(ONBOARDED_KEY, 'skipped');
-		setOpen(false);
-	}
 
 	// The SINGLE completion path — the ready-step checklist shortcuts route through here too (with
 	// their destination), so the vault choice / tier / party notes are never silently discarded.
@@ -429,6 +436,7 @@ export function Onboarding() {
 	return (
 		<div
 			className="app-fixed-viewport"
+			data-fullscreen-overlay="onboarding"
 			role="dialog"
 			aria-modal="true"
 			aria-label="First-run setup"
@@ -441,7 +449,9 @@ export function Onboarding() {
 				display: 'flex',
 				alignItems: 'center',
 				justifyContent: 'center',
-				padding: isPhone ? 8 : 24,
+				padding: isPhone
+					? 'max(8px, var(--safe-area-top, 0px)) max(8px, var(--safe-area-right, 0px)) max(8px, var(--safe-area-bottom, 0px)) max(8px, var(--safe-area-left, 0px))'
+					: 'max(24px, var(--safe-area-top, 0px)) max(24px, var(--safe-area-right, 0px)) max(24px, var(--safe-area-bottom, 0px)) max(24px, var(--safe-area-left, 0px))',
 			}}
 		>
 			<div
@@ -450,8 +460,8 @@ export function Onboarding() {
 				style={{
 					width: 880,
 					maxWidth: isPhone ? '100%' : '96vw',
-					height: isPhone ? 'calc(var(--app-viewport-height) - 16px)' : 560,
-					maxHeight: isPhone ? 'none' : 'calc(var(--app-viewport-height) - 48px)',
+					height: isPhone ? '100%' : 560,
+					maxHeight: '100%',
 					display: 'flex',
 					flexDirection: isPhone ? 'column' : 'row',
 					background: T.raised,

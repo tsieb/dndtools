@@ -7,15 +7,16 @@ import {
 	Icon,
 	IconButton,
 	Popover,
+	SegmentedControl,
 	Sheet,
 	Tabs,
 	VisibilityChip,
 } from '../../ds';
 import { T } from '../screen-kit';
-import { useViewport } from '../useViewport';
+import { useViewport, useViewportHeight } from '../useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { ImportMapDialog, VIS_CHIP } from '../MapBuilder';
-import { useMapEditor, type FogMode } from './useMapEditor';
+import { useMapEditor, type FogMode, type MapEditorApi } from './useMapEditor';
 import type { ToolId } from './tools';
 import { TOOL_GROUPS, TOOLS_BY_ID } from './tools';
 import { useMapKeyboard } from './keyboard';
@@ -29,6 +30,12 @@ import { HistoryPanel } from './dock/HistoryPanel';
 import { GeneratePanel, type GenPreview } from './generate/GeneratePanel';
 import { EditorCanvas } from './canvas/EditorCanvas';
 import { pickRasterAssetId } from '../mapGeometry';
+import { usePlatformCapabilities } from '../../platform/capabilities';
+import { registerBackHandler } from '../../platform/backNavigation';
+import { QuickMapRail } from './QuickMapRail';
+import { isQuickMapTool, normalizeQuickMapTool } from './quickMap';
+import { exportFile, FileExportError } from '../../platform/download';
+import { isolateModalSiblings } from '../../platform/modalIsolation';
 
 const FOCUSABLE =
 	'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -63,9 +70,19 @@ export function MapEditor({
 	initialFogMode?: FogMode;
 	onClose: () => void;
 }) {
-	const editor = useMapEditor(mapId, initialTool);
+	const capabilities = usePlatformCapabilities();
+	const quickMapMode = capabilities.quickMapMode;
+	const editor = useMapEditor(
+		mapId,
+		quickMapMode
+			? initialTool === 'select'
+				? 'pan'
+				: normalizeQuickMapTool(initialTool)
+			: initialTool,
+	);
 	const runtime = useRuntime();
 	const viewport = useViewport();
+	const viewportHeight = useViewportHeight();
 	const isPhone = viewport === 'phone';
 
 	const [preview, setPreview] = useState<GenPreview | null>(null);
@@ -77,9 +94,27 @@ export function MapEditor({
 	const [mobileDock, setMobileDock] = useState(false);
 	const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
 	const [primeGen, setPrimeGen] = useState<string | undefined>(undefined);
+	const [quickSheetHeight, setQuickSheetHeight] = useState(() =>
+		Math.max(240, Math.round(viewportHeight * 0.56)),
+	);
+	const sheetResizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
 	const rootRef = useRef<HTMLDivElement>(null);
 	const onCloseRef = useRef(onClose);
 	onCloseRef.current = onClose;
+
+	useEffect(
+		() =>
+			registerBackHandler('fullscreen', () => {
+				if (quickMapMode && editor.tool !== 'pan') {
+					setPreview(null);
+					editor.setTool('pan');
+					return true;
+				}
+				onCloseRef.current();
+				return true;
+			}),
+		[quickMapMode, editor.tool, editor.setTool],
+	);
 
 	const announce = useCallback((message: string) => {
 		// Toggle a trailing space so an identical consecutive message still re-announces.
@@ -98,21 +133,49 @@ export function MapEditor({
 
 	useMapKeyboard(editor, {
 		onClose,
-		openPalette: () => setPaletteOpen(true),
+		openPalette: () => {
+			if (!quickMapMode) setPaletteOpen(true);
+		},
 		openHelp: () => setHelpOpen(true),
 		announce,
+		...(quickMapMode ? { isToolAllowed: isQuickMapTool, navigationTool: 'pan' as const } : {}),
 	});
+
+	useEffect(() => {
+		if (!quickMapMode) return;
+		if (!isQuickMapTool(editor.tool)) editor.setTool('pan');
+		if (editor.tool === 'generate' || editor.selection.length > 0) {
+			setMobileDock(true);
+		}
+	}, [quickMapMode, editor.tool, editor.selection.length, editor.setTool]);
+
+	useEffect(() => {
+		if (!quickMapMode) return;
+		setQuickSheetHeight((height) =>
+			Math.min(Math.max(260, Math.round(viewportHeight * 0.82)), Math.max(220, height)),
+		);
+	}, [quickMapMode, viewportHeight]);
 
 	// Focus containment (dialog semantics): focus the shell on open, restore the opener on close.
 	useEffect(() => {
 		const opener = document.activeElement as HTMLElement | null;
-		rootRef.current?.focus();
-		return () => opener?.focus?.();
+		const root = rootRef.current;
+		const restoreIsolation = root ? isolateModalSiblings(root) : () => {};
+		root?.focus();
+		return () => {
+			restoreIsolation();
+			opener?.focus?.();
+		};
 	}, []);
 
 	// aria-modal Tab trap — keep Tab inside the shell (AppShell stays mounted underneath). Open
 	// dialogs/palette/sheets own their own Tab cycle, so skip the trap while one is up.
-	const overlayUp = paletteOpen || helpOpen || importOpen || exportOpen || (isPhone && mobileDock);
+	const overlayUp =
+		paletteOpen ||
+		helpOpen ||
+		importOpen ||
+		exportOpen ||
+		((quickMapMode || isPhone) && mobileDock);
 	useEffect(() => {
 		if (overlayUp) return;
 		const onKey = (e: KeyboardEvent) => {
@@ -155,20 +218,32 @@ export function MapEditor({
 		return editor.layers.find((l) => l.layerId === id)?.name ?? editor.layers[0]?.name ?? null;
 	}, [editor.activeLayerId, editor.layers]);
 
-	function exportUvtt() {
+	async function exportUvtt() {
 		const entity = runtime.state.maps.maps[mapId];
 		if (!entity) return;
 		const blob = new Blob([exportUvttJson(entity)], { type: 'application/json' });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = `${(editor.map?.name ?? 'map').replace(/[^a-z0-9-]+/gi, '-').toLowerCase() || 'map'}.dd2vtt`;
-		document.body.appendChild(a);
-		a.click();
-		a.remove();
-		setTimeout(() => URL.revokeObjectURL(url), 1000);
-		announce('UVTT scene exported.');
-		setExportOpen(false);
+		const filename = `${(editor.map?.name ?? 'map').replace(/[^a-z0-9-]+/gi, '-').toLowerCase() || 'map'}.dd2vtt`;
+		try {
+			const result = await exportFile({
+				filename,
+				blob,
+				title: `Export ${editor.map?.name ?? 'map'}`,
+			});
+			announce(
+				result.status === 'cancelled'
+					? 'Map export cancelled.'
+					: quickMapMode
+						? 'Map sent to the Android share/save sheet.'
+						: 'UVTT scene exported.',
+			);
+			setExportOpen(false);
+		} catch (error) {
+			editor.setNotice(
+				error instanceof FileExportError
+					? error.message
+					: 'The map could not be exported. Check available storage and try again.',
+			);
+		}
 	}
 
 	async function projectToPlayers() {
@@ -205,15 +280,17 @@ export function MapEditor({
 
 	// ── command palette entries: tools · layers · generators · actions ────────────────────────────
 	const paletteCommands = useMemo(() => {
-		const tools = [...TOOLS_BY_ID.values()].map((t) => ({
-			id: `tool-${t.id}`,
-			label: `Tool: ${t.label}`,
-			group: 'Tools',
-			icon: t.icon,
-			shortcut: t.shortcut ? t.shortcut.toUpperCase() : undefined,
-			keywords: t.hint,
-			run: () => editor.setTool(t.id),
-		}));
+		const tools = [...TOOLS_BY_ID.values()]
+			.filter((tool) => !quickMapMode || isQuickMapTool(tool.id))
+			.map((t) => ({
+				id: `tool-${t.id}`,
+				label: `Tool: ${t.label}`,
+				group: 'Tools',
+				icon: t.icon,
+				shortcut: t.shortcut ? t.shortcut.toUpperCase() : undefined,
+				keywords: t.hint,
+				run: () => editor.setTool(t.id),
+			}));
 		const layerCmds = editor.layers.map((l) => ({
 			id: `layer-${l.layerId}`,
 			label: `Layer: ${l.name}`,
@@ -258,7 +335,7 @@ export function MapEditor({
 				label: 'Export UVTT (.dd2vtt)',
 				group: 'Actions',
 				icon: 'download',
-				run: exportUvtt,
+				run: () => void exportUvtt(),
 			},
 			{
 				id: 'act-import',
@@ -285,12 +362,14 @@ export function MapEditor({
 		];
 		return [...tools, ...layerCmds, ...genCmds, ...actions];
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [editor.layers, editor.canUndo, editor.canRedo]);
+	}, [editor.layers, editor.canUndo, editor.canRedo, quickMapMode]);
 
 	if (!editor.map) {
 		return (
 			<div
 				className="app-fixed-viewport"
+				ref={rootRef}
+				tabIndex={-1}
 				role="dialog"
 				aria-modal="true"
 				aria-label="Map editor"
@@ -317,6 +396,20 @@ export function MapEditor({
 	}
 	const map = editor.map;
 	const generating = editor.tool === 'generate';
+	const quickSheetMax = Math.max(260, Math.round(viewportHeight * 0.82));
+	const clampQuickSheet = (height: number) => Math.min(quickSheetMax, Math.max(220, height));
+	const onSheetResizeDown = (event: React.PointerEvent<HTMLDivElement>) => {
+		event.currentTarget.setPointerCapture(event.pointerId);
+		sheetResizeRef.current = { startY: event.clientY, startHeight: quickSheetHeight };
+	};
+	const onSheetResizeMove = (event: React.PointerEvent<HTMLDivElement>) => {
+		const resize = sheetResizeRef.current;
+		if (!resize) return;
+		setQuickSheetHeight(clampQuickSheet(resize.startHeight + resize.startY - event.clientY));
+	};
+	const onSheetResizeEnd = () => {
+		sheetResizeRef.current = null;
+	};
 
 	const dockBody = generating ? (
 		<GeneratePanel
@@ -324,9 +417,11 @@ export function MapEditor({
 			setPreview={setPreview}
 			announce={announce}
 			initialGeneratorId={primeGen}
+			quickMapMode={quickMapMode}
 			onExit={() => {
 				setPreview(null);
-				editor.setTool('select');
+				editor.setTool(quickMapMode ? 'pan' : 'select');
+				if (quickMapMode) setMobileDock(false);
 			}}
 		/>
 	) : (
@@ -335,9 +430,9 @@ export function MapEditor({
 				value={editor.dock}
 				onChange={(v: string) => editor.setDock(v as typeof editor.dock)}
 				tabs={[
-					{ id: 'inspector', label: 'Inspector', icon: 'sliders' },
+					{ id: 'inspector', label: 'Selected', icon: 'sliders' },
 					{ id: 'layers', label: 'Layers', icon: 'layers' },
-					{ id: 'assets', label: 'Assets', icon: 'tool-stamp' },
+					...(!quickMapMode ? [{ id: 'assets', label: 'Assets', icon: 'tool-stamp' }] : []),
 					{ id: 'history', label: 'History', icon: 'recent' },
 				]}
 			/>
@@ -358,6 +453,7 @@ export function MapEditor({
 			role="dialog"
 			aria-modal="true"
 			data-fullscreen-overlay="map-editor"
+			data-quick-map={quickMapMode ? 'true' : undefined}
 			aria-label={`Map editor — ${map.name}`}
 			style={{
 				position: 'fixed',
@@ -381,7 +477,11 @@ export function MapEditor({
 					display: 'flex',
 					alignItems: 'center',
 					gap: isPhone ? 4 : 10,
-					padding: isPhone ? '7px 6px' : '8px 14px',
+					padding: quickMapMode
+						? 'calc(6px + var(--safe-area-top, 0px)) max(8px, var(--safe-area-right, 0px)) 6px max(8px, var(--safe-area-left, 0px))'
+						: isPhone
+							? '7px 6px'
+							: '8px 14px',
 					borderBottom: `1px solid ${T.bd}`,
 					background: T.surf,
 					flex: '0 0 auto',
@@ -421,7 +521,7 @@ export function MapEditor({
 						{map.name}
 					</h1>
 				</nav>
-				<VisibilityChip level={VIS_CHIP[map.visibility] ?? 'dm-only'} />
+				{!quickMapMode && <VisibilityChip level={VIS_CHIP[map.visibility] ?? 'dm-only'} />}
 				{!isPhone && <div style={{ flex: 1 }} />}
 				{!isPhone && (
 					<span
@@ -441,68 +541,72 @@ export function MapEditor({
 						{editor.busy ? 'Saving…' : 'Saved on this device'}
 					</span>
 				)}
-				<button
-					type="button"
-					onClick={() => setPaletteOpen(true)}
-					aria-label="Search — command palette"
-					style={{
-						display: 'inline-flex',
-						alignItems: 'center',
-						gap: 8,
-						padding: '6px 10px',
-						borderRadius: 8,
-						border: `1px solid ${T.bd}`,
-						background: T.raised,
-						color: T.sub,
-						cursor: 'pointer',
-						font: `12px ${T.sans}`,
-					}}
-				>
-					<Icon name="search" size={14} />
-					{!isPhone && <span>Search</span>}
-					{!isPhone && (
-						<kbd
+				{!quickMapMode && (
+					<>
+						<button
+							type="button"
+							onClick={() => setPaletteOpen(true)}
+							aria-label="Search — command palette"
 							style={{
-								font: `10px ${T.mono}`,
-								color: T.ter,
+								display: 'inline-flex',
+								alignItems: 'center',
+								gap: 8,
+								padding: '6px 10px',
+								borderRadius: 8,
 								border: `1px solid ${T.bd}`,
-								borderRadius: 5,
-								padding: '0 4px',
+								background: T.raised,
+								color: T.sub,
+								cursor: 'pointer',
+								font: `12px ${T.sans}`,
 							}}
 						>
-							⌘K
-						</kbd>
-					)}
-				</button>
-				<div style={{ display: 'flex', gap: 2 }}>
-					<IconButton
-						icon="undo"
-						label="Undo"
-						variant="ghost"
-						size="sm"
-						disabled={!editor.canUndo}
-						onClick={() => void editor.undo()}
-					/>
-					<IconButton
-						icon="redo"
-						label="Redo"
-						variant="ghost"
-						size="sm"
-						disabled={!editor.canRedo}
-						onClick={() => void editor.redo()}
-					/>
-				</div>
+							<Icon name="search" size={14} />
+							{!isPhone && <span>Search</span>}
+							{!isPhone && (
+								<kbd
+									style={{
+										font: `10px ${T.mono}`,
+										color: T.ter,
+										border: `1px solid ${T.bd}`,
+										borderRadius: 5,
+										padding: '0 4px',
+									}}
+								>
+									⌘K
+								</kbd>
+							)}
+						</button>
+						<div style={{ display: 'flex', gap: 2 }}>
+							<IconButton
+								icon="undo"
+								label="Undo"
+								variant="ghost"
+								size="sm"
+								disabled={!editor.canUndo}
+								onClick={() => void editor.undo()}
+							/>
+							<IconButton
+								icon="redo"
+								label="Redo"
+								variant="ghost"
+								size="sm"
+								disabled={!editor.canRedo}
+								onClick={() => void editor.redo()}
+							/>
+						</div>
+					</>
+				)}
 				<div style={{ position: 'relative' }}>
 					<Button
 						variant="secondary"
 						size="sm"
-						icon="download"
+						icon={quickMapMode ? 'more' : 'download'}
 						iconRight="chevron-down"
 						onClick={() => setExportOpen((v) => !v)}
 						aria-expanded={exportOpen}
-						aria-label="Export"
+						aria-label={quickMapMode ? 'More map actions' : 'Export'}
 					>
-						{isPhone ? '' : 'Export'}
+						{isPhone || quickMapMode ? '' : 'Export'}
 					</Button>
 					{exportOpen && (
 						<Popover
@@ -522,7 +626,7 @@ export function MapEditor({
 								<HeaderMenuItem
 									icon="download"
 									label="Export UVTT (.dd2vtt)"
-									onClick={exportUvtt}
+									onClick={() => void exportUvtt()}
 								/>
 								<HeaderMenuItem
 									icon="import"
@@ -532,6 +636,18 @@ export function MapEditor({
 										setImportOpen(true);
 									}}
 								/>
+								{quickMapMode && (
+									<HeaderMenuItem
+										icon="info"
+										label="About advanced drawing"
+										onClick={() => {
+											setExportOpen(false);
+											editor.setNotice(
+												'Advanced map drawing is available in the desktop app. All desktop-authored geometry remains visible and preserved here.',
+											);
+										}}
+									/>
+								)}
 							</div>
 						</Popover>
 					)}
@@ -583,7 +699,89 @@ export function MapEditor({
 			)}
 
 			{/* ── workspace ── */}
-			{isPhone ? (
+			{quickMapMode ? (
+				<>
+					<QuickToolStrip editor={editor} />
+					<div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+						<EditorCanvas
+							editor={editor}
+							previewLayers={preview?.layers ?? null}
+							announce={announce}
+							rasterAssetId={rasterAssetId}
+							onCursor={setCursor}
+							quickMapMode
+						/>
+					</div>
+					<QuickMapRail
+						activeTool={editor.tool}
+						onSelect={editor.setTool}
+						canUndo={editor.canUndo}
+						canRedo={editor.canRedo}
+						onUndo={() => void editor.undo()}
+						onRedo={() => void editor.redo()}
+						onPanels={() => setMobileDock(true)}
+					/>
+					{mobileDock && (
+						<Sheet
+							open
+							side="bottom"
+							title={generating ? 'Generate map' : 'Map details'}
+							description="Drag the resize handle or use the arrow keys. Back closes this sheet first."
+							size={`${quickSheetHeight}px`}
+							onClose={() => {
+								setMobileDock(false);
+								if (generating) {
+									setPreview(null);
+									editor.setTool('pan');
+								}
+							}}
+						>
+							<div
+								role="separator"
+								aria-label="Resize map details sheet"
+								aria-orientation="horizontal"
+								aria-valuemin={220}
+								aria-valuemax={quickSheetMax}
+								aria-valuenow={quickSheetHeight}
+								tabIndex={0}
+								onPointerDown={onSheetResizeDown}
+								onPointerMove={onSheetResizeMove}
+								onPointerUp={onSheetResizeEnd}
+								onPointerCancel={onSheetResizeEnd}
+								onKeyDown={(event) => {
+									if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+									event.preventDefault();
+									setQuickSheetHeight((height) =>
+										clampQuickSheet(height + (event.key === 'ArrowUp' ? 40 : -40)),
+									);
+								}}
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									justifyContent: 'center',
+									height: 48,
+									margin: '-20px -20px 8px',
+									cursor: 'ns-resize',
+									touchAction: 'none',
+								}}
+							>
+								<span
+									aria-hidden
+									style={{ width: 64, height: 5, borderRadius: 999, background: T.bdS }}
+								/>
+							</div>
+							<div
+								style={{
+									paddingBottom: 'var(--safe-area-bottom, 0px)',
+									minHeight: 0,
+								}}
+							>
+								{dockBody}
+							</div>
+						</Sheet>
+					)}
+				</>
+			) : isPhone ? (
 				<>
 					<ToolOptionsBar editor={editor} />
 					<div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
@@ -672,7 +870,9 @@ export function MapEditor({
 				</div>
 			)}
 
-			<StatusBar editor={editor} cursor={cursor} activeLayerName={activeLayerName} />
+			{!quickMapMode && (
+				<StatusBar editor={editor} cursor={cursor} activeLayerName={activeLayerName} />
+			)}
 
 			{/* ── overlays ── */}
 			{paletteOpen && (
@@ -688,6 +888,68 @@ export function MapEditor({
 				<ImportMapDialog mapId={mapId} mapName={map.name} onClose={() => setImportOpen(false)} />
 			)}
 			{helpOpen && <ShortcutOverlay onClose={() => setHelpOpen(false)} />}
+		</div>
+	);
+}
+
+function QuickToolStrip({ editor }: { editor: MapEditorApi }) {
+	const definition = TOOLS_BY_ID.get(editor.tool);
+	const editing = !['pan', 'select'].includes(editor.tool);
+	const guidance =
+		editor.tool === 'pan'
+			? 'Drag to navigate. Pinch with two fingers to zoom around the gesture.'
+			: editor.tool === 'select'
+				? 'Tap a token or POI to select it; drag to move it. Properties open in the sheet.'
+				: editor.tool === 'generate'
+					? 'Choose a preset in the sheet, preview it on the canvas, then accept once.'
+					: 'Edit mode armed. Complete one placement or fog gesture to return to Navigate.';
+	return (
+		<div
+			role="status"
+			aria-live="polite"
+			style={{
+				display: 'flex',
+				alignItems: 'center',
+				gap: 10,
+				flexWrap: 'wrap',
+				minHeight: 50,
+				padding:
+					'6px max(10px, var(--safe-area-right, 0px)) 6px max(10px, var(--safe-area-left, 0px))',
+				borderBottom: `1px solid ${T.bd}`,
+				background: editing ? T.accSub : T.surf,
+				overflow: 'hidden',
+			}}
+		>
+			<span
+				style={{
+					display: 'inline-flex',
+					alignItems: 'center',
+					gap: 6,
+					font: `700 12px ${T.sans}`,
+					color: editing ? T.acc : T.ink,
+					whiteSpace: 'nowrap',
+				}}
+			>
+				<Icon name={definition?.icon ?? 'tool-select'} size={16} />
+				{editor.tool === 'pan' ? 'Navigate' : definition?.label}
+				{editing ? ' · armed' : ''}
+			</span>
+			{editor.tool === 'fog' && (
+				<SegmentedControl
+					ariaLabel="Fog mode"
+					value={editor.options.fogMode}
+					onChange={(value: string) =>
+						editor.setOption('fogMode', value as typeof editor.options.fogMode)
+					}
+					options={[
+						{ value: 'reveal', label: 'Reveal' },
+						{ value: 'conceal', label: 'Conceal' },
+					]}
+				/>
+			)}
+			<span style={{ flex: 1, minWidth: 150, font: `11.5px ${T.sans}`, color: T.sub }}>
+				{guidance}
+			</span>
 		</div>
 	);
 }

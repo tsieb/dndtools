@@ -26,6 +26,7 @@ import { useSession } from '../net/SessionContext';
 import { buildPlayerData, type PlayerData } from '../net/viewModels';
 import { JoinSessionButton } from '../net/SessionPanel';
 import { useViewport } from '../app/useViewport';
+import { isNetworkDestinationAllowed, usePlatformCapabilities } from '../platform/capabilities';
 
 /**
  * PlayerView — the STANDALONE, chrome-less player companion app (route `/play`, OUTSIDE the DM
@@ -304,6 +305,7 @@ type LiveData = PlayerData;
  */
 function SceneBanner({ card }: { card: SceneCardView | null }) {
 	const viewport = useViewport();
+	const capabilities = usePlatformCapabilities();
 	const [dismissedKey, setDismissedKey] = useState<string | null>(null);
 	const key = card ? `${card.id}:${card.revision}` : null;
 	useEffect(() => {
@@ -316,7 +318,10 @@ function SceneBanner({ card }: { card: SceneCardView | null }) {
 	const resolvedAsset = useAssetObjectUrl(vaultAssetId);
 	const heroUrl = card?.heroImage
 		? card.heroImage.kind === 'url'
-			? card.heroImage.ref
+			? capabilities.runtimeKind !== 'android' ||
+				isNetworkDestinationAllowed(card.heroImage.ref, capabilities.runtimeKind)
+				? card.heroImage.ref
+				: null
 			: resolvedAsset
 		: null;
 

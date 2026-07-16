@@ -1,3 +1,5 @@
+import { getElectronDiscoveryBridge, getPlatformCapabilities } from '../platform/capabilities';
+
 /**
  * Renderer-side access to the Electron LAN discovery bridge (Epic 7.3 mDNS auto-discovery). The bridge
  * is exposed by `electron/preload.cjs` as `window.dndtoolsDiscovery`. It is ABSENT in the web build and
@@ -41,6 +43,6 @@ export interface DiscoveryBridge {
 
 /** The discovery bridge, or null when running without the Electron LAN bridge (web / degraded). */
 export function getDiscovery(): DiscoveryBridge | null {
-	const bridge = (globalThis as { dndtoolsDiscovery?: DiscoveryBridge }).dndtoolsDiscovery;
-	return bridge ?? null;
+	if (!getPlatformCapabilities().localDiscovery.available) return null;
+	return getElectronDiscoveryBridge<DiscoveryBridge>();
 }

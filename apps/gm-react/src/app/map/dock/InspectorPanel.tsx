@@ -8,6 +8,7 @@ import {
 import { Button, Field, Input, Select, Slider, Textarea, VisibilityChip } from '../../../ds';
 import { T, eb } from '../../screen-kit';
 import { useRuntime } from '../../../runtime/RuntimeContext';
+import { exportFile, FileExportError } from '../../../platform/download';
 import type { MapEditorApi } from '../useMapEditor';
 import { VIS_TEXT } from '../mapVocab';
 
@@ -92,20 +93,24 @@ function MapInspector({
 	const { run, actorId, mapId, isDm } = editor;
 	const overlay = map.overlay;
 
-	function exportUvtt() {
+	async function exportUvtt() {
 		const entity = runtime.state.maps.maps[mapId];
 		if (!entity) return;
-		const json = exportUvttJson(entity);
-		const blob = new Blob([json], { type: 'application/json' });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = `${(map?.name ?? 'map').replace(/[^a-z0-9-]+/gi, '-').toLowerCase() || 'map'}.dd2vtt`;
-		document.body.appendChild(a);
-		a.click();
-		a.remove();
-		setTimeout(() => URL.revokeObjectURL(url), 1000);
-		announce('UVTT scene exported.');
+		const filename = `${(map?.name ?? 'map').replace(/[^a-z0-9-]+/gi, '-').toLowerCase() || 'map'}.dd2vtt`;
+		try {
+			const result = await exportFile({
+				filename,
+				blob: new Blob([exportUvttJson(entity)], { type: 'application/json' }),
+				title: `Export ${map?.name ?? 'map'}`,
+			});
+			announce(result.status === 'cancelled' ? 'Map export cancelled.' : 'UVTT scene exported.');
+		} catch (error) {
+			editor.setNotice(
+				error instanceof FileExportError
+					? error.message
+					: 'The map could not be exported. Check available storage and try again.',
+			);
+		}
 	}
 
 	function deriveAll() {
@@ -368,7 +373,7 @@ function MapInspector({
 
 			{isDm && (
 				<Section title="Export & derive">
-					<Button variant="secondary" size="sm" icon="download" onClick={exportUvtt}>
+					<Button variant="secondary" size="sm" icon="download" onClick={() => void exportUvtt()}>
 						Export UVTT (.dd2vtt)
 					</Button>
 					<Button

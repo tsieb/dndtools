@@ -15,6 +15,7 @@ import {
 	type PeerPresenceEntry,
 } from './messages';
 import type { PlayerData } from './viewModels';
+import { getPlatformCapabilities } from '../platform/capabilities';
 
 export type ClientStatus = 'idle' | 'connecting' | 'live' | 'reconnecting' | 'closed';
 
@@ -273,8 +274,9 @@ export class SessionClient {
 }
 
 function detectDeviceKind(): 'desktop' | 'web' | 'unknown' {
-	if (typeof navigator !== 'undefined' && /electron/i.test(navigator.userAgent)) return 'desktop';
-	if (typeof window !== 'undefined') return 'web';
+	const runtimeKind = getPlatformCapabilities().runtimeKind;
+	if (runtimeKind === 'electron') return 'desktop';
+	if (runtimeKind === 'web' || runtimeKind === 'android') return 'web';
 	return 'unknown';
 }
 

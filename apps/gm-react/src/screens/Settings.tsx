@@ -59,6 +59,11 @@ import {
 } from '../cloud/appApi';
 import { qrDataUrl } from '../net/qr';
 import { downloadJsonFile, fileDateStamp } from '../platform/download';
+import {
+	platformNotifications,
+	usePlatformCapabilities,
+	type PlatformNotificationPermission,
+} from '../platform/capabilities';
 import { pickTextFile } from '../platform/filePick';
 import { publicAppBaseUrl, publicAppHashUrl } from '../platform/publicAppUrl';
 import {
@@ -328,6 +333,8 @@ function SettingsAppearance() {
 									setDocAttr(TIER_ATTR, TIER_KEY, levelTier);
 								}}
 								style={{
+									minWidth: 0,
+									maxWidth: '100%',
 									textAlign: 'left',
 									display: 'flex',
 									flexDirection: 'column',
@@ -340,7 +347,15 @@ function SettingsAppearance() {
 									boxShadow: on ? T.smd : 'none',
 								}}
 							>
-								<div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+								<div
+									style={{
+										display: 'flex',
+										minWidth: 0,
+										alignItems: 'center',
+										gap: 9,
+										flexWrap: 'wrap',
+									}}
+								>
 									<span
 										style={{
 											width: 30,
@@ -373,10 +388,12 @@ function SettingsAppearance() {
 											key={r}
 											style={{
 												display: 'flex',
+												minWidth: 0,
 												alignItems: 'center',
 												gap: 6,
 												font: `11px ${T.sans}`,
 												color: T.ter,
+												overflowWrap: 'anywhere',
 											}}
 										>
 											<Icon name="check" size={12} color={on ? T.acc : T.ter} />
@@ -729,15 +746,21 @@ function AccountDangerPanel() {
 	const [busy, setBusy] = useState(false);
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const [phrase, setPhrase] = useState('');
-	const exportData = () => {
+	const exportData = async () => {
 		setBusy(true);
-		exportAccountData()
-			.then((data) => {
-				downloadJsonFile(`dndtools-account-${fileDateStamp()}.json`, data);
-				Toaster.success('Online account record downloaded.');
-			})
-			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not download your account record.')))
-			.finally(() => setBusy(false));
+		try {
+			const data = await exportAccountData();
+			const result = await downloadJsonFile(
+				`dndtools-account-${fileDateStamp()}.json`,
+				data,
+				'Export DND Tools account data',
+			);
+			if (result.status === 'exported') Toaster.success('Online account record exported.');
+		} catch (e: unknown) {
+			Toaster.error(errMsg(e, 'Could not export your account record.'));
+		} finally {
+			setBusy(false);
+		}
 	};
 	const destroy = async () => {
 		const accountId = auth.user?.sub;
@@ -2193,7 +2216,7 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 						: canEnable
 							? 'Campaign state is encrypted on this device before upload, so the online service stores only unreadable data. Device-local media bytes are not uploaded. Off by default. Keep a local backup: recovery-key export is not available yet, and losing every authorized device also loses access to the cloud copy.'
 							: gate?.custodyAvailable === false
-								? 'Unavailable on this device: encrypted cloud backup needs an OS credential store to protect your key (available in the desktop app).'
+								? 'Unavailable on this device: encrypted cloud backup needs an OS credential store to protect your key (available in the desktop and Android apps).'
 								: 'Secure cloud backup is not available on this device.'
 				}
 				control={
@@ -2371,17 +2394,25 @@ function LocalBackupPanel() {
 	const runtime = useRuntime();
 	const [busy, setBusy] = useState(false);
 	const [pendingRestore, setPendingRestore] = useState<VaultBackup | null>(null);
-	const backup = () => {
+	const backup = async () => {
 		setBusy(true);
-		exportFullVault()
-			.then((data) => {
-				downloadJsonFile(`dndtools-vault-backup-${fileDateStamp()}.json`, data);
+		try {
+			const data = await exportFullVault();
+			const result = await downloadJsonFile(
+				`dndtools-vault-backup-${fileDateStamp()}.json`,
+				data,
+				'Save DND Tools vault backup',
+			);
+			if (result.status === 'exported') {
 				Toaster.success(
-					`Backup downloaded — ${data.assets.length} media ${data.assets.length === 1 ? 'asset' : 'assets'} included.`,
+					`Backup ${result.method === 'download' ? 'downloaded' : 'exported'} — ${data.assets.length} media ${data.assets.length === 1 ? 'asset' : 'assets'} included.`,
 				);
-			})
-			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not build the backup.')))
-			.finally(() => setBusy(false));
+			}
+		} catch (e: unknown) {
+			Toaster.error(errMsg(e, 'Could not build or export the backup.'));
+		} finally {
+			setBusy(false);
+		}
 	};
 	const pickBackup = async () => {
 		try {
@@ -2599,6 +2630,7 @@ type OllamaProbe =
 	| { status: 'down' };
 
 function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => void }) {
+	const capabilities = usePlatformCapabilities();
 	const [settings, setSettings] = useState(() => getAiProviderSettings());
 	const [keyDraft, setKeyDraft] = useState('');
 	const [hasKey, setHasKey] = useState(() => getAiProviderKey() !== null);
@@ -2722,9 +2754,9 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 		>
 			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
 				Bring your own key — DND Tools does not include one or send it through our servers. The key
-				stays on this device (memory + this browser session; OS-encrypted storage on desktop) and is
-				never written to the campaign, its history, or cloud backups. Until a key is saved, the
-				assistant stays off.
+				stays on this device (memory + this browser session; OS-encrypted storage in native apps)
+				and is never written to the campaign, its history, or cloud backups. Until a key is saved,
+				the assistant stays off.
 			</div>
 			<div style={{ marginTop: 14 }}>
 				<div style={{ font: `600 12px ${T.sans}`, color: T.ink, marginBottom: 8 }}>
@@ -2739,8 +2771,9 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 				>
 					{AI_PROVIDER_PRESETS.map((preset) => {
 						const selected = activePresetId === preset.id;
-						const locked = hasKey && !selected;
 						const isOllama = preset.id === 'ollama';
+						const platformUnsupported = isOllama && !capabilities.allowHttpLoopbackAi;
+						const locked = (hasKey && !selected) || platformUnsupported;
 						return (
 							<button
 								key={preset.id}
@@ -2763,6 +2796,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 								<div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
 									<span style={{ font: `600 12.5px ${T.sans}`, color: T.ink }}>{preset.label}</span>
 									{selected && <Badge status="success">selected</Badge>}
+									{platformUnsupported && <Badge status="neutral">desktop-only</Badge>}
 									{isOllama && ollama.status !== 'unknown' && (
 										<Badge status={ollama.status === 'running' ? 'success' : 'neutral'}>
 											{ollama.status === 'running'
@@ -2783,9 +2817,11 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 										<li key={i}>{step}</li>
 									))}
 								</ol>
-								{preset.note && (
+								{(platformUnsupported || preset.note) && (
 									<div style={{ font: `10.5px ${T.sans}`, color: T.ter, fontStyle: 'italic' }}>
-										{preset.note}
+										{platformUnsupported
+											? 'Local Ollama access is available in the desktop app. Android permits HTTPS providers only.'
+											: preset.note}
 									</div>
 								)}
 								{isOllama &&
@@ -2799,7 +2835,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 						);
 					})}
 				</div>
-				{activePresetId === 'ollama' && (
+				{activePresetId === 'ollama' && capabilities.allowHttpLoopbackAi && (
 					<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
 						<Button
 							variant="secondary"
@@ -3082,11 +3118,7 @@ const AI_NOTIFY_KEY = 'dndtools.ai.notify-on-complete';
 
 function aiNotifyEnabled(): boolean {
 	try {
-		return (
-			localStorage.getItem(AI_NOTIFY_KEY) === '1' &&
-			typeof Notification !== 'undefined' &&
-			Notification.permission === 'granted'
-		);
+		return localStorage.getItem(AI_NOTIFY_KEY) === '1';
 	} catch {
 		return false;
 	}
@@ -3100,19 +3132,10 @@ function persistAiNotifyEnabled(enabled: boolean): void {
 	}
 }
 
-/** Best-effort desktop notification (web `Notification`), only when the user opted in AND granted it. */
-function maybeDesktopNotify(title: string, body: string): void {
-	try {
-		if (
-			aiNotifyEnabled() &&
-			typeof Notification !== 'undefined' &&
-			Notification.permission === 'granted'
-		) {
-			new Notification(title, { body });
-		}
-	} catch {
-		/* notifications are a nicety; never let one break the run */
-	}
+/** Best-effort platform notification; permission was granted during explicit opt-in. */
+function maybePlatformNotify(title: string, body: string): void {
+	if (!aiNotifyEnabled()) return;
+	void platformNotifications.notify(title, body).catch(() => false);
 }
 
 /** The completion protocol: an in-app toast on every terminal state, plus the opt-in desktop ping. */
@@ -3123,18 +3146,18 @@ function notifyRunComplete(status: AssistantRunStatus, events: AssistantEvent[])
 	switch (status) {
 		case 'completed':
 			Toaster.success(`Assistant finished${stagedNote}.`);
-			maybeDesktopNotify('Assistant finished', `Your request is done${stagedNote || '.'}`);
+			maybePlatformNotify('Assistant finished', `Your request is done${stagedNote || '.'}`);
 			break;
 		case 'budget-exhausted':
 			Toaster.info(`Assistant stopped at the step limit${stagedNote}.`);
-			maybeDesktopNotify('Assistant stopped at the step limit', `Ask it to continue if needed.`);
+			maybePlatformNotify('Assistant stopped at the step limit', `Ask it to continue if needed.`);
 			break;
 		case 'cancelled':
 			Toaster.info('Assistant run cancelled.');
 			break;
 		case 'failed':
 			Toaster.error('The assistant run stopped — see the transcript for the reason.');
-			maybeDesktopNotify('Assistant run stopped', 'See the transcript for the reason.');
+			maybePlatformNotify('Assistant run stopped', 'See the transcript for the reason.');
 			break;
 		default:
 			break;
@@ -3148,6 +3171,7 @@ function notifyRunComplete(status: AssistantRunStatus, events: AssistantEvent[])
  * provider key, MCP master switch, a registered binding, DM + not previewing.
  */
 function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
+	const capabilities = usePlatformCapabilities();
 	const runtime = useRuntime();
 	const mcp = runtime.state.mcp;
 	const bindings = Object.values(mcp.bindings);
@@ -3168,6 +3192,26 @@ function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 	});
 	const [notify, setNotify] = useState(aiNotifyEnabled());
 	const abortRef = useRef<AbortController | null>(null);
+
+	useEffect(() => {
+		if (!notify) return;
+		let cancelled = false;
+		void platformNotifications
+			.permission()
+			.then((permission) => {
+				if (cancelled || permission === 'granted') return;
+				setNotify(false);
+				persistAiNotifyEnabled(false);
+			})
+			.catch(() => {
+				if (cancelled) return;
+				setNotify(false);
+				persistAiNotifyEnabled(false);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [notify]);
 
 	const selectedAgent = mcp.bindings[agentId] ? agentId : (bindings[0]?.agentId ?? '');
 	const blocker = !configured
@@ -3244,14 +3288,15 @@ function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 			persistAiNotifyEnabled(false);
 			return;
 		}
-		if (typeof Notification === 'undefined') return;
-		let permission = Notification.permission;
-		if (permission === 'default') {
-			try {
-				permission = await Notification.requestPermission();
-			} catch {
-				permission = 'denied';
+		if (!platformNotifications.available()) return;
+		let permission: PlatformNotificationPermission;
+		try {
+			permission = await platformNotifications.permission();
+			if (permission === 'prompt') {
+				permission = await platformNotifications.requestPermission();
 			}
+		} catch {
+			permission = 'denied';
 		}
 		if (permission !== 'granted') {
 			setNotify(false);
@@ -3415,10 +3460,11 @@ function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 					<Switch
 						checked={notify}
 						onChange={(on: boolean) => void toggleNotify(on)}
-						disabled={typeof Notification === 'undefined'}
+						disabled={!capabilities.notifications.available}
 						label={
-							typeof Notification === 'undefined'
-								? 'Desktop notifications are unavailable in this browser.'
+							!capabilities.notifications.available
+								? (capabilities.notifications.unavailableMessage ??
+									'Notifications are unavailable.')
 								: 'Notify me on this device when a run finishes.'
 						}
 					/>

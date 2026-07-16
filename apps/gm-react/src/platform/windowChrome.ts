@@ -1,3 +1,9 @@
+import {
+	getElectronWindowBridge,
+	getPlatformCapabilities,
+	setAndroidSystemBarStyle,
+} from './capabilities';
+
 type WindowTheme = 'tavern' | 'parchment' | 'high-contrast';
 
 interface NativeWindowBridge {
@@ -5,18 +11,12 @@ interface NativeWindowBridge {
 }
 
 function bridge(): NativeWindowBridge | null {
-	return (
-		(
-			globalThis as typeof globalThis & {
-				dndtoolsWindow?: NativeWindowBridge;
-			}
-		).dndtoolsWindow ?? null
-	);
+	return getElectronWindowBridge<NativeWindowBridge>();
 }
 
 /** True only inside the trusted Electron renderer exposed by the window preload. */
 export function isNativeDesktopRuntime(): boolean {
-	return bridge() !== null;
+	return getPlatformCapabilities().runtimeKind === 'electron';
 }
 
 function currentTheme(): WindowTheme {
@@ -41,12 +41,18 @@ function updateBrowserThemeColor(theme: WindowTheme): void {
 
 /** Keep browser chrome and the Electron title-bar overlay aligned with the live app theme. */
 export function bindWindowChromeTheme(): () => void {
-	const native = bridge();
+	const capabilities = getPlatformCapabilities();
+	document.documentElement.setAttribute('data-runtime', capabilities.runtimeKind);
+	document.documentElement.toggleAttribute('data-android', capabilities.runtimeKind === 'android');
+	const native = capabilities.windowManagement.available ? bridge() : null;
 	if (native) document.documentElement.setAttribute('data-electron', 'true');
 	const sync = () => {
 		const theme = currentTheme();
 		updateBrowserThemeColor(theme);
 		if (native) void native.setTheme(theme).catch(() => false);
+		if (capabilities.nativeBridgeAvailable) {
+			void setAndroidSystemBarStyle(theme === 'parchment' ? 'LIGHT' : 'DARK');
+		}
 	};
 	sync();
 	const observer = new MutationObserver(sync);

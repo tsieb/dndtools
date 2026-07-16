@@ -51,3 +51,39 @@ describe('durableSecretStore (Electron — OS-encrypted bridge present)', () => 
 		expect(bridge.set).toHaveBeenCalledWith('cog:idToken', 'x');
 	});
 });
+
+describe('Android Keystore adapter', () => {
+	it('maps the shared credential interface onto the custom Capacitor plugin', async () => {
+		const plugin = {
+			get: vi.fn(async () => ({ value: 'ciphertext-backed-value' })),
+			set: vi.fn(async () => ({ ok: true })),
+			delete: vi.fn(async () => ({ ok: true })),
+			clear: vi.fn(async () => ({ ok: true })),
+			keys: vi.fn(async () => ({ keys: ['cog:idToken'] })),
+		};
+		const { createAndroidDurableSecretStore } = await importFresh();
+		const store = createAndroidDurableSecretStore(plugin);
+
+		await expect(store.available()).resolves.toBe(true);
+		await expect(store.get('cog:idToken')).resolves.toBe('ciphertext-backed-value');
+		await expect(store.set('cog:idToken', 'token')).resolves.toBe(true);
+		await expect(store.remove('cog:idToken')).resolves.toBe(true);
+		await expect(store.keys()).resolves.toEqual(['cog:idToken']);
+		expect(plugin.set).toHaveBeenCalledWith({ key: 'cog:idToken', value: 'token' });
+		expect(plugin.delete).toHaveBeenCalledWith({ key: 'cog:idToken' });
+	});
+
+	it('reports unavailable when the native plugin cannot reach the Keystore', async () => {
+		const { createAndroidDurableSecretStore } = await importFresh();
+		const store = createAndroidDurableSecretStore({
+			get: vi.fn(),
+			set: vi.fn(),
+			delete: vi.fn(),
+			clear: vi.fn(),
+			keys: vi.fn(async () => {
+				throw new Error('keystore unavailable');
+			}),
+		});
+		await expect(store.available()).resolves.toBe(false);
+	});
+});

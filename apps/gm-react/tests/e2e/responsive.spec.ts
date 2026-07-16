@@ -22,7 +22,9 @@ const ROUTES = [
 async function clippedControls(page: Page, rootSelector = 'body'): Promise<string[]> {
 	return page
 		.locator(rootSelector)
-		.locator('button, input, select, textarea, [role="tab"]')
+		.locator(
+			'button, a[href], input, select, textarea, [role="button"], [role="option"], [role="menuitem"], [role="radio"], [role="checkbox"], [role="tab"], [role="switch"]',
+		)
 		.evaluateAll((elements) =>
 			elements.flatMap((element) => {
 				const rect = element.getBoundingClientRect();
@@ -107,9 +109,15 @@ async function expectOnboardingStep(
 }
 
 for (const viewport of [
+	{ name: 'minimum-width phone', width: 360, height: 640 },
 	{ name: 'compact phone', width: 375, height: 812 },
+	{ name: 'tall phone', width: 412, height: 915 },
+	{ name: 'short landscape phone', width: 640, height: 360 },
+	{ name: 'virtual-keyboard phone', width: 360, height: 360 },
 	{ name: 'phone breakpoint', width: 640, height: 700 },
 	{ name: 'rail breakpoint', width: 641, height: 700 },
+	{ name: 'foldable portrait', width: 768, height: 1024 },
+	{ name: 'tablet portrait', width: 853, height: 1280 },
 	{ name: 'desktop-window minimum', width: 720, height: 520 },
 	{ name: 'release rail window', width: 1024, height: 600 },
 	{ name: 'desktop navigation breakpoint', width: 1025, height: 600 },
@@ -388,6 +396,139 @@ test('every player tab uses a single bounded column on a compact phone', async (
 			`player ${tab} tab clipped an interactive control`,
 		).toEqual([]);
 	}
+});
+
+for (const mode of ['200% text', 'reduced motion', 'forced colors'] as const) {
+	test(`primary routes remain reachable with ${mode}`, async ({ page }) => {
+		await page.setViewportSize({ width: 360, height: 640 });
+		if (mode === 'reduced motion') await page.emulateMedia({ reducedMotion: 'reduce' });
+		if (mode === 'forced colors') await page.emulateMedia({ forcedColors: 'active' });
+		await markOnboarded(page);
+		await gotoRoute(page, '/');
+		await seedFresh(page);
+		if (mode === '200% text') {
+			await page.addStyleTag({
+				content:
+					'html { font-size: 200% !important; -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !important; }',
+			});
+		}
+
+		for (const route of ROUTES) {
+			await page.evaluate((next) => {
+				window.location.hash = next;
+			}, route);
+			await page.waitForFunction((next) => window.location.hash === `#${next}`, route);
+			await page.locator('h1').first().waitFor({ state: 'attached', timeout: 20_000 });
+			await page.evaluate(
+				() =>
+					new Promise<void>((resolve) =>
+						requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+					),
+			);
+			await expectNoHorizontalOverflow(page, `${route} with ${mode}`, '#main-content', true);
+			expect
+				.soft(await clippedControls(page), `${route} clipped a control with ${mode}`)
+				.toEqual([]);
+		}
+
+		if (mode === 'reduced motion') {
+			expect(
+				await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches),
+			).toBe(true);
+		}
+		if (mode === 'forced colors') {
+			expect(await page.evaluate(() => matchMedia('(forced-colors: active)').matches)).toBe(true);
+		}
+	});
+}
+
+test('Android routes consume native safe areas and keep 48dp controls keyboard-visible', async ({
+	page,
+}) => {
+	await page.addInitScript(() => {
+		(
+			globalThis as typeof globalThis & {
+				__DNDTOOLS_TEST_RUNTIME_KIND__?: 'android';
+			}
+		).__DNDTOOLS_TEST_RUNTIME_KIND__ = 'android';
+	});
+	await page.setViewportSize({ width: 360, height: 640 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/');
+	await seedFresh(page);
+	await page.evaluate(() => {
+		const root = document.documentElement.style;
+		root.setProperty('--safe-area-inset-top', '24px');
+		root.setProperty('--safe-area-inset-right', '18px');
+		root.setProperty('--safe-area-inset-bottom', '30px');
+		root.setProperty('--safe-area-inset-left', '16px');
+	});
+	await expect(page.locator('html')).toHaveAttribute('data-runtime', 'android');
+
+	for (const route of ROUTES) {
+		await page.evaluate((next) => {
+			window.location.hash = next;
+		}, route);
+		await page.waitForFunction((next) => window.location.hash === `#${next}`, route);
+		await page.locator('h1').first().waitFor({ state: 'attached', timeout: 20_000 });
+		await page.evaluate(
+			() =>
+				new Promise<void>((resolve) =>
+					requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+				),
+		);
+		await expectNoHorizontalOverflow(
+			page,
+			`${route} with Android safe areas`,
+			'#main-content',
+			true,
+		);
+		expect.soft(await clippedControls(page), `${route} clipped an Android control`).toEqual([]);
+
+		const failures = await page
+			.locator('#main-content, header, nav[aria-label="Primary"]')
+			.locator(
+				'button, a[href], [role="button"], [role="option"], [role="menuitem"], [role="radio"], [role="checkbox"], [role="tab"], [role="switch"], input, select, textarea',
+			)
+			.evaluateAll((controls) =>
+				controls.flatMap((control) => {
+					const rect = control.getBoundingClientRect();
+					const style = getComputedStyle(control);
+					if (
+						rect.width === 0 ||
+						rect.height === 0 ||
+						style.display === 'none' ||
+						style.visibility === 'hidden' ||
+						rect.bottom <= 0 ||
+						rect.top >= innerHeight
+					) {
+						return [];
+					}
+					const name =
+						control.getAttribute('aria-label') || control.textContent?.trim() || control.tagName;
+					const reasons: string[] = [];
+					if (rect.width < 47.5 || rect.height < 47.5) reasons.push('under 48dp');
+					if (rect.left < 15.5 || rect.right > innerWidth - 17.5) reasons.push('inside cutout');
+					const systemChrome = control.closest('header, nav[aria-label="Primary"]');
+					if (systemChrome && (rect.top < 23.5 || rect.bottom > innerHeight - 29.5)) {
+						reasons.push('inside system bar');
+					}
+					return reasons.length === 0
+						? []
+						: [`${name.replace(/\s+/g, ' ').slice(0, 50)}: ${reasons.join(', ')}`];
+				}),
+			);
+		expect.soft(failures, `${route} violated Android touch/safe-area bounds`).toEqual([]);
+	}
+
+	await page.locator('body').press('Tab');
+	expect(
+		await page.evaluate(() => {
+			const active = document.activeElement;
+			return active instanceof HTMLElement && getComputedStyle(active).outlineStyle !== 'none';
+		}),
+		'keyboard focus must have a visible ring',
+	).toBe(true);
 });
 
 test('the compact map builder keeps the canvas and inspector reachable', async ({ page }) => {

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Icon } from '../core/Icon.jsx';
+import { registerBackHandler } from '../../../platform/backNavigation';
 
 /**
  * CommandPalette — the ⌘K hot path. One overlay that lets the DM jump to any destination or fire
@@ -119,6 +120,8 @@ export function CommandPalette({
 	const panelRef = React.useRef(null);
 	const itemRefs = React.useRef([]);
 	const returnFocusRef = React.useRef(null);
+	const onCloseRef = React.useRef(onClose);
+	onCloseRef.current = onClose;
 	const baseId = React.useId();
 
 	const q = query.trim().toLowerCase();
@@ -135,9 +138,14 @@ export function CommandPalette({
 		setActive(0);
 		const prevOverflow = document.body.style.overflow;
 		document.body.style.overflow = 'hidden';
+		const unregisterBack = registerBackHandler('overlay', () => {
+			onCloseRef.current && onCloseRef.current();
+			return true;
+		});
 		const t = setTimeout(() => inputRef.current && inputRef.current.focus(), 0);
 		return () => {
 			clearTimeout(t);
+			unregisterBack();
 			document.body.style.overflow = prevOverflow;
 			const rf = returnFocusRef.current;
 			if (rf && rf.focus) rf.focus();
@@ -227,7 +235,8 @@ export function CommandPalette({
 				display: 'flex',
 				alignItems: 'flex-start',
 				justifyContent: 'center',
-				padding: '14vh var(--space-6) var(--space-6)',
+				padding:
+					'max(14vh, calc(var(--safe-area-top, 0px) + var(--space-6))) max(var(--space-6), var(--safe-area-right, 0px)) max(var(--space-6), var(--safe-area-bottom, 0px)) max(var(--space-6), var(--safe-area-left, 0px))',
 				background: 'var(--color-backdrop)',
 				animation: 'dndScrimIn var(--duration-fast) var(--easing-standard)',
 			}}

@@ -7,8 +7,8 @@
  * KEY CUSTODY (mirrors the two sanctioned patterns side by side):
  *   - cloud/googleDocs.ts — secrets live in module memory + sessionStorage ONLY (never localStorage,
  *     never IndexedDB, never the vault/op-log). A web tab close forgets the key; re-paste to resume.
- *   - cloud/tokenStore.ts — when the OS-encrypted Electron secure store is available, the key is
- *     ALSO mirrored there so a returning desktop user is configured without re-pasting. On the web
+ *   - cloud/tokenStore.ts — when an OS-encrypted Electron or Android secure store is available, the
+ *     key is ALSO mirrored there so a returning native-app user is configured without re-pasting. On the web
  *     that store reports unavailable and persists nothing (SEC-004: no plaintext at rest).
  *
  * Non-secret SETTINGS (provider kind, model id, custom base URL) persist in localStorage so the
@@ -18,6 +18,7 @@
  */
 
 import { durableSecretStore, hasDurableSecretStoreBridge } from '../cloud/secureStore';
+import { getElectronNetworkPolicyBridge, getPlatformCapabilities } from '../platform/capabilities';
 
 /** The two supported transports: Anthropic's Messages API, or any OpenAI-compatible endpoint. */
 export type AiProviderKind = 'anthropic' | 'openai-compatible';
@@ -92,7 +93,10 @@ export interface AiBaseUrlValidation {
  * must use TLS. Plain HTTP is allowed only for an explicitly local runner on this
  * device; credentials, query strings, and fragments are never valid API bases.
  */
-export function validateAiBaseUrl(input: string): AiBaseUrlValidation {
+export function validateAiBaseUrl(
+	input: string,
+	options: { allowHttpLoopback?: boolean } = {},
+): AiBaseUrlValidation {
 	const trimmed = input.trim();
 	const invalid = (message: string): AiBaseUrlValidation => ({
 		valid: false,
@@ -113,7 +117,14 @@ export function validateAiBaseUrl(input: string): AiBaseUrlValidation {
 		return invalid('Provider URLs cannot include a query string or fragment.');
 	const loopback =
 		url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]';
-	if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
+	const allowHttpLoopback =
+		options.allowHttpLoopback ?? getPlatformCapabilities().allowHttpLoopbackAi;
+	if (url.protocol === 'http:' && loopback && !allowHttpLoopback) {
+		return invalid(
+			'Android requires HTTPS provider endpoints. Local Ollama connections are available in the desktop app.',
+		);
+	}
+	if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback && allowHttpLoopback)) {
 		return invalid('Use HTTPS for hosted providers; HTTP is allowed only for a local runner.');
 	}
 	if (url.origin.length > MAX_AI_ORIGIN_CHARS) {
@@ -141,10 +152,7 @@ export function resolveAiProviderDestination(
 }
 
 function networkPolicyBridge(): ElectronNetworkPolicyBridge | null {
-	return (
-		(globalThis as unknown as { dndtoolsNetworkPolicy?: ElectronNetworkPolicyBridge })
-			.dndtoolsNetworkPolicy ?? null
-	);
+	return getElectronNetworkPolicyBridge<ElectronNetworkPolicyBridge>();
 }
 
 function configuredWebAiOrigins(): Set<string> {
@@ -174,6 +182,11 @@ export async function authorizeAiProviderNetworkAccess(
 ): Promise<boolean> {
 	const destination = resolveAiProviderDestination(config);
 	if (!destination) return false;
+	// Android's network-security policy blocks cleartext globally. Any user-selected HTTPS
+	// provider remains available without relying on a desktop CSP/origin bridge.
+	if (getPlatformCapabilities().runtimeKind === 'android') {
+		return destination.origin.startsWith('https://');
+	}
 	const bridge = networkPolicyBridge();
 	if (bridge) {
 		try {
@@ -252,7 +265,7 @@ function queueDurableMutation<T>(operation: () => Promise<T>): Promise<T> {
 export interface AiProviderKeySaveResult {
 	saved: boolean;
 	storage: 'none' | 'session' | 'os-encrypted';
-	/** A desktop bridge exists, but its encrypted storage could not confirm the write. */
+	/** A native encrypted-store bridge exists, but it could not confirm the write. */
 	durableError: boolean;
 }
 
@@ -326,7 +339,7 @@ export function getAiProviderKey(): string | null {
 
 /**
  * Store the user's provider key in memory + sessionStorage immediately, then wait for the optional
- * OS-encrypted durable store. The result lets the UI distinguish desktop persistence from a
+ * OS-encrypted durable store. The result lets the UI distinguish native persistence from a
  * session-only fallback instead of claiming a durable save before it has happened.
  */
 export async function setAiProviderKey(key: string): Promise<AiProviderKeySaveResult> {
@@ -371,7 +384,7 @@ export async function setAiProviderKey(key: string): Promise<AiProviderKeySaveRe
 }
 
 /**
- * Forget the key everywhere. On desktop, clear the durable copy first; if that cannot be
+ * Forget the key everywhere. In a native app, clear the durable copy first; if that cannot be
  * confirmed, retain the session copy so the UI never claims a key was forgotten when it can
  * return after restart.
  */
@@ -437,7 +450,7 @@ export async function clearLegacyAiProviderKey(): Promise<AiProviderKeyClearResu
 }
 
 /**
- * Load a durably-mirrored key back into memory at startup (desktop only — the web durable store
+ * Load a durably-mirrored key back into memory at startup (native apps only — the web durable store
  * persists nothing). Called once from main.tsx before the app renders; safe to call repeatedly.
  */
 export async function hydrateAiProviderKey(): Promise<void> {
