@@ -194,6 +194,7 @@ describe('CI guardrails', () => {
 		);
 		const configJob = release.jobs?.['production-cloud-config'];
 		const packageJob = release.jobs?.package;
+		const draftJob = release.jobs?.['draft-release'];
 		expect(release.env?.RELEASE_CHANNEL).toContain("|| 'preview'");
 		expect(configJob?.needs).toBe('verify');
 		expect(configJob?.if).toBe(
@@ -211,7 +212,10 @@ describe('CI guardrails', () => {
 		expect(packageJob?.if).toContain("needs.production-cloud-config.result == 'success'");
 		expect(packageJob?.if).toContain("needs.production-cloud-config.result == 'skipped'");
 		expect(release.jobs?.package?.environment).toBe('desktop-release');
-		expect(release.jobs?.['draft-release']?.needs).toEqual(['verify', 'package']);
+		expect(draftJob?.needs).toEqual(['verify', 'package']);
+		expect(draftJob?.if).toBe(
+			"always() && needs.verify.result == 'success' && needs.package.result == 'success'",
+		);
 		expect(promotion.jobs?.promote?.environment).toMatchObject({ name: 'production' });
 		expect(promotion.jobs?.preflight?.outputs?.release_sha).toBe(
 			'${{ steps.release_ref.outputs.sha }}',
