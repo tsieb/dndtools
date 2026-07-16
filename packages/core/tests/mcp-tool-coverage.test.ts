@@ -195,6 +195,66 @@ const MCP_TOOL_COVERAGE: McpToolCoverageRow[] = [
 		invalidInput: { title: '' }, // empty title
 		validInput: { title: 'Ambush at the Bridge', mood: 'combat', flavorText: 'Steel rings.' },
 	},
+	{
+		// ADR-025 — the staged random-table create. Routes through `content.create-item`; the table fields
+		// carry no visibility so an agent-authored table fails closed to dm-only.
+		toolId: 'table.create',
+		kind: 'write',
+		behaviors: [
+			'schema-validation',
+			'actor-policy',
+			'visibility-filtering',
+			'idempotency',
+			'staged-preview',
+			'direct-mode',
+			'failure-handling',
+		],
+		invalidInput: { title: 'x', dice: '1d4', entries: [] }, // entries must have at least one row
+		validInput: {
+			title: 'Wandering Perils',
+			dice: '1d4',
+			entries: ['wraith', 'gas', 'mud', 'nothing'],
+		},
+	},
+	{
+		// ADR-025 — the staged NPC/monster/sidekick create. Routes through `character.quick-create`;
+		// visibility is omitted so an agent-authored character fails closed to dm-only.
+		toolId: 'character.create',
+		kind: 'write',
+		behaviors: [
+			'schema-validation',
+			'actor-policy',
+			'visibility-filtering',
+			'idempotency',
+			'staged-preview',
+			'direct-mode',
+			'failure-handling',
+		],
+		invalidInput: { kind: 'npc' }, // missing required name
+		validInput: { kind: 'npc', name: 'Grukka the Fen-Witch', data: { class: 'druid', level: 5 } },
+	},
+	{
+		// ADR-025 — the staged note revision. Routes through `content.update-item`; only title/body cross
+		// over (never a visibility/fields widening).
+		toolId: 'note.update',
+		kind: 'write',
+		behaviors: [
+			'schema-validation',
+			'actor-policy',
+			'visibility-filtering',
+			'idempotency',
+			'staged-preview',
+			'direct-mode',
+			'failure-handling',
+		],
+		invalidInput: {}, // missing required itemId
+		validInput: {
+			itemId: 'item-anything',
+			baseRevision: 0,
+			title: 'Revised heading',
+			body: 'Updated by the agent.',
+		},
+	},
 ];
 
 function denied(result: McpToolResult): Extract<McpToolResult, { status: 'denied' }> {
@@ -210,7 +270,9 @@ describe('MCP-005 AC1 — the merge gate fails when a registered tool lacks dedi
 
 	it('every registered tool has a coverage manifest entry (a new tool without tests fails CI)', () => {
 		const uncovered = [...registryIds].filter((id) => !manifestIds.has(id));
-		expect(uncovered, `MCP tools missing dedicated test coverage: ${uncovered.join(', ')}`).toEqual([]);
+		expect(uncovered, `MCP tools missing dedicated test coverage: ${uncovered.join(', ')}`).toEqual(
+			[],
+		);
 	});
 
 	it('no coverage manifest entry references a non-existent tool (the manifest cannot drift)', () => {
@@ -230,7 +292,9 @@ describe('MCP-005 AC1 — the merge gate fails when a registered tool lacks dedi
 
 	it('every baseline read/report tool covers visibility filtering and actor policy', () => {
 		for (const row of MCP_TOOL_COVERAGE) {
-			expect(row.behaviors, `${row.toolId} must cover visibility-filtering`).toContain('visibility-filtering');
+			expect(row.behaviors, `${row.toolId} must cover visibility-filtering`).toContain(
+				'visibility-filtering',
+			);
 			expect(row.behaviors, `${row.toolId} must cover actor-policy`).toContain('actor-policy');
 		}
 	});
@@ -258,7 +322,7 @@ describe('MCP-005 AC2 — every tool asserts the expected structured error on in
 			);
 			expect(result.reason).toBe('invalid-input');
 			expect(result.toolId).toBe(row.toolId);
-			expect((result.issues?.length ?? 0)).toBeGreaterThan(0);
+			expect(result.issues?.length ?? 0).toBeGreaterThan(0);
 			for (const issue of result.issues ?? []) {
 				expect(typeof issue.path).toBe('string');
 				expect(typeof issue.message).toBe('string');

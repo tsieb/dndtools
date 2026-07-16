@@ -43,7 +43,9 @@ function rejected(result: CommandResult): Extract<CommandResult, { status: 'reje
 	return result;
 }
 
-function denied(output: McpAgentInvokeOutput): Extract<McpAgentInvokeOutput['result'], { status: 'agent-denied' }> {
+function denied(
+	output: McpAgentInvokeOutput,
+): Extract<McpAgentInvokeOutput['result'], { status: 'agent-denied' }> {
 	expect(output.result.status).toBe('agent-denied');
 	if (output.result.status !== 'agent-denied') throw new Error('expected agent-denied');
 	return output.result;
@@ -71,11 +73,7 @@ function seedBoundAgent(): CoreStateSlice {
 	return state;
 }
 
-function setPolicy(
-	state: CoreStateSlice,
-	mode: string,
-	allowedToolIds: string[],
-): CoreStateSlice {
+function setPolicy(state: CoreStateSlice, mode: string, allowedToolIds: string[]): CoreStateSlice {
 	return accepted(
 		dispatchCommand(state, env, {
 			type: 'mcp.set-agent-policy',
@@ -180,7 +178,9 @@ describe('MCP-009 AC4 — a trusted_direct write still runs Processing Core vali
 		if (output.result.status !== 'write') throw new Error('expected write');
 		// The bound command actually committed (Processing Core validation ran) — a real durable item exists.
 		expect(output.result.commandResult.status).toBe('accepted');
-		const created = Object.values(output.nextState.content.items).find((i) => i.title === 'Direct Note');
+		const created = Object.values(output.nextState.content.items).find(
+			(i) => i.title === 'Direct Note',
+		);
 		expect(created).toBeDefined();
 		// And an audit entry records the DIRECT mode (AC4 audit-still-runs).
 		const audit = output.nextState.mcp.auditEntries;
@@ -204,6 +204,28 @@ describe('MCP-009 AC4 — a trusted_direct write still runs Processing Core vali
 		expect(output.result.status).toBe('denied');
 		expect(Object.keys(output.nextState.content.items).length).toBe(before);
 		expect(output.nextState.mcp.auditEntries).toHaveLength(0);
+	});
+
+	it('forceStageWrites keeps a model-backed assistant staged under trusted_direct', () => {
+		const state = setPolicy(seedBoundAgent(), 'trusted_direct', ['note.create']);
+		const registry = createBaselineMcpToolRegistry();
+
+		const output = invokeMcpToolAsAgent(state, env, registry, {
+			agentId: 'agent-dm',
+			toolId: 'note.create',
+			input: { title: 'Review Me', body: 'not committed', kind: 'note' },
+			forceStageWrites: true,
+		});
+
+		expect(output.result.status).toBe('staged');
+		expect(Object.values(output.nextState.content.items)).toHaveLength(0);
+		expect(Object.values(output.nextState.mcp.proposals)).toHaveLength(1);
+		expect(output.nextState.mcp.auditEntries).toHaveLength(1);
+		expect(output.nextState.mcp.auditEntries[0]).toMatchObject({
+			mode: 'staged',
+			policyMode: 'trusted_direct',
+			toolId: 'note.create',
+		});
 	});
 });
 

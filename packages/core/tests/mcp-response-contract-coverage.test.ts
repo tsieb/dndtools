@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { DM_ACTOR, PLAYER_ACTOR, buildInitialState, makeEnvironment } from '../src/testing/fixtures';
+import {
+	DM_ACTOR,
+	PLAYER_ACTOR,
+	buildInitialState,
+	makeEnvironment,
+} from '../src/testing/fixtures';
 import {
 	MCP_RESPONSE_ENVELOPE_SCHEMA,
 	buildCertifiedMcpResponse,
 	certifyMcpResponse,
 	createBaselineMcpToolRegistry,
+	dispatchCommand,
 	invokeMcpTool,
 	toMcpResponseEnvelope,
+	type CoreStateSlice,
 	type McpToolResult,
 } from '../src';
 
@@ -23,6 +30,22 @@ import {
 
 const env = makeEnvironment();
 const registry = createBaselineMcpToolRegistry();
+
+/** Placeholder in VALID_INPUT['note.update'] swapped for the real seeded note id inside `run`. */
+const SEEDED_NOTE = '__seeded_note__';
+
+/** Build a fresh DM/player state pre-seeded with one note; returns the state + the note's real id. */
+function stateWithSeededNote(): { state: CoreStateSlice; noteId: string } {
+	const created = dispatchCommand(buildInitialState(DM_ACTOR, PLAYER_ACTOR), env, {
+		type: 'content.create-item',
+		actorId: DM_ACTOR.id,
+		payload: { kind: 'note', title: 'Seed note', body: 'seed body' },
+	});
+	if (created.status !== 'accepted') throw new Error('failed to seed a note for coverage');
+	const changed = created.events.find((e) => e.kind === 'content.item-changed');
+	if (!changed || changed.kind !== 'content.item-changed') throw new Error('no seeded note id');
+	return { state: created.nextState, noteId: changed.itemId };
+}
 
 /** A valid input per tool (mirrors the MCP-005 coverage manifest's accepted inputs). */
 const VALID_INPUT: Record<string, unknown> = {
@@ -42,7 +65,27 @@ const VALID_INPUT: Record<string, unknown> = {
 	'bundle.coverage-gaps': { referenceInstant: '2026-06-05T00:00:00.000Z' },
 	'bundle.campaign-health': { referenceInstant: '2026-06-05T00:00:00.000Z' },
 	'note.create': { title: 'Drafted', body: 'by the agent' },
-	'create_scene_card': { title: 'Ambush at the Bridge', mood: 'combat', flavorText: 'Steel rings.' },
+	create_scene_card: { title: 'Ambush at the Bridge', mood: 'combat', flavorText: 'Steel rings.' },
+	// ADR-025 agentic-run write tools. `note.update` targets a note seeded into each run's state (the
+	// SEEDED_NOTE sentinel is swapped for the real id in `run`).
+	'table.create': {
+		title: 'Wandering Perils',
+		dice: '1d4',
+		entries: ['bog wraith', 'gas', 'quick mud', 'nothing'],
+	},
+	'character.create': {
+		kind: 'npc',
+		name: 'Grukka the Fen-Witch',
+		abilityScores: { int: 14 },
+		combat: { hp: 27, maxHp: 27, ac: 13 },
+		data: { class: 'druid', level: 5 },
+	},
+	'note.update': {
+		itemId: SEEDED_NOTE,
+		baseRevision: 1,
+		title: 'Revised heading',
+		body: 'Updated by the agent.',
+	},
 };
 
 /** An invalid input per tool (mirrors the MCP-005 coverage manifest's rejected inputs). */
@@ -62,15 +105,24 @@ const INVALID_INPUT: Record<string, unknown> = {
 	'bundle.coverage-gaps': {}, // missing required referenceInstant
 	'bundle.campaign-health': { referenceInstant: 123 },
 	'note.create': { title: '' },
-	'create_scene_card': { title: '' },
+	create_scene_card: { title: '' },
+	'table.create': { title: 'Broken', dice: '1d4', entries: [] }, // empty entries fail the min(1) schema
+	'character.create': { kind: 'npc' }, // missing required name
+	'note.update': {}, // missing required itemId
 };
 
 function run(toolId: string, input: unknown, actorId: string): McpToolResult {
-	return invokeMcpTool(buildInitialState(DM_ACTOR, PLAYER_ACTOR), env, registry, {
+	// Seed a note so the note.update coverage case has a real target; the sentinel id is swapped in.
+	const { state, noteId } = stateWithSeededNote();
+	const resolvedInput =
+		input && typeof input === 'object' && (input as { itemId?: unknown }).itemId === SEEDED_NOTE
+			? { ...(input as object), itemId: noteId }
+			: input;
+	return invokeMcpTool(state, env, registry, {
 		toolId,
 		actorId,
 		agentId: 'agent-test',
-		input,
+		input: resolvedInput,
 	});
 }
 
@@ -111,7 +163,7 @@ describe('MCP-010 — every tool projects a structured error response for INVALI
 			expect(envelope.error?.code).toBe('invalid-input');
 			expect(envelope.data).toBeNull();
 			// Structured + actionable: per-field issues + a remediation action.
-			expect((envelope.error?.issues?.length ?? 0)).toBeGreaterThan(0);
+			expect(envelope.error?.issues?.length ?? 0).toBeGreaterThan(0);
 			expect(envelope.remediation.length).toBeGreaterThan(0);
 		});
 	}

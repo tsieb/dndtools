@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	DEFAULT_FEATURE_TIER,
@@ -100,9 +100,17 @@ import {
 	saveAiProviderSettings,
 	setAiProviderKey,
 	type AiProviderKind,
+	type AiProviderSettings,
 } from '../ai/providerConfig';
 import { sendAiChat } from '../ai/transport';
-import { buildAiToolSpecs, runAssistantExchange, type AssistantEvent } from '../ai/mcpBridge';
+import {
+	baselineAllowlistMembership,
+	buildAiToolSpecs,
+	runAssistantExchange,
+	toggleBaselineToolAllowlist,
+	type AssistantEvent,
+	type AssistantRunStatus,
+} from '../ai/mcpBridge';
 import type { AiTurn } from '../ai/transport';
 
 /**
@@ -2492,6 +2500,104 @@ const MCP_MODE_LABEL: Record<McpPolicyMode, string> = {
 const AI_TOOL_SPECS = buildAiToolSpecs();
 
 /** Provider configuration — BYO key, device-local custody, fail-closed until complete. */
+/**
+ * Guided connect presets — one card per provider. Selecting a card sets the non-secret provider
+ * settings (kind + base URL + a suggested model); the user still pastes their own key below. The
+ * external model ids are best-effort suggestions and stay user-editable. The local Ollama card points
+ * at the loopback OpenAI-compatible endpoint, which `validateAiBaseUrl` allows in dev.
+ */
+interface AiProviderPreset {
+	id: string;
+	label: string;
+	provider: AiProviderKind;
+	baseUrl: string;
+	model: string;
+	steps: string[];
+	note?: string;
+}
+
+const AI_PROVIDER_PRESETS: AiProviderPreset[] = [
+	{
+		id: 'anthropic',
+		label: 'Anthropic (Claude)',
+		provider: 'anthropic',
+		baseUrl: '',
+		model: DEFAULT_ANTHROPIC_MODEL,
+		steps: [
+			'Create a key at console.anthropic.com → API Keys.',
+			'Pick this card, paste the key below, and Save.',
+		],
+	},
+	{
+		id: 'openai',
+		label: 'OpenAI',
+		provider: 'openai-compatible',
+		baseUrl: 'https://api.openai.com/v1',
+		model: 'gpt-4o-mini',
+		steps: [
+			'Create a key at platform.openai.com → API keys.',
+			'Pick this card, paste the key below, and Save.',
+		],
+	},
+	{
+		id: 'gemini',
+		label: 'Google Gemini',
+		provider: 'openai-compatible',
+		baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+		model: 'gemini-2.0-flash',
+		steps: [
+			'Create a key at aistudio.google.com → API keys.',
+			'Pick this card, paste the key below, and Save.',
+		],
+		note: 'Uses Google’s OpenAI-compatible endpoint.',
+	},
+	{
+		id: 'openrouter',
+		label: 'OpenRouter',
+		provider: 'openai-compatible',
+		baseUrl: 'https://openrouter.ai/api/v1',
+		model: 'openai/gpt-4o-mini',
+		steps: [
+			'Create a key at openrouter.ai → Keys.',
+			'Pick this card, paste the key below, and Save.',
+		],
+		note: 'One key, many models — change the model id to route.',
+	},
+	{
+		id: 'ollama',
+		label: 'Local (Ollama)',
+		provider: 'openai-compatible',
+		baseUrl: 'http://localhost:11434/v1',
+		model: 'qwen2.5:7b',
+		steps: [
+			'Install Ollama and run `ollama serve`.',
+			'Run `ollama pull qwen2.5:7b` (a strong tool-calling model).',
+			'Pick this card, enter any non-empty text as the key, and Save.',
+		],
+		note: 'Runs entirely on this device. Allowed in local dev; a hosted build must allowlist the origin.',
+	},
+];
+
+/** Which preset the current settings match (for the "selected" chip). Anthropic matches by kind. */
+function matchingPresetId(settings: AiProviderSettings): string | null {
+	for (const preset of AI_PROVIDER_PRESETS) {
+		if (preset.provider === 'anthropic' && settings.provider === 'anthropic') return preset.id;
+		if (
+			preset.provider === 'openai-compatible' &&
+			settings.provider === 'openai-compatible' &&
+			settings.baseUrl.replace(/\/+$/, '') === preset.baseUrl
+		) {
+			return preset.id;
+		}
+	}
+	return null;
+}
+
+type OllamaProbe =
+	| { status: 'unknown' }
+	| { status: 'running'; models: string[] }
+	| { status: 'down' };
+
 function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => void }) {
 	const [settings, setSettings] = useState(() => getAiProviderSettings());
 	const [keyDraft, setKeyDraft] = useState('');
@@ -2501,7 +2607,41 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 	const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
 	const [forgetConfirmOpen, setForgetConfirmOpen] = useState(false);
 	const [legacyConfirmOpen, setLegacyConfirmOpen] = useState(false);
+	const [ollama, setOllama] = useState<OllamaProbe>({ status: 'unknown' });
+	const [ollamaBusy, setOllamaBusy] = useState(false);
 	const configured = isAiProviderConfigured();
+	const activePresetId = matchingPresetId(settings);
+
+	// Best-effort local-runner detection is explicitly user-initiated: merely opening Settings must not
+	// probe a loopback service. A connection refusal is the normal "not running" state.
+	const detectOllama = async () => {
+		setOllamaBusy(true);
+		try {
+			const response = await fetch('http://localhost:11434/api/tags');
+			if (!response.ok) throw new Error('bad status');
+			const data = (await response.json()) as { models?: Array<{ name?: string }> };
+			const models = (data.models ?? [])
+				.map((model) => model.name)
+				.filter((name): name is string => typeof name === 'string');
+			setOllama({ status: 'running', models });
+		} catch {
+			setOllama({ status: 'down' });
+		} finally {
+			setOllamaBusy(false);
+		}
+	};
+
+	const applyPreset = (preset: AiProviderPreset) => {
+		if (hasKey) {
+			Toaster.warning('Forget the current key before switching providers.');
+			return;
+		}
+		patch({
+			provider: preset.provider,
+			baseUrl: preset.baseUrl,
+			model: preset.model,
+		});
+	};
 	const destination = resolveAiProviderDestination(settings);
 	const destinationProviderLabel =
 		destination?.provider === 'anthropic' ? 'Anthropic' : 'the OpenAI-compatible provider';
@@ -2585,6 +2725,95 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 				stays on this device (memory + this browser session; OS-encrypted storage on desktop) and is
 				never written to the campaign, its history, or cloud backups. Until a key is saved, the
 				assistant stays off.
+			</div>
+			<div style={{ marginTop: 14 }}>
+				<div style={{ font: `600 12px ${T.sans}`, color: T.ink, marginBottom: 8 }}>
+					Connect a provider
+				</div>
+				<div
+					style={{
+						display: 'grid',
+						gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))',
+						gap: 10,
+					}}
+				>
+					{AI_PROVIDER_PRESETS.map((preset) => {
+						const selected = activePresetId === preset.id;
+						const locked = hasKey && !selected;
+						const isOllama = preset.id === 'ollama';
+						return (
+							<button
+								key={preset.id}
+								type="button"
+								disabled={locked}
+								onClick={() => applyPreset(preset)}
+								style={{
+									textAlign: 'left',
+									padding: '11px 12px',
+									borderRadius: 10,
+									border: `1px solid ${selected ? T.accBd : T.bd}`,
+									background: selected ? T.accSub : T.alt,
+									cursor: locked ? 'not-allowed' : 'pointer',
+									opacity: locked ? 0.55 : 1,
+									display: 'flex',
+									flexDirection: 'column',
+									gap: 6,
+								}}
+							>
+								<div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+									<span style={{ font: `600 12.5px ${T.sans}`, color: T.ink }}>{preset.label}</span>
+									{selected && <Badge status="success">selected</Badge>}
+									{isOllama && ollama.status !== 'unknown' && (
+										<Badge status={ollama.status === 'running' ? 'success' : 'neutral'}>
+											{ollama.status === 'running'
+												? `detected · ${ollama.models.length}`
+												: 'not running'}
+										</Badge>
+									)}
+								</div>
+								<ol
+									style={{
+										margin: 0,
+										paddingLeft: 16,
+										font: `11px/1.5 ${T.sans}`,
+										color: T.ter,
+									}}
+								>
+									{preset.steps.map((step, i) => (
+										<li key={i}>{step}</li>
+									))}
+								</ol>
+								{preset.note && (
+									<div style={{ font: `10.5px ${T.sans}`, color: T.ter, fontStyle: 'italic' }}>
+										{preset.note}
+									</div>
+								)}
+								{isOllama &&
+									ollama.status === 'running' &&
+									!ollama.models.includes(preset.model) && (
+										<div style={{ font: `10.5px ${T.mono}`, color: T.warn }}>
+											Run: ollama pull {preset.model}
+										</div>
+									)}
+							</button>
+						);
+					})}
+				</div>
+				{activePresetId === 'ollama' && (
+					<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+						<Button
+							variant="secondary"
+							size="sm"
+							disabled={ollamaBusy}
+							onClick={() => void detectOllama()}
+						>
+							{ollamaBusy ? 'Checking…' : 'Check for local Ollama'}
+						</Button>
+						<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
+							Detection contacts only http://localhost:11434 after you choose to check.
+						</span>
+					</div>
+				)}
 			</div>
 			{hasLegacyKey && (
 				<div
@@ -2847,6 +3076,71 @@ const TOOL_OUTCOME_BADGE: Record<string, { status: string; label: string }> = {
 	error: { status: 'error', label: 'failed' },
 };
 
+// Device-local preference: also raise a desktop notification when a run finishes (opt-in; the browser
+// still gates it behind its own permission prompt). Carries no data — a boolean in localStorage.
+const AI_NOTIFY_KEY = 'dndtools.ai.notify-on-complete';
+
+function aiNotifyEnabled(): boolean {
+	try {
+		return (
+			localStorage.getItem(AI_NOTIFY_KEY) === '1' &&
+			typeof Notification !== 'undefined' &&
+			Notification.permission === 'granted'
+		);
+	} catch {
+		return false;
+	}
+}
+
+function persistAiNotifyEnabled(enabled: boolean): void {
+	try {
+		localStorage.setItem(AI_NOTIFY_KEY, enabled ? '1' : '0');
+	} catch {
+		/* preference is best-effort */
+	}
+}
+
+/** Best-effort desktop notification (web `Notification`), only when the user opted in AND granted it. */
+function maybeDesktopNotify(title: string, body: string): void {
+	try {
+		if (
+			aiNotifyEnabled() &&
+			typeof Notification !== 'undefined' &&
+			Notification.permission === 'granted'
+		) {
+			new Notification(title, { body });
+		}
+	} catch {
+		/* notifications are a nicety; never let one break the run */
+	}
+}
+
+/** The completion protocol: an in-app toast on every terminal state, plus the opt-in desktop ping. */
+function notifyRunComplete(status: AssistantRunStatus, events: AssistantEvent[]): void {
+	const staged = events.filter((e) => e.type === 'tool' && e.outcome === 'staged').length;
+	const stagedNote =
+		staged > 0 ? ` — ${staged} change${staged === 1 ? '' : 's'} staged for your review below` : '';
+	switch (status) {
+		case 'completed':
+			Toaster.success(`Assistant finished${stagedNote}.`);
+			maybeDesktopNotify('Assistant finished', `Your request is done${stagedNote || '.'}`);
+			break;
+		case 'budget-exhausted':
+			Toaster.info(`Assistant stopped at the step limit${stagedNote}.`);
+			maybeDesktopNotify('Assistant stopped at the step limit', `Ask it to continue if needed.`);
+			break;
+		case 'cancelled':
+			Toaster.info('Assistant run cancelled.');
+			break;
+		case 'failed':
+			Toaster.error('The assistant run stopped — see the transcript for the reason.');
+			maybeDesktopNotify('Assistant run stopped', 'See the transcript for the reason.');
+			break;
+		default:
+			break;
+	}
+}
+
 /**
  * The assistant — one ask at a time, run AS a registered agent connection through the Core's
  * fail-closed pipeline. Reads come back actor-filtered; writes surface as staged proposals in the
@@ -2865,6 +3159,15 @@ function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 	const [feed, setFeed] = useState<AssistantFeedItem[]>([]);
 	const [turns, setTurns] = useState<AiTurn[]>([]);
 	const [asking, setAsking] = useState(false);
+	// Live run protocol (ADR-025): the current phase + which pass/tool is in flight, streamed from
+	// runAssistantExchange's onEvent, so the panel shows progress instead of a silent spinner.
+	const [runStatus, setRunStatus] = useState<AssistantRunStatus | null>(null);
+	const [progress, setProgress] = useState<{ pass: number; maxPasses: number; toolId?: string }>({
+		pass: 0,
+		maxPasses: 0,
+	});
+	const [notify, setNotify] = useState(aiNotifyEnabled());
+	const abortRef = useRef<AbortController | null>(null);
 
 	const selectedAgent = mcp.bindings[agentId] ? agentId : (bindings[0]?.agentId ?? '');
 	const blocker = !configured
@@ -2883,31 +3186,92 @@ function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 		setAsking(true);
 		setInput('');
 		setFeed((prev) => [...prev, { kind: 'user', text }]);
+		setRunStatus('starting');
+		setProgress({ pass: 0, maxPasses: 0 });
+		const controller = new AbortController();
+		abortRef.current = controller;
 		const config = resolveAiProviderConfig();
 		void runAssistantExchange({
 			send: (req) => sendAiChat(config, req),
 			invoke: (toolId, toolInput) =>
-				runtime.invokeAgentTool({ agentId: selectedAgent, toolId, input: toolInput }),
+				runtime.invokeAgentTool({
+					agentId: selectedAgent,
+					toolId,
+					input: toolInput,
+					forceStageWrites: true,
+				}),
 			tools: AI_TOOL_SPECS,
 			turns,
 			userText: text,
+			signal: controller.signal,
+			// Stream each display event + status transition live. Feed events append incrementally, so a
+			// long multi-step run reveals its tool calls as they happen (no re-append in `.then`).
+			onEvent: (event) => {
+				if (event.type === 'feed') {
+					setFeed((prev) => [...prev, { kind: 'event', ...event.event }]);
+				} else {
+					setRunStatus(event.status);
+					setProgress({ pass: event.pass, maxPasses: event.maxPasses, toolId: event.activeToolId });
+				}
+			},
 		})
 			.then((result) => {
 				setTurns(result.turns);
-				setFeed((prev) => [
-					...prev,
-					...result.events.map((event) => ({ kind: 'event' as const, ...event })),
-				]);
+				notifyRunComplete(result.status, result.events);
 			})
-			.catch((e: unknown) => Toaster.error(errMsg(e, 'The assistant request failed.')))
-			.finally(() => setAsking(false));
+			.finally(() => {
+				setAsking(false);
+				setRunStatus(null);
+				abortRef.current = null;
+			});
+	};
+
+	// The one-line phase readout shown while a run is in flight (the "keep the user informed" protocol).
+	const statusText =
+		runStatus === 'starting'
+			? 'Starting…'
+			: runStatus === 'working'
+				? progress.toolId
+					? `Working — step ${progress.pass} of ${progress.maxPasses} · ${progress.toolId}`
+					: `Working — step ${progress.pass} of ${progress.maxPasses}`
+				: asking
+					? 'Finishing…'
+					: null;
+
+	const toggleNotify = async (on: boolean) => {
+		if (!on) {
+			setNotify(false);
+			persistAiNotifyEnabled(false);
+			return;
+		}
+		if (typeof Notification === 'undefined') return;
+		let permission = Notification.permission;
+		if (permission === 'default') {
+			try {
+				permission = await Notification.requestPermission();
+			} catch {
+				permission = 'denied';
+			}
+		}
+		if (permission !== 'granted') {
+			setNotify(false);
+			persistAiNotifyEnabled(false);
+			Toaster.warning('Notifications were not enabled because permission was not granted.');
+			return;
+		}
+		setNotify(true);
+		persistAiNotifyEnabled(true);
 	};
 
 	return (
-		<Panel title="Assistant" action={asking ? <Badge status="info">Thinking…</Badge> : undefined}>
+		<Panel
+			title="Assistant"
+			action={asking ? <Badge status="info">{statusText ?? 'Working…'}</Badge> : undefined}
+		>
 			<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter }}>
 				Ask about the campaign. The assistant sees only what the identity you choose is allowed to
-				see. Any change it suggests lands in the review panel below and waits for your approval.
+				see, and it works autonomously — it may take several steps to finish. Any change it suggests
+				lands in the review panel below and waits for your approval.
 			</div>
 			{blocker !== null ? (
 				<div
@@ -2978,34 +3342,86 @@ function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 								}
 								const badge = TOOL_OUTCOME_BADGE[item.outcome] ?? TOOL_OUTCOME_BADGE.error;
 								return (
-									<div
-										key={i}
-										style={{
-											display: 'flex',
-											alignItems: 'center',
-											gap: 8,
-											font: `11.5px ${T.sans}`,
-											color: T.ter,
-										}}
-									>
-										<Icon name="sparkle" size={13} color={T.ter} />
-										<span style={{ font: `11.5px ${T.mono}` }}>{item.toolId}</span>
-										<Badge status={badge.status}>{badge.label}</Badge>
-										<span
+									<div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+										<div
 											style={{
-												minWidth: 0,
-												overflow: 'hidden',
-												textOverflow: 'ellipsis',
-												whiteSpace: 'nowrap',
+												display: 'flex',
+												alignItems: 'center',
+												gap: 8,
+												font: `11.5px ${T.sans}`,
+												color: T.ter,
 											}}
 										>
-											{item.detail}
-										</span>
+											<Icon name="sparkle" size={13} color={T.ter} />
+											<span style={{ font: `11.5px ${T.mono}` }}>{item.toolId}</span>
+											<Badge status={badge.status}>{badge.label}</Badge>
+											<span
+												style={{
+													minWidth: 0,
+													overflow: 'hidden',
+													textOverflow: 'ellipsis',
+													whiteSpace: 'nowrap',
+												}}
+											>
+												{item.detail}
+											</span>
+										</div>
+										{item.issues && item.issues.length > 0 && (
+											// Inline validation: the exact fields the Core rejected, so the user watches
+											// the model fix its input on the next step.
+											<div style={{ marginLeft: 21, font: `11px ${T.mono}`, color: T.err }}>
+												{item.issues.map((issue, k) => (
+													<div key={k}>
+														{issue.path ? `${issue.path}: ` : ''}
+														{issue.message}
+													</div>
+												))}
+											</div>
+										)}
 									</div>
 								);
 							})}
 						</div>
 					)}
+					{asking && (
+						// The "static structure while the model processes" (ADR-025): a skeleton stands in for
+						// the forthcoming answer, with a live phase line and a Cancel that aborts between steps.
+						<div
+							style={{
+								display: 'flex',
+								flexDirection: 'column',
+								gap: 8,
+								padding: '10px 12px',
+								borderRadius: 9,
+								border: `1px solid ${T.bd}`,
+								background: T.alt,
+							}}
+						>
+							<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+								<Badge status="info">{statusText ?? 'Working…'}</Badge>
+								<div style={{ flex: 1 }} />
+								<Button
+									variant="ghost"
+									size="sm"
+									icon="close"
+									onClick={() => abortRef.current?.abort()}
+								>
+									Cancel
+								</Button>
+							</div>
+							<Skeleton variant="text" lines={3} />
+						</div>
+					)}
+					<Switch
+						checked={notify}
+						onChange={(on: boolean) => void toggleNotify(on)}
+						disabled={typeof Notification === 'undefined'}
+						label={
+							typeof Notification === 'undefined'
+								? 'Desktop notifications are unavailable in this browser.'
+								: 'Notify me on this device when a run finishes.'
+						}
+					/>
 					<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
 						<span style={{ flex: '0 0 200px' }}>
 							<Select
@@ -3201,7 +3617,8 @@ function SettingsAI() {
 						{bindings.map((b, i) => {
 							const policy = mcp.policies[b.agentId] ?? null;
 							const mode: McpPolicyMode = policy?.mode ?? mcp.vaultDefaultMode;
-							const allowlisted = (policy?.allowedToolIds ?? []).length > 0;
+							const allowedToolIds = policy?.allowedToolIds ?? [];
+							const baselineMembership = baselineAllowlistMembership(allowedToolIds);
 							return (
 								<div
 									key={b.agentId}
@@ -3249,9 +3666,13 @@ function SettingsAI() {
 										/>
 									</span>
 									<Switch
-										checked={allowlisted}
+										checked={baselineMembership.all}
 										disabled={!canWrite || busy}
-										label="Baseline tools"
+										label={
+											baselineMembership.some && !baselineMembership.all
+												? `Baseline tools (${baselineMembership.count}/${baselineMembership.total})`
+												: 'Baseline tools'
+										}
 										onChange={() =>
 											run(
 												{
@@ -3260,13 +3681,13 @@ function SettingsAI() {
 													payload: {
 														agentId: b.agentId,
 														mode,
-														allowedToolIds: allowlisted ? [] : [...MCP_BASELINE_TOOL_IDS],
+														allowedToolIds: toggleBaselineToolAllowlist(allowedToolIds),
 														auditVisible: policy?.auditVisible ?? true,
 													},
 												},
-												allowlisted
-													? 'Baseline tools removed — every tool is now denied for this agent.'
-													: 'Baseline tools granted to this agent.',
+												baselineMembership.all
+													? 'Baseline tools removed; custom tool grants were preserved.'
+													: 'The complete current baseline was granted; custom tool grants were preserved.',
 											)
 										}
 									/>

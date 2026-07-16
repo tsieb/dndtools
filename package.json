@@ -44,6 +44,7 @@
 		"cloud:drift": "bash scripts/check-cloudformation-drift.sh",
 		"cloud:env:validate": "node apps/gm-react/scripts/validate-cloud-env.mjs",
 		"release:verify": "tsx scripts/release-verify.ts",
+		"ai:smoke": "tsx scripts/ai-agent-smoke.ts",
 		"check": "pnpm gates && pnpm lint:boundary && pnpm typecheck && pnpm test",
 		"validate": "tsx scripts/validate/index.ts",
 		"validate:fast": "tsx scripts/validate/index.ts --fast",

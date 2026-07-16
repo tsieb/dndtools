@@ -62,6 +62,12 @@ export type McpToolDefinition =
 			inputSchema: z.ZodType;
 			/** Human-facing summary for the agent tool list; carries no vault data. */
 			title: string;
+			/**
+			 * Optional richer guidance shown to the model in the tool spec (mcpBridge `buildAiToolSpecs`
+			 * prefers it over `title`). It tells the agent HOW to use the tool to work through a task;
+			 * it carries no vault data and confers no authority.
+			 */
+			description?: string;
 	  }
 	| {
 			id: string;
@@ -71,6 +77,7 @@ export type McpToolDefinition =
 			writeRisk: McpWriteRisk;
 			inputSchema: z.ZodType;
 			title: string;
+			description?: string;
 	  };
 
 /**
@@ -105,6 +112,14 @@ export const MCP_BASELINE_TOOL_IDS = [
 	// accepted argument, so an agent-authored card always defaults fail-closed to `dm-only` (never pushed
 	// to players by a tool call alone).
 	'create_scene_card',
+	// ADR-025 — the agentic-run WRITE surface. Each is a SINGLE composable staged write (it dispatches
+	// exactly one existing command and needs no applied intermediate state), so a model can complete a
+	// multi-step process — random-table generation, level-N stat-block creation, note revision — across
+	// autonomous tool passes and the result is one staged proposal a DM approves. None accepts a
+	// `visibility` argument, so every agent-authored write fails closed to `dm-only`.
+	'table.create',
+	'character.create',
+	'note.update',
 ] as const;
 
 export type McpBaselineToolId = (typeof MCP_BASELINE_TOOL_IDS)[number];
@@ -141,8 +156,7 @@ export function createMcpToolRegistry(definitions: McpToolDefinition[]): McpTool
 		get: (toolId) => byId.get(toolId),
 		has: (toolId) => byId.has(toolId),
 		ids: () => [...byId.keys()].sort((a, b) => a.localeCompare(b)),
-		list: () =>
-			[...byId.values()].sort((a, b) => a.id.localeCompare(b.id)),
+		list: () => [...byId.values()].sort((a, b) => a.id.localeCompare(b.id)),
 	};
 }
 
@@ -237,6 +251,94 @@ export const mcpCreateSceneCardInputSchema = z
 		flavorText: z.string().max(500).default(''),
 	})
 	.strict();
+
+/**
+ * ADR-025 — the `table.create` WRITE tool input. Generates a rollable `dice-table` Vault Object: a
+ * `dice` expression (e.g. `1d20`) and one result row per face, in order. Dispatches
+ * `content.create-item`; `writeCommandPayload` maps this to the exact `fields` shape `readDiceTable`
+ * (commands/dice.ts) expects, so an approved table is immediately drawable. No `visibility` argument ⇒
+ * the table fails closed to `dm-only`. The tool accepts only an exact `1dN` with N matching the row
+ * count (1–100), so malformed or ambiguous table geometry is denied before a proposal is staged.
+ */
+export const mcpTableCreateInputSchema = z
+	.object({
+		title: nonEmpty,
+		dice: z
+			.string()
+			.regex(
+				/^1d([1-9]|[1-9]\d|100)$/i,
+				'Use exactly one positive 1dN expression with 1 to 100 faces (no modifier or keep rule).',
+			),
+		entries: z.array(nonEmpty).min(1).max(100),
+	})
+	.strict()
+	.superRefine((value, context) => {
+		const match = /^1d([1-9]|[1-9]\d|100)$/i.exec(value.dice);
+		if (!match) return;
+		const faceCount = Number(match[1]);
+		if (value.entries.length !== faceCount) {
+			context.addIssue({
+				code: 'custom',
+				path: ['entries'],
+				message: `Provide exactly ${faceCount} result rows for ${value.dice}.`,
+			});
+		}
+	});
+
+/**
+ * ADR-025 — the `character.create` WRITE tool input. Mirrors the agent-safe subset of
+ * `quickCreateCharacterInputSchema` (npc/monster/sidekick only — a PC is created through the guided
+ * draft flow, not an agent). The model assembles the COMPLETE level-N stat block in one call; class,
+ * level, and background live in the free-form `data` record. No `visibility` argument ⇒ fails closed
+ * to `dm-only`. The command re-validates the full payload.
+ */
+export const mcpCharacterCreateInputSchema = z
+	.object({
+		kind: z.enum(['npc', 'monster', 'sidekick']),
+		name: nonEmpty,
+		abilityScores: z
+			.object({
+				str: z.number().int().optional(),
+				dex: z.number().int().optional(),
+				con: z.number().int().optional(),
+				int: z.number().int().optional(),
+				wis: z.number().int().optional(),
+				cha: z.number().int().optional(),
+			})
+			.strict()
+			.default({}),
+		combat: z
+			.object({
+				hp: z.number().int().optional(),
+				maxHp: z.number().int().optional(),
+				tempHp: z.number().int().nonnegative().optional(),
+				ac: z.number().int().optional(),
+				conditions: z.array(nonEmpty).optional(),
+			})
+			.strict()
+			.default({}),
+		data: z.record(z.string(), z.unknown()).default({}),
+	})
+	.strict();
+
+/**
+ * ADR-025 — the `note.update` WRITE tool input. Revises an existing content item's title and/or body
+ * (find the id + revision via `note.search`/`note.list`). Dispatches `content.update-item`; only the two
+ * agent-safe content fields and required `baseRevision` cross over (never fields/visibility/timeline
+ * widening). The command re-checks the revision at approval, recording a conflict instead of silently
+ * replacing a newer human edit.
+ */
+export const mcpNoteUpdateInputSchema = z
+	.object({
+		itemId: nonEmpty,
+		baseRevision: z.number().int().nonnegative(),
+		title: nonEmpty.optional(),
+		body: z.string().optional(),
+	})
+	.strict()
+	.refine((value) => value.title !== undefined || value.body !== undefined, {
+		message: 'Provide a title or body to update.',
+	});
 
 /**
  * The canonical baseline MCP tool registry: the MCP-002 baseline read tools + the enforced staged
@@ -366,6 +468,47 @@ export function createBaselineMcpToolRegistry(): McpToolRegistry {
 			writeRisk: 'durable',
 			inputSchema: mcpCreateSceneCardInputSchema,
 			title: 'Create a scene card (staged)',
+		},
+		{
+			id: 'table.create',
+			kind: 'write',
+			commandType: 'content.create-item',
+			writeRisk: 'durable',
+			inputSchema: mcpTableCreateInputSchema,
+			title: 'Create a random roll table (staged)',
+			description:
+				'Generate and save a rollable random table. Provide a `dice` expression (e.g. "1d20") and ' +
+				'`entries`: one result row per face, in ascending order (a d20 table needs exactly 20 rows). ' +
+				'To match the setting, call note.search or a bundle read first and weave the flavour in. ' +
+				'The table is staged for DM approval and never applied immediately; once approved it can be rolled.',
+		},
+		{
+			id: 'character.create',
+			kind: 'write',
+			commandType: 'character.quick-create',
+			writeRisk: 'durable',
+			inputSchema: mcpCharacterCreateInputSchema,
+			title: 'Create an NPC / monster / sidekick (staged)',
+			description:
+				'Create a non-player character (npc, monster, or sidekick) stat block. Work through the build ' +
+				'level by level in your reasoning, then submit ONE call carrying the COMPLETE stat block for the ' +
+				'target level: abilityScores (str/dex/con/int/wis/cha), combat (hp/maxHp/ac), and a `data` record ' +
+				'holding class, level, background, and features. Check character.query first to avoid name ' +
+				'clashes. Player characters and levelling an EXISTING character are not available to agents. ' +
+				'Staged for DM approval; never applied immediately.',
+		},
+		{
+			id: 'note.update',
+			kind: 'write',
+			commandType: 'content.update-item',
+			writeRisk: 'durable',
+			inputSchema: mcpNoteUpdateInputSchema,
+			title: 'Revise a note (staged)',
+			description:
+				'Revise an existing note. Find the itemId with note.search or note.list, then provide the new ' +
+				"title and/or body plus the note's current revision as baseRevision. If the note changes before " +
+				'approval, DND Tools records a conflict instead of overwriting the newer edit. Staged for DM ' +
+				'approval; never applied immediately.',
 		},
 	]);
 }
