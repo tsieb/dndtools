@@ -214,7 +214,7 @@ describe('CI guardrails', () => {
 		expect(release.jobs?.package?.environment).toBe('desktop-release');
 		expect(draftJob?.needs).toEqual(['verify', 'package']);
 		expect(draftJob?.if).toBe(
-			"always() && needs.verify.result == 'success' && needs.package.result == 'success'",
+			"${{ !cancelled() && needs.verify.result == 'success' && needs.package.result == 'success' }}",
 		);
 		expect(promotion.jobs?.promote?.environment).toMatchObject({ name: 'production' });
 		expect(promotion.jobs?.preflight?.outputs?.release_sha).toBe(
