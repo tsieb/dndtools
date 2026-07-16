@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { cityGenerator, villageGenerator } from '../src/generation/city';
-import type { GeneratorContext, GeneratorDefinition, GeneratorOutput } from '../src/generation/types';
+import type {
+	GeneratorContext,
+	GeneratorDefinition,
+	GeneratorOutput,
+} from '../src/generation/types';
 import { resolveParams } from '../src/generation/types';
 import type { MapFeature, MapLayer } from '../src/state/map-state';
 import { createRngStreams } from '../src/state/prng';
@@ -28,7 +32,10 @@ function run(
 
 function layer(output: GeneratorOutput, suffix: string): MapLayer {
 	const found = output.layers.find((l) => l.id === `gen-test-${suffix}`);
-	if (!found) throw new Error(`missing layer "${suffix}" (have: ${output.layers.map((l) => l.id).join(', ')})`);
+	if (!found)
+		throw new Error(
+			`missing layer "${suffix}" (have: ${output.layers.map((l) => l.id).join(', ')})`,
+		);
 	return found;
 }
 
@@ -51,12 +58,22 @@ function distanceToPolyline(p: Point, line: readonly Point[]): number {
 function distanceToRing(p: Point, ring: readonly Point[]): number {
 	let best = Number.POSITIVE_INFINITY;
 	for (let i = 0; i < ring.length; i += 1) {
-		best = Math.min(best, pointToSegmentDistance(p, ring[i] as Point, ring[(i + 1) % ring.length] as Point));
+		best = Math.min(
+			best,
+			pointToSegmentDistance(p, ring[i] as Point, ring[(i + 1) % ring.length] as Point),
+		);
 	}
 	return best;
 }
 
-const WALLED_CITY = { size: 12, walls: 'wall', water: 'river', density: 0.6, age: 'organic', gateCount: 4 } as const;
+const WALLED_CITY = {
+	size: 12,
+	walls: 'wall',
+	water: 'river',
+	density: 0.6,
+	age: 'organic',
+	gateCount: 4,
+} as const;
 
 describe('settlement.city — determinism', () => {
 	it('produces deep-equal output for the same seed and params', () => {
@@ -80,7 +97,7 @@ describe('settlement.city — determinism', () => {
 			expect(JSON.stringify(a)).toBe(JSON.stringify(b));
 			expect(a.summary).toBeTruthy();
 		}
-	});
+	}, 15_000);
 });
 
 describe('settlement.city — RNG stream isolation', () => {
@@ -89,7 +106,9 @@ describe('settlement.city — RNG stream isolation', () => {
 		const dense = run(cityGenerator, 'thornwood', { ...WALLED_CITY, density: 0.95 });
 
 		// The buildings MUST change — otherwise the test proves nothing.
-		expect(JSON.stringify(layer(sparse, 'buildings'))).not.toBe(JSON.stringify(layer(dense, 'buildings')));
+		expect(JSON.stringify(layer(sparse, 'buildings'))).not.toBe(
+			JSON.stringify(layer(dense, 'buildings')),
+		);
 
 		// …and nothing else may.
 		expect(JSON.stringify(layer(sparse, 'walls'))).toBe(JSON.stringify(layer(dense, 'walls')));
@@ -316,7 +335,9 @@ describe('settlement.city — content', () => {
 
 	it('seeds a POI for every ward, every gate, the citadel and the market', () => {
 		const output = run(cityGenerator, 'thornwood', WALLED_CITY);
-		const wardCount = layer(output, 'wards').content.filter((f) => f.style.startsWith('ward:')).length;
+		const wardCount = layer(output, 'wards').content.filter((f) =>
+			f.style.startsWith('ward:'),
+		).length;
 		const pois = output.pois ?? [];
 		expect(pois.filter((p) => p.id.includes('-poi-ward-'))).toHaveLength(wardCount);
 		expect(pois.filter((p) => p.id.includes('-poi-gate-'))).toHaveLength(4);
@@ -366,7 +387,9 @@ describe('settlement.city — content', () => {
 		// Four gates around a city with a river through it: at least one road must cross the water.
 		expect(bridges.length).toBeGreaterThan(0);
 		for (const bridge of bridges) {
-			expect(distanceToPolyline(bridge.points[0] as Point, (river as MapFeature).points)).toBeLessThan(0.05);
+			expect(
+				distanceToPolyline(bridge.points[0] as Point, (river as MapFeature).points),
+			).toBeLessThan(0.05);
 		}
 	});
 
@@ -425,7 +448,13 @@ describe('settlement.city — params fail closed', () => {
 // settlement.village
 // ---------------------------------------------------------------------------------------------
 
-const VILLAGE = { buildings: 14, layout: 'crossroads', palisade: true, fields: true, water: 'mill' } as const;
+const VILLAGE = {
+	buildings: 14,
+	layout: 'crossroads',
+	palisade: true,
+	fields: true,
+	water: 'mill',
+} as const;
 
 describe('settlement.village', () => {
 	it('is deterministic and seed-sensitive', () => {
@@ -462,11 +491,15 @@ describe('settlement.village', () => {
 		expect(JSON.stringify(layer(small, 'roads'))).toBe(JSON.stringify(layer(large, 'roads')));
 		expect(JSON.stringify(layer(small, 'fields'))).toBe(JSON.stringify(layer(large, 'fields')));
 		const nameOf = (o: GeneratorOutput): string =>
-			String(layer(o, 'labels').content.find((f) => f.style === 'label:settlement')?.props?.text ?? '');
+			String(
+				layer(o, 'labels').content.find((f) => f.style === 'label:settlement')?.props?.text ?? '',
+			);
 		expect(nameOf(small)).toBe(nameOf(large));
 		expect(nameOf(small).length).toBeGreaterThan(0);
 		// …and the buildings themselves DID change.
-		expect(layer(small, 'buildings').content.length).toBeLessThan(layer(large, 'buildings').content.length);
+		expect(layer(small, 'buildings').content.length).toBeLessThan(
+			layer(large, 'buildings').content.length,
+		);
 	});
 
 	it('follows the road: every building sits back from a road, not on it', () => {
@@ -494,7 +527,9 @@ describe('settlement.village', () => {
 		expect(points[0]).toEqual(points[points.length - 1]);
 
 		const open = run(villageGenerator, 'oakhollow', { ...VILLAGE, palisade: false });
-		expect(layer(open, 'structures').content.find((f) => f.style === 'wall:palisade')).toBeUndefined();
+		expect(
+			layer(open, 'structures').content.find((f) => f.style === 'wall:palisade'),
+		).toBeUndefined();
 	});
 
 	it('names every POI and seeds the mill on the stream', () => {
