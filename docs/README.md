@@ -33,6 +33,7 @@ and the [ADRs](adr/README.md) for the repository layout.
 | Configure git workflow          | [development/GIT_WORKFLOW.md](development/GIT_WORKFLOW.md)   |
 | Understand testing + validation | [development/TESTING.md](development/TESTING.md)             |
 | Prepare a release or promotion  | [development/RELEASING.md](development/RELEASING.md)         |
+| Build/test/install Android      | [runbooks/android-alpha.md](runbooks/android-alpha.md)       |
 | Look up a workspace script      | [development/SCRIPTS.md](development/SCRIPTS.md)             |
 | Understand the security model   | [security/README.md](security/README.md)                     |
 | Review architecture decisions   | [adr/README.md](adr/README.md)                               |
@@ -53,6 +54,7 @@ docs/
 ├── development/            — dev standards, testing/validation, git, performance, a11y, scripts, ownership
 ├── planning/               — roadmap, planning tiers, and the initiative breakdown
 ├── security/               — threat model + the cloud security audits
+├── runbooks/               — operational setup, release, and recovery procedures
 ├── reference/              — project structure, feature tiers, random tables
 └── adr/                    — architecture decision records
 ```
@@ -73,9 +75,13 @@ docs/
 
 - `apps/gm-react` (`@dndtools/gm-react`) is a browser-first Vite + React 18 application — the GM
   command platform. It owns rendering, platform services, remote-play transport, and command
-  dispatch, and additionally ships an Electron desktop shell and LAN/cloud remote play.
+  dispatch, and additionally ships Electron desktop and Capacitor Android shells and LAN/cloud
+  remote play.
 - Renderer persistence uses a Dexie/IndexedDB storage adapter (`src/platform/storage/coreStore.ts`);
   the app never mutates durable state directly — all changes flow through commands into the core.
+- Runtime differences are centralized in `src/platform/capabilities.ts`; Android packages the same
+  renderer from `dist`, uses Keystore-backed credential storage and native export/share, and opens Maps
+  in the preservation-safe Quick Map workspace.
 - `packages/core` (`@dndtools/core`) is platform-independent (no React, Svelte, DOM, Node, Electron,
   Capacitor, cloud, or app-runtime imports) and owns command validation, deterministic reducers,
   permission/visibility evaluation, actor-scoped queries, and the declared quality-gate, security,

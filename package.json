@@ -1,7 +1,7 @@
 {
 	"name": "dndtools",
 	"private": true,
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"type": "module",
 	"packageManager": "pnpm@10.34.5",
 	"scripts": {
@@ -40,6 +40,7 @@
 		"format:check:changed": "tsx scripts/format-changed.ts",
 		"gates": "tsx scripts/quality-gates.ts",
 		"audit:repo": "vitest run tests/unit/ci-guardrails.test.ts",
+		"security:audit": "pnpm dlx pnpm@11.4.0 --pm-on-fail=ignore audit --audit-level high",
 		"security:secrets": "tsx scripts/secret-scan.ts",
 		"cloud:drift": "bash scripts/check-cloudformation-drift.sh",
 		"cloud:env:validate": "node apps/gm-react/scripts/validate-cloud-env.mjs",

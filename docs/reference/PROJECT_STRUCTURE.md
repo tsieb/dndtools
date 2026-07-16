@@ -10,7 +10,7 @@ in [ADR-018](../adr/018-promote-react-app-to-primary.md) (amending ADR-016).
 ```text
 apps/
   gm-react/    @dndtools/gm-react  — the GM command platform (Vite + React 18, browser-first),
-               plus an Electron desktop shell and LAN/cloud remote play
+               plus Electron desktop and Capacitor Android shells and LAN/cloud remote play
 packages/
   core/        @dndtools/core      — the processing core (commands, reducers, permissions, queries)
   cloud-fns/   @dndtools/cloud-fns — AWS Lambda handlers for signaling + encrypted backup
@@ -26,7 +26,19 @@ archive/       — retired code kept for reference only; not built
 - `apps/gm-react/`: `@dndtools/gm-react` — the GM command platform. Owns rendering (`src/screens`,
   `src/app`, `src/ds`, `src/styles`), command dispatch (`src/runtime`), platform storage
   (`src/platform/storage/coreStore.ts`, Dexie/IndexedDB), LAN/serverless remote play (`src/net`), the
-  AWS encrypted-backup + Cognito client (`src/cloud`), and the Electron desktop shell (`electron/`).
+  AWS encrypted-backup + Cognito client (`src/cloud`), the Electron desktop shell (`electron/`), and
+  the tracked Capacitor project (`android/`). `capacitor.config.ts` points the Android shell at the
+  same Vite `dist` bundle.
+
+Runtime-specific seams under the app are intentionally narrow:
+
+```text
+apps/gm-react/
+  src/platform/       shared capability, lifecycle, export, secure-store, and Dexie boundaries
+  electron/           privileged Electron main/preload/discovery implementation
+  android/            tracked Gradle project and custom Capacitor plugins
+  capacitor.config.ts Capacitor package/web-directory configuration
+```
 
 ## Packages (`packages/`)
 
@@ -55,5 +67,8 @@ The earlier v1 document-editor application is preserved at the git tag `v1-final
 ## Cleanup Rules
 
 - Build artifacts (`dist/`, `dist-demo/`) are generated and should not be committed.
+- Android Gradle outputs, copied renderer assets, `local.properties`, and all keystores are generated
+  or workstation-private and must remain ignored. Tracked native source and Gradle configuration under
+  `apps/gm-react/android` are reviewed like application code.
 - The local package store (`.pnpm-store/`) is ignored.
 - Empty placeholder directories should be removed unless intentionally reserved with documentation.

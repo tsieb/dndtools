@@ -1,69 +1,124 @@
-# ADR-006: Multi-Platform Approach (Electron + Capacitor)
+# ADR-006: Multi-Platform Approach (Web + Electron + Capacitor Android)
 
-- Status: Accepted
+- Status: Accepted (amended 2026-07-15)
 - Date: 2026-03-01
 - Deciders: Engineering
-- Consulted: Product, UX
-- Supersedes: N/A
+- Consulted: Product, UX, Security, QA
+- Amends: ADR-004 implementation details; incorporates the React-primary decision in ADR-018
 
 ## Context
 
-The current implementation is desktop-first and Electron-only. Product direction requires Android support while preserving local-first behavior, shared domain logic, and predictable UI behavior. We need a platform strategy that keeps code reuse high and operational complexity manageable.
+DND Tools has one maintained GM application and one authoritative data model. The primary app is now
+the Vite + React application at `apps/gm-react`, not the retired SvelteKit application. It persists
+the vault through Dexie/IndexedDB and sends every durable mutation through `SceneRuntime` and
+`@dndtools/core`. The same renderer already runs in browsers and the Electron desktop shell.
 
-Current implementation status:
-
-- Desktop runtime is implemented with Electron shell + SvelteKit renderer + filesystem storage.
-- Android runtime is implemented with Capacitor shell + Android Gradle project + filesystem adapter.
+Android support must preserve that renderer, command path, vault schema, and local-first behavior. A
+separate native application or a second storage model would duplicate product logic and create
+cross-device data drift. At the same time, Android has capabilities and constraints that cannot be
+represented safely by ad hoc global checks: Keystore-backed credentials, native share sheets,
+lifecycle and Back events, system-bar insets, HTTPS-only networking, and a touch-first map workspace.
 
 ## Decision
 
-Adopt a shared renderer/domain strategy with runtime-specific shells:
+Ship three runtime kinds from the shared React renderer:
 
-- Keep Electron as the desktop shell.
-- Use Capacitor as the Android shell for the existing SvelteKit-based renderer.
-- Maintain platform-specific storage implementations behind the existing adapter boundary.
-- Keep the local-first contract as default behavior across platforms.
+- `web`: the normal Vite build, with browser downloads and session-only secret storage;
+- `electron`: the same renderer in the existing Electron shell, with `safeStorage`, desktop window
+  management, and automatic LAN discovery; and
+- `android`: the same renderer in the tracked Capacitor 8 project at `apps/gm-react/android`.
+
+`apps/gm-react/src/platform/capabilities.ts` is the single runtime and capability decision point. It
+defines `RuntimeKind = 'web' | 'electron' | 'android'` and `PlatformCapabilities` for secure storage,
+file export/share, local discovery, notifications, window management, external links, and Android
+Quick Map mode. Feature code consumes this contract instead of probing Electron or Capacitor globals.
+
+Persistence remains renderer-owned Dexie/IndexedDB on every runtime. `SceneRuntime.dispatch` keeps the
+single serialized durable-write path, and `src/platform/storage/coreStore.ts` keeps transactional
+command persistence and atomic backup restore. The Android shell does not introduce a second vault
+format or native database.
+
+Runtime-specific integrations stay narrow:
+
+- Android credentials use the `DndtoolsSecureStore` Capacitor plugin: a non-exportable Android
+  Keystore AES key encrypts authenticated values stored in app-private preferences. Secure-store
+  ciphertext is excluded from Android backup and device transfer because its key is not portable.
+- Android exports use the `DndtoolsFileExport` plugin to write a bounded temporary cache file and open
+  the native share/save chooser. Web and Electron keep browser-style downloads behind the same async
+  `exportFile` contract.
+- Android lifecycle and Back events enter through `PlatformLifecycle`; native Back closes the
+  topmost overlay or editor, then uses router history, and minimizes at the root.
+- Android rejects cleartext network destinations and opens trusted external HTTPS links outside the
+  embedded WebView. WebView Safe Browsing remains enabled.
+- Android always enables Quick Map mode. It preserves and renders the full normalized-vector map but
+  exposes only touch-safe live-session operations. Precision authoring stays available on desktop.
+
+The Android application identity is `com.dndtools.gm`. For v0.3.0 it uses `versionName 0.3.0`,
+`versionCode 3000`, minimum API 24, and compile/target API 36. The build is pinned to Capacitor 8,
+Android Gradle Plugin 8.13, Gradle 8.14.3, and JDK 21.
 
 ## Consequences
 
 ### Positive
 
-- High code reuse for UI, domain logic, and product workflows.
-- Mature Android packaging and plugin ecosystem for web-based app shells.
-- Lower rewrite risk versus building a separate native Android application.
+- Browser, desktop, and Android share the React UI, `@dndtools/core`, Dexie vault, command log, backup
+  envelopes, and sync model.
+- Capability differences are explicit, typed, testable, and user-visible.
+- Android receives OS-backed credential custody and native file sharing without putting platform code
+  in the processing core.
+- Desktop behavior and advanced map authoring remain intact.
 
 ### Negative
 
-- Additional runtime abstraction and testing matrix complexity.
-- Platform-specific storage and permission edge cases on Android.
-- Requires strict boundary discipline so platform conditionals do not leak into feature code.
+- Release and test matrices now include Gradle, an API 36 emulator, Android lifecycle behavior, and
+  permanent APK signing-key custody.
+- Android WebView storage is app-private but is not a substitute for a user-created vault backup;
+  uninstalling clears local vault data and Keystore credentials.
+- Some integrations remain intentionally platform-specific: automatic LAN discovery, desktop
+  windowing/second-screen control, local Ollama, and precision map drawing are unavailable on Android.
 
 ## Rejected Alternatives
 
-| Alternative                     | Why Rejected                                                                                  |
-| ------------------------------- | --------------------------------------------------------------------------------------------- |
-| Tauri mobile for Android target | Smaller ecosystem and added Rust toolchain/operational complexity for this team and codebase. |
-| Cordova for Android target      | Older plugin/runtime ecosystem and weaker long-term fit for modern SvelteKit workflows.       |
-| Separate native Android app     | Lowest code reuse and highest long-term maintenance cost.                                     |
+| Alternative                              | Why Rejected                                                                                                                |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Separate Kotlin/Compose Android app      | Duplicates the renderer, command wiring, vault behavior, and accessibility work; creates the largest long-term drift risk.  |
+| Cordova shell                            | Older runtime/plugin model and weaker fit than the maintained Capacitor bridge.                                             |
+| Tauri mobile shell                       | Adds a Rust/mobile toolchain and a second native integration model without improving the shared renderer or vault boundary. |
+| Native Android database                  | Creates another persistence and migration path when Dexie already provides transactional durability in the shared renderer. |
+| Runtime checks spread through components | Makes platform behavior hard to audit and encourages nonfunctional controls instead of explicit capability messages.        |
 
 ## Migration Impact
 
-- Android shell integration, build pipeline, and platform permissions must be introduced incrementally.
-- Storage and platform service boundaries must remain adapter-driven so feature modules stay runtime-agnostic.
-- UX and accessibility parity must be validated across desktop and Android interaction models.
+- The tracked Capacitor project and custom plugins live below `apps/gm-react/android`; generated build
+  outputs, copied web assets, local SDK paths, and signing material remain ignored.
+- Renderer platform access routes through `src/platform/capabilities.ts`, `PlatformLifecycle.tsx`, and
+  the async export and secure-store adapters.
+- Existing vaults need no schema migration. Import/export and sync envelopes remain compatible across
+  browser, Electron, and Android.
+- Releases must retain the permanent `dndtools-alpha` signing key for `com.dndtools.gm`; losing it
+  prevents in-place upgrades of previously installed alpha APKs.
 
 ## Rollback Plan
 
-- Trigger: Android rollout risks desktop stability or introduces unacceptable operational cost.
-- Rollback action: pause Android distribution and continue desktop-only releases while preserving shared code improvements that do not increase desktop risk.
-- Data safety: local vault format remains unchanged; platform rollout can be paused without data migration rollback.
-- Risk: delayed multi-platform roadmap milestones.
+- Stop distributing Android artifacts and leave the browser/Electron release path active.
+- Keep shared capability, async export, responsive, and accessibility improvements that remain useful
+  outside Android.
+- Do not migrate or rewrite vault data. Existing user exports stay compatible with the browser and
+  desktop app.
+- Never replace the Android signing identity as a rollback shortcut. Users with an alpha build should
+  export a vault before uninstalling if an in-place signed update is unavailable.
 
 ## Verification and Evidence
 
-- `docs/planning/initiatives/README.md`
-- `docs/architecture/TECH_STACK.md`
-- `docs/planning/ROADMAP.md`
-- `src/lib/platform/storage/index.ts`
-- `src/lib/platform/storage/electron-adapter.ts`
-- `src/lib/types/storage.ts`
+- `apps/gm-react/src/platform/capabilities.ts`
+- `apps/gm-react/src/platform/PlatformLifecycle.tsx`
+- `apps/gm-react/src/platform/storage/coreStore.ts`
+- `apps/gm-react/src/platform/download.ts`
+- `apps/gm-react/src/cloud/secureStore.ts`
+- `apps/gm-react/capacitor.config.ts`
+- `apps/gm-react/android/app/src/main/java/com/dndtools/gm/MainActivity.java`
+- `apps/gm-react/android/app/src/main/java/com/dndtools/gm/plugins/AndroidKeystoreSecretStore.java`
+- `apps/gm-react/android/app/src/main/java/com/dndtools/gm/plugins/DndtoolsFileExportPlugin.java`
+- `apps/gm-react/android/app/build.gradle`
+- `.github/workflows/release.yml`
+- [`../runbooks/android-alpha.md`](../runbooks/android-alpha.md)

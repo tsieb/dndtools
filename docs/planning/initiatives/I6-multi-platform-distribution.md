@@ -1,11 +1,18 @@
 # Initiative 6 — Multi-Platform Distribution
 
-## Status: COMPLETED
+## Status: PARTIALLY COMPLETED — v0.3.0 Android alpha
 
-**Outcome:** DND Tools runs excellently on desktop (Windows, macOS, Linux), Android
-(sideloaded APK), and in any modern browser. The desktop experience is polished,
-signed, and self-updating. The mobile experience is native-feeling and offline-capable.
-The app is fully accessible to users with disabilities.
+**Current outcome:** DND Tools shares one React renderer and Dexie vault across browsers, Electron
+desktop, and a sideloaded Capacitor 8 Android alpha. The v0.3.0 workflow produces a permanent-alpha-key
+signed APK/AAB and unsigned desktop installers. Production desktop signing/notarization, automatic
+updates, Google Play publication, and iOS remain deferred.
+
+> **Implementation note (2026-07-15):** The story text below predates the React pivot and is retained
+> as planning history. Svelte paths, filesystem-adapter proposals, swipe-only navigation, and
+> `docs/MOBILE.md` / `docs/SIDELOAD.md` references are not current implementation guidance. See
+> [ADR-006](../../adr/006-multi-platform-approach-electron-capacitor.md) and the
+> [Android alpha runbook](../../runbooks/android-alpha.md) for the implemented architecture and
+> procedures.
 
 ---
 

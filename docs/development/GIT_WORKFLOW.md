@@ -66,11 +66,11 @@ flowchart LR
 
 ### 1.5 Test Tier By Boundary
 
-| Merge boundary     | Branch target           | Required gate                                                              |
-| ------------------ | ----------------------- | -------------------------------------------------------------------------- |
-| Epic PR            | `initiative/*`          | local `pnpm test:smoke` before push                                        |
-| Any PR (CI)        | `main` / `initiative/*` | static + unit + build; runtime changes also run browser/a11y/Electron jobs |
-| Full app rehearsal | before release          | `pnpm validate` (`validate.yml`)                                           |
+| Merge boundary     | Branch target           | Required gate                                                                      |
+| ------------------ | ----------------------- | ---------------------------------------------------------------------------------- |
+| Epic PR            | `initiative/*`          | local `pnpm test:smoke` before push                                                |
+| Any PR (CI)        | `main` / `initiative/*` | static + unit + build; runtime changes also run browser/a11y/Electron/Android jobs |
+| Full app rehearsal | before release          | `pnpm validate` plus the Android native/emulator runbook gates                     |
 
 ---
 
@@ -140,20 +140,24 @@ Every push to `main` and every pull request runs `.github/workflows/ci.yml`:
 - `browser-e2e` — path-filtered, two-shard Playwright suite with failure diagnostics
 - `accessibility` — path-filtered desktop/mobile axe scan and merged report
 - `desktop-smoke` — path-filtered Electron boot, CSP, and persistence smoke on Linux
+- `android-checks` — path-filtered JDK 21/API 36 renderer sync, Gradle unit/lint, and debug package
 
-The whole-application harness `pnpm validate` runs in `.github/workflows/validate.yml` (desktop/cloud layers self-skip without a display or AWS creds). See `docs/development/VALIDATION.md`.
+The whole-application harness `pnpm validate` and Android native validation run in
+`.github/workflows/validate.yml` (desktop/cloud layers self-skip without a display or AWS creds). See
+`docs/development/VALIDATION.md`.
 
 ### 3.4 Manual Checks
 
 Run the domain-appropriate commands before opening a PR:
 
-| When                             | Command              |
-| -------------------------------- | -------------------- |
-| Pre-handoff full gate            | `pnpm check`         |
-| Whole-app rehearsal              | `pnpm validate`      |
-| UI routes or interaction changes | `pnpm e2e`           |
-| Accessibility-affecting changes  | `pnpm a11y:gate`     |
-| Electron desktop changes         | `pnpm desktop:build` |
+| When                             | Command                                                                |
+| -------------------------------- | ---------------------------------------------------------------------- |
+| Pre-handoff full gate            | `pnpm check`                                                           |
+| Whole-app rehearsal              | `pnpm validate`                                                        |
+| UI routes or interaction changes | `pnpm e2e`                                                             |
+| Accessibility-affecting changes  | `pnpm a11y:gate`                                                       |
+| Electron desktop changes         | `pnpm desktop:build`                                                   |
+| Android renderer/native changes  | `android:sync` + Gradle unit/lint/package tasks in the Android runbook |
 
 ---
 
@@ -168,6 +172,7 @@ GitHub Settings -> Branches -> Add rule:
 - Require status checks to pass before merging: enabled
 - Required checks:
   - `build-and-test`
+  - `android-checks`
 - Require branches to be up to date before merging: enabled
 - Do not allow bypassing the above settings
 - Allow force pushes: disabled
@@ -230,12 +235,16 @@ State what changed, why, and how it was validated (which of `check` / `validate`
 
 ## 7. CI Workflows
 
-- `.github/workflows/ci.yml` — static/unit/build gates plus path-filtered browser, accessibility, and Electron smoke jobs.
-- `.github/workflows/validate.yml` — whole-app `pnpm validate` harness (desktop/cloud layers self-skip without a display or AWS creds).
+- `.github/workflows/ci.yml` — static/unit/build gates plus path-filtered browser, accessibility,
+  Electron smoke, and Android unit/lint/package jobs.
+- `.github/workflows/validate.yml` — whole-app `pnpm validate` harness plus Android API 36 native
+  validation (desktop/cloud layers self-skip without a display or AWS creds).
 - `.github/workflows/deploy.yml` — AWS cloud deploy (OIDC; path-filtered; skips cleanly when unconfigured).
 - `.github/workflows/promote-production.yml` — protected, manual production promotion and safe post-deploy probes.
 - `.github/workflows/cloud-drift.yml` — scheduled dev CloudFormation drift detection.
-- `.github/workflows/release.yml` — gated, signed production or explicitly unsigned-preview desktop packaging.
+- `.github/workflows/release.yml` — complete desktop + Android packaging: permanent-alpha-key signed
+  APK/AAB, unsigned preview or signed production desktop installers, checksums, SPDX, attestations,
+  API 36 launch, and a draft release.
 
 ---
 

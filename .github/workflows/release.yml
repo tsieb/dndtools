@@ -1,7 +1,7 @@
-name: Desktop Release
+name: Desktop + Android Release
 
-# Builds all documented desktop installers from one verified semver tag. Installers are staged as
-# workflow artifacts first, checked as a complete set, and only then attached to a draft release.
+# Builds all documented desktop installers plus signed Android alpha packages from one verified
+# semver tag. Packages are checked as a complete set before a draft release is created.
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing semver tag to package (for example v0.2.0)'
+        description: 'Existing semver tag to package (for example v0.3.0)'
         required: true
         type: string
       channel:
@@ -73,7 +73,7 @@ jobs:
       - name: Scan tracked files for credentials
         run: pnpm security:secrets
       - name: Reject high-severity dependency advisories
-        run: pnpm audit --audit-level high
+        run: pnpm security:audit
       - name: Run static, type, and unit release gates
         run: pnpm check
       - name: Enforce core and security coverage floors
@@ -243,16 +243,6 @@ jobs:
           apps/gm-react/scripts/validate-cloud-env.mjs --required
       - name: Build preview renderer
         if: env.RELEASE_CHANNEL != 'production'
-        env:
-          VITE_CLOUD_REGION: ${{ vars.VITE_CLOUD_REGION }}
-          VITE_COGNITO_USER_POOL_ID: ${{ vars.VITE_COGNITO_USER_POOL_ID }}
-          VITE_COGNITO_CLIENT_ID: ${{ vars.VITE_COGNITO_CLIENT_ID }}
-          VITE_SIGNALING_WS_URL: ${{ vars.VITE_SIGNALING_WS_URL }}
-          VITE_SYNC_API_URL: ${{ vars.VITE_SYNC_API_URL }}
-          VITE_APP_API_URL: ${{ vars.VITE_APP_API_URL }}
-          VITE_PUBLIC_APP_URL: ${{ vars.VITE_PUBLIC_APP_URL }}
-          VITE_AI_ALLOWED_ORIGINS: ${{ vars.VITE_AI_ALLOWED_ORIGINS }}
-          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
         run: pnpm --filter @dndtools/gm-react build
       - name: Build production renderer from trusted coordinates
         if: env.RELEASE_CHANNEL == 'production'
@@ -320,6 +310,7 @@ jobs:
     name: verify and draft release
     needs: [verify, package]
     runs-on: ubuntu-latest
+    timeout-minutes: 75
     permissions:
       contents: write # create or refresh the draft GitHub release
       id-token: write # obtain the Sigstore identity used to sign build provenance
@@ -336,9 +327,130 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
+      - name: Set up JDK 21
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - name: Install Android API 36 toolchain
+        shell: bash
+        run: |
+          # sdkmanager closes stdin after the final prompt, so GNU yes may exit 141 under pipefail.
+          set +o pipefail
+          yes | sdkmanager --licenses >/dev/null
+          SDKMANAGER_STATUS=${PIPESTATUS[1]}
+          set -o pipefail
+          test "$SDKMANAGER_STATUS" -eq 0
+          sdkmanager \
+            'platform-tools' \
+            'platforms;android-36' \
+            'build-tools;36.0.0' \
+            'emulator' \
+            'system-images;android-36;google_apis;x86_64'
       - run: pnpm install --frozen-lockfile
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - name: Build renderer and synchronize Capacitor
+        run: |
+          pnpm --filter @dndtools/gm-react build
+          pnpm --filter @dndtools/gm-react exec cap sync android
+      - name: Materialize permanent Android alpha signing key
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_ALPHA_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_ALPHA_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_ALPHA_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_ALPHA_KEY_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          test -n "$KEY_ALIAS"
+          test -n "$KEY_PASSWORD"
+          KEYSTORE_PATH="$RUNNER_TEMP/dndtools-alpha.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          test -s "$KEYSTORE_PATH"
+          chmod 0600 "$KEYSTORE_PATH"
+          {
+            echo "ANDROID_ALPHA_KEYSTORE_PATH=$KEYSTORE_PATH"
+            echo "ANDROID_ALPHA_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "ANDROID_ALPHA_KEY_ALIAS=$KEY_ALIAS"
+            echo "ANDROID_ALPHA_KEY_PASSWORD=$KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+      - name: Run Android unit and lint gates and build signed packages
+        working-directory: apps/gm-react/android
+        run: ./gradlew --no-daemon --stacktrace testReleaseUnitTest lintRelease assembleRelease bundleRelease
+      - name: Verify Android APK and AAB signatures
+        working-directory: apps/gm-react/android
+        shell: bash
+        run: |
+          EXPECTED_SHA256='A9:34:D3:0B:1D:F9:F3:43:68:06:78:0B:B8:37:B3:E4:FE:CC:A6:95:CB:7B:37:F7:AF:03:72:AD:30:4C:AD:70'
+          VERSION=${RELEASE_TAG#v}
+          IFS=. read -r MAJOR MINOR PATCH <<<"$VERSION"
+          EXPECTED_CODE=$((10#$MAJOR * 1000000 + 10#$MINOR * 1000 + 10#$PATCH))
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging \
+            app/build/outputs/apk/release/app-release.apk \
+            > "$RUNNER_TEMP/apk-badging.txt"
+          grep -F "package: name='com.dndtools.gm' versionCode='$EXPECTED_CODE' versionName='$VERSION'" \
+            "$RUNNER_TEMP/apk-badging.txt"
+          grep -F "minSdkVersion:'24'" "$RUNNER_TEMP/apk-badging.txt"
+          grep -F "targetSdkVersion:'36'" "$RUNNER_TEMP/apk-badging.txt"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify \
+            --verbose --print-certs app/build/outputs/apk/release/app-release.apk \
+            | tee "$RUNNER_TEMP/apk-signature-verification.txt"
+          EXPECTED_COMPACT=$(tr -d ':' <<<"$EXPECTED_SHA256" | tr '[:upper:]' '[:lower:]')
+          APK_SIGNER=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' \
+            "$RUNNER_TEMP/apk-signature-verification.txt" | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          test "$APK_SIGNER" = "$EXPECTED_COMPACT"
+          jarsigner -verify app/build/outputs/bundle/release/app-release.aab \
+            | tee "$RUNNER_TEMP/aab-signature-verification.txt"
+          grep -q 'jar verified.' "$RUNNER_TEMP/aab-signature-verification.txt"
+          AAB_SIGNER=$(keytool -printcert -jarfile app/build/outputs/bundle/release/app-release.aab \
+            | sed -n 's/^[[:space:]]*SHA256: //p' | head -1)
+          test "$AAB_SIGNER" = "$EXPECTED_SHA256"
+      - name: Enable KVM for the API 36 emulator
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run instrumentation and signed release acceptance on API 36
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            (cd apps/gm-react/android && ./gradlew --no-daemon --stacktrace :app:connectedDebugAndroidTest)
+            ANDROID_EXPECT_PRIVATE_DATA=1 \
+            ANDROID_EXPECTED_SIGNER_SHA256='A9:34:D3:0B:1D:F9:F3:43:68:06:78:0B:B8:37:B3:E4:FE:CC:A6:95:CB:7B:37:F7:AF:03:72:AD:30:4C:AD:70' \
+              scripts/android-emulator-acceptance.sh \
+              apps/gm-react/android/app/build/outputs/apk/release/app-release.apk
+      - name: Normalize Android release package names
+        shell: bash
+        run: |
+          VERSION=${RELEASE_TAG#v}
+          mkdir -p release-artifacts
+          install -m 0644 \
+            apps/gm-react/android/app/build/outputs/apk/release/app-release.apk \
+            "release-artifacts/DND-Tools-GM-${VERSION}-android.apk"
+          install -m 0644 \
+            apps/gm-react/android/app/build/outputs/bundle/release/app-release.aab \
+            "release-artifacts/DND-Tools-GM-${VERSION}-android.aab"
+      - name: Stage signed Android packages
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: android-release
+          path: release-artifacts/*-android.*
+          if-no-files-found: error
+          retention-days: 30
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: desktop-*
@@ -348,11 +460,23 @@ jobs:
         with:
           name: release-sbom
           path: release-artifacts
-      - name: Verify installer completeness
+      - name: Verify six-package release completeness
         run: pnpm release:verify artifacts --tag "$RELEASE_TAG" --dir release-artifacts
+      - name: Generate SPDX inventory for every release package
+        run: >-
+          pnpm release:verify sbom --tag "$RELEASE_TAG" --dir release-artifacts
+          --out release-artifacts/dndtools-artifacts.spdx.json
       - name: Write SHA-256 checksums
         working-directory: release-artifacts
-        run: sha256sum -- ./* > SHA256SUMS.txt
+        shell: bash
+        run: |
+          mapfile -d '' FILES < <(find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 | sort -z)
+          sha256sum -- "${FILES[@]}" > SHA256SUMS.txt
+      - name: Verify checksum and SPDX coverage for all six packages
+        run: >-
+          pnpm release:verify supply-chain --tag "$RELEASE_TAG" --dir release-artifacts
+          --checksums release-artifacts/SHA256SUMS.txt
+          --sbom release-artifacts/dndtools-artifacts.spdx.json
       - name: Protect published and signed releases from preview replacement
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -366,8 +490,9 @@ jobs:
             exit 1
           }
           if [ "$RELEASE_CHANNEL" = preview ]; then
+            VERSION=${RELEASE_TAG#v}
             EXISTING_TITLE=$(gh release view "$RELEASE_TAG" --json name --jq '.name')
-            test "$EXISTING_TITLE" = "DND Tools GM $RELEASE_TAG (Unsigned Preview)" || {
+            test "$EXISTING_TITLE" = "DND Tools GM ${VERSION} — Alpha (Windows · macOS · Linux · Android)" || {
               echo "refusing to replace a signed production draft with unsigned preview artifacts" >&2
               exit 1
             }
@@ -379,18 +504,45 @@ jobs:
       - name: Create or refresh draft GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
         run: |
           if [ "$RELEASE_CHANNEL" = production ]; then
             TITLE="DND Tools GM $RELEASE_TAG"
-            NOTES="Signed and notarized production desktop builds. Review the staged installers, checksums, SBOM, and release-gate artifacts before publishing."
+            cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
+          Signed and notarized production desktop builds with alpha-key-signed Android packages. Review the staged packages, checksums, SBOMs, and release-gate artifacts before publishing.
+          NOTES
+            PRERELEASE_FLAG=()
           else
-            TITLE="DND Tools GM $RELEASE_TAG (Unsigned Preview)"
-            NOTES="Unsigned preview builds for testing only. Review the staged installers, checksums, SBOM, and release-gate artifacts before publishing. Do not promote these artifacts as a production release."
+            VERSION=${RELEASE_TAG#v}
+            TITLE="DND Tools GM ${VERSION} — Alpha (Windows · macOS · Linux · Android)"
+            cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
+          ## Install
+
+          - Android: install the APK for direct testing. The AAB is an alpha-key-signed package for future Play Console use, not a directly installable file.
+          - Windows, macOS, and Linux: these desktop installers are unsigned alpha builds. Your operating system may require an explicit override before launch.
+
+          ## Back up and upgrade
+
+          Export a vault backup before installing or upgrading. Android upgrades must use an APK signed by the same permanent DND Tools alpha key; uninstalling removes app-private vault data and secure credentials. Native Android share/save exports are limited to 32 MiB for this alpha; larger vaults can be exported from desktop.
+
+          ## Alpha limitations
+
+          The alpha is local-first when trusted production cloud coordinates are unavailable. Advanced precision map drawing, automatic LAN discovery, and local Ollama providers remain desktop-only. Android uses Quick Map mode and hosted HTTPS AI providers.
+
+          ## Verify downloads
+
+          Run `sha256sum -c SHA256SUMS.txt` from the download directory. Verify GitHub build provenance with `gh attestation verify <artifact> --repo tsieb/dndtools`. `dndtools.spdx.json` records source dependencies and `dndtools-artifacts.spdx.json` records SHA-256 coverage for every installer/package.
+
+          Android APK/AAB: signed with the permanent `dndtools-alpha` key. Desktop installers: unsigned alpha builds.
+          NOTES
+            PRERELEASE_FLAG=(--prerelease)
           fi
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" release-artifacts/* --clobber
-            gh release edit "$RELEASE_TAG" --draft --title "$TITLE" --notes "$NOTES"
+            gh release edit "$RELEASE_TAG" --draft "${PRERELEASE_FLAG[@]}" \
+              --title "$TITLE" --notes-file "$RUNNER_TEMP/release-notes.md"
           else
             gh release create "$RELEASE_TAG" release-artifacts/* \
-              --draft --verify-tag --title "$TITLE" --notes "$NOTES"
+              --draft "${PRERELEASE_FLAG[@]}" --verify-tag --title "$TITLE" \
+              --notes-file "$RUNNER_TEMP/release-notes.md"
           fi

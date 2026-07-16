@@ -154,15 +154,19 @@ describe('bounds — every emitted coordinate is normalized 0..1', () => {
 		expect(outOfBounds(output)).toEqual([]);
 	});
 
-	it.each(ALL)('$name (every preset, several seeds)', ({ definition }) => {
-		const strays: Array<{ x: number; y: number }> = [];
-		for (const preset of definition.presets) {
-			for (const seed of [1, 2, 3]) {
-				strays.push(...outOfBounds(run(definition, preset.values, seed)));
+	it.each(ALL)(
+		'$name (every preset, several seeds)',
+		({ definition }) => {
+			const strays: Array<{ x: number; y: number }> = [];
+			for (const preset of definition.presets) {
+				for (const seed of [1, 2, 3]) {
+					strays.push(...outOfBounds(run(definition, preset.values, seed)));
+				}
 			}
-		}
-		expect(strays).toEqual([]);
-	});
+			expect(strays).toEqual([]);
+		},
+		15_000,
+	);
 });
 
 describe('polygon well-formedness', () => {

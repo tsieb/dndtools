@@ -1,9 +1,9 @@
 # @dndtools/gm-react — the GM command platform
 
 The primary DND Tools application: a **React** frontend for the canvas-first GM Command Center,
-wired to the real `@dndtools/core` Processing Core, plus an Electron desktop shell and LAN/cloud
-remote play. It realizes the shared design system (see `docs/design/`) and is the only maintained GM
-surface (the original SvelteKit app is retired to `archive/gm-svelte`; see
+wired to the real `@dndtools/core` Processing Core, plus Electron desktop and Capacitor Android
+shells and LAN/cloud remote play. It realizes the shared design system (see `docs/design/`) and is the
+only maintained GM surface (the original SvelteKit app is retired to `archive/gm-svelte`; see
 [ADR-018](../../docs/adr/018-promote-react-app-to-primary.md)).
 
 > **Design & visual reference:** [PROTOTYPE.md](./PROTOTYPE.md) — where the design system lives
@@ -22,6 +22,8 @@ pnpm preview          # preview the build on http://localhost:4273
 pnpm typecheck        # tsc --noEmit
 pnpm e2e              # Playwright (desktop + mobile Chromium) — tests/e2e
 pnpm desktop:dev      # run the Electron desktop shell against the dev server
+pnpm --filter @dndtools/gm-react android:sync # build dist and synchronize Capacitor Android
+pnpm --filter @dndtools/gm-react android:open # open the tracked project in Android Studio
 ```
 
 Verify the core round-trip end-to-end in a headless browser (needs `pnpm dev` running):
@@ -47,6 +49,14 @@ node apps/gm-react/scripts/verify-canvas.mjs      # canvas surfaces: /board + /s
   Cognito auth client. The backup path uploads a recovery copy and restores only on explicit request;
   it does not merge changes between devices. `electron/` is the desktop shell (CommonJS main/preload +
   LAN discovery).
+- **`src/platform/capabilities.ts`** — the centralized `RuntimeKind` / `PlatformCapabilities`
+  boundary for web, Electron, and Android. Lifecycle/Back, secure secrets, async export/share,
+  notifications, discovery, and native window behavior route through platform adapters rather than
+  component-level global checks.
+- **`android/`, `capacitor.config.ts`** — the tracked Capacitor 8 Android project and configuration.
+  It packages the same `dist` renderer as `com.dndtools.gm`; custom plugins provide Keystore-backed
+  secrets and native share/save export. See the
+  [Android alpha runbook](../../docs/runbooks/android-alpha.md).
 - **`src/app/AppShell.tsx`, `src/app/nav.ts`** — shared chrome + the section IA. **Shared — do not
   edit when porting a screen.**
 - **`src/App.tsx`** — `RuntimeProvider` + `HashRouter` + routes. **Shared — the parent wires new

@@ -37,6 +37,7 @@ jobs:
               - 'pnpm-workspace.yaml'
               - 'vitest.*.config.ts'
               - '.github/workflows/ci.yml'
+              - '.github/workflows/release.yml'
 
   build-and-test:
     name: build-and-test
@@ -208,3 +209,98 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Boot packaged renderer twice and verify persistence
         run: xvfb-run --auto-servernum pnpm --filter @dndtools/gm-react desktop:smoke
+
+  android-checks:
+    name: Android unit, lint, and package checks
+    needs: [changes, build-and-test]
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Set up JDK 21
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - name: Install Android API 36 toolchain
+        shell: bash
+        run: |
+          set +o pipefail
+          yes | sdkmanager --licenses >/dev/null
+          SDKMANAGER_STATUS=${PIPESTATUS[1]}
+          set -o pipefail
+          test "$SDKMANAGER_STATUS" -eq 0
+          sdkmanager \
+            'platform-tools' \
+            'platforms;android-36' \
+            'build-tools;36.0.0' \
+            'emulator' \
+            'system-images;android-36;google_apis;x86_64'
+      - name: Install dependencies
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: pnpm install --frozen-lockfile
+      - name: Build renderer and synchronize Capacitor
+        run: |
+          pnpm --filter @dndtools/gm-react build
+          pnpm --filter @dndtools/gm-react exec cap sync android
+      - name: Run Android unit, lint, and debug APK/AAB packaging gates
+        working-directory: apps/gm-react/android
+        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest lintDebug assembleDebug bundleDebug
+      - name: Normalize CI-only Android debug packages
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./apps/gm-react/package.json').version")
+          mkdir -p apps/gm-react/android/app/build/outputs/ci-packages
+          install -m 0644 \
+            apps/gm-react/android/app/build/outputs/apk/debug/app-debug.apk \
+            "apps/gm-react/android/app/build/outputs/ci-packages/DND-Tools-GM-${VERSION}-android-ci-debug.apk"
+          install -m 0644 \
+            apps/gm-react/android/app/build/outputs/bundle/debug/app-debug.aab \
+            "apps/gm-react/android/app/build/outputs/ci-packages/DND-Tools-GM-${VERSION}-android-ci-debug.aab"
+      - name: Enable KVM for the API 36 emulator
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run instrumentation and lifecycle acceptance on API 36
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            (cd apps/gm-react/android && ./gradlew --no-daemon --stacktrace :app:connectedDebugAndroidTest)
+            ANDROID_EXPECT_PRIVATE_DATA=1 scripts/android-emulator-acceptance.sh \
+              apps/gm-react/android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Upload Android diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: android-checks
+          path: |
+            apps/gm-react/android/app/build/reports
+            apps/gm-react/android/app/build/outputs/apk/debug
+            apps/gm-react/android/app/build/outputs/bundle/debug
+            apps/gm-react/android/app/build/outputs/ci-packages
+          if-no-files-found: warn
+          retention-days: 14

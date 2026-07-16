@@ -6,9 +6,9 @@ single consolidated report. It exists so that "is the whole application healthy?
 is one command instead of a dozen half-remembered scripts.
 
 It does **not replace** PR CI. `ci.yml` runs static analysis, the full unit suite, and a production
-build on every push/PR, plus path-filtered browser, accessibility, and Electron smoke jobs for runtime
-changes. `validate` is the deep, on-demand sweep (local, plus a weekly + manual `validate.yml`
-workflow).
+build on every push/PR, plus path-filtered browser, accessibility, Electron smoke, and Android
+native-build jobs for runtime changes. `validate` is the deep, on-demand sweep (local, plus a weekly +
+manual `validate.yml` workflow).
 
 ## Quick start
 
@@ -35,6 +35,21 @@ Selectors: `--layer=unit,static` · `--only=e2e,test:core` · `--skip=e2e` · `-
 | **desktop** | Electron packaged smoke (secure `dndtools://app` origin, exact-origin CORS, CSP, IndexedDB persistence, renderer console errors, and startup privileged-IPC tripwires across restart)      | display + electron binary — _off by default_     |
 | **cloud**   | SSM config resolvable, CloudFront security headers, sync-API rejects anonymous, Cognito OIDC discovery, signaling e2e, TURN relay, E2EE backup round-trip + ciphertext-at-rest             | live AWS dev stacks — _off by default, `--live`_ |
 | **audit**   | feature-gap drift (FEATURE-GAPS.md ↔ live code)                                                                                                                                            | none                                             |
+
+Android native verification is deliberately outside the Node-based `pnpm validate` harness. Run it
+after the renderer checks, from the tracked project:
+
+```bash
+pnpm --filter @dndtools/gm-react android:sync
+cd apps/gm-react/android
+./gradlew --no-daemon testReleaseUnitTest lintRelease assembleRelease bundleRelease
+```
+
+Release CI supplies the permanent alpha signing key, verifies the APK/AAB signatures, and installs and
+cold-launches the signed APK on API 36. Before publication, complete the lifecycle, Back,
+persistence, share/import, restore/upgrade, responsive/accessibility, and Quick Map matrix in the
+[Android alpha runbook](../runbooks/android-alpha.md). `pnpm validate` staying green does not replace
+that native release gate.
 
 The harness deliberately folds in the checks that were previously orphaned from
 the basic `check` command: repo audit, text contrast, P2P crypto/browser checks,

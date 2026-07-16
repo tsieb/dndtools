@@ -27,6 +27,21 @@ For the full test/validation story (scopes, gating, the `pnpm validate` harness)
 | `pnpm desktop:build`     | Package the Electron desktop app                  |
 | `pnpm desktop:build:dir` | Package into an unpacked directory (no installer) |
 
+## Android (Capacitor, optional)
+
+These scripts are package-local; invoke them from the root with
+`pnpm --filter @dndtools/gm-react <script>`.
+
+| Script         | Purpose                                                                |
+| -------------- | ---------------------------------------------------------------------- |
+| `android:sync` | Build the renderer and synchronize it into the tracked Android project |
+| `android:open` | Open the Android project in Android Studio                             |
+| `android:run`  | Build/sync and run through Capacitor                                   |
+
+Native unit/lint/package commands use the pinned wrapper from `apps/gm-react/android`, for example
+`./gradlew testReleaseUnitTest lintRelease assembleRelease bundleRelease`. See the
+[Android alpha runbook](../runbooks/android-alpha.md) for prerequisites and signing.
+
 ## Tests
 
 | Script                    | Purpose                                                                      |
@@ -70,19 +85,21 @@ For the full test/validation story (scopes, gating, the `pnpm validate` harness)
 
 ## Quality Gates & Validation
 
-| Script                                                                     | Purpose                                                                             |
-| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `pnpm gates`                                                               | Enforce the tiered quality-gate registry (`scripts/quality-gates.ts`), fails closed |
-| `pnpm audit:repo`                                                          | Repo-boundary guardrail tests (`tests/unit/ci-guardrails.test.ts`)                  |
-| `pnpm security:secrets`                                                    | Scan tracked files for high-confidence committed credentials                        |
-| `pnpm cloud:drift`                                                         | Detect CloudFormation drift (`dev` by default; accepts a stage)                     |
-| `pnpm release:verify`                                                      | Verify release versions or the complete desktop artifact set                        |
-| `pnpm check`                                                               | `gates` + boundary lint + typecheck + full test suite                               |
-| `pnpm validate`                                                            | Whole-application validation harness (`scripts/validate/`) — see VALIDATION.md      |
-| `pnpm validate:fast` / `validate:live` / `validate:full` / `validate:list` | Harness variants (fast subset / opt-in live AWS / full / list checks)               |
-| `pnpm feature-audit`                                                       | Feature-gap drift audit (`scripts/validate/feature-audit.ts`)                       |
+| Script                                                                     | Purpose                                                                                 |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `pnpm gates`                                                               | Enforce the tiered quality-gate registry (`scripts/quality-gates.ts`), fails closed     |
+| `pnpm audit:repo`                                                          | Repo-boundary guardrail tests (`tests/unit/ci-guardrails.test.ts`)                      |
+| `pnpm security:secrets`                                                    | Scan tracked files for high-confidence committed credentials                            |
+| `pnpm cloud:drift`                                                         | Detect CloudFormation drift (`dev` by default; accepts a stage)                         |
+| `pnpm release:verify`                                                      | Verify release versions, the six desktop/Android packages, checksums, and SPDX coverage |
+| `pnpm check`                                                               | `gates` + boundary lint + typecheck + full test suite                                   |
+| `pnpm validate`                                                            | Whole-application validation harness (`scripts/validate/`) — see VALIDATION.md          |
+| `pnpm validate:fast` / `validate:live` / `validate:full` / `validate:list` | Harness variants (fast subset / opt-in live AWS / full / list checks)                   |
+| `pnpm feature-audit`                                                       | Feature-gap drift audit (`scripts/validate/feature-audit.ts`)                           |
 
 ## Per-app scripts
 
-- `apps/gm-react/package.json`: `dev` (`vite --port 5273`), `build`, `preview` (:4273), `typecheck`, `verify:p2p`, `verify:p2p-live`, `desktop:dev`, `desktop:build`.
+- `apps/gm-react/package.json`: `dev` (`vite --port 5273`), `build`, `preview` (:4273),
+  `typecheck`, `verify:p2p`, `verify:p2p-live`, `desktop:dev`, `desktop:build`, `android:sync`,
+  `android:open`, and `android:run`.
 - `packages/core/package.json`: `build` & `typecheck` (`tsc -p tsconfig.json --noEmit`), `test` (`vitest run`).

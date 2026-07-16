@@ -9,19 +9,21 @@ Every claim below maps to a file in the current tree. The pivot to a React prima
 The workspace is a pnpm monorepo. There is one primary application, a shared processing core, a set
 of cloud Lambdas, and the AWS infrastructure that hosts them.
 
-| Surface         | Package                                      | Role                                                                                                                                                               |
-| --------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| GM app          | `apps/gm-react` (`@dndtools/gm-react`)       | Vite + React 18 + react-router-dom v6 (HashRouter). Owns rendering, command dispatch, platform storage, remote play, cloud backup, and the Electron desktop shell. |
-| Processing core | `packages/core` (`@dndtools/core`)           | Framework-independent (zod-only). Owns commands, reducers, permissions/visibility, actor-scoped queries, and the declared registries.                              |
-| Cloud functions | `packages/cloud-fns` (`@dndtools/cloud-fns`) | AWS Lambda handlers for WebRTC signaling and encrypted backup.                                                                                                     |
-| Infrastructure  | `infra/`                                     | AWS SAM stacks for the opt-in cloud backend (see [`infra/README.md`](../../infra/README.md)).                                                                      |
+| Surface         | Package                                      | Role                                                                                                                                                                              |
+| --------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GM app          | `apps/gm-react` (`@dndtools/gm-react`)       | Vite + React 18 + react-router-dom v6 (HashRouter). Owns rendering, command dispatch, platform storage, remote play, cloud backup, and the Electron and Capacitor Android shells. |
+| Processing core | `packages/core` (`@dndtools/core`)           | Framework-independent (zod-only). Owns commands, reducers, permissions/visibility, actor-scoped queries, and the declared registries.                                             |
+| Cloud functions | `packages/cloud-fns` (`@dndtools/cloud-fns`) | AWS Lambda handlers for WebRTC signaling and encrypted backup.                                                                                                                    |
+| Infrastructure  | `infra/`                                     | AWS SAM stacks for the opt-in cloud backend (see [`infra/README.md`](../../infra/README.md)).                                                                                     |
 
 Retired code is preserved but **not built**: the original SvelteKit GM app at `archive/gm-svelte`
 (tag `svelte-gm-final`) and the earlier v1 document editor (tag `v1-final`).
 
 ## 2. Runtime Topology (`apps/gm-react`)
 
-The app is browser-first. The same renderer bundle also runs inside an Electron desktop shell.
+The app is browser-first. The same renderer bundle also runs inside an Electron desktop shell and a
+tracked Capacitor 8 Android shell. [ADR-006](../adr/006-multi-platform-approach-electron-capacitor.md)
+defines the shared-renderer decision and platform boundaries.
 
 ### 2.1 React renderer
 
@@ -57,35 +59,65 @@ The app is browser-first. The same renderer bundle also runs inside an Electron 
 - Persistence conforms to the framework-free `StoragePort` shape declared in `@dndtools/core`; the
   boundary lint (`scripts/boundary-lint.ts`) keeps storage details out of the UI.
 
-### 2.4 Remote play (`src/net/`)
+### 2.4 Platform capabilities (`src/platform/`)
+
+- `capabilities.ts` defines `RuntimeKind = 'web' | 'electron' | 'android'`, detects the runtime once,
+  and resolves the centralized `PlatformCapabilities` contract. Components consume capabilities for
+  secure storage, file export/share, discovery, notifications, window management, external links, and
+  Quick Map mode rather than probing native globals.
+- `PlatformLifecycle.tsx` and `backNavigation.ts` adapt Android lifecycle and Back events to overlays,
+  fullscreen editors, router history, and root minimization. Browser and Electron receive no-op native
+  lifecycle adapters.
+- `download.ts` exposes one async `exportFile` contract. Android uses a native share/save chooser;
+  browsers and Electron retain download behavior. `secureStore.ts` similarly preserves one
+  `DurableSecretStore` interface across native and session-only implementations.
+
+### 2.5 Remote play (`src/net/`)
 
 - LAN / serverless WebRTC transport. The DM host (`SessionHost.ts`) holds the single authoritative
   `SceneRuntime` and replicates **player-safe view-models** (`viewModels.ts`) built from the
   actor-filtered query layer. Players (`SessionClient.ts`) are non-authoritative and send back only
   intents (dice rolls, edits to their own character).
-- LAN discovery uses mDNS (`discovery.ts`); pairing/QR in `qr.ts`; message contracts in `messages.ts`.
+- Automatic LAN discovery uses the Electron mDNS bridge (`discovery.ts`). Manual and cloud session
+  codes remain available on Android and the web; unsupported discovery controls show capability copy.
+  Pairing/QR lives in `qr.ts`; message contracts live in `messages.ts`.
 - The internet path reuses the same transport over a signaling relay + coturn TURN (`signaling.ts`,
   `cloudBridge.ts`); the threat model is in [../security/README.md](../security/README.md).
 
-### 2.5 Cloud backup + auth (`src/cloud/`)
+### 2.6 Cloud backup + auth (`src/cloud/`)
 
 - Opt-in. AWS Cognito identity (`auth.ts`, `AuthContext.tsx`); end-to-end-encrypted backup
   (`cloudSync.ts`, `syncEngine.ts`, `vaultKey.ts`) with account-and-vault-scoped client-held keys.
   AES-GCM authenticates account, vault, artifact kind, and revision, preventing ciphertext replay into
-  a different server-visible context. Tokens/keys live in an OS
-  credential store on desktop and are memory-only on the web (`tokenStore.ts`, `secureStore.ts`).
+  a different server-visible context. Tokens/keys live in an OS credential store on Electron and
+  Android and are session-only on the web (`tokenStore.ts`, `secureStore.ts`).
 - Backup stays **off by default and fail-closed** behind the core `SYNC-017` gate
   (`packages/core/src/sync/cloud-sync-gate.ts`). The current product uploads a recoverable encrypted
   copy and restores it only on explicit request; it does not merge changes between devices. Details:
   [../security/README.md](../security/README.md).
 
-### 2.6 Electron desktop shell (`electron/`)
+### 2.7 Electron desktop shell (`electron/`)
 
 - `main.cjs` owns the BrowserWindow and serves packaged content from the privileged
   `dndtools://app` origin; `preload.cjs` exposes a minimal, explicit bridge; `discovery.cjs` bundles
   mDNS peer discovery for LAN play. The native application menu is hidden by default while native
   controls remain, and the title-bar overlay follows the application theme. The shell adds no
   authoritative state — it hosts the same renderer and command runtime.
+
+### 2.8 Capacitor Android shell (`android/`)
+
+- `capacitor.config.ts` packages `dist` as `com.dndtools.gm`. The tracked Gradle project uses JDK 21,
+  minimum API 24, compile/target API 36, Android Gradle Plugin 8.13, and Gradle 8.14.3. It supports
+  rotation, resizing, split screen, and edge-to-edge insets instead of locking an orientation.
+- `MainActivity.java` registers the custom secure-store and file-export plugins, rejects mixed
+  content, and keeps WebView Safe Browsing enabled. The network security config rejects cleartext
+  traffic.
+- `AndroidKeystoreSecretStore` uses a non-exportable Android Keystore AES-GCM key and app-private
+  encrypted preferences. Backup rules exclude those preferences because the key cannot be restored
+  on another installation.
+- Android always uses the preservation-safe Quick Map workspace: full map geometry renders and stays
+  in the model, while precision drawing controls remain desktop-only. The shell introduces no native
+  authoritative state.
 
 ## 3. Data Path
 
@@ -129,6 +161,8 @@ state.
 - Accessibility is gated: `pnpm a11y:contrast` (non-text contrast) + `pnpm a11y:axe` (Playwright axe
   gate, `apps/gm-react/tests/e2e/a11y-axe-gate.spec.ts`).
 - `pnpm validate` is the whole-application harness — see [../development/VALIDATION.md](../development/VALIDATION.md).
+- Android release validation adds Gradle unit/lint tasks, signature verification, and an API 36
+  install/cold-launch gate; see [the Android alpha runbook](../runbooks/android-alpha.md).
 
 ## 6. Architecture Decision Process
 

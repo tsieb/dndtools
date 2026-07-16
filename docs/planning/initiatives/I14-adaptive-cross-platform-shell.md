@@ -2,6 +2,13 @@
 
 ## Status: COMPLETED
 
+> **Implementation note (2026-07-15):** This initiative's root-cause and story paths describe the
+> retired Svelte app and are preserved as planning history. The maintained implementation is React:
+> `apps/gm-react/src/app/AppShell.tsx`, `src/app/nav.ts`, `src/styles/index.css`, and
+> `src/platform/capabilities.ts`. Android adds edge-to-edge safe areas, 48dp targets, native Back, and
+> keyboard-aware layouts; see [ADR-006](../../adr/006-multi-platform-approach-electron-capacitor.md)
+> and the [Android alpha runbook](../../runbooks/android-alpha.md).
+
 **Outcome:** The application feels genuinely native on every platform it runs on. On
 mobile, navigation is thumb-reachable and the editor does not fight the software
 keyboard. On desktop, panels are persistent, resizable, and keyboard-driven. On tablet,

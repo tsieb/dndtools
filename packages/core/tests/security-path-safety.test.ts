@@ -129,7 +129,9 @@ describe('SEC-002 path-safety — vault containment is a SECOND gate (AC2)', () 
 
 	it('rejects an escape attempt the path validator would also catch (defence in depth)', () => {
 		// The relative validator catches the `..` first; the reason is path-traversal.
-		expect(rejectionReason(resolveWithinVaultRoot('/vault', '../etc/passwd'))).toBe('path-traversal');
+		expect(rejectionReason(resolveWithinVaultRoot('/vault', '../etc/passwd'))).toBe(
+			'path-traversal',
+		);
 	});
 });
 
@@ -141,11 +143,19 @@ describe('SEC-002 path-safety — containment gate fires INDEPENDENTLY of input 
 
 	it('rejects a `..` escape via checkVaultContainment even when input validation is bypassed', () => {
 		// Direct call — no validatePathInput. Demonstrates AC2 independence.
-		expect(rejectionReason(checkVaultContainment('/vault', '../etc/passwd'))).toBe('escapes-vault-root');
+		expect(rejectionReason(checkVaultContainment('/vault', '../etc/passwd'))).toBe(
+			'escapes-vault-root',
+		);
 	});
 
 	it('rejects a multi-hop escape via checkVaultContainment', () => {
 		expect(rejectionReason(checkVaultContainment('/vault/data', '../../etc/shadow'))).toBe(
+			'escapes-vault-root',
+		);
+	});
+
+	it('keeps every excess parent segment as an escape sentinel', () => {
+		expect(rejectionReason(checkVaultContainment('/vault/data', '../../../../etc/shadow'))).toBe(
 			'escapes-vault-root',
 		);
 	});
@@ -159,8 +169,12 @@ describe('SEC-002 path-safety — containment gate fires INDEPENDENTLY of input 
 
 	it('resolveWithinVaultRoot composes BOTH gates: input-traversal is caught by gate 1, escapes-vault-root by gate 2', () => {
 		// Gate 1 fires when validatePathInput detects `..`.
-		expect(rejectionReason(resolveWithinVaultRoot('/vault', '../etc/passwd'))).toBe('path-traversal');
+		expect(rejectionReason(resolveWithinVaultRoot('/vault', '../etc/passwd'))).toBe(
+			'path-traversal',
+		);
 		// Gate 2 (checkVaultContainment alone) fires with the INDEPENDENT `escapes-vault-root` reason.
-		expect(rejectionReason(checkVaultContainment('/vault', '../etc/passwd'))).toBe('escapes-vault-root');
+		expect(rejectionReason(checkVaultContainment('/vault', '../etc/passwd'))).toBe(
+			'escapes-vault-root',
+		);
 	});
 });
