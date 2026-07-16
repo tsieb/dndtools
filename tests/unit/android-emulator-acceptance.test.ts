@@ -7,6 +7,16 @@ import YAML from 'yaml';
 const repoRoot = process.cwd();
 const scriptPath = path.join(repoRoot, 'scripts', 'android-emulator-acceptance.sh');
 
+type WorkflowStep = {
+	uses?: string;
+	env?: Record<string, string>;
+	with?: { script?: string };
+};
+
+type Workflow = {
+	jobs?: Record<string, { steps?: WorkflowStep[] }>;
+};
+
 describe('Android emulator acceptance gate', () => {
 	it('fails closed across install, lifecycle, native surfaces, persistence, Back, and same-key upgrade checks', () => {
 		const source = fs.readFileSync(scriptPath, 'utf-8');
@@ -46,14 +56,10 @@ describe('Android emulator acceptance gate', () => {
 	it('runs instrumentation and the shared script in CI and signed release emulators', () => {
 		const ci = YAML.parse(
 			fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf-8'),
-		) as {
-			jobs?: Record<string, { steps?: Array<{ uses?: string; with?: { script?: string } }> }>;
-		};
+		) as Workflow;
 		const release = YAML.parse(
 			fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'release.yml'), 'utf-8'),
-		) as {
-			jobs?: Record<string, { steps?: Array<{ uses?: string; with?: { script?: string } }> }>;
-		};
+		) as Workflow;
 
 		const ciEmulator = ci.jobs?.['android-checks']?.steps?.find((step) =>
 			step.uses?.startsWith('reactivecircus/android-emulator-runner@'),
@@ -68,7 +74,9 @@ describe('Android emulator acceptance gate', () => {
 		}
 		expect(ciEmulator?.with?.script).toContain('app-debug.apk');
 		expect(releaseEmulator?.with?.script).toContain('app-release.apk');
-		expect(releaseEmulator?.with?.script).toContain(
+		expect(ciEmulator?.env?.ANDROID_EXPECT_PRIVATE_DATA).toBe('1');
+		expect(releaseEmulator?.env?.ANDROID_EXPECT_PRIVATE_DATA).toBe('1');
+		expect(releaseEmulator?.env?.ANDROID_EXPECTED_SIGNER_SHA256).toBe(
 			'A9:34:D3:0B:1D:F9:F3:43:68:06:78:0B:B8:37:B3:E4:FE:CC:A6:95:CB:7B:37:F7:AF:03:72:AD:30:4C:AD:70',
 		);
 	});
