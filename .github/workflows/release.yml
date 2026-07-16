@@ -421,6 +421,9 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Run instrumentation and signed release acceptance on API 36
+        env:
+          ANDROID_EXPECT_PRIVATE_DATA: '1'
+          ANDROID_EXPECTED_SIGNER_SHA256: 'A9:34:D3:0B:1D:F9:F3:43:68:06:78:0B:B8:37:B3:E4:FE:CC:A6:95:CB:7B:37:F7:AF:03:72:AD:30:4C:AD:70'
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 36
@@ -431,10 +434,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             (cd apps/gm-react/android && ./gradlew --no-daemon --stacktrace :app:connectedDebugAndroidTest)
-            ANDROID_EXPECT_PRIVATE_DATA=1 \
-            ANDROID_EXPECTED_SIGNER_SHA256='A9:34:D3:0B:1D:F9:F3:43:68:06:78:0B:B8:37:B3:E4:FE:CC:A6:95:CB:7B:37:F7:AF:03:72:AD:30:4C:AD:70' \
-              scripts/android-emulator-acceptance.sh \
-              apps/gm-react/android/app/build/outputs/apk/release/app-release.apk
+            scripts/android-emulator-acceptance.sh apps/gm-react/android/app/build/outputs/apk/release/app-release.apk
       - name: Normalize Android release package names
         shell: bash
         run: |
