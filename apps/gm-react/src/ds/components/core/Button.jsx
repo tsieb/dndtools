@@ -17,9 +17,24 @@ export function Button({
 	...rest
 }) {
 	const sizes = {
-		sm: { px: 'var(--space-3)', py: 'var(--space-1-5)', font: 'var(--text-sm)', gap: 'var(--space-1-5)' },
-		md: { px: 'var(--space-4)', py: 'var(--space-2)', font: 'var(--text-base)', gap: 'var(--space-2)' },
-		lg: { px: 'var(--space-5)', py: 'var(--space-3)', font: 'var(--text-md)', gap: 'var(--space-2)' },
+		sm: {
+			px: 'var(--space-3)',
+			py: 'var(--space-1-5)',
+			font: 'var(--text-sm)',
+			gap: 'var(--space-1-5)',
+		},
+		md: {
+			px: 'var(--space-4)',
+			py: 'var(--space-2)',
+			font: 'var(--text-base)',
+			gap: 'var(--space-2)',
+		},
+		lg: {
+			px: 'var(--space-5)',
+			py: 'var(--space-3)',
+			font: 'var(--text-md)',
+			gap: 'var(--space-2)',
+		},
 	};
 	const s = sizes[size] || sizes.md;
 
@@ -54,6 +69,8 @@ export function Button({
 			disabled={disabled}
 			style={{
 				display: 'inline-flex',
+				minWidth: 'var(--density-touch-target, 0)',
+				maxWidth: '100%',
 				alignItems: 'center',
 				justifyContent: 'center',
 				gap: s.gap,
@@ -62,12 +79,14 @@ export function Button({
 				fontFamily: 'var(--font-sans)',
 				fontSize: s.font,
 				fontWeight: 'var(--font-weight-semibold)',
-				lineHeight: 1,
+				lineHeight: 1.2,
 				borderRadius: 'var(--radius-md)',
 				cursor: disabled ? 'not-allowed' : 'pointer',
 				opacity: disabled ? 0.5 : 1,
-				transition: 'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), filter var(--duration-fast) var(--easing-standard)',
-				whiteSpace: 'nowrap',
+				transition:
+					'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), filter var(--duration-fast) var(--easing-standard)',
+				whiteSpace: 'normal',
+				overflowWrap: 'anywhere',
 				...v,
 				...style,
 			}}
@@ -75,7 +94,10 @@ export function Button({
 				if (disabled) return;
 				if (variant === 'primary') e.currentTarget.style.background = 'var(--color-accent-hover)';
 				else if (variant === 'danger') e.currentTarget.style.filter = 'brightness(1.1)';
-				else { e.currentTarget.style.background = 'var(--color-surface-overlay)'; e.currentTarget.style.color = 'var(--color-text-primary)'; }
+				else {
+					e.currentTarget.style.background = 'var(--color-surface-overlay)';
+					e.currentTarget.style.color = 'var(--color-text-primary)';
+				}
 			}}
 			onMouseLeave={(e) => {
 				if (disabled) return;

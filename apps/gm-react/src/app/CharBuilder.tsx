@@ -20,6 +20,7 @@ import {
 } from '../ds';
 import { Seg, T, eb, mono } from './screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { registerBackHandler } from '../platform/backNavigation';
 import { pickTextFile } from '../platform/filePick';
 import { parseCharacterImport, type ImportPlan } from './charImport/ddbJson';
 
@@ -685,6 +686,10 @@ function Overlay({
 		(first ?? panel)?.focus();
 		const prevOverflow = document.body.style.overflow;
 		document.body.style.overflow = 'hidden';
+		const unregisterBack = registerBackHandler('fullscreen', () => {
+			closeRef.current();
+			return true;
+		});
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key === 'Escape') {
 				e.stopPropagation();
@@ -715,6 +720,7 @@ function Overlay({
 		document.addEventListener('keydown', onKey, true);
 		return () => {
 			document.removeEventListener('keydown', onKey, true);
+			unregisterBack();
 			document.body.style.overflow = prevOverflow;
 			previous?.focus?.();
 		};
@@ -723,6 +729,7 @@ function Overlay({
 	return (
 		<div
 			className="app-fixed-viewport"
+			data-fullscreen-overlay="character-builder"
 			onMouseDown={() => closeRef.current()}
 			style={{
 				position: 'fixed',
@@ -732,7 +739,8 @@ function Overlay({
 				display: 'flex',
 				alignItems: 'center',
 				justifyContent: 'center',
-				padding: 24,
+				padding:
+					'max(24px, var(--safe-area-top, 0px)) max(24px, var(--safe-area-right, 0px)) max(24px, var(--safe-area-bottom, 0px)) max(24px, var(--safe-area-left, 0px))',
 			}}
 		>
 			<div
@@ -744,9 +752,9 @@ function Overlay({
 				onMouseDown={(e) => e.stopPropagation()}
 				style={{
 					width: wide ? 1000 : 760,
-					maxWidth: '96vw',
+					maxWidth: '100%',
 					height: 620,
-					maxHeight: 'calc(var(--app-viewport-height) - 48px)',
+					maxHeight: '100%',
 					display: 'flex',
 					background: T.raised,
 					border: `1px solid ${T.bdS}`,
@@ -787,6 +795,13 @@ export function CharBuilder({
 	// silently discarding the multi-step draft. The Overlay itself is untouched — it just calls
 	// requestClose, which decides whether closing needs a deliberate answer first.
 	const [confirmDiscard, setConfirmDiscard] = useState(false);
+	useEffect(() => {
+		if (!confirmDiscard) return undefined;
+		return registerBackHandler('overlay', () => {
+			setConfirmDiscard(false);
+			return true;
+		});
+	}, [confirmDiscard]);
 
 	// Import-from-file state: the parsed plan (with its mapped/unmapped field report) or the
 	// parse failure, both rendered in the 'import' preview phase before anything is created.
@@ -2219,7 +2234,8 @@ export function CharBuilder({
 							display: 'flex',
 							alignItems: 'center',
 							justifyContent: 'center',
-							padding: 24,
+							padding:
+								'max(24px, var(--safe-area-top, 0px)) max(24px, var(--safe-area-right, 0px)) max(24px, var(--safe-area-bottom, 0px)) max(24px, var(--safe-area-left, 0px))',
 						}}
 					>
 						<div

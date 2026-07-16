@@ -8,10 +8,8 @@ import { searchVaultForActor } from '../queries/search-query';
 import { getGraphRelationships } from '../queries/graph-api';
 import { getPrepRecapDigest } from '../queries/prep-recap-digest';
 import { rollExpression } from '../state/dice';
-import {
-	buildSemanticBundle,
-	type SemanticBundleKind,
-} from './semantic-bundles';
+import { VAULT_OBJECT_SUBTYPE_KEY } from '../state/vault-object';
+import { buildSemanticBundle, type SemanticBundleKind } from './semantic-bundles';
 
 /**
  * MCP-004 / MCP-011 (composition seam) — the SINGLE, FAIL-CLOSED ENTRY POINT for every MCP tool call.
@@ -107,7 +105,9 @@ function deny(
 	message: string,
 	issues?: Array<{ path: string; message: string }>,
 ): McpToolResult {
-	return issues ? { status: 'denied', toolId, reason, message, issues } : { status: 'denied', toolId, reason, message };
+	return issues
+		? { status: 'denied', toolId, reason, message, issues }
+		: { status: 'denied', toolId, reason, message };
 }
 
 /** Validate the tool input against the tool's declared schema, mapping a failure to per-field issues. */
@@ -145,7 +145,12 @@ function runReadTool(
 		case 'content.item-detail': {
 			// note.read — the granular actor-filtered note detail (dm-only sections/fields omitted).
 			const { entityId } = input as { entityId: string };
-			const detail = getContentItemDetailForActor(state.content, state.permissions, actorId, entityId);
+			const detail = getContentItemDetailForActor(
+				state.content,
+				state.permissions,
+				actorId,
+				entityId,
+			);
 			// PERM-010 AC2: strip the DM-facing `accessDenialAudit` before returning to the requesting
 			// agent. The audit record carries the precise denial reason (`not-visible`, etc.), which must
 			// never reach a non-DM actor — the public denial is already indistinguishable from not-found.
@@ -259,16 +264,65 @@ function runReadTool(
  * smuggle a field the command does not accept, and so visibility-widening fields are never forwarded
  * (the note-create tool does NOT pass a visibility, so the command defaults it fail-closed).
  */
-function writeCommandPayload(
+export function writeCommandPayload(
 	tool: Extract<McpToolDefinition, { kind: 'write' }>,
 	input: unknown,
 ): unknown {
 	switch (tool.commandType) {
 		case 'content.create-item': {
-			const { title, body, kind } = input as { title: string; body: string; kind: 'note' | 'object' };
+			// `content.create-item` backs TWO tools; branch on the tool id so neither can smuggle the
+			// other's fields (a note.create can never carry table `fields`, and vice versa).
+			if (tool.id === 'table.create') {
+				const { title, dice, entries } = input as {
+					title: string;
+					dice: string;
+					entries: string[];
+				};
+				// A rollable `dice-table` Vault Object: the EXACT `fields` shape `readDiceTable`
+				// (commands/dice.ts) reads. No `visibility` ⇒ the table fails closed to `dm-only`.
+				return {
+					kind: 'object',
+					title,
+					body: '',
+					fields: { [VAULT_OBJECT_SUBTYPE_KEY]: 'dice-table', dice, entries },
+				};
+			}
+			const { title, body, kind } = input as {
+				title: string;
+				body: string;
+				kind: 'note' | 'object';
+			};
 			// Only the agent-safe fields cross over. No `visibility` ⇒ the command fails closed to
 			// `dm-only`, so an agent can never publish content to players by a tool call alone.
 			return { kind, title, body };
+		}
+		case 'content.update-item': {
+			const { itemId, baseRevision, title, body } = input as {
+				itemId: string;
+				baseRevision: number;
+				title?: string;
+				body?: string;
+			};
+			// Only the two agent-safe content fields cross over (never `fields`/visibility/timeline
+			// widening). The command re-validates that at least one field is present, fail-closed.
+			return {
+				itemId,
+				baseRevision,
+				...(title !== undefined ? { title } : {}),
+				...(body !== undefined ? { body } : {}),
+			};
+		}
+		case 'character.quick-create': {
+			const { kind, name, abilityScores, combat, data } = input as {
+				kind: 'npc' | 'monster' | 'sidekick';
+				name: string;
+				abilityScores: Record<string, number>;
+				combat: Record<string, unknown>;
+				data: Record<string, unknown>;
+			};
+			// Agent-safe stat fields only. No `visibility` ⇒ the character fails closed to `dm-only`
+			// (never player-visible by a tool call alone). The command re-validates the full payload.
+			return { kind, name, abilityScores, combat, data };
 		}
 		case 'scene-card.create': {
 			const { title, mood, flavorText } = input as {
@@ -312,13 +366,22 @@ export function invokeMcpTool(
 	// query/command runs — the same fail-closed posture the queries take, surfaced explicitly here so
 	// a forged-id probe cannot even reach the (already-safe) query layer.
 	if (!state.permissions.actors[invocation.actorId]) {
-		return deny(invocation.toolId, 'unknown-actor', 'The acting actor is not a registered participant.');
+		return deny(
+			invocation.toolId,
+			'unknown-actor',
+			'The acting actor is not a registered participant.',
+		);
 	}
 
 	// Gate 3 — SCHEMA VALIDATION. The tool input must satisfy the declared schema. Fail closed.
 	const parsed = parseToolInput(tool.inputSchema, invocation.input);
 	if (!parsed.ok) {
-		return deny(invocation.toolId, 'invalid-input', `Input for "${invocation.toolId}" failed validation.`, parsed.issues);
+		return deny(
+			invocation.toolId,
+			'invalid-input',
+			`Input for "${invocation.toolId}" failed validation.`,
+			parsed.issues,
+		);
 	}
 
 	// Gate 4 — ROUTE. Reads compose the actor-filtered query; writes dispatch the bound command.
@@ -332,7 +395,9 @@ export function invokeMcpTool(
 		type: tool.commandType,
 		actorId: invocation.actorId,
 		payload,
-		...(invocation.idempotencyKey !== undefined ? { idempotencyKey: invocation.idempotencyKey } : {}),
+		...(invocation.idempotencyKey !== undefined
+			? { idempotencyKey: invocation.idempotencyKey }
+			: {}),
 	} as Parameters<typeof dispatchCommand>[2]);
 	return { status: 'write', toolId: tool.id, commandResult };
 }

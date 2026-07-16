@@ -1,5 +1,7 @@
 import React from 'react';
 import { Icon } from '../core/Icon.jsx';
+import { registerBackHandler } from '../../../platform/backNavigation';
+import { isolateModalSiblings } from '../../../platform/modalIsolation';
 
 /**
  * Dialog — the modal chrome the system has long delegated to ("drop it inside a Dialog (desktop)…"
@@ -67,6 +69,7 @@ export function Dialog({
 		returnFocusRef.current = document.activeElement;
 		const prevOverflow = document.body.style.overflow;
 		document.body.style.overflow = 'hidden';
+		const restoreIsolation = panelRef.current ? isolateModalSiblings(panelRef.current) : () => {};
 
 		const focusFirst = () => {
 			const panel = panelRef.current;
@@ -112,10 +115,16 @@ export function Dialog({
 			}
 		};
 		document.addEventListener('keydown', onKey, true);
+		const unregisterBack = registerBackHandler('overlay', () => {
+			if (dismissibleRef.current) onCloseRef.current && onCloseRef.current();
+			return true;
+		});
 		return () => {
 			clearTimeout(t);
 			document.removeEventListener('keydown', onKey, true);
+			unregisterBack();
 			document.body.style.overflow = prevOverflow;
+			restoreIsolation();
 			const rf = returnFocusRef.current;
 			if (rf && rf.focus) rf.focus();
 		};
@@ -137,7 +146,8 @@ export function Dialog({
 				display: 'flex',
 				alignItems: 'center',
 				justifyContent: 'center',
-				padding: 'var(--space-6)',
+				padding:
+					'max(var(--space-6), var(--safe-area-top, 0px)) max(var(--space-6), var(--safe-area-right, 0px)) max(var(--space-6), var(--safe-area-bottom, 0px)) max(var(--space-6), var(--safe-area-left, 0px))',
 				background: 'var(--color-backdrop)',
 				animation: 'dndScrimIn var(--duration-fast) var(--easing-standard)',
 			}}

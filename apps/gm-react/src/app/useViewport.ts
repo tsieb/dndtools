@@ -42,3 +42,25 @@ export function useCompactTopBar(): boolean {
 	}, []);
 	return compact;
 }
+
+/**
+ * The usable viewport height (VisualViewport when the Android keyboard is open). Components consume
+ * this centralized responsive signal instead of adding their own global resize/keyboard probes.
+ */
+export function useViewportHeight(): number {
+	const readHeight = () => {
+		if (typeof window === 'undefined') return 640;
+		return Math.max(1, Math.round(window.visualViewport?.height ?? window.innerHeight));
+	};
+	const [height, setHeight] = useState(readHeight);
+	useEffect(() => {
+		const update = () => setHeight(readHeight());
+		window.addEventListener('resize', update);
+		window.visualViewport?.addEventListener('resize', update);
+		return () => {
+			window.removeEventListener('resize', update);
+			window.visualViewport?.removeEventListener('resize', update);
+		};
+	}, []);
+	return height;
+}

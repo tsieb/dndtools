@@ -89,7 +89,7 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 							: 'Go live'
 				}
 				aria-label={live ? 'End live session' : 'Go live'}
-				style={compact ? { width: 44, minHeight: 44, padding: 0, flex: '0 0 auto' } : undefined}
+				style={compact ? { width: 48, minHeight: 48, padding: 0, flex: '0 0 auto' } : undefined}
 				onClick={() =>
 					live
 						? setWorkflow('idle', 'Session ended — players returned to standby')

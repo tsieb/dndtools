@@ -7,6 +7,9 @@ This document defines the engineering rules that apply to every code change in t
 - Node.js 22.13+
 - pnpm 10.34.5 (the exact version pinned in `package.json` and CI)
 - Electron desktop is optional; a packaged-app smoke run needs a display.
+- Android work requires JDK 21 plus Android SDK/API 36 and build-tools 36.0.0; use the pinned Gradle
+  8.14.3 wrapper and Android Gradle Plugin 8.13. See
+  [`../runbooks/android-alpha.md`](../runbooks/android-alpha.md).
 
 ## 2. Script Surface
 
@@ -37,8 +40,11 @@ For every non-trivial change:
 
 ## 4. Boundary Rules
 
-- Shared core (`packages/core`) is framework-independent: it imports NO React, Svelte, DOM, Node, Electron, or cloud APIs.
+- Shared core (`packages/core`) is framework-independent: it imports NO React, Svelte, DOM, Node,
+  Electron, Capacitor, Android, or cloud APIs.
 - The renderer (`apps/gm-react/src`) must not import Node-only APIs; Electron main/preload live under `apps/gm-react/electron` and must not import renderer-only modules except shared types.
+- Renderer features consume `PlatformCapabilities` from `apps/gm-react/src/platform/capabilities.ts`;
+  they do not probe native globals. Android Java/plugin code stays under `apps/gm-react/android`.
 - Screens (`apps/gm-react/src/screens`) dispatch commands; they never mutate durable state directly.
 - Durable storage goes only through the Dexie/IndexedDB adapter (`apps/gm-react/src/platform/storage/coreStore.ts`), never from screens or components.
 
@@ -61,6 +67,8 @@ A change is complete only when all are true:
 - no boundary violations introduced
 - no known regressions in lint, typecheck, or tests
 - performance budgets in `packages/core/src/perf/budget-registry.ts` are not regressed
+- Android changes pass the matching Gradle, API 36 emulator, signing, responsive, accessibility, and
+  persistence checks in the Android runbook
 
 ## 7. Documentation Rules
 

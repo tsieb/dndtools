@@ -161,10 +161,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 					role="alert"
 					style={{
 						position: 'fixed',
-						top: 'calc(var(--native-titlebar-height, 0px) + 12px)',
-						right: 12,
+						top: 'calc(var(--native-titlebar-height, 0px) + max(12px, var(--safe-area-top, 0px)))',
+						right: 'max(12px, var(--safe-area-right, 0px))',
+						left: 'max(12px, var(--safe-area-left, 0px))',
 						zIndex: 10000,
 						maxWidth: 420,
+						marginLeft: 'auto',
 						padding: '10px 14px',
 						border: '1px solid var(--color-status-error-border)',
 						borderRadius: 'var(--radius-md, 6px)',

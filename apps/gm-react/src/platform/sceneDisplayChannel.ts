@@ -1,4 +1,5 @@
 import type { SceneCardTransitionStyle, SceneCardView } from '@dndtools/core';
+import { getPlatformCapabilities } from './capabilities';
 
 /**
  * I11 S11.2.2 — the CROSS-WINDOW SCENE DISPLAY seam.
@@ -94,6 +95,7 @@ export function subscribeSceneDisplayRequests(listener: () => void): () => void 
  * the opened window or null when the platform blocked it (popup blocker).
  */
 export function openSecondScreen(): Window | null {
+	if (!getPlatformCapabilities().secondScreen.available) return null;
 	return window.open(
 		'#/display',
 		'dndtools-scene-display',

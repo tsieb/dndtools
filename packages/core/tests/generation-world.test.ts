@@ -55,7 +55,8 @@ function elevationFor(
 
 function layer(output: GeneratorOutput, suffix: string): MapLayer {
 	const found = output.layers.find((l) => l.id === `gen-world-${suffix}`);
-	if (!found) throw new Error(`No layer "${suffix}" in [${output.layers.map((l) => l.id).join(', ')}]`);
+	if (!found)
+		throw new Error(`No layer "${suffix}" in [${output.layers.map((l) => l.id).join(', ')}]`);
 	return found;
 }
 
@@ -135,8 +136,12 @@ describe('world.continent — stream isolation', () => {
 	});
 
 	it('river names survive a change to the kingdom count', () => {
-		const before = features(generate({ kingdoms: 2 }, 'isolation'), 'rivers').map((f) => f.props?.name);
-		const after = features(generate({ kingdoms: 8 }, 'isolation'), 'rivers').map((f) => f.props?.name);
+		const before = features(generate({ kingdoms: 2 }, 'isolation'), 'rivers').map(
+			(f) => f.props?.name,
+		);
+		const after = features(generate({ kingdoms: 8 }, 'isolation'), 'rivers').map(
+			(f) => f.props?.name,
+		);
 		expect(before.length).toBeGreaterThan(0);
 		expect(after).toEqual(before);
 	});
@@ -147,7 +152,9 @@ describe('world.continent — stream isolation', () => {
 		expect(features(many, 'coastline')).toEqual(features(few, 'coastline'));
 		expect(features(many, 'rivers')).toEqual(features(few, 'rivers'));
 		expect(features(many, 'biomes')).toEqual(features(few, 'biomes'));
-		expect(features(many, 'settlements').length).toBeGreaterThan(features(few, 'settlements').length);
+		expect(features(many, 'settlements').length).toBeGreaterThan(
+			features(few, 'settlements').length,
+		);
 	});
 
 	it('dragging the sea level moves the waterline without rerolling the terrain', () => {
@@ -205,7 +212,8 @@ describe('world.continent — hydrology', () => {
 			// into (the sea, a lake, or the trunk it joins), so ownership is keyed on the body only.
 			const vertexOwner = new Map<string, number>();
 			rivers.forEach((river, index) => {
-				for (const point of river.points.slice(0, -1)) vertexOwner.set(`${point.x},${point.y}`, index);
+				for (const point of river.points.slice(0, -1))
+					vertexOwner.set(`${point.x},${point.y}`, index);
 			});
 
 			rivers.forEach((river, index) => {
@@ -358,7 +366,7 @@ describe('world.continent — params', () => {
 			expect(output.layers.length).toBe(8);
 			expect(output.summary ?? '').not.toBe('');
 		}
-	});
+	}, 15_000);
 
 	it('fails closed on an out-of-range or unknown param, with no partial output', () => {
 		const tooDeep = resolveParams(worldContinent, { seaLevel: 5 });

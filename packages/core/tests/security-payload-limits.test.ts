@@ -94,6 +94,17 @@ describe('SEC-006 payload-limits — body ceiling + byte measurement', () => {
 		expect(byteLength('abc')).toBe(3);
 	});
 
+	it('uses the same UTF-8 byte counts when TextEncoder is unavailable', () => {
+		const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'TextEncoder');
+		Object.defineProperty(globalThis, 'TextEncoder', { configurable: true, value: undefined });
+		try {
+			// ASCII + two-byte + three-byte + one surrogate-pair code point.
+			expect(byteLength('Aé€😀')).toBe(10);
+		} finally {
+			if (descriptor) Object.defineProperty(globalThis, 'TextEncoder', descriptor);
+		}
+	});
+
 	it('detects every ASCII control range while allowing ordinary Unicode text', () => {
 		expect(hasAsciiControlCharacter('account\u0000id')).toBe(true);
 		expect(hasAsciiControlCharacter('vault\u001fid')).toBe(true);

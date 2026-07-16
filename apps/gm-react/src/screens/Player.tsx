@@ -623,6 +623,7 @@ function PlayerSheet({
 					<div
 						key={a.key}
 						style={{
+							minWidth: 0,
 							textAlign: 'center',
 							padding: '10px 6px',
 							borderRadius: 11,
@@ -630,7 +631,7 @@ function PlayerSheet({
 							background: T.surf,
 						}}
 					>
-						<div style={{ ...eb, color: T.ter }}>{ABIL_FULL[a.key]}</div>
+						<div style={{ ...eb, color: T.ter, overflowWrap: 'anywhere' }}>{ABIL_FULL[a.key]}</div>
 						<div style={{ font: `700 24px ${T.mono}`, lineHeight: 1 }}>
 							{a.score !== undefined ? sgn(abilMod(a.score)) : '—'}
 						</div>
@@ -688,6 +689,7 @@ function PlayerSheet({
 							</div>
 						) : (
 							<DefinitionList
+								layout={isPhone ? 'stacked' : 'rows'}
 								items={[
 									{ label: 'Class', value: cls ? cap(cls) : '—' },
 									{ label: 'Level', value: level != null ? String(level) : '—', mono: true },

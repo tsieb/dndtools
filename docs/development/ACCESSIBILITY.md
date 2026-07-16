@@ -79,7 +79,7 @@ Environments:
 
 - VoiceOver + Safari (macOS) — desktop, keyboard
 - NVDA + Chrome (Windows) — desktop, keyboard
-- TalkBack + Chrome (Android) — mobile, touch
+- TalkBack + DND Tools GM on API 36 (Android) — mobile, touch
 
 Preconditions: recent production-candidate build; start from a non-empty vault.
 
@@ -105,6 +105,13 @@ Checks (each environment):
    blocker, never a known issue.
 7. **Form labels** — traverse all Settings controls; confirm every input/select/checkbox/radio has an
    announced label, role, and state.
+8. **Android responsive and inset behavior** — at 360px portrait, short landscape, tablet/foldable,
+   split screen, 200% text, and with the keyboard open, confirm the focused control and sticky action
+   remain visible; system bars/cutouts do not cover interactive content; every touch target is at least
+   48dp; and native Back dismisses the topmost transient surface in order.
+9. **Quick Map parity** — with TalkBack and touch, confirm every armed map tool is named and visibly
+   selected, multi-touch navigates instead of drawing, and token/POI/fog/zoom actions have non-drag
+   alternatives. Precision tools hidden on Android must not remove their geometry from the document.
 
 Release-notes block:
 
@@ -117,7 +124,7 @@ Release-notes block:
 - Environments:
   - VoiceOver/Safari (macOS): PASS | PASS WITH KNOWN ISSUES | FAIL
   - NVDA/Chrome (Windows): PASS | PASS WITH KNOWN ISSUES | FAIL
-  - TalkBack/Chrome (Android): PASS | PASS WITH KNOWN ISSUES | FAIL
+  - TalkBack/DND Tools GM (Android API 36): PASS | PASS WITH KNOWN ISSUES | FAIL
 - Player-role visibility-boundary no-leak check: PASS | FAIL
 - Findings:
   - [ID] Summary (WCAG X.X.X) - Severity - Status - Workaround - Target fix release
@@ -135,12 +142,12 @@ Release-notes block:
 The `wcag22aa` axe tag covers the automatable 2.2 additions. The remaining 2.2 criteria are handled as
 follows:
 
-| SC | Name | Coverage |
-| --- | --- | --- |
-| 2.4.11 | Focus Not Obscured (Min) | Focus-ring baseline in `styles/tokens/base.css`; manual spot-check of sticky chrome over focused canvas controls (§4). |
-| 2.4.13 | Focus Appearance | Focus-ring tokens (>= 3:1); enforced by `pnpm a11y:contrast`. |
-| 2.5.7 | Dragging Movements | Every canvas drag has a keyboard/menu alternative; verified manually (§4.5). |
-| 2.5.8 | Target Size (Min) | Touch-target floor in the token/DS layer; axe + mobile-profile scan. |
-| 3.2.6 | Consistent Help | Help trigger renders at the same relative position on every route; manual review. |
-| 3.3.7 | Redundant Entry | Campaign/session context persists in vault state, not re-requested within a session. |
-| 3.3.8 | Accessible Authentication | Session join uses a code with copy-paste; no CAPTCHA or cognitive test. |
+| SC     | Name                      | Coverage                                                                                                               |
+| ------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 2.4.11 | Focus Not Obscured (Min)  | Focus-ring baseline in `styles/tokens/base.css`; manual spot-check of sticky chrome over focused canvas controls (§4). |
+| 2.4.13 | Focus Appearance          | Focus-ring tokens (>= 3:1); enforced by `pnpm a11y:contrast`.                                                          |
+| 2.5.7  | Dragging Movements        | Every canvas drag has a keyboard/menu alternative; verified manually (§4.5).                                           |
+| 2.5.8  | Target Size (Min)         | 48dp Android touch-target floor in the token/DS layer; axe + mobile-profile scan and manual API 36 check.              |
+| 3.2.6  | Consistent Help           | Help trigger renders at the same relative position on every route; manual review.                                      |
+| 3.3.7  | Redundant Entry           | Campaign/session context persists in vault state, not re-requested within a session.                                   |
+| 3.3.8  | Accessible Authentication | Session join uses a code with copy-paste; no CAPTCHA or cognitive test.                                                |

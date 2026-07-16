@@ -16,7 +16,8 @@ export function BottomTabBar({ items = [], active, onSelect, style, ...rest }) {
 				alignItems: 'stretch',
 				width: '100%',
 				boxSizing: 'border-box',
-				padding: 'var(--space-1) var(--space-1) calc(var(--space-1) + env(safe-area-inset-bottom, 0px))',
+				padding:
+					'var(--space-1) max(var(--space-1), var(--safe-area-right, 0px)) calc(var(--space-1) + var(--safe-area-bottom, 0px)) max(var(--space-1), var(--safe-area-left, 0px))',
 				background: 'var(--color-surface)',
 				borderTop: '1px solid var(--color-border)',
 				...style,
@@ -33,6 +34,7 @@ export function BottomTabBar({ items = [], active, onSelect, style, ...rest }) {
 						onClick={() => onSelect && onSelect(it.key)}
 						style={{
 							flex: 1,
+							minWidth: 0,
 							display: 'flex',
 							flexDirection: 'column',
 							alignItems: 'center',
@@ -50,10 +52,34 @@ export function BottomTabBar({ items = [], active, onSelect, style, ...rest }) {
 						<span style={{ position: 'relative', display: 'inline-flex' }}>
 							<Icon name={it.icon} size="sm" aria-hidden="true" />
 							{it.badge != null && (
-								<span aria-hidden="true" style={{ position: 'absolute', top: -3, right: -6, minWidth: 7, height: 7, borderRadius: 'var(--radius-full)', background: 'var(--color-accent)', border: '1.5px solid var(--color-surface)' }} />
+								<span
+									aria-hidden="true"
+									style={{
+										position: 'absolute',
+										top: -3,
+										right: -6,
+										minWidth: 7,
+										height: 7,
+										borderRadius: 'var(--radius-full)',
+										background: 'var(--color-accent)',
+										border: '1.5px solid var(--color-surface)',
+									}}
+								/>
 							)}
 						</span>
-						<span style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-2xs)', fontWeight: on ? 'var(--font-weight-semibold)' : 'var(--font-weight-medium)', lineHeight: 1.1 }}>{it.label}</span>
+						<span
+							style={{
+								maxWidth: '100%',
+								fontFamily: 'var(--font-sans)',
+								fontSize: 'var(--text-2xs)',
+								fontWeight: on ? 'var(--font-weight-semibold)' : 'var(--font-weight-medium)',
+								lineHeight: 1.1,
+								overflowWrap: 'anywhere',
+								textAlign: 'center',
+							}}
+						>
+							{it.label}
+						</span>
 					</button>
 				);
 			})}

@@ -33,3 +33,14 @@ updates:
     groups:
       actions:
         patterns: ['*']
+
+  - package-ecosystem: gradle
+    directory: /apps/gm-react/android
+    schedule:
+      interval: weekly
+      day: monday
+      time: '10:00'
+      timezone: America/Vancouver
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 4

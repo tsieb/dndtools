@@ -72,6 +72,10 @@ describe('MCP-002 — the baseline tool set includes dice.roll and session.prep'
 				'note.create',
 				// I11 S11.2.1 — the staged scene-card create write tool.
 				'create_scene_card',
+				// ADR-025 — the agentic-run staged write tools (table gen, NPC create, note revision).
+				'table.create',
+				'character.create',
+				'note.update',
 			].sort(),
 		);
 	});

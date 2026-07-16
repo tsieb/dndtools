@@ -1,16 +1,21 @@
 # ADR-021: Client-Side BYO-Key AI Provider Transport
 
-- Status: Accepted
+- Status: Accepted (amended by [ADR-025](./025-agentic-multi-step-assistant-runs.md))
 - Date: 2026-07-11
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA
 - Supersedes: N/A
+- Amended by: ADR-025 (2026-07-15) — turns the single-ask assistant into an autonomous multi-step
+  run (streaming/cancellable loop, raised tool budget), expands the staged MCP write surface
+  (`table.create`, `character.create`, `note.update`), adds guided provider onboarding + a local
+  Ollama runner, and fixes the staged-write payload to match the direct-write path. No safety rule is
+  relaxed — writes remain staged proposals.
 - Amends: ADR-014 — lifts its AI/agent-provider **transport** deferral. ADR-014 kept the first
   prototype provider-agnostic and deferred the cloud/provider/transport choice ("defer CRDT/cloud/
   provider choices"; no MCP/provider packages in the first slice). ADR-002 and ADR-008 then built
   the whole MCP identity/policy/staged-write **Processing-Core** surface, but `agent-dispatch.ts`
-  states plainly: *"Per ADR-014 the MCP transport is deferred; this composes only Processing-Core
-  surfaces."* That last deferral is now closed: an app-side client can actually talk to a model
+  states plainly: _"Per ADR-014 the MCP transport is deferred; this composes only Processing-Core
+  surfaces."_ That last deferral is now closed: an app-side client can actually talk to a model
   provider and drive that existing pipeline. ADR-014's storage boundary and the ADR-002 staged-write
   contract remain fully in force — this ADR adds a transport, it does not relax any safety rule.
 
@@ -19,7 +24,7 @@
 The MCP layer in `@dndtools/core` (`packages/core/src/mcp/*`) is real and complete: the master
 enable switch (MCP-001), agent→actor identity binding (MCP-011), per-agent policy + tool allowlist
 (MCP-009), and the staged-write proposal model (ADR-002). The Settings → AI & tools screen already
-dispatches the `mcp.*` commands that administer all of it. But nothing could *call a model*: there
+dispatches the `mcp.*` commands that administer all of it. But nothing could _call a model_: there
 was no code path from a user's question to an LLM and back into `invokeMcpToolAsAgent`. Every AI
 surface was therefore honestly labeled "no transport ships in this build". Closing this is the
 single largest deferred capability; the release bar is "every feature functional except desktop
@@ -68,14 +73,16 @@ module `apps/gm-react/src/ai/` (transport layer, alongside `src/cloud` / `src/ne
    model is offered tool specs projected from the Core's own declared registry (name-sanitized for
    both wire formats; JSON Schema derived from each tool's Zod schema). Every tool call the model
    makes is routed through `SceneRuntime.invokeAgentTool` → `invokeMcpToolAsAgent`, which runs the
-   full optionality → identity → policy → stage/direct pipeline against authoritative state and
-   persists like any command (PLAT-018 rollback-on-persist-failure included). Reads come back
-   actor-filtered; **writes become staged proposals** that a human DM approves in the existing
-   review UI — the bridge's result mapping explicitly tells the model a staged write has *not* been
+   full optionality → identity → policy pipeline against authoritative state and
+   persists like any command (PLAT-018 rollback-on-persist-failure included). The built-in model client
+   sets the Core invocation's restrictive `forceStageWrites` option, so reads come back actor-filtered
+   and **writes become staged proposals** even if the selected generic agent policy is `trusted_direct`;
+   a human DM approves them in the existing
+   review UI — the bridge's result mapping explicitly tells the model a staged write has _not_ been
    applied. A bounded per-ask tool budget keeps the exchange from looping.
 
-4. **Entry surface**: the Settings → AI & tools screen gains an *AI provider* panel (key custody)
-   and an *Assistant* panel (one ask at a time, run as a chosen agent binding). The assistant is
+4. **Entry surface**: the Settings → AI & tools screen gains an _AI provider_ panel (key custody)
+   and an _Assistant_ panel (one ask at a time, run as a chosen agent binding). The assistant is
    disabled with an honest reason until every prerequisite is real: provider key present, MCP master
    switch on, a registered agent binding, and DM (not previewing).
 
@@ -103,12 +110,12 @@ module `apps/gm-react/src/ai/` (transport layer, alongside `src/cloud` / `src/ne
 
 ## Rejected Alternatives
 
-| Alternative | Why Rejected |
-| ----------- | ------------ |
-| Server-side inference proxy in the cloud backend | Requires a shared provider key, per-user metering, and an always-on billed service; contradicts the local-first, no-payment-processing release bar and adds a trust boundary the E2EE model deliberately avoids. |
-| Anthropic-only transport | Locks users to one vendor and forbids local/offline runners; the OpenAI-compatible path costs little and removes the lock-in. |
-| Let the model write directly under a "trusted" mode by default | Violates ADR-002. Direct writes remain possible only under an explicitly configured `trusted_direct` policy per binding; the default stays staged-review. |
-| Store the key in `localStorage` / the vault for convenience | Breaks SEC-004 (plaintext at rest on web) and PLAT-012, and would let the key sync to other devices via the op log. Memory + `sessionStorage` + OS-encrypted desktop mirror is the sanctioned custody. |
+| Alternative                                                    | Why Rejected                                                                                                                                                                                                     |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Server-side inference proxy in the cloud backend               | Requires a shared provider key, per-user metering, and an always-on billed service; contradicts the local-first, no-payment-processing release bar and adds a trust boundary the E2EE model deliberately avoids. |
+| Anthropic-only transport                                       | Locks users to one vendor and forbids local/offline runners; the OpenAI-compatible path costs little and removes the lock-in.                                                                                    |
+| Let the model write directly under a "trusted" mode by default | Violates ADR-002. `trusted_direct` remains available to explicitly configured generic MCP callers, but the built-in model assistant always passes `forceStageWrites`; its writes stay staged-review.             |
+| Store the key in `localStorage` / the vault for convenience    | Breaks SEC-004 (plaintext at rest on web) and PLAT-012, and would let the key sync to other devices via the op log. Memory + `sessionStorage` + OS-encrypted desktop mirror is the sanctioned custody.           |
 
 ## Migration Impact
 

@@ -13,7 +13,8 @@ A DM (the **host**) shares a live session with **players** over the local networ
 the single authoritative campaign state (`SceneRuntime`). Each player joins as a **non-authoritative view**
 and receives a player-safe snapshot of the table; players send back only _intents_ (dice rolls, edits to
 their own character). Transport is a **WebRTC data channel per player**, LAN-only, with **no STUN/TURN and
-no signaling server** — nothing is ever sent to a cloud or third party.
+no signaling server** — nothing is ever sent to a cloud or third party. Manual codes work across
+supported runtimes; automatic mDNS discovery is an Electron-only capability.
 
 ## Trust boundaries
 
@@ -73,6 +74,7 @@ no signaling server** — nothing is ever sent to a cloud or third party.
 
 - Automated: `apps/gm-react/scripts/verify-p2p.mjs` (AES-GCM round-trip + wrong-key rejection; connection-
   code encode/decode) and the player-safety leak assertions.
-- Manual (LAN): two instances on one network — host, join by code, then by mDNS; confirm live projection,
-  the dice/character back-channel, presence, reconnect, and revoke-by-drop; confirm **zero external network**
-  by disconnecting from the internet and verifying LAN play still works.
+- Manual (LAN): two instances on one network — host, join by code, then by mDNS when the host is
+  Electron; confirm live projection, the dice/character back-channel, presence, reconnect, and
+  revoke-by-drop; confirm **zero external network** by disconnecting from the internet and verifying
+  LAN play still works.

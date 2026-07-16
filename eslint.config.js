@@ -51,6 +51,9 @@ export default ts.config(
 		ignores: [
 			'**/dist/',
 			'**/dist-demo/',
+			// Capacitor copies the production bundle here during `cap sync`; lint the renderer source,
+			// never the generated/minified Android asset mirror.
+			'apps/gm-react/android/app/src/main/assets/public/',
 			'**/.svelte-kit/',
 			'**/build/',
 			'node_modules/',

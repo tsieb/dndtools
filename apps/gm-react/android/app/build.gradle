@@ -1,0 +1,96 @@
+apply plugin: 'com.android.application'
+
+def gmPackage = new groovy.json.JsonSlurper().parse(rootProject.file('../package.json'))
+def androidVersionName = gmPackage.version as String
+def androidVersionParts = (androidVersionName =~ /^(\d+)\.(\d+)\.(\d+)$/)
+if (!androidVersionParts.matches()) {
+    throw new GradleException("GM package version must be major.minor.patch: ${androidVersionName}")
+}
+def androidVersionCode =
+    androidVersionParts[0][1].toInteger() * 1_000_000 +
+    androidVersionParts[0][2].toInteger() * 1_000 +
+    androidVersionParts[0][3].toInteger()
+
+def alphaKeystorePath = System.getenv('ANDROID_ALPHA_KEYSTORE_PATH')
+def alphaKeystorePassword = System.getenv('ANDROID_ALPHA_KEYSTORE_PASSWORD')
+def alphaKeyAlias = System.getenv('ANDROID_ALPHA_KEY_ALIAS')
+def alphaKeyPassword = System.getenv('ANDROID_ALPHA_KEY_PASSWORD')
+def hasAlphaSigning = [
+    alphaKeystorePath,
+    alphaKeystorePassword,
+    alphaKeyAlias,
+    alphaKeyPassword,
+].every { value -> value != null && !value.trim().isEmpty() }
+
+android {
+    namespace = "com.dndtools.gm"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.dndtools.gm"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode androidVersionCode
+        versionName androidVersionName
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        alphaRelease {
+            if (hasAlphaSigning) {
+                storeFile file(alphaKeystorePath)
+                storePassword alphaKeystorePassword
+                keyAlias alphaKeyAlias
+                keyPassword alphaKeyPassword
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (hasAlphaSigning) {
+                signingConfig signingConfigs.alphaRelease
+            } else {
+                logger.warn('Android alpha signing variables are absent; the release output will be unsigned.')
+            }
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation "androidx.webkit:webkit:$androidxWebkitVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

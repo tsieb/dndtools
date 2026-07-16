@@ -1,5 +1,7 @@
 import React from 'react';
 import { Icon } from '../core/Icon.jsx';
+import { registerBackHandler } from '../../../platform/backNavigation';
+import { isolateModalSiblings } from '../../../platform/modalIsolation';
 
 /**
  * Sheet — the touch-first overlay the system delegates to alongside Dialog ("…or sheet (mobile)").
@@ -43,6 +45,7 @@ export function Sheet({
 		returnFocusRef.current = document.activeElement;
 		const prevOverflow = document.body.style.overflow;
 		document.body.style.overflow = 'hidden';
+		const restoreIsolation = panelRef.current ? isolateModalSiblings(panelRef.current) : () => {};
 		const t = setTimeout(() => {
 			const panel = panelRef.current;
 			if (!panel) return;
@@ -77,10 +80,16 @@ export function Sheet({
 			}
 		};
 		document.addEventListener('keydown', onKey, true);
+		const unregisterBack = registerBackHandler('overlay', () => {
+			if (dismissibleRef.current) onCloseRef.current && onCloseRef.current();
+			return true;
+		});
 		return () => {
 			clearTimeout(t);
 			document.removeEventListener('keydown', onKey, true);
+			unregisterBack();
 			document.body.style.overflow = prevOverflow;
+			restoreIsolation();
 			const rf = returnFocusRef.current;
 			if (rf && rf.focus) rf.focus();
 		};
@@ -91,6 +100,12 @@ export function Sheet({
 	const isBottom = side === 'bottom';
 	const sideWidth = size || SIDE_SIZE.side;
 	const bottomHeight = size || SIDE_SIZE.bottom;
+	const headerPadding = isBottom
+		? 'var(--space-3) max(var(--space-5), var(--safe-area-right, 0px)) var(--space-4) max(var(--space-5), var(--safe-area-left, 0px))'
+		: 'calc(var(--space-5) + var(--safe-area-top, 0px)) max(var(--space-5), var(--safe-area-right, 0px)) var(--space-5) max(var(--space-5), var(--safe-area-left, 0px))';
+	const contentPadding = `var(--space-5) max(var(--space-5), var(--safe-area-right, 0px)) ${
+		footer ? 'var(--space-5)' : 'calc(var(--space-5) + var(--safe-area-bottom, 0px))'
+	} max(var(--space-5), var(--safe-area-left, 0px))`;
 
 	const align = {
 		bottom: { alignItems: 'flex-end', justifyContent: 'stretch' },
@@ -192,7 +207,7 @@ export function Sheet({
 							display: 'flex',
 							alignItems: 'flex-start',
 							gap: 'var(--space-3)',
-							padding: isBottom ? 'var(--space-3) var(--space-5) var(--space-4)' : 'var(--space-5)',
+							padding: headerPadding,
 							borderBottom: '1px solid var(--color-border)',
 						}}
 					>
@@ -268,7 +283,7 @@ export function Sheet({
 						)}
 					</div>
 				)}
-				<div style={{ padding: 'var(--space-5)', overflowY: 'auto', flex: '1 1 auto' }}>
+				<div style={{ padding: contentPadding, overflowY: 'auto', flex: '1 1 auto' }}>
 					{children}
 				</div>
 				{footer && (
@@ -279,7 +294,8 @@ export function Sheet({
 							justifyContent: isBottom ? 'stretch' : 'flex-end',
 							gap: 'var(--space-2)',
 							flexWrap: 'wrap',
-							padding: 'var(--space-3) var(--space-5)',
+							padding:
+								'var(--space-3) max(var(--space-5), var(--safe-area-right, 0px)) calc(var(--space-3) + var(--safe-area-bottom, 0px)) max(var(--space-5), var(--safe-area-left, 0px))',
 							borderTop: '1px solid var(--color-border)',
 							background: 'var(--color-surface)',
 						}}

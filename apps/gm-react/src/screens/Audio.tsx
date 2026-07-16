@@ -44,6 +44,7 @@ import { pickBinaryFile } from '../platform/filePick';
 import { hasAssetBytes } from '../platform/storage/assetStore';
 import { useViewport } from '../app/useViewport';
 import { isNativeDesktopRuntime } from '../platform/windowChrome';
+import { isNetworkDestinationAllowed, usePlatformCapabilities } from '../platform/capabilities';
 
 /**
  * Audio — soundboard + session-audio transport, wired to the live Processing Core. The now-playing
@@ -186,9 +187,11 @@ function useAudioOutputDevices(enabled: boolean): {
 export function Audio() {
 	const runtime = useRuntime();
 	const viewport = useViewport();
+	const capabilities = usePlatformCapabilities();
 	const isPhone = viewport === 'phone';
 	const isDesktop = viewport === 'desktop';
 	const nativeDesktop = isNativeDesktopRuntime();
+	const android = capabilities.runtimeKind === 'android';
 	const dmId = runtime.defaultActorId;
 	const state = runtime.state;
 	const previewing = !!runtime.preview;
@@ -243,8 +246,18 @@ export function Audio() {
 			track.assetId ??
 			track.sourceId)
 		: 'Nothing playing';
-	const usableSources = nativeDesktop ? sources.filter((s) => s.type !== 'web-stream') : sources;
-	const webStreamSource = nativeDesktop ? undefined : sources.find((s) => s.type === 'web-stream');
+	const streamIsAllowed = (source: AudioSourceClassification): boolean => {
+		if (source.type !== 'web-stream') return true;
+		if (nativeDesktop) return false;
+		if (!android) return true;
+		const sourceUrl = state.audio.sources[source.sourceId]?.url;
+		return (
+			typeof sourceUrl === 'string' &&
+			isNetworkDestinationAllowed(sourceUrl, capabilities.runtimeKind)
+		);
+	};
+	const usableSources = sources.filter(streamIsAllowed);
+	const webStreamSource = sources.find((s) => s.type === 'web-stream' && streamIsAllowed(s));
 
 	const [tab, setTab] = useState<'playback' | 'presets' | 'automation'>('playback');
 	const [pulse, setPulse] = useState<string | null>(null);
@@ -335,6 +348,16 @@ export function Audio() {
 			setAddError('A web stream needs a stream URL.');
 			return;
 		}
+		if (
+			trackKind === 'web-stream' &&
+			android &&
+			!isNetworkDestinationAllowed(trackUrl.trim(), capabilities.runtimeKind)
+		) {
+			setAddError(
+				'Android audio streams must use a valid HTTPS URL. Import the file or use an encrypted host.',
+			);
+			return;
+		}
 		setAddBusy(true);
 		setAddError(null);
 		try {
@@ -363,7 +386,7 @@ export function Audio() {
 
 	// Play a configured STREAM source as the session track (the stream IS the track).
 	const playSource = (s: AudioSourceClassification) => {
-		if (nativeDesktop || s.type !== 'web-stream' || !s.playbackEnabled) return;
+		if (!streamIsAllowed(s) || s.type !== 'web-stream' || !s.playbackEnabled) return;
 		dispatch({
 			type: 'session.audio.play',
 			actorId: dmId,
@@ -1017,7 +1040,9 @@ export function Audio() {
 											required={trackKind === 'web-stream'}
 											help={
 												trackKind === 'web-stream'
-													? 'A direct audio URL — the stream is the track, no file import needed.'
+													? android
+														? 'A direct HTTPS audio URL. Android blocks cleartext HTTP streams.'
+														: 'A direct audio URL — the stream is the track, no file import needed.'
 													: 'Only web streams take a URL. For local files, use “Import audio…” above — it stores the bytes and creates the source in one step.'
 											}
 										>
@@ -1083,8 +1108,10 @@ export function Audio() {
 								<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 									{sources.map((s) => {
 										const desktopBlocked = nativeDesktop && s.type === 'web-stream';
+										const androidBlocked = android && !streamIsAllowed(s);
+										const platformBlocked = desktopBlocked || androidBlocked;
 										const streamPlayable =
-											!desktopBlocked && s.type === 'web-stream' && s.playbackEnabled;
+											!platformBlocked && s.type === 'web-stream' && s.playbackEnabled;
 										const isActive = track?.sourceId === s.sourceId;
 										return (
 											<div
@@ -1102,7 +1129,7 @@ export function Audio() {
 												<Icon
 													name="audio"
 													size={15}
-													color={s.playbackEnabled && !desktopBlocked ? T.acc : T.ter}
+													color={s.playbackEnabled && !platformBlocked ? T.acc : T.ter}
 												/>
 												<div style={{ flex: 1, minWidth: 0 }}>
 													<div style={{ font: `600 12.5px ${T.sans}` }}>{s.displayName}</div>
@@ -1111,13 +1138,15 @@ export function Audio() {
 													</div>
 												</div>
 												<Badge
-													status={s.playbackEnabled && !desktopBlocked ? 'success' : 'neutral'}
+													status={s.playbackEnabled && !platformBlocked ? 'success' : 'neutral'}
 												>
 													{desktopBlocked
 														? 'Blocked on desktop'
-														: s.playbackEnabled
-															? 'Playback ready'
-															: 'Disabled'}
+														: androidBlocked
+															? 'HTTPS required'
+															: s.playbackEnabled
+																? 'Playback ready'
+																: 'Disabled'}
 												</Badge>
 												{streamPlayable ? (
 													<Button
@@ -1134,12 +1163,12 @@ export function Audio() {
 													<span
 														style={{ font: `10.5px ${T.sans}`, color: T.ter }}
 														title={
-															desktopBlocked
+															platformBlocked
 																? 'Remote streams are blocked by the desktop security policy.'
 																: "Play this source's imported files from the soundboard above."
 														}
 													>
-														{desktopBlocked ? 'Import instead' : 'Via soundboard'}
+														{platformBlocked ? 'Import instead' : 'Via soundboard'}
 													</span>
 												)}
 											</div>

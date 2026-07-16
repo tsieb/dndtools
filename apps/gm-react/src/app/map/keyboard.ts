@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import type { MapEditorApi } from './useMapEditor';
-import { SHORTCUT_TO_TOOL } from './tools';
+import { SHORTCUT_TO_TOOL, type ToolId } from './tools';
 
 /**
  * MAP-021 — the editor keymap. Single-key tool shortcuts (the industry-standard V/B/E/… set),
@@ -16,6 +16,10 @@ export function useMapKeyboard(
 		openPalette: () => void;
 		openHelp: () => void;
 		announce: (message: string) => void;
+		/** Android quick mode never lets a hidden precision tool be armed by a hardware keyboard. */
+		isToolAllowed?: (tool: ToolId) => boolean;
+		/** Escape returns to touch navigation before it leaves the fullscreen editor. */
+		navigationTool?: ToolId;
 	},
 ) {
 	useEffect(() => {
@@ -85,12 +89,13 @@ export function useMapKeyboard(
 			// Escape: cancel / deselect / exit tool → select. (Path tools consume their own Escape in the
 			// canvas capture phase, so a half-drawn wall's Escape never reaches here.)
 			if (e.key === 'Escape') {
+				const navigationTool = handlers.navigationTool ?? 'select';
 				if (editor.selection.length > 0) {
 					editor.clearSelection();
 					return;
 				}
-				if (editor.tool !== 'select') {
-					editor.setTool('select');
+				if (editor.tool !== navigationTool) {
+					editor.setTool(navigationTool);
 					return;
 				}
 				handlers.onClose();
@@ -120,7 +125,7 @@ export function useMapKeyboard(
 			// Single-key tool shortcut.
 			if (!mod && e.key.length === 1) {
 				const toolId = SHORTCUT_TO_TOOL.get(e.key.toLowerCase());
-				if (toolId) {
+				if (toolId && (handlers.isToolAllowed?.(toolId) ?? true)) {
 					editor.setTool(toolId);
 					e.preventDefault();
 				}

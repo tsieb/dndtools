@@ -74,6 +74,13 @@ partial target safe to clear and retry, while a pre-existing nonempty target wit
 fails closed. Only explicitly reviewed non-secret preferences migrate; session storage and origin-bound
 folder handles do not.
 
+The Capacitor Android shell uses the same database and transaction path inside the application's
+WebView storage. A same-package, same-signature APK upgrade preserves that app-private data; clearing
+storage or uninstalling removes it. Android system backup is not the portable vault contract, and the
+Keystore-backed secret preferences are explicitly excluded because their key cannot move between
+installations. Users export a full local vault to storage outside the app before alpha upgrades; see
+[`../runbooks/android-alpha.md`](../runbooks/android-alpha.md).
+
 Write path (`persistFullState(previous, next)`):
 
 1. The request is validated at the platform-service boundary
@@ -107,7 +114,8 @@ multi-device merge. Current v2 envelopes authenticate the exact Cognito account,
 kind, and revision as AES-GCM additional data and repeat that binding inside the ciphertext. The
 sync service recomputes the expected context from the verified JWT and route metadata; ciphertext
 cannot be transplanted between tenants, vaults, artifact kinds, or revisions. Keys are scoped to the
-account plus vault in the OS credential store. Legacy unbound v1 envelopes are recognized only to
+account plus vault in the Electron or Android OS credential store. Legacy unbound v1 envelopes are
+recognized only to
 give a migration message and are never restored; the originating local vault must upload a fresh v2
 copy. The wire contract is in
 `packages/core/src/sync/cloud-wire.ts`: the server stores an opaque ciphertext envelope

@@ -76,7 +76,7 @@ jobs:
       - name: Run full lint policy
         run: pnpm lint
       - name: Reject high-severity dependency advisories
-        run: pnpm audit --audit-level high
+        run: pnpm security:audit
       - name: Build production bundles
         run: pnpm build
       - name: Install Chromium

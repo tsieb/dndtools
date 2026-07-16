@@ -3,6 +3,7 @@ import {
 	Suspense,
 	lazy,
 	useEffect,
+	useRef,
 	useState,
 	type CSSProperties,
 	type ReactNode,
@@ -23,6 +24,8 @@ import { AppShell } from './app/AppShell';
 import { Onboarding } from './app/Onboarding';
 import { CommandCenter } from './screens/CommandCenter';
 import { SceneDisplay } from './screens/SceneDisplay';
+import { PlatformLifecycle } from './platform/PlatformLifecycle';
+import { registerBackHandler } from './platform/backNavigation';
 
 // Route-level code-splitting: every section except the landing Command Center is a lazy chunk, so
 // the boot bundle carries only the shell + hub and each surface loads on first visit (all behind
@@ -68,7 +71,8 @@ const CENTERED: CSSProperties = {
 	width: '100%',
 	boxSizing: 'border-box',
 	overflowY: 'auto',
-	padding: 24,
+	padding:
+		'max(24px, var(--safe-area-top, 0px)) max(24px, var(--safe-area-right, 0px)) max(24px, var(--safe-area-bottom, 0px)) max(24px, var(--safe-area-left, 0px))',
 	textAlign: 'center',
 	background: 'var(--color-bg)',
 	color: 'var(--color-text-secondary)',
@@ -135,7 +139,7 @@ function FailScreen({
 					disabled={busy}
 					onClick={onAction}
 					style={{
-						minHeight: 44,
+						minHeight: 48,
 						padding: '8px 18px',
 						borderRadius: 'var(--radius-md, 6px)',
 						border: '1px solid var(--color-border)',
@@ -153,7 +157,7 @@ function FailScreen({
 						disabled={busy}
 						onClick={onSecondaryAction}
 						style={{
-							minHeight: 44,
+							minHeight: 48,
 							padding: '8px 18px',
 							borderRadius: 'var(--radius-md, 6px)',
 							border: '1px solid var(--color-border)',
@@ -188,6 +192,15 @@ function VaultLoadFailure({ runtime }: { runtime: SceneRuntime }) {
 	const [pendingBackup, setPendingBackup] = useState<VaultBackup | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [recoveryError, setRecoveryError] = useState<string | null>(null);
+	const busyRef = useRef(busy);
+	busyRef.current = busy;
+	useEffect(() => {
+		if (!pendingBackup) return undefined;
+		return registerBackHandler('overlay', () => {
+			if (!busyRef.current) setPendingBackup(null);
+			return true;
+		});
+	}, [pendingBackup]);
 
 	const pickBackup = async () => {
 		setBusy(true);
@@ -276,7 +289,7 @@ function VaultLoadFailure({ runtime }: { runtime: SceneRuntime }) {
 						disabled={busy}
 						onClick={() => setPendingBackup(null)}
 						style={{
-							minHeight: 44,
+							minHeight: 48,
 							padding: '8px 18px',
 							border: '1px solid var(--color-border-strong)',
 							borderRadius: 'var(--radius-md, 6px)',
@@ -293,7 +306,7 @@ function VaultLoadFailure({ runtime }: { runtime: SceneRuntime }) {
 						disabled={busy}
 						onClick={() => void restoreBackup()}
 						style={{
-							minHeight: 44,
+							minHeight: 48,
 							padding: '8px 18px',
 							border: '1px solid var(--color-status-error)',
 							borderRadius: 'var(--radius-md, 6px)',
@@ -452,6 +465,15 @@ function Shell() {
 	);
 }
 
+function RoutedApp() {
+	return (
+		<>
+			<PlatformLifecycle />
+			<Shell />
+		</>
+	);
+}
+
 /**
  * App — the application root. The Processing Core is loaded once by the RuntimeProvider; until
  * the first load resolves the shell shows a calm boot state so no screen renders against an empty,
@@ -471,7 +493,7 @@ export function App() {
 						<SessionProvider>
 							<HashRouter>
 								<ErrorBoundary>
-									<Shell />
+									<RoutedApp />
 								</ErrorBoundary>
 							</HashRouter>
 						</SessionProvider>

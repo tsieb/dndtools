@@ -12,6 +12,8 @@ remote play. The detailed backlog is the initiative set — see
 - Framework-free processing core: commands, deterministic reducers, permissions/visibility,
   actor-scoped queries, and the quality-gate / performance / security / source-of-truth registries.
 - Electron desktop shell (`apps/gm-react/electron/`).
+- Capacitor 8 Android alpha shell (`apps/gm-react/android/`) sharing the React renderer, Dexie vault,
+  and processing core, with centralized platform capabilities and touch-first Quick Map mode.
 - LAN / serverless WebRTC remote play (`apps/gm-react/src/net/`) — player-safe view-model replication.
 - Opt-in AWS cloud backend (`apps/gm-react/src/cloud/`, `packages/cloud-fns`, `infra/`): Cognito auth,
   WebRTC signaling + TURN, and end-to-end-encrypted sync (off by default, fail-closed behind the
@@ -39,7 +41,9 @@ remote play. The detailed backlog is the initiative set — see
 
 - Every change flows through commands into the core; nothing else writes authoritative state.
 - Docs track code in the same change set (see [`../README.md`](../README.md) quality rules).
-- `pnpm check` green before handoff; `pnpm validate` for the deep sweep.
+- `pnpm check` green before handoff; `pnpm validate` for the deep renderer/core sweep; Android
+  changes also pass the Gradle and API 36 gates in the
+  [Android alpha runbook](../runbooks/android-alpha.md).
 
 > The initiative files (I1–I20) are the planning backlog and mix shipped and aspirational work; they
 > are not a claim that every listed item is implemented. Treat [`../requirements/FEATURE-GAPS.md`](../requirements/FEATURE-GAPS.md)

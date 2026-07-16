@@ -351,6 +351,19 @@ describe('resolveAiProviderConfig — fail closed', () => {
 		expect(cfg.validateAiBaseUrl('http://192.168.1.20:11434/v1').valid).toBe(false);
 	});
 
+	it('rejects even loopback HTTP under the Android HTTPS-only policy', async () => {
+		const cfg = await loadConfig();
+		expect(
+			cfg.validateAiBaseUrl('http://127.0.0.1:11434/v1', { allowHttpLoopback: false }),
+		).toMatchObject({
+			valid: false,
+			message: expect.stringMatching(/Android requires HTTPS.*desktop app/i),
+		});
+		expect(
+			cfg.validateAiBaseUrl('https://api.example.com/v1', { allowHttpLoopback: false }).valid,
+		).toBe(true);
+	});
+
 	it('enforces the hosted-web origin allowlist before a provider request', async () => {
 		vi.stubEnv('VITE_AI_ALLOWED_ORIGINS', 'https://api.openai.com https://api.anthropic.com');
 		const cfg = await loadConfig();

@@ -338,4 +338,29 @@ describe('custom HTML/JS runtime sandbox policy', () => {
 		expect(result.policy.forbiddenCapabilities).toContain('raw-vault-file');
 		expect(result.policy.forbiddenCapabilities).toContain('auth-token');
 	});
+
+	it('reports every unsafe or unsupported custom-runtime declaration', () => {
+		const widget = customPackage().widgets[0];
+		if (!widget) throw new Error('missing widget');
+		const result = resolveCustomWidgetRuntimePolicy(
+			{
+				...widget,
+				renderEntrypoint: {
+					runtime: 'custom-html-js',
+					hostApiVersion: CUSTOM_WIDGET_HOST_API_VERSION + 1,
+				},
+				style: undefined,
+			},
+			{ approvedPermissions: [] },
+		);
+		expect(result.issues.map((issue) => issue.code)).toEqual([
+			'custom-runtime-missing-entrypoint',
+			'custom-runtime-unsupported-host-api',
+			'custom-runtime-missing-sandbox',
+		]);
+		expect(result.policy).toMatchObject({
+			sandbox: 'iframe',
+			styleIsolation: 'iframe-document',
+		});
+	});
 });

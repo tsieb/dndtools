@@ -8,7 +8,12 @@ import {
 import type { McpToolRegistry } from './tool-registry';
 import { resolveAgentIdentity, type McpIdentityDenyReason } from './identity';
 import { decidePolicy, type McpPolicyDenyReason } from './policy';
-import { invokeMcpTool, type McpToolInvocation, type McpToolResult } from './tool-dispatch';
+import {
+	invokeMcpTool,
+	writeCommandPayload,
+	type McpToolInvocation,
+	type McpToolResult,
+} from './tool-dispatch';
 
 /**
  * MCP-001 / MCP-003 / MCP-009 / MCP-011 — THE agent-facing entry point that COMPOSES the whole optionality +
@@ -90,6 +95,13 @@ export interface McpAgentInvocation {
 	input: unknown;
 	/** Optional idempotency key forwarded to a direct write's dispatch / captured on a staged proposal. */
 	idempotencyKey?: string;
+	/**
+	 * Force every otherwise-allowed write through the staged-proposal path, even when the agent policy is
+	 * `trusted_direct`. This is used by model-backed assistant surfaces, whose safety contract requires a
+	 * human approval for every write. It never widens access: disabled and non-allowlisted calls remain
+	 * denied, and reads retain their actor-filtered route.
+	 */
+	forceStageWrites?: boolean;
 }
 
 /** A denial leaves durable state untouched: the unchanged `state` is threaded straight back. */
@@ -162,7 +174,11 @@ export function invokeMcpToolAsAgent(
 	const identity = resolution.identity;
 
 	// Gate 2 — POLICY (MCP-009). `disabled` / non-allowlisted deny BEFORE any core query/command runs.
-	const decision = decidePolicy(identity, tool);
+	const policyDecision = decidePolicy(identity, tool);
+	const decision =
+		invocation.forceStageWrites && policyDecision.kind === 'direct'
+			? ({ kind: 'stage', batchable: false } as const)
+			: policyDecision;
 	if (decision.kind === 'denied') {
 		const message =
 			decision.reason === 'disabled'
@@ -177,7 +193,9 @@ export function invokeMcpToolAsAgent(
 		actorId: identity.actorId,
 		agentId: invocation.agentId,
 		input: invocation.input,
-		...(invocation.idempotencyKey !== undefined ? { idempotencyKey: invocation.idempotencyKey } : {}),
+		...(invocation.idempotencyKey !== undefined
+			? { idempotencyKey: invocation.idempotencyKey }
+			: {}),
 	};
 
 	if (decision.kind === 'allow-read') {
@@ -236,13 +254,18 @@ export function invokeMcpToolAsAgent(
 		actorId: identity.actorId,
 		toolId: invocation.toolId,
 		commandType: tool.commandType,
-		// Stage the SCHEMA-VALIDATED tool input. The approval re-dispatches the bound command, whose own
-		// validator re-checks the full payload against current state (so staging can never smuggle a field
-		// the command rejects, and the bound command — never the tool — decides the final durable shape).
-		payload: parsed.data,
+		// Stage the MAPPED command payload — the SAME transform the direct-write path applies
+		// (`writeCommandPayload`), so a staged write and a trusted-direct write dispatch an identical
+		// payload. The approval re-dispatches the bound command, whose own validator re-checks the full
+		// payload against current state (so staging can never smuggle a field the command rejects). For
+		// the baseline tools this is identity; for tools whose input differs from the command shape (e.g.
+		// a dice-table's rows mapped into `fields`) it is what makes the approved write valid.
+		payload: writeCommandPayload(tool, parsed.data),
 		policyMode: identity.policyMode,
 		writeRisk: tool.writeRisk,
-		...(invocation.idempotencyKey !== undefined ? { idempotencyKey: invocation.idempotencyKey } : {}),
+		...(invocation.idempotencyKey !== undefined
+			? { idempotencyKey: invocation.idempotencyKey }
+			: {}),
 		status: 'pending',
 		createdAt: now,
 		resolvedAt: null,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../ds';
 import { TIER_LABEL, visibilityChip, type BoardWidget } from './board-helpers';
 import { WidgetBody, type WidgetCommandHandler } from './widget-bodies';
@@ -438,15 +438,18 @@ export function SceneBoardCanvas({
 				}}
 			/>
 			<div
-				style={{
-					position: 'absolute',
-					left: 0,
-					top: 0,
-					transformOrigin: '0 0',
-					transform: `translate(${tx}px, ${ty}px) scale(${scale})`,
-					minWidth: policy === 'bounded' ? boundedExtent.width : '100%',
-					height: policy === 'bounded' ? boundedExtent.height : undefined,
-				}}
+				style={
+					{
+						position: 'absolute',
+						left: 0,
+						top: 0,
+						transformOrigin: '0 0',
+						transform: `translate(${tx}px, ${ty}px) scale(${scale})`,
+						'--scene-board-touch-target': `${48 / scale}px`,
+						minWidth: policy === 'bounded' ? boundedExtent.width : '100%',
+						height: policy === 'bounded' ? boundedExtent.height : undefined,
+					} as CSSProperties
+				}
 			>
 				{editing && (
 					<div

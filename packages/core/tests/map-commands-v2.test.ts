@@ -87,7 +87,12 @@ function playerSurface(state: CoreStateSlice, mapId = MAP_ID): string {
 	return JSON.stringify({ view, layers });
 }
 
-const A: MapFeature = { id: 'f-a', kind: 'stroke', points: [{ x: 0.2, y: 0.3 }], style: 'ink:black' };
+const A: MapFeature = {
+	id: 'f-a',
+	kind: 'stroke',
+	points: [{ x: 0.2, y: 0.3 }],
+	style: 'ink:black',
+};
 const B: MapFeature = { id: 'f-b', kind: 'marker', points: [{ x: 0.4, y: 0.5 }], style: 'ink:red' };
 const C: MapFeature = {
 	id: 'f-c',
@@ -110,6 +115,114 @@ function bulkFeatures(count: number, prefix = 'bulk'): MapFeature[] {
 		style: 'terrain:grass',
 	}));
 }
+
+describe('Android quick-map preservation contract', () => {
+	it('keeps desktop-authored precision geometry byte-for-byte through live-session edits', () => {
+		const precisionFeatures: MapFeature[] = [
+			{ id: 'desktop-brush', kind: 'stroke', points: [{ x: 0.1, y: 0.2 }], style: 'ink' },
+			{
+				id: 'desktop-room',
+				kind: 'room',
+				points: [
+					{ x: 0.1, y: 0.1 },
+					{ x: 0.3, y: 0.3 },
+				],
+				style: 'stone',
+			},
+			{
+				id: 'desktop-wall',
+				kind: 'wall',
+				points: [
+					{ x: 0.2, y: 0.2 },
+					{ x: 0.5, y: 0.2 },
+				],
+				style: 'wall',
+				props: { blocksSight: true, elevation: 8 },
+			},
+			{
+				id: 'desktop-road',
+				kind: 'road',
+				points: [
+					{ x: 0.2, y: 0.6 },
+					{ x: 0.8, y: 0.7 },
+				],
+				style: 'road:old',
+			},
+			{
+				id: 'desktop-door',
+				kind: 'door',
+				points: [
+					{ x: 0.4, y: 0.2 },
+					{ x: 0.44, y: 0.2 },
+				],
+				style: 'door',
+				props: { portal: 'secret', state: 'locked' },
+			},
+			{
+				id: 'desktop-light',
+				kind: 'light',
+				points: [{ x: 0.5, y: 0.5 }],
+				style: 'torch',
+				props: { radius: 0.12, color: '#ffcc88', intensity: 0.8 },
+			},
+			{
+				id: 'desktop-text',
+				kind: 'text',
+				points: [{ x: 0.35, y: 0.42 }],
+				style: 'label',
+				props: { text: 'Hidden stair', size: 3, rotation: 12 },
+			},
+			{
+				id: 'desktop-scatter',
+				kind: 'prop',
+				points: [{ x: 0.72, y: 0.33 }],
+				style: 'prop:tree',
+				props: { asset: 'tree-oak', rotation: 27, scale: 0.8 },
+			},
+		];
+
+		let state = accept(
+			run(stateWithMaps(), {
+				type: 'map.add-features',
+				actorId: DM_ACTOR.id,
+				payload: { mapId: KEEP_ID, layerId: 'layer-rooms', features: precisionFeatures },
+			}),
+		).nextState;
+		const before = JSON.stringify(layer(state, 'layer-rooms', KEEP_ID).content);
+
+		// The exact commands exposed by quick mode are incremental; none serializes or replaces the
+		// desktop-authored layer geometry.
+		state = accept(
+			run(state, {
+				type: 'map.move-token',
+				actorId: DM_ACTOR.id,
+				payload: { mapId: KEEP_ID, tokenId: 'token-hero', position: { x: 0.42, y: 0.44 } },
+			}),
+		).nextState;
+		state = accept(
+			run(state, {
+				type: 'map.append-fog',
+				actorId: DM_ACTOR.id,
+				payload: {
+					mapId: KEEP_ID,
+					id: 'quick-fog-reveal',
+					layerId: 'layer-fog',
+					kind: 'reveal',
+					region: { shape: 'rect', x: 0.15, y: 0.15, w: 0.2, h: 0.2 },
+				},
+			}),
+		).nextState;
+		state = accept(
+			run(state, {
+				type: 'map.set-layer-enabled',
+				actorId: DM_ACTOR.id,
+				payload: { mapId: KEEP_ID, layerId: 'layer-rooms', enabled: false },
+			}),
+		).nextState;
+
+		expect(JSON.stringify(layer(state, 'layer-rooms', KEEP_ID).content)).toBe(before);
+	});
+});
 
 // =================================================================================================
 // A. map.add-features / map.update-features / map.remove-features
@@ -609,9 +722,9 @@ describe('MAP-021 map.generate — registry-driven generation', () => {
 
 	it('(b) rejects a non-DM actor', () => {
 		for (const actorId of [PLAYER_ACTOR.id, OBSERVER_ACTOR.id]) {
-			expect(
-				reject(run(stateWithMaps(), { ...GENERATE, actorId })).rejection.code,
-			).toBe('actor-not-authorized');
+			expect(reject(run(stateWithMaps(), { ...GENERATE, actorId })).rejection.code).toBe(
+				'actor-not-authorized',
+			);
 		}
 	});
 
@@ -887,7 +1000,11 @@ describe('MAP-021 map.delete — refuses to orphan an embed', () => {
 
 	it('deletes an unembedded map without force', () => {
 		const result = accept(
-			run(stateWithMaps(), { type: 'map.delete', actorId: DM_ACTOR.id, payload: { mapId: KEEP_ID } }),
+			run(stateWithMaps(), {
+				type: 'map.delete',
+				actorId: DM_ACTOR.id,
+				payload: { mapId: KEEP_ID },
+			}),
 		);
 		expect(result.nextState.maps.maps[KEEP_ID]).toBeUndefined();
 	});
@@ -903,7 +1020,11 @@ describe('MAP-021 map.delete — refuses to orphan an embed', () => {
 
 	it('(c) a deleted map reads as generically UNAVAILABLE to a player (not "deleted")', () => {
 		const state = accept(
-			run(stateWithMaps(), { type: 'map.delete', actorId: DM_ACTOR.id, payload: { mapId: KEEP_ID } }),
+			run(stateWithMaps(), {
+				type: 'map.delete',
+				actorId: DM_ACTOR.id,
+				payload: { mapId: KEEP_ID },
+			}),
 		).nextState;
 		const view = getMapViewForActor(state.maps, state.permissions, PLAYER_ACTOR.id, KEEP_ID);
 		expect(view).toEqual({ kind: 'unavailable', mapId: KEEP_ID });

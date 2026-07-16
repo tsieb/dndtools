@@ -115,12 +115,15 @@ function OpChip({
 	}
 	return (
 		<button
+			className="scene-board-operation"
 			type="button"
 			aria-label={ariaLabel ?? label}
 			onClick={onPress}
 			onPointerDown={(e) => e.stopPropagation()}
 			style={{
 				...opChipStyle,
+				minWidth: 'var(--operation-touch-target, var(--density-touch-target, auto))',
+				minHeight: 'var(--operation-touch-target, var(--density-touch-target, auto))',
 				border: '1px solid var(--color-border)',
 				background: 'var(--color-accent-subtle)',
 				color: 'var(--color-accent)',

@@ -8,7 +8,7 @@ live in `apps/gm-react/src/app/screen-kit.tsx`; tokens live in
 ## Tier Definitions
 
 Tier is a single `Viewport` value (`'desktop' | 'rail' | 'phone'`) computed in
-`AppShell.tsx` (`computeViewport` / `useViewport`). The IA is identical across all three —
+`src/app/useViewport.ts` (`computeViewport` / `useViewport`). The IA is identical across all three —
 only the presentation of the navigation changes.
 
 - **`phone`** — viewport width `<= 640px`
@@ -25,7 +25,7 @@ only the presentation of the navigation changes.
 
 ## Source Of Truth
 
-- Tier detection lives in `AppShell.tsx` and is driven by `window.matchMedia`
+- Tier detection lives in `src/app/useViewport.ts` and is driven by `window.matchMedia`
   (`(max-width: 640px)` and `(max-width: 1024px)`) with `change` listeners — no resize
   polling. On the server / before hydration the tier defaults to `desktop`.
 - The breakpoint values are literal in `computeViewport`; they are **not** token-driven.
@@ -37,7 +37,19 @@ Density is orthogonal to the viewport tier and is applied at the document root v
 `data-density` attribute (`standard` default, `comfortable`, `compact`). The density
 sizing sets are defined in `apps/gm-react/src/styles/tokens/spacing.css`
 (`--density-*` tokens: nav height, card padding, list gap, icon size, input/button
-height, touch/focus targets). Touch profiles lock to comfortable (>=44px targets).
+height, touch/focus targets). Touch profiles lock to comfortable; Android raises every interactive
+hit target to at least 48dp.
+
+## Android edge-to-edge and keyboard behavior
+
+- Top and bottom chrome may paint behind transparent system bars. Interactive content uses
+  `env(safe-area-inset-top/right/bottom/left)` so cutouts and gesture areas never cover controls.
+- `useViewportHeight` centralizes `VisualViewport` height changes for software-keyboard-sized layouts.
+  Focused fields and sticky confirmation actions remain reachable while the keyboard is open.
+- Rotation, resizing, split screen, and tablet/foldable widths continue to select the tier from
+  available width; Android does not lock orientation.
+- Sheets and dialogs bound their scrolling to the usable viewport, include bottom safe-area padding,
+  and register with the native Back stack.
 
 ## Page-level layout primitives
 
@@ -53,7 +65,9 @@ height, touch/focus targets). Touch profiles lock to comfortable (>=44px targets
 
 - Structural layout must branch on the `Viewport` tier from `AppShell`, not on ad-hoc
   `window.innerWidth` reads inside screens.
-- Screens adapt their *content* with normal CSS (flex/grid, relative units); they must not
+- Screens adapt their _content_ with normal CSS (flex/grid, relative units); they must not
   introduce competing shell-structure breakpoints.
 - The navigation IA is the same in every tier — a tier change is a presentation change,
   never an IA change (see `NAVIGATION_CONTRACT.md`).
+- Platform-specific availability comes from `src/platform/capabilities.ts`; viewport tiers never
+  infer that a renderer is Android, Electron, or web.

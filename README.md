@@ -12,7 +12,7 @@ the platform-independent **processing core** (`packages/core`) is shared by ever
 ```text
 apps/
   gm-react/    @dndtools/gm-react — the GM command platform (Vite + React 18, browser-first,
-               plus an Electron desktop shell and LAN/cloud remote play)
+               plus Electron desktop and Capacitor Android shells and LAN/cloud remote play)
 packages/
   core/        @dndtools/core     — the processing core (commands, reducers, permissions, queries)
   cloud-fns/   @dndtools/cloud-fns — AWS Lambda handlers for signaling + encrypted backup
@@ -46,6 +46,7 @@ pnpm gates            # tiered quality-gate registry enforcement
 pnpm check            # gates + boundary lint + typecheck + tests
 pnpm validate         # whole-application validation harness (staged, capability-gated)
 pnpm desktop:dev      # run the Electron desktop shell against the dev server
+pnpm --filter @dndtools/gm-react android:sync # build and synchronize the Android project
 ```
 
 ## Boundaries
@@ -55,6 +56,12 @@ pnpm desktop:dev      # run the Electron desktop shell against the dev server
 - `@dndtools/gm-react` owns rendering, platform services (Dexie/IndexedDB), remote-play transport,
   and command dispatch; it depends on `@dndtools/core` via `workspace:*` and never mutates durable
   state directly — all changes flow through commands into the processing core.
+- Browser, Electron, and Android consume the centralized `PlatformCapabilities` contract. Native
+  integrations stay in `apps/gm-react/electron` and `apps/gm-react/android`; the shared core never
+  imports them.
+
+Android build, installation, signing, backup, and alpha limitations are documented in the
+[Android alpha runbook](docs/runbooks/android-alpha.md).
 
 ## History
 

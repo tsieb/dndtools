@@ -72,7 +72,9 @@ export function Tabs({ tabs = [], value, onChange, style, ...rest }) {
 						}}
 						style={{
 							display: 'inline-flex',
-							minWidth: 0,
+							minWidth: 'var(--density-touch-target, 0)',
+							minHeight: 'var(--density-touch-target, auto)',
+							maxWidth: '100%',
 							alignItems: 'center',
 							gap: 'var(--space-1-5)',
 							padding: 'var(--space-2) var(--space-3)',
@@ -87,6 +89,7 @@ export function Tabs({ tabs = [], value, onChange, style, ...rest }) {
 							cursor: t.disabled ? 'not-allowed' : 'pointer',
 							opacity: t.disabled ? 0.45 : 1,
 							transition: 'color var(--duration-fast) var(--easing-standard)',
+							overflowWrap: 'anywhere',
 						}}
 					>
 						{icon && <Icon name={icon} size="sm" />}

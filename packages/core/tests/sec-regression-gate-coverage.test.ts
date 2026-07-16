@@ -11,7 +11,12 @@ import {
 	type SecurityBoundaryId,
 } from '../src';
 import * as core from '../src';
-import { DM_ACTOR, PLAYER_ACTOR, buildInitialState, makeEnvironment } from '../src/testing/fixtures';
+import {
+	DM_ACTOR,
+	PLAYER_ACTOR,
+	buildInitialState,
+	makeEnvironment,
+} from '../src/testing/fixtures';
 
 /**
  * SEC-008 — THE SECURITY REGRESSION-GATE COVERAGE META-TEST. SEC-008 AC1: "a security-critical boundary
@@ -81,13 +86,27 @@ describe('SEC-008 AC1 — the regression-gate registry is internally consistent 
 		const problems = validateSecurityBoundaryRegistry([dup, dup]);
 		expect(problems.some((p) => p.kind === 'duplicate-boundary-id')).toBe(true);
 	});
+
+	it('a boundary must name both its guard surface and dedicated coverage test', () => {
+		const boundary = SECURITY_BOUNDARIES[0]!;
+		const problems = validateSecurityBoundaryRegistry([
+			{ ...boundary, guardSurface: ' ', coverageTest: ' ' },
+		]);
+		expect(problems.map((problem) => problem.kind)).toEqual([
+			'missing-guard-surface',
+			'missing-coverage-test',
+		]);
+	});
 });
 
 describe('SEC-008 AC1 — every declared boundary is backed by a real coverage test on disk', () => {
 	for (const boundary of SECURITY_BOUNDARIES) {
 		it(`"${boundary.id}" names a coverage-test file that exists`, () => {
 			const full = path.join(REPO_ROOT, boundary.coverageTest);
-			expect(fs.existsSync(full), `missing coverage test for "${boundary.id}": ${boundary.coverageTest}`).toBe(true);
+			expect(
+				fs.existsSync(full),
+				`missing coverage test for "${boundary.id}": ${boundary.coverageTest}`,
+			).toBe(true);
 		});
 	}
 
@@ -109,7 +128,10 @@ describe('SEC-008 AC1 — every declared boundary is backed by a real guard expo
 				.map((token) => token.trim().replace(/\s*\(.*$/, ''))
 				.filter((token) => /^[A-Za-z_]\w*$/.test(token));
 			const live = named.filter((name) => exported.has(name));
-			expect(live.length, `"${boundary.id}" names no live export among: ${named.join(', ')}`).toBeGreaterThan(0);
+			expect(
+				live.length,
+				`"${boundary.id}" names no live export among: ${named.join(', ')}`,
+			).toBeGreaterThan(0);
 		});
 	}
 });
@@ -128,7 +150,9 @@ describe('SEC-008 AC2 — a known player-data leak fixture never appears in a re
 		state = created.nextState;
 
 		// The DM sees the secret; the player NEVER does.
-		expect(JSON.stringify(getContentItemsForActor(state.content, state.permissions, DM_ACTOR.id))).toContain(SECRET);
+		expect(
+			JSON.stringify(getContentItemsForActor(state.content, state.permissions, DM_ACTOR.id)),
+		).toContain(SECRET);
 		const playerView = getContentItemsForActor(state.content, state.permissions, PLAYER_ACTOR.id);
 		expect(JSON.stringify(playerView)).not.toContain(SECRET);
 	});

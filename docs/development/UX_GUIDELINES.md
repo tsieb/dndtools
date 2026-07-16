@@ -13,6 +13,7 @@ Where things live:
 - Design-system components: `apps/gm-react/src/ds/components/**`
 - Icons: `apps/gm-react/src/ds/components/core/Icon.jsx` (semantic name → `lucide-react`)
 - Tokens / global CSS: `apps/gm-react/src/styles/index.css` + `apps/gm-react/src/styles/tokens/`
+- Runtime capabilities: `apps/gm-react/src/platform/capabilities.ts`
 
 ## 1) Product context
 
@@ -34,6 +35,8 @@ read/light update).
 
 - Every screen has a clear route back to a home/list surface.
 - Browser back/forward semantics stay intact (the app uses `react-router-dom` `HashRouter`).
+- Android Back closes the topmost menu/dialog/sheet, leaves a fullscreen editor, uses router history,
+  then minimizes from the root destination.
 - Sidebar/drawer toggling must never trap focus.
 - The command palette (`Cmd`/`Ctrl`+`K`, `apps/gm-react/src/app/CommandPalette.tsx`) is the
   keyboard-first entry point for navigation and actions.
@@ -70,9 +73,15 @@ Full requirements and gates are in `docs/development/ACCESSIBILITY.md`. In short
 
 ## 6) Mobile & responsive
 
-- Sidebar collapses to an overlay drawer on mobile; main content stays scrollable.
-- Core controls meet the touch-target minimum; the mobile-chromium axe profile guards this.
+- Compact screens use bottom navigation for Command Center, Session, Characters, and Maps, with every
+  other destination in the More sheet; wider layouts adapt to the navigation rail/sidebar.
+- Android controls meet a 48dp touch-target floor with adequate target spacing and no hover-only or
+  gesture-only action discovery; the mobile Chromium and TalkBack/API 36 checks guard this.
 - Editor/input surfaces must handle the virtual keyboard without obscuring the active field.
+- Edge-to-edge chrome may extend behind system bars, but interactive content uses all four safe-area
+  insets. Rotation, resizing, and split-screen remain supported.
+- Compact contexts expose one clear primary top-bar action; secondary actions move into labelled
+  overflow or bounded sheets whose confirmation controls remain reachable above the keyboard/safe area.
 
 ## 7) Reliability UX
 

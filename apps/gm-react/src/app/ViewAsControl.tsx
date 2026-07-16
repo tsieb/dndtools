@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { PreviewSelection } from '@dndtools/core';
 import { Icon, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { registerBackHandler } from '../platform/backNavigation';
 import { T } from './screen-kit';
 
 /**
@@ -20,6 +21,14 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 	// Move focus into the menu when it opens (the first item) so the open menu is keyboard-operable.
 	useEffect(() => {
 		if (open) menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+	}, [open]);
+	useEffect(() => {
+		if (!open) return undefined;
+		return registerBackHandler('overlay', () => {
+			setOpen(false);
+			triggerRef.current?.focus();
+			return true;
+		});
 	}, [open]);
 
 	function close(restoreFocus = false) {

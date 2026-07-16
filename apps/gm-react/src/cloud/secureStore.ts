@@ -1,9 +1,14 @@
-// Durable secret store abstraction for cloud auth tokens (SEC-004). On Electron
-// this is the OS-encrypted safeStorage bridge (window.dndtoolsSecureStore). On
-// the web there is no OS keychain, so the fallback persists NOTHING — tokens live
-// only in memory for the session (the user re-authenticates on reload) rather
-// than being written in plaintext. This mirrors @dndtools/core secret-custody's
-// requiredSecretLocation(osAvailable): os-credential-store else device-local.
+// Durable secret store abstraction for cloud auth tokens (SEC-004). Electron uses
+// safeStorage, Android uses an Android-Keystore-backed custom Capacitor plugin, and
+// ordinary web builds persist nothing. This mirrors @dndtools/core secret custody:
+// OS credential store when available, otherwise memory/session only.
+
+import {
+	DndtoolsSecureStore,
+	getElectronSecureStoreBridge,
+	getPlatformCapabilities,
+	type NativeSecureStorePlugin,
+} from '../platform/capabilities';
 
 export interface DurableSecretStore {
 	/** Whether durable, encrypted persistence is available. */
@@ -23,15 +28,8 @@ interface ElectronSecureStoreBridge {
 	keys(): Promise<string[]>;
 }
 
-function electronBridge(): ElectronSecureStoreBridge | null {
-	return (
-		(globalThis as unknown as { dndtoolsSecureStore?: ElectronSecureStoreBridge })
-			.dndtoolsSecureStore ?? null
-	);
-}
-
-// Web fallback — no durable persistence (see file header).
-const memoryOnly: DurableSecretStore = {
+/** Web fallback — no durable persistence (see file header). */
+export const memoryOnlySecretStore: DurableSecretStore = {
 	available: async () => false,
 	get: async () => null,
 	set: async () => false,
@@ -39,8 +37,33 @@ const memoryOnly: DurableSecretStore = {
 	keys: async () => [],
 };
 
-const bridge = electronBridge();
+/** Adapt the typed native plugin without leaking Capacitor calls into auth/features. */
+export function createAndroidDurableSecretStore(
+	plugin: NativeSecureStorePlugin,
+): DurableSecretStore {
+	return {
+		available: async () => {
+			try {
+				await plugin.keys();
+				return true;
+			} catch {
+				return false;
+			}
+		},
+		get: async (key) => (await plugin.get({ key })).value,
+		set: async (key, value) => (await plugin.set({ key, value })).ok,
+		remove: async (key) => (await plugin.delete({ key })).ok,
+		keys: async () => (await plugin.keys()).keys,
+	};
+}
 
-/** Distinguishes a web session from a desktop whose OS keychain is temporarily unavailable. */
-export const hasDurableSecretStoreBridge = bridge !== null;
-export const durableSecretStore: DurableSecretStore = bridge ?? memoryOnly;
+const capabilities = getPlatformCapabilities();
+const bridge = getElectronSecureStoreBridge<ElectronSecureStoreBridge>();
+const androidStore = createAndroidDurableSecretStore(DndtoolsSecureStore);
+
+/** Distinguishes session-only web storage from a native encrypted-store integration. */
+export const hasDurableSecretStoreBridge = capabilities.secureStorage.available;
+export const durableSecretStore: DurableSecretStore =
+	capabilities.runtimeKind === 'android' && capabilities.nativeBridgeAvailable
+		? androidStore
+		: (bridge ?? memoryOnlySecretStore);
