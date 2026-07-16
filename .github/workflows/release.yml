@@ -309,6 +309,7 @@ jobs:
   draft-release:
     name: verify and draft release
     needs: [verify, package]
+    if: ${{ !cancelled() && needs.verify.result == 'success' && needs.package.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 75
     permissions:
