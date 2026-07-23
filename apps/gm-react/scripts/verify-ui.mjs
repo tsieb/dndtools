@@ -110,7 +110,7 @@ const fillFirst = (page, val) => page.getByRole('textbox').first().fill(val, { t
 		await page
 			.getByLabel(/type "i hold the keys" to confirm/i)
 			.fill('i hold the keys', { timeout: 5000 });
-		for (let s = 0; s < 3; s++)
+		for (let s = 0; s < 4; s++)
 			await page.getByRole('button', { name: /continue/i }).click({ timeout: 5000 });
 		await page.getByRole('button', { name: /enter command center/i }).click({ timeout: 5000 });
 		await overlay.waitFor({ state: 'detached', timeout: 5000 });
@@ -119,12 +119,12 @@ const fillFirst = (page, val) => page.getByRole('textbox').first().fill(val, { t
 		await ready(page);
 		const again = await page.getByRole('dialog', { name: /first-run setup/i }).count();
 		results.push({
-			name: 'Onboarding · 6-step first run',
+			name: 'Onboarding · 7-step first run',
 			ok: flag === 'done' && again === 0,
 			detail: `flag=${flag}, re-shown=${again}`,
 		});
 	} catch (e) {
-		results.push({ name: 'Onboarding · 6-step first run', ok: false, detail: `EX: ${e.message}` });
+		results.push({ name: 'Onboarding · 7-step first run', ok: false, detail: `EX: ${e.message}` });
 	}
 	await page.close();
 }

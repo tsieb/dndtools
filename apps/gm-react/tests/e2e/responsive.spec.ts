@@ -25,26 +25,93 @@ async function clippedControls(page: Page, rootSelector = 'body'): Promise<strin
 		.locator(
 			'button, a[href], input, select, textarea, [role="button"], [role="option"], [role="menuitem"], [role="radio"], [role="checkbox"], [role="tab"], [role="switch"]',
 		)
-		.evaluateAll((elements) =>
-			elements.flatMap((element) => {
+		.evaluateAll((elements) => {
+			const isClippedWithoutScrollPath = (element: Element, axis: 'x' | 'y') => {
+				const rect = element.getBoundingClientRect();
+				const viewportSize = axis === 'x' ? window.innerWidth : window.innerHeight;
+				const start = axis === 'x' ? rect.left : rect.top;
+				const end = axis === 'x' ? rect.right : rect.bottom;
+				if (start >= -1 && end <= viewportSize + 1) return false;
+
+				// A control may begin outside the viewport only when one of its ancestors owns a
+				// real scroll range on that axis. This deliberately accepts discoverable content
+				// below a page fold while rejecting content clipped by a non-scrolling flex pane.
+				for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+					const style = getComputedStyle(parent);
+					const overflow = axis === 'x' ? style.overflowX : style.overflowY;
+					const parentRect = parent.getBoundingClientRect();
+					const parentStart = axis === 'x' ? parentRect.left : parentRect.top;
+					const parentEnd = axis === 'x' ? parentRect.right : parentRect.bottom;
+					const clips = /auto|scroll|hidden|clip/.test(overflow);
+					if (!clips || (start >= parentStart - 1 && end <= parentEnd + 1)) continue;
+					const scrollSize = axis === 'x' ? parent.scrollWidth : parent.scrollHeight;
+					const clientSize = axis === 'x' ? parent.clientWidth : parent.clientHeight;
+					return scrollSize <= clientSize + 1;
+				}
+				return true;
+			};
+
+			return elements.flatMap((element) => {
 				const rect = element.getBoundingClientRect();
 				const style = getComputedStyle(element);
+				// The skip link is intentionally parked above the viewport until keyboard focus
+				// reveals it. Its focus behaviour is covered independently; treating its resting
+				// position as clipping would turn this audit into a false positive on every route.
+				if (element.matches('a[href="#main-content"]') && element !== document.activeElement) {
+					return [];
+				}
 				if (
 					rect.width === 0 ||
 					rect.height === 0 ||
 					style.display === 'none' ||
 					style.visibility === 'hidden' ||
-					(rect.left >= -1 && rect.right <= window.innerWidth + 1)
+					(!isClippedWithoutScrollPath(element, 'x') && !isClippedWithoutScrollPath(element, 'y'))
 				) {
 					return [];
 				}
 				const name =
 					element.getAttribute('aria-label') || element.textContent?.trim() || element.tagName;
+				const axes = [
+					isClippedWithoutScrollPath(element, 'x') ? 'horizontal' : '',
+					isClippedWithoutScrollPath(element, 'y') ? 'vertical' : '',
+				]
+					.filter(Boolean)
+					.join(' and ');
 				return [
-					`${name.replace(/\s+/g, ' ').slice(0, 60)} (${Math.round(rect.left)}–${Math.round(rect.right)})`,
+					`${name.replace(/\s+/g, ' ').slice(0, 60)} is ${axes}ly clipped (${Math.round(rect.left)},${Math.round(rect.top)}–${Math.round(rect.right)},${Math.round(rect.bottom)})`,
 				];
-			}),
-		);
+			});
+		});
+}
+
+/**
+ * Exercises the shared bounded-overlay contract at a deliberately keyboard-like short height.
+ * The test scopes to the dialog so controls below its visible body are accepted only when the
+ * dialog body itself can scroll to them; a control simply painted below the screen is a failure.
+ */
+async function expectOverlayControlsReachable(page: Page, name: string): Promise<void> {
+	// `toBeVisible()` succeeds while a sheet is entering. Audit after the short transform finishes;
+	// otherwise every control is (correctly, but transiently) below the viewport during the slide-in.
+	await page.waitForTimeout(250);
+	expect(
+		await clippedControls(page, '[role="dialog"]'),
+		`${name} has an unreachable control`,
+	).toEqual([]);
+	const dimensions = await page.locator('[role="dialog"]').evaluate((dialog) => {
+		const scrollRegion = Array.from(dialog.children).find((child) => {
+			const style = getComputedStyle(child);
+			return /(auto|scroll)/.test(style.overflowY);
+		}) as HTMLElement | undefined;
+		return scrollRegion
+			? { clientHeight: scrollRegion.clientHeight, scrollHeight: scrollRegion.scrollHeight }
+			: null;
+	});
+	if (dimensions) {
+		expect(
+			dimensions.scrollHeight,
+			`${name} body must have a bounded scroll path when needed`,
+		).toBeGreaterThanOrEqual(dimensions.clientHeight);
+	}
 }
 
 async function horizontalDimensions(
@@ -91,7 +158,7 @@ async function expectOnboardingStep(
 ) {
 	const dialog = page.getByRole('dialog', { name: 'First-run setup' });
 	const action = dialog.getByRole('button', { name: actionLabel });
-	await expect(dialog.getByText(`Step ${step} of 6`, { exact: true })).toBeVisible();
+	await expect(dialog.getByText(`Step ${step} of 7`, { exact: true })).toBeVisible();
 	await expect(dialog.getByRole('button', { name: 'Skip setup' })).toBeInViewport();
 	if (step > 1) await expect(dialog.getByRole('button', { name: 'Back' })).toBeInViewport();
 	await expect(action).toBeVisible();
@@ -194,6 +261,26 @@ test('the 640/641 shell switch and desktop-window minimum select the intended na
 	}
 });
 
+test('Settings category navigation stays touch-sized on the rail/tablet profile', async ({
+	page,
+}) => {
+	await page.setViewportSize({ width: 641, height: 700 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/settings');
+	await seedFresh(page);
+
+	const settingsNavigation = page.getByRole('navigation', { name: 'Settings navigation' });
+	await expect(settingsNavigation).toBeVisible();
+	const categories = settingsNavigation.locator('button');
+	expect(await categories.count()).toBeGreaterThan(0);
+	for (let index = 0; index < (await categories.count()); index += 1) {
+		await expect(categories.nth(index)).toHaveCSS('min-height', '44px');
+		const box = await categories.nth(index).boundingBox();
+		expect(box, `Settings category ${index + 1} is not rendered`).not.toBeNull();
+		expect(box?.height, `Settings category ${index + 1} is undersized`).toBeGreaterThanOrEqual(44);
+	}
+});
+
 test('first-run setup remains usable through every step at 375x520', async ({ page }) => {
 	await page.setViewportSize({ width: 375, height: 520 });
 	await openFirstRun(page);
@@ -227,6 +314,13 @@ test('first-run setup remains usable through every step at 375x520', async ({ pa
 	await expectOnboardingStep(page, 4, 'Continue');
 	await dialog.getByRole('button', { name: 'Continue' }).click();
 
+	await expect(
+		dialog.getByRole('heading', { name: 'Which optional tools do you want?' }),
+	).toBeVisible();
+	await dialog.getByRole('radio', { name: /Random generation stuff/ }).click();
+	await expectOnboardingStep(page, 5, 'Continue');
+	await dialog.getByRole('button', { name: 'Continue' }).click();
+
 	await expect(dialog.getByRole('heading', { name: 'Bring your party.' })).toBeVisible();
 	const longPartyName = `Sir ${'Extremely-Long-Party-Name-'.repeat(5)}`.slice(0, 120);
 	const partyInput = dialog.getByRole('textbox', { name: 'Player name or email' });
@@ -237,11 +331,11 @@ test('first-run setup remains usable through every step at 375x520', async ({ pa
 	await savedName.scrollIntoViewIfNeeded();
 	await expect(savedName).toBeVisible();
 	await expect(dialog.getByRole('button', { name: `Remove ${longPartyName}` })).toBeInViewport();
-	await expectOnboardingStep(page, 5, 'Continue');
+	await expectOnboardingStep(page, 6, 'Continue');
 	await dialog.getByRole('button', { name: 'Continue' }).click();
 
 	await expect(dialog.getByRole('heading', { name: "You're ready to run." })).toBeVisible();
-	await expectOnboardingStep(page, 6, 'Enter Command Center');
+	await expectOnboardingStep(page, 7, 'Enter Command Center');
 	await dialog.getByRole('button', { name: 'Enter Command Center' }).click();
 
 	await expect(dialog).toHaveCount(0);
@@ -251,10 +345,12 @@ test('first-run setup remains usable through every step at 375x520', async ({ pa
 		party: JSON.parse(localStorage.getItem('dndtools:react:invites') ?? '[]'),
 		tier: localStorage.getItem('dndtools:react:tier'),
 		mode: localStorage.getItem('dndtools:react:vault-privacy-mode'),
+		tools: localStorage.getItem('dndtools.ai.usage-preference'),
 	}));
 	expect(persisted.party).toEqual([longPartyName]);
 	expect(persisted.tier).toBe('advanced');
 	expect(persisted.mode).toBe('private-e2ee');
+	expect(persisted.tools).toBe('generation-only');
 });
 
 test('starting fresh can reload directly into a HashRouter destination', async ({ page }) => {
@@ -266,6 +362,7 @@ test('starting fresh can reload directly into a HashRouter destination', async (
 	await dialog.getByRole('button', { name: 'Continue' }).click();
 	// ADR-026 forced privacy step — Cloud-Enhanced needs no typed acknowledgment.
 	await dialog.getByRole('radio', { name: /Cloud-Enhanced vault/ }).click();
+	await dialog.getByRole('button', { name: 'Continue' }).click();
 	await dialog.getByRole('button', { name: 'Continue' }).click();
 	await dialog.getByRole('button', { name: 'Continue' }).click();
 	await dialog.getByRole('button', { name: 'Continue' }).click();
@@ -300,11 +397,11 @@ test('first-run setup changes layout cleanly at 640/641 and fits the 720x520 win
 		await expect(dialog.getByRole('button', { name: 'Get started' })).toBeInViewport();
 		await expect(dialog.getByRole('button', { name: 'Skip setup' })).toBeInViewport();
 		if (expected.phone) {
-			await expect(dialog.getByText('Welcome · 1/6', { exact: true })).toBeVisible();
+			await expect(dialog.getByText('Welcome · 1/7', { exact: true })).toBeVisible();
 			await expect(dialog.getByText('About 2 minutes to your first scene')).toHaveCount(0);
 		} else {
 			await expect(dialog.getByText('About 2 minutes to your first scene')).toBeVisible();
-			await expect(dialog.getByText('Welcome · 1/6', { exact: true })).toHaveCount(0);
+			await expect(dialog.getByText('Welcome · 1/7', { exact: true })).toHaveCount(0);
 		}
 		const box = await dialog.boundingBox();
 		expect(box).not.toBeNull();
@@ -623,12 +720,12 @@ test('compact shell overlays keep their footer content inside the viewport', asy
 		'compact command palette',
 		'[aria-label="Command palette"]',
 	);
-	expect(await clippedControls(page, '[aria-label="Command palette"]')).toEqual([]);
+	await expectOverlayControlsReachable(page, 'compact command palette');
 	await page.keyboard.press('Escape');
 
 	await page.getByRole('button', { name: 'Table controls' }).click();
 	const controls = page.getByRole('dialog', { name: 'Table controls' });
 	await expect(controls).toBeVisible();
 	await expectNoHorizontalOverflow(page, 'compact table controls', '[role="dialog"]');
-	expect(await clippedControls(page, '[role="dialog"]')).toEqual([]);
+	await expectOverlayControlsReachable(page, 'compact table controls');
 });

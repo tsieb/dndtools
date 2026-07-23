@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
 	VAULT_PRIVACY_MODE_KEY,

@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type TestInfo } from '@playwright/test';
 
 // The automated accessibility release gate for the React GM app (ported from the archived Svelte
 // gate). Runs axe-core against every primary durable workspace on BOTH the desktop-chromium and
@@ -92,6 +92,41 @@ async function openRoute(page: Page, path: string) {
 	await page.waitForTimeout(400);
 }
 
+/** Run the same release gate against an interactive state, not only a route shell. */
+async function assertAxeState(page: Page, testInfo: TestInfo, route: string, slug: string) {
+	const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+	const project = testInfo.project.name;
+	const nodes: ViolationNode[] = [];
+	for (const violation of results.violations) {
+		for (const node of violation.nodes) {
+			nodes.push({
+				id: violation.id,
+				impact: violation.impact ?? null,
+				route,
+				project,
+				selector: Array.isArray(node.target) ? node.target.join(' ') : String(node.target),
+				help: violation.help,
+				helpUrl: violation.helpUrl,
+			});
+		}
+	}
+	mkdirSync(ARTIFACT_DIR, { recursive: true });
+	writeFileSync(
+		join(ARTIFACT_DIR, `axe-${project}-${slug}-w${testInfo.workerIndex}.json`),
+		`${JSON.stringify({ project, route, workerIndex: testInfo.workerIndex, violations: nodes }, null, 2)}\n`,
+		'utf8',
+	);
+	const register = loadRegister();
+	const blocking = nodes.filter(
+		(node) => BLOCKING_IMPACTS.has(node.impact ?? '') && !isApproved(node, register, Date.now()),
+	);
+	expect(
+		blocking,
+		`Unapproved critical/serious axe violations on ${route} (${project}):\n` +
+			blocking.map((b) => `  - [${b.impact}] ${b.id} — ${b.selector} (${b.helpUrl})`).join('\n'),
+	).toEqual([]);
+}
+
 for (const route of ROUTES) {
 	test(`a11y axe gate: ${route.path}`, async ({ page }, testInfo) => {
 		await openRoute(page, route.path);
@@ -134,3 +169,25 @@ for (const route of ROUTES) {
 		).toEqual([]);
 	});
 }
+
+test('a11y axe gate: opened command palette and compact table controls', async ({
+	page,
+}, testInfo) => {
+	await openRoute(page, '/');
+	await page
+		.getByRole('button', { name: /Search/ })
+		.first()
+		.click();
+	await page.getByRole('dialog', { name: 'Command palette' }).waitFor({ state: 'visible' });
+	await page.waitForTimeout(250);
+	await assertAxeState(page, testInfo, '/#command-palette', 'command-palette');
+
+	await page.keyboard.press('Escape');
+	await page.setViewportSize({ width: 375, height: 520 });
+	await page.getByRole('button', { name: 'Table controls' }).click();
+	await page.getByRole('dialog', { name: 'Table controls' }).waitFor({ state: 'visible' });
+	// A sheet is visibly mounted while it is still translated below the viewport. Wait for its
+	// entrance transform before asking axe to calculate foreground/background contrast.
+	await page.waitForTimeout(250);
+	await assertAxeState(page, testInfo, '/#table-controls', 'table-controls');
+});

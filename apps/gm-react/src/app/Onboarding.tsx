@@ -17,6 +17,11 @@ import { resetCoreStorage } from '../platform/storage/coreStore';
 import { setVaultPrivacyMode, storedVaultPrivacyMode } from '../cloud/vaultMode';
 import { T } from './screen-kit';
 import { useViewport } from './useViewport';
+import {
+	getAiUsagePreference,
+	saveAiUsagePreference,
+	type AiUsagePreference,
+} from '../ai/usagePreference';
 
 /**
  * Onboarding — the first-run overlay from the design prototype (onboarding.jsx): a fixed split-pane
@@ -154,6 +159,7 @@ const ONB_STEPS = [
 	{ id: 'vault', title: 'Your vault', icon: 'vault' },
 	{ id: 'privacy', title: 'Privacy', icon: 'shield' },
 	{ id: 'experience', title: 'Experience', icon: 'sliders' },
+	{ id: 'tools', title: 'Tools', icon: 'sparkle' },
 	{ id: 'players', title: 'Your party', icon: 'players' },
 	{ id: 'ready', title: 'Ready', icon: 'flag' },
 ] as const;
@@ -267,6 +273,7 @@ export function Onboarding() {
 	const [privacy, setPrivacy] = useState<VaultPrivacyMode | null>(() => storedVaultPrivacyMode());
 	const [ack, setAck] = useState('');
 	const [tier, setTier] = useState<FeatureTier>(readStoredTier);
+	const [aiUsage, setAiUsage] = useState<AiUsagePreference>(getAiUsagePreference);
 	const [emails, setEmails] = useState<string[]>(readStoredPartyNotes);
 	const [draft, setDraft] = useState('');
 	const [wiping, setWiping] = useState(false);
@@ -280,6 +287,7 @@ export function Onboarding() {
 			setPrivacy(storedVaultPrivacyMode());
 			setAck('');
 			setTier(readStoredTier());
+			setAiUsage(getAiUsagePreference());
 			setEmails(readStoredPartyNotes());
 			setDraft('');
 			setOpen(true);
@@ -370,6 +378,7 @@ export function Onboarding() {
 		// Apply the experience tier with the same one-source-of-truth convention Settings uses.
 		document.documentElement.setAttribute(TIER_ATTR, tier);
 		writeStorage(TIER_KEY, tier);
+		saveAiUsagePreference(aiUsage);
 		if (emails.length > 0) writeStorage(INVITES_KEY, JSON.stringify(emails));
 		else removeStorage(INVITES_KEY);
 		writeStorage(ONBOARDED_KEY, 'done');
@@ -933,6 +942,46 @@ export function Onboarding() {
 											</button>
 										);
 									})}
+								</div>
+							</div>
+						)}
+						{step.id === 'tools' && (
+							<div
+								style={{ paddingTop: 14 }}
+								role="radiogroup"
+								aria-label="Optional tools"
+								onKeyDown={radioGroupKeyDown}
+							>
+								<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>
+									Which optional tools do you want?
+								</h2>
+								<p style={{ margin: '0 0 18px', font: `13px ${T.sans}`, color: T.ter }}>
+									Choose what belongs in your workspace. You can change this later only from
+									Settings.
+								</p>
+								<div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+									<ChoiceCard
+										on={aiUsage === 'complete'}
+										icon="sparkle"
+										title="Complete use"
+										desc="Show the optional campaign assistant and its provider setup, alongside built-in random generators."
+										onPick={() => setAiUsage('complete')}
+									/>
+									<ChoiceCard
+										on={aiUsage === 'generation-only'}
+										icon="tool-generate"
+										title="Random generation stuff"
+										desc="Keep DND Tools’ built-in offline generators, such as map generation. No assistant, provider, or model controls are shown."
+										onPick={() => setAiUsage('generation-only')}
+									/>
+									<ChoiceCard
+										on={aiUsage === 'none'}
+										icon="close"
+										title="None"
+										badge="Private by default"
+										desc="Keep all optional AI tools out of sight. No provider or assistant UI appears anywhere outside Settings."
+										onPick={() => setAiUsage('none')}
+									/>
 								</div>
 							</div>
 						)}

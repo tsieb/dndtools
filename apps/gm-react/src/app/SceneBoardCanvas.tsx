@@ -413,6 +413,7 @@ export function SceneBoardCanvas({
 	return (
 		<div
 			ref={wrapRef}
+			data-testid={`scene-board-${policy}`}
 			onWheel={onWheel}
 			onPointerDown={onBgDown}
 			style={{
@@ -423,7 +424,10 @@ export function SceneBoardCanvas({
 				overflowX: 'hidden',
 				overflowY: policy === 'bounded' ? 'auto' : 'hidden',
 				cursor: policy === 'canvas' ? 'grab' : 'default',
-				touchAction: 'none',
+				// The bounded board deliberately overflows vertically. Let a finger pan that scroll
+				// region; `none` turns a mobile GM Screen into a desktop-only scrollbar workflow.
+				// Free-canvas scenes retain their gesture ownership for drag/pan/zoom interactions.
+				touchAction: policy === 'bounded' ? 'pan-y' : 'none',
 				borderRadius: 'var(--radius-lg)',
 				border: '1px solid var(--color-border)',
 			}}

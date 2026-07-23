@@ -23,6 +23,9 @@ async function guardProviderNetwork(page: Page): Promise<() => number> {
 /** Navigate to the AI & tools settings subpage (deep-linked via `?tab=ai`). */
 async function gotoAiTab(page: Page): Promise<void> {
 	await markOnboarded(page);
+	await page.addInitScript(() => {
+		localStorage.setItem('dndtools.ai.usage-preference', 'complete');
+	});
 	await gotoRoute(page, '/settings?tab=ai');
 	await seedFresh(page);
 	await page.goto('/#/settings?tab=ai', { waitUntil: 'domcontentloaded' });
@@ -47,6 +50,36 @@ async function saveAnthropicKey(page: Page): Promise<void> {
 }
 
 test.describe('ai assistant: client-side BYO-key provider (ADR-021)', () => {
+	test('none hides every AI surface until it is re-enabled from tool preferences', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/settings?tab=ai');
+		await seedFresh(page);
+
+		// A deep link cannot bypass consent: it lands on the non-AI preferences panel instead.
+		await expect(page.getByRole('heading', { name: 'Tool preferences' })).toBeVisible();
+		await expect(page.getByText('AI & agent access', { exact: true })).toHaveCount(0);
+		await expect(
+			page
+				.getByRole('navigation', { name: 'Settings navigation' })
+				.getByText('AI & tools', { exact: true }),
+		).toHaveCount(0);
+
+		await page.getByRole('radio', { name: /Complete use/ }).click();
+		const settingsNav = page.getByRole('navigation', { name: 'Settings navigation' });
+		// The phone profile renders the settings nav as a <select>; desktop renders buttons.
+		const sectionSelect = settingsNav.getByLabel('Settings section');
+		if (await sectionSelect.count()) {
+			await expect(sectionSelect.locator('option[value="ai"]')).toHaveCount(1);
+			await sectionSelect.selectOption('ai');
+		} else {
+			await expect(settingsNav.getByText('AI & tools', { exact: true })).toBeVisible();
+			await settingsNav.getByRole('button', { name: 'AI & tools' }).click();
+		}
+		await expect(page.getByText('AI & agent access', { exact: true })).toBeVisible();
+	});
+
 	test('with no key configured the assistant is fail-closed — no dead send affordance', async ({
 		page,
 	}) => {

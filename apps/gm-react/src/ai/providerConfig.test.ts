@@ -47,6 +47,9 @@ beforeEach(() => {
 	sessionStore = new MemoryStorage();
 	vi.stubGlobal('localStorage', localStore);
 	vi.stubGlobal('sessionStorage', sessionStore);
+	// Existing provider tests exercise configured transport behavior; consent-specific behavior lives
+	// in usagePreference.test.ts. Explicitly opt this test device into the complete mode.
+	localStore.setItem('dndtools.ai.usage-preference', 'complete');
 });
 
 afterEach(() => {

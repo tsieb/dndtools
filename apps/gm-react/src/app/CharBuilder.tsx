@@ -19,6 +19,7 @@ import {
 	VisibilityChip,
 } from '../ds';
 import { Seg, T, eb, mono } from './screen-kit';
+import { useViewport } from './useViewport';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { registerBackHandler } from '../platform/backNavigation';
 import { pickTextFile } from '../platform/filePick';
@@ -669,11 +670,14 @@ function Overlay({
 	onClose,
 	wide,
 	label,
+	phone = false,
 }: {
 	children: React.ReactNode;
 	onClose: () => void;
 	wide?: boolean;
 	label: string;
+	/** Phone variants own their responsive content layout; the shell removes desktop-only gutters. */
+	phone?: boolean;
 }) {
 	const panelRef = useRef<HTMLDivElement>(null);
 	const closeRef = useRef(onClose);
@@ -739,8 +743,9 @@ function Overlay({
 				display: 'flex',
 				alignItems: 'center',
 				justifyContent: 'center',
-				padding:
-					'max(24px, var(--safe-area-top, 0px)) max(24px, var(--safe-area-right, 0px)) max(24px, var(--safe-area-bottom, 0px)) max(24px, var(--safe-area-left, 0px))',
+				padding: phone
+					? 'var(--safe-area-top, 0px) var(--safe-area-right, 0px) var(--safe-area-bottom, 0px) var(--safe-area-left, 0px)'
+					: 'max(24px, var(--safe-area-top, 0px)) max(24px, var(--safe-area-right, 0px)) max(24px, var(--safe-area-bottom, 0px)) max(24px, var(--safe-area-left, 0px))',
 			}}
 		>
 			<div
@@ -758,7 +763,7 @@ function Overlay({
 					display: 'flex',
 					background: T.raised,
 					border: `1px solid ${T.bdS}`,
-					borderRadius: 18,
+					borderRadius: phone ? 0 : 18,
 					boxShadow: 'var(--shadow-lg)',
 					overflow: 'hidden',
 				}}
@@ -784,6 +789,7 @@ export function CharBuilder({
 	initialAction?: 'import';
 }) {
 	const runtime = useRuntime();
+	const isPhone = useViewport() === 'phone';
 	const dmActorId = runtime.defaultActorId;
 	const players = runtime.actors.filter((a) => a.role === 'player');
 
@@ -1187,14 +1193,14 @@ export function CharBuilder({
 	/* ---- entry choice ---- */
 	if (phase === 'choose') {
 		return (
-			<Overlay onClose={onClose} label="Add a character">
+			<Overlay onClose={onClose} label="Add a character" phone={isPhone}>
 				<div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1 }}>
 					<div
 						style={{
 							display: 'flex',
 							alignItems: 'center',
 							justifyContent: 'space-between',
-							padding: '20px 28px 0',
+							padding: isPhone ? '16px 16px 0' : '20px 28px 0',
 						}}
 					>
 						<div>
@@ -1209,9 +1215,9 @@ export function CharBuilder({
 						style={{
 							flex: 1,
 							display: 'grid',
-							gridTemplateColumns: '1fr 1fr',
+							gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1fr 1fr',
 							gap: 18,
-							padding: '24px 28px 28px',
+							padding: isPhone ? '16px' : '24px 28px 28px',
 							alignItems: 'stretch',
 						}}
 					>
@@ -1242,7 +1248,7 @@ export function CharBuilder({
 	/* ---- import preview: the mapper's field report, shown BEFORE anything is created ---- */
 	if (phase === 'import') {
 		return (
-			<Overlay onClose={onClose} label="Import character file">
+			<Overlay onClose={onClose} label="Import character file" phone={isPhone}>
 				<div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1 }}>
 					<div
 						style={{
@@ -1458,16 +1464,18 @@ export function CharBuilder({
 	const canContinue = step.id === 'identity' ? identityOk : step.id === 'stats' ? statsOk : true;
 
 	return (
-		<Overlay onClose={requestClose} wide label="New character wizard">
+		<Overlay onClose={requestClose} wide label="New character wizard" phone={isPhone}>
 			<div style={{ display: 'flex', height: '100%', flex: 1, position: 'relative' }}>
-				<StepRail steps={STEPS} i={i} />
+				{/* The desktop rail would consume nearly all of a 320px dialog. Progress remains
+					    discoverable in the persistent footer on phone instead. */}
+				{!isPhone && <StepRail steps={STEPS} i={i} />}
 				<div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
 					<div
 						style={{
 							display: 'flex',
 							alignItems: 'center',
 							justifyContent: 'space-between',
-							padding: '16px 28px 0',
+							padding: isPhone ? '12px 16px 0' : '16px 28px 0',
 						}}
 					>
 						<div style={{ font: `700 19px ${T.disp}` }}>{step.title}</div>
@@ -1475,12 +1483,25 @@ export function CharBuilder({
 							Cancel
 						</Button>
 					</div>
-					<div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 28px 20px' }}>
+					<div
+						style={{
+							flex: 1,
+							minHeight: 0,
+							overflowY: 'auto',
+							padding: isPhone ? '14px 16px 20px' : '14px 28px 20px',
+						}}
+					>
 						{step.id === 'identity' && (
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 								<div>
 									<FieldLabel>Kind</FieldLabel>
-									<div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
+									<div
+										style={{
+											display: 'grid',
+											gridTemplateColumns: isPhone ? 'repeat(2,minmax(0,1fr))' : 'repeat(4,1fr)',
+											gap: 10,
+										}}
+									>
 										{KINDS.map((k) => (
 											<Tile
 												key={k.id}
@@ -1493,7 +1514,13 @@ export function CharBuilder({
 										))}
 									</div>
 								</div>
-								<div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16 }}>
+								<div
+									style={{
+										display: 'grid',
+										gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1.4fr 1fr',
+										gap: 16,
+									}}
+								>
 									<div>
 										<FieldLabel>Name</FieldLabel>
 										<Input
@@ -1516,7 +1543,13 @@ export function CharBuilder({
 									</div>
 								</div>
 								{isPc && (
-									<div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16 }}>
+									<div
+										style={{
+											display: 'grid',
+											gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1.4fr 1fr',
+											gap: 16,
+										}}
+									>
 										<div>
 											{/* Core rule: a PC draft is owned by exactly ONE player (CHAR-013); the owner
 											    fills and finalizes the guided steps. */}
@@ -2192,7 +2225,7 @@ export function CharBuilder({
 							display: 'flex',
 							alignItems: 'center',
 							gap: 10,
-							padding: '14px 28px',
+							padding: isPhone ? '12px 16px' : '14px 28px',
 							borderTop: `1px solid ${T.bd}`,
 						}}
 					>

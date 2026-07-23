@@ -80,6 +80,19 @@ export function Sheet({
 			}
 		};
 		document.addEventListener('keydown', onKey, true);
+		// Keep focused form controls visible when the mobile visual viewport contracts for
+		// the software keyboard. The panel owns its scroll region, so this does not move
+		// the obscured page behind the sheet.
+		const onFocusIn = (event) => {
+			if (
+				event.target instanceof HTMLElement &&
+				panelRef.current?.contains(event.target) &&
+				typeof event.target.scrollIntoView === 'function'
+			) {
+				event.target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			}
+		};
+		panelRef.current?.addEventListener('focusin', onFocusIn);
 		const unregisterBack = registerBackHandler('overlay', () => {
 			if (dismissibleRef.current) onCloseRef.current && onCloseRef.current();
 			return true;
@@ -87,6 +100,7 @@ export function Sheet({
 		return () => {
 			clearTimeout(t);
 			document.removeEventListener('keydown', onKey, true);
+			panelRef.current?.removeEventListener('focusin', onFocusIn);
 			unregisterBack();
 			document.body.style.overflow = prevOverflow;
 			restoreIsolation();
@@ -116,6 +130,10 @@ export function Sheet({
 	const panelShape = isBottom
 		? {
 				width: '100%',
+				// A max-height alone leaves a flex item with an indefinite main size: its body can
+				// expand past the sheet and be clipped by the panel. Give bottom sheets a bounded
+				// height so the body becomes the single vertical scroll owner on short screens.
+				height: bottomHeight,
 				maxHeight: bottomHeight,
 				borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0',
 				borderBottom: 'none',
@@ -170,6 +188,7 @@ export function Sheet({
 				style={{
 					display: 'flex',
 					flexDirection: 'column',
+					minHeight: 0,
 					background: 'var(--color-surface-raised)',
 					border: '1px solid var(--color-border-strong)',
 					boxShadow: 'var(--shadow-lg)',
@@ -283,7 +302,17 @@ export function Sheet({
 						)}
 					</div>
 				)}
-				<div style={{ padding: contentPadding, overflowY: 'auto', flex: '1 1 auto' }}>
+				<div
+					style={{
+						padding: contentPadding,
+						overflowY: 'auto',
+						overflowX: 'hidden',
+						overscrollBehavior: 'contain',
+						WebkitOverflowScrolling: 'touch',
+						flex: '1 1 auto',
+						minHeight: 0,
+					}}
+				>
 					{children}
 				</div>
 				{footer && (

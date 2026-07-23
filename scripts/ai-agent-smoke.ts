@@ -35,10 +35,14 @@ import {
 	makeEnvironment,
 } from '../packages/core/src/testing/fixtures';
 import { buildAiToolSpecs, runAssistantExchange } from '../apps/gm-react/src/ai/mcpBridge';
+import { LOCAL_OLLAMA } from '../apps/gm-react/src/ai/localLlmGuidance';
 import type { AiChatRequest, AiReply, AiToolCall } from '../apps/gm-react/src/ai/transport';
 
-const OLLAMA_BASE = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
-const MODEL = process.env.OLLAMA_MODEL ?? 'qwen2.5:7b';
+const OLLAMA_BASE = process.env.OLLAMA_BASE_URL ?? new URL(LOCAL_OLLAMA.baseUrl).origin;
+const MODEL = process.env.OLLAMA_MODEL ?? LOCAL_OLLAMA.defaultModel;
+// `ai:smoke` stays convenient on machines without a local runner; `ai:verify:local` sets this so
+// automation fails loudly instead of silently skipping the only live-model portion of the suite.
+const REQUIRE_LIVE = process.env.OLLAMA_REQUIRE_LIVE === '1';
 const AGENT_ID = 'smoke-agent';
 
 // A staging mode (never trusted_direct) so every write becomes a proposal we can inspect.
@@ -256,7 +260,8 @@ async function runScenario(scenario: Scenario): Promise<boolean> {
 }
 
 async function main(): Promise<void> {
-	// Skip cleanly when the local model isn't running — CI without Ollama stays green.
+	// Skip cleanly when the local model isn't running — CI without Ollama stays green. Strict local
+	// verification opts in to failure so a scheduled/local gate cannot mistake a skipped run for proof.
 	let tags: { models?: Array<{ name?: string }> } | null = null;
 	try {
 		const res = await fetch(`${OLLAMA_BASE}/api/tags`);
@@ -265,19 +270,17 @@ async function main(): Promise<void> {
 		tags = null;
 	}
 	if (!tags) {
-		console.log(
-			`⏭  Ollama not reachable at ${OLLAMA_BASE} — skipping the live smoke test (this is not a failure).`,
-		);
+		const prefix = REQUIRE_LIVE ? '✗ FAIL' : '⏭';
+		console.log(`${prefix} Ollama not reachable at ${OLLAMA_BASE}.`);
 		console.log(`    Start it with:  ~/.local/bin/ollama serve   and   ollama pull ${MODEL}`);
-		process.exit(0);
+		process.exit(REQUIRE_LIVE ? 1 : 0);
 	}
 	const names = (tags.models ?? []).map((m) => m.name).filter(Boolean);
 	if (!names.includes(MODEL)) {
-		console.log(
-			`⏭  Model "${MODEL}" not pulled (have: ${names.join(', ') || 'none'}) — skipping.`,
-		);
+		const prefix = REQUIRE_LIVE ? '✗ FAIL' : '⏭';
+		console.log(`${prefix} Model "${MODEL}" not pulled (have: ${names.join(', ') || 'none'}).`);
 		console.log(`    Pull it with:  ollama pull ${MODEL}`);
-		process.exit(0);
+		process.exit(REQUIRE_LIVE ? 1 : 0);
 	}
 
 	console.log(`Running MCP agent smoke test against ${MODEL} (policy: ${STAGING_MODE})`);

@@ -5,6 +5,57 @@ import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_hel
 // content mutation (moving a widget) round-trips through the op-log and survives reload.
 
 test.describe('canvas: board + scene mount and round-trip', () => {
+	test('the bounded GM Screen keeps vertical board content touch-scrollable on a phone', async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 375, height: 667 });
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+
+		const board = page.getByTestId('scene-board-bounded');
+		await expect(board).toBeVisible();
+		await page.waitForFunction(
+			() => {
+				const rt = window.__rt!;
+				const id = rt.state.commandCenter.homeSceneId;
+				return !!id && rt.state.scenes.scenes[id]?.widgets.length > 0;
+			},
+			null,
+			{ timeout: 10_000 },
+		);
+		// Put one existing widget beyond the short phone board viewport through the normal core
+		// command. The resulting content must remain reachable by a vertical scroll gesture.
+		const moved = await page.evaluate(async () => {
+			const rt = window.__rt!;
+			const sceneId = rt.state.commandCenter.homeSceneId!;
+			const widget = rt.state.scenes.scenes[sceneId].widgets[0];
+			return rt.dispatch({
+				type: 'scene.move-widget',
+				actorId: rt.defaultActorId,
+				payload: { sceneId, widgetInstanceId: widget.id, x: widget.layout.x, y: 900 },
+			});
+		});
+		expect(moved.status).toBe('accepted');
+		await expect
+			.poll(() => board.evaluate((element) => element.scrollHeight > element.clientHeight))
+			.toBe(true);
+		// The board owns a vertical scroll range for its tall widget canvas. Its touch-action must
+		// preserve a direct-touch route to that range rather than requiring a desktop scrollbar.
+		await expect(board).toHaveCSS('touch-action', 'pan-y');
+		const dimensions = await board.evaluate((element) => ({
+			clientHeight: element.clientHeight,
+			scrollHeight: element.scrollHeight,
+		}));
+		expect(dimensions.scrollHeight).toBeGreaterThan(dimensions.clientHeight);
+		await board.evaluate((element) => {
+			element.scrollTop = element.scrollHeight;
+		});
+		await expect.poll(() => board.evaluate((element) => element.scrollTop > 0)).toBe(true);
+	});
+
 	test('/board materializes the home scene and a widget move survives reload', async ({ page }) => {
 		await markOnboarded(page);
 		await gotoRoute(page, '/board');
@@ -17,7 +68,9 @@ test.describe('canvas: board + scene mount and round-trip', () => {
 			() => {
 				const rt = window.__rt!;
 				const id = rt.state.commandCenter.homeSceneId;
-				return !!id && !!rt.state.scenes.scenes[id] && rt.state.scenes.scenes[id].widgets.length > 0;
+				return (
+					!!id && !!rt.state.scenes.scenes[id] && rt.state.scenes.scenes[id].widgets.length > 0
+				);
 			},
 			null,
 			{ timeout: 10_000 },
@@ -36,7 +89,14 @@ test.describe('canvas: board + scene mount and round-trip', () => {
 				actorId: rt.defaultActorId,
 				payload: { sceneId: id, widgetInstanceId: w.id, x: targetX, y: targetY },
 			});
-			return { status: res.status, wid: w.id, targetX, targetY, before, after: rt.state.sync.operations.length };
+			return {
+				status: res.status,
+				wid: w.id,
+				targetX,
+				targetY,
+				before,
+				after: rt.state.sync.operations.length,
+			};
 		});
 		expect(moved.status).toBe('accepted');
 		expect(moved.after).toBeGreaterThan(moved.before);

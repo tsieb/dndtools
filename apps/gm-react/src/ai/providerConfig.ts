@@ -19,6 +19,7 @@
 
 import { durableSecretStore, hasDurableSecretStoreBridge } from '../cloud/secureStore';
 import { getElectronNetworkPolicyBridge, getPlatformCapabilities } from '../platform/capabilities';
+import { isAiAssistantEnabled } from './usagePreference';
 
 /** The two supported transports: Anthropic's Messages API, or any OpenAI-compatible endpoint. */
 export type AiProviderKind = 'anthropic' | 'openai-compatible';
@@ -484,6 +485,8 @@ export async function hydrateAiProviderKey(): Promise<void> {
  * caller never fabricates a partial config.
  */
 export function resolveAiProviderConfig(): ResolvedAiProviderConfig | null {
+	// Consent is the outermost gate. A retained key is never enough to reactivate model access.
+	if (!isAiAssistantEnabled()) return null;
 	const settings = getAiProviderSettings();
 	const apiKey = getAiProviderKeyForSettings(settings);
 	if (apiKey === null) return null;

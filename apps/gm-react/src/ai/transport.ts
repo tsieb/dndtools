@@ -17,6 +17,7 @@
  */
 
 import { authorizeAiProviderNetworkAccess, type ResolvedAiProviderConfig } from './providerConfig';
+import { isAiAssistantEnabled } from './usagePreference';
 
 const ANTHROPIC_BASE_URL = 'https://api.anthropic.com';
 const ANTHROPIC_VERSION = '2023-06-01';
@@ -368,11 +369,13 @@ export async function sendAiChat(
 	config: ResolvedAiProviderConfig | null,
 	request: AiChatRequest,
 ): Promise<AiReply> {
-	if (config === null) {
+	// Check again for every network exchange. A multi-pass assistant run that was already in flight
+	// therefore stops before its next provider request when the user turns AI off in Settings.
+	if (!isAiAssistantEnabled() || config === null) {
 		throw new AiTransportError(
 			'not-configured',
 			null,
-			'No AI provider is configured — add your API key in Settings → AI & tools.',
+			'AI tools are off. Re-enable Complete use in Settings → Tool preferences.',
 		);
 	}
 	if (!(await authorizeAiProviderNetworkAccess(config))) {

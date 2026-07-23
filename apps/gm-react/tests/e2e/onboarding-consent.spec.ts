@@ -62,7 +62,8 @@ test.describe('onboarding forced consent (ADR-026)', () => {
 		await expect(overlay(page).getByRole('button', { name: 'Continue' })).toBeDisabled();
 		await overlay(page).getByLabel(`Type "${ACK_PHRASE}" to confirm`).fill(ACK_PHRASE);
 		await overlay(page).getByRole('button', { name: 'Continue' }).click();
-		// experience → players → ready → finish.
+		// experience → tools → players → ready → finish.
+		await overlay(page).getByRole('button', { name: 'Continue' }).click();
 		await overlay(page).getByRole('button', { name: 'Continue' }).click();
 		await overlay(page).getByRole('button', { name: 'Continue' }).click();
 		await overlay(page).getByRole('button', { name: 'Enter Command Center' }).click();
