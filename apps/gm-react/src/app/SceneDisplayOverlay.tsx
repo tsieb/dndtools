@@ -11,6 +11,10 @@ import {
 import { Button, IconButton } from '../ds';
 import { registerBackHandler } from '../platform/backNavigation';
 import { usePlatformCapabilities } from '../platform/capabilities';
+import { isolateModalSiblings } from '../platform/modalIsolation';
+
+const FOCUSABLE =
+	'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
  * I11 S11.2.2/S11.2.3 — the BROADCAST DRIVER. Mounted once in the primary (DM) window, it pushes the live
@@ -53,6 +57,8 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 	const runtime = useRuntime();
 	const capabilities = usePlatformCapabilities();
 	const actorId = runtime.defaultActorId;
+	const overlayRef = useRef<HTMLDivElement>(null);
+	const returnFocusRef = useRef<HTMLElement | null>(null);
 	const onCloseRef = useRef(onClose);
 	onCloseRef.current = onClose;
 
@@ -62,10 +68,53 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 	);
 	useEffect(() => {
 		if (!open) return undefined;
-		return registerBackHandler('fullscreen', () => {
+		returnFocusRef.current =
+			document.activeElement instanceof HTMLElement ? document.activeElement : null;
+		const overlay = overlayRef.current;
+		const restoreIsolation = overlay ? isolateModalSiblings(overlay) : () => {};
+		const focusOverlay = () => {
+			const first = overlay?.querySelector<HTMLElement>(FOCUSABLE);
+			(first ?? overlay)?.focus();
+		};
+		const focusTimer = window.setTimeout(focusOverlay, 0);
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') {
+				event.preventDefault();
+				event.stopPropagation();
+				onCloseRef.current();
+				return;
+			}
+			if (event.key !== 'Tab' || !overlay) return;
+			const nodes = Array.from(overlay.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+				(node) => node.offsetParent !== null,
+			);
+			if (nodes.length === 0) {
+				event.preventDefault();
+				overlay.focus();
+				return;
+			}
+			const first = nodes[0]!;
+			const last = nodes[nodes.length - 1]!;
+			if (event.shiftKey && document.activeElement === first) {
+				event.preventDefault();
+				last.focus();
+			} else if (!event.shiftKey && document.activeElement === last) {
+				event.preventDefault();
+				first.focus();
+			}
+		};
+		document.addEventListener('keydown', onKeyDown, true);
+		const unregisterBack = registerBackHandler('fullscreen', () => {
 			onCloseRef.current();
 			return true;
 		});
+		return () => {
+			window.clearTimeout(focusTimer);
+			document.removeEventListener('keydown', onKeyDown, true);
+			unregisterBack();
+			restoreIsolation();
+			returnFocusRef.current?.focus();
+		};
 	}, [open]);
 
 	if (!open) return null;
@@ -79,11 +128,13 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 
 	return (
 		<div
+			ref={overlayRef}
 			className="app-fixed-viewport"
 			data-scene-display-overlay="true"
 			role="dialog"
 			aria-modal="true"
 			aria-label="Scene display"
+			tabIndex={-1}
 			style={{ position: 'fixed', inset: 0, zIndex: 120, background: '#05070c' }}
 		>
 			<SceneDisplaySurface active={display.active} transitionStyle={display.transitionStyle} />

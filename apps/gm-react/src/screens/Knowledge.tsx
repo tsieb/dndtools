@@ -803,7 +803,9 @@ export function Knowledge() {
 				<div
 					style={{
 						display: 'grid',
-						gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))',
+						// A 320px phone has only 292px after the page gutters.  A fixed 300px
+						// minimum track made every populated vault horizontally unreachable there.
+						gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 300px),1fr))',
 						gap: 14,
 					}}
 				>

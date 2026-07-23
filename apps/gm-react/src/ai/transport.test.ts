@@ -44,6 +44,9 @@ async function rejectedWith(p: Promise<unknown>): Promise<AiTransportError> {
 
 beforeEach(() => {
 	fetchMock.mockReset();
+	vi.stubGlobal('localStorage', {
+		getItem: (key: string) => (key === 'dndtools.ai.usage-preference' ? 'complete' : null),
+	});
 	// Network authorization is a separate guard. These transport-shaping cases opt into only the
 	// two destinations they exercise, mirroring a configured development/production build.
 	vi.stubEnv('VITE_AI_ALLOWED_ORIGINS', 'https://api.anthropic.com https://api.example.com');

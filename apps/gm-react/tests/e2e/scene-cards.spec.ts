@@ -121,6 +121,39 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		await page.locator('#main-content').waitFor({ state: 'attached' });
 	});
 
+	test('the in-window scene display behaves as a keyboard modal and restores its launcher focus', async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 360, height: 360 });
+		const launcher = page.getByRole('button', { name: /Search/ }).first();
+		await launcher.focus();
+		await expect(launcher).toBeFocused();
+
+		await page.keyboard.press('Control+Shift+S');
+		const display = page.getByRole('dialog', { name: 'Scene display' });
+		await expect(display).toBeVisible();
+		await expect
+			.poll(() => display.evaluate((overlay) => overlay.contains(document.activeElement)))
+			.toBe(true);
+
+		// At this short, keyboard-like viewport height Tab must cycle through only the display's
+		// controls, never reaching the obscured shell behind it.
+		for (let index = 0; index < 6; index += 1) {
+			await page.keyboard.press('Tab');
+			await expect
+				.poll(() => display.evaluate((overlay) => overlay.contains(document.activeElement)))
+				.toBe(true);
+		}
+		await page.keyboard.press('Shift+Tab');
+		await expect
+			.poll(() => display.evaluate((overlay) => overlay.contains(document.activeElement)))
+			.toBe(true);
+
+		await page.keyboard.press('Escape');
+		await expect(display).toBeHidden();
+		await expect(launcher).toBeFocused();
+	});
+
 	test('the composer authors a player-visible scene card that survives reload', async ({
 		page,
 	}) => {

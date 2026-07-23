@@ -765,7 +765,8 @@ export function Campaign() {
 						<div
 							style={{
 								display: 'grid',
-								gridTemplateColumns: 'repeat(auto-fill,minmax(330px,1fr))',
+								// Keep a single card within the usable width on narrow phones.
+								gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 330px),1fr))',
 								gap: 16,
 								alignItems: 'start',
 							}}
@@ -806,7 +807,7 @@ export function Campaign() {
 					<div
 						style={{
 							display: 'grid',
-							gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))',
+							gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 320px),1fr))',
 							gap: 16,
 							alignItems: 'start',
 						}}
@@ -875,7 +876,7 @@ export function Campaign() {
 						<div
 							style={{
 								display: 'grid',
-								gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))',
+								gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 300px),1fr))',
 								gap: 16,
 								alignItems: 'start',
 							}}

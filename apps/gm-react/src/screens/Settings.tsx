@@ -108,6 +108,7 @@ import {
 	type AiProviderSettings,
 } from '../ai/providerConfig';
 import { sendAiChat } from '../ai/transport';
+import { LOCAL_OLLAMA } from '../ai/localLlmGuidance';
 import {
 	baselineAllowlistMembership,
 	buildAiToolSpecs,
@@ -117,6 +118,13 @@ import {
 	type AssistantRunStatus,
 } from '../ai/mcpBridge';
 import type { AiTurn } from '../ai/transport';
+import {
+	AI_USAGE_PREFERENCE_EVENT,
+	getAiUsagePreference,
+	isAiAssistantEnabled,
+	saveAiUsagePreference,
+	type AiUsagePreference,
+} from '../ai/usagePreference';
 
 /**
  * Settings — the category-rail section. The subpages now split by how much of the app Core backs:
@@ -144,6 +152,7 @@ const SETTINGS_NAV = [
 	{ id: 'permissions', label: 'Permissions', icon: 'permissions' },
 	{ id: 'vault', label: 'Vault connections', icon: 'vault' },
 	{ id: 'sync', label: 'Backup & history', icon: 'connection' },
+	{ id: 'tools', label: 'Tool preferences', icon: 'sliders' },
 	{ id: 'ai', label: 'AI & tools', icon: 'sparkle' },
 	{ id: 'plugins', label: 'Plugins', icon: 'widget' },
 	{ id: 'systems', label: 'Extensions & systems', icon: 'scroll' },
@@ -2596,16 +2605,12 @@ const AI_PROVIDER_PRESETS: AiProviderPreset[] = [
 	},
 	{
 		id: 'ollama',
-		label: 'Local (Ollama)',
+		label: LOCAL_OLLAMA.label,
 		provider: 'openai-compatible',
-		baseUrl: 'http://localhost:11434/v1',
-		model: 'qwen2.5:7b',
-		steps: [
-			'Install Ollama and run `ollama serve`.',
-			'Run `ollama pull qwen2.5:7b` (a strong tool-calling model).',
-			'Pick this card, enter any non-empty text as the key, and Save.',
-		],
-		note: 'Runs entirely on this device. Allowed in local dev; a hosted build must allowlist the origin.',
+		baseUrl: LOCAL_OLLAMA.baseUrl,
+		model: LOCAL_OLLAMA.defaultModel,
+		steps: [...LOCAL_OLLAMA.setupSteps],
+		note: LOCAL_OLLAMA.note,
 	},
 ];
 
@@ -2649,7 +2654,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 	const detectOllama = async () => {
 		setOllamaBusy(true);
 		try {
-			const response = await fetch('http://localhost:11434/api/tags');
+			const response = await fetch(LOCAL_OLLAMA.healthUrl);
 			if (!response.ok) throw new Error('bad status');
 			const data = (await response.json()) as { models?: Array<{ name?: string }> };
 			const models = (data.models ?? [])
@@ -2819,9 +2824,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 								</ol>
 								{(platformUnsupported || preset.note) && (
 									<div style={{ font: `10.5px ${T.sans}`, color: T.ter, fontStyle: 'italic' }}>
-										{platformUnsupported
-											? 'Local Ollama access is available in the desktop app. Android permits HTTPS providers only.'
-											: preset.note}
+										{platformUnsupported ? LOCAL_OLLAMA.desktopOnlyNote : preset.note}
 									</div>
 								)}
 								{isOllama &&
@@ -3920,6 +3923,87 @@ function SettingsAI() {
 	);
 }
 
+/** The one durable consent control. It remains reachable when AI is hidden, but the AI setup and
+ * assistant panels themselves never render until the user explicitly picks Complete use. */
+function SettingsToolPreferences() {
+	const [preference, setPreference] = useState<AiUsagePreference>(getAiUsagePreference);
+	const choose = (next: AiUsagePreference) => {
+		saveAiUsagePreference(next);
+		setPreference(next);
+		Toaster.success(
+			next === 'complete'
+				? 'Complete use enabled. AI & tools is now available in Settings.'
+				: next === 'generation-only'
+					? 'Random generation stays available. AI tools are hidden and blocked.'
+					: 'AI tools are hidden and blocked.',
+		);
+	};
+	return (
+		<Panel title="Tool preferences">
+			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+				Control optional tools for this device. Choosing anything except Complete use immediately
+				hides the assistant and provider setup, and blocks model requests even if a key remains
+				stored.
+			</div>
+			<div
+				role="radiogroup"
+				aria-label="Optional tool preference"
+				style={{
+					display: 'grid',
+					gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))',
+					gap: 10,
+				}}
+			>
+				{(
+					[
+						{
+							id: 'complete' as const,
+							title: 'Complete use',
+							desc: 'Use the optional campaign assistant and its provider setup, plus built-in generators.',
+						},
+						{
+							id: 'generation-only' as const,
+							title: 'Random generation stuff',
+							desc: 'Keep built-in offline generators. Assistant, provider, and model controls stay hidden.',
+						},
+						{
+							id: 'none' as const,
+							title: 'None',
+							desc: 'Hide and block all optional AI tools. Only this Settings control can re-enable them.',
+						},
+					] satisfies Array<{ id: AiUsagePreference; title: string; desc: string }>
+				).map((option) => {
+					const selected = preference === option.id;
+					return (
+						<button
+							key={option.id}
+							type="button"
+							role="radio"
+							aria-checked={selected}
+							onClick={() => choose(option.id)}
+							style={{
+								padding: 12,
+								borderRadius: 10,
+								border: `1px solid ${selected ? T.accBd : T.bd}`,
+								background: selected ? T.accSub : T.alt,
+								textAlign: 'left',
+								cursor: 'pointer',
+							}}
+						>
+							<div style={{ font: `600 13px ${T.sans}`, color: selected ? T.acc : T.ink }}>
+								{option.title}
+							</div>
+							<div style={{ marginTop: 4, font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+								{option.desc}
+							</div>
+						</button>
+					);
+				})}
+			</div>
+		</Panel>
+	);
+}
+
 /* ---- Plugins → Extensions ---------------------------------------------------------------------
  * Installed widget packages have a REAL registry surface in Extensions (`runtime.state.widgets.packages`
  * with working `widget.package.enable/disable`). This subpage used to render a parallel MOCK list with
@@ -4155,6 +4239,7 @@ const SUBPAGES: Record<string, () => JSX.Element> = {
 	permissions: SettingsPermissions,
 	vault: SettingsVault,
 	sync: SettingsSync,
+	tools: SettingsToolPreferences,
 	ai: SettingsAI,
 	plugins: SettingsPlugins,
 	systems: SettingsSystems,
@@ -4206,17 +4291,27 @@ export function Settings() {
 	const navigate = useNavigate();
 	const viewport = useViewport();
 	const [tier, setTier] = useState<FeatureTier>(() => readTier());
+	const [aiEnabled, setAiEnabled] = useState(isAiAssistantEnabled);
 	useEffect(() => {
 		const onTier = () => setTier(readTier());
 		window.addEventListener(TIER_EVENT, onTier);
 		return () => window.removeEventListener(TIER_EVENT, onTier);
 	}, []);
+	useEffect(() => {
+		const onAiPreference = () => setAiEnabled(isAiAssistantEnabled());
+		window.addEventListener(AI_USAGE_PREFERENCE_EVENT, onAiPreference);
+		return () => window.removeEventListener(AI_USAGE_PREFERENCE_EVENT, onAiPreference);
+	}, []);
 	const gatedOff = (id: string) => (TAB_GATE[id] ? !isFeatureVisible(TAB_GATE[id], tier) : false);
 	const urlTab = new URLSearchParams(location.search).get('tab');
-	const tab = urlTab && urlTab in SUBPAGES ? urlTab : 'appearance';
+	const requestedTab = urlTab && urlTab in SUBPAGES ? urlTab : 'appearance';
+	// A bookmarked AI URL must never disclose its UI after the user opts out.
+	const tab = requestedTab === 'ai' && !aiEnabled ? 'tools' : requestedTab;
 	const setTab = (next: string) => navigate(`/settings?tab=${next}`, { replace: true });
 	const Sub = SUBPAGES[tab] || SettingsAppearance;
-	const visibleNav = SETTINGS_NAV.filter((s) => !gatedOff(s.id));
+	const visibleNav = SETTINGS_NAV.filter((s) => s.id !== 'ai' || aiEnabled).filter(
+		(s) => !gatedOff(s.id),
+	);
 	return (
 		<Page
 			max={1180}
@@ -4264,6 +4359,9 @@ export function Settings() {
 									alignItems: 'center',
 									gap: 10,
 									padding: '9px 11px',
+									// The rail profile is used on touch-capable tablets and foldables too.
+									// Keep every category row at the shared primary touch-target minimum.
+									minHeight: 44,
 									borderRadius: 8,
 									border: 'none',
 									cursor: 'pointer',

@@ -1079,7 +1079,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 					tabIndex={-1}
 					style={{
 						flex: 1,
+						// A flex child defaults to `min-height: auto`, which can make its contents grow
+						// behind the phone navigation rather than becoming the shell's scroll region.
+						// This is the shell contract: one bounded, independently scrollable main pane.
+						minHeight: 0,
 						overflowY: 'auto',
+						overflowX: 'hidden',
+						overscrollBehavior: 'contain',
+						WebkitOverflowScrolling: 'touch',
 						outline: 'none',
 						boxSizing: 'border-box',
 						paddingLeft: viewport === 'phone' ? 'var(--safe-area-left, 0px)' : 0,

@@ -1709,7 +1709,9 @@ export function Characters() {
 				<div
 					style={{
 						display: 'grid',
-						gridTemplateColumns: 'repeat(auto-fill,minmax(230px,1fr))',
+						// `min()` retains the useful desktop card width without forcing horizontal
+						// page scrolling on a 320px phone (292px after page gutters).
+						gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 230px),1fr))',
 						gap: 16,
 					}}
 				>

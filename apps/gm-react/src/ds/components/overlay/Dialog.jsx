@@ -115,6 +115,19 @@ export function Dialog({
 			}
 		};
 		document.addEventListener('keydown', onKey, true);
+		// When Android's software keyboard reduces the visual viewport, ensure the focused
+		// field is brought into the dialog's bounded scroll region rather than hidden below
+		// a sticky footer or the keyboard. `nearest` avoids disorienting jumps for keyboard users.
+		const onFocusIn = (event) => {
+			if (
+				event.target instanceof HTMLElement &&
+				panelRef.current?.contains(event.target) &&
+				typeof event.target.scrollIntoView === 'function'
+			) {
+				event.target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			}
+		};
+		panelRef.current?.addEventListener('focusin', onFocusIn);
 		const unregisterBack = registerBackHandler('overlay', () => {
 			if (dismissibleRef.current) onCloseRef.current && onCloseRef.current();
 			return true;
@@ -122,6 +135,7 @@ export function Dialog({
 		return () => {
 			clearTimeout(t);
 			document.removeEventListener('keydown', onKey, true);
+			panelRef.current?.removeEventListener('focusin', onFocusIn);
 			unregisterBack();
 			document.body.style.overflow = prevOverflow;
 			restoreIsolation();
@@ -171,6 +185,7 @@ export function Dialog({
 					width,
 					maxWidth: '100%',
 					maxHeight: '100%',
+					minHeight: 0,
 					display: 'flex',
 					flexDirection: 'column',
 					background: 'var(--color-surface-raised)',
@@ -288,7 +303,17 @@ export function Dialog({
 						)}
 					</div>
 				)}
-				<div style={{ padding: 'var(--space-5)', overflowY: 'auto', flex: '1 1 auto' }}>
+				<div
+					style={{
+						padding: 'var(--space-5)',
+						overflowY: 'auto',
+						overflowX: 'hidden',
+						overscrollBehavior: 'contain',
+						WebkitOverflowScrolling: 'touch',
+						flex: '1 1 auto',
+						minHeight: 0,
+					}}
+				>
 					{children}
 				</div>
 				{footer && (
@@ -299,7 +324,8 @@ export function Dialog({
 							justifyContent: 'flex-end',
 							gap: 'var(--space-2)',
 							flexWrap: 'wrap',
-							padding: 'var(--space-3) var(--space-5)',
+							padding:
+								'var(--space-3) var(--space-5) calc(var(--space-3) + var(--safe-area-bottom, 0px))',
 							borderTop: '1px solid var(--color-border)',
 							background: 'var(--color-surface)',
 						}}
