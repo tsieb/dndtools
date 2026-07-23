@@ -73,12 +73,16 @@ Resources:
       # Self-service signup with email as the username/login.
       UsernameAttributes:
         - email
-      UsernameConfiguration:
-        # Cognito cannot change this setting after a pool is created. The existing dev pool was
-        # created with Cognito's historical case-sensitive default, so preserve that immutable
-        # value there (the client still canonicalizes email addresses). Production is a new pool
-        # and uses the recommended case-insensitive behavior from its first deployment.
-        CaseSensitive: !If [IsDev, true, false]
+      # Cognito cannot change this setting after a pool is created — and the existing dev pool was
+      # created with the property entirely ABSENT (Cognito's historical case-sensitive default), so
+      # even writing the equivalent explicit value is rejected as an update to an immutable
+      # property. Dev therefore omits the property to match the live pool byte-for-byte (the client
+      # still canonicalizes email addresses); production is a new pool and uses the recommended
+      # case-insensitive behavior from its first deployment.
+      UsernameConfiguration: !If
+        - IsDev
+        - !Ref 'AWS::NoValue'
+        - CaseSensitive: false
       AutoVerifiedAttributes:
         - email
       AdminCreateUserConfig:
