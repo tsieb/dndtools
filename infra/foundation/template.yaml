@@ -175,6 +175,13 @@ Resources:
                   - 'iam:ListAttachedRolePolicies'
                   - 'iam:TagRole'
                   - 'iam:UntagRole'
+                  # Stack templates attach the stage permissions boundary to every service role
+                  # they create (resolved from SSM). The conditional Deny below already forces the
+                  # boundary to be exactly CiDeployBoundary; without these two actions the first
+                  # hardened deploy of a pre-boundary stack fails mid-update and its rollback
+                  # wedges in UPDATE_ROLLBACK_FAILED (observed on dndtools-dev-app-api).
+                  - 'iam:PutRolePermissionsBoundary'
+                  - 'iam:DeleteRolePermissionsBoundary'
                   - 'iam:CreateInstanceProfile'
                   - 'iam:DeleteInstanceProfile'
                   - 'iam:GetInstanceProfile'
