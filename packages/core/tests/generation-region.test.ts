@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { hexcrawlGenerator, wildernessGenerator } from '../src/generation/region';
-import type { GeneratorContext, GeneratorDefinition, GeneratorOutput } from '../src/generation/types';
+import type {
+	GeneratorContext,
+	GeneratorDefinition,
+	GeneratorOutput,
+} from '../src/generation/types';
 import { resolveParams } from '../src/generation/types';
 import type { MapLayer } from '../src/state/map-state';
 import { createRngStreams } from '../src/state/prng';
@@ -27,7 +31,10 @@ function run(
 
 function layer(output: GeneratorOutput, suffix: string): MapLayer {
 	const found = output.layers.find((l) => l.id === `gen-test-${suffix}`);
-	if (!found) throw new Error(`missing layer "${suffix}" (have: ${output.layers.map((l) => l.id).join(', ')})`);
+	if (!found)
+		throw new Error(
+			`missing layer "${suffix}" (have: ${output.layers.map((l) => l.id).join(', ')})`,
+		);
 	return found;
 }
 
@@ -38,7 +45,13 @@ function allPoints(output: GeneratorOutput): Point[] {
 	return points;
 }
 
-const REGION = { regionType: 'coastal', settlements: 6, dangers: 6, ruins: 4, roads: true } as const;
+const REGION = {
+	regionType: 'coastal',
+	settlements: 6,
+	dangers: 6,
+	ruins: 4,
+	roads: true,
+} as const;
 
 describe('region.wilderness — determinism', () => {
 	it('produces byte-identical output for the same seed and params', () => {
@@ -85,7 +98,9 @@ describe('region.wilderness — RNG stream isolation', () => {
 	it('changing terrain roughness does not touch the region name', () => {
 		const smooth = run(wildernessGenerator, 'thornwood-barony', { ...REGION, roughness: 0.25 });
 		const rough = run(wildernessGenerator, 'thornwood-barony', { ...REGION, roughness: 0.95 });
-		expect(JSON.stringify(layer(smooth, 'terrain'))).not.toBe(JSON.stringify(layer(rough, 'terrain')));
+		expect(JSON.stringify(layer(smooth, 'terrain'))).not.toBe(
+			JSON.stringify(layer(rough, 'terrain')),
+		);
 		const nameOf = (o: GeneratorOutput): string =>
 			String(layer(o, 'labels').content.find((f) => f.style === 'label:region')?.props?.text ?? '');
 		expect(nameOf(smooth)).toBe(nameOf(rough));
@@ -113,7 +128,9 @@ describe('region.wilderness — bounds', () => {
 });
 
 describe('region.wilderness — content seeding', () => {
-	it('never puts a settlement in the ocean', () => {
+	// Generous timeout: multi-seed settlement placement is CPU-heavy and the CI coverage run's
+	// V8 instrumentation pushed it past vitest's 5 s default (observed flake 2026-07-23).
+	it('never puts a settlement in the ocean', { timeout: 30_000 }, () => {
 		// A water region whose outer contour is the map border makes the LAND a hole in the water, so a
 		// naive `pointInRing` on the outer ring alone calls every land point "sea". Water membership is the
 		// even-odd rule across ALL the water rings — outer boundaries and holes together — which is exactly

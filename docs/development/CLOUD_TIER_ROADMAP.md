@@ -82,7 +82,12 @@ monetizes). Reject Firebase/Firestore/Cloud Run/GCS as replacements for the hard
 
 ### P2 — Integrations that deepen the product
 
-8. ⬜ Session scheduling + reminders (Google Calendar + FCM; metadata-only, works with Private).
+8. 🟨 Session scheduling + reminders — **Calendar half shipped 2026-07-23**: the Session screen's
+   DM-only "Schedule next session" panel creates a Google Calendar event with roster-email invites
+   and a Calendar-native reminder (`cloud/googleCalendar.ts`; metadata-only by design, so it works
+   identically for Private vaults; fail-closed until `VITE_GOOGLE_CLIENT_ID` + the
+   `calendar.events` consent-screen scope — runbook updated). The FCM push half stays blocked on a
+   Firebase project.
 9. ⬜ Live player companion / async play (server-brokered views; Cloud-Enhanced or key-shared).
 10. ⬜ Cloud media/asset CDN + thumbnails/transcoding (Cloud-Enhanced).
 11. ⬜ Marketplace monetization (Stripe Connect revenue share).

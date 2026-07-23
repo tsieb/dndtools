@@ -288,6 +288,15 @@ Resources:
               - 'iam:DeleteUserPolicy'
               - 'iam:DetachUserPolicy'
               - 'iam:DeleteUserPermissionsBoundary'
+              # Boundary-stripping stays denied EVERYWHERE for CI (service roles included): CI can
+              # already attach arbitrary inline policies to service roles, so their boundary is the
+              # cap — deleting it would be a privilege-escalation lever via Lambda execution. The
+              # operational consequence is that the ONE-TIME transition attaching boundaries to
+              # pre-hardening stacks must be deployed with the operator (admin) profile — a CI
+              # deploy that fails mid-transition cannot roll the attachment back and wedges in
+              # UPDATE_ROLLBACK_FAILED (observed on dndtools-dev-app-api, 2026-07-23). At steady
+              # state (boundary attached everywhere; new roles are born with it via CreateRole)
+              # CI updates never touch boundaries again.
               - 'iam:DeleteRolePermissionsBoundary'
               - 'iam:CreateSAMLProvider'
               - 'iam:UpdateSAMLProvider'

@@ -46,7 +46,18 @@ Parameters:
     Default: 30
     AllowedValues: [14, 30, 60, 90, 180, 365]
 
+  ReserveLambdaConcurrency:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: >-
+      Attach the per-function ReservedConcurrentExecutions throttling guardrails. Requires the
+      account's Lambda "Concurrent executions" quota to be above its 10-concurrency floor — a
+      fresh account cannot reserve at all (reservation must leave >=10 unreserved), so a new
+      account deploys with 'false' until the quota increase (requested 2026-07-23) is granted.
+
 Conditions:
+  ShouldReserveConcurrency: !Equals [!Ref ReserveLambdaConcurrency, 'true']
   IsProd: !Equals [!Ref Stage, prod]
   HasSyncOpsTable: !Not [!Equals [!Ref SyncOpsTableName, '']]
 
@@ -186,7 +197,7 @@ Resources:
     Properties:
       CodeUri: ../../packages/cloud-fns/build/app-api-handler
       Handler: index.handler
-      ReservedConcurrentExecutions: 10
+      ReservedConcurrentExecutions: !If [ShouldReserveConcurrency, 10, !Ref 'AWS::NoValue']
       LoggingConfig:
         LogFormat: JSON
         ApplicationLogLevel: INFO

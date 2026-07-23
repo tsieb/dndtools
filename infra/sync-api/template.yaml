@@ -42,7 +42,18 @@ Parameters:
     MaxValue: 250001
     Description: Maximum immutable operation rows per primary vault.
 
+  ReserveLambdaConcurrency:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: >-
+      Attach the per-function ReservedConcurrentExecutions throttling guardrails. Requires the
+      account's Lambda "Concurrent executions" quota to be above its 10-concurrency floor — a
+      fresh account cannot reserve at all (reservation must leave >=10 unreserved), so a new
+      account deploys with 'false' until the quota increase (requested 2026-07-23) is granted.
+
 Conditions:
+  ShouldReserveConcurrency: !Equals [!Ref ReserveLambdaConcurrency, 'true']
   IsProd: !Equals [!Ref Stage, prod]
 
 Globals:
@@ -173,7 +184,7 @@ Resources:
     Properties:
       CodeUri: ../../packages/cloud-fns/build/sync-handler
       Handler: index.handler
-      ReservedConcurrentExecutions: 20
+      ReservedConcurrentExecutions: !If [ShouldReserveConcurrency, 20, !Ref 'AWS::NoValue']
       LoggingConfig:
         LogFormat: JSON
         ApplicationLogLevel: INFO

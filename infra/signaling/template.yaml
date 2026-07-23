@@ -109,7 +109,7 @@ Resources:
       CodeUri: ../../packages/cloud-fns/build/signaling-authorizer
       Handler: index.handler
       Timeout: 10
-      ReservedConcurrentExecutions: 10
+      ReservedConcurrentExecutions: !If [ShouldReserveConcurrency, 10, !Ref 'AWS::NoValue']
       LoggingConfig:
         LogFormat: JSON
         ApplicationLogLevel: INFO
@@ -125,7 +125,7 @@ Resources:
     Properties:
       CodeUri: ../../packages/cloud-fns/build/signaling-handler
       Handler: index.handler
-      ReservedConcurrentExecutions: 20
+      ReservedConcurrentExecutions: !If [ShouldReserveConcurrency, 20, !Ref 'AWS::NoValue']
       LoggingConfig:
         LogFormat: JSON
         ApplicationLogLevel: INFO

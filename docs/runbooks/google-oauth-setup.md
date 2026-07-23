@@ -1,4 +1,4 @@
-# Google Docs Vault Source — OAuth Setup (manual, one-time)
+# Google Docs + Calendar — OAuth Setup (manual, one-time)
 
 The Google Docs vault-source connection (import + write-back in the Knowledge/Community
 "Connected sources" panel) is **fail-closed**: its sign-in controls stay disabled until the
@@ -15,12 +15,15 @@ Picker grant flow is implemented; the app does not compensate by requesting broa
 
 1. **Create (or pick) a Google Cloud project** at <https://console.cloud.google.com>
    (suggested name: `dndtools`).
-2. **Enable APIs**: APIs & Services → Library → enable **Google Drive API** and
-   **Google Docs API**.
+2. **Enable APIs**: APIs & Services → Library → enable **Google Drive API**,
+   **Google Docs API**, and **Google Calendar API** (the Session screen's "Schedule next
+   session" panel — roadmap P2 #8 — uses the same client id).
 3. **Configure the OAuth consent screen**: APIs & Services → OAuth consent screen →
    - User type: **External**, Publishing status: **Testing** is fine (test users only).
    - App name `DND Tools`, your support email.
-   - Scopes: add `.../auth/drive.file` (non-sensitive list).
+   - Scopes: add `.../auth/drive.file` (non-sensitive list) and `.../auth/calendar.events`
+     (sensitive list — scheduling; requested as its own separate token grant, never combined
+     with the Docs scope).
    - Test users: add each Google account that will connect a Docs source.
 4. **Create the client id**: APIs & Services → Credentials → Create credentials →
    **OAuth client ID** → Application type **Web application**:

@@ -112,18 +112,18 @@ export function signOutGoogle(): void {
 
 // --- OAuth flow (Google Identity Services token client; popup callback) ---------------------------
 
-interface GoogleTokenResponse {
+export interface GoogleTokenResponse {
 	access_token?: string;
 	expires_in?: number | string;
 	error?: string;
 	error_description?: string;
 }
 
-interface GoogleTokenClient {
+export interface GoogleTokenClient {
 	requestAccessToken(options?: { prompt?: string }): void;
 }
 
-interface GoogleIdentityApi {
+export interface GoogleIdentityApi {
 	accounts?: {
 		oauth2?: {
 			initTokenClient(config: {
@@ -141,7 +141,8 @@ const googleIdentityApi = (): GoogleIdentityApi | undefined =>
 
 let googleIdentityLoad: Promise<GoogleIdentityApi> | null = null;
 
-function loadGoogleIdentityServices(): Promise<GoogleIdentityApi> {
+/** Shared, idempotent GIS script loader — googleCalendar.ts reuses it with its own scope/token. */
+export function loadGoogleIdentityServices(): Promise<GoogleIdentityApi> {
 	const loaded = googleIdentityApi();
 	if (loaded?.accounts?.oauth2) return Promise.resolve(loaded);
 	if (googleIdentityLoad) return googleIdentityLoad;
