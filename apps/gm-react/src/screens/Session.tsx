@@ -56,7 +56,7 @@ import {
 	createSessionEvent,
 	isGoogleCalendarConfigured,
 	isGoogleCalendarSignedIn,
-	isLikelyEmail,
+	rosterAttendeeEmails,
 } from '../cloud/googleCalendar';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useSession } from '../net/SessionContext';
@@ -1747,19 +1747,6 @@ function RosterPanel({
 
 // ── Schedule next session (cloud-tier roadmap P2 #8, Calendar half — metadata only) ───────────────
 
-const SCHEDULE_INVITES_KEY = 'dndtools:react:invites';
-
-function rosterEmails(): string[] {
-	try {
-		const raw = JSON.parse(window.localStorage.getItem(SCHEDULE_INVITES_KEY) ?? '[]') as unknown;
-		return Array.isArray(raw)
-			? raw.filter((v): v is string => typeof v === 'string').filter(isLikelyEmail)
-			: [];
-	} catch {
-		return [];
-	}
-}
-
 /**
  * DM-only real-world scheduling: creates a Google Calendar event (attendee invites + a
  * Calendar-native reminder) for the next session. Strictly metadata — the event carries a title,
@@ -1774,7 +1761,7 @@ function SchedulePanel() {
 	const [note, setNote] = useState('');
 	const [busy, setBusy] = useState(false);
 	const [link, setLink] = useState('');
-	const emails = useMemo(rosterEmails, []);
+	const emails = useMemo(rosterAttendeeEmails, []);
 
 	if (!isGoogleCalendarConfigured) {
 		return (

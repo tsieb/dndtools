@@ -168,6 +168,24 @@ export function isLikelyEmail(value: string): boolean {
 	return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
 }
 
+const ROSTER_INVITES_KEY = 'dndtools:react:invites';
+
+/**
+ * The email-shaped entries of the device-local party roster onboarding collected (names are kept
+ * on-device and never sent anywhere). Lives here — the platform/transport layer — so the Session
+ * screen stays behind the PLAT-006 GUI/platform boundary.
+ */
+export function rosterAttendeeEmails(): string[] {
+	try {
+		const raw = JSON.parse(window.localStorage.getItem(ROSTER_INVITES_KEY) ?? '[]') as unknown;
+		return Array.isArray(raw)
+			? raw.filter((v): v is string => typeof v === 'string').filter(isLikelyEmail)
+			: [];
+	} catch {
+		return [];
+	}
+}
+
 export function buildSessionEventPayload(input: SessionEventInput): CalendarEventPayload {
 	const start = new Date(input.startIso);
 	if (Number.isNaN(start.getTime())) throw new Error('Invalid session start time.');
