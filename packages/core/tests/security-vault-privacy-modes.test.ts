@@ -141,16 +141,19 @@ describe('ADR-026 recovery-key file (seal/open/merge)', () => {
 		await expect(openKeyringRecoveryFile(sealed, 'wrong horse battery')).rejects.toThrow(
 			/wrong passphrase|damaged/i,
 		);
-		const tampered = { ...sealed, ct: sealed.ct.slice(0, -2) + (sealed.ct.endsWith('AA') ? 'BB' : 'AA') };
+		const tampered = {
+			...sealed,
+			ct: sealed.ct.slice(0, -2) + (sealed.ct.endsWith('AA') ? 'BB' : 'AA'),
+		};
 		await expect(openKeyringRecoveryFile(tampered, 'correct horse battery')).rejects.toThrow();
 	});
 
 	it('refuses short passphrases and malformed files', async () => {
 		const keyring = createVaultKeyring();
 		await expect(sealKeyringRecoveryFile(keyring, 'short')).rejects.toThrow(/at least 8/i);
-		await expect(openKeyringRecoveryFile({ hello: 'world' }, 'correct horse battery')).rejects.toThrow(
-			/not a .*recovery-key file/i,
-		);
+		await expect(
+			openKeyringRecoveryFile({ hello: 'world' }, 'correct horse battery'),
+		).rejects.toThrow(/not a .*recovery-key file/i);
 		const sealed = await sealKeyringRecoveryFile(keyring, 'correct horse battery');
 		await expect(
 			openKeyringRecoveryFile({ ...sealed, iterations: 10 }, 'correct horse battery'),

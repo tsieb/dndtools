@@ -244,7 +244,12 @@ export type {
 	RemovedFeature,
 	UpdateFeaturesInput,
 } from './state/map-editing';
-export { MAX_FEATURE_BATCH, addFeatures, removeFeatures, updateFeatures } from './state/map-editing';
+export {
+	MAX_FEATURE_BATCH,
+	addFeatures,
+	removeFeatures,
+	updateFeatures,
+} from './state/map-editing';
 
 // MAP-021 — map REGIONS. The type shipped with two readers and no writer; these are the pure reducers
 // behind the region CRUD commands. Deleting the map's default region CLEARS `defaultRegionId`.
@@ -255,7 +260,12 @@ export type {
 	MapRegionStamp,
 	UpdateRegionPatch,
 } from './state/map-regions';
-export { createRegion, deleteRegion, updateRegion, validateRegionBounds } from './state/map-regions';
+export {
+	createRegion,
+	deleteRegion,
+	updateRegion,
+	validateRegionBounds,
+} from './state/map-regions';
 
 // MAP-004: deterministic procedural generation of editable map layers from explicit params + seed.
 // Validates fail-closed first (no partial layers on rejection); same params ⇒ identical layers.
@@ -5062,7 +5072,15 @@ export {
 // MAP-021 — the geometry kit the generators are built from. Exported because the APP needs several of
 // these too: the renderer contours and simplifies for display, and the editor's snapping/hit-testing
 // reuses the same intersection math the generators use, so both sides agree on what "on the wall" means.
-export type { CellGrid, ContourOptions, NoiseField, Point, Rect, Ring, Triangulation } from './geometry';
+export type {
+	CellGrid,
+	ContourOptions,
+	NoiseField,
+	Point,
+	Rect,
+	Ring,
+	Triangulation,
+} from './geometry';
 export {
 	boundsOf,
 	centroid,

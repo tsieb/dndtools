@@ -524,7 +524,12 @@ async function deriveRecoveryKey(
 /** The authenticated context a recovery file is sealed under (binds format/version/kdf/iterations). */
 function recoveryAdditionalData(iterations: number): Uint8Array {
 	return new TextEncoder().encode(
-		JSON.stringify([RECOVERY_FILE_FORMAT, RECOVERY_FILE_SCHEMA_VERSION, RECOVERY_FILE_KDF, iterations]),
+		JSON.stringify([
+			RECOVERY_FILE_FORMAT,
+			RECOVERY_FILE_SCHEMA_VERSION,
+			RECOVERY_FILE_KDF,
+			iterations,
+		]),
 	);
 }
 
@@ -639,7 +644,9 @@ export function mergeKeyrings(existing: VaultKeyring, imported: VaultKeyring): V
 	validateVaultKeyring(imported);
 	const keys: Record<number, string> = { ...imported.keys, ...existing.keys };
 	if (Object.keys(keys).length > MAX_KEYRING_EPOCHS) {
-		throw new Error('Merging the recovery file would exceed the safe keyring epoch limit (fail closed).');
+		throw new Error(
+			'Merging the recovery file would exceed the safe keyring epoch limit (fail closed).',
+		);
 	}
 	const merged: VaultKeyring = {
 		schemaVersion: VAULT_KEYRING_SCHEMA_VERSION,

@@ -2502,7 +2502,9 @@ function RecoveryKeyPanel() {
 			await vaultKeyManager.importRecoveryFile(accountId, CLOUD_VAULT_ID, picked.text, pass);
 			closeDialogs();
 			await cloud.refresh().catch(() => undefined);
-			Toaster.success('Recovery key imported — this device can now open your encrypted cloud backups.');
+			Toaster.success(
+				'Recovery key imported — this device can now open your encrypted cloud backups.',
+			);
 		} catch (e) {
 			Toaster.error(e instanceof Error ? e.message : 'Recovery-key import failed.');
 		} finally {
@@ -2562,7 +2564,12 @@ function RecoveryKeyPanel() {
 							Cancel
 						</Button>
 						{exportOpen ? (
-							<Button variant="primary" size="sm" disabled={busy || !passOk} onClick={() => void doExport()}>
+							<Button
+								variant="primary"
+								size="sm"
+								disabled={busy || !passOk}
+								onClick={() => void doExport()}
+							>
 								Export file
 							</Button>
 						) : (

@@ -31,7 +31,10 @@ import { containsSensitiveData } from '../diagnostics/redaction';
 export const CLOUD_SECURITY_MODEL_SCHEMA_VERSION = 1 as const;
 
 /** Whether the model claims end-to-end encryption (server cannot read content) or server-readable encryption. */
-export type EncryptionResponsibility = 'end-to-end-encrypted' | 'server-side-encrypted' | 'undeclared';
+export type EncryptionResponsibility =
+	| 'end-to-end-encrypted'
+	| 'server-side-encrypted'
+	| 'undeclared';
 
 /** Who holds the keys. `client-held` ⇒ the server never sees plaintext keys (required for an E2EE claim). */
 export type KeyCustodian = 'client-held' | 'provider-held' | 'split-escrow' | 'undeclared';
@@ -49,14 +52,16 @@ export type AllowedServerMetadataClass =
 	| 'content-hash' // content-addressed asset hashes (dedupe/integrity)
 	| 'timestamp'; // server-receipt timestamps (ordering / freshness)
 
-export const ALLOWED_SERVER_METADATA_CLASSES: readonly AllowedServerMetadataClass[] = Object.freeze([
-	'vault-id',
-	'participant-id',
-	'operation-revision',
-	'operation-size',
-	'content-hash',
-	'timestamp',
-]);
+export const ALLOWED_SERVER_METADATA_CLASSES: readonly AllowedServerMetadataClass[] = Object.freeze(
+	[
+		'vault-id',
+		'participant-id',
+		'operation-revision',
+		'operation-size',
+		'content-hash',
+		'timestamp',
+	],
+);
 
 /**
  * THE CLOUD SECURITY DECISION RECORD (SEC-009). The machine-checkable mirror of the prose ADR / threat model.
@@ -84,16 +89,18 @@ export interface CloudSecurityDecisionRecord {
  * The fail-closed DEFAULT decision record (ADR-014 defers crypto). Unapproved, undeclared encryption/custody,
  * no rotation, undeclared recovery, no allowed metadata. With this record the release gate is BLOCKED.
  */
-export const UNDECLARED_CLOUD_SECURITY_DECISION_RECORD: CloudSecurityDecisionRecord = Object.freeze({
-	schemaVersion: CLOUD_SECURITY_MODEL_SCHEMA_VERSION,
-	approved: false,
-	encryption: 'undeclared',
-	keyCustodian: 'undeclared',
-	credentialRotationDeclared: false,
-	recovery: 'undeclared',
-	allowedServerMetadata: Object.freeze([]),
-	decisionRecordRef: '',
-});
+export const UNDECLARED_CLOUD_SECURITY_DECISION_RECORD: CloudSecurityDecisionRecord = Object.freeze(
+	{
+		schemaVersion: CLOUD_SECURITY_MODEL_SCHEMA_VERSION,
+		approved: false,
+		encryption: 'undeclared',
+		keyCustodian: 'undeclared',
+		credentialRotationDeclared: false,
+		recovery: 'undeclared',
+		allowedServerMetadata: Object.freeze([]),
+		decisionRecordRef: '',
+	},
+);
 
 /** A problem that makes a decision record INCOMPLETE (and therefore release-blocking). */
 export type CloudSecurityRecordProblemKind =
@@ -121,19 +128,30 @@ export function validateCloudSecurityRecord(
 	record: CloudSecurityDecisionRecord = UNDECLARED_CLOUD_SECURITY_DECISION_RECORD,
 ): CloudSecurityRecordProblem[] {
 	const problems: CloudSecurityRecordProblem[] = [];
-	const add = (kind: CloudSecurityRecordProblemKind, message: string) => problems.push({ kind, message });
+	const add = (kind: CloudSecurityRecordProblemKind, message: string) =>
+		problems.push({ kind, message });
 
-	if (!record.approved) add('not-approved', 'The cloud security decision record is not approved for release.');
+	if (!record.approved)
+		add('not-approved', 'The cloud security decision record is not approved for release.');
 	if (record.encryption === 'undeclared')
-		add('encryption-undeclared', 'Encryption responsibilities (at rest / in transit / E2EE) are not declared.');
+		add(
+			'encryption-undeclared',
+			'Encryption responsibilities (at rest / in transit / E2EE) are not declared.',
+		);
 	if (record.keyCustodian === 'undeclared')
 		add('key-custody-undeclared', 'Key custody (who holds the keys) is not declared.');
 	if (!record.credentialRotationDeclared)
 		add('rotation-undeclared', 'Credential / session-key rotation behavior is not declared.');
 	if (record.recovery === 'undeclared')
-		add('recovery-undeclared', 'Recovery tradeoffs (including an intentional "no recovery") are not declared.');
+		add(
+			'recovery-undeclared',
+			'Recovery tradeoffs (including an intentional "no recovery") are not declared.',
+		);
 	if (record.decisionRecordRef.trim().length === 0)
-		add('decision-record-ref-missing', 'The decision record must reference the prose ADR / threat-model document.');
+		add(
+			'decision-record-ref-missing',
+			'The decision record must reference the prose ADR / threat-model document.',
+		);
 
 	// Internal consistency: an end-to-end-encrypted claim is meaningless if the provider holds the keys.
 	if (record.encryption === 'end-to-end-encrypted' && record.keyCustodian !== 'client-held') {

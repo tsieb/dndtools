@@ -14,7 +14,8 @@ const BASE = process.env.REACT_URL ?? 'http://localhost:5273';
 const browser = await chromium.launch();
 const results = [];
 const ops = (page) => page.evaluate(() => window.__rt?.state?.sync?.operations?.length ?? -1);
-const ready = (page) => page.waitForFunction(() => window.__rt && window.__rt.loaded === true, null, { timeout: 15000 });
+const ready = (page) =>
+	page.waitForFunction(() => window.__rt && window.__rt.loaded === true, null, { timeout: 15000 });
 
 // The first-run onboarding overlay covers every surface on a fresh profile — mark the device as
 // already onboarded so the trials drive the app itself. The dedicated onboarding case below runs
@@ -41,7 +42,11 @@ async function trial(name, route, interact) {
 		await interact(page);
 		await page.waitForTimeout(800);
 		const after = await ops(page);
-		results.push({ name, ok: after > before && errs.length === 0, detail: `ops ${before}→${after}${errs.length ? ' ERR:' + errs[0] : ''}` });
+		results.push({
+			name,
+			ok: after > before && errs.length === 0,
+			detail: `ops ${before}→${after}${errs.length ? ' ERR:' + errs[0] : ''}`,
+		});
 	} catch (e) {
 		results.push({ name, ok: false, detail: `EX: ${e.message}` });
 	}
@@ -66,7 +71,11 @@ const fillFirst = (page, val) => page.getByRole('textbox').first().fill(val, { t
 				.map((c) => ({ name: c.name, hp: c.combat.hp })),
 		);
 		const ok = pcs.length >= 3 && pcs.every((c) => c.hp > 0);
-		results.push({ name: 'Seed · 3 PCs via draft flow', ok, detail: `${pcs.length} pcs, hp=[${pcs.map((c) => c.hp).join(',')}]` });
+		results.push({
+			name: 'Seed · 3 PCs via draft flow',
+			ok,
+			detail: `${pcs.length} pcs, hp=[${pcs.map((c) => c.hp).join(',')}]`,
+		});
 	} catch (e) {
 		results.push({ name: 'Seed · 3 PCs via draft flow', ok: false, detail: `EX: ${e.message}` });
 	}
@@ -98,15 +107,22 @@ const fillFirst = (page, val) => page.getByRole('textbox').first().fill(val, { t
 		await page.getByRole('button', { name: /continue/i }).click({ timeout: 5000 }); // vault
 		// ADR-026 forced privacy step: pick Private, type the acknowledgment, then continue.
 		await page.getByRole('radio', { name: /private vault/i }).click({ timeout: 5000 });
-		await page.getByLabel(/type "i hold the keys" to confirm/i).fill('i hold the keys', { timeout: 5000 });
-		for (let s = 0; s < 3; s++) await page.getByRole('button', { name: /continue/i }).click({ timeout: 5000 });
+		await page
+			.getByLabel(/type "i hold the keys" to confirm/i)
+			.fill('i hold the keys', { timeout: 5000 });
+		for (let s = 0; s < 3; s++)
+			await page.getByRole('button', { name: /continue/i }).click({ timeout: 5000 });
 		await page.getByRole('button', { name: /enter command center/i }).click({ timeout: 5000 });
 		await overlay.waitFor({ state: 'detached', timeout: 5000 });
 		const flag = await page.evaluate(() => window.localStorage.getItem('dndtools:react:onboarded'));
 		await page.reload({ waitUntil: 'networkidle' });
 		await ready(page);
 		const again = await page.getByRole('dialog', { name: /first-run setup/i }).count();
-		results.push({ name: 'Onboarding · 6-step first run', ok: flag === 'done' && again === 0, detail: `flag=${flag}, re-shown=${again}` });
+		results.push({
+			name: 'Onboarding · 6-step first run',
+			ok: flag === 'done' && again === 0,
+			detail: `flag=${flag}, re-shown=${again}`,
+		});
 	} catch (e) {
 		results.push({ name: 'Onboarding · 6-step first run', ok: false, detail: `EX: ${e.message}` });
 	}
@@ -134,7 +150,11 @@ await trial('Characters · New character', '/characters', async (p) => {
 		await p.waitForTimeout(200);
 	}
 	await click(p, /create character/i);
-	await p.waitForFunction(() => window.__rt.state.sync.operations.some((o) => o.opType === 'character.finalize-draft'), null, { timeout: 8000 });
+	await p.waitForFunction(
+		() => window.__rt.state.sync.operations.some((o) => o.opType === 'character.finalize-draft'),
+		null,
+		{ timeout: 8000 },
+	);
 });
 // Atlas — Map editor overlay: open the Foundry-style Notes group, pick the Point-of-interest tool,
 // then click the canvas → a real map.create-poi op at the clicked position (strict op-type assert —
@@ -145,9 +165,15 @@ await trial('Atlas · builder POI place', '/atlas', async (p) => {
 	// The rail is layer GROUPS that reveal a sub-tool flyout; open "Notes", then arm "Point of interest".
 	await p.getByRole('button', { name: 'Notes', exact: true }).click({ timeout: 5000 });
 	await p.getByRole('button', { name: /point of interest/i }).click({ timeout: 5000 });
-	await p.locator('[role="dialog"] [data-testid="map-canvas-well"]').click({ position: { x: 220, y: 160 }, timeout: 5000 });
+	await p
+		.locator('[role="dialog"] [data-testid="map-canvas-well"]')
+		.click({ position: { x: 220, y: 160 }, timeout: 5000 });
 	// The map.create-poi command logs its durable op as 'map.poi.create'.
-	await p.waitForFunction(() => window.__rt.state.sync.operations.some((o) => o.opType === 'map.poi.create'), null, { timeout: 5000 });
+	await p.waitForFunction(
+		() => window.__rt.state.sync.operations.some((o) => o.opType === 'map.poi.create'),
+		null,
+		{ timeout: 5000 },
+	);
 });
 // Atlas — New map → form → fill name → Create → map.create
 await trial('Atlas · New map', '/atlas', async (p) => {
@@ -157,7 +183,9 @@ await trial('Atlas · New map', '/atlas', async (p) => {
 	await click(p, /create|add|save/i);
 });
 // Session — Go live → session.set-workflow on one click
-await trial('Session · Go live', '/session', async (p) => { await click(p, /go live|start session/i); });
+await trial('Session · Go live', '/session', async (p) => {
+	await click(p, /go live|start session/i);
+});
 // Session — Build encounter → pick a real roster member → Roll initiative → encounter.build + combat.start.
 // NOTE each trial's page is an ISOLATED browser context (fresh vault), so the trial goes live itself —
 // Build encounter is core-gated to the active workflow.
@@ -170,7 +198,11 @@ await trial('Session · Build encounter', '/session', async (p) => {
 	// The footer LAUNCH button exactly — the per-row d20 pre-fills are "Roll initiative for <name>".
 	await p.getByRole('button', { name: 'Roll initiative', exact: true }).click({ timeout: 5000 });
 	// Op-count growth alone would false-pass on the go-live op — require the real combat.start.
-	await p.waitForFunction(() => window.__rt.state.sync.operations.some((o) => o.opType === 'combat.start'), null, { timeout: 5000 });
+	await p.waitForFunction(
+		() => window.__rt.state.sync.operations.some((o) => o.opType === 'combat.start'),
+		null,
+		{ timeout: 5000 },
+	);
 });
 // Board — canvas keyboard a11y: Edit layout → focus a widget frame → Enter selects → ArrowRight must
 // commit exactly a scene.move-widget op (asserted BY TYPE — Edit layout itself logs a safe-point op,
@@ -186,7 +218,11 @@ await trial('Session · Build encounter', '/session', async (p) => {
 		await page.waitForTimeout(400);
 		await click(page, /edit layout/i);
 		await page.waitForTimeout(400);
-		const moveOps = () => page.evaluate(() => window.__rt.state.sync.operations.filter((o) => o.opType === 'scene.move-widget').length);
+		const moveOps = () =>
+			page.evaluate(
+				() =>
+					window.__rt.state.sync.operations.filter((o) => o.opType === 'scene.move-widget').length,
+			);
 		const before = await moveOps();
 		const frame = page.locator('[data-testid^="widget-"]').first();
 		await frame.focus();
@@ -194,7 +230,11 @@ await trial('Session · Build encounter', '/session', async (p) => {
 		await frame.press('ArrowRight');
 		await page.waitForTimeout(600);
 		const after = await moveOps();
-		results.push({ name: 'Board · keyboard move commits', ok: after > before && errs.length === 0, detail: `move ops ${before}→${after}${errs.length ? ' ERR:' + errs[0] : ''}` });
+		results.push({
+			name: 'Board · keyboard move commits',
+			ok: after > before && errs.length === 0,
+			detail: `move ops ${before}→${after}${errs.length ? ' ERR:' + errs[0] : ''}`,
+		});
 	} catch (e) {
 		results.push({ name: 'Board · keyboard move commits', ok: false, detail: `EX: ${e.message}` });
 	}
@@ -210,6 +250,8 @@ await trial('Board · safe-point round-trip', '/board', async (p) => {
 
 for (const r of results) console.log(`${r.ok ? '✓' : '✗'} ${r.name.padEnd(28)} ${r.detail}`);
 const pass = results.filter((r) => r.ok).length;
-console.log(`\n${pass === results.length ? '✓' : '✗'} ${pass}/${results.length} UI-driven dispatch checks passed`);
+console.log(
+	`\n${pass === results.length ? '✓' : '✗'} ${pass}/${results.length} UI-driven dispatch checks passed`,
+);
 await browser.close();
 process.exit(pass === results.length ? 0 : 1);

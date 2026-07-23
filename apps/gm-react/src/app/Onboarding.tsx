@@ -778,13 +778,18 @@ export function Onboarding() {
 						)}
 						{step.id === 'privacy' && (
 							<div style={{ paddingTop: 14 }}>
-								<div role="radiogroup" aria-label="Vault privacy mode" onKeyDown={radioGroupKeyDown}>
+								<div
+									role="radiogroup"
+									aria-label="Vault privacy mode"
+									onKeyDown={radioGroupKeyDown}
+								>
 									<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>
 										Who can read your world?
 									</h2>
 									<p style={{ margin: '0 0 18px', font: `13px ${T.sans}`, color: T.ter }}>
-										This decides how your campaign is stored if you ever use cloud features. There is
-										no preset — this choice is yours, and you can change it later in Settings → Sync.
+										This decides how your campaign is stored if you ever use cloud features. There
+										is no preset — this choice is yours, and you can change it later in Settings →
+										Sync.
 									</p>
 									<div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
 										<ChoiceCard

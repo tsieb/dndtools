@@ -135,7 +135,10 @@ export function securityModelForVaultMode(mode: VaultPrivacyMode): CloudSyncSecu
  * Accepted.
  */
 export function evaluateDndtoolsCloudRelease(): CloudReleaseGateResult {
-	return evaluateCloudReleaseGate(DNDTOOLS_CLOUD_SECURITY_DECISION_RECORD, DNDTOOLS_CLOUD_SYNC_SECURITY_MODEL);
+	return evaluateCloudReleaseGate(
+		DNDTOOLS_CLOUD_SECURITY_DECISION_RECORD,
+		DNDTOOLS_CLOUD_SYNC_SECURITY_MODEL,
+	);
 }
 
 /**
