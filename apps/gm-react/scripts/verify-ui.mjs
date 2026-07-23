@@ -74,8 +74,9 @@ const fillFirst = (page, val) => page.getByRole('textbox').first().fill(val, { t
 }
 
 // Onboarding — the one case that runs WITHOUT the onboarded flag: a fresh device must get the
-// first-run overlay, walk all five steps (keeping the sample vault), land in the app with the
-// flag recorded, and NOT see the overlay again after reload.
+// first-run overlay, walk all six steps (keeping the sample vault; deciding the ADR-026 forced
+// privacy step with its typed acknowledgment), land in the app with the flag recorded, and NOT
+// see the overlay again after reload.
 {
 	const page = await browser.newPage();
 	// Clear the flag ONCE (sessionStorage marker guards it) — the init script re-runs on the
@@ -94,6 +95,10 @@ const fillFirst = (page, val) => page.getByRole('textbox').first().fill(val, { t
 		const overlay = page.getByRole('dialog', { name: /first-run setup/i });
 		await overlay.waitFor({ timeout: 5000 });
 		await page.getByRole('button', { name: /get started/i }).click({ timeout: 5000 });
+		await page.getByRole('button', { name: /continue/i }).click({ timeout: 5000 }); // vault
+		// ADR-026 forced privacy step: pick Private, type the acknowledgment, then continue.
+		await page.getByRole('radio', { name: /private vault/i }).click({ timeout: 5000 });
+		await page.getByLabel(/type "i hold the keys" to confirm/i).fill('i hold the keys', { timeout: 5000 });
 		for (let s = 0; s < 3; s++) await page.getByRole('button', { name: /continue/i }).click({ timeout: 5000 });
 		await page.getByRole('button', { name: /enter command center/i }).click({ timeout: 5000 });
 		await overlay.waitFor({ state: 'detached', timeout: 5000 });
@@ -101,9 +106,9 @@ const fillFirst = (page, val) => page.getByRole('textbox').first().fill(val, { t
 		await page.reload({ waitUntil: 'networkidle' });
 		await ready(page);
 		const again = await page.getByRole('dialog', { name: /first-run setup/i }).count();
-		results.push({ name: 'Onboarding · 5-step first run', ok: flag === 'done' && again === 0, detail: `flag=${flag}, re-shown=${again}` });
+		results.push({ name: 'Onboarding · 6-step first run', ok: flag === 'done' && again === 0, detail: `flag=${flag}, re-shown=${again}` });
 	} catch (e) {
-		results.push({ name: 'Onboarding · 5-step first run', ok: false, detail: `EX: ${e.message}` });
+		results.push({ name: 'Onboarding · 6-step first run', ok: false, detail: `EX: ${e.message}` });
 	}
 	await page.close();
 }

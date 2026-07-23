@@ -195,11 +195,14 @@ describe('ADR-017 the release-approved model opens the deferred gates', () => {
 		expect(gate.enabled).toBe(false);
 	});
 
-	it('the recovery limitation is still surfaced even though the prerequisite is met (AC3)', () => {
+	it('the recovery declaration is supported (ADR-026 recovery-key export) and surfaced (AC3)', () => {
 		const gate = evaluateCloudSyncGate({ securityModel: DNDTOOLS_CLOUD_SYNC_SECURITY_MODEL });
 		const recovery = gate.prerequisites.find((p) => p.id === 'key-recovery');
 		expect(recovery?.met).toBe(true);
-		expect(recovery?.detail).toMatch(/unsupported by design/i);
+		// ADR-026 flipped the declaration from 'unsupported-by-design' to 'supported': the user can
+		// export a passphrase-sealed recovery-key file. The detail therefore reports satisfaction.
+		expect(DNDTOOLS_CLOUD_SYNC_SECURITY_MODEL.recovery).toBe('supported');
+		expect(recovery?.detail).toMatch(/satisfied/i);
 	});
 
 	it('the SEC-009 decision record is complete, consistent, and releasable', () => {

@@ -1,10 +1,14 @@
 # ADR-020: App-API Backend for Marketplace, Invites, Account, and Simulated Entitlements
 
-- Status: Accepted
+- Status: Accepted (amended by [ADR-026](./026-opt-in-vault-privacy-modes.md))
 - Date: 2026-07-09
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA
 - Supersedes: N/A
+- Amended by: ADR-026 (2026-07-23) — widens the class of features a paid plan may gate to include
+  Cloud-Enhanced vault-mode capabilities (managed AI/RAG, server search, keyless browser access), which
+  this ADR's E2EE-era framing could not offer. The simulated-checkout carve-out and the entitlement
+  contract (`simulated: true`) are unchanged; real billing still requires its own ADR.
 
 ## Context
 

@@ -285,3 +285,33 @@ export function assertServerSeesOnlyAllowedMetadata(
 	const violations = findServerVisibilityViolations(record, fields);
 	if (violations.length > 0) throw new Error(violations[0]!.message);
 }
+
+/**
+ * ADR-026 — the MODE-AWARE server-visibility guard. Under an end-to-end-encrypted record this is
+ * exactly {@link assertServerSeesOnlyAllowedMetadata} (the SEC-009 AC4 boundary is unconditional for
+ * every E2EE claim). The relaxation exists for ONE case only: a COMPLETE, APPROVED
+ * `server-side-encrypted` record — i.e. a vault whose owner explicitly consented to server-readable
+ * storage (the Cloud-Enhanced mode) AND whose record passed the release gate. Anything else —
+ * an undeclared record, or a server-readable record that is incomplete or not yet approved (the
+ * phase-1 posture) — fails closed: no server-visible payload may be produced under it at all.
+ */
+export function assertServerVisibilityForRecord(
+	record: CloudSecurityDecisionRecord,
+	fields: readonly ServerVisibleField[],
+): void {
+	if (record.encryption === 'end-to-end-encrypted') {
+		assertServerSeesOnlyAllowedMetadata(record, fields);
+		return;
+	}
+	if (
+		record.encryption === 'server-side-encrypted' &&
+		validateCloudSecurityRecord(record).length === 0
+	) {
+		return;
+	}
+	throw new Error(
+		'No server-visible payload is permitted: the cloud security record is neither an ' +
+			'end-to-end-encrypted declaration nor a complete, approved server-readable declaration ' +
+			'(fail closed).',
+	);
+}

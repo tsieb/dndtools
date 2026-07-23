@@ -435,6 +435,221 @@ export async function openWithKeyMaterial(
 	return parsed.value;
 }
 
+// --- Recovery-key file (ADR-026): passphrase-sealed keyring export/import -------------------------
+// The user-managed recovery path that flips the Private-mode `recovery` declaration to 'supported':
+// the whole keyring is sealed under a passphrase-derived key into a file the USER keeps. There is no
+// provider escrow — the file plus its passphrase is equivalent to the keyring, and the UI says so.
+
+export const RECOVERY_FILE_FORMAT = 'dndtools-vault-recovery' as const;
+export const RECOVERY_FILE_SCHEMA_VERSION = 1 as const;
+export const RECOVERY_FILE_KDF = 'PBKDF2-SHA-256' as const;
+/** OWASP-recommended order of magnitude for PBKDF2-SHA-256 (2023+ guidance). */
+export const RECOVERY_KDF_ITERATIONS = 600_000;
+/** Bounds accepted on import, so a hostile file cannot demand absurd KDF work or trivial work. */
+const MIN_ACCEPTED_KDF_ITERATIONS = 100_000;
+const MAX_ACCEPTED_KDF_ITERATIONS = 5_000_000;
+const RECOVERY_SALT_BYTES = 16;
+export const MIN_RECOVERY_PASSPHRASE_CHARS = 8;
+/** Keep the app-side keyring ceiling and this validator in agreement. */
+export const MAX_KEYRING_EPOCHS = 1_024;
+
+/** The recovery file's on-disk shape. Every payload field is base64url; nothing is plaintext key material. */
+export interface VaultRecoveryFile {
+	format: typeof RECOVERY_FILE_FORMAT;
+	v: typeof RECOVERY_FILE_SCHEMA_VERSION;
+	kdf: typeof RECOVERY_FILE_KDF;
+	iterations: number;
+	/** base64url random KDF salt. */
+	salt: string;
+	/** base64url random 96-bit AES-GCM IV. */
+	iv: string;
+	/** base64url AES-256-GCM ciphertext of the JSON-serialized {@link VaultKeyring}. */
+	ct: string;
+}
+
+/**
+ * Strict runtime guard for an untrusted keyring value (a decrypted recovery file, a stored blob).
+ * Mirrors the app-side custody decode rules: exact key set, schema version, safe-integer epochs,
+ * 43-char base64url (32-byte) key material per epoch, a key present for the current epoch, and a
+ * bounded epoch count. Throws fail-closed; never repairs.
+ */
+export function validateVaultKeyring(candidate: unknown): asserts candidate is VaultKeyring {
+	if (!isPlainObject(candidate)) throw new Error('The vault keyring is invalid (fail closed).');
+	const parsed = candidate as Partial<VaultKeyring>;
+	const epochs = parsed.keys && isPlainObject(parsed.keys) ? Object.entries(parsed.keys) : [];
+	if (
+		JSON.stringify(Object.keys(candidate).sort()) !==
+			JSON.stringify(['currentEpoch', 'keys', 'schemaVersion']) ||
+		parsed.schemaVersion !== VAULT_KEYRING_SCHEMA_VERSION ||
+		!Number.isSafeInteger(parsed.currentEpoch) ||
+		Number(parsed.currentEpoch) < 0 ||
+		!isPlainObject(parsed.keys) ||
+		epochs.length < 1 ||
+		epochs.length > MAX_KEYRING_EPOCHS ||
+		epochs.some(
+			([epoch, material]) =>
+				!/^\d+$/.test(epoch) ||
+				!Number.isSafeInteger(Number(epoch)) ||
+				typeof material !== 'string' ||
+				!/^[A-Za-z0-9_-]{43}$/.test(material),
+		) ||
+		typeof (parsed.keys as Record<number, string>)[Number(parsed.currentEpoch)] !== 'string'
+	) {
+		throw new Error('The vault keyring is invalid (fail closed).');
+	}
+}
+
+async function deriveRecoveryKey(
+	passphrase: string,
+	salt: Uint8Array,
+	iterations: number,
+	usage: 'encrypt' | 'decrypt',
+) {
+	const baseKey = await subtle().importKey(
+		'raw',
+		ab(new TextEncoder().encode(passphrase)),
+		'PBKDF2',
+		false,
+		['deriveKey'],
+	);
+	return subtle().deriveKey(
+		{ name: 'PBKDF2', hash: 'SHA-256', salt: ab(salt), iterations },
+		baseKey,
+		{ name: VAULT_CRYPTO_ALG, length: AES_KEY_BITS },
+		false,
+		[usage],
+	);
+}
+
+/** The authenticated context a recovery file is sealed under (binds format/version/kdf/iterations). */
+function recoveryAdditionalData(iterations: number): Uint8Array {
+	return new TextEncoder().encode(
+		JSON.stringify([RECOVERY_FILE_FORMAT, RECOVERY_FILE_SCHEMA_VERSION, RECOVERY_FILE_KDF, iterations]),
+	);
+}
+
+/**
+ * Seal a keyring into a passphrase-protected {@link VaultRecoveryFile}. Enforces the passphrase
+ * minimum fail-closed (the file is offline-brute-forceable, so the passphrase is the whole defense),
+ * derives an AES-256 key via PBKDF2-SHA-256 with a fresh random salt, and authenticates the file's
+ * format/version/KDF parameters as AES-GCM additional data so they cannot be downgraded in transit.
+ */
+export async function sealKeyringRecoveryFile(
+	keyring: VaultKeyring,
+	passphrase: string,
+): Promise<VaultRecoveryFile> {
+	validateVaultKeyring(keyring);
+	if (typeof passphrase !== 'string' || passphrase.length < MIN_RECOVERY_PASSPHRASE_CHARS) {
+		throw new Error(
+			`The recovery passphrase must be at least ${MIN_RECOVERY_PASSPHRASE_CHARS} characters (fail closed).`,
+		);
+	}
+	const salt = randomBytes(RECOVERY_SALT_BYTES);
+	const iv = randomBytes(GCM_IV_BYTES);
+	const key = await deriveRecoveryKey(passphrase, salt, RECOVERY_KDF_ITERATIONS, 'encrypt');
+	const plaintext = new TextEncoder().encode(JSON.stringify(keyring));
+	const cipher = new Uint8Array(
+		await subtle().encrypt(
+			{
+				name: VAULT_CRYPTO_ALG,
+				iv: ab(iv),
+				additionalData: ab(recoveryAdditionalData(RECOVERY_KDF_ITERATIONS)),
+			},
+			key,
+			ab(plaintext),
+		),
+	);
+	return {
+		format: RECOVERY_FILE_FORMAT,
+		v: RECOVERY_FILE_SCHEMA_VERSION,
+		kdf: RECOVERY_FILE_KDF,
+		iterations: RECOVERY_KDF_ITERATIONS,
+		salt: toBase64Url(salt),
+		iv: toBase64Url(iv),
+		ct: toBase64Url(cipher),
+	};
+}
+
+/**
+ * Open an untrusted recovery file with a passphrase and return the validated {@link VaultKeyring}.
+ * Fail closed on every mismatch: shape, format/version/KDF names, out-of-bounds iteration counts
+ * (DoS/downgrade guard), GCM authentication (tamper / wrong passphrase), and keyring shape.
+ */
+export async function openKeyringRecoveryFile(
+	candidate: unknown,
+	passphrase: string,
+): Promise<VaultKeyring> {
+	if (!isPlainObject(candidate)) {
+		throw new Error('This is not a DND Tools recovery-key file (fail closed).');
+	}
+	const file = candidate as Partial<VaultRecoveryFile>;
+	if (
+		JSON.stringify(Object.keys(candidate).sort()) !==
+			JSON.stringify(['ct', 'format', 'iterations', 'iv', 'kdf', 'salt', 'v']) ||
+		file.format !== RECOVERY_FILE_FORMAT ||
+		file.v !== RECOVERY_FILE_SCHEMA_VERSION ||
+		file.kdf !== RECOVERY_FILE_KDF ||
+		!Number.isSafeInteger(file.iterations) ||
+		Number(file.iterations) < MIN_ACCEPTED_KDF_ITERATIONS ||
+		Number(file.iterations) > MAX_ACCEPTED_KDF_ITERATIONS ||
+		typeof file.salt !== 'string' ||
+		typeof file.iv !== 'string' ||
+		typeof file.ct !== 'string'
+	) {
+		throw new Error('This is not a valid DND Tools recovery-key file (fail closed).');
+	}
+	const salt = fromBase64Url(file.salt);
+	const iv = fromBase64Url(file.iv);
+	const cipher = fromBase64Url(file.ct);
+	if (salt.byteLength !== RECOVERY_SALT_BYTES || iv.byteLength !== GCM_IV_BYTES) {
+		throw new Error('This is not a valid DND Tools recovery-key file (fail closed).');
+	}
+	const key = await deriveRecoveryKey(passphrase, salt, Number(file.iterations), 'decrypt');
+	let plain: Uint8Array;
+	try {
+		plain = new Uint8Array(
+			await subtle().decrypt(
+				{
+					name: VAULT_CRYPTO_ALG,
+					iv: ab(iv),
+					additionalData: ab(recoveryAdditionalData(Number(file.iterations))),
+				},
+				key,
+				ab(cipher),
+			),
+		);
+	} catch {
+		throw new Error(
+			'The recovery file could not be opened — wrong passphrase or a damaged file (fail closed).',
+		);
+	}
+	const parsed: unknown = JSON.parse(new TextDecoder().decode(plain));
+	validateVaultKeyring(parsed);
+	return parsed;
+}
+
+/**
+ * Merge an imported (recovered) keyring into an existing one, conservatively: on an epoch collision
+ * the EXISTING device-local key wins (an old export can never overwrite live custody), and the
+ * current epoch advances to the NEWER of the two (a stale file can never roll an active keyring
+ * backwards). Throws fail-closed if the union would exceed the epoch ceiling.
+ */
+export function mergeKeyrings(existing: VaultKeyring, imported: VaultKeyring): VaultKeyring {
+	validateVaultKeyring(existing);
+	validateVaultKeyring(imported);
+	const keys: Record<number, string> = { ...imported.keys, ...existing.keys };
+	if (Object.keys(keys).length > MAX_KEYRING_EPOCHS) {
+		throw new Error('Merging the recovery file would exceed the safe keyring epoch limit (fail closed).');
+	}
+	const merged: VaultKeyring = {
+		schemaVersion: VAULT_KEYRING_SCHEMA_VERSION,
+		currentEpoch: Math.max(existing.currentEpoch, imported.currentEpoch),
+		keys,
+	};
+	validateVaultKeyring(merged);
+	return merged;
+}
+
 // --- Bridges to the SEC-009 / SEC-012 server-visibility + trust-boundary guards -------------------
 // These let a cloud-publish path (and the tests) PROVE the E2EE claim: the envelope is ciphertext and the
 // only server-visible metadata it contributes is content-hash + operation-size (both allowed classes).
