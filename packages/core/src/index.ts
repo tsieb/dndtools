@@ -3010,6 +3010,7 @@ export {
 	CLOUD_SECURITY_MODEL_SCHEMA_VERSION,
 	UNDECLARED_CLOUD_SECURITY_DECISION_RECORD,
 	assertServerSeesOnlyAllowedMetadata,
+	assertServerVisibilityForRecord,
 	canReleaseCloud,
 	evaluateCloudReleaseGate,
 	findServerVisibilityViolations,
@@ -3057,9 +3058,16 @@ export type {
 	VaultArtifactContext,
 	VaultArtifactKind,
 	VaultKeyring,
+	VaultRecoveryFile,
 } from './security/vault-crypto';
 export {
 	LEGACY_VAULT_CRYPTO_SCHEMA_VERSION,
+	MAX_KEYRING_EPOCHS,
+	MIN_RECOVERY_PASSPHRASE_CHARS,
+	RECOVERY_FILE_FORMAT,
+	RECOVERY_FILE_KDF,
+	RECOVERY_FILE_SCHEMA_VERSION,
+	RECOVERY_KDF_ITERATIONS,
 	VAULT_CRYPTO_ALG,
 	VAULT_CRYPTO_SCHEMA_VERSION,
 	VAULT_KEYRING_SCHEMA_VERSION,
@@ -3069,18 +3077,32 @@ export {
 	envelopeAsStoredArtifact,
 	envelopeServerVisibleFields,
 	generateContentKeyMaterial,
+	mergeKeyrings,
+	openKeyringRecoveryFile,
 	openWithKeyMaterial,
 	rotateVaultKeyring,
+	sealKeyringRecoveryFile,
 	sealWithKeyMaterial,
 	validateEncryptedEnvelope,
+	validateVaultKeyring,
 } from './security/vault-crypto';
 
-// ADR-017 + ADR-015 (Accepted) — the RELEASE-APPROVED cloud security model + decision record, made truthful
-// by the shipped E2EE. Supplying these to the SYNC-017 / SEC-009 gates opens them with no call-site change.
+// ADR-017 + ADR-015 (Accepted) + ADR-026 — the RELEASE-APPROVED cloud security models + decision
+// records, per-vault: the Private (E2EE) record made truthful by the shipped crypto, and the
+// Cloud-Enhanced record shipped UNAPPROVED (fail closed) until the phase-2 security review. The mode
+// selectors are the only sanctioned mapping from a vault's privacy mode to its record/model.
+export type { VaultPrivacyMode } from './security/cloud-security-decision';
 export {
+	DNDTOOLS_CLOUD_ENHANCED_SECURITY_DECISION_RECORD,
+	DNDTOOLS_CLOUD_ENHANCED_SYNC_SECURITY_MODEL,
 	DNDTOOLS_CLOUD_SECURITY_DECISION_RECORD,
 	DNDTOOLS_CLOUD_SYNC_SECURITY_MODEL,
+	VAULT_PRIVACY_MODES,
+	evaluateCloudEnhancedRelease,
 	evaluateDndtoolsCloudRelease,
+	isVaultPrivacyMode,
+	securityDecisionRecordForVaultMode,
+	securityModelForVaultMode,
 } from './security/cloud-security-decision';
 
 // CONTENT-007: transactional, resumable import. Preview is pure/read-only; the plan is deterministic and

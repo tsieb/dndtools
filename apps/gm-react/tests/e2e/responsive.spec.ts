@@ -91,7 +91,7 @@ async function expectOnboardingStep(
 ) {
 	const dialog = page.getByRole('dialog', { name: 'First-run setup' });
 	const action = dialog.getByRole('button', { name: actionLabel });
-	await expect(dialog.getByText(`Step ${step} of 5`, { exact: true })).toBeVisible();
+	await expect(dialog.getByText(`Step ${step} of 6`, { exact: true })).toBeVisible();
 	await expect(dialog.getByRole('button', { name: 'Skip setup' })).toBeInViewport();
 	if (step > 1) await expect(dialog.getByRole('button', { name: 'Back' })).toBeInViewport();
 	await expect(action).toBeVisible();
@@ -210,11 +210,21 @@ test('first-run setup remains usable through every step at 375x520', async ({ pa
 	await expectOnboardingStep(page, 2, 'Continue');
 	await dialog.getByRole('button', { name: 'Continue' }).click();
 
+	// ADR-026 — the forced, undefaulted privacy decision; Private also demands the typed ack.
+	await expect(dialog.getByRole('heading', { name: 'Who can read your world?' })).toBeVisible();
+	await expect(dialog.getByRole('button', { name: 'Choose to continue' })).toBeDisabled();
+	await dialog.getByRole('radio', { name: /Private vault/ }).click();
+	const ackInput = dialog.getByLabel('Type "i hold the keys" to confirm');
+	await ackInput.scrollIntoViewIfNeeded();
+	await ackInput.fill('i hold the keys');
+	await expectOnboardingStep(page, 3, 'Continue');
+	await dialog.getByRole('button', { name: 'Continue' }).click();
+
 	await expect(
 		dialog.getByRole('heading', { name: 'How much do you want on screen?' }),
 	).toBeVisible();
 	await dialog.getByRole('radio', { name: /Expert/ }).click();
-	await expectOnboardingStep(page, 3, 'Continue');
+	await expectOnboardingStep(page, 4, 'Continue');
 	await dialog.getByRole('button', { name: 'Continue' }).click();
 
 	await expect(dialog.getByRole('heading', { name: 'Bring your party.' })).toBeVisible();
@@ -227,11 +237,11 @@ test('first-run setup remains usable through every step at 375x520', async ({ pa
 	await savedName.scrollIntoViewIfNeeded();
 	await expect(savedName).toBeVisible();
 	await expect(dialog.getByRole('button', { name: `Remove ${longPartyName}` })).toBeInViewport();
-	await expectOnboardingStep(page, 4, 'Continue');
+	await expectOnboardingStep(page, 5, 'Continue');
 	await dialog.getByRole('button', { name: 'Continue' }).click();
 
 	await expect(dialog.getByRole('heading', { name: "You're ready to run." })).toBeVisible();
-	await expectOnboardingStep(page, 5, 'Enter Command Center');
+	await expectOnboardingStep(page, 6, 'Enter Command Center');
 	await dialog.getByRole('button', { name: 'Enter Command Center' }).click();
 
 	await expect(dialog).toHaveCount(0);
@@ -240,9 +250,11 @@ test('first-run setup remains usable through every step at 375x520', async ({ pa
 	const persisted = await page.evaluate(() => ({
 		party: JSON.parse(localStorage.getItem('dndtools:react:invites') ?? '[]'),
 		tier: localStorage.getItem('dndtools:react:tier'),
+		mode: localStorage.getItem('dndtools:react:vault-privacy-mode'),
 	}));
 	expect(persisted.party).toEqual([longPartyName]);
 	expect(persisted.tier).toBe('advanced');
+	expect(persisted.mode).toBe('private-e2ee');
 });
 
 test('starting fresh can reload directly into a HashRouter destination', async ({ page }) => {
@@ -251,6 +263,9 @@ test('starting fresh can reload directly into a HashRouter destination', async (
 
 	await dialog.getByRole('button', { name: 'Get started' }).click();
 	await dialog.getByRole('radio', { name: /Start fresh/ }).click();
+	await dialog.getByRole('button', { name: 'Continue' }).click();
+	// ADR-026 forced privacy step — Cloud-Enhanced needs no typed acknowledgment.
+	await dialog.getByRole('radio', { name: /Cloud-Enhanced vault/ }).click();
 	await dialog.getByRole('button', { name: 'Continue' }).click();
 	await dialog.getByRole('button', { name: 'Continue' }).click();
 	await dialog.getByRole('button', { name: 'Continue' }).click();
@@ -285,11 +300,11 @@ test('first-run setup changes layout cleanly at 640/641 and fits the 720x520 win
 		await expect(dialog.getByRole('button', { name: 'Get started' })).toBeInViewport();
 		await expect(dialog.getByRole('button', { name: 'Skip setup' })).toBeInViewport();
 		if (expected.phone) {
-			await expect(dialog.getByText('Welcome · 1/5', { exact: true })).toBeVisible();
+			await expect(dialog.getByText('Welcome · 1/6', { exact: true })).toBeVisible();
 			await expect(dialog.getByText('About 2 minutes to your first scene')).toHaveCount(0);
 		} else {
 			await expect(dialog.getByText('About 2 minutes to your first scene')).toBeVisible();
-			await expect(dialog.getByText('Welcome · 1/5', { exact: true })).toHaveCount(0);
+			await expect(dialog.getByText('Welcome · 1/6', { exact: true })).toHaveCount(0);
 		}
 		const box = await dialog.boundingBox();
 		expect(box).not.toBeNull();

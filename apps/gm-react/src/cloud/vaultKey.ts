@@ -8,7 +8,10 @@ import {
 	createVaultKeyring,
 	decryptFromKeyring,
 	encryptForKeyring,
+	mergeKeyrings,
+	openKeyringRecoveryFile,
 	rotateVaultKeyring,
+	sealKeyringRecoveryFile,
 	type ContextBoundEncryptedEnvelope,
 	type EncryptedEnvelope,
 	type ParticipantKeyHolding,
@@ -221,6 +224,23 @@ export interface VaultKeyManager {
 	rotate(accountId: string, vaultId: string, revoked: ParticipantKeyHolding): Promise<void>;
 	/** Forget one account + vault keyring from cache and the OS store. */
 	forget(accountId: string, vaultId: string): Promise<void>;
+	/**
+	 * ADR-026 recovery-key export: seal this account/vault keyring under a user passphrase and return
+	 * the serialized recovery file for the user to save. Creates the keyring if none exists yet (so a
+	 * user can export BEFORE the first backup); fails closed where custody is unavailable.
+	 */
+	exportRecoveryFile(accountId: string, vaultId: string, passphrase: string): Promise<string>;
+	/**
+	 * ADR-026 recovery-key import: open a recovery file with its passphrase and install the keyring
+	 * into this device's OS credential store. Merges conservatively with any existing keyring
+	 * (existing epochs win; the current epoch never rolls backwards).
+	 */
+	importRecoveryFile(
+		accountId: string,
+		vaultId: string,
+		fileText: string,
+		passphrase: string,
+	): Promise<void>;
 }
 
 export const vaultKeyManager: VaultKeyManager = {
@@ -253,6 +273,42 @@ export const vaultKeyManager: VaultKeyManager = {
 			const storageKey = await scopedStorageKey(accountId, vaultId);
 			await persistDurableAt(storageKey, rotated);
 			cache.set(cacheKey(accountId, vaultId), rotated);
+		});
+	},
+
+	async exportRecoveryFile(accountId, vaultId, passphrase) {
+		const keyring = await getScopedKeyring(accountId, vaultId, true);
+		const file = await sealKeyringRecoveryFile(keyring, passphrase);
+		return JSON.stringify(file, null, 2);
+	},
+
+	async importRecoveryFile(accountId, vaultId, fileText, passphrase) {
+		validateNamespace(accountId, vaultId);
+		if (typeof fileText !== 'string' || fileText.length === 0 || fileText.length > 256 * 1024) {
+			throw new Error('This is not a DND Tools recovery-key file (fail closed).');
+		}
+		let candidate: unknown;
+		try {
+			candidate = JSON.parse(fileText);
+		} catch {
+			throw new Error('This is not a DND Tools recovery-key file (fail closed).');
+		}
+		const imported = await openKeyringRecoveryFile(candidate, passphrase);
+		const memoryKey = cacheKey(accountId, vaultId);
+		if (forgotten.has(memoryKey)) {
+			throw new Error('Vault key custody was removed for this deleted account.');
+		}
+		await serialized(async () => {
+			if (!(await durableSecretStore.available())) {
+				throw new Error(
+					'Vault key custody requires an OS credential store; this device cannot durably hold the recovered key (fail closed).',
+				);
+			}
+			const storageKey = await scopedStorageKey(accountId, vaultId);
+			const existing = await readDurableAt(storageKey);
+			const next = existing ? mergeKeyrings(existing, imported) : imported;
+			await persistDurableAt(storageKey, next);
+			cache.set(memoryKey, next);
 		});
 	},
 

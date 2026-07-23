@@ -8,11 +8,13 @@ import {
 	getContentItemsForActor,
 	visibleFeatures,
 	type FeatureTier,
+	type VaultPrivacyMode,
 } from '@dndtools/core';
 import { Avatar, Badge, Button, Icon, IconButton, Input, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { registerBackHandler } from '../platform/backNavigation';
 import { resetCoreStorage } from '../platform/storage/coreStore';
+import { setVaultPrivacyMode, storedVaultPrivacyMode } from '../cloud/vaultMode';
 import { T } from './screen-kit';
 import { useViewport } from './useViewport';
 
@@ -150,15 +152,20 @@ function radioGroupKeyDown(e: React.KeyboardEvent) {
 const ONB_STEPS = [
 	{ id: 'welcome', title: 'Welcome', icon: 'sparkle' },
 	{ id: 'vault', title: 'Your vault', icon: 'vault' },
+	{ id: 'privacy', title: 'Privacy', icon: 'shield' },
 	{ id: 'experience', title: 'Experience', icon: 'sliders' },
 	{ id: 'players', title: 'Your party', icon: 'players' },
 	{ id: 'ready', title: 'Ready', icon: 'flag' },
 ] as const;
 
+const PRIVACY_STEP_INDEX = ONB_STEPS.findIndex((s) => s.id === 'privacy');
+/** ADR-026 — the typed acknowledgment for choosing Private (E2EE), mirroring AccountDangerPanel. */
+export const PRIVACY_ACK_PHRASE = 'i hold the keys';
+
 const FOCUSABLE =
 	'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-/** Radio-style choice card shared by the vault + experience steps. */
+/** Radio-style choice card shared by the vault + privacy + experience steps. */
 function ChoiceCard({
 	on,
 	icon,
@@ -167,6 +174,7 @@ function ChoiceCard({
 	desc,
 	children,
 	onPick,
+	tabbable,
 }: {
 	on: boolean;
 	icon: string;
@@ -175,13 +183,15 @@ function ChoiceCard({
 	desc: string;
 	children?: React.ReactNode;
 	onPick: () => void;
+	/** Override for an undefaulted group: with no selection, the first card must stay Tab-reachable. */
+	tabbable?: boolean;
 }) {
 	return (
 		<button
 			type="button"
 			role="radio"
 			aria-checked={on}
-			tabIndex={on ? 0 : -1}
+			tabIndex={(tabbable ?? on) ? 0 : -1}
 			onClick={onPick}
 			style={{
 				display: 'flex',
@@ -252,6 +262,10 @@ export function Onboarding() {
 	const [open, setOpen] = useState(() => readStorage(ONBOARDED_KEY) === null);
 	const [i, setI] = useState(0);
 	const [vault, setVault] = useState<'sample' | 'fresh'>('sample');
+	// ADR-026 — the FORCED, undefaulted vault-privacy decision. null until the user explicitly picks;
+	// a replayed setup prefills the previously recorded choice (it is a re-read, not a first consent).
+	const [privacy, setPrivacy] = useState<VaultPrivacyMode | null>(() => storedVaultPrivacyMode());
+	const [ack, setAck] = useState('');
 	const [tier, setTier] = useState<FeatureTier>(readStoredTier);
 	const [emails, setEmails] = useState<string[]>(readStoredPartyNotes);
 	const [draft, setDraft] = useState('');
@@ -263,6 +277,8 @@ export function Onboarding() {
 		function onReplay() {
 			setI(0);
 			setVault(readStorage(VAULT_CHOICE_KEY) === 'fresh' ? 'fresh' : 'sample');
+			setPrivacy(storedVaultPrivacyMode());
+			setAck('');
 			setTier(readStoredTier());
 			setEmails(readStoredPartyNotes());
 			setDraft('');
@@ -272,16 +288,32 @@ export function Onboarding() {
 		return () => window.removeEventListener(REPLAY_EVENT, onReplay);
 	}, []);
 
+	// Choosing Private (E2EE) is an irreversible-in-spirit trust choice with user-held recovery only,
+	// so it requires the typed acknowledgment (the AccountDangerPanel consent pattern).
+	const ackOk = privacy !== 'private-e2ee' || ack.trim().toLowerCase() === PRIVACY_ACK_PHRASE;
+	const privacyDecided = privacy !== null && ackOk;
+
 	// Announce the current step without arming the nearby "Skip setup" action. The content region is
 	// deliberately focused both on first open and after step changes; Tab then enters the controls.
 	const contentRef = useRef<HTMLDivElement>(null);
 	useEffect(() => {
 		if (open) (contentRef.current ?? panelRef.current)?.focus();
 	}, [open, i]);
+	// ADR-026 — setup can only be dismissed once the forced decisions are made. The privacy step sits
+	// after the vault step, so a decided privacy mode implies both forced steps were seen. Skip/Escape/
+	// the platform back gesture all route here; until decided they REFUSE to dismiss and land the user
+	// on the privacy step instead. Skipping never applies the destructive "start fresh" wipe — that
+	// only ever runs from the explicitly labeled finish button.
 	const skip = useCallback(() => {
+		if (!privacyDecided) {
+			setI(PRIVACY_STEP_INDEX);
+			Toaster.info('Choose how your vault is stored first — this decision can’t be skipped.');
+			return;
+		}
+		if (privacy) setVaultPrivacyMode(privacy);
 		writeStorage(ONBOARDED_KEY, 'skipped');
 		setOpen(false);
-	}, []);
+	}, [privacy, privacyDecided]);
 	useEffect(() => {
 		if (!open) return undefined;
 		return registerBackHandler('overlay', () => {
@@ -332,6 +364,9 @@ export function Onboarding() {
 	// The SINGLE completion path — the ready-step checklist shortcuts route through here too (with
 	// their destination), so the vault choice / tier / party notes are never silently discarded.
 	async function finish(to?: string) {
+		// The forced privacy decision persists on every completion path (ADR-026). The linear flow
+		// cannot reach the later steps without it, but guard anyway — never write a null.
+		if (privacy) setVaultPrivacyMode(privacy);
 		// Apply the experience tier with the same one-source-of-truth convention Settings uses.
 		document.documentElement.setAttribute(TIER_ATTR, tier);
 		writeStorage(TIER_KEY, tier);
@@ -741,6 +776,67 @@ export function Onboarding() {
 								</p>
 							</div>
 						)}
+						{step.id === 'privacy' && (
+							<div style={{ paddingTop: 14 }}>
+								<div role="radiogroup" aria-label="Vault privacy mode" onKeyDown={radioGroupKeyDown}>
+									<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>
+										Who can read your world?
+									</h2>
+									<p style={{ margin: '0 0 18px', font: `13px ${T.sans}`, color: T.ter }}>
+										This decides how your campaign is stored if you ever use cloud features. There is
+										no preset — this choice is yours, and you can change it later in Settings → Sync.
+									</p>
+									<div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+										<ChoiceCard
+											on={privacy === 'private-e2ee'}
+											tabbable={privacy === 'private-e2ee' || privacy === null}
+											icon="lock"
+											title="Private vault (end-to-end encrypted)"
+											desc="Your campaign is encrypted on your devices before anything leaves them, and only your devices hold the keys — the service can never read it. Server-powered features (campaign AI, cloud search, opening your campaign from any browser) will not be available to this vault."
+											onPick={() => setPrivacy('private-e2ee')}
+										/>
+										<ChoiceCard
+											on={privacy === 'cloud-enhanced'}
+											tabbable={privacy === 'cloud-enhanced'}
+											icon="unlock"
+											title="Cloud-Enhanced vault"
+											desc="Encrypted in transit and at rest with service-managed keys, and readable by the service to power upcoming features — campaign AI, cloud search, and access from any browser. Today your data is still end-to-end encrypted; this records your consent for when those features arrive."
+											onPick={() => setPrivacy('cloud-enhanced')}
+										/>
+									</div>
+								</div>
+								{privacy === 'private-e2ee' && (
+									<div
+										style={{
+											marginTop: 14,
+											padding: 12,
+											borderRadius: 10,
+											background: T.surf,
+											border: `1px solid ${T.bdS}`,
+										}}
+									>
+										<div style={{ font: `600 12.5px ${T.sans}`, marginBottom: 4 }}>
+											No one can recover this for you
+										</div>
+										<p style={{ margin: '0 0 10px', font: `12px/1.6 ${T.sans}`, color: T.sub }}>
+											Cloud backups of a Private vault can only be opened with keys held on your
+											devices. If you lose every device without exporting a recovery key (Settings →
+											Sync), the cloud copy is gone for good — the service cannot reset or restore
+											it. Type <strong style={{ color: T.ink }}>{PRIVACY_ACK_PHRASE}</strong> to
+											confirm you understand.
+										</p>
+										<Input
+											value={ack}
+											onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAck(e.target.value)}
+											placeholder={PRIVACY_ACK_PHRASE}
+											aria-label={`Type "${PRIVACY_ACK_PHRASE}" to confirm`}
+											maxLength={PRIVACY_ACK_PHRASE.length}
+											style={{ width: '100%' }}
+										/>
+									</div>
+								)}
+							</div>
+						)}
 						{step.id === 'experience' && (
 							<div
 								style={{ paddingTop: 14 }}
@@ -1016,8 +1112,17 @@ export function Onboarding() {
 							Step {i + 1} of {ONB_STEPS.length}
 						</span>
 						{i < ONB_STEPS.length - 1 ? (
-							<Button variant="primary" icon="chevron-right" onClick={next}>
-								{step.id === 'welcome' ? 'Get started' : 'Continue'}
+							<Button
+								variant="primary"
+								icon="chevron-right"
+								onClick={next}
+								disabled={step.id === 'privacy' && !privacyDecided}
+							>
+								{step.id === 'welcome'
+									? 'Get started'
+									: step.id === 'privacy' && privacy === null
+										? 'Choose to continue'
+										: 'Continue'}
 							</Button>
 						) : (
 							<Button

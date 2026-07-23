@@ -7,10 +7,40 @@
 > fully-populated GM command center and the runtime reality measured from the code and the running
 > app. It complements [PROTOTYPE.md](../../apps/gm-react/PROTOTYPE.md) (visual contract) and
 > [README.md](../../apps/gm-react/README.md) (wiring contract), both of which describe the design
-> intent. **Current state: see §0★★★★ below** — the 2026-07-11 e2e-readiness pass closed the last
+> intent. **Current state: see §0★★★★★ below** (2026-07-23 cloud-tier P0 pass, ADR-026); §0★★★★ —
+> the 2026-07-11 e2e-readiness pass closed the last
 > deliberate deferrals and put comprehensive e2e coverage on every feature; §0★★★ was the 2026-07-10
 > completion pass; §1–§9 are the historical gap audit (dated 2026-06-20, when the app was an early
 > build) kept for the record.
+
+---
+
+## 0★★★★★. 2026-07-23 UPDATE — cloud-tier P0 pass: vault privacy modes + recovery keys (ADR-026)
+
+Executes P0 #1 and #3 of the adopted cloud roadmap
+([CLOUD_TIER_ROADMAP.md](../development/CLOUD_TIER_ROADMAP.md)); branch `feat/cloud-tier-p0`.
+
+- **Opt-in vault privacy modes (ADR-026, phase 1).** Per-vault Private (E2EE) vs Cloud-Enhanced
+  choice, forced as an explicit undefaulted onboarding step (skip/Escape/back refuse until decided;
+  Private additionally requires a typed no-cloud-recovery acknowledgment). Legacy/absent = Private,
+  fail closed. Core carries both release-approved records; the Cloud-Enhanced record ships
+  `approved: false`, so every server-readable path stays release-blocked until the phase-2 security
+  review (`docs/security/vault-privacy-modes-threat-model.md`). Settings → Sync gains a Vault
+  privacy mode panel with a type-to-confirm switch dialog. E2E: `onboarding-consent.spec.ts` (both
+  profiles).
+- **Recovery-key export/import (former declared limitation, now closed).** The E2EE backup keyring
+  can be exported as a passphrase-sealed file (PBKDF2-SHA-256 600k → AES-256-GCM,
+  `vault-crypto.ts`) and imported on a new device (conservative epoch merge — existing wins, the
+  current epoch never rolls backwards). The release-approved recovery declaration flipped
+  `unsupported-by-design` → `supported`; the enable-time copy now instructs exporting instead of
+  warning that export "is not available yet". Settings → Sync gains a Recovery key panel.
+- **Gemini BYO provider** (roadmap de-risk item): already shipped by ADR-025's provider onboarding
+  cards — no work needed; recorded here so the roadmap doesn't double-count it.
+
+Still intentionally NOT built (unchanged posture + roadmap blocked-on-external items): payment
+processor (simulated checkout, ADR-020), prod-stage bootstrap (operator AWS access), FCM push
+(Firebase project), and the Cloud-Enhanced server-readable pipeline itself (phase 2, gated on
+security review).
 
 ---
 

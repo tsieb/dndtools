@@ -1,12 +1,18 @@
 # ADR-015: V2 Cloud Security Model and Key Custody
 
-- Status: Accepted (amended by [ADR-017](./017-concrete-cloud-e2ee-crypto.md))
+- Status: Accepted (amended by [ADR-017](./017-concrete-cloud-e2ee-crypto.md); amended by
+  [ADR-026](./026-opt-in-vault-privacy-modes.md))
 - Date: 2026-06-05 (Accepted 2026-07-06)
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA
 - Supersedes: N/A
 - Amended by: ADR-017 (concrete cloud E2EE cryptography) — supplies the deferred crypto that makes this
   model truthful; with ADR-017 the release gate opens (`evaluateDndtoolsCloudRelease().canRelease === true`).
+- Amended by: ADR-026 (2026-07-23) — supersedes the "E2EE is the sole cloud model" position: E2EE becomes
+  the **Private** mode of a per-vault, explicitly consented two-mode model (Private E2EE vs Cloud-Enhanced
+  server-readable). This ADR remains the governing model **for Private vaults**. ADR-026 also amends the
+  recovery tradeoff below: recovery is now `'supported'` via passphrase-sealed user-exported recovery-key
+  files, no longer `'unsupported-by-design'`.
 
 > **Acceptance note (2026-07-06):** This ADR was Accepted once ADR-017 delivered the concrete
 > cryptography it was waiting on. The AES-256-GCM client-held per-epoch crypto
@@ -130,10 +136,10 @@ enforced by `apps/v2/packages/core/src/security/cloud-boundary.ts`.
 
 ## Rejected Alternatives
 
-| Alternative                                                          | Why Rejected                                                                                                                                                  |
-| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ship cloud sync now with provider-held keys / server-readable model | Contradicts the E2EE target and `SEC-009`/`SEC-012`; a compromised server would expose hidden content. Fails the documented trust boundary.                   |
-| Accept this ADR now and unblock cloud release                       | The concrete cryptography/transport is deferred per ADR-014; accepting without an implementation would let cloud release proceed without enforced crypto.     |
+| Alternative                                                         | Why Rejected                                                                                                                                                   |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ship cloud sync now with provider-held keys / server-readable model | Contradicts the E2EE target and `SEC-009`/`SEC-012`; a compromised server would expose hidden content. Fails the documented trust boundary.                    |
+| Accept this ADR now and unblock cloud release                       | The concrete cryptography/transport is deferred per ADR-014; accepting without an implementation would let cloud release proceed without enforced crypto.      |
 | Defer declaring any cloud security model until implementation       | Violates `SEC-009` AC3 (release gating must block when no decision record exists) and leaves the secrets/cloud-collaboration seams without an enforced policy. |
 
 ## Migration Impact
