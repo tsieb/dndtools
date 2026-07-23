@@ -2674,10 +2674,14 @@ function SettingsSync() {
 	const recent = [...ops].slice(-8).reverse();
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-			<VaultPrivacyPanel />
+			{/* Local backup stays first: it is the section's daily-use action, and on the compact
+			    shell the Android acceptance run proved that panels stacked above it push the
+			    backup button's tap target under the fixed navigation. The ADR-026 consent and
+			    recovery panels are set-once controls and read fine below it. */}
 			<CloudSyncPanel online={online} localChanges={ops.length} />
-			<RecoveryKeyPanel />
 			<LocalBackupPanel />
+			<VaultPrivacyPanel />
+			<RecoveryKeyPanel />
 			<Panel title="Recent changes" action={<Badge status="neutral">{ops.length}</Badge>}>
 				{recent.length === 0 ? (
 					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No changes recorded yet.</div>
