@@ -6,6 +6,7 @@ import { App } from './App';
 import { hydrateAiProviderKey } from './ai/providerConfig';
 import { bindWindowChromeTheme } from './platform/windowChrome';
 import { StandaloneSceneDisplay } from './screens/SceneDisplay';
+import { I18nProvider, translate, initialLocale, LOCALE_STORAGE_KEY } from './i18n';
 
 // Synchronize the browser/native title surface before React paints, then follow live theme changes.
 bindWindowChromeTheme();
@@ -14,7 +15,11 @@ bindWindowChromeTheme();
 // failure (PLAT-018), so a caller that only inspects `result.status` would let it escape as an unhandled
 // rejection with no user feedback. Surface it as a toast instead of failing silently.
 window.addEventListener('unhandledrejection', () => {
-	Toaster.error('Something didn’t save — please try that again.');
+	const locale = initialLocale(
+		window.localStorage.getItem(LOCALE_STORAGE_KEY),
+		navigator.languages,
+	);
+	Toaster.error(translate(locale, 'Something didn’t save — please try that again.'));
 });
 
 // Demo build (`VITE_DEMO_MODE=1`): open straight into the populated sample campaign instead of the
@@ -42,12 +47,12 @@ const nativeTitle = nativeDisplay ? 'Scene display' : 'DND Tools GM';
 
 const render = (app: ReactNode) =>
 	createRoot(container).render(
-		<>
+		<I18nProvider>
 			<div className="electron-titlebar" aria-hidden="true">
 				<span>{nativeTitle}</span>
 			</div>
 			{app}
-		</>,
+		</I18nProvider>,
 	);
 
 // Native apps: finish loading the OS-encrypted provider key before the Settings tree can read it.

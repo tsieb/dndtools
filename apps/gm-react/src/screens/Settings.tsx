@@ -130,6 +130,7 @@ import {
 	saveAiUsagePreference,
 	type AiUsagePreference,
 } from '../ai/usagePreference';
+import { SUPPORTED_LOCALES, useI18n } from '../i18n';
 
 /**
  * Settings — the category-rail section. The subpages now split by how much of the app Core backs:
@@ -151,6 +152,7 @@ import {
 
 const SETTINGS_NAV = [
 	{ id: 'appearance', label: 'Appearance', icon: 'theme' },
+	{ id: 'language', label: 'Language & region', icon: 'globe' },
 	{ id: 'account', label: 'Account', icon: 'UserCircle' },
 	{ id: 'subscription', label: 'Subscription', icon: 'CreditCard' },
 	{ id: 'players', label: 'Players', icon: 'players' },
@@ -163,6 +165,35 @@ const SETTINGS_NAV = [
 	{ id: 'systems', label: 'Extensions & systems', icon: 'scroll' },
 	{ id: 'accessibility', label: 'Accessibility', icon: 'accessibility' },
 ];
+
+function SettingsLanguage() {
+	const { locale, setLocale, t } = useI18n();
+	return (
+		<Panel title={t('Language & region')}>
+			<div style={{ display: 'grid', gap: 12, maxWidth: 520 }}>
+				<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>
+					{t('Choose the language used throughout DND Tools. Your choice is saved on this device.')}
+				</div>
+				<Select
+					aria-label={t('Language')}
+					value={locale}
+					onChange={(event: { target: { value: string } }) =>
+						setLocale(event.target.value as typeof locale)
+					}
+					options={SUPPORTED_LOCALES.map((option) => ({
+						value: option.code,
+						label: `${option.nativeLabel} (${option.label})`,
+					}))}
+				/>
+				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+					{t(
+						'Language changes apply immediately, including menus, dialogs, tooltips, and screen-reader labels.',
+					)}
+				</div>
+			</div>
+		</Panel>
+	);
+}
 
 // The themes that render dark — mirrors the boot script's DARK map in index.html so a runtime theme
 // switch keeps the native color-scheme (scrollbars, form controls) in sync. The boot script sets
@@ -4519,6 +4550,7 @@ function SettingsAccessibility() {
 
 const SUBPAGES: Record<string, () => JSX.Element> = {
 	appearance: SettingsAppearance,
+	language: SettingsLanguage,
 	account: SettingsAccount,
 	subscription: SettingsSubscription,
 	players: SettingsPlayers,

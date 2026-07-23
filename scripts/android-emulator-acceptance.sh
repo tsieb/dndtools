@@ -119,6 +119,20 @@ tap_ui_button() {
 	sleep 0.25
 }
 
+# Tap any accessibility node containing the label (class-agnostic — the WebView surfaces
+# radio/option roles with varying native classes, unlike the Button-only helper above).
+tap_ui_node() {
+	local label=$1
+	local node bounds left top right bottom
+	node=$(dump_ui | sed 's/></>\n</g' | grep -F "$label" | grep -F 'bounds="[' | tail -1 || true)
+	[[ -n "$node" ]] || return 1
+	bounds=$(sed -n 's/.*bounds="\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]".*/\1 \2 \3 \4/p' <<<"$node")
+	read -r left top right bottom <<<"$bounds"
+	[[ -n "${bottom:-}" ]] || return 1
+	adb shell input tap "$(((left + right) / 2))" "$(((top + bottom) / 2))"
+	sleep 0.25
+}
+
 ui_contains_text() {
 	local expected_folded=${1,,}
 	local ui=''
@@ -206,13 +220,21 @@ adb install --no-streaming "$APK_PATH" | grep -q 'Success' || fail 'fresh APK in
 step 'fresh signed install and cold launch'
 launch_app
 
-# Fresh installs open the first-run dialog. Wait for its actual accessibility node instead of racing
-# WebView startup, then prove Back dismisses only that topmost overlay and keeps the root foreground.
+# Fresh installs open the first-run dialog. ADR-026: setup is NOT dismissible until the vault
+# privacy mode is explicitly decided — the first Back must keep the app foreground and land on the
+# forced privacy step instead of dismissing. After an explicit choice (Cloud-Enhanced needs no
+# typed acknowledgment), Back routes to skip and dismisses only that topmost overlay.
 wait_for_ui_text 'Skip setup' || fail 'first-run setup did not become accessible'
 adb shell input keyevent KEYCODE_BACK
-wait_until_foreground || fail 'Back minimized the app instead of dismissing first-run setup'
+wait_until_foreground || fail 'Back minimized the app instead of routing to the privacy step'
+wait_for_pid >/dev/null || fail 'the refused Back dismissal terminated the app process'
+wait_for_ui_text 'Who can read your world' || fail 'Back did not land on the forced privacy step'
+tap_ui_node 'Cloud-Enhanced vault' || fail 'the Cloud-Enhanced privacy option was not tappable'
+sleep 0.5
+adb shell input keyevent KEYCODE_BACK
+wait_until_foreground || fail 'Back minimized the app instead of dismissing decided first-run setup'
 wait_for_pid >/dev/null || fail 'dismissing first-run setup terminated the app process'
-wait_for_ui_text_absent 'Skip setup' || fail 'Back did not dismiss first-run setup'
+wait_for_ui_text_absent 'Skip setup' || fail 'Back did not dismiss the decided first-run setup'
 wait_for_ui_text 'Open scene' || fail 'root destination did not render after first-run setup'
 
 # Exercise renderer history and commit a real Core command before the final root-level minimize
