@@ -58,17 +58,24 @@ monetizes). Reject Firebase/Firestore/Cloud Run/GCS as replacements for the hard
 1. ✅ **ADR-026 + threat model: opt-in vault privacy modes** (2026-07-23). Phase 1 shipped: forced
    consent, mode-aware gates, Cloud-Enhanced record fail-closed (`approved: false`) pending the
    phase-2 security review.
-2. ⬜ **Prod stage rollout.** `prod` foundation is unbootstrapped (`infra/README.md`); manual
-   foundation bootstrap + SES verification + prod OIDC subject. No paid product ships on `dev`.
-   _Requires operator AWS access — cannot be done from the repo alone._
+2. 🟨 **Prod stage rollout** (bootstrapped 2026-07-23). `dndtools-prod-foundation` is deployed
+   (budget alarm, `dndtools-prod-ci-deploy` OIDC role trusting the protected GitHub `production`
+   environment); the `production` environment exists with a required reviewer, main-only branch
+   policy, and `AWS_PROD_DEPLOY_ROLE_ARN` / `COGNITO_EMAIL_SOURCE_ARN` / `COGNITO_EMAIL_FROM` set.
+   SES verification for the Cognito sender was initiated. Remaining (operator clicks only):
+   confirm the SES verification email + prod SNS alarm subscription, then run
+   `promote-production.yml` and approve its environment gate.
 3. ✅ **Recovery-key export for E2EE backup** (2026-07-23, ADR-026): passphrase-sealed keyring
    export/import in Settings; Private-mode recovery declaration flips to `supported`.
 
 ### P1 — Flagship paid capabilities
 
 4. ⬜ **Campaign Copilot** — managed AI/RAG over the whole vault (Cloud-Enhanced only). The single
-   highest-value paid offering. De-risk first: prototype RAG on one real campaign, measure answer
-   quality + token cost (Gemini context caching changes the economics — measure it).
+   highest-value paid offering. **De-risk DONE 2026-07-23** — `scripts/rag-derisk.ts` +
+   `docs/development/COPILOT_RAG_DERISK.md`: RAG + brute-force cosine validated on the real demo
+   campaign (100% hybrid retrieval hit@3, 92% grounded answers on a local-7B floor, ~$0.0002/query
+   on Gemini Flash, ~150× cheaper than whole-vault context; caching doesn't change the verdict).
+   Build remains blocked on ADR-026 phase 2.
 5. ⬜ **Server-side semantic + full-text search** (Cloud-Enhanced; shares the embeddings pipeline).
 6. ⬜ **Keyless browser access** (Cloud-Enhanced) — unanchors the web app from the desktop keychain.
 7. ⬜ **Push notifications via FCM** (both modes; needs a Firebase project + client wiring).
@@ -98,10 +105,10 @@ monetizes). Reject Firebase/Firestore/Cloud Run/GCS as replacements for the hard
 
 ## Blocked-on-external checklist
 
-| Item                   | Blocked on                                                                                |
-| ---------------------- | ----------------------------------------------------------------------------------------- |
-| P0 #2 prod bootstrap   | Operator AWS session (foundation bootstrap + SES + OIDC subject)                          |
-| Stripe billing         | Stripe account + business/compliance decision + billing ADR                               |
-| FCM push (#7)          | Firebase project + server key custody decision                                            |
-| Play Billing           | Only if Android monetizes; policy review at build time                                    |
-| Cloud-Enhanced phase 2 | Security review sign-off of `docs/security/vault-privacy-modes-threat-model.md` checklist |
+| Item                   | Blocked on                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------- |
+| P0 #2 prod promotion   | Two operator email clicks (SES verify + SNS confirm), then approve `promote-production.yml` |
+| Stripe billing         | Stripe account + business/compliance decision (contract recorded as ADR-027, Proposed)      |
+| FCM push (#7)          | Firebase project + server key custody decision                                              |
+| Play Billing           | Only if Android monetizes; policy review at build time                                      |
+| Cloud-Enhanced phase 2 | Security review sign-off of `docs/security/vault-privacy-modes-threat-model.md` checklist   |
