@@ -10,7 +10,7 @@ capabilities = "CAPABILITY_IAM"
 confirm_changeset = false
 resolve_s3 = true
 s3_prefix = "dndtools-dev-sync-api"
-parameter_overrides = "ReserveLambdaConcurrency=false ProjectName=dndtools Stage=dev WebOrigin=https://d1xn0o010v89mt.cloudfront.net LogRetentionDays=30"
+parameter_overrides = "ProjectName=dndtools Stage=dev WebOrigin=https://d1xn0o010v89mt.cloudfront.net LogRetentionDays=30"
 tags = "project=dndtools stage=dev stack=sync-api managed-by=sam"
 
 [prod.global.parameters]
@@ -23,5 +23,5 @@ capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 resolve_s3 = true
 s3_prefix = "dndtools-prod-sync-api"
-parameter_overrides = "ReserveLambdaConcurrency=false ProjectName=dndtools Stage=prod LogRetentionDays=30"
+parameter_overrides = "ProjectName=dndtools Stage=prod LogRetentionDays=30"
 tags = "project=dndtools stage=prod stack=sync-api managed-by=sam"

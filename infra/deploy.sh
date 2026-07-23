@@ -141,6 +141,16 @@ case "$STACK" in
     fi
     ;;
 esac
+
+# Per-function concurrency reservations are off by default: the account's Lambda quota still sits
+# at the 10-concurrency new-account floor (increase to 1000 requested 2026-07-23), and any
+# reservation below that floor is rejected. Once the quota lands, flip the guardrails on with
+# DNDTOOLS_RESERVE_CONCURRENCY=true (locally or as a CI env var).
+case "$STACK" in
+  signaling|sync-api|app-api)
+    DEPLOY_OVERRIDES+=("ReserveLambdaConcurrency=${DNDTOOLS_RESERVE_CONCURRENCY:-false}")
+    ;;
+esac
 ( cd "$STACK_DIR" && sam deploy --config-env "$STAGE" "${DEPLOY_FLAGS[@]}" "${DEPLOY_OVERRIDES[@]}" )
 
 echo "==> $STACK / $STAGE : done"

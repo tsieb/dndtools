@@ -48,7 +48,7 @@ Parameters:
 
   ReserveLambdaConcurrency:
     Type: String
-    Default: 'true'
+    Default: 'false'
     AllowedValues: ['true', 'false']
     Description: >-
       Attach the per-function ReservedConcurrentExecutions throttling guardrails. Requires the

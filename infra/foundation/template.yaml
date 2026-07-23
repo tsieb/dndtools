@@ -54,11 +54,46 @@ Parameters:
       IAM permits only one provider for token.actions.githubusercontent.com per account.
       Set false for an additional stage in an account where the shared provider already exists.
 
+  CreateApiGatewayAccountRole:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: >-
+      API Gateway's CloudWatch Logs role is one ACCOUNT-WIDE setting (AWS::ApiGateway::Account),
+      required before any stage can enable access logging (the hardened signaling stage does).
+      Exactly one stage's foundation may manage it; set false for additional stages in the same
+      account — mirrors the CreateGitHubOidcProvider singleton pattern.
+
 Conditions:
   IsProd: !Equals [!Ref Stage, prod]
   ShouldCreateGitHubOidcProvider: !Equals [!Ref CreateGitHubOidcProvider, 'true']
+  ShouldCreateApiGatewayAccountRole: !Equals [!Ref CreateApiGatewayAccountRole, 'true']
 
 Resources:
+  # --- API Gateway account logging role (account-wide singleton) -----------------
+  # Stages that enable access logging (signaling) fail to deploy until this exists:
+  # "CloudWatch Logs role ARN must be set in account settings to enable logging".
+  ApiGatewayLogsRole:
+    Type: AWS::IAM::Role
+    Condition: ShouldCreateApiGatewayAccountRole
+    Properties:
+      RoleName: !Sub '${ProjectName}-apigateway-cloudwatch-logs'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+
+  ApiGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Condition: ShouldCreateApiGatewayAccountRole
+    Properties:
+      CloudWatchRoleArn: !GetAtt ApiGatewayLogsRole.Arn
+
   # --- Cost guardrail: a monthly budget with escalating email alerts. -------
   # Budgets is a global service; the resource is fine to create from any region.
   MonthlyCostBudget:

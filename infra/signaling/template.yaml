@@ -29,6 +29,18 @@ Parameters:
     Default: 30
     AllowedValues: [14, 30, 60, 90, 180, 365]
 
+  ReserveLambdaConcurrency:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: >-
+      Attach the per-function ReservedConcurrentExecutions throttling guardrails. Requires the
+      account's Lambda "Concurrent executions" quota to be above its 10-concurrency floor; a fresh
+      account cannot reserve at all, so this defaults off until the quota increase is granted.
+
+Conditions:
+  ShouldReserveConcurrency: !Equals [!Ref ReserveLambdaConcurrency, 'true']
+
 Globals:
   Function:
     Runtime: nodejs24.x
