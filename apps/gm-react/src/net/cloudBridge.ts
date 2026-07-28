@@ -136,7 +136,11 @@ export function createCloudBridge(getIdToken: () => Promise<string | null>): Clo
 				// rather than letting them stall until their timeout.
 				{
 					const error = reportError(
-						new Error(typeof msg.message === 'string' ? msg.message : 'Signaling error.'),
+						new Error(
+							typeof msg.message === 'string'
+								? msg.message
+								: 'The online-play service reported an error — try again.',
+						),
 					);
 					rejectWaiters(error);
 				}
@@ -220,14 +224,21 @@ export function createCloudBridge(getIdToken: () => Promise<string | null>): Clo
 					resolve();
 				});
 				sock.addEventListener('error', () => {
-					const error = new Error('Could not reach the signaling server.');
+					const error = new Error(
+						'Couldn’t reach the online-play service — check your connection and try again.',
+					);
 					rejectOnce(error);
 					if (opened && generation === socketGeneration) reportError(error);
 				});
 				sock.addEventListener('close', () => {
 					if (openingSocket === sock) openingSocket = null;
 					if (ws === sock) ws = null;
-					if (!opened) rejectOnce(new Error('Could not reach the signaling server.'));
+					if (!opened)
+						rejectOnce(
+							new Error(
+								'Couldn’t reach the online-play service — check your connection and try again.',
+							),
+						);
 					if (opened && generation === socketGeneration) {
 						const error = reportError(new Error('The online-play connection closed.'));
 						rejectWaiters(error);
@@ -254,7 +265,7 @@ export function createCloudBridge(getIdToken: () => Promise<string | null>): Clo
 
 	function send(obj: Record<string, unknown>): void {
 		if (!ws || ws.readyState !== WebSocket.OPEN)
-			throw new Error('Not connected to the signaling server.');
+			throw new Error('Not connected to the online-play service.');
 		ws.send(JSON.stringify(obj));
 	}
 
@@ -276,7 +287,7 @@ export function createCloudBridge(getIdToken: () => Promise<string | null>): Clo
 			send({ action: 'turnCredentials' });
 			const creds = await waitFor('turn-credentials');
 			if (!Array.isArray(creds.iceServers) || creds.iceServers.length === 0) {
-				throw new Error('The relay server returned invalid connection details.');
+				throw new Error('The online-play service returned invalid connection details — try again.');
 			}
 			const ttlSeconds =
 				typeof creds.ttl === 'number' && Number.isFinite(creds.ttl) && creds.ttl > 0
@@ -354,7 +365,8 @@ export function createCloudBridge(getIdToken: () => Promise<string | null>): Clo
 			// Derive the pairing key from our fresh ECDH key + the joiner's public key, seal the
 			// offer under it, and send only our public key alongside the ciphertext.
 			const joinerPub = hostPeerPubKey.get(reqId);
-			if (!joinerPub) throw new Error('Missing joiner key — cannot secure the offer.');
+			if (!joinerPub)
+				throw new Error('The join request is missing its security key — ask the player to retry.');
 			const kp = await generateEcdhKeyPair();
 			const wrapKey = await deriveWrapKey(kp.privateKey, joinerPub, hostPin);
 			hostWrapKey.set(reqId, wrapKey);
@@ -389,7 +401,8 @@ export function createCloudBridge(getIdToken: () => Promise<string | null>): Clo
 		async respondAnswer(reqId, answerCode) {
 			// Seal the answer with the same pairing key the offer was opened under.
 			const wrapKey = joinerWrapKey.get(reqId);
-			if (!wrapKey) throw new Error('Missing pairing key — cannot secure the answer.');
+			if (!wrapKey)
+				throw new Error('The invitation is missing its security key — create a fresh invitation.');
 			const wrapped = await wrapCode(wrapKey, answerCode);
 			send({ action: 'answer', reqId, answerCode: wrapped });
 			joinerWrapKey.delete(reqId);

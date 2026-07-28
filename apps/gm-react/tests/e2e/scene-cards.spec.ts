@@ -159,7 +159,7 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 	}) => {
 		// A fresh vault seeds no scene cards.
 		await expect(
-			page.getByText('No scene cards yet. Create one to display it or push it to players.'),
+			page.getByText('No scene cards yet. Create one to set the scene at the table.'),
 		).not.toHaveCount(0);
 
 		const title = `The Gates of Barovia ${Date.now()}`;
@@ -208,8 +208,8 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		await expect(page.getByText('Queue · 2')).not.toHaveCount(0);
 		expect(await queueCardIds(page)).toEqual([firstId, secondId]);
 
-		// Advance plays the queue head onto the display, then the next — in order.
-		await page.getByRole('button', { name: 'Advance' }).click();
+		// Next card plays the queue head onto the display, then the next — in order.
+		await page.getByRole('button', { name: 'Next card' }).click();
 		await page.waitForFunction(
 			(id) =>
 				(window.__rt!.state.session as { sceneCards: { activeCardId: string | null } }).sceneCards
@@ -220,7 +220,7 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		await expect(page.getByText('On display')).not.toHaveCount(0);
 		expect(await queueCardIds(page)).toEqual([secondId]);
 
-		await page.getByRole('button', { name: 'Advance' }).click();
+		await page.getByRole('button', { name: 'Next card' }).click();
 		await page.waitForFunction(
 			(id) =>
 				(window.__rt!.state.session as { sceneCards: { activeCardId: string | null } }).sceneCards
@@ -254,7 +254,7 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		await expect(page.getByText(secret)).not.toHaveCount(0);
 	});
 
-	test('the Display button pushes a player-visible card and records a durable push', async ({
+	test('the Show button pushes a player-visible card and records a durable push', async ({
 		page,
 	}) => {
 		const title = `Whispers in the Crypt ${Date.now()}`;
@@ -262,7 +262,7 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		expect(await pushHistoryCardIds(page)).toEqual([]);
 
 		// Real UI: activating a player-visible card onto the display records a push (S11.2.4).
-		await page.getByRole('button', { name: 'Display', exact: true }).click();
+		await page.getByRole('button', { name: 'Show', exact: true }).click();
 		await page.waitForFunction(
 			(id) =>
 				(window.__rt!.state.session as { sceneCards: { activeCardId: string | null } }).sceneCards

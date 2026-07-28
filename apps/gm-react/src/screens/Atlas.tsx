@@ -321,7 +321,7 @@ export function Atlas() {
 		if (selPoiId === poiId) setSelPoiId(null);
 		const res = await run({ type: 'map.delete-poi', actorId, payload: { mapId: mid, poiId } });
 		if (res?.status !== 'accepted' || !prior) return;
-		Toaster.success(`POI “${prior.label}” deleted`, {
+		Toaster.success(`Point of interest “${prior.label}” deleted`, {
 			action: 'Undo',
 			onAction: () => {
 				void runtime
@@ -342,7 +342,11 @@ export function Atlas() {
 					})
 					.then((restored) => {
 						if (restored.status === 'accepted') Toaster.success(`“${prior.label}” restored`);
-						else Toaster.error(restored.rejection.message ?? 'The POI could not be restored.');
+						else
+							Toaster.error(
+								restored.rejection.message ??
+									'The point of interest couldn’t be restored — try again.',
+							);
 					});
 			},
 		});
@@ -356,9 +360,9 @@ export function Atlas() {
 		const url = `${window.location.origin}${window.location.pathname}${window.location.search}#/atlas?map=${encodeURIComponent(selectedId)}&poi=${encodeURIComponent(poiId)}`;
 		try {
 			await navigator.clipboard.writeText(url);
-			setNotice('POI link copied — opening it selects this map and highlights the POI.');
+			setNotice('Link copied — opening it highlights this point of interest on the map.');
 		} catch {
-			setNotice(`POI link (copy failed — copy it manually): ${url}`);
+			setNotice(`The link couldn’t be copied — copy it manually: ${url}`);
 		}
 	}
 
@@ -373,7 +377,7 @@ export function Atlas() {
 			(a) => a.role === 'player',
 		);
 		if (players.length === 0) {
-			setNotice('Add at least one player before projecting a map.');
+			setNotice('No players yet — add players in Settings → Players before projecting a map.');
 			return;
 		}
 		const staged = await run({
@@ -394,7 +398,7 @@ export function Atlas() {
 		if (!projected) return;
 		if (projected.status === 'accepted') {
 			setNotice(
-				`Projected “${selectedEntry?.name ?? 'map'}” to ${players.length} player${players.length === 1 ? '' : 's'} — the live dot marks delivered maps.`,
+				`Projected “${selectedEntry?.name ?? 'map'}” to ${players.length} player${players.length === 1 ? '' : 's'}.`,
 			);
 		} else {
 			setNotice(projected.rejection.message);
@@ -462,7 +466,7 @@ export function Atlas() {
 					disabled={!selectedId}
 					onClick={() => openBuilder('select')}
 				>
-					Open in builder
+					Open in map editor
 				</Button>
 				{isDm && (
 					<Button
@@ -493,7 +497,13 @@ export function Atlas() {
 				>
 					<Icon name="info" size={15} color={T.info} />
 					<span style={{ flex: 1 }}>{notice}</span>
-					<button type="button" onClick={() => setNotice(null)} style={ghostBtn} title="Dismiss">
+					<button
+						type="button"
+						onClick={() => setNotice(null)}
+						style={ghostBtn}
+						title="Dismiss"
+						aria-label="Dismiss notice"
+					>
 						<Icon name="close" size={14} color={T.ter} />
 					</button>
 				</div>
@@ -741,6 +751,7 @@ export function Atlas() {
 											<button
 												type="button"
 												title="Move up"
+												aria-label={`Move ${l.name} up`}
 												disabled={busy || i === 0}
 												onClick={() => reorderLayer(l.layerId, i - 1)}
 												style={{ ...ghostBtn, opacity: i === 0 ? 0.3 : 1 }}
@@ -750,6 +761,7 @@ export function Atlas() {
 											<button
 												type="button"
 												title="Move down"
+												aria-label={`Move ${l.name} down`}
 												disabled={busy || i === layers.length - 1}
 												onClick={() => reorderLayer(l.layerId, i + 1)}
 												style={{ ...ghostBtn, opacity: i === layers.length - 1 ? 0.3 : 1 }}
@@ -791,8 +803,8 @@ export function Atlas() {
 											{/* compact chip = the grayscale-safe status display; the button stays the toggle */}
 											<button
 												type="button"
-												title={`Visibility: ${VIS_LABEL[l.visibility] ?? l.visibility} — click to toggle DM-only ↔ player-visible`}
-												aria-label={`Toggle ${l.name} player visibility`}
+												title={`Visibility: ${VIS_LABEL[l.visibility] ?? l.visibility} — click to toggle DM only ↔ player visible`}
+												aria-label={`${l.name} visibility: ${VIS_LABEL[l.visibility] ?? l.visibility} — toggle`}
 												disabled={busy}
 												onClick={() => toggleLayerVisibility(l.layerId, l.visibility)}
 												style={ghostBtn}
@@ -801,7 +813,7 @@ export function Atlas() {
 											</button>
 											<Switch
 												checked={l.enabled}
-												aria-label={`Display ${l.name}`}
+												aria-label={`Show ${l.name} on the map`}
 												onChange={() => toggleLayerEnabled(l.layerId, l.enabled)}
 											/>
 										</>
@@ -848,11 +860,10 @@ export function Atlas() {
 								}}
 							>
 								<Button variant="secondary" size="sm" icon="poi" onClick={() => openBuilder('poi')}>
-									Place POI in builder
+									Place point of interest
 								</Button>
 								<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
-									The builder's POI tool places at the exact clicked map position; drag a marker to
-									move it.
+									Opens the map editor — click the map to place it, or drag a marker to move it.
 								</div>
 							</div>
 						)}
@@ -864,7 +875,8 @@ export function Atlas() {
 								>
 									<button
 										type="button"
-										title="Show on map"
+										title="Highlight on map"
+										aria-label={`Highlight ${poi.label} on the map`}
 										onClick={() => setSelPoiId(poi.id === selPoiId ? null : poi.id)}
 										style={{
 											...ghostBtn,
@@ -894,8 +906,8 @@ export function Atlas() {
 											{/* compact chip = the grayscale-safe status display; the button stays the toggle */}
 											<button
 												type="button"
-												title={`Visibility: ${VIS_LABEL[poi.visibility] ?? poi.visibility} — click to toggle DM-only ↔ player-visible`}
-												aria-label={`Toggle ${poi.label} player visibility`}
+												title={`Visibility: ${VIS_LABEL[poi.visibility] ?? poi.visibility} — click to toggle DM only ↔ player visible`}
+												aria-label={`${poi.label} visibility: ${VIS_LABEL[poi.visibility] ?? poi.visibility} — toggle`}
 												disabled={busy}
 												onClick={() => togglePoiVisibility(poi.id, poi.visibility)}
 												style={ghostBtn}
@@ -904,7 +916,8 @@ export function Atlas() {
 											</button>
 											<button
 												type="button"
-												title="Delete POI"
+												title="Delete point of interest"
+												aria-label={`Delete ${poi.label} (undo available)`}
 												disabled={busy}
 												onClick={() => void deletePoi(poi.id)}
 												style={ghostBtn}
@@ -925,9 +938,7 @@ export function Atlas() {
 										isDm ? 'No points of interest yet' : 'No points of interest are visible to you'
 									}
 									description={
-										isDm
-											? 'The builder’s POI tool places one at the exact clicked position.'
-											: undefined
+										isDm ? 'Use “Place point of interest” to mark a spot on the map.' : undefined
 									}
 								/>
 							)}
@@ -949,15 +960,15 @@ export function Atlas() {
 							<span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
 								Fog of war
 								<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
-									{mapView?.fog.length ?? 0} ops
+									{mapView?.fog.length ?? 0}{' '}
+									{(mapView?.fog.length ?? 0) === 1 ? 'change' : 'changes'}
 								</span>
 							</span>
 						}
 					>
 						<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.sub }}>
-							Reveal/conceal regions are durable, append-only fog ops — the canvas composes the real
-							mask in sequence order (a later op overrides an earlier overlap). Draw regions in the
-							builder.
+							Revealed and concealed areas apply in order — where they overlap, the newer one wins.
+							Every change is kept. Draw areas in the map editor.
 						</div>
 						{isDm && mapView && (
 							<div style={{ display: 'flex', gap: 8 }}>
@@ -994,8 +1005,10 @@ export function Atlas() {
 											color: T.ter,
 										}}
 									>
-										<Badge status={op.kind === 'reveal' ? 'success' : 'neutral'}>{op.kind}</Badge>
-										seq {op.sequence} · {fogRegionSummary(op.region)}
+										<Badge status={op.kind === 'reveal' ? 'success' : 'neutral'}>
+											{op.kind === 'reveal' ? 'Revealed' : 'Concealed'}
+										</Badge>
+										#{op.sequence} · {fogRegionSummary(op.region)}
 									</div>
 								))}
 							</div>

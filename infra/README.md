@@ -6,10 +6,12 @@ capabilities to the local-first app. Everything is pay-per-use / scale-to-zero
 
 ## Account & identity
 
-- Dedicated member account **`dndtools` = `703621193648`** in org `o-fvdpu0124z`.
-- Deploys run through the local AWS profile **`dndtools`**, which role-chains from
-  the `siebland-mgmt` SSO session into the member account's
-  `OrganizationAccountAccessRole`. Region: **`ca-central-1`**
+- Shared development account **`dndtools` = `703621193648`** in org `o-fvdpu0124z`.
+- Production must live in a separate AWS member account with its own GitHub OIDC
+  provider, deploy role, SNS topic, SES identities, budget, and audit trail.
+- Local deploys default to the `dndtools` AWS profile. Override by stage with
+  `DNDTOOLS_DEV_PROFILE` / `DNDTOOLS_PROD_PROFILE` (or `DNDTOOLS_PROFILE`) when
+  dev and prod live in different accounts. Region: **`ca-central-1`**
   (CloudFront's ACM cert is the sole exception — it lives in `us-east-1`).
 - CI deploys use the keyless **GitHub OIDC** role created by the `foundation` stack
   (no long-lived AWS keys).
@@ -21,11 +23,11 @@ capabilities to the local-first app. Everything is pay-per-use / scale-to-zero
 > `samconfig.toml` — a CloudFormation _update_ keeps a parameter's previous value when it
 > is omitted from `parameter_overrides` (the template `Default` only applies on initial
 > _create_), so relying on the default alone would have left the role on `master`.
-> **`prod` foundation has not been deployed yet.** IAM allows only one GitHub OIDC provider for a
-> provider URL in an AWS account, so dev owns the shared provider and prod is configured with
-> `CreateGitHubOidcProvider=false`. Bootstrap the prod foundation once with the local admin profile,
-> then set `AWS_PROD_DEPLOY_ROLE_ARN` on the protected GitHub `production` environment. The prod role
-> trusts that environment's OIDC subject, not a branch subject.
+> The separate prod account should create its own OIDC provider and API Gateway
+> account logging role. Bootstrap it once with `infra/bootstrap-prod-foundation.sh`,
+> then set `AWS_PROD_DEPLOY_ROLE_ARN` on the protected GitHub `production`
+> environment. The prod role trusts that environment's OIDC subject, not a branch
+> subject.
 
 The already-created dev Cognito pool retains Cognito's immutable, case-sensitive username setting;
 the client canonicalizes email addresses before every auth call so users still get consistent login
@@ -100,8 +102,9 @@ sam deploy --config-env dev
 ```
 
 Production identity deployment deliberately has no committed sender identity. Set both variables to
-an SES identity already verified in `ca-central-1`; the protected production workflow reads the same
-values from GitHub environment variables named `COGNITO_EMAIL_SOURCE_ARN` and `COGNITO_EMAIL_FROM`.
+an SES identity already verified in the dedicated prod account's `ca-central-1`; the protected
+production workflow reads the same values from GitHub environment variables named
+`COGNITO_EMAIL_SOURCE_ARN` and `COGNITO_EMAIL_FROM`.
 
 ```bash
 export DNDTOOLS_COGNITO_EMAIL_SOURCE_ARN='arn:aws:ses:ca-central-1:ACCOUNT:identity/example.com'

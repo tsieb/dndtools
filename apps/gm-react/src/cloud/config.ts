@@ -7,6 +7,7 @@
 // hidden/disabled. Nothing here throws at import time.
 
 export interface CloudConfig {
+	stage: 'dev' | 'prod' | '';
 	region: string;
 	userPoolId: string;
 	userPoolClientId: string;
@@ -18,6 +19,11 @@ export interface CloudConfig {
 	appApiUrl: string;
 	/** Public HTTPS SPA entry used for share links from packaged desktop builds. */
 	publicAppUrl: string;
+}
+
+export interface FeatureFlagSnapshot {
+	version: 1;
+	flags: Record<string, boolean>;
 }
 
 function read(key: keyof ImportMetaEnv): string {
@@ -68,7 +74,31 @@ function validPublicAppUrl(value: string): boolean {
 	}
 }
 
+function readFeatureFlags(value: string): FeatureFlagSnapshot {
+	if (!value) return { version: 1, flags: {} };
+	try {
+		const candidate: unknown = JSON.parse(value);
+		if (
+			typeof candidate !== 'object' ||
+			candidate === null ||
+			(candidate as { version?: unknown }).version !== 1 ||
+			typeof (candidate as { flags?: unknown }).flags !== 'object' ||
+			(candidate as { flags: unknown }).flags === null ||
+			!Object.entries((candidate as { flags: Record<string, unknown> }).flags).every(
+				([key, enabled]) => /^[a-z][a-z0-9-]{2,63}$/.test(key) && typeof enabled === 'boolean',
+			)
+		)
+			return { version: 1, flags: {} };
+		return candidate as FeatureFlagSnapshot;
+	} catch {
+		return { version: 1, flags: {} };
+	}
+}
+
+const stageValue = read('VITE_CLOUD_STAGE');
+
 export const cloudConfig: CloudConfig = {
+	stage: stageValue === 'dev' || stageValue === 'prod' ? stageValue : '',
 	region: read('VITE_CLOUD_REGION'),
 	userPoolId: read('VITE_COGNITO_USER_POOL_ID'),
 	userPoolClientId: read('VITE_COGNITO_CLIENT_ID'),
@@ -77,6 +107,10 @@ export const cloudConfig: CloudConfig = {
 	appApiUrl: read('VITE_APP_API_URL'),
 	publicAppUrl: read('VITE_PUBLIC_APP_URL'),
 };
+
+/** Server-controlled capability snapshot. Malformed or absent values fail closed. */
+export const featureFlags = readFeatureFlags(read('VITE_FEATURE_FLAGS'));
+export const isFeatureEnabled = (key: string): boolean => featureFlags.flags[key] === true;
 
 const identityConfigIsValid =
 	validRegion(cloudConfig.region) &&

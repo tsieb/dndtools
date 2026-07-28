@@ -43,12 +43,28 @@ const KIND_ICON: Record<string, string> = {
 };
 const KIND_LABEL: Record<string, string> = {
 	note: 'Note',
-	object: 'Object',
+	object: 'Story entry',
 	map: 'Map',
 	poi: 'Point of interest',
 };
 const REL_LABEL: Record<string, string> = { wikilink: 'links to', 'poi-link': 'map link' };
-const BAND_TONE: Record<string, string> = { none: 'neutral', few: 'success', several: 'warning', many: 'error' };
+const BAND_TONE: Record<string, string> = {
+	none: 'neutral',
+	few: 'success',
+	several: 'warning',
+	many: 'error',
+};
+// Player-facing health bands arrive as machine tokens; render the spoken versions.
+const BAND_LABEL: Record<string, string> = {
+	none: 'None',
+	few: 'A few',
+	several: 'Several',
+	many: 'Many',
+	low: 'Low',
+	moderate: 'Moderate',
+	good: 'Good',
+	excellent: 'Excellent',
+};
 
 /** Deterministic, force-free ellipse layout — the core graph carries no coordinates (it is a pure model). */
 function positioned(nodes: GraphVizNode[]): (GraphVizNode & { x: number; y: number })[] {
@@ -66,7 +82,15 @@ function positioned(nodes: GraphVizNode[]): (GraphVizNode & { x: number; y: numb
 
 function HealthRow({ label, count }: { label: string; count: number }) {
 	return (
-		<div style={{ display: 'flex', alignItems: 'center', gap: 8, font: `12px ${T.sans}`, color: T.sub }}>
+		<div
+			style={{
+				display: 'flex',
+				alignItems: 'center',
+				gap: 8,
+				font: `12px ${T.sans}`,
+				color: T.sub,
+			}}
+		>
 			<span style={{ flex: 1 }}>{label}</span>
 			<Badge status={count === 0 ? 'success' : count <= 3 ? 'warning' : 'error'}>{count}</Badge>
 		</div>
@@ -113,8 +137,19 @@ export function Graph() {
 	const health = useMemo(() => {
 		const now = new Date().toISOString();
 		return view === 'dm'
-			? { kind: 'dm' as const, report: getGraphHealthForDm(runtime.state.content, runtime.state.permissions, dmId, now) }
-			: { kind: 'player' as const, summary: getPlayerScopedHealthSummary(runtime.state.content, runtime.state.permissions, playerId, now) };
+			? {
+					kind: 'dm' as const,
+					report: getGraphHealthForDm(runtime.state.content, runtime.state.permissions, dmId, now),
+				}
+			: {
+					kind: 'player' as const,
+					summary: getPlayerScopedHealthSummary(
+						runtime.state.content,
+						runtime.state.permissions,
+						playerId,
+						now,
+					),
+				};
 	}, [runtime.state, view, dmId, playerId]);
 
 	const nodes = useMemo(() => positioned(viz.nodes), [viz.nodes]);
@@ -140,8 +175,17 @@ export function Graph() {
 			return;
 		}
 		if (n.kind === 'poi') {
-			const owner = listMapsForActor(runtime.state.maps, runtime.state.permissions, viewActorId).find((m) => {
-				const view = getMapViewForActor(runtime.state.maps, runtime.state.permissions, viewActorId, m.id);
+			const owner = listMapsForActor(
+				runtime.state.maps,
+				runtime.state.permissions,
+				viewActorId,
+			).find((m) => {
+				const view = getMapViewForActor(
+					runtime.state.maps,
+					runtime.state.permissions,
+					viewActorId,
+					m.id,
+				);
 				return view.kind === 'available' && view.pois.some((p) => p.id === n.id);
 			});
 			navigate(
@@ -156,7 +200,15 @@ export function Graph() {
 
 	return (
 		<Page max={1280}>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+			<div
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					gap: 12,
+					marginBottom: 16,
+					flexWrap: 'wrap',
+				}}
+			>
 				<Seg
 					value={view}
 					ariaLabel="Graph viewpoint"
@@ -169,21 +221,45 @@ export function Graph() {
 					]}
 				/>
 				<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
-					Showing {viz.nodes.length} of {viz.totalVisibleNodes} visible {viz.totalVisibleNodes === 1 ? 'node' : 'nodes'}
-					{viz.partial ? ' · some sources are behind' : ''}
+					Showing {viz.nodes.length} of {viz.totalVisibleNodes} visible{' '}
+					{viz.totalVisibleNodes === 1 ? 'node' : 'nodes'}
+					{viz.partial ? ' · some sources aren’t fully loaded yet' : ''}
 				</span>
 				<div style={{ flex: 1 }} />
 				<div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
 					{legendKinds.map((k) => (
-						<span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, font: `11.5px ${T.sans}`, color: T.sub }}>
-							<span style={{ width: 10, height: 10, borderRadius: 3, background: KIND_COLOR[k] ?? T.sub }} />
+						<span
+							key={k}
+							style={{
+								display: 'inline-flex',
+								alignItems: 'center',
+								gap: 6,
+								font: `11.5px ${T.sans}`,
+								color: T.sub,
+							}}
+						>
+							<span
+								style={{
+									width: 10,
+									height: 10,
+									borderRadius: 3,
+									background: KIND_COLOR[k] ?? T.sub,
+								}}
+							/>
 							{KIND_LABEL[k] ?? k}
 						</span>
 					))}
 				</div>
 			</div>
 
-			<div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : '1fr 320px', gap: 18, alignItems: 'start' }}>
+			<div
+				style={{
+					display: 'grid',
+					gridTemplateColumns: isPhone ? '1fr' : '1fr 320px',
+					gap: 18,
+					alignItems: 'start',
+				}}
+			>
 				{/* graph canvas — real nodes (sized by visible degree) + real directed link edges */}
 				<div
 					style={{
@@ -196,13 +272,29 @@ export function Graph() {
 					}}
 				>
 					{nodes.length === 0 && (
-						<div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `13px ${T.sans}`, color: T.ter, textAlign: 'center', padding: 24 }}>
+						<div
+							style={{
+								position: 'absolute',
+								inset: 0,
+								display: 'flex',
+								alignItems: 'center',
+								justifyContent: 'center',
+								font: `13px ${T.sans}`,
+								color: T.ter,
+								textAlign: 'center',
+								padding: 24,
+							}}
+						>
 							{view === 'player'
 								? 'No player-visible nodes match this filter.'
-								: 'No graph nodes yet — create notes, maps and objects to populate the relationship graph.'}
+								: 'Nothing to graph yet — notes, maps, and story entries appear here as you link them.'}
 						</div>
 					)}
-					<svg viewBox="0 0 100 70" preserveAspectRatio="xMidYMid meet" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+					<svg
+						viewBox="0 0 100 70"
+						preserveAspectRatio="xMidYMid meet"
+						style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+					>
 						{viz.edges.map((e, i) => {
 							const a = nodeById[e.fromId];
 							const b = nodeById[e.toId];
@@ -215,7 +307,9 @@ export function Graph() {
 									y1={a.y * 0.7}
 									x2={b.x}
 									y2={b.y * 0.7}
-									stroke={hot ? T.acc : e.relationship === 'poi-link' ? 'var(--color-status-info)' : T.bd}
+									stroke={
+										hot ? T.acc : e.relationship === 'poi-link' ? 'var(--color-status-info)' : T.bd
+									}
 									strokeWidth={hot ? 0.6 : 0.35}
 									opacity={selNode && !hot ? 0.22 : 0.8}
 								/>
@@ -224,14 +318,18 @@ export function Graph() {
 					</svg>
 					{nodes.map((n) => {
 						const col = KIND_COLOR[n.kind] ?? T.sub;
-						const dim = selNode != null && n.id !== sel && !selEdges.some((e) => e.fromId === n.id || e.toId === n.id);
+						const dim =
+							selNode != null &&
+							n.id !== sel &&
+							!selEdges.some((e) => e.fromId === n.id || e.toId === n.id);
 						const d = Math.max(34, Math.min(70, 34 + n.degree * 7));
 						return (
 							<button
 								key={n.id}
 								type="button"
 								onClick={() => setSel(n.id)}
-								title={`${n.title} · ${KIND_LABEL[n.kind] ?? n.kind} · degree ${n.degree}`}
+								title={`${n.title} · ${KIND_LABEL[n.kind] ?? n.kind} · ${n.degree} ${n.degree === 1 ? 'connection' : 'connections'}`}
+								aria-label={`${n.title}, ${KIND_LABEL[n.kind] ?? n.kind}, ${n.degree} ${n.degree === 1 ? 'connection' : 'connections'}`}
 								style={{
 									position: 'absolute',
 									left: `${n.x}%`,
@@ -254,7 +352,15 @@ export function Graph() {
 									transition: 'opacity var(--duration-fast) var(--easing-standard)',
 								}}
 							>
-								<span style={{ font: `600 ${Math.max(7, d / 6)}px ${T.sans}`, lineHeight: 1.05, overflow: 'hidden' }}>{n.title}</span>
+								<span
+									style={{
+										font: `600 ${Math.max(7, d / 6)}px ${T.sans}`,
+										lineHeight: 1.05,
+										overflow: 'hidden',
+									}}
+								>
+									{n.title}
+								</span>
 							</button>
 						);
 					})}
@@ -263,7 +369,11 @@ export function Graph() {
 				{/* inspector + search + health */}
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 					{selNode ? (
-						<Panel accent title="Selected" action={<Badge status="neutral">{KIND_LABEL[selNode.kind] ?? selNode.kind}</Badge>}>
+						<Panel
+							accent
+							title="Selected"
+							action={<Badge status="neutral">{KIND_LABEL[selNode.kind] ?? selNode.kind}</Badge>}
+						>
 							<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 								<span
 									style={{
@@ -284,7 +394,7 @@ export function Graph() {
 									<div style={{ font: `700 15px ${T.disp}` }}>{selNode.title}</div>
 									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
 										{selNode.folder ? `${selNode.folder} · ` : ''}
-										{selNode.source}
+										{selNode.source === DEFAULT_SOURCE_ID ? 'This vault' : selNode.source}
 									</div>
 								</div>
 							</div>
@@ -298,17 +408,24 @@ export function Graph() {
 								</div>
 							)}
 							<div style={{ marginTop: 8 }}>
-								<Button variant="secondary" size="sm" icon="chevron-right" onClick={() => openNode(selNode)}>
+								<Button
+									variant="secondary"
+									size="sm"
+									icon="chevron-right"
+									onClick={() => openNode(selNode)}
+								>
 									{selNode.kind === 'note'
 										? 'Open note'
 										: selNode.kind === 'object'
-											? 'Open in Campaign'
-											: 'Open in Atlas'}
+											? 'Open in Story'
+											: 'Open in Maps'}
 								</Button>
 							</div>
 							<div style={{ ...eb, marginTop: 8 }}>Connections ({selEdges.length})</div>
 							{selEdges.length === 0 ? (
-								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>No links from or to this node yet.</div>
+								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+									No links from or to this node yet.
+								</div>
 							) : (
 								<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
 									{selEdges.map((e, i) => {
@@ -333,12 +450,29 @@ export function Graph() {
 													textAlign: 'left',
 												}}
 											>
-												<span style={{ width: 8, height: 8, borderRadius: 2, background: KIND_COLOR[other.kind] ?? T.sub, flex: '0 0 auto' }} />
-												<span style={{ flex: 1, minWidth: 0, font: `12px ${T.sans}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+												<span
+													style={{
+														width: 8,
+														height: 8,
+														borderRadius: 2,
+														background: KIND_COLOR[other.kind] ?? T.sub,
+														flex: '0 0 auto',
+													}}
+												/>
+												<span
+													style={{
+														flex: 1,
+														minWidth: 0,
+														font: `12px ${T.sans}`,
+														whiteSpace: 'nowrap',
+														overflow: 'hidden',
+														textOverflow: 'ellipsis',
+													}}
+												>
 													{other.title}
 												</span>
 												<span style={{ font: `10.5px ${T.sans}`, color: T.ter }}>
-													{outgoing ? '→' : '←'} {REL_LABEL[e.relationship] ?? e.relationship}
+													{outgoing ? '→' : '←'} {REL_LABEL[e.relationship] ?? 'linked'}
 												</span>
 											</button>
 										);
@@ -367,7 +501,14 @@ export function Graph() {
 								onChange={(e) => setQuery(e.target.value)}
 								placeholder="Search the graph…"
 								aria-label="Search the graph"
-								style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: T.ink, font: `12.5px ${T.sans}` }}
+								style={{
+									flex: 1,
+									border: 'none',
+									outline: 'none',
+									background: 'transparent',
+									color: T.ink,
+									font: `12.5px ${T.sans}`,
+								}}
 							/>
 						</div>
 						<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
@@ -386,21 +527,57 @@ export function Graph() {
 										color: facet === f ? T.acc : T.sub,
 									}}
 								>
-									{f === 'all' ? 'All' : KIND_LABEL[f] ?? f}
+									{f === 'all' ? 'All' : (KIND_LABEL[f] ?? f)}
 								</button>
 							))}
 						</div>
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, overflowY: 'auto' }}>
+						<div
+							style={{
+								display: 'flex',
+								flexDirection: 'column',
+								gap: 8,
+								maxHeight: 280,
+								overflowY: 'auto',
+							}}
+						>
 							{viz.nodes.map((r) => (
 								<button
 									key={r.id}
 									type="button"
 									onClick={() => setSel(r.id)}
-									style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 10px', border: `1px solid ${r.id === sel ? T.accBd : T.bd}`, borderRadius: 9, background: r.id === sel ? T.accSub : T.surf, cursor: 'pointer' }}
+									style={{
+										display: 'block',
+										width: '100%',
+										textAlign: 'left',
+										padding: '9px 10px',
+										border: `1px solid ${r.id === sel ? T.accBd : T.bd}`,
+										borderRadius: 9,
+										background: r.id === sel ? T.accSub : T.surf,
+										cursor: 'pointer',
+									}}
 								>
 									<div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
-										<span style={{ width: 8, height: 8, borderRadius: 2, background: KIND_COLOR[r.kind] ?? T.sub, flex: '0 0 auto' }} />
-										<span style={{ font: `600 12.5px ${T.sans}`, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.title}</span>
+										<span
+											style={{
+												width: 8,
+												height: 8,
+												borderRadius: 2,
+												background: KIND_COLOR[r.kind] ?? T.sub,
+												flex: '0 0 auto',
+											}}
+										/>
+										<span
+											style={{
+												font: `600 12.5px ${T.sans}`,
+												flex: 1,
+												minWidth: 0,
+												whiteSpace: 'nowrap',
+												overflow: 'hidden',
+												textOverflow: 'ellipsis',
+											}}
+										>
+											{r.title}
+										</span>
 										<span style={{ font: `10.5px ${T.mono}`, color: T.ter }}>{r.degree}</span>
 									</div>
 									<div style={{ font: `10.5px ${T.sans}`, color: T.ter }}>
@@ -420,7 +597,14 @@ export function Graph() {
 
 					{/* GRAPH-007 — DM sees the full health report; a player sees only the generalized coarse bands. */}
 					{health.kind === 'dm' ? (
-						<Panel title="Graph health" action={<Badge status={health.report.coverage.overall >= 70 ? 'success' : 'warning'}>{health.report.coverage.overall}% coverage</Badge>}>
+						<Panel
+							title="Graph health"
+							action={
+								<Badge status={health.report.coverage.overall >= 70 ? 'success' : 'warning'}>
+									{health.report.coverage.overall}% coverage
+								</Badge>
+							}
+						>
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
 								<HealthRow label="Stale notes" count={health.report.staleNotes.length} />
 								<HealthRow label="Missing links" count={health.report.missingLinks.length} />
@@ -431,23 +615,46 @@ export function Graph() {
 					) : (
 						<Panel title="Graph health" action={<VisibilityChip level="players" compact />}>
 							<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 8 }}>
-								Players see only coarse bands — never exact counts that could betray hidden content (GRAPH-007 AC3).
+								Players see rough amounts only — never exact counts that could give away hidden
+								content.
 							</div>
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-								{([
-									['Stale notes', health.summary.staleNotes],
-									['Missing links', health.summary.missingLinks],
-									['Content gaps', health.summary.contentGaps],
-									['Open threads', health.summary.openThreads],
-								] as const).map(([label, band]) => (
-									<div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, font: `12px ${T.sans}`, color: T.sub }}>
+								{(
+									[
+										['Stale notes', health.summary.staleNotes],
+										['Missing links', health.summary.missingLinks],
+										['Content gaps', health.summary.contentGaps],
+										['Open threads', health.summary.openThreads],
+									] as const
+								).map(([label, band]) => (
+									<div
+										key={label}
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: 8,
+											font: `12px ${T.sans}`,
+											color: T.sub,
+										}}
+									>
 										<span style={{ flex: 1 }}>{label}</span>
-										<Badge status={BAND_TONE[band] as 'neutral'}>{band}</Badge>
+										<Badge status={BAND_TONE[band] as 'neutral'}>{BAND_LABEL[band] ?? band}</Badge>
 									</div>
 								))}
-								<div style={{ display: 'flex', alignItems: 'center', gap: 8, font: `12px ${T.sans}`, color: T.sub, marginTop: 2 }}>
+								<div
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: 8,
+										font: `12px ${T.sans}`,
+										color: T.sub,
+										marginTop: 2,
+									}}
+								>
 									<span style={{ flex: 1 }}>Coverage</span>
-									<Badge status="neutral">{health.summary.coverageBand}</Badge>
+									<Badge status="neutral">
+										{BAND_LABEL[health.summary.coverageBand] ?? health.summary.coverageBand}
+									</Badge>
 								</div>
 							</div>
 						</Panel>

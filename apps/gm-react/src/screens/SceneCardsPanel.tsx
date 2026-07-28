@@ -9,6 +9,7 @@ import {
 	type SceneCardView,
 } from '@dndtools/core';
 import { Badge, Button, Card, Field, IconButton, Input, Select, Textarea, Toaster } from '../ds';
+import { useI18n } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { moodTheme, SCENE_MOOD_THEME } from '../app/sceneCardMood';
 import { useViewport } from '../app/useViewport';
@@ -38,6 +39,7 @@ const TRANSITION_OPTIONS: { value: SceneCardTransitionStyle; label: string }[] =
 
 export function SceneCardsPanel() {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const isDesktop = useViewport() === 'desktop';
 	const capabilities = usePlatformCapabilities();
 	const android = capabilities.runtimeKind === 'android';
@@ -67,7 +69,7 @@ export function SceneCardsPanel() {
 			requestedHero &&
 			!isNetworkDestinationAllowed(requestedHero, capabilities.runtimeKind)
 		) {
-			Toaster.error('Android scene images must use a valid HTTPS URL.');
+			Toaster.error(t('On Android, scene images need a secure https:// link.'));
 			return;
 		}
 		setSubmitting(true);
@@ -90,7 +92,9 @@ export function SceneCardsPanel() {
 				setMood('exploration');
 				setVisibility('dm-only');
 			} else {
-				Toaster.error(result.rejection.message ?? 'The scene card could not be created.');
+				Toaster.error(
+					result.rejection.message ?? t('The scene card couldn’t be created — try again.'),
+				);
 			}
 		} finally {
 			setSubmitting(false);
@@ -109,13 +113,17 @@ export function SceneCardsPanel() {
 		const result = await run(
 			'scene-card.delete',
 			{ cardId: card.id },
-			'The card could not be deleted.',
+			t('The card couldn’t be deleted — try again.'),
 		);
 		if (result.status !== 'accepted') return;
-		Toaster.success(`“${card.title}” deleted`, {
-			action: 'Undo',
+		Toaster.success(t('“{title}” deleted', { title: card.title }), {
+			action: t('Undo'),
 			onAction: () =>
-				void run('scene-card.restore', { cardId: card.id }, 'The card could not be restored.'),
+				void run(
+					'scene-card.restore',
+					{ cardId: card.id },
+					t('The card couldn’t be restored — try again.'),
+				),
 		});
 	}
 
@@ -139,7 +147,7 @@ export function SceneCardsPanel() {
 							color: 'var(--color-text-tertiary)',
 						}}
 					>
-						Atmosphere
+						{t('Atmosphere')}
 					</div>
 					<div
 						style={{
@@ -147,7 +155,7 @@ export function SceneCardsPanel() {
 							color: 'var(--color-text-primary)',
 						}}
 					>
-						Scene cards
+						{t('Scene cards')}
 					</div>
 				</div>
 				<span style={{ flex: '1 1 var(--space-4)' }} />
@@ -157,9 +165,15 @@ export function SceneCardsPanel() {
 					icon="display"
 					disabled={!capabilities.secondScreen.available}
 					title={capabilities.secondScreen.unavailableMessage ?? undefined}
+					aria-label={
+						capabilities.secondScreen.available
+							? t('Open on a second screen')
+							: (capabilities.secondScreen.unavailableMessage ??
+								t('Second screen is not available on this device'))
+					}
 					onClick={() => openSecondScreen()}
 				>
-					Second screen
+					{t('Second screen')}
 				</Button>
 				<span
 					style={{
@@ -170,7 +184,7 @@ export function SceneCardsPanel() {
 					}}
 				>
 					{capabilities.secondScreen.available
-						? 'Ctrl+Shift+S fullscreen · Ctrl+→ advance'
+						? t('Ctrl+Shift+S fullscreen · Ctrl+→ next card')
 						: capabilities.secondScreen.unavailableMessage}
 				</span>
 			</div>
@@ -194,13 +208,13 @@ export function SceneCardsPanel() {
 							color: 'var(--color-text-primary)',
 						}}
 					>
-						New scene card
+						{t('New scene card')}
 					</div>
 					<form
 						onSubmit={createCard}
 						style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
 					>
-						<Field label="Title" htmlFor="card-title" required>
+						<Field label={t('Title')} htmlFor="card-title" required>
 							<Input
 								id="card-title"
 								value={title}
@@ -208,7 +222,7 @@ export function SceneCardsPanel() {
 								placeholder="The Gates of Barovia"
 							/>
 						</Field>
-						<Field label="Mood" htmlFor="card-mood">
+						<Field label={t('Mood')} htmlFor="card-mood">
 							<Select
 								id="card-mood"
 								value={mood}
@@ -219,9 +233,9 @@ export function SceneCardsPanel() {
 							/>
 						</Field>
 						<Field
-							label="Flavor text"
+							label={t('Flavor text')}
 							htmlFor="card-flavor"
-							help="Shown on the display and pushed to players (max 500)."
+							help={t('Shown on the display and sent to players (max 500 characters).')}
 						>
 							<Textarea
 								id="card-flavor"
@@ -232,14 +246,18 @@ export function SceneCardsPanel() {
 							/>
 						</Field>
 						<Field
-							label="Hero image URL"
+							label={t('Hero image link')}
 							htmlFor="card-hero"
 							help={
 								nativeDesktop
-									? 'Remote image links are blocked in the desktop app; scene cards use their mood backdrop.'
+									? t(
+											'Remote image links are blocked in the desktop app; scene cards use their mood backdrop.',
+										)
 									: android
-										? 'Optional HTTPS link. Android blocks cleartext HTTP images.'
-										: 'Optional. A link; leave blank for a mood backdrop.'
+										? t(
+												'Optional secure link (https://). Plain http:// images don’t load on Android.',
+											)
+										: t('Optional image link. Leave blank to use the mood backdrop.')
 							}
 						>
 							<Input
@@ -251,9 +269,9 @@ export function SceneCardsPanel() {
 							/>
 						</Field>
 						<Field
-							label="Visibility"
+							label={t('Visibility')}
 							htmlFor="card-visibility"
-							help="Player-visible cards push a banner to player devices when activated."
+							help={t('Player-visible cards appear on player devices when shown.')}
 						>
 							<Select
 								id="card-visibility"
@@ -262,8 +280,8 @@ export function SceneCardsPanel() {
 									setVisibility(e.target.value as SceneCardVisibility)
 								}
 								options={[
-									{ value: 'dm-only', label: 'DM only' },
-									{ value: 'player-visible', label: 'Player visible' },
+									{ value: 'dm-only', label: t('DM only') },
+									{ value: 'player-visible', label: t('Player visible') },
 								]}
 							/>
 						</Field>
@@ -273,7 +291,7 @@ export function SceneCardsPanel() {
 							icon="add"
 							disabled={submitting || !title.trim()}
 						>
-							{submitting ? 'Creating…' : 'Create scene card'}
+							{submitting ? t('Creating…') : t('Create scene card')}
 						</Button>
 					</form>
 				</Card>
@@ -283,22 +301,28 @@ export function SceneCardsPanel() {
 						queue={queue}
 						activeCardId={display.active?.id ?? null}
 						transitionStyle={display.transitionStyle}
-						onAdvance={() => void run('scene-card.advance', {}, 'The queue could not advance.')}
+						onAdvance={() =>
+							void run('scene-card.advance', {}, t('The queue couldn’t advance — try again.'))
+						}
 						onDequeue={(id) =>
-							void run('scene-card.dequeue', { cardId: id }, 'The card could not be removed.')
+							void run(
+								'scene-card.dequeue',
+								{ cardId: id },
+								t('The card couldn’t be removed from the queue — try again.'),
+							)
 						}
 						onReorder={(order) =>
 							void run(
 								'scene-card.reorder-queue',
 								{ queue: order },
-								'The queue could not be reordered.',
+								t('The queue couldn’t be reordered — try again.'),
 							)
 						}
 						onTransition={(style) =>
 							void run(
 								'scene-card.set-transition',
 								{ transitionStyle: style },
-								'The transition could not be set.',
+								t('The transition couldn’t be changed — try again.'),
 							)
 						}
 					/>
@@ -313,7 +337,7 @@ export function SceneCardsPanel() {
 								marginBottom: 'var(--space-3)',
 							}}
 						>
-							Cards · {cards.length}
+							{t('Cards · {count}', { count: cards.length })}
 						</div>
 						{cards.length === 0 ? (
 							<Card elevation="flat" padding="lg">
@@ -323,7 +347,7 @@ export function SceneCardsPanel() {
 										color: 'var(--color-text-secondary)',
 									}}
 								>
-									No scene cards yet. Create one to display it or push it to players.
+									{t('No scene cards yet. Create one to set the scene at the table.')}
 								</div>
 							</Card>
 						) : (
@@ -347,14 +371,14 @@ export function SceneCardsPanel() {
 											void run(
 												'scene-card.activate',
 												{ cardId: card.id },
-												'The card could not be activated.',
+												t('The card couldn’t be shown — try again.'),
 											)
 										}
 										onEnqueue={() =>
 											void run(
 												'scene-card.enqueue',
 												{ cardId: card.id },
-												'The card could not be queued.',
+												t('The card couldn’t be queued — try again.'),
 											)
 										}
 										onToggleVisibility={() =>
@@ -364,7 +388,7 @@ export function SceneCardsPanel() {
 													cardId: card.id,
 													visibility: card.visibility === 'dm-only' ? 'player-visible' : 'dm-only',
 												},
-												'Visibility could not change.',
+												t('Visibility couldn’t be changed — try again.'),
 											)
 										}
 										onDelete={() => void deleteCard(card)}
@@ -372,7 +396,7 @@ export function SceneCardsPanel() {
 											const result = await run(
 												'scene-card.update',
 												{ cardId: card.id, ...patch },
-												'The card could not be saved.',
+												t('The card couldn’t be saved — try again.'),
 											);
 											if (result.status === 'accepted') setEditingId(null);
 										}}
@@ -404,6 +428,7 @@ function SceneQueuePanel({
 	onReorder: (order: string[]) => void;
 	onTransition: (style: SceneCardTransitionStyle) => void;
 }) {
+	const { t } = useI18n();
 	function move(index: number, delta: number) {
 		const order = queue.map((c) => c.id);
 		const target = index + delta;
@@ -433,11 +458,11 @@ function SceneQueuePanel({
 						flex: '1 1 100px',
 					}}
 				>
-					Queue · {queue.length}
+					{t('Queue · {count}', { count: queue.length })}
 				</div>
 				<span style={{ flex: '1 1 140px', minWidth: 0 }}>
 					<Select
-						aria-label="Transition style"
+						aria-label={t('Transition style')}
 						value={transitionStyle}
 						onChange={(e: { target: { value: string } }) =>
 							onTransition(e.target.value as SceneCardTransitionStyle)
@@ -452,14 +477,16 @@ function SceneQueuePanel({
 					disabled={queue.length === 0}
 					onClick={onAdvance}
 				>
-					Advance
+					{t('Next card')}
 				</Button>
 			</div>
 			{queue.length === 0 ? (
 				<div
 					style={{ font: 'var(--text-sm) var(--font-sans)', color: 'var(--color-text-tertiary)' }}
 				>
-					The queue is empty. Queue cards below, then advance (Ctrl+→) to play them in order.
+					{t(
+						'The queue is empty. Queue cards below, then press Next card (Ctrl+→) to play them in order.',
+					)}
 				</div>
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -496,25 +523,25 @@ function SceneQueuePanel({
 								>
 									{i + 1}. {card.title}
 								</span>
-								{activeCardId === card.id && <Badge status="success">On display</Badge>}
+								{activeCardId === card.id && <Badge status="success">{t('On display')}</Badge>}
 								<span style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
 									<IconButton
 										icon="chevron-up"
-										label={`Move ${card.title} up`}
+										label={t('Move {title} up', { title: card.title })}
 										variant="ghost"
 										size="sm"
 										onClick={() => move(i, -1)}
 									/>
 									<IconButton
 										icon="chevron-down"
-										label={`Move ${card.title} down`}
+										label={t('Move {title} down', { title: card.title })}
 										variant="ghost"
 										size="sm"
 										onClick={() => move(i, 1)}
 									/>
 									<IconButton
 										icon="close"
-										label={`Remove ${card.title} from queue`}
+										label={t('Remove {title} from queue', { title: card.title })}
 										variant="ghost"
 										size="sm"
 										onClick={() => onDequeue(card.id)}
@@ -563,6 +590,7 @@ function SceneCardRow({
 		heroImage: { kind: 'url'; ref: string } | null;
 	}) => void;
 }) {
+	const { t } = useI18n();
 	const theme = moodTheme(card.mood);
 	const [draftTitle, setDraftTitle] = useState(card.title);
 	const [draftMood, setDraftMood] = useState<SceneCardMood>(card.mood);
@@ -583,7 +611,7 @@ function SceneCardRow({
 		!isNetworkDestinationAllowed(draftHero.trim(), 'android');
 	const saveEdit = () => {
 		if (legacyHeroBlocked) {
-			Toaster.error('Android scene images must use a valid HTTPS URL.');
+			Toaster.error(t('On Android, scene images need a secure https:// link.'));
 			return;
 		}
 		onSaveEdit({
@@ -631,25 +659,29 @@ function SceneCardRow({
 							whiteSpace: 'nowrap',
 						}}
 					>
-						{card.flavorText || 'No flavor text'}
+						{card.flavorText || t('No flavor text')}
 					</div>
 				</div>
 				<Badge status={card.visibility === 'player-visible' ? 'info' : 'neutral'}>
-					{card.visibility === 'player-visible' ? 'Players' : 'DM only'}
+					{card.visibility === 'player-visible' ? t('Players') : t('DM only')}
 				</Badge>
-				{legacyHeroBlocked && <Badge status="warning">HTTPS image required</Badge>}
-				{active && <Badge status="success">On display</Badge>}
+				{legacyHeroBlocked && <Badge status="warning">{t('Secure image link required')}</Badge>}
+				{active && <Badge status="success">{t('On display')}</Badge>}
 				<Button
 					variant={active ? 'secondary' : 'primary'}
 					size="sm"
 					icon="play"
 					onClick={onActivate}
 				>
-					{active ? 'Re-show' : 'Display'}
+					{active ? t('Show again') : t('Show')}
 				</Button>
 				<IconButton
 					icon="add"
-					label={queued ? `${card.title} is queued` : `Queue ${card.title}`}
+					label={
+						queued
+							? t('{title} is queued', { title: card.title })
+							: t('Queue {title}', { title: card.title })
+					}
 					variant="ghost"
 					size="sm"
 					disabled={queued}
@@ -657,21 +689,25 @@ function SceneCardRow({
 				/>
 				<IconButton
 					icon={card.visibility === 'player-visible' ? 'visibility-players' : 'dm-only'}
-					label={`Make ${card.title} ${card.visibility === 'player-visible' ? 'DM only' : 'player visible'}`}
+					label={
+						card.visibility === 'player-visible'
+							? t('Make {title} DM only', { title: card.title })
+							: t('Make {title} player visible', { title: card.title })
+					}
 					variant="ghost"
 					size="sm"
 					onClick={onToggleVisibility}
 				/>
 				<IconButton
 					icon="edit"
-					label={`Edit ${card.title}`}
+					label={t('Edit {title}', { title: card.title })}
 					variant="ghost"
 					size="sm"
 					onClick={onEditToggle}
 				/>
 				<IconButton
 					icon="delete"
-					label={`Delete ${card.title}`}
+					label={t('Delete {title}', { title: card.title })}
 					variant="ghost"
 					size="sm"
 					onClick={onDelete}
@@ -696,13 +732,13 @@ function SceneCardRow({
 						border: '1px solid var(--color-border)',
 					}}
 				>
-					<Field label="Title" required>
+					<Field label={t('Title')} required>
 						<Input
 							value={draftTitle}
 							onChange={(e: { target: { value: string } }) => setDraftTitle(e.target.value)}
 						/>
 					</Field>
-					<Field label="Mood">
+					<Field label={t('Mood')}>
 						<Select
 							value={draftMood}
 							onChange={(e: { target: { value: string } }) =>
@@ -711,7 +747,7 @@ function SceneCardRow({
 							options={MOOD_OPTIONS}
 						/>
 					</Field>
-					<Field label="Flavor text">
+					<Field label={t('Flavor text')}>
 						<Textarea
 							rows={2}
 							value={draftFlavor}
@@ -720,15 +756,17 @@ function SceneCardRow({
 						/>
 					</Field>
 					<Field
-						label="Hero image URL"
+						label={t('Hero image link')}
 						help={
 							legacyHeroBlocked
-								? 'This legacy cleartext or invalid image URL is blocked on Android. Replace it with HTTPS or clear it.'
+								? t(
+										'This image link doesn’t load on Android. Replace it with an https:// link or clear it.',
+									)
 								: allowRemoteHero
 									? requireHttpsHero
-										? 'Android scene images must use HTTPS.'
+										? t('On Android, image links must use https://.')
 										: undefined
-									: 'Remote image links are blocked in the desktop app. Saving clears this link.'
+									: t('Remote image links are blocked in the desktop app. Saving clears this link.')
 						}
 					>
 						<Input
@@ -746,10 +784,10 @@ function SceneCardRow({
 							disabled={!draftTitle.trim()}
 							onClick={saveEdit}
 						>
-							Save
+							{t('Save')}
 						</Button>
 						<Button variant="ghost" size="sm" onClick={onEditToggle}>
-							Cancel
+							{t('Cancel')}
 						</Button>
 					</div>
 				</div>

@@ -11,6 +11,14 @@ import { MAX_ONLINE_JOIN_CODE_CHARS } from './cloudCrypto';
 import { registerBackHandler } from '../platform/backNavigation';
 import { usePlatformCapabilities } from '../platform/capabilities';
 
+// Participant roles arrive as machine tokens; render the spoken versions.
+const ROLE_LABEL: Record<string, string> = {
+	dm: 'DM',
+	'co-dm': 'Co-DM',
+	player: 'Player',
+	observer: 'Observer',
+};
+
 /**
  * The P2P session UI: a DM-side HOST control (topbar) and a player-side JOIN control (PlayerView). Both
  * drive the serverless LAN handshake — the DM shows a connection code / QR, the player returns an answer
@@ -189,7 +197,11 @@ export function AccountButton({ compact = false }: { compact?: boolean } = {}) {
 	return (
 		<button
 			type="button"
-			aria-label={signedIn ? `Account: ${auth.user?.email ?? label}` : 'Sign in'}
+			aria-label={
+				signedIn
+					? `Account: ${auth.user?.email ?? label} — sign out`
+					: 'Sign in for online play and encrypted cloud backup'
+			}
 			title={
 				signedIn
 					? `Signed in as ${auth.user?.email ?? ''} — click to sign out`
@@ -595,11 +607,16 @@ function HostModal({ onClose }: { onClose: () => void }) {
 										/>
 										<span style={{ flex: 1, font: `12.5px ${T.sans}`, color: T.ink }}>
 											{p.displayName}
-											<span style={{ color: T.ter }}> · {p.role}</span>
-											{p.hand && <span style={{ color: T.acc }}> · ✋</span>}
+											<span style={{ color: T.ter }}> · {ROLE_LABEL[p.role] ?? p.role}</span>
+											{p.hand && (
+												<span style={{ color: T.acc }}>
+													{' '}
+													· <Icon name="flag" size={11} label="Hand raised" />
+												</span>
+											)}
 										</span>
 										<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
-											{p.connected ? 'live' : 'invited'}
+											{p.connected ? 'Connected' : 'Invited'}
 										</span>
 										<button
 											type="button"

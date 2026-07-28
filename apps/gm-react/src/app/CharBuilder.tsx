@@ -977,7 +977,7 @@ export function CharBuilder({
 		}
 		const draftId = eventField(created, 'character.draft-created', 'draftId');
 		if (!draftId) {
-			setError('The core did not return a draft id.');
+			setError('The character draft couldn’t be started — try again.');
 			return null;
 		}
 
@@ -1011,7 +1011,7 @@ export function CharBuilder({
 		}
 		const characterId = eventField(finalized, 'character.created', 'characterId');
 		if (!characterId) {
-			setError('The core did not return the new character id.');
+			setError('The character couldn’t be created — try again.');
 			return null;
 		}
 
@@ -1031,10 +1031,19 @@ export function CharBuilder({
 			},
 		});
 		if (grant.status === 'rejected')
-			Toaster.warning(`Owner grant was not applied: ${grant.rejection.message}`);
+			Toaster.warning(`The player couldn’t be given access: ${grant.rejection.message}`);
 
 		// Sheet extras through the validated field-edit surface (`data.*` holds strings; the DM may
 		// edit any field). `data.level` is the same field the CHAR-009 advancement flow maintains.
+		const FIELD_PATH_LABEL: Record<string, string> = {
+			'data.race': 'Race',
+			'data.alignment': 'Alignment',
+			'data.speed': 'Speed',
+			'data.grad': 'Gradient',
+			'data.level': 'Level',
+			'data.subclass': 'Subclass',
+			'data.bio': 'Bio',
+		};
 		const extras: [string, string][] = [
 			['data.race', raceObj.name],
 			['data.alignment', align],
@@ -1050,7 +1059,10 @@ export function CharBuilder({
 				actorId: dmActorId,
 				payload: { characterId, path, value },
 			});
-			if (r.status === 'rejected') Toaster.warning(`${path} was not saved: ${r.rejection.message}`);
+			if (r.status === 'rejected')
+				Toaster.warning(
+					`One field (${FIELD_PATH_LABEL[path] ?? path}) wasn’t saved: ${r.rejection.message}`,
+				);
 		}
 		return characterId;
 	}
@@ -1148,7 +1160,7 @@ export function CharBuilder({
 			}
 			const characterId = eventField(created, 'character.created', 'characterId');
 			if (!characterId) {
-				setError('The core did not return the new character id.');
+				setError('The character couldn’t be created — try again.');
 				return;
 			}
 
@@ -1263,7 +1275,7 @@ export function CharBuilder({
 							<p style={{ margin: '4px 0 0', font: `13px ${T.sans}`, color: T.ter }}>
 								{importPlan
 									? 'Review what will be imported. Nothing is created until you confirm.'
-									: 'The file could not be read.'}
+									: 'The file couldn’t be read — check that it’s a character export and try again.'}
 							</p>
 						</div>
 						<IconButton icon="close" label="Close" variant="ghost" onClick={onClose} />
@@ -1675,8 +1687,8 @@ export function CharBuilder({
 									</div>
 									{isPc && (
 										<div style={{ font: `11.5px ${T.sans}`, color: T.ter, marginTop: 8 }}>
-											The guided PC flow supports these classes today — more land with later core
-											rule packages.
+											The guided PC flow supports these classes today — more arrive with future rule
+											packages.
 										</div>
 									)}
 								</div>
@@ -1839,8 +1851,7 @@ export function CharBuilder({
 								)}
 								{isPc && method === 'manual' && (
 									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-										A guided PC finalizes against the core's point-buy rule — each score 8–15, 27
-										points total.
+										A guided PC uses standard point buy — each score 8–15, 27 points total.
 									</div>
 								)}
 								<div
@@ -2042,8 +2053,7 @@ export function CharBuilder({
 										// command to mark a field DM-only afterwards — hiding beats leaking to the owner.
 										<HonestNote>
 											DM-only notes aren't available on a guided PC yet — a PC is shared with its
-											owning player, and the core has no command to mark a field DM-only after
-											creation.
+											owning player, and a field can't be made DM-only after creation.
 										</HonestNote>
 									) : (
 										<Textarea

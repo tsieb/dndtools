@@ -195,6 +195,9 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
         run: pnpm install --frozen-lockfile
 
+      - name: Validate declarative stage configuration
+        run: pnpm cloud:stage-config:validate
+
       # Deploy in dependency order; foundation remains a separate bootstrap-admin operation.
       - name: Deploy identity
         if: needs.changes.outputs.identity == 'true'
@@ -289,6 +292,9 @@ jobs:
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
         run: pnpm install --frozen-lockfile
+
+      - name: Validate declarative stage configuration
+        run: pnpm cloud:stage-config:validate
 
       - name: Pull cloud coordinates into .env.local
         # Writes apps/gm-react/.env.local from the deployed SSM params so the built bundle

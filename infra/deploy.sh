@@ -21,6 +21,16 @@ case "$STAGE" in
   *) echo "unknown stage: $STAGE (expected dev or prod)" >&2; exit 1 ;;
 esac
 
+case "$STAGE" in
+  dev)
+    PROFILE="${DNDTOOLS_DEV_PROFILE:-${DNDTOOLS_PROFILE:-dndtools}}"
+    ;;
+  prod)
+    PROFILE="${DNDTOOLS_PROD_PROFILE:-${DNDTOOLS_PROFILE:-dndtools}}"
+    ;;
+esac
+REGION="${DNDTOOLS_REGION:-ca-central-1}"
+
 if [ "${CI:-false}" = "true" ] && [ "$STACK" = "foundation" ]; then
   echo "foundation is bootstrap-admin only; the OIDC deploy role cannot mutate itself or its boundary" >&2
   exit 1
@@ -35,10 +45,10 @@ case "$STACK" in
 esac
 
 echo "==> $STACK / $STAGE : validate (service-side, blocking)"
-sam validate --template "$STACK_DIR/template.yaml" --region "${DNDTOOLS_REGION:-ca-central-1}" --profile "${DNDTOOLS_PROFILE:-dndtools}"
+sam validate --template "$STACK_DIR/template.yaml" --region "$REGION" --profile "$PROFILE"
 
 echo "==> $STACK / $STAGE : lint (advisory — bundled cfn-lint spec can lag AWS)"
-sam validate --lint --template "$STACK_DIR/template.yaml" --region "${DNDTOOLS_REGION:-ca-central-1}" --profile "${DNDTOOLS_PROFILE:-dndtools}" || \
+sam validate --lint --template "$STACK_DIR/template.yaml" --region "$REGION" --profile "$PROFILE" || \
   echo "    (lint reported findings; review above — not blocking deploy)"
 
 echo "==> $STACK / $STAGE : build"
@@ -68,8 +78,8 @@ case "$STACK" in
         --name "/dndtools/$STAGE/web/url" \
         --query 'Parameter.Value' \
         --output text \
-        --region "${DNDTOOLS_REGION:-ca-central-1}" \
-        --profile "${DNDTOOLS_PROFILE:-dndtools}" 2>/dev/null || true)
+        --region "$REGION" \
+        --profile "$PROFILE" 2>/dev/null || true)
     fi
     if [ -n "$WEB_ORIGIN" ] && ! [[ "$WEB_ORIGIN" =~ ^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?$ ]]; then
       echo "invalid web origin (expected one HTTPS origin without a path or trailing slash)" >&2
@@ -86,8 +96,8 @@ if [ "$STACK" = "app-api" ]; then
     --name "/dndtools/$STAGE/sync/ops-table-name" \
     --query 'Parameter.Value' \
     --output text \
-    --region "${DNDTOOLS_REGION:-ca-central-1}" \
-    --profile "${DNDTOOLS_PROFILE:-dndtools}" 2>/dev/null || true)
+    --region "$REGION" \
+    --profile "$PROFILE" 2>/dev/null || true)
   if [ -n "$SYNC_OPS_TABLE_NAME" ] && ! [[ "$SYNC_OPS_TABLE_NAME" =~ ^[A-Za-z0-9_.-]{3,255}$ ]]; then
     echo "invalid sync operations table name in SSM" >&2
     exit 1
@@ -151,6 +161,6 @@ case "$STACK" in
     DEPLOY_OVERRIDES+=("ReserveLambdaConcurrency=${DNDTOOLS_RESERVE_CONCURRENCY:-false}")
     ;;
 esac
-( cd "$STACK_DIR" && sam deploy --config-env "$STAGE" "${DEPLOY_FLAGS[@]}" "${DEPLOY_OVERRIDES[@]}" )
+( cd "$STACK_DIR" && sam deploy --config-env "$STAGE" --profile "$PROFILE" --region "$REGION" "${DEPLOY_FLAGS[@]}" "${DEPLOY_OVERRIDES[@]}" )
 
 echo "==> $STACK / $STAGE : done"

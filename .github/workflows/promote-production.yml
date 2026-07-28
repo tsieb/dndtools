@@ -65,6 +65,8 @@ jobs:
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
         run: pnpm install --frozen-lockfile
+      - name: Validate declarative stage configuration
+        run: pnpm cloud:stage-config:validate
       - name: Verify tag and package versions
         env:
           RELEASE_REF: ${{ inputs.release_ref }}
@@ -234,9 +236,13 @@ jobs:
           RELEASE_REF: ${{ inputs.release_ref }}
           REASON: ${{ inputs.reason }}
         run: |
+          CONFIG_SHA=$(sha256sum config/stages/prod.json | awk '{print $1}')
           {
             echo "### Production promotion"
             echo "- Ref: \`$RELEASE_REF\`"
+            echo "- Release SHA: \`${{ needs.preflight.outputs.release_sha }}\`"
+            echo "- Stage config: v1 / \`$CONFIG_SHA\`"
+            echo "- Operator: \`${GITHUB_ACTOR}\`"
             echo "- Reason: $REASON"
             echo "- Rollback: rerun this workflow from main with the previous known-good tag."
           } >> "$GITHUB_STEP_SUMMARY"

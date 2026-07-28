@@ -328,7 +328,7 @@ export function ConnectedSourcesPanel() {
 					(e) => (e as { kind?: string }).kind === 'content.written-to-source',
 				);
 				if (!event) {
-					firstError ??= `“${entry.title}”: the app could not prepare the source update.`;
+					firstError ??= `“${entry.title}”: this note couldn’t be prepared for the push — try again.`;
 					continue;
 				}
 				try {
@@ -352,7 +352,7 @@ export function ConnectedSourcesPanel() {
 			}
 			setStatusFor(
 				pending.sourceKey,
-				`Pushed ${written} of ${pending.plan.entries.length} note(s) to “${pending.label}”${firstError ? ` — first problem: ${firstError}` : '.'}`,
+				`Pushed ${written} of ${pending.plan.entries.length} ${pending.plan.entries.length === 1 ? 'note' : 'notes'} to “${pending.label}”${firstError ? ` — first problem: ${firstError}` : '.'}`,
 			);
 		} finally {
 			setBusy(null);
@@ -526,7 +526,7 @@ export function ConnectedSourcesPanel() {
 					size="sm"
 					title={
 						pendingPush.plan.requiresAcknowledgment
-							? `Pushing to “${pendingPush.label}” loses fidelity on ${pendingPush.plan.lossyEntries.length} of ${pendingPush.plan.entries.length} note(s)`
+							? `Pushing to “${pendingPush.label}” loses some formatting on ${pendingPush.plan.lossyEntries.length} of ${pendingPush.plan.entries.length} ${pendingPush.plan.entries.length === 1 ? 'note' : 'notes'}`
 							: `Push a DM-only note to “${pendingPush.label}”?`
 					}
 					footer={
@@ -643,7 +643,7 @@ export function ConnectedSourcesPanel() {
 							disabled={busy !== null}
 							onClick={() => void pullFolder(record)}
 						>
-							Pull
+							Pull notes
 						</Button>
 						<Button
 							variant="secondary"
@@ -652,7 +652,7 @@ export function ConnectedSourcesPanel() {
 							disabled={busy !== null}
 							onClick={() => void startFolderPush(record)}
 						>
-							Push
+							Push notes
 						</Button>
 						<Button
 							variant="ghost"
@@ -797,7 +797,7 @@ export function ConnectedSourcesPanel() {
 											disabled={busy !== null}
 											onClick={() => void pullGdoc(conn)}
 										>
-											Pull
+											Pull notes
 										</Button>
 										<Button
 											variant="secondary"
@@ -806,7 +806,7 @@ export function ConnectedSourcesPanel() {
 											disabled={busy !== null}
 											onClick={() => startGdocPush(conn)}
 										>
-											Push
+											Push notes
 										</Button>
 										<Button
 											variant="ghost"

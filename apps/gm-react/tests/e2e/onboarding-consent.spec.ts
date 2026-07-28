@@ -44,7 +44,9 @@ test.describe('onboarding forced consent (ADR-026)', () => {
 		await expect(overlay(page)).toBeVisible();
 		// No option is pre-selected, and the primary action is disabled until one is picked.
 		await expect(group.getByRole('radio', { checked: true })).toHaveCount(0);
-		await expect(overlay(page).getByRole('button', { name: 'Choose to continue' })).toBeDisabled();
+		await expect(
+			overlay(page).getByRole('button', { name: 'Choose an option to continue' }),
+		).toBeDisabled();
 		// Nothing was recorded by the refused dismissals.
 		expect(await storage(page, MODE_KEY)).toBeNull();
 		expect(await storage(page, ONBOARDED_KEY)).toBeNull();

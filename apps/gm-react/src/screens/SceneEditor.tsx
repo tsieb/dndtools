@@ -81,7 +81,7 @@ export function SceneEditor() {
 	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
 		const result = await runtime.dispatch(command);
 		if (result.status === 'rejected') {
-			setError(result.rejection.message ?? 'That action could not be completed.');
+			setError(result.rejection.message ?? 'That change couldn’t be applied — try again.');
 			return false;
 		}
 		setError(null);
@@ -261,7 +261,7 @@ export function SceneEditor() {
 							color: 'var(--color-text-tertiary)',
 						}}
 					>
-						{widgets.length} widget{widgets.length === 1 ? '' : 's'} · canvas · pan &amp; zoom
+						{widgets.length} widget{widgets.length === 1 ? '' : 's'} · pan and zoom to explore
 					</div>
 				</div>
 				<IconButton
@@ -314,7 +314,7 @@ export function SceneEditor() {
 						setAddOpen(false);
 					}}
 				>
-					{editing ? 'Done' : 'Edit'}
+					{editing ? 'Done' : 'Edit layout'}
 				</Button>
 			</div>
 
@@ -356,7 +356,9 @@ export function SceneEditor() {
 					onRemove={destroy}
 					onWidgetCommand={operateWidget}
 					emptyHint={
-						editing ? 'Press Add to place your first widget.' : 'Press Edit, then add a widget.'
+						editing
+							? 'Press Add to place your first widget.'
+							: 'Press Edit layout, then Add to place a widget.'
 					}
 				/>
 
@@ -533,7 +535,7 @@ function AddWidgetPanel({
 				<div
 					style={{ font: 'var(--text-xs) var(--font-sans)', color: 'var(--color-text-tertiary)' }}
 				>
-					No widgets are available to add on this profile.
+					No widgets are available to add on this device.
 				</div>
 			) : (
 				library.map((entry) => (
@@ -677,7 +679,8 @@ function Inspector({
 							}}
 						>
 							<Icon name="lock" size={12} />
-							Bound {widget.type === 'map' ? 'map' : 'data'} is managed by its binding.
+							This widget’s {widget.type === 'map' ? 'map' : 'data'} source is fixed and can’t be
+							changed here.
 						</div>
 					)}
 					{settingsFields.map((field) => (

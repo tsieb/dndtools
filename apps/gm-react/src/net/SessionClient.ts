@@ -93,7 +93,7 @@ export class SessionClient {
 		}
 		if (offer.role !== 'offer') {
 			this.update({ status: 'idle', error: 'That code is not a session invitation.' });
-			throw new Error('Not an offer code.');
+			throw new Error('That code is not a session invitation.');
 		}
 
 		try {

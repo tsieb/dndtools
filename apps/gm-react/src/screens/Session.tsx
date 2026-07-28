@@ -58,6 +58,7 @@ import {
 	isGoogleCalendarSignedIn,
 	rosterAttendeeEmails,
 } from '../cloud/googleCalendar';
+import { useI18n } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useSession } from '../net/SessionContext';
 import type { HostPeer } from '../net/SessionHost';
@@ -94,6 +95,7 @@ type CombatantRow = CombatTrackerView['combatants'][number];
 
 export function Session() {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const viewport = useViewport();
 	const session = useSession();
 	const actorId = runtime.defaultActorId;
@@ -242,7 +244,7 @@ export function Session() {
 				(s) => !s.isTemplate,
 			)[0]?.id;
 		if (!sceneId) {
-			Toaster.warning('Create a scene first.');
+			Toaster.warning(t('Create a scene first — a live session needs an active scene.'));
 			return;
 		}
 		await dispatch(
@@ -251,7 +253,7 @@ export function Session() {
 				actorId,
 				payload: { workflow: 'active', activeSceneId: sceneId },
 			},
-			'You are live — combat & dice are open',
+			t('You are live — combat, dice, and maps now reach players'),
 		);
 	}
 
@@ -259,11 +261,11 @@ export function Session() {
 		const title = handoutTitle.trim();
 		if (!title) return;
 		if (!activeSceneId) {
-			Toaster.warning('Go live with a scene first.');
+			Toaster.warning(t('Go live with a scene first.'));
 			return;
 		}
 		if (players.length === 0) {
-			Toaster.warning('No players to deliver to.');
+			Toaster.warning(t('No players yet — add players in Settings → Players first.'));
 			return;
 		}
 		const ok = await dispatch(
@@ -279,7 +281,9 @@ export function Session() {
 					recipientActorIds: players.map((p) => p.id),
 				},
 			},
-			`Pushed “${title}” to ${players.length} player${players.length === 1 ? '' : 's'}`,
+			players.length === 1
+				? t('Pushed “{title}” to 1 player', { title })
+				: t('Pushed “{title}” to {count} players', { title, count: players.length }),
 		);
 		if (ok) {
 			setHandoutTitle('');
@@ -315,9 +319,11 @@ export function Session() {
 				>
 					<Icon name="info" size="md" color={T.acc} />
 					<div style={{ flex: 1 }}>
-						<div style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>Session is in standby</div>
+						<div style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>
+							{t('Session is on standby')}
+						</div>
 						<div style={{ font: `12px ${T.sans}`, color: T.sub }}>
-							Go live to open combat, dice, handouts, and what players see.
+							{t('Go live to open combat, dice, handouts, and what players see.')}
 						</div>
 					</div>
 					<Button
@@ -327,7 +333,7 @@ export function Session() {
 						disabled={previewing || !isDm}
 						onClick={goLive}
 					>
-						Go live
+						{t('Go live')}
 					</Button>
 				</Card>
 			)}
@@ -458,7 +464,7 @@ export function Session() {
 						}
 						onProject={() => {
 							if (players.length === 0) {
-								Toaster.warning('No players connected.');
+								Toaster.warning(t('No players yet — add players in Settings → Players first.'));
 								return;
 							}
 							void dispatch(
@@ -467,7 +473,7 @@ export function Session() {
 									actorId,
 									payload: { playerActorIds: players.map((p) => p.id) },
 								},
-								'Map shown to players',
+								t('Map projected to players'),
 							);
 						}}
 					/>
@@ -510,7 +516,7 @@ export function Session() {
 				onClose={() => setBuilderMode(null)}
 				characters={characters}
 				party={party}
-				defaultTitle={`${activeSceneName ?? 'Skirmish'} — encounter`}
+				defaultTitle={activeSceneName ? `${activeSceneName} — encounter` : 'Encounter'}
 			/>
 			<ConditionPickerDialog
 				target={condPickTarget}
@@ -578,10 +584,10 @@ function SessionHeader({
 				<StatusDot status={workflow === 'active' ? 'live' : 'idle'} pulse={workflow === 'active'} />
 				{workflow === 'active' ? (
 					<>
-						players see <strong style={{ color: T.ink }}>{sceneName ?? 'the scene'}</strong>
+						Players see <strong style={{ color: T.ink }}>{sceneName ?? 'the scene'}</strong>
 					</>
 				) : (
-					<>standby</>
+					<>Standby</>
 				)}
 			</span>
 		</div>
@@ -913,7 +919,7 @@ function CombatPanel({
 							</div>
 							{isDm && selected.hidden && (
 								<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-									Players see an “Unknown creature” placeholder for this row.
+									Players see this row as “Unknown creature”.
 								</div>
 							)}
 						</div>
@@ -942,7 +948,7 @@ function ConditionPickerDialog({
 			open={!!target}
 			onClose={onClose}
 			title={`Add condition${target ? ` — ${target.name}` : ''}`}
-			description="Each condition keeps a distinct icon so it stays readable at the table (and in grayscale)."
+			description="Each condition has its own icon, so it stays readable at a glance."
 			icon="cond-poisoned"
 			size="md"
 		>
@@ -960,7 +966,7 @@ function ConditionPickerDialog({
 				))}
 				{keys.length === 0 && (
 					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						Every catalog condition is already applied.
+						Every condition is already applied.
 					</div>
 				)}
 			</div>
@@ -999,7 +1005,7 @@ function CampaignDatePanel({
 		return (
 			<Panel title="Campaign date">
 				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-					No campaign calendar defined in this vault yet, so there is no date to set.
+					This campaign has no calendar yet, so there is no date to set.
 				</div>
 			</Panel>
 		);
@@ -1023,7 +1029,7 @@ function CampaignDatePanel({
 	function advanceDay() {
 		if (!calendar || !current) return;
 		const next = addDays(calendar, current.value, 1);
-		if (next) onSet(next, 'A new day dawns');
+		if (next) onSet(next, 'Campaign date advanced one day');
 	}
 
 	return (
@@ -1200,7 +1206,7 @@ function RecapPanel({
 				<div style={eb}>Session archives</div>
 				{archives.length === 0 ? (
 					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-						No archived sessions yet — wrapping a live session into Recap archives it here.
+						No archived sessions yet. Ending a live session into Recap creates one here.
 					</div>
 				) : (
 					<>
@@ -1225,8 +1231,12 @@ function RecapPanel({
 									value={draft}
 									onChange={(e: { target: { value: string } }) => setDraft(e.target.value)}
 									rows={4}
-									placeholder="What happened this session — markdown prose. Re-saving replaces the recap."
+									aria-label="Session recap"
+									placeholder="What happened this session…"
 								/>
+								<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+									Markdown supported. Saving replaces the recap for this archive.
+								</div>
 								<Button
 									variant="primary"
 									size="sm"
@@ -1342,6 +1352,16 @@ function DicePanel({
 	);
 }
 
+// Spoken labels for the handout kinds — the raw kind token never renders to users.
+const HANDOUT_KIND_LABEL: Record<string, string> = {
+	handout: 'Handout',
+	image: 'Image',
+	note: 'Note',
+	'map-fragment': 'Map fragment',
+	cipher: 'Cipher',
+	rumor: 'Rumor',
+};
+
 function HandoutsPanel({
 	handouts,
 	status,
@@ -1444,7 +1464,7 @@ function HandoutsPanel({
 										{h.title}
 									</div>
 									<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
-										{h.handoutKind} · {h.sections.length}{' '}
+										{HANDOUT_KIND_LABEL[h.handoutKind] ?? 'Handout'} · {h.sections.length}{' '}
 										{h.sections.length === 1 ? 'section' : 'sections'}
 										{isDm ? ` · ${opened}/${delivered} opened` : ''}
 									</div>
@@ -1639,7 +1659,7 @@ function StagePanel({
 						disabled={!isLive || previewing || !activeMapId}
 						onClick={onProject}
 					>
-						Show players the map
+						Project to players
 					</Button>
 				</>
 			)}
@@ -1656,6 +1676,19 @@ function StagePanel({
  * player's presence beat arrives). Honest when there is no transport: not hosting ⇒ it says how to
  * host, hosting with nobody joined ⇒ it says players appear as they connect.
  */
+// Roles and presence arrive as machine tokens; these are the words players and DMs actually read.
+const ROLE_LABEL: Record<string, string> = {
+	dm: 'DM',
+	'co-dm': 'Co-DM',
+	player: 'Player',
+	observer: 'Observer',
+};
+const PRESENCE_LABEL: Record<string, string> = {
+	online: 'Online',
+	away: 'Away',
+	offline: 'Offline',
+};
+
 function RosterPanel({
 	hosting,
 	peers,
@@ -1679,8 +1712,8 @@ function RosterPanel({
 		>
 			{!hosting ? (
 				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-					No live table — use <strong style={{ color: T.sub }}>Host</strong> in the top bar to open
-					your table, then connected players and their presence appear here.
+					No live table yet. Use <strong style={{ color: T.sub }}>Host</strong> in the top bar to
+					open your table — players appear here as they connect.
 				</div>
 			) : peers.length === 0 ? (
 				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
@@ -1719,8 +1752,10 @@ function RosterPanel({
 										{p.displayName}
 									</div>
 									<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
-										{p.role}
-										{p.connected ? ` · ${status}` : ' · invited, not connected'}
+										{ROLE_LABEL[p.role] ?? p.role}
+										{p.connected
+											? ` · ${PRESENCE_LABEL[status] ?? status}`
+											: ' · Invited — not connected yet'}
 										{entry && entry.device !== 'unknown' ? ` · ${entry.device}` : ''}
 									</div>
 								</div>
@@ -1734,7 +1769,7 @@ function RosterPanel({
 											Ready
 										</Badge>
 									) : (
-										<Badge status="neutral">Idle</Badge>
+										<Badge status="neutral">Connected</Badge>
 									))}
 							</div>
 						);
@@ -1767,8 +1802,9 @@ function SchedulePanel() {
 		return (
 			<Panel title="Schedule next session" action={<VisibilityChip level="dm-only" compact />}>
 				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-					Google scheduling isn’t configured in this build. A one-time Google Cloud setup enables it
-					— see <span style={{ ...mono, fontSize: 12 }}>{GOOGLE_CALENDAR_SETUP_RUNBOOK}</span>.
+					Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup
+					enables it — see the guide at{' '}
+					<span style={{ ...mono, fontSize: 12 }}>{GOOGLE_CALENDAR_SETUP_RUNBOOK}</span>.
 				</div>
 			</Panel>
 		);
@@ -1803,7 +1839,9 @@ function SchedulePanel() {
 			);
 		} catch (error) {
 			Toaster.error(
-				error instanceof Error ? error.message : 'The calendar event could not be created.',
+				error instanceof Error
+					? error.message
+					: 'The calendar event couldn’t be created — try again.',
 			);
 		} finally {
 			setBusy(false);

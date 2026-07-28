@@ -1,5 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, enterPreview, exitPreview, gotoRoute, markOnboarded, ops, seedFresh, waitReady } from './_helpers';
+import {
+	dispatch,
+	enterPreview,
+	exitPreview,
+	gotoRoute,
+	markOnboarded,
+	ops,
+	seedFresh,
+	waitReady,
+} from './_helpers';
 
 // CAMPAIGN — the /campaign story surface. Quests and factions are real note-backed Vault Objects
 // (`content.create-object` / `content.update-object`, subtypes `quest` / `faction`) authored through
@@ -31,7 +40,11 @@ async function createQuestViaCore(page: Page, title: string, visibility: string)
 		payload: {
 			subtype: 'quest',
 			title,
-			fields: { title, status: 'active', objectives: [{ id: `obj-${Date.now()}`, text: 'Do the thing', done: false }] },
+			fields: {
+				title,
+				status: 'active',
+				objectives: [{ id: `obj-${Date.now()}`, text: 'Do the thing', done: false }],
+			},
 			body: 'A thread for the table.',
 			visibility,
 		},
@@ -49,23 +62,27 @@ test.describe('campaign: story objects', () => {
 		await page.locator('#main-content').waitFor({ state: 'attached' });
 	});
 
-	test('a quest authored in the editor persists and its tracker mutates durably', async ({ page }) => {
+	test('a quest authored in the editor persists and its tracker mutates durably', async ({
+		page,
+	}) => {
 		const title = `Wake of the Drowned God ${Date.now()}`;
 		const before = await ops(page);
 
-		// The seeded vault has no quests: the Threads tab offers the honest empty-state entry point.
+		// The seeded vault has no quests: the Quests tab offers the honest empty-state entry point.
 		await page.getByRole('button', { name: 'Create the first quest' }).click();
 		await page.getByLabel('Title', { exact: true }).fill(title);
-		await page.getByLabel('Objectives').fill('Find who is buying the shipments\nMap the flooded vault level');
+		await page
+			.getByLabel('Objectives')
+			.fill('Find who is buying the shipments\nMap the flooded vault level');
 		await page.getByLabel('Hook & journal').fill('Trace the tithe barrels back upriver.');
 		await page.getByRole('button', { name: 'Create quest' }).click();
 
 		// The quest is a real `quest`-subtype Vault Object with declared tracker fields.
 		await page.waitForFunction(
 			(t) =>
-				Object.values((window.__rt!.state.content as { items: Record<string, { title: string }> }).items).some(
-					(i) => i.title === t,
-				),
+				Object.values(
+					(window.__rt!.state.content as { items: Record<string, { title: string }> }).items,
+				).some((i) => i.title === t),
 			title,
 			{ timeout: 10_000 },
 		);
@@ -81,7 +98,11 @@ test.describe('campaign: story objects', () => {
 		await page.getByRole('button', { name: 'Find who is buying the shipments' }).click();
 		await page.waitForFunction(
 			(t) => {
-				const items = (window.__rt!.state.content as { items: Record<string, { title: string; fields: Record<string, unknown> }> }).items;
+				const items = (
+					window.__rt!.state.content as {
+						items: Record<string, { title: string; fields: Record<string, unknown> }>;
+					}
+				).items;
 				const q = Object.values(items).find((i) => i.title === t);
 				const objectives = (q?.fields.objectives ?? []) as Array<{ done: boolean }>;
 				return objectives[0]?.done === true;
@@ -95,7 +116,11 @@ test.describe('campaign: story objects', () => {
 		await page.getByLabel(`Status of ${title}`).selectOption('completed');
 		await page.waitForFunction(
 			(t) => {
-				const items = (window.__rt!.state.content as { items: Record<string, { title: string; fields: Record<string, unknown> }> }).items;
+				const items = (
+					window.__rt!.state.content as {
+						items: Record<string, { title: string; fields: Record<string, unknown> }>;
+					}
+				).items;
 				return Object.values(items).find((i) => i.title === t)?.fields.status === 'completed';
 			},
 			title,
@@ -128,9 +153,9 @@ test.describe('campaign: story objects', () => {
 
 		await page.waitForFunction(
 			(t) =>
-				Object.values((window.__rt!.state.content as { items: Record<string, { title: string }> }).items).some(
-					(i) => i.title === t,
-				),
+				Object.values(
+					(window.__rt!.state.content as { items: Record<string, { title: string }> }).items,
+				).some((i) => i.title === t),
 			name,
 			{ timeout: 10_000 },
 		);
@@ -147,7 +172,14 @@ test.describe('campaign: story objects', () => {
 
 		await page.waitForFunction(
 			(t) => {
-				const items = (window.__rt!.state.content as { items: Record<string, { title: string; visibility: string; fields: Record<string, unknown> }> }).items;
+				const items = (
+					window.__rt!.state.content as {
+						items: Record<
+							string,
+							{ title: string; visibility: string; fields: Record<string, unknown> }
+						>;
+					}
+				).items;
 				const f = Object.values(items).find((i) => i.title === t);
 				return f?.visibility === 'player-visible' && f?.fields.stance === 'hostile';
 			},
@@ -167,7 +199,9 @@ test.describe('campaign: story objects', () => {
 		expect(faction?.fields.stance).toBe('hostile');
 	});
 
-	test('player preview filters story objects and omits dm-only dossier fields', async ({ page }) => {
+	test('player preview filters story objects and omits dm-only dossier fields', async ({
+		page,
+	}) => {
 		const stamp = Date.now();
 		const sharedQuest = `Recover the Shipment ${stamp}`;
 		const secretQuest = `The Bell Rings Twice ${stamp}`;
@@ -210,13 +244,15 @@ test.describe('campaign: story objects', () => {
 		// Timeline tab: dated notes build the campaign timeline; the campaign date is honestly unset
 		// (authoring lives on the Session surface, so this screen never invents a write control).
 		await page.getByRole('tab', { name: 'Timeline' }).click();
-		await expect(page.getByText('No campaign date set — set it from the Session screen.')).not.toHaveCount(0);
+		await expect(
+			page.getByText('No campaign date set — set it from the Session screen.'),
+		).not.toHaveCount(0);
 		await expect(page.getByText('The Drowning of Saltreach')).not.toHaveCount(0);
 		await expect(page.getByText('The party makes landfall')).not.toHaveCount(0);
 		await expect(page.getByText('The Hollow King stirs')).not.toHaveCount(0);
 
 		// Switching back re-renders the Threads lens (the filter is stateful UI, not a reload).
-		await page.getByRole('tab', { name: 'Threads' }).click();
+		await page.getByRole('tab', { name: 'Quests' }).click();
 		await expect(page.getByText('No quests yet')).not.toHaveCount(0);
 	});
 });

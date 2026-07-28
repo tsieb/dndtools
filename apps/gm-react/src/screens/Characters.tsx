@@ -976,7 +976,7 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 											disabled={!draftValidation?.complete}
 											onClick={commitAdvancement}
 										>
-											Finalize level-up
+											Finish level-up
 										</Button>
 										<Button variant="ghost" size="sm" onClick={cancelAdvancement}>
 											Cancel
@@ -1529,7 +1529,7 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 										{hit.title}
 									</span>
 									<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
-										{hit.type === 'note' ? 'Note' : 'Dossier'}
+										{hit.type === 'note' ? 'Note' : 'Story entry'}
 									</span>
 								</button>
 							))}
@@ -1686,7 +1686,9 @@ export function Characters() {
 			{list.length === 0 ? (
 				<EmptyState
 					icon="characters-person"
-					title={data.characters.length === 0 ? 'Your roster is empty' : 'Nothing in this view'}
+					title={
+						data.characters.length === 0 ? 'Your roster is empty' : 'No one matches this filter'
+					}
 					description={
 						data.characters.length === 0
 							? 'Add the party’s heroes, then the NPCs they’ll meet.'

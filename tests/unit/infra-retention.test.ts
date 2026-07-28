@@ -19,6 +19,7 @@ interface CloudFormationTemplate {
 const durableStorage = new Set([
 	'app-api/template.yaml:AppTable',
 	'app-api/template.yaml:ModulesBucket',
+	'foundation/template.yaml:AuditTrailBucket',
 	'sync-api/template.yaml:CiphertextBucket',
 	'sync-api/template.yaml:SyncOpsTable',
 ]);

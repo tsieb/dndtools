@@ -102,6 +102,22 @@ const TRUST_TONE: Record<string, string> = {
 	unreviewed: 'warning',
 	denied: 'error',
 };
+// Machine tokens from the trust/review model, rendered as spoken labels.
+const TRUST_LABEL: Record<string, string> = {
+	trusted: 'Trusted',
+	unreviewed: 'Unreviewed',
+	denied: 'Denied',
+};
+const TRUST_RECOMMENDATION_LABEL: Record<string, string> = {
+	'trusted-after-review': 'Trust after review',
+	'requires-review': 'Requires review',
+	'deny-until-fixed': 'Deny until fixed',
+};
+const VISIBILITY_WORD: Record<string, string> = {
+	'dm-only': 'DM only',
+	shared: 'Shared',
+	'player-visible': 'Player visible',
+};
 const HOST_PERM_LABEL: Record<string, string> = {
 	filesystem: 'Filesystem',
 	clipboard: 'Clipboard',
@@ -360,26 +376,27 @@ function ExtPlugins() {
 									<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
 										<span style={{ font: `600 13.5px ${T.sans}` }}>{def.displayName}</span>
 										<Badge status={TRUST_TONE[rec.trust.state] as 'neutral'}>
-											{rec.trust.state}
+											{TRUST_LABEL[rec.trust.state] ?? rec.trust.state}
 										</Badge>
-										{isSystem && <Badge status="neutral">built-in</Badge>}
+										{isSystem && <Badge status="neutral">Built-in</Badge>}
 										{needsReview && (
 											<Badge status="warning" icon="warning">
 												Needs review
 											</Badge>
 										)}
 										{review.customCodeWidgets.length > 0 && (
-											<Badge status="info">custom code</Badge>
+											<Badge status="info">Custom code</Badge>
 										)}
 										{rec.migrationStatus?.state === 'failed' && (
 											<Badge status="error" icon="warning">
-												migration failed
+												Migration failed
 											</Badge>
 										)}
 									</div>
 									<div style={{ font: `11.5px ${T.sans}`, color: T.ter, marginBottom: 6 }}>
 										v{def.version} · {widgetCount} {widgetCount === 1 ? 'widget' : 'widgets'} ·{' '}
-										{review.trustRecommendation}
+										{TRUST_RECOMMENDATION_LABEL[review.trustRecommendation] ??
+											review.trustRecommendation}
 									</div>
 									<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
 										{perms.length === 0 ? (
@@ -393,7 +410,7 @@ function ExtPlugins() {
 										)}
 										{review.requestedNetworkDestinations.map((d: string) => (
 											<Badge key={d} status="warning">
-												net: {d}
+												Network: {d}
 											</Badge>
 										))}
 									</div>
@@ -1025,7 +1042,7 @@ function ExtCompendium() {
 						<EmptyState
 							icon="warning"
 							title="Compendium unavailable"
-							description="Neither the Open5e API nor the bundled SRD dataset could be loaded. Try again."
+							description="Neither the online compendium nor the bundled reference could be loaded — check your connection and reload."
 						/>
 					)}
 					{!loading && result && entries.length === 0 && (
@@ -1345,7 +1362,7 @@ function ExtObjects() {
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<Panel
 				title="Object types"
-				action={<Badge status="neutral">{schemas.length} schema-defined</Badge>}
+				action={<Badge status="neutral">{schemas.length} built-in</Badge>}
 			>
 				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
 					These definitions control the fields and columns shown wherever each object type appears.
@@ -1394,7 +1411,8 @@ function ExtObjects() {
 										)}
 									</div>
 									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-										<span style={mono}>{s.subtype}</span> · defaults to {s.defaultVisibility} ·{' '}
+										<span style={mono}>{s.subtype}</span> · defaults to{' '}
+										{VISIBILITY_WORD[s.defaultVisibility] ?? s.defaultVisibility} ·{' '}
 										{s.requiredFields.length} required{' '}
 										{s.requiredFields.length === 1 ? 'field' : 'fields'}
 									</div>
@@ -1505,7 +1523,7 @@ function CustomObjectTypes() {
 				Toaster.error(issues ? `${res.rejection.message} ${issues}` : res.rejection.message);
 				return;
 			}
-			Toaster.success(editId ? `Updated "${payload.label}"` : `Defined "${payload.label}"`);
+			Toaster.success(editId ? `Updated "${payload.label}"` : `Created "${payload.label}"`);
 			resetForm();
 		} catch (error) {
 			Toaster.error(error instanceof Error ? error.message : String(error));
@@ -1601,7 +1619,8 @@ function CustomObjectTypes() {
 										</div>
 										<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
 											<span style={mono}>{s.id}</span> · {s.fieldCount}{' '}
-											{s.fieldCount === 1 ? 'field' : 'fields'} · defaults to {s.defaultVisibility}
+											{s.fieldCount === 1 ? 'field' : 'fields'} · defaults to{' '}
+											{VISIBILITY_WORD[s.defaultVisibility] ?? s.defaultVisibility}
 										</div>
 									</div>
 									<span style={{ font: `12px ${T.mono}`, color: count ? T.ink : T.ter }}>
@@ -1928,6 +1947,11 @@ const FINDING_TONE: Record<string, 'success' | 'warning' | 'error'> = {
 	remap: 'warning',
 	drop: 'error',
 };
+const FINDING_LABEL: Record<string, string> = {
+	keep: 'Kept',
+	remap: 'Remapped',
+	drop: 'Dropped',
+};
 
 function SystemSwitchDialog({
 	targetId,
@@ -1956,7 +1980,7 @@ function SystemSwitchDialog({
 			open
 			onClose={onClose}
 			title={`Switch to ${targetName}`}
-			description={`Migration dry-run · ${targetId}`}
+			description={`Preview of switching to ${targetId} — nothing changes until you apply`}
 			tone={destructive ? 'danger' : undefined}
 			size="md"
 			footer={
@@ -2036,7 +2060,9 @@ function SystemSwitchDialog({
 									<span style={{ font: `600 12.5px ${T.mono}`, width: 140, flex: '0 0 auto' }}>
 										{f.widgetType}
 									</span>
-									<Badge status={FINDING_TONE[f.effect] ?? 'neutral'}>{f.effect}</Badge>
+									<Badge status={FINDING_TONE[f.effect] ?? 'neutral'}>
+										{FINDING_LABEL[f.effect] ?? f.effect}
+									</Badge>
 									<span
 										style={{ font: `11.5px ${T.mono}`, color: T.ter, width: 60, flex: '0 0 auto' }}
 									>
@@ -2071,7 +2097,7 @@ function SystemSwitchDialog({
 					)}
 					{preview.clean && (
 						<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ok }}>
-							Clean dry-run: the switch applies without losing anything.
+							Nothing is lost — the switch applies cleanly.
 						</div>
 					)}
 				</div>

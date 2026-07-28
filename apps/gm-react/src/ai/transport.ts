@@ -375,7 +375,7 @@ export async function sendAiChat(
 		throw new AiTransportError(
 			'not-configured',
 			null,
-			'AI tools are off. Re-enable Complete use in Settings → Tool preferences.',
+			'AI tools are off. Choose “Assistant and generators” in Settings → Tool preferences to re-enable them.',
 		);
 	}
 	if (!(await authorizeAiProviderNetworkAccess(config))) {

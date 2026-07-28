@@ -696,7 +696,7 @@ export function Campaign() {
 	}, [runtime.state, actorId]);
 
 	const tabs = [
-		{ id: 'quests', label: 'Threads', icon: 'flag' },
+		{ id: 'quests', label: 'Quests', icon: 'flag' },
 		{ id: 'npcs', label: 'NPCs' },
 		{ id: 'factions', label: 'Factions' },
 		{ id: 'timeline', label: 'Timeline', icon: 'recent' },
@@ -745,7 +745,7 @@ export function Campaign() {
 							title="No quests yet"
 							description={
 								canAuthor
-									? 'Track the party’s story threads — status, objectives, and hooks — as real quest records.'
+									? 'Track the party’s quests — status, objectives, and hooks — all in one place.'
 									: 'No quests have been shared with you yet.'
 							}
 							action={

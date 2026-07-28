@@ -37,13 +37,13 @@ describe('cloud config gates', () => {
 		expect(isCloudConfigured).toBe(true);
 		expect(isAuthConfigured).toBe(true);
 		expect(isSyncConfigured).toBe(true);
-		expect(cloudConfig).toEqual({
+		expect(cloudConfig).toMatchObject({
+			stage: '',
 			region: 'ca-central-1',
 			userPoolId: 'ca-central-1_abc',
 			userPoolClientId: 'client123',
 			signalingWsUrl: 'wss://sig.example.com/dev',
 			syncApiUrl: 'https://sync.example.com/dev',
-			appApiUrl: '',
 			publicAppUrl: '',
 		});
 	});

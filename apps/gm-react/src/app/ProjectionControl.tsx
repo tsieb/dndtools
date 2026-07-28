@@ -4,8 +4,20 @@ import {
 	type SessionWorkflowState,
 } from '@dndtools/core';
 import { Button, StatusDot, Toaster } from '../ds';
+import { useI18n } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { T } from './screen-kit';
+
+// Every core workflow state gets a spoken label so the status pill never shows a raw enum value.
+const WORKFLOW_LABEL: Record<SessionWorkflowState, string> = {
+	idle: 'Standby',
+	prep: 'Prep',
+	active: 'Live',
+	paused: 'Paused',
+	ending: 'Wrapping up',
+	recap: 'Recap',
+	archived: 'Archived',
+};
 
 /**
  * ProjectionControl — the topbar live-session / projection control (was a fake local `useState`
@@ -16,6 +28,7 @@ import { T } from './screen-kit';
  */
 export function ProjectionControl({ compact = false }: { compact?: boolean } = {}) {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const workflow = runtime.state.session.workflow;
 	const live = workflow === 'active';
 	const previewing = !!runtime.preview;
@@ -41,7 +54,7 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 		if (target === 'active') {
 			const sceneId = resolveActiveScene();
 			if (!sceneId) {
-				Toaster.warning('Create a scene first — a live session needs an active scene.');
+				Toaster.warning(t('Create a scene first — a live session needs an active scene.'));
 				return;
 			}
 			payload.activeSceneId = sceneId;
@@ -70,9 +83,9 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 						flex: '0 0 auto',
 					}}
 				>
-					<StatusDot status={live ? 'live' : 'idle'} pulse={live} label="Session" />
+					<StatusDot status={live ? 'live' : 'idle'} pulse={live} label={t('Session')} />
 					<span style={{ font: `12px ${T.sans}`, color: T.sub, whiteSpace: 'nowrap' }}>
-						{live ? 'Live' : workflow === 'idle' ? 'Standby' : workflow}
+						{t(WORKFLOW_LABEL[workflow as SessionWorkflowState] ?? 'Standby')}
 					</span>
 				</div>
 			)}
@@ -83,20 +96,28 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 				disabled={previewing || (!live && !canGoLive)}
 				title={
 					!live && !canGoLive
-						? `Can’t go live directly from ${workflow} — return to standby first`
+						? t('Finish {state} and return to Standby before going live', {
+								state: t(WORKFLOW_LABEL[workflow as SessionWorkflowState] ?? 'Standby'),
+							})
 						: live
-							? 'End live session'
-							: 'Go live'
+							? t('End live session')
+							: t('Go live')
 				}
-				aria-label={live ? 'End live session' : 'Go live'}
+				aria-label={
+					!live && !canGoLive
+						? t('Go live (unavailable — return to Standby first)')
+						: live
+							? t('End live session')
+							: t('Go live')
+				}
 				style={compact ? { width: 48, minHeight: 48, padding: 0, flex: '0 0 auto' } : undefined}
 				onClick={() =>
 					live
-						? setWorkflow('idle', 'Session ended — players returned to standby')
-						: setWorkflow('active', 'You are live — combat, dice & projection now reach players')
+						? setWorkflow('idle', t('Session ended — players returned to standby'))
+						: setWorkflow('active', t('You are live — combat, dice, and maps now reach players'))
 				}
 			>
-				{compact ? null : live ? 'End' : 'Go live'}
+				{compact ? null : live ? t('End') : t('Go live')}
 			</Button>
 		</>
 	);

@@ -204,7 +204,7 @@ function isBoundedString(value: unknown, max: number): value is string {
 
 function validatePayload(value: unknown): OfferPayload | AnswerPayload {
 	if (!value || typeof value !== 'object')
-		throw new Error('Connection code has an invalid payload.');
+		throw new Error('That connection code is not valid — copy the full code and try again.');
 	const rec = value as Record<string, unknown>;
 	if (
 		rec.v !== SIGNALING_VERSION ||
@@ -212,7 +212,7 @@ function validatePayload(value: unknown): OfferPayload | AnswerPayload {
 		!isBoundedString(rec.actorId, 128) ||
 		!isBoundedString(rec.sdp, MAX_SDP_CHARS)
 	)
-		throw new Error('Connection code has an invalid payload.');
+		throw new Error('That connection code is not valid — copy the full code and try again.');
 	if (rec.role === 'answer') {
 		return rec as unknown as AnswerPayload;
 	}
@@ -223,7 +223,7 @@ function validatePayload(value: unknown): OfferPayload | AnswerPayload {
 		!isBoundedString(rec.keyB64, 256) ||
 		!/^[A-Za-z0-9+/]+={0,2}$/.test(rec.keyB64)
 	)
-		throw new Error('Connection code has an invalid payload.');
+		throw new Error('That connection code is not valid — copy the full code and try again.');
 	return rec as unknown as OfferPayload;
 }
 
@@ -232,7 +232,7 @@ export async function encodeCode(payload: OfferPayload | AnswerPayload): Promise
 	const validated = validatePayload(payload);
 	const json = new TextEncoder().encode(JSON.stringify(validated));
 	if (json.byteLength > MAX_SIGNALING_JSON_BYTES)
-		throw new Error('Connection payload is too large.');
+		throw new Error('The connection details are too large to fit in a code.');
 	const compressed = await gzip(json);
 	const useGzip = compressed.length < json.length;
 	const body = useGzip ? compressed : json;
@@ -247,10 +247,11 @@ export async function decodeCode<T extends OfferPayload | AnswerPayload>(code: s
 	const trimmed = code.trim();
 	if (trimmed.length > MAX_CONNECTION_CODE_CHARS) throw new Error('Connection code is too large.');
 	const bytes = base64UrlToBytes(trimmed);
-	if (bytes.length < 2) throw new Error('Connection code is too short.');
+	if (bytes.length < 2)
+		throw new Error('That connection code is too short — copy the full code from the invite.');
 	const flag = bytes[0]!;
 	if (flag !== FLAG_GZIP && flag !== FLAG_RAW)
-		throw new Error('Connection code has an unknown format.');
+		throw new Error('That code doesn’t look like a connection code — copy it from the invite.');
 	const body = bytes.slice(1);
 	const json = flag === FLAG_GZIP ? await gunzip(body) : body;
 	if (json.byteLength > MAX_SIGNALING_JSON_BYTES) throw new Error('Connection code is too large.');
@@ -258,7 +259,7 @@ export async function decodeCode<T extends OfferPayload | AnswerPayload>(code: s
 	try {
 		parsed = JSON.parse(new TextDecoder().decode(json));
 	} catch {
-		throw new Error('Connection code is not valid.');
+		throw new Error('That connection code is not valid — copy the full code and try again.');
 	}
 	return validatePayload(parsed) as T;
 }

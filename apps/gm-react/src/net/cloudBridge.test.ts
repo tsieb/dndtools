@@ -362,7 +362,7 @@ describe('createCloudBridge — offer/answer relay callbacks', () => {
 
 	it('respondOffer fails closed if it never saw the joiner public key', async () => {
 		const { bridge } = await connectedBridge();
-		await expect(bridge.respondOffer('unknown-conn', 'OFFER#1')).rejects.toThrow(/joiner key/i);
+		await expect(bridge.respondOffer('unknown-conn', 'OFFER#1')).rejects.toThrow(/security key/i);
 	});
 
 	it('unsubscribes cleanly (returned disposer stops further callbacks)', async () => {

@@ -234,7 +234,7 @@ export function MapEditor({
 					? 'Map export cancelled.'
 					: quickMapMode
 						? 'Map sent to the Android share/save sheet.'
-						: 'UVTT scene exported.',
+						: 'Map exported for other VTTs (.dd2vtt).',
 			);
 			setExportOpen(false);
 		} catch (error) {
@@ -251,7 +251,9 @@ export function MapEditor({
 			(a) => a.role === 'player',
 		);
 		if (players.length === 0) {
-			editor.setNotice('Add at least one player before projecting a map.');
+			editor.setNotice(
+				'No players yet — add players in Settings → Players before projecting a map.',
+			);
 			return;
 		}
 		const staged = await runtime.dispatch({
@@ -332,7 +334,7 @@ export function MapEditor({
 			},
 			{
 				id: 'act-export',
-				label: 'Export UVTT (.dd2vtt)',
+				label: 'Export for other VTTs (.dd2vtt)',
 				group: 'Actions',
 				icon: 'download',
 				run: () => void exportUvtt(),
@@ -625,7 +627,7 @@ export function MapEditor({
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
 								<HeaderMenuItem
 									icon="download"
-									label="Export UVTT (.dd2vtt)"
+									label="Export for other VTTs (.dd2vtt)"
 									onClick={() => void exportUvtt()}
 								/>
 								<HeaderMenuItem
@@ -643,7 +645,7 @@ export function MapEditor({
 										onClick={() => {
 											setExportOpen(false);
 											editor.setNotice(
-												'Advanced map drawing is available in the desktop app. All desktop-authored geometry remains visible and preserved here.',
+												'Advanced map drawing is available in the desktop app. Everything drawn there stays visible and safe here.',
 											);
 										}}
 									/>

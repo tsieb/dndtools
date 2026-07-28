@@ -374,7 +374,7 @@ function MapInspector({
 			{isDm && (
 				<Section title="Export & derive">
 					<Button variant="secondary" size="sm" icon="download" onClick={() => void exportUvtt()}>
-						Export UVTT (.dd2vtt)
+						Export for other VTTs (.dd2vtt)
 					</Button>
 					<Button
 						variant="ghost"

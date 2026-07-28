@@ -434,7 +434,7 @@ export function Player() {
 					}}
 				>
 					<span style={{ font: `12px ${T.sans}`, color: 'var(--color-status-warning-text)' }}>
-						<Icon name="hidden" size={13} /> {err}
+						<Icon name="warning" size={13} /> {err}
 					</span>
 				</div>
 			)}
@@ -1807,14 +1807,16 @@ function PlayerParty({
 							<div style={{ display: 'flex', gap: 8 }}>
 								<Input
 									value={itemName}
+									aria-label="Item name"
 									onChange={(e: any) => setItemName(e.target.value)}
 									placeholder="Item name…"
 									style={{ flex: 1 }}
 								/>
 								<Input
 									value={itemDetail}
+									aria-label="Item detail"
 									onChange={(e: any) => setItemDetail(e.target.value)}
-									placeholder="Detail"
+									placeholder="Detail (optional)"
 									style={{ flex: 1 }}
 								/>
 							</div>
@@ -2386,6 +2388,7 @@ function PlayerJournal({
 								<div style={{ display: 'flex', gap: 8 }}>
 									<Input
 										value={title}
+										aria-label="Entry title"
 										onChange={(e: any) => setTitle(e.target.value)}
 										placeholder="Entry title…"
 										style={{ flex: 1 }}
@@ -2400,6 +2403,7 @@ function PlayerJournal({
 								</div>
 								<Textarea
 									value={body}
+									aria-label="Entry body"
 									onChange={(e: any) => setBody(e.target.value)}
 									placeholder="What happened…"
 									rows={2}

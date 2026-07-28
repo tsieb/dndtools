@@ -65,7 +65,9 @@ import { publicAppBaseUrl, publicAppHashUrl } from '../platform/publicAppUrl';
  */
 
 const errText = (e: unknown) =>
-	e instanceof Error && e.message ? e.message : 'Something went wrong — try again.';
+	e instanceof Error && e.message
+		? e.message
+		: 'That didn’t go through — check your connection and try again.';
 
 /** ARIA radio-group contract (mirrors Onboarding's): arrows move selection (selection follows
  * focus, wrapping), Tab skips the group as one stop. */
@@ -345,8 +347,8 @@ function CommDiscover() {
 			{sel && (
 				<Panel accent title={sel.name} action={<Badge status="neutral">v{sel.version}</Badge>}>
 					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-						published {new Date(sel.publishedAt).toLocaleDateString()} · {kb(sel.size)} · hash{' '}
-						{sel.contentHash.slice(0, 12)}…
+						published {new Date(sel.publishedAt).toLocaleDateString()} · {kb(sel.size)} ·
+						fingerprint {sel.contentHash.slice(0, 12)}…
 					</div>
 					<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>{sel.summary}</div>
 					<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
@@ -649,7 +651,7 @@ function CommExport() {
 							Include DM-only content <VisibilityChip level="dm-only" compact />
 						</span>
 						<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
-							Off → <code>portable</code> mode (secrets redacted). On → <code>dm-backup</code> mode.
+							Off: a player-safe export with secrets redacted. On: a full DM backup.
 						</span>
 					</span>
 				</label>
@@ -692,7 +694,7 @@ function CommExport() {
 							textOverflow: 'ellipsis',
 						}}
 					>
-						{priv ? 'dm-backup' : 'portable'} ·{' '}
+						{priv ? 'Full DM backup' : 'Player-safe export'} ·{' '}
 						{allSelected ? 'all types' : `${selectedKinds.length}/${kinds.length} types`} ·
 						downloads .md / .json
 					</span>
@@ -1135,7 +1137,7 @@ function CommWiki() {
 			.then(() => {
 				setStatus(null);
 				setConfirmUnpublish(false);
-				Toaster.success('Wiki unpublished — the public link is now dead.');
+				Toaster.success('Wiki unpublished — the public link no longer works.');
 			})
 			.catch((e: unknown) => Toaster.error(errText(e)))
 			.finally(() => setBusy(false));

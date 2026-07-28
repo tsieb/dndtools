@@ -284,13 +284,17 @@ function usePresenceStatus(): { dot: 'live' | 'idle' | 'error' | 'pending'; labe
 		const n = session.peers.length;
 		return {
 			dot: 'live',
-			label: n > 0 ? `Hosting · ${n} connected` : 'Hosting — waiting for players',
+			label:
+				n > 0
+					? `Hosting — ${n} ${n === 1 ? 'player' : 'players'} connected`
+					: 'Hosting — waiting for players',
 		};
 	}
-	if (session.role === 'joined') return { dot: 'live', label: 'Joined a table' };
+	if (session.role === 'joined') return { dot: 'live', label: 'Connected to a table' };
 	if (cloud.available && cloud.enabled) {
 		const es = cloud.engineStatus;
-		if (es?.lastError) return { dot: 'error', label: 'Cloud backup error' };
+		if (es?.lastError)
+			return { dot: 'error', label: 'Cloud backup error — see Settings → Backup & history' };
 		if (es?.busy) return { dot: 'pending', label: 'Backing up…' };
 		return {
 			dot: 'live',
@@ -612,7 +616,7 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 									color: T.ter,
 								}}
 							>
-								More · tools &amp; platform
+								More · audio, graph &amp; extensions
 							</span>
 							<Icon name={moreExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={T.ter} />
 						</button>

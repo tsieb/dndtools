@@ -173,7 +173,7 @@ function Muted({ children }: { children: React.ReactNode }) {
 function NoteBody({ widget }: { widget: BoardWidget }) {
 	const heading = cfg<string>(widget, 'heading');
 	const body = cfg<string>(widget, 'body');
-	if (!heading && !body) return <Muted>Empty note — open the inspector to add text.</Muted>;
+	if (!heading && !body) return <Muted>Empty note — select the widget to add text.</Muted>;
 	return (
 		<div style={{ ...bodyWrap, gap: 6 }}>
 			{heading && (
@@ -452,7 +452,7 @@ function CharacterBody({ widget }: { widget: BoardWidget }) {
 	const runtime = useRuntime();
 	const showAbilities = cfg<boolean>(widget, 'showAbilities') ?? true;
 	if (widget.requiresBinding && widget.status !== 'available') {
-		return <Muted>No character bound — bind one to show its stat block.</Muted>;
+		return <Muted>No character linked — choose one to show its stat block.</Muted>;
 	}
 	// Resolve the BOUND character through the actor-filtered query (redacted per viewer).
 	const boundId = widget.bindingRef?.entityType === 'character' ? widget.bindingRef.entityId : null;
@@ -517,14 +517,14 @@ function MapBody({ widget }: { widget: BoardWidget }) {
 			: null;
 	const rasterUrl = useAssetObjectUrl(rasterId);
 	if (widget.requiresBinding && widget.status !== 'available') {
-		return <Muted>No map bound — bind a map to display its layers.</Muted>;
+		return <Muted>No map linked — choose a map to show its layers.</Muted>;
 	}
 	if (!view || view.kind !== 'available') {
 		return (
 			<Muted>
 				{isDm
-					? 'The bound map is missing or was removed. Choose another map in edit mode.'
-					: 'The bound map isn’t available to you.'}
+					? 'The linked map is missing or was removed. Choose another map in edit mode.'
+					: 'The linked map isn’t available to you.'}
 			</Muted>
 		);
 	}

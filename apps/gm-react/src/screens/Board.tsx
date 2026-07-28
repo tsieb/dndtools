@@ -101,7 +101,7 @@ export function Board() {
 	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
 		const result = await runtime.dispatch(command);
 		if (result.status === 'rejected') {
-			setStatus(result.rejection.message ?? 'That action could not be completed.');
+			setStatus(result.rejection.message ?? 'That change couldn’t be applied — try again.');
 			return false;
 		}
 		return true;
@@ -184,7 +184,7 @@ export function Board() {
 	// Capture the current layout as the auto-save safe point (CMD-008). Best-effort and silent — it is
 	// an automatic checkpoint, not a user action, so a rejection (e.g. before the home Scene exists)
 	// must not surface as a status message. Taken when an edit session begins and before a preset is
-	// applied, so "Restore safe point" can always revert the last destructive change.
+	// applied, so "Restore previous layout" can always revert the last destructive change.
 	async function snapshotSafePoint() {
 		await runtime.dispatch({ type: 'command-center.snapshot-auto-save', actorId, payload: {} });
 	}
@@ -195,11 +195,11 @@ export function Board() {
 			actorId,
 			payload: { presetId },
 		});
-		if (ok) setStatus(`Layout “${name}” applied — restore the safe point to undo.`);
+		if (ok) setStatus(`Layout “${name}” applied — you can restore the previous layout.`);
 	}
 	async function restoreSafePoint() {
 		const ok = await dispatch({ type: 'command-center.restore-auto-save', actorId, payload: {} });
-		if (ok) setStatus('Layout restored from the last safe point.');
+		if (ok) setStatus('Previous layout restored.');
 	}
 
 	if (!isDm) {
@@ -216,7 +216,7 @@ export function Board() {
 							color: 'var(--color-text-primary)',
 						}}
 					>
-						The GM Screen is the DM&apos;s dashboard
+						The GM Screen is the DM&apos;s control board
 					</span>
 					<span
 						style={{
@@ -224,7 +224,7 @@ export function Board() {
 							color: 'var(--color-text-secondary)',
 						}}
 					>
-						The GM Screen is authored by the DM. Switch back to the DM view to arrange it.
+						Only the DM can arrange it. Switch back to the DM view to make changes.
 					</span>
 				</Card>
 			</div>
@@ -283,7 +283,7 @@ export function Board() {
 							color: 'var(--color-text-tertiary)',
 						}}
 					>
-						{widgets.length} widget{widgets.length === 1 ? '' : 's'} · home · fits to screen
+						{widgets.length} widget{widgets.length === 1 ? '' : 's'} · your home board
 					</div>
 				</div>
 				<div style={{ flex: 1 }} />
@@ -361,7 +361,7 @@ export function Board() {
 					onRemove={remove}
 					onWidgetCommand={operateWidget}
 					emptyHint={
-						ready ? 'Press Edit layout, then Add to place a widget.' : 'Preparing your home board…'
+						ready ? 'Press Edit layout, then Add to place a widget.' : 'Preparing your GM Screen…'
 					}
 				/>
 
@@ -407,7 +407,7 @@ export function Board() {
 									color: 'var(--color-text-tertiary)',
 								}}
 							>
-								No widgets available to add.
+								No widgets are available to add right now.
 							</div>
 						) : (
 							library.map((entry) => (
@@ -486,11 +486,12 @@ export function Board() {
 									color: 'var(--color-text-secondary)',
 								}}
 							>
-								Save current as preset
+								Save current layout
 							</span>
 							<div style={{ display: 'flex', gap: 6 }}>
 								<Input
 									value={presetName}
+									aria-label="Layout name"
 									onChange={(e: { target: { value: string } }) => setPresetName(e.target.value)}
 									placeholder="e.g. Combat night"
 								/>
@@ -537,7 +538,7 @@ export function Board() {
 								onClick={restoreSafePoint}
 								style={{ alignSelf: 'flex-start' }}
 							>
-								Restore safe point
+								Restore previous layout
 							</Button>
 						)}
 					</Card>

@@ -106,8 +106,8 @@ export function Join() {
 				)}
 				{state.phase === 'missing' && (
 					<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub }}>
-						This join link is missing its invite token. Ask your DM to copy the full link from
-						Settings → Players and send it again.
+						This join link is incomplete. Ask your DM to copy the full link from Settings → Players
+						and send it again.
 					</div>
 				)}
 				{state.phase === 'invalid' && (
@@ -177,7 +177,7 @@ export function Join() {
 							Open the player app
 						</Button>
 						<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
-							From there, join your DM’s session with the room name and PIN they share at game time.
+							From there, join your DM’s table with the table name and PIN they share at game time.
 						</div>
 					</>
 				)}

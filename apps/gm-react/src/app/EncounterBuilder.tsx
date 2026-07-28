@@ -132,7 +132,11 @@ export function EncounterDialog({
 		const levels = party
 			.map((c) => Number((c.data as Record<string, unknown>).level))
 			.filter((n) => Number.isFinite(n) && n >= 1);
-		setPartyLevel(levels.length ? Math.min(20, Math.round(levels.reduce((a, b) => a + b, 0) / levels.length)) : 3);
+		setPartyLevel(
+			levels.length
+				? Math.min(20, Math.round(levels.reduce((a, b) => a + b, 0) / levels.length))
+				: 3,
+		);
 		setQName('');
 		setQHp(7);
 		setQAc(13);
@@ -155,7 +159,10 @@ export function EncounterDialog({
 					initiative: 0,
 					hidden: r.hidden,
 				})),
-				{ size: Math.max(1, Math.trunc(partySize) || 1), averageLevel: Math.min(20, Math.max(1, Math.trunc(partyLevel) || 1)) },
+				{
+					size: Math.max(1, Math.trunc(partySize) || 1),
+					averageLevel: Math.min(20, Math.max(1, Math.trunc(partyLevel) || 1)),
+				},
 			),
 		[rows, partySize, partyLevel],
 	);
@@ -166,7 +173,11 @@ export function EncounterDialog({
 
 	function toggleCharacter(c: RosterCharacter) {
 		const key = `char-${c.id}`;
-		setRows((prev) => (prev.some((r) => r.key === key) ? prev.filter((r) => r.key !== key) : [...prev, rowFromCharacter(c)]));
+		setRows((prev) =>
+			prev.some((r) => r.key === key)
+				? prev.filter((r) => r.key !== key)
+				: [...prev, rowFromCharacter(c)],
+		);
 	}
 
 	function quickAdd() {
@@ -264,10 +275,14 @@ export function EncounterDialog({
 			}
 			const encounterId = extractId(built, 'encounterId') ?? extractId(built, 'id');
 			if (!encounterId) {
-				setError('Could not resolve the built encounter.');
+				setError('The encounter couldn’t be started — try again.');
 				return;
 			}
-			const started = await runtime.dispatch({ type: 'combat.start', actorId, payload: { encounterId } });
+			const started = await runtime.dispatch({
+				type: 'combat.start',
+				actorId,
+				payload: { encounterId },
+			});
 			if (started.status === 'rejected') {
 				setError(started.rejection.message);
 				return;
@@ -303,7 +318,7 @@ export function EncounterDialog({
 						disabled={submitting || rows.length === 0}
 						onClick={() => void launch()}
 					>
-						{submitting ? 'Working…' : mode === 'reinforce' ? 'Add to combat' : 'Roll initiative'}
+						{submitting ? 'Working…' : mode === 'reinforce' ? 'Add to combat' : 'Start combat'}
 					</Button>
 				</>
 			}
@@ -317,12 +332,22 @@ export function EncounterDialog({
 
 				{mode === 'start' && (
 					<Field label="Encounter title">
-						<Input value={title} onChange={(e: { target: { value: string } }) => setTitle(e.target.value)} placeholder="Ambush at the docks" />
+						<Input
+							value={title}
+							onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
+							placeholder="Ambush at the docks"
+						/>
 					</Field>
 				)}
 
 				{/* Roster picker — the real character roster across kinds (actor-filtered core read). */}
-				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+				<div
+					style={{
+						display: 'grid',
+						gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+						gap: 12,
+					}}
+				>
 					{KIND_GROUPS.map((group) => {
 						const members = characters.filter(group.match);
 						return (
@@ -352,11 +377,27 @@ export function EncounterDialog({
 														textAlign: 'left',
 													}}
 												>
-													<Icon name={picked ? 'check' : 'add'} size={13} color={picked ? T.acc : T.ter} />
-													<span style={{ flex: 1, minWidth: 0, font: `600 12.5px ${T.sans}`, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+													<Icon
+														name={picked ? 'check' : 'add'}
+														size={13}
+														color={picked ? T.acc : T.ter}
+													/>
+													<span
+														style={{
+															flex: 1,
+															minWidth: 0,
+															font: `600 12.5px ${T.sans}`,
+															color: T.ink,
+															whiteSpace: 'nowrap',
+															overflow: 'hidden',
+															textOverflow: 'ellipsis',
+														}}
+													>
 														{c.name}
 													</span>
-													<span style={{ font: `10.5px ${T.mono}`, color: T.ter, whiteSpace: 'nowrap' }}>
+													<span
+														style={{ font: `10.5px ${T.mono}`, color: T.ter, whiteSpace: 'nowrap' }}
+													>
 														HP {c.combat?.maxHp ?? '—'} · AC {c.combat?.ac ?? '—'}
 													</span>
 												</button>
@@ -382,12 +423,32 @@ export function EncounterDialog({
 						/>
 					</Field>
 					<Field label="HP" style={{ width: 72 }}>
-						<Input type="number" min={0} value={qHp} onChange={(e: { target: { value: string } }) => setQHp(Math.max(0, Math.trunc(Number(e.target.value) || 0)))} />
+						<Input
+							type="number"
+							min={0}
+							value={qHp}
+							onChange={(e: { target: { value: string } }) =>
+								setQHp(Math.max(0, Math.trunc(Number(e.target.value) || 0)))
+							}
+						/>
 					</Field>
 					<Field label="AC" style={{ width: 72 }}>
-						<Input type="number" min={0} value={qAc} onChange={(e: { target: { value: string } }) => setQAc(Math.max(0, Math.trunc(Number(e.target.value) || 0)))} />
+						<Input
+							type="number"
+							min={0}
+							value={qAc}
+							onChange={(e: { target: { value: string } }) =>
+								setQAc(Math.max(0, Math.trunc(Number(e.target.value) || 0)))
+							}
+						/>
 					</Field>
-					<Button variant="secondary" size="sm" icon="add" disabled={!qName.trim()} onClick={quickAdd}>
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="add"
+						disabled={!qName.trim()}
+						onClick={quickAdd}
+					>
 						Add
 					</Button>
 				</div>
@@ -412,23 +473,57 @@ export function EncounterDialog({
 									flexWrap: 'wrap',
 								}}
 							>
-								<span style={{ flex: '1 1 120px', minWidth: 0, font: `600 13px ${T.sans}`, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+								<span
+									style={{
+										flex: '1 1 120px',
+										minWidth: 0,
+										font: `600 13px ${T.sans}`,
+										color: T.ink,
+										whiteSpace: 'nowrap',
+										overflow: 'hidden',
+										textOverflow: 'ellipsis',
+									}}
+								>
 									{r.name}
 								</span>
-								<label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, font: `11px ${T.sans}`, color: T.ter }}>
+								<label
+									style={{
+										display: 'inline-flex',
+										alignItems: 'center',
+										gap: 5,
+										font: `11px ${T.sans}`,
+										color: T.ter,
+									}}
+								>
 									Init
 									<Input
 										value={r.initiative}
 										placeholder="auto"
 										aria-label={`${r.name} initiative`}
 										style={{ width: 58, textAlign: 'center', fontFamily: T.mono }}
-										onChange={(e: { target: { value: string } }) => patchRow(r.key, { initiative: e.target.value.replace(/[^-\d]/g, '') })}
+										onChange={(e: { target: { value: string } }) =>
+											patchRow(r.key, { initiative: e.target.value.replace(/[^-\d]/g, '') })
+										}
 									/>
 								</label>
-								<IconButton icon="dice" label={`Roll initiative for ${r.name}`} variant="ghost" size="sm" onClick={() => rollInitiative(r)} />
+								<IconButton
+									icon="dice"
+									label={`Roll initiative for ${r.name}`}
+									variant="ghost"
+									size="sm"
+									onClick={() => rollInitiative(r)}
+								/>
 								{r.kind !== 'character' && (
 									<>
-										<label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, font: `11px ${T.sans}`, color: T.ter }}>
+										<label
+											style={{
+												display: 'inline-flex',
+												alignItems: 'center',
+												gap: 5,
+												font: `11px ${T.sans}`,
+												color: T.ter,
+											}}
+										>
 											×
 											<Input
 												type="number"
@@ -437,11 +532,26 @@ export function EncounterDialog({
 												value={r.quantity}
 												aria-label={`${r.name} quantity`}
 												style={{ width: 56, textAlign: 'center', fontFamily: T.mono }}
-												onChange={(e: { target: { value: string } }) => patchRow(r.key, { quantity: Math.min(20, Math.max(1, Math.trunc(Number(e.target.value) || 1))) })}
+												onChange={(e: { target: { value: string } }) =>
+													patchRow(r.key, {
+														quantity: Math.min(
+															20,
+															Math.max(1, Math.trunc(Number(e.target.value) || 1)),
+														),
+													})
+												}
 											/>
 										</label>
 										{mode === 'start' && (
-											<label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, font: `11px ${T.sans}`, color: T.ter }}>
+											<label
+												style={{
+													display: 'inline-flex',
+													alignItems: 'center',
+													gap: 5,
+													font: `11px ${T.sans}`,
+													color: T.ter,
+												}}
+											>
 												CR
 												<Input
 													type="number"
@@ -450,13 +560,19 @@ export function EncounterDialog({
 													value={r.cr}
 													aria-label={`${r.name} challenge rating`}
 													style={{ width: 62, textAlign: 'center', fontFamily: T.mono }}
-													onChange={(e: { target: { value: string } }) => patchRow(r.key, { cr: Math.max(0, Number(e.target.value) || 0) })}
+													onChange={(e: { target: { value: string } }) =>
+														patchRow(r.key, { cr: Math.max(0, Number(e.target.value) || 0) })
+													}
 												/>
 											</label>
 										)}
 										<IconButton
 											icon={r.hidden ? 'visibility-hidden' : 'visibility-players'}
-											label={r.hidden ? `${r.name} starts hidden from players` : `${r.name} starts visible to players`}
+											label={
+												r.hidden
+													? `${r.name} starts hidden from players`
+													: `${r.name} starts visible to players`
+											}
 											variant="ghost"
 											size="sm"
 											aria-pressed={r.hidden}
@@ -464,23 +580,54 @@ export function EncounterDialog({
 										/>
 									</>
 								)}
-								<IconButton icon="close" label={`Remove ${r.name} from the draft`} variant="ghost" size="sm" onClick={() => setRows((prev) => prev.filter((x) => x.key !== r.key))} />
+								<IconButton
+									icon="close"
+									label={`Remove ${r.name} from the draft`}
+									variant="ghost"
+									size="sm"
+									onClick={() => setRows((prev) => prev.filter((x) => x.key !== r.key))}
+								/>
 							</div>
 						))
 					)}
 					<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-						Blank initiative auto-rolls a d20{mode === 'start' ? ' + DEX modifier' : ''}. Hidden foes show players an “Unknown creature” placeholder.
+						Blank initiative auto-rolls a d20{mode === 'start' ? ' + DEX modifier' : ''}. Hidden
+						foes show players an “Unknown creature” placeholder.
 					</div>
 				</div>
 
 				{/* Challenge budget — the deterministic core guidance (the template's XP-budget meter). */}
 				{mode === 'start' && (
-					<div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap', borderTop: `1px solid ${T.bd}`, paddingTop: 12 }}>
+					<div
+						style={{
+							display: 'flex',
+							alignItems: 'flex-end',
+							gap: 12,
+							flexWrap: 'wrap',
+							borderTop: `1px solid ${T.bd}`,
+							paddingTop: 12,
+						}}
+					>
 						<Field label="Party size" style={{ width: 84 }}>
-							<Input type="number" min={1} value={partySize} onChange={(e: { target: { value: string } }) => setPartySize(Math.max(1, Math.trunc(Number(e.target.value) || 1)))} />
+							<Input
+								type="number"
+								min={1}
+								value={partySize}
+								onChange={(e: { target: { value: string } }) =>
+									setPartySize(Math.max(1, Math.trunc(Number(e.target.value) || 1)))
+								}
+							/>
 						</Field>
 						<Field label="Avg level" style={{ width: 84 }}>
-							<Input type="number" min={1} max={20} value={partyLevel} onChange={(e: { target: { value: string } }) => setPartyLevel(Math.min(20, Math.max(1, Math.trunc(Number(e.target.value) || 1))))} />
+							<Input
+								type="number"
+								min={1}
+								max={20}
+								value={partyLevel}
+								onChange={(e: { target: { value: string } }) =>
+									setPartyLevel(Math.min(20, Math.max(1, Math.trunc(Number(e.target.value) || 1))))
+								}
+							/>
 						</Field>
 						<div style={{ flex: '1 1 200px', minWidth: 160 }}>
 							<ProgressMeter
@@ -488,11 +635,21 @@ export function EncounterDialog({
 								value={challenge.encounterPoints}
 								max={Math.max(1, challenge.partyDeadlyThreshold)}
 								valueLabel={`${challenge.encounterPoints} / ${challenge.partyDeadlyThreshold} pts`}
-								tone={challenge.difficulty === 'deadly' ? 'error' : challenge.difficulty === 'hard' ? 'warning' : 'accent'}
-								markers={[0.25, 0.5, 0.75].map((f) => Math.round(challenge.partyDeadlyThreshold * f))}
+								tone={
+									challenge.difficulty === 'deadly'
+										? 'error'
+										: challenge.difficulty === 'hard'
+											? 'warning'
+											: 'accent'
+								}
+								markers={[0.25, 0.5, 0.75].map((f) =>
+									Math.round(challenge.partyDeadlyThreshold * f),
+								)}
 							/>
 						</div>
-						<Badge status={DIFFICULTY_BADGE[challenge.difficulty] ?? 'neutral'}>{challenge.difficulty}</Badge>
+						<Badge status={DIFFICULTY_BADGE[challenge.difficulty] ?? 'neutral'}>
+							{challenge.difficulty}
+						</Badge>
 					</div>
 				)}
 			</div>

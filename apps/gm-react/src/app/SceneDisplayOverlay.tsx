@@ -9,6 +9,7 @@ import {
 	subscribeSceneDisplayRequests,
 } from '../platform/sceneDisplayChannel';
 import { Button, IconButton } from '../ds';
+import { useI18n } from '../i18n';
 import { registerBackHandler } from '../platform/backNavigation';
 import { usePlatformCapabilities } from '../platform/capabilities';
 import { isolateModalSiblings } from '../platform/modalIsolation';
@@ -56,6 +57,7 @@ export function useSceneDisplayBroadcast(runtime: SceneRuntime): void {
 export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
 	const runtime = useRuntime();
 	const capabilities = usePlatformCapabilities();
+	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
 	const overlayRef = useRef<HTMLDivElement>(null);
 	const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -133,7 +135,7 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 			data-scene-display-overlay="true"
 			role="dialog"
 			aria-modal="true"
-			aria-label="Scene display"
+			aria-label={t('Scene display')}
 			tabIndex={-1}
 			style={{ position: 'fixed', inset: 0, zIndex: 120, background: '#05070c' }}
 		>
@@ -164,10 +166,12 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 					disabled={display.queuedCount === 0}
 					onClick={() => void advance()}
 				>
-					Advance{display.queuedCount > 0 ? ` (${display.queuedCount})` : ''}
+					{display.queuedCount > 0
+						? t('Next card ({count} queued)', { count: display.queuedCount })
+						: t('Next card')}
 				</Button>
 				<Button variant="ghost" size="sm" disabled={!display.active} onClick={() => void clear()}>
-					Clear
+					{t('Clear display')}
 				</Button>
 				<Button
 					variant="ghost"
@@ -175,13 +179,19 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 					icon="display"
 					disabled={!capabilities.secondScreen.available}
 					title={capabilities.secondScreen.unavailableMessage ?? undefined}
+					aria-label={
+						capabilities.secondScreen.available
+							? t('Open on a second screen')
+							: (capabilities.secondScreen.unavailableMessage ??
+								t('Second screen is not available on this device'))
+					}
 					onClick={() => openSecondScreen()}
 				>
-					Second screen
+					{t('Second screen')}
 				</Button>
 				<IconButton
 					icon="close"
-					label="Exit scene display"
+					label={t('Exit scene display')}
 					variant="ghost"
 					size="sm"
 					onClick={onClose}

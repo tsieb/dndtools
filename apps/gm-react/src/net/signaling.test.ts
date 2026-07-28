@@ -66,7 +66,7 @@ describe('connection code encode/decode', () => {
 
 	it('rejects structurally incomplete payloads', async () => {
 		const malformed = { ...answer, actorId: '' };
-		await expect(encodeCode(malformed as AnswerPayload)).rejects.toThrow(/invalid payload/i);
+		await expect(encodeCode(malformed as AnswerPayload)).rejects.toThrow(/not valid/i);
 	});
 });
 

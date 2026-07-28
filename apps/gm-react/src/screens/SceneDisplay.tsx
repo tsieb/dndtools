@@ -55,7 +55,7 @@ export function SceneDisplaySurface({
 
 	if (!active) {
 		return (
-			<div className="scene-display" role="img" aria-label="Scene display is idle">
+			<div className="scene-display" role="img" aria-label="No scene on display">
 				<div
 					style={{
 						position: 'absolute',

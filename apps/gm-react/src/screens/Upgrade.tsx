@@ -328,7 +328,7 @@ export function Upgrade() {
 						padding: '2px 8px',
 					}}
 				>
-					Planned: 2 months less
+					Planned: 2 months free
 				</span>
 			</div>
 

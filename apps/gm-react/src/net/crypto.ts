@@ -20,7 +20,7 @@ const MAX_PLAINTEXT_FRAME_BYTES = 3 * 1024 * 1024;
 
 const subtle = (): SubtleCrypto => {
 	if (typeof crypto === 'undefined' || !crypto.subtle) {
-		throw new Error('WebCrypto (crypto.subtle) is unavailable in this environment.');
+		throw new Error('This browser can’t run encrypted play — update it or use the desktop app.');
 	}
 	return crypto.subtle;
 };
@@ -33,7 +33,7 @@ function bytesToBase64(bytes: Uint8Array): string {
 
 function base64ToBytes(b64: string, maxChars = MAX_SEALED_FRAME_CHARS): Uint8Array {
 	if (b64.length > maxChars || !/^[A-Za-z0-9+/]*={0,2}$/.test(b64)) {
-		throw new Error('Malformed base64 frame.');
+		throw new Error('The encrypted message couldn’t be read.');
 	}
 	const binary = atob(b64);
 	const bytes = new Uint8Array(binary.length);
@@ -66,7 +66,8 @@ export async function exportKeyBase64(key: CryptoKey): Promise<string> {
 /** Import a base64 raw AES-GCM key received in a pairing payload. */
 export async function importKeyBase64(b64: string): Promise<CryptoKey> {
 	const raw = base64ToBytes(b64, 64);
-	if (raw.byteLength !== 32) throw new Error('Invalid session key.');
+	if (raw.byteLength !== 32)
+		throw new Error('The connection key is not valid — create a fresh invitation.');
 	return subtle().importKey('raw', toArrayBuffer(raw), { name: 'AES-GCM' }, true, [
 		'encrypt',
 		'decrypt',
@@ -81,7 +82,7 @@ export async function seal(key: CryptoKey, message: PeerMessage): Promise<string
 	const iv = crypto.getRandomValues(new Uint8Array(12));
 	const plaintext = new TextEncoder().encode(JSON.stringify(message));
 	if (plaintext.byteLength > MAX_PLAINTEXT_FRAME_BYTES)
-		throw new Error('Peer message is too large.');
+		throw new Error('The message is too large to send.');
 	const ct = new Uint8Array(
 		await subtle().encrypt(
 			{ name: 'AES-GCM', iv: toArrayBuffer(iv) },
@@ -99,14 +100,15 @@ export async function seal(key: CryptoKey, message: PeerMessage): Promise<string
  */
 export async function open(key: CryptoKey, sealed: string): Promise<unknown> {
 	if (sealed.length < 1 || sealed.length > MAX_SEALED_FRAME_CHARS)
-		throw new Error('Sealed frame is too large.');
+		throw new Error('The encrypted message is too large to read.');
 	const dot = sealed.indexOf('.');
-	if (dot < 0 || sealed.indexOf('.', dot + 1) >= 0) throw new Error('Malformed sealed frame.');
+	if (dot < 0 || sealed.indexOf('.', dot + 1) >= 0)
+		throw new Error('The encrypted message couldn’t be read.');
 	const iv = base64ToBytes(sealed.slice(0, dot), 32);
-	if (iv.byteLength !== 12) throw new Error('Malformed sealed frame.');
+	if (iv.byteLength !== 12) throw new Error('The encrypted message couldn’t be read.');
 	const ct = base64ToBytes(sealed.slice(dot + 1));
 	if (ct.byteLength < 17 || ct.byteLength > MAX_PLAINTEXT_FRAME_BYTES + 16) {
-		throw new Error('Malformed sealed frame.');
+		throw new Error('The encrypted message couldn’t be read.');
 	}
 	const plaintext = new Uint8Array(
 		await subtle().decrypt({ name: 'AES-GCM', iv: toArrayBuffer(iv) }, key, toArrayBuffer(ct)),

@@ -129,7 +129,7 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 						<MenuLabel>Preview as</MenuLabel>
 						<MenuItem
 							icon="visibility-players"
-							label="Generic player"
+							label="Any player"
 							active={!!preview && preview.role === 'player' && !preview.specific}
 							onClick={() => preview_({ role: 'player' }, 'Player')}
 						/>

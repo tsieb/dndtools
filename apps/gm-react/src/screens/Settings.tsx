@@ -1363,7 +1363,7 @@ function InvitesPanel({
 					inset
 					icon="send"
 					title="No pending invites"
-					description="“Invite player” mints a shareable join link (it expires after 14 days)."
+					description="“Invite player” creates a shareable join link (it expires after 14 days)."
 				/>
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -1397,6 +1397,9 @@ function InvitesPanel({
 									icon="link"
 									disabled={busy || !joinUrl}
 									title={joinUrl ? undefined : 'Public app URL is not configured'}
+									aria-label={
+										joinUrl ? 'Copy join link' : 'Copy link (unavailable — public app URL is not configured)'
+									}
 									onClick={() => joinUrl && void copyText(joinUrl, 'Join link copied.')}
 								>
 									Copy link
@@ -1455,7 +1458,7 @@ function InvitesPanel({
 				description={
 					minted
 						? 'Send this link however you like — it works for 14 days or until you revoke it.'
-						: 'Mints a shareable join link — add an email to send it, or share the link yourself.'
+						: 'Creates a shareable join link — add an email to send it, or share the link yourself.'
 				}
 				icon="send"
 				size="md"
@@ -2409,7 +2412,7 @@ function VaultPrivacyPanel() {
 			title="Vault privacy mode"
 			action={
 				<Badge status={isPrivate ? 'success' : 'info'}>
-					{isPrivate ? 'Private (E2EE)' : 'Cloud-Enhanced'}
+					{isPrivate ? 'Private (end-to-end encrypted)' : 'Cloud-Enhanced'}
 				</Badge>
 			}
 		>
@@ -4253,7 +4256,7 @@ function SettingsToolPreferences() {
 		setPreference(next);
 		Toaster.success(
 			next === 'complete'
-				? 'Complete use enabled. AI & tools is now available in Settings.'
+				? 'Assistant enabled. AI & tools is now available in Settings.'
 				: next === 'generation-only'
 					? 'Random generation stays available. AI tools are hidden and blocked.'
 					: 'AI tools are hidden and blocked.',
@@ -4262,9 +4265,9 @@ function SettingsToolPreferences() {
 	return (
 		<Panel title="Tool preferences">
 			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-				Control optional tools for this device. Choosing anything except Complete use immediately
-				hides the assistant and provider setup, and blocks model requests even if a key remains
-				stored.
+				Control optional tools for this device. Anything except “Assistant and generators”
+				immediately hides the assistant and its setup, and blocks model requests even if a key
+				remains stored.
 			</div>
 			<div
 				role="radiogroup"
@@ -4279,13 +4282,13 @@ function SettingsToolPreferences() {
 					[
 						{
 							id: 'complete' as const,
-							title: 'Complete use',
-							desc: 'Use the optional campaign assistant and its provider setup, plus built-in generators.',
+							title: 'Assistant and generators',
+							desc: 'Use the optional campaign assistant and its setup, plus built-in generators.',
 						},
 						{
 							id: 'generation-only' as const,
-							title: 'Random generation stuff',
-							desc: 'Keep built-in offline generators. Assistant, provider, and model controls stay hidden.',
+							title: 'Generators only',
+							desc: 'Keep built-in offline generators. Assistant and model controls stay hidden.',
 						},
 						{
 							id: 'none' as const,

@@ -33,10 +33,13 @@ const SEARCH_HIT_LIMIT = 15;
  * `routeForHit`), and its icon. Notes/objects live in Knowledge, POIs in the Atlas, handouts and
  * session artifacts in the Session section.
  */
-const HIT_PRESENTATION: Record<SearchHit['type'], { group: string; route: string; icon: string; kind: string }> = {
+const HIT_PRESENTATION: Record<
+	SearchHit['type'],
+	{ group: string; route: string; icon: string; kind: string }
+> = {
 	note: { group: 'Notes', route: '/knowledge', icon: 'knowledge-book', kind: 'Note' },
-	object: { group: 'Notes', route: '/campaign', icon: 'knowledge-book', kind: 'Dossier' },
-	poi: { group: 'Map locations', route: '/atlas', icon: 'poi', kind: 'POI' },
+	object: { group: 'Notes', route: '/campaign', icon: 'knowledge-book', kind: 'Story entry' },
+	poi: { group: 'Map locations', route: '/atlas', icon: 'poi', kind: 'Point of interest' },
 	handout: { group: 'Session', route: '/session', icon: 'scroll', kind: 'Handout' },
 	'session-artifact': { group: 'Session', route: '/session', icon: 'dice', kind: 'Roll' },
 };
@@ -113,10 +116,14 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 				icon: 'scene',
 				group: 'Scenes',
 				keywords: s.tags.join(' '),
-				description: s.visibility === 'dm-only' ? 'DM-only' : 'Shared',
+				description: s.visibility === 'dm-only' ? 'DM only' : 'Shared',
 				run: goTo(`/scene/${s.id}`),
 			}));
-		const characters = listCharactersForActor(runtime.state.characters, runtime.state.permissions, actorId)
+		const characters = listCharactersForActor(
+			runtime.state.characters,
+			runtime.state.permissions,
+			actorId,
+		)
 			.slice(0, 12)
 			.map((c) => ({
 				id: `char:${c.id}`,
@@ -134,7 +141,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 				icon: 'atlas-map',
 				group: 'Maps',
 				keywords: m.description,
-				description: m.visibility === 'dm-only' ? 'DM-only' : 'Shared',
+				description: m.visibility === 'dm-only' ? 'DM only' : 'Shared',
 				// Deep-link the SPECIFIC map (`?map=…` — the Atlas deep-link contract), not the list.
 				run: goTo(`/atlas?map=${encodeURIComponent(m.id)}`),
 			}));
@@ -142,13 +149,62 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 		// leaving the user on a list hunting for the button). Keywords cover the words a GM actually
 		// types — "npc", "location", "quest" — not just our screen names.
 		const creates: PaletteCommand[] = [
-			{ id: 'new:scene', label: 'New scene', icon: 'add', group: 'Create', keywords: 'canvas board battle stage', run: goTo('/scenes') },
-			{ id: 'new:character', label: 'New character', icon: 'new-character', group: 'Create', keywords: 'pc party player hero', run: goTo('/characters', { create: true }) },
-			{ id: 'new:npc', label: 'New NPC or monster', icon: 'new-character', group: 'Create', keywords: 'npc monster villain creature bestiary sidekick', run: goTo('/characters', { create: true, kind: 'npc' }) },
-			{ id: 'new:note', label: 'New note', icon: 'note-edit', group: 'Create', keywords: 'quest thread lore location place handout journal wiki', run: goTo('/knowledge', { create: true }) },
-			{ id: 'new:map', label: 'New map', icon: 'new-map', group: 'Create', keywords: 'location place battlemap dungeon atlas poi', run: goTo('/atlas', { create: true }) },
-			{ id: 'new:faction', label: 'New faction', icon: 'flag', group: 'Create', keywords: 'cult guild order organization dossier', run: goTo('/campaign', { createFaction: true }) },
-			{ id: 'new:encounter', label: 'Build encounter', icon: 'sword', group: 'Create', keywords: 'combat fight initiative monsters battle', run: goTo('/session') },
+			{
+				id: 'new:scene',
+				label: 'New scene',
+				icon: 'add',
+				group: 'Create',
+				keywords: 'canvas board battle stage',
+				run: goTo('/scenes'),
+			},
+			{
+				id: 'new:character',
+				label: 'New character',
+				icon: 'new-character',
+				group: 'Create',
+				keywords: 'pc party player hero',
+				run: goTo('/characters', { create: true }),
+			},
+			{
+				id: 'new:npc',
+				label: 'New NPC or monster',
+				icon: 'new-character',
+				group: 'Create',
+				keywords: 'npc monster villain creature bestiary sidekick',
+				run: goTo('/characters', { create: true, kind: 'npc' }),
+			},
+			{
+				id: 'new:note',
+				label: 'New note',
+				icon: 'note-edit',
+				group: 'Create',
+				keywords: 'quest thread lore location place handout journal wiki',
+				run: goTo('/knowledge', { create: true }),
+			},
+			{
+				id: 'new:map',
+				label: 'New map',
+				icon: 'new-map',
+				group: 'Create',
+				keywords: 'location place battlemap dungeon atlas poi',
+				run: goTo('/atlas', { create: true }),
+			},
+			{
+				id: 'new:faction',
+				label: 'New faction',
+				icon: 'flag',
+				group: 'Create',
+				keywords: 'cult guild order organization dossier',
+				run: goTo('/campaign', { createFaction: true }),
+			},
+			{
+				id: 'new:encounter',
+				label: 'Build encounter',
+				icon: 'sword',
+				group: 'Create',
+				keywords: 'combat fight initiative monsters battle',
+				run: goTo('/session'),
+			},
 		];
 
 		// Full-text hits from the core search engine — only once the user typed something (a blank
@@ -196,7 +252,16 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 				open={open}
 				onClose={onClose}
 				commands={commands}
-				groupOrder={['Create', 'Go to', 'Scenes', 'Characters', 'Maps', 'Notes', 'Map locations', 'Session']}
+				groupOrder={[
+					'Create',
+					'Go to',
+					'Scenes',
+					'Characters',
+					'Maps',
+					'Notes',
+					'Map locations',
+					'Session',
+				]}
 				placeholder="Search notes, maps, handouts, scenes, characters…"
 			/>
 		</div>

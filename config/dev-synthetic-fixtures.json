@@ -1,0 +1,15 @@
+{
+	"version": 1,
+	"tag": "dndtools:synthetic-fixture:v1",
+	"policy": "Synthetic data only. Never export, copy, or replay production records.",
+	"personas": ["dm", "player", "observer", "entitled", "unentitled"],
+	"fixtures": [
+		"rich-demo-campaign",
+		"collaboration-room",
+		"encrypted-cloud-backup",
+		"large-campaign",
+		"android-quick-map",
+		"deliberate-api-failure"
+	],
+	"reset": "Authenticated dev-only API command deletes only records bearing tag, then recreates fixtures through public app/API paths. Run nightly and on demand."
+}

@@ -48,6 +48,7 @@ const ssmOptional = (name) => {
 
 const env = {
 	VITE_CLOUD_REGION: region,
+	VITE_CLOUD_STAGE: stage,
 	VITE_COGNITO_USER_POOL_ID: ssm('identity/user-pool-id'),
 	VITE_COGNITO_CLIENT_ID: ssm('identity/app-client-id'),
 	VITE_SIGNALING_WS_URL: ssm('signaling/ws-url'),
@@ -60,6 +61,7 @@ const env = {
 	// Google Docs vault-source OAuth client id (manual setup — docs/runbooks/google-oauth-setup.md).
 	// Absent ⇒ the Google Docs source option stays hidden (fail closed).
 	VITE_GOOGLE_CLIENT_ID: ssmOptional('google/client-id'),
+	VITE_FEATURE_FLAGS: ssmOptional('config/feature-flags'),
 };
 
 const here = dirname(fileURLToPath(import.meta.url));

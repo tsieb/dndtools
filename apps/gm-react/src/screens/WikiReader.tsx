@@ -264,7 +264,7 @@ export function WikiReader() {
 			<div data-theme="parchment" style={WRAP}>
 				<Notice icon="warning" title="No wiki link">
 					<div style={{ font: '13px/1.6 var(--font-sans)', color: 'var(--color-text-secondary)' }}>
-						This address is missing its wiki id. Ask whoever shared it to copy the full link again.
+						This link is incomplete. Ask whoever shared it to copy the full link again.
 					</div>
 				</Notice>
 			</div>

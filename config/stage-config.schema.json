@@ -1,0 +1,45 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "DND Tools stage configuration",
+	"type": "object",
+	"required": [
+		"version",
+		"stage",
+		"region",
+		"allowedOrigins",
+		"logRetentionDays",
+		"diagnosticEndpoint",
+		"capabilities",
+		"featureFlags"
+	],
+	"properties": {
+		"version": { "const": 1 },
+		"stage": { "enum": ["dev", "prod"] },
+		"region": { "pattern": "^[a-z]{2}(?:-gov)?-[a-z]+-[0-9]$" },
+		"allowedOrigins": {
+			"type": "array",
+			"minItems": 1,
+			"items": { "pattern": "^https://[^/?#]+$" }
+		},
+		"logRetentionDays": { "enum": [14, 90] },
+		"diagnosticEndpoint": { "type": "string", "pattern": "^https://[^/?#]+(?:/[^?#]*)?$" },
+		"capabilities": {
+			"type": "object",
+			"required": ["cloudSync", "remotePlay", "clientTelemetry"],
+			"additionalProperties": { "type": "boolean" }
+		},
+		"featureFlags": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"required": ["key", "enabled", "owner", "expiresAt"],
+				"properties": {
+					"key": { "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+					"enabled": { "type": "boolean" },
+					"owner": { "pattern": "^[a-z0-9._-]+$" },
+					"expiresAt": { "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" }
+				}
+			}
+		}
+	}
+}

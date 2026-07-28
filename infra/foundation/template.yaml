@@ -22,7 +22,7 @@ Parameters:
     Description: Email address that receives Budget threshold alerts.
   MonthlyBudgetUsd:
     Type: Number
-    Default: 25
+    Default: 15
     Description: Monthly cost ceiling in USD. Alerts fire at 40/80/100% (see below).
   GitHubOrg:
     Type: String
@@ -398,6 +398,100 @@ Resources:
       Value: !Ref CiDeployBoundary
       Description: Required permissions boundary for every CI-created Lambda and EC2 service role.
 
+  # Deliberately non-secret, server-owned capability snapshot. Clients may use this for
+  # presentation only; protected API behaviour must enforce its own policy. SSM changes
+  # are CloudTrail-audited and production promotion records the config version.
+  ParamFeatureFlags:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/config/feature-flags'
+      Type: String
+      Value: !If
+        - IsProd
+        - '{"version":1,"flags":{"experimental-ai-runs":false}}'
+        - '{"version":1,"flags":{"experimental-ai-runs":true}}'
+      Description: Non-secret, server-controlled feature flag snapshot. Owners and expiry are in config/stages.
+
+  AuditTrailBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub '${ProjectName}-${Stage}-cloudtrail-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-audit-objects
+            Status: Enabled
+            ExpirationInDays: !If [IsProd, 365, 30]
+            NoncurrentVersionExpiration:
+              NoncurrentDays: !If [IsProd, 365, 30]
+      Tags:
+        - { Key: project, Value: !Ref ProjectName }
+        - { Key: stage, Value: !Ref Stage }
+        - { Key: service, Value: foundation }
+        - { Key: owner, Value: platform }
+        - { Key: data-class, Value: operational }
+
+  AuditTrailBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AuditTrailBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AWSCloudTrailAclCheck
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: s3:GetBucketAcl
+            Resource: !GetAtt AuditTrailBucket.Arn
+            Condition:
+              StringEquals:
+                aws:SourceArn: !Sub 'arn:aws:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/${ProjectName}-${Stage}'
+          - Sid: AWSCloudTrailWrite
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub '${AuditTrailBucket.Arn}/AWSLogs/${AWS::AccountId}/*'
+            Condition:
+              StringEquals:
+                s3:x-amz-acl: bucket-owner-full-control
+                aws:SourceArn: !Sub 'arn:aws:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/${ProjectName}-${Stage}'
+
+  AuditTrail:
+    Type: AWS::CloudTrail::Trail
+    DependsOn: AuditTrailBucketPolicy
+    Properties:
+      TrailName: !Sub '${ProjectName}-${Stage}'
+      S3BucketName: !Ref AuditTrailBucket
+      IncludeGlobalServiceEvents: true
+      IsLogging: true
+      IsMultiRegionTrail: true
+      EnableLogFileValidation: true
+      EventSelectors:
+        - IncludeManagementEvents: true
+          ReadWriteType: All
+
+  ParamAuditTrailArn:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/ops/cloudtrail-arn'
+      Type: String
+      Value: !GetAtt AuditTrail.Arn
+      Description: Account audit trail ARN for promotion/runbook checks.
+
   # Shared destination for service alarms. Email subscription confirmation is
   # required once per stage; downstream stacks resolve the topic ARN from SSM.
   OperationalAlertsTopic:
@@ -408,6 +502,30 @@ Resources:
       Tags:
         - { Key: project, Value: !Ref ProjectName }
         - { Key: stage, Value: !Ref Stage }
+        - { Key: service, Value: foundation }
+        - { Key: owner, Value: platform }
+        - { Key: data-class, Value: operational }
+
+  # Account-level monitor is stage-scoped because dev and prod live in separate
+  # accounts. The low threshold provides an early warning; it never blocks usage.
+  CostAnomalyMonitor:
+    Type: AWS::CE::AnomalyMonitor
+    Properties:
+      MonitorName: !Sub '${ProjectName}-${Stage}-account-cost-anomalies'
+      MonitorType: DIMENSIONAL
+      MonitorDimension: SERVICE
+
+  CostAnomalySubscription:
+    Type: AWS::CE::AnomalySubscription
+    Properties:
+      SubscriptionName: !Sub '${ProjectName}-${Stage}-cost-anomaly-alerts'
+      # SNS subscribers require immediate delivery; daily/weekly batching is email-only.
+      Frequency: IMMEDIATE
+      MonitorArnList: [!GetAtt CostAnomalyMonitor.MonitorArn]
+      Subscribers:
+        - Address: !Ref OperationalAlertsTopic
+          Type: SNS
+      Threshold: 1
 
   OperationalAlertsEmail:
     Type: AWS::SNS::Subscription
@@ -439,3 +557,9 @@ Outputs:
   OperationalAlertsTopicArn:
     Description: Confirm the email subscription before relying on alarm delivery.
     Value: !Ref OperationalAlertsTopic
+  CostAnomalyMonitorArn:
+    Description: Daily account-level cost anomaly monitor (alerts through operations SNS).
+    Value: !GetAtt CostAnomalyMonitor.MonitorArn
+  AuditTrailArn:
+    Description: Account CloudTrail ARN for audit and drift review.
+    Value: !GetAtt AuditTrail.Arn

@@ -10,7 +10,7 @@ confirm_changeset = false
 resolve_s3 = true
 s3_prefix = "dndtools-dev-web-hosting"
 parameter_overrides = "ProjectName=dndtools Stage=dev"
-tags = "project=dndtools stage=dev stack=web-hosting managed-by=sam"
+tags = "project=dndtools stage=dev service=web-hosting owner=platform data-class=public managed-by=sam"
 
 [prod.global.parameters]
 stack_name = "dndtools-prod-web-hosting"
@@ -22,4 +22,4 @@ confirm_changeset = true
 resolve_s3 = true
 s3_prefix = "dndtools-prod-web-hosting"
 parameter_overrides = "ProjectName=dndtools Stage=prod"
-tags = "project=dndtools stage=prod stack=web-hosting managed-by=sam"
+tags = "project=dndtools stage=prod service=web-hosting owner=platform data-class=public managed-by=sam"

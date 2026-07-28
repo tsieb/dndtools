@@ -198,14 +198,14 @@ export class SessionHost {
 	async acceptAnswer(answerCode: string): Promise<void> {
 		const answer = await decodeCode<AnswerPayload>(answerCode);
 		if (answer.role !== 'answer' || answer.sessionId !== this.sessionId) {
-			throw new Error('This answer code does not match the current session.');
+			throw new Error('This reply code doesn’t match the current session.');
 		}
 		// Match the identity echoed from the offer. This keeps simultaneous manual/LAN invitations from
 		// applying one player's SDP to another player's peer connection.
 		const pending = [...this.peers.values()]
 			.reverse()
 			.find((p) => !p.connected && p.actorId === answer.actorId);
-		if (!pending) throw new Error('No matching invitation is waiting for this answer.');
+		if (!pending) throw new Error('No open invitation matches this reply code.');
 		await applyAnswer(this.pcOf(pending), answer.sdp);
 	}
 
@@ -235,7 +235,7 @@ export class SessionHost {
 
 	private pcOf(peer: InternalPeer): RTCPeerConnection {
 		const pc = this.pcByPeer.get(peer);
-		if (!pc) throw new Error('Missing peer connection handle.');
+		if (!pc) throw new Error('That connection is no longer available — create a fresh invitation.');
 		return pc;
 	}
 

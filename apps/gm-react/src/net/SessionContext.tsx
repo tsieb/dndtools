@@ -484,7 +484,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 	// The joiner must hold the DM's join code (session id + PIN); the PIN gates admission.
 	const connectOnlineByCode = useCallback(
 		async (joinCode: string) => {
-			if (!isCloudConfigured) throw new Error('Online play is not configured in this build.');
+			if (!isCloudConfigured) throw new Error('Online play isn’t set up for this install.');
 			if (!cloudIncludedInPlan) {
 				throw new Error(
 					'Internet remote play is included in the Lantern and Beacon preview plans.',

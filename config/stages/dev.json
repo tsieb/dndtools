@@ -1,0 +1,17 @@
+{
+	"version": 1,
+	"stage": "dev",
+	"region": "ca-central-1",
+	"allowedOrigins": ["https://d1xn0o010v89mt.cloudfront.net"],
+	"logRetentionDays": 14,
+	"diagnosticEndpoint": "https://d1xn0o010v89mt.cloudfront.net/health",
+	"capabilities": { "cloudSync": true, "remotePlay": true, "clientTelemetry": true },
+	"featureFlags": [
+		{
+			"key": "experimental-ai-runs",
+			"enabled": true,
+			"owner": "engineering",
+			"expiresAt": "2026-10-01"
+		}
+	]
+}

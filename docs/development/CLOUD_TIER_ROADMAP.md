@@ -58,13 +58,13 @@ monetizes). Reject Firebase/Firestore/Cloud Run/GCS as replacements for the hard
 1. ✅ **ADR-026 + threat model: opt-in vault privacy modes** (2026-07-23). Phase 1 shipped: forced
    consent, mode-aware gates, Cloud-Enhanced record fail-closed (`approved: false`) pending the
    phase-2 security review.
-2. 🟨 **Prod stage rollout** (bootstrapped 2026-07-23). `dndtools-prod-foundation` is deployed
-   (budget alarm, `dndtools-prod-ci-deploy` OIDC role trusting the protected GitHub `production`
-   environment); the `production` environment exists with a required reviewer, main-only branch
-   policy, and `AWS_PROD_DEPLOY_ROLE_ARN` / `COGNITO_EMAIL_SOURCE_ARN` / `COGNITO_EMAIL_FROM` set.
-   SES verification for the Cognito sender was initiated. Remaining (operator clicks only):
-   confirm the SES verification email + prod SNS alarm subscription, then run
-   `promote-production.yml` and approve its environment gate.
+2. 🟨 **Prod stage rollout.** The protected GitHub `production` environment exists, but as of
+   2026-07-28 the live wiring still points at the shared `dndtools` dev account. The adopted
+   topology now requires a separate production AWS account with its own OIDC provider, deploy role,
+   budget/alarm wiring, SES sender identity, and SNS subscription. Remaining:
+   create/bootstrap the dedicated prod account, move `AWS_PROD_DEPLOY_ROLE_ARN` and Cognito sender
+   variables to that account, confirm the SES verification email + prod SNS alarm subscription, then
+   run `promote-production.yml` and approve its environment gate.
 3. ✅ **Recovery-key export for E2EE backup** (2026-07-23, ADR-026): passphrase-sealed keyring
    export/import in Settings; Private-mode recovery declaration flips to `supported`.
 

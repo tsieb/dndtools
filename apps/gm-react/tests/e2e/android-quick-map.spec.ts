@@ -41,7 +41,7 @@ async function openQuickMap(page: Page, suffix: string): Promise<{ mapId: string
 	const mapId = result.events?.find((event) => event.kind === 'map.created')?.mapId;
 	expect(mapId).toBeTruthy();
 	await page.getByRole('button', { name, exact: true }).click();
-	await page.getByRole('button', { name: 'Open in builder' }).click();
+	await page.getByRole('button', { name: 'Open in map editor' }).click();
 	await expect(page.getByRole('dialog', { name: `Map editor — ${name}` })).toBeVisible();
 	return { mapId: String(mapId), name };
 }
@@ -370,7 +370,7 @@ test.describe('Android quick map', () => {
 
 		await page.getByRole('button', { name: 'More map actions' }).click();
 		const download = page.waitForEvent('download');
-		await page.getByRole('button', { name: 'Export UVTT (.dd2vtt)' }).click();
+		await page.getByRole('button', { name: 'Export for other VTTs (.dd2vtt)' }).click();
 		expect((await download).suggestedFilename()).toMatch(/\.dd2vtt$/);
 
 		await page.getByRole('button', { name: 'More map actions' }).click();
@@ -387,7 +387,7 @@ test.describe('Android quick map', () => {
 		});
 		await expect(importDialog.getByText('quick-map-alpha.svg')).toBeVisible();
 		await importDialog.getByRole('button', { name: 'Preview' }).click();
-		await expect(importDialog.getByText('Content hash')).toBeVisible();
+		await expect(importDialog.getByText('File fingerprint')).toBeVisible();
 		await importDialog.getByRole('button', { name: 'Import' }).click();
 		await expect(importDialog.getByText(`Import committed to “${name}”`)).toBeVisible();
 		await expect

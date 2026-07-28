@@ -123,7 +123,7 @@ function readMap(page: Page, mapId: string): Promise<MapSnapshot | null> {
  */
 async function openEditor(page: Page, mapName: string): Promise<void> {
 	await page.getByRole('button', { name: mapName, exact: true }).click();
-	const openBtn = page.getByRole('button', { name: 'Open in builder' });
+	const openBtn = page.getByRole('button', { name: 'Open in map editor' });
 	await expect(openBtn).toBeEnabled();
 	await openBtn.click();
 	await expect(page.getByRole('dialog', { name: `Map editor — ${mapName}` })).toBeVisible();
@@ -425,7 +425,7 @@ test.describe('map editor', () => {
 		await page.getByRole('button', { name: 'Export', exact: true }).click();
 		const [download] = await Promise.all([
 			page.waitForEvent('download'),
-			page.getByRole('button', { name: 'Export UVTT (.dd2vtt)' }).click(),
+			page.getByRole('button', { name: 'Export for other VTTs (.dd2vtt)' }).click(),
 		]);
 		expect(download.suggestedFilename()).toMatch(/\.dd2vtt$/);
 

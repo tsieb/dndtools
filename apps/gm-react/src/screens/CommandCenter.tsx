@@ -105,14 +105,14 @@ function SceneTile({
 				</div>
 				{status === 'draft' && (
 					<div style={{ position: 'absolute', top: 9, left: 9, color: T.ter }}>
-						<Icon name="lock" size="sm" label="Unpublished" />
+						<Icon name="lock" size="sm" label="Draft — not visible to players" />
 					</div>
 				)}
 			</div>
 			<div style={{ padding: '10px 13px' }}>
 				<div style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>{scene.name}</div>
 				<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-					{scene.tags[0] ?? 'scene'} · {widgetCount} {widgetCount === 1 ? 'widget' : 'widgets'}
+					{scene.tags[0] ?? 'Scene'} · {widgetCount} {widgetCount === 1 ? 'widget' : 'widgets'}
 				</div>
 			</div>
 		</button>
@@ -283,7 +283,12 @@ export function CommandCenter() {
 	const manage = [
 		{ id: 'players', icon: 'characters-person', label: 'Players', meta: 'Roster & invites' },
 		{ id: 'permissions', icon: 'dm-only', label: 'Permissions', meta: 'Roles & capability grants' },
-		{ id: 'vault', icon: 'settings-gear', label: 'Vault connections', meta: 'Sources & sync' },
+		{
+			id: 'vault',
+			icon: 'settings-gear',
+			label: 'Vault connections',
+			meta: 'Connected note sources',
+		},
 	];
 
 	const libraryCounts: Record<string, string> = {
@@ -381,6 +386,8 @@ export function CommandCenter() {
 							<span
 								key={p.id}
 								title={p.name}
+								role="img"
+								aria-label={p.name}
 								style={{
 									marginLeft: i ? -8 : 0,
 									borderRadius: '50%',

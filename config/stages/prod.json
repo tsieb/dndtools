@@ -1,0 +1,17 @@
+{
+	"version": 1,
+	"stage": "prod",
+	"region": "ca-central-1",
+	"allowedOrigins": ["https://invalid.example"],
+	"logRetentionDays": 90,
+	"diagnosticEndpoint": "https://invalid.example/health",
+	"capabilities": { "cloudSync": true, "remotePlay": true, "clientTelemetry": false },
+	"featureFlags": [
+		{
+			"key": "experimental-ai-runs",
+			"enabled": false,
+			"owner": "engineering",
+			"expiresAt": "2026-10-01"
+		}
+	]
+}

@@ -308,7 +308,10 @@ function NoteViewer({
 						.dispatch({ type: 'content.restore-item', actorId, payload: { itemId } })
 						.then((restored) => {
 							if (restored.status === 'accepted') Toaster.success(`“${title}” restored`);
-							else Toaster.error(restored.rejection.message ?? 'The note could not be restored.');
+							else
+								Toaster.error(
+									restored.rejection.message ?? 'The note couldn’t be restored — try again.',
+								);
 						});
 				},
 			});
@@ -360,16 +363,21 @@ function NoteViewer({
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 							<Input
 								value={title}
+								aria-label="Note title"
 								onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
 								placeholder="Note title"
 							/>
 							<Textarea
 								value={body}
+								aria-label="Note body"
 								onChange={(e: { target: { value: string } }) => setBody(e.target.value)}
 								rows={18}
-								placeholder="Write in markdown — ## headings, > read-aloud, - lists, [[wikilinks]]"
+								placeholder="Write your note…"
 								style={{ fontFamily: T.mono, fontSize: 13, lineHeight: 1.6 }}
 							/>
+							<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+								Markdown supported — ## headings, &gt; read-aloud, - lists, [[wikilinks]].
+							</div>
 							{err && <span style={{ font: `12px ${T.sans}`, color: T.err }}>{err}</span>}
 							<div style={{ display: 'flex', gap: 8 }}>
 								<Button variant="primary" size="sm" icon="check" disabled={busy} onClick={save}>
@@ -487,6 +495,7 @@ function Composer({
 			<Input
 				value={title}
 				autoFocus
+				aria-label="New note title"
 				onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
 				placeholder="New note title…"
 				style={{ flex: 1 }}

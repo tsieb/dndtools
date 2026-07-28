@@ -48,9 +48,10 @@ test.describe('graph: relationship graph & search', () => {
 
 		const noteId = await page.evaluate(
 			(t) =>
-				Object.values((window.__rt!.state.content as { items: Record<string, { id: string; title: string }> }).items).find(
-					(i) => i.title === t,
-				)?.id ?? null,
+				Object.values(
+					(window.__rt!.state.content as { items: Record<string, { id: string; title: string }> })
+						.items,
+				).find((i) => i.title === t)?.id ?? null,
 			VISIBLE_NOTE,
 		);
 		expect(noteId).toBeTruthy();
@@ -71,7 +72,7 @@ test.describe('graph: relationship graph & search', () => {
 		await expect(page.getByRole('button', { name: VISIBLE_NOTE })).not.toHaveCount(0);
 
 		// GRAPH-007 AC3: players get coarse bands, never the DM's exact-count report.
-		await expect(page.getByText(/Players see only coarse bands/)).not.toHaveCount(0);
+		await expect(page.getByText(/Players see rough amounts only/)).not.toHaveCount(0);
 		await expect(page.getByText(/% coverage/)).toHaveCount(0);
 
 		// Back to the DM viewpoint restores the full graph (the toggle has no global side-effect).
@@ -93,7 +94,9 @@ test.describe('graph: relationship graph & search', () => {
 		await page.getByRole('radio', { name: 'DM view' }).click();
 
 		// Nothing here can author or mutate content.
-		await expect(page.getByRole('button', { name: /new note|new quest|new faction/i })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: /new note|new quest|new faction/i })).toHaveCount(
+			0,
+		);
 		await expect(page.getByRole('button', { name: /^delete/i })).toHaveCount(0);
 		await expect(page.getByRole('button', { name: 'Push to players' })).toHaveCount(0);
 		await expect(page.getByRole('button', { name: /^edit/i })).toHaveCount(0);

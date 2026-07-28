@@ -66,7 +66,7 @@ test.describe('ai assistant: client-side BYO-key provider (ADR-021)', () => {
 				.getByText('AI & tools', { exact: true }),
 		).toHaveCount(0);
 
-		await page.getByRole('radio', { name: /Complete use/ }).click();
+		await page.getByRole('radio', { name: /Assistant and generators/ }).click();
 		const settingsNav = page.getByRole('navigation', { name: 'Settings navigation' });
 		// The phone profile renders the settings nav as a <select>; desktop renders buttons.
 		const sectionSelect = settingsNav.getByLabel('Settings section');

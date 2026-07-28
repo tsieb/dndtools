@@ -299,7 +299,7 @@ test('first-run setup remains usable through every step at 375x520', async ({ pa
 
 	// ADR-026 — the forced, undefaulted privacy decision; Private also demands the typed ack.
 	await expect(dialog.getByRole('heading', { name: 'Who can read your world?' })).toBeVisible();
-	await expect(dialog.getByRole('button', { name: 'Choose to continue' })).toBeDisabled();
+	await expect(dialog.getByRole('button', { name: 'Choose an option to continue' })).toBeDisabled();
 	await dialog.getByRole('radio', { name: /Private vault/ }).click();
 	const ackInput = dialog.getByLabel('Type "i hold the keys" to confirm');
 	await ackInput.scrollIntoViewIfNeeded();
@@ -317,7 +317,7 @@ test('first-run setup remains usable through every step at 375x520', async ({ pa
 	await expect(
 		dialog.getByRole('heading', { name: 'Which optional tools do you want?' }),
 	).toBeVisible();
-	await dialog.getByRole('radio', { name: /Random generation stuff/ }).click();
+	await dialog.getByRole('radio', { name: /Generators only/ }).click();
 	await expectOnboardingStep(page, 5, 'Continue');
 	await dialog.getByRole('button', { name: 'Continue' }).click();
 
@@ -649,7 +649,7 @@ test('the compact map builder keeps the canvas and inspector reachable', async (
 	await gotoRoute(page, '/atlas');
 	await seedFresh(page);
 
-	await page.getByRole('button', { name: 'Open in builder' }).click();
+	await page.getByRole('button', { name: 'Open in map editor' }).click();
 	// MAP-021 rebuilt the overlay as the "Map editor" (Foundry-style tool rail + bottom-sheet dock).
 	const builder = page.getByRole('dialog', { name: /Map editor/ });
 	await expect(builder).toBeVisible();

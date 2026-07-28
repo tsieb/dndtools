@@ -254,7 +254,7 @@ export function ScenesCreator() {
 										font: 'var(--text-sm) var(--font-sans)',
 									}}
 								>
-									<Icon name="error" size="sm" /> {runtime.lastError ?? 'Failed'}
+									<Icon name="error" size="sm" /> {runtime.lastError ?? 'Couldn’t save — try again'}
 								</span>
 							)}
 						</div>
@@ -281,7 +281,7 @@ export function ScenesCreator() {
 									color: 'var(--color-text-secondary)',
 								}}
 							>
-								No scenes yet. Create one to see it persist across reloads.
+								No scenes yet. Create one to start setting your table’s stage.
 							</div>
 						</Card>
 					) : (

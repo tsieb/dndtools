@@ -48,6 +48,46 @@ describe('CI guardrails', () => {
 		expect(fs.existsSync(path.join(repoRoot, 'scripts', 'quality-gates.ts'))).toBe(true);
 	});
 
+	it('keeps declarative dev/prod configuration and cost guardrails fail-closed', () => {
+		const packageJson = JSON.parse(
+			fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf-8'),
+		) as { scripts?: Record<string, string> };
+		const foundation = fs.readFileSync(
+			path.join(repoRoot, 'infra', 'foundation', 'template.yaml'),
+			'utf-8',
+		);
+		const foundationConfig = fs.readFileSync(
+			path.join(repoRoot, 'infra', 'foundation', 'samconfig.toml'),
+			'utf-8',
+		);
+		const deploy = fs.readFileSync(
+			path.join(repoRoot, '.github', 'workflows', 'deploy.yml'),
+			'utf-8',
+		);
+		const deployScript = fs.readFileSync(path.join(repoRoot, 'infra', 'deploy.sh'), 'utf-8');
+		const dev = JSON.parse(
+			fs.readFileSync(path.join(repoRoot, 'config', 'stages', 'dev.json'), 'utf-8'),
+		) as { logRetentionDays: number };
+		const prod = JSON.parse(
+			fs.readFileSync(path.join(repoRoot, 'config', 'stages', 'prod.json'), 'utf-8'),
+		) as { logRetentionDays: number; featureFlags: Array<{ enabled: boolean }> };
+
+		expect(packageJson.scripts?.['cloud:stage-config:validate']).toBe(
+			'node scripts/validate-stage-config.mjs',
+		);
+		expect(deploy).toContain('pnpm cloud:stage-config:validate');
+		expect(deployScript).toContain('DNDTOOLS_PROD_PROFILE');
+		expect(dev.logRetentionDays).toBe(14);
+		expect(prod.logRetentionDays).toBe(90);
+		expect(prod.featureFlags.every((flag) => !flag.enabled)).toBe(true);
+		expect(foundation).toContain('AWS::CE::AnomalyMonitor');
+		expect(foundation).toContain('AWS::CloudTrail::Trail');
+		expect(foundationConfig).toContain('MonthlyBudgetUsd=15');
+		expect(foundationConfig).toContain('MonthlyBudgetUsd=40');
+		expect(foundationConfig).toContain('CreateGitHubOidcProvider=true');
+		expect(foundationConfig).toContain('CreateApiGatewayAccountRole=true');
+	});
+
 	it('resolves every relative import used by the quality-gate entrypoint', () => {
 		const entrypoint = path.join(repoRoot, 'scripts', 'quality-gates.ts');
 		const source = fs.readFileSync(entrypoint, 'utf-8');

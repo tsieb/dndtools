@@ -963,15 +963,15 @@ export function Onboarding() {
 									<ChoiceCard
 										on={aiUsage === 'complete'}
 										icon="sparkle"
-										title="Complete use"
-										desc="Show the optional campaign assistant and its provider setup, alongside built-in random generators."
+										title="Assistant and generators"
+										desc="Show the optional campaign assistant and its setup, alongside built-in random generators."
 										onPick={() => setAiUsage('complete')}
 									/>
 									<ChoiceCard
 										on={aiUsage === 'generation-only'}
 										icon="tool-generate"
-										title="Random generation stuff"
-										desc="Keep DND Tools’ built-in offline generators, such as map generation. No assistant, provider, or model controls are shown."
+										title="Generators only"
+										desc="Keep DND Tools’ built-in offline generators, such as map generation. No assistant or model controls are shown."
 										onPick={() => setAiUsage('generation-only')}
 									/>
 									<ChoiceCard
@@ -1037,7 +1037,7 @@ export function Onboarding() {
 												{e}
 											</span>
 											<span style={{ flex: '0 0 auto' }}>
-												<Badge status="info">Saved here</Badge>
+												<Badge status="info">Saved on this device</Badge>
 											</span>
 											<IconButton
 												icon="close"
@@ -1175,7 +1175,7 @@ export function Onboarding() {
 								{step.id === 'welcome'
 									? 'Get started'
 									: step.id === 'privacy' && privacy === null
-										? 'Choose to continue'
+										? 'Choose an option to continue'
 										: 'Continue'}
 							</Button>
 						) : (

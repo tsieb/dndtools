@@ -291,7 +291,15 @@ export function FeatureShape({ feature, color }: { feature: MapFeature; color: s
 		case 'prop': {
 			const p = feature.points[0]!;
 			const scale = typeof props.scale === 'number' ? props.scale : 1;
-			return <circle cx={p.x * 100} cy={p.y * 100} r={Math.max(0.5, 0.9 * scale)} fill={color} fillOpacity={0.85} />;
+			return (
+				<circle
+					cx={p.x * 100}
+					cy={p.y * 100}
+					r={Math.max(0.5, 0.9 * scale)}
+					fill={color}
+					fillOpacity={0.85}
+				/>
+			);
 		}
 		case 'light': {
 			const p = feature.points[0]!;
@@ -299,7 +307,17 @@ export function FeatureShape({ feature, color }: { feature: MapFeature; color: s
 			const lightColor = typeof props.color === 'string' ? props.color : '#ffd6aa';
 			return (
 				<g>
-					<circle cx={p.x * 100} cy={p.y * 100} r={radius} fill={lightColor} fillOpacity={0.1} stroke={lightColor} strokeOpacity={0.35} strokeWidth={0.8} vectorEffect="non-scaling-stroke" />
+					<circle
+						cx={p.x * 100}
+						cy={p.y * 100}
+						r={radius}
+						fill={lightColor}
+						fillOpacity={0.1}
+						stroke={lightColor}
+						strokeOpacity={0.35}
+						strokeWidth={0.8}
+						vectorEffect="non-scaling-stroke"
+					/>
 					<circle cx={p.x * 100} cy={p.y * 100} r={0.9} fill={lightColor} />
 				</g>
 			);
@@ -325,7 +343,14 @@ export function FeatureShape({ feature, color }: { feature: MapFeature; color: s
 			const text = typeof props.text === 'string' ? props.text : '';
 			const size = typeof props.size === 'number' ? props.size : 3;
 			return (
-				<text x={p.x * 100} y={p.y * 100} fill={color} fontSize={size} textAnchor="middle" style={{ font: `${size}px var(--font-display, serif)` }}>
+				<text
+					x={p.x * 100}
+					y={p.y * 100}
+					fill={color}
+					fontSize={size}
+					textAnchor="middle"
+					style={{ font: `${size}px var(--font-display, serif)` }}
+				>
 					{text}
 				</text>
 			);
@@ -884,7 +909,7 @@ export function MapCanvas({
 					}}
 				>
 					<Icon name="warning" size={13} color={T.warn} />
-					Map image bytes aren't on this device — showing geometry only
+					This map’s image isn’t on this device — showing shapes only
 				</div>
 			)}
 
@@ -1432,7 +1457,7 @@ export function ImportMapDialog({
 							>
 								<Icon name="error" size={16} color={T.err} />
 								<span style={{ font: `13px ${T.sans}`, color: 'var(--color-status-error-text)' }}>
-									{preview.message} There is no commit path.
+									{preview.message} This file can’t be imported.
 								</span>
 							</div>
 						) : (
@@ -1447,14 +1472,14 @@ export function ImportMapDialog({
 											font: `13px ${T.sans}`,
 										}}
 									>
-										{[...meta, ['Content hash', preview.asset.id] as [string, string]].map(
+										{[...meta, ['File fingerprint', preview.asset.id] as [string, string]].map(
 											([k, v]) => (
 												<span key={k} style={{ display: 'contents' }}>
 													<span style={{ color: T.ter }}>{k}</span>
 													<span
 														style={{
 															color: T.ink,
-															fontFamily: k === 'Content hash' ? T.mono : undefined,
+															fontFamily: k === 'File fingerprint' ? T.mono : undefined,
 															wordBreak: 'break-all',
 														}}
 													>
@@ -1522,8 +1547,8 @@ export function ImportMapDialog({
 								>
 									<Icon name="info" size={15} color={T.info} />
 									<span>
-										DND Tools saves the file details and image bytes on this device. The image
-										becomes this map’s base layer.
+										DND Tools saves the file and its details on this device. The image becomes this
+										map’s background.
 									</span>
 								</div>
 							</>
@@ -1603,8 +1628,9 @@ export function ImportMapDialog({
 							>
 								<Icon name="warning" size={15} color={T.warn} />
 								<span>
-									The metadata record was committed, but the image bytes could not be stored on this
-									device: {result.byteError} The canvas will show geometry only.
+									The map was imported, but the image itself couldn’t be stored on this device:{' '}
+									{result.byteError} The map will show its shapes without the image — free up
+									storage and import the file again to add it.
 								</span>
 							</div>
 						)}

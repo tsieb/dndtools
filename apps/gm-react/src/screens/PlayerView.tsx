@@ -449,7 +449,7 @@ export function PlayerView() {
 		const after = getDiceHistoryForActor(runtime.state.session, runtime.state.permissions, viewer);
 		const recorded = after.rolls.length > 0 ? after.rolls[after.rolls.length - 1] : null;
 		const crit = recorded ? critOf(recorded) : undefined;
-		if (crit === 'success') toast('Natural 20 — critical!', 'success', 'sparkle');
+		if (crit === 'success') toast('Natural 20 — critical hit', 'success', 'sparkle');
 		else if (crit === 'fail') toast('Natural 1 — critical miss', 'error', 'close');
 		return recorded;
 	};
@@ -485,7 +485,7 @@ export function PlayerView() {
 			className={`player-view-nav-row${n.min >= 3 ? ' player-view-nav-elevated' : ''}`}
 			key={n.id}
 			type="button"
-			aria-label={n.label}
+			aria-label={locked ? `${n.label} — requires the ${minTierLabel(n.min)} seat` : n.label}
 			title={locked ? `${n.label} requires ${minTierLabel(n.min)}` : n.label}
 			disabled={locked}
 			onClick={() => {
@@ -620,7 +620,7 @@ export function PlayerView() {
 								Player view
 							</div>
 							<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
-								{data.live ? 'Live at the table' : 'Standby'}
+								{data.live ? 'Session live' : 'Standby'}
 							</div>
 						</div>
 					</div>
@@ -727,7 +727,11 @@ export function PlayerView() {
 							}}
 						/>
 						<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
-							{joined ? 'Connected to table' : data.live ? 'Session live' : 'Offline'}
+							{joined
+								? 'Connected to table'
+								: data.live
+									? 'Session live — this device'
+									: 'Not connected'}
 						</span>
 					</span>
 				</div>
@@ -874,7 +878,7 @@ function StageSection({
 								color: live ? 'var(--color-status-success-text)' : T.ter,
 							}}
 						>
-							{live ? 'Session live' : 'Not started'}
+							{live ? 'Session live' : 'Standby'}
 						</span>
 					</span>
 				}

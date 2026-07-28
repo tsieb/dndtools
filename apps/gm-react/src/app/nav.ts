@@ -45,7 +45,7 @@ export const LIBRARY: NavSection[] = [
 		label: 'Story',
 		icon: 'campaign-scroll',
 		path: '/campaign',
-		sub: 'Threads, factions & timeline',
+		sub: 'Quests, factions & timeline',
 	},
 	{
 		id: 'knowledge',
@@ -88,7 +88,7 @@ export const PLAYER_SECTION: NavSection = {
 	label: 'Player view',
 	icon: 'UserCircle',
 	path: '/player',
-	sub: 'Your character · second persona',
+	sub: 'Your character at the table',
 };
 
 export const SETTINGS_SECTION: NavSection = {
