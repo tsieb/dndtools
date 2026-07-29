@@ -1103,7 +1103,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 			</div>
 			<CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 			<SceneDisplayOverlay open={displayOpen} onClose={() => setDisplayOpen(false)} />
-			<ToastViewport placement="bottom-right" />
+			{/* On phone the tab bar owns the bottom edge (52px buttons + --space-1 padding + 1px
+			    border); lift the toast stack above it so toasts never cover the primary nav. */}
+			<ToastViewport
+				placement="bottom-right"
+				data-testid="app-toast-viewport"
+				style={
+					viewport === 'phone'
+						? { bottom: 'calc(52px + 2 * var(--space-1) + 1px)' }
+						: undefined
+				}
+			/>
 		</div>
 	);
 }

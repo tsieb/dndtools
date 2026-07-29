@@ -111,3 +111,43 @@ test.describe('graph: relationship graph & search', () => {
 		await expect(page.getByRole('button', { name: VISIBLE_NOTE })).not.toHaveCount(0);
 	});
 });
+
+test.describe('graph: edge geometry', () => {
+	test('every edge endpoint lands on the node it connects', async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/graph');
+		await seedFresh(page);
+		await page.goto('/#/graph', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.locator('#main-content').waitFor({ state: 'attached' });
+		await expect(page.getByRole('button', { name: VISIBLE_NOTE })).not.toHaveCount(0);
+		expect(await page.locator('#main-content svg line').count()).toBeGreaterThan(0);
+
+		// The SVG stretches its 100x70 viewBox to the container (preserveAspectRatio="none"), so a
+		// line endpoint (x, y) must land on the percentage-positioned node button at (x%, y/70%).
+		// A scaling bug on either axis walks every edge away from the circles it connects.
+		const misaligned = await page.evaluate(() => {
+			const svg = document.querySelector('#main-content svg')!;
+			const rect = svg.getBoundingClientRect();
+			const container = svg.parentElement!;
+			const centers = Array.from(container.querySelectorAll(':scope > button')).map((b) => {
+				const r = b.getBoundingClientRect();
+				return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+			});
+			const bad: string[] = [];
+			for (const line of Array.from(svg.querySelectorAll('line'))) {
+				for (const [xa, ya] of [
+					['x1', 'y1'],
+					['x2', 'y2'],
+				]) {
+					const px = rect.left + (Number(line.getAttribute(xa)) / 100) * rect.width;
+					const py = rect.top + (Number(line.getAttribute(ya)) / 70) * rect.height;
+					const nearest = Math.min(...centers.map((c) => Math.hypot(c.x - px, c.y - py)));
+					if (nearest > 3) bad.push(`${xa}/${ya} endpoint is ${Math.round(nearest)}px from any node`);
+				}
+			}
+			return bad;
+		});
+		expect(misaligned).toEqual([]);
+	});
+});

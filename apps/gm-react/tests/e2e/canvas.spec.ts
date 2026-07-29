@@ -135,3 +135,61 @@ test.describe('canvas: board + scene mount and round-trip', () => {
 		await expect(page.getByText(sceneName)).not.toHaveCount(0);
 	});
 });
+
+test.describe('canvas: side panels close on Escape', () => {
+	test('the /board Add-widget panel closes on Escape from within the panel', async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.waitForFunction(
+			() => {
+				const rt = window.__rt!;
+				const id = rt.state.commandCenter.homeSceneId;
+				return !!id && !!rt.state.scenes.scenes[id];
+			},
+			null,
+			{ timeout: 10_000 },
+		);
+
+		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+		await expect(page.getByText('Add widget', { exact: true })).toBeVisible();
+
+		// Escape pressed inside the panel dismisses it, matching the scene-details panel contract.
+		await page.getByRole('button', { name: 'Close', exact: true }).focus();
+		await page.keyboard.press('Escape');
+		await expect(page.getByText('Add widget', { exact: true })).toHaveCount(0);
+	});
+
+	test('the scene editor Add-widget panel closes on Escape from within the panel', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/scenes');
+
+		const sceneName = `Escape Scene ${Date.now()}`;
+		const created = await dispatch(page, {
+			type: 'scene.create',
+			actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+			payload: { name: sceneName, description: '', visibility: 'dm-only', tags: [] },
+		});
+		expect(created.status).toBe('accepted');
+		const sceneId = await page.evaluate(
+			(name) =>
+				Object.values(window.__rt!.state.scenes.scenes).find((s) => s.name === name)?.id ?? null,
+			sceneName,
+		);
+		expect(sceneId).toBeTruthy();
+
+		await gotoRoute(page, `/scene/${sceneId}`);
+		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+		await expect(page.getByText('Add widget', { exact: true })).toBeVisible();
+
+		await page.getByRole('button', { name: 'Close', exact: true }).focus();
+		await page.keyboard.press('Escape');
+		await expect(page.getByText('Add widget', { exact: true })).toHaveCount(0);
+	});
+});

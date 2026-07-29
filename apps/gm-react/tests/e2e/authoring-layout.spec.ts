@@ -79,3 +79,34 @@ test('the character builder starts its first step without horizontal clipping on
 	await expect(page.getByLabel('Name')).toBeInViewport();
 	await expect(page.getByLabel('Alignment')).toBeInViewport();
 });
+
+test('the wizard kit step edits attack kind and damage type as separate fields', async ({
+	page,
+}) => {
+	await markOnboarded(page);
+	await gotoRoute(page, '/characters');
+	await seedFresh(page);
+
+	await page.getByRole('button', { name: 'New character', exact: true }).first().click();
+	await page.getByRole('button', { name: /Build from scratch/ }).click();
+	const wizard = page.getByRole('dialog', { name: 'New character wizard' });
+	await expect(wizard).toBeVisible();
+
+	// An NPC needs no owner, so identity completes with just a name.
+	await wizard.getByRole('button', { name: 'NPC', exact: true }).click();
+	await wizard.getByLabel('Name').fill('Bandit Captain');
+	await wizard.getByRole('button', { name: 'Continue' }).click(); // class & level
+	await wizard.getByRole('button', { name: 'Continue' }).click(); // ability scores
+	await wizard.getByRole('button', { name: 'Continue' }).click(); // attacks & kit
+
+	// The seeded attack exposes BOTH fields: melee/ranged kind and the damage type. The damage
+	// type used to be unreachable — the input labelled for it silently edited `kind` instead.
+	const kindInput = wizard.getByLabel('Attack kind');
+	const damageInput = wizard.getByLabel('Damage type');
+	await expect(kindInput).toHaveValue('Melee');
+	await expect(damageInput).toHaveValue('slashing');
+
+	await damageInput.fill('fire');
+	await expect(damageInput).toHaveValue('fire');
+	await expect(kindInput).toHaveValue('Melee');
+});

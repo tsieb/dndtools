@@ -80,7 +80,7 @@ function SceneTile({
 				style={{
 					position: 'relative',
 					height: 96,
-					background: 'linear-gradient(135deg,#2a2117,#14100b)',
+					background: 'linear-gradient(135deg,var(--color-surface-raised),var(--color-bg))',
 				}}
 			>
 				<div

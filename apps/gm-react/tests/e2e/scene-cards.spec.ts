@@ -360,4 +360,28 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		expect(yC).toBeLessThan(yB);
 		expect(yB).toBeLessThan(yA);
 	});
+	test('queue reorder buttons disable at the list boundaries instead of dead-clicking', async ({
+		page,
+	}) => {
+		const stamp = Date.now();
+		const first = `Windward Keep ${stamp}`;
+		const second = `The Old Mill ${stamp}`;
+		await createCardViaCore(page, { title: first, visibility: 'player-visible' });
+		await createCardViaCore(page, { title: second, visibility: 'player-visible' });
+		await page.getByRole('button', { name: `Queue ${first}` }).click();
+		await page.getByRole('button', { name: `Queue ${second}` }).click();
+		await expect(page.getByText('Queue · 2')).not.toHaveCount(0);
+
+		// The head can only move down, the tail can only move up — the no-op directions are
+		// disabled affordances, not silent dead clicks.
+		await expect(page.getByRole('button', { name: `Move ${first} up` })).toBeDisabled();
+		await expect(page.getByRole('button', { name: `Move ${first} down` })).toBeEnabled();
+		await expect(page.getByRole('button', { name: `Move ${second} up` })).toBeEnabled();
+		await expect(page.getByRole('button', { name: `Move ${second} down` })).toBeDisabled();
+
+		// The enabled direction still reorders, and the disabled edges follow the new order.
+		await page.getByRole('button', { name: `Move ${second} up` }).click();
+		await expect(page.getByRole('button', { name: `Move ${second} up` })).toBeDisabled();
+		await expect(page.getByRole('button', { name: `Move ${first} down` })).toBeDisabled();
+	});
 });

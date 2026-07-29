@@ -21,6 +21,7 @@ import {
 	VisibilityChip,
 } from '../ds';
 import { Page, Panel, T, eb } from '../app/screen-kit';
+import { useViewport } from '../app/useViewport';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useAuth } from '../cloud/AuthContext';
 import { useEntitlements } from '../cloud/entitlements';
@@ -175,6 +176,7 @@ function MarketplaceGate({ verb }: { verb: string }) {
 const kb = (n: number) => (n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
 
 function CommDiscover() {
+	const isPhone = useViewport() === 'phone';
 	const runtime = useRuntime();
 	const auth = useAuth();
 	const dmId = runtime.defaultActorId;
@@ -269,7 +271,12 @@ function CommDiscover() {
 
 	return (
 		<div
-			style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 18, alignItems: 'start' }}
+			style={{
+				display: 'grid',
+				gridTemplateColumns: isPhone ? '1fr' : '1.5fr 1fr',
+				gap: 18,
+				alignItems: 'start',
+			}}
 		>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 				{failed ? (
@@ -307,7 +314,7 @@ function CommDiscover() {
 					<div
 						style={{
 							display: 'grid',
-							gridTemplateColumns: 'repeat(auto-fill,minmax(250px,1fr))',
+							gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 250px),1fr))',
 							gap: 14,
 						}}
 					>
@@ -474,6 +481,7 @@ function CommDiscover() {
 }
 
 function CommExport() {
+	const isPhone = useViewport() === 'phone';
 	const runtime = useRuntime();
 	const dmId = runtime.defaultActorId;
 	const [priv, setPriv] = useState(false);
@@ -583,7 +591,14 @@ function CommExport() {
 	};
 
 	return (
-		<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, alignItems: 'start' }}>
+		<div
+			style={{
+				display: 'grid',
+				gridTemplateColumns: isPhone ? '1fr' : '1fr 1fr',
+				gap: 18,
+				alignItems: 'start',
+			}}
+		>
 			<Panel title="What to export">
 				<div style={{ ...eb }}>
 					Content types{' '}
@@ -736,6 +751,7 @@ function CommExport() {
 }
 
 function CommPublish() {
+	const isPhone = useViewport() === 'phone';
 	const runtime = useRuntime();
 	const auth = useAuth();
 	const cloudReady = isAccountApiConfigured && auth.status === 'signed-in';
@@ -827,7 +843,12 @@ function CommPublish() {
 
 	return (
 		<div
-			style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 18, alignItems: 'start' }}
+			style={{
+				display: 'grid',
+				gridTemplateColumns: isPhone ? '1fr' : '1.3fr 1fr',
+				gap: 18,
+				alignItems: 'start',
+			}}
 		>
 			<Panel title="Publish an installed package">
 				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
@@ -1036,6 +1057,7 @@ function CommPublish() {
 }
 
 function CommWiki() {
+	const isPhone = useViewport() === 'phone';
 	const runtime = useRuntime();
 	const auth = useAuth();
 	const navigate = useNavigate();
@@ -1442,7 +1464,12 @@ function CommWiki() {
 
 	return (
 		<div
-			style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr', gap: 18, alignItems: 'start' }}
+			style={{
+				display: 'grid',
+				gridTemplateColumns: isPhone ? '1fr' : '1fr 1.1fr',
+				gap: 18,
+				alignItems: 'start',
+			}}
 		>
 			{settings}
 			<Panel title="Reading preview">

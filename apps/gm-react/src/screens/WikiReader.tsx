@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 import { useLocation } from 'react-router-dom';
 import { Button, Icon, Input } from '../ds';
 import { AppApiError, getPublicWiki, type PublicWiki, type WikiPage } from '../cloud/appApi';
+import { useViewport } from '../app/useViewport';
 
 /**
  * WikiReader — the PUBLIC, account-less reader for a published campaign wiki
@@ -198,6 +199,7 @@ function Notice({ icon, title, children }: { icon: string; title: string; childr
 
 export function WikiReader() {
 	const location = useLocation();
+	const isPhone = useViewport() === 'phone';
 	const wikiId = useMemo(
 		() => new URLSearchParams(location.search).get('id') ?? '',
 		[location.search],
@@ -360,11 +362,13 @@ export function WikiReader() {
 						{new Date(wiki.updatedAt).toLocaleDateString()}
 					</div>
 				</header>
+				{/* On phone widths the 200px nav floor would squeeze the article to ~120px, so the
+				    split stacks: page nav first, article below. */}
 				<div
 					style={{
 						display: 'grid',
-						gridTemplateColumns: 'minmax(200px, 260px) 1fr',
-						gap: 32,
+						gridTemplateColumns: isPhone ? '1fr' : 'minmax(200px, 260px) 1fr',
+						gap: isPhone ? 18 : 32,
 						alignItems: 'start',
 						padding: '22px 0 60px',
 					}}

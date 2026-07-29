@@ -509,6 +509,12 @@ function AddWidgetPanel({
 		<Card
 			elevation="overlay"
 			padding="md"
+			onKeyDown={(e: React.KeyboardEvent) => {
+				if (e.key === 'Escape') {
+					e.stopPropagation();
+					onClose();
+				}
+			}}
 			style={{
 				width: 300,
 				flex: '0 0 auto',
@@ -619,6 +625,12 @@ function Inspector({
 			elevation="overlay"
 			padding="md"
 			data-testid="widget-inspector"
+			onKeyDown={(e: React.KeyboardEvent) => {
+				if (e.key === 'Escape') {
+					e.stopPropagation();
+					onClose();
+				}
+			}}
 			style={{
 				width: 288,
 				flex: '0 0 auto',

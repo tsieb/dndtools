@@ -729,3 +729,56 @@ test('compact shell overlays keep their footer content inside the viewport', asy
 	await expectNoHorizontalOverflow(page, 'compact table controls', '[role="dialog"]');
 	await expectOverlayControlsReachable(page, 'compact table controls');
 });
+
+test('community tabs collapse their two-column layouts on a phone', async ({ page }) => {
+	await page.setViewportSize({ width: 375, height: 812 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/');
+	await seedFresh(page);
+	await page.evaluate(() => {
+		window.location.hash = '/community';
+	});
+	await page.locator('h1').first().waitFor({ state: 'attached', timeout: 20_000 });
+
+	const trackCount = async (headingText: string) => {
+		const grid = page
+			.getByText(headingText, { exact: true })
+			.locator('xpath=ancestor::section[1]/..');
+		return grid.evaluate(
+			(el) => getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length,
+		);
+	};
+
+	// Export: "What to export" + the download column must stack, not fight over ~170px halves.
+	await page.getByRole('tab', { name: 'Export' }).click();
+	await page.getByText('What to export', { exact: true }).waitFor({ state: 'visible' });
+	expect(await trackCount('What to export')).toBe(1);
+	await expectNoHorizontalOverflow(page, '/community export tab', '#main-content');
+
+	// Campaign wiki: settings + reading preview stack the same way.
+	await page.getByRole('tab', { name: 'Campaign wiki' }).click();
+	await page.getByText('Reading preview', { exact: true }).waitFor({ state: 'visible' });
+	expect(await trackCount('Reading preview')).toBe(1);
+	await expectNoHorizontalOverflow(page, '/community wiki tab', '#main-content');
+
+	// The same layouts keep their side-by-side split once the viewport leaves the phone profile.
+	await page.setViewportSize({ width: 1280, height: 800 });
+	expect(await trackCount('Reading preview')).toBe(2);
+});
+
+test('toasts stack above the phone bottom tab bar, never over it', async ({ page }) => {
+	await page.setViewportSize({ width: 375, height: 667 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/');
+
+	const nav = page.locator('nav[aria-label="Primary"]');
+	await expect(nav).toBeVisible();
+	const toast = page.getByTestId('app-toast-viewport');
+	const toastBox = await toast.boundingBox();
+	const navBox = await nav.boundingBox();
+	expect(toastBox).not.toBeNull();
+	expect(navBox).not.toBeNull();
+	// The toast viewport's bottom edge must clear the tab bar so a toast can never cover the
+	// primary navigation's tap targets.
+	expect(toastBox!.y + toastBox!.height).toBeLessThanOrEqual(navBox!.y + 1);
+});

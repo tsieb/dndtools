@@ -530,6 +530,7 @@ function SceneQueuePanel({
 										label={t('Move {title} up', { title: card.title })}
 										variant="ghost"
 										size="sm"
+										disabled={i === 0}
 										onClick={() => move(i, -1)}
 									/>
 									<IconButton
@@ -537,6 +538,7 @@ function SceneQueuePanel({
 										label={t('Move {title} down', { title: card.title })}
 										variant="ghost"
 										size="sm"
+										disabled={i === queue.length - 1}
 										onClick={() => move(i, 1)}
 									/>
 									<IconButton

@@ -290,9 +290,12 @@ export function Graph() {
 								: 'Nothing to graph yet — notes, maps, and story entries appear here as you link them.'}
 						</div>
 					)}
+					{/* preserveAspectRatio="none" stretches the viewBox to the container so SVG edge
+					    coordinates line up with the percentage-positioned node buttons ((x/100)%, (y/70)%)
+					    at any aspect ratio. */}
 					<svg
 						viewBox="0 0 100 70"
-						preserveAspectRatio="xMidYMid meet"
+						preserveAspectRatio="none"
 						style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
 					>
 						{viz.edges.map((e, i) => {
@@ -304,9 +307,9 @@ export function Graph() {
 								<line
 									key={`${e.fromId}-${e.toId}-${i}`}
 									x1={a.x}
-									y1={a.y * 0.7}
+									y1={a.y}
 									x2={b.x}
-									y2={b.y * 0.7}
+									y2={b.y}
 									stroke={
 										hot ? T.acc : e.relationship === 'poi-link' ? 'var(--color-status-info)' : T.bd
 									}

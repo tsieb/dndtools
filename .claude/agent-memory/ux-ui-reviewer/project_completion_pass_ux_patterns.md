@@ -23,3 +23,16 @@ Design-package conformance review of the gm-react feature-completion pass (branc
 5. **Hand-rolled controls where ds equivalents exist:** raw `<input type=range>` instead of `Slider` (Audio faders, MapBuilder, CharBuilder); native `<select>` instead of `Select` (Settings); local `Seg` instead of `SegmentedControl`; MapBuilder/Atlas hand-roll `LayerRow`/`MapCreationForm`/`ImportWizard`.
 
 Copy-honesty is a genuine strength across the pass (fail-closed states name why + what to do; simulated billing clearly labeled in Upgrade/Subscription).
+
+## Update (2026-07-28 static review, cluster: AppShell/nav/CommandPalette/Onboarding/Settings/Extensions/Audio/Upgrade/ConnectedSources)
+
+Most of the anti-patterns above are now FIXED in the current tree:
+- `Audio.tsx useAssetBytesPresence` already returns a proper 'unknown'|'present'|'missing' tri-state and callers treat 'unknown' as not-blocking — issue #2 resolved.
+- `ConnectedSources.tsx` folder/gdoc disconnect, `Settings.tsx` device-revoke/invite-revoke/permission-revoke/vault-folder-disconnect/AI-key-forget all now use `Dialog tone="danger"` confirms or Toaster `Undo` — issue #1 mostly resolved for these surfaces.
+- Audio automation-delete + ambience-layer-remove now use immediate-delete-with-Toaster-Undo (documented in code comments as deliberate, re-dispatching the original id) — also resolved.
+
+Two NEW instances of anti-pattern #1 (destructive, no confirm/undo) found this pass, both worth checking again in future audits:
+- `Extensions.tsx` Custom Object Type "Delete" (~line 1651) — single click, no confirm/undo; inconsistent with the widget-package "Remove" confirm-state pattern in the SAME file (`ExtPlugins`, `confirmRemoveId`).
+- `Settings.tsx` MCP agent-binding "Remove" (~line 4069, uses local `run()` helper ~line 3868) — single click, no confirm/undo, despite its own toast copy warning that pending proposals expire.
+
+New unrelated finding: `AppShell.tsx` mounts `<ToastViewport placement="bottom-right" />` globally (~line 1106) with no awareness of the phone `BottomTabBar`'s height (`PhoneNav`, ~line 758). `ToastViewport`'s bottom-right fixed positioning (`src/ds/components/overlay/Toast.jsx`) only offsets by `--space-4` (16px) + safe-area-bottom, while the tab bar occupies ~60px+safe-area at the true viewport bottom — toasts (z-index 600) visually overlap the tab bar on the phone profile. Check on future mobile passes; grep for any `--bottom-tab-bar-height` var to see if fixed.

@@ -757,6 +757,9 @@ export function PlayerView() {
 					return (
 						<div
 							key={t.id}
+							role={t.status === 'error' ? 'alert' : 'status'}
+							aria-live={t.status === 'error' ? 'assertive' : 'polite'}
+							aria-atomic="true"
 							style={{
 								display: 'flex',
 								alignItems: 'center',
@@ -1702,6 +1705,7 @@ function HandoutsSection({ data }: { data: LiveData }) {
 							>
 								<button
 									type="button"
+									aria-expanded={isOpen}
 									onClick={() => setOpen(isOpen ? null : n.id)}
 									style={{
 										width: '100%',
@@ -2013,6 +2017,7 @@ function BestiarySection({ data }: { data: LiveData }) {
 							>
 								<button
 									type="button"
+									aria-expanded={isOpen}
 									onClick={() => setOpen(isOpen ? null : c.id)}
 									style={{
 										width: '100%',

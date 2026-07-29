@@ -1950,7 +1950,8 @@ export function CharBuilder({
 												key={idx}
 												style={{
 													display: 'grid',
-													gridTemplateColumns: '1.4fr 1fr .8fr 1fr 28px',
+													gridTemplateColumns:
+														'minmax(0,1.4fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,1fr) 28px',
 													gap: 8,
 													alignItems: 'center',
 												}}
@@ -1967,13 +1968,13 @@ export function CharBuilder({
 												/>
 												<Input
 													value={at.kind}
-													aria-label="Attack type"
+													aria-label="Attack kind"
 													onChange={(e: any) =>
 														setAttacks((a) =>
 															a.map((x, j) => (j === idx ? { ...x, kind: e.target.value } : x)),
 														)
 													}
-													placeholder="Type"
+													placeholder="Melee or Ranged"
 												/>
 												<Input
 													value={at.hit}
@@ -1994,6 +1995,16 @@ export function CharBuilder({
 														)
 													}
 													placeholder="Damage"
+												/>
+												<Input
+													value={at.type}
+													aria-label="Damage type"
+													onChange={(e: any) =>
+														setAttacks((a) =>
+															a.map((x, j) => (j === idx ? { ...x, type: e.target.value } : x)),
+														)
+													}
+													placeholder="Slashing"
 												/>
 												<IconButton
 													icon="close"

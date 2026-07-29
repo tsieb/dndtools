@@ -369,6 +369,12 @@ export function Board() {
 					<Card
 						elevation="overlay"
 						padding="md"
+						onKeyDown={(e: React.KeyboardEvent) => {
+							if (e.key === 'Escape') {
+								e.stopPropagation();
+								setAddOpen(false);
+							}
+						}}
 						style={{
 							width: viewport === 'phone' ? 'min(300px, 100%)' : 300,
 							flex: '0 0 auto',

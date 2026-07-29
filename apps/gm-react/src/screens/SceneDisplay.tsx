@@ -76,7 +76,11 @@ export function SceneDisplaySurface({
 
 	const theme = moodTheme(active.mood);
 	return (
-		<div className="scene-display" role="img" aria-label={`${active.title} — ${theme.label} scene`}>
+		<div
+			className="scene-display"
+			role="group"
+			aria-label={`${active.title} — ${theme.label} scene`}
+		>
 			<div
 				key={`${active.id}:${transitionStyle}:${active.revision}`}
 				className={`scene-display__card scene-display__card--${transitionStyle}`}
