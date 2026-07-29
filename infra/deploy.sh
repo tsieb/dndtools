@@ -31,6 +31,11 @@ case "$STAGE" in
 esac
 REGION="${DNDTOOLS_REGION:-ca-central-1}"
 
+sam_quote_override_value() {
+  local value="${1//\'/\'\"\'\"\'}"
+  printf "'%s'" "$value"
+}
+
 if [ "${CI:-false}" = "true" ] && [ "$STACK" = "foundation" ]; then
   echo "foundation is bootstrap-admin only; the OIDC deploy role cannot mutate itself or its boundary" >&2
   exit 1
@@ -129,9 +134,10 @@ case "$STACK" in
       "LogoutUrls=$CALLBACK_URLS"
     )
     if [ "$STAGE" = "prod" ]; then
+      COGNITO_EMAIL_FROM_OVERRIDE="$(sam_quote_override_value "$DNDTOOLS_COGNITO_EMAIL_FROM")"
       DEPLOY_OVERRIDES+=(
         "CognitoEmailSourceArn=$DNDTOOLS_COGNITO_EMAIL_SOURCE_ARN"
-        "CognitoEmailFrom=$DNDTOOLS_COGNITO_EMAIL_FROM"
+        "CognitoEmailFrom=$COGNITO_EMAIL_FROM_OVERRIDE"
       )
     fi
     ;;
