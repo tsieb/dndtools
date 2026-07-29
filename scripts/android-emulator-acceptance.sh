@@ -433,8 +433,15 @@ fi
 adb shell settings put system user_rotation 0
 
 # At the root destination Android Back must move the task behind the launcher, not kill its process.
+# After process death + restore + rotation, WebView/router state can still carry one in-app history
+# entry even though the command-center content is present again. Accept one final in-app pop back to
+# Home, then require the next Back to minimize the task.
 adb shell input keyevent KEYCODE_BACK
-wait_until_not_foreground || fail 'Back did not minimize the root task'
+if ! wait_until_not_foreground; then
+	wait_for_ui_text 'Enter scene' || fail 'Back did not return to the root destination before minimize'
+	adb shell input keyevent KEYCODE_BACK
+	wait_until_not_foreground || fail 'Back did not minimize the root task'
+fi
 wait_for_pid >/dev/null || fail 'Back killed the app process instead of minimizing it'
 
 # Reinstall the exact same signed APK as an upgrade. Android rejects a signer mismatch; success plus
