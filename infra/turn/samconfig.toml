@@ -23,5 +23,5 @@ capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 resolve_s3 = true
 s3_prefix = "dndtools-prod-turn"
-parameter_overrides = "ProjectName=dndtools Stage=prod VpcId=vpc-0dd2698d9379f67e5 SubnetId=subnet-08806a047fd66a616 Realm=dndtools"
+parameter_overrides = "ProjectName=dndtools Stage=prod VpcId=vpc-02e94e0afad0d4dc5 SubnetId=subnet-06fdf4980e6ec6962 Realm=dndtools"
 tags = "project=dndtools stage=prod service=turn owner=platform data-class=operational managed-by=sam"
