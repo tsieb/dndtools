@@ -63,7 +63,7 @@ test.describe('wiki: public reader route (#/wiki)', () => {
 		// The reader mounts standalone and shows an honest missing-link notice (its card is the page main).
 		await expect(page.getByRole('main')).not.toHaveCount(0);
 		await expect(page.getByText('No wiki link')).not.toHaveCount(0);
-		await expect(page.getByText(/missing its wiki id/)).not.toHaveCount(0);
+		await expect(page.getByText(/This link is incomplete\./)).not.toHaveCount(0);
 	});
 
 	test('with an id and no backend it renders the honest invalid-link message, not a crash', async ({

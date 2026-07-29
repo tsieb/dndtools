@@ -254,15 +254,15 @@ wait_for_ui_text 'Enter scene' || fail 'Back did not return from Session to Comm
 # stack. The first Back must leave that editor without changing the Maps route.
 step 'fullscreen editor Back ordering'
 tap_ui_button 'Maps' || fail 'Maps navigation control was not reachable'
-wait_for_ui_text 'Open in builder' || fail 'Maps destination did not render'
-tap_ui_button_until_text 'Open in builder' 'Navigate map' \
+wait_for_ui_text 'Open in map editor' || fail 'Maps destination did not render'
+tap_ui_button_until_text 'Open in map editor' 'Navigate map' \
 	|| fail 'fullscreen quick-map editor did not open'
 step 'fullscreen editor opened'
 adb shell input keyevent KEYCODE_BACK
 wait_until_foreground || fail 'Back minimized the app instead of leaving the fullscreen editor'
 wait_for_ui_text_absent 'Navigate map' || fail 'Back did not leave the fullscreen editor'
 step 'fullscreen editor closed while Maps remained active'
-wait_for_ui_text 'Open in builder' || fail 'Back left the Maps route with the fullscreen editor'
+wait_for_ui_text 'Open in map editor' || fail 'Back left the Maps route with the fullscreen editor'
 sleep 1
 adb shell input keyevent KEYCODE_BACK
 wait_until_foreground || fail 'second Back minimized instead of following Maps router history'

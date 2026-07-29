@@ -22,7 +22,7 @@ test.describe('join: the invite-redeem landing (cloud fail-closed)', () => {
 		await expect(card).toBeVisible();
 		await expect(page.getByText('You’re invited')).toBeVisible();
 
-		await expect(page.getByText(/missing its invite token/)).toBeVisible();
+		await expect(page.getByText(/This join link is incomplete\./)).toBeVisible();
 		// It never pretends to have a live invite: no player-app CTA in this state.
 		await expect(page.getByRole('button', { name: 'Open the player app' })).toHaveCount(0);
 		// The honest escape hatch is present.
