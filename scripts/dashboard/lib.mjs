@@ -5,7 +5,8 @@
 /** Map a CloudFormation stack status onto the fixed status palette. */
 export function classifyStackStatus(status) {
 	if (!status) return { level: 'neutral', label: 'unknown' };
-	if (status.includes('FAILED') || status.includes('DELETE')) return { level: 'critical', label: status };
+	if (status.includes('FAILED') || status.includes('DELETE'))
+		return { level: 'critical', label: status };
 	if (status.includes('ROLLBACK')) return { level: 'serious', label: status };
 	if (status.endsWith('IN_PROGRESS')) return { level: 'warning', label: status };
 	if (status.endsWith('COMPLETE')) return { level: 'good', label: status };

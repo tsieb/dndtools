@@ -87,7 +87,10 @@ describe('httpsOutputs', () => {
 					{ OutputKey: 'Wss', OutputValue: 'wss://sockets.example.com' },
 				],
 			},
-			{ StackName: 'api', Outputs: [{ OutputKey: 'Alias', OutputValue: 'https://example.cloudfront.net' }] },
+			{
+				StackName: 'api',
+				Outputs: [{ OutputKey: 'Alias', OutputValue: 'https://example.cloudfront.net' }],
+			},
 		];
 		expect(httpsOutputs(stacks)).toEqual([
 			{ url: 'https://example.cloudfront.net', source: 'web / Url' },

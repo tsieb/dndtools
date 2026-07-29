@@ -15,8 +15,8 @@ const values = {
 	sync: (process.env.VITE_SYNC_API_URL ?? '').trim(),
 	app: (process.env.VITE_APP_API_URL ?? '').trim(),
 	publicApp: (process.env.VITE_PUBLIC_APP_URL ?? '').trim(),
-	featureFlags: (process.env.VITE_FEATURE_FLAGS ?? '').trim(),
 };
+const featureFlagsRaw = (process.env.VITE_FEATURE_FLAGS ?? '').trim();
 
 const entries = Object.entries(values);
 const configured = entries.some(([, value]) => value !== '');
@@ -46,23 +46,21 @@ if (values.region && !/^[a-z]{2}(?:-gov)?-[a-z]+-\d$/.test(values.region))
 	errors.push('region is not a valid AWS region');
 if (values.stage && !['dev', 'prod'].includes(values.stage))
 	errors.push('cloud stage must be dev or prod');
-if (values.featureFlags) {
-	try {
-		const flags = JSON.parse(values.featureFlags);
-		if (
-			flags.version !== 1 ||
-			typeof flags.flags !== 'object' ||
-			flags.flags === null ||
-			!Object.entries(flags.flags).every(
-				([key, value]) => /^[a-z][a-z0-9-]{2,63}$/.test(key) && typeof value === 'boolean',
-			)
+try {
+	const flags = JSON.parse(featureFlagsRaw || '{"version":1,"flags":{}}');
+	if (
+		flags.version !== 1 ||
+		typeof flags.flags !== 'object' ||
+		flags.flags === null ||
+		!Object.entries(flags.flags).every(
+			([key, value]) => /^[a-z][a-z0-9-]{2,63}$/.test(key) && typeof value === 'boolean',
 		)
-			throw new Error('invalid flag shape');
-		if (values.stage === 'prod' && Object.values(flags.flags).some(Boolean))
-			errors.push('production feature flags must default off');
-	} catch {
-		errors.push('feature flags must be a valid version 1 boolean map');
-	}
+	)
+		throw new Error('invalid flag shape');
+	if (values.stage === 'prod' && Object.values(flags.flags).some(Boolean))
+		errors.push('production feature flags must default off');
+} catch {
+	errors.push('feature flags must be a valid version 1 boolean map');
 }
 if (
 	values.pool &&

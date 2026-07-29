@@ -10,6 +10,10 @@ DRIFTED=()
 
 for component in "${STACKS[@]}"; do
   stack="dndtools-${STAGE}-${component}"
+  if [ "$component" = "foundation" ]; then
+    echo "::notice title=Foundation drift skipped::$stack contains global Budget/Cost Explorer resources that do not report deterministic CloudFormation drift; review it through bootstrap-admin changes instead"
+    continue
+  fi
   if ! aws cloudformation describe-stacks --stack-name "$stack" --profile "$PROFILE" --region "$REGION" >/dev/null 2>&1; then
     echo "::notice title=Stack not deployed::$stack does not exist; skipping drift detection"
     continue

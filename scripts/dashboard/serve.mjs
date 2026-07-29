@@ -18,7 +18,8 @@ let cache = null; // { at, payload }
 let inflight = null;
 
 async function status(force) {
-	if (!force && cache && Date.now() - cache.at < CACHE_TTL_MS) return { ...cache.payload, cached: true };
+	if (!force && cache && Date.now() - cache.at < CACHE_TTL_MS)
+		return { ...cache.payload, cached: true };
 	inflight ??= collectAll().finally(() => {
 		inflight = null;
 	});
@@ -44,7 +45,10 @@ const server = http.createServer(async (req, res) => {
 			});
 			res.end(pageHtml());
 		} else if (url.pathname === '/lib.mjs') {
-			res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store' });
+			res.writeHead(200, {
+				'content-type': 'text/javascript; charset=utf-8',
+				'cache-control': 'no-store',
+			});
 			res.end(await readFile(path.join(here, 'lib.mjs'), 'utf8'));
 		} else if (url.pathname === '/api/status') {
 			const payload = await status(url.searchParams.get('refresh') === '1');

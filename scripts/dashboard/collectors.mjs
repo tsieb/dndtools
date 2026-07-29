@@ -16,10 +16,15 @@ const AWS_REGION = process.env.DASHBOARD_AWS_REGION || 'ca-central-1';
 
 function run(cmd, args, { timeout = 20_000 } = {}) {
 	return new Promise((resolve) => {
-		execFile(cmd, args, { timeout, maxBuffer: 8 * 1024 * 1024, encoding: 'utf8' }, (err, stdout, stderr) => {
-			if (err) resolve({ ok: false, error: (stderr || err.message || '').trim().slice(0, 500) });
-			else resolve({ ok: true, stdout });
-		});
+		execFile(
+			cmd,
+			args,
+			{ timeout, maxBuffer: 8 * 1024 * 1024, encoding: 'utf8' },
+			(err, stdout, stderr) => {
+				if (err) resolve({ ok: false, error: (stderr || err.message || '').trim().slice(0, 500) });
+				else resolve({ ok: true, stdout });
+			},
+		);
 	});
 }
 
@@ -72,8 +77,12 @@ async function collectRepo() {
 async function collectActions() {
 	const out = must(
 		await run('gh', [
-			'run', 'list', '--limit', '50',
-			'--json', 'workflowName,name,displayTitle,headBranch,status,conclusion,createdAt,updatedAt,url,event',
+			'run',
+			'list',
+			'--limit',
+			'50',
+			'--json',
+			'workflowName,name,displayTitle,headBranch,status,conclusion,createdAt,updatedAt,url,event',
 		]),
 		'gh run list',
 	);
@@ -83,7 +92,10 @@ async function collectActions() {
 
 async function collectReleases() {
 	// gh api includes draft releases (gh release list hides asset/draft detail).
-	const out = must(await run('gh', ['api', 'repos/{owner}/{repo}/releases?per_page=10']), 'gh api releases');
+	const out = must(
+		await run('gh', ['api', 'repos/{owner}/{repo}/releases?per_page=10']),
+		'gh api releases',
+	);
 	return JSON.parse(out).map((r) => ({
 		tag: r.tag_name,
 		name: r.name,
@@ -98,7 +110,14 @@ async function collectReleases() {
 
 async function collectPulls() {
 	const out = must(
-		await run('gh', ['pr', 'list', '--limit', '10', '--json', 'number,title,updatedAt,url,headRefName']),
+		await run('gh', [
+			'pr',
+			'list',
+			'--limit',
+			'10',
+			'--json',
+			'number,title,updatedAt,url,headRefName',
+		]),
 		'gh pr list',
 	);
 	return JSON.parse(out);
@@ -106,10 +125,20 @@ async function collectPulls() {
 
 async function collectAws() {
 	const out = must(
-		await run('aws', [
-			'cloudformation', 'describe-stacks',
-			'--profile', AWS_PROFILE, '--region', AWS_REGION, '--output', 'json',
-		], { timeout: 30_000 }),
+		await run(
+			'aws',
+			[
+				'cloudformation',
+				'describe-stacks',
+				'--profile',
+				AWS_PROFILE,
+				'--region',
+				AWS_REGION,
+				'--output',
+				'json',
+			],
+			{ timeout: 30_000 },
+		),
 		'aws describe-stacks',
 	);
 	const stacks = JSON.parse(out).Stacks || [];
@@ -133,9 +162,13 @@ async function collectGcp() {
 	if (!projectId || projectId === '(unset)') throw new Error('no gcloud project configured');
 	const services = JSON.parse(
 		must(
-			await run('gcloud', ['services', 'list', '--enabled', '--project', projectId, '--format', 'json'], {
-				timeout: 30_000,
-			}),
+			await run(
+				'gcloud',
+				['services', 'list', '--enabled', '--project', projectId, '--format', 'json'],
+				{
+					timeout: 30_000,
+				},
+			),
 			'gcloud services list',
 		),
 	).map((s) => s.config?.name || '');
@@ -180,5 +213,8 @@ export async function collectAll() {
 		timed(collectGcp),
 	]);
 	const probes = await timed(() => collectProbes(aws));
-	return { generatedAt: new Date().toISOString(), sections: { repo, actions, releases, pulls, aws, gcp, probes } };
+	return {
+		generatedAt: new Date().toISOString(),
+		sections: { repo, actions, releases, pulls, aws, gcp, probes },
+	};
 }

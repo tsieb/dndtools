@@ -1398,7 +1398,9 @@ function InvitesPanel({
 									disabled={busy || !joinUrl}
 									title={joinUrl ? undefined : 'Public app URL is not configured'}
 									aria-label={
-										joinUrl ? 'Copy join link' : 'Copy link (unavailable — public app URL is not configured)'
+										joinUrl
+											? 'Copy join link'
+											: 'Copy link (unavailable — public app URL is not configured)'
 									}
 									onClick={() => joinUrl && void copyText(joinUrl, 'Join link copied.')}
 								>
