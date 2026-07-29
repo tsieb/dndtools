@@ -6,6 +6,17 @@ v1 document-editor have been removed; that application's last state is preserved
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-07-28
+
+- Fixed the incremental formatting baseline failures on `main` by formatting the dashboard and
+  settings files that landed ahead of the CI baseline.
+- Fixed cloud environment validation so omitted feature flags remain fail-closed as an empty flag set
+  instead of breaking deploy-time validation.
+- Fixed scheduled drift checks by skipping the bootstrap `foundation` stack, whose global budget and
+  Cost Explorer resources do not report deterministic CloudFormation drift.
+- Fixed supply-chain policy failures by normalizing GitHub Actions version annotations to the pinned
+  revisions actually in use.
+
 ## [0.3.0] - 2026-07-15
 
 - Added an alpha Android GM companion using the shared React renderer, `@dndtools/core`, Dexie vault,
