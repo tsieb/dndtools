@@ -143,7 +143,8 @@ test.describe('graph: edge geometry', () => {
 					const px = rect.left + (Number(line.getAttribute(xa)) / 100) * rect.width;
 					const py = rect.top + (Number(line.getAttribute(ya)) / 70) * rect.height;
 					const nearest = Math.min(...centers.map((c) => Math.hypot(c.x - px, c.y - py)));
-					if (nearest > 3) bad.push(`${xa}/${ya} endpoint is ${Math.round(nearest)}px from any node`);
+					if (nearest > 3)
+						bad.push(`${xa}/${ya} endpoint is ${Math.round(nearest)}px from any node`);
 				}
 			}
 			return bad;

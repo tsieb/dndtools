@@ -1109,9 +1109,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 				placement="bottom-right"
 				data-testid="app-toast-viewport"
 				style={
-					viewport === 'phone'
-						? { bottom: 'calc(52px + 2 * var(--space-1) + 1px)' }
-						: undefined
+					viewport === 'phone' ? { bottom: 'calc(52px + 2 * var(--space-1) + 1px)' } : undefined
 				}
 			/>
 		</div>
