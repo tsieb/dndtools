@@ -92,6 +92,25 @@ wait_for_ui_text() {
 	return 1
 }
 
+# The Command Center's primary CTA is state-dependent (CommandCenter.tsx): "Open scene" with no
+# live session, "Enter scene" when live on a table scene, and "Enter GM Screen" when the live scene
+# is the GM Screen's own home scene. `Session`'s "Go live" falls back to that home scene when
+# nothing else is active — which is exactly what happens on the fresh install this script drives —
+# so an assertion that only means "we are back on the root destination" must accept any of them.
+wait_for_root_destination() {
+	local ui='' label
+	for _ in {1..45}; do
+		ui=$(dump_ui || true)
+		for label in 'enter gm screen' 'enter scene' 'open scene'; do
+			if [[ "${ui,,}" == *"$label"* ]]; then
+				return 0
+			fi
+		done
+		sleep 1
+	done
+	return 1
+}
+
 wait_for_ui_text_absent() {
 	local unexpected=$1
 	local unexpected_folded=${unexpected,,}
@@ -248,7 +267,7 @@ wait_for_ui_text_absent 'Session is in standby' \
 	|| fail 'the session.set-workflow command was not accepted'
 adb shell input keyevent KEYCODE_BACK
 wait_until_foreground || fail 'Back minimized the app instead of returning through router history'
-wait_for_ui_text 'Enter scene' || fail 'Back did not return from Session to Command Center'
+wait_for_root_destination || fail 'Back did not return from Session to Command Center'
 
 # The fullscreen quick-map editor is above router history but below dialogs/sheets in the Back
 # stack. The first Back must leave that editor without changing the Maps route.
@@ -266,7 +285,7 @@ wait_for_ui_text 'Open in map editor' || fail 'Back left the Maps route with the
 sleep 1
 adb shell input keyevent KEYCODE_BACK
 wait_until_foreground || fail 'second Back minimized instead of following Maps router history'
-wait_for_ui_text 'Enter scene' || fail 'second Back did not return to the root destination'
+wait_for_root_destination || fail 'second Back did not return to the root destination'
 
 # Deliver an external HTTPS app URL to the running singleTask Activity. Capacitor must emit
 # appUrlOpen, the renderer must hand it to the native Browser surface, and the embedded WebView must
@@ -278,7 +297,7 @@ grep -q 'Status: ok' <<<"$EXTERNAL_OUTPUT" || fail 'external HTTPS intent did no
 wait_until_not_foreground || fail 'external HTTPS navigation remained inside the embedded WebView'
 adb shell input keyevent KEYCODE_BACK
 wait_until_foreground || fail 'Back did not return from the external HTTPS browser surface'
-wait_for_ui_text 'Enter scene' || fail 'app state was lost after external HTTPS navigation'
+wait_for_root_destination || fail 'app state was lost after external HTTPS navigation'
 
 # Open Settings through the canonical More sheet, then exercise the native share/save Activity and
 # the WebView file picker. Cancelling either system surface is a normal outcome and must restore the
@@ -308,7 +327,7 @@ wait_for_ui_text 'Local backup' || fail 'file-picker cancellation did not return
 wait_for_ui_text_absent 'not a valid vault backup' \
 	|| fail 'file-picker cancellation surfaced as an invalid backup'
 tap_ui_button 'Home' || fail 'Home navigation control was not reachable after native surfaces'
-wait_for_ui_text 'Enter scene' || fail 'native surface cancellation lost renderer navigation state'
+wait_for_root_destination || fail 'native surface cancellation lost renderer navigation state'
 
 # Exercise an actual sheet as the topmost Back layer.
 tap_ui_button 'More' || fail 'More navigation control was not reachable'
@@ -386,13 +405,13 @@ launch_app
 if [[ -n "$PRIVATE_ACCESS" ]]; then
 	private_path_exists "$VAULT_PATH" || fail 'vault disappeared during offline relaunch'
 fi
-wait_for_ui_text 'Enter scene' || fail 'offline cold relaunch did not render the root destination'
+wait_for_root_destination || fail 'offline cold relaunch did not render the root destination'
 tap_ui_button 'Session' || fail 'Session was not reachable after offline process death'
 wait_for_ui_text 'LIVE SESSION' || fail 'Session did not render after offline process death'
 wait_for_ui_text_absent 'Session is in standby' \
 	|| fail 'the accepted session command was not restored after offline process death'
 tap_ui_button 'Home' || fail 'Home was not reachable after persisted-command verification'
-wait_for_ui_text 'Enter scene' || fail 'persisted-command verification did not return to root'
+wait_for_root_destination || fail 'persisted-command verification did not return to root'
 
 # Background/resume must retain both process state and private data.
 step 'background and resume'
@@ -438,7 +457,7 @@ adb shell settings put system user_rotation 0
 # Home, then require the next Back to minimize the task.
 adb shell input keyevent KEYCODE_BACK
 if ! wait_until_not_foreground; then
-	wait_for_ui_text 'Enter scene' || fail 'Back did not return to the root destination before minimize'
+	wait_for_root_destination || fail 'Back did not return to the root destination before minimize'
 	adb shell input keyevent KEYCODE_BACK
 	wait_until_not_foreground || fail 'Back did not minimize the root task'
 fi
