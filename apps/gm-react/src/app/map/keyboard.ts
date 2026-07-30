@@ -34,7 +34,11 @@ export function useMapKeyboard(
 				handlers.openPalette();
 				return;
 			}
-			// Undo / redo.
+			if (typing) return; // never fire a tool/nudge while a field is focused
+
+			// Undo / redo. These sit BELOW the typing guard on purpose: handled above it, Ctrl+Z while
+			// editing a POI label / layer name / seed / label field silently reverted the last MAP
+			// command instead of the text the user was actually undoing.
 			if (mod && (e.key === 'z' || e.key === 'Z')) {
 				e.preventDefault();
 				if (e.shiftKey) void editor.redo();
@@ -46,8 +50,6 @@ export function useMapKeyboard(
 				void editor.redo();
 				return;
 			}
-
-			if (typing) return; // never fire a tool/nudge while a field is focused
 
 			// Shortcut overlay.
 			if (e.key === '?') {

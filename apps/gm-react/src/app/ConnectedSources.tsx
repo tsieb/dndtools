@@ -737,6 +737,7 @@ export function ConnectedSourcesPanel() {
 						)}
 						<div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
 							<Input
+								aria-label="Title for a new Google Doc"
 								value={docInput}
 								onChange={(e: { target: { value: string } }) => setDocInput(e.target.value)}
 								placeholder="Title for a new Google Doc"

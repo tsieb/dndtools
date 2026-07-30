@@ -43,6 +43,11 @@ const DRAWING_TOOLS = new Set([
 	'measure',
 	'marquee',
 	'generate',
+	// 'route' was missing here, so the interaction overlay that owns the click-to-add-vertex
+	// gesture never mounted for it: the Route tool showed its "Click to add points" hint, then
+	// dropped every click through to MapCanvas (which maps route -> pan). Its whole finish path
+	// (map.create-route below) already existed and was simply unreachable.
+	'route',
 ]);
 /** Tools whose gesture is a persistent click-to-add-vertex path finished with Enter/double-click. */
 const PATH_TOOLS = new Set(['wall', 'water', 'route']);
@@ -485,7 +490,7 @@ export function EditorCanvas({
 			]);
 			announce('Placed door.');
 		} else if (tool === 'text') {
-			const text = options.stampAsset.startsWith('text:') ? options.stampAsset.slice(5) : '';
+			const text = options.labelText.trim();
 			addFeatures([mkFeature('text', [snap(raw)], 'text', { text: text || 'Label', size: 3 })]);
 			announce('Placed label.');
 		} else if (tool === 'fill') {

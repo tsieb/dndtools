@@ -54,4 +54,22 @@ describe('Switch accessibility', () => {
 		expect(button.getAttribute('aria-label')).toBe('Reduce motion');
 		expect(button.hasAttribute('aria-labelledby')).toBe(false);
 	});
+
+	// WCAG 2.5.8: the control's TARGET must clear 24px even though the painted pill stays 38x22.
+	// The hit box is the <button>; the pill moved to an inner span so the visual did not change.
+	it('gives the target a 24px minimum without growing the painted track', async () => {
+		await act(async () => root.render(createElement(TestSwitch, { label: 'Snap to grid' })));
+		const button = container.querySelector<HTMLButtonElement>('[role="switch"]')!;
+		expect(button.style.minWidth).toBe('var(--density-touch-target, 24px)');
+		expect(button.style.minHeight).toBe('var(--density-touch-target, 24px)');
+		// The button itself no longer paints the track…
+		expect(button.style.background).toBe('transparent');
+		expect(button.style.borderStyle).toBe('none');
+		// …the inner track does, at the original compact size.
+		const track = button.firstElementChild as HTMLElement;
+		expect(track.style.width).toBe('38px');
+		expect(track.style.height).toBe('22px');
+		// And the knob still lives inside the track.
+		expect(track.firstElementChild).not.toBeNull();
+	});
 });

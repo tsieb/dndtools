@@ -42,6 +42,7 @@ import {
 import { CharBuilder, portraitGradient } from '../app/CharBuilder';
 import { ABILITY_IDS, SKILLS } from '../app/charImport/skills';
 import { Page, Panel, T, eb, mono } from '../app/screen-kit';
+import { useViewport } from '../app/useViewport';
 import { useRuntime } from '../runtime/RuntimeContext';
 
 /**
@@ -271,6 +272,7 @@ function BackBar({ onBack }: { onBack: () => void }) {
 function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	const runtime = useRuntime();
 	const navigate = useNavigate();
+	const isPhone = useViewport() === 'phone';
 	const actorId = runtime.defaultActorId;
 	const [editMode, setEditMode] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -386,9 +388,18 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 		// `Number('')` is 0, which is finite — so a blank field used to sail past the guard and
 		// silently overwrite the character's AC with 0. The placeholder shows the current AC, so
 		// this read as a no-op right up until the armour class was gone.
-		if (acDraft.trim() === '') return;
+		// The guards below protect the stored value, but returning silently left a button that
+		// visibly did nothing — worse here because the placeholder shows the CURRENT ac, so the
+		// field looks pre-filled. Say why instead.
+		if (acDraft.trim() === '') {
+			setError('Enter an armour class before applying.');
+			return;
+		}
 		const n = Math.trunc(Number(acDraft));
-		if (!Number.isFinite(n) || n < 0) return;
+		if (!Number.isFinite(n) || n < 0) {
+			setError('Armour class must be a number of 0 or more.');
+			return;
+		}
 		if (
 			await dispatch({ type: 'character.set-combat', actorId, payload: { characterId: id, ac: n } })
 		)
@@ -461,7 +472,10 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	async function declareSlots() {
 		const level = clamp(Math.trunc(Number(slotLevel) || 0), 0, 9);
 		const max = Math.max(0, Math.trunc(Number(slotMax)));
-		if (!Number.isFinite(Number(slotMax)) || slotMax.trim() === '') return;
+		if (slotMax.trim() === '' || !Number.isFinite(Number(slotMax))) {
+			setError('Enter how many slots this level has.');
+			return;
+		}
 		if (
 			await dispatch({
 				type: 'character.set-spell-slots',
@@ -533,9 +547,15 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	async function setXp() {
 		// Same trap as applyAc: `Number('') || 0` is 0, so an empty field reset accumulated XP to
 		// zero (and revoked level-up eligibility) on a single stray click.
-		if (xpInput.trim() === '') return;
+		if (xpInput.trim() === '') {
+			setError('Enter an XP total before setting it.');
+			return;
+		}
 		const parsed = Number(xpInput);
-		if (!Number.isFinite(parsed)) return;
+		if (!Number.isFinite(parsed)) {
+			setError('XP must be a number.');
+			return;
+		}
 		const n = Math.max(0, Math.trunc(parsed));
 		if (await dispatch({ type: 'character.set-xp', actorId, payload: { characterId: id, xp: n } }))
 			setXpInput('');
@@ -670,7 +690,9 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 			<div
 				style={{
 					display: 'grid',
-					gridTemplateColumns: 'minmax(0,1.3fr) minmax(0,1fr)',
+					// /characters/:id had no phone branch at all, so the sheet rendered as two ~180px
+					// columns whose ability + skills grids then overflowed them.
+					gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : 'minmax(0,1.3fr) minmax(0,1fr)',
 					gap: 16,
 					alignItems: 'start',
 				}}
@@ -678,7 +700,13 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 					{abilityCells.length > 0 ? (
 						<Panel title="Ability scores">
-							<div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 8 }}>
+							<div
+								style={{
+									display: 'grid',
+									gridTemplateColumns: isPhone ? 'repeat(3,minmax(0,1fr))' : 'repeat(6,1fr)',
+									gap: 8,
+								}}
+							>
 								{abilityCells.map((a) => (
 									<AbilityScore
 										key={a.key}
@@ -741,7 +769,13 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 									})}
 								</div>
 								<div style={{ ...eb, marginBottom: 6 }}>Skills</div>
-								<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 18px' }}>
+								<div
+									style={{
+										display: 'grid',
+										gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1fr 1fr',
+										gap: '4px 18px',
+									}}
+								>
 									{SKILLS.map((s) => {
 										const level = prof.skills[s.id] ?? 'none';
 										const bonus =
@@ -1619,7 +1653,11 @@ export function Characters() {
 					characterId: c.id,
 					ac: c.combat.ac,
 					maxHp: c.combat.maxHp,
-					initiative: 0,
+					// Was a flat 0 for every PC, producing a degenerate all-tied order with no reroll
+					// path. Use the same d20 + DEX roll EncounterBuilder already applies for exactly
+					// this reason, so this convenience button can't start a fight of all-0 initiative.
+					initiative:
+						1 + Math.floor(Math.random() * 20) + abilityModifier(c.abilityScores.dex ?? 10),
 				})),
 			},
 		});

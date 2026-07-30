@@ -56,6 +56,38 @@ test.describe('canvas: board + scene mount and round-trip', () => {
 		await expect.poll(() => board.evaluate((element) => element.scrollTop > 0)).toBe(true);
 	});
 
+	// The edit-mode grid overlay was a 6000x6000 absolutely-positioned sheet living INSIDE the
+	// bounded policy's `overflow: auto` scroll container. Absolute descendants still contribute
+	// scrollable overflow, so pressing "Edit layout" ballooned the board's scrollHeight to several
+	// thousand px of empty space — and made the scroll assertion above pass vacuously.
+	test('entering board edit mode does not invent a phantom scroll region', async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+
+		const board = page.getByTestId('scene-board-bounded');
+		await expect(board).toBeVisible();
+		await page.waitForFunction(
+			() => {
+				const rt = window.__rt!;
+				const id = rt.state.commandCenter.homeSceneId;
+				return !!id && rt.state.scenes.scenes[id]?.widgets.length > 0;
+			},
+			null,
+			{ timeout: 10_000 },
+		);
+
+		const before = await board.evaluate((el) => el.scrollHeight);
+		await page.getByRole('button', { name: /Edit layout/i }).click();
+		// The grid is decorative: it only needs to cover the board's own extent, so turning it on
+		// must not materially change how far the surface scrolls.
+		await expect
+			.poll(() => board.evaluate((el) => el.scrollHeight), { timeout: 5_000 })
+			.toBeLessThanOrEqual(before + 200);
+	});
+
 	test('/board materializes the home scene and a widget move survives reload', async ({ page }) => {
 		await markOnboarded(page);
 		await gotoRoute(page, '/board');

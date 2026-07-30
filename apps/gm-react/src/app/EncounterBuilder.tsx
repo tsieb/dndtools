@@ -171,6 +171,18 @@ export function EncounterDialog({
 		setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 	}
 
+	// Raw text for the CR fields while they are being edited. Coercing on every keystroke made the
+	// two most common low-tier ratings impossible to type: `Number('0.')` is 0, so the controlled
+	// input snapped back and swallowed the decimal point before "0.25"/"0.5" could be entered.
+	const [crDrafts, setCrDrafts] = useState<Record<string, string>>({});
+	function commitCr(key: string) {
+		const draft = crDrafts[key];
+		setCrDrafts(({ [key]: _dropped, ...rest }) => rest);
+		if (draft === undefined || draft.trim() === '') return;
+		const parsed = Number(draft);
+		if (Number.isFinite(parsed)) patchRow(key, { cr: Math.max(0, parsed) });
+	}
+
 	function toggleCharacter(c: RosterCharacter) {
 		const key = `char-${c.id}`;
 		setRows((prev) =>
@@ -557,12 +569,19 @@ export function EncounterDialog({
 													type="number"
 													min={0}
 													step={0.25}
-													value={r.cr}
+													value={crDrafts[r.key] ?? r.cr}
 													aria-label={`${r.name} challenge rating`}
 													style={{ width: 62, textAlign: 'center', fontFamily: T.mono }}
 													onChange={(e: { target: { value: string } }) =>
-														patchRow(r.key, { cr: Math.max(0, Number(e.target.value) || 0) })
+														setCrDrafts((d) => ({ ...d, [r.key]: e.target.value }))
 													}
+													onBlur={() => commitCr(r.key)}
+													onKeyDown={(e: { key: string; preventDefault: () => void }) => {
+														if (e.key === 'Enter') {
+															e.preventDefault();
+															commitCr(r.key);
+														}
+													}}
 												/>
 											</label>
 										)}

@@ -68,7 +68,9 @@ interface MapSnapshot {
 	layers: Array<{ id: string; name: string; visibility: string; locked: boolean; order: number }>;
 	featureCount: number;
 	poiCount: number;
+	routeCount: number;
 	pois: Array<{ id: string; label: string; x: number; y: number; visibility: string }>;
+	routes: Array<{ id: string; label: string; waypointCount: number }>;
 }
 
 /** Read the actor-filtered raw map entity back through the runtime (DM sees the full record). */
@@ -90,6 +92,7 @@ function readMap(page: Page, mapId: string): Promise<MapSnapshot | null> {
 						position: { x: number; y: number };
 						visibility: string;
 					}>;
+					routes: Array<{ id: string; label: string; waypoints: unknown[] }>;
 			  }
 			| undefined;
 		if (!m) return null;
@@ -105,6 +108,12 @@ function readMap(page: Page, mapId: string): Promise<MapSnapshot | null> {
 			})),
 			featureCount: m.layers.reduce((n, l) => n + l.content.length, 0),
 			poiCount: m.pois.length,
+			routeCount: (m.routes ?? []).length,
+			routes: (m.routes ?? []).map((r) => ({
+				id: r.id,
+				label: r.label,
+				waypointCount: (r.waypoints ?? []).length,
+			})),
 			pois: m.pois.map((p) => ({
 				id: p.id,
 				label: p.label,
@@ -334,6 +343,42 @@ test.describe('map editor', () => {
 		await expect
 			.poll(async () => (await readMap(page, mapId))!.pois.find((p) => p.id === placed.id)?.x)
 			.toBe(placed.x);
+	});
+
+	// The Route tool was declared in the rail, showed its "Click to add points · Enter finishes"
+	// hint, and had a fully-implemented `map.create-route` finish path — but 'route' was missing from
+	// the canvas's DRAWING_TOOLS set, so the interaction overlay that owns the click-to-add-vertex
+	// gesture never mounted and every click fell through to panning. The whole tool was inert.
+	test('the Route tool draws a multi-waypoint route (O, click, click, Enter)', async ({ page }) => {
+		await openAtlas(page);
+		const name = `Route Map ${Date.now()}`;
+		const mapId = await createMap(page, { name });
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		const canvas = page.getByRole('application');
+		const box = await canvas.boundingBox();
+		expect(box).not.toBeNull();
+		const b = box!;
+
+		await page.keyboard.press('o');
+		await expectActiveTool(page, 'Route');
+		expect((await readMap(page, mapId))!.routeCount).toBe(0);
+
+		// Click a few waypoints, then finish the path with Enter.
+		await page.mouse.click(b.x + b.width * 0.25, b.y + b.height * 0.3);
+		await page.mouse.click(b.x + b.width * 0.5, b.y + b.height * 0.45);
+		await page.mouse.click(b.x + b.width * 0.7, b.y + b.height * 0.6);
+		await focusEditor(page);
+		await page.keyboard.press('Enter');
+
+		await expect.poll(async () => (await readMap(page, mapId))!.routeCount).toBe(1);
+		const route = (await readMap(page, mapId))!.routes[0];
+		expect(route.waypointCount).toBeGreaterThanOrEqual(2);
+
+		// It is a normal undoable map command like every other drawing tool.
+		await undoRedo(page, 'Control+z');
+		await expect.poll(async () => (await readMap(page, mapId))!.routeCount).toBe(0);
 	});
 
 	// ── 5 · layers panel ─────────────────────────────────────────────────────────────────────────────

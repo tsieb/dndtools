@@ -65,6 +65,12 @@ export interface ToolOptions {
 	stampAsset: string;
 	scatterObject: string;
 	scatterDensity: number;
+	/**
+	 * Text for the Label tool. This used to be smuggled through `stampAsset` behind a `text:`
+	 * prefix, so typing a label overwrote the Stamp tool's armed asset (and arming an asset wiped
+	 * the label). They are separate tools and now own separate option keys.
+	 */
+	labelText: string;
 	// Snapping (Ctrl momentarily overrides — handled in the canvas)
 	snapGrid: boolean;
 	snapAngle: boolean;
@@ -86,6 +92,7 @@ const DEFAULT_TOOL_OPTIONS: ToolOptions = {
 	stampAsset: 'prop:crate',
 	scatterObject: 'trees',
 	scatterDensity: 0.5,
+	labelText: '',
 	snapGrid: true,
 	snapAngle: false,
 	snapObject: true,

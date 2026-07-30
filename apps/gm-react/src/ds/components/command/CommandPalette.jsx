@@ -219,6 +219,11 @@ export function CommandPalette({
 		} else if (e.key === 'Escape') {
 			e.preventDefault();
 			onClose && onClose();
+		} else if (e.key === 'Tab') {
+			// The panel declares aria-modal but the input is its only focusable child, so an
+			// untrapped Tab moved focus into the shell behind the scrim. Results are driven by
+			// Arrow/Enter, so there is nowhere for Tab to legitimately go.
+			e.preventDefault();
 		}
 	};
 

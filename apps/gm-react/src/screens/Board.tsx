@@ -326,6 +326,9 @@ export function Board() {
 
 			{status && (
 				<div
+					// Every board write's confirmation/rejection surfaces here, so it has to be a live
+					// region or screen-reader users get no feedback at all (WCAG 4.1.3).
+					role="status"
 					style={{
 						display: 'inline-flex',
 						alignItems: 'center',

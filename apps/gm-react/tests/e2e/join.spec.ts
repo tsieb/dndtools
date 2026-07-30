@@ -47,6 +47,32 @@ test.describe('join: the invite-redeem landing (cloud fail-closed)', () => {
 		await expect(page.getByRole('button', { name: 'Go to the app' })).toBeVisible();
 	});
 
+	// The failure arrives asynchronously and the loading region UNMOUNTS, so with no live region a
+	// screen-reader user was never told the invite check had failed — and the message itself says
+	// "try again" while offering nothing to press.
+	test('an invalid invite is announced and offers a retry', async ({ page }) => {
+		await page.goto('/#/join?token=e2e-fake-invite-token', { waitUntil: 'domcontentloaded' });
+
+		const alert = page.getByRole('alert');
+		await expect(alert).toBeVisible({ timeout: 10_000 });
+		await expect(alert).toContainText(/not available in this edition|could not be checked/);
+
+		// Retry re-runs the resolve; fail-closed means it lands back on the same honest state rather
+		// than a spinner that never resolves.
+		const retry = page.getByRole('button', { name: 'Try again' });
+		await expect(retry).toBeVisible();
+		await retry.click();
+		await expect(page.getByRole('alert')).toBeVisible({ timeout: 10_000 });
+		await expect(page.getByText('Checking your invite…')).toHaveCount(0);
+	});
+
+	// A standalone route reached from an emailed link needs a document outline; the title was a
+	// styled <div>, so the page had no h1 at all.
+	test('the invite landing has a real page heading', async ({ page }) => {
+		await page.goto('/#/join', { waitUntil: 'domcontentloaded' });
+		await expect(page.getByRole('heading', { level: 1, name: /invited/i })).toBeVisible();
+	});
+
 	test('the escape hatch returns to the app shell', async ({ page }) => {
 		await page.goto('/#/join', { waitUntil: 'domcontentloaded' });
 		await expect(page.getByRole('button', { name: 'Go to the app' })).toBeVisible();

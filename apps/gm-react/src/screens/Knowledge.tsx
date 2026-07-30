@@ -425,7 +425,7 @@ function NoteViewer({
 						</div>
 						{canAuthor ? (
 							<>
-								<Seg options={VIS_OPTIONS} value={note.visibility} onChange={setVisibility} />
+								<Seg ariaLabel="Note visibility" options={VIS_OPTIONS} value={note.visibility} onChange={setVisibility} />
 								{note.visibility !== 'player-visible' && (
 									<Button
 										variant="secondary"
@@ -613,6 +613,7 @@ function ImportPanel({
 			/>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 				<Select
+					aria-label="Import collision policy"
 					options={IMPORT_POLICIES}
 					value={policy}
 					onChange={(e: { target: { value: string } }) => setPolicy(e.target.value)}
@@ -743,10 +744,13 @@ export function Knowledge() {
 			>
 				{canAuthor && (
 					<>
+						{/* These three are disclosure toggles that mutually collapse each other, so each
+						    needs aria-expanded — open state was otherwise invisible to assistive tech. */}
 						<Button
-							variant="ghost"
+							variant={showSources ? 'secondary' : 'ghost'}
 							size="sm"
 							icon="vault"
+							aria-expanded={showSources}
 							onClick={() => {
 								setShowSources((v) => !v);
 								setComposing(false);
@@ -756,9 +760,10 @@ export function Knowledge() {
 							Sources
 						</Button>
 						<Button
-							variant="ghost"
+							variant={importing ? 'secondary' : 'ghost'}
 							size="sm"
 							icon="import"
+							aria-expanded={importing}
 							onClick={() => {
 								setImporting((v) => !v);
 								setComposing(false);
@@ -771,6 +776,7 @@ export function Knowledge() {
 							variant="primary"
 							size="sm"
 							icon="note-edit"
+							aria-expanded={composing}
 							onClick={() => {
 								setComposing((v) => !v);
 								setImporting(false);

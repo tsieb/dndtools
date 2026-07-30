@@ -35,6 +35,16 @@ function NumberControl({
 	width?: number;
 }) {
 	const clamp = (v: number) => Math.min(max, Math.max(min, v));
+	// Clamping on every keystroke made multi-digit values impossible to type: with min=5, typing
+	// "20" clamped the intermediate "2" to 5 and left you at 50. Hold the raw text while the field
+	// has focus and only commit (clamped) on blur or Enter. The slider/steppers still clamp live.
+	const [draft, setDraft] = useState<string | null>(null);
+	const commitDraft = () => {
+		if (draft === null) return;
+		const parsed = Number(draft);
+		setDraft(null);
+		if (draft.trim() !== '' && Number.isFinite(parsed)) onChange(clamp(parsed));
+	};
 	return (
 		<div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
 			<span style={{ font: `12px ${T.sans}`, color: T.sub, whiteSpace: 'nowrap' }}>{label}</span>
@@ -59,11 +69,18 @@ function NumberControl({
 			<input
 				type="number"
 				aria-label={`${label} value`}
-				value={value}
+				value={draft ?? value}
 				min={min}
 				max={max}
 				step={step}
-				onChange={(e) => onChange(clamp(Number(e.target.value)))}
+				onChange={(e) => setDraft(e.target.value)}
+				onBlur={commitDraft}
+				onKeyDown={(e) => {
+					if (e.key === 'Enter') {
+						e.preventDefault();
+						commitDraft();
+					}
+				}}
 				style={{
 					width: 54,
 					textAlign: 'right',
@@ -135,7 +152,17 @@ function SnapMenu({ editor }: { editor: MapEditorApi }) {
 					title="Snapping"
 					width={220}
 					placement="bottom"
-					style={{ position: 'absolute', left: 0, top: 'calc(100% + 6px)', transform: 'none' }}
+					// ds/Popover only sets a z-index in its `anchor` branch, and this options bar is a
+					// static ancestor — so without an explicit z-index the flyout was painted UNDER the
+					// positioned canvas wrapper and its switches were unclickable. Matches the header
+					// export menu (MapEditor.tsx) and the layer row menu (LayersPanel.tsx).
+					style={{
+						position: 'absolute',
+						left: 0,
+						top: 'calc(100% + 6px)',
+						transform: 'none',
+						zIndex: 30,
+					}}
 				>
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 						{(
@@ -384,12 +411,10 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 				<label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
 					<span style={{ font: `12px ${T.sans}`, color: T.sub }}>Label</span>
 					<Input
-						value={options.stampAsset.startsWith('text:') ? options.stampAsset.slice(5) : ''}
+						value={options.labelText}
 						placeholder="Type the label, then click the map"
 						aria-label="Label text"
-						onChange={(e: { target: { value: string } }) =>
-							setOption('stampAsset', `text:${e.target.value}`)
-						}
+						onChange={(e: { target: { value: string } }) => setOption('labelText', e.target.value)}
 						style={{ width: 220 }}
 					/>
 				</label>

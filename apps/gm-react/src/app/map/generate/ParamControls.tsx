@@ -67,6 +67,10 @@ function ParamControl({
 	value: ParamValue;
 	onChange: (next: ParamValue) => void;
 }) {
+	// Declared before the kind branch so the hook order stays stable across param kinds. Holds the
+	// number field's raw text while it is being edited — committing on every keystroke clamped
+	// intermediate values (typing "20" against min=5 landed on 50) and made the field untypeable.
+	const [draft, setDraft] = useState<string | null>(null);
 	if (spec.kind === 'number' || spec.kind === 'int') {
 		const num = typeof value === 'number' ? value : spec.default;
 		const isInt = spec.kind === 'int';
@@ -75,6 +79,12 @@ function ParamControl({
 			let next = Math.min(spec.max, Math.max(spec.min, raw));
 			if (isInt) next = Math.round(next);
 			onChange(next);
+		};
+		const commitDraft = () => {
+			if (draft === null) return;
+			const parsed = Number(draft);
+			setDraft(null);
+			if (draft.trim() !== '') commit(parsed);
 		};
 		return (
 			<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -101,9 +111,16 @@ function ParamControl({
 					min={spec.min}
 					max={spec.max}
 					step={spec.step}
-					value={num}
+					value={draft ?? num}
 					aria-label={`${spec.label} value`}
-					onChange={(e) => commit(Number(e.target.value))}
+					onChange={(e) => setDraft(e.target.value)}
+					onBlur={commitDraft}
+					onKeyDown={(e) => {
+						if (e.key === 'Enter') {
+							e.preventDefault();
+							commitDraft();
+						}
+					}}
 					style={{
 						width: 64,
 						textAlign: 'right',

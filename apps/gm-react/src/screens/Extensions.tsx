@@ -1067,34 +1067,40 @@ function ExtCompendium() {
 							{entries.map((entry) => {
 								const dup = inVault(entry.name);
 								return (
+									// The row used to be a role="button" div WRAPPING the real Import buttons —
+									// nested interactive controls, which collapse the card and its action into
+									// one ambiguous control in AT browse mode. The selectable thing is now the
+									// text block below, a real <button> that is a SIBLING of the Import control.
 									<div
 										key={entry.key}
-										role="button"
-										tabIndex={0}
-										aria-pressed={selKey === entry.key}
-										aria-label={`Select ${entry.name}`}
-										onClick={() => setSelKey(entry.key)}
-										onKeyDown={(e) => {
-											// Only when the CARD itself is focused — Enter on the nested Import button must
-											// keep its native activation, not collapse into select.
-											if (e.target !== e.currentTarget) return;
-											if (e.key === 'Enter' || e.key === ' ') {
-												e.preventDefault();
-												setSelKey(entry.key);
-											}
-										}}
 										style={{
 											display: 'flex',
 											gap: 12,
 											padding: 12,
 											borderRadius: 10,
-											cursor: 'pointer',
 											textAlign: 'left',
 											border: `1px solid ${selKey === entry.key ? T.accBd : T.bd}`,
 											background: selKey === entry.key ? T.accSub : T.surf,
 										}}
 									>
-										<div style={{ flex: 1, minWidth: 0 }}>
+										<button
+											type="button"
+											aria-pressed={selKey === entry.key}
+											aria-label={`Select ${entry.name}`}
+											onClick={() => setSelKey(entry.key)}
+											style={{
+												flex: 1,
+												minWidth: 0,
+												display: 'block',
+												textAlign: 'left',
+												padding: 0,
+												border: 'none',
+												background: 'transparent',
+												color: 'inherit',
+												font: 'inherit',
+												cursor: 'pointer',
+											}}
+										>
 											<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 												<span style={{ font: `600 13.5px ${T.sans}` }}>{entry.name}</span>
 												{dup && (
@@ -1108,7 +1114,7 @@ function ExtCompendium() {
 													? monsterMeta(entry as CompendiumMonster)
 													: spellMeta(entry as CompendiumSpell)}
 											</div>
-										</div>
+										</button>
 										<span onClick={(e) => e.stopPropagation()} style={{ alignSelf: 'center' }}>
 											<ImportControl
 												name={entry.name}

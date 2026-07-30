@@ -901,6 +901,11 @@ export function CharBuilder({
 	// The CORE's own abilities-step rule (27-point buy, each 8–15) gates the PC path — surface its
 	// issues here instead of letting `finalize-draft` reject at the end.
 	const abilityValidation = isPc ? validateDraftStep('abilities', coreAbilities) : null;
+	// `standard` is the DEFAULT method, and an unassigned slot resolves to 10 above — all-10s costs
+	// 12 of the 27 points, so the core rule happily passed and the wizard silently created a
+	// character with every ability at 10, discarding the standard array it told the user to assign.
+	const standardIncomplete =
+		isPc && method === 'standard' && BUILDER.abilityKeys.some((k) => assign[k] === '');
 
 	const next = () => setI((x) => Math.min(STEPS.length - 1, x + 1));
 	const back = () => {
@@ -1267,7 +1272,7 @@ export function CharBuilder({
 							display: 'flex',
 							alignItems: 'center',
 							justifyContent: 'space-between',
-							padding: '20px 28px 0',
+							padding: isPhone ? '16px 16px 0' : '20px 28px 0',
 						}}
 					>
 						<div>
@@ -1280,7 +1285,7 @@ export function CharBuilder({
 						</div>
 						<IconButton icon="close" label="Close" variant="ghost" onClick={onClose} />
 					</div>
-					<div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '18px 28px' }}>
+					<div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: isPhone ? '16px' : '18px 28px' }}>
 						{importError && (
 							<div
 								role="alert"
@@ -1337,7 +1342,7 @@ export function CharBuilder({
 								<div
 									style={{
 										display: 'grid',
-										gridTemplateColumns: '1fr 1fr',
+										gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1fr 1fr',
 										gap: 14,
 										alignItems: 'start',
 									}}
@@ -1434,7 +1439,8 @@ export function CharBuilder({
 							display: 'flex',
 							alignItems: 'center',
 							gap: 10,
-							padding: '14px 28px',
+							padding: isPhone ? '12px 16px' : '14px 28px',
+							flexWrap: 'wrap',
 							borderTop: `1px solid ${T.bd}`,
 						}}
 					>
@@ -1472,7 +1478,7 @@ export function CharBuilder({
 
 	/* ---- the from-scratch wizard ---- */
 	const step = STEPS[i];
-	const statsOk = !abilityValidation || abilityValidation.valid;
+	const statsOk = (!abilityValidation || abilityValidation.valid) && !standardIncomplete;
 	const canContinue = step.id === 'identity' ? identityOk : step.id === 'stats' ? statsOk : true;
 
 	return (
@@ -1770,7 +1776,7 @@ export function CharBuilder({
 										</span>
 									)}
 								</div>
-								<div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 10 }}>
+								<div style={{ display: 'grid', gridTemplateColumns: isPhone ? 'repeat(2,minmax(0,1fr))' : 'repeat(6,1fr)', gap: 10 }}>
 									{BUILDER.abilityKeys.map((k) => (
 										<div
 											key={k}
@@ -1839,14 +1845,21 @@ export function CharBuilder({
 										</div>
 									))}
 								</div>
-								{abilityValidation && !abilityValidation.valid && (
+								{((abilityValidation && !abilityValidation.valid) || standardIncomplete) && (
 									<ul
 										role="alert"
 										style={{ margin: 0, paddingLeft: 18, font: `12.5px ${T.sans}`, color: T.warn }}
 									>
-										{abilityValidation.issues.map((iss, j) => (
-											<li key={`${iss.fieldId ?? 'step'}-${j}`}>{iss.message}</li>
-										))}
+										{standardIncomplete && (
+											<li>
+												Assign all six standard-array values before continuing (unassigned
+												abilities would be saved as 10).
+											</li>
+										)}
+										{abilityValidation?.valid === false &&
+											abilityValidation.issues.map((iss, j) => (
+												<li key={`${iss.fieldId ?? 'step'}-${j}`}>{iss.message}</li>
+											))}
 									</ul>
 								)}
 								{isPc && method === 'manual' && (
@@ -1901,7 +1914,7 @@ export function CharBuilder({
 
 						{step.id === 'kit' && (
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-								<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
+								<div style={{ display: 'grid', gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : 'repeat(3,1fr)', gap: 14 }}>
 									<div>
 										<FieldLabel>Armor class</FieldLabel>
 										<NumStepper
@@ -2112,7 +2125,7 @@ export function CharBuilder({
 							<div
 								style={{
 									display: 'grid',
-									gridTemplateColumns: '1fr 1fr',
+									gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1fr 1fr',
 									gap: 18,
 									alignItems: 'start',
 								}}
@@ -2144,7 +2157,7 @@ export function CharBuilder({
 											)}
 										</div>
 									</div>
-									<div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 8 }}>
+									<div style={{ display: 'grid', gridTemplateColumns: isPhone ? 'repeat(3,minmax(0,1fr))' : 'repeat(6,1fr)', gap: 8 }}>
 										{BUILDER.abilityKeys.map((k) => (
 											<AbilityScore key={k} label={k} score={effScores[k]} size="sm" />
 										))}

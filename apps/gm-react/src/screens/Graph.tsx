@@ -357,9 +357,13 @@ export function Graph() {
 							>
 								<span
 									style={{
-										font: `600 ${Math.max(7, d / 6)}px ${T.sans}`,
+										// `d` bottoms out at 34, so a /6 divisor pinned every low-degree node's
+										// title at the 7px floor — illegible, and clipped mid-glyph with no
+										// ellipsis. Raise the floor to 10px and truncate honestly.
+										font: `600 ${Math.max(10, d / 5)}px ${T.sans}`,
 										lineHeight: 1.05,
 										overflow: 'hidden',
+										textOverflow: 'ellipsis',
 									}}
 								>
 									{n.title}
@@ -507,7 +511,9 @@ export function Graph() {
 								style={{
 									flex: 1,
 									border: 'none',
-									outline: 'none',
+									// No `outline: none` — this raw input has no compensating focus style of
+									// its own, so suppressing the ring left keyboard users with no focus
+									// indicator at all (WCAG 2.4.7). Let the global :focus-visible ring apply.
 									background: 'transparent',
 									color: T.ink,
 									font: `12.5px ${T.sans}`,

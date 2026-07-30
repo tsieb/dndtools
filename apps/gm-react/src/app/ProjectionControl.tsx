@@ -94,21 +94,27 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 				size="md"
 				icon={live ? 'audio-off' : 'visibility-players'}
 				disabled={previewing || (!live && !canGoLive)}
+				// `previewing` also disables this button, so it needs its own explanation — otherwise
+				// previewing as a player left a dead control whose tooltip still read plain "Go live".
 				title={
-					!live && !canGoLive
-						? t('Finish {state} and return to Standby before going live', {
-								state: t(WORKFLOW_LABEL[workflow as SessionWorkflowState] ?? 'Standby'),
-							})
-						: live
-							? t('End live session')
-							: t('Go live')
+					previewing
+						? t('Exit player preview before going live')
+						: !live && !canGoLive
+							? t('Finish {state} and return to Standby before going live', {
+									state: t(WORKFLOW_LABEL[workflow as SessionWorkflowState] ?? 'Standby'),
+								})
+							: live
+								? t('End live session')
+								: t('Go live')
 				}
 				aria-label={
-					!live && !canGoLive
-						? t('Go live (unavailable — return to Standby first)')
-						: live
-							? t('End live session')
-							: t('Go live')
+					previewing
+						? t('Go live (unavailable — exit player preview first)')
+						: !live && !canGoLive
+							? t('Go live (unavailable — return to Standby first)')
+							: live
+								? t('End live session')
+								: t('Go live')
 				}
 				style={compact ? { width: 48, minHeight: 48, padding: 0, flex: '0 0 auto' } : undefined}
 				onClick={() =>

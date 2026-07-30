@@ -42,6 +42,28 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 		await expect(page.getByRole('dialog', PALETTE)).toHaveCount(0);
 	});
 
+	// The shell's global-hotkey handler bails out early when ANY `[aria-modal="true"]` element is
+	// mounted, so that a fullscreen editor overlay owns the keyboard. The palette is itself
+	// aria-modal — so the guard swallowed the very chord that should dismiss it, and the documented
+	// ⌘K *toggle* could only ever open.
+	test('Meta+K toggles the palette shut again', async ({ page }) => {
+		await openViaKeyboard(page, 'Meta+k');
+		await page.keyboard.press('Meta+k');
+		await expect(page.getByRole('dialog', PALETTE)).toHaveCount(0);
+
+		// And it still reopens afterwards (the guard must not have been left in a stuck state).
+		await openViaKeyboard(page, 'Meta+k');
+	});
+
+	// The palette declares aria-modal but its input is the only focusable child, so an untrapped
+	// Tab moved focus into the shell behind the scrim.
+	test('Tab does not leak focus out of the modal palette', async ({ page }) => {
+		await openViaKeyboard(page, 'Meta+k');
+		await page.keyboard.press('Tab');
+		await expect(page.getByRole('dialog', PALETTE)).toBeVisible();
+		await expect(page.getByRole('combobox')).toBeFocused();
+	});
+
 	test('Control+K also opens the palette', async ({ page }) => {
 		await openViaKeyboard(page, 'Control+k');
 		await expect(page.getByRole('dialog', PALETTE)).toBeVisible();

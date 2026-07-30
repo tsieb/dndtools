@@ -459,10 +459,14 @@ export function SceneBoardCanvas({
 					<div
 						style={{
 							position: 'absolute',
-							left: -2000,
-							top: -2000,
-							width: 6000,
-							height: 6000,
+							// Under the bounded policy this layer sits inside an `overflow: auto` scroll
+							// container, and an absolutely-positioned child still contributes scrollable
+							// overflow — so the oversized -2000/6000 sheet ballooned /board's scrollHeight
+							// to ~4000px against a real extent of ~550px. Bounded only ever needs to cover
+							// its own extent; the roaming sheet stays for the free `canvas` policy.
+							...(policy === 'bounded'
+								? { inset: 0 }
+								: { left: -2000, top: -2000, width: 6000, height: 6000 }),
 							backgroundImage: 'radial-gradient(var(--color-border-strong) 1px, transparent 1px)',
 							backgroundSize: `${GRID}px ${GRID}px`,
 							pointerEvents: 'none',

@@ -27,6 +27,25 @@ export function Minimap({ viewport = { x: 0.3, y: 0.25, w: 0.34, h: 0.32 }, coll
 		onJump({ x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height });
 	};
 
+	// Pointer jumping derives its target from clientX/Y, which has no keyboard equivalent — so
+	// arrow keys nudge the viewport centre instead, keeping the minimap operable without a mouse.
+	const clamp01 = (n) => Math.min(1, Math.max(0, n));
+	const nudge = (dx, dy) => {
+		if (!onJump) return;
+		const step = 0.1;
+		onJump({
+			x: clamp01(viewport.x + viewport.w / 2 + dx * step),
+			y: clamp01(viewport.y + viewport.h / 2 + dy * step),
+		});
+	};
+	const onJumpKeyDown = (e) => {
+		const deltas = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+		const d = deltas[e.key];
+		if (!d) return;
+		e.preventDefault();
+		nudge(d[0], d[1]);
+	};
+
 	return (
 		<div role="group" aria-label="Minimap — current viewport highlighted" style={{ width, borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border-strong)', background: 'var(--color-surface-overlay)', boxShadow: 'var(--shadow-md)', overflow: 'hidden', ...style }} {...rest}>
 			<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px var(--space-2)', borderBottom: '1px solid var(--color-border)' }}>
@@ -35,9 +54,9 @@ export function Minimap({ viewport = { x: 0.3, y: 0.25, w: 0.34, h: 0.32 }, coll
 					<Icon name="chevron-down" size={14} />
 				</button>
 			</div>
-			<div onClick={jump} style={{ position: 'relative', aspectRatio: String(aspect), cursor: 'pointer', backgroundColor: 'var(--map-canvas-bg)', backgroundImage: thumb ? `url(${thumb})` : 'repeating-linear-gradient(45deg, rgba(224,176,111,.06) 0 8px, transparent 8px 16px), radial-gradient(60% 50% at 55% 45%, color-mix(in oklab, var(--layer-height) 26%, transparent), transparent 70%)', backgroundSize: 'cover' }}>
+			<button type="button" aria-label="Jump viewport — click a spot, or use the arrow keys to pan" onClick={jump} onKeyDown={onJumpKeyDown} style={{ display: 'block', width: '100%', padding: 0, border: 'none', font: 'inherit', position: 'relative', aspectRatio: String(aspect), cursor: 'pointer', backgroundColor: 'var(--map-canvas-bg)', backgroundImage: thumb ? `url(${thumb})` : 'repeating-linear-gradient(45deg, rgba(224,176,111,.06) 0 8px, transparent 8px 16px), radial-gradient(60% 50% at 55% 45%, color-mix(in oklab, var(--layer-height) 26%, transparent), transparent 70%)', backgroundSize: 'cover' }}>
 				<span style={{ position: 'absolute', left: `${viewport.x * 100}%`, top: `${viewport.y * 100}%`, width: `${viewport.w * 100}%`, height: `${viewport.h * 100}%`, border: '1.5px solid var(--color-accent)', borderRadius: 2, background: 'color-mix(in oklab, var(--color-accent) 14%, transparent)', boxShadow: '0 0 0 1px rgba(0,0,0,.4)', pointerEvents: 'none' }} />
-			</div>
+			</button>
 		</div>
 	);
 }

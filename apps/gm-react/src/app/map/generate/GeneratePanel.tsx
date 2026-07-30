@@ -462,7 +462,10 @@ export function GeneratePanel({
 						variant="primary"
 						size="sm"
 						icon="check"
-						disabled={editor.busy || !!error}
+						// Accept stayed enabled after a successful accept, and a second press re-dispatched
+						// map.generate with a fresh idPrefix — silently stamping the whole generated map on
+						// top of itself. Rerolling or editing a param clears `accepted` and re-enables it.
+						disabled={editor.busy || !!error || !!accepted}
 						onClick={() => void accept()}
 						style={{ flex: 1 }}
 					>

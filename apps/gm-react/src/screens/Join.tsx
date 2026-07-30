@@ -52,6 +52,9 @@ export function Join() {
 	const [state, setState] = useState<JoinState>(
 		token ? { phase: 'loading' } : { phase: 'missing' },
 	);
+	// The failure copy tells the invitee to "try again", so give them something to press. Bumping
+	// this re-runs the resolve effect with the same token.
+	const [retryNonce, setRetryNonce] = useState(0);
 
 	useEffect(() => {
 		if (!token) {
@@ -75,7 +78,7 @@ export function Join() {
 		return () => {
 			cancelled = true;
 		};
-	}, [token]);
+	}, [token, retryNonce]);
 
 	const signedOut = isAuthConfigured && auth.status !== 'signed-in';
 	return (
@@ -96,7 +99,8 @@ export function Join() {
 					>
 						<Icon name="send" size="md" />
 					</span>
-					<div style={{ font: `700 17px ${T.disp}`, color: T.ink }}>You’re invited</div>
+					{/* A styled div left this standalone, emailed-link route with no heading at all. */}
+					<h1 style={{ margin: 0, font: `700 17px ${T.disp}`, color: T.ink }}>You’re invited</h1>
 				</div>
 
 				{state.phase === 'loading' && (
@@ -111,7 +115,11 @@ export function Join() {
 					</div>
 				)}
 				{state.phase === 'invalid' && (
-					<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub }}>{state.message}</div>
+					// The failure arrives asynchronously and the loading region unmounts, so without a
+					// live region a screen-reader user was never told the invite check had failed.
+					<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub }} role="alert">
+						{state.message}
+					</div>
 				)}
 				{state.phase === 'ready' && (
 					<>
@@ -180,6 +188,11 @@ export function Join() {
 							From there, join your DM’s table with the table name and PIN they share at game time.
 						</div>
 					</>
+				)}
+				{state.phase === 'invalid' && token && (
+					<Button variant="secondary" icon="retry" onClick={() => setRetryNonce((n) => n + 1)}>
+						Try again
+					</Button>
 				)}
 				{(state.phase === 'invalid' || state.phase === 'missing') && (
 					<Button variant="secondary" onClick={() => navigate('/')}>

@@ -984,6 +984,15 @@ export function AppShell({ children }: { children: ReactNode }) {
 	useSceneDisplayBroadcast(runtime);
 	useEffect(() => {
 		function onKey(e: KeyboardEvent) {
+			const cmdK = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k';
+			// The palette is itself `aria-modal`, so the overlay guard below used to swallow the very
+			// keystroke that should dismiss it — Cmd/Ctrl+K could open the palette but never close it.
+			// Handle the closing direction first, before the guard sees the palette as "some overlay".
+			if (cmdK && paletteOpen) {
+				e.preventDefault();
+				setPaletteOpen(false);
+				return;
+			}
 			// A full-screen editor overlay (e.g. the map editor) owns the keyboard while open and provides
 			// its own command palette / shortcuts; don't double-fire the global shortcuts beneath it.
 			if (
@@ -992,9 +1001,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 				)
 			)
 				return;
-			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+			if (cmdK) {
 				e.preventDefault();
-				setPaletteOpen((v) => !v);
+				setPaletteOpen(true);
 				return;
 			}
 			// I11 S11.2.2 — Ctrl/Cmd+Shift+S enters/exits the fullscreen scene display.
@@ -1030,7 +1039,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 		}
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
-	}, [runtime, displayOpen]);
+	}, [runtime, displayOpen, paletteOpen]);
 	return (
 		<div
 			className="app-shell"

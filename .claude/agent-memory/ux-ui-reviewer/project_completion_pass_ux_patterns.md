@@ -35,4 +35,52 @@ Two NEW instances of anti-pattern #1 (destructive, no confirm/undo) found this p
 - `Extensions.tsx` Custom Object Type "Delete" (~line 1651) — single click, no confirm/undo; inconsistent with the widget-package "Remove" confirm-state pattern in the SAME file (`ExtPlugins`, `confirmRemoveId`).
 - `Settings.tsx` MCP agent-binding "Remove" (~line 4069, uses local `run()` helper ~line 3868) — single click, no confirm/undo, despite its own toast copy warning that pending proposals expire.
 
+## Update (2026-07-29, cluster: Settings/Onboarding/Extensions/Community/ConnectedSources/Knowledge/WikiReader/Graph/Audio/tokens)
+
+Confirmed-fixed since the last pass (do not re-report): `Onboarding` focus-on-open now lands on the
+CONTENT region not "Skip setup" (`Onboarding.tsx` ~305-308, `contentRef`), so beta-audit item #4 is
+resolved. Raw hex/`<input>`/`<select>` are effectively absent from this whole cluster — token and ds
+discipline in these files is genuinely good (only deliberate `#fff` QR quiet zone in `Settings.tsx`).
+
+STRUCTURAL classes worth re-checking every pass:
+
+1. **`Seg` in `app/screen-kit.tsx` is an incomplete `role="radiogroup"`** — no arrow-key selection, no
+   roving tabindex (every radio is a Tab stop). `ds/components/forms/SegmentedControl.jsx` has the same
+   gap. `Onboarding.tsx` (~144-153) implements the correct contract, so the pattern IS known in-repo.
+   `Seg` is used for SAFETY-CRITICAL choices (Knowledge note visibility DM-only↔Players).
+
+2. **Inert accent-coloured `[[wikilinks]]`.** Both markdown renderers (`Knowledge.tsx` `boldify`,
+   `WikiReader.tsx` `boldify`) paint wikilinks with `--color-accent` but render a bare `<span>` — no
+   nav, no cursor, no keyboard target. The graph data to resolve them EXISTS
+   (`getNoteRelationshipsForActor`, `GraphViz` edges `relationship:'wikilink'`). Same two renderers
+   also emit `<li>` with no `<ul>` parent.
+
+3. **`--layer-*` / `--map-*` tokens are `:root`-only** (`styles/tokens/colors.css` ~258-282) — no
+   `[data-theme='parchment']`/`high-contrast` overrides and NOT in the `@media (forced-colors:active)`
+   remap block. Consumers are SVG `fill`/`stroke` in `app/MapBuilder.tsx`, which forced-colors mode
+   does not override, so the map surface keeps custom hues in OS high-contrast.
+
+4. **Retry-on-load-failure is inconsistent.** `Community.tsx` is the EXEMPLAR (EmptyState + `icon="retry"`
+   button at ~290/921/1240). `Settings.tsx` devices (~657) and invites (~1348) render dead failure text
+   despite already having a reusable `load` fn. Use Community as the template.
+
+5. **Unconditional 2-column grids on phone** in `Audio.tsx` (~920/1012/1479/1601) — the same class the
+   prior pass fixed in `Extensions.tsx`; `Audio.tsx:1798` shows the file already knows the `isPhone`
+   conditional. Note the in-repo idiom: two `fr` tracks SQUEEZE rather than overflow, so the responsive
+   e2e gate will not catch these — they need a min-width assertion, not an overflow assertion.
+
+6. **`ConnectedSources.tsx` `statusBySource` strings are the sole feedback for long async pull/push and
+   carry no `role="status"`/`aria-live`.** Errors there are silent to AT.
+
+Anti-pattern #1 (destructive, no confirm/undo) still open at exactly the two sites flagged last pass:
+`Extensions.tsx` `deleteType` (~1665) and `Settings.tsx` MCP `mcp.remove-agent-binding` (~4080). NEW
+sibling: `Knowledge.tsx` "Push to players" (~359, ~429) flips DM-only→player-visible on one click with
+no confirm, no undo and no toast — while `ConnectedSources.tsx` (~449-462) carefully Dialog-gates the
+analogous dm-only→external-Doc push. Inconsistent treatment of the same exposure risk.
+
+Also: the ONLY `outline:'none'` in this cluster that is a real violation is `Graph.tsx:510` (raw graph
+search `<input>`, no focus repaint). Every other hit is either a `tabIndex={-1}` programmatic-focus
+container (Onboarding/Dialog/Sheet) or a ds control that repaints focus in `onFocus`
+(`ds/components/forms/Input.jsx:19`). Use that triage instead of flagging the grep hits.
+
 New unrelated finding: `AppShell.tsx` mounts `<ToastViewport placement="bottom-right" />` globally (~line 1106) with no awareness of the phone `BottomTabBar`'s height (`PhoneNav`, ~line 758). `ToastViewport`'s bottom-right fixed positioning (`src/ds/components/overlay/Toast.jsx`) only offsets by `--space-4` (16px) + safe-area-bottom, while the tab bar occupies ~60px+safe-area at the true viewport bottom — toasts (z-index 600) visually overlap the tab bar on the phone profile. Check on future mobile passes; grep for any `--bottom-tab-bar-height` var to see if fixed.

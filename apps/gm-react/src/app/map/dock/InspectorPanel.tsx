@@ -522,8 +522,15 @@ function PoiInspector({
 				size="sm"
 				icon="delete"
 				disabled={editor.busy}
-				onClick={() => {
-					void run({ type: 'map.delete-poi', actorId, payload: { mapId, poiId: poi.id } } as never);
+				// Await the command before clearing + announcing: fire-and-forget claimed success and
+				// dropped the selection even when the dispatch was rejected, hiding the failure.
+				onClick={async () => {
+					const ok = await run({
+						type: 'map.delete-poi',
+						actorId,
+						payload: { mapId, poiId: poi.id },
+					} as never);
+					if (!ok) return;
 					editor.clearSelection();
 					announce(`POI “${poi.label}” deleted.`);
 				}}
@@ -601,12 +608,13 @@ function TokenInspector({
 				size="sm"
 				icon="delete"
 				disabled={editor.busy}
-				onClick={() => {
-					void run({
+				onClick={async () => {
+					const ok = await run({
 						type: 'map.delete-token',
 						actorId,
 						payload: { mapId, tokenId: token.id },
 					} as never);
+					if (!ok) return;
 					editor.clearSelection();
 					announce(`Token “${token.label}” deleted.`);
 				}}

@@ -917,7 +917,13 @@ export function Audio() {
 									}
 								/>
 							) : (
-								<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }}>
+								<div
+									style={{
+										display: 'grid',
+										gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : 'repeat(2,1fr)',
+										gap: 10,
+									}}
+								>
 									{assets.map((a) => {
 										const lit = pulse === a.id;
 										const bytes = bytesPresence[a.id] ?? 'unknown';
@@ -1009,7 +1015,13 @@ export function Audio() {
 									onSubmit={addTrack}
 									style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
 								>
-									<div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 10 }}>
+									<div
+										style={{
+											display: 'grid',
+											gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1.2fr 1fr',
+											gap: 10,
+										}}
+									>
 										<Field label="Track name" htmlFor="audio-track-name" required>
 											<Input
 												id="audio-track-name"
@@ -1372,7 +1384,9 @@ export function Audio() {
 											color: T.sub,
 										}}
 									>
-										<StatusDot status={playbackState.routing === 'unavailable' ? 'warn' : 'idle'} />
+										<StatusDot
+											status={playbackState.routing === 'unavailable' ? 'warning' : 'idle'}
+										/>
 										{playbackState.routing === 'routed'
 											? 'Routed to the selected device.'
 											: playbackState.routing === 'unavailable'
@@ -1476,7 +1490,13 @@ export function Audio() {
 								onSubmit={saveCurrentPreset}
 								style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}
 							>
-								<div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 10 }}>
+								<div
+									style={{
+										display: 'grid',
+										gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1.4fr 1fr',
+										gap: 10,
+									}}
+								>
 									<Field label="Package name" htmlFor="preset-name" required>
 										<Input
 											id="preset-name"
@@ -1598,7 +1618,13 @@ export function Audio() {
 										<div style={{ ...eb, marginBottom: 8 }}>
 											{AUDIO_PRESET_CATEGORY_LABELS[category]}
 										</div>
-										<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
+										<div
+											style={{
+												display: 'grid',
+												gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : 'repeat(2,1fr)',
+												gap: 8,
+											}}
+										>
 											{presets.map((preset) => (
 												<div
 													key={preset.id}

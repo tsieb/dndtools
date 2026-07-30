@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '../ds';
 import { useViewport } from './useViewport';
@@ -135,6 +136,22 @@ export function Seg({
 	/** Names the group for assistive tech (the control is a radiogroup, WCAG 4.1.2). */
 	ariaLabel?: string;
 }) {
+	const refs = useRef<(HTMLButtonElement | null)[]>([]);
+	// ARIA radiogroup: one tab stop for the whole group, Arrow/Home/End move the selection
+	// (same roving-tabIndex contract as ds/components/core/Tabs.jsx).
+	const selectedIndex = options.findIndex((o) => o.value === value && !o.disabled);
+	const tabStopIndex = selectedIndex >= 0 ? selectedIndex : options.findIndex((o) => !o.disabled);
+	const moveSelection = (from: number, direction: number) => {
+		if (options.length === 0) return;
+		for (let offset = 1; offset <= options.length; offset += 1) {
+			const index = (from + direction * offset + options.length) % options.length;
+			const option = options[index];
+			if (!option || (option.disabled && option.value !== value)) continue;
+			refs.current[index]?.focus();
+			onChange(option.value);
+			return;
+		}
+	};
 	return (
 		<div
 			role="radiogroup"
@@ -150,17 +167,33 @@ export function Seg({
 				border: `1px solid ${T.bd}`,
 			}}
 		>
-			{options.map((o) => {
+			{options.map((o, index) => {
 				const on = o.value === value;
 				const off = o.disabled && !on;
 				return (
 					<button
 						key={o.value}
+						ref={(node) => {
+							refs.current[index] = node;
+						}}
 						type="button"
 						role="radio"
 						aria-checked={on}
+						tabIndex={index === tabStopIndex ? 0 : -1}
 						disabled={off}
 						onClick={() => !off && onChange(o.value)}
+						onKeyDown={(event) => {
+							if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+								event.preventDefault();
+								moveSelection(index, 1);
+							} else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+								event.preventDefault();
+								moveSelection(index, -1);
+							} else if (event.key === 'Home' || event.key === 'End') {
+								event.preventDefault();
+								moveSelection(event.key === 'Home' ? -1 : 0, event.key === 'Home' ? 1 : -1);
+							}
+						}}
 						style={{
 							padding: '7px 15px',
 							borderRadius: 7,

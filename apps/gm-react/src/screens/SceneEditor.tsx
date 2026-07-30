@@ -261,7 +261,16 @@ export function SceneEditor() {
 		>
 			{/* edit toolbar */}
 			<div
-				style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flex: '0 0 auto' }}
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					gap: 'var(--space-2)',
+					// Without wrapping, edit mode's back + edit + snap + add + done controls consumed the
+					// whole 393px phone width and ellipsised the scene name to a couple of glyphs.
+					// Board.tsx's equivalent toolbar row already wraps.
+					flexWrap: 'wrap',
+					flex: '0 0 auto',
+				}}
 			>
 				<IconButton
 					icon="arrow-left"
@@ -346,6 +355,8 @@ export function SceneEditor() {
 
 			{error && (
 				<div
+					// Rejected layout writes were announced to nobody; Campaign.tsx already does this.
+					role="alert"
 					style={{
 						display: 'inline-flex',
 						alignItems: 'center',

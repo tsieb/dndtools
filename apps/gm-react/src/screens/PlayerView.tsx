@@ -486,6 +486,9 @@ export function PlayerView() {
 			key={n.id}
 			type="button"
 			aria-label={locked ? `${n.label} — requires the ${minTierLabel(n.min)} seat` : n.label}
+			// The active section was signalled by border/background/weight only, so AT and
+			// high-contrast users had no way to tell which of the nine sections they were in.
+			aria-current={!locked && current === n.id ? 'page' : undefined}
 			title={locked ? `${n.label} requires ${minTierLabel(n.min)}` : n.label}
 			// `disabled` made the lock-reason toast below unreachable dead code AND removed the row
 			// from the tab order, so the aria-label explaining the seat requirement could never be

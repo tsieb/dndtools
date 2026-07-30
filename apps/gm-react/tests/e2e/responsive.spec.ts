@@ -214,6 +214,38 @@ for (const viewport of [
 	});
 }
 
+// The character SHEET (/characters/:id) needs a seeded id, so the static ROUTES sweep above could
+// never reach it — and it shipped with no phone branch at all: a hard two-column sheet whose
+// ability (6-track) and skills (2-track) grids then overflowed their ~180px columns.
+test('the character sheet fits a compact phone without clipped controls', async ({ page }) => {
+	await page.setViewportSize({ width: 393, height: 830 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/characters');
+	await seedFresh(page);
+
+	const characterId = await page.evaluate(() => {
+		const chars = (window.__rt as unknown as {
+			state: { characters?: { characters?: Record<string, { id: string }> } };
+		}).state.characters?.characters;
+		const first = Object.values(chars ?? {})[0];
+		return first?.id ?? null;
+	});
+	expect(characterId, 'the seeded vault should contain a character').not.toBeNull();
+
+	await page.evaluate((id) => {
+		window.location.hash = `/characters/${id}`;
+	}, characterId);
+	await page.waitForFunction(
+		(id) => window.location.hash === `#/characters/${id}`,
+		characterId,
+	);
+	await page.locator('h1').first().waitFor({ state: 'attached', timeout: 20_000 });
+	await page.waitForTimeout(150);
+
+	await expectNoHorizontalOverflow(page, '/characters/:id', '#main-content');
+	expect(await clippedControls(page), 'the character sheet clipped a control').toEqual([]);
+});
+
 test('the 640/641 shell switch and desktop-window minimum select the intended navigation profile', async ({
 	page,
 }) => {

@@ -654,8 +654,22 @@ function AccountDevicesPanel() {
 				sessions from renewing.
 			</div>
 			{failed ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-					Couldn’t load your devices — check your connection and reopen this tab.
+				// Was dead text telling the user to reopen the tab; `load` is right here.
+				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+					<span style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						Couldn’t load your devices.
+					</span>
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="retry"
+						onClick={() => {
+							setFailed(false);
+							load();
+						}}
+					>
+						Retry
+					</Button>
 				</div>
 			) : devices === null ? (
 				<div
@@ -1250,6 +1264,8 @@ function InvitesPanel({
 	const [qr, setQr] = useState<string | null>(null);
 	// Revoking kills the link server-side for good (no undo exists), so it confirms first.
 	const [pendingRevoke, setPendingRevoke] = useState<Invite | null>(null);
+	// Bumped by the failure state's Retry button so the load can be re-attempted in place.
+	const [reloadNonce, setReloadNonce] = useState(0);
 	useEffect(() => {
 		if (!cloudReady) return;
 		let cancelled = false;
@@ -1263,7 +1279,7 @@ function InvitesPanel({
 		return () => {
 			cancelled = true;
 		};
-	}, [cloudReady]);
+	}, [cloudReady, reloadNonce]);
 	useEffect(() => {
 		if (!mintedJoinUrl) {
 			setQr(null);
@@ -1346,8 +1362,22 @@ function InvitesPanel({
 						: 'Online invite links are unavailable here — share a live-table code directly instead.'}
 				</div>
 			) : failed ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-					Couldn’t load your invites — check your connection and reopen this tab.
+				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+					<span style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						Couldn’t load your invites.
+					</span>
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="retry"
+						onClick={() => {
+							setFailed(false);
+							setInvites(null);
+							setReloadNonce((n) => n + 1);
+						}}
+					>
+						Retry
+					</Button>
 				</div>
 			) : invites === null ? (
 				<div
@@ -1574,6 +1604,7 @@ function InvitesPanel({
 								Seat
 							</span>
 							<Seg
+								ariaLabel="Seat"
 								value={role}
 								onChange={(v: string) => setRole(v as 'player' | 'co-dm')}
 								options={[
@@ -1943,6 +1974,7 @@ function SettingsPermissions() {
 							/>
 						</span>
 						<Seg
+							ariaLabel="Capability set"
 							value={grantSet}
 							onChange={setGrantSet}
 							options={sceneSets.map((s) => ({ value: s.capabilitySet, label: s.label }))}

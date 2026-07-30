@@ -797,6 +797,10 @@ function JoinModal({ onClose }: { onClose: () => void }) {
 								internet after the DM approves your request and chooses your participant.
 							</p>
 							<textarea
+								// The section heading above is a <span>, not a <label htmlFor>, so this field
+								// had no accessible name — and a placeholder is not a name (it also vanishes
+								// as soon as the player pastes into it).
+								aria-label="Online join code"
 								maxLength={MAX_ONLINE_JOIN_CODE_CHARS}
 								value={onlineCode}
 								onChange={(e) => setOnlineCode(e.target.value)}
@@ -888,6 +892,7 @@ function JoinModal({ onClose }: { onClose: () => void }) {
 						Invite code from your DM
 					</span>
 					<textarea
+						aria-label="Invite code from your DM"
 						maxLength={MAX_CONNECTION_CODE_CHARS}
 						value={offer}
 						onChange={(e) => setOffer(e.target.value)}
@@ -927,8 +932,19 @@ function JoinModal({ onClose }: { onClose: () => void }) {
 			)}
 			{visibleError && (
 				<div
-					style={{ marginTop: 12, font: `12px ${T.sans}`, color: 'var(--color-status-error-text)' }}
+					// Was colour-only and silent: no live region (so a failed join was never announced)
+					// and no redundant icon (WCAG 1.4.1, and this repo pairs status colour with a shape).
+					role="alert"
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: 6,
+						marginTop: 12,
+						font: `12px ${T.sans}`,
+						color: 'var(--color-status-error-text)',
+					}}
 				>
+					<Icon name="warning" size={14} />
 					{visibleError}
 				</div>
 			)}

@@ -13,9 +13,25 @@ export function Chip({ icon, tone = 'neutral', onRemove, selected = false, child
 		info: { bg: 'var(--color-status-info-subtle)', fg: 'var(--color-status-info-text)', bd: 'var(--color-status-info)' },
 	};
 	const t = tones[tone] || tones.neutral;
+	// A clickable chip must be operable by keyboard and expose its selected state semantically —
+	// `selected` otherwise drives a background change with no counterpart in the a11y tree.
+	const interactive = typeof onClick === 'function';
 	return (
 		<span
 			onClick={onClick}
+			role={interactive ? 'button' : undefined}
+			tabIndex={interactive ? 0 : undefined}
+			aria-pressed={interactive ? selected : undefined}
+			onKeyDown={
+				interactive
+					? (e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								onClick(e);
+							}
+						}
+					: undefined
+			}
 			style={{
 				display: 'inline-flex',
 				alignItems: 'center',
@@ -36,7 +52,7 @@ export function Chip({ icon, tone = 'neutral', onRemove, selected = false, child
 			{icon && <Icon name={icon} size={13} />}
 			{children}
 			{onRemove && (
-				<button type="button" aria-label="Remove" onClick={(e) => { e.stopPropagation(); onRemove(); }} style={{ display: 'inline-flex', border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer', padding: 0, marginLeft: 2 }}>
+				<button type="button" aria-label="Remove" onClick={(e) => { e.stopPropagation(); onRemove(); }} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer', padding: 0, marginLeft: 2, minWidth: 'var(--density-touch-target, 24px)', minHeight: 'var(--density-touch-target, 24px)' }}>
 					<Icon name="close" size={12} />
 				</button>
 			)}
