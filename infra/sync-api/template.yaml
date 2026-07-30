@@ -148,7 +148,9 @@ Resources:
     Properties:
       StageName: !Ref Stage
       AccessLogSettings:
-        DestinationArn: !GetAtt SyncAccessLogGroup.Arn
+        # Not !GetAtt ...Arn — see the note in infra/signaling/template.yaml: GetAtt's
+        # `:*` suffix is stripped by API Gateway and leaves the stage permanently DRIFTED.
+        DestinationArn: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${SyncAccessLogGroup}'
         Format: >-
           {"requestId":"$context.requestId","routeKey":"$context.routeKey","status":"$context.status","responseLength":"$context.responseLength","integrationError":"$context.integrationErrorMessage"}
       DefaultRouteSettings:

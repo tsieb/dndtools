@@ -220,7 +220,13 @@ Resources:
       StageName: !Ref Stage
       AutoDeploy: true
       AccessLogSettings:
-        DestinationArn: !GetAtt SignalingAccessLogGroup.Arn
+        # Build the log-group ARN by hand instead of !GetAtt ...Arn. GetAtt returns the
+        # `:*` log-stream-wildcard form, but API Gateway stores the destination without
+        # that suffix, so CloudFormation drift detection reports this stage as DRIFTED
+        # forever — a redeploy cannot clear it because the template's expected value is
+        # the one that is wrong. Referencing the log group by name keeps the implicit
+        # resource dependency (and thus the create order) intact.
+        DestinationArn: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${SignalingAccessLogGroup}'
         Format: >-
           {"requestId":"$context.requestId","routeKey":"$context.routeKey","status":"$context.status","responseLength":"$context.responseLength","integrationError":"$context.integrationErrorMessage"}
       # Cap per-connection message throughput so a single authenticated client
