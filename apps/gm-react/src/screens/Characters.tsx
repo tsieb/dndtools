@@ -276,7 +276,24 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	const isPhone = useViewport() === 'phone';
 	const actorId = runtime.defaultActorId;
 	const [editMode, setEditMode] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	// A single screen-level `role="alert"` under the BackBar carried BOTH core rejections and the
+	// per-field validation messages — but every validation writer lives deep inside an edit-mode
+	// panel, so "Set AC" with a blank field printed its reason hundreds of pixels above the fold and
+	// read as a dead button. `field` routes a validation message to its own control instead.
+	const [error, setError] = useState<{ text: string; field?: 'ac' | 'slots' | 'xp' } | null>(null);
+	const fieldError = (field: 'ac' | 'slots' | 'xp') =>
+		error?.field === field ? (
+			<div
+				role="alert"
+				style={{
+					flexBasis: '100%',
+					font: `12px ${T.sans}`,
+					color: 'var(--color-status-error-text)',
+				}}
+			>
+				{error.text}
+			</div>
+		) : null;
 	const [hpAmount, setHpAmount] = useState(1);
 	const [hpDraft, setHpDraft] = useState('1');
 	function commitHpAmount() {
@@ -387,7 +404,7 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 		setError(null);
 		const result = await runtime.dispatch(command);
 		if (result.status === 'rejected') {
-			setError(result.rejection.message);
+			setError({ text: result.rejection.message });
 			return false;
 		}
 		return true;
@@ -411,12 +428,12 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 		// visibly did nothing — worse here because the placeholder shows the CURRENT ac, so the
 		// field looks pre-filled. Say why instead.
 		if (acDraft.trim() === '') {
-			setError('Enter an armour class before applying.');
+			setError({ text: 'Enter an armour class before applying.', field: 'ac' });
 			return;
 		}
 		const n = Math.trunc(Number(acDraft));
 		if (!Number.isFinite(n) || n < 0) {
-			setError('Armour class must be a number of 0 or more.');
+			setError({ text: 'Armour class must be a number of 0 or more.', field: 'ac' });
 			return;
 		}
 		if (
@@ -492,7 +509,7 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 		const level = clamp(Math.trunc(Number(slotLevel) || 0), 0, 9);
 		const max = Math.max(0, Math.trunc(Number(slotMax)));
 		if (slotMax.trim() === '' || !Number.isFinite(Number(slotMax))) {
-			setError('Enter how many slots this level has.');
+			setError({ text: 'Enter how many slots this level has.', field: 'slots' });
 			return;
 		}
 		if (
@@ -567,12 +584,12 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 		// Same trap as applyAc: `Number('') || 0` is 0, so an empty field reset accumulated XP to
 		// zero (and revoked level-up eligibility) on a single stray click.
 		if (xpInput.trim() === '') {
-			setError('Enter an XP total before setting it.');
+			setError({ text: 'Enter an XP total before setting it.', field: 'xp' });
 			return;
 		}
 		const parsed = Number(xpInput);
 		if (!Number.isFinite(parsed)) {
-			setError('XP must be a number.');
+			setError({ text: 'XP must be a number.', field: 'xp' });
 			return;
 		}
 		const n = Math.max(0, Math.trunc(parsed));
@@ -631,9 +648,9 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	return (
 		<Page max={1000}>
 			<BackBar onBack={onBack} />
-			{error && (
+			{error && !error.field && (
 				<div role="alert" style={{ marginBottom: 12, font: `13px ${T.sans}`, color: T.err }}>
-					{error}
+					{error.text}
 				</div>
 			)}
 			<div
@@ -1088,6 +1105,7 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 									>
 										Level up (milestone)
 									</Button>
+									{fieldError('xp')}
 								</div>
 							)}
 						</Panel>
@@ -1171,6 +1189,7 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 									<Button variant="secondary" size="sm" onClick={applyAc}>
 										Set AC
 									</Button>
+									{fieldError('ac')}
 								</div>
 								<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
 									<Field label="Add condition" style={{ minWidth: 160, flex: 1 }}>
@@ -1401,6 +1420,7 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 										>
 											Set slots
 										</Button>
+										{fieldError('slots')}
 									</div>
 								</div>
 							)}

@@ -46,7 +46,11 @@ export const TERRAIN_STYLES: ReadonlyArray<{ id: string; label: string; swatch: 
 	{ id: 'terrain:dirt', label: 'Dirt', swatch: 'var(--layer-roads)' },
 	{ id: 'terrain:sand', label: 'Sand', swatch: 'var(--color-status-warning)' },
 	{ id: 'terrain:water', label: 'Shallows', swatch: 'var(--layer-water)' },
-	{ id: 'terrain:forest', label: 'Forest', swatch: 'var(--layer-terrain, var(--layer-height))' },
+	// `--layer-terrain` was never DECLARED, and because the reference carried its own fallback the
+	// token-reference gate could not see it — so Forest silently resolved to `--layer-height`, which is
+	// exactly Grass's swatch. The token now exists in every theme; the fallback is gone on purpose so
+	// styles/token-references.test.ts guards it.
+	{ id: 'terrain:forest', label: 'Forest', swatch: 'var(--layer-terrain)' },
 	{ id: 'terrain:snow', label: 'Snow', swatch: 'var(--color-text-tertiary)' },
 	{ id: 'terrain:lava', label: 'Lava', swatch: 'var(--color-status-error)' },
 ];

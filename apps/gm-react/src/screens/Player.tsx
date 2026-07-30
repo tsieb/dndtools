@@ -235,6 +235,12 @@ export function Player() {
 	const C = data.view;
 	const [tab, setTab] = useState('sheet');
 	const [err, setErr] = useState<string | null>(null);
+	// The HP stepper was ±1-only, so taking 27 damage meant 27 separate durable commands (each one a
+	// full-state persist + op-log entry), and a SUCCESSFUL write announced nothing at all — the number
+	// changed silently for anyone not looking at it. The amount is a string draft so backspacing to
+	// empty doesn't snap to a coerced value mid-edit.
+	const [hpAmount, setHpAmount] = useState('1');
+	const [hpNote, setHpNote] = useState<string | null>(null);
 
 	// A `data.<key>` sheet string authored through `character.edit-field` (draft flow / advancement /
 	// the identity editor below). Null when the field was never written — rendered honestly as absent.
@@ -284,12 +290,26 @@ export function Player() {
 
 	// Real HP write: the only HP path is the combat-resource command, which the Core gates on an ACTIVE
 	// session. In the idle seed it is rejected read-only — the value snaps back and the reason surfaces.
-	const stepHp = (delta: number) =>
-		dispatch({
-			type: 'character.update-combat-resource',
-			actorId,
-			payload: { characterId: charId, kind: 'hp', delta },
-		});
+	const hpStep = () => {
+		const n = Math.trunc(Number(hpAmount));
+		return Number.isFinite(n) && n > 0 ? n : 1;
+	};
+	const stepHp = async (sign: 1 | -1) => {
+		const amount = hpStep();
+		setHpNote(null);
+		if (
+			await dispatch({
+				type: 'character.update-combat-resource',
+				actorId,
+				payload: { characterId: charId, kind: 'hp', delta: sign * amount },
+			})
+		)
+			setHpNote(
+				sign < 0
+					? `Took ${amount} damage.`
+					: `Healed ${amount} hit point${amount === 1 ? '' : 's'}.`,
+			);
+	};
 	// Real inspiration toggle: `character.edit-field` on the `data.inspiration` sheet string.
 	const toggleInspiration = () =>
 		dispatch({
@@ -345,6 +365,7 @@ export function Player() {
 							// successful dispatch, so a rejected write kept accusing the user from the top
 							// of an unrelated character or tab.
 							setErr(null);
+							setHpNote(null);
 							setPcChoice(e.target.value);
 						}}
 						options={data.pcs.map((p) => ({ value: p.id, label: p.name }))}
@@ -365,10 +386,10 @@ export function Player() {
 				>
 					<IconButton
 						icon="chevron-down"
-						label="Damage"
+						label={`Damage ${hpStep()}`}
 						variant="ghost"
 						size="sm"
-						onClick={() => stepHp(-1)}
+						onClick={() => void stepHp(-1)}
 					/>
 					<div style={{ textAlign: 'center', minWidth: 74 }}>
 						<div
@@ -387,10 +408,28 @@ export function Player() {
 					</div>
 					<IconButton
 						icon="chevron-up"
-						label="Heal"
+						label={`Heal ${hpStep()}`}
 						variant="ghost"
 						size="sm"
-						onClick={() => stepHp(1)}
+						onClick={() => void stepHp(1)}
+					/>
+					<input
+						type="text"
+						inputMode="numeric"
+						aria-label="Hit point change amount"
+						value={hpAmount}
+						onChange={(e) => setHpAmount(e.target.value)}
+						onBlur={() => setHpAmount(String(hpStep()))}
+						style={{
+							width: 38,
+							textAlign: 'center',
+							font: `600 13px ${T.mono}`,
+							color: T.ink,
+							background: T.surf,
+							border: `1px solid ${T.bd}`,
+							borderRadius: 7,
+							padding: '4px 2px',
+						}}
 					/>
 				</div>
 				<Stat label="AC" value={String(C.combat.ac)} icon="shield" />
@@ -432,6 +471,11 @@ export function Player() {
 				</button>
 			</div>
 
+			{/* A successful HP write used to change only the number, which announces nothing. */}
+			<div role="status" className="visually-hidden">
+				{hpNote ?? ''}
+			</div>
+
 			{err && (
 				<div
 					role="alert"
@@ -454,6 +498,7 @@ export function Player() {
 						value={activeTab}
 						onChange={(next: string) => {
 							setErr(null);
+							setHpNote(null);
 							setTab(next);
 						}}
 						tabs={tabs}

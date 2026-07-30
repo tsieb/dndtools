@@ -571,3 +571,72 @@ test.describe('canvas: the spatial surfaces carry a heading inside <main>', () =
 		).toBeVisible();
 	});
 });
+
+test.describe('canvas: view mode reads, edit mode moves', () => {
+	// `onBgDown` is bound to the canvas WRAPPER, and the drag overlay that swallows pointerdown exists
+	// only in EDIT mode. So on `/scene/:id` in view mode a press on widget CONTENT — note text, a
+	// character's stats, a map thumbnail — reached the wrapper, started a canvas pan and set
+	// `userSelect:'none'` on <body>. A DM could therefore never select or copy a note, and an
+	// accidental drag while reading threw the whole canvas off-screen.
+	test('pressing widget content does not start a canvas pan or kill text selection', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/scenes');
+		const sceneName = `Read Scene ${Date.now()}`;
+		const created = await dispatch(page, {
+			type: 'scene.create',
+			actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+			payload: { name: sceneName, description: '', visibility: 'dm-only', tags: [] },
+		});
+		expect(created.status).toBe('accepted');
+		const sceneId = await page.evaluate(
+			(name) =>
+				Object.values(window.__rt!.state.scenes.scenes).find((s) => s.name === name)?.id ?? null,
+			sceneName,
+		);
+		expect(sceneId).toBeTruthy();
+
+		// Place a widget through the real Add panel, then leave edit mode: view mode is where the bug is.
+		await gotoRoute(page, `/scene/${sceneId}`);
+		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+		await expect(page.getByText('Add widget', { exact: true })).toBeVisible();
+		await page.getByTestId('scene-add-widget-panel').getByRole('button').nth(1).click();
+		await page.waitForFunction(
+			(id) => (window.__rt!.state.scenes.scenes[id]?.widgets.length ?? 0) > 0,
+			sceneId,
+			{ timeout: 10_000 },
+		);
+		await page.getByRole('button', { name: 'Done', exact: true }).click();
+
+		const canvas = page.getByTestId('scene-board-canvas');
+		await expect(canvas).toBeVisible();
+
+		// Press somewhere INSIDE the placed widget rather than on the empty backdrop.
+		const frame = canvas.locator('[data-testid^="widget-"]').first();
+		await expect(frame).toBeVisible();
+		const box = await frame.boundingBox();
+		expect(box).not.toBeNull();
+		await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+		await page.mouse.down();
+
+		// The canvas is not now dragging, and the document has not been made unselectable.
+		expect(
+			await page.evaluate(() => document.body.style.userSelect),
+			'reading a widget must not disable text selection document-wide',
+		).not.toBe('none');
+
+		// Moving the pointer with the button held must not translate the canvas either.
+		const before = await frame.boundingBox();
+		await page.mouse.move(box!.x + box!.width / 2 + 140, box!.y + box!.height / 2 + 90);
+		const after = await frame.boundingBox();
+		await page.mouse.up();
+		expect(Math.abs(after!.x - before!.x), 'view mode must not pan from widget content').toBeLessThan(
+			2,
+		);
+		expect(Math.abs(after!.y - before!.y), 'view mode must not pan from widget content').toBeLessThan(
+			2,
+		);
+	});
+});

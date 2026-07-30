@@ -215,6 +215,7 @@ export function CommandCenter() {
 			(n) => n.kind === 'object' && n.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'quest',
 		).length;
 		const activeSceneId = runtime.state.session.activeSceneId;
+		const workflow = runtime.state.session.workflow;
 		// Resolved against the UNFILTERED list on purpose. `Session`'s "Go live" falls back to the GM
 		// Screen's own home scene when nothing else is active, and that scene is deliberately excluded
 		// from `scenes` — so looking it up there always missed, the old `scenes.find(id === homeSceneId)`
@@ -234,6 +235,7 @@ export function CommandCenter() {
 			maps,
 			notes,
 			activeSceneId,
+			workflow,
 			liveScene,
 			liveSceneIsHome,
 			party,
@@ -245,7 +247,11 @@ export function CommandCenter() {
 		};
 	}, [runtime.state, actorId]);
 
-	const isLive = data.activeSceneId !== null && data.activeSceneId !== undefined;
+	// Liveness is `session.workflow` everywhere else in the app (Session.tsx, ProjectionControl, every
+	// StatusDot). Reading `activeSceneId` instead meant `session.recover` — which restores the scene id
+	// while moving the workflow to `recap` — would make the hub pulse "Session live" over a read-only
+	// archive review.
+	const isLive = data.workflow === 'active';
 
 	// Each launcher hands its destination a create-intent (router state) so the create flow OPENS on
 	// arrival; the sub-line says what the thing is in GM vocabulary, since the labels alone
@@ -365,7 +371,10 @@ export function CommandCenter() {
 						{isLive ? 'Session live' : 'Command Center'}
 					</div>
 					<div style={{ font: `700 23px/1.1 ${T.disp}`, marginTop: 2 }}>
-						{data.liveScene?.name ?? 'Your campaign'}
+						{/* `liveScene` falls back to `scenes[0]` so the "Enter scene" button always has a
+						    destination — but with no session running that made the hub's 23px display heading
+						    announce an arbitrary scene name, which a DM reads as the current scene. */}
+						{(isLive ? data.liveScene?.name : null) ?? 'Your campaign'}
 					</div>
 					<div style={{ font: `13px ${T.sans}`, color: T.sub, marginTop: 3 }}>
 						{isLive
@@ -468,7 +477,8 @@ export function CommandCenter() {
 								<SceneTile
 									key={s.id}
 									scene={s}
-									status={statusOf(s, data.activeSceneId)}
+									// Same correction as the hub heading: a scene is only "live" while the session is.
+									status={statusOf(s, isLive ? data.activeSceneId : null)}
 									widgetCount={data.widgetCountFor(s.id)}
 									onOpen={() => navigate(`/scene/${s.id}`)}
 								/>

@@ -35,6 +35,9 @@ import { GROUP_OF_TOOL } from './tools';
 export type FogMode = 'reveal' | 'conceal';
 export type FogShape = 'rect' | 'polygon' | 'stroke';
 export type DockPanel = 'inspector' | 'layers' | 'assets' | 'history';
+/** Skin the editor's notice banner wears. `warning` is the default because every notice the hook
+ *  itself writes is a rejection or a thrown error. */
+export type MapNoticeTone = 'warning' | 'info' | 'success';
 
 /** One entry on the undo or redo stack: the command that reverses a step, plus its human label. */
 export interface HistoryEntry {
@@ -143,7 +146,12 @@ export interface MapEditorApi {
 	// Write path
 	busy: boolean;
 	notice: string | null;
-	setNotice: (message: string | null) => void;
+	/** Tone of the current notice. Every hook-written notice is a rejection or a thrown error, so it
+	 *  defaults to `warning`; a caller reporting SUCCESS or plain information must say so, because the
+	 *  banner used to hard-code the warning skin and painted "Projected to 3 players." in yellow with a
+	 *  warning triangle. */
+	noticeTone: MapNoticeTone;
+	setNotice: (message: string | null, tone?: MapNoticeTone) => void;
 	/** Dispatch a command; on acceptance, records the inverse on the undo stack. */
 	run: (command: CoreCommand, options?: { undoable?: boolean }) => Promise<boolean>;
 	/** Mint a stable, app-side id for a create command (so undo/redo can target it). */
@@ -175,7 +183,12 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 	const [options, setOptions] = useState<ToolOptions>(DEFAULT_TOOL_OPTIONS);
 	const [dock, setDock] = useState<DockPanel>('layers');
 	const [busy, setBusy] = useState(false);
-	const [notice, setNotice] = useState<string | null>(null);
+	const [notice, setNoticeText] = useState<string | null>(null);
+	const [noticeTone, setNoticeTone] = useState<MapNoticeTone>('warning');
+	const setNotice = useCallback((message: string | null, tone: MapNoticeTone = 'warning') => {
+		setNoticeText(message);
+		setNoticeTone(tone);
+	}, []);
 	const [history, setHistory] = useState<readonly HistoryEntry[]>([]);
 	const [redoStack, setRedoStack] = useState<readonly HistoryEntry[]>([]);
 
@@ -303,7 +316,7 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 				setBusy(false);
 			}
 		},
-		[runtime, writeHistory, writeRedo],
+		[runtime, writeHistory, writeRedo, setNotice],
 	);
 
 	const undo = useCallback(async () => {
@@ -320,11 +333,16 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 			} else {
 				setNotice(result.rejection.message);
 			}
+		} catch (error) {
+			// `runtime.dispatch` THROWS on a persist failure, and `run` above already catches for exactly
+			// that reason. Without a catch here an undo/redo silently no-opped: no notice, and the stack
+			// was never popped, so the button stayed live over an action that had not been reversed.
+			setNotice(error instanceof Error ? error.message : 'The action could not be completed.');
 		} finally {
 			busyRef.current = false;
 			setBusy(false);
 		}
-	}, [runtime, writeHistory, writeRedo]);
+	}, [runtime, writeHistory, writeRedo, setNotice]);
 
 	const redo = useCallback(async () => {
 		if (busyRef.current) return;
@@ -353,11 +371,16 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 			} else {
 				setNotice(result.rejection.message);
 			}
+		} catch (error) {
+			// `runtime.dispatch` THROWS on a persist failure, and `run` above already catches for exactly
+			// that reason. Without a catch here an undo/redo silently no-opped: no notice, and the stack
+			// was never popped, so the button stayed live over an action that had not been reversed.
+			setNotice(error instanceof Error ? error.message : 'The action could not be completed.');
 		} finally {
 			busyRef.current = false;
 			setBusy(false);
 		}
-	}, [runtime, writeHistory, writeRedo]);
+	}, [runtime, writeHistory, writeRedo, setNotice]);
 
 	return {
 		actorId,
@@ -384,6 +407,7 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 		setDock,
 		busy,
 		notice,
+		noticeTone,
 		setNotice,
 		run,
 		nextId,

@@ -264,6 +264,7 @@
 :root {
 	--layer-base: oklch(0.7 0.018 70); /* warm grey — the underlying image/terrain */
 	--layer-height: oklch(0.74 0.1 150); /* heightmap / topography — sage green */
+	--layer-terrain: oklch(0.6 0.12 158); /* painted terrain (forest) — a deeper green than height */
 	--layer-political: oklch(0.77 0.105 78); /* borders & holdings — warm amber */
 	--layer-climate: oklch(0.74 0.085 200); /* climate / weather — muted teal */
 	--layer-roads: oklch(0.72 0.115 50); /* roads & transport — burnt orange */
@@ -300,6 +301,7 @@
 [data-theme='parchment'] {
 	--layer-base: oklch(0.45 0.02 70);
 	--layer-height: oklch(0.44 0.11 150);
+	--layer-terrain: oklch(0.36 0.13 158);
 	--layer-political: oklch(0.45 0.11 78);
 	--layer-climate: oklch(0.45 0.09 200);
 	--layer-roads: oklch(0.45 0.13 50);
@@ -411,6 +413,7 @@
 		 * the badge label text. DM-only keeps Highlight to match --color-dm-only-badge above. */
 		--layer-base: CanvasText;
 		--layer-height: CanvasText;
+		--layer-terrain: CanvasText;
 		--layer-political: CanvasText;
 		--layer-climate: CanvasText;
 		--layer-roads: CanvasText;

@@ -21,17 +21,67 @@ const _emit = () => {
 	_listeners.forEach((fn) => fn(_items));
 };
 
+// Auto-dismiss used to be a bare `setTimeout(dismiss, 4500)` that nothing could stop. Eight call
+// sites put this project's destructive-op UNDO inside a toast, so tabbing to Undo made it vanish
+// under your own focus — WCAG 2.2.1 (Timing Adjustable) is a Level A criterion. Timers are now
+// cancellable and the remaining time is preserved across a pause. Hover and keyboard focus need
+// SEPARATE flags: with one shared boolean, moving the mouse away while the control still had focus
+// cleared the hold and the toast disappeared anyway.
+const _timers = new Map();
+const _remaining = new Map();
+const _startedAt = new Map();
+let _hovered = false;
+let _focused = false;
+const _isPaused = () => _hovered || _focused;
+
+function _clearTimer(id) {
+	const handle = _timers.get(id);
+	if (handle != null) clearTimeout(handle);
+	_timers.delete(id);
+}
+
+function _arm(id) {
+	_clearTimer(id);
+	const ms = _remaining.get(id);
+	if (!ms || ms <= 0 || _isPaused()) return;
+	_startedAt.set(id, Date.now());
+	_timers.set(
+		id,
+		setTimeout(() => {
+			_remaining.delete(id);
+			Toaster.dismiss(id);
+		}, ms),
+	);
+}
+
 export const Toaster = {
 	show(input) {
 		const opts = typeof input === 'string' ? { message: input } : input || {};
 		const id = opts.id != null ? opts.id : ++_id;
-		const toast = { id, status: 'info', duration: 4500, ...opts };
+		// A toast carrying an ACTION is an affordance, not an announcement: it must survive until the
+		// user takes it or dismisses it. Callers can still pin an explicit duration.
+		const defaultDuration = opts.action != null ? 0 : 4500;
+		const toast = { id, status: 'info', duration: defaultDuration, ...opts };
 		_items = [..._items.filter((t) => t.id !== id), toast];
 		_emit();
-		if (toast.duration && toast.duration > 0) {
-			setTimeout(() => Toaster.dismiss(id), toast.duration);
-		}
+		_remaining.set(id, toast.duration > 0 ? toast.duration : 0);
+		_arm(id);
 		return id;
+	},
+	/** Hold every auto-dismiss open while the stack is hovered or holds keyboard focus. */
+	setPaused(reason, on) {
+		if (reason === 'focus') _focused = !!on;
+		else _hovered = !!on;
+		if (_isPaused()) {
+			for (const id of [..._timers.keys()]) {
+				const started = _startedAt.get(id) ?? Date.now();
+				const left = (_remaining.get(id) ?? 0) - (Date.now() - started);
+				_remaining.set(id, Math.max(600, left));
+				_clearTimer(id);
+			}
+			return;
+		}
+		for (const t of _items) _arm(t.id);
 	},
 	success(message, opts) {
 		return Toaster.show({ status: 'success', message, ...opts });
@@ -46,10 +96,16 @@ export const Toaster = {
 		return Toaster.show({ status: 'info', message, ...opts });
 	},
 	dismiss(id) {
+		_clearTimer(id);
+		_remaining.delete(id);
+		_startedAt.delete(id);
 		_items = _items.filter((t) => t.id !== id);
 		_emit();
 	},
 	clear() {
+		for (const id of [..._timers.keys()]) _clearTimer(id);
+		_remaining.clear();
+		_startedAt.clear();
 		_items = [];
 		_emit();
 	},
@@ -76,13 +132,19 @@ export function Toast({
 	onAction,
 	onDismiss,
 	style,
+	// A live region only announces reliably when it is ALREADY in the DOM and its CONTENTS change.
+	// Stacked in `ToastViewport` each row is inserted together with its text in a single mutation, so
+	// polite announcements were routinely dropped — i.e. the app's only confirmation channel was
+	// silent. The viewport now hosts two permanent regions and passes `live={false}` here; a bespoke
+	// standalone `<Toast>` keeps the old self-announcing behaviour.
+	live = true,
 	...rest
 }) {
 	const accent = STATUS_COLOR[status] || STATUS_COLOR.info;
 	return (
 		<div
-			role={status === 'error' ? 'alert' : 'status'}
-			aria-atomic="true"
+			role={live ? (status === 'error' ? 'alert' : 'status') : undefined}
+			aria-atomic={live ? 'true' : undefined}
 			style={{
 				display: 'flex',
 				alignItems: 'flex-start',
@@ -221,7 +283,18 @@ const PLACEMENT = {
 export function ToastViewport({ placement = 'top-right', style, ...rest }) {
 	const [items, setItems] = React.useState([]);
 	React.useEffect(() => Toaster.subscribe(setItems), []);
+	// Releasing the pause when the viewport unmounts stops a stuck flag from pinning every future
+	// toast open for the rest of the session.
+	React.useEffect(
+		() => () => {
+			Toaster.setPaused('hover', false);
+			Toaster.setPaused('focus', false);
+		},
+		[],
+	);
 	const pos = PLACEMENT[placement] || PLACEMENT['top-right'];
+	const polite = items.filter((t) => t.status !== 'error');
+	const assertive = items.filter((t) => t.status === 'error');
 	return (
 		<div
 			style={{
@@ -238,27 +311,56 @@ export function ToastViewport({ placement = 'top-right', style, ...rest }) {
 				...pos,
 				...style,
 			}}
+			onMouseEnter={() => Toaster.setPaused('hover', true)}
+			onMouseLeave={() => Toaster.setPaused('hover', false)}
+			onFocus={() => Toaster.setPaused('focus', true)}
+			onBlur={() => Toaster.setPaused('focus', false)}
 			{...rest}
 		>
-			{items.map((t) => (
-				<div key={t.id} style={{ pointerEvents: 'auto' }}>
-					<Toast
-						status={t.status}
-						title={t.title}
-						message={t.message}
-						action={t.action}
-						onAction={
-							t.action
-								? () => {
-										if (t.onAction) t.onAction();
-										Toaster.dismiss(t.id);
-									}
-								: undefined
-						}
-						onDismiss={() => Toaster.dismiss(t.id)}
-					/>
+			{/* The polite region is PERMANENT and WRAPS the rows (`display:contents`, so it changes no
+			    layout): a `role="status"` inserted together with its own text — which is what a per-row
+			    role does — is routinely dropped by screen readers, and this is the app's only
+			    confirmation channel. Wrapping rather than mirroring keeps the copy in the DOM exactly
+			    once, so `getByText` on a toast message stays unambiguous.
+			    The assertive region is NOT permanent, and deliberately so: `role="alert"` announces on
+			    insertion, and an always-present empty alert would make every bare `getByRole('alert')`
+			    in the app ambiguous. */}
+			<div role="status" aria-live="polite" style={{ display: 'contents' }}>
+				{polite.map((t) => (
+					<Row key={t.id} toast={t} />
+				))}
+			</div>
+			{assertive.length > 0 && (
+				<div role="alert" style={{ display: 'contents' }}>
+					{assertive.map((t) => (
+						<Row key={t.id} toast={t} />
+					))}
 				</div>
-			))}
+			)}
+		</div>
+	);
+}
+
+/** One stacked row. `live={false}`: the group wrapper above owns the live-region role. */
+function Row({ toast: t }) {
+	return (
+		<div style={{ pointerEvents: 'auto' }}>
+			<Toast
+				live={false}
+				status={t.status}
+				title={t.title}
+				message={t.message}
+				action={t.action}
+				onAction={
+					t.action
+						? () => {
+								if (t.onAction) t.onAction();
+								Toaster.dismiss(t.id);
+							}
+						: undefined
+				}
+				onDismiss={() => Toaster.dismiss(t.id)}
+			/>
 		</div>
 	);
 }

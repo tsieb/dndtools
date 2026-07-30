@@ -303,7 +303,18 @@ export function EditorCanvas({
 	// ── path tools: Enter finishes, Esc cancels ──────────────────────────────────────────────────
 	useEffect(() => {
 		if (path.length === 0) return;
+		// Bound on `document` in the CAPTURE phase with stopPropagation, so without this guard (which
+		// the Space-pan listener above already has) Enter in the map-name field or the Search box
+		// finished the in-progress wall path and never reached the input at all.
+		const isTypingTarget = (t: EventTarget | null) => {
+			const el = t as HTMLElement | null;
+			return (
+				!!el &&
+				(['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable === true)
+			);
+		};
 		const onKey = (e: KeyboardEvent) => {
+			if (isTypingTarget(e.target)) return;
 			if (e.key === 'Enter') {
 				e.preventDefault();
 				e.stopPropagation();
@@ -896,7 +907,7 @@ export function EditorCanvas({
 						position: 'absolute',
 						inset: 0,
 						zIndex: 4,
-						cursor: tool === 'measure' ? 'crosshair' : 'crosshair',
+						cursor: 'crosshair',
 						touchAction: 'none',
 					}}
 					onPointerDown={onOverlayDown}

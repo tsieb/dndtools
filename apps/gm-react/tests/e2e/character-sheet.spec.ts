@@ -83,3 +83,42 @@ test.describe('character sheet: per-character state is not shared between charac
 		await expect(page.locator('#main-content').getByText(names[1]!).first()).toBeVisible();
 	});
 });
+
+test.describe('character sheet: validation is reported at the control it belongs to', () => {
+	test.beforeEach(async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/characters');
+		await seedFresh(page);
+	});
+
+	test('"Set AC" with a blank field explains itself next to the field, not off-screen', async ({
+		page,
+	}) => {
+		// The sheet had ONE screen-level `role="alert"` under the BackBar carrying both core rejections
+		// and every field's validation message. All three validation writers live deep inside edit-mode
+		// panels, so pressing "Set AC" with an empty field printed its reason hundreds of pixels above
+		// the fold — the button read as dead. Validation is now scoped to its own control.
+		const [first] = await twoCharacterIds(page);
+		await page.goto(`/#/characters/${first}`, { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.getByRole('button', { name: 'Edit', exact: true }).click();
+
+		const setAc = page.getByRole('button', { name: 'Set AC', exact: true });
+		await expect(setAc).toBeVisible();
+		await setAc.click();
+
+		const message = page.getByRole('alert').filter({ hasText: 'Enter an armour class' });
+		await expect(message).toHaveCount(1);
+		// The whole point: it is in view alongside the control the user just pressed.
+		await expect(message).toBeInViewport();
+
+		// And it sits below the Set AC row rather than at the top of the page.
+		const [buttonBox, messageBox] = await Promise.all([setAc.boundingBox(), message.boundingBox()]);
+		expect(buttonBox, 'Set AC must have a box').not.toBeNull();
+		expect(messageBox, 'the message must have a box').not.toBeNull();
+		expect(
+			Math.abs(messageBox!.y - buttonBox!.y),
+			'the validation message must be adjacent to its control',
+		).toBeLessThan(80);
+	});
+});

@@ -26,6 +26,11 @@ export function Popover({
 	...rest
 }) {
 	const ref = React.useRef(null);
+	const bodyRef = React.useRef(null);
+	// The opener. Escape, an outside pointerdown and a plain unmount all used to leave focus on the
+	// detached panel — i.e. on <body> — so a keyboard user who dismissed a map-editor popover lost
+	// their place entirely. `Dialog.jsx` has carried this contract all along; this is the same shape.
+	const returnFocusRef = React.useRef(null);
 	const onCloseRef = React.useRef(onClose);
 	onCloseRef.current = onClose;
 
@@ -49,10 +54,16 @@ export function Popover({
 			onCloseRef.current?.();
 			return true;
 		});
+		returnFocusRef.current =
+			document.activeElement instanceof HTMLElement ? document.activeElement : null;
 		const t = setTimeout(() => {
+			const SELECTOR = 'button, [href], input, select, textarea, [tabindex]';
+			// Search the BODY first. The header (which holds Close) is rendered before `children`, so a
+			// DOM-order query meant every popover given `onClose` opened with focus parked on Close —
+			// one Tab away from leaving, and never on the control the popover exists to offer.
 			const f =
-				ref.current &&
-				ref.current.querySelector('button, [href], input, select, textarea, [tabindex]');
+				(bodyRef.current && bodyRef.current.querySelector(SELECTOR)) ||
+				(ref.current && ref.current.querySelector(SELECTOR));
 			if (f) f.focus();
 		}, 0);
 		return () => {
@@ -60,6 +71,13 @@ export function Popover({
 			document.removeEventListener('keydown', onKey, true);
 			unregisterBack();
 			clearTimeout(t);
+			const back = returnFocusRef.current;
+			returnFocusRef.current = null;
+			// Only reclaim focus if closing actually dropped it: a caller that deliberately moved focus
+			// somewhere else on close must keep it.
+			const active = document.activeElement;
+			const stranded = !active || active === document.body || !document.contains(active);
+			if (back && stranded && document.contains(back)) back.focus();
 		};
 	}, [open]);
 
@@ -158,7 +176,9 @@ export function Popover({
 					)}
 				</div>
 			)}
-			<div style={{ padding: 'var(--space-3)' }}>{children}</div>
+			<div ref={bodyRef} style={{ padding: 'var(--space-3)' }}>
+				{children}
+			</div>
 			{footer && (
 				<div
 					style={{

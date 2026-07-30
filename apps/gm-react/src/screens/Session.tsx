@@ -545,6 +545,10 @@ export function Session() {
 				title="End this combat?"
 				description={`Round ${tracker.round} and the initiative order are discarded, along with every combatant's current HP and conditions. There is no undo — you would have to build the encounter again from your roster.`}
 				icon="warning"
+				// Without `tone`, Dialog leaves `accent` undefined and the header mark renders gold on
+				// --color-accent-subtle — visually identical to an info dialog, on the app's most
+				// destructive confirm. The footer button was already `variant="danger"`.
+				tone="danger"
 				size="sm"
 				footer={
 					<>
@@ -1278,8 +1282,13 @@ function RecapPanel({
 	async function save() {
 		if (!target || busy) return;
 		setBusy(true);
-		await onAuthor(target.id, draft);
-		setBusy(false);
+		// `runtime.dispatch` rethrows on a persist failure, and `busy` disables "Update recap" too, so a
+		// throw froze the recap panel with the DM's unsaved markdown and no way out but a reload.
+		try {
+			await onAuthor(target.id, draft);
+		} finally {
+			setBusy(false);
+		}
 	}
 
 	return (

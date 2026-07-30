@@ -626,42 +626,99 @@ function NumStepper({
 	mono?: boolean;
 	label?: string;
 }) {
+	// The readout used to be a plain <span>, so the ONLY way to reach a value was the +/- pair: hit
+	// points (min 1, max 600, step 1) needed up to 249 activations, and there was no spinbutton role,
+	// no typed entry and no Arrow/Page/Home/End. `draft` is null whenever the input mirrors the
+	// committed prop, so an external reset (class change reseeding hp) needs no syncing effect.
+	const [draft, setDraft] = useState<string | null>(null);
+	const name = label ?? 'value';
+
+	const commit = (raw: string) => {
+		setDraft(null);
+		const n = Number(raw);
+		// A blank or non-numeric entry keeps the last good value rather than storing NaN.
+		if (raw.trim() === '' || !Number.isFinite(n)) return;
+		const next = clamp(Math.round(n), min, max);
+		if (next !== value) onChange(next);
+	};
+
+	const setTo = (n: number) => {
+		setDraft(null);
+		const next = clamp(Math.round(n), min, max);
+		if (next !== value) onChange(next);
+	};
+
+	const nudge = (delta: number) => {
+		const base = draft === null ? value : Number(draft);
+		setTo((Number.isFinite(base) ? base : value) + delta);
+	};
+
+	const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+		const jump = step * 10;
+		if (e.key === 'ArrowUp') nudge(step);
+		else if (e.key === 'ArrowDown') nudge(-step);
+		else if (e.key === 'PageUp') nudge(jump);
+		else if (e.key === 'PageDown') nudge(-jump);
+		else if (e.key === 'Home') setTo(min);
+		else if (e.key === 'End') setTo(max);
+		else if (e.key === 'Enter') commit(draft ?? String(value));
+		else return;
+		e.preventDefault();
+	};
+
 	return (
 		<div
 			style={{
 				display: 'flex',
 				alignItems: 'center',
 				gap: 8,
-				padding: '4px 4px 4px 14px',
+				padding: '4px 4px 4px 10px',
 				borderRadius: 9,
 				border: `1px solid ${T.bd}`,
 				background: T.surf,
 				width: 'fit-content',
 			}}
 		>
-			<span
+			<input
+				type="text"
+				inputMode="numeric"
+				role="spinbutton"
+				aria-label={name}
+				aria-valuenow={value}
+				aria-valuemin={min}
+				aria-valuemax={max}
+				value={draft ?? String(value)}
+				onChange={(e) => setDraft(e.target.value)}
+				onKeyDown={onKeyDown}
+				onBlur={(e) => commit(e.target.value)}
 				style={{
 					font: `700 17px ${isMono ? T.mono : T.sans}`,
 					color: T.ink,
-					minWidth: 36,
+					width: 46,
 					textAlign: 'center',
+					border: 'none',
+					background: 'transparent',
+					padding: '2px 0',
+					borderRadius: 5,
 				}}
-			>
-				{value}
-			</span>
+			/>
 			<IconButton
 				icon="Minus"
-				label={`Decrease ${label ?? 'value'}`}
+				label={`Decrease ${name}`}
 				variant="outline"
 				size="sm"
-				onClick={() => onChange(clamp(value - step, min, max))}
+				aria-disabled={value <= min ? true : undefined}
+				title={value <= min ? `${name} is already at the minimum of ${min}` : undefined}
+				onClick={() => nudge(-step)}
 			/>
 			<IconButton
 				icon="add"
-				label={`Increase ${label ?? 'value'}`}
+				label={`Increase ${name}`}
 				variant="outline"
 				size="sm"
-				onClick={() => onChange(clamp(value + step, min, max))}
+				aria-disabled={value >= max ? true : undefined}
+				title={value >= max ? `${name} is already at the maximum of ${max}` : undefined}
+				onClick={() => nudge(step)}
 			/>
 		</div>
 	);

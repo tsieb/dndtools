@@ -14,10 +14,24 @@ describe('terrainColor', () => {
 	});
 
 	it('gives visually distinct paint to the palette entries', () => {
-		const swatches = new Set(TERRAIN_STYLES.map((s) => terrainColor(s.id)));
-		// Not one shared tint: the control has to change what the canvas looks like.
-		expect(swatches.size).toBeGreaterThan(1);
-		expect(swatches.has(null)).toBe(false);
+		const swatches = TERRAIN_STYLES.map((s) => terrainColor(s.id));
+		expect(swatches).not.toContain(null);
+		// EVERY entry distinct, not merely "more than one tint". The weaker assertion passed while
+		// Forest and Grass painted identically: Forest referenced `--layer-terrain`, which was declared
+		// nowhere, behind a `var(--layer-terrain, var(--layer-height))` fallback — and `--layer-height`
+		// is exactly Grass's swatch. Eight labelled choices, seven appearances.
+		expect(new Set(swatches).size, `duplicate terrain swatches: ${swatches.join(' | ')}`).toBe(
+			TERRAIN_STYLES.length,
+		);
+	});
+
+	it('references no fallback-less-token escape hatch that could hide a duplicate again', () => {
+		// A `var(--x, <fallback>)` reference is invisible to styles/token-references.test.ts by design
+		// (graceful degradation is legitimate), so it is exactly where an undeclared token hides. In this
+		// palette a swatch must name ONE token and let that gate resolve it.
+		for (const style of TERRAIN_STYLES) {
+			expect(style.swatch, style.id).not.toMatch(/var\(\s*--[A-Za-z0-9-]+\s*,/);
+		}
 	});
 
 	it('falls through for any non-terrain style so the layer colour still wins', () => {

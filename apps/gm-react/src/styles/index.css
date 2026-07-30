@@ -263,3 +263,16 @@ html[data-electron='true'] .app-fixed-viewport {
 	animation-iteration-count: 1 !important;
 	transition-duration: 0.001ms !important;
 }
+
+/* Forced-colors (OS high-contrast): the token remap in tokens/colors.css covers `background-color`,
+   but the UA does NOT reset `background-image` — so a decorative GRADIENT survives while the text
+   painted over it is forced to `CanvasText`. `/play`'s projected stage is the worst case: its
+   near-black theatre gradient and the caption scrim above it are both background-images, and the
+   scene name over them became black-on-black in a light high-contrast theme. These declarations are
+   inline on the elements (they carry runtime values), so the override needs `!important`. */
+@media (forced-colors: active) {
+	.player-stage,
+	.player-stage-scrim {
+		background-image: none !important;
+	}
+}

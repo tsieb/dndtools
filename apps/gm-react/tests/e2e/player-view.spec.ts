@@ -101,3 +101,38 @@ test.describe('player view: the projected stage', () => {
 		expect(image).toContain('radial-gradient');
 	});
 });
+
+test.describe('player view: forced colors', () => {
+	test('drops the stage gradients so the scene caption is not black on black', async ({ page }) => {
+		// `tokens/colors.css`'s forced-colors block remaps every colour TOKEN, but the UA forces
+		// `background-color` and `color` only — a decorative gradient is a background-IMAGE and
+		// survives untouched. The stage's near-black theatre gradient and the caption scrim above it
+		// are both background-images, so in a light high-contrast theme the scene name was forced to
+		// CanvasText (black) and painted over a near-black backdrop the OS never neutralised.
+		await page.emulateMedia({ forcedColors: 'active' });
+		await markOnboarded(page);
+		await gotoRoute(page, '/session');
+		await seedFresh(page);
+		await projectSceneToPlayers(page);
+		await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
+		await waitRuntime(page);
+		await enterPreview(page, 'player');
+		await page.getByRole('main').first().waitFor({ timeout: 20_000 });
+
+		expect(await page.evaluate(() => matchMedia('(forced-colors: active)').matches)).toBe(true);
+
+		const stage = page.getByTestId('player-stage');
+		await expect(stage).toBeVisible();
+		expect(
+			await stage.evaluate((el) => getComputedStyle(el).backgroundImage),
+			'the stage must not keep a gradient the OS palette cannot see through',
+		).toBe('none');
+
+		const scrim = page.locator('.player-stage-scrim').first();
+		await expect(scrim).toBeVisible();
+		expect(
+			await scrim.evaluate((el) => getComputedStyle(el).backgroundImage),
+			'the caption scrim must not keep its darkening gradient',
+		).toBe('none');
+	});
+});

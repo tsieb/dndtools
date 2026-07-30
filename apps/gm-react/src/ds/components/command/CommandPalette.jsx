@@ -562,6 +562,12 @@ export function CommandPalette({
 							<Kbd>esc</Kbd> close
 						</span>
 						<span
+							// The app's primary search returned its result count as plain text, so a screen-reader
+							// user typing here heard nothing change (WCAG 4.1.3). The span is permanent and only
+							// its contents update, which is what a polite region needs to announce reliably.
+							role="status"
+							aria-live="polite"
+							aria-atomic="true"
 							style={{
 								marginLeft: 'auto',
 								fontFamily: 'var(--font-mono)',

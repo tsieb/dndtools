@@ -17,7 +17,7 @@ import { T } from '../screen-kit';
 import { useViewport, useViewportHeight } from '../useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { ImportMapDialog, VIS_CHIP } from '../MapBuilder';
-import { useMapEditor, type FogMode, type MapEditorApi } from './useMapEditor';
+import { useMapEditor, type FogMode, type MapEditorApi, type MapNoticeTone } from './useMapEditor';
 import type { ToolId } from './tools';
 import { TOOL_GROUPS, TOOLS_BY_ID } from './tools';
 import { useMapKeyboard } from './keyboard';
@@ -28,6 +28,13 @@ import { InspectorPanel } from './dock/InspectorPanel';
 import { LayersPanel } from './dock/LayersPanel';
 import { AssetsPanel } from './dock/AssetsPanel';
 import { HistoryPanel } from './dock/HistoryPanel';
+
+/** A11Y-011: severity must survive grayscale, so each notice tone gets a DISTINCT glyph shape. */
+const NOTICE_ICON: Record<MapNoticeTone, string> = {
+	warning: 'warning',
+	success: 'check',
+	info: 'info',
+};
 import { GeneratePanel, type GenPreview } from './generate/GeneratePanel';
 import { EditorCanvas } from './canvas/EditorCanvas';
 import { pickRasterAssetId } from '../mapGeometry';
@@ -280,6 +287,7 @@ export function MapEditor({
 			announce(`Projected to ${players.length} player${players.length === 1 ? '' : 's'}.`);
 			editor.setNotice(
 				`Projected “${editor.map?.name ?? 'map'}” to ${players.length} player${players.length === 1 ? '' : 's'}.`,
+				'success',
 			);
 		} else {
 			editor.setNotice(projected.rejection.message);
@@ -656,6 +664,7 @@ export function MapEditor({
 											setExportOpen(false);
 											editor.setNotice(
 												'Advanced map drawing is available in the desktop app. Everything drawn there stays visible and safe here.',
+												'info',
 											);
 										}}
 									/>
@@ -683,19 +692,22 @@ export function MapEditor({
 					// `setNotice` is where useMapEditor funnels EVERY command rejection and thrown error,
 					// and the editor's only live region is fed by `announce()`, which setNotice never
 					// calls — so "layer is locked" was silent to AT and looked like a neutral FYI.
-					role="alert"
+					// The skin used to be hard-coded to WARNING, but `projectToPlayers` reports its success
+					// through the same banner: "Projected “Docks” to 3 players." arrived yellow, behind a
+					// warning triangle, indistinguishable from a refusal. Tone now travels with the text.
+					role={editor.noticeTone === 'warning' ? 'alert' : 'status'}
 					style={{
 						display: 'flex',
 						alignItems: 'center',
 						gap: 10,
 						padding: '8px 14px',
-						background: 'var(--color-status-warning-subtle)',
-						borderBottom: `1px solid var(--color-status-warning-border)`,
+						background: `var(--color-status-${editor.noticeTone}-subtle)`,
+						borderBottom: `1px solid var(--color-status-${editor.noticeTone}-border)`,
 						font: `12.5px ${T.sans}`,
-						color: 'var(--color-status-warning-text)',
+						color: `var(--color-status-${editor.noticeTone}-text)`,
 					}}
 				>
-					<Icon name="warning" size={15} />
+					<Icon name={NOTICE_ICON[editor.noticeTone]} size={15} />
 					<span style={{ flex: 1 }}>{editor.notice}</span>
 					<button
 						type="button"
@@ -987,10 +999,17 @@ function HeaderMenuItem({
 	label: string;
 	onClick: () => void;
 }) {
+	// Same gap as LayersPanel's MenuItem: no global `button:hover`, and inline styles can't express it,
+	// so the editor's header menu highlighted nothing under the cursor.
+	const [hov, setHov] = useState(false);
 	return (
 		<button
 			type="button"
 			onClick={onClick}
+			onMouseEnter={() => setHov(true)}
+			onMouseLeave={() => setHov(false)}
+			onFocus={() => setHov(true)}
+			onBlur={() => setHov(false)}
 			style={{
 				display: 'flex',
 				alignItems: 'center',
@@ -998,7 +1017,7 @@ function HeaderMenuItem({
 				padding: '8px 10px',
 				borderRadius: 7,
 				border: 'none',
-				background: 'transparent',
+				background: hov ? T.hover : 'transparent',
 				cursor: 'pointer',
 				color: T.ink,
 				font: `12.5px ${T.sans}`,

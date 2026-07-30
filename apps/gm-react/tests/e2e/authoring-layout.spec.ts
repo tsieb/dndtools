@@ -111,6 +111,65 @@ test('the wizard kit step edits attack kind and damage type as separate fields',
 	await expect(kindInput).toHaveValue('Melee');
 });
 
+test('the wizard kit step reaches any hit-point total by typing and by keyboard', async ({
+	page,
+}) => {
+	// `NumStepper`'s readout was a plain <span>, so the +/- pair was the ONLY way to reach a value:
+	// hit points (min 1, max 600, step 1) needed up to 249 activations, with no spinbutton role, no
+	// typed entry and no Arrow/Page/Home/End.
+	await markOnboarded(page);
+	await gotoRoute(page, '/characters');
+	await seedFresh(page);
+
+	await page.getByRole('button', { name: 'New character', exact: true }).first().click();
+	await page.getByRole('button', { name: /Build from scratch/ }).click();
+	const wizard = page.getByRole('dialog', { name: 'New character wizard' });
+	await expect(wizard).toBeVisible();
+
+	await wizard.getByRole('button', { name: 'NPC', exact: true }).click();
+	await wizard.getByLabel('Name').fill('Bandit Captain');
+	await wizard.getByRole('button', { name: 'Continue' }).click(); // class & level
+	await wizard.getByRole('button', { name: 'Continue' }).click(); // ability scores
+	await wizard.getByRole('button', { name: 'Continue' }).click(); // attacks & kit
+
+	const hp = wizard.getByRole('spinbutton', { name: 'hit points' });
+	await expect(hp).toBeVisible();
+
+	// Typed entry commits on blur and exposes the value to assistive tech.
+	await hp.fill('200');
+	await hp.blur();
+	await expect(hp).toHaveValue('200');
+	await expect(hp).toHaveAttribute('aria-valuenow', '200');
+	await expect(hp).toHaveAttribute('aria-valuemax', '600');
+
+	// A non-numeric entry keeps the last good value instead of storing NaN.
+	await hp.fill('not a number');
+	await hp.blur();
+	await expect(hp).toHaveValue('200');
+
+	// Out-of-range typing clamps rather than being accepted or rejected silently.
+	await hp.fill('9999');
+	await hp.blur();
+	await expect(hp).toHaveValue('600');
+
+	// Home / End / arrows / page keys all move the value.
+	await hp.focus();
+	await page.keyboard.press('Home');
+	await expect(hp).toHaveValue('1');
+	await page.keyboard.press('ArrowUp');
+	await expect(hp).toHaveValue('2');
+	await page.keyboard.press('PageUp');
+	await expect(hp).toHaveValue('12');
+	await page.keyboard.press('PageDown');
+	await expect(hp).toHaveValue('2');
+	await page.keyboard.press('End');
+	await expect(hp).toHaveValue('600');
+
+	// At the ceiling the Increase button explains itself instead of looking live and doing nothing.
+	const increase = wizard.getByRole('button', { name: 'Increase hit points' });
+	await expect(increase).toHaveAttribute('aria-disabled', 'true');
+});
+
 test('the wizard uses the whole phone viewport instead of floating as a fixed slab', async ({
 	page,
 }) => {

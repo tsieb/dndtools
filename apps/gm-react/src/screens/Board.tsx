@@ -110,8 +110,21 @@ export function Board() {
 			})
 		: [];
 
+	// `SceneRuntime.dispatchNow` RETHROWS after a failed `persistFullState`, and every caller here is
+	// fire-and-forget (`void onMove(...)`, `onClick={savePreset}`), so an IndexedDB quota or
+	// private-mode failure produced an unhandled rejection, no message at all, and the optimistic
+	// draft was dropped — the widget silently snapped back to where it had been.
+	const PERSIST_FAILED =
+		"That change couldn't be saved to this device. Check storage space and try again.";
 	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
-		const result = await runtime.dispatch(command);
+		let result;
+		try {
+			result = await runtime.dispatch(command);
+		} catch {
+			setStatus(null);
+			setError(PERSIST_FAILED);
+			return false;
+		}
 		if (result.status === 'rejected') {
 			// A rejection is NOT a confirmation: routing both into `status` rendered "that change
 			// couldn't be applied" in the same neutral grey, with the same info icon, as "Layout saved".
@@ -386,23 +399,29 @@ export function Board() {
 				</Button>
 			</div>
 
-			{status && (
-				<div
-					// Every board write's confirmation surfaces here, so it has to be a live region or
-					// screen-reader users get no feedback at all (WCAG 4.1.3).
-					role="status"
-					style={{
-						display: 'inline-flex',
-						alignItems: 'center',
-						gap: 6,
-						font: 'var(--text-xs) var(--font-sans)',
-						color: 'var(--color-text-secondary)',
-						flex: '0 0 auto',
-					}}
-				>
-					<Icon name="info" size="sm" /> {status}
-				</div>
-			)}
+			{/* Every board write's confirmation surfaces here, so it has to be a live region (WCAG
+			    4.1.3) — but a polite region must ALREADY be in the DOM for a content change to be
+			    announced. Mounting `<div role="status">Layout saved.</div>` inserts the host and its
+			    text in one mutation, which screen readers routinely drop. So the host is permanent and
+			    only its contents change; `display` collapses it when empty. */}
+			<div
+				role="status"
+				aria-live="polite"
+				style={{
+					display: status ? 'inline-flex' : 'none',
+					alignItems: 'center',
+					gap: 6,
+					font: 'var(--text-xs) var(--font-sans)',
+					color: 'var(--color-text-secondary)',
+					flex: '0 0 auto',
+				}}
+			>
+				{status && (
+					<>
+						<Icon name="info" size="sm" /> {status}
+					</>
+				)}
+			</div>
 
 			{error && (
 				<div

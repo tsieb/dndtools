@@ -47,10 +47,12 @@ export function AssetsPanel({ editor }: { editor: MapEditorApi }) {
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: '100%' }}>
+			{/* No `autoFocus`: the dock tabs use selection-follows-focus (ds/core/Tabs.jsx calls onChange
+			    from moveFocus), so arrowing ONTO the Assets tab yanked focus straight into this text
+			    field and a keyboard user could not arrow on to History. */}
 			<Input
 				value={search}
 				icon="search"
-				autoFocus
 				placeholder="Search objects"
 				aria-label="Search assets"
 				onChange={(e: { target: { value: string } }) => setSearch(e.target.value)}

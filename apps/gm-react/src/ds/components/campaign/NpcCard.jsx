@@ -54,7 +54,7 @@ export function NpcCard({ name, role, location, disposition, hook, tags = [], sr
 						    descendant subtree — so the role, disposition, tags and dm-only chip all became
 						    inaudible. A button on the heading keeps the card readable and still gives
 						    keyboard users one clean tab stop per NPC. */}
-						<h3 style={{ margin: 0, minWidth: 0, fontFamily: 'var(--font-display)', fontSize: 'var(--text-md)', fontWeight: 'var(--font-weight-bold)', lineHeight: 1.15, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+						<h3 style={{ margin: 0, minWidth: 0, fontFamily: 'var(--font-display)', fontSize: 'var(--text-md)', fontWeight: 'var(--font-weight-bold)', lineHeight: 1.15, color: 'var(--color-text-primary)', textOverflow: 'ellipsis', whiteSpace: 'nowrap', /* `overflow:hidden` here clipped the 2px+2px-offset global focus ring on the card's ONLY tab stop (WCAG 2.4.11). The inner button already owns the ellipsis clipping, so the h3 does not need it. */ }}>
 							{interactive ? (
 								<button
 									type="button"

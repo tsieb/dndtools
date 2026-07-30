@@ -115,8 +115,20 @@ export function SceneEditor() {
 	const selectedWidget = widgets.find((w) => w.id === selectedId) ?? null;
 	const pendingDestroy = widgets.find((w) => w.id === pendingDestroyId) ?? null;
 
+	// `SceneRuntime.dispatchNow` RETHROWS after a failed `persistFullState`, and every caller here is
+	// fire-and-forget (`void onMove(...)`, `onClick={savePreset}`), so an IndexedDB quota or
+	// private-mode failure produced an unhandled rejection, no message at all, and the optimistic
+	// draft was dropped — the widget silently snapped back to where it had been.
+	const PERSIST_FAILED =
+		"That change couldn't be saved to this device. Check storage space and try again.";
 	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
-		const result = await runtime.dispatch(command);
+		let result;
+		try {
+			result = await runtime.dispatch(command);
+		} catch {
+			setError(PERSIST_FAILED);
+			return false;
+		}
 		if (result.status === 'rejected') {
 			setError(widgetRejectionMessage(result.rejection));
 			return false;

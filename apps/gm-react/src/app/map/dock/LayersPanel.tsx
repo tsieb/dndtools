@@ -345,11 +345,21 @@ function MenuItem({
 	disabled?: boolean;
 	danger?: boolean;
 }) {
+	// There is no global `button:hover` rule anywhere in this app and an inline style cannot express
+	// `:hover`, so this menu had ZERO pointer feedback: the row under the cursor looked exactly like
+	// the other four. A menu you cannot see yourself pointing at is genuinely hard to operate.
+	// `ds/components/map/LayerRow.jsx` is the in-repo pattern.
+	const [hov, setHov] = useState(false);
+	const highlight = hov && !disabled;
 	return (
 		<button
 			type="button"
 			disabled={disabled}
 			onClick={onClick}
+			onMouseEnter={() => setHov(true)}
+			onMouseLeave={() => setHov(false)}
+			onFocus={() => setHov(true)}
+			onBlur={() => setHov(false)}
 			style={{
 				display: 'flex',
 				alignItems: 'center',
@@ -357,7 +367,7 @@ function MenuItem({
 				padding: '8px 10px',
 				borderRadius: 7,
 				border: 'none',
-				background: 'transparent',
+				background: highlight ? (danger ? 'var(--color-status-error-subtle)' : T.hover) : 'transparent',
 				cursor: disabled ? 'not-allowed' : 'pointer',
 				opacity: disabled ? 0.4 : 1,
 				color: danger ? T.err : T.ink,

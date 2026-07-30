@@ -11,6 +11,8 @@ import { LayerRow as RawLayerRow } from './map/LayerRow.jsx';
 import { IconButton as RawIconButton } from './core/IconButton.jsx';
 import { Input as RawInput, Textarea as RawTextarea } from './forms/Input.jsx';
 import { Select as RawSelect } from './forms/Select.jsx';
+import { Popover as RawPopover } from './core/Popover.jsx';
+import { Toaster, ToastViewport as RawToastViewport } from './overlay/Toast.jsx';
 
 // The DS ships as .jsx with `checkJs: false`, so tsc infers every defaultless prop as required.
 // Re-type the imports as open prop bags rather than restating each component's contract.
@@ -23,6 +25,8 @@ const IconButton = RawIconButton as React.ComponentType<DsProps>;
 const Input = RawInput as React.ComponentType<DsProps>;
 const Textarea = RawTextarea as React.ComponentType<DsProps>;
 const Select = RawSelect as React.ComponentType<DsProps>;
+const Popover = RawPopover as React.ComponentType<DsProps>;
+const ToastViewport = RawToastViewport as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;
@@ -290,5 +294,139 @@ describe('form fields keep their focus ring when the call site also listens for 
 		act(() => field.dispatchEvent(new FocusEvent('focusin', { bubbles: true })));
 		expect(focuses).toBe(1);
 		expect(field.style.boxShadow).not.toBe('none');
+	});
+});
+
+describe('Toast announces through a permanent live region', () => {
+	// A live region only announces when it is ALREADY in the DOM and its CONTENTS change. Each stacked
+	// row used to carry its own `role="status"`, so the host and its text were inserted in a single
+	// mutation — which screen readers routinely drop. The app's only confirmation channel was silent.
+	afterEach(() => act(() => Toaster.clear()));
+
+	it('hosts an empty polite region before any toast exists', () => {
+		act(() => root.render(<ToastViewport />));
+		const polite = container.querySelector('[role="status"]');
+		expect(polite, 'the polite host must pre-exist for a change to be announced').not.toBeNull();
+		expect(polite!.getAttribute('aria-live')).toBe('polite');
+		expect(polite!.textContent).toBe('');
+		// And NO empty assertive region: `role="alert"` announces on insertion, and a permanent empty
+		// one would make every bare `getByRole('alert')` in the app ambiguous.
+		expect(container.querySelector('[role="alert"]')).toBeNull();
+	});
+
+	it('routes a success message INTO the pre-existing polite region, not a fresh row role', () => {
+		act(() => root.render(<ToastViewport />));
+		act(() => {
+			Toaster.success('Layout saved.');
+		});
+		const polite = container.querySelector('[role="status"]')!;
+		expect(polite.textContent).toContain('Layout saved.');
+		// One live region, and the message text appears exactly once — the region WRAPS the row rather
+		// than mirroring its copy, so `getByText` on a toast message stays unambiguous.
+		expect(container.querySelectorAll('[role="status"]').length).toBe(1);
+		expect(container.querySelectorAll('[role="alert"]').length).toBe(0);
+		expect(container.textContent!.match(/Layout saved\./g)!.length).toBe(1);
+	});
+
+	it('routes an error into an assertive region and leaves the polite one empty', () => {
+		act(() => root.render(<ToastViewport />));
+		act(() => {
+			Toaster.error('Export failed.');
+		});
+		expect(container.querySelector('[role="alert"]')!.textContent).toContain('Export failed.');
+		expect(container.querySelector('[role="status"]')!.textContent).toBe('');
+		expect(container.textContent!.match(/Export failed\./g)!.length).toBe(1);
+	});
+});
+
+describe('Toast auto-dismiss can be held open (WCAG 2.2.1)', () => {
+	afterEach(() => {
+		act(() => Toaster.clear());
+		Toaster.setPaused('hover', false);
+		Toaster.setPaused('focus', false);
+	});
+
+	const bodyText = () => container.textContent ?? '';
+
+	it('keeps a toast that carries an action until it is taken or dismissed', async () => {
+		act(() => root.render(<ToastViewport />));
+		act(() => {
+			Toaster.success('Note deleted.', { action: 'Undo', onAction: () => {} });
+		});
+		expect(bodyText()).toContain('Undo');
+		// The default 4500ms would have taken the Undo away from under the user's focus. Eight screens
+		// put this project's destructive-op undo inside a toast.
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 60));
+		});
+		expect(bodyText()).toContain('Undo');
+	});
+
+	it('holds a plain toast open while the stack has keyboard focus even after the mouse leaves', async () => {
+		act(() => root.render(<ToastViewport />));
+		act(() => {
+			Toaster.success('Saved.', { duration: 30 });
+		});
+		// Hover AND focus need separate flags: with one shared boolean, moving the mouse away while the
+		// control still held focus cleared the hold and the toast vanished anyway.
+		Toaster.setPaused('hover', true);
+		Toaster.setPaused('focus', true);
+		Toaster.setPaused('hover', false);
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 120));
+		});
+		expect(bodyText(), 'focus alone must still hold the toast open').toContain('Saved.');
+
+		// Releasing the last hold re-arms the timer. A resumed timer is floored at 600ms so a toast
+		// never vanishes the instant the pointer leaves it.
+		Toaster.setPaused('focus', false);
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 900));
+		});
+		expect(bodyText()).not.toContain('Saved.');
+	});
+});
+
+describe('Popover keeps the keyboard user oriented', () => {
+	// Focus was pushed into the panel on open and NEVER restored, so Escape / an outside pointerdown /
+	// a plain unmount all dropped it to <body>. And the focus query ran in DOM order while the header
+	// (which holds Close) renders before `children`, so every popover with `onClose` opened focused on
+	// Close — one Tab from leaving, never on the control the popover exists to offer.
+	it('focuses the first control in the BODY, not the header Close button', async () => {
+		act(() =>
+			root.render(
+				<Popover open title="Opacity" onClose={() => {}}>
+					<button type="button">Reset</button>
+				</Popover>,
+			),
+		);
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 10));
+		});
+		expect((document.activeElement as HTMLElement)?.textContent).toBe('Reset');
+	});
+
+	it('returns focus to the opener when it closes', async () => {
+		const opener = document.createElement('button');
+		opener.textContent = 'Open';
+		document.body.appendChild(opener);
+		opener.focus();
+		expect(document.activeElement).toBe(opener);
+
+		act(() =>
+			root.render(
+				<Popover open title="Opacity" onClose={() => {}}>
+					<button type="button">Reset</button>
+				</Popover>,
+			),
+		);
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 10));
+		});
+		expect(document.activeElement).not.toBe(opener);
+
+		act(() => root.render(<Popover open={false} title="Opacity" onClose={() => {}} />));
+		expect(document.activeElement).toBe(opener);
+		opener.remove();
 	});
 });

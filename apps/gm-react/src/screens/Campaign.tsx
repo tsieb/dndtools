@@ -255,63 +255,70 @@ function QuestEditor({ quest, onClose }: { quest: QuestRow | null; onClose: () =
 		}
 		setBusy(true);
 		setErr(null);
-		const stamp = Date.now().toString(36);
-		// Line i keeps existing objective i's id + done state (a text edit doesn't reset the checklist);
-		// new lines become fresh unchecked objectives.
-		const objectives: QuestObjective[] = objectivesText
-			.split('\n')
-			.map((t) => t.trim())
-			.filter(Boolean)
-			.map((text, i) =>
-				existingObjectives[i]
-					? { ...existingObjectives[i], text }
-					: { id: `obj-${stamp}-${i}`, text, done: false },
-			);
-		const result = quest
-			? // content.update-object — authorized-editor edit; merged frontmatter is re-validated.
-				await runtime.dispatch({
-					type: 'content.update-object',
-					actorId,
-					payload: {
-						itemId: quest.view.id,
-						title: title.trim(),
-						fields: { title: title.trim(), status, objectives },
-						body,
-					},
-				})
-			: // content.create-object — DM-only vault authoring against the declared `quest` schema
-				// (validated fail-closed before any durable write); visibility fails closed to dm-only.
-				await runtime.dispatch({
-					type: 'content.create-object',
-					actorId,
-					payload: {
-						subtype: 'quest',
-						title: title.trim(),
-						fields: { title: title.trim(), status, objectives },
-						body,
-						visibility,
-					},
-				});
-		if (result.status !== 'accepted') {
-			setBusy(false);
-			setErr(result.rejection.message);
-			return;
-		}
-		// Visibility is a SEPARATE command on edit (same split as FactionEditor / Knowledge).
-		if (quest && visibility !== quest.view.visibility) {
-			const vis = await runtime.dispatch({
-				type: 'content.set-item-visibility',
-				actorId,
-				payload: { itemId: quest.view.id, visibility },
-			});
-			if (vis.status !== 'accepted') {
-				setBusy(false);
-				setErr(vis.rejection.message);
+		// `runtime.dispatch` RETHROWS on a persist failure (SceneRuntime.dispatchNow), and `busy` also
+		// disables this panel's Cancel button — so a throw froze the editor permanently with the DM's
+		// typed work unrecoverable and no way out but a reload. Any await inside a busy guard in this
+		// app needs `finally`.
+		try {
+			const stamp = Date.now().toString(36);
+			// Line i keeps existing objective i's id + done state (a text edit doesn't reset the checklist);
+			// new lines become fresh unchecked objectives.
+			const objectives: QuestObjective[] = objectivesText
+				.split('\n')
+				.map((t) => t.trim())
+				.filter(Boolean)
+				.map((text, i) =>
+					existingObjectives[i]
+						? { ...existingObjectives[i], text }
+						: { id: `obj-${stamp}-${i}`, text, done: false },
+				);
+			const result = quest
+				? // content.update-object — authorized-editor edit; merged frontmatter is re-validated.
+					await runtime.dispatch({
+						type: 'content.update-object',
+						actorId,
+						payload: {
+							itemId: quest.view.id,
+							title: title.trim(),
+							fields: { title: title.trim(), status, objectives },
+							body,
+						},
+					})
+				: // content.create-object — DM-only vault authoring against the declared `quest` schema
+					// (validated fail-closed before any durable write); visibility fails closed to dm-only.
+					await runtime.dispatch({
+						type: 'content.create-object',
+						actorId,
+						payload: {
+							subtype: 'quest',
+							title: title.trim(),
+							fields: { title: title.trim(), status, objectives },
+							body,
+							visibility,
+						},
+					});
+			if (result.status !== 'accepted') {
+				setErr(result.rejection.message);
 				return;
 			}
+			// Visibility is a SEPARATE command on edit (same split as FactionEditor / Knowledge).
+			if (quest && visibility !== quest.view.visibility) {
+				const vis = await runtime.dispatch({
+					type: 'content.set-item-visibility',
+					actorId,
+					payload: { itemId: quest.view.id, visibility },
+				});
+				if (vis.status !== 'accepted') {
+					setErr(vis.rejection.message);
+					return;
+				}
+			}
+			onClose();
+		} catch {
+			setErr("That couldn't be saved to this device. Check storage space and try again.");
+		} finally {
+			setBusy(false);
 		}
-		setBusy(false);
-		onClose();
 	}
 
 	return (
@@ -520,52 +527,59 @@ function FactionEditor({ faction, onClose }: { faction: FactionRow | null; onClo
 		}
 		setBusy(true);
 		setErr(null);
-		// Exactly the subtype's declared frontmatter fields — the core validates them fail-closed
-		// against the `faction` schema before any durable write (an undeclared field is rejected).
-		const fields = {
-			name: name.trim(),
-			kind,
-			stance,
-			leader: leader.trim(),
-			goals: goalsText
-				.split('\n')
-				.map((g) => g.trim())
-				.filter(Boolean),
-			secret: secret.trim(),
-		};
-		const result = faction
-			? // content.update-object — authorized-editor edit; merged frontmatter is re-validated.
-				await runtime.dispatch({
-					type: 'content.update-object',
-					actorId,
-					payload: { itemId: faction.view.id, title: name.trim(), fields, body },
-				})
-			: // content.create-object — DM-only vault authoring; visibility fails closed to dm-only.
-				await runtime.dispatch({
-					type: 'content.create-object',
-					actorId,
-					payload: { subtype: 'faction', title: name.trim(), fields, body, visibility },
-				});
-		if (result.status !== 'accepted') {
-			setBusy(false);
-			setErr(result.rejection.message);
-			return;
-		}
-		// Visibility is a SEPARATE command on edit (same split as Knowledge).
-		if (faction && visibility !== faction.view.visibility) {
-			const vis = await runtime.dispatch({
-				type: 'content.set-item-visibility',
-				actorId,
-				payload: { itemId: faction.view.id, visibility },
-			});
-			if (vis.status !== 'accepted') {
-				setBusy(false);
-				setErr(vis.rejection.message);
+		// `runtime.dispatch` RETHROWS on a persist failure (SceneRuntime.dispatchNow), and `busy` also
+		// disables this panel's Cancel button — so a throw froze the editor permanently with the DM's
+		// typed work unrecoverable and no way out but a reload. Any await inside a busy guard in this
+		// app needs `finally`.
+		try {
+			// Exactly the subtype's declared frontmatter fields — the core validates them fail-closed
+			// against the `faction` schema before any durable write (an undeclared field is rejected).
+			const fields = {
+				name: name.trim(),
+				kind,
+				stance,
+				leader: leader.trim(),
+				goals: goalsText
+					.split('\n')
+					.map((g) => g.trim())
+					.filter(Boolean),
+				secret: secret.trim(),
+			};
+			const result = faction
+				? // content.update-object — authorized-editor edit; merged frontmatter is re-validated.
+					await runtime.dispatch({
+						type: 'content.update-object',
+						actorId,
+						payload: { itemId: faction.view.id, title: name.trim(), fields, body },
+					})
+				: // content.create-object — DM-only vault authoring; visibility fails closed to dm-only.
+					await runtime.dispatch({
+						type: 'content.create-object',
+						actorId,
+						payload: { subtype: 'faction', title: name.trim(), fields, body, visibility },
+					});
+			if (result.status !== 'accepted') {
+				setErr(result.rejection.message);
 				return;
 			}
+			// Visibility is a SEPARATE command on edit (same split as Knowledge).
+			if (faction && visibility !== faction.view.visibility) {
+				const vis = await runtime.dispatch({
+					type: 'content.set-item-visibility',
+					actorId,
+					payload: { itemId: faction.view.id, visibility },
+				});
+				if (vis.status !== 'accepted') {
+					setErr(vis.rejection.message);
+					return;
+				}
+			}
+			onClose();
+		} catch {
+			setErr("That couldn't be saved to this device. Check storage space and try again.");
+		} finally {
+			setBusy(false);
 		}
-		setBusy(false);
-		onClose();
 	}
 
 	return (

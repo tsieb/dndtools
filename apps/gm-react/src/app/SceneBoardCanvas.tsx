@@ -223,6 +223,12 @@ export function SceneBoardCanvas({
 	const onBgDown = (e: React.PointerEvent) => {
 		onSelect(null);
 		if (policy !== 'canvas') return;
+		// The drag overlay that swallows pointerdown only exists in EDIT mode, so in VIEW mode this
+		// handler received every press that landed on widget CONTENT — note text, character stats, a map
+		// thumbnail — started a canvas pan and set `userSelect:'none'` on <body>. A DM could therefore
+		// never select or copy a note, and an accidental drag while reading threw the whole canvas
+		// off-screen. Only a press on the background itself is a pan.
+		if (e.target !== e.currentTarget) return;
 		dragRef.current = { mode: 'pan', sx: e.clientX, sy: e.clientY, tx: view.tx, ty: view.ty };
 		document.body.style.userSelect = 'none';
 	};

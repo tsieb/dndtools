@@ -253,3 +253,84 @@ test.describe('equipment: structured inventory, currency & encumbrance', () => {
 		await expect(page.getByText('Bedroll')).not.toHaveCount(0);
 	});
 });
+
+// The vitals-bar HP stepper is the /player surface's only combat-resource write. It was ±1-ONLY, so
+// taking 27 damage meant 27 separate durable commands (each a full-state persist plus an op-log
+// entry), and a SUCCESSFUL write announced nothing at all — the number changed silently for anyone
+// not watching that corner of the screen.
+test.describe('player vitals: the HP stepper takes an amount and announces the result', () => {
+	test.beforeEach(async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/player');
+		await seedFresh(page);
+		await page.goto('/#/player', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.locator('#main-content').waitFor({ state: 'attached' });
+	});
+
+	test('applies a typed amount in one command and announces it politely', async ({ page }) => {
+		const pcId = await charIdByName(page, PC_NAME);
+		expect(pcId).toBeTruthy();
+		await selectPc(page, pcId!);
+
+		// `character.update-combat-resource` is gated on an ACTIVE session workflow, so the idle seed
+		// would refuse the write and we would be asserting a rejection instead of the stepper.
+		const live = await page.evaluate(async () => {
+			const rt = window.__rt!;
+			const state = rt.state as unknown as {
+				commandCenter: { homeSceneId: string | null };
+				scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+			};
+			const activeSceneId =
+				state.commandCenter.homeSceneId ??
+				Object.values(state.scenes.scenes).find((sc) => !sc.isTemplate)?.id;
+			return rt.dispatch({
+				type: 'session.set-workflow',
+				actorId: rt.defaultActorId,
+				payload: { workflow: 'active', activeSceneId },
+			});
+		});
+		expect(live.status, JSON.stringify(live)).toBe('accepted');
+
+		const amount = page.getByLabel('Hit point change amount');
+		await expect(amount).toBeVisible();
+		// The buttons name the amount they will apply, so the control is not a mystery before pressing.
+		await expect(page.getByRole('button', { name: 'Damage 1' })).toBeVisible();
+
+		await amount.fill('7');
+		await amount.blur();
+		const damage = page.getByRole('button', { name: 'Damage 7' });
+		await expect(damage).toBeVisible();
+
+		const hpBefore = await page.evaluate((cid) => {
+			const chars = (
+				window.__rt!.state.characters as {
+					characters: Record<string, { id: string; combat: { hp: number } }>;
+				}
+			).characters;
+			return chars[cid]!.combat.hp;
+		}, pcId!);
+
+		await damage.click();
+
+		// ONE command moved 7 points, and the success is announced rather than merely rendered.
+		await expect
+			.poll(async () =>
+				page.evaluate((cid) => {
+					const chars = (
+						window.__rt!.state.characters as {
+							characters: Record<string, { id: string; combat: { hp: number } }>;
+						}
+					).characters;
+					return chars[cid]!.combat.hp;
+				}, pcId!),
+			)
+			.toBe(Math.max(0, hpBefore - 7));
+		await expect(page.getByRole('status').filter({ hasText: 'Took 7 damage.' })).not.toHaveCount(0);
+
+		// A blank amount cannot silently become a no-op or a NaN write: it normalises back to 1.
+		await amount.fill('');
+		await amount.blur();
+		await expect(amount).toHaveValue('1');
+	});
+});

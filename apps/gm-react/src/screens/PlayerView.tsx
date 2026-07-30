@@ -982,6 +982,11 @@ function StageSection({
 				>
 					<div
 						data-testid="player-stage"
+						// The class exists only so `@media (forced-colors: active)` can drop the gradients:
+						// a media query cannot live in an inline style, and the OS token remap resets
+						// background-COLOR only, so this near-black theatre gradient survived while the caption
+						// over it was forced to CanvasText — black on black in a light high-contrast theme.
+						className="player-stage"
 						style={{
 							position: 'relative',
 							aspectRatio: '16 / 10',
@@ -1045,6 +1050,7 @@ function StageSection({
 						)}
 						{sceneName || projected ? (
 							<div
+								className="player-stage-scrim"
 								style={{
 									position: 'absolute',
 									left: 0,
