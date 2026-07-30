@@ -50,7 +50,7 @@ export function Minimap({ viewport = { x: 0.3, y: 0.25, w: 0.34, h: 0.32 }, coll
 		<div role="group" aria-label="Minimap — current viewport highlighted" style={{ width, borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border-strong)', background: 'var(--color-surface-overlay)', boxShadow: 'var(--shadow-md)', overflow: 'hidden', ...style }} {...rest}>
 			<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px var(--space-2)', borderBottom: '1px solid var(--color-border)' }}>
 				<span style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-2xs)', letterSpacing: 'var(--tracking-wide)', textTransform: 'uppercase', color: 'var(--color-text-secondary)' }}>Minimap</span>
-				<button type="button" aria-label="Collapse minimap" title="Collapse minimap" onClick={toggle} style={{ display: 'inline-flex', border: 'none', background: 'transparent', color: 'var(--color-text-tertiary)', cursor: 'pointer', padding: 2 }}>
+				<button type="button" aria-label="Collapse minimap" title="Collapse minimap" onClick={toggle} style={{ display: 'inline-flex', border: 'none', background: 'transparent', color: 'var(--color-text-tertiary)', cursor: 'pointer', padding: 0, alignItems: 'center', justifyContent: 'center', width: 24, height: 24 }}>
 					<Icon name="chevron-down" size={14} />
 				</button>
 			</div>

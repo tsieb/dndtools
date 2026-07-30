@@ -126,7 +126,7 @@ export function Community() {
 	return (
 		<Page max={1200}>
 			<div style={{ marginBottom: 18 }}>
-				<Tabs value={tab} onChange={setTab} tabs={tabs} idBase="community" />
+				<Tabs value={tab} onChange={setTab} tabs={tabs} idBase="community" aria-label="Community sections" />
 			</div>
 			{/* One panel element, re-labelled per active tab — only one body is ever mounted, so a
 			    single wrapper completes the tab/panel relationship without four near-identical divs. */}

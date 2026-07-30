@@ -1741,7 +1741,7 @@ export function Characters() {
 					flexWrap: 'wrap',
 				}}
 			>
-				<Tabs value={kind} onChange={setKind} tabs={tabs} idBase="characters" />
+				<Tabs value={kind} onChange={setKind} tabs={tabs} idBase="characters" aria-label="Roster filter" />
 				<div style={{ flex: 1 }} />
 				{data.isDm && partyPcs.length > 0 && (
 					<Button variant="ghost" size="sm" icon="sword" onClick={startCombat}>

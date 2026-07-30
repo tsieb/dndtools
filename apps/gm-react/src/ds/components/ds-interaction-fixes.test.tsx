@@ -18,6 +18,12 @@ import { Sheet as RawSheet } from './overlay/Sheet.jsx';
 import { Slider as RawSlider } from './forms/Slider.jsx';
 import { VisibilityChip as RawVisibilityChip } from './feedback/VisibilityChip.jsx';
 import { DefinitionList as RawDefinitionList } from './data/DefinitionList.jsx';
+import { MapCreationForm as RawMapCreationForm } from './map/MapCreationForm.jsx';
+import { ConditionTracker as RawConditionTracker } from './condition/ConditionTracker.jsx';
+import { Avatar as RawAvatar } from './core/Avatar.jsx';
+import { QuestCard as RawQuestCard } from './campaign/QuestCard.jsx';
+import { Tabs as RawTabs } from './core/Tabs.jsx';
+import { Minimap as RawMinimap } from './map/Minimap.jsx';
 
 // The DS ships as .jsx with `checkJs: false`, so tsc infers every defaultless prop as required.
 // Re-type the imports as open prop bags rather than restating each component's contract.
@@ -37,6 +43,12 @@ const Sheet = RawSheet as React.ComponentType<DsProps>;
 const Slider = RawSlider as React.ComponentType<DsProps>;
 const VisibilityChip = RawVisibilityChip as React.ComponentType<DsProps>;
 const DefinitionList = RawDefinitionList as React.ComponentType<DsProps>;
+const MapCreationForm = RawMapCreationForm as React.ComponentType<DsProps>;
+const ConditionTracker = RawConditionTracker as React.ComponentType<DsProps>;
+const Avatar = RawAvatar as React.ComponentType<DsProps>;
+const QuestCard = RawQuestCard as React.ComponentType<DsProps>;
+const Tabs = RawTabs as React.ComponentType<DsProps>;
+const Minimap = RawMinimap as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;
@@ -739,5 +751,108 @@ describe('a map layer can be renamed from the keyboard', () => {
 			});
 			expect(container.querySelector('input'), `${key} should open the editor`).toBeTruthy();
 		}
+	});
+});
+
+describe('an empty map name explains itself instead of greying the button out', () => {
+	// `submit()` already handled the empty case — set `touched`, which renders the Field's
+	// "A map name is required." alert — but `disabled={!name.trim()}` meant that branch could never
+	// run. The DM saw a permanently greyed "Create map" and the reason was reachable only by
+	// focusing and blurring the Name field.
+	it('keeps Create map enabled and surfaces the requirement on submit', () => {
+		let created = 0;
+		act(() => root.render(<MapCreationForm onCreate={() => (created += 1)} />));
+		const submit = Array.from(container.querySelectorAll('button')).find(
+			(b) => b.textContent === 'Create map',
+		) as HTMLButtonElement;
+		expect(submit.disabled, 'a natively disabled button can never run its own guard').toBe(false);
+
+		const form = container.querySelector('form') as HTMLFormElement;
+		act(() => {
+			form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+		});
+		expect(created, 'an empty name must still not create a map').toBe(0);
+		expect(container.textContent).toContain('A map name is required.');
+	});
+});
+
+describe('the condition tracker states emptiness and names its own control', () => {
+	it('prints "No conditions" for the DM too, not only for read-only viewers', () => {
+		// The line was gated on `!addable`, so the tracker the DM actually uses rendered a bare dashed
+		// button with nothing saying the combatant is unafflicted.
+		act(() => root.render(<ConditionTracker entries={[]} addable onAdd={() => {}} />));
+		expect(container.textContent).toContain('No conditions');
+	});
+
+	it('gives the add button a verb and a 24px-floor target', () => {
+		act(() => root.render(<ConditionTracker entries={[]} addable onAdd={() => {}} />));
+		const add = container.querySelector('button') as HTMLButtonElement;
+		// The whole accessible name used to be the noun "Condition" — the icon carries no label.
+		expect(add.getAttribute('aria-label')).toBe('Add condition');
+		expect(add.style.minHeight).toBe('var(--density-touch-target, 24px)');
+	});
+});
+
+describe('an avatar is decorative and its status ring survives forced colours', () => {
+	it('hides the duplicated initials from assistive tech', () => {
+		// Every live call site renders the name as visible text right beside the avatar, so AT read
+		// "G O" and then "Goblin" on each combat row and NPC card.
+		act(() => root.render(<Avatar name="Goblin Overseer" />));
+		const avatar = container.firstElementChild as HTMLElement;
+		expect(avatar.textContent).toBe('GO');
+		expect(avatar.getAttribute('aria-hidden')).toBe('true');
+	});
+
+	it('draws the turn ring with an outline, which forced-colors repaints', () => {
+		act(() => root.render(<Avatar name="Goblin" ring="turn" />));
+		const avatar = container.firstElementChild as HTMLElement;
+		// `box-shadow` is not painted at all under `forced-colors: active`, so whose-turn vanished.
+		expect(avatar.style.boxShadow).toBe('');
+		expect(avatar.style.outline).toContain('2px solid');
+	});
+});
+
+describe('quest objectives carry their state and stay readable when read-only', () => {
+	const objectives = [
+		{ label: 'Find who is buying the shipments', done: false },
+		{ label: 'Question the harbourmaster', done: true },
+	];
+
+	it('exposes done/not-done as aria-pressed rather than a line-through alone', () => {
+		act(() => root.render(<QuestCard title="Smuggled cargo" objectives={objectives} onToggleObjective={() => {}} />));
+		const rows = Array.from(container.querySelectorAll('li button')) as HTMLButtonElement[];
+		expect(rows).toHaveLength(2);
+		// The role must stay `button` — campaign.spec.ts matches these by role+name.
+		expect(rows[0]!.getAttribute('aria-pressed')).toBe('false');
+		expect(rows[1]!.getAttribute('aria-pressed')).toBe('true');
+	});
+
+	it('renders a read-only checklist as plain rows, not disabled buttons', () => {
+		// `disabled={!onToggleObjective}` took a player's whole quest checklist out of the tab order
+		// and UA-dimmed it, for something that was never an action for them.
+		act(() => root.render(<QuestCard title="Smuggled cargo" objectives={objectives} />));
+		expect(container.querySelectorAll('li button')).toHaveLength(0);
+		expect(container.textContent).toContain('Question the harbourmaster');
+	});
+});
+
+describe('shared primitives stop announcing themselves identically', () => {
+	it('lets a tablist take the caller’s own name', () => {
+		// Seven live tablists (map dock, Audio, Player, Characters, Campaign, Community, Extensions)
+		// all announced as the hard-coded "Sections".
+		act(() =>
+			root.render(<Tabs aria-label="Audio sections" value="a" tabs={[{ id: 'a', label: 'A' }]} onChange={() => {}} />),
+		);
+		expect(container.querySelector('[role="tablist"]')!.getAttribute('aria-label')).toBe('Audio sections');
+	});
+
+	it('sizes Collapse minimap like its own Expand twin', () => {
+		act(() => root.render(<Minimap collapsed={false} onToggle={() => {}} />));
+		const collapse = Array.from(container.querySelectorAll('button')).find(
+			(b) => b.getAttribute('aria-label') === 'Collapse minimap',
+		) as HTMLButtonElement;
+		// `padding: 2` around a 14px glyph made this ~18px next to a correct 36px Expand button.
+		expect(collapse.style.width).toBe('24px');
+		expect(collapse.style.height).toBe('24px');
 	});
 });

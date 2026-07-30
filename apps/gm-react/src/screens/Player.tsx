@@ -495,6 +495,7 @@ export function Player() {
 			<Page max={1180}>
 				<div style={{ marginBottom: 18 }}>
 					<Tabs
+						aria-label="Character sections"
 						value={activeTab}
 						onChange={(next: string) => {
 							setErr(null);

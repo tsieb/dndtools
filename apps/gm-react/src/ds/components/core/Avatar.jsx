@@ -11,6 +11,11 @@ export function Avatar({ name = '', src, size = 'md', ring, style, ...rest }) {
 	const ringColor = ring === 'active' ? 'var(--color-status-success)' : ring === 'turn' ? 'var(--color-accent)' : ring === 'danger' ? 'var(--color-status-error)' : null;
 	return (
 		<span
+			// Every one of the ~14 live call sites renders the name as visible text right beside the
+			// avatar, so the initials were a pure duplicate: AT read "G O" and then "Goblin, toggle
+			// button" on each combat row and NPC card. Placed before `{...rest}` so a future standalone
+			// consumer can re-expose it.
+			aria-hidden="true"
 			style={{
 				display: 'inline-flex',
 				alignItems: 'center',
@@ -25,7 +30,11 @@ export function Avatar({ name = '', src, size = 'md', ring, style, ...rest }) {
 				fontWeight: 'var(--font-weight-semibold)',
 				flex: '0 0 auto',
 				overflow: 'hidden',
-				boxShadow: ringColor ? `0 0 0 2px var(--color-bg), 0 0 0 4px ${ringColor}` : 'none',
+				// `box-shadow` is not painted AT ALL under `forced-colors: active`, so the active/turn/danger
+				// ring — the only thing distinguishing whose turn it is in the initiative list — vanished
+				// entirely in Windows High Contrast. An `outline` survives and remaps to a system colour.
+				outline: ringColor ? `2px solid ${ringColor}` : 'none',
+				outlineOffset: ringColor ? 2 : 0,
 				...style,
 			}}
 			{...rest}

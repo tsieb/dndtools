@@ -12,7 +12,10 @@ export function ConditionTracker({ entries = [], onRemove, onAdd, compact = fals
 	const norm = entries.map((e) => (typeof e === 'string' ? { key: e } : e));
 	return (
 		<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-1-5)', ...style }} {...rest}>
-			{norm.length === 0 && !addable && (
+			{/* This was gated on `!addable`, so the documented "No conditions" line appeared ONLY on the
+			    read-only tracker: the DM's own empty tracker was a bare dashed button with nothing saying
+			    the combatant is unafflicted. Emptiness is a fact about the combatant, not about the viewer. */}
+			{norm.length === 0 && (
 				<span style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', color: 'var(--color-text-tertiary)' }}>No conditions</span>
 			)}
 			{norm.map((e, i) => (
@@ -30,11 +33,22 @@ export function ConditionTracker({ entries = [], onRemove, onAdd, compact = fals
 				<button
 					type="button"
 					onClick={onAdd}
+					// The whole accessible name was the noun "Condition" — the `add` Icon carries no label,
+					// so there was no verb anywhere and it read as a status chip rather than a control.
+					aria-label="Add condition"
+					// ~21px tall from `2px` padding + --text-xs, under the WCAG 2.5.8 floor, while every
+					// migrated sibling (Checkbox, Switch, Chip, Slider's steppers) follows the density token.
+					// There is no global `button:hover` in this app and an inline style cannot express one,
+					// so the hover has to be handlers.
+					onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-interactive-hover)'; }}
+					onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
 					style={{
 						display: 'inline-flex',
 						alignItems: 'center',
+						justifyContent: 'center',
 						gap: 'var(--space-1)',
 						padding: '2px var(--space-2)',
+						minHeight: 'var(--density-touch-target, 24px)',
 						borderRadius: 'var(--radius-full)',
 						background: 'transparent',
 						color: 'var(--color-text-secondary)',

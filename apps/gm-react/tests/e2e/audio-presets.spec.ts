@@ -172,4 +172,92 @@ test.describe('audio presets: atmosphere library + scene packages', () => {
 		await expect(page.getByRole('button', { name: 'Save current audio' })).toHaveCount(0);
 		await exitPreview(page);
 	});
+	// The master volume fader is a `CommitSlider`: the thumb follows a local draft and the durable
+	// `session.audio.set-volume` goes out once, on release, so a drag can't emit ~100 IndexedDB writes.
+	// Two things used to make its ± steppers look dead:
+	//  - `pointerup`/`keyup` both fire BEFORE a button's synthesized `click`, so a press always
+	//    committed with `draft === null` and its value only left on the NEXT press or on blur.
+	//  - the readout was computed by the caller from the DURABLE value while the thumb followed the
+	//    draft, and `Slider` maps it to `aria-valuetext` (which overrides `aria-valuenow`), so the
+	//    number froze for the whole interaction.
+	test('the master volume stepper commits its own press and the readout follows the thumb', async ({
+		page,
+	}) => {
+		await setupPlayableTrack(page);
+		const slider = page.getByRole('slider', { name: 'Master volume' });
+		await expect(slider).toBeEnabled({ timeout: 10_000 });
+		await expect(slider).toHaveAttribute('aria-valuetext', '50%');
+
+		// ONE press of "+" must produce exactly ONE durable command, with no blur and no second press.
+		await page.getByRole('button', { name: 'Increase Master volume' }).click();
+		await expect
+			.poll(() => page.evaluate(() => window.__rt!.state.session.audioPlayback.track?.volume), {
+				timeout: 10_000,
+			})
+			.toBe(0.51);
+		await expect(slider).toHaveAttribute('aria-valuetext', '51%');
+
+		// MID-INTERACTION the announced text must track the thumb, not the last committed value.
+		// Holding ArrowRight down moves the range input without ever firing `keyup`, so the draft is
+		// live and uncommitted at the moment we read — exactly the state that used to freeze the
+		// readout. (A range input's `aria-valuenow` is IMPLICIT, so read the `value` property.)
+		await slider.focus();
+		await page.keyboard.down('ArrowRight');
+		const [held, heldText] = await slider.evaluate((el) => [
+			(el as HTMLInputElement).value,
+			el.getAttribute('aria-valuetext'),
+		]);
+		await page.keyboard.up('ArrowRight');
+		expect(Number(held), 'the draft should have moved past the committed 51').toBeGreaterThan(51);
+		expect(heldText, 'the readout froze at the durable value for the whole interaction').toBe(
+			`${held}%`,
+		);
+	});
+
+	// "Unbind" sat on a row reading "N cues" but only ever removed `bound[0]`, so the DM pressed an
+	// unchanging button once per cue; and neither it nor "Bind" was named for its scene.
+	test('unbinding a scene clears every cue on it and both controls name their scene', async ({
+		page,
+	}) => {
+		await setupPlayableTrack(page);
+		const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+		const scene = await page.evaluate(() => {
+			const scenes = window.__rt!.state.scenes.scenes as Record<string, { id: string; name: string }>;
+			return Object.values(scenes)[0]!;
+		});
+		// Sources are keyed BY source id and the record itself carries `id`, not `sourceId`.
+		const sourceId = await page.evaluate(() => {
+			const sources = window.__rt!.state.audio.sources as Record<string, { type: string }>;
+			return Object.entries(sources).find(([, s]) => s.type === 'web-stream')![0];
+		});
+		for (const label of ['First cue', 'Second cue']) {
+			const bound = await dispatch(page, {
+				type: 'audio.associate-scene',
+				actorId,
+				payload: { targetKind: 'scene', targetId: scene.id, presetKind: 'ambient', label, sourceId },
+			});
+			expect(bound.status, JSON.stringify(bound)).toBe('accepted');
+		}
+
+		const unbind = page.getByRole('button', { name: `Unbind audio from ${scene.name}` });
+		await expect(unbind).toBeVisible({ timeout: 10_000 });
+		await unbind.click();
+
+		// One press, every cue gone — and the row flips to the correspondingly-named Bind control.
+		await expect
+			.poll(
+				() =>
+					page.evaluate((id) => {
+						const list = window.__rt!.state.audio.associations as Record<
+							string,
+							{ targetKind: string; targetId: string }
+						>;
+						return Object.values(list).filter((a) => a.targetKind === 'scene' && a.targetId === id)
+							.length;
+					}, scene.id),
+				{ timeout: 10_000 },
+			)
+			.toBe(0);
+		await expect(page.getByRole('button', { name: `Bind audio to ${scene.name}` })).toBeVisible();
+	});
 });

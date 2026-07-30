@@ -122,4 +122,15 @@ test.describe('atlas: layer and POI rows state their own state', () => {
 		await expect(page.getByText(/Sealed Vault/)).not.toHaveCount(0);
 		await expect(page.getByText(/· locked/)).not.toHaveCount(0);
 	});
+	// Atlas mounts `MapCanvas` READ-ONLY (no `editable`, no `onPan`) at a fixed 560px, but the well
+	// declared `touchAction:'none'` unconditionally while `onWellPointerDown` returns immediately for
+	// a non-editable canvas. So on a handset a block taller than half the page claimed every touch
+	// gesture and then dropped it: the page could not be scrolled from anywhere on the map, leaving
+	// the Layers / POI / Fog rails beneath it unreachable. `SceneBoardCanvas` already makes exactly
+	// this distinction for its bounded policy.
+	test('the read-only map preview lets the page scroll through it', async ({ page }) => {
+		const well = page.locator('[data-testid="map-canvas-well"]').first();
+		await expect(well).toBeVisible({ timeout: 10_000 });
+		await expect(well).toHaveCSS('touch-action', 'pan-y');
+	});
 });

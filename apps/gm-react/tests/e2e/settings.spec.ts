@@ -30,6 +30,11 @@ test.describe('settings: the experience-complexity picker is a real radiogroup',
 	test('is one tab stop, and arrow keys move the selection', async ({ page }) => {
 		const group = page.getByRole('radiogroup', { name: 'Experience complexity' });
 		const radios = group.getByRole('radio');
+		// `evaluateAll` does NOT auto-retry, so without a retrying assertion first it can run before
+		// /settings has painted and silently measure an EMPTY list. It passed in isolation and failed
+		// only under full-suite load. (Same shape as the `responsive.spec` flake root-caused earlier:
+		// a bare `await …evaluate(…)` is not a Playwright assertion and never waits.)
+		await expect(radios).toHaveCount(3);
 
 		// Roving tabindex: only the selected card is reachable by Tab, so the group costs one stop
 		// rather than three.

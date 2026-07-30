@@ -466,6 +466,7 @@ export function MapEditor({
 	) : (
 		<>
 			<Tabs
+				aria-label="Map editor panels"
 				value={editor.dock}
 				idBase="map-dock"
 				onChange={(v: string) => editor.setDock(v as typeof editor.dock)}

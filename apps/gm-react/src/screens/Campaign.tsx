@@ -750,7 +750,7 @@ export function Campaign() {
 	return (
 		<Page>
 			<div style={{ marginBottom: 18 }}>
-				<Tabs value={tab} onChange={setTab} tabs={tabs} idBase="campaign" />
+				<Tabs value={tab} onChange={setTab} tabs={tabs} idBase="campaign" aria-label="Campaign sections" />
 			</div>
 			<h2 className="visually-hidden">
 				{tabs.find((item) => item.id === tab)?.label ?? 'Campaign'}

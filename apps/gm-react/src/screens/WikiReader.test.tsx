@@ -118,6 +118,28 @@ describe('the wiki reader announces a load failure', () => {
 		// left a screen reader stuck on "Fetching the published pages…".
 		expect(container.querySelector('[role="alert"]')?.textContent).toContain('This wiki is gone.');
 	});
+
+	it('offers a Try again that re-fetches, on the one route with no app chrome', async () => {
+		// `/wiki` is the only surface whose audience is a non-user following a shared link: no nav, no
+		// back chrome, no account. The commonest cause of `invalid` is a transient network failure
+		// ("This wiki could not be loaded — try again."), and the phase was a dead end that gave the
+		// reader nothing to try.
+		mockedGetPublicWiki.mockRejectedValue(new AppApiError('Network unreachable.', 'http', 503));
+		await mount();
+		expect(mockedGetPublicWiki).toHaveBeenCalledTimes(1);
+
+		const retry = [...container.querySelectorAll('button')].find(
+			(b) => b.textContent === 'Try again',
+		)!;
+		expect(retry, 'the invalid phase had no recovery affordance at all').toBeTruthy();
+
+		mockedGetPublicWiki.mockResolvedValue(WIKI);
+		await act(async () => {
+			retry.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+		});
+		expect(mockedGetPublicWiki).toHaveBeenCalledTimes(2);
+		expect(container.textContent).toContain('The Copper Coast');
+	});
 });
 
 describe('the ready wiki is navigable by keyboard', () => {

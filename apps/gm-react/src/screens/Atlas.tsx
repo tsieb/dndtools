@@ -732,6 +732,10 @@ export function Atlas() {
 								justifyContent: 'center',
 								font: `13px ${T.sans}`,
 								color: T.sub,
+								// A full-bleed `inset:0` panel that comes AFTER the zoom cluster in DOM order
+								// swallows every click on Zoom in / Zoom out / Fit. It is a message, not a
+								// target — let the pointer straight through it.
+								pointerEvents: 'none',
 							}}
 						>
 							This map is unavailable to you.

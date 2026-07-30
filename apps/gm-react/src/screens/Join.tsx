@@ -189,8 +189,19 @@ export function Join() {
 						</div>
 					</>
 				)}
-				{state.phase === 'invalid' && token && (
-					<Button variant="secondary" icon="retry" onClick={() => setRetryNonce((n) => n + 1)}>
+				{/* Pressing "Try again" flips the phase to `loading`, whose guard used to unmount this exact
+				    button — dropping the user's focus to <body> so a keyboard reader had to Tab from the top
+				    of the document to reach the result. It now stays mounted for the whole retry and
+				    soft-disables (`aria-disabled`, which Button honours by keeping the control focusable and
+				    named while swallowing the click; hard `disabled` would blur it and reproduce the bug). */}
+				{token && (state.phase === 'invalid' || (state.phase === 'loading' && retryNonce > 0)) && (
+					<Button
+						variant="secondary"
+						icon="retry"
+						aria-disabled={state.phase === 'loading' || undefined}
+						title={state.phase === 'loading' ? 'Checking your invite…' : undefined}
+						onClick={() => setRetryNonce((n) => n + 1)}
+					>
 						Try again
 					</Button>
 				)}

@@ -64,6 +64,9 @@ test.describe('join: the invite-redeem landing (cloud fail-closed)', () => {
 		await retry.click();
 		await expect(page.getByRole('alert')).toBeVisible({ timeout: 10_000 });
 		await expect(page.getByText('Checking your invite…')).toHaveCount(0);
+		// NOTE: `Join.tsx` also keeps this button mounted (soft-disabled) through the `loading` phase so
+		// it cannot unmount under the user's focus. That is NOT assertable here: offline `resolveInvite`
+		// rejects within a microtask, so `loading` never paints and the button never unmounts either way.
 	});
 
 	// A standalone route reached from an emailed link needs a document outline; the title was a

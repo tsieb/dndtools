@@ -47,6 +47,8 @@ export function Tabs({ tabs = [], value, onChange, style, idBase, ...rest }) {
 	return (
 		<div
 			role="tablist"
+			// A fallback only: `{...rest}` is spread AFTER this, so every call site names its own tablist
+			// (seven of them are live, and they all used to announce as an identical "Sections").
 			aria-label="Sections"
 			aria-orientation="horizontal"
 			style={{
@@ -77,6 +79,15 @@ export function Tabs({ tabs = [], value, onChange, style, idBase, ...rest }) {
 						tabIndex={index === tabStopIndex ? 0 : -1}
 						disabled={t.disabled}
 						onClick={() => onChange && onChange(id)}
+						// The `transition: color` below promised a hover that could never happen: there is no
+						// global `button:hover` rule in this app and an inline style cannot express one, so an
+						// inactive tab gave no pointer feedback at all across all seven live tablists.
+						onMouseEnter={(event) => {
+							if (!t.disabled && !active) event.currentTarget.style.color = 'var(--color-text-primary)';
+						}}
+						onMouseLeave={(event) => {
+							if (!t.disabled && !active) event.currentTarget.style.color = 'var(--color-text-secondary)';
+						}}
 						onKeyDown={(event) => {
 							if (event.key === 'ArrowRight') {
 								event.preventDefault();

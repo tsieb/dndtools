@@ -2566,7 +2566,7 @@ export function Extensions() {
 	return (
 		<Page max={1180}>
 			<div style={{ marginBottom: 18 }}>
-				<Tabs value={tab} onChange={setTab} tabs={tabs} idBase="extensions" />
+				<Tabs value={tab} onChange={setTab} tabs={tabs} idBase="extensions" aria-label="Extensions sections" />
 			</div>
 			<div {...tabPanelProps('extensions', tab)}>
 				{tab === 'plugins' && <ExtPlugins />}

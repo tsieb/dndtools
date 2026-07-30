@@ -61,7 +61,11 @@ export function MapCreationForm({ defaults = {}, onCreate, onCancel, submitting 
 
 			<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
 				<Button variant="ghost" type="button" onClick={onCancel}>Cancel</Button>
-				<Button variant="primary" type="submit" icon="new-map" disabled={!name.trim() || submitting}>{submitting ? 'Creating…' : 'Create map'}</Button>
+				{/* NOT `disabled={!name.trim()}`: `submit()` already handles the empty case by setting
+				    `touched`, which renders the Field's "A map name is required." alert — but a natively
+				    disabled button can never run it, so the DM saw a permanently greyed Create map with the
+				    explanation reachable only by focusing and blurring Name. Only `submitting` hard-disables. */}
+				<Button variant="primary" type="submit" icon="new-map" disabled={submitting}>{submitting ? 'Creating…' : 'Create map'}</Button>
 			</div>
 		</form>
 	);

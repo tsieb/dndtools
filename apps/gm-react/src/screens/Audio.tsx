@@ -1,6 +1,7 @@
 import {
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 	useSyncExternalStore,
 	type CSSProperties,
@@ -200,33 +201,51 @@ function useAudioOutputDevices(enabled: boolean): {
  * a full-state IndexedDB write plus an op-log entry replicated to every connected player. The draft
  * tracks the pointer so the thumb still moves live; the command is sent once, on pointer-up / key-up
  * / blur. The wrapper (not the Slider) owns those handlers so the ± stepper buttons commit too.
+ *
+ * Two things the first version got wrong, both of which made the ± steppers look dead:
+ *  - `pointerup` and `keyup` both fire BEFORE a button's synthesized `click`, so a stepper press
+ *    always committed with `draft === null` and the value it had just produced only went out on the
+ *    NEXT press (or on blur). `onClick` is therefore also a commit trigger — and `commit` has to
+ *    read the draft from a REF, because the stepper's own `onChange` and the wrapper's `onClick`
+ *    land in the same React batch and the handler's closure would still see the pre-press `null`.
+ *  - `valueLabel` was computed by the caller from the DURABLE value while the thumb followed the
+ *    draft, and `Slider` maps `valueLabel` to `aria-valuetext` (which overrides `aria-valuenow`).
+ *    So the on-screen readout froze for the whole drag and five Arrow presses announced the same
+ *    percentage. Callers now pass `format`, which is applied to the SHOWN value.
  */
 function CommitSlider({
 	value,
 	onCommit,
+	format,
 	style,
 	...rest
 }: {
 	value: number;
 	onCommit: (v: number) => void;
+	format: (v: number) => string;
 	style?: CSSProperties;
 	disabled?: boolean;
-	valueLabel?: string;
 	steppers?: boolean;
 	'aria-label': string;
 }) {
 	// `null` means "follow the durable value", so an external change still moves the thumb.
 	const [draft, setDraft] = useState<number | null>(null);
+	const draftRef = useRef<number | null>(null);
 	const shown = draft ?? value;
+	const take = (v: number) => {
+		draftRef.current = v;
+		setDraft(v);
+	};
 	const commit = () => {
-		if (draft === null) return;
-		const next = draft;
+		const next = draftRef.current;
+		if (next === null) return;
+		draftRef.current = null;
 		setDraft(null);
 		if (next !== value) onCommit(next);
 	};
 	return (
-		<div onPointerUp={commit} onKeyUp={commit} onBlur={commit} style={style}>
-			<Slider {...rest} value={shown} onChange={(v: number) => setDraft(v)} />
+		<div onPointerUp={commit} onKeyUp={commit} onBlur={commit} onClick={commit} style={style}>
+			<Slider {...rest} value={shown} valueLabel={format(shown)} onChange={take} />
 		</div>
 	);
 }
@@ -339,6 +358,24 @@ export function Audio() {
 			);
 	};
 
+	/**
+	 * `runtime.dispatch` fails two different ways: it RETURNS a rejection when a command is refused,
+	 * and it THROWS when the durable write itself fails (`SceneRuntime.dispatchNow` rethrows after a
+	 * failed `persistFullState`). Every awaited dispatch below used to handle only the first, so a
+	 * persist failure was a complete no-op — the button un-froze and nothing was said anywhere.
+	 * `failure()` collapses both into one nullable message; `null` means accepted.
+	 */
+	const failure = async (
+		command: Parameters<typeof runtime.dispatch>[0],
+	): Promise<string | null> => {
+		try {
+			const result = await runtime.dispatch(command);
+			return result.status === 'accepted' ? null : result.rejection.message;
+		} catch (error) {
+			return error instanceof Error ? error.message : 'That change could not be saved.';
+		}
+	};
+
 	const importAudio = async () => {
 		if (importBusy || !canEdit) return;
 		setImportError(null);
@@ -365,6 +402,13 @@ export function Audio() {
 					`“${outcome.title}” has no declared license — review it before sharing or export.`,
 				);
 			}
+		} catch (error) {
+			// The picked file's BYTES are written to the device asset store BEFORE the dispatch, so an
+			// unwinding throw orphans them. Without this the whole import looked like it had never
+			// registered: no message, no new asset, and storage silently consumed.
+			setImportError(
+				error instanceof Error ? error.message : 'That audio file could not be imported.',
+			);
 		} finally {
 			setImportBusy(false);
 		}
@@ -378,20 +422,21 @@ export function Audio() {
 		// a RESOLVED 'missing' is reported to the AUDIO-010 gate. The playback driver stays honest
 		// either way: a truly-missing file lands in its `no-stream` state, never a fake rejection.
 		const bytesReady = (bytesPresence[asset.id] ?? 'unknown') !== 'missing';
-		const result = await runtime.dispatch({
-			type: 'session.audio.play',
-			actorId: dmId,
-			payload: {
-				sourceId: asset.sourceId,
-				assetId: asset.id,
-				// Honest device inputs: the AUDIO-010 gate sees the REAL byte presence, so a track whose
-				// file is not on this device is rejected with a reason instead of "playing" silently.
-				assetLocallyAvailable: bytesReady,
-				assetCached: bytesReady,
-				online: typeof navigator === 'undefined' ? true : navigator.onLine !== false,
-			},
-		});
-		if (result.status !== 'accepted') setPlayError(result.rejection.message);
+		setPlayError(
+			await failure({
+				type: 'session.audio.play',
+				actorId: dmId,
+				payload: {
+					sourceId: asset.sourceId,
+					assetId: asset.id,
+					// Honest device inputs: the AUDIO-010 gate sees the REAL byte presence, so a track whose
+					// file is not on this device is rejected with a reason instead of "playing" silently.
+					assetLocallyAvailable: bytesReady,
+					assetCached: bytesReady,
+					online: typeof navigator === 'undefined' ? true : navigator.onLine !== false,
+				},
+			}),
+		);
 	};
 
 	// ADD TRACK — configure a declared source, exactly as the demo seed does for the now-playing stream.
@@ -422,7 +467,7 @@ export function Audio() {
 		// submit button while the next track was being typed, and survived a tab switch and back.
 		setAddedName(null);
 		try {
-			const result = await runtime.dispatch({
+			const problem = await failure({
 				type: 'audio.configure-source',
 				actorId: dmId,
 				payload: {
@@ -432,13 +477,13 @@ export function Audio() {
 					cacheBehavior: trackKind === 'web-stream' ? 'cache-required' : 'local',
 				},
 			});
-			if (result.status === 'accepted') {
+			if (!problem) {
 				setAddedName(trackName.trim());
 				setTrackName('');
 				setTrackUrl('');
 			} else {
 				setAddedName(null);
-				setAddError(result.rejection.message);
+				setAddError(problem);
 			}
 		} finally {
 			setAddBusy(false);
@@ -473,8 +518,24 @@ export function Audio() {
 		});
 	};
 
-	const unbindScene = (associationId: string) =>
-		dispatch({ type: 'audio.disassociate-scene', actorId: dmId, payload: { associationId } });
+	// "Unbind" sits on a row that reads "3 cues" and is replaced by "Bind" once the scene has none, but
+	// it only ever removed `bound[0]` — so the DM pressed an unchanging button once per cue with no
+	// indication of which one had gone. It now clears the scene's whole binding, which is what the row
+	// has always advertised, and stops at the first refusal rather than continuing blind.
+	const unbindScene = async (bound: Array<{ id: string }>, sceneName: string) => {
+		for (const association of bound) {
+			const problem = await failure({
+				type: 'audio.disassociate-scene',
+				actorId: dmId,
+				payload: { associationId: association.id },
+			});
+			if (problem) {
+				Toaster.error(problem);
+				return;
+			}
+		}
+		Toaster.success(`Audio unbound from “${sceneName}”.`);
+	};
 
 	const masterPct = track ? Math.round(track.volume * 100) : 100;
 
@@ -489,12 +550,13 @@ export function Audio() {
 
 	const setLayer = async (layerId: string, sourceId: string, volume: number, muted: boolean) => {
 		setAmbienceError(null);
-		const result = await runtime.dispatch({
-			type: 'session.audio.set-ambience-layer',
-			actorId: dmId,
-			payload: { layerId, sourceId, volume, muted },
-		});
-		if (result.status !== 'accepted') setAmbienceError(result.rejection.message);
+		setAmbienceError(
+			await failure({
+				type: 'session.audio.set-ambience-layer',
+				actorId: dmId,
+				payload: { layerId, sourceId, volume, muted },
+			}),
+		);
 	};
 
 	const addAmbienceLayer = async () => {
@@ -511,13 +573,13 @@ export function Audio() {
 		sourceName: string,
 	) => {
 		setAmbienceError(null);
-		const result = await runtime.dispatch({
+		const problem = await failure({
 			type: 'session.audio.remove-ambience-layer',
 			actorId: dmId,
 			payload: { layerId },
 		});
-		if (result.status !== 'accepted') {
-			setAmbienceError(result.rejection.message);
+		if (problem) {
+			setAmbienceError(problem);
 			return;
 		}
 		Toaster.show({
@@ -570,7 +632,7 @@ export function Audio() {
 
 	const applyPreset = async (preset: AudioPreset) => {
 		if (!canEdit) return;
-		const result = await runtime.dispatch({
+		const problem = await failure({
 			type: 'session.audio.apply-preset',
 			actorId: dmId,
 			payload: {
@@ -578,8 +640,8 @@ export function Audio() {
 				online: typeof navigator === 'undefined' ? true : navigator.onLine !== false,
 			},
 		});
-		if (result.status === 'accepted') Toaster.success(`Applied “${preset.name}”.`);
-		else Toaster.error(result.rejection.message);
+		if (problem) Toaster.error(problem);
+		else Toaster.success(`Applied “${preset.name}”.`);
 	};
 
 	const saveCurrentPreset = async (e: FormEvent) => {
@@ -588,16 +650,16 @@ export function Audio() {
 		setPresetBusy(true);
 		setPresetError(null);
 		try {
-			const result = await runtime.dispatch({
+			const problem = await failure({
 				type: 'audio.save-preset',
 				actorId: dmId,
 				payload: { name: presetName.trim(), category: presetCategory },
 			});
-			if (result.status === 'accepted') {
+			if (problem) {
+				setPresetError(problem);
+			} else {
 				Toaster.success(`Saved “${presetName.trim()}” as a scene package.`);
 				setPresetName('');
-			} else {
-				setPresetError(result.rejection.message);
 			}
 		} finally {
 			setPresetBusy(false);
@@ -605,13 +667,13 @@ export function Audio() {
 	};
 
 	const deletePreset = async (preset: AudioPreset) => {
-		const result = await runtime.dispatch({
+		const problem = await failure({
 			type: 'audio.delete-preset',
 			actorId: dmId,
 			payload: { presetId: preset.id },
 		});
-		if (result.status === 'accepted') Toaster.success(`Deleted “${preset.name}”.`);
-		else Toaster.error(result.rejection.message);
+		if (problem) Toaster.error(problem);
+		else Toaster.success(`Deleted “${preset.name}”.`);
 	};
 
 	// ── Automation (AUDIO-005: audio.configure-automation / delete-automation + the resolver) ────
@@ -664,7 +726,7 @@ export function Audio() {
 		setRuleBusy(true);
 		setRuleError(null);
 		try {
-			const result = await runtime.dispatch({
+			const problem = await failure({
 				type: 'audio.configure-automation',
 				actorId: dmId,
 				payload: {
@@ -676,13 +738,13 @@ export function Audio() {
 					assetId: ruleAction !== 'stop' && ruleAssetId ? ruleAssetId : null,
 				},
 			});
-			if (result.status === 'accepted') {
+			if (problem) {
+				setRuleError(problem);
+			} else {
 				Toaster.success('Automation rule saved.');
 				setRuleLabel('');
 				setRuleScopeId('');
 				setRuleAssetId('');
-			} else {
-				setRuleError(result.rejection.message);
 			}
 		} finally {
 			setRuleBusy(false);
@@ -708,13 +770,13 @@ export function Audio() {
 	// Delete is immediate with a Toaster UNDO (no confirm step) — undo re-dispatches the rule's
 	// previous definition under its ORIGINAL id (configure-automation recreates a deleted ruleId).
 	const deleteRule = async (rule: AudioAutomationRule) => {
-		const result = await runtime.dispatch({
+		const problem = await failure({
 			type: 'audio.delete-automation',
 			actorId: dmId,
 			payload: { ruleId: rule.id },
 		});
-		if (result.status !== 'accepted') {
-			Toaster.error(result.rejection.message);
+		if (problem) {
+			Toaster.error(problem);
 			return;
 		}
 		Toaster.show({
@@ -749,7 +811,7 @@ export function Audio() {
 		const outcome = ruleOutcomes.get(rule.id);
 		if (!outcome || outcome === 'checking' || outcome.status !== 'requested') return;
 		const bytesReady = rule.assetId ? bytesPresence[rule.assetId] === 'present' : true;
-		const result = await runtime.dispatch(
+		const problem = await failure(
 			outcome.request.action === 'stop'
 				? { type: 'session.audio.stop', actorId: dmId, payload: {} }
 				: {
@@ -765,7 +827,7 @@ export function Audio() {
 						},
 					},
 		);
-		if (result.status !== 'accepted') Toaster.error(result.rejection.message);
+		if (problem) Toaster.error(problem);
 	};
 
 	const sceneNameById = (id: string | null): string | null =>
@@ -880,7 +942,7 @@ export function Audio() {
 								payload: { volume: v / 100 },
 							})
 						}
-						valueLabel={`${masterPct}%`}
+						format={(v: number) => `${v}%`}
 						steppers
 						aria-label="Master volume"
 						style={{ flex: 1, minWidth: 0 }}
@@ -909,6 +971,7 @@ export function Audio() {
 			</div>
 
 			<Tabs
+				aria-label="Audio sections"
 				tabs={[
 					{ id: 'playback', label: 'Playback', icon: 'audio' },
 					{ id: 'presets', label: 'Presets', icon: 'sparkle' },
@@ -1346,7 +1409,7 @@ export function Audio() {
 													onCommit={(v: number) =>
 														void setLayer(layerId, layer.sourceId, v / 100, layer.muted)
 													}
-													valueLabel={`${Math.round(layer.volume * 100)}%`}
+													format={(v: number) => `${v}%`}
 													steppers
 													aria-label={`${sourceName} volume`}
 												/>
@@ -1498,7 +1561,10 @@ export function Audio() {
 												variant="ghost"
 												size="sm"
 												icon="close"
-												onClick={() => unbindScene(bound[0].id)}
+												// Every other per-item control in this file is named for its item; these two
+												// were a list of identical "Bind"/"Unbind" to a screen reader (WCAG 2.4.6).
+												aria-label={`Unbind audio from ${s.name}`}
+												onClick={() => void unbindScene(bound, s.name)}
 											>
 												Unbind
 											</Button>
@@ -1508,6 +1574,7 @@ export function Audio() {
 												size="sm"
 												icon="link"
 												disabled={!webStreamSource}
+												aria-label={`Bind audio to ${s.name}`}
 												onClick={() => bindScene(s.id, s.name)}
 											>
 												Bind

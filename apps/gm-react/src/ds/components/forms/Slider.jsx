@@ -71,7 +71,7 @@ export function Slider({
 			)}
 			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
 				{steppers && (
-					<button type="button" aria-label={stepperFor('Decrease')} disabled={disabled || value <= lo} onClick={() => fire(Math.max(lo, value - st))} style={stepBtn(disabled || value <= lo)}>
+					<button type="button" aria-label={stepperFor('Decrease')} disabled={disabled || value <= lo} onClick={() => fire(Math.max(lo, value - st))} {...stepHover(disabled || value <= lo)} style={stepBtn(disabled || value <= lo)}>
 						<Icon name="chevron-left" size={16} />
 					</button>
 				)}
@@ -90,7 +90,7 @@ export function Slider({
 					{...rest}
 				/>
 				{steppers && (
-					<button type="button" aria-label={stepperFor('Increase')} disabled={disabled || value >= hi} onClick={() => fire(Math.min(hi, value + st))} style={stepBtn(disabled || value >= hi)}>
+					<button type="button" aria-label={stepperFor('Increase')} disabled={disabled || value >= hi} onClick={() => fire(Math.min(hi, value + st))} {...stepHover(disabled || value >= hi)} style={stepBtn(disabled || value >= hi)}>
 						<Icon name="chevron-right" size={16} />
 					</button>
 				)}
@@ -113,5 +113,16 @@ function stepBtn(disabled) {
 		borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-strong)',
 		background: 'var(--color-surface-raised)', color: 'var(--color-text-secondary)',
 		cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.4 : 1, padding: 0,
+	};
+}
+
+// There is no global `button:hover` rule in this app and an inline style cannot express one, so the
+// WCAG-2.5.7 non-drag alternative to dragging the track had zero pointer feedback. Mirrors the
+// treatment IconButton's `outline` variant already carries.
+function stepHover(disabled) {
+	if (disabled) return {};
+	return {
+		onMouseEnter: (e) => { e.currentTarget.style.background = 'var(--color-surface-overlay)'; },
+		onMouseLeave: (e) => { e.currentTarget.style.background = 'var(--color-surface-raised)'; },
 	};
 }

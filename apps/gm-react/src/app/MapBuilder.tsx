@@ -684,7 +684,12 @@ export function MapCanvas({
 					'radial-gradient(60% 45% at 40% 30%, color-mix(in oklab, var(--layer-base) 14%, var(--map-canvas-bg)), var(--map-canvas-bg) 78%)',
 				border: `1px solid ${T.bd}`,
 				cursor,
-				touchAction: 'none',
+				// A READ-ONLY well (Atlas mounts one at height 560 with no `editable` and no `onPan`) claims
+				// every touch gesture with `touchAction:'none'` and then drops it — `onWellPointerDown`
+				// returns immediately when `!editable`. On a handset that made a canvas taller than half the
+				// page an absolute scroll dead zone, so the Layers/POI/Fog rails under it were unreachable.
+				// `SceneBoardCanvas.tsx` already draws this distinction for its bounded policy.
+				touchAction: editable ? 'none' : 'pan-y',
 				...style,
 			}}
 			onPointerDown={onWellPointerDown}

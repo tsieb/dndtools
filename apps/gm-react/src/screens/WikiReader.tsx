@@ -390,6 +390,20 @@ export function WikiReader() {
 					>
 						{state.message}
 					</div>
+					{/* This is the ONE surface whose audience is a non-user following a shared link: no nav,
+					    no app chrome, nothing to go back to. The commonest cause is a transient network
+					    failure, and until now the reader's only recourse was to guess that a reload works. */}
+					<Button
+						variant="primary"
+						icon="retry"
+						disabled={busy}
+						onClick={() => {
+							setState({ phase: 'loading' });
+							fetchWiki();
+						}}
+					>
+						Try again
+					</Button>
 				</Notice>
 			</div>
 		);
