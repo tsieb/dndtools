@@ -235,12 +235,13 @@ jobs:
         env:
           RELEASE_REF: ${{ inputs.release_ref }}
           REASON: ${{ inputs.reason }}
+          RELEASE_SHA: ${{ needs.preflight.outputs.release_sha }}
         run: |
           CONFIG_SHA=$(sha256sum config/stages/prod.json | awk '{print $1}')
           {
             echo "### Production promotion"
             echo "- Ref: \`$RELEASE_REF\`"
-            echo "- Release SHA: \`${{ needs.preflight.outputs.release_sha }}\`"
+            echo "- Release SHA: \`$RELEASE_SHA\`"
             echo "- Stage config: v1 / \`$CONFIG_SHA\`"
             echo "- Operator: \`${GITHUB_ACTOR}\`"
             echo "- Reason: $REASON"
