@@ -1,110 +1,125 @@
 ---
 name: player-char-scene-display-cluster
-description: gm-react Player.tsx (/player), PlayerView.tsx (/play), Join.tsx, SceneCardsPanel.tsx, SceneDisplay*/ProjectionControl/ViewAsControl — state as of 2026-07-29 (re-verified after fc40e764)
+description: gm-react PlayerView.tsx (/play), Player.tsx (/player), Join.tsx, plus SceneCardsPanel/SceneDisplay — FIXED-vs-OPEN split re-verified 2026-07-30 at 0a07165d
 metadata:
   type: project
 ---
 
-Audit of `screens/Player.tsx` (in-shell sheet at `/player`), `screens/PlayerView.tsx` (chrome-less
-`/play`), `screens/Join.tsx`, `screens/SceneCardsPanel.tsx` (embedded in `/scenes`),
-`screens/SceneDisplay.tsx` + `app/SceneDisplayOverlay.tsx`, `app/ProjectionControl.tsx`,
-`app/ViewAsControl.tsx`, `styles/index.css`, `styles/scene-display.css`.
+`screens/PlayerView.tsx` (chrome-less `/play`), `screens/Player.tsx` (in-shell `/player`),
+`screens/Join.tsx` re-audited 2026-07-30 @ `0a07165d`. SceneCardsPanel / SceneDisplay* /
+ProjectionControl / ViewAsControl were NOT re-verified this pass — their items below are carried
+forward from 2026-07-29 and should be re-checked before acting.
 
-## FIXED — do not re-flag
-- `Join.tsx` is solid: `<h1>`, `role="alert"` on invalid invite, `role="status"` on loading, Retry +
-  escape-hatch buttons. `Icon name="UserCircle"` IS a real registry entry (`ds/.../Icon.jsx:506`) —
-  checked, not a broken glyph.
-- `Player.tsx`'s write-error banner NOW has `role="alert" aria-live="assertive"` (~429-443). The
-  "no live region on the error surface" finding from the previous pass is CLOSED.
-- `PlayerView` nav rows switched `disabled` → `aria-disabled` so the lock-reason toast is reachable
-  and `aria-label` readable (~496). Playwright's `toBeEnabled`/`toBeDisabled` DO honour
-  `aria-disabled`, so `co-dm.spec.ts:186-188` is still a meaningful gate.
-- `SceneCardsPanel` delete has real undo (`scene-card.restore`); queue reorder boundary-disable is
-  DELIBERATE and asserted by `scene-cards.spec.ts:363-385`.
-- `ds/Field` AUTO-associates its `<label>` with a single unnamed child via `React.useId()`, so the
-  SceneCardRow edit-form fields with no `htmlFor`/`id` are correctly labelled. Its `help`/`error`
-  text is NOT wired via `aria-describedby` though — DS-level gap.
-- `Player.tsx` spell slots now use the DS `SpellSlots`; only CLASS RESOURCES are still hand-rolled.
+## FIXED — do not re-flag (verified at 0a07165d)
+- Locked `/play` nav-row opacity is now **0.7** (`PlayerView.tsx:557`), with the rationale comment.
+- `/play` HAS a skip link (`PlayerView.tsx:621-647`, `data-skip-link`, HashRouter-safe
+  `preventDefault` + manual focus) and `<main id="player-main" tabIndex={-1}>` (`:805`).
+  Pinned by `responsive.spec.ts:974-995`. `#main-content` remains the AppShell-only marker.
+- Toast live region is a **persistent** `visually-hidden role="status"` whose text swaps
+  (`PlayerView.tsx:813-815`); per-toast nodes only claim `role="alert"` when `status==='error'`
+  (`:837-839`). The mount-with-content class is closed here.
+- `SceneBanner` pause is CORRECT and still the right shape: **separate** `hovered`/`focused` flags
+  (`PlayerView.tsx:331-339`), `onFocus`/`onBlur` = focusin/focusout so the nested Dismiss holds it.
+  A single shared `paused` boolean is the known-wrong shape. Covered by `scene-cards.spec.ts:319-335`.
+- Handouts accordion has `aria-controls` + panel `id` (`PlayerView.tsx:1786` / `:1828`).
+- `AtlasSection` uses `ds/VisibilityChip` (`PlayerView.tsx:2030`) — the gold-`Badge` inversion is gone.
+- `SheetSection` sticky header now switches padding on viewport (`PlayerView.tsx:1302`,
+  `'12px 14px'` phone / `'12px 28px'` desktop) matching `PvPage` (`:252`). Old item 13 CLOSED.
+- `Player.tsx` class-resource pips: 24px + `flexWrap` + `justifyContent:'flex-end'` + `flex:'0 0 auto'`
+  (`:1385-1411`). Template for any future sub-24px target.
+- `Player.tsx` write-error banner has `role="alert" aria-live="assertive"` (`:429-443`);
+  `dispatch()` (`:246-250`) clears `err` on success, so no stale-error-on-retry.
+- `Join.tsx` is structurally sound: `<h1>` (`:103`), `role="alert"` on invalid (`:120`),
+  `role="status"` on loading (`:107`), Retry + escape-hatch buttons.
+- `ElevatedLocked` (`PlayerView.tsx:1956`) IS dead — `current` clamped at `:511`, all 9 ids branch at
+  `:575-603`, `else` at `:604` unreachable. Do not report.
+- `IconButton size="sm"` is **1.75rem = 28px** (`ds/.../IconButton.jsx:10`) → all `size="sm"`
+  IconButtons in this cluster clear WCAG 2.5.8. Don't flag them.
+- `auth.openAuthModal()` from `Join.tsx:179` WORKS — `AuthModal` is mounted by `AuthProvider`
+  (`cloud/AuthContext.tsx:183`), above the router. Not a dead handler.
+- `Join.tsx:86` `role="main" aria-label="Campaign invite"` is CORRECT — landmark roles are not
+  name-from-content, so the label does not erase the subtree.
+- `.player-view-toast-viewport` is lifted above the phone nav (`styles/index.css`, `bottom:
+  calc(119px + safe-area)`); `.player-view-shell` reserves `107px`. Phone nav math checks out.
 
-## STILL OPEN (confirmed after fc40e764)
-1. **Locked `/play` nav rows are `opacity: 0.42`** (`PlayerView.tsx:524`). Measured ≈**2.48:1** for
-   `--color-text-secondary #bcab92` composited at 42% over the sidebar (~#1e170f). These rows are
-   focusable AND actionable (they toast), so the 1.4.3 "inactive component" exemption does not
-   apply. 0.7 gives ≈4.58:1. At ≤1024px the label is `display:none`, so only the 0.42 icon remains
-   (1.4.11 fails too). Cheapest highest-value fix in the cluster.
-2. **`/play` has no skip link and its `<main>` (`PlayerView.tsx:745`) has no `id`.** AppShell has
-   one (`AppShell.tsx:1057` → `#main-content`) but `/play` sits outside it. Combined with the phone
-   nav being DOM-FIRST (`styles/index.css:176-232` fixes `.player-view-sidebar` to `bottom:0` while
-   the `<aside>` stays the first shell child), 9 nav buttons precede content in tab order. Use a
-   DISTINCT id (`player-main`) — `_helpers.ts:55`/`join.spec.ts:5` treat `#main-content` as the
-   AppShell marker.
-3. **Stage viewport hard-codes 6 colours** (`PlayerView.tsx:912-1009`: `#1a130b #100b07 #15100a
-   #0d0906 #f3e7d2 rgba(8,5,3,.85) rgba(243,231,210,.7)`). Contrast is actually FINE in parchment
-   (label ≈5.35:1), so the real symptoms are (a) the `color-mix(accent 14%)` grid vanishes against
-   near-black once accent is the dark parchment `#9a5418`, and (b) `forced-colors: active` overrides
-   `background-color` and `color` but NOT `background-image`, so the near-black gradient scrim at
-   :974 survives while its cream text is forced to CanvasText → black-on-black. Needs a
-   `@media (forced-colors: active)` escape, or a documented "theatre chrome is theme-exempt" ADR.
-4. **Toast live regions mount with content** (`PlayerView.tsx:761-787`). Nuance: `role="alert"`
-   (error toasts) IS announced on insertion; the `role="status"` info/success/neutral ones usually
-   are not. Only the status half is broken.
-5. **`SceneBanner` auto-dismisses at 5s** (`:311-315`) with no pause. Observable symptom beyond
-   2.2.1: its own Dismiss `IconButton` (`:390`) lives INSIDE the banner, so a keyboard user focused
-   there loses focus to `<body>` when the timer fires.
-6. **Accordions have `aria-expanded` but no `aria-controls`/panel id** — Handouts
-   (`:1714` / panel `:1754`) and Bestiary (`:2026` / panel `:2054`).
-7. **`AtlasSection` renders the raw `dm-only` enum in a GOLD accent `Badge`** (`:1960`). Gold =
-   primary action everywhere else, so the safety cue reads inverted. `ds/VisibilityChip` already
-   normalizes `dm-only`/`player-visible`/`shared` (`CORE_ALIASES`) — swap it in.
-8. **`ElevatedLocked` (`:1881`) is unreachable** — `current` is clamped to `allowedIds` at `:481`
-   and all 9 ids have branches, so the `else` at `:571` never runs. Dead code, low user impact.
-9. **`Player.tsx:1388` class-resource pips are 13×13px.** MEASURED: growing them to 24px is NOT
-   safe alone. `setClassResourceInputSchema.max` is `z.number().int().nonnegative()` — UNBOUNDED
-   (`packages/core/src/schemas/commands.ts:1736`), so 20 sorcery points is legal. Phone budget:
-   393 − 28 (Page) − 32 (Panel) ≈ 333px, minus icon 17 + 3 gaps 33 + counter 30 → ≈253px for
-   name+pips. 24px pips overflow past 6; 13px pips already degrade past ~14 (the pip `<button>`s
-   have no content so `min-width:auto` ≈ 3px and they SHRINK to slivers rather than overflow).
-   Fix must add `flexWrap:'wrap'` + `justifyContent:'flex-end'` + `flex:'0 0 auto'` on the pips.
-10. **`SceneCardsPanel` edit disclosure is unannounced** — the Edit `IconButton` (`:715-721`) has no
-    `aria-expanded`/`aria-controls`, its label stays "Edit {title}" when open, focus never moves
-    into the form (`:730`) nor back on Cancel. Escape works but only via the container's `onKeyDown`.
-11. **Queue move buttons drop focus at the boundary** (`SceneCardsPanel.tsx:528-543`): the button
-    you just pressed becomes `disabled`. Keep the disable (spec-asserted) and move focus to the
-    surviving sibling.
-12. **Dice modifier stepper** (`PlayerView.tsx:1509-1532`): IconButton labels are the deltas
-    ("−1"/"+1") not actions, the `{sgn(mod)}` value span is not a live region so nothing is
-    announced, and `mod` is unbounded. Also `seg()` (`:1417`) is three `aria-pressed` buttons with
-    the "d20 mode" caption (`:1493`) not programmatically attached — needs `role="group"`.
-13. **`SheetSection`'s sticky header hard-codes `padding: '12px 28px'`** (`:1231`) while `PvPage`
-    switches to 14px on phone (`:238`) and `Player.tsx:323` does the same — so on a 393px phone the
-    sheet header is inset 28px and everything under it 14px. Oversight, not a convention.
+## STILL OPEN (verified 2026-07-30, ranked)
+1. **`PlayerView.tsx:987-994` — `backgroundImage` (`:990`) silently overwrites the `background`
+   shorthand (`:987`).** React writes styles in key order, and the shorthand resets
+   `background-color` to transparent, so **whenever `sceneName` is truthy the stage's dark
+   theatrical backdrop is destroyed** and only the 38px grid over a transparent box remains
+   (page bg shows through). Invisible in the dark themes, obvious + contrast-failing in parchment.
+   This is the root cause of half of the old "stage hard-codes colours" item. Fix = one
+   `backgroundColor` + one merged `backgroundImage` layer list + matching `backgroundSize`.
+2. **`Player.tsx:451-504` — the tab bodies are not keyed by `charId`.** `PlayerSheet`'s `editing` /
+   `drafts` / `backstoryDraft` survive a PC switch through the always-visible `Select` (`:340-347`),
+   so Save writes PC A's race/subclass/background/speed/init onto PC B (`saveEdit` `:565-577`
+   diffs the drafts against the NEW `C`). Fix `key={charId}`; `equipment.spec.ts:46-50` selects the
+   PC BEFORE filling forms, so keying is spec-safe.
+3. **`PlayerView.tsx:1578-1604` dice modifier stepper** — `IconButton label="−1"/"+1"` are values not
+   actions, `{sgn(mod)}` (`:1595`) is not a live region, `mod` is UNBOUNDED (hold Enter → +417
+   overflowing the 34px readout), no direct numeric entry.
+4. **`PlayerView.tsx:1292-1438` `SheetSection` renders NO heading.** Every other section gets
+   `SectionHead`'s `<h1>`; the sheet's identity strip (`:1309-1319`) is plain spans. `/play`'s
+   "My character" tab therefore has zero headings.
+5. **Stage colour hard-coding, parchment-specific measurements** (`PlayerView.tsx:988-1062`):
+   - `:991` grid = `color-mix(accent 14%, transparent)`; parchment accent `#9a5418` at 14% over
+     near-black ≈ invisible.
+   - `:1078` "Nothing is being shown yet." uses `T.ter` on hard-coded `#0d0906` = **4.18:1** in
+     parchment (`--color-text-tertiary #837057`) → 1.4.3 FAIL at 14px. Tavern is 6.14:1.
+   - `:1028` map-fallback pill `rgba(243,231,210,.75)` on `rgba(8,5,3,.6)` ≈ **3.75:1** at 11px
+     (worse once finding 1 is present).
+   - `:1011` "What the table sees" ≈ **5.07:1** — NOT a defect, stop re-measuring it.
+6. **No `@media (forced-colors: active)` escape for the stage.** `styles/tokens/colors.css:362`
+   remaps `background-color`/`color` but forced-colors leaves `background-image` alone, so the
+   `linear-gradient(transparent, rgba(8,5,3,.85))` scrim at `:1045` survives while its `#f3e7d2`
+   caption (`:1048`) is forced to `CanvasText` → black-on-black in light HC. `/play` is NOT in
+   `responsive.spec.ts` ROUTES, so the forced-colors gate never walks it.
+7. **`Player.tsx:1425-1457` Death saves panel conveys nothing to AT** — the 3+3 pips are bare
+   `<span>`s with no text and the only labels are "SUCCESSES"/"FAILURES". No count is exposed.
+8. **`Player.tsx:360-388` HP stepper is ±1-only with no live region.** 27 damage = 27 commands;
+   a successful write changes the number silently. Same NumStepper class as the character cluster.
+9. **`PlayerView.tsx:2094-2131` Bestiary accordion** has `aria-expanded` (`:2096`) but no
+   `aria-controls`, and the panel (`:2124`) has no `id` — the Handouts fix was not mirrored here.
+10. **`Join.tsx:192-196` "Try again" destroys itself** — `setRetryNonce` flips phase to `loading`,
+    unmounting the focused button; focus falls to `<body>`.
+11. **`PlayerView.tsx:1564-1576` d20-mode segmented control** — three `aria-pressed` buttons with the
+    "d20 mode" caption (`:1564`) not programmatically attached. Needs `role="group" aria-label`.
+12. **`Player.tsx:1768-1776` marching-order "Move … up" unmounts at index 0** (`i > 0` guard) →
+    focus drop. Same shape as the SceneCardsPanel boundary item.
+13. **`Player.tsx` `err` is screen-level and never cleared on tab or PC switch** (`:237`, `:429`).
+14. **`Player.tsx:2351-2369` journal share toggle has no `aria-pressed`**, unlike the equipped
+    (`:1064`), prepared (`:1536`) and inspiration (`:406`) toggles in the same file.
+15. **`PlayerView.tsx:913-917` `toggleReady` is silent when `!presenceShared`** while `toggleHand`
+    (`:893-912`) always toasts — asymmetric feedback on adjacent buttons.
+16. **Zero `:hover` feedback anywhere in this cluster** (global: no `button:hover` rule exists;
+    inline styles can't express it). In-repo pattern = `onMouseEnter/Leave`, `ds/map/LayerRow.jsx:96`.
 
-## Verified NON-defects (don't re-report)
-- `SceneDisplaySurface`'s Electron `url`-hero block is intentional (CSP `img-src 'self' data: blob:`
-  and `SceneCardsPanel.tsx:266` disables the URL input on native desktop).
-- `SceneDisplayOverlay` is the exemplary modal: real focus trap, Escape, focus restore, back-handler.
-  Cite it when flagging weaker panels.
-- `Player.tsx`'s sticky vitals `top: 0` is CORRECT — it renders inside `AppShell`'s `<main>`, which
-  is the scroll container. Only chrome-less routes need `var(--native-titlebar-height)`.
-- `ViewAsControl.tsx` is the app's ONLY `role="menu"`; missing arrow-key roving focus (still open,
-  outside this cluster's files).
-- `runtime.defaultActorId` is a getter returning the PREVIEWED actor, so reads through it are
-  correctly actor-filtered during "View as" — no DM-only leak.
-- `.player-view-toolbar > span:nth-child(2)` (index.css:222) hides the tier blurb on phone via
-  JSX-order-coupled CSS. Fragile but currently correct — don't reorder that toolbar's children.
+## Carried forward, NOT re-verified 2026-07-30 (SceneCardsPanel / SceneDisplay)
+- `SceneCardsPanel.tsx:715-721` edit disclosure unannounced (no `aria-expanded`/`aria-controls`,
+  no focus move into `:730` or back on Cancel).
+- `SceneCardsPanel.tsx:528-543` queue move buttons drop focus at the boundary (keep the disable —
+  `scene-cards.spec.ts:413-445` asserts it — and move focus to the surviving sibling).
 
-## Coverage map
-- `/play`: `responsive.spec.ts:454-527` (compact Co-DM nav + no-overflow), `co-dm.spec.ts:163-209`,
-  `scene-cards.spec.ts:279-361` (player banner + journal scene history), `equipment.spec.ts`,
-  `command-palette.spec.ts`, `graph.spec.ts`.
-- `/player`: `responsive.spec.ts:529-541` (per-tab overflow vs `#main-content`), `a11y-axe-gate.spec.ts` ROUTES.
-- `/join`: `join.spec.ts`, `responsive.spec.ts:510-527`.
-- `/scenes` + SceneCardsPanel: `scene-cards.spec.ts` (composer, queue order, Show/push, reorder
-  boundaries), `a11y-axe-gate.spec.ts` (`/scenes`).
-- **`/play` and `/join` are NOT in the axe-gate ROUTES list** (`a11y-axe-gate.spec.ts:23-40` has
-  `/scenes` and `/player` only) — axe violations on the standalone player app go uncaught.
-  `tests/a11y/known-violations.json` is `{ "violations": [] }`, so the register is clean.
+## Spec-coupling map (grep before renaming any label)
+| Change | Spec that breaks |
+| --- | --- |
+| `/play` nav `aria-label` (must keep the bare label as a substring) | `co-dm.spec.ts:172-209`, `responsive.spec.ts:631` |
+| locked-row `aria-disabled` → anything else | `co-dm.spec.ts:176-178` (`toBeDisabled` honours `aria-disabled`) |
+| "Dismiss scene banner" / `data-testid="scene-banner"` | `scene-cards.spec.ts:319-335` |
+| `SectionHead` heading text ("Now playing", "Maps & scenes", "Bestiary", "Combat assist") | `scene-cards.spec.ts:292/317/386`, `responsive.spec.ts:626-637` |
+| `#player-main` id / skip-link text / `data-skip-link` | `responsive.spec.ts:974-995`, `responsive.spec.ts:55-67` |
+| `Player.tsx` "Switch character", "Item"/"Qty"/"Weight (lb)", "One more X"/"One fewer X", "Add one GP"/"Spend one CP", `Equipment (n)` | `equipment.spec.ts:48,68-90,134-150,177` |
+| `Player.tsx` tab labels Sheet/Resources/Party/Level up/Journal | `responsive.spec.ts:660-673` |
+| `Move {name} up` (SceneCardsPanel) | `scene-cards.spec.ts:413-445` |
+| adding an `<h1>` to `/play` Sheet | nothing — `/play` is absent from `responsive.spec.ts` ROUTES and from the axe gate |
 
-See [[player-surface-audit]] for the older structural classes (join flow spans SessionPanel,
-chrome-less routes lose DS contracts, DM-only encoded two ways) and [[ds-layer-audit]] for the
-Tabs/Checkbox/SpellSlots DS gaps this cluster inherits.
+## Coverage gaps
+- `a11y-axe-gate.spec.ts:23-38` ROUTES has `/player` but **NOT `/play` or `/join`**.
+- `responsive.spec.ts:3-19` ROUTES (used by the 200%-text / reduced-motion / forced-colors /
+  Android-safe-area loops) also excludes `/play` and `/join`. They get only the two bespoke
+  compact-phone tests at `:585` and `:641`.
+- `tests/a11y/known-violations.json` is `{ "violations": [] }` — the register is clean.
+
+See [[player-surface-audit]] for the structural classes and [[ds-layer-audit]] for the token
+landmines (`--color-dm-only-badge`/`-subtle` ARE defined at colors.css:74/130/184/237/400 — the
+cluster's usages at `PlayerView.tsx:295-299,1869-1874` and `Player.tsx:2266-2271` are correct).

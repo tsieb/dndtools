@@ -80,6 +80,31 @@ test.describe('graph: relationship graph & search', () => {
 		await expect(page.getByRole('button', { name: DM_ONLY_NOTE })).not.toHaveCount(0);
 	});
 
+	test('a selection can be cleared again — by re-pressing the node and by Escape', async ({
+		page,
+	}) => {
+		// `setSel(null)` existed nowhere in this screen, so the FIRST click on any node latched the
+		// selection permanently: every non-incident node stayed dimmed to 0.4 and every non-incident
+		// edge to 0.22 for the rest of the session, with no way back short of a reload. The dimming is
+		// the whole point of selecting, which made the graph progressively less readable the more you
+		// explored it.
+		const node = page.getByRole('button', { name: VISIBLE_NOTE }).first();
+		await node.click();
+		await expect(page.getByText('Selected')).not.toHaveCount(0);
+		await expect(node).toHaveAttribute('aria-pressed', 'true');
+
+		// Pressing the selected node again releases it.
+		await node.click();
+		await expect(page.getByText('Selected')).toHaveCount(0);
+		await expect(node).toHaveAttribute('aria-pressed', 'false');
+
+		// And Escape, bubbling from the focused node, does the same for a keyboard user.
+		await node.click();
+		await expect(page.getByText('Selected')).not.toHaveCount(0);
+		await node.press('Escape');
+		await expect(page.getByText('Selected')).toHaveCount(0);
+	});
+
 	test('the graph is read-only: no mutation affordances, no op-log growth', async ({ page }) => {
 		const before = await ops(page);
 		expect(before).toBeGreaterThanOrEqual(0);

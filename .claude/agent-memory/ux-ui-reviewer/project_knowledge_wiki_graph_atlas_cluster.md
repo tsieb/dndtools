@@ -1,109 +1,104 @@
 ---
 name: knowledge-wiki-graph-atlas-cluster
-description: Structural notes + still-open defects for screens/{Knowledge,WikiReader,Graph,Atlas}.tsx as of 2026-07-29 (post commit 5274a5f9)
+description: FIXED-vs-OPEN split + spec-coupling map for screens/{Knowledge,WikiReader,Graph,Atlas}.tsx, re-audited 2026-07-30 at commit 0a07165d
 metadata:
   type: project
 ---
 
-## Surface map (verify before citing — true as of commit 5274a5f9)
-- `Knowledge.tsx` — notes list/editor. Own markdown renderer `mdToNodes`/`boldify` (NOT shared with
-  WikiReader — duplicated, so fixes must land in both). `NoteViewer` is the note detail/edit view;
-  `Composer`/`ImportPanel` are inline (non-modal) create/import forms.
-- `WikiReader.tsx` — the PUBLIC, account-less reader (`#/wiki?id=`), chrome-less. Has its OWN copy of
-  `mdToNodes`/`boldify` (same bug surface as Knowledge's, separately maintained).
-- `Graph.tsx` — read-only relationship graph + faceted search over `getGraphVisualizationForActor`.
-  Genuinely solid: `aria-pressed` on facet chips, real `<button>` nodes with computed `aria-label`,
-  focus ring restored on the search input, node-label 7px-clip fixed (all confirmed fixed in
-  commit 5274a5f9 — do not re-report). No further defects found here this pass.
-- `Atlas.tsx` — map library shell around `MapCanvas`/`MapBuilder` (shared with the map-editor cluster,
-  see `reference_map_editor_cluster.md`). Atlas itself (chip switcher, layer/POI side rails, notice
-  banner, New-map toggle) is Atlas-owned code distinct from the MapBuilder overlay.
+## Surface map (true at 0a07165d)
+- `screens/Knowledge.tsx` (1063 ln) — notes list + `NoteViewer` detail/edit + inline `Composer`/
+  `ImportPanel`. Own `mdToNodes`/`boldify`/`parseWikilink`; **duplicated** in WikiReader — fixes
+  must land twice.
+- `screens/WikiReader.tsx` (533 ln) — PUBLIC account-less reader `#/wiki?id=`, chrome-less, mounts
+  `<div data-theme="parchment">` in every phase. Cloud-gated; e2e only ever exercises the
+  missing/invalid fail-closed notices.
+- `screens/Graph.tsx` (679 ln) — read-only relationship graph + faceted search.
+- `screens/Atlas.tsx` (1061 ln) — map library shell around `MapCanvas`/`MapBuilder`.
 
-## Confirmed STILL-OPEN defects this pass (2026-07-29)
-1. **Inert `[[wikilinks]]` — both renderers.** `Knowledge.tsx boldify` (~98-114) and
-   `WikiReader.tsx boldify` (~58-75) paint `[[Target]]` in accent color as a bare `<span>` — no
-   onClick, no keyboard target, no navigation. The resolution engine EXISTS and is unused anywhere in
-   `apps/gm-react`: `packages/core/src/queries/wikilink-graph.ts` exports
-   `resolveWikilinkForActor(content, permissions, actorId, {target, section})` →
-   `WikilinkResolution`, built on the SAME actor-filtered candidate index Knowledge's own
-   `getNoteRelationshipsForActor` backlinks panel uses. For Knowledge, wiring means: in `mdToNodes`/
-   `boldify`, resolve `p.slice(2,-2)` through `resolveWikilinkForActor` and render a `RelRow`-style
-   button that calls the existing `onOpen(id)` prop when resolved. For WikiReader there is no
-   core/actor context (public reader) — but it doesn't need one: `wiki.pages` is already the full
-   loaded array of `{slug, title, markdown}`, so a wikilink can resolve client-side by matching
-   `p.title === target` and calling `setOpenSlug(p.slug)` — zero new API calls.
-2. **Knowledge "Push to players" has no confirm and no undo, unlike its ConnectedSources sibling.**
-   `NoteViewer.setVisibility` (~287-298) is called directly from the IconButton at ~359-367, the
-   Button at ~429-440, AND the `Seg` at ~428 (any segment tap, not just the push shortcut) — one
-   click/tap flips `dm-only → player-visible` (or via Seg, → any level including `shared`) with zero
-   confirmation and no Toaster undo. `ConnectedSources.tsx` (~519-577) Dialog-gates the analogous
-   dm-only→external-Doc push. Knowledge has no `Dialog` import at all.
-3. **Orphan `<li>` outside `<ul>`/`<ol>` — both renderers.** `Knowledge.tsx mdToNodes` (~164-169) and
-   `WikiReader.tsx mdToNodes` (~142-154) return bare `<li>` nodes interleaved with `<p>`/`<h2>` inside
-   a plain `<div>` (no list wrapper ever introduced) — invalid HTML, breaks screen-reader list
-   semantics (WCAG 1.3.1). Would need to group consecutive `- ` lines into a wrapping `<ul>`.
-4. **Missing `role="status"`/`aria-live` on async result banners** — a recurring gap; Board.tsx/
-   SceneEditor.tsx already got this treatment (role=status / role=alert) in commit 5274a5f9 but it
-   was not extended to:
-   - `Atlas.tsx` top notice bar (~483-510) — surfaces link-copy confirmations, projection results,
-     and command rejections.
-   - `Knowledge.tsx` `NoteViewer` save/visibility error text (~391, ~411-413) and `ImportPanel`
-     result message (~622).
-   - `WikiReader.tsx` password-wrong/invalid/missing phases (~276-323) — only the `loading` phase
-     (~248-261) has `role="status" aria-live="polite"`; a fetch failure AFTER loading is silent to AT.
-5. **`Atlas.tsx` "New map" toggle (~471-480) has no `aria-expanded`.** It mutually shows/hides the
-   inline `MapCreationForm`, the exact disclosure-toggle contract Knowledge's Sources/Import/New-note
-   buttons already got `aria-expanded` for in commit 5274a5f9 — Atlas's analogous toggle was missed.
-6. **`WikiReader.tsx` nav `position: sticky` (~382-383) is unconditional even under `isPhone`.** The
-   comment at ~365 explains the single-column phone stack (nav first, article below) but doesn't
-   account for the sticky nav pinning across a short phone viewport for a many-page wiki, squeezing
-   the article. Minor/P3 — verify visually before treating as more than polish.
+## FIXED — do NOT re-report
+Atlas: `ghostBtn` now `minWidth/minHeight: 24` (:61-71) · POI popover "Focus on map" really pans+
+zooms (:595-600) and `center` is passed to `MapCanvas` (:575) · New-map `aria-expanded` (:493) ·
+notice has `role="status"` (:505).
+Knowledge: `save()` clears `err` FIRST (:369) · `role="alert"` on both error sites (:504, :531) ·
+ImportPanel `Textarea` `aria-label` (:766), row `flexWrap` (:776), `role="status"` + failure tone +
+warning icon (:787-799) · wikilinks are real `<button>`s (:141-158) · `<ul>` grouping (:185) ·
+push-to-players `Dialog` confirm (:611-638).
+Graph: `role="status"` on the count (:225) · `aria-pressed` on facets (:531) · focus ring restored
+on the search input (:516-519) · 10px node-label floor (:365).
+DS: `Input`/`Textarea` wire `aria-invalid` (`ds/components/forms/Input.jsx:30,34,39`, pinned by
+`forms/form-a11y.test.tsx:39-52`, whose comment literally cites "a wrong wiki password").
 
-## 2026-07-29 RE-AUDIT after commit fc40e764 — what landed, what did NOT
-FIXED, do not re-report: inert `[[wikilinks]]` (both readers now resolve; Knowledge renders a real
-`<button>` at ~142-157), orphan `<li>` (both wrap in `<ul>` now), Knowledge push-to-players Dialog
-confirm, Atlas notice banner `role=status`, Atlas New-map `aria-expanded`.
+## STILL OPEN (ranked, 2026-07-30)
+1. **`Atlas.tsx:206-214` `run()` never clears `notice`** — the un-fixed twin of
+   `app/map/useMapEditor.ts:279-280` (`if accepted → setNotice(null)`). Every write path except
+   `projectToPlayers` leaves a prior rejection on screen after a later success. Compounding:
+   `Atlas.tsx:501-532` paints ALL outcomes — "Link copied", "Projected to N", AND every rejection —
+   with `Icon name="info"` + `T.info` + `T.alt`. Fixed sibling tone is `MapEditor.tsx:676-694`
+   (`role="alert"` + warning-subtle/border/text + `Icon name="warning"`). Atlas's banner is MIXED
+   (success + failure) so it needs a tone flag, not a blanket warning.
+2. **`Atlas.tsx:206-214` `run()` has no `try/catch`** — `useMapEditor.ts:298-300` catches and
+   surfaces. Every `void run(...)` call site (:270, :283, :295, :303, :312, :326) turns a thrown
+   dispatch into an unhandled rejection with zero UI.
+3. **`Knowledge.tsx:868-885` `createNote` discards the rejection.** `setComposing(false)` at :878 is
+   unconditional and there is no `else`. Rejected create = composer closes, typed title gone, no
+   message. `Toaster` is already imported (:20).
+4. **`Graph.tsx` selection can never be cleared.** `setSel` only ever receives an id (:335, :449,
+   :560); no `setSel(null)` anywhere. Non-incident nodes stay at opacity 0.4 (:352) and edges at
+   0.22 (:319) forever. `Atlas.tsx:911` does the correct toggle.
+5. **`Graph.tsx:380-492` `Selected` panel is the FIRST rail child, above `Search` (:494).** Clicking
+   a result (:560) inserts ~250px above the list; the row jumps out from under the pointer. On phone
+   the rail stacks below the canvas so the list is pushed off-screen.
+6. **`WikiReader.tsx:304-311`** — the `invalid` (:355-365) and `missing` (:343-353) notices have NO
+   live region (only `loading` :331-335 does), and `submitPassword` (:322-325) never resets
+   `state.wrong`, so a 2nd wrong password produces ZERO DOM change. Error text :386-390 has no
+   `role` and no `aria-describedby` link to the input.
+7. **`WikiReader.tsx:416` / `:482` page switch** — no scroll-to-top, no focus move, no
+   announcement. Clicking a wikilink at the bottom of a long page swaps the `<article>` under a
+   scroll position that is now meaningless.
+8. **`Knowledge.tsx:512` Cancel / `:446` BackBar discard an edited draft with no dirty check.**
+9. **`WikiReader.tsx` `ready` phase (:418-532) has no landmark** — `Notice` carries `role="main"`
+   (:253) but the actual reader does not, and there is no skip link past the page `<nav>` (:466).
+10. `Knowledge.tsx:942-954` — toggling ImportPanel shut via the Sources / Import vault / New note
+    disclosure buttons does NOT clear `importMsg`/`importFailed`; only "Close" (:981-985) does.
+    Reopening replays a stale result.
+11. `Graph.tsx:527-545` facet chips ≈23.8px tall (4px padding + ~13.8px line + 2px border) — a hair
+    under WCAG 2.5.8; verify in a browser before acting.
+12. `Atlas.tsx:576` `height={560}` unconditional (no `isPhone`); `:612`
+    `maxWidth:'calc(100% - 190px)'` + nowrap caps the map title to ~171px at 393px.
 
-NOT fixed / newly found:
-- **`Atlas.tsx:577` — the POI popover's PRIMARY "Focus on map" button is dead by equivalence.**
-  `onFocus={() => openBuilder('select')}` is byte-identical to `onEdit` on :578. `openBuilder` (~207)
-  does `setSelPoiId(null)` then `setBuilder({tool})`, and `MapBuilder` accepts only
-  `{mapId, initialTool, initialFogMode, onClose}` — no POI id, no center. The POI identity is
-  discarded, so it never focuses or centers anything. Needs MapBuilder to accept an `initialPoiId`.
-- **`Knowledge.tsx` still has ZERO `role=status`/`aria-live`** (grep count 0). Three sites:
-  `:496` (edit-mode save error span), `:517` (view-mode error div — rendered AFTER the whole note
-  body, so a rejected reveal is off-screen and silent), `:756` (ImportPanel `message`). Worse at :756,
-  `runImport` funnels BOTH success and rejection into the same field styled neutral grey `T.sub`
-  (~863) — success and failure are visually identical.
-- **`Knowledge.tsx:741` ImportPanel `<Textarea>` has NO accessible name** — the only unlabeled field
-  in the file (its sibling Select :750 and both NoteViewer fields :481/:487 all have `aria-label`).
-- **`Knowledge.tsx:748`** import action row has no `flexWrap` (siblings at ~721/~874 do) — Select
-  clips and the message collides with buttons at 393px.
-- **Atlas sub-24px targets:** `ghostBtn` (~62) is `padding:2` around a 12px Icon = 16x16, used for the
-  vertically-adjacent layer reorder chevrons (~756-775) where a mis-tap dispatches the OPPOSITE
-  durable `map.reorder-layer`. Same at ~809-818 (visibility), ~912-931 (POI delete), ~505-513.
-- **`Atlas.tsx` POI delete (~317-353) never moves focus** — the row unmounts, focus falls to `<body>`,
-  and the only Undo is in a toast now unreachable before it expires.
-- **`Atlas.tsx:589`** `maxWidth:'calc(100% - 190px)'` + `whiteSpace:nowrap` caps the map title to
-  ~171px at 393px; `height={560}` (:558) is unconditional with no `isPhone` branch.
-- **Graph.tsx (previously "clean") has 2 real gaps:** the `Selected` Panel (~378-490) is the FIRST
-  child of the rail, above `Search` (~492), so clicking a result (~555) inserts ~250px above the list
-  and the clicked row jumps out from under the pointer — on phone the rail is stacked below the canvas
-  so the list is pushed off-screen. And `:223`/`:601` ("Showing N of M", "No results for this filter.")
-  have no `aria-live`; the file has no live region at all.
-- Atlas/Knowledge phone guards are real but MINIMAL — one `isPhone` each, only on the top-level
-  split grid (`Atlas.tsx:545`, `Knowledge.tsx:443`). Everything below relies on flexWrap.
-- Non-defect worth knowing: `App.tsx:420` returns `<Boot/>` until `runtime.loaded`, so Atlas's
-  hydration skeletons (~448-455, ~831, ~951) are unreachable dead branches — and Knowledge/Graph
-  having no loading state is therefore NOT a false-empty-state bug.
+## Verified NON-defects (checked at 0a07165d — do not chase)
+- **Nested-theme aliasing in the wiki subtree is CLEAN.** `tokens/colors.css` `[data-theme=
+  'parchment']` (:148) redeclares all 46 `--color-*` the base `:root` (:24) declares; the
+  status-border aliases correctly use `:root, [data-theme]` (:347-348) and the forced-colors block
+  likewise (:363-364). The only plain-`:root`-only aliases are the legacy bridge (:325-334:
+  `--bg --fg --accent --muted --card --border --danger --surface-subtle`) plus `--color-route-player`
+  and `--map-fog-opacity-{dm,player}`. `grep -rn "var(--bg)|var(--fg)|var(--card)|…"` over
+  `apps/gm-react/src` returns **zero** consumers. Nothing the wiki renders resolves the wrong theme.
+- **`WikiReader.tsx:472-473` `position: sticky` on phone is harmless** (retracts the prior pass's
+  item 6). In the single-column phone grid with `alignItems:'start'` (:462) the nav's containing
+  block IS its own grid row, so the sticky range is zero. Only desktop actually sticks.
+- `ds/components/core/Card.jsx:44,47-48` — `interactive` already gives `cursor:pointer` +
+  `onMouseEnter/Leave` border/shadow hover, plus role=button/tabIndex/Enter+Space (:12-25).
+  Knowledge's note-card grid (:1020) is fine.
+- `App.tsx` gates on `runtime.loaded`, so Atlas's hydration `Skeleton`s (:468-471, :858, :978) are
+  unreachable — and Knowledge/Graph having no loading state is NOT a false-empty-state bug.
+- Atlas layer/POI row controls are real `<button>`s with `aria-label`s; POI delete has the
+  Toaster-Undo pattern (:340-368).
 
-## Verified NON-defects (checked, do not re-report)
-- `Seg` (screen-kit.tsx ~127) now has full roving-tabindex + arrow-key radiogroup contract (fixed in
-  5274a5f9) — Knowledge's note-visibility `Seg` at ~428 is fine mechanically (its BUG is #2 above,
-  the missing confirm, not keyboard access).
-- `Card interactive` (ds/components/core/Card.jsx ~8-25) already provides role=button/tabIndex/
-  Enter+Space keydown when `interactive && onClick` — Knowledge's note-card grid (~838) is fine.
-- Graph.tsx: no defects found this pass — genuinely solid (see surface map above).
-- Atlas layer/POI row controls (reorder chevrons, visibility toggle, delete) are real `<button>`s with
-  `aria-label`s; POI delete already has the Toaster-Undo pattern (soft-delete → `map.create-poi`
-  re-creation), consistent with project convention — not a violation.
+## Spec-coupling map (change these strings → break these files)
+- `tests/e2e/knowledge.spec.ts` — :175 `getByRole('alert')`; :186 `'A note needs a title.'`;
+  :204-207 reveal `dialog` + `'Push to players'`; :235/:240 `getByRole('status')` toasts;
+  :295-308 wikilink buttons by exact title; :335-357 Import flow incl. **exact** `'Imported 2 new.'`
+  and the `'Close'` button. No spec clicks NoteViewer's `'Cancel'` → a dirty-check dialog is safe.
+- `tests/e2e/graph.spec.ts` — :30 `/Showing \d+ of \d+ visible nodes?/`; :39 `getByLabel('Search
+  the graph')`; :43/:89 `getByText('Selected')`; :46 `'Open note'`; :68/:79 `radio` `'Player view'`/
+  `'DM view'`; :90 facet chip `'Note'` exact. Reordering Selected below Search does NOT break these.
+- `tests/e2e/wiki.spec.ts` — :64 `getByRole('main')` comes from `Notice`'s `role="main"`
+  (WikiReader.tsx:253) — **do not remove it**; :65 `'No wiki link'`; :76 `'Wiki unavailable'`.
+  Adding a real `<main>` to the ready phase is safe (not covered).
+- `tests/e2e/android-quick-map.spec.ts:353` — page-scoped **exact** `Projected “{name}” to 3
+  players.`; keep that literal when touching notice code.
+- `tests/e2e/map-editor.spec.ts:30-32,185-190` + `authoring-layout.spec.ts:49,53-63` — depend on the
+  `'Open in map editor'` label (Atlas.tsx:487) and on exactly one `<h1>` under `/atlas`.
+- `tests/e2e/responsive.spec.ts:9` and `a11y-axe-gate.spec.ts:27,29,32` cover `/atlas`, `/knowledge`,
+  `/graph`. **`#/wiki` is in NEITHER gate** — WikiReader a11y regressions are caught by nothing.

@@ -110,3 +110,31 @@ test('the wizard kit step edits attack kind and damage type as separate fields',
 	await expect(damageInput).toHaveValue('fire');
 	await expect(kindInput).toHaveValue('Melee');
 });
+
+test('the wizard uses the whole phone viewport instead of floating as a fixed slab', async ({
+	page,
+}) => {
+	// The panel's height was an unconditional `620`, while every neighbouring property already went
+	// full-bleed on a phone (no scrim padding, square corners). On a 851px-tall handset that left the
+	// wizard as a box with ~115px of backdrop above and below, scrolling its content inside the
+	// shortfall — worst exactly where the vertical room is scarcest. Pinned at a fixed size so the
+	// assertion means the same thing on both Playwright projects.
+	await page.setViewportSize({ width: 393, height: 851 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/characters');
+	await seedFresh(page);
+
+	await page.getByRole('button', { name: 'New character', exact: true }).first().click();
+	await page.getByRole('button', { name: /Build from scratch/ }).click();
+
+	const wizard = page.getByRole('dialog', { name: 'New character wizard' });
+	await expect(wizard).toBeVisible();
+
+	const box = await wizard.boundingBox();
+	expect(box, 'the wizard panel must have a measurable box').not.toBeNull();
+	const viewportHeight = await page.evaluate(() => window.innerHeight);
+	expect(
+		box!.height,
+		'the phone wizard must fill the viewport, not float inside it',
+	).toBeGreaterThan(viewportHeight * 0.95);
+});

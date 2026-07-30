@@ -981,16 +981,25 @@ function StageSection({
 					}}
 				>
 					<div
+						data-testid="player-stage"
 						style={{
 							position: 'relative',
 							aspectRatio: '16 / 10',
-							background: sceneName
-								? `radial-gradient(120% 80% at 50% 8%, color-mix(in srgb, var(--color-accent) 16%, #1a130b) 0%, #100b07 70%), linear-gradient(135deg, #15100a, #0d0906)`
-								: '#0d0906',
+							// These used to be a `background` shorthand carrying the two theatre gradients
+							// followed by a `backgroundImage` carrying the grid. React writes style keys in
+							// order, so the second declaration REPLACED the first's layers outright — and the
+							// shorthand had already reset background-color to transparent. The projected
+							// stage therefore rendered as a see-through box with faint grid lines over the
+							// page, lightest exactly where it should be darkest (parchment). One layer list.
+							//
+							// The grid tint is a fixed warm rgba rather than `color-mix(var(--color-accent))`
+							// because the stage backdrop is deliberately near-black in every theme: parchment's
+							// dark `#9a5418` accent at 14% over `#100b07` composites to invisible.
+							backgroundColor: '#0d0906',
 							backgroundImage: sceneName
-								? `linear-gradient(color-mix(in srgb, var(--color-accent) 14%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 14%, transparent) 1px, transparent 1px)`
+								? `linear-gradient(rgba(224, 176, 111, 0.16) 1px, transparent 1px), linear-gradient(90deg, rgba(224, 176, 111, 0.16) 1px, transparent 1px), radial-gradient(120% 80% at 50% 8%, color-mix(in srgb, var(--color-accent) 16%, #1a130b) 0%, #100b07 70%), linear-gradient(135deg, #15100a, #0d0906)`
 								: 'none',
-							backgroundSize: '38px 38px',
+							backgroundSize: sceneName ? '38px 38px, 38px 38px, auto, auto' : 'auto',
 						}}
 					>
 						{/* projected map raster — bytes resolve only because the projection gate admitted the id */}

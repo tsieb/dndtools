@@ -119,7 +119,20 @@ test.describe('custom types: user-defined vault object types', () => {
 		await expect(page.getByText(`New Inn ${stamp}`)).not.toHaveCount(0);
 		await page.getByLabel('Object title').fill(title);
 		await page.getByLabel('proprietor').fill('Barliman');
-		await page.getByLabel('rooms').fill('6');
+
+		// A `number`-typed field must render as a numeric control. It used to be a plain text input:
+		// phones raised the alphabetic keyboard, and anything unparseable went through `Number()` to
+		// NaN, which the Core stored and JSON serialised to `null` with no error anywhere.
+		const rooms = page.getByLabel('rooms');
+		await expect(rooms).toHaveAttribute('type', 'number');
+		await expect(rooms).toHaveAttribute('inputmode', 'decimal');
+		await expect(page.getByLabel('proprietor')).toHaveAttribute('type', 'text');
+
+		// The visible "Title" label is wired to its input, so clicking it focuses the field.
+		await page.getByText('Title', { exact: true }).click();
+		await expect(page.getByLabel('Object title')).toBeFocused();
+
+		await rooms.fill('6');
 		await page.getByRole('button', { name: 'Create', exact: true }).click();
 
 		// The dialog closes only after the awaited create dispatch + persist resolve (post-persist barrier).

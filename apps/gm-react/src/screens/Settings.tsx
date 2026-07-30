@@ -38,6 +38,7 @@ import {
 	Toaster,
 } from '../ds';
 import { Page, Panel, Seg, SetRow, T, radioGroupKeyDown } from '../app/screen-kit';
+import { recoveryPassphraseIssue, recoveryPassphraseOk } from './settings-validation';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useCloudSync } from '../cloud/CloudSyncContext';
 import { useAuth } from '../cloud/AuthContext';
@@ -359,6 +360,13 @@ function SettingsAppearance() {
 					and you can change it at any time.
 				</div>
 				<div
+					// This was the last hand-rolled picker in the file with visual-only selection: three
+					// plain buttons whose chosen one differed by border/background alone, each its own tab
+					// stop, with nothing announcing which was active. The declared-radiogroup shape used by
+					// "Tool preferences" below (and by Onboarding's choice cards) is the house pattern.
+					role="radiogroup"
+					aria-label="Experience complexity"
+					onKeyDown={radioGroupKeyDown}
 					style={{
 						display: 'grid',
 						gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
@@ -373,6 +381,9 @@ function SettingsAppearance() {
 							<button
 								key={l.id}
 								type="button"
+								role="radio"
+								aria-checked={on}
+								tabIndex={on ? 0 : -1}
 								onClick={() => {
 									setTier(levelTier);
 									setDocAttr(TIER_ATTR, TIER_KEY, levelTier);
@@ -468,8 +479,12 @@ function AccountProfilePanel() {
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState('');
 	const [busy, setBusy] = useState(false);
+	const [reloadKey, setReloadKey] = useState(0);
 	useEffect(() => {
 		let cancelled = false;
+		// Reset on every attempt: without this a retry that succeeds still painted the failure copy,
+		// the same stale-error shape already fixed in Knowledge's save path.
+		setFailed(false);
 		getProfile()
 			.then((prof) => {
 				if (!cancelled) setProfile(prof);
@@ -480,7 +495,7 @@ function AccountProfilePanel() {
 		return () => {
 			cancelled = true;
 		};
-	}, []);
+	}, [reloadKey]);
 	const save = () => {
 		const name = draft.trim();
 		if (!name || name.length > 60) {
@@ -508,8 +523,20 @@ function AccountProfilePanel() {
 			}
 		>
 			{failed ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-					Couldn’t load your profile — check your connection and reopen this tab.
+				// "reopen this tab" was the only way out of this state, while the sibling device and
+				// export panels in this same file both offer a Retry. Now it does too.
+				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+					<div role="alert" style={{ font: `12.5px ${T.sans}`, color: T.ter, flex: 1, minWidth: 0 }}>
+						Couldn’t load your profile — check your connection and try again.
+					</div>
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="retry"
+						onClick={() => setReloadKey((n) => n + 1)}
+					>
+						Retry
+					</Button>
 				</div>
 			) : (
 				<div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -2540,7 +2567,11 @@ function RecoveryKeyPanel() {
 	const [importOpen, setImportOpen] = useState(false);
 	const [pass, setPass] = useState('');
 	const [passConfirm, setPassConfirm] = useState('');
-	const passOk = pass.length >= MIN_RECOVERY_PASSPHRASE_CHARS && pass === passConfirm;
+	const passOk = recoveryPassphraseOk(pass, passConfirm);
+	// WCAG 3.3.1: the only feedback for a too-short or MISMATCHED passphrase used to be an inert
+	// Export button. A mismatch is invisible by construction (both fields are `type="password"`),
+	// so nothing on screen told you which of the two you had mistyped.
+	const passIssue = recoveryPassphraseIssue(pass, passConfirm);
 
 	const closeDialogs = () => {
 		setExportOpen(false);
@@ -2644,7 +2675,14 @@ function RecoveryKeyPanel() {
 							<Button
 								variant="primary"
 								size="sm"
-								disabled={busy || !passOk}
+								disabled={busy}
+								aria-disabled={!passOk || undefined}
+								title={
+									passOk
+										? undefined
+										: (passIssue ??
+											`Enter a passphrase of at least ${MIN_RECOVERY_PASSPHRASE_CHARS} characters, twice.`)
+								}
 								onClick={() => void doExport()}
 							>
 								Export file
@@ -2680,11 +2718,20 @@ function RecoveryKeyPanel() {
 						<Input
 							type="password"
 							value={passConfirm}
+							invalid={passConfirm.length > 0 && pass !== passConfirm}
 							onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassConfirm(e.target.value)}
 							placeholder="Repeat passphrase"
 							aria-label="Repeat recovery passphrase"
 							style={{ width: '100%' }}
 						/>
+					)}
+					{exportOpen && passIssue && (
+						<div
+							role="alert"
+							style={{ font: `12px/1.5 ${T.sans}`, color: 'var(--color-status-error)' }}
+						>
+							{passIssue}
+						</div>
 					)}
 				</div>
 			</Dialog>
@@ -3136,13 +3183,30 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 						const selected = activePresetId === preset.id;
 						const isOllama = preset.id === 'ollama';
 						const platformUnsupported = isOllama && !capabilities.allowHttpLoopbackAi;
-						const locked = (hasKey && !selected) || platformUnsupported;
+						// These were hard-`disabled`, which removed them from the tab order and took their
+						// `title` with them — so `applyPreset`'s "Forget the current key first" warning was
+						// unreachable dead code and the card just went grey for no stated reason. Soft-disable
+						// instead: still looks unavailable, but stays focusable and says why when pressed.
+						// (Same trade the DS Button makes for `aria-disabled`.)
+						const lockReason = platformUnsupported
+							? 'Local model runners need the desktop app — this platform blocks loopback requests.'
+							: hasKey && !selected
+								? 'Forget the current key before switching providers.'
+								: null;
+						const locked = lockReason !== null;
 						return (
 							<button
 								key={preset.id}
 								type="button"
-								disabled={locked}
-								onClick={() => applyPreset(preset)}
+								aria-disabled={locked || undefined}
+								title={lockReason ?? undefined}
+								onClick={() => {
+									if (lockReason) {
+										Toaster.warning(lockReason);
+										return;
+									}
+									applyPreset(preset);
+								}}
 								style={{
 									textAlign: 'left',
 									padding: '11px 12px',

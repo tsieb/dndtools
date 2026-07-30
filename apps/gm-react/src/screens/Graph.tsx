@@ -264,6 +264,14 @@ export function Graph() {
 			>
 				{/* graph canvas — real nodes (sized by visible degree) + real directed link edges */}
 				<div
+					// Escape bubbles up from whichever node button has focus, so a keyboard user can drop
+					// the selection without hunting for the node they last pressed.
+					onKeyDown={(e) => {
+						if (e.key === 'Escape' && sel !== null) {
+							e.stopPropagation();
+							setSel(null);
+						}
+					}}
 					style={{
 						position: 'relative',
 						borderRadius: 14,
@@ -332,7 +340,12 @@ export function Graph() {
 							<button
 								key={n.id}
 								type="button"
-								onClick={() => setSel(n.id)}
+								// Toggle, not latch. `setSel(null)` existed nowhere, so the first click on any
+								// node dimmed every non-incident node to 0.4 and every non-incident edge to
+								// 0.22 for the rest of the session with no way back. Atlas's POI list already
+								// toggles the same way.
+								aria-pressed={n.id === sel}
+								onClick={() => setSel((cur) => (cur === n.id ? null : n.id))}
 								title={`${n.title} · ${KIND_LABEL[n.kind] ?? n.kind} · ${n.degree} ${n.degree === 1 ? 'connection' : 'connections'}`}
 								aria-label={`${n.title}, ${KIND_LABEL[n.kind] ?? n.kind}, ${n.degree} ${n.degree === 1 ? 'connection' : 'connections'}`}
 								style={{
@@ -557,7 +570,8 @@ export function Graph() {
 								<button
 									key={r.id}
 									type="button"
-									onClick={() => setSel(r.id)}
+									aria-pressed={r.id === sel}
+									onClick={() => setSel((cur) => (cur === r.id ? null : r.id))}
 									style={{
 										display: 'block',
 										width: '100%',

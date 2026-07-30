@@ -8,6 +8,7 @@ import { Button as RawButton } from './core/Button.jsx';
 import { DataTable as RawDataTable } from './data/DataTable.jsx';
 import { ConditionBadge as RawConditionBadge } from './condition/ConditionBadge.jsx';
 import { LayerRow as RawLayerRow } from './map/LayerRow.jsx';
+import { IconButton as RawIconButton } from './core/IconButton.jsx';
 
 // The DS ships as .jsx with `checkJs: false`, so tsc infers every defaultless prop as required.
 // Re-type the imports as open prop bags rather than restating each component's contract.
@@ -16,6 +17,7 @@ const Button = RawButton as React.ComponentType<DsProps>;
 const DataTable = RawDataTable as React.ComponentType<DsProps>;
 const ConditionBadge = RawConditionBadge as React.ComponentType<DsProps>;
 const LayerRow = RawLayerRow as React.ComponentType<DsProps>;
+const IconButton = RawIconButton as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;
@@ -161,5 +163,63 @@ describe('Button separates hard-disabled from explained-unavailable', () => {
 		const button = render(<Button aria-disabled>Go live</Button>);
 		expect(button.style.opacity).toBe('0.5');
 		expect(button.style.cursor).toBe('not-allowed');
+	});
+});
+
+describe('IconButton separates hard-disabled from explained-unavailable', () => {
+	// An icon-only control has nowhere to put its explanation except `label` — which `disabled` then
+	// makes unreachable. So the call sites that needed to say "you can't do this yet" instead guarded
+	// inside `onClick` and rendered a button that looked, hovered and focused exactly like a live one
+	// and silently did nothing. CharBuilder's point-buy +/- was the worst instance: at 0 points left
+	// the + button was indistinguishable from a working one.
+	function render(node: React.ReactNode): HTMLButtonElement {
+		act(() => root.render(node));
+		return container.querySelector('button') as HTMLButtonElement;
+	}
+
+	it('keeps an aria-disabled icon button focusable, named and visibly unavailable', () => {
+		const button = render(
+			<IconButton icon="add" label="Raise str — not enough points left" aria-disabled />,
+		);
+		expect(button.disabled).toBe(false);
+		expect(button.getAttribute('aria-disabled')).toBe('true');
+		expect(button.getAttribute('aria-label')).toContain('not enough points left');
+		expect(button.style.opacity).toBe('0.5');
+		expect(button.style.cursor).toBe('not-allowed');
+		button.focus();
+		expect(document.activeElement).toBe(button);
+	});
+
+	it('swallows activation while aria-disabled and resumes once available', () => {
+		let clicks = 0;
+		const onClick = () => {
+			clicks += 1;
+		};
+		const blocked = render(<IconButton icon="add" label="Raise str" aria-disabled onClick={onClick} />);
+		act(() => blocked.click());
+		expect(clicks).toBe(0);
+
+		const live = render(<IconButton icon="add" label="Raise str" onClick={onClick} />);
+		act(() => live.click());
+		expect(clicks).toBe(1);
+	});
+
+	it('gives the outline variant pointer feedback, not just ghost', () => {
+		// No global `button:hover` rule exists in this app and inline styles cannot express `:hover`,
+		// so the JS handlers are the only feedback there is. `outline` is the dense-stepper variant
+		// (ability scores, the NumSteppers) and the guard used to let only `ghost` through.
+		const button = render(<IconButton icon="add" label="Raise str" variant="outline" />);
+		const resting = button.style.background;
+		act(() => button.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })));
+		expect(button.style.background).not.toBe(resting);
+		act(() => button.dispatchEvent(new MouseEvent('mouseout', { bubbles: true })));
+		expect(button.style.background).toBe(resting);
+	});
+
+	it('does not light up on hover while unavailable', () => {
+		const button = render(<IconButton icon="add" label="Raise str" variant="outline" aria-disabled />);
+		const resting = button.style.background;
+		act(() => button.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })));
+		expect(button.style.background).toBe(resting);
 	});
 });

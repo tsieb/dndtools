@@ -1629,7 +1629,13 @@ export function Characters() {
 		return { isDm: actor?.role === 'dm', characters };
 	}, [runtime.state, actorId]);
 
-	if (detailId) return <CharacterSheet id={detailId} onBack={() => navigate('/characters')} />;
+	// `key` is load-bearing, not decoration. CharacterSheet holds a dozen pieces of per-character
+	// draft state (shareDraft, attackRows, acDraft, xpInput, editMode, error) and has NO effect keyed
+	// on `id`, so navigating sheet -> sheet (the command palette does exactly that) reused the
+	// mounted component and carried A's drafts onto B — where `applySharing` and `saveAttacks`, both
+	// full replacements, would happily write them. Remounting on id change is the fix.
+	if (detailId)
+		return <CharacterSheet key={detailId} id={detailId} onBack={() => navigate('/characters')} />;
 
 	const list = data.characters.filter((c) => {
 		if (kind === 'all') return true;

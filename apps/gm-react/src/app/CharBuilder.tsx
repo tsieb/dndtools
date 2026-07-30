@@ -758,7 +758,11 @@ function Overlay({
 				style={{
 					width: wide ? 1000 : 760,
 					maxWidth: '100%',
-					height: 620,
+					// Every other property here already goes full-bleed on a phone (no scrim padding
+					// above, square corners below) — the fixed 620px did not, so on a 851px-tall device
+					// the wizard floated as a slab with ~115px of backdrop top and bottom while its own
+					// content scrolled inside the shortfall.
+					height: phone ? '100%' : 620,
 					maxHeight: '100%',
 					display: 'flex',
 					background: T.raised,
@@ -1820,21 +1824,36 @@ export function CharBuilder({
 														{scores[k]}
 													</span>
 													<div style={{ display: 'flex', gap: 4 }}>
+														{/* Both bounds used to be enforced only inside the handler (or by the
+														    clamp in `setScore`), so at the point-buy ceiling or at score 8 the
+														    button looked and hovered exactly like a live one and silently did
+														    nothing — the "points left" pill didn't move either. IconButton's
+														    soft disable keeps the label reachable and says why. */}
 														<IconButton
 															icon="Minus"
-															label={`Lower ${k}`}
+															label={
+																scores[k] <= scoreMin
+																	? `Lower ${k} — already at the minimum of ${scoreMin}`
+																	: `Lower ${k}`
+															}
 															variant="outline"
 															size="sm"
+															aria-disabled={scores[k] <= scoreMin || undefined}
 															onClick={() => setScore(k, scores[k] - 1)}
 														/>
 														<IconButton
 															icon="add"
-															label={`Raise ${k}`}
+															label={
+																raiseBlocked(k)
+																	? `Raise ${k} — not enough points left`
+																	: scores[k] >= scoreMax
+																		? `Raise ${k} — already at the maximum of ${scoreMax}`
+																		: `Raise ${k}`
+															}
 															variant="outline"
 															size="sm"
-															onClick={() => {
-																if (!raiseBlocked(k)) setScore(k, scores[k] + 1);
-															}}
+															aria-disabled={raiseBlocked(k) || scores[k] >= scoreMax || undefined}
+															onClick={() => setScore(k, scores[k] + 1)}
 														/>
 													</div>
 												</>

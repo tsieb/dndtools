@@ -875,12 +875,17 @@ export function Knowledge() {
 			payload: { kind: 'note', title, body: '', visibility: 'dm-only' },
 		});
 		setBusy(false);
-		setComposing(false);
 		if (result.status === 'accepted') {
+			setComposing(false);
 			const created = result.events.find(
 				(e) => (e as { kind?: string }).kind === 'content.item-changed',
 			) as { itemId?: string } | undefined;
 			if (created?.itemId) navigate(`/knowledge/${created.itemId}`);
+		} else {
+			// The composer used to close unconditionally and the rejection was dropped on the floor:
+			// the form vanished, the typed title went with it, no note appeared and nothing said why.
+			// Staying open keeps the title so the DM can act on the reason and retry.
+			Toaster.error(result.rejection.message);
 		}
 	}
 

@@ -653,7 +653,15 @@ function ImportControl({
 	if (inVault && confirming) {
 		return (
 			<span style={{ display: 'inline-flex', gap: 6 }}>
-				<Button variant="danger" size={size} disabled={disabled || busy} onClick={onImport}>
+				{/* The "Import again" button that raised this confirm unmounts itself, so focus fell to
+				    <body> and a keyboard user had to Tab in from the top of the page to answer it. */}
+				<Button
+					variant="danger"
+					size={size}
+					autoFocus
+					disabled={disabled || busy}
+					onClick={onImport}
+				>
 					Import copy
 				</Button>
 				<Button variant="ghost" size={size} onClick={() => onConfirmChange(false)}>
@@ -1885,7 +1893,12 @@ function CustomObjectInstanceDialog({
 	const coerce = (type: VaultObjectFieldType, raw: string): unknown => {
 		const trimmed = raw.trim();
 		if (trimmed === '') return undefined;
-		if (type === 'number') return Number(trimmed);
+		// `Number('abc')` is NaN, and NaN passed straight through as the field value: the Core stored
+		// it, JSON-serialised it to `null`, and the user got no error. Treat unparseable as absent.
+		if (type === 'number') {
+			const n = Number(trimmed);
+			return Number.isFinite(n) ? n : undefined;
+		}
 		if (type === 'boolean') return trimmed === 'true';
 		if (type === 'string-array')
 			return trimmed
@@ -1953,12 +1966,16 @@ function CustomObjectInstanceDialog({
 		>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 				<span>
+					{/* Orphan label — no `htmlFor`, not wrapping the control — so clicking "Title" focused
+					    nothing, the same gap already closed for the custom fields below. */}
 					<label
+						htmlFor="custom-object-title"
 						style={{ font: `11.5px ${T.sans}`, color: T.sub, display: 'block', marginBottom: 4 }}
 					>
 						Title
 					</label>
 					<Input
+						id="custom-object-title"
 						value={title}
 						onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
 						placeholder="Title"
@@ -2002,6 +2019,10 @@ function CustomObjectInstanceDialog({
 							<Input
 								id={`custom-field-${f.key}`}
 								aria-required={f.required || undefined}
+								// A `number` field was a plain text input: phones raised the alphabetic keyboard
+								// and there was no spinner, no step and no rejection of letters.
+								type={f.type === 'number' ? 'number' : 'text'}
+								inputMode={f.type === 'number' ? 'decimal' : undefined}
 								value={values[f.key] ?? ''}
 								onChange={(e: { target: { value: string } }) => setValue(f.key, e.target.value)}
 								placeholder={f.type === 'string-array' ? 'comma-separated' : f.type}

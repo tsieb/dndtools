@@ -105,7 +105,13 @@ export function Atlas() {
 	// anything and just re-opened the builder exactly like "Edit in builder" beside it.
 	const [mapCenter, setMapCenter] = useState({ x: 0.5, y: 0.5 });
 	const [busy, setBusy] = useState(false);
-	const [notice, setNotice] = useState<string | null>(null);
+	// The banner is a genuinely mixed channel — "Link copied" and "Projected to N players" share it
+	// with every command rejection — so the tone has to travel with the text. It used to be a bare
+	// string rendered with a polite `role="status"` and a blue info glyph, which meant a hard refusal
+	// ("There is no live session.") was indistinguishable from a success.
+	const [notice, setNotice] = useState<{ tone: 'info' | 'error'; text: string } | null>(null);
+	const say = (text: string) => setNotice({ tone: 'info', text });
+	const fail = (text: string) => setNotice({ tone: 'error', text });
 	// The full-screen authoring overlay. Opening with a tool (fog/poi) drops the DM straight into
 	// that gesture; non-DM actors get the same surface as a pan/zoom viewer (writes are disabled).
 	const [builder, setBuilder] = useState<{ tool: MapTool; fogMode?: 'reveal' | 'conceal' } | null>(
@@ -158,7 +164,7 @@ export function Atlas() {
 				setSelTokenId(null);
 				setSelPoiId(linkPoi);
 			} else {
-				setNotice('This link points at a map that isn’t available to you.');
+				fail('This link points at a map that isn’t available to you.');
 			}
 		} else if (linkPoi !== null) {
 			setSelPoiId(linkPoi);
@@ -207,7 +213,18 @@ export function Atlas() {
 		if (busy) return undefined;
 		setBusy(true);
 		try {
-			return await runtime.dispatch(command);
+			const result = await runtime.dispatch(command);
+			// Clear on success. Without this a rejection outlived every later action — project with no
+			// live session, start the session, toggle a layer, create a map, and the banner still read
+			// "There is no live session." The map editor's `run` (app/map/useMapEditor.ts) already did
+			// this; Atlas is its untreated twin. Callers that report their OWN success message set it
+			// after this returns, so the ordering is safe.
+			if (result.status === 'accepted') setNotice(null);
+			return result;
+		} catch (error) {
+			// Six call sites did `void run(...)`, so a throw here was an unhandled rejection with no UI.
+			fail(error instanceof Error ? error.message : 'The action could not be completed.');
+			return undefined;
 		} finally {
 			setBusy(false);
 		}
@@ -261,7 +278,7 @@ export function Atlas() {
 			if (created?.mapId) setMapId(created.mapId);
 			setCreating(false);
 		} else if (res) {
-			setNotice(res.rejection.message);
+			fail(res.rejection.message);
 		}
 	}
 
@@ -376,9 +393,9 @@ export function Atlas() {
 		const url = `${window.location.origin}${window.location.pathname}${window.location.search}#/atlas?map=${encodeURIComponent(selectedId)}&poi=${encodeURIComponent(poiId)}`;
 		try {
 			await navigator.clipboard.writeText(url);
-			setNotice('Link copied — opening it highlights this point of interest on the map.');
+			say('Link copied — opening it highlights this point of interest on the map.');
 		} catch {
-			setNotice(`The link couldn’t be copied — copy it manually: ${url}`);
+			fail(`The link couldn’t be copied — copy it manually: ${url}`);
 		}
 	}
 
@@ -393,7 +410,7 @@ export function Atlas() {
 			(a) => a.role === 'player',
 		);
 		if (players.length === 0) {
-			setNotice('No players yet — add players in Settings → Players before projecting a map.');
+			fail('No players yet — add players in Settings → Players before projecting a map.');
 			return;
 		}
 		const staged = await run({
@@ -403,7 +420,7 @@ export function Atlas() {
 		});
 		if (!staged) return;
 		if (staged.status !== 'accepted') {
-			setNotice(staged.rejection.message);
+			fail(staged.rejection.message);
 			return;
 		}
 		const projected = await run({
@@ -413,11 +430,11 @@ export function Atlas() {
 		});
 		if (!projected) return;
 		if (projected.status === 'accepted') {
-			setNotice(
+			say(
 				`Projected “${selectedEntry?.name ?? 'map'}” to ${players.length} player${players.length === 1 ? '' : 's'}.`,
 			);
 		} else {
-			setNotice(projected.rejection.message);
+			fail(projected.rejection.message);
 		}
 	}
 
@@ -501,24 +518,31 @@ export function Atlas() {
 			{notice && (
 				<div
 					// This one banner carries every async outcome on the screen — "Link copied", "Projected
-					// to N players", and every command rejection — so it has to announce itself.
-					role="status"
-					aria-live="polite"
+					// to N players", and every command rejection — so it has to announce itself, and a
+					// refusal has to look like one. The map editor's notice (app/map/MapEditor.tsx) is the
+					// same shape: assertive + warning skin on error, polite + info skin otherwise.
+					role={notice.tone === 'error' ? 'alert' : 'status'}
+					aria-live={notice.tone === 'error' ? 'assertive' : 'polite'}
 					style={{
 						marginBottom: 14,
 						padding: '9px 12px',
 						borderRadius: 9,
-						background: T.alt,
-						border: `1px solid ${T.bd}`,
+						background:
+							notice.tone === 'error' ? 'var(--color-status-warning-subtle)' : T.alt,
+						border: `1px solid ${notice.tone === 'error' ? 'var(--color-status-warning-border)' : T.bd}`,
 						font: `12.5px ${T.sans}`,
-						color: T.sub,
+						color: notice.tone === 'error' ? 'var(--color-status-warning-text)' : T.sub,
 						display: 'flex',
 						alignItems: 'center',
 						gap: 10,
 					}}
 				>
-					<Icon name="info" size={15} color={T.info} />
-					<span style={{ flex: 1 }}>{notice}</span>
+					<Icon
+						name={notice.tone === 'error' ? 'warning' : 'info'}
+						size={15}
+						color={notice.tone === 'error' ? 'var(--color-status-warning-text)' : T.info}
+					/>
+					<span style={{ flex: 1 }}>{notice.text}</span>
 					<button
 						type="button"
 						onClick={() => setNotice(null)}

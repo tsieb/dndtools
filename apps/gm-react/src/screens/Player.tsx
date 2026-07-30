@@ -448,8 +448,13 @@ export function Player() {
 				</div>
 				{/* One panel element, re-labelled per active tab — only one body is ever mounted. */}
 				<div {...tabPanelProps('player', activeTab)}>
+				{/* Keyed by charId on purpose. The PC picker in the vitals bar stays mounted across a
+				    switch, so without a key these bodies kept the PREVIOUS character's draft state —
+				    and `saveEdit` diffs those drafts against the NEW `C`, writing person A's race,
+				    subclass, background and speed onto person B with no warning and no undo. */}
 				{activeTab === 'sheet' && (
 					<PlayerSheet
+						key={charId}
 						C={C}
 						level={level}
 						isDm={data.isDm}
@@ -465,6 +470,7 @@ export function Player() {
 				)}
 				{activeTab === 'resources' && (
 					<PlayerResources
+						key={charId}
 						charId={charId}
 						resources={data.resources}
 						actorId={actorId}
@@ -484,6 +490,7 @@ export function Player() {
 				)}
 				{activeTab === 'levelup' && data.canAdvance && (
 					<PlayerLevelUp
+						key={charId}
 						charId={charId}
 						actorId={actorId}
 						advancement={data.advancement}
@@ -494,6 +501,7 @@ export function Player() {
 				)}
 				{activeTab === 'journal' && (
 					<PlayerJournal
+						key={charId}
 						charId={charId}
 						actorId={actorId}
 						entries={data.journal}

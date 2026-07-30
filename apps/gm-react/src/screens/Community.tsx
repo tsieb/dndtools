@@ -316,6 +316,10 @@ function CommDiscover() {
 							<button
 								key={m.moduleId}
 								type="button"
+								// Selection was border+shadow only, so a screen-reader user pressing these cards
+								// got no confirmation that anything changed (the detail panel is elsewhere in
+								// the DOM). `aria-pressed` makes the toggle state part of the button's name.
+								aria-pressed={sel?.moduleId === m.moduleId}
 								onClick={() => setSelId(m.moduleId)}
 								style={{
 									display: 'flex',
