@@ -80,7 +80,9 @@ export function ConditionBadge({ condition, label, tone, icon, duration, level, 
 					type="button"
 					aria-label={`Clear ${text}`}
 					onClick={onRemove}
-					style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, marginLeft: 2, padding: 0, border: 'none', borderRadius: 'var(--radius-full)', background: 'transparent', color: 'inherit', cursor: 'pointer', opacity: 0.7 }}
+					// 14x14 failed WCAG 2.5.8, and in the Session combat tracker these sit in a wrapping row
+					// of other tiny targets. Match Chip's remove button: a 24px hit box around the 11px glyph.
+					style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 24, minHeight: 24, marginLeft: 2, padding: 0, border: 'none', borderRadius: 'var(--radius-full)', background: 'transparent', color: 'inherit', cursor: 'pointer', opacity: 0.7 }}
 				>
 					<Icon name="close" size={11} />
 				</button>

@@ -59,6 +59,44 @@ metadata:
    account for the sticky nav pinning across a short phone viewport for a many-page wiki, squeezing
    the article. Minor/P3 — verify visually before treating as more than polish.
 
+## 2026-07-29 RE-AUDIT after commit fc40e764 — what landed, what did NOT
+FIXED, do not re-report: inert `[[wikilinks]]` (both readers now resolve; Knowledge renders a real
+`<button>` at ~142-157), orphan `<li>` (both wrap in `<ul>` now), Knowledge push-to-players Dialog
+confirm, Atlas notice banner `role=status`, Atlas New-map `aria-expanded`.
+
+NOT fixed / newly found:
+- **`Atlas.tsx:577` — the POI popover's PRIMARY "Focus on map" button is dead by equivalence.**
+  `onFocus={() => openBuilder('select')}` is byte-identical to `onEdit` on :578. `openBuilder` (~207)
+  does `setSelPoiId(null)` then `setBuilder({tool})`, and `MapBuilder` accepts only
+  `{mapId, initialTool, initialFogMode, onClose}` — no POI id, no center. The POI identity is
+  discarded, so it never focuses or centers anything. Needs MapBuilder to accept an `initialPoiId`.
+- **`Knowledge.tsx` still has ZERO `role=status`/`aria-live`** (grep count 0). Three sites:
+  `:496` (edit-mode save error span), `:517` (view-mode error div — rendered AFTER the whole note
+  body, so a rejected reveal is off-screen and silent), `:756` (ImportPanel `message`). Worse at :756,
+  `runImport` funnels BOTH success and rejection into the same field styled neutral grey `T.sub`
+  (~863) — success and failure are visually identical.
+- **`Knowledge.tsx:741` ImportPanel `<Textarea>` has NO accessible name** — the only unlabeled field
+  in the file (its sibling Select :750 and both NoteViewer fields :481/:487 all have `aria-label`).
+- **`Knowledge.tsx:748`** import action row has no `flexWrap` (siblings at ~721/~874 do) — Select
+  clips and the message collides with buttons at 393px.
+- **Atlas sub-24px targets:** `ghostBtn` (~62) is `padding:2` around a 12px Icon = 16x16, used for the
+  vertically-adjacent layer reorder chevrons (~756-775) where a mis-tap dispatches the OPPOSITE
+  durable `map.reorder-layer`. Same at ~809-818 (visibility), ~912-931 (POI delete), ~505-513.
+- **`Atlas.tsx` POI delete (~317-353) never moves focus** — the row unmounts, focus falls to `<body>`,
+  and the only Undo is in a toast now unreachable before it expires.
+- **`Atlas.tsx:589`** `maxWidth:'calc(100% - 190px)'` + `whiteSpace:nowrap` caps the map title to
+  ~171px at 393px; `height={560}` (:558) is unconditional with no `isPhone` branch.
+- **Graph.tsx (previously "clean") has 2 real gaps:** the `Selected` Panel (~378-490) is the FIRST
+  child of the rail, above `Search` (~492), so clicking a result (~555) inserts ~250px above the list
+  and the clicked row jumps out from under the pointer — on phone the rail is stacked below the canvas
+  so the list is pushed off-screen. And `:223`/`:601` ("Showing N of M", "No results for this filter.")
+  have no `aria-live`; the file has no live region at all.
+- Atlas/Knowledge phone guards are real but MINIMAL — one `isPhone` each, only on the top-level
+  split grid (`Atlas.tsx:545`, `Knowledge.tsx:443`). Everything below relies on flexWrap.
+- Non-defect worth knowing: `App.tsx:420` returns `<Boot/>` until `runtime.loaded`, so Atlas's
+  hydration skeletons (~448-455, ~831, ~951) are unreachable dead branches — and Knowledge/Graph
+  having no loading state is therefore NOT a false-empty-state bug.
+
 ## Verified NON-defects (checked, do not re-report)
 - `Seg` (screen-kit.tsx ~127) now has full roving-tabindex + arrow-key radiogroup contract (fixed in
   5274a5f9) — Knowledge's note-visibility `Seg` at ~428 is fine mechanically (its BUG is #2 above,

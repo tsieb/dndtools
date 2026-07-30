@@ -54,10 +54,11 @@ async function clippedControls(page: Page, rootSelector = 'body'): Promise<strin
 			return elements.flatMap((element) => {
 				const rect = element.getBoundingClientRect();
 				const style = getComputedStyle(element);
-				// The skip link is intentionally parked above the viewport until keyboard focus
-				// reveals it. Its focus behaviour is covered independently; treating its resting
-				// position as clipping would turn this audit into a false positive on every route.
-				if (element.matches('a[href="#main-content"]') && element !== document.activeElement) {
+				// A skip link is intentionally parked above the viewport until keyboard focus reveals
+				// it. Its focus behaviour is covered independently; treating its resting position as
+				// clipping would turn this audit into a false positive on every route. Keyed off the
+				// `data-skip-link` marker so it covers /play's own link as well as the shell's.
+				if (element.matches('[data-skip-link]') && element !== document.activeElement) {
 					return [];
 				}
 				if (
@@ -834,4 +835,32 @@ test('the skip link moves focus to main without clobbering the hash route', asyn
 	// … and the route is untouched, so Back and reload still work.
 	expect(new URL(page.url()).hash).toBe('#/scenes');
 	await expect(page.locator('#main-content')).toBeVisible();
+});
+
+// `/play` is rendered OUTSIDE AppShell, so it never inherited the shell's skip link — and
+// styles/index.css pins the player nav to the bottom of a phone while the `<aside>` stays the FIRST
+// child in the DOM. A plain player therefore tabbed through nine nav buttons (six primary + three
+// aria-disabled elevated) before reaching any content (WCAG 2.4.1 / 2.4.3).
+test('the standalone player view has its own skip link into main', async ({ page }) => {
+	await page.setViewportSize({ width: 393, height: 720 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/');
+	await seedFresh(page);
+	await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
+	// NOT `waitReady`: it waits for `#main-content`, which is AppShell's landmark, and /play renders
+	// outside the shell. Wait for /play's own main instead.
+	await page.getByRole('main').first().waitFor({ state: 'visible', timeout: 20_000 });
+	expect(new URL(page.url()).hash).toBe('#/play');
+
+	// It is the first tab stop, and it is only visible once focused.
+	await page.keyboard.press('Tab');
+	const skip = page.getByRole('link', { name: 'Skip to content' });
+	await expect(skip).toBeFocused();
+
+	await skip.press('Enter');
+	// Focus lands on /play's own main landmark — a DISTINCT id, because `#main-content` is the
+	// AppShell marker that _helpers.waitReady keys off.
+	await expect(page.locator('#player-main')).toBeFocused();
+	// The hash route survives (the app is a HashRouter, so following the href would rewrite it).
+	expect(new URL(page.url()).hash).toBe('#/play');
 });

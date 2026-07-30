@@ -316,6 +316,15 @@ function QuestEditor({ quest, onClose }: { quest: QuestRow | null; onClose: () =
 
 	return (
 		<Panel title={quest ? `Edit ${quest.view.title}` : 'New quest'} accent>
+			{/* A real <form> so Enter submits — the natural "type a title, press Enter" was a no-op. */}
+			<form
+				onSubmit={(e) => {
+					e.preventDefault();
+					if (busy) return;
+					void save();
+				}}
+				style={{ display: 'contents' }}
+			>
 			<div
 				style={{
 					display: 'grid',
@@ -371,10 +380,11 @@ function QuestEditor({ quest, onClose }: { quest: QuestRow | null; onClose: () =
 				<Button variant="ghost" size="sm" disabled={busy} onClick={onClose}>
 					Cancel
 				</Button>
-				<Button variant="primary" size="sm" icon="check" disabled={busy} onClick={save}>
+				<Button type="submit" variant="primary" size="sm" icon="check" disabled={busy}>
 					{quest ? 'Save quest' : 'Create quest'}
 				</Button>
 			</div>
+			</form>
 		</Panel>
 	);
 }
@@ -400,8 +410,11 @@ function FactionCard({
 			<div
 				style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}
 			>
-				<span
+				{/* <h3> to match NpcCard/QuestCard — the Factions grid was the only one a screen-reader
+				    user could not navigate by heading. */}
+				<h3
 					style={{
+						margin: 0,
 						font: `700 15px ${T.disp}`,
 						minWidth: 0,
 						overflow: 'hidden',
@@ -410,7 +423,7 @@ function FactionCard({
 					}}
 				>
 					{view.title}
-				</span>
+				</h3>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
 					<Badge status={STANCE_TONE[stance] || 'neutral'}>
 						{STANCE_OPTIONS.find((o) => o.value === stance)?.label ?? stance}
@@ -557,6 +570,15 @@ function FactionEditor({ faction, onClose }: { faction: FactionRow | null; onClo
 
 	return (
 		<Panel title={faction ? `Edit ${faction.view.title}` : 'New faction'} accent>
+			{/* See QuestEditor — Enter submits rather than doing nothing. */}
+			<form
+				onSubmit={(e) => {
+					e.preventDefault();
+					if (busy) return;
+					void save();
+				}}
+				style={{ display: 'contents' }}
+			>
 			<div
 				style={{
 					display: 'grid',
@@ -633,10 +655,11 @@ function FactionEditor({ faction, onClose }: { faction: FactionRow | null; onClo
 				<Button variant="ghost" size="sm" disabled={busy} onClick={onClose}>
 					Cancel
 				</Button>
-				<Button variant="primary" size="sm" icon="check" disabled={busy} onClick={save}>
+				<Button type="submit" variant="primary" size="sm" icon="check" disabled={busy}>
 					{faction ? 'Save faction' : 'Create faction'}
 				</Button>
 			</div>
+			</form>
 		</Panel>
 	);
 }

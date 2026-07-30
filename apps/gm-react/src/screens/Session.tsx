@@ -293,7 +293,10 @@ export function Session() {
 
 	const selected = tracker.combatants.find((c) => c.id === selectedId) ?? null;
 	const condPickTarget = tracker.combatants.find((c) => c.id === condPickFor) ?? null;
-	const canDeliver = isDm && isLive && !!activeSceneId && players.length > 0;
+	// `canDeliver` gates only on DM-ness + being live: requiring `activeSceneId`/`players.length` here
+	// too made `deliverHandout`'s two Toaster.warning branches DEAD, so a DM with no registered players
+	// saw a permanently greyed "Push to players" and was never told why.
+	const canDeliver = isDm && isLive;
 
 	return (
 		<Page max={1280}>
@@ -1304,22 +1307,32 @@ function DicePanel({
 					</Button>
 				))}
 			</div>
-			<div style={{ display: 'flex', gap: 8 }}>
+			{/* A <form> so Enter (and a phone keyboard's Go key) rolls — typing "2d6+4" and pressing
+			    Enter used to do nothing at all on the busiest control of the live-play screen. */}
+			<form
+				style={{ display: 'flex', gap: 8 }}
+				onSubmit={(e) => {
+					e.preventDefault();
+					if (disabled || !expr.trim()) return;
+					onRoll(expr.trim());
+				}}
+			>
 				<Input
 					value={expr}
 					onChange={(e: { target: { value: string } }) => onExpr(e.target.value)}
 					placeholder="e.g. 3d6+2"
+					aria-label="Dice expression"
 					style={{ flex: 1 }}
 				/>
 				<Button
+					type="submit"
 					variant="accent"
 					icon="dice"
 					disabled={disabled || !expr.trim()}
-					onClick={() => onRoll(expr.trim())}
 				>
 					Roll
 				</Button>
-			</div>
+			</form>
 			{last && (
 				<DiceResult
 					notation={last.expression}

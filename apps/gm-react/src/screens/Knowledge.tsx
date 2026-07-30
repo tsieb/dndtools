@@ -696,11 +696,13 @@ function ImportPanel({
 	onCancel,
 	busy,
 	message,
+	failed,
 }: {
 	onImport: (text: string, policy: string) => void;
 	onCancel: () => void;
 	busy: boolean;
 	message: string | null;
+	failed: boolean;
 }) {
 	const [text, setText] = useState('');
 	const [policy, setPolicy] = useState('skip');
@@ -739,6 +741,9 @@ function ImportPanel({
 				<code style={{ fontFamily: T.mono }}>===== path.md =====</code> headers.
 			</div>
 			<Textarea
+				// The only unlabeled field in this file — a screen reader announced "edit, multiline,
+				// blank" with no hint that this is the import buffer (WCAG 4.1.2).
+				aria-label="Markdown or JSON to import"
 				value={text}
 				onChange={(e: { target: { value: string } }) => setText(e.target.value)}
 				rows={8}
@@ -753,7 +758,22 @@ function ImportPanel({
 					onChange={(e: { target: { value: string } }) => setPolicy(e.target.value)}
 				/>
 				<div style={{ flex: 1 }} />
-				{message && <span style={{ font: `12px ${T.sans}`, color: T.sub }}>{message}</span>}
+				{/* Success AND rejection both land in `message`; rendering them in the same neutral grey
+				 * made a failed import look identical to "Imported 4 new." Tone by outcome, and make it
+				 * a live region so the result is announced at all. */}
+				<span
+					role="status"
+					style={{
+						font: `12px ${T.sans}`,
+						color: failed ? 'var(--color-status-error-text)' : T.sub,
+						display: 'inline-flex',
+						alignItems: 'center',
+						gap: 5,
+					}}
+				>
+					{message && failed && <Icon name="warning" size={13} />}
+					{message}
+				</span>
 				<Button
 					variant="primary"
 					size="sm"
@@ -794,6 +814,7 @@ export function Knowledge() {
 	const [showSources, setShowSources] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [importMsg, setImportMsg] = useState<string | null>(null);
+	const [importFailed, setImportFailed] = useState(false);
 
 	// Create-intent handoff from "New note" launchers elsewhere (home hub, ⌘K): open the composer
 	// immediately instead of landing the user on the list with nothing happening.
@@ -858,8 +879,10 @@ export function Knowledge() {
 			) as { createdItemIds?: string[]; overwrittenItemIds?: string[] } | undefined;
 			const created = ev?.createdItemIds?.length ?? 0;
 			const over = ev?.overwrittenItemIds?.length ?? 0;
+			setImportFailed(false);
 			setImportMsg(`Imported ${created} new${over ? `, ${over} overwritten` : ''}.`);
 		} else {
+			setImportFailed(true);
 			setImportMsg(result.rejection.message);
 		}
 	}
@@ -930,10 +953,12 @@ export function Knowledge() {
 				<ImportPanel
 					busy={busy}
 					message={importMsg}
+					failed={importFailed}
 					onImport={runImport}
 					onCancel={() => {
 						setImporting(false);
 						setImportMsg(null);
+						setImportFailed(false);
 					}}
 				/>
 			)}

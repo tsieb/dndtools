@@ -2249,12 +2249,12 @@ function PlayerJournal({
 					gap: 10,
 					padding: '10px 14px',
 					borderRadius: 10,
-					background: 'var(--color-visibility-dm-subtle)',
-					border: `1px solid var(--color-visibility-dm)`,
+					background: 'var(--color-dm-only-subtle)',
+					border: `1px solid var(--color-dm-only-badge)`,
 					marginBottom: 18,
 				}}
 			>
-				<Icon name="hidden" size={16} color="var(--color-visibility-dm)" />
+				<Icon name="hidden" size={16} color="var(--color-dm-only-badge)" />
 				<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
 					Private journal — entries are owner-private until you explicitly share one with the table.
 				</span>

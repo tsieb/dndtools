@@ -76,6 +76,8 @@ export interface SceneBoardCanvasProps {
 		payload: Record<string, unknown>,
 	) => void;
 	emptyHint?: string;
+	/** Overrides the empty-state headline — the caller uses it to say "loading" instead of "empty". */
+	emptyTitle?: string;
 }
 
 /** Arrow-key vector: [dx, dy] in grid steps. */
@@ -111,6 +113,7 @@ export function SceneBoardCanvas({
 	onRemove,
 	onWidgetCommand,
 	emptyHint,
+	emptyTitle,
 }: SceneBoardCanvasProps) {
 	const wrapRef = useRef<HTMLDivElement | null>(null);
 	const [wrapWidth, setWrapWidth] = useState(0);
@@ -437,7 +440,9 @@ export function SceneBoardCanvas({
 					position: 'absolute',
 					inset: 0,
 					background:
-						'radial-gradient(120% 80% at 50% -10%, rgba(224,176,111,.07), transparent 60%)',
+						// Not a literal warm rgba: parchment and high-contrast got an unrequested gold film
+						// that no token controlled. color-mix keeps the wash tied to the active accent.
+						'radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--color-accent) 7%, transparent), transparent 60%)',
 					pointerEvents: 'none',
 				}}
 			/>
@@ -534,7 +539,10 @@ export function SceneBoardCanvas({
 							color: 'var(--color-text-secondary)',
 						}}
 					>
-						An empty scene
+						{/* The empty state doubles as the LOADING state (widgets.length is 0 while
+						 * `command-center.ensure-home` is in flight), so /board's first paint used to read
+						 * "An empty scene" over "Preparing your GM Screen…". Let the caller say which it is. */}
+						{emptyTitle ?? 'An empty scene'}
 					</div>
 					<div
 						style={{

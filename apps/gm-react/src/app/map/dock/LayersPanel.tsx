@@ -128,6 +128,18 @@ export function LayersPanel({
 								setDragIndex(null);
 							}}
 							onClick={() => editor.setActiveLayerId(l.layerId)}
+							// The active layer decides where every drawing tool paints, but selecting one was
+							// mouse-ONLY: LayerRow is `role="listitem" tabIndex={0}` and its own onKeyDown
+							// handles just Alt+Arrow reorder. Handle Enter/Space on the wrapper — NOT as a
+							// LayerRow prop, whose `{...rest}` spread would clobber that Alt+Arrow handler.
+							onKeyDown={(e) => {
+								if (e.target !== e.currentTarget && !(e.target as HTMLElement).matches('[role="listitem"]'))
+									return;
+								if (e.key === 'Enter' || e.key === ' ') {
+									e.preventDefault();
+									editor.setActiveLayerId(l.layerId);
+								}
+							}}
 							style={{
 								position: 'relative',
 								borderRadius: 8,

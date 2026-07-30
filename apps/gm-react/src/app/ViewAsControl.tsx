@@ -108,7 +108,33 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 							if (e.key === 'Escape') {
 								e.preventDefault();
 								close(true);
+								return;
 							}
+							// ARIA menus are arrow-navigated, not Tab-navigated. Without this the only way
+							// through a full party's preview list was Tab, which also walked straight out of
+							// the menu into the page behind it.
+							const keys = ['ArrowDown', 'ArrowUp', 'Home', 'End'];
+							if (!keys.includes(e.key)) return;
+							const items = Array.from(
+								menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') ??
+									[],
+							);
+							if (items.length === 0) return;
+							e.preventDefault();
+							const at = items.indexOf(document.activeElement as HTMLButtonElement);
+							const to =
+								e.key === 'Home'
+									? 0
+									: e.key === 'End'
+										? items.length - 1
+										: e.key === 'ArrowDown'
+											? at < 0
+												? 0
+												: (at + 1) % items.length
+											: at < 0
+												? items.length - 1
+												: (at - 1 + items.length) % items.length;
+							items[to]?.focus();
 						}}
 						style={{
 							position: 'absolute',
@@ -132,7 +158,10 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 						}}
 					>
 						<MenuItem icon="dm-only" label="DM view" active={!preview} onClick={exit} />
-						<div style={{ height: 1, background: T.bd, margin: '4px 0' }} />
+						<div
+							role="separator"
+							style={{ height: 1, background: T.bd, margin: '4px 0' }}
+						/>
 						<MenuLabel>Preview as</MenuLabel>
 						<MenuItem
 							icon="visibility-players"
@@ -181,6 +210,9 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 function MenuLabel({ children }: { children: ReactNode }) {
 	return (
 		<div
+			// A bare div is not a valid owned child of role="menu" (axe `aria-required-children`), and the
+			// group headings are decorative — the following items carry their own names.
+			role="presentation"
 			style={{
 				font: `600 10px ${T.sans}`,
 				letterSpacing: '.08em',
@@ -209,7 +241,11 @@ function MenuItem({
 	return (
 		<button
 			type="button"
-			role="menuitem"
+			// The items are a mutually-exclusive set (exactly one view is active), and `active` was
+			// conveyed only by gold text + a decorative check glyph — invisible to AT and to anyone
+			// who cannot separate gold from cream. menuitemradio + aria-checked states it.
+			role="menuitemradio"
+			aria-checked={!!active}
 			onClick={onClick}
 			onMouseEnter={() => setHov(true)}
 			onMouseLeave={() => setHov(false)}

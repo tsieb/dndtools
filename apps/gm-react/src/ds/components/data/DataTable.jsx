@@ -9,7 +9,11 @@ import { Icon } from '../core/Icon.jsx';
  */
 export function DataTable({ columns = [], rows = [], rowKey, sort, onSort, zebra = true, dense = false, empty, style, ...rest }) {
 	const cellPad = dense ? 'var(--space-1-5) var(--space-2)' : 'var(--space-2) var(--space-3)';
+	// Cells default to `nowrap`, so a wide table (Settings → Active grants is 6 columns incl. a button)
+	// blows past a 393px phone. The scroll port belongs on the primitive, not on every call site —
+	// `maxWidth:100%` keeps it from widening its own flex/grid parent.
 	return (
+		<div style={{ maxWidth: '100%', overflowX: 'auto' }}>
 		<table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-sans)', ...style }} {...rest}>
 			<thead>
 				<tr>
@@ -77,5 +81,6 @@ export function DataTable({ columns = [], rows = [], rowKey, sort, onSort, zebra
 				))}
 			</tbody>
 		</table>
+		</div>
 	);
 }

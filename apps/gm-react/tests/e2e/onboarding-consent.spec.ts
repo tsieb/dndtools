@@ -8,6 +8,8 @@ import { markOnboarded, waitReady } from './_helpers';
 
 const MODE_KEY = 'dndtools:react:vault-privacy-mode';
 const ONBOARDED_KEY = 'dndtools:react:onboarded';
+const TIER_KEY = 'dndtools:react:tier';
+const INVITES_KEY = 'dndtools:react:invites';
 const ACK_PHRASE = 'i hold the keys';
 
 function overlay(page: Page) {
@@ -88,6 +90,49 @@ test.describe('onboarding forced consent (ADR-026)', () => {
 		await expect(overlay(page)).toBeHidden();
 		expect(await storage(page, MODE_KEY)).toBe('cloud-enhanced');
 		expect(await storage(page, ONBOARDED_KEY)).toBe('skipped');
+	});
+
+	// "Skip setup" ENDS setup, so it has to persist the decisions already made on the steps behind it.
+	// It used to write only the privacy mode + the onboarded flag, silently discarding the experience
+	// tier, the AI preference and the noted players — with no way back (setup only replays from
+	// Settings). Regression lock for that data loss.
+	test('skipping mid-setup keeps the choices already made (tier + noted players)', async ({
+		page,
+	}) => {
+		await openFresh(page);
+		await toPrivacyStep(page);
+		await overlay(page)
+			.getByRole('radio', { name: /Cloud-Enhanced vault/ })
+			.click();
+		await overlay(page).getByRole('button', { name: 'Continue' }).click();
+
+		// Experience step: pick a NON-default complexity ('expert' -> the 'advanced' tier; the default
+		// is 'core', so a lost write is indistinguishable from an unmade choice unless we move it).
+		const tiers = overlay(page).getByRole('radiogroup', { name: 'Experience complexity' });
+		await expect(tiers).toBeVisible();
+		await tiers.getByRole('radio', { name: /Expert/ }).click();
+		await expect(tiers.getByRole('radio', { name: /Expert/ })).toHaveAttribute(
+			'aria-checked',
+			'true',
+		);
+		await overlay(page).getByRole('button', { name: 'Continue' }).click();
+
+		// tools -> players, and note a player.
+		await overlay(page).getByRole('button', { name: 'Continue' }).click();
+		const draft = overlay(page).getByLabel('Player name or email');
+		await expect(draft).toBeVisible();
+		await draft.fill('Rowan');
+		await overlay(page).getByRole('button', { name: 'Add', exact: true }).click();
+
+		// Now bail out. Everything decided so far must survive.
+		await overlay(page).getByRole('button', { name: 'Skip setup' }).click();
+		await expect(overlay(page)).toBeHidden();
+		expect(await storage(page, ONBOARDED_KEY)).toBe('skipped');
+		expect(await storage(page, MODE_KEY)).toBe('cloud-enhanced');
+		expect(await storage(page, TIER_KEY)).toBe('advanced');
+		expect(await storage(page, INVITES_KEY)).toContain('Rowan');
+		// The tier is applied to the live document, not just stored.
+		await expect(page.locator('html')).toHaveAttribute('data-feature-tier', 'advanced');
 	});
 
 	test('the e2e/gate bypass flag still suppresses the overlay entirely', async ({ page }) => {

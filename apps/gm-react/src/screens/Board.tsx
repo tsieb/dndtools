@@ -7,11 +7,13 @@ import {
 	resolveAddWidgetCommand,
 	type WidgetLibraryEntry,
 } from '@dndtools/core';
-import { Button, Card, Icon, IconButton, Input, Switch } from '../ds';
+import { Button, Card, Dialog, Icon, IconButton, Input, Switch } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { SceneBoardCanvas, WidgetGlyph } from '../app/SceneBoardCanvas';
 import { boardWidgetsOf, payloadIndex, type BoardWidget } from '../app/board-helpers';
 import { useViewport } from '../app/useViewport';
+import { Page } from '../app/screen-kit';
+import { widgetProfileForRuntime } from '../platform/capabilities';
 
 /**
  * Board (`/board`) — the Command Center spatial board: the application's home Scene rendered as a
@@ -37,6 +39,8 @@ export function Board() {
 	const [addOpen, setAddOpen] = useState(false);
 	const [presetName, setPresetName] = useState('');
 	const [status, setStatus] = useState<string | null>(null);
+	const [error, setError] = useState<string | null>(null);
+	const [pendingDestroyId, setPendingDestroyId] = useState<string | null>(null);
 	const ensuringRef = useRef(false);
 
 	// Create-intent handoff from "New widget" launchers (home hub): arrive in edit mode with the
@@ -88,12 +92,14 @@ export function Board() {
 		);
 	}, [ready, homeSceneId, runtime.state.scenes, runtime.state.widgets, summary]);
 
+	const pendingDestroy = widgets.find((w) => w.id === pendingDestroyId) ?? null;
+
 	const presets = Object.values(runtime.state.commandCenter.presets).sort((a, b) =>
 		a.name.localeCompare(b.name),
 	);
 	const library = isDm
 		? listWidgetLibrary(runtime.state.widgets, runtime.state.permissions, actorId, {
-				profileId: 'desktop',
+				profileId: widgetProfileForRuntime(),
 				includeUnavailable: false,
 			})
 		: [];
@@ -101,9 +107,13 @@ export function Board() {
 	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
 		const result = await runtime.dispatch(command);
 		if (result.status === 'rejected') {
-			setStatus(result.rejection.message ?? 'That change couldn’t be applied — try again.');
+			// A rejection is NOT a confirmation: routing both into `status` rendered "that change
+			// couldn't be applied" in the same neutral grey, with the same info icon, as "Layout saved".
+			setStatus(null);
+			setError(result.rejection.message ?? 'That change couldn’t be applied — try again.');
 			return false;
 		}
+		setError(null);
 		return true;
 	}
 
@@ -123,8 +133,17 @@ export function Board() {
 			payload: { sceneId: homeSceneId, widgetInstanceId, w, h },
 		});
 	}
+	// Delete/Backspace on a focused widget frame is the ONLY widget-lifecycle operation on `/board`
+	// (there is no Inspector here), and `scene.destroy-widget` has no restore counterpart — it takes
+	// the instance's configuration (a note's text, a timer's duration, a map binding) with it. So a
+	// bare Backspace while arrow-navigating frames stages a confirm, exactly as SceneEditor does.
 	function remove(widgetInstanceId: string) {
 		if (!homeSceneId) return;
+		setPendingDestroyId(widgetInstanceId);
+	}
+	function confirmDestroy(widgetInstanceId: string) {
+		if (!homeSceneId) return;
+		setPendingDestroyId(null);
 		setSelectedId((cur) => (cur === widgetInstanceId ? null : cur));
 		return dispatch({
 			type: 'scene.destroy-widget',
@@ -204,7 +223,10 @@ export function Board() {
 
 	if (!isDm) {
 		return (
-			<div style={{ maxWidth: 640, margin: '0 auto' }}>
+			// `<Page>` rather than a bare max-width div: the raw div has no padding, so on a phone this
+			// explainer Card sat flush against both screen edges — every other screen's non-DM/empty
+			// state goes through Page and gets the profile's gutters.
+			<Page max={640}>
 				<Card
 					elevation="raised"
 					padding="lg"
@@ -227,7 +249,7 @@ export function Board() {
 						Only the DM can arrange it. Switch back to the DM view to make changes.
 					</span>
 				</Card>
-			</div>
+			</Page>
 		);
 	}
 
@@ -326,8 +348,8 @@ export function Board() {
 
 			{status && (
 				<div
-					// Every board write's confirmation/rejection surfaces here, so it has to be a live
-					// region or screen-reader users get no feedback at all (WCAG 4.1.3).
+					// Every board write's confirmation surfaces here, so it has to be a live region or
+					// screen-reader users get no feedback at all (WCAG 4.1.3).
 					role="status"
 					style={{
 						display: 'inline-flex',
@@ -339,6 +361,24 @@ export function Board() {
 					}}
 				>
 					<Icon name="info" size="sm" /> {status}
+				</div>
+			)}
+
+			{error && (
+				<div
+					// Rejections get `role="alert"` and the error tone (mirroring SceneEditor) so a failed
+					// write is neither announced politely-and-late nor painted like a confirmation.
+					role="alert"
+					style={{
+						display: 'inline-flex',
+						alignItems: 'center',
+						gap: 6,
+						font: 'var(--text-xs) var(--font-sans)',
+						color: 'var(--color-status-error-text)',
+						flex: '0 0 auto',
+					}}
+				>
+					<Icon name="warning" size="sm" /> {error}
 				</div>
 			)}
 
@@ -365,6 +405,33 @@ export function Board() {
 					onWidgetCommand={operateWidget}
 					emptyHint={
 						ready ? 'Press Edit layout, then Add to place a widget.' : 'Preparing your GM Screen…'
+					}
+					emptyTitle={ready ? undefined : 'Setting up your GM Screen'}
+				/>
+
+				<Dialog
+					open={!!pendingDestroy}
+					onClose={() => setPendingDestroyId(null)}
+					title={`Remove “${pendingDestroy?.title ?? 'this widget'}”?`}
+					description="The widget and its configuration leave your GM Screen. There is no undo for a removed widget — you would have to add and configure a new one."
+					icon="delete"
+					size="sm"
+					footer={
+						<>
+							<Button variant="secondary" size="sm" onClick={() => setPendingDestroyId(null)}>
+								Keep
+							</Button>
+							<Button
+								variant="danger"
+								size="sm"
+								icon="delete"
+								onClick={() => {
+									if (pendingDestroyId) void confirmDestroy(pendingDestroyId);
+								}}
+							>
+								Remove widget
+							</Button>
+						</>
 					}
 				/>
 

@@ -131,18 +131,22 @@ export function EncounterDialog({
 		if (!open) return;
 		setRows(mode === 'start' ? party.map(rowFromCharacter) : []);
 		setTitle(defaultTitle);
-		setPartySize(Math.max(1, party.length || 4));
+		// These four are typed DRAFTS (string state, coerced on submit) so backspacing a digit no
+		// longer snaps the field back to a fallback — the reset has to write strings too.
+		setPartySize(String(Math.max(1, party.length || 4)));
 		const levels = party
 			.map((c) => Number((c.data as Record<string, unknown>).level))
 			.filter((n) => Number.isFinite(n) && n >= 1);
 		setPartyLevel(
-			levels.length
-				? Math.min(20, Math.round(levels.reduce((a, b) => a + b, 0) / levels.length))
-				: 3,
+			String(
+				levels.length
+					? Math.min(20, Math.round(levels.reduce((a, b) => a + b, 0) / levels.length))
+					: 3,
+			),
 		);
 		setQName('');
-		setQHp(7);
-		setQAc(13);
+		setQHp('7');
+		setQAc('13');
 		setError(null);
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/mode change
 	}, [open, mode]);

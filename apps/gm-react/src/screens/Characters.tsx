@@ -37,6 +37,7 @@ import {
 	SpellSlots,
 	Stat,
 	Tabs,
+	tabPanelProps,
 	VisibilityChip,
 } from '../ds';
 import { CharBuilder, portraitGradient } from '../app/CharBuilder';
@@ -1687,7 +1688,7 @@ export function Characters() {
 					flexWrap: 'wrap',
 				}}
 			>
-				<Tabs value={kind} onChange={setKind} tabs={tabs} />
+				<Tabs value={kind} onChange={setKind} tabs={tabs} idBase="characters" />
 				<div style={{ flex: 1 }} />
 				{data.isDm && partyPcs.length > 0 && (
 					<Button variant="ghost" size="sm" icon="sword" onClick={startCombat}>
@@ -1738,7 +1739,8 @@ export function Characters() {
 				</div>
 			)}
 
-			{list.length === 0 ? (
+			<div {...tabPanelProps('characters', kind)}>
+				{list.length === 0 ? (
 				<EmptyState
 					icon="characters-person"
 					title={
@@ -1777,6 +1779,7 @@ export function Characters() {
 					))}
 				</div>
 			)}
+			</div>
 
 			{/* The guided creation overlay (ported design-prototype wizard): PC → real core draft flow;
 			    NPC/Monster/Sidekick → character.quick-create. Created characters open their sheet. */}

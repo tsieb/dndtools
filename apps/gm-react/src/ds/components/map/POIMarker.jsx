@@ -33,7 +33,10 @@ export function POIMarker({ category = 'location', label, dmOnly = false, active
 			<span style={{
 				display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
 				width: size, height: size, borderRadius: '50% 50% 50% 0', transform: 'rotate(-45deg)',
-				background: c.color, color: '#fff',
+				// NOT '#fff': the default `--layer-*` set is tuned LIGHT so it reads against a candle-lit
+				// map, so a white glyph on it lands around 2:1 (WCAG 1.4.11 wants 3:1). `--color-text-inverse`
+				// is dark where the layer colours are light and light in parchment where they are dark.
+				background: c.color, color: 'var(--color-text-inverse)',
 				border: dmOnly ? '2px solid var(--color-dm-only-badge)' : '2px solid rgba(255,255,255,0.7)',
 				boxShadow: active ? '0 0 0 3px var(--color-interactive-selected), var(--shadow-md)' : 'var(--shadow-md)',
 			}}>

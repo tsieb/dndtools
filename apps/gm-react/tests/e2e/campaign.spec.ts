@@ -62,6 +62,28 @@ test.describe('campaign: story objects', () => {
 		await page.locator('#main-content').waitFor({ state: 'attached' });
 	});
 
+	// Neither inline editor was a <form>, so the natural "type a title, press Enter" was a no-op and a
+	// phone keyboard's Go key was inert — the user had to hunt for the Create button every time.
+	test('pressing Enter in the quest editor submits it', async ({ page }) => {
+		const title = `Enter Submits ${Date.now()}`;
+		await page.getByRole('button', { name: 'Create the first quest' }).click();
+		const titleField = page.getByLabel('Title', { exact: true });
+		await titleField.fill(title);
+		await titleField.press('Enter');
+
+		await page.waitForFunction(
+			(t) =>
+				Object.values(
+					(window.__rt!.state.content as { items: Record<string, { title: string }> }).items,
+				).some((i) => i.title === t),
+			title,
+			{ timeout: 10_000 },
+		);
+		// The editor closed on success, exactly as the button path does.
+		await expect(page.getByRole('button', { name: 'Create quest' })).toHaveCount(0);
+		await expect(page.getByText(title)).not.toHaveCount(0);
+	});
+
 	test('a quest authored in the editor persists and its tracker mutates durably', async ({
 		page,
 	}) => {

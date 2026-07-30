@@ -17,6 +17,7 @@ import {
 	Icon,
 	IconButton,
 	Stat,
+	VisibilityChip,
 } from '../ds';
 import { T, eb } from '../app/screen-kit';
 import { moodTheme } from '../app/sceneCardMood';
@@ -278,11 +279,11 @@ function LockedNote({ what }: { what: string }) {
 				gap: 10,
 				padding: '11px 14px',
 				borderRadius: 10,
-				background: 'var(--color-visibility-dm-subtle)',
-				border: `1px solid var(--color-visibility-dm)`,
+				background: 'var(--color-dm-only-subtle)',
+				border: `1px solid var(--color-dm-only-badge)`,
 			}}
 		>
-			<Icon name="hidden" size={16} color="var(--color-visibility-dm)" />
+			<Icon name="hidden" size={16} color="var(--color-dm-only-badge)" />
 			<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
 				{what} is a <strong style={{ color: T.ink }}>Co-DM</strong> tool. Your seat is not a Co-DM
 				seat — ask your DM to promote you to Co-DM (a plan with Co-DM seats is required) to unlock
@@ -521,7 +522,10 @@ export function PlayerView() {
 				border: 'none',
 				borderLeft: `3px solid ${current === n.id && !locked ? T.acc : 'transparent'}`,
 				background: current === n.id && !locked ? T.accSub : 'transparent',
-				opacity: locked ? 0.42 : 1,
+				// A locked row is still focusable and still ACTS (it explains the lock), so the
+				// "inactive component" contrast exemption does not apply — 0.42 dropped the label to
+				// ~2.5:1. 0.7 clears 4.5:1; the lock is carried by the trailing hidden icon + label.
+				opacity: locked ? 0.7 : 1,
 			}}
 		>
 			<Icon name={n.icon} size={19} color={current === n.id && !locked ? T.acc : T.ter} />
@@ -585,6 +589,33 @@ export function PlayerView() {
 				font: `14px ${T.sans}`,
 			}}
 		>
+			<a
+				href="#player-main"
+				data-skip-link="true"
+				// HashRouter: the hash IS the route, so following this href would rewrite `#/play`.
+				// Move focus ourselves, exactly as AppShell's skip link does.
+				onClick={(e) => {
+					e.preventDefault();
+					document.getElementById('player-main')?.focus();
+				}}
+				style={{
+					position: 'fixed',
+					left: 8,
+					top: -48,
+					zIndex: 100,
+					padding: '8px 14px',
+					borderRadius: 8,
+					background: 'var(--color-accent)',
+					color: 'var(--color-accent-foreground)',
+					font: `600 13px ${T.sans}`,
+					textDecoration: 'none',
+					transition: 'top var(--duration-fast) var(--easing-standard)',
+				}}
+				onFocus={(e) => (e.currentTarget.style.top = '8px')}
+				onBlur={(e) => (e.currentTarget.style.top = '-48px')}
+			>
+				Skip to content
+			</a>
 			{/* sidebar */}
 			<aside
 				className="player-view-sidebar"
@@ -742,7 +773,16 @@ export function PlayerView() {
 					</span>
 				</div>
 				<SceneBanner card={data.activeSceneCard} />
-				<main style={{ flex: 1, minWidth: 0 }}>{body}</main>
+				<main id="player-main" tabIndex={-1} style={{ flex: 1, minWidth: 0 }}>
+					{body}
+				</main>
+			</div>
+
+			{/* A role="status" node that mounts WITH its text is usually never announced, so the polite
+			    toasts (raise-hand confirmation, nat-20, lock reasons) were silent. This region is always
+			    mounted and only its TEXT changes, which is what screen readers actually pick up. */}
+			<div className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+				{[...toasts].reverse().find((t) => t.status !== 'error')?.msg ?? ''}
 			</div>
 
 			{/* toasts */}
@@ -763,9 +803,11 @@ export function PlayerView() {
 					return (
 						<div
 							key={t.id}
-							role={t.status === 'error' ? 'alert' : 'status'}
-							aria-live={t.status === 'error' ? 'assertive' : 'polite'}
-							aria-atomic="true"
+							// Errors keep role="alert" (announced on insertion regardless); the polite ones are
+							// announced by the persistent region below, so they must not also claim one here.
+							role={t.status === 'error' ? 'alert' : undefined}
+							aria-live={t.status === 'error' ? 'assertive' : undefined}
+							aria-atomic={t.status === 'error' ? 'true' : undefined}
 							style={{
 								display: 'flex',
 								alignItems: 'center',
@@ -1228,7 +1270,7 @@ function SheetSection({ data }: { data: LiveData }) {
 					display: 'flex',
 					alignItems: 'center',
 					gap: 16,
-					padding: '12px 28px',
+					padding: viewport === 'phone' ? '12px 14px' : '12px 28px',
 					background: 'color-mix(in srgb, var(--color-surface) 94%, transparent)',
 					backdropFilter: 'blur(6px)',
 					borderBottom: `1px solid ${T.bd}`,
@@ -1712,6 +1754,7 @@ function HandoutsSection({ data }: { data: LiveData }) {
 								<button
 									type="button"
 									aria-expanded={isOpen}
+									aria-controls={`handout-${n.id}-panel`}
 									onClick={() => setOpen(isOpen ? null : n.id)}
 									style={{
 										width: '100%',
@@ -1752,7 +1795,10 @@ function HandoutsSection({ data }: { data: LiveData }) {
 									<Icon name={isOpen ? 'chevron-up' : 'chevron-down'} size={18} color={T.ter} />
 								</button>
 								{isOpen && (
-									<div style={{ padding: '4px 16px 18px clamp(16px, 8vw, 68px)' }}>
+									<div
+										id={`handout-${n.id}-panel`}
+										style={{ padding: '4px 16px 18px clamp(16px, 8vw, 68px)' }}
+									>
 										<div
 											style={{
 												minWidth: 0,
@@ -1791,12 +1837,12 @@ function JournalSection({ data }: { data: LiveData }) {
 					gap: 10,
 					padding: '10px 14px',
 					borderRadius: 10,
-					background: 'var(--color-visibility-dm-subtle)',
-					border: `1px solid var(--color-visibility-dm)`,
+					background: 'var(--color-dm-only-subtle)',
+					border: `1px solid var(--color-dm-only-badge)`,
 					marginBottom: 18,
 				}}
 			>
-				<Icon name="hidden" size={16} color="var(--color-visibility-dm)" />
+				<Icon name="hidden" size={16} color="var(--color-dm-only-badge)" />
 				<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
 					You see entries shared with you; author private notes in your full character app.
 				</span>
@@ -1898,11 +1944,6 @@ function ElevatedLocked({ label }: { label: string }) {
 // ELEVATED · ATLAS — every scene the Co-DM may see, INCLUDING dm-only scenes a player never gets.
 function AtlasSection({ data }: { data: LiveData }) {
 	const scenes = data.elevated?.scenes ?? [];
-	const VIS_TONE: Record<string, 'accent' | 'info' | 'neutral'> = {
-		'dm-only': 'accent',
-		'player-visible': 'info',
-		shared: 'neutral',
-	};
 	return (
 		<PvPage max={1140}>
 			<SectionHead
@@ -1957,7 +1998,7 @@ function AtlasSection({ data }: { data: LiveData }) {
 								>
 									{s.name}
 								</span>
-								<Badge status={VIS_TONE[s.visibility] ?? 'neutral'}>{s.visibility}</Badge>
+								<VisibilityChip level={s.visibility} compact />
 							</div>
 							<div style={{ font: `11.5px ${T.sans}`, color: T.ter, marginTop: 6 }}>
 								Updated {new Date(s.updatedAt).toLocaleDateString()}

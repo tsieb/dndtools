@@ -68,4 +68,47 @@ established pattern elsewhere in the SAME cluster (`Settings.tsx` has 5 `role="s
 `Community.tsx` has 3) but is entirely absent here, so a screen-reader user who pulls/pushes a
 folder or Doc gets no announcement of success or failure.
 
-See also [[ds-layer-audit]] (Tabs/radiogroup root causes), [[completion-pass-ux-patterns]] (destructive-op pattern), [[gm-react-ds]] (DS contracts).
+## 2026-07-29 RE-AUDIT after commit fc40e764
+ALL THREE prior items FIXED — do not re-report: `Tabs` now takes an opt-in `idBase` + exported
+`tabPanelProps` (wired in Audio/Community/Extensions/Campaign/Player); `Extensions` custom-type
+delete (~1672) and `Settings` MCP agent-binding remove (~4107 `confirmRemoveAgentId`) both take the
+two-step inline confirm; `Settings`' tool-preference radiogroup (~4334) now uses the hoisted
+`radioGroupKeyDown` from screen-kit. Settings has 5 `role=status` regions.
+
+Still open / new this pass:
+- **`Extensions.tsx` has ZERO `role=status`/`aria-live`** (grep count 0). Sites: `:2045` (system-switch
+  migration verdict — "passed its migration safety check" vs "cannot be migrated safely"), `:1035`
+  (offline-fallback warning), and `:1042` where `<div aria-label="Loading results">` has **no role**,
+  so aria-label on a generic div names nothing and the debounced compendium search never announces
+  loading or completion. Community.tsx:292/921 do this correctly (`role=status` + aria-label).
+- **`Extensions.tsx:1934-1947` orphan `<label>` (CONFIRMED still live).** No `htmlFor`, does not wrap
+  the control, and the `Input`/`Select` at `:1949`/`:1964` carry `aria-label={f.key}` which wins — so
+  "required" and "DM-only" (a safety-relevant fact) are dropped from the accessible name and are
+  colour+text only. `f.required` is known at render but no `required`/`aria-required`/`invalid` is
+  passed; `create` (~1862) gates only on `title`, so a missing required field surfaces only as a
+  post-hoc toast of zod paths. Same orphan-label shape at `:1715` and `:1920`.
+- **`Extensions.tsx:2096-2107`** the system-switch finding rows use `width:140` + `width:60` with
+  `flex:'0 0 auto'`; `Dialog.jsx:310` sets `overflowX:'hidden'`, so at 393px the `flex:1` `f.note` —
+  the only text explaining WHY a widget type is Dropped — collapses and is clipped in a destructive
+  confirm.
+- **`Extensions.tsx` `CustomObjectTypes` (~1601-1698) never calls `useViewport`** — the row is a
+  no-wrap flex holding a 36px icon + text + count + New + Edit + Delete (~350px min vs ~327px inner
+  at 393px). Its sibling panels (`ExtCompendium`, `ExtTheme`) all have `isPhone` branches.
+- **`Extensions.tsx:1119`** `<span onClick={(e) => e.stopPropagation()}>` is vestigial — the parent
+  `<div key={entry.key}>` (~1075) has no click handler since the nested-interactive fix. Dead code.
+- **`Community.tsx:640-641`** writes the UNDEFINED `--color-visibility-dm{,-subtle}` tokens — see
+  [[ds-layer-audit]] item 9; this is a 7-site, 3-file bug, not a Community-only one.
+- **`Community.tsx:720-736`** the export success verdict (file name, item count, items omitted for
+  visibility) has no `role=status`, while every failure path goes through Toaster.
+- **`Community.tsx:1018-1045`** three fields `publish()` (~797) hard-requires signal requiredness only
+  via the word "(required)" in one placeholder; `Input`/`Textarea` forward `required` and support
+  `invalid` (Input.jsx:23,38) and neither is used. Failure is a generic toast naming no field.
+- **`Community.tsx:1297-1305`** 3-tile Stat row, no `flexWrap`/`isPhone` — ~99px per tile at 393px
+  with `--text-2xl` mono values overflows the bordered tile. Same shape at `:1551` (2 tiles, milder).
+
+**Verified NON-defect, important:** the `data-theme="parchment"` nested-wrapper trap does NOT bite
+Community — all five vars used inside the `:1473` subtree are redefined in the parchment block, and
+the status-border aliases already use `:root, [data-theme]`. Also zero raw hex in either file, and all
+14 form controls in the cluster have an `aria-label` (the defects above are name *completeness*).
+
+See also [[ds-layer-audit]] (Tabs/radiogroup/token root causes), [[completion-pass-ux-patterns]] (destructive-op pattern), [[gm-react-ds]] (DS contracts), [[onboarding-viewas-cluster]].

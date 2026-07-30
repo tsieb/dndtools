@@ -54,6 +54,22 @@ function readRuntimeSignals(): RuntimeSignals {
 	};
 }
 
+/**
+ * The core's widget-package profile ids (`PlatformProfileId`). Declared structurally rather than
+ * imported so this module stays free of core types; `widgetProfileForRuntime` is the single place
+ * that maps our renderer runtime onto them, so no screen has to hard-code `'desktop'` and quietly
+ * offer widgets that cannot run where the DM actually is (CMD-005 AC2).
+ */
+export type WidgetPlatformProfileId = 'desktop' | 'tablet' | 'mobile' | 'web';
+
+export function widgetProfileForRuntime(
+	runtimeKind: RuntimeKind = platformCapabilities.runtimeKind,
+): WidgetPlatformProfileId {
+	if (runtimeKind === 'android') return 'mobile';
+	if (runtimeKind === 'electron') return 'desktop';
+	return 'web';
+}
+
 /** Pure runtime detection seam used by startup and deterministic tests. */
 export function detectRuntimeKind(signals: RuntimeSignals = readRuntimeSignals()): RuntimeKind {
 	if (signals.capacitorNative && signals.capacitorPlatform === 'android') return 'android';

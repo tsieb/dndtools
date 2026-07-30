@@ -82,6 +82,49 @@ ship non-responsive by default.
    `cursor:pointer`) and never shows a hover state, despite being fully clickable. Fix: pass
    `onClick` through to `NpcCard` itself rather than (or in addition to) wrapping it.
 
+## Re-audit 2026-07-29 (post fc40e764) — what changed, what is left
+FIXED since the note above: item 1's CharBuilder residues (class-step `1.4fr 1fr` at :1706 and the
+kit-step attacks row are both `isPhone`-guarded now); item 2 for EncounterBuilder `qHp`/`qAc`/
+`partySize`/`partyLevel` (all four are STRING state now, coerced only in `quickAdd`/`launch` —
+`EncounterBuilder.tsx:120-124, 166-167, 209-210`). Items 3, 4, 6, 7 unchanged.
+
+STILL OPEN, with exact refs:
+- **`NumStepper` (CharBuilder.tsx:606-661) is +/- only.** No text input, no `role="spinbutton"`, no
+  ArrowUp/Down/PageUp/Home/End. Its worst instance is Hit points (`:1936-1945`, `min 1 max 600
+  step 1` for PC/NPC) — 250 HP is 249 activations. Also used for Level (:1725), AC (:1927), Speed
+  (:1949, step 5). Underlying `IconButton size="sm"` is 1.75rem = 28px, so targets are fine.
+- **Wizard step change is invisible to AT.** `next`/`back` at `:910-913` only move `i`; `Overlay`'s
+  focus effect (`:686-731`) has `[]` deps so it fires once on mount; "Step {i+1} of {STEPS.length}"
+  (`:2282-2284`) is plain text, no `aria-live`, and the step `<h*>`-equivalent is a styled div
+  (`:1501`), never focused.
+- **Discard alertdialog (`:2305-2352`) shares the wizard's trap.** It is rendered INSIDE the Overlay
+  panel deliberately (so Escape/backdrop work) but the trap's `FOCUSABLE` query is panel-wide, so
+  Tab from "Discard character" walks into the scrim-obscured wizard. No `aria-modal`, no
+  `aria-describedby`. Fix without regressing Escape: `inert`/`aria-hidden` the wizard subtree while
+  `confirmDiscard`, or narrow the trap's root to the alertdialog when it is open.
+- **`Tile` (`:437-473`) still independent `aria-pressed` buttons** for Kind/Race/Class/Background.
+  ⚠️ RISK NOTE FOR ANY FUTURE FIXER: converting to `role="radio"` **breaks e2e** —
+  `tests/e2e/authoring-layout.spec.ts:78` and `:95` select tiles via
+  `getByRole('button', {name:'PC'|'NPC', exact:true})`. Update those two specs in the same change.
+- **Disabled-without-explanation, two instances:** CharBuilder `canContinue` (`:1482`) disables
+  Continue (`:2286`) on the identity step with no inline message and no `aria-invalid`/
+  `aria-describedby` on Name (`:1543`) or Owner — unlike the stats step's `role="alert"` `<ul>`
+  (`:1851-1868`). EncounterBuilder disables Start combat on `rows.length === 0`
+  (`EncounterBuilder.tsx:330`) with no hint. The `rows.length === 0` guard inside `launch()`
+  (`:212-215`) IS therefore unreachable — confirmed dead code, harmless, not user-visible.
+- **Last `Number(x)||fallback` survivor: `EncounterBuilder.tsx:546-552`** quantity — backspacing the
+  field snaps it to 1, so you cannot clear it to retype. Use the `crDrafts` string-draft pattern
+  already in the same file (`:180-187`).
+- `portraitGradient` (`CharBuilder.tsx:288`) hard-codes `#2a2117`/`#14100b`, bypassing tokens; used
+  at `:1627` and on every roster card (`screens/Characters.tsx:182`). Purely decorative (no text
+  over it), so it is a theming-consistency defect: a dark brown band on parchment/high-contrast.
+
+**e2e coverage (corrects the gap note below):** CharBuilder IS driven by
+`tests/e2e/authoring-layout.spec.ts` (2 tests: a 320px no-h-scroll check, and the kit-step attack
+kind/damage fields). `EncounterBuilder` has NO e2e at all — it renders only from a live DM session,
+so standing a spec up means seeding a session first; `tests/e2e/_helpers.ts` has `seedFresh`/
+`markOnboarded` but no session-start helper, so it is feasible but not cheap.
+
 **Coverage gap:** `tests/e2e/responsive.spec.ts` covers `/characters` (the roster) but NOT
 `/characters/:id` (the sheet) and never opens the CharBuilder overlay, so every phone-layout defect
 in this cluster is structurally untested. See [[completion-pass-ux-patterns]].

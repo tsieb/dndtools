@@ -1042,6 +1042,10 @@ function ExtCompendium() {
 					{loading && (
 						<div
 							style={{ display: 'flex', flexDirection: 'column', gap: 9 }}
+							// `aria-label` on a generic div names nothing, so the debounced compendium search
+							// announced neither its loading nor its completion. role="status" gives it a name
+							// AND makes the transition to results a polite live-region update.
+							role="status"
 							aria-label="Loading results"
 						>
 							{[0, 1, 2, 3].map((i) => (
@@ -1931,7 +1935,12 @@ function CustomObjectInstanceDialog({
 				</span>
 				{def.fields.map((f) => (
 					<span key={f.key}>
+						{/* The label was an ORPHAN (no htmlFor, not wrapping the control) while the control
+						 * carried `aria-label={f.key}` — which wins, so "required" and "DM-only" never
+						 * reached the accessible name and clicking the label focused nothing. DM-only in
+						 * particular decides whether the value reaches players, so it must be announced. */}
 						<label
+							htmlFor={`custom-field-${f.key}`}
 							style={{
 								font: `11.5px ${T.sans}`,
 								color: T.sub,
@@ -1947,7 +1956,8 @@ function CustomObjectInstanceDialog({
 						</label>
 						{f.type === 'boolean' ? (
 							<Select
-								aria-label={f.key}
+								id={`custom-field-${f.key}`}
+								aria-required={f.required || undefined}
 								options={[
 									{ value: '', label: '—' },
 									{ value: 'true', label: 'True' },
@@ -1958,10 +1968,11 @@ function CustomObjectInstanceDialog({
 							/>
 						) : (
 							<Input
+								id={`custom-field-${f.key}`}
+								aria-required={f.required || undefined}
 								value={values[f.key] ?? ''}
 								onChange={(e: { target: { value: string } }) => setValue(f.key, e.target.value)}
 								placeholder={f.type === 'string-array' ? 'comma-separated' : f.type}
-								aria-label={f.key}
 							/>
 						)}
 					</span>
@@ -2037,7 +2048,9 @@ function SystemSwitchDialog({
 			}
 		>
 			{!available && (
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+				// The verdict of an async preview, and the one sentence that says the vault was NOT
+				// touched — it has to be announced, not just painted (WCAG 4.1.3).
+				<div role="status" style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
 					{SWITCH_UNAVAILABLE_COPY[preview.reason] ?? 'The switch is unavailable.'} Nothing was
 					changed.
 				</div>

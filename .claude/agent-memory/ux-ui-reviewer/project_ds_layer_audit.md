@@ -63,6 +63,59 @@ them. Re-check them component-first (fix once in `ds/`, not per-screen).
    in `styles/index.css` globally zeroes animation, so per-component `prefers-reduced-motion`
    queries are genuinely unnecessary (StatusDot's inline `dndPulse` is covered).
 
-Raw-hex violations are rare and worth naming individually: `Button.jsx` danger `color:'#fff'`,
-`POIMarker.jsx` `color:'#fff'` over category colors (incl. gold `--color-accent` for `treasure`).
-See [[gm-react-ds]] and [[completion-pass-ux-patterns]].
+## Token-layer findings (re-verified 2026-07-29 after commit fc40e764)
+
+9. **UNDEFINED TOKEN FAMILY — `--color-visibility-dm` / `--color-visibility-dm-subtle` do not exist**
+   anywhere in `styles/`, yet are written at 7 sites in 3 files: `screens/PlayerView.tsx:281,282,285`
+   and `:1794,1795,1799`, `screens/Player.tsx:2252,2253`, `screens/Community.tsx:640,641`. Result:
+   `background: var(…-subtle)` falls back to transparent AND `1px solid var(…)` is an invalid
+   shorthand so the container renders with NO BORDER — on the app's most safety-critical affordance
+   (the DM-only purple boundary banner). This is the EXACT bug fc40e764 fixed for
+   `--color-status-*-border`; the author missed this second family. The real tokens are
+   **`--color-dm-only-badge` / `--color-dm-only-subtle`** (defined in all 4 themes + forced-colors,
+   colors.css ~71/126/179/231/393). Fix = rename the 7 sites, or alias under `:root, [data-theme]`.
+
+10. **`POIMarker.jsx:36` `color:'#fff'` is broken in the DEFAULT/dark theme, not parchment.**
+    colors.css's own comment (~283) states the `:root` `--layer-*` set is tuned LIGHT (L≈0.65-0.78)
+    to read against the candle-lit `--map-canvas-bg`; `[data-theme='parchment']` re-cut them DARK
+    (L≈0.45) in fc40e764. POIMarker paints a WHITE glyph on those fills, so in dark/tavern/high-contrast
+    5 of 6 categories land ~1.8-2.6:1 (quest→`--layer-political` 0.77, npc→`--layer-player` 0.78,
+    note→`--layer-custom` 0.72, location→`--layer-poi` 0.65, treasure→`--color-accent` #e0b06f ≈2:1).
+    Only `danger`→`--color-status-error` clears 3:1. Live at `app/MapBuilder.tsx:1019`.
+    Fix: `color: 'var(--color-text-inverse)'` — dark ink in dark themes, light ink in parchment,
+    i.e. it inverts in exactly the right direction in all 4 themes.
+
+11. **`Button.jsx:60` danger `color:'#fff'` fails WCAG 1.4.3 in 3 of 4 themes** (27 `variant="danger"`
+    call sites): `--color-status-error` is `#ef5350` in dark/tavern → 3.47:1, `#ff8080` in
+    high-contrast → 2.43:1, `#c0271f` in parchment → passes. Text is semibold `--text-base` (16px),
+    NOT large text, so 4.5:1 applies. There is **no on-fill foreground token** to reach for —
+    `--color-status-*-text` is tuned for the `-subtle` background, not the fill. Fix needs a new
+    per-theme `--color-status-error-foreground` mirroring `--color-accent-foreground`.
+
+12. **`DataTable.jsx:12-13` is a bare `<table width:100%>` with NO `overflowX` wrapper**, and every
+    `<td>` defaults to `whiteSpace:'nowrap'` unless a column passes `wrap`. `Settings.tsx:1990`
+    ("Active grants") has 6 nowrap columns incl. a Revoke Button and sits directly in a `Panel`
+    (`minWidth:0`, no overflow). Overflows at 393px — but ONLY once a grant exists, and the seeded
+    vault has zero, so the `/settings` entry in `responsive.spec.ts`'s ROUTES sweep renders the
+    single "Nothing here yet." colSpan row and never sees it. DS-level fix (wrap the table) covers
+    both consumers (`Characters.tsx:927` is 2-col and safe).
+
+13. **`Chip.jsx` has NO raw `#fff`** — that older backlog line is STALE; Chip is fully tokenized and
+    already has `aria-pressed` + Enter/Space + a 24px `onRemove` target. `EmptyState.jsx` is clean
+    (`role="status"`, aria-hidden icon, all tokens).
+
+14. **The legacy alias bridge (`colors.css:319-328`: `--bg/--fg/--accent/--muted/--card/--border/
+    --danger/--surface-subtle`) is on plain `:root` and WOULD resolve the wrong theme inside the
+    nested `data-theme="parchment"` subtrees — but it has ZERO consumers** (grepped `var(--bg)` etc.
+    across all css/tsx/jsx: 0 hits). Dead code; do not report as a live theming bug.
+
+## Dead DS exports — confirmed ZERO consumers 2026-07-29 (do not spend fix effort here)
+- **`Tooltip.jsx`** — zero call sites app-wide (only the `ds/index.d.ts:117` barrel line). So the
+  unportaled/nowrap/no-flip clipping problem in item 7 above is entirely LATENT. Nothing to fix.
+- **`navigation/NavSidebar.jsx` + `NavItem.jsx`** — zero consumers (only `ds/index.d.ts:89,91`).
+  `AppShell.tsx` hand-rolls the desktop sidebar, so DS fixes here can never ship.
+- **`DataTable` `sortable`** — 2 consumers (Characters, Settings), NEITHER passes `sortable`/`onSort`,
+  so the keyboard-dead `<th onClick>` + missing `aria-sort` is latent. LEAVE ALONE. (Its
+  overflow problem in item 12 is NOT latent — that one is live.)
+
+See [[gm-react-ds]], [[completion-pass-ux-patterns]], [[onboarding-viewas-cluster]].

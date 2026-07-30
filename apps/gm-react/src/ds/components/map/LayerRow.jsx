@@ -89,7 +89,9 @@ export function LayerRow({
 				background: selected ? 'var(--color-interactive-selected)' : 'transparent',
 				borderLeft: type === 'dm' ? '3px solid var(--layer-dm)' : '3px solid transparent',
 				opacity: dimmed ? 0.4 : 1,
-				outline: 'none',
+				// NO `outline:'none'` here: the row is tabbable (and now keyboard-activatable), and an
+				// inline outline beats the global `:focus-visible` ring in base.css, so a keyboard user
+				// had no idea which layer they were on.
 				position: 'relative',
 				...style,
 			}}

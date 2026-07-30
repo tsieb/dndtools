@@ -27,6 +27,7 @@ import { SceneBoardCanvas, WidgetGlyph } from '../app/SceneBoardCanvas';
 import { boardWidgetsOf, payloadIndex, TIER_LABEL, type BoardWidget } from '../app/board-helpers';
 import { parseTags } from '../app/scene-helpers';
 import { useViewport } from '../app/useViewport';
+import { widgetProfileForRuntime } from '../platform/capabilities';
 
 type Visibility = 'dm-only' | 'shared' | 'player-visible';
 
@@ -91,7 +92,7 @@ export function SceneEditor() {
 	const library = denied
 		? []
 		: listWidgetLibrary(runtime.state.widgets, runtime.state.permissions, actorId, {
-				profileId: 'desktop',
+				profileId: widgetProfileForRuntime(),
 				includeUnavailable: false,
 			});
 

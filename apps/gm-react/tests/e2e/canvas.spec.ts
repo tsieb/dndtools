@@ -236,6 +236,57 @@ test.describe('canvas: destroying a widget is confirmed', () => {
 		await expect.poll(() => widgetCount(page, sceneId)).toBe(0);
 	});
 
+	// /board has NO Inspector, so Delete on a focused frame is the only widget-lifecycle operation on
+	// that surface — and it destroyed the instance's configuration (a note's body, a timer's duration,
+	// a map binding) with no confirm, no toast and no undo. Same gate as /scene/:id now.
+	test('Delete on a focused /board widget frame asks first, and Escape keeps it', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		const homeSceneId = await page.waitForFunction(
+			() => {
+				const rt = window.__rt!;
+				const id = rt.state.commandCenter.homeSceneId;
+				return id && (rt.state.scenes.scenes[id]?.widgets.length ?? 0) > 0 ? id : null;
+			},
+			null,
+			{ timeout: 20_000 },
+		);
+		const sceneId = (await homeSceneId.jsonValue()) as string;
+		const before = await widgetCount(page, sceneId);
+		expect(before).toBeGreaterThan(0);
+
+		await page.getByRole('button', { name: 'Edit layout' }).click();
+		const widgetId = await page.evaluate(
+			(id) => window.__rt!.state.scenes.scenes[id].widgets[0].id,
+			sceneId,
+		);
+		await page.getByTestId(`widget-${widgetId}`).focus();
+		await page.keyboard.press('Delete');
+
+		const confirm = page.getByRole('dialog', { name: /Remove/ });
+		await expect(confirm).toBeVisible();
+		// Nothing left the board while the question was on screen.
+		expect(await widgetCount(page, sceneId)).toBe(before);
+
+		await page.keyboard.press('Escape');
+		await expect(confirm).toHaveCount(0);
+		expect(await widgetCount(page, sceneId)).toBe(before);
+
+		// And confirming still works, so the gate is a question and not a wall.
+		await page.getByTestId(`widget-${widgetId}`).focus();
+		await page.keyboard.press('Delete');
+		await page
+			.getByRole('dialog', { name: /Remove/ })
+			.getByRole('button', { name: 'Remove widget' })
+			.click();
+		await expect.poll(() => widgetCount(page, sceneId)).toBe(before - 1);
+	});
+
 	test('a stray Delete keypress on a focused widget frame cannot destroy it outright', async ({
 		page,
 	}) => {

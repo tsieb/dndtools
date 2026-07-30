@@ -308,9 +308,17 @@ export function Onboarding() {
 			return;
 		}
 		if (privacy) setVaultPrivacyMode(privacy);
+		// Skipping ENDS setup, so every decision already made on the steps behind us must persist here
+		// too — otherwise the tier, the AI preference and the noted players are silently discarded and
+		// the user has no way to get back to them (setup only replays from Settings).
+		document.documentElement.setAttribute(TIER_ATTR, tier);
+		writeStorage(TIER_KEY, tier);
+		saveAiUsagePreference(aiUsage);
+		if (emails.length > 0) writeStorage(INVITES_KEY, JSON.stringify(emails));
+		else removeStorage(INVITES_KEY);
 		writeStorage(ONBOARDED_KEY, 'skipped');
 		setOpen(false);
-	}, [privacy, privacyDecided]);
+	}, [privacy, privacyDecided, tier, aiUsage, emails]);
 	useEffect(() => {
 		if (!open) return undefined;
 		return registerBackHandler('overlay', () => {
@@ -415,15 +423,40 @@ export function Onboarding() {
 	}
 
 	const checklist = [
-		{ id: 'scene', label: 'A scene is staged', done: vaultFacts.scenes > 0, to: '/scenes' },
-		{ id: 'party', label: 'The party is rostered', done: vaultFacts.pcs > 0, to: '/characters' },
-		{ id: 'map', label: 'A map is in the atlas', done: vaultFacts.maps > 0, to: '/atlas' },
-		{ id: 'notes', label: 'Session notes started', done: vaultFacts.notes > 0, to: '/knowledge' },
+		{
+			id: 'scene',
+			label: 'A scene is staged',
+			done: vaultFacts.scenes > 0,
+			to: '/scenes',
+			dest: 'Scenes',
+		},
+		{
+			id: 'party',
+			label: 'The party is rostered',
+			done: vaultFacts.pcs > 0,
+			to: '/characters',
+			dest: 'Characters',
+		},
+		{
+			id: 'map',
+			label: 'A map is in the atlas',
+			done: vaultFacts.maps > 0,
+			to: '/atlas',
+			dest: 'Atlas',
+		},
+		{
+			id: 'notes',
+			label: 'Session notes started',
+			done: vaultFacts.notes > 0,
+			to: '/knowledge',
+			dest: 'Knowledge',
+		},
 		{
 			id: 'live',
 			label: 'Go live from Session',
 			done: runtime.state.session.activeSceneId !== null,
 			to: '/session',
+			dest: 'Session',
 		},
 	];
 	const tour = [
@@ -1054,6 +1087,30 @@ export function Onboarding() {
 									Your table-readiness checklist, read live from the vault — jump to any unfinished
 									item.
 								</p>
+								{vault === 'fresh' && (
+									// The checklist is derived from the SAMPLE vault, which finishing is about to erase —
+									// saying so here stops the ticked rows from reading as a promise about what survives.
+									<div
+										style={{
+											display: 'flex',
+											gap: 9,
+											alignItems: 'flex-start',
+											padding: '10px 12px',
+											borderRadius: 10,
+											margin: '0 0 16px',
+											background: 'var(--color-status-warning-subtle)',
+											border: `1px solid var(--color-status-warning-border)`,
+											font: `12.5px ${T.sans}`,
+											color: 'var(--color-status-warning-text)',
+										}}
+									>
+										<Icon name="warning" size={15} />
+										<span>
+											You chose to start fresh, so finishing setup clears the sample campaign. The
+											items below describe the sample vault you are about to replace.
+										</span>
+									</div>
+								)}
 								<div
 									style={{
 										display: 'grid',
@@ -1068,6 +1125,14 @@ export function Onboarding() {
 												key={c.id}
 												type="button"
 												disabled={wiping}
+												// The row is a COMPLETION shortcut, not a plain link: it ends setup and, when
+												// the user chose "start fresh", applies the sample wipe. "A map is in the
+												// atlas" alone announces none of that, so name the consequence.
+												aria-label={
+													vault === 'fresh'
+														? `${c.label} — clear the sample campaign, finish setup and open ${c.dest}`
+														: `${c.label} — finish setup and open ${c.dest}`
+												}
 												onClick={() => void finish(c.to)}
 												style={{
 													display: 'flex',

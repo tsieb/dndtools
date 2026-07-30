@@ -10,6 +10,7 @@ import {
 	SegmentedControl,
 	Sheet,
 	Tabs,
+	tabPanelProps,
 	VisibilityChip,
 } from '../../ds';
 import { T } from '../screen-kit';
@@ -430,6 +431,7 @@ export function MapEditor({
 		<>
 			<Tabs
 				value={editor.dock}
+				idBase="map-dock"
 				onChange={(v: string) => editor.setDock(v as typeof editor.dock)}
 				tabs={[
 					{ id: 'inspector', label: 'Selected', icon: 'sliders' },
@@ -438,7 +440,10 @@ export function MapEditor({
 					{ id: 'history', label: 'History', icon: 'recent' },
 				]}
 			/>
-			<div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 14 }}>
+			<div
+				{...tabPanelProps('map-dock', editor.dock)}
+				style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 14 }}
+			>
 				{editor.dock === 'inspector' && <InspectorPanel editor={editor} announce={announce} />}
 				{editor.dock === 'layers' && <LayersPanel editor={editor} announce={announce} />}
 				{editor.dock === 'assets' && <AssetsPanel editor={editor} />}
@@ -670,18 +675,22 @@ export function MapEditor({
 
 			{editor.notice && (
 				<div
+					// `setNotice` is where useMapEditor funnels EVERY command rejection and thrown error,
+					// and the editor's only live region is fed by `announce()`, which setNotice never
+					// calls — so "layer is locked" was silent to AT and looked like a neutral FYI.
+					role="alert"
 					style={{
 						display: 'flex',
 						alignItems: 'center',
 						gap: 10,
 						padding: '8px 14px',
-						background: T.alt,
-						borderBottom: `1px solid ${T.bd}`,
+						background: 'var(--color-status-warning-subtle)',
+						borderBottom: `1px solid var(--color-status-warning-border)`,
 						font: `12.5px ${T.sans}`,
-						color: T.sub,
+						color: 'var(--color-status-warning-text)',
 					}}
 				>
-					<Icon name="info" size={15} color={T.info} />
+					<Icon name="warning" size={15} />
 					<span style={{ flex: 1 }}>{editor.notice}</span>
 					<button
 						type="button"

@@ -1006,14 +1006,24 @@ export function AppShell({ children }: { children: ReactNode }) {
 				setPaletteOpen(true);
 				return;
 			}
+			// Ctrl/Cmd+Right is the OS "move by word" binding and Ctrl+Shift+S is a common save-as, so
+			// firing them while the DM is typing (a handout body, a note, a scene name) hijacks the
+			// caret and silently advances the players' queue. ⌘K stays deliberately global.
+			const el = e.target as HTMLElement | null;
+			const typing =
+				!!el &&
+				(el.tagName === 'INPUT' ||
+					el.tagName === 'TEXTAREA' ||
+					el.tagName === 'SELECT' ||
+					el.isContentEditable);
 			// I11 S11.2.2 — Ctrl/Cmd+Shift+S enters/exits the fullscreen scene display.
-			if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 's') {
+			if (!typing && (e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 's') {
 				e.preventDefault();
 				setDisplayOpen((v) => !v);
 				return;
 			}
 			// I11 S11.2.3 — Ctrl/Cmd+Right advances the scene queue during play (only when a card is queued).
-			if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowRight') {
+			if (!typing && (e.metaKey || e.ctrlKey) && e.key === 'ArrowRight') {
 				const display = getSceneDisplayForActor(
 					runtime.state.session,
 					runtime.state.permissions,
@@ -1055,6 +1065,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 		>
 			<a
 				href="#main-content"
+				// Declares "I am a skip link parked off-viewport until focused" to the responsive
+				// clipped-control audit (tests/e2e/responsive.spec.ts), which would otherwise read the
+				// resting position as clipping. /play carries the same marker on its own skip link.
+				data-skip-link="true"
 				// The app is a HashRouter, so the hash IS the route. Letting the browser follow this
 				// href rewrites `#/session` to `#main-content`, desyncing the URL from the rendered
 				// screen and sending a reload to the catch-all route. Move focus ourselves instead;

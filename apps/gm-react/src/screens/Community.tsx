@@ -637,8 +637,8 @@ function CommExport() {
 						gap: 11,
 						padding: '10px 11px',
 						borderRadius: 9,
-						background: priv ? 'var(--color-visibility-dm-subtle)' : T.alt,
-						border: `1px solid ${priv ? 'var(--color-visibility-dm)' : T.bd}`,
+						background: priv ? 'var(--color-dm-only-subtle)' : T.alt,
+						border: `1px solid ${priv ? 'var(--color-dm-only-badge)' : T.bd}`,
 						cursor: 'pointer',
 						marginTop: 4,
 					}}

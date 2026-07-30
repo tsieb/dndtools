@@ -342,7 +342,7 @@ export function CommandPalette({
 								alignItems: 'center',
 								textAlign: 'center',
 								gap: 'var(--space-2)',
-								padding: 'var(--space-7) var(--space-5)',
+								padding: 'var(--space-6) var(--space-5)',
 								color: 'var(--color-text-tertiary)',
 							}}
 						>
@@ -412,7 +412,7 @@ export function CommandPalette({
 												display: 'flex',
 												alignItems: 'center',
 												gap: 'var(--space-3)',
-												padding: 'var(--space-2) var(--space-2-5)',
+												padding: 'var(--space-2) var(--space-3)',
 												borderRadius: 'var(--radius-md)',
 												cursor: cmd.disabled ? 'not-allowed' : 'pointer',
 												opacity: cmd.disabled ? 0.45 : 1,

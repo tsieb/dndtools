@@ -83,6 +83,50 @@ block for the thirteen `--layer-*` tokens (darker/more saturated so L drops for 
 surface) plus a forced-colors remap (likely collapsing them to `CanvasText`/`Highlight` alongside
 the existing semantic remap).
 
+## Re-audit 2026-07-29 (post fc40e764) — map cluster, confirmed STILL OPEN
+- **`setNotice` is the editor's ONLY error channel and it is unannounced + mis-toned.**
+  `useMapEditor.ts:296/299/321/354` route every command *rejection* and thrown error into
+  `setNotice`. `MapEditor.tsx:671-700` renders it as a neutral banner with an `info` icon, `T.alt`
+  background, and **no `role="alert"`/`role="status"`/`aria-live"`**. The editor's only live region
+  (`MapEditor.tsx:472`) is fed exclusively by `announce()`, which `setNotice` never calls — so every
+  permission/lock rejection is silent to AT and reads as an FYI to sighted users. Highest-value fix
+  in this cluster.
+- **Active layer is mouse-only.** `LayersPanel.tsx:130` puts `onClick={() => setActiveLayerId(...)}`
+  on a role-less wrapper `<div>`. `LayerRow` (`ds/components/map/LayerRow.jsx:73-95`) is
+  `role="listitem" tabIndex={0}` but its own `onKeyDown` handles ONLY `Alt+Arrow` reorder — Enter/
+  Space do nothing. Active layer decides where every drawing tool paints, so keyboard users cannot
+  retarget drawing at all. GOTCHA: LayerRow spreads `{...rest}` AFTER its own `onKeyDown`
+  (line 102), so passing `onKeyDown` down as a prop CLOBBERS Alt+Arrow — put the handler on the
+  LayersPanel wrapper div instead and let it receive the bubbled event.
+- `ToolRail.tsx:29-93` still `role="toolbar"` with every button `tabIndex=0` and no arrow-key roving
+  focus (not axe-detectable, so the map-editor axe gate passes it).
+- `MapEditor.tsx:431` `<Tabs>` still has no `idBase`; it is the LAST remaining un-wired Tabs in
+  `src/app`/`src/screens` besides `screens/Characters.tsx`. CORRECTION to earlier note: the fix IS
+  layout-neutral — the body already has its own wrapper div (`MapEditor.tsx:441`), just spread
+  `tabPanelProps('map-dock', editor.dock)` onto it.
+- `AssetsPanel.tsx:139` copy "Drag also works." + `draggable`/`onDragStart` at `:176-177` are a dead
+  affordance: `grep -rn onDrop apps/gm-react/src/app/map` returns ONLY `LayersPanel:125` (row
+  reorder). Neither `EditorCanvas` nor `MapCanvas` has `onDrop`/`onDragOver`.
+- `ToolOptionsBar.tsx:375-407` fog options expose Mode/Shape/Feather but NOT Size, even though
+  `fogShape:'stroke'` (labelled "Brush") drives `fogBrushRadius = options.brushSize/1000`
+  (`EditorCanvas.tsx:742`) and `[`/`]` mutate it (`keyboard.ts:82-87`). Hidden-but-keymapped param.
+- Sub-24px targets: `AssetsPanel.tsx:212-229` favourite toggle (`padding:2` + 12px icon ≈ 16px, and
+  it is absolutely positioned ON TOP of the arm button); `MapEditor.tsx:686-698` notice Dismiss
+  (`padding:2` + 14px icon ≈ 18px). WCAG 2.5.8.
+- **No hover state anywhere in the inline-styled map chrome.** `styles/*.css` has NO global
+  `button:hover` rule (only a global `:focus-visible` ring at `tokens/base.css:35-36`), and inline
+  `style={{}}` cannot express `:hover`. `ToolRail` (both button sets), `AssetsPanel` tiles + tag
+  rail, and `MapEditor`'s Search button therefore have zero pointer feedback. `LayerRow` is the
+  in-repo counter-example: it fakes it with `onMouseEnter`/`onMouseLeave` (LayerRow.jsx:96-101).
+- Item 4 (per-drag-step `run()` sliders) and item 6 (prop renderer flattening, `MapBuilder.tsx:291-302`)
+  above are both re-confirmed unchanged.
+
+## e2e coverage of this cluster
+`tests/e2e/map-editor.spec.ts` (11 tests incl. an axe critical/serious gate at :651),
+`android-quick-map.spec.ts` (3, quickMapMode only), `responsive.spec.ts:678` (compact map builder).
+`quickMapMode` is **Android-only** (`platform/capabilities.ts:120`), so the `isPhone && !quickMapMode`
+editor branch (`MapEditor.tsx:783-830`) — full header + horizontal ToolRail — has NO e2e coverage.
+
 ## Constraints to respect when proposing fixes here
 - Ids for maps/routes/layers/features come from `runtime.newId()` via `editor.nextId()` (PLAT-006);
   `map.create-layer`'s `id` is OPTIONAL in core (`commands/map-layer.ts`), so Atlas omitting it is
