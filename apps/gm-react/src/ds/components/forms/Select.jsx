@@ -1,11 +1,19 @@
 import React from 'react';
 import { Icon } from '../core/Icon.jsx';
 
+function focusOn(e) { e.currentTarget.style.borderColor = 'var(--color-border-focus)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--color-interactive-selected)'; }
+function focusOff(e, invalid) { e.currentTarget.style.borderColor = invalid ? 'var(--color-status-error)' : 'var(--color-border-strong)'; e.currentTarget.style.boxShadow = 'none'; }
+
 /**
  * Select — crafted dropdown replacing the native control. A real chevron, token styling, and a
  * focus ring. Pass `options` as [{value,label}] or plain strings.
  */
-export function Select({ options = [], invalid = false, style, ...rest }) {
+export function Select({ options = [], invalid = false, style, onFocus, onBlur, ...rest }) {
+	// `{...rest}` is spread AFTER these handlers, so a caller that passes its own onFocus/onBlur
+	// (commit-on-blur is the house pattern) used to REPLACE the ring handlers outright — the field
+	// then kept its focus border and glow forever, so several fields looked focused at once.
+	const handleFocus = (e) => { focusOn(e); onFocus?.(e); };
+	const handleBlur = (e) => { focusOff(e, invalid); onBlur?.(e); };
 	return (
 		<div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
 			<select
@@ -27,9 +35,9 @@ export function Select({ options = [], invalid = false, style, ...rest }) {
 					transition: 'border-color var(--duration-fast) var(--easing-standard), box-shadow var(--duration-fast) var(--easing-standard)',
 					...style,
 				}}
-				onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-focus)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--color-interactive-selected)'; }}
-				onBlur={(e) => { e.currentTarget.style.borderColor = invalid ? 'var(--color-status-error)' : 'var(--color-border-strong)'; e.currentTarget.style.boxShadow = 'none'; }}
 				{...rest}
+				onFocus={handleFocus}
+				onBlur={handleBlur}
 			>
 				{options.map((o) => {
 					const value = typeof o === 'string' ? o : o.value;

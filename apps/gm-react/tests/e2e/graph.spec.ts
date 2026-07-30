@@ -123,6 +123,21 @@ test.describe('graph: relationship graph & search', () => {
 		await expect(page.getByText('Selected')).toHaveCount(0);
 	});
 
+	test('Escape also clears a selection made from the search rail', async ({ page }) => {
+		// The Escape handler was bound to the CANVAS div, but half the selection entry points are the
+		// search rows in the right rail — from there Escape did nothing at all, so a keyboard user who
+		// picked a result had no way to release the dimming. The handler now lives on the grid that
+		// owns both, and deliberately skips the search input so Escape there still clears the query.
+		await page.getByLabel('Search the graph').fill('Campaign Primer');
+		const rows = page.getByRole('button', { name: VISIBLE_NOTE });
+		const row = rows.last();
+		await row.click();
+		await expect(page.getByText('Selected')).not.toHaveCount(0);
+
+		await row.press('Escape');
+		await expect(page.getByText('Selected')).toHaveCount(0);
+	});
+
 	test('the graph is read-only: no mutation affordances, no op-log growth', async ({ page }) => {
 		const before = await ops(page);
 		expect(before).toBeGreaterThanOrEqual(0);

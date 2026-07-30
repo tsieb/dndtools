@@ -538,3 +538,36 @@ test.describe('canvas: session-only widget operations explain themselves', () =>
 		await expect(roll).toHaveAccessibleName(/^Roll /);
 	});
 });
+
+// The shell's only <h1> lives in the top bar, OUTSIDE <main>, and on `/scene/:id` it names the
+// SECTION ("Scenes"). The scene's own name was a plain <div>, so heading navigation inside the
+// content pane found nothing and a screen-reader user could not tell which scene was open.
+test.describe('canvas: the spatial surfaces carry a heading inside <main>', () => {
+	test('the scene editor heads its pane with the scene name', async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/scenes');
+		await seedFresh(page);
+
+		const scene = await page.evaluate(() => {
+			const rt = window.__rt!;
+			const first = Object.values(rt.state.scenes.scenes)[0]!;
+			return { id: first.id, name: first.name };
+		});
+		await gotoRoute(page, `/scene/${scene.id}`);
+
+		const heading = page.locator('#main-content').getByRole('heading', { name: scene.name });
+		await expect(heading.first()).toBeVisible();
+	});
+
+	test('the GM Screen heads its pane too', async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+
+		await expect(
+			page.locator('#main-content').getByRole('heading', { name: 'GM Screen' }).first(),
+		).toBeVisible();
+	});
+});

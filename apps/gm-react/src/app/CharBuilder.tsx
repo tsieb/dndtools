@@ -451,11 +451,17 @@ function Tile({
 	badge?: React.ReactNode;
 	compact?: boolean;
 }) {
+	// The wizard's most-clicked control (kind, race, class, background, visibility) had a declared
+	// `transition` but no hover handler, and there is no global `button:hover` rule to fall back on —
+	// so it was the one primitive here with zero pointer feedback. PathCard just below is the pattern.
+	const [hov, setHov] = useState(false);
 	return (
 		<button
 			type="button"
 			onClick={onClick}
 			aria-pressed={on}
+			onMouseEnter={() => setHov(true)}
+			onMouseLeave={() => setHov(false)}
 			style={{
 				textAlign: 'left',
 				display: 'flex',
@@ -464,8 +470,8 @@ function Tile({
 				padding: compact ? '10px 12px' : '13px 14px',
 				borderRadius: 11,
 				cursor: 'pointer',
-				border: `1px solid ${on ? T.accBd : T.bd}`,
-				background: on ? T.accSub : T.surf,
+				border: `1px solid ${on || hov ? T.accBd : T.bd}`,
+				background: on ? T.accSub : hov ? T.hover : T.surf,
 				boxShadow: on ? T.smd : 'none',
 				transition:
 					'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard)',
@@ -1214,7 +1220,7 @@ export function CharBuilder({
 	/* ---- entry choice ---- */
 	if (phase === 'choose') {
 		return (
-			<Overlay onClose={onClose} label="Add a character" phone={isPhone}>
+			<Overlay key="choose" onClose={onClose} label="Add a character" phone={isPhone}>
 				<div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1 }}>
 					<div
 						style={{
@@ -1269,7 +1275,7 @@ export function CharBuilder({
 	/* ---- import preview: the mapper's field report, shown BEFORE anything is created ---- */
 	if (phase === 'import') {
 		return (
-			<Overlay onClose={onClose} label="Import character file" phone={isPhone}>
+			<Overlay key="import" onClose={onClose} label="Import character file" phone={isPhone}>
 				<div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1 }}>
 					<div
 						style={{
@@ -1484,9 +1490,19 @@ export function CharBuilder({
 	const step = STEPS[i];
 	const statsOk = (!abilityValidation || abilityValidation.valid) && !standardIncomplete;
 	const canContinue = step.id === 'identity' ? identityOk : step.id === 'stats' ? statsOk : true;
+	// Both footer buttons used hard `disabled`, which removes the tab stop AND suppresses the
+	// tooltip — so the ONE thing the user needs (what is still missing) had no channel at all.
+	const blockedReason =
+		step.id === 'identity' && !identityOk
+			? isPc && !ownerId
+				? 'Give the character a name and choose who plays it.'
+				: 'Give the character a name to continue.'
+			: step.id === 'stats' && !statsOk
+				? 'Finish the ability scores — every score needs a value and the totals must be legal.'
+				: null;
 
 	return (
-		<Overlay onClose={requestClose} wide label="New character wizard" phone={isPhone}>
+		<Overlay key="scratch" onClose={requestClose} wide label="New character wizard" phone={isPhone}>
 			<div style={{ display: 'flex', height: '100%', flex: 1, position: 'relative' }}>
 				{/* The desktop rail would consume nearly all of a 320px dialog. Progress remains
 					    discoverable in the persistent footer on phone instead. */}
@@ -1918,23 +1934,18 @@ export function CharBuilder({
 									<span style={{ font: `12px ${T.mono}`, color: T.ter }}>
 										CON mod {modOf(effScores.CON)}
 									</span>
-									<button
-										type="button"
+									{/* Was a bare `padding: 0` text button ~15px tall with no hover or active state —
+									    under the 24px WCAG 2.5.8 floor for a control that rewrites the AC. */}
+									<Button
+										variant="ghost"
+										size="sm"
 										onClick={() => {
 											setAc(10 + Math.floor((effScores.DEX - 10) / 2));
 											Toaster.info('AC set from DEX');
 										}}
-										style={{
-											border: 'none',
-											background: 'transparent',
-											cursor: 'pointer',
-											padding: 0,
-											font: `600 12px ${T.sans}`,
-											color: T.acc,
-										}}
 									>
 										Apply to kit →
-									</button>
+									</Button>
 								</div>
 							</div>
 						)}
@@ -2302,14 +2313,28 @@ export function CharBuilder({
 							Step {i + 1} of {STEPS.length}
 						</span>
 						{i < STEPS.length - 1 ? (
-							<Button variant="primary" icon="chevron-right" disabled={!canContinue} onClick={next}>
+							<Button
+								variant="primary"
+								icon="chevron-right"
+								aria-disabled={!canContinue || undefined}
+								title={blockedReason ?? undefined}
+								onClick={next}
+							>
 								Continue
 							</Button>
 						) : (
 							<Button
 								variant="primary"
 								icon="check"
-								disabled={!identityOk || !statsOk || submitting}
+								disabled={submitting}
+								aria-disabled={!identityOk || !statsOk || undefined}
+								title={
+									!identityOk
+										? 'Give the character a name to continue.'
+										: !statsOk
+											? 'Finish the ability scores before creating the character.'
+											: undefined
+								}
 								onClick={create}
 							>
 								{submitting ? 'Creating…' : 'Create character'}

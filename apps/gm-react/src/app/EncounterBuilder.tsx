@@ -151,6 +151,7 @@ export function EncounterDialog({
 		// unmount. Escaping the dialog mid-edit therefore left the draft behind, so on reopen the CR
 		// field showed the abandoned text while the difficulty meter still read the committed `r.cr`.
 		setCrDrafts({});
+		setQtyDrafts({});
 		setError(null);
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/mode change
 	}, [open, mode]);
@@ -185,6 +186,18 @@ export function EncounterDialog({
 	// Raw text for the CR fields while they are being edited. Coercing on every keystroke made the
 	// two most common low-tier ratings impossible to type: `Number('0.')` is 0, so the controlled
 	// input snapped back and swallowed the decimal point before "0.25"/"0.5" could be entered.
+	// Same story for the per-row count: `Math.trunc(Number(v) || 1)` on every keystroke snapped the
+	// field back to 1 the moment it was cleared, so "12" could not be retyped over "3".
+	const [qtyDrafts, setQtyDrafts] = useState<Record<string, string>>({});
+	function commitQty(key: string) {
+		const draft = qtyDrafts[key];
+		setQtyDrafts(({ [key]: _dropped, ...rest }) => rest);
+		if (draft === undefined || draft.trim() === '') return;
+		const parsed = Number(draft);
+		if (Number.isFinite(parsed))
+			patchRow(key, { quantity: Math.min(20, Math.max(1, Math.trunc(parsed))) });
+	}
+
 	const [crDrafts, setCrDrafts] = useState<Record<string, string>>({});
 	function commitCr(key: string) {
 		const draft = crDrafts[key];
@@ -214,7 +227,9 @@ export function EncounterDialog({
 				kind: 'monster',
 				name,
 				characterId: null,
-				maxHp: Math.max(0, Math.trunc(Number(qHp)) || 0),
+				// `Number('') || 0` is 0, so clearing the HP field quick-added a monster that was
+				// already Down — while the very next line sensibly falls back to AC 10.
+				maxHp: Math.max(1, Math.trunc(Number(qHp)) || 1),
 				ac: Math.max(0, Math.trunc(Number(qAc)) || 10),
 				initiative: '',
 				cr: 1,
@@ -338,7 +353,15 @@ export function EncounterDialog({
 						variant="primary"
 						size="sm"
 						icon={mode === 'reinforce' ? 'add' : 'sword'}
-						disabled={submitting || rows.length === 0}
+						disabled={submitting}
+						// Hard `disabled` removes the tab stop and suppresses the tooltip, so the reason it
+						// is unavailable had no channel. The DS soft form keeps it focusable and announced.
+						aria-disabled={rows.length === 0 || undefined}
+						title={
+							rows.length === 0
+								? 'Add at least one combatant to the roster first.'
+								: undefined
+						}
 						onClick={() => void launch()}
 					>
 						{submitting ? 'Working…' : mode === 'reinforce' ? 'Add to combat' : 'Start combat'}
@@ -548,17 +571,19 @@ export function EncounterDialog({
 												type="number"
 												min={1}
 												max={20}
-												value={r.quantity}
+												value={qtyDrafts[r.key] ?? r.quantity}
 												aria-label={`${r.name} quantity`}
 												style={{ width: 56, textAlign: 'center', fontFamily: T.mono }}
 												onChange={(e: { target: { value: string } }) =>
-													patchRow(r.key, {
-														quantity: Math.min(
-															20,
-															Math.max(1, Math.trunc(Number(e.target.value) || 1)),
-														),
-													})
+													setQtyDrafts((d) => ({ ...d, [r.key]: e.target.value }))
 												}
+												onBlur={() => commitQty(r.key)}
+												onKeyDown={(e: { key: string; preventDefault: () => void }) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														commitQty(r.key);
+													}
+												}}
 											/>
 										</label>
 										{mode === 'start' && (

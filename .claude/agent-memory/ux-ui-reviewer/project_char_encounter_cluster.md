@@ -1,127 +1,129 @@
 ---
 name: char-encounter-cluster
-description: Char/encounter cluster (Characters.tsx, CharBuilder.tsx, EncounterBuilder.tsx) — FIXED-vs-STILL-OPEN split as of 2026-07-30 @ 0a07165d, plus the exact e2e spec-coupling map for every label a fixer would touch
+description: Char/encounter cluster (Characters.tsx, CharBuilder.tsx, EncounterBuilder.tsx, charImport, compendium) — FIXED-vs-STILL-OPEN split as of 2026-07-30 @ 329bcc58, plus the exact e2e spec-coupling map
 metadata:
   type: project
 ---
 
-# Char/Encounter cluster — state as of 2026-07-30 (HEAD 0a07165d)
+# Char/Encounter cluster — state at HEAD 329bcc58 (2026-07-30, run #4)
 
-`git log` on the three files stops at **8e54261d**. The two newest commits (8138156b,
-0a07165d) did **not** touch this cluster, so nothing below moved since the fc40e764 re-audit
-except line numbers.
+`git log` on the three files stops at **b5ed692f** (Characters.tsx only, +8 lines). CharBuilder /
+EncounterBuilder last moved at 8e54261d. The DS layer moved under them (Button/IconButton), which
+retired two findings without touching the cluster.
 
 ## FIXED (do not re-chase)
-- isPhone residues from the original note: class-step `1.4fr 1fr` (`CharBuilder.tsx:1706`),
-  kit-step attacks row (`:1977-1979`), stats/review/import grids, Characters sheet top-level
-  grid (`:696`) and attacks row (`:868`) — all phone-guarded now.
-- EncounterBuilder `qHp`/`qAc`/`partySize`/`partyLevel` are STRING drafts (`:120-124`),
-  coerced only in `quickAdd`/`launch`. CR drafts (`crDrafts`, `:184-191`) are the reference
-  pattern.
-- `Characters.startCombat` rolls d20+DEX (`:1668-1670`).
-- Roster grid uses `minmax(min(100%,230px),1fr)` (`Characters.tsx:1773`) — 320px-safe.
-- Tabs/tabpanel wiring on the roster (`tabPanelProps('characters', kind)`, `:1742`).
+- **`key={detailId}` on CharacterSheet** — `Characters.tsx:1637`. Guarded by the NEW
+  `tests/e2e/character-sheet.spec.ts` (2 tests, `Edit`/`Done` exact names).
+- **Wizard phone height** — `Overlay` is `height: phone ? '100%' : 620` (`CharBuilder.tsx:765`).
+  Guarded by `authoring-layout.spec.ts:110-140` @ 393×851.
+- **Point-buy +/- silent no-op** — `:1832-1857` now pass `aria-disabled` + an explaining `label`.
+- **IconButton `variant="outline"` hover** — `ds/components/core/IconButton.jsx:46-49` (all variants
+  except `accent` now hover). NumStepper's +/- have feedback.
+- **Soft-disable primitive now EXISTS**: `Button.jsx:22-23` / `IconButton.jsx:15-16` — a truthy
+  `aria-disabled` keeps the control focusable, dims it, and swallows `onClick`. Any
+  "disabled-without-explanation" fix in this cluster is now a one-prop change.
+- Older: isPhone guards on class/kit/stats/review/import grids + sheet grids; EncounterBuilder
+  string drafts (`qHp/qAc/partySize/partyLevel` `:120-124`, `crDrafts` `:188`); startCombat rolls
+  d20+DEX; roster grid `minmax(min(100%,230px),1fr)`; Tabs/tabpanel wiring.
 
-## STILL OPEN — ranked, with 2026-07-30 line numbers
-1. **`Characters.tsx:1632` CharacterSheet is not keyed by `id`.** `<CharacterSheet id={detailId}>`
-   with no `key`; there is **no `useEffect` on `id`** anywhere in the component (verified by awk
-   over 273-1595). ⌘K (`app/CommandPalette.tsx:136`) navigates sheet→sheet without unmounting, so
-   `shareDraft`/`attackRows`/`acDraft`/`xpInput`/`error`/`editMode` carry over. `applySharing`
-   (`:516`) and `saveAttacks` (`:493`) both send `characterId: id` (the NEW id) with the OLD
-   character's payload ⇒ real cross-character overwrite. Fix = add `key={detailId}`.
-2. **`CharBuilder.tsx:761` `height: 620` is unconditional.** Everything else in `Overlay` goes
-   full-bleed on phone (`borderRadius: phone ? 0 : 18` `:766`; zero padding `:746-748`), so on the
-   e2e `mobile-chromium` device (Pixel 5, 393×851) the wizard is a square-cornered 620px slab with
-   ~115px of scrim above and below. The 320×640 spec can't see it (620/640).
-3. **`NumStepper` (`:606-662`) still +/- only.** No text input, no `role="spinbutton"`, no
-   Arrow/Page/Home/End, and the value `<span>` (`:636-645`) is not associated with the buttons.
-   Worst: HP `min 1 max 600 step 1` (`:1939-1947`) = 249 clicks to 250. Also Level `:1725`,
-   AC `:1928`, Speed `:1951`. Targets are fine (IconButton `sm` = 1.75rem = 28px).
-4. **`CharBuilder.tsx:1830-1838` point-buy Raise silently no-ops.** `onClick={() => { if
-   (!raiseBlocked(k)) setScore(...) }}` with no `disabled`/`aria-disabled`/opacity. Minus
-   (`:1823-1829`) clamps at `scoreMin` the same way. Enabled-looking dead buttons.
-5. **Discard alertdialog `:2304-2354`** — inside the wizard panel, so `Overlay`'s panel-wide
-   `FOCUSABLE` query (`:706`) lets Tab from "Discard character" walk into the scrim-obscured
-   wizard. Missing `aria-modal`, missing `aria-describedby` → `:2335`. (`autoFocus` on
-   "Keep editing" `:2343` and Escape both work.)
-6. **Wizard step change invisible to AT.** `next`/`back` `:910-914`; `Overlay` focus effect
-   `:686-731` has `[]` deps; "Step {i+1} of {STEPS.length}" `:2282-2284` is plain text; the step
-   heading `:1499` is a styled `div`, never focused, not an `<h*>`.
-7. **`Characters.tsx:1673-1677` + `:1725-1740`** — `startCombat` writes both the success string and
-   the core rejection into one `notice`, rendered in an accent-tinted `role="status"` box. Failure
-   and success are pixel-identical, polite not assertive, and the notice is never dismissible.
-8. **Disabled-without-explanation:** `CharBuilder` `canContinue` `:1482` → Continue `:2286`
-   (no `aria-invalid`/`aria-describedby` on Name `:1544-1550` either); `EncounterBuilder.tsx:337`
-   Start combat on `rows.length === 0`. Contrast with the stats step's `role="alert"` `<ul>`
-   `:1856-1872`. Fix pattern = `Button.jsx:23-25` soft `aria-disabled` + `title`.
-9. **Error rendered far from the control that sets it.** `Characters.tsx:617` `role="alert"` sits
-   directly under BackBar while `applyAc` `:396`, `declareSlots` `:477`, `setXp` `:552` live deep
-   in the edit-mode panels. Same shape in `EncounterBuilder.tsx:346-350` (error at top of the
-   scrolling Dialog body, Start combat in the sticky footer).
-10. **`EncounterBuilder.tsx:550-557`** — last `Number(x)||fallback` in that file (quantity snaps to
-    1 on backspace). `Characters.tsx:1129-1132` `hpAmount` is the last one in that file.
-11. **No hover on the two most-clicked primitives.** `Tile` `:455-472` has a `transition` but no
-    `onMouseEnter` (its sibling `PathCard` `:543,548-549` does). `IconButton.jsx:37` gates hover on
-    `variant === 'ghost'`, so every `variant="outline"` IconButton — NumStepper's +/- and the
-    point-buy +/- — has zero pointer feedback.
-12. **No submit lockout.** `create()` `:1116-1124` only disables the primary button (`:2293`); the
-    PC path fires 7–13 sequential dispatches while Cancel `:1500`, Back `:2278` and every tile stay
-    live ⇒ a half-built character.
-13. **Dirty-guard hole.** `dirty` (`:918-920`) requires `phase === 'scratch'`; `back()` on step 0
-    sets `phase='choose'` (`:912`), where the header X (`:1229`) calls `onClose` directly. Type a
-    name → Back → X = silent loss.
-14. `portraitGradient` `:288` hard-codes `#2a2117`/`#14100b` (used `:1627`, `Characters.tsx:183`).
-15. `FieldLabel` `:427-434` renders a `<span>`, not `<label>` — ~15 builder fields have no
-    click-to-focus (ds `Field` does auto-associate; this local helper doesn't).
-16. `role="alert"` on the `<ul>` at `:1857` orphans its `<li>`s — wrap a `<div role="alert">`.
-17. Footer `:2269-2277` has no `flexWrap` and the Back label is the previous step's title
-    (`:2279`), so at 320px it wraps to multiple lines (`Button` is `whiteSpace:'normal'`, so it
-    wraps rather than clipping — not a blocker).
+## STILL OPEN — ranked, line numbers verified at 329bcc58
+
+1. **Wizard dialog NEVER receives focus; the trap leaks.** `CharBuilder.tsx:686-731` (`Overlay`
+   focus effect, `[]` deps) + three `<Overlay>` returns from ONE component — `:1217` choose,
+   `:1272` import, `:1489` scratch, none keyed. React reconciles the same instance across phase
+   changes, so the mount-only effect never re-runs. Every wizard entry is a phase change, so
+   focus falls to `<body>` when the PathCard unmounts; the Tab handler `:716-722` only wraps at
+   first/last node, so the next Tab escapes into the nav behind the scrim. Fix: `key={phase}`.
+2. **`NumStepper` `:606-662` +/- only.** No typed entry, no `role="spinbutton"`/`aria-valuenow`,
+   no Arrow/Page/Home/End, value `<span>` `:636-645` unassociated. HP `min 1 max 600` `:1958-1966`
+   = 249 clicks. Also Level `:1729`, AC `:1947`, Speed `:1970`.
+3. **EncounterBuilder quick-add makes a 0-HP monster.** `:217` `Math.max(0,Math.trunc(Number(qHp))||0)`
+   → cleared HP field yields maxHp 0; the very next line `:218` falls back to **10** for AC. No
+   message. Add button `:468` only checks `qName`.
+4. **`Characters.startCombat` renders rejection as success.** `:1657-1681` one `notice` for both
+   outcomes; `:1729-1745` accent-tinted `role="status"`, not dismissible, survives sheet
+   navigation (Characters isn't unmounted at `:1637`). `Start combat` `:1700` has no busy state.
+5. **Phone attack rows are visually indistinguishable.** `:1987` outer column `gap:8` + `:1996-1999`
+   two-up phone grid `gap:8` → each attack = 3 rows with the SAME gap as between attacks.
+6. **Discard alertdialog `:2323-2373` shares the wizard trap.** `Overlay`'s panel-wide FOCUSABLE
+   `:706` lets Tab from "Discard character" `:2367` reach scrim-obscured wizard controls. Missing
+   `aria-modal`, missing `aria-describedby` → `:2354`. (autoFocus `:2362` + Escape both work.)
+7. **Step change invisible to AT.** `next`/`back` `:914-918`; heading `:1503` is a styled `div`,
+   never focused, not an `<h*>`; "Step {i+1} of {n}" `:2302` is inert text; StepRail hidden on
+   phone `:1493`.
+8. **Disabled-without-explanation** (now trivially fixable, see FIXED): Continue `:2305`
+   (`canContinue` `:1486`), Create character `:2312`, `EncounterBuilder.tsx:341` Start combat.
+   Name Input `:1548-1554` has no `aria-invalid`/`aria-describedby`.
+9. **Error far from its control.** `EncounterBuilder.tsx:350-354` error at the top of an
+   `overflowY:auto` Dialog body (`ds/components/overlay/Dialog.jsx:309`) while the button is in the
+   fixed footer. Same at `Characters.tsx:617` (writers `applyAc` :396, `declareSlots` :471,
+   `setXp` :552).
+10. **Last two per-keystroke coercions.** `EncounterBuilder.tsx:554-561` quantity,
+    `Characters.tsx:1129-1132` `hpAmount` — both `Number(x)||fallback`, field can't be cleared.
+11. **"Apply to kit →" `:1921-1937`** — bare button, `padding:0 border:none font:600 12px` ≈ 15px
+    tall (< 24px, WCAG 2.5.8), no hover/active, feedback is a toast only.
+12. **No submit lockout.** `create()` `:1120-1128` fires 7–13 dispatches while Cancel `:1504`,
+    Back `:2297`, and every Tile stay live. `runImport()` `:1156` leaves Back `:1451` and
+    "Choose another file" `:1464` live.
+13. **`Tile` `:437-507` has zero hover.** Declares a `transition`, no `onMouseEnter`; no global
+    `button:hover` rule exists. Sibling `PathCard` `:543,548-549` is the pattern. Now the ONLY
+    inert primitive in the wizard.
+14. **Dirty-guard hole.** `dirty` `:922-924` needs `phase==='scratch'`; `back()` at `i===0` sets
+    `phase='choose'` `:916`, where header X `:1233` calls `onClose` directly.
+15. `role="alert"` on the `<ul>` `:1876` orphans its `<li>`s. `FieldLabel` `:427-434` is a `<span>`
+    not a `<label>` (~15 fields, no click-to-focus). `portraitGradient` `:288` hard-codes
+    `#2a2117`/`#14100b`.
 
 ## VERIFIED NON-DEFECTS (stop re-flagging)
-- The discard `role="alertdialog" aria-label` (`:2306-2307`) does **not** erase its subtree —
-  dialog roles are not name-from-content. Grep confirmed **no** `role=X + aria-label wrapping
-  content` shape anywhere in the three files.
-- EncounterBuilder roster picker (`:382-422`) is genuine multi-select; `aria-pressed` is correct.
-- `IconButton size="sm"` = 28px, sharing chips (`Characters.tsx:1484-1495`) ≈ 27px — both pass 2.5.8.
-- `Overlay`'s scrim `onMouseDown` (`:737`) lacks a `target === currentTarget` check but the panel
-  stops propagation (`:757`) — equivalent to Dialog's guard.
-- Global `:focus-visible` ring exists — `src/styles/tokens/base.css:35-36`.
-- `launch()`'s `rows.length === 0` guard (`EncounterBuilder.tsx:231-234`) is unreachable dead code.
-- `create()`/`runImport()`/`startImport()` all `setError(null)` first — no stale error on retry.
-- `saveName` `:429`, `setCondition` `:411`, `addSpell` `:461` early-returns are all behind disabled
-  buttons or revert visibly — defensive, not live bugs.
+- `role="alertdialog" aria-label` `:2325-2326` does not erase its subtree (dialog roles aren't
+  name-from-content).
+- `Card interactive` (CharCard `Characters.tsx:172-243`) DOES get `role=button` + `tabIndex=0` +
+  Enter/Space — `ds/components/core/Card.jsx:12-25`. Not the Campaign NpcCard problem.
+- EncounterBuilder roster picker `:382-434` is genuine multi-select; `aria-pressed` correct.
+- `IconButton size="sm"` = 28px; sharing chips `Characters.tsx:1466-1497` ≈ 24px — both pass.
+- `Overlay` scrim `onMouseDown` `:737` vs panel `stopPropagation` `:757` — equivalent to Dialog.
+- `create()`/`runImport()`/`startImport()` all `setError(null)` first.
+- `launch()`'s `rows.length===0` guard (`EncounterBuilder.tsx:235`) is unreachable dead code.
+- `app/charImport/**` and `app/compendium/**` are PURE `.ts` modules — zero JSX, no UI surface.
+  Their only consumer UI is `screens/Extensions.tsx` (different cluster).
+- `<label>` wrappers around DS `Input` in EncounterBuilder `:508,:537,:565` also carry `aria-label`
+  on the input; the aria-label wins for the name, the label still gives click-to-focus. Fine.
 
 ## e2e spec-coupling map (`apps/gm-react/tests/e2e/`, NOT repo-root `tests/`)
-`authoring-layout.spec.ts` is the ONLY spec that touches this cluster. Exact couplings:
+Three specs touch this cluster. `equipment.spec.ts` does NOT (it drives `/player`).
 
-| spec line | selector | source |
+| spec:line | selector | source |
 |---|---|---|
-| 39 | route sweep incl. `/characters` @320px no-h-scroll | `Characters.tsx:1768-1780` |
-| 62, 90 | `getByRole('button',{name:'New character',exact:true})` | `Characters.tsx:1720`, `:1762` |
-| 63, 91 | `getByRole('button',{name:/Build from scratch/})` | `CharBuilder.tsx:1243` |
-| 65, 92 | `getByRole('dialog',{name:'New character wizard'})` | `CharBuilder.tsx:1485` |
-| 78 | `getByRole('button',{name:'PC',exact:true})` | `Tile` via `KINDS` `:251` |
-| 96 | `getByRole('button',{name:'NPC',exact:true})` | `Tile` via `KINDS` `:252` |
-| 79, 97 | `getByLabel('Name')` | `:1548` |
-| 80 | `getByLabel('Alignment')` | `:1558` |
-| 98,99,100 | `getByRole('button',{name:'Continue'})` | `:2286` |
-| 104, 105 | `getByLabel('Attack kind')` / `getByLabel('Damage type')` | `:1996` / `:2026` |
+| authoring-layout:37 | 320px no-h-scroll sweep incl. `/characters` | `Characters.tsx:1782-1795` |
+| authoring-layout:62,90,127 | `button name:'New character' exact` | `Characters.tsx:1724`, `:1766` |
+| authoring-layout:63,91,128 | `button name:/Build from scratch/` | `CharBuilder.tsx:1247` |
+| authoring-layout:65,92,130 | `dialog name:'New character wizard'` | `CharBuilder.tsx:1489` |
+| authoring-layout:78 | `button name:'PC' exact` | `Tile` via `KINDS:251` |
+| authoring-layout:96 | `button name:'NPC' exact` | `Tile` via `KINDS:252` |
+| authoring-layout:79,97 | `getByLabel('Name')` | `:1552` |
+| authoring-layout:80 | `getByLabel('Alignment')` | `:1562` |
+| authoring-layout:98,99,100 | `button name:'Continue'` | `:2305` |
+| authoring-layout:104,105 | `getByLabel('Attack kind')` / `('Damage type')` | `:2015` / `:2045` |
+| authoring-layout:133-139 | wizard box height > 0.95 × viewport @393×851 | `Overlay:765` |
+| character-sheet:45,47,57 | `button name:'Edit'/'Done' exact` | `Characters.tsx:688-695` |
+| character-sheet:80,84 | character name visible in `#main-content` | `:684` h2 |
+| a11y-axe-gate:28 | axe on `/characters` (roster only, never `:id`, never the overlay) | — |
 
-Blast radius rules that follow:
-- **Tile → `role="radio"` breaks spec lines 78 and 96 only.** Nothing else in `tests/e2e/` matches
-  "PC"/"NPC" as a button. Both lines must change in the same commit.
-- **Soft-disabling Continue is spec-safe** if the explanation goes in `title` (accessible name
-  stays "Continue"). Appending to `aria-label` also survives (Playwright name match is substring),
-  but `title` is the safer route.
+Blast-radius rules:
+- **Tile → `role="radio"` breaks authoring-layout:78 and :96 only.** Both must change together.
+- **Soft-disabling Continue is SPEC-SAFE** if the reason goes in `title` (accessible name stays
+  "Continue"). Same for Create character and Start combat.
 - **`getByLabel('Name')` survives** adding `aria-invalid`/`aria-describedby`.
-- **`EncounterBuilder` has ZERO e2e** — it only renders from a live DM session and `_helpers.ts`
-  has `seedFresh`/`markOnboarded` but no session-start helper. Any fix there is unguarded.
-- `responsive.spec.ts` covers `/characters` but never `/characters/:id` and never opens the
-  builder overlay, so items 1, 2, 12 and 13 above are structurally untested.
+- **`key={phase}` on Overlay is SPEC-SAFE** — no spec asserts anything about focus in the wizard.
+- **Fixing NumStepper is SPEC-SAFE** — no spec references any stepper label.
+- **`EncounterBuilder` still has ZERO e2e.** It renders only from a live DM session and
+  `_helpers.ts` has `seedFresh`/`markOnboarded` but no session-start helper. Every fix there is
+  unguarded.
+- `responsive.spec.ts` covers `/characters` but never `/characters/:id`; findings 1, 12, 14 are
+  structurally untested.
 
 ## Genuine strengths (don't "fix")
-`Overlay`'s Escape/back-handler/scroll-lock/focus-restore contract, the dirty-close discard confirm
-itself, the fail-closed import preview that lists unmapped fields, `HonestNote` for core-unbacked
-sections, and the `crDrafts` string-draft pattern. See [[completion-pass-ux-patterns]],
-[[ds-layer-audit]].
+`Overlay`'s Escape/back-handler/scroll-lock/focus-restore contract; the dirty-close discard confirm
+itself; the fail-closed import preview that lists unmapped fields; `HonestNote` for core-unbacked
+sections; the `crDrafts` string-draft pattern; `applyAc`/`setXp`'s explicit empty-field errors.
+See [[completion-pass-ux-patterns]], [[ds-layer-audit]].

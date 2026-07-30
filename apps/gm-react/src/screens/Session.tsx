@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	EMPTY_PRESENCE_STATE,
 	addDays,
@@ -226,6 +227,19 @@ export function Session() {
 	// conditions, and the core has no restore command — so it needs a confirm step, like the other
 	// irreversible actions in this app.
 	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
+
+	// Create-intent handoff from the "Build encounter" launchers (⌘K palette, the shell's Create
+	// menu). They used to perform a bare navigation to /session and leave the DM to hunt for the
+	// dialog — every other Create entry hands its destination an intent. Consumed once, then cleared.
+	const location = useLocation();
+	const navigate = useNavigate();
+	useEffect(() => {
+		const intent = (location.state ?? null) as { createEncounter?: boolean } | null;
+		if (intent?.createEncounter) {
+			setBuilderMode('start');
+			navigate(location.pathname, { replace: true, state: null });
+		}
+	}, [location.state, location.pathname, navigate]);
 
 	async function dispatch(
 		command: Parameters<typeof runtime.dispatch>[0],
@@ -1073,6 +1087,11 @@ function CampaignDatePanel({
 	const [year, setYear] = useState(1);
 	const [month, setMonth] = useState(1);
 	const [day, setDay] = useState(1);
+	// Day and Year coerced on every keystroke (`Number(v) || 1`), so backspacing the last digit
+	// snapped the field straight back to 1 and it could never be cleared to retype. Hold the raw
+	// text and commit on blur, as EncounterBuilder's CR drafts do.
+	const [dayText, setDayText] = useState('1');
+	const [yearText, setYearText] = useState('1');
 
 	// Keep the form anchored to the canonical current date (e.g. after “+1 day” or a set elsewhere).
 	const currentIso = current?.isoLike ?? null;
@@ -1081,6 +1100,8 @@ function CampaignDatePanel({
 		setYear(current.value.year);
 		setMonth(current.value.month);
 		setDay(current.value.day);
+		setYearText(String(current.value.year));
+		setDayText(String(current.value.day));
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- sync from the canonical date only
 	}, [currentIso]);
 
@@ -1096,14 +1117,36 @@ function CampaignDatePanel({
 
 	const maxDay = daysInMonth(calendar, month) ?? 1;
 
+	// An empty or unparseable draft falls back to the last committed value rather than to a magic 1.
+	function parsedDay(): number {
+		const n = Number(dayText);
+		if (!dayText.trim() || !Number.isFinite(n)) return Math.min(maxDay, Math.max(1, day));
+		return Math.min(maxDay, Math.max(1, Math.trunc(n)));
+	}
+	function parsedYear(): number {
+		const n = Number(yearText);
+		if (!yearText.trim() || !Number.isFinite(n)) return Math.trunc(year);
+		return Math.trunc(n);
+	}
+	function commitDay() {
+		const next = parsedDay();
+		setDay(next);
+		setDayText(String(next));
+	}
+	function commitYear() {
+		const next = parsedYear();
+		setYear(next);
+		setYearText(String(next));
+	}
+
 	function setDate() {
 		if (!calendar) return;
 		onSet(
 			{
 				calendarId: calendar.id,
-				year: Math.trunc(year),
+				year: parsedYear(),
 				month,
-				day: Math.min(maxDay, Math.max(1, Math.trunc(day))),
+				day: parsedDay(),
 			},
 			'Campaign date set',
 		);
@@ -1155,7 +1198,9 @@ function CampaignDatePanel({
 							const next = Math.max(1, Math.trunc(Number(e.target.value) || 1));
 							setMonth(next);
 							const cap = daysInMonth(calendar, next) ?? 1;
-							setDay((d) => Math.min(cap, Math.max(1, d)));
+							const clamped = Math.min(cap, Math.max(1, parsedDay()));
+							setDay(clamped);
+							setDayText(String(clamped));
 						}}
 					/>
 				</Field>
@@ -1164,21 +1209,19 @@ function CampaignDatePanel({
 						type="number"
 						min={1}
 						max={maxDay}
-						value={day}
+						value={dayText}
 						disabled={previewing}
-						onChange={(e: { target: { value: string } }) =>
-							setDay(Math.min(maxDay, Math.max(1, Math.trunc(Number(e.target.value) || 1))))
-						}
+						onChange={(e: { target: { value: string } }) => setDayText(e.target.value)}
+						onBlur={commitDay}
 					/>
 				</Field>
 				<Field label="Year" style={{ width: 84 }}>
 					<Input
 						type="number"
-						value={year}
+						value={yearText}
 						disabled={previewing}
-						onChange={(e: { target: { value: string } }) =>
-							setYear(Math.trunc(Number(e.target.value) || 0))
-						}
+						onChange={(e: { target: { value: string } }) => setYearText(e.target.value)}
+						onBlur={commitYear}
 					/>
 				</Field>
 				<Button variant="primary" size="sm" icon="check" disabled={previewing} onClick={setDate}>
@@ -1324,7 +1367,10 @@ function RecapPanel({
 									variant="primary"
 									size="sm"
 									icon="check"
-									disabled={previewing || busy || !draft.trim()}
+									// An existing recap has to be clearable: gating on `!draft.trim()`
+									// unconditionally meant emptying the box disabled the only control that
+									// could store the emptied value, so a wrong recap was permanent.
+									disabled={previewing || busy || (!draft.trim() && !target.recap)}
 									onClick={() => void save()}
 								>
 									{target.recap ? 'Update recap' : 'Save recap'}

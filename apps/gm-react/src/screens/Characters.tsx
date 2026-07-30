@@ -278,6 +278,24 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	const [editMode, setEditMode] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [hpAmount, setHpAmount] = useState(1);
+	const [hpDraft, setHpDraft] = useState('1');
+	function commitHpAmount() {
+		const parsed = Number(hpDraft);
+		const next =
+			hpDraft.trim() === '' || !Number.isFinite(parsed)
+				? hpAmount
+				: Math.max(1, Math.trunc(parsed));
+		setHpAmount(next);
+		setHpDraft(String(next));
+	}
+	// Damage/Heal must use what is currently TYPED, not the last committed value: React fires no
+	// blur when the pointer goes straight from the field to the button on touch.
+	function typedHpAmount(): number {
+		const parsed = Number(hpDraft);
+		return hpDraft.trim() === '' || !Number.isFinite(parsed)
+			? hpAmount
+			: Math.max(1, Math.trunc(parsed));
+	}
 	const [acDraft, setAcDraft] = useState('');
 	const [conditionInput, setConditionInput] = useState('');
 	const [nameDraft, setNameDraft] = useState('');
@@ -1126,16 +1144,18 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 										<Input
 											type="number"
 											min={1}
-											value={hpAmount}
-											onChange={(e: any) =>
-												setHpAmount(Math.max(1, Math.trunc(Number(e.target.value) || 1)))
-											}
+											// Coercing per keystroke snapped the field back to 1 the instant it was
+											// cleared, so "12" could not be typed over "3". Hold the text, commit
+											// on blur — the pattern EncounterBuilder's CR/quantity fields use.
+											value={hpDraft}
+											onChange={(e: any) => setHpDraft(e.target.value)}
+											onBlur={commitHpAmount}
 										/>
 									</Field>
-									<Button variant="secondary" size="sm" onClick={() => applyHp(-hpAmount)}>
+									<Button variant="secondary" size="sm" onClick={() => applyHp(-typedHpAmount())}>
 										Damage
 									</Button>
-									<Button variant="secondary" size="sm" onClick={() => applyHp(hpAmount)}>
+									<Button variant="secondary" size="sm" onClick={() => applyHp(typedHpAmount())}>
 										Heal
 									</Button>
 								</div>
@@ -1606,7 +1626,9 @@ export function Characters() {
 	const [initialKind, setInitialKind] = useState<string | null>(null);
 	// When set, the CharBuilder overlay opens straight into the file-import path (WS-4 JSON import).
 	const [importIntent, setImportIntent] = useState(false);
-	const [notice, setNotice] = useState<string | null>(null);
+	// A rejection ("Start a session first") used to render in the same accent-tinted success chip as
+	// "Combat started", polite rather than assertive, so a refusal read as a confirmation.
+	const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
 
 	// Create-intent handoff: "New character" launchers elsewhere (home hub, ⌘K) navigate here with
 	// router state instead of leaving the user to re-find the button. Consumed once, then cleared.
@@ -1678,8 +1700,8 @@ export function Characters() {
 		});
 		setNotice(
 			result.status === 'rejected'
-				? result.rejection.message
-				: 'Combat started — open the Session screen to run it.',
+				? { tone: 'error', text: result.rejection.message }
+				: { tone: 'ok', text: 'Combat started — open the Session screen to run it.' },
 		);
 	}
 
@@ -1730,18 +1752,33 @@ export function Characters() {
 
 			{notice && (
 				<div
-					role="status"
+					role={notice.tone === 'error' ? 'alert' : 'status'}
 					style={{
 						marginBottom: 14,
+						display: 'flex',
+						alignItems: 'flex-start',
+						gap: 8,
 						font: `13px ${T.sans}`,
-						color: T.sub,
-						background: T.accSub,
-						border: `1px solid ${T.accBd}`,
+						color:
+							notice.tone === 'error' ? 'var(--color-status-error-text)' : T.sub,
+						background:
+							notice.tone === 'error' ? 'var(--color-status-error-subtle)' : T.accSub,
+						border: `1px solid ${
+							notice.tone === 'error' ? 'var(--color-status-error-border)' : T.accBd
+						}`,
 						borderRadius: 8,
 						padding: '8px 12px',
 					}}
 				>
-					{notice}
+					<Icon name={notice.tone === 'error' ? 'warning' : 'check'} size={14} />
+					<span style={{ flex: 1, minWidth: 0 }}>{notice.text}</span>
+					<IconButton
+						icon="close"
+						label="Dismiss message"
+						variant="ghost"
+						size="sm"
+						onClick={() => setNotice(null)}
+					/>
 				</div>
 			)}
 

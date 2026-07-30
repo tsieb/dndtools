@@ -1318,7 +1318,9 @@ function SheetSection({ data }: { data: LiveData }) {
 				<Avatar name={C.name} size="md" ring="active" />
 				<div style={{ minWidth: 0 }}>
 					<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-						<span style={{ font: `700 16px ${T.disp}`, color: T.ink }}>{C.name}</span>
+						{/* Every other section renders SectionHead's <h1>; the sheet jumped straight to this
+						    strip, so the ONE section a player lives in had no heading at all. */}
+						<h1 style={{ margin: 0, font: `700 16px ${T.disp}`, color: T.ink }}>{C.name}</h1>
 						<Badge status="success">PC</Badge>
 					</div>
 					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
@@ -2103,6 +2105,7 @@ function BestiarySection({ data }: { data: LiveData }) {
 								<button
 									type="button"
 									aria-expanded={isOpen}
+									aria-controls={`bestiary-${c.id}-panel`}
 									onClick={() => setOpen(isOpen ? null : c.id)}
 									style={{
 										width: '100%',
@@ -2132,6 +2135,7 @@ function BestiarySection({ data }: { data: LiveData }) {
 								</button>
 								{isOpen && (
 									<div
+										id={`bestiary-${c.id}-panel`}
 										style={{
 											padding: '0 15px 15px 15px',
 											display: 'flex',

@@ -514,7 +514,9 @@ function NoteViewer({
 								</Button>
 								<div style={{ flex: 1 }} />
 								{canAuthor && (
-									<Button variant="ghost" size="sm" disabled={busy} onClick={remove}>
+									// A ghost button in the same row as Cancel: the destructive action looked
+									// identical to the harmless one. (Soft delete with Undo, so no confirm.)
+									<Button variant="danger" size="sm" icon="delete" disabled={busy} onClick={remove}>
 										Delete
 									</Button>
 								)}
@@ -664,7 +666,9 @@ function Composer({
 				placeholder="New note title…"
 				style={{ flex: 1 }}
 				onKeyDown={(e: { key: string }) => {
-					if (e.key === 'Enter' && title.trim()) onCreate(title.trim());
+					// The Create button is gated on `busy`; Enter was not, so holding it (or a fast
+					// double press) fired overlapping creates and produced duplicate notes.
+					if (e.key === 'Enter' && !busy && title.trim()) onCreate(title.trim());
 				}}
 			/>
 			<Button

@@ -343,7 +343,9 @@ export function WikiReader() {
 	}, [wikiId]);
 
 	const submitPassword = () => {
-		if (!password.trim()) return;
+		// The Button is `disabled={busy}` but Enter was not, so repeat presses fired overlapping
+		// fetches whose handlers raced to set `state` and double-counted the failed attempts.
+		if (!password.trim() || busy) return;
 		fetchWiki(password.trim());
 	};
 
@@ -537,6 +539,10 @@ export function WikiReader() {
 							gap: 2,
 							position: 'sticky',
 							top: 22,
+							// A sticky column taller than the viewport pins at 22px and its bottom entries
+							// can never be scrolled to — a long wiki loses its last pages entirely.
+							maxHeight: 'calc(var(--app-viewport-height, 100vh) - 44px)',
+							overflowY: 'auto',
 						}}
 					>
 						{wiki.pages.map((p) => {

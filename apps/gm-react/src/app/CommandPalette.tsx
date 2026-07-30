@@ -205,7 +205,9 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 				icon: 'sword',
 				group: 'Create',
 				keywords: 'combat fight initiative monsters battle',
-				run: goTo('/session'),
+				// The one Create entry that navigated without an intent — it dropped you on /session
+				// with nothing open while its siblings all open their editor on arrival.
+				run: goTo('/session', { createEncounter: true }),
 			},
 		];
 

@@ -9,6 +9,8 @@ import { DataTable as RawDataTable } from './data/DataTable.jsx';
 import { ConditionBadge as RawConditionBadge } from './condition/ConditionBadge.jsx';
 import { LayerRow as RawLayerRow } from './map/LayerRow.jsx';
 import { IconButton as RawIconButton } from './core/IconButton.jsx';
+import { Input as RawInput, Textarea as RawTextarea } from './forms/Input.jsx';
+import { Select as RawSelect } from './forms/Select.jsx';
 
 // The DS ships as .jsx with `checkJs: false`, so tsc infers every defaultless prop as required.
 // Re-type the imports as open prop bags rather than restating each component's contract.
@@ -18,6 +20,9 @@ const DataTable = RawDataTable as React.ComponentType<DsProps>;
 const ConditionBadge = RawConditionBadge as React.ComponentType<DsProps>;
 const LayerRow = RawLayerRow as React.ComponentType<DsProps>;
 const IconButton = RawIconButton as React.ComponentType<DsProps>;
+const Input = RawInput as React.ComponentType<DsProps>;
+const Textarea = RawTextarea as React.ComponentType<DsProps>;
+const Select = RawSelect as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;
@@ -221,5 +226,69 @@ describe('IconButton separates hard-disabled from explained-unavailable', () => 
 		const resting = button.style.background;
 		act(() => button.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })));
 		expect(button.style.background).toBe(resting);
+	});
+});
+
+describe('form fields keep their focus ring when the call site also listens for blur', () => {
+	// Input/Textarea/Select paint their focus ring with inline styles set by onFocus/onBlur, and they
+	// spread `{...rest}` AFTER those handlers. Commit-on-blur is the house pattern here (SceneEditor's
+	// metadata fields, Characters' name field, EncounterBuilder's CR drafts, the map Inspector), and
+	// every one of those call sites was therefore REPLACING the ring reset: the field kept its focus
+	// border and 3px glow after focus moved away, so several fields looked focused at once.
+	function mount(node: React.ReactNode, selector: string): HTMLElement {
+		act(() => root.render(node));
+		return container.querySelector(selector) as HTMLElement;
+	}
+
+	function ringCycle(field: HTMLElement) {
+		const resting = field.style.boxShadow;
+		act(() => field.dispatchEvent(new FocusEvent('focusin', { bubbles: true })));
+		const focused = field.style.boxShadow;
+		act(() => field.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+		return { resting, focused, blurred: field.style.boxShadow };
+	}
+
+	it('resets the ring on blur and still calls the caller onBlur — Input', () => {
+		let commits = 0;
+		const field = mount(
+			<Input value="Sunless Citadel" onChange={() => {}} onBlur={() => (commits += 1)} />,
+			'input',
+		);
+		const { resting, focused, blurred } = ringCycle(field);
+		expect(focused).not.toBe(resting);
+		expect(blurred).toBe('none');
+		expect(commits).toBe(1);
+	});
+
+	it('resets the ring on blur and still calls the caller onBlur — Textarea', () => {
+		let commits = 0;
+		const field = mount(<Textarea value="" onChange={() => {}} onBlur={() => (commits += 1)} />, 'textarea');
+		const { focused, blurred } = ringCycle(field);
+		expect(focused).not.toBe('none');
+		expect(blurred).toBe('none');
+		expect(commits).toBe(1);
+	});
+
+	it('resets the ring on blur and still calls the caller onBlur — Select', () => {
+		let commits = 0;
+		const field = mount(
+			<Select options={['a', 'b']} value="a" onChange={() => {}} onBlur={() => (commits += 1)} />,
+			'select',
+		);
+		const { focused, blurred } = ringCycle(field);
+		expect(focused).not.toBe('none');
+		expect(blurred).toBe('none');
+		expect(commits).toBe(1);
+	});
+
+	it('still runs a caller onFocus alongside the ring', () => {
+		let focuses = 0;
+		const field = mount(
+			<Input value="" onChange={() => {}} onFocus={() => (focuses += 1)} />,
+			'input',
+		);
+		act(() => field.dispatchEvent(new FocusEvent('focusin', { bubbles: true })));
+		expect(focuses).toBe(1);
+		expect(field.style.boxShadow).not.toBe('none');
 	});
 });

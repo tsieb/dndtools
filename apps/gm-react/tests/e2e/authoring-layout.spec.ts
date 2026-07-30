@@ -138,3 +138,42 @@ test('the wizard uses the whole phone viewport instead of floating as a fixed sl
 		'the phone wizard must fill the viewport, not float inside it',
 	).toBeGreaterThan(viewportHeight * 0.95);
 });
+
+
+test('entering the wizard moves focus into it, so Tab cannot walk out behind the scrim', async ({
+	page,
+}) => {
+	// CharBuilder returns an <Overlay> at the root in all three phases (choose / scratch / import),
+	// and they were UNKEYED — React reconciled one instance across the phase change, so the
+	// Overlay's mount-only focus effect never re-ran. Choosing "Build from scratch" unmounted the
+	// focused PathCard and left document.activeElement on <body>; the Tab trap only wraps when focus
+	// is already ON the first/last node, so from <body> the next Tab walked straight out of the
+	// modal into the shell behind the scrim.
+	await markOnboarded(page);
+	await gotoRoute(page, '/characters');
+	await seedFresh(page);
+
+	await page.getByRole('button', { name: 'New character', exact: true }).first().click();
+	await page.getByRole('button', { name: /Build from scratch/ }).click();
+
+	const wizard = page.getByRole('dialog', { name: 'New character wizard' });
+	await expect(wizard).toBeVisible();
+
+	// Focus landed inside the wizard, not on <body>.
+	const insideOnEntry = await page.evaluate(() => {
+		const dialog = document.querySelector('[role="dialog"][aria-label="New character wizard"]');
+		const active = document.activeElement;
+		return !!dialog && !!active && active !== document.body && dialog.contains(active);
+	});
+	expect(insideOnEntry, 'focus must enter the wizard when its phase opens').toBe(true);
+
+	// And it stays inside across a few Tab presses rather than escaping to the page behind.
+	for (let i = 0; i < 4; i += 1) {
+		await page.keyboard.press('Tab');
+		const stillInside = await page.evaluate(() => {
+			const dialog = document.querySelector('[role="dialog"][aria-label="New character wizard"]');
+			return !!dialog && !!document.activeElement && dialog.contains(document.activeElement);
+		});
+		expect(stillInside, `focus escaped the wizard on Tab #${i + 1}`).toBe(true);
+	}
+});

@@ -63,7 +63,9 @@ export function SceneDisplaySurface({
 						display: 'flex',
 						alignItems: 'center',
 						justifyContent: 'center',
-						color: 'rgba(255,255,255,0.34)',
+						// 0.34 over the display's #05070c is ~2.9:1 — a WCAG 1.4.3 failure on the one
+						// surface the whole table is looking at. 0.62 lands around 6.5:1.
+						color: 'rgba(255,255,255,0.62)',
 						font: '500 15px var(--font-sans, system-ui)',
 						letterSpacing: '0.04em',
 					}}

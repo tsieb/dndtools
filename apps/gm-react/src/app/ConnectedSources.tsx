@@ -209,6 +209,10 @@ export function ConnectedSourcesPanel() {
 	// --- local folders -----------------------------------------------------------------------
 
 	async function connectFolder() {
+		// Nothing ever deleted this key — one picker failure pinned a red line above the folder list
+		// for the life of the panel, including after a later connect succeeded (which writes to
+		// `record.id`, a different key).
+		setStatusBySource(({ 'connect-folder': _dropped, ...rest }) => rest);
 		try {
 			const record = await connectFolderSource();
 			if (!record) return; // user cancelled the picker
@@ -354,6 +358,11 @@ export function ConnectedSourcesPanel() {
 				pending.sourceKey,
 				`Pushed ${written} of ${pending.plan.entries.length} ${pending.plan.entries.length === 1 ? 'note' : 'notes'} to “${pending.label}”${firstError ? ` — first problem: ${firstError}` : '.'}`,
 			);
+		} catch (error) {
+			// `runtime.dispatch` THROWS on a persist failure, so without this the loop escaped before
+			// the status line was written: the row went from busy back to idle saying nothing at all,
+			// after some notes had already been written to disk. The three sibling paths all catch.
+			setStatusFor(pending.sourceKey, errText(error));
 		} finally {
 			setBusy(null);
 			await refresh();
@@ -624,7 +633,8 @@ export function ConnectedSourcesPanel() {
 				</div>
 			)}
 			{statusBySource['connect-folder'] && (
-				<div style={{ font: `12px ${T.sans}`, color: T.err }}>
+				// The only status block in this file without a live region.
+				<div role="status" style={{ font: `12px ${T.sans}`, color: T.err }}>
 					{statusBySource['connect-folder']}
 				</div>
 			)}

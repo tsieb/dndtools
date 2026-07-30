@@ -18,9 +18,17 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 	const menuRef = useRef<HTMLDivElement>(null);
 	const preview = runtime.preview;
 
-	// Move focus into the menu when it opens (the first item) so the open menu is keyboard-operable.
+	// Move focus into the menu when it opens so the open menu is keyboard-operable. The selector used
+	// to be `[role="menuitem"]`, but every row is a `menuitemradio` — it matched nothing, focus stayed
+	// on the trigger, and since Escape and the arrow keys are bound to the menu container they were
+	// both dead until the user manually Tabbed in. Prefer the checked row, as ARIA menus do.
 	useEffect(() => {
-		if (open) menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+		if (!open) return;
+		const menu = menuRef.current;
+		const target =
+			menu?.querySelector<HTMLElement>('[role="menuitemradio"][aria-checked="true"]') ??
+			menu?.querySelector<HTMLElement>('[role="menuitemradio"]');
+		target?.focus();
 	}, [open]);
 	useEffect(() => {
 		if (!open) return undefined;
@@ -112,7 +120,12 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 							}
 							// ARIA menus are arrow-navigated, not Tab-navigated. Without this the only way
 							// through a full party's preview list was Tab, which also walked straight out of
-							// the menu into the page behind it.
+							// the menu into the page behind it. Tabbing out now dismisses the menu rather
+							// than leaving it open over controls the invisible click-catcher still covers.
+							if (e.key === 'Tab') {
+								close();
+								return;
+							}
 							const keys = ['ArrowDown', 'ArrowUp', 'Home', 'End'];
 							if (!keys.includes(e.key)) return;
 							const items = Array.from(

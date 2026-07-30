@@ -305,14 +305,17 @@ export function Board() {
 					<Icon name="home" size="sm" />
 				</span>
 				<div style={{ minWidth: 0, flex: '1 1 160px' }}>
-					<div
+					{/* The shell's <h1> lives in the top bar, outside <main>, so heading navigation
+					    found nothing inside the board pane. */}
+					<h2
 						style={{
+							margin: 0,
 							font: '700 var(--text-xl) var(--font-display)',
 							color: 'var(--color-text-primary)',
 						}}
 					>
 						GM Screen
-					</div>
+					</h2>
 					<div
 						style={{
 							font: 'var(--text-2xs) var(--font-sans)',

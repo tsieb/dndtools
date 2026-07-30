@@ -340,7 +340,13 @@ export function Player() {
 				{data.pcs.length > 1 && (
 					<Select
 						value={charId}
-						onChange={(e: any) => setPcChoice(e.target.value)}
+						onChange={(e: any) => {
+							// The error banner is screen-level and was only ever cleared by the NEXT
+							// successful dispatch, so a rejected write kept accusing the user from the top
+							// of an unrelated character or tab.
+							setErr(null);
+							setPcChoice(e.target.value);
+						}}
 						options={data.pcs.map((p) => ({ value: p.id, label: p.name }))}
 						aria-label="Switch character"
 					/>
@@ -444,7 +450,15 @@ export function Player() {
 
 			<Page max={1180}>
 				<div style={{ marginBottom: 18 }}>
-					<Tabs value={activeTab} onChange={setTab} tabs={tabs} idBase="player" />
+					<Tabs
+						value={activeTab}
+						onChange={(next: string) => {
+							setErr(null);
+							setTab(next);
+						}}
+						tabs={tabs}
+						idBase="player"
+					/>
 				</div>
 				{/* One panel element, re-labelled per active tab — only one body is ever mounted. */}
 				<div {...tabPanelProps('player', activeTab)}>
@@ -2358,6 +2372,9 @@ function PlayerJournal({
 															>
 																<button
 																	type="button"
+																	// The only toggle in this file without it; every sibling
+																	// (inspiration, equipped, prepared) already announces state.
+																	aria-pressed={shared}
 																	onClick={() => toggleShare(im)}
 																	style={{
 																		display: 'inline-flex',

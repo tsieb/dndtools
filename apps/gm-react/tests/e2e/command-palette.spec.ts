@@ -95,6 +95,66 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 		await page.locator('#main-content').waitFor({ state: 'attached' });
 	});
 
+	test('"Build encounter" opens the encounter dialog instead of just landing on /session', async ({
+		page,
+	}) => {
+		// Every other Create launcher hands its destination an intent the screen consumes on arrival
+		// (Characters opens the wizard, Campaign opens the faction editor, Knowledge the composer).
+		// This one ran a bare navigate to /session, so the palette advertised an action and performed
+		// a plain jump — the DM then had to find the Build-encounter button themselves.
+		await openViaKeyboard(page, 'Meta+k');
+		await page.getByRole('combobox').fill('Build encounter');
+		await page.getByRole('option', { name: 'Build encounter' }).click();
+
+		await page.waitForURL((url) => url.hash === '#/session', { timeout: 10_000 });
+		await expect(page.getByRole('dialog', { name: 'Build encounter' })).toBeVisible();
+	});
+
+	test('the encounter dialog explains its blocked Start, and its count field can be retyped', async ({
+		page,
+	}) => {
+		await openViaKeyboard(page, 'Meta+k');
+		await page.getByRole('combobox').fill('Build encounter');
+		await page.getByRole('option', { name: 'Build encounter' }).click();
+		const dialog = page.getByRole('dialog', { name: 'Build encounter' });
+		await expect(dialog).toBeVisible();
+
+		// Quick-add a monster with the HP field cleared. `Number('') || 0` is 0, so this used to add a
+		// combatant with 0 max HP — already Down on arrival — while the very next field sensibly
+		// falls back to AC 10.
+		const start = dialog.getByRole('button', { name: 'Start combat' });
+		await dialog.getByLabel('Quick add', { exact: true }).fill('Bandit');
+		await dialog.getByLabel('HP', { exact: true }).fill('');
+		await dialog.getByRole('button', { name: 'Add', exact: true }).click();
+
+		const row = dialog.getByLabel('Bandit quantity');
+		await expect(row).toBeVisible();
+		await expect(dialog.getByText(/Bandit/).first()).toBeVisible();
+		await expect(dialog.getByText('0 HP')).toHaveCount(0);
+
+		// The count coerced on every keystroke, so clearing it snapped straight back to 1 and "12"
+		// could not be typed over "1". It now holds the raw text and commits on blur.
+		await row.fill('');
+		await expect(row).toHaveValue('');
+		await row.fill('12');
+		await row.blur();
+		await expect(row).toHaveValue('12');
+
+		// With the roster emptied, the primary used hard `disabled` — which removes the tab stop AND
+		// suppresses the tooltip, so the reason it was unavailable had no channel at all.
+		const removals = dialog.getByRole('button', { name: /from the draft$/ });
+		for (let n = await removals.count(); n > 0; n = await removals.count()) {
+			await removals.first().click();
+		}
+		await expect(start).toHaveAttribute('aria-disabled', 'true');
+		await expect(start).toHaveAttribute('title', /combatant/i);
+		// Playwright's toBeDisabled() also honours aria-disabled, so assert the DOM property: the
+		// point of the soft form is that the button is NOT natively disabled and keeps its tab stop.
+		expect(await start.evaluate((el: HTMLButtonElement) => el.disabled)).toBe(false);
+		await start.focus();
+		await expect(start).toBeFocused();
+	});
+
 	test('a full-text hit from the core search engine deep-links the matched note', async ({ page }) => {
 		await openViaKeyboard(page, 'Meta+k');
 

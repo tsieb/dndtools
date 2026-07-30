@@ -220,6 +220,9 @@ export function Atlas() {
 			// this; Atlas is its untreated twin. Callers that report their OWN success message set it
 			// after this returns, so the ordering is safe.
 			if (result.status === 'accepted') setNotice(null);
+			// A REJECTION was never read either: six call sites do `void run(...)`, so a refused write
+			// (the reachable one is a locked layer — map-layer.ts:73) moved nothing and said nothing.
+			else if (result.status === 'rejected') fail(result.rejection.message);
 			return result;
 		} catch (error) {
 			// Six call sites did `void run(...)`, so a throw here was an unhandled rejection with no UI.
@@ -447,6 +450,8 @@ export function Atlas() {
 						<button
 							key={mp.id}
 							type="button"
+							// The open map was signalled by border/background/text colour alone.
+							aria-current={on ? 'true' : undefined}
 							onClick={() => {
 								setMapId(mp.id);
 								setMapZoom(1);
@@ -869,6 +874,9 @@ export function Atlas() {
 											<Switch
 												checked={l.enabled}
 												aria-label={`Show ${l.name} on the map`}
+												// The only control in the row that stayed live mid-dispatch, so a second
+												// click was swallowed by `run`'s busy guard with no feedback at all.
+												disabled={busy}
 												onChange={() => toggleLayerEnabled(l.layerId, l.enabled)}
 											/>
 										</>

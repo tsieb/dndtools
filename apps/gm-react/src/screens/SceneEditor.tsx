@@ -304,8 +304,11 @@ export function SceneEditor() {
 					onClick={() => navigate('/scenes')}
 				/>
 				<div style={{ minWidth: 0 }}>
-					<div
+					{/* The shell's only <h1> is the section label ("Scenes"), so without a heading here
+					    the page announced no way to tell WHICH scene is open. */}
+					<h2
 						style={{
+							margin: 0,
 							font: '700 var(--text-xl) var(--font-display)',
 							color: 'var(--color-text-primary)',
 							overflow: 'hidden',
@@ -314,7 +317,7 @@ export function SceneEditor() {
 						}}
 					>
 						{summary.name}
-					</div>
+					</h2>
 					<div
 						style={{
 							font: 'var(--text-2xs) var(--font-sans)',

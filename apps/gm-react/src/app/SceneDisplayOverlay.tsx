@@ -8,7 +8,7 @@ import {
 	postSceneDisplay,
 	subscribeSceneDisplayRequests,
 } from '../platform/sceneDisplayChannel';
-import { Button, IconButton } from '../ds';
+import { Button, IconButton, Toaster } from '../ds';
 import { useI18n } from '../i18n';
 import { registerBackHandler } from '../platform/backNavigation';
 import { usePlatformCapabilities } from '../platform/capabilities';
@@ -177,7 +177,10 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 					variant="ghost"
 					size="sm"
 					icon="display"
-					disabled={!capabilities.secondScreen.available}
+					// Native `disabled` removes the tab stop AND suppresses the tooltip, so the carefully
+					// worded `unavailableMessage` (e.g. "…desktop-only on Android") had no channel left to
+					// reach anyone. `aria-disabled` is the DS soft form: focusable, announced, inert.
+					aria-disabled={!capabilities.secondScreen.available || undefined}
 					title={capabilities.secondScreen.unavailableMessage ?? undefined}
 					aria-label={
 						capabilities.secondScreen.available
@@ -185,7 +188,14 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 							: (capabilities.secondScreen.unavailableMessage ??
 								t('Second screen is not available on this device'))
 					}
-					onClick={() => openSecondScreen()}
+					onClick={() => {
+						// window.open returns null when the browser blocks the popup — pressing the button
+						// then did nothing at all, with no explanation anywhere.
+						if (!openSecondScreen())
+							Toaster.error(
+								t('Your browser blocked the display window — allow pop-ups for this site.'),
+							);
+					}}
 				>
 					{t('Second screen')}
 				</Button>

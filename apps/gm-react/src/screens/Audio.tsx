@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState, useSyncExternalStore, type FormEvent } from 'react';
+import {
+	useEffect,
+	useMemo,
+	useState,
+	useSyncExternalStore,
+	type CSSProperties,
+	type FormEvent,
+} from 'react';
 import {
 	AUDIO_AUTOMATION_ACTIONS,
 	AUDIO_AUTOMATION_TRIGGER_KINDS,
@@ -185,6 +192,45 @@ function useAudioOutputDevices(enabled: boolean): {
 	return { outputs, note };
 }
 
+/**
+ * CommitSlider — a Slider whose command goes out on RELEASE, not on every tick.
+ *
+ * The DS Slider fires `onChange` for every `input` event, and both volume faders dispatched
+ * straight from it. Dragging master volume 0→100 therefore emitted ~100 durable commands, each one
+ * a full-state IndexedDB write plus an op-log entry replicated to every connected player. The draft
+ * tracks the pointer so the thumb still moves live; the command is sent once, on pointer-up / key-up
+ * / blur. The wrapper (not the Slider) owns those handlers so the ± stepper buttons commit too.
+ */
+function CommitSlider({
+	value,
+	onCommit,
+	style,
+	...rest
+}: {
+	value: number;
+	onCommit: (v: number) => void;
+	style?: CSSProperties;
+	disabled?: boolean;
+	valueLabel?: string;
+	steppers?: boolean;
+	'aria-label': string;
+}) {
+	// `null` means "follow the durable value", so an external change still moves the thumb.
+	const [draft, setDraft] = useState<number | null>(null);
+	const shown = draft ?? value;
+	const commit = () => {
+		if (draft === null) return;
+		const next = draft;
+		setDraft(null);
+		if (next !== value) onCommit(next);
+	};
+	return (
+		<div onPointerUp={commit} onKeyUp={commit} onBlur={commit} style={style}>
+			<Slider {...rest} value={shown} onChange={(v: number) => setDraft(v)} />
+		</div>
+	);
+}
+
 export function Audio() {
 	const runtime = useRuntime();
 	const viewport = useViewport();
@@ -278,8 +324,19 @@ export function Audio() {
 	const [importBusy, setImportBusy] = useState(false);
 	const [importError, setImportError] = useState<string | null>(null);
 
+	// Six write paths (play/pause/resume/stop, scene binding, automation enable, output choice) went
+	// through here, and it threw the CommandResult away: on a rejection the Switch visibly snapped
+	// back and the Select reverted with no toast and no inline text. The file's other writers all
+	// surface the message.
 	const dispatch = (command: Parameters<typeof runtime.dispatch>[0]) => {
-		void runtime.dispatch(command);
+		void runtime
+			.dispatch(command)
+			.then((result) => {
+				if (result.status !== 'accepted') Toaster.error(result.rejection.message);
+			})
+			.catch((error: unknown) =>
+				Toaster.error(error instanceof Error ? error.message : 'That change could not be saved.'),
+			);
 	};
 
 	const importAudio = async () => {
@@ -361,6 +418,9 @@ export function Audio() {
 		}
 		setAddBusy(true);
 		setAddError(null);
+		// The green "'X' added" was cleared only in the FAILURE branch, so it stayed pinned beside the
+		// submit button while the next track was being typed, and survived a tab switch and back.
+		setAddedName(null);
 		try {
 			const result = await runtime.dispatch({
 				type: 'audio.configure-source',
@@ -810,10 +870,10 @@ export function Audio() {
 					}}
 				>
 					<Icon name="audio" size={15} color={T.ter} />
-					<Slider
+					<CommitSlider
 						value={masterPct}
 						disabled={!track || !canEdit}
-						onChange={(v: number) =>
+						onCommit={(v: number) =>
 							dispatch({
 								type: 'session.audio.set-volume',
 								actorId: dmId,
@@ -823,7 +883,7 @@ export function Audio() {
 						valueLabel={`${masterPct}%`}
 						steppers
 						aria-label="Master volume"
-						style={{ flex: 1 }}
+						style={{ flex: 1, minWidth: 0 }}
 					/>
 				</div>
 				{/* The device-output driver's honest silent states — the durable track says "playing", this
@@ -1029,9 +1089,11 @@ export function Audio() {
 											<Input
 												id="audio-track-name"
 												value={trackName}
-												onChange={(e: { target: { value: string } }) =>
-													setTrackName(e.target.value)
-												}
+												onChange={(e: { target: { value: string } }) => {
+													// Typing the next track's name retires the previous one's confirmation.
+													setAddedName(null);
+													setTrackName(e.target.value);
+												}}
 												placeholder="Tavern murmur"
 											/>
 										</Field>
@@ -1278,10 +1340,10 @@ export function Audio() {
 															</span>
 														)}
 												</div>
-												<Slider
+												<CommitSlider
 													value={Math.round(layer.volume * 100)}
 													disabled={!canEdit}
-													onChange={(v: number) =>
+													onCommit={(v: number) =>
 														void setLayer(layerId, layer.sourceId, v / 100, layer.muted)
 													}
 													valueLabel={`${Math.round(layer.volume * 100)}%`}

@@ -255,6 +255,17 @@ export function Graph() {
 			</div>
 
 			<div
+				// Escape bubbles up from whichever node button has focus, so a keyboard user can drop
+				// the selection without hunting for the node they last pressed. It lives on the GRID,
+				// not the canvas: half the selection entry points are the search rows in the right
+				// rail, and from there Escape used to do nothing. The search input keeps its own
+				// Escape (clear the query), so skip it here.
+				onKeyDown={(e) => {
+					if (e.key === 'Escape' && sel !== null && !(e.target instanceof HTMLInputElement)) {
+						e.stopPropagation();
+						setSel(null);
+					}
+				}}
 				style={{
 					display: 'grid',
 					gridTemplateColumns: isPhone ? '1fr' : '1fr 320px',
@@ -264,14 +275,6 @@ export function Graph() {
 			>
 				{/* graph canvas — real nodes (sized by visible degree) + real directed link edges */}
 				<div
-					// Escape bubbles up from whichever node button has focus, so a keyboard user can drop
-					// the selection without hunting for the node they last pressed.
-					onKeyDown={(e) => {
-						if (e.key === 'Escape' && sel !== null) {
-							e.stopPropagation();
-							setSel(null);
-						}
-					}}
 					style={{
 						position: 'relative',
 						borderRadius: 14,
