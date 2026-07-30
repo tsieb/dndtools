@@ -383,5 +383,30 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		await page.getByRole('button', { name: `Move ${second} up` }).click();
 		await expect(page.getByRole('button', { name: `Move ${second} up` })).toBeDisabled();
 		await expect(page.getByRole('button', { name: `Move ${first} down` })).toBeDisabled();
+
+		// …and having just disabled the button under the keyboard, focus must land on the surviving
+		// arrow of the SAME card rather than falling to <body> (WCAG 2.4.3). Before this, a keyboard
+		// DM lost their place in the queue on every move that reached an end of the list.
+		await expect(page.getByRole('button', { name: `Move ${second} down` })).toBeFocused();
+	});
+
+	test('reordering a card mid-queue keeps focus on the arrow that was pressed', async ({ page }) => {
+		const stamp = Date.now();
+		const titles = [`Aerie ${stamp}`, `Bramble ${stamp}`, `Cellar ${stamp}`];
+		for (const title of titles) {
+			await createCardViaCore(page, { title, visibility: 'player-visible' });
+			await page.getByRole('button', { name: `Queue ${title}` }).click();
+		}
+		await expect(page.getByText('Queue · 3')).not.toHaveCount(0);
+
+		// The tail moves up into the middle, where BOTH arrows stay enabled — so focus should stay on
+		// the very same "up" arrow, ready for a second press.
+		const up = page.getByRole('button', { name: `Move ${titles[2]} up` });
+		await up.click();
+		await expect(up).toBeFocused();
+		// Pressing again is what the restored focus buys: it walks to the head of the queue.
+		await page.keyboard.press('Enter');
+		await expect(page.getByRole('button', { name: `Move ${titles[2]} up` })).toBeDisabled();
+		await expect(page.getByRole('button', { name: `Move ${titles[2]} down` })).toBeFocused();
 	});
 });

@@ -222,6 +222,10 @@ export function Session() {
 	const [builderMode, setBuilderMode] = useState<'start' | 'reinforce' | null>(null);
 	// The combatant id the condition-picker dialog is open for (the design-b condPick modal pattern).
 	const [condPickFor, setCondPickFor] = useState<string | null>(null);
+	// `combat.end` discards the round counter, the initiative order, and every combatant's HP and
+	// conditions, and the core has no restore command — so it needs a confirm step, like the other
+	// irreversible actions in this app.
+	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
 
 	async function dispatch(
 		command: Parameters<typeof runtime.dispatch>[0],
@@ -362,7 +366,7 @@ export function Session() {
 					onSelect={setSelectedId}
 					onAdvance={() => dispatch({ type: 'combat.advance-turn', actorId, payload: {} })}
 					onPrevious={() => dispatch({ type: 'combat.previous-turn', actorId, payload: {} })}
-					onEnd={() => dispatch({ type: 'combat.end', actorId, payload: {} }, 'Combat ended')}
+					onEnd={() => setEndConfirmOpen(true)}
 					onHp={(combatantId, delta) =>
 						dispatch({
 							type: 'combat.apply-resource',
@@ -521,6 +525,32 @@ export function Session() {
 				party={party}
 				defaultTitle={activeSceneName ? `${activeSceneName} — encounter` : 'Encounter'}
 			/>
+			<Dialog
+				open={endConfirmOpen}
+				onClose={() => setEndConfirmOpen(false)}
+				title="End this combat?"
+				description={`Round ${tracker.round} and the initiative order are discarded, along with every combatant's current HP and conditions. There is no undo — you would have to build the encounter again from your roster.`}
+				icon="warning"
+				size="sm"
+				footer={
+					<>
+						<Button variant="secondary" size="sm" onClick={() => setEndConfirmOpen(false)}>
+							Keep running
+						</Button>
+						<Button
+							variant="danger"
+							size="sm"
+							icon="close"
+							onClick={() => {
+								setEndConfirmOpen(false);
+								void dispatch({ type: 'combat.end', actorId, payload: {} }, 'Combat ended');
+							}}
+						>
+							End combat
+						</Button>
+					</>
+				}
+			/>
 			<ConditionPickerDialog
 				target={condPickTarget}
 				onClose={() => setCondPickFor(null)}
@@ -678,7 +708,29 @@ function CombatPanel({
 						variant="primary"
 						size="sm"
 						icon="sword"
-						disabled={!isLive || previewing || !isDm}
+						// aria-disabled, not disabled: this is where ⌘K's "Build encounter" lands, and a
+						// natively disabled button leaves the tab order — so the DM arrived at a mute dead
+						// control. The EmptyState below explains it, but only to sighted users who scroll;
+						// the reason belongs on the control that refuses.
+						aria-disabled={!isLive || previewing || !isDm || undefined}
+						title={
+							previewing
+								? 'Exit player preview to build an encounter'
+								: !isDm
+									? 'Only the DM can build an encounter'
+									: !isLive
+										? 'Go live before building an encounter'
+										: 'Build encounter'
+						}
+						aria-label={
+							previewing
+								? 'Build encounter (unavailable — exit player preview first)'
+								: !isDm
+									? 'Build encounter (unavailable — DM only)'
+									: !isLive
+										? 'Build encounter (unavailable — go live first)'
+										: 'Build encounter'
+						}
 						onClick={onStart}
 					>
 						Build encounter

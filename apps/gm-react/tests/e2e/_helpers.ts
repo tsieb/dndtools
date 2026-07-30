@@ -17,6 +17,9 @@ interface DevRuntime {
 		[key: string]: unknown;
 	};
 	dispatch: (command: unknown) => Promise<{ status: string; rejection?: { message?: string }; events?: Array<Record<string, unknown>> }>;
+	/** The runtime's id factory — specs that dispatch a payload carrying an explicit id must use
+	 *  this rather than inventing one (PLAT-006). */
+	newId: () => string;
 	defaultActorId: string;
 	enterPreview: (selection: { role: 'player' | 'observer'; playerActorId?: string | null }) => void;
 	exitPreview: () => void;

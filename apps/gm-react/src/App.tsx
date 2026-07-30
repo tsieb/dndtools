@@ -311,7 +311,7 @@ function VaultLoadFailure({ runtime }: { runtime: SceneRuntime }) {
 							border: '1px solid var(--color-status-error)',
 							borderRadius: 'var(--radius-md, 6px)',
 							background: 'var(--color-status-error)',
-							color: 'var(--color-text-inverse)',
+							color: 'var(--color-status-error-foreground)',
 							font: '600 13px var(--font-sans)',
 							cursor: busy ? 'wait' : 'pointer',
 						}}

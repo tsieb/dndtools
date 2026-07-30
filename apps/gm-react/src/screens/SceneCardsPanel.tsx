@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
 	getSceneDisplayForActor,
 	getSceneCardQueueForActor,
@@ -429,10 +429,36 @@ function SceneQueuePanel({
 	onTransition: (style: SceneCardTransitionStyle) => void;
 }) {
 	const { t } = useI18n();
-	function move(index: number, delta: number) {
+	// Reordering re-renders the whole queue, so the button the DM just pressed is a different element
+	// afterwards — and at the ends of the queue it becomes `disabled`, which drops focus to <body>
+	// mid-keyboard-interaction. Remember which card moved and restore focus to it after the render.
+	const refocus = useRef<{ id: string; dir: -1 | 1; index: number } | null>(null);
+	useEffect(() => {
+		const want = refocus.current;
+		if (!want) return;
+		// `onReorder` dispatches asynchronously, so this effect also runs on renders that still show
+		// the OLD order. Acting then focuses an arrow that is about to be disabled, and the browser
+		// blurs it straight to <body> — the very bug this exists to prevent. Wait until the card has
+		// actually landed on its new index. If it never does (a rejected command) nothing is focused,
+		// which is the same as the old behaviour rather than a wrong jump.
+		if (queue[want.index]?.id !== want.id) return;
+		refocus.current = null;
+		const pick = (dir: number) =>
+			document.querySelector<HTMLButtonElement>(
+				`[data-queue-card="${want.id}"][data-queue-move="${dir}"]`,
+			);
+		// Same direction if it is still usable; otherwise the opposite arrow on the same row, which is
+		// guaranteed enabled (a card cannot be at both ends of a queue of two or more).
+		const same = pick(want.dir);
+		const target = same && !same.disabled ? same : pick(-want.dir);
+		if (target && !target.disabled) target.focus();
+	}, [queue]);
+
+	function move(index: number, delta: -1 | 1) {
 		const order = queue.map((c) => c.id);
 		const target = index + delta;
 		if (target < 0 || target >= order.length) return;
+		refocus.current = { id: order[index]!, dir: delta, index: target };
 		[order[index], order[target]] = [order[target], order[index]];
 		onReorder(order);
 	}
@@ -531,6 +557,8 @@ function SceneQueuePanel({
 										variant="ghost"
 										size="sm"
 										disabled={i === 0}
+										data-queue-card={card.id}
+										data-queue-move={-1}
 										onClick={() => move(i, -1)}
 									/>
 									<IconButton
@@ -539,6 +567,8 @@ function SceneQueuePanel({
 										variant="ghost"
 										size="sm"
 										disabled={i === queue.length - 1}
+										data-queue-card={card.id}
+										data-queue-move={1}
 										onClick={() => move(i, 1)}
 									/>
 									<IconButton

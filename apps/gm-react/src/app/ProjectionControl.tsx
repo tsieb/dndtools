@@ -93,8 +93,12 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 				variant={live ? 'secondary' : 'primary'}
 				size="md"
 				icon={live ? 'audio-off' : 'visibility-players'}
-				disabled={previewing || (!live && !canGoLive)}
-				// `previewing` also disables this button, so it needs its own explanation — otherwise
+				// aria-disabled, NOT disabled: a natively disabled button leaves the tab order, so
+				// neither the title nor the aria-label below is ever announced and the carefully
+				// worded reason becomes unreachable. Button treats aria-disabled as a soft disable
+				// (looks unavailable, swallows the click, stays focusable).
+				aria-disabled={previewing || (!live && !canGoLive) || undefined}
+				// `previewing` also blocks this button, so it needs its own explanation — otherwise
 				// previewing as a player left a dead control whose tooltip still read plain "Go live".
 				title={
 					previewing

@@ -247,6 +247,77 @@ test('the character sheet fits a compact phone without clipped controls', async 
 	expect(await clippedControls(page), 'the character sheet clipped a control').toEqual([]);
 });
 
+// `character.set-class-resource` puts no upper bound on `max`, and the Resources tab drew one pip
+// per use at 13px — under WCAG 2.5.8's 24px floor. The pips are CONTENTLESS <button>s, so their
+// min-content width is ~3px: on a phone they silently shrank into unhittable slivers rather than
+// overflowing, which is exactly why `clippedControls` above never caught them.
+test('class-resource pips stay hittable at a high resource maximum on a phone', async ({ page }) => {
+	await page.setViewportSize({ width: 393, height: 830 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/player');
+	await seedFresh(page);
+
+	// Seed 9 uses — a real ceiling (a high-level monk's ki) and well past the ~253px the phone row
+	// can spare for name + pips. Applied to EVERY seeded PC so this does not depend on which one
+	// /player happens to select, and stamped with the DM actor: an omitted `actorId` is treated as
+	// an unknown actor and denied at the observer ceiling (collab/observer-access.ts).
+	const rejections = await page.evaluate(async () => {
+		const rt = window.__rt!;
+		const chars = (
+			rt as unknown as {
+				state: { characters?: { characters?: Record<string, { id: string; kind: string }> } };
+			}
+		).state.characters?.characters;
+		const pcs = Object.values(chars ?? {}).filter((c) => c.kind === 'pc');
+		const failed: string[] = [];
+		for (const pc of pcs) {
+			const result = await rt.dispatch({
+				type: 'character.set-class-resource',
+				actorId: rt.defaultActorId,
+				payload: {
+					characterId: pc.id,
+					id: rt.newId(),
+					name: 'Ki points',
+					max: 9,
+					recharge: 'short',
+				},
+			});
+			if (result.status !== 'accepted') failed.push(JSON.stringify(result.rejection ?? {}));
+		}
+		return { count: pcs.length, failed };
+	});
+	expect(rejections.count, 'the seeded vault should contain at least one PC').toBeGreaterThan(0);
+	expect(rejections.failed).toEqual([]);
+
+	await page.getByRole('tab', { name: 'Resources' }).click();
+	const pips = page.getByRole('button', { name: /^Ki points use \d+ / });
+	await expect(pips).toHaveCount(9);
+
+	const boxes = await pips.evaluateAll((els) =>
+		els.map((el) => {
+			const r = el.getBoundingClientRect();
+			return { w: r.width, h: r.height, right: r.right };
+		}),
+	);
+	// Every pip clears the 24x24 minimum…
+	for (const [i, box] of boxes.entries()) {
+		expect(box.w, `pip ${i + 1} width`).toBeGreaterThanOrEqual(24);
+		expect(box.h, `pip ${i + 1} height`).toBeGreaterThanOrEqual(24);
+	}
+	// …they are uniform (a shrunk pip is the exact failure mode this replaces)…
+	expect(new Set(boxes.map((b) => Math.round(b.w))).size, 'pips must all be the same size').toBe(1);
+	// …and they wrap onto a second row rather than pushing past the viewport.
+	for (const [i, box] of boxes.entries()) {
+		expect(box.right, `pip ${i + 1} right edge`).toBeLessThanOrEqual(394);
+	}
+
+	await expectNoHorizontalOverflow(page, 'player Resources tab with 9 pips', '#main-content');
+	expect(
+		await clippedControls(page, '#main-content'),
+		'the Resources tab clipped a control',
+	).toEqual([]);
+});
+
 test('the 640/641 shell switch and desktop-window minimum select the intended navigation profile', async ({
 	page,
 }) => {

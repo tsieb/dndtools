@@ -4,6 +4,7 @@ import type React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { Field as RawField } from './Field.jsx';
 import { Input as RawInput, Textarea as RawTextarea } from './Input.jsx';
 import { Slider as RawSlider } from './Slider.jsx';
 
@@ -13,6 +14,7 @@ type DsProps = Record<string, unknown>;
 const Input = RawInput as React.ComponentType<DsProps>;
 const Textarea = RawTextarea as React.ComponentType<DsProps>;
 const Slider = RawSlider as React.ComponentType<DsProps>;
+const Field = RawField as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;
@@ -54,6 +56,91 @@ describe('Input invalid state', () => {
 	it('omits aria-invalid while the field is valid', () => {
 		render(<Input readOnly value="" />);
 		expect(container.querySelector('input')?.getAttribute('aria-invalid')).toBeNull();
+	});
+});
+
+// Field rendered its `help`/`error` copy in an unlinked sibling <span>. The <label> was correctly
+// auto-associated, so a screen-reader user heard the field's NAME but never its format hint and
+// never the reason a submit was rejected — and several call sites (SceneCardsPanel's card form)
+// carry real validation copy in `help`. WCAG 1.3.1 / 3.3.1.
+describe('Field help and error text', () => {
+	function described(): { control: Element | null; text: string | null } {
+		const control = container.querySelector('input');
+		const id = control?.getAttribute('aria-describedby');
+		// getElementById, not querySelector: React's useId emits colons, which are legal in an
+		// HTML id and in an IDREF list but not in a CSS id selector.
+		const target = id ? document.getElementById(id) : null;
+		return { control, text: target?.textContent ?? null };
+	}
+
+	it('describes the control with its help text', () => {
+		render(
+			<Field label="Party name" help="Shown to every player who joins.">
+				<Input readOnly value="" />
+			</Field>,
+		);
+		expect(described().text).toBe('Shown to every player who joins.');
+	});
+
+	it('describes the control with its error text and marks it invalid', () => {
+		render(
+			<Field label="Title" error="Title is required.">
+				<Input readOnly value="" />
+			</Field>,
+		);
+		const { control, text } = described();
+		expect(text).toBe('Title is required.');
+		expect(control?.getAttribute('aria-invalid')).toBe('true');
+	});
+
+	// An error that appears on submit must announce itself, not wait for the next focus visit.
+	it('gives the error copy a live region', () => {
+		render(
+			<Field label="Title" error="Title is required.">
+				<Input readOnly value="" />
+			</Field>,
+		);
+		expect(container.querySelector('[role="alert"]')?.textContent).toBe('Title is required.');
+		// Help text is not urgent, so it must NOT be an alert.
+		act(() =>
+			root.render(
+				<Field label="Title" help="Keep it short.">
+					<Input readOnly value="" />
+				</Field>,
+			),
+		);
+		expect(container.querySelector('[role="alert"]')).toBeNull();
+	});
+
+	// `error` wins over `help` visually, so it must win in the description too — otherwise the
+	// control would point at an id that renders nothing.
+	it('prefers the error over the help text when both are supplied', () => {
+		render(
+			<Field label="Title" help="Keep it short." error="Title is required.">
+				<Input readOnly value="" />
+			</Field>,
+		);
+		expect(described().text).toBe('Title is required.');
+	});
+
+	it('preserves a describedby the call site already set', () => {
+		render(
+			<Field label="Title" help="Keep it short.">
+				<Input readOnly value="" aria-describedby="outside-hint" />
+			</Field>,
+		);
+		const ids = container.querySelector('input')?.getAttribute('aria-describedby')?.split(' ');
+		expect(ids?.[0]).toBe('outside-hint');
+		expect(ids).toHaveLength(2);
+	});
+
+	it('adds no describedby when there is neither help nor error', () => {
+		render(
+			<Field label="Title">
+				<Input readOnly value="" />
+			</Field>,
+		);
+		expect(container.querySelector('input')?.getAttribute('aria-describedby')).toBeNull();
 	});
 });
 

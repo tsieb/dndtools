@@ -220,7 +220,9 @@ export function Graph() {
 						{ value: 'player', label: 'Player view', disabled: playerId === dmId },
 					]}
 				/>
-				<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+				{/* This count is the ONLY feedback that a filter, a search or the DM/player view switch
+				    did anything. It is present from mount, so role=status announces each change. */}
+				<span role="status" style={{ font: `12px ${T.sans}`, color: T.ter }}>
 					Showing {viz.nodes.length} of {viz.totalVisibleNodes} visible{' '}
 					{viz.totalVisibleNodes === 1 ? 'node' : 'nodes'}
 					{viz.partial ? ' · some sources aren’t fully loaded yet' : ''}

@@ -119,6 +119,15 @@ describe('shared surfaces do not bypass the token layer for text on a tokenized 
 		expect(src).toContain("color: 'var(--color-text-inverse)'");
 		expect(src).not.toContain("color: '#fff'");
 	});
+
+	it("Button's danger variant labels itself from a token, not a literal white", () => {
+		// `#fff` on `--color-status-error` is 3.49:1 on dark/tavern's salmon and 2.43:1 on
+		// high-contrast's `#ff8080`. The label is 16px semibold, so WCAG 1.4.3 wants 4.5:1, and
+		// two of the four themes need DARK ink — only a per-theme foreground token can serve both.
+		const src = readFileSync(join(SRC, 'ds/components/core/Button.jsx'), 'utf8');
+		expect(src).toContain("color: 'var(--color-status-error-foreground)'");
+		expect(src).not.toContain("color: '#fff'");
+	});
 });
 
 describe('every in-app Tabs completes the ARIA tabs pattern', () => {

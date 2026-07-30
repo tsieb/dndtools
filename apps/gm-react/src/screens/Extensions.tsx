@@ -1607,6 +1607,12 @@ function CustomObjectTypes() {
 									style={{
 										display: 'flex',
 										alignItems: 'center',
+										// A 36px glyph, the name/meta block, a count and up to three action buttons
+										// need ~350px of no-wrap width against ~327px of inner width on a 393px
+										// phone. DS Button wraps its own label rather than refusing to shrink, so
+										// without this the actions squeezed into unreadable slivers instead of
+										// dropping to a second line. Every sibling panel already wraps.
+										flexWrap: 'wrap',
 										gap: 12,
 										padding: 12,
 										border: `1px solid ${T.bd}`,
@@ -1648,9 +1654,14 @@ function CustomObjectTypes() {
 											{VISIBILITY_WORD[s.defaultVisibility] ?? s.defaultVisibility}
 										</div>
 									</div>
-									<span style={{ font: `12px ${T.mono}`, color: count ? T.ink : T.ter }}>
+									<span
+										style={{ font: `12px ${T.mono}`, color: count ? T.ink : T.ter, flex: '0 0 auto' }}
+									>
 										{count} in vault
 									</span>
+									<div
+										style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto', flexWrap: 'wrap' }}
+									>
 									{def && (
 										<Button
 											variant="secondary"
@@ -1699,6 +1710,7 @@ function CustomObjectTypes() {
 											Delete
 										</Button>
 									)}
+									</div>
 								</div>
 							);
 						})}
@@ -2100,6 +2112,11 @@ function SystemSwitchDialog({
 									style={{
 										display: 'flex',
 										alignItems: 'center',
+										// The type name, badge and instance count are all fixed-width, so inside
+										// Dialog's `overflowX: hidden` port the flex:1 note — the ONLY text saying
+										// WHY a widget type is being Dropped — collapsed to nothing and was clipped
+										// out of a destructive confirmation. Let it drop to its own full-width line.
+										flexWrap: 'wrap',
 										gap: 12,
 										padding: '10px 14px',
 										borderTop: i ? `1px solid ${T.bd}` : 'none',
@@ -2117,7 +2134,14 @@ function SystemSwitchDialog({
 									>
 										×{f.instanceCount}
 									</span>
-									<span style={{ flex: 1, font: `12px/1.4 ${T.sans}`, color: T.sub }}>
+									<span
+										style={{
+											flex: '1 1 200px',
+											minWidth: 0,
+											font: `12px/1.4 ${T.sans}`,
+											color: T.sub,
+										}}
+									>
 										{f.note}
 									</span>
 								</div>

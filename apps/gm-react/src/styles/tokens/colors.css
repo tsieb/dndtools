@@ -63,6 +63,9 @@
 	--color-status-error: #ef5350; /* danger, low HP, disconnected */
 	--color-status-error-text: #fca5a5;
 	--color-status-error-subtle: #2d1110;
+	/* text/icon ON the solid error fill (danger buttons). `-text` above is tuned for
+	   `-subtle` backgrounds and fails 4.5:1 on the fill itself. */
+	--color-status-error-foreground: #1a1206;
 	--color-status-info: #4fb6e0; /* sync, info, neutral notice */
 	--color-status-info-text: #97d6f0;
 	--color-status-info-subtle: #0c2230;
@@ -120,6 +123,7 @@
 	--color-status-error: #ef5350;
 	--color-status-error-text: #fca5a5;
 	--color-status-error-subtle: #2d1110;
+	--color-status-error-foreground: #1a1206;
 	--color-status-info: #4fb6e0;
 	--color-status-info-text: #97d6f0;
 	--color-status-info-subtle: #0c2230;
@@ -173,6 +177,7 @@
 	--color-status-error: #c0271f;
 	--color-status-error-text: #9e1d17;
 	--color-status-error-subtle: #fbe5e2;
+	--color-status-error-foreground: #ffffff;
 	--color-status-info: #0c6791;
 	--color-status-info-text: #0a5577;
 	--color-status-info-subtle: #e0eef5;
@@ -225,6 +230,7 @@
 	--color-status-error: #ff8080;
 	--color-status-error-text: #ff8080;
 	--color-status-error-subtle: #1a0000;
+	--color-status-error-foreground: #000000;
 	--color-status-info: #80d8ff;
 	--color-status-info-text: #80d8ff;
 	--color-status-info-subtle: #001a2a;
@@ -387,6 +393,7 @@
 		--color-status-error: CanvasText;
 		--color-status-error-text: CanvasText;
 		--color-status-error-subtle: Canvas;
+		--color-status-error-foreground: Canvas;
 		--color-status-info: CanvasText;
 		--color-status-info-text: CanvasText;
 		--color-status-info-subtle: Canvas;

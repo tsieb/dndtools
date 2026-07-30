@@ -92,6 +92,48 @@ test.describe('onboarding forced consent (ADR-026)', () => {
 		expect(await storage(page, ONBOARDED_KEY)).toBe('skipped');
 	});
 
+	// Escape is bound on the whole panel, so it also fired from inside the party-name field and the
+	// E2EE acknowledgement field — where the browser convention is "leave this field", not "abandon
+	// the wizard". It ended setup and threw away whatever had been typed.
+	test('Escape inside a text field leaves the field instead of abandoning setup', async ({
+		page,
+	}) => {
+		await openFresh(page);
+		await toPrivacyStep(page);
+		await overlay(page)
+			.getByRole('radio', { name: /Cloud-Enhanced vault/ })
+			.click();
+		await overlay(page).getByRole('button', { name: 'Continue' }).click();
+		// experience -> tools -> players
+		await overlay(page).getByRole('button', { name: 'Continue' }).click();
+		await overlay(page).getByRole('button', { name: 'Continue' }).click();
+
+		const draft = overlay(page).getByLabel('Player name or email');
+		await expect(draft).toBeVisible();
+		await draft.click();
+		await draft.fill('Rowan');
+		await expect(draft).toBeFocused();
+
+		// Escape from inside the field: setup survives and the typed name is untouched.
+		await page.keyboard.press('Escape');
+		await expect(overlay(page)).toBeVisible();
+		await expect(draft).toHaveValue('Rowan');
+		// Focus stayed inside the modal rather than falling to <body>.
+		expect(
+			await page.evaluate(
+				() =>
+					!!document.activeElement &&
+					document.activeElement !== document.body &&
+					!!document.activeElement.closest('[data-fullscreen-overlay="onboarding"]'),
+			),
+		).toBe(true);
+
+		// A second Escape — now from outside any text field — still dismisses, so the affordance is
+		// not lost, just no longer destructive mid-typing.
+		await page.keyboard.press('Escape');
+		await expect(overlay(page)).toBeHidden();
+	});
+
 	// "Skip setup" ENDS setup, so it has to persist the decisions already made on the steps behind it.
 	// It used to write only the privacy mode + the onboarded flag, silently discarding the experience
 	// tier, the AI preference and the noted players — with no way back (setup only replays from

@@ -4,6 +4,7 @@ import type React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { Button as RawButton } from './core/Button.jsx';
 import { DataTable as RawDataTable } from './data/DataTable.jsx';
 import { ConditionBadge as RawConditionBadge } from './condition/ConditionBadge.jsx';
 import { LayerRow as RawLayerRow } from './map/LayerRow.jsx';
@@ -11,6 +12,7 @@ import { LayerRow as RawLayerRow } from './map/LayerRow.jsx';
 // The DS ships as .jsx with `checkJs: false`, so tsc infers every defaultless prop as required.
 // Re-type the imports as open prop bags rather than restating each component's contract.
 type DsProps = Record<string, unknown> & { children?: React.ReactNode };
+const Button = RawButton as React.ComponentType<DsProps>;
 const DataTable = RawDataTable as React.ComponentType<DsProps>;
 const ConditionBadge = RawConditionBadge as React.ComponentType<DsProps>;
 const LayerRow = RawLayerRow as React.ComponentType<DsProps>;
@@ -109,5 +111,55 @@ describe('LayerRow is reachable and visible to the keyboard', () => {
 		expect(row).not.toBeNull();
 		expect(row.tabIndex).toBe(0);
 		expect(row.style.outline).toBe('');
+	});
+});
+
+describe('Button separates hard-disabled from explained-unavailable', () => {
+	// `disabled` removes the button from the tab order, so a call site that had written a careful
+	// "why is this unavailable" into `title`/`aria-label` (ProjectionControl's Go live) had that
+	// explanation silently swallowed — the control read as a dead button. `aria-disabled` is the
+	// soft form: still focusable and still announced, but inactive and visibly unavailable.
+	function render(node: React.ReactNode): HTMLButtonElement {
+		act(() => root.render(node));
+		return container.querySelector('button') as HTMLButtonElement;
+	}
+
+	it('keeps an aria-disabled button focusable and announced', () => {
+		const button = render(
+			<Button aria-disabled aria-label="Go live (unavailable — exit player preview first)">
+				Go live
+			</Button>,
+		);
+		expect(button.disabled).toBe(false);
+		expect(button.getAttribute('aria-disabled')).toBe('true');
+		expect(button.getAttribute('aria-label')).toContain('unavailable');
+		button.focus();
+		expect(document.activeElement).toBe(button);
+	});
+
+	it('swallows activation of an aria-disabled button', () => {
+		let clicks = 0;
+		const button = render(
+			<Button aria-disabled onClick={() => { clicks += 1; }}>
+				Go live
+			</Button>,
+		);
+		act(() => button.click());
+		expect(clicks).toBe(0);
+	});
+
+	it('still fires once the same button becomes available', () => {
+		let clicks = 0;
+		const onClick = () => { clicks += 1; };
+		render(<Button aria-disabled onClick={onClick}>Go live</Button>);
+		const button = render(<Button onClick={onClick}>Go live</Button>);
+		act(() => button.click());
+		expect(clicks).toBe(1);
+	});
+
+	it('renders an aria-disabled button as unavailable, not as ordinary', () => {
+		const button = render(<Button aria-disabled>Go live</Button>);
+		expect(button.style.opacity).toBe('0.5');
+		expect(button.style.cursor).toBe('not-allowed');
 	});
 });

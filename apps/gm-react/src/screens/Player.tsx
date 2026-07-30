@@ -1376,7 +1376,20 @@ function PlayerResources({
 											Recovers on {res.recharge} rest
 										</div>
 									</div>
-									<div style={{ display: 'flex', gap: 5 }}>
+									{/* 13px pips failed WCAG 2.5.8 (24px minimum). Growing them is only safe together
+									    with wrapping: `setClassResourceInput.max` is unbounded, the phone budget is
+									    ~253px for name + pips, and 24N + 5(N−1) passes that at N=6. These are
+									    contentless <button>s, so their min-content width was ~3px and they silently
+									    SHRANK INTO SLIVERS instead of overflowing — which is why the responsive
+									    clipped-control audit never flagged them. */}
+									<div
+										style={{
+											display: 'flex',
+											gap: 5,
+											flexWrap: 'wrap',
+											justifyContent: 'flex-end',
+										}}
+									>
 										{Array.from({ length: res.max }).map((_, j) => (
 											<button
 												key={j}
@@ -1385,8 +1398,9 @@ function PlayerResources({
 												aria-pressed={j < cur}
 												onClick={() => toggleResource(res, j)}
 												style={{
-													width: 13,
-													height: 13,
+													width: 24,
+													height: 24,
+													flex: '0 0 auto',
 													padding: 0,
 													borderRadius: '50%',
 													cursor: 'pointer',

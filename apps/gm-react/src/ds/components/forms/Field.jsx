@@ -18,6 +18,17 @@ export function Field({ label, htmlFor, required = false, help, error, children,
 	const cloneProps = {};
 	if (onlyChild && !htmlFor && !onlyChild.props?.id && controlId) cloneProps.id = controlId;
 	if (onlyChild && required && onlyChild.props?.['aria-required'] === undefined) cloneProps['aria-required'] = true;
+	// The help/error copy sat in an unlinked sibling <span>, so a screen-reader user reached the
+	// control and heard only its label — never the format hint, and never the reason a submit was
+	// rejected. Wire whichever one is rendered as the control's accessible description, and mark the
+	// control invalid so the error state is perceivable and not colour-only (WCAG 1.4.1 / 3.3.1).
+	const messageId = `${controlId ?? autoId}-message`;
+	const message = error ?? help ?? null;
+	if (onlyChild && message != null && message !== false) {
+		const existing = onlyChild.props?.['aria-describedby'];
+		cloneProps['aria-describedby'] = existing ? `${existing} ${messageId}` : messageId;
+		if (error && onlyChild.props?.['aria-invalid'] === undefined) cloneProps['aria-invalid'] = true;
+	}
 	const control =
 		onlyChild && Object.keys(cloneProps).length ? React.cloneElement(onlyChild, cloneProps) : children;
 	return (
@@ -34,9 +45,11 @@ export function Field({ label, htmlFor, required = false, help, error, children,
 			)}
 			{control}
 			{error ? (
-				<span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-status-error-text)' }}>{error}</span>
+				// role="alert" so an error that appears AFTER the field was rendered (the usual case —
+				// validation on submit) is announced immediately, not only on the next focus visit.
+				<span id={messageId} role="alert" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-status-error-text)' }}>{error}</span>
 			) : help ? (
-				<span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-tertiary)' }}>{help}</span>
+				<span id={messageId} style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-tertiary)' }}>{help}</span>
 			) : null}
 		</div>
 	);

@@ -159,6 +159,34 @@ test.describe('knowledge: notes workbench', () => {
 		expect(persisted?.body).toBe(newBody);
 	});
 
+	// The editor's validation and rejection copy rendered in a plain <span> — no live region — so a
+	// blocked save was silent to a screen reader. And in VIEW mode the same message rendered AFTER the
+	// entire note body, which is arbitrarily long, so a rejected action was invisible below the fold
+	// while the header actions that caused it stayed on screen.
+	test('a rejected save announces itself instead of failing silently', async ({ page }) => {
+		const stamp = Date.now();
+		const noteId = await createNoteViaCore(page, `Ledger ${stamp}`, 'Body text.', 'dm-only');
+		await gotoRoute(page, `/knowledge/${noteId}`);
+		await page.getByRole('button', { name: 'Edit', exact: true }).click();
+
+		await page.getByPlaceholder('Note title').fill('');
+		await page.getByRole('button', { name: 'Save note' }).click();
+
+		const alert = page.getByRole('alert');
+		await expect(alert).toBeVisible();
+		await expect(alert).toHaveText('A note needs a title.');
+		// The editor stayed open — the note was NOT written with an empty title.
+		await expect(page.getByRole('button', { name: 'Save note' })).toBeVisible();
+		expect(await findItem(page, `Ledger ${stamp}`)).toBeTruthy();
+
+		// Correcting it clears the message and the save goes through. Assert on the text, not on
+		// role=alert: the DS Toaster also uses that role for its success toast.
+		await page.getByPlaceholder('Note title').fill(`Ledger ${stamp} v2`);
+		await page.getByRole('button', { name: 'Save note' }).click();
+		await expect(page.getByText('A note needs a title.')).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Save note' })).toHaveCount(0);
+	});
+
 	test('visibility set from the Sharing panel governs the player preview', async ({ page }) => {
 		const title = `Sealed Reliquary ${Date.now()}`;
 		const noteId = await createNoteViaCore(page, title, 'Behind the broken seal.', 'dm-only');

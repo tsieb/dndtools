@@ -93,6 +93,10 @@ export function Atlas() {
 
 	const [mapId, setMapId] = useState<string | null>(null);
 	const [mapZoom, setMapZoom] = useState(1);
+	// Normalized pan centre for the Atlas preview. The map surface has always accepted a `center`
+	// prop; the Atlas never passed one, which is why its "Focus on map" button could not focus
+	// anything and just re-opened the builder exactly like "Edit in builder" beside it.
+	const [mapCenter, setMapCenter] = useState({ x: 0.5, y: 0.5 });
 	const [busy, setBusy] = useState(false);
 	const [notice, setNotice] = useState<string | null>(null);
 	// The full-screen authoring overlay. Opening with a tool (fog/poi) drops the DM straight into
@@ -143,6 +147,7 @@ export function Atlas() {
 			if (maps.some((mp) => mp.id === linkMap)) {
 				setMapId(linkMap);
 				setMapZoom(1);
+				setMapCenter({ x: 0.5, y: 0.5 });
 				setSelTokenId(null);
 				setSelPoiId(linkPoi);
 			} else {
@@ -201,8 +206,12 @@ export function Atlas() {
 		}
 	};
 
-	const zoom = (delta?: number, fit?: boolean) =>
+	const zoom = (delta?: number, fit?: boolean) => {
+		// "Fit" has to undo the pan too, or a focused POI leaves the map stuck off-centre with no
+		// visible way back to the whole map.
+		if (fit) setMapCenter({ x: 0.5, y: 0.5 });
 		setMapZoom((z) => (fit ? 1 : Math.min(2.4, Math.max(0.4, +(z + (delta ?? 0)).toFixed(2)))));
+	};
 
 	const openBuilder = (tool: MapTool, fogMode?: 'reveal' | 'conceal') => {
 		if (!selectedId) return;
@@ -417,6 +426,7 @@ export function Atlas() {
 							onClick={() => {
 								setMapId(mp.id);
 								setMapZoom(1);
+								setMapCenter({ x: 0.5, y: 0.5 });
 								setSelPoiId(null);
 								setSelTokenId(null);
 							}}
@@ -555,6 +565,7 @@ export function Atlas() {
 					layers={layers}
 					isDm={isDm}
 					zoom={mapZoom}
+					center={mapCenter}
 					height={560}
 					rasterAssetId={rasterAssetId}
 					selectedPoiId={selPoiId}
@@ -574,7 +585,12 @@ export function Atlas() {
 							readOnly={!isDm}
 							onClose={() => setSelPoiId(null)}
 							onVisibilityChange={(v: string) => setPoiVisibility(poi.id, dsToVis(v))}
-							onFocus={() => openBuilder('select')}
+							onFocus={() => {
+								// Actually focus: pan the preview onto the marker and zoom in enough for it
+								// to read, keeping the popover's selection so the DM can see what they hit.
+								setMapCenter({ x: poi.position.x, y: poi.position.y });
+								setMapZoom((z) => (z < 1.6 ? 1.6 : z));
+							}}
 							onEdit={() => openBuilder('select')}
 							onDeepLink={() => void copyPoiLink(poi.id)}
 							onDelete={() => void deletePoi(poi.id)}

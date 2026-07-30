@@ -537,9 +537,13 @@ function MapBody({ widget }: { widget: BoardWidget }) {
 					borderRadius: 'var(--radius-sm)',
 					border: '1px solid var(--color-border)',
 					overflow: 'hidden',
+					// The map-less placeholder used to hard-code the gold grid AND a gold-over-near-black
+					// diagonal film, so parchment got a gold wash over its light vellum and high-contrast
+					// got a decorative low-alpha layer it must not have. The real map tokens are already
+					// cut per theme (and remapped under forced-colors), so use them and drop the film.
 					background: rasterUrl
 						? 'var(--color-surface-sunken)'
-						: 'linear-gradient(135deg, rgba(224,176,111,.10), rgba(20,16,11,.20)), repeating-linear-gradient(0deg, transparent 0 17px, rgba(224,176,111,.10) 17px 18px), repeating-linear-gradient(90deg, transparent 0 17px, rgba(224,176,111,.10) 17px 18px)',
+						: 'repeating-linear-gradient(0deg, transparent 0 17px, var(--map-grid-line) 17px 18px), repeating-linear-gradient(90deg, transparent 0 17px, var(--map-grid-line) 17px 18px), var(--map-canvas-bg)',
 				}}
 			>
 				{rasterUrl && (

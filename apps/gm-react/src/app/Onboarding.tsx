@@ -480,6 +480,22 @@ export function Onboarding() {
 	function onKeyDown(e: React.KeyboardEvent) {
 		if (e.key === 'Escape') {
 			e.stopPropagation();
+			// Escape is bound on the panel, so it also fires from inside the party-name field and the
+			// E2EE acknowledgement field — where the browser convention is "revert/leave this field",
+			// not "abandon the whole wizard". Skipping there threw away everything the DM had typed.
+			// Same typing guard AppShell.tsx:1013-1018 uses for its global shortcuts.
+			const el = e.target as HTMLElement | null;
+			const typing =
+				!!el &&
+				(el.tagName === 'INPUT' ||
+					el.tagName === 'TEXTAREA' ||
+					el.tagName === 'SELECT' ||
+					el.isContentEditable);
+			if (typing) {
+				// Leave the field so a second Escape still dismisses, and keep focus inside the modal.
+				panelRef.current?.focus();
+				return;
+			}
 			skip();
 			return;
 		}

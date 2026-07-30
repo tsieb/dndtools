@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode, type CSSProperties } from 'react';
 import {
 	getDiceHistoryForActor,
 	availableSlots,
@@ -158,10 +158,23 @@ interface ToastItem {
 }
 function useToasts() {
 	const [toasts, setToasts] = useState<ToastItem[]>([]);
+	// Every toast armed a setTimeout that was never cleared, so unmounting the player app (or leaving
+	// /play) left them running and each one called setState on a dead component. Track them and clear
+	// on unmount.
+	const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+	useEffect(
+		() => () => {
+			for (const timer of timers.current) clearTimeout(timer);
+			timers.current = [];
+		},
+		[],
+	);
 	const toast = (msg: string, status = 'neutral', icon?: string) => {
 		const id = Math.random().toString(36).slice(2);
 		setToasts((t) => [...t, { id, msg, status, icon }]);
-		setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2800);
+		timers.current.push(
+			setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2800),
+		);
 	};
 	return { toasts, toast };
 }

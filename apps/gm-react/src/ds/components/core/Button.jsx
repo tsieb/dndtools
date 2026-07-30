@@ -14,8 +14,16 @@ export function Button({
 	type = 'button',
 	children,
 	style,
+	onClick,
 	...rest
 }) {
+	// Two flavours of unavailable. `disabled` is the hard one: the browser removes the button from
+	// the tab order, which also makes its `title` / `aria-label` explanation unreachable — so a
+	// carefully-worded "why can't I press this" is never announced. Callers that have such an
+	// explanation pass `aria-disabled` instead: the button keeps its place in the tab order and
+	// still reads out, but it looks unavailable and swallows activation.
+	const soft = rest['aria-disabled'] === true || rest['aria-disabled'] === 'true';
+	const inert = disabled || soft;
 	const sizes = {
 		sm: {
 			px: 'var(--space-3)',
@@ -57,7 +65,7 @@ export function Button({
 		},
 		danger: {
 			background: 'var(--color-status-error)',
-			color: '#fff',
+			color: 'var(--color-status-error-foreground)',
 			border: '1px solid var(--color-status-error)',
 		},
 	};
@@ -67,6 +75,7 @@ export function Button({
 		<button
 			type={type}
 			disabled={disabled}
+			onClick={soft ? undefined : onClick}
 			style={{
 				display: 'inline-flex',
 				minWidth: 'var(--density-touch-target, 0)',
@@ -81,8 +90,8 @@ export function Button({
 				fontWeight: 'var(--font-weight-semibold)',
 				lineHeight: 1.2,
 				borderRadius: 'var(--radius-md)',
-				cursor: disabled ? 'not-allowed' : 'pointer',
-				opacity: disabled ? 0.5 : 1,
+				cursor: inert ? 'not-allowed' : 'pointer',
+				opacity: inert ? 0.5 : 1,
 				transition:
 					'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), filter var(--duration-fast) var(--easing-standard)',
 				whiteSpace: 'normal',
@@ -91,7 +100,7 @@ export function Button({
 				...style,
 			}}
 			onMouseEnter={(e) => {
-				if (disabled) return;
+				if (inert) return;
 				if (variant === 'primary') e.currentTarget.style.background = 'var(--color-accent-hover)';
 				else if (variant === 'danger') e.currentTarget.style.filter = 'brightness(1.1)';
 				else {
@@ -100,7 +109,7 @@ export function Button({
 				}
 			}}
 			onMouseLeave={(e) => {
-				if (disabled) return;
+				if (inert) return;
 				e.currentTarget.style.background = v.background;
 				e.currentTarget.style.color = v.color;
 				e.currentTarget.style.filter = 'none';

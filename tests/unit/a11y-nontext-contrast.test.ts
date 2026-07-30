@@ -86,6 +86,21 @@ describe('map/layer + status-border token coverage', () => {
 		return found;
 	}
 
+	/** Same block scan as `tokensIn`, but keeping each declaration's value. */
+	function declarationsIn(selector: string): Map<string, string> {
+		const escaped = selector.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+		const block = new RegExp(`${escaped}\\s*\\{([^}]*)\\}`, 'g');
+		const found = new Map<string, string>();
+		let match: RegExpExecArray | null;
+		while ((match = block.exec(CSS)) !== null) {
+			for (const decl of match[1]!.split(';')) {
+				const m = /(--[a-z0-9-]+)\s*:\s*([^;]+)/i.exec(decl.trim());
+				if (m) found.set(m[1]!, m[2]!.replace(/\/\*[\s\S]*?\*\//g, '').trim());
+			}
+		}
+		return found;
+	}
+
 	const rootTokens = tokensIn(':root');
 	const layerFamily = [...rootTokens].filter(
 		(t) => t.startsWith('--layer-') || t === '--map-fog-fill' || t === '--map-canvas-bg' || t === '--map-grid-line',
@@ -112,6 +127,31 @@ describe('map/layer + status-border token coverage', () => {
 		);
 		const missing = layerFamily.filter((t) => !forced.has(t));
 		expect(missing).toEqual([]);
+	});
+
+	it('gives the solid danger fill a foreground that clears 4.5:1 in every theme', () => {
+		// `ds/components/core/Button.jsx` variant="danger" painted a hardcoded `#fff` on
+		// `--color-status-error`, which is 3.49:1 on the dark/tavern salmon and 2.43:1 on
+		// high-contrast's `#ff8080` — the label is 16px semibold, so 4.5:1 applies. Two themes
+		// need DARK ink and two need light, so this needs a per-theme foreground token.
+		const themes = [':root', "[data-theme='tavern']", "[data-theme='parchment']", "[data-theme='high-contrast']"];
+		for (const theme of themes) {
+			const declared = declarationsIn(theme);
+			const bg = declared.get('--color-status-error');
+			const fg = declared.get('--color-status-error-foreground');
+			expect(bg, `${theme} declares --color-status-error`).toBeTruthy();
+			expect(fg, `${theme} declares --color-status-error-foreground`).toBeTruthy();
+			const ratio = contrastRatio(parseHex(bg!)!, parseHex(fg!)!);
+			expect(ratio, `${theme} danger fill ${bg} vs ${fg} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+		}
+	});
+
+	it('remaps the danger foreground under forced-colors so it never collides with the fill', () => {
+		const forcedBlock = /@media\s*\(forced-colors:\s*active\)\s*\{([\s\S]*?)\n\}/.exec(CSS);
+		expect(forcedBlock).toBeTruthy();
+		// The fill becomes CanvasText, so the label on top of it must become Canvas — leaving it
+		// as a hex (or as CanvasText) paints black-on-black.
+		expect(forcedBlock![1]).toMatch(/--color-status-error-foreground:\s*Canvas\s*;/);
 	});
 
 	it('defines every status border token that components already reference', () => {

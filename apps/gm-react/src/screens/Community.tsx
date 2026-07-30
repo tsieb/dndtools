@@ -717,24 +717,32 @@ function CommExport() {
 				>
 					{exporting ? 'Exporting…' : 'Export & download'}
 				</Button>
-				{result ? (
-					<div
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: 8,
-							font: `12px ${T.sans}`,
-							color: T.sub,
-						}}
-					>
-						<Icon name="check" size={15} color={T.ok} />
-						<span>
-							Downloaded <code style={{ font: `11.5px ${T.mono}` }}>{result.file}</code> —{' '}
-							{result.exported} {result.exported === 1 ? 'item' : 'items'} in{' '}
-							<strong>{result.mode}</strong> mode · {result.omitted} omitted for visibility.
-						</span>
-					</div>
-				) : (
+				{/* An export writes a file and reports what it omitted for visibility — the one thing a DM
+				    must hear. The region is mounted unconditionally (and the idle hint kept OUTSIDE it)
+				    so the result is announced when it arrives, rather than the region appearing with its
+				    content already in place, which assistive tech announces unreliably. */}
+				<div
+					role="status"
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: 8,
+						font: `12px ${T.sans}`,
+						color: T.sub,
+					}}
+				>
+					{result ? (
+						<>
+							<Icon name="check" size={15} color={T.ok} />
+							<span>
+								Downloaded <code style={{ font: `11.5px ${T.mono}` }}>{result.file}</code> —{' '}
+								{result.exported} {result.exported === 1 ? 'item' : 'items'} in{' '}
+								<strong>{result.mode}</strong> mode · {result.omitted} omitted for visibility.
+							</span>
+						</>
+					) : null}
+				</div>
+				{result ? null : (
 					<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
 						One note exports as markdown; more become a JSON bundle you can re-import in Knowledge.
 					</div>

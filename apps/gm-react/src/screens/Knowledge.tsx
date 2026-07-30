@@ -362,6 +362,11 @@ function NoteViewer({
 	}
 
 	async function save() {
+		// Clear the previous attempt's message FIRST. Without this a successful save carried the old
+		// rejection into view mode, where the note then read as "failed" even though it had been
+		// written — the message only looked harmless before because view mode rendered it below the
+		// whole note body, out of sight.
+		setErr(null);
 		if (!title.trim()) {
 			setErr('A note needs a title.');
 			return;
@@ -390,6 +395,7 @@ function NoteViewer({
 	}
 
 	async function applyVisibility(visibility: string) {
+		setErr(null);
 		setBusy(true);
 		// content.set-item-visibility — the cross-surface invalidation trigger. "Push to players" is the
 		// same command with `player-visible`.
@@ -403,6 +409,7 @@ function NoteViewer({
 	}
 
 	async function remove() {
+		setErr(null);
 		setBusy(true);
 		// content.remove-item — recoverable soft-delete (the item leaves every actor-filtered read),
 		// so Delete acts immediately and the toast's Undo dispatches the counterpart
@@ -493,7 +500,11 @@ function NoteViewer({
 							<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
 								Markdown supported — ## headings, &gt; read-aloud, - lists, [[wikilinks]].
 							</div>
-							{err && <span style={{ font: `12px ${T.sans}`, color: T.err }}>{err}</span>}
+							{err && (
+								<span role="alert" style={{ font: `12px ${T.sans}`, color: T.err }}>
+									{err}
+								</span>
+							)}
 							<div style={{ display: 'flex', gap: 8 }}>
 								<Button variant="primary" size="sm" icon="check" disabled={busy} onClick={save}>
 									Save note
@@ -512,10 +523,19 @@ function NoteViewer({
 					) : (
 						<>
 							<h2 style={{ font: `700 22px ${T.disp}`, margin: '0 0 12px' }}>{note.title}</h2>
-							<div>{mdToNodes(note.body, resolveLink)}</div>
+							{/* ABOVE the body, not below it: the actions that set `err` (Push to players,
+							    Delete) live in the header, and a note body is arbitrarily long — an error
+							    after it sat below the fold, so a rejected push looked like a successful
+							    one. role=alert because nothing else announces the rejection. */}
 							{err && (
-								<div style={{ marginTop: 10, font: `12px ${T.sans}`, color: T.err }}>{err}</div>
+								<div
+									role="alert"
+									style={{ marginBottom: 10, font: `12px ${T.sans}`, color: T.err }}
+								>
+									{err}
+								</div>
 							)}
+							<div>{mdToNodes(note.body, resolveLink)}</div>
 						</>
 					)}
 				</Panel>
@@ -750,7 +770,10 @@ function ImportPanel({
 				placeholder={'===== Lore/The Pier.md =====\nBrackish water laps at rotting planks…'}
 				style={{ fontFamily: T.mono, fontSize: 12.5 }}
 			/>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+			{/* flexWrap because this row carries a Select, a status message and two buttons — on a
+			    393px phone it overflowed the card, and a page-level overflow here also shifts
+			    `.app-main`. The sibling rows in this file already wrap. */}
+			<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
 				<Select
 					aria-label="Import collision policy"
 					options={IMPORT_POLICIES}
