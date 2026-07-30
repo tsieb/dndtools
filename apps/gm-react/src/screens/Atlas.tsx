@@ -540,8 +540,7 @@ export function Atlas() {
 						marginBottom: 14,
 						padding: '9px 12px',
 						borderRadius: 9,
-						background:
-							notice.tone === 'error' ? 'var(--color-status-warning-subtle)' : T.alt,
+						background: notice.tone === 'error' ? 'var(--color-status-warning-subtle)' : T.alt,
 						border: `1px solid ${notice.tone === 'error' ? 'var(--color-status-warning-border)' : T.bd}`,
 						font: `12.5px ${T.sans}`,
 						color: notice.tone === 'error' ? 'var(--color-status-warning-text)' : T.sub,

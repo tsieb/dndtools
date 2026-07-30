@@ -1688,64 +1688,74 @@ function CustomObjectTypes() {
 										</div>
 									</div>
 									<span
-										style={{ font: `12px ${T.mono}`, color: count ? T.ink : T.ter, flex: '0 0 auto' }}
+										style={{
+											font: `12px ${T.mono}`,
+											color: count ? T.ink : T.ter,
+											flex: '0 0 auto',
+										}}
 									>
 										{count} in vault
 									</span>
 									<div
-										style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto', flexWrap: 'wrap' }}
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: 8,
+											flex: '0 0 auto',
+											flexWrap: 'wrap',
+										}}
 									>
-									{def && (
-										<Button
-											variant="secondary"
-											size="sm"
-											icon="add"
-											disabled={!canWrite || busy}
-											onClick={() => setInstanceOf(def)}
-										>
-											New
-										</Button>
-									)}
-									{def && (
-										<Button
-											variant="ghost"
-											size="sm"
-											icon="edit"
-											disabled={!canWrite || busy}
-											onClick={() => startEdit(def)}
-										>
-											Edit
-										</Button>
-									)}
-									{def && confirmDeleteId === def.id && (
-										<>
+										{def && (
 											<Button
-												variant="danger"
+												variant="secondary"
 												size="sm"
-												// Same self-unmounting trigger as the package Remove above: without this the
-												// confirm renders with focus stranded on <body>.
-												autoFocus
+												icon="add"
 												disabled={!canWrite || busy}
-												onClick={() => deleteType(def)}
+												onClick={() => setInstanceOf(def)}
 											>
-												{count > 0 ? `Confirm delete (${count} in vault)` : 'Confirm delete'}
+												New
 											</Button>
-											<Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>
-												Keep
+										)}
+										{def && (
+											<Button
+												variant="ghost"
+												size="sm"
+												icon="edit"
+												disabled={!canWrite || busy}
+												onClick={() => startEdit(def)}
+											>
+												Edit
 											</Button>
-										</>
-									)}
-									{def && confirmDeleteId !== def.id && (
-										<Button
-											variant="ghost"
-											size="sm"
-											icon="delete"
-											disabled={!canWrite || busy}
-											onClick={() => setConfirmDeleteId(def.id)}
-										>
-											Delete
-										</Button>
-									)}
+										)}
+										{def && confirmDeleteId === def.id && (
+											<>
+												<Button
+													variant="danger"
+													size="sm"
+													// Same self-unmounting trigger as the package Remove above: without this the
+													// confirm renders with focus stranded on <body>.
+													autoFocus
+													disabled={!canWrite || busy}
+													onClick={() => deleteType(def)}
+												>
+													{count > 0 ? `Confirm delete (${count} in vault)` : 'Confirm delete'}
+												</Button>
+												<Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>
+													Keep
+												</Button>
+											</>
+										)}
+										{def && confirmDeleteId !== def.id && (
+											<Button
+												variant="ghost"
+												size="sm"
+												icon="delete"
+												disabled={!canWrite || busy}
+												onClick={() => setConfirmDeleteId(def.id)}
+											>
+												Delete
+											</Button>
+										)}
 									</div>
 								</div>
 							);
@@ -2566,7 +2576,13 @@ export function Extensions() {
 	return (
 		<Page max={1180}>
 			<div style={{ marginBottom: 18 }}>
-				<Tabs value={tab} onChange={setTab} tabs={tabs} idBase="extensions" aria-label="Extensions sections" />
+				<Tabs
+					value={tab}
+					onChange={setTab}
+					tabs={tabs}
+					idBase="extensions"
+					aria-label="Extensions sections"
+				/>
 			</div>
 			<div {...tabPanelProps('extensions', tab)}>
 				{tab === 'plugins' && <ExtPlugins />}

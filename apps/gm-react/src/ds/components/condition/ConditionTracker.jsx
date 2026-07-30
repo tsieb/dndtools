@@ -8,15 +8,40 @@ import { Icon } from '../core/Icon.jsx';
  * (wire `onAdd`). When empty, prints a plain muted "No conditions" rather than a blank gap.
  * `entries` accepts either bare keys (`'poisoned'`) or `{ key, duration, level }` objects.
  */
-export function ConditionTracker({ entries = [], onRemove, onAdd, compact = false, addable = true, style, ...rest }) {
+export function ConditionTracker({
+	entries = [],
+	onRemove,
+	onAdd,
+	compact = false,
+	addable = true,
+	style,
+	...rest
+}) {
 	const norm = entries.map((e) => (typeof e === 'string' ? { key: e } : e));
 	return (
-		<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-1-5)', ...style }} {...rest}>
+		<div
+			style={{
+				display: 'flex',
+				flexWrap: 'wrap',
+				alignItems: 'center',
+				gap: 'var(--space-1-5)',
+				...style,
+			}}
+			{...rest}
+		>
 			{/* This was gated on `!addable`, so the documented "No conditions" line appeared ONLY on the
 			    read-only tracker: the DM's own empty tracker was a bare dashed button with nothing saying
 			    the combatant is unafflicted. Emptiness is a fact about the combatant, not about the viewer. */}
 			{norm.length === 0 && (
-				<span style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', color: 'var(--color-text-tertiary)' }}>No conditions</span>
+				<span
+					style={{
+						fontFamily: 'var(--font-sans)',
+						fontSize: 'var(--text-sm)',
+						color: 'var(--color-text-tertiary)',
+					}}
+				>
+					No conditions
+				</span>
 			)}
 			{norm.map((e, i) => (
 				<ConditionBadge
@@ -40,8 +65,12 @@ export function ConditionTracker({ entries = [], onRemove, onAdd, compact = fals
 					// migrated sibling (Checkbox, Switch, Chip, Slider's steppers) follows the density token.
 					// There is no global `button:hover` in this app and an inline style cannot express one,
 					// so the hover has to be handlers.
-					onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-interactive-hover)'; }}
-					onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+					onMouseEnter={(e) => {
+						e.currentTarget.style.background = 'var(--color-interactive-hover)';
+					}}
+					onMouseLeave={(e) => {
+						e.currentTarget.style.background = 'transparent';
+					}}
 					style={{
 						display: 'inline-flex',
 						alignItems: 'center',

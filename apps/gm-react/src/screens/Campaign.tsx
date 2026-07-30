@@ -332,65 +332,65 @@ function QuestEditor({ quest, onClose }: { quest: QuestRow | null; onClose: () =
 				}}
 				style={{ display: 'contents' }}
 			>
-			<div
-				style={{
-					display: 'grid',
-					gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))',
-					gap: 12,
-				}}
-			>
-				<Field label="Title" required>
-					<Input
-						value={title}
-						onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
-						placeholder="Wake of the Drowned God"
+				<div
+					style={{
+						display: 'grid',
+						gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))',
+						gap: 12,
+					}}
+				>
+					<Field label="Title" required>
+						<Input
+							value={title}
+							onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
+							placeholder="Wake of the Drowned God"
+						/>
+					</Field>
+					<Field label="Status">
+						<Select
+							options={QUEST_STATUS_OPTIONS}
+							value={status}
+							onChange={(e: { target: { value: string } }) => setStatus(e.target.value)}
+						/>
+					</Field>
+				</div>
+				<Field label="Objectives" help="One objective per line — each becomes a checklist item.">
+					<Textarea
+						value={objectivesText}
+						onChange={(e: { target: { value: string } }) => setObjectivesText(e.target.value)}
+						rows={3}
+						placeholder={'Find who is buying the shipments\nMap the flooded vault level'}
 					/>
 				</Field>
-				<Field label="Status">
-					<Select
-						options={QUEST_STATUS_OPTIONS}
-						value={status}
-						onChange={(e: { target: { value: string } }) => setStatus(e.target.value)}
+				<Field label="Hook & journal" help="Markdown prose — the hook, rewards, session journal.">
+					<Textarea
+						value={body}
+						onChange={(e: { target: { value: string } }) => setBody(e.target.value)}
+						rows={4}
+						placeholder="Mother Sild wants the party to trace the tithe barrels back upriver…"
 					/>
 				</Field>
-			</div>
-			<Field label="Objectives" help="One objective per line — each becomes a checklist item.">
-				<Textarea
-					value={objectivesText}
-					onChange={(e: { target: { value: string } }) => setObjectivesText(e.target.value)}
-					rows={3}
-					placeholder={'Find who is buying the shipments\nMap the flooded vault level'}
-				/>
-			</Field>
-			<Field label="Hook & journal" help="Markdown prose — the hook, rewards, session journal.">
-				<Textarea
-					value={body}
-					onChange={(e: { target: { value: string } }) => setBody(e.target.value)}
-					rows={4}
-					placeholder="Mother Sild wants the party to trace the tithe barrels back upriver…"
-				/>
-			</Field>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-				<Field label="Visibility">
-					<Select
-						options={VIS_OPTIONS}
-						value={visibility}
-						onChange={(e: { target: { value: string } }) => setVisibility(e.target.value)}
-					/>
-				</Field>
-				<div style={{ flex: 1 }} />
-				{err && (
-					<span role="alert" style={{ font: `12px ${T.sans}`, color: T.err }}>
-						{err}
-					</span>
-				)}
-				<Button variant="ghost" size="sm" disabled={busy} onClick={onClose}>
-					Cancel
-				</Button>
-				<Button type="submit" variant="primary" size="sm" icon="check" disabled={busy}>
-					{quest ? 'Save quest' : 'Create quest'}
-				</Button>
-			</div>
+				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+					<Field label="Visibility">
+						<Select
+							options={VIS_OPTIONS}
+							value={visibility}
+							onChange={(e: { target: { value: string } }) => setVisibility(e.target.value)}
+						/>
+					</Field>
+					<div style={{ flex: 1 }} />
+					{err && (
+						<span role="alert" style={{ font: `12px ${T.sans}`, color: T.err }}>
+							{err}
+						</span>
+					)}
+					<Button variant="ghost" size="sm" disabled={busy} onClick={onClose}>
+						Cancel
+					</Button>
+					<Button type="submit" variant="primary" size="sm" icon="check" disabled={busy}>
+						{quest ? 'Save quest' : 'Create quest'}
+					</Button>
+				</div>
 			</form>
 		</Panel>
 	);
@@ -593,86 +593,86 @@ function FactionEditor({ faction, onClose }: { faction: FactionRow | null; onClo
 				}}
 				style={{ display: 'contents' }}
 			>
-			<div
-				style={{
-					display: 'grid',
-					gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))',
-					gap: 12,
-				}}
-			>
-				<Field label="Name" required>
+				<div
+					style={{
+						display: 'grid',
+						gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))',
+						gap: 12,
+					}}
+				>
+					<Field label="Name" required>
+						<Input
+							value={name}
+							onChange={(e: { target: { value: string } }) => setName(e.target.value)}
+							placeholder="The Brine Hand"
+						/>
+					</Field>
+					<Field label="Kind">
+						<Select
+							options={FACTION_KIND_OPTIONS}
+							value={kind}
+							onChange={(e: { target: { value: string } }) => setKind(e.target.value)}
+						/>
+					</Field>
+					<Field label="Stance">
+						<Select
+							options={STANCE_OPTIONS}
+							value={stance}
+							onChange={(e: { target: { value: string } }) => setStance(e.target.value)}
+						/>
+					</Field>
+					<Field label="Leader">
+						<Input
+							value={leader}
+							onChange={(e: { target: { value: string } }) => setLeader(e.target.value)}
+							placeholder="Mother Sild"
+						/>
+					</Field>
+				</div>
+				<Field label="Goals" help="One goal per line.">
+					<Textarea
+						value={goalsText}
+						onChange={(e: { target: { value: string } }) => setGoalsText(e.target.value)}
+						rows={3}
+						placeholder={'Wake what sleeps below the vaults\nKeep the shipment route open'}
+					/>
+				</Field>
+				<Field label="Dossier notes" help="Markdown prose — summary, holdings, history.">
+					<Textarea
+						value={body}
+						onChange={(e: { target: { value: string } }) => setBody(e.target.value)}
+						rows={5}
+						placeholder="A drowned-god cult that took the Sunken Outpost as a smuggling waypoint…"
+					/>
+				</Field>
+				<Field label="DM secret" help="Visible only to DMs; it never appears in a player view.">
 					<Input
-						value={name}
-						onChange={(e: { target: { value: string } }) => setName(e.target.value)}
-						placeholder="The Brine Hand"
+						value={secret}
+						onChange={(e: { target: { value: string } }) => setSecret(e.target.value)}
+						placeholder="Sild translates for the cult rather than leading it."
 					/>
 				</Field>
-				<Field label="Kind">
-					<Select
-						options={FACTION_KIND_OPTIONS}
-						value={kind}
-						onChange={(e: { target: { value: string } }) => setKind(e.target.value)}
-					/>
-				</Field>
-				<Field label="Stance">
-					<Select
-						options={STANCE_OPTIONS}
-						value={stance}
-						onChange={(e: { target: { value: string } }) => setStance(e.target.value)}
-					/>
-				</Field>
-				<Field label="Leader">
-					<Input
-						value={leader}
-						onChange={(e: { target: { value: string } }) => setLeader(e.target.value)}
-						placeholder="Mother Sild"
-					/>
-				</Field>
-			</div>
-			<Field label="Goals" help="One goal per line.">
-				<Textarea
-					value={goalsText}
-					onChange={(e: { target: { value: string } }) => setGoalsText(e.target.value)}
-					rows={3}
-					placeholder={'Wake what sleeps below the vaults\nKeep the shipment route open'}
-				/>
-			</Field>
-			<Field label="Dossier notes" help="Markdown prose — summary, holdings, history.">
-				<Textarea
-					value={body}
-					onChange={(e: { target: { value: string } }) => setBody(e.target.value)}
-					rows={5}
-					placeholder="A drowned-god cult that took the Sunken Outpost as a smuggling waypoint…"
-				/>
-			</Field>
-			<Field label="DM secret" help="Visible only to DMs; it never appears in a player view.">
-				<Input
-					value={secret}
-					onChange={(e: { target: { value: string } }) => setSecret(e.target.value)}
-					placeholder="Sild translates for the cult rather than leading it."
-				/>
-			</Field>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-				<Field label="Visibility">
-					<Select
-						options={VIS_OPTIONS}
-						value={visibility}
-						onChange={(e: { target: { value: string } }) => setVisibility(e.target.value)}
-					/>
-				</Field>
-				<div style={{ flex: 1 }} />
-				{err && (
-					<span role="alert" style={{ font: `12px ${T.sans}`, color: T.err }}>
-						{err}
-					</span>
-				)}
-				<Button variant="ghost" size="sm" disabled={busy} onClick={onClose}>
-					Cancel
-				</Button>
-				<Button type="submit" variant="primary" size="sm" icon="check" disabled={busy}>
-					{faction ? 'Save faction' : 'Create faction'}
-				</Button>
-			</div>
+				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+					<Field label="Visibility">
+						<Select
+							options={VIS_OPTIONS}
+							value={visibility}
+							onChange={(e: { target: { value: string } }) => setVisibility(e.target.value)}
+						/>
+					</Field>
+					<div style={{ flex: 1 }} />
+					{err && (
+						<span role="alert" style={{ font: `12px ${T.sans}`, color: T.err }}>
+							{err}
+						</span>
+					)}
+					<Button variant="ghost" size="sm" disabled={busy} onClick={onClose}>
+						Cancel
+					</Button>
+					<Button type="submit" variant="primary" size="sm" icon="check" disabled={busy}>
+						{faction ? 'Save faction' : 'Create faction'}
+					</Button>
+				</div>
 			</form>
 		</Panel>
 	);
@@ -750,7 +750,13 @@ export function Campaign() {
 	return (
 		<Page>
 			<div style={{ marginBottom: 18 }}>
-				<Tabs value={tab} onChange={setTab} tabs={tabs} idBase="campaign" aria-label="Campaign sections" />
+				<Tabs
+					value={tab}
+					onChange={setTab}
+					tabs={tabs}
+					idBase="campaign"
+					aria-label="Campaign sections"
+				/>
 			</div>
 			<h2 className="visually-hidden">
 				{tabs.find((item) => item.id === tab)?.label ?? 'Campaign'}
@@ -758,45 +764,89 @@ export function Campaign() {
 
 			{/* One panel element, re-labelled per active tab — only one body is ever mounted. */}
 			<div {...tabPanelProps('campaign', tab)}>
-			{tab === 'quests' && (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-					{canAuthor && !questEditor && data.quests.length > 0 && (
-						<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-							<Button
-								variant="primary"
-								size="sm"
-								icon="add"
-								onClick={() => setQuestEditor({ id: null })}
+				{tab === 'quests' && (
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+						{canAuthor && !questEditor && data.quests.length > 0 && (
+							<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+								<Button
+									variant="primary"
+									size="sm"
+									icon="add"
+									onClick={() => setQuestEditor({ id: null })}
+								>
+									New quest
+								</Button>
+							</div>
+						)}
+						{canAuthor && questEditor && (
+							<QuestEditor
+								key={questEditor.id ?? 'new'}
+								quest={editingQuest}
+								onClose={() => setQuestEditor(null)}
+							/>
+						)}
+						{data.quests.length === 0 ? (
+							<EmptyState
+								icon="campaign-scroll"
+								title="No quests yet"
+								description={
+									canAuthor
+										? 'Track the party’s quests — status, objectives, and hooks — all in one place.'
+										: 'No quests have been shared with you yet.'
+								}
+								action={
+									canAuthor && !questEditor ? (
+										<Button
+											variant="primary"
+											size="sm"
+											icon="add"
+											onClick={() => setQuestEditor({ id: null })}
+										>
+											Create the first quest
+										</Button>
+									) : undefined
+								}
+							/>
+						) : (
+							<div
+								style={{
+									display: 'grid',
+									// Keep a single card within the usable width on narrow phones.
+									gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 330px),1fr))',
+									gap: 16,
+									alignItems: 'start',
+								}}
 							>
-								New quest
-							</Button>
-						</div>
-					)}
-					{canAuthor && questEditor && (
-						<QuestEditor
-							key={questEditor.id ?? 'new'}
-							quest={editingQuest}
-							onClose={() => setQuestEditor(null)}
-						/>
-					)}
-					{data.quests.length === 0 ? (
+								{data.quests.map((q) => (
+									<QuestCardRow
+										key={q.view.id}
+										row={q}
+										canAuthor={canAuthor}
+										onEdit={() => setQuestEditor({ id: q.view.id })}
+									/>
+								))}
+							</div>
+						)}
+					</div>
+				)}
+
+				{tab === 'npcs' &&
+					(data.npcs.length === 0 ? (
 						<EmptyState
-							icon="campaign-scroll"
-							title="No quests yet"
-							description={
-								canAuthor
-									? 'Track the party’s quests — status, objectives, and hooks — all in one place.'
-									: 'No quests have been shared with you yet.'
-							}
+							icon="characters-person"
+							title="No NPCs yet"
+							description="NPCs and monsters you create in Characters appear here."
 							action={
-								canAuthor && !questEditor ? (
+								canAuthor ? (
 									<Button
 										variant="primary"
 										size="sm"
-										icon="add"
-										onClick={() => setQuestEditor({ id: null })}
+										icon="new-character"
+										onClick={() =>
+											navigate('/characters', { state: { create: true, kind: 'npc' } })
+										}
 									>
-										Create the first quest
+										New NPC
 									</Button>
 								) : undefined
 							}
@@ -805,168 +855,126 @@ export function Campaign() {
 						<div
 							style={{
 								display: 'grid',
-								// Keep a single card within the usable width on narrow phones.
-								gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 330px),1fr))',
+								gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 320px),1fr))',
 								gap: 16,
 								alignItems: 'start',
 							}}
 						>
-							{data.quests.map((q) => (
-								<QuestCardRow
-									key={q.view.id}
-									row={q}
-									canAuthor={canAuthor}
-									onEdit={() => setQuestEditor({ id: q.view.id })}
+							{data.npcs.map((n) => (
+								// The card owns its own click now. It used to be wrapped in a `role="button"` div
+								// whose aria-label ("Open X’s sheet in Characters") replaced the whole descendant
+								// subtree, so the role, the stats, the tags and the dm-only chip were all
+								// inaudible — and because NpcCard keys its hover/cursor affordance off its OWN
+								// `onClick`, the wrapper also left a navigating card looking inert.
+								<NpcCard
+									key={n.id}
+									name={n.name}
+									role={KIND_LABEL[n.kind] ?? n.kind}
+									onClick={() => navigate(`/characters/${n.id}`)}
+									// `disposition` is deliberately omitted: nothing in the model backs it, and the
+									// previous hard-coded "neutral" asserted a disposition for every NPC including
+									// hostile ones.
+									//
+									// AC/HP used to be passed as `hook`, which NpcCard renders in italics behind a
+									// dm-only Eye glyph — presenting a monster's public combat stats as a DM
+									// secret. They are plain tags now.
+									// The kind is NOT repeated here: `role` above already renders it directly under
+									// the name, so every card read "NPC / NPC · AC 13 · 8 HP".
+									tags={[`AC ${n.combat?.ac ?? '—'}`, `${n.combat?.hp ?? '—'} HP`]}
+									dmOnly={n.visibility === 'dm-only'}
 								/>
 							))}
 						</div>
-					)}
-				</div>
-			)}
+					))}
 
-			{tab === 'npcs' &&
-				(data.npcs.length === 0 ? (
-					<EmptyState
-						icon="characters-person"
-						title="No NPCs yet"
-						description="NPCs and monsters you create in Characters appear here."
-						action={
-							canAuthor ? (
+				{tab === 'factions' && (
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+						{canAuthor && !factionEditor && (
+							<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
 								<Button
 									variant="primary"
 									size="sm"
-									icon="new-character"
-									onClick={() => navigate('/characters', { state: { create: true, kind: 'npc' } })}
+									icon="add"
+									onClick={() => setFactionEditor({ id: null })}
 								>
-									New NPC
+									New faction
 								</Button>
-							) : undefined
-						}
-					/>
-				) : (
-					<div
-						style={{
-							display: 'grid',
-							gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 320px),1fr))',
-							gap: 16,
-							alignItems: 'start',
-						}}
-					>
-						{data.npcs.map((n) => (
-							// The card owns its own click now. It used to be wrapped in a `role="button"` div
-							// whose aria-label ("Open X’s sheet in Characters") replaced the whole descendant
-							// subtree, so the role, the stats, the tags and the dm-only chip were all
-							// inaudible — and because NpcCard keys its hover/cursor affordance off its OWN
-							// `onClick`, the wrapper also left a navigating card looking inert.
-							<NpcCard
-								key={n.id}
-								name={n.name}
-								role={KIND_LABEL[n.kind] ?? n.kind}
-								onClick={() => navigate(`/characters/${n.id}`)}
-								// `disposition` is deliberately omitted: nothing in the model backs it, and the
-								// previous hard-coded "neutral" asserted a disposition for every NPC including
-								// hostile ones.
-								//
-								// AC/HP used to be passed as `hook`, which NpcCard renders in italics behind a
-								// dm-only Eye glyph — presenting a monster's public combat stats as a DM
-								// secret. They are plain tags now.
-								// The kind is NOT repeated here: `role` above already renders it directly under
-								// the name, so every card read "NPC / NPC · AC 13 · 8 HP".
-								tags={[`AC ${n.combat?.ac ?? '—'}`, `${n.combat?.hp ?? '—'} HP`]}
-								dmOnly={n.visibility === 'dm-only'}
+							</div>
+						)}
+						{canAuthor && factionEditor && (
+							<FactionEditor
+								key={factionEditor.id ?? 'new'}
+								faction={editingFaction}
+								onClose={() => setFactionEditor(null)}
 							/>
-						))}
-					</div>
-				))}
-
-			{tab === 'factions' && (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-					{canAuthor && !factionEditor && (
-						<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-							<Button
-								variant="primary"
-								size="sm"
-								icon="add"
-								onClick={() => setFactionEditor({ id: null })}
-							>
-								New faction
-							</Button>
-						</div>
-					)}
-					{canAuthor && factionEditor && (
-						<FactionEditor
-							key={factionEditor.id ?? 'new'}
-							faction={editingFaction}
-							onClose={() => setFactionEditor(null)}
-						/>
-					)}
-					{data.factions.length === 0 ? (
-						<EmptyState
-							icon="flag"
-							title="No factions yet"
-							description={
-								canAuthor
-									? 'Chart the powers pulling at your table — create the first faction dossier.'
-									: 'No factions have been shared with you yet.'
-							}
-							action={undefined}
-						/>
-					) : (
-						<div
-							style={{
-								display: 'grid',
-								gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 300px),1fr))',
-								gap: 16,
-								alignItems: 'start',
-							}}
-						>
-							{data.factions.map((f) => (
-								<FactionCard
-									key={f.view.id}
-									row={f}
-									canAuthor={canAuthor}
-									onEdit={() => setFactionEditor({ id: f.view.id })}
-								/>
-							))}
-						</div>
-					)}
-				</div>
-			)}
-
-			{tab === 'timeline' && (
-				<Panel title="Campaign timeline" style={{ maxWidth: 680 }}>
-					<div style={{ font: `12.5px ${T.sans}`, color: T.sub, marginBottom: 4 }}>
-						{data.currentDate ? (
-							<>
-								Current campaign date:{' '}
-								<strong style={{ color: T.ink }}>{data.currentDate.display}</strong>
-							</>
+						)}
+						{data.factions.length === 0 ? (
+							<EmptyState
+								icon="flag"
+								title="No factions yet"
+								description={
+									canAuthor
+										? 'Chart the powers pulling at your table — create the first faction dossier.'
+										: 'No factions have been shared with you yet.'
+								}
+								action={undefined}
+							/>
 						) : (
-							'No campaign date set — set it from the Session screen.'
+							<div
+								style={{
+									display: 'grid',
+									gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 300px),1fr))',
+									gap: 16,
+									alignItems: 'start',
+								}}
+							>
+								{data.factions.map((f) => (
+									<FactionCard
+										key={f.view.id}
+										row={f}
+										canAuthor={canAuthor}
+										onEdit={() => setFactionEditor({ id: f.view.id })}
+									/>
+								))}
+							</div>
 						)}
 					</div>
-					{data.timeline.length === 0 ? (
-						<EmptyState
-							icon="recent"
-							title="No dated events yet"
-							description="Notes with calendar dates build the campaign timeline. Add a date to a note to see it here."
-							action={undefined}
-							inset
-						/>
-					) : (
-						<SessionTimeline
-							entries={data.timeline.map((row, i) => ({
-								time: row.date.display,
-								title: row.title,
-								detail: '',
-								icon: 'campaign-scroll',
-								tone: 'info',
-								active: i === 0,
-							}))}
-						/>
-					)}
-				</Panel>
-			)}
+				)}
+
+				{tab === 'timeline' && (
+					<Panel title="Campaign timeline" style={{ maxWidth: 680 }}>
+						<div style={{ font: `12.5px ${T.sans}`, color: T.sub, marginBottom: 4 }}>
+							{data.currentDate ? (
+								<>
+									Current campaign date:{' '}
+									<strong style={{ color: T.ink }}>{data.currentDate.display}</strong>
+								</>
+							) : (
+								'No campaign date set — set it from the Session screen.'
+							)}
+						</div>
+						{data.timeline.length === 0 ? (
+							<EmptyState
+								icon="recent"
+								title="No dated events yet"
+								description="Notes with calendar dates build the campaign timeline. Add a date to a note to see it here."
+								action={undefined}
+								inset
+							/>
+						) : (
+							<SessionTimeline
+								entries={data.timeline.map((row, i) => ({
+									time: row.date.display,
+									title: row.title,
+									detail: '',
+									icon: 'campaign-scroll',
+									tone: 'info',
+									active: i === 0,
+								}))}
+							/>
+						)}
+					</Panel>
+				)}
 			</div>
 		</Page>
 	);

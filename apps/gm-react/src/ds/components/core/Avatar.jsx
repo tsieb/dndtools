@@ -7,8 +7,20 @@ import React from 'react';
 export function Avatar({ name = '', src, size = 'md', ring, style, ...rest }) {
 	const dims = { sm: 28, md: 36, lg: 48, xl: 64 };
 	const d = dims[size] || dims.md;
-	const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('');
-	const ringColor = ring === 'active' ? 'var(--color-status-success)' : ring === 'turn' ? 'var(--color-accent)' : ring === 'danger' ? 'var(--color-status-error)' : null;
+	const initials = name
+		.split(/\s+/)
+		.filter(Boolean)
+		.slice(0, 2)
+		.map((w) => w[0]?.toUpperCase())
+		.join('');
+	const ringColor =
+		ring === 'active'
+			? 'var(--color-status-success)'
+			: ring === 'turn'
+				? 'var(--color-accent)'
+				: ring === 'danger'
+					? 'var(--color-status-error)'
+					: null;
 	return (
 		<span
 			// Every one of the ~14 live call sites renders the name as visible text right beside the
@@ -39,7 +51,11 @@ export function Avatar({ name = '', src, size = 'md', ring, style, ...rest }) {
 			}}
 			{...rest}
 		>
-			{src ? <img src={src} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials || '?'}
+			{src ? (
+				<img src={src} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+			) : (
+				initials || '?'
+			)}
 		</span>
 	);
 }

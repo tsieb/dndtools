@@ -83,10 +83,12 @@ export function Tabs({ tabs = [], value, onChange, style, idBase, ...rest }) {
 						// global `button:hover` rule in this app and an inline style cannot express one, so an
 						// inactive tab gave no pointer feedback at all across all seven live tablists.
 						onMouseEnter={(event) => {
-							if (!t.disabled && !active) event.currentTarget.style.color = 'var(--color-text-primary)';
+							if (!t.disabled && !active)
+								event.currentTarget.style.color = 'var(--color-text-primary)';
 						}}
 						onMouseLeave={(event) => {
-							if (!t.disabled && !active) event.currentTarget.style.color = 'var(--color-text-secondary)';
+							if (!t.disabled && !active)
+								event.currentTarget.style.color = 'var(--color-text-secondary)';
 						}}
 						onKeyDown={(event) => {
 							if (event.key === 'ArrowRight') {

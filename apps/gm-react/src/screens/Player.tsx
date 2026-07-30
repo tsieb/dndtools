@@ -508,68 +508,68 @@ export function Player() {
 				</div>
 				{/* One panel element, re-labelled per active tab — only one body is ever mounted. */}
 				<div {...tabPanelProps('player', activeTab)}>
-				{/* Keyed by charId on purpose. The PC picker in the vitals bar stays mounted across a
+					{/* Keyed by charId on purpose. The PC picker in the vitals bar stays mounted across a
 				    switch, so without a key these bodies kept the PREVIOUS character's draft state —
 				    and `saveEdit` diffs those drafts against the NEW `C`, writing person A's race,
 				    subclass, background and speed onto person B with no warning and no undo. */}
-				{activeTab === 'sheet' && (
-					<PlayerSheet
-						key={charId}
-						C={C}
-						level={level}
-						isDm={data.isDm}
-						charId={charId}
-						actorId={actorId}
-						passive={data.passive}
-						profBonus={data.profBonus}
-						inventory={data.inventory}
-						encumbrance={data.encumbrance}
-						canManageInventory={data.canManageInventory}
-						dispatch={dispatch}
-					/>
-				)}
-				{activeTab === 'resources' && (
-					<PlayerResources
-						key={charId}
-						charId={charId}
-						resources={data.resources}
-						actorId={actorId}
-						compact={viewport === 'phone'}
-						dispatch={dispatch}
-					/>
-				)}
-				{activeTab === 'party' && (
-					<PlayerParty
-						party={data.party}
-						selfId={charId}
-						isDm={data.isDm}
-						actorId={actorId}
-						compact={viewport === 'phone'}
-						dispatch={dispatch}
-					/>
-				)}
-				{activeTab === 'levelup' && data.canAdvance && (
-					<PlayerLevelUp
-						key={charId}
-						charId={charId}
-						actorId={actorId}
-						advancement={data.advancement}
-						xpEligible={data.xpEligible}
-						milestoneEligible={data.milestoneEligible}
-						dispatch={dispatch}
-					/>
-				)}
-				{activeTab === 'journal' && (
-					<PlayerJournal
-						key={charId}
-						charId={charId}
-						actorId={actorId}
-						entries={data.journal}
-						canAuthor={data.canAuthorJournal}
-						compact={viewport === 'phone'}
-						dispatch={dispatch}
-					/>
-				)}
+					{activeTab === 'sheet' && (
+						<PlayerSheet
+							key={charId}
+							C={C}
+							level={level}
+							isDm={data.isDm}
+							charId={charId}
+							actorId={actorId}
+							passive={data.passive}
+							profBonus={data.profBonus}
+							inventory={data.inventory}
+							encumbrance={data.encumbrance}
+							canManageInventory={data.canManageInventory}
+							dispatch={dispatch}
+						/>
+					)}
+					{activeTab === 'resources' && (
+						<PlayerResources
+							key={charId}
+							charId={charId}
+							resources={data.resources}
+							actorId={actorId}
+							compact={viewport === 'phone'}
+							dispatch={dispatch}
+						/>
+					)}
+					{activeTab === 'party' && (
+						<PlayerParty
+							party={data.party}
+							selfId={charId}
+							isDm={data.isDm}
+							actorId={actorId}
+							compact={viewport === 'phone'}
+							dispatch={dispatch}
+						/>
+					)}
+					{activeTab === 'levelup' && data.canAdvance && (
+						<PlayerLevelUp
+							key={charId}
+							charId={charId}
+							actorId={actorId}
+							advancement={data.advancement}
+							xpEligible={data.xpEligible}
+							milestoneEligible={data.milestoneEligible}
+							dispatch={dispatch}
+						/>
+					)}
+					{activeTab === 'journal' && (
+						<PlayerJournal
+							key={charId}
+							charId={charId}
+							actorId={actorId}
+							entries={data.journal}
+							canAuthor={data.canAuthorJournal}
+							compact={viewport === 'phone'}
+							dispatch={dispatch}
+						/>
+					)}
 				</div>
 			</Page>
 		</div>

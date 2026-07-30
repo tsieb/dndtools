@@ -1741,7 +1741,13 @@ export function Characters() {
 					flexWrap: 'wrap',
 				}}
 			>
-				<Tabs value={kind} onChange={setKind} tabs={tabs} idBase="characters" aria-label="Roster filter" />
+				<Tabs
+					value={kind}
+					onChange={setKind}
+					tabs={tabs}
+					idBase="characters"
+					aria-label="Roster filter"
+				/>
 				<div style={{ flex: 1 }} />
 				{data.isDm && partyPcs.length > 0 && (
 					<Button variant="ghost" size="sm" icon="sword" onClick={startCombat}>
@@ -1784,10 +1790,8 @@ export function Characters() {
 						alignItems: 'flex-start',
 						gap: 8,
 						font: `13px ${T.sans}`,
-						color:
-							notice.tone === 'error' ? 'var(--color-status-error-text)' : T.sub,
-						background:
-							notice.tone === 'error' ? 'var(--color-status-error-subtle)' : T.accSub,
+						color: notice.tone === 'error' ? 'var(--color-status-error-text)' : T.sub,
+						background: notice.tone === 'error' ? 'var(--color-status-error-subtle)' : T.accSub,
 						border: `1px solid ${
 							notice.tone === 'error' ? 'var(--color-status-error-border)' : T.accBd
 						}`,
@@ -1809,44 +1813,44 @@ export function Characters() {
 
 			<div {...tabPanelProps('characters', kind)}>
 				{list.length === 0 ? (
-				<EmptyState
-					icon="characters-person"
-					title={
-						data.characters.length === 0 ? 'Your roster is empty' : 'No one matches this filter'
-					}
-					description={
-						data.characters.length === 0
-							? 'Add the party’s heroes, then the NPCs they’ll meet.'
-							: 'No characters match this filter.'
-					}
-					action={
-						data.isDm ? (
-							<Button
-								variant="primary"
-								size="sm"
-								icon="new-character"
-								onClick={() => setCreating(true)}
-							>
-								New character
-							</Button>
-						) : undefined
-					}
-				/>
-			) : (
-				<div
-					style={{
-						display: 'grid',
-						// `min()` retains the useful desktop card width without forcing horizontal
-						// page scrolling on a 320px phone (292px after page gutters).
-						gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 230px),1fr))',
-						gap: 16,
-					}}
-				>
-					{list.map((c) => (
-						<CharCard key={c.id} view={c} onOpen={() => navigate(`/characters/${c.id}`)} />
-					))}
-				</div>
-			)}
+					<EmptyState
+						icon="characters-person"
+						title={
+							data.characters.length === 0 ? 'Your roster is empty' : 'No one matches this filter'
+						}
+						description={
+							data.characters.length === 0
+								? 'Add the party’s heroes, then the NPCs they’ll meet.'
+								: 'No characters match this filter.'
+						}
+						action={
+							data.isDm ? (
+								<Button
+									variant="primary"
+									size="sm"
+									icon="new-character"
+									onClick={() => setCreating(true)}
+								>
+									New character
+								</Button>
+							) : undefined
+						}
+					/>
+				) : (
+					<div
+						style={{
+							display: 'grid',
+							// `min()` retains the useful desktop card width without forcing horizontal
+							// page scrolling on a 320px phone (292px after page gutters).
+							gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 230px),1fr))',
+							gap: 16,
+						}}
+					>
+						{list.map((c) => (
+							<CharCard key={c.id} view={c} onOpen={() => navigate(`/characters/${c.id}`)} />
+						))}
+					</div>
+				)}
 			</div>
 
 			{/* The guided creation overlay (ported design-prototype wizard): PC → real core draft flow;

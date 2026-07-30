@@ -1,5 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, enterPreview, exitPreview, gotoRoute, markOnboarded, ops, seedFresh, waitReady } from './_helpers';
+import {
+	dispatch,
+	enterPreview,
+	exitPreview,
+	gotoRoute,
+	markOnboarded,
+	ops,
+	seedFresh,
+	waitReady,
+} from './_helpers';
 
 // AUDIO PRESETS — I11 S11.3 (AUDIO-014) the Presets tab of the `/audio` screen. The built-in atmosphere
 // LIBRARY is a browsable catalog of TEMPLATE recipes (unbound layers, no shipped bytes); applying one
@@ -41,9 +50,8 @@ async function setupPlayableTrack(page: Page): Promise<void> {
 		},
 	});
 	expect(configured.status).toBe('accepted');
-	const sourceId = (configured.events ?? []).find((e) => e.kind === 'audio.source-configured')?.sourceId as
-		| string
-		| undefined;
+	const sourceId = (configured.events ?? []).find((e) => e.kind === 'audio.source-configured')
+		?.sourceId as string | undefined;
 	expect(sourceId).toBeTruthy();
 	const played = await dispatch(page, {
 		type: 'session.audio.play',
@@ -56,7 +64,9 @@ async function setupPlayableTrack(page: Page): Promise<void> {
 /** Open the Presets tab and confirm the built-in library rendered. */
 async function openPresetsTab(page: Page): Promise<void> {
 	await page.getByRole('tab', { name: 'Presets' }).click();
-	await expect(page.getByRole('heading', { name: 'Atmosphere library' })).toBeVisible({ timeout: 10_000 });
+	await expect(page.getByRole('heading', { name: 'Atmosphere library' })).toBeVisible({
+		timeout: 10_000,
+	});
 }
 
 test.describe('audio presets: atmosphere library + scene packages', () => {
@@ -69,7 +79,9 @@ test.describe('audio presets: atmosphere library + scene packages', () => {
 		await page.locator('#main-content').waitFor({ state: 'attached' });
 	});
 
-	test('the Presets tab renders the built-in atmosphere library grouped by category', async ({ page }) => {
+	test('the Presets tab renders the built-in atmosphere library grouped by category', async ({
+		page,
+	}) => {
 		await openPresetsTab(page);
 
 		// The six declared categories head their groups (they also appear as save-form select options —
@@ -79,7 +91,14 @@ test.describe('audio presets: atmosphere library + scene packages', () => {
 		}
 
 		// Representative shipped recipes across categories prove the catalog itself rendered.
-		for (const preset of ['Stone Corridor', 'Flooded Cave', 'Tavern', 'Battle', 'Formal Court', 'Arcane Lab']) {
+		for (const preset of [
+			'Stone Corridor',
+			'Flooded Cave',
+			'Tavern',
+			'Battle',
+			'Formal Court',
+			'Arcane Lab',
+		]) {
 			await expect(page.getByText(preset, { exact: true })).not.toHaveCount(0);
 		}
 
@@ -87,21 +106,27 @@ test.describe('audio presets: atmosphere library + scene packages', () => {
 		await expect(page.getByText('No scene packages yet.')).not.toHaveCount(0);
 	});
 
-	test('applying a built-in template preset reports the honest bind-sources-first state', async ({ page }) => {
+	test('applying a built-in template preset reports the honest bind-sources-first state', async ({
+		page,
+	}) => {
 		await openPresetsTab(page);
 		const before = await ops(page);
 
 		// A built-in preset's layers are unbound TEMPLATES: no layer resolves to a ready source, so apply
 		// fails closed with the honest guidance — it never guesses a track. Assert the toast, not audio.
 		await page.getByRole('button', { name: 'Apply Stone Corridor' }).click();
-		await expect(page.getByText(/no layers bound to a ready audio source/)).toBeVisible({ timeout: 10_000 });
+		await expect(page.getByText(/no layers bound to a ready audio source/)).toBeVisible({
+			timeout: 10_000,
+		});
 		await expect(page.getByText(/Bind its layers to configured sources first/)).not.toHaveCount(0);
 
 		// A rejected command appends no durable op — nothing was half-applied.
 		expect(await ops(page)).toBe(before);
 	});
 
-	test('a saved scene package persists, re-applies as real session audio, and deletes', async ({ page }) => {
+	test('a saved scene package persists, re-applies as real session audio, and deletes', async ({
+		page,
+	}) => {
 		await setupPlayableTrack(page);
 		await openPresetsTab(page);
 
@@ -222,7 +247,10 @@ test.describe('audio presets: atmosphere library + scene packages', () => {
 		await setupPlayableTrack(page);
 		const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
 		const scene = await page.evaluate(() => {
-			const scenes = window.__rt!.state.scenes.scenes as Record<string, { id: string; name: string }>;
+			const scenes = window.__rt!.state.scenes.scenes as Record<
+				string,
+				{ id: string; name: string }
+			>;
 			return Object.values(scenes)[0]!;
 		});
 		// Sources are keyed BY source id and the record itself carries `id`, not `sourceId`.
@@ -234,7 +262,13 @@ test.describe('audio presets: atmosphere library + scene packages', () => {
 			const bound = await dispatch(page, {
 				type: 'audio.associate-scene',
 				actorId,
-				payload: { targetKind: 'scene', targetId: scene.id, presetKind: 'ambient', label, sourceId },
+				payload: {
+					targetKind: 'scene',
+					targetId: scene.id,
+					presetKind: 'ambient',
+					label,
+					sourceId,
+				},
 			});
 			expect(bound.status, JSON.stringify(bound)).toBe('accepted');
 		}

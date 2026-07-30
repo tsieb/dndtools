@@ -148,7 +148,10 @@ function mdToNodes(md: string, resolve?: (target: string) => (() => void) | null
 			}
 			i -= 1;
 			out.push(
-				<ul key={`ul-${start}`} style={{ margin: '4px 0', paddingLeft: 0, listStylePosition: 'inside' }}>
+				<ul
+					key={`ul-${start}`}
+					style={{ margin: '4px 0', paddingLeft: 0, listStylePosition: 'inside' }}
+				>
 					{items}
 				</ul>,
 			);
@@ -323,9 +326,7 @@ export function WikiReader() {
 					setState((prev) => ({
 						phase: 'password',
 						failedAttempts:
-							pw === undefined
-								? 0
-								: (prev.phase === 'password' ? prev.failedAttempts : 0) + 1,
+							pw === undefined ? 0 : (prev.phase === 'password' ? prev.failedAttempts : 0) + 1,
 					}));
 				} else {
 					const message =

@@ -85,7 +85,10 @@ test.describe('atlas: layer and POI rows state their own state', () => {
 	// (WCAG 1.4.1 / 4.1.2). The map chips and Graph's nodes already expose theirs.
 	test('a POI row exposes its highlight state, not just a colour', async ({ page }) => {
 		// The screen opens on Hidden Outpost, which has no POIs; the seeded ones live on the region map.
-		await page.getByRole('button', { name: /Western Reaches/ }).first().click();
+		await page
+			.getByRole('button', { name: /Western Reaches/ })
+			.first()
+			.click();
 
 		const harbor = page.getByRole('button', { name: 'Highlight Harbor Town on the map' });
 		const cache = page.getByRole('button', { name: "Highlight Smugglers' Cache on the map" });

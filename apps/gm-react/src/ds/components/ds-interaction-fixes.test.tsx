@@ -819,7 +819,11 @@ describe('quest objectives carry their state and stay readable when read-only', 
 	];
 
 	it('exposes done/not-done as aria-pressed rather than a line-through alone', () => {
-		act(() => root.render(<QuestCard title="Smuggled cargo" objectives={objectives} onToggleObjective={() => {}} />));
+		act(() =>
+			root.render(
+				<QuestCard title="Smuggled cargo" objectives={objectives} onToggleObjective={() => {}} />,
+			),
+		);
 		const rows = Array.from(container.querySelectorAll('li button')) as HTMLButtonElement[];
 		expect(rows).toHaveLength(2);
 		// The role must stay `button` — campaign.spec.ts matches these by role+name.
@@ -841,9 +845,18 @@ describe('shared primitives stop announcing themselves identically', () => {
 		// Seven live tablists (map dock, Audio, Player, Characters, Campaign, Community, Extensions)
 		// all announced as the hard-coded "Sections".
 		act(() =>
-			root.render(<Tabs aria-label="Audio sections" value="a" tabs={[{ id: 'a', label: 'A' }]} onChange={() => {}} />),
+			root.render(
+				<Tabs
+					aria-label="Audio sections"
+					value="a"
+					tabs={[{ id: 'a', label: 'A' }]}
+					onChange={() => {}}
+				/>,
+			),
 		);
-		expect(container.querySelector('[role="tablist"]')!.getAttribute('aria-label')).toBe('Audio sections');
+		expect(container.querySelector('[role="tablist"]')!.getAttribute('aria-label')).toBe(
+			'Audio sections',
+		);
 	});
 
 	it('sizes Collapse minimap like its own Expand twin', () => {
