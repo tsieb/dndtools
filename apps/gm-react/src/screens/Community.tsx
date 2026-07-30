@@ -246,6 +246,11 @@ function CommDiscover() {
 			} else {
 				Toaster.error(result.rejection.message);
 			}
+		} catch (e) {
+			// `dispatchNow` RETHROWS a failed persist. Without this the review Dialog just sat there
+			// looking untouched and the user re-pressed Install — `runExport` below already gets this
+			// right.
+			Toaster.error(e instanceof Error ? e.message : 'Could not install that package.');
 		} finally {
 			setBusy(false);
 		}

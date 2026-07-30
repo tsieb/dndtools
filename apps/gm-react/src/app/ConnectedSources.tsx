@@ -205,6 +205,17 @@ export function ConnectedSourcesPanel() {
 
 	const setStatusFor = (key: string, message: string) =>
 		setStatusBySource((prev) => ({ ...prev, [key]: message }));
+	// Every operation below writes its outcome to the SAME key it just read, so leaving the previous
+	// line up made a retry look like a dead button whenever the new outcome text was identical
+	// ("Folder access was denied or revoked" twice in a row is indistinguishable from nothing
+	// happening). `connectFolder` already clears its key; this is that idiom, reusable.
+	const clearStatusFor = (key: string) =>
+		setStatusBySource((prev) => {
+			if (!(key in prev)) return prev;
+			const next = { ...prev };
+			delete next[key];
+			return next;
+		});
 
 	// --- local folders -----------------------------------------------------------------------
 
@@ -228,6 +239,7 @@ export function ConnectedSourcesPanel() {
 
 	async function pullFolder(record: FolderSourceRecord) {
 		setBusy(record.id);
+		clearStatusFor(record.id);
 		try {
 			const ok = await ensureFolderPermission(record.handle, 'read');
 			if (!ok) {
@@ -275,6 +287,7 @@ export function ConnectedSourcesPanel() {
 	}
 
 	async function startFolderPush(record: FolderSourceRecord) {
+		clearStatusFor(record.id);
 		if (notes.length === 0) {
 			setStatusFor(record.id, 'No notes to push yet.');
 			return;
@@ -372,21 +385,32 @@ export function ConnectedSourcesPanel() {
 	// --- google docs ---------------------------------------------------------------------------
 
 	async function signInGoogle() {
+		// `busy` is a single panel-wide slot and EVERY control here is `disabled={busy !== null}`, so
+		// an unsettled await froze the whole panel until remount with nothing on screen to explain it.
+		// The GIS promise only settles from its callback/error_callback, so a consent popup the user
+		// simply leaves open never resolves — `finally` is what makes that recoverable.
 		setBusy('google-auth');
-		const outcome = await connectGoogleAccount();
-		setBusy(null);
-		if (outcome.status === 'signed-in') {
-			setGoogleSignedIn(true);
-			setStatusFor('google', 'Signed in. Create a Doc below, then push a note into it.');
-		} else if (outcome.status === 'failed') {
-			setStatusFor('google', outcome.message);
+		clearStatusFor('google');
+		try {
+			const outcome = await connectGoogleAccount();
+			if (outcome.status === 'signed-in') {
+				setGoogleSignedIn(true);
+				setStatusFor('google', 'Signed in. Create a Doc below, then push a note into it.');
+			} else if (outcome.status === 'failed') {
+				setStatusFor('google', outcome.message);
+			}
+			// 'redirecting' — the page is navigating away; nothing to render.
+		} catch (e) {
+			setStatusFor('google', e instanceof Error ? e.message : 'Google sign-in failed.');
+		} finally {
+			setBusy(null);
 		}
-		// 'redirecting' — the page is navigating away; nothing to render.
 	}
 
 	async function createNewDoc() {
 		const title = docInput.trim() || 'DND Tools notes';
 		setBusy('google-connect');
+		clearStatusFor('google');
 		try {
 			const doc = await createGoogleDoc(title);
 			if (!doc.documentId) throw new Error('Google returned no document id.');
@@ -403,6 +427,7 @@ export function ConnectedSourcesPanel() {
 
 	async function pullGdoc(conn: GdocConnection) {
 		setBusy(conn.docId);
+		clearStatusFor(conn.docId);
 		try {
 			const doc = await fetchGoogleDoc(conn.docId);
 			const markdown = docToMarkdown(doc);

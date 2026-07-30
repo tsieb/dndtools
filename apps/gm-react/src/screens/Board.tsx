@@ -13,6 +13,7 @@ import { widgetRejectionMessage } from '../app/widget-rejection';
 import { SceneBoardCanvas, WidgetGlyph } from '../app/SceneBoardCanvas';
 import { boardWidgetsOf, payloadIndex, type BoardWidget } from '../app/board-helpers';
 import { useViewport } from '../app/useViewport';
+import { usePanelFocusReturn } from '../app/usePanelFocusReturn';
 import { Page } from '../app/screen-kit';
 import { widgetProfileForRuntime } from '../platform/capabilities';
 
@@ -48,6 +49,10 @@ export function Board() {
 	const [error, setError] = useState<string | null>(null);
 	const [pendingDestroyId, setPendingDestroyId] = useState<string | null>(null);
 	const ensuringRef = useRef(false);
+
+	// A successful Add, or a saved layout preset, unmounts the panel with focus still inside it — the
+	// browser then resets focus to <body> and Tab restarts at the skip link. See usePanelFocusReturn.
+	usePanelFocusReturn(addOpen || (editing && layoutsOpen));
 
 	// Create-intent handoff from "New widget" launchers (home hub): arrive in edit mode with the
 	// Add-widget panel already open. Consumed once, then cleared.
@@ -291,6 +296,16 @@ export function Board() {
 				// `100%` tracks the pane exactly at every size. Locked by responsive.spec.ts.
 				height: '100%',
 				minHeight: 360,
+				// `/board` and `/scene/:id` are the only two screens that bypass `<Page>`, so without
+				// this they rendered flush against the pane edges — heading, toolbar and the canvas's
+				// own rounded border all touching, so the border read as a crop. `border-box` keeps
+				// `height:'100%'` exact.
+				// NOT on phone: the bounded canvas derives its fit scale from the AVAILABLE WIDTH
+				// (SceneBoardCanvas `boundedScale`), which on a 375px handset is already ~0.45 and too
+				// small to read. A gutter there would shrink it further to buy whitespace it cannot
+				// afford — and it measurably tipped the phone board out of its own scroll range.
+				boxSizing: 'border-box',
+				padding: viewport === 'phone' ? 0 : '16px 28px',
 			}}
 		>
 			<div

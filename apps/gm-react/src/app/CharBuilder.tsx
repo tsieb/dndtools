@@ -1183,8 +1183,19 @@ export function CharBuilder({
 	async function create() {
 		setError(null);
 		setSubmitting(true);
-		const id = isPc ? await createPc() : await createOther();
-		setSubmitting(false);
+		// `SceneRuntime.dispatchNow` RETHROWS after a failed durable write, and creating a PC awaits
+		// ~13 dispatches. Without the catch/finally, one storage failure left the primary reading
+		// "Creating…" and `disabled` FOREVER with nothing on screen — and the only way out was Cancel,
+		// which discards the whole multi-step draft.
+		let id: string | null;
+		try {
+			id = isPc ? await createPc() : await createOther();
+		} catch (e) {
+			setError(e instanceof Error ? e.message : 'Could not save this character. Please try again.');
+			return;
+		} finally {
+			setSubmitting(false);
+		}
 		if (!id) return;
 		Toaster.success(`${name.trim() || 'Character'} added to the roster`);
 		onCreated(id);

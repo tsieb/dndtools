@@ -16,12 +16,14 @@ function ensureStyles() {
 	_injected = true;
 	const css = `
 .dnds-range{ -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:var(--radius-full);
-  background:var(--color-surface-sunken); outline:none; cursor:pointer; }
-.dnds-range:focus-visible{ box-shadow:0 0 0 3px var(--color-interactive-selected); }
-.dnds-range::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:16px; height:16px; border-radius:50%;
-  background:var(--color-accent); border:2px solid var(--color-accent-foreground); box-shadow:var(--shadow-sm); cursor:grab; }
-.dnds-range::-moz-range-thumb{ width:16px; height:16px; border-radius:50%; background:var(--color-accent);
-  border:2px solid var(--color-accent-foreground); box-shadow:var(--shadow-sm); cursor:grab; }
+  background:var(--color-surface-sunken); cursor:pointer; }
+.dnds-range:focus-visible{ outline:var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset:var(--focus-ring-offset); }
+.dnds-range::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:24px; height:24px; border-radius:50%;
+  background:var(--color-accent); border:4px solid transparent; background-clip:content-box;
+  box-shadow:var(--shadow-sm); cursor:grab; }
+.dnds-range::-moz-range-thumb{ width:24px; height:24px; border-radius:50%; background:var(--color-accent);
+  border:4px solid transparent; background-clip:content-box; box-shadow:var(--shadow-sm); cursor:grab; }
 .dnds-range:disabled{ opacity:.5; cursor:not-allowed; }
 .dnds-range:disabled::-webkit-slider-thumb{ cursor:not-allowed; }`;
 	const el = document.createElement('style');

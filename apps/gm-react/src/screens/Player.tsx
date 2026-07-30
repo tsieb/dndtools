@@ -1111,7 +1111,15 @@ function PlayerEquipment({
 									<div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
 										<IconButton
 											icon="chevron-down"
-											label={`One fewer ${item.name}`}
+											// At 1, stepping down clamped to 0 and left a `×0` ghost row that stayed in
+											// the list and kept accepting presses. Removing the item is a different,
+											// already-present action — so say so instead of pretending to work.
+											label={
+												item.quantity <= 1
+													? `Cannot go below one ${item.name} — use Remove ${item.name}`
+													: `One fewer ${item.name}`
+											}
+											aria-disabled={item.quantity <= 1 ? true : undefined}
 											variant="ghost"
 											size="sm"
 											onClick={() => void stepQty(item, -1)}
@@ -1131,7 +1139,11 @@ function PlayerEquipment({
 											aria-pressed={item.equipped}
 											onClick={() => void toggleEquipped(item)}
 											style={{
-												padding: '3px 9px',
+												// 3px + an 11px line + 3px is a ~21px target, under the WCAG 2.5.8
+												// floor, wedged between icon buttons that DO meet it.
+												padding: '6px 10px',
+												minHeight: 24,
+												boxSizing: 'border-box',
 												borderRadius: 14,
 												cursor: 'pointer',
 												font: `11px ${T.sans}`,

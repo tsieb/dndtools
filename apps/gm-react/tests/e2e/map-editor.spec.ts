@@ -777,3 +777,108 @@ test.describe('map editor', () => {
 		expect(blocking, `Editor axe violations:\n${blocking.join('\n')}`).toEqual([]);
 	});
 });
+
+// ── 11 · the editor keymap yields to whatever owns the keyboard ──────────────────────────────────
+
+test.describe('map editor: overlays own the keyboard', () => {
+	// `useMapKeyboard` binds on `document`, and nothing gated it on the editor's own `overlayUp`. So
+	// with the shortcut overlay (or the command palette, or the import/export dialogs) open, single-key
+	// shortcuts still armed tools and moved the viewport BEHIND the dialog, and Escape raced the
+	// dialog's own dismiss handler. A dialog is supposed to be modal.
+	test('single-key tool shortcuts do not fire behind the shortcut overlay', async ({ page }) => {
+		await openAtlas(page);
+		const name = `Modal Keys ${Date.now()}`;
+		await createMap(page, { name });
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		// Arm a known tool so we can prove the next keypress did NOT change it.
+		await page.keyboard.press('b');
+		await expectActiveTool(page, 'Terrain brush');
+
+		await focusEditor(page);
+		await page.keyboard.press('Shift+Slash');
+		const help = page.getByRole('dialog', { name: 'Keyboard shortcuts' });
+		await expect(help).toBeVisible();
+
+		// `n` is the POI tool's shortcut. Behind an open modal it must do nothing at all.
+		await page.keyboard.press('n');
+		await expect(help, 'the overlay must not be dismissed by a tool key').toBeVisible();
+
+		// Escape belongs to the dialog; the editor keymap must not have consumed it first.
+		await page.keyboard.press('Escape');
+		await expect(help).toBeHidden();
+
+		// The tool armed before the overlay opened is still the armed tool.
+		await expectActiveTool(page, 'Terrain brush');
+	});
+});
+
+// ── 12 · the Generate seed field keeps what you type ─────────────────────────────────────────────
+
+test.describe('map editor: generation seed', () => {
+	// Enter in the Seed field used to REROLL — throwing away the seed just typed. Typing a seed is the
+	// entire point of that field (a seed shared by another DM reproduces their map exactly), and the
+	// preview already re-runs from `seed` on every change, so Enter had nothing to submit.
+	test('Enter in the Seed field does not discard the seed you just typed', async ({
+		page,
+	}, testInfo) => {
+		await openAtlas(page);
+		const name = `Seed Map ${Date.now()}`;
+		await createMap(page, { name });
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		await page.keyboard.press('q');
+		await expectActiveTool(page, 'Generate');
+		await revealDock(page, testInfo);
+
+		const seed = page.getByLabel('Generation seed');
+		await expect(seed).toBeVisible();
+		await seed.fill('shared-seed-42');
+		await seed.press('Enter');
+		await expect(seed).toHaveValue('shared-seed-42');
+
+		// Reroll is still the way to get a new one, and it must actually change the value.
+		await page.getByRole('button', { name: 'Reroll seed' }).click();
+		await expect(seed).not.toHaveValue('shared-seed-42');
+	});
+});
+
+// ── 13 · the Assets browser arms a tool that reads what it writes ────────────────────────────────
+
+test.describe('map editor: assets browser', () => {
+	// `arm()` writes `options.stampAsset` but used to EXEMPT the Scatter tool from switching tools —
+	// and Scatter reads `options.scatterObject`, never `stampAsset` (EditorCanvas.tsx:418 vs :492). So
+	// with Scatter armed, clicking an asset tile lit it up as selected and then changed absolutely
+	// nothing about what the canvas painted. Stamp is the only tool this panel can configure.
+	test('picking an asset while Scatter is armed arms the Stamp tool', async ({ page }, testInfo) => {
+		await openAtlas(page);
+		const name = `Assets Map ${Date.now()}`;
+		await createMap(page, { name });
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		// Arm Scatter, then open the Assets dock tab.
+		await page.keyboard.press('k');
+		await expectActiveTool(page, 'Scatter');
+		await revealDock(page, testInfo);
+		await page.getByRole('tab', { name: 'Assets' }).click();
+
+		// The same asset can appear in "All objects" and (after arming) in Recents, so scope to one.
+		const tile = page.getByRole('button', { name: 'Crate', exact: true }).first();
+		await expect(tile).toBeVisible();
+		await tile.click();
+
+		await expect(tile).toHaveAttribute('aria-pressed', 'true');
+		// On the compact profile the dock is a real modal sheet sitting over the tool-options bar, so
+		// close it before reading which tool is armed.
+		if (isPhone(testInfo)) {
+			const sheet = page.getByRole('dialog', { name: 'Map panels' });
+			await sheet.getByRole('button', { name: 'Close' }).click();
+			await expect(sheet).toBeHidden();
+		}
+		// The armed tool is now one that actually consumes `stampAsset`.
+		await expectActiveTool(page, 'Stamp');
+	});
+});

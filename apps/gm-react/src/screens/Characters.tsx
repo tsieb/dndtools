@@ -909,6 +909,11 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 											value={a.name}
 											aria-label="Attack name"
 											placeholder="Name"
+											// Two tracks but THREE children: with everything auto-placed, the Detail
+											// input landed in the 28px remove column (~4 characters wide) and the
+											// remove button got a full-width row to itself. Letting Name own row 1
+											// puts Detail + remove on row 2, and keeps DOM order == reading order.
+											style={isPhone ? { gridColumn: '1 / -1' } : undefined}
 											onChange={(e: any) =>
 												setAttackRows((rows) =>
 													rows!.map((x, j) => (j === idx ? { ...x, name: e.target.value } : x)),

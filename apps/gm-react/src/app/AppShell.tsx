@@ -413,9 +413,14 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const [showAllScenes, setShowAllScenes] = useState(false);
 	const [moreOpen, setMoreOpen] = useState(false);
 	const visibleScenes = showAllScenes ? scenes : scenes.slice(0, 5);
-	// Never hide the row you're ON: with a platform section active the group stays expanded.
+	// Never hide the row you're ON: arriving at a platform section OPENS the group. It stays a real
+	// disclosure though — OR-ing `platformActive` into the expanded flag made the toggle a no-op on
+	// every platform route and pinned aria-expanded to true.
 	const platformActive = PLATFORM.some((s) => s.id === active);
-	const moreExpanded = moreOpen || platformActive;
+	useEffect(() => {
+		if (platformActive) setMoreOpen(true);
+	}, [platformActive]);
+	const moreExpanded = moreOpen;
 	// "Recent scenes" earns its keep only once the Scenes list truncates — below that it just
 	// mirrors the same handful of scenes twice in one sidebar.
 	const showRecent = recent.length > 0 && scenes.length > 5;
@@ -595,6 +600,7 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 						<button
 							type="button"
 							aria-expanded={moreExpanded}
+							aria-controls="nav-more-panel"
 							onClick={() => setMoreOpen((v) => !v)}
 							style={{
 								display: 'flex',
@@ -621,7 +627,10 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 							<Icon name={moreExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={T.ter} />
 						</button>
 						{moreExpanded && (
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+							<div
+								id="nav-more-panel"
+								style={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+							>
 								{PLATFORM.map((s) => row(s))}
 							</div>
 						)}

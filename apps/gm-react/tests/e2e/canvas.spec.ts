@@ -640,3 +640,116 @@ test.describe('canvas: view mode reads, edit mode moves', () => {
 		);
 	});
 });
+
+// `/board` and `/scene/:id` are the only two screens in the app that bypass `<Page>`, and they were
+// therefore the only two rendering with ZERO gutters: the heading, the toolbar and the canvas's own
+// rounded border all sat flush against the pane edges, so the border read as a crop rather than a
+// frame. `<Page>` gives every other route 24-28px. Measured against `<main>`, which is the bounded
+// pane itself (`flex:1; min-height:0; overflow-y:auto` in AppShell).
+test.describe('canvas: the two Page-less screens keep their gutters', () => {
+	test('/board is inset from the pane edges on desktop', async ({ page }) => {
+		await page.setViewportSize({ width: 1280, height: 800 });
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+
+		await expect(page.getByTestId('scene-board-bounded')).toBeVisible();
+		const gaps = await page.evaluate(() => {
+			const main = document.querySelector('#main-content') as HTMLElement;
+			const canvas = document.querySelector('[data-testid="scene-board-bounded"]') as HTMLElement;
+			const m = main.getBoundingClientRect();
+			const c = canvas.getBoundingClientRect();
+			return { left: c.left - m.left, right: m.right - c.right };
+		});
+		expect(gaps.left, 'the canvas must not touch the left pane edge').toBeGreaterThanOrEqual(8);
+		expect(gaps.right, 'the canvas must not touch the right pane edge').toBeGreaterThanOrEqual(8);
+	});
+
+	// Adding the gutter must not re-introduce the overflow that the `height:'100%'` fix removed: the
+	// root is `box-sizing: border-box`, so the padding comes OUT of the 100%, not on top of it.
+	test('the gutter does not make /board overflow its pane', async ({ page }) => {
+		await page.setViewportSize({ width: 1280, height: 800 });
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await expect(page.getByTestId('scene-board-bounded')).toBeVisible();
+		await expect
+			.poll(() =>
+				page.evaluate(() => {
+					const main = document.querySelector('#main-content') as HTMLElement;
+					return main.scrollHeight - main.clientHeight;
+				}),
+			)
+			.toBeLessThanOrEqual(1);
+	});
+
+	// PHONE IS DELIBERATELY EXEMPT, and this locks that decision in. The bounded canvas derives its
+	// fit scale from the AVAILABLE WIDTH (`boundedScale` in SceneBoardCanvas), so on a 375px handset —
+	// where that scale is already ~0.45 and the widget titles paint at ~6px — a gutter would buy
+	// whitespace by shrinking content that has none to spare. It also measurably pushed the phone
+	// board out of its own vertical scroll range, breaking the touch-scroll contract above.
+	test('/board stays edge-to-edge on a phone so the fit scale is not spent on whitespace', async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 375, height: 667 });
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+
+		await expect(page.getByTestId('scene-board-bounded')).toBeVisible();
+		const gaps = await page.evaluate(() => {
+			const main = document.querySelector('#main-content') as HTMLElement;
+			const canvas = document.querySelector('[data-testid="scene-board-bounded"]') as HTMLElement;
+			const m = main.getBoundingClientRect();
+			const c = canvas.getBoundingClientRect();
+			return { left: c.left - m.left, right: m.right - c.right };
+		});
+		expect(gaps.left).toBeLessThanOrEqual(1);
+		expect(gaps.right).toBeLessThanOrEqual(1);
+	});
+});
+
+// A side panel that CLOSES ITSELF — Escape, its own Close button, a successful Add, a saved
+// metadata edit — unmounted the node holding focus, and the browser resets that to <body>. The next
+// Tab then restarted the whole page at the skip link, and a screen-reader user was left with no
+// context at all. Reclaim the opener, but only when focus really was stranded.
+test.describe('canvas: a closing side panel gives focus back', () => {
+	test('closing the /board Add panel returns focus to the Add toggle', async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.waitForFunction(
+			() => {
+				const rt = window.__rt!;
+				const id = rt.state.commandCenter.homeSceneId;
+				return !!id && !!rt.state.scenes.scenes[id];
+			},
+			null,
+			{ timeout: 10_000 },
+		);
+
+		await page.getByRole('button', { name: 'Edit layout' }).click();
+		const addToggle = page.getByRole('button', { name: 'Add', exact: true });
+		await addToggle.click();
+		await expect(page.getByText('Add widget', { exact: true })).toBeVisible();
+
+		// Focus is deep inside the panel when it goes away — the worst case for the browser's reset.
+		await page.getByRole('button', { name: 'Close', exact: true }).focus();
+		await page.keyboard.press('Escape');
+		await expect(page.getByText('Add widget', { exact: true })).toHaveCount(0);
+
+		await expect(addToggle).toBeFocused();
+		expect(
+			await page.evaluate(() => document.activeElement === document.body),
+			'focus must not fall through to <body>',
+		).toBe(false);
+	});
+});

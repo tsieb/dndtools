@@ -20,7 +20,11 @@ export function VisibilityChip({ level = 'dm-only', compact = false, style, ...r
 	const l = levels[level] || levels[CORE_ALIASES[level]] || levels['dm-only'];
 	return (
 		<span
-			title={l.label}
+			// The icon carries the accessible name ONLY when the text is hidden. Naming both made
+			// every non-compact chip — the majority of ~33 live sites — announce "DM only DM only",
+			// and `title` added a third copy as a tooltip over text that is already on screen.
+			// ds/components/condition/ConditionBadge.jsx:70 already had this right.
+			title={compact ? l.label : undefined}
 			style={{
 				display: 'inline-flex',
 				alignItems: 'center',
@@ -40,7 +44,7 @@ export function VisibilityChip({ level = 'dm-only', compact = false, style, ...r
 			}}
 			{...rest}
 		>
-			<Icon name={l.icon} size={13} label={l.label} />
+			<Icon name={l.icon} size={13} label={compact ? l.label : undefined} />
 			{!compact && l.label}
 		</span>
 	);

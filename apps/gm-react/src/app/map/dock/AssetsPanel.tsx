@@ -1,21 +1,34 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { Icon, Input } from '../../../ds';
 import { T, eb } from '../../screen-kit';
 import type { MapEditorApi } from '../useMapEditor';
 import { STAMP_ASSETS, STAMP_TAGS, type StampAsset } from '../mapVocab';
 
 /**
- * MAP-021 — the Assets browser for the Stamp & Scatter tools. Scoped by default (opens on the active
- * tool's likely set, never "All"), searchable by name+tags, filterable by a tag rail, with Recents +
- * Favorites. Each thumbnail can be BOTH dragged onto the canvas AND clicked to arm-then-place — the
- * click path is the WCAG 2.5.7 non-drag alternative. Selecting an asset sets `editor.options.stampAsset`
- * and arms the Stamp tool.
+ * MAP-021 — the Assets browser for the Stamp tool. Searchable by name+tags, filterable by a tag rail,
+ * with Recents + Favorites. Selecting an asset sets `editor.options.stampAsset` and arms Stamp.
+ *
+ * Scatter is deliberately NOT driven from here: it has its own five-set vocabulary (`SCATTER_SETS`,
+ * read through `options.scatterObject`) with its own SegmentedControl in the tool options bar.
+ *
+ * `recent`/`favorites` live in the PARENT because this panel is one of four dock tabs and unmounts
+ * whenever you switch tabs — keeping them here wiped both lists on every visit to Layers or History.
  */
-export function AssetsPanel({ editor }: { editor: MapEditorApi }) {
+export function AssetsPanel({
+	editor,
+	recent,
+	setRecent,
+	favorites,
+	setFavorites,
+}: {
+	editor: MapEditorApi;
+	recent: string[];
+	setRecent: Dispatch<SetStateAction<string[]>>;
+	favorites: string[];
+	setFavorites: Dispatch<SetStateAction<string[]>>;
+}) {
 	const [search, setSearch] = useState('');
 	const [activeTags, setActiveTags] = useState<string[]>([]);
-	const [recent, setRecent] = useState<string[]>([]);
-	const [favorites, setFavorites] = useState<string[]>([]);
 
 	const current = editor.options.stampAsset;
 
@@ -31,7 +44,11 @@ export function AssetsPanel({ editor }: { editor: MapEditorApi }) {
 
 	const arm = (asset: StampAsset) => {
 		editor.setOption('stampAsset', asset.id);
-		if (editor.tool !== 'stamp' && editor.tool !== 'scatter') editor.setTool('stamp');
+		// Scatter used to be exempted from the arm here, but it reads `options.scatterObject`, never
+		// `stampAsset` (EditorCanvas.tsx:418 vs :492) — so with Scatter armed, clicking a tile lit it
+		// up as selected and then changed absolutely nothing on the canvas. Stamp is the only tool
+		// this panel can configure, so arming an asset arms Stamp.
+		if (editor.tool !== 'stamp') editor.setTool('stamp');
 		setRecent((prev) => [asset.id, ...prev.filter((x) => x !== asset.id)].slice(0, 6));
 	};
 

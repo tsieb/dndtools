@@ -21,7 +21,11 @@ export function DefinitionList({ items = [], layout = 'rows', style, ...rest }) 
 		);
 	}
 	return (
-		<dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 'var(--space-4)', rowGap: 'var(--space-2)', alignItems: 'baseline', ...style }} {...rest}>
+		// `auto 1fr` plus a nowrap label meant a long term ("Condition Immunities", "Proficiency
+		// Bonus") forced the first track to its full intrinsic width and pushed the whole list past a
+		// narrow panel. `minmax(0, …)` lets both tracks shrink; LABEL below now wraps rather than
+		// overflowing when they do.
+		<dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'minmax(0, auto) minmax(0, 1fr)', columnGap: 'var(--space-4)', rowGap: 'var(--space-2)', alignItems: 'baseline', ...style }} {...rest}>
 			{items.map((it, i) => (
 				<React.Fragment key={i}>
 					<dt style={{ ...LABEL, paddingTop: 1 }}>{it.label}</dt>
@@ -43,7 +47,6 @@ const LABEL = {
 	letterSpacing: 'var(--tracking-wider)',
 	textTransform: 'uppercase',
 	color: 'var(--color-text-tertiary)',
-	whiteSpace: 'nowrap',
 };
 const VALUE = {
 	fontFamily: 'var(--font-sans)',

@@ -100,6 +100,10 @@ export function MapEditor({
 	const [importOpen, setImportOpen] = useState(false);
 	const [exportOpen, setExportOpen] = useState(false);
 	const [mobileDock, setMobileDock] = useState(false);
+	// AssetsPanel is one of four dock TABS, so it unmounts on every tab change. Its Recents and
+	// Favorites lists therefore have to live out here or they wipe each time you glance at Layers.
+	const [assetRecent, setAssetRecent] = useState<string[]>([]);
+	const [assetFavorites, setAssetFavorites] = useState<string[]>([]);
 	const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
 	const [primeGen, setPrimeGen] = useState<string | undefined>(undefined);
 	const [quickSheetHeight, setQuickSheetHeight] = useState(() =>
@@ -139,7 +143,12 @@ export function MapEditor({
 		editor.setOption('fogMode', initialFogMode);
 	}, [editor, initialFogMode]);
 
+	// The editor keymap is a `document`-level listener, so while the command palette, the shortcut
+	// overlay or the import/export dialogs were up, `v`/`b`/`[`/`0` still armed tools and moved the
+	// viewport BEHIND them — and Escape raced the dialog's own handler. A dialog owns the keyboard.
+	const dialogUp = paletteOpen || helpOpen || importOpen || exportOpen;
 	useMapKeyboard(editor, {
+		suspended: dialogUp,
 		onClose,
 		openPalette: () => {
 			if (!quickMapMode) setPaletteOpen(true);
@@ -178,12 +187,7 @@ export function MapEditor({
 
 	// aria-modal Tab trap — keep Tab inside the shell (AppShell stays mounted underneath). Open
 	// dialogs/palette/sheets own their own Tab cycle, so skip the trap while one is up.
-	const overlayUp =
-		paletteOpen ||
-		helpOpen ||
-		importOpen ||
-		exportOpen ||
-		((quickMapMode || isPhone) && mobileDock);
+	const overlayUp = dialogUp || ((quickMapMode || isPhone) && mobileDock);
 	useEffect(() => {
 		if (overlayUp) return;
 		const onKey = (e: KeyboardEvent) => {
@@ -459,7 +463,15 @@ export function MapEditor({
 			>
 				{editor.dock === 'inspector' && <InspectorPanel editor={editor} announce={announce} />}
 				{editor.dock === 'layers' && <LayersPanel editor={editor} announce={announce} />}
-				{editor.dock === 'assets' && <AssetsPanel editor={editor} />}
+				{editor.dock === 'assets' && (
+					<AssetsPanel
+						editor={editor}
+						recent={assetRecent}
+						setRecent={setAssetRecent}
+						favorites={assetFavorites}
+						setFavorites={setAssetFavorites}
+					/>
+				)}
 				{editor.dock === 'history' && <HistoryPanel editor={editor} />}
 			</div>
 		</>

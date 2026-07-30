@@ -12,6 +12,12 @@ import { SHORTCUT_TO_TOOL, type ToolId } from './tools';
 export function useMapKeyboard(
 	editor: MapEditorApi,
 	handlers: {
+		/**
+		 * True while a dialog, the command palette or the shortcut overlay owns the keyboard. This is
+		 * a `document`-level listener, so without it `v`/`b`/`[`/`0` armed tools and moved the
+		 * viewport BEHIND the open overlay, and Escape raced the overlay's own dismiss handler.
+		 */
+		suspended?: boolean;
 		onClose: () => void;
 		openPalette: () => void;
 		openHelp: () => void;
@@ -22,7 +28,9 @@ export function useMapKeyboard(
 		navigationTool?: ToolId;
 	},
 ) {
+	const suspended = handlers.suspended ?? false;
 	useEffect(() => {
+		if (suspended) return;
 		const onKey = (e: KeyboardEvent) => {
 			const target = e.target as HTMLElement | null;
 			const typing = !!target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
@@ -135,7 +143,7 @@ export function useMapKeyboard(
 		};
 		document.addEventListener('keydown', onKey);
 		return () => document.removeEventListener('keydown', onKey);
-	}, [editor, handlers]);
+	}, [editor, handlers, suspended]);
 }
 
 function nudge(editor: MapEditorApi, dx: number, dy: number) {

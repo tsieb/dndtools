@@ -30,9 +30,14 @@ afterEach(() => {
 	container.remove();
 });
 
+// Read the level off the chip's own VISIBLE text. This used to read `title`, but a non-compact chip
+// no longer carries one: naming the icon AND rendering the same string AND repeating it in `title`
+// made the app's most-used safety chip announce "DM only DM only" and put a tooltip over text that
+// was already on screen. In compact mode there is no text, so the icon keeps the name — asserted
+// separately in ds-interaction-fixes.test.tsx.
 function labelFor(level: string): string {
 	act(() => root.render(<VisibilityChip level={level} />));
-	return container.firstElementChild?.getAttribute('title') ?? '';
+	return container.firstElementChild?.textContent ?? '';
 }
 
 describe('VisibilityChip', () => {

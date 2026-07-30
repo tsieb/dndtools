@@ -28,6 +28,7 @@ import { SceneBoardCanvas, WidgetGlyph } from '../app/SceneBoardCanvas';
 import { boardWidgetsOf, payloadIndex, TIER_LABEL, type BoardWidget } from '../app/board-helpers';
 import { parseTags } from '../app/scene-helpers';
 import { useViewport } from '../app/useViewport';
+import { usePanelFocusReturn } from '../app/usePanelFocusReturn';
 import { widgetProfileForRuntime } from '../platform/capabilities';
 
 type Visibility = 'dm-only' | 'shared' | 'player-visible';
@@ -114,6 +115,11 @@ export function SceneEditor() {
 	const selectedInstance = rawScene?.widgets.find((w) => w.id === selectedId) ?? null;
 	const selectedWidget = widgets.find((w) => w.id === selectedId) ?? null;
 	const pendingDestroy = widgets.find((w) => w.id === pendingDestroyId) ?? null;
+
+	// Each of these panels has a path that unmounts it while focus is still inside: a successful Add,
+	// a saved metadata edit, the Inspector's Close, a deselect. See usePanelFocusReturn.
+	usePanelFocusReturn(metaOpen || addOpen);
+	usePanelFocusReturn(!!(editing && selectedWidget && selectedInstance && !addOpen && !metaOpen));
 
 	// `SceneRuntime.dispatchNow` RETHROWS after a failed `persistFullState`, and every caller here is
 	// fire-and-forget (`void onMove(...)`, `onClick={savePreset}`), so an IndexedDB quota or
@@ -294,6 +300,12 @@ export function SceneEditor() {
 				// every window size. Same fix Board.tsx makes; locked by responsive.spec.ts.
 				height: '100%',
 				minHeight: 360,
+				// Bypassing `<Page>` also meant bypassing its gutters: heading, toolbar and canvas all
+				// sat flush against the pane edges. `border-box` keeps `height:'100%'` exact. Phone is
+				// exempt for the same reason as Board.tsx — the bounded fit scale is width-derived and
+				// already too small there.
+				boxSizing: 'border-box',
+				padding: viewport === 'phone' ? 0 : '16px 28px',
 			}}
 		>
 			{/* edit toolbar */}

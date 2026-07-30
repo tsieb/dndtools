@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	DEFAULT_FEATURE_TIER,
@@ -1915,19 +1915,30 @@ function SettingsPermissions() {
 			})
 			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not revoke that grant.')));
 	};
+	// Granting is the safety-critical half of this pair, and it used to discard its CommandResult
+	// entirely: a REFUSED grant (role ceiling, missing scene, fail-closed core check) left the DM
+	// believing a player could see a scene they cannot, and a persist failure was an unhandled
+	// rejection. `revoke` above is the model.
 	const grant = () => {
 		if (!selectedGrantPlayer || !selectedGrantScene) return;
-		void runtime.dispatch({
-			type: 'permission.grant-capability-set',
-			actorId,
-			payload: {
-				entityType: 'scene',
-				entityId: selectedGrantScene,
-				playerActorId: selectedGrantPlayer,
-				capabilitySet: grantSet,
-				expiresAt: null,
-			},
-		});
+		const who = actors[selectedGrantPlayer]?.displayName ?? selectedGrantPlayer;
+		void runtime
+			.dispatch({
+				type: 'permission.grant-capability-set',
+				actorId,
+				payload: {
+					entityType: 'scene',
+					entityId: selectedGrantScene,
+					playerActorId: selectedGrantPlayer,
+					capabilitySet: grantSet,
+					expiresAt: null,
+				},
+			})
+			.then((res: CommandResult) => {
+				if (res.status === 'accepted') Toaster.success(`Access granted to ${who}.`);
+				else Toaster.error(res.rejection.message);
+			})
+			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not grant that access.')));
 	};
 
 	return (
@@ -2051,10 +2062,23 @@ function SettingsVault() {
 	// Folder disconnect drops a granted directory handle that can only come back through the OS
 	// picker — no clean undo — so it confirms first. (Google Docs rows undo via their toast instead.)
 	const [pendingDisconnect, setPendingDisconnect] = useState<FolderSourceRecord | null>(null);
-	useEffect(() => {
-		void listFolderSources().then(setFolders);
-		setGdocs(listGdocConnections());
+	// `folders === null` doubles as the loading sentinel, so a REJECTED listing left the panel
+	// shimmering two skeletons for ever — a fake "Loading…" with no way out. Failure is its own state.
+	const [foldersFailed, setFoldersFailed] = useState(false);
+	const loadFolders = useCallback(() => {
+		setFoldersFailed(false);
+		setFolders(null);
+		void listFolderSources()
+			.then(setFolders)
+			.catch(() => {
+				setFoldersFailed(true);
+				setFolders([]);
+			});
 	}, []);
+	useEffect(() => {
+		loadFolders();
+		setGdocs(listGdocConnections());
+	}, [loadFolders]);
 	const when = (iso: string | null) =>
 		iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'never';
 	const disconnectFolder = (f: FolderSourceRecord) => {
@@ -2125,6 +2149,18 @@ function SettingsVault() {
 						<Skeleton height={52} />
 						<Skeleton height={52} />
 					</div>
+				) : foldersFailed ? (
+					<EmptyState
+						inset
+						icon="warning"
+						title="Could not read your connected folders"
+						description="The vault's source registry did not answer. Your connections are still stored — this is only the listing."
+						action={
+							<Button variant="secondary" size="sm" icon="retry" onClick={loadFolders}>
+								Try again
+							</Button>
+						}
+					/>
 				) : rows.length === 0 ? (
 					<EmptyState
 						inset
@@ -4542,7 +4578,10 @@ function SettingsAccessibility() {
 		const players = (
 			Object.values(runtime.state.permissions.actors) as { id: string; role: string }[]
 		).filter((a) => a.role === 'player');
-		const checks: { id: string; ok: boolean; label: string }[] = [];
+		// A check that could not RUN is not a check that PASSED. With no players configured both leak
+		// counts are trivially 0, and painting that as a green tick told a DM their DM-only content was
+		// verified hidden when nothing had been verified at all.
+		const checks: { id: string; state: 'ok' | 'fail' | 'unknown'; label: string }[] = [];
 		let sceneLeaks = 0;
 		let contentLeaks = 0;
 		for (const p of players) {
@@ -4559,7 +4598,7 @@ function SettingsAccessibility() {
 		}
 		checks.push({
 			id: 'scenes',
-			ok: sceneLeaks === 0,
+			state: players.length === 0 ? 'unknown' : sceneLeaks === 0 ? 'ok' : 'fail',
 			label:
 				players.length === 0
 					? 'DM-only scenes: add a player to run this check'
@@ -4567,7 +4606,7 @@ function SettingsAccessibility() {
 		});
 		checks.push({
 			id: 'content',
-			ok: contentLeaks === 0,
+			state: players.length === 0 ? 'unknown' : contentLeaks === 0 ? 'ok' : 'fail',
 			label:
 				players.length === 0
 					? 'DM-only notes and handouts: add a player to run this check'
@@ -4575,7 +4614,7 @@ function SettingsAccessibility() {
 		});
 		checks.push({
 			id: 'preview',
-			ok: true,
+			state: 'ok',
 			label: 'Player preview is read-only, so campaign changes are blocked',
 		});
 		return checks;
@@ -4675,7 +4714,11 @@ function SettingsAccessibility() {
 							color: T.sub,
 						}}
 					>
-						<Icon name={c.ok ? 'success' : 'error'} size={16} color={c.ok ? T.ok : T.err} />
+						<Icon
+							name={c.state === 'ok' ? 'success' : c.state === 'fail' ? 'error' : 'info'}
+							size={16}
+							color={c.state === 'ok' ? T.ok : c.state === 'fail' ? T.err : T.ter}
+						/>
 						<span>{c.label}</span>
 					</div>
 				))}

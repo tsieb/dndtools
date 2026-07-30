@@ -349,11 +349,12 @@ export function GeneratePanel({
 						value={seed}
 						aria-label="Generation seed"
 						onChange={(e: { target: { value: string } }) => setSeed(e.target.value)}
+						// Enter used to REROLL, i.e. throw away the seed you had just finished typing — and
+						// typing a seed is the whole point of the field (a shared seed reproduces someone
+						// else's map exactly). The preview already re-runs from `seed` on every change, so
+						// Enter has nothing left to submit; it just must not destroy the input.
 						onKeyDown={(e: { key: string; preventDefault: () => void }) => {
-							if (e.key === 'Enter') {
-								e.preventDefault();
-								reroll();
-							}
+							if (e.key === 'Enter') e.preventDefault();
 						}}
 						style={{ flex: 1, fontFamily: T.mono }}
 					/>
@@ -375,7 +376,7 @@ export function GeneratePanel({
 					/>
 				</div>
 				<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 4 }}>
-					Same seed + settings reproduce an identical map. Enter rerolls.
+					Same seed + settings reproduce an identical map. Reroll for a new one.
 				</div>
 			</div>
 

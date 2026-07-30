@@ -58,3 +58,39 @@ test.describe('UX audit harness: populated and keyboard states', () => {
 		await expectInteractiveControlsReachable(page, sheet, 'table controls sheet');
 	});
 });
+
+// The sidebar's "More · audio, graph & extensions" disclosure computed
+// `moreExpanded = moreOpen || platformActive`, so on any of the five routes it contains (/graph,
+// /audio, /extensions, /community, /upgrade) it was a DEAD control: clicking it flipped a boolean
+// that the OR already overrode, nothing moved, and `aria-expanded` was pinned to `true` for ever.
+// Arriving at a platform route still OPENS the group — but it is a real disclosure again.
+test.describe('shell: the sidebar More disclosure is a real toggle', () => {
+	test('it opens on arrival at a platform route and can still be collapsed there', async ({
+		page,
+	}) => {
+		// A width the full sidebar owns (the rail and phone profiles render different nav).
+		await page.setViewportSize({ width: 1280, height: 800 });
+		await markOnboarded(page);
+		await gotoRoute(page, '/graph');
+		await seedFresh(page);
+		await page.goto('/#/graph', { waitUntil: 'domcontentloaded' });
+		await page.locator('#main-content').waitFor({ state: 'attached' });
+
+		const toggle = page.getByRole('button', { name: /^More · audio/ });
+		await expect(toggle).toBeVisible();
+		// Never hide the row you are ON: landing on /graph opens the group.
+		await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+		const nav = page.getByRole('navigation', { name: 'Primary' });
+		const graphRow = nav.getByText('Graph & Search', { exact: true });
+		await expect(graphRow).toBeVisible();
+
+		// …and pressing it actually collapses the group, which is the part that was dead.
+		await toggle.click();
+		await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+		await expect(graphRow).toHaveCount(0);
+
+		await toggle.click();
+		await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+		await expect(graphRow).toBeVisible();
+	});
+});

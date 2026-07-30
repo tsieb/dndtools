@@ -334,3 +334,62 @@ test.describe('player vitals: the HP stepper takes an amount and announces the r
 		await expect(amount).toHaveValue('1');
 	});
 });
+
+test.describe('equipment: the quantity stepper has a floor', () => {
+	test.beforeEach(async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/player');
+		await seedFresh(page);
+		await page.goto('/#/player', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.locator('#main-content').waitFor({ state: 'attached' });
+	});
+
+	// "One fewer X" clamped at `Math.max(0, …)`, so at quantity 1 it wrote a ×0 item that STAYED in the
+	// list — a ghost row you owned none of, whose own decrement button kept accepting presses. Removing
+	// the item is a different, already-present action, so the control now says so instead of pretending
+	// to work. Soft-disabled (aria-disabled), not `disabled`, so the reason is still reachable.
+	test('the quantity stepper refuses to walk an item down to a x0 ghost', async ({ page }) => {
+		const pcId = await charIdByName(page, PC_NAME);
+		expect(pcId).toBeTruthy();
+		await selectPc(page, pcId!);
+
+		await page.getByLabel('Item').fill('Torch');
+		await page.getByLabel('Qty').fill('1');
+		await page.getByLabel('Weight (lb)').fill('1');
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+		await expect(page.getByLabel('Item')).toHaveValue('');
+		await page.waitForFunction(
+			(cid) => {
+				const chars = (window.__rt!.state.characters as { characters: Record<string, CharRecord> }).characters;
+				return chars[cid]?.inventory?.items.some((i) => i.name === 'Torch' && i.quantity === 1);
+			},
+			pcId,
+			{ timeout: 10_000 },
+		);
+
+		// At quantity 1 the decrement explains itself rather than clamping to zero.
+		const fewer = page.getByRole('button', { name: /^Cannot go below one Torch/ });
+		await expect(fewer).toBeVisible();
+		await expect(fewer).toHaveAttribute('aria-disabled', 'true');
+		// A soft disable keeps the control natively enabled and focusable, so its reason stays reachable
+		// — which also means Playwright's click() would refuse it. Dispatch the event directly.
+		expect(await fewer.evaluate((el: HTMLButtonElement) => el.disabled)).toBe(false);
+		await fewer.dispatchEvent('click');
+
+		// The swallowed press changed nothing: still exactly one Torch, no x0 ghost.
+		await expect
+			.poll(() =>
+				page.evaluate((cid) => {
+					const chars = (window.__rt!.state.characters as { characters: Record<string, CharRecord> }).characters;
+					const item = chars[cid]?.inventory?.items.find((i) => i.name === 'Torch');
+					return item ? item.quantity : -1;
+				}, pcId),
+			)
+			.toBe(1);
+
+		// Above 1 it is a live control again, with its ordinary name back.
+		await page.getByRole('button', { name: 'One more Torch' }).click();
+		await expect(page.getByRole('button', { name: 'One fewer Torch' })).toBeVisible();
+	});
+});

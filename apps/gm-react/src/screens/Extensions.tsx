@@ -441,6 +441,11 @@ function ExtPlugins() {
 													<Button
 														variant="danger"
 														size="sm"
+														// The trigger unmounts itself to make room for this pair, dropping focus
+														// to <body> — a keyboard user had to Tab back in from the top of the page
+														// to answer a destructive prompt. ImportControl in this same file already
+														// does this; the fix never propagated.
+														autoFocus
 														disabled={!canWrite || busy}
 														onClick={() => removePackage(def.id)}
 													>
@@ -1717,6 +1722,9 @@ function CustomObjectTypes() {
 											<Button
 												variant="danger"
 												size="sm"
+												// Same self-unmounting trigger as the package Remove above: without this the
+												// confirm renders with focus stranded on <body>.
+												autoFocus
 												disabled={!canWrite || busy}
 												onClick={() => deleteType(def)}
 											>

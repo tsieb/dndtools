@@ -32,6 +32,7 @@ export function Sheet({
 	...rest
 }) {
 	const panelRef = React.useRef(null);
+	const bodyRef = React.useRef(null);
 	const returnFocusRef = React.useRef(null);
 	const onCloseRef = React.useRef(onClose);
 	const dismissibleRef = React.useRef(dismissible);
@@ -49,7 +50,12 @@ export function Sheet({
 		const t = setTimeout(() => {
 			const panel = panelRef.current;
 			if (!panel) return;
-			const f = panel.querySelector(FOCUSABLE);
+			// Query the CONTENT before the panel. The header (which owns Close) renders before
+			// `children`, so a plain DOM-order `querySelector(FOCUSABLE)` opened every sheet — the phone
+			// "All sections" nav among them — focused on Close, i.e. on the way out. Same defect, and
+			// the same fix, as ds/components/core/Popover.jsx.
+			const f = (bodyRef.current && bodyRef.current.querySelector(FOCUSABLE)) ||
+				panel.querySelector(FOCUSABLE);
 			(f || panel).focus();
 		}, 0);
 		const onKey = (e) => {
@@ -303,6 +309,7 @@ export function Sheet({
 					</div>
 				)}
 				<div
+					ref={bodyRef}
 					style={{
 						padding: contentPadding,
 						overflowY: 'auto',

@@ -1796,9 +1796,30 @@ export function Audio() {
 											background: T.surf,
 										}}
 									>
-										<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+										{/* Six children with no wrap: on a phone the fixed ones (icon, badge, Switch,
+										    "Run now", delete) ate almost the whole ~287px single-column content box,
+										    collapsing the rule's own label+description column to a few pixels — one
+										    character per line. responsive.spec structurally cannot see this: it only
+										    renders each route's DEFAULT tab, and a crushed column overflows nothing. */}
+										<div
+											style={{
+												display: 'flex',
+												alignItems: 'center',
+												gap: 10,
+												flexWrap: isPhone ? 'wrap' : 'nowrap',
+											}}
+										>
 											<Icon name="wand" size={15} color={rule.enabled ? T.acc : T.ter} />
-											<div style={{ flex: 1, minWidth: 0 }}>
+											<div
+												style={{
+													// `flex: 1` is `1 1 0%`, and a 0 flex-basis makes the hypothetical
+													// line size 0 — so wrapping alone would never trigger and the text
+													// would still be squeezed to nothing. `auto` lets line-breaking see
+													// the real content width and pushes the controls onto their own row.
+													flex: isPhone ? '1 1 auto' : 1,
+													minWidth: 0,
+												}}
+											>
 												<div
 													style={{
 														font: `600 12.5px ${T.sans}`,

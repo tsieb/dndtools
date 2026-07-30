@@ -14,6 +14,10 @@ import { Select as RawSelect } from './forms/Select.jsx';
 import { Popover as RawPopover } from './core/Popover.jsx';
 import { Dialog as RawDialog } from './overlay/Dialog.jsx';
 import { Toaster, ToastViewport as RawToastViewport } from './overlay/Toast.jsx';
+import { Sheet as RawSheet } from './overlay/Sheet.jsx';
+import { Slider as RawSlider } from './forms/Slider.jsx';
+import { VisibilityChip as RawVisibilityChip } from './feedback/VisibilityChip.jsx';
+import { DefinitionList as RawDefinitionList } from './data/DefinitionList.jsx';
 
 // The DS ships as .jsx with `checkJs: false`, so tsc infers every defaultless prop as required.
 // Re-type the imports as open prop bags rather than restating each component's contract.
@@ -29,6 +33,10 @@ const Select = RawSelect as React.ComponentType<DsProps>;
 const Popover = RawPopover as React.ComponentType<DsProps>;
 const Dialog = RawDialog as React.ComponentType<DsProps>;
 const ToastViewport = RawToastViewport as React.ComponentType<DsProps>;
+const Sheet = RawSheet as React.ComponentType<DsProps>;
+const Slider = RawSlider as React.ComponentType<DsProps>;
+const VisibilityChip = RawVisibilityChip as React.ComponentType<DsProps>;
+const DefinitionList = RawDefinitionList as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;
@@ -491,5 +499,133 @@ describe('Dialog can refuse the stray backdrop click without becoming inescapabl
 		expect(close, 'the header Close button must still be rendered').toBeTruthy();
 		act(() => close!.click());
 		expect(closed).toBe(2);
+	});
+});
+
+describe('Slider keeps a visible focus ring and a reachable thumb', () => {
+	// `.dnds-range { outline: none }` and `:focus-visible { outline: … }` in base.css have EQUAL
+	// specificity (0,1,0), and `ensureStyles()` appends its <style> to document.head at first render —
+	// so the later source order won, killing the app-wide focus ring on every range input. The
+	// replacement was `box-shadow: 0 0 0 3px var(--color-interactive-selected)`, a 16%-alpha selection
+	// wash that is ~1.4:1 against the surface: WCAG 2.4.11 wants 3:1. Nine live sliders, including the
+	// audio mixer and every map generation parameter.
+	const sliderCss = () => {
+		act(() => {
+			root.render(<Slider value={50} aria-label="Volume" />);
+		});
+		const style = document.head.querySelector('style[data-dnds="slider"]');
+		expect(style, 'Slider must inject its stylesheet').toBeTruthy();
+		return style!.textContent ?? '';
+	};
+
+	it('does not suppress the global :focus-visible outline', () => {
+		const css = sliderCss();
+		const base = css.slice(css.indexOf('.dnds-range{'), css.indexOf('.dnds-range:focus-visible'));
+		expect(base).not.toContain('outline:none');
+	});
+
+	it('paints its focus state with the focus-ring tokens, not the selection wash', () => {
+		const css = sliderCss();
+		const focus = css.slice(css.indexOf('.dnds-range:focus-visible'));
+		const rule = focus.slice(0, focus.indexOf('}'));
+		expect(rule).toContain('--focus-ring-color');
+		expect(rule).not.toContain('--color-interactive-selected');
+	});
+
+	it('gives the drag thumb a 24px target in both engines (WCAG 2.5.8)', () => {
+		const css = sliderCss();
+		for (const engine of ['::-webkit-slider-thumb', '::-moz-range-thumb']) {
+			const at = css.indexOf(engine);
+			expect(at, `${engine} rule must exist`).toBeGreaterThan(-1);
+			const rule = css.slice(at, css.indexOf('}', at));
+			expect(rule, `${engine} must be at least 24px wide`).toContain('width:24px');
+			expect(rule, `${engine} must be at least 24px tall`).toContain('height:24px');
+		}
+	});
+});
+
+describe('Sheet opens on its content, not on the way out', () => {
+	// The header (which owns Close) renders BEFORE `children`, so a DOM-order
+	// `panel.querySelector(FOCUSABLE)` focused the Close button on every open — including the phone
+	// "All sections" nav sheet, where the first thing a keyboard/screen-reader user met was "Close".
+	// Same defect, and the same bodyRef fix, as ds/components/core/Popover.jsx.
+	it('focuses the first control inside the body rather than the header Close', async () => {
+		act(() => {
+			root.render(
+				<Sheet open title="All sections" onClose={() => {}}>
+					<button type="button">Graph</button>
+					<button type="button">Audio</button>
+				</Sheet>,
+			);
+		});
+		// The focus is scheduled in a setTimeout(0), matching Dialog.
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 0));
+		});
+		expect((document.activeElement as HTMLElement)?.textContent).toBe('Graph');
+	});
+
+	it('still falls back to the header when the body has nothing focusable', async () => {
+		act(() => {
+			root.render(
+				<Sheet open title="All sections" onClose={() => {}}>
+					<p>Nothing to do here.</p>
+				</Sheet>,
+			);
+		});
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 0));
+		});
+		const active = document.activeElement as HTMLElement;
+		expect(active.getAttribute('aria-label') ?? active.tagName).toBeTruthy();
+		expect(document.body.contains(active)).toBe(true);
+		expect(active).not.toBe(document.body);
+	});
+});
+
+describe('VisibilityChip announces its level exactly once', () => {
+	// The chip is the app's safety-critical DM-only vs player-visible cue and appears ~33 times.
+	// It named the icon AND rendered the same string as text AND repeated it in `title`, so a
+	// screen reader read "DM only DM only" and a mouse user got a tooltip over text already on screen.
+	it('names the icon only when the text is hidden', () => {
+		act(() => {
+			root.render(<VisibilityChip level="dm-only" />);
+		});
+		const chip = container.firstElementChild as HTMLElement;
+		expect(chip.textContent).toBe('DM only');
+		expect(chip.getAttribute('title'), 'no tooltip duplicating visible text').toBeNull();
+		expect(
+			container.querySelectorAll('[role="img"][aria-label="DM only"]').length,
+			'the icon must not repeat the visible label',
+		).toBe(0);
+	});
+
+	it('keeps the icon labelled in compact mode, where there is no text', () => {
+		act(() => {
+			root.render(<VisibilityChip level="dm-only" compact />);
+		});
+		const chip = container.firstElementChild as HTMLElement;
+		expect(chip.textContent).toBe('');
+		expect(chip.getAttribute('title')).toBe('DM only');
+		expect(container.querySelectorAll('[role="img"][aria-label="DM only"]').length).toBe(1);
+	});
+});
+
+describe('DefinitionList can shrink inside a narrow panel', () => {
+	// `auto 1fr` plus a `white-space: nowrap` label meant a long term ("Condition Immunities") forced
+	// the first track to its full intrinsic width and pushed the whole list past its container —
+	// live on the character sheet and the player view's stat panel.
+	it('declares shrinkable tracks and lets a long label wrap', () => {
+		act(() => {
+			root.render(
+				<DefinitionList
+					items={[{ label: 'Condition Immunities', value: 'charmed, frightened' }]}
+				/>,
+			);
+		});
+		const dl = container.querySelector('dl') as HTMLElement;
+		expect(dl.style.gridTemplateColumns).toBe('minmax(0, auto) minmax(0, 1fr)');
+		const dt = container.querySelector('dt') as HTMLElement;
+		expect(dt.style.whiteSpace, 'a nowrap label defeats the minmax()').not.toBe('nowrap');
 	});
 });
