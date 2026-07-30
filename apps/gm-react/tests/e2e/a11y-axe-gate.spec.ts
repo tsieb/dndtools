@@ -170,6 +170,84 @@ for (const route of ROUTES) {
 	});
 }
 
+// `/play` and `/join` render OUTSIDE AppShell (they bring their own chrome), so `openRoute`'s wait
+// on `#main-content` — the shell's landmark — can never resolve there. That is exactly why the two
+// routes a real PLAYER actually lands on were the only durable surfaces missing from this gate.
+const STANDALONE_ROUTES: ReadonlyArray<{ path: string; slug: string }> = [
+	{ path: '/play', slug: 'play' },
+	{ path: '/join', slug: 'join' },
+];
+
+async function openStandaloneRoute(page: Page, path: string) {
+	await page.addInitScript(() => {
+		try {
+			window.localStorage.setItem('dndtools:react:onboarded', 'gate');
+		} catch {
+			/* best-effort */
+		}
+	});
+	await page.goto(`/#${path}`, { waitUntil: 'domcontentloaded' });
+	await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
+		timeout: 20_000,
+	});
+	// These routes own their own `<main>`; wait on the landmark role rather than the shell's id.
+	await page.getByRole('main').first().waitFor({ state: 'visible', timeout: 20_000 });
+	await page.waitForTimeout(400);
+}
+
+for (const route of STANDALONE_ROUTES) {
+	test(`a11y axe gate: ${route.path}`, async ({ page }, testInfo) => {
+		await openStandaloneRoute(page, route.path);
+		await assertAxeState(page, testInfo, route.path, route.slug);
+	});
+}
+
+// ⚠️ Every scan above runs against a FRESH vault, i.e. the EMPTY state of each surface. A fresh
+// vault has no running combat, so `/session`'s initiative tracker — the densest interactive surface
+// in the app, and the one a DM stares at all evening — was never actually reached by this gate.
+// Seeding the state the DM works in is the point: an empty table cannot violate anything.
+test('a11y axe gate: /session with a running initiative tracker', async ({ page }, testInfo) => {
+	await openRoute(page, '/session');
+	const result = await page.evaluate(async () => {
+		const rt = window.__rt!;
+		const state = rt.state as unknown as {
+			session: { activeSceneId: string | null };
+			commandCenter: { homeSceneId: string | null };
+			scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+		};
+		const sceneId =
+			state.session.activeSceneId ??
+			state.commandCenter.homeSceneId ??
+			Object.values(state.scenes.scenes).find((s) => !s.isTemplate)?.id;
+		const live = await rt.dispatch({
+			type: 'session.set-workflow',
+			actorId: rt.defaultActorId,
+			payload: { workflow: 'active', activeSceneId: sceneId },
+		});
+		if (live.status !== 'accepted') return { step: 'go live', ...live };
+		return {
+			step: 'start combat',
+			...(await rt.dispatch({
+				type: 'combat.start',
+				actorId: rt.defaultActorId,
+				payload: {
+					combatants: [
+						{ kind: 'monster', name: 'Bog Lurker', ac: 13, initiative: 18, maxHp: 22 },
+						{ kind: 'monster', name: 'Reed Stalker', ac: 12, initiative: 9, maxHp: 14 },
+					],
+				},
+			})),
+		};
+	});
+	expect(result.status, `${result.step}: ${JSON.stringify(result.rejection ?? {})}`).toBe(
+		'accepted',
+	);
+	await expect(page.getByRole('button', { name: 'End combat' })).toBeVisible();
+	await page.waitForTimeout(250);
+
+	await assertAxeState(page, testInfo, '/session#combat', 'session-combat');
+});
+
 test('a11y axe gate: opened command palette and compact table controls', async ({
 	page,
 }, testInfo) => {

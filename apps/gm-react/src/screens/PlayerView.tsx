@@ -321,12 +321,22 @@ function SceneBanner({ card }: { card: SceneCardView | null }) {
 	const viewport = useViewport();
 	const capabilities = usePlatformCapabilities();
 	const [dismissedKey, setDismissedKey] = useState<string | null>(null);
+	// WCAG 2.2.1: a 5s auto-dismiss with no way to pause it is a time limit on reading. Worse, the
+	// Dismiss button lives INSIDE the region that unmounts, so a player who tabbed to it and paused
+	// to read had the banner vanish under them and focus fall to `<body>` mid-interaction. Pointer
+	// hover and keyboard focus both hold the timer open — the standard toast affordance. Unpausing
+	// restarts the full 5s rather than resuming the remainder, which errs toward more reading time.
+	// Hover and focus are tracked SEPARATELY: with one shared flag, moving the mouse away while the
+	// Dismiss button still held keyboard focus cleared the hold and the banner vanished anyway.
+	const [hovered, setHovered] = useState(false);
+	const [focused, setFocused] = useState(false);
+	const paused = hovered || focused;
 	const key = card ? `${card.id}:${card.revision}` : null;
 	useEffect(() => {
-		if (!key) return;
+		if (!key || paused) return;
 		const timer = window.setTimeout(() => setDismissedKey(key), 5000);
 		return () => window.clearTimeout(timer);
-	}, [key]);
+	}, [key, paused]);
 
 	const vaultAssetId = card?.heroImage?.kind === 'vault-asset' ? card.heroImage.ref : null;
 	const resolvedAsset = useAssetObjectUrl(vaultAssetId);
@@ -345,6 +355,12 @@ function SceneBanner({ card }: { card: SceneCardView | null }) {
 		<div
 			role="status"
 			aria-live="polite"
+			data-testid="scene-banner"
+			onMouseEnter={() => setHovered(true)}
+			onMouseLeave={() => setHovered(false)}
+			// React's onFocus/onBlur are focusin/focusout, so they fire for the nested Dismiss button.
+			onFocus={() => setFocused(true)}
+			onBlur={() => setFocused(false)}
 			style={{
 				display: 'flex',
 				alignItems: 'stretch',

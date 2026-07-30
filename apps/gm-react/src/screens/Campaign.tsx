@@ -839,29 +839,30 @@ export function Campaign() {
 						}}
 					>
 						{data.npcs.map((n) => (
-							<div
+							// The card owns its own click now. It used to be wrapped in a `role="button"` div
+							// whose aria-label ("Open X’s sheet in Characters") replaced the whole descendant
+							// subtree, so the role, the stats, the tags and the dm-only chip were all
+							// inaudible — and because NpcCard keys its hover/cursor affordance off its OWN
+							// `onClick`, the wrapper also left a navigating card looking inert.
+							<NpcCard
 								key={n.id}
-								role="button"
-								tabIndex={0}
-								aria-label={`Open ${n.name}’s sheet in Characters`}
+								name={n.name}
+								role={KIND_LABEL[n.kind] ?? n.kind}
 								onClick={() => navigate(`/characters/${n.id}`)}
-								onKeyDown={(e) => {
-									if (e.key === 'Enter' || e.key === ' ') {
-										e.preventDefault();
-										navigate(`/characters/${n.id}`);
-									}
-								}}
-								style={{ cursor: 'pointer' }}
-							>
-								<NpcCard
-									name={n.name}
-									role={KIND_LABEL[n.kind] ?? n.kind}
-									disposition="neutral"
-									hook={`AC ${n.combat?.ac ?? '—'} · ${n.combat?.hp ?? '—'} HP`}
-									tags={[KIND_LABEL[n.kind] ?? n.kind]}
-									dmOnly={n.visibility === 'dm-only'}
-								/>
-							</div>
+								// `disposition` is deliberately omitted: nothing in the model backs it, and the
+								// previous hard-coded "neutral" asserted a disposition for every NPC including
+								// hostile ones.
+								//
+								// AC/HP used to be passed as `hook`, which NpcCard renders in italics behind a
+								// dm-only Eye glyph — presenting a monster's public combat stats as a DM
+								// secret. They are plain tags now.
+								tags={[
+									KIND_LABEL[n.kind] ?? n.kind,
+									`AC ${n.combat?.ac ?? '—'}`,
+									`${n.combat?.hp ?? '—'} HP`,
+								]}
+								dmOnly={n.visibility === 'dm-only'}
+							/>
 						))}
 					</div>
 				))}

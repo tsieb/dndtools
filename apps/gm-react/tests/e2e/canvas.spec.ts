@@ -336,6 +336,59 @@ test.describe('canvas: side panels close on Escape', () => {
 		await expect(page.getByText('Add widget', { exact: true })).toHaveCount(0);
 	});
 
+	// The Layouts panel used to render unconditionally on `editing && !addOpen` — no toggle, no
+	// Close control, no Escape handler. On a phone it is a 280px absolute overlay, so it covered
+	// all but ~97px of the board and the only escape was leaving edit mode entirely. It is now a
+	// peer of the Add panel, and the two share one side slot.
+	test('the /board Layouts panel toggles, closes on Escape, and yields the slot to Add', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.waitForFunction(
+			() => {
+				const rt = window.__rt!;
+				const id = rt.state.commandCenter.homeSceneId;
+				return !!id && !!rt.state.scenes.scenes[id];
+			},
+			null,
+			{ timeout: 10_000 },
+		);
+
+		const layouts = page.getByTestId('board-layouts-panel');
+		const layoutsToggle = page.getByRole('button', { name: 'Layouts', exact: true });
+		const addToggle = page.getByRole('button', { name: 'Add', exact: true });
+
+		// Entering edit mode no longer forces the panel open over the board.
+		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(layouts).toHaveCount(0);
+		await expect(layoutsToggle).toHaveAttribute('aria-expanded', 'false');
+
+		await layoutsToggle.click();
+		await expect(layouts).toBeVisible();
+		await expect(layoutsToggle).toHaveAttribute('aria-expanded', 'true');
+
+		// Escape from inside the panel dismisses it, matching the Add panel's contract.
+		await page.getByRole('button', { name: 'Close layouts' }).focus();
+		await page.keyboard.press('Escape');
+		await expect(layouts).toHaveCount(0);
+
+		// The two panels compete for the same side slot, so opening Add closes Layouts.
+		await layoutsToggle.click();
+		await expect(layouts).toBeVisible();
+		await addToggle.click();
+		await expect(page.getByText('Add widget', { exact: true })).toBeVisible();
+		await expect(layouts).toHaveCount(0);
+
+		// …and leaving edit mode drops both.
+		await page.getByRole('button', { name: 'Done' }).click();
+		await expect(page.getByText('Add widget', { exact: true })).toHaveCount(0);
+		await expect(layouts).toHaveCount(0);
+	});
+
 	test('the scene editor Add-widget panel closes on Escape from within the panel', async ({
 		page,
 	}) => {

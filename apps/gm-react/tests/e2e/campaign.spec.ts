@@ -277,4 +277,36 @@ test.describe('campaign: story objects', () => {
 		await page.getByRole('tab', { name: 'Quests' }).click();
 		await expect(page.getByText('No quests yet')).not.toHaveCount(0);
 	});
+
+	// Each NPC tile used to be a `role="button"` div wrapping the whole card, with
+	// `aria-label="Open X’s sheet in Characters"`. An aria-label on a widget role REPLACES the whole
+	// descendant subtree, so the role, the stats, the tags and the dm-only chip were all inaudible —
+	// and because NpcCard keys its hover/cursor affordance off its OWN onClick (which the wrapper
+	// swallowed), a navigating card also looked inert.
+	test('an NPC tile stays readable and navigates from a real control', async ({ page }) => {
+		await page.getByRole('tab', { name: 'NPCs' }).click();
+
+		// The wrapper button is gone…
+		await expect(
+			page.getByRole('button', { name: /Open .*sheet in Characters/ }),
+		).toHaveCount(0);
+
+		// …and the card's own content is reachable instead of being erased by the label.
+		const card = page.locator('article').filter({ hasText: 'Mira the Ferryman' }).first();
+		await expect(card).toBeVisible();
+		// AC/HP used to be passed as `hook`, which renders italic behind a dm-only Eye glyph —
+		// public combat stats dressed up as a DM secret. They are plain tags now.
+		await expect(card).toContainText('AC ');
+		await expect(card).toContainText(' HP');
+		// Nothing in the model backs a disposition, so the card no longer asserts one.
+		await expect(card).not.toContainText('Neutral');
+
+		// The heading is the control, and it really navigates.
+		const nameButton = page.getByRole('button', { name: 'Mira the Ferryman', exact: true });
+		await expect(nameButton).toBeVisible();
+		await nameButton.focus();
+		await expect(nameButton).toBeFocused();
+		await page.keyboard.press('Enter');
+		await expect.poll(() => new URL(page.url()).hash).toMatch(/^#\/characters\//);
+	});
 });

@@ -136,7 +136,10 @@ export function AssetsPanel({ editor }: { editor: MapEditorApi }) {
 				</div>
 			</div>
 			<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
-				Click an object to arm the Stamp tool, then click the map to place. Drag also works.
+				{/* "Drag also works." was removed with the `draggable` attribute below it: no canvas under
+				    src/app/map has ever had an `onDrop`/`onDragOver` handler, so dragging a tile did
+				    nothing. Click-to-arm is the real path — and the WCAG 2.5.7 dragging-free one. */}
+				Click an object to arm the Stamp tool, then click the map to place.
 			</div>
 		</div>
 	);
@@ -171,12 +174,7 @@ function AssetGrid({
 					const on = a.id === current;
 					const fav = favorites.includes(a.id);
 					return (
-						<div
-							key={a.id}
-							draggable
-							onDragStart={(e) => e.dataTransfer.setData('text/plain', a.id)}
-							style={{ position: 'relative' }}
-						>
+						<div key={a.id} style={{ position: 'relative' }}>
 							<button
 								type="button"
 								aria-pressed={on}
@@ -214,14 +212,23 @@ function AssetGrid({
 								aria-label={fav ? `Unfavorite ${a.label}` : `Favorite ${a.label}`}
 								aria-pressed={fav}
 								onClick={() => onFav(a.id)}
+								// A ~16px target (under the 24px WCAG 2.5.8 minimum) sitting absolutely on top
+								// of the tile's own arm button, so a near-miss on "arm this asset" toggled a
+								// favourite instead. 24px square, and pinned to the very corner so it takes as
+								// little of the arm button's face as the larger hit area allows.
 								style={{
 									position: 'absolute',
-									top: 2,
-									right: 2,
+									top: 0,
+									right: 0,
 									border: 'none',
 									background: 'transparent',
 									cursor: 'pointer',
 									padding: 2,
+									display: 'inline-flex',
+									alignItems: 'center',
+									justifyContent: 'center',
+									minWidth: 24,
+									minHeight: 24,
 									color: fav ? T.acc : T.ter,
 								}}
 							>

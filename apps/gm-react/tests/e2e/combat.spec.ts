@@ -128,3 +128,45 @@ test('the initiative order is exposed with a round and turn readout', async ({ p
 		)
 		.toBe(1);
 });
+
+// Each combat row used to be a `role="button"` with `aria-label={`Select ${name}`}`. An aria-label
+// on a role=button REPLACES the entire descendant subtree, so a screen-reader DM heard only
+// "Select Bog Lurker, toggle button" — no HP, no AC, no conditions, no whose-turn — while the
+// nested condition-remove and Heal/Damage buttons made it an axe `nested-interactive` violation
+// (serious). The name is now the control and the row is a plain list item.
+test('a combat row exposes its stats and selects via a real control, not a wrapper button', async ({
+	page,
+}) => {
+	// The row is no longer a button, so nothing named "Select <name>" exists any more…
+	await expect(page.getByRole('button', { name: 'Select Bog Lurker' })).toHaveCount(0);
+	// …and the initiative order announces itself as a list of combatants.
+	const order = page.getByRole('list').filter({ hasText: 'Bog Lurker' }).first();
+	await expect(order.getByRole('listitem')).toHaveCount(2);
+
+	// The row's content is reachable to assistive tech instead of being erased by the label.
+	const row = order.getByRole('listitem').filter({ hasText: 'Bog Lurker' });
+	await expect(row).toContainText('AC 13');
+	// Both quick-HP controls are real, non-nested buttons within the row.
+	await expect(row.getByRole('button', { name: 'Heal 1' })).toHaveCount(1);
+	await expect(row.getByRole('button', { name: 'Damage 1' })).toHaveCount(1);
+
+	// The name is the selection control, and it carries the toggle state the row used to hold.
+	const nameButton = page.getByRole('button', { name: 'Bog Lurker', exact: true });
+	await expect(nameButton).toHaveAttribute('aria-pressed', 'false');
+	await nameButton.click();
+	await expect(nameButton).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.getByText('Selected · Bog Lurker')).toBeVisible();
+
+	// It is keyboard-operable in its own right (the old row relied on a hand-rolled key handler).
+	const other = page.getByRole('button', { name: 'Reed Stalker', exact: true });
+	await other.focus();
+	await expect(other).toBeFocused();
+	await page.keyboard.press('Enter');
+	await expect(page.getByText('Selected · Reed Stalker')).toBeVisible();
+	await expect(other).toHaveAttribute('aria-pressed', 'true');
+	await expect(nameButton).toHaveAttribute('aria-pressed', 'false');
+
+	// Whose turn it is survives as machine-readable state, not just a coloured rail.
+	await expect(order.locator('li[aria-current="true"]')).toHaveCount(1);
+	await expect(order.locator('li[aria-current="true"]')).toContainText('Bog Lurker');
+});

@@ -55,12 +55,19 @@ import { useRuntime } from '../runtime/RuntimeContext';
  * fog rect / center-POI shortcuts are gone.
  */
 
+// `padding: 2` around a 12–14px icon made every one of these a ~16px target, under the 24px WCAG
+// 2.5.8 minimum. That matters most for the vertically ADJACENT layer-reorder chevrons, where a
+// mis-tap does not merely miss — it dispatches the OPPOSITE durable `map.reorder-layer` command.
 const ghostBtn = {
 	border: 'none',
 	background: 'transparent',
 	cursor: 'pointer',
 	padding: 2,
 	display: 'inline-flex',
+	alignItems: 'center',
+	justifyContent: 'center',
+	minWidth: 24,
+	minHeight: 24,
 } as const;
 
 /** Map-switcher chip thumbnail: the map's real raster bytes when they exist on this device
@@ -768,7 +775,10 @@ export function Atlas() {
 									}}
 								>
 									{isDm ? (
-										<span style={{ display: 'flex', flexDirection: 'column' }}>
+										// A gap between the two: they are opposite, irreversible-ish writes stacked
+										// directly on top of each other, so touching edges make a near-miss land on
+										// the wrong one.
+										<span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
 											<button
 												type="button"
 												title="Move up"

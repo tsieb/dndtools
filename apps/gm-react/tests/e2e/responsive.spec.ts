@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { gotoRoute, markOnboarded, seedFresh } from './_helpers';
+import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
 const ROUTES = [
 	'/',
@@ -211,6 +211,65 @@ for (const viewport of [
 			expect
 				.soft(await clippedControls(page), `${route} clipped an interactive control`)
 				.toEqual([]);
+		}
+	});
+}
+
+// `/board` and `/scene/:id` are self-contained bounded canvases: they own an internal scroll
+// region and must fit the shell's `<main>` pane exactly, never make it scroll. They used to size
+// themselves off `--app-viewport-height` (the WHOLE window) minus a magic number, but `<main>` is
+// already `flex:1; min-height:0; overflow-y:auto` (AppShell.tsx) — i.e. the window minus the top
+// bar and, on a phone, minus the tab bar. Subtracting a constant from the wrong base overflowed
+// `<main>` on desktop (a second, nested scrollbar, and `/scene`'s zoom cluster — a required
+// UX-CANVAS affordance — pushed below the fold) while wasting vertical space on a phone.
+for (const viewport of [
+	{ name: 'a compact phone', width: 393, height: 720 },
+	{ name: 'a desktop window', width: 1280, height: 800 },
+]) {
+	test(`the bounded canvas routes fit the shell's main pane on ${viewport.name}`, async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: viewport.width, height: viewport.height });
+		await markOnboarded(page);
+		await gotoRoute(page, '/scenes');
+		await seedFresh(page);
+
+		const sceneName = `Fit Scene ${Date.now()}`;
+		const created = await dispatch(page, {
+			type: 'scene.create',
+			actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+			payload: { name: sceneName, description: '', visibility: 'dm-only', tags: [] },
+		});
+		expect(created.status).toBe('accepted');
+		const sceneId = await page.evaluate(
+			(name) =>
+				Object.values(window.__rt!.state.scenes.scenes).find((s) => s.name === name)?.id ?? null,
+			sceneName,
+		);
+		expect(sceneId).toBeTruthy();
+
+		for (const route of ['/board', `/scene/${sceneId}`]) {
+			await gotoRoute(page, route);
+			await page.waitForTimeout(150);
+			const main = await page.locator('#main-content').evaluate((element) => ({
+				clientHeight: element.clientHeight,
+				scrollHeight: element.scrollHeight,
+			}));
+			// A 2px tolerance absorbs sub-pixel rounding of the flex track, nothing more.
+			expect(
+				main.scrollHeight,
+				`${route} overflowed the shell's main pane by ${main.scrollHeight - main.clientHeight}px`,
+			).toBeLessThanOrEqual(main.clientHeight + 2);
+			// …and it must not shrink away from the pane either: a bounded canvas that only fills
+			// half of main is the same magic-number bug with the sign flipped.
+			const canvasHeight = await page
+				.locator('#main-content > div')
+				.first()
+				.evaluate((element) => element.getBoundingClientRect().height);
+			expect(
+				canvasHeight,
+				`${route} left ${main.clientHeight - canvasHeight}px of the main pane unused`,
+			).toBeGreaterThanOrEqual(main.clientHeight - 2);
 		}
 	});
 }

@@ -60,6 +60,14 @@ export function LayerRow({
 	const [editing, setEditing] = React.useState(false);
 	const [draft, setDraft] = React.useState(name);
 	const [opacityOpen, setOpacityOpen] = React.useState(false);
+	// `null` = follow the durable `opacity` prop; a number = a drag in progress. See the Slider below.
+	const [opacityDraft, setOpacityDraft] = React.useState(null);
+	const commitOpacity = () => {
+		if (opacityDraft === null) return;
+		const next = opacityDraft;
+		setOpacityDraft(null);
+		if (next !== opacity && onOpacityChange) onOpacityChange(next);
+	};
 	const vis = VIS[visibility] || VIS['dm-only'];
 	const disabled = locked;
 
@@ -223,16 +231,33 @@ export function LayerRow({
 							onClose={() => setOpacityOpen(false)}
 							width={200}
 							placement="bottom"
-							style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', transform: 'none' }}
+							// Popover only supplies `--z-overlay` on its `anchor` branch, so an inline-positioned
+							// one must bring its own stacking order — without it the flyout painted UNDER the
+							// next row's `position:relative` wrapper on every row but the last. Every sibling
+							// inline Popover in the map dock already does this.
+							style={{
+								position: 'absolute',
+								right: 0,
+								top: 'calc(100% + 6px)',
+								transform: 'none',
+								zIndex: 20,
+							}}
 						>
 							<Slider
 								min={0}
 								max={100}
 								step={5}
-								value={opacity}
-								onChange={onOpacityChange}
+								value={opacityDraft ?? opacity}
+								// The host dispatches a durable command per call and its write path is
+								// single-flight, so firing on every drag step silently dropped most values —
+								// including the final one if a command was still in flight on release. Track the
+								// pointer locally, commit once per gesture.
+								onChange={setOpacityDraft}
+								onPointerUp={commitOpacity}
+								onKeyUp={commitOpacity}
+								onBlur={commitOpacity}
 								label="Opacity"
-								valueLabel={`${opacity}%`}
+								valueLabel={`${opacityDraft ?? opacity}%`}
 								aria-label={`${name} opacity`}
 							/>
 						</Popover>

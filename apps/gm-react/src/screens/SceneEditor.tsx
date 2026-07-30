@@ -259,14 +259,13 @@ export function SceneEditor() {
 				display: 'flex',
 				flexDirection: 'column',
 				gap: 'var(--space-3)',
-				// `<main>` is already viewport-height minus the top bar and (on phone) the tab bar.
-				// Asking for the full 100dvh here overflowed by ~94px and pushed the canvas zoom
-				// cluster below the fold — and zoom is a required affordance (UX-CANVAS). Same
-				// allowance Board.tsx makes.
-				height:
-					viewport === 'phone'
-						? 'calc(var(--app-viewport-height) - 164px)'
-						: 'calc(var(--app-viewport-height) - var(--space-8))',
+				// `<main>` is already the bounded pane: viewport-height minus the top bar and (on
+				// phone) the tab bar. Asking for the full 100dvh here overflowed by ~94px and pushed
+				// the canvas zoom cluster below the fold — and zoom is a required affordance
+				// (UX-CANVAS). Subtracting a constant only moved the error: it was still measured off
+				// the WHOLE window, so desktop still overflowed. `100%` tracks the pane exactly at
+				// every window size. Same fix Board.tsx makes; locked by responsive.spec.ts.
+				height: '100%',
 				minHeight: 360,
 			}}
 		>

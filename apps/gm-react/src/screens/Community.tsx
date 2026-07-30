@@ -520,6 +520,11 @@ function CommExport() {
 
 	const runExport = async () => {
 		if (exporting) return;
+		// `setResult` is only ever called on SUCCESS, and `doExport` bails early on a rejection, a
+		// missing event, or a cancelled save dialog. Without this reset the previous run's green
+		// "✓ Downloaded <file> — N items" survived the failure, telling a DM they have a backup they
+		// do not have. Clear the claim at the start of every attempt.
+		setResult(null);
 		setExporting(true);
 		try {
 			await doExport();

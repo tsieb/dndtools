@@ -780,7 +780,18 @@ function CombatPanel({
 						</Button>
 					</div>
 
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+					{/* The initiative order IS a list, and announcing "list, 4 items" is how a screen-reader
+					    DM gets the shape of the turn order without walking every row. */}
+					<ul
+						style={{
+							display: 'flex',
+							flexDirection: 'column',
+							gap: 8,
+							listStyle: 'none',
+							margin: 0,
+							padding: 0,
+						}}
+					>
 						{tracker.combatants.map((c) => {
 							const active = c.id === tracker.activeCombatantId;
 							const sel = c.id === selectedId;
@@ -790,22 +801,18 @@ function CombatPanel({
 								// 3px active left rail · HPBar · quick HP steps), hand-hosted so the row can also
 								// carry selection, state badges, and per-condition ConditionBadge chips with the
 								// distinct-icon grayscale contract (the plain component renders generic chips only).
-								<div
+								//
+								// The row itself is NOT a control. It used to be `role="button"` with
+								// `aria-label={`Select ${name}`}`, and an aria-label on a role=button REPLACES the
+								// whole descendant subtree — so a screen-reader DM heard "Select Goblin, toggle
+								// button" and lost the HP, the AC, the conditions and whose turn it was. It also
+								// nested the condition-remove and Heal/Damage buttons inside a button, which is an
+								// axe `nested-interactive` violation (serious). The name is now the control; the
+								// row keeps its pointer target as a mouse-only convenience.
+								<li
 									key={c.id}
-									role="button"
-									tabIndex={0}
-									aria-pressed={sel}
-									aria-label={`Select ${c.name}`}
+									aria-current={active ? 'true' : undefined}
 									onClick={() => onSelect(c.id)}
-									onKeyDown={(e) => {
-										// Only when the ROW itself is focused — Enter/Space bubbling from the nested
-										// Heal/Damage/condition buttons must keep their native activation.
-										if (e.target !== e.currentTarget) return;
-										if (e.key === 'Enter' || e.key === ' ') {
-											e.preventDefault();
-											onSelect(c.id);
-										}
-									}}
 									style={{
 										cursor: 'pointer',
 										display: 'flex',
@@ -832,17 +839,33 @@ function CombatPanel({
 									<Avatar name={c.name} size="sm" ring={active ? 'turn' : undefined} />
 									<div style={{ flex: 1, minWidth: 0 }}>
 										<div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-											<span
+											{/* The row's one real control. `aria-pressed` carries the selection state that
+											    used to sit on the row, so the toggle semantics survive the restructure. */}
+											<button
+												type="button"
+												aria-pressed={sel}
+												// The row also selects (mouse-only convenience), so stop the bubble
+												// rather than letting one click run the same selection twice.
+												onClick={(e) => {
+													e.stopPropagation();
+													onSelect(c.id);
+												}}
 												style={{
 													font: `600 13.5px ${T.sans}`,
 													color: T.ink,
 													whiteSpace: 'nowrap',
 													overflow: 'hidden',
 													textOverflow: 'ellipsis',
+													background: 'none',
+													border: 'none',
+													padding: 0,
+													textAlign: 'left',
+													cursor: 'pointer',
+													minWidth: 0,
 												}}
 											>
 												{c.name}
-											</span>
+											</button>
 											{c.hidden && <VisibilityChip level="dm-only" compact />}
 											{active && <Badge status="success">Active</Badge>}
 											{c.isBloodied && <Badge status="warning">Bloodied</Badge>}
@@ -897,10 +920,10 @@ function CombatPanel({
 											/>
 										</div>
 									)}
-								</div>
+								</li>
 							);
 						})}
-					</div>
+					</ul>
 
 					{selected && (
 						<div

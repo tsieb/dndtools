@@ -303,6 +303,42 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		await expect(page.getByText(secret)).toHaveCount(0);
 	});
 
+	// The push banner auto-dismisses after 5s. With no way to hold it open that is a WCAG 2.2.1
+	// time limit on reading, and because the Dismiss button lives INSIDE the region that unmounts,
+	// a player who tabbed to it and paused to read had the banner vanish and focus fall to <body>.
+	test('the scene push banner holds while it is hovered or focused, then resumes', async ({
+		page,
+	}) => {
+		const title = `The Tide Turns ${Date.now()}`;
+		const cardId = await createCardViaCore(page, { title, visibility: 'player-visible' });
+
+		await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
+		await waitRuntime(page);
+		await expect(page.getByRole('heading', { name: 'Now playing' })).toBeVisible();
+
+		const banner = page.getByTestId('scene-banner');
+		await activateViaCore(page, cardId);
+		await expect(banner).toBeVisible({ timeout: 10_000 });
+
+		// Hovering holds it well past the 5s auto-dismiss.
+		await banner.hover();
+		await page.waitForTimeout(6_000);
+		await expect(banner).toBeVisible();
+
+		// Keyboard focus holds it too — and the Dismiss button keeps focus instead of being yanked
+		// out from under the player.
+		const dismiss = page.getByRole('button', { name: 'Dismiss scene banner' });
+		await dismiss.focus();
+		await page.mouse.move(0, 0);
+		await page.waitForTimeout(6_000);
+		await expect(banner).toBeVisible();
+		await expect(dismiss).toBeFocused();
+
+		// Releasing both restarts the countdown and the banner retires on its own.
+		await page.locator('#player-main').click({ position: { x: 5, y: 5 } });
+		await expect(banner).toHaveCount(0, { timeout: 10_000 });
+	});
+
 	test('the chrome-less /display route mounts and shows the active card, then idles when cleared', async ({
 		page,
 	}) => {

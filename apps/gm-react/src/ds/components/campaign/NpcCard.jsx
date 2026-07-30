@@ -17,8 +17,12 @@ const DISPOSITION = {
  * alone), the secret hook the DM plays them with, and relationship tags. `dmOnly` flags NPCs the
  * party hasn't met. Compact enough to tile in a grid, rich enough to run a scene from.
  */
-export function NpcCard({ name, role, location, disposition = 'neutral', hook, tags = [], src, dmOnly = false, onClick, style, ...rest }) {
-	const d = DISPOSITION[disposition] || DISPOSITION.neutral;
+export function NpcCard({ name, role, location, disposition, hook, tags = [], src, dmOnly = false, onClick, style, ...rest }) {
+	// `disposition` no longer DEFAULTS to neutral. A default made every caller that has no
+	// disposition data paint a confident "Neutral" dot — asserting something about the NPC that is
+	// not backed by anything, and reading identically to a genuinely neutral NPC. Absent means
+	// absent: render no dot at all.
+	const d = disposition ? DISPOSITION[disposition] || DISPOSITION.neutral : null;
 	const interactive = !!onClick;
 	return (
 		<article
@@ -45,7 +49,22 @@ export function NpcCard({ name, role, location, disposition = 'neutral', hook, t
 				<Avatar name={name} src={src} size="lg" />
 				<div style={{ flex: 1, minWidth: 0 }}>
 					<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
-						<h3 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 'var(--text-md)', fontWeight: 'var(--font-weight-bold)', lineHeight: 1.15, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</h3>
+						{/* When the card navigates, the NAME is the control. Callers used to wrap the whole
+						    card in a `role="button"` div with an aria-label, which replaces the entire
+						    descendant subtree — so the role, disposition, tags and dm-only chip all became
+						    inaudible. A button on the heading keeps the card readable and still gives
+						    keyboard users one clean tab stop per NPC. */}
+						<h3 style={{ margin: 0, minWidth: 0, fontFamily: 'var(--font-display)', fontSize: 'var(--text-md)', fontWeight: 'var(--font-weight-bold)', lineHeight: 1.15, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+							{interactive ? (
+								<button
+									type="button"
+									onClick={(e) => { e.stopPropagation(); onClick(e); }}
+									style={{ font: 'inherit', color: 'inherit', background: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}
+								>
+									{name}
+								</button>
+							) : name}
+						</h3>
 						{dmOnly && <VisibilityChip level="dm-only" compact />}
 					</div>
 					{(role || location) && (
@@ -53,10 +72,12 @@ export function NpcCard({ name, role, location, disposition = 'neutral', hook, t
 							{role}{role && location ? ' · ' : ''}{location}
 						</p>
 					)}
-					<div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginTop: 'var(--space-1)' }}>
-						<span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 'var(--radius-full)', background: d.dot }} />
-						<span style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-weight-semibold)', color: d.color }}>{d.label}</span>
-					</div>
+					{d && (
+						<div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginTop: 'var(--space-1)' }}>
+							<span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 'var(--radius-full)', background: d.dot }} />
+							<span style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-weight-semibold)', color: d.color }}>{d.label}</span>
+						</div>
+					)}
 				</div>
 			</div>
 

@@ -30,6 +30,58 @@ const POI_CATEGORIES = [
 ] as const;
 
 /**
+ * A Slider whose DURABLE write happens once per gesture instead of once per step.
+ *
+ * The editor's `run()` is single-flight (`useMapEditor.ts`: `if (busyRef.current) return false`) and
+ * drops silently, while a range input fires `onChange` on every step of a drag. So a fast drag
+ * landed one value and discarded the rest — including, when a command was still in flight on
+ * release, the FINAL one, leaving the thumb snapped back to a value the DM never chose. It also
+ * pushed one undo entry per step. The draft tracks the pointer for live feedback; the command goes
+ * out on pointer-up / key-up / blur.
+ */
+function CommitSlider({
+	value,
+	onCommit,
+	format,
+	readoutStyle,
+	...rest
+}: {
+	min: number;
+	max: number;
+	step: number;
+	value: number;
+	onCommit: (v: number) => void;
+	format: (v: number) => string;
+	readoutStyle?: React.CSSProperties;
+	'aria-label': string;
+	style?: React.CSSProperties;
+}) {
+	// `null` means "follow the durable value" — so an external change still moves the thumb.
+	const [draft, setDraft] = useState<number | null>(null);
+	const shown = draft ?? value;
+	const commit = () => {
+		if (draft === null) return;
+		const next = draft;
+		setDraft(null);
+		if (next !== value) onCommit(next);
+	};
+	return (
+		<>
+			<Slider
+				{...rest}
+				value={shown}
+				valueLabel={format(shown)}
+				onChange={(v: number) => setDraft(v)}
+				onPointerUp={commit}
+				onKeyUp={commit}
+				onBlur={commit}
+			/>
+			<span style={readoutStyle}>{format(shown)}</span>
+		</>
+	);
+}
+
+/**
  * MAP-021 — the Inspector: parameters of the NOUN. It is selection-driven and mutates existing content.
  * EMPTY selection ⇒ the map/scene properties (name, description, scale, projection, grid/overlay), a
  * UVTT export, and a derive-features action. One POI / token ⇒ that object's editable fields. Multiple
@@ -325,14 +377,14 @@ function MapInspector({
 						<span style={{ font: `12.5px ${T.sans}`, color: T.sub, minWidth: 66 }}>
 							Cells across
 						</span>
-						<Slider
+						<CommitSlider
 							min={2}
 							max={40}
 							step={1}
 							value={overlay.gridSize}
 							aria-label="Grid cells across"
-							valueLabel={String(overlay.gridSize)}
-							onChange={(v: number) =>
+							format={String}
+							onCommit={(v: number) =>
 								void run({
 									type: 'map.configure-overlay',
 									actorId,
@@ -340,10 +392,13 @@ function MapInspector({
 								} as never)
 							}
 							style={{ flex: 1 }}
+							readoutStyle={{
+								font: `12px ${T.mono}`,
+								color: T.ink,
+								width: 28,
+								textAlign: 'right',
+							}}
 						/>
-						<span style={{ font: `12px ${T.mono}`, color: T.ink, width: 28, textAlign: 'right' }}>
-							{overlay.gridSize}
-						</span>
 					</div>
 					<label
 						style={{
@@ -573,17 +628,17 @@ function TokenInspector({
 				</Field>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 					<span style={{ font: `12.5px ${T.sans}`, color: T.sub, minWidth: 40 }}>Size</span>
-					<Slider
+					<CommitSlider
 						min={0.5}
 						max={4}
 						step={0.5}
 						value={token.size}
 						aria-label="Token size"
-						valueLabel={`${token.size}×`}
-						onChange={(v: number) => patch({ size: v })}
+						format={(v: number) => `${v}×`}
+						onCommit={(v: number) => patch({ size: v })}
 						style={{ flex: 1 }}
+						readoutStyle={{ font: `12px ${T.mono}`, color: T.ink }}
 					/>
-					<span style={{ font: `12px ${T.mono}`, color: T.ink }}>{token.size}×</span>
 				</div>
 				<Field label="Visibility">
 					<Select

@@ -827,7 +827,11 @@ function ExtCompendium() {
 
 	const openSourcePicker = () => {
 		setSourceUiOpen(true);
-		if (docs || docsError) return;
+		if (docs) return;
+		// Was `if (docs || docsError) return`, which made a single failed fetch permanent: the error
+		// latched, so every later attempt short-circuited and the list could never load again even
+		// after the network came back.
+		setDocsError(null);
 		listDocuments()
 			.then(setDocs)
 			.catch(() =>
@@ -981,7 +985,23 @@ function ExtCompendium() {
 							<>
 								{!docs && !docsError && <Skeleton height={30} />}
 								{docsError && (
-									<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>{docsError}</div>
+									// Cancel lives inside the `{docs && …}` branch below and the "Other sources…"
+									// trigger is hidden while the picker is open, so a failed fetch used to leave
+									// this panel stuck open forever — no way out, and no way to try again. The
+									// error state needs its own two exits.
+									<>
+										<div role="alert" style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
+											{docsError}
+										</div>
+										<div style={{ display: 'flex', gap: 6 }}>
+											<Button variant="secondary" size="sm" onClick={openSourcePicker}>
+												Try again
+											</Button>
+											<Button variant="ghost" size="sm" onClick={() => setSourceUiOpen(false)}>
+												Cancel
+											</Button>
+										</div>
+									</>
 								)}
 								{docs && (
 									<>

@@ -37,6 +37,11 @@ export function Board() {
 	const [snap, setSnap] = useState(true);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [addOpen, setAddOpen] = useState(false);
+	// The Layouts panel used to render unconditionally whenever edit mode was on, with no close
+	// control and no Escape handler — so on a phone (where it is a 280px absolute overlay) it
+	// covered all but ~97px of the board and could not be dismissed without leaving edit mode.
+	// It is now a peer of the Add panel: a toolbar toggle, a Close button and Escape.
+	const [layoutsOpen, setLayoutsOpen] = useState(false);
 	const [presetName, setPresetName] = useState('');
 	const [status, setStatus] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -259,10 +264,13 @@ export function Board() {
 				display: 'flex',
 				flexDirection: 'column',
 				gap: 'var(--space-3)',
-				height:
-					viewport === 'phone'
-						? 'calc(var(--app-viewport-height) - 164px)'
-						: 'calc(var(--app-viewport-height) - var(--space-8))',
+				// `<main>` is ALREADY the bounded pane: `flex:1; min-height:0; overflow-y:auto`
+				// (AppShell.tsx), i.e. the viewport minus the top bar and, on a phone, minus the tab
+				// bar. Sizing off `--app-viewport-height` measured from the WHOLE window instead, so a
+				// constant allowance could only ever be right at one window size — desktop overflowed
+				// `<main>` by ~43px (a second, nested scrollbar) while a phone left space unused.
+				// `100%` tracks the pane exactly at every size. Locked by responsive.spec.ts.
+				height: '100%',
 				minHeight: 360,
 			}}
 		>
@@ -325,8 +333,30 @@ export function Board() {
 								</span>
 							}
 						/>
-						<Button variant="secondary" size="sm" icon="add" onClick={() => setAddOpen((v) => !v)}>
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="add"
+							aria-expanded={addOpen}
+							onClick={() => {
+								setAddOpen((v) => !v);
+								setLayoutsOpen(false);
+							}}
+						>
 							Add
+						</Button>
+						{/* Add and Layouts share the same side slot, so opening one closes the other. */}
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="scene"
+							aria-expanded={layoutsOpen}
+							onClick={() => {
+								setLayoutsOpen((v) => !v);
+								setAddOpen(false);
+							}}
+						>
+							Layouts
 						</Button>
 					</>
 				)}
@@ -340,6 +370,7 @@ export function Board() {
 						setEditing(next);
 						setSelectedId(null);
 						setAddOpen(false);
+						setLayoutsOpen(false);
 					}}
 				>
 					{editing ? 'Done' : 'Edit layout'}
@@ -530,10 +561,17 @@ export function Board() {
 					</Card>
 				)}
 
-				{editing && !addOpen && (
+				{editing && layoutsOpen && (
 					<Card
 						elevation="overlay"
 						padding="md"
+						data-testid="board-layouts-panel"
+						onKeyDown={(e: React.KeyboardEvent) => {
+							if (e.key === 'Escape') {
+								e.stopPropagation();
+								setLayoutsOpen(false);
+							}
+						}}
 						style={{
 							width: viewport === 'phone' ? 'min(280px, 100%)' : 260,
 							flex: '0 0 auto',
@@ -547,14 +585,24 @@ export function Board() {
 								: {}),
 						}}
 					>
-						<span
-							style={{
-								font: '700 var(--text-md) var(--font-display)',
-								color: 'var(--color-text-primary)',
-							}}
-						>
-							Layouts
-						</span>
+						<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+							<span
+								style={{
+									flex: 1,
+									font: '700 var(--text-md) var(--font-display)',
+									color: 'var(--color-text-primary)',
+								}}
+							>
+								Layouts
+							</span>
+							<IconButton
+								icon="close"
+								label="Close layouts"
+								variant="ghost"
+								size="sm"
+								onClick={() => setLayoutsOpen(false)}
+							/>
+						</div>
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
 							<span
 								style={{

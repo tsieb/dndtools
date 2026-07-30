@@ -696,11 +696,16 @@ export function MapEditor({
 						type="button"
 						onClick={() => editor.setNotice(null)}
 						aria-label="Dismiss"
+						// ~18px around a 14px glyph — under the 24px WCAG 2.5.8 minimum.
 						style={{
 							border: 'none',
 							background: 'transparent',
 							cursor: 'pointer',
 							display: 'inline-flex',
+							alignItems: 'center',
+							justifyContent: 'center',
+							minWidth: 24,
+							minHeight: 24,
 							padding: 2,
 						}}
 					>
