@@ -354,8 +354,11 @@ export function Atlas() {
 		const mid = selectedId;
 		if (!mid) return;
 		const prior = mapView?.pois.find((p) => p.id === poiId) ?? null;
-		if (selPoiId === poiId) setSelPoiId(null);
 		const res = await run({ type: 'map.delete-poi', actorId, payload: { mapId: mid, poiId } });
+		// Deselect only AFTER the write lands. Clearing it first closed the popover and dropped the
+		// marker highlight even when the core REFUSED the delete, so a refusal was visually
+		// indistinguishable from a success (the notice renders at the top of the page, far from here).
+		if (res?.status === 'accepted' && selPoiId === poiId) setSelPoiId(null);
 		if (res?.status !== 'accepted' || !prior) return;
 		Toaster.success(`Point of interest “${prior.label}” deleted`, {
 			action: 'Undo',
@@ -458,6 +461,11 @@ export function Atlas() {
 								setMapCenter({ x: 0.5, y: 0.5 });
 								setSelPoiId(null);
 								setSelTokenId(null);
+								// `run()` only clears the notice on an ACCEPTED dispatch, but the two loudest
+								// notices here are set outside any dispatch (the unavailable-map deep link and
+								// a clipboard failure). Without this they outlived the map they described,
+								// leaving an assertive alert above a map it has nothing to do with.
+								setNotice(null);
 							}}
 							style={{
 								display: 'flex',
@@ -856,6 +864,10 @@ export function Atlas() {
 										<div style={{ font: `10.5px ${T.mono}`, color: T.ter }}>
 											{CATEGORY_LABEL[l.category] ?? l.category} · {Math.round(l.opacity * 100)}% ·{' '}
 											{l.content.length} marks
+											{/* `locked` was never rendered, so the only way to discover it was to
+											    act and be refused ("Layer … is locked — unlock it first").
+											    Text, not an icon: this line is already the row's status area. */}
+											{l.locked ? ' · locked' : ''}
 										</div>
 									</div>
 									{isDm ? (
@@ -940,6 +952,11 @@ export function Atlas() {
 										type="button"
 										title="Highlight on map"
 										aria-label={`Highlight ${poi.label} on the map`}
+										// The last colour-only selection state in this screen: the row's only
+										// cue was the label turning accent-coloured (WCAG 1.4.1/4.1.2). The map
+										// chips (aria-current) and Graph's nodes/facets (aria-pressed) already
+										// expose theirs.
+										aria-pressed={poi.id === selPoiId}
 										onClick={() => setSelPoiId(poi.id === selPoiId ? null : poi.id)}
 										style={{
 											...ghostBtn,

@@ -138,6 +138,33 @@ test.describe('graph: relationship graph & search', () => {
 		await expect(page.getByText('Selected')).toHaveCount(0);
 	});
 
+	test('Escape inside the search box clears the query', async ({ page }) => {
+		// The grid handler above deliberately skips inputs because the input was documented as owning
+		// "its own Escape (clear the query)" — but it had no onKeyDown at all, so Escape in the search
+		// box cleared neither the query nor the selection. There is no × affordance either.
+		const search = page.getByLabel('Search the graph');
+		await search.fill('Campaign Primer');
+		await expect(search).toHaveValue('Campaign Primer');
+		// The query really is filtering — the rail is down to the matching row.
+		await expect(page.getByRole('button', { name: VISIBLE_NOTE }).last()).toBeVisible();
+
+		await search.press('Escape');
+		await expect(search).toHaveValue('');
+	});
+
+	test('Escape in the search box does not also drop an existing selection', async ({ page }) => {
+		// The input stops propagation only while it has a query to clear, so a selection made from the
+		// rail survives the query reset — and a SECOND Escape (empty query) still reaches the grid.
+		const search = page.getByLabel('Search the graph');
+		await search.fill('Campaign Primer');
+		await page.getByRole('button', { name: VISIBLE_NOTE }).last().click();
+		await expect(page.getByText('Selected')).not.toHaveCount(0);
+
+		await search.press('Escape');
+		await expect(search).toHaveValue('');
+		await expect(page.getByText('Selected')).not.toHaveCount(0);
+	});
+
 	test('the graph is read-only: no mutation affordances, no op-log growth', async ({ page }) => {
 		const before = await ops(page);
 		expect(before).toBeGreaterThanOrEqual(0);

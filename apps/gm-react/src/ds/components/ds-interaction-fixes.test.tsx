@@ -12,6 +12,7 @@ import { IconButton as RawIconButton } from './core/IconButton.jsx';
 import { Input as RawInput, Textarea as RawTextarea } from './forms/Input.jsx';
 import { Select as RawSelect } from './forms/Select.jsx';
 import { Popover as RawPopover } from './core/Popover.jsx';
+import { Dialog as RawDialog } from './overlay/Dialog.jsx';
 import { Toaster, ToastViewport as RawToastViewport } from './overlay/Toast.jsx';
 
 // The DS ships as .jsx with `checkJs: false`, so tsc infers every defaultless prop as required.
@@ -26,6 +27,7 @@ const Input = RawInput as React.ComponentType<DsProps>;
 const Textarea = RawTextarea as React.ComponentType<DsProps>;
 const Select = RawSelect as React.ComponentType<DsProps>;
 const Popover = RawPopover as React.ComponentType<DsProps>;
+const Dialog = RawDialog as React.ComponentType<DsProps>;
 const ToastViewport = RawToastViewport as React.ComponentType<DsProps>;
 
 let root: Root;
@@ -428,5 +430,66 @@ describe('Popover keeps the keyboard user oriented', () => {
 		act(() => root.render(<Popover open={false} title="Opacity" onClose={() => {}} />));
 		expect(document.activeElement).toBe(opener);
 		opener.remove();
+	});
+});
+
+describe('Dialog can refuse the stray backdrop click without becoming inescapable', () => {
+	/** The scrim is the Dialog's outermost element; a click on the panel targets a descendant. */
+	function backdrop(): HTMLElement {
+		return container.firstElementChild as HTMLElement;
+	}
+	function mouseDownOn(el: HTMLElement) {
+		act(() => {
+			el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+		});
+	}
+
+	it('still closes on a backdrop click by default', () => {
+		let closed = 0;
+		act(() =>
+			root.render(
+				<Dialog open title="Build encounter" onClose={() => (closed += 1)}>
+					<p>body</p>
+				</Dialog>,
+			),
+		);
+		mouseDownOn(backdrop());
+		expect(closed, 'every existing call site must keep its current behaviour').toBe(1);
+	});
+
+	// A composed roster is real work with no draft persistence and no undo, and the dialog is big
+	// enough that the scrim is an easy miss-click target. `dismissible={false}` was not the answer:
+	// it also removes Escape AND the header Close, which would make the dialog worse, not better.
+	it('backdropDismissible={false} blocks the outside click but keeps Escape and Close', () => {
+		let closed = 0;
+		act(() =>
+			root.render(
+				<Dialog
+					open
+					title="Build encounter"
+					backdropDismissible={false}
+					onClose={() => (closed += 1)}
+				>
+					<p>body</p>
+				</Dialog>,
+			),
+		);
+
+		mouseDownOn(backdrop());
+		expect(closed, 'a mis-aimed scrim click must not discard the composed work').toBe(0);
+
+		// Escape is a deliberate act and must still work.
+		act(() => {
+			document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+		});
+		expect(closed).toBe(1);
+
+		// So must the header Close button — `dismissible={false}` would have removed it entirely.
+		const close = Array.from(container.querySelectorAll('button')).find(
+			(b) => (b.getAttribute('aria-label') ?? '').toLowerCase().includes('close'),
+		);
+		expect(close, 'the header Close button must still be rendered').toBeTruthy();
+		act(() => close!.click());
+		expect(closed).toBe(2);
 	});
 });

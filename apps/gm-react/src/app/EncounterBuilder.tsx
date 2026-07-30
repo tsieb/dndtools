@@ -344,6 +344,10 @@ export function EncounterDialog({
 			}
 			icon="sword"
 			size="lg"
+			// A composed roster is real work with no draft persistence and no undo, and this dialog is
+			// large enough that the scrim is an easy miss-click target. Escape and Cancel still close it
+			// — those are deliberate — but a stray outside click no longer throws the encounter away.
+			backdropDismissible={rows.length === 0}
 			footer={
 				<>
 					<Button variant="ghost" size="sm" onClick={onClose}>

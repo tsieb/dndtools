@@ -414,6 +414,16 @@ export function Graph() {
 							<input
 								value={query}
 								onChange={(e) => setQuery(e.target.value)}
+								// The grid's Escape handler deliberately skips inputs because the input was
+								// documented as keeping "its own Escape (clear the query)" — except it never
+								// had one, so Escape in the search box cleared neither the query nor the
+								// selection. There is no × affordance either; clearing meant backspacing.
+								onKeyDown={(e) => {
+									if (e.key === 'Escape' && query) {
+										e.stopPropagation();
+										setQuery('');
+									}
+								}}
 								placeholder="Search the graph…"
 								aria-label="Search the graph"
 								style={{

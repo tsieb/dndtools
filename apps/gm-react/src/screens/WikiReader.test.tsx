@@ -162,3 +162,44 @@ describe('the ready wiki is navigable by keyboard', () => {
 		expect(document.activeElement).toBe(document.body);
 	});
 });
+
+describe('the page nav does not swallow the phone viewport', () => {
+	beforeEach(() => {
+		mockedGetPublicWiki.mockResolvedValue(WIKI);
+	});
+
+	/** Re-point the matchMedia stub at a given width before the component's first render. */
+	function setViewportWidth(px: number) {
+		(window as unknown as { matchMedia: unknown }).matchMedia = (query: string) => {
+			const max = /max-width:\s*(\d+)px/.exec(query);
+			return {
+				matches: max ? px <= Number(max[1]) : false,
+				media: query,
+				addEventListener: () => {},
+				removeEventListener: () => {},
+			};
+		};
+	}
+
+	// The sticky + maxHeight treatment exists so that on DESKTOP a nav taller than the viewport can
+	// still be scrolled to its last entry. On phone the split stacks to a single column and the nav is
+	// the FIRST row, so the same properties turned the page list into a scroll-trapped panel filling
+	// almost the whole screen with the article pushed entirely below it.
+	it('keeps the sticky, height-capped nav on desktop', async () => {
+		setViewportWidth(1280);
+		await mount();
+		const nav = container.querySelector<HTMLElement>('nav[aria-label="Wiki pages"]')!;
+		expect(nav.style.position).toBe('sticky');
+		expect(nav.style.maxHeight).not.toBe('');
+		expect(nav.style.overflowY).toBe('auto');
+	});
+
+	it('drops it on phone, where the nav sits above the article in one column', async () => {
+		setViewportWidth(390);
+		await mount();
+		const nav = container.querySelector<HTMLElement>('nav[aria-label="Wiki pages"]')!;
+		expect(nav.style.position).not.toBe('sticky');
+		expect(nav.style.maxHeight).toBe('');
+		expect(nav.style.overflowY).toBe('');
+	});
+});

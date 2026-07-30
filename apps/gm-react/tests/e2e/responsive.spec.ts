@@ -925,8 +925,12 @@ test('community tabs collapse their two-column layouts on a phone', async ({ pag
 	await expectNoHorizontalOverflow(page, '/community wiki tab', '#main-content');
 
 	// The same layouts keep their side-by-side split once the viewport leaves the phone profile.
+	// `expect.poll`, not a bare `expect(await …)`: the layout is driven by `useViewport`, which reacts
+	// to a matchMedia `change` event, so the re-render lands a tick AFTER setViewportSize resolves.
+	// A one-shot read raced that tick and made this test the suite's long-standing intermittent
+	// failure — it reproduced on a clean tree at roughly 1 run in 4.
 	await page.setViewportSize({ width: 1280, height: 800 });
-	expect(await trackCount('Reading preview')).toBe(2);
+	await expect.poll(() => trackCount('Reading preview')).toBe(2);
 });
 
 test('toasts stack above the phone bottom tab bar, never over it', async ({ page }) => {

@@ -13,6 +13,9 @@ import { isolateModalSiblings } from '../../../platform/modalIsolation';
  *  - role=dialog, aria-modal, labelled by the title and described by the description.
  *  - Focus is sent in on open and TRAPPED (Tab wraps); Escape and backdrop click close it unless
  *    `dismissible={false}` — used for destructive confirms the DM must answer deliberately.
+ *  - `backdropDismissible={false}` disables ONLY the stray outside click, keeping Escape and the
+ *    header Close. For a dialog holding composed work (EncounterBuilder's roster), a mis-aimed click
+ *    on the scrim discarding it is data loss; Escape and Close are deliberate acts, so they stay.
  *  - Body scroll locks while open. Closing restores focus to the element that opened it.
  *  - `tone="danger"` colours the header mark + primary affordance for destructive confirms; the
  *    distinct status-icon shape carries severity without relying on colour (A11Y-011).
@@ -47,6 +50,7 @@ export function Dialog({
 	icon,
 	size = 'md',
 	dismissible = true,
+	backdropDismissible,
 	initialFocus,
 	footer,
 	children,
@@ -166,7 +170,9 @@ export function Dialog({
 				animation: 'dndScrimIn var(--duration-fast) var(--easing-standard)',
 			}}
 			onMouseDown={(e) => {
-				if (dismissible && e.target === e.currentTarget) onClose && onClose();
+				// Defaults to `dismissible`, so every existing call site keeps its current behaviour.
+				const byBackdrop = backdropDismissible === undefined ? dismissible : backdropDismissible;
+				if (byBackdrop && e.target === e.currentTarget) onClose && onClose();
 			}}
 		>
 			<style>

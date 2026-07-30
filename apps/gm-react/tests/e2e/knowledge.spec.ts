@@ -187,6 +187,29 @@ test.describe('knowledge: notes workbench', () => {
 		await expect(page.getByRole('button', { name: 'Save note' })).toHaveCount(0);
 	});
 
+	// Cancel used to leave the failed save's `err` set. View mode renders that SAME state in its own
+	// role=alert directly above the note body, so backing out of a rejected save left a note that
+	// plainly has a title standing there announced as "A note needs a title."
+	test('cancelling a rejected save clears the message instead of carrying it into view mode', async ({
+		page,
+	}) => {
+		const stamp = Date.now();
+		const title = `Cancelled Ledger ${stamp}`;
+		const noteId = await createNoteViaCore(page, title, 'Body text.', 'dm-only');
+		await gotoRoute(page, `/knowledge/${noteId}`);
+		await page.getByRole('button', { name: 'Edit', exact: true }).click();
+
+		await page.getByPlaceholder('Note title').fill('');
+		await page.getByRole('button', { name: 'Save note' }).click();
+		await expect(page.getByText('A note needs a title.')).toBeVisible();
+
+		await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+
+		// Back in view mode: the note kept its real title and the stale rejection is gone.
+		await expect(page.getByRole('heading', { name: title })).toBeVisible();
+		await expect(page.getByText('A note needs a title.')).toHaveCount(0);
+	});
+
 	test('visibility set from the Sharing panel governs the player preview', async ({ page }) => {
 		const title = `Sealed Reliquary ${Date.now()}`;
 		const noteId = await createNoteViaCore(page, title, 'Behind the broken seal.', 'dm-only');
@@ -392,6 +415,38 @@ test.describe('knowledge: notes workbench', () => {
 
 		// The surface confirms what actually left the browser.
 		await expect(page.getByText(/Downloaded/)).not.toHaveCount(0);
+	});
+
+	// The three header disclosures (Sources / Import vault / New note) mutually collapse each other
+	// and advertise that with aria-expanded. The EmptyState's second "New note" entry point only ever
+	// called setComposing(true), so from an empty vault it stacked the composer UNDER an open Import
+	// panel while both toggles claimed to be expanded.
+	test('the empty-state New note collapses the import disclosure like the header one does', async ({
+		page,
+	}) => {
+		// The EmptyState is only reachable with zero notes, so clear the seeded ones through the core.
+		const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+		const itemIds = await page.evaluate(() =>
+			Object.values(
+				(window.__rt!.state.content as { items: Record<string, { id: string; kind: string }> })
+					.items,
+			).map((i) => i.id),
+		);
+		for (const itemId of itemIds) {
+			await dispatch(page, { type: 'content.remove-item', actorId, payload: { itemId } });
+		}
+		await expect(page.getByText('Nothing written down')).toBeVisible();
+
+		const importToggle = page.getByRole('button', { name: 'Import vault' });
+		await importToggle.click();
+		await expect(importToggle).toHaveAttribute('aria-expanded', 'true');
+
+		// The EmptyState's own New note (the LAST one on the page — the header's is first).
+		await page.getByRole('button', { name: 'New note' }).last().click();
+
+		await expect(page.getByPlaceholder('New note title…')).toBeVisible();
+		await expect(importToggle).toHaveAttribute('aria-expanded', 'false');
+		await expect(page.getByPlaceholder(/===== Lore\/The Pier\.md =====/)).toHaveCount(0);
 	});
 
 	test('connected sources render the honest not-connected state', async ({ page }) => {

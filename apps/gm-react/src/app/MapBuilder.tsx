@@ -1290,6 +1290,13 @@ export function ImportMapDialog({
 			} else {
 				setCommitError(res.rejection.message);
 			}
+		} catch (error) {
+			// `finally` alone only un-freezes the button. `runtime.dispatch` RETHROWS after a failed
+			// persist, so without this branch Import simply did nothing, forever, with no message —
+			// the wizard sat on the preview step looking as though the click had never registered.
+			setCommitError(
+				error instanceof Error ? error.message : 'The import couldn’t be completed — try again.',
+			);
 		} finally {
 			setBusy(false);
 		}

@@ -372,16 +372,25 @@ function NoteViewer({
 			return;
 		}
 		setBusy(true);
-		// content.update-item — the authorized-editor write. Strict payload: itemId/title/body only
-		// (visibility is a SEPARATE command; baseRevision omitted exactly as NotesWorkbench does).
-		const result = await runtime.dispatch({
-			type: 'content.update-item',
-			actorId,
-			payload: { itemId: note.id, title, body },
-		});
-		setBusy(false);
-		if (result.status === 'accepted') setEditing(false);
-		else setErr(result.rejection.message);
+		// try/finally, not a bare pair of setBusy calls: SceneRuntime.dispatchNow RETHROWS after a
+		// failed persist, so a throw here left `busy` true forever — and Save, Cancel AND Delete are
+		// all `disabled={busy}`, so the editor became an unrecoverable dead end still holding the
+		// DM's typed draft. Same shape as Atlas's `run()`.
+		try {
+			// content.update-item — the authorized-editor write. Strict payload: itemId/title/body only
+			// (visibility is a SEPARATE command; baseRevision omitted exactly as NotesWorkbench does).
+			const result = await runtime.dispatch({
+				type: 'content.update-item',
+				actorId,
+				payload: { itemId: note.id, title, body },
+			});
+			if (result.status === 'accepted') setEditing(false);
+			else setErr(result.rejection.message);
+		} catch (error) {
+			setErr(error instanceof Error ? error.message : 'The note couldn’t be saved — try again.');
+		} finally {
+			setBusy(false);
+		}
 	}
 
 	async function setVisibility(visibility: string) {
@@ -397,48 +406,58 @@ function NoteViewer({
 	async function applyVisibility(visibility: string) {
 		setErr(null);
 		setBusy(true);
-		// content.set-item-visibility — the cross-surface invalidation trigger. "Push to players" is the
-		// same command with `player-visible`.
-		const result = await runtime.dispatch({
-			type: 'content.set-item-visibility',
-			actorId,
-			payload: { itemId: note.id, visibility },
-		});
-		setBusy(false);
-		if (result.status !== 'accepted') setErr(result.rejection.message);
+		try {
+			// content.set-item-visibility — the cross-surface invalidation trigger. "Push to players" is the
+			// same command with `player-visible`.
+			const result = await runtime.dispatch({
+				type: 'content.set-item-visibility',
+				actorId,
+				payload: { itemId: note.id, visibility },
+			});
+			if (result.status !== 'accepted') setErr(result.rejection.message);
+		} catch (error) {
+			setErr(error instanceof Error ? error.message : 'The change couldn’t be saved — try again.');
+		} finally {
+			setBusy(false);
+		}
 	}
 
 	async function remove() {
 		setErr(null);
 		setBusy(true);
-		// content.remove-item — recoverable soft-delete (the item leaves every actor-filtered read),
-		// so Delete acts immediately and the toast's Undo dispatches the counterpart
-		// content.restore-item (same delete→undo pattern as ScenesCreator).
-		const result = await runtime.dispatch({
-			type: 'content.remove-item',
-			actorId,
-			payload: { itemId: note.id },
-		});
-		setBusy(false);
-		if (result.status === 'accepted') {
-			const itemId = note.id;
-			const title = note.title;
-			Toaster.success(`“${title}” deleted`, {
-				action: 'Undo',
-				onAction: () => {
-					void runtime
-						.dispatch({ type: 'content.restore-item', actorId, payload: { itemId } })
-						.then((restored) => {
-							if (restored.status === 'accepted') Toaster.success(`“${title}” restored`);
-							else
-								Toaster.error(
-									restored.rejection.message ?? 'The note couldn’t be restored — try again.',
-								);
-						});
-				},
+		try {
+			// content.remove-item — recoverable soft-delete (the item leaves every actor-filtered read),
+			// so Delete acts immediately and the toast's Undo dispatches the counterpart
+			// content.restore-item (same delete→undo pattern as ScenesCreator).
+			const result = await runtime.dispatch({
+				type: 'content.remove-item',
+				actorId,
+				payload: { itemId: note.id },
 			});
-			onBack();
-		} else setErr(result.rejection.message);
+			if (result.status === 'accepted') {
+				const itemId = note.id;
+				const title = note.title;
+				Toaster.success(`“${title}” deleted`, {
+					action: 'Undo',
+					onAction: () => {
+						void runtime
+							.dispatch({ type: 'content.restore-item', actorId, payload: { itemId } })
+							.then((restored) => {
+								if (restored.status === 'accepted') Toaster.success(`“${title}” restored`);
+								else
+									Toaster.error(
+										restored.rejection.message ?? 'The note couldn’t be restored — try again.',
+									);
+							});
+					},
+				});
+				onBack();
+			} else setErr(result.rejection.message);
+		} catch (error) {
+			setErr(error instanceof Error ? error.message : 'The note couldn’t be deleted — try again.');
+		} finally {
+			setBusy(false);
+		}
 	}
 
 	return (
@@ -509,7 +528,18 @@ function NoteViewer({
 								<Button variant="primary" size="sm" icon="check" disabled={busy} onClick={save}>
 									Save note
 								</Button>
-								<Button variant="ghost" size="sm" disabled={busy} onClick={() => setEditing(false)}>
+								{/* Clearing `err` is not cosmetic: view mode renders the SAME state in its own
+								    role=alert above the body, so cancelling out of a failed save left a
+								    note that plainly has a title announced as "A note needs a title." */}
+								<Button
+									variant="ghost"
+									size="sm"
+									disabled={busy}
+									onClick={() => {
+										setErr(null);
+										setEditing(false);
+									}}
+								>
 									Cancel
 								</Button>
 								<div style={{ flex: 1 }} />
@@ -871,51 +901,73 @@ export function Knowledge() {
 
 	async function createNote(title: string) {
 		setBusy(true);
-		// content.create-item — vault-level authoring (DM only). Strict payload; visibility fails closed
-		// to dm-only. The new id is read from the emitted `content.item-changed` event (demo-seed pattern).
-		const result = await runtime.dispatch({
-			type: 'content.create-item',
-			actorId,
-			payload: { kind: 'note', title, body: '', visibility: 'dm-only' },
-		});
-		setBusy(false);
-		if (result.status === 'accepted') {
-			setComposing(false);
-			const created = result.events.find(
-				(e) => (e as { kind?: string }).kind === 'content.item-changed',
-			) as { itemId?: string } | undefined;
-			if (created?.itemId) navigate(`/knowledge/${created.itemId}`);
-		} else {
-			// The composer used to close unconditionally and the rejection was dropped on the floor:
-			// the form vanished, the typed title went with it, no note appeared and nothing said why.
-			// Staying open keeps the title so the DM can act on the reason and retry.
-			Toaster.error(result.rejection.message);
+		try {
+			// content.create-item — vault-level authoring (DM only). Strict payload; visibility fails closed
+			// to dm-only. The new id is read from the emitted `content.item-changed` event (demo-seed pattern).
+			const result = await runtime.dispatch({
+				type: 'content.create-item',
+				actorId,
+				payload: { kind: 'note', title, body: '', visibility: 'dm-only' },
+			});
+			if (result.status === 'accepted') {
+				setComposing(false);
+				const created = result.events.find(
+					(e) => (e as { kind?: string }).kind === 'content.item-changed',
+				) as { itemId?: string } | undefined;
+				if (created?.itemId) navigate(`/knowledge/${created.itemId}`);
+			} else {
+				// The composer used to close unconditionally and the rejection was dropped on the floor:
+				// the form vanished, the typed title went with it, no note appeared and nothing said why.
+				// Staying open keeps the title so the DM can act on the reason and retry.
+				Toaster.error(result.rejection.message);
+			}
+		} catch (error) {
+			// A thrown persist failure otherwise froze Create AND Cancel with the typed title inside.
+			Toaster.error(
+				error instanceof Error ? error.message : 'The note couldn’t be created — try again.',
+			);
+		} finally {
+			setBusy(false);
 		}
 	}
 
 	async function runImport(text: string, policy: string) {
 		setBusy(true);
 		setImportMsg(null);
+		// Reset the TONE with the message. Leaving `importFailed` set kept the status host wired to
+		// the error colour and warning glyph while it had no text, so the next attempt's result
+		// flashed through the previous attempt's skin.
+		setImportFailed(false);
 		const files = parseArchive(text);
-		// content.commit-import — transactional markdown-archive import (DM only). `appliedEntryIds: []`
-		// means "apply every entry" (the field exists for resumed/selective imports).
-		const result = await runtime.dispatch({
-			type: 'content.commit-import',
-			actorId,
-			payload: { sourceKind: 'markdown-archive', policy, files, appliedEntryIds: [] },
-		});
-		setBusy(false);
-		if (result.status === 'accepted') {
-			const ev = result.events.find(
-				(e) => (e as { kind?: string }).kind === 'content.import-committed',
-			) as { createdItemIds?: string[]; overwrittenItemIds?: string[] } | undefined;
-			const created = ev?.createdItemIds?.length ?? 0;
-			const over = ev?.overwrittenItemIds?.length ?? 0;
-			setImportFailed(false);
-			setImportMsg(`Imported ${created} new${over ? `, ${over} overwritten` : ''}.`);
-		} else {
+		try {
+			// content.commit-import — transactional markdown-archive import (DM only). `appliedEntryIds: []`
+			// means "apply every entry" (the field exists for resumed/selective imports).
+			const result = await runtime.dispatch({
+				type: 'content.commit-import',
+				actorId,
+				payload: { sourceKind: 'markdown-archive', policy, files, appliedEntryIds: [] },
+			});
+			if (result.status === 'accepted') {
+				const ev = result.events.find(
+					(e) => (e as { kind?: string }).kind === 'content.import-committed',
+				) as { createdItemIds?: string[]; overwrittenItemIds?: string[] } | undefined;
+				const created = ev?.createdItemIds?.length ?? 0;
+				const over = ev?.overwrittenItemIds?.length ?? 0;
+				setImportFailed(false);
+				setImportMsg(`Imported ${created} new${over ? `, ${over} overwritten` : ''}.`);
+			} else {
+				setImportFailed(true);
+				setImportMsg(result.rejection.message);
+			}
+		} catch (error) {
+			// Without this, a thrown persist failure froze Import AND Close with the pasted archive
+			// still in the box and no message at all.
 			setImportFailed(true);
-			setImportMsg(result.rejection.message);
+			setImportMsg(
+				error instanceof Error ? error.message : 'The import couldn’t be completed — try again.',
+			);
+		} finally {
+			setBusy(false);
 		}
 	}
 
@@ -1008,7 +1060,14 @@ export function Knowledge() {
 								variant="primary"
 								size="sm"
 								icon="note-edit"
-								onClick={() => setComposing(true)}
+								// The three disclosures are mutually exclusive, but this second entry point
+								// only ever opened the composer — so Import vault + the composer could be
+								// stacked open at once, contradicting their own aria-expanded state.
+								onClick={() => {
+									setComposing(true);
+									setImporting(false);
+									setShowSources(false);
+								}}
 							>
 								New note
 							</Button>

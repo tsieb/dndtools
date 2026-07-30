@@ -537,12 +537,16 @@ export function WikiReader() {
 							display: 'flex',
 							flexDirection: 'column',
 							gap: 2,
-							position: 'sticky',
-							top: 22,
+							// Every property below is desktop-only, because on phone this grid is a single
+							// column and the nav is the FIRST row. Sticky + a near-full-viewport maxHeight
+							// there turned the page list into a scroll-trapped panel filling the screen with
+							// the article pushed entirely below it.
+							position: isPhone ? 'static' : 'sticky',
+							top: isPhone ? undefined : 22,
 							// A sticky column taller than the viewport pins at 22px and its bottom entries
 							// can never be scrolled to — a long wiki loses its last pages entirely.
-							maxHeight: 'calc(var(--app-viewport-height, 100vh) - 44px)',
-							overflowY: 'auto',
+							maxHeight: isPhone ? undefined : 'calc(var(--app-viewport-height, 100vh) - 44px)',
+							overflowY: isPhone ? undefined : 'auto',
 						}}
 					>
 						{wiki.pages.map((p) => {
