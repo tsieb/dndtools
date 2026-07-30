@@ -29,6 +29,13 @@ import { widgetProfileForRuntime } from '../platform/capabilities';
  * It uses the BOUNDED canvas policy (glanceable, scrolls, keyboard-first) — the accessibility answer
  * the prototype's `scene-canvas.jsx` describes for the home surface.
  */
+// `SceneRuntime.dispatchNow` RETHROWS after a failed `persistFullState`, and every caller here is
+// fire-and-forget (`void onMove(...)`, `onClick={savePreset}`), so an IndexedDB quota or
+// private-mode failure produced an unhandled rejection, no message at all, and the optimistic
+// draft was dropped — the widget silently snapped back to where it had been.
+const PERSIST_FAILED =
+	"That change couldn't be saved to this device. Check storage space and try again.";
+
 export function Board() {
 	const runtime = useRuntime();
 	const viewport = useViewport();
@@ -87,6 +94,13 @@ export function Board() {
 		ensuringRef.current = true;
 		void runtime
 			.dispatch({ type: 'command-center.ensure-home', actorId, payload: {} })
+			// `dispatchNow` RETHROWS a persist failure. With only a `.finally()` here, a full or
+			// read-only IndexedDB left the home scene uncreated, `ready` false, and the board parked
+			// on "Setting up your GM Screen…" FOREVER — the effect's deps never change, so it never
+			// retries, and nothing told the DM anything had gone wrong.
+			.catch(() => {
+				setError(PERSIST_FAILED);
+			})
 			.finally(() => {
 				ensuringRef.current = false;
 			});
@@ -115,12 +129,6 @@ export function Board() {
 			})
 		: [];
 
-	// `SceneRuntime.dispatchNow` RETHROWS after a failed `persistFullState`, and every caller here is
-	// fire-and-forget (`void onMove(...)`, `onClick={savePreset}`), so an IndexedDB quota or
-	// private-mode failure produced an unhandled rejection, no message at all, and the optimistic
-	// draft was dropped — the widget silently snapped back to where it had been.
-	const PERSIST_FAILED =
-		"That change couldn't be saved to this device. Check storage space and try again.";
 	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
 		let result;
 		try {

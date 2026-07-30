@@ -6,16 +6,38 @@ export function Checkbox({ checked = false, onChange, label, disabled = false, s
 	// A <label> only names labelable form elements, and role="checkbox" lives on a <span> here — so
 	// without an explicit aria-labelledby the control has NO accessible name. Mirror Switch.jsx.
 	const labelId = React.useId();
-	const labelledBy = rest['aria-label'] == null && rest['aria-labelledby'] == null && label ? labelId : undefined;
+	const labelledBy =
+		rest['aria-label'] == null && rest['aria-labelledby'] == null && label ? labelId : undefined;
 	return (
-		<label style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1, fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', color: 'var(--color-text-primary)', ...style }}>
+		<label
+			style={{
+				display: 'inline-flex',
+				alignItems: 'center',
+				gap: 'var(--space-2)',
+				cursor: disabled ? 'not-allowed' : 'pointer',
+				opacity: disabled ? 0.5 : 1,
+				fontFamily: 'var(--font-sans)',
+				fontSize: 'var(--text-base)',
+				color: 'var(--color-text-primary)',
+				...style,
+			}}
+		>
 			<span
 				role="checkbox"
 				aria-checked={checked}
 				aria-labelledby={labelledBy}
+				// `tabIndex={-1}` alone takes the control out of the tab order while still announcing
+				// as operable, so AT described a checkbox that could never be reached or toggled.
+				// Switch.jsx gets this for free from a native `disabled`; this span has to say it.
+				aria-disabled={disabled || undefined}
 				tabIndex={disabled ? -1 : 0}
 				onClick={() => !disabled && onChange && onChange(!checked)}
-				onKeyDown={(e) => { if (!disabled && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); onChange && onChange(!checked); } }}
+				onKeyDown={(e) => {
+					if (!disabled && (e.key === ' ' || e.key === 'Enter')) {
+						e.preventDefault();
+						onChange && onChange(!checked);
+					}
+				}}
 				style={{
 					// Transparent hit box clearing the WCAG 2.5.8 24px floor; the compact 18x18 box is
 					// painted by the inner span, so the visual is unchanged. Mirrors Switch.jsx.
@@ -40,7 +62,8 @@ export function Checkbox({ checked = false, onChange, label, disabled = false, s
 						background: checked ? 'var(--color-accent)' : 'var(--color-surface-sunken)',
 						color: 'var(--color-accent-foreground)',
 						flex: '0 0 auto',
-						transition: 'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard)',
+						transition:
+							'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard)',
 					}}
 				>
 					{checked && <Icon name="check" size={14} />}

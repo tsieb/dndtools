@@ -263,3 +263,70 @@ test('the tracker announces whose turn it is, and the HP controls name their com
 	// Distinct per row — the whole point.
 	await expect(page.getByRole('button', { name: 'Heal 1 HP — Reed Stalker' })).toHaveCount(1);
 });
+
+// The `recap` workflow was a DEAD END. `recap`'s only legal transitions are recap/archived/idle, so
+// the phase Seg had Prep and Live disabled and Recap already checked — no enabled exit — while the
+// standby card's "Go live" was fully enabled and every press produced a guaranteed core rejection.
+// A DM who ended one session into Recap could not start another without editing IndexedDB.
+test.describe('session: Recap is not a dead end', () => {
+	test('offers Standby as a real exit and explains why Go live is unavailable', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/session');
+		await seedFresh(page);
+		await gotoRoute(page, '/session');
+
+		const toRecap = await page.evaluate(async () => {
+			const rt = window.__rt!;
+			const state = rt.state as unknown as {
+				commandCenter: { homeSceneId: string | null };
+				scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+			};
+			const sceneId =
+				state.commandCenter.homeSceneId ??
+				Object.values(state.scenes.scenes).find((s) => !s.isTemplate)?.id;
+			const live = await rt.dispatch({
+				type: 'session.set-workflow',
+				actorId: rt.defaultActorId,
+				payload: { workflow: 'active', activeSceneId: sceneId },
+			});
+			if (live.status !== 'accepted') return { step: 'go live', ...live };
+			return {
+				step: 'recap',
+				...(await rt.dispatch({
+					type: 'session.set-workflow',
+					actorId: rt.defaultActorId,
+					payload: { workflow: 'recap' },
+				})),
+			};
+		});
+		expect(toRecap.status, `${toRecap.step}: ${toRecap.rejection?.message ?? ''}`).toBe('accepted');
+
+		const phases = page.getByRole('radiogroup', { name: 'Session phase' });
+		await expect(phases.getByRole('radio', { name: 'Recap' })).toHaveAttribute(
+			'aria-checked',
+			'true',
+		);
+		// The exit. Before this it did not exist at all, and the other three were disabled/checked.
+		const standby = phases.getByRole('radio', { name: 'Standby' });
+		await expect(standby).toBeEnabled();
+
+		// The card names the state it is actually in, and Go live explains itself rather than firing
+		// a transition the core forbids. Soft-disabled: still focusable, still announced.
+		await expect(page.getByText(/Session is in Recap/)).toHaveCount(1);
+		const goLive = page.getByRole('button', { name: 'Go live', exact: true });
+		await expect(goLive).toHaveAttribute('aria-disabled', 'true');
+		expect(await goLive.evaluate((el: HTMLButtonElement) => el.disabled)).toBe(false);
+		await expect(goLive).toHaveAttribute('title', /return to Standby/i);
+
+		// It really is swallowed: no rejection toast, and the workflow does not move.
+		await goLive.dispatchEvent('click');
+		await page.waitForTimeout(200);
+		expect(await page.evaluate(() => window.__rt!.state.session.workflow)).toBe('recap');
+
+		// And Standby genuinely gets the DM out.
+		await standby.click();
+		await expect.poll(() => page.evaluate(() => window.__rt!.state.session.workflow)).toBe('idle');
+	});
+});

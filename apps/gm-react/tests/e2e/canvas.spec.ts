@@ -787,3 +787,138 @@ test.describe('canvas: a closing side panel gives focus back', () => {
 		).toBe(false);
 	});
 });
+
+// The selection ring was correctly moved from `box-shadow` to `outline` (forced-colors does not
+// paint box-shadow), but it was written as `outline: selected ? … : 'none'` — an INLINE style, which
+// beats the app's global `:focus-visible` rule. Every UNSELECTED frame therefore had its focus
+// indicator suppressed, on the one surface whose whole navigation model is a roving tabindex across
+// those frames (CANVAS-016 / WCAG 2.4.7).
+test.describe('canvas: a focused widget frame is visibly focused', () => {
+	test('an unselected frame does not pin outline:none and rings when focused', async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+
+		const frame = page.locator('[data-testid^="widget-"]').first();
+		await expect(frame).toBeVisible();
+
+		// No inline suppression: the cascade has to be able to reach it.
+		expect(await frame.evaluate((el: HTMLElement) => el.style.outline)).toBe('');
+
+		// Walk the real keyboard path so `:focus-visible` genuinely applies — a programmatic
+		// `.focus()` is exactly the case Chromium's heuristic can decline.
+		await page.locator('#main-content').click({ position: { x: 2, y: 2 } });
+		let landed = false;
+		for (let i = 0; i < 40 && !landed; i += 1) {
+			await page.keyboard.press('Tab');
+			landed = await page.evaluate(() =>
+				(document.activeElement?.getAttribute('data-testid') ?? '').startsWith('widget-'),
+			);
+		}
+		expect(landed, 'Tab should reach a widget frame on /board').toBe(true);
+
+		const ring = await page.evaluate(() => {
+			const el = document.activeElement as HTMLElement;
+			const s = getComputedStyle(el);
+			return { style: s.outlineStyle, width: s.outlineWidth };
+		});
+		expect(ring.style).not.toBe('none');
+		expect(ring.width).not.toBe('0px');
+	});
+});
+
+// The dice widget's result was a bare <span> carrying an `aria-label`. `role=generic` PROHIBITS an
+// accessible name, so the wording reached nobody — and mutating the text in place announced nothing,
+// making the widget's entire output invisible to assistive tech.
+test.describe('canvas: the GM Screen dice widget announces its result', () => {
+	test('rolls into a live region that existed before the roll', async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+
+		const live = await page.evaluate(async () => {
+			const rt = window.__rt!;
+			const state = rt.state as unknown as { commandCenter: { homeSceneId: string | null } };
+			return rt.dispatch({
+				type: 'session.set-workflow',
+				actorId: rt.defaultActorId,
+				payload: { workflow: 'active', activeSceneId: state.commandCenter.homeSceneId },
+			});
+		});
+		expect(live.status).toBe('accepted');
+
+		const roll = page.getByRole('button', { name: /^Roll / });
+		await expect(roll).toHaveCount(1);
+		// A live region inserted TOGETHER with its text is routinely dropped, so it must pre-exist.
+		const readout = page
+			.locator('[data-testid^="widget-"]')
+			.filter({ has: roll })
+			.getByRole('status');
+		await expect(readout).toHaveCount(1);
+		await expect(readout).toHaveText('');
+
+		await roll.click();
+		await expect(readout).toHaveText(/Last result for .+ = \d+/);
+
+		// The total is NOT mirrored into a second offscreen copy — only the descriptive prefix is
+		// visually hidden. A duplicated copy would make `getByText` ambiguous across the whole app,
+		// which is how a previous attempt at this fix broke unrelated specs.
+		const total = (await readout.textContent())!.match(/= (\d+)/)![1]!;
+		const occurrences = await readout.evaluate(
+			(el: HTMLElement, t: string) => (el.textContent ?? '').split(t).length - 1,
+			total,
+		);
+		expect(occurrences).toBe(1);
+		const hidden = readout.locator('span').first();
+		await expect(hidden).toHaveText(/Last result for/);
+		expect(await hidden.evaluate((el: HTMLElement) => getComputedStyle(el).position)).toBe(
+			'absolute',
+		);
+	});
+});
+
+// Start / Pause / Resume were three conditionally-rendered SIBLINGS. JSX gives each `{cond && …}`
+// its own fixed child slot, so React could not reconcile Pause with Resume: pressing Pause destroyed
+// the very button the user had just activated and dropped focus to <body>.
+test.describe('canvas: the timer transport survives its own press', () => {
+	test('keeps keyboard focus on the transport button across start and pause', async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+
+		const live = await page.evaluate(async () => {
+			const rt = window.__rt!;
+			const state = rt.state as unknown as { commandCenter: { homeSceneId: string | null } };
+			return rt.dispatch({
+				type: 'session.set-workflow',
+				actorId: rt.defaultActorId,
+				payload: { workflow: 'active', activeSceneId: state.commandCenter.homeSceneId },
+			});
+		});
+		expect(live.status).toBe('accepted');
+
+		const start = page.getByRole('button', { name: /^Start \d+-second timer$/ });
+		await expect(start).toHaveCount(1);
+		await start.focus();
+		await start.press('Enter');
+
+		const pause = page.getByRole('button', { name: 'Pause', exact: true });
+		await expect(pause).toHaveCount(1);
+		await expect(pause).toBeFocused();
+		expect(
+			await page.evaluate(() => document.activeElement === document.body),
+			'focus must not fall through to <body>',
+		).toBe(false);
+
+		await pause.press('Enter');
+		const resume = page.getByRole('button', { name: 'Resume', exact: true });
+		await expect(resume).toHaveCount(1);
+		await expect(resume).toBeFocused();
+	});
+});

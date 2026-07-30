@@ -1,159 +1,182 @@
 ---
 name: campaign-session-hub-cluster
-description: Audit of gm-react Campaign/Session/CommandCenter/EncounterBuilder + QuestCard/NpcCard — verified-open defects, verified-FIXED items, and the e2e specs that pin current semantics
+description: Audit of gm-react Campaign/Session/CommandCenter/EncounterBuilder/screen-kit — FIXED vs STILL-OPEN split re-verified 2026-07-30 @ 45adf828 (run #14), plus the e2e spec-coupling map and the global unhandledrejection net that invalidates most "silent failure" claims
 metadata:
   type: project
 ---
 
-Re-verified 2026-07-30 at commit `7bdf2908` (run #13), CLEAN tree — line numbers are
-committed-accurate. Files: `screens/{Campaign,Session,CommandCenter}.tsx`,
-`app/EncounterBuilder.tsx`, `ds/components/campaign/{QuestCard,NpcCard}.jsx`,
-`app/screen-kit.tsx` (Seg/Panel/Page live here).
+# Campaign / Session hub cluster — state at HEAD `45adf828` (2026-07-30, run #14)
 
-Run #13 verdict: the run-#9 top-8 is now ENTIRELY fixed. The remaining yield in this cluster has
-shifted from *state/lifecycle* bugs to **accessible-name + announcement** bugs — this cluster is the
-one place in the app where success is conveyed purely visually on the hot path.
+Files + line counts at HEAD: `screens/Campaign.tsx` 981, `screens/Session.tsx` 2131,
+`screens/CommandCenter.tsx` 592, `app/EncounterBuilder.tsx` 709, `app/screen-kit.tsx` 303.
 
-## FIXED between c93c5206 → 7bdf2908 — do NOT re-report
-- Frozen `busy` (run-#9 item 1) fixed in ALL THREE: `Campaign.tsx:262-321` (QuestEditor
-  try/catch/finally + a user-facing storage message), `:534-582` (FactionEditor), `Session.tsx:1287-1291`
-  (RecapPanel try/finally). Both Campaign editors are now real `<form>`s so Enter submits.
-- `EncounterBuilder.tsx:350` `backdropDismissible={rows.length === 0}` (run-#9 item 3).
-- `Session.tsx:551` End-combat Dialog now has `tone="danger"` (run-#9 item 4).
-- `CommandCenter.tsx:377` hero heading gated on `isLive` (item 5); `:254` `isLive` now derives from
-  `data.workflow === 'active'` (item 6); `:481` SceneTile status also gated on `isLive`.
-- `NpcCard.jsx:60` — the `<h3>` no longer sets `overflow:hidden`, so the focus ring is unclipped (item 7).
-- `DicePanel` is a real `<form>` (`Session.tsx:1447`) — Enter rolls.
-- `Card` (`ds/components/core/Card.jsx:12-25`) gives `interactive`+`onClick` a real `role=button`
-  + `tabIndex` + Enter/Space, so CommandCenter's Library tiles ARE keyboard-operable. Don't re-flag.
-- `Dialog` uses `isolateModalSiblings` which sets **`inert`** (not just aria-hidden) on every sibling
-  branch, so focus CANNOT escape an open dialog. Downgrade any "focus escapes the modal" claim.
+**Run #14 verdict:** the *state/lifecycle* and *announcement* classes are now largely closed. The
+remaining top finding is a **workflow dead end** (`recap` traps the DM), then **focus drops from
+self-disabling controls**, then **destructive writes with no confirm**.
 
-## STILL OPEN — NEW this pass (ranked)
-1. **HIGH `Session.tsx:928-943`** — every combatant row renders `IconButton label="Heal 1"` /
-   `"Damage 1"`. N combatants ⇒ N identically named buttons writing durable HP. The in-file exemplar
-   is `Move ${selected.name} earlier in initiative` (`:982`). ⚠ `combat.spec.ts:150-151` matches
-   `name: 'Heal 1'` — Playwright name matching is SUBSTRING by default, so a rename that KEEPS the
-   literal `Heal 1` (e.g. `Heal 1 HP — ${c.name}`) keeps the spec green.
-2. **HIGH `Session.tsx:1553-1563`** — the handout title `Input` and body `Textarea` are the ONLY
-   fields in the cluster with no `<Field label>` / `aria-label`; they rely on `placeholder` alone
-   (WCAG 3.3.2). axe passes because HTML-AAM allows placeholder as an accname fallback, so the a11y
-   gate can never catch this. ZERO spec references.
-3. **HIGH — the live-play hot path never announces success.** `Session.tsx` has **zero**
-   `aria-live`/`role="status"` (only Campaign `:383,:665` and EncounterBuilder `:378` have
-   `role="alert"`). `onAdvance`/`onPrevious` (`:381-382`), `onHp` (`:384-390`), `onCondition`
-   (`:391-397`) and the dice `onRoll` (`:431-433`) all pass NO `ok` string to the `dispatch` helper
-   (`:244-255`), so no Toast fires; and `ds/components/domain/DiceResult.jsx` is a plain `<div>`.
-   A screen-reader DM presses "Next turn" or "Roll" and hears nothing at all.
-4. **MED `Session.tsx:1621-1628` / `:1632-1639`** — `label="Revoke handout"` and the `Mark read`
-   Button are one-per-handout with no title in the name. No spec references either string.
-5. **MED `Session.tsx:602-624` + `screen-kit.tsx:162-174`** — `phase` collapses `paused`/`ending`
-   onto `'prep'`, but `allowedTransitionsFrom('paused'|'ending')` does NOT contain `prep`
-   (`packages/core/src/lifecycle/session-workflow.ts:41-48`), so the Seg's CHECKED option is also
-   `disabled`. `Seg` computes `off = o.disabled && !on` ⇒ the segment stays clickable at full
-   opacity and clicking it dispatches a REJECTED `session.set-workflow` → error toast from the
-   control that looks current. Worse, `selectedIndex` requires `!o.disabled` ⇒ -1, so the group's
-   single Tab stop lands on the UNCHECKED "Live". LATENT: nothing in gm-react dispatches
-   `paused`/`ending` (only ProjectionControl `:63` and Session `:270,:589` set workflow).
-6. **MED `Session.tsx:857`, `:1894`, `NpcCard.jsx:50`** — `<Avatar name={x}/>` renders the initials
-   as bare text with no `aria-hidden` (`ds/components/core/Avatar.jsx:32`), so AT reads
-   "GO Goblin, toggle button". `CommandCenter.tsx:398-402` already wraps its avatar stack in
-   `role="img" aria-label` — the fix pattern exists in-cluster.
-7. **MED-LOW `EncounterBuilder.tsx:284-333`** — in `start` mode `encounter.build` is dispatched
-   BEFORE `combat.start`. If `combat.start` rejects, the dialog stays open with `error` set and the
-   built encounter already durable; pressing Start again re-dispatches `encounter.build`, so every
-   retry leaves another orphan encounter with no UI to see or delete it.
-8. **LOW `EncounterBuilder.tsx:564-592, 594-622`** — visible label "×" / "CR" is not contained in
-   the accessible name (`${name} quantity` / `${name} challenge rating`) → WCAG 2.5.3 Label in Name.
-   ⚠ `command-palette.spec.ts:130` pins `getByLabel('Bandit quantity')`, so the accname must keep
-   the word "quantity".
-9. **LOW `EncounterBuilder.tsx:491-499, 638-644`** — quick-add "Add" disables itself on success
-   (`setQName('')`) and the per-row Remove unmounts its own button, dropping focus to `<body>`.
-   `inert` keeps it inside the dialog, so the next Tab restarts at the header Close.
-10. **LOW `EncounterBuilder.tsx:475-482`** — quick-add HP `min={0}` while `quickAdd` (`:232`) floors
-    at 1: the control advertises a value it silently rewrites.
+## ⚠️ READ FIRST — two premises that invalidate whole finding classes
 
-## STILL OPEN — carried, re-confirmed at 7bdf2908 (line numbers refreshed)
-- `QuestCard.jsx:60-71` objectives: ~20px tall (WCAG 2.5.8), no hover, natively `disabled` for
-  non-authors. ⚠ `campaign.spec.ts:120` pins objective-as-`button` (blocks the role=checkbox fix).
-- Campaign's three create launchers unmount on click → focus to `<body>`: `:765-772` (Quests
-  toolbar), `:886-893` (Factions). NPCs EmptyState `:834-843` navigates away.
-- `Campaign.tsx:827-845` — NPCs tab has "New NPC" ONLY in its EmptyState (IA dead end once one NPC
-  exists). `Campaign.tsx:903-913` — Factions EmptyState `action={undefined}` though the copy says
-  "create the first faction dossier".
-- `Campaign.tsx:686` — tab is component-local `useState`, not URL-backed (Settings reads `?tab=`).
-- `Session.tsx:1009-1017` Remove combatant / `:1621-1628` Revoke handout: no confirm, no undo, both
-  generic `icon="close"`, both drop focus to `<body>`.
-- `Session.tsx:1808-1816` Project to players / `:1564-1572` Push to players: hard `disabled`, reason
-  not on the control, while `:725-755` in the same file is the `aria-disabled`+`title` exemplar.
-- `Session.tsx:236-242` — ⌘K `createEncounter` opens the builder ungated on a non-live session.
-  ⚠ `command-palette.spec.ts:98-111` REQUIRES the dialog to open; extend the Start button's
-  `aria-disabled`/`title` chain instead (`:149-151` asserts `title` matches `/combatant/i`).
-- `Session.tsx:1275-1278` — RecapPanel re-seeds `draft` on `seedKey`, destroying an unsaved recap
-  when the archive Select changes or a session ends into Recap.
-- `Session.tsx:598-602` — `phase` collapses `idle|paused|ending|archived` onto **Prep** while the
-  header reads "Standby".
-- `Session.tsx:1971-1977` — `connectGoogleCalendar` silent branch (only `failed` toasts; a
-  cancelled/dismissed sign-in returns with no feedback).
-- Quest creation has no entry point outside the Quests tab; `app/CommandPalette.tsx` has no
-  `new:quest` and routes "quest" keywords to `/knowledge`. `CommandCenter.tsx:287` repeats it.
-- Missing hover (there is NO global `button:hover`, and inline styles can't express `:hover`):
-  combat `<li>` `:830-845`, the name button `:867-891`, `ConditionPickerDialog` tiles `:1058-1067`,
-  `EncounterBuilder.tsx:413-453` roster buttons, `CommandCenter.tsx:511-540` Manage rows.
-  `SceneTile`/`LaunchTile` (`CommandCenter.tsx:64-65, 138-139`) and `ds/map/LayerRow.jsx:96-106`
-  are the in-repo pattern.
-- `CommandCenter.tsx:106-110` — draft-lock `Icon label=` sits inside the SceneTile `<button>`, so
-  its `role=img`+`aria-label` joins the button name and duplicates the adjacent "Draft" Badge.
-- `CommandCenter.tsx:397` — party avatar stack `slice(0,5)` with no `+N` overflow chip.
-- `CommandCenter.tsx:256-264` — the comment claims every launcher hands a create-intent, but
-  "New scene" bare-navigates (`:264`, `:448`, `:462`) and `/scenes` has NO `location.state` consumer.
-- `EncounterBuilder.tsx:250-252` `rows.length===0 → setError` is DEAD (`Button.jsx` routes `onClick`
-  to `undefined` on a truthy `aria-disabled`). Harmless.
-- `EncounterBuilder.tsx:246, 300` — initiative uses `Math.random()`, not the core's deterministic RNG.
+1. **`main.tsx:17-22` installs a global `window.addEventListener('unhandledrejection', …)` that
+   fires `Toaster.error('Something didn't save — please try that again.')`.** `SceneRuntime`
+   `dispatchNow` (`runtime/SceneRuntime.ts:472-481`) rolls back and RE-THROWS on a persist failure,
+   but that throw is NOT silent — the global net toasts it. So "a bare `await runtime.dispatch` is a
+   silent failure" is **WRONG** in this app. The residual defect is only (a) a generic message
+   instead of an in-context one and (b) any `busy` flag left true without a `finally`.
+2. **The frozen-`busy` class is CLOSED in this cluster.** Every busy guard has a `finally`:
+   `Session.RecapPanel.save` `:1305-1315`, `SchedulePanel.create` `:1999-2035` (full try/catch/
+   finally), `EncounterBuilder.launch` `:249-333`, `Campaign.QuestEditor.save` `:251-322` and
+   `FactionEditor.save` `:523-583` (both full try/catch/finally). `Session.dispatch` `:244-255` and
+   `Campaign.QuestCardRow.update` `:175-183` have no busy state at all. Do NOT re-report.
+3. **`runtime.defaultActorId` returns the PREVIEWED actor while previewing**
+   (`SceneRuntime.ts:244-252`). So `Campaign`'s `canAuthor = actorCanAuthorContent(perms, actorId)`
+   is false in preview and every author affordance unmounts. Campaign's zero `previewing` references
+   are CORRECT BY CONSTRUCTION, not an omission.
 
-## Verified NON-issues (don't re-flag)
-- No raw hex / `rgba()` in any of the 4 screen files. `IconButton size="sm"` = 28px ≥ 24px.
-- `Toast.jsx:84` is `role="alert"` for errors / `role="status"` otherwise, so TOASTED feedback is
-  covered — the gap in item 3 is that these call sites emit no toast at all.
-- `Dialog` (`ds/components/overlay/Dialog.jsx`): focus-in on open, Tab trap, `inert` sibling
-  isolation, body-scroll lock, focus RESTORE on close, `maxWidth:'100%'` (no 375px overflow even at
-  `size="lg"` = 760).
-- `Campaign` quest/faction editors carry `key={id ?? 'new'}` ⇒ no cross-entity draft bleed.
-  `EncounterBuilder`'s `crDrafts`/`qtyDrafts` are `r.key`-scoped and cleared by the on-open effect.
-- Combatant ids come from `env.ids()` (`packages/core/src/commands/combat.ts:95`), never reused, so a
-  stale `Session.tsx:312` `selectedId` cannot re-select a combatant after `combat.end`.
-- `/characters/:id?` (`App.tsx:391`) and the `players|permissions|vault` Settings tab ids
-  (`Settings.tsx:159-161`) both exist — Campaign's NpcCard nav and CommandCenter's Manage deep links
-  are NOT dead.
-- `Panel` (`screen-kit.tsx:73`) renders `<section>` + `<h2>`; heading order is fine.
-- `--color-text-tertiary` is tuned for AA per theme (`styles/tokens/colors.css:43,107,161,214`).
-  Note `:379` maps it to `GrayText` under forced-colors (the DISABLED system colour) — that is a
-  GLOBAL token decision, not a cluster defect.
+## STILL OPEN — ranked, verified at `45adf828`
 
-## e2e specs pinning current semantics (grep BEFORE changing a role/label)
-- `combat.spec.ts` — `:56-97` End-combat Dialog copy (`/no undo/i`) + Escape/Keep-running;
-  `:102` `/^Build encounter/`; `:141` no `Select X`; `:143-147` list/listitem + "AC 13";
-  `:150-151` **exact-ish `Heal 1`/`Damage 1`**; `:154-165` name-button `aria-pressed` + Enter;
-  `:168` `li[aria-current="true"]`.
-- `campaign.spec.ts` — `:120` objective-as-`button`; `:83`/`:100` "Create quest"; `:98` objectives
-  Textarea; `:114`/`:157` durable objective writes; `:169`/`:174` faction create; `:190`
-  `Edit ${name}`; `:138` `getByLabel('Status of ${title}')`; `:285-310` the NPC-tile contract.
-- `command-palette.spec.ts` — `:98-111` ⌘K "Build encounter" MUST open the dialog on a non-live
-  session; `:113-156` soft-disabled Start (`aria-disabled='true'`, `title` `/combatant/i`,
-  `el.disabled === false`); `:130` `getByLabel('Bandit quantity')`.
-- `a11y-axe-gate.spec.ts` — `:30-31` `/campaign` + `/session` both profiles; `:221-260` a SEEDED
-  `/session#combat` running tracker. Register `tests/a11y/known-violations.json` is `[]`.
-- `responsive.spec.ts:4-19` sweeps `/`, `/session`, `/campaign` — CLIPPING only; `:542` asserts the
-  literal "Command Center" in `#main-content`. Dialogs are never open, so dialog layout is unguarded.
-- NO spec references: "Push to players" ON /session (knowledge.spec + graph.spec own that string on
-  THEIR routes), "Project to players" on /session (atlas + android-quick-map own it), "Revoke
-  handout", "Mark read", "Session phase", the Manage rows, the recap panel, the handout fields, or
-  the hub hero heading text.
+1. **BLOCKER — `recap` is a workflow dead end and /session's primary CTA is enabled-and-always-fails
+   there.** `isLive = workflow === 'active'` (`Session.tsx:104`), so in `recap` the standby Card
+   `:327-359` renders "Session is on standby" (wrong label) with a "Go live" whose only gate is
+   `disabled={previewing || !isDm}` `:354`. `recap`'s allowed set is `['recap','archived','idle']`
+   (`packages/core/src/lifecycle/session-workflow.ts:47`), so `goLive()` `:257-276` fires a
+   guaranteed-rejected dispatch → error toast, every press. The phase `Seg` `:619-623` offers only
+   prep/active/recap ⇒ from `recap` Prep and Live are both `disabled` and Recap is already checked:
+   **no enabled exit exists**. `setWorkflow` `:587-590` already accepts `'idle'`; the option is just
+   not rendered. `app/ProjectionControl.tsx:36` computes `canGoLive` correctly and its title reads
+   "Finish Recap and return to Standby before going live" — pointing at an action no surface offers.
+2. **HIGH — durable HP writes to any NON-active combatant announce nothing.** The one
+   `role="status"` `Session.tsx:767-775` renders only the ACTIVE combatant. `HPBar`
+   (`ds/components/domain/HPBar.jsx`) is a plain `<div>` (no `role=progressbar`, no live region) and
+   `onHp` `:384-390` / `onCondition` `:391-397` pass no `ok` string ⇒ no toast either.
+3. **HIGH — `Session.tsx:236-242`** ⌘K handoff opens a fully-live `EncounterDialog` in player
+   preview and on a non-live session. `EncounterBuilder.tsx` has **ZERO** `preview`/`isLive`/`isDm`
+   references (`grep` = 0 hits); `Session.tsx:535-541` passes none. Start combat `:356-372` is
+   enabled whenever `rows.length > 0`.
+4. **HIGH — `Session.tsx:1596-1604`** "Push to players" disables itself under focus on SUCCESS
+   (`deliverHandout` `:306-309` clears `handoutTitle`; the button is `disabled={…||!title.trim()}`)
+   ⇒ focus to `<body>`.
+5. **HIGH — `Session.tsx:1003-1022`** "Move X earlier/later in initiative" natively disable
+   themselves when the combatant reaches either end of the order, under focus.
+6. **HIGH — `Session.tsx:1032-1040` Remove combatant / `:1653-1660` Revoke handout** — irreversible,
+   no confirm, no undo, and both unmount the focused control. (`selectedId` is never cleared; the
+   "Selected · X" block just disappears at `:312`.) `combat.end` got a `tone="danger"` Dialog
+   `:542-571`; these two got nothing.
+7. **HIGH — `Session.tsx:1841-1849` "Project to players" / `:1596-1604` "Push to players"** are hard
+   `disabled` with the reason unreachable. The soft exemplars are in the same file `:735-753` and in
+   `ProjectionControl.tsx:106-130`.
+8. MED — `Session.tsx:1289-1301` RecapPanel: switching the Archived-session `Select` re-seeds
+   `draft` from canonical, destroying unsaved markdown.
+9. MED — `Session.tsx:602` collapses `idle|paused|ending|archived` onto **Prep** while the header
+   `:636-642` reads "Standby". For `paused`/`ending` `'prep'` is not allowed ⇒ `Seg`
+   (`screen-kit.tsx:162-163`) gets `selectedIndex === -1` and puts the group's single Tab stop on the
+   UNCHECKED "Live" while "Prep" is `aria-checked="true"`. LATENT (nothing dispatches
+   paused/ending); the `idle` mismatch is live today.
+10. MED — `Campaign.tsx:175-183` `QuestCardRow.update()`: no busy guard (rapid objective toggling
+    queues N full-array replacements) and no success announcement.
+11. MED — `EncounterBuilder.tsx:284-333` start mode ORPHANS an encounter on every retry
+    (`encounter.build` persists before `combat.start`).
+12. MED — `EncounterBuilder.tsx:377-381` error renders at the TOP of the scrolling Dialog body while
+    Start combat is in the FIXED footer.
+13. MED — `EncounterBuilder.tsx:504` "Combatants · N" is inert; the dialog has no `role="status"`.
+14. MED — `EncounterBuilder.tsx:491-499` Add self-disables (`quickAdd` clears `qName` `:241`);
+    `:638-644` per-row Remove unmounts itself. `Dialog`'s `inert` keeps focus inside, so the next Tab
+    restarts at the header Close.
+15. MED — `Session.tsx:1081-1089` ConditionPicker tiles: `padding:0` button around a non-compact
+    `ConditionBadge` (`padding:'2px var(--space-2)'` + `--text-xs`=12px + `line-height:1.4`) ⇒
+    **~23px**, under WCAG 2.5.8's 24px.
+16. MED — `Session.tsx:936` `ConditionBadge`'s remove derives `aria-label={'Clear ' + text}` from the
+    condition alone ⇒ N identical "Clear Poisoned" buttons writing to different creatures. Exactly
+    the bug fixed for Heal/Damage at `:951-966`. Needs a `removeLabel` prop on the DS component.
+17. MED — `Campaign.tsx:686` tab is local `useState('quests')`, not `?tab=`-backed;
+    `CommandCenter.tsx:306` advertises a faction count it cannot deep-link.
+18. MED — `Campaign.tsx:771-778, 799-806, 894-901` create launchers unmount on click → `<body>`;
+    same on `onClose()`. `app/usePanelFocusReturn.ts` EXISTS and is used in `Board.tsx:55` /
+    `SceneEditor.tsx:121-122`.
+19. MED — `Campaign.tsx:833-853` NPCs tab has "New NPC" ONLY in its EmptyState; `:911-921` Factions
+    EmptyState copy promises "create the first faction dossier" with `action={undefined}`.
+20. MED — `CommandCenter.tsx:106-110` `<Icon label>` → `role=img`+`aria-label`
+    (`ds/components/core/Icon.jsx:528`) INSIDE the SceneTile `<button>` `:61`, duplicating the
+    adjacent "Draft" Badge `:103` in the button's name.
+21. MED — `CommandCenter.tsx:511-540` Manage rows have NO hover while `SceneTile` `:59,64-65` and
+    `LaunchTile` `:133,138-139` both hand-roll it.
+22. MED — same missing-hover cause: `Session.tsx:847-969` (`cursor:pointer`, no response),
+    `:886-910` name button, `:1081-1089` condition tiles, `EncounterBuilder.tsx:413-453` roster.
+23. LOW — `screen-kit.tsx:22-32` `radioGroupKeyDown` has no Home/End and focuses+clicks disabled
+    radios, while `Seg` `:164-215` right below does both correctly. 7 consumers, all outside cluster.
+24. LOW — `screen-kit.tsx:254-271` `BackBar`: `padding:0` + 13px font + 16px icon ⇒ ~19px target,
+    no hover, no own focus-visible.
+25. LOW — `EncounterBuilder.tsx:573`/`:603` visible "×"/"CR" not in the accnames
+    `${name} quantity` / `${name} challenge rating` (WCAG 2.5.3).
+26. LOW — `EncounterBuilder.tsx:475-482` quick-add HP `min={0}` vs the floor of 1 at `:232`.
+27. LOW — `EncounterBuilder.tsx:353-355` Cancel stays live during `submitting`; `:360`
+    `disabled={submitting}` natively disables Start mid-write.
+28. LOW — `EncounterBuilder.tsx:246,:300` initiative uses `Math.random()`, not the core RNG.
+29. LOW — `Session.tsx` i18n half-applied: `t()` at `:265,:274,:282,:286,:303,:488,:497`; raw
+    English at `:403,:419,:451,:457,:468,:484,:521,:564` and every panel title.
+30. LOW — `CommandCenter.tsx:397` avatar `slice(0,5)` with no "+N"; `:259-290` "New scene"
+    bare-navigates (`:264,:448,:462`) despite the create-intent comment.
 
-## Probe technique that settled the axe question
-Temp spec in `tests/e2e/`, `page.evaluate` over `window.__rt` to seed state, dump
-`document.querySelectorAll(...)` + focusable-descendant counts, run
-`npx playwright test <file> --project=desktop-chromium --reporter=line`, delete after. Reading the
-axe artifact JSON alone cannot distinguish "clean" from "never rendered".
+## VERIFIED NON-DEFECTS (stop re-flagging)
+- The global `unhandledrejection` toast (premise 1) + no frozen `busy` (premise 2) + Campaign's
+  preview safety (premise 3).
+- **`FactionEditor` sending the whole declared field set incl. `secret` CANNOT wipe a DM secret**:
+  `actorCanAuthorContent` (`queries/content-query.ts:221-224`) and `projectObjectFieldsForRole`
+  (`state/vault-object.ts:332-338`) both gate on `hasDmAuthority`, so anyone who can open the editor
+  already received `secret`.
+- `Seg` (`screen-kit.tsx:147-235`) now HAS Home/End and skips disabled options; `off = disabled &&
+  !on` keeps a checked-but-disabled option clickable.
+- Compact `ConditionBadge` + `onRemove` is ≥24px (the remove button sets `minWidth/minHeight:24`).
+- No raw hex/`rgba()` in any of the 5 files; the 3 `boxShadow` uses are decorative, never focus rings.
+- `QuestEditor`/`FactionEditor` carry `key={id ?? 'new'}`; `EncounterBuilder` resets all drafts in
+  its `[open, mode]` effect. No cross-entity draft bleed anywhere in the cluster.
+- The app's only `<h1>` is `AppShell.tsx:860` (top bar, OUTSIDE `<main>`) — a global decision.
+- `Campaign.tsx:382-386` / `:664-668` `role="alert"` mount WITH their text — correct for `alert`.
+- Phone (393×851) fit is fine across all 5 files: every dense row already sets `flexWrap`, all grids
+  use `minmax(min(100%,Npx),1fr)` or wrap, and the combat row's badge-wrap fix is pinned by
+  `combat.spec.ts:179-235`.
+
+## e2e spec-coupling map (`apps/gm-react/tests/e2e/`) — grep BEFORE changing any role/label
+| spec:line | selector | source |
+|---|---|---|
+| combat:56-101 | End-combat Dialog copy `/no undo/i`, Escape/Keep-running, `/^Build encounter/` | `Session.tsx:542-571`, `:727-757` |
+| combat:143-147 | `role=list`/`listitem`, "AC 13" | `Session.tsx:820-972` |
+| combat:148-149 | `name: 'Heal 1'` / `'Damage 1'` (SUBSTRING) | `:951-966` |
+| combat:151-171 | **`name: '<combatant>', exact: true`** on the name button + `aria-pressed` + Enter | `:886-910` |
+| combat:172 | `li[aria-current="true"]` | `:849` |
+| combat:179-235 | 391px badge-wrap geometry on the name row | `:881-915` |
+| combat:243-250 | `getByRole('status')` matching `/Round \d+, turn \d+/` **and** `order.getByRole('status')` = 0 | `:767-775` |
+| combat:259-263 | `Heal 1 HP — <name>` / `Damage 1 HP — <name>` distinct per row | `:953,:961` |
+| campaign:69,94 | `button 'Create the first quest'` | `Campaign.tsx:799-806` |
+| campaign:83,100 | `button 'Create quest'` (and count 0 after close) | `:390-392` |
+| campaign:114-121 | objective-as-`button` named by its text | `ds QuestCard` via `:191-199` |
+| campaign:138 | `getByLabel('Status of ${title}')` | `:217` |
+| campaign:165,169,244,261,268,277,287 | `getByRole('tab', …)` clicks + `button 'New faction'` | `:753-759`, `:894-901` |
+| campaign:190 | `button 'Edit ${name}'` | `:441` |
+| command-palette:98-111 | ⌘K "Build encounter" MUST open the dialog on a NON-LIVE session | `Session.tsx:236-242` |
+| command-palette:125,149-155 | Start combat keeps `aria-disabled='true'` + `title` `/combatant/i` AND `el.disabled === false` | `EncounterBuilder.tsx:356-372` |
+| command-palette:126-129 | `getByLabel('Quick add', exact)`, `button 'Add' exact` | `:465-499` |
+| command-palette:132 | `getByLabel('Bandit quantity')` | `:579` |
+| command-palette:145 | `button /from the draft$/` | `:640` |
+| authoring-layout:37,42 | 320px no-h-scroll sweep incl. `/campaign`; then `tab 'Factions'` | `Campaign.tsx` grids |
+| a11y-axe-gate:30-31, 218-260 | axe on `/campaign` + `/session` both profiles; `/session#combat` SEEDED running tracker | — |
+| responsive:6,10 | clipping sweep of `/session` + `/campaign` (dialogs never open) | — |
+
+**NO spec references** (free to change): "Push to players" / "Project to players" ON /session
+(`knowledge.spec:230-282` + `graph.spec:186` own the first string on THEIR routes; `atlas.spec:26,
+49,60` + `android-quick-map:352` own the second on the MAP EDITOR), "Revoke handout", "Mark read",
+"Session phase", "Save recap"/"Update recap"/"Archived session", "Handout title", "Combatants ·",
+"Move … earlier/later", "New quest", "New NPC", "Set date"/"+1 day", "Clear <condition>", the
+CommandCenter Manage rows, and the hub hero heading. **Nothing anywhere dispatches or asserts the
+`recap` / `paused` / `ending` workflow states**, so finding #1's fix is entirely spec-free.
+
+## Blast-radius rules
+- Do NOT convert EncounterBuilder's Start combat to hard `disabled` (`command-palette:151` asserts
+  `el.disabled === false`); add a VISIBLE reason and keep a `/combatant/i` `title` branch.
+- Do NOT make ⌘K refuse to OPEN the encounter dialog (`command-palette:98-111`).
+- Keep `Heal 1` / `Damage 1` as a PREFIX; keep the combat name button's accname EXACTLY the
+  combatant's name (`combat:151` is `exact: true`).
+- A second `role="status"` on /session is safe only OUTSIDE the initiative `<ul>` (`combat:249`).
+- A `?tab=` sync on Campaign must use `{replace:true}` and must not clobber the `location.state`
+  create-intent at `Campaign.tsx:696-703`.
 
 See [[char-encounter-cluster]], [[ds-layer-audit]], [[gm-react-ds]], [[completion-pass-ux-patterns]].

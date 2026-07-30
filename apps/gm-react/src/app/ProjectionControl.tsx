@@ -9,7 +9,9 @@ import { useRuntime } from '../runtime/RuntimeContext';
 import { T } from './screen-kit';
 
 // Every core workflow state gets a spoken label so the status pill never shows a raw enum value.
-const WORKFLOW_LABEL: Record<SessionWorkflowState, string> = {
+// Exported so `/session` names the state the same way this control does — it used to call every
+// non-live workflow "Standby", including Recap, which is the one state you cannot go live from.
+export const WORKFLOW_LABEL: Record<SessionWorkflowState, string> = {
 	idle: 'Standby',
 	prep: 'Prep',
 	active: 'Live',

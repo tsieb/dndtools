@@ -317,7 +317,11 @@ export const ICON_REGISTRY = {
 	error: 'CircleX',
 	info: 'Info',
 	// Visibility / actor-safety
-	'dm-only': 'Eye',
+	// `dm-only` used to be `Eye` — the SAME glyph as `visibility-players`. VisibilityChip renders
+	// icon-only in compact mode, so the app's most safety-critical distinction (can the table see
+	// this?) was carried by colour alone at ~33 sites, against the chip's own docstring and A11Y-011.
+	// A mask reads as "concealed from the players" and is distinct in grayscale.
+	'dm-only': 'VenetianMask',
 	hidden: 'EyeOff',
 	'visibility-shared': 'Users',
 	'visibility-players': 'Eye',

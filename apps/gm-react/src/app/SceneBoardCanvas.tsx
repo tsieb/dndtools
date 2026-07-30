@@ -695,7 +695,11 @@ function WidgetFrame({
 				// the selected widget had NO ring at all in Windows High Contrast — and the only
 				// other selection cue, the title chip at `top:-26`, is clipped by the bounded
 				// container for top-row widgets. An outline survives and remaps to `Highlight`.
-				outline: selected ? '2px solid var(--color-accent)' : 'none',
+				// Emit the key ONLY when selected. `outline:'none'` is an INLINE style, so it beat the
+				// app's global `:focus-visible` rule (styles/tokens/base.css) and left every widget
+				// frame with no focus indicator at all — on the one surface whose whole navigation
+				// model is a roving tabindex across those frames (CANVAS-016, WCAG 2.4.7).
+				...(selected ? { outline: '2px solid var(--color-accent)' } : {}),
 				outlineOffset: 2,
 				transition: selected ? 'none' : 'outline-color var(--duration-fast) var(--easing-standard)',
 			}}

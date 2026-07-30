@@ -16,6 +16,7 @@ import {
 	NavRail,
 	Sheet,
 	StatusDot,
+	Toaster,
 	ToastViewport,
 } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
@@ -627,10 +628,7 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 							<Icon name={moreExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={T.ter} />
 						</button>
 						{moreExpanded && (
-							<div
-								id="nav-more-panel"
-								style={{ display: 'flex', flexDirection: 'column', gap: 1 }}
-							>
+							<div id="nav-more-panel" style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
 								{PLATFORM.map((s) => row(s))}
 							</div>
 						)}
@@ -1040,11 +1038,23 @@ export function AppShell({ children }: { children: ReactNode }) {
 				);
 				if (display.queuedCount > 0) {
 					e.preventDefault();
-					void runtime.dispatch({
-						type: 'scene-card.advance',
-						actorId: runtime.defaultActorId,
-						payload: {},
-					});
+					// The visible effect of this shortcut happens on the PLAYER display — a second
+					// screen the DM may not be looking at — so a bare `void dispatch` made "worked",
+					// "refused" and "storage is full" completely indistinguishable. (`dispatchNow`
+					// also rethrows a persist failure, which was landing as an unhandled rejection.)
+					void (async () => {
+						try {
+							const result = await runtime.dispatch({
+								type: 'scene-card.advance',
+								actorId: runtime.defaultActorId,
+								payload: {},
+							});
+							if (result.status === 'rejected') Toaster.error("That card couldn't be shown.");
+							else Toaster.success('Showing the next card.');
+						} catch {
+							Toaster.error("That change couldn't be saved to this device.");
+						}
+					})();
 				}
 				return;
 			}
@@ -1151,11 +1161,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 				data-testid="app-toast-viewport"
 				style={
 					viewport === 'phone'
-					? {
-							bottom:
-								'calc(52px + 2 * var(--space-1) + 1px + var(--safe-area-bottom, 0px))',
-						}
-					: undefined
+						? {
+								bottom: 'calc(52px + 2 * var(--space-1) + 1px + var(--safe-area-bottom, 0px))',
+							}
+						: undefined
 				}
 			/>
 		</div>

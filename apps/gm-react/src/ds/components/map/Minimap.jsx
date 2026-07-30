@@ -58,6 +58,11 @@ export function Minimap({
 
 	const jump = (e) => {
 		if (!onJump) return;
+		// A keyboard Enter/Space on a <button> synthesizes a click with clientX/clientY = 0, so this
+		// used to compute a target well above and left of the map and teleport the DM's viewport to
+		// the top-left corner. `detail === 0` is the synthesized case; arrow keys are the real
+		// keyboard path (see `onJumpKeyDown` below).
+		if (e.detail === 0) return;
 		const r = e.currentTarget.getBoundingClientRect();
 		onJump({ x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height });
 	};

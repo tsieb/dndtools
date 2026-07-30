@@ -61,6 +61,8 @@ export function Slider({
 	// Several sliders can sit in one panel (master volume + one per ambience layer). Literal
 	// "Decrease"/"Increase" names make them indistinguishable to a screen reader (WCAG 2.4.6).
 	const stepperFor = (verb) => (ariaLabel || label ? `${verb} ${ariaLabel || label}` : verb);
+	const atMin = disabled || value <= lo;
+	const atMax = disabled || value >= hi;
 	const trackBg = `linear-gradient(to right, var(--color-accent) 0%, var(--color-accent) ${pct}%, var(--color-surface-sunken) ${pct}%, var(--color-surface-sunken) 100%)`;
 
 	return (
@@ -105,10 +107,19 @@ export function Slider({
 					<button
 						type="button"
 						aria-label={stepperFor('Decrease')}
-						disabled={disabled || value <= lo}
-						onClick={() => fire(Math.max(lo, value - st))}
-						{...stepHover(disabled || value <= lo)}
-						style={stepBtn(disabled || value <= lo)}
+						// Soft-disable at the bound. These used to hard-disable themselves: stepping a
+						// volume fader down to 0 (the common case) natively disabled the button under
+						// the user's own finger, dropping focus to <body> so the next Tab restarted at
+						// the top of the document. `disabled` stays hard only for the whole-control case.
+						disabled={disabled}
+						aria-disabled={atMin || undefined}
+						title={atMin && !disabled ? `Already at the minimum (${lo})` : undefined}
+						onClick={() => {
+							if (atMin) return;
+							fire(Math.max(lo, value - st));
+						}}
+						{...stepHover(atMin)}
+						style={stepBtn(atMin)}
 					>
 						<Icon name="chevron-left" size={16} />
 					</button>
@@ -131,10 +142,15 @@ export function Slider({
 					<button
 						type="button"
 						aria-label={stepperFor('Increase')}
-						disabled={disabled || value >= hi}
-						onClick={() => fire(Math.min(hi, value + st))}
-						{...stepHover(disabled || value >= hi)}
-						style={stepBtn(disabled || value >= hi)}
+						disabled={disabled}
+						aria-disabled={atMax || undefined}
+						title={atMax && !disabled ? `Already at the maximum (${hi})` : undefined}
+						onClick={() => {
+							if (atMax) return;
+							fire(Math.min(hi, value + st));
+						}}
+						{...stepHover(atMax)}
+						style={stepBtn(atMax)}
 					>
 						<Icon name="chevron-right" size={16} />
 					</button>

@@ -58,6 +58,7 @@ export function Dialog({
 	...rest
 }) {
 	const panelRef = React.useRef(null);
+	const bodyRef = React.useRef(null);
 	const returnFocusRef = React.useRef(null);
 	const onCloseRef = React.useRef(onClose);
 	const dismissibleRef = React.useRef(dismissible);
@@ -86,7 +87,16 @@ export function Dialog({
 					// A bad selector is a developer mistake; retain the safe default focus path.
 				}
 			}
-			const f = preferred && !preferred.disabled ? preferred : panel.querySelector(FOCUSABLE);
+			// Query the BODY before the panel. The header (which owns Close) renders before
+			// `children`, so a plain DOM-order `querySelector(FOCUSABLE)` opened ~33 of the app's 37
+			// dialogs focused on Close — i.e. one Enter away from dismissing the very thing you just
+			// opened, and never on the field the dialog exists to collect. Same defect, and the same
+			// fix, as ds/components/overlay/Sheet.jsx and ds/components/core/Popover.jsx.
+			const body = bodyRef.current;
+			const f =
+				preferred && !preferred.disabled
+					? preferred
+					: (body && body.querySelector(FOCUSABLE)) || panel.querySelector(FOCUSABLE);
 			(f || panel).focus();
 		};
 		const t = setTimeout(focusFirst, 0);
@@ -310,6 +320,7 @@ export function Dialog({
 					</div>
 				)}
 				<div
+					ref={bodyRef}
 					style={{
 						padding: 'var(--space-5)',
 						overflowY: 'auto',

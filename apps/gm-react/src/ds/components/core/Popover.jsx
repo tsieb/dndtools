@@ -12,6 +12,23 @@ import { registerBackHandler } from '../../../platform/backNavigation';
  *
  * Position it by passing `anchor={{x, y}}` (map/page coordinates) or render it inline (no anchor).
  */
+/**
+ * How far the panel has to slide horizontally to stay on screen, given its NATURAL (unshifted)
+ * rect. Exported because the geometry cannot be exercised in jsdom, where every rect is zero.
+ *
+ * The popover is anchored with `left: anchor.x` + `translateX(-50%)` and is 320px wide, so a POI in
+ * the outer ~40% of a 393px handset canvas rendered half off-viewport — taking the whole POIPopover
+ * footer (Focus on map / Edit / Copy link / Delete) out of reach with no way to bring it back.
+ */
+export function popoverShiftX(rect, viewportWidth, margin = 8) {
+	if (!rect || !(rect.width > 0) || !(viewportWidth > 0)) return 0;
+	// Wider than the viewport: pin the left edge rather than oscillating between the two overflows.
+	if (rect.width + margin * 2 >= viewportWidth) return margin - rect.left;
+	if (rect.right > viewportWidth - margin) return viewportWidth - margin - rect.right;
+	if (rect.left < margin) return margin - rect.left;
+	return 0;
+}
+
 export function Popover({
 	open = true,
 	onClose,
@@ -81,6 +98,25 @@ export function Popover({
 		};
 	}, [open]);
 
+	// Keep the panel inside the viewport. Measured after every render and self-stabilising: once the
+	// correction is applied the natural rect recomputes to the same value, so it settles in one pass.
+	const [shiftX, setShiftX] = React.useState(0);
+	const shiftRef = React.useRef(0);
+	React.useLayoutEffect(() => {
+		if (!open || !anchor || !ref.current) {
+			shiftRef.current = 0;
+			return;
+		}
+		const r = ref.current.getBoundingClientRect();
+		const applied = shiftRef.current;
+		const natural = { left: r.left - applied, right: r.right - applied, width: r.width };
+		const next = popoverShiftX(natural, document.documentElement.clientWidth);
+		if (Math.abs(next - applied) > 0.5) {
+			shiftRef.current = next;
+			setShiftX(next);
+		}
+	});
+
 	if (!open) return null;
 
 	const positioned = anchor
@@ -88,6 +124,7 @@ export function Popover({
 				position: 'absolute',
 				left: anchor.x,
 				top: anchor.y,
+				marginLeft: shiftX,
 				transform:
 					placement === 'top'
 						? 'translate(-50%, calc(-100% - 12px))'

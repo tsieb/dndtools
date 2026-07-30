@@ -88,7 +88,10 @@ export const MESSAGES: Record<SupportedLocale, Record<string, string>> = {
 		'Create a scene first — a live session needs an active scene.':
 			'Crea una escena primero — una sesión en vivo necesita una escena activa.',
 		'Go live with a scene first.': 'Entra en vivo con una escena primero.',
-		'Session is on standby': 'La sesión está en espera',
+		'Session is in {state}': 'La sesión está en {state}',
+		'Exit player preview before going live': 'Sal de la vista previa antes de entrar en vivo',
+		'Return to Standby first — you cannot go live from {state}.':
+			'Vuelve primero a En espera — no puedes entrar en vivo desde {state}.',
 		'Go live to open combat, dice, handouts, and what players see.':
 			'Entra en vivo para abrir el combate, los dados, el material y lo que ven los jugadores.',
 		'Session live': 'Sesión en vivo',

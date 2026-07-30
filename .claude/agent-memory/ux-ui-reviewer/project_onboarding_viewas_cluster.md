@@ -1,127 +1,122 @@
 ---
 name: onboarding-viewas-cluster
-description: App-shell chrome cluster — Onboarding, ViewAsControl, CommandPalette, ProjectionControl, SceneDisplayOverlay, Join, screen-kit. FIXED-vs-OPEN split re-verified 2026-07-30 @ 7bdf2908 (run #11).
+description: App-shell chrome cluster — Onboarding, ViewAsControl, CommandPalette, ProjectionControl, SceneDisplayOverlay, screen-kit, Join. FIXED-vs-OPEN split re-verified 2026-07-30 @ 45adf828 (run #13).
 metadata:
   type: project
 ---
 
 Cluster = `src/app/{Onboarding,CommandPalette,ProjectionControl,ViewAsControl,SceneDisplayOverlay,
-screen-kit}.tsx` + `src/screens/Join.tsx`. Re-verified on `auto/visual-review-loop` @ `c93c5206`.
+screen-kit}.tsx` + `src/screens/Join.tsx`. Re-verified on `auto/visual-review-loop` @ `45adf828`.
 Re-check by grepping the anchor string, not the line number.
 
-## FIXED since the 2026-07-29 pass — do NOT re-report
-- **ViewAsControl is now largely correct.** All three prior gaps closed: roving Arrow/Home/End on the
-  menu container (`:129-150`), `role="separator"` on the divider (`:175`), `role="presentation"` on
-  `MenuLabel` (`:228`), `role="menuitemradio"` + `aria-checked` on every row (`:260-261`), Tab
-  dismisses (`:125`), `close(true)` restores trigger focus, `maxHeight:'min(70vh,420px)'` +
-  `overflowY:auto` for a full party.
-- **Onboarding `skip()` now persists tier/AI/party** (`:314-318`), Escape-from-a-text-field is
-  guarded (`:487-498`), the ready-checklist rows carry a consequence-naming `aria-label`
-  (`:1147-1151`).
-- **DS `Tabs` ARIA is fully closed** — `idBase` + `tabPanelProps` exist AND all 7 live consumers pass
-  both (MapEditor, Audio, Extensions, Campaign, Characters, Player, Community). ds-audit item 3 DONE.
-
-## ⚠️ FILE LOCATIONS (run #11 correction)
+## FILE LOCATIONS
 The app-level palette is `src/app/CommandPalette.tsx` (273 ln, wraps the DS one). There is NO
 `src/app/CommandPalette.jsx` — the DS component is `src/ds/components/command/CommandPalette.jsx`.
-Between c93c5206 and 7bdf2908 the ONLY chrome-half change was the DS palette's
-`role=status aria-live=polite aria-atomic` on the result-count span (`CommandPalette.jsx:562-570`).
-Every open item below was re-verified unchanged at 7bdf2908.
 
-## NEW @ 7bdf2908 (run #11) — top of the queue
-- **C1 (HIGH). `isolateModalSiblings` INERTS the ToastViewport.** `modalIsolation.ts:21-30` walks to
-  `<body>` setting `aria-hidden` + `inert` on every sibling branch. `<ToastViewport>`
-  (`AppShell.tsx:1149`, `data-testid="app-toast-viewport"`) is a DIRECT SIBLING of
-  `<SceneDisplayOverlay>` (`AppShell.tsx:1143`). So `SceneDisplayOverlay.tsx:195`'s
-  `Toaster.error('…allow pop-ups…')` paints (`--z-toast:600` > the overlay's 120) but is
-  `aria-hidden` to AT and `inert`, so its Dismiss is dead. **Generalises**: `Dialog.jsx:76`,
-  `Sheet.jsx:49` and `map/MapEditor.tsx:180` isolate the same way, so ANY `Toaster.*` fired from
-  inside a dialog/sheet/the map editor is affected. One-line fix: skip
-  `[data-testid="app-toast-viewport"]` in the isolation loop. LOW RISK / HIGH VALUE.
-- **C2 (HIGH). `SceneDisplayOverlay.advance()`/`clear()` (`:124-129`)** discard `CommandResult` AND
-  have no try/catch. `SceneRuntime.ts:508` THROWS `PREVIEW_READONLY_MESSAGE` while previewing and
-  `:524` rethrows on persist failure; the overlay's Ctrl+Shift+S hotkey has no preview guard.
-- **C3 (MED-HIGH). `ViewAsControl.tsx:125-128` Tab calls `close()` not `close(true)`** ⇒ the menu
-  unmounts under the focused row, focus falls to `<body>`, and the browser's default Tab restarts at
-  the top of the document (WCAG 2.4.3). The file already uses `close(true)` at `:59`/`:64`.
-  One-word fix; do NOT preventDefault.
-- **C4 (MED). `CommandPalette.tsx:155-161` `new:scene` is the only Create launcher with NO intent** —
-  `goTo('/scenes')` vs `{create:true}` everywhere else — and `screens/ScenesCreator.tsx` has no
-  `useLocation`/intent reader at all (Atlas `:133`, Knowledge `:879`, Characters `:1661`,
-  Campaign `:697`, Session `:237` all do). Spec-safe: `command-palette.spec.ts:173-186` only asserts
-  `url.hash === '#/scenes'`.
-- **C5 (MED). `ProjectionControl.tsx:62-68` `setWorkflow`** — no try/catch around `runtime.dispatch`,
-  no in-flight latch ⇒ failed persist = dead button, double-click = two `session.set-workflow`.
-- **C6 (MED). The workflow status pill is desktop-only.** `ProjectionControl.tsx:73` `{!compact && …}`
-  hides StatusDot + "Prep"/"Paused"/"Wrapping up"/"Recap"; the compact button's icon only
-  distinguishes live vs not-live, and the state-naming `title` only fires when the transition is
-  BLOCKED. Phone DMs cannot tell Standby from Paused from Recap.
-- **C7 (MED). `Onboarding.ChoiceCard` (`:184-247`) is a `role="radio"` whose accessible name is the
-  whole card** — title + "Recommended" Badge + the ~50-word desc, because everything is inside the
-  button. Fix = `aria-label={title}` + `aria-describedby`. Spec-safe: `responsive.spec.ts:524` uses
-  the REGEX `getByRole('radio', { name: /Start fresh/ })`.
-- **C8 (MED). `ChoiceCard` has NO hover** (`:191-204`, only `on ? T.accSub : T.surf`). The six cards
-  ARE first-run setup. Same class as the hover gaps just fixed in ViewAsControl/LayersPanel/MapEditor.
-- **C9 (LOW). `ViewAsControl.tsx:112-113` `role="menu"` has no `aria-label`**; the trigger's
-  `aria-haspopup`/`aria-expanded` carry no `aria-controls`.
-- **C10 (LOW). `Onboarding.finish()` swallows a failed wipe** (`:388-392` bare `catch {}`) after
-  already writing `VAULT_CHOICE_KEY='fresh'`, then reloads ⇒ "Start fresh" can leave data intact with
-  no error and the seed suppressed.
-- Verified NON-defect: `ChoiceCard`'s roving tabindex is CORRECT in all three radiogroups
-  (`tabIndex={(tabbable ?? on) ? 0 : -1}`, `:189`; vault/experience always have a selection).
-  Verified NON-defect: `--z-toast:600` outranks Onboarding's 400 and MapEditor's 300 — toasts are
-  never painted BEHIND these overlays. The problem is `inert`, not z-order.
+## FIXED — do NOT re-report (verified @ 45adf828)
+- **ViewAsControl is largely correct now**: roving Arrow/Home/End (`:134-155`), `role="separator"`
+  (`:179`), `role="presentation"` on MenuLabel (`:230`), `role="menuitemradio"` + `aria-checked`
+  (`:262-263`), Tab dismisses with `close(true)` (`:125-132`), `maxHeight:'min(70vh,420px)'` +
+  `overflowY:auto`, hover on MenuItem (`:255,:277`).
+- **SceneDisplayOverlay**: `advance()`/`clear()` now share `dispatchDisplay` with try/catch + result
+  check (`:127-154`); the second-screen button is soft-disabled (`:208`) and handles `window.open`
+  returning null (`:219-222`).
+- **ProjectionControl**: `setWorkflow` has try/catch (`:65-77`); the Go live / End button uses
+  `aria-disabled` + a reason `title`/`aria-label` for BOTH blocked cases (`:109-131`).
+- **Onboarding**: `skip()` persists tier/AI/party (`:310-319`); Escape-from-a-text-field is guarded
+  (`:487-498`); the checklist rows carry a consequence-naming `aria-label` (`:1147-1151`);
+  step-change focus goes to `contentRef`, not "Skip setup" (`:295-298`).
+- **CommandPalette**: "Build encounter" carries `{createEncounter:true}` (`:210`).
+- **`isolateModalSiblings` no longer inerts the ToastViewport** (fixed at 9aeebdde).
 
-## STILL OPEN — Onboarding.tsx
-1. **ZERO `aria-live` / `role="status"` / `aria-current` in the entire file** (grep-verified again).
-   Step rail `:607-611` is `aria-hidden="true"`; "Step N of 7" `:1234` is inert text; step-change
-   focus goes to a roleless `tabIndex={-1}` div (`:296-298`).
-2. **Privacy dead-end persists.** Footer `:1237-1240` uses HARD `disabled` and the label only
-   special-cases `privacy === null`, so E2EE + mistyped ack ⇒ plain greyed "Continue", out of the
-   tab order, no reason anywhere. Ack `Input` (~`:860`) still has no `aria-invalid`/`aria-describedby`
-   /error text. Fix = Button's soft-disable (`aria-disabled` + reason `title`), which the DS
-   documents at `Button.jsx:25-26` and this repo already uses in ProjectionControl.
-3. **The only full-screen modal that neither locks body scroll nor calls `isolateModalSiblings`**
-   (`:518-537`). `Dialog.jsx:71-72` and `SceneDisplayOverlay.tsx:76` both do.
-4. Checklist done-state still visual-only; duplicate party note still silently swallowed (`~:421`);
-   `disabled={wiping}` still blurs the just-clicked button out of the Tab trap.
+## PREMISE CORRECTIONS / verified NON-defects (save future runs the hunt)
+- **`Button.jsx:26,:74` — `onClick={soft ? undefined : onClick}`. `aria-disabled` REALLY swallows the
+  click.** The soft-disable is a genuine fix everywhere, not a fake one.
+- **Playwright 1.61's `toBeDisabled()` honours `aria-disabled`**, so converting Onboarding's Continue
+  from hard `disabled` to the soft form does NOT break `onboarding-consent.spec.ts:66`.
+- **`ds/command/CommandPalette.jsx:22` explicitly does NOT portal** ("Renders inline … no portal, no
+  ReactDOM dep"), so `app/CommandPalette.tsx:248-254`'s bubbling-`onInput` mirror is sound and
+  `searchVaultForActor` really runs. Not a dead integration.
+- **`SceneDisplayOverlay.tsx:90-92`'s `offsetParent !== null` filter does NOT break the Tab trap.**
+  The control bar is `position:fixed` (offsetParent null) but its BUTTONS are static children whose
+  offsetParent is that bar — non-null. The trap works.
+- There is NO `<iframe>` anywhere in gm-react. Global `:focus-visible` ring lives at
+  `styles/tokens/base.css:36-38` — never report a missing focus ring without checking there.
 
-## STILL OPEN — SceneDisplayOverlay.tsx
-5. `:166`/`:173` — "Next card" and "Clear display" hard-`disabled` on their own last click ⇒ focus to
-   `<body>`, escaping the overlay's own Tab trap (`:89-106`). The file already uses the soft form
-   correctly at `:183` for the second-screen button — just inconsistent.
-6. **NO pointer entry point at all.** `grep setDisplayOpen` in `src/app/` returns exactly one setter:
-   the Ctrl/Cmd+Shift+S hotkey (`AppShell.tsx:1019-1023`). No button, no menu row, no palette
-   command ⇒ unreachable on phone/tablet, undiscoverable on desktop.
-7. `:173`/`:176` ghost Buttons paint `--color-text-secondary` on a HARD-CODED `rgba(6,9,14,0.72)`
-   bar (`#05070c`, `rgba(255,255,255,.14)` too). In parchment that token is `#5c4a39`
-   (colors.css:160) ⇒ ~1.9:1. The bar never follows the theme.
-8. `advance()`/`clear()` (`:124-129`) discard `CommandResult` — the silent-rejection class.
+## TOP OF QUEUE @ 45adf828 (run #13)
+1. **HIGH `SceneDisplayOverlay.tsx:182/:198/:173/:165` — measured contrast failure.**
+   The control bar hard-codes `background:'rgba(6,9,14,0.72)'` over `#05070c` with
+   `border:'1px solid rgba(255,255,255,0.14)'`, and "Clear display" + "Second screen" are `ghost`
+   Buttons = `--color-text-secondary`. In parchment that token is `#5c4a39` (`colors.css:160`) ⇒
+   **≈2.4:1** (needs 4.5:1). Under `forced-colors: active`, `--color-text-secondary → CanvasText`
+   (`colors.css:378`) while the bar keeps its literal rgba ⇒ black-on-black in HC light. Fix: theme
+   the bar with a surface token (or scope it to a dark colour-scheme) and use `variant="secondary"`.
+   `scene-cards.spec.ts:133,212,223` match by NAME only — spec-safe.
+2. **HIGH `Onboarding.tsx:1243` Continue is HARD-`disabled` with the reason unreachable.**
+   `disabled={step.id==='privacy' && !privacyDecided}` but the label (`:1245-1249`) only special-cases
+   `privacy === null`. Pick E2EE + mistype the ack ⇒ plain greyed "Continue", out of the tab order, no
+   title. The ack `Input` (`:880-887`) has no `aria-invalid`/`aria-describedby`/error text and a
+   `maxLength` that blocks over-typing. Dead end on the one ADR-026 step that cannot be skipped.
+   ⚠️ `responsive.spec.ts:158` pins `'Get started' | 'Continue' | 'Enter Command Center'` EXACTLY —
+   keep "Continue" as a prefix. `onboarding-consent.spec.ts:66` is safe (see NON-defects).
+3. **HIGH `Onboarding.tsx:1147-1151` the checklist `aria-label` ERASES the done state.** The label
+   replaces the whole button subtree, so the check glyph (`:1179`) and the `line-through` (`:1186`) —
+   the ONLY done signals — are never announced. Append `— done`/`— not started`.
+4. **HIGH `Onboarding.tsx` still has ZERO `aria-live`/`role=status`/`aria-current`** (grep-verified: 0
+   hits in 1272 lines). Desktop step rail `:607-611` is `aria-hidden="true"`; the phone indicator
+   `:601-605` and "Step {i+1} of {N}" `:1235-1237` are inert text; step-change focus (`:296-298`)
+   lands on a roleless `tabIndex={-1}` div. Advancing the wizard announces NOTHING.
+5. **MED-HIGH `Onboarding.tsx:519-537`** is still the ONLY full-screen `aria-modal` overlay that
+   neither locks body scroll nor calls `isolateModalSiblings`. Contrast `MapEditor.tsx:183`,
+   `SceneDisplayOverlay.tsx:76`, `Dialog.jsx:71-72`. Its Tab trap (`:505`) also lacks the
+   `offsetParent` visibility filter the other two traps have.
+6. **MED-HIGH NEW `ProjectionControl.tsx:104` the compact "End live session" icon is `audio-off`**
+   (`Icon.jsx:356` → Lucide `VolumeX`). On a phone the label is suppressed (`:139`) AND the status
+   pill is hidden (`:82`), so a muted-speaker glyph is the ONLY visual for the app's most consequential
+   control, and Standby/Prep/Paused/Recap are indistinguishable. Fix: a stop/power glyph + fold
+   `WORKFLOW_LABEL` into the compact `aria-label`. (`canvas.spec.ts:548` matches a DIFFERENT control.)
+7. **MED-HIGH — hard-disable-on-own-click drops focus to `<body>`:** `SceneDisplayOverlay.tsx:191`
+   "Next card" + `:198` "Clear display" (the same file already does it right at `:208`);
+   `Onboarding.tsx:1143` checklist rows + `:1256` finish (`disabled={wiping}`).
+8. **MED `SceneDisplayOverlay` has NO pointer entry point.** `grep setDisplayOpen` across `src/app/`
+   returns exactly two setters, both in `AppShell.tsx` (`:1031` the Ctrl/Cmd+Shift+S hotkey with an
+   `isTyping` guard, `:1056` a close). No button, no menu row, no palette command ⇒ unreachable on
+   phone/tablet, undiscoverable on desktop. `scene-cards.spec.ts:133` opens it by hotkey, so ADDING a
+   launcher is spec-safe.
+9. **MED `ViewAsControl.tsx:178/:182/:190` — "DM view", "Any player" and "Observer" render the SAME
+   Lucide Eye glyph** (`Icon.jsx:320 'dm-only':'Eye'`, `:323 'visibility-players':'Eye'`,
+   `:373 'eye':'Eye'`). Three of seven rows are indistinguishable in the control that decides what a
+   player can see. `graph.spec.ts:97,:179` match `getByRole('radio',{name:'DM view'})` — a different
+   control, so icon changes are spec-safe. Also open: `:112-113` `role="menu"` has no `aria-label`,
+   trigger has no `aria-controls`.
+10. **MED `CommandPalette.tsx:153-161` `new:scene` is still the only Create launcher with no intent**
+    (`goTo('/scenes')` vs `{create:true}` everywhere else) and `screens/ScenesCreator.tsx` has no
+    `location.state` reader. `command-palette.spec.ts:178-179` matches the option NAME only ⇒ safe.
+    `:179-185` "New note" keywords carry `quest thread lore location place handout journal wiki`, so
+    ⌘K "quest" and ⌘K "handout" mis-route to `/knowledge`; `:191` `new:map` duplicates `location place`.
+11. **MED-LOW `Onboarding.tsx:826-832`/`:892-898`** — `role="radiogroup"` wraps the step `<h2>` and its
+    `<p>`, so the group owns non-radio content. `screen-kit.radioGroupKeyDown` (`:22-32`) still has no
+    Home/End and no disabled filter, unlike its siblings `Seg` (`:205-215`) and `Tabs` (`:80-91`).
+12. **MED-LOW `Onboarding.tsx:385-392`** — `writeStorage(VAULT_CHOICE_KEY,'fresh')` runs BEFORE
+    `resetCoreStorage()`, whose failure is a bare `catch {}` followed by an unconditional
+    `reloadAtRoute`. A failed wipe tells the user they started fresh, keeps all their data, and
+    suppresses the sample seed forever.
+13. **LOW `Onboarding.tsx:184-247` `ChoiceCard` is a `role="radio"`** containing the title, a
+    "Recommended" Badge AND a ~50-word desc ⇒ each of the six first-run cards announces its whole
+    paragraph as its name. `responsive.spec.ts:524` matches with a REGEX ⇒ an `aria-label={title}` +
+    `aria-describedby` split is spec-safe. It also has NO hover (`:191-204`).
+14. **LOW — raw z-index hygiene** (not a live paint bug): `ViewAsControl:110/161` (40/50),
+    `SceneDisplayOverlay:165/174` (120/121), `Onboarding:529` (400) use raw numbers while `--z-*`
+    tokens exist. `--z-titlebar` and `--z-sticky` have ZERO consumers.
 
 ## STILL OPEN — screen-kit.tsx (shared primitive)
-9. `BackBar` (`:254-271`) `padding: 0` ⇒ ~17px tall button, WCAG 2.5.8 fail. **Only 2 real consumers**
-   (`Upgrade.tsx:234`, `Knowledge.tsx:446`) — `Characters.tsx:246` defines its OWN local `BackBar`.
-10. `radioGroupKeyDown` (`:22-32`) doesn't filter disabled radios and has no Home/End, unlike its two
-    siblings `Seg` (`:205-215`) and `Tabs` (`:80-91`). Focus/`aria-checked` desync on a disabled row.
+- `BackBar` (`:254-271`) `padding: 0` ⇒ ~17px tall button, WCAG 2.5.8. Only 2 real consumers
+  (`Upgrade.tsx:234`, `Knowledge.tsx:446`) — `Characters.tsx:246` defines its OWN local `BackBar`.
+- `radioGroupKeyDown` (`:22-32`) — see item 11.
 
 ## STILL OPEN — Join.tsx
-11. `:192-196` "Try again" unmounts itself (effect sets `phase:'loading'`, dropping both the
-    `role="alert"` and the button) ⇒ focus to `<body>`. `join.spec.ts:62` pins the name `Try again`,
-    so keeping it mounted / refocusing is spec-safe; renaming is not.
+- `:192-196` "Try again" unmounts itself (the effect sets `phase:'loading'`, dropping both the
+  `role="alert"` and the button) ⇒ focus to `<body>`. `join.spec.ts:62` pins the name `Try again`, so
+  keeping it mounted / refocusing is spec-safe; renaming is not.
 
-## Raw z-index hygiene (LOW — verified NOT a live paint bug)
-`ViewAsControl:110/156` (40/50), `SceneDisplayOverlay:140/149` (120/121), `Onboarding:529` (400) use
-raw numbers while `--z-*` tokens exist. **`--z-titlebar` and `--z-sticky` have ZERO consumers**, and
-the AppShell hotkey guard (`:1000`) refuses to open the display overlay while another `aria-modal`
-is up, so nothing currently paints over the z-120 overlay. Tokenization only.
-
-## PREMISE CORRECTIONS (save future runs the hunt)
-- **There is NO `<iframe>` anywhere in gm-react** (grepped all .tsx/.jsx: 0 hits). `Extensions.tsx`
-  has no custom-widget iframe surface — only a `<Badge status="info">sandboxed</Badge>` at `:519`.
-  The iframe/CSP story lives in the archived Svelte app.
-- `Join.tsx:175 Icon name="UserCircle"` DOES resolve (`Icon.jsx:506` maps it to itself). Not a dead
-  glyph — Icon falls back to `Square` for unknown names (`Icon.jsx:526`).
-- Global `:focus-visible` ring exists at `styles/tokens/base.css:36-38`. Never report a missing focus
-  ring without checking that file first.
-
-See also [[ds-layer-audit]], [[settings-extensions-cluster]], [[audio-upgrade-scenes-creator-cluster]].
+See also [[map-editor-cluster]], [[ds-layer-audit]].

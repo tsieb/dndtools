@@ -64,6 +64,7 @@ import { useRuntime } from '../runtime/RuntimeContext';
 import { useSession } from '../net/SessionContext';
 import type { HostPeer } from '../net/SessionHost';
 import { useViewport } from '../app/useViewport';
+import { WORKFLOW_LABEL } from '../app/ProjectionControl';
 
 /**
  * Session — the live-play console, wired to the real Processing Core (was a local-reducer mock).
@@ -102,6 +103,9 @@ export function Session() {
 	const actorId = runtime.defaultActorId;
 	const workflow = runtime.state.session.workflow;
 	const isLive = workflow === 'active';
+	// `recap → active` is not a legal core transition (session-workflow.ts), so the standby card's
+	// "Go live" was a button that could only ever fail.
+	const canGoLive = allowedTransitionsFrom(workflow as SessionWorkflowState).includes('active');
 	const previewing = !!runtime.preview;
 	const isDm = runtime.state.permissions.actors[actorId]?.role === 'dm';
 
@@ -341,17 +345,37 @@ export function Session() {
 					<Icon name="info" size="md" color={T.acc} />
 					<div style={{ flex: 1 }}>
 						<div style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>
-							{t('Session is on standby')}
+							{/* This used to read "Session is on standby" for EVERY non-live workflow, so
+							    the one state you cannot go live from — Recap — described itself as the
+							    one state you can. Name the real state, as ProjectionControl does. */}
+							{t('Session is in {state}', { state: t(WORKFLOW_LABEL[workflow] ?? 'Standby') })}
 						</div>
 						<div style={{ font: `12px ${T.sans}`, color: T.sub }}>
-							{t('Go live to open combat, dice, handouts, and what players see.')}
+							{canGoLive
+								? t('Go live to open combat, dice, handouts, and what players see.')
+								: t('Return to Standby first — you cannot go live from {state}.', {
+										state: t(WORKFLOW_LABEL[workflow] ?? 'Standby'),
+									})}
 						</div>
 					</div>
 					<Button
 						variant="primary"
 						size="sm"
 						icon="visibility-players"
-						disabled={previewing || !isDm}
+						// aria-disabled, not `disabled`: the reason has to stay announceable. And
+						// `canGoLive` is the fix for the real defect — from `recap` this button was
+						// fully enabled while the core forbids recap→active, so every press produced a
+						// guaranteed rejection toast and the screen offered no other way out.
+						aria-disabled={previewing || !isDm || !canGoLive || undefined}
+						title={
+							previewing
+								? t('Exit player preview before going live')
+								: !canGoLive
+									? t('Finish {state} and return to Standby before going live', {
+											state: t(WORKFLOW_LABEL[workflow] ?? 'Standby'),
+										})
+									: t('Go live')
+						}
 						onClick={goLive}
 					>
 						{t('Go live')}
@@ -597,9 +621,16 @@ function SessionHeader({
 }: {
 	workflow: string;
 	sceneName: string | null;
-	onSetWorkflow: (w: 'prep' | 'active' | 'recap') => void;
+	onSetWorkflow: (w: 'idle' | 'prep' | 'active' | 'recap') => void;
 }) {
-	const phase = workflow === 'active' ? 'active' : workflow === 'recap' ? 'recap' : 'prep';
+	const phase =
+		workflow === 'active'
+			? 'active'
+			: workflow === 'recap'
+				? 'recap'
+				: workflow === 'prep'
+					? 'prep'
+					: 'idle';
 	// Only offer phases the core workflow table allows from here, so a click can't fire a rejected
 	// transition + error toast (e.g. active→prep, recap→active are not legal). The current phase stays
 	// enabled regardless (Seg keeps the checked option active).
@@ -615,8 +646,13 @@ function SessionHeader({
 			<Seg
 				value={phase}
 				ariaLabel="Session phase"
-				onChange={(v) => onSetWorkflow(v as 'prep' | 'active' | 'recap')}
+				onChange={(v) => onSetWorkflow(v as 'idle' | 'prep' | 'active' | 'recap')}
 				options={[
+					// `idle` (Standby) has to be offered. Without it, `recap` — whose only legal moves
+					// are recap/archived/idle — had EVERY segment disabled or already checked, and the
+					// standby card's Go live was rejected by the core, so a DM who ended one session
+					// could not start another without editing IndexedDB.
+					{ value: 'idle', label: 'Standby', disabled: !allowed.has('idle') },
 					{ value: 'prep', label: 'Prep', disabled: !allowed.has('prep') },
 					{ value: 'active', label: 'Live', disabled: !allowed.has('active') },
 					{ value: 'recap', label: 'Recap', disabled: !allowed.has('recap') },
@@ -638,7 +674,9 @@ function SessionHeader({
 						Players see <strong style={{ color: T.ink }}>{sceneName ?? 'the scene'}</strong>
 					</>
 				) : (
-					<>Standby</>
+					// Was a hard-coded "Standby" for all six non-live states, sitting right beside a
+					// Seg that showed a different phase — the header and the control disagreed.
+					<>{WORKFLOW_LABEL[workflow as SessionWorkflowState] ?? 'Standby'}</>
 				)}
 			</span>
 		</div>

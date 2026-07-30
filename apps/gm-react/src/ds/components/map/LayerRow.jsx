@@ -176,7 +176,10 @@ export function LayerRow({
 						border: '1px solid var(--color-border-focus)',
 						borderRadius: 'var(--radius-sm)',
 						padding: '2px 6px',
-						outline: 'none',
+						// NO inline `outline:'none'` here: an inline style beats any stylesheet, so it
+						// killed the global :focus-visible ring on a field that is autoFocus'd the
+						// moment a keyboard user starts a rename. Same defect Input/Textarea/Select
+						// were fixed for; the --color-border-focus border stacks with the ring.
 					}}
 				/>
 			) : (

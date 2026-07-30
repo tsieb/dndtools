@@ -53,6 +53,19 @@ const bodyWrap: React.CSSProperties = {
 	overflow: 'hidden',
 };
 
+/** Off-canvas but still announced — for text that only completes a visible readout's sentence. */
+const SR_ONLY: React.CSSProperties = {
+	position: 'absolute',
+	width: 1,
+	height: 1,
+	margin: -1,
+	padding: 0,
+	overflow: 'hidden',
+	clip: 'rect(0 0 0 0)',
+	whiteSpace: 'nowrap',
+	border: 0,
+};
+
 function Chip({
 	children,
 	tone = 'neutral',
@@ -125,7 +138,9 @@ function OpChip({
 		<button
 			className="scene-board-operation"
 			type="button"
-			aria-label={unavailable ? `${ariaLabel ?? label} — ${unavailableReason}` : (ariaLabel ?? label)}
+			aria-label={
+				unavailable ? `${ariaLabel ?? label} — ${unavailableReason}` : (ariaLabel ?? label)
+			}
 			aria-disabled={unavailable || undefined}
 			title={unavailableReason}
 			onClick={unavailable ? undefined : onPress}
@@ -280,17 +295,26 @@ function DiceBody({
 					unavailableReason={sessionOnly}
 					onPress={canRoll ? () => onCommand('dice.roll', { expression: formulas[0] }) : undefined}
 				/>
-				{lastRoll && (
-					<span
-						style={{
-							font: '700 var(--text-sm) var(--font-mono)',
-							color: 'var(--color-text-primary)',
-						}}
-						aria-label={`Last result for ${lastRoll.expression}: ${lastRoll.total}`}
-					>
-						= {lastRoll.total}
-					</span>
-				)}
+				{/* The readout used to be a bare <span> carrying an `aria-label`. `role=generic`
+				    PROHIBITS an accessible name, so the careful "Last result for 1d20: 15" wording
+				    reached nobody — and mutating the text in place announced nothing either, so
+				    pressing Roll produced no output at all for a screen-reader user. The region is
+				    mounted permanently (empty before the first roll): a live region inserted TOGETHER
+				    with its text is routinely dropped. The number appears exactly ONCE in the DOM —
+				    only the descriptive prefix is visually hidden — so no locator becomes ambiguous. */}
+				<span
+					role="status"
+					style={{
+						font: '700 var(--text-sm) var(--font-mono)',
+						color: 'var(--color-text-primary)',
+					}}
+				>
+					{lastRoll && (
+						<>
+							<span style={SR_ONLY}>Last result for {lastRoll.expression} </span>= {lastRoll.total}
+						</>
+					)}
+				</span>
 			</div>
 		</div>
 	);
@@ -329,6 +353,24 @@ function TimerBody({
 	const op = (type: string, payload: Record<string, unknown> = {}) =>
 		declares(type) ? () => onCommand?.(type, payload) : undefined;
 	const sessionOnly = useSessionOnlyReason();
+	const transport: {
+		icon: string;
+		label: string;
+		ariaLabel?: string;
+		command: string;
+		payload: Record<string, unknown>;
+	} =
+		countdown.status === 'running'
+			? { icon: 'pause', label: 'Pause', command: 'timer.pause', payload: {} }
+			: countdown.status === 'paused'
+				? { icon: 'play', label: 'Resume', command: 'timer.resume', payload: {} }
+				: {
+						icon: 'play',
+						label: 'Start',
+						ariaLabel: `Start ${configured}-second timer`,
+						command: 'timer.start',
+						payload: { durationSeconds: configured },
+					};
 
 	return (
 		<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', height: '100%' }}>
@@ -353,28 +395,25 @@ function TimerBody({
 					gap: 4,
 				}}
 			>
-				{(countdown.status === 'stopped' || countdown.status === 'expired') && (
-					<OpChip
-						icon="play"
-						label="Start"
-						ariaLabel={`Start ${configured}-second timer`}
-						unavailableReason={sessionOnly}
-						onPress={op('timer.start', { durationSeconds: configured })}
-					/>
-				)}
-				{countdown.status === 'running' && (
-					<OpChip icon="pause" label="Pause" unavailableReason={sessionOnly} onPress={op('timer.pause')} />
-				)}
-				{countdown.status === 'paused' && (
-					<OpChip
-						icon="play"
-						label="Resume"
-						unavailableReason={sessionOnly}
-						onPress={op('timer.resume')}
-					/>
-				)}
+				{/* ONE transport control whose label/icon/command follow the status, NOT three
+				    conditionally-rendered siblings. JSX gives each `{cond && …}` expression its own
+				    fixed child slot, so React could not reconcile Pause (slot 2) with Resume (slot 3):
+				    pressing Pause DESTROYED the very button the user had just activated, dropping
+				    focus to <body> so the next Tab restarted at the skip link. */}
+				<OpChip
+					icon={transport.icon}
+					label={transport.label}
+					ariaLabel={transport.ariaLabel}
+					unavailableReason={sessionOnly}
+					onPress={op(transport.command, transport.payload)}
+				/>
 				{countdown.status !== 'stopped' && declares('timer.reset') && (
-					<OpChip icon="retry" label="Reset" unavailableReason={sessionOnly} onPress={op('timer.reset')} />
+					<OpChip
+						icon="retry"
+						label="Reset"
+						unavailableReason={sessionOnly}
+						onPress={op('timer.reset')}
+					/>
 				)}
 			</div>
 		</div>

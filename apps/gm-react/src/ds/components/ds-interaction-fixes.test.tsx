@@ -11,7 +11,9 @@ import { LayerRow as RawLayerRow } from './map/LayerRow.jsx';
 import { IconButton as RawIconButton } from './core/IconButton.jsx';
 import { Input as RawInput, Textarea as RawTextarea } from './forms/Input.jsx';
 import { Select as RawSelect } from './forms/Select.jsx';
-import { Popover as RawPopover } from './core/Popover.jsx';
+import { Popover as RawPopover, popoverShiftX } from './core/Popover.jsx';
+import { ProgressMeter as RawProgressMeter } from './system/ProgressMeter.jsx';
+import { Checkbox as RawCheckbox } from './forms/Checkbox.jsx';
 import { Dialog as RawDialog } from './overlay/Dialog.jsx';
 import { Toaster, ToastViewport as RawToastViewport } from './overlay/Toast.jsx';
 import { Sheet as RawSheet } from './overlay/Sheet.jsx';
@@ -49,6 +51,8 @@ const Avatar = RawAvatar as React.ComponentType<DsProps>;
 const QuestCard = RawQuestCard as React.ComponentType<DsProps>;
 const Tabs = RawTabs as React.ComponentType<DsProps>;
 const Minimap = RawMinimap as React.ComponentType<DsProps>;
+const ProgressMeter = RawProgressMeter as React.ComponentType<DsProps>;
+const Checkbox = RawCheckbox as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;
@@ -867,5 +871,232 @@ describe('shared primitives stop announcing themselves identically', () => {
 		// `padding: 2` around a 14px glyph made this ~18px next to a correct 36px Expand button.
 		expect(collapse.style.width).toBe('24px');
 		expect(collapse.style.height).toBe('24px');
+	});
+});
+
+describe('the DM-only cue survives grayscale', () => {
+	it('does not reuse the player-visible glyph for DM only', () => {
+		// VisibilityChip renders icon-ONLY in compact mode, so while `dm-only` and
+		// `visibility-players` were both Lucide `Eye` the app's most safety-critical distinction —
+		// can the table see this? — was carried by colour alone at ~33 sites (WCAG 1.4.1).
+		const nameOf = (level: string) => {
+			act(() => root.render(<VisibilityChip level={level} compact />));
+			const svg = container.querySelector('svg');
+			return svg ? svg.getAttribute('class') || svg.outerHTML : '';
+		};
+		const dmOnly = nameOf('dm-only');
+		const players = nameOf('players');
+		const hidden = nameOf('hidden');
+		expect(dmOnly).not.toBe('');
+		expect(dmOnly).not.toBe(players);
+		expect(dmOnly).not.toBe(hidden);
+	});
+});
+
+describe('Dialog opens on the work, not on the way out', () => {
+	it('focuses the first control in the body rather than the header Close', async () => {
+		// The header renders before `children`, so a DOM-order query put ~33 of the app's 37 dialogs
+		// one Enter away from dismissing themselves. Same defect Sheet and Popover were fixed for.
+		act(() =>
+			root.render(
+				<Dialog open title="Name this map" onClose={() => {}}>
+					<input aria-label="Map name" />
+					<button type="button">Create map</button>
+				</Dialog>,
+			),
+		);
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 5));
+		});
+		expect((document.activeElement as HTMLElement)?.getAttribute('aria-label')).toBe('Map name');
+	});
+
+	it('still falls back to the header when the body has nothing focusable', async () => {
+		act(() =>
+			root.render(
+				<Dialog open title="Nothing to do" onClose={() => {}}>
+					<p>All done.</p>
+				</Dialog>,
+			),
+		);
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 5));
+		});
+		const active = document.activeElement as HTMLElement;
+		expect(active.getAttribute('aria-label') || active.getAttribute('title')).toMatch(/close/i);
+	});
+
+	it('keeps honouring an explicit initialFocus over the body order', async () => {
+		act(() =>
+			root.render(
+				<Dialog open title="Confirm" onClose={() => {}} initialFocus="[data-keep]">
+					<button type="button">Delete</button>
+					<button type="button" data-keep>
+						Keep
+					</button>
+				</Dialog>,
+			),
+		);
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 5));
+		});
+		expect((document.activeElement as HTMLElement)?.textContent).toBe('Keep');
+	});
+});
+
+describe('Popover stays inside the viewport', () => {
+	// The panel is anchored with `left: anchor.x` + translateX(-50%) at 320px wide, so a POI in the
+	// outer ~40% of a 393px handset canvas rendered half off-screen, taking the POIPopover footer
+	// (Focus on map / Edit / Copy link / Delete) out of reach with no way to bring it back.
+	// jsdom reports every rect as zero, so the geometry is proved against the exported pure helper.
+	const rect = (left: number, width: number) => ({ left, right: left + width, width });
+
+	it('leaves a panel that already fits exactly where the caller put it', () => {
+		expect(popoverShiftX(rect(40, 320), 393)).toBe(0);
+	});
+
+	it('pulls a panel overflowing the right edge back inside', () => {
+		// A POI at x=0.7 of a 393px well: natural left 275-160 = 115, right 435 — 42px off-screen.
+		expect(popoverShiftX(rect(115, 320), 393)).toBe(-50);
+		expect(115 + 320 + popoverShiftX(rect(115, 320), 393)).toBe(393 - 8);
+	});
+
+	it('pushes a panel overflowing the left edge back inside', () => {
+		expect(popoverShiftX(rect(-30, 320), 393)).toBe(38);
+		expect(-30 + popoverShiftX(rect(-30, 320), 393)).toBe(8);
+	});
+
+	it('pins the left edge rather than oscillating when the panel is wider than the viewport', () => {
+		expect(popoverShiftX(rect(20, 400), 380)).toBe(-12);
+	});
+
+	it('is a no-op before anything has been measured', () => {
+		expect(popoverShiftX(rect(0, 0), 393)).toBe(0);
+		expect(popoverShiftX(rect(0, 320), 0)).toBe(0);
+		expect(popoverShiftX(null, 393)).toBe(0);
+	});
+});
+
+describe('the minimap cannot be teleported by the keyboard', () => {
+	it('ignores the synthesized click Enter produces on the jump surface', () => {
+		// A keyboard Enter/Space synthesizes a click with clientX/clientY = 0, which used to compute a
+		// target above and left of the map and throw the DM's viewport to the top-left corner.
+		const jumps: unknown[] = [];
+		act(() =>
+			root.render(
+				<Minimap
+					collapsed={false}
+					onToggle={() => {}}
+					viewport={{ x: 0.4, y: 0.4, w: 0.2, h: 0.2 }}
+					onJump={(v: unknown) => jumps.push(v)}
+				/>,
+			),
+		);
+		const surface = Array.from(container.querySelectorAll('button')).find((b) =>
+			(b.getAttribute('aria-label') || '').startsWith('Jump viewport'),
+		) as HTMLButtonElement;
+		act(() => {
+			surface.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
+		});
+		expect(jumps).toHaveLength(0);
+		// A real pointer click still jumps, and the arrow keys still pan.
+		act(() => {
+			surface.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+		});
+		expect(jumps).toHaveLength(1);
+	});
+});
+
+describe('Slider steppers do not vanish under the user’s own finger', () => {
+	it('soft-disables at the bounds instead of leaving the tab order', () => {
+		// Stepping a volume fader down to 0 — the common case — used to natively disable the focused
+		// button, dropping focus to <body> so the next Tab restarted at the top of the document.
+		act(() =>
+			root.render(
+				<Slider label="Music" min={0} max={100} value={0} steppers onChange={() => {}} />,
+			),
+		);
+		const dec = Array.from(container.querySelectorAll('button')).find(
+			(b) => b.getAttribute('aria-label') === 'Decrease Music',
+		) as HTMLButtonElement;
+		expect(dec.disabled).toBe(false);
+		expect(dec.getAttribute('aria-disabled')).toBe('true');
+		expect(dec.getAttribute('title')).toMatch(/minimum/i);
+		act(() => dec.focus());
+		expect(document.activeElement).toBe(dec);
+	});
+
+	it('swallows the press at the bound and still fires away from it', () => {
+		const seen: number[] = [];
+		act(() =>
+			root.render(
+				<Slider
+					label="Music"
+					min={0}
+					max={100}
+					value={0}
+					steppers
+					onChange={(v: number) => seen.push(v)}
+				/>,
+			),
+		);
+		const btn = (name: string) =>
+			Array.from(container.querySelectorAll('button')).find(
+				(b) => b.getAttribute('aria-label') === name,
+			) as HTMLButtonElement;
+		act(() => btn('Decrease Music').click());
+		expect(seen).toEqual([]);
+		act(() => btn('Increase Music').click());
+		expect(seen).toEqual([1]);
+	});
+
+	it('keeps the hard native disable for the whole-control case', () => {
+		act(() =>
+			root.render(
+				<Slider label="Music" min={0} max={100} value={50} steppers disabled onChange={() => {}} />,
+			),
+		);
+		const dec = Array.from(container.querySelectorAll('button')).find(
+			(b) => b.getAttribute('aria-label') === 'Decrease Music',
+		) as HTMLButtonElement;
+		expect(dec.disabled).toBe(true);
+	});
+});
+
+describe('a progress bar announces what it shows', () => {
+	it('carries the visible readout as aria-valuetext', () => {
+		// Without this the encounter builder's difficulty meter showed "12 / 40 pts" and announced a
+		// bare percentage.
+		act(() =>
+			root.render(
+				<ProgressMeter label="Difficulty" value={12} max={40} valueLabel="12 / 40 pts" />,
+			),
+		);
+		const bar = container.querySelector('[role="progressbar"]')!;
+		expect(bar.getAttribute('aria-valuetext')).toBe('12 / 40 pts');
+		expect(bar.getAttribute('aria-valuenow')).toBe('12');
+	});
+
+	it('omits it when the caller shows the default percentage', () => {
+		act(() => root.render(<ProgressMeter label="Difficulty" value={12} max={40} />));
+		expect(container.querySelector('[role="progressbar"]')!.getAttribute('aria-valuetext')).toBe(
+			null,
+		);
+	});
+});
+
+describe('a disabled checkbox says so', () => {
+	it('announces aria-disabled rather than silently leaving the tab order', () => {
+		act(() => root.render(<Checkbox label="Show grid" disabled onChange={() => {}} />));
+		const box = container.querySelector('[role="checkbox"]')!;
+		expect(box.getAttribute('aria-disabled')).toBe('true');
+		expect(box.getAttribute('tabindex')).toBe('-1');
+	});
+
+	it('says nothing when it is operable', () => {
+		act(() => root.render(<Checkbox label="Show grid" onChange={() => {}} />));
+		const box = container.querySelector('[role="checkbox"]')!;
+		expect(box.getAttribute('aria-disabled')).toBe(null);
+		expect(box.getAttribute('tabindex')).toBe('0');
 	});
 });
