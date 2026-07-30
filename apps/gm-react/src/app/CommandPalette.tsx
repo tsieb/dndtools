@@ -9,7 +9,7 @@ import {
 } from '@dndtools/core';
 import { CommandPalette as DSCommandPalette } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
-import { RUN, LIBRARY, PLATFORM } from './nav';
+import { RUN, LIBRARY, PLATFORM, PLAYER_SECTION, SETTINGS_SECTION } from './nav';
 
 interface PaletteCommand {
 	id: string;
@@ -97,7 +97,9 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 			navigate(path, state ? { state } : undefined);
 			onClose();
 		};
-		const sections = [...RUN, ...LIBRARY, ...PLATFORM].map((s) => ({
+		// Player view and Settings live outside the three nav groups but are still destinations —
+		// omitting them made "settings" / "player" return "No matches" in the jump-anywhere surface.
+		const sections = [...RUN, ...LIBRARY, ...PLATFORM, PLAYER_SECTION, SETTINGS_SECTION].map((s) => ({
 			id: `nav:${s.id}`,
 			label: s.label,
 			icon: s.icon,

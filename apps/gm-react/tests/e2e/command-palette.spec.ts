@@ -108,4 +108,29 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 		await page.getByRole('combobox').fill('zzzznotarealcommandxyzzy');
 		await expect(page.getByText('No matches')).toBeVisible();
 	});
+
+	// Settings and Player view live outside the three nav GROUPS (RUN / LIBRARY / PLATFORM) that the
+	// "Go to" set was built from, so the jump-anywhere surface silently omitted two of the app's own
+	// destinations — typing either name returned "No matches".
+	test('Settings is reachable from the palette', async ({ page }) => {
+		await openViaKeyboard(page, 'Meta+k');
+		await page.getByRole('combobox').fill('Settings');
+		const option = page.getByRole('option', { name: 'Settings' }).first();
+		await expect(option).toBeVisible();
+		await option.click();
+
+		await page.waitForURL((url) => url.hash === '#/settings', { timeout: 10_000 });
+		await expect(page.getByRole('dialog', PALETTE)).toHaveCount(0);
+	});
+
+	test('Player view is reachable from the palette', async ({ page }) => {
+		await openViaKeyboard(page, 'Meta+k');
+		await page.getByRole('combobox').fill('Player view');
+		const option = page.getByRole('option', { name: 'Player view' }).first();
+		await expect(option).toBeVisible();
+		await option.click();
+
+		await page.waitForURL((url) => url.hash === '#/player', { timeout: 10_000 });
+		await expect(page.getByRole('dialog', PALETTE)).toHaveCount(0);
+	});
 });

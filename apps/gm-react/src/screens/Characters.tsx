@@ -383,8 +383,12 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 		});
 	}
 	async function applyAc() {
+		// `Number('')` is 0, which is finite — so a blank field used to sail past the guard and
+		// silently overwrite the character's AC with 0. The placeholder shows the current AC, so
+		// this read as a no-op right up until the armour class was gone.
+		if (acDraft.trim() === '') return;
 		const n = Math.trunc(Number(acDraft));
-		if (!Number.isFinite(n)) return;
+		if (!Number.isFinite(n) || n < 0) return;
 		if (
 			await dispatch({ type: 'character.set-combat', actorId, payload: { characterId: id, ac: n } })
 		)
@@ -527,7 +531,12 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	);
 
 	async function setXp() {
-		const n = Math.max(0, Math.trunc(Number(xpInput) || 0));
+		// Same trap as applyAc: `Number('') || 0` is 0, so an empty field reset accumulated XP to
+		// zero (and revoked level-up eligibility) on a single stray click.
+		if (xpInput.trim() === '') return;
+		const parsed = Number(xpInput);
+		if (!Number.isFinite(parsed)) return;
+		const n = Math.max(0, Math.trunc(parsed));
 		if (await dispatch({ type: 'character.set-xp', actorId, payload: { characterId: id, xp: n } }))
 			setXpInput('');
 	}

@@ -491,7 +491,8 @@ export function ConnectedSourcesPanel() {
 			action={
 				<div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
 					<Select
-						options={PULL_POLICIES}
+						aria-label="Import collision policy"
+					options={PULL_POLICIES}
 						value={policy}
 						onChange={(e: { target: { value: string } }) => setPolicy(e.target.value)}
 					/>
@@ -776,7 +777,9 @@ export function ConnectedSourcesPanel() {
 										first={i === 0}
 									>
 										<Select
-											options={noteOptions}
+											// One picker per connected doc — unnamed, they were indistinguishable.
+										aria-label={`Note to push to ${conn.title}`}
+										options={noteOptions}
 											value={pushNoteBySource[conn.docId] ?? ''}
 											onChange={(e: { target: { value: string } }) =>
 												setPushNoteBySource((prev) => ({ ...prev, [conn.docId]: e.target.value }))

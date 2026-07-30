@@ -3917,7 +3917,10 @@ function SettingsAI() {
 					<Switch
 						checked={mcp.enabled}
 						disabled={!canWrite || busy}
-						label={mcp.enabled ? 'Enabled' : 'Off'}
+						// Without this the accessible name of the campaign-wide AI kill switch was just its
+					// own state word — a screen reader announced "Off, switch, off".
+					aria-label="AI and agent access"
+					label={mcp.enabled ? 'Enabled' : 'Off'}
 						onChange={() =>
 							run(
 								{ type: 'mcp.set-enabled', actorId, payload: { enabled: !mcp.enabled } },

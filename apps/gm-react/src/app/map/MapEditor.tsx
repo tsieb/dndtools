@@ -814,7 +814,10 @@ export function MapEditor({
 						<IconButton
 							icon="layers"
 							label="Panels"
-							variant={mobileDock ? 'primary' : 'outline'}
+							// IconButton has no "primary" variant — it silently fell through to `ghost`, so
+						// the open state lost its border and read as disabled. It is also a toggle.
+						variant={mobileDock ? 'accent' : 'outline'}
+						aria-pressed={mobileDock}
 							size="sm"
 							onClick={() => setMobileDock(true)}
 						/>

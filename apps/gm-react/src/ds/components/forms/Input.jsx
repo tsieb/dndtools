@@ -27,14 +27,14 @@ export function Input({ invalid = false, icon, style, ...rest }) {
 				<span style={{ position: 'absolute', left: 'var(--space-2-5, 10px)', display: 'inline-flex', color: 'var(--color-text-tertiary)', pointerEvents: 'none' }}>
 					<Icon name={icon} size="sm" />
 				</span>
-				<input style={{ ...baseField(invalid), paddingLeft: 'calc(var(--space-4) + var(--icon-size-sm))', ...style }} onFocus={focusOn} onBlur={(e) => focusOff(e, invalid)} {...rest} />
+				<input aria-invalid={invalid || undefined} style={{ ...baseField(invalid), paddingLeft: 'calc(var(--space-4) + var(--icon-size-sm))', ...style }} onFocus={focusOn} onBlur={(e) => focusOff(e, invalid)} {...rest} />
 			</div>
 		);
 	}
-	return <input style={{ ...baseField(invalid), ...style }} onFocus={focusOn} onBlur={(e) => focusOff(e, invalid)} {...rest} />;
+	return <input aria-invalid={invalid || undefined} style={{ ...baseField(invalid), ...style }} onFocus={focusOn} onBlur={(e) => focusOff(e, invalid)} {...rest} />;
 }
 
 /** Textarea — multi-line text (notes, terrain descriptions). */
 export function Textarea({ invalid = false, rows = 4, style, ...rest }) {
-	return <textarea rows={rows} style={{ ...baseField(invalid), minHeight: 'auto', resize: 'vertical', lineHeight: 'var(--leading-body)', ...style }} onFocus={focusOn} onBlur={(e) => focusOff(e, invalid)} {...rest} />;
+	return <textarea rows={rows} aria-invalid={invalid || undefined} style={{ ...baseField(invalid), minHeight: 'auto', resize: 'vertical', lineHeight: 'var(--leading-body)', ...style }} onFocus={focusOn} onBlur={(e) => focusOff(e, invalid)} {...rest} />;
 }

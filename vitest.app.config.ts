@@ -16,7 +16,9 @@ export default defineConfig({
 	},
 	test: {
 		name: 'app',
-		include: ['apps/gm-react/src/**/*.test.ts'],
+		// `.tsx` too, so the design-system components can be asserted against a real DOM (each such
+		// file opts into jsdom with its own `@vitest-environment` pragma).
+		include: ['apps/gm-react/src/**/*.test.{ts,tsx}'],
 		exclude: [
 			'**/node_modules/**',
 			'apps/gm-react/src/net/**',

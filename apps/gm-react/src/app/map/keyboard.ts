@@ -105,7 +105,7 @@ export function useMapKeyboard(
 			// Delete the selected POIs/tokens.
 			if ((e.key === 'Delete' || e.key === 'Backspace') && editor.selection.length > 0) {
 				e.preventDefault();
-				deleteSelection(editor, handlers.announce);
+				void deleteSelection(editor, handlers.announce);
 				return;
 			}
 
@@ -165,28 +165,40 @@ function nudge(editor: MapEditorApi, dx: number, dy: number) {
 	}
 }
 
-function deleteSelection(editor: MapEditorApi, announce: (m: string) => void) {
+// `editor.run` is single-flight, so this must await each delete — the un-awaited loop removed only
+// the first object of a multi-selection while announcing the whole selection was gone.
+async function deleteSelection(editor: MapEditorApi, announce: (m: string) => void) {
 	const ids = editor.selection;
+	let deleted = 0;
 	for (const id of ids) {
 		const poi = editor.map?.pois.find((p) => p.id === id);
 		if (poi) {
-			void editor.run({
-				type: 'map.delete-poi',
-				actorId: editor.actorId,
-				payload: { mapId: editor.mapId, poiId: id },
-			} as never);
+			if (
+				await editor.run({
+					type: 'map.delete-poi',
+					actorId: editor.actorId,
+					payload: { mapId: editor.mapId, poiId: id },
+				} as never)
+			)
+				deleted += 1;
+			else break;
 			continue;
 		}
 		const token = editor.map?.tokens.find((t) => t.id === id);
-		if (token)
-			void editor.run({
-				type: 'map.delete-token',
-				actorId: editor.actorId,
-				payload: { mapId: editor.mapId, tokenId: id },
-			} as never);
+		if (token) {
+			if (
+				await editor.run({
+					type: 'map.delete-token',
+					actorId: editor.actorId,
+					payload: { mapId: editor.mapId, tokenId: id },
+				} as never)
+			)
+				deleted += 1;
+			else break;
+		}
 	}
 	editor.clearSelection();
-	announce('Deleted selection.');
+	announce(`Deleted ${deleted} objects.`);
 }
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v));

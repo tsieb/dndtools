@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -24,8 +25,24 @@ import { useRuntime } from '../runtime/RuntimeContext';
 import { SceneBoardCanvas, WidgetGlyph } from '../app/SceneBoardCanvas';
 import { boardWidgetsOf, payloadIndex, TIER_LABEL, type BoardWidget } from '../app/board-helpers';
 import { parseTags } from '../app/scene-helpers';
+import { useViewport } from '../app/useViewport';
 
 type Visibility = 'dm-only' | 'shared' | 'player-visible';
+
+/**
+ * On a phone the side panels are flex SIBLINGS of the canvas, so opening one used to shrink the
+ * canvas from the full width down to ~80px — an unusable sliver. Float them over the canvas
+ * instead, the same treatment Board.tsx already gives its inspector.
+ */
+const PHONE_PANEL_OVERLAY: React.CSSProperties = {
+	position: 'absolute',
+	right: 0,
+	top: 0,
+	bottom: 0,
+	zIndex: 4,
+	width: 'min(300px, 100%)',
+	maxWidth: '100%',
+};
 
 /**
  * SceneEditor (`/scene/:id`) — the prototype's scene canvas (`scene-shell.jsx` + `scene-canvas.jsx`)
@@ -43,6 +60,7 @@ export function SceneEditor() {
 	const navigate = useNavigate();
 	const { id = '' } = useParams();
 	const actorId = runtime.defaultActorId;
+	const viewport = useViewport();
 
 	const [editing, setEditing] = useState(false);
 	const [snap, setSnap] = useState(true);
@@ -230,7 +248,15 @@ export function SceneEditor() {
 				display: 'flex',
 				flexDirection: 'column',
 				gap: 'var(--space-3)',
-				height: 'calc(var(--app-viewport-height) - var(--space-8))',
+				// `<main>` is already viewport-height minus the top bar and (on phone) the tab bar.
+				// Asking for the full 100dvh here overflowed by ~94px and pushed the canvas zoom
+				// cluster below the fold — and zoom is a required affordance (UX-CANVAS). Same
+				// allowance Board.tsx makes.
+				height:
+					viewport === 'phone'
+						? 'calc(var(--app-viewport-height) - 164px)'
+						: 'calc(var(--app-viewport-height) - var(--space-8))',
+				minHeight: 360,
 			}}
 		>
 			{/* edit toolbar */}
@@ -367,19 +393,26 @@ export function SceneEditor() {
 						name={summary.name}
 						description={summary.description}
 						tags={summary.tags}
+						phone={viewport === 'phone'}
 						onSave={saveMetadata}
 						onClose={() => setMetaOpen(false)}
 					/>
 				)}
 
 				{addOpen && !metaOpen && (
-					<AddWidgetPanel library={library} onAdd={addWidget} onClose={() => setAddOpen(false)} />
+					<AddWidgetPanel
+						library={library}
+						phone={viewport === 'phone'}
+						onAdd={addWidget}
+						onClose={() => setAddOpen(false)}
+					/>
 				)}
 
 				{editing && selectedWidget && selectedInstance && !addOpen && !metaOpen && (
 					<Inspector
 						key={selectedInstance.id}
 						widget={selectedWidget}
+						phone={viewport === 'phone'}
 						focusOrder={selectedInstance.layout.focusOrder}
 						onVisibility={setVisibility}
 						onConfigure={setConfig}
@@ -402,12 +435,14 @@ function SceneMetaPanel({
 	name,
 	description,
 	tags,
+	phone,
 	onSave,
 	onClose,
 }: {
 	name: string;
 	description: string;
 	tags: string[];
+	phone: boolean;
 	onSave: (meta: { name: string; description: string; tags: string[] }) => void;
 	onClose: () => void;
 }) {
@@ -433,6 +468,7 @@ function SceneMetaPanel({
 				gap: 'var(--space-3)',
 				maxHeight: '100%',
 				overflow: 'auto',
+				...(phone ? PHONE_PANEL_OVERLAY : {}),
 			}}
 		>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -498,10 +534,12 @@ function SceneMetaPanel({
 
 function AddWidgetPanel({
 	library,
+	phone,
 	onAdd,
 	onClose,
 }: {
 	library: WidgetLibraryEntry[];
+	phone: boolean;
 	onAdd: (entry: WidgetLibraryEntry) => void;
 	onClose: () => void;
 }) {
@@ -523,6 +561,7 @@ function AddWidgetPanel({
 				gap: 'var(--space-2)',
 				maxHeight: '100%',
 				overflow: 'auto',
+				...(phone ? PHONE_PANEL_OVERLAY : {}),
 			}}
 		>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -600,6 +639,7 @@ function AddWidgetPanel({
  */
 function Inspector({
 	widget,
+	phone,
 	focusOrder,
 	onVisibility,
 	onConfigure,
@@ -609,6 +649,7 @@ function Inspector({
 	onClose,
 }: {
 	widget: BoardWidget;
+	phone: boolean;
 	/** The instance's EXPLICIT keyboard traversal position (`layout.focusOrder`); null = derived. */
 	focusOrder: number | null;
 	onVisibility: (v: Visibility) => void;
@@ -639,6 +680,7 @@ function Inspector({
 				gap: 'var(--space-1)',
 				maxHeight: '100%',
 				overflow: 'auto',
+				...(phone ? PHONE_PANEL_OVERLAY : {}),
 			}}
 		>
 			<div

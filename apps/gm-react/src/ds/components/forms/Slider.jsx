@@ -54,6 +54,9 @@ export function Slider({
 	const readout = valueLabel != null ? valueLabel : isStops ? stops[value] : value;
 
 	const fire = (v) => { if (!disabled && onChange) onChange(isStops ? Math.round(v) : v); };
+	// Several sliders can sit in one panel (master volume + one per ambience layer). Literal
+	// "Decrease"/"Increase" names make them indistinguishable to a screen reader (WCAG 2.4.6).
+	const stepperFor = (verb) => (ariaLabel || label ? `${verb} ${ariaLabel || label}` : verb);
 	const trackBg = `linear-gradient(to right, var(--color-accent) 0%, var(--color-accent) ${pct}%, var(--color-surface-sunken) ${pct}%, var(--color-surface-sunken) 100%)`;
 
 	return (
@@ -66,7 +69,7 @@ export function Slider({
 			)}
 			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
 				{steppers && (
-					<button type="button" aria-label="Decrease" disabled={disabled || value <= lo} onClick={() => fire(Math.max(lo, value - st))} style={stepBtn(disabled || value <= lo)}>
+					<button type="button" aria-label={stepperFor('Decrease')} disabled={disabled || value <= lo} onClick={() => fire(Math.max(lo, value - st))} style={stepBtn(disabled || value <= lo)}>
 						<Icon name="chevron-left" size={16} />
 					</button>
 				)}
@@ -85,7 +88,7 @@ export function Slider({
 					{...rest}
 				/>
 				{steppers && (
-					<button type="button" aria-label="Increase" disabled={disabled || value >= hi} onClick={() => fire(Math.min(hi, value + st))} style={stepBtn(disabled || value >= hi)}>
+					<button type="button" aria-label={stepperFor('Increase')} disabled={disabled || value >= hi} onClick={() => fire(Math.min(hi, value + st))} style={stepBtn(disabled || value >= hi)}>
 						<Icon name="chevron-right" size={16} />
 					</button>
 				)}
@@ -102,7 +105,9 @@ export function Slider({
 function stepBtn(disabled) {
 	return {
 		display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-		width: 28, height: 28, flex: '0 0 auto',
+		// The non-drag alternative to the track must itself be hittable: follow the density token
+		// (44px under the touch profile) rather than a fixed 28px square.
+		width: 'var(--density-touch-target, 1.75rem)', height: 'var(--density-touch-target, 1.75rem)', flex: '0 0 auto',
 		borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-strong)',
 		background: 'var(--color-surface-raised)', color: 'var(--color-text-secondary)',
 		cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.4 : 1, padding: 0,

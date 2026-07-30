@@ -631,28 +631,51 @@ function MultiInspector({
 	const selectedPois = pois.filter((p) => editor.selection.includes(p.id));
 	const selectedTokens = tokens.filter((t) => editor.selection.includes(t.id));
 
-	const setVisibility = (visibility: SceneVisibility) => {
-		for (const p of selectedPois)
-			void run({
-				type: 'map.update-poi',
-				actorId,
-				payload: { mapId, poiId: p.id, visibility },
-			} as never);
-		for (const t of selectedTokens)
-			void run({
-				type: 'map.update-token',
-				actorId,
-				payload: { mapId, tokenId: t.id, visibility },
-			} as never);
-		announce(`${editor.selection.length} objects set to ${VIS_TEXT[visibility]}.`);
+	// `run` executes one command at a time and rejects re-entrant calls, so these loops MUST await.
+	// Firing them synchronously applied only the first object while announcing the whole selection
+	// had changed — and then cleared the selection, hiding the failure entirely.
+	const setVisibility = async (visibility: SceneVisibility) => {
+		let changed = 0;
+		for (const p of selectedPois) {
+			if (
+				await run({
+					type: 'map.update-poi',
+					actorId,
+					payload: { mapId, poiId: p.id, visibility },
+				} as never)
+			)
+				changed += 1;
+			else break;
+		}
+		for (const t of selectedTokens) {
+			if (
+				await run({
+					type: 'map.update-token',
+					actorId,
+					payload: { mapId, tokenId: t.id, visibility },
+				} as never)
+			)
+				changed += 1;
+			else break;
+		}
+		announce(`${changed} objects set to ${VIS_TEXT[visibility]}.`);
 	};
-	const deleteAll = () => {
-		for (const p of selectedPois)
-			void run({ type: 'map.delete-poi', actorId, payload: { mapId, poiId: p.id } } as never);
-		for (const t of selectedTokens)
-			void run({ type: 'map.delete-token', actorId, payload: { mapId, tokenId: t.id } } as never);
+	const deleteAll = async () => {
+		let deleted = 0;
+		for (const p of selectedPois) {
+			if (await run({ type: 'map.delete-poi', actorId, payload: { mapId, poiId: p.id } } as never))
+				deleted += 1;
+			else break;
+		}
+		for (const t of selectedTokens) {
+			if (
+				await run({ type: 'map.delete-token', actorId, payload: { mapId, tokenId: t.id } } as never)
+			)
+				deleted += 1;
+			else break;
+		}
 		editor.clearSelection();
-		announce('Deleted selection.');
+		announce(`Deleted ${deleted} objects.`);
 	};
 
 	return (

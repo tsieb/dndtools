@@ -15,6 +15,7 @@ import {
 	Toaster,
 } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { Page } from '../app/screen-kit';
 import { parseTags, sceneStatus, statusLabel } from '../app/scene-helpers';
 import { useViewport } from '../app/useViewport';
 import { SceneCardsPanel } from './SceneCardsPanel';
@@ -142,14 +143,15 @@ export function ScenesCreator() {
 	}
 
 	return (
-		<>
+		// Every other routed list screen goes through `Page`; without it `/scenes` sat flush against
+		// both phone edges and had no clearance over the bottom tab bar. Page also owns the
+		// maxWidth/centering this grid was duplicating.
+		<Page max={1180}>
 			<div
 				style={{
 					display: 'grid',
 					gridTemplateColumns: isDesktop ? 'minmax(0, 1fr) minmax(0, 1.2fr)' : 'minmax(0, 1fr)',
 					gap: 'var(--space-6)',
-					maxWidth: 1180,
-					margin: '0 auto',
 					alignItems: 'start',
 				}}
 			>
@@ -427,7 +429,7 @@ export function ScenesCreator() {
 				</Dialog>
 			</div>
 			<SceneCardsPanel />
-		</>
+		</Page>
 	);
 }
 

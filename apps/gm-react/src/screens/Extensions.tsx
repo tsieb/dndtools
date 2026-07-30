@@ -36,6 +36,7 @@ import {
 	VisibilityChip,
 } from '../ds';
 import { Page, Panel, T, eb, mono } from '../app/screen-kit';
+import { useViewport } from '../app/useViewport';
 import { useRuntime } from '../runtime/RuntimeContext';
 import {
 	isAbortError,
@@ -689,6 +690,7 @@ function ImportControl({
 
 function ExtCompendium() {
 	const runtime = useRuntime();
+	const isPhone = useViewport() === 'phone';
 	const navigate = useNavigate();
 	const dmId = runtime.defaultActorId;
 	const previewing = !!runtime.preview;
@@ -856,7 +858,15 @@ function ExtCompendium() {
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 			<div
-				style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 18, alignItems: 'start' }}
+				// Two `fr` tracks squeeze rather than overflow, so this never tripped the overflow
+				// sweep — it just left the search field ~15px wide and the stat grid ~12px per cell
+				// on a phone. Stack instead, as /community already does.
+				style={{
+					display: 'grid',
+					gridTemplateColumns: isPhone ? 'minmax(0, 1fr)' : '1.35fr 1fr',
+					gap: 18,
+					alignItems: 'start',
+				}}
 			>
 				<Panel title="Open5e compendium" action={sourceBadge}>
 					{!canWrite && (
@@ -2291,6 +2301,7 @@ const TOKEN_GROUPS: { label: string; tokens: string[] }[] = [
 ];
 
 function ExtTheme() {
+	const isPhone = useViewport() === 'phone';
 	const [theme, setTheme] = useState<string>(
 		document.documentElement.getAttribute('data-theme') || 'tavern',
 	);
@@ -2320,7 +2331,12 @@ function ExtTheme() {
 	const tokenValue = (name: string) => tokenValues[name] ?? '—';
 	return (
 		<div
-			style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 18, alignItems: 'start' }}
+			style={{
+				display: 'grid',
+				gridTemplateColumns: isPhone ? 'minmax(0, 1fr)' : '1.1fr 1fr',
+				gap: 18,
+				alignItems: 'start',
+			}}
 		>
 			<Panel title="Theme preset" action={<Badge status="neutral">active: {theme}</Badge>}>
 				<div style={{ marginBottom: 14 }}>

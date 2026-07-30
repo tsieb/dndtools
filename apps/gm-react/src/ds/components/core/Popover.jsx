@@ -35,10 +35,16 @@ export function Popover({
 			if (ref.current && !ref.current.contains(e.target)) onCloseRef.current?.();
 		};
 		const onKey = (e) => {
-			if (e.key === 'Escape') onCloseRef.current?.();
+			// Capture + stopPropagation, matching Dialog/Sheet. Without it the same Escape that
+			// dismisses this popover also reaches surface-level keymaps underneath — closing a map
+			// tool menu used to exit the whole map editor.
+			if (e.key === 'Escape') {
+				e.stopPropagation();
+				onCloseRef.current?.();
+			}
 		};
 		document.addEventListener('pointerdown', onDown, true);
-		document.addEventListener('keydown', onKey);
+		document.addEventListener('keydown', onKey, true);
 		const unregisterBack = registerBackHandler('overlay', () => {
 			onCloseRef.current?.();
 			return true;
@@ -51,7 +57,7 @@ export function Popover({
 		}, 0);
 		return () => {
 			document.removeEventListener('pointerdown', onDown, true);
-			document.removeEventListener('keydown', onKey);
+			document.removeEventListener('keydown', onKey, true);
 			unregisterBack();
 			clearTimeout(t);
 		};

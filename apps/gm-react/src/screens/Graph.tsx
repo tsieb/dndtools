@@ -519,7 +519,9 @@ export function Graph() {
 								<button
 									key={f}
 									type="button"
-									onClick={() => setFacet(f)}
+									// The applied facet was signalled by colour alone (WCAG 1.4.1 / 4.1.2).
+								aria-pressed={facet === f}
+								onClick={() => setFacet(f)}
 									style={{
 										font: `11.5px ${T.sans}`,
 										padding: '4px 9px',

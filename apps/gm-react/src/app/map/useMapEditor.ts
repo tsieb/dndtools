@@ -172,6 +172,26 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 	const [history, setHistory] = useState<readonly HistoryEntry[]>([]);
 	const [redoStack, setRedoStack] = useState<readonly HistoryEntry[]>([]);
 
+	// The stacks are mirrored in refs because callers step them MORE THAN ONCE per render: the
+	// History panel jumps N entries at a time. Reading `history` from the render closure made every
+	// call after the first re-apply the same inverse, so a multi-step jump moved exactly one step.
+	const historyRef = useRef<readonly HistoryEntry[]>(history);
+	const redoRef = useRef<readonly HistoryEntry[]>(redoStack);
+	const writeHistory = useCallback(
+		(next: (prev: readonly HistoryEntry[]) => readonly HistoryEntry[]) => {
+			historyRef.current = next(historyRef.current);
+			setHistory(historyRef.current);
+		},
+		[],
+	);
+	const writeRedo = useCallback(
+		(next: (prev: readonly HistoryEntry[]) => readonly HistoryEntry[]) => {
+			redoRef.current = next(redoRef.current);
+			setRedoStack(redoRef.current);
+		},
+		[],
+	);
+
 	const busyRef = useRef(false);
 	const idCounter = useRef(0);
 
@@ -254,14 +274,14 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 					if (opts?.undoable !== false) {
 						const inverse = buildMapInverse(command, stateBefore);
 						if (inverse) {
-							setHistory((prev) =>
+							writeHistory((prev) =>
 								[
 									...prev,
 									{ inverse: inverse.command, forward: command, label: inverse.label },
 								].slice(-MAX_HISTORY),
 							);
 							// Any new user action invalidates the redo branch.
-							setRedoStack([]);
+							writeRedo(() => []);
 						}
 					}
 					return true;
@@ -276,20 +296,20 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 				setBusy(false);
 			}
 		},
-		[runtime],
+		[runtime, writeHistory, writeRedo],
 	);
 
 	const undo = useCallback(async () => {
 		if (busyRef.current) return;
-		const entry = history[history.length - 1];
+		const entry = historyRef.current[historyRef.current.length - 1];
 		if (!entry) return;
 		busyRef.current = true;
 		setBusy(true);
 		try {
 			const result = await runtime.dispatch(entry.inverse);
 			if (result.status === 'accepted') {
-				setHistory((prev) => prev.slice(0, -1));
-				setRedoStack((prev) => [...prev, entry]);
+				writeHistory((prev) => prev.slice(0, -1));
+				writeRedo((prev) => [...prev, entry]);
 			} else {
 				setNotice(result.rejection.message);
 			}
@@ -297,11 +317,11 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 			busyRef.current = false;
 			setBusy(false);
 		}
-	}, [history, runtime]);
+	}, [runtime, writeHistory, writeRedo]);
 
 	const redo = useCallback(async () => {
 		if (busyRef.current) return;
-		const entry = redoStack[redoStack.length - 1];
+		const entry = redoRef.current[redoRef.current.length - 1];
 		if (!entry) return;
 		busyRef.current = true;
 		setBusy(true);
@@ -312,8 +332,8 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 				// Re-derive the inverse against the current state (revisions have moved on since the
 				// original forward ran), so a subsequent undo is exact.
 				const inverse = buildMapInverse(entry.forward, stateBefore);
-				setRedoStack((prev) => prev.slice(0, -1));
-				setHistory((prev) =>
+				writeRedo((prev) => prev.slice(0, -1));
+				writeHistory((prev) =>
 					[
 						...prev,
 						{
@@ -330,7 +350,7 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 			busyRef.current = false;
 			setBusy(false);
 		}
-	}, [redoStack, runtime]);
+	}, [runtime, writeHistory, writeRedo]);
 
 	return {
 		actorId,

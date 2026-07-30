@@ -632,7 +632,17 @@ function SceneCardRow({
 				padding: 'var(--space-2) var(--space-1)',
 			}}
 		>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+			{/* Without wrapping, the badges + Show button + 4 icon buttons refuse to shrink and crush
+			    the title block to a few unreadable pixels on a phone. The queue rows above already
+			    wrap for exactly this reason. */}
+			<div
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					gap: 'var(--space-2)',
+					flexWrap: 'wrap',
+				}}
+			>
 				<span
 					style={{
 						width: 10,
@@ -643,7 +653,9 @@ function SceneCardRow({
 						border: `1px solid ${theme.accent}`,
 					}}
 				/>
-				<div style={{ flex: 1, minWidth: 0 }}>
+				{/* minWidth gives the title a floor to wrap AGAINST — with `minWidth: 0` alone the
+				    non-shrinking controls still won the row and squeezed it to nothing. */}
+				<div style={{ flex: 1, minWidth: 160 }}>
 					<div
 						style={{
 							font: '600 var(--text-sm) var(--font-sans)',

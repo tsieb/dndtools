@@ -33,8 +33,12 @@ export function ToolRail({
 			aria-orientation={orientation}
 			style={{
 				display: 'flex',
-				flexDirection: horizontal ? 'row' : 'column',
-				gap: horizontal ? 6 : 0,
+				// Always column. In horizontal (phone) orientation the group strip and the sub-tool
+				// flyout are both in flow, so a row here made them fight over one ~350px line —
+				// two competing tiny scrollers. The flyout's borderTop assumes it sits BELOW.
+				// (Vertical orientation is unaffected: its flyout is absolutely positioned.)
+				flexDirection: 'column',
+				gap: 0,
 				height: '100%',
 				position: 'relative',
 			}}
@@ -157,8 +161,10 @@ export function ToolRail({
 							}}
 						>
 							<Icon name={def.icon} size={15} color={on ? T.acc : T.sub} />
-							{!horizontal && <span style={{ flex: 1, textAlign: 'left' }}>{def.label}</span>}
-							{def.shortcut && (
+							{/* Horizontal orientation is the touch layout: a bare icon next to a keyboard
+							    shortcut is the wrong way round there — name the tool, drop the chip. */}
+							<span style={{ flex: 1, textAlign: 'left' }}>{def.label}</span>
+							{!horizontal && def.shortcut && (
 								<kbd
 									style={{
 										font: `10px ${T.mono}`,

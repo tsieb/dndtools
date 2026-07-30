@@ -782,3 +782,24 @@ test('toasts stack above the phone bottom tab bar, never over it', async ({ page
 	// primary navigation's tap targets.
 	expect(toastBox!.y + toastBox!.height).toBeLessThanOrEqual(navBox!.y + 1);
 });
+
+// The shell's skip link is the very first tab stop on every route. The app is a HashRouter, so the
+// hash IS the route: letting the browser follow `href="#main-content"` rewrote `#/scenes` to
+// `#main-content`, desynced the URL from the rendered screen, and sent a reload to the catch-all
+// route (dumping the user on Command Center).
+test('the skip link moves focus to main without clobbering the hash route', async ({ page }) => {
+	await markOnboarded(page);
+	await gotoRoute(page, '/scenes');
+	expect(new URL(page.url()).hash).toBe('#/scenes');
+
+	const skip = page.getByRole('link', { name: 'Skip to content' });
+	await skip.focus();
+	await expect(skip).toBeFocused();
+	await skip.press('Enter');
+
+	// Focus lands on the main landmark …
+	await expect(page.locator('#main-content')).toBeFocused();
+	// … and the route is untouched, so Back and reload still work.
+	expect(new URL(page.url()).hash).toBe('#/scenes');
+	await expect(page.locator('#main-content')).toBeVisible();
+});

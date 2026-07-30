@@ -491,7 +491,7 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 						Your campaign
 					</span>
 					<span style={{ display: 'block', font: `10.5px ${T.sans}`, color: T.ter }}>
-						{scenes.length} scenes · {counts.characters}
+						{scenes.length} {scenes.length === 1 ? 'scene' : 'scenes'} · {counts.characters}
 					</span>
 				</span>
 				{/* chevron-right = "this navigates"; chevron-down here implied a dropdown that never opened */}
@@ -1020,17 +1020,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 				}
 				return;
 			}
-			// Exit the fullscreen display on Escape.
-			if (e.key === 'Escape') {
-				setDisplayOpen((wasOpen) => {
-					if (wasOpen) e.preventDefault();
-					return false;
-				});
+			// Exit the fullscreen display on Escape. `preventDefault` has to happen HERE, while the
+			// event is still being dispatched — calling it inside the setState updater ran it on the
+			// next render, long after the browser had already taken its default action.
+			if (e.key === 'Escape' && displayOpen) {
+				e.preventDefault();
+				setDisplayOpen(false);
 			}
 		}
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
-	}, [runtime]);
+	}, [runtime, displayOpen]);
 	return (
 		<div
 			className="app-shell"
@@ -1046,6 +1046,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 		>
 			<a
 				href="#main-content"
+				// The app is a HashRouter, so the hash IS the route. Letting the browser follow this
+				// href rewrites `#/session` to `#main-content`, desyncing the URL from the rendered
+				// screen and sending a reload to the catch-all route. Move focus ourselves instead;
+				// `<main>` already carries tabIndex={-1} to receive it.
+				onClick={(e) => {
+					e.preventDefault();
+					document.getElementById('main-content')?.focus();
+				}}
 				style={{
 					position: 'fixed',
 					left: 8,
@@ -1104,12 +1112,18 @@ export function AppShell({ children }: { children: ReactNode }) {
 			<CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 			<SceneDisplayOverlay open={displayOpen} onClose={() => setDisplayOpen(false)} />
 			{/* On phone the tab bar owns the bottom edge (52px buttons + --space-1 padding + 1px
-			    border); lift the toast stack above it so toasts never cover the primary nav. */}
+			    border) PLUS the bottom safe area, which the bar also pads for — omitting it here put
+			    toasts on top of the primary nav on any device with a home indicator. */}
 			<ToastViewport
 				placement="bottom-right"
 				data-testid="app-toast-viewport"
 				style={
-					viewport === 'phone' ? { bottom: 'calc(52px + 2 * var(--space-1) + 1px)' } : undefined
+					viewport === 'phone'
+					? {
+							bottom:
+								'calc(52px + 2 * var(--space-1) + 1px + var(--safe-area-bottom, 0px))',
+						}
+					: undefined
 				}
 			/>
 		</div>

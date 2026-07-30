@@ -487,7 +487,10 @@ export function PlayerView() {
 			type="button"
 			aria-label={locked ? `${n.label} — requires the ${minTierLabel(n.min)} seat` : n.label}
 			title={locked ? `${n.label} requires ${minTierLabel(n.min)}` : n.label}
-			disabled={locked}
+			// `disabled` made the lock-reason toast below unreachable dead code AND removed the row
+			// from the tab order, so the aria-label explaining the seat requirement could never be
+			// read. aria-disabled keeps it focusable and lets the explanation fire.
+			aria-disabled={locked || undefined}
 			onClick={() => {
 				if (locked) {
 					// Honest lock reason: the Trusted/Co-DM tiers do not EXIST in the core roles yet, so

@@ -6,6 +6,23 @@ import React from 'react';
  * + `accent` for the one primary region; flat/sunken for supporting tiles.
  */
 export function Card({ elevation = 'flat', accent = false, padding = 'md', interactive = false, style, children, ...rest }) {
+	// An interactive card is a control, not decoration: without a role/tab stop/key handler the
+	// whole tile is mouse-only and announces as plain text (WCAG 2.1.1, 4.1.2). Only applied when
+	// there is something to activate, and placed before `...rest` so a call site can override.
+	const activatable = interactive && typeof rest.onClick === 'function';
+	const a11y = activatable
+		? {
+				role: 'button',
+				tabIndex: 0,
+				onKeyDown: (e) => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.preventDefault();
+						rest.onClick(e);
+					}
+					rest.onKeyDown?.(e);
+				},
+			}
+		: null;
 	const surfaces = {
 		sunken: { background: 'var(--color-surface-sunken)', shadow: 'none' },
 		flat: { background: 'var(--color-surface)', shadow: 'var(--shadow-sm)' },
@@ -29,7 +46,9 @@ export function Card({ elevation = 'flat', accent = false, padding = 'md', inter
 			}}
 			onMouseEnter={interactive ? (e) => { e.currentTarget.style.borderColor = 'var(--color-border-strong)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; } : undefined}
 			onMouseLeave={interactive ? (e) => { e.currentTarget.style.borderColor = accent ? 'var(--color-accent-border)' : 'var(--color-border)'; e.currentTarget.style.boxShadow = accent ? 'var(--shadow-md)' : s.shadow; } : undefined}
+			{...a11y}
 			{...rest}
+			onKeyDown={a11y ? a11y.onKeyDown : rest.onKeyDown}
 		>
 			{children}
 		</div>

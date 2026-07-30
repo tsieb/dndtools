@@ -13,11 +13,13 @@ export function HistoryPanel({ editor }: { editor: MapEditorApi }) {
 	const redo = [...editor.redoStack].reverse(); // nearest redo first
 	const history = [...editor.history].reverse(); // most recent done first
 
-	const doUndo = (count: number) => {
-		for (let i = 0; i < count; i += 1) void editor.undo();
+	// Await each step: the editor runs one command at a time (`busyRef`), so firing N calls
+	// synchronously dropped all but the first and a click 5 rows back moved only one step.
+	const doUndo = async (count: number) => {
+		for (let i = 0; i < count; i += 1) await editor.undo();
 	};
-	const doRedo = (count: number) => {
-		for (let i = 0; i < count; i += 1) void editor.redo();
+	const doRedo = async (count: number) => {
+		for (let i = 0; i < count; i += 1) await editor.redo();
 	};
 
 	const empty = history.length === 0 && redo.length === 0;

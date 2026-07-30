@@ -13,7 +13,11 @@ export function VisibilityChip({ level = 'dm-only', compact = false, style, ...r
 		hidden: { label: 'Hidden', icon: 'hidden', fg: 'var(--color-text-tertiary)', bg: 'var(--color-surface-sunken)', bd: 'var(--color-border-strong)' },
 		mixed: { label: 'Mixed', icon: 'visibility-mixed', fg: 'var(--color-status-warning-text)', bg: 'var(--color-status-warning-subtle)', bd: 'var(--color-status-warning)' },
 	};
-	const l = levels[level] || levels['dm-only'];
+	// Callers sometimes hold a RAW core visibility value ('player-visible' / 'shared') rather than a
+	// chip level. Falling those through to the `dm-only` default inverts the meaning of the app's
+	// most safety-critical cue — a shared entity would read as a red "DM ONLY". Normalize instead.
+	const CORE_ALIASES = { 'player-visible': 'players', shared: 'players', 'dm-only': 'dm-only' };
+	const l = levels[level] || levels[CORE_ALIASES[level]] || levels['dm-only'];
 	return (
 		<span
 			title={l.label}

@@ -134,6 +134,14 @@ function mdToNodes(md: string): ReactNode {
 					{ln.slice(3)}
 				</h3>
 			);
+		// `# ` is the title level every imported Obsidian/markdown vault uses, and it had no branch
+		// at all — the raw "# The Sunken Crypt" showed up as body text once the note was opened.
+		if (ln.startsWith('# '))
+			return (
+				<h2 key={i} style={{ font: `700 22px ${T.disp}`, margin: '18px 0 8px' }}>
+					{ln.slice(2)}
+				</h2>
+			);
 		if (ln.startsWith('> '))
 			return (
 				<blockquote
@@ -148,7 +156,9 @@ function mdToNodes(md: string): ReactNode {
 						color: T.sub,
 					}}
 				>
-					{ln.slice(2)}
+					{/* Read-aloud text is the most-read content in the app; it was the one branch that
+					    skipped boldify, so **emphasis** rendered as literal asterisks. */}
+					{boldify(ln.slice(2))}
 				</blockquote>
 			);
 		if (ln.startsWith('- '))

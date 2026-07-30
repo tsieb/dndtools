@@ -251,9 +251,14 @@ html[data-electron='true'] .app-fixed-viewport {
    this also tames the looping keyframe animations (status pulse, skeleton shimmer) that don't read those
    tokens, so the "Reduced" setting — and the OS prefers-reduced-motion the boot script maps onto it — is
    comprehensive across transitions AND animations. */
+/* `none` is the STRICTER of the two settings, so it must match here too — matching only `reduced`
+   meant "None" left the looping status pulse and skeleton shimmer running that "Reduced" stopped. */
 [data-motion='reduced'] *,
 [data-motion='reduced'] *::before,
-[data-motion='reduced'] *::after {
+[data-motion='reduced'] *::after,
+[data-motion='none'] *,
+[data-motion='none'] *::before,
+[data-motion='none'] *::after {
 	animation-duration: 0.001ms !important;
 	animation-iteration-count: 1 !important;
 	transition-duration: 0.001ms !important;

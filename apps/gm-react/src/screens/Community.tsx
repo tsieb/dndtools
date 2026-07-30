@@ -1260,7 +1260,9 @@ function CommWiki() {
 	} else if (status) {
 		const url = wikiPublicUrl(status.wikiId);
 		settings = (
-			<Panel title="Published wiki" action={<Badge status="ok">Live</Badge>}>
+			// "ok" was not a Badge status — it fell through to `neutral`, dropping both the green and
+			// the status icon this positive state relies on for colour-independent meaning.
+			<Panel title="Published wiki" action={<Badge status="success">Live</Badge>}>
 				<div style={{ ...eb }}>Public link</div>
 				<div
 					style={{

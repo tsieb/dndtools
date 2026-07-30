@@ -43,15 +43,17 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 	const players = runtime.actors.filter((a) => a.role === 'player');
 	const coDms = runtime.actors.filter((a) => a.role === 'co-dm');
 
+	// Both use close(true): picking an item with the keyboard used to drop focus to <body>, so the
+	// next Tab restarted from the top of the top bar (WCAG 2.4.3).
 	function preview_(selection: PreviewSelection, label: string) {
 		runtime.enterPreview(selection);
 		Toaster.info(`Previewing as ${label} · changes are read-only`);
-		setOpen(false);
+		close(true);
 	}
 	function exit() {
 		runtime.exitPreview();
 		Toaster.success('Back to your DM view');
-		setOpen(false);
+		close(true);
 	}
 
 	// Only the device-owner DM may preview; a non-DM owner shouldn't see the control.
@@ -114,6 +116,11 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 							top: 'calc(100% + 6px)',
 							zIndex: 50,
 							minWidth: 220,
+							// A full party (6+ players plus co-DMs) ran the menu past the viewport, and
+							// the fixed click-catcher behind it swallows wheel/touch, so the overflowing
+							// rows were unreachable.
+							maxHeight: 'min(70vh, 420px)',
+							overflowY: 'auto',
 							background: T.overlay,
 							border: `1px solid ${T.bdS}`,
 							borderRadius: 10,
