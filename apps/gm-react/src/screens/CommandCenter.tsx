@@ -193,11 +193,8 @@ export function CommandCenter() {
 		const homeSceneId = runtime.state.commandCenter.homeSceneId;
 		// The GM Screen's backing scene (named "Command Center") is not a table scene — keep it out
 		// of the Scenes board (it has its own nav destination).
-		const scenes = listScenesForActor(
-			runtime.state.scenes,
-			runtime.state.permissions,
-			actorId,
-		).filter((s) => !s.isTemplate && s.id !== homeSceneId);
+		const allScenes = listScenesForActor(runtime.state.scenes, runtime.state.permissions, actorId);
+		const scenes = allScenes.filter((s) => !s.isTemplate && s.id !== homeSceneId);
 		const characters = listCharactersForActor(
 			runtime.state.characters,
 			runtime.state.permissions,
@@ -218,11 +215,16 @@ export function CommandCenter() {
 			(n) => n.kind === 'object' && n.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'quest',
 		).length;
 		const activeSceneId = runtime.state.session.activeSceneId;
-		const liveScene =
-			scenes.find((s) => s.id === activeSceneId) ??
-			scenes.find((s) => s.id === homeSceneId) ??
-			scenes[0] ??
-			null;
+		// Resolved against the UNFILTERED list on purpose. `Session`'s "Go live" falls back to the GM
+		// Screen's own home scene when nothing else is active, and that scene is deliberately excluded
+		// from `scenes` — so looking it up there always missed, the old `scenes.find(id === homeSceneId)`
+		// line was dead by construction, and the hero card fell through to `scenes[0]`: it announced
+		// "Session live" over an UNRELATED scene's name and "Enter scene" navigated there. With no other
+		// scene at all it resolved to null, disabling the hub's only primary CTA while still claiming a
+		// live session.
+		const liveScene = allScenes.find((s) => s.id === activeSceneId) ?? scenes[0] ?? null;
+		// The GM Screen has its own route; `/scene/<homeSceneId>` is not where that scene is edited.
+		const liveSceneIsHome = liveScene !== null && liveScene.id === homeSceneId;
 		const party = characters.filter((c) => c.kind === 'pc');
 		const widgetCountFor = (sceneId: string) =>
 			runtime.state.scenes.scenes[sceneId]?.widgets.length ?? 0;
@@ -233,6 +235,7 @@ export function CommandCenter() {
 			notes,
 			activeSceneId,
 			liveScene,
+			liveSceneIsHome,
 			party,
 			pcCount: party.length,
 			npcCount: characters.length - party.length,
@@ -402,9 +405,14 @@ export function CommandCenter() {
 						variant="primary"
 						size="lg"
 						iconRight="enter"
-						disabled={!data.liveScene}
+						// Not `disabled` on an empty resolve any more: the hub's ONE primary CTA went inert
+						// with no explanation, and the null branch already has a sensible destination.
 						onClick={() =>
-							data.liveScene ? navigate(`/scene/${data.liveScene.id}`) : navigate('/scenes')
+							!data.liveScene
+								? navigate('/scenes')
+								: // The GM Screen's backing scene is not editable at `/scene/:id` — it has its
+									// own destination, and "Go live" with no active scene lands exactly there.
+									navigate(data.liveSceneIsHome ? '/board' : `/scene/${data.liveScene.id}`)
 						}
 						style={{
 							maxWidth: '100%',
@@ -412,7 +420,7 @@ export function CommandCenter() {
 							overflowWrap: 'anywhere',
 						}}
 					>
-						{isLive ? 'Enter scene' : 'Open scene'}
+						{data.liveSceneIsHome ? 'Enter GM Screen' : isLive ? 'Enter scene' : 'Open scene'}
 					</Button>
 				</div>
 			</Card>

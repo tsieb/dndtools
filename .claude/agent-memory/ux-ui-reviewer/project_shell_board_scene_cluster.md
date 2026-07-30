@@ -1,77 +1,117 @@
 ---
 name: shell-board-scene-cluster
-description: Structural UX gotchas in the gm-react shell + board/scene canvas cluster (AppShell, CommandPalette, Board, SceneEditor, SceneBoardCanvas, ProjectionControl, widget-bodies); re-audited 2026-07-29 run #4
+description: Structural UX gotchas in the gm-react shell + board/scene canvas cluster (AppShell, CommandPalette, Board, SceneEditor, SceneBoardCanvas, ProjectionControl, SceneCardsPanel, widget-bodies); re-audited 2026-07-30 run #7 at b5ed692f
 metadata:
   type: project
 ---
 
-Audit of the app-shell + board/scene canvas cluster in `apps/gm-react`. Re-verified after commits
-ade99dc1 / 5274a5f9 / fc40e764.
+Audit of the app-shell + board/scene canvas cluster in `apps/gm-react`. Re-verified 2026-07-30 at
+`b5ed692f` (line numbers below are from that commit).
 
-## Structural classes (still true)
+## CONFIRMED FIXED — do not re-report
+- Board "Layouts" panel is now a peer of Add: toolbar toggle + `aria-expanded` + Close + Escape +
+  shared side slot (`Board.tsx:349-360`, `:564-669`), spec'd at `canvas.spec.ts:350-390`.
+- Both screens use `height:'100%'` instead of `calc(--app-viewport-height - N)`
+  (`Board.tsx:273`, `SceneEditor.tsx:268`). The magic-number/`<main>`-overflow item is DEAD.
+- `/board` keyboard Delete now stages a `Dialog` confirm (`Board.tsx:145-158`, `:443-467`).
+- `profileId:'desktop'` hard-coding is GONE — both callers use `widgetProfileForRuntime()`
+  (`Board.tsx:107`, `SceneEditor.tsx:95`; maps electron→desktop, android→mobile, else `web`).
+- `AppShell` global hotkeys now have a `typing` input guard (`AppShell.tsx:1012-1018`) covering
+  Ctrl+Shift+S and Ctrl+ArrowRight. ⌘K stays deliberately global.
+- `ToastViewport` now offsets for the phone `BottomTabBar` (`AppShell.tsx:1140-1151`).
+- Hard-coded warm rgba is GONE from SceneBoardCanvas (`:445` uses `color-mix(… var(--color-accent) 7%)`)
+  and widget-bodies (`:544-546` uses `--map-grid-line`/`--map-canvas-bg`).
+- Board now styles rejections as `role="alert"` + `--color-status-error-text` separately from the
+  `role="status"` success region (`Board.tsx:380-414`).
+- Board's non-DM bail-out goes through `<Page>` (`Board.tsx:234`). SceneEditor's denied/missing
+  bail-out still does NOT (`SceneEditor.tsx:214` bare `maxWidth:720` div) — STILL OPEN.
+- Bounded empty-state headline is parameterized (`emptyTitle`), grid overlay uses `inset:0` in bounded.
+- `--map-*` AND `--layer-*` tokens ARE cut for `[data-theme='parchment']` (colors.css:301-318) and
+  remapped under `@media (forced-colors:active)` (:412-429). My old ":root-only" note was wrong/stale.
+- Global `:focus-visible` ring exists (`styles/tokens/base.css:36`), so the bare `tabIndex` divs
+  (WidgetFrame) DO get a focus ring. Don't flag those as focus-invisible.
 
-1. **The bounded canvas policy is an auto-fit SCALE, not a scroll.** `SceneBoardCanvas`
-   `boundedScale = clamp((wrapWidth-16)/extent, 0.4, 1)` with `overflowX:'hidden'`. The seeded home
-   board's extent is exactly **792px** (`defaultLayout` in
-   `packages/core/src/state/command-center-state.ts`: 3 cols × 240 + 24 gutters), so a 393px phone
-   renders /board at **~0.47** — 13px titles at ~6px, 32px hit targets at ~15px. The 0.4 floor is
-   NOT what bites (it never engages at 792/393); the scale itself is. Raising the floor REQUIRES
-   flipping `overflowX` to `auto`, because `responsive.spec.ts`'s `clippedControls()` only forgives an
-   off-viewport control when an ancestor owns a real scroll range on that axis. And the zoom cluster
-   is gated `policy === 'canvas'`, so bounded has no escape hatch and no pan.
-   The scale-compensation var `--scene-board-touch-target` (SceneBoardCanvas:452) is consumed ONLY
-   under `html[data-android]` (`styles/index.css:84-86`) — iOS/mobile-web never gets it. Nothing
-   auto-sets `data-density='comfortable'` on phone either (only Settings does), so the phone default
-   target is 32px, not 44px.
-2. **`/board` and `/scene/:id` bypass `Page`** (`src/app/screen-kit.tsx`) — the only source of route
-   gutters. Their bail-out states (`Board.tsx` non-DM, `SceneEditor.tsx` denied/missing) bypass it
-   too → flush to both phone edges. STILL OPEN.
-3. **Both screens hard-code their own height with magic numbers**
-   (`calc(var(--app-viewport-height) - 164px)` phone / `- var(--space-8)` = 32px desktop) instead of
-   `height:'100%'` of the already-bounded `<main>`. Desktop top bar is ~52–67px, so `-32px` makes the
-   canvas OVERFLOW main by ~20–35px and pushes the `/scene` zoom cluster (`bottom:16`) below the
-   fold — the exact thing the code comment claims to fix. Phone over-subtracts (~102px of real chrome
-   vs 164) leaving ~60px dead. STILL OPEN.
-4. **Side panels close on Escape via a `Card onKeyDown` only** — nothing focuses the panel on open,
-   no click-outside. `canvas.spec.ts` documents the defect by focusing "Close" *before* pressing
-   Escape. Applies to Board Add, SceneEditor Add/Meta/Inspector. **Board's "Layouts" panel
-   (`Board.tsx:466-554`) is worse: no close button AND no Escape handler at all**, and it renders
-   unconditionally whenever `editing && !addOpen`, absolutely positioned over the phone canvas → an
-   undismissable 280px overlay on a 393px screen for the whole edit session.
-5. **`profileId: 'desktop'` still hard-coded** in both widget-library calls (Board:96,
-   SceneEditor:94) with `useViewport()` in scope. STILL OPEN.
-6. **AppShell's global hotkeys have no input guard.** `Ctrl/Cmd+ArrowRight`
-   (`AppShell.tsx:1016-1031`) preventDefaults word-navigation in any text field whenever a scene card
-   is queued. The `aria-modal` overlay guard runs after the ⌘K close special-case (that part is fixed).
-7. **`scene.destroy-widget` has no restore command.** SceneEditor now stages both entry points
-   through a `Dialog` (run #3) — `Board.tsx:126 remove()` / `:364 onRemove={remove}` is STILL
-   ungated. /board has no Inspector at all, so keyboard Delete/Backspace is the *only* widget
-   lifecycle op there, with no confirm, no toast, no undo, and it also destroys configuration.
-8. **`SceneBoardCanvas`'s empty state is also its loading state** (`:515` `widgets.length === 0`), so
-   first paint of /board reads "An empty scene / Preparing your GM Screen…". Only `emptyHint` is
-   parameterized, not the headline.
-9. **Hard-coded warm rgba bypasses tokens** — SceneBoardCanvas:440 `rgba(224,176,111,.07)` and
-   widget-bodies:542 `rgba(224,176,111,.10)` + `rgba(20,16,11,.20)`. There ARE light themes
-   (`[data-theme='parchment']`, `high-contrast` in `styles/tokens/colors.css`), so these are real.
-10. **`Board.tsx` styles REJECTIONS as neutral info** (`role="status"`, `info` icon,
-    `--color-text-secondary`) in the same region as successes. SceneEditor uses `role="alert"` +
-    `--color-status-error-text`. Prefer SceneEditor's shape.
+## STILL OPEN — structural
+1. **Widget operate chips ignore the live-session gate.** `widget-command.ts:177` rejects any
+   `descriptor.writesTo === 'session'` command unless `session.workflow === 'active'`, and dice/timer
+   commands all write to session. `widget-bodies.tsx:239/301` gate only on `widget.commands.includes(…)`,
+   so Roll/Start/Pause/Reset render fully enabled on a fresh (idle) board and the raw core string
+   "Session widget commands require an active workflow; current workflow is idle." lands verbatim in
+   `Board.tsx:118` / `SceneEditor.tsx:106`. HIGHEST-VALUE finding in this cluster.
+2. **`SceneEditor` never resets on `id` change.** `App.tsx:385` is one `<Route path="/scene/:id">`, so
+   React Router reuses the element; `SceneMetaPanel` is mounted with NO `key` (`:412-421`) and holds
+   `useState`-seeded drafts with no prop sync. Sidebar scene rows (`AppShell.tsx:558`) and the palette
+   (`CommandPalette.tsx:122`) both do scene→scene nav → scene A's name/description/tags get saved onto
+   scene B. `Inspector` (`:460`) correctly DOES carry `key={selectedInstance.id}` — the pattern is known
+   in the same file. `error`/`editing` also survive the nav.
+3. **Bounded canvas is an auto-fit SCALE, not a scroll.** Seeded extent is exactly 792×552
+   (`command-center-state.ts`: COLUMNS 3 × 240 + 24 gutters; 7 tools → 3 rows), so a 393px phone paints
+   /board at ~0.47. The 0.4 floor never engages. `--scene-board-touch-target` (SceneBoardCanvas:457) is
+   consumed ONLY under `html[data-android]` (`styles/index.css:84-86`); `--density-touch-target` is ALSO
+   Android-only (`:33`), so on iOS/mobile-web `OpChip`'s min-width/height resolve to `auto`.
+   **NOT fixable as one change** — see the "phone fit" note below.
+4. **Side panels never move focus in and have no click-outside dismissal** (`Board.tsx:469-478`,
+   `:564-574`; `SceneEditor.tsx:504-509`, `:598-603`, `:717-722`). MED risk: `canvas.spec.ts:381`/`:427`
+   call `.focus()` on Close *before* Escape, and the frames own a roving tabindex.
+5. `SceneBoardCanvas:770-787` resize handle is 14px (compensated by `scale(1/scale)` so 14px is the real
+   on-screen size — still under the WCAG 2.5.8 24px floor). `ZoomBtn` 28px is fine.
+6. `SceneCardsPanel.tsx:745-751` per-card Edit is an unannounced disclosure (no `aria-expanded`/
+   `aria-controls`, label stays "Edit {title}", focus never enters, Cancel never restores).
+7. Create-intent gaps: `CommandPalette.tsx:154-161` "New scene", `:202-209` "Build encounter", and
+   `AppShell.tsx:536-542` sidebar "New scene" all navigate bare. Only Characters/Campaign/Knowledge/
+   Atlas/Board read `location.state` — `/scenes` and `/session` have NO consumer.
+8. `Board.tsx` / `SceneEditor.tsx` render their page titles as plain `<div>`s. Every other screen uses a
+   real `<h2>`. On `/scene/:id` the only heading is the topbar `<h1>Scenes</h1>` — the scene's own name
+   is not a heading. On `/board` "GM Screen" appears twice (topbar h1 + screen header) ~60px apart.
+9. `Board.tsx` `status` is a `role="status"` region that is only cleared on rejection (`:117`) and after
+   a successful `operateWidget` (`:179`) — a stale "Layout X applied" survives every later move/resize/add.
 
-## Verified NON-defects (don't re-flag)
-- ⌘K toggle-off — FIXED (AppShell:988-995 handles the close direction before the overlay guard).
-- Bounded edit-mode grid overlay phantom scroll — FIXED (`inset:0` under bounded) + spec'd.
-- `--operation-touch-target` fallback chain in `widget-bodies.tsx:125` is wired correctly.
-- `BottomTabBar` is in flex flow, not `position:fixed` — `main` does not extend under it.
-- `ZoomBtn` 28×28 clears the 24px WCAG 2.5.8 floor. The 14×14 **resize handle**
-  (SceneBoardCanvas:762-778) does not.
-- OpChip / ZoomBtn both `stopPropagation` on pointerdown, so background deselect doesn't eat them.
+## NEW this pass (run #7)
+- `SceneBoardCanvas.tsx:341-349`: the Delete key path moves focus to the neighbour frame BEFORE the
+  confirm dialog resolves, so Delete→"Keep" silently relocates the keyboard cursor. Fix: move the
+  `frameRefs.get(neighbour)?.focus()` into the host screen's `confirmDestroy`.
+- `SceneEditor.tsx:813-832` Inspector "Size S/M/L" resizes system-tier widgets that the canvas declares
+  locked (`canResize` default `w.tier !== 'system'`, lock glyph at `SceneBoardCanvas:766`). Core has NO
+  system-tier resize gate (`commands/widget.ts:354`), so the button WORKS — contradictory affordances.
+  Shift+Arrow on the same widget returns silently (`SceneBoardCanvas:358-359`) with zero feedback.
+- `SceneEditor.tsx:312-321` (meta) and `:339-349` (Add) are disclosure toggles with NO `aria-expanded`,
+  while `Board.tsx:340/353` has it. Meta's label never changes state either.
+- `SceneCardsPanel.tsx:722-733` Queue IconButton uses NATIVE `disabled`, so its "{title} is queued"
+  explanation leaves the tab order — the exact anti-pattern `ProjectionControl.tsx:96-100` documents a
+  fix for in the same cluster.
+- `SceneBoardCanvas.tsx:279-298` `onWheel` never prevents default. React attaches `wheel` PASSIVE at the
+  root, so `preventDefault()` inside the JSX handler is a no-op — Ctrl+wheel over `/scene` zooms the
+  canvas AND the browser page, and a plain wheel pans the canvas AND scrolls `<main>`. Fix needs a
+  native non-passive `addEventListener('wheel', …, {passive:false})`.
+- `widget-bodies.tsx:109-114`: the inert `OpChip` variant is `aria-hidden`, so a Roll/Start chip on a
+  widget whose package is unavailable (`commands: []`) is visible, unpressable, and invisible to AT.
+  Mitigated by the frame's `statusNote`, so LOW.
+- Do NOT report "bounded scroll extent ignores the transform". Per CSS Overflow, the scrollable overflow
+  region uses the TRANSFORMED descendant boxes, so `minWidth/height: boundedExtent.*`
+  (`SceneBoardCanvas:458-459`) does not create dead scroll space at scale<1. I checked this and it is a
+  non-defect.
 
-## Spec map for this cluster
-`apps/gm-react/tests/e2e/canvas.spec.ts` (board mount/move/reload, phone `touch-action: pan-y`
-assertion at ~:47 — any horizontal-scroll fix must update it; edit-mode scrollHeight; destroy-confirm
-for /scene ONLY; panel-Escape-after-focusing-Close), `responsive.spec.ts` (/board in ROUTES + the
-`clippedControls` scroll-path rule), `a11y-axe-gate.spec.ts` (/board + opened command palette),
-`ux-audit.spec.ts` + `command-palette.spec.ts` (palette).
+## The "raise the phone fit floor" question — verdict: NOT one coherent change
+Four coupled edits + a state-model change, not a tweak:
+(a) raise the `boundedScale` floor (`:187-190`); (b) `overflowX:'hidden'`→`'auto'` (`:427`) because
+`responsive.spec.ts` `clippedControls()` only forgives an off-viewport control when an ancestor owns a
+real scroll range on that axis; (c) `touchAction` `'pan-y'`→`'pan-x pan-y'` (`:433`), which breaks
+`canvas.spec.ts:47`'s `toHaveCSS('touch-action','pan-y')`; (d) the zoom cluster is gated
+`policy === 'canvas'` (`:484`) and reads `view.scale`, while bounded uses the DERIVED `boundedScale` —
+un-gating it requires a new `userScaleOverride ?? boundedScale` state and a pan story for bounded.
+Recommend instead: a bounded-only "Fit / 100%" toggle that sets one override, done as its own change.
 
-See [[completion-pass-ux-patterns]] and [[beta-readiness-audit]] for the destructive-op and
-Page/empty-state classes these overlap with.
+## Spec map / coupling for this cluster
+- `canvas.spec.ts` — `:47` phone `touch-action: pan-y`; `:83`/`:195`/`:263`/`:329`/`:366`/`:413`
+  `getByRole('button', {name:'Edit layout'})`; `:196` + `:361-363` `{name:'Add', exact:true}` and
+  `{name:'Layouts', exact:true}`; `:199` **`getByTestId('scene-add-widget-panel').getByRole('button').nth(1)`
+  assumes Close is button index 0** — any header change in `AddWidgetPanel` breaks it; `:381`/`:427`
+  focus "Close layouts"/"Close" then Escape; `:63-88` edit-mode scrollHeight; destroy-confirm for /scene.
+- `scene-cards.spec.ts` — `:206`/`:407`/`:434` `{name: 'Queue {title}'}`; `:265` `{name:'Show', exact:true}`;
+  `:413-445` assert the queue Move up/down arrows `toBeDisabled()` (so those must stay natively disabled).
+- `responsive.spec.ts` — `/board` in ROUTES + the `clippedControls` scroll-path rule.
+- `a11y-axe-gate.spec.ts` — `/board` + the opened command palette. `ux-audit.spec.ts` +
+  `command-palette.spec.ts` — the palette.
+
+See [[completion-pass-ux-patterns]] and [[beta-readiness-audit]] for the destructive-op / Page /
+empty-state classes these overlap with.

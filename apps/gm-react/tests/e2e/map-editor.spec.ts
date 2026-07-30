@@ -125,6 +125,19 @@ function readMap(page: Page, mapId: string): Promise<MapSnapshot | null> {
 	}, mapId);
 }
 
+/** The `style` string of every water feature, in insertion order — what the renderer keys on. */
+function waterStyles(page: Page, mapId: string): Promise<string[]> {
+	return page.evaluate((mid) => {
+		const m = window.__rt?.state?.maps?.maps?.[mid] as
+			| { layers: Array<{ content: Array<{ kind: string; style: string }> }> }
+			| undefined;
+		return (m?.layers ?? [])
+			.flatMap((l) => l.content)
+			.filter((f) => f.kind === 'water')
+			.map((f) => f.style);
+	}, mapId);
+}
+
 /**
  * Select a map by name in the Atlas switcher, then open it in the full-screen editor. The vault is
  * seeded with several demo maps (`createDemoMapState`), so the map MUST be selected by its unique name
@@ -379,6 +392,97 @@ test.describe('map editor', () => {
 		// It is a normal undoable map command like every other drawing tool.
 		await undoRedo(page, 'Control+z');
 		await expect.poll(async () => (await readMap(page, mapId))!.routeCount).toBe(0);
+	});
+
+	// The "Water type" segmented control was a pure visual no-op: `finishPath` wrote the bare style
+	// string 'water' for both kinds, while the renderer decides river-vs-lake with
+	// `feature.style.includes('river')` (MapBuilder's `FeatureShape`) — and the core's own generators
+	// emit 'water:river' / 'water:lake'. A hand-drawn river therefore painted as a lake-coloured blob.
+	test('the Water type control reaches the drawn feature, so a river is not stored as a lake', async ({
+		page,
+	}) => {
+		await openAtlas(page);
+		const name = `Water Map ${Date.now()}`;
+		const mapId = await createMap(page, { name });
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		const box = (await page.getByRole('application').boundingBox())!;
+		const drawPath = async () => {
+			await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.35);
+			await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+			await page.mouse.click(box.x + box.width * 0.68, box.y + box.height * 0.62);
+			await focusEditor(page);
+			await page.keyboard.press('Enter');
+		};
+
+		await page.keyboard.press('j');
+		await expectActiveTool(page, 'Water');
+		await page.getByRole('radio', { name: 'River', exact: true }).click();
+		await focusEditor(page);
+		await drawPath();
+		await expect.poll(() => waterStyles(page, mapId)).toEqual(['water:river']);
+
+		await page.getByRole('radio', { name: 'Lake', exact: true }).click();
+		await focusEditor(page);
+		await drawPath();
+		// Two distinct styles now — the control genuinely changes what is stored.
+		await expect.poll(() => waterStyles(page, mapId)).toEqual(['water:river', 'water:lake']);
+	});
+
+	// The sub-tool flyout is `position:absolute; top:8` inside a container that spans the whole editor
+	// row, while the ToolOptionsBar owns the top ~47px of the column beside it. A four-tool group's
+	// flyout is ~160px tall, so it completely covered that bar: with Room, Wall, Door or Water armed
+	// the tool's own options were invisible AND unclickable (Playwright reported the flyout
+	// intercepting the pointer). Desktop-only — the phone layout renders the flyout as a strip.
+	test('the sub-tool flyout does not cover the tool options bar', async ({ page }, testInfo) => {
+		test.skip(isPhone(testInfo), 'the compact layout renders the flyout as a horizontal strip');
+		await openAtlas(page);
+		const name = `Flyout Map ${Date.now()}`;
+		await createMap(page, { name });
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		await page.keyboard.press('j'); // Water — inside the four-tool Structure group
+		await expectActiveTool(page, 'Water');
+
+		const flyout = page.getByRole('group', { name: 'Structure tools' });
+		const options = page.getByRole('group', { name: 'Water options' });
+		await expect(flyout).toBeVisible();
+		const f = (await flyout.boundingBox())!;
+		const o = (await options.boundingBox())!;
+		// No overlap: the flyout must start below the options bar.
+		expect(f.y).toBeGreaterThanOrEqual(o.y + o.height);
+
+		// And the bar's own controls are genuinely reachable, not just geometrically clear.
+		const lake = page.getByRole('radio', { name: 'Lake', exact: true });
+		await expect(lake).toBeVisible();
+		await lake.click();
+	});
+
+	// `[` / `]` mutate the fog brush size and `EditorCanvas` reads it as `fogBrushRadius`, but the
+	// options bar rendered it only for the terrain brush and the eraser — so with the fog Brush shape
+	// armed the size changed with no readout anywhere in the UI.
+	test('the fog brush exposes the size that its bracket keys change', async ({ page }) => {
+		await openAtlas(page);
+		const name = `Fog Map ${Date.now()}`;
+		await createMap(page, { name });
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		await page.keyboard.press('f');
+		await expectActiveTool(page, 'Fog');
+		// Rect is the default shape and needs no brush size, so none is offered.
+		await expect(page.getByLabel('Size value')).toHaveCount(0);
+
+		await page.getByRole('radio', { name: 'Brush', exact: true }).click();
+		const size = page.getByLabel('Size value');
+		await expect(size).toHaveCount(1);
+		const before = Number(await size.inputValue());
+
+		await focusEditor(page);
+		await page.keyboard.press(']');
+		await expect.poll(async () => Number(await size.inputValue())).toBeGreaterThan(before);
 	});
 
 	// ── 5 · layers panel ─────────────────────────────────────────────────────────────────────────────

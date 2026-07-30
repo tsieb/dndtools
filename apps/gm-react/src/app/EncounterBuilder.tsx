@@ -147,6 +147,10 @@ export function EncounterDialog({
 		setQName('');
 		setQHp('7');
 		setQAc('13');
+		// CR is another typed draft, but it only commits on blur/Enter — and React fires no blur on
+		// unmount. Escaping the dialog mid-edit therefore left the draft behind, so on reopen the CR
+		// field showed the abandoned text while the difficulty meter still read the committed `r.cr`.
+		setCrDrafts({});
 		setError(null);
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/mode change
 	}, [open, mode]);

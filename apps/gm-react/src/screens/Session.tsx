@@ -838,7 +838,12 @@ function CombatPanel({
 									</span>
 									<Avatar name={c.name} size="sm" ring={active ? 'turn' : undefined} />
 									<div style={{ flex: 1, minWidth: 0 }}>
-										<div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+										{/* Wraps on purpose. On a 391px phone this row is left ~183px after the initiative
+										    span, avatar, row actions and paddings, and "Active" + "Bloodied" alone exceed
+										    that. Every child here is shrinkable, so the COMBATANT NAME was what collapsed to
+										    an ellipsis while the badge text stacked one character per line. Let the badges
+										    drop to their own line instead. */}
+										<div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
 											{/* The row's one real control. `aria-pressed` carries the selection state that
 											    used to sit on the row, so the toggle semantics survive the restructure. */}
 											<button
@@ -1731,7 +1736,12 @@ function StagePanel({
 								value={activeMapId ?? ''}
 								disabled={previewing}
 								options={[
-									{ value: '', label: '— none —' },
+									// Only offered while nothing IS staged, i.e. as an honest description of the
+									// current value. Clearing the active map is not expressible as a command
+									// (`session.set-active-map` requires a real id), so leaving "— none —"
+									// selectable meant the DM picked it, the dropdown snapped back, and nothing
+									// explained why.
+									...(activeMapId ? [] : [{ value: '', label: '— none —' }]),
 									...maps.map((m) => ({ value: m.id, label: m.name })),
 								]}
 								onChange={(e: { target: { value: string } }) => {

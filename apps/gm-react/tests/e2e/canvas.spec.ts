@@ -419,3 +419,122 @@ test.describe('canvas: side panels close on Escape', () => {
 		await expect(page.getByText('Add widget', { exact: true })).toHaveCount(0);
 	});
 });
+
+// `/scene/:id` is ONE route element, so React Router reuses `SceneEditor` across param changes and
+// never unmounts it on a scene→scene navigation. `SceneMetaPanel` held its three fields as
+// `useState(prop)` drafts with no prop→draft sync and no `key`, and its Save is a FULL metadata
+// replacement addressed by the route id — so leaving the panel open and switching scenes wrote the
+// PREVIOUS scene's name, description and tags onto the new one, silently and durably.
+test.describe('canvas: per-scene editor state does not bleed between scenes', () => {
+	test('switching scenes with the details panel open cannot save the old scene onto the new one', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/scenes');
+		await seedFresh(page);
+		await page.goto('/#/scenes', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+
+		const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+		const stamp = Date.now();
+		const nameA = `Bleed A ${stamp}`;
+		const nameB = `Bleed B ${stamp}`;
+		for (const name of [nameA, nameB]) {
+			const created = await dispatch(page, {
+				type: 'scene.create',
+				actorId,
+				payload: { name, description: '', visibility: 'dm-only', tags: [] },
+			});
+			expect(created.status).toBe('accepted');
+		}
+		const idOf = (name: string) =>
+			page.evaluate(
+				(n) =>
+					Object.values(window.__rt!.state.scenes.scenes).find((s) => s.name === n)?.id ?? null,
+				name,
+			);
+		const idA = (await idOf(nameA))!;
+		const idB = (await idOf(nameB))!;
+		expect(idA).toBeTruthy();
+		expect(idB).toBeTruthy();
+
+		// Open A's details panel and type a new name into the draft.
+		await gotoRoute(page, `/scene/${idA}`);
+		await page.getByRole('button', { name: 'Edit scene name, description & tags' }).click();
+		await expect(page.getByTestId('scene-meta-panel')).toBeVisible();
+		await page.locator('#scene-meta-name').fill(`${nameA} EDITED`);
+
+		// Navigate straight to B WITHOUT closing the panel — the component is reused, not remounted.
+		await gotoRoute(page, `/scene/${idB}`);
+		await expect(page.getByTestId('scene-meta-panel')).toHaveCount(0);
+
+		// Reopening on B shows B's real values, not A's abandoned draft…
+		await page.getByRole('button', { name: 'Edit scene name, description & tags' }).click();
+		await expect(page.locator('#scene-meta-name')).toHaveValue(nameB);
+
+		// …and saving from B writes B, leaving A untouched.
+		await page.getByRole('button', { name: 'Save details' }).click();
+		await expect
+			.poll(async () => {
+				const names = await page.evaluate(
+					(ids) =>
+						ids.map(
+							(id) =>
+								(window.__rt!.state.scenes.scenes as Record<string, { name: string }>)[id]?.name ??
+								null,
+						),
+					[idA, idB],
+				);
+				return names;
+			})
+			.toEqual([nameA, nameB]);
+	});
+});
+
+// The GM Screen ships seeded Dice and Timer widgets, and every dice/timer operate command declares
+// `writesTo: 'session'` — which the core refuses unless `session.workflow === 'active'`. The chips
+// were rendered fully live (accent-toned, keyboard operable) on a fresh, idle install, and the first
+// press printed the raw internal string "Session widget commands require an active workflow; current
+// workflow is idle." into the board's alert region.
+test.describe('canvas: session-only widget operations explain themselves', () => {
+	test('the GM Screen dice chip is soft-disabled with a reason while the session is idle', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+
+		expect(await page.evaluate(() => window.__rt!.state.session.workflow)).not.toBe('active');
+
+		const roll = page.getByRole('button', { name: /^Roll / });
+		await expect(roll).toHaveCount(1);
+		// Soft-disabled: it keeps its place in the tab order and carries its own explanation, rather
+		// than being natively `disabled` (unreachable) or silently live (rejected on press).
+		await expect(roll).toHaveAttribute('aria-disabled', 'true');
+		await expect(roll).toHaveAccessibleName(/Go live in Session/);
+		await roll.focus();
+		await expect(roll).toBeFocused();
+
+		// Pressing it is swallowed — no raw core rejection reaches the alert region. `locator.click()`
+		// refuses an `aria-disabled` target outright (which is itself the point), so dispatch the event
+		// directly to prove the handler, not just the actionability check, declines it.
+		await roll.dispatchEvent('click');
+		await expect(page.getByText(/current workflow is/)).toHaveCount(0);
+
+		// Going live turns the same chip into a real, unqualified control.
+		const live = await page.evaluate(async () => {
+			const rt = window.__rt!;
+			const state = rt.state as unknown as { commandCenter: { homeSceneId: string | null } };
+			return rt.dispatch({
+				type: 'session.set-workflow',
+				actorId: rt.defaultActorId,
+				payload: { workflow: 'active', activeSceneId: state.commandCenter.homeSceneId },
+			});
+		});
+		expect(live.status).toBe('accepted');
+		await expect(roll).not.toHaveAttribute('aria-disabled', 'true');
+		await expect(roll).toHaveAccessibleName(/^Roll /);
+	});
+});

@@ -44,6 +44,7 @@ import {
 	type NormPoint,
 } from './mapGeometry';
 import { T, eb } from './screen-kit';
+import { terrainColor } from './map/mapVocab';
 import { useAssetObjectUrl } from '../platform/assetUrl';
 import { putAssetBytes } from '../platform/storage/assetStore';
 import { useRuntime } from '../runtime/RuntimeContext';
@@ -223,6 +224,9 @@ export function FeatureShape({ feature, color }: { feature: MapFeature; color: s
 		.map((p) => `${(p.x * 100).toFixed(2)},${(p.y * 100).toFixed(2)}`)
 		.join(' ');
 	const props = feature.props ?? {};
+	// A painted `terrain:*` style overrides the layer-category colour; anything else keeps it. Without
+	// this the Terrain select's eight swatches were decorative only — every one painted the same tint.
+	const paint = terrainColor(feature.style) ?? color;
 	switch (feature.kind) {
 		case 'fill':
 		case 'room': {
@@ -233,9 +237,9 @@ export function FeatureShape({ feature, color }: { feature: MapFeature; color: s
 					y={r.y}
 					width={r.w}
 					height={r.h}
-					fill={color}
+					fill={paint}
 					fillOpacity={0.3}
-					stroke={color}
+					stroke={paint}
 					strokeWidth={1.4}
 					vectorEffect="non-scaling-stroke"
 				/>
@@ -383,7 +387,7 @@ export function FeatureShape({ feature, color }: { feature: MapFeature; color: s
 				<polyline
 					points={pts}
 					fill="none"
-					stroke={color}
+					stroke={paint}
 					strokeWidth={1.4}
 					vectorEffect="non-scaling-stroke"
 					strokeLinecap="round"

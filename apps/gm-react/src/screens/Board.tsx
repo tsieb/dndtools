@@ -9,6 +9,7 @@ import {
 } from '@dndtools/core';
 import { Button, Card, Dialog, Icon, IconButton, Input, Switch } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { widgetRejectionMessage } from '../app/widget-rejection';
 import { SceneBoardCanvas, WidgetGlyph } from '../app/SceneBoardCanvas';
 import { boardWidgetsOf, payloadIndex, type BoardWidget } from '../app/board-helpers';
 import { useViewport } from '../app/useViewport';
@@ -115,10 +116,15 @@ export function Board() {
 			// A rejection is NOT a confirmation: routing both into `status` rendered "that change
 			// couldn't be applied" in the same neutral grey, with the same info icon, as "Layout saved".
 			setStatus(null);
-			setError(result.rejection.message ?? 'That change couldn’t be applied — try again.');
+			setError(widgetRejectionMessage(result.rejection));
 			return false;
 		}
 		setError(null);
+		// A confirmation describes ONE action. `status` was only ever cleared on rejection, so a
+		// "Layout 'Combat night' saved." (or the restore-a-safe-point offer) survived every later move,
+		// resize, add and preset apply — the live region kept asserting something that was no longer
+		// true. Callers that want a message set it immediately after their own dispatch resolves.
+		setStatus(null);
 		return true;
 	}
 
@@ -437,7 +443,10 @@ export function Board() {
 					emptyHint={
 						ready ? 'Press Edit layout, then Add to place a widget.' : 'Preparing your GM Screen…'
 					}
-					emptyTitle={ready ? undefined : 'Setting up your GM Screen'}
+					// Both branches are named: falling through to the canvas default meant a DM who removed
+					// every widget from the GM Screen was told "An empty scene" — scene vocabulary on a
+					// surface that is deliberately not a scene.
+					emptyTitle={ready ? 'Your GM Screen is empty' : 'Setting up your GM Screen'}
 				/>
 
 				<Dialog

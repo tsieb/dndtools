@@ -170,3 +170,63 @@ test('a combat row exposes its stats and selects via a real control, not a wrapp
 	await expect(order.locator('li[aria-current="true"]')).toHaveCount(1);
 	await expect(order.locator('li[aria-current="true"]')).toContainText('Bog Lurker');
 });
+
+// The name + badge row had no `flexWrap`, and every child in it is shrinkable (the name button sets
+// minWidth:0 + text-overflow:ellipsis; Badge sets minWidth:0 + overflow-wrap:anywhere). On a 391px
+// phone the row is left roughly 183px after the initiative span, avatar, quick-HP buttons and
+// paddings — less than the "Active" and "Bloodied" badges alone need — so the thing that gave way
+// was the COMBATANT'S NAME. A DM on a phone could not read who was up.
+test('a long combatant name is not squeezed away by its status badges', async ({ page }) => {
+	const LONG = 'Grand Vizier of the Sunken Reliquary';
+	const restarted = await page.evaluate(async (name) => {
+		const rt = window.__rt!;
+		const ended = await rt.dispatch({ type: 'combat.end', actorId: rt.defaultActorId, payload: {} });
+		if (ended.status !== 'accepted') return { step: 'end', ...ended };
+		return {
+			step: 'restart',
+			...(await rt.dispatch({
+				type: 'combat.start',
+				actorId: rt.defaultActorId,
+				payload: {
+					combatants: [
+						{ kind: 'monster', name, ac: 17, initiative: 20, maxHp: 60 },
+						{ kind: 'monster', name: 'Reed Stalker', ac: 12, initiative: 9, maxHp: 14 },
+					],
+				},
+			})),
+		};
+	}, LONG);
+	expect(
+		restarted.status,
+		`${restarted.step}: ${JSON.stringify(restarted.rejection ?? {})}`,
+	).toBe('accepted');
+
+	// It is the active combatant, so it also carries the "Active" badge.
+	const nameButton = page.getByRole('button', { name: LONG, exact: true });
+	await expect(nameButton).toBeVisible();
+	await expect(page.getByText('Active', { exact: true }).first()).toBeVisible();
+
+	const geometry = await nameButton.evaluate((el) => {
+		const line = el.parentElement!;
+		const badge = [...line.children].find((c) => c !== el && /Active/.test(c.textContent ?? ''));
+		const name = el.getBoundingClientRect();
+		return {
+			clipped: el.scrollWidth - el.clientWidth,
+			nameWidth: name.width,
+			nameBottom: name.bottom,
+			lineWidth: line.getBoundingClientRect().width,
+			badgeTop: badge ? badge.getBoundingClientRect().top : null,
+		};
+	});
+
+	if (geometry.clipped > 0) {
+		// A name longer than a whole line legitimately ellipsizes — but it must own the ENTIRE line,
+		// i.e. the badges wrapped below instead of competing for the same ~183px. That is the fix.
+		expect(geometry.nameWidth).toBeGreaterThan(geometry.lineWidth * 0.95);
+		expect(geometry.badgeTop).not.toBeNull();
+		expect(geometry.badgeTop!).toBeGreaterThanOrEqual(geometry.nameBottom - 1);
+	} else {
+		// Wide enough for both: nothing is hidden behind an ellipsis at all.
+		expect(geometry.clipped).toBeLessThanOrEqual(1);
+	}
+});

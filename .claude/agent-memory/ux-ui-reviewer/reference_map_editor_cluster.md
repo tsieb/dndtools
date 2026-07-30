@@ -1,124 +1,147 @@
 ---
 name: map-editor-cluster
-description: Structure and recurring defect patterns of the gm-react map/atlas cluster (Atlas → MapBuilder wrapper → app/map/MapEditor + ToolRail/ToolOptionsBar/dock/canvas), with FIXED vs STILL-OPEN triage as of 8138156b
+description: Structure and recurring defect patterns of the gm-react map/atlas cluster (Atlas → MapBuilder wrapper → app/map/MapEditor + ToolRail/ToolOptionsBar/dock/canvas), with FIXED vs STILL-OPEN triage as of b5ed692f
 metadata:
   type: reference
 ---
 
-## Surface map (re-verified 2026-07-30 @ 8138156b)
-- `screens/Atlas.tsx` (1051 ln) is the map library; "Open in map editor" mounts `MapBuilder`, which
-  since MAP-021 is a thin back-compat wrapper (`app/MapBuilder.tsx:1652`) rendering
-  `app/map/MapEditor.tsx` (1057 ln). `MapBuilder.tsx` (1675 ln) still owns the shared renderer
-  (`MapCanvas:395`, `FeatureShape:221`, `VIS_CHIP`, `dsToVis/visToDs`).
-- **Exact renderer blast radius (grepped 2026-07-30):** `FeatureShape` has exactly TWO call sites —
-  `MapBuilder.tsx:740` (inside `MapCanvas`) and `EditorCanvas.tsx:786`. `MapCanvas` has exactly TWO
-  mount sites — `Atlas.tsx:563` and `EditorCanvas.tsx:732` (memoised at `EditorCanvas.tsx:27`).
-  There is NO separate player-projection renderer; projection is a durable command
-  (`session.project-active-map`), the player sees the same two paths. So any FeatureShape change
-  hits Atlas preview + editor canvas and nothing else.
-- Editor split: `useMapEditor.ts` (402) · `tools.ts` (330) · `ToolRail` (187) · `ToolOptionsBar` (476)
-  · `dock/{Inspector(721),Layers(429),Assets(239),History(162)}Panel` · `canvas/EditorCanvas` ·
-  `generate/*` · `keyboard.ts` (206). Leaf panels never read `isPhone`; MapEditor owns all
-  `isPhone`/`quickMapMode` branching. Correct layering, not a gap.
-- Two gesture owners on one canvas: EditorCanvas's overlay owns its `DRAWING_TOOLS` set; `MapCanvas`
-  owns select/pan/poi/token/fog. A tool in NEITHER set is silently inert.
+## Surface map (re-verified 2026-07-30 @ b5ed692f)
+- `screens/Atlas.tsx` is the map library; "Open in map editor" mounts `MapBuilder`, which since MAP-021
+  is a thin back-compat wrapper (`app/MapBuilder.tsx:1652`) rendering `app/map/MapEditor.tsx` (1057 ln).
+  `MapBuilder.tsx` (1675) still owns the shared renderer (`MapCanvas:395`, `FeatureShape:221`).
+- **Renderer blast radius:** `FeatureShape` has exactly TWO call sites — `MapBuilder.tsx:740` and
+  `EditorCanvas.tsx:786`. `MapCanvas` mounts only at `Atlas.tsx:563` + `EditorCanvas.tsx:732`. There is
+  NO separate player-projection renderer, so a FeatureShape change hits Atlas preview + editor canvas
+  and nothing else.
+- Editor split: `useMapEditor.ts` (403) · `tools.ts` · `ToolRail` (187) · `ToolOptionsBar` (477) ·
+  `StatusBar` (61) · `dock/{Inspector(777),Layers(430),Assets(247),History}Panel` · `canvas/EditorCanvas`
+  (1020) · `generate/*` · `keyboard.ts` (207). Leaf panels never read `isPhone`; MapEditor owns all
+  `isPhone`/`quickMapMode` branching.
+- Two gesture owners on one canvas: EditorCanvas's overlay owns `DRAWING_TOOLS`; `MapCanvas` owns
+  select/pan/poi/token/fog. A tool in NEITHER set is silently inert.
+- **THREE phone-ish layouts, not two.** `quickMapMode` (Android only, `platform/capabilities.ts:120`),
+  `isPhone && !quickMapMode` (`MapEditor.tsx:800-844`), desktop grid (`:845-889`).
 
-## FIXED since the 2026-07-29 pass — do not re-report
-- `MapEditor.tsx:675-693` notice banner: now `role="alert"` + `--color-status-warning-*` tokens +
-  `warning` icon. The "unannounced, mis-toned editor error channel" item is CLOSED.
-- `MapEditor.tsx:432-444` `<Tabs idBase="map-dock">` + `tabPanelProps('map-dock', editor.dock)`. CLOSED.
-- `LayersPanel.tsx:130-142` active-layer is keyboard-reachable: Enter/Space handled on the WRAPPER
-  div (not passed as a LayerRow prop, which `{...rest}` would clobber). CLOSED.
-- `ToolOptionsBar.NumberControl` / `generate/ParamControls` draft-then-commit-on-blur. CLOSED.
-- Label vs Stamp `ToolOptions` key collision. CLOSED. Route-tool inertness. CLOSED.
-- `ds/components/map/Minimap.jsx` real `<button>` + arrow pan. CLOSED.
+## FIXED — do not re-report
+- Notice banner `role="alert"` + warning tokens (`MapEditor.tsx:676-715`). Dismiss now minWidth/Height 24.
+- `<Tabs idBase="map-dock">` + `tabPanelProps`. LayersPanel active-layer Enter/Space on the wrapper.
+- All THREE single-flight sliders: `InspectorPanel.CommitSlider` (`:42-82`, used at `:380` grid cells and
+  `:631` token size) and `LayerRow.jsx` per-gesture opacity commit.
+- `LayerRow.jsx:243` opacity Popover now has `zIndex: 20`.
+- `AssetsPanel` dead-drag copy + `draggable`/`onDragStart` DELETED (`:139-143`); favourite toggle is 24px.
+- `ToolOptionsBar.NumberControl` draft-then-commit-on-blur. Route-tool inertness. Label/Stamp key collision.
+- `Minimap.jsx` real `<button>` + arrow-key pan.
+- **Premise correction:** the `isPhone && !quickMapMode` layout IS covered — `responsive.spec.ts:808-858`
+  ("the compact map builder keeps the canvas and inspector reachable", 375x667): no-h-overflow,
+  `clippedControls` on `> header`, canvas width >= 374, rail `aria-orientation=horizontal`, Panels sheet
+  bounds. Do NOT claim it is uncovered again. What it does NOT catch: elements that SHRINK (an `<h1>` is
+  not in the `clippedControls` selector list) and vertical crowding.
 
-## STILL OPEN — re-verified with CURRENT line numbers 2026-07-30 @ 8138156b
-1. **Per-drag-step `run()` sliders.** `useMapEditor.ts:272` is verbatim
-   `if (busyRef.current) return false;` — single-flight CONFIRMED, silent (no throw, no queue).
-   Three `<Slider>`s dispatch straight from `onChange` (fires per drag step, like `input`):
-   - `dock/InspectorPanel.tsx:328-344` grid "Cells across" → `void run({type:'map.configure-overlay'})`
-   - `dock/InspectorPanel.tsx:576-585` token "Size" → `patch({size:v})`, `patch` is run-backed at :557
-   - `dock/LayersPanel.tsx:185-191` `onOpacityChange` → `void run({type:'map.set-layer-opacity'})`
-   Fix shape: local state on `onChange`, dispatch on `onPointerUp`/`onKeyUp`/`onBlur`.
-   `generate/ParamControls` is NOT affected (local state until Generate).
-2. **`FeatureShape` `prop` case ignores `feature.style`** — `MapBuilder.tsx:290-302` draws every prop
-   as one accent circle (`r = max(0.5, 0.9*scale)`), so all 14+ AssetsPanel object types are
-   indistinguishable. Contrast `case 'water':260-284`, which DOES branch on `feature.style`.
-3. **Fog brush size is hidden but keymapped.** `ToolOptionsBar.tsx:375-406` `case 'fog'` renders
-   Mode/Shape/Feather only. `brushSize` is surfaced ONLY under the brush/erase cases
-   (`ToolOptionsBar.tsx:234-239, 249-254`). Yet `fogShape:'stroke'` ("Brush") drives
-   `fogBrushRadius={options.brushSize/1000}` (`EditorCanvas.tsx:742`) and `[`/`]` mutate it
-   (`keyboard.ts:80-88`).
-4. **Atlas's notice channel is the un-fixed twin of the fixed editor banner.**
-   `Atlas.tsx:494-524` renders `role="status" aria-live="polite"`, `background:T.alt`, `info` icon —
-   but it carries command REJECTIONS at `:257`, `:399`, `:413` alongside successes. AND it is the
-   STALE-STATE class: `Atlas.tsx:199-207` `run()` never clears `notice`, and `createMap:250-258`
-   sets `mapId` on accept without clearing — a prior failure banner survives the next success.
-   (Editor's `useMapEditor.run` DOES `setNotice(null)` on accept, `useMapEditor.ts:285`.)
-   Secondary stale-state: the export success paths `MapEditor.tsx:231-241` and
-   `InspectorPanel.tsx:100-106` call `announce()` but never `editor.setNotice(null)`.
-5. **Atlas layer-reorder chevrons are 16px and vertically adjacent.** `ghostBtn` at `Atlas.tsx:58-64`
-   is `padding:2` + a 12px icon ≈ 16px. Stacked in a `flexDirection:'column'` span at
-   `Atlas.tsx:770-792` — "Move up" `:772-781` sits directly on "Move down" `:782-791`, and a mis-tap
-   dispatches the OPPOSITE durable `map.reorder-layer`. Same `ghostBtn` also at `:518` (dismiss),
-   `:831`, `:903`, `:934`, `:944`.
-6. **Zero hover feedback in the inline-styled map chrome — claim re-verified.**
-   `grep -rn ':hover' src --include=*.css` returns **NOTHING**; the only global interactive rule is
-   the `:focus-visible` ring at `styles/tokens/base.css:35-36`. `src/styles/` has just 7 css files
-   (index, scene-display, tokens/{base,fonts,spacing,typography,colors}). DS components fake hover in
-   JS (`ds/components/core/Button.jsx:104`, `ds/components/map/LayerRow.jsx:98-101`). Raw inline-styled
-   `<button>`s with NO hover: `ToolRail.tsx:57-89` group buttons + the flyout set, `AssetsPanel.tsx:180-211`
-   tiles and `:212-229` fav, `MapEditor.tsx:556-571` Search, all `Atlas.tsx` `ghostBtn` sites.
-7. **`AssetsPanel` dead drag affordance.** Copy "Drag also works." at `AssetsPanel.tsx:139`;
-   `draggable` + `onDragStart` at `:176-177`. `grep -rn 'onDrop' src/app/map src/app/MapBuilder.tsx
-   src/screens/Atlas.tsx` returns ONLY `LayersPanel.tsx:125` (row reorder). Neither EditorCanvas nor
-   MapCanvas has `onDrop`/`onDragOver`. Cheap fix: delete the sentence + the draggable/onDragStart
-   pair — click-to-arm (`:184`) is already the WCAG 2.5.7 path.
-8. **`AssetsPanel.tsx:212-229` favourite toggle**: `padding:2` + 12px icon ≈ 16px AND
-   `position:'absolute', top:2, right:2` INSIDE the `position:'relative'` wrapper at `:174-179`, so
-   it overlays the arm button's top-right corner. WCAG 2.5.8 + accidental-activation.
-   Same class: `MapEditor.tsx:694-706` notice Dismiss (`padding:2` + 14px icon ≈ 18px).
-9. **`ToolRail.tsx:29-93`** `role="toolbar"` + `aria-orientation`, every button natively tabbable,
-   and `grep -n 'onKeyDown|tabIndex' ToolRail.tsx` returns ZERO — no roving tabindex, no arrow keys.
-   Not axe-detectable, so the map-editor axe gate (`map-editor.spec.ts:651`) passes it.
-10. **`ds/components/map/LayerRow.jsx:220-226`** per-row opacity `Popover` still has NO `zIndex` in
-    its inline `style` (`{position:'absolute', right:0, top:'calc(100% + 6px)', transform:'none'}`).
-    `Popover` (`ds/components/core/Popover.jsx`) only applies `var(--z-overlay)` in its `anchor`
-    branch, so any inline-positioned Popover must supply its own. Sibling menus DO
-    (MapEditor export menu 30, LayersPanel row menu 20, ToolOptionsBar SnapMenu). Symptom: the
-    opacity flyout on a non-last row paints under the next row's `position:relative` wrapper.
-    Fix: add `zIndex: 20`.
+## STILL OPEN @ b5ed692f — with current line numbers
 
-## Theming gap (unchanged, verified 2026-07-29, not re-checked 07-30)
-`--layer-*`/`--map-*` tokens (`styles/tokens/colors.css:258-282`) sit in an UNCONDITIONED `:root` —
-no `[data-theme='parchment']` (144-191), no `[data-theme='high-contrast']` (196-243), no
-`@media (forced-colors: active)` remap (306-352). Verified break:
-`ds/components/map/LayerTypeBadge.jsx:42-43` uses a light OKLCH `--layer-*` as badge TEXT on a
-16%-mix background; under parchment `--color-surface` becomes `#fdf8f0` → light-on-near-white,
-WCAG 1.4.3 failure on every layer badge. Same mechanism on `POIMarker.jsx`/`POIPopover.jsx` category
-dots and `LayerRow.jsx:90`'s `--layer-dm` border. Only hard-coded hex left in the cluster itself is
-`useMapEditor.ts:90 lightColor:'#ffd6aa'` (a default light *value*, arguably fine).
+### The renderer drops `feature.style` for THREE of the authoring tools (one root cause, one file)
+1. **Water River/Lake is a no-op.** `EditorCanvas.tsx:347-356` writes `style:'water'`; `FeatureShape`
+   `case 'water'` (`MapBuilder.tsx:264-265`) decides river-vs-lake from
+   `style.includes('river') || props.biome==='river' || props.flow!==undefined` — none set, so BOTH draw
+   as a filled lake polygon. Core's own convention is `'water:river'|'water:lake'|'water:sea'`
+   (`generation/{region,world,city}.ts`). Fix = one-line style string.
+2. **Terrain style is dropped.** `EditorCanvas.tsx:449` (brush→`stroke`), `:457` (room), `:503` (fill) pass
+   `options.terrainStyle`; `FeatureShape` `case 'fill'/'room'` (`:227-243`) and `default` (`:381-391`) use
+   only the layer `color`. All 8 `TERRAIN_STYLES` (`mapVocab.ts:43-52`, each with a distinct `swatch`)
+   paint identically.
+3. **`prop` ignores style AND `props.rotation`.** `MapBuilder.tsx:291-303` = one accent circle for all 12
+   `STAMP_ASSETS`, all 5 `SCATTER_SETS`, and all 8 core scatter families. Data shapes: editor stamp
+   `style='prop:crate'`; editor scatter `style='prop:trees'` (**PLURAL** — `SCATTER_SETS` ids at
+   `mapVocab.ts:90-96` diverge from core's singular `prop:tree`); core scatter `style='prop:tree'` +
+   `props.asset='tree.oak'` + `props.rotation` + `props.scale`. Any glyph lookup must key on the family
+   = `(props.asset ?? style.replace(/^prop:/,'')).split(/[.:]/)[0]` and singularise.
+4. Minor sibling: `portcullis` renders identically to a plain `door` (`MapBuilder.tsx:325-339` only
+   branches on `archway`/`secret`), so 4 `DOOR_KINDS` yield 3 appearances.
+
+### Interaction
+5. **Pinch-zoom is Android-gated.** `EditorCanvas.tsx:151,160,184` all early-return
+   `if (!quickMapMode || event.pointerType !== 'touch')`, and the container sets `touchAction:'none'`
+   (`:729`) so the browser's own pinch is suppressed too → NO pinch zoom in any non-Android touch
+   browser. Worse with a drawing tool armed: the overlay at `:878-893` (zIndex 4) covers the canvas,
+   MapCanvas's pan never fires, and space-pan (`:279`) needs a hardware keyboard — the only pan left is
+   tapping the Minimap. Fix = drop the `quickMapMode` clause; the pinch path is pure viewport state.
+6. **Fog brush size hidden but keymapped.** `ToolOptionsBar.tsx:375-407` `case 'fog'` renders
+   Mode/Shape/Feather only; `brushSize` is surfaced only under brush (`:233-241`) and erase (`:246-256`).
+   Yet `fogShape:'stroke'` ("Brush") drives `fogBrushRadius={options.brushSize/1000}`
+   (`EditorCanvas.tsx:742`) and `[`/`]` mutate it (`keyboard.ts:80-89`).
+7. **`ToolRail.tsx:29-93`** `role="toolbar"` with every button natively tabbable; `grep onKeyDown|tabIndex`
+   → ZERO. ~14 tab stops in the phone bottom bar. **No reusable helper exists:** screen-kit's
+   `radioGroupKeyDown(e)` (`screen-kit.tsx:22-32`) queries `[role="radio"]` and CALLS `.click()` on the
+   next node — selection-follows-focus, which for a toolbar would ACTIVATE a tool merely by arrowing.
+   The right pattern is inlined (not exported) in `ds/components/core/Tabs.jsx:28,77-90`
+   (`refs` array + `tabStopIndex` + `moveFocus`). Copy ~20 lines into ToolRail.
+8. **Unconditional success announcements** (announce fired without awaiting the single-flight `run`):
+   `LayersPanel.tsx:64` (Layer added) and `:321` (Layer deleted); `EditorCanvas.tsx:389,417,450,458,469,
+   477,491,495,506,370` (Erased/Scattered/Painted/Room/Placed…/Filled/Route). The awaited `.then(accepted)`
+   pattern at `EditorCanvas.tsx:607,632,661` and `InspectorPanel.tsx:582,666` is the in-repo fix shape.
+9. **Stale notice on the export path** (`run()` clears notice at `useMapEditor.ts:280`, but exportFile is
+   not a command): `MapEditor.tsx:233-240` and `InspectorPanel.tsx:158` announce success without
+   `editor.setNotice(null)`, so a prior export-failure banner survives. `MapEditor.tsx:241-247` also
+   leaves the export Popover open on failure, covering the notice it just set.
+
+### Layout / phone
+10. **Phone header squeezes the map title to ~25-41px.** `MapEditor.tsx:482-674`: `nav` is the only
+    `flex:1 minWidth:0` child; every sibling has a hard min (chip `whiteSpace:nowrap` ≈88, undo+redo 58,
+    Export ≈62, Project ≥44 via `--density-touch-target:2.75rem` on mobile, back 28, Search 34) plus 24
+    of gaps + 12 padding ≈ 350 of 391. `responsive.spec` cannot catch it (h1 isn't a "control"; nothing
+    overflows). Cheapest fix: `flexWrap:'wrap'` + `flex:'1 1 100%'` on the nav when `isPhone`.
+11. **HUD collisions.** `EditorCanvas.tsx:922` `bottom: quickMapMode ? 16 : 150` is a magic number; the
+    Minimap (`:966-979`, width 160, `aspect 1.4` → ~138 tall, `bottom:16`) tops out at 154, so the zoom
+    cluster's % readout overlaps it by ~4px on EVERY profile. On phone the Minimap also renders
+    (`!quickMapMode`) eating 160x138 of a ~391x517 canvas, and the path-tool hint (`:999-1016`,
+    `left:14 bottom:16`, ~322px wide) paints straight over it (same zIndex 6, hint later in DOM).
+12. `InspectorPanel.tsx:412-424` "Show grid" is a raw 16px `<input type=checkbox>` in a ~19px-tall label
+    row — WCAG 2.5.8. Inconsistent with `SnapMenu`, which uses the DS `Switch` for the same shape.
+13. `StatusBar.tsx:41-43` cursor readout is permanently `x — · y —` on touch (no hover) and wraps to a
+    second row on phone.
+14. **Zero pointer feedback** — `grep -rn ':hover' src --include=*.css` still returns NOTHING; the only
+    global interactive rule is the `:focus-visible` ring (`styles/tokens/base.css:35-36`). Worst offenders
+    are the two hand-rolled MENUS: `LayersPanel.MenuItem:349-371` and `MapEditor.HeaderMenuItem:986-1005`.
+    Then `ToolRail:61-90` + `:143-181`, `AssetsPanel:72-93` tag rail + `:178-209` tiles,
+    `MapEditor:553-585` Search, `ToolOptionsBar` `stepBtn:107-120` / `SnapMenu:126-147` / Choose… `:333-350`.
+    In-repo pattern is `onMouseEnter/Leave` (`ds/components/map/LayerRow.jsx:106`, `ToolPalette.jsx:67`,
+    `LayerPanel.jsx:81`, `Button.jsx:100-113`).
+15. `LayersPanel.tsx:97-107` tag-filter buttons: no `aria-pressed` (only visual `Chip selected`), and the
+    chips share one `filter` string with the text Input — typing a tag name lights a chip, clicking a chip
+    wipes the typed query.
+16. `EditorCanvas.tsx:719` `role="application"` name interpolates the RAW tool id ("Drawing tool: poi")
+    instead of `TOOLS_BY_ID.get(tool)?.label`.
+17. `EditorCanvas.tsx:884` dead ternary `cursor: tool === 'measure' ? 'crosshair' : 'crosshair'`.
+18. `useMapEditor.ts:49-53` doc says options are "remembered per tool"; `ToolOptions` is one flat object,
+    so `brushSize` is shared by brush/erase/fog and `[`/`]` mutate all three.
+19. `InspectorPanel.tsx:559-572` "Save link" dispatches and gives zero feedback (no announce, stays
+    enabled). Contrast `:216` Save name & description, which at least self-disables once saved.
+20. `Atlas.tsx` notice channel is still the un-fixed twin of the fixed editor banner (`role="status"`,
+    `info` icon, carries rejections) and `Atlas.tsx run()` never clears `notice`. Atlas reorder chevrons
+    (`ghostBtn`, `padding:2` + 12px icon ≈ 16px) still stacked vertically adjacent.
+
+## Theming gap (verified 2026-07-29, not re-checked since)
+`--layer-*`/`--map-*` (`styles/tokens/colors.css:258-282`) sit in an UNCONDITIONED `:root` — no parchment,
+no high-contrast, no forced-colors remap. `LayerTypeBadge.jsx:42-43` uses a light OKLCH `--layer-*` as
+badge TEXT on a 16%-mix background → under parchment that is light-on-near-white (WCAG 1.4.3). Same
+mechanism on `POIMarker`/`POIPopover` dots and `LayerRow.jsx:90`'s `--layer-dm` border.
 
 ## e2e coverage (re-grepped 2026-07-30)
-- `map-editor.spec.ts` (11 tests, axe critical/serious gate at `:651`). Touches: toolbar name
-  "Map tools" `:193`; layer rename/visibility/lock/**Alt+Arrow reorder**/delete `:386-456`;
-  Export `:470-473`; `getByLabel('Size value')` (ToolOptionsBar NumberControl) `:235`, `:626`.
-- `android-quick-map.spec.ts:76` asserts the "Map tools" toolbar is ABSENT in quickMapMode.
-- `responsive.spec.ts:820-845` compact map editor: no-horizontal-overflow, header clipping,
-  `aria-orientation='horizontal'` on the rail `:830`, Panels sheet bounds.
-- `canvas.spec.ts` is /board + /scene ONLY — it does NOT touch this cluster. Do not cite it.
-- **NO spec references**: Atlas "Move X up/down" chevrons (only `scene-cards.spec.ts:377-410` uses
-  that label shape, different surface), "Grid cells across", "Token size", layer opacity,
-  Favorite/Unfavorite, "Dismiss". So findings 1/4/5/8 are near-zero regression risk.
-- `quickMapMode` is Android-only (`platform/capabilities.ts:120`), so the `isPhone && !quickMapMode`
-  branch (full header + horizontal ToolRail) has NO e2e coverage.
+- `map-editor.spec.ts` (11 tests, axe critical/serious gate at `:651`). Pins: toolbar name "Map tools"
+  `:193`; group names "Structure"/"Lighting" `:207-212`; tool-options group names via
+  `expectActiveTool` → `role=group name="<Tool label> options"` (Terrain brush, Select & move, Room, Fog,
+  Point of interest, Generate); `getByLabel('Size value')` `:235`,`:626`; `getByRole('application')`
+  (unnamed) `:140`; "Panels" `:157`; layer rename/visibility/lock/Alt+Arrow/delete `:386-456`; Export `:470`.
+- `responsive.spec.ts:808-858` compact map editor (see premise correction above).
+- `android-quick-map.spec.ts:76` asserts "Map tools" is ABSENT in quickMapMode; `:111`,`:273` use "Panels".
+- `canvas.spec.ts` is /board + /scene ONLY. Do not cite it for this cluster.
+- **ZERO spec references** for: "Water type", "Terrain style", "Fog shape"/"Fog mode", "Show grid",
+  "Snapping options", "Map canvas" (as a name), "Grid cells across", "Token size", "Move up"/"Move down",
+  Favorite/Unfavorite, "Brush size". Every fix above is therefore near-zero regression risk.
 
 ## Constraints when proposing fixes here
-- Ids for maps/routes/layers/features come from `runtime.newId()` via `editor.nextId()`
-  (`useMapEditor.ts:258-267`) — PLAT-006. `map.create-layer`'s `id` is OPTIONAL in core, so Atlas
-  omitting it is NOT a bug.
-- The canvas zoom cluster + `[`/`]`/`+`/`-`/`0` keymap is a required a11y affordance (UX-CANVAS) —
-  never propose removing it.
-- `LayerRow` spreads `{...rest}` AFTER its own `onKeyDown` (`LayerRow.jsx:102`), so passing
-  `onKeyDown` as a prop CLOBBERS Alt+Arrow reorder. Put handlers on the LayersPanel wrapper.
+- Ids come from `runtime.newId()` via `editor.nextId()` (`useMapEditor.ts:258-267`) — PLAT-006.
+- The zoom cluster + `[`/`]`/`+`/`-`/`0` keymap is a required a11y affordance (UX-CANVAS) — never remove.
+- `LayerRow` spreads `{...rest}` AFTER its own `onKeyDown` (`LayerRow.jsx`), so passing `onKeyDown` as a
+  prop CLOBBERS Alt+Arrow reorder. Put handlers on the LayersPanel wrapper.
+- `T` (screen-kit) has NO spacing tokens; one-off px paddings are an established app convention here.

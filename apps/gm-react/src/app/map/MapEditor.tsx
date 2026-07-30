@@ -237,8 +237,13 @@ export function MapEditor({
 						? 'Map sent to the Android share/save sheet.'
 						: 'Map exported for other VTTs (.dd2vtt).',
 			);
+			// Export is not a command, so `editor.run`'s notice-clearing never applied to it — a failed
+			// export left its warning banner standing over every later SUCCESSFUL one.
+			editor.setNotice(null);
 			setExportOpen(false);
 		} catch (error) {
+			// …and the popover stayed open on failure, covering the very notice this writes.
+			setExportOpen(false);
 			editor.setNotice(
 				error instanceof FileExportError
 					? error.message

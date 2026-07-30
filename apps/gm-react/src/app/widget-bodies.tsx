@@ -100,11 +100,14 @@ function OpChip({
 	label,
 	onPress,
 	ariaLabel,
+	unavailableReason,
 }: {
 	icon: string;
 	label: string;
 	onPress?: () => void;
 	ariaLabel?: string;
+	/** Present when the command exists but the core would refuse it right now — see below. */
+	unavailableReason?: string;
 }) {
 	if (!onPress) {
 		return (
@@ -113,26 +116,48 @@ function OpChip({
 			</span>
 		);
 	}
+	// A SOFT disable, the pattern `Button`/`IconButton` already use: the chip keeps its place in the
+	// tab order and still announces its reason, but it looks unavailable and swallows the press. The
+	// alternative — rendering the inert `aria-hidden` span — hides an unexplained dead control, and
+	// leaving it fully live sent a command the core rejects with an internal state-machine string.
+	const unavailable = !!unavailableReason;
 	return (
 		<button
 			className="scene-board-operation"
 			type="button"
-			aria-label={ariaLabel ?? label}
-			onClick={onPress}
+			aria-label={unavailable ? `${ariaLabel ?? label} — ${unavailableReason}` : (ariaLabel ?? label)}
+			aria-disabled={unavailable || undefined}
+			title={unavailableReason}
+			onClick={unavailable ? undefined : onPress}
 			onPointerDown={(e) => e.stopPropagation()}
 			style={{
 				...opChipStyle,
 				minWidth: 'var(--operation-touch-target, var(--density-touch-target, auto))',
 				minHeight: 'var(--operation-touch-target, var(--density-touch-target, auto))',
 				border: '1px solid var(--color-border)',
-				background: 'var(--color-accent-subtle)',
-				color: 'var(--color-accent)',
-				cursor: 'pointer',
+				background: unavailable ? 'var(--color-surface-sunken)' : 'var(--color-accent-subtle)',
+				color: unavailable ? 'var(--color-text-tertiary)' : 'var(--color-accent)',
+				cursor: unavailable ? 'not-allowed' : 'pointer',
 			}}
 		>
 			<Icon name={icon} size={13} /> {label}
 		</button>
 	);
+}
+
+/**
+ * Dice and timer operate commands declare `writesTo: 'session'`, and the core refuses ANY such
+ * command while `session.workflow` is not `'active'`
+ * (`packages/core/src/commands/widget-command.ts`). The GM Screen ships seeded Dice and Timer
+ * widgets, so on a fresh install the app's home dashboard offered fully live-looking accent buttons
+ * whose first press printed the raw internal string "Session widget commands require an active
+ * workflow; current workflow is idle." into the screen's alert region.
+ */
+const SESSION_ONLY_REASON = 'Go live in Session first — this reaches the table only during play.';
+
+function useSessionOnlyReason(): string | undefined {
+	const runtime = useRuntime();
+	return runtime.state.session.workflow === 'active' ? undefined : SESSION_ONLY_REASON;
 }
 
 function StatPill({ label, value }: { label: string; value: string }) {
@@ -237,6 +262,7 @@ function DiceBody({
 
 	// Only a widget whose definition DECLARES dice.roll gets a live affordance.
 	const canRoll = !!onCommand && widget.commands.includes('dice.roll') && formulas.length > 0;
+	const sessionOnly = useSessionOnlyReason();
 	return (
 		<div style={bodyWrap}>
 			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -251,6 +277,7 @@ function DiceBody({
 					icon="dice"
 					label="Roll"
 					ariaLabel={`Roll ${formulas[0] ?? 'dice'}`}
+					unavailableReason={sessionOnly}
 					onPress={canRoll ? () => onCommand('dice.roll', { expression: formulas[0] }) : undefined}
 				/>
 				{lastRoll && (
@@ -301,6 +328,7 @@ function TimerBody({
 	const declares = (type: string) => !!onCommand && widget.commands.includes(type);
 	const op = (type: string, payload: Record<string, unknown> = {}) =>
 		declares(type) ? () => onCommand?.(type, payload) : undefined;
+	const sessionOnly = useSessionOnlyReason();
 
 	return (
 		<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', height: '100%' }}>
@@ -330,17 +358,23 @@ function TimerBody({
 						icon="play"
 						label="Start"
 						ariaLabel={`Start ${configured}-second timer`}
+						unavailableReason={sessionOnly}
 						onPress={op('timer.start', { durationSeconds: configured })}
 					/>
 				)}
 				{countdown.status === 'running' && (
-					<OpChip icon="pause" label="Pause" onPress={op('timer.pause')} />
+					<OpChip icon="pause" label="Pause" unavailableReason={sessionOnly} onPress={op('timer.pause')} />
 				)}
 				{countdown.status === 'paused' && (
-					<OpChip icon="play" label="Resume" onPress={op('timer.resume')} />
+					<OpChip
+						icon="play"
+						label="Resume"
+						unavailableReason={sessionOnly}
+						onPress={op('timer.resume')}
+					/>
 				)}
 				{countdown.status !== 'stopped' && declares('timer.reset') && (
-					<OpChip icon="retry" label="Reset" onPress={op('timer.reset')} />
+					<OpChip icon="retry" label="Reset" unavailableReason={sessionOnly} onPress={op('timer.reset')} />
 				)}
 			</div>
 		</div>

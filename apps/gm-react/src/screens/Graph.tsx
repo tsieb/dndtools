@@ -388,122 +388,12 @@ export function Graph() {
 					})}
 				</div>
 
-				{/* inspector + search + health */}
+				{/* search + inspector + health. Search comes FIRST on purpose: the "Selected" panel used to
+				    be the rail's first child, so clicking a search result inserted ~250px of inspector
+				    ABOVE the result list and the row the user had just aimed at jumped out from under the
+				    pointer — the next click landed on a different node. Keeping DOM order == visual order
+				    also keeps the tab sequence honest (an `order:` swap would not have). */}
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-					{selNode ? (
-						<Panel
-							accent
-							title="Selected"
-							action={<Badge status="neutral">{KIND_LABEL[selNode.kind] ?? selNode.kind}</Badge>}
-						>
-							<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-								<span
-									style={{
-										width: 34,
-										height: 34,
-										borderRadius: 9,
-										flex: '0 0 auto',
-										display: 'inline-flex',
-										alignItems: 'center',
-										justifyContent: 'center',
-										background: `color-mix(in srgb, ${KIND_COLOR[selNode.kind] ?? T.sub} 18%, transparent)`,
-										color: KIND_COLOR[selNode.kind] ?? T.sub,
-									}}
-								>
-									<Icon name={KIND_ICON[selNode.kind] ?? 'tag'} size="md" />
-								</span>
-								<div style={{ minWidth: 0 }}>
-									<div style={{ font: `700 15px ${T.disp}` }}>{selNode.title}</div>
-									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-										{selNode.folder ? `${selNode.folder} · ` : ''}
-										{selNode.source === DEFAULT_SOURCE_ID ? 'This vault' : selNode.source}
-									</div>
-								</div>
-							</div>
-							{selNode.tags.length > 0 && (
-								<div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
-									{selNode.tags.map((t) => (
-										<Badge key={t} status="neutral">
-											#{t}
-										</Badge>
-									))}
-								</div>
-							)}
-							<div style={{ marginTop: 8 }}>
-								<Button
-									variant="secondary"
-									size="sm"
-									icon="chevron-right"
-									onClick={() => openNode(selNode)}
-								>
-									{selNode.kind === 'note'
-										? 'Open note'
-										: selNode.kind === 'object'
-											? 'Open in Story'
-											: 'Open in Maps'}
-								</Button>
-							</div>
-							<div style={{ ...eb, marginTop: 8 }}>Connections ({selEdges.length})</div>
-							{selEdges.length === 0 ? (
-								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-									No links from or to this node yet.
-								</div>
-							) : (
-								<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-									{selEdges.map((e, i) => {
-										const otherId = e.fromId === sel ? e.toId : e.fromId;
-										const other = nodeById[otherId];
-										if (!other) return null;
-										const outgoing = e.fromId === sel;
-										return (
-											<button
-												key={`${otherId}-${i}`}
-												type="button"
-												onClick={() => setSel(other.id)}
-												style={{
-													display: 'flex',
-													alignItems: 'center',
-													gap: 8,
-													padding: '6px 8px',
-													border: `1px solid ${T.bd}`,
-													borderRadius: 8,
-													background: T.surf,
-													cursor: 'pointer',
-													textAlign: 'left',
-												}}
-											>
-												<span
-													style={{
-														width: 8,
-														height: 8,
-														borderRadius: 2,
-														background: KIND_COLOR[other.kind] ?? T.sub,
-														flex: '0 0 auto',
-													}}
-												/>
-												<span
-													style={{
-														flex: 1,
-														minWidth: 0,
-														font: `12px ${T.sans}`,
-														whiteSpace: 'nowrap',
-														overflow: 'hidden',
-														textOverflow: 'ellipsis',
-													}}
-												>
-													{other.title}
-												</span>
-												<span style={{ font: `10.5px ${T.sans}`, color: T.ter }}>
-													{outgoing ? '→' : '←'} {REL_LABEL[e.relationship] ?? 'linked'}
-												</span>
-											</button>
-										);
-									})}
-								</div>
-							)}
-						</Panel>
-					) : null}
-
 					<Panel title="Search" pad={14}>
 						<div
 							style={{
@@ -621,6 +511,120 @@ export function Graph() {
 							)}
 						</div>
 					</Panel>
+
+					{selNode ? (
+						<Panel
+							accent
+							title="Selected"
+							action={<Badge status="neutral">{KIND_LABEL[selNode.kind] ?? selNode.kind}</Badge>}
+						>
+							<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+								<span
+									style={{
+										width: 34,
+										height: 34,
+										borderRadius: 9,
+										flex: '0 0 auto',
+										display: 'inline-flex',
+										alignItems: 'center',
+										justifyContent: 'center',
+										background: `color-mix(in srgb, ${KIND_COLOR[selNode.kind] ?? T.sub} 18%, transparent)`,
+										color: KIND_COLOR[selNode.kind] ?? T.sub,
+									}}
+								>
+									<Icon name={KIND_ICON[selNode.kind] ?? 'tag'} size="md" />
+								</span>
+								<div style={{ minWidth: 0 }}>
+									<div style={{ font: `700 15px ${T.disp}` }}>{selNode.title}</div>
+									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+										{selNode.folder ? `${selNode.folder} · ` : ''}
+										{selNode.source === DEFAULT_SOURCE_ID ? 'This vault' : selNode.source}
+									</div>
+								</div>
+							</div>
+							{selNode.tags.length > 0 && (
+								<div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
+									{selNode.tags.map((t) => (
+										<Badge key={t} status="neutral">
+											#{t}
+										</Badge>
+									))}
+								</div>
+							)}
+							<div style={{ marginTop: 8 }}>
+								<Button
+									variant="secondary"
+									size="sm"
+									icon="chevron-right"
+									onClick={() => openNode(selNode)}
+								>
+									{selNode.kind === 'note'
+										? 'Open note'
+										: selNode.kind === 'object'
+											? 'Open in Story'
+											: 'Open in Maps'}
+								</Button>
+							</div>
+							<div style={{ ...eb, marginTop: 8 }}>Connections ({selEdges.length})</div>
+							{selEdges.length === 0 ? (
+								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+									No links from or to this node yet.
+								</div>
+							) : (
+								<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+									{selEdges.map((e, i) => {
+										const otherId = e.fromId === sel ? e.toId : e.fromId;
+										const other = nodeById[otherId];
+										if (!other) return null;
+										const outgoing = e.fromId === sel;
+										return (
+											<button
+												key={`${otherId}-${i}`}
+												type="button"
+												onClick={() => setSel(other.id)}
+												style={{
+													display: 'flex',
+													alignItems: 'center',
+													gap: 8,
+													padding: '6px 8px',
+													border: `1px solid ${T.bd}`,
+													borderRadius: 8,
+													background: T.surf,
+													cursor: 'pointer',
+													textAlign: 'left',
+												}}
+											>
+												<span
+													style={{
+														width: 8,
+														height: 8,
+														borderRadius: 2,
+														background: KIND_COLOR[other.kind] ?? T.sub,
+														flex: '0 0 auto',
+													}}
+												/>
+												<span
+													style={{
+														flex: 1,
+														minWidth: 0,
+														font: `12px ${T.sans}`,
+														whiteSpace: 'nowrap',
+														overflow: 'hidden',
+														textOverflow: 'ellipsis',
+													}}
+												>
+													{other.title}
+												</span>
+												<span style={{ font: `10.5px ${T.sans}`, color: T.ter }}>
+													{outgoing ? '→' : '←'} {REL_LABEL[e.relationship] ?? 'linked'}
+												</span>
+											</button>
+										);
+									})}
+								</div>
+							)}
+						</Panel>
+					) : null}
 
 					{/* GRAPH-007 — DM sees the full health report; a player sees only the generalized coarse bands. */}
 					{health.kind === 'dm' ? (

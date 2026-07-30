@@ -21,6 +21,7 @@ import {
 } from '../../MapBuilder';
 import { clamp01 } from '../mapVocab';
 import { viewportForPinch } from '../quickMap';
+import { TOOLS_BY_ID } from '../tools';
 import { categoryForTool } from '../useMapEditor';
 import type { MapEditorApi } from '../useMapEditor';
 
@@ -147,8 +148,15 @@ export function EditorCanvas({
 		setPath([]);
 		setNavigationEpoch((value) => value + 1);
 	};
+	// These three capture handlers are the ONLY pinch-to-zoom in the editor, and the container sets
+	// `touch-action: none`, so the browser's native pinch is suppressed as well. They used to also
+	// require `quickMapMode`, which `platform/capabilities.ts` grants on Android only — meaning on
+	// iOS, an iPad, or any other touch device the map canvas could not be zoomed at all, and with a
+	// drawing tool armed the interaction overlay blocked MapCanvas's own pan too. The pinch path only
+	// writes viewport state (`setZoom`/`setCenter`), never a command, so there is nothing
+	// quick-mode-specific about it.
 	const onTouchDownCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
-		if (!quickMapMode || event.pointerType !== 'touch') return;
+		if (event.pointerType !== 'touch') return;
 		touchPointers.current.set(event.pointerId, localTouchPoint(event.clientX, event.clientY));
 		if (touchPointers.current.size >= 2) {
 			beginPinch(event.currentTarget);
@@ -157,7 +165,7 @@ export function EditorCanvas({
 		}
 	};
 	const onTouchMoveCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
-		if (!quickMapMode || event.pointerType !== 'touch') return;
+		if (event.pointerType !== 'touch') return;
 		if (touchPointers.current.has(event.pointerId)) {
 			touchPointers.current.set(event.pointerId, localTouchPoint(event.clientX, event.clientY));
 		}
@@ -181,7 +189,7 @@ export function EditorCanvas({
 		event.stopPropagation();
 	};
 	const endTouchCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
-		if (!quickMapMode || event.pointerType !== 'touch') return;
+		if (event.pointerType !== 'touch') return;
 		const blocked = touchNavigationBlocked.current;
 		touchPointers.current.delete(event.pointerId);
 		if (touchPointers.current.size < 2) pinchRef.current = null;
@@ -346,10 +354,15 @@ export function EditorCanvas({
 			announce(`Wall added (${pts.length} points).`);
 		} else if (tool === 'water') {
 			addFeatures([
+				// The style string is what `FeatureShape` reads to tell a river from a lake
+				// (`MapBuilder.tsx`, `feature.style.includes('river')`) — and it is the vocabulary the
+				// core's own generators emit ('water:river' / 'water:lake'). Passing the bare 'water'
+				// made the "Water type" control a visual no-op: a hand-drawn river painted as a
+				// lake-coloured blob. `width` alone is not one of the keys the renderer tests.
 				mkFeature(
 					'water',
 					pts,
-					'water',
+					options.waterKind === 'river' ? 'water:river' : 'water:lake',
 					options.waterKind === 'river' ? { width: 0.012 } : undefined,
 				),
 			]);
@@ -716,7 +729,9 @@ export function EditorCanvas({
 		<div
 			ref={containerRef}
 			role="application"
-			aria-label={`Map canvas — ${editor.map?.name ?? 'map'}. Drawing tool: ${tool}.`}
+			// The human label, not the internal id — a screen reader used to announce
+			// "Drawing tool: poi".
+			aria-label={`Map canvas — ${editor.map?.name ?? 'map'}. Drawing tool: ${TOOLS_BY_ID.get(tool)?.label ?? tool}.`}
 			onPointerDownCapture={onTouchDownCapture}
 			onPointerMoveCapture={onTouchMoveCapture}
 			onPointerUpCapture={endTouchCapture}
@@ -919,7 +934,11 @@ export function EditorCanvas({
 				style={{
 					position: 'absolute',
 					right: 16,
-					bottom: quickMapMode ? 16 : 150,
+					// Clears the Minimap below it. That box is `width={160}` at the default 1.4 aspect, so
+					// its body is ~114px plus a ~24px header ≈ 138, and it sits at `bottom: 16` — i.e. its
+					// top edge is 154px up. The old 150 put the zoom cluster's "100%" readout UNDER the
+					// minimap's header on every desktop profile.
+					bottom: quickMapMode ? 16 : 170,
 					display: 'flex',
 					flexDirection: 'column',
 					gap: 6,

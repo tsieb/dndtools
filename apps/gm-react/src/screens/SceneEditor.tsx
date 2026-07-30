@@ -23,6 +23,7 @@ import {
 	Textarea,
 } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { widgetRejectionMessage } from '../app/widget-rejection';
 import { SceneBoardCanvas, WidgetGlyph } from '../app/SceneBoardCanvas';
 import { boardWidgetsOf, payloadIndex, TIER_LABEL, type BoardWidget } from '../app/board-helpers';
 import { parseTags } from '../app/scene-helpers';
@@ -72,6 +73,20 @@ export function SceneEditor() {
 	const [error, setError] = useState<string | null>(null);
 	const [pendingDestroyId, setPendingDestroyId] = useState<string | null>(null);
 
+	// `/scene/:id` is ONE route element, so React Router reuses this component across param changes and
+	// never unmounts it on a scene→scene navigation (the sidebar and ⌘K both do exactly that). Every
+	// piece of per-scene UI state below therefore leaked onto the next scene: an open details panel
+	// kept showing — and SAVING — the previous scene's name/description/tags, and a rejection from
+	// scene A was displayed under scene B's header.
+	useEffect(() => {
+		setMetaOpen(false);
+		setAddOpen(false);
+		setSelectedId(null);
+		setEditing(false);
+		setPendingDestroyId(null);
+		setError(null);
+	}, [id]);
+
 	const summary = getSceneForActor(runtime.state.scenes, runtime.state.permissions, actorId, id, {
 		widgetPackages: runtime.state.widgets,
 	});
@@ -103,7 +118,7 @@ export function SceneEditor() {
 	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
 		const result = await runtime.dispatch(command);
 		if (result.status === 'rejected') {
-			setError(result.rejection.message ?? 'That change couldn’t be applied — try again.');
+			setError(widgetRejectionMessage(result.rejection));
 			return false;
 		}
 		setError(null);
@@ -314,6 +329,10 @@ export function SceneEditor() {
 					label="Edit scene name, description & tags"
 					variant="ghost"
 					size="sm"
+					// Both of this toolbar's disclosures were silent about their own state, unlike the
+					// equivalent controls on /board. The label is left alone deliberately —
+					// canvas.spec.ts locates this button and the Add button by name.
+					aria-expanded={metaOpen}
 					onClick={() => {
 						setMetaOpen((v) => !v);
 						setAddOpen(false);
@@ -340,6 +359,7 @@ export function SceneEditor() {
 							variant="secondary"
 							size="sm"
 							icon="add"
+							aria-expanded={addOpen}
 							onClick={() => {
 								setAddOpen((v) => !v);
 								setMetaOpen(false);
@@ -411,6 +431,12 @@ export function SceneEditor() {
 
 				{metaOpen && (
 					<SceneMetaPanel
+						// Its three fields are `useState(prop)` drafts with no prop→draft sync, and its Save
+						// is a full metadata REPLACEMENT addressed by the route id — with no key tied to the
+						// scene, navigating scene→scene with the panel open wrote the OLD scene's name,
+						// description and tags onto the new one. `Inspector` below keys on its selected
+						// instance for exactly this reason.
+						key={id}
 						name={summary.name}
 						description={summary.description}
 						tags={summary.tags}

@@ -202,6 +202,18 @@ for (const route of STANDALONE_ROUTES) {
 	});
 }
 
+// The public wiki reader (`#/wiki?id=…`) is chrome-less AND vault-less: unlike /play and /join it has
+// no `__rt` seam at all, so it needs its own opener. It was in NEITHER this gate nor
+// responsive.spec.ts — the one shipped route with no automated a11y guard whatsoever. Offline the
+// only reachable phase is the honest "Wiki unavailable" notice (`getPublicWiki` has no API URL), and
+// scanning that still guards the notice card's landmark, name and contrast contract.
+test('a11y axe gate: /wiki (public reader)', async ({ page }, testInfo) => {
+	await page.goto('/#/wiki?id=axe-gate-not-a-real-wiki', { waitUntil: 'domcontentloaded' });
+	await page.getByRole('main').first().waitFor({ state: 'visible', timeout: 20_000 });
+	await expect(page.getByText('Wiki unavailable')).not.toHaveCount(0);
+	await assertAxeState(page, testInfo, '/wiki', 'wiki');
+});
+
 // ⚠️ Every scan above runs against a FRESH vault, i.e. the EMPTY state of each surface. A fresh
 // vault has no running combat, so `/session`'s initiative tracker — the densest interactive surface
 // in the app, and the one a DM stares at all evening — was never actually reached by this gate.

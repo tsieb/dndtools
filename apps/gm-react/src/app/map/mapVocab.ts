@@ -51,6 +51,22 @@ export const TERRAIN_STYLES: ReadonlyArray<{ id: string; label: string; swatch: 
 	{ id: 'terrain:lava', label: 'Lava', swatch: 'var(--color-status-error)' },
 ];
 
+const TERRAIN_SWATCH: Record<string, string> = Object.fromEntries(
+	TERRAIN_STYLES.map((t) => [t.id, t.swatch]),
+);
+
+/**
+ * The palette colour a `terrain:*` feature style paints with, or `null` for any other style.
+ *
+ * The brush, fill and room tools all write the chosen `terrain:*` id into `feature.style`, but the
+ * renderer (`FeatureShape`) only ever read the LAYER category colour — so all eight entries of the
+ * Terrain select, each with its own swatch in the dropdown, painted the identical tint and a DM could
+ * not tell painted lava from painted snow.
+ */
+export function terrainColor(style: string | undefined): string | null {
+	return (style && TERRAIN_SWATCH[style]) || null;
+}
+
 /** The curated stamp/prop catalogue (the "assets" for the prototype — a fixed set, not a file browser). */
 export interface StampAsset {
 	id: string;

@@ -394,6 +394,20 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 							{ value: 'stroke', label: 'Brush' },
 						]}
 					/>
+					{/* The fog BRUSH reads `brushSize` (EditorCanvas passes it as `fogBrushRadius`) and the
+					    `[` / `]` keys mutate it, but this bar never rendered it — so the size changed with
+					    no readout anywhere and the only feedback was the painted result. Same control as
+					    the terrain brush and the eraser, because it is literally the same option. */}
+					{options.fogShape === 'stroke' && (
+						<NumberControl
+							label="Size"
+							value={options.brushSize}
+							min={5}
+							max={200}
+							step={1}
+							onChange={(v) => setOption('brushSize', v)}
+						/>
+					)}
 					<NumberControl
 						label="Feather"
 						value={Math.round(options.fogFeather * 100)}

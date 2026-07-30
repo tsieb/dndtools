@@ -77,5 +77,13 @@ test.describe('wiki: public reader route (#/wiki)', () => {
 		await expect(
 			page.getByText(/Online account services are not available in this edition/),
 		).not.toHaveCount(0);
+
+		// The failure replaces the loading phase's polite live region, so it needs a live region of its
+		// own — otherwise a screen-reader user is left on "Fetching the published pages…" forever.
+		await expect(
+			page.getByRole('alert').filter({
+				hasText: /Online account services are not available in this edition/,
+			}),
+		).not.toHaveCount(0);
 	});
 });

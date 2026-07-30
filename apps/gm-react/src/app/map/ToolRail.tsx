@@ -109,7 +109,12 @@ export function ToolRail({
 						: {
 								position: 'absolute',
 								left: 56,
-								top: 8,
+								// The rail's positioning container spans the whole editor row, and the
+								// ToolOptionsBar occupies the top 46px + 1px border of the column immediately
+								// to the right. At `top: 8` a multi-tool flyout (Structure is four tools plus
+								// its header, ~160px) covered that bar COMPLETELY — so with Room, Wall, Door or
+								// Water armed, none of the tool's own options could be seen or clicked.
+								top: 54,
 								display: 'flex',
 								flexDirection: 'column',
 								gap: 3,

@@ -856,11 +856,9 @@ export function Campaign() {
 								// AC/HP used to be passed as `hook`, which NpcCard renders in italics behind a
 								// dm-only Eye glyph — presenting a monster's public combat stats as a DM
 								// secret. They are plain tags now.
-								tags={[
-									KIND_LABEL[n.kind] ?? n.kind,
-									`AC ${n.combat?.ac ?? '—'}`,
-									`${n.combat?.hp ?? '—'} HP`,
-								]}
+								// The kind is NOT repeated here: `role` above already renders it directly under
+								// the name, so every card read "NPC / NPC · AC 13 · 8 HP".
+								tags={[`AC ${n.combat?.ac ?? '—'}`, `${n.combat?.hp ?? '—'} HP`]}
 								dmOnly={n.visibility === 'dm-only'}
 							/>
 						))}

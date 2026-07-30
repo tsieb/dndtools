@@ -60,6 +60,24 @@ test.describe('graph: relationship graph & search', () => {
 		await expect(page.locator('#main-content').getByText(VISIBLE_NOTE)).not.toHaveCount(0);
 	});
 
+	test('selecting a search result does not shove the result list down the page', async ({
+		page,
+	}) => {
+		const search = page.getByLabel('Search the graph');
+		await search.fill('Campaign Primer');
+		const result = page.getByRole('button', { name: VISIBLE_NOTE }).last();
+		const before = (await result.boundingBox())!;
+
+		await result.click();
+		await expect(page.getByText('Selected')).not.toHaveCount(0);
+
+		// The "Selected" inspector used to be the rail's FIRST child, so opening it inserted ~250px
+		// above the result list and the row jumped out from under the pointer — the follow-up click hit
+		// a different node. The list must stay put.
+		const after = (await result.boundingBox())!;
+		expect(Math.abs(after.y - before.y)).toBeLessThan(8);
+	});
+
 	test('the player viewpoint drops dm-only nodes and generalizes health', async ({ page }) => {
 		// DM viewpoint: the dm-only note is a node.
 		await expect(page.getByRole('button', { name: DM_ONLY_NOTE })).not.toHaveCount(0);

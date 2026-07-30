@@ -121,6 +121,16 @@
       "owner": "MAP (generate tool)",
       "rationale": "Copy-generation-seed uses navigator.clipboard.writeText as a pure UI convenience so a DM can share/reuse a reproducible seed; denial degrades honestly (the seed is always visible and editable in the adjacent field for manual copy). No durable state, no capability assumption — identical rationale to the atlas/mapbuilder/community clipboard entries.",
       "removalCriteria": "Route through a typed platform-clipboard adapter once one exists (DEBT-2026-001)."
+    },
+    {
+      "id": "wikireader-test-jsdom-matchmedia-polyfill",
+      "path": "apps/gm-react/src/screens/WikiReader.test.tsx",
+      "primitives": [
+        "viewport-sniff"
+      ],
+      "owner": "WIKI (public reader)",
+      "rationale": "Test-only polyfill, not product code. This jsdom build exposes no window.matchMedia (verified: a bare `typeof window.matchMedia` probe under the app suite's jsdom environment returns 'undefined'), and useViewport reads it during WikiReader's first render, so the component cannot mount without a stub. The stub always reports matches:false, i.e. the desktop profile; nothing here branches on the raw viewport.",
+      "removalCriteria": "Remove when the app test setup supplies a shared matchMedia polyfill (a setupFiles entry in vitest.app.config.ts) so component tests no longer stub it per file."
     }
   ]
 }

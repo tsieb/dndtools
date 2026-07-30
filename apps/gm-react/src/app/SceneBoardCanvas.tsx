@@ -340,11 +340,12 @@ export function SceneBoardCanvas({
 		}
 		if ((e.key === 'Delete' || e.key === 'Backspace') && editing && onRemove) {
 			e.preventDefault();
-			// Hand focus to a neighbour BEFORE the frame unmounts so keyboard users aren't dropped.
-			const idx = orderIds.indexOf(w.id);
-			const neighbour = orderIds[idx + 1] ?? orderIds[idx - 1];
+			// `onRemove` only STAGES a confirm dialog now — the frame does not unmount here. Moving
+			// focus to a neighbour at this point meant the Dialog captured the NEIGHBOUR as the element
+			// to restore to, so pressing "Keep" silently relocated the keyboard cursor to a widget the
+			// user never selected. The Dialog's own focus return lands back on this frame instead, and
+			// the host screen owns focus for the confirmed case.
 			onRemove(w.id);
-			if (neighbour) frameRefs.current.get(neighbour)?.focus();
 			return;
 		}
 		const delta = ARROW_DELTA[e.key];

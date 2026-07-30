@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Button, Icon, Input } from '../ds';
 import { AppApiError, getPublicWiki, type PublicWiki, type WikiPage } from '../cloud/appApi';
@@ -23,7 +23,10 @@ import { useViewport } from '../app/useViewport';
 type ReaderState =
 	| { phase: 'loading' }
 	| { phase: 'missing' }
-	| { phase: 'password'; wrong: boolean }
+	/** `failedAttempts` 0 = the first, un-failed prompt. It counts up so a SECOND wrong password
+	 *  produces different copy and a re-mounted alert; a plain `wrong: boolean` rendered a
+	 *  byte-identical DOM, which reads as "the button did nothing". */
+	| { phase: 'password'; failedAttempts: number }
 	| { phase: 'invalid'; message: string }
 	| { phase: 'ready'; wiki: PublicWiki };
 
@@ -289,6 +292,20 @@ export function WikiReader() {
 	const [password, setPassword] = useState('');
 	const [busy, setBusy] = useState(false);
 	const [openSlug, setOpenSlug] = useState<string | null>(null);
+	const headingRef = useRef<HTMLHeadingElement | null>(null);
+	const shownSlug = useRef<string | null>(null);
+
+	// Switching pages swaps the whole article in place. Without this the keyboard user stays parked on
+	// the nav button they just pressed with no announcement that anything changed, and a reader who
+	// had scrolled to the bottom of a long page lands mid-way down the new one.
+	useEffect(() => {
+		const previous = shownSlug.current;
+		shownSlug.current = openSlug;
+		// The first assignment is the initial load resolving, not a user-initiated page switch.
+		if (previous === null || previous === openSlug) return;
+		headingRef.current?.focus();
+		window.scrollTo({ top: 0, behavior: 'auto' });
+	}, [openSlug]);
 
 	const fetchWiki = (pw?: string) => {
 		if (!wikiId) {
@@ -303,7 +320,13 @@ export function WikiReader() {
 			})
 			.catch((e: unknown) => {
 				if (e instanceof AppApiError && e.status === 401) {
-					setState({ phase: 'password', wrong: pw !== undefined });
+					setState((prev) => ({
+						phase: 'password',
+						failedAttempts:
+							pw === undefined
+								? 0
+								: (prev.phase === 'password' ? prev.failedAttempts : 0) + 1,
+					}));
 				} else {
 					const message =
 						e instanceof AppApiError ? e.message : 'This wiki could not be loaded — try again.';
@@ -356,7 +379,13 @@ export function WikiReader() {
 		return (
 			<div data-theme="parchment" style={WRAP}>
 				<Notice icon="warning" title="Wiki unavailable">
-					<div style={{ font: '13px/1.6 var(--font-sans)', color: 'var(--color-text-secondary)' }}>
+					{/* The loading phase announced itself in a polite live region, and this replaces that
+					    subtree — without a live region of its own the failure is silent to a screen
+					    reader, which is left on "Fetching the published pages…". */}
+					<div
+						role="alert"
+						style={{ font: '13px/1.6 var(--font-sans)', color: 'var(--color-text-secondary)' }}
+					>
 						{state.message}
 					</div>
 				</Notice>
@@ -380,12 +409,21 @@ export function WikiReader() {
 						}}
 						placeholder="Password"
 						aria-label="Wiki password"
-						invalid={state.wrong}
+						invalid={state.failedAttempts > 0}
 						maxLength={100}
 					/>
-					{state.wrong && (
-						<div style={{ font: '12px var(--font-sans)', color: 'var(--color-status-error)' }}>
-							That password is not right — try again.
+					{state.failedAttempts > 0 && (
+						// Keyed on the attempt count so a repeat failure RE-MOUNTS the alert (an unchanged
+						// role="alert" node announces nothing), and the copy differs from the first attempt
+						// so a sighted user can also see that the retry was processed.
+						<div
+							key={state.failedAttempts}
+							role="alert"
+							style={{ font: '12px var(--font-sans)', color: 'var(--color-status-error)' }}
+						>
+							{state.failedAttempts === 1
+								? 'That password is not right — try again.'
+								: `Still not right after ${state.failedAttempts} attempts — check for typos, or ask the wiki owner for the current password.`}
 						</div>
 					)}
 					<Button
@@ -418,6 +456,34 @@ export function WikiReader() {
 	return (
 		<div data-theme="parchment" style={WRAP}>
 			<div style={{ maxWidth: 1080, margin: '0 auto', padding: '0 20px' }}>
+				{/* The page nav emits one button per published page AHEAD of the article, so a keyboard
+				    reader tabs through the whole table of contents before reaching the prose. Same
+				    marker + move-focus-ourselves shape as the shell's and /play's skip links. */}
+				<a
+					href="#wiki-content"
+					data-skip-link="true"
+					onClick={(e) => {
+						e.preventDefault();
+						document.getElementById('wiki-content')?.focus();
+					}}
+					style={{
+						position: 'fixed',
+						left: 8,
+						top: -48,
+						zIndex: 100,
+						padding: '8px 14px',
+						borderRadius: 8,
+						background: 'var(--color-accent)',
+						color: 'var(--color-accent-foreground)',
+						font: '600 13px var(--font-sans)',
+						textDecoration: 'none',
+						transition: 'top var(--duration-fast) var(--easing-standard)',
+					}}
+					onFocus={(e) => (e.currentTarget.style.top = '8px')}
+					onBlur={(e) => (e.currentTarget.style.top = '-48px')}
+				>
+					Skip to page content
+				</a>
 				<header style={{ padding: '28px 0 18px', borderBottom: '1px solid var(--color-border)' }}>
 					<div
 						style={{
@@ -506,26 +572,31 @@ export function WikiReader() {
 							</div>
 						)}
 					</nav>
-					<article style={{ minWidth: 0 }}>
+					{/* The ready phase had NO main landmark at all (only the notice phases did, via
+					    `Notice`'s role="main"), so assistive tech had no way to jump past the nav. */}
+					<main id="wiki-content" tabIndex={-1} style={{ minWidth: 0 }}>
 						{page ? (
-							<>
+							<article>
 								<h2
+									ref={headingRef}
+									tabIndex={-1}
 									style={{
 										font: '800 24px var(--font-display)',
 										color: 'var(--color-text-primary)',
 										margin: '0 0 14px',
+										outlineOffset: 4,
 									}}
 								>
 									{page.title}
 								</h2>
 								<div>{mdToNodes(page.markdown, resolveLink)}</div>
-							</>
+							</article>
 						) : (
 							<div style={{ font: '13.5px var(--font-sans)', color: 'var(--color-text-tertiary)' }}>
 								Nothing published on this wiki yet.
 							</div>
 						)}
-					</article>
+					</main>
 				</div>
 			</div>
 		</div>
