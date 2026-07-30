@@ -12,26 +12,36 @@ task briefs cite the wrong path.
 **How to apply:** these are STRUCTURAL classes in the DS layer, so every consuming screen inherits
 them. Re-check them component-first (fix once in `ds/`, not per-screen).
 
-1. **Two independent `role="radiogroup"` implementations, both incomplete.** `Seg`
-   (`src/app/screen-kit.tsx`) and `SegmentedControl` (`ds/components/forms/SegmentedControl.jsx`)
-   both render `role="radiogroup"` + `role="radio"` `<button>`s with **no roving `tabIndex` and no
-   arrow-key handler** — so every option is a tab stop and arrows do nothing (ARIA radiogroup
-   pattern / WCAG 2.1.1). `Tabs` (`ds/components/core/Tabs.jsx`) DOES implement roving tabIndex +
-   Arrow/Home/End correctly — **copy Tabs' `moveFocus` into both**. Two hand-rolled segmented
-   controls coexisting is itself the root problem; `Seg` should collapse into `SegmentedControl`.
+1. **Two independent `role="radiogroup"` implementations — FIXED 2026-07-29 (commit 5274a5f9).**
+   `Seg` (`src/app/screen-kit.tsx`) and `SegmentedControl` (`ds/components/forms/SegmentedControl.jsx`)
+   both now implement roving `tabIndex` + Arrow/Home/End, ported from `Tabs`' `moveFocus`. Verified
+   in code 2026-07-29. Two hand-rolled segmented controls still coexist (DRY note only, not an a11y bug).
 
-2. **`Seg` takes an OPTIONAL `ariaLabel`, so unnamed radiogroups keep reappearing.** Most call sites
-   pass it; the ones that don't ship an unnamed group. Make it required (or derive a fallback) rather
-   than fixing call sites one at a time — this has now regressed twice.
+2. **`Seg`'s `ariaLabel` prop is still OPTIONAL in its TS signature**, but as of 2026-07-29 all 14 live
+   call sites (grepped repo-wide) DO pass it — no unnamed radiogroup currently ships. Low-priority type
+   hardening only; do not report as a live defect unless a new call site regresses it.
 
-3. **`Tabs` has no `aria-controls` and generates no tab `id`s, and there is ZERO `role="tabpanel"`
-   in the whole app.** Every `<Tabs>` consumer (Audio/Community/Extensions/Campaign/Characters/
-   Player/MapEditor) renders its body as a bare conditional `<div>`. Fix in `Tabs` (emit
-   `id`/`aria-controls` + export a `TabPanel`), then wire consumers. Grep `role="tabpanel"` to check.
+3. **`Tabs` STILL has no `aria-controls`/tab `id`s, and there is STILL ZERO `role="tabpanel"` in the
+   whole app — confirmed unchanged 2026-07-29,** explicitly left as deferred by commit 5274a5f9's own
+   message. Read `ds/components/core/Tabs.jsx` top to bottom: `tabs.map` renders each `<button
+   role="tab">` with no `id` and no `aria-controls`; the parent conditionally renders a bare `<div>`
+   per active tab with no `role="tabpanel"` pairing. Live call sites (grep `<Tabs` — 7 files):
+   `app/map/MapEditor.tsx:431` (dock switcher — Selected/Layers/Assets/History,
+   `editor.dock`/`editor.setDock`) plus `screens/{Community,Campaign,Audio,Extensions,Player,
+   Characters}.tsx`. Minimal fix: in `Tabs.jsx`, derive `const baseId = React.useId()` (or accept an
+   `id` prop), emit `id={`${baseId}-tab-${id}`}` + `aria-controls={`${baseId}-panel-${id}`}` on each
+   tab button, and export a small `TabPanel({ id, activeId, baseId, children })` that renders
+   `role="tabpanel" id={`${baseId}-panel-${id}`} aria-labelledby={`${baseId}-tab-${id}`}` only when
+   `id === activeId` — then swap each consumer's bare conditional `<div>` for it.
 
-4. **Sub-24px interactive targets are systemic (WCAG 2.5.8).** `Switch` track 38x22, `Checkbox` box
-   18x18, `SpellSlots` pips 16x16, `Chip`'s `onRemove` button (12px icon, `padding:0`). `Button`/
-   `Tabs` correctly use `minHeight: var(--density-touch-target)` — that token is the established fix.
+4. **Sub-24px interactive targets — PARTIALLY FIXED 2026-07-29.** `Switch`/`Chip`'s `onRemove` now
+   clear the WCAG 2.5.8 24px floor (commit 5274a5f9). **STILL OPEN, confirmed in code 2026-07-29:**
+   `ds/components/forms/Checkbox.jsx:23-24` — the `role="checkbox"` box is a fixed `width:18,
+   height:18`; `ds/components/spell/SpellSlots.jsx:33-34` — each slot pip `<button>` is
+   `width:16, height:16` with `padding:0`, laid out `gap:'var(--space-1)'` apart (adjacent tiny
+   targets compound the problem — mis-taps land on the neighboring slot). `Button`/`Tabs` correctly
+   use `minHeight: var(--density-touch-target)` — that token is the established fix; Slider's own
+   `stepBtn` helper already migrated to it as a good reference implementation.
 
 5. **Unguarded enum-map lookups silently degrade to a wrong-but-plausible default.** Pattern:
    `const MAP={...}; const c = MAP[prop] || MAP.<default>`. `StatusDot`'s map has `warning`, and a

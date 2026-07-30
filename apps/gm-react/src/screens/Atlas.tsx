@@ -473,6 +473,7 @@ export function Atlas() {
 						variant="secondary"
 						size="sm"
 						icon="new-map"
+						aria-expanded={creating}
 						onClick={() => setCreating((c) => !c)}
 					>
 						New map
@@ -482,6 +483,10 @@ export function Atlas() {
 
 			{notice && (
 				<div
+					// This one banner carries every async outcome on the screen — "Link copied", "Projected
+					// to N players", and every command rejection — so it has to announce itself.
+					role="status"
+					aria-live="polite"
 					style={{
 						marginBottom: 14,
 						padding: '9px 12px',

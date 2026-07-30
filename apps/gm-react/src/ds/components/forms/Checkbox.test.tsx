@@ -73,6 +73,20 @@ describe('Checkbox accessibility', () => {
 		expect(box().hasAttribute('aria-labelledby')).toBe(false);
 	});
 
+	it('clears the WCAG 2.5.8 24px target floor without growing the 18px visual box', () => {
+		// The role="checkbox" span used to BE the 18x18 visual, so the whole hit target was 18px.
+		// It is now a transparent hit box sized by --density-touch-target with the box painted inside.
+		render(<Checkbox label="Enable sync" onChange={() => {}} />);
+		const hit = box();
+		expect(hit.style.minWidth).toBe('var(--density-touch-target, 24px)');
+		expect(hit.style.minHeight).toBe('var(--density-touch-target, 24px)');
+
+		const visual = hit.firstElementChild as HTMLElement | null;
+		expect(visual).not.toBeNull();
+		expect(visual!.style.width).toBe('18px');
+		expect(visual!.style.height).toBe('18px');
+	});
+
 	it('activates on Enter and Space, and stays inert when disabled', () => {
 		const onChange = vi.fn();
 		render(<Checkbox label="Enable sync" onChange={onChange} />);

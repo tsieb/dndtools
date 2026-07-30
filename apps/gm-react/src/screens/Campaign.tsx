@@ -22,6 +22,7 @@ import {
 	Select,
 	SessionTimeline,
 	Tabs,
+	tabPanelProps,
 	Textarea,
 	Toaster,
 	VisibilityChip,
@@ -712,12 +713,14 @@ export function Campaign() {
 	return (
 		<Page>
 			<div style={{ marginBottom: 18 }}>
-				<Tabs value={tab} onChange={setTab} tabs={tabs} />
+				<Tabs value={tab} onChange={setTab} tabs={tabs} idBase="campaign" />
 			</div>
 			<h2 className="visually-hidden">
 				{tabs.find((item) => item.id === tab)?.label ?? 'Campaign'}
 			</h2>
 
+			{/* One panel element, re-labelled per active tab — only one body is ever mounted. */}
+			<div {...tabPanelProps('campaign', tab)}>
 			{tab === 'quests' && (
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 					{canAuthor && !questEditor && data.quests.length > 0 && (
@@ -928,6 +931,7 @@ export function Campaign() {
 					)}
 				</Panel>
 			)}
+			</div>
 		</Page>
 	);
 }

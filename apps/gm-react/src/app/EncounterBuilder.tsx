@@ -114,11 +114,14 @@ export function EncounterDialog({
 
 	const [rows, setRows] = useState<DraftRow[]>([]);
 	const [title, setTitle] = useState('');
-	const [partySize, setPartySize] = useState(4);
-	const [partyLevel, setPartyLevel] = useState(3);
+	// Raw text, like `crDrafts` below: clamping on every keystroke meant clearing the field to retype
+	// snapped it straight back to the floor, so it could not be emptied. Every consumer below already
+	// re-clamps, so the draft only ever has to survive being mid-edit.
+	const [partySize, setPartySize] = useState('4');
+	const [partyLevel, setPartyLevel] = useState('3');
 	const [qName, setQName] = useState('');
-	const [qHp, setQHp] = useState(7);
-	const [qAc, setQAc] = useState(13);
+	const [qHp, setQHp] = useState('7');
+	const [qAc, setQAc] = useState('13');
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 
@@ -160,8 +163,8 @@ export function EncounterDialog({
 					hidden: r.hidden,
 				})),
 				{
-					size: Math.max(1, Math.trunc(partySize) || 1),
-					averageLevel: Math.min(20, Math.max(1, Math.trunc(partyLevel) || 1)),
+					size: Math.max(1, Math.trunc(Number(partySize)) || 1),
+					averageLevel: Math.min(20, Math.max(1, Math.trunc(Number(partyLevel)) || 1)),
 				},
 			),
 		[rows, partySize, partyLevel],
@@ -203,8 +206,8 @@ export function EncounterDialog({
 				kind: 'monster',
 				name,
 				characterId: null,
-				maxHp: Math.max(0, Math.trunc(qHp) || 0),
-				ac: Math.max(0, Math.trunc(qAc) || 10),
+				maxHp: Math.max(0, Math.trunc(Number(qHp)) || 0),
+				ac: Math.max(0, Math.trunc(Number(qAc)) || 10),
 				initiative: '',
 				cr: 1,
 				quantity: 1,
@@ -276,8 +279,8 @@ export function EncounterDialog({
 						hidden: r.hidden,
 					})),
 					party: {
-						size: Math.max(1, Math.trunc(partySize) || 1),
-						averageLevel: Math.min(20, Math.max(1, Math.trunc(partyLevel) || 1)),
+						size: Math.max(1, Math.trunc(Number(partySize)) || 1),
+						averageLevel: Math.min(20, Math.max(1, Math.trunc(Number(partyLevel)) || 1)),
 					},
 				},
 			});
@@ -439,9 +442,7 @@ export function EncounterDialog({
 							type="number"
 							min={0}
 							value={qHp}
-							onChange={(e: { target: { value: string } }) =>
-								setQHp(Math.max(0, Math.trunc(Number(e.target.value) || 0)))
-							}
+							onChange={(e: { target: { value: string } }) => setQHp(e.target.value)}
 						/>
 					</Field>
 					<Field label="AC" style={{ width: 72 }}>
@@ -449,9 +450,7 @@ export function EncounterDialog({
 							type="number"
 							min={0}
 							value={qAc}
-							onChange={(e: { target: { value: string } }) =>
-								setQAc(Math.max(0, Math.trunc(Number(e.target.value) || 0)))
-							}
+							onChange={(e: { target: { value: string } }) => setQAc(e.target.value)}
 						/>
 					</Field>
 					<Button
@@ -632,9 +631,7 @@ export function EncounterDialog({
 								type="number"
 								min={1}
 								value={partySize}
-								onChange={(e: { target: { value: string } }) =>
-									setPartySize(Math.max(1, Math.trunc(Number(e.target.value) || 1)))
-								}
+								onChange={(e: { target: { value: string } }) => setPartySize(e.target.value)}
 							/>
 						</Field>
 						<Field label="Avg level" style={{ width: 84 }}>
@@ -643,9 +640,7 @@ export function EncounterDialog({
 								min={1}
 								max={20}
 								value={partyLevel}
-								onChange={(e: { target: { value: string } }) =>
-									setPartyLevel(Math.min(20, Math.max(1, Math.trunc(Number(e.target.value) || 1))))
-								}
+								onChange={(e: { target: { value: string } }) => setPartyLevel(e.target.value)}
 							/>
 						</Field>
 						<div style={{ flex: '1 1 200px', minWidth: 160 }}>

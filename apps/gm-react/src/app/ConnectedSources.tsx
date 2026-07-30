@@ -668,7 +668,13 @@ export function ConnectedSourcesPanel() {
 						</Button>
 					</SourceRow>
 					{statusBySource[record.id] && (
-						<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub, paddingBottom: 8 }}>
+						// Pull/push/connect outcomes land here; without a live region a screen-reader user
+						// never learns whether the sync succeeded, partially succeeded, or failed.
+						<div
+							role="status"
+							aria-live="polite"
+							style={{ font: `12px/1.5 ${T.sans}`, color: T.sub, paddingBottom: 8 }}
+						>
 							{statusBySource[record.id]}
 						</div>
 					)}
@@ -758,7 +764,7 @@ export function ConnectedSourcesPanel() {
 							requires a Picker grant. DND Tools does not request broader Drive access.
 						</div>
 						{statusBySource['google'] && (
-							<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+							<div role="status" aria-live="polite" style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
 								{statusBySource['google']}
 							</div>
 						)}
@@ -825,7 +831,11 @@ export function ConnectedSourcesPanel() {
 										</Button>
 									</SourceRow>
 									{statusBySource[conn.docId] && (
-										<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub, paddingBottom: 8 }}>
+										<div
+											role="status"
+											aria-live="polite"
+											style={{ font: `12px/1.5 ${T.sans}`, color: T.sub, paddingBottom: 8 }}
+										>
 											{statusBySource[conn.docId]}
 										</div>
 									)}

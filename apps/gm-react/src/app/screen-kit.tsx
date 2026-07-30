@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '../ds';
@@ -10,6 +10,26 @@ import { useViewport } from './useViewport';
  * tokens; `Page`/`Panel`/`Seg`/`SetRow`/`BackBar` are the recurring layout helpers. Colors/spacing/
  * type all resolve through the byte-identical token CSS vars.
  */
+
+/**
+ * ARIA radio-group keyboard contract for HAND-ROLLED radiogroups (a grid of choice cards, where the
+ * compact `Seg` below is the wrong visual). Arrows move the selection — selection follows focus,
+ * wrapping — so Tab treats the group as one stop. Pair it with a roving `tabIndex` on the radios.
+ *
+ * Lives here because three surfaces had grown their own byte-identical copy (Onboarding, Community)
+ * or were missing it entirely (Settings' tool preferences).
+ */
+export function radioGroupKeyDown(e: ReactKeyboardEvent) {
+	if (!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'].includes(e.key)) return;
+	const radios = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]'));
+	const at = radios.indexOf(e.target as HTMLElement);
+	if (at === -1 || radios.length < 2) return;
+	e.preventDefault();
+	const delta = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1;
+	const next = radios[(at + delta + radios.length) % radios.length];
+	next?.focus();
+	next?.click();
+}
 
 export const T = {
 	bg: 'var(--color-bg)',

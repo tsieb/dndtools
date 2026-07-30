@@ -168,6 +168,96 @@ test.describe('canvas: board + scene mount and round-trip', () => {
 	});
 });
 
+test.describe('canvas: destroying a widget is confirmed', () => {
+	// `scene.destroy-widget` has NO restore counterpart in the core, so there is nothing an Undo toast
+	// could dispatch — a single click (or a stray Delete keypress while arrow-navigating the frames in
+	// edit mode) used to permanently destroy a widget and its configuration.
+	async function sceneWithOneWidget(page: import('@playwright/test').Page): Promise<string> {
+		await markOnboarded(page);
+		await gotoRoute(page, '/scenes');
+		const sceneName = `Destroy Scene ${Date.now()}`;
+		const created = await dispatch(page, {
+			type: 'scene.create',
+			actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+			payload: { name: sceneName, description: '', visibility: 'dm-only', tags: [] },
+		});
+		expect(created.status).toBe('accepted');
+		const sceneId = await page.evaluate(
+			(name) =>
+				Object.values(window.__rt!.state.scenes.scenes).find((s) => s.name === name)?.id ?? null,
+			sceneName,
+		);
+		expect(sceneId).toBeTruthy();
+
+		// Place one widget through the real Add panel, so the instance is whatever the live library
+		// actually offers rather than a hand-built payload.
+		await gotoRoute(page, `/scene/${sceneId}`);
+		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+		await expect(page.getByText('Add widget', { exact: true })).toBeVisible();
+		// Button 0 is the panel's own Close control; the library entries follow it.
+		await page.getByTestId('scene-add-widget-panel').getByRole('button').nth(1).click();
+		await page.waitForFunction(
+			(id) => (window.__rt!.state.scenes.scenes[id]?.widgets.length ?? 0) === 1,
+			sceneId!,
+			{ timeout: 10_000 },
+		);
+		return sceneId!;
+	}
+
+	const widgetCount = (page: import('@playwright/test').Page, sceneId: string) =>
+		page.evaluate((id) => window.__rt!.state.scenes.scenes[id]?.widgets.length ?? 0, sceneId);
+
+	test('the Inspector Remove asks first, and Keep leaves the widget alone', async ({ page }) => {
+		const sceneId = await sceneWithOneWidget(page);
+		const widgetId = await page.evaluate(
+			(id) => window.__rt!.state.scenes.scenes[id].widgets[0].id,
+			sceneId,
+		);
+
+		// Select the widget to open the Inspector, then ask to remove it. Enter on a focused frame is
+		// the frame's own select gesture — a pointer press there would start a move drag instead.
+		await page.getByTestId(`widget-${widgetId}`).focus();
+		await page.keyboard.press('Enter');
+		await page.getByRole('button', { name: 'Remove widget' }).click();
+
+		const confirm = page.getByRole('dialog', { name: /Remove/ });
+		await expect(confirm).toBeVisible();
+		await confirm.getByRole('button', { name: 'Keep' }).click();
+		await expect(confirm).toHaveCount(0);
+		expect(await widgetCount(page, sceneId)).toBe(1);
+
+		// Confirming does destroy it.
+		await page.getByRole('button', { name: 'Remove widget' }).click();
+		await page
+			.getByRole('dialog', { name: /Remove/ })
+			.getByRole('button', { name: 'Remove widget' })
+			.click();
+		await expect.poll(() => widgetCount(page, sceneId)).toBe(0);
+	});
+
+	test('a stray Delete keypress on a focused widget frame cannot destroy it outright', async ({
+		page,
+	}) => {
+		const sceneId = await sceneWithOneWidget(page);
+		const widgetId = await page.evaluate(
+			(id) => window.__rt!.state.scenes.scenes[id].widgets[0].id,
+			sceneId,
+		);
+
+		// The keyboard path had no confirmation UI attached at all — arrow-navigating the frames and
+		// hitting Delete removed a widget silently.
+		await page.getByTestId(`widget-${widgetId}`).focus();
+		await page.keyboard.press('Delete');
+		await expect(page.getByRole('dialog', { name: /Remove/ })).toBeVisible();
+		expect(await widgetCount(page, sceneId)).toBe(1);
+
+		await page.keyboard.press('Escape');
+		await expect(page.getByRole('dialog', { name: /Remove/ })).toHaveCount(0);
+		expect(await widgetCount(page, sceneId)).toBe(1);
+	});
+});
+
 test.describe('canvas: side panels close on Escape', () => {
 	test('the /board Add-widget panel closes on Escape from within the panel', async ({ page }) => {
 		await markOnboarded(page);

@@ -282,6 +282,37 @@
 }
 
 /* --------------------------------------------------------------------------------------------
+ * PARCHMENT map/layer tokens. The `:root` set above is tuned for the dark themes (L ~= 0.72 so it
+ * reads against the candle-lit `--map-canvas-bg`), but the SAME tokens are also the badge/legend
+ * FOREGROUND on `--color-surface` (see LayerTypeBadge, LayerRow's dm accent, mapVocab swatches).
+ * On parchment's near-white #fdf8f0 that meant light-on-light — ~2:1, a WCAG 1.4.3 failure. Re-cut
+ * every layer hue at L ~= 0.45 (>= 4.5:1 on parchment surfaces) with a touch more chroma, which
+ * lower lightness affords, so the hue identity survives. The map well lightens to match, keeping
+ * the darkened hues legible ON the canvas too — one theme swap, still no per-component edit.
+ * Enforced by tests/unit/a11y-nontext-contrast.test.ts (layer-token theme-coverage case).
+ * ------------------------------------------------------------------------------------------ */
+[data-theme='parchment'] {
+	--layer-base: oklch(0.45 0.02 70);
+	--layer-height: oklch(0.44 0.11 150);
+	--layer-political: oklch(0.45 0.11 78);
+	--layer-climate: oklch(0.45 0.09 200);
+	--layer-roads: oklch(0.45 0.13 50);
+	--layer-water: oklch(0.45 0.12 245);
+	--layer-wshed: oklch(0.45 0.09 215);
+	--layer-fog: oklch(0.42 0.014 65);
+	--layer-poi: oklch(0.45 0.16 28);
+	--layer-dm: oklch(0.42 0.17 305);
+	--layer-player: oklch(0.44 0.11 82);
+	--layer-combat: oklch(0.45 0.16 40);
+	--layer-custom: oklch(0.46 0.018 70);
+
+	--color-route: oklch(0.5 0.13 62);
+	--map-fog-fill: oklch(0.68 0.014 65); /* the fog wash, inverted for a light map well */
+	--map-grid-line: rgba(122, 84, 40, 0.16);
+	--map-canvas-bg: #efe4d1; /* the map well, one step deeper than the page vellum */
+}
+
+/* --------------------------------------------------------------------------------------------
  * Legacy alias bridge — the prototype's short token names map onto the semantic layer so older
  * component rules resolve per active theme without per-surface color logic.
  * ------------------------------------------------------------------------------------------ */
@@ -294,6 +325,25 @@
 	--border: var(--color-border);
 	--danger: var(--color-status-error);
 	--surface-subtle: var(--color-surface-alt);
+}
+
+/* --------------------------------------------------------------------------------------------
+ * Status BORDER tokens. 15 call sites across 5 files (AuthContext, SessionPanel, Settings' danger
+ * zone, Player, PlayerView) already write `1px solid var(--color-status-error-border)` — but the
+ * token was never defined, so the whole border shorthand was invalid and those containers rendered
+ * with NO border at all. The status fill is the intended boundary and is already contrast-gated
+ * against the surfaces, so alias to it rather than inventing 16 new hexes.
+ *
+ * `:root, [data-theme]` (not plain `:root`) because a theme can be scoped to a NESTED wrapper —
+ * WikiReader and Community mount `<div data-theme="parchment">` subtrees — and the alias has to
+ * resolve against the status colour of whichever element actually carries the theme.
+ * ------------------------------------------------------------------------------------------ */
+:root,
+[data-theme] {
+	--color-status-success-border: var(--color-status-success);
+	--color-status-warning-border: var(--color-status-warning);
+	--color-status-error-border: var(--color-status-error);
+	--color-status-info-border: var(--color-status-info);
 }
 
 /* --------------------------------------------------------------------------------------------
@@ -348,5 +398,27 @@
 		--color-interactive-focus-ring: Highlight;
 		--color-interactive-disabled: GrayText;
 		--color-interactive-disabled-bg: Canvas;
+
+		/* Map/layer tokens. Under a forced OS palette the map surface must obey it like everything
+		 * else (1.4.11 / 2.4.13); hue-coding is necessarily lost, so layer identity falls back to
+		 * the badge label text. DM-only keeps Highlight to match --color-dm-only-badge above. */
+		--layer-base: CanvasText;
+		--layer-height: CanvasText;
+		--layer-political: CanvasText;
+		--layer-climate: CanvasText;
+		--layer-roads: CanvasText;
+		--layer-water: CanvasText;
+		--layer-wshed: CanvasText;
+		--layer-fog: GrayText;
+		--layer-poi: CanvasText;
+		--layer-dm: Highlight;
+		--layer-player: CanvasText;
+		--layer-combat: CanvasText;
+		--layer-custom: GrayText;
+		--color-route: CanvasText;
+		--color-route-player: Highlight;
+		--map-fog-fill: GrayText;
+		--map-grid-line: GrayText;
+		--map-canvas-bg: Canvas;
 	}
 }

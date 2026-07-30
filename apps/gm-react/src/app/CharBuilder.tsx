@@ -1698,7 +1698,15 @@ export function CharBuilder({
 										</div>
 									)}
 								</div>
-								<div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16 }}>
+								<div
+									style={{
+										display: 'grid',
+										// The identity step's identical 1.4fr/1fr track is already phone-guarded; this one was
+										// missed, and NumStepper is width:fit-content so the row could not shrink to fit 393px.
+										gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1.4fr 1fr',
+										gap: 16,
+									}}
+								>
 									<div>
 										<FieldLabel hint="Optional at level 1">Subclass</FieldLabel>
 										<Select
@@ -1963,8 +1971,12 @@ export function CharBuilder({
 												key={idx}
 												style={{
 													display: 'grid',
-													gridTemplateColumns:
-														'minmax(0,1.4fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,1fr) 28px',
+													// Five inputs + a delete button on one 393px row left each field a
+													// few characters wide. Two-up on a phone, matching the AC/HP/Speed
+													// grid in the same step.
+													gridTemplateColumns: isPhone
+														? 'minmax(0,1fr) minmax(0,1fr)'
+														: 'minmax(0,1.4fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,1fr) 28px',
 													gap: 8,
 													alignItems: 'center',
 												}}

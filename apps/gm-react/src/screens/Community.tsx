@@ -16,11 +16,12 @@ import {
 	Stat,
 	Switch,
 	Tabs,
+	tabPanelProps,
 	Textarea,
 	Toaster,
 	VisibilityChip,
 } from '../ds';
-import { Page, Panel, T, eb } from '../app/screen-kit';
+import { Page, Panel, T, eb, radioGroupKeyDown } from '../app/screen-kit';
 import { useViewport } from '../app/useViewport';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useAuth } from '../cloud/AuthContext';
@@ -72,17 +73,6 @@ const errText = (e: unknown) =>
 
 /** ARIA radio-group contract (mirrors Onboarding's): arrows move selection (selection follows
  * focus, wrapping), Tab skips the group as one stop. */
-function radioGroupKeyDown(e: React.KeyboardEvent) {
-	if (!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'].includes(e.key)) return;
-	const radios = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]'));
-	const at = radios.indexOf(e.target as HTMLElement);
-	if (at === -1 || radios.length < 2) return;
-	e.preventDefault();
-	const delta = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1;
-	const next = radios[(at + delta + radios.length) % radios.length];
-	next.focus();
-	next.click();
-}
 
 // Wiki access vocabulary shown in the publish settings. `value` matches the server's WikiAccess enum.
 const WIKI_ACCESS_MODES: { value: WikiAccess; label: string; note: string }[] = [
@@ -136,12 +126,16 @@ export function Community() {
 	return (
 		<Page max={1200}>
 			<div style={{ marginBottom: 18 }}>
-				<Tabs value={tab} onChange={setTab} tabs={tabs} />
+				<Tabs value={tab} onChange={setTab} tabs={tabs} idBase="community" />
 			</div>
-			{tab === 'discover' && <CommDiscover />}
-			{tab === 'export' && <CommExport />}
-			{tab === 'publish' && <CommPublish />}
-			{tab === 'wiki' && <CommWiki />}
+			{/* One panel element, re-labelled per active tab — only one body is ever mounted, so a
+			    single wrapper completes the tab/panel relationship without four near-identical divs. */}
+			<div {...tabPanelProps('community', tab)}>
+				{tab === 'discover' && <CommDiscover />}
+				{tab === 'export' && <CommExport />}
+				{tab === 'publish' && <CommPublish />}
+				{tab === 'wiki' && <CommWiki />}
+			</div>
 		</Page>
 	);
 }

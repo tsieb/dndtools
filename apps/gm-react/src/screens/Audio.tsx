@@ -34,6 +34,7 @@ import {
 	StatusDot,
 	Switch,
 	Tabs,
+	tabPanelProps,
 	Toaster,
 } from '../ds';
 import { Page, Panel, T, eb } from '../app/screen-kit';
@@ -855,11 +856,13 @@ export function Audio() {
 				]}
 				value={tab}
 				onChange={(id: string) => setTab(id as 'playback' | 'presets' | 'automation')}
+				idBase="audio"
 				style={{ marginBottom: 18 }}
 			/>
 
 			{tab === 'playback' && (
 				<div
+					{...tabPanelProps('audio', 'playback')}
 					style={{
 						display: 'grid',
 						gridTemplateColumns: isDesktop ? '1.3fr 1fr' : 'minmax(0,1fr)',
@@ -1465,6 +1468,7 @@ export function Audio() {
 
 			{tab === 'presets' && (
 				<div
+					{...tabPanelProps('audio', 'presets')}
 					style={{
 						display: 'grid',
 						gridTemplateColumns: isDesktop ? '1fr 1fr' : 'minmax(0,1fr)',
@@ -1675,6 +1679,7 @@ export function Audio() {
 
 			{tab === 'automation' && (
 				<div
+					{...tabPanelProps('audio', 'automation')}
 					style={{
 						display: 'grid',
 						gridTemplateColumns: isDesktop ? '1.3fr 1fr' : 'minmax(0,1fr)',

@@ -4,9 +4,27 @@ import { Icon } from './Icon.jsx';
 /**
  * Tabs — segmented in-surface navigation (e.g. workflow modes, scene tabs). Controlled via
  * `value` / `onChange`; the active tab carries the gold underline + primary text.
+ *
+ * Pass `idBase` to complete the ARIA tabs pattern: each tab then gets an `id` plus an
+ * `aria-controls` pointing at its panel, and the consumer spreads `tabPanelProps(idBase, id)` onto
+ * the body it renders for the active tab. Without `idBase` nothing is emitted, so a consumer that
+ * has not been wired up never advertises an `aria-controls` target that does not exist.
  */
 
-export function Tabs({ tabs = [], value, onChange, style, ...rest }) {
+/** Sanitise a tab id into an HTML id fragment (spaces/punctuation would break aria-controls). */
+const idPart = (raw) => String(raw).replace(/[^A-Za-z0-9_-]/g, '-');
+
+/** Props for the panel that a tab controls. Spread onto the element rendered for the active tab. */
+export function tabPanelProps(idBase, tabId) {
+	if (!idBase) return {};
+	return {
+		role: 'tabpanel',
+		id: `${idPart(idBase)}-panel-${idPart(tabId)}`,
+		'aria-labelledby': `${idPart(idBase)}-tab-${idPart(tabId)}`,
+	};
+}
+
+export function Tabs({ tabs = [], value, onChange, style, idBase, ...rest }) {
 	const refs = React.useRef([]);
 	const normalized = tabs.map((tab) =>
 		typeof tab === 'string' ? { id: tab, label: tab, disabled: false } : tab,
@@ -53,6 +71,8 @@ export function Tabs({ tabs = [], value, onChange, style, ...rest }) {
 						}}
 						role="tab"
 						type="button"
+						id={idBase ? `${idPart(idBase)}-tab-${idPart(id)}` : undefined}
+						aria-controls={idBase ? `${idPart(idBase)}-panel-${idPart(id)}` : undefined}
 						aria-selected={active}
 						tabIndex={index === tabStopIndex ? 0 : -1}
 						disabled={t.disabled}

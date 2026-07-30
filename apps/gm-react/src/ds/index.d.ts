@@ -17,6 +17,11 @@ export const CardHeader: DSComponent;
 export const Popover: DSComponent;
 export const Stepper: DSComponent;
 export const Tabs: DSComponent;
+/** ARIA tab/panel wiring for a `<Tabs idBase="…">`: spread onto the active tab's panel element. */
+export function tabPanelProps(
+	idBase: string | undefined,
+	tabId: string,
+): { role?: string; id?: string; 'aria-labelledby'?: string };
 export const ICON_REGISTRY: Record<string, string>;
 
 // Feedback

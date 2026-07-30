@@ -170,9 +170,13 @@ test.describe('knowledge: notes workbench', () => {
 		await expect(page.getByText(SEEDED_VISIBLE)).not.toHaveCount(0);
 		await exitPreview(page);
 
-		// Real UI: open the note and flip the Sharing segment to Players.
+		// Real UI: open the note and flip the Sharing segment to Players. Widening DM-only content
+		// confirms first — players can read it the moment it lands.
 		await gotoRoute(page, `/knowledge/${noteId}`);
 		await page.getByRole('radio', { name: 'Players' }).click();
+		const reveal = page.getByRole('dialog', { name: /Show .* to players/ });
+		await expect(reveal).toBeVisible();
+		await reveal.getByRole('button', { name: 'Push to players' }).click();
 		await page.waitForFunction(
 			(id) =>
 				(window.__rt!.state.content as { items: Record<string, { visibility: string }> }).items[id]
@@ -212,6 +216,90 @@ test.describe('knowledge: notes workbench', () => {
 		await page.reload({ waitUntil: 'domcontentloaded' });
 		await waitReady(page);
 		await expect(page.locator('#main-content').getByText(title)).not.toHaveCount(0);
+	});
+
+	test('declining the reveal confirm leaves the note DM-only', async ({ page }) => {
+		// The exposure is one-way in practice: you cannot un-read what a player already saw. All three
+		// entry points (the Seg, the send icon, the Push button) funnel through the same guard.
+		const title = `Unspoken Pact ${Date.now()}`;
+		const noteId = await createNoteViaCore(page, title, 'Not for the table yet.', 'dm-only');
+		await gotoRoute(page, `/knowledge/${noteId}`);
+		const before = await ops(page);
+
+		const reveal = page.getByRole('dialog', { name: /Show .* to players/ });
+		// The viewer offers the reveal twice — a header icon button and the Sharing panel's own button.
+		const pushButtons = page.getByRole('button', { name: 'Push to players' });
+
+		for (const entry of [pushButtons.first(), pushButtons.last()]) {
+			await entry.click();
+			await expect(reveal).toBeVisible();
+			await reveal.getByRole('button', { name: 'Keep DM only' }).click();
+			await expect(reveal).toHaveCount(0);
+			expect((await findItem(page, title))?.visibility).toBe('dm-only');
+		}
+
+		// The third entry point is the visibility segment, which shares the same guard.
+		await page.getByRole('radio', { name: 'Players' }).click();
+		await expect(reveal).toBeVisible();
+		await reveal.getByRole('button', { name: 'Keep DM only' }).click();
+		await expect(reveal).toHaveCount(0);
+
+		// Nothing was ever dispatched, so the note is untouched.
+		expect(await ops(page)).toBe(before);
+		expect((await findItem(page, title))?.visibility).toBe('dm-only');
+	});
+
+	test('a [[wikilink]] in a note body navigates to the linked note', async ({ page }) => {
+		// The links rendered accent-coloured but were inert spans — a dead deep link inside the DM's
+		// own vault. They resolve through the core's ACTOR-FILTERED index, so an unreachable target
+		// must stay non-interactive rather than advertising a note you cannot open.
+		const stamp = Date.now();
+		const targetTitle = `Harbor Bell ${stamp}`;
+		const targetId = await createNoteViaCore(page, targetTitle, 'It rings at dusk.', 'dm-only');
+		const sourceId = await createNoteViaCore(
+			page,
+			`Dock Rumors ${stamp}`,
+			`Ask about the [[${targetTitle}]] and the [[Nonexistent Note ${stamp}]].`,
+			'dm-only',
+		);
+
+		await gotoRoute(page, `/knowledge/${sourceId}`);
+		const link = page.getByRole('button', { name: targetTitle, exact: true });
+		await expect(link).toHaveCount(1);
+		await link.click();
+
+		// It opened the target note, not merely re-rendered the source.
+		await page.waitForURL((url) => url.hash.includes(`/knowledge/${targetId}`), { timeout: 10_000 });
+		await expect(page.getByText('It rings at dusk.')).not.toHaveCount(0);
+
+		// The unresolvable link is NOT a button — it never pretends to be clickable.
+		await gotoRoute(page, `/knowledge/${sourceId}`);
+		await expect(
+			page.getByRole('button', { name: `Nonexistent Note ${stamp}`, exact: true }),
+		).toHaveCount(0);
+		await expect(page.getByText(`Nonexistent Note ${stamp}`)).not.toHaveCount(0);
+	});
+
+	test('markdown bullets render as a real list, not orphaned <li> elements', async ({ page }) => {
+		// The renderer returned bare <li>s straight into a <div>: invalid HTML, and a screen reader
+		// announced each bullet as a loose line instead of "list, 3 items" (WCAG 1.3.1).
+		const noteId = await createNoteViaCore(
+			page,
+			`Provisions ${Date.now()}`,
+			'Pack list:\n- Rope, 50 ft\n- Tinderbox\n- Rations, 3 days\n\nThen leave.',
+			'dm-only',
+		);
+		await gotoRoute(page, `/knowledge/${noteId}`);
+
+		const list = page.locator('#main-content ul').filter({ hasText: 'Tinderbox' });
+		await expect(list).toHaveCount(1);
+		await expect(list.locator('li')).toHaveCount(3);
+		// Every rendered bullet has a list parent — none are orphaned.
+		expect(
+			await page
+				.locator('#main-content li')
+				.evaluateAll((els) => els.every((el) => el.parentElement?.tagName === 'UL')),
+		).toBe(true);
 	});
 
 	test('a pasted markdown archive commits through content.commit-import', async ({ page }) => {

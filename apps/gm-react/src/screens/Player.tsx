@@ -46,6 +46,7 @@ import {
 	SpellSlots,
 	Stat,
 	Tabs,
+	tabPanelProps,
 	Textarea,
 	Toaster,
 } from '../ds';
@@ -427,6 +428,8 @@ export function Player() {
 
 			{err && (
 				<div
+					role="alert"
+					aria-live="assertive"
 					style={{
 						padding: '8px 28px',
 						background: 'var(--color-status-warning-subtle)',
@@ -441,8 +444,10 @@ export function Player() {
 
 			<Page max={1180}>
 				<div style={{ marginBottom: 18 }}>
-					<Tabs value={activeTab} onChange={setTab} tabs={tabs} />
+					<Tabs value={activeTab} onChange={setTab} tabs={tabs} idBase="player" />
 				</div>
+				{/* One panel element, re-labelled per active tab — only one body is ever mounted. */}
+				<div {...tabPanelProps('player', activeTab)}>
 				{activeTab === 'sheet' && (
 					<PlayerSheet
 						C={C}
@@ -497,6 +502,7 @@ export function Player() {
 						dispatch={dispatch}
 					/>
 				)}
+				</div>
 			</Page>
 		</div>
 	);
@@ -932,7 +938,9 @@ function PlayerEquipment({
 	// error banner surfaces any rejection (so a non-owner preview never silently mutates).
 	const addItem = async () => {
 		if (!name.trim()) return;
-		const quantity = Math.max(0, Math.trunc(Number(qty) || 0));
+		// A cleared Qty box used to coerce to 0 and create a phantom "x0" item with no feedback; an
+		// item you are adding is at least one of a thing, so blank (and any sub-1 value) means 1.
+		const quantity = Math.max(1, Math.trunc(Number(qty) || 1));
 		const w = weight.trim() === '' ? 0 : Math.max(0, Number(weight) || 0);
 		const ok = await dispatch({
 			type: 'character.upsert-equipment-item',

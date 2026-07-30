@@ -54,8 +54,27 @@ const CARD: CSSProperties = {
 	boxShadow: 'var(--shadow-md, 0 8px 24px rgba(0,0,0,.12))',
 };
 
-/** Inline emphasis: **bold** and [[wikilink]] rendered as React nodes (text, never HTML). */
-function boldify(s: string): ReactNode {
+/**
+ * Split `[[Target#Section|Label]]` into its parts. Obsidian's own syntax, which is what the DM
+ * authored the vault in; the section anchor is not addressable in the reader yet, so it only ever
+ * affects the label we fall back to.
+ */
+export function parseWikilink(raw: string): { target: string; label: string } {
+	const inner = raw.slice(2, -2);
+	const [addr, alias] = inner.split('|');
+	const target = (addr ?? '').split('#')[0]?.trim() ?? '';
+	const label = (alias ?? inner).trim();
+	return { target, label: label || target };
+}
+
+/**
+ * Inline emphasis: **bold** and [[wikilink]] rendered as React nodes (text, never HTML).
+ *
+ * `resolve` turns a wikilink target into a navigation callback. A link that resolves becomes a real
+ * button (keyboard-reachable, announced as a link); one that does not stays plain text with a
+ * tooltip saying so, instead of the old accent-coloured span that LOOKED clickable and was inert.
+ */
+function boldify(s: string, resolve?: (target: string) => (() => void) | null): ReactNode {
 	const parts = s.split(/(\*\*[^*]+\*\*|\[\[[^\]]+\]\])/g);
 	return parts.map((p, i) => {
 		if (p.startsWith('**'))
@@ -64,25 +83,85 @@ function boldify(s: string): ReactNode {
 					{p.slice(2, -2)}
 				</strong>
 			);
-		if (p.startsWith('[['))
+		if (p.startsWith('[[')) {
+			const { target, label } = parseWikilink(p);
+			const go = resolve ? resolve(target) : null;
+			if (!go)
+				return (
+					<span
+						key={i}
+						title={`No page named “${target}” on this wiki`}
+						style={{
+							color: 'var(--color-text-tertiary)',
+							textDecoration: 'underline dotted',
+							textDecorationColor: 'var(--color-border-strong)',
+						}}
+					>
+						{label}
+					</span>
+				);
 			return (
-				<span key={i} style={{ color: 'var(--color-accent)' }}>
-					{p.slice(2, -2)}
-				</span>
+				<button
+					key={i}
+					type="button"
+					onClick={go}
+					style={{
+						font: 'inherit',
+						padding: 0,
+						border: 'none',
+						background: 'none',
+						color: 'var(--color-accent)',
+						textDecoration: 'underline',
+						cursor: 'pointer',
+					}}
+				>
+					{label}
+				</button>
 			);
+		}
 		return p;
 	});
 }
 
 /** Minimal, XSS-safe markdown → React nodes (headings, quote, list, paragraph). No innerHTML. */
-function mdToNodes(md: string): ReactNode {
+function mdToNodes(md: string, resolve?: (target: string) => (() => void) | null): ReactNode {
 	if (!md.trim())
 		return (
 			<p style={{ color: 'var(--color-text-tertiary)', fontStyle: 'italic' }}>
 				This page is empty.
 			</p>
 		);
-	return md.split('\n').map((ln, i) => {
+	// Bare <li> elements used to be returned straight into a <div> — invalid HTML, and a screen
+	// reader never announced "list, N items". Group each run of `- ` lines into one <ul>.
+	const lines = md.split('\n');
+	const out: ReactNode[] = [];
+	for (let i = 0; i < lines.length; i += 1) {
+		if (lines[i]!.startsWith('- ')) {
+			const items: ReactNode[] = [];
+			const start = i;
+			while (i < lines.length && lines[i]!.startsWith('- ')) {
+				items.push(renderLine(lines[i]!, i, resolve));
+				i += 1;
+			}
+			i -= 1;
+			out.push(
+				<ul key={`ul-${start}`} style={{ margin: '4px 0', paddingLeft: 0, listStylePosition: 'inside' }}>
+					{items}
+				</ul>,
+			);
+			continue;
+		}
+		out.push(renderLine(lines[i]!, i, resolve));
+	}
+	return out;
+}
+
+function renderLine(
+	ln: string,
+	i: number,
+	resolve?: (target: string) => (() => void) | null,
+): ReactNode {
+	{
 		if (ln.startsWith('### '))
 			return (
 				<h4
@@ -136,7 +215,7 @@ function mdToNodes(md: string): ReactNode {
 						color: 'var(--color-text-secondary)',
 					}}
 				>
-					{boldify(ln.slice(2))}
+					{boldify(ln.slice(2), resolve)}
 				</blockquote>
 			);
 		if (ln.startsWith('- '))
@@ -149,7 +228,7 @@ function mdToNodes(md: string): ReactNode {
 						marginLeft: 20,
 					}}
 				>
-					{boldify(ln.slice(2))}
+					{boldify(ln.slice(2), resolve)}
 				</li>
 			);
 		if (!ln.trim()) return <div key={i} style={{ height: 8 }} />;
@@ -162,10 +241,10 @@ function mdToNodes(md: string): ReactNode {
 					margin: '0 0 8px',
 				}}
 			>
-				{boldify(ln)}
+				{boldify(ln, resolve)}
 			</p>
 		);
-	});
+	}
 }
 
 function Notice({ icon, title, children }: { icon: string; title: string; children?: ReactNode }) {
@@ -325,6 +404,17 @@ export function WikiReader() {
 	// phase === 'ready'
 	const { wiki } = state;
 	const page: WikiPage | undefined = wiki.pages.find((p) => p.slug === openSlug) ?? wiki.pages[0];
+	// Wikilink resolution needs no API call: `wiki.pages` is already the full published set, so a
+	// [[Target]] resolves against page titles (and slugs, for links authored slug-style).
+	const resolveLink = (target: string): (() => void) | null => {
+		const key = target.trim().toLowerCase();
+		if (!key) return null;
+		const hit = wiki.pages.find(
+			(p) => p.title.trim().toLowerCase() === key || p.slug.toLowerCase() === key,
+		);
+		if (!hit || hit.slug === page?.slug) return null;
+		return () => setOpenSlug(hit.slug);
+	};
 	return (
 		<div data-theme="parchment" style={WRAP}>
 			<div style={{ maxWidth: 1080, margin: '0 auto', padding: '0 20px' }}>
@@ -428,7 +518,7 @@ export function WikiReader() {
 								>
 									{page.title}
 								</h2>
-								<div>{mdToNodes(page.markdown)}</div>
+								<div>{mdToNodes(page.markdown, resolveLink)}</div>
 							</>
 						) : (
 							<div style={{ font: '13.5px var(--font-sans)', color: 'var(--color-text-tertiary)' }}>

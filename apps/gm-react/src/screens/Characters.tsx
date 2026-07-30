@@ -862,7 +862,9 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 										key={a.id ?? `new-${idx}`}
 										style={{
 											display: 'grid',
-											gridTemplateColumns: '1fr 1.5fr 28px',
+											// The sheet's outer grid is phone-guarded but this nested attack editor was
+											// not: Name + Detail + remove crushed onto one 393px row.
+											gridTemplateColumns: isPhone ? 'minmax(0,1fr) 28px' : '1fr 1.5fr 28px',
 											gap: 8,
 											alignItems: 'center',
 										}}
@@ -962,7 +964,13 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 									<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
 										Advancing to level {draft.toLevel} ({draft.mode}).
 									</div>
-									<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+									<div
+										style={{
+											display: 'grid',
+											gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1fr 1fr',
+											gap: 10,
+										}}
+									>
 										<Field label="Class gaining the level">
 											<Input
 												value={className}

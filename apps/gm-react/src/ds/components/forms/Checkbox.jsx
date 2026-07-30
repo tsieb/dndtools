@@ -17,21 +17,34 @@ export function Checkbox({ checked = false, onChange, label, disabled = false, s
 				onClick={() => !disabled && onChange && onChange(!checked)}
 				onKeyDown={(e) => { if (!disabled && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); onChange && onChange(!checked); } }}
 				style={{
+					// Transparent hit box clearing the WCAG 2.5.8 24px floor; the compact 18x18 box is
+					// painted by the inner span, so the visual is unchanged. Mirrors Switch.jsx.
 					display: 'inline-flex',
 					alignItems: 'center',
 					justifyContent: 'center',
-					width: 18,
-					height: 18,
-					borderRadius: 'var(--radius-sm)',
-					border: `1px solid ${checked ? 'var(--color-accent)' : 'var(--color-border-strong)'}`,
-					background: checked ? 'var(--color-accent)' : 'var(--color-surface-sunken)',
-					color: 'var(--color-accent-foreground)',
+					minWidth: 'var(--density-touch-target, 24px)',
+					minHeight: 'var(--density-touch-target, 24px)',
 					flex: '0 0 auto',
-					transition: 'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard)',
 				}}
 				{...rest}
 			>
-				{checked && <Icon name="check" size={14} />}
+				<span
+					style={{
+						display: 'inline-flex',
+						alignItems: 'center',
+						justifyContent: 'center',
+						width: 18,
+						height: 18,
+						borderRadius: 'var(--radius-sm)',
+						border: `1px solid ${checked ? 'var(--color-accent)' : 'var(--color-border-strong)'}`,
+						background: checked ? 'var(--color-accent)' : 'var(--color-surface-sunken)',
+						color: 'var(--color-accent-foreground)',
+						flex: '0 0 auto',
+						transition: 'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard)',
+					}}
+				>
+					{checked && <Icon name="check" size={14} />}
+				</span>
 			</span>
 			{label ? (
 				<span id={labelId} onClick={() => !disabled && onChange && onChange(!checked)}>

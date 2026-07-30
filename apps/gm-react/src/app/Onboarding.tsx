@@ -15,7 +15,7 @@ import { useRuntime } from '../runtime/RuntimeContext';
 import { registerBackHandler } from '../platform/backNavigation';
 import { resetCoreStorage } from '../platform/storage/coreStore';
 import { setVaultPrivacyMode, storedVaultPrivacyMode } from '../cloud/vaultMode';
-import { T } from './screen-kit';
+import { T, radioGroupKeyDown } from './screen-kit';
 import { useViewport } from './useViewport';
 import {
 	getAiUsagePreference,
@@ -142,17 +142,6 @@ function readStoredPartyNotes(): string[] {
 }
 
 /** ARIA radio-group contract: arrows move selection (selection follows focus), Tab skips the group. */
-function radioGroupKeyDown(e: React.KeyboardEvent) {
-	if (!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'].includes(e.key)) return;
-	const radios = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]'));
-	const at = radios.indexOf(e.target as HTMLElement);
-	if (at === -1 || radios.length < 2) return;
-	e.preventDefault();
-	const delta = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1;
-	const next = radios[(at + delta + radios.length) % radios.length];
-	next.focus();
-	next.click();
-}
 
 const ONB_STEPS = [
 	{ id: 'welcome', title: 'Welcome', icon: 'sparkle' },

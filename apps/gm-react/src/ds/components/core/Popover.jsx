@@ -78,7 +78,10 @@ export function Popover({
 							: 'translate(-50%, -50%)',
 				zIndex: 'var(--z-overlay)',
 			}
-		: {};
+		: // Fail SAFE, not invisible. Without `anchor` the caller positions the popover itself, and
+			// forgetting a zIndex used to paint it UNDER later siblings (LayerRow's opacity slider was
+			// unclickable that way). A caller-supplied `style.zIndex` still wins — it is spread after.
+			{ zIndex: 'var(--z-overlay)' };
 
 	return (
 		<div

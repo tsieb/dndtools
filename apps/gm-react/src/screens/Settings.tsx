@@ -37,7 +37,7 @@ import {
 	Textarea,
 	Toaster,
 } from '../ds';
-import { Page, Panel, Seg, SetRow, T } from '../app/screen-kit';
+import { Page, Panel, Seg, SetRow, T, radioGroupKeyDown } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useCloudSync } from '../cloud/CloudSyncContext';
 import { useAuth } from '../cloud/AuthContext';
@@ -3890,6 +3890,9 @@ function SettingsAI() {
 	// Register-agent form (a binding names WHICH actor a future connection speaks as — no capability).
 	const [newAgentId, setNewAgentId] = useState('');
 	const [newLabel, setNewLabel] = useState('');
+	// Removing a binding expires the agent's pending proposals and cannot be undone, so it takes a
+	// two-step inline confirm rather than firing straight from the trash icon.
+	const [confirmRemoveAgentId, setConfirmRemoveAgentId] = useState<string | null>(null);
 	const [newActorId, setNewActorId] = useState<string>(
 		actors.find((a) => a.role !== 'dm')?.id ?? actors[0]?.id ?? '',
 	);
@@ -4101,24 +4104,45 @@ function SettingsAI() {
 											)
 										}
 									/>
-									<Button
-										variant="ghost"
-										size="sm"
-										icon="trash"
-										disabled={!canWrite || busy}
-										onClick={() =>
-											run(
-												{
-													type: 'mcp.remove-agent-binding',
-													actorId,
-													payload: { agentId: b.agentId },
-												},
-												`${b.label || b.agentId} removed — its pending proposals expire.`,
-											)
-										}
-									>
-										Remove
-									</Button>
+									{confirmRemoveAgentId === b.agentId ? (
+										<>
+											<Button
+												variant="danger"
+												size="sm"
+												disabled={!canWrite || busy}
+												onClick={() => {
+													setConfirmRemoveAgentId(null);
+													run(
+														{
+															type: 'mcp.remove-agent-binding',
+															actorId,
+															payload: { agentId: b.agentId },
+														},
+														`${b.label || b.agentId} removed — its pending proposals expire.`,
+													);
+												}}
+											>
+												Confirm remove
+											</Button>
+											<Button
+												variant="ghost"
+												size="sm"
+												onClick={() => setConfirmRemoveAgentId(null)}
+											>
+												Keep
+											</Button>
+										</>
+									) : (
+										<Button
+											variant="ghost"
+											size="sm"
+											icon="trash"
+											disabled={!canWrite || busy}
+											onClick={() => setConfirmRemoveAgentId(b.agentId)}
+										>
+											Remove
+										</Button>
+									)}
 								</div>
 							);
 						})}
@@ -4309,6 +4333,9 @@ function SettingsToolPreferences() {
 			<div
 				role="radiogroup"
 				aria-label="Optional tool preference"
+				// This declared radiogroup had no arrow keys and every card was its own tab stop — the
+				// same gap already closed for Seg/SegmentedControl and for Onboarding's choice cards.
+				onKeyDown={radioGroupKeyDown}
 				style={{
 					display: 'grid',
 					gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))',
@@ -4341,6 +4368,7 @@ function SettingsToolPreferences() {
 							type="button"
 							role="radio"
 							aria-checked={selected}
+							tabIndex={selected ? 0 : -1}
 							onClick={() => choose(option.id)}
 							style={{
 								padding: 12,

@@ -13,6 +13,7 @@ import {
 	Badge,
 	Button,
 	Card,
+	Dialog,
 	Field,
 	Icon,
 	IconButton,
@@ -68,6 +69,7 @@ export function SceneEditor() {
 	const [addOpen, setAddOpen] = useState(false);
 	const [metaOpen, setMetaOpen] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [pendingDestroyId, setPendingDestroyId] = useState<string | null>(null);
 
 	const summary = getSceneForActor(runtime.state.scenes, runtime.state.permissions, actorId, id, {
 		widgetPackages: runtime.state.widgets,
@@ -95,6 +97,7 @@ export function SceneEditor() {
 
 	const selectedInstance = rawScene?.widgets.find((w) => w.id === selectedId) ?? null;
 	const selectedWidget = widgets.find((w) => w.id === selectedId) ?? null;
+	const pendingDestroy = widgets.find((w) => w.id === pendingDestroyId) ?? null;
 
 	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
 		const result = await runtime.dispatch(command);
@@ -131,7 +134,14 @@ export function SceneEditor() {
 			if (!editing) setEditing(true);
 		}
 	}
+	// Destroying a widget is unrecoverable — the core has no `scene.restore-widget` counterpart, so
+	// there is nothing an Undo toast could dispatch. Both entry points (the Inspector's Remove button
+	// and Delete/Backspace on a focused widget frame in edit mode) stage here and wait for a confirm.
 	function destroy(widgetInstanceId: string) {
+		setPendingDestroyId(widgetInstanceId);
+	}
+	function confirmDestroy(widgetInstanceId: string) {
+		setPendingDestroyId(null);
 		setSelectedId(null);
 		return dispatch({
 			type: 'scene.destroy-widget',
@@ -419,6 +429,32 @@ export function SceneEditor() {
 					/>
 				)}
 
+				<Dialog
+					open={!!pendingDestroy}
+					onClose={() => setPendingDestroyId(null)}
+					title={`Remove “${pendingDestroy?.title ?? 'this widget'}”?`}
+					description="The widget and its configuration leave this scene. There is no undo for a removed widget — you would have to add and configure a new one."
+					icon="delete"
+					size="sm"
+					footer={
+						<>
+							<Button variant="secondary" size="sm" onClick={() => setPendingDestroyId(null)}>
+								Keep
+							</Button>
+							<Button
+								variant="danger"
+								size="sm"
+								icon="delete"
+								onClick={() => {
+									if (pendingDestroyId) void confirmDestroy(pendingDestroyId);
+								}}
+							>
+								Remove widget
+							</Button>
+						</>
+					}
+				/>
+
 				{editing && selectedWidget && selectedInstance && !addOpen && !metaOpen && (
 					<Inspector
 						key={selectedInstance.id}
@@ -556,6 +592,7 @@ function AddWidgetPanel({
 }) {
 	return (
 		<Card
+			data-testid="scene-add-widget-panel"
 			elevation="overlay"
 			padding="md"
 			onKeyDown={(e: React.KeyboardEvent) => {

@@ -4,11 +4,13 @@ import {
 	actorCanAuthorContent,
 	getContentItemsForActor,
 	getNoteRelationshipsForActor,
+	resolveWikilinkForActor,
 	type ContentItemView,
 } from '@dndtools/core';
 import {
 	Button,
 	Card,
+	Dialog,
 	EmptyState,
 	Icon,
 	IconButton,
@@ -95,7 +97,26 @@ function parseArchive(raw: string): { path: string; text: string }[] {
 	return files;
 }
 
-function boldify(s: string): ReactNode {
+/** Split `[[Target#Section|Label]]` into the parts the core's resolver takes. */
+export function parseWikilink(raw: string): { target: string; section?: string; label: string } {
+	const inner = raw.slice(2, -2);
+	const [addr, alias] = inner.split('|');
+	const [target, section] = (addr ?? '').split('#');
+	const label = (alias ?? inner).trim();
+	return {
+		target: (target ?? '').trim(),
+		section: section?.trim() || undefined,
+		label: label || (target ?? '').trim(),
+	};
+}
+
+/**
+ * `resolve` turns a wikilink into a navigation callback. A resolvable link becomes a real button —
+ * keyboard-reachable and announced — instead of the accent-coloured span that LOOKED like a link
+ * and did nothing. An unresolvable one is drawn as a visibly broken link, which is the honest
+ * signal: the core's resolver is actor-filtered, so "unresolved" can also mean "not yours to see".
+ */
+function boldify(s: string, resolve?: (raw: string) => (() => void) | null): ReactNode {
 	const parts = s.split(/(\*\*[^*]+\*\*|\[\[[^\]]+\]\])/g);
 	return parts.map((p, i) => {
 		if (p.startsWith('**'))
@@ -104,24 +125,80 @@ function boldify(s: string): ReactNode {
 					{p.slice(2, -2)}
 				</strong>
 			);
-		if (p.startsWith('[['))
+		if (p.startsWith('[[')) {
+			const { label } = parseWikilink(p);
+			const go = resolve ? resolve(p) : null;
+			if (!go)
+				return (
+					<span
+						key={i}
+						title="This link does not point at a note you can open"
+						style={{ color: T.ter, textDecoration: 'underline dotted', textDecorationColor: T.bdS }}
+					>
+						{label}
+					</span>
+				);
 			return (
-				<span key={i} style={{ color: T.acc }}>
-					{p.slice(2, -2)}
-				</span>
+				<button
+					key={i}
+					type="button"
+					onClick={go}
+					style={{
+						font: 'inherit',
+						padding: 0,
+						border: 'none',
+						background: 'none',
+						color: T.acc,
+						textDecoration: 'underline',
+						cursor: 'pointer',
+					}}
+				>
+					{label}
+				</button>
 			);
+		}
 		return p;
 	});
 }
 
-function mdToNodes(md: string): ReactNode {
+function mdToNodes(md: string, resolve?: (raw: string) => (() => void) | null): ReactNode {
 	if (!md.trim())
 		return (
 			<p style={{ font: `13.5px/1.7 ${T.sans}`, color: T.ter, fontStyle: 'italic' }}>
 				This note is empty.
 			</p>
 		);
-	return md.split('\n').map((ln, i) => {
+	// Bare <li>s used to be returned straight into a <div> — invalid HTML, and a screen reader never
+	// announced "list, N items". Group each run of `- ` lines into one <ul>.
+	const lines = md.split('\n');
+	const out: ReactNode[] = [];
+	for (let i = 0; i < lines.length; i += 1) {
+		if (lines[i]!.startsWith('- ')) {
+			const items: ReactNode[] = [];
+			const start = i;
+			while (i < lines.length && lines[i]!.startsWith('- ')) {
+				items.push(renderLine(lines[i]!, i, resolve));
+				i += 1;
+			}
+			i -= 1;
+			out.push(
+				<ul key={`ul-${start}`} style={{ margin: '2px 0', paddingLeft: 0, listStylePosition: 'inside' }}>
+					{items}
+				</ul>,
+			);
+			continue;
+		}
+		out.push(renderLine(lines[i]!, i, resolve));
+	}
+	return out;
+}
+
+function renderLine(
+	ln: string,
+	i: number,
+	resolve?: (raw: string) => (() => void) | null,
+): ReactNode {
+	{
 		if (ln.startsWith('### '))
 			return (
 				<h4 key={i} style={{ font: `700 14px ${T.disp}`, margin: '14px 0 4px' }}>
@@ -158,22 +235,22 @@ function mdToNodes(md: string): ReactNode {
 				>
 					{/* Read-aloud text is the most-read content in the app; it was the one branch that
 					    skipped boldify, so **emphasis** rendered as literal asterisks. */}
-					{boldify(ln.slice(2))}
+					{boldify(ln.slice(2), resolve)}
 				</blockquote>
 			);
 		if (ln.startsWith('- '))
 			return (
 				<li key={i} style={{ font: `13.5px/1.6 ${T.sans}`, color: T.sub, marginLeft: 18 }}>
-					{boldify(ln.slice(2))}
+					{boldify(ln.slice(2), resolve)}
 				</li>
 			);
 		if (!ln.trim()) return <div key={i} style={{ height: 6 }} />;
 		return (
 			<p key={i} style={{ font: `13.5px/1.7 ${T.sans}`, color: T.sub, margin: '0 0 6px' }}>
-				{boldify(ln)}
+				{boldify(ln, resolve)}
 			</p>
 		);
-	});
+	}
 }
 
 function RelRow({
@@ -247,6 +324,24 @@ function NoteViewer({
 	const [body, setBody] = useState(note.body);
 	const [busy, setBusy] = useState(false);
 	const [err, setErr] = useState<string | null>(null);
+	// Widening DM-only content to players is the one visibility move you cannot take back — players
+	// may read it the instant it lands — so it stages here and waits for an explicit confirm.
+	const [pendingReveal, setPendingReveal] = useState<string | null>(null);
+
+	// CONTENT-006: resolve through the core's ACTOR-FILTERED candidate index, so a wikilink can never
+	// open — or even reveal the existence of — a note this actor is not allowed to see.
+	const resolveLink = (raw: string): (() => void) | null => {
+		const { target, section } = parseWikilink(raw);
+		if (!target) return null;
+		const res = resolveWikilinkForActor(
+			runtime.state.content,
+			runtime.state.permissions,
+			actorId,
+			{ target, section },
+		);
+		if (res.status !== 'resolved' || res.targetId === note.id) return null;
+		return () => onOpen(res.targetId);
+	};
 
 	const rel = useMemo(
 		() =>
@@ -285,6 +380,16 @@ function NoteViewer({
 	}
 
 	async function setVisibility(visibility: string) {
+		// All three entry points (the send IconButton, the "Push to players" Button and the visibility
+		// Seg) funnel through here, so gating the reveal direction once covers every one of them.
+		if (visibility !== 'dm-only' && note.visibility === 'dm-only') {
+			setPendingReveal(visibility);
+			return;
+		}
+		await applyVisibility(visibility);
+	}
+
+	async function applyVisibility(visibility: string) {
 		setBusy(true);
 		// content.set-item-visibility — the cross-surface invalidation trigger. "Push to players" is the
 		// same command with `player-visible`.
@@ -407,7 +512,7 @@ function NoteViewer({
 					) : (
 						<>
 							<h2 style={{ font: `700 22px ${T.disp}`, margin: '0 0 12px' }}>{note.title}</h2>
-							<div>{mdToNodes(note.body)}</div>
+							<div>{mdToNodes(note.body, resolveLink)}</div>
 							{err && (
 								<div style={{ marginTop: 10, font: `12px ${T.sans}`, color: T.err }}>{err}</div>
 							)}
@@ -482,6 +587,35 @@ function NoteViewer({
 					</Panel>
 				</div>
 			</div>
+
+			<Dialog
+				open={!!pendingReveal}
+				onClose={() => setPendingReveal(null)}
+				title={`Show “${note.title}” to players?`}
+				description="Players can read this note from the moment you share it. Hiding it again later does not un-read what they have already seen."
+				icon="send"
+				size="sm"
+				footer={
+					<>
+						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setPendingReveal(null)}>
+							Keep DM only
+						</Button>
+						<Button
+							variant="primary"
+							size="sm"
+							icon="send"
+							disabled={busy}
+							onClick={() => {
+								const next = pendingReveal;
+								setPendingReveal(null);
+								if (next) void applyVisibility(next);
+							}}
+						>
+							{pendingReveal === 'shared' ? 'Share' : 'Push to players'}
+						</Button>
+					</>
+				}
+			/>
 		</Page>
 	);
 }

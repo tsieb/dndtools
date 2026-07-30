@@ -31,6 +31,7 @@ import {
 	Skeleton,
 	Switch,
 	Tabs,
+	tabPanelProps,
 	Textarea,
 	Toaster,
 	VisibilityChip,
@@ -1489,6 +1490,9 @@ function CustomObjectTypes() {
 	const [fields, setFields] = useState<FieldDraft[]>([emptyField()]);
 	const [busy, setBusy] = useState(false);
 	const [instanceOf, setInstanceOf] = useState<CustomObjectTypeDefinition | null>(null);
+	// Deleting a custom type is irreversible and there is no restore command, so it takes the same
+	// two-step inline confirm the widget-package remove above uses.
+	const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
 	const resetForm = () => {
 		setEditId(null);
@@ -1550,6 +1554,7 @@ function CustomObjectTypes() {
 
 	const deleteType = async (def: CustomObjectTypeDefinition) => {
 		if (!canWrite || busy) return;
+		setConfirmDeleteId(null);
 		setBusy(true);
 		try {
 			const res = await runtime.dispatch({
@@ -1664,13 +1669,28 @@ function CustomObjectTypes() {
 											Edit
 										</Button>
 									)}
-									{def && (
+									{def && confirmDeleteId === def.id && (
+										<>
+											<Button
+												variant="danger"
+												size="sm"
+												disabled={!canWrite || busy}
+												onClick={() => deleteType(def)}
+											>
+												{count > 0 ? `Confirm delete (${count} in vault)` : 'Confirm delete'}
+											</Button>
+											<Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>
+												Keep
+											</Button>
+										</>
+									)}
+									{def && confirmDeleteId !== def.id && (
 										<Button
 											variant="ghost"
 											size="sm"
 											icon="delete"
 											disabled={!canWrite || busy}
-											onClick={() => deleteType(def)}
+											onClick={() => setConfirmDeleteId(def.id)}
 										>
 											Delete
 										</Button>
@@ -2460,13 +2480,15 @@ export function Extensions() {
 	return (
 		<Page max={1180}>
 			<div style={{ marginBottom: 18 }}>
-				<Tabs value={tab} onChange={setTab} tabs={tabs} />
+				<Tabs value={tab} onChange={setTab} tabs={tabs} idBase="extensions" />
 			</div>
-			{tab === 'plugins' && <ExtPlugins />}
-			{tab === 'compendium' && <ExtCompendium />}
-			{tab === 'objects' && <ExtObjects />}
-			{tab === 'system' && <ExtSystem />}
-			{tab === 'theme' && <ExtTheme />}
+			<div {...tabPanelProps('extensions', tab)}>
+				{tab === 'plugins' && <ExtPlugins />}
+				{tab === 'compendium' && <ExtCompendium />}
+				{tab === 'objects' && <ExtObjects />}
+				{tab === 'system' && <ExtSystem />}
+				{tab === 'theme' && <ExtTheme />}
+			</div>
 		</Page>
 	);
 }

@@ -63,3 +63,63 @@ describe('non-text contrast gate (UX-A11Y-016)', () => {
 		expect(labels.some((l) => l.includes('DM-only'))).toBe(true);
 	});
 });
+
+/**
+ * Token DEFINEDNESS, which the contrast pairs above cannot catch: an undefined custom property makes
+ * the whole `border: 1px solid var(--x)` shorthand invalid, so the border silently disappears rather
+ * than looking wrong. And the map/layer tokens are the one family that is BOTH badge foreground (on
+ * `--color-surface`) and canvas ink (on `--map-canvas-bg`), so they need a per-theme cut.
+ */
+describe('map/layer + status-border token coverage', () => {
+	/** Custom properties declared inside one CSS block, by selector text. */
+	function tokensIn(selector: string): Set<string> {
+		const escaped = selector.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+		const block = new RegExp(`${escaped}\\s*\\{([^}]*)\\}`, 'g');
+		const found = new Set<string>();
+		let match: RegExpExecArray | null;
+		while ((match = block.exec(CSS))) {
+			for (const decl of match[1]!.split(';')) {
+				const m = /(--[a-z0-9-]+)\s*:/i.exec(decl.trim());
+				if (m) found.add(m[1]!);
+			}
+		}
+		return found;
+	}
+
+	const rootTokens = tokensIn(':root');
+	const layerFamily = [...rootTokens].filter(
+		(t) => t.startsWith('--layer-') || t === '--map-fog-fill' || t === '--map-canvas-bg' || t === '--map-grid-line',
+	);
+
+	it('finds the layer/map family in :root at all (guards the probe itself)', () => {
+		expect(layerFamily.length).toBeGreaterThanOrEqual(13);
+	});
+
+	it('re-cuts every layer/map colour for parchment', () => {
+		// The :root set is tuned for the dark themes; on parchment's near-white surface the same
+		// values were light-on-light (~2:1, WCAG 1.4.3). Fog opacities are unitless, not colours.
+		const parchment = tokensIn("[data-theme='parchment']");
+		const missing = layerFamily.filter((t) => !parchment.has(t));
+		expect(missing).toEqual([]);
+	});
+
+	it('remaps every layer/map colour under forced-colors', () => {
+		// The map surface must obey a forced OS palette like the rest of the app (1.4.11 / 2.4.13).
+		const forcedBlock = /@media\s*\(forced-colors:\s*active\)\s*\{([\s\S]*?)\n\}/.exec(CSS);
+		expect(forcedBlock).not.toBeNull();
+		const forced = new Set(
+			[...forcedBlock![1]!.matchAll(/(--[a-z0-9-]+)\s*:/gi)].map((m) => m[1]!),
+		);
+		const missing = layerFamily.filter((t) => !forced.has(t));
+		expect(missing).toEqual([]);
+	});
+
+	it('defines every status border token that components already reference', () => {
+		// 15 call sites across 5 files wrote `1px solid var(--color-status-*-border)` against tokens
+		// that were never declared, so those containers rendered with no border at all.
+		const declared = new Set([...rootTokens, ...tokensIn(':root,\n[data-theme]')]);
+		for (const tone of ['success', 'warning', 'error', 'info']) {
+			expect(declared.has(`--color-status-${tone}-border`)).toBe(true);
+		}
+	});
+});
