@@ -183,6 +183,21 @@ export function LayerRow({
 				<button
 					type="button"
 					onDoubleClick={() => !readOnly && !disabled && setEditing(true)}
+					// Rename used to be double-click ONLY, so this focusable button was a dead control
+					// for keyboard users (WCAG 2.1.1) — and the panel's own Enter/Space handler bails
+					// when the event target is not the row itself, so Enter here did not even fall
+					// through to "select layer". `onClick` deliberately stays absent: a double-click
+					// fires click twice, which would open the editor and then land the second click
+					// inside the input it just opened.
+					onKeyDown={(e) => {
+						if (readOnly || disabled) return;
+						if (e.key === 'Enter' || e.key === 'F2') {
+							e.preventDefault();
+							e.stopPropagation();
+							setEditing(true);
+						}
+					}}
+					title={readOnly || disabled ? undefined : `Rename ${name}`}
 					style={{
 						flex: 1,
 						minWidth: 0,

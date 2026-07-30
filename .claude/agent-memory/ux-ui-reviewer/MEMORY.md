@@ -27,6 +27,8 @@ and `docs/architecture/` (DESIGN_TOKENS, INFORMATION_ARCHITECTURE, NAVIGATION_CO
 - **`--color-visibility-dm{,-subtle}` are UNDEFINED** yet written at 7 sites in PlayerView/Player/Community → DM-only banners lose their border AND tint. Real names: `--color-dm-only-badge{,-subtle}`. [[ds-layer-audit]] item 9.
 - `:root` `--layer-*` are LIGHT (tuned for the dark map well); only parchment re-cut them DARK. So a white glyph on them (POIMarker) breaks in the DEFAULT theme, not parchment — check which theme before claiming contrast.
 - No on-fill foreground token exists for status colours (`-text` is for `-subtle` backgrounds), so `Button` danger's `#fff` can't be fixed by swapping in an existing token.
+- **`--layer-terrain` IS NOW DECLARED** (colors.css:267/:304/:416) as of run #10 — the old "undefined, Grass==Forest" claim is DEAD. Guard: `app/map/mapVocab.test.ts` (compares swatch STRINGS, so near-identical rendered colours still slip through).
+- **`isolateModalSiblings` (`platform/modalIsolation.ts`) INERTS the `ToastViewport`** — it walks to `<body>` and the viewport is a direct sibling of the overlays in AppShell. Any `Toaster.*` fired from inside a Dialog/Sheet/SceneDisplayOverlay/MapEditor is visible but `aria-hidden` + non-interactive. Check this before writing ANY toast-feedback finding.
 - Dead DS exports, ZERO consumers — don't spend fix effort: `Tooltip` (its clipping bug is therefore latent), `NavSidebar`/`NavItem`, `DataTable`'s `sortable`, and the `colors.css` legacy alias bridge (`--bg/--fg/--card/…`). `DataTable`'s missing overflow wrapper IS live, though.
 
 ## Tooling gotchas

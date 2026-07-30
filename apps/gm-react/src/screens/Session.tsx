@@ -687,6 +687,8 @@ function CombatPanel({
 	onVisibility: (id: string, hidden: boolean) => void;
 }) {
 	const running = tracker.status === 'running';
+	const activeCombatant =
+		tracker.combatants.find((c) => c.id === tracker.activeCombatantId) ?? null;
 	const lowest = tracker.combatants
 		.filter((c) => c.resources)
 		.reduce<CombatantRow | null>(
@@ -756,6 +758,21 @@ function CombatPanel({
 				)
 			}
 		>
+			{/* Next turn / Previous turn / Heal / Damage / conditions are the four things a DM touches
+			    every thirty seconds, and they were the ONLY durable writes on this screen that pass no
+			    `ok` string to the dispatch helper — so no toast fires and nothing is announced.
+			    `aria-current` moving between list items is not announced either. This region is
+			    permanently mounted (a status node inserted together with its text is routinely
+			    dropped) and sits OUTSIDE the `<ul>` so it cannot join the list's text. */}
+			<div className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+				{running && activeCombatant
+					? `Round ${tracker.round}, turn ${tracker.turn + 1} — ${activeCombatant.name}. ${
+							activeCombatant.resources
+								? `${activeCombatant.resources.hp} of ${activeCombatant.resources.maxHp} hit points.`
+								: ''
+						}`
+					: ''}
+			</div>
 			{!running ? (
 				<EmptyState
 					icon="sword"
@@ -925,9 +942,13 @@ function CombatPanel({
 											style={{ display: 'flex', flexDirection: 'column', gap: 3 }}
 											onClick={(e) => e.stopPropagation()}
 										>
+											{/* The combatant's name has to be IN the name: with six rows a screen
+											    reader otherwise hears six identical "Heal 1" buttons that each
+											    write durable HP to a different creature. "Heal 1"/"Damage 1"
+											    stay as the PREFIX so combat.spec's substring match still hits. */}
 											<IconButton
 												icon="add"
-												label="Heal 1"
+												label={`Heal 1 HP — ${c.name}`}
 												variant="ghost"
 												size="sm"
 												disabled={previewing}
@@ -935,7 +956,7 @@ function CombatPanel({
 											/>
 											<IconButton
 												icon="remove"
-												label="Damage 1"
+												label={`Damage 1 HP — ${c.name}`}
 												variant="ghost"
 												size="sm"
 												disabled={previewing}
@@ -1424,6 +1445,12 @@ function DicePanel({
 	const disabled = !isLive || previewing;
 	return (
 		<Panel title="Dice">
+			{/* `DiceResult` is a plain <div> and `onRoll` passes no `ok` string, so pressing Roll used
+			    to produce no announcement whatsoever — the result simply appeared. Permanently mounted
+			    for the same reason as the combat readout above. */}
+			<div className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+				{last ? `Rolled ${last.expression} — total ${last.total}.` : ''}
+			</div>
 			{!isLive && (
 				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
 					Dice rolls record to the live session — go live to roll.
@@ -1550,17 +1577,25 @@ function HandoutsPanel({
 						</div>
 					)}
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-						<Input
-							value={title}
-							onChange={(e: { target: { value: string } }) => onTitle(e.target.value)}
-							placeholder="Handout title"
-						/>
-						<Textarea
-							value={body}
-							onChange={(e: { target: { value: string } }) => onBody(e.target.value)}
-							placeholder="What the players read…"
-							rows={3}
-						/>
+						{/* These were the only two unlabelled fields on the screen: a `placeholder` is
+						    not a label, and it disappears the moment the DM types (WCAG 3.3.2). axe
+						    cannot flag it, because HTML-AAM accepts placeholder as an accname
+						    fallback — so the a11y gate stayed green over it. */}
+						<Field label="Handout title">
+							<Input
+								value={title}
+								onChange={(e: { target: { value: string } }) => onTitle(e.target.value)}
+								placeholder="Handout title"
+							/>
+						</Field>
+						<Field label="What the players read">
+							<Textarea
+								value={body}
+								onChange={(e: { target: { value: string } }) => onBody(e.target.value)}
+								placeholder="What the players read…"
+								rows={3}
+							/>
+						</Field>
 						<Button
 							variant="primary"
 							size="sm"
@@ -1620,7 +1655,7 @@ function HandoutsPanel({
 								{isDm ? (
 									<IconButton
 										icon="close"
-										label="Revoke handout"
+										label={`Revoke handout — ${h.title}`}
 										variant="ghost"
 										size="sm"
 										disabled={previewing}
@@ -1632,6 +1667,7 @@ function HandoutsPanel({
 									<Button
 										variant="secondary"
 										size="sm"
+										aria-label={`Mark read — ${h.title}`}
 										disabled={previewing}
 										onClick={() => onAcknowledge(h.id)}
 									>

@@ -121,11 +121,36 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 
 	if (!open) return null;
 
+	// Both used to discard the CommandResult AND have no catch. The overlay opens on Ctrl/Cmd+Shift+S
+	// with no preview guard, and `runtime.dispatch` throws outright while previewing (and rethrows a
+	// persist failure) — so "Next card" and "Clear display" simply did nothing, silently.
+	async function dispatchDisplay(
+		type: 'scene-card.advance' | 'scene-card.activate',
+		payload: Record<string, unknown>,
+		failMsg: string,
+	) {
+		try {
+			const result = await runtime.dispatch({ type, actorId, payload } as Parameters<
+				typeof runtime.dispatch
+			>[0]);
+			if (result.status !== 'accepted') Toaster.error(result.rejection.message ?? failMsg);
+		} catch (err) {
+			Toaster.error(err instanceof Error ? err.message : failMsg);
+		}
+	}
 	async function advance() {
-		await runtime.dispatch({ type: 'scene-card.advance', actorId, payload: {} });
+		await dispatchDisplay(
+			'scene-card.advance',
+			{},
+			t('The next card couldn’t be shown — try again.'),
+		);
 	}
 	async function clear() {
-		await runtime.dispatch({ type: 'scene-card.activate', actorId, payload: { cardId: null } });
+		await dispatchDisplay(
+			'scene-card.activate',
+			{ cardId: null },
+			t('The display couldn’t be cleared — try again.'),
+		);
 	}
 
 	return (

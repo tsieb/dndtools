@@ -236,6 +236,38 @@ test.describe('canvas: destroying a widget is confirmed', () => {
 		await expect.poll(() => widgetCount(page, sceneId)).toBe(0);
 	});
 
+	// `Section`'s label is an unassociated <span> and the DS `Select` renders a bare <select> (only
+	// `Field` wires a label up), so the one control that decides whether a widget is DM-only or on
+	// the players' screen announced nothing but its current value — axe `select-name`, WCAG 4.1.2.
+	// `/scene/:id` is not in the axe gate's route list, so nothing was going to catch it there.
+	test('the Inspector visibility control has an accessible name', async ({ page }) => {
+		const sceneId = await sceneWithOneWidget(page);
+		const widgetId = await page.evaluate(
+			(id) => window.__rt!.state.scenes.scenes[id].widgets[0].id,
+			sceneId,
+		);
+		await page.getByTestId(`widget-${widgetId}`).focus();
+		await page.keyboard.press('Enter');
+
+		const visibility = page.getByRole('combobox', { name: 'Widget visibility' });
+		await expect(visibility).toHaveCount(1);
+		// And it still drives the durable state it is named for.
+		await visibility.selectOption('player-visible');
+		await expect
+			.poll(() =>
+				page.evaluate(
+					(id) =>
+						(
+							window.__rt!.state.scenes.scenes[id].widgets[0].configuration as {
+								visibility?: string;
+							}
+						).visibility,
+					sceneId,
+				),
+			)
+			.toBe('player-visible');
+	});
+
 	// /board has NO Inspector, so Delete on a focused frame is the only widget-lifecycle operation on
 	// that surface — and it destroyed the instance's configuration (a note's body, a timer's duration,
 	// a map binding) with no confirm, no toast and no undo. Same gate as /scene/:id now.

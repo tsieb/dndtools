@@ -234,7 +234,16 @@ export function Board() {
 	// must not surface as a status message. Taken when an edit session begins and before a preset is
 	// applied, so "Restore previous layout" can always revert the last destructive change.
 	async function snapshotSafePoint() {
-		await runtime.dispatch({ type: 'command-center.snapshot-auto-save', actorId, payload: {} });
+		// `SceneRuntime.dispatchNow` RETHROWS on a persist failure, and this is awaited FIRST inside
+		// `applyPreset` — so a failed checkpoint used to throw straight out of the function before
+		// the user's own guarded dispatch ever ran: "Apply a saved layout" did nothing, said
+		// nothing, and left an unhandled rejection. A best-effort checkpoint must never veto the
+		// action it precedes.
+		try {
+			await runtime.dispatch({ type: 'command-center.snapshot-auto-save', actorId, payload: {} });
+		} catch {
+			/* silent by design — see above */
+		}
 	}
 	async function applyPreset(presetId: string, name: string) {
 		await snapshotSafePoint();

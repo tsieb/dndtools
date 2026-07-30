@@ -1,125 +1,137 @@
 ---
 name: ds-layer-audit
-description: FIXED-vs-OPEN split for visual/interactive defects in apps/gm-react/src/ds/components/** — which DS exports are dead, which token traps exist, and what is still broken as of run #10 (2026-07-30 @ 8fa95d31)
+description: FIXED-vs-OPEN split for visual/interactive defects in apps/gm-react/src/ds/components/** — which DS exports are dead, which token traps exist, and what is still broken as of run #11 (2026-07-30 @ 7bdf2908)
 metadata:
   type: project
 ---
 
 Design-system audit of `apps/gm-react/src/ds/components/**` + `src/ds/index.d.ts`.
 NOTE: `screen-kit` lives at **`src/app/screen-kit.tsx`**, not `src/screens/` — task briefs cite the wrong path.
+NOTE: the global focus ring is in **`styles/tokens/base.css:35-39`** (NOT `styles/base.css` — that file does not exist).
 
 **How to apply:** these are STRUCTURAL classes; every consuming screen inherits them. Fix once in `ds/`,
 not per-screen. Re-verify before reporting — this file has been wrong before.
 
-## LIVE-vs-DEAD map (re-grepped 2026-07-30 @ 8fa95d31 — do NOT spend effort on the dead column)
+## LIVE-vs-DEAD map (re-grepped 2026-07-30 @ 7bdf2908 — do NOT spend effort on the dead column)
 
 **DEAD, zero consumers:** `core/Breadcrumb`, `core/Tooltip`, `navigation/NavSidebar`,
 `map/LayerPanel`, `map/ToolPalette`, `map/FogControls`, `map/GenerationPanel`, `map/ImportWizard`,
 `creature/StatBlock`, `domain/InitiativeRow`, `spell/SpellCard`. Also latent: `DataTable`'s
-`sortable`/`onSort` (2 consumers, neither passes it) and `Chip`'s `onClick` branch (no live site).
-⚠️ **`navigation/NavItem` is NOT dead** — `NavRail` (live at `app/AppShell.tsx:710`) imports it. My
-earlier note claiming otherwise was wrong.
-
-**LIVE:** NpcCard, QuestCard, SessionTimeline (Campaign) · ConditionBadge, ConditionTracker
-(Characters) · AbilityScore · DiceResult (Session/PlayerView) · HPBar, StatPill, Stat, DefinitionList,
-DataTable, ProgressMeter, Badge(139×), StatusDot, Skeleton, Avatar, Stepper, Sheet, NavRail,
-BottomTabBar, SpellSlots, Minimap, POIMarker, POIPopover, LayerRow, LayerTypeBadge, MapCreationForm,
-Checkbox, Slider(9×), SegmentedControl, Switch, Field, Input, Select, Button, IconButton, Card, Tabs,
-Dialog, Popover, Toast, CommandPalette, EmptyState, Chip, VisibilityChip(33×).
+`sortable`/`onSort` (2 consumers, neither passes it) and **`Chip`'s `onRemove`** (re-grepped run #11:
+every live `onRemove=` in app/screens goes to ConditionBadge / SceneBoardCanvas / SceneEditor, none to Chip).
+⚠️ **`navigation/NavItem` is NOT dead** — `NavRail` (live at `app/AppShell.tsx:710`) imports it.
 
 ## FIXED — do NOT re-report
 
+- **NEW in run #11 (commit 7bdf2908):** `Slider` focus ring (now `--focus-ring-*`, `outline:none` gone,
+  `Slider.jsx:20-21`) · `Slider` thumb now **24×24** both engines (`:22-26`) · `Sheet` opens focused on
+  the BODY not Close (`Sheet.jsx:57-58`, + bounded `height` so the body owns the scroll) ·
+  `VisibilityChip` no longer double-announces (`:27,47` — icon `label` only when `compact`) ·
+  `DefinitionList` now `minmax(0,auto) minmax(0,1fr)` (`:28`).
+  These are locked by `ds/components/ds-interaction-fixes.test.tsx:507-545`.
 - `Tabs` ARIA: `idBase` → `id` + `aria-controls`, `tabPanelProps()` exported, all 7 consumers wired.
 - Radiogroups: `SegmentedControl` + `screen-kit`'s `Seg` both roving-tabIndex + Arrow/Home/End.
-  (`SegmentedControl`'s Home/End trick `moveSelection(-1,1)` / `(0,-1)` is CORRECT — verified.)
+  ✅ **All 6 live `<SegmentedControl>` call sites pass `ariaLabel`** (MapBuilder, ToolOptionsBar ×4,
+  ParamControls, MapEditor, Extensions ×2) — do not re-report "unnamed radiogroup".
 - 24px targets: `Checkbox` (`:25-26`), `Switch` (`:34-35`), `Chip.onRemove` (`:55`),
-  `ConditionBadge.onRemove` (`:85`), `Slider`'s `stepBtn` (`:110`) all use `var(--density-touch-target)`.
+  `Slider`'s `stepBtn` (`:112`) all use `var(--density-touch-target)`.
 - `DataTable` NOW has the `maxWidth:100%; overflowX:auto` wrapper (`:16`).
-- `POIMarker:39` uses `var(--color-text-inverse)` (was `#fff`).
-- `Button` danger uses `var(--color-status-error-foreground)` — **that token now EXISTS in all 4
-  themes + forced-colors** (colors.css 68/126/180/233/398).
+- `POIMarker:39` uses `var(--color-text-inverse)`. `Button` danger uses `--color-status-error-foreground`
+  (defined in all 4 themes + forced-colors).
 - `Minimap` jump surface is a real `<button>` with arrow-key panning (`:41-59`).
-- `VisibilityChip` normalizes core aliases (`player-visible`/`shared` → `players`).
 - `Toast`: permanent live-region wrapper + pausable auto-dismiss (hover AND focus flags).
-- `Popover`: `returnFocusRef` + body-first initial focus.
-- `Button`/`IconButton`: truthy `aria-disabled` = soft disable; `IconButton` hover covers `outline`.
+  ✅ `Toaster.error(msg, {action})` (7 s duration overriding the action's `0`) has **zero live callers** — latent.
+- `Popover`: `returnFocusRef` + body-first initial focus. `Dialog`: `backdropDismissible`, `initialFocus`.
 - `Input`/`Select`/`Textarea`: `composeFocus` — `{...rest}` no longer clobbers the ring handlers.
-- `Dialog`: `backdropDismissible` prop; `initialFocus`; it is THE reference impl for modal a11y.
 - `Field`: auto-`htmlFor`, `aria-required`, `aria-describedby` + `role="alert"` on error.
-- `CommandPalette:572` `{n} results` is a `role="status"`.
 - `Card`, `EmptyState`, `Skeleton`, `Badge`, `LayerTypeBadge`, `StatPill`, `Stat`, `Avatar`,
-  `SessionTimeline`, `AbilityScore`, `HPBar` (all live sites show numerals) — read clean.
+  `SessionTimeline`, `AbilityScore`, `HPBar`, `DiceResult`, `Stepper`, `BottomTabBar` read clean structurally.
 
-## STILL OPEN (run #10, ranked)
+## STILL OPEN (run #11, ranked)
 
-1. **`forms/Slider.jsx:19-20` — focus is effectively invisible.** `.dnds-range{outline:none}` plus
-   `:focus-visible{box-shadow:0 0 0 3px var(--color-interactive-selected)}`. That token is
-   `rgba(224,176,111,.16)`; composited over `--color-surface` #1f1810 it's ~**1.4:1** (need 3:1).
-   The runtime-injected `<style>` (`ensureStyles`, appended to head) has EQUAL specificity to
-   base.css's `:focus-visible` but later source order, so it kills the global 2px gold ring. Unlike
-   `Input`/`Select`, the range has NO compensating border change. 9 live sliders.
-2. **`Slider.jsx:21-24` thumb is 16×16** (WCAG 2.5.8). Worst at `screens/Session.tsx:1741` (track
-   Volume) — no `steppers`, no paired number input, i.e. a lone slider, which the repo's own comment
-   at `app/map/ToolOptionsBar.tsx:17` calls a WCAG 2.5.7 failure.
-3. **`overlay/Sheet.jsx:52` opens focused on Close** — `panel.querySelector(FOCUSABLE)` in DOM order,
-   header precedes children. Identical to the Popover bug already fixed. Sheet has no `initialFocus`
-   prop. Live: `app/AppShell.tsx:788` (phone "All sections"), `:949`, MapEditor.
-4. **`feedback/VisibilityChip.jsx:43-44` double-announces.** `<Icon label={l.label}>` is
-   unconditional AND `{!compact && l.label}` prints it → "DM only DM only" on most of 33 sites.
-   `ConditionBadge:70` does it right (`label={compact ? text : undefined}`).
-5. **`Sheet.jsx:19` `SIDE_SIZE.bottom='88vh'`** — app measures itself with `--app-viewport-height:
-   100dvh` (`styles/index.css:23`). UNVERIFIED on device; mobile-chromium has no dynamic URL bar so
-   the gate can't catch it. Same class as `CommandPalette.jsx:244` (`max(14vh,…)`) / `:265` (`70vh`).
-6. **`core/Tabs.jsx:50` hard-codes `aria-label="Sections"`** — all 7 tablists announce identically,
-   incl. MapEditor's Selected/Layers/Assets/History dock (`app/map/MapEditor.tsx:445`). No consumer
-   overrides via `{...rest}` (grep-verified). Also `:93-113` — Tabs have NO hover feedback and there
-   is no global `button:hover` rule (`IconButton.jsx:46` says so explicitly).
-7. **`campaign/QuestCard.jsx:60-70` objectives.** No `aria-pressed`/`aria-checked` — done-ness is
-   strike-through + an aria-hidden Check only. AND `disabled={!onToggleObjective}` (`:62`) makes a
-   read-only quest's whole checklist unreachable by keyboard. Live at `screens/Campaign.tsx:187`.
-8. **`spell/SpellSlots.jsx:32-34` pips are 16×16, `rotate(45deg)`, `gap:var(--space-1)`** —
-   adjacent sub-24px targets; a mis-tap spends the wrong slot. Characters.tsx:1224, Player.tsx.
-9. **`condition/ConditionTracker.jsx:30-50`** add button ≈21px tall and its accessible name is just
-   "Condition" (the `<Icon name="add">` at `:49` has no `label` ⇒ aria-hidden). Characters.tsx:1134.
-10. **`data/DefinitionList.jsx:24,46`** `gridTemplateColumns:'auto 1fr'` + `whiteSpace:'nowrap'`
-    labels — long labels can't shrink. Characters.tsx:1431, Player.tsx:764.
-11. **`navigation/BottomTabBar.jsx:54-68`** the badge dot is `aria-hidden` with no text equivalent.
-12. **`system/ProgressMeter.jsx:36`** `aria-label` only when `label` is a `string` ⇒ unnamed
-    progressbar otherwise; no `aria-valuetext`, so the visible `valueLabel` isn't what's announced.
-13. **`core/Stepper.jsx:12,24-25`** `nowrap` labels in a non-wrapping `<ol>` (MapBuilder.tsx:1329).
-    UNVERIFIED at 375px.
-14. **`campaign/NpcCard.jsx:28-29,40`** `onClick` + `cursor:pointer` on a bare `<article>`; only the
-    heading button (`:59`) is keyboard-reachable.
-15. **Unguarded enum maps degrade silently:** `core/Icon.jsx:526` (`GLYPHS[p] || Square` → a blank
-    square for a typo'd name), `feedback/StatusDot.jsx:16` (`colors[status] || colors.idle`).
-16. **`feedback/StatusDot.jsx:42-46`** re-emits its `@keyframes dndPulse` `<style>` per instance
-    (10 sites). `Slider.jsx:13-31`'s `ensureStyles()` singleton is the in-repo pattern. Nit.
-17. **`condition/ConditionBadge.jsx:73-77`** duration announces as a bare number ("Poisoned 3").
-18. **`ds/index.d.ts:7`** — every export is `ComponentType<Record<string, unknown>>`, so `idBase`,
-    `ariaLabel`, `label` etc. are unenforceable at compile time. Every regression above can silently
-    reappear. Systemic, not visual.
+1. **`map/LayerRow.jsx:183-205` — layer rename is DOUBLE-CLICK ONLY.** The name is a `<button>` with
+   `onDoubleClick` and NO `onClick`/`onKeyDown`: a focusable dead control. `onRename` is live at
+   `app/map/dock/LayersPanel.tsx:160`, and that wrapper's Enter/Space handler (`:136-142`) bails unless
+   the target IS the `[role=listitem]`, so Enter on the name does literally nothing. WCAG 2.1.1.
+   ⚠️ `tests/e2e/map-editor.spec.ts:506-509` `dblclick`s `getByRole('button',{name:'Base',exact:true})` —
+   a fix must NOT change the accessible name and must NOT add a single-click `onClick`.
+2. **`forms/Input.jsx:14,19` + `forms/Select.jsx:33,4` — inline `outline:'none'` kills the global 2px gold
+   ring on EVERY text field / dropdown / textarea**, replaced by `0 0 0 3px var(--color-interactive-selected)`
+   — the exact 16 %-alpha wash the repo's own `ds-interaction-fixes.test.tsx:530-532` forbids for Slider.
+   Only a 1px border swap survives. Same defect class the Slider fix just closed; Input/Select were missed.
+3. **`core/Popover.jsx:86-102` — no viewport collision handling.** `left:anchor.x` + `translate(-50%,…)`,
+   `width:320`, `maxWidth:90vw`, no clamp/flip. A POI near a screen edge (or near the top with
+   `placement='top'`) renders half off-screen at 375px. Live: `app/map/canvas/EditorCanvas.tsx:784`,
+   `screens/Atlas.tsx:620`. Spec-adjacent: `android-quick-map.spec.ts:185-233` drives POI markers.
+4. **`map/MapCreationForm.jsx:64` — hard `disabled={!name.trim()||submitting}`** on Create map with no
+   explanation; `Field` only shows the error after blur. The repo's own soft-disable (`aria-disabled`,
+   `Button.jsx:20-26`) exists for exactly this. Live: `screens/Atlas.tsx:582`. No e2e locks it.
+5. **`condition/ConditionBadge.jsx:85` — Clear button hard-codes `minWidth/minHeight:24`**, ignoring
+   `--density-touch-target` (44px on the comfortable/phone profile) that every sibling migrated to.
+   Live in the phone combat hot path: `screens/Session.tsx:917`, `screens/Characters.tsx:1143`.
+6. **`map/Minimap.jsx:53` — "Collapse minimap" is `padding:2` + a 14px Icon ≈ 18×18**, below the 24px
+   floor, while its "Expand minimap" twin (`:18`) is a correct 36×36. Live: `EditorCanvas.tsx:998`.
+7. **`overlay/Toast.jsx:328` — the polite wrapper is `role="status"`, whose implicit `aria-atomic` is
+   `true`**, so it wraps the WHOLE stack: adding a 2nd toast re-announces every visible toast.
+   Needs an explicit `aria-atomic="false"` on the wrapper (`Toast` rows already drop their own).
+8. **`navigation/NavItem.jsx:51-53` — the COLLAPSED badge dot is `aria-hidden` with no text equivalent**
+   (same class as `BottomTabBar:54-68`, but this is the desktop/tablet NavRail at `AppShell.tsx:710`).
+9. **`overlay/Toast.jsx:309-310` — `maxHeight: var(--app-viewport-height)` + `overflow:'hidden'`**: a tall
+   stack clips silently, so toasts past the fold are unreadable AND their Dismiss/Undo unclickable.
+10. **`system/Skeleton.jsx:19,24,32` — every variant is `aria-hidden="true"` with no `role="status"` /
+    "Loading" affordance and no `label` prop**, so a screen-reader user gets total silence during loads.
+11. **`feedback/VisibilityChip.jsx:19` collapses `shared` → "Players"** while `map/LayerRow.jsx:29-33` and
+    `map/POIPopover.jsx:167` model `shared` as a distinct THIRD state with its own icon + colour.
+12. **`core/Tabs.jsx:50` hard-codes `aria-label="Sections"`** — all 7 tablists announce identically; no
+    consumer overrides it (`{...rest}` is spread before the literal). Also `:93-113` no inactive hover.
+13. **`campaign/QuestCard.jsx:60-70`** objectives: no `aria-pressed`; `disabled={!onToggleObjective}` (`:62`)
+    makes a read-only quest's checklist keyboard-unreachable. Live `screens/Campaign.tsx:187`.
+14. **`spell/SpellSlots.jsx:32-34`** 16×16 `rotate(45deg)` pips at `gap:var(--space-1)`.
+15. **`condition/ConditionTracker.jsx:30-50`** add button ≈21px, accessible name only "Condition"
+    (`<Icon name="add">` at `:49` has no `label` ⇒ aria-hidden). Also `:15` — the "No conditions" empty
+    text only renders when `!addable`, contradicting its own docstring.
+16. **`system/ProgressMeter.jsx:36`** `aria-label` only when `label` is a `string`; no `aria-valuetext`.
+17. **`campaign/NpcCard.jsx:28-29`** `onClick` + `cursor:pointer` on a bare `<article>` (mouse-only
+    duplicate path; the heading button at `:59` IS the real tab stop, so this is now cosmetic).
+18. **`overlay/Sheet.jsx:19`** `SIDE_SIZE.bottom='88vh'` vs the app's `--app-viewport-height:100dvh`.
+    UNVERIFIED on device; mobile-chromium has no dynamic URL bar so the gate can't catch it.
+19. **Unguarded enum maps degrade silently:** `core/Icon.jsx:527` (`GLYPHS[p] || Square`),
+    `feedback/StatusDot.jsx:16` (`colors[status] || colors.idle`).
+20. **`feedback/StatusDot.jsx:42-46`** re-emits its `@keyframes` `<style>` per instance (10 sites).
+21. **`core/Stepper.jsx:24`** `nowrap` labels in a non-wrapping `<ol>` (MapBuilder.tsx:1329). UNVERIFIED at 375px.
+22. **`screen-kit.tsx:22-32`** `radioGroupKeyDown` has no Home/End and doesn't filter disabled radios.
+    **`screen-kit.tsx:254-271`** BackBar target ≈17px.
+23. **`ds/index.d.ts:7`** every export is `ComponentType<Record<string, unknown>>` — `idBase`, `ariaLabel`,
+    `label` are unenforceable at compile time, so every regression above can silently reappear.
 
 ## Token-layer landmines (read BEFORE writing any color/theme finding)
 
 - **`--color-visibility-dm{,-subtle}` are UNDEFINED** yet written at 7 sites in
   `screens/PlayerView.tsx:281-285,1794-1799`, `screens/Player.tsx:2252-2253`, `screens/Community.tsx:640-641`.
-  `1px solid var(<undefined>)` is an invalid shorthand ⇒ NO border at all on the DM-only banner.
   Real names: **`--color-dm-only-badge` / `--color-dm-only-subtle`**.
 - `:root` `--layer-*` are LIGHT (tuned for the candle-lit map well); only `[data-theme='parchment']`
   re-cut them DARK. A white glyph on them breaks in the DEFAULT theme, not parchment.
-- `--color-interactive-selected` (16% alpha) is a SELECTION wash, NOT a focus color. Anything using
-  it as a focus ring fails 1.4.11/2.4.11. The real ring is `--focus-ring-{width,offset,color}`
-  (2px / 2px / `--color-interactive-focus-ring` #e0b06f), applied globally by `base.css:36-39`.
-- `--density-touch-target` = 2rem desktop / 2.75rem touch / 1.75rem compact (spacing.css:107/119/131).
-- z-index IS fully tokenized (`--z-base`…`--z-dm-boundary`); `[data-motion]` in `styles/index.css`
-  globally zeroes animation, so per-component `prefers-reduced-motion` is genuinely unneeded.
-- The legacy alias bridge (`colors.css:319-328`: `--bg/--fg/--card/…`) has ZERO consumers. Dead.
-- `--color-bg` IS defined in all themes (Avatar's ring gap is fine).
+- `--color-interactive-selected` (16 % alpha, ~1.4:1) is a SELECTION wash, NOT a focus color — the repo
+  now has a TEST saying so. The real ring is `--focus-ring-{width,offset,color}` (2px / 2px / #e0b06f),
+  applied globally by **`styles/tokens/base.css:36-39`**. Any inline `outline:'none'` defeats it.
+- `--density-touch-target` = 2rem desktop / **2.75rem comfortable (all mobile/tablet)** / 1.75rem compact
+  (`styles/tokens/spacing.css:107/119/131`). `--touch-target-floor` = 1.5rem hard minimum.
+- forced-colors (`colors.css:364-410`) flattens ALL status colours to `CanvasText` and all `-subtle` to
+  `Canvas` — so status differentiation there rests entirely on the redundant ICON. `box-shadow` is not
+  painted in forced-colors, so any focus/selection cue built on box-shadow disappears; border does survive.
+- z-index IS fully tokenized; `[data-motion]` in `styles/index.css` globally zeroes animation, so
+  per-component `prefers-reduced-motion` is genuinely unneeded.
+- The legacy alias bridge (`colors.css:319-328`) has ZERO consumers. `--color-bg` IS defined everywhere.
 
 ## e2e coupling
-No spec in `apps/gm-react/tests/e2e/` locks any of the labels above: greps for `getByRole('tablist'`,
-`'All sections'`, `'DM only'` (as an accessible name), `role('slider')`, `'Minimap'`, `'Jump viewport'`
-all come back empty. `onboarding-consent.spec.ts` / `settings.spec.ts` DO lock radiogroup names
-("Vault privacy mode", "Experience complexity") — don't rename those.
+
+No spec locks: `getByRole('tablist')`, `'All sections'`, `'DM only'` (as an a11y name), `role('slider')`,
+`'Minimap'`, `'Jump viewport'`, `'Expand/Collapse minimap'`, `'Create map'`, `'Dismiss'` (Toast's).
+DO lock: `map-editor.spec.ts:506-509` (layer name button, `exact:true`, via `dblclick`) ·
+`android-quick-map.spec.ts:277-284` (`'Base: DM display on/off'`) · `:185-233` (`'Point of interest'`,
+`'POI: New POI'`) · `command-palette.spec.ts:88-118` (`getByRole('option')` names) ·
+`onboarding-consent.spec.ts` / `settings.spec.ts` (radiogroup names "Vault privacy mode",
+"Experience complexity"). `a11y-axe-gate.spec.ts:24-38,177-178` sweeps 17 routes but only each
+route's DEFAULT tab, so DS defects behind a non-default tab are invisible to it.
 
 See [[gm-react-ds]], [[completion-pass-ux-patterns]], [[onboarding-viewas-cluster]].

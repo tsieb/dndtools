@@ -230,3 +230,33 @@ test('a long combatant name is not squeezed away by its status badges', async ({
 		expect(geometry.clipped).toBeLessThanOrEqual(1);
 	}
 });
+
+// Next turn / Previous turn / Heal / Damage were the only durable writes on /session that pass no
+// `ok` string to the dispatch helper, so no toast fired — and `aria-current` moving between list
+// items is not announced either. A screen-reader DM pressed "Next turn" and heard nothing at all.
+test('the tracker announces whose turn it is, and the HP controls name their combatant', async ({
+	page,
+}) => {
+	// The readout is permanently mounted (a status node inserted together with its text is routinely
+	// dropped) and lives OUTSIDE the initiative <ul> so it cannot join the list's text.
+	const order = page.getByRole('list').filter({ hasText: 'Bog Lurker' }).first();
+	const readout = page
+		.getByRole('status')
+		.filter({ hasText: /Round \d+, turn \d+/ })
+		.first();
+	await expect(readout).toHaveCount(1);
+	await expect(readout).toContainText('Bog Lurker');
+	await expect(order.getByRole('status')).toHaveCount(0);
+
+	// Advancing the turn changes the region's CONTENTS, which is what makes it announce.
+	await page.getByRole('button', { name: 'Next turn' }).click();
+	await expect(readout).toContainText('Reed Stalker');
+
+	// With six combatants, six buttons all named "Heal 1" gave a screen-reader DM no way to tell
+	// which creature's durable HP they were about to write.
+	const row = order.getByRole('listitem').filter({ hasText: 'Bog Lurker' });
+	await expect(row.getByRole('button', { name: 'Heal 1 HP — Bog Lurker' })).toHaveCount(1);
+	await expect(row.getByRole('button', { name: 'Damage 1 HP — Bog Lurker' })).toHaveCount(1);
+	// Distinct per row — the whole point.
+	await expect(page.getByRole('button', { name: 'Heal 1 HP — Reed Stalker' })).toHaveCount(1);
+});

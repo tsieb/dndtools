@@ -60,4 +60,27 @@ describe('modal accessibility isolation', () => {
 		expect(underlying.hasAttribute('aria-hidden')).toBe(false);
 		expect(underlying.hasAttribute('inert')).toBe(false);
 	});
+	it('leaves a [data-modal-exempt] branch reachable', () => {
+		// The toast viewport is a SIBLING of every modal surface, so isolating it made the app's only
+		// feedback channel `inert` and screen-reader-invisible for anything raised from inside a
+		// dialog, sheet, map editor or display overlay — which is exactly where a refusal message
+		// matters most. The Dismiss button inside it was dead, too.
+		const toasts = document.createElement('div');
+		toasts.setAttribute('data-modal-exempt', '');
+		const dismiss = document.createElement('button');
+		toasts.append(dismiss);
+		const pageContent = document.createElement('div');
+		const modal = document.createElement('div');
+		document.body.append(pageContent, toasts, modal);
+
+		const restore = isolateModalSiblings(modal);
+
+		expect(pageContent.hasAttribute('inert'), 'ordinary siblings still isolate').toBe(true);
+		expect(toasts.hasAttribute('inert')).toBe(false);
+		expect(toasts.hasAttribute('aria-hidden')).toBe(false);
+
+		restore();
+		expect(toasts.hasAttribute('inert')).toBe(false);
+		expect(pageContent.hasAttribute('inert')).toBe(false);
+	});
 });

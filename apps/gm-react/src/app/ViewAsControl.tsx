@@ -123,7 +123,12 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 							// the menu into the page behind it. Tabbing out now dismisses the menu rather
 							// than leaving it open over controls the invisible click-catcher still covers.
 							if (e.key === 'Tab') {
-								close();
+								// `close(true)` — restore focus to the trigger. Without it the menu
+								// unmounted from under the focused row, focus fell to <body>, and the
+								// native Tab that follows restarted from the TOP of the document
+								// instead of continuing past the trigger (WCAG 2.4.3). The two other
+								// dismissals in this file already pass `true` for exactly this reason.
+								close(true);
 								return;
 							}
 							const keys = ['ArrowDown', 'ArrowUp', 'Home', 'End'];

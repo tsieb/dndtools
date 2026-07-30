@@ -1,6 +1,6 @@
 ---
 name: onboarding-viewas-cluster
-description: App-shell chrome cluster — Onboarding, ViewAsControl, CommandPalette, ProjectionControl, SceneDisplayOverlay, Join, screen-kit. FIXED-vs-OPEN split re-verified 2026-07-30 @ c93c5206 (run #9).
+description: App-shell chrome cluster — Onboarding, ViewAsControl, CommandPalette, ProjectionControl, SceneDisplayOverlay, Join, screen-kit. FIXED-vs-OPEN split re-verified 2026-07-30 @ 7bdf2908 (run #11).
 metadata:
   type: project
 ---
@@ -20,6 +20,57 @@ Re-check by grepping the anchor string, not the line number.
   (`:1147-1151`).
 - **DS `Tabs` ARIA is fully closed** — `idBase` + `tabPanelProps` exist AND all 7 live consumers pass
   both (MapEditor, Audio, Extensions, Campaign, Characters, Player, Community). ds-audit item 3 DONE.
+
+## ⚠️ FILE LOCATIONS (run #11 correction)
+The app-level palette is `src/app/CommandPalette.tsx` (273 ln, wraps the DS one). There is NO
+`src/app/CommandPalette.jsx` — the DS component is `src/ds/components/command/CommandPalette.jsx`.
+Between c93c5206 and 7bdf2908 the ONLY chrome-half change was the DS palette's
+`role=status aria-live=polite aria-atomic` on the result-count span (`CommandPalette.jsx:562-570`).
+Every open item below was re-verified unchanged at 7bdf2908.
+
+## NEW @ 7bdf2908 (run #11) — top of the queue
+- **C1 (HIGH). `isolateModalSiblings` INERTS the ToastViewport.** `modalIsolation.ts:21-30` walks to
+  `<body>` setting `aria-hidden` + `inert` on every sibling branch. `<ToastViewport>`
+  (`AppShell.tsx:1149`, `data-testid="app-toast-viewport"`) is a DIRECT SIBLING of
+  `<SceneDisplayOverlay>` (`AppShell.tsx:1143`). So `SceneDisplayOverlay.tsx:195`'s
+  `Toaster.error('…allow pop-ups…')` paints (`--z-toast:600` > the overlay's 120) but is
+  `aria-hidden` to AT and `inert`, so its Dismiss is dead. **Generalises**: `Dialog.jsx:76`,
+  `Sheet.jsx:49` and `map/MapEditor.tsx:180` isolate the same way, so ANY `Toaster.*` fired from
+  inside a dialog/sheet/the map editor is affected. One-line fix: skip
+  `[data-testid="app-toast-viewport"]` in the isolation loop. LOW RISK / HIGH VALUE.
+- **C2 (HIGH). `SceneDisplayOverlay.advance()`/`clear()` (`:124-129`)** discard `CommandResult` AND
+  have no try/catch. `SceneRuntime.ts:508` THROWS `PREVIEW_READONLY_MESSAGE` while previewing and
+  `:524` rethrows on persist failure; the overlay's Ctrl+Shift+S hotkey has no preview guard.
+- **C3 (MED-HIGH). `ViewAsControl.tsx:125-128` Tab calls `close()` not `close(true)`** ⇒ the menu
+  unmounts under the focused row, focus falls to `<body>`, and the browser's default Tab restarts at
+  the top of the document (WCAG 2.4.3). The file already uses `close(true)` at `:59`/`:64`.
+  One-word fix; do NOT preventDefault.
+- **C4 (MED). `CommandPalette.tsx:155-161` `new:scene` is the only Create launcher with NO intent** —
+  `goTo('/scenes')` vs `{create:true}` everywhere else — and `screens/ScenesCreator.tsx` has no
+  `useLocation`/intent reader at all (Atlas `:133`, Knowledge `:879`, Characters `:1661`,
+  Campaign `:697`, Session `:237` all do). Spec-safe: `command-palette.spec.ts:173-186` only asserts
+  `url.hash === '#/scenes'`.
+- **C5 (MED). `ProjectionControl.tsx:62-68` `setWorkflow`** — no try/catch around `runtime.dispatch`,
+  no in-flight latch ⇒ failed persist = dead button, double-click = two `session.set-workflow`.
+- **C6 (MED). The workflow status pill is desktop-only.** `ProjectionControl.tsx:73` `{!compact && …}`
+  hides StatusDot + "Prep"/"Paused"/"Wrapping up"/"Recap"; the compact button's icon only
+  distinguishes live vs not-live, and the state-naming `title` only fires when the transition is
+  BLOCKED. Phone DMs cannot tell Standby from Paused from Recap.
+- **C7 (MED). `Onboarding.ChoiceCard` (`:184-247`) is a `role="radio"` whose accessible name is the
+  whole card** — title + "Recommended" Badge + the ~50-word desc, because everything is inside the
+  button. Fix = `aria-label={title}` + `aria-describedby`. Spec-safe: `responsive.spec.ts:524` uses
+  the REGEX `getByRole('radio', { name: /Start fresh/ })`.
+- **C8 (MED). `ChoiceCard` has NO hover** (`:191-204`, only `on ? T.accSub : T.surf`). The six cards
+  ARE first-run setup. Same class as the hover gaps just fixed in ViewAsControl/LayersPanel/MapEditor.
+- **C9 (LOW). `ViewAsControl.tsx:112-113` `role="menu"` has no `aria-label`**; the trigger's
+  `aria-haspopup`/`aria-expanded` carry no `aria-controls`.
+- **C10 (LOW). `Onboarding.finish()` swallows a failed wipe** (`:388-392` bare `catch {}`) after
+  already writing `VAULT_CHOICE_KEY='fresh'`, then reloads ⇒ "Start fresh" can leave data intact with
+  no error and the seed suppressed.
+- Verified NON-defect: `ChoiceCard`'s roving tabindex is CORRECT in all three radiogroups
+  (`tabIndex={(tabbable ?? on) ? 0 : -1}`, `:189`; vault/experience always have a selection).
+  Verified NON-defect: `--z-toast:600` outranks Onboarding's 400 and MapEditor's 300 — toasts are
+  never painted BEHIND these overlays. The problem is `inert`, not z-order.
 
 ## STILL OPEN — Onboarding.tsx
 1. **ZERO `aria-live` / `role="status"` / `aria-current` in the entire file** (grep-verified again).

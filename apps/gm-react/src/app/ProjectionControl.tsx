@@ -59,13 +59,22 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 			}
 			payload.activeSceneId = sceneId;
 		}
-		const result = await runtime.dispatch({
-			type: 'session.set-workflow',
-			actorId: runtime.defaultActorId,
-			payload,
-		});
-		if (result.status === 'accepted') Toaster.success(okMessage);
-		else Toaster.error(result.rejection.message);
+		// `runtime.dispatch` rethrows on a persist failure, so without this catch the app's single
+		// most consequential control — Go live / End session — looked simply dead when storage
+		// refused, with no toast and an unhandled rejection.
+		try {
+			const result = await runtime.dispatch({
+				type: 'session.set-workflow',
+				actorId: runtime.defaultActorId,
+				payload,
+			});
+			if (result.status === 'accepted') Toaster.success(okMessage);
+			else Toaster.error(result.rejection.message);
+		} catch (err) {
+			Toaster.error(
+				err instanceof Error ? err.message : t('The session couldn’t be updated — try again.'),
+			);
+		}
 	}
 
 	return (

@@ -96,17 +96,30 @@ export function SceneCardsPanel() {
 					result.rejection.message ?? t('The scene card couldn’t be created — try again.'),
 				);
 			}
+		} catch {
+			// A thrown persist failure left the composer populated and said nothing at all, so the
+			// Create button read as simply not registering.
+			Toaster.error(t('The scene card couldn’t be created — try again.'));
 		} finally {
 			setSubmitting(false);
 		}
 	}
 
+	// Show / Queue / Dequeue / Reorder / Next card / visibility / Delete / Save-edit / transition ALL
+	// route through here. `runtime.dispatch` THROWS on a persist failure (SceneRuntime rethrows after
+	// `persistFullState`), so without this catch every one of them escaped as an unhandled rejection:
+	// the button did nothing and said nothing, and `deleteCard` never reached its Undo toast.
 	async function run(type: string, payload: Record<string, unknown>, failMsg: string) {
-		const result = await runtime.dispatch({ type, actorId, payload } as Parameters<
-			typeof runtime.dispatch
-		>[0]);
-		if (result.status !== 'accepted') Toaster.error(result.rejection.message ?? failMsg);
-		return result;
+		try {
+			const result = await runtime.dispatch({ type, actorId, payload } as Parameters<
+				typeof runtime.dispatch
+			>[0]);
+			if (result.status !== 'accepted') Toaster.error(result.rejection.message ?? failMsg);
+			return result;
+		} catch {
+			Toaster.error(failMsg);
+			return { status: 'rejected' as const, rejection: { message: failMsg } };
+		}
 	}
 
 	async function deleteCard(card: SceneCardView) {

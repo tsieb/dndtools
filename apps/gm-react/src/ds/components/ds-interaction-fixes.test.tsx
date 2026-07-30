@@ -629,3 +629,97 @@ describe('DefinitionList can shrink inside a narrow panel', () => {
 		expect(dt.style.whiteSpace, 'a nowrap label defeats the minmax()').not.toBe('nowrap');
 	});
 });
+
+describe('text fields keep a real focus indicator', () => {
+	// `baseField` set inline `outline: 'none'`, and an inline style beats any stylesheet — so every
+	// Input/Textarea/Select in the app suppressed the global `:focus-visible` ring in
+	// `styles/tokens/base.css`. What replaced it was a 16%-alpha `--color-interactive-selected` wash
+	// at ~1.4:1, i.e. the exact value this file already rejects for Slider (WCAG 2.4.11 wants 3:1),
+	// and box-shadow is not painted at all under forced colors. Same defect, three more components.
+	const focusRing = (el: HTMLElement) => {
+		// React 17+ delegates focus at the root container and listens for `focusin`, so a bare
+		// `focus` event never reaches the synthetic onFocus handler.
+		act(() => {
+			el.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+		});
+		return el.style.boxShadow;
+	};
+
+	it('Input does not suppress the global outline and rings with focus-ring tokens', () => {
+		act(() => {
+			root.render(<Input aria-label="Name" />);
+		});
+		const input = container.querySelector('input') as HTMLInputElement;
+		expect(input.style.outline, 'inline outline:none would kill the global ring').not.toBe('none');
+		const ring = focusRing(input);
+		expect(ring).toContain('--focus-ring-color');
+		expect(ring, 'the ~1.4:1 selected wash is not a focus indicator').not.toContain(
+			'--color-interactive-selected',
+		);
+	});
+
+	it('Textarea does the same', () => {
+		act(() => {
+			root.render(<Textarea aria-label="Notes" />);
+		});
+		const ta = container.querySelector('textarea') as HTMLTextAreaElement;
+		expect(ta.style.outline).not.toBe('none');
+		expect(focusRing(ta)).toContain('--focus-ring-color');
+	});
+
+	it('Select does the same', () => {
+		act(() => {
+			root.render(<Select aria-label="Visibility" options={['a', 'b']} />);
+		});
+		const sel = container.querySelector('select') as HTMLSelectElement;
+		expect(sel.style.outline).not.toBe('none');
+		const ring = focusRing(sel);
+		expect(ring).toContain('--focus-ring-color');
+		expect(ring).not.toContain('--color-interactive-selected');
+	});
+});
+
+describe('the toast stack survives an open modal and does not re-announce itself', () => {
+	it('marks the polite region non-atomic', () => {
+		act(() => root.render(<ToastViewport />));
+		const polite = container.querySelector('[role="status"]') as HTMLElement;
+		// `role="status"` defaults `aria-atomic` to TRUE, and this region wraps the whole stack —
+		// so a second toast re-announced every toast still on screen.
+		expect(polite.getAttribute('aria-atomic')).toBe('false');
+	});
+
+	it('opts the viewport out of modal isolation and gives the stack a scroll range', () => {
+		act(() => root.render(<ToastViewport />));
+		const viewport = container.firstElementChild as HTMLElement;
+		expect(viewport.hasAttribute('data-modal-exempt')).toBe(true);
+		expect(viewport.style.overflow, 'clipped rows hid their own Undo button').not.toBe('hidden');
+		expect(viewport.style.overflowY).toBe('auto');
+	});
+});
+
+describe('a map layer can be renamed from the keyboard', () => {
+	// The name was a real <button> whose only handler was `onDoubleClick`, so a keyboard user could
+	// focus it and press Enter forever with nothing happening (WCAG 2.1.1) — and the panel's own
+	// Enter/Space handler bails when the target is not the row, so it did not even fall through to
+	// "select layer". Renaming a layer was mouse-only.
+	it('opens the rename editor on Enter and on F2', () => {
+		for (const key of ['Enter', 'F2']) {
+			act(() => {
+				// A fresh `key` per iteration — otherwise React reuses the instance and the row is
+				// still in edit mode from the previous key's assertion.
+				root.render(<LayerRow key={key} layer={{ name: 'Base' }} onRename={() => {}} />);
+			});
+			const nameButton = Array.from(container.querySelectorAll('button')).find(
+				(b) => b.textContent === 'Base',
+			) as HTMLButtonElement;
+			expect(nameButton, `a name button for ${key}`).toBeTruthy();
+			// The accessible name must stay exactly "Base" — map-editor.spec matches it with
+			// `exact: true` before double-clicking it.
+			expect(nameButton.textContent).toBe('Base');
+			act(() => {
+				nameButton.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+			});
+			expect(container.querySelector('input'), `${key} should open the editor`).toBeTruthy();
+		}
+	});
+});

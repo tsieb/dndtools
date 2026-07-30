@@ -1,6 +1,6 @@
 ---
 name: map-editor-cluster
-description: Structure and recurring defect patterns of the gm-react map/atlas cluster (Atlas → MapBuilder wrapper → app/map/MapEditor + ToolRail/ToolOptionsBar/dock/canvas), with FIXED vs STILL-OPEN triage as of c93c5206 (run #9)
+description: Structure and recurring defect patterns of the gm-react map/atlas cluster (Atlas → MapBuilder wrapper → app/map/MapEditor + ToolRail/ToolOptionsBar/dock/canvas), with FIXED vs STILL-OPEN triage as of 7bdf2908 (run #11)
 metadata:
   type: reference
 ---
@@ -22,6 +22,24 @@ metadata:
   A tool in NEITHER set is silently inert.
 - **THREE phone-ish layouts.** `quickMapMode` (Android only) `MapEditor.tsx:723-804`;
   `isPhone && !quickMapMode` `:805-849`; desktop grid `:850-895`.
+
+## FIXED in run #10/#11 (c93c5206 → 7bdf2908) — do NOT re-report
+- **`--layer-terrain` NOW DECLARED** in all three blocks (`colors.css:267` `:root`, `:304` parchment,
+  `:416` forced-colors) and `mapVocab.ts:53` dropped its fallback. Grass ≠ Forest at last. The unit
+  guard is `mapVocab.test.ts` "gives visually distinct paint" — now asserts ALL 8 swatch strings
+  distinct, not `size > 1`. ⚠️ It compares STRINGS, so `terrain:stone`(--layer-base) vs
+  `terrain:snow`(--color-text-tertiary) can still render near-identically; it will not catch that.
+- **Notice tone travels**: `useMapEditor` gained `MapNoticeTone`/`noticeTone` + `setNotice(msg, tone)`
+  (default `warning`); `MapEditor.tsx:710-722` picks `role`, `--color-status-<tone>-*` and
+  `NOTICE_ICON` (`:33-37`). All 6 status tokens × 4 themes exist; `check`/`info` are real Icon names.
+- undo/redo now `catch` (`useMapEditor.ts:336,374`). `MapBuilder.ImportMapDialog` commit now catches.
+- `keyboard.ts` gained `suspended`; `MapEditor.tsx:149` `dialogUp` gates the keymap AND the Tab trap.
+- `EditorCanvas.tsx:307-314` capture-phase Enter/Escape now has an `isTypingTarget` guard;
+  `:910` dead `measure ? crosshair : crosshair` ternary gone.
+- AssetsPanel: `autoFocus` gone, Recents/Favorites lifted to `MapEditor` state (`:105-106`, passed
+  `:466-473`), `arm()` now always arms Stamp, "Drag also works." + `draggable` gone.
+- `GeneratePanel.tsx:352-357` Enter no longer rerolls (just `preventDefault`); hint copy fixed.
+- Hover added to `LayersPanel.MenuItem:348-370` and `MapEditor.HeaderMenuItem:1016-1032`.
 
 ## FIXED — do not re-report
 - ToolRail flyout covering ToolOptionsBar (`ToolRail.tsx:117` `top:54`). Zoom cluster under Minimap
@@ -48,7 +66,47 @@ metadata:
 - The `isPhone && !quickMapMode` layout IS covered by `responsive.spec.ts:808-858`. What it does NOT
   catch: elements that SHRINK (`:204` only asserts `h1` COUNT, never text/width) and vertical crowding.
 
+## NEW @ 7bdf2908 (run #11) — top of the queue
+- **N1 (HIGH). `MapEditor.projectToPlayers` (`:266-299`) is the LAST uncaught dispatch in the editor.**
+  Two bare `await runtime.dispatch` with no try/catch. `SceneRuntime.ts:524` RETHROWS on persist
+  failure and `:508` THROWS `PREVIEW_READONLY_MESSAGE` while previewing. `editor.run`/undo/redo/
+  `exportUvtt` all catch now — this one doesn't. It also bypasses `editor.run`, so `editor.busy`
+  never latches and `disabled={editor.busy}` (`:694`) is dead ⇒ double-click double-projects.
+- **N2 (MED-HIGH). The vertical ToolRail flyout permanently covers the map's top-left.**
+  `ToolRail.tsx:96-129` renders UNCONDITIONALLY (`openGroup` always has a value), `position:absolute
+  left:56 top:54`, `background: T.overlay` (opaque; `Canvas` in forced-colors), `zIndex:8` — above the
+  draw overlay (`EditorCanvas:907` z4) and the minimap (z6). The rail cell is only 56px of the
+  `56px | 1fr | 348px` grid (`MapEditor:880`), so `left:56` is INSIDE the canvas column. ~190×66px
+  (1-tool group) to ~190×170px (Structure). No collapse affordance, and it eats pointer events.
+  This is the same class as the already-fixed "flyout covers ToolOptionsBar", one axis over.
+- **N3 (MED). 12 stamp assets → 5 icons** (`mapVocab.ts:81-94`): `tool-stamp` ×6 (crate/barrel/chest/
+  table/chair/statue), `layer-terrain` ×2, `tool-light` ×2. The Assets browser exists to pick
+  visually. Distinct from the deferred `FeatureShape` prop-case item — this is the BROWSER, not the
+  canvas. Spec-safe: `map-editor.spec.ts:868` names the tile by its text span, not the glyph.
+- **N4 (MED). `AssetsPanel.arm` (`:45-53`) force-switches the tool with ZERO announcement** and the
+  panel takes no `announce` prop at all (InspectorPanel/LayersPanel both do). On compact the panel
+  lives inside the "Map panels" Sheet (`MapEditor:868`), so the tool changes behind a full-screen sheet.
+- **N5 (MED). The tone fix REGRESSED SR announcement for success/info.** `MapEditor:702` mounts the
+  banner conditionally, so a `role="status"` node is inserted TOGETHER with its text — the exact
+  pattern the repo documents as unreliable and fixed with a permanent wrapper at
+  `ds/components/overlay/Toast.jsx:136-141` + `:315-320`. `warning` still works (`alert` announces on
+  insertion). The `info` notice (`MapEditor:677-680`) has no `announce()` companion ⇒ now fully silent.
+  Same shape exists in Atlas (`atlas.spec.ts:44` already accepts alert OR status, so a fix is safe).
+- **N6 (MED). Favourite state is colour-only.** `AssetsPanel.tsx:229-255`: same `flag` glyph,
+  `color: fav ? T.acc : T.ter`. Violates the repo's own A11Y-011 grayscale-safe-glyph convention
+  (cited at `Toast.jsx:6-8`, `mapVocab.ts:12`). Under forced-colors it IS Highlight vs GrayText, so
+  not invisible — the failure is grayscale/colour-blind, WCAG 1.4.1.
+- **N7 (MED, phone). "Panels" lies about being a toggle.** `MapEditor.tsx:857-866`
+  `aria-pressed={mobileDock}` but `onClick` only `setMobileDock(true)`.
+- **N8 (LOW-MED, Android only). `QuickToolStrip` is `role="status" aria-live="polite"` around an
+  interactive `SegmentedControl`** (`MapEditor:955-1001`, control at `:986`). Every fog-mode press
+  re-announces the tool name + "· armed" + the 20-word guidance paragraph. Put the region on `:998`.
+- **N9 (LOW). `ToolOptionsBar.tsx:331` prints the raw id** (`crate`) where the Assets tile says `Crate`.
+
 ## STILL OPEN @ c93c5206
+⚠️ Run #11 triage: items **3/T, 7, 10, 11, 12, 13, 27, 29** below are now FIXED (see the run #10/#11
+block above) — ignore them. Item 14 is PARTLY fixed (Enter no longer rerolls; "Copy seed" silence and
+the missing `role="alert"` on the generator error block remain). Everything else still verified open.
 
 ### Root cause A — the renderer still drops presentation data
 1. `MapBuilder.tsx:295-307` `case 'prop'` = one accent circle for all 12 `STAMP_ASSETS`

@@ -297,6 +297,12 @@ export function ToastViewport({ placement = 'top-right', style, ...rest }) {
 	const assertive = items.filter((t) => t.status === 'error');
 	return (
 		<div
+			// `isolateModalSiblings` (platform/modalIsolation.ts) makes every branch outside an open
+			// Dialog/Sheet/overlay `inert` + `aria-hidden`. The viewport is a SIBLING of those
+			// surfaces, so without this opt-out every toast raised from inside one — including the
+			// error toast that is the only explanation the user gets for a refused action — was
+			// painted but hidden from AT with a dead Dismiss button.
+			data-modal-exempt=""
 			style={{
 				position: 'fixed',
 				zIndex: 'var(--z-toast)',
@@ -307,7 +313,11 @@ export function ToastViewport({ placement = 'top-right', style, ...rest }) {
 					'calc(var(--space-4) + var(--safe-area-top, 0px)) calc(var(--space-4) + var(--safe-area-right, 0px)) calc(var(--space-4) + var(--safe-area-bottom, 0px)) calc(var(--space-4) + var(--safe-area-left, 0px))',
 				pointerEvents: 'none',
 				maxHeight: 'var(--app-viewport-height)',
-				overflow: 'hidden',
+				// `overflow:'hidden'` clipped the oldest rows off the fold once four or five stacked
+				// up — their Undo/Dismiss buttons were unreachable, and this repo puts destructive-op
+				// Undo inside toasts. `auto` gives the stack a real scroll range, so focusing a
+				// clipped row's button scrolls it into view.
+				overflowY: 'auto',
 				...pos,
 				...style,
 			}}
@@ -325,7 +335,9 @@ export function ToastViewport({ placement = 'top-right', style, ...rest }) {
 			    The assertive region is NOT permanent, and deliberately so: `role="alert"` announces on
 			    insertion, and an always-present empty alert would make every bare `getByRole('alert')`
 			    in the app ambiguous. */}
-			<div role="status" aria-live="polite" style={{ display: 'contents' }}>
+			{/* `aria-atomic="false"` is REQUIRED: `role="status"` defaults it to true, so with the
+			    region wrapping the whole stack a second toast re-announced every visible toast. */}
+			<div role="status" aria-live="polite" aria-atomic="false" style={{ display: 'contents' }}>
 				{polite.map((t) => (
 					<Row key={t.id} toast={t} />
 				))}

@@ -20,6 +20,11 @@ export function isolateModalSiblings(modal: HTMLElement): () => void {
 		const parent = branch.parentElement;
 		for (const sibling of parent.children) {
 			if (sibling === branch || !(sibling instanceof HTMLElement)) continue;
+			// A branch may opt out. The toast viewport does: it is a sibling of every modal surface,
+			// so isolating it made the app's only feedback channel inert and screen-reader-invisible
+			// for anything raised from inside a dialog, sheet, map editor or display overlay — which
+			// is exactly where a refusal message matters most.
+			if (sibling.hasAttribute('data-modal-exempt')) continue;
 			snapshots.push({
 				element: sibling,
 				ariaHidden: sibling.getAttribute('aria-hidden'),

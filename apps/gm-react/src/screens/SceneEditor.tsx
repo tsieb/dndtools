@@ -850,7 +850,13 @@ function Inspector({
 			)}
 
 			<Section label="Visibility">
+				{/* `Section`'s label is an unassociated <span> and DS `Select` renders a bare <select>
+				    (only `Field` wires a label up), so the ONE control that decides whether a widget
+				    is DM-only or on the players' screen announced nothing but its current value —
+				    axe `select-name`, WCAG 4.1.2. `/scene/:id` is not in the axe gate's route list,
+				    so nothing was ever going to catch it. */}
 				<Select
+					aria-label="Widget visibility"
 					value={widget.visibility}
 					onChange={(e: { target: { value: string } }) =>
 						onVisibility(e.target.value as Visibility)

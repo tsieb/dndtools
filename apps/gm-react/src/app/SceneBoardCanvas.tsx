@@ -28,6 +28,13 @@ import { WidgetBody, type WidgetCommandHandler } from './widget-bodies';
 const GRID = 20;
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
 const snapTo = (n: number, snap: boolean) => (snap ? Math.round(n / GRID) * GRID : Math.round(n));
+/** Drop one widget's in-flight drag draft, so it falls back to its durable position/size. */
+function omitKey<T>(map: Record<string, T>, id: string): Record<string, T> {
+	if (!(id in map)) return map;
+	const next = { ...map };
+	delete next[id];
+	return next;
+}
 
 // Widget definition icons are normally semantic registry keys ('map', 'dice', …). Third-party
 // packages created by older builds may still contain an emoji glyph, so retain a decorative legacy
@@ -192,10 +199,26 @@ export function SceneBoardCanvas({
 	const tx = policy === 'canvas' ? view.tx : boundedScale < 1 ? 8 : 0;
 	const ty = policy === 'canvas' ? view.ty : boundedScale < 1 ? 8 : 0;
 
+	// Capturing the pointer keeps the gesture bound to the element it started on, so releasing outside
+	// the browser window (or over another frame) still delivers `pointerup`/`pointercancel` to us.
+	// Without it — and without the `pointercancel` listener below — a drag interrupted by the browser
+	// taking over the touch (the phone board sets `touch-action:'pan-y'`, so a vertical swipe does
+	// exactly that) left `dragRef` set and `document.body.style.userSelect` pinned to `'none'`
+	// APP-WIDE: every later pointermove kept dragging the widget with no button down, and the next
+	// stray pointerup committed a move the DM never made.
+	const capture = (e: React.PointerEvent) => {
+		try {
+			e.currentTarget.setPointerCapture(e.pointerId);
+		} catch {
+			/* a pointer that has already ended cannot be captured — the listeners still cover us */
+		}
+	};
+
 	const startMove = (e: React.PointerEvent, w: BoardWidget) => {
 		e.stopPropagation();
 		onSelect(w.id);
 		if (!editing) return;
+		capture(e);
 		const cur = posDraft[w.id] ?? { x: w.x, y: w.y };
 		dragRef.current = {
 			mode: 'move',
@@ -209,6 +232,7 @@ export function SceneBoardCanvas({
 	};
 	const startResize = (e: React.PointerEvent, w: BoardWidget) => {
 		e.stopPropagation();
+		capture(e);
 		const cur = sizeDraft[w.id] ?? { w: w.w, h: w.h };
 		dragRef.current = {
 			mode: 'resize',
@@ -274,11 +298,27 @@ export function SceneBoardCanvas({
 				if (s) void onResize(d.id, s.w, s.h);
 			}
 		};
+		// `pointerup` was the ONLY terminator. When the browser takes the gesture over — which the
+		// phone board invites, since it sets `touch-action:'pan-y'` so a vertical swipe scrolls —
+		// it fires `pointercancel` instead, and the drag never ended: `dragRef` stayed set and
+		// `document.body.style.userSelect` stayed pinned to `'none'` app-wide. Cancel abandons the
+		// gesture WITHOUT dispatching; the drafts are dropped so the widget snaps back to its
+		// durable position rather than committing a move the DM never asked for.
+		const cancel = () => {
+			const d = dragRef.current;
+			dragRef.current = null;
+			document.body.style.userSelect = '';
+			if (!d || d.mode === 'pan') return;
+			if (d.mode === 'move') setPosDraft((prev) => omitKey(prev, d.id));
+			else setSizeDraft((prev) => omitKey(prev, d.id));
+		};
 		window.addEventListener('pointermove', move);
 		window.addEventListener('pointerup', up);
+		window.addEventListener('pointercancel', cancel);
 		return () => {
 			window.removeEventListener('pointermove', move);
 			window.removeEventListener('pointerup', up);
+			window.removeEventListener('pointercancel', cancel);
 		};
 	}, [scale, snap, onMove, onResize]);
 
@@ -651,8 +691,13 @@ function WidgetFrame({
 				width,
 				height,
 				borderRadius: 'var(--radius-md)',
-				boxShadow: selected ? '0 0 0 2px var(--color-accent)' : 'none',
-				transition: selected ? 'none' : 'box-shadow var(--duration-fast) var(--easing-standard)',
+				// `outline`, NOT `box-shadow`: forced-colors mode suppresses box-shadow outright, so
+				// the selected widget had NO ring at all in Windows High Contrast — and the only
+				// other selection cue, the title chip at `top:-26`, is clipped by the bounded
+				// container for top-row widgets. An outline survives and remaps to `Highlight`.
+				outline: selected ? '2px solid var(--color-accent)' : 'none',
+				outlineOffset: 2,
+				transition: selected ? 'none' : 'outline-color var(--duration-fast) var(--easing-standard)',
 			}}
 		>
 			<div
@@ -697,7 +742,11 @@ function WidgetFrame({
 							background: chip.players
 								? 'var(--color-accent-subtle)'
 								: 'var(--color-surface-sunken)',
-							color: chip.players ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
+							// `--color-text-tertiary` on `--color-surface-sunken` is 3.54:1 in parchment
+							// — under 4.5:1 for this 10px text, and this DM-only/Players chip renders
+							// on EVERY widget frame on both /board and /scene/:id. Secondary is
+							// 6.28:1 on the same surface.
+							color: chip.players ? 'var(--color-accent)' : 'var(--color-text-secondary)',
 							font: '600 var(--text-2xs) var(--font-sans)',
 							whiteSpace: 'nowrap',
 						}}

@@ -100,6 +100,9 @@ export function MapEditor({
 	const [importOpen, setImportOpen] = useState(false);
 	const [exportOpen, setExportOpen] = useState(false);
 	const [mobileDock, setMobileDock] = useState(false);
+	// `projectToPlayers` does not go through `editor.run`, so `editor.busy` never latched for it and
+	// the button's own `disabled` was decorative — a double-click projected twice.
+	const [projecting, setProjecting] = useState(false);
 	// AssetsPanel is one of four dock TABS, so it unmounts on every tab change. Its Recents and
 	// Favorites lists therefore have to live out here or they wipe each time you glance at Layers.
 	const [assetRecent, setAssetRecent] = useState<string[]>([]);
@@ -273,28 +276,44 @@ export function MapEditor({
 			);
 			return;
 		}
-		const staged = await runtime.dispatch({
-			type: 'session.set-active-map',
-			actorId: editor.actorId,
-			payload: { mapId },
-		} as never);
-		if (staged.status !== 'accepted') {
-			editor.setNotice(staged.rejection.message);
-			return;
-		}
-		const projected = await runtime.dispatch({
-			type: 'session.project-active-map',
-			actorId: editor.actorId,
-			payload: { playerActorIds: players.map((p) => p.id) },
-		} as never);
-		if (projected.status === 'accepted') {
-			announce(`Projected to ${players.length} player${players.length === 1 ? '' : 's'}.`);
+		// These were the last two bare dispatches in the editor. `runtime.dispatch` THROWS while
+		// previewing (PREVIEW_READONLY_MESSAGE) and rethrows on a persist failure, and this button
+		// renders regardless of preview state — so Project used to do nothing at all, print nothing,
+		// and leave an unhandled rejection. It also bypasses `editor.run`, so the `disabled={busy}`
+		// on the button was dead and a double-click fired the projection twice; `projecting` is the
+		// real latch.
+		if (projecting) return;
+		setProjecting(true);
+		try {
+			const staged = await runtime.dispatch({
+				type: 'session.set-active-map',
+				actorId: editor.actorId,
+				payload: { mapId },
+			} as never);
+			if (staged.status !== 'accepted') {
+				editor.setNotice(staged.rejection.message);
+				return;
+			}
+			const projected = await runtime.dispatch({
+				type: 'session.project-active-map',
+				actorId: editor.actorId,
+				payload: { playerActorIds: players.map((p) => p.id) },
+			} as never);
+			if (projected.status === 'accepted') {
+				announce(`Projected to ${players.length} player${players.length === 1 ? '' : 's'}.`);
+				editor.setNotice(
+					`Projected “${editor.map?.name ?? 'map'}” to ${players.length} player${players.length === 1 ? '' : 's'}.`,
+					'success',
+				);
+			} else {
+				editor.setNotice(projected.rejection.message);
+			}
+		} catch (err) {
 			editor.setNotice(
-				`Projected “${editor.map?.name ?? 'map'}” to ${players.length} player${players.length === 1 ? '' : 's'}.`,
-				'success',
+				err instanceof Error ? err.message : 'The map couldn’t be projected — try again.',
 			);
-		} else {
-			editor.setNotice(projected.rejection.message);
+		} finally {
+			setProjecting(false);
 		}
 	}
 
@@ -691,7 +710,7 @@ export function MapEditor({
 						size="sm"
 						icon="visibility-players"
 						onClick={() => void projectToPlayers()}
-						disabled={editor.busy}
+						disabled={editor.busy || projecting}
 						aria-label="Project to players"
 					>
 						{isPhone ? '' : 'Project'}
@@ -862,7 +881,10 @@ export function MapEditor({
 						variant={mobileDock ? 'accent' : 'outline'}
 						aria-pressed={mobileDock}
 							size="sm"
-							onClick={() => setMobileDock(true)}
+							// It advertises `aria-pressed`, so it has to be a real toggle: pressing it
+							// while pressed used to be a no-op, i.e. a control a screen reader calls
+							// "pressed" that cannot be un-pressed.
+							onClick={() => setMobileDock((v) => !v)}
 						/>
 					</div>
 					{mobileDock && (
