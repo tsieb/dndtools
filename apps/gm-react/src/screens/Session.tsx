@@ -878,7 +878,9 @@ function CombatPanel({
 										    that. Every child here is shrinkable, so the COMBATANT NAME was what collapsed to
 										    an ellipsis while the badge text stacked one character per line. Let the badges
 										    drop to their own line instead. */}
-										<div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+										<div
+											style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}
+										>
 											{/* The row's one real control. `aria-pressed` carries the selection state that
 											    used to sit on the row, so the toggle semantics survive the restructure. */}
 											<button
@@ -1486,12 +1488,7 @@ function DicePanel({
 					aria-label="Dice expression"
 					style={{ flex: 1 }}
 				/>
-				<Button
-					type="submit"
-					variant="accent"
-					icon="dice"
-					disabled={disabled || !expr.trim()}
-				>
+				<Button type="submit" variant="accent" icon="dice" disabled={disabled || !expr.trim()}>
 					Roll
 				</Button>
 			</form>

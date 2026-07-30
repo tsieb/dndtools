@@ -176,10 +176,7 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 						}}
 					>
 						<MenuItem icon="dm-only" label="DM view" active={!preview} onClick={exit} />
-						<div
-							role="separator"
-							style={{ height: 1, background: T.bd, margin: '4px 0' }}
-						/>
+						<div role="separator" style={{ height: 1, background: T.bd, margin: '4px 0' }} />
 						<MenuLabel>Preview as</MenuLabel>
 						<MenuItem
 							icon="visibility-players"

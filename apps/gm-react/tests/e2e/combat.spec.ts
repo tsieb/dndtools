@@ -39,7 +39,9 @@ async function startCombat(page: Page): Promise<void> {
 			})),
 		};
 	});
-	expect(result.status, `${result.step}: ${JSON.stringify(result.rejection ?? {})}`).toBe('accepted');
+	expect(result.status, `${result.step}: ${JSON.stringify(result.rejection ?? {})}`).toBe(
+		'accepted',
+	);
 }
 
 function combatStatus(page: Page): Promise<string | undefined> {
@@ -95,9 +97,7 @@ test.describe('ending combat is confirmed, not instant', () => {
 		// confirm MUST be scoped to the dialog (Playwright strict mode would fail otherwise).
 		await page.getByRole('dialog').getByRole('button', { name: 'End combat' }).click();
 		await expect(page.getByRole('dialog')).toHaveCount(0);
-		await expect
-			.poll(() => combatStatus(page), { timeout: 5_000 })
-			.not.toBe('running');
+		await expect.poll(() => combatStatus(page), { timeout: 5_000 }).not.toBe('running');
 		// The panel falls back to its idle affordance.
 		await expect(page.getByRole('button', { name: /^Build encounter/ })).toBeVisible();
 	});
@@ -180,7 +180,11 @@ test('a long combatant name is not squeezed away by its status badges', async ({
 	const LONG = 'Grand Vizier of the Sunken Reliquary';
 	const restarted = await page.evaluate(async (name) => {
 		const rt = window.__rt!;
-		const ended = await rt.dispatch({ type: 'combat.end', actorId: rt.defaultActorId, payload: {} });
+		const ended = await rt.dispatch({
+			type: 'combat.end',
+			actorId: rt.defaultActorId,
+			payload: {},
+		});
 		if (ended.status !== 'accepted') return { step: 'end', ...ended };
 		return {
 			step: 'restart',
@@ -196,10 +200,9 @@ test('a long combatant name is not squeezed away by its status badges', async ({
 			})),
 		};
 	}, LONG);
-	expect(
-		restarted.status,
-		`${restarted.step}: ${JSON.stringify(restarted.rejection ?? {})}`,
-	).toBe('accepted');
+	expect(restarted.status, `${restarted.step}: ${JSON.stringify(restarted.rejection ?? {})}`).toBe(
+		'accepted',
+	);
 
 	// It is the active combatant, so it also carries the "Active" badge.
 	const nameButton = page.getByRole('button', { name: LONG, exact: true });

@@ -5,6 +5,13 @@ import { defineConfig, devices } from '@playwright/test';
 // reject an already-listening port; this explicit signal distinguishes the managed harness.
 const reuseValidationServer = process.env.DNDTOOLS_PLAYWRIGHT_REUSE_MANAGED_SERVER === '1';
 
+// The dev server port is fixed at 5273 by default so the managed harness and CI agree on it.
+// `DNDTOOLS_E2E_PORT` overrides it for the one case that needs isolation: running this suite while
+// another checkout of the repo already holds 5273 (e.g. the autonomous review loop's worktree).
+// Without it, `reuseExistingServer` is true outside CI and a local run silently attaches to that
+// other checkout's server — testing someone else's working tree and reporting it as your own.
+const port = Number(process.env.DNDTOOLS_E2E_PORT ?? 5273);
+
 // Playwright config for the React GM app (@dndtools/gm-react).
 //
 // The specs MUST run against the Vite DEV server (`pnpm dev`, port 5273), not `vite preview`:
@@ -19,7 +26,7 @@ export default defineConfig({
 	workers: process.env.CI ? 1 : undefined,
 	reporter: [['list']],
 	use: {
-		baseURL: 'http://localhost:5273',
+		baseURL: `http://localhost:${port}`,
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure',
 		video: 'retain-on-failure',
@@ -29,8 +36,9 @@ export default defineConfig({
 		{ name: 'mobile-chromium', use: { ...devices['Pixel 5'] } },
 	],
 	webServer: {
-		command: 'pnpm dev',
-		port: 5273,
+		// `pnpm dev` hardcodes `--port 5273`; invoking vite directly avoids passing a duplicate flag.
+		command: `pnpm exec vite --port ${port}`,
+		port,
 		reuseExistingServer: reuseValidationServer || !process.env.CI,
 		timeout: 300_000,
 		// Force the e2e dev server to be local-first even if a developer has pulled real cloud

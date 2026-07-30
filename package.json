@@ -38,6 +38,8 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"format:check:changed": "tsx scripts/format-changed.ts",
+		"format:fix:changed": "tsx scripts/format-changed.ts --write",
+		"ci:local": "tsx scripts/ci-local.ts",
 		"gates": "tsx scripts/quality-gates.ts",
 		"audit:repo": "vitest run tests/unit/ci-guardrails.test.ts",
 		"security:audit": "pnpm dlx pnpm@11.4.0 --pm-on-fail=ignore audit --audit-level high",

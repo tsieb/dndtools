@@ -23,10 +23,12 @@ function gitFiles(repoRoot: string, args: string[]): string[] {
 	}
 }
 
-function changedFiles(repoRoot: string): string[] {
+function changedFiles(repoRoot: string, explicitBase?: string): string[] {
 	const files = new Set<string>();
-	if (process.env.CI) {
-		const base = process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : 'HEAD^';
+	if (explicitBase || process.env.CI) {
+		const base =
+			explicitBase ??
+			(process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : 'HEAD^');
 		for (const file of gitFiles(repoRoot, [
 			'diff',
 			'--name-only',
@@ -50,15 +52,29 @@ function changedFiles(repoRoot: string): string[] {
 		.sort();
 }
 
+// `--write` reformats instead of checking, and `--base <ref>` selects the files changed in a commit
+// range rather than the working tree. Together they let an automated committer (the review loop's
+// wrapper) fix its own formatting before pushing, using exactly the file set CI will check.
 function runCli(): void {
 	const repoRoot = process.cwd();
-	const files = changedFiles(repoRoot);
+	const argv = process.argv.slice(2);
+	const write = argv.includes('--write');
+	const baseIndex = argv.indexOf('--base');
+	const explicitBase = baseIndex === -1 ? undefined : argv[baseIndex + 1];
+	if (baseIndex !== -1 && !explicitBase) {
+		console.error('--base requires a git ref');
+		process.exit(2);
+	}
+
+	const files = changedFiles(repoRoot, explicitBase);
 	if (files.length === 0) {
 		console.log('changed-file format check passed: no supported files changed');
 		return;
 	}
-	console.log(`checking formatting for ${files.length} changed file(s)`);
-	const result = spawnSync('pnpm', ['exec', 'prettier', '--check', ...files], {
+	console.log(
+		`${write ? 'formatting' : 'checking formatting for'} ${files.length} changed file(s)`,
+	);
+	const result = spawnSync('pnpm', ['exec', 'prettier', write ? '--write' : '--check', ...files], {
 		cwd: repoRoot,
 		stdio: 'inherit',
 	});

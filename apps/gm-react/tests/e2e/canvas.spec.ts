@@ -664,12 +664,14 @@ test.describe('canvas: view mode reads, edit mode moves', () => {
 		await page.mouse.move(box!.x + box!.width / 2 + 140, box!.y + box!.height / 2 + 90);
 		const after = await frame.boundingBox();
 		await page.mouse.up();
-		expect(Math.abs(after!.x - before!.x), 'view mode must not pan from widget content').toBeLessThan(
-			2,
-		);
-		expect(Math.abs(after!.y - before!.y), 'view mode must not pan from widget content').toBeLessThan(
-			2,
-		);
+		expect(
+			Math.abs(after!.x - before!.x),
+			'view mode must not pan from widget content',
+		).toBeLessThan(2);
+		expect(
+			Math.abs(after!.y - before!.y),
+			'view mode must not pan from widget content',
+		).toBeLessThan(2);
 	});
 });
 

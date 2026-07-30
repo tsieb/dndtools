@@ -877,9 +877,9 @@ export function MapEditor({
 							icon="layers"
 							label="Panels"
 							// IconButton has no "primary" variant — it silently fell through to `ghost`, so
-						// the open state lost its border and read as disabled. It is also a toggle.
-						variant={mobileDock ? 'accent' : 'outline'}
-						aria-pressed={mobileDock}
+							// the open state lost its border and read as disabled. It is also a toggle.
+							variant={mobileDock ? 'accent' : 'outline'}
+							aria-pressed={mobileDock}
 							size="sm"
 							// It advertises `aria-pressed`, so it has to be a real toggle: pressing it
 							// while pressed used to be a no-op, i.e. a control a screen reader calls

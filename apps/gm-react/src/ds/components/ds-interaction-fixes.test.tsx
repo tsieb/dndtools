@@ -161,7 +161,12 @@ describe('Button separates hard-disabled from explained-unavailable', () => {
 	it('swallows activation of an aria-disabled button', () => {
 		let clicks = 0;
 		const button = render(
-			<Button aria-disabled onClick={() => { clicks += 1; }}>
+			<Button
+				aria-disabled
+				onClick={() => {
+					clicks += 1;
+				}}
+			>
 				Go live
 			</Button>,
 		);
@@ -171,8 +176,14 @@ describe('Button separates hard-disabled from explained-unavailable', () => {
 
 	it('still fires once the same button becomes available', () => {
 		let clicks = 0;
-		const onClick = () => { clicks += 1; };
-		render(<Button aria-disabled onClick={onClick}>Go live</Button>);
+		const onClick = () => {
+			clicks += 1;
+		};
+		render(
+			<Button aria-disabled onClick={onClick}>
+				Go live
+			</Button>,
+		);
 		const button = render(<Button onClick={onClick}>Go live</Button>);
 		act(() => button.click());
 		expect(clicks).toBe(1);
@@ -214,7 +225,9 @@ describe('IconButton separates hard-disabled from explained-unavailable', () => 
 		const onClick = () => {
 			clicks += 1;
 		};
-		const blocked = render(<IconButton icon="add" label="Raise str" aria-disabled onClick={onClick} />);
+		const blocked = render(
+			<IconButton icon="add" label="Raise str" aria-disabled onClick={onClick} />,
+		);
 		act(() => blocked.click());
 		expect(clicks).toBe(0);
 
@@ -236,7 +249,9 @@ describe('IconButton separates hard-disabled from explained-unavailable', () => 
 	});
 
 	it('does not light up on hover while unavailable', () => {
-		const button = render(<IconButton icon="add" label="Raise str" variant="outline" aria-disabled />);
+		const button = render(
+			<IconButton icon="add" label="Raise str" variant="outline" aria-disabled />,
+		);
 		const resting = button.style.background;
 		act(() => button.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })));
 		expect(button.style.background).toBe(resting);
@@ -276,7 +291,10 @@ describe('form fields keep their focus ring when the call site also listens for 
 
 	it('resets the ring on blur and still calls the caller onBlur — Textarea', () => {
 		let commits = 0;
-		const field = mount(<Textarea value="" onChange={() => {}} onBlur={() => (commits += 1)} />, 'textarea');
+		const field = mount(
+			<Textarea value="" onChange={() => {}} onBlur={() => (commits += 1)} />,
+			'textarea',
+		);
 		const { focused, blurred } = ringCycle(field);
 		expect(focused).not.toBe('none');
 		expect(blurred).toBe('none');
@@ -493,8 +511,8 @@ describe('Dialog can refuse the stray backdrop click without becoming inescapabl
 		expect(closed).toBe(1);
 
 		// So must the header Close button — `dismissible={false}` would have removed it entirely.
-		const close = Array.from(container.querySelectorAll('button')).find(
-			(b) => (b.getAttribute('aria-label') ?? '').toLowerCase().includes('close'),
+		const close = Array.from(container.querySelectorAll('button')).find((b) =>
+			(b.getAttribute('aria-label') ?? '').toLowerCase().includes('close'),
 		);
 		expect(close, 'the header Close button must still be rendered').toBeTruthy();
 		act(() => close!.click());
