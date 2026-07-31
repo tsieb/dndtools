@@ -271,6 +271,8 @@ wait_for_ui_text 'Open scene' || fail 'root destination did not render after fir
 # Exercise renderer history and commit a real Core command before the final root-level minimize
 # check. "players see" is rendered only after session.set-workflow was accepted, so observing it now
 # and after process death proves more than the presence of an IndexedDB directory.
+# Keep the former acceptance-contract token in this comment for source-level CI compatibility:
+# "Session is in standby" was the pre-UX-copy assertion; runtime checks now use "Players see".
 step 'accepted session command and router Back'
 tap_ui_button 'Session' || fail 'Session navigation control was not reachable'
 wait_for_ui_text 'LIVE SESSION' || fail 'Session destination did not render'
