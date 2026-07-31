@@ -130,6 +130,14 @@ tap_ui_button() {
 	local node bounds left top right bottom
 	node=$(dump_ui | sed 's/></>\n</g' | grep -F 'class="android.widget.Button"' \
 		| grep -F "$label" | tail -1 || true)
+	# WebView accessibility mappings are not stable across Android System WebView/API revisions.
+	# Native HTML buttons normally surface as android.widget.Button, but buttons carrying ARIA state
+	# (for example Session's `aria-disabled` explanation) may instead be exposed as a generic node.
+	# Fall back to the same labelled accessibility node used by tap_ui_node so acceptance tests the
+	# user-visible control rather than a renderer-specific native class.
+	if [[ -z "$node" ]]; then
+		node=$(dump_ui | sed 's/></>\n</g' | grep -F "$label" | grep -F 'bounds="[' | tail -1 || true)
+	fi
 	[[ -n "$node" ]] || return 1
 	bounds=$(sed -n 's/.*bounds="\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]".*/\1 \2 \3 \4/p' <<<"$node")
 	read -r left top right bottom <<<"$bounds"
