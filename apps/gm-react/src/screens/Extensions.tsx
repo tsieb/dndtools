@@ -36,7 +36,7 @@ import {
 	Toaster,
 	VisibilityChip,
 } from '../ds';
-import { Page, Panel, T, eb, mono } from '../app/screen-kit';
+import { LoadingRegion, Page, Panel, T, eb, mono } from '../app/screen-kit';
 import { useViewport } from '../app/useViewport';
 import { useRuntime } from '../runtime/RuntimeContext';
 import {
@@ -1073,18 +1073,17 @@ function ExtCompendium() {
 					</div>
 					{/* results */}
 					{loading && (
-						<div
+						// The region used to name itself with `aria-label` and hold nothing but
+						// `aria-hidden` Skeletons, so the debounced compendium search announced neither
+						// its loading nor its completion. LoadingRegion puts the text INSIDE.
+						<LoadingRegion
+							label="Loading results"
 							style={{ display: 'flex', flexDirection: 'column', gap: 9 }}
-							// `aria-label` on a generic div names nothing, so the debounced compendium search
-							// announced neither its loading nor its completion. role="status" gives it a name
-							// AND makes the transition to results a polite live-region update.
-							role="status"
-							aria-label="Loading results"
 						>
 							{[0, 1, 2, 3].map((i) => (
 								<Skeleton key={i} height={62} />
 							))}
-						</div>
+						</LoadingRegion>
 					)}
 					{!loading && !result && (
 						<EmptyState

@@ -1141,7 +1141,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 						overflowX: 'hidden',
 						overscrollBehavior: 'contain',
 						WebkitOverflowScrolling: 'touch',
-						outline: 'none',
+						// NO `outline: 'none'` here. An inline style beats the stylesheet, so it silently
+						// killed the global `:focus-visible` ring — and this element is the skip link's
+						// destination, so activating "Skip to content" confirmed nothing at all. The ring
+						// is drawn INSIDE the pane (the global +2px offset would land outside a
+						// viewport-filling box and never paint).
+						outlineOffset: '-3px',
 						boxSizing: 'border-box',
 						paddingLeft: viewport === 'phone' ? 'var(--safe-area-left, 0px)' : 0,
 						paddingRight: 'var(--safe-area-right, 0px)',

@@ -24,3 +24,20 @@ export function recoveryPassphraseIssue(pass: string, confirm: string): string |
 export function recoveryPassphraseOk(pass: string, confirm: string): boolean {
 	return pass.length >= MIN_RECOVERY_PASSPHRASE_CHARS && pass === confirm;
 }
+
+/** The themes the High-contrast switch can toggle back to. */
+const RESTORABLE_THEMES = new Set(['tavern', 'parchment']);
+
+/**
+ * The theme the High-contrast switch should apply next, given the theme in effect and the one the
+ * user was on before they last turned high contrast ON.
+ *
+ * Turning the switch off used to hard-code `'tavern'`, so a Parchment reader who tried high contrast
+ * for one minute had their theme preference silently destroyed with no way to notice — the switch
+ * looks like a reversible toggle and was not one. `previous` is only trusted when it names a real
+ * non-high-contrast theme, so a corrupted or absent value still lands somewhere valid.
+ */
+export function nextHighContrastTheme(current: string, previous: string | null): string {
+	if (current !== 'high-contrast') return 'high-contrast';
+	return previous && RESTORABLE_THEMES.has(previous) ? previous : 'tavern';
+}

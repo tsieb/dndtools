@@ -21,7 +21,7 @@ import {
 	Toaster,
 	VisibilityChip,
 } from '../ds';
-import { Page, Panel, T, eb, radioGroupKeyDown } from '../app/screen-kit';
+import { LoadingRegion, Page, Panel, T, eb, radioGroupKeyDown } from '../app/screen-kit';
 import { useViewport } from '../app/useViewport';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useAuth } from '../cloud/AuthContext';
@@ -300,14 +300,13 @@ function CommDiscover() {
 					</Panel>
 				) : modules === null ? (
 					<Panel title="Modules">
-						<div
-							role="status"
-							aria-label="Loading modules"
+						<LoadingRegion
+							label="Loading modules"
 							style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
 						>
 							<Skeleton height={96} />
 							<Skeleton height={96} />
-						</div>
+						</LoadingRegion>
 					</Panel>
 				) : modules.length === 0 ? (
 					<EmptyState
@@ -946,14 +945,13 @@ function CommPublish() {
 						}
 					/>
 				) : mine === null ? (
-					<div
-						role="status"
-						aria-label="Loading your listings"
+					<LoadingRegion
+						label="Loading your listings"
 						style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
 					>
 						<Skeleton height={44} />
 						<Skeleton height={44} />
-					</div>
+					</LoadingRegion>
 				) : mine.length === 0 ? (
 					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Nothing published yet.</div>
 				) : (
@@ -1269,14 +1267,13 @@ function CommWiki() {
 	} else if (status === undefined) {
 		settings = (
 			<Panel title="Publish settings">
-				<div
-					role="status"
-					aria-label="Loading wiki status"
+				<LoadingRegion
+					label="Loading wiki status"
 					style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
 				>
 					<Skeleton height={44} />
 					<Skeleton height={96} />
-				</div>
+				</LoadingRegion>
 			</Panel>
 		);
 	} else if (status) {

@@ -37,8 +37,12 @@ import {
 	Textarea,
 	Toaster,
 } from '../ds';
-import { Page, Panel, Seg, SetRow, T, radioGroupKeyDown } from '../app/screen-kit';
-import { recoveryPassphraseIssue, recoveryPassphraseOk } from './settings-validation';
+import { LoadingRegion, Page, Panel, Seg, SetRow, T, radioGroupKeyDown } from '../app/screen-kit';
+import {
+	nextHighContrastTheme,
+	recoveryPassphraseIssue,
+	recoveryPassphraseOk,
+} from './settings-validation';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useCloudSync } from '../cloud/CloudSyncContext';
 import { useAuth } from '../cloud/AuthContext';
@@ -215,6 +219,25 @@ function setDocAttr(attr: string, key: string, value: string) {
 	// The tier is read by the Settings shell for REAL nav gating — notify it so a click on a
 	// complexity card re-filters the rail immediately (localStorage writes don't event same-tab).
 	if (attr === TIER_ATTR) window.dispatchEvent(new Event(TIER_EVENT));
+}
+
+// The theme in effect before high contrast was last switched on, so the switch is reversible.
+const PREV_THEME_KEY = 'dndtools:react:theme-prehc';
+
+function readLocal(key: string): string | null {
+	try {
+		return window.localStorage.getItem(key);
+	} catch {
+		return null;
+	}
+}
+
+function writeLocal(key: string, value: string) {
+	try {
+		window.localStorage.setItem(key, value);
+	} catch {
+		/* ignore */
+	}
 }
 
 /* ---- Experience complexity → real feature tier ------------------------------------------------
@@ -526,7 +549,10 @@ function AccountProfilePanel() {
 				// "reopen this tab" was the only way out of this state, while the sibling device and
 				// export panels in this same file both offer a Retry. Now it does too.
 				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-					<div role="alert" style={{ font: `12.5px ${T.sans}`, color: T.ter, flex: 1, minWidth: 0 }}>
+					<div
+						role="alert"
+						style={{ font: `12.5px ${T.sans}`, color: T.ter, flex: 1, minWidth: 0 }}
+					>
 						Couldn’t load your profile — check your connection and try again.
 					</div>
 					<Button
@@ -699,14 +725,13 @@ function AccountDevicesPanel() {
 					</Button>
 				</div>
 			) : devices === null ? (
-				<div
-					role="status"
-					aria-label="Loading devices"
+				<LoadingRegion
+					label="Loading devices"
 					style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
 				>
 					<Skeleton height={46} />
 					<Skeleton height={46} />
-				</div>
+				</LoadingRegion>
 			) : devices.length === 0 ? (
 				<EmptyState
 					inset
@@ -1407,14 +1432,13 @@ function InvitesPanel({
 					</Button>
 				</div>
 			) : invites === null ? (
-				<div
-					role="status"
-					aria-label="Loading invites"
+				<LoadingRegion
+					label="Loading invites"
 					style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
 				>
 					<Skeleton height={44} />
 					<Skeleton height={44} />
-				</div>
+				</LoadingRegion>
 			) : invites.length === 0 ? (
 				<EmptyState
 					inset
@@ -2141,14 +2165,13 @@ function SettingsVault() {
 				{/* Real WS-7 source registry (fsSource + googleDocs) — import/write-back actions live in the
 				    Knowledge → Sources panel, which dispatches content.commit-import / content.write-to-source. */}
 				{loading ? (
-					<div
-						role="status"
-						aria-label="Loading vault connections"
+					<LoadingRegion
+						label="Loading vault connections"
 						style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
 					>
 						<Skeleton height={52} />
 						<Skeleton height={52} />
-					</div>
+					</LoadingRegion>
 				) : foldersFailed ? (
 					<EmptyState
 						inset
@@ -4053,9 +4076,9 @@ function SettingsAI() {
 						checked={mcp.enabled}
 						disabled={!canWrite || busy}
 						// Without this the accessible name of the campaign-wide AI kill switch was just its
-					// own state word — a screen reader announced "Off, switch, off".
-					aria-label="AI and agent access"
-					label={mcp.enabled ? 'Enabled' : 'Off'}
+						// own state word — a screen reader announced "Off, switch, off".
+						aria-label="AI and agent access"
+						label={mcp.enabled ? 'Enabled' : 'Off'}
 						onChange={() =>
 							run(
 								{ type: 'mcp.set-enabled', actorId, payload: { enabled: !mcp.enabled } },
@@ -4643,13 +4666,17 @@ function SettingsAccessibility() {
 				/>
 				<SetRow
 					label="High-contrast theme"
-					help="Switches to the accessibility-floor theme; turning it off restores the Tavern theme."
+					help="Switches to the accessibility-floor theme; turning it off restores the theme you were using."
 					control={
 						<Switch
 							checked={highContrast}
 							aria-label="High-contrast theme"
 							onChange={() => {
-								const v = highContrast ? 'tavern' : 'high-contrast';
+								// Remember what we are leaving, so turning the switch back off restores it.
+								// It used to hard-code 'tavern' on the way back, silently destroying a
+								// Parchment preference for anyone who tried high contrast once.
+								if (!highContrast) writeLocal(PREV_THEME_KEY, theme);
+								const v = nextHighContrastTheme(theme, readLocal(PREV_THEME_KEY));
 								setTheme(v);
 								setDocAttr('data-theme', 'dndtools:react:theme', v);
 							}}

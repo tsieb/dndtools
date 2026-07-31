@@ -284,9 +284,11 @@ test('the character sheet fits a compact phone without clipped controls', async 
 	await seedFresh(page);
 
 	const characterId = await page.evaluate(() => {
-		const chars = (window.__rt as unknown as {
-			state: { characters?: { characters?: Record<string, { id: string }> } };
-		}).state.characters?.characters;
+		const chars = (
+			window.__rt as unknown as {
+				state: { characters?: { characters?: Record<string, { id: string }> } };
+			}
+		).state.characters?.characters;
 		const first = Object.values(chars ?? {})[0];
 		return first?.id ?? null;
 	});
@@ -295,10 +297,7 @@ test('the character sheet fits a compact phone without clipped controls', async 
 	await page.evaluate((id) => {
 		window.location.hash = `/characters/${id}`;
 	}, characterId);
-	await page.waitForFunction(
-		(id) => window.location.hash === `#/characters/${id}`,
-		characterId,
-	);
+	await page.waitForFunction((id) => window.location.hash === `#/characters/${id}`, characterId);
 	await page.locator('h1').first().waitFor({ state: 'attached', timeout: 20_000 });
 	await page.waitForTimeout(150);
 
@@ -310,7 +309,9 @@ test('the character sheet fits a compact phone without clipped controls', async 
 // per use at 13px — under WCAG 2.5.8's 24px floor. The pips are CONTENTLESS <button>s, so their
 // min-content width is ~3px: on a phone they silently shrank into unhittable slivers rather than
 // overflowing, which is exactly why `clippedControls` above never caught them.
-test('class-resource pips stay hittable at a high resource maximum on a phone', async ({ page }) => {
+test('class-resource pips stay hittable at a high resource maximum on a phone', async ({
+	page,
+}) => {
 	await page.setViewportSize({ width: 393, height: 830 });
 	await markOnboarded(page);
 	await gotoRoute(page, '/player');
@@ -969,6 +970,22 @@ test('the skip link moves focus to main without clobbering the hash route', asyn
 	// … and the route is untouched, so Back and reload still work.
 	expect(new URL(page.url()).hash).toBe('#/scenes');
 	await expect(page.locator('#main-content')).toBeVisible();
+
+	// … and the skip actually SHOWS. `<main>` carried an inline `outline: 'none'`, which beats the
+	// stylesheet, so base.css's global `:focus-visible` ring never painted on the one element the
+	// app's only bypass mechanism targets: pressing "Skip to content" confirmed nothing at all.
+	// The offset must be negative too — a positive one lands outside a viewport-filling box.
+	const ring = await page.locator('#main-content').evaluate((el) => {
+		const cs = getComputedStyle(el);
+		return {
+			style: cs.outlineStyle,
+			width: parseFloat(cs.outlineWidth) || 0,
+			offset: parseFloat(cs.outlineOffset) || 0,
+		};
+	});
+	expect(ring.style).not.toBe('none');
+	expect(ring.width).toBeGreaterThan(0);
+	expect(ring.offset).toBeLessThan(0);
 });
 
 // `/play` is rendered OUTSIDE AppShell, so it never inherited the shell's skip link — and

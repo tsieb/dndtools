@@ -1,5 +1,43 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+
+/**
+ * Take the session live on the home scene.
+ *
+ * `session.set-workflow {workflow:'active'}` is REJECTED without an `activeSceneId`, and
+ * `command-center.ensure-home` resolves asynchronously AFTER `waitReady` (which only waits for
+ * `#main-content`). Three tests here read `homeSceneId` in a one-shot `page.evaluate`, so they raced
+ * the home scene into existence: green in isolation, intermittently red under full-suite load. Wait
+ * for it, and fall back to the first real scene exactly as combat.spec / player-view.spec already do.
+ */
+async function goLive(page: Page): Promise<void> {
+	await page.waitForFunction(() => {
+		const state = window.__rt!.state as unknown as {
+			commandCenter: { homeSceneId: string | null };
+			scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+		};
+		return (
+			state.commandCenter.homeSceneId !== null ||
+			Object.values(state.scenes.scenes).some((s) => !s.isTemplate)
+		);
+	});
+	const live = await page.evaluate(async () => {
+		const rt = window.__rt!;
+		const state = rt.state as unknown as {
+			commandCenter: { homeSceneId: string | null };
+			scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+		};
+		const sceneId =
+			state.commandCenter.homeSceneId ??
+			Object.values(state.scenes.scenes).find((s) => !s.isTemplate)?.id;
+		return rt.dispatch({
+			type: 'session.set-workflow',
+			actorId: rt.defaultActorId,
+			payload: { workflow: 'active', activeSceneId: sceneId },
+		});
+	});
+	expect(live.status, `go live was ${live.status}: ${JSON.stringify(live)}`).toBe('accepted');
+}
 
 // CANVAS — the spatial surfaces (/board, /scene/:id) mount against the real Processing Core, and a
 // content mutation (moving a widget) round-trips through the op-log and survives reload.
@@ -556,16 +594,7 @@ test.describe('canvas: session-only widget operations explain themselves', () =>
 		await expect(page.getByText(/current workflow is/)).toHaveCount(0);
 
 		// Going live turns the same chip into a real, unqualified control.
-		const live = await page.evaluate(async () => {
-			const rt = window.__rt!;
-			const state = rt.state as unknown as { commandCenter: { homeSceneId: string | null } };
-			return rt.dispatch({
-				type: 'session.set-workflow',
-				actorId: rt.defaultActorId,
-				payload: { workflow: 'active', activeSceneId: state.commandCenter.homeSceneId },
-			});
-		});
-		expect(live.status).toBe('accepted');
+		await goLive(page);
 		await expect(roll).not.toHaveAttribute('aria-disabled', 'true');
 		await expect(roll).toHaveAccessibleName(/^Roll /);
 	});
@@ -840,16 +869,7 @@ test.describe('canvas: the GM Screen dice widget announces its result', () => {
 		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
 		await waitReady(page);
 
-		const live = await page.evaluate(async () => {
-			const rt = window.__rt!;
-			const state = rt.state as unknown as { commandCenter: { homeSceneId: string | null } };
-			return rt.dispatch({
-				type: 'session.set-workflow',
-				actorId: rt.defaultActorId,
-				payload: { workflow: 'active', activeSceneId: state.commandCenter.homeSceneId },
-			});
-		});
-		expect(live.status).toBe('accepted');
+		await goLive(page);
 
 		const roll = page.getByRole('button', { name: /^Roll / });
 		await expect(roll).toHaveCount(1);
@@ -892,16 +912,7 @@ test.describe('canvas: the timer transport survives its own press', () => {
 		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
 		await waitReady(page);
 
-		const live = await page.evaluate(async () => {
-			const rt = window.__rt!;
-			const state = rt.state as unknown as { commandCenter: { homeSceneId: string | null } };
-			return rt.dispatch({
-				type: 'session.set-workflow',
-				actorId: rt.defaultActorId,
-				payload: { workflow: 'active', activeSceneId: state.commandCenter.homeSceneId },
-			});
-		});
-		expect(live.status).toBe('accepted');
+		await goLive(page);
 
 		const start = page.getByRole('button', { name: /^Start \d+-second timer$/ });
 		await expect(start).toHaveCount(1);

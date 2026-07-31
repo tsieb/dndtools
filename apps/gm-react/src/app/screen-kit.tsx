@@ -1,5 +1,5 @@
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '../ds';
 import { useViewport } from './useViewport';
@@ -20,13 +20,31 @@ import { useViewport } from './useViewport';
  * or were missing it entirely (Settings' tool preferences).
  */
 export function radioGroupKeyDown(e: ReactKeyboardEvent) {
-	if (!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'].includes(e.key)) return;
-	const radios = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]'));
-	const at = radios.indexOf(e.target as HTMLElement);
-	if (at === -1 || radios.length < 2) return;
+	const keys = ['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft', 'Home', 'End'];
+	if (!keys.includes(e.key)) return;
+	// The focused radio has to be located among ALL radios, but only ENABLED ones are landing sites:
+	// arrowing onto a disabled radio moved focus to a control that cannot take the selection, and
+	// since selection follows focus here it also silently dropped the user's choice on the floor.
+	const all = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]'));
+	const enabled = all.filter(
+		(r) => r.getAttribute('aria-disabled') !== 'true' && !(r as HTMLButtonElement).disabled,
+	);
+	if (enabled.length < 2) return;
+	// Home/End are part of the ARIA radiogroup keyboard contract (WAI-ARIA APG), and this group can
+	// be a wrapped grid of cards where "the first one" is not one arrow press away.
+	if (e.key === 'Home' || e.key === 'End') {
+		if (all.indexOf(e.target as HTMLElement) === -1) return;
+		e.preventDefault();
+		const edge = e.key === 'Home' ? enabled[0] : enabled[enabled.length - 1];
+		edge?.focus();
+		edge?.click();
+		return;
+	}
+	const at = enabled.indexOf(e.target as HTMLElement);
+	if (at === -1) return;
 	e.preventDefault();
 	const delta = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1;
-	const next = radios[(at + delta + radios.length) % radios.length];
+	const next = enabled[(at + delta + enabled.length) % enabled.length];
 	next?.focus();
 	next?.click();
 }
@@ -68,6 +86,47 @@ export const eb: CSSProperties = {
 };
 
 export const mono: CSSProperties = { fontFamily: T.mono };
+
+/** Present to assistive tech, absent from the layout. */
+export const srOnly: CSSProperties = {
+	position: 'absolute',
+	width: 1,
+	height: 1,
+	margin: -1,
+	padding: 0,
+	border: 0,
+	overflow: 'hidden',
+	clip: 'rect(0 0 0 0)',
+	clipPath: 'inset(50%)',
+	whiteSpace: 'nowrap',
+};
+
+/**
+ * LoadingRegion — a skeleton placeholder that actually announces itself.
+ *
+ * The seven `role="status" aria-label="Loading …"` regions this replaces wrapped nothing but
+ * `<Skeleton>`, and Skeleton is `aria-hidden` at all three of its return paths — so the live region
+ * was permanently EMPTY. `aria-label` names a region; it is not CONTENT, and a live region announces
+ * its content. Both the start of loading and its completion were therefore silent, on exactly the
+ * panels (devices, invites, vault connections, marketplace listings) where a screen-reader user has
+ * no visual shimmer to fall back on. Carrying the text inside fixes it once for every call site.
+ */
+export function LoadingRegion({
+	label,
+	children,
+	style,
+}: {
+	label: string;
+	children?: ReactNode;
+	style?: CSSProperties;
+}) {
+	return (
+		<div role="status" style={style}>
+			<span style={srOnly}>{label}</span>
+			{children}
+		</div>
+	);
+}
 
 export function Panel({
 	title,
@@ -249,21 +308,34 @@ export function BackBar({
 	onClick?: () => void;
 }) {
 	const navigate = useNavigate();
+	const [hover, setHover] = useState(false);
 	return (
-		<nav aria-label="Breadcrumb" style={{ marginBottom: 14 }}>
+		// The negative offsets keep the link optically flush with the content below it now that the
+		// button carries real padding — the visual position is unchanged, only the hit box grew.
+		<nav aria-label="Breadcrumb" style={{ margin: '0 0 8px -8px' }}>
 			<button
 				type="button"
 				onClick={onClick ?? (() => navigate(to ?? '/'))}
+				onMouseEnter={() => setHover(true)}
+				onMouseLeave={() => setHover(false)}
 				style={{
 					display: 'inline-flex',
 					alignItems: 'center',
 					gap: 6,
+					// `padding: 0` around a 16px chevron made the app's back navigation a ~19px-tall
+					// target (WCAG 2.5.8 wants 24px), and with no global `button:hover` in this repo it
+					// gave no pointer feedback at all. Padding rather than an inline `minHeight`: an
+					// inline value would beat `html[data-android] button { min-height: 48px }` in
+					// styles/index.css and shrink the target on the one platform that needs it most.
+					padding: '4px 8px',
+					borderRadius: 8,
 					border: 'none',
-					background: 'transparent',
+					background: hover ? T.hover : 'transparent',
 					cursor: 'pointer',
-					color: T.sub,
+					color: hover ? T.ink : T.sub,
 					font: `13px ${T.sans}`,
-					padding: 0,
+					transition:
+						'background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard)',
 				}}
 			>
 				<Icon name="chevron-left" size={16} />

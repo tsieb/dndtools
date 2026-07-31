@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { MIN_RECOVERY_PASSPHRASE_CHARS } from '@dndtools/core';
-import { recoveryPassphraseIssue, recoveryPassphraseOk } from './settings-validation';
+import {
+	nextHighContrastTheme,
+	recoveryPassphraseIssue,
+	recoveryPassphraseOk,
+} from './settings-validation';
 
 // The recovery-key export panel only renders for a signed-in cloud account, so the e2e suite can
 // never reach it. Before this, a too-short or MISMATCHED passphrase was expressed solely as an inert
@@ -53,5 +57,29 @@ describe('recovery-key passphrase validation', () => {
 			expect(recoveryPassphraseOk(a, b)).toBe(false);
 			expect(recoveryPassphraseIssue(a, b)).not.toBeNull();
 		}
+	});
+});
+
+// The High-contrast switch reads as an ordinary reversible toggle, and it was not one: turning it
+// off hard-coded 'tavern', so a Parchment reader who tried high contrast for a minute had their
+// theme preference destroyed with nothing on screen to say so.
+describe('the high-contrast switch is reversible', () => {
+	it('turns high contrast on from whatever theme is in effect', () => {
+		expect(nextHighContrastTheme('parchment', null)).toBe('high-contrast');
+		expect(nextHighContrastTheme('tavern', 'parchment')).toBe('high-contrast');
+	});
+
+	it('restores the theme the user was on before', () => {
+		expect(nextHighContrastTheme('high-contrast', 'parchment')).toBe('parchment');
+		expect(nextHighContrastTheme('high-contrast', 'tavern')).toBe('tavern');
+	});
+
+	it('falls back to Tavern when there is no usable record of the previous theme', () => {
+		// A first-run user who has never left high contrast, or a corrupted/stale stored value —
+		// including 'high-contrast' itself, which would leave the switch unable to turn off at all.
+		expect(nextHighContrastTheme('high-contrast', null)).toBe('tavern');
+		expect(nextHighContrastTheme('high-contrast', '')).toBe('tavern');
+		expect(nextHighContrastTheme('high-contrast', 'nonsense')).toBe('tavern');
+		expect(nextHighContrastTheme('high-contrast', 'high-contrast')).toBe('tavern');
 	});
 });

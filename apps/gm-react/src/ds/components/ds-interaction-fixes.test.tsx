@@ -26,6 +26,7 @@ import { Avatar as RawAvatar } from './core/Avatar.jsx';
 import { QuestCard as RawQuestCard } from './campaign/QuestCard.jsx';
 import { Tabs as RawTabs } from './core/Tabs.jsx';
 import { Minimap as RawMinimap } from './map/Minimap.jsx';
+import { SpellSlots as RawSpellSlots } from './spell/SpellSlots.jsx';
 
 // The DS ships as .jsx with `checkJs: false`, so tsc infers every defaultless prop as required.
 // Re-type the imports as open prop bags rather than restating each component's contract.
@@ -53,6 +54,7 @@ const Tabs = RawTabs as React.ComponentType<DsProps>;
 const Minimap = RawMinimap as React.ComponentType<DsProps>;
 const ProgressMeter = RawProgressMeter as React.ComponentType<DsProps>;
 const Checkbox = RawCheckbox as React.ComponentType<DsProps>;
+const SpellSlots = RawSpellSlots as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;
@@ -1098,5 +1100,47 @@ describe('a disabled checkbox says so', () => {
 		const box = container.querySelector('[role="checkbox"]')!;
 		expect(box.getAttribute('aria-disabled')).toBe(null);
 		expect(box.getAttribute('tabindex')).toBe('0');
+	});
+});
+
+describe('a read-only spell-slot economy is readable, not dead', () => {
+	const levels = [{ level: 1, total: 3, used: 1 }];
+
+	it('renders read-only pips as images rather than natively disabled buttons', () => {
+		// `Characters.tsx` passes `readOnly={!isDm}`, so a non-DM viewer of a shared sheet got the
+		// whole slot grid as `disabled` <button>s: out of the tab order, UA-dimmed, and announced as
+		// unavailable ACTIONS when they were only ever a STATE readout. Same defect QuestCard had.
+		act(() => root.render(<SpellSlots levels={levels} readOnly />));
+		expect(container.querySelectorAll('button')).toHaveLength(0);
+		const pips = container.querySelectorAll('[role="img"]');
+		expect(pips).toHaveLength(3);
+		expect(pips[0].getAttribute('aria-label')).toBe('Level 1 slot 1 available');
+		expect(pips[2].getAttribute('aria-label')).toBe('Level 1 slot 3 expended');
+	});
+
+	it('still spends a slot when it is the DM’s own sheet', () => {
+		const seen: number[] = [];
+		act(() =>
+			root.render(
+				<SpellSlots levels={levels} onToggle={(_l: number, i: number) => seen.push(i)} />,
+			),
+		);
+		const pips = Array.from(container.querySelectorAll('button'));
+		expect(pips).toHaveLength(3);
+		expect(pips[0].getAttribute('aria-pressed')).toBe('true');
+		expect(pips[2].getAttribute('aria-pressed')).toBe('false');
+		act(() => pips[1].click());
+		expect(seen).toEqual([1]);
+	});
+
+	it('gives each interactive pip a 24px square hit box and keeps the rotation off it', () => {
+		// The diamond used to be made by rotating the 16px BUTTON 45deg, so its corners overhung the
+		// neighbouring slots and a mis-tap spent someone else's spell. The rotate belongs on the paint.
+		act(() => root.render(<SpellSlots levels={levels} onToggle={() => {}} />));
+		const pip = container.querySelector('button') as HTMLButtonElement;
+		expect(pip.style.width).toBe('24px');
+		expect(pip.style.height).toBe('24px');
+		expect(pip.style.transform).toBe('');
+		expect((pip.firstElementChild as HTMLElement).style.transform).toBe('rotate(45deg)');
 	});
 });
