@@ -12,6 +12,10 @@ import { categoryForTool } from '../useMapEditor';
  * controls). Reorder works by drag AND by Alt+↑/↓ (the WCAG 2.5.7 keyboard alternative). A `readOnly`
  * variant strips authoring for the non-DM path so the panel doubles as a keyboard-navigable object list.
  */
+
+/** Private drag payload marker so the layer list only ever accepts drags that started inside it. */
+const LAYER_DND_TYPE = 'application/x-dndtools-map-layer';
+
 export function LayersPanel({
 	editor,
 	announce,
@@ -28,6 +32,7 @@ export function LayersPanel({
 	const [confirmDelete, setConfirmDelete] = useState<MapLayerQueryEntry | null>(null);
 	const [tagsFor, setTagsFor] = useState<MapLayerQueryEntry | null>(null);
 	const [dragIndex, setDragIndex] = useState<number | null>(null);
+	const [dropIndex, setDropIndex] = useState<number | null>(null);
 
 	const allTags = useMemo(() => {
 		const set = new Set<string>();
@@ -127,11 +132,36 @@ export function LayersPanel({
 						<div
 							key={l.layerId}
 							draggable={isDm}
-							onDragStart={() => setDragIndex(index)}
-							onDragOver={(e) => e.preventDefault()}
-							onDrop={() => {
-								if (dragIndex !== null && dragIndex !== index)
-									reorder(layers[dragIndex]!.layerId, index);
+							onDragStart={(e) => {
+								setDragIndex(index);
+								// Stamp the payload so this list only ever accepts its OWN rows. Without it
+								// `onDragOver` preventDefault'd every drag — a file or a dragged selection
+								// dropped here counted as a valid drop.
+								e.dataTransfer.effectAllowed = 'move';
+								e.dataTransfer.setData(LAYER_DND_TYPE, l.layerId);
+							}}
+							// A drag that ends outside the list fires no `drop`, so without this the index
+							// stayed set and the NEXT unrelated drop over the list reordered a layer the
+							// user was no longer dragging.
+							onDragEnd={() => {
+								setDragIndex(null);
+								setDropIndex(null);
+							}}
+							onDragOver={(e) => {
+								if (dragIndex === null || !e.dataTransfer.types.includes(LAYER_DND_TYPE)) return;
+								e.preventDefault();
+								e.dataTransfer.dropEffect = 'move';
+								setDropIndex(index);
+							}}
+							onDragLeave={() => setDropIndex((i) => (i === index ? null : i))}
+							onDrop={(e) => {
+								setDropIndex(null);
+								// Re-check the marker here too, not just in `onDragOver`: a drop is only
+								// reachable in a real browser through a preventDefault'd dragover, but the
+								// reorder is a durable write, so it should not depend on that invariant.
+								if (dragIndex === null || !e.dataTransfer.types.includes(LAYER_DND_TYPE)) return;
+								e.preventDefault();
+								if (dragIndex !== index) reorder(layers[dragIndex]!.layerId, index);
 								setDragIndex(null);
 							}}
 							onClick={() => editor.setActiveLayerId(l.layerId)}
@@ -154,6 +184,12 @@ export function LayersPanel({
 								position: 'relative',
 								borderRadius: 8,
 								background: activeId === l.layerId ? T.accSub : 'transparent',
+								// Emitted only while this row is actually hovered as a drop target — an
+								// `outline: cond ? x : 'none'` inline branch would beat the app's global
+								// focus ring for the rest of the time.
+								...(dragIndex !== null && dragIndex !== index && dropIndex === index
+									? { outline: '2px solid var(--color-accent)', outlineOffset: '-2px' }
+									: null),
 							}}
 						>
 							<LayerRow

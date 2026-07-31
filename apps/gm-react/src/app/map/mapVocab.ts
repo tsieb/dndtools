@@ -125,3 +125,28 @@ export const DOOR_KINDS: ReadonlyArray<{ id: string; label: string }> = [
 
 /** Clamp a normalized coordinate to the [0,1] map box. */
 export const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
+
+/**
+ * Announcement copy for a bulk selection command that walks the selection one `run()` at a time and
+ * stops on the first refusal (a locked layer, a permission ceiling).
+ *
+ * `run()` returns false for BOTH "already busy" and "the core refused", so a partial or empty result
+ * is the normal failure signal — and announcing the verb unconditionally told the DM the work landed
+ * when nothing had. Mirrors `keyboard.ts`'s `deleteSelection`, which had the same defect.
+ */
+export function bulkResultMessage(opts: {
+	done: number;
+	attempted: number;
+	/** Success copy. `{objects}` is replaced with "1 object" / "N objects" — the plural the old
+	 *  hard-coded `${n} objects` got wrong for a single-item selection. */
+	template: string;
+	/** Past participle for the all-refused case, e.g. `deleted`, `changed`. */
+	refusedVerb: string;
+}): string {
+	const { done, attempted, template, refusedVerb } = opts;
+	if (attempted === 0) return '';
+	if (done === 0) return `Nothing was ${refusedVerb} — the selection may be on a locked layer.`;
+	const objects = done === 1 ? '1 object' : `${done} objects`;
+	const message = template.replace('{objects}', objects);
+	return done < attempted ? `${message.replace(/\.$/, '')} — the rest were refused.` : message;
+}

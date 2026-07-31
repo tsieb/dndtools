@@ -80,9 +80,14 @@ html[data-android] a[href] {
 }
 
 /* Board widgets live inside a zoomed canvas. Compensate their real operation controls for that
-   transform so the final on-screen hit area remains 48dp instead of shrinking with the scene. */
-html[data-android] .scene-board-operation {
-	--operation-touch-target: var(--scene-board-touch-target, 48px);
+   transform so the final on-screen hit area matches the active density target instead of shrinking
+   with the scene. This is NOT Android-only: the bounded /board fits its authored extent into the
+   viewport on every profile (~0.48 on a 393px handset), so an uncompensated chip painted at ~15px
+   on iOS and mobile web too. Dividing the density token by the layer's own scale keeps desktop
+   (scale 1) at exactly the value the chip's fallback chain already resolved, so nothing moves there,
+   while Android still lands on its 48dp floor via its own 3rem density token. */
+.scene-board-operation {
+	--operation-touch-target: calc(var(--density-touch-target, 2rem) / var(--scene-board-scale, 1));
 }
 
 #root {

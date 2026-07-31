@@ -10,7 +10,7 @@ import { T, eb } from '../../screen-kit';
 import { useRuntime } from '../../../runtime/RuntimeContext';
 import { exportFile, FileExportError } from '../../../platform/download';
 import type { MapEditorApi } from '../useMapEditor';
-import { VIS_TEXT } from '../mapVocab';
+import { VIS_TEXT, bulkResultMessage } from '../mapVocab';
 
 const VIS_CHIP: Record<string, string> = {
 	'dm-only': 'dm-only',
@@ -724,9 +724,17 @@ function MultiInspector({
 				changed += 1;
 			else break;
 		}
-		announce(`${changed} objects set to ${VIS_TEXT[visibility]}.`);
+		announce(
+			bulkResultMessage({
+				done: changed,
+				attempted: selectedPois.length + selectedTokens.length,
+				template: `Set {objects} to ${VIS_TEXT[visibility]}.`,
+				refusedVerb: 'changed',
+			}),
+		);
 	};
 	const deleteAll = async () => {
+		const attempted = selectedPois.length + selectedTokens.length;
 		let deleted = 0;
 		for (const p of selectedPois) {
 			if (await run({ type: 'map.delete-poi', actorId, payload: { mapId, poiId: p.id } } as never))
@@ -740,8 +748,18 @@ function MultiInspector({
 				deleted += 1;
 			else break;
 		}
-		editor.clearSelection();
-		announce(`Deleted ${deleted} objects.`);
+		// Clearing the selection on a REFUSAL destroyed the only state the DM could retry from after
+		// unlocking the layer — and "Deleted 0 objects." claimed the work had happened. Same defect
+		// run #21 fixed in `keyboard.ts`'s `deleteSelection`; this is its sibling call site.
+		if (deleted > 0) editor.clearSelection();
+		announce(
+			bulkResultMessage({
+				done: deleted,
+				attempted,
+				template: 'Deleted {objects}.',
+				refusedVerb: 'deleted',
+			}),
+		);
 	};
 
 	return (

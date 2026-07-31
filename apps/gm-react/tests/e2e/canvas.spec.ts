@@ -983,3 +983,103 @@ test.describe('canvas: the GM Screen status region exists before it speaks', () 
 		);
 	});
 });
+
+// The bounded GM Screen FITS its authored extent into the viewport, so every control inside it is
+// painted through a `scale()` well below 1 on a handset. `styles/index.css` already compensated the
+// widget operation chips for that transform — but the rule was gated to `html[data-android]`, and the
+// fit scale applies on EVERY profile. On iOS and mobile web the chips inherited a flat 2rem and then
+// shrank with the board, landing at ~15px on screen: below any touch floor, on the app's home
+// dashboard. The compensation is now `density-target / scale`, ungated, which leaves desktop (scale 1)
+// at exactly the value the chip's own fallback chain already resolved.
+test.describe('canvas: board operation chips survive the bounded fit scale', () => {
+	test('the dice chip keeps a density-sized hit area on a phone-width board', async ({ page }) => {
+		await page.setViewportSize({ width: 393, height: 851 });
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+
+		const board = page.getByTestId('scene-board-bounded');
+		await expect(board).toBeVisible();
+
+		// Establish the precondition this fix exists for, rather than assuming it: the layer really is
+		// scaled down. Without this the size assertion below could pass for the wrong reason.
+		const scale = await board.evaluate((el) => {
+			const layer = el.querySelector('[style*="--scene-board-scale"]') as HTMLElement | null;
+			return Number(layer?.style.getPropertyValue('--scene-board-scale') ?? '1');
+		});
+		expect(scale).toBeGreaterThan(0);
+		expect(scale, 'the phone board should be fitted, not 1:1').toBeLessThan(0.8);
+
+		const roll = page.getByRole('button', { name: /^Roll / });
+		await expect(roll).toHaveCount(1);
+		const box = (await roll.boundingBox())!;
+		// boundingBox() is the TRANSFORMED rect, i.e. what the finger actually gets. 2rem/scale declared
+		// x scale painted == 2rem. Before the fix this measured ~15px at this viewport.
+		expect(
+			box.height,
+			`chip painted at ${box.height}px under scale ${scale}`,
+		).toBeGreaterThanOrEqual(30);
+	});
+});
+
+// The /scenes create form derived its "✓ Saved" tick from `runtime.lastLifecycle` — GLOBAL runtime
+// state that outlives the screen. So a scene created anywhere in the app (⌘K, the hub, a previous
+// visit) left an untouched, empty form wearing a green success tick, claiming work it had not done.
+// The tick is now the outcome of THIS form's own submit, it names the scene it saved, it retires when
+// the next draft starts, and it surfaces the rejection reason instead of swallowing it.
+test.describe('scenes: the create form only claims its own saves', () => {
+	test('a scene created elsewhere leaves the untouched form with no success tick', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/scenes');
+		await seedFresh(page);
+		await page.goto('/#/scenes', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+
+		const feedback = page.getByTestId('scene-create-feedback');
+		// Present and EMPTY before any submit: a permanent host, so the later text change is the one
+		// mutation a screen reader hears.
+		await expect(feedback).toHaveCount(1);
+		await expect(feedback).toHaveText('');
+
+		// Create a scene WITHOUT touching this form — exactly what ⌘K "New scene" or the hub does.
+		const elsewhere = `Elsewhere ${Date.now()}`;
+		const created = await dispatch(page, {
+			type: 'scene.create',
+			actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+			payload: { name: elsewhere, description: '', visibility: 'dm-only', tags: [] },
+		});
+		expect(created.status).toBe('accepted');
+		await expect(page.getByRole('button', { name: elsewhere })).not.toHaveCount(0);
+
+		// The form said nothing, because the form did nothing.
+		await expect(feedback).toHaveText('');
+	});
+
+	test('submitting the form reports the scene it saved, then retires on the next draft', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/scenes');
+		await seedFresh(page);
+		await page.goto('/#/scenes', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+
+		// `Create scene` is a SUBSTRING of the SceneCardsPanel's `Create scene card` on this same
+		// route, and `Name` of its `Name` field — both need exact matching here.
+		const mine = `Mine ${Date.now()}`;
+		await page.getByLabel('Name', { exact: true }).first().fill(mine);
+		await page.getByRole('button', { name: 'Create scene', exact: true }).click();
+
+		const feedback = page.getByTestId('scene-create-feedback');
+		// It names the scene rather than a bare "Saved", so the confirmation is checkable.
+		await expect(feedback).toHaveText(new RegExp(mine));
+
+		// Starting the next draft retires it — the tick can never sit above a form it does not describe.
+		await page.getByLabel('Name', { exact: true }).first().fill('A');
+		await expect(feedback).toHaveText('');
+	});
+});

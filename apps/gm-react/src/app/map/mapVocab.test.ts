@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TERRAIN_STYLES, terrainColor } from './mapVocab';
+import { TERRAIN_STYLES, bulkResultMessage, terrainColor } from './mapVocab';
 
 // The brush, fill and room tools all write the chosen `terrain:*` id into `feature.style`, but the
 // shared renderer (`FeatureShape`) only read the LAYER category colour — so all eight entries of the
@@ -38,5 +38,86 @@ describe('terrainColor', () => {
 		for (const style of ['', 'water', 'water:river', 'prop:crate', 'terrain:nope', undefined]) {
 			expect(terrainColor(style), String(style)).toBeNull();
 		}
+	});
+});
+
+// The map Inspector's two bulk actions walk the selection one `run()` at a time and STOP on the first
+// refusal (a locked layer, a permission ceiling). Both announced their verb unconditionally, so a DM
+// whose delete was refused heard "Deleted 0 objects." — and `deleteAll` also cleared the selection,
+// destroying the one state they could retry from after unlocking. Run #21 fixed exactly this shape in
+// `keyboard.ts`'s `deleteSelection`; these are its sibling call sites.
+describe('bulkResultMessage', () => {
+	it('names a single object in the singular', () => {
+		expect(
+			bulkResultMessage({
+				done: 1,
+				attempted: 1,
+				template: 'Deleted {objects}.',
+				refusedVerb: 'deleted',
+			}),
+		).toBe('Deleted 1 object.');
+	});
+
+	it('pluralises a multi-object result', () => {
+		expect(
+			bulkResultMessage({
+				done: 3,
+				attempted: 3,
+				template: 'Deleted {objects}.',
+				refusedVerb: 'deleted',
+			}),
+		).toBe('Deleted 3 objects.');
+	});
+
+	it('never claims success when every command was refused', () => {
+		const message = bulkResultMessage({
+			done: 0,
+			attempted: 4,
+			template: 'Deleted {objects}.',
+			refusedVerb: 'deleted',
+		});
+		expect(message).not.toMatch(/Deleted/);
+		expect(message).toMatch(/locked layer/);
+	});
+
+	it('reports a partial result as partial rather than as a clean success', () => {
+		expect(
+			bulkResultMessage({
+				done: 2,
+				attempted: 5,
+				template: 'Deleted {objects}.',
+				refusedVerb: 'deleted',
+			}),
+		).toBe('Deleted 2 objects — the rest were refused.');
+	});
+
+	it('carries the same guarantees for the visibility action', () => {
+		expect(
+			bulkResultMessage({
+				done: 1,
+				attempted: 1,
+				template: 'Set {objects} to DM only.',
+				refusedVerb: 'changed',
+			}),
+		).toBe('Set 1 object to DM only.');
+		expect(
+			bulkResultMessage({
+				done: 0,
+				attempted: 2,
+				template: 'Set {objects} to DM only.',
+				refusedVerb: 'changed',
+			}),
+		).toBe('Nothing was changed — the selection may be on a locked layer.');
+	});
+
+	it('says nothing at all when there was no selection to act on', () => {
+		expect(
+			bulkResultMessage({
+				done: 0,
+				attempted: 0,
+				template: 'Deleted {objects}.',
+				refusedVerb: 'deleted',
+			}),
+		).toBe('');
 	});
 });

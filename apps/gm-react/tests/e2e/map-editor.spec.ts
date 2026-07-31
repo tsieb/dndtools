@@ -919,3 +919,80 @@ test.describe('map editor: the phone header keeps the map name readable', () => 
 		expect(box.width).toBeGreaterThan(chipBox.width * 2);
 	});
 });
+
+// The layer list reordered by HTML5 drag-and-drop, but `onDragOver` called `preventDefault()`
+// UNCONDITIONALLY — so the list advertised itself as a valid drop target for any payload, including a
+// file or a dragged text selection. Worse, there was no `onDragEnd`: a layer drag released anywhere
+// but on a row fired no `drop`, so `dragIndex` stayed set indefinitely, and the NEXT unrelated drop
+// anywhere over the list silently reordered a layer the DM was no longer dragging. Both halves are
+// now guarded by a private payload marker, and the drag state is reset on `dragend`.
+test.describe('map editor: the layer list only accepts its own drags', () => {
+	test('an abandoned drag followed by a foreign drop does not reorder anything', async ({
+		page,
+	}, testInfo) => {
+		await openAtlas(page);
+		const name = `Drag Keep ${Date.now()}`;
+		const mapId = await createMap(page, {
+			name,
+			layers: [
+				{ name: 'Ground', category: 'base' },
+				{ name: 'Middle', category: 'base' },
+				{ name: 'Upper', category: 'base' },
+			],
+		});
+		await openEditor(page, name);
+		await revealDock(page, testInfo);
+		await page.getByRole('tab', { name: 'Layers' }).click();
+
+		const list = editorRoot(page).getByRole('list', { name: 'Map layers' });
+		const rows = list.locator(':scope > div');
+		await expect(rows).toHaveCount(3);
+		const before = (await readMap(page, mapId))!.layerNames;
+
+		// 1 · Start a layer drag and abandon it off the list — the browser fires `dragend`, not `drop`.
+		const own = await page.evaluateHandle(() => new DataTransfer());
+		await rows.nth(0).dispatchEvent('dragstart', { dataTransfer: own });
+		await rows.nth(0).dispatchEvent('dragend', { dataTransfer: own });
+
+		// 2 · Now drag something that did not come from this list over it and drop.
+		const foreign = await page.evaluateHandle(() => {
+			const dt = new DataTransfer();
+			dt.setData('text/plain', 'a dragged sentence from somewhere else');
+			return dt;
+		});
+		await rows.nth(2).dispatchEvent('dragover', { dataTransfer: foreign });
+		await rows.nth(2).dispatchEvent('drop', { dataTransfer: foreign });
+
+		// Nothing moved. Before the fix, step 1's stale index made step 2 reorder "Ground".
+		await expect.poll(async () => (await readMap(page, mapId))!.layerNames).toEqual(before);
+	});
+
+	test('a real row-to-row drag still reorders the stack', async ({ page }, testInfo) => {
+		await openAtlas(page);
+		const name = `Drag Keep 2 ${Date.now()}`;
+		const mapId = await createMap(page, {
+			name,
+			layers: [
+				{ name: 'Ground', category: 'base' },
+				{ name: 'Middle', category: 'base' },
+				{ name: 'Upper', category: 'base' },
+			],
+		});
+		await openEditor(page, name);
+		await revealDock(page, testInfo);
+		await page.getByRole('tab', { name: 'Layers' }).click();
+
+		const list = editorRoot(page).getByRole('list', { name: 'Map layers' });
+		const rows = list.locator(':scope > div');
+		await expect(rows).toHaveCount(3);
+		const before = (await readMap(page, mapId))!.layerNames;
+
+		const dt = await page.evaluateHandle(() => new DataTransfer());
+		await rows.nth(0).dispatchEvent('dragstart', { dataTransfer: dt });
+		await rows.nth(2).dispatchEvent('dragover', { dataTransfer: dt });
+		await rows.nth(2).dispatchEvent('drop', { dataTransfer: dt });
+
+		// The guard is on the PAYLOAD, not on drag-and-drop itself: the feature still works.
+		await expect.poll(async () => (await readMap(page, mapId))!.layerNames).not.toEqual(before);
+	});
+});

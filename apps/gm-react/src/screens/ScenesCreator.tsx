@@ -40,6 +40,13 @@ export function ScenesCreator() {
 	const [visibility, setVisibility] = useState<Visibility>('dm-only');
 	const [tagsRaw, setTagsRaw] = useState('');
 	const [submitting, setSubmitting] = useState(false);
+	// The outcome of THIS form's own last submit. It used to be derived from `runtime.lastLifecycle`,
+	// which is GLOBAL and survives navigation — so an empty, untouched form wore a green "✓ Saved"
+	// tick whenever the most recent command anywhere in the app happened to be a `scene.create`
+	// (leaving and returning to /scenes was enough). It also swallowed the rejection reason.
+	const [feedback, setFeedback] = useState<{ tone: 'success' | 'failure'; text: string } | null>(
+		null,
+	);
 	// Which scene row (if any) has its metadata editor expanded (scene.update-metadata).
 	const [editingId, setEditingId] = useState<string | null>(null);
 	// The scene the delete-confirm dialog is open for (scene.delete is destructive — confirm first).
@@ -55,13 +62,12 @@ export function ScenesCreator() {
 		actorId,
 	).filter((scene) => !scene.isTemplate && scene.id !== homeSceneId);
 
-	const lifecycle = runtime.lastLifecycle;
-	const createLifecycle = lifecycle && lifecycle.commandType === 'scene.create' ? lifecycle : null;
-
 	async function submit(event: FormEvent) {
 		event.preventDefault();
-		if (!name.trim() || submitting) return;
+		const created = name.trim();
+		if (!created || submitting) return;
 		setSubmitting(true);
+		setFeedback(null);
 		try {
 			const result = await runtime.dispatch({
 				type: 'scene.create',
@@ -81,13 +87,21 @@ export function ScenesCreator() {
 				setDescription('');
 				setTagsRaw('');
 				setVisibility('dm-only');
+				setFeedback({ tone: 'success', text: `“${created}” was saved.` });
+			} else {
+				setFeedback({
+					tone: 'failure',
+					text: result.rejection.message ?? 'Couldn’t save — try again',
+				});
 			}
+		} catch {
+			// `SceneRuntime.dispatchNow` RETHROWS after a failed durable persist, so without this the
+			// form reset never ran and the button un-busied with no explanation at all.
+			setFeedback({ tone: 'failure', text: 'Couldn’t save — try again' });
 		} finally {
 			setSubmitting(false);
 		}
 	}
-
-	const status = createLifecycle?.status;
 
 	// SCENE METADATA — rename / re-describe / re-tag a scene AFTER creation through the core's
 	// `scene.update-metadata`. Returns the rejection message (null on success) for inline display.
@@ -189,7 +203,12 @@ export function ScenesCreator() {
 							<Input
 								id="scene-name"
 								value={name}
-								onChange={(e: { target: { value: string } }) => setName(e.target.value)}
+								onChange={(e: { target: { value: string } }) => {
+									// A result belongs to the submit that produced it. Starting the next draft
+									// retires it, so the tick can never sit above a form it says nothing about.
+									setFeedback(null);
+									setName(e.target.value);
+								}}
 								placeholder="The Sunken Crypt"
 							/>
 						</Field>
@@ -233,32 +252,31 @@ export function ScenesCreator() {
 							>
 								{submitting ? 'Creating…' : 'Create scene'}
 							</Button>
-							{status === 'success' && (
-								<span
-									style={{
-										display: 'inline-flex',
-										alignItems: 'center',
-										gap: 6,
-										color: 'var(--color-status-success-text)',
-										font: 'var(--text-sm) var(--font-sans)',
-									}}
-								>
-									<Icon name="success" size="sm" /> Saved
-								</span>
-							)}
-							{status === 'failure' && (
-								<span
-									style={{
-										display: 'inline-flex',
-										alignItems: 'center',
-										gap: 6,
-										color: 'var(--color-status-error-text)',
-										font: 'var(--text-sm) var(--font-sans)',
-									}}
-								>
-									<Icon name="error" size="sm" /> {runtime.lastError ?? 'Couldn’t save — try again'}
-								</span>
-							)}
+							{/* One persistent element rather than two conditional siblings: swapping which of
+							    two `{cond && …}` slots renders destroys the first node, and it is the only
+							    channel this form has for a rejection reason. `role="status"` is polite and
+							    already in the tree, so the text change is the mutation AT gets to hear. */}
+							<span
+								data-testid="scene-create-feedback"
+								role="status"
+								style={{
+									display: 'inline-flex',
+									alignItems: 'center',
+									gap: 6,
+									color:
+										feedback?.tone === 'failure'
+											? 'var(--color-status-error-text)'
+											: 'var(--color-status-success-text)',
+									font: 'var(--text-sm) var(--font-sans)',
+								}}
+							>
+								{feedback && (
+									<>
+										<Icon name={feedback.tone === 'failure' ? 'error' : 'success'} size="sm" />{' '}
+										{feedback.text}
+									</>
+								)}
+							</span>
 						</div>
 					</form>
 				</Card>

@@ -509,7 +509,10 @@ export function SceneBoardCanvas({
 						top: 0,
 						transformOrigin: '0 0',
 						transform: `translate(${tx}px, ${ty}px) scale(${scale})`,
-						'--scene-board-touch-target': `${48 / scale}px`,
+						// Published as a bare number so `.scene-board-operation` can divide the density
+						// touch target by it: the chips are painted inside this transform, so their
+						// on-screen size is (declared size x scale).
+						'--scene-board-scale': String(scale),
 						minWidth: policy === 'bounded' ? boundedExtent.width : '100%',
 						height: policy === 'bounded' ? boundedExtent.height : undefined,
 					} as CSSProperties
