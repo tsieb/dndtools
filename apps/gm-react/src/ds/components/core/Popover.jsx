@@ -41,6 +41,7 @@ export function Popover({
 	children,
 	footer,
 	style,
+	triggerRef,
 	...rest
 }) {
 	const ref = React.useRef(null);
@@ -55,7 +56,15 @@ export function Popover({
 	React.useEffect(() => {
 		if (!open) return;
 		const onDown = (e) => {
-			if (ref.current && !ref.current.contains(e.target)) onCloseRef.current?.();
+			if (!ref.current || ref.current.contains(e.target)) return;
+			// The button that opened the popover is OUTSIDE the panel, and every caller toggles its own
+			// open state (`setOpen(v => !v)`). Closing here therefore let the trigger's own `click` —
+			// which fires after `pointerdown` — flip it straight back open, so pressing the button a
+			// second time was a no-op and four map flyouts (layer opacity, the layer ⋯ menu, Snapping,
+			// Export) could only ever be dismissed by Escape or by clicking somewhere else entirely.
+			// Hand the toggle back to the trigger when the press landed on it.
+			if (triggerRef && triggerRef.current && triggerRef.current.contains(e.target)) return;
+			onCloseRef.current?.();
 		};
 		const escapeToken = pushEscapeLayer(() => ref.current);
 		const onKey = (e) => {
@@ -106,7 +115,7 @@ export function Popover({
 			const stranded = !active || active === document.body || !document.contains(active);
 			if (back && stranded && document.contains(back)) back.focus();
 		};
-	}, [open]);
+	}, [open, triggerRef]);
 
 	// Keep the panel inside the viewport. Measured after every render and self-stabilising: once the
 	// correction is applied the natural rect recomputes to the same value, so it settles in one pass.

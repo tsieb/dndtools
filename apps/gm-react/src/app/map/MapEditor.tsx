@@ -99,6 +99,7 @@ export function MapEditor({
 	const [helpOpen, setHelpOpen] = useState(false);
 	const [importOpen, setImportOpen] = useState(false);
 	const [exportOpen, setExportOpen] = useState(false);
+	const exportTriggerRef = useRef<HTMLSpanElement>(null);
 	const [mobileDock, setMobileDock] = useState(false);
 	// `projectToPlayers` does not go through `editor.run`, so `editor.busy` never latched for it and
 	// the button's own `disabled` was decorative — a double-click projected twice.
@@ -573,7 +574,14 @@ export function MapEditor({
 						{map.name}
 					</h1>
 				</nav>
-				{!quickMapMode && <VisibilityChip level={VIS_CHIP[map.visibility] ?? 'dm-only'} />}
+				{/* Compact on a phone: the full "DM ONLY" pill is ~97px, and the header's other six
+				    children all have hard minimums, so on a 393px handset it left the map-name <h1>
+				    about 46px — four characters and an ellipsis. `clippedControls()` cannot see an
+				    element that merely SHRINKS, so no gate was ever going to catch it. Compact keeps
+				    the icon (and moves the label onto `title` + the icon's accessible name). */}
+				{!quickMapMode && (
+					<VisibilityChip level={VIS_CHIP[map.visibility] ?? 'dm-only'} compact={isPhone} />
+				)}
 				{!isPhone && <div style={{ flex: 1 }} />}
 				{!isPhone && (
 					<span
@@ -649,21 +657,26 @@ export function MapEditor({
 					</>
 				)}
 				<div style={{ position: 'relative' }}>
-					<Button
-						variant="secondary"
-						size="sm"
-						icon={quickMapMode ? 'more' : 'download'}
-						iconRight="chevron-down"
-						onClick={() => setExportOpen((v) => !v)}
-						aria-expanded={exportOpen}
-						aria-label={quickMapMode ? 'More map actions' : 'Export'}
-					>
-						{isPhone || quickMapMode ? '' : 'Export'}
-					</Button>
+					{/* display:contents adds no box of its own — it exists only to give the Popover a handle
+					    on its own trigger, so an outside-pointerdown close cannot race the button's click. */}
+					<span ref={exportTriggerRef} style={{ display: 'contents' }}>
+						<Button
+							variant="secondary"
+							size="sm"
+							icon={quickMapMode ? 'more' : 'download'}
+							iconRight="chevron-down"
+							onClick={() => setExportOpen((v) => !v)}
+							aria-expanded={exportOpen}
+							aria-label={quickMapMode ? 'More map actions' : 'Export'}
+						>
+							{isPhone || quickMapMode ? '' : 'Export'}
+						</Button>
+					</span>
 					{exportOpen && (
 						<Popover
 							open
 							onClose={() => setExportOpen(false)}
+							triggerRef={exportTriggerRef}
 							width={220}
 							placement="bottom"
 							style={{

@@ -887,12 +887,18 @@ test.describe('canvas: the GM Screen dice widget announces its result', () => {
 		// The total is NOT mirrored into a second offscreen copy — only the descriptive prefix is
 		// visually hidden. A duplicated copy would make `getByText` ambiguous across the whole app,
 		// which is how a previous attempt at this fix broke unrelated specs.
+		// Count the total IN ITS OWN POSITION (`= 15`), not as a bare substring: the readout reads
+		// "Last result for 1d20 = 1", so a bare `split(total)` also matched the digits inside the
+		// EXPRESSION and reported 2 whenever the roll came up 1, 2 or 20 — about one run in seven,
+		// on whichever profile happened to roll it. That was a flake in the assertion, not a defect.
 		const total = (await readout.textContent())!.match(/= (\d+)/)![1]!;
 		const occurrences = await readout.evaluate(
-			(el: HTMLElement, t: string) => (el.textContent ?? '').split(t).length - 1,
+			(el: HTMLElement, t: string) => (el.textContent ?? '').split(`= ${t}`).length - 1,
 			total,
 		);
 		expect(occurrences).toBe(1);
+		// And the visually-hidden prefix really does stop before the number.
+		expect(await readout.locator('span').first().textContent()).not.toContain(`= ${total}`);
 		const hidden = readout.locator('span').first();
 		await expect(hidden).toHaveText(/Last result for/);
 		expect(await hidden.evaluate((el: HTMLElement) => getComputedStyle(el).position)).toBe(

@@ -83,6 +83,16 @@ export function tierOf(author: string | undefined): WidgetTier {
 	return TIER_BY_AUTHOR[author] ?? 'template';
 }
 
+/**
+ * Whether the canvas lets the DM change a widget's size. `system`-tier instances are painted with a
+ * padlock, get no resize handle and swallow Shift+Arrow, so every surface offering a size control has
+ * to ask the same question — the scene Inspector used to offer S/M/L unconditionally and quietly
+ * disagreed with the canvas about the same widget.
+ */
+export function isWidgetResizable(widget: { tier: WidgetTier }): boolean {
+	return widget.tier !== 'system';
+}
+
 export const TIER_LABEL: Record<WidgetTier, string> = {
 	system: 'System · locked content',
 	template: 'Template',
@@ -161,7 +171,9 @@ export function boardWidgetsOf(
 }
 
 /** Index the summary's binding payloads by widget instance id for the merge above. */
-export function payloadIndex(payloads: readonly WidgetBindingPayload[]): Map<string, WidgetBindingPayload> {
+export function payloadIndex(
+	payloads: readonly WidgetBindingPayload[],
+): Map<string, WidgetBindingPayload> {
 	const map = new Map<string, WidgetBindingPayload>();
 	for (const payload of payloads) {
 		const id =

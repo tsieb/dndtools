@@ -25,7 +25,13 @@ import {
 import { useRuntime } from '../runtime/RuntimeContext';
 import { widgetRejectionMessage } from '../app/widget-rejection';
 import { SceneBoardCanvas, WidgetGlyph } from '../app/SceneBoardCanvas';
-import { boardWidgetsOf, payloadIndex, TIER_LABEL, type BoardWidget } from '../app/board-helpers';
+import {
+	boardWidgetsOf,
+	isWidgetResizable,
+	payloadIndex,
+	TIER_LABEL,
+	type BoardWidget,
+} from '../app/board-helpers';
 import { parseTags } from '../app/scene-helpers';
 import { useViewport } from '../app/useViewport';
 import { usePanelFocusReturn } from '../app/usePanelFocusReturn';
@@ -762,6 +768,7 @@ function Inspector({
 }) {
 	// `visibility` has its own dedicated control; never surface it twice if a widget also declares it.
 	const settingsFields = widget.configFields.filter((f) => f.key !== 'visibility');
+	const resizable = isWidgetResizable(widget);
 	return (
 		<Card
 			elevation="overlay"
@@ -870,19 +877,36 @@ function Inspector({
 			</Section>
 
 			<Section label="Size">
-				<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-					{(
-						[
-							['S', 220, 140],
-							['M', 300, 200],
-							['L', 420, 280],
-						] as const
-					).map(([label, w, h]) => (
-						<Button key={label} variant="secondary" size="sm" onClick={() => onResize(w, h)}>
-							{label}
-						</Button>
-					))}
-				</div>
+				{/* The canvas paints a padlock, renders no resize handle and swallows Shift+Arrow for
+				    every `system`-tier widget — which today is EVERY widget that ships. The three size
+				    buttons had no such gate and `widget.handleResizeWidget` has no tier check either,
+				    so the two affordances flatly contradicted each other: the DM is told the widget
+				    cannot be resized and then discovers by accident that it can. Agree with the
+				    canvas, which is the surface that also owns the drag and keyboard paths. */}
+				{resizable ? (
+					<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+						{(
+							[
+								['S', 220, 140],
+								['M', 300, 200],
+								['L', 420, 280],
+							] as const
+						).map(([label, w, h]) => (
+							<Button key={label} variant="secondary" size="sm" onClick={() => onResize(w, h)}>
+								{label}
+							</Button>
+						))}
+					</div>
+				) : (
+					<div
+						style={{
+							font: 'var(--text-2xs) var(--font-sans)',
+							color: 'var(--color-text-tertiary)',
+						}}
+					>
+						Locked — this widget's size is fixed by the scene layout.
+					</div>
+				)}
 				<div
 					style={{ font: 'var(--text-2xs) var(--font-mono)', color: 'var(--color-text-tertiary)' }}
 				>

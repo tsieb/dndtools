@@ -75,7 +75,10 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 		// The chrome exposes a real search affordance on every viewport (the top bar's "Search
 		// everything…" button, plus the sidebar's ⌘K button on desktop) — clicking it opens the
 		// same overlay, never a dead button.
-		await page.getByRole('button', { name: /Search/ }).first().click();
+		await page
+			.getByRole('button', { name: /Search/ })
+			.first()
+			.click();
 		await expect(page.getByRole('dialog', PALETTE)).toBeVisible();
 		await expect(page.getByRole('combobox')).toBeFocused();
 	});
@@ -155,7 +158,9 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 		await expect(start).toBeFocused();
 	});
 
-	test('a full-text hit from the core search engine deep-links the matched note', async ({ page }) => {
+	test('a full-text hit from the core search engine deep-links the matched note', async ({
+		page,
+	}) => {
 		await openViaKeyboard(page, 'Meta+k');
 
 		// Typing runs a REAL actor-filtered search over the seeded vault. "Campaign Primer" is a
@@ -214,5 +219,19 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 
 		await page.waitForURL((url) => url.hash === '#/player', { timeout: 10_000 });
 		await expect(page.getByRole('dialog', PALETTE)).toHaveCount(0);
+	});
+	// The DM's landing surface contained NO heading of any level: the 23px hero was a styled <div>
+	// and the four section labels (Scenes / Create / Manage / Library) were styled <span>s, so a
+	// screen-reader user could not navigate `/` by heading or rotor and the groupings were conveyed
+	// by typography alone (WCAG 1.3.1 / 2.4.6). Every sibling surface already emits real headings.
+	test('the hub is navigable by heading', async ({ page }) => {
+		const main = page.locator('#main-content');
+		// AppShell owns the route <h1>; the hub's own hero and section labels are <h2>s under it.
+		await expect(main.getByRole('heading', { level: 2, name: 'Your campaign' })).toBeVisible();
+		for (const label of ['Scenes', 'Create', 'Manage']) {
+			await expect(main.getByRole('heading', { level: 2, name: label, exact: true })).toHaveCount(
+				1,
+			);
+		}
 	});
 });

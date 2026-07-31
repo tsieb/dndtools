@@ -82,6 +82,10 @@ test.describe('campaign: story objects', () => {
 		// The editor closed on success, exactly as the button path does.
 		await expect(page.getByRole('button', { name: 'Create quest' })).toHaveCount(0);
 		await expect(page.getByText(title)).not.toHaveCount(0);
+		// …and it SAYS so. `onClose()` unmounts the whole editor Panel and drops focus to <body>, so
+		// with no toast a successful save was indistinguishable from a dead button — a screen-reader
+		// DM got nothing at all. `grep Toaster` on this screen used to return one hit, an error.
+		await expect(page.getByText(`Created “${title}”`)).toBeVisible();
 	});
 
 	test('a quest authored in the editor persists and its tracker mutates durably', async ({
@@ -287,9 +291,7 @@ test.describe('campaign: story objects', () => {
 		await page.getByRole('tab', { name: 'NPCs' }).click();
 
 		// The wrapper button is gone…
-		await expect(
-			page.getByRole('button', { name: /Open .*sheet in Characters/ }),
-		).toHaveCount(0);
+		await expect(page.getByRole('button', { name: /Open .*sheet in Characters/ })).toHaveCount(0);
 
 		// …and the card's own content is reachable instead of being erased by the label.
 		const card = page.locator('article').filter({ hasText: 'Mira the Ferryman' }).first();

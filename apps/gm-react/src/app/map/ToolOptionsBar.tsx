@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Icon, Input, Popover, SegmentedControl, Select, Slider, Switch } from '../../ds';
 import { T } from '../screen-kit';
 import type { MapEditorApi } from './useMapEditor';
@@ -121,10 +121,12 @@ const stepBtn = {
 
 function SnapMenu({ editor }: { editor: MapEditorApi }) {
 	const [open, setOpen] = useState(false);
+	const triggerRef = useRef<HTMLButtonElement>(null);
 	return (
 		<div style={{ position: 'relative' }}>
 			<button
 				type="button"
+				ref={triggerRef}
 				aria-label="Snapping options"
 				aria-expanded={open}
 				title="Snapping — hold Ctrl to momentarily disable"
@@ -149,6 +151,7 @@ function SnapMenu({ editor }: { editor: MapEditorApi }) {
 				<Popover
 					open
 					onClose={() => setOpen(false)}
+					triggerRef={triggerRef}
 					title="Snapping"
 					width={220}
 					placement="bottom"

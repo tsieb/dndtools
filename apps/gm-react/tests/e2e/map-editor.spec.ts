@@ -852,7 +852,9 @@ test.describe('map editor: assets browser', () => {
 	// and Scatter reads `options.scatterObject`, never `stampAsset` (EditorCanvas.tsx:418 vs :492). So
 	// with Scatter armed, clicking an asset tile lit it up as selected and then changed absolutely
 	// nothing about what the canvas painted. Stamp is the only tool this panel can configure.
-	test('picking an asset while Scatter is armed arms the Stamp tool', async ({ page }, testInfo) => {
+	test('picking an asset while Scatter is armed arms the Stamp tool', async ({
+		page,
+	}, testInfo) => {
 		await openAtlas(page);
 		const name = `Assets Map ${Date.now()}`;
 		await createMap(page, { name });
@@ -880,5 +882,40 @@ test.describe('map editor: assets browser', () => {
 		}
 		// The armed tool is now one that actually consumes `stampAsset`.
 		await expectActiveTool(page, 'Stamp');
+	});
+});
+
+// The phone header packs seven children into ~381px of content width, and every one of them except
+// the map title has a hard minimum: back 30 + the full "DM ONLY" VisibilityChip ~97 + Search 36 +
+// undo/redo 58 + Export 50 + Project 40 + gaps. That left the <h1> about 46px — four characters and
+// an ellipsis — so on a phone the DM could not read which map was open. `clippedControls()` cannot
+// see an element that merely SHRINKS (no overflow, and an <h1> is not in its selector list), so no
+// existing gate could catch it. The chip is now compact on phone: same icon, same colour, label on
+// `title` + the icon's accessible name.
+test.describe('map editor: the phone header keeps the map name readable', () => {
+	test('the title gets a real share of the header width', async ({ page }, testInfo) => {
+		test.skip(!isPhone(testInfo), 'desktop has room for the full chip and the title');
+		await openAtlas(page);
+		await createMap(page, { name: 'Sunken Cathedral of the Deep' });
+		await openEditor(page, 'Sunken Cathedral of the Deep');
+
+		// Assert the MECHANISM: the chip is icon-only, so it stops eating the title's width. Its
+		// label moves onto `title` + the icon's accessible name, so nothing is lost.
+		// Scoped to the editor and taken first: the Atlas list behind the modal carries its own
+		// visibility chips, and the dock's layer rows carry more. The header's is the first in the
+		// editor's DOM order.
+		const chip = editorRoot(page).getByTitle('DM only').first();
+		await expect(chip).toBeVisible();
+		expect(((await chip.textContent()) ?? '').trim()).toBe('');
+		const chipBox = (await chip.boundingBox())!;
+		expect(chipBox.width).toBeLessThan(48);
+
+		// And the consequence: measured at 46px before this change and 90px after, on a 393px
+		// viewport — from four characters plus an ellipsis to a readable map name.
+		const title = page.getByRole('heading', { level: 1, name: 'Sunken Cathedral of the Deep' });
+		await expect(title).toBeVisible();
+		const box = (await title.boundingBox())!;
+		expect(box.width).toBeGreaterThan(80);
+		expect(box.width).toBeGreaterThan(chipBox.width * 2);
 	});
 });

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../ds';
-import { TIER_LABEL, visibilityChip, type BoardWidget } from './board-helpers';
+import { isWidgetResizable, TIER_LABEL, visibilityChip, type BoardWidget } from './board-helpers';
 import { WidgetBody, type WidgetCommandHandler } from './widget-bodies';
 
 /**
@@ -402,7 +402,7 @@ export function SceneBoardCanvas({
 			const pos = posDraft[w.id] ?? { x: w.x, y: w.y };
 			const size = sizeDraft[w.id] ?? { w: w.w, h: w.h };
 			if (e.shiftKey) {
-				const resizable = canResize ? canResize(w) : w.tier !== 'system';
+				const resizable = canResize ? canResize(w) : isWidgetResizable(w);
 				if (!resizable) return;
 				void onResize(
 					w.id,
@@ -428,7 +428,7 @@ export function SceneBoardCanvas({
 		const pos = posDraft[w.id] ?? { x: w.x, y: w.y };
 		const size = sizeDraft[w.id] ?? { w: w.w, h: w.h };
 		const selected = editing && selectedId === w.id;
-		const resizable = editing && (canResize ? canResize(w) : w.tier !== 'system');
+		const resizable = editing && (canResize ? canResize(w) : isWidgetResizable(w));
 		return (
 			<WidgetFrame
 				key={w.id}

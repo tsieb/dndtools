@@ -16,7 +16,14 @@ function ensureStyles() {
 	_injected = true;
 	const css = `
 .dnds-range{ -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:var(--radius-full);
-  background:var(--color-surface-sunken); cursor:pointer; }
+  cursor:pointer;
+  /* The TRACK is painted as a 6px band rather than as the element's own box, because
+     styles/index.css's html[data-android] rule sets min-height:48px on every <input> and beats
+     height:6px — so on the Android build the 6px track inflated into a full-height two-tone slab
+     with a 24px thumb floating in it. Sizing the background instead keeps the 48dp touch target
+     (which that rule exists to guarantee) and still draws a 6px track. */
+  background-color:transparent; background-repeat:no-repeat; background-position:center;
+  background-size:100% 6px; }
 .dnds-range:focus-visible{ outline:var(--focus-ring-width) solid var(--focus-ring-color);
   outline-offset:var(--focus-ring-offset); }
 .dnds-range::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:24px; height:24px; border-radius:50%;
@@ -135,7 +142,10 @@ export function Slider({
 					onChange={(e) => fire(Number(e.target.value))}
 					aria-label={ariaLabel || label}
 					aria-valuetext={readout != null ? String(readout) : undefined}
-					style={{ background: trackBg }}
+					// backgroundImage, NOT the `background` shorthand: the shorthand resets
+					// background-size/position/repeat to their initial values, which would undo the 6px
+					// band above and restore the Android slab.
+					style={{ backgroundImage: trackBg }}
 					{...rest}
 				/>
 				{steppers && (

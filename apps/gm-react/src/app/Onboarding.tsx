@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
 	DEFAULT_FEATURE_TIER,
@@ -289,6 +289,7 @@ export function Onboarding() {
 	// so it requires the typed acknowledgment (the AccountDangerPanel consent pattern).
 	const ackOk = privacy !== 'private-e2ee' || ack.trim().toLowerCase() === PRIVACY_ACK_PHRASE;
 	const privacyDecided = privacy !== null && ackOk;
+	const ackErrorId = useId();
 
 	// Announce the current step without arming the nearby "Skip setup" action. The content region is
 	// deliberately focused both on first open and after step changes; Tab then enters the controls.
@@ -877,14 +878,32 @@ export function Onboarding() {
 											it. Type <strong style={{ color: T.ink }}>{PRIVACY_ACK_PHRASE}</strong> to
 											confirm you understand.
 										</p>
+										{/* The field silently gated the whole wizard: a near-miss ("I hold the key")
+										    produced no error, no invalid state and no hint that this was what
+										    was blocking Continue (WCAG 3.3.1). */}
 										<Input
 											value={ack}
 											onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAck(e.target.value)}
 											placeholder={PRIVACY_ACK_PHRASE}
 											aria-label={`Type "${PRIVACY_ACK_PHRASE}" to confirm`}
+											aria-invalid={ack.trim() !== '' && !ackOk ? true : undefined}
+											aria-describedby={ack.trim() !== '' && !ackOk ? ackErrorId : undefined}
 											maxLength={PRIVACY_ACK_PHRASE.length}
 											style={{ width: '100%' }}
 										/>
+										{ack.trim() !== '' && !ackOk && (
+											<div
+												id={ackErrorId}
+												role="alert"
+												style={{
+													marginTop: 6,
+													font: `12px ${T.sans}`,
+													color: 'var(--color-status-error-text)',
+												}}
+											>
+												That does not match — type “{PRIVACY_ACK_PHRASE}” exactly.
+											</div>
+										)}
 									</div>
 								)}
 							</div>
@@ -1236,11 +1255,23 @@ export function Onboarding() {
 							Step {i + 1} of {ONB_STEPS.length}
 						</span>
 						{i < ONB_STEPS.length - 1 ? (
+							// Soft-disable: a HARD `disabled` took the button out of the tab order and
+							// stripped its title, so a user who picked "Private (E2EE)" and mistyped the
+							// acknowledgment phrase faced a plain grey "Continue" with no reachable reason,
+							// on the one step of the wizard that cannot be skipped. `aria-disabled` keeps
+							// the tab stop and the explanation, and DS Button still swallows the click.
 							<Button
 								variant="primary"
 								icon="chevron-right"
 								onClick={next}
-								disabled={step.id === 'privacy' && !privacyDecided}
+								aria-disabled={(step.id === 'privacy' && !privacyDecided) || undefined}
+								title={
+									step.id === 'privacy' && !privacyDecided
+										? privacy === null
+											? 'Choose how this vault stores your campaign to continue'
+											: `Type "${PRIVACY_ACK_PHRASE}" exactly to continue`
+										: undefined
+								}
 							>
 								{step.id === 'welcome'
 									? 'Get started'

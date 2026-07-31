@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { MapLayerQueryEntry, SceneVisibility } from '@dndtools/core';
 import { Button, Chip, Dialog, EmptyState, Icon, Input, LayerRow, Popover } from '../../../ds';
 import { T, eb } from '../../screen-kit';
@@ -22,6 +22,9 @@ export function LayersPanel({
 	const { layers, isDm, activeLayerId, run, mapId, actorId, nextId } = editor;
 	const [filter, setFilter] = useState('');
 	const [menuFor, setMenuFor] = useState<string | null>(null);
+	// Handed to whichever row's ⋯ button currently owns the open menu, so Popover's outside-pointerdown
+	// dismissal does not race that same button's toggle and leave the menu stuck open.
+	const menuTriggerRef = useRef<HTMLButtonElement>(null);
 	const [confirmDelete, setConfirmDelete] = useState<MapLayerQueryEntry | null>(null);
 	const [tagsFor, setTagsFor] = useState<MapLayerQueryEntry | null>(null);
 	const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -201,11 +204,14 @@ export function LayersPanel({
 								}
 								onMove={(dir: number) => reorder(l.layerId, index + dir)}
 								onAction={() => setMenuFor(menuFor === l.layerId ? null : l.layerId)}
+								actionRef={menuFor === l.layerId ? menuTriggerRef : undefined}
+								actionExpanded={menuFor === l.layerId}
 							/>
 							{menuFor === l.layerId && (
 								<Popover
 									open
 									onClose={() => setMenuFor(null)}
+									triggerRef={menuTriggerRef}
 									// Named without a visible header: an unnamed role="dialog" is an axe
 									// `aria-dialog-name` violation, and this menu is reached from a row
 									// whose identity is the only thing that makes its actions meaningful.

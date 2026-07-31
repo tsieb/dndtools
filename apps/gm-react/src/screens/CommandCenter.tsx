@@ -23,6 +23,12 @@ import { useViewport } from '../app/useViewport';
  * only their own player-safe view (UX-CMD-012), never the DM hub.
  */
 
+/**
+ * The section label above each hub group. It is an `<h2>` rather than a styled `<span>`: `/` is the
+ * app's landing surface and it contained NO heading of any level, so a screen-reader DM could not
+ * navigate it by heading or rotor and the four groupings (Scenes / Create / Manage / Library) were
+ * not conveyed at all. `eb` supplies the whole appearance, so the visual result is unchanged.
+ */
 function HubLabel({ children, action }: { children: ReactNode; action?: ReactNode }) {
 	return (
 		<div
@@ -33,7 +39,7 @@ function HubLabel({ children, action }: { children: ReactNode; action?: ReactNod
 				marginBottom: 11,
 			}}
 		>
-			<span style={eb}>{children}</span>
+			<h2 style={{ ...eb, margin: 0 }}>{children}</h2>
 			{action}
 		</div>
 	);
@@ -104,8 +110,11 @@ function SceneTile({
 					)}
 				</div>
 				{status === 'draft' && (
+					// No `label`, so the glyph stays aria-hidden. A NAMED Icon becomes role="img" +
+					// aria-label INSIDE this <button>, so the tile announced "Draft Draft — not visible
+					// to players <scene> …" — duplicating the Badge rendered two lines above it.
 					<div style={{ position: 'absolute', top: 9, left: 9, color: T.ter }}>
-						<Icon name="lock" size="sm" label="Draft — not visible to players" />
+						<Icon name="lock" size="sm" />
 					</div>
 				)}
 			</div>
@@ -370,12 +379,14 @@ export function CommandCenter() {
 					>
 						{isLive ? 'Session live' : 'Command Center'}
 					</div>
-					<div style={{ font: `700 23px/1.1 ${T.disp}`, marginTop: 2 }}>
+					{/* A real heading, not a styled div: AppShell already owns the route's <h1>, so the hub's
+					    own hero is an <h2> alongside the section labels. */}
+					<h2 style={{ font: `700 23px/1.1 ${T.disp}`, margin: '2px 0 0' }}>
 						{/* `liveScene` falls back to `scenes[0]` so the "Enter scene" button always has a
 						    destination — but with no session running that made the hub's 23px display heading
 						    announce an arbitrary scene name, which a DM reads as the current scene. */}
 						{(isLive ? data.liveScene?.name : null) ?? 'Your campaign'}
-					</div>
+					</h2>
 					<div style={{ font: `13px ${T.sans}`, color: T.sub, marginTop: 3 }}>
 						{isLive
 							? 'Combat, initiative & rolls run inside the scene'

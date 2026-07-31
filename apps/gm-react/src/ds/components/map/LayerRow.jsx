@@ -45,6 +45,8 @@ export function LayerRow({
 	onToggleLock,
 	onRename,
 	onAction,
+	actionRef,
+	actionExpanded,
 	onMove,
 	style,
 	...rest
@@ -58,6 +60,10 @@ export function LayerRow({
 		locked = false,
 	} = layer || {};
 	const [editing, setEditing] = React.useState(false);
+	// The opacity flyout's own trigger. Popover dismisses on an outside pointerdown, and this button
+	// TOGGLES `opacityOpen`, so without the exemption the close raced the button's click and the
+	// flyout could never be dismissed by pressing the readout a second time.
+	const opacityTriggerRef = React.useRef(null);
 	const [draft, setDraft] = React.useState(name);
 	const [opacityOpen, setOpacityOpen] = React.useState(false);
 	// `null` = follow the durable `opacity` prop; a number = a drag in progress. See the Slider below.
@@ -226,8 +232,10 @@ export function LayerRow({
 				<div style={{ position: 'relative', flex: '0 0 auto' }}>
 					<button
 						type="button"
+						ref={opacityTriggerRef}
 						onClick={() => !disabled && setOpacityOpen((v) => !v)}
 						disabled={disabled}
+						aria-expanded={opacityOpen}
 						aria-label={`${name} opacity ${opacity}%`}
 						style={{
 							background: 'transparent',
@@ -247,6 +255,7 @@ export function LayerRow({
 						<Popover
 							open
 							onClose={() => setOpacityOpen(false)}
+							triggerRef={opacityTriggerRef}
 							// Named without a visible header: `title` would render a header row this
 							// 200px flyout has no space for, and an unnamed role="dialog" is an axe
 							// `aria-dialog-name` violation that also leaves a screen-reader user who
@@ -303,6 +312,8 @@ export function LayerRow({
 					label={`${name} actions`}
 					onClick={() => onAction && onAction('menu')}
 					disabled={disabled}
+					btnRef={actionRef}
+					expanded={actionExpanded}
 				>
 					<Icon name="more" size={16} />
 				</RowBtn>
@@ -311,10 +322,12 @@ export function LayerRow({
 	);
 }
 
-function RowBtn({ children, label, title, onClick, disabled, active, color }) {
+function RowBtn({ children, label, title, onClick, disabled, active, color, btnRef, expanded }) {
 	return (
 		<button
 			type="button"
+			ref={btnRef}
+			aria-expanded={expanded}
 			aria-label={label}
 			title={title || label}
 			aria-pressed={active != null ? !!active : undefined}

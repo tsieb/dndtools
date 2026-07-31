@@ -509,11 +509,16 @@ function SceneQueuePanel({
 						options={TRANSITION_OPTIONS}
 					/>
 				</span>
+				{/* `scene-card.advance` POPS the queue head, so advancing the LAST queued card emptied the
+				    queue and hard-disabled this button under the DM's finger — focus fell to <body> and
+				    the next Tab restarted at the skip link, on the control they press most during play.
+				    Soft-disable keeps the tab stop and lets the button say why it is unavailable. */}
 				<Button
 					variant="primary"
 					size="sm"
 					icon="skip"
-					disabled={queue.length === 0}
+					aria-disabled={queue.length === 0 || undefined}
+					title={queue.length === 0 ? t('Queue a scene card first') : undefined}
 					onClick={onAdvance}
 				>
 					{t('Next card')}
@@ -741,7 +746,7 @@ function SceneCardRow({
 					}
 					variant="ghost"
 					size="sm"
-					disabled={queued}
+					aria-disabled={queued || undefined}
 					onClick={onEnqueue}
 				/>
 				<IconButton

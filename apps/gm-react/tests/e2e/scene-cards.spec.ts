@@ -230,6 +230,21 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		);
 		expect(await queueCardIds(page)).toEqual([]);
 		expect(await activeCardId(page)).toBe(secondId);
+
+		// `scene-card.advance` POPS the queue head, so playing the LAST queued card empties the queue —
+		// and "Next card" used to hard-`disable` itself at exactly that moment, under the finger of the
+		// DM who had just pressed it. Focus fell to <body> and the next Tab restarted at the skip link,
+		// on the control a DM presses most during play. Soft-disabled: still a tab stop, still named,
+		// still explains itself, and the press is swallowed rather than dispatching a doomed command.
+		const next = page.getByRole('button', { name: 'Next card' });
+		await expect(next).toHaveAttribute('aria-disabled', 'true');
+		await expect(next).toHaveAttribute('title', /Queue a scene card first/i);
+		expect(await next.evaluate((el: HTMLButtonElement) => el.disabled)).toBe(false);
+		// Playwright refuses to .click() an aria-disabled target, so drive the DOM event directly to
+		// prove the handler really is swallowed rather than merely unreachable.
+		await next.dispatchEvent('click');
+		await page.waitForTimeout(200);
+		expect(await activeCardId(page)).toBe(secondId);
 	});
 
 	test('preview-as-player filters dm-only cards out of the scene-card list', async ({ page }) => {
@@ -426,7 +441,9 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		await expect(page.getByRole('button', { name: `Move ${second} down` })).toBeFocused();
 	});
 
-	test('reordering a card mid-queue keeps focus on the arrow that was pressed', async ({ page }) => {
+	test('reordering a card mid-queue keeps focus on the arrow that was pressed', async ({
+		page,
+	}) => {
 		const stamp = Date.now();
 		const titles = [`Aerie ${stamp}`, `Bramble ${stamp}`, `Cellar ${stamp}`];
 		for (const title of titles) {

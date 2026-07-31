@@ -330,3 +330,49 @@ test.describe('session: Recap is not a dead end', () => {
 		await expect.poll(() => page.evaluate(() => window.__rt!.state.session.workflow)).toBe('idle');
 	});
 });
+
+// The phase Seg's "Standby" option was added to give the `recap` workflow an exit, but it is offered
+// from `active` too — and from there `session.set-workflow {workflow:'idle'}` runs the core's
+// `resetLiveSessionFields`, which nulls the active scene and map and wipes combat (the round, the
+// whole initiative order, every combatant's HP and conditions), the delivered handouts, the timers
+// and the dice log — WITHOUT writing an archive. That is a strict superset of what `combat.end`
+// discards, and `combat.end` has had a danger confirm since run #5. Worse, `Seg` is
+// selection-follows-focus, so from Live it was one ArrowLeft away.
+test.describe('leaving a LIVE session for standby is confirmed', () => {
+	const phases = (page: Page) => page.getByRole('radiogroup', { name: 'Session phase' });
+
+	test('choosing Standby while live asks first and keeps the combat running', async ({ page }) => {
+		expect(await combatStatus(page)).toBe('running');
+		await phases(page).getByRole('radio', { name: 'Standby' }).click();
+
+		const confirm = page.getByRole('dialog', { name: 'End the live session?' });
+		await expect(confirm).toBeVisible();
+		// Nothing has moved yet.
+		expect(await page.evaluate(() => window.__rt!.state.session.workflow)).toBe('active');
+		expect(await combatStatus(page)).toBe('running');
+
+		await confirm.getByRole('button', { name: 'Stay live' }).click();
+		await expect(confirm).toBeHidden();
+		expect(await page.evaluate(() => window.__rt!.state.session.workflow)).toBe('active');
+		expect(await combatStatus(page)).toBe('running');
+		await expect(page.getByRole('button', { name: 'End combat' })).toBeVisible();
+	});
+
+	test('confirming really does end it', async ({ page }) => {
+		await phases(page).getByRole('radio', { name: 'Standby' }).click();
+		await page
+			.getByRole('dialog', { name: 'End the live session?' })
+			.getByRole('button', { name: 'End session' })
+			.click();
+		await expect.poll(() => page.evaluate(() => window.__rt!.state.session.workflow)).toBe('idle');
+	});
+
+	// Moving to Prep or Recap is not destructive, so those stay one press — but they were also
+	// completely silent, while the identical transition fired from the top bar toasts.
+	test('a non-destructive phase change goes straight through, and says so', async ({ page }) => {
+		await phases(page).getByRole('radio', { name: 'Recap' }).click();
+		await expect(page.getByRole('dialog', { name: 'End the live session?' })).toHaveCount(0);
+		await expect.poll(() => page.evaluate(() => window.__rt!.state.session.workflow)).toBe('recap');
+		await expect(page.getByText('Session archived into Recap')).toBeVisible();
+	});
+});

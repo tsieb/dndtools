@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
-import type React from 'react';
-import { act } from 'react';
+import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Button as RawButton } from './core/Button.jsx';
@@ -28,6 +27,7 @@ import { Tabs as RawTabs } from './core/Tabs.jsx';
 import { Minimap as RawMinimap } from './map/Minimap.jsx';
 import { SpellSlots as RawSpellSlots } from './spell/SpellSlots.jsx';
 import { Field as RawField } from './forms/Field.jsx';
+import { EmptyState as RawEmptyState } from './system/EmptyState.jsx';
 
 // The DS ships as .jsx with `checkJs: false`, so tsc infers every defaultless prop as required.
 // Re-type the imports as open prop bags rather than restating each component's contract.
@@ -54,6 +54,7 @@ const QuestCard = RawQuestCard as React.ComponentType<DsProps>;
 const Tabs = RawTabs as React.ComponentType<DsProps>;
 const Minimap = RawMinimap as React.ComponentType<DsProps>;
 const ProgressMeter = RawProgressMeter as React.ComponentType<DsProps>;
+const EmptyState = RawEmptyState as React.ComponentType<DsProps>;
 const Checkbox = RawCheckbox as React.ComponentType<DsProps>;
 const SpellSlots = RawSpellSlots as React.ComponentType<DsProps>;
 const Field = RawField as React.ComponentType<DsProps>;
@@ -1308,5 +1309,126 @@ describe('Minimap keeps the keyboard cursor when it collapses', () => {
 
 		expect(document.activeElement).toBe(elsewhere);
 		elsewhere.remove();
+	});
+});
+
+describe('a Popover leaves its own trigger alone', () => {
+	// The outside-pointerdown dismissal fired for the TRIGGER too, and every caller toggles its own
+	// open state (`setOpen(v => !v)`), so the close raced the button's own `click`: pressing Snapping /
+	// Export / the layer ⋯ menu / a layer's opacity readout a second time closed and immediately
+	// re-opened the flyout. Four map surfaces could only be dismissed by Escape.
+	function mountWithTrigger(useTriggerRef: boolean, onClose: () => void) {
+		function Harness() {
+			const triggerRef = React.useRef<HTMLButtonElement>(null);
+			return (
+				<div>
+					<button type="button" ref={triggerRef} data-testid="trigger">
+						Snap
+					</button>
+					<Popover
+						open
+						onClose={onClose}
+						title="Snapping"
+						triggerRef={useTriggerRef ? triggerRef : undefined}
+					>
+						<button type="button">Snap to grid</button>
+					</Popover>
+				</div>
+			);
+		}
+		act(() => root.render(<Harness />));
+	}
+
+	it('does not close when the pointer goes down on the trigger', () => {
+		let closes = 0;
+		mountWithTrigger(true, () => {
+			closes += 1;
+		});
+		const trigger = container.querySelector('[data-testid="trigger"]') as HTMLButtonElement;
+		act(() => {
+			trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+		});
+		expect(closes).toBe(0);
+	});
+
+	it('still closes on a pointerdown anywhere else', () => {
+		let closes = 0;
+		mountWithTrigger(true, () => {
+			closes += 1;
+		});
+		act(() => {
+			document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+		});
+		expect(closes).toBe(1);
+	});
+
+	// The negative probe: without the exemption the same press dismisses, which is what let the
+	// trigger's click flip it straight back open.
+	it('closes on the trigger when no triggerRef is supplied', () => {
+		let closes = 0;
+		mountWithTrigger(false, () => {
+			closes += 1;
+		});
+		const trigger = container.querySelector('[data-testid="trigger"]') as HTMLButtonElement;
+		act(() => {
+			trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+		});
+		expect(closes).toBe(1);
+	});
+});
+
+describe('a progress bar never announces a value outside its own range', () => {
+	// The painted fill was already clamped; `aria-valuenow` was not. An over-budget encounter
+	// announced "150" against aria-valuemax=100, which reads as broken rather than as "over budget".
+	it('clamps aria-valuenow to max', () => {
+		act(() => root.render(<ProgressMeter label="Difficulty" value={150} max={100} />));
+		expect(container.querySelector('[role="progressbar"]')!.getAttribute('aria-valuenow')).toBe(
+			'100',
+		);
+	});
+
+	it('clamps a negative value to zero', () => {
+		act(() => root.render(<ProgressMeter label="Difficulty" value={-8} max={100} />));
+		expect(container.querySelector('[role="progressbar"]')!.getAttribute('aria-valuenow')).toBe(
+			'0',
+		);
+	});
+});
+
+describe('an empty state is content, not a live region', () => {
+	// `role="status"` on the root made all ~34 live empty states permanent polite regions with the
+	// implicit aria-atomic=true, so any change inside one re-announced the heading, the description
+	// AND the action label — and it made a bare `getByRole('status')` ambiguous against the screens'
+	// real status channels (combat.spec pins the initiative list as containing none).
+	it('does not claim role=status', () => {
+		act(() =>
+			root.render(<EmptyState title="No combat running." description="Start one to begin." />),
+		);
+		expect(container.querySelector('[role="status"]')).toBeNull();
+		expect(container.querySelector('h3')!.textContent).toBe('No combat running.');
+	});
+});
+
+describe('the slider track survives the Android touch-target rule', () => {
+	// styles/index.css's `html[data-android] :is(… input …) { min-height: 48px }` outranks
+	// `.dnds-range { height: 6px }`, so the 6px track inflated into a full-height two-tone slab with
+	// a 24px thumb floating in it. Paint the track as a sized background band instead, which keeps
+	// the 48dp touch target that rule exists to guarantee.
+	it('sizes the track background rather than the element box', () => {
+		act(() => root.render(<Slider min={0} max={100} value={40} aria-label="Volume" />));
+		const css = document.querySelector('style[data-dnds="slider"]')!.textContent!;
+		expect(css).toMatch(/background-size:\s*100% 6px/);
+		expect(css).toMatch(/background-color:\s*transparent/);
+		// The class must not re-set the `background` SHORTHAND either, or it would reset the size.
+		expect(css).not.toMatch(/\.dnds-range\{[^}]*[^-]background:/);
+	});
+
+	it('applies the fill with the backgroundImage LONGHAND', () => {
+		// The `background` shorthand resets background-size/position/repeat to their initial values,
+		// so writing the gradient through it would silently undo the band above.
+		act(() => root.render(<Slider min={0} max={100} value={40} aria-label="Volume" />));
+		const range = container.querySelector('input[type="range"]') as HTMLInputElement;
+		expect(range.style.backgroundImage).toMatch(/linear-gradient/);
+		expect(range.style.backgroundSize).toBe('');
 	});
 });

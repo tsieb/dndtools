@@ -313,6 +313,10 @@ function QuestEditor({ quest, onClose }: { quest: QuestRow | null; onClose: () =
 					return;
 				}
 			}
+			// Confirm the write. `onClose()` unmounts this whole Panel, so with no toast a successful
+			// save was indistinguishable from a dead button: the editor vanished, focus fell to <body>,
+			// and nothing anywhere said the quest had been stored.
+			Toaster.success(quest ? `Saved “${title.trim()}”` : `Created “${title.trim()}”`);
 			onClose();
 		} catch {
 			setErr("That couldn't be saved to this device. Check storage space and try again.");
@@ -574,6 +578,9 @@ function FactionEditor({ faction, onClose }: { faction: FactionRow | null; onClo
 					return;
 				}
 			}
+			// Same reason as the quest editor above: the Panel unmounts, so the toast is the only
+			// confirmation a successful faction save ever produces.
+			Toaster.success(faction ? `Saved “${name.trim()}”` : `Created “${name.trim()}”`);
 			onClose();
 		} catch {
 			setErr("That couldn't be saved to this device. Check storage space and try again.");

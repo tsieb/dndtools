@@ -331,16 +331,25 @@ export function EditorCanvas({
 	}, [path.length, tool, options.waterKind]);
 
 	// ── incremental dispatch helpers ──────────────────────────────────────────────────────────────
+	// `editor.run` is SINGLE-FLIGHT: it returns false immediately while another command is in flight,
+	// and false again when the core rejects (a locked layer, a permission ceiling). Every caller here
+	// used to fire it with `void` and then announce success on the very next line, so the live region
+	// said "Painted terrain." / "Room added." when nothing had been added — for a DM working by ear the
+	// editor was unfalsifiable. Take the message here and announce it only once the write lands.
 	const addFeatures = useCallback(
-		(features: MapFeature[]) => {
+		(features: MapFeature[], okMessage?: string) => {
 			if (!activeId || features.length === 0) return;
-			void editor.run({
-				type: 'map.add-features',
-				actorId: editor.actorId,
-				payload: { mapId: editor.mapId, layerId: activeId, features },
-			} as never);
+			void editor
+				.run({
+					type: 'map.add-features',
+					actorId: editor.actorId,
+					payload: { mapId: editor.mapId, layerId: activeId, features },
+				} as never)
+				.then((accepted) => {
+					if (accepted && okMessage) announce(okMessage);
+				});
 		},
-		[activeId, editor],
+		[activeId, announce, editor],
 	);
 
 	const mkFeature = (
@@ -361,37 +370,41 @@ export function EditorCanvas({
 		setPath([]);
 		if (pts.length < 2) return;
 		if (tool === 'wall') {
-			addFeatures([mkFeature('wall', pts, 'wall')]);
-			announce(`Wall added (${pts.length} points).`);
+			addFeatures([mkFeature('wall', pts, 'wall')], `Wall added (${pts.length} points).`);
 		} else if (tool === 'water') {
-			addFeatures([
-				// The style string is what `FeatureShape` reads to tell a river from a lake
-				// (`MapBuilder.tsx`, `feature.style.includes('river')`) — and it is the vocabulary the
-				// core's own generators emit ('water:river' / 'water:lake'). Passing the bare 'water'
-				// made the "Water type" control a visual no-op: a hand-drawn river painted as a
-				// lake-coloured blob. `width` alone is not one of the keys the renderer tests.
-				mkFeature(
-					'water',
-					pts,
-					options.waterKind === 'river' ? 'water:river' : 'water:lake',
-					options.waterKind === 'river' ? { width: 0.012 } : undefined,
-				),
-			]);
-			announce(`${options.waterKind === 'river' ? 'River' : 'Lake'} added.`);
+			addFeatures(
+				[
+					// The style string is what `FeatureShape` reads to tell a river from a lake
+					// (`MapBuilder.tsx`, `feature.style.includes('river')`) — and it is the vocabulary the
+					// core's own generators emit ('water:river' / 'water:lake'). Passing the bare 'water'
+					// made the "Water type" control a visual no-op: a hand-drawn river painted as a
+					// lake-coloured blob. `width` alone is not one of the keys the renderer tests.
+					mkFeature(
+						'water',
+						pts,
+						options.waterKind === 'river' ? 'water:river' : 'water:lake',
+						options.waterKind === 'river' ? { width: 0.012 } : undefined,
+					),
+				],
+				`${options.waterKind === 'river' ? 'River' : 'Lake'} added.`,
+			);
 		} else if (tool === 'route') {
-			void editor.run({
-				type: 'map.create-route',
-				actorId: editor.actorId,
-				payload: {
-					mapId: editor.mapId,
-					id: editor.nextId('route'),
-					layerId: activeId,
-					label: 'Route',
-					visibility: options.newVisibility,
-					waypoints: pts.map((p) => ({ id: editor.nextId('wp'), position: { x: p.x, y: p.y } })),
-				},
-			} as never);
-			announce('Route added.');
+			void editor
+				.run({
+					type: 'map.create-route',
+					actorId: editor.actorId,
+					payload: {
+						mapId: editor.mapId,
+						id: editor.nextId('route'),
+						layerId: activeId,
+						label: 'Route',
+						visibility: options.newVisibility,
+						waypoints: pts.map((p) => ({ id: editor.nextId('wp'), position: { x: p.x, y: p.y } })),
+					},
+				} as never)
+				.then((accepted) => {
+					if (accepted) announce('Route added.');
+				});
 		}
 	}
 
@@ -405,12 +418,15 @@ export function EditorCanvas({
 			)
 			.map((f) => f.id);
 		if (hitIds.length === 0) return;
-		void editor.run({
-			type: 'map.remove-features',
-			actorId: editor.actorId,
-			payload: { mapId: editor.mapId, layerId: activeId, featureIds: hitIds },
-		} as never);
-		announce(`Erased ${hitIds.length} features.`);
+		void editor
+			.run({
+				type: 'map.remove-features',
+				actorId: editor.actorId,
+				payload: { mapId: editor.mapId, layerId: activeId, featureIds: hitIds },
+			} as never)
+			.then((accepted) => {
+				if (accepted) announce(`Erased ${hitIds.length} features.`);
+			});
 	}
 
 	function scatterAlong(pts: Pt[]) {
@@ -437,8 +453,7 @@ export function EditorCanvas({
 			);
 		}
 		if (features.length > 0) {
-			addFeatures(features);
-			announce(`Scattered ${features.length} objects.`);
+			addFeatures(features, `Scattered ${features.length} objects.`);
 		}
 	}
 
@@ -470,16 +485,14 @@ export function EditorCanvas({
 		if (g.kind === 'stroke') {
 			if (g.pts.length < 2) return;
 			if (tool === 'brush') {
-				addFeatures([mkFeature('stroke', g.pts, options.terrainStyle)]);
-				announce('Painted terrain.');
+				addFeatures([mkFeature('stroke', g.pts, options.terrainStyle)], 'Painted terrain.');
 			} else if (tool === 'erase') eraseAt(g.pts);
 			else if (tool === 'scatter') scatterAlong(g.pts);
 		} else if (g.kind === 'rect') {
 			if (tool === 'room') {
 				const [a, b] = rectCorners(g.start, g.cur, g.square);
 				if (Math.abs(b.x - a.x) < 0.005 || Math.abs(b.y - a.y) < 0.005) return;
-				addFeatures([mkFeature('room', [snap(a), snap(b)], options.terrainStyle)]);
-				announce('Room added.');
+				addFeatures([mkFeature('room', [snap(a), snap(b)], options.terrainStyle)], 'Room added.');
 			} else if (tool === 'marquee') {
 				selectInRect(g.start, g.cur, e.shiftKey);
 			}
@@ -489,45 +502,55 @@ export function EditorCanvas({
 		// single-click placement / vertex tools
 		const raw = toMap(e.clientX, e.clientY);
 		if (tool === 'stamp') {
-			addFeatures([mkFeature('prop', [snap(raw)], options.stampAsset, { scale: 1 })]);
-			announce('Placed object.');
+			addFeatures(
+				[mkFeature('prop', [snap(raw)], options.stampAsset, { scale: 1 })],
+				'Placed object.',
+			);
 		} else if (tool === 'light') {
-			addFeatures([
-				mkFeature('light', [snap(raw)], 'light', {
-					radius: options.lightRadius,
-					color: options.lightColor,
-				}),
-			]);
-			announce('Placed light.');
+			addFeatures(
+				[
+					mkFeature('light', [snap(raw)], 'light', {
+						radius: options.lightRadius,
+						color: options.lightColor,
+					}),
+				],
+				'Placed light.',
+			);
 		} else if (tool === 'door') {
 			const c = snap(raw);
-			addFeatures([
-				mkFeature(
-					'door',
-					[
-						{ x: clamp01(c.x - 0.02), y: c.y },
-						{ x: clamp01(c.x + 0.02), y: c.y },
-					],
-					'door',
-					{ portal: options.doorKind, state: 'closed' },
-				),
-			]);
-			announce('Placed door.');
+			addFeatures(
+				[
+					mkFeature(
+						'door',
+						[
+							{ x: clamp01(c.x - 0.02), y: c.y },
+							{ x: clamp01(c.x + 0.02), y: c.y },
+						],
+						'door',
+						{ portal: options.doorKind, state: 'closed' },
+					),
+				],
+				'Placed door.',
+			);
 		} else if (tool === 'text') {
 			const text = options.labelText.trim();
-			addFeatures([mkFeature('text', [snap(raw)], 'text', { text: text || 'Label', size: 3 })]);
-			announce('Placed label.');
+			addFeatures(
+				[mkFeature('text', [snap(raw)], 'text', { text: text || 'Label', size: 3 })],
+				'Placed label.',
+			);
 		} else if (tool === 'fill') {
 			const cell = 1 / (editor.map?.overlay?.gridSize ?? 10);
 			const a = snap(raw);
-			addFeatures([
-				mkFeature(
-					'fill',
-					[a, { x: clamp01(a.x + cell), y: clamp01(a.y + cell) }],
-					options.terrainStyle,
-				),
-			]);
-			announce('Filled a cell.');
+			addFeatures(
+				[
+					mkFeature(
+						'fill',
+						[a, { x: clamp01(a.x + cell), y: clamp01(a.y + cell) }],
+						options.terrainStyle,
+					),
+				],
+				'Filled a cell.',
+			);
 		} else if (PATH_TOOLS.has(tool)) {
 			const last = pathRef.current[pathRef.current.length - 1];
 			setPath((prev) => [...prev, snap(raw, last)]);

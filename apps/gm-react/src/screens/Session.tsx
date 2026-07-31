@@ -231,6 +231,7 @@ export function Session() {
 	// conditions, and the core has no restore command — so it needs a confirm step, like the other
 	// irreversible actions in this app.
 	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
+	const [standbyConfirmOpen, setStandbyConfirmOpen] = useState(false);
 
 	// Create-intent handoff from the "Build encounter" launchers (⌘K palette, the shell's Create
 	// menu). They used to perform a bare navigation to /session and leave the DM to hunt for the
@@ -256,6 +257,15 @@ export function Session() {
 		}
 		Toaster.error(result.rejection.message);
 		return false;
+	}
+
+	// Every other lifecycle control on this screen confirms what it did — `goLive` toasts, the top-bar
+	// ProjectionControl toasts. The phase Seg alone changed durable lifecycle state and said nothing,
+	// so a screen-reader DM got only a silently re-checked radio.
+	function workflowAnnounce(target: 'prep' | 'recap' | 'idle'): string {
+		if (target === 'prep') return t('Session moved to Prep');
+		if (target === 'recap') return t('Session archived into Recap');
+		return t('Session ended — back on standby');
 	}
 
 	async function goLive(): Promise<void> {
@@ -593,6 +603,36 @@ export function Session() {
 					</>
 				}
 			/>
+			<Dialog
+				open={standbyConfirmOpen}
+				onClose={() => setStandbyConfirmOpen(false)}
+				title="End the live session?"
+				description="Returning to standby clears the active scene and map, the whole initiative order with every combatant's HP and conditions, delivered handouts, timers and the dice log. Nothing is archived — choose Recap instead if you want to keep a record."
+				icon="warning"
+				tone="danger"
+				size="sm"
+				footer={
+					<>
+						<Button variant="secondary" size="sm" onClick={() => setStandbyConfirmOpen(false)}>
+							Stay live
+						</Button>
+						<Button
+							variant="danger"
+							size="sm"
+							icon="close"
+							onClick={() => {
+								setStandbyConfirmOpen(false);
+								void dispatch(
+									{ type: 'session.set-workflow', actorId, payload: { workflow: 'idle' } },
+									workflowAnnounce('idle'),
+								);
+							}}
+						>
+							End session
+						</Button>
+					</>
+				}
+			/>
 			<ConditionPickerDialog
 				target={condPickTarget}
 				onClose={() => setCondPickFor(null)}
@@ -610,7 +650,16 @@ export function Session() {
 
 	function setWorkflow(target: 'prep' | 'active' | 'recap' | 'idle') {
 		if (target === 'active') return void goLive();
-		void dispatch({ type: 'session.set-workflow', actorId, payload: { workflow: target } });
+		// `idle` runs resetLiveSessionFields (session-control.ts) — it discards the round, the whole
+		// initiative order with every combatant's HP and conditions, the delivered handouts, the dice
+		// log, the timers and the staged map, and unlike Recap it writes NO archive. That is a strict
+		// superset of what `combat.end` throws away, and `combat.end` has had a danger confirm since
+		// run #5. The Seg is selection-follows-focus, so from Live this was one ArrowLeft away.
+		if (target === 'idle' && workflow === 'active') return setStandbyConfirmOpen(true);
+		void dispatch(
+			{ type: 'session.set-workflow', actorId, payload: { workflow: target } },
+			workflowAnnounce(target),
+		);
 	}
 }
 

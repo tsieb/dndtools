@@ -76,6 +76,44 @@ test.describe('onboarding forced consent (ADR-026)', () => {
 		expect(await storage(page, ONBOARDED_KEY)).toBe('done');
 	});
 
+	// A near-miss on the acknowledgment phrase was a silent dead end: Continue was HARD-disabled, so
+	// it left the tab order and dropped its title, the field showed no invalid state and nothing said
+	// which of the two conditions was blocking — on the one wizard step that cannot be skipped.
+	test('a mistyped acknowledgment says what is wrong and keeps Continue reachable', async ({
+		page,
+	}) => {
+		await openFresh(page);
+		await toPrivacyStep(page);
+		await overlay(page)
+			.getByRole('radio', { name: /Private vault/ })
+			.click();
+
+		const ack = overlay(page).getByLabel(`Type "${ACK_PHRASE}" to confirm`);
+		const cont = overlay(page).getByRole('button', { name: 'Continue' });
+
+		// Nothing typed yet: blocked, but the reason names the phrase.
+		await expect(cont).toBeDisabled();
+		await expect(cont).toHaveAttribute('title', new RegExp(ACK_PHRASE, 'i'));
+		// Soft, not native — the button keeps its place in the tab order and can still be focused.
+		expect(await cont.evaluate((el: HTMLButtonElement) => el.disabled)).toBe(false);
+		await cont.focus();
+		await expect(cont).toBeFocused();
+
+		// A near-miss now reports itself instead of failing silently.
+		await ack.fill('i hold the key');
+		await expect(ack).toHaveAttribute('aria-invalid', 'true');
+		const errorId = await ack.getAttribute('aria-describedby');
+		expect(errorId).toBeTruthy();
+		await expect(overlay(page).getByRole('alert')).toContainText(ACK_PHRASE);
+		await expect(cont).toBeDisabled();
+
+		// And the exact phrase clears both.
+		await ack.fill(ACK_PHRASE);
+		await expect(ack).not.toHaveAttribute('aria-invalid', 'true');
+		await expect(cont).toBeEnabled();
+		await expect(cont).not.toHaveAttribute('title', /.+/);
+	});
+
 	test('Cloud-Enhanced needs no acknowledgment, and a decided setup may then be skipped', async ({
 		page,
 	}) => {

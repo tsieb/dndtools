@@ -1,126 +1,140 @@
 ---
 name: shell-board-scene-cluster
-description: Structural UX gotchas in the gm-react shell + board/scene canvas cluster (AppShell, Board, SceneEditor, SceneBoardCanvas, SceneCardsPanel, widget-bodies); re-audited 2026-07-30 run #14 at 45adf828
+description: Structural UX gotchas in the gm-react shell + board/scene canvas cluster (AppShell, Board, SceneEditor, SceneCardsPanel, SceneBoardCanvas, widget-bodies, screen-kit); re-audited 2026-07-30 run #15 at 33651613
 metadata:
   type: project
 ---
 
-Audit of the app-shell + board/scene canvas cluster in `apps/gm-react`. Re-verified 2026-07-30 at
-`45adf828` (all line numbers below are from that commit).
+Re-verified 2026-07-30 at `33651613`. All line numbers from that commit.
 
 **Path corrections the briefs keep getting wrong:**
 - `SceneEditor.tsx` lives in `src/screens/`, NOT `src/app/`.
-- **There is NO scene-side `app/InspectorPanel.tsx`.** The only `InspectorPanel.tsx` in the repo is
-  `src/app/map/dock/InspectorPanel.tsx` (map editor). The scene Inspector is the local
+- There is NO scene-side `app/InspectorPanel.tsx`. The scene Inspector is the local
   `function Inspector()` inside `SceneEditor.tsx:741-934`.
 
+## ⭐ THE FACT THAT REFRAMES THIS CLUSTER (verified run #15)
+**Every built-in widget is `author: 'system'`** (`state/widget-package-state.ts:452-457`, one
+`systemWidget()` factory for all of them) → `tierOf` → `tier: 'system'` (`board-helpers.ts:70-80`)
+→ `canResize` default `w.tier !== 'system'` is **FALSE for 100% of shipping widgets**. So:
+- no resize handle EVER renders (`SceneBoardCanvas.tsx:830`),
+- the selection chip always shows `lock` + "System · locked content" (`:826`, `TIER_LABEL`),
+- `Shift+Arrow` `preventDefault()`s then silently returns (`:404-406`) — a dead feature,
+- **but** the Inspector's S/M/L (`SceneEditor.tsx:872-885`) is unconditional and
+  `handleResizeWidget` (`packages/core/src/commands/widget.ts:353-372`) has NO tier gate, so it
+  works. Three affordances, three different answers. Consequence: the 14px resize handle is a
+  LATENT finding, not a live one — don't spend severity on it.
+- `WidgetDefinition.resizePolicy` exists in the schema, is always `'free'`, and is read by NOBODY.
+
 ## CONFIRMED FIXED — do not re-report
-Run #13's entire top-7 is closed:
-- `SceneBoardCanvas` drags now `setPointerCapture` (`:209-215`) and terminate on `pointercancel`
-  (`:307-314`, listener at `:317`) — drafts dropped, `body.userSelect` restored.
-- Inspector Visibility `<Select>` has `aria-label="Widget visibility"` (`SceneEditor.tsx:859`).
-- `Board.snapshotSafePoint()` wraps its raw dispatch in try/catch (`Board.tsx:242-246`).
-- `SceneCardsPanel` `run()` (`:112-123`) and `createCard()` (`:99-102`) both catch a thrown persist.
-- The DM-only chip on every widget frame is now `--color-text-secondary` (`SceneBoardCanvas.tsx:749`).
-- The selection ring is an `outline`, not a `box-shadow` (`SceneBoardCanvas.tsx:698`) — **but that
-  fix introduced OPEN-1 below. Read it before touching that line.**
-Older fixed items still fixed: `SceneMetaPanel` `key={id}` + `[id]` reset; bounded `height:'100%'`;
-Layouts as a peer of Add; both Delete confirms; `<h2>`s in `<main>`; desktop-only gutters (phone
-exempt BY DESIGN — bounded fit scale is width-derived); `aria-expanded` on the four toolbar
-disclosures; AppShell "More" is a real disclosure (`:600-628`); `widget-rejection.ts` soft-disable.
+Run #14's entire top-6 is closed:
+- `SceneBoardCanvas.tsx:702` emits `outline` ONLY when selected → the global `:focus-visible` ring
+  is back on widget frames. (`outlineOffset: 2` inline == `--focus-ring-offset: 2px`; NON-issue.)
+- `Board.tsx:101-103` — `command-center.ensure-home` now has a real `.catch(setError)`.
+- `AppShell.tsx:1045-1057` — Ctrl/⌘+Right has try/catch + success AND failure toasts.
+- `widget-bodies.tsx:403-409` — ONE persistent transport `OpChip` driven by `countdown.status`.
+- `widget-bodies.tsx:305-317` — dice result is a permanently-mounted `role="status"` with an
+  `SR_ONLY` prefix; the prohibited `aria-label` on a `<span>` is gone.
+- `AppShell.tsx:1144-1149` — `<main>` has no inline `outline:'none'`; `outlineOffset:'-3px'`.
+- Both screens' `dispatch()` helpers catch the persist-failure rethrow.
+Older: `SceneMetaPanel key={id}`; bounded `height:'100%'`; Layouts as a peer of Add w/ Escape +
+`aria-expanded`; both Delete confirms; `<h2>`s in `<main>`; `pointercancel` + `setPointerCapture`;
+VIEW-mode `onBgDown` target guard; `widget-rejection.ts` soft-disable; `screen-kit` `LoadingRegion`
++ `srOnly` + `radioGroupKeyDown` Home/End + `BackBar` padding-based 24px target.
 
-Verified NON-issues: `Field` auto-associates a single child (never flag a `<Field label>` with no
-`htmlFor`). Phone panels are `zIndex:4` in the same non-stacking context as the fixed Dialog, so they
-do NOT cover the destroy confirm. `--operation-touch-target` compensation is Android-only by design.
-`/board` not being a phone bottom tab is CONTRACT-COMPLIANT.
+## VERIFIED NON-DEFECTS (I have claimed some of these before — stop)
+- **Selection chip `top:-26` clipping is ~2px, not "clipped".** Measured: bounded `ty=8`, chip
+  bottom pinned at board y −8, `scale(1/scale)` origin bottom-left. Barely a sliver.
+- **The resize handle does NOT clip horizontally.** `transform: scale(1/scale)` origin bottom-right
+  keeps it inside; the inner transform div is 792px wide inside a ≥900px wrapper.
+- **`SceneCardsPanel`'s bare `maxWidth:1180` root is fine** — `ScenesCreator.tsx:149` wraps it in
+  `<Page max={1180}>`, which owns the phone gutters.
+- Focus ring and selection ring are the SAME colour (`--color-accent` == `--color-interactive-focus-ring`
+  == `#e0b06f` in default+dark), but the selection CHIP disambiguates. Minor at most.
+- `Field` auto-associates a single child. Phone panels `zIndex:4` do not cover the Dialog.
+  `/board` not being a phone bottom tab is contract-compliant. `--operation-touch-target` is
+  Android-only by design.
 
-## STILL OPEN — ranked (run #14 line numbers)
-1. **`SceneBoardCanvas.tsx:698` — inline `outline: selected ? … : 'none'` on the widget frame
-   SUPPRESSES the global `:focus-visible` ring** (`styles/tokens/base.css:36-39`). Inline style beats
-   any stylesheet rule, so tabbing/arrowing between frames (the whole CANVAS-016 roving-tabindex
-   feature) is now completely invisible on BOTH routes and in BOTH modes. Regression introduced by
-   the box-shadow→outline fix. Fix: only emit the `outline` key when `selected`. In-repo precedent:
-   `ds/components/map/LayerRow.jsx:101` and `screens/Graph.tsx:434` carry the same warning.
-   Forced-colors is safe once fixed (`colors.css:407` maps the ring to `Highlight`).
-2. **`Board.tsx:88-92` — `command-center.ensure-home` is `.finally()`-only, NO `.catch()`.** A
-   persist failure ⇒ unhandled rejection and the GM Screen sits on "Setting up your GM Screen"
-   forever with no error. The one dispatch that materializes the home scene.
-3. **`AppShell.tsx:1043-1047` — Ctrl/Cmd+Right dispatches `scene-card.advance` with no catch and
-   NO feedback on success or failure.** The only global play shortcut; unobservable either way.
-4. **`widget-bodies.tsx:356-378` — Timer Start/Pause/Resume are conditionally-rendered SIBLINGS at
-   different JSX indices**, so pressing one unmounts it and mounts a different node ⇒ focus to
-   `<body>`. Fix: one persistent `OpChip` whose icon/label/onPress derive from `countdown.status`.
-5. **Self-disabling buttons ⇒ focus to `<body>`** (`ds/components/core/Button.jsx:11-26`: `disabled`
-   is the HARD native one). Sites: `SceneCardsPanel.tsx:301-308` Create (`disabled={submitting}`),
-   `:744` Queue (`disabled={queued}`), `Board.tsx:677-685` Save preset (`presetName` cleared at
-   `:229`). Soft-disable via `aria-disabled` where the spec allows.
-6. **`widget-bodies.tsx:283-293` — `aria-label` on a bare `<span>`** (role=generic prohibits naming;
-   axe `aria-prohibited-attr`), and the dice result has no live region, so pressing Roll announces
-   NOTHING. The span only renders once history exists, which is why the `/board` axe gate misses it.
-7. **A repeated IDENTICAL error is never re-announced.** `Board.tsx:450-466` / `SceneEditor.tsx:413`
-   are conditionally-mounted `role="alert"`s fed a constant string; `setError(samestring)` bails out
-   of re-render ⇒ zero DOM mutation ⇒ no second announcement and no visual change. Retry reads as
-   "the button did nothing".
-8. `SceneEditor.tsx:245-287` denied/missing bail-out is a bare `maxWidth:720` div, not `<Page>` —
-   flush to both phone edges. `Board.tsx:267` already uses `<Page max={640}>`.
-9. `SceneCardsPanel.tsx:773-851` per-card edit form: unannounced disclosure (no `aria-expanded`/
-   `aria-controls`, label stays "Edit {title}", focus never enters, and Save/Cancel unmount it ⇒
-   focus to `<body>`).
-10. `AppShell.tsx:1134` `<main tabIndex={-1}>` has inline `outline:'none'`, so activating "Skip to
-    content" gives a keyboard user no visual confirmation focus moved.
-11. `SceneEditor.tsx:511` selecting a widget while Scene details is open paints a ring but opens no
-    Inspector; the Edit-layout toggle (`:403-407`) clears `addOpen` but not `metaOpen`.
-12. `SceneEditor.tsx` has ZERO polite live regions (only `role="alert"` at `:416`); `Board`'s
-    permanent status host has no peer there. Add/save/visibility/resize/move/remove all silent.
-13. `SceneBoardCanvas.tsx:445` frame `ariaLabel` appends pixel geometry unconditionally (VIEW mode
-    too). `:806` selection chip at `top:-26` clipped in the bounded scroller. `:834-835` 14px resize
-    handle (≈6.6px at bounded scale). `:325-344` `onWheel` never `preventDefault`s (needs a native
-    `{passive:false}` listener on `wrapRef`, gated `policy==='canvas'`).
-14. Widget-library rows fire an unguarded async add (`Board.tsx:575-614`, `SceneEditor.tsx:687-727`)
-    — no busy state, `scene.add-widget` has no idempotency key ⇒ double-tap adds two.
-15. `AppShell.tsx:567-592` "All scenes (N)" / "Show fewer" has no `aria-expanded`/`aria-controls`.
-16. `AppShell.tsx:541-547` "New scene" navigates to `/scenes` with no state, and `ScenesCreator.tsx`
-    has NO `useLocation`/create-intent consumer (Board/Campaign/Knowledge/Atlas all do).
-17. `AppShell.tsx:1145` `SceneDisplayOverlay` is Ctrl/Cmd+Shift+S only — no button, menu row or
-    palette entry ⇒ unreachable on phone/tablet.
-18. No hover on the bare inline-styled buttons (`Board.tsx:575-614`, `SceneEditor.tsx:687-727`,
-    `AppShell.tsx:477-504`, `:568-592`, `:600-628`). No global `button:hover` exists; `SideRow`/
-    `SceneSideRow` already use the `onMouseEnter/Leave` + `T.hover` pattern.
-19. Carried deferred backlog (own pass each): bounded `/board` scaling to ~0.47 on a phone (needs 3
-    coordinated changes + 2 spec edits); Inspector S/M/L resizing canvas-LOCKED system widgets
-    (`SceneEditor.tsx:872-891` vs `SceneBoardCanvas:405/431`); side panels never moving focus IN and
-    having no click-outside; `widget-bodies.tsx:112-118` `aria-hidden` inert OpChip; "Keyboard order"
-    readout lies (`SceneEditor.tsx:895-919`); `Board.tsx:203 if (ok) setStatus(null)` dead code;
-    `/board` printing "GM Screen" twice.
+## STILL OPEN — ranked (run #15 line numbers)
+1. `SceneEditor.tsx:872-885` S/M/L vs `SceneBoardCanvas.tsx:405-406/:431/:826` — see ⭐ above.
+2. `SceneBoardCanvas.tsx:325-344` `onWheel` never `preventDefault`s ⇒ ⌘/Ctrl+wheel zooms the canvas
+   AND the browser. Needs a native `{passive:false}` listener on `wrapRef`, gated `policy==='canvas'`.
+3. **Phone `/board` renders at scale ≈0.48.** `boundedScale = clamp((wrapWidth-16)/792, 0.4, 1)`
+   (`:194-197`); the seeded home is 3 cols × 240 + 24 gutter = **792px extent**
+   (`state/command-center-state.ts:99-117`). Pixel 5 = 393 ⇒ 0.476. 13px body text → ~6px.
+4. `SceneEditor.tsx` has ZERO polite live regions (only `role="alert"` at `:416`). Add / resize /
+   visibility / focus-order / metadata-save / remove are all silent. Board has a permanent
+   `role="status"` host (`Board.tsx:439-456`) — port it.
+5. `SceneEditor.tsx:245-287` denied/missing bail-out is a bare `maxWidth:720` div, not `<Page>`.
+6. A repeated IDENTICAL message never re-announces — `setError(PERSIST_FAILED)` / `setStatus(same)`
+   hits React's `Object.is` bail-out. Both the error alerts (`Board.tsx:458`, `SceneEditor.tsx:413`)
+   AND Board's status (applying the same preset twice). Needs a nonce or a clear-first tick.
+7. Hard-`disabled`-on-own-success ⇒ focus to `<body>`: `SceneCardsPanel.tsx:305` Create,
+   `:516` **Next card (NEW — `advance` pops the head, so the last card empties the queue)**,
+   `:744` Queue, `Board.tsx:689` Save preset.
+8. `SceneCardsPanel` gives NO success feedback for create / Show / queue / visibility-toggle — only
+   `Toaster.error` on failure. Only `deleteCard` (`:132`) confirms, and it has a proper Undo.
+9. `SceneCardsPanel.tsx:758-764` + `:773-851` per-card edit disclosure: no `aria-expanded`/
+   `aria-controls`, label stays "Edit {title}", focus never enters, `:775` Escape is unreachable.
+10. Side panels never move focus in and have no click-outside (`Board.tsx:532`,`:627`;
+    `SceneEditor.tsx:459`,`:476`,`:511`). Their Escape handlers are on the panel Card, so Escape is
+    dead from the state the user is actually in. **`canvas.spec.ts:404/445/484` explicitly
+    `.focus()` the Close button first** — moving focus in on open keeps those green.
+11. Unguarded double-add: `Board.tsx:583-622` / `SceneEditor.tsx:687-726` fire an async
+    `scene.add-widget` with no busy state and no idempotency key ⇒ double-tap adds two.
+12. `SceneEditor.tsx:897-903` "Earlier" `disabled={focusOrder === 0}` self-disables on success; and
+    from "Auto" it jumps to `Position 1` (not "earlier").
+13. `SceneBoardCanvas.tsx:480` `touchAction:'none'` on `/scene/:id` ⇒ no pinch-zoom on a phone, and
+    `onBgDown:255` requires `e.target === e.currentTarget` so pan only works from bare background.
+14. `AppShell.tsx:1160` `SceneDisplayOverlay` is ⌘/Ctrl+Shift+S ONLY — no pointer entry point.
+15. `widget-bodies.tsx:126-131` `!onPress` renders an `aria-hidden` inert chip; in VIEW mode with an
+    undeclared command that is a dead control invisible to AT.
+16. `widget-bodies.tsx:381` timer `urgency:'warning'` is COLOR ALONE (`statusLabel` stays "Running";
+    only `danger` gets the "9.4" format change). Expiry ("Time's up",
+    `queries/timer-countdown.ts:109-115`) renders in a `<Muted>` with no live region.
+17. `AppShell.tsx:568-593` "All scenes (N)" / "Show fewer" has no `aria-expanded`/`aria-controls`.
+18. `SceneBoardCanvas.tsx:445` frame `ariaLabel` appends pixel geometry in VIEW mode too.
+19. `/board` prints "GM Screen" twice: `AppShell.tsx:858` `<h1>` (`nav.ts` RUN[1].label) +
+    `Board.tsx:355` `<h2>`.
+20. No hover on bare inline-styled buttons: `Board.tsx:584`, `SceneEditor.tsx:688`,
+    `AppShell.tsx:478`, `:569`, `:601`. (`SideRow`/`SceneSideRow` already do the `T.hover` pattern.)
+21. `AppShell.tsx:1039` `if (display.queuedCount > 0)` — ⌘/Ctrl+→ silently no-ops on an empty queue
+    while `SceneCardsPanel.tsx:200` advertises the shortcut.
+22. `SceneEditor.tsx:511` + `:403-407`: selecting a widget while Scene details is open paints a ring
+    but opens no Inspector; the Edit-layout toggle clears `addOpen` but not `metaOpen`.
+23. `AppShell.tsx:542-548` "New scene" navigates to `/scenes` with NO create-intent state, and
+    `ScenesCreator.tsx` has no `useLocation` consumer (Board/Atlas/Knowledge/Campaign/Characters all
+    do). Low impact — the create form IS the first thing on `/scenes`.
+24. `Board.tsx:211` `if (ok) setStatus(null)` is dead code (`dispatch` already nulled it).
+25. LATENT: 14px resize handle (`:830-847`) — unreachable until a non-system widget package ships.
 
 ## Reusable facts learned here
-- `SceneRuntime.dispatchNow` REJECTS for policy refusals but THROWS for persist failures. Any
-  `await runtime.dispatch()` without a `catch` is a silent-failure site; `try/finally` is NOT enough.
-  **`.finally()` on the promise is equally insufficient** — see OPEN-2.
-- `ds/components/core/Button.jsx:20-26`: `disabled` = hard native (drops out of tab order, kills the
-  `title`/`aria-label` explanation); truthy `aria-disabled` = soft (focusable, swallows the click).
-- `ds/components/forms/Select.jsx` is a bare `<select>` with NO auto-label; only `Field` names it.
-- The global focus ring is `:focus-visible { outline }` in `styles/tokens/base.css:36`, tokens in
-  `spacing.css:96-98`, remapped to `Highlight` under forced-colors (`colors.css:407`). **Any inline
-  `outline:'none'` anywhere silently defeats it** — this is the repo's most-repeated regression.
-- `--scene-board-touch-target` (`SceneBoardCanvas.tsx:504`) has exactly ONE consumer:
-  `styles/index.css:84-86`, gated `html[data-android]`.
+- `SceneRuntime.dispatchNow` REJECTS for policy refusals but THROWS for persist failures.
+  `.finally()` is NOT a catch. `main.tsx:17` toasts unhandled rejections generically.
+- `ds/components/core/Button.jsx`: `disabled` = hard native; truthy `aria-disabled` = soft.
+- `handleResizeWidget`/`handleMoveWidget` have NO tier or `resizePolicy` gate — the GUI is the only
+  guard, and the two GUI paths disagree.
+- `--focus-ring-offset: 2px`, `--focus-ring-width: 2px`, `:focus-visible` in `tokens/base.css:36`.
+- Seeded home extent = 792 × (24 + 3rows*184) — memorize 792 for any bounded-scale math.
 
-## Spec map / coupling for this cluster
-- `canvas.spec.ts` — phone `/board` `touch-action: pan-y` (`:47`); `getByTestId('scene-board-bounded')`
-  scrollHeight/clientHeight; `getByTestId('scene-board-canvas')`; `{name:/Edit layout/i}`;
-  `{name:'Add', exact:true}`; **`getByTestId('scene-add-widget-panel').getByRole('button').nth(1)`
-  (`:199`, `:637`) assumes Close is button index 0** — any AddWidgetPanel header change breaks it; a
-  strict `{name:'Remove widget'}` that must stay unambiguous; `getByTestId('widget-<id>').focus()` +
-  Enter/Delete. Nothing asserts the frame's `aria-label` or `role`, so OPEN-1/13 are spec-free.
-- `scene-cards.spec.ts` — `{name:'Queue {title}'}` is `.click()`ed BEFORE queuing (`:206`, `:407`,
-  `:434`), so soft-disabling it is safe; `{name:'Show', exact:true}` (`:265`);
-  `{name:'Create scene card'}` (`:175`); **`Move {title} up/down` are asserted `toBeDisabled()`
-  (`:413-421`, `:445`) — those two MUST stay natively `disabled`.**
-- `responsive.spec.ts:218-275` — `/board` AND `/scene/:id` must fill `#main-content` exactly. Any new
-  always-visible row on either root risks it; a `display:none` live-region host does not.
+## Spec map / coupling
+- `canvas.spec.ts` — phone `/board` `touch-action: pan-y` (`:47`); `scene-board-bounded` /
+  `scene-board-canvas` testids; `{name:/Edit layout/i}`; `{name:'Add', exact:true}`;
+  `{name:'Layouts', exact:true}` + `aria-expanded` assertions (`:435-441`);
+  `getByTestId('board-layouts-panel')`; `{name:'Close layouts'}`; `{name:'Close', exact:true}`
+  **`.focus()`ed before Escape at `:404`, `:445`, `:484`**;
+  `getByTestId('scene-add-widget-panel').getByRole('button').nth(1)` (`:237`, `:666`) assumes Close
+  is index 0; strict `{name:'Remove widget'}`; `scene-meta-panel` + `#scene-meta-name` +
+  `{name:'Save details'}`; `getByTestId('widget-<id>').focus()` + Enter/Delete.
+  Nothing asserts the frame `aria-label`/`role`, so #18 is spec-free.
+- `scene-cards.spec.ts` — `{name:'Queue {title}'}` clicked BEFORE queuing (`:206`,`:407`,`:434`) ⇒
+  soft-disabling it is SAFE; `{name:'Next card'}` clicked (`:212`,`:223`) but never asserted
+  disabled ⇒ soft-disable SAFE; `{name:'Create scene card'}` (`:175`) SAFE;
+  **`Move {title} up/down` asserted `toBeDisabled()` at `:413-421`,`:445` — those two MUST stay
+  natively `disabled`**; `:426`/`:446` assert `toBeFocused()` after a reorder.
+- `responsive.spec.ts:218-275` — `/board` AND `/scene/:id` must fill `#main-content` exactly at
+  393×720 and 1280×800, and `#main-content > div` must be ≥ clientHeight−2. A `display:none`
+  live-region host is safe; any always-visible new row is not.
 - `a11y-axe-gate.spec.ts:22-38` — 15 routes; `/board` and `/scenes` are in, **`/scene/:id` is NEVER
-  axe-scanned**, and `/board` is scanned on fresh state (no dice history ⇒ OPEN-6 uncaught).
+  axe-scanned**, and `/board` is scanned on fresh state.
 
-See [[completion-pass-ux-patterns]], [[ds-layer-audit]] and [[beta-readiness-audit]] for the
-destructive-op / Page / token classes this overlaps with.
+See [[completion-pass-ux-patterns]], [[ds-layer-audit]], [[beta-readiness-audit]].

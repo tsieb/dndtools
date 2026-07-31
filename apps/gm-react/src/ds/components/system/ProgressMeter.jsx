@@ -81,7 +81,10 @@ export function ProgressMeter({
 			)}
 			<div
 				role="progressbar"
-				aria-valuenow={indeterminate ? undefined : value}
+				// Clamped, exactly as the painted fill already is. An over-budget encounter (the live
+				// example) announced "150" against aria-valuemax=100, which is out of range and reads
+				// as broken rather than as "over budget".
+				aria-valuenow={indeterminate ? undefined : Math.max(0, Math.min(max, value))}
 				// Without this the bar announces a bare percentage while the readout beside it says
 				// "12 / 40 pts" — the encounter builder's difficulty meter is the live example.
 				aria-valuetext={!indeterminate && valueLabel != null ? String(valueLabel) : undefined}
