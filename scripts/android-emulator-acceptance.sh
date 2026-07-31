@@ -424,7 +424,7 @@ fi
 wait_for_root_destination || fail 'offline cold relaunch did not render the root destination'
 tap_ui_button 'Session' || fail 'Session was not reachable after offline process death'
 wait_for_ui_text 'LIVE SESSION' || fail 'Session did not render after offline process death'
-wait_for_ui_text_absent 'Session is in standby' \
+wait_for_ui_text 'Players see' \
 	|| fail 'the accepted session command was not restored after offline process death'
 tap_ui_button 'Home' || fail 'Home was not reachable after persisted-command verification'
 wait_for_root_destination || fail 'persisted-command verification did not return to root'
