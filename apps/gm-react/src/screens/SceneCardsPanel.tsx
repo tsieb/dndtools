@@ -519,7 +519,15 @@ function SceneQueuePanel({
 					icon="skip"
 					aria-disabled={queue.length === 0 || undefined}
 					title={queue.length === 0 ? t('Queue a scene card first') : undefined}
-					onClick={onAdvance}
+					// The soft disable has to be enforced in the handler too. `aria-disabled` on a DS
+					// Button swallows the click, but `Button` only does that for `aria-disabled={true}`
+					// — and a bare `onClick={onAdvance}` here still fired a `scene-card.advance` that
+					// the core rejects with "The scene queue is empty.", so a deliberate press on a
+					// control that says it is unavailable answered with a red error toast.
+					onClick={() => {
+						if (queue.length === 0) return;
+						onAdvance();
+					}}
 				>
 					{t('Next card')}
 				</Button>
@@ -747,7 +755,14 @@ function SceneCardRow({
 					variant="ghost"
 					size="sm"
 					aria-disabled={queued || undefined}
-					onClick={onEnqueue}
+					// Same as "Next card": without this guard the press reached
+					// `scene-card.enqueue`, which rejects with the literal `Scene card <uuid> is
+					// already queued.` — a raw id rendered into a user-facing error toast, on a button
+					// whose own name already reads "{title} is queued".
+					onClick={() => {
+						if (queued) return;
+						onEnqueue();
+					}}
 				/>
 				<IconButton
 					icon={card.visibility === 'player-visible' ? 'visibility-players' : 'dm-only'}

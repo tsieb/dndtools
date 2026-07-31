@@ -939,3 +939,47 @@ test.describe('canvas: the timer transport survives its own press', () => {
 		await expect(resume).toBeFocused();
 	});
 });
+
+// `/board`'s confirmation channel is a single `role="status"` host beside the toolbar. It was
+// rendered PERMANENTLY (the comment beside it says why: a polite region inserted together with its
+// text is routinely dropped) — but it collapsed with `display: 'none'`, which removes the node from
+// the ACCESSIBILITY TREE entirely. So flipping to `inline-flex` WITH content was exactly the
+// one-mutation insert the comment warns against, and every board confirmation was silent. It now
+// collapses with `srOnly`: out of flow (no box, no parent gap) but still in the a11y tree.
+test.describe('canvas: the GM Screen status region exists before it speaks', () => {
+	test('announces a saved layout through a host that was already in the a11y tree', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await goLive(page);
+
+		const status = page.getByTestId('board-status');
+		// Present and EMPTY before any write — `display:none` would have made this 0.
+		await expect(status).toHaveCount(1);
+		await expect(status).toHaveText('');
+		expect(await status.evaluate((el: HTMLElement) => getComputedStyle(el).display)).not.toBe(
+			'none',
+		);
+		// And it costs the layout nothing while empty: out of flow, so it is not a flex item and
+		// contributes no parent `gap` to the bounded canvas below it.
+		expect(await status.evaluate((el: HTMLElement) => getComputedStyle(el).position)).toBe(
+			'absolute',
+		);
+
+		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await page.getByRole('button', { name: 'Layouts', exact: true }).click();
+		const name = `Combat night ${Date.now()}`;
+		await page.getByLabel('Layout name').fill(name);
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+		// Same node, new text — the mutation a screen reader can actually hear.
+		await expect(status).toHaveText(new RegExp(`${name}.*saved`));
+		expect(await status.evaluate((el: HTMLElement) => getComputedStyle(el).position)).not.toBe(
+			'absolute',
+		);
+	});
+});

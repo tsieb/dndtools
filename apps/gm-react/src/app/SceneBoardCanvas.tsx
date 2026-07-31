@@ -442,7 +442,15 @@ export function SceneBoardCanvas({
 				scale={scale}
 				resizable={resizable}
 				tabbable={tabbableId === w.id}
-				ariaLabel={`${w.title}, ${w.typeLabel} widget, position ${pos.x}, ${pos.y}, size ${size.w} by ${size.h}`}
+				// The pixel geometry is only actionable while the layout is being edited (it is what
+				// Shift+Arrow and the drag handles change). In VIEW mode it made every widget on the
+				// board announce four coordinates of layout telemetry to a screen-reader user who is
+				// just reading the board.
+				ariaLabel={
+					editing
+						? `${w.title}, ${w.typeLabel} widget, position ${pos.x}, ${pos.y}, size ${size.w} by ${size.h}`
+						: `${w.title}, ${w.typeLabel} widget`
+				}
 				onKeyDown={(e) => frameKeyDown(e, w)}
 				onFocusIn={() => setFocusedId(w.id)}
 				registerRef={(el) => {

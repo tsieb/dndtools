@@ -53,6 +53,9 @@ export function LayersPanel({
 
 	function addLayer() {
 		const group = categoryForTool(editor.tool);
+		// `run` is SINGLE-FLIGHT: false while another command is in flight, and false again when the
+		// core refuses. Announcing on the next line said "Layer added." when nothing had been added.
+		// `EditorCanvas.addFeatures` is the in-repo shape for this.
 		void run({
 			type: 'map.create-layer',
 			actorId,
@@ -63,8 +66,9 @@ export function LayersPanel({
 				category: group,
 				visibility: 'dm-only',
 			},
-		} as never);
-		announce('Layer added.');
+		} as never).then((accepted) => {
+			if (accepted) announce('Layer added.');
+		});
 	}
 
 	return (
@@ -326,13 +330,20 @@ export function LayersPanel({
 								size="sm"
 								icon="delete"
 								onClick={() => {
+									// Same single-flight trap as `addLayer`, plus: closing the dialog
+									// unconditionally meant a REFUSED delete looked exactly like a
+									// successful one — the confirm vanished and the live region said
+									// the layer was gone while it was still in the list.
+									const name = confirmDelete.name;
 									void run({
 										type: 'map.delete-layer',
 										actorId,
 										payload: { mapId, layerId: confirmDelete.layerId },
-									} as never);
-									announce(`Layer “${confirmDelete.name}” deleted.`);
-									setConfirmDelete(null);
+									} as never).then((accepted) => {
+										if (!accepted) return;
+										announce(`Layer “${name}” deleted.`);
+										setConfirmDelete(null);
+									});
 								}}
 							>
 								Delete

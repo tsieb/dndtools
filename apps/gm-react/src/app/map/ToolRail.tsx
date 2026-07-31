@@ -64,7 +64,11 @@ export function ToolRail({
 							title={g.label}
 							aria-label={g.label}
 							aria-pressed={isActiveGroup}
-							aria-expanded={isOpen}
+							// NOT `aria-expanded`: the handler below can only ever OPEN a group (there
+							// is no collapse path, and `openGroup` always names one), so advertising a
+							// disclosure that never closes told a screen-reader user the control does
+							// something it cannot. Which group is showing is already discoverable —
+							// the flyout below is a `role="group"` named "{group} tools".
 							onClick={() => {
 								setOpenGroup(g.id);
 								// A single-tool group activates directly; multi-tool groups just open the flyout.

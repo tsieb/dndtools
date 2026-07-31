@@ -122,14 +122,20 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 								? t('End live session')
 								: t('Go live')
 				}
+				// On a phone the `!compact` pill above — the StatusDot and the WORKFLOW_LABEL — is not
+				// rendered at all, and the button's own text is dropped too, so the app's most
+				// consequential control collapses to one glyph that cannot tell Standby from Prep
+				// from Recap. Fold the workflow state into the compact name. (Kept as a SUFFIX: the
+				// existing strings stay a prefix, and `getByRole` name matching is substring.)
 				aria-label={
-					previewing
+					(previewing
 						? t('Go live (unavailable — exit player preview first)')
 						: !live && !canGoLive
 							? t('Go live (unavailable — return to Standby first)')
 							: live
 								? t('End live session')
-								: t('Go live')
+								: t('Go live')) +
+					(compact ? ` — ${t(WORKFLOW_LABEL[workflow as SessionWorkflowState] ?? 'Standby')}` : '')
 				}
 				style={compact ? { width: 48, minHeight: 48, padding: 0, flex: '0 0 auto' } : undefined}
 				onClick={() =>

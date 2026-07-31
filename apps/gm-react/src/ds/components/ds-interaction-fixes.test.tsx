@@ -279,6 +279,71 @@ describe('IconButton separates hard-disabled from explained-unavailable', () => 
 		act(() => button.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })));
 		expect(button.style.background).toBe(resting);
 	});
+
+	it('restores the CALL SITE colour after hover, not the variant default', () => {
+		// `onMouseLeave` used to write back `variants[variant].color` unconditionally, so the first
+		// hover permanently discarded a colour the caller had passed in `style`. PlayerView's
+		// projected stage runs its own theme and paints its Dismiss glyph with a literal ink colour —
+		// one hover turned it into `--color-text-secondary` on the surface the players are looking at,
+		// with no way back short of a remount.
+		const button = render(
+			<IconButton
+				icon="close"
+				label="Dismiss scene banner"
+				variant="ghost"
+				style={{ color: 'rgb(240, 233, 220)', background: 'rgb(20, 16, 11)' }}
+			/>,
+		);
+		expect(button.style.color).toBe('rgb(240, 233, 220)');
+
+		act(() => button.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })));
+		act(() => button.dispatchEvent(new MouseEvent('mouseout', { bubbles: true })));
+
+		expect(button.style.color).toBe('rgb(240, 233, 220)');
+		expect(button.style.background).toBe('rgb(20, 16, 11)');
+	});
+});
+
+describe('a read-only table does not promise a click it cannot honour', () => {
+	// Every `<tr>` washed gold on hover, but `DataTable` exposed no row-activation prop at all — so
+	// both live tables (the Characters roster, Settings' active grants) painted a pressable
+	// highlight under a pointer that did nothing.
+	const columns = [{ key: 'name', header: 'Name' }];
+	const rows = [{ name: 'Aldra' }, { name: 'Bex' }];
+
+	it('leaves rows inert when no onRowClick is supplied', () => {
+		act(() => root.render(<DataTable columns={columns} rows={rows} />));
+		const row = container.querySelector('tbody tr') as HTMLElement;
+		const resting = row.style.background;
+		expect(row.style.cursor).toBe('');
+
+		act(() => row.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })));
+		expect(row.style.background).toBe(resting);
+	});
+
+	it('washes on hover once a row really is activatable', () => {
+		const picked: string[] = [];
+		act(() =>
+			root.render(
+				<DataTable
+					columns={columns}
+					rows={rows}
+					onRowClick={(row: { name: string }) => picked.push(row.name)}
+				/>,
+			),
+		);
+		const row = container.querySelector('tbody tr') as HTMLElement;
+		const resting = row.style.background;
+		expect(row.style.cursor).toBe('pointer');
+
+		act(() => row.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })));
+		expect(row.style.background).not.toBe(resting);
+		act(() => row.dispatchEvent(new MouseEvent('mouseout', { bubbles: true })));
+		expect(row.style.background).toBe(resting);
+
+		act(() => row.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+		expect(picked).toEqual(['Aldra']);
+	});
 });
 
 describe('form fields keep their focus ring when the call site also listens for blur', () => {

@@ -245,6 +245,41 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		await next.dispatchEvent('click');
 		await page.waitForTimeout(200);
 		expect(await activeCardId(page)).toBe(secondId);
+		// ⚠️ The state assertion above passes for BOTH a swallowed press and a REJECTED dispatch — a
+		// refusal also leaves `activeCardId` alone. It did in fact dispatch: `aria-disabled` on a DS
+		// Button only swallows `aria-disabled={true}`, and this call site passed a bare
+		// `onClick={onAdvance}`, so a deliberate press on a control that says it is unavailable
+		// answered with `scene-card.advance`'s "The scene queue is empty." in a red toast. The
+		// handler is now guarded; this is the assertion that can tell the two apart.
+		await expect(page.getByText('The scene queue is empty.')).toHaveCount(0);
+	});
+
+	test('a queued card’s Queue button is inert, not a source of raw-id error toasts', async ({
+		page,
+	}) => {
+		const title = `Cellar Door ${Date.now()}`;
+		const id = await createCardViaCore(page, { title, visibility: 'player-visible' });
+
+		// Queue it once through the real UI.
+		await page.getByRole('button', { name: `Queue ${title}` }).click();
+		await expect
+			.poll(async () => (await queueCardIds(page)).includes(id), { timeout: 10_000 })
+			.toBe(true);
+
+		// The control now names the state instead of the action and soft-disables — it stays a tab
+		// stop so its explanation is reachable, which is the whole point of the soft form.
+		const queued = page.getByRole('button', { name: `${title} is queued` });
+		await expect(queued).toHaveAttribute('aria-disabled', 'true');
+		expect(await queued.evaluate((el: HTMLButtonElement) => el.disabled)).toBe(false);
+
+		// A press must be swallowed. Unguarded it reached `scene-card.enqueue`, which rejects with the
+		// literal `Scene card <uuid> is already queued.` — a raw internal id rendered into a
+		// user-facing error toast, on a button whose own name already says it is queued.
+		await queued.dispatchEvent('click');
+		await page.waitForTimeout(200);
+		await expect(page.getByText(/is already queued\./)).toHaveCount(0);
+		await expect(page.getByText(id, { exact: false })).toHaveCount(0);
+		expect((await queueCardIds(page)).filter((q) => q === id)).toHaveLength(1);
 	});
 
 	test('preview-as-player filters dm-only cards out of the scene-card list', async ({ page }) => {

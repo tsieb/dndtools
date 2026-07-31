@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
+import { dispatch, enterPreview, gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
 // COMBAT — the /session initiative tracker. Before this spec the running tracker had NO e2e coverage
 // at all: every other spec sees an idle session, so nothing exercised the surface that appears once
@@ -374,5 +374,48 @@ test.describe('leaving a LIVE session for standby is confirmed', () => {
 		await expect(page.getByRole('dialog', { name: 'End the live session?' })).toHaveCount(0);
 		await expect.poll(() => page.evaluate(() => window.__rt!.state.session.workflow)).toBe('recap');
 		await expect(page.getByText('Session archived into Recap')).toBeVisible();
+	});
+});
+
+// The phase Seg was the ONLY control on /session with no `previewing` / `isDm` gate — every one of
+// the file's ~50 other `previewing` references has one. So previewing as a player on a LIVE session
+// and pressing Standby (one ArrowLeft away, since Seg is selection-follows-focus) raised the full-red
+// "End the live session?" dialog describing a teardown that discards the round, every combatant's HP
+// and conditions, the handouts, the timers and the dice log — and then the core refused it read-only.
+// The loudest possible lie about what a press was about to do.
+test.describe('session: the phase rail respects player preview', () => {
+	test('locks the phase options while previewing and never raises the teardown dialog', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/session');
+		await seedFresh(page);
+		await gotoRoute(page, '/session');
+		await startCombat(page);
+
+		const phases = page.getByRole('radiogroup', { name: 'Session phase' });
+		const standby = phases.getByRole('radio', { name: 'Standby' });
+		// As the DM this is a real exit — that contract is asserted elsewhere and must not regress.
+		await expect(standby).toBeEnabled();
+
+		await enterPreview(page, 'player');
+
+		// Every option except the one the session is actually in is now unavailable, and each says why
+		// rather than being a mute 0.4-opacity dead control.
+		await expect(standby).toBeDisabled();
+		await expect(standby).toHaveAttribute('title', /player preview/i);
+		await expect(phases.getByRole('radio', { name: 'Prep' })).toBeDisabled();
+		await expect(phases.getByRole('radio', { name: 'Live' })).toHaveAttribute(
+			'aria-checked',
+			'true',
+		);
+
+		// Driving the click past the disabled attribute must still not open the danger dialog, and
+		// the workflow must not move: the handler is guarded too, not only the rendering.
+		await standby.dispatchEvent('click');
+		await page.waitForTimeout(200);
+		await expect(page.getByRole('alertdialog')).toHaveCount(0);
+		await expect(page.getByText('End the live session?')).toHaveCount(0);
+		expect(await page.evaluate(() => window.__rt!.state.session.workflow)).toBe('active');
 	});
 });

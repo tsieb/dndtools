@@ -285,6 +285,9 @@ export function EditorCanvas({
 		const down = (e: KeyboardEvent) => {
 			if (e.key === 'Control') ctrlRef.current = true;
 			if (e.key === ' ' && !isTyping(e.target)) {
+				// Space is also "activate the focused button". Without this, holding Space to pan
+				// after clicking e.g. Zoom in re-fired that button on release.
+				e.preventDefault();
 				setSpacePan(true);
 			}
 		};
@@ -292,11 +295,21 @@ export function EditorCanvas({
 			if (e.key === 'Control') ctrlRef.current = false;
 			if (e.key === ' ') setSpacePan(false);
 		};
+		// A window that loses focus while Space is held (Alt+Tab, an OS overlay) never delivers the
+		// keyup — and space-pan renders a full-canvas `zIndex: 9` grab overlay, so the editor was left
+		// with every tool, the zoom cluster and the minimap dead behind an invisible sheet, with no
+		// affordance saying why. Releasing the pan on blur is the only reset the user cannot miss.
+		const release = () => {
+			ctrlRef.current = false;
+			setSpacePan(false);
+		};
 		window.addEventListener('keydown', down);
 		window.addEventListener('keyup', up);
+		window.addEventListener('blur', release);
 		return () => {
 			window.removeEventListener('keydown', down);
 			window.removeEventListener('keyup', up);
+			window.removeEventListener('blur', release);
 		};
 	}, []);
 

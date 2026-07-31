@@ -78,11 +78,20 @@ export const T = {
 	ssm: 'var(--shadow-sm)',
 } as const;
 
+/**
+ * The app-wide eyebrow: a small uppercase section label. It was `--color-text-tertiary`, which is
+ * `#837057` in parchment — 4.01:1 on `--color-bg` and 3.54:1 on `--color-surface-sunken`, i.e. below
+ * WCAG 1.4.3's 4.5:1 for 11px text. That token is tuned for `--color-surface-raised` only (its own
+ * comment in `tokens/colors.css` says so), and under `forced-colors: active` it maps to `GrayText`,
+ * so every eyebrow rendered in the system's DISABLED colour — including the four structural `<h2>`
+ * section headings on the Command Center, the app's landing surface. `--color-text-secondary` is
+ * 6.28:1 on sunken and maps to `CanvasText`.
+ */
 export const eb: CSSProperties = {
 	font: `600 11px ${T.sans}`,
 	letterSpacing: '.09em',
 	textTransform: 'uppercase',
-	color: T.ter,
+	color: T.sub,
 };
 
 export const mono: CSSProperties = { fontFamily: T.mono };
@@ -209,7 +218,17 @@ export function Seg({
 	onChange,
 	ariaLabel,
 }: {
-	options: { value: string; label: ReactNode; disabled?: boolean }[];
+	options: {
+		value: string;
+		label: ReactNode;
+		disabled?: boolean;
+		/**
+		 * Why this option is unavailable. Every live `Seg` renders its forbidden options as a mute
+		 * 0.4-opacity dead control with no explanation at all — the session phase rail, Graph's
+		 * viewpoint picker and seven Settings groups all do it.
+		 */
+		title?: string;
+	}[];
 	value: string;
 	onChange: (v: string) => void;
 	/** Names the group for assistive tech (the control is a radiogroup, WCAG 4.1.2). */
@@ -258,9 +277,24 @@ export function Seg({
 						type="button"
 						role="radio"
 						aria-checked={on}
+						title={o.title}
 						tabIndex={index === tabStopIndex ? 0 : -1}
 						disabled={off}
 						onClick={() => !off && onChange(o.value)}
+						// `Seg` is the app's most-used radiogroup (15+ live groups) and had no pointer
+						// feedback at all on its unselected options, in a repo with no global
+						// `button:hover` rule to fall back on. Its DS twin `SegmentedControl` has had
+						// one since it shipped.
+						onMouseEnter={(event) => {
+							if (on || off) return;
+							event.currentTarget.style.background = 'var(--color-interactive-hover)';
+							event.currentTarget.style.color = 'var(--color-text-primary)';
+						}}
+						onMouseLeave={(event) => {
+							if (on || off) return;
+							event.currentTarget.style.background = 'transparent';
+							event.currentTarget.style.color = T.sub;
+						}}
 						onKeyDown={(event) => {
 							if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
 								event.preventDefault();

@@ -335,6 +335,8 @@ export function Session() {
 			<SessionHeader
 				workflow={workflow}
 				sceneName={activeSceneName}
+				previewing={previewing}
+				isDm={isDm}
 				onSetWorkflow={(w) => setWorkflow(w)}
 			/>
 
@@ -649,6 +651,11 @@ export function Session() {
 	);
 
 	function setWorkflow(target: 'prep' | 'active' | 'recap' | 'idle') {
+		// The phase Seg was the ONLY control on /session with no `previewing`/`isDm` gate (every other
+		// one of its 50-odd references has one), so previewing as a player and pressing Standby raised
+		// the full-red "End the live session?" dialog for a teardown the core would then refuse
+		// read-only. The Seg now disables those options, and this is the belt-and-braces guard.
+		if (previewing || !isDm) return;
 		if (target === 'active') return void goLive();
 		// `idle` runs resetLiveSessionFields (session-control.ts) — it discards the round, the whole
 		// initiative order with every combatant's HP and conditions, the delivered handouts, the dice
@@ -666,10 +673,14 @@ export function Session() {
 function SessionHeader({
 	workflow,
 	sceneName,
+	previewing,
+	isDm,
 	onSetWorkflow,
 }: {
 	workflow: string;
 	sceneName: string | null;
+	previewing: boolean;
+	isDm: boolean;
 	onSetWorkflow: (w: 'idle' | 'prep' | 'active' | 'recap') => void;
 }) {
 	const phase =
@@ -684,6 +695,21 @@ function SessionHeader({
 	// transition + error toast (e.g. active→prep, recap→active are not legal). The current phase stays
 	// enabled regardless (Seg keeps the checked option active).
 	const allowed = new Set<string>(allowedTransitionsFrom(workflow as SessionWorkflowState));
+	// Previewing as a player (or being a player at all) has to block the rail as well as the core.
+	// Without this, ArrowLeft from "Live" while previewing raised the full-red "End the live session?"
+	// dialog for a teardown that would then be refused read-only — the loudest possible lie about what
+	// a press was going to do.
+	const blocked = previewing
+		? 'Exit player preview to change the session phase.'
+		: !isDm
+			? 'Only the DM can change the session phase.'
+			: null;
+	const option = (value: string, label: string, reason: string) => ({
+		value,
+		label,
+		disabled: blocked ? value !== phase : !allowed.has(value),
+		title: value === phase ? undefined : (blocked ?? (allowed.has(value) ? undefined : reason)),
+	});
 	return (
 		<div
 			style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}
@@ -701,10 +727,10 @@ function SessionHeader({
 					// are recap/archived/idle — had EVERY segment disabled or already checked, and the
 					// standby card's Go live was rejected by the core, so a DM who ended one session
 					// could not start another without editing IndexedDB.
-					{ value: 'idle', label: 'Standby', disabled: !allowed.has('idle') },
-					{ value: 'prep', label: 'Prep', disabled: !allowed.has('prep') },
-					{ value: 'active', label: 'Live', disabled: !allowed.has('active') },
-					{ value: 'recap', label: 'Recap', disabled: !allowed.has('recap') },
+					option('idle', 'Standby', 'Standby is not available from here.'),
+					option('prep', 'Prep', 'Return to Standby before going back to Prep.'),
+					option('active', 'Live', 'Return to Standby before going live again.'),
+					option('recap', 'Recap', 'Recap is only available while a session is live.'),
 				]}
 			/>
 			<div style={{ flex: 1 }} />
@@ -2202,12 +2228,35 @@ function PartyPanel({
 					{party.map((p) => (
 						<div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 							<div style={{ flex: 1, minWidth: 0 }}>
-								<HPBar
-									current={p.combat?.hp ?? 0}
-									max={p.combat?.maxHp ?? 1}
-									label={p.name}
-									size="sm"
-								/>
+								{/* `?? 0` / `?? 1` painted an EMPTY RED bar reading "0/1" for anyone
+								    without hit points recorded — i.e. the panel asserted the character
+								    was dead. It is reachable in one click: character-query strips the
+								    whole `combat` block for a non-DM viewer, so previewing as a player
+								    reported the entire party at 0 HP. Absent numbers are absent. */}
+								{p.combat && typeof p.combat.maxHp === 'number' && p.combat.maxHp > 0 ? (
+									<HPBar current={p.combat.hp ?? 0} max={p.combat.maxHp} label={p.name} size="sm" />
+								) : (
+									<div
+										style={{
+											display: 'flex',
+											justifyContent: 'space-between',
+											gap: 8,
+											font: `13px ${T.sans}`,
+											color: T.sub,
+										}}
+									>
+										<span
+											style={{
+												overflow: 'hidden',
+												textOverflow: 'ellipsis',
+												whiteSpace: 'nowrap',
+											}}
+										>
+											{p.name}
+										</span>
+										<span style={{ color: T.ter }}>No hit points recorded</span>
+									</div>
+								)}
 							</div>
 						</div>
 					))}

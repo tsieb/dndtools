@@ -1,6 +1,6 @@
 ---
 name: ds-layer-audit
-description: FIXED-vs-OPEN split for visual/interactive defects in apps/gm-react/src/ds/components/** — dead exports, token traps, e2e label coupling, and what is still broken as of run #17 (2026-07-31 @ 21e4f86e)
+description: FIXED-vs-OPEN split for visual/interactive defects in apps/gm-react/src/ds/components/** — dead exports, token traps, e2e label coupling, and what is still broken as of run #18 (2026-07-31 @ e702bb6f)
 metadata:
   type: project
 ---
@@ -35,6 +35,25 @@ custom colour is LATENT), **`Field` wrapping >1 top-level child** (0 live).
 
 ## FIXED — do NOT re-report
 
+- **Run #18 verified fixed (commit e702bb6f) — this CLOSED run #17's whole top-3 plus half of #9:**
+  `Slider.jsx:18` `height:6px` → **`min-height:24px`** (the 6px drag strip is DEAD; band still painted
+  by `background-size:100% 6px`) · `Dialog.jsx:163`/`Sheet.jsx:121` now call
+  **`restoreReturnFocus()`** from `platform/returnFocus` + null the ref (detached-opener guard) ·
+  `Button.jsx:71-77` **`accent` variant added**, vocabularies re-converged with IconButton ·
+  `SegmentedControl.jsx:102` **`whiteSpace:'nowrap'`** added so `textOverflow:ellipsis` finally bites.
+- **Run #18 checked and found to be NON-defects — retire these, do not re-open:**
+  `@keyframes dnd-shimmer` IS defined (`styles/tokens/base.css:51`) — Skeleton/ProgressMeter animate ·
+  the three `aria-label="Primary"` navs (`AppShell.tsx:516` Sidebar / NavRail / BottomTabBar) are
+  **viewport-exclusive** ternaries at `AppShell.tsx:1123-1124,1157` ⇒ no duplicate-landmark violation ·
+  **`Chip onRemove` really is 0 live** (all 6 `onRemove=` hits are SceneBoardCanvas / Inspector /
+  ConditionTracker / ConditionBadge / combat tracker, NOT Chip) · **`DataTable sortable` 0 live**
+  (`grep sortable` outside ds/ = 0) · all **27 `Field htmlFor` sites also set a matching `id` on the
+  DIRECT child**, so the describedby/invalid clone lands on the real control · `Session.tsx:2013`
+  label-less StatusDot IS backed by a "Hand raised"/"Ready"/"Connected" `Badge` at `:2033-2045` ·
+  `Settings.tsx:2349` label-less StatusDot IS backed by "Online/Offline · local-only" text.
+- ⚠️ **PREMISE CORRECTION to old item #5:** `IconButton size="sm"` = 1.75rem = **28px, which PASSES
+  WCAG 2.5.8's 24px floor.** The defect is a violation of the app's own comfortable-density contract
+  (44px below 1200px), NOT a WCAG failure. Downgrade it accordingly; stop calling it an a11y blocker.
 - **Run #17 verified fixed (commit 21e4f86e):** `Popover.jsx:44,66` **`triggerRef`** — a toggle
   trigger can now close its own popover (all 4 map flyouts wired) · `EmptyState.jsx` no longer
   `role="status"` · `ProgressMeter.jsx:87` `aria-valuenow` clamped to `[0,max]` ·
@@ -59,65 +78,84 @@ custom colour is LATENT), **`Field` wrapping >1 top-level child** (0 live).
   `SessionTimeline`, `AbilityScore`, `HPBar`, `DiceResult`, `DefinitionList`, `Stepper`,
   `BottomTabBar`, `NavRail`, `ConditionTracker`, `EmptyState`.
 
-## STILL OPEN (run #17, ranked). New this run marked ★
+## STILL OPEN (run #18, ranked). New this run marked ★
 
-1. ★ **`forms/Slider.jsx:18` `.dnds-range{height:6px}` + `steppers` passed at 0 of 14 live sites.**
-   On every non-Android profile (desktop AND `mobile-chromium` Pixel 5) the ONLY pointer route to
-   brush size / fog radius / layer opacity / master volume / every generation param is a 6px-tall
-   strip. The 24px thumb is a `::-webkit-slider-thumb` painted overflowing a 6px box; click-to-position
-   uses the element box. WCAG 2.5.8, and 2.5.7's documented non-drag alternative is dead code.
-   Sites: `ToolOptionsBar.tsx:51`, `InspectorPanel.tsx:70`, `ParamControls.tsx:91`, `LayerRow.jsx:278`,
-   `Audio.tsx:248`, `Session.tsx:1861` (+ dead FogControls/GenerationPanel).
-   **Fix: `height:6px` → `min-height:24px`.** The band is already drawn by `background-size:100% 6px;
-   background-position:center`, so the track looks identical. SAFE (`audio-presets.spec.ts:212-231`
-   is role+`aria-valuetext`+keyboard only).
-2. ★ **`overlay/Dialog.jsx:162-163` and `overlay/Sheet.jsx:120-121` restore focus unguarded.**
-   `const rf = returnFocusRef.current; if (rf && rf.focus) rf.focus();` — no `document.contains`.
-   `core/Popover.jsx:110-116` ALREADY has the right guard (`stranded && document.contains`).
-   42 Dialog + 8 Sheet sites. (a) A confirm that removes its own opener (row ⋯ delete) no-ops the
-   `.focus()` ⇒ focus lands on `<body>`, next Tab restarts the document (2.4.3). (b) A caller that
-   deliberately moves focus on close has it yanked back (`AppShell.tsx:795` "All sections" navigates
-   on select). Fix: port Popover's guard + fall back to the `<main>` landmark, not `<body>`.
-3. ★ **`core/Button.jsx:72` silently downgrades an unknown `variant`, and the vocabularies diverge.**
-   `variants` = primary/secondary/ghost/danger; `IconButton.jsx:18-22` ALSO has `accent`.
-   `screens/Session.tsx:1578` `<Button variant="accent" icon="dice">Roll</Button>` — the dice
-   roller's primary action renders as a plain secondary. `index.d.ts:7` can't catch it.
-   Fix: add `accent` to Button (mirror IconButton) or change the one site to `primary`. SAFE (no
-   spec matches "Roll").
-4. **`overlay/Sheet.jsx:20,149-150` bottom sheets are a FIXED `height:'88vh'`, not a max.**
+1. ★ **`core/IconButton.jsx:49-50` hover handlers DISCARD a caller's `style.color` permanently.**
+   `onMouseLeave` resets `color` to `v.color` (the VARIANT default), not to what the caller passed.
+   **1 LIVE site — `screens/PlayerView.tsx:432-438`** `<IconButton label="Dismiss scene banner"
+   style={{color: theme.ink}}>` on the PLAYER-FACING projected display, which runs its own theme.
+   One hover and the glyph permanently flips to `--color-text-secondary`. Same class as `Button.jsx:
+   111-116` (which is still 0-live). Fix: capture the resting `color`/`background` on mouseenter
+   (or read `style.color` first) and restore THAT. SAFE — `scene-cards.spec.ts:345` matches the
+   button by NAME only.
+2. ★ **`core/Avatar.jsx:48` `ring="turn"` paints `2px solid var(--color-accent)` — and
+   `--color-accent` (`#e0b06f`) is the SAME hex as `--color-interactive-focus-ring`
+   (`colors.css:49` vs `:81`, and `:111` vs `:135`).** The turn ring is pixel-identical to the app's
+   focus ring at a similar offset. `Session.tsx:961` (live combat tracker) and
+   `InitiativeRow.jsx:31` gate it on `active`; **`Characters.tsx:194,726` and `CharBuilder.tsx:1384,
+   2245` pass `ring="turn"` UNCONDITIONALLY**, so four avatars permanently look focused (2.4.7 /
+   3.2.4 confusion). Fix: give `turn` its own token or a distinct treatment (thicker/dashed/inset).
+   SAFE (no spec asserts avatar styling).
+3. ★ **`data/DataTable.jsx:60-61` every row gets a gold `--color-interactive-hover` wash on
+   mouseenter, but DataTable has NO row-click prop at all.** A pure false affordance on 2 live
+   tables (`Characters.tsx:1029`, `Settings.tsx:2067`). Fix: only attach the hover pair when the
+   caller supplies an `onRowClick`/`rowHref` (and then also give the row a real control). SAFE.
+4. **`data/DataTable.jsx:16`** the `overflowX:'auto'` port still has no `tabIndex={0}` / `role="region"`
+   / accessible name ⇒ axe `scrollable-region-focusable`, and a keyboard-only user cannot scroll
+   Settings' 6-column grants table on a 393px phone (WCAG 2.1.1). `:54` also hand-rolls
+   "Nothing here yet." instead of `EmptyState`. SAFE (no spec references the string).
+5. **`forms/SegmentedControl.jsx:82-108` is STILL the only interactive DS primitive with no
+   `minHeight`** (the run-#18 fix only added `whiteSpace`). `padding` + `lineHeight:1` ⇒ sm ≈ 24px,
+   md ≈ 28px on every profile, versus the 44px comfortable-density floor every sibling honours.
+   22 live sites incl. `POIPopover.jsx:158`, the DM only / Players / Shared safety control at
+   `size="sm"`. Fix: `minHeight: 'var(--density-touch-target, 1.75rem)'`.
+   ⚠️ Also `:68 disabled={o.disabled}` natively disables a `role="radio"`, removing it from the
+   roving-tabindex group (ARIA wants `aria-disabled`) — LATENT, 0 live sites pass `disabled` options.
+6. ★ **`feedback/StatusDot.jsx:13-14` `syncing` and `pending` map to the IDENTICAL colour**
+   (`--color-status-info`) with no other differentiator — two distinct states render the same pixel.
+   `:42-46` also re-emits the whole `@keyframes dndPulse` `<style>` element **per instance and
+   unconditionally, even when `pulse` is false** (8 live sites ⇒ 8 duplicate style tags). `:49`
+   `if(!label) return dot;` still drops `style` + `{...rest}` (LATENT — all label-less sites pass
+   neither, and run #18 confirmed every one has adjacent explanatory text).
+7. **`core/IconButton.jsx:10,35-36`** fixed rem `width/height` (sm 1.75rem/28px, md 2.25rem/36px,
+   lg 2.75rem/44px), never consults `--density-touch-target`. **76 live sites, 59 at `size="sm"`.**
+   ⚠️ 28px PASSES WCAG 2.5.8 — this is a DENSITY-CONTRACT violation (44px below 1200px), not an a11y
+   blocker. Also `:28 title={label}` duplicates `aria-label` (double announcement on some AT) and
+   `:53` keeps the icon at `md` even for `size="lg"`.
+8. **`forms/Field.jsx:13-21,34-40,66` mis-associates when the child is a LAYOUT WRAPPER.**
+   `onlyChild` is any valid element, so a `<div>` of two Inputs gets `id`/`aria-required`/
+   `aria-invalid`/`aria-describedby` cloned onto it and `<label for>` points at a `<div>`.
+   Live: `map/MapCreationForm.jsx:93-112` ("Scale", rendered by `Atlas.tsx:591`). 114 Field sites.
+   ⚠️ Run #18 CLEARED the `htmlFor` variant (all 27 sites also set a matching child `id`).
+9. **`forms/Switch.jsx:26` native `disabled`** — the last DS control that hard-disables (Slider's
+   `:146` is the other, but only `Session.tsx:1868` gates it). 17 live sites, 5 gate on `busy` ⇒ the
+   switch disables itself under your focus. Port Button's soft pattern.
+   ⚠️ `upgrade.spec.ts:49` / `atlas.spec.ts:39` use `getByRole('switch')` + `toBeDisabled()`.
+10. **`forms/Switch.jsx:74-78` the inline label is a bare `<span onClick>`** that is ALSO the
+    switch's `aria-labelledby` target. Mouse-only activation, no keyboard equivalent, no focus move
+    (axe `click-events-have-key-events` shape). `:13` the WRAPPER also carries `cursor:pointer`
+    across the `gap` where nothing is clickable. Fix: drop the handler (the `:34-35` density hit box
+    already covers the target). Name unaffected ⇒ SAFE.
+11. ★ **`core/Stepper.jsx:12,24` the `<ol>` is `display:flex` with NO `flexWrap`/`overflow`, and each
+    label is `whiteSpace:'nowrap'` with no `overflow:hidden`/`textOverflow`.** `MapBuilder.tsx:1334`
+    renders Source · Preview · Result inside the import wizard — on a 393px phone the three 24px
+    pucks + connectors + nowrap labels overrun the container. Fix: add `overflow:hidden;
+    textOverflow:ellipsis` to the label span (`minWidth:0` is already on the `<li>`). SAFE —
+    `'Steps'` and the three step names appear in no spec.
+12. **`overlay/Sheet.jsx:20,149-150` bottom sheets are a FIXED `height:'88vh'`, not a max.**
    `AppShell.tsx:956` "Table controls" = 4 compact buttons as an 88%-screen slab. `vh` ≠ the app's
    `--app-viewport-height` (`100dvh`, minus titlebar under Electron).
    Fix: `height:'auto'` + `maxHeight: calc(var(--app-viewport-height) * .88)`.
-5. **`core/IconButton.jsx:10,35-36`** fixed rem `width/height` (sm 28 / md 36 / lg 44), never consults
-   `--density-touch-target`. **76 live sites, 59 at `size="sm"`.** Android masks it; plain mobile web
-   does not. Fix → `minWidth/minHeight: max(dim, var(--density-touch-target))`.
-6. **`forms/Field.jsx:13-21,34-40,66` mis-associates when the child is a LAYOUT WRAPPER.**
-   `onlyChild` is any valid element, so a `<div>` of two Inputs gets `id`/`aria-required`/
-   `aria-invalid`/`aria-describedby` cloned onto it and `<label for>` points at a `<div>`.
-   Live: `map/MapCreationForm.jsx:93-112` ("Scale", rendered by `Atlas.tsx:591`) and
-   `screens/SceneEditor.tsx:1046` (Field wrapping a raw `<input type="color">` — that one is fine).
-   114 Field sites ⇒ live trap. Re-verified run #17: the >1-child variant is 0 live.
-7. **`forms/Switch.jsx:26` native `disabled`** — the last DS control that hard-disables. 17 live sites,
-   5 gate on `busy` ⇒ the switch disables itself under your focus. Port Button's soft pattern.
-   ⚠️ `upgrade.spec.ts:49` / `atlas.spec.ts:39` use `getByRole('switch')` + `toBeDisabled()`.
-8. ★ **`forms/Switch.jsx:74-78` the inline label is a bare `<span onClick>`** that is ALSO the
-   switch's `aria-labelledby` target. Mouse-only activation with no keyboard equivalent and no focus
-   move (axe `click-events-have-key-events` shape). Fix: drop the handler — the `:34-35` density hit
-   box already covers the target — or render the label inside the `<button>`. Name is unaffected, SAFE.
-9. **`forms/SegmentedControl.jsx:73-93`** the only interactive DS primitive with NO `minHeight`:
-   `padding` + `lineHeight:1` ⇒ sm ≈ 24px, md ≈ 27px on every profile. 22 live sites incl.
-   `POIPopover.jsx:158`, the DM only / Players / Shared safety control at `size="sm"`.
-   ★ **`:88-89` also declares `textOverflow:'ellipsis'` with no `whiteSpace:'nowrap'`** — inert while
-   text can wrap, so long labels ("Equirectangular", "Mountainous") wrap at `lineHeight:1` and the
-   control jumps in height instead of truncating. Fix both together.
-10. **`system/ProgressMeter.jsx:124-142`** `role="progressbar"` has PRESENTATIONAL CHILDREN (ARIA 1.2)
+13. **`system/ProgressMeter.jsx:124-142`** `role="progressbar"` has PRESENTATIONAL CHILDREN (ARIA 1.2)
     so the markers' `title` can never be exposed — difficulty bands are position+colour only
     (WCAG 1.4.1). Also over-budget: with no `valueLabel`, both the readout (`:77`) and valuenow clamp
     to 100% so 150/100 is INVISIBLE, not just unannounced. 7 live sites (EncounterBuilder:709,
     Player:1233, Player:2065).
-11. **`system/Skeleton.jsx:19,24,32`** `aria-hidden` at all three returns, no `label` opt-in ⇒ **22 live
-    loading placeholders are completely silent to AT**.
-12. **`command/CommandPalette.jsx:314`** inline `outline:'none'` on the `role="combobox"` input — the
+14. **`system/Skeleton.jsx:19,24,32`** `aria-hidden` at all three returns, no `label` opt-in ⇒ **22 live
+    loading placeholders are completely silent to AT**. (`@keyframes dnd-shimmer` IS defined — the
+    shimmer itself works. `className="dnd-skeleton"` sits BEFORE `{...rest}` so a caller `className`
+    would clobber the reduce-motion rule at `tokens/base.css:55` — LATENT, 0 sites pass one.)
+15. **`command/CommandPalette.jsx:314`** inline `outline:'none'` on the `role="combobox"` input — the
     palette's ONLY focusable control has no ring. **`:304`** `aria-expanded="true"` hard-coded.
     **`:337-365`** with 0 results the `role="listbox"` owns a bare `<div>` (axe `aria-required-children`).
     **`:265`** `maxHeight:'70vh'` not `--app-viewport-height`.
@@ -128,8 +166,6 @@ custom colour is LATENT), **`Field` wrapping >1 top-level child** (0 live).
 14. **`core/Tabs.jsx:116-117`** `marginBottom:'-1px'` + container `borderBottom` + `flexWrap:'wrap'`
     ⇒ when 13 live tablists wrap to two rows on a phone the active gold underline is drawn mid-control.
     **`:80`** natively `disabled` tabs leave the tab order (ARIA wants `aria-disabled`).
-15. **`data/DataTable.jsx:16`** the `overflowX:auto` port has no `tabIndex`/`role`/name
-    (axe `scrollable-region-focusable`); 4 live sites. `:54` hand-rolls "Nothing here yet."
 16. **`condition/ConditionBadge.jsx:65`** `whiteSpace:'nowrap'` with no `maxWidth`, and
     `ConditionTracker.jsx:50` passes an arbitrary homebrew key as `label` ⇒ a long custom condition
     overflows its row. **`:72-77`** `level`/`duration` announce as bare numbers ("Poisoned 3").
@@ -140,9 +176,10 @@ custom colour is LATENT), **`Field` wrapping >1 top-level child** (0 live).
     viewport clamp (`popoverShiftX` is X-only). Vertical fit is delegated to the caller —
     `MapBuilder.tsx:1058` does a coarse `v.y < 0.42 ? 'bottom' : 'top'` flip that ignores panel height.
     `:167` `maxWidth:'90vw'` is also raw `vw`.
-19. **`feedback/StatusDot.jsx:49`** `if(!label) return dot;` drops `style` + `{...rest}` — LATENT:
-    all 12 live label-less sites pass neither. `:42-46` re-emits `@keyframes` per instance
-    (same in Dialog/Sheet/Toast/CommandPalette).
+19. ★ **`core/Card.jsx:12,47-48`** `interactive` WITHOUT an `onClick` still paints `cursor:pointer` +
+    a hover elevation lift but gets NO role/tabindex — a false affordance. `onMouseEnter/Leave` also
+    sit BEFORE `{...rest}` so a caller's own hover handler kills them. Both LATENT (0 live
+    `<Card interactive>`; `Extensions.tsx:1108` documents avoiding it).
 20. **`navigation/NavItem.jsx:97-111` + `BottomTabBar.jsx:54-68`** the "session is live" badge dot is
     `aria-hidden` with no text equivalent in BOTH collapsed navs (the expanded sidebar does announce it).
 21. **`overlay/Sheet.jsx:216-235`** 36×4 drag-to-dismiss grab handle with ZERO pointer handlers — a
@@ -150,11 +187,14 @@ custom colour is LATENT), **`Field` wrapping >1 top-level child** (0 live).
     invalid for flex (footer case LATENT — 0 live `Sheet footer`).
 22. **`forms/Checkbox.jsx:33`** `tabIndex={disabled ? -1 : 0}` does what its own comment calls the bug.
     LATENT (0 live `<Checkbox disabled>`).
-23. **`core/Card.jsx:15`** `role="button"` has presentational children ⇒ nested-interactive violation.
-    LATENT (0 live `<Card interactive>`; `Extensions.tsx:1108` documents avoiding it).
+23. ★ **`navigation/NavItem.jsx:97-111`** the collapsed badge dot is `position:'absolute'` but NavItem
+    itself never sets `position:relative` — only `NavRail.jsx:41`'s inline style does. Any future
+    `collapsed` consumer that omits it has the dot escape to the nearest positioned ancestor. LATENT.
 24. **Hard-coded targets ignoring `--density-touch-target`:** `LayerRow.jsx:327-328` (RowBtn 26px, ×5
     per row — beside a 48×48 opacity button in the SAME row), `ConditionBadge.jsx:85` (24),
-    `Toast.jsx:246` (24), `Dialog.jsx:303`/`Sheet.jsx:293` (Close 30), `Popover.jsx:213` (Close 28),
+    `Chip.jsx:55` (uses the token, but a 44px remove button inflates the whole chip under the
+    comfortable profile — LATENT, 0 live `Chip onRemove`), `Toast.jsx:246` (24),
+    `Dialog.jsx:303`/`Sheet.jsx:293` (Close 30), `Popover.jsx:213` (Close 28),
     `QuestCard.jsx:207` (objective row 24 — meets 2.5.8 exactly, cosmetic only).
 25. **`feedback/VisibilityChip.jsx:19`** collapses `shared`→"Players" while `LayerRow.jsx:29-33` and
     `POIPopover.jsx:167` model `shared` as a distinct third state. Product decision.

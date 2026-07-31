@@ -191,8 +191,11 @@ function MapInspector({
 				idPrefix: `drv-${Date.now().toString(36)}`,
 				visibility: 'dm-only',
 			},
-		} as never);
-		announce('Derived walls, doors, and lights.');
+		} as never).then((accepted) => {
+			// `run` is single-flight and also returns false on a core refusal, so announcing on the
+			// next line claimed a whole wall/door/light pass had landed when nothing had.
+			if (accepted) announce('Derived walls, doors, and lights.');
+		});
 	}
 
 	return (

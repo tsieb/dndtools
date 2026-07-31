@@ -177,7 +177,8 @@ function nudge(editor: MapEditorApi, dx: number, dy: number) {
 
 // `editor.run` is single-flight, so this must await each delete — the un-awaited loop removed only
 // the first object of a multi-selection while announcing the whole selection was gone.
-async function deleteSelection(editor: MapEditorApi, announce: (m: string) => void) {
+/** Exported for `keyboard-delete.test.ts`; the editor is only ever reached via `useMapKeyboard`. */
+export async function deleteSelection(editor: MapEditorApi, announce: (m: string) => void) {
 	const ids = editor.selection;
 	let deleted = 0;
 	for (const id of ids) {
@@ -207,8 +208,15 @@ async function deleteSelection(editor: MapEditorApi, announce: (m: string) => vo
 			else break;
 		}
 	}
+	// A refusal (a locked layer, a permission ceiling) used to cost the user the whole selection AND
+	// announce "Deleted 0 objects." — so the one recovery action, pressing Delete again after
+	// unlocking, was no longer available. Keep the selection when nothing went, and say why.
+	if (deleted === 0) {
+		if (ids.length > 0) announce('Nothing was deleted — the selection may be on a locked layer.');
+		return;
+	}
 	editor.clearSelection();
-	announce(`Deleted ${deleted} objects.`);
+	announce(deleted === 1 ? 'Deleted 1 object.' : `Deleted ${deleted} objects.`);
 }
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v));

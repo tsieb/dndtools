@@ -14,7 +14,7 @@ import { SceneBoardCanvas, WidgetGlyph } from '../app/SceneBoardCanvas';
 import { boardWidgetsOf, payloadIndex, type BoardWidget } from '../app/board-helpers';
 import { useViewport } from '../app/useViewport';
 import { usePanelFocusReturn } from '../app/usePanelFocusReturn';
-import { Page } from '../app/screen-kit';
+import { Page, srOnly } from '../app/screen-kit';
 import { widgetProfileForRuntime } from '../platform/capabilities';
 
 /**
@@ -435,18 +435,29 @@ export function Board() {
 			    4.1.3) — but a polite region must ALREADY be in the DOM for a content change to be
 			    announced. Mounting `<div role="status">Layout saved.</div>` inserts the host and its
 			    text in one mutation, which screen readers routinely drop. So the host is permanent and
-			    only its contents change; `display` collapses it when empty. */}
+			    only its contents change.
+			    ⚠️ It used to collapse with `display:'none'`, which takes the node out of the
+			    ACCESSIBILITY TREE — so flipping to `inline-flex` WITH content was the exact
+			    insert-region-and-text-together mutation the comment above warns about, and every board
+			    confirmation ("Layout saved.", "Layout applied.", "Previous layout restored.") was
+			    silent. It now collapses with `srOnly` instead: absolutely positioned, so it is not a
+			    flex item and contributes no box and no parent `gap`, but it stays in the a11y tree. */}
 			<div
 				role="status"
 				aria-live="polite"
-				style={{
-					display: status ? 'inline-flex' : 'none',
-					alignItems: 'center',
-					gap: 6,
-					font: 'var(--text-xs) var(--font-sans)',
-					color: 'var(--color-text-secondary)',
-					flex: '0 0 auto',
-				}}
+				data-testid="board-status"
+				style={
+					status
+						? {
+								display: 'inline-flex',
+								alignItems: 'center',
+								gap: 6,
+								font: 'var(--text-xs) var(--font-sans)',
+								color: 'var(--color-text-secondary)',
+								flex: '0 0 auto',
+							}
+						: srOnly
+				}
 			>
 				{status && (
 					<>

@@ -88,7 +88,7 @@ export const TOOL_GROUPS: readonly ToolGroupDef[] = Object.freeze([
 				icon: 'tool-select',
 				shortcut: 'v',
 				kind: 'radio',
-				hint: 'Click to select; drag to move. Arrow keys nudge the selection.',
+				hint: 'Click to select; drag to move. With one object selected, arrow keys nudge it.',
 			},
 			{
 				id: 'marquee',
@@ -96,7 +96,7 @@ export const TOOL_GROUPS: readonly ToolGroupDef[] = Object.freeze([
 				icon: 'tool-select',
 				shortcut: 'm',
 				kind: 'radio',
-				hint: 'Drag a box to select everything inside it. Shift adds, Alt subtracts.',
+				hint: 'Drag a box to select the pins and tokens inside it. Shift adds to the selection.',
 			},
 			{
 				id: 'pan',
@@ -128,7 +128,7 @@ export const TOOL_GROUPS: readonly ToolGroupDef[] = Object.freeze([
 				icon: 'tool-fill',
 				shortcut: 'g',
 				kind: 'radio',
-				hint: 'Click a closed region to flood it with the active terrain.',
+				hint: 'Click a grid cell to fill it with the active terrain.',
 			},
 			{
 				id: 'erase',
@@ -168,7 +168,7 @@ export const TOOL_GROUPS: readonly ToolGroupDef[] = Object.freeze([
 				icon: 'tool-door',
 				shortcut: 'd',
 				kind: 'radio',
-				hint: 'Place a door on a wall. Cycle door / secret / archway in the options bar.',
+				hint: 'Place a door on a wall. Pick the door kind in the options bar.',
 			},
 			{
 				id: 'water',

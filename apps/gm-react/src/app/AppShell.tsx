@@ -1055,6 +1055,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 							Toaster.error("That change couldn't be saved to this device.");
 						}
 					})();
+				} else {
+					// The shortcut is advertised in SceneCardsPanel's help line, and its whole effect
+					// is on a second screen — so an empty queue used to make it indistinguishable from
+					// a dead key. Say why rather than swallowing the press.
+					e.preventDefault();
+					Toaster.error('Queue a scene card first.');
 				}
 				return;
 			}
