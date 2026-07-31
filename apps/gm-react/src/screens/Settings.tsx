@@ -2065,6 +2065,7 @@ function SettingsPermissions() {
 
 			<Panel title="Active grants" action={<Badge status="neutral">{grants.length}</Badge>}>
 				<DataTable
+					ariaLabel="Active grants"
 					columns={[
 						{ key: 'set', header: 'Access', strong: true },
 						{ key: 'type', header: 'Type' },
@@ -2405,7 +2406,11 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 				control={
 					<Switch
 						checked={cloud.enabled}
-						disabled={!canEnable || busy}
+						// `busy` flips synchronously inside this switch's own change handler, so a hard
+						// `disabled` disabled the control under the user's focus and the browser dropped
+						// focus to `<body>` mid-toggle. The durable `!canEnable` gate stays native.
+						disabled={!canEnable}
+						aria-disabled={busy || undefined}
 						aria-label="End-to-end encrypted cloud backup"
 						onChange={() =>
 							void run(
@@ -4108,7 +4113,10 @@ function SettingsAI() {
 				action={
 					<Switch
 						checked={mcp.enabled}
-						disabled={!canWrite || busy}
+						// Soft for the transient `busy` (it flips inside this switch's own handler, so a
+						// native disable strands focus on `<body>`); native for the durable permission.
+						disabled={!canWrite}
+						aria-disabled={busy || undefined}
 						// Without this the accessible name of the campaign-wide AI kill switch was just its
 						// own state word — a screen reader announced "Off, switch, off".
 						aria-label="AI and agent access"
@@ -4243,7 +4251,9 @@ function SettingsAI() {
 									</span>
 									<Switch
 										checked={baselineMembership.all}
-										disabled={!canWrite || busy}
+										// Soft for the transient `busy` — see the AI kill switch above.
+										disabled={!canWrite}
+										aria-disabled={busy || undefined}
 										label={
 											baselineMembership.some && !baselineMembership.all
 												? `Baseline tools (${baselineMembership.count}/${baselineMembership.total})`

@@ -5,6 +5,26 @@ metadata:
   type: project
 ---
 
+## RUN #23 DELTA (HEAD `7f84aeb7`)
+
+CLOSED: run #21 OPEN #1 (`SessionHeader` now takes `previewing`/`isDm`, `Session.tsx:653-657`
+belt-and-braces guard in `setWorkflow`); OPEN #2 (`eb` now `T.sub`, `screen-kit.tsx:90-95`);
+OPEN #7 ("Push to players" soft, `:1731`); OPEN #8 (reorder chevrons soft, `:1126`/`:1138`).
+
+⭐ NEW: **`ProjectionControl.tsx:141-148` "End" dispatches the SAME `set-workflow → idle` teardown
+with no confirm**, from the top bar, on every route — while `Session.tsx:658` now gates it behind a
+red Dialog. The phone form is a 48px icon-only button using the `audio-off` (muted-speaker) glyph.
+Filed in [[shell-board-scene-cluster]] run #23 too.
+
+Re-verified STILL OPEN at `7f84aeb7`: #9 (Remove combatant `Session.tsx:1157-1165` / Revoke handout
+`:1793-1800` — no confirm, no undo, both unmount the focused control), #11 ("Project to players"
+`:1982-1990` still hard `disabled` with three collapsed reasons and no on-control text), #14
+(RecapPanel `:1423-1427` seedKey effect destroys unsaved markdown when the `:1494-1504` Select
+changes), #15 (Campaign tab still `useState('quests')` at `:693`), #19 (CommandCenter Manage rows
+`:521-551` still zero hover while `SceneTile:70` and `LaunchTile:147` hand-roll it).
+
+---
+
 # Campaign / Session hub cluster — state at HEAD `e702bb6f` (2026-07-31, run #21)
 
 Line counts at HEAD: `screens/Campaign.tsx` 988, `screens/Session.tsx` 2218,

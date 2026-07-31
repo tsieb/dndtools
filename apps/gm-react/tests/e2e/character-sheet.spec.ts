@@ -222,11 +222,28 @@ test.describe('character sheet: durable writes announce themselves', () => {
 		const before = await ops(page);
 		await page.getByRole('button', { name: 'Heal', exact: true }).click();
 
-		// Truthful message...
-		await expect(status).toHaveText(/Already at full health/);
-		// ...and NOT a claim that healing happened.
+		// Truthful message, in the VISIBLE alert slot. It used to land only in the `srOnly` success
+		// host above, so a sighted DM pressing Heal at full health saw no change at all — a dead
+		// button whose explanation only a screen reader could reach.
+		const refusal = page.locator('#main-content').getByRole('alert');
+		await expect(refusal).toHaveText(/Already at full health/);
+		await expect(refusal).toBeVisible();
+		// ...and NOT a claim that healing happened, in either channel.
 		await expect(status).not.toHaveText(/Healed/);
+		await expect(refusal).not.toHaveText(/Healed/);
 		// ...and no durable write at all.
 		expect(await ops(page)).toBe(before);
+
+		// A SECOND identical press must be a fresh `role="alert"` node: re-rendering the same node
+		// with byte-identical text is an `Object.is` bail-out, and an alert only announces on
+		// insertion — so the repeat was silent for assistive tech.
+		const firstNode = await refusal.elementHandle();
+		await page.getByRole('button', { name: 'Heal', exact: true }).click();
+		await expect(refusal).toHaveText(/Already at full health/);
+		await expect
+			.poll(() => firstNode!.evaluate((el) => el.isConnected), {
+				message: 'the repeated refusal must re-mount the alert so it announces again',
+			})
+			.toBe(false);
 	});
 });

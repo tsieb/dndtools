@@ -1,11 +1,43 @@
 ---
 name: shell-board-scene-cluster
-description: Structural UX gotchas in the gm-react shell + board/scene canvas cluster (AppShell, Board, SceneEditor, SceneCardsPanel, SceneBoardCanvas, widget-bodies, screen-kit, ScenesCreator); re-audited 2026-07-31 run #21 at e702bb6f
+description: Structural UX gotchas in the gm-react shell + board/scene canvas cluster (AppShell, Board, SceneEditor, SceneCardsPanel, SceneBoardCanvas, widget-bodies, screen-kit, ScenesCreator); re-audited 2026-07-31 run #23 at 7f84aeb7
 metadata:
   type: project
 ---
 
-Re-verified 2026-07-31 at `e702bb6f`. All line numbers from that commit.
+## RUN #23 DELTA (HEAD `7f84aeb7`) — read this before the older body below
+
+CLOSED since run #21: Inspector S/M/L now gated by `resizable` (`SceneEditor.tsx:894-925`, shows
+"Locked — this widget's size is fixed by the scene layout."); Board's live-region host now collapses
+with `srOnly` (`Board.tsx:451-473`); the Android-only chip-scale gate; ScenesCreator's global
+`lastLifecycle` tick; `eb` now uses `T.sub` (`screen-kit.tsx:90-95`); ProjectionControl's compact
+form now folds the workflow state into `aria-label`; SceneBoardCanvas VIEW-mode pixel geometry.
+
+⭐ **NEW run-#23 headline — `ProjectionControl.tsx:141-148` "End" has NO confirm.** It dispatches the
+exact `session.set-workflow → idle` teardown that `Session.tsx:658` gates behind the red
+"End the live session?" Dialog (`:608-636`). It lives in the TOP BAR on every route; on phone
+(`AppShell.tsx:950` `compact`) it is a 48px icon-only button whose glyph is **`audio-off`** (a muted
+speaker) — reads as "mute", ends the session. Fix = hoist Session's Dialog (its spec scoping at
+`combat.spec.ts:363-366` is dialog-scoped, so reuse is safe).
+
+Other NEW run #23:
+- `SceneEditor.tsx:1058-1076` `<input type="color">` calls `onCommit` on React `onChange` (= native
+  `input`), so dragging the OS picker fires one `scene.configure-widget` + one IndexedDB write per
+  frame. The file's OWN comment at `:1004` says text/number commit on blur to avoid exactly this.
+- `SceneEditor.tsx:944-951` "Earlier" `disabled={focusOrder===0}` **survived `7f84aeb7`'s
+  "six controls disabling themselves under their own focus" pass** — same class, same cluster.
+- `SceneBoardCanvas.tsx:816-840` the selection chip's `transform: scale(1/scale)` with
+  `transformOrigin:'bottom left'` AMPLIFIES the `top:-26` clip on phone: at boundedScale 0.476 the
+  chip grows ~2.1× upward, so a top-row widget loses ~20px of it, not the ~2px measured at scale 1.
+
+Still open verbatim from the list below: #2/#3 CLOSED, but #4 (dead scroll, `:516-517` still
+unscaled), #6/#7 (display overlay pointer entry — `setDisplayOpen(true)` still has ONE caller at
+`AppShell.tsx:1029`), #8 (SceneEditor has ZERO polite regions and **ZERO `Toaster` calls**), #9,
+#12, #13, #22, #23, #24 all re-verified present.
+
+---
+
+Older body — re-verified 2026-07-31 at `e702bb6f`. All line numbers from that commit.
 
 **Path corrections the briefs keep getting wrong:**
 - `SceneEditor.tsx` lives in `src/screens/`, NOT `src/app/`.

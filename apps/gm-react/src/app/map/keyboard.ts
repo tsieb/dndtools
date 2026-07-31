@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import type { MapEditorApi } from './useMapEditor';
 import { SHORTCUT_TO_TOOL, type ToolId } from './tools';
+import { bulkResultMessage } from './mapVocab';
 
 /**
  * MAP-021 — the editor keymap. Single-key tool shortcuts (the industry-standard V/B/E/… set),
@@ -180,6 +181,7 @@ function nudge(editor: MapEditorApi, dx: number, dy: number) {
 /** Exported for `keyboard-delete.test.ts`; the editor is only ever reached via `useMapKeyboard`. */
 export async function deleteSelection(editor: MapEditorApi, announce: (m: string) => void) {
 	const ids = editor.selection;
+	const removed = new Set<string>();
 	let deleted = 0;
 	for (const id of ids) {
 		const poi = editor.map?.pois.find((p) => p.id === id);
@@ -190,9 +192,10 @@ export async function deleteSelection(editor: MapEditorApi, announce: (m: string
 					actorId: editor.actorId,
 					payload: { mapId: editor.mapId, poiId: id },
 				} as never)
-			)
+			) {
 				deleted += 1;
-			else break;
+				removed.add(id);
+			} else break;
 			continue;
 		}
 		const token = editor.map?.tokens.find((t) => t.id === id);
@@ -203,20 +206,31 @@ export async function deleteSelection(editor: MapEditorApi, announce: (m: string
 					actorId: editor.actorId,
 					payload: { mapId: editor.mapId, tokenId: id },
 				} as never)
-			)
+			) {
 				deleted += 1;
-			else break;
+				removed.add(id);
+			} else break;
 		}
 	}
+	if (ids.length === 0) return;
 	// A refusal (a locked layer, a permission ceiling) used to cost the user the whole selection AND
 	// announce "Deleted 0 objects." — so the one recovery action, pressing Delete again after
-	// unlocking, was no longer available. Keep the selection when nothing went, and say why.
-	if (deleted === 0) {
-		if (ids.length > 0) announce('Nothing was deleted — the selection may be on a locked layer.');
-		return;
-	}
-	editor.clearSelection();
-	announce(deleted === 1 ? 'Deleted 1 object.' : `Deleted ${deleted} objects.`);
+	// unlocking, was no longer available.
+	//
+	// The same is true of a PARTIAL refusal, which the `deleted === 0` guard alone did not cover: the
+	// loop stops on the first refusal, so deleting 5 objects where 2 land left 3 survivors on the map
+	// with their selection wiped, under a bare "Deleted 2 objects." that mentioned no refusal at all.
+	// Retire only the ids that really went, and let `bulkResultMessage` — the copy its sibling call
+	// site in `InspectorPanel` already uses — say the rest were refused.
+	editor.setSelection(ids.filter((id) => !removed.has(id)));
+	announce(
+		bulkResultMessage({
+			done: deleted,
+			attempted: ids.length,
+			template: 'Deleted {objects}.',
+			refusedVerb: 'deleted',
+		}),
+	);
 }
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v));

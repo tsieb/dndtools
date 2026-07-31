@@ -45,8 +45,17 @@ export function Avatar({ name = '', src, size = 'md', ring, style, ...rest }) {
 				// `box-shadow` is not painted AT ALL under `forced-colors: active`, so the active/turn/danger
 				// ring — the only thing distinguishing whose turn it is in the initiative list — vanished
 				// entirely in Windows High Contrast. An `outline` survives and remaps to a system colour.
-				outline: ringColor ? `2px solid ${ringColor}` : 'none',
-				outlineOffset: ringColor ? 2 : 0,
+				//
+				// A status ring is a RIM (thicker, flush against the disc); the global `:focus-visible`
+				// ring is a DETACHED hairline at `--focus-ring-offset`. They must not be the same shape:
+				// `ring="turn"` is `--color-accent`, which is byte-identical to
+				// `--color-interactive-focus-ring` in both dark themes (#e0b06f) and near-identical in
+				// parchment — so a 2px-at-offset-2 turn ring was pixel-for-pixel the focus ring, and the
+				// roster cards / character sheet / import preview all looked permanently focused.
+				// Only emit the key when there IS a ring: an inline `outline: 'none'` beats any
+				// stylesheet, so writing it unconditionally would suppress the app's focus ring on any
+				// future focusable consumer.
+				...(ringColor ? { outline: `3px solid ${ringColor}`, outlineOffset: 0 } : null),
 				...style,
 			}}
 			{...rest}

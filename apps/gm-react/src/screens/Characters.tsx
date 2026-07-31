@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
 	listCharactersForActor,
@@ -280,7 +280,19 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	// per-field validation messages — but every validation writer lives deep inside an edit-mode
 	// panel, so "Set AC" with a blank field printed its reason hundreds of pixels above the fold and
 	// read as a dead button. `field` routes a validation message to its own control instead.
-	const [error, setError] = useState<{ text: string; field?: 'ac' | 'slots' | 'xp' } | null>(null);
+	const [error, setError] = useState<{
+		text: string;
+		field?: 'ac' | 'slots' | 'xp';
+		seq?: number;
+	} | null>(null);
+	// `role="alert"` announces on INSERTION, and re-rendering the same node with byte-identical text
+	// is an `Object.is` bail-out — so a repeated refusal (press Damage twice at 0 HP) was announced
+	// exactly once. `seq` keys the alert node, so every raise really is a new node.
+	const errSeq = useRef(0);
+	const raiseError = (next: { text: string; field?: 'ac' | 'slots' | 'xp' }) => {
+		errSeq.current += 1;
+		setError({ ...next, seq: errSeq.current });
+	};
 	// Success channel. Deliberately a `role="status"` rendered from mount with EMPTY text: a live
 	// region inserted together with its content is routinely dropped, and an always-present
 	// `role="alert"` would make every bare `getByRole('alert')` in the suite ambiguous.
@@ -419,7 +431,7 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 		try {
 			const result = await runtime.dispatch(command);
 			if (result.status === 'rejected') {
-				setError({ text: result.rejection.message });
+				raiseError({ text: result.rejection.message });
 				return false;
 			}
 			if (okNote) setNote(okNote);
@@ -427,7 +439,7 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 		} catch (e) {
 			// `runtime.dispatch` RETHROWS after a failed persist. Without this the rejection message
 			// cleared above never came back and the control simply looked inert.
-			setError({
+			raiseError({
 				text: e instanceof Error ? e.message : 'That change couldn’t be saved — try again.',
 			});
 			return false;
@@ -443,12 +455,17 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 		// UNCHANGED hp — a durable no-op the journal recorded — and then announce "Damaged 7. 0 of 24
 		// hit points." The number in the message is real; the verb is not. Say what actually happened.
 		if (next === current) {
-			setError(null);
-			setNote(
-				delta < 0
-					? `Already at 0 hit points — no damage applied.`
-					: `Already at full health — ${current} of ${view!.combat.maxHp} hit points.`,
-			);
+			// This refusal used to render ONLY into the visually-hidden `role="status"` success host, so
+			// a sighted DM pressing Damage at 0 HP got no visible change whatsoever — a dead button with
+			// a secret explanation. It is a refusal, so it belongs in the visible alert slot, and the
+			// success host has to be emptied or a stale "Damaged 7." sits under it.
+			setNote('');
+			raiseError({
+				text:
+					delta < 0
+						? `Already at 0 hit points — no damage applied.`
+						: `Already at full health — ${current} of ${view!.combat.maxHp} hit points.`,
+			});
 			return;
 		}
 		await dispatch(
@@ -710,7 +727,11 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 				{note}
 			</div>
 			{error && !error.field && (
-				<div role="alert" style={{ marginBottom: 12, font: `13px ${T.sans}`, color: T.err }}>
+				<div
+					key={error.seq}
+					role="alert"
+					style={{ marginBottom: 12, font: `13px ${T.sans}`, color: T.err }}
+				>
 					{error.text}
 				</div>
 			)}
@@ -1027,6 +1048,7 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 							</div>
 						) : view.attacks.length > 0 ? (
 							<DataTable
+								ariaLabel="Attacks"
 								columns={[
 									{ key: 'name', header: 'Name', strong: true },
 									{ key: 'detail', header: 'Detail', mono: true },

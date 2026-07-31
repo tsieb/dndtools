@@ -1,6 +1,6 @@
 ---
 name: settings-extensions-community-cluster
-description: UX audit state for gm-react Settings/Extensions/Community/WikiReader — run #14 re-verify @98e0211f; the phone picker + Extensions aria-label + prepaint reduce-motion are CLOSED, and the run introduced a BLOCKER in screen-kit Seg (a disabled-but-checked option kills the group's only tab stop, live on the AI provider picker).
+description: UX audit state for gm-react Settings/Extensions/Community/WikiReader — run #15 re-verify @7f84aeb7; the screen-kit Seg tab-stop BLOCKER is CLOSED; 15 open, led by the AI assistant's observably-inert Cancel and Extensions' confirm-less package UPGRADE.
 metadata:
   type: project
 ---
@@ -34,26 +34,37 @@ settings rail rows `minHeight: var(--touch-target-min)`; Permissions `Badge stat
   visibly at `:2802-2807`. Do not re-file it as tooltip-only.
 - `Settings.tsx:3275` AI provider CARDS and `:2753` both guard their onClick correctly.
 
-## STILL-OPEN (run #14, ranked)
+## CLOSED at `7f84aeb7` (run #15) — do NOT re-report
+- **run#14 §1 (the Seg tab-stop BLOCKER) is FIXED** — `screen-kit.tsx:245-246` is now
+  `checkedIndex = options.findIndex(o => o.value === value)`, falling back to the first non-disabled
+  only when nothing is checked. `moveSelection` (`:252`) also lands on a checked-but-disabled option.
+- `BackBar` (`screen-kit.tsx:355-382`) has real `padding: '4px 8px'` (NOT an inline minHeight — see
+  the in-file comment) plus a `useState` hover. WCAG 2.5.8 item CLOSED.
+- `Join.tsx:196-206` "Try again" now stays mounted across the retry and soft-disables
+  (`aria-disabled` + `title`). The self-unmount focus loss is CLOSED.
+- `Audio.tsx:525-538 unbindScene` now loops the WHOLE `bound` array and stops at the first refusal.
+- `Settings.tsx:4884-4886` phone `<Select>` gated-tab naming — CLOSED (confirmed again).
 
-### NEW this run — all in `screen-kit.tsx`, introduced/left by `98e0211f`
-1. ⭐⭐ **BLOCKER `screen-kit.tsx:240-241` — a `Seg` whose CHECKED option is also `disabled` has NO
-   tab stop at all.** `selectedIndex = findIndex(o => o.value===value && !o.disabled)` → `-1`;
-   the fallback `findIndex(o => !o.disabled)` → `-1` when every option is disabled ⇒ every button
-   gets `tabIndex={-1}` and the radiogroup drops out of the tab order entirely. Note `off =
-   o.disabled && !on`, so the checked option is NOT natively disabled — it is visible, focusable by
-   mouse, and unreachable by keyboard. **Live instance: `Settings.tsx:3393/:3397`** — the AI provider
-   `Seg` sets `disabled: hasKey` on BOTH options, so the moment an API key is stored the whole
-   control is keyboard-dead (WCAG 2.1.1). Same latent shape at `Session.tsx:710` (phase rail) and
-   `Graph.tsx:220`. Fix: `const selectedIndex = options.findIndex(o => o.value === value)` first,
-   fall back to the first non-disabled only when nothing is checked.
-2. ⭐ **`screen-kit.tsx:225-230` + `:280` — the new `title` option prop is DEAD API.** Zero call
+## STILL-OPEN (run #15, ranked)
+
+1. ⭐ **`Settings.tsx:3966-3972` the AI assistant's Cancel is observably inert.**
+   `sendAiChat(config, req)` at `:3745` is called WITHOUT `controller.signal` — the signal only
+   reaches `runAssistantExchange`, which checks it BETWEEN passes. During the 10–60s model call the
+   button does nothing, stays enabled, and the Badge keeps counting "Working — step N of 16".
+   Fix: a `cancelling` state → label "Cancelling…" + `aria-disabled`, and forward the signal.
+2. **`Extensions.tsx:299-316` "Install / upgrade package" REPLACES an installed package with no
+   confirm** and then toasts `Upgraded ${id} and updated its placed widgets.` Sibling `removePackage`
+   confirms; `Community.confirmInstall` shows a review dialog.
+3. **`Settings.tsx:4869/:4877/:4975` — `gatedOff` is never consulted in the DESKTOP rail loop**
+   (`:4923-4970`) even though the comment at `:4880-4883` claims "mark it on the desktop rail too".
+   The appended gated entry renders identically to the reachable ones and also lands LAST.
+4. **`screen-kit.tsx:225-230` + `:285` — the `title` option prop is STILL DEAD API.** Zero call
    sites pass `title:` (grepped all of `src/`). Its own JSDoc names the victims ("the session phase
    rail, Graph's viewpoint picker and seven Settings groups"), so the 0.4-opacity-with-no-reason
    problem is still 100% live. And `title` on a natively `disabled` button is pointer-only anyway —
    the house idiom is soft-disable (`aria-disabled` + guarded onClick + Toaster), which
    `Settings.tsx:3272-3283` already does correctly for the provider CARDS.
-3. **`screen-kit.tsx:288-297` Seg hover leaks when an option's state changes under the pointer.**
+5. **`screen-kit.tsx:293-302` Seg hover leaks when an option's state changes under the pointer.**
    `onMouseEnter` writes `style.background` imperatively; `onMouseLeave` early-returns on `on || off`.
    If an option becomes `disabled` while hovered, React does not rewrite `background` (its prop value
    is `'transparent'` before and after) and mouseLeave refuses to clear it ⇒ a stuck hover tint on a
@@ -61,17 +72,10 @@ settings rail rows `minHeight: var(--touch-target-min)`; Permissions `Badge stat
    of `currentTarget.style`.
 
 ### Carried, still open
-4. **`Settings.tsx:3966-3971` the assistant's Cancel is observably inert.** `abortRef.current?.abort()`
-   only flips a flag read BETWEEN passes (`ai/mcpBridge.ts:333/338/363/409`); `sendAiChat` at
-   `Settings.tsx:3745` gets no signal. Badge keeps saying "Working — step N of 16". UI-only fix: a
-   `cancelling` state → `disabled` + "Cancelling…".
-5. **`Settings.tsx:3696-3700` transcript auto-scroll hijacks the reader.** Unconditional
+6. **`Settings.tsx:3696-3700` transcript auto-scroll hijacks the reader.** Unconditional
    `el.scrollTop = el.scrollHeight` on every `feed.length` change, now that run #13 made the region
    focusable. Fix: only scroll when already pinned (`scrollHeight-scrollTop-clientHeight < 40`).
-6. **`Extensions.tsx:299-317` "Install / upgrade package" replaces an installed package with NO
-   confirm.** Sibling `removePackage` (`:229`) DOES confirm; `Community.confirmInstall` shows a review
-   dialog. Fix: a `pendingUpgrade` Dialog naming `existing.package.version → definition.version`.
-7. **`Extensions.tsx:2120-2128` `SystemSwitchDialog`'s "Apply switch" is hard-`disabled={!canApply}`
+7. **`Extensions.tsx:2119-2127` `SystemSwitchDialog`'s "Apply switch" is hard-`disabled={!canApply}`
    and the dialog never says why.** `canApply` folds in `canWrite`, so a previewing / non-DM user gets
    a full migration preview and a dead primary button — the explanation lives on a DIFFERENT panel
    (`:2303-2307`), outside the dialog. The `destructive && !ack` case is also hard-disabled while the

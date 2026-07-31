@@ -17,6 +17,7 @@ export function DataTable({
 	zebra = true,
 	dense = false,
 	empty,
+	ariaLabel,
 	style,
 	...rest
 }) {
@@ -24,8 +25,19 @@ export function DataTable({
 	// Cells default to `nowrap`, so a wide table (Settings → Active grants is 6 columns incl. a button)
 	// blows past a 393px phone. The scroll port belongs on the primitive, not on every call site —
 	// `maxWidth:100%` keeps it from widening its own flex/grid parent.
+	//
+	// A scroll port that only responds to a pointer strands keyboard-only users at the first visible
+	// column (axe `scrollable-region-focusable`, WCAG 2.1.1): on a 393px phone Settings → Active grants
+	// is six columns wide and its Revoke button lives past the right edge, so there was no way to reach
+	// it without a mouse. `tabIndex={0}` makes the port arrow-scrollable; `role="group"` + a name is
+	// what stops it announcing as an unlabelled focus stop.
 	return (
-		<div style={{ maxWidth: '100%', overflowX: 'auto' }}>
+		<div
+			tabIndex={0}
+			role={ariaLabel ? 'group' : undefined}
+			aria-label={ariaLabel}
+			style={{ maxWidth: '100%', overflowX: 'auto' }}
+		>
 			<table
 				style={{
 					width: '100%',

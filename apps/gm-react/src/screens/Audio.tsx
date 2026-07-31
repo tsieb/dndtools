@@ -955,17 +955,22 @@ export function Audio() {
 						playbackState.status === 'no-stream' ||
 						playbackState.status === 'error') && (
 						<div
-							role="status"
+							// This block renders ONLY for blocked / no-stream / error — i.e. this device is
+							// silent while the durable track above still reads "Playing". Polite tertiary
+							// grey behind a neutral speaker glyph made the app's one warning that the table
+							// can't hear anything look like an info note.
+							role="alert"
 							style={{
 								flexBasis: '100%',
 								font: `11.5px/1.5 ${T.sans}`,
-								color: T.ter,
+								color: 'var(--color-status-warning-text)',
 								display: 'flex',
 								alignItems: 'center',
 								gap: 6,
 							}}
 						>
-							<Icon name="audio" size={13} color={T.ter} /> {playbackState.detail}
+							<Icon name="warning" size={13} color="var(--color-status-warning-text)" />{' '}
+							{playbackState.detail}
 						</div>
 					)}
 			</div>
@@ -1213,7 +1218,7 @@ export function Audio() {
 										</Button>
 										{addError && (
 											<span
-												role="status"
+												role="alert"
 												style={{
 													font: `11.5px ${T.sans}`,
 													color: 'var(--color-status-error-text)',
@@ -1476,7 +1481,7 @@ export function Audio() {
 							)}
 							{ambienceError && (
 								<div
-									role="status"
+									role="alert"
 									style={{ font: `11.5px/1.5 ${T.sans}`, color: 'var(--color-status-error-text)' }}
 								>
 									{ambienceError}
@@ -1676,7 +1681,7 @@ export function Audio() {
 									)}
 									{presetError && (
 										<span
-											role="status"
+											role="alert"
 											style={{ font: `11.5px ${T.sans}`, color: 'var(--color-status-error-text)' }}
 										>
 											{presetError}

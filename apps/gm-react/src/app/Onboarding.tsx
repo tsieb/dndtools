@@ -381,15 +381,24 @@ export function Onboarding() {
 		else removeStorage(INVITES_KEY);
 		writeStorage(ONBOARDED_KEY, 'done');
 		if (vault === 'fresh') {
-			// The user explicitly chose to clear the sample campaign. Record the choice FIRST so the
-			// post-reload `load()` skips re-seeding, then wipe and reboot into the empty vault.
-			writeStorage(VAULT_CHOICE_KEY, 'fresh');
+			// The user explicitly chose to clear the sample campaign: wipe, then record the choice so
+			// the post-reload `load()` skips re-seeding, then reboot into the empty vault.
+			//
+			// The order matters and used to be the other way round, over a bare `catch {}` and an
+			// UNCONDITIONAL reload. So a failed wipe told the user they had started fresh, reloaded them
+			// into the fully intact sample campaign, and left `VAULT_CHOICE_KEY` set to 'fresh' — which
+			// suppresses the seed on every subsequent boot, permanently and silently. Writing the key
+			// only once the wipe has actually resolved makes the failure recoverable, and the user is
+			// told rather than lied to.
 			setWiping(true);
 			try {
 				await resetCoreStorage();
 			} catch {
-				/* the reload below re-runs load() either way */
+				setWiping(false);
+				Toaster.error('The sample campaign could not be cleared — nothing was changed. Try again.');
+				return;
 			}
+			writeStorage(VAULT_CHOICE_KEY, 'fresh');
 			reloadAtRoute(to);
 			return;
 		}

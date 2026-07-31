@@ -3,7 +3,8 @@ import {
 	listScenesForActor,
 	type SessionWorkflowState,
 } from '@dndtools/core';
-import { Button, StatusDot, Toaster } from '../ds';
+import { useState } from 'react';
+import { Button, Dialog, StatusDot, Toaster } from '../ds';
 import { useI18n } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { T } from './screen-kit';
@@ -37,6 +38,12 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 	// `active` isn't reachable in one step from every state (e.g. recap → active is illegal). Disable
 	// "Go live" when the core would reject the transition, rather than firing a rejected dispatch.
 	const canGoLive = allowedTransitionsFrom(workflow as SessionWorkflowState).includes('active');
+	// `session.set-workflow {workflow:'idle'}` runs `resetLiveSessionFields`: it nulls the active
+	// scene and map and clears combat (round, order, every combatant's HP and conditions), handouts,
+	// timers and the dice log, archiving nothing. `/session`'s own Standby control has required a red
+	// confirm for that since run #18 — but this button performs the identical teardown from the top
+	// bar of EVERY route, and on a phone it is one icon-only tap with no label at all.
+	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
 
 	// Going live requires an active Scene (Processing-Core gate): prefer the already-active scene, then
 	// the Command Center home scene, then the first scene the DM can see.
@@ -103,7 +110,10 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 			<Button
 				variant={live ? 'secondary' : 'primary'}
 				size="md"
-				icon={live ? 'audio-off' : 'visibility-players'}
+				// `audio-off` is a muted SPEAKER — on the compact phone form this button is icon-only, so
+				// the app's most destructive control read as "mute audio". `close` is the glyph
+				// `/session`'s own "End session" already uses for this exact transition.
+				icon={live ? 'close' : 'visibility-players'}
 				// aria-disabled, NOT disabled: a natively disabled button leaves the tab order, so
 				// neither the title nor the aria-label below is ever announced and the carefully
 				// worded reason becomes unreachable. Button treats aria-disabled as a soft disable
@@ -140,12 +150,44 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 				style={compact ? { width: 48, minHeight: 48, padding: 0, flex: '0 0 auto' } : undefined}
 				onClick={() =>
 					live
-						? setWorkflow('idle', t('Session ended — players returned to standby'))
-						: setWorkflow('active', t('You are live — combat, dice, and maps now reach players'))
+						? setEndConfirmOpen(true)
+						: void setWorkflow(
+								'active',
+								t('You are live — combat, dice, and maps now reach players'),
+							)
 				}
 			>
 				{compact ? null : live ? t('End') : t('Go live')}
 			</Button>
+			<Dialog
+				open={endConfirmOpen}
+				onClose={() => setEndConfirmOpen(false)}
+				title={t('End the live session?')}
+				description={t(
+					'Returning to standby clears the active scene and map, the whole initiative order with every combatant’s HP and conditions, delivered handouts, timers and the dice log. Nothing is archived — use Recap on the Session screen if you want to keep a record.',
+				)}
+				icon="warning"
+				tone="danger"
+				size="sm"
+				footer={
+					<>
+						<Button variant="secondary" size="sm" onClick={() => setEndConfirmOpen(false)}>
+							{t('Stay live')}
+						</Button>
+						<Button
+							variant="danger"
+							size="sm"
+							icon="close"
+							onClick={() => {
+								setEndConfirmOpen(false);
+								void setWorkflow('idle', t('Session ended — players returned to standby'));
+							}}
+						>
+							{t('End session')}
+						</Button>
+					</>
+				}
+			/>
 		</>
 	);
 }

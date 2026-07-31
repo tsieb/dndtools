@@ -735,23 +735,33 @@ function MultiInspector({
 	};
 	const deleteAll = async () => {
 		const attempted = selectedPois.length + selectedTokens.length;
+		const removed = new Set<string>();
 		let deleted = 0;
 		for (const p of selectedPois) {
-			if (await run({ type: 'map.delete-poi', actorId, payload: { mapId, poiId: p.id } } as never))
+			if (
+				await run({ type: 'map.delete-poi', actorId, payload: { mapId, poiId: p.id } } as never)
+			) {
 				deleted += 1;
-			else break;
+				removed.add(p.id);
+			} else break;
 		}
 		for (const t of selectedTokens) {
 			if (
 				await run({ type: 'map.delete-token', actorId, payload: { mapId, tokenId: t.id } } as never)
-			)
+			) {
 				deleted += 1;
-			else break;
+				removed.add(t.id);
+			} else break;
 		}
 		// Clearing the selection on a REFUSAL destroyed the only state the DM could retry from after
 		// unlocking the layer — and "Deleted 0 objects." claimed the work had happened. Same defect
 		// run #21 fixed in `keyboard.ts`'s `deleteSelection`; this is its sibling call site.
-		if (deleted > 0) editor.clearSelection();
+		//
+		// A PARTIAL refusal has the same shape and `deleted > 0` did not cover it: the loops stop on
+		// the first refusal, so the survivors stayed on the map with their selection wiped, under a
+		// message that (correctly) said the rest were refused but left nothing to retry with. Retire
+		// only the ids that really went.
+		if (deleted > 0) editor.setSelection(editor.selection.filter((id) => !removed.has(id)));
 		announce(
 			bulkResultMessage({
 				done: deleted,

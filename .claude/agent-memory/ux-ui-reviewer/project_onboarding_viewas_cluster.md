@@ -39,6 +39,26 @@ DS component is `src/ds/components/command/CommandPalette.jsx`. Icon registry = 
 - ⚠️ **`getByRole` name matching is SUBSTRING** — `{name:'Continue'}` also matches
   "Choose an option to continue". Keep that in mind before renaming any Onboarding button.
 
+## RUN #23 re-verify @ 7f84aeb7 — `Onboarding.tsx` UNCHANGED; items 1,2,7,8,9 open verbatim
+Sharpened facts (measured at HEAD, 1303 ln):
+- **There IS a step-change focus effect** — `:297-299` `(contentRef.current ?? panelRef.current)?.focus()`
+  with `[open, i]` deps. Run #21's "no focus move" framing was wrong. The real defect is that
+  `contentRef`'s div (`:691-702`) is **roleless, unnamed, `tabIndex={-1}`** — focusing it announces
+  nothing deterministic. Every step DOES have a real `<h2>` (`:729,779,834,918,1012,1047,1118`), so
+  the minimal fix is `role="group" aria-labelledby={stepHeadingId}` on `:691`, not a new live region.
+- Confirmed ZERO `aria-live` / `role="status"` / `aria-current` in the whole file; only `role="alert"`
+  is the ack error `:897`. Desktop rail `aria-hidden` `:611`; phone gets only the inert
+  `{step.title} · {i+1}/{N}` string `:604-606`. Footer "Step {i+1} of {N}" inert at `:1255`.
+- Failed-wipe lie confirmed exactly: `writeStorage(VAULT_CHOICE_KEY,'fresh')` `:386` → `setWiping(true)`
+  `:387` → `await resetCoreStorage()` `:389` inside a **bare `catch {}` `:390-392`** → unconditional
+  `reloadAtRoute(to)` `:393`. A failed wipe keeps all data AND suppresses the sample seed forever.
+- Continue label lie: `:1263-1281`. `aria-disabled` at `:1270`; `title` at `:1271-1277` carries the
+  ack-mismatch reason; the LABEL `:1278-1283` falls back to plain "Continue" in that state.
+- `disabled={wiping}` is HARD at `:1162` (checklist rows) and `:1287` (finish button) — focus to
+  `<body>` at the start of the destructive wipe, so "Clearing vault…" (`:1289-1295`) is announced by
+  nothing. This is the class `7f84aeb7` fixed six times elsewhere.
+- Still no `isolateModalSiblings` and no `document.body.style.overflow` lock (grep: 0 hits).
+
 ## STILL OPEN @ e702bb6f — ranked (run #21)
 1. **`Onboarding.tsx:1263-1281` the Continue fix is HALF done.** When `privacy === null` the LABEL
    self-describes ("Choose an option to continue"); when the user picked Private (E2EE) and mistyped

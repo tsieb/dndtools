@@ -428,7 +428,11 @@ function ExtPlugins() {
 								>
 									<Switch
 										checked={rec.enabled}
-										disabled={!canWrite || busy}
+										// `!canWrite` is durable, so it stays native. `busy` is transient and flips
+										// synchronously inside this switch's own change handler — natively disabling
+										// there strands focus on `<body>` mid-toggle, so it takes the soft form.
+										disabled={!canWrite}
+										aria-disabled={busy || undefined}
 										aria-label={`Enable ${def.displayName}`}
 										onChange={() => setEnabled(def.id, !rec.enabled)}
 									/>

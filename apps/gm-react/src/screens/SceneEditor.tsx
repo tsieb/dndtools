@@ -936,8 +936,17 @@ function Inspector({
 					<Button
 						variant="secondary"
 						size="sm"
-						onClick={() => onFocusOrder(Math.max(0, (focusOrder ?? 0) - 1))}
-						disabled={focusOrder === 0}
+						// Soft, not native: pressing Earlier until the widget reaches Position 1 natively
+						// disabled the very button the user was standing on, and the browser dropped focus
+						// to `<body>` — so the last press of the sequence always cost the keyboard cursor.
+						// DS Button swallows the click on a truthy `aria-disabled` and keeps the tab stop,
+						// which is also the only channel this control has for saying why it is unavailable.
+						aria-disabled={focusOrder === 0 || undefined}
+						title={focusOrder === 0 ? 'Already first in the focus order' : undefined}
+						onClick={() => {
+							if (focusOrder === 0) return;
+							onFocusOrder(Math.max(0, (focusOrder ?? 0) - 1));
+						}}
 					>
 						Earlier
 					</Button>

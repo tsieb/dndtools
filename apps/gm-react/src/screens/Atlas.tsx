@@ -939,7 +939,10 @@ export function Atlas() {
 												aria-label={`Show ${l.name} on the map`}
 												// The only control in the row that stayed live mid-dispatch, so a second
 												// click was swallowed by `run`'s busy guard with no feedback at all.
-												disabled={busy}
+												// SOFT, not native: `busy` flips synchronously inside this switch's own
+												// change handler, so a hard `disabled` disabled the control under the
+												// user's own focus and the browser dropped focus to `<body>` mid-toggle.
+												aria-disabled={busy || undefined}
 												onChange={() => toggleLayerEnabled(l.layerId, l.enabled)}
 											/>
 										</>

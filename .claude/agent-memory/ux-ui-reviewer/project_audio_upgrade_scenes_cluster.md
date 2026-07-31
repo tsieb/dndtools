@@ -1,6 +1,6 @@
 ---
 name: audio-upgrade-scenes-creator-cluster
-description: Audio.tsx / Upgrade.tsx / ScenesCreator.tsx / ConnectedSources.tsx / screen-kit.tsx — run #14 re-verify (2026-07-31 @ 98e0211f); the ScenesCreator global-lifecycle "Saved" lie is FIXED and 3 of 6 Audio error regions were promoted to role=alert; 13 open, led by the Seg tab-stop BLOCKER and the 3 error regions the fix pass missed.
+description: Audio.tsx / Upgrade.tsx / ScenesCreator.tsx / ConnectedSources.tsx / screen-kit.tsx — run #15 re-verify (2026-07-31 @ 7f84aeb7); the Seg tab-stop BLOCKER, BackBar target and Audio's bound[0]-only Unbind are all CLOSED; 13 open, led by a blocked-playback line that reads as neutral chatter and 3 error regions still role=status.
 metadata:
   type: project
 ---
@@ -40,18 +40,24 @@ Run #13: `Audio.tsx:1266`/`:1281` phone source-row wrap.
 - **run#13 §2 PARTLY CLOSED** — `role="status"` → `role="alert"` at `Audio.tsx:1019` (importError),
   `:1122` (playError), `:2091` (ruleError). **Three siblings were MISSED — see open item 2.**
 
-## STILL-OPEN (run #14) — ranked
+## CLOSED at `7f84aeb7` (run #15) — do NOT re-report
+- **run#14 §1 (Seg tab-stop BLOCKER) FIXED** — `screen-kit.tsx:245-246` finds the CHECKED option
+  first regardless of `disabled`; `moveSelection` (`:252`) can land on it too.
+- **`Audio.tsx:525-538 unbindScene` now clears the scene's WHOLE binding** (loops `bound`, stops at
+  the first refusal, then one success toast). The `bound[0]`-only item is CLOSED.
+- `BackBar` padding + hover CLOSED. `Join.tsx` "Try again" self-unmount CLOSED.
+
+## STILL-OPEN (run #15) — ranked
 
 ### NEW this run
-1. ⭐⭐ **BLOCKER `screen-kit.tsx:240-241` — a `Seg` whose CHECKED option is also `disabled` has NO
-   tab stop.** `selectedIndex = findIndex(o => o.value===value && !o.disabled)` → `-1`, and the
-   fallback `findIndex(o => !o.disabled)` → `-1` when every option is disabled ⇒ every button gets
-   `tabIndex={-1}` and the whole radiogroup leaves the tab order (WCAG 2.1.1). `off = o.disabled &&
-   !on`, so the checked option is visibly enabled but keyboard-unreachable. Live at
-   `Settings.tsx:3393/:3397` (`disabled: hasKey` on BOTH AI provider options). Latent at
-   `Session.tsx:710` and `Graph.tsx:220`. Fix: find the checked option regardless of `disabled` first.
-2. **`Audio.tsx` still has THREE error regions the `role="alert"` pass missed**: `:1216 addError`,
-   `:1479 ambienceError`, `:1679 presetError` — all `role="status"` (polite) while painted
+1. **`Audio.tsx:951-967` a FAILED/blocked playback state is styled as neutral chatter.** The line
+   renders only when `playbackState.status` is `blocked`/`no-stream`/`error`, yet it is
+   `role="status"` (polite), `color: T.ter`, and led by a neutral `Icon name="audio"` — identical to
+   an informational note. The durable track still reads "Playing", so the DM's only cue that this
+   device is silent is grey 11.5px text. Fix: `role="alert"`, `icon="warning"`,
+   `--color-status-warning-text`. (Contrast itself is fine — the strip is `T.raised`.)
+2. **`Audio.tsx` still has THREE error regions the `role="alert"` pass missed**: `:1215 addError`,
+   `:1478 ambienceError`, `:1678 presetError` — all `role="status"` (polite) while painted
    `--color-status-error-text`. None is on its `Field`'s `error` prop, so no control is `aria-invalid`.
 3. **`screen-kit.tsx:225-230` + `:280` the new `title` option prop is DEAD API** — zero call sites pass
    it (grepped all `src/`), so the "mute 0.4-opacity option with no explanation" its own JSDoc

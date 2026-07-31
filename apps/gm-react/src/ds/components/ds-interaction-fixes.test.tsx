@@ -29,6 +29,7 @@ import { SpellSlots as RawSpellSlots } from './spell/SpellSlots.jsx';
 import { Field as RawField } from './forms/Field.jsx';
 import { EmptyState as RawEmptyState } from './system/EmptyState.jsx';
 import { SegmentedControl as RawSegmentedControl } from './forms/SegmentedControl.jsx';
+import { Switch as RawSwitch } from './forms/Switch.jsx';
 import { CommandPalette as RawCommandPalette } from './command/CommandPalette.jsx';
 
 // The DS ships as .jsx with `checkJs: false`, so tsc infers every defaultless prop as required.
@@ -62,6 +63,7 @@ const SegmentedControl = RawSegmentedControl as React.ComponentType<DsProps>;
 const Checkbox = RawCheckbox as React.ComponentType<DsProps>;
 const SpellSlots = RawSpellSlots as React.ComponentType<DsProps>;
 const Field = RawField as React.ComponentType<DsProps>;
+const Switch = RawSwitch as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;
@@ -885,8 +887,10 @@ describe('an avatar is decorative and its status ring survives forced colours', 
 		act(() => root.render(<Avatar name="Goblin" ring="turn" />));
 		const avatar = container.firstElementChild as HTMLElement;
 		// `box-shadow` is not painted at all under `forced-colors: active`, so whose-turn vanished.
+		// The WIDTH is deliberately not pinned here — see the rim-vs-focus-ring case below, which owns
+		// the geometry. What matters to forced-colors is only that the ring is an `outline`.
 		expect(avatar.style.boxShadow).toBe('');
-		expect(avatar.style.outline).toContain('2px solid');
+		expect(avatar.style.outline).toMatch(/solid/);
 	});
 });
 
@@ -1636,5 +1640,127 @@ describe('the command palette is a well-behaved overlay', () => {
 
 		expect(document.activeElement).toBe(main);
 		main.remove();
+	});
+});
+
+describe('an Avatar status ring is not the focus ring', () => {
+	// `ring="turn"` paints `--color-accent`, which is byte-identical to
+	// `--color-interactive-focus-ring` (#e0b06f) in both dark themes and near-identical in parchment.
+	// With the same `2px solid` at the same `outline-offset: 2` it was pixel-for-pixel the app's
+	// global `:focus-visible` ring, so the character roster cards, the sheet header and the import
+	// preview all looked permanently focused. A status ring must read as a RIM: thicker, flush.
+	it('paints a flush rim, not a detached hairline at the focus-ring offset', () => {
+		act(() => root.render(<Avatar name="Bog Lurker" ring="turn" />));
+		const disc = container.firstElementChild as HTMLElement;
+
+		expect(disc.style.outlineWidth || disc.style.outline).toContain('3px');
+		// The focus ring is `--focus-ring-offset` (2px). Anything but 0 here re-creates the collision.
+		expect(disc.style.outlineOffset === '' ? '0' : disc.style.outlineOffset).toMatch(/^0(px)?$/);
+	});
+
+	// An inline `outline: 'none'` beats any stylesheet, so writing it unconditionally would suppress
+	// the app's global focus ring on any consumer that ever makes the avatar focusable. Emit the key
+	// only in the state that needs it — this repo has shipped that same bug five times.
+	it('emits no inline outline at all when there is no ring', () => {
+		act(() => root.render(<Avatar name="Bog Lurker" />));
+		const disc = container.firstElementChild as HTMLElement;
+		expect(disc.style.outline).toBe('');
+		expect(disc.style.outlineWidth).toBe('');
+	});
+});
+
+describe('the DataTable scroll port is reachable without a mouse', () => {
+	// A scroll container that only responds to a pointer strands keyboard-only users at the first
+	// visible column (axe `scrollable-region-focusable`, WCAG 2.1.1). On a 393px phone Settings →
+	// "Active grants" is six columns wide and its Revoke button sits past the right edge, so there was
+	// no way to reach it at all without a mouse.
+	it('is focusable, and names itself when the call site gives it a name', () => {
+		act(() =>
+			root.render(
+				<DataTable
+					ariaLabel="Active grants"
+					columns={[{ key: 'a', header: 'A' }]}
+					rows={[{ a: '1' }]}
+				/>,
+			),
+		);
+		const port = container.firstElementChild as HTMLElement;
+		expect(port.getAttribute('tabindex')).toBe('0');
+		expect(port.getAttribute('role')).toBe('group');
+		expect(port.getAttribute('aria-label')).toBe('Active grants');
+	});
+
+	// A `role="group"` with no accessible name is its own axe violation, so an unnamed port stays a
+	// plain focusable div rather than gaining a roleless-but-named region.
+	it('takes no role when it has no name', () => {
+		act(() => root.render(<DataTable columns={[{ key: 'a', header: 'A' }]} rows={[]} />));
+		const port = container.firstElementChild as HTMLElement;
+		expect(port.getAttribute('tabindex')).toBe('0');
+		expect(port.getAttribute('role')).toBeNull();
+	});
+});
+
+describe('Switch has the soft-disable every other DS control has', () => {
+	// Five live call sites wrote `disabled={busy}`, and `busy` flips synchronously inside the switch's
+	// own change handler — so the control the user had just pressed went natively disabled under its
+	// own focus and the browser dropped focus to `<body>` mid-toggle. `aria-disabled` is this repo's
+	// standard form for a transient gate: still focusable, still named, but inert and dimmed.
+	it('keeps its tab stop and its name while swallowing the press', () => {
+		let toggles = 0;
+		act(() =>
+			root.render(
+				<Switch
+					checked={false}
+					aria-disabled
+					aria-label="Show Walls"
+					onChange={() => (toggles += 1)}
+				/>,
+			),
+		);
+		const btn = container.querySelector('button[role="switch"]') as HTMLButtonElement;
+		expect(btn).not.toBeNull();
+		// NOT natively disabled — that is the whole point.
+		expect(btn.disabled).toBe(false);
+		btn.focus();
+		expect(document.activeElement).toBe(btn);
+		expect(btn.getAttribute('aria-label')).toBe('Show Walls');
+
+		act(() => btn.click());
+		expect(toggles).toBe(0);
+	});
+
+	// The inline label is a second, larger hit target for the same toggle — it must respect the gate
+	// too, or the "unavailable" switch flips anyway when the user clicks its words.
+	it('gates the inline label as well as the pill', () => {
+		let toggles = 0;
+		act(() =>
+			root.render(
+				<Switch checked={false} aria-disabled label="Enable" onChange={() => (toggles += 1)} />,
+			),
+		);
+		const labelNode = Array.from(container.querySelectorAll('span')).find(
+			(el) => el.textContent === 'Enable',
+		) as HTMLElement;
+		act(() => labelNode.click());
+		expect(toggles).toBe(0);
+	});
+
+	it('still toggles, and still hard-disables, when asked to', () => {
+		let toggles = 0;
+		act(() =>
+			root.render(<Switch checked={false} label="Enable" onChange={() => (toggles += 1)} />),
+		);
+		const btn = container.querySelector('button[role="switch"]') as HTMLButtonElement;
+		act(() => btn.click());
+		expect(toggles).toBe(1);
+
+		act(() =>
+			root.render(
+				<Switch checked={false} disabled label="Enable" onChange={() => (toggles += 1)} />,
+			),
+		);
+		expect((container.querySelector('button[role="switch"]') as HTMLButtonElement).disabled).toBe(
+			true,
+		);
 	});
 });

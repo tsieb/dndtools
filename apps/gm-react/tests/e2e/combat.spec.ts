@@ -377,6 +377,60 @@ test.describe('leaving a LIVE session for standby is confirmed', () => {
 	});
 });
 
+// The top bar's own live-session control performed the IDENTICAL `session.set-workflow {idle}`
+// teardown as the phase rail above — from every route in the app, and on a phone as a single
+// icon-only 48x48 tap — with no confirmation at all. Its glyph was `audio-off`, a muted speaker, so
+// the app's most destructive control read as "mute audio".
+test.describe('the top bar cannot end a live session by accident', () => {
+	const endControl = (page: Page) => page.getByRole('button', { name: 'End live session' });
+	// On a phone the whole top-bar control cluster collapses into the "Table controls" bottom sheet
+	// (`AppShell.tsx`), so the control only exists once that is open.
+	const reachTopBar = async (page: Page) => {
+		const opener = page.getByRole('button', { name: 'Table controls' });
+		if ((await opener.count()) > 0) await opener.click();
+		await expect(endControl(page)).toBeVisible();
+	};
+
+	test.beforeEach(async ({ page }) => {
+		await reachTopBar(page);
+	});
+
+	test('asks first, and Stay live leaves the session and the combat untouched', async ({
+		page,
+	}) => {
+		expect(await page.evaluate(() => window.__rt!.state.session.workflow)).toBe('active');
+		expect(await combatStatus(page)).toBe('running');
+
+		await endControl(page).click();
+		const confirm = page.getByRole('dialog', { name: 'End the live session?' });
+		await expect(confirm).toBeVisible();
+		// Nothing has moved yet — that is the whole point of the guard.
+		expect(await page.evaluate(() => window.__rt!.state.session.workflow)).toBe('active');
+		expect(await combatStatus(page)).toBe('running');
+
+		await confirm.getByRole('button', { name: 'Stay live' }).click();
+		await expect(confirm).toBeHidden();
+		expect(await page.evaluate(() => window.__rt!.state.session.workflow)).toBe('active');
+		expect(await combatStatus(page)).toBe('running');
+	});
+
+	test('confirming from the top bar really does end it', async ({ page }) => {
+		await endControl(page).click();
+		await page
+			.getByRole('dialog', { name: 'End the live session?' })
+			.getByRole('button', { name: 'End session' })
+			.click();
+		await expect.poll(() => page.evaluate(() => window.__rt!.state.session.workflow)).toBe('idle');
+	});
+
+	// A muted speaker is the wrong sign for "tear the session down" — and on the compact phone form
+	// the glyph is the only thing the control shows.
+	test('does not wear a muted-speaker glyph', async ({ page }) => {
+		await expect(endControl(page).locator('svg.lucide-volume-x')).toHaveCount(0);
+		await expect(endControl(page).locator('svg.lucide-x')).toHaveCount(1);
+	});
+});
+
 // The phase Seg was the ONLY control on /session with no `previewing` / `isDm` gate — every one of
 // the file's ~50 other `previewing` references has one. So previewing as a player on a LIVE session
 // and pressing Standby (one ArrowLeft away, since Seg is selection-follows-focus) raised the full-red

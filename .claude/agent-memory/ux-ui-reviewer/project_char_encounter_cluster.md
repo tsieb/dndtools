@@ -1,15 +1,42 @@
 ---
 name: char-encounter-cluster
-description: Char/encounter cluster (Characters.tsx, CharBuilder.tsx, EncounterBuilder.tsx) — FIXED-vs-STILL-OPEN split re-verified 2026-07-31 @ 98e0211f (run #22), plus the e2e spec-coupling map
+description: Char/encounter cluster (Characters.tsx, CharBuilder.tsx, EncounterBuilder.tsx) — FIXED-vs-STILL-OPEN split re-verified 2026-07-31 @ 7f84aeb7 (run #23), plus the e2e spec-coupling map
 metadata:
   type: project
 ---
 
-# Char/Encounter cluster — state at HEAD 98e0211f (2026-07-31, run #22)
+# Char/Encounter cluster — state at HEAD 7f84aeb7 (2026-07-31, run #23)
 
 Line counts at HEAD: `Characters.tsx` 1950, `CharBuilder.tsx` 2470, `EncounterBuilder.tsx` 734.
-**`98e0211f` touched Characters.tsx (+21/-2) only.** `CharBuilder.tsx` has NOT changed since run #11
-and `EncounterBuilder.tsx` not since `33651613`, so those items are open verbatim.
+**`7f84aeb7` touched NONE of the three** (only `ds/command/CommandPalette.jsx` in this cluster's
+orbit). Everything in run #22's list below re-verified OPEN verbatim at run #23.
+
+## RUN #23 — the FOCUS-DROP class is now a spec-backed repo policy
+`7f84aeb7` converted SIX hard-`disabled`-under-own-focus controls to the soft form across
+Session/Player/SceneDisplayOverlay, with a stated reason + a guarded handler, and pinned the
+pattern in `scene-cards.spec.ts` / `combat.spec.ts`. **This cluster still carries three untouched
+instances of the exact same defect** — cite the commit when filing them:
+- `EncounterBuilder.tsx:385` Start `disabled={submitting}` (error renders at `:400`, TOP of the
+  Dialog's SCROLLING body, while the button lives in the fixed footer ⇒ nothing seen or heard).
+- `EncounterBuilder.tsx:520` quick-add Add `disabled={!qName.trim()}` + `quickAdd()` clears `qName`.
+- `Onboarding.tsx:1287` / `:1162` `disabled={wiping}` during a multi-second DESTRUCTIVE vault wipe.
+⚠️ `command-palette.spec.ts:151` asserts `el.disabled === false` on the EncounterBuilder Start —
+so the soft conversion there is REQUIRED by an existing spec, not merely allowed.
+
+## RUN #23 — sharpened line numbers (verified at HEAD)
+- HP-boundary refusal: `Characters.tsx:441-455`; the ONLY sink for `note` is
+  `:709` `<div role="status" style={srOnly}>` ⇒ zero visible change. Refusal `return`s at `:455`,
+  BEFORE `dispatch`'s `setNote('')` at `:418` ⇒ second identical press is silent to AT too.
+- `startCombat()` `:1777`, `setNotice(null)` `:1778`, no try/catch, no busy flag; roster `notice`
+  block `:1857` mounts WITH its text.
+- Raw enum leak `:1067`.
+- CharBuilder: `next` `:977`, `back` `:978-981`, `dirty` `:985-987`, Overlay focus effect deps `[]`
+  at `:794`, step title = plain `<div>` `:1587`, StepRail `!isPhone` `:1577`, "Step i of n" `:2381`,
+  visibility grid hard `1fr 1fr` `:2211`, alertdialog `:2418` (no `aria-modal`/`aria-describedby`),
+  phone attack rows container `gap:8` `:2066` == the row grid's own `gap:8`.
+- CharBuilder phone attack grid IS now 2-up (`:2081-2083` `isPhone ? 'minmax(0,1fr) minmax(0,1fr)'`)
+  — the old "five fields on one 393px row" claim is DEAD. What remains is the ambiguity: 3 visual
+  sub-rows per attack, separated by the SAME 8px that separates whole attacks.
 
 ## FIXED at 98e0211f — do not re-chase
 - **run #20 OPEN #1 — Damage/Heal LIE at the HP boundaries.** `Characters.tsx:440-452` early-returns

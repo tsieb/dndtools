@@ -8,8 +8,9 @@ import type { MapEditorApi } from './useMapEditor';
  * is in flight and when the core refuses (a locked layer, a permission ceiling), and the loop
  * `break`s on the first refusal — so a refused delete destroyed the user's whole selection and told
  * them "Deleted 0 objects.", removing the one recovery action (unlock the layer, press Delete
- * again). These lock the two halves: a refusal keeps the selection and says why, and a success
- * still clears and counts — with honest pluralisation.
+ * again). These lock all three halves: a total refusal keeps the selection and says why, a PARTIAL
+ * refusal keeps exactly the survivors and says the rest were refused, and a clean success still
+ * empties the selection and counts — with honest pluralisation.
  */
 
 function makeEditor(
@@ -25,6 +26,10 @@ function makeEditor(
 		map: { pois: pois.map((id) => ({ id })), tokens: [] },
 		clearSelection() {
 			state.cleared += 1;
+			state.selection = [];
+		},
+		setSelection(ids: readonly string[]) {
+			state.selection = ids;
 		},
 		run(command: { payload: { poiId: string } }) {
 			state.ran.push(command.payload.poiId);
@@ -40,11 +45,24 @@ describe('map editor Delete', () => {
 		const said: string[] = [];
 		await deleteSelection(editor, (m) => said.push(m));
 
-		expect(editor.cleared).toBe(0);
+		expect(editor.selection).toEqual(['poi-a', 'poi-b']);
 		expect(said).toHaveLength(1);
 		expect(said[0]).toMatch(/locked layer/i);
 		// The old behaviour, which this must never regress to.
 		expect(said[0]).not.toMatch(/Deleted 0/);
+	});
+
+	it('keeps the survivors selected and admits the refusal on a PARTIAL delete', async () => {
+		// The loop stops on the first refusal, so poi-c is never even attempted — it and poi-b are
+		// both still on the map and must both still be selected for the retry-after-unlock path.
+		const editor = makeEditor(['poi-a', 'poi-b', 'poi-c'], (id) => id === 'poi-a');
+		const said: string[] = [];
+		await deleteSelection(editor, (m) => said.push(m));
+
+		expect(editor.selection).toEqual(['poi-b', 'poi-c']);
+		expect(said).toHaveLength(1);
+		expect(said[0]).toMatch(/refused/i);
+		expect(said[0]).toContain('1 object');
 	});
 
 	it('clears the selection and counts honestly when the deletes land', async () => {
@@ -53,7 +71,7 @@ describe('map editor Delete', () => {
 		await deleteSelection(editor, (m) => said.push(m));
 
 		expect(editor.ran).toEqual(['poi-a', 'poi-b']);
-		expect(editor.cleared).toBe(1);
+		expect(editor.selection).toEqual([]);
 		expect(said).toEqual(['Deleted 2 objects.']);
 	});
 
@@ -71,6 +89,6 @@ describe('map editor Delete', () => {
 		await deleteSelection(editor, (m) => said.push(m));
 
 		expect(said).toEqual([]);
-		expect(editor.cleared).toBe(0);
+		expect(editor.selection).toEqual([]);
 	});
 });
