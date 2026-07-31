@@ -270,7 +270,11 @@ wait_for_ui_text 'Open scene' || fail 'root destination did not render after fir
 step 'accepted session command and router Back'
 tap_ui_button 'Session' || fail 'Session navigation control was not reachable'
 wait_for_ui_text 'LIVE SESSION' || fail 'Session destination did not render'
-tap_ui_button 'Go live' || fail 'the session.set-workflow command was not reachable'
+tap_ui_button 'Go live' || {
+	echo 'Android acceptance: accessibility tree before Go live tap failure:' >&2
+	dump_ui >&2 || true
+	fail 'the session.set-workflow command was not reachable'
+}
 wait_for_ui_text_absent 'Session is in standby' \
 	|| fail 'the session.set-workflow command was not accepted'
 adb shell input keyevent KEYCODE_BACK
