@@ -410,6 +410,12 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	// authoring surface confirmed nothing at all. `Player.tsx` already carries this one-node pattern.
 	async function dispatch(command: any, okNote?: string): Promise<boolean> {
 		setError(null);
+		// Emptying the region for the duration of the write does two jobs. It stops a stale SUCCESS
+		// note sitting under a fresh error (only `error` was being cleared), and — because assistive
+		// tech diffs live-region text and drops a byte-identical update — it is what makes the SECOND
+		// press of a repeated action audible at all. The multi-field level-up presses "Save choices"
+		// once per field and announced only the first.
+		setNote('');
 		try {
 			const result = await runtime.dispatch(command);
 			if (result.status === 'rejected') {
@@ -431,7 +437,20 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	// DM HP/AC/condition edits go through the durable, DM-only `character.set-combat` (no active-session
 	// gate — the granular session-gated in-play hot path lives on the Session / Combat surfaces).
 	async function applyHp(delta: number) {
-		const next = clamp(view!.combat.hp + delta, 0, view!.combat.maxHp);
+		const current = view!.combat.hp;
+		const next = clamp(current + delta, 0, view!.combat.maxHp);
+		// At 0 HP a Damage press, and at full HP a Heal press, used to dispatch `set-combat` with the
+		// UNCHANGED hp — a durable no-op the journal recorded — and then announce "Damaged 7. 0 of 24
+		// hit points." The number in the message is real; the verb is not. Say what actually happened.
+		if (next === current) {
+			setError(null);
+			setNote(
+				delta < 0
+					? `Already at 0 hit points — no damage applied.`
+					: `Already at full health — ${current} of ${view!.combat.maxHp} hit points.`,
+			);
+			return;
+		}
 		await dispatch(
 			{ type: 'character.set-combat', actorId, payload: { characterId: id, hp: next } },
 			`${delta < 0 ? 'Damaged' : 'Healed'} ${Math.abs(delta)}. ${next} of ${view!.combat.maxHp} hit points.`,

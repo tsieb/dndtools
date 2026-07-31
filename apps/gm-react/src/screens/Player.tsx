@@ -1682,6 +1682,31 @@ function PlayerParty({
 		[next[index - 1], next[index]] = [next[index], next[index - 1]];
 		void setOrder(next);
 	};
+	// The order was move-UP-only, so pushing the front rank to the back of a five-person marching
+	// order meant pressing "Move X up" on the four below it in the right sequence, and the LAST member
+	// could not be moved down at all. `SceneCardsPanel` and `Atlas` both ship the pair.
+	const moveDown = (index: number) => {
+		if (index < 0 || index >= party.marchingOrder.length - 1) return;
+		const next = [...party.marchingOrder];
+		[next[index], next[index + 1]] = [next[index + 1], next[index]];
+		void setOrder(next);
+	};
+	// Clearing the order is a one-click destroy of DM-authored data behind a button labelled just
+	// "Clear" in a Panel header, which reads like a filter reset. `setOrder(previous)` is its exact
+	// inverse, and the shared stash's Remove one column over already ships this toast.
+	const clearOrder = async () => {
+		const previous = [...party.marchingOrder];
+		const ok = await setOrder([]);
+		if (!ok) return;
+		Toaster.success('Marching order cleared', {
+			action: 'Undo',
+			onAction: () => {
+				void setOrder(previous).then((restored) => {
+					if (restored) Toaster.success('Marching order restored');
+				});
+			},
+		});
+	};
 	const addItem = async () => {
 		if (!itemName.trim()) return;
 		// Authored on the player surface, so it's shared with the party (not the dm-only default).
@@ -1738,7 +1763,14 @@ function PlayerParty({
 				alignItems: 'start',
 			}}
 		>
-			<Panel title="The party" action={<Badge status="neutral">{members.length} members</Badge>}>
+			<Panel
+				title="The party"
+				action={
+					<Badge status="neutral">
+						{members.length} {members.length === 1 ? 'member' : 'members'}
+					</Badge>
+				}
+			>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
 					{members.map((p) => {
 						const downed = p.hp === 0;
@@ -1811,8 +1843,8 @@ function PlayerParty({
 					title="Marching order"
 					action={
 						isDm && party.marchingOrder.length > 0 ? (
-							<Button variant="ghost" size="sm" onClick={() => setOrder([])}>
-								Clear
+							<Button variant="ghost" size="sm" onClick={() => void clearOrder()}>
+								Clear order
 							</Button>
 						) : undefined
 					}
@@ -1857,14 +1889,29 @@ function PlayerParty({
 											{i + 1}
 										</span>
 										<span style={{ flex: 1, font: `12.5px ${T.sans}` }}>{m?.name ?? id}</span>
-										{isDm && i > 0 && (
-											<IconButton
-												icon="chevron-up"
-												label={`Move ${m?.name ?? 'member'} up`}
-												variant="ghost"
-												size="sm"
-												onClick={() => moveUp(i)}
-											/>
+										{/* RENDERED-and-disabled at the ends, not omitted: dropping the control off row 1
+										    collapsed that row's right gutter, so its name column ran ~28px wider
+										    than every other row and the list visibly stepped in at the top. Same
+										    shape SceneCardsPanel and Atlas already use. */}
+										{isDm && (
+											<>
+												<IconButton
+													icon="chevron-up"
+													label={`Move ${m?.name ?? 'member'} up`}
+													variant="ghost"
+													size="sm"
+													disabled={i === 0}
+													onClick={() => moveUp(i)}
+												/>
+												<IconButton
+													icon="chevron-down"
+													label={`Move ${m?.name ?? 'member'} down`}
+													variant="ghost"
+													size="sm"
+													disabled={i === party.marchingOrder.length - 1}
+													onClick={() => moveDown(i)}
+												/>
+											</>
 										)}
 									</div>
 								);
@@ -2145,7 +2192,10 @@ function PlayerLevelUp({
 						Level {draft.fromLevel} → {draft.toLevel}
 					</div>
 					<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
-						{draft.mode} advancement · {doneCount}/{required.length} choices made
+						{/* `draft.mode` is the raw core enum, so this read "xp advancement" / "milestone
+						    advancement" — lowercase, and XP as a word rather than the initialism. */}
+						{draft.mode === 'xp' ? 'XP' : 'Milestone'} advancement · {doneCount}/{required.length}{' '}
+						choices made
 					</div>
 				</div>
 				<Button variant="ghost" size="sm" onClick={cancel}>

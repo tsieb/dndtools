@@ -285,3 +285,34 @@ test.describe('graph: the player viewpoint explains why it is unavailable', () =
 		).toHaveCount(1);
 	});
 });
+
+// `selEdges` derives from `viz.edges`, which the core filters by facet AND text. So typing anything
+// in the search box emptied it for EVERY node, and the Selected panel then asserted a falsehood
+// about the user's own data: "No links from or to this node yet." — the "yet" claiming the links do
+// not exist, on a node whose links are merely filtered out of view.
+test.describe('graph: the connections panel does not call a filtered-out link a missing one', () => {
+	test.beforeEach(async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/graph');
+		await seedFresh(page);
+		await page.goto('/#/graph', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.locator('#main-content').waitFor({ state: 'attached' });
+	});
+
+	test('says "no links match the current filter" rather than "no links yet"', async ({ page }) => {
+		// Select a node that genuinely HAS links, with no filter applied.
+		await page.getByRole('button', { name: VISIBLE_NOTE }).first().click();
+		await expect(page.getByText('Selected')).not.toHaveCount(0);
+		await expect(page.getByText(/^Connections \((?!0\))\d+\)$/)).not.toHaveCount(0);
+		await expect(page.getByText('No links from or to this node yet.')).toHaveCount(0);
+
+		// Now narrow the text facet to the node itself, which drops every edge out of the read.
+		await page.getByLabel('Search the graph').fill(VISIBLE_NOTE);
+		await expect(page.getByText('Connections (0)')).not.toHaveCount(0);
+
+		// The links still exist — only the filter hides them, and the copy must say so.
+		await expect(page.getByText('No links match the current filter.')).not.toHaveCount(0);
+		await expect(page.getByText('No links from or to this node yet.')).toHaveCount(0);
+	});
+});

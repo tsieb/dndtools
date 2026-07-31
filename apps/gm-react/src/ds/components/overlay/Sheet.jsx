@@ -3,6 +3,7 @@ import { Icon } from '../core/Icon.jsx';
 import { registerBackHandler } from '../../../platform/backNavigation';
 import { isolateModalSiblings } from '../../../platform/modalIsolation';
 import { ownsEscape, popEscapeLayer, pushEscapeLayer } from '../../../platform/escapeLayers';
+import { restoreReturnFocus } from '../../../platform/returnFocus';
 
 /**
  * Sheet — the touch-first overlay the system delegates to alongside Dialog ("…or sheet (mobile)").
@@ -117,8 +118,11 @@ export function Sheet({
 			unregisterBack();
 			document.body.style.overflow = prevOverflow;
 			restoreIsolation();
-			const rf = returnFocusRef.current;
-			if (rf && rf.focus) rf.focus();
+			// See Dialog / platform/returnFocus: the "All sections" sheet navigates on select, so a
+			// caller that deliberately moved focus must keep it, and a removed opener must not
+			// strand focus on <body>.
+			restoreReturnFocus(returnFocusRef.current);
+			returnFocusRef.current = null;
 		};
 	}, [open]);
 

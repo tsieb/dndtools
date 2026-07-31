@@ -137,10 +137,25 @@ export function Atlas() {
 		}
 	}, [location.state, location.pathname, navigate]);
 
-	const delivered = useMemo(
-		() => deliveredMapIdsForActor(runtime.state.session, actorId),
-		[runtime.state.session, actorId],
-	);
+	// `deliveredMapIdsForActor` answers "what is on THIS actor's screen", and `activeMapProjections`
+	// is keyed by player/observer id only — `session.project-active-map` rejects any DM-authority
+	// target outright. So for the DM, the one actor who ever sees this chip row with its authoring
+	// controls, the set was permanently EMPTY and the live indicator was dead code: after "Project to
+	// players" the only feedback was a dismissible notice bar, and once that was dismissed nothing on
+	// screen said which map was on the table. The DM's question is "what is on the PLAYERS' screens",
+	// which is the union over every projection and player-view map region.
+	const delivered = useMemo(() => {
+		if (!isDm) return deliveredMapIdsForActor(runtime.state.session, actorId);
+		const all = new Set<string>();
+		for (const projection of Object.values(runtime.state.session.activeMapProjections)) {
+			if (projection) all.add(projection.mapId);
+		}
+		for (const assignment of Object.values(runtime.state.session.playerViewAssignments)) {
+			const region = assignment?.target.mapRegion;
+			if (region) all.add(region.mapId);
+		}
+		return all;
+	}, [runtime.state.session, actorId, isDm]);
 	const maps = useMemo(
 		() => listMapsForActor(runtime.state.maps, runtime.state.permissions, actorId),
 		[runtime.state.maps, runtime.state.permissions, actorId],
@@ -496,7 +511,9 @@ export function Atlas() {
 								// name; the dot stays the at-a-glance cue.
 								<>
 									<StatusDot status="live" pulse />
-									<span style={srOnly}>Live to players</span>
+									{/* A player reading their OWN chip row was told "Live to players" about
+									    their own screen. Say whose screen it is. */}
+									<span style={srOnly}>{isDm ? 'Live to players' : 'On your screen'}</span>
 								</>
 							)}
 						</button>
@@ -851,7 +868,12 @@ export function Atlas() {
 											</button>
 										</span>
 									) : (
-										<Icon name="drag-handle" size={14} color={T.ter} />
+										// A spacer, not a drag handle: there is no drag implementation anywhere in
+										// this screen — even the DM reorders with the Move up / Move down buttons
+										// above — so a player was shown the universal reorder affordance on a
+										// read-only list and got no response to either drag or click. Keep the
+										// width so the rows still line up under the DM's chevron column.
+										<span style={{ width: 14, flex: '0 0 auto' }} aria-hidden="true" />
 									)}
 									<span
 										style={{
@@ -1055,6 +1077,9 @@ export function Atlas() {
 								<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
 									{mapView?.fog.length ?? 0}{' '}
 									{(mapView?.fog.length ?? 0) === 1 ? 'change' : 'changes'}
+									{/* The list below renders `fog.slice(-4)`, so on a map with 12 ops the header
+									    counted 12 over four rows with nothing saying the rest were elided. */}
+									{(mapView?.fog.length ?? 0) > 4 ? ' · latest 4 shown' : ''}
 								</span>
 							</span>
 						}

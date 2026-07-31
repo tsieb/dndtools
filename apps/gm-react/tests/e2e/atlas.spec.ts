@@ -137,3 +137,80 @@ test.describe('atlas: layer and POI rows state their own state', () => {
 		await expect(well).toHaveCSS('touch-action', 'pan-y');
 	});
 });
+
+// `deliveredMapIdsForActor` answers "what is on THIS actor's screen", and `activeMapProjections` is
+// keyed by player id only — `session.project-active-map` rejects any DM-authority target outright.
+// So for the DM, the one actor who ever sees this chip row with its authoring controls, the set was
+// permanently EMPTY: the live dot and its sr-only word were dead code. After "Project to players"
+// the only feedback was the dismissible notice bar, and once that was dismissed — or the map was
+// switched, or the page reloaded — nothing on screen said which map was on the table.
+test.describe('atlas: the DM can see which map is on the players’ screens', () => {
+	test.beforeEach(async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/atlas');
+		await seedFresh(page);
+		await page.goto('/#/atlas', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.locator(MAIN).waitFor({ state: 'attached' });
+		// Projecting is gated on a live session (`session-workflow.ts` puts it behind `live-session`).
+		const live = await dispatch(page, {
+			type: 'session.set-workflow',
+			actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+			payload: {
+				workflow: 'active',
+				activeSceneId: await page.evaluate(() => {
+					const state = window.__rt!.state as unknown as {
+						session: { activeSceneId: string | null };
+						commandCenter: { homeSceneId: string | null };
+						scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+					};
+					return (
+						state.session.activeSceneId ??
+						state.commandCenter.homeSceneId ??
+						Object.values(state.scenes.scenes).find((s) => !s.isTemplate)?.id ??
+						null
+					);
+				}),
+			},
+		});
+		expect(live.status, live.rejection?.message ?? '').toBe('accepted');
+		// `session.set-active-map` writes through the Command Center's active-map WIDGET, so without a
+		// home Scene the whole Project flow is refused before it reaches the projection.
+		const home = await dispatch(page, {
+			type: 'command-center.ensure-home',
+			actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+			payload: {},
+		});
+		expect(home.status, home.rejection?.message ?? '').toBe('accepted');
+	});
+
+	test('marks the projected map, and only that map, after Project to players', async ({ page }) => {
+		const project = page.getByRole('button', { name: 'Project to players' });
+		await expect(project).toBeVisible();
+
+		// Nothing is projected yet, so no chip claims to be live.
+		await expect(page.getByRole('button', { name: /Live to players/ })).toHaveCount(0);
+
+		// The screen opens on Hidden Outpost (the seeded POIs live on Western Reaches).
+		const open = page.locator(`${MAIN} button[aria-current="true"]`).first();
+		await expect(open).toBeVisible();
+		const openName = (await open.innerText()).trim();
+		expect(openName.length).toBeGreaterThan(0);
+
+		await project.click();
+		await expect(page.getByText(/Projected .+ to \d+ player/)).not.toHaveCount(0);
+
+		// Exactly one chip — the one that was open — now says it is on the players' screens, and the
+		// word rides in the accessible name so the pulsing dot is not the only cue (WCAG 1.4.1, and
+		// forced-colors flattens the dot's status colour away entirely).
+		const liveChips = page.getByRole('button', { name: /Live to players/ });
+		await expect(liveChips).toHaveCount(1);
+		await expect(liveChips.first()).toContainText(openName);
+
+		// And it survives the notice being dismissed, which is the whole point — the banner was the
+		// only feedback there had ever been.
+		const dismiss = page.getByRole('button', { name: 'Dismiss notice' });
+		if ((await dismiss.count()) > 0) await dismiss.click();
+		await expect(page.getByRole('button', { name: /Live to players/ })).toHaveCount(1);
+	});
+});

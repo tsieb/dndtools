@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { gotoRoute, markOnboarded, ops, seedFresh, waitReady } from './_helpers';
 
 // CHARACTER SHEET — /characters/:id. This file exists for one reason: the sheet holds a dozen pieces
 // of PER-CHARACTER draft state (editMode, shareDraft, attackRows, acDraft, xpInput, error) and used
@@ -183,5 +183,50 @@ test.describe('character sheet: durable writes announce themselves', () => {
 		await page.getByRole('button', { name: 'Damage', exact: true }).click();
 
 		await expect(status).toHaveText(/Damaged 1\. \d+ of \d+ hit points\./);
+	});
+
+	test('a press that cannot change the hit points says so instead of claiming it did', async ({
+		page,
+	}) => {
+		// `clamp(hp + delta, 0, maxHp)` meant that at full HP a Heal press, and at 0 HP a Damage
+		// press, dispatched `character.set-combat` with the UNCHANGED hp — a durable no-op the op log
+		// recorded — and then announced "Healed 1. 24 of 24 hit points." The number was real; the
+		// verb was not.
+		const [first] = await twoCharacterIds(page);
+		await page.goto(`/#/characters/${first}`, { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.getByRole('button', { name: 'Edit', exact: true }).click();
+
+		const status = sheetStatus(page);
+		await expect(status).toHaveCount(1);
+		const hpOf = () =>
+			page.evaluate(
+				(id) =>
+					(
+						window.__rt!.state.characters as {
+							characters: Record<string, { combat?: { hp?: number; maxHp?: number } }>;
+						}
+					).characters[id]?.combat,
+				first,
+			);
+
+		// Put the character at full health through the real control, then press Heal again.
+		const combat = await hpOf();
+		expect(combat?.maxHp, 'the seeded character must have a max HP').toBeGreaterThan(0);
+		if ((combat?.hp ?? 0) < (combat?.maxHp ?? 0)) {
+			await page.getByRole('button', { name: 'Heal', exact: true }).click();
+			await expect(status).toHaveText(/Healed 1\./);
+		}
+		await expect.poll(async () => (await hpOf())?.hp).toBe(combat?.maxHp);
+
+		const before = await ops(page);
+		await page.getByRole('button', { name: 'Heal', exact: true }).click();
+
+		// Truthful message...
+		await expect(status).toHaveText(/Already at full health/);
+		// ...and NOT a claim that healing happened.
+		await expect(status).not.toHaveText(/Healed/);
+		// ...and no durable write at all.
+		expect(await ops(page)).toBe(before);
 	});
 });

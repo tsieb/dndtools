@@ -589,7 +589,12 @@ export function Graph() {
 							<div style={{ ...eb, marginTop: 8 }}>Connections ({selEdges.length})</div>
 							{selEdges.length === 0 ? (
 								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-									No links from or to this node yet.
+									{/* `selEdges` derives from `viz.edges`, which the core filters by facet and
+									    text — so typing anything in the search box emptied it and a
+									    well-connected node reported that its links do not exist "yet". */}
+									{facet !== 'all' || query.trim()
+										? 'No links match the current filter.'
+										: 'No links from or to this node yet.'}
 								</div>
 							) : (
 								<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

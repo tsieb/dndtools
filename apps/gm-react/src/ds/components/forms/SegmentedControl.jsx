@@ -6,7 +6,16 @@ import React from 'react';
  * profile (Flat · Rolling · Mountainous) — short, mutually-exclusive choices that must stay
  * visible (UX-MAP-008). The active segment carries the one gold fill; the rest recede.
  */
-export function SegmentedControl({ options = [], value, onChange, size = 'md', fullWidth = false, ariaLabel, style, ...rest }) {
+export function SegmentedControl({
+	options = [],
+	value,
+	onChange,
+	size = 'md',
+	fullWidth = false,
+	ariaLabel,
+	style,
+	...rest
+}) {
 	const opts = options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
 	const pad = size === 'sm' ? '5px var(--space-2)' : 'var(--space-1-5) var(--space-3)';
 	const font = size === 'sm' ? 'var(--text-xs)' : 'var(--text-sm)';
@@ -86,13 +95,29 @@ export function SegmentedControl({ options = [], value, onChange, size = 'md', f
 							lineHeight: 1,
 							minWidth: 0,
 							overflow: 'hidden',
+							// `text-overflow` is inert while the text can still wrap, so without this the
+							// intended truncation never happened: a long option ("Equirectangular",
+							// "Mountainous") wrapped at lineHeight:1 and grew the whole track's height
+							// instead of ellipsing.
+							whiteSpace: 'nowrap',
 							textOverflow: 'ellipsis',
 							cursor: o.disabled ? 'not-allowed' : 'pointer',
 							opacity: o.disabled ? 0.45 : 1,
-							transition: 'background var(--duration-micro) var(--easing-standard), color var(--duration-micro) var(--easing-standard)',
+							transition:
+								'background var(--duration-micro) var(--easing-standard), color var(--duration-micro) var(--easing-standard)',
 						}}
-						onMouseEnter={(e) => { if (!active && !o.disabled) { e.currentTarget.style.background = 'var(--color-interactive-hover)'; e.currentTarget.style.color = 'var(--color-text-primary)'; } }}
-						onMouseLeave={(e) => { if (!active && !o.disabled) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-secondary)'; } }}
+						onMouseEnter={(e) => {
+							if (!active && !o.disabled) {
+								e.currentTarget.style.background = 'var(--color-interactive-hover)';
+								e.currentTarget.style.color = 'var(--color-text-primary)';
+							}
+						}}
+						onMouseLeave={(e) => {
+							if (!active && !o.disabled) {
+								e.currentTarget.style.background = 'transparent';
+								e.currentTarget.style.color = 'var(--color-text-secondary)';
+							}
+						}}
 					>
 						{o.label}
 					</button>

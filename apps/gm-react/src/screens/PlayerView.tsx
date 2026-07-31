@@ -143,6 +143,18 @@ const COND_ALIAS: Record<string, string> = {
 	incapacitated: 'incapacitated',
 	exhaustion: 'exhaustion',
 };
+/**
+ * `Combatant['kind']` is a raw core enum (`character` | `npc` | `monster`) and both combat rosters
+ * rendered it straight into a Badge, so the table read a lowercase "npc" / "monster" beside properly
+ * cased names — and "NPC" lost its capitalisation as an initialism entirely.
+ */
+function kindLabel(kind: string): string {
+	if (kind === 'npc') return 'NPC';
+	if (kind === 'character') return 'Character';
+	if (kind === 'monster') return 'Monster';
+	return kind;
+}
+
 function condKey(s: string): string | null {
 	const C = (CONDITIONS as any) || {};
 	const k = String(s).toLowerCase();
@@ -2131,7 +2143,7 @@ function BestiarySection({ data }: { data: LiveData }) {
 									<div style={{ flex: 1, minWidth: 0 }}>
 										<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 											<span style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>{c.name}</span>
-											<Badge status="neutral">{c.kind}</Badge>
+											<Badge status="neutral">{kindLabel(c.kind)}</Badge>
 										</div>
 										{res && (
 											<div style={{ font: `11.5px ${T.sans}`, color: T.ter, marginTop: 2 }}>
@@ -2242,7 +2254,7 @@ function AssistSection({ data }: { data: LiveData }) {
 										</span>
 										{c.hidden && <Badge status="accent">Hidden</Badge>}
 										{c.isActive && <Badge status="success">Active</Badge>}
-										<Badge status="neutral">{c.kind}</Badge>
+										<Badge status="neutral">{kindLabel(c.kind)}</Badge>
 									</div>
 								</div>
 								{c.resources ? (

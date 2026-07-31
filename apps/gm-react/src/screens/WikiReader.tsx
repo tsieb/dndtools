@@ -337,6 +337,20 @@ export function WikiReader() {
 			.finally(() => setBusy(false));
 	};
 
+	// This is the one chrome-less, account-less surface in the app where the browser tab, the
+	// bookmark and the OS share sheet are the ONLY chrome — and every published wiki was shipping
+	// the app's static <title>, so two open wikis were indistinguishable tabs. Restore the previous
+	// title on unmount so the DM app's own tab is not left renamed after an in-session visit.
+	const readyTitle = state.phase === 'ready' ? state.wiki.title : null;
+	useEffect(() => {
+		if (!readyTitle) return;
+		const previous = document.title;
+		document.title = `${readyTitle} — Campaign wiki`;
+		return () => {
+			document.title = previous;
+		};
+	}, [readyTitle]);
+
 	// Fetch once per id (a password wiki resolves to the password phase, then re-fetches on submit).
 	useEffect(() => {
 		fetchWiki();

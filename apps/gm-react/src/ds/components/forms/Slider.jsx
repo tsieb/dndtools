@@ -15,13 +15,18 @@ function ensureStyles() {
 	if (_injected || typeof document === 'undefined') return;
 	_injected = true;
 	const css = `
-.dnds-range{ -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:var(--radius-full);
+.dnds-range{ -webkit-appearance:none; appearance:none; width:100%; min-height:24px; border-radius:var(--radius-full);
   cursor:pointer;
   /* The TRACK is painted as a 6px band rather than as the element's own box, because
      styles/index.css's html[data-android] rule sets min-height:48px on every <input> and beats
      height:6px — so on the Android build the 6px track inflated into a full-height two-tone slab
      with a 24px thumb floating in it. Sizing the background instead keeps the 48dp touch target
-     (which that rule exists to guarantee) and still draws a 6px track. */
+     (which that rule exists to guarantee) and still draws a 6px track.
+     The BOX itself is min-height:24px (not 6px) because the optional steppers default to false and
+     are passed at zero live call sites, so dragging and click-to-position on this element are the
+     only pointer routes to brush size, layer opacity and master volume — and a 6px element box
+     fails WCAG 2.5.8's 24px minimum everywhere except Android, where the platform rule above
+     happens to mask it. The thumb is already 24px; only the box was short. */
   background-color:transparent; background-repeat:no-repeat; background-position:center;
   background-size:100% 6px; }
 .dnds-range:focus-visible{ outline:var(--focus-ring-width) solid var(--focus-ring-color);

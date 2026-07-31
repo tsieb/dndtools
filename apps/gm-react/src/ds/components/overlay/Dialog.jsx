@@ -3,6 +3,7 @@ import { Icon } from '../core/Icon.jsx';
 import { registerBackHandler } from '../../../platform/backNavigation';
 import { isolateModalSiblings } from '../../../platform/modalIsolation';
 import { ownsEscape, popEscapeLayer, pushEscapeLayer } from '../../../platform/escapeLayers';
+import { restoreReturnFocus } from '../../../platform/returnFocus';
 
 /**
  * Dialog — the modal chrome the system has long delegated to ("drop it inside a Dialog (desktop)…"
@@ -159,8 +160,10 @@ export function Dialog({
 			unregisterBack();
 			document.body.style.overflow = prevOverflow;
 			restoreIsolation();
-			const rf = returnFocusRef.current;
-			if (rf && rf.focus) rf.focus();
+			// Not an unconditional `rf.focus()`: a confirmed action routinely REMOVES its own opener,
+			// and focusing a detached node silently drops focus to <body>. See platform/returnFocus.
+			restoreReturnFocus(returnFocusRef.current);
+			returnFocusRef.current = null;
 		};
 	}, [open]);
 

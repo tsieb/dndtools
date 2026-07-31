@@ -225,3 +225,34 @@ describe('the page nav does not swallow the phone viewport', () => {
 		expect(nav.style.overflowY).toBe('');
 	});
 });
+
+describe('the public reader names itself in the browser tab', () => {
+	// `/wiki` is the one chrome-less, account-less surface in the app: no shell, no nav, no account.
+	// The browser tab, the bookmark and the OS share sheet are its ONLY chrome, and every published
+	// wiki was shipping the app's static <title>, so two open wikis were indistinguishable tabs.
+	beforeEach(() => {
+		document.title = 'DND Tools';
+	});
+
+	it('sets document.title once the wiki resolves', async () => {
+		mockedGetPublicWiki.mockResolvedValue(WIKI);
+		await mount();
+		expect(document.title).toBe('The Copper Coast — Campaign wiki');
+	});
+
+	it('restores the previous title on unmount, so an in-session visit does not rename the app tab', async () => {
+		mockedGetPublicWiki.mockResolvedValue(WIKI);
+		await mount();
+		expect(document.title).toBe('The Copper Coast — Campaign wiki');
+		await act(async () => {
+			root.unmount();
+		});
+		expect(document.title).toBe('DND Tools');
+	});
+
+	it('leaves the title alone while the wiki has not resolved', async () => {
+		mockedGetPublicWiki.mockRejectedValue(new AppApiError('nope', 'http', 404));
+		await mount();
+		expect(document.title).toBe('DND Tools');
+	});
+});

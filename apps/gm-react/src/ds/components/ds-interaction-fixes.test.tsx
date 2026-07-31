@@ -28,6 +28,7 @@ import { Minimap as RawMinimap } from './map/Minimap.jsx';
 import { SpellSlots as RawSpellSlots } from './spell/SpellSlots.jsx';
 import { Field as RawField } from './forms/Field.jsx';
 import { EmptyState as RawEmptyState } from './system/EmptyState.jsx';
+import { SegmentedControl as RawSegmentedControl } from './forms/SegmentedControl.jsx';
 
 // The DS ships as .jsx with `checkJs: false`, so tsc infers every defaultless prop as required.
 // Re-type the imports as open prop bags rather than restating each component's contract.
@@ -55,6 +56,7 @@ const Tabs = RawTabs as React.ComponentType<DsProps>;
 const Minimap = RawMinimap as React.ComponentType<DsProps>;
 const ProgressMeter = RawProgressMeter as React.ComponentType<DsProps>;
 const EmptyState = RawEmptyState as React.ComponentType<DsProps>;
+const SegmentedControl = RawSegmentedControl as React.ComponentType<DsProps>;
 const Checkbox = RawCheckbox as React.ComponentType<DsProps>;
 const SpellSlots = RawSpellSlots as React.ComponentType<DsProps>;
 const Field = RawField as React.ComponentType<DsProps>;
@@ -1430,5 +1432,75 @@ describe('the slider track survives the Android touch-target rule', () => {
 		const range = container.querySelector('input[type="range"]') as HTMLInputElement;
 		expect(range.style.backgroundImage).toMatch(/linear-gradient/);
 		expect(range.style.backgroundSize).toBe('');
+	});
+});
+
+describe('the slider is a 24px pointer target, not a 6px hit strip', () => {
+	// `steppers` — the documented WCAG-2.5.7 non-drag alternative — defaults false and is passed at
+	// ZERO of the live call sites, so dragging and click-to-position on this element are the only
+	// pointer routes to brush size, fog radius, layer opacity, master volume and every generation
+	// parameter. Click-to-position targets the ELEMENT box, which was 6px: below 2.5.8's 24px
+	// minimum everywhere except the Android runtime, where `html[data-android] input{min-height:48px}`
+	// happened to mask it — which is exactly why responsive.spec's Android-only 48dp gate never
+	// caught it. The 24px thumb was already overflowing a 6px box.
+	it('gives the element box a 24px floor while keeping the 6px painted band', () => {
+		act(() => root.render(<Slider min={0} max={100} value={40} aria-label="Volume" />));
+		const css = document.querySelector('style[data-dnds="slider"]')!.textContent!;
+		// Strip the CSS comments first: this rule's own explanation quotes `height:6px`, which is
+		// exactly the string the negative assertion below hunts for.
+		const rule = /\.dnds-range\{([^}]*)\}/.exec(css)![1].replace(/\/\*[\s\S]*?\*\//g, '');
+		expect(rule).toMatch(/min-height:\s*24px/);
+		// A fixed `height` would beat the floor and re-open the defect.
+		expect(rule).not.toMatch(/[^-]height:\s*6px/);
+		// The track itself must still be the 6px band, not a 24px slab.
+		expect(rule).toMatch(/background-size:\s*100% 6px/);
+	});
+});
+
+describe('Button knows every variant its callers ask for', () => {
+	// `variants[variant] || variants.secondary` downgrades an unknown variant SILENTLY, and
+	// IconButton had an `accent` that Button did not — so the live-session dice roller's primary
+	// action (`screens/Session.tsx`, `variant="accent"`) rendered as a plain raised secondary
+	// button. `ds/index.d.ts` types every export as Record<string, unknown>, so nothing caught it.
+	it('renders accent as the gold tint rather than falling through to secondary', () => {
+		act(() => root.render(<Button variant="accent">Roll</Button>));
+		const accent = container.querySelector('button')!.style.background;
+		act(() => root.render(<Button variant="secondary">Roll</Button>));
+		const secondary = container.querySelector('button')!.style.background;
+		expect(accent).toBe('var(--color-accent-subtle)');
+		expect(accent).not.toBe(secondary);
+	});
+
+	it('still falls back to secondary for a genuinely unknown variant', () => {
+		act(() => root.render(<Button variant="not-a-variant">Roll</Button>));
+		expect(container.querySelector('button')!.style.background).toBe('var(--color-surface-raised)');
+	});
+});
+
+describe('a segmented option truncates instead of growing the whole track', () => {
+	// `text-overflow: ellipsis` is INERT while the text can still wrap, so the intended truncation
+	// never happened: a long option ("Equirectangular", "Mountainous") wrapped at lineHeight:1 and
+	// the control jumped in height. 22 live sites, including the DM only / Players / Shared safety
+	// control in the map POI popover.
+	it('pins the label to one line so its ellipsis can apply', () => {
+		act(() =>
+			root.render(
+				<SegmentedControl
+					ariaLabel="Projection"
+					value="equi"
+					onChange={() => {}}
+					options={[
+						{ value: 'equi', label: 'Equirectangular' },
+						{ value: 'mtn', label: 'Mountainous' },
+					]}
+				/>,
+			),
+		);
+		for (const option of Array.from(container.querySelectorAll('[role="radio"]'))) {
+			const style = (option as HTMLElement).style;
+			expect(style.whiteSpace).toBe('nowrap');
+			expect(style.textOverflow).toBe('ellipsis');
+			expect(style.overflow).toBe('hidden');
+		}
 	});
 });

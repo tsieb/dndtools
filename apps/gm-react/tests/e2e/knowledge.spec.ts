@@ -378,6 +378,13 @@ test.describe('knowledge: notes workbench', () => {
 		expect((await findItem(page, 'Harbor Rumors'))?.kind).toBe('note');
 		expect(await ops(page)).toBeGreaterThan(before);
 
+		// The buffer is emptied on SUCCESS. It used to survive with Import still enabled, so the most
+		// destructive action on this screen — an `overwrite` re-run, which replaces note bodies in
+		// place and resets their player visibility — was one stray click away, with the confirm dialog
+		// as the only barrier.
+		await expect(page.locator('textarea')).toHaveValue('');
+		await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeDisabled();
+
 		await page.getByRole('button', { name: 'Close', exact: true }).click();
 		await expect(page.getByText('Tide Chart')).not.toHaveCount(0);
 

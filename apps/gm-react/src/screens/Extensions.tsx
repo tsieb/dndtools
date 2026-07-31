@@ -1998,14 +1998,17 @@ function CustomObjectInstanceDialog({
 						htmlFor="custom-object-title"
 						style={{ font: `11.5px ${T.sans}`, color: T.sub, display: 'block', marginBottom: 4 }}
 					>
-						Title
+						{/* Reads "Object title", not "Title": an `aria-label` OVERRIDES a wired <label>, so the
+						    visible word and the accessible name disagreed — the label fixed above was
+						    announced to nobody, and voice control ("click Title") could not reach the
+						    field (WCAG 2.5.3). Matching the two lets the aria-label go. */}
+						Object title
 					</label>
 					<Input
 						id="custom-object-title"
 						value={title}
 						onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
 						placeholder="Title"
-						aria-label="Object title"
 					/>
 				</span>
 				{def.fields.map((f) => (

@@ -27,7 +27,9 @@ interface CustomTypeLite {
 
 function customType(page: Page, id: string): Promise<CustomTypeLite | null> {
 	return page.evaluate((tid) => {
-		const map = (window.__rt!.state.content as { customObjectTypes: Record<string, CustomTypeLite> }).customObjectTypes;
+		const map = (
+			window.__rt!.state.content as { customObjectTypes: Record<string, CustomTypeLite> }
+		).customObjectTypes;
 		return map[tid] ?? null;
 	}, id);
 }
@@ -53,7 +55,11 @@ async function defineTypeViaCore(
 	fields: Array<{ key: string; type: string }>,
 ): Promise<void> {
 	const dmId = await page.evaluate(() => window.__rt!.defaultActorId);
-	const res = await dispatch(page, { type: 'content.define-object-type', actorId: dmId, payload: { id, label, fields } });
+	const res = await dispatch(page, {
+		type: 'content.define-object-type',
+		actorId: dmId,
+		payload: { id, label, fields },
+	});
 	expect(res.status).toBe('accepted');
 }
 
@@ -67,7 +73,9 @@ test.describe('custom types: user-defined vault object types', () => {
 		await page.locator('#main-content').waitFor({ state: 'attached' });
 	});
 
-	test('the form defines a custom type that persists in core state, lists, and survives reload', async ({ page }) => {
+	test('the form defines a custom type that persists in core state, lists, and survives reload', async ({
+		page,
+	}) => {
 		const stamp = Date.now();
 		const id = `custom:tavern-${stamp}`;
 		await openObjectTypesTab(page);
@@ -104,7 +112,9 @@ test.describe('custom types: user-defined vault object types', () => {
 		await expect(page.getByText(`Tavern ${stamp}`)).not.toHaveCount(0);
 	});
 
-	test('the instance dialog creates an object with the custom subtype and fields, and it persists', async ({ page }) => {
+	test('the instance dialog creates an object with the custom subtype and fields, and it persists', async ({
+		page,
+	}) => {
 		const stamp = Date.now();
 		const id = `custom:inn-${stamp}`;
 		const title = `The Prancing Pony ${stamp}`;
@@ -128,8 +138,11 @@ test.describe('custom types: user-defined vault object types', () => {
 		await expect(rooms).toHaveAttribute('inputmode', 'decimal');
 		await expect(page.getByLabel('proprietor')).toHaveAttribute('type', 'text');
 
-		// The visible "Title" label is wired to its input, so clicking it focuses the field.
-		await page.getByText('Title', { exact: true }).click();
+		// The visible label is wired to its input, so clicking it focuses the field — and it now reads
+		// the SAME words as the accessible name. It used to say "Title" while an `aria-label` overrode
+		// it with "Object title", so the label was announced to nobody and voice control ("click
+		// Title") could not reach the field at all (WCAG 2.5.3).
+		await page.getByText('Object title', { exact: true }).click();
 		await expect(page.getByLabel('Object title')).toBeFocused();
 
 		await rooms.fill('6');
@@ -156,7 +169,9 @@ test.describe('custom types: user-defined vault object types', () => {
 		await expect(page.getByText('1 in vault')).not.toHaveCount(0);
 	});
 
-	test('editing a type adds a field (revision bump); deleting is refused while instances exist, then clean', async ({ page }) => {
+	test('editing a type adds a field (revision bump); deleting is refused while instances exist, then clean', async ({
+		page,
+	}) => {
 		const stamp = Date.now();
 		const id = `custom:guild-${stamp}`;
 		const title = `Cartographers' Guild ${stamp}`;
@@ -170,7 +185,9 @@ test.describe('custom types: user-defined vault object types', () => {
 			payload: { subtype: id, title, fields: { leader: 'Marek' } },
 		});
 		expect(created.status).toBe('accepted');
-		const instanceId = created.events?.find((e) => e.kind === 'content.object-changed')?.itemId as string | undefined;
+		const instanceId = created.events?.find((e) => e.kind === 'content.object-changed')?.itemId as
+			| string
+			| undefined;
 		expect(instanceId).toBeTruthy();
 
 		await openObjectTypesTab(page);
@@ -197,7 +214,11 @@ test.describe('custom types: user-defined vault object types', () => {
 		expect(await customType(page, id)).not.toBeNull(); // the type was NOT removed
 
 		// Remove the sole instance (through the choke point), then the delete succeeds cleanly.
-		const removed = await dispatch(page, { type: 'content.remove-item', actorId: dmId, payload: { itemId: instanceId } });
+		const removed = await dispatch(page, {
+			type: 'content.remove-item',
+			actorId: dmId,
+			payload: { itemId: instanceId },
+		});
 		expect(removed.status).toBe('accepted');
 		await expect(page.getByText('0 in vault')).not.toHaveCount(0);
 
@@ -205,7 +226,8 @@ test.describe('custom types: user-defined vault object types', () => {
 		await page.getByRole('button', { name: 'Confirm delete', exact: true }).click();
 		await page.waitForFunction(
 			(tid) => {
-				const map = (window.__rt!.state.content as { customObjectTypes: Record<string, unknown> }).customObjectTypes;
+				const map = (window.__rt!.state.content as { customObjectTypes: Record<string, unknown> })
+					.customObjectTypes;
 				return map[tid] === undefined;
 			},
 			id,

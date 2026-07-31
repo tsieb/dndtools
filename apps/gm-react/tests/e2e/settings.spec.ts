@@ -134,3 +134,55 @@ test.describe('settings: appearance preferences survive their own controls', () 
 		);
 	});
 });
+
+// A settings sub-page can be BOTH tier-gated and deep-linked: Command Center → Manage →
+// "Permissions" navigates to `/settings?tab=permissions`, which needs the `advanced` tier while the
+// default is `core`. The nav filtered the gated entry out, and DS `Select` is a native <select> — a
+// native select whose `value` matches no <option> renders the FIRST one. So on a phone the picker
+// read "Appearance" while the panel beside it read "Hidden at your experience level", and on the
+// desktop rail nothing at all carried `aria-current`.
+test.describe('settings: the section picker names the section actually shown', () => {
+	test.beforeEach(async ({ page }) => {
+		await markOnboarded(page);
+		// Pin the tier rather than relying on the default, so this stays deterministic if the
+		// default ever moves.
+		await page.addInitScript(() => {
+			window.localStorage.setItem('dndtools:react:tier', 'core');
+		});
+		await gotoRoute(page, '/settings');
+		await seedFresh(page);
+	});
+
+	test('keeps a tier-gated active tab in the nav on both profiles', async ({ page }) => {
+		await page.goto('/#/settings?tab=permissions', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+
+		// The panel is the gated one — this is the state the picker used to misreport.
+		await expect(page.getByText('Hidden at your experience level')).toBeVisible();
+
+		const nav = page.getByRole('navigation', { name: 'Settings navigation' });
+		await expect(nav).toContainText('Permissions');
+
+		const picker = nav.getByRole('combobox');
+		if ((await picker.count()) > 0) {
+			// Phone: the <select> must actually be sitting on the gated entry, not silently
+			// displaying whatever option happens to be first.
+			expect(await picker.inputValue()).toBe('permissions');
+		} else {
+			// Desktop / rail: the row exists AND is marked as the current page.
+			await expect(nav.getByRole('button', { name: 'Permissions' })).toHaveAttribute(
+				'aria-current',
+				'page',
+			);
+		}
+	});
+
+	test('still hides gated sections the user is not on', async ({ page }) => {
+		// The fix must not become "show every gated tab always" — only the ACTIVE one is re-added.
+		await page.goto('/#/settings?tab=appearance', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		const nav = page.getByRole('navigation', { name: 'Settings navigation' });
+		await expect(nav).toContainText('Appearance');
+		await expect(nav).not.toContainText('Permissions');
+	});
+});

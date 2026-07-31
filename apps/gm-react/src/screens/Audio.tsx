@@ -1016,7 +1016,7 @@ export function Audio() {
 						>
 							{importError && (
 								<div
-									role="status"
+									role="alert"
 									style={{ font: `11.5px/1.5 ${T.sans}`, color: 'var(--color-status-error-text)' }}
 								>
 									{importError}
@@ -1119,7 +1119,7 @@ export function Audio() {
 							)}
 							{playError && (
 								<div
-									role="status"
+									role="alert"
 									style={{ font: `11.5px/1.5 ${T.sans}`, color: 'var(--color-status-error-text)' }}
 								>
 									{playError}
@@ -2088,7 +2088,7 @@ export function Audio() {
 									)}
 									{ruleError && (
 										<span
-											role="status"
+											role="alert"
 											style={{ font: `11.5px ${T.sans}`, color: 'var(--color-status-error-text)' }}
 										>
 											{ruleError}

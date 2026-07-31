@@ -448,3 +448,99 @@ test.describe('player sheet: death saves are readable, not colour-only', () => {
 		await expect(failures.getByText(/^\d\/3$/)).toHaveCount(1);
 	});
 });
+
+// The DM-only marching order was move-UP-only: no `moveDown` existed anywhere in the screen, so
+// pushing the front rank to the back of a five-person order meant pressing "Move X up" on the four
+// below it in the right sequence, and the LAST member could not be moved down at all. The up control
+// was also OMITTED on row 1 rather than disabled, which collapsed that row's right gutter and left
+// its name column running wider than every other row. `SceneCardsPanel` and `Atlas` both ship the
+// rendered-and-disabled pair; this brings the third list in line.
+test.describe('party: the marching order can be reordered in both directions', () => {
+	test.beforeEach(async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/player');
+		await seedFresh(page);
+		await page.goto('/#/player', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.getByRole('tab', { name: 'Party' }).click();
+	});
+
+	/**
+	 * The rendered order, read off the reorder controls' own accessible names. It has to come from
+	 * the DOM rather than `__rt.state.characters.party.marchingOrder`: the panel is driven by the
+	 * DERIVED party overview, which falls back to the visible roster when no order has been stored,
+	 * so the raw slice reads empty while five rows are on screen.
+	 */
+	const rowNames = (page: Page) =>
+		page
+			.getByRole('button', { name: /^Move .+ up$/ })
+			.evaluateAll((els) =>
+				els.map((el) => (el.getAttribute('aria-label') ?? '').replace(/^Move | up$/g, '')),
+			);
+
+	test('offers both chevrons on every row, disabled only at the ends', async ({ page }) => {
+		const ups = page.getByRole('button', { name: /^Move .+ up$/ });
+		const downs = page.getByRole('button', { name: /^Move .+ down$/ });
+
+		// `evaluateAll`/`toBeDisabled` below need a retrying assertion in front of them, or they can
+		// measure an unpainted list under full-suite load.
+		await expect.poll(async () => await ups.count()).toBeGreaterThan(1);
+		const rows = await ups.count();
+
+		// Every row carries BOTH controls — that is what keeps the rows aligned. Move-down did not
+		// exist at all before, so the last member could not be moved down by any means.
+		await expect(downs).toHaveCount(rows);
+
+		// Only the ends are unavailable, and they are still RENDERED so the gutter never collapses.
+		await expect(ups.first()).toBeDisabled();
+		await expect(ups.last()).toBeEnabled();
+		await expect(downs.first()).toBeEnabled();
+		await expect(downs.last()).toBeDisabled();
+	});
+
+	test('Move down swaps the row with the one below it', async ({ page }) => {
+		const ups = page.getByRole('button', { name: /^Move .+ up$/ });
+		await expect.poll(async () => await ups.count()).toBeGreaterThan(1);
+
+		const before = await rowNames(page);
+		const expected = [...before];
+		[expected[0], expected[1]] = [expected[1]!, expected[0]!];
+
+		await page
+			.getByRole('button', { name: /^Move .+ down$/ })
+			.first()
+			.click();
+
+		await expect.poll(() => rowNames(page)).toEqual(expected);
+	});
+
+	test('clearing the order offers an Undo that puts it back', async ({ page }) => {
+		// "Clear order" destroys DM-authored data from a ghost button in a Panel header, which reads
+		// like a filter reset. The shared stash's Remove one column over already ships this toast.
+		// Assert on the DURABLE slice: the rendered panel is the derived overview, which falls back to
+		// the visible roster, so a cleared order still lists everyone on screen.
+		const stored = (): Promise<string[]> =>
+			page.evaluate(
+				() =>
+					(window.__rt!.state.characters as { party?: { marchingOrder?: string[] } }).party
+						?.marchingOrder ?? [],
+			);
+
+		const ups = page.getByRole('button', { name: /^Move .+ up$/ });
+		await expect.poll(async () => await ups.count()).toBeGreaterThan(1);
+
+		// One reorder commits a real order, so there is something to lose.
+		await page
+			.getByRole('button', { name: /^Move .+ down$/ })
+			.first()
+			.click();
+		await expect.poll(async () => (await stored()).length).toBeGreaterThan(1);
+		const before = await stored();
+
+		await page.getByRole('button', { name: 'Clear order' }).click();
+		await expect.poll(async () => (await stored()).length).toBe(0);
+
+		await page.getByRole('button', { name: 'Undo' }).click();
+		await expect.poll(stored).toEqual(before);
+	});
+});

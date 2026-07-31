@@ -68,6 +68,15 @@ export function Button({
 			color: 'var(--color-status-error-foreground)',
 			border: '1px solid var(--color-status-error)',
 		},
+		// Mirrors IconButton's `accent`. The two vocabularies had diverged, and an unknown variant
+		// falls through to `secondary` SILENTLY (see `v` below) — so `variant="accent"` rendered the
+		// live-session dice roller's primary action as a plain raised button, not the gold it asked
+		// for, with nothing to catch it (ds/index.d.ts types every export as Record<string, unknown>).
+		accent: {
+			background: 'var(--color-accent-subtle)',
+			color: 'var(--color-accent)',
+			border: '1px solid var(--color-accent-border)',
+		},
 	};
 	const v = variants[variant] || variants.secondary;
 

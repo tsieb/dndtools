@@ -787,6 +787,13 @@ function ImportPanel({
 	// same screen gets an Undo toast; this destroys many at once with nothing. Confirm it, and only
 	// it — the default `skip` policy stays a single click.
 	const [confirmOverwrite, setConfirmOverwrite] = useState(false);
+	// Clear the buffer once an import SUCCEEDS. It used to survive, with Import still enabled, so the
+	// most destructive action on this screen was one stray click from running a second time over the
+	// notes it had just replaced — with the confirm dialog as the only barrier. A FAILED import keeps
+	// the text, because that is the copy the user still needs to fix and retry.
+	useEffect(() => {
+		if (message && !failed) setText('');
+	}, [message, failed]);
 	const pickFiles = async () => {
 		const files = await pickTextFiles('.md,.markdown,.txt,.json');
 		if (files.length === 0) return;

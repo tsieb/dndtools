@@ -4876,6 +4876,15 @@ export function Settings() {
 	const visibleNav = SETTINGS_NAV.filter((s) => s.id !== 'ai' || aiEnabled).filter(
 		(s) => !gatedOff(s.id),
 	);
+	// The active sub-page can legitimately be one the tier gates off — Command Center's Manage list
+	// deep-links to /settings?tab=permissions, which needs the `advanced` tier while the default is
+	// `core`. Dropping it from the nav made the phone `<Select>` LIE: a native select whose `value`
+	// matches no option renders the FIRST one, so the picker read "Appearance" while the panel beside
+	// it read "Hidden at your experience level". Keep the active entry in the list (GatedTab still
+	// renders the unlock, so it is not a dead end) and mark it on the desktop rail too.
+	const activeNav = SETTINGS_NAV.find((s) => s.id === tab);
+	const navItems =
+		activeNav && !visibleNav.some((s) => s.id === tab) ? [...visibleNav, activeNav] : visibleNav;
 	return (
 		<Page
 			max={1180}
@@ -4906,11 +4915,11 @@ export function Settings() {
 						aria-label="Settings section"
 						value={tab}
 						onChange={(e: { target: { value: string } }) => setTab(e.target.value)}
-						options={visibleNav.map((s) => ({ value: s.id, label: s.label }))}
+						options={navItems.map((s) => ({ value: s.id, label: s.label }))}
 					/>
 				)}
 				{viewport !== 'phone' &&
-					visibleNav.map((s) => {
+					navItems.map((s) => {
 						const on = s.id === tab;
 						return (
 							<button
