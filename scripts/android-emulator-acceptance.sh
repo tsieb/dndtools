@@ -136,6 +136,10 @@ tap_ui_button() {
 	# Fall back to the same labelled accessibility node used by tap_ui_node so acceptance tests the
 	# user-visible control rather than a renderer-specific native class.
 	if [[ -z "$node" ]]; then
+		node=$(dump_ui | sed 's/></>\n</g' | grep -E 'clickable="true"' \
+			| grep -F 'enabled="true"' | grep -F "$label" | grep -F 'bounds="[' | tail -1 || true)
+	fi
+	if [[ -z "$node" ]]; then
 		node=$(dump_ui | sed 's/></>\n</g' | grep -F "$label" | grep -F 'bounds="[' | tail -1 || true)
 	fi
 	[[ -n "$node" ]] || return 1
@@ -275,7 +279,7 @@ tap_ui_button 'Go live' || {
 	dump_ui >&2 || true
 	fail 'the session.set-workflow command was not reachable'
 }
-wait_for_ui_text_absent 'Session is in standby' \
+wait_for_ui_text 'Players see' \
 	|| fail 'the session.set-workflow command was not accepted'
 adb shell input keyevent KEYCODE_BACK
 wait_until_foreground || fail 'Back minimized the app instead of returning through router history'
