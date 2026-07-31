@@ -1265,7 +1265,13 @@ function ExtCompendium() {
 										<DetailLine label="Condition immunities" value={m.conditionImmunities} />
 									</div>
 									{((m.traits?.length ?? 0) > 0 || (m.actions?.length ?? 0) > 0) && (
+										// Text-only bounded scroller: without a tab stop a keyboard user
+										// cannot read past 300px of a statblock they are about to import
+										// (WCAG 2.1.1), and axe flags `scrollable-region-focusable`.
 										<div
+											tabIndex={0}
+											role="group"
+											aria-label="Traits and actions"
 											style={{
 												maxHeight: 300,
 												overflowY: 'auto',
@@ -1337,6 +1343,9 @@ function ExtCompendium() {
 										<DetailLine label="Classes" value={s.classes?.join(', ')} />
 									</div>
 									<div
+										tabIndex={0}
+										role="group"
+										aria-label="Spell description"
 										style={{
 											maxHeight: 300,
 											overflowY: 'auto',

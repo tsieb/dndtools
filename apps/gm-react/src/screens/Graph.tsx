@@ -220,6 +220,14 @@ export function Graph() {
 						{ value: 'player', label: 'Player view', disabled: playerId === dmId },
 					]}
 				/>
+				{/* A permanently greyed radio with no reason is a dead end: nothing told the DM that
+				    registering a player is what enables it. Rendered beside the Seg rather than as a
+				    `title`, which is unreachable on touch and to screen readers. */}
+				{playerId === dmId && (
+					<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+						Add a player in Settings to preview the player viewpoint.
+					</span>
+				)}
 				{/* This count is the ONLY feedback that a filter, a search or the DM/player view switch
 				    did anything. It is present from mount, so role=status announces each change. */}
 				<span role="status" style={{ font: `12px ${T.sans}`, color: T.ter }}>
@@ -444,8 +452,8 @@ export function Graph() {
 									key={f}
 									type="button"
 									// The applied facet was signalled by colour alone (WCAG 1.4.1 / 4.1.2).
-								aria-pressed={facet === f}
-								onClick={() => setFacet(f)}
+									aria-pressed={facet === f}
+									onClick={() => setFacet(f)}
 									style={{
 										font: `11.5px ${T.sans}`,
 										padding: '4px 9px',

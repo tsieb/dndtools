@@ -21,7 +21,7 @@ import {
 	Toaster,
 	VisibilityChip,
 } from '../ds';
-import { Page, Panel, T } from '../app/screen-kit';
+import { Page, Panel, T, srOnly } from '../app/screen-kit';
 import { useViewport } from '../app/useViewport';
 import { fogRegionSummary } from '../app/fogRegions';
 import { pickRasterAssetId } from '../app/mapGeometry';
@@ -488,7 +488,17 @@ export function Atlas() {
 								active={on}
 							/>
 							{mp.name}
-							{delivered.has(mp.id) && <StatusDot status="live" pulse />}
+							{delivered.has(mp.id) && (
+								// The dot alone was the ONLY cue that a map is on the players' screens
+								// (WCAG 1.4.1), and `forced-colors` flattens every status colour to
+								// CanvasText so it disappears entirely there. StatusDot's own docs say it
+								// must never be the sole signal. The word rides in the button's accessible
+								// name; the dot stays the at-a-glance cue.
+								<>
+									<StatusDot status="live" pulse />
+									<span style={srOnly}>Live to players</span>
+								</>
+							)}
 						</button>
 					);
 				})}

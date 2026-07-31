@@ -2,6 +2,7 @@ import React from 'react';
 import { Icon } from '../core/Icon.jsx';
 import { registerBackHandler } from '../../../platform/backNavigation';
 import { isolateModalSiblings } from '../../../platform/modalIsolation';
+import { ownsEscape, popEscapeLayer, pushEscapeLayer } from '../../../platform/escapeLayers';
 
 /**
  * Dialog — the modal chrome the system has long delegated to ("drop it inside a Dialog (desktop)…"
@@ -101,8 +102,12 @@ export function Dialog({
 		};
 		const t = setTimeout(focusFirst, 0);
 
+		const escapeToken = pushEscapeLayer(() => panelRef.current);
 		const onKey = (e) => {
-			if (e.key === 'Escape' && dismissibleRef.current) {
+			// A Popover/Sheet opened from inside this dialog owns Escape while it is up:
+			// `stopPropagation` does nothing between listeners on `document`, so without this check the
+			// inner surface and the dialog both closed.
+			if (e.key === 'Escape' && dismissibleRef.current && ownsEscape(escapeToken)) {
 				e.stopPropagation();
 				onCloseRef.current && onCloseRef.current();
 				return;
@@ -149,6 +154,7 @@ export function Dialog({
 		return () => {
 			clearTimeout(t);
 			document.removeEventListener('keydown', onKey, true);
+			popEscapeLayer(escapeToken);
 			panelRef.current?.removeEventListener('focusin', onFocusIn);
 			unregisterBack();
 			document.body.style.overflow = prevOverflow;

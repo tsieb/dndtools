@@ -343,7 +343,10 @@ export function ToastViewport({ placement = 'top-right', style, ...rest }) {
 				))}
 			</div>
 			{assertive.length > 0 && (
-				<div role="alert" style={{ display: 'contents' }}>
+				// `role="alert"` defaults `aria-atomic` to true as well, and this region wraps the whole
+				// error stack — so without the explicit false a second failure re-read every error still
+				// on screen. Same reasoning as the polite region above.
+				<div role="alert" aria-atomic="false" style={{ display: 'contents' }}>
 					{assertive.map((t) => (
 						<Row key={t.id} toast={t} />
 					))}

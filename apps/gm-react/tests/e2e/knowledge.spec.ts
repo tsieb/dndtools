@@ -320,7 +320,9 @@ test.describe('knowledge: notes workbench', () => {
 		await link.click();
 
 		// It opened the target note, not merely re-rendered the source.
-		await page.waitForURL((url) => url.hash.includes(`/knowledge/${targetId}`), { timeout: 10_000 });
+		await page.waitForURL((url) => url.hash.includes(`/knowledge/${targetId}`), {
+			timeout: 10_000,
+		});
 		await expect(page.getByText('It rings at dusk.')).not.toHaveCount(0);
 
 		// The unresolvable link is NOT a button — it never pretends to be clickable.
@@ -383,6 +385,54 @@ test.describe('knowledge: notes workbench', () => {
 		await page.reload({ waitUntil: 'domcontentloaded' });
 		await waitReady(page);
 		expect(await findItem(page, 'Harbor Rumors')).not.toBeNull();
+	});
+
+	test('"Overwrite existing" asks before it replaces bodies and un-shares notes', async ({
+		page,
+	}) => {
+		// `content-import` replaces the note body IN PLACE and rewrites `visibility` from the file —
+		// failing closed to dm-only and blanking `sharedWith`, so one mis-picked Select silently
+		// revokes player access as well. There is no inverse command and no dry run, while deleting a
+		// SINGLE note on this same screen gets an Undo toast. The default `skip` policy is untouched.
+		await page.getByRole('button', { name: 'Import vault' }).click();
+		const archive = ['===== Imports/Tide Chart.md =====', '# Tide Chart', 'Dusk.'].join('\n');
+		await page.locator('textarea').fill(archive);
+
+		const before = await ops(page);
+		await page.getByLabel('Import collision policy').selectOption('overwrite');
+		await page.getByRole('button', { name: 'Import', exact: true }).click();
+
+		// Nothing has been dispatched yet — the press opens the confirm instead.
+		const confirm = page.getByRole('dialog', { name: /Overwrite existing notes/ });
+		await expect(confirm).toBeVisible();
+		expect(await ops(page)).toBe(before);
+		expect(await findItem(page, 'Tide Chart')).toBeNull();
+
+		// Cancelling leaves the pasted archive intact so nothing the user composed is lost.
+		await confirm.getByRole('button', { name: 'Cancel', exact: true }).click();
+		await expect(confirm).toHaveCount(0);
+		expect(await ops(page)).toBe(before);
+		await expect(page.locator('textarea')).toHaveValue(archive);
+
+		// Confirming runs the very same import.
+		await page.getByRole('button', { name: 'Import', exact: true }).click();
+		await page
+			.getByRole('dialog', { name: /Overwrite existing notes/ })
+			.getByRole('button', { name: 'Overwrite', exact: true })
+			.click();
+		await expect(page.getByText('Imported 1 new.')).not.toHaveCount(0);
+		expect((await findItem(page, 'Tide Chart'))?.kind).toBe('note');
+	});
+
+	test('the default skip policy still imports in a single press', async ({ page }) => {
+		// The confirm is scoped to `overwrite` ONLY — the common path must not gain a step.
+		await page.getByRole('button', { name: 'Import vault' }).click();
+		await page
+			.locator('textarea')
+			.fill(['===== Imports/Ledger.md =====', '# Ledger', 'Salt and rope.'].join('\n'));
+		await page.getByRole('button', { name: 'Import', exact: true }).click();
+		await expect(page.getByText('Imported 1 new.')).not.toHaveCount(0);
+		await expect(page.getByRole('dialog', { name: /Overwrite existing notes/ })).toHaveCount(0);
 	});
 
 	test('exporting notes fires a real download with a sane portable bundle', async ({ page }) => {

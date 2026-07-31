@@ -22,16 +22,30 @@ export function Minimap({
 }) {
 	const [internal, setInternal] = React.useState(defaultCollapsed);
 	const collapsed = controlled != null ? controlled : internal;
-	const toggle = () => {
+	// The collapsed and expanded branches return DIFFERENT element types at the same position, so
+	// React destroys the toggle the user just activated rather than reconciling it — focus fell to
+	// <body> and the next Tab restarted at the top of the document. Hand focus to the survivor, but
+	// only when the toggle was the thing that lost it (a pointer user's focus is elsewhere).
+	const toggleRef = React.useRef(null);
+	const restoreFocusRef = React.useRef(false);
+	const toggle = (e) => {
+		restoreFocusRef.current = e?.detail === 0 || document.activeElement === e?.currentTarget;
 		const v = !collapsed;
 		if (controlled == null) setInternal(v);
 		onToggle && onToggle(v);
 	};
+	React.useEffect(() => {
+		if (!restoreFocusRef.current) return;
+		restoreFocusRef.current = false;
+		const active = document.activeElement;
+		if (!active || active === document.body) toggleRef.current?.focus();
+	}, [collapsed]);
 
 	if (collapsed) {
 		return (
 			<button
 				type="button"
+				ref={toggleRef}
 				aria-label="Expand minimap"
 				title="Expand minimap"
 				onClick={toggle}
@@ -123,6 +137,7 @@ export function Minimap({
 				</span>
 				<button
 					type="button"
+					ref={toggleRef}
 					aria-label="Collapse minimap"
 					title="Collapse minimap"
 					onClick={toggle}

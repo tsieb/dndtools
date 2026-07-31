@@ -73,6 +73,13 @@ describe('Field help and error text', () => {
 		return { control, text: target?.textContent ?? null };
 	}
 
+	/** Every node the control points at, in IDREF order. */
+	function describedAll(): (string | null)[] {
+		const ids =
+			container.querySelector('input')?.getAttribute('aria-describedby')?.split(' ') ?? [];
+		return ids.map((id) => document.getElementById(id)?.textContent ?? null);
+	}
+
 	it('describes the control with its help text', () => {
 		render(
 			<Field label="Party name" help="Shown to every player who joins.">
@@ -112,15 +119,18 @@ describe('Field help and error text', () => {
 		expect(container.querySelector('[role="alert"]')).toBeNull();
 	});
 
-	// `error` wins over `help` visually, so it must win in the description too — otherwise the
-	// control would point at an id that renders nothing.
-	it('prefers the error over the help text when both are supplied', () => {
+	// The error used to REPLACE the help, so the format hint vanished at exactly the moment the user
+	// was being told the format was wrong (WCAG 3.3.3 — suggest a fix, don't just reject). Both now
+	// render and both are described, error first because it is the more urgent of the two.
+	it('describes the control with the error AND the help when both are supplied', () => {
 		render(
 			<Field label="Title" help="Keep it short." error="Title is required.">
 				<Input readOnly value="" />
 			</Field>,
 		);
-		expect(described().text).toBe('Title is required.');
+		expect(describedAll()).toEqual(['Title is required.', 'Keep it short.']);
+		expect(container.textContent).toContain('Keep it short.');
+		expect(container.querySelector('[role="alert"]')?.textContent).toBe('Title is required.');
 	});
 
 	it('preserves a describedby the call site already set', () => {
@@ -150,22 +160,25 @@ describe('Field help and error text', () => {
 describe('Slider steppers', () => {
 	function stepperNames(node: React.ReactNode): string[] {
 		render(node);
-		return [...container.querySelectorAll('button')].map(
-			(b) => b.getAttribute('aria-label') ?? '',
-		);
+		return [...container.querySelectorAll('button')].map((b) => b.getAttribute('aria-label') ?? '');
 	}
 
 	it('names the steppers after the slider label', () => {
-		expect(stepperNames(<Slider steppers label="Master volume" value={50} onChange={() => {}} />)).toEqual([
-			'Decrease Master volume',
-			'Increase Master volume',
-		]);
+		expect(
+			stepperNames(<Slider steppers label="Master volume" value={50} onChange={() => {}} />),
+		).toEqual(['Decrease Master volume', 'Increase Master volume']);
 	});
 
 	it('prefers an explicit aria-label over the visible label', () => {
 		expect(
 			stepperNames(
-				<Slider steppers label="Volume" aria-label="Rain layer volume" value={50} onChange={() => {}} />,
+				<Slider
+					steppers
+					label="Volume"
+					aria-label="Rain layer volume"
+					value={50}
+					onChange={() => {}}
+				/>,
 			),
 		).toEqual(['Decrease Rain layer volume', 'Increase Rain layer volume']);
 	});

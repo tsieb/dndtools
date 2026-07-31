@@ -30,10 +30,14 @@
 		var osReduce =
 			typeof window.matchMedia === 'function' &&
 			window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-		document.documentElement.setAttribute(
-			'data-motion',
-			pref === 'reduced' || osReduce ? 'reduced' : 'full',
-		);
+		// An EXPLICIT stored preference wins over the OS hint, in both directions. This used to be
+		// `pref === 'reduced' || osReduce`, which discarded a stored 'full' on every reload: a user
+		// whose OS asks for reduced motion could turn the Settings switch off, watch it work for the
+		// session, and find it back ON next launch — a control that lied about its own state. With no
+		// stored value (`pref === null`) the OS still decides, so the default is unchanged.
+		var motion =
+			pref === 'reduced' ? 'reduced' : pref === 'full' ? 'full' : osReduce ? 'reduced' : 'full';
+		document.documentElement.setAttribute('data-motion', motion);
 	} catch {
 		// CSS defaults remain usable.
 	}

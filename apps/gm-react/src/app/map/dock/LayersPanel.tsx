@@ -133,7 +133,10 @@ export function LayersPanel({
 							// handles just Alt+Arrow reorder. Handle Enter/Space on the wrapper — NOT as a
 							// LayerRow prop, whose `{...rest}` spread would clobber that Alt+Arrow handler.
 							onKeyDown={(e) => {
-								if (e.target !== e.currentTarget && !(e.target as HTMLElement).matches('[role="listitem"]'))
+								if (
+									e.target !== e.currentTarget &&
+									!(e.target as HTMLElement).matches('[role="listitem"]')
+								)
 									return;
 								if (e.key === 'Enter' || e.key === ' ') {
 									e.preventDefault();
@@ -203,6 +206,10 @@ export function LayersPanel({
 								<Popover
 									open
 									onClose={() => setMenuFor(null)}
+									// Named without a visible header: an unnamed role="dialog" is an axe
+									// `aria-dialog-name` violation, and this menu is reached from a row
+									// whose identity is the only thing that makes its actions meaningful.
+									aria-label={`Layer actions — ${l.name}`}
 									width={200}
 									placement="bottom"
 									style={{
@@ -367,7 +374,11 @@ function MenuItem({
 				padding: '8px 10px',
 				borderRadius: 7,
 				border: 'none',
-				background: highlight ? (danger ? 'var(--color-status-error-subtle)' : T.hover) : 'transparent',
+				background: highlight
+					? danger
+						? 'var(--color-status-error-subtle)'
+						: T.hover
+					: 'transparent',
 				cursor: disabled ? 'not-allowed' : 'pointer',
 				opacity: disabled ? 0.4 : 1,
 				color: danger ? T.err : T.ink,

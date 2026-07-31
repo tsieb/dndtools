@@ -2,6 +2,7 @@ import React from 'react';
 import { Icon } from '../core/Icon.jsx';
 import { registerBackHandler } from '../../../platform/backNavigation';
 import { isolateModalSiblings } from '../../../platform/modalIsolation';
+import { ownsEscape, popEscapeLayer, pushEscapeLayer } from '../../../platform/escapeLayers';
 
 /**
  * Sheet — the touch-first overlay the system delegates to alongside Dialog ("…or sheet (mobile)").
@@ -54,12 +55,17 @@ export function Sheet({
 			// `children`, so a plain DOM-order `querySelector(FOCUSABLE)` opened every sheet — the phone
 			// "All sections" nav among them — focused on Close, i.e. on the way out. Same defect, and
 			// the same fix, as ds/components/core/Popover.jsx.
-			const f = (bodyRef.current && bodyRef.current.querySelector(FOCUSABLE)) ||
+			const f =
+				(bodyRef.current && bodyRef.current.querySelector(FOCUSABLE)) ||
 				panel.querySelector(FOCUSABLE);
 			(f || panel).focus();
 		}, 0);
+		const escapeToken = pushEscapeLayer(() => panelRef.current);
 		const onKey = (e) => {
-			if (e.key === 'Escape' && dismissibleRef.current) {
+			// A Popover opened from inside this sheet owns Escape while it is up: `stopPropagation`
+			// does nothing between listeners on `document`, so without this check Escape in a
+			// layer-opacity flyout also dismissed the whole sheet.
+			if (e.key === 'Escape' && dismissibleRef.current && ownsEscape(escapeToken)) {
 				e.stopPropagation();
 				onCloseRef.current && onCloseRef.current();
 				return;
@@ -106,6 +112,7 @@ export function Sheet({
 		return () => {
 			clearTimeout(t);
 			document.removeEventListener('keydown', onKey, true);
+			popEscapeLayer(escapeToken);
 			panelRef.current?.removeEventListener('focusin', onFocusIn);
 			unregisterBack();
 			document.body.style.overflow = prevOverflow;

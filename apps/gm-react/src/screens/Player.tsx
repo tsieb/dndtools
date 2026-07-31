@@ -1516,7 +1516,16 @@ function PlayerResources({
 								<div style={{ ...eb, color: k === 'failures' ? T.err : T.ok, marginBottom: 6 }}>
 									{k}
 								</div>
-								<div style={{ display: 'flex', gap: 7 }}>
+								{/* The pips were filled-vs-transparent ONLY: colour as the sole carrier of the
+								    state (WCAG 1.4.1), with no text equivalent anywhere (1.1.1), so the count
+								    was simply unavailable to assistive tech and invisible under
+								    forced-colors, which flattens both tints. One `role="img"` names the whole
+								    group; the visible `n/3` gives every reader the number. */}
+								<div
+									role="img"
+									aria-label={`${death[k]} of 3 ${k}`}
+									style={{ display: 'flex', gap: 7, alignItems: 'center' }}
+								>
 									{Array.from({ length: 3 }).map((_, i) => (
 										<span
 											key={i}
@@ -1530,6 +1539,9 @@ function PlayerResources({
 											}}
 										/>
 									))}
+									<span aria-hidden="true" style={{ font: `12px ${T.mono}`, color: T.ter }}>
+										{death[k]}/3
+									</span>
 								</div>
 							</div>
 						))}
@@ -2433,12 +2445,20 @@ function PlayerJournal({
 																	// The only toggle in this file without it; every sibling
 																	// (inspiration, equipped, prepared) already announces state.
 																	aria-pressed={shared}
+																	// Every entry rendered an identically-named toggle, so
+																	// browsing by control gave no way to tell which journal
+																	// entry was about to be shared with the whole table.
+																	aria-label={`${shared ? 'Shared' : 'Private'} — ${im.title}`}
 																	onClick={() => toggleShare(im)}
 																	style={{
 																		display: 'inline-flex',
 																		alignItems: 'center',
 																		gap: 5,
-																		padding: '3px 8px',
+																		// ~21px before (3px round an 11px line) — under WCAG
+																		// 2.5.8. Grown with padding, as the Equip pill was.
+																		padding: '6px 10px',
+																		minHeight: 24,
+																		boxSizing: 'border-box',
 																		borderRadius: 16,
 																		cursor: 'pointer',
 																		font: `11px ${T.sans}`,

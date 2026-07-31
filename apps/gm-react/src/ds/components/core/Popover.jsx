@@ -1,6 +1,7 @@
 import React from 'react';
 import { Icon } from './Icon.jsx';
 import { registerBackHandler } from '../../../platform/backNavigation';
+import { ownsEscape, popEscapeLayer, pushEscapeLayer } from '../../../platform/escapeLayers';
 
 /**
  * Popover — the floating panel primitive POI markers, layer opacity, and tool options sit on.
@@ -56,11 +57,14 @@ export function Popover({
 		const onDown = (e) => {
 			if (ref.current && !ref.current.contains(e.target)) onCloseRef.current?.();
 		};
+		const escapeToken = pushEscapeLayer(() => ref.current);
 		const onKey = (e) => {
 			// Capture + stopPropagation, matching Dialog/Sheet. Without it the same Escape that
 			// dismisses this popover also reaches surface-level keymaps underneath — closing a map
 			// tool menu used to exit the whole map editor.
-			if (e.key === 'Escape') {
+			// `ownsEscape` separates the overlays from EACH OTHER: stopPropagation does nothing between
+			// listeners on `document`, so without it a popover nested in a sheet closed both.
+			if (e.key === 'Escape' && ownsEscape(escapeToken)) {
 				e.stopPropagation();
 				onCloseRef.current?.();
 			}
@@ -74,7 +78,12 @@ export function Popover({
 		returnFocusRef.current =
 			document.activeElement instanceof HTMLElement ? document.activeElement : null;
 		const t = setTimeout(() => {
-			const SELECTOR = 'button, [href], input, select, textarea, [tabindex]';
+			// Excludes disabled controls and tabindex="-1", exactly as Dialog/Sheet's FOCUSABLE does.
+			// The old permissive selector matched the layer menu's `disabled` "Move up" on the top
+			// layer, and `.focus()` on a disabled button silently no-ops — so focus never entered the
+			// popover at all and the next Tab walked into the page behind it.
+			const SELECTOR =
+				'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 			// Search the BODY first. The header (which holds Close) is rendered before `children`, so a
 			// DOM-order query meant every popover given `onClose` opened with focus parked on Close —
 			// one Tab away from leaving, and never on the control the popover exists to offer.
@@ -86,6 +95,7 @@ export function Popover({
 		return () => {
 			document.removeEventListener('pointerdown', onDown, true);
 			document.removeEventListener('keydown', onKey, true);
+			popEscapeLayer(escapeToken);
 			unregisterBack();
 			clearTimeout(t);
 			const back = returnFocusRef.current;

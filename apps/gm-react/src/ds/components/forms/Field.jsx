@@ -17,40 +17,80 @@ export function Field({ label, htmlFor, required = false, help, error, children,
 	// (aria-hidden below), so requiredness must be carried on the control, not read off the label.
 	const cloneProps = {};
 	if (onlyChild && !htmlFor && !onlyChild.props?.id && controlId) cloneProps.id = controlId;
-	if (onlyChild && required && onlyChild.props?.['aria-required'] === undefined) cloneProps['aria-required'] = true;
+	if (onlyChild && required && onlyChild.props?.['aria-required'] === undefined)
+		cloneProps['aria-required'] = true;
 	// The help/error copy sat in an unlinked sibling <span>, so a screen-reader user reached the
 	// control and heard only its label — never the format hint, and never the reason a submit was
 	// rejected. Wire whichever one is rendered as the control's accessible description, and mark the
 	// control invalid so the error state is perceivable and not colour-only (WCAG 1.4.1 / 3.3.1).
-	const messageId = `${controlId ?? autoId}-message`;
-	const message = error ?? help ?? null;
-	if (onlyChild && message != null && message !== false) {
+	// Help and error are described SEPARATELY and both render: the old `error ?? help` collapsed them
+	// onto one node, so the format hint disappeared at exactly the moment the user was being told the
+	// format was wrong (WCAG 3.3.3 — suggest, don't just reject).
+	const baseId = controlId ?? autoId;
+	const helpId = `${baseId}-message`;
+	const errorId = `${baseId}-error`;
+	const hasHelp = help != null && help !== false;
+	const hasError = error != null && error !== false;
+	if (onlyChild && (hasHelp || hasError)) {
 		const existing = onlyChild.props?.['aria-describedby'];
-		cloneProps['aria-describedby'] = existing ? `${existing} ${messageId}` : messageId;
-		if (error && onlyChild.props?.['aria-invalid'] === undefined) cloneProps['aria-invalid'] = true;
+		// Error first: it is the more urgent of the two.
+		const ids = [hasError ? errorId : null, hasHelp ? helpId : null].filter(Boolean).join(' ');
+		cloneProps['aria-describedby'] = existing ? `${existing} ${ids}` : ids;
+		if (hasError && onlyChild.props?.['aria-invalid'] === undefined)
+			cloneProps['aria-invalid'] = true;
 	}
 	const control =
-		onlyChild && Object.keys(cloneProps).length ? React.cloneElement(onlyChild, cloneProps) : children;
+		onlyChild && Object.keys(cloneProps).length
+			? React.cloneElement(onlyChild, cloneProps)
+			: children;
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)', ...style }} {...rest}>
+		<div
+			style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)', ...style }}
+			{...rest}
+		>
 			{label && (
 				// The required `*` is a SIBLING of the <label>, not a child: Chromium folds aria-hidden
 				// label-subtree text into the control's accessible name, so an in-label asterisk would
 				// make the name "Title*" (read "Title asterisk"). Kept visually inline; requiredness is
 				// carried to AT by aria-required on the control above.
-				<span style={{ display: 'inline-flex', alignItems: 'baseline', fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-weight-medium)', color: 'var(--color-text-secondary)' }}>
+				<span
+					style={{
+						display: 'inline-flex',
+						alignItems: 'baseline',
+						fontFamily: 'var(--font-sans)',
+						fontSize: 'var(--text-sm)',
+						fontWeight: 'var(--font-weight-medium)',
+						color: 'var(--color-text-secondary)',
+					}}
+				>
 					<label htmlFor={controlId}>{label}</label>
-					{required && <span aria-hidden="true" style={{ color: 'var(--color-status-error)', marginLeft: 4 }}>*</span>}
+					{required && (
+						<span aria-hidden="true" style={{ color: 'var(--color-status-error)', marginLeft: 4 }}>
+							*
+						</span>
+					)}
 				</span>
 			)}
 			{control}
-			{error ? (
+			{hasError && (
 				// role="alert" so an error that appears AFTER the field was rendered (the usual case —
 				// validation on submit) is announced immediately, not only on the next focus visit.
-				<span id={messageId} role="alert" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-status-error-text)' }}>{error}</span>
-			) : help ? (
-				<span id={messageId} style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-tertiary)' }}>{help}</span>
-			) : null}
+				<span
+					id={errorId}
+					role="alert"
+					style={{ fontSize: 'var(--text-xs)', color: 'var(--color-status-error-text)' }}
+				>
+					{error}
+				</span>
+			)}
+			{hasHelp && (
+				<span
+					id={helpId}
+					style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-tertiary)' }}
+				>
+					{help}
+				</span>
+			)}
 		</div>
 	);
 }

@@ -247,6 +247,11 @@ export function LayerRow({
 						<Popover
 							open
 							onClose={() => setOpacityOpen(false)}
+							// Named without a visible header: `title` would render a header row this
+							// 200px flyout has no space for, and an unnamed role="dialog" is an axe
+							// `aria-dialog-name` violation that also leaves a screen-reader user who
+							// has just entered the flyout with no idea what it controls.
+							aria-label={`Opacity — ${name}`}
 							width={200}
 							placement="bottom"
 							// Popover only supplies `--z-overlay` on its `anchor` branch, so an inline-positioned

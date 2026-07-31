@@ -1259,6 +1259,11 @@ export function Audio() {
 												style={{
 													display: 'flex',
 													alignItems: 'center',
+													// The fixed children — badge, Play/"Via soundboard" control and the
+													// gaps — take ~233px of a ~327px phone content box, leaving the
+													// source name and its type/cache/offline meta line under 100px.
+													// Same shape and same fix as the automation row below.
+													flexWrap: isPhone ? 'wrap' : 'nowrap',
 													gap: 10,
 													padding: '9px 11px',
 													border: `1px solid ${isActive ? T.accBd : T.bd}`,
@@ -1271,7 +1276,9 @@ export function Audio() {
 													size={15}
 													color={s.playbackEnabled && !platformBlocked ? T.acc : T.ter}
 												/>
-												<div style={{ flex: 1, minWidth: 0 }}>
+												{/* `flex: 1` is `1 1 0%`; a 0 basis makes flex-wrap a no-op for this
+												    item, so the basis must be `auto` for the controls to break line. */}
+												<div style={{ flex: isPhone ? '1 1 auto' : 1, minWidth: 0 }}>
 													<div style={{ font: `600 12.5px ${T.sans}` }}>{s.displayName}</div>
 													<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
 														{s.type} · {s.cacheBehavior} · {s.offlineAvailability}

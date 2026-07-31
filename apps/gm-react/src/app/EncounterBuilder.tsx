@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
 	computeEncounterChallenge,
 	listCharactersForActor,
@@ -124,6 +124,10 @@ export function EncounterDialog({
 	const [qAc, setQAc] = useState('13');
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
+	// The durable encounter a previous Start attempt already committed, held so a retry after a
+	// rejected `combat.start` reuses it instead of minting another. Cleared whenever the roster or
+	// title changes (the held encounter no longer describes what is on screen) and on close.
+	const builtIdRef = useRef<string | null>(null);
 
 	// Re-seed the draft each time the dialog opens: starting a fight pre-selects the party (the
 	// common case — the DM then adds foes); reinforcing starts empty.
@@ -178,6 +182,13 @@ export function EncounterDialog({
 			),
 		[rows, partySize, partyLevel],
 	);
+
+	// Any edit to what the encounter IS invalidates the one a failed Start already committed: the
+	// held id no longer describes the roster on screen, so the next attempt must build afresh. Doing
+	// it here rather than in each mutator covers the inline `setRows` call sites and the title field.
+	useEffect(() => {
+		builtIdRef.current = null;
+	}, [rows, title, partySize, partyLevel]);
 
 	function patchRow(key: string, patch: Partial<DraftRow>) {
 		setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -281,6 +292,14 @@ export function EncounterDialog({
 				return;
 			}
 			// Start mode: build the durable encounter (SES-006), then run it (SES-002).
+			// `encounter.build` commits DURABLY before `combat.start` runs, and the most likely
+			// rejection of the second step ("start a session first") leaves this dialog open with the
+			// roster intact — so pressing Start again used to build a SECOND encounter, and a third,
+			// with no screen anywhere that can list or delete them. Reuse the one we already made.
+			if (builtIdRef.current) {
+				await start(builtIdRef.current);
+				return;
+			}
 			const built = await runtime.dispatch({
 				type: 'encounter.build',
 				actorId,
@@ -316,20 +335,26 @@ export function EncounterDialog({
 				setError('The encounter couldn’t be started — try again.');
 				return;
 			}
-			const started = await runtime.dispatch({
-				type: 'combat.start',
-				actorId,
-				payload: { encounterId },
-			});
-			if (started.status === 'rejected') {
-				setError(started.rejection.message);
-				return;
-			}
-			Toaster.success('Combat started — initiative is up');
-			onClose();
+			builtIdRef.current = encounterId;
+			await start(encounterId);
 		} finally {
 			setSubmitting(false);
 		}
+	}
+
+	async function start(encounterId: string) {
+		const started = await runtime.dispatch({
+			type: 'combat.start',
+			actorId,
+			payload: { encounterId },
+		});
+		if (started.status === 'rejected') {
+			setError(started.rejection.message);
+			return;
+		}
+		builtIdRef.current = null;
+		Toaster.success('Combat started — initiative is up');
+		onClose();
 	}
 
 	return (
@@ -362,9 +387,7 @@ export function EncounterDialog({
 						// is unavailable had no channel. The DS soft form keeps it focusable and announced.
 						aria-disabled={rows.length === 0 || undefined}
 						title={
-							rows.length === 0
-								? 'Add at least one combatant to the roster first.'
-								: undefined
+							rows.length === 0 ? 'Add at least one combatant to the roster first.' : undefined
 						}
 						onClick={() => void launch()}
 					>
@@ -475,7 +498,9 @@ export function EncounterDialog({
 					<Field label="HP" style={{ width: 72 }}>
 						<Input
 							type="number"
-							min={0}
+							// `quickAdd` floors at 1, so min={0} let the browser's own validation and the
+							// spinner offer a value the code silently overrode.
+							min={1}
 							value={qHp}
 							onChange={(e: { target: { value: string } }) => setQHp(e.target.value)}
 						/>

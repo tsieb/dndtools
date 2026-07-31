@@ -122,3 +122,66 @@ test.describe('character sheet: validation is reported at the control it belongs
 		).toBeLessThan(80);
 	});
 });
+
+test.describe('character sheet: durable writes announce themselves', () => {
+	// The DM's primary authoring surface had NO `role="status"` anywhere in the file: HP, AC,
+	// conditions, rename, prepared spells, slot totals, attacks, sharing, XP and every advancement
+	// step each change only a number or a pill, which is invisible to assistive tech. Ten durable
+	// writes succeeded in complete silence. `Player.tsx` already carried the one-node pattern.
+	//
+	// Scoped to `#main-content`: `ToastViewport` mounts a permanent app-wide polite region, so a bare
+	// `getByRole('status')` is ambiguous everywhere in this suite.
+	const sheetStatus = (page: import('@playwright/test').Page) =>
+		page.locator('#main-content').getByRole('status');
+
+	test.beforeEach(async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/characters');
+		await seedFresh(page);
+	});
+
+	test('"Set AC" announces the value it stored', async ({ page }) => {
+		const [first] = await twoCharacterIds(page);
+		await page.goto(`/#/characters/${first}`, { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.getByRole('button', { name: 'Edit', exact: true }).click();
+
+		// The status host must PRE-EXIST for its change to be announced: a live region inserted
+		// together with its own text is routinely dropped by screen readers.
+		const status = sheetStatus(page);
+		await expect(status).toHaveCount(1);
+		await expect(status).toHaveText('');
+
+		await page.getByLabel('Set AC', { exact: true }).fill('17');
+		await page.getByRole('button', { name: 'Set AC', exact: true }).click();
+
+		await expect(status).toHaveText('Armour class set to 17.');
+		// And the durable write really happened — the announcement is not decorative.
+		await expect
+			.poll(async () =>
+				page.evaluate(
+					(id) =>
+						(
+							window.__rt!.state.characters as {
+								characters: Record<string, { combat?: { ac?: number } }>;
+							}
+						).characters[id]?.combat?.ac,
+					first,
+				),
+			)
+			.toBe(17);
+	});
+
+	test('a damage press announces the resulting hit points', async ({ page }) => {
+		const [first] = await twoCharacterIds(page);
+		await page.goto(`/#/characters/${first}`, { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.getByRole('button', { name: 'Edit', exact: true }).click();
+
+		const status = sheetStatus(page);
+		await expect(status).toHaveCount(1);
+		await page.getByRole('button', { name: 'Damage', exact: true }).click();
+
+		await expect(status).toHaveText(/Damaged 1\. \d+ of \d+ hit points\./);
+	});
+});

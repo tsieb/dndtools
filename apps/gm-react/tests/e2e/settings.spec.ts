@@ -59,3 +59,78 @@ test.describe('settings: the experience-complexity picker is a real radiogroup',
 		expect(await group.getByRole('radio', { checked: true }).textContent()).toBe(checkedBefore);
 	});
 });
+
+test.describe('settings: appearance preferences survive their own controls', () => {
+	test.beforeEach(async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/settings');
+		await seedFresh(page);
+		await page.goto('/#/settings', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.locator('#main-content').waitFor({ state: 'attached' });
+	});
+
+	test('reaching high contrast through the Theme picker still restores Parchment', async ({
+		page,
+	}) => {
+		// The Accessibility switch was taught to remember the pre-high-contrast theme, but the Theme
+		// segmented control writes `data-theme` directly and never recorded a restore point — so a
+		// Parchment reader who tried high contrast through THIS control was silently dropped on
+		// Tavern when they turned it back off. Same data loss, through the other door.
+		await page.getByRole('radio', { name: 'Parchment' }).click();
+		await expect
+			.poll(() => page.evaluate(() => document.documentElement.getAttribute('data-theme')))
+			.toBe('parchment');
+
+		await page.getByRole('radio', { name: 'High contrast' }).click();
+		await expect
+			.poll(() => page.evaluate(() => document.documentElement.getAttribute('data-theme')))
+			.toBe('high-contrast');
+
+		// Now leave via the Accessibility switch, which is the control that reads the restore point.
+		// `?tab=` rather than the nav rail: the rail is a button column on desktop and collapses to a
+		// different control on a phone, and this behaviour is profile-independent.
+		await page.goto('/#/settings?tab=accessibility', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.getByRole('switch', { name: 'High-contrast theme' }).click();
+		await expect
+			.poll(() => page.evaluate(() => document.documentElement.getAttribute('data-theme')))
+			.toBe('parchment');
+	});
+
+	test('an explicit "Full" motion choice survives a reload under an OS reduce-motion request', async ({
+		page,
+	}) => {
+		// `prepaint.js` resolved `pref === 'reduced' || osReduce`, so a stored 'full' was discarded on
+		// every reload: the switch showed ON, you turned it off, and next launch it was back. Settings
+		// reads its own state straight off `data-motion`, so the lie was self-reinforcing.
+		// prepaint runs BEFORE the bundle, so the media emulation has to precede a navigation.
+		await page.emulateMedia({ reducedMotion: 'reduce' });
+		await page.goto('/#/settings?tab=accessibility', { waitUntil: 'domcontentloaded' });
+		// A hash-only navigation does not reload the document, and `prepaint.js` runs once per
+		// document load — so the emulated media only reaches it after a real reload.
+		await page.reload({ waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+
+		const reduce = page.getByRole('switch', { name: 'Reduce motion' });
+		await expect(reduce).toHaveAttribute('aria-checked', 'true');
+		await reduce.click();
+		await expect
+			.poll(() => page.evaluate(() => document.documentElement.getAttribute('data-motion')))
+			.toBe('full');
+
+		await page.reload({ waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		expect(await page.evaluate(() => document.documentElement.getAttribute('data-motion'))).toBe(
+			'full',
+		);
+
+		// With no stored preference the OS still decides, so the motion-sensitive default is intact.
+		await page.evaluate(() => window.localStorage.removeItem('dndtools:react:motion'));
+		await page.reload({ waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		expect(await page.evaluate(() => document.documentElement.getAttribute('data-motion'))).toBe(
+			'reduced',
+		);
+	});
+});

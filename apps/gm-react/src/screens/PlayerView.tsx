@@ -172,9 +172,7 @@ function useToasts() {
 	const toast = (msg: string, status = 'neutral', icon?: string) => {
 		const id = Math.random().toString(36).slice(2);
 		setToasts((t) => [...t, { id, msg, status, icon }]);
-		timers.current.push(
-			setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2800),
-		);
+		timers.current.push(setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2800));
 	};
 	return { toasts, toast };
 }
@@ -1086,10 +1084,14 @@ function StageSection({
 									alignItems: 'center',
 									justifyContent: 'center',
 									gap: 10,
-									color: T.ter,
+									// The stage's own `#0d0906` is unconditional, but T.ter follows the THEME —
+									// parchment's `#837057` measures 4.23:1 on it, under WCAG 1.4.3. The
+									// populated branch above already paints this backdrop with a fixed light
+									// literal (~8:1); use the same one so the empty state matches it.
+									color: 'rgba(243,231,210,.7)',
 								}}
 							>
-								<Icon name="atlas-map" size="xl" color={T.ter} />
+								<Icon name="atlas-map" size="xl" color="rgba(243,231,210,.7)" />
 								<span style={{ font: `14px ${T.sans}` }}>Nothing is being shown yet.</span>
 							</div>
 						)}

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { gotoRoute, markOnboarded, ops, seedFresh, waitReady } from './_helpers';
+import { dispatch, gotoRoute, markOnboarded, ops, seedFresh, waitReady } from './_helpers';
 
 // GRAPH — the /graph relationship-intelligence surface. Every node/edge comes from the
 // actor-filtered GRAPH-004 read (`getGraphVisualizationForActor`): the seeded vault renders as a
@@ -235,5 +235,53 @@ test.describe('graph: edge geometry', () => {
 			return bad;
 		});
 		expect(misaligned).toEqual([]);
+	});
+});
+
+test.describe('graph: the player viewpoint explains why it is unavailable', () => {
+	// `disabled: playerId === dmId` removed the radio from the tab order with NOTHING saying why —
+	// a permanently greyed control on a screen that never mentions the prerequisite. The reason is
+	// rendered as visible text rather than a `title`, which is unreachable on touch and to AT, and
+	// NOT as an `aria-label` on the radio: `graph.spec.ts` matches these radios by accessible name.
+	test.beforeEach(async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/graph');
+		await seedFresh(page);
+		await page.goto('/#/graph', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.locator('#main-content').waitFor({ state: 'attached' });
+	});
+
+	test('stays quiet while a player actor exists', async ({ page }) => {
+		// The seeded vault registers players, so the hint must NOT become permanent screen noise.
+		await expect(page.getByRole('radio', { name: 'Player view' })).toBeEnabled();
+		await expect(page.getByText(/Add a player in Settings/)).toHaveCount(0);
+	});
+
+	test('names the prerequisite once the last player has been demoted', async ({ page }) => {
+		const players: string[] = await page.evaluate(() =>
+			Object.values(
+				(window.__rt!.state.permissions as { actors: Record<string, { id: string; role: string }> })
+					.actors,
+			)
+				.filter((a) => a.role === 'player')
+				.map((a) => a.id),
+		);
+		expect(players.length, 'the seeded vault must register at least one player').toBeGreaterThan(0);
+
+		for (const targetActorId of players) {
+			const result = await dispatch(page, {
+				type: 'permission.assign-role',
+				actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+				payload: { targetActorId, role: 'observer' },
+			});
+			expect(result.status, result.rejection?.message ?? '').toBe('accepted');
+		}
+
+		// The radio is still present and still named — it just cannot be chosen, and now says so.
+		await expect(page.getByRole('radio', { name: 'Player view' })).toBeDisabled();
+		await expect(
+			page.getByText(/Add a player in Settings to preview the player viewpoint\./),
+		).toHaveCount(1);
 	});
 });

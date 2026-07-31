@@ -42,7 +42,7 @@ import {
 } from '../ds';
 import { CharBuilder, portraitGradient } from '../app/CharBuilder';
 import { ABILITY_IDS, SKILLS } from '../app/charImport/skills';
-import { Page, Panel, T, eb, mono } from '../app/screen-kit';
+import { Page, Panel, T, eb, mono, srOnly } from '../app/screen-kit';
 import { useViewport } from '../app/useViewport';
 import { useRuntime } from '../runtime/RuntimeContext';
 
@@ -281,6 +281,10 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	// panel, so "Set AC" with a blank field printed its reason hundreds of pixels above the fold and
 	// read as a dead button. `field` routes a validation message to its own control instead.
 	const [error, setError] = useState<{ text: string; field?: 'ac' | 'slots' | 'xp' } | null>(null);
+	// Success channel. Deliberately a `role="status"` rendered from mount with EMPTY text: a live
+	// region inserted together with its content is routinely dropped, and an always-present
+	// `role="alert"` would make every bare `getByRole('alert')` in the suite ambiguous.
+	const [note, setNote] = useState('');
 	const fieldError = (field: 'ac' | 'slots' | 'xp') =>
 		error?.field === field ? (
 			<div
@@ -400,25 +404,38 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 		);
 	}
 
-	async function dispatch(command: any): Promise<boolean> {
+	// `okNote` is what a successful write ANNOUNCES. Every durable edit on this sheet — HP, AC,
+	// conditions, rename, prepared spells, slots, attacks, sharing, XP, each advancement step —
+	// changes only a number or a pill, which is invisible to assistive tech: the DM's primary
+	// authoring surface confirmed nothing at all. `Player.tsx` already carries this one-node pattern.
+	async function dispatch(command: any, okNote?: string): Promise<boolean> {
 		setError(null);
-		const result = await runtime.dispatch(command);
-		if (result.status === 'rejected') {
-			setError({ text: result.rejection.message });
+		try {
+			const result = await runtime.dispatch(command);
+			if (result.status === 'rejected') {
+				setError({ text: result.rejection.message });
+				return false;
+			}
+			if (okNote) setNote(okNote);
+			return true;
+		} catch (e) {
+			// `runtime.dispatch` RETHROWS after a failed persist. Without this the rejection message
+			// cleared above never came back and the control simply looked inert.
+			setError({
+				text: e instanceof Error ? e.message : 'That change couldn’t be saved — try again.',
+			});
 			return false;
 		}
-		return true;
 	}
 
 	// DM HP/AC/condition edits go through the durable, DM-only `character.set-combat` (no active-session
 	// gate — the granular session-gated in-play hot path lives on the Session / Combat surfaces).
 	async function applyHp(delta: number) {
 		const next = clamp(view!.combat.hp + delta, 0, view!.combat.maxHp);
-		await dispatch({
-			type: 'character.set-combat',
-			actorId,
-			payload: { characterId: id, hp: next },
-		});
+		await dispatch(
+			{ type: 'character.set-combat', actorId, payload: { characterId: id, hp: next } },
+			`${delta < 0 ? 'Damaged' : 'Healed'} ${Math.abs(delta)}. ${next} of ${view!.combat.maxHp} hit points.`,
+		);
 	}
 	async function applyAc() {
 		// `Number('')` is 0, which is finite — so a blank field used to sail past the guard and
@@ -437,7 +454,10 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 			return;
 		}
 		if (
-			await dispatch({ type: 'character.set-combat', actorId, payload: { characterId: id, ac: n } })
+			await dispatch(
+				{ type: 'character.set-combat', actorId, payload: { characterId: id, ac: n } },
+				`Armour class set to ${n}.`,
+			)
 		)
 			setAcDraft('');
 	}
@@ -451,11 +471,10 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 				: [...current, trimmed]
 			: current.filter((c) => c !== name);
 		if (
-			(await dispatch({
-				type: 'character.set-combat',
-				actorId,
-				payload: { characterId: id, conditions: next },
-			})) &&
+			(await dispatch(
+				{ type: 'character.set-combat', actorId, payload: { characterId: id, conditions: next } },
+				present ? `${trimmed} added.` : `${name} removed.`,
+			)) &&
 			present
 		) {
 			setConditionInput('');
@@ -465,11 +484,14 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 		setEditingName(false);
 		const next = nameDraft.trim();
 		if (!next || next === view!.name) return;
-		await dispatch({
-			type: 'character.edit-field',
-			actorId,
-			payload: { characterId: id, path: 'name', value: next },
-		});
+		await dispatch(
+			{
+				type: 'character.edit-field',
+				actorId,
+				payload: { characterId: id, path: 'name', value: next },
+			},
+			`Renamed to ${next}.`,
+		);
 	}
 
 	// CHAR-008 spell/slot writes — DM or character owner, NOT session-gated (unlike CHAR-007's
@@ -478,29 +500,38 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	async function toggleSlot(level: number, max: number, expended: number, filled: boolean) {
 		// Clicking a filled diamond expends a slot; a hollow one recovers it.
 		const nextExpended = filled ? Math.min(max, expended + 1) : Math.max(0, expended - 1);
-		await dispatch({
-			type: 'character.set-spell-slots',
-			actorId,
-			payload: { characterId: id, level, max, expended: nextExpended },
-		});
+		await dispatch(
+			{
+				type: 'character.set-spell-slots',
+				actorId,
+				payload: { characterId: id, level, max, expended: nextExpended },
+			},
+			`Level ${level}: ${max - nextExpended} of ${max} slots remaining.`,
+		);
 	}
 	async function togglePrepared(s: PreparedSpell) {
-		await dispatch({
-			type: 'character.set-spell',
-			actorId,
-			payload: { characterId: id, id: s.id, name: s.name, level: s.level, prepared: !s.prepared },
-		});
+		await dispatch(
+			{
+				type: 'character.set-spell',
+				actorId,
+				payload: { characterId: id, id: s.id, name: s.name, level: s.level, prepared: !s.prepared },
+			},
+			`${s.name} ${s.prepared ? 'unprepared' : 'prepared'}.`,
+		);
 	}
 	async function addSpell() {
 		const trimmed = spellName.trim();
 		if (!trimmed) return;
 		const level = clamp(Math.trunc(Number(spellLevel) || 0), 0, 9);
 		if (
-			await dispatch({
-				type: 'character.set-spell',
-				actorId,
-				payload: { characterId: id, id: runtime.newId(), name: trimmed, level, prepared: true },
-			})
+			await dispatch(
+				{
+					type: 'character.set-spell',
+					actorId,
+					payload: { characterId: id, id: runtime.newId(), name: trimmed, level, prepared: true },
+				},
+				`${trimmed} added at level ${level}.`,
+			)
 		) {
 			setSpellName('');
 		}
@@ -513,11 +544,10 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 			return;
 		}
 		if (
-			await dispatch({
-				type: 'character.set-spell-slots',
-				actorId,
-				payload: { characterId: id, level, max },
-			})
+			await dispatch(
+				{ type: 'character.set-spell-slots', actorId, payload: { characterId: id, level, max } },
+				`Level ${level} now has ${max} slots.`,
+			)
 		) {
 			setSlotMax('');
 		}
@@ -535,11 +565,10 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 				detail: a.detail.trim(),
 			}));
 		if (
-			await dispatch({
-				type: 'character.update-attacks',
-				actorId,
-				payload: { characterId: id, attacks },
-			})
+			await dispatch(
+				{ type: 'character.update-attacks', actorId, payload: { characterId: id, attacks } },
+				`Saved ${attacks.length} ${attacks.length === 1 ? 'attack' : 'attacks'}.`,
+			)
 		) {
 			setAttackRows(null);
 		}
@@ -551,15 +580,18 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	async function applySharing() {
 		if (!shareDraft) return;
 		if (
-			await dispatch({
-				type: 'character.set-sharing',
-				actorId,
-				payload: {
-					characterId: id,
-					visibility: shareDraft.visibility,
-					sharedWith: shareDraft.sharedWith,
+			await dispatch(
+				{
+					type: 'character.set-sharing',
+					actorId,
+					payload: {
+						characterId: id,
+						visibility: shareDraft.visibility,
+						sharedWith: shareDraft.sharedWith,
+					},
 				},
-			})
+				'Sharing updated.',
+			)
 		) {
 			setShareDraft(null);
 		}
@@ -593,7 +625,12 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 			return;
 		}
 		const n = Math.max(0, Math.trunc(parsed));
-		if (await dispatch({ type: 'character.set-xp', actorId, payload: { characterId: id, xp: n } }))
+		if (
+			await dispatch(
+				{ type: 'character.set-xp', actorId, payload: { characterId: id, xp: n } },
+				`Experience set to ${n}.`,
+			)
+		)
 			setXpInput('');
 	}
 	async function openAdvancement(mode: 'xp' | 'milestone') {
@@ -609,15 +646,17 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 		if (hpGained.trim()) payload.hitPointsGained = Math.trunc(Number(hpGained));
 		if (subclass.trim()) payload.subclass = subclass.trim();
 		if (abilityOrFeat.trim()) payload.abilityOrFeat = abilityOrFeat.trim();
-		await dispatch({ type: 'character.set-advancement-choices', actorId, payload });
+		await dispatch(
+			{ type: 'character.set-advancement-choices', actorId, payload },
+			'Level-up choices saved.',
+		);
 	}
 	async function commitAdvancement() {
 		if (
-			await dispatch({
-				type: 'character.commit-advancement',
-				actorId,
-				payload: { characterId: id },
-			})
+			await dispatch(
+				{ type: 'character.commit-advancement', actorId, payload: { characterId: id } },
+				'Level-up complete.',
+			)
 		) {
 			setClassName('');
 			setHpGained('');
@@ -648,6 +687,9 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	return (
 		<Page max={1000}>
 			<BackBar onBack={onBack} />
+			<div role="status" style={srOnly}>
+				{note}
+			</div>
 			{error && !error.field && (
 				<div role="alert" style={{ marginBottom: 12, font: `13px ${T.sans}`, color: T.err }}>
 					{error.text}
@@ -1330,12 +1372,24 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 													<button
 														type="button"
 														aria-pressed={s.prepared}
+														// Name the SPELL: a caster's list renders a dozen of these, and
+														// "Prepared, toggle button" ×12 gives a screen-reader user
+														// browsing by control no way to tell which row they are on.
+														// The visible text stays the prefix, so a substring `getByRole`
+														// match still finds it.
+														aria-label={`${s.prepared ? 'Prepared' : 'Not prepared'} — ${s.name}`}
 														onClick={() => togglePrepared(s)}
 														style={{
 															display: 'inline-flex',
 															alignItems: 'center',
 															gap: 5,
-															padding: '3px 9px',
+															// 3px padding round an 11px line made this ~21px tall, under
+															// WCAG 2.5.8, on the highest-frequency toggle of the sheet.
+															// Grown with PADDING plus a 24px floor (24 < the Android
+															// 48dp rule, so this cannot shrink it there).
+															padding: '6px 10px',
+															minHeight: 24,
+															boxSizing: 'border-box',
 															borderRadius: 14,
 															cursor: 'pointer',
 															font: `11px ${T.sans}`,

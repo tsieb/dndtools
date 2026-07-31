@@ -182,7 +182,10 @@ function mdToNodes(md: string, resolve?: (raw: string) => (() => void) | null): 
 			}
 			i -= 1;
 			out.push(
-				<ul key={`ul-${start}`} style={{ margin: '2px 0', paddingLeft: 0, listStylePosition: 'inside' }}>
+				<ul
+					key={`ul-${start}`}
+					style={{ margin: '2px 0', paddingLeft: 0, listStylePosition: 'inside' }}
+				>
 					{items}
 				</ul>,
 			);
@@ -333,12 +336,10 @@ function NoteViewer({
 	const resolveLink = (raw: string): (() => void) | null => {
 		const { target, section } = parseWikilink(raw);
 		if (!target) return null;
-		const res = resolveWikilinkForActor(
-			runtime.state.content,
-			runtime.state.permissions,
-			actorId,
-			{ target, section },
-		);
+		const res = resolveWikilinkForActor(runtime.state.content, runtime.state.permissions, actorId, {
+			target,
+			section,
+		});
 		if (res.status !== 'resolved' || res.targetId === note.id) return null;
 		return () => onOpen(res.targetId);
 	};
@@ -415,6 +416,16 @@ function NoteViewer({
 				payload: { itemId: note.id, visibility },
 			});
 			if (result.status !== 'accepted') setErr(result.rejection.message);
+			// Success was completely silent: the only change is a chip's colour, and BOTH entry points
+			// for this action are conditional on the visibility it just set — so they unmount and the
+			// Dialog restores focus to a control that no longer exists. The toast is the app's
+			// permanent polite live region, so this is the one announcement that reliably lands.
+			else
+				Toaster.success(
+					visibility === 'dm-only'
+						? `“${note.title}” is hidden from players again`
+						: `“${note.title}” is now visible to players`,
+				);
 		} catch (error) {
 			setErr(error instanceof Error ? error.message : 'The change couldn’t be saved — try again.');
 		} finally {
@@ -582,7 +593,12 @@ function NoteViewer({
 						</div>
 						{canAuthor ? (
 							<>
-								<Seg ariaLabel="Note visibility" options={VIS_OPTIONS} value={note.visibility} onChange={setVisibility} />
+								<Seg
+									ariaLabel="Note visibility"
+									options={VIS_OPTIONS}
+									value={note.visibility}
+									onChange={setVisibility}
+								/>
 								{note.visibility !== 'player-visible' && (
 									<Button
 										variant="secondary"
@@ -649,7 +665,12 @@ function NoteViewer({
 				size="sm"
 				footer={
 					<>
-						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setPendingReveal(null)}>
+						<Button
+							variant="secondary"
+							size="sm"
+							disabled={busy}
+							onClick={() => setPendingReveal(null)}
+						>
 							Keep DM only
 						</Button>
 						<Button
@@ -760,6 +781,12 @@ function ImportPanel({
 }) {
 	const [text, setText] = useState('');
 	const [policy, setPolicy] = useState('skip');
+	// "Overwrite existing" is the one import outcome with no inverse: `content-import` replaces the
+	// note body in place AND rewrites its visibility from the file — failing closed to dm-only and
+	// blanking `sharedWith`, so it silently revokes player access as well. Deleting ONE note in this
+	// same screen gets an Undo toast; this destroys many at once with nothing. Confirm it, and only
+	// it — the default `skip` policy stays a single click.
+	const [confirmOverwrite, setConfirmOverwrite] = useState(false);
 	const pickFiles = async () => {
 		const files = await pickTextFiles('.md,.markdown,.txt,.json');
 		if (files.length === 0) return;
@@ -836,7 +863,10 @@ function ImportPanel({
 					size="sm"
 					icon="import"
 					disabled={busy || !text.trim()}
-					onClick={() => onImport(text, policy)}
+					onClick={() => {
+						if (policy === 'overwrite') setConfirmOverwrite(true);
+						else onImport(text, policy);
+					}}
 				>
 					Import
 				</Button>
@@ -844,6 +874,32 @@ function ImportPanel({
 					Close
 				</Button>
 			</div>
+			<Dialog
+				open={confirmOverwrite}
+				onClose={() => setConfirmOverwrite(false)}
+				tone="danger"
+				icon="warning"
+				size="sm"
+				title="Overwrite existing notes?"
+				description="Every note this archive collides with has its body replaced, and its player visibility reset to whatever the file says — anything you are currently sharing may be hidden again. This can’t be undone. Choose “Skip collisions” to import only the new notes."
+				footer={
+					<>
+						<Button variant="secondary" size="sm" onClick={() => setConfirmOverwrite(false)}>
+							Cancel
+						</Button>
+						<Button
+							variant="danger"
+							size="sm"
+							onClick={() => {
+								setConfirmOverwrite(false);
+								onImport(text, policy);
+							}}
+						>
+							Overwrite
+						</Button>
+					</>
+				}
+			/>
 		</Card>
 	);
 }
@@ -1052,8 +1108,15 @@ export function Knowledge() {
 			{notes.length === 0 ? (
 				<EmptyState
 					icon="knowledge-book"
-					title="Nothing written down"
-					description="Notes, handouts and read-aloud text live here. Backlinks connect them automatically."
+					// A non-author sees this screen through the actor filter, so "Nothing written down"
+					// is simply false for them — the DM has written plenty, none of it shared yet. It is
+					// also the surface a DM checks with "view as player". Atlas already branches this way.
+					title={canAuthor ? 'Nothing written down' : 'Nothing shared with you yet'}
+					description={
+						canAuthor
+							? 'Notes, handouts and read-aloud text live here. Backlinks connect them automatically.'
+							: 'Notes and handouts your DM shares with the table will appear here.'
+					}
 					action={
 						canAuthor ? (
 							<Button

@@ -37,7 +37,16 @@ import {
 	Textarea,
 	Toaster,
 } from '../ds';
-import { LoadingRegion, Page, Panel, Seg, SetRow, T, radioGroupKeyDown } from '../app/screen-kit';
+import {
+	LoadingRegion,
+	Page,
+	Panel,
+	Seg,
+	SetRow,
+	T,
+	radioGroupKeyDown,
+	srOnly,
+} from '../app/screen-kit';
 import {
 	nextHighContrastTheme,
 	recoveryPassphraseIssue,
@@ -324,6 +333,12 @@ function SettingsAppearance() {
 							value={theme}
 							ariaLabel="Theme"
 							onChange={(v) => {
+								// Remember where we came from, exactly as the Accessibility switch does.
+								// Without this, reaching high contrast through THIS control left no
+								// restore point, so the switch below later dropped a Parchment reader on
+								// Tavern — the same silent preference loss, through the other door.
+								if (v === 'high-contrast' && theme !== 'high-contrast')
+									writeLocal(PREV_THEME_KEY, theme);
 								setTheme(v);
 								setDocAttr('data-theme', 'dndtools:react:theme', v);
 							}}
@@ -3676,6 +3691,13 @@ function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 	});
 	const [notify, setNotify] = useState(aiNotifyEnabled());
 	const abortRef = useRef<AbortController | null>(null);
+	// An agentic run appends events below the fold; without this the panel silently stops updating
+	// as far as the reader is concerned.
+	const transcriptRef = useRef<HTMLDivElement | null>(null);
+	useEffect(() => {
+		const el = transcriptRef.current;
+		if (el) el.scrollTop = el.scrollHeight;
+	}, [feed.length]);
 
 	useEffect(() => {
 		if (!notify) return;
@@ -3818,7 +3840,15 @@ function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 			) : (
 				<>
 					{feed.length > 0 && (
+						// The transcript is a bounded scroll region whose every descendant is a plain
+						// <div>, so before `tabIndex` a keyboard user could not read past the first 320px
+						// of an agentic run at all (WCAG 2.1.1). `role="log"` is the right live-region
+						// role for an append-only transcript, and the ref keeps the newest event in view.
 						<div
+							ref={transcriptRef}
+							tabIndex={0}
+							role="log"
+							aria-label="Assistant transcript"
 							style={{
 								display: 'flex',
 								flexDirection: 'column',
@@ -3845,6 +3875,9 @@ function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 												whiteSpace: 'pre-wrap',
 											}}
 										>
+											{/* Speaker was alignment + background colour only, so the whole
+											    exchange reached AT as one undifferentiated stream. */}
+											<span style={srOnly}>You said: </span>
 											{item.text}
 										</div>
 									);
@@ -3865,6 +3898,7 @@ function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 												whiteSpace: 'pre-wrap',
 											}}
 										>
+											<span style={srOnly}>Assistant said: </span>
 											{item.text}
 										</div>
 									);
@@ -4174,7 +4208,13 @@ function SettingsAI() {
 											{b.agentId} → {actorName(b.actorId)}
 										</div>
 									</div>
-									<Badge status="neutral">Policy saved</Badge>
+									{/* `policy` is null for a freshly registered binding, and the registration's
+									    own success message says it "starts with the campaign default until you
+									    set a policy" — so an unconditional "Policy saved" contradicted the
+									    toast sitting beside it. */}
+									<Badge status={policy ? 'neutral' : 'warning'}>
+										{policy ? 'Policy saved' : 'Using campaign default'}
+									</Badge>
 									<span style={{ flex: '0 0 150px' }}>
 										<Select
 											aria-label={`Policy mode for ${b.label || b.agentId}`}
@@ -4885,7 +4925,11 @@ export function Settings() {
 									padding: '9px 11px',
 									// The rail profile is used on touch-capable tablets and foldables too.
 									// Keep every category row at the shared primary touch-target minimum.
-									minHeight: 44,
+									// The literal 44 was a trap: an INLINE minHeight beats the stylesheet in
+									// both directions, so it SHRANK these 13 rows below the 48px floor that
+									// `html[data-android]` (styles/index.css:41) mandates. The token is 44px
+									// normally and 48px under the Android runtime.
+									minHeight: 'var(--touch-target-min)',
 									borderRadius: 8,
 									border: 'none',
 									cursor: 'pointer',

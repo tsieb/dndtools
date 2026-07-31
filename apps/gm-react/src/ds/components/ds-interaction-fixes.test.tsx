@@ -27,6 +27,7 @@ import { QuestCard as RawQuestCard } from './campaign/QuestCard.jsx';
 import { Tabs as RawTabs } from './core/Tabs.jsx';
 import { Minimap as RawMinimap } from './map/Minimap.jsx';
 import { SpellSlots as RawSpellSlots } from './spell/SpellSlots.jsx';
+import { Field as RawField } from './forms/Field.jsx';
 
 // The DS ships as .jsx with `checkJs: false`, so tsc infers every defaultless prop as required.
 // Re-type the imports as open prop bags rather than restating each component's contract.
@@ -55,6 +56,7 @@ const Minimap = RawMinimap as React.ComponentType<DsProps>;
 const ProgressMeter = RawProgressMeter as React.ComponentType<DsProps>;
 const Checkbox = RawCheckbox as React.ComponentType<DsProps>;
 const SpellSlots = RawSpellSlots as React.ComponentType<DsProps>;
+const Field = RawField as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;
@@ -1142,5 +1144,169 @@ describe('a read-only spell-slot economy is readable, not dead', () => {
 		expect(pip.style.height).toBe('24px');
 		expect(pip.style.transform).toBe('');
 		expect((pip.firstElementChild as HTMLElement).style.transform).toBe('rotate(45deg)');
+	});
+});
+
+describe('Toast does not re-read the whole error stack', () => {
+	// `role="alert"` implies `aria-atomic="true"`, and this region WRAPS the stack — so a second
+	// failure re-announced every error still on screen. The polite region one line above had already
+	// been fixed for exactly this; the alert twin had not.
+	afterEach(() => act(() => Toaster.clear()));
+
+	it('marks the assertive region non-atomic', () => {
+		act(() => root.render(<ToastViewport />));
+		act(() => {
+			Toaster.error('Export failed.');
+		});
+		expect(container.querySelector('[role="alert"]')!.getAttribute('aria-atomic')).toBe('false');
+	});
+});
+
+describe('Field keeps its format hint while it is showing an error', () => {
+	// `const message = error ?? help` collapsed the two onto one node, so the hint that explains the
+	// expected format disappeared at exactly the moment the user was told the format was wrong
+	// (WCAG 3.3.3). 115 live <Field> sites.
+	it('renders BOTH the error and the help, and describes the control with both', () => {
+		act(() =>
+			root.render(
+				<Field label="Armour class" help="A whole number, 0 or more." error="That isn’t a number.">
+					<input />
+				</Field>,
+			),
+		);
+		const input = container.querySelector('input') as HTMLInputElement;
+		expect(container.textContent).toContain('A whole number, 0 or more.');
+		expect(container.textContent).toContain('That isn’t a number.');
+
+		// `useId()` emits colons, which are legal in an IDREF but NOT in a CSS id selector — resolve
+		// each described-by target through getElementById.
+		const ids = input.getAttribute('aria-describedby')!.split(' ');
+		expect(ids).toHaveLength(2);
+		const described = ids.map((id) => document.getElementById(id)!.textContent);
+		// Error first: it is the more urgent of the two.
+		expect(described).toEqual(['That isn’t a number.', 'A whole number, 0 or more.']);
+		expect(input.getAttribute('aria-invalid')).toBe('true');
+		expect(container.querySelector('[role="alert"]')!.textContent).toBe('That isn’t a number.');
+	});
+
+	it('still describes a hint-only field with exactly one node', () => {
+		act(() =>
+			root.render(
+				<Field label="Armour class" help="A whole number, 0 or more.">
+					<input />
+				</Field>,
+			),
+		);
+		const input = container.querySelector('input') as HTMLInputElement;
+		expect(input.getAttribute('aria-describedby')!.split(' ')).toHaveLength(1);
+		expect(input.hasAttribute('aria-invalid')).toBe(false);
+		expect(container.querySelector('[role="alert"]')).toBeNull();
+	});
+});
+
+describe('Popover focus entry skips controls that cannot take it', () => {
+	// The permissive `'button, [href], input, select, textarea, [tabindex]'` matched a natively
+	// disabled control, and `.focus()` on one silently no-ops — so opening the layer ⋯ menu on the
+	// TOP layer (where "Move up" is disabled) left focus outside the flyout and the next Tab walked
+	// into the page behind it. Dialog and Sheet had always used the stricter selector.
+	it('focuses the first ENABLED body control when the first one is disabled', async () => {
+		act(() =>
+			root.render(
+				<Popover open title="Layer actions" onClose={() => {}}>
+					<button type="button" disabled>
+						Move up
+					</button>
+					<button type="button">Move down</button>
+				</Popover>,
+			),
+		);
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 10));
+		});
+		expect((document.activeElement as HTMLElement)?.textContent).toBe('Move down');
+	});
+});
+
+describe('Escape belongs to the topmost overlay only', () => {
+	// Dialog, Sheet and Popover all listen on `document` in CAPTURE and call stopPropagation — which
+	// does nothing between listeners on the SAME node, and capture order there is registration order,
+	// i.e. OUTERMOST first. So Escape inside a Popover mounted within a Sheet dismissed both, and the
+	// sheet's dismissal ran first. The live path is the phone map editor's "Map panels" sheet.
+	it('closes only the popover when one is open inside a sheet', async () => {
+		const closed: string[] = [];
+		act(() =>
+			root.render(
+				<Sheet open title="Map panels" onClose={() => closed.push('sheet')}>
+					<button type="button">Layers</button>
+					<Popover open title="Opacity" onClose={() => closed.push('popover')}>
+						<button type="button">Reset</button>
+					</Popover>
+				</Sheet>,
+			),
+		);
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 10));
+		});
+		act(() => {
+			document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+		});
+		expect(closed).toEqual(['popover']);
+	});
+
+	it('gives Escape back to the sheet once the popover has gone', async () => {
+		const closed: string[] = [];
+		function Harness({ popoverOpen }: { popoverOpen: boolean }) {
+			return (
+				<Sheet open title="Map panels" onClose={() => closed.push('sheet')}>
+					<button type="button">Layers</button>
+					{popoverOpen && (
+						<Popover open title="Opacity" onClose={() => closed.push('popover')}>
+							<button type="button">Reset</button>
+						</Popover>
+					)}
+				</Sheet>
+			);
+		}
+		act(() => root.render(<Harness popoverOpen />));
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 10));
+		});
+		act(() => root.render(<Harness popoverOpen={false} />));
+		act(() => {
+			document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+		});
+		expect(closed).toEqual(['sheet']);
+	});
+});
+
+describe('Minimap keeps the keyboard cursor when it collapses', () => {
+	// The collapsed and expanded branches return DIFFERENT element types at the same position, so
+	// React destroys the toggle the user just activated instead of reconciling it: focus fell to
+	// <body> and the next Tab restarted at the top of the document (WCAG 3.2.2).
+	it('moves focus onto the surviving toggle', () => {
+		act(() => root.render(<Minimap />));
+		const collapse = container.querySelector(
+			'[aria-label="Collapse minimap"]',
+		) as HTMLButtonElement;
+		collapse.focus();
+		act(() => collapse.click());
+
+		const expand = container.querySelector('[aria-label="Expand minimap"]') as HTMLButtonElement;
+		expect(expand).not.toBeNull();
+		expect(document.activeElement).toBe(expand);
+	});
+
+	it('does not steal focus from a pointer user who never had it on the toggle', () => {
+		const elsewhere = document.createElement('button');
+		document.body.appendChild(elsewhere);
+		act(() => root.render(<Minimap />));
+		const collapse = container.querySelector(
+			'[aria-label="Collapse minimap"]',
+		) as HTMLButtonElement;
+		elsewhere.focus();
+		act(() => collapse.click());
+
+		expect(document.activeElement).toBe(elsewhere);
+		elsewhere.remove();
 	});
 });

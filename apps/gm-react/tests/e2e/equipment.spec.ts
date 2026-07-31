@@ -31,14 +31,16 @@ interface CharRecord {
 /** Raw character record off `__rt.state.characters` (unfiltered — the DM device owner sees it whole). */
 function charById(page: Page, id: string): Promise<CharRecord | null> {
 	return page.evaluate((cid) => {
-		const chars = (window.__rt!.state.characters as { characters: Record<string, CharRecord> }).characters;
+		const chars = (window.__rt!.state.characters as { characters: Record<string, CharRecord> })
+			.characters;
 		return chars[cid] ?? null;
 	}, id);
 }
 
 function charIdByName(page: Page, name: string): Promise<string | null> {
 	return page.evaluate((n) => {
-		const chars = (window.__rt!.state.characters as { characters: Record<string, CharRecord> }).characters;
+		const chars = (window.__rt!.state.characters as { characters: Record<string, CharRecord> })
+			.characters;
 		return Object.values(chars).find((c) => c.name === n)?.id ?? null;
 	}, name);
 }
@@ -60,7 +62,9 @@ test.describe('equipment: structured inventory, currency & encumbrance', () => {
 		await page.locator('#main-content').waitFor({ state: 'attached' });
 	});
 
-	test('the panel adds, steps, equips, and removes an item — reflected in core state', async ({ page }) => {
+	test('the panel adds, steps, equips, and removes an item — reflected in core state', async ({
+		page,
+	}) => {
 		const pcId = await charIdByName(page, PC_NAME);
 		expect(pcId).toBeTruthy();
 		await selectPc(page, pcId!);
@@ -90,7 +94,8 @@ test.describe('equipment: structured inventory, currency & encumbrance', () => {
 		await page.getByRole('button', { name: 'One more Longsword' }).click();
 		await page.waitForFunction(
 			(cid) => {
-				const chars = (window.__rt!.state.characters as { characters: Record<string, CharRecord> }).characters;
+				const chars = (window.__rt!.state.characters as { characters: Record<string, CharRecord> })
+					.characters;
 				return chars[cid]?.inventory?.items[0]?.quantity === 3;
 			},
 			pcId,
@@ -102,7 +107,8 @@ test.describe('equipment: structured inventory, currency & encumbrance', () => {
 		await page.getByRole('button', { name: 'Equip', exact: true }).click();
 		await page.waitForFunction(
 			(cid) => {
-				const chars = (window.__rt!.state.characters as { characters: Record<string, CharRecord> }).characters;
+				const chars = (window.__rt!.state.characters as { characters: Record<string, CharRecord> })
+					.characters;
 				return chars[cid]?.inventory?.items[0]?.equipped === true;
 			},
 			pcId,
@@ -115,7 +121,8 @@ test.describe('equipment: structured inventory, currency & encumbrance', () => {
 		await page.getByRole('button', { name: 'Remove Longsword' }).click();
 		await page.waitForFunction(
 			(cid) => {
-				const chars = (window.__rt!.state.characters as { characters: Record<string, CharRecord> }).characters;
+				const chars = (window.__rt!.state.characters as { characters: Record<string, CharRecord> })
+					.characters;
 				return (chars[cid]?.inventory?.items.length ?? 0) === 0;
 			},
 			pcId,
@@ -127,7 +134,9 @@ test.describe('equipment: structured inventory, currency & encumbrance', () => {
 		await expect(page.getByText('Equipment (0)')).not.toHaveCount(0);
 	});
 
-	test('currency adjusts up, and an overspend fails closed with state unchanged', async ({ page }) => {
+	test('currency adjusts up, and an overspend fails closed with state unchanged', async ({
+		page,
+	}) => {
 		const pcId = await charIdByName(page, PC_NAME);
 		await selectPc(page, pcId!);
 
@@ -135,7 +144,8 @@ test.describe('equipment: structured inventory, currency & encumbrance', () => {
 		for (let i = 0; i < 3; i += 1) await page.getByRole('button', { name: 'Add one GP' }).click();
 		await page.waitForFunction(
 			(cid) => {
-				const chars = (window.__rt!.state.characters as { characters: Record<string, CharRecord> }).characters;
+				const chars = (window.__rt!.state.characters as { characters: Record<string, CharRecord> })
+					.characters;
 				return chars[cid]?.inventory?.currency.gp === 3;
 			},
 			pcId,
@@ -154,7 +164,9 @@ test.describe('equipment: structured inventory, currency & encumbrance', () => {
 		expect(record?.inventory?.currency.gp).toBe(3); // and the accepted gold is untouched
 	});
 
-	test('the encumbrance band crosses unencumbered → encumbered → heavily → overloaded with weight', async ({ page }) => {
+	test('the encumbrance band crosses unencumbered → encumbered → heavily → overloaded with weight', async ({
+		page,
+	}) => {
 		const pcId = await charIdByName(page, PC_NAME);
 		const record = await charById(page, pcId!);
 		expect(record?.name).toBe(PC_NAME); // sanity: the STR-8 thresholds below assume this PC
@@ -177,7 +189,9 @@ test.describe('equipment: structured inventory, currency & encumbrance', () => {
 			await page.getByRole('button', { name: 'One more Boulder' }).click();
 			await page.waitForFunction(
 				(arg) => {
-					const chars = (window.__rt!.state.characters as { characters: Record<string, CharRecord> }).characters;
+					const chars = (
+						window.__rt!.state.characters as { characters: Record<string, CharRecord> }
+					).characters;
 					return chars[arg.cid]?.inventory?.items[0]?.quantity === arg.qty;
 				},
 				{ cid: pcId, qty },
@@ -190,7 +204,9 @@ test.describe('equipment: structured inventory, currency & encumbrance', () => {
 		await stepTo(3, 'Overloaded');
 	});
 
-	test('authority: the PC owner and the DM may edit; a non-owner is refused (fail closed)', async ({ page }) => {
+	test('authority: the PC owner and the DM may edit; a non-owner is refused (fail closed)', async ({
+		page,
+	}) => {
 		const pcId = await charIdByName(page, PC_NAME);
 		expect(pcId).toBeTruthy();
 
@@ -226,8 +242,12 @@ test.describe('equipment: structured inventory, currency & encumbrance', () => {
 
 		// The UI grants the owner edit affordances: previewing as the specific owning player shows the
 		// manage form for their own PC (writes are preview-read-only, so we assert the control's presence).
-		await page.evaluate(() => window.__rt!.enterPreview({ role: 'player', playerActorId: 'actor-player' }));
-		await page.waitForFunction(() => window.__rt?.preview?.role === 'player', null, { timeout: 5_000 });
+		await page.evaluate(() =>
+			window.__rt!.enterPreview({ role: 'player', playerActorId: 'actor-player' }),
+		);
+		await page.waitForFunction(() => window.__rt?.preview?.role === 'player', null, {
+			timeout: 5_000,
+		});
 		await expect(page.getByText(PC_NAME).first()).not.toHaveCount(0);
 		await expect(page.getByLabel('Item')).toHaveCount(1);
 		await exitPreview(page);
@@ -361,7 +381,8 @@ test.describe('equipment: the quantity stepper has a floor', () => {
 		await expect(page.getByLabel('Item')).toHaveValue('');
 		await page.waitForFunction(
 			(cid) => {
-				const chars = (window.__rt!.state.characters as { characters: Record<string, CharRecord> }).characters;
+				const chars = (window.__rt!.state.characters as { characters: Record<string, CharRecord> })
+					.characters;
 				return chars[cid]?.inventory?.items.some((i) => i.name === 'Torch' && i.quantity === 1);
 			},
 			pcId,
@@ -381,7 +402,9 @@ test.describe('equipment: the quantity stepper has a floor', () => {
 		await expect
 			.poll(() =>
 				page.evaluate((cid) => {
-					const chars = (window.__rt!.state.characters as { characters: Record<string, CharRecord> }).characters;
+					const chars = (
+						window.__rt!.state.characters as { characters: Record<string, CharRecord> }
+					).characters;
 					const item = chars[cid]?.inventory?.items.find((i) => i.name === 'Torch');
 					return item ? item.quantity : -1;
 				}, pcId),
@@ -391,5 +414,37 @@ test.describe('equipment: the quantity stepper has a floor', () => {
 		// Above 1 it is a live control again, with its ordinary name back.
 		await page.getByRole('button', { name: 'One more Torch' }).click();
 		await expect(page.getByRole('button', { name: 'One fewer Torch' })).toBeVisible();
+	});
+});
+
+test.describe('player sheet: death saves are readable, not colour-only', () => {
+	// The six pips were filled-vs-transparent circles and nothing else: colour as the sole carrier of
+	// the state (WCAG 1.4.1) with no text equivalent anywhere (1.1.1), so the count was simply
+	// unavailable to assistive tech — and `forced-colors` flattens both tints to the same value, which
+	// makes it unreadable for sighted users too. This is the panel that says whether a PC is dying.
+	test.beforeEach(async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/player');
+		await seedFresh(page);
+		await page.goto('/#/player', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.locator('#main-content').waitFor({ state: 'attached' });
+	});
+
+	test('each group names its own count, and the number is visible as text', async ({ page }) => {
+		// The panel lives on the Resources tab, beside class resources and Rest.
+		await page.getByRole('tab', { name: 'Resources' }).click();
+		const successes = page.getByRole('img', { name: /of 3 successes$/ });
+		const failures = page.getByRole('img', { name: /of 3 failures$/ });
+		await expect(successes).toHaveCount(1);
+		await expect(failures).toHaveCount(1);
+
+		// The name carries the real count, not a fixed string.
+		await expect(successes).toHaveAccessibleName(/^\d of 3 successes$/);
+		await expect(failures).toHaveAccessibleName(/^\d of 3 failures$/);
+
+		// And the same number is on screen for everyone, so the pips are no longer the only readout.
+		await expect(successes.getByText(/^\d\/3$/)).toHaveCount(1);
+		await expect(failures.getByText(/^\d\/3$/)).toHaveCount(1);
 	});
 });
