@@ -1895,21 +1895,31 @@ function PlayerParty({
 										    shape SceneCardsPanel and Atlas already use. */}
 										{isDm && (
 											<>
+												{/* …and SOFT-disabled at the ends: promoting a member to rank 1 is the normal
+												    way to use this, and a native `disabled` applied at that moment removed the
+												    button the DM had just pressed from the tab order, dropping focus to <body>.
+												    Soft keeps the tab stop, the name and the explanation. */}
 												<IconButton
 													icon="chevron-up"
 													label={`Move ${m?.name ?? 'member'} up`}
 													variant="ghost"
 													size="sm"
-													disabled={i === 0}
-													onClick={() => moveUp(i)}
+													aria-disabled={i === 0 || undefined}
+													onClick={() => {
+														if (i === 0) return;
+														moveUp(i);
+													}}
 												/>
 												<IconButton
 													icon="chevron-down"
 													label={`Move ${m?.name ?? 'member'} down`}
 													variant="ghost"
 													size="sm"
-													disabled={i === party.marchingOrder.length - 1}
-													onClick={() => moveDown(i)}
+													aria-disabled={i === party.marchingOrder.length - 1 || undefined}
+													onClick={() => {
+														if (i === party.marchingOrder.length - 1) return;
+														moveDown(i);
+													}}
 												/>
 											</>
 										)}

@@ -166,6 +166,13 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 		>
 			<SceneDisplaySurface active={display.active} transitionStyle={display.transitionStyle} />
 			<div
+				// The control bar is permanently dark chrome — `rgba(6,9,14,0.72)` over the near-black
+				// stage — but the DS Buttons inside it painted whatever the DOCUMENT theme said. In
+				// parchment `--color-text-secondary` is `#5c4a39`, i.e. ~2.4:1 on this bar, so the
+				// ghost controls of the app's only fullscreen surface were barely legible. Scoping the
+				// bar to the dark palette makes its tokens match the background it actually has.
+				// (`forced-colors` remaps `:root, [data-theme]` alike, so HC is unaffected.)
+				data-theme="tavern"
 				style={{
 					position: 'fixed',
 					top: 'max(16px, var(--safe-area-top, 0px))',
@@ -188,14 +195,33 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 					variant="secondary"
 					size="sm"
 					icon="skip"
-					disabled={display.queuedCount === 0}
-					onClick={() => void advance()}
+					// Both of these used to hard-`disable` themselves on their OWN last press — playing
+					// the final queued card empties the queue, and clearing the display empties it — so
+					// focus fell to <body> inside a modal whose siblings are `inert`. This is the same
+					// defect run #21 fixed on the sibling call site in `SceneCardsPanel`; the soft form
+					// keeps the tab stop, keeps the name, and explains itself. The handler has to guard
+					// too: DS `Button` only swallows `aria-disabled={true}`.
+					aria-disabled={display.queuedCount === 0 || undefined}
+					title={display.queuedCount === 0 ? t('Queue a scene card first') : undefined}
+					onClick={() => {
+						if (display.queuedCount === 0) return;
+						void advance();
+					}}
 				>
 					{display.queuedCount > 0
 						? t('Next card ({count} queued)', { count: display.queuedCount })
 						: t('Next card')}
 				</Button>
-				<Button variant="ghost" size="sm" disabled={!display.active} onClick={() => void clear()}>
+				<Button
+					variant="ghost"
+					size="sm"
+					aria-disabled={!display.active || undefined}
+					title={display.active ? undefined : t('Nothing is on the display')}
+					onClick={() => {
+						if (!display.active) return;
+						void clear();
+					}}
+				>
 					{t('Clear display')}
 				</Button>
 				<Button

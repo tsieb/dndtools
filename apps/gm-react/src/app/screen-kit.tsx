@@ -237,8 +237,13 @@ export function Seg({
 	const refs = useRef<(HTMLButtonElement | null)[]>([]);
 	// ARIA radiogroup: one tab stop for the whole group, Arrow/Home/End move the selection
 	// (same roving-tabIndex contract as ds/components/core/Tabs.jsx).
-	const selectedIndex = options.findIndex((o) => o.value === value && !o.disabled);
-	const tabStopIndex = selectedIndex >= 0 ? selectedIndex : options.findIndex((o) => !o.disabled);
+	// The tab stop belongs on the CHECKED radio, disabled or not: `off = o.disabled && !on` below
+	// means the checked option is never natively disabled, so it is always focusable. Requiring
+	// `!o.disabled` here moved the group's only tab stop to an UNCHECKED option — and when EVERY
+	// option is disabled (Settings' AI provider picker does exactly that once a key is stored) the
+	// fallback found nothing either, so the whole radiogroup dropped out of the tab order (WCAG 2.1.1).
+	const checkedIndex = options.findIndex((o) => o.value === value);
+	const tabStopIndex = checkedIndex >= 0 ? checkedIndex : options.findIndex((o) => !o.disabled);
 	const moveSelection = (from: number, direction: number) => {
 		if (options.length === 0) return;
 		for (let offset = 1; offset <= options.length; offset += 1) {

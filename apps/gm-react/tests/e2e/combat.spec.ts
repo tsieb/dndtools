@@ -419,3 +419,83 @@ test.describe('session: the phase rail respects player preview', () => {
 		expect(await page.evaluate(() => window.__rt!.state.session.workflow)).toBe('active');
 	});
 });
+
+// Two /session controls hard-disabled themselves at exactly the moment the DM used them, dropping
+// focus to <body> so the next Tab restarted at the top of the document: "Push to players" clears the
+// handout title on success, and the initiative reorder chevrons run out of room at either end. Both
+// are normal ways to use them, not error paths.
+test.describe('/session controls do not disable themselves under the user’s focus', () => {
+	test('Push to players stays focusable after a successful push, and says why when it is unavailable', async ({
+		page,
+	}) => {
+		const push = page.getByRole('button', { name: 'Push to players' });
+		await expect(push).toBeVisible();
+
+		// Empty title: soft-disabled with a reason rather than removed from the tab order.
+		await expect(push).toHaveAttribute('aria-disabled', 'true');
+		await expect(push).toHaveAttribute('title', /Give the handout a title first/i);
+		expect(await push.evaluate((el: HTMLButtonElement) => el.disabled)).toBe(false);
+		await push.focus();
+		await expect(push).toBeFocused();
+
+		const title = `Torn Ledger Page ${Date.now()}`;
+		await page.getByLabel('Handout title').fill(title);
+		await expect(push).not.toHaveAttribute('aria-disabled', 'true');
+		await push.click();
+
+		// The push landed…
+		await expect
+			.poll(() =>
+				page.evaluate(
+					(t) =>
+						Object.values(
+							(window.__rt!.state.session as { handouts: Record<string, { title: string }> })
+								.handouts,
+						).some((h) => h.title === t),
+					title,
+				),
+			)
+			.toBe(true);
+		// …and the button that did it is still there, still focusable, explaining its new state.
+		await expect(push).toHaveAttribute('aria-disabled', 'true');
+		expect(await push.evaluate((el: HTMLButtonElement) => el.disabled)).toBe(false);
+		await push.focus();
+		await expect(push).toBeFocused();
+	});
+
+	test('the initiative reorder chevrons stay focusable at the ends of the order', async ({
+		page,
+	}) => {
+		// Select the first combatant so the reorder controls render for it.
+		const rows = page.getByRole('button', { name: /Bog Lurker|Sable/ });
+		await rows.first().click();
+
+		const up = page.getByRole('button', { name: /Move .* earlier in initiative/ });
+		await expect(up).toBeVisible();
+		// The selected row is at one end for one of the two directions; whichever it is, the control
+		// stays a real tab stop instead of vanishing from the order.
+		const soft = await up.getAttribute('aria-disabled');
+		expect(await up.evaluate((el: HTMLButtonElement) => el.disabled)).toBe(false);
+		await up.focus();
+		await expect(up).toBeFocused();
+
+		if (soft === 'true') {
+			// A press on the soft-disabled bound must not dispatch — the order is unchanged.
+			const before = await page.evaluate(
+				() =>
+					(window.__rt!.state.session as { combat: { order: string[] } }).combat.order?.join(',') ??
+					'',
+			);
+			await up.dispatchEvent('click');
+			await page.waitForTimeout(200);
+			expect(
+				await page.evaluate(
+					() =>
+						(window.__rt!.state.session as { combat: { order: string[] } }).combat.order?.join(
+							',',
+						) ?? '',
+				),
+			).toBe(before);
+		}
+	});
+});

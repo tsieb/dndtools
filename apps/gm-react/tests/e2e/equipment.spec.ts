@@ -492,10 +492,24 @@ test.describe('party: the marching order can be reordered in both directions', (
 		await expect(downs).toHaveCount(rows);
 
 		// Only the ends are unavailable, and they are still RENDERED so the gutter never collapses.
+		// (`toBeDisabled()` honours `aria-disabled`, which is the form these now use.)
 		await expect(ups.first()).toBeDisabled();
 		await expect(ups.last()).toBeEnabled();
 		await expect(downs.first()).toBeEnabled();
 		await expect(downs.last()).toBeDisabled();
+
+		// …and unavailable SOFTLY. Promoting a member to rank 1 is the normal way to use this, and a
+		// native `disabled` applied at that moment took the button the DM had just pressed out of the
+		// tab order, dropping focus to <body>. The bound keeps its tab stop and swallows the press.
+		for (const bound of [ups.first(), downs.last()]) {
+			expect(await bound.evaluate((el: HTMLButtonElement) => el.disabled)).toBe(false);
+			await bound.focus();
+			await expect(bound).toBeFocused();
+		}
+		const before = await rowNames(page);
+		await ups.first().dispatchEvent('click');
+		await page.waitForTimeout(200);
+		expect(await rowNames(page)).toEqual(before);
 	});
 
 	test('Move down swaps the row with the one below it', async ({ page }) => {

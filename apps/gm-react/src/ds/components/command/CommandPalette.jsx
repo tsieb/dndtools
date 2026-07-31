@@ -1,6 +1,7 @@
 import React from 'react';
 import { Icon } from '../core/Icon.jsx';
 import { registerBackHandler } from '../../../platform/backNavigation';
+import { restoreReturnFocus } from '../../../platform/returnFocus';
 
 /**
  * CommandPalette — the ⌘K hot path. One overlay that lets the DM jump to any destination or fire
@@ -147,8 +148,12 @@ export function CommandPalette({
 			clearTimeout(t);
 			unregisterBack();
 			document.body.style.overflow = prevOverflow;
-			const rf = returnFocusRef.current;
-			if (rf && rf.focus) rf.focus();
+			// Palette commands NAVIGATE, so the opener is usually gone by the time this cleanup
+			// runs and `.focus()` on a detached node is a silent no-op — focus fell to <body> and the
+			// next Tab restarted at the browser chrome (WCAG 2.4.3). `restoreReturnFocus` is the shared
+			// policy Dialog and Sheet already use: reclaim only when closing STRANDED focus, and fall
+			// back to the page's `<main>` landmark when the opener died with the action it performed.
+			restoreReturnFocus(returnFocusRef.current);
 		};
 	}, [open]);
 
@@ -311,7 +316,9 @@ export function CommandPalette({
 							flex: 1,
 							minWidth: 0,
 							border: 'none',
-							outline: 'none',
+							// NO inline `outline: 'none'` — an inline style beats the global `:focus-visible`
+							// rule in `styles/tokens/base.css`, and this input is the palette's only focusable
+							// control. This is the regression class the repo has now shipped four times.
 							background: 'transparent',
 							fontFamily: 'var(--font-sans)',
 							fontSize: 'var(--text-md)',

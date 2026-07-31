@@ -134,6 +134,10 @@ export function SceneEditor() {
 	const PERSIST_FAILED =
 		"That change couldn't be saved to this device. Check storage space and try again.";
 	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
+		// Clear before the attempt: `error` lives in a `role="alert"`, which announces on INSERTION,
+		// and re-setting the identical string is an `Object.is` bail-out — so a REPEATED identical
+		// failure re-rendered nothing and was announced only the first time.
+		setError(null);
 		let result;
 		try {
 			result = await runtime.dispatch(command);
@@ -410,6 +414,9 @@ export function SceneEditor() {
 						setEditing((v) => !v);
 						setSelectedId(null);
 						setAddOpen(false);
+						// …and the details panel too: it also gates the Inspector off, so leaving it
+						// open across the Edit-layout toggle made every later widget click inert.
+						setMetaOpen(false);
 					}}
 				>
 					{editing ? 'Done' : 'Edit layout'}
@@ -449,7 +456,15 @@ export function SceneEditor() {
 					editing={editing}
 					snap={snap}
 					selectedId={selectedId}
-					onSelect={setSelectedId}
+					// The Inspector below is gated `!addOpen && !metaOpen`, but selection was not — so
+					// with "Scene details" open, clicking a widget painted its selection ring and title
+					// chip and opened no editor at all: a dead end with a visible selection and nothing
+					// to do with it. Selecting a widget is about that widget, so it closes the
+					// scene-level details panel.
+					onSelect={(id) => {
+						setSelectedId(id);
+						if (id) setMetaOpen(false);
+					}}
 					onMove={move}
 					onResize={resize}
 					focusOrder={summary.focusOrder.map((entry) => entry.widgetInstanceId)}

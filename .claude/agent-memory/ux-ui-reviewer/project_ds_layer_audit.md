@@ -1,6 +1,6 @@
 ---
 name: ds-layer-audit
-description: FIXED-vs-OPEN split for visual/interactive defects in apps/gm-react/src/ds/components/** — dead exports, token traps, e2e label coupling, and what is still broken as of run #18 (2026-07-31 @ e702bb6f)
+description: FIXED-vs-OPEN split for visual/interactive defects in apps/gm-react/src/ds/components/** — dead exports, token traps, e2e label coupling, and what is still broken as of run #19 (2026-07-31 @ 98e0211f)
 metadata:
   type: project
 ---
@@ -34,6 +34,22 @@ Re-verify before reporting — this file has been wrong before.
 custom colour is LATENT), **`Field` wrapping >1 top-level child** (0 live).
 
 ## FIXED — do NOT re-report
+
+- **Run #19 verified fixed (commit 98e0211f) — closed run #18's #1 and #3:**
+  `IconButton.jsx:82-87` `onMouseLeave` now restores `style?.background ?? v.background` /
+  `style?.color ?? v.color`, so `PlayerView.tsx`'s themed Dismiss glyph survives hover ·
+  `DataTable.jsx:110-134` the gold row hover wash + `cursor:pointer` are now gated on a new
+  `onRowClick` prop (0 live sites pass it ⇒ both live tables are correctly inert).
+  `styles/index.css:84` `.scene-board-operation` is no longer Android-gated.
+- **Run #19 checked and found to be NON-defects — retire, do not re-open:**
+  `CommandPalette.jsx:409` `onClick={() => run(cmd)}` on an `aria-disabled` option is SAFE —
+  `run()` at `:193-197` guards `cmd.disabled` itself (MapEditor:362/370 do ship live disabled
+  commands) · **ALL 10 live `<SegmentedControl>` sites pass `ariaLabel`** ⇒ no unnamed radiogroup ·
+  `Select`/`Input`/`Textarea` `focusOn` uses `box-shadow`, but `tokens/base.css:36` `:focus-visible`
+  ALSO paints a real `outline`, so forced-colors is covered — do not file it · **`Chip onClick` is
+  genuinely 0 live** (11 sites, all decorative) · `Slider.jsx:149` `aria-valuetext` is correct usage
+  (human readout, not a valuenow override) · `Minimap.jsx:176` `if (e.detail===0) return` correctly
+  ignores synthesized Enter/Space and the arrow-key path is named in the `aria-label`.
 
 - **Run #18 verified fixed (commit e702bb6f) — this CLOSED run #17's whole top-3 plus half of #9:**
   `Slider.jsx:18` `height:6px` → **`min-height:24px`** (the 6px drag strip is DEAD; band still painted
@@ -78,32 +94,49 @@ custom colour is LATENT), **`Field` wrapping >1 top-level child** (0 live).
   `SessionTimeline`, `AbilityScore`, `HPBar`, `DiceResult`, `DefinitionList`, `Stepper`,
   `BottomTabBar`, `NavRail`, `ConditionTracker`, `EmptyState`.
 
-## STILL OPEN (run #18, ranked). New this run marked ★
+## STILL OPEN (run #19, ranked). New this run marked ★
 
-1. ★ **`core/IconButton.jsx:49-50` hover handlers DISCARD a caller's `style.color` permanently.**
-   `onMouseLeave` resets `color` to `v.color` (the VARIANT default), not to what the caller passed.
-   **1 LIVE site — `screens/PlayerView.tsx:432-438`** `<IconButton label="Dismiss scene banner"
-   style={{color: theme.ink}}>` on the PLAYER-FACING projected display, which runs its own theme.
-   One hover and the glyph permanently flips to `--color-text-secondary`. Same class as `Button.jsx:
-   111-116` (which is still 0-live). Fix: capture the resting `color`/`background` on mouseenter
-   (or read `style.color` first) and restore THAT. SAFE — `scene-cards.spec.ts:345` matches the
-   button by NAME only.
-2. ★ **`core/Avatar.jsx:48` `ring="turn"` paints `2px solid var(--color-accent)` — and
-   `--color-accent` (`#e0b06f`) is the SAME hex as `--color-interactive-focus-ring`
-   (`colors.css:49` vs `:81`, and `:111` vs `:135`).** The turn ring is pixel-identical to the app's
-   focus ring at a similar offset. `Session.tsx:961` (live combat tracker) and
-   `InitiativeRow.jsx:31` gate it on `active`; **`Characters.tsx:194,726` and `CharBuilder.tsx:1384,
-   2245` pass `ring="turn"` UNCONDITIONALLY**, so four avatars permanently look focused (2.4.7 /
-   3.2.4 confusion). Fix: give `turn` its own token or a distinct treatment (thicker/dashed/inset).
-   SAFE (no spec asserts avatar styling).
-3. ★ **`data/DataTable.jsx:60-61` every row gets a gold `--color-interactive-hover` wash on
-   mouseenter, but DataTable has NO row-click prop at all.** A pure false affordance on 2 live
-   tables (`Characters.tsx:1029`, `Settings.tsx:2067`). Fix: only attach the hover pair when the
-   caller supplies an `onRowClick`/`rowHref` (and then also give the row a real control). SAFE.
-4. **`data/DataTable.jsx:16`** the `overflowX:'auto'` port still has no `tabIndex={0}` / `role="region"`
+1. ★ **`core/Button.jsx:110-116` — the `accent` variant has NO hover guard, so hovering DESTROYS
+   its gold.** `onMouseEnter`'s `else` branch fires for `accent` and sets
+   `background:'var(--color-surface-overlay)'` + `color:'var(--color-text-primary)'`, so the button
+   flashes into a plain grey secondary under the pointer, then snaps back on leave. **`IconButton.jsx:77`
+   already has exactly the right guard (`if (inert || variant === 'accent') return;`)** — Button was
+   missed when run #18 ADDED the variant. **1 LIVE site: `screens/Session.tsx:1604`**, the live-session
+   dice-roller's Roll (the surface's primary action). Fix: copy IconButton's guard. SAFE ('Roll'
+   matches no spec).
+2. ★ **`command/CommandPalette.jsx:150-151` restores focus with a naive `rf.focus()`** instead of
+   `platform/returnFocus`'s `restoreReturnFocus()` — the exact helper run #18 wrote for Dialog/Sheet,
+   whose docblock names this failure. Palette commands NAVIGATE (`MapEditor.tsx:362,370`, AppShell's
+   go-to commands), so the opener is routinely unmounted by the time the effect cleans up; `.focus()`
+   on a detached node is a silent no-op and focus falls to `<body>` (WCAG 2.4.3). **2 live mounts:
+   `AppShell.tsx:1165` (global ⌘K) and `MapEditor.tsx:963`.** Fix: one-line swap.
+3. ★ **`core/Avatar.jsx:47-48` `ring="turn"` is now PIXEL-IDENTICAL to the focus ring.** MEASURED:
+   Avatar paints `outline: 2px solid var(--color-accent)` + `outlineOffset: 2`; `tokens/base.css:36`
+   paints `outline: var(--focus-ring-width) solid var(--focus-ring-color)` +
+   `outline-offset: var(--focus-ring-offset)` = **2px / 2px / `#e0b06f`**, and `--color-accent`
+   is `#e0b06f` too (`colors.css:49` vs `:81`; `:111` vs `:135`; under `forced-colors` BOTH map to
+   `Highlight`, `:383`/`:407`). Run #17's box-shadow→outline fix made this WORSE — same property,
+   same width, same offset, same colour. **`Characters.tsx:194,726` + `CharBuilder.tsx:1384,2245`
+   pass `ring="turn"` UNCONDITIONALLY** ⇒ 4 avatars permanently look focused (2.4.7 / 3.2.4).
+   `Session.tsx:987` correctly gates on `active`. Fix: give `turn` its own token or a distinct
+   treatment (dashed / inset / thicker). SAFE.
+   ⚠️ `:47` is also the flagged `outline: … : 'none'` regression class — `{...rest}` spreads after,
+   so any future caller adding `tabIndex` to an un-ringed Avatar loses the global ring. LATENT
+   (all ~20 live sites are non-focusable spans; four pass the literal string `ring="none"`, which
+   falls through the ternary to `null` and works by accident).
+4. ★ **`app/map/MapEditor.tsx:676` renders a `<Popover>` with NO `title` and NO `aria-label`** ⇒
+   an unnamed `role="dialog"` (axe `aria-dialog-name`). Its two siblings were BOTH fixed —
+   `LayersPanel.tsx:258` and `LayerRow.jsx:263` carry explicit `aria-label`s with a comment naming
+   this rule — the export flyout was missed. `a11y-axe-gate.spec.ts` never opens a popover so no
+   gate sees it. Fix: `aria-label="Export map"`. SAFE (the spec pins the BUTTON inside it).
+5. **`data/DataTable.jsx:28`** the `overflowX:'auto'` port still has no `tabIndex={0}` / `role="region"`
    / accessible name ⇒ axe `scrollable-region-focusable`, and a keyboard-only user cannot scroll
-   Settings' 6-column grants table on a 393px phone (WCAG 2.1.1). `:54` also hand-rolls
-   "Nothing here yet." instead of `EmptyState`. SAFE (no spec references the string).
+   Settings' 6-column grants table on a 393px phone (WCAG 2.1.1). `:103` also hand-rolls
+   "Nothing here yet." instead of `EmptyState`. Live: `Characters.tsx:1029`, `Settings.tsx:2067`.
+   SAFE (no spec references the string). ⚠️ ALSO NEW: the run-#19 `onRowClick` addition makes the
+   `<tr>` clickable at `:119` with NO role/tabIndex/keydown, and `:61` `onClick` on a `sortable`
+   `<th>` is likewise mouse-only — both LATENT (0 live `onRowClick`, 0 live `sortable`) but the
+   next caller inherits a keyboard-inoperable table.
 5. **`forms/SegmentedControl.jsx:82-108` is STILL the only interactive DS primitive with no
    `minHeight`** (the run-#18 fix only added `whiteSpace`). `padding` + `lineHeight:1` ⇒ sm ≈ 24px,
    md ≈ 28px on every profile, versus the 44px comfortable-density floor every sibling honours.
@@ -211,9 +244,11 @@ custom colour is LATENT), **`Field` wrapping >1 top-level child** (0 live).
 30. **Systemic latent: `{...rest}` spread AFTER the component's own handlers** — `Button.jsx:117`,
     `IconButton.jsx:51`, `Chip.jsx:50`, `Checkbox.jsx:51`, `Switch.jsx:43`, `Tabs.jsx:62`,
     `Slider.jsx:149`, `Icon.jsx:536`. 0 live colliding sites.
-    ★ Related-but-different, also LATENT: **`Button.jsx:111-116` `onMouseLeave` resets `background`
+    ★ Related-but-different, also LATENT: **`Button.jsx:113-119` `onMouseLeave` resets `background`
     and `color` to the VARIANT defaults**, permanently discarding a caller's `style.background`
-    after the first hover. 0 live sites pass a coloured `style` (verified run #17).
+    after the first hover — `IconButton.jsx:84-85` was fixed for this in run #19 and Button was not.
+    RE-VERIFIED run #19: 0 live `<Button>` passes a `style` carrying `background`/`color`, so it
+    stays latent — but the fix is now a 2-line copy from its sibling.
 31. **`overlay/Dialog.jsx`/`Sheet.jsx` Tab traps are NOT layered** the way Escape now is — both attach
     document-capture `keydown`. Benign for today's nesting; the asymmetry is a trap. Their node filter
     `n.offsetParent !== null` (`Dialog:119`/`Sheet:77`) also drops any `position:fixed` focusable.
@@ -224,6 +259,14 @@ custom colour is LATENT), **`Field` wrapping >1 top-level child** (0 live).
     LATENT (the sole live site `Campaign.tsx:876` always passes `onClick`) — a trap for the next caller.
 34. ★ **`core/Avatar.jsx:30` `aria-hidden` hides the `<img alt={name}>` at `:55`.** Correct today
     (every live site prints the name beside it) but the `alt` should be `""` so the intent is clear.
+
+35. ★ **`forms/Checkbox.jsx:71-75`** the inline label text is a bare `<span onClick>` inside a native
+    `<label>` — the same mouse-only shape as open #10's `Switch.jsx:74-78`, and it is now the
+    LAST pair of hand-rolled label clicks in `forms/`. Fix both together (the `:44-49` density hit
+    box already covers the target, so the handler can simply be dropped).
+36. ★ **`system/EmptyState.jsx:53` hard-codes `<h3>`** regardless of where the empty state sits.
+    35 live sites, several of which render directly under an `<h1>` region or four levels deep,
+    so `heading-order` is decided by luck. Fix: an optional `headingLevel` prop (default 3).
 
 ## Token / platform landmines (read BEFORE writing any sizing, colour or theme finding)
 
@@ -248,7 +291,14 @@ custom colour is LATENT), **`Field` wrapping >1 top-level child** (0 live).
   IS declared.
 - `--color-interactive-selected` (~1.4:1) is a SELECTION wash, NOT a focus colour (test:
   `ds-interaction-fixes.test.tsx`). Ring = `--focus-ring-{width,offset,color}` from `tokens/base.css`.
-- **`box-shadow` is NOT painted under `forced-colors: active`; `outline`/`border` are.**
+- **MEASURED run #19 — the focus ring is `outline: 2px solid #e0b06f` at `outline-offset: 2px`**
+  (`tokens/spacing.css:96-98` + `tokens/base.css:36-38`). `--color-accent` is the SAME `#e0b06f`
+  in both dark themes, and under `forced-colors` both resolve to `Highlight`. So ANY `outline`
+  drawn in `--color-accent` at 2px/2px is indistinguishable from focus (see open #3, Avatar).
+  Parchment/high-contrast DO differ (`#9a5418` vs `#8a4a16`; `#ffd86b` vs `#ffff00`).
+- **`box-shadow` is NOT painted under `forced-colors: active`; `outline`/`border` are.** BUT a
+  DS control that paints its ring with `box-shadow` (`Input`/`Select`/`Textarea` `focusOn`) is
+  still covered, because the global `:focus-visible` `outline` applies on top. Don't file it.
 - **NO global `button:hover`** — every inline-styled `<button>` needs explicit `onMouseEnter/Leave`.
 - `[data-motion='reduced'|'none']` in `styles/index.css:255-265` globally forces
   `animation-duration:.001ms !important` (beats inline `animation`) ⇒ never file a per-component

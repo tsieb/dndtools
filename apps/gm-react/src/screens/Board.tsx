@@ -130,6 +130,12 @@ export function Board() {
 		: [];
 
 	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
+		// Clear before the attempt, not only after it. `error` renders inside a `role="alert"`, which
+		// announces on INSERTION — and setting the identical string again is an `Object.is` bail-out,
+		// so React never re-renders and a REPEATED identical failure (press save, it fails, press save,
+		// it fails again) was announced exactly once. Clearing first guarantees the region is removed
+		// and re-inserted, and the await below always puts the two updates in separate ticks.
+		setError(null);
 		let result;
 		try {
 			result = await runtime.dispatch(command);

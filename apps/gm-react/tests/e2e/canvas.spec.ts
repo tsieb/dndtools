@@ -246,6 +246,40 @@ test.describe('canvas: destroying a widget is confirmed', () => {
 	const widgetCount = (page: import('@playwright/test').Page, sceneId: string) =>
 		page.evaluate((id) => window.__rt!.state.scenes.scenes[id]?.widgets.length ?? 0, sceneId);
 
+	// The Inspector is gated `!addOpen && !metaOpen`, but SELECTION was not — so with "Scene details"
+	// open, clicking a widget painted its selection ring and its title chip and opened no editor at
+	// all: a visible selection with nothing to do with it. The Edit-layout toggle had the same hole
+	// (it cleared `addOpen` but not `metaOpen`), which left every later widget click inert.
+	test('selecting a widget with Scene details open still opens the Inspector', async ({ page }) => {
+		const sceneId = await sceneWithOneWidget(page);
+		const widgetId = await page.evaluate(
+			(id) => window.__rt!.state.scenes.scenes[id].widgets[0].id,
+			sceneId,
+		);
+
+		await page.getByRole('button', { name: 'Edit scene name, description & tags' }).click();
+		await expect(page.getByTestId('scene-meta-panel')).toBeVisible();
+
+		await page.getByTestId(`widget-${widgetId}`).focus();
+		await page.keyboard.press('Enter');
+
+		// The Inspector opens (its Remove control is unique to it) and the scene-level panel yields.
+		await expect(page.getByRole('button', { name: 'Remove widget' })).toBeVisible();
+		await expect(page.getByTestId('scene-meta-panel')).toHaveCount(0);
+	});
+
+	// Leaving the details panel open across the Edit-layout toggle used to survive it, so every
+	// widget click afterwards was inert for the same reason.
+	test('leaving edit mode closes the details panel as well as the Add panel', async ({ page }) => {
+		const sceneId = await sceneWithOneWidget(page);
+		expect(sceneId).toBeTruthy();
+
+		await page.getByRole('button', { name: 'Edit scene name, description & tags' }).click();
+		await expect(page.getByTestId('scene-meta-panel')).toBeVisible();
+		await page.getByRole('button', { name: 'Done', exact: true }).click();
+		await expect(page.getByTestId('scene-meta-panel')).toHaveCount(0);
+	});
+
 	test('the Inspector Remove asks first, and Keep leaves the widget alone', async ({ page }) => {
 		const sceneId = await sceneWithOneWidget(page);
 		const widgetId = await page.evaluate(

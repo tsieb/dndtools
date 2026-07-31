@@ -29,6 +29,7 @@ import { SpellSlots as RawSpellSlots } from './spell/SpellSlots.jsx';
 import { Field as RawField } from './forms/Field.jsx';
 import { EmptyState as RawEmptyState } from './system/EmptyState.jsx';
 import { SegmentedControl as RawSegmentedControl } from './forms/SegmentedControl.jsx';
+import { CommandPalette as RawCommandPalette } from './command/CommandPalette.jsx';
 
 // The DS ships as .jsx with `checkJs: false`, so tsc infers every defaultless prop as required.
 // Re-type the imports as open prop bags rather than restating each component's contract.
@@ -38,6 +39,7 @@ const DataTable = RawDataTable as React.ComponentType<DsProps>;
 const ConditionBadge = RawConditionBadge as React.ComponentType<DsProps>;
 const LayerRow = RawLayerRow as React.ComponentType<DsProps>;
 const IconButton = RawIconButton as React.ComponentType<DsProps>;
+const CommandPalette = RawCommandPalette as React.ComponentType<DsProps>;
 const Input = RawInput as React.ComponentType<DsProps>;
 const Textarea = RawTextarea as React.ComponentType<DsProps>;
 const Select = RawSelect as React.ComponentType<DsProps>;
@@ -1567,5 +1569,72 @@ describe('a segmented option truncates instead of growing the whole track', () =
 			expect(style.textOverflow).toBe('ellipsis');
 			expect(style.overflow).toBe('hidden');
 		}
+	});
+});
+
+describe('the accent Button keeps its gold under the pointer', () => {
+	// The hover handler branched on `primary` / `danger` and dropped everything else into an `else`
+	// that paints the neutral raised surface — so the ONE accent button in the app (the live-session
+	// dice Roll, `screens/Session.tsx`) demoted itself to a plain secondary the moment you pointed at
+	// it, then snapped back on leave. `IconButton` already guarded its own accent variant.
+	it('does not repaint the background/colour on mouseenter', () => {
+		act(() => root.render(<Button variant="accent">Roll</Button>));
+		const button = container.querySelector('button')!;
+		const restingBackground = button.style.background;
+		const restingColor = button.style.color;
+		act(() => {
+			button.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+		});
+		expect(button.style.background).toBe(restingBackground);
+		expect(button.style.color).toBe(restingColor);
+		// It still gives pointer feedback — just one that preserves the hue.
+		expect(button.style.filter).toBe('brightness(1.1)');
+	});
+
+	it('leaves the secondary variant raised-surface hover alone', () => {
+		act(() => root.render(<Button variant="secondary">Roll</Button>));
+		const button = container.querySelector('button')!;
+		act(() => {
+			button.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+		});
+		expect(button.style.background).toBe('var(--color-surface-overlay)');
+	});
+});
+
+describe('the command palette is a well-behaved overlay', () => {
+	// An INLINE `outline: 'none'` beats the global `:focus-visible` rule in `styles/tokens/base.css`
+	// (an inline style outranks any stylesheet), and this input is the palette's ONLY focusable
+	// control — so the app's primary keyboard surface had no focus indicator at all. This is the
+	// fourth time the repo has shipped an inline outline suppression.
+	it('does not suppress the focus ring on its combobox', () => {
+		act(() =>
+			root.render(
+				<CommandPalette open commands={[{ id: 'a', label: 'Go home' }]} onClose={() => {}} />,
+			),
+		);
+		const input = container.querySelector('input[role="combobox"]') as HTMLInputElement;
+		expect(input).not.toBeNull();
+		expect(input.style.outline).toBe('');
+	});
+
+	// Palette commands NAVIGATE, so the opener is routinely unmounted before the close cleanup runs.
+	// The old cleanup called `.focus()` on that detached node — a silent no-op — and left focus on
+	// <body>, so the next Tab restarted at the browser chrome (WCAG 2.4.3).
+	it('lands focus on the main landmark when its opener died with the command', () => {
+		const main = document.createElement('main');
+		main.setAttribute('tabindex', '-1');
+		document.body.appendChild(main);
+		const opener = document.createElement('button');
+		document.body.appendChild(opener);
+		opener.focus();
+		expect(document.activeElement).toBe(opener);
+
+		act(() => root.render(<CommandPalette open commands={[]} onClose={() => {}} />));
+		// The command navigated away and took its launcher with it.
+		opener.remove();
+		act(() => root.render(<CommandPalette open={false} commands={[]} onClose={() => {}} />));
+
+		expect(document.activeElement).toBe(main);
+		main.remove();
 	});
 });

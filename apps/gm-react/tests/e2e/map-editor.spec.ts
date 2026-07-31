@@ -460,6 +460,93 @@ test.describe('map editor', () => {
 		await lake.click();
 	});
 
+	// The vertical flyout is ABSOLUTELY POSITIONED over the canvas column (`left: 56`), so an
+	// always-open flyout is a permanent opaque ~190px panel parked on the map's top-left corner with
+	// nothing under the DM's control to move it. Pressing the group you are already showing now puts
+	// it away — which is also what makes its `aria-expanded` honest.
+	test('the sub-tool flyout can be collapsed off the canvas and brought back', async ({
+		page,
+	}, testInfo) => {
+		test.skip(
+			isPhone(testInfo),
+			'the compact layout renders the flyout in flow, not over the canvas',
+		);
+		await openAtlas(page);
+		const name = `Collapse Map ${Date.now()}`;
+		await createMap(page, { name });
+		await openEditor(page, name);
+
+		const group = page.getByRole('button', { name: 'Structure', exact: true });
+		await group.click();
+		const flyout = page.getByRole('group', { name: 'Structure tools' });
+		await expect(flyout).toBeVisible();
+		await expect(group).toHaveAttribute('aria-expanded', 'true');
+
+		// Pressing the showing group hides its flyout, freeing the canvas corner.
+		await group.click();
+		await expect(flyout).toHaveCount(0);
+		await expect(group).toHaveAttribute('aria-expanded', 'false');
+
+		// …and it comes straight back, with the tools still reachable.
+		await group.click();
+		await expect(flyout).toBeVisible();
+		await expect(group).toHaveAttribute('aria-expanded', 'true');
+		await flyout.getByRole('button', { name: 'Door' }).click();
+		await expectActiveTool(page, 'Door');
+	});
+
+	// `EditorCanvas`'s `room` branch fills with `options.terrainStyle`, but the Room tool's options bar
+	// showed only snapping — so the one option that decides what colour the room comes out was
+	// invisible under the tool that uses it, and the only way to change it was to arm Brush first.
+	test('the Room tool exposes the terrain style it paints with', async ({ page }) => {
+		await openAtlas(page);
+		const name = `Room Map ${Date.now()}`;
+		await createMap(page, { name });
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		await page.keyboard.press('r');
+		await expectActiveTool(page, 'Room');
+		const roomOptions = page.getByRole('group', { name: 'Room options' });
+		const terrain = roomOptions.getByLabel('Terrain style');
+		await expect(terrain).toBeVisible();
+		await terrain.selectOption('terrain:stone');
+		await expect(terrain).toHaveValue('terrain:stone');
+
+		// The Brush shares the same option, so the choice made under Room carries over.
+		await focusEditor(page);
+		await page.keyboard.press('b');
+		await expectActiveTool(page, 'Terrain brush');
+		await expect(
+			page.getByRole('group', { name: 'Terrain brush options' }).getByLabel('Terrain style'),
+		).toHaveValue('terrain:stone');
+	});
+
+	// `Popover` derives its accessible name only from a STRING `title`, and this one passes neither a
+	// title nor a label — so it rendered an unnamed `role="dialog"` (axe `aria-dialog-name`). The axe
+	// gate never opens a popover, so nothing else was going to catch it.
+	test('the export menu is a NAMED dialog', async ({ page }, testInfo) => {
+		await openAtlas(page);
+		const name = `Export Map ${Date.now()}`;
+		await createMap(page, { name });
+		await openEditor(page, name);
+
+		await editorRoot(page)
+			.getByRole('button', { name: isPhone(testInfo) ? /Export|More map actions/ : 'Export' })
+			.first()
+			.click();
+		await expect(page.getByRole('dialog', { name: /Export map|More map actions/ })).toBeVisible();
+		// No unnamed dialog is left in the tree.
+		const unnamed = await page
+			.getByRole('dialog')
+			.evaluateAll(
+				(els) =>
+					els.filter((el) => !el.getAttribute('aria-label') && !el.getAttribute('aria-labelledby'))
+						.length,
+			);
+		expect(unnamed).toBe(0);
+	});
+
 	// `[` / `]` mutate the fog brush size and `EditorCanvas` reads it as `fogBrushRadius`, but the
 	// options bar rendered it only for the terrain brush and the eraser — so with the fog Brush shape
 	// armed the size changed with no readout anywhere in the UI.

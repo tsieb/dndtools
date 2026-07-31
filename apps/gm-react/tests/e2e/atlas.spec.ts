@@ -184,6 +184,61 @@ test.describe('atlas: the DM can see which map is on the players’ screens', ()
 		expect(home.status, home.rejection?.message ?? '').toBe('accepted');
 	});
 
+	// `shared` is the visibility that means "visible ONLY once it has been delivered", and Atlas fed
+	// its `delivered` set to `getMapViewForActor` but NOT to `queryMapLayers` — so `isDelivered()`
+	// answered false for every map and a non-DM lost every shared layer. The map still resolved
+	// `available`, so the player (or the DM under "view as player") got a blank grid and
+	// "No layers are visible to you" the instant the DM projected it.
+	test('a projected shared map keeps its layers for the player it was projected to', async ({
+		page,
+	}) => {
+		const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+		const stamp = Date.now();
+		const mapName = `Shared Cliffs ${stamp}`;
+		const layerName = `Cliff Path ${stamp}`;
+		const created = await dispatch(page, {
+			type: 'map.create',
+			actorId,
+			payload: {
+				name: mapName,
+				visibility: 'shared',
+				projection: { kind: 'flat', rotationDegrees: 0 },
+				initialLayers: [{ name: layerName, category: 'base', visibility: 'shared' }],
+			},
+		});
+		expect(created.status, created.rejection?.message ?? '').toBe('accepted');
+
+		// Select it, then put it on the players' screens.
+		await page
+			.getByRole('button', { name: new RegExp(mapName) })
+			.first()
+			.click();
+		await expect(page.locator(`${MAIN} button[aria-current="true"]`).first()).toContainText(
+			mapName,
+		);
+		await page.getByRole('button', { name: 'Project to players' }).click();
+		await expect(page.getByText(/Projected .+ to \d+ player/)).not.toHaveCount(0);
+
+		// Now look at the very same screen as the player it was delivered to. It has to be a SPECIFIC
+		// player: the generic `enterPreview(page, 'player')` actor has no projection of its own, and
+		// delivery is recorded per player actor.
+		await page.evaluate(() =>
+			window.__rt!.enterPreview({ role: 'player', playerActorId: 'actor-player' }),
+		);
+		await page.waitForFunction(() => window.__rt?.preview?.actorId === 'actor-player', null, {
+			timeout: 5_000,
+		});
+		// Preview re-derives the visible list, so the selection falls back to the player's first map.
+		const playerChip = page.getByRole('button', { name: new RegExp(mapName) }).first();
+		await expect(playerChip).toBeVisible();
+		await playerChip.click();
+		await expect(page.locator(`${MAIN} button[aria-current="true"]`).first()).toContainText(
+			mapName,
+		);
+		await expect(page.getByText('No layers are visible to you')).toHaveCount(0);
+		await expect(page.getByText(layerName).first()).toBeVisible();
+	});
+
 	test('marks the projected map, and only that map, after Project to players', async ({ page }) => {
 		const project = page.getByRole('button', { name: 'Project to players' });
 		await expect(project).toBeVisible();

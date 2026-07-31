@@ -1113,25 +1113,38 @@ function CombatPanel({
 											aria-hidden="true"
 											style={{ width: 1, height: 20, background: T.bd, margin: '0 4px' }}
 										/>
+										{/* Reaching either END of the order is the normal way to use these: press
+										    "earlier" until the combatant is first and the button hard-disabled itself
+										    under the finger that pressed it, dropping focus to <body>. The BOUND is now
+										    soft (focusable, named, swallows the press); `previewing` stays hard. */}
 										<IconButton
 											icon="chevron-up"
 											label={`Move ${selected.name} earlier in initiative`}
 											variant="ghost"
 											size="sm"
-											disabled={previewing || selectedIndex <= 0}
-											onClick={() => onReorder(selected.id, 'earlier')}
+											disabled={previewing}
+											aria-disabled={selectedIndex <= 0 || undefined}
+											onClick={() => {
+												if (selectedIndex <= 0) return;
+												onReorder(selected.id, 'earlier');
+											}}
 										/>
 										<IconButton
 											icon="chevron-down"
 											label={`Move ${selected.name} later in initiative`}
 											variant="ghost"
 											size="sm"
-											disabled={
-												previewing ||
+											disabled={previewing}
+											aria-disabled={
 												selectedIndex < 0 ||
-												selectedIndex >= tracker.combatants.length - 1
+												selectedIndex >= tracker.combatants.length - 1 ||
+												undefined
 											}
-											onClick={() => onReorder(selected.id, 'later')}
+											onClick={() => {
+												if (selectedIndex < 0 || selectedIndex >= tracker.combatants.length - 1)
+													return;
+												onReorder(selected.id, 'later');
+											}}
 										/>
 										<Button
 											variant="secondary"
@@ -1710,8 +1723,23 @@ function HandoutsPanel({
 							variant="primary"
 							size="sm"
 							icon="send"
-							disabled={!canDeliver || !title.trim()}
-							onClick={onDeliver}
+							// A successful push CLEARS the title, so this button natively disabled itself
+							// the instant the DM used it — under their own focus, which then fell to
+							// <body> and restarted the next Tab at the top of the page. Soft-disabled it
+							// keeps the tab stop and, for the first time, says why it is unavailable.
+							// (DS `Button` only swallows `aria-disabled={true}`, so guard the handler too.)
+							aria-disabled={!canDeliver || !title.trim() || undefined}
+							title={
+								!canDeliver
+									? 'Go live to push handouts to players'
+									: !title.trim()
+										? 'Give the handout a title first'
+										: undefined
+							}
+							onClick={() => {
+								if (!canDeliver || !title.trim()) return;
+								onDeliver();
+							}}
 						>
 							Push to players
 						</Button>

@@ -204,6 +204,14 @@ const TOAST_TONE: Record<string, { bd: string; bg: string; fg: string }> = {
 		bg: 'var(--color-status-info-subtle)',
 		fg: 'var(--color-status-info-text)',
 	},
+	// A bad roll is not a system failure. `error` here means role="alert" + aria-live="assertive"
+	// (see the viewport below) AND exclusion from the persistent polite region, so "Natural 1 —
+	// critical miss" interrupted a screen-reader mid-sentence in the app's red failure skin.
+	warning: {
+		bd: 'var(--color-status-warning-border)',
+		bg: 'var(--color-status-warning-subtle)',
+		fg: 'var(--color-status-warning-text)',
+	},
 	neutral: { bd: T.bdS, bg: T.surf, fg: T.ink },
 };
 
@@ -490,7 +498,7 @@ export function PlayerView() {
 		const recorded = after.rolls.length > 0 ? after.rolls[after.rolls.length - 1] : null;
 		const crit = recorded ? critOf(recorded) : undefined;
 		if (crit === 'success') toast('Natural 20 — critical hit', 'success', 'sparkle');
-		else if (crit === 'fail') toast('Natural 1 — critical miss', 'error', 'close');
+		else if (crit === 'fail') toast('Natural 1 — critical miss', 'warning', 'close');
 		return recorded;
 	};
 	// Resolve a roller's display name. Joined devices have no full roster, so map self → "You" and fall

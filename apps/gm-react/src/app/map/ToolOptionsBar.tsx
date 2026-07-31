@@ -259,6 +259,17 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 			);
 			break;
 		case 'room':
+			// The Room tool fills with `options.terrainStyle` (`EditorCanvas.tsx`'s `room` branch), but
+			// its options bar showed only snapping — so the single option that decides what colour the
+			// room comes out was invisible under the tool that uses it, and the only way to change it
+			// was to arm Brush or Fill first. Same shape as the fog brush-size gap fixed by run #8.
+			controls = (
+				<>
+					<TerrainSelect editor={editor} />
+					<SnapMenu editor={editor} />
+				</>
+			);
+			break;
 		case 'wall':
 			controls = <SnapMenu editor={editor} />;
 			break;

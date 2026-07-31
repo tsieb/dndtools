@@ -1,12 +1,13 @@
 ---
 name: settings-extensions-community-cluster
-description: UX audit state for gm-react Settings/Extensions/Community/WikiReader — run #13 re-verify @21e4f86e; six items closed by the 33651613 fix pass, 14 open, led by the phone settings picker naming the WRONG section for any gated tab and the AI Cancel button that does nothing observable.
+description: UX audit state for gm-react Settings/Extensions/Community/WikiReader — run #14 re-verify @98e0211f; the phone picker + Extensions aria-label + prepaint reduce-motion are CLOSED, and the run introduced a BLOCKER in screen-kit Seg (a disabled-but-checked option kills the group's only tab stop, live on the AI provider picker).
 metadata:
   type: project
 ---
 
-Audit state for `apps/gm-react/src/screens/{Settings,Extensions,Community,WikiReader}.tsx`.
-Run #10 @`8fa95d31`. Run #11 @`9aeebdde`. Run #12 @`016b696c`. **Run #13 @`21e4f86e` = latest.**
+Audit state for `apps/gm-react/src/screens/{Settings,Extensions,Community,WikiReader}.tsx`
+(+ `src/app/screen-kit.tsx`, which this cluster and the Audio cluster share).
+Run #10 @`8fa95d31`. #11 @`9aeebdde`. #12 @`016b696c`. #13 @`21e4f86e`. **Run #14 @`98e0211f` = latest.**
 Line numbers from `auto/visual-review-loop`. Re-check by grepping the anchor string, not the line.
 
 ⚠️ **The agent definition points at `/home/trinkle/Programming/dndtools-review-loop-ctl/…` — that path
@@ -18,92 +19,90 @@ Runs ≤#12: `SettingsPermissions.grant()` catch; `loadFolders()` catch + Retry;
 honours `[data-modal-exempt]`; the whole empty-live-region class (`screen-kit LoadingRegion` + the
 source-scan test at `screen-kit-loading-region.test.tsx:64`); `radioGroupKeyDown` Home/End + disabled-skip;
 `nextHighContrastTheme` for the **Switch**.
-**New as of run #13 (@`21e4f86e`, commit `33651613`):**
-- **run#12 §3 CLOSED** — `Settings.tsx:333-341` the Appearance theme `Seg` now writes `PREV_THEME_KEY`
-  before entering high contrast. Both doors preserve Parchment.
-- **run#12 §4 CLOSED** — `Settings.tsx:3847-3851` AI transcript is `tabIndex={0} role="log"
-  aria-label="Assistant transcript"` + a scroll-to-bottom ref. (But see new §3 — the scroll is naive.)
-- **run#12 §5 CLOSED** — `Settings.tsx:3878`/`:3901` `<span style={srOnly}>You said: / Assistant said: </span>`.
-- **run#12 §6 CLOSED** — `Extensions.tsx:1268-1274` + `:1345-1348` statblock / spell scrollers got
-  `tabIndex={0} role="group" aria-label`.
-- **run#12 §8 CLOSED** — `Settings.tsx:4932` rail rows are `minHeight: 'var(--touch-target-min)'`.
-  ⚠️ `responsive.spec.ts:441` asserts `toHaveCSS('min-height','44px')` on every rail button — the token
-  resolves to 44px at base, so it still passes. Do not "improve" this to a literal.
-- **run#12 §9 CLOSED** — `Settings.tsx:4211-4216` `Badge status={policy?'neutral':'warning'}` with
-  "Using campaign default".
+Run #13 (`33651613`): theme `Seg` writes `PREV_THEME_KEY`; AI transcript `tabIndex=0 role="log"`;
+srOnly "You said:/Assistant said:"; Extensions statblock/spell scrollers `tabIndex=0 role=group`;
+settings rail rows `minHeight: var(--touch-target-min)`; Permissions `Badge status` policy default.
+**New as of run #14 (@`98e0211f`):**
+- **run#13 §1 CLOSED** — `Settings.tsx:4885-4887` `navItems` appends the ACTIVE gated entry to
+  `visibleNav`, so the phone `<Select>` and the desktop rail both name the real sub-page.
+  (Residual LOW: the appended entry lands at the END of the list and carries no lock marker.)
+- **run#13 §6 CLOSED** — `Extensions.tsx:2001` visible `<label>` now reads "Object title" and the
+  competing `aria-label` was deleted. `custom-types.spec.ts:120/133` still green.
+- **run#13 §7 CLOSED** — `public/prepaint.js:38-39` is now
+  `pref==='reduced' ? … : pref==='full' ? … : osReduce ? …`. Stored `'full'` survives reload.
+- `Settings.tsx:2749-2760` recovery **export** soft-disable is NOT a defect — `passIssue` IS rendered
+  visibly at `:2802-2807`. Do not re-file it as tooltip-only.
+- `Settings.tsx:3275` AI provider CARDS and `:2753` both guard their onClick correctly.
 
-## STILL-OPEN (run #13, ranked)
+## STILL-OPEN (run #14, ranked)
 
-### NEW this run
-1. ⭐ **`Settings.tsx:4869-4878` + `:4904-4911` — the phone settings picker NAMES THE WRONG SECTION
-   for any gated-off tab.** `visibleNav` filters out tabs failing `gatedOff()`, but `tab` still holds
-   the requested id. DS `Select` is a native `<select>` (`ds/components/forms/Select.jsx:35`), and a
-   native select whose `value` matches no `<option>` displays the FIRST option. Default tier is
-   `core` (`packages/core/src/state/onboarding.ts:86`) while `permissions` needs `advanced` and
-   `plugins`/`systems` need `intermediate` (`onboarding.ts:48,58`) ⇒ 3 of 13 sub-pages. **Live in-app
-   path:** Command Center → Manage → "Permissions" (`CommandCenter.tsx:303` + `:527`) navigates to
-   `/settings?tab=permissions`. Phone result: picker reads "Appearance", panel reads "Hidden at your
-   experience level". Desktop/rail result: NO button carries `aria-current="page"` — location unmarked.
-   Fix: append the active `SETTINGS_NAV` entry to the rendered list when it is not in `visibleNav`
-   (`GatedTab` already offers the unlock, so the entry is not a dead end).
-2. ⭐ **`Settings.tsx:3966-3973` the assistant's Cancel is observably inert.** `abortRef.current?.abort()`
-   only flips a flag read BETWEEN passes (`ai/mcpBridge.ts:333/338/363/409`), and the transport call
-   `sendAiChat(config, req)` (`Settings.tsx:3745`) is invoked WITHOUT the signal. During a model call
-   the badge still reads "Working — step N of 16", the button stays enabled and unchanged, and the only
-   acknowledgement is the eventual `Toaster.info('Assistant run cancelled.')`. UI-only fix: a
-   `cancelling` state → `disabled` + "Cancelling…" + badge "Cancelling — finishing the current step…".
-   (Real abort = thread `controller.signal` into `sendAiChat`, an `ai/` change.)
-3. **`Settings.tsx:3697-3700` transcript auto-scroll hijacks the reader.** Unconditional
-   `el.scrollTop = el.scrollHeight` on every `feed.length` change — and run #13 made the region
-   focusable, so keyboard users are now yanked too (up to 16× in a 16-pass run). Also keyed on
-   `feed.length`, so a growing final message is not kept in view. Fix: only scroll when already
-   pinned to the bottom (`scrollHeight - scrollTop - clientHeight < 40`), tracked in a ref via `onScroll`.
-4. **`Extensions.tsx:299-317` "Install / upgrade package" replaces an installed package with NO
-   confirm.** A pasted `id` matching an installed non-removed package dispatches `widget.package.upgrade`
-   at once — new definition + `migrations` run over every placed widget on every board, no diff, no undo.
-   The sibling `removePackage` (`:229`) DOES confirm; `Community.confirmInstall` shows a review dialog.
-   Fix: a `pendingUpgrade` Dialog naming `existing.package.version → definition.version`, reusing the
-   `confirmRemoveId` shape already in the file.
-5. **`Community.tsx:1044-1071` marketplace publish dialog is placeholder-as-label.** `Module name` /
-   `Module summary` / `Module version` carry `aria-label` + `placeholder` and no visible label; the
-   "(required)" marker is INSIDE the placeholder so it vanishes on first keystroke, and `publish`
-   (`:824-827`) rejects Toaster-only. Fix: DS `Field` with `label` + `error` (the file already uses the
-   `eb` mini-label idiom at `:1406`/`:1414`).
-6. Nit: **`Extensions.tsx:1997-2009` the title `<Input>` carries BOTH `<label htmlFor>` ("Title") and
-   `aria-label="Object title"`.** The `aria-label` wins, so the wired label is announced to nobody and
-   visible text ≠ accessible name (WCAG 2.5.3 risk). ⚠️ `custom-types.spec.ts:120/133` uses
-   `getByLabel('Object title')` — so the SPEC-SAFE fix is to change the visible `<label>` text to
-   "Object title", NOT to delete the `aria-label`.
+### NEW this run — all in `screen-kit.tsx`, introduced/left by `98e0211f`
+1. ⭐⭐ **BLOCKER `screen-kit.tsx:240-241` — a `Seg` whose CHECKED option is also `disabled` has NO
+   tab stop at all.** `selectedIndex = findIndex(o => o.value===value && !o.disabled)` → `-1`;
+   the fallback `findIndex(o => !o.disabled)` → `-1` when every option is disabled ⇒ every button
+   gets `tabIndex={-1}` and the radiogroup drops out of the tab order entirely. Note `off =
+   o.disabled && !on`, so the checked option is NOT natively disabled — it is visible, focusable by
+   mouse, and unreachable by keyboard. **Live instance: `Settings.tsx:3393/:3397`** — the AI provider
+   `Seg` sets `disabled: hasKey` on BOTH options, so the moment an API key is stored the whole
+   control is keyboard-dead (WCAG 2.1.1). Same latent shape at `Session.tsx:710` (phase rail) and
+   `Graph.tsx:220`. Fix: `const selectedIndex = options.findIndex(o => o.value === value)` first,
+   fall back to the first non-disabled only when nothing is checked.
+2. ⭐ **`screen-kit.tsx:225-230` + `:280` — the new `title` option prop is DEAD API.** Zero call
+   sites pass `title:` (grepped all of `src/`). Its own JSDoc names the victims ("the session phase
+   rail, Graph's viewpoint picker and seven Settings groups"), so the 0.4-opacity-with-no-reason
+   problem is still 100% live. And `title` on a natively `disabled` button is pointer-only anyway —
+   the house idiom is soft-disable (`aria-disabled` + guarded onClick + Toaster), which
+   `Settings.tsx:3272-3283` already does correctly for the provider CARDS.
+3. **`screen-kit.tsx:288-297` Seg hover leaks when an option's state changes under the pointer.**
+   `onMouseEnter` writes `style.background` imperatively; `onMouseLeave` early-returns on `on || off`.
+   If an option becomes `disabled` while hovered, React does not rewrite `background` (its prop value
+   is `'transparent'` before and after) and mouseLeave refuses to clear it ⇒ a stuck hover tint on a
+   dead option. Use a `useState` hover index (the `BackBar` pattern at `screen-kit.tsx:345`) instead
+   of `currentTarget.style`.
 
-### Carried from run #12
-7. **`apps/gm-react/public/prepaint.js:34-36` vs `Settings.tsx:361-373` + `:4692-4706`: reduce-motion
-   CANNOT be turned OFF when the OS asks for it.** prepaint writes `pref === 'reduced' || osReduce ?
-   'reduced' : 'full'`, discarding a stored `'full'` on every reload. Both controls work in-session and
-   silently revert — and `Settings.tsx:4688-4690` explicitly promises they "stay selected next time".
-   1-line fix: `pref === 'reduced' ? 'reduced' : pref === 'full' ? 'full' : (osReduce ? 'reduced' : 'full')`.
-   ⚠️ `responsive.spec.ts:680` emulates `reducedMotion:'reduce'` but writes no localStorage — unaffected.
-8. **`Settings.tsx:2405-2496` `role="status" aria-live="polite" aria-atomic="true"` wraps the backup
-   buttons AND the restore `<Dialog>`** (DS Dialog is NOT portaled) ⇒ opening the destructive confirm
-   re-announces the whole atomic region. Move role/aria onto the inner text block (`:2421`).
-9. **Detail-panel-below-the-list on phone**: `Extensions.tsx:884` / `Community.tsx:281` collapse to one
-   column with the detail Panel AFTER the list; `setSelKey`/`setSelId` never scroll or move focus ⇒
-   tapping a card in a 40-row list looks inert. Model: `WikiReader.tsx:301-308`. ⚠️ `Panel` takes no
-   `ref`/`id` — wrap in `<div tabIndex={-1} ref>`.
-10. **`Settings.tsx:4061-4062` `registerAgent` clears `newAgentId`/`newLabel` synchronously**, before
-    the dispatch resolves ⇒ a rejected registration wipes typed input. Fix: clear in an `onAccepted`.
-11. **`Settings.tsx:4798-4806 GatedTab`'s "Switch to …" button unmounts itself** — focus lands on
-    `<body>`, nothing announces the reveal. Same shape, milder: **`:4874 setTab`** swaps the whole
-    right-hand panel with no focus move and no announcement.
-12. **`Settings.tsx:4230-4260` agent-binding remove** drops focus to `<body>` (the two Extensions
-    siblings got `autoFocus`; this one did not).
-13. Nit: **`Settings.tsx:3294-3305` `<ol>` inside `<button>`** (AI provider preset cards) — invalid
+### Carried, still open
+4. **`Settings.tsx:3966-3971` the assistant's Cancel is observably inert.** `abortRef.current?.abort()`
+   only flips a flag read BETWEEN passes (`ai/mcpBridge.ts:333/338/363/409`); `sendAiChat` at
+   `Settings.tsx:3745` gets no signal. Badge keeps saying "Working — step N of 16". UI-only fix: a
+   `cancelling` state → `disabled` + "Cancelling…".
+5. **`Settings.tsx:3696-3700` transcript auto-scroll hijacks the reader.** Unconditional
+   `el.scrollTop = el.scrollHeight` on every `feed.length` change, now that run #13 made the region
+   focusable. Fix: only scroll when already pinned (`scrollHeight-scrollTop-clientHeight < 40`).
+6. **`Extensions.tsx:299-317` "Install / upgrade package" replaces an installed package with NO
+   confirm.** Sibling `removePackage` (`:229`) DOES confirm; `Community.confirmInstall` shows a review
+   dialog. Fix: a `pendingUpgrade` Dialog naming `existing.package.version → definition.version`.
+7. **`Extensions.tsx:2120-2128` `SystemSwitchDialog`'s "Apply switch" is hard-`disabled={!canApply}`
+   and the dialog never says why.** `canApply` folds in `canWrite`, so a previewing / non-DM user gets
+   a full migration preview and a dead primary button — the explanation lives on a DIFFERENT panel
+   (`:2303-2307`), outside the dialog. The `destructive && !ack` case is also hard-disabled while the
+   ack Checkbox (`:2238`) gets no `aria-invalid`.
+8. **`Extensions.tsx:1937-1955` + `:2014-2060` custom-object create: required fields are toast-only.**
+   `create()` guards only `title`; empty `f.required` fields dispatch, get rejected, and surface as a
+   `path: message` Toaster string. No `aria-invalid`, no focus move, no per-field error. The labels
+   at `:2032` visibly say "required". Fix: DS `Field error=`.
+9. **`Community.tsx:1044-1071` marketplace publish dialog is placeholder-as-label.** Three controls
+   with `aria-label` + `placeholder` only; "(required)" lives INSIDE the placeholder so it vanishes on
+   first keystroke; `publish()` (`:824-827`) rejects Toaster-only.
+10. **`Settings.tsx:2405-2496` `role="status" aria-live="polite" aria-atomic="true"` wraps the backup
+    buttons AND the restore `<Dialog>`** (DS Dialog is NOT portaled) ⇒ opening the destructive confirm
+    re-announces the whole atomic region. Move role/aria onto the inner text block (`:2421`).
+11. **Detail-panel-below-the-list on phone**: `Extensions.tsx:884` / `Community.tsx:281` collapse to
+    one column with the detail Panel AFTER the list; `setSelKey`/`setSelId` never scroll or move focus.
+    Model: `WikiReader.tsx:301-308`. ⚠️ `Panel` takes no `ref`/`id` — wrap in `<div tabIndex={-1} ref>`.
+12. **`Settings.tsx:4061-4062` `registerAgent` clears `newAgentId`/`newLabel` synchronously**, before
+    the dispatch resolves ⇒ a rejected registration wipes typed input.
+13. **`Settings.tsx:4798-4806 GatedTab`'s "Switch to …" button unmounts itself** — focus lands on
+    `<body>`. Milder twin: `:4917`/`:4929` `setTab` swaps the whole right-hand panel with no focus
+    move and no announcement.
+14. **`Settings.tsx:4230-4260` agent-binding remove** drops focus to `<body>`.
+15. Nit: **`Settings.tsx:3309-3319` `<ol>` inside `<button>`** (AI provider preset cards) — invalid
     content model, and the numbered setup list joins the button's accessible name.
-14. **`WikiReader.tsx:380-396` the `invalid` phase has no Retry.**
-15. **Form validation is Toaster-only** (no `invalid`, no inline error, no focus move):
-    `Community.tsx` wiki publish + module publish, `Settings.tsx` invite mint. `RecoveryKeyPanel` is
-    the in-house model; DS `Field`'s `error` prop is the cheap mechanism (see the DS note below).
-16. **Run status is invisible to AT**: `Settings.tsx:3820`/`:3964` the `statusText` badge
+16. **`WikiReader.tsx:380-396` the `invalid` phase has no Retry.**
+17. **Run status is invisible to AT**: `Settings.tsx:3820`/`:3964` the `statusText` badge
     ("Working — step 3 of 16 · table.create") is a plain `<Badge>` in no live region.
+18. LOW: **`Community.tsx:208`** `sel = find(selId) ?? modules[0]` ⇒ on load the FIRST card renders
+    `aria-pressed="true"` (`:332`) and looks selected though nobody pressed it; a refresh that drops
+    the selected module silently swaps the detail panel.
 
 Lower-value, verified: `qrDataUrl(...)` has no `.catch`; `InvitesPanel`'s post-mint dialog swap drops
 focus; `Extensions.tsx` "Export JSON" toasts "into the JSON box below" without scrolling to it;
@@ -111,52 +110,54 @@ hard-`disabled` status buttons ("Current plan", "Current system", "Back up now")
 
 ## VERIFIED NON-ISSUES (do not re-open)
 - **DS `Field` auto-associates its label** (`ds/components/forms/Field.jsx:12-21`, `React.useId` +
-  `cloneElement`) — a `<Field>` with an id-less single child is NOT an unlabelled-control defect.
-  It also renders `error` as `role="alert"` + `aria-invalid` + `aria-describedby` (`:75-85`) and
-  describes `help` and `error` SEPARATELY. **This is the fix mechanism for every Toaster-only form.**
-- **`icon="trash"` IS registered** (`Icon.jsx:335 → 'Trash2'`). 10 call sites; not a fallback-Square bug.
-- **The AI `feed` is append-only** (`setFeed(prev => [...prev, …])`, no in-place streaming mutation),
-  so `role="log"` does NOT chatter token-by-token. Only the scroll behaviour (§3) is wrong.
-- **`runAssistantExchange` NEVER rejects** (`ai/mcpBridge.ts:297-298` documents it; transport throws are
-  caught at `:344`). The missing `.catch` on `ask()`'s chain is therefore not a defect.
+  `cloneElement`); `error` → `role="alert"` + `aria-invalid` + `aria-describedby` (`:75-85`).
+  **This is the fix mechanism for every Toaster-only form.**
+- **`icon="trash"` IS registered** (`Icon.jsx:335 → 'Trash2'`).
+- **The AI `feed` is append-only**, so `role="log"` does not chatter token-by-token.
+- **`runAssistantExchange` NEVER rejects** (`ai/mcpBridge.ts:297-298`); the missing `.catch` is fine.
 - `notifyRunComplete` (`Settings.tsx:3641-3664`) toasts every terminal state incl. `cancelled`.
 - **Nested `data-theme="parchment"`** (`Community.tsx`, `WikiReader.tsx`): correct.
-- `T.*` screen-kit map → semantic tokens; theme-nesting safe. `--color-status-error-border` EXISTS.
 - `<label>` wrapping a DS `Switch`: `<button>` IS labelable.
-- `void runAssistantExchange(...)` with no `.catch`: see above.
 - `Panel title="… &amp; …"` JSX entities: esbuild DECODES them.
 - `repeat(auto-fill,minmax(N,1fr))` without a `min(100%,…)` guard: Pixel 5 = 393px ⇒ ~365px content box
   outside a Panel, ~327px inside one; 260/300px tracks fit.
 - DS `Dialog` traps + restores focus and supports `initialFocus="#id"` + `role="alertdialog"` +
-  `dismissible` — see the exemplary `LocalBackupPanel` restore confirm (`Settings.tsx:2958-2999`).
-- DS `Button` implements soft-disable via `aria-disabled` (`Button.jsx:20-26`). ⚠️ Playwright does NOT
-  treat `aria-disabled` as disabled, so soft-disabling a control a spec CLICKS changes that spec.
-- `screen-kit Seg`'s Home/End maths (`moveSelection(-1,+1)` / `(0,-1)`) is CORRECT — verified run #13.
+  `dismissible` — see `LocalBackupPanel`'s restore confirm (`Settings.tsx:2958-2999`).
+- DS `Button` soft-disables via `aria-disabled` and DROPS onClick (`Button.jsx:87`). ⚠️ Playwright does
+  NOT treat `aria-disabled` as disabled, so soft-disabling a control a spec CLICKS changes that spec.
+- **`screen-kit Seg`'s Home/End maths is CORRECT** (`moveSelection(-1,+1)` / `(0,-1)`). The BROKEN part
+  is `tabStopIndex` — see item 1.
+- **`screen-kit eb` is now `T.sub`, not `T.ter`** (`:90-95`) — the eyebrow contrast item is CLOSED.
+  `SetRow`'s `help` (`:404`) is still `T.ter`, but `SetRow` renders inside `Panel` whose background is
+  `T.raised`, where parchment `T.ter` measures 4.75 = PASS. Do not file it.
+- `Settings.tsx` sticky settings nav `top: 0` is safe: `<main>` (`AppShell.tsx:1146`) is the scroll
+  container, not the document.
 
 ## Established patterns this cluster should copy
 - Destructive confirm done right: `Settings.tsx:2958` (`role="alertdialog"`, `initialFocus`,
   `dismissible={!busy}`, `aria-busy`, danger button carries the busy label).
-- Radiogroup done right: `Settings.tsx:4397+`; `Seg` (`screen-kit.tsx:203+`) is the compact variant.
-- Load-failure with Retry: `Settings.tsx:525`, `:683`, `:2152`, `Community.tsx:276-289`.
-- Inline WCAG 3.3.1 validation: `RecoveryKeyPanel`, `WikiReader.tsx:417-430`, and DS `Field error=`.
+- Soft-disable done right: `Settings.tsx:3272-3283` (aria-disabled + title + guarded onClick + Toaster).
+- Radiogroup done right: `Settings.tsx:4397+`; `Seg` (`screen-kit.tsx:215+`) is the compact variant.
+- Load-failure with Retry: `Settings.tsx:525`, `:683`, `:2152`, `Community.tsx:287-300`.
+- Inline WCAG 3.3.1 validation: `RecoveryKeyPanel` (`Settings.tsx:2802`), `WikiReader.tsx:417-430`,
+  DS `Field error=`.
 - Selection that moves the reader: `WikiReader.tsx:301-308`.
-- Announced loading: `screen-kit.tsx:114 LoadingRegion`.
-- Pure helpers in `settings-validation.ts` + `.test.ts` — how to unit-test logic without stubbing
-  `window.matchMedia` (absent in this repo's jsdom; stubbing also trips `lint:boundary` PLAT-006).
+- Announced loading: `screen-kit.tsx:123 LoadingRegion`.
 
 ## e2e coverage notes
 `responsive.spec.ts:4-19` overflow-checks `/extensions`, `/community`, `/settings`; the loop only ever
 sees each route's DEFAULT tab. `responsive.spec.ts:428-446` pins the rail nav's 44px min-height by
-iterating `navigation[name="Settings navigation"] button` — adding a nav entry is safe, changing the
-token is not. `settings.spec.ts:22-59` drives ONLY the Experience-complexity radiogroup.
+iterating `navigation[name="Settings navigation"] button` — **adding the gated entry to `navItems`
+keeps that green only because the token is 44px; do not add a nav row with a different height.**
+`settings.spec.ts:22-59` drives ONLY the Experience-complexity radiogroup.
 `ai-assistant.spec.ts:72-76` reads the phone `Settings section` select but only counts
 `option[value="ai"]`; `:154` clicks a `Cancel` inside the FORGET-KEY dialog, not the run panel;
 `:99/:217` pin `Ask the assistant` + `Ask`. `custom-types.spec.ts:120/133` pins `getByLabel('Object title')`.
 `wiki.spec.ts` pins `Campaign wiki`, `Publish wiki`, `Eligible pages`, `Reading preview`,
-`Player-visible pages`. NO spec references `Install / upgrade package`, `Module name`, or
-`Widget package definition JSON`.
+`Player-visible pages`. NO spec references `Install / upgrade package`, `Module name`,
+`Widget package definition JSON`, or `Apply switch`.
 Still unguarded: the Open5e picker, the recovery-key dialog, Community → Export's banner,
-Settings → Permissions grant/revoke, the AI provider preset cards, and **the motion / high-contrast
-toggles** (so §7 has no regression net — a pure helper + `.ts` test is the cheap one to add).
+Settings → Permissions grant/revoke, the AI provider preset cards + provider `Seg`, and the
+motion / high-contrast toggles.
 
 See also [[audio-upgrade-scenes-creator-cluster]], [[onboarding-viewas-cluster]], [[ds-layer-audit]].

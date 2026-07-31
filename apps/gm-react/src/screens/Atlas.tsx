@@ -157,8 +157,14 @@ export function Atlas() {
 		return all;
 	}, [runtime.state.session, actorId, isDm]);
 	const maps = useMemo(
-		() => listMapsForActor(runtime.state.maps, runtime.state.permissions, actorId),
-		[runtime.state.maps, runtime.state.permissions, actorId],
+		() =>
+			// Same delivery gap as `queryMapLayers` below: without `delivered`, `isDelivered()` said
+			// false for every map, so a `shared` map that is visible ONLY because "Project to players"
+			// delivered it never even appeared in a player's map switcher.
+			listMapsForActor(runtime.state.maps, runtime.state.permissions, actorId, {
+				deliveredMapIds: delivered,
+			}),
+		[runtime.state.maps, runtime.state.permissions, actorId, delivered],
 	);
 
 	// POI deep links — `#/atlas?map=…&poi=…`, the exact URL MapBuilder's "copy link" writes and the
@@ -206,11 +212,21 @@ export function Atlas() {
 	const layerResult = useMemo(
 		() =>
 			selectedId
-				? queryMapLayers(runtime.state.maps, runtime.state.permissions, actorId, {
-						mapId: selectedId,
-					})
+				? queryMapLayers(
+						runtime.state.maps,
+						runtime.state.permissions,
+						actorId,
+						{ mapId: selectedId },
+						// The view above already passes `delivered`; this call did not, so
+						// `isDelivered()` said false for every map and a non-DM lost every layer
+						// that is visible ONLY because "Project to players" delivered it. The map
+						// resolved `available` while its layer list came back empty — a player (or
+						// the DM under "view as player") saw a blank grid with floating POIs and
+						// "No layers are visible to you" the instant the DM projected the map.
+						{ deliveredMapIds: delivered },
+					)
 				: { layers: [], hiddenMatchCount: 0 },
-		[runtime.state.maps, runtime.state.permissions, actorId, selectedId],
+		[runtime.state.maps, runtime.state.permissions, actorId, selectedId, delivered],
 	);
 	const layers = layerResult.layers;
 

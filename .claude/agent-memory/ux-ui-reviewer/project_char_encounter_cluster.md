@@ -1,15 +1,44 @@
 ---
 name: char-encounter-cluster
-description: Char/encounter cluster (Characters.tsx, CharBuilder.tsx, EncounterBuilder.tsx) — FIXED-vs-STILL-OPEN split re-verified 2026-07-31 @ 21e4f86e (run #20), plus the e2e spec-coupling map
+description: Char/encounter cluster (Characters.tsx, CharBuilder.tsx, EncounterBuilder.tsx) — FIXED-vs-STILL-OPEN split re-verified 2026-07-31 @ 98e0211f (run #22), plus the e2e spec-coupling map
 metadata:
   type: project
 ---
 
-# Char/Encounter cluster — state at HEAD 21e4f86e (2026-07-31, run #20)
+# Char/Encounter cluster — state at HEAD 98e0211f (2026-07-31, run #22)
 
-Line counts at HEAD: `Characters.tsx` 1931, `CharBuilder.tsx` 2470, `EncounterBuilder.tsx` 734.
-**`33651613` touched Characters.tsx (+180/-86) and EncounterBuilder.tsx (+57/-19).** `CharBuilder.tsx`
-has NOT changed since run #11, so every CharBuilder item below is still open verbatim.
+Line counts at HEAD: `Characters.tsx` 1950, `CharBuilder.tsx` 2470, `EncounterBuilder.tsx` 734.
+**`98e0211f` touched Characters.tsx (+21/-2) only.** `CharBuilder.tsx` has NOT changed since run #11
+and `EncounterBuilder.tsx` not since `33651613`, so those items are open verbatim.
+
+## FIXED at 98e0211f — do not re-chase
+- **run #20 OPEN #1 — Damage/Heal LIE at the HP boundaries.** `Characters.tsx:440-452` early-returns
+  with "Already at 0 hit points — no damage applied." / "Already at full health — N of N hit points."
+  The durable no-op write is gone. ⚠️ TWO holes remain — see new OPEN #1.
+- **run #20 OPEN #2 (identical text never re-announced) + OPEN #3 (stale `note` under a fresh
+  error).** Both closed by one line: `dispatch` now does `setNote('')` at `:418` before the await.
+  Verified the await boundary yields two separate flushes, so the blank→text diff is real and
+  `character-sheet.spec.ts:184`'s full-string match is untouched. ⚠️ The `applyHp` boundary branch
+  BYPASSES `dispatch` and therefore bypasses this clear — new OPEN #1.
+
+## NEW at run #22 (verified @ 98e0211f)
+1. **The new HP-boundary refusal `Characters.tsx:440-452` is unreachable for sighted users AND
+   announces only once.** `note` renders ONLY into `role="status" style={srOnly}` at `:709-711`, so
+   pressing Damage at 0 HP (or Heal at full) now produces literally no visible change — a dead
+   button with a secret explanation. And because the branch returns before `dispatch`, it never
+   runs the `setNote('')` clear at `:418`, so a second identical press is dropped by AT too.
+   Fix: blank the note first, and mirror the refusal into a visible slot. ⚠️ Do NOT add a second
+   `role="status"` inside `#main-content` — `character-sheet.spec.ts:135,152` pin `toHaveCount(1)`.
+   The `!error.field` alert slot `:712-716` or an `info`-toned reuse of `error` is the spec-safe home.
+2. **`Characters.tsx:1067` still leaks the raw enum: "Advancing to level 4 (xp)."** — the exact twin
+   of the `Player.tsx:2192` line `98e0211f` just fixed. `KIND_LABEL` (`:198`, `:759`) is the in-file
+   pattern. ZERO e2e refs to this string.
+3. **`CharBuilder.tsx:2211` visibility Tile grid is a hard `1fr 1fr` with no `isPhone` branch** —
+   every sibling Tile grid (`:1688`, `:1764`, `:1828`) uses `auto-fill minmax(160-190px,1fr)`, which
+   collapses to one column on a Pixel 5. Wizard body padding is 16px each side `:1590`, so at 393px
+   each tile gets ~175px, of which 81px is the 34px icon + gap 11 + padding 12×2 ⇒ ~94px of text:
+   "Players can see" wraps and the 37-char sub wraps to 4–5 lines (worse when `on`, which adds a
+   16px check). Fix: `isPhone ? 'minmax(0,1fr)' : '1fr 1fr'`.
 
 ## FIXED at 33651613 (do not re-chase)
 - **run #15 OPEN #1 — EncounterBuilder orphan encounters.** `builtIdRef` `:130` + invalidation effect
@@ -30,22 +59,11 @@ has NOT changed since run #11, so every CharBuilder item below is still open ver
   `crDrafts`/`qtyDrafts`; `backdropDismissible={rows.length===0}`; DataTable overflow wrapper;
   `SpellSlots` read-only `role="img"`; `screen-kit.radioGroupKeyDown`/`BackBar`.
 
-## STILL OPEN — ranked, line numbers verified at 21e4f86e
+## STILL OPEN — ranked; line numbers below are from 21e4f86e (Characters.tsx shifted ~+19 after :418)
 
-1. **`Characters.tsx:433-439` Damage/Heal LIE at the HP boundaries** (NEW, introduced by the
-   announcement fix). `next = clamp(hp+delta,0,maxHp)` — at hp 0 a Damage press dispatches
-   `character.set-combat` with the UNCHANGED hp (a durable no-op journal entry) and announces
-   "Damaged 7. 0 of 24 hit points."; at full HP, "Healed 7. 24 of 24". Fix: early-return with a
-   truthful note when `next === view!.combat.hp`. SPEC: `character-sheet.spec.ts:175-186` asserts
-   `/Damaged 1\. \d+ of \d+ hit points\./` after ONE press from full HP — unaffected.
-2. **`Characters.tsx:411-429/:690` the new live region never re-announces IDENTICAL text** (NEW).
-   AT diffs live-region text, so a repeated action is silently dropped. Worst case: "Save choices"
-   `:646-651` → "Level-up choices saved." is pressed once per field in a multi-field level-up —
-   only the FIRST press is heard. Same for "Sharing updated." `:592`, "Saved 1 attack." `:568`.
-   ⚠️ Fix with `{text, seq}` + `key={seq}` on an inner node, NOT a zero-width suffix —
-   `character-sheet.spec.ts:184` is a full-string `toHaveText(regex)` and `:153` is `toHaveText('')`.
-3. **`Characters.tsx:412` clears `error` but never `note`** (NEW) — after a failed write the stale
-   success text sits in the status region.
+1. ~~Damage/Heal lie at the HP boundaries~~ **CLOSED at 98e0211f** — but see NEW #1 above.
+2. ~~live region never re-announces identical text~~ **CLOSED at 98e0211f** (`setNote('')` at `:418`).
+3. ~~clears `error` but never `note`~~ **CLOSED at 98e0211f** (same line).
 4. **`Characters.tsx:1115-1117` level-up "Cancel" is destructive, unconfirmed, and now the ONLY
    silent write in the file** (NEW). `cancelAdvancement()` `:667-669` is the one dispatch left with
    no `okNote` after `33651613`. Ghost `sm`, accessible name just "Cancel", sits beside "Finish

@@ -677,6 +677,11 @@ export function MapEditor({
 							open
 							onClose={() => setExportOpen(false)}
 							triggerRef={exportTriggerRef}
+							// Named without a visible header, exactly as the two sibling map popovers are:
+							// `Popover` derives its accessible name only from a STRING `title`, so this one
+							// rendered an unnamed `role="dialog"` (axe `aria-dialog-name`). The axe gate never
+							// opens a popover, so nothing was going to catch it.
+							aria-label={quickMapMode ? 'More map actions' : 'Export map'}
 							width={220}
 							placement="bottom"
 							style={{

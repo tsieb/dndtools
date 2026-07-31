@@ -111,7 +111,12 @@ export function Button({
 			onMouseEnter={(e) => {
 				if (inert) return;
 				if (variant === 'primary') e.currentTarget.style.background = 'var(--color-accent-hover)';
-				else if (variant === 'danger') e.currentTarget.style.filter = 'brightness(1.1)';
+				// `accent` used to fall into the `else` below, which paints the neutral raised surface —
+				// so the gold accent button (the live dice Roll) DEMOTED itself to a plain secondary the
+				// moment you pointed at it, then snapped back on leave. `IconButton` already guards its own
+				// accent variant; brightness keeps the hue while still giving pointer feedback.
+				else if (variant === 'danger' || variant === 'accent')
+					e.currentTarget.style.filter = 'brightness(1.1)';
 				else {
 					e.currentTarget.style.background = 'var(--color-surface-overlay)';
 					e.currentTarget.style.color = 'var(--color-text-primary)';

@@ -1,6 +1,6 @@
 ---
 name: player-char-scene-display-cluster
-description: gm-react Player/PlayerView/Join/SceneDisplay/SceneDisplayOverlay/ProjectionControl/ViewAsControl — FIXED-vs-OPEN split re-verified 2026-07-31 at 21e4f86e (run #20)
+description: gm-react Player/PlayerView/Join/SceneDisplay/SceneDisplayOverlay/ProjectionControl/ViewAsControl — FIXED-vs-OPEN split re-verified 2026-07-31 at 98e0211f (run #22)
 metadata:
   type: project
 ---
@@ -8,11 +8,22 @@ metadata:
 Cluster: `screens/Player.tsx` (/player, in DM shell), `screens/PlayerView.tsx` (/play, chrome-less),
 `screens/Join.tsx`, `screens/SceneDisplay.tsx` (/display), `app/SceneDisplayOverlay.tsx`,
 `app/ProjectionControl.tsx`, `app/ViewAsControl.tsx`.
-Run #20 re-read Player/PlayerView/Join at `21e4f86e`. Entries marked ‡ carried from run #9, NOT
-re-verified. Line counts at HEAD: Player 2617, PlayerView 2262, **Join 216 (unchanged)**.
-`33651613` touched Player (+24) and PlayerView (+12).
+Run #22 re-read Player/PlayerView/Join at `98e0211f`. Entries marked ‡ carried from run #9, NOT
+re-verified. Line counts at HEAD: **Player 2667, PlayerView 2274, Join 216 (unchanged)**.
+`98e0211f` touched Player (+74) and PlayerView (+16).
 
-## FIXED — do not re-flag
+## FIXED at 98e0211f (run #20's whole top-3 + two copy items) — do not re-chase
+- **run #20 OPEN #1 — marching order move-UP-only / row-1 gutter collapse.** `Player.tsx:1688-1693`
+  adds `moveDown`; `:1896-1915` now RENDERS both chevrons on every row and `disabled`s them at the
+  ends. ⚠️ The `disabled` is HARD → new focus-loss defect, see new OPEN #1.
+- **run #20 OPEN #2 — "Clear" destroys the order with no undo.** Now `clearOrder()` `:1697-1709`
+  with an Undo toast, relabelled **"Clear order"** `:1846-1847`. ⚠️ Still unmounts itself — OPEN #1.
+- **run #20 OPEN #16 (half) — raw enums.** `Player.tsx:2192` now "XP/Milestone advancement";
+  `PlayerView.tsx:146-153` `kindLabel()` applied at `:2146` and `:2257`. ⚠️ FIVE sites survive —
+  see new OPEN #6.
+- **run #20 OPEN #17 — "1 members"** → `Player.tsx:1769-1771` pluralises.
+
+## FIXED earlier — do not re-flag
 - **run #15 OPEN #1 — death-save pips** `Player.tsx:1524-1545` now `role="img"`
   `aria-label="{n} of 3 {successes|failures}"` + a visible `n/3` mono readout. ⚠️ The pips are still
   READ-ONLY (nothing dispatches `death-save`) and the badge still lies — see OPEN #1 below.
@@ -48,21 +59,55 @@ re-verified. Line counts at HEAD: Player 2617, PlayerView 2262, **Join 216 (unch
 - `T.accFg` on a `T.ok` fill (`Player.tsx:2182-2183`) PASSES — dark 8.23:1, parchment 5.38:1.
 - `T.warn` as TEXT on `T.surf` (`Player.tsx:2200`) PASSES — dark 8.65:1, parchment 4.76:1.
 
-## STILL OPEN (file:line, ranked, verified @ 21e4f86e unless marked ‡)
-1. **`Player.tsx:1860-1868` marching order is MOVE-UP ONLY, and the control VANISHES on row 1**
-   (NEW, run #20). No `moveDown` exists anywhere in the file (grep confirms only `moveUp` `:1679`).
-   Moving the top member to the bottom of a 5-person order means pressing "Move X up" on the four
-   below in the right sequence; the last member cannot be moved down at all. The `i > 0` guard OMITS
-   the IconButton on row 1 instead of disabling it, so row 1's right gutter collapses and its name
-   column is ~28px wider than every other row — visible misalignment. **Two in-repo precedents do it
-   right:** `SceneCardsPanel.tsx:574/584` and `Atlas.tsx:835/845` both ship up AND down, and
-   `scene-cards.spec.ts:428-435` asserts the first item's Move-up is RENDERED and `toBeDisabled()`.
-   ZERO e2e refs to the party labels. SAFE.
-2. **`Player.tsx:1814-1816` "Clear" destroys the whole marching order — no confirm, no undo** (NEW).
-   The stash Remove 100 lines below (`:1705-1730`) in the SAME panel column ships a full Undo toast,
-   and `setOrder(prev)` is the exact inverse (`party.marchingOrder` is in hand). The button is a
-   `ghost sm` labelled just "Clear" in a Panel header, so it reads as a filter reset. ZERO e2e refs.
-3. **`Player.tsx` announces ONLY HP — ~12 other durable writes are silent** (NEW). `role="status"`
+## NEW at run #22 (all verified @ 98e0211f)
+1. ⭐ **The Marching order panel drops keyboard focus to `<body>` on EVERY successful action** —
+   three separate mechanisms in one panel. (a) `Player.tsx:1845-1849` "Clear order" is guarded on
+   `party.marchingOrder.length > 0`, so a successful clear unmounts the button you just pressed.
+   (b) `:1855-1864` "Set from roster" lives inside the `length === 0` branch — same, in reverse.
+   (c) `:1903`/`:1911` the new chevrons use HARD `disabled`, and `IconButton.jsx:50` passes it to
+   the native attr, so a row reaching rank 1 or last disables the button under its own focus.
+   This is the exact class the project already fixed at `Join.tsx:197-207` (soft-disable via
+   `aria-disabled`). Fix: keep Clear/Set mounted + `aria-disabled`; on a boundary move, focus the
+   sibling chevron. ZERO e2e refs to any marching-order label.
+2. **Reordering is silent and the rank is not in the button name.** `moveUp`/`moveDown`
+   `:1679-1693` announce nothing; the rank `{i + 1}` `:1889` is a bare `<span>` outside the
+   `aria-label`. A SR user hears "Move Cara up" and then nothing at all — no confirmation, no new
+   position. (Concrete instance of OPEN #3 below; Player still has ONLY the HP `role="status"`.)
+3. **`PlayerView` never surfaces the roll RESULT.** `rollOne` `:1506-1517` fires and forgets;
+   `rollDice` `:471-495` toasts only crits and errors. On phone `:1563-1568` stacks Roll above
+   "Table roll log" in one column, so the new entry is below the fold ⇒ tapping d20 gives zero
+   visible AND zero announced feedback. Fix: toast/announce the total on every accepted roll.
+4. **`PlayerView.tsx:493` "Natural 1 — critical miss" is toasted with `status:'error'`**, which at
+   `:846-848` gives it `role="alert" aria-live="assertive"` + the red error skin, and EXCLUDES it
+   from the persistent polite region `:823`. A routine bad roll interrupts as a system error. Use a
+   neutral/warning status.
+5. **`PlayerView.tsx:823-824` drops byte-identical repeats.** The region renders
+   `[...toasts].reverse().find(t => t.status !== 'error')?.msg ?? ''` — two nat-20s in a row, or
+   the same lock refusal twice, change no text ⇒ announced once. `Characters.tsx:418` just got the
+   blank-then-set fix for exactly this; here the fix is `key={toast.id}` on an inner node.
+   (Toast lifetimes are uniform 2800ms FIFO `:187`, so no stale-revert bug — checked.)
+6. **Five raw-enum Badges survive the `98e0211f` copy pass**: `Player.tsx:2245` `{meta.kind}` renders
+   "class"/"hp"/"choice" beside each level-up step label; `Player.tsx:2483` `{im.kind}`;
+   `PlayerView.tsx:1849` `{n.kind}`; `PlayerView.tsx:1924` `{e.kind}`. (`Characters.tsx:1067`
+   "(xp)" is the Characters-cluster twin — filed there.) `kindLabel` `PlayerView.tsx:146` is the
+   in-repo pattern to extend.
+7. **`Player.tsx:2110-2122` hides the XP eligibility reason entirely when `nextXp === null`** — the
+   whole *Experience* Panel that carries `xpEligible.message` is conditional, while the hard-
+   `disabled` "Level up (XP)" button `:2124-2131` always renders. Sharpens OPEN #5: at max level /
+   missing XP table the button is unexplained AND out of the tab order.
+8. **`Player.tsx:2458-2470` journal inline editor.** Save is hard-`disabled={!editTitle.trim()}`
+   with no `aria-invalid`/`aria-describedby` on the Input `:2447-2451` and no visible reason;
+   Cancel `:2459` discards the draft unconfirmed; BOTH unmount themselves on activation
+   (`setEditId(null)`) ⇒ focus to `<body>`; and `startEdit` `:2349-2353` never moves focus into the
+   title Input, so the editor opens silently for a SR user.
+
+## STILL OPEN from earlier runs (file:line, ranked; line numbers REBASED to 98e0211f)
+1. ~~move-up-only + row-1 gutter collapse~~ **CLOSED at 98e0211f.** In-repo precedent for the pair:
+   `SceneCardsPanel.tsx:574/584`, `Atlas.tsx:835/845`; `scene-cards.spec.ts:428-435` asserts the
+   first item's Move-up is RENDERED and `toBeDisabled()`.
+2. ~~"Clear" with no undo~~ **CLOSED at 98e0211f** (Undo toast + "Clear order" relabel).
+3. **`Player.tsx` announces ONLY HP — ~12 other durable writes are silent** (still the top carryover;
+   `moveUp`/`moveDown`/`clearOrder` joined the silent set). `role="status"`
    `:475-477` is fed exclusively by `setHpNote` (`:307`, the sole setter besides three resets).
    Silent: equipment add/remove/equip/qty, journal add/edit/delete/share, party stash add/remove,
    marching order set/clear/move, inspiration toggle, Rest, every level-up step. `Characters.tsx`

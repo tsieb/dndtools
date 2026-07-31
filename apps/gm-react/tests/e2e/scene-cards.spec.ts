@@ -154,6 +154,46 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		await expect(launcher).toBeFocused();
 	});
 
+	// The overlay's control bar is permanently dark chrome (`rgba(6,9,14,0.72)` over a near-black
+	// stage) but its DS Buttons painted whatever the DOCUMENT theme said — in parchment
+	// `--color-text-secondary` is `#5c4a39`, i.e. ~2.4:1 on that bar. And both queue controls
+	// hard-`disable`d themselves on their own last press, dropping focus to <body> inside a modal
+	// whose siblings are `inert`.
+	test('the scene display bar is theme-locked and its queue controls soft-disable', async ({
+		page,
+	}) => {
+		await page.keyboard.press('Control+Shift+S');
+		const display = page.getByRole('dialog', { name: 'Scene display' });
+		await expect(display).toBeVisible();
+
+		// The bar resolves the dark palette regardless of the document theme.
+		const next = display.getByRole('button', { name: /Next card/ });
+		await expect(next).toBeVisible();
+		expect(
+			await next.evaluate((el) => el.closest('[data-theme]')?.getAttribute('data-theme') ?? null),
+		).toBe('tavern');
+
+		// Nothing queued and nothing displayed: both controls say so instead of vanishing from the
+		// tab order. Playwright refuses to `.click()` an aria-disabled target, so drive the DOM event.
+		const clear = display.getByRole('button', { name: 'Clear display' });
+		for (const [control, reason] of [
+			[next, /Queue a scene card first/i],
+			[clear, /Nothing is on the display/i],
+		] as const) {
+			await expect(control).toHaveAttribute('aria-disabled', 'true');
+			await expect(control).toHaveAttribute('title', reason);
+			expect(await control.evaluate((el: HTMLButtonElement) => el.disabled)).toBe(false);
+			await control.focus();
+			await expect(control).toBeFocused();
+			await control.dispatchEvent('click');
+		}
+		// The swallowed presses raised no core rejection.
+		await expect(page.getByText('The scene queue is empty.')).toHaveCount(0);
+
+		await page.keyboard.press('Escape');
+		await expect(display).toBeHidden();
+	});
+
 	test('the composer authors a player-visible scene card that survives reload', async ({
 		page,
 	}) => {
