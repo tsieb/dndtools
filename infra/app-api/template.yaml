@@ -176,10 +176,19 @@ Resources:
               audience:
                 - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/identity/app-client-id}}'
       CorsConfiguration:
-        AllowOrigins: !If
-          - IsProd
-          - ['dndtools://app', !Ref WebOrigin]
-          - ['dndtools://app', 'http://localhost:5273', 'http://localhost:4273', !Ref WebOrigin]
+        # AllowOrigins MUST stay a literal YAML list. Making the list *itself* an !If breaks
+        # SAM's HttpApi transform: it emits `x-amazon-apigateway-cors: <the Fn::If>` in place of
+        # the cors object, losing allowHeaders/allowMethods entirely, and API Gateway then ignores
+        # the malformed key and configures NO CORS AT ALL. That fails silently — the stack deploys
+        # green and only the browser notices. Conditioning individual *elements* is fine, since
+        # CloudFormation resolves AWS::NoValue by dropping that entry from the list.
+        # No 'dndtools://app' here: API Gateway rejects a custom-scheme origin outright
+        # ("Invalid format for origin"), which fails the whole stack update. The desktop and
+        # mobile builds are not browsers and are not subject to CORS, so they never needed it.
+        AllowOrigins:
+          - !If [IsProd, !Ref 'AWS::NoValue', 'http://localhost:5273']
+          - !If [IsProd, !Ref 'AWS::NoValue', 'http://localhost:4273']
+          - !Ref WebOrigin
         AllowHeaders:
           - authorization
           - content-type

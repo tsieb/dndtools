@@ -166,10 +166,13 @@ Resources:
               audience:
                 - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/identity/app-client-id}}'
       CorsConfiguration:
-        AllowOrigins: !If
-          - IsProd
-          - ['dndtools://app', !Ref WebOrigin]
-          - ['dndtools://app', 'http://localhost:5273', 'http://localhost:4273', !Ref WebOrigin]
+        # Literal list, conditioned per element — see the note in infra/app-api/template.yaml.
+        # An !If wrapping the whole list silently produces an API with no CORS whatsoever.
+        # No 'dndtools://app' — API Gateway rejects custom-scheme origins; see app-api's note.
+        AllowOrigins:
+          - !If [IsProd, !Ref 'AWS::NoValue', 'http://localhost:5273']
+          - !If [IsProd, !Ref 'AWS::NoValue', 'http://localhost:4273']
+          - !Ref WebOrigin
         AllowHeaders:
           - authorization
           - content-type
