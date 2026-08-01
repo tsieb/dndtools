@@ -24,7 +24,7 @@ const MIGRATION_HTML = path.join(RENDERER_ROOT, 'storage-origin-migration.html')
 const userData = mkdtempSync(path.join(tmpdir(), 'dndtools-origin-migration-smoke-'));
 
 registerAppScheme(protocol);
-app.setName('DND Tools Origin Migration Smoke');
+app.setName('Lamplight Origin Migration Smoke');
 app.setPath('userData', userData);
 // The harness intentionally cycles through hidden windows. Keep Electron alive between them just as
 // the production main process does while its boot-time migration is in progress.

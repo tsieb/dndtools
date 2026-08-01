@@ -1,4 +1,4 @@
-# electron-builder config for the DND Tools GM desktop shell (macOS + Linux + Windows).
+# electron-builder config for the Lamplight GM desktop shell (macOS + Linux + Windows).
 # Preview CI explicitly disables certificate discovery; production CI supplies platform signing
 # credentials and enables macOS notarization. See docs/development/RELEASING.md.
 #
@@ -8,9 +8,9 @@
 # This also sidesteps electron-builder walking the pnpm-symlinked node_modules / the `workspace:*`
 # core dependency.
 appId: com.dndtools.gm
-productName: DND Tools GM
+productName: Lamplight GM
 # Hyphenated artifact names (productName has spaces) so download URLs are clean.
-artifactName: DND-Tools-GM-${version}-${arch}.${ext}
+artifactName: Lamplight-GM-${version}-${arch}.${ext}
 
 directories:
   output: release
@@ -35,12 +35,12 @@ mac:
   hardenedRuntime: true
   gatekeeperAssess: false
   extendInfo:
-    NSLocalNetworkUsageDescription: DND Tools uses your local network to find and connect to nearby game tables.
+    NSLocalNetworkUsageDescription: Lamplight uses your local network to find and connect to nearby game tables.
     NSBonjourServices:
       - _dndtools._tcp
 
 linux:
-  executableName: dndtools-gm
+  executableName: lamplight-gm
   target:
     - target: AppImage
       arch:
@@ -49,7 +49,7 @@ linux:
   synopsis: Offline Game-Master workspace for tabletop RPGs
   desktop:
     entry:
-      Name: DND Tools GM
+      Name: Lamplight GM
 
 win:
   target:
@@ -68,7 +68,7 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: DND Tools GM
+  shortcutName: Lamplight GM
 
 # CI (release.yml) attaches the built dmg/AppImage/exe to a DRAFT GitHub Release for the pushed tag.
 publish:

@@ -55,7 +55,7 @@ export const CONTENT_SOURCE_IDS: readonly ContentSourceId[] = [
 /**
  * The note-structure FEATURES a constraint check classifies. These are exactly the structures
  * `markdown.ts` DETECTS (front matter properties, aliases, tags, inline `#tags`, `[[wikilinks]]`) plus
- * the DND Tools namespaced metadata the import/export layer manages. A future feature is added here once
+ * the Lamplight namespaced metadata the import/export layer manages. A future feature is added here once
  * `markdown.ts` detects it — the descriptors then declare per-source support for it.
  */
 export type ContentNoteFeature =
@@ -69,7 +69,7 @@ export type ContentNoteFeature =
 	| 'inline-tags'
 	// Obsidian `[[wikilinks]]`.
 	| 'wikilinks'
-	// DND Tools metadata, which MUST stay NAMESPACED under `dndtools.*` (never a bare common property).
+	// Lamplight metadata, which MUST stay NAMESPACED under `dndtools.*` (never a bare common property).
 	| 'dndtools-namespaced-metadata';
 
 export const CONTENT_NOTE_FEATURES: readonly ContentNoteFeature[] = [
@@ -144,7 +144,7 @@ export const CONTENT_SOURCE_DESCRIPTORS: Readonly<Record<ContentSourceId, Conten
 			displayName: 'Obsidian',
 			version: '1',
 			summary:
-				'Obsidian vault markdown. Frontmatter properties, aliases, tags, inline #tags, and [[wikilinks]] are all represented natively; DND Tools metadata stays namespaced under dndtools.*.',
+				'Obsidian vault markdown. Frontmatter properties, aliases, tags, inline #tags, and [[wikilinks]] are all represented natively; Lamplight metadata stays namespaced under dndtools.*.',
 			featureSupport: {
 				'frontmatter-properties': 'supported',
 				aliases: 'supported',
@@ -159,7 +159,7 @@ export const CONTENT_SOURCE_DESCRIPTORS: Readonly<Record<ContentSourceId, Conten
 			displayName: 'Google Docs',
 			version: '1',
 			summary:
-				'Rich-text document. It cannot represent markdown front matter, wikilinks, aliases, or DND Tools metadata as structured data — these are dropped on a destructive write-back. Inline #tag text survives but loses its tag semantics.',
+				'Rich-text document. It cannot represent markdown front matter, wikilinks, aliases, or Lamplight metadata as structured data — these are dropped on a destructive write-back. Inline #tag text survives but loses its tag semantics.',
 			featureSupport: {
 				'frontmatter-properties': 'unsupported',
 				aliases: 'unsupported',
@@ -196,7 +196,7 @@ const FEATURE_LABEL: Record<ContentNoteFeature, string> = {
 	tags: 'Tags',
 	'inline-tags': 'Inline #tags',
 	wikilinks: '[[wikilinks]]',
-	'dndtools-namespaced-metadata': 'DND Tools metadata (dndtools.*)',
+	'dndtools-namespaced-metadata': 'Lamplight metadata (dndtools.*)',
 };
 
 /** Build the per-feature diagnostic message. Describes the FEATURE + outcome, never raw note contents. */
@@ -235,7 +235,7 @@ export interface DetectedNoteStructures {
 	tags: number;
 	inlineTags: number;
 	wikilinks: number;
-	/** DND Tools namespaced metadata keys (`dndtools.*` or the `dndtools` map). */
+	/** Lamplight namespaced metadata keys (`dndtools.*` or the `dndtools` map). */
 	dndtoolsMetadata: number;
 }
 
@@ -273,7 +273,7 @@ export interface ContentConstraintCheck {
 	acknowledgmentToken: string | null;
 }
 
-/** The DND Tools namespace prefix (`dndtools.`) and bare key, reused from the import layer. */
+/** The Lamplight namespace prefix (`dndtools.`) and bare key, reused from the import layer. */
 const DNDTOOLS_PREFIX = `${DNDTOOLS_PROPERTY_NAMESPACE}.`;
 
 /** Front-matter keys the markdown layer surfaces as first-class fields (not "user properties"). */

@@ -253,7 +253,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 		const host = ensureHost();
 		// LAN advertise is fire-and-forget; swallow its rejection so it can't become
 		// an unhandled promise rejection.
-		if (discovery) void wireHost(host, discovery, 'DND Tools table', '', 'nearby').catch(() => {});
+		if (discovery) void wireHost(host, discovery, 'Lamplight table', '', 'nearby').catch(() => {});
 	}, [discovery, ensureHost, wireHost]);
 
 	// Make the table joinable over the internet (auth-gated). Can be combined with LAN
@@ -274,7 +274,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 			// transits the signaling relay; the same code remains valid only while this host runs.
 			const pin = generateJoinPin();
 			try {
-				await wireHost(host, bridge, 'DND Tools table', pin, 'online');
+				await wireHost(host, bridge, 'Lamplight table', pin, 'online');
 				if (lifecycle !== lifecycleRef.current || hostRef.current !== host) {
 					throw new Error('Hosting was stopped before the table became available.');
 				}

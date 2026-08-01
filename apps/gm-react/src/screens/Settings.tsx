@@ -186,7 +186,7 @@ function SettingsLanguage() {
 		<Panel title={t('Language & region')}>
 			<div style={{ display: 'grid', gap: 12, maxWidth: 520 }}>
 				<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>
-					{t('Choose the language used throughout DND Tools. Your choice is saved on this device.')}
+					{t('Choose the language used throughout Lamplight. Your choice is saved on this device.')}
 				</div>
 				<Select
 					aria-label={t('Language')}
@@ -879,7 +879,7 @@ function AccountDangerPanel() {
 			const result = await downloadJsonFile(
 				`dndtools-account-${fileDateStamp()}.json`,
 				data,
-				'Export DND Tools account data',
+				'Export Lamplight account data',
 			);
 			if (result.status === 'exported') Toaster.success('Online account record exported.');
 		} catch (e: unknown) {
@@ -918,7 +918,7 @@ function AccountDangerPanel() {
 			setConfirmOpen(false);
 			if (cleanupWarnings.length > 0) {
 				Toaster.error(
-					`Your online account was deleted, but ${cleanupWarnings.join(' and ')}. Close and reopen the app to retry queued key removal. If the warning returns, remove the saved DND Tools credential with your operating-system credential manager.`,
+					`Your online account was deleted, but ${cleanupWarnings.join(' and ')}. Close and reopen the app to retry queued key removal. If the warning returns, remove the saved Lamplight credential with your operating-system credential manager.`,
 				);
 			} else {
 				Toaster.success('Your account has been deleted. Local vaults stay on this device.');
@@ -2667,7 +2667,7 @@ function RecoveryKeyPanel() {
 			const result = await downloadJsonFile(
 				`dndtools-recovery-key-${fileDateStamp()}.json`,
 				JSON.parse(text) as unknown,
-				'DND Tools recovery key',
+				'Lamplight recovery key',
 			);
 			closeDialogs();
 			Toaster.success(
@@ -2894,7 +2894,7 @@ function LocalBackupPanel() {
 			const result = await downloadJsonFile(
 				`dndtools-vault-backup-${fileDateStamp()}.json`,
 				data,
-				'Save DND Tools vault backup',
+				'Save Lamplight vault backup',
 			);
 			if (result.status === 'exported') {
 				Toaster.success(
@@ -3242,7 +3242,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 			}
 		>
 			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-				Bring your own key — DND Tools does not include one or send it through our servers. The key
+				Bring your own key — Lamplight does not include one or send it through our servers. The key
 				stays on this device (memory + this browser session; OS-encrypted storage in native apps)
 				and is never written to the campaign, its history, or cloud backups. Until a key is saved,
 				the assistant stays off.

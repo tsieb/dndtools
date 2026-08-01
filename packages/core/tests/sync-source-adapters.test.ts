@@ -55,7 +55,7 @@ import { validateSyncOperationShape } from '../src/sync/operation-model';
  *   - SYNC-003: an adapter plugs in WITHOUT changing any core command/reducer contract — every op it
  *     emits passes the SAME canonical-shape conformance guard the in-process commands satisfy.
  *   - SYNC-004: the Obsidian round-trip preserves YAML properties, tags, aliases, [[wikilinks]],
- *     markdown links, headings, and user frontmatter, and ISOLATES DND Tools metadata under dndtools.*.
+ *     markdown links, headings, and user frontmatter, and ISOLATES Lamplight metadata under dndtools.*.
  *   - SYNC-005/016: the Google Docs adapter tracks file ids/cursors/revisions, reports unsupported
  *     formatting loss, and surfaces auth/rename/delete/offline-queue/conflict as EXPLICIT sync states.
  *   - SYNC-012: both pull and push are proven across notes, properties, links, headings, revisions, and
@@ -246,7 +246,7 @@ describe('SYNC-004 Obsidian round-trip preserves user content and isolates DND m
 	});
 
 	it('writing DND metadata never collides with a user property of the same bare name', () => {
-		// A user authors a `visibility` property AND DND Tools writes `dndtools.visibility`. They coexist.
+		// A user authors a `visibility` property AND Lamplight writes `dndtools.visibility`. They coexist.
 		const withBoth = '---\nvisibility: public-note\ndndtools.visibility: dm-only\n---\nBody.';
 		const note = obsidianFileToCanonicalNote(withBoth);
 		expect(note.userProperties['visibility']).toBe('public-note');

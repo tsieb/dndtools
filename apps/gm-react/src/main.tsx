@@ -43,7 +43,7 @@ if (!container) throw new Error('Root container #root not found');
 const nativeDisplay = Boolean(
 	(globalThis as typeof globalThis & { dndtoolsSceneDisplay?: boolean }).dndtoolsSceneDisplay,
 );
-const nativeTitle = nativeDisplay ? 'Scene display' : 'DND Tools GM';
+const nativeTitle = nativeDisplay ? 'Scene display' : 'Lamplight GM';
 
 const render = (app: ReactNode) =>
 	createRoot(container).render(

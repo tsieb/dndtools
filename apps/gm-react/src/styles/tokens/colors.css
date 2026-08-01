@@ -1,5 +1,5 @@
 /* ============================================================================================
- * DND Tools — COLOR TOKENS
+ * Lamplight — COLOR TOKENS
  *
  * Architecture (UX-VIS-002): raw palette values live ONLY in
  * this file. Every component consumes semantic var(--color-*) tokens — never bare hex. A full

@@ -1563,7 +1563,7 @@ export function ImportMapDialog({
 								>
 									<Icon name="info" size={15} color={T.info} />
 									<span>
-										DND Tools saves the file and its details on this device. The image becomes this
+										Lamplight saves the file and its details on this device. The image becomes this
 										map’s background.
 									</span>
 								</div>

@@ -38,7 +38,7 @@ export const GOOGLE_DOCS_SOURCE_KIND = 'google-docs' as const;
 /**
  * SYNC-015 — the Google Docs adapter's declared CAPABILITY metadata, reusing the constrained
  * `content-constraints.ts` feature classification: it CANNOT represent markdown front matter,
- * wikilinks, aliases, or DND Tools metadata as structured data (`unsupported`), and inline-tag TEXT
+ * wikilinks, aliases, or Lamplight metadata as structured data (`unsupported`), and inline-tag TEXT
  * survives but loses tag semantics (`lossy`). It needs OAuth (network for first-time auth), exposes
  * Drive revision history + a change cursor, and offers `cached` offline availability.
  */
@@ -46,7 +46,7 @@ export const GOOGLE_DOCS_ADAPTER_CAPABILITY: SourceAdapterCapability = Object.fr
 	kind: GOOGLE_DOCS_SOURCE_KIND,
 	displayName: 'Google Docs',
 	summary:
-		'Rich-text Google Doc. It cannot represent front matter, wikilinks, aliases, or DND Tools metadata as structured data — these are dropped on a destructive write-back. Inline #tag text survives but loses its tag semantics. Tracks Drive file ids, change page tokens, and revision metadata.',
+		'Rich-text Google Doc. It cannot represent front matter, wikilinks, aliases, or Lamplight metadata as structured data — these are dropped on a destructive write-back. Inline #tag text survives but loses its tag semantics. Tracks Drive file ids, change page tokens, and revision metadata.',
 	supportedSchemaVersions: Object.freeze([1]),
 	// The Drive API/export-format versions this adapter understands.
 	supportedSourceVersions: Object.freeze(['v3']),

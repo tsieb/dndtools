@@ -27,7 +27,7 @@ const RENDERER_ROOT = path.join(__dirname, '..', 'dist');
 const PRELOAD = path.join(__dirname, '..', 'electron', 'preload.cjs');
 
 registerAppScheme(protocol);
-app.setName('DND Tools GM Smoke');
+app.setName('Lamplight GM Smoke');
 if (process.env.SMOKE_USER_DATA) app.setPath('userData', process.env.SMOKE_USER_DATA);
 
 const CSP = [

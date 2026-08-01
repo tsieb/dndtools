@@ -8,7 +8,7 @@
 		"type": "git",
 		"url": "https://github.com/tsieb/dndtools.git"
 	},
-	"description": "The DND Tools GM command platform — a Vite + React app wired to @dndtools/core, realizing the shared design system, with an Electron desktop shell and LAN/cloud remote play. The primary GM surface (the retired SvelteKit app lives at archive/gm-svelte).",
+	"description": "The Lamplight GM command platform — a Vite + React app wired to @dndtools/core, realizing the shared design system, with an Electron desktop shell and LAN/cloud remote play. The primary GM surface (the retired SvelteKit app lives at archive/gm-svelte).",
 	"main": "electron/main.cjs",
 	"scripts": {
 		"dev": "vite --port 5273",

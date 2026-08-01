@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Lamplight themed-icon layer. The system tints this by alpha, so both the disc and the
+    fold are drawn in flat white and the launcher recolours them together.
+    Mark geometry is the design system's 64 grid scaled by 1.125 into the 72dp safe zone
+    (offset 18), which keeps stroke-width at the brand's 5.5 grid units.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -6,5 +12,11 @@
     android:viewportHeight="108">
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M54,21 L79.7,36 L79.7,66 L54,84.5 L28.3,66 L28.3,36 Z" />
+        android:pathData="M47.8125,32.625 a6.1875,6.1875 0 1,0 12.375,0 a6.1875,6.1875 0 1,0 -12.375,0 Z" />
+    <path
+        android:pathData="M28.125,70.875 L43.875,46.125 L64.125,70.875 L79.875,46.125"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="6.1875"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round" />
 </vector>

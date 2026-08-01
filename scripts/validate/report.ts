@@ -96,7 +96,7 @@ export function buildHtml(report: RunReport): string {
 
 	return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DND Tools — Validation Report</title>
+<title>Lamplight — Validation Report</title>
 <style>
   :root { color-scheme: light dark; --bg:#faf7f2; --fg:#241d15; --muted:#7a6f60; --card:#fff; --line:#e6ddd0;
     --pass:#2e7d32; --fail:#c62828; --warn:#b26a00; --skip:#607d8b; }
@@ -120,7 +120,7 @@ export function buildHtml(report: RunReport): string {
   .muted{color:var(--muted)} .big{font-size:32px;font-weight:800;margin:4px 0} code{font-family:ui-monospace,Menlo,monospace;font-size:.9em}
   a{color:inherit}
 </style></head><body><div class="wrap">
-  <h1>DND Tools — Application Validation</h1>
+  <h1>Lamplight — Application Validation</h1>
   <div><span class="verdict ${report.ok ? 'ok' : 'bad'}">${report.ok ? 'PASS' : 'FAIL'}</span></div>
   <div class="meta">${esc(report.finishedAt)} · ${fmtDuration(report.durationMs)} · selection <code>${esc(
 		report.selection,

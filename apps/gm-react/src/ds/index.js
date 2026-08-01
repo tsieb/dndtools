@@ -5,6 +5,7 @@ export * from './components/command/CommandPalette.jsx';
 export * from './components/condition/ConditionBadge.jsx';
 export * from './components/condition/ConditionTracker.jsx';
 export * from './components/core/Avatar.jsx';
+export * from './components/core/Brand.jsx';
 export * from './components/core/Breadcrumb.jsx';
 export * from './components/core/Button.jsx';
 export * from './components/core/Card.jsx';

@@ -21,8 +21,8 @@ export const MESSAGES: Record<SupportedLocale, Record<string, string>> = {
 	es: {
 		'Language & region': 'Idioma y región',
 		Language: 'Idioma',
-		'Choose the language used throughout DND Tools. Your choice is saved on this device.':
-			'Elige el idioma que se usa en DND Tools. Tu elección se guarda en este dispositivo.',
+		'Choose the language used throughout Lamplight. Your choice is saved on this device.':
+			'Elige el idioma que se usa en Lamplight. Tu elección se guarda en este dispositivo.',
 		'Language changes apply immediately, including menus, dialogs, tooltips, and screen-reader labels.':
 			'Los cambios de idioma se aplican de inmediato, incluidos menús, diálogos, ayudas y etiquetas para lectores de pantalla.',
 		Settings: 'Configuración',

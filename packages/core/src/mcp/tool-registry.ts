@@ -507,7 +507,7 @@ export function createBaselineMcpToolRegistry(): McpToolRegistry {
 			description:
 				'Revise an existing note. Find the itemId with note.search or note.list, then provide the new ' +
 				"title and/or body plus the note's current revision as baseRevision. If the note changes before " +
-				'approval, DND Tools records a conflict instead of overwriting the newer edit. Staged for DM ' +
+				'approval, Lamplight records a conflict instead of overwriting the newer edit. Staged for DM ' +
 				'approval; never applied immediately.',
 		},
 	]);

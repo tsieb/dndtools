@@ -321,7 +321,7 @@ const EXPLICIT_FIELD_KEYS = new Set(['aliases', 'tags', 'wikilinks']);
 /**
  * Serialize one note to portable markdown (front matter + body), mirroring the core exporter's
  * property mapping: user string/string[] fields are preserved, aliases/tags emitted as lists, and the
- * DND Tools visibility re-emitted NAMESPACED under `dndtools.visibility` (never a bare property).
+ * Lamplight visibility re-emitted NAMESPACED under `dndtools.visibility` (never a bare property).
  */
 export function serializeNoteForPush(note: PushPlanNote): string {
 	const properties: Record<string, string | string[]> = { title: note.title };

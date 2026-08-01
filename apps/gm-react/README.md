@@ -1,6 +1,6 @@
 # @dndtools/gm-react — the GM command platform
 
-The primary DND Tools application: a **React** frontend for the canvas-first GM Command Center,
+The primary Lamplight application: a **React** frontend for the canvas-first GM Command Center,
 wired to the real `@dndtools/core` Processing Core, plus Electron desktop and Capacitor Android
 shells and LAN/cloud remote play. It realizes the shared design system (see `docs/design/`) and is the
 only maintained GM surface (the original SvelteKit app is retired to `archive/gm-svelte`; see

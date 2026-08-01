@@ -260,7 +260,7 @@ describe('NAV-007 route accessibility semantics', () => {
 			resolveNavigationView(state, DM_ACTOR.id, { sectionId: 'command-center' }),
 		);
 		expect(home.heading).toBe('Command Center');
-		expect(home.documentTitle).toBe('Command Center — DND Tools v2');
+		expect(home.documentTitle).toBe('Command Center — Lamplight');
 		expect(home.landmark).toBe('command-center');
 
 		const settings = resolveRouteAccessibility(
@@ -276,7 +276,7 @@ describe('NAV-007 route accessibility semantics', () => {
 		const view = resolveNavigationView(state, DM_ACTOR.id, sceneLocation(playerSceneId));
 		const a11y = resolveRouteAccessibility(view);
 		expect(a11y.heading).toBe('Tavern');
-		expect(a11y.documentTitle).toBe('Tavern — DND Tools v2');
+		expect(a11y.documentTitle).toBe('Tavern — Lamplight');
 	});
 
 	it('announces the new route so a completed navigation is communicated (AC2)', () => {

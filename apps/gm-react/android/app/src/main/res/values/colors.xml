@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Lamplight brand colours. These are the native-shell equivalents of the web tokens:
+    app_surface / colorPrimaryDark mirror --color-bg (#14100b, the candle-lit espresso the
+    app paints on boot) so the system chrome does not flash cool grey before the webview
+    draws, and colorPrimary / colorAccent mirror --color-accent (lamp gold).
+    ic_launcher_background is the design system's icon-tile ground, not the app background.
+-->
 <resources>
-    <color name="app_surface">#10151C</color>
-    <color name="colorPrimary">#D6A84B</color>
-    <color name="colorPrimaryDark">#10151C</color>
-    <color name="colorAccent">#E6BF72</color>
-    <color name="ic_launcher_background">#15110D</color>
+    <color name="app_surface">#14100B</color>
+    <color name="colorPrimary">#E0B06F</color>
+    <color name="colorPrimaryDark">#14100B</color>
+    <color name="colorAccent">#E0B06F</color>
+    <color name="ic_launcher_background">#0E0A06</color>
 </resources>

@@ -11,6 +11,7 @@ import {
 import {
 	Avatar,
 	BottomTabBar,
+	BrandLockup,
 	Icon,
 	IconButton,
 	NavRail,
@@ -444,26 +445,7 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 		>
 			{/* brand */}
 			<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 16px 12px' }}>
-				<span
-					style={{
-						width: 30,
-						height: 30,
-						borderRadius: 7,
-						background: T.acc,
-						color: T.accFg,
-						display: 'inline-flex',
-						alignItems: 'center',
-						justifyContent: 'center',
-						boxShadow: T.ssm,
-					}}
-				>
-					<Icon name="dice" size="sm" />
-				</span>
-				<div style={{ flex: 1, minWidth: 0 }}>
-					<div style={{ font: `700 15px ${T.disp}`, letterSpacing: '.02em' }}>
-						DND <span style={{ color: T.acc }}>Tools</span>
-					</div>
-				</div>
+				<BrandLockup markSize={30} wordSize={15} gap={10} style={{ flex: 1, minWidth: 0 }} />
 				<IconButton
 					icon="search"
 					label="Search (⌘K)"

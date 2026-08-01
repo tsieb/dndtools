@@ -285,13 +285,13 @@ export const vaultKeyManager: VaultKeyManager = {
 	async importRecoveryFile(accountId, vaultId, fileText, passphrase) {
 		validateNamespace(accountId, vaultId);
 		if (typeof fileText !== 'string' || fileText.length === 0 || fileText.length > 256 * 1024) {
-			throw new Error('This is not a DND Tools recovery-key file (fail closed).');
+			throw new Error('This is not a Lamplight recovery-key file (fail closed).');
 		}
 		let candidate: unknown;
 		try {
 			candidate = JSON.parse(fileText);
 		} catch {
-			throw new Error('This is not a DND Tools recovery-key file (fail closed).');
+			throw new Error('This is not a Lamplight recovery-key file (fail closed).');
 		}
 		const imported = await openKeyringRecoveryFile(candidate, passphrase);
 		const memoryKey = cacheKey(accountId, vaultId);

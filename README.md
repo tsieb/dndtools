@@ -1,4 +1,4 @@
-# DND Tools
+# Lamplight
 
 A canvas-first command platform for tabletop RPG play. Content, tools, and AI compose into a
 single spatial workspace — the **Command Center** — where the GM runs sessions, maps, and

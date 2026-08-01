@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">DND Tools GM</string>
-    <string name="title_activity_main">DND Tools GM</string>
+    <string name="app_name">Lamplight GM</string>
+    <string name="title_activity_main">Lamplight GM</string>
     <string name="package_name">com.dndtools.gm</string>
     <string name="custom_url_scheme">com.dndtools.gm</string>
 </resources>

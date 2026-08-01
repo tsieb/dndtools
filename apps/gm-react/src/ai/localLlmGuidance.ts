@@ -1,5 +1,5 @@
 /**
- * The user-facing contract for DND Tools' supported local LLM path. Keep this small and import it
+ * The user-facing contract for Lamplight's supported local LLM path. Keep this small and import it
  * from both the Settings UI and tests so the setup instructions cannot quietly drift from the
  * endpoint and model the app actually uses.
  */

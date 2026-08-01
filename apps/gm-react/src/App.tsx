@@ -178,12 +178,12 @@ function FailScreen({
 
 function vaultLoadFailureDetail(error: string | null): string {
 	if (/newer app version|upgrade the app/i.test(error ?? '')) {
-		return 'This vault was saved by a newer DND Tools version. Update the app, then try again. Your local data was not changed.';
+		return 'This vault was saved by a newer Lamplight version. Update the app, then try again. Your local data was not changed.';
 	}
 	if (/damaged|operation history|invalid schema|migration snapshot/i.test(error ?? '')) {
-		return 'DND Tools found invalid local vault data and stopped before changing it. You can restore a known-good local backup below.';
+		return 'Lamplight found invalid local vault data and stopped before changing it. You can restore a known-good local backup below.';
 	}
-	return 'DND Tools could not access local storage. Close any other app windows, check that storage is available, then try again. Your local data was not erased.';
+	return 'Lamplight could not access local storage. Close any other app windows, check that storage is available, then try again. Your local data was not erased.';
 }
 
 /** Recovery must remain available even when the normal Settings screen cannot mount. The selected
@@ -216,7 +216,7 @@ function VaultLoadFailure({ runtime }: { runtime: SceneRuntime }) {
 			try {
 				parsed = JSON.parse(file.text);
 			} catch {
-				throw new Error('That file is not valid JSON and cannot be a DND Tools vault backup.');
+				throw new Error('That file is not valid JSON and cannot be a Lamplight vault backup.');
 			}
 			setPendingBackup(backupModule.validateVaultBackup(parsed));
 		} catch (error) {

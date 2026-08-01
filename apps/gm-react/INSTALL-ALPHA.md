@@ -1,9 +1,9 @@
-# DND Tools GM — Alpha Install Guide
+# Lamplight GM — Alpha Install Guide
 
 > This guide applies only to **unsigned preview builds**. Production releases are built through the
 > signing-required release channel and must not ask users to bypass Gatekeeper or SmartScreen.
 
-Thanks for helping test **DND Tools GM**, an offline Game-Master workspace for tabletop RPGs. It runs
+Thanks for helping test **Lamplight GM**, an offline Game-Master workspace for tabletop RPGs. It runs
 entirely on your machine — **no account, no internet required** — and opens into a ready-to-explore
 sample campaign so you can poke around immediately.
 
@@ -19,10 +19,10 @@ Grab the latest build from the project's **GitHub Releases** page and pick the f
 
 | Your machine                          | File to download                         |
 | ------------------------------------- | ---------------------------------------- |
-| **Windows** (10/11, 64-bit)           | `DND-Tools-GM-<version>-x64.exe`         |
-| **Mac — Apple Silicon** (M1/M2/M3/M4) | `DND-Tools-GM-<version>-arm64.dmg`       |
-| **Mac — Intel**                       | `DND-Tools-GM-<version>-x64.dmg`         |
-| **Linux** (x64)                       | `DND-Tools-GM-<version>-x86_64.AppImage` |
+| **Windows** (10/11, 64-bit)           | `Lamplight-GM-<version>-x64.exe`         |
+| **Mac — Apple Silicon** (M1/M2/M3/M4) | `Lamplight-GM-<version>-arm64.dmg`       |
+| **Mac — Intel**                       | `Lamplight-GM-<version>-x64.dmg`         |
+| **Linux** (x64)                       | `Lamplight-GM-<version>-x86_64.AppImage` |
 
 > Not sure which Mac you have? Apple menu → **About This Mac**. "Apple M…" = Apple Silicon; "Intel" = Intel.
 
@@ -30,27 +30,27 @@ Grab the latest build from the project's **GitHub Releases** page and pick the f
 
 ## 2a. Install on Windows
 
-1. Double-click the downloaded `DND-Tools-GM-<version>-x64.exe`.
+1. Double-click the downloaded `Lamplight-GM-<version>-x64.exe`.
 2. **You'll see a blue "Windows protected your PC" (SmartScreen) box** — this appears for any app that
    isn't code-signed yet, not because anything is wrong. Click **More info**, then **Run anyway**.
 3. The installer opens. Pick a location (the default is fine — it installs just for your user, so there's
    no admin password prompt) and click **Install**. It adds a **Start-menu** and **desktop** shortcut and
    launches when done.
-4. To remove it later: **Settings → Apps → Installed apps → DND Tools GM → Uninstall** (or "Add or remove
+4. To remove it later: **Settings → Apps → Installed apps → Lamplight GM → Uninstall** (or "Add or remove
    programs"). Uninstalling does not remove your local workspace, online account, or credentials held by
    the operating-system credential manager; see the reset section below.
 
 ## 2b. Install on macOS
 
-1. Open the downloaded `.dmg` and drag **DND Tools GM** into your **Applications** folder.
-2. **First launch:** in Applications, **right-click** (or Control-click) **DND Tools GM → Open**, then click
+1. Open the downloaded `.dmg` and drag **Lamplight GM** into your **Applications** folder.
+2. **First launch:** in Applications, **right-click** (or Control-click) **Lamplight GM → Open**, then click
    **Open** in the dialog. This is only needed once — after that you can open it normally.
    - Doing it this way (instead of double-clicking) is what lets an unsigned app through Gatekeeper's
      "unidentified developer" block.
 3. **If macOS says the app "is damaged and can't be opened"** (this can happen on Apple Silicon because
    the download gets a quarantine flag), open **Terminal** and run:
    ```sh
-   xattr -cr "/Applications/DND Tools GM.app"
+   xattr -cr "/Applications/Lamplight GM.app"
    ```
    Then open the app again with right-click → Open. It's not actually damaged — this just clears the
    quarantine flag an unsigned build can't clear on its own.
@@ -59,18 +59,18 @@ Grab the latest build from the project's **GitHub Releases** page and pick the f
 
 1. Make the AppImage executable:
    ```sh
-   chmod +x DND-Tools-GM-*-x86_64.AppImage
+   chmod +x Lamplight-GM-*-x86_64.AppImage
    ```
 2. Run it — double-click in your file manager, or from a terminal:
    ```sh
-   ./DND-Tools-GM-*-x86_64.AppImage
+   ./Lamplight-GM-*-x86_64.AppImage
    ```
 3. **If it fails to start with a FUSE error**, either install FUSE 2…
    - Debian/Ubuntu: `sudo apt install libfuse2`
    - Fedora: `sudo dnf install fuse`
      …**or** skip FUSE entirely by running:
    ```sh
-   ./DND-Tools-GM-*-x86_64.AppImage --appimage-extract-and-run
+   ./Lamplight-GM-*-x86_64.AppImage --appimage-extract-and-run
    ```
 
 ---
@@ -83,16 +83,16 @@ provider; the app explains the destination before enabling those features.
 
 | OS      | Data folder                                                               |
 | ------- | ------------------------------------------------------------------------- |
-| Windows | `%APPDATA%\DND Tools GM\` (paste that into the File Explorer address bar) |
-| macOS   | `~/Library/Application Support/DND Tools GM/`                             |
-| Linux   | `~/.config/DND Tools GM/`                                                 |
+| Windows | `%APPDATA%\Lamplight GM\` (paste that into the File Explorer address bar) |
+| macOS   | `~/Library/Application Support/Lamplight GM/`                             |
+| Linux   | `~/.config/Lamplight GM/`                                                 |
 
 **To reset the local workspace:** first download a local backup if you may need it, fully quit the app,
 delete that folder, and relaunch. The sample campaign will re-seed automatically. Deleting the folder does
 **not** delete an online account or its encrypted cloud copy, and it may not remove tokens, vault keys, or
 AI provider keys held by the operating-system credential manager. Remove online account data from
 **Settings → Account** and saved AI credentials from **Settings → AI & tools** before resetting. If the app
-cannot open, remove any remaining DND Tools entries with your operating system's credential manager.
+cannot open, remove any remaining Lamplight entries with your operating system's credential manager.
 
 When upgrading from v0.2.0, the first launch copies the old desktop vault into the app's new secure
 storage origin before the workspace opens. The old copy is retained, the new copy is verified, and a

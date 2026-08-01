@@ -9,7 +9,7 @@ import type { CloudSyncSecurityModel } from '../sync/cloud-sync-gate';
 
 /**
  * ADR-017 (concrete crypto) + ADR-015 (Accepted) + ADR-026 (opt-in vault privacy modes) — THE
- * RELEASE-APPROVED cloud security models for DND Tools. ADR-026 makes the model PER-VAULT: the user
+ * RELEASE-APPROVED cloud security models for Lamplight. ADR-026 makes the model PER-VAULT: the user
  * explicitly chooses between two modes at onboarding, and these are the populated records each mode
  * selects between. Supplying a record to the SYNC-017 / SEC-009 gates opens (or keeps blocking) them
  * with NO call-site change — exactly as those modules were designed to be plugged into.

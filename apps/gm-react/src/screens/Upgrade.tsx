@@ -30,9 +30,9 @@ const PLANS: PlanCard[] = PLAN_CARDS;
 const planById = (id: string) => PLANS.find((p) => p.id === id) || PLANS[0];
 
 const WHY_PREVIEW =
-	'DND Tools keeps your local campaign and core table tools available for free. Lantern and Beacon are no-charge previews of optional hosted services: encrypted off-device backup, internet play, and campaign publishing. Availability depends on this build and device.';
+	'Lamplight keeps your local campaign and core table tools available for free. Lantern and Beacon are no-charge previews of optional hosted services: encrypted off-device backup, internet play, and campaign publishing. Availability depends on this build and device.';
 const WHY_UNAVAILABLE =
-	'DND Tools keeps your local campaign and core table tools available for free. Lantern and Beacon describe planned hosted services, but this release cannot activate a paid cloud plan or take payment.';
+	'Lamplight keeps your local campaign and core table tools available for free. Lantern and Beacon describe planned hosted services, but this release cannot activate a paid cloud plan or take payment.';
 
 function MatrixCell({ v, accent }: { v: unknown; accent?: boolean }) {
 	if (v === true)

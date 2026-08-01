@@ -291,7 +291,7 @@ const GLYPHS = Object.freeze({
 });
 
 /**
- * The DND Tools icon registry — semantic names → Lucide PascalCase glyph names.
+ * The Lamplight icon registry — semantic names → Lucide PascalCase glyph names.
  * Lucide (via lucide-react) is the ONLY icon family (clean 2px stroke), and the canonical
  * vocabulary is documented in docs/reference/ICON_VOCABULARY.md;
  * every surface draws through this one registry so there is one

@@ -408,7 +408,7 @@ export function ConnectedSourcesPanel() {
 	}
 
 	async function createNewDoc() {
-		const title = docInput.trim() || 'DND Tools notes';
+		const title = docInput.trim() || 'Lamplight notes';
 		setBusy('google-connect');
 		clearStatusFor('google');
 		try {
@@ -796,7 +796,7 @@ export function ConnectedSourcesPanel() {
 						</div>
 						<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
 							Existing Docs cannot be connected in this release because the limited Google scope
-							requires a Picker grant. DND Tools does not request broader Drive access.
+							requires a Picker grant. Lamplight does not request broader Drive access.
 						</div>
 						{statusBySource['google'] && (
 							<div role="status" aria-live="polite" style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>

@@ -272,7 +272,7 @@ export function listReachableDestinations(
 }
 
 /** The default application name used in document titles and the fallback heading. */
-export const DEFAULT_APP_NAME = 'DND Tools v2';
+export const DEFAULT_APP_NAME = 'Lamplight';
 
 export interface RouteAccessibilityOptions {
 	/** Application name appended to the document title and used as the fallback heading. */

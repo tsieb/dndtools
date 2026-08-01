@@ -1,7 +1,7 @@
 // @ts-check
 'use strict';
 
-// Preload bridge for the DND Tools GM desktop shell.
+// Preload bridge for the Lamplight GM desktop shell.
 //
 // Exposes ONLY the LAN session-discovery surface (Epic 7.3 mDNS auto-discovery) behind the context
 // bridge — the renderer exchanges opaque, already-encrypted offer/answer codes; it never touches sockets

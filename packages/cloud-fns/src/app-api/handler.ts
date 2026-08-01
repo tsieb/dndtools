@@ -949,7 +949,7 @@ async function sendInviteEmail(input: {
 				Destination: { ToAddresses: [input.to] },
 				Content: {
 					Simple: {
-						Subject: { Data: `Join “${input.campaignName}” on DND Tools` },
+						Subject: { Data: `Join “${input.campaignName}” on Lamplight` },
 						Body: { Text: { Data: text }, Html: { Data: html } },
 					},
 				},

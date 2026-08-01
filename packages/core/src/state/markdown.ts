@@ -10,7 +10,7 @@
  * What it preserves (CONTENT-007 / Architecture Contract 2 Obsidian source rules):
  *
  *   - FRONTMATTER PROPERTIES: arbitrary YAML-ish `key: value` front matter, kept as an open map. User
- *     properties are preserved verbatim and round-trip; DND Tools metadata must stay namespaced under
+ *     properties are preserved verbatim and round-trip; Lamplight metadata must stay namespaced under
  *     `dndtools` (the import layer enforces that, this layer just preserves whatever is present).
  *   - ALIASES: the Obsidian `aliases` property (a list), surfaced as a first-class field.
  *   - TAGS: both the `tags` frontmatter property AND inline `#hashtags` in the body, merged + deduped.

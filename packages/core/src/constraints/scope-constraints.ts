@@ -11,7 +11,7 @@ import {
 
 /**
  * CON-003 + CON-006 — THE SCOPE-BOUNDARY CONSTRAINT GATE. The single, declared source of truth for the
- * invariant that keeps DND Tools 0.2.0 inside its declared scope boundaries over time (Vision brief
+ * invariant that keeps Lamplight 0.2.0 inside its declared scope boundaries over time (Vision brief
  * "Explicitly Out of Scope"; Architecture Cross-Contract; Defects `AUDIT-21.4-EXTENSIBILITY`,
  * `REVIEW-PLAN conflict handling`).
  *

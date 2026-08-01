@@ -130,7 +130,7 @@ function planDocument(persisted: PersistedDocumentVersion): DocumentMigrationPla
 					fromVersion,
 					toVersion,
 					message,
-					remediation: 'Update DND Tools to the latest version to open this vault.',
+					remediation: 'Update Lamplight to the latest version to open this vault.',
 				},
 			};
 		}

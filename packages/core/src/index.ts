@@ -772,7 +772,7 @@ export {
 
 // SYNC-004 / SYNC-012: the OBSIDIAN adapter logic. Reuses `markdown.ts`; a parse → canonical → serialize
 // round-trip preserves YAML properties, tags, aliases, [[wikilinks]], markdown links, headings, and
-// user-authored frontmatter, and ISOLATES DND Tools metadata under the `dndtools.*` namespace so it never
+// user-authored frontmatter, and ISOLATES Lamplight metadata under the `dndtools.*` namespace so it never
 // collides with user frontmatter. The fake vault transport is injected.
 export type {
 	ObsidianCanonicalNote,

@@ -92,7 +92,7 @@ function exportPathForItem(item: ContentItem): string {
 
 /**
  * Build the front-matter property map for an exported item. User properties (the item's open `fields`)
- * are preserved; aliases/tags are emitted as Obsidian lists; the DND Tools visibility is re-emitted
+ * are preserved; aliases/tags are emitted as Obsidian lists; the Lamplight visibility is re-emitted
  * NAMESPACED under `dndtools.visibility` so a round-trip preserves it without polluting common
  * properties. ABSOLUTE PATHS / secrets are NOT special-cased here — `redactValue` scrubs the whole map.
  */
@@ -117,7 +117,7 @@ function exportPropertiesFor(item: ContentItem): Record<string, string | string[
 	if (Array.isArray(tags) && tags.length > 0) {
 		properties['tags'] = (tags as unknown[]).map(String);
 	}
-	// Re-emit the DND Tools visibility NAMESPACED so it never collides with a user property.
+	// Re-emit the Lamplight visibility NAMESPACED so it never collides with a user property.
 	properties[`${DNDTOOLS_PROPERTY_NAMESPACE}.visibility`] = item.visibility;
 	return properties;
 }

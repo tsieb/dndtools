@@ -1,7 +1,7 @@
 // @ts-check
 'use strict';
 
-// Electron main process for the DND Tools GM desktop shell.
+// Electron main process for the Lamplight GM desktop shell.
 //
 // This wraps the SAME static build that ships to the web (apps/gm-react/dist) in a Chromium window.
 // Local-first features continue to work offline; optional cloud, content, and AI integrations are
@@ -77,10 +77,36 @@ function focusPrimaryWindow() {
 }
 
 // Align the userData directory name across dev and the packaged app (electron-builder productName is
-// "DND Tools GM"), so IndexedDB/localStorage live at one predictable path testers can reset:
-//   macOS  ~/Library/Application Support/DND Tools GM/
-//   Linux  ~/.config/DND Tools GM/
-app.setName('DND Tools GM');
+// "Lamplight GM"), so IndexedDB/localStorage live at one predictable path testers can reset:
+//   macOS  ~/Library/Application Support/Lamplight GM/
+//   Linux  ~/.config/Lamplight GM/
+app.setName('Lamplight GM');
+
+// The "DND Tools GM" -> "Lamplight GM" rename moves that directory, and the vault lives inside it.
+// Carry an existing install across rather than booting to an empty vault: prefer renaming the legacy
+// folder (so the new name is what persists), and if that cannot be done — locked files, a cross-device
+// appData root, an install that already has both — keep using the legacy path instead of silently
+// abandoning it. Must run before any session or window exists, because Chromium resolves its profile
+// directory once at startup. This name is a historical on-disk path, so it must NOT be rebranded.
+const LEGACY_USER_DATA_NAME = 'DND Tools GM';
+(function adoptLegacyUserDataDirectory() {
+	const currentUserData = app.getPath('userData');
+	const legacyUserData = path.join(path.dirname(currentUserData), LEGACY_USER_DATA_NAME);
+	if (legacyUserData === currentUserData || !fs.existsSync(legacyUserData)) return;
+	if (!fs.existsSync(currentUserData)) {
+		try {
+			fs.renameSync(legacyUserData, currentUserData);
+			return;
+		} catch {
+			// Fall through to using the legacy directory in place.
+		}
+	}
+	try {
+		app.setPath('userData', legacyUserData);
+	} catch {
+		// Last resort: the new, empty directory. The legacy one is left untouched on disk.
+	}
+})();
 
 // One Chromium profile owns the vault and encrypted secret map. A second process could otherwise race
 // IndexedDB and read-modify-write credential updates, so redirect repeat launches to the primary window.
@@ -356,7 +382,7 @@ function createWindow() {
 				}),
 		// Dark tone matching the default "tavern" theme so there's no white flash before CSS paints.
 		backgroundColor: initialTheme.background,
-		title: 'DND Tools GM',
+		title: 'Lamplight GM',
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.cjs'),
 			contextIsolation: true,
@@ -404,7 +430,7 @@ function createWindow() {
 					minHeight: 420,
 					autoHideMenuBar: true,
 					backgroundColor: displayTheme.background,
-					title: 'DND Tools — Scene Display',
+					title: 'Lamplight — Scene Display',
 					titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
 					...(process.platform === 'darwin'
 						? { trafficLightPosition: { x: 14, y: 12 } }
@@ -497,7 +523,7 @@ function setupWindowIpc() {
 			title: 'Allow AI provider?',
 			message: `Allow ${origin} as an AI provider?`,
 			detail:
-				'DND Tools will send the API key and assistant requests you provide to this address. Only allow a provider you trust.',
+				'Lamplight will send the API key and assistant requests you provide to this address. Only allow a provider you trust.',
 			buttons: ['Cancel', 'Allow provider'],
 			defaultId: 0,
 			cancelId: 0,
@@ -886,12 +912,12 @@ if (hasSingleInstanceLock) {
 				console.error('Storage origin migration failed:', error);
 				await dialog.showMessageBox({
 					type: 'error',
-					title: 'DND Tools could not safely upgrade your local data',
+					title: 'Lamplight could not safely upgrade your local data',
 					message:
 						'The application was not opened because the storage upgrade could not be verified.',
 					detail:
-						'Your existing campaign data was left untouched. Close DND Tools, keep the application data folder intact, and retry this version. If the problem continues, contact support before uninstalling or clearing app data.',
-					buttons: ['Close DND Tools'],
+						'Your existing campaign data was left untouched. Close Lamplight, keep the application data folder intact, and retry this version. If the problem continues, contact support before uninstalling or clearing app data.',
+					buttons: ['Close Lamplight's],
 					defaultId: 0,
 					noLink: true,
 				});

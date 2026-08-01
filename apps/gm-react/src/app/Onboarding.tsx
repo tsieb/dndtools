@@ -10,7 +10,7 @@ import {
 	type FeatureTier,
 	type VaultPrivacyMode,
 } from '@dndtools/core';
-import { Avatar, Badge, Button, Icon, IconButton, Input, Toaster } from '../ds';
+import { Avatar, Badge, BrandLockup, Button, Icon, IconButton, Input, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { registerBackHandler } from '../platform/backNavigation';
 import { resetCoreStorage } from '../platform/storage/coreStore';
@@ -585,29 +585,7 @@ export function Onboarding() {
 							marginBottom: isPhone ? 0 : 24,
 						}}
 					>
-						<span
-							style={{
-								width: 30,
-								height: 30,
-								borderRadius: 7,
-								background: T.acc,
-								color: T.accFg,
-								display: 'inline-flex',
-								alignItems: 'center',
-								justifyContent: 'center',
-							}}
-						>
-							<Icon name="dice" size="sm" />
-						</span>
-						<div
-							style={{
-								font: `700 15px ${T.disp}`,
-								letterSpacing: '.02em',
-								flex: isPhone ? 1 : undefined,
-							}}
-						>
-							DND <span style={{ color: T.acc }}>Tools</span>
-						</div>
+						<BrandLockup markSize={30} wordSize={15} gap={9} style={{ flex: isPhone ? 1 : undefined }} />
 						{isPhone && (
 							<span style={{ font: `600 12px ${T.sans}`, color: T.sub }}>
 								{step.title} · {i + 1}/{ONB_STEPS.length}
@@ -746,7 +724,7 @@ export function Onboarding() {
 											maxWidth: 440,
 										}}
 									>
-										DND Tools is a candle-lit command center for live play — combat, dice, maps,
+										Lamplight is a candle-lit command center for live play — combat, dice, maps,
 										party vitals and what your players see, all in one spatial board. Let's get
 										yours set up.
 									</p>
@@ -1037,7 +1015,7 @@ export function Onboarding() {
 										on={aiUsage === 'generation-only'}
 										icon="tool-generate"
 										title="Generators only"
-										desc="Keep DND Tools’ built-in offline generators, such as map generation. No assistant or model controls are shown."
+										desc="Keep Lamplight’s built-in offline generators, such as map generation. No assistant or model controls are shown."
 										onPick={() => setAiUsage('generation-only')}
 									/>
 									<ChoiceCard

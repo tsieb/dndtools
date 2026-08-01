@@ -13,7 +13,7 @@ import { sanitizeMarkdownContent } from '../security/content-safety';
  *
  *  1. PARSE (pure, deterministic). Each archive file's text is parsed once by `parseMarkdownNote`,
  *     preserving FRONTMATTER PROPERTIES, ALIASES, TAGS, and `[[wikilinks]]` (Architecture Contract 2
- *     Obsidian rules). DND Tools metadata stays NAMESPACED under `dndtools.*`; we never pollute a user's
+ *     Obsidian rules). Lamplight metadata stays NAMESPACED under `dndtools.*`; we never pollute a user's
  *     common properties, and we read visibility only from `dndtools.visibility` (fail-closed default).
  *
  *  2. PREVIEW (pure, READ-ONLY). Before any write the DM sees, per file: the resolved title, whether it
@@ -33,7 +33,7 @@ import { sanitizeMarkdownContent } from '../security/content-safety';
 
 export const CONTENT_IMPORT_SCHEMA_VERSION = 1 as const;
 
-/** The DND Tools frontmatter namespace. User properties are NEVER written under a non-namespaced key. */
+/** The Lamplight frontmatter namespace. User properties are NEVER written under a non-namespaced key. */
 export const DNDTOOLS_PROPERTY_NAMESPACE = 'dndtools' as const;
 
 /** How a colliding file (one whose stable id already exists in the vault) is resolved. */
@@ -300,7 +300,7 @@ function buildImportedItem(
 ): ContentItem {
 	const { resolved } = step;
 	// Preserve EVERY user property verbatim; strip only the keys we interpret directly so they are not
-	// duplicated. DND Tools metadata (namespaced) is preserved as-is. Aliases/tags become first-class.
+	// duplicated. Lamplight metadata (namespaced) is preserved as-is. Aliases/tags become first-class.
 	const fields: Record<string, unknown> = {};
 	for (const [key, value] of Object.entries(resolved.parsed.properties)) {
 		if (!INTERPRETED_KEYS.has(key)) fields[key] = value;

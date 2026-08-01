@@ -28,7 +28,7 @@ import type { ContentNoteFeature } from '../state/content-constraints';
  * It reuses `markdown.ts` (the Obsidian-aware parse/serialize keystone) — it does NOT re-implement the
  * transform — and proves a parse → canonical → serialize ROUND-TRIP preserves every user structure the
  * Obsidian source rules name: YAML PROPERTIES, TAGS, ALIASES, INTERNAL `[[links]]`, MARKDOWN links,
- * HEADINGS, and USER-AUTHORED frontmatter. DND Tools metadata is NAMESPACED under `dndtools.*` so it
+ * HEADINGS, and USER-AUTHORED frontmatter. Lamplight metadata is NAMESPACED under `dndtools.*` so it
  * NEVER collides with a user's common properties (Contract 2 Obsidian rules).
  *
  * Per ADR-014 the live Obsidian vault transport is deferred; the adapter is exercised over the
@@ -42,14 +42,14 @@ export const OBSIDIAN_SOURCE_KIND = 'obsidian-vault' as const;
 /**
  * SYNC-015 — the Obsidian adapter's declared CAPABILITY metadata. Obsidian is the superset source:
  * frontmatter properties, aliases, tags, inline tags, AND resolved `[[wikilinks]]` are all `supported`
- * (it round-trips everything `markdown.ts` detects), DND Tools metadata stays namespaced, and it is
+ * (it round-trips everything `markdown.ts` detects), Lamplight metadata stays namespaced, and it is
  * fully offline-capable for a local vault.
  */
 export const OBSIDIAN_ADAPTER_CAPABILITY: SourceAdapterCapability = Object.freeze({
 	kind: OBSIDIAN_SOURCE_KIND,
 	displayName: 'Obsidian vault',
 	summary:
-		'Obsidian vault markdown. Frontmatter properties, aliases, tags, inline #tags, [[wikilinks]], markdown links, and headings round-trip; DND Tools metadata stays namespaced under dndtools.*.',
+		'Obsidian vault markdown. Frontmatter properties, aliases, tags, inline #tags, [[wikilinks]], markdown links, and headings round-trip; Lamplight metadata stays namespaced under dndtools.*.',
 	supportedSchemaVersions: Object.freeze([1]),
 	// The Obsidian properties/links model this adapter understands. A bare-markdown vault is `0`.
 	supportedSourceVersions: Object.freeze(['0', '1']),
@@ -75,7 +75,7 @@ export const OBSIDIAN_ADAPTER_CAPABILITY: SourceAdapterCapability = Object.freez
 	}),
 });
 
-/** The DND Tools namespace prefix (`dndtools.`) reused from the import layer. */
+/** The Lamplight namespace prefix (`dndtools.`) reused from the import layer. */
 const DNDTOOLS_PREFIX = `${DNDTOOLS_PROPERTY_NAMESPACE}.`;
 
 /** A markdown-link `[text](target)` (distinct from an Obsidian `[[wikilink]]`). */
@@ -116,7 +116,7 @@ export function extractHeadings(body: string): ParsedHeading[] {
 
 /**
  * The CANONICAL note value an Obsidian file maps to. It separates the USER frontmatter (preserved
- * verbatim) from the DND Tools NAMESPACED metadata so the two can never collide, and surfaces the
+ * verbatim) from the Lamplight NAMESPACED metadata so the two can never collide, and surfaces the
  * Obsidian structures (`aliases`/`tags`/`wikilinks`/`markdownLinks`/`headings`) as first-class fields.
  * This is what crosses the boundary as the op `value`; it carries everything needed to re-serialize.
  */
@@ -125,7 +125,7 @@ export interface ObsidianCanonicalNote {
 	body: string;
 	/** USER frontmatter properties ONLY — never the interpreted aliases/tags or the dndtools.* namespace. */
 	userProperties: Record<string, string | string[]>;
-	/** DND Tools namespaced metadata (`dndtools.*` flattened keys), isolated from user properties. */
+	/** Lamplight namespaced metadata (`dndtools.*` flattened keys), isolated from user properties. */
 	dndtoolsMetadata: Record<string, string | string[]>;
 	aliases: string[];
 	tags: string[];

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Lamplight status-bar notification icon. Android renders only this drawable's alpha,
+    tinted by the system, so everything is flat white.
+    Unlike the launcher layer this fills the whole 108 viewport (scale 1.6875 off the
+    design system's 64 grid, no safe-zone inset) — a status-bar icon has no adaptive
+    mask to survive, and the disc needs the extra size to stay open at 24dp.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M44.71875,21.9375 a9.28125,9.28125 0 1,0 18.5625,0 a9.28125,9.28125 0 1,0 -18.5625,0 Z" />
+    <path
+        android:pathData="M15.1875,79.3125 L38.8125,42.1875 L69.1875,79.3125 L92.8125,42.1875"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="9.28125"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round" />
+</vector>

@@ -585,7 +585,7 @@ export async function openKeyringRecoveryFile(
 	passphrase: string,
 ): Promise<VaultKeyring> {
 	if (!isPlainObject(candidate)) {
-		throw new Error('This is not a DND Tools recovery-key file (fail closed).');
+		throw new Error('This is not a Lamplight recovery-key file (fail closed).');
 	}
 	const file = candidate as Partial<VaultRecoveryFile>;
 	if (
@@ -601,13 +601,13 @@ export async function openKeyringRecoveryFile(
 		typeof file.iv !== 'string' ||
 		typeof file.ct !== 'string'
 	) {
-		throw new Error('This is not a valid DND Tools recovery-key file (fail closed).');
+		throw new Error('This is not a valid Lamplight recovery-key file (fail closed).');
 	}
 	const salt = fromBase64Url(file.salt);
 	const iv = fromBase64Url(file.iv);
 	const cipher = fromBase64Url(file.ct);
 	if (salt.byteLength !== RECOVERY_SALT_BYTES || iv.byteLength !== GCM_IV_BYTES) {
-		throw new Error('This is not a valid DND Tools recovery-key file (fail closed).');
+		throw new Error('This is not a valid Lamplight recovery-key file (fail closed).');
 	}
 	const key = await deriveRecoveryKey(passphrase, salt, Number(file.iterations), 'decrypt');
 	let plain: Uint8Array;

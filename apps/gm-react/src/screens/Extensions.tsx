@@ -494,7 +494,7 @@ function ExtPlugins() {
 			</Panel>
 			<Panel title="Starter library" action={<Badge status="neutral">bundled · no network</Badge>}>
 				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
-					These packages are bundled with DND Tools and need no network connection. Each installs
+					These packages are bundled with Lamplight and need no network connection. Each installs
 					disabled with all host permissions blocked; review it in the installed list before
 					enabling it.
 				</div>
@@ -553,7 +553,7 @@ function ExtPlugins() {
 			<Panel title="Install or upgrade from JSON">
 				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
 					Paste a widget-package definition (or an export from a card above). A new id installs; an
-					already-installed id upgrades in place. DND Tools validates the package and safely runs
+					already-installed id upgrades in place. Lamplight validates the package and safely runs
 					any declared upgrade steps.
 				</div>
 				<Textarea
@@ -2299,7 +2299,7 @@ function ExtSystem() {
 			<Panel title="Campaign system" accent>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
 					The campaign system controls which widget types are available throughout the app. Before
-					switching, DND Tools checks the campaign without changing it. Unsafe switches are blocked,
+					switching, Lamplight checks the campaign without changing it. Unsafe switches are blocked,
 					and any switch that would remove live widgets requires your explicit confirmation.
 					{activeId === null &&
 						' No explicit system package is set yet; the built-in scene widgets act as the default until you switch.'}

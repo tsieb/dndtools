@@ -1,4 +1,4 @@
-# DND Tools — Design Prototype & Visual-Match Reference
+# Lamplight — Design Prototype & Visual-Match Reference
 
 This document is the source-of-truth map for the **visual design** of `@dndtools/gm-react`: where
 the prototype lives, the design principles the UI follows, how the local app mirrors it, and exactly
@@ -9,7 +9,7 @@ what is and isn't matched. For the **core-wiring / runtime architecture**, see [
 ## 1. Purpose
 
 `apps/gm-react` is the primary GM app: a **React** frontend that reproduces a polished, cohesive
-online design prototype ("DND Tools") pixel-faithfully, while wiring the live surfaces to the real
+online design prototype ("Lamplight") pixel-faithfully, while wiring the live surfaces to the real
 `@dndtools/core` Processing Core. It is the only maintained GM surface (the original SvelteKit app is
 retired to `archive/gm-svelte`; see [ADR-018](../../docs/adr/018-promote-react-app-to-primary.md)).
 
@@ -32,7 +32,7 @@ the bar; the mock campaign is stand-in test data for review.
 ### Online source of truth (authoritative)
 
 - **Claude Design project:** `20316ed7-4fd5-4edd-8294-48f899b74252` — *"Dndtools design system prototype"*.
-- **Entry file:** `DND Tools.dc.html` (a second prototype, `Scene & Widget System.dc.html`, covers
+- **Entry file:** `Lamplight.dc.html` (a second prototype, `Scene & Widget System.dc.html`, covers
   the standalone scene/widget builder surfaces).
 - **Access:** via the `claude_design` MCP connector (`DesignSync` tool). If it needs authorization,
   run `/design-login` (grants `user:design:read/write`). Read files with `DesignSync get_file`
