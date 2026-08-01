@@ -20,15 +20,15 @@ function packageVersion(repoRoot: string, relativePath: string): string | undefi
 
 export function expectedDesktopArtifacts(version: string): string[] {
 	return [
-		`DND-Tools-GM-${version}-arm64.dmg`,
-		`DND-Tools-GM-${version}-x64.dmg`,
-		`DND-Tools-GM-${version}-x86_64.AppImage`,
-		`DND-Tools-GM-${version}-x64.exe`,
+		`Lamplight-GM-${version}-arm64.dmg`,
+		`Lamplight-GM-${version}-x64.dmg`,
+		`Lamplight-GM-${version}-x86_64.AppImage`,
+		`Lamplight-GM-${version}-x64.exe`,
 	];
 }
 
 export function expectedAndroidArtifacts(version: string): string[] {
-	return [`DND-Tools-GM-${version}-android.apk`, `DND-Tools-GM-${version}-android.aab`];
+	return [`Lamplight-GM-${version}-android.apk`, `Lamplight-GM-${version}-android.aab`];
 }
 
 export function expectedReleaseArtifacts(version: string): string[] {
@@ -164,7 +164,7 @@ export function createArtifactSpdx(directory: string, tag: string): ArtifactSpdx
 		dataLicense: 'CC0-1.0',
 		documentNamespace: `https://github.com/tsieb/dndtools/releases/tag/${tag}/artifact-sbom/${randomUUID()}`,
 		files,
-		name: `DND Tools GM ${tag.slice(1)} release artifacts`,
+		name: `Lamplight GM ${tag.slice(1)} release artifacts`,
 		relationships: files.map((file) => ({
 			spdxElementId: 'SPDXRef-DOCUMENT',
 			relatedSpdxElement: file.SPDXID,

@@ -56,9 +56,9 @@ describe('release verification', () => {
 		}
 		expect(verifyDesktopArtifacts(directory, 'v0.2.0')).toEqual([]);
 
-		fs.rmSync(path.join(directory, 'DND-Tools-GM-0.2.0-x64.exe'));
+		fs.rmSync(path.join(directory, 'Lamplight-GM-0.2.0-x64.exe'));
 		expect(verifyDesktopArtifacts(directory, 'v0.2.0')).toContain(
-			'missing desktop installer: DND-Tools-GM-0.2.0-x64.exe',
+			'missing desktop installer: Lamplight-GM-0.2.0-x64.exe',
 		);
 	});
 
@@ -69,19 +69,19 @@ describe('release verification', () => {
 		}
 
 		expect(expectedAndroidArtifacts('0.3.0')).toEqual([
-			'DND-Tools-GM-0.3.0-android.apk',
-			'DND-Tools-GM-0.3.0-android.aab',
+			'Lamplight-GM-0.3.0-android.apk',
+			'Lamplight-GM-0.3.0-android.aab',
 		]);
 		expect(verifyReleaseArtifacts(directory, 'v0.3.0')).toEqual([]);
 
-		fs.rmSync(path.join(directory, 'DND-Tools-GM-0.3.0-android.aab'));
+		fs.rmSync(path.join(directory, 'Lamplight-GM-0.3.0-android.aab'));
 		expect(verifyReleaseArtifacts(directory, 'v0.3.0')).toContain(
-			'missing release artifact: DND-Tools-GM-0.3.0-android.aab',
+			'missing release artifact: Lamplight-GM-0.3.0-android.aab',
 		);
 
-		fs.writeFileSync(path.join(directory, 'DND-Tools-GM-0.3.0-arm64.apk'), 'unexpected');
+		fs.writeFileSync(path.join(directory, 'Lamplight-GM-0.3.0-arm64.apk'), 'unexpected');
 		expect(verifyReleaseArtifacts(directory, 'v0.3.0')).toContain(
-			'unexpected release artifact: DND-Tools-GM-0.3.0-arm64.apk',
+			'unexpected release artifact: Lamplight-GM-0.3.0-arm64.apk',
 		);
 	});
 
@@ -117,10 +117,10 @@ describe('release verification', () => {
 
 		const problems = verifySupplyChainCoverage(directory, 'v0.3.0', checksumsPath, spdxPath);
 		expect(problems).toContain(
-			'SHA-256 manifest does not cover release artifact: DND-Tools-GM-0.3.0-android.apk',
+			'SHA-256 manifest does not cover release artifact: Lamplight-GM-0.3.0-android.apk',
 		);
 		expect(problems).toContain(
-			'SPDX SBOM does not cover release artifact: DND-Tools-GM-0.3.0-android.aab',
+			'SPDX SBOM does not cover release artifact: Lamplight-GM-0.3.0-android.aab',
 		);
 
 		fs.writeFileSync(spdxPath, '{invalid');

@@ -19,7 +19,7 @@ signed Android APK/AAB and unsigned Windows, macOS, and Linux desktop installers
 4. Create one annotated tag from that merged `main` commit and push it:
 
    ```bash
-   git tag -a v0.3.0 -m "DND Tools GM 0.3.0 alpha"
+   git tag -a v0.3.0 -m "Lamplight GM 0.3.0 alpha"
    git push origin v0.3.0
    ```
 
@@ -63,12 +63,12 @@ A semver tag push always selects the alpha/preview path:
 The exact required package names are:
 
 ```text
-DND-Tools-GM-0.3.0-arm64.dmg
-DND-Tools-GM-0.3.0-x64.dmg
-DND-Tools-GM-0.3.0-x86_64.AppImage
-DND-Tools-GM-0.3.0-x64.exe
-DND-Tools-GM-0.3.0-android.apk
-DND-Tools-GM-0.3.0-android.aab
+Lamplight-GM-0.3.0-arm64.dmg
+Lamplight-GM-0.3.0-x64.dmg
+Lamplight-GM-0.3.0-x86_64.AppImage
+Lamplight-GM-0.3.0-x64.exe
+Lamplight-GM-0.3.0-android.apk
+Lamplight-GM-0.3.0-android.aab
 ```
 
 The workflow refuses to mutate a published release and refuses to replace a signed production draft
@@ -80,7 +80,7 @@ Automation creates or refreshes a draft GitHub prerelease. Before publishing:
 
 1. Confirm the tag still peels to the verified `origin/main` commit and the release workflow is green.
 2. Confirm the title is exactly
-   `DND Tools GM 0.3.0 — Alpha (Windows · macOS · Linux · Android)` and prerelease is enabled.
+   `Lamplight GM 0.3.0 — Alpha (Windows · macOS · Linux · Android)` and prerelease is enabled.
 3. Confirm all six named packages, `SHA256SUMS.txt`, `dndtools.spdx.json`, and
    `dndtools-artifacts.spdx.json` are attached. The notes must identify Android as alpha-key signed and
    every desktop installer as unsigned.
@@ -88,8 +88,8 @@ Automation creates or refreshes a draft GitHub prerelease. Before publishing:
 
    ```bash
    sha256sum -c SHA256SUMS.txt
-   gh attestation verify DND-Tools-GM-0.3.0-android.apk --repo tsieb/dndtools
-   gh attestation verify DND-Tools-GM-0.3.0-android.aab --repo tsieb/dndtools
+   gh attestation verify Lamplight-GM-0.3.0-android.apk --repo tsieb/dndtools
+   gh attestation verify Lamplight-GM-0.3.0-android.aab --repo tsieb/dndtools
    ```
 
    Repeat `gh attestation verify` for each desktop package, both SPDX files, and the checksum manifest.

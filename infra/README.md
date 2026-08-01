@@ -38,6 +38,7 @@ require a deliberate user migration or pool replacement, not an in-place stack u
 
 | Order | Stack         | Purpose                                                                                                   | Always-on cost |
 | ----- | ------------- | --------------------------------------------------------------------------------------------------------- | -------------- |
+| 0     | `edge-cert`   | **us-east-1** ACM cert for the custom domain (apex + wildcard). Shared by all stages; deploy once          | none           |
 | 1     | `foundation`  | Budget alarm, GitHub OIDC deploy role, SSM namespace                                                      | none           |
 | 2     | `identity`    | Cognito user pool + app client (gates everything)                                                         | none           |
 | 3     | `turn`        | coturn on EC2 `t4g.nano` + Elastic IP + cred Lambda                                                       | ~$3–8/mo       |
@@ -83,6 +84,85 @@ non-routable `https://invalid.example` default and Cognito initially permits the
 that origin. Later deploys read the current origin from SSM automatically so an isolated API update
 cannot regress CORS or invite links to the placeholder.
 
+## Which account am I deploying to?
+
+**dev → `703621193648` (`dndtools`), prod → `649320110863` (`dndtools-prod`).** Each stack's
+`samconfig.toml` names the right profile per config-env, and `infra/deploy.sh` defaults
+`DNDTOOLS_PROD_PROFILE` to `dndtools-prod`.
+
+That default used to be `dndtools`, and the failure mode is worth remembering because it is almost
+silent: **most stacks deploy perfectly happily into the wrong account**, producing a full set of
+`dndtools-prod-*` stacks in dev that look correct in isolation. Only `turn` catches it, because its
+`VpcId` names a VPC that exists in the prod account and not in dev. So:
+
+> `parameter value vpc-… does not exist` on a prod deploy almost always means the **profile** is
+> wrong, not the VPC id.
+
+Dev and prod each use their own account's default VPC and `ca-central-1a` subnet. The ids differ
+between stages on purpose; they are not interchangeable.
+
+## Custom domain
+
+**Prod only.** `lamplight.click` is registered through Route53 Domains in the **dev** account
+(auto-renew on, WHOIS privacy on — the registrar stays where it was bought), but its authoritative
+hosted zone is **`Z07658511EFS4B5KGNYUX` in the prod account**, and the registrar's nameservers point
+there. DNS, certificate and records therefore all live in the account that serves the traffic.
+
+| Hostname              | Serves                                                        |
+| --------------------- | ------------------------------------------------------------- |
+| `lamplight.click`     | prod SPA (canonical)                                           |
+| `www.lamplight.click` | prod SPA, 301 → apex via a CloudFront viewer-request function   |
+
+**Dev has no custom domain** and stays on its `*.cloudfront.net` URL. That is a deliberate choice,
+not an omission: a CloudFront distribution can only attach a certificate issued in its *own* account,
+so a dev hostname under this domain would need either a second delegated zone plus a second
+certificate, or cross-account IAM so the dev stack could write into the prod zone. Neither is worth
+it for a dev stage. Dev's domain parameters are explicitly empty rather than absent.
+
+Nothing hardcodes the hostnames. `web-hosting` takes `PrimaryHostName`, `SecondaryHostName`,
+`WebCertificateArn` and `HostedZoneId`; leave them blank and the stack serves on `*.cloudfront.net`.
+**Moving to a different domain is a parameter change, not a template change** — register it,
+redeploy `edge-cert` with the new `DomainName` + `HostedZoneId` (this replaces the certificate and
+revalidates), then update the four parameters in `web-hosting/samconfig.toml` and redeploy prod.
+
+Two things must be set explicitly rather than left to defaults:
+
+- **The certificate is copied, not resolved.** `edge-cert` lives in us-east-1 because CloudFront will
+  only attach a certificate from that region, and SSM parameters cannot be read across regions — so
+  its `CertificateArn` output is pasted into `web-hosting/samconfig.toml`. Re-copy it whenever the
+  certificate is replaced. It must be a certificate in the **same account** as the distribution.
+- **Every domain parameter is repeated in `parameter_overrides`, empty ones included.** A
+  CloudFormation _update_ keeps a parameter's previous value when it is omitted (the template
+  `Default` applies only on _create_), so an omitted `PrimaryHostName` keeps the old hostname rather
+  than clearing it.
+
+After `web-hosting` deploys, `/dndtools/<stage>/web/url` publishes the **custom** origin rather than
+the CloudFront one. The existing second pass then matters more than before: `identity` rebuilds its
+Cognito callback/logout URLs from it and `sync-api` / `app-api` rebuild their CORS allowlist from it.
+Skipping that refresh leaves the APIs trusting the wrong origin, so the app loads on the custom
+domain and then fails every authenticated call.
+
+### Production email (Cognito)
+
+`identity prod` refuses to deploy without a verified SES sender — the template asserts it, so the
+50/day Cognito default cannot silently become the production path. The sender is the domain itself:
+`lamplight.click` is verified as an SES domain identity in the **prod** account's `ca-central-1` with
+Easy DKIM (three `_domainkey` CNAMEs in the prod hosted zone, published out of band and therefore not
+owned by any stack).
+
+> ⚠️ The prod account is still in the **SES sandbox** (`ProductionAccessEnabled: false`), so Cognito
+> can only deliver to individually verified addresses. Signup and password-recovery mail to real
+> users needs a production-access request raised against account `649320110863`.
+
+```bash
+export DNDTOOLS_COGNITO_EMAIL_SOURCE_ARN='arn:aws:ses:ca-central-1:649320110863:identity/lamplight.click'
+export DNDTOOLS_COGNITO_EMAIL_FROM='Lamplight <accounts@lamplight.click>'
+infra/deploy.sh identity prod
+```
+
+The protected GitHub `production` environment reads the same two values from its own variables
+(`COGNITO_EMAIL_SOURCE_ARN`, `COGNITO_EMAIL_FROM`); keep them in step with the above.
+
 Stacks are decoupled via **SSM Parameter Store** under `/dndtools/<stage>/…`
 (each stack writes its outputs; downstream stacks and the client build read them),
 not tight cross-stack `ImportValue` coupling — so any one can be updated in isolation.
@@ -108,7 +188,7 @@ production workflow reads the same values from GitHub environment variables name
 
 ```bash
 export DNDTOOLS_COGNITO_EMAIL_SOURCE_ARN='arn:aws:ses:ca-central-1:ACCOUNT:identity/example.com'
-export DNDTOOLS_COGNITO_EMAIL_FROM='DND Tools <account@example.com>'
+export DNDTOOLS_COGNITO_EMAIL_FROM='Lamplight <account@example.com>'
 infra/deploy.sh identity prod
 ```
 

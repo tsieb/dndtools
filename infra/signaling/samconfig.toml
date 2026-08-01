@@ -17,7 +17,7 @@ tags = "project=dndtools stage=dev service=signaling owner=platform data-class=o
 stack_name = "dndtools-prod-signaling"
 
 [prod.deploy.parameters]
-profile = "dndtools"
+profile = "dndtools-prod"
 region = "ca-central-1"
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = true

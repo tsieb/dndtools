@@ -1,0 +1,38 @@
+version = 0.1
+
+# PROD ONLY, and us-east-1 only.
+#
+# us-east-1 because CloudFront can only attach a certificate issued there — this is the one stack
+# in the repo deployed outside ca-central-1, and `infra/deploy.sh` pins the region for it so a
+# caller cannot get it wrong.
+#
+# Prod-only because only the prod stage has a custom domain. lamplight.click, its hosted zone
+# (Z07658511EFS4B5KGNYUX) and this certificate all live in the prod account 649320110863; dev stays
+# on its *.cloudfront.net URL and needs no certificate of its own. A `dev` config-env is still
+# defined because `infra/deploy.sh` requires a stage argument, but it deploys the SAME stack to the
+# SAME account — there is no dev certificate, and pointing this at the dev account would produce a
+# certificate CloudFront in prod cannot use.
+
+[dev.global.parameters]
+stack_name = "dndtools-edge-cert"
+
+[dev.deploy.parameters]
+profile = "dndtools-prod"
+region = "us-east-1"
+confirm_changeset = false
+resolve_s3 = true
+s3_prefix = "dndtools-edge-cert"
+parameter_overrides = "ProjectName=dndtools DomainName=lamplight.click HostedZoneId=Z07658511EFS4B5KGNYUX"
+tags = "project=dndtools stage=prod service=edge-cert owner=platform data-class=public managed-by=sam"
+
+[prod.global.parameters]
+stack_name = "dndtools-edge-cert"
+
+[prod.deploy.parameters]
+profile = "dndtools-prod"
+region = "us-east-1"
+confirm_changeset = false
+resolve_s3 = true
+s3_prefix = "dndtools-edge-cert"
+parameter_overrides = "ProjectName=dndtools DomainName=lamplight.click HostedZoneId=Z07658511EFS4B5KGNYUX"
+tags = "project=dndtools stage=prod service=edge-cert owner=platform data-class=public managed-by=sam"

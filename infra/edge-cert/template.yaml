@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  dndtools edge-cert — the us-east-1 ACM certificate CloudFront serves the custom domain on
+  (apex + wildcard, DNS-validated). Stage-independent; consumed by web-hosting via the
+  WebCertificateArn parameter.
+
+# WHY THIS STACK EXISTS AT ALL
+# Every other stack in this repo lives in ca-central-1. A CloudFront distribution can only
+# attach a certificate issued in us-east-1, so this one region-pinned stack is carved out
+# and holds nothing else. `infra/deploy.sh` forces the region for it.
+#
+# ONE certificate covers the apex and a single wildcard label, so every stage and service
+# hostname (dev., www., api., auth., …) is covered without re-issuing. Validation is DNS
+# against the hosted zone Route53 Domains created at registration: CloudFormation writes the
+# _validation CNAMEs itself and blocks until ACM issues, so a successful deploy means the
+# certificate is genuinely usable — not merely requested.
+#
+# The ARN is an OUTPUT rather than an SSM parameter on purpose: SSM is per-region, and the
+# only consumer (web-hosting) runs in ca-central-1 where a us-east-1 parameter cannot be
+# resolved. Pass it across as a deploy parameter instead.
+#
+# Deploy order: after the hosted zone exists, before web-hosting is given a domain. Renewal
+# is automatic for as long as the validation records stay published.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: dndtools
+  DomainName:
+    Type: String
+    Description: >-
+      Apex domain to certify, e.g. lamplight.click. The wildcard `*.<DomainName>` is added
+      automatically. Changing this REPLACES the certificate (and forces revalidation), which
+      is exactly what moving to a different domain should do.
+    AllowedPattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'
+  HostedZoneId:
+    Type: AWS::Route53::HostedZone::Id
+    Description: Route53 zone authoritative for DomainName; ACM writes its validation records here.
+
+Resources:
+  # A single cert for the apex + one wildcard level. `*.lamplight.click` does NOT match
+  # deeper labels (a.b.lamplight.click), which is fine — every hostname this project
+  # serves is a single label under the apex.
+  EdgeCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      SubjectAlternativeNames:
+        - !Sub '*.${DomainName}'
+      ValidationMethod: DNS
+      # ONLY the apex is listed here, deliberately. ACM derives the validation CNAME from the
+      # registrable domain, so `lamplight.click` and `*.lamplight.click` resolve to the SAME
+      # record name — listing both makes CloudFormation try to create that one RRset twice and
+      # Route53 rejects the batch ("invalid set of changes for a resource record set"), failing
+      # the whole stack. One entry validates both names.
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+      Tags:
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: service
+          Value: edge-cert
+
+Outputs:
+  CertificateArn:
+    Description: >-
+      Pass to the web-hosting stack as WebCertificateArn (cross-region, so not via SSM).
+    Value: !Ref EdgeCertificate
+  CertifiedDomain:
+    Description: Apex covered by this certificate; the wildcard covers one label beneath it.
+    Value: !Ref DomainName

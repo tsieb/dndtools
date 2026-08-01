@@ -17,7 +17,7 @@ tags = "project=dndtools stage=dev service=sync-api owner=platform data-class=cu
 stack_name = "dndtools-prod-sync-api"
 
 [prod.deploy.parameters]
-profile = "dndtools"
+profile = "dndtools-prod"
 region = "ca-central-1"
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = true

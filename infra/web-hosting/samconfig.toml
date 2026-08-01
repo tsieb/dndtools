@@ -1,5 +1,22 @@
 version = 0.1
 
+# The two stages deploy to DIFFERENT ACCOUNTS: dev to 703621193648, prod to 649320110863.
+#
+# Only PROD carries the custom domain. lamplight.click, its hosted zone and its certificate all
+# live in the prod account, and a CloudFront distribution can only attach a certificate from its
+# own account — so dev cannot share them, and giving dev a name under that domain would mean either
+# a second delegated zone or cross-account IAM. Dev deliberately stays on its *.cloudfront.net URL
+# instead; the empty strings below are what select that.
+#
+# Domain parameters are set EXPLICITLY on both stages, empty ones included. A CloudFormation
+# *update* keeps a parameter's previous value when it is omitted from parameter_overrides — the
+# template `Default` only applies on initial *create* — so omitting them would leave dev pinned to
+# whatever domain it last had rather than clearing it.
+#
+# WebCertificateArn is the CertificateArn output of the `edge-cert` stack in the SAME account,
+# us-east-1. It is copied here rather than resolved because SSM cannot be read across regions.
+# Re-copy it if that certificate is ever replaced (changing the domain replaces it).
+
 [dev.global.parameters]
 stack_name = "dndtools-dev-web-hosting"
 
@@ -9,17 +26,17 @@ region = "ca-central-1"
 confirm_changeset = false
 resolve_s3 = true
 s3_prefix = "dndtools-dev-web-hosting"
-parameter_overrides = "ProjectName=dndtools Stage=dev"
+parameter_overrides = "ProjectName=dndtools Stage=dev PrimaryHostName='' SecondaryHostName='' WebCertificateArn='' HostedZoneId=''"
 tags = "project=dndtools stage=dev service=web-hosting owner=platform data-class=public managed-by=sam"
 
 [prod.global.parameters]
 stack_name = "dndtools-prod-web-hosting"
 
 [prod.deploy.parameters]
-profile = "dndtools"
+profile = "dndtools-prod"
 region = "ca-central-1"
 confirm_changeset = true
 resolve_s3 = true
 s3_prefix = "dndtools-prod-web-hosting"
-parameter_overrides = "ProjectName=dndtools Stage=prod"
+parameter_overrides = "ProjectName=dndtools Stage=prod PrimaryHostName=lamplight.click SecondaryHostName=www.lamplight.click WebCertificateArn=arn:aws:acm:us-east-1:649320110863:certificate/064d0983-7e18-47b9-9e0e-a18644181eb6 HostedZoneId=Z07658511EFS4B5KGNYUX"
 tags = "project=dndtools stage=prod service=web-hosting owner=platform data-class=public managed-by=sam"

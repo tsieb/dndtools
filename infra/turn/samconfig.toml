@@ -1,5 +1,16 @@
 version = 0.1
 
+# VpcId/SubnetId name a PUBLIC subnet in the account being deployed to, and the two stages are in
+# DIFFERENT ACCOUNTS — dev in 703621193648, prod in 649320110863 — so these ids look unrelated on
+# purpose. Each is that account's default VPC and its ca-central-1a subnet; both are public with
+# auto-assigned public IPs, which coturn needs alongside its Elastic IP.
+#
+# If a prod deploy ever reports `parameter value vpc-... does not exist`, the ids are almost
+# certainly fine and the PROFILE is wrong — you are pointing at the dev account, where the prod
+# VPC genuinely does not exist. Check `profile` below and DNDTOOLS_PROD_PROFILE.
+# CloudFormation validates these before creating anything, so the stack fails in seconds and lands
+# in ROLLBACK_COMPLETE, which must be deleted before another create can be attempted.
+
 [dev.global.parameters]
 stack_name = "dndtools-dev-turn"
 
@@ -17,7 +28,7 @@ tags = "project=dndtools stage=dev service=turn owner=platform data-class=operat
 stack_name = "dndtools-prod-turn"
 
 [prod.deploy.parameters]
-profile = "dndtools"
+profile = "dndtools-prod"
 region = "ca-central-1"
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = true

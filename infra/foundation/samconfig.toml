@@ -20,7 +20,7 @@ tags = "project=dndtools stage=dev service=foundation owner=platform data-class=
 stack_name = "dndtools-prod-foundation"
 
 [prod.deploy.parameters]
-profile = "dndtools"
+profile = "dndtools-prod"
 region = "ca-central-1"
 capabilities = "CAPABILITY_NAMED_IAM"
 confirm_changeset = true

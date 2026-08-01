@@ -279,7 +279,7 @@ jobs:
         if: env.RELEASE_CHANNEL == 'production' && runner.os == 'macOS'
         shell: bash
         run: |
-          APP_PATH=$(find apps/gm-react/release -type d -name 'DND Tools GM.app' -print -quit)
+          APP_PATH=$(find apps/gm-react/release -type d -name 'Lamplight GM.app' -print -quit)
           test -n "$APP_PATH"
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
           for installer in apps/gm-react/release/*.dmg; do xcrun stapler validate "$installer"; done
@@ -443,10 +443,10 @@ jobs:
           mkdir -p release-artifacts
           install -m 0644 \
             apps/gm-react/android/app/build/outputs/apk/release/app-release.apk \
-            "release-artifacts/DND-Tools-GM-${VERSION}-android.apk"
+            "release-artifacts/Lamplight-GM-${VERSION}-android.apk"
           install -m 0644 \
             apps/gm-react/android/app/build/outputs/bundle/release/app-release.aab \
-            "release-artifacts/DND-Tools-GM-${VERSION}-android.aab"
+            "release-artifacts/Lamplight-GM-${VERSION}-android.aab"
       - name: Stage signed Android packages
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -495,7 +495,7 @@ jobs:
           if [ "$RELEASE_CHANNEL" = preview ]; then
             VERSION=${RELEASE_TAG#v}
             EXISTING_TITLE=$(gh release view "$RELEASE_TAG" --json name --jq '.name')
-            test "$EXISTING_TITLE" = "DND Tools GM ${VERSION} — Alpha (Windows · macOS · Linux · Android)" || {
+            test "$EXISTING_TITLE" = "Lamplight GM ${VERSION} — Alpha (Windows · macOS · Linux · Android)" || {
               echo "refusing to replace a signed production draft with unsigned preview artifacts" >&2
               exit 1
             }
@@ -510,14 +510,14 @@ jobs:
         shell: bash
         run: |
           if [ "$RELEASE_CHANNEL" = production ]; then
-            TITLE="DND Tools GM $RELEASE_TAG"
+            TITLE="Lamplight GM $RELEASE_TAG"
             cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
           Signed and notarized production desktop builds with alpha-key-signed Android packages. Review the staged packages, checksums, SBOMs, and release-gate artifacts before publishing.
           NOTES
             PRERELEASE_FLAG=()
           else
             VERSION=${RELEASE_TAG#v}
-            TITLE="DND Tools GM ${VERSION} — Alpha (Windows · macOS · Linux · Android)"
+            TITLE="Lamplight GM ${VERSION} — Alpha (Windows · macOS · Linux · Android)"
             cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
           ## Install
 
@@ -526,7 +526,7 @@ jobs:
 
           ## Back up and upgrade
 
-          Export a vault backup before installing or upgrading. Android upgrades must use an APK signed by the same permanent DND Tools alpha key; uninstalling removes app-private vault data and secure credentials. Native Android share/save exports are limited to 32 MiB for this alpha; larger vaults can be exported from desktop.
+          Export a vault backup before installing or upgrading. Android upgrades must use an APK signed by the same permanent Lamplight alpha key; uninstalling removes app-private vault data and secure credentials. Native Android share/save exports are limited to 32 MiB for this alpha; larger vaults can be exported from desktop.
 
           ## Alpha limitations
 

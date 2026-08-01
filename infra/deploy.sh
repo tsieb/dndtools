@@ -2,6 +2,7 @@
 # Deploy one dndtools infra stack for one stage.
 # Usage: infra/deploy.sh <stack> [stage]
 #   <stack>  foundation | identity | signaling | turn | sync-api | app-api | web-hosting
+#            | edge-cert (us-east-1, stage-independent — see below)
 #   [stage]  dev (default) | prod
 #
 # Thin wrapper around `sam build && sam deploy --config-env <stage>` run from the
@@ -26,10 +27,23 @@ case "$STAGE" in
     PROFILE="${DNDTOOLS_DEV_PROFILE:-${DNDTOOLS_PROFILE:-dndtools}}"
     ;;
   prod)
-    PROFILE="${DNDTOOLS_PROD_PROFILE:-${DNDTOOLS_PROFILE:-dndtools}}"
+    # Prod lives in its OWN account (649320110863), dev in 703621193648. This default used to be
+    # `dndtools` — the dev profile — which meant every prod deploy silently built prod-named stacks
+    # in the dev account. That is how dndtools-prod-* stacks ended up there. The failure mode is
+    # nasty because most stacks deploy perfectly happily into the wrong account; only `turn` catches
+    # it, by way of a VPC id that does not exist there.
+    PROFILE="${DNDTOOLS_PROD_PROFILE:-${DNDTOOLS_PROFILE:-dndtools-prod}}"
     ;;
 esac
 REGION="${DNDTOOLS_REGION:-ca-central-1}"
+
+# edge-cert is the one stack that is NOT regional to this project: CloudFront can only attach a
+# certificate issued in us-east-1. Pin it here rather than relying on the caller to remember, since
+# deploying it into ca-central-1 succeeds and then produces a certificate CloudFront silently
+# refuses. It is also stage-independent — one shared certificate — so both stages are the same deploy.
+if [ "$STACK" = "edge-cert" ]; then
+  REGION="us-east-1"
+fi
 
 sam_quote_override_value() {
   local value="${1//\'/\'\"\'\"\'}"

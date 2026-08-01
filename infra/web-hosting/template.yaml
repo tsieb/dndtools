@@ -6,9 +6,11 @@ Description: >-
   Response Headers Policy attaches a Content-Security-Policy that MIRRORS the Electron
   shell's `connect-src` (Cognito + API Gateway https/wss in this region) plus the usual
   hardening headers (HSTS, no-sniff, frame-deny). Scale-to-zero and effectively $0 idle:
-  S3 + CloudFront bill per request/GB only. No custom domain / ACM cert here — the app
-  ships on the default *.cloudfront.net certificate; adding a domain later needs a
-  us-east-1 ACM cert and a Route53 alias (a separate, additive change).
+  S3 + CloudFront bill per request/GB only. The custom domain is OPTIONAL and entirely
+  parameter-driven (PrimaryHostName / SecondaryHostName / WebCertificateArn / HostedZoneId):
+  supply all four and the stack attaches the aliases, the us-east-1 certificate from the
+  edge-cert stack, Route53 alias records, and a canonical-host redirect; leave them blank
+  and it serves on the default *.cloudfront.net certificate exactly as before.
   Cross-stack values are published to SSM for the CI deploy/upload step (no ImportValue).
 
 Parameters:
@@ -26,6 +28,52 @@ Parameters:
     Description: >-
       Space-separated HTTPS origins approved for browser AI API calls. Keep this
       identical to the VITE_AI_ALLOWED_ORIGINS value published below.
+
+  # --- Custom domain (all four default to '' = keep the *.cloudfront.net behaviour) ----
+  # These are deliberately parameters rather than hardcoded hostnames: the domain is
+  # expected to change (lamplight.click now, lamplight.run later), and a rename must be a
+  # parameter flip plus a certificate revalidation, never a template rewrite.
+  PrimaryHostName:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'
+    Description: >-
+      Canonical hostname this stage serves on, e.g. lamplight.click (prod) or
+      dev.lamplight.click (dev). Blank keeps the default CloudFront domain.
+  SecondaryHostName:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'
+    Description: >-
+      Additional hostname served by the same distribution and permanently redirected to
+      PrimaryHostName, e.g. www.lamplight.click. Blank for stages that need only one name.
+  WebCertificateArn:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^arn:aws:acm:us-east-1:[0-9]{12}:certificate/[0-9a-f-]+$'
+    Description: >-
+      ACM certificate covering both hostnames. MUST be issued in us-east-1 (a CloudFront
+      constraint) — the pattern enforces that, because a certificate from any other region
+      is accepted by CloudFormation and then silently rejected by CloudFront. Output of the
+      edge-cert stack; passed across regions as a parameter since SSM cannot be read
+      cross-region.
+  HostedZoneId:
+    Type: String
+    Default: ''
+    Description: Route53 zone that owns the hostnames above; alias records are written here.
+
+Conditions:
+  # A custom domain is only wired up when the hostname, its certificate, and the zone to
+  # publish records into are ALL present. Any subset would produce a half-configured
+  # distribution — aliases without a certificate fail outright, records without aliases
+  # resolve to a distribution that answers every request with a 403.
+  HasCustomDomain: !And
+    - !Not [!Equals [!Ref PrimaryHostName, '']]
+    - !Not [!Equals [!Ref WebCertificateArn, '']]
+    - !Not [!Equals [!Ref HostedZoneId, '']]
+  HasSecondaryHost: !And
+    - !Condition HasCustomDomain
+    - !Not [!Equals [!Ref SecondaryHostName, '']]
 
 Resources:
   # --- Private origin bucket: holds dist/ assets; only CloudFront (OAC) may read. -----
@@ -138,6 +186,13 @@ Resources:
         DefaultRootObject: index.html
         HttpVersion: http2and3
         PriceClass: PriceClass_100
+        Aliases: !If
+          - HasCustomDomain
+          - !If
+            - HasSecondaryHost
+            - [!Ref PrimaryHostName, !Ref SecondaryHostName]
+            - [!Ref PrimaryHostName]
+          - !Ref 'AWS::NoValue'
         Origins:
           - Id: web-s3-origin
             DomainName: !GetAtt WebBucket.RegionalDomainName
@@ -153,8 +208,108 @@ Resources:
           # AWS-managed CachingOptimized policy (long-lived cache, gzip/br).
           CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
           ResponseHeadersPolicyId: !Ref WebHeadersPolicy
-        ViewerCertificate:
-          CloudFrontDefaultCertificate: true
+          FunctionAssociations: !If
+            - HasSecondaryHost
+            - - EventType: viewer-request
+                FunctionARN: !GetAtt CanonicalHostFunction.FunctionMetadata.FunctionARN
+            - !Ref 'AWS::NoValue'
+        # Without a domain the distribution keeps CloudFront's own certificate. With one, SNI
+        # (not a dedicated IP) and a floor of TLS 1.2 — TLSv1.2_2021 is the strongest policy
+        # that does not drop real browsers.
+        ViewerCertificate: !If
+          - HasCustomDomain
+          - AcmCertificateArn: !Ref WebCertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
+
+  # --- Canonicalisation: one URL per page. --------------------------------------------
+  # Both hostnames are aliases of the SAME distribution, so without this every page would
+  # answer 200 on two origins — split caches, duplicate indexing, and OAuth/CORS allowlists
+  # that have to name both. A viewer-request function is the cheapest correct fix (no origin
+  # round trip, no second distribution): it 301s the secondary host to the primary and lets
+  # everything else fall through untouched.
+  # The path and query are preserved; the fragment never reaches the server, so HashRouter
+  # routes survive the redirect client-side.
+  CanonicalHostFunction:
+    Type: AWS::CloudFront::Function
+    Condition: HasSecondaryHost
+    Properties:
+      Name: !Sub '${ProjectName}-${Stage}-canonical-host'
+      AutoPublish: true
+      FunctionConfig:
+        Comment: !Sub 'Permanent redirect ${SecondaryHostName} -> ${PrimaryHostName}'
+        Runtime: cloudfront-js-2.0
+      FunctionCode: !Sub |
+        function handler(event) {
+          var request = event.request;
+          var host = request.headers.host && request.headers.host.value;
+          if (host !== '${SecondaryHostName}') return request;
+          var qs = [];
+          for (var key in request.querystring) {
+            var q = request.querystring[key];
+            if (q.multiValue) {
+              for (var i = 0; i < q.multiValue.length; i++) {
+                qs.push(encodeURIComponent(key) + '=' + encodeURIComponent(q.multiValue[i].value));
+              }
+            } else if (q.value) {
+              qs.push(encodeURIComponent(key) + '=' + encodeURIComponent(q.value));
+            } else {
+              qs.push(encodeURIComponent(key));
+            }
+          }
+          return {
+            statusCode: 301,
+            statusDescription: 'Moved Permanently',
+            headers: {
+              location: { value: 'https://${PrimaryHostName}' + request.uri + (qs.length ? '?' + qs.join('&') : '') },
+            },
+          };
+        }
+
+  # --- DNS: alias records for every served hostname. -----------------------------------
+  # Alias (not CNAME) so the apex works at all — a CNAME at a zone apex is illegal — and so
+  # the records cost nothing to resolve. Z2FDTNDATAQYW2 is CloudFront's fixed, global hosted
+  # zone id; it is the same constant in every account and region, not a value from this stack.
+  # A and AAAA are both published because the distribution answers on IPv6 by default; a
+  # v6-only client would otherwise fail to resolve the site at all.
+  PrimaryAliasRecords:
+    Type: AWS::Route53::RecordSetGroup
+    Condition: HasCustomDomain
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      RecordSets:
+        - Name: !Ref PrimaryHostName
+          Type: A
+          AliasTarget:
+            DNSName: !GetAtt WebDistribution.DomainName
+            HostedZoneId: Z2FDTNDATAQYW2
+            EvaluateTargetHealth: false
+        - Name: !Ref PrimaryHostName
+          Type: AAAA
+          AliasTarget:
+            DNSName: !GetAtt WebDistribution.DomainName
+            HostedZoneId: Z2FDTNDATAQYW2
+            EvaluateTargetHealth: false
+
+  SecondaryAliasRecords:
+    Type: AWS::Route53::RecordSetGroup
+    Condition: HasSecondaryHost
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      RecordSets:
+        - Name: !Ref SecondaryHostName
+          Type: A
+          AliasTarget:
+            DNSName: !GetAtt WebDistribution.DomainName
+            HostedZoneId: Z2FDTNDATAQYW2
+            EvaluateTargetHealth: false
+        - Name: !Ref SecondaryHostName
+          Type: AAAA
+          AliasTarget:
+            DNSName: !GetAtt WebDistribution.DomainName
+            HostedZoneId: Z2FDTNDATAQYW2
+            EvaluateTargetHealth: false
 
   # --- Bucket policy: grant ONLY this distribution (by ARN) read access. --------------
   WebBucketPolicy:
@@ -187,12 +342,20 @@ Resources:
       Name: !Sub '/${ProjectName}/${Stage}/web/distribution-id'
       Type: String
       Value: !Ref WebDistribution
+  # The CANONICAL origin, which is what every downstream consumer must agree on: identity
+  # builds Cognito callback/logout URLs from it, sync-api and app-api build their CORS
+  # allowlist from it, and the client build embeds it. Once a custom domain exists the
+  # cloudfront.net name must NOT be published here — users would land on the custom domain
+  # and be rejected by an allowlist naming the other one.
   ParamWebUrl:
     Type: AWS::SSM::Parameter
     Properties:
       Name: !Sub '/${ProjectName}/${Stage}/web/url'
       Type: String
-      Value: !Sub 'https://${WebDistribution.DomainName}'
+      Value: !If
+        - HasCustomDomain
+        - !Sub 'https://${PrimaryHostName}'
+        - !Sub 'https://${WebDistribution.DomainName}'
 
   ParamAiConnectOrigins:
     Type: AWS::SSM::Parameter
@@ -204,8 +367,16 @@ Resources:
 
 Outputs:
   WebUrl:
-    Description: Public HTTPS URL of the hosted SPA (default CloudFront domain).
-    Value: !Sub 'https://${WebDistribution.DomainName}'
+    Description: Canonical public HTTPS URL of the hosted SPA.
+    Value: !If
+      - HasCustomDomain
+      - !Sub 'https://${PrimaryHostName}'
+      - !Sub 'https://${WebDistribution.DomainName}'
+  WebDistributionDomain:
+    Description: >-
+      The distribution's own *.cloudfront.net name. Always reachable, and the alias target
+      to check when diagnosing DNS.
+    Value: !GetAtt WebDistribution.DomainName
   WebBucket:
     Description: Private origin bucket that CI syncs dist/ into.
     Value: !Ref WebBucket

@@ -271,7 +271,7 @@ Resources:
           chmod 0755 /usr/local/bin/dndtools-turn-health
           cat > /etc/systemd/system/dndtools-turn-health.service <<'UNIT'
           [Unit]
-          Description=Publish DND Tools TURN application health
+          Description=Publish Lamplight TURN application health
           After=docker.service network-online.target
 
           [Service]
@@ -280,7 +280,7 @@ Resources:
           UNIT
           cat > /etc/systemd/system/dndtools-turn-health.timer <<'UNIT'
           [Unit]
-          Description=Check DND Tools TURN every minute
+          Description=Check Lamplight TURN every minute
 
           [Timer]
           OnBootSec=30s
