@@ -169,6 +169,31 @@ case "$STACK" in
     if [ "$STACK" = "app-api" ] && [ -n "$SYNC_OPS_TABLE_NAME" ]; then
       DEPLOY_OVERRIDES+=("SyncOpsTableName=$SYNC_OPS_TABLE_NAME")
     fi
+    # Invite email stays disabled (fail-closed) until a verified sender is configured. The
+    # value cannot live in samconfig: these CLI --parameter-overrides REPLACE the samconfig
+    # list wholesale, so anything set there is silently dropped on every deploy. It is read
+    # from SSM rather than taken only from the environment for the same reason WEB_ORIGIN is
+    # — otherwise the next deploy that forgets the variable quietly turns invite email back
+    # off. Set it once per stage:
+    #   aws ssm put-parameter --name /dndtools/<stage>/app-api/invite-sender \
+    #     --type String --value 'Lamplight <invites@lamplight.click>' --overwrite ...
+    # The address/domain must already be verified in SES for this account+region.
+    if [ "$STACK" = "app-api" ]; then
+      INVITE_SENDER="${DNDTOOLS_INVITE_SENDER:-}"
+      if [ -z "$INVITE_SENDER" ]; then
+        INVITE_SENDER=$(aws ssm get-parameter \
+          --name "/dndtools/$STAGE/app-api/invite-sender" \
+          --query 'Parameter.Value' \
+          --output text \
+          --region "$REGION" \
+          --profile "$PROFILE" 2>/dev/null || true)
+      fi
+      if [ -n "$INVITE_SENDER" ]; then
+        DEPLOY_OVERRIDES+=("InviteSender=$(sam_quote_override_value "$INVITE_SENDER")")
+      else
+        echo "    invite email is not configured for $STAGE; invites still mint links and report emailStatus=not-configured"
+      fi
+    fi
     ;;
 esac
 
