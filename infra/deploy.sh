@@ -176,8 +176,10 @@ case "$STACK" in
     # — otherwise the next deploy that forgets the variable quietly turns invite email back
     # off. Set it once per stage:
     #   aws ssm put-parameter --name /dndtools/<stage>/app-api/invite-sender \
-    #     --type String --value 'Lamplight <invites@lamplight.click>' --overwrite ...
-    # The address/domain must already be verified in SES for this account+region.
+    #     --type String --value 'invites@lamplight.click' --overwrite ...
+    # The address/domain must already be verified in SES for this account+region. Use a BARE
+    # address, never a "Name <addr>" display form: the Lambda's send policy is conditioned on
+    # ses:FromAddress, which matches the address alone, so a display form denies every send.
     if [ "$STACK" = "app-api" ]; then
       INVITE_SENDER="${DNDTOOLS_INVITE_SENDER:-}"
       if [ -z "$INVITE_SENDER" ]; then

@@ -38,7 +38,7 @@ require a deliberate user migration or pool replacement, not an in-place stack u
 
 | Order | Stack         | Purpose                                                                                                   | Always-on cost |
 | ----- | ------------- | --------------------------------------------------------------------------------------------------------- | -------------- |
-| 0     | `edge-cert`   | **us-east-1** ACM cert for the custom domain (apex + wildcard). Shared by all stages; deploy once          | none           |
+| 0     | `edge-cert`   | **us-east-1** ACM cert for the custom domain (apex + wildcard). Shared by all stages; deploy once         | none           |
 | 1     | `foundation`  | Budget alarm, GitHub OIDC deploy role, SSM namespace, alerts topic + its KMS key                          | ~$1/mo         |
 | 2     | `identity`    | Cognito user pool + app client (gates everything) + the SES configuration set all mail is sent through    | none           |
 | 3     | `turn`        | coturn on EC2 `t4g.nano` + Elastic IP + cred Lambda                                                       | ~$3–8/mo       |
@@ -110,11 +110,11 @@ there. DNS, certificate and records therefore all live in the account that serve
 
 | Hostname              | Serves                                                        |
 | --------------------- | ------------------------------------------------------------- |
-| `lamplight.click`     | prod SPA (canonical)                                           |
-| `www.lamplight.click` | prod SPA, 301 → apex via a CloudFront viewer-request function   |
+| `lamplight.click`     | prod SPA (canonical)                                          |
+| `www.lamplight.click` | prod SPA, 301 → apex via a CloudFront viewer-request function |
 
 **Dev has no custom domain** and stays on its `*.cloudfront.net` URL. That is a deliberate choice,
-not an omission: a CloudFront distribution can only attach a certificate issued in its *own* account,
+not an omission: a CloudFront distribution can only attach a certificate issued in its _own_ account,
 so a dev hostname under this domain would need either a second delegated zone plus a second
 certificate, or cross-account IAM so the dev stack could write into the prod zone. Neither is worth
 it for a dev stage. Dev's domain parameters are explicitly empty rather than absent.
