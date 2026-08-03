@@ -929,6 +929,10 @@ async function sendInviteEmail(input: {
 	const sender = process.env.INVITE_SENDER?.trim();
 	const webOrigin = process.env.WEB_ORIGIN?.trim();
 	if (!sender || !webOrigin) return 'not-configured';
+	// Optional on purpose: an unset configuration set costs the send its bounce/complaint
+	// attribution, which is not worth failing an invite over. SESv2 rejects the call outright
+	// if the name is present but unknown, so an empty value must stay undefined, not ''.
+	const configurationSet = process.env.SES_CONFIGURATION_SET?.trim() || undefined;
 	const joinUrl = inviteJoinUrl(webOrigin, input.token);
 	const noteLine = input.note ? `\n\nA note from ${input.invitedBy}:\n${input.note}` : '';
 	const text =
@@ -946,6 +950,7 @@ async function sendInviteEmail(input: {
 		await ses.send(
 			new SendEmailCommand({
 				FromEmailAddress: sender,
+				ConfigurationSetName: configurationSet,
 				Destination: { ToAddresses: [input.to] },
 				Content: {
 					Simple: {

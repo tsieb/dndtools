@@ -39,8 +39,8 @@ require a deliberate user migration or pool replacement, not an in-place stack u
 | Order | Stack         | Purpose                                                                                                   | Always-on cost |
 | ----- | ------------- | --------------------------------------------------------------------------------------------------------- | -------------- |
 | 0     | `edge-cert`   | **us-east-1** ACM cert for the custom domain (apex + wildcard). Shared by all stages; deploy once          | none           |
-| 1     | `foundation`  | Budget alarm, GitHub OIDC deploy role, SSM namespace                                                      | none           |
-| 2     | `identity`    | Cognito user pool + app client (gates everything)                                                         | none           |
+| 1     | `foundation`  | Budget alarm, GitHub OIDC deploy role, SSM namespace, alerts topic + its KMS key                          | ~$1/mo         |
+| 2     | `identity`    | Cognito user pool + app client (gates everything) + the SES configuration set all mail is sent through    | none           |
 | 3     | `turn`        | coturn on EC2 `t4g.nano` + Elastic IP + cred Lambda                                                       | ~$3–8/mo       |
 | 4     | `app-api`     | API GW HTTP + Lambda + DynamoDB (accounts/entitlements/invites/listings, TTL) + S3 (marketplace payloads) | none           |
 | 5     | `signaling`   | API GW WebSocket + Lambdas + DynamoDB (rooms/conns, TTL)                                                  | none           |
@@ -198,6 +198,22 @@ All commands target the `dndtools` profile / `ca-central-1` via each stack's
 After each foundation deployment, confirm the SNS subscription email before relying on service alarm
 delivery. Weekly drift detection and the production promotion workflow treat out-of-band stack changes
 as failures.
+
+Confirming the subscription is necessary but **not** sufficient — the alerts topic must also be
+encrypted with the stack's own `AlertsKey`, never the AWS-managed `alias/aws/sns`. The managed key
+cannot grant `cloudwatch.amazonaws.com` access, so alarms still transition to ALARM while every
+notification fails with "CloudWatch Alarms does not have authorization to access the SNS topic
+encryption key" — and nothing in the alarm's own state reveals it. To verify a stage end-to-end,
+force a transition and confirm the action actually succeeded:
+
+```bash
+aws cloudwatch set-alarm-state --alarm-name <alarm> --state-value ALARM \
+  --state-reason "delivery test" --profile <profile> --region ca-central-1
+aws cloudwatch describe-alarm-history --alarm-name <alarm> --history-item-type Action \
+  --max-records 1 --profile <profile> --region ca-central-1 \
+  --query 'AlarmHistoryItems[].HistoryData' --output text   # expect actionState "Succeeded"
+aws cloudwatch set-alarm-state --alarm-name <alarm> --state-value OK --state-reason restore ...
+```
 
 ## Cloud backup security
 

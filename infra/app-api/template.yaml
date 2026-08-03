@@ -224,6 +224,10 @@ Resources:
           # WEB_ORIGIN is the trusted base for the join link the email carries.
           INVITE_SENDER: !Ref InviteSender
           WEB_ORIGIN: !Ref WebOrigin
+          # Send through the same configuration set Cognito uses, so bounce and complaint
+          # rates cover ALL of this project's mail rather than only the account traffic.
+          # Owned by the identity stack, which deploys before this one.
+          SES_CONFIGURATION_SET: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/identity/email-config-set}}'
           # Fail closed unless the template explicitly identifies a non-production preview.
           ENTITLEMENT_PREVIEW_ENABLED: !If [IsProd, 'false', 'true']
       Policies:

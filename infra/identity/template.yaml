@@ -1,11 +1,11 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
   dndtools identity stack — Cognito user pool + public (PKCE) app client + hosted
-  UI domain. This is the single identity that gates BOTH the signaling WebSocket
-  and the sync REST API (their JWT authorizers validate tokens from this pool).
-  No always-on cost (Cognito bills per MAU above the free tier). Outputs are
-  published to SSM (/dndtools/<stage>/identity/*) for downstream stacks and the
-  client build to consume.
+  UI domain, plus the SES configuration set every outbound message is sent through.
+  This is the single identity that gates BOTH the signaling WebSocket and the sync
+  REST API (their JWT authorizers validate tokens from this pool). No always-on cost
+  (Cognito bills per MAU above the free tier). Outputs are published to SSM
+  (/dndtools/<stage>/identity/*) for downstream stacks and the client build to consume.
 
 Parameters:
   ProjectName:
@@ -104,12 +104,15 @@ Resources:
             Priority: 1
       # Dev uses Cognito's low-volume default sender. Production is required by the template rule above
       # to use a verified SES identity so confirmation and recovery do not silently hit the 50/day cap.
+      # ConfigurationSet is prod-only because it is only meaningful alongside DEVELOPER sending —
+      # COGNITO_DEFAULT mail never touches this account's SES and so cannot be attributed to a set.
       EmailConfiguration: !If
         - IsDev
         - EmailSendingAccount: COGNITO_DEFAULT
         - EmailSendingAccount: DEVELOPER
           SourceArn: !Ref CognitoEmailSourceArn
           From: !Ref CognitoEmailFrom
+          ConfigurationSet: !Ref EmailConfigurationSet
       UserAttributeUpdateSettings:
         AttributesRequireVerificationBeforeUpdate:
           - email
@@ -169,7 +172,114 @@ Resources:
       Domain: !Ref DomainPrefix
       UserPoolId: !Ref UserPool
 
+  # --- Outbound email observability --------------------------------------------
+  # Every message this project sends — Cognito verification/recovery codes and app-api
+  # campaign invitations — is sent through this one configuration set, so bounce and
+  # complaint rates describe the whole sending programme rather than a slice of it.
+  # It is created in both stages: dev's Cognito mail bypasses SES entirely, but dev
+  # app-api invites do not, and keeping the stacks uniform avoids a prod-only resource
+  # whose first exercise would be in production.
+  EmailConfigurationSet:
+    Type: AWS::SES::ConfigurationSet
+    Properties:
+      Name: !Sub '${ProjectName}-${Stage}-email'
+      ReputationOptions:
+        # Publishes Reputation.BounceRate / Reputation.ComplaintRate to CloudWatch under
+        # this set's dimension, in addition to the account-wide metrics the alarms below use.
+        ReputationMetricsEnabled: true
+      SendingOptions:
+        SendingEnabled: true
+      # SuppressionOptions is deliberately absent: omitting it INHERITS the account-level
+      # suppression list, which is already enabled for BOUNCE and COMPLAINT. Specifying it
+      # here would override that inheritance rather than add to it, which is how a set ends
+      # up quietly suppressing less than the account does.
+
+  # CloudWatch, not SNS, is the event destination. An SNS destination would need
+  # sns:Publish granted to ses.amazonaws.com AND KMS access to the topic's key — and the
+  # operational-alerts topic is encrypted with the AWS-MANAGED key alias/aws/sns, whose
+  # policy cannot be edited to grant a service principal. Metrics + alarms reach the same
+  # inbox by the same path as every other alarm in this project, with no per-recipient
+  # address leaving SES (the handler in cloud-fns deliberately never logs recipients either).
+  EmailEventsToCloudWatch:
+    Type: AWS::SES::ConfigurationSetEventDestination
+    Properties:
+      ConfigurationSetName: !Ref EmailConfigurationSet
+      EventDestination:
+        Name: cloudwatch
+        Enabled: true
+        # No `open`/`click`: tracking those would require SES to rewrite links and embed a
+        # pixel, which this project has no reason to do to a verification code.
+        MatchingEventTypes:
+          - send
+          - delivery
+          - bounce
+          - complaint
+          - reject
+          - renderingFailure
+          - deliveryDelay
+        CloudWatchDestination:
+          DimensionConfigurations:
+            - DimensionName: ses:configuration-set
+              DimensionValueSource: messageTag
+              DefaultDimensionValue: !Sub '${ProjectName}-${Stage}-email'
+
+  # Thresholds sit BELOW the levels at which AWS itself intervenes (review at 5% bounce /
+  # 0.1% complaint, possible pause at 10% / 0.5%), so the alarm is a warning to act on
+  # rather than a notification that action has already been taken against the account.
+  EmailBounceRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: >-
+        SES account bounce rate is at or above 5% — the level at which AWS places a sending
+        account under review. Inspect recent sends and stop the source before it climbs.
+      Namespace: AWS/SES
+      MetricName: Reputation.BounceRate
+      # No dimensions: this is the ACCOUNT-wide rate, which is the number AWS actually acts
+      # on. The per-set metric enabled above exists to attribute a spike, not to trigger.
+      Statistic: Average
+      Period: 3600
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 0.05
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/ops/alerts-topic-arn}}'
+
+  EmailComplaintRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: >-
+        SES account complaint rate is at or above 0.1% — the level at which AWS places a
+        sending account under review.
+      Namespace: AWS/SES
+      MetricName: Reputation.ComplaintRate
+      Statistic: Average
+      Period: 3600
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 0.001
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/ops/alerts-topic-arn}}'
+
+  EmailDeliverabilityDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub '${ProjectName}-${Stage}-email'
+      DashboardBody: !Sub >-
+        {"widgets":[{"type":"metric","width":12,"height":6,"properties":{"title":"Outcomes","region":"${AWS::Region}","stat":"Sum","period":3600,"metrics":[["AWS/SES","Send","ses:configuration-set","${EmailConfigurationSet}"],[".","Delivery",".","."],[".","Bounce",".","."],[".","Complaint",".","."],[".","Reject",".","."]]}},{"type":"metric","width":12,"height":6,"properties":{"title":"Account reputation","region":"${AWS::Region}","stat":"Average","period":3600,"yAxis":{"left":{"min":0}},"metrics":[["AWS/SES","Reputation.BounceRate"],[".","Reputation.ComplaintRate"]],"annotations":{"horizontal":[{"label":"AWS review (bounce)","value":0.05},{"label":"AWS review (complaint)","value":0.001}]}}}]}
+
   # --- Publish identity coordinates to SSM for downstream stacks + client build.
+  ParamEmailConfigSet:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/identity/email-config-set'
+      Type: String
+      Value: !Ref EmailConfigurationSet
+      Description: SES configuration set every outbound message is sent through.
+
   ParamUserPoolId:
     Type: AWS::SSM::Parameter
     Properties:
@@ -218,3 +328,8 @@ Outputs:
     Value: !Sub 'https://${DomainPrefix}.auth.${AWS::Region}.amazoncognito.com'
   IssuerUrl:
     Value: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}'
+  EmailConfigurationSetName:
+    Description: Pass to app-api as SesConfigurationSet so invite mail is measured too.
+    Value: !Ref EmailConfigurationSet
+    Export:
+      Name: !Sub '${ProjectName}-${Stage}-email-config-set'

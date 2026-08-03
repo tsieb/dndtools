@@ -4,7 +4,9 @@ Description: >-
   depends on but that change rarely: a monthly cost Budget (pre-revenue tripwire),
   the GitHub Actions OIDC provider + CI deploy role (keyless deploys), and the
   SSM Parameter Store namespace convention (/dndtools/<stage>/...). Deploy this
-  FIRST. It creates no always-on billable resources.
+  FIRST. Its only always-on billable resource is the KMS key that encrypts the
+  operational alerts topic (~$1/month; see AlertsKey for why the AWS-managed key
+  cannot be used).
 
 Parameters:
   ProjectName:
@@ -492,13 +494,61 @@ Resources:
       Value: !GetAtt AuditTrail.Arn
       Description: Account audit trail ARN for promotion/runbook checks.
 
+  # The alerts topic MUST NOT use the AWS-managed key `alias/aws/sns`. That key's policy
+  # grants only account principals calling through SNS, and it is not editable — so when
+  # CloudWatch Alarms tried to publish, every action failed with "CloudWatch Alarms does
+  # not have authorization to access the SNS topic encryption key." The failure is
+  # invisible from the alarm's own state: it still transitions to ALARM, the notification
+  # just never leaves. Every alarm in this project was silent from creation until this key
+  # was introduced (proven 2026-08-02 by forcing an alarm state transition in prod).
+  # Cost Anomaly Detection publishes here too and would fail the same way.
+  AlertsKey:
+    Type: AWS::KMS::Key
+    # Deleting this key silently breaks alarm delivery again, and the topic outlives any
+    # single deploy — keep it if the stack is ever torn down and rebuilt.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: !Sub 'Encrypts the ${ProjectName}-${Stage} operational alerts topic.'
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AccountAdmin
+            Effect: Allow
+            Principal: { AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root' }
+            Action: 'kms:*'
+            Resource: '*'
+          # Only the publishers that actually exist in this stack. Adding a new alarm
+          # source (EventBridge, S3, SES event destinations) means adding it here too,
+          # or its notifications will fail exactly as described above.
+          - Sid: AllowAlarmPublishersToEncrypt
+            Effect: Allow
+            Principal:
+              Service:
+                - cloudwatch.amazonaws.com
+                - costalerts.amazonaws.com
+            Action:
+              - 'kms:GenerateDataKey*'
+              - 'kms:Decrypt'
+            Resource: '*'
+            Condition:
+              StringEquals:
+                'aws:SourceAccount': !Ref 'AWS::AccountId'
+
+  AlertsKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub 'alias/${ProjectName}-${Stage}-alerts'
+      TargetKeyId: !Ref AlertsKey
+
   # Shared destination for service alarms. Email subscription confirmation is
   # required once per stage; downstream stacks resolve the topic ARN from SSM.
   OperationalAlertsTopic:
     Type: AWS::SNS::Topic
     Properties:
       TopicName: !Sub '${ProjectName}-${Stage}-operational-alerts'
-      KmsMasterKeyId: alias/aws/sns
+      KmsMasterKeyId: !Ref AlertsKey
       Tags:
         - { Key: project, Value: !Ref ProjectName }
         - { Key: stage, Value: !Ref Stage }
