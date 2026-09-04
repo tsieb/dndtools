@@ -51,7 +51,7 @@ const Audio = lazy(() => import('./screens/Audio').then((m) => ({ default: m.Aud
 const Extensions = lazy(() =>
 	import('./screens/Extensions').then((m) => ({ default: m.Extensions })),
 );
-const Community = lazy(() => import('./screens/Community').then((m) => ({ default: m.Community })));
+const Community = lazy(() => import('./screens/community').then((m) => ({ default: m.Community })));
 const Player = lazy(() => import('./screens/Player').then((m) => ({ default: m.Player })));
 const Upgrade = lazy(() => import('./screens/Upgrade').then((m) => ({ default: m.Upgrade })));
 const PlayerView = lazy(() =>
