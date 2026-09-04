@@ -43,11 +43,43 @@
 		},
 		{
 			"id": "settings-device-prefs-localstorage",
-			"path": "apps/gm-react/src/screens/Settings.tsx",
-			"primitives": ["localStorage", "navigator"],
+			"path": "apps/gm-react/src/screens/settings/shared.tsx",
+			"primitives": ["localStorage"],
 			"owner": "SHELL (settings)",
-			"rationale": "Feature-tier, notification, and onboarding-reset preferences are device-scoped settings persisted to localStorage (with typeof guards + corrupt-data fallbacks); navigator.onLine is read once behind a typeof guard to show a connectivity hint. None of this is durable vault or sync state.",
-			"removalCriteria": "Route device preferences through a typed platform-preferences adapter, and connectivity through a platform capability provider, once the React platform layer lands."
+			"rationale": "Theme, density, motion and feature-tier preferences are device-scoped settings persisted to localStorage (with typeof guards + corrupt-data fallbacks) so index.html can restore them pre-paint. None of this is durable vault or sync state. Split out of the single Settings.tsx entry when RC-STB-2.1 decomposed that screen.",
+			"removalCriteria": "Route device preferences through a typed platform-preferences adapter once the React platform layer lands."
+		},
+		{
+			"id": "settings-account-onboarding-reset-localstorage",
+			"path": "apps/gm-react/src/screens/settings/Account.tsx",
+			"primitives": ["localStorage"],
+			"owner": "SHELL (settings)",
+			"rationale": "\"Replay the welcome tour\" clears the device-scoped onboarding flag (ONBOARDED_KEY) before re-firing the replay event. Same rationale and owner as settings-device-prefs-localstorage; split out by RC-STB-2.1.",
+			"removalCriteria": "Route device preferences through a typed platform-preferences adapter once the React platform layer lands."
+		},
+		{
+			"id": "settings-ai-notify-preference-localstorage",
+			"path": "apps/gm-react/src/screens/settings/AiAssistant.tsx",
+			"primitives": ["localStorage"],
+			"owner": "SHELL (settings)",
+			"rationale": "Whether a finished assistant run raises a platform notification is a device-scoped boolean in localStorage. Same rationale and owner as settings-device-prefs-localstorage; split out by RC-STB-2.1.",
+			"removalCriteria": "Route device preferences through a typed platform-preferences adapter once the React platform layer lands."
+		},
+		{
+			"id": "settings-invite-copy-clipboard",
+			"path": "apps/gm-react/src/screens/settings/PlayerInvites.tsx",
+			"primitives": ["navigator"],
+			"owner": "SHELL (settings)",
+			"rationale": "Copying an invite join link writes to navigator.clipboard behind a try/catch that falls back to an honest \"copy the link manually\" toast. No durable state is read or written. Split out of the single Settings.tsx entry by RC-STB-2.1.",
+			"removalCriteria": "Route clipboard writes through a typed platform-clipboard adapter once the React platform layer lands (DEBT-2026-001)."
+		},
+		{
+			"id": "settings-sync-connectivity-navigator",
+			"path": "apps/gm-react/src/screens/settings/Sync.tsx",
+			"primitives": ["navigator"],
+			"owner": "SHELL (settings)",
+			"rationale": "navigator.onLine is read once behind a typeof guard to show a connectivity hint beside the backup panel. Same rationale and owner as settings-device-prefs-localstorage; split out by RC-STB-2.1.",
+			"removalCriteria": "Route connectivity through a platform capability provider once one exists (same criteria as the Settings preferences entry)."
 		},
 		{
 			"id": "extensions-theme-preset-localstorage",

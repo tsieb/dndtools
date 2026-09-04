@@ -67,8 +67,8 @@ node apps/gm-react/scripts/verify-canvas.mjs      # canvas surfaces: /board + /s
 - **`src/screens/`** — one file per screen. Core-wired canvas/data surfaces: `CommandCenter.tsx`
   (`/` launcher hub), `Board.tsx` (`/board`), `ScenesCreator.tsx` (`/scenes`), `SceneEditor.tsx`
   (`/scene/:id`). Section surfaces: `Session.tsx`, `Characters.tsx`, `Atlas.tsx`, `Campaign.tsx`,
-  `Knowledge.tsx`, `Graph.tsx`, `audio/`, `extensions/`, `community/`, `Player.tsx`,
-  `Settings.tsx`. See [PROTOTYPE.md](./PROTOTYPE.md) §4 for the per-section design-view mapping.
+  `Knowledge.tsx`, `Graph.tsx`, `audio/`, `extensions/`, `community/`, `settings/`,
+  `Player.tsx`. See [PROTOTYPE.md](./PROTOTYPE.md) §4 for the per-section design-view mapping.
 
 ## Adding or reskinning a screen
 
