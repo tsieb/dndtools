@@ -26,6 +26,9 @@
   (mirroring the map editor's ADR-024 §4 model) plus a durable, TTL'd tombstone for
   `widget.destroy-widget` so destroy is reversible; this ADR's processing/display boundary is
   unaffected.
+- Amended by: ADR-030 (2026-09-04) — pointer only, no content change. Combat token placement is
+  settled as durable `session.combat.tokens` state (not a map feature); this ADR's
+  processing/display boundary is unaffected.
 
 ## Context
 

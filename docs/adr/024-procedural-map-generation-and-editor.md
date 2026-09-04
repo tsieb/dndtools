@@ -6,6 +6,10 @@
 - Consulted: Product, Design, Security
 - Supersedes: N/A
 - Amends: N/A
+- Amended by: ADR-030 (2026-09-04) — §2's additive `MapFeature` model is narrowed: `MapState.tokens`
+  (`MapToken`, MAP-019) is removed and replaced by durable `session.combat.tokens`, keyed by
+  combatant id. Every other section (pure normalized-vector model, delta ops, local undo, engine-free
+  renderer, VTT export, editor IA) is unaffected.
 - Relates-to: ADR-014 (the engine-free geometry-renderer decision this ADR upholds), ADR-019
   (content-addressed asset bytes), ADR-009 (performance budgets)
 
