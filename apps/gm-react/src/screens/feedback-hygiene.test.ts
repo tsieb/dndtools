@@ -30,7 +30,9 @@ function code(...segments: string[]): string {
 }
 
 describe('a repeated identical failure re-announces', () => {
-	for (const screen of ['Board.tsx', 'SceneEditor.tsx']) {
+	// RC-STB-2.6 split SceneEditor.tsx into screens/sceneEditor/; the dispatch helper lives in its
+	// index. Paths, not bare file names, so a later split re-points here rather than silently passing.
+	for (const screen of ['Board.tsx', 'sceneEditor/index.tsx']) {
 		it(`${screen}'s dispatch helper clears its alert before the attempt`, () => {
 			const source = code('screens', screen);
 			const helper = /async function dispatch\([\s\S]*?\n\t\}\n/.exec(source)?.[0];

@@ -45,7 +45,7 @@ describe('both size affordances ask the same predicate', () => {
 	});
 
 	it('the Inspector gates its Size buttons on it', () => {
-		const src = read('screens/SceneEditor.tsx');
+		const src = read('screens/sceneEditor/Inspector.tsx');
 		expect(src).toMatch(/const resizable = isWidgetResizable\(widget\)/);
 		expect(src).toMatch(/\{resizable \?/);
 	});
