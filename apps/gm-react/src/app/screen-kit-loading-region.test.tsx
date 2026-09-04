@@ -64,7 +64,7 @@ describe('no screen still hides a loading announcement behind aria-label', () =>
 		'community/Discover.tsx',
 		'community/Publish.tsx',
 		'community/Wiki.tsx',
-		'Extensions.tsx',
+		'extensions/Compendium.tsx',
 		'Settings.tsx',
 	];
 

@@ -49,7 +49,7 @@ const Settings = lazy(() => import('./screens/Settings').then((m) => ({ default:
 const Graph = lazy(() => import('./screens/Graph').then((m) => ({ default: m.Graph })));
 const Audio = lazy(() => import('./screens/audio').then((m) => ({ default: m.Audio })));
 const Extensions = lazy(() =>
-	import('./screens/Extensions').then((m) => ({ default: m.Extensions })),
+	import('./screens/extensions').then((m) => ({ default: m.Extensions })),
 );
 const Community = lazy(() => import('./screens/community').then((m) => ({ default: m.Community })));
 const Player = lazy(() => import('./screens/Player').then((m) => ({ default: m.Player })));

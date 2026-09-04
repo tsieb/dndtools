@@ -51,7 +51,7 @@
 		},
 		{
 			"id": "extensions-theme-preset-localstorage",
-			"path": "apps/gm-react/src/screens/Extensions.tsx",
+			"path": "apps/gm-react/src/screens/extensions/ThemeStudio.tsx",
 			"primitives": ["localStorage"],
 			"owner": "EXT (theme studio)",
 			"rationale": "The theme studio persists the chosen preset under the same device-scoped key (dndtools:react:theme) Settings \u2192 Appearance writes, so index.html can restore it pre-paint. Device-local UI preference, never durable vault or sync state \u2014 identical rationale to settings-device-prefs-localstorage.",
