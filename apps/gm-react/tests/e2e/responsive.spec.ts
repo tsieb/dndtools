@@ -250,16 +250,26 @@ for (const viewport of [
 
 		for (const route of ['/board', `/scene/${sceneId}`]) {
 			await gotoRoute(page, route);
-			await page.waitForTimeout(150);
-			const main = await page.locator('#main-content').evaluate((element) => ({
-				clientHeight: element.clientHeight,
-				scrollHeight: element.scrollHeight,
-			}));
+			// These routes are lazily loaded and `gotoRoute` only changes the hash, so its `h1` wait can
+			// resolve against the PREVIOUS route's heading. A fixed sleep here then raced the chunk load
+			// under parallel workers and measured a half-laid-out pane. Poll the measurement instead: a
+			// real overflow still fails, it just takes the retry budget to do it.
 			// A 2px tolerance absorbs sub-pixel rounding of the flex track, nothing more.
-			expect(
-				main.scrollHeight,
-				`${route} overflowed the shell's main pane by ${main.scrollHeight - main.clientHeight}px`,
-			).toBeLessThanOrEqual(main.clientHeight + 2);
+			const measure = async () =>
+				page.locator('#main-content').evaluate((element) => ({
+					clientHeight: element.clientHeight,
+					scrollHeight: element.scrollHeight,
+				}));
+			await expect
+				.poll(
+					async () => {
+						const m = await measure();
+						return m.scrollHeight - m.clientHeight;
+					},
+					{ message: `${route} overflowed the shell's main pane`, timeout: 10_000 },
+				)
+				.toBeLessThanOrEqual(2);
+			const main = await measure();
 			// …and it must not shrink away from the pane either: a bounded canvas that only fills
 			// half of main is the same magic-number bug with the sign flipped.
 			const canvasHeight = await page
