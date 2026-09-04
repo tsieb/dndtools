@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from 'vitest';
-import { parseWikilink as parseInVault } from './Knowledge';
+import { parseWikilink as parseInVault } from './knowledge';
 import { parseWikilink as parseInReader } from './WikiReader';
 
 // `[[wikilinks]]` used to render accent-coloured but INERT in both readers — the DM's vault

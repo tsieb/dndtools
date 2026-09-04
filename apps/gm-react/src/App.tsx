@@ -44,7 +44,7 @@ const Characters = lazy(() =>
 );
 const Atlas = lazy(() => import('./screens/atlas').then((m) => ({ default: m.Atlas })));
 const Campaign = lazy(() => import('./screens/Campaign').then((m) => ({ default: m.Campaign })));
-const Knowledge = lazy(() => import('./screens/Knowledge').then((m) => ({ default: m.Knowledge })));
+const Knowledge = lazy(() => import('./screens/knowledge').then((m) => ({ default: m.Knowledge })));
 const Settings = lazy(() => import('./screens/Settings').then((m) => ({ default: m.Settings })));
 const Graph = lazy(() => import('./screens/Graph').then((m) => ({ default: m.Graph })));
 const Audio = lazy(() => import('./screens/Audio').then((m) => ({ default: m.Audio })));
