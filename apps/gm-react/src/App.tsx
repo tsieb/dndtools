@@ -40,7 +40,7 @@ const SceneEditor = lazy(() =>
 const Board = lazy(() => import('./screens/Board').then((m) => ({ default: m.Board })));
 const Session = lazy(() => import('./screens/Session').then((m) => ({ default: m.Session })));
 const Characters = lazy(() =>
-	import('./screens/Characters').then((m) => ({ default: m.Characters })),
+	import('./screens/characters').then((m) => ({ default: m.Characters })),
 );
 const Atlas = lazy(() => import('./screens/atlas').then((m) => ({ default: m.Atlas })));
 const Campaign = lazy(() => import('./screens/Campaign').then((m) => ({ default: m.Campaign })));
