@@ -1,136 +1,117 @@
 {
-  "$schema": "./platform-access-exceptions.schema.json",
-  "exceptions": [
-    {
-      "id": "app-shell-responsive-matchmedia",
-      "path": "apps/gm-react/src/app/useViewport.ts",
-      "primitives": [
-        "viewport-sniff"
-      ],
-      "owner": "SHELL (adaptive shell)",
-      "rationale": "The adaptive shell resolves the layout profile (phone/rail/desktop) from matchMedia breakpoint queries — event-driven, no resize thrash. This hook is the SINGLE place that reads the raw viewport; AppShell and the fixed main+sidebar detail screens (Atlas/Knowledge/Graph) consume the resolved profile through it rather than sniffing the viewport themselves.",
-      "removalCriteria": "Remove when the React app grows a typed platform-profile provider (the analogue of the Svelte app's src/lib/platform layer) that probes the viewport once and exposes the resolved profile via context; this hook then reads the profile instead of matchMedia."
-    },
-    {
-      "id": "onboarding-invite-localstorage",
-      "path": "apps/gm-react/src/app/Onboarding.tsx",
-      "primitives": [
-        "localStorage"
-      ],
-      "owner": "ONB (onboarding)",
-      "rationale": "First-run onboarding progress and device-local player-invite emails are explicitly device-scoped UI state (never durable vault or sync state), guarded by typeof checks. localStorage is the correct device-local store for the local-first prototype persistence stage (ADR-014).",
-      "removalCriteria": "Move onto a typed platform-preferences adapter once one exists; until then device-local onboarding state stays confined to this file."
-    },
-    {
-      "id": "audio-device-capability-navigator",
-      "path": "apps/gm-react/src/screens/Audio.tsx",
-      "primitives": [
-        "navigator"
-      ],
-      "owner": "AUDIO (playback surface)",
-      "rationale": "The audio surface reads navigator.onLine to stamp honest online/offline context onto session.audio.play dispatches (the core's degradation model consumes it, AUDIO-010) and navigator.mediaDevices to enumerate output devices for session.audio.set-output-device. Both are live device capabilities with no durable state; guarded by typeof checks.",
-      "removalCriteria": "Route through a typed platform-capabilities adapter once one exists (DEBT-2026-001); the dispatch call sites then consume an injected online/devices snapshot."
-    },
-    {
-      "id": "settings-device-prefs-localstorage",
-      "path": "apps/gm-react/src/screens/Settings.tsx",
-      "primitives": [
-        "localStorage",
-        "navigator"
-      ],
-      "owner": "SHELL (settings)",
-      "rationale": "Feature-tier, notification, and onboarding-reset preferences are device-scoped settings persisted to localStorage (with typeof guards + corrupt-data fallbacks); navigator.onLine is read once behind a typeof guard to show a connectivity hint. None of this is durable vault or sync state.",
-      "removalCriteria": "Route device preferences through a typed platform-preferences adapter, and connectivity through a platform capability provider, once the React platform layer lands."
-    },
-    {
-      "id": "extensions-theme-preset-localstorage",
-      "path": "apps/gm-react/src/screens/Extensions.tsx",
-      "primitives": [
-        "localStorage"
-      ],
-      "owner": "EXT (theme studio)",
-      "rationale": "The theme studio persists the chosen preset under the same device-scoped key (dndtools:react:theme) Settings → Appearance writes, so index.html can restore it pre-paint. Device-local UI preference, never durable vault or sync state — identical rationale to settings-device-prefs-localstorage.",
-      "removalCriteria": "Move onto a typed platform-preferences adapter once one exists (same criteria as the Settings entry); both surfaces should then share one preference accessor."
-    },
-    {
-      "id": "upgrade-plan-localstorage",
-      "path": "apps/gm-react/src/screens/Upgrade.tsx",
-      "primitives": [
-        "localStorage"
-      ],
-      "owner": "SHELL (billing preview)",
-      "rationale": "The selected plan is device-local app state (no payment is taken and no account is created in this build), persisted to localStorage so it survives reload. Kept in sync with Settings' plan key so the two screens never disagree.",
-      "removalCriteria": "Remove when plan selection moves behind a real billing/account service or a typed platform-preferences adapter."
-    },
-    {
-      "id": "board-idempotency-key-crypto",
-      "path": "apps/gm-react/src/screens/Board.tsx",
-      "primitives": [
-        "crypto"
-      ],
-      "owner": "CANVAS (board)",
-      "rationale": "Generates a one-shot crypto.randomUUID() idempotency key for a single dispatched command so a double-submit is de-duplicated by the core op-log. No key material or durable state is touched.",
-      "removalCriteria": "Remove if command dispatch grows a shared idempotency-key helper on the runtime/dispatch seam that GUI code calls instead of crypto.randomUUID() directly."
-    },
-    {
-      "id": "scene-editor-idempotency-key-crypto",
-      "path": "apps/gm-react/src/screens/SceneEditor.tsx",
-      "primitives": [
-        "crypto"
-      ],
-      "owner": "CANVAS (scene editor)",
-      "rationale": "Generates a one-shot crypto.randomUUID() idempotency key for a single dispatched command so a double-submit is de-duplicated by the core op-log. No key material or durable state is touched.",
-      "removalCriteria": "Remove if command dispatch grows a shared idempotency-key helper on the runtime/dispatch seam that GUI code calls instead of crypto.randomUUID() directly."
-    },
-    {
-      "id": "mapbuilder-poi-link-clipboard",
-      "path": "apps/gm-react/src/app/MapBuilder.tsx",
-      "primitives": [
-        "navigator"
-      ],
-      "owner": "MAP (builder)",
-      "rationale": "Copy-POI-deep-link uses navigator.clipboard.writeText as a pure UI convenience; denial degrades honestly by showing the URL in the notice bar for manual copy. No durable state, no capability assumption.",
-      "removalCriteria": "Route through a typed platform-clipboard adapter once one exists (DEBT-2026-001)."
-    },
-    {
-      "id": "atlas-poi-link-clipboard",
-      "path": "apps/gm-react/src/screens/Atlas.tsx",
-      "primitives": [
-        "navigator"
-      ],
-      "owner": "MAP (atlas)",
-      "rationale": "Copy-POI-deep-link uses navigator.clipboard.writeText as a pure UI convenience; denial degrades honestly by showing the URL in the notice bar for manual copy. No durable state, no capability assumption.",
-      "removalCriteria": "Route through a typed platform-clipboard adapter once one exists (DEBT-2026-001)."
-    },
-    {
-      "id": "community-wiki-link-clipboard",
-      "path": "apps/gm-react/src/screens/Community.tsx",
-      "primitives": [
-        "navigator"
-      ],
-      "owner": "COMMUNITY (campaign wiki)",
-      "rationale": "Copy-public-wiki-link uses navigator.clipboard.writeText as a pure UI convenience after publishing a campaign wiki; denial degrades honestly with a toast telling the user to copy the shown link manually. No durable state, no capability assumption — identical rationale to the atlas/mapbuilder POI-link clipboard entries.",
-      "removalCriteria": "Route through a typed platform-clipboard adapter once one exists (DEBT-2026-001)."
-    },
-    {
-      "id": "map-generate-seed-clipboard",
-      "path": "apps/gm-react/src/app/map/generate/GeneratePanel.tsx",
-      "primitives": [
-        "navigator"
-      ],
-      "owner": "MAP (generate tool)",
-      "rationale": "Copy-generation-seed uses navigator.clipboard.writeText as a pure UI convenience so a DM can share/reuse a reproducible seed; denial degrades honestly (the seed is always visible and editable in the adjacent field for manual copy). No durable state, no capability assumption — identical rationale to the atlas/mapbuilder/community clipboard entries.",
-      "removalCriteria": "Route through a typed platform-clipboard adapter once one exists (DEBT-2026-001)."
-    },
-    {
-      "id": "wikireader-test-jsdom-matchmedia-polyfill",
-      "path": "apps/gm-react/src/screens/WikiReader.test.tsx",
-      "primitives": [
-        "viewport-sniff"
-      ],
-      "owner": "WIKI (public reader)",
-      "rationale": "Test-only polyfill, not product code. This jsdom build exposes no window.matchMedia (verified: a bare `typeof window.matchMedia` probe under the app suite's jsdom environment returns 'undefined'), and useViewport reads it during WikiReader's first render, so the component cannot mount without a stub. The stub always reports matches:false, i.e. the desktop profile; nothing here branches on the raw viewport.",
-      "removalCriteria": "Remove when the app test setup supplies a shared matchMedia polyfill (a setupFiles entry in vitest.app.config.ts) so component tests no longer stub it per file."
-    }
-  ]
+	"$schema": "./platform-access-exceptions.schema.json",
+	"exceptions": [
+		{
+			"id": "app-shell-responsive-matchmedia",
+			"path": "apps/gm-react/src/app/useViewport.ts",
+			"primitives": ["viewport-sniff"],
+			"owner": "SHELL (adaptive shell)",
+			"rationale": "The adaptive shell resolves the layout profile (phone/rail/desktop) from matchMedia breakpoint queries \u2014 event-driven, no resize thrash. This hook is the SINGLE place that reads the raw viewport; AppShell and the fixed main+sidebar detail screens (Atlas/Knowledge/Graph) consume the resolved profile through it rather than sniffing the viewport themselves.",
+			"removalCriteria": "Remove when the React app grows a typed platform-profile provider (the analogue of the Svelte app's src/lib/platform layer) that probes the viewport once and exposes the resolved profile via context; this hook then reads the profile instead of matchMedia."
+		},
+		{
+			"id": "onboarding-invite-localstorage",
+			"path": "apps/gm-react/src/app/onboarding/shared.ts",
+			"primitives": ["localStorage"],
+			"owner": "ONB (onboarding)",
+			"rationale": "First-run onboarding progress and device-local player-invite emails are explicitly device-scoped UI state (never durable vault or sync state), guarded by typeof checks. localStorage is the correct device-local store for the local-first prototype persistence stage (ADR-014). The three accessors are the wizard's only direct reads/writes; every step imports them from here.",
+			"removalCriteria": "Move onto a typed platform-preferences adapter once one exists; until then device-local onboarding state stays confined to this file."
+		},
+		{
+			"id": "audio-device-capability-navigator",
+			"path": "apps/gm-react/src/screens/audio/index.tsx",
+			"primitives": ["navigator"],
+			"owner": "AUDIO (playback surface)",
+			"rationale": "The audio surface reads navigator.onLine to stamp honest online/offline context onto session.audio.play dispatches (the core's degradation model consumes it, AUDIO-010) and navigator.mediaDevices to enumerate output devices for session.audio.set-output-device. Both are live device capabilities with no durable state; guarded by typeof checks.",
+			"removalCriteria": "Route through a typed platform-capabilities adapter once one exists (DEBT-2026-001); the dispatch call sites then consume an injected online/devices snapshot."
+		},
+		{
+			"id": "audio-preset-editor-navigator",
+			"path": "apps/gm-react/src/screens/audio/usePresetEditor.ts",
+			"primitives": ["navigator"],
+			"owner": "AUDIO (playback surface)",
+			"rationale": "The AUDIO-014 preset editor stamps navigator.onLine onto session.audio.apply-preset so the core's degradation model sees honest online/offline context. Same rationale and owner as audio-device-capability-navigator; split out when Audio.tsx was decomposed (RC-STB-2.6).",
+			"removalCriteria": "Route through a typed platform-capabilities adapter once one exists (DEBT-2026-001); the dispatch call sites then consume an injected online/devices snapshot."
+		},
+		{
+			"id": "audio-automation-editor-navigator",
+			"path": "apps/gm-react/src/screens/audio/useAutomationEditor.ts",
+			"primitives": ["navigator"],
+			"owner": "AUDIO (playback surface)",
+			"rationale": "The AUDIO-005 automation editor stamps navigator.onLine onto the rule resolver call and onto the session.audio.play it dispatches for Run now. Same rationale and owner as audio-device-capability-navigator; split out when Audio.tsx was decomposed (RC-STB-2.6).",
+			"removalCriteria": "Route through a typed platform-capabilities adapter once one exists (DEBT-2026-001); the dispatch call sites then consume an injected online/devices snapshot."
+		},
+		{
+			"id": "settings-device-prefs-localstorage",
+			"path": "apps/gm-react/src/screens/Settings.tsx",
+			"primitives": ["localStorage", "navigator"],
+			"owner": "SHELL (settings)",
+			"rationale": "Feature-tier, notification, and onboarding-reset preferences are device-scoped settings persisted to localStorage (with typeof guards + corrupt-data fallbacks); navigator.onLine is read once behind a typeof guard to show a connectivity hint. None of this is durable vault or sync state.",
+			"removalCriteria": "Route device preferences through a typed platform-preferences adapter, and connectivity through a platform capability provider, once the React platform layer lands."
+		},
+		{
+			"id": "extensions-theme-preset-localstorage",
+			"path": "apps/gm-react/src/screens/Extensions.tsx",
+			"primitives": ["localStorage"],
+			"owner": "EXT (theme studio)",
+			"rationale": "The theme studio persists the chosen preset under the same device-scoped key (dndtools:react:theme) Settings \u2192 Appearance writes, so index.html can restore it pre-paint. Device-local UI preference, never durable vault or sync state \u2014 identical rationale to settings-device-prefs-localstorage.",
+			"removalCriteria": "Move onto a typed platform-preferences adapter once one exists (same criteria as the Settings entry); both surfaces should then share one preference accessor."
+		},
+		{
+			"id": "upgrade-plan-localstorage",
+			"path": "apps/gm-react/src/screens/Upgrade.tsx",
+			"primitives": ["localStorage"],
+			"owner": "SHELL (billing preview)",
+			"rationale": "The selected plan is device-local app state (no payment is taken and no account is created in this build), persisted to localStorage so it survives reload. Kept in sync with Settings' plan key so the two screens never disagree.",
+			"removalCriteria": "Remove when plan selection moves behind a real billing/account service or a typed platform-preferences adapter."
+		},
+		{
+			"id": "board-idempotency-key-crypto",
+			"path": "apps/gm-react/src/screens/Board.tsx",
+			"primitives": ["crypto"],
+			"owner": "CANVAS (board)",
+			"rationale": "Generates a one-shot crypto.randomUUID() idempotency key for a single dispatched command so a double-submit is de-duplicated by the core op-log. No key material or durable state is touched.",
+			"removalCriteria": "Remove if command dispatch grows a shared idempotency-key helper on the runtime/dispatch seam that GUI code calls instead of crypto.randomUUID() directly."
+		},
+		{
+			"id": "scene-editor-idempotency-key-crypto",
+			"path": "apps/gm-react/src/screens/sceneEditor/index.tsx",
+			"primitives": ["crypto"],
+			"owner": "CANVAS (scene editor)",
+			"rationale": "Generates a one-shot crypto.randomUUID() idempotency key for a single dispatched command so a double-submit is de-duplicated by the core op-log. No key material or durable state is touched.",
+			"removalCriteria": "Remove if command dispatch grows a shared idempotency-key helper on the runtime/dispatch seam that GUI code calls instead of crypto.randomUUID() directly."
+		},
+		{
+			"id": "atlas-poi-link-clipboard",
+			"path": "apps/gm-react/src/screens/atlas/index.tsx",
+			"primitives": ["navigator"],
+			"owner": "MAP (atlas)",
+			"rationale": "Copy-POI-deep-link uses navigator.clipboard.writeText as a pure UI convenience; denial degrades honestly by showing the URL in the notice bar for manual copy. No durable state, no capability assumption.",
+			"removalCriteria": "Route through a typed platform-clipboard adapter once one exists (DEBT-2026-001)."
+		},
+		{
+			"id": "community-wiki-link-clipboard",
+			"path": "apps/gm-react/src/screens/community/Wiki.tsx",
+			"primitives": ["navigator"],
+			"owner": "COMMUNITY (campaign wiki)",
+			"rationale": "Copy-public-wiki-link uses navigator.clipboard.writeText as a pure UI convenience after publishing a campaign wiki; denial degrades honestly with a toast telling the user to copy the shown link manually. No durable state, no capability assumption \u2014 identical rationale to the atlas/mapbuilder POI-link clipboard entries.",
+			"removalCriteria": "Route through a typed platform-clipboard adapter once one exists (DEBT-2026-001)."
+		},
+		{
+			"id": "map-generate-seed-clipboard",
+			"path": "apps/gm-react/src/app/map/generate/GeneratePanel.tsx",
+			"primitives": ["navigator"],
+			"owner": "MAP (generate tool)",
+			"rationale": "Copy-generation-seed uses navigator.clipboard.writeText as a pure UI convenience so a DM can share/reuse a reproducible seed; denial degrades honestly (the seed is always visible and editable in the adjacent field for manual copy). No durable state, no capability assumption \u2014 identical rationale to the atlas/mapbuilder/community clipboard entries.",
+			"removalCriteria": "Route through a typed platform-clipboard adapter once one exists (DEBT-2026-001)."
+		},
+		{
+			"id": "wikireader-test-jsdom-matchmedia-polyfill",
+			"path": "apps/gm-react/src/screens/WikiReader.test.tsx",
+			"primitives": ["viewport-sniff"],
+			"owner": "WIKI (public reader)",
+			"rationale": "Test-only polyfill, not product code. This jsdom build exposes no window.matchMedia (verified: a bare `typeof window.matchMedia` probe under the app suite's jsdom environment returns 'undefined'), and useViewport reads it during WikiReader's first render, so the component cannot mount without a stub. The stub always reports matches:false, i.e. the desktop profile; nothing here branches on the raw viewport.",
+			"removalCriteria": "Remove when the app test setup supplies a shared matchMedia polyfill (a setupFiles entry in vitest.app.config.ts) so component tests no longer stub it per file."
+		}
+	]
 }
