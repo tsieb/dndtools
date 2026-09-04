@@ -12,6 +12,10 @@
   direct-write path. It relaxes no safety rule — every model write is still a staged proposal a human
   approves (ADR-002), and the Processing-Core AI boundary (`mcp/ai-boundary.ts`: AI proposes, never
   disposes) is reaffirmed.
+- Amended by: ADR-031 (2026-09-04) — the expanded staged write surface gains
+  `widget.package.propose`. It is restricted to `template`-runtime drafts (a model may not author
+  `custom-html-js`), carries `authoring.source = 'generated'` provenance, and its approval installs
+  an unreviewed package that still needs a per-permission `widget.package.review`.
 
 ## Context
 
