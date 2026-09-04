@@ -47,7 +47,7 @@ const Campaign = lazy(() => import('./screens/Campaign').then((m) => ({ default:
 const Knowledge = lazy(() => import('./screens/knowledge').then((m) => ({ default: m.Knowledge })));
 const Settings = lazy(() => import('./screens/Settings').then((m) => ({ default: m.Settings })));
 const Graph = lazy(() => import('./screens/Graph').then((m) => ({ default: m.Graph })));
-const Audio = lazy(() => import('./screens/Audio').then((m) => ({ default: m.Audio })));
+const Audio = lazy(() => import('./screens/audio').then((m) => ({ default: m.Audio })));
 const Extensions = lazy(() =>
 	import('./screens/Extensions').then((m) => ({ default: m.Extensions })),
 );
