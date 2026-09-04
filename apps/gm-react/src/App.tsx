@@ -38,7 +38,7 @@ const SceneEditor = lazy(() =>
 	import('./screens/sceneEditor').then((m) => ({ default: m.SceneEditor })),
 );
 const Board = lazy(() => import('./screens/Board').then((m) => ({ default: m.Board })));
-const Session = lazy(() => import('./screens/Session').then((m) => ({ default: m.Session })));
+const Session = lazy(() => import('./screens/session').then((m) => ({ default: m.Session })));
 const Characters = lazy(() =>
 	import('./screens/characters').then((m) => ({ default: m.Characters })),
 );
