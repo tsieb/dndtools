@@ -52,7 +52,7 @@ const Extensions = lazy(() =>
 	import('./screens/extensions').then((m) => ({ default: m.Extensions })),
 );
 const Community = lazy(() => import('./screens/community').then((m) => ({ default: m.Community })));
-const Player = lazy(() => import('./screens/Player').then((m) => ({ default: m.Player })));
+const Player = lazy(() => import('./screens/player').then((m) => ({ default: m.Player })));
 const Upgrade = lazy(() => import('./screens/Upgrade').then((m) => ({ default: m.Upgrade })));
 const PlayerView = lazy(() =>
 	import('./screens/PlayerView').then((m) => ({ default: m.PlayerView })),
