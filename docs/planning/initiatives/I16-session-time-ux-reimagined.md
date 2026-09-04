@@ -1,6 +1,13 @@
 # Initiative 16 — Session-Time UX Reimagined
 
-## Status: COMPLETED
+## Status: SVELTE-ERA PLAN — React status tracked in RC_ROADMAP §9
+
+> **React evidence (2026-09-04):** This initiative's stories describe the retired Svelte app and
+> are preserved as planning history, not a completion claim. The maintained session-time screens
+> live under `apps/gm-react/src/screens/session/{Lifecycle,CombatTracker,DiceTray,Handouts,
+ActiveMap,NowPlaying,CampaignDate,PrepRecap,Roster}.tsx`. Session posture as application state,
+> dice everywhere, and combat-tracker depth remain open work, tracked as RC-SES-1.x/2.x/3.x in
+> `docs/planning/RC_ROADMAP.md` §9.
 
 **Outcome:** Running a live session with DND Tools is fast, tactile, and never breaks
 immersion. The DM can roll dice, track initiative, reference a stat block, and deliver

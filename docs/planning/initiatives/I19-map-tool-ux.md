@@ -1,13 +1,15 @@
 # Initiative 19 — Map Tool UX: Modal Clarity, Ergonomics & Accessible Exploration
 
-## Status: COMPLETED
+## Status: SVELTE-ERA PLAN — React status tracked in RC_ROADMAP §8
 
-> **Implementation note (2026-07-15):** The detailed stories below describe the retired Svelte map
-> surface and remain planning history. The maintained React editor is under
-> `apps/gm-react/src/app/map/`. Android uses Quick Map mode: navigation is the default, edit modes are
-> explicitly armed, multi-touch always pans/zooms, and desktop-authored precision geometry renders and
-> is preserved even though its authoring controls are hidden. See the
-> [Android alpha runbook](../../runbooks/android-alpha.md).
+> **Implementation note (2026-07-15, re-verified 2026-09-04):** The detailed stories below
+> describe the retired Svelte map surface and remain planning history, not a completion claim.
+> The maintained React editor is under `apps/gm-react/src/app/map/`. Android uses Quick Map mode:
+> navigation is the default, edit modes are explicitly armed, multi-touch always pans/zooms, and
+> desktop-authored precision geometry renders and is preserved even though its authoring controls
+> are hidden. See the [Android alpha runbook](../../runbooks/android-alpha.md). Combat-on-map and
+> editor-depth follow-ups remain open work, tracked as RC-MAP-1.x–3.x in
+> `docs/planning/RC_ROADMAP.md` §8.
 
 **Outcome:** The map viewer is the most spatial, powerful, and fluid tool in the
 application. A new DM can import a map, place a POI, and link it to a note in under

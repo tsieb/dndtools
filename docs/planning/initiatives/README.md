@@ -1,4 +1,4 @@
-# DND Tools — Initiative Index
+# Lamplight — Initiative Index
 
 > The definitive TTRPG companion: local-first worldbuilding, live session management,
 > AI creative partnership, and cross-device collaborative play.
@@ -15,7 +15,7 @@
 
 ## Vision Statement
 
-DND Tools will be the standard by which all TTRPG digital companions are measured. It
+Lamplight will be the standard by which all TTRPG digital companions are measured. It
 runs offline-first — in the browser and inside the Electron desktop shell today, with
 mobile a future target — with data fully owned by the user. When connected, it enables
 real-time collaborative sessions between any participants, with or without a backend,
