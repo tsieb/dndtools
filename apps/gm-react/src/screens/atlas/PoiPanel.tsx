@@ -1,7 +1,7 @@
 import { type MapView, type SceneVisibility } from '@dndtools/core';
 import { Button, EmptyState, Icon, Skeleton, VisibilityChip } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
-import { VIS_CHIP, VIS_LABEL } from '../../app/MapBuilder';
+import { VIS_CHIP, VIS_LABEL } from '../../app/map/mapVisibility';
 import { ghostBtn } from './shared';
 
 /** The Atlas points-of-interest rail — the actor-visible POIs of the open map, with the DM's

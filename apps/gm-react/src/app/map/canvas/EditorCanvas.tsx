@@ -10,15 +10,9 @@ import {
 import type { MapFeature, MapFogRegion, MapLayer, SceneVisibility } from '@dndtools/core';
 import { IconButton, Minimap, POIPopover } from '../../../ds';
 import { T } from '../../screen-kit';
-import {
-	CATEGORY_VAR,
-	FeatureShape,
-	MapCanvas,
-	POI_MARKER_CAT,
-	dsToVis,
-	visToDs,
-	type MapTool,
-} from '../../MapBuilder';
+import { CATEGORY_VAR, POI_MARKER_CAT, dsToVis, visToDs, type MapTool } from '../mapVisibility';
+import { FeatureShape } from './FeatureShape';
+import { MapCanvas } from './MapCanvas';
 import { clamp01 } from '../mapVocab';
 import { viewportForPinch } from '../quickMap';
 import { TOOLS_BY_ID } from '../tools';

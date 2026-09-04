@@ -11,7 +11,8 @@ import { MapCreationForm, Toaster } from '../../ds';
 import { Page, T } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { pickRasterAssetId } from '../../app/mapGeometry';
-import { MapBuilder, dsToVis, type MapTool } from '../../app/MapBuilder';
+import { dsToVis, type MapTool } from '../../app/map/mapVisibility';
+import { MapEditor } from '../../app/map/MapEditor';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { MapChips } from './MapChips';
 import { NoticeBar } from './NoticeBar';
@@ -556,7 +557,7 @@ export function Atlas() {
 			</div>
 
 			{builder && selectedId && (
-				<MapBuilder
+				<MapEditor
 					mapId={selectedId}
 					initialTool={builder.tool}
 					initialFogMode={builder.fogMode ?? 'reveal'}

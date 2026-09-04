@@ -1,7 +1,7 @@
 import { type MapLayerQueryEntry, type SceneVisibility } from '@dndtools/core';
 import { EmptyState, Icon, IconButton, Skeleton, Switch, VisibilityChip } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
-import { CATEGORY_LABEL, CATEGORY_VAR, VIS_CHIP, VIS_LABEL } from '../../app/MapBuilder';
+import { CATEGORY_LABEL, CATEGORY_VAR, VIS_CHIP, VIS_LABEL } from '../../app/map/mapVisibility';
 import { ghostBtn } from './shared';
 
 /** The Atlas layers rail — reorder, visibility and enabled state for the actor-visible layers of

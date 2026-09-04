@@ -7,7 +7,8 @@ import {
 } from '@dndtools/core';
 import { Button, IconButton, POIPopover, VisibilityChip } from '../../ds';
 import { T } from '../../app/screen-kit';
-import { POI_MARKER_CAT, MapCanvas, VIS_CHIP, dsToVis, visToDs } from '../../app/MapBuilder';
+import { POI_MARKER_CAT, VIS_CHIP, dsToVis, visToDs } from '../../app/map/mapVisibility';
+import { MapCanvas } from '../../app/map/canvas/MapCanvas';
 
 /** The Atlas preview canvas — the real shared geometry renderer plus its overlay chrome (map
  * title, zoom cluster, fog/project actions, POI popover). Read-only; authoring gestures live in
