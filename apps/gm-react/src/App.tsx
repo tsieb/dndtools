@@ -54,9 +54,7 @@ const Extensions = lazy(() =>
 const Community = lazy(() => import('./screens/community').then((m) => ({ default: m.Community })));
 const Player = lazy(() => import('./screens/player').then((m) => ({ default: m.Player })));
 const Upgrade = lazy(() => import('./screens/Upgrade').then((m) => ({ default: m.Upgrade })));
-const PlayerView = lazy(() =>
-	import('./screens/PlayerView').then((m) => ({ default: m.PlayerView })),
-);
+const PlayerView = lazy(() => import('./screens/play').then((m) => ({ default: m.PlayerView })));
 const Join = lazy(() => import('./screens/Join').then((m) => ({ default: m.Join })));
 const WikiReader = lazy(() =>
 	import('./screens/WikiReader').then((m) => ({ default: m.WikiReader })),
