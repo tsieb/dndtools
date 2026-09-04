@@ -22,6 +22,10 @@
   module framing used later in `docs/design-package/readme.md` (this ADR predates it and never
   named it) is formalized as the `SystemPackage` rules contract; this ADR's stack/boundary/storage
   decisions are unaffected.
+- Amended by: ADR-029 (2026-09-04) — the scene canvas gains local, non-durable layout undo/redo
+  (mirroring the map editor's ADR-024 §4 model) plus a durable, TTL'd tombstone for
+  `widget.destroy-widget` so destroy is reversible; this ADR's processing/display boundary is
+  unaffected.
 
 ## Context
 
