@@ -1933,6 +1933,9 @@ export {
 // source of truth the enforcing script (`scripts/quality-gates.ts`) fails closed against.
 export type {
 	DefectClass,
+	FileLineCount,
+	FileSizeException,
+	FileSizeWarning,
 	GateProblem,
 	GateProblemKind,
 	PathGlob,
@@ -1941,11 +1944,16 @@ export type {
 	QualityGateTierBudget,
 } from './platform/quality-gates';
 export {
+	FILE_SIZE_EXCEPTIONS,
+	FILE_SIZE_HARD_LIMIT,
+	FILE_SIZE_WARN_TARGET,
 	QUALITY_GATE_BUDGETS,
 	QUALITY_GATES,
 	REVIEW_WINDOW_DAYS,
 	SMOKE_TARGET_MS,
+	auditFileSizes,
 	checkBudgets,
+	fileSizeWarnings,
 	pathMatchesGlob,
 	selectGatesForPaths,
 	tierBudget,

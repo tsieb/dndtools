@@ -1,14 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import {
+	FILE_SIZE_EXCEPTIONS,
+	FILE_SIZE_HARD_LIMIT,
+	FILE_SIZE_WARN_TARGET,
 	QUALITY_GATES,
 	QUALITY_GATE_BUDGETS,
 	REVIEW_WINDOW_DAYS,
 	SMOKE_TARGET_MS,
+	auditFileSizes,
 	checkBudgets,
+	fileSizeWarnings,
 	pathMatchesGlob,
 	selectGatesForPaths,
 	tierBudget,
 	validateGateRegistry,
+	type FileSizeException,
 	type QualityGate,
 	type QualityGateTier,
 } from '../src/index';
@@ -179,5 +185,92 @@ describe('PLAT-010 budget enforcement (AC3)', () => {
 		expect(problems.some((p) => p.gateId === 'full')).toBe(true);
 		// A tier under its own budget is fine.
 		expect(checkBudgets({ full: fullBudget.budgetMs - 1 })).toEqual([]);
+	});
+});
+
+describe('RC-STB-2.7 file-size gate', () => {
+	// An explicit empty exceptions map isolates these cases from the real FILE_SIZE_EXCEPTIONS
+	// grandfather list (which would otherwise report every entry as "stale" — its file isn't in
+	// the tiny fixture list passed here — see the stale-exception test below for that behavior).
+	const NO_EXCEPTIONS = new Map<string, FileSizeException>();
+
+	it('passes a file under the hard limit with no exception', () => {
+		expect(
+			auditFileSizes([{ path: 'apps/gm-react/src/screens/Foo.tsx', lines: 10 }], NO_EXCEPTIONS),
+		).toEqual([]);
+	});
+
+	it('fails closed on a new file over the hard limit with no recorded exception', () => {
+		const problems = auditFileSizes(
+			[{ path: 'apps/gm-react/src/screens/NewMega.tsx', lines: FILE_SIZE_HARD_LIMIT + 1 }],
+			NO_EXCEPTIONS,
+		);
+		expect(problems).toHaveLength(1);
+		expect(problems[0]!.kind).toBe('file-size-exceeded');
+		expect(problems[0]!.gateId).toBe('file-size:apps/gm-react/src/screens/NewMega.tsx');
+	});
+
+	it('grandfathers an exception at or under its recorded baseline', () => {
+		const exceptions = new Map<string, FileSizeException>([
+			[
+				'apps/gm-react/src/legacy/Old.tsx',
+				{ path: 'apps/gm-react/src/legacy/Old.tsx', baselineLines: 900, reason: 'test' },
+			],
+		]);
+		expect(
+			auditFileSizes([{ path: 'apps/gm-react/src/legacy/Old.tsx', lines: 900 }], exceptions),
+		).toEqual([]);
+		expect(
+			auditFileSizes([{ path: 'apps/gm-react/src/legacy/Old.tsx', lines: 800 }], exceptions),
+		).toEqual([]);
+	});
+
+	it('fails closed when a grandfathered file grows past its recorded baseline', () => {
+		const exceptions = new Map<string, FileSizeException>([
+			[
+				'apps/gm-react/src/legacy/Old.tsx',
+				{ path: 'apps/gm-react/src/legacy/Old.tsx', baselineLines: 900, reason: 'test' },
+			],
+		]);
+		const problems = auditFileSizes(
+			[{ path: 'apps/gm-react/src/legacy/Old.tsx', lines: 901 }],
+			exceptions,
+		);
+		expect(problems).toHaveLength(1);
+		expect(problems[0]!.kind).toBe('file-size-exceeded');
+		expect(problems[0]!.message).toContain('past its grandfathered baseline of 900');
+	});
+
+	it('fails closed on a stale exception whose file no longer exceeds the limit', () => {
+		const exceptions = new Map<string, FileSizeException>([
+			[
+				'apps/gm-react/src/legacy/Fixed.tsx',
+				{ path: 'apps/gm-react/src/legacy/Fixed.tsx', baselineLines: 900, reason: 'test' },
+			],
+		]);
+		// The file isn't in the scanned set at all (e.g. it shrank below the limit and moved on,
+		// or was deleted) — the exception entry is now dead weight.
+		const problems = auditFileSizes([], exceptions);
+		expect(problems).toHaveLength(1);
+		expect(problems[0]!.kind).toBe('stale-file-size-exception');
+	});
+
+	it('every real grandfather exception is still over the hard limit (list only shrinks)', () => {
+		for (const exception of FILE_SIZE_EXCEPTIONS) {
+			expect(exception.baselineLines).toBeGreaterThan(FILE_SIZE_HARD_LIMIT);
+		}
+	});
+
+	it('warns (non-blocking) between the warn target and the hard limit, not below or above', () => {
+		const warnings = fileSizeWarnings([
+			{ path: 'apps/gm-react/src/screens/A.tsx', lines: FILE_SIZE_WARN_TARGET },
+			{ path: 'apps/gm-react/src/screens/B.tsx', lines: FILE_SIZE_WARN_TARGET + 1 },
+			{ path: 'apps/gm-react/src/screens/C.tsx', lines: FILE_SIZE_HARD_LIMIT },
+			{ path: 'apps/gm-react/src/screens/D.tsx', lines: FILE_SIZE_HARD_LIMIT + 1 },
+		]);
+		expect(warnings.map((w) => w.path)).toEqual([
+			'apps/gm-react/src/screens/B.tsx',
+			'apps/gm-react/src/screens/C.tsx',
+		]);
 	});
 });

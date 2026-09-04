@@ -4,8 +4,12 @@ import { fileURLToPath } from 'node:url';
 import {
 	QUALITY_GATES,
 	QUALITY_GATE_BUDGETS,
+	auditFileSizes,
 	checkBudgets,
+	fileSizeWarnings,
 	validateGateRegistry,
+	type FileLineCount,
+	type FileSizeWarning,
 	type GateProblem,
 } from '../packages/core/src/platform/quality-gates.ts';
 import { validateSupportStatus } from '../packages/core/src/platform/support-status.ts';
@@ -77,12 +81,50 @@ function parseMeasured(argv: string[]): Record<string, number> {
 	return out;
 }
 
+/**
+ * RC-STB-2.7: walk `apps/gm-react/src` and line-count every `.tsx` file, repo-relative with
+ * forward slashes, feeding {@link auditFileSizes} / {@link fileSizeWarnings}. Kept in the CLI
+ * wrapper (not the pure core module) because it does real filesystem I/O.
+ */
+export function scanTsxFiles(root: string = repoRoot): FileLineCount[] {
+	const srcRoot = path.join(root, 'apps', 'gm-react', 'src');
+	const out: FileLineCount[] = [];
+
+	function walk(dir: string): void {
+		for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+			const fullPath = path.join(dir, entry.name);
+			if (entry.isDirectory()) {
+				if (entry.name === 'node_modules') continue;
+				walk(fullPath);
+			} else if (entry.isFile() && entry.name.endsWith('.tsx')) {
+				const contents = fs.readFileSync(fullPath, 'utf-8');
+				// Match `wc -l`: count newline characters, plus one for a final unterminated line.
+				const newlines = (contents.match(/\n/g) ?? []).length;
+				const lines = contents.length === 0 ? 0 : contents.endsWith('\n') ? newlines : newlines + 1;
+				const relative = path.relative(root, fullPath).replace(/\\/g, '/');
+				out.push({ path: relative, lines });
+			}
+		}
+	}
+
+	if (fs.existsSync(srcRoot)) walk(srcRoot);
+	return out;
+}
+
+/** Non-blocking file-size warn notices for the CLI to print (RC-STB-2.7 soft target). */
+export function collectFileSizeWarnings(root: string = repoRoot): FileSizeWarning[] {
+	return fileSizeWarnings(scanTsxFiles(root));
+}
+
 export function runQualityGateCheck(
 	argv: string[],
 	today: string = new Date().toISOString().slice(0, 10),
 ): GateProblem[] {
 	const availableScripts = loadPackageScripts();
 	const problems: GateProblem[] = [
+		// RC-STB-2.7: fails when a .tsx file under apps/gm-react/src crosses the 800-line hard
+		// limit without a recorded grandfather exception, or grows past its exception's baseline.
+		...auditFileSizes(scanTsxFiles(repoRoot)),
 		...validateGateRegistry({
 			gates: QUALITY_GATES,
 			budgets: QUALITY_GATE_BUDGETS,
@@ -148,6 +190,10 @@ export function runQualityGateCheck(
 
 function runCli(): void {
 	const problems = runQualityGateCheck(process.argv.slice(2));
+	const warnings = collectFileSizeWarnings();
+	for (const warning of warnings) {
+		console.warn(`  [file-size-warn] ${warning.path}: ${warning.message}`);
+	}
 	if (problems.length > 0) {
 		console.error(`quality-gate check failed with ${problems.length} problem(s):`);
 		for (const problem of problems) {
