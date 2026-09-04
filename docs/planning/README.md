@@ -4,11 +4,12 @@ This section holds the roadmap, the planning methodology, and the initiative bre
 
 ## Index
 
-| Document | What it is |
-| --- | --- |
-| [ROADMAP.md](ROADMAP.md) | Current baseline + near/mid-term themes for the React GM app and cloud backend |
-| [PLANNING_TIERS.md](PLANNING_TIERS.md) | The goal-hierarchy methodology (how work is decomposed from strategy to atomic steps) |
-| [initiatives/README.md](initiatives/README.md) | The initiative index (I1–I21): vision, guiding principles, and the dependency map |
+| Document                                       | What it is                                                                                                                                                                |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [RC_ROADMAP.md](RC_ROADMAP.md)                 | **The execution plan to Release Candidate 1** — baseline audit, RC exit criteria, critical path, 16 workstreams with 240+ stories sized and sequenced for parallel agents |
+| [ROADMAP.md](ROADMAP.md)                       | Current baseline + near/mid-term themes for the React GM app and cloud backend                                                                                            |
+| [PLANNING_TIERS.md](PLANNING_TIERS.md)         | The goal-hierarchy methodology (how work is decomposed from strategy to atomic steps)                                                                                     |
+| [initiatives/README.md](initiatives/README.md) | The initiative index (I1–I21): vision, guiding principles, and the dependency map                                                                                         |
 
 ## How to read the initiatives
 
