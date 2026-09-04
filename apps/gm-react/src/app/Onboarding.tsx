@@ -493,7 +493,7 @@ export function Onboarding() {
 			// Escape is bound on the panel, so it also fires from inside the party-name field and the
 			// E2EE acknowledgement field — where the browser convention is "revert/leave this field",
 			// not "abandon the whole wizard". Skipping there threw away everything the DM had typed.
-			// Same typing guard AppShell.tsx:1013-1018 uses for its global shortcuts.
+			// Same typing guard AppShell.tsx:66-73 uses for its global shortcuts.
 			const el = e.target as HTMLElement | null;
 			const typing =
 				!!el &&
@@ -585,7 +585,12 @@ export function Onboarding() {
 							marginBottom: isPhone ? 0 : 24,
 						}}
 					>
-						<BrandLockup markSize={30} wordSize={15} gap={9} style={{ flex: isPhone ? 1 : undefined }} />
+						<BrandLockup
+							markSize={30}
+							wordSize={15}
+							gap={9}
+							style={{ flex: isPhone ? 1 : undefined }}
+						/>
 						{isPhone && (
 							<span style={{ font: `600 12px ${T.sans}`, color: T.sub }}>
 								{step.title} · {i + 1}/{ONB_STEPS.length}
