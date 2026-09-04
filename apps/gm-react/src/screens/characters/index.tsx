@@ -10,7 +10,7 @@ import {
 	Tabs,
 	tabPanelProps,
 } from '../../ds';
-import { CharBuilder } from '../../app/CharBuilder';
+import { CharBuilder } from '../../app/charBuilder';
 import { Page, T } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { CharCard } from './CharCard';

@@ -1,7 +1,7 @@
 import { Avatar, Badge, Card, Icon, VisibilityChip } from '../../ds';
 import { type CharacterView } from '@dndtools/core';
 import { T } from '../../app/screen-kit';
-import { portraitGradient } from '../../app/CharBuilder';
+import { portraitGradient } from '../../app/charBuilder';
 import { KIND_LABEL, KIND_TONE, gradOf, subtitleOf, visChip } from './shared';
 
 export function CharCard({ view, onOpen }: { view: CharacterView; onOpen: () => void }) {
