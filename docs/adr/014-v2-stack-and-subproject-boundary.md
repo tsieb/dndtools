@@ -18,6 +18,10 @@
   provider choices"; no MCP/provider transport in the first slice) is lifted by a client-side
   BYO-key provider transport in `apps/gm-react/src/ai/`. The staged-write contract (ADR-002) and
   this ADR's storage boundary remain in force.
+- Amended by: ADR-028 (2026-09-04) — pointer only, no content change. The informal `campaignSystem`
+  module framing used later in `docs/design-package/readme.md` (this ADR predates it and never
+  named it) is formalized as the `SystemPackage` rules contract; this ADR's stack/boundary/storage
+  decisions are unaffected.
 
 ## Context
 
