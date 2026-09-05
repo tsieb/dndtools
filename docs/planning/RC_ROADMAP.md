@@ -510,8 +510,11 @@ security model, exfiltration gate — all in core with tests. In the app: ten bu
 `widget-bodies.tsx` behind the WID-1.1 render resolver, and a declarative renderer per `template`
 kind in `app/widgets/templates/` reading `dataQueries` through `app/widgets/dataEnvironment.ts`
 (WID-1.2; a builtin body still wins over the generic template for the same widget type);
-Extensions › Plugins = starter library + JSON textarea; no renderer for `custom-html-js`; no
-trust-review command; no AI path. Reference: `docs/architecture/WIDGET_FEATURE_BRIEF.md` (from
+Extensions › Plugins = starter library + JSON textarea + the step-by-step widget builder
+(`screens/extensions/WidgetBuilder.tsx` over `app/widgetBuilder/`, WID-2.1: identity/layout/data/
+config/commands/style/advanced/review, live preview through the WID-1.1 resolver, install or
+upgrade with a generated migration); no renderer for `custom-html-js`; no trust-review command; no
+AI path. Reference: `docs/architecture/WIDGET_FEATURE_BRIEF.md` (from
 branch `claude/widget-design-brief-y8qc5a`; cherry-picked in STB-1.2).
 
 **Contracts.** ADR-030 (RC-STB-4.2); `security/widget-host-api.ts` is the host API contract;

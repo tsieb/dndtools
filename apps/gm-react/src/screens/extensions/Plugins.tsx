@@ -9,6 +9,8 @@ import {
 import { Badge, Button, Icon, Switch, Textarea, Toaster } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
+/* ── RC-WID-2.1: the widget builder overlay is launched from this panel ─────────────────────── */
+import { WidgetBuilder } from './WidgetBuilder';
 
 /**
  * Plugins — the live widget-package registry (`runtime.state.widgets`). The installed list renders
@@ -89,6 +91,9 @@ export function ExtPlugins() {
 	const [busy, setBusy] = useState(false);
 	const [jsonDraft, setJsonDraft] = useState('');
 	const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+	// RC-WID-2.1 — the builder is a full-screen overlay over this panel, not a route (same shape as
+	// the map editor over Atlas), so it is opened and closed from here.
+	const [builderOpen, setBuilderOpen] = useState(false);
 	// The live widget-package registry — the "plugins" of this app. A removed package is gone, not listed.
 	const packages = useMemo(
 		() => Object.values(runtime.state.widgets.packages).filter((rec: any) => !rec.removedAt),
@@ -465,6 +470,23 @@ export function ExtPlugins() {
 					})}
 				</div>
 			</Panel>
+			<Panel title="Build a widget" action={<Badge status="neutral">no code needed</Badge>}>
+				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
+					Describe a widget step by step — what it shows, what it can do, how it looks — and
+					Lamplight builds the package for you. It installs disabled, like any other package.
+				</div>
+				<div>
+					<Button
+						variant="primary"
+						size="sm"
+						icon="add"
+						disabled={!canWrite}
+						onClick={() => setBuilderOpen(true)}
+					>
+						Build a widget
+					</Button>
+				</div>
+			</Panel>
 			<Panel title="Install or upgrade from JSON">
 				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
 					Paste a widget-package definition (or an export from a card above). A new id installs; an
@@ -496,6 +518,7 @@ export function ExtPlugins() {
 					library or add a trusted package file above instead.
 				</div>
 			</Panel>
+			{builderOpen && <WidgetBuilder onClose={() => setBuilderOpen(false)} />}
 		</div>
 	);
 }
