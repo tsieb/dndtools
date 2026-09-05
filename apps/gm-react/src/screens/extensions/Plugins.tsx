@@ -11,6 +11,8 @@ import { Panel, T } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 /* ── RC-WID-2.1: the widget builder overlay is launched from this panel ─────────────────────── */
 import { WidgetBuilder } from './WidgetBuilder';
+/* ── RC-WID-1.5: the trust review sheet is opened from each installed package card ───────────── */
+import { TrustReviewSheet } from './TrustReviewSheet';
 
 /**
  * Plugins — the live widget-package registry (`runtime.state.widgets`). The installed list renders
@@ -94,6 +96,8 @@ export function ExtPlugins() {
 	// RC-WID-2.1 — the builder is a full-screen overlay over this panel, not a route (same shape as
 	// the map editor over Atlas), so it is opened and closed from here.
 	const [builderOpen, setBuilderOpen] = useState(false);
+	// RC-WID-1.5 — the package currently open in the trust review sheet, by id.
+	const [reviewingId, setReviewingId] = useState<string | null>(null);
 	// The live widget-package registry — the "plugins" of this app. A removed package is gone, not listed.
 	const packages = useMemo(
 		() => Object.values(runtime.state.widgets.packages).filter((rec: any) => !rec.removedAt),
@@ -262,14 +266,16 @@ export function ExtPlugins() {
 						const def = rec.package;
 						const isSystem = def.id.startsWith('system.');
 						const review = buildWidgetPackageReviewSummary(def);
-						const needsReview =
-							rec.trust.state === 'unreviewed' ||
-							review.trustRecommendation !== 'trusted-after-review';
+						// RC-WID-1.5 — "needs review" is now the RECORDED trust state, not the analysis:
+						// once the DM has reviewed a package the card stops asking them to review it, and
+						// the analysis' recommendation stays visible on its own line below.
+						const needsReview = rec.trust.state === 'unreviewed';
 						const perms: string[] = review.requestedHostPermissions;
 						const widgetCount = def.widgets.length;
 						return (
 							<div
 								key={def.id}
+								data-testid={`package-card-${def.id}`}
 								style={{
 									display: 'flex',
 									gap: 12,
@@ -346,6 +352,20 @@ export function ExtPlugins() {
 										flex: '0 0 auto',
 									}}
 								>
+									{/* RC-WID-1.5 — every package is reviewable, including one already trusted: a
+									    review can be revisited, tightened, or reversed. */}
+									<Button
+										variant={needsReview ? 'secondary' : 'ghost'}
+										size="sm"
+										icon="permissions"
+										// Every card carries a "Review" button, so the visible word alone is not a
+										// distinguishing accessible name — the package name goes in the label.
+										aria-label={`Review ${def.displayName}`}
+										disabled={!canWrite || busy}
+										onClick={() => setReviewingId(def.id)}
+									>
+										Review
+									</Button>
 									<Switch
 										checked={rec.enabled}
 										// `!canWrite` is durable, so it stays native. `busy` is transient and flips
@@ -459,6 +479,7 @@ export function ExtPlugins() {
 										variant="secondary"
 										size="sm"
 										icon="import"
+										aria-label={`Install ${entry.name}`}
 										disabled={!canWrite || busy}
 										onClick={() => installStarter(entry)}
 									>
@@ -519,6 +540,9 @@ export function ExtPlugins() {
 				</div>
 			</Panel>
 			{builderOpen && <WidgetBuilder onClose={() => setBuilderOpen(false)} />}
+			{reviewingId && (
+				<TrustReviewSheet packageId={reviewingId} onClose={() => setReviewingId(null)} />
+			)}
 		</div>
 	);
 }

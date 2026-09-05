@@ -16,10 +16,13 @@ import { ExtTheme } from './ThemeStudio';
  *     profile computed by `buildWidgetPackageReviewSummary` and their trust posture;
  *   - install (bundled starter library or pasted package JSON), enable, disable, remove and upgrade
  *     all dispatch the real `widget.package.*` commands (DM-only). Installs land unreviewed with
- *     every host permission denied — fail-closed; there is no trust-review command in this build,
- *     so that denial is permanent (only code-defined `system.*` packages are trusted). Upgrades run
- *     declared migrations against every placed widget; removes leave placed widgets as disabled
- *     placeholders. All of it persists.
+ *     every host permission denied — fail-closed. RC-WID-1.5 added the way out: each card opens a
+ *     TRUST REVIEW sheet listing every permission the package asks for with the review summary's
+ *     reasoning, and the DM's Allow/Deny decisions dispatch `widget.package.review`, which is what
+ *     the sandbox host answers a widget's `requestPermission` from. A denied package is disabled and
+ *     cannot be re-enabled until it is reviewed again. Upgrades run declared migrations against
+ *     every placed widget; removes leave placed widgets as disabled placeholders. All of it
+ *     persists.
  *
  * REAL — the Compendium tab browses the Open5e v2 API (default: the CC-BY-4.0 SRD; other source
  * documents only behind an explicit opt-in that shows each source's own license) with an offline
