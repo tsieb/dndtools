@@ -115,6 +115,14 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	// --- RC-SYS-1.3 — SYSTEM PACKAGE commands (append-only block) ---------------------------------
+	// The DM-authored rules system: select the active one, and author packages in the `custom:` id
+	// namespace. Every one is DM-only and fail-closed; `select` is gated on the character-data dry-run.
+	| { type: 'system.select'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'system.define'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'system.update'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'system.delete'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'system.fork'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| {
 			type: 'widget.dispatch-command';
 			actorId: ActorId;
@@ -1663,6 +1671,16 @@ export type CoreEvent =
 			disabledWidgetCount: number;
 			actorId: ActorId;
 	  }
+	// RC-SYS-1.3 — the DM-authored rules SYSTEM catalog changed. One event kind covers all five
+	// commands: `mutation` says which, `packageId` names the package the command acted on, and
+	// `activePackageId` is what the campaign is playing AFTER the change (unchanged unless selected).
+	| {
+			kind: 'system.changed';
+			mutation: 'selected' | 'defined' | 'updated' | 'deleted' | 'forked';
+			packageId: string;
+			activePackageId: string;
+			actorId: ActorId;
+	  }
 	// MCP-011 — an agent → scoped actor binding was set/removed. Carries the agent + bound actor id (the
 	// audit), never any capability data (a binding confers none). `removed` ⇒ the binding was deleted.
 	| {
@@ -1924,7 +1942,15 @@ export type RejectionCode =
 	| 'scene-card-not-deleted'
 	// A system-package switch would DROP widget content per the dry-run and the caller did not
 	// acknowledge the loss (mirrors content-write-loss-unacknowledged). Fail closed: never silent.
-	| 'system-switch-loss-unacknowledged';
+	| 'system-switch-loss-unacknowledged'
+	// --- RC-SYS-1.3 — SYSTEM PACKAGE rejections (append-only block) -------------------------------
+	// `system.select` would DROP character data per the `previewSystemPackageSelect` dry-run and the
+	// caller did not acknowledge the loss. Distinct from the widget-package code above because the two
+	// dry-runs answer different questions (character data vs widget instances). Fail closed.
+	| 'system-select-loss-unacknowledged'
+	// `system.define` / `system.fork` targeted an id that is already installed. Fail closed: a define
+	// never silently overwrites an existing system (that is what `system.update` is for).
+	| 'system-package-exists';
 
 export interface CommandRejection {
 	code: RejectionCode;

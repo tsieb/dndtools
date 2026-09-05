@@ -22,6 +22,14 @@ import {
 	handleSetWidgetFocusOrder,
 } from './widget';
 import { handleDispatchWidgetCommand } from './widget-command';
+// RC-SYS-1.3 — the DM-authored rules SYSTEM commands (append-only block in the switch below).
+import {
+	handleDefineSystemPackage,
+	handleDeleteSystemPackage,
+	handleForkSystemPackage,
+	handleSelectSystemPackage,
+	handleUpdateSystemPackage,
+} from './system-package';
 import {
 	handleApplyCommandCenterPreset,
 	handleEnsureCommandCenterHome,
@@ -112,11 +120,7 @@ import {
 	handleRestoreMapLayers,
 	handleUpdateMapFeatures,
 } from './map-features';
-import {
-	handleCreateMapRegion,
-	handleDeleteMapRegion,
-	handleUpdateMapRegion,
-} from './map-regions';
+import { handleCreateMapRegion, handleDeleteMapRegion, handleUpdateMapRegion } from './map-regions';
 import {
 	handleCommitMapImport,
 	handleCreateMap,
@@ -234,14 +238,8 @@ import {
 	handleUpdateAudioAssetMetadata,
 	handleValidateAudioPackage,
 } from './audio';
-import {
-	handleConfigureAudioAutomation,
-	handleDeleteAudioAutomation,
-} from './audio-automation';
-import {
-	handleAssociateSceneAudio,
-	handleDisassociateSceneAudio,
-} from './audio-association';
+import { handleConfigureAudioAutomation, handleDeleteAudioAutomation } from './audio-automation';
+import { handleAssociateSceneAudio, handleDisassociateSceneAudio } from './audio-association';
 import {
 	handlePauseSessionAudio,
 	handlePlaySessionAudio,
@@ -339,6 +337,17 @@ export function dispatchCommand(
 			return handleUpgradeWidgetPackage(state, env, command.actorId, command.payload);
 		case 'widget.package.switch-system':
 			return handleSwitchSystemPackage(state, env, command.actorId, command.payload);
+		// --- RC-SYS-1.3 — SYSTEM PACKAGE commands (append-only block) -------------------------------
+		case 'system.select':
+			return handleSelectSystemPackage(state, env, command.actorId, command.payload);
+		case 'system.define':
+			return handleDefineSystemPackage(state, env, command.actorId, command.payload);
+		case 'system.update':
+			return handleUpdateSystemPackage(state, env, command.actorId, command.payload);
+		case 'system.delete':
+			return handleDeleteSystemPackage(state, env, command.actorId, command.payload);
+		case 'system.fork':
+			return handleForkSystemPackage(state, env, command.actorId, command.payload);
 		case 'widget.dispatch-command':
 			return handleDispatchWidgetCommand(
 				state,

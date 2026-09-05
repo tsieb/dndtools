@@ -5196,6 +5196,29 @@ export {
 export type { SystemActorView } from './queries/system-query';
 export { getActiveSystemForActor, resolveVocabulary } from './queries/system-query';
 
+// --- RC-SYS-1.3 — the SYSTEM PACKAGE commands + their dry-run (append-only block) ----------------
+// `system.select` is gated on `previewSystemPackageSelect`: the pure classification of every
+// attribute, resource, condition and skill the ACTIVE package declares against the TARGET, with a
+// per-key count of the characters carrying data under it. A `drop` with characters behind it is
+// DESTRUCTIVE and the command fails closed unless the DM acknowledges the loss.
+export type {
+	SystemPackageFindingCategory,
+	SystemPackageSelectFinding,
+	SystemPackageSelectPreview,
+	SystemPackageSelectPreviewResult,
+	SystemPackageSelectUnavailableReason,
+} from './queries/system-switch-query';
+export { previewSystemPackageSelect } from './queries/system-switch-query';
+export type { SystemChangeMutation } from './commands/system-package';
+export { CUSTOM_SYSTEM_PACKAGE_ID_PATTERN } from './commands/system-package';
+export {
+	defineSystemPackageInputSchema,
+	deleteSystemPackageInputSchema,
+	forkSystemPackageInputSchema,
+	selectSystemPackageInputSchema,
+	updateSystemPackageInputSchema,
+} from './schemas/commands';
+
 // --- RC-SYS-1.2 — the built-in system packages (append-only block) ------------------------------
 // The packages that ship with the build, plus the 5e reference tables that do not fit the package
 // shape (challenge rating to experience, hit die by class, the full-caster slot progression). The

@@ -192,3 +192,35 @@ version advances further.
 
 Validation required when the implementing story lands: `pnpm typecheck`, `pnpm test:critical`
 (new `systems` slice + migration tests), boundary lint (`scripts/boundary-lint.ts`).
+
+## Implementation Note — RC-SYS-1.3 (2026-09-05)
+
+Two details of this ADR were settled differently when the commands landed. Both are recorded here
+rather than in a new ADR because neither reverses the decision above; they refine how it is spelled.
+
+**Command names.** This ADR anticipated one command, `system.package.switch`, replacing
+`widget.package.switch-system`. `docs/planning/RC_ROADMAP.md` (RC-SYS-1.3) instead specifies five —
+`system.select`, `system.define`, `system.update`, `system.delete`, `system.fork` — because the DM
+now authors packages, not just picks between them. `widget.package.switch-system` is NOT retired: it
+still governs `systems.activeWidgetPackageId`, the legacy widget-package id carried across by
+RC-SYS-1.1, and its widget-instance dry-run answers a question the rules commands do not ask.
+`previewSystemSwitch` therefore keeps its `WidgetPackageState` input unchanged.
+
+**The rules dry-run.** The Rejected Alternatives table above rules out comparing FROM/TO
+attribute/resource schemas _in the widget-content dry-run_, and that still holds —
+`previewSystemSwitch` is unchanged. RC-SYS-1.3 adds a SECOND, separate dry-run,
+`previewSystemPackageSelect` (`packages/core/src/queries/system-switch-query.ts`), which does exactly
+that comparison for `system.select`: every attribute, resource, condition and skill the active
+package declares is classified `keep`/`remap`/`drop` against the target, with a count of the
+characters carrying data under each key. A `drop` with characters behind it is destructive and
+`system.select` fails closed on it unless the DM sends `acknowledgeLoss`. The rejected alternative
+was about not BLOCKING a widget migration on rules concerns; it was not a decision to let a system
+change strand character data silently.
+
+Authoring is confined to the `custom:` id namespace (ADR-023's rule, applied to systems): the
+built-in packages ship with the build and are re-seeded by `hydrateSystemsState` on every load, so a
+define/update/delete against one would be silently reverted at the next hydrate. `system.fork` is
+the sanctioned way to base a homebrew system on a built-in one.
+
+Evidence: `packages/core/src/commands/system-package.ts`,
+`packages/core/tests/system-package-commands.test.ts` (66 tests).

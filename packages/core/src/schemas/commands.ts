@@ -8,6 +8,8 @@ import {
 	widgetDockSchema,
 } from './scene';
 import { widgetPackageDefinitionSchema } from './widget-package';
+// RC-SYS-1.3 — the system-package command inputs (append-only block at the end of this module).
+import { systemPackageSchema } from './system-package';
 import { SCENE_CARD_FLAVOR_MAX_LENGTH } from '../state/scene-card';
 import {
 	CUSTOM_OBJECT_TYPE_ID_PATTERN,
@@ -3134,5 +3136,61 @@ export const approveMcpProposalInputSchema = z
 export const rejectMcpProposalInputSchema = z
 	.object({
 		proposalId: idSchema,
+	})
+	.strict();
+
+// ---------------------------------------------------------------------------------------------------
+// RC-SYS-1.3 — SYSTEM PACKAGE command inputs (append-only block).
+//
+// The rules system a campaign plays is DM-authored durable state, so every one of these is DM-only and
+// every one validates FAIL-CLOSED: the package body is the same `.strict()` `systemPackageSchema` the
+// slice persists, so a package that could not be stored can never be defined either. The `custom:` id
+// namespace (ADR-023) is enforced in the handler, where the rejection can name the built-in it would
+// have shadowed.
+// ---------------------------------------------------------------------------------------------------
+
+// SELECT the active rules system. `acknowledgeLoss` is the DM's explicit answer to the
+// `previewSystemPackageSelect` dry-run and is REQUIRED whenever the dry-run reports drops with
+// characters behind them — a system change never silently strands character data.
+export const selectSystemPackageInputSchema = z
+	.object({
+		packageId: idSchema,
+		acknowledgeLoss: z.boolean().default(false),
+	})
+	.strict();
+
+// DEFINE a new DM-authored system package. The whole package arrives at once (there is no partial
+// draft state in the slice); its id must be in the `custom:` namespace and must not already exist.
+export const defineSystemPackageInputSchema = z
+	.object({
+		package: systemPackageSchema,
+	})
+	.strict();
+
+// UPDATE an existing DM-authored package, whole-body. `packageId` is carried separately from the body
+// so a rename attempt is a rejection rather than a silent second package.
+export const updateSystemPackageInputSchema = z
+	.object({
+		packageId: idSchema,
+		package: systemPackageSchema,
+	})
+	.strict();
+
+// DELETE a DM-authored package. Refused while it is active, and refused while any character carries a
+// resource it defines (the handler explains which) — a delete never orphans character data.
+export const deleteSystemPackageInputSchema = z
+	.object({
+		packageId: idSchema,
+	})
+	.strict();
+
+// FORK any installed package (built-in included) into a new DM-authored copy. `packageId` is optional:
+// omitted, the handler mints one in the `custom:` namespace from the environment's id generator, so a
+// fork is deterministic under replay.
+export const forkSystemPackageInputSchema = z
+	.object({
+		sourcePackageId: idSchema,
+		packageId: idSchema.optional(),
+		displayName: z.string().min(1).max(120).optional(),
 	})
 	.strict();
