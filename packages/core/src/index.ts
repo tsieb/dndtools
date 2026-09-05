@@ -5289,3 +5289,21 @@ export {
 	isWidgetSandboxSecure,
 	validateWidgetSandboxDocument,
 } from './security/renderer-isolation';
+
+// RC-SYS-2.2 — spell slots and class resources as INSTANCES of the active package's `resources[]`:
+// the maximum comes from the resource's `maxFormula` at the character's level, and rest recovery
+// follows its `recovery` band rather than a 5e literal. `scene`-recovered resources (a stress clock,
+// a momentum pool) clear when the scene ends, not on a rest.
+export type { ResourceInstance } from './state/character-resources';
+export {
+	addSystemResource,
+	applySceneRecovery,
+	effectiveRecovery,
+	recomputeResourceMaxima,
+	recoversOnRest,
+	resourceInstances,
+	resourceMaxFromPackage,
+	spellSlotLevelOf,
+	spellSlotResourceKey,
+	systemResourceFor,
+} from './state/character-resources';

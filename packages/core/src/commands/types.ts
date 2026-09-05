@@ -476,6 +476,14 @@ export type CoreCommand =
 	  }
 	| { type: 'character.set-spell'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'character.rest'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// RC-SYS-2.2 — end-of-scene recovery and instantiating a resource the active package declares.
+	| { type: 'character.recover-scene'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'character.add-system-resource';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	// Structured proficiency state (skills / saves / proficiency bonus / hit dice). Owner or DM.
 	| {
 			type: 'character.set-proficiencies';
@@ -1381,6 +1389,14 @@ export type CoreEvent =
 			characterId: string;
 			revision: number;
 			rest: 'short' | 'long';
+			actorId: ActorId;
+	  }
+	// RC-SYS-2.2 — a scene ended and the package's scene-recovered resources came back.
+	| {
+			kind: 'character.scene-recovered';
+			characterId: string;
+			revision: number;
+			recovered: number;
 			actorId: ActorId;
 	  }
 	| {

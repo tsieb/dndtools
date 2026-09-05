@@ -159,6 +159,8 @@ import {
 	handleUpdateCharacterDraftStep,
 } from './character';
 import {
+	handleAddSystemResource,
+	handleRecoverScene,
 	handleRestCharacter,
 	handleSetCharacterSpell,
 	handleSetClassResource,
@@ -598,6 +600,11 @@ export function dispatchCommand(
 			return handleSetCharacterSpell(state, env, command.actorId, command.payload);
 		case 'character.rest':
 			return handleRestCharacter(state, env, command.actorId, command.payload);
+		// RC-SYS-2.2 — package-driven scene recovery and resource instantiation.
+		case 'character.recover-scene':
+			return handleRecoverScene(state, env, command.actorId, command.payload);
+		case 'character.add-system-resource':
+			return handleAddSystemResource(state, env, command.actorId, command.payload);
 		case 'character.set-proficiencies':
 			return handleSetCharacterProficiencies(state, env, command.actorId, command.payload);
 		case 'character.update-attacks':

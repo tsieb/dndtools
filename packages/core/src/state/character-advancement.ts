@@ -1,5 +1,7 @@
 import type { ActorId } from './ids';
 import type { Character } from './character-state';
+import { recomputeResourceMaxima, resourcesOf } from './character-resources';
+import type { SystemPackage } from './system-package';
 
 /**
  * CHAR-009 — level-up / ADVANCEMENT, with VALIDATION before the character revision is FINALIZED.
@@ -253,7 +255,10 @@ export function validateAdvancement(draft: AdvancementDraft): AdvancementValidat
 		!Number.isInteger(choices.hitPointsGained) ||
 		choices.hitPointsGained <= 0
 	) {
-		issues.push({ field: 'hitPointsGained', message: 'Enter the hit points gained (a positive whole number).' });
+		issues.push({
+			field: 'hitPointsGained',
+			message: 'Enter the hit points gained (a positive whole number).',
+		});
 	}
 	if (toLevel === SUBCLASS_LEVEL) {
 		if (typeof choices.subclass !== 'string' || choices.subclass.trim() === '') {
@@ -285,7 +290,11 @@ export type CommitAdvancementResult =
  * incomplete/invalid draft returns an error and the caller leaves the character untouched (the
  * character is mutated only on the `ok: true` path). Pure.
  */
-export function commitAdvancement(character: Character, now: string): CommitAdvancementResult {
+export function commitAdvancement(
+	character: Character,
+	now: string,
+	pkg?: SystemPackage,
+): CommitAdvancementResult {
 	const draft = advancementDraftOf(character);
 	if (!draft) {
 		return {
@@ -311,6 +320,13 @@ export function commitAdvancement(character: Character, now: string): CommitAdva
 	if (draft.choices.subclass) nextData['subclass'] = draft.choices.subclass;
 	delete nextData[ADVANCEMENT_DRAFT_KEY];
 
+	// RC-SYS-2.2 — resource maxima follow the active package's formulas, so a level-up recomputes
+	// them at the new level (a monk's ki is `level`, a barbarian's rage steps at 3/6/12/17). A
+	// resource the package leaves to the character, or whose formula names an input we cannot supply
+	// here, keeps the owner's authored maximum.
+	const currentResources = resourcesOf(character);
+	const nextResources = recomputeResourceMaxima(currentResources, pkg, { level: draft.toLevel });
+
 	const nextCharacter: Character = {
 		...character,
 		data: nextData,
@@ -320,6 +336,11 @@ export function commitAdvancement(character: Character, now: string): CommitAdva
 			// Heal up by the gained HP so the new maximum is reflected on commit.
 			hp: Math.min(nextMaxHp, character.combat.hp + hpGain),
 		},
+		// Untouched when the character carries no resources and none needed recomputing, so a
+		// resource-less character round-trips byte-identically.
+		...(character.resources !== undefined || nextResources !== currentResources
+			? { resources: nextResources }
+			: {}),
 		updatedAt: now,
 		revision: character.revision + 1,
 	};

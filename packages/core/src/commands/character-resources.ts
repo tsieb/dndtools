@@ -1,5 +1,7 @@
 import { hasDmAuthority } from '../state/permission-state';
 import {
+	addSystemResourceInputSchema,
+	recoverSceneInputSchema,
 	restCharacterInputSchema,
 	setCharacterSpellInputSchema,
 	setClassResourceInputSchema,
@@ -9,8 +11,10 @@ import {
 import type { Character } from '../state/character-state';
 import { CHARACTER_ENTITY_TYPE, upsertCharacter } from '../state/character-state';
 import {
+	addSystemResource,
 	applyHpDelta,
 	applyRest,
+	applySceneRecovery,
 	expendClassResource,
 	expendSpellSlot,
 	recordDeathSave,
@@ -26,8 +30,15 @@ import {
 	type ResourceUpdateMeta,
 } from '../state/character-resources';
 import { hasGrantedCapability } from '../permissions/grants';
+import { activeSystemPackageFor } from './character';
 import type { Actor } from '../state/permission-state';
-import type { CommandRejection, CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
+import type {
+	CommandRejection,
+	CommandResult,
+	CoreEnvironment,
+	CoreEvent,
+	CoreStateSlice,
+} from './types';
 import {
 	appendOperationDraft,
 	ensureCharacterStateSlice,
@@ -54,7 +65,10 @@ import {
  *     (the DM bypasses as administrator). They are not gated on the session being active.
  */
 
-function charactersWith(state: CoreStateSlice, characters: CoreStateSlice['characters']): CoreStateSlice {
+function charactersWith(
+	state: CoreStateSlice,
+	characters: CoreStateSlice['characters'],
+): CoreStateSlice {
 	return { ...state, characters };
 }
 
@@ -85,7 +99,14 @@ function actorMayUpdateCombatResources(
 ): boolean {
 	if (hasDmAuthority(actor.role)) return true;
 	if (actor.role === 'observer') return false;
-	return hasGrantedCapability(state.permissions, actor, CHARACTER_ENTITY_TYPE, characterId, 'combat-participant', now);
+	return hasGrantedCapability(
+		state.permissions,
+		actor,
+		CHARACTER_ENTITY_TYPE,
+		characterId,
+		'combat-participant',
+		now,
+	);
 }
 
 /**
@@ -102,7 +123,14 @@ function actorMayManageResources(
 ): boolean {
 	if (hasDmAuthority(actor.role)) return true;
 	if (actor.role === 'observer') return false;
-	return hasGrantedCapability(state.permissions, actor, CHARACTER_ENTITY_TYPE, characterId, 'owner', now);
+	return hasGrantedCapability(
+		state.permissions,
+		actor,
+		CHARACTER_ENTITY_TYPE,
+		characterId,
+		'owner',
+		now,
+	);
 }
 
 function makeResourceMeta(
@@ -153,7 +181,10 @@ export function handleUpdateCombatResource(
 	const existing = characters.characters[parsed.data.characterId];
 	if (!existing) {
 		return reject(
-			{ code: 'character-not-found', message: `Character ${parsed.data.characterId} does not exist.` },
+			{
+				code: 'character-not-found',
+				message: `Character ${parsed.data.characterId} does not exist.`,
+			},
 			state,
 		);
 	}
@@ -166,7 +197,10 @@ export function handleUpdateCombatResource(
 	// CHAR-007 authority: owner OR combat-participant; anyone else (incl. observers) is rejected.
 	if (!actorMayUpdateCombatResources(state, actor, existing.id, now)) {
 		return reject(
-			{ code: 'actor-not-authorized', message: 'You may not update this character\'s combat resources.' },
+			{
+				code: 'actor-not-authorized',
+				message: "You may not update this character's combat resources.",
+			},
 			state,
 		);
 	}
@@ -233,9 +267,16 @@ export function handleUpdateCombatResource(
 			break;
 		}
 		case 'class-resource': {
-			const result = expendClassResource(existing, resources, payload.resourceId, payload.amount, meta);
+			const result = expendClassResource(
+				existing,
+				resources,
+				payload.resourceId,
+				payload.amount,
+				meta,
+			);
 			if (!result.ok) {
-				const code = result.error === 'no-such-class-resource' ? 'invalid-payload' : 'invalid-state';
+				const code =
+					result.error === 'no-such-class-resource' ? 'invalid-payload' : 'invalid-state';
 				return reject({ code, message: result.message }, state);
 			}
 			updated = { ...result.character, resources: result.resources };
@@ -286,7 +327,10 @@ function manageGuard(
 	if (!actorMayManageResources(state, actor, existing.id, now)) {
 		return {
 			rejection: reject(
-				{ code: 'actor-not-authorized', message: 'Only the character owner may manage spells and resources.' },
+				{
+					code: 'actor-not-authorized',
+					message: 'Only the character owner may manage spells and resources.',
+				},
 				state,
 			),
 		};
@@ -355,10 +399,19 @@ export function handleSetSpellSlots(
 		...(parsed.data.expended !== undefined ? { expended: parsed.data.expended } : {}),
 	});
 	if (!result.ok) return reject({ code: 'invalid-payload', message: result.message }, state);
-	return commitManagedResources(state, env, guard.actor, guard.existing, result.resources, 'character.set-spell-slots', {
-		level: parsed.data.level,
-		max: parsed.data.max,
-	}, now);
+	return commitManagedResources(
+		state,
+		env,
+		guard.actor,
+		guard.existing,
+		result.resources,
+		'character.set-spell-slots',
+		{
+			level: parsed.data.level,
+			max: parsed.data.max,
+		},
+		now,
+	);
 }
 
 export function handleSetClassResource(
@@ -388,7 +441,12 @@ export function handleSetClassResource(
 		guard.existing,
 		result.resources,
 		'character.set-class-resource',
-		{ id: parsed.data.id, name: parsed.data.name, max: parsed.data.max, recharge: parsed.data.recharge },
+		{
+			id: parsed.data.id,
+			name: parsed.data.name,
+			max: parsed.data.max,
+			recharge: parsed.data.recharge,
+		},
 		now,
 	);
 }
@@ -421,13 +479,22 @@ export function handleSetCharacterSpell(
 		...detail,
 	});
 	if (!result.ok) return reject({ code: 'invalid-payload', message: result.message }, state);
-	return commitManagedResources(state, env, guard.actor, guard.existing, result.resources, 'character.set-spell', {
-		id: parsed.data.id,
-		name: parsed.data.name,
-		level: parsed.data.level,
-		prepared: parsed.data.prepared,
-		...detail,
-	}, now);
+	return commitManagedResources(
+		state,
+		env,
+		guard.actor,
+		guard.existing,
+		result.resources,
+		'character.set-spell',
+		{
+			id: parsed.data.id,
+			name: parsed.data.name,
+			level: parsed.data.level,
+			prepared: parsed.data.prepared,
+			...detail,
+		},
+		now,
+	);
 }
 
 // --- CHAR-008 — deterministic rest recovery -----------------------------------------------------
@@ -446,7 +513,13 @@ export function handleRestCharacter(
 
 	const operationId = env.ids();
 	const meta = makeResourceMeta(env, guard.actor, operationId, now);
-	const result = applyRest(guard.existing, resourcesOf(guard.existing), parsed.data.rest, meta);
+	const result = applyRest(
+		guard.existing,
+		resourcesOf(guard.existing),
+		parsed.data.rest,
+		meta,
+		activeSystemPackageFor(state),
+	);
 	if (!result.ok) return reject({ code: 'invalid-state', message: result.message }, state);
 
 	const updated: Character = { ...result.character, resources: result.resources };
@@ -476,4 +549,99 @@ export function handleRestCharacter(
 		],
 		operationIds: [draft.op.id],
 	};
+}
+
+// --- RC-SYS-2.2 — scene-end recovery and package resource instantiation -------------------------
+
+/**
+ * Clear the resources the active package recovers on `scene` (RC-SYS-2.2). A Generic stress clock
+ * ticks up during play and comes back to zero when the scene ends; a 5e character has no
+ * scene-recovered resource, so the command is accepted and records the scene without changing a
+ * counter. Owner-or-DM authority, exactly like a rest.
+ */
+export function handleRecoverScene(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const parsed = parseInput(recoverSceneInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const now = env.clock();
+	const guard = manageGuard(state, actorId, parsed.data.characterId, now);
+	if ('rejection' in guard) return guard.rejection;
+
+	const operationId = env.ids();
+	const meta = makeResourceMeta(env, guard.actor, operationId, now);
+	const result = applySceneRecovery(
+		guard.existing,
+		resourcesOf(guard.existing),
+		activeSystemPackageFor(state),
+		meta,
+	);
+	if (!result.ok) return reject({ code: 'invalid-state', message: result.message }, state);
+
+	const updated: Character = { ...result.character, resources: result.resources };
+	const characters = ensureCharacterStateSlice(state.characters);
+	const nextCharacters = upsertCharacter(characters, updated);
+	const draft = appendOperationDraft(env, state.sync, guard.actor.id, {
+		entityType: CHARACTER_ENTITY_TYPE,
+		entityId: updated.id,
+		opType: 'character.recover-scene',
+		path: `characters/${updated.id}/resources`,
+		value: { recovered: result.entry.delta ?? 0 },
+		beforeRevision: guard.existing.revision,
+		afterRevision: updated.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...charactersWith(state, nextCharacters), sync: draft.log },
+		events: [
+			{
+				kind: 'character.scene-recovered',
+				characterId: updated.id,
+				revision: updated.revision,
+				recovered: result.entry.delta ?? 0,
+				actorId: guard.actor.id,
+			},
+		],
+		operationIds: [draft.op.id],
+	};
+}
+
+/**
+ * Add a resource the active package declares to a character (RC-SYS-2.2), with the maximum the
+ * package's formula gives at the character's level. Fail closed: a key the active package does not
+ * declare is rejected with the reason, never invented. Owner-or-DM authority.
+ */
+export function handleAddSystemResource(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const parsed = parseInput(addSystemResourceInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const now = env.clock();
+	const guard = manageGuard(state, actorId, parsed.data.characterId, now);
+	if ('rejection' in guard) return guard.rejection;
+
+	const result = addSystemResource(
+		guard.existing,
+		resourcesOf(guard.existing),
+		activeSystemPackageFor(state),
+		parsed.data.key,
+	);
+	if (!result.ok) return reject({ code: 'invalid-payload', message: result.message }, state);
+	return commitManagedResources(
+		state,
+		env,
+		guard.actor,
+		guard.existing,
+		result.resources,
+		'character.add-system-resource',
+		{ key: result.resource.key, label: result.resource.label },
+		now,
+	);
 }

@@ -3194,3 +3194,20 @@ export const forkSystemPackageInputSchema = z
 		displayName: z.string().min(1).max(120).optional(),
 	})
 	.strict();
+
+// --- RC-SYS-2.2 — package-driven resources ------------------------------------------------------
+
+// End-of-scene recovery: clears every resource the active package recovers on `scene` (owner or DM).
+export const recoverSceneInputSchema = z
+	.object({
+		characterId: idSchema,
+	})
+	.strict();
+
+// Add a resource the ACTIVE system package declares, at the maximum its formula gives (owner or DM).
+export const addSystemResourceInputSchema = z
+	.object({
+		characterId: idSchema,
+		key: z.string().min(1).max(80),
+	})
+	.strict();

@@ -29,6 +29,7 @@ import {
 	reject,
 	requireActor,
 } from './helpers';
+import { activeSystemPackageFor } from './character';
 
 /**
  * CHAR-009 — durable LEVEL-UP / ADVANCEMENT commands using the STAGED-THEN-COMMIT pattern
@@ -48,7 +49,10 @@ import {
  * Every accepted mutation appends a durable `character.advancement.*` op so it is replayable.
  */
 
-function charactersWith(state: CoreStateSlice, characters: CoreStateSlice['characters']): CoreStateSlice {
+function charactersWith(
+	state: CoreStateSlice,
+	characters: CoreStateSlice['characters'],
+): CoreStateSlice {
 	return { ...state, characters };
 }
 
@@ -59,10 +63,22 @@ function charactersWith(state: CoreStateSlice, characters: CoreStateSlice['chara
  * inert (fail closed, PERM-004 AC2). Omitting `now` would allow an expired grant to remain
  * effective, violating the grant expiry guarantee.
  */
-function actorMayAdvance(state: CoreStateSlice, actor: Actor, characterId: string, now?: string): boolean {
+function actorMayAdvance(
+	state: CoreStateSlice,
+	actor: Actor,
+	characterId: string,
+	now?: string,
+): boolean {
 	if (hasDmAuthority(actor.role)) return true;
 	if (actor.role === 'observer') return false;
-	return hasGrantedCapability(state.permissions, actor, CHARACTER_ENTITY_TYPE, characterId, 'owner', now);
+	return hasGrantedCapability(
+		state.permissions,
+		actor,
+		CHARACTER_ENTITY_TYPE,
+		characterId,
+		'owner',
+		now,
+	);
 }
 
 function advanceGuard(
@@ -86,7 +102,10 @@ function advanceGuard(
 	if (!actorMayAdvance(state, actor, existing.id, now)) {
 		return {
 			rejection: reject(
-				{ code: 'actor-not-authorized', message: 'Only the character owner may manage advancement.' },
+				{
+					code: 'actor-not-authorized',
+					message: 'Only the character owner may manage advancement.',
+				},
 				state,
 			),
 		};
@@ -177,12 +196,25 @@ export function handleOpenAdvancement(
 					: 'invalid-state';
 		return reject({ code, message: eligibility.message }, state);
 	}
-	const advancementDraft = buildAdvancementDraft(guard.existing, parsed.data.mode, guard.actor.id, now);
+	const advancementDraft = buildAdvancementDraft(
+		guard.existing,
+		parsed.data.mode,
+		guard.actor.id,
+		now,
+	);
 	const updated = writeAdvancementDraft(guard.existing, advancementDraft, now);
-	return commitCharacter(state, env, guard.actor, guard.existing, updated, 'character.open-advancement', {
-		mode: parsed.data.mode,
-		toLevel: advancementDraft.toLevel,
-	});
+	return commitCharacter(
+		state,
+		env,
+		guard.actor,
+		guard.existing,
+		updated,
+		'character.open-advancement',
+		{
+			mode: parsed.data.mode,
+			toLevel: advancementDraft.toLevel,
+		},
+	);
 }
 
 // --- CHAR-009 — set staged choices (staged; not finalized) --------------------------------------
@@ -209,7 +241,8 @@ export function handleSetAdvancementChoices(
 
 	const choices: AdvancementChoices = {};
 	if (parsed.data.className !== undefined) choices.className = parsed.data.className;
-	if (parsed.data.hitPointsGained !== undefined) choices.hitPointsGained = parsed.data.hitPointsGained;
+	if (parsed.data.hitPointsGained !== undefined)
+		choices.hitPointsGained = parsed.data.hitPointsGained;
 	if (parsed.data.subclass !== undefined) choices.subclass = parsed.data.subclass;
 	if (parsed.data.abilityOrFeat !== undefined) choices.abilityOrFeat = parsed.data.abilityOrFeat;
 	const mergedDraft = mergeAdvancementChoices(draft, choices, now);
@@ -217,11 +250,19 @@ export function handleSetAdvancementChoices(
 	// once. The character revision is bumped, but level/XP are unchanged — staged, not finalized.
 	const updated = writeAdvancementDraft(guard.existing, mergedDraft, now);
 	const validation = validateAdvancement(mergedDraft);
-	return commitCharacter(state, env, guard.actor, guard.existing, updated, 'character.set-advancement-choices', {
-		choices,
-		complete: validation.complete,
-		issues: validation.issues,
-	});
+	return commitCharacter(
+		state,
+		env,
+		guard.actor,
+		guard.existing,
+		updated,
+		'character.set-advancement-choices',
+		{
+			choices,
+			complete: validation.complete,
+			issues: validation.issues,
+		},
+	);
 }
 
 // --- CHAR-009 — COMMIT (validation fail-closed; no-partial-commit) ------------------------------
@@ -239,14 +280,17 @@ export function handleCommitAdvancement(
 	if ('rejection' in guard) return guard.rejection;
 	// The character is mutated ONLY when the pure commit reducer returns ok. An invalid/incomplete
 	// advancement returns an error here and NOTHING below runs — no partial mutation (CHAR-009 AC1).
-	const result = commitAdvancement(guard.existing, now);
+	const result = commitAdvancement(guard.existing, now, activeSystemPackageFor(state));
 	if (!result.ok) {
-		const code = result.error === 'no-advancement-in-progress' ? 'invalid-state' : 'draft-incomplete';
+		const code =
+			result.error === 'no-advancement-in-progress' ? 'invalid-state' : 'draft-incomplete';
 		return reject(
 			{
 				code,
 				message: result.message,
-				...(result.issues ? { issues: result.issues.map((i) => ({ path: i.field, message: i.message })) } : {}),
+				...(result.issues
+					? { issues: result.issues.map((i) => ({ path: i.field, message: i.message })) }
+					: {}),
 			},
 			state,
 		);
@@ -300,5 +344,13 @@ export function handleCancelAdvancement(
 		);
 	}
 	const updated = clearAdvancementDraft(guard.existing, now);
-	return commitCharacter(state, env, guard.actor, guard.existing, updated, 'character.cancel-advancement', {});
+	return commitCharacter(
+		state,
+		env,
+		guard.actor,
+		guard.existing,
+		updated,
+		'character.cancel-advancement',
+		{},
+	);
 }

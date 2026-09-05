@@ -1,6 +1,8 @@
 import type { ActorId } from './ids';
 import type { ActorRole } from './permission-state';
 import type { Character } from './character-state';
+import type { FormulaScope, SystemPackage, SystemRecovery, SystemResource } from './system-package';
+import { evaluateFormula } from './system-package';
 
 /**
  * CHAR-007 / CHAR-008 — the STRUCTURED combat-resource and spell/resource state, plus the pure
@@ -107,7 +109,8 @@ export interface ResourceLedgerEntry {
 		| 'condition'
 		| 'death-save'
 		| 'concentration'
-		| 'rest';
+		| 'rest'
+		| 'scene';
 	/** A short human label (e.g. "Cast level 1 slot", "Short rest"). */
 	label: string;
 	/** Signed delta where meaningful (e.g. -1 slot, +4 HP), or null for non-numeric events. */
@@ -153,9 +156,7 @@ export function ensureCharacterResources(
 	resources: CharacterResources | undefined,
 ): CharacterResources {
 	return {
-		deathSaves: resources?.deathSaves
-			? { ...resources.deathSaves }
-			: { ...EMPTY_DEATH_SAVES },
+		deathSaves: resources?.deathSaves ? { ...resources.deathSaves } : { ...EMPTY_DEATH_SAVES },
 		concentration: resources?.concentration
 			? { ...resources.concentration }
 			: { ...EMPTY_CONCENTRATION },
@@ -289,7 +290,11 @@ export function setTempHp(
 	meta: ResourceUpdateMeta,
 ): ResourceUpdateResult {
 	if (!Number.isFinite(value) || !Number.isInteger(value) || value < 0) {
-		return { ok: false, error: 'invalid-amount', message: 'Temporary HP must be a non-negative whole number.' };
+		return {
+			ok: false,
+			error: 'invalid-amount',
+			message: 'Temporary HP must be a non-negative whole number.',
+		};
 	}
 	const tempHp = Math.max(character.combat.tempHp, value);
 	const nextCharacter: Character = {
@@ -344,11 +349,17 @@ export function recordDeathSave(
 	resources: CharacterResources,
 	outcome: 'success' | 'failure' | 'reset',
 	meta: ResourceUpdateMeta,
-): { ok: true; resources: CharacterResources; entry: ResourceLedgerEntry } | { ok: false; error: ResourceUpdateError; message: string } {
+):
+	| { ok: true; resources: CharacterResources; entry: ResourceLedgerEntry }
+	| { ok: false; error: ResourceUpdateError; message: string } {
 	const current = resources.deathSaves;
 	if (outcome === 'reset') {
 		const entry = ledgerEntry(meta, 'death-save', 'Reset death saves', null);
-		return { ok: true, resources: appendLedger({ ...resources, deathSaves: { ...EMPTY_DEATH_SAVES } }, entry), entry };
+		return {
+			ok: true,
+			resources: appendLedger({ ...resources, deathSaves: { ...EMPTY_DEATH_SAVES } }, entry),
+			entry,
+		};
 	}
 	if (current.stable || current.failures >= DEATH_SAVE_MAX || current.successes >= DEATH_SAVE_MAX) {
 		return {
@@ -375,7 +386,11 @@ export function recordDeathSave(
 		outcome === 'success' ? 'Death save success' : 'Death save failure',
 		outcome === 'success' ? 1 : -1,
 	);
-	return { ok: true, resources: appendLedger({ ...resources, deathSaves: nextSaves }, entry), entry };
+	return {
+		ok: true,
+		resources: appendLedger({ ...resources, deathSaves: nextSaves }, entry),
+		entry,
+	};
 }
 
 /** Set or clear concentration (CHAR-007). Setting a new effect replaces the previous one. */
@@ -383,9 +398,15 @@ export function setConcentration(
 	resources: CharacterResources,
 	effect: string | null,
 	meta: ResourceUpdateMeta,
-): { ok: true; resources: CharacterResources; entry: ResourceLedgerEntry } | { ok: false; error: ResourceUpdateError; message: string } {
+):
+	| { ok: true; resources: CharacterResources; entry: ResourceLedgerEntry }
+	| { ok: false; error: ResourceUpdateError; message: string } {
 	if (effect !== null && effect.trim() === '') {
-		return { ok: false, error: 'invalid-amount', message: 'A concentration effect name is required.' };
+		return {
+			ok: false,
+			error: 'invalid-amount',
+			message: 'A concentration effect name is required.',
+		};
 	}
 	const next: ConcentrationState =
 		effect === null ? { ...EMPTY_CONCENTRATION } : { effect: effect.trim(), since: meta.now };
@@ -436,14 +457,26 @@ export function expendClassResource(
 	meta: ResourceUpdateMeta,
 ): ResourceUpdateResult {
 	if (!Number.isInteger(amount) || amount <= 0) {
-		return { ok: false, error: 'invalid-amount', message: 'Amount must be a positive whole number.' };
+		return {
+			ok: false,
+			error: 'invalid-amount',
+			message: 'Amount must be a positive whole number.',
+		};
 	}
 	const resource = resources.classResources[resourceId];
 	if (!resource) {
-		return { ok: false, error: 'no-such-class-resource', message: `No class resource "${resourceId}".` };
+		return {
+			ok: false,
+			error: 'no-such-class-resource',
+			message: `No class resource "${resourceId}".`,
+		};
 	}
 	if (availableClassResource(resource) < amount) {
-		return { ok: false, error: 'insufficient-resource', message: `Not enough ${resource.name} remaining.` };
+		return {
+			ok: false,
+			error: 'insufficient-resource',
+			message: `Not enough ${resource.name} remaining.`,
+		};
 	}
 	const nextResource: ClassResource = { ...resource, expended: resource.expended + amount };
 	const nextResources = appendLedger(
@@ -458,17 +491,227 @@ export function expendClassResource(
 	};
 }
 
-// --- Deterministic REST RECOVERY (CHAR-008) -----------------------------------------------------
+// --- RC-SYS-2.2 — resources as instances of the package's `resources[]` ------------------------
 
 /**
- * Apply a SHORT or LONG rest deterministically (CHAR-008 AC2). The recovery rules are data-driven and
- * pure, so the same character + rest kind always restores the same resources:
+ * RC-SYS-2.2 — a character's spell slots and class resources are INSTANCES of the resources the
+ * active {@link SystemPackage} declares, not a hard-coded 5e list.
  *
- *   - A class resource is restored to full ONLY when its `recharge` matches the rest kind (short-rest
- *     resources recover on a short OR long rest; long-rest resources recover only on a long rest).
- *   - On a LONG rest, all spell slots are restored to full, HP is restored to max, temporary HP is
- *     cleared, death saves are reset, and concentration is dropped. A SHORT rest does NOT restore
- *     spell slots or HP (matching 5e rules), only short-rest class resources.
+ * The storage stays exactly where it was, so nothing on disk changes shape: a package resource of
+ * kind `slots` named `spellSlot<level>` is carried in {@link CharacterResources.spellSlots}, and
+ * every other package resource is carried in {@link CharacterResources.classResources} under its
+ * package key (the same mapping `queries/system-switch-query.ts` already reports on). What moves to
+ * the package is the RULE: the maximum comes from the resource's `maxFormula`, and recovery comes
+ * from its `recovery`, not from a value copied onto the character at authoring time.
+ *
+ * A character carrying a resource the active package does not declare keeps working: the stored
+ * `recharge` is the fallback, so a homebrew or legacy resource still recovers on the rest it says.
+ */
+
+/** The package key convention for a spell-slot level: `spellSlot3` is the level-3 slot resource. */
+export function spellSlotResourceKey(level: number): string {
+	return `spellSlot${level}`;
+}
+
+/** The package resource with this key on the package, or undefined when it declares none. */
+export function systemResourceFor(
+	pkg: SystemPackage | undefined,
+	key: string,
+): SystemResource | undefined {
+	return pkg?.resources.find((resource) => resource.key === key);
+}
+
+/**
+ * The recovery that actually governs a stored resource: the active package's when it declares the
+ * key, otherwise the resource's own `recharge` (`none` ⇒ `never`). Pure.
+ */
+export function effectiveRecovery(
+	pkg: SystemPackage | undefined,
+	key: string,
+	fallback: RestKind | 'none',
+): SystemRecovery {
+	const declared = systemResourceFor(pkg, key);
+	if (declared) return declared.recovery;
+	return fallback === 'none' ? 'never' : fallback;
+}
+
+/**
+ * Whether a recovery band comes back on this rest. `short` resources return on a short OR a long
+ * rest (a long rest includes a short one); `long` only on a long rest; `scene` and `never` never do
+ * — a scene resource clears when the scene ends ({@link applySceneRecovery}), and `never` only on an
+ * explicit award. Pure.
+ */
+export function recoversOnRest(recovery: SystemRecovery, rest: RestKind): boolean {
+	if (recovery === 'short') return true;
+	if (recovery === 'long') return rest === 'long';
+	return false;
+}
+
+/**
+ * The maximum a package resource declares at a given scope (usually `{ level }`), or null when the
+ * package leaves the maximum to the character (`maxFormula: null`) or the formula cannot be read in
+ * this scope — a formula naming an input we cannot supply degrades to "the character's own value"
+ * rather than silently zeroing a resource. Pure.
+ */
+export function resourceMaxFromPackage(
+	resource: SystemResource,
+	scope: FormulaScope,
+): number | null {
+	if (resource.maxFormula === null) return null;
+	const result = evaluateFormula(resource.maxFormula, scope);
+	if (!result.ok) return null;
+	return Math.max(0, Math.trunc(result.value));
+}
+
+/** One package resource as it stands on a character: the package's rule plus the stored counters. */
+export interface ResourceInstance {
+	key: string;
+	label: string;
+	kind: SystemResource['kind'];
+	recovery: SystemRecovery;
+	diceNotation: string | null;
+	max: number;
+	expended: number;
+	available: number;
+	/** True when the character carries this resource; false when the package declares it unused. */
+	present: boolean;
+}
+
+/**
+ * Every resource the active package declares, as it stands on this character (RC-SYS-2.2). A
+ * resource the character does not carry comes back `present: false` with zeroed counters rather
+ * than being dropped, so a sheet can offer to add it; resources the character carries that the
+ * package does not declare are appended after, so nothing a DM authored disappears. Pure.
+ */
+export function resourceInstances(
+	character: Character,
+	pkg: SystemPackage | undefined,
+	resources: CharacterResources = resourcesOf(character),
+): ResourceInstance[] {
+	const scope: FormulaScope = { level: characterLevelFor(character) };
+	const instances: ResourceInstance[] = [];
+	const seen = new Set<string>();
+
+	for (const declared of pkg?.resources ?? []) {
+		seen.add(declared.key);
+		const stored = storedResourceFor(resources, declared.key);
+		const declaredMax = resourceMaxFromPackage(declared, scope);
+		const max = declaredMax ?? stored?.max ?? 0;
+		const expended = Math.min(stored?.expended ?? 0, max);
+		instances.push({
+			key: declared.key,
+			label: declared.label,
+			kind: declared.kind,
+			recovery: declared.recovery,
+			diceNotation: declared.diceNotation,
+			max,
+			expended,
+			available: Math.max(0, max - expended),
+			present: stored !== null,
+		});
+	}
+
+	for (const resource of Object.values(resources.classResources)) {
+		if (seen.has(resource.id)) continue;
+		instances.push({
+			key: resource.id,
+			label: resource.name,
+			kind: 'pool',
+			recovery: effectiveRecovery(pkg, resource.id, resource.recharge),
+			diceNotation: null,
+			max: resource.max,
+			expended: resource.expended,
+			available: availableClassResource(resource),
+			present: true,
+		});
+	}
+
+	return instances;
+}
+
+/** The stored counters behind a package key, or null when the character does not carry it. Pure. */
+function storedResourceFor(
+	resources: CharacterResources,
+	key: string,
+): { max: number; expended: number } | null {
+	const level = spellSlotLevelOf(key);
+	if (level !== null) {
+		const slot = resources.spellSlots[String(level)];
+		return slot ? { max: slot.max, expended: slot.expended } : null;
+	}
+	const resource = resources.classResources[key];
+	return resource ? { max: resource.max, expended: resource.expended } : null;
+}
+
+/** The spell-slot level a package key names (`spellSlot3` ⇒ 3), or null when it names something else. */
+export function spellSlotLevelOf(key: string): number | null {
+	const match = /^spellSlot(\d+)$/.exec(key);
+	if (!match) return null;
+	const level = Number(match[1]);
+	return Number.isInteger(level) ? level : null;
+}
+
+/** The character's level as the formula scope reads it (absent/unreadable ⇒ 1). Pure. */
+function characterLevelFor(character: Character): number {
+	const raw = character.data['level'];
+	const level = typeof raw === 'number' ? raw : Number(raw);
+	return Number.isFinite(level) && level >= 1 ? Math.trunc(level) : 1;
+}
+
+/**
+ * Recompute the maxima of every stored resource the package declares a `maxFormula` for, at the
+ * given scope (RC-SYS-2.2). Used on level-up: a monk's ki follows the package's `level` formula
+ * rather than a number copied onto the sheet once. A resource whose formula cannot be read in this
+ * scope keeps its authored maximum — fail closed, never clobber the owner's value. `expended` is
+ * clamped into the new maximum so the counters cannot drift. Pure.
+ */
+export function recomputeResourceMaxima(
+	resources: CharacterResources,
+	pkg: SystemPackage | undefined,
+	scope: FormulaScope,
+): CharacterResources {
+	if (!pkg) return resources;
+	let changed = false;
+	const classResources: Record<string, ClassResource> = { ...resources.classResources };
+	const spellSlots: Record<string, SpellSlotLevel> = { ...resources.spellSlots };
+
+	for (const declared of pkg.resources) {
+		const max = resourceMaxFromPackage(declared, scope);
+		if (max === null) continue;
+		const level = spellSlotLevelOf(declared.key);
+		if (level !== null) {
+			const slot = spellSlots[String(level)];
+			if (!slot || slot.max === max) continue;
+			spellSlots[String(level)] = { ...slot, max, expended: Math.min(slot.expended, max) };
+			changed = true;
+			continue;
+		}
+		const resource = classResources[declared.key];
+		if (!resource || resource.max === max) continue;
+		classResources[declared.key] = {
+			...resource,
+			max,
+			expended: Math.min(resource.expended, max),
+		};
+		changed = true;
+	}
+
+	return changed ? { ...resources, classResources, spellSlots } : resources;
+}
+
+// --- Deterministic REST RECOVERY (CHAR-008, package-driven since RC-SYS-2.2) --------------------
+
+/**
+ * Apply a SHORT or LONG rest deterministically (CHAR-008 AC2). Since RC-SYS-2.2 the recovery rules
+ * come from the ACTIVE PACKAGE rather than from 5e literals: each stored resource recovers when the
+ * package resource with its key says it comes back on this rest ({@link effectiveRecovery},
+ * {@link recoversOnRest}). A resource the package does not declare falls back to its own stored
+ * `recharge`, so a homebrew or pre-package character behaves exactly as it did.
+ *
+ * Under the 5e package this is byte-identical to the previous hard-coded behaviour: `ki` and the
+ * other short-rest resources recover on either rest, `rage` and the spell slots only on a long rest,
+ * and `hitPoints` (recovery `long`) restores HP to maximum. Temporary HP, death saves and
+ * concentration clear on a long rest as before.
  *
  * One ledger entry records the rest. Pure: no ambient clock/entropy.
  */
@@ -477,41 +720,33 @@ export function applyRest(
 	resources: CharacterResources,
 	rest: RestKind,
 	meta: ResourceUpdateMeta,
+	pkg?: SystemPackage,
 ): ResourceUpdateResult {
-	// Short-rest resources recover on both short and long rests; long-rest only on a long rest.
-	function recharges(resource: ClassResource): boolean {
-		if (resource.recharge === 'short') return true; // short-rest resources recover on any rest
-		if (resource.recharge === 'long') return rest === 'long';
-		return false;
-	}
-
 	const classResources: Record<string, ClassResource> = {};
 	for (const [id, resource] of Object.entries(resources.classResources)) {
-		classResources[id] = recharges(resource) ? { ...resource, expended: 0 } : { ...resource };
+		const recovery = effectiveRecovery(pkg, id, resource.recharge);
+		classResources[id] = recoversOnRest(recovery, rest)
+			? { ...resource, expended: 0 }
+			: { ...resource };
 	}
 
-	let spellSlots = resources.spellSlots;
-	let nextCombat = character.combat;
-	let deathSaves = resources.deathSaves;
-	let concentration = resources.concentration;
-
-	if (rest === 'long') {
-		spellSlots = Object.fromEntries(
-			Object.entries(resources.spellSlots).map(([key, slot]) => [key, { ...slot, expended: 0 }]),
-		);
-		nextCombat = { ...character.combat, hp: character.combat.maxHp, tempHp: 0 };
-		deathSaves = { ...EMPTY_DEATH_SAVES };
-		concentration = { ...EMPTY_CONCENTRATION };
+	const spellSlots: Record<string, SpellSlotLevel> = {};
+	for (const [key, slot] of Object.entries(resources.spellSlots)) {
+		// Slots default to a long rest when the package says nothing, matching the 5e rule they came from.
+		const recovery = effectiveRecovery(pkg, spellSlotResourceKey(slot.level), 'long');
+		spellSlots[key] = recoversOnRest(recovery, rest) ? { ...slot, expended: 0 } : { ...slot };
 	}
+
+	const hpRecovers = recoversOnRest(hitPointRecovery(pkg), rest);
+	const nextCombat = hpRecovers
+		? { ...character.combat, hp: character.combat.maxHp, tempHp: 0 }
+		: character.combat;
+	// Death saves and concentration end with a long rest regardless of the hit-point band.
+	const deathSaves = rest === 'long' ? { ...EMPTY_DEATH_SAVES } : resources.deathSaves;
+	const concentration = rest === 'long' ? { ...EMPTY_CONCENTRATION } : resources.concentration;
 
 	const nextResources: CharacterResources = appendLedger(
-		{
-			...resources,
-			classResources,
-			spellSlots,
-			deathSaves,
-			concentration,
-		},
+		{ ...resources, classResources, spellSlots, deathSaves, concentration },
 		ledgerEntry(meta, 'rest', rest === 'long' ? 'Long rest' : 'Short rest', null),
 	);
 	const nextCharacter: Character = {
@@ -521,7 +756,140 @@ export function applyRest(
 		updatedAt: meta.now,
 		revision: character.revision + 1,
 	};
-	return { ok: true, character: nextCharacter, resources: nextResources, entry: nextResources.ledger[nextResources.ledger.length - 1]! };
+	return {
+		ok: true,
+		character: nextCharacter,
+		resources: nextResources,
+		entry: nextResources.ledger[nextResources.ledger.length - 1]!,
+	};
+}
+
+/** The recovery band the package puts hit points in; `long` when it declares no hit-point pool. */
+function hitPointRecovery(pkg: SystemPackage | undefined): SystemRecovery {
+	const declared = systemResourceFor(pkg, 'hitPoints') ?? systemResourceFor(pkg, 'hp');
+	return declared?.recovery ?? 'long';
+}
+
+/**
+ * Clear every resource the active package recovers on `scene` (RC-SYS-2.2). A stress clock, a
+ * momentum pool or any other between-scenes track resets when the scene ends; rest-recovered
+ * resources are untouched, so ending a scene never hands back a long-rest resource.
+ *
+ * Always succeeds and always records one ledger entry, even when nothing recovers — the scene did
+ * end, and a silent no-op would leave the owner unsure whether it registered. Pure.
+ */
+export function applySceneRecovery(
+	character: Character,
+	resources: CharacterResources,
+	pkg: SystemPackage | undefined,
+	meta: ResourceUpdateMeta,
+): ResourceUpdateResult {
+	let recovered = 0;
+	const classResources: Record<string, ClassResource> = {};
+	for (const [id, resource] of Object.entries(resources.classResources)) {
+		if (effectiveRecovery(pkg, id, resource.recharge) === 'scene' && resource.expended > 0) {
+			classResources[id] = { ...resource, expended: 0 };
+			recovered += 1;
+		} else {
+			classResources[id] = { ...resource };
+		}
+	}
+
+	const spellSlots: Record<string, SpellSlotLevel> = {};
+	for (const [key, slot] of Object.entries(resources.spellSlots)) {
+		if (
+			effectiveRecovery(pkg, spellSlotResourceKey(slot.level), 'long') === 'scene' &&
+			slot.expended > 0
+		) {
+			spellSlots[key] = { ...slot, expended: 0 };
+			recovered += 1;
+		} else {
+			spellSlots[key] = { ...slot };
+		}
+	}
+
+	const nextResources: CharacterResources = appendLedger(
+		{ ...resources, classResources, spellSlots },
+		ledgerEntry(meta, 'scene', 'Scene end', recovered === 0 ? null : recovered),
+	);
+	const nextCharacter: Character = {
+		...character,
+		resources: nextResources,
+		updatedAt: meta.now,
+		revision: character.revision + 1,
+	};
+	return {
+		ok: true,
+		character: nextCharacter,
+		resources: nextResources,
+		entry: nextResources.ledger[nextResources.ledger.length - 1]!,
+	};
+}
+
+/**
+ * Instantiate a resource the active package declares onto a character (RC-SYS-2.2). The maximum
+ * comes from the package's `maxFormula` at the character's level; a package that leaves the maximum
+ * to the character starts it at zero for the owner to set. A `slots` resource lands in
+ * `spellSlots`, everything else in `classResources`. Fail closed: a key the package does not
+ * declare is rejected rather than invented. Pure.
+ */
+export function addSystemResource(
+	character: Character,
+	resources: CharacterResources,
+	pkg: SystemPackage | undefined,
+	key: string,
+):
+	| { ok: true; resources: CharacterResources; resource: SystemResource }
+	| { ok: false; error: ResourceUpdateError; message: string } {
+	const declared = systemResourceFor(pkg, key);
+	if (!declared) {
+		return {
+			ok: false,
+			error: 'no-such-class-resource',
+			message: `The active system does not define a resource named "${key}".`,
+		};
+	}
+	const max = resourceMaxFromPackage(declared, { level: characterLevelFor(character) }) ?? 0;
+	const level = spellSlotLevelOf(declared.key);
+	if (level !== null || declared.kind === 'slots') {
+		if (level === null) {
+			return {
+				ok: false,
+				error: 'no-such-slot-level',
+				message: `"${declared.label}" does not name a spell-slot level.`,
+			};
+		}
+		const existing = resources.spellSlots[String(level)];
+		const slot: SpellSlotLevel = {
+			level,
+			max,
+			expended: Math.min(existing?.expended ?? 0, max),
+		};
+		return {
+			ok: true,
+			resources: { ...resources, spellSlots: { ...resources.spellSlots, [String(level)]: slot } },
+			resource: declared,
+		};
+	}
+	const existing = resources.classResources[declared.key];
+	// `recharge` is only the fallback for a package that stops declaring this key; the package wins.
+	const recharge: RestKind | 'none' =
+		declared.recovery === 'short' || declared.recovery === 'long' ? declared.recovery : 'none';
+	const resource: ClassResource = {
+		id: declared.key,
+		name: declared.label,
+		max,
+		expended: Math.min(existing?.expended ?? 0, max),
+		recharge,
+	};
+	return {
+		ok: true,
+		resources: {
+			...resources,
+			classResources: { ...resources.classResources, [declared.key]: resource },
+		},
+		resource: declared,
+	};
 }
 
 // --- Spell / slot / class-resource management (CHAR-008, owner-managed structure) ---------------
@@ -537,19 +905,28 @@ export interface SetSpellSlotsInput {
 export function setSpellSlots(
 	resources: CharacterResources,
 	input: SetSpellSlotsInput,
-): { ok: true; resources: CharacterResources } | { ok: false; error: ResourceUpdateError; message: string } {
+):
+	| { ok: true; resources: CharacterResources }
+	| { ok: false; error: ResourceUpdateError; message: string } {
 	if (!Number.isInteger(input.level) || input.level < 0 || input.level > 9) {
 		return { ok: false, error: 'invalid-amount', message: 'Spell level must be an integer 0–9.' };
 	}
 	if (!Number.isInteger(input.max) || input.max < 0) {
-		return { ok: false, error: 'invalid-amount', message: 'Max slots must be a non-negative whole number.' };
+		return {
+			ok: false,
+			error: 'invalid-amount',
+			message: 'Max slots must be a non-negative whole number.',
+		};
 	}
 	const existing = resources.spellSlots[String(input.level)];
 	const expended = clamp(input.expended ?? existing?.expended ?? 0, 0, input.max);
 	const slot: SpellSlotLevel = { level: input.level, max: input.max, expended };
 	return {
 		ok: true,
-		resources: { ...resources, spellSlots: { ...resources.spellSlots, [String(input.level)]: slot } },
+		resources: {
+			...resources,
+			spellSlots: { ...resources.spellSlots, [String(input.level)]: slot },
+		},
 	};
 }
 
@@ -565,12 +942,18 @@ export interface SetClassResourceInput {
 export function setClassResource(
 	resources: CharacterResources,
 	input: SetClassResourceInput,
-): { ok: true; resources: CharacterResources } | { ok: false; error: ResourceUpdateError; message: string } {
+):
+	| { ok: true; resources: CharacterResources }
+	| { ok: false; error: ResourceUpdateError; message: string } {
 	if (input.id.trim() === '' || input.name.trim() === '') {
 		return { ok: false, error: 'invalid-amount', message: 'Resource id and name are required.' };
 	}
 	if (!Number.isInteger(input.max) || input.max < 0) {
-		return { ok: false, error: 'invalid-amount', message: 'Max must be a non-negative whole number.' };
+		return {
+			ok: false,
+			error: 'invalid-amount',
+			message: 'Max must be a non-negative whole number.',
+		};
 	}
 	const existing = resources.classResources[input.id];
 	const expended = clamp(input.expended ?? existing?.expended ?? 0, 0, input.max);
@@ -583,7 +966,10 @@ export function setClassResource(
 	};
 	return {
 		ok: true,
-		resources: { ...resources, classResources: { ...resources.classResources, [input.id]: resource } },
+		resources: {
+			...resources,
+			classResources: { ...resources.classResources, [input.id]: resource },
+		},
 	};
 }
 
@@ -604,7 +990,9 @@ export interface SetSpellInput {
 export function setSpell(
 	resources: CharacterResources,
 	input: SetSpellInput,
-): { ok: true; resources: CharacterResources } | { ok: false; error: ResourceUpdateError; message: string } {
+):
+	| { ok: true; resources: CharacterResources }
+	| { ok: false; error: ResourceUpdateError; message: string } {
 	if (input.id.trim() === '' || input.name.trim() === '') {
 		return { ok: false, error: 'invalid-amount', message: 'Spell id and name are required.' };
 	}
