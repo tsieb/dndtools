@@ -9,7 +9,7 @@ import { CHARACTER_ENTITY_TYPE, proficienciesOf, upsertCharacter } from '../stat
 import { normalizeVisibilityLevel } from '../permissions/visibility-filter';
 import { hasGrantedCapability } from '../permissions/grants';
 import type { Actor } from '../state/permission-state';
-import { activeSystemPackage, hydrateSystemsState } from '../state/system-package';
+import { activeSystemPackageFor } from './character';
 import type { CommandResult, CoreEnvironment, CoreStateSlice } from './types';
 import {
 	appendOperationDraft,
@@ -115,7 +115,7 @@ export function handleSetCharacterProficiencies(
 	// sheet would have nowhere to show it and no attribute to bonus it from. A package that declares no
 	// skills at all makes no claim about them, so it constrains nothing (fail closed only where the
 	// system actually speaks).
-	const pkg = activeSystemPackage(hydrateSystemsState(state.systems));
+	const pkg = activeSystemPackageFor(state);
 	if (parsed.data.skills !== undefined && pkg.skills.length > 0) {
 		const declared = new Set(pkg.skills.map((skill) => skill.key));
 		const unknown = Object.keys(parsed.data.skills).filter((skill) => !declared.has(skill));

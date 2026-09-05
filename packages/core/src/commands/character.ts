@@ -38,8 +38,8 @@ import {
 	validateDraftStep,
 } from '../state/character-draft-flow';
 import { abilityScoreKeyFor, normalizeCharacterAttributes } from '../state/character-state';
-import type { SystemPackage } from '../state/system-package';
-import { activeSystemPackage, hydrateSystemsState } from '../state/system-package';
+import type { SystemPackage, SystemsState } from '../state/system-package';
+import { DND5E_SYSTEM_PACKAGE, activeSystemPackage } from '../state/system-package';
 import { hasGrantedCapability } from '../permissions/grants';
 import { requiredCapabilityForCharacterField } from '../permissions/character-field-authority';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
@@ -448,7 +448,7 @@ export function handleUpdateCharacterDraftStep(
 	const updated = applyDraftStep(existing, parsed.data.stepId, parsed.data.values, now);
 	const nextCharacters = upsertDraft(characters, updated);
 
-	const pkg = activePackage(state);
+	const pkg = activeSystemPackageFor(state);
 	const stepValidation = validateDraftStep(parsed.data.stepId, parsed.data.values, pkg);
 	const completeness = computeDraftCompleteness(updated, pkg);
 
@@ -484,11 +484,17 @@ export function handleUpdateCharacterDraftStep(
 
 /**
  * RC-SYS-2.1 — the ACTIVE system package the draft flow and the finalized character are shaped by.
- * Hydrated tolerantly so a vault written before the `systems` slice existed still resolves to the
- * built-in 5e package and behaves exactly as it did.
+ * Read tolerantly rather than re-hydrated: a state assembled before the `systems` slice existed (or
+ * carrying a package id that no longer resolves) falls back to the built-in 5e package and behaves
+ * exactly as it did. Read-only, so the shared package object is handed back without a clone — this
+ * runs on every draft-step save, and deep-copying every installed package there would be waste.
  */
-function activePackage(state: CoreStateSlice): SystemPackage {
-	return activeSystemPackage(hydrateSystemsState(state.systems));
+export function activeSystemPackageFor(state: {
+	systems?: SystemsState | undefined;
+}): SystemPackage {
+	const systems = state.systems;
+	if (!systems || typeof systems !== 'object' || !systems.packages) return DND5E_SYSTEM_PACKAGE;
+	return activeSystemPackage(systems);
 }
 
 export function handleFinalizeCharacterDraft(
@@ -521,7 +527,7 @@ export function handleFinalizeCharacterDraft(
 		return reject({ code: 'draft-finalized', message: 'This draft is already finalized.' }, state);
 	}
 
-	const pkg = activePackage(state);
+	const pkg = activeSystemPackageFor(state);
 	const completeness = computeDraftCompleteness(existing, pkg);
 	if (!completeness.readyToFinalize) {
 		return reject(

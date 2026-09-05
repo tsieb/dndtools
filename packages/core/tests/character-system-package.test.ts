@@ -413,6 +413,32 @@ describe('RC-SYS-2.1 — a Generic character with no attributes validates end to
 	});
 });
 
+describe('RC-SYS-2.1 — the active-package read is tolerant', () => {
+	it('falls back to the built-in 5e package when a state carries no systems slice', () => {
+		const env = makeEnvironment();
+		// A state assembled before the `systems` slice existed, and one whose selected id is gone.
+		for (const systems of [undefined, { ...withActors().systems, activePackageId: 'gone' }]) {
+			const state = { ...withActors(), systems } as CoreStateSlice;
+			const saved = dispatchCommand(state, env, {
+				type: 'character.quick-create',
+				actorId: DM_ACTOR.id,
+				payload: { kind: 'npc', name: 'Sentry' },
+			});
+			expect(saved.status).toBe('accepted');
+			if (saved.status !== 'accepted') return;
+			const id = Object.keys(saved.nextState.characters.characters)[0]!;
+			// 5e skills are accepted, which is only true if the fallback resolved to the 5e package.
+			expect(
+				dispatchCommand(saved.nextState, env, {
+					type: 'character.set-proficiencies',
+					actorId: DM_ACTOR.id,
+					payload: { characterId: id, skills: { perception: 'proficient' } },
+				}).status,
+			).toBe('accepted');
+		}
+	});
+});
+
 describe('RC-SYS-2.1 — skills are the ones the active package declares', () => {
 	function quickCreate(state: CoreStateSlice): { state: CoreStateSlice; id: string } {
 		const env = makeEnvironment();
