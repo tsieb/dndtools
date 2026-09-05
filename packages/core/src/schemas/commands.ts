@@ -3211,3 +3211,25 @@ export const addSystemResourceInputSchema = z
 		key: z.string().min(1).max(80),
 	})
 	.strict();
+
+// --- RC-WID-1.5 — WIDGET PACKAGE TRUST REVIEW (append-only block) -------------------------------
+
+// The DM's trust decision for an installed widget package. `hostPermissions` carries ONE decision
+// per permission the package requests; a permission left out stays at its current (installed =
+// denied) decision, so an omission can never widen access. `trustState` is the package-level
+// verdict, and `acknowledgeRecommendation` is the explicit override the handler demands before a
+// package the review summary recommends denying can be trusted.
+export const reviewWidgetPackageInputSchema = z
+	.object({
+		packageId: idSchema,
+		trustState: z.enum(['trusted', 'denied']),
+		hostPermissions: z
+			.partialRecord(
+				z.enum(['filesystem', 'clipboard', 'network', 'source-adapter', 'asset', 'external-link']),
+				z.enum(['approved', 'denied']),
+			)
+			.default({}),
+		acknowledgeRecommendation: z.boolean().default(false),
+		note: z.string().max(500).optional(),
+	})
+	.strict();

@@ -3,16 +3,20 @@ import {
 	enableWidgetPackageInputSchema,
 	installWidgetPackageInputSchema,
 	removeWidgetPackageInputSchema,
+	// RC-WID-1.5 — the DM's trust decision for an installed package.
+	reviewWidgetPackageInputSchema,
 	switchSystemPackageInputSchema,
 	upgradeWidgetPackageInputSchema,
 } from '../schemas/commands';
 import { previewSystemSwitch } from '../queries/system-switch-query';
+import { buildWidgetPackageReviewSummary } from '../queries/widget-package-review';
 import type { WidgetPackageDefinitionParsed } from '../schemas/widget-package';
 import type {
 	WidgetDataSchema,
 	WidgetDefinition,
 	WidgetDiagnostic,
 	WidgetHostPermission,
+	WidgetHostPermissionDecision,
 	WidgetPackageDefinition,
 	WidgetPackageRecord,
 	WidgetPackageState,
@@ -470,6 +474,17 @@ export function handleEnableWidgetPackage(
 			state,
 		);
 	}
+	// RC-WID-1.5 — a package the DM reviewed and DENIED cannot be re-enabled from the package list;
+	// the denial has to be reversed by a new review first. Fail closed, and never silently.
+	if (existing.trust.state === 'denied') {
+		return reject(
+			{
+				code: 'invalid-state',
+				message: `Widget package ${parsed.data.packageId} was denied in review. Review it again before enabling it.`,
+			},
+			state,
+		);
+	}
 	const now = env.clock();
 	const nextWidgets = updatePackage(state.widgets, parsed.data.packageId, (record) => ({
 		...record,
@@ -914,6 +929,180 @@ export function handleSwitchSystemPackage(
 				previousPackageId,
 				disabledWidgetCount,
 				actorId: actor.id,
+			},
+		],
+		operationIds: [op.id],
+	};
+}
+
+/* ── RC-WID-1.5 — WIDGET PACKAGE TRUST REVIEW ────────────────────────────────────────────────── */
+
+/**
+ * RECORD the DM's trust review of an installed widget package (DM-only).
+ *
+ * An installed package starts `unreviewed` with every host permission denied
+ * (`deniedHostPermissions`), and the sandbox host answers `requestPermission` from exactly these
+ * decisions — so this command is the ONLY way a third-party widget ever gets a capability.
+ *
+ * The decision is taken against the pure analysis in `queries/widget-package-review.ts`
+ * (`buildWidgetPackageReviewSummary`), which the review sheet shows the DM. Fail closed:
+ *
+ *   - Only a permission the package actually REQUESTS can be approved. Approving one it never asked
+ *     for is rejected `invalid-payload`, so a stale sheet (or a later upgrade that starts asking)
+ *     can never carry a pre-granted capability.
+ *   - A permission the payload omits keeps its current decision, so an omission never widens access.
+ *   - Trusting a package whose summary recommends `deny-until-fixed` requires
+ *     `acknowledgeRecommendation: true`; without it the command is rejected
+ *     `review-recommendation-unacknowledged`. Denying never needs an acknowledgment — that is the
+ *     safe direction.
+ *   - A `denied` verdict forces every permission back to denied, disables the package, and marks its
+ *     placed widgets as disabled placeholders (recoverable, exactly like `widget.package.disable`).
+ */
+export function handleReviewWidgetPackage(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+	const parsed = parseInput(reviewWidgetPackageInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const existing = requirePackage(state, parsed.data.packageId);
+	if ('code' in existing) return reject(existing, state);
+	if (existing.removedAt) {
+		return reject(
+			{
+				code: 'package-disabled',
+				message: `Widget package ${parsed.data.packageId} was removed, so it cannot be reviewed.`,
+			},
+			state,
+		);
+	}
+
+	const summary = buildWidgetPackageReviewSummary(existing.package);
+	const trustState = parsed.data.trustState;
+	const decisions = parsed.data.hostPermissions as Partial<
+		Record<WidgetHostPermission, WidgetHostPermissionDecision>
+	>;
+
+	// Only a REQUESTED permission can be approved — an approval for a permission the package never
+	// asked for is meaningless today and would be a pre-granted capability tomorrow.
+	const requested = new Set(summary.requestedHostPermissions);
+	const unrequested = (Object.entries(decisions) as [WidgetHostPermission, string][])
+		.filter(([permission, decision]) => decision === 'approved' && !requested.has(permission))
+		.map(([permission]) => permission);
+	if (unrequested.length > 0) {
+		return reject(
+			{
+				code: 'invalid-payload',
+				message: `Widget package ${parsed.data.packageId} does not request every permission this review approves.`,
+				issues: unrequested.map((permission) => ({
+					path: permission,
+					message: `The package does not request the ${permission} permission.`,
+				})),
+			},
+			state,
+		);
+	}
+
+	if (
+		trustState === 'trusted' &&
+		summary.trustRecommendation === 'deny-until-fixed' &&
+		!parsed.data.acknowledgeRecommendation
+	) {
+		return reject(
+			{
+				code: 'review-recommendation-unacknowledged',
+				message:
+					'The review recommends denying this package until it is fixed. Acknowledge that recommendation to trust it anyway.',
+				issues: summary.runtimeIssues.map((issue) => ({
+					path: issue.code,
+					message: issue.message,
+				})),
+			},
+			state,
+		);
+	}
+
+	const nextPermissions = { ...existing.trust.hostPermissions };
+	for (const permission of ALL_HOST_PERMISSIONS) {
+		const decision = decisions[permission];
+		if (trustState === 'denied') {
+			nextPermissions[permission] = 'denied';
+		} else if (decision) {
+			nextPermissions[permission] = decision;
+		}
+	}
+	const approvedPermissions = ALL_HOST_PERMISSIONS.filter(
+		(permission) => nextPermissions[permission] === 'approved',
+	);
+
+	const now = env.clock();
+	const nextWidgets = updatePackage(state.widgets, parsed.data.packageId, (record) => ({
+		...record,
+		trust: {
+			state: trustState,
+			hostPermissions: nextPermissions,
+			reviewedBy: actor.id,
+			reviewedAt: now,
+		},
+		enabled: trustState === 'denied' ? false : record.enabled,
+		updatedAt: now,
+		revision: record.revision + 1,
+	}));
+	const nextScenes =
+		trustState === 'denied'
+			? markPackageWidgetsDisabled(
+					state.scenes,
+					env,
+					existing,
+					disabledState(
+						env,
+						'package-disabled',
+						parsed.data.packageId,
+						'Denied in review; the widget is a disabled placeholder until it is trusted.',
+						null,
+						existing.package.version,
+					),
+				)
+			: state.scenes;
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'widget-package',
+		entityId: parsed.data.packageId,
+		opType: 'widget.package.review',
+		path: 'trust',
+		value: {
+			packageId: parsed.data.packageId,
+			trustState,
+			approvedPermissions,
+			recommendation: summary.trustRecommendation,
+			acknowledgedRecommendation: parsed.data.acknowledgeRecommendation,
+			note: parsed.data.note ?? null,
+			reviewedAt: now,
+		},
+		beforeRevision: existing.revision,
+		afterRevision: existing.revision + 1,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: {
+			...state,
+			widgets: nextWidgets,
+			scenes: nextScenes,
+			sync: nextLog,
+		},
+		events: [
+			{
+				kind: 'widget.package-reviewed',
+				packageId: parsed.data.packageId,
+				actorId: actor.id,
+				trustState,
+				approvedPermissions,
 			},
 		],
 		operationIds: [op.id],

@@ -96,6 +96,8 @@ import {
 	handleEnableWidgetPackage,
 	handleInstallWidgetPackage,
 	handleRemoveWidgetPackage,
+	// RC-WID-1.5 — the DM's trust review of an installed package.
+	handleReviewWidgetPackage,
 	handleSwitchSystemPackage,
 	handleUpgradeWidgetPackage,
 } from './widget-package';
@@ -337,6 +339,9 @@ export function dispatchCommand(
 			return handleRemoveWidgetPackage(state, env, command.actorId, command.payload);
 		case 'widget.package.upgrade':
 			return handleUpgradeWidgetPackage(state, env, command.actorId, command.payload);
+		// --- RC-WID-1.5 — TRUST REVIEW (append-only) ------------------------------------------------
+		case 'widget.package.review':
+			return handleReviewWidgetPackage(state, env, command.actorId, command.payload);
 		case 'widget.package.switch-system':
 			return handleSwitchSystemPackage(state, env, command.actorId, command.payload);
 		// --- RC-SYS-1.3 — SYSTEM PACKAGE commands (append-only block) -------------------------------

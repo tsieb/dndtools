@@ -107,6 +107,11 @@ export type CoreCommand =
 	| { type: 'widget.package.disable'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'widget.package.remove'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'widget.package.upgrade'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// --- RC-WID-1.5 — WIDGET PACKAGE TRUST REVIEW (append-only block) -----------------------------
+	// The DM's trust decision for an installed package: a decision per requested host permission plus
+	// a package-level trust state. Fail closed — trusting a package the review summary recommends
+	// denying takes an explicit acknowledgment, and denying it also disables the package.
+	| { type: 'widget.package.review'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// SWITCH the active campaign SYSTEM PACKAGE (DM-only). Fail-closed on the pure dry-run: a switch
 	// that cannot migrate or would drop widget content is rejected unless the loss is acknowledged.
 	| {
@@ -869,6 +874,14 @@ export type CoreEvent =
 	| { kind: 'widget.package-disabled'; packageId: string; actorId: ActorId }
 	| { kind: 'widget.package-removed'; packageId: string; actorId: ActorId }
 	| { kind: 'widget.package-upgraded'; packageId: string; actorId: ActorId }
+	// RC-WID-1.5 — a DM recorded a trust review for an installed package (append-only block).
+	| {
+			kind: 'widget.package-reviewed';
+			packageId: string;
+			actorId: ActorId;
+			trustState: 'trusted' | 'denied';
+			approvedPermissions: string[];
+	  }
 	| { kind: 'session.timer-started'; sceneId: SceneId; widgetInstanceId: string; actorId: ActorId }
 	// SES-005 — an OPERATE action (pause/resume/reset/advance) was applied to a session timer by an
 	// authorized operator/manager/DM. Carries the operation verb for the live tool surface.
@@ -1971,7 +1984,12 @@ export type RejectionCode =
 	// `combat.apply-resource` tried to ADD a condition the ACTIVE system package does not declare.
 	// Fail closed: the package owns the condition list, so a key it never authored never lands on a
 	// combatant. Removal of an unknown key stays allowed, so leftovers can always be cleared.
-	| 'condition-not-in-system';
+	| 'condition-not-in-system'
+	// --- RC-WID-1.5 — TRUST REVIEW rejections (append-only block) ---------------------------------
+	// `widget.package.review` tried to TRUST a package whose review summary recommends
+	// `deny-until-fixed` without the DM acknowledging that recommendation. Fail closed: a package the
+	// analysis says is broken or over-reaching is never trusted by accident.
+	| 'review-recommendation-unacknowledged';
 
 export interface CommandRejection {
 	code: RejectionCode;
