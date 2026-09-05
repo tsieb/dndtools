@@ -917,7 +917,7 @@ if (hasSingleInstanceLock) {
 						'The application was not opened because the storage upgrade could not be verified.',
 					detail:
 						'Your existing campaign data was left untouched. Close Lamplight, keep the application data folder intact, and retry this version. If the problem continues, contact support before uninstalling or clearing app data.',
-					buttons: ['Close Lamplight's],
+					buttons: ['Close Lamplight'],
 					defaultId: 0,
 					noLink: true,
 				});
