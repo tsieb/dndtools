@@ -5190,6 +5190,12 @@ export {
 	systemsStateSchema,
 } from './schemas/system-package';
 
+// RC-SYS-1.4 — the actor-scoped read of the active system package. A player's rules content
+// (vocabulary, attributes, resources, conditions, …) resolves identically to the DM's; only the
+// DM-authored catalog listing (which other packages are installed) is DM-only (Contract 3).
+export type { SystemActorView } from './queries/system-query';
+export { getActiveSystemForActor, resolveVocabulary } from './queries/system-query';
+
 // --- RC-SYS-1.2 — the built-in system packages (append-only block) ------------------------------
 // The packages that ship with the build, plus the 5e reference tables that do not fit the package
 // shape (challenge rating to experience, hit die by class, the full-caster slot progression). The
