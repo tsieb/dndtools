@@ -5189,3 +5189,28 @@ export {
 	systemVocabularySchema,
 	systemsStateSchema,
 } from './schemas/system-package';
+
+// --- RC-SYS-1.2 — the built-in system packages (append-only block) ------------------------------
+// The packages that ship with the build, plus the 5e reference tables that do not fit the package
+// shape (challenge rating to experience, hit die by class, the full-caster slot progression). The
+// 5e package itself keeps its existing export above; everything new lives in `systems/`.
+export type { GenericSystemPackageOptions } from './systems';
+export {
+	BUILT_IN_SYSTEM_PACKAGE_IDS,
+	DND5E_ABILITY_MODIFIER_FORMULA,
+	DND5E_CLASS_HIT_DICE,
+	DND5E_CR_XP,
+	DND5E_DEFAULT_HIT_DIE,
+	DND5E_FULL_CASTER_SLOTS,
+	DND5E_LEVEL_CAP,
+	DND5E_MAX_SPELL_LEVEL,
+	DND5E_PROFICIENCY_BONUS_FORMULA,
+	DND5E_XP_THRESHOLDS,
+	GENERIC_APPROACHES,
+	GENERIC_SYSTEM_PACKAGE,
+	GENERIC_SYSTEM_PACKAGE_ID,
+	builtInSystemPackage,
+	createGenericSystemPackage,
+	dnd5eXpForChallengeRating,
+	isBuiltInSystemPackageId,
+} from './systems';

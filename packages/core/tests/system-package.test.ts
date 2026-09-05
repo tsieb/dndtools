@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	BUILT_IN_SYSTEM_PACKAGES,
 	DEFAULT_SYSTEM_PACKAGE_ID,
 	DND5E_SYSTEM_PACKAGE,
 	DND5E_SYSTEM_PACKAGE_ID,
@@ -297,7 +298,9 @@ describe('RC-SYS-1.1 hydrateSystemsState', () => {
 			activeWidgetPackageId: null,
 			schemaVersion: SYSTEMS_STATE_SCHEMA_VERSION,
 		});
-		expect(Object.keys(state.packages)).toEqual([DND5E_SYSTEM_PACKAGE_ID]);
+		expect(Object.keys(state.packages).sort()).toEqual(
+			BUILT_IN_SYSTEM_PACKAGES.map((pkg) => pkg.id).sort(),
+		);
 	});
 
 	it('round-trips a hydrated slice through JSON unchanged', () => {

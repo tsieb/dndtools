@@ -15,6 +15,12 @@
  * The slice (`SystemsState`) is durable state document `systems` (schema version 1).
  */
 
+import {
+	BUILT_IN_SYSTEM_PACKAGES,
+	DND5E_SYSTEM_PACKAGE,
+	DND5E_SYSTEM_PACKAGE_ID,
+} from '../systems';
+
 /** The durable schema version of the `systems` state document. */
 export const SYSTEMS_STATE_SCHEMA_VERSION = 1 as const;
 
@@ -519,265 +525,33 @@ export interface SystemsState {
 	schemaVersion: typeof SYSTEMS_STATE_SCHEMA_VERSION;
 }
 
-// --- The built-in default: D&D 5e -----------------------------------------------------------------
+// --- The built-in packages ------------------------------------------------------------------------
 
-/** The id of the built-in D&D 5e reference package — the default an unconfigured vault hydrates to. */
-export const DND5E_SYSTEM_PACKAGE_ID = 'builtin:dnd5e' as const;
+/**
+ * RC-SYS-1.2 moved the package DATA to `../systems`. This module owns the MODEL — the types, the
+ * formula grammar and the durable slice — and the packages that ship with the build live one
+ * directory over, where a reader looking for "what does 5e say" finds them without wading through
+ * the evaluator. They are re-exported here so every existing import path keeps resolving.
+ *
+ * The import edge runs one way: `state` reaches `systems` at runtime, `systems` reaches back for
+ * TYPES ONLY, so neither module can be half-initialised when the other reads it.
+ */
+export {
+	BUILT_IN_SYSTEM_PACKAGES,
+	DND5E_SYSTEM_PACKAGE,
+	DND5E_SYSTEM_PACKAGE_ID,
+	GENERIC_SYSTEM_PACKAGE,
+	GENERIC_SYSTEM_PACKAGE_ID,
+} from '../systems';
 
 /** The package id `hydrateSystemsState` falls back to whenever nothing valid is selected. */
 export const DEFAULT_SYSTEM_PACKAGE_ID: string = DND5E_SYSTEM_PACKAGE_ID;
 
-function attribute(key: string, label: string, abbreviation: string): SystemAttribute {
-	return {
-		key,
-		label,
-		abbreviation,
-		derivation: { kind: 'modifier', formula: 'floor((score-10)/2)' },
-	};
-}
-
-function condition(
-	key: string,
-	label: string,
-	severity: SystemConditionSeverity,
-	defaultDuration: SystemConditionDuration = 'until-removed',
-	maxStacks: number | null = null,
-): SystemCondition {
-	return {
-		key,
-		label,
-		icon: `cond-${key}`,
-		severity,
-		defaultDuration,
-		defaultRounds: null,
-		maxStacks,
-	};
-}
-
-function skill(key: string, label: string, attributeKey: string): SystemSkill {
-	return { key, label, attribute: attributeKey };
-}
-
-/**
- * The built-in D&D 5e reference package. RC-SYS-1.2 expands it (class resources, CR→XP) and adds the
- * Generic/narrative package; what is here is the baseline every other surface can already read, and
- * the value `hydrateSystemsState` seeds an unconfigured vault with.
- */
-export const DND5E_SYSTEM_PACKAGE: SystemPackage = Object.freeze({
-	id: DND5E_SYSTEM_PACKAGE_ID,
-	version: '1.0.0',
-	displayName: 'D&D 5e',
-	summary:
-		'The fifth-edition reference rules: six abilities, d20 rolls, initiative and levels 1 to 20.',
-	vocabulary: Object.freeze({
-		gameMaster: 'DM',
-		player: 'Player',
-		character: 'Character',
-		ability: 'Spell',
-		abilityPlural: 'Spells',
-		levelUpVerb: 'Level up',
-		levelNoun: 'Level',
-		hitPoints: 'Hit points',
-		session: 'Session',
-		campaign: 'Campaign',
-	}),
-	attributes: Object.freeze([
-		attribute('strength', 'Strength', 'STR'),
-		attribute('dexterity', 'Dexterity', 'DEX'),
-		attribute('constitution', 'Constitution', 'CON'),
-		attribute('intelligence', 'Intelligence', 'INT'),
-		attribute('wisdom', 'Wisdom', 'WIS'),
-		attribute('charisma', 'Charisma', 'CHA'),
-	]),
-	resources: Object.freeze([
-		Object.freeze({
-			key: 'hitPoints',
-			label: 'Hit points',
-			kind: 'pool' as const,
-			maxFormula: null,
-			recovery: 'long' as const,
-			diceNotation: null,
-		}),
-		Object.freeze({
-			key: 'hitDice',
-			label: 'Hit dice',
-			kind: 'dice' as const,
-			maxFormula: 'level',
-			recovery: 'long' as const,
-			diceNotation: '1d8',
-		}),
-		Object.freeze({
-			key: 'inspiration',
-			label: 'Inspiration',
-			kind: 'track' as const,
-			maxFormula: '1',
-			recovery: 'never' as const,
-			diceNotation: null,
-		}),
-	]),
-	conditions: Object.freeze([
-		condition('blinded', 'Blinded', 'major'),
-		condition('charmed', 'Charmed', 'major'),
-		condition('deafened', 'Deafened', 'major'),
-		condition('frightened', 'Frightened', 'major'),
-		condition('grappled', 'Grappled', 'major'),
-		condition('incapacitated', 'Incapacitated', 'severe'),
-		condition('invisible', 'Invisible', 'minor'),
-		condition('paralyzed', 'Paralyzed', 'severe'),
-		condition('petrified', 'Petrified', 'severe'),
-		condition('poisoned', 'Poisoned', 'major'),
-		condition('prone', 'Prone', 'minor'),
-		condition('restrained', 'Restrained', 'major'),
-		condition('stunned', 'Stunned', 'severe'),
-		condition('unconscious', 'Unconscious', 'severe'),
-		condition('exhaustion', 'Exhaustion', 'severe', 'rest', 6),
-	]),
-	dice: Object.freeze({
-		model: 'd20-plus-modifier' as const,
-		notation: '1d20',
-		advantage: 'roll-twice-take-best' as const,
-		successThreshold: null,
-		crit: Object.freeze({ naturalHigh: 20, naturalLow: 1, effect: 'double-dice' as const }),
-	}),
-	turnModel: Object.freeze({ kind: 'initiative' as const, initiativeFormula: 'modifier' }),
-	creatureSchema: Object.freeze([
-		Object.freeze({
-			key: 'name',
-			label: 'Name',
-			type: 'string' as const,
-			required: true,
-			options: null,
-		}),
-		Object.freeze({
-			key: 'size',
-			label: 'Size',
-			type: 'enum' as const,
-			required: true,
-			options: Object.freeze(['Tiny', 'Small', 'Medium', 'Large', 'Huge', 'Gargantuan']),
-		}),
-		Object.freeze({
-			key: 'type',
-			label: 'Type',
-			type: 'string' as const,
-			required: true,
-			options: null,
-		}),
-		Object.freeze({
-			key: 'alignment',
-			label: 'Alignment',
-			type: 'string' as const,
-			required: false,
-			options: null,
-		}),
-		Object.freeze({
-			key: 'armorClass',
-			label: 'Armor class',
-			type: 'number' as const,
-			required: true,
-			options: null,
-		}),
-		Object.freeze({
-			key: 'hitPoints',
-			label: 'Hit points',
-			type: 'number' as const,
-			required: true,
-			options: null,
-		}),
-		Object.freeze({
-			key: 'speed',
-			label: 'Speed',
-			type: 'string' as const,
-			required: true,
-			options: null,
-		}),
-		Object.freeze({
-			key: 'challengeRating',
-			label: 'Challenge rating',
-			type: 'string' as const,
-			required: true,
-			options: null,
-		}),
-		Object.freeze({
-			key: 'notes',
-			label: 'Notes',
-			type: 'text' as const,
-			required: false,
-			options: null,
-		}),
-	]),
-	advancement: Object.freeze({
-		model: 'xp-table' as const,
-		levelCap: 20,
-		xpThresholds: Object.freeze([
-			0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000, 140000,
-			165000, 195000, 225000, 265000, 305000, 355000,
-		]),
-	}),
-	skills: Object.freeze([
-		skill('acrobatics', 'Acrobatics', 'dexterity'),
-		skill('animal-handling', 'Animal handling', 'wisdom'),
-		skill('arcana', 'Arcana', 'intelligence'),
-		skill('athletics', 'Athletics', 'strength'),
-		skill('deception', 'Deception', 'charisma'),
-		skill('history', 'History', 'intelligence'),
-		skill('insight', 'Insight', 'wisdom'),
-		skill('intimidation', 'Intimidation', 'charisma'),
-		skill('investigation', 'Investigation', 'intelligence'),
-		skill('medicine', 'Medicine', 'wisdom'),
-		skill('nature', 'Nature', 'intelligence'),
-		skill('perception', 'Perception', 'wisdom'),
-		skill('performance', 'Performance', 'charisma'),
-		skill('persuasion', 'Persuasion', 'charisma'),
-		skill('religion', 'Religion', 'intelligence'),
-		skill('sleight-of-hand', 'Sleight of hand', 'dexterity'),
-		skill('stealth', 'Stealth', 'dexterity'),
-		skill('survival', 'Survival', 'wisdom'),
-	]),
-	derived: Object.freeze([
-		Object.freeze({
-			key: 'proficiencyBonus',
-			label: 'Proficiency bonus',
-			formula: '1+ceil(level/4)',
-			inputs: Object.freeze(['level']),
-		}),
-		Object.freeze({
-			key: 'abilityModifier',
-			label: 'Ability modifier',
-			formula: 'floor((score-10)/2)',
-			inputs: Object.freeze(['score']),
-		}),
-		Object.freeze({
-			key: 'passiveScore',
-			label: 'Passive score',
-			formula: '10+modifier+proficiency',
-			inputs: Object.freeze(['modifier', 'proficiency']),
-		}),
-		Object.freeze({
-			key: 'spellSaveDc',
-			label: 'Spell save DC',
-			formula: '8+proficiency+modifier',
-			inputs: Object.freeze(['proficiency', 'modifier']),
-		}),
-		Object.freeze({
-			key: 'spellAttackBonus',
-			label: 'Spell attack bonus',
-			formula: 'proficiency+modifier',
-			inputs: Object.freeze(['proficiency', 'modifier']),
-		}),
-	]),
-}) as SystemPackage;
-
-/** The packages that ship with the build. RC-SYS-1.2 adds the Generic/narrative package here. */
-export const BUILT_IN_SYSTEM_PACKAGES: readonly SystemPackage[] = Object.freeze([
-	DND5E_SYSTEM_PACKAGE,
-]);
-
-/** The `systems` document a vault with nothing configured starts from. */
+/** The `systems` document a vault with nothing configured starts from: every built-in installed. */
 export const EMPTY_SYSTEMS_STATE: SystemsState = Object.freeze({
-	packages: Object.freeze({ [DND5E_SYSTEM_PACKAGE_ID]: DND5E_SYSTEM_PACKAGE }) as Record<
-		string,
-		SystemPackage
-	>,
+	packages: Object.freeze(
+		Object.fromEntries(BUILT_IN_SYSTEM_PACKAGES.map((pkg) => [pkg.id, pkg])),
+	) as Record<string, SystemPackage>,
 	activePackageId: DEFAULT_SYSTEM_PACKAGE_ID,
 	activeWidgetPackageId: null,
 	schemaVersion: SYSTEMS_STATE_SCHEMA_VERSION,
