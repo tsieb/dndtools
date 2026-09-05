@@ -687,6 +687,33 @@ function ListBody({
 	);
 }
 
+/**
+ * The widget types this module has a hand-written body for — the `builtin` branch of the render
+ * resolver (RC-WID-1.1). `resolveWidgetRenderer` asks this before choosing `builtin`, and falls back
+ * to it for a `template` widget whose declarative renderer has not landed yet, so the list is the
+ * authoritative answer to "can the host draw this by hand" rather than a comment that drifts from
+ * the switch below.
+ */
+export const BUILTIN_WIDGET_TYPES: readonly string[] = [
+	'note',
+	'handout',
+	'dice',
+	'timer',
+	'audio',
+	'initiative-tracker',
+	'character',
+	'map',
+	'quick-reference',
+	'prep',
+];
+
+const BUILTIN_WIDGET_TYPE_SET = new Set(BUILTIN_WIDGET_TYPES);
+
+/** Whether `WidgetBody` renders a real body for this widget type (the resolver's `builtin` test). */
+export function hasBuiltinBody(widgetType: string): boolean {
+	return BUILTIN_WIDGET_TYPE_SET.has(widgetType);
+}
+
 export function WidgetBody({
 	widget,
 	onCommand,
@@ -716,6 +743,9 @@ export function WidgetBody({
 		case 'prep':
 			return <ListBody widget={widget} kind="note" unit="prep notes" />;
 		default:
+			// Unreachable through `resolveWidgetRenderer` (it only picks `builtin` for a type in
+			// BUILTIN_WIDGET_TYPES); kept so a direct caller degrades to the description rather than
+			// throwing.
 			return widget.description ? <Muted>{widget.description}</Muted> : null;
 	}
 }
