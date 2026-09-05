@@ -507,10 +507,12 @@ working widgets, not shells.
 **Current state (G2–G5).** Definition/package/instance model, bindings, operator authority,
 library query, package install/enable/disable/remove/upgrade/export, review summary, sandbox
 security model, exfiltration gate — all in core with tests. In the app: ten builtin bodies in
-`widget-bodies.tsx`; Extensions › Plugins = starter library + JSON textarea; no renderer for
-`custom-html-js` or for the eight `template` kinds beyond the ten builtins; no trust-review
-command; no AI path. Reference: `docs/architecture/WIDGET_FEATURE_BRIEF.md` (from branch
-`claude/widget-design-brief-y8qc5a`; cherry-picked in STB-1.2).
+`widget-bodies.tsx` behind the WID-1.1 render resolver, and a declarative renderer per `template`
+kind in `app/widgets/templates/` reading `dataQueries` through `app/widgets/dataEnvironment.ts`
+(WID-1.2; a builtin body still wins over the generic template for the same widget type);
+Extensions › Plugins = starter library + JSON textarea; no renderer for `custom-html-js`; no
+trust-review command; no AI path. Reference: `docs/architecture/WIDGET_FEATURE_BRIEF.md` (from
+branch `claude/widget-design-brief-y8qc5a`; cherry-picked in STB-1.2).
 
 **Contracts.** ADR-030 (RC-STB-4.2); `security/widget-host-api.ts` is the host API contract;
 `WIDGET_RENDER_HOST_API_VERSION = 1`; SEC-011 exfiltration policy; `configFields` groups

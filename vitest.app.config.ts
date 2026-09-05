@@ -11,6 +11,10 @@ import { fileURLToPath } from 'node:url';
 export default defineConfig({
 	resolve: {
 		alias: {
+			// More specific subpath first so it wins over the bare-package alias.
+			'@dndtools/core/testing': fileURLToPath(
+				new URL('./packages/core/src/testing/index.ts', import.meta.url),
+			),
 			'@dndtools/core': fileURLToPath(new URL('./packages/core/src/index.ts', import.meta.url)),
 		},
 	},
@@ -19,11 +23,7 @@ export default defineConfig({
 		// `.tsx` too, so the design-system components can be asserted against a real DOM (each such
 		// file opts into jsdom with its own `@vitest-environment` pragma).
 		include: ['apps/gm-react/src/**/*.test.{ts,tsx}'],
-		exclude: [
-			'**/node_modules/**',
-			'apps/gm-react/src/net/**',
-			'apps/gm-react/src/cloud/**',
-		],
+		exclude: ['**/node_modules/**', 'apps/gm-react/src/net/**', 'apps/gm-react/src/cloud/**'],
 		environment: 'node',
 		globals: false,
 		setupFiles: ['fake-indexeddb/auto'],

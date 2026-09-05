@@ -4,6 +4,7 @@ import { Icon } from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { WidgetBody, hasBuiltinBody, type WidgetCommandHandler } from '../widget-bodies';
 import type { BoardWidget } from '../board-helpers';
+import { TEMPLATE_RENDERER_ENTRIES } from './templates';
 import {
 	resolveWidgetRenderer,
 	widgetCrashPlaceholder,
@@ -20,10 +21,9 @@ import {
  * frame, its neighbours and the core state all survive, which is the "disabled, preserved" promise
  * the placeholder prints (ADR-031).
  *
- * The template and custom branches are registries on purpose. WID-1.2 fills `TEMPLATE_RENDERERS`
- * one template kind at a time and WID-1.3 supplies the sandbox host; until then those branches
- * resolve to the placeholder (or, for a system widget that still has a hand-written body, to
- * `builtin`) and nothing else in the app has to know the difference.
+ * The template and custom branches are registries on purpose. WID-1.2 filled `TEMPLATE_RENDERERS`
+ * with a renderer for all eight template kinds and WID-1.3 supplies the sandbox host; until then the
+ * custom branch resolves to the placeholder and nothing else in the app has to know the difference.
  */
 
 /** Props a template or custom renderer receives. One shape for both, so registries stay uniform. */
@@ -37,8 +37,13 @@ export interface WidgetRendererProps {
 
 type WidgetRenderer = ComponentType<WidgetRendererProps>;
 
-/** Declarative renderers by template kind. Empty until RC-WID-1.2 registers them. */
-export const TEMPLATE_RENDERERS = new Map<WidgetTemplateKind, WidgetRenderer>();
+/**
+ * Declarative renderers by template kind, seeded by RC-WID-1.2 from `widgets/templates`. Kept
+ * mutable so a later story (or a test) can register or drop one; `renderPlan` re-checks it.
+ */
+export const TEMPLATE_RENDERERS = new Map<WidgetTemplateKind, WidgetRenderer>(
+	TEMPLATE_RENDERER_ENTRIES,
+);
 
 /** The sandboxed `custom-html-js` host. Null until RC-WID-1.3 lands `SandboxHost`. */
 export const CUSTOM_WIDGET_HOST: WidgetRenderer | null = null;
@@ -161,7 +166,14 @@ export function WidgetRenderSlot({ widget, onCommand }: WidgetRendererProps) {
 		},
 		{
 			hasBuiltinBody,
-			hasTemplateRenderer: (template) => TEMPLATE_RENDERERS.has(template),
+			// A HAND-WRITTEN body wins over the generic template for the same widget. Every shipped
+			// system widget declares a template kind (`timer` → tracker, `dice` → action-panel,
+			// `initiative-tracker` → status-list…), and its builtin body is the specialised version of
+			// that template: the live countdown, the roll history, the HP bars. The declarative
+			// renderer is what a package with no code of its own gets, not a replacement for a body
+			// that already exists — so the template branch is offered only where there is no builtin.
+			hasTemplateRenderer: (template) =>
+				TEMPLATE_RENDERERS.has(template) && !hasBuiltinBody(widget.type),
 			hasCustomHost: CUSTOM_WIDGET_HOST !== null,
 		},
 	);
