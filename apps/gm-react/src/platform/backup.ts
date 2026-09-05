@@ -145,6 +145,7 @@ function backupSlice(slice: CoreStateSlice): VaultBackupSlice {
 		permissions: slice.permissions,
 		session: slice.session,
 		widgets: slice.widgets,
+		systems: slice.systems,
 		commandCenter: slice.commandCenter,
 		characters: slice.characters,
 		content: slice.content,
@@ -179,6 +180,9 @@ function normalizeUntrustedSlice(value: unknown): VaultBackupSlice {
 		encounters: value.encounters,
 		audio: value.audio,
 		mcp: value.mcp,
+		// RC-SYS-1.1: `systems` is optional on import — a file written before the slice existed has
+		// none, and dropping it here would make the restore validator reject its own export.
+		...('systems' in value ? { systems: value.systems } : {}),
 		sync: { operations: value.sync.operations },
 	};
 	try {

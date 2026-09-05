@@ -22,6 +22,7 @@ import {
 	ensureSessionCombatState,
 	ensureVaultContentState,
 	hashAssetBytes,
+	hydrateSystemsState,
 	mergeSystemWidgetPackages,
 	recoverFromJournal,
 	validateSyncOperationShape,
@@ -42,6 +43,7 @@ import {
 	type SessionState,
 	type StoragePort,
 	type SyncOperation,
+	type SystemsState,
 	type VaultContentState,
 	type WidgetPackageState,
 } from '@dndtools/core';
@@ -59,6 +61,7 @@ const CONTENT_STATE_KEY = 'content-state';
 const ENCOUNTER_STATE_KEY = 'encounter-state';
 const AUDIO_STATE_KEY = 'audio-state';
 const MCP_POLICY_STATE_KEY = 'mcp-policy-state';
+const SYSTEMS_STATE_KEY = 'systems-state';
 const MIGRATION_JOURNAL_KEY = 'migration-journal';
 
 // Maps a durable document id to its persisted document key, so a write-ahead snapshot
@@ -75,6 +78,7 @@ const DOCUMENT_KEY_BY_ID: Record<DurableStateDocumentId, string> = {
 	encounters: ENCOUNTER_STATE_KEY,
 	audio: AUDIO_STATE_KEY,
 	mcp: MCP_POLICY_STATE_KEY,
+	systems: SYSTEMS_STATE_KEY,
 };
 
 interface DocumentRecord {
@@ -452,6 +456,7 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		encounterDoc,
 		audioDoc,
 		mcpDoc,
+		systemsDoc,
 	] = await Promise.all([
 		database.documents.get(MAP_STATE_KEY),
 		database.documents.get(SESSION_STATE_KEY),
@@ -462,6 +467,7 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		database.documents.get(ENCOUNTER_STATE_KEY),
 		database.documents.get(AUDIO_STATE_KEY),
 		database.documents.get(MCP_POLICY_STATE_KEY),
+		database.documents.get(SYSTEMS_STATE_KEY),
 	]);
 	const scenes = trustedPersistedDocument<SceneState>(sceneDoc, 'scenes') ?? {
 		scenes: {},
@@ -581,6 +587,13 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	// without a destructive migration (safe-default, fail-closed hydration — an unknown policy mode or
 	// proposal status collapses to the most restrictive, and the vault default stays `strict_review`).
 	const mcp = ensureMcpPolicyState(trustedPersistedDocument<McpPolicyState>(mcpDoc, 'mcp'));
+	// RC-SYS-1.1: the durable SYSTEM PACKAGE slice. A vault persisted before this slice has no
+	// `systems` document; `hydrateSystemsState` defaults it to the built-in 5e package and carries the
+	// legacy `widgets.activeSystemPackageId` across, so a DM's earlier system choice survives.
+	const systems = hydrateSystemsState(
+		trustedPersistedDocument<SystemsState>(systemsDoc, 'systems'),
+		widgetPackageDoc?.doc as { activeSystemPackageId?: string | null } | undefined,
+	);
 	const sync = createOperationLog(trustedPersistedOperations(operationRecords));
 	return {
 		scenes,
@@ -594,6 +607,7 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		encounters,
 		audio,
 		mcp,
+		systems,
 		sync,
 	};
 }
@@ -640,6 +654,10 @@ async function persistAudioState(audio: AudioState): Promise<void> {
 
 async function persistMcpPolicyState(mcp: McpPolicyState): Promise<void> {
 	await db().documents.put({ key: MCP_POLICY_STATE_KEY, doc: mcp });
+}
+
+async function persistSystemsState(systems: SystemsState): Promise<void> {
+	await db().documents.put({ key: SYSTEMS_STATE_KEY, doc: systems });
 }
 
 export async function appendOperations(operations: SyncOperation[]): Promise<void> {
@@ -709,7 +727,8 @@ export async function persistFullState(
 		sliceChanged(previous.content, next.content) ||
 		sliceChanged(previous.encounters, next.encounters) ||
 		sliceChanged(previous.audio, next.audio) ||
-		sliceChanged(previous.mcp, next.mcp);
+		sliceChanged(previous.mcp, next.mcp) ||
+		sliceChanged(previous.systems, next.systems);
 	if (durableStateChanged && newOperations.length === 0) {
 		throw new Error('Durable state changed without an accepted Processing Core operation.');
 	}
@@ -730,6 +749,7 @@ export async function persistFullState(
 			persistEncounterState(next.encounters),
 			persistAudioState(next.audio),
 			persistMcpPolicyState(next.mcp),
+			persistSystemsState(next.systems),
 			appendOperations(newOperations),
 		]);
 	});
@@ -781,7 +801,16 @@ const REQUIRED_OBJECT_FIELDS: Partial<Record<DurableStateDocumentId, readonly st
 	encounters: ['encounters'],
 	audio: ['assets', 'sources', 'automationRules', 'associations', 'presets'],
 	mcp: ['bindings', 'policies', 'proposals'],
+	systems: ['packages'],
 };
+
+/**
+ * RC-SYS-1.1 — durable slices a backup MAY omit. A file written by a build from before the slice
+ * existed cannot carry `systems`, and refusing that backup would strand a released vault; it
+ * hydrates to the built-in 5e default exactly as local startup does. Present slices are still
+ * validated as strictly as any required one.
+ */
+const OPTIONAL_RESTORE_STATE_KEYS: readonly string[] = Object.freeze(['systems']);
 
 const REQUIRED_ARRAY_FIELDS: Partial<Record<DurableStateDocumentId, readonly string[]>> = {
 	permissions: ['grants'],
@@ -813,11 +842,28 @@ export function validateRestoredCoreState(candidate: unknown): CoreStateSlice {
 	}
 	if (
 		!plainRecord(candidate) ||
-		JSON.stringify(Object.keys(candidate).sort()) !== JSON.stringify(RESTORE_STATE_KEYS)
+		JSON.stringify(
+			Object.keys(candidate)
+				.filter((key) => !OPTIONAL_RESTORE_STATE_KEYS.includes(key))
+				.sort(),
+		) !== JSON.stringify(RESTORE_STATE_KEYS)
 	) {
 		throw new Error(
 			'Cloud backup has an unexpected state shape; the local campaign was not changed.',
 		);
+	}
+	// The optional `systems` slice, when the backup carries one, is held to the same bar.
+	if (candidate.systems !== undefined) {
+		const systemsDocument = candidate.systems;
+		if (
+			!plainRecord(systemsDocument) ||
+			systemsDocument.schemaVersion !== TARGET_SCHEMA_VERSIONS.systems ||
+			!plainRecord(systemsDocument.packages)
+		) {
+			throw new Error(
+				'Cloud backup systems schema is unsupported; the local campaign was not changed.',
+			);
+		}
 	}
 
 	for (const [stateKey, documentId] of Object.entries(RESTORE_DOCUMENT_IDS) as Array<
@@ -903,6 +949,7 @@ export function validateRestoredCoreState(candidate: unknown): CoreStateSlice {
 		permissions: candidate.permissions as unknown as PermissionState,
 		session: candidate.session as unknown as SessionState,
 		widgets: candidate.widgets as unknown as WidgetPackageState,
+		systems: hydrateSystemsState(candidate.systems as unknown as SystemsState | undefined),
 		commandCenter: candidate.commandCenter as unknown as CommandCenterState,
 		characters: candidate.characters as unknown as CharacterState,
 		content: candidate.content as unknown as VaultContentState,

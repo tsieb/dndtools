@@ -6,10 +6,7 @@ import {
 	type MigrationDryRunResult,
 	type PersistedDocumentVersion,
 } from '../migration/dry-run';
-import {
-	DURABLE_STATE_DOCUMENT_IDS,
-	TARGET_SCHEMA_VERSIONS,
-} from '../migration/schema-versions';
+import { DURABLE_STATE_DOCUMENT_IDS, TARGET_SCHEMA_VERSIONS } from '../migration/schema-versions';
 
 /**
  * PURE campaign-SYSTEM-SWITCH dry-run (`previewSystemSwitch`) — the read model behind
@@ -97,6 +94,11 @@ export function previewSystemSwitch(
 	widgets: WidgetPackageState,
 	scenes: SceneState,
 	toPackageId: string,
+	/**
+	 * RC-SYS-1.1 — the currently selected system, read from `systems.activeWidgetPackageId` (it used
+	 * to live on the widget slice as `activeSystemPackageId`). Null when nothing is selected yet.
+	 */
+	activePackageId: string | null,
 	persistedDocuments?: readonly PersistedDocumentVersion[],
 ): SystemSwitchPreviewResult {
 	const target = widgets.packages[toPackageId];
@@ -104,7 +106,7 @@ export function previewSystemSwitch(
 	if (target.removedAt) return { kind: 'unavailable', toPackageId, reason: 'package-removed' };
 	if (!target.enabled) return { kind: 'unavailable', toPackageId, reason: 'package-disabled' };
 
-	const fromPackageId = widgets.activeSystemPackageId ?? null;
+	const fromPackageId = activePackageId;
 	if (fromPackageId === toPackageId) {
 		return { kind: 'unavailable', toPackageId, reason: 'already-active' };
 	}

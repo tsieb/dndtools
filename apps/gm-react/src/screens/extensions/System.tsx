@@ -204,11 +204,15 @@ export function ExtSystem() {
 		() => Object.values(widgets.packages).filter((rec) => !rec.removedAt),
 		[widgets],
 	);
-	const activeId = widgets.activeSystemPackageId ?? null;
+	// RC-SYS-1.1: the active system moved to the `systems` document; the widget-package id the DM
+	// selected is carried there as `activeWidgetPackageId`.
+	const activeId = runtime.state.systems.activeWidgetPackageId;
 	const [targetId, setTargetId] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 	// The PURE dry-run behind the command — recomputed live from the same state the command validates.
-	const preview = targetId ? previewSystemSwitch(widgets, runtime.state.scenes, targetId) : null;
+	const preview = targetId
+		? previewSystemSwitch(widgets, runtime.state.scenes, targetId, activeId)
+		: null;
 	const targetName = targetId ? (widgets.packages[targetId]?.package.displayName ?? targetId) : '';
 
 	const apply = (acknowledgeLoss: boolean) => {

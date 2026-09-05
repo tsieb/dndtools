@@ -294,12 +294,10 @@ export interface WidgetPackageRecord {
 export interface WidgetPackageState {
 	packages: Record<string, WidgetPackageRecord>;
 	/**
-	 * The ACTIVE campaign SYSTEM PACKAGE (the rules vocabulary the interface reads), by installed
-	 * package id. Optional + nullable so a vault persisted before system switching existed hydrates
-	 * safely (absent/null ⇒ no explicit system package selected — the built-in default vocabulary).
-	 * Changed only by `widget.package.switch-system`, which fail-closed dry-runs the switch first.
+	 * RC-SYS-1.1 moved the ACTIVE campaign system out of this slice: it now lives in the `systems`
+	 * document as `SystemsState.activeWidgetPackageId`, hydrated across from the legacy
+	 * `activeSystemPackageId` this interface used to carry. Nothing writes it here any more.
 	 */
-	activeSystemPackageId?: string | null;
 	schemaVersion: typeof WIDGET_PACKAGE_STATE_SCHEMA_VERSION;
 }
 

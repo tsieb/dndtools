@@ -11,9 +11,10 @@ persisted.
 - **Schemas & types** — `packages/core/src/state/*.ts` (one file per domain slice, e.g.
   `scene-state.ts`, `map-state.ts`, `session-state.ts`, `character-state.ts`,
   `content.ts`, `encounter.ts`, `audio-state.ts`, `permission-state.ts`,
-  `mcp-policy.ts`, `command-center-state.ts`, `widget-package-state.ts`) plus the
-  command/contract schemas in `packages/core/src/schemas/` (`commands.ts`,
-  `scene.ts`, `widget-package.ts`, `platform-service.ts`). All schemas are zod-only.
+  `mcp-policy.ts`, `command-center-state.ts`, `widget-package-state.ts`,
+  `system-package.ts`) plus the command/contract schemas in
+  `packages/core/src/schemas/` (`commands.ts`, `scene.ts`, `widget-package.ts`,
+  `system-package.ts`, `platform-service.ts`). All schemas are zod-only.
 - **Commands** — `packages/core/src/commands`. **Reducers** — `packages/core/src/state`.
   **Permissions / visibility** — `packages/core/src/permissions`. **Actor-scoped
   queries** — `packages/core/src/queries`. **Source-of-truth registry** —
@@ -28,12 +29,21 @@ The persisted state is a fixed set of durable documents, enumerated as
 `DurableStateDocumentId` in `packages/core/src/migration/schema-versions.ts`:
 
 `scenes`, `maps`, `permissions`, `session`, `widgets`, `commandCenter`,
-`characters`, `content`, `encounters`, `audio`, `mcp`.
+`characters`, `content`, `encounters`, `audio`, `mcp`, `systems`.
 
 (The `mcp` slice is the in-core AI/MCP **policy** state — `packages/core/src/state/mcp-policy.ts` —
 not the retired v1 Electron MCP sidecar.)
 
-The sync **operation log** is a twelfth persisted artifact; it is replayed rather than
+(The `systems` slice is the SYSTEM PACKAGE model — `packages/core/src/state/system-package.ts` —
+the declarative rules vocabulary the interface reads: words, attributes, resources, conditions,
+dice, turn order, creature fields, advancement, skills and derived values. It holds no code:
+derivations are declared as formulas in a tiny expression grammar and evaluated by the pure
+`evaluateFormula`. A vault with no `systems` document hydrates to the built-in D&D 5e package, and
+`hydrateSystemsState` carries the legacy `widgets.activeSystemPackageId` across into
+`SystemsState.activeWidgetPackageId` — the two are different id namespaces, so they are never
+conflated.)
+
+The sync **operation log** is a thirteenth persisted artifact; it is replayed rather than
 migrated (each operation carries its own schema version), so it is excluded from the
 migration document set.
 

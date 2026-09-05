@@ -3,6 +3,7 @@ import type { Actor, PermissionState } from '../state/permission-state';
 import { PERMISSION_STATE_SCHEMA_VERSION } from '../state/permission-state';
 import { EMPTY_CHARACTER_STATE } from '../state/character-state';
 import { EMPTY_COMMAND_CENTER_STATE } from '../state/command-center-state';
+import { hydrateSystemsState } from '../state/system-package';
 import { EMPTY_VAULT_CONTENT_STATE } from '../state/content';
 import { EMPTY_MAP_STATE } from '../state/map-state';
 import { EMPTY_SCENE_STATE } from '../state/scene-state';
@@ -154,6 +155,8 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 			vaultDefaultMode: EMPTY_MCP_POLICY_STATE.vaultDefaultMode,
 			schemaVersion: EMPTY_MCP_POLICY_STATE.schemaVersion,
 		},
+		// RC-SYS-1.1 — the SYSTEM PACKAGE slice, hydrated to the built-in 5e default.
+		systems: hydrateSystemsState(undefined),
 		sync: createOperationLog(),
 	};
 }

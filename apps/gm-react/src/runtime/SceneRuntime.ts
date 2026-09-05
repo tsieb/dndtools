@@ -16,6 +16,7 @@ import {
 	createBaselineMcpToolRegistry,
 	createCommandLifecycle,
 	createOperationLog,
+	hydrateSystemsState,
 	createDemoMapState,
 	createSystemWidgetPackages,
 	mergeSystemWidgetPackages,
@@ -140,6 +141,8 @@ function emptySlice(): CoreStateSlice {
 			vaultDefaultMode: EMPTY_MCP_POLICY_STATE.vaultDefaultMode,
 			schemaVersion: EMPTY_MCP_POLICY_STATE.schemaVersion,
 		},
+		// RC-SYS-1.1 — the SYSTEM PACKAGE slice, hydrated to the built-in 5e default.
+		systems: hydrateSystemsState(undefined),
 		sync: createOperationLog(),
 	};
 }

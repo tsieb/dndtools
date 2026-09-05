@@ -15,6 +15,7 @@ import type {
 } from '../state/session-state';
 import type { SceneCardTransitionStyle, SceneCardVisibility } from '../state/scene-card';
 import type { WidgetPackageState } from '../state/widget-package-state';
+import type { SystemsState } from '../state/system-package';
 import type { VaultContentState } from '../state/content';
 import type { AudioState } from '../state/audio-state';
 import type { AudioPackageValidationReport } from '../state/audio-package';
@@ -46,6 +47,11 @@ export interface CoreStateSlice {
 	 * the write audit trail, and the vault default policy posture. Fail-closed to `strict_review`.
 	 */
 	mcp: McpPolicyState;
+	/**
+	 * RC-SYS-1.1 — the durable SYSTEM PACKAGE slice: the installed rules systems and which one the
+	 * campaign is playing. Hydrates to the built-in 5e package when a vault has no `systems` document.
+	 */
+	systems: SystemsState;
 	/**
 	 * COLLAB-004 — the EPHEMERAL presence document (Contract 1's seventh, non-durable state document).
 	 * OPTIONAL and NEVER op-logged: `session.set-presence` mutates it without appending a durable
@@ -184,7 +190,12 @@ export type CoreCommand =
 	// explicit reorder, and the hidden/visible toggle. DM-only; active-session gated; fail closed.
 	| { type: 'combat.add-combatants'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'combat.remove-combatant'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'combat.reorder-combatant'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'combat.reorder-combatant';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| {
 			type: 'combat.set-combatant-visibility';
 			actorId: ActorId;
@@ -205,16 +216,41 @@ export type CoreCommand =
 			idempotencyKey?: string;
 	  }
 	// COLLAB-007: a recipient ACKNOWLEDGES receipt; the DM REVOKES a handout (sealed unless persistent).
-	| { type: 'session.acknowledge-handout'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'session.acknowledge-handout';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| { type: 'session.revoke-handout'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// COLLAB-012: DM PLAYER GROUP management — create / update / delete. Delivery/projection target only;
 	// membership grants NO permission. Resolved to individual recipients at delivery/projection time.
-	| { type: 'session.create-player-group'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'session.update-player-group'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'session.delete-player-group'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'session.create-player-group';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'session.update-player-group';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'session.delete-player-group';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	// SES-007: pin / unpin a quick-reference panel (DM-only). Panels reference content BY REFERENCE; the
 	// actor-filtered read resolves each against the live target (a hidden/deleted target degrades, no leak).
-	| { type: 'session.pin-quick-reference'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'session.pin-quick-reference';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| {
 			type: 'session.unpin-quick-reference';
 			actorId: ActorId;
@@ -223,8 +259,18 @@ export type CoreCommand =
 	  }
 	// SES-012: campaign calendar continuity — set the current campaign date (validated against its custom
 	// calendar) and LINK / UNLINK a date to a note/session/map/event/handout BY REFERENCE (DM-only).
-	| { type: 'session.set-campaign-date'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'session.link-calendar-date'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'session.set-campaign-date';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'session.link-calendar-date';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| {
 			type: 'session.unlink-calendar-date';
 			actorId: ActorId;
@@ -239,12 +285,27 @@ export type CoreCommand =
 	| { type: 'scene-card.update'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene-card.delete'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene-card.restore'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'scene-card.set-visibility'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'scene-card.set-visibility';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| { type: 'scene-card.activate'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'scene-card.set-transition'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'scene-card.set-transition';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| { type: 'scene-card.enqueue'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene-card.dequeue'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'scene-card.reorder-queue'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'scene-card.reorder-queue';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| { type: 'scene-card.advance'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'session.set-active-map'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| {
@@ -393,7 +454,12 @@ export type CoreCommand =
 			idempotencyKey?: string;
 	  }
 	// CHAR-008: owner-managed spell/slot/class-resource structure + deterministic rest recovery.
-	| { type: 'character.set-spell-slots'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'character.set-spell-slots';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| {
 			type: 'character.set-class-resource';
 			actorId: ActorId;
@@ -410,12 +476,22 @@ export type CoreCommand =
 			idempotencyKey?: string;
 	  }
 	// Post-create attack-list editing (add/edit/remove via full replacement). Owner or DM.
-	| { type: 'character.update-attacks'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'character.update-attacks';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	// Entity visibility + sharedWith delivery-list authoring. DM-only (widening is a DM authority).
 	| { type: 'character.set-sharing'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// CHAR-009: staged-then-commit level-up / advancement (XP or milestone), owner-only.
 	| { type: 'character.set-xp'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'character.open-advancement'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'character.open-advancement';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| {
 			type: 'character.set-advancement-choices';
 			actorId: ActorId;
@@ -435,7 +511,12 @@ export type CoreCommand =
 			idempotencyKey?: string;
 	  }
 	// CHAR-011: party-record authoring (marching order + party inventory) — DM-only.
-	| { type: 'character.set-marching-order'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'character.set-marching-order';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| {
 			type: 'character.upsert-party-inventory-item';
 			actorId: ActorId;
@@ -478,7 +559,12 @@ export type CoreCommand =
 	  }
 	// CHAR-012 / CHAR-016: character journal — owner/DM author; per-entry visibility; a visibility
 	// change is the cross-surface invalidation trigger.
-	| { type: 'character.add-journal-entry'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'character.add-journal-entry';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| {
 			type: 'character.update-journal-entry';
 			actorId: ActorId;
@@ -520,14 +606,34 @@ export type CoreCommand =
 	// CONTENT-005 (custom types): DEFINE / UPDATE / DELETE a USER-DEFINED vault-object type (DM-only). The
 	// draft field schema is validated at dispatch (fail closed); a define/update rejects an id that collides
 	// with a built-in subtype, and a delete is REFUSED while any live instance of the type still exists.
-	| { type: 'content.define-object-type'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'content.update-object-type'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'content.delete-object-type'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'content.define-object-type';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'content.update-object-type';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'content.delete-object-type';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	// CONTENT-006: RENAME a wikilink target (rename the note + propagate the rename to every referring link in
 	// the actor's visible notes) and REPAIR a broken wikilink (rewrite a broken target to a visible, available
 	// fix). Both are actor-filtered + fail-closed (never touch a hidden target; never a destructive offline
 	// rewrite).
-	| { type: 'content.rename-wikilink-target'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'content.rename-wikilink-target';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| { type: 'content.repair-wikilink'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// CONTENT-007: commit a transactional, resumable import of a markdown archive / Obsidian vault
 	// (preview is pure/read-only; resume skips already-applied steps; no partial commit on rejection).
@@ -542,7 +648,12 @@ export type CoreCommand =
 	// CONTENT-003: create a note/object FROM A STARTER PRESET with variables. The generated content is
 	// validated through the EXISTING pipeline BEFORE the write; a missing required variable or invalid
 	// generated content is rejected fail-closed. Visibility fails closed to dm-only (no silent widening).
-	| { type: 'content.create-from-template'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'content.create-from-template';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	// CONTENT-004: insert a SNIPPET into an existing note. The result funnels through the SAME
 	// validation + sanitization (render) + visibility pipeline as hand-typed content — a snippet cannot
 	// skip validation, smuggle unsanitized markdown, or widen the note's visibility (all fail-closed).
@@ -570,10 +681,30 @@ export type CoreCommand =
 	// SRCH-004: DM-only SAVED SEARCH management — create / update / pin / delete. A saved search stores ONLY
 	// its filter criteria + visibility + pin state (never a cached result), is visibility-filtered like any
 	// entity (a dm-only saved search is absent for players), and is re-evaluated LIVE on every read.
-	| { type: 'content.create-saved-search'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'content.update-saved-search'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'content.pin-saved-search'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'content.delete-saved-search'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'content.create-saved-search';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'content.update-saved-search';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'content.pin-saved-search';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'content.delete-saved-search';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	// AUDIO-004: import a local audio asset (content-addressed; license/tags/source/hash recorded) and
 	// update an existing asset's license/tags metadata. DM-only. An undeclared license stays flagged.
 	| { type: 'audio.import-asset'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -592,13 +723,23 @@ export type CoreCommand =
 	// AUDIO-005: configure (create/update) / delete an atmosphere AUTOMATION RULE (DM-only). The rule maps a
 	// session event (combat start / map reveal / scene activation / handout delivery) to a declared audio
 	// command; the license/scope/offline gate is RESOLVED at trigger time (fail closed), never bypassed.
-	| { type: 'audio.configure-automation'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'audio.configure-automation';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| { type: 'audio.delete-automation'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// AUDIO-001: associate (create/update) / disassociate a SCENE / MAP / MAP-LAYER audio cue (DM-only). A
 	// Scene "has an audio preset" via a durable association; on activation the core resolves which cues are
 	// available to the audio widget, composing the existing source/license/offline gates (fail closed).
 	| { type: 'audio.associate-scene'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'audio.disassociate-scene'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'audio.disassociate-scene';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	// AUDIO-002 / AUDIO-003: the DM controls SESSION-OWNED playback — play (or crossfade into) a track,
 	// pause/resume, stop (the only thing that clears the track), set the authoritative session volume, and
 	// project the active track to players (an offline participant is QUEUED, never blocking local playback).
@@ -607,7 +748,12 @@ export type CoreCommand =
 	| { type: 'session.audio.pause'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'session.audio.resume'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'session.audio.stop'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'session.audio.set-volume'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'session.audio.set-volume';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| { type: 'session.audio.project'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// AMBIENCE LAYERS: set (create/update) / remove a secondary looping bed mixed under the primary
 	// track. DM-only; the referenced source is validated through the AUDIO-009/010 gates (fail closed).
@@ -633,7 +779,12 @@ export type CoreCommand =
 	// AUDIO-014 (Epic 11.3): APPLY a categorized audio PRESET / scene package to the session audio in one
 	// action — the primary track + ambience layers are driven through the EXISTING AUDIO-009/010/004 gates
 	// (only a ready, bound layer becomes audible; never a guessed track). DM-only.
-	| { type: 'session.audio.apply-preset'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'session.audio.apply-preset';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	// AUDIO-014 (Epic 11.3): SAVE the current session audio as a named USER preset / scene package (capture
 	// track + ambience as references), and DELETE a user preset (a built-in id is refused). DM-only.
 	| { type: 'audio.save-preset'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -650,7 +801,12 @@ export type CoreCommand =
 	// MCP-011: DM authors / removes an AGENT → SCOPED ACTOR binding. An agent can only ever speak as the
 	// bound actor (never widened). DM-only; the bound actor must be a registered participant (fail closed).
 	| { type: 'mcp.set-agent-binding'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'mcp.remove-agent-binding'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'mcp.remove-agent-binding';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	// MCP-009: DM configures a per-agent POLICY (mode + tool allowlist + audit visibility) and the
 	// vault-wide DEFAULT posture a never-configured agent inherits. DM-only; an unknown mode is rejected.
 	| { type: 'mcp.set-agent-policy'; actorId: ActorId; payload: unknown; idempotencyKey?: string }

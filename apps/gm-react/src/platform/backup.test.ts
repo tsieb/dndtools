@@ -9,6 +9,7 @@ import {
 	importFullVault,
 	validateVaultBackup,
 } from './backup';
+import { DND5E_SYSTEM_PACKAGE_ID } from '@dndtools/core';
 import { getAssetBytes, putAssetBytes } from './storage/assetStore';
 import { __testing, loadCoreState } from './storage/coreStore';
 
@@ -80,6 +81,24 @@ describe('backup validation (fail closed)', () => {
 		expect(() =>
 			validateVaultBackup({ ...real, assets: [{ id: 'x', mime: 3, base64: 'AA==' }] }),
 		).toThrow(/malformed.*asset/);
+	});
+
+	it('RC-SYS-1.1: accepts a released backup with no systems slice and hydrates the 5e default', async () => {
+		const real = await exportFullVault();
+		const released = JSON.parse(JSON.stringify(real)) as Record<string, unknown>;
+		const slice = released.slice as Record<string, unknown>;
+		delete slice.systems;
+
+		const validated = validateVaultBackup(released);
+		expect(validated.slice.systems.activePackageId).toBe(DND5E_SYSTEM_PACKAGE_ID);
+		expect(validated.slice.systems.packages[DND5E_SYSTEM_PACKAGE_ID]).toBeDefined();
+	});
+
+	it('RC-SYS-1.1: rejects a backup whose systems slice is malformed', async () => {
+		const real = await exportFullVault();
+		const corrupt = JSON.parse(JSON.stringify(real)) as Record<string, unknown>;
+		(corrupt.slice as Record<string, unknown>).systems = { packages: {}, schemaVersion: 99 };
+		expect(() => validateVaultBackup(corrupt)).toThrow(/systems schema is unsupported/);
 	});
 
 	it('accepts the released v1 derived sync field but normalizes it out', async () => {

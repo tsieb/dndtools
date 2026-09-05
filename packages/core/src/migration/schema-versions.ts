@@ -8,6 +8,7 @@ import { MCP_POLICY_STATE_SCHEMA_VERSION } from '../state/mcp-policy';
 import { PERMISSION_STATE_SCHEMA_VERSION } from '../state/permission-state';
 import { SCENE_STATE_SCHEMA_VERSION } from '../state/scene-state';
 import { SESSION_STATE_SCHEMA_VERSION } from '../state/session-state';
+import { SYSTEMS_STATE_SCHEMA_VERSION } from '../state/system-package';
 import { WIDGET_PACKAGE_STATE_SCHEMA_VERSION } from '../state/widget-package-state';
 
 /**
@@ -26,7 +27,8 @@ export type DurableStateDocumentId =
 	| 'content'
 	| 'encounters'
 	| 'audio'
-	| 'mcp';
+	| 'mcp'
+	| 'systems';
 
 export const DURABLE_STATE_DOCUMENT_IDS: readonly DurableStateDocumentId[] = Object.freeze([
 	'scenes',
@@ -40,6 +42,7 @@ export const DURABLE_STATE_DOCUMENT_IDS: readonly DurableStateDocumentId[] = Obj
 	'encounters',
 	'audio',
 	'mcp',
+	'systems',
 ]);
 
 /**
@@ -61,6 +64,10 @@ export const TARGET_SCHEMA_VERSIONS: Readonly<Record<DurableStateDocumentId, num
 		encounters: ENCOUNTER_SCHEMA_VERSION,
 		audio: AUDIO_STATE_SCHEMA_VERSION,
 		mcp: MCP_POLICY_STATE_SCHEMA_VERSION,
+		// RC-SYS-1.1 — the SYSTEM PACKAGE slice enters at v1. A vault written before it has no
+		// `systems` document; `hydrateSystemsState` defaults it to the built-in 5e package and carries
+		// the legacy `widgets.activeSystemPackageId` across, so no destructive migration is needed.
+		systems: SYSTEMS_STATE_SCHEMA_VERSION,
 	});
 
 export function targetSchemaVersion(documentId: DurableStateDocumentId): number {

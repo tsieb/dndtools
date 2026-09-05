@@ -21,6 +21,7 @@ import {
 	ALL_HOST_PERMISSIONS,
 	findPackageRecordForWidgetType,
 } from '../state/widget-package-state';
+import type { SystemsState } from '../state/system-package';
 import { resolveCustomWidgetRuntimePolicy } from '../security/custom-widget-runtime';
 import type { Scene, WidgetDisabledState, WidgetInstance } from '../state/scene-state';
 import type { CommandRejection, CommandResult, CoreEnvironment, CoreStateSlice } from './types';
@@ -754,7 +755,6 @@ export function getPackageRecordForWidgetType(
 	return findPackageRecordForWidgetType(state, widgetType);
 }
 
-
 /**
  * SWITCH the active campaign SYSTEM PACKAGE (DM-only). The handler re-runs the PURE dry-run
  * (`queries/system-switch-query.ts` `previewSystemSwitch`, which wraps the PLAT-008 vault-migration
@@ -766,7 +766,7 @@ export function getPackageRecordForWidgetType(
  *     Scene instances) is rejected `system-switch-loss-unacknowledged` UNLESS the DM explicitly
  *     acknowledged the loss (`acknowledgeLoss: true`) — never a silent loss.
  *
- * APPLY = (1) point `widgets.activeSystemPackageId` at the target package, and (2) perform the
+ * APPLY = (1) point `systems.activeWidgetPackageId` at the target package, and (2) perform the
  * mapping the dry-run planned: instances of DROPPED widget types are marked disabled placeholders
  * (recoverable — the instance record is preserved, exactly like a package disable). `keep`/`remap`
  * types need no instance mutation here: instance config migration is owned by the target package's
@@ -787,7 +787,12 @@ export function handleSwitchSystemPackage(
 	const parsed = parseInput(switchSystemPackageInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
 
-	const preview = previewSystemSwitch(state.widgets, state.scenes, parsed.data.packageId);
+	const preview = previewSystemSwitch(
+		state.widgets,
+		state.scenes,
+		parsed.data.packageId,
+		state.systems.activeWidgetPackageId,
+	);
 	if (preview.kind === 'unavailable') {
 		if (preview.reason === 'already-active') {
 			// Idempotent: re-selecting the active system is a no-op success (mirrors pause-of-paused).
@@ -795,7 +800,10 @@ export function handleSwitchSystemPackage(
 		}
 		if (preview.reason === 'package-not-found') {
 			return reject(
-				{ code: 'package-not-found', message: `Widget package ${parsed.data.packageId} is not installed.` },
+				{
+					code: 'package-not-found',
+					message: `Widget package ${parsed.data.packageId} is not installed.`,
+				},
 				state,
 			);
 		}
@@ -840,7 +848,7 @@ export function handleSwitchSystemPackage(
 	}
 
 	const now = env.clock();
-	const previousPackageId = state.widgets.activeSystemPackageId ?? null;
+	const previousPackageId = state.systems.activeWidgetPackageId;
 
 	// APPLY the planned mapping: instances of dropped types become disabled placeholders (recoverable).
 	const droppedTypes = new Set(drops.map((finding) => finding.widgetType));
@@ -875,16 +883,17 @@ export function handleSwitchSystemPackage(
 		nextScenes = { ...state.scenes, scenes: nextSceneMap };
 	}
 
-	const nextWidgets: WidgetPackageState = {
-		...state.widgets,
-		activeSystemPackageId: parsed.data.packageId,
+	// RC-SYS-1.1: the active system now lives in the `systems` document, not the widget slice.
+	const nextSystems: SystemsState = {
+		...state.systems,
+		activeWidgetPackageId: parsed.data.packageId,
 	};
 
 	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
 		entityType: 'widget-package',
 		entityId: parsed.data.packageId,
 		opType: 'widget.package.switch-system',
-		path: 'activeSystemPackageId',
+		path: 'activeWidgetPackageId',
 		value: {
 			packageId: parsed.data.packageId,
 			previousPackageId,
@@ -897,7 +906,7 @@ export function handleSwitchSystemPackage(
 
 	return {
 		status: 'accepted',
-		nextState: { ...state, widgets: nextWidgets, scenes: nextScenes, sync: nextLog },
+		nextState: { ...state, systems: nextSystems, scenes: nextScenes, sync: nextLog },
 		events: [
 			{
 				kind: 'widget.system-switched',
