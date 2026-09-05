@@ -21,6 +21,7 @@ import { CloudSyncProvider } from './cloud/CloudSyncContext';
 import { SessionProvider } from './net/SessionContext';
 import { ensureAudioPlayback } from './runtime/audio-playback';
 import { AppShell } from './app/AppShell';
+import { AppSystemProvider } from './app/SystemContext';
 import { Onboarding } from './app/Onboarding';
 import { CommandCenter } from './screens/CommandCenter';
 import { SceneDisplay } from './screens/SceneDisplay';
@@ -467,7 +468,11 @@ function RoutedApp() {
 	return (
 		<>
 			<PlatformLifecycle />
-			<Shell />
+			{/* RC-SYS-2.3 — the active system package's rules content (conditions today) reaches every
+			    screen from here, so no surface carries its own 5e table. */}
+			<AppSystemProvider>
+				<Shell />
+			</AppSystemProvider>
 		</>
 	);
 }

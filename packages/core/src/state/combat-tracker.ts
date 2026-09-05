@@ -6,6 +6,12 @@ import {
 	type ConcentrationState,
 	type DeathSaveState,
 } from './character-resources';
+import type {
+	SystemCondition,
+	SystemConditionDuration,
+	SystemConditionSeverity,
+	SystemPackage,
+} from './system-package';
 
 /**
  * SES-002 — the DURABLE COMBAT TRACKER model + the PURE deterministic turn/round state machine.
@@ -371,4 +377,74 @@ export function activeCombatant(state: SessionCombatState): Combatant | null {
 	const id = state.order[state.turn];
 	if (id === undefined) return null;
 	return state.combatants[id] ?? null;
+}
+
+// ── RC-SYS-2.3 — conditions come from the active system package ──────────────────────────────────
+
+/**
+ * RC-SYS-2.3 — a condition as the interface needs to draw it: the package's key, label, icon and
+ * severity, resolved once so no screen has to carry its own 5e condition table.
+ *
+ * The tracker stores a condition as a bare KEY (`conditions: string[]`), which is what makes a
+ * campaign's saved combat survive a system switch: the key is data, the meaning belongs to whatever
+ * package is active. These helpers are the one place that turns a key back into something to render.
+ */
+export interface ResolvedCondition {
+	key: string;
+	label: string;
+	/** Icon name from the semantic icon vocabulary (`docs/reference/ICON_VOCABULARY.md`). */
+	icon: string;
+	severity: SystemConditionSeverity;
+	defaultDuration: SystemConditionDuration;
+	maxStacks: number | null;
+	/** False when the ACTIVE package does not declare this key (a leftover from another system). */
+	known: boolean;
+}
+
+/** The conditions the package declares, in authored order. Pure. */
+export function systemConditionCatalog(pkg: SystemPackage): readonly SystemCondition[] {
+	return pkg.conditions;
+}
+
+/** Whether the package declares this condition key. Pure. */
+export function isSystemCondition(pkg: SystemPackage, key: string): boolean {
+	return pkg.conditions.some((c) => c.key === key);
+}
+
+/**
+ * Resolve a stored condition key against the active package. A key the package does NOT declare
+ * still resolves — to an honest UNKNOWN entry labelled with the raw key and a neutral icon, so a
+ * combat saved under 5e and reopened under another package shows what is actually on the combatant
+ * instead of silently dropping it. Pure.
+ */
+export function resolveCondition(pkg: SystemPackage, key: string): ResolvedCondition {
+	const found = pkg.conditions.find((c) => c.key === key);
+	if (!found) {
+		return {
+			key,
+			label: key,
+			icon: 'info',
+			severity: 'minor',
+			defaultDuration: 'until-removed',
+			maxStacks: null,
+			known: false,
+		};
+	}
+	return {
+		key: found.key,
+		label: found.label,
+		icon: found.icon,
+		severity: found.severity,
+		defaultDuration: found.defaultDuration,
+		maxStacks: found.maxStacks,
+		known: true,
+	};
+}
+
+/** Every condition on this combatant, resolved against the active package, in stored order. Pure. */
+export function resolveCombatantConditions(
+	pkg: SystemPackage,
+	resources: CombatantResources,
+): readonly ResolvedCondition[] {
+	return resources.conditions.map((key) => resolveCondition(pkg, key));
 }

@@ -1,5 +1,7 @@
 import React from 'react';
-import { ConditionBadge, CONDITIONS } from './ConditionBadge.jsx';
+import { ConditionBadge } from './ConditionBadge.jsx';
+import { useConditionCatalog } from './SystemProvider.jsx';
+import { DEFAULT_CONDITIONS } from './conditions-catalog.js';
 import { Icon } from '../core/Icon.jsx';
 
 /**
@@ -7,6 +9,10 @@ import { Icon } from '../core/Icon.jsx';
  * entry is a removable ConditionBadge; the optional `+ Add` button opens the DM's condition picker
  * (wire `onAdd`). When empty, prints a plain muted "No conditions" rather than a blank gap.
  * `entries` accepts either bare keys (`'poisoned'`) or `{ key, duration, level }` objects.
+ *
+ * RC-SYS-2.3 — the add affordance is hidden when the ACTIVE system package declares no conditions:
+ * a picker that could only open on an empty list is a dead control. The existing badges still
+ * render, so a leftover key from another package stays visible and removable.
  */
 export function ConditionTracker({
 	entries = [],
@@ -17,6 +23,10 @@ export function ConditionTracker({
 	style,
 	...rest
 }) {
+	const { conditions, registry } = useConditionCatalog();
+	const known = (key) => Boolean(registry[key] || DEFAULT_CONDITIONS[key]);
+	// A package with no conditions has nothing for the picker to offer (RC-SYS-2.3).
+	const canAdd = addable && conditions.length > 0;
 	const norm = entries.map((e) => (typeof e === 'string' ? { key: e } : e));
 	return (
 		<div
@@ -46,15 +56,26 @@ export function ConditionTracker({
 			{norm.map((e, i) => (
 				<ConditionBadge
 					key={e.key + i}
-					condition={CONDITIONS[e.key] ? e.key : undefined}
-					label={CONDITIONS[e.key] ? undefined : e.key}
+					condition={known(e.key) ? e.key : undefined}
+					label={known(e.key) ? undefined : e.key}
 					duration={e.duration}
 					level={e.level}
 					compact={compact}
 					onRemove={onRemove ? () => onRemove(e.key, i) : undefined}
 				/>
 			))}
-			{addable && (
+			{addable && !canAdd && (
+				<span
+					style={{
+						fontFamily: 'var(--font-sans)',
+						fontSize: 'var(--text-sm)',
+						color: 'var(--color-text-tertiary)',
+					}}
+				>
+					This system has no conditions.
+				</span>
+			)}
+			{canAdd && (
 				<button
 					type="button"
 					onClick={onAdd}

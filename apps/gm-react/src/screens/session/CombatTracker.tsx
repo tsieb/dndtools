@@ -3,7 +3,6 @@ import {
 	Avatar,
 	Badge,
 	Button,
-	CONDITIONS,
 	ConditionBadge,
 	Dialog,
 	EmptyState,
@@ -11,6 +10,7 @@ import {
 	IconButton,
 	StatPill,
 	VisibilityChip,
+	useConditionCatalog,
 } from '../../ds';
 import { Panel, T, eb } from '../../app/screen-kit';
 
@@ -57,6 +57,9 @@ export function CombatPanel({
 	onReorder: (id: string, direction: 'earlier' | 'later') => void;
 	onVisibility: (id: string, hidden: boolean) => void;
 }) {
+	// RC-SYS-2.3 — the conditions the ACTIVE system package declares; empty means the picker is not
+	// offered at all rather than opening on nothing.
+	const { conditions: systemConditions } = useConditionCatalog();
 	const running = tracker.status === 'running';
 	const activeCombatant =
 		tracker.combatants.find((c) => c.id === tracker.activeCombatantId) ?? null;
@@ -354,17 +357,24 @@ export function CombatPanel({
 						>
 							<div style={{ ...eb }}>Selected · {selected.name}</div>
 							<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-								{selected.resources && (
-									<Button
-										variant="secondary"
-										size="sm"
-										icon="add"
-										disabled={previewing}
-										onClick={() => onPickCondition(selected.id)}
-									>
-										Add condition
-									</Button>
-								)}
+								{/* RC-SYS-2.3 — no conditions in the active system means no picker to open. Say so
+								    rather than leaving a control that can only ever show an empty dialog. */}
+								{selected.resources &&
+									(systemConditions.length > 0 ? (
+										<Button
+											variant="secondary"
+											size="sm"
+											icon="add"
+											disabled={previewing}
+											onClick={() => onPickCondition(selected.id)}
+										>
+											Add condition
+										</Button>
+									) : (
+										<span style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+											This system has no conditions.
+										</span>
+									))}
 								{isDm && (
 									<>
 										<span
@@ -449,8 +459,10 @@ export function ConditionPickerDialog({
 	onClose: () => void;
 	onPick: (combatantId: string, condition: string) => void;
 }) {
+	// RC-SYS-2.3 — the ACTIVE system package decides what can be applied, in the order it authored.
+	const { conditions } = useConditionCatalog();
 	const present = new Set(target?.resources?.conditions ?? []);
-	const keys = Object.keys(CONDITIONS).filter((k) => !present.has(k));
+	const keys = conditions.map((c) => c.key).filter((k) => !present.has(k));
 	return (
 		<Dialog
 			open={!!target}
@@ -465,7 +477,7 @@ export function ConditionPickerDialog({
 					<button
 						key={k}
 						type="button"
-						aria-label={`Add ${(CONDITIONS as Record<string, { label: string }>)[k].label}`}
+						aria-label={`Add ${conditions.find((c) => c.key === k)?.label ?? k}`}
 						onClick={() => target && onPick(target.id, k)}
 						style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
 					>
@@ -474,7 +486,9 @@ export function ConditionPickerDialog({
 				))}
 				{keys.length === 0 && (
 					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						Every condition is already applied.
+						{conditions.length === 0
+							? 'This system has no conditions.'
+							: 'Every condition is already applied.'}
 					</div>
 				)}
 			</div>

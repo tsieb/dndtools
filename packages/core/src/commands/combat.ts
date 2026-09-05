@@ -19,6 +19,7 @@ import {
 	initiativeInsertionIndex,
 	orderInitiative,
 	previousTurn,
+	resolveCondition,
 	type Combatant,
 	type CombatantResources,
 	type CombatLogEntry,
@@ -31,6 +32,7 @@ import {
 	EMPTY_DEATH_SAVES,
 } from '../state/character-resources';
 import { CHARACTER_ENTITY_TYPE } from '../state/character-state';
+import { activeSystemPackageFor } from './character';
 import { encounterById } from '../state/encounter';
 import { hasGrantedCapability } from '../permissions/grants';
 import type { Actor } from '../state/permission-state';
@@ -323,10 +325,7 @@ export function handleAdvanceCombatTurn(
 
 	const combat = state.session.combat;
 	if (combat.status !== 'running') {
-		return reject(
-			{ code: 'invalid-state', message: 'No combat is currently running.' },
-			state,
-		);
+		return reject({ code: 'invalid-state', message: 'No combat is currently running.' }, state);
 	}
 
 	const advance = advanceTurn(combat.round, combat.turn, combat.order.length);
@@ -401,10 +400,7 @@ export function handlePreviousCombatTurn(
 
 	const combat = state.session.combat;
 	if (combat.status !== 'running') {
-		return reject(
-			{ code: 'invalid-state', message: 'No combat is currently running.' },
-			state,
-		);
+		return reject({ code: 'invalid-state', message: 'No combat is currently running.' }, state);
 	}
 	// Nothing to return to before the first turn of round 1 (the pure helper is a no-op there).
 	if (combat.round <= 1 && combat.turn <= 0) {
@@ -524,7 +520,10 @@ export function handleApplyCombatResource(
 	const existing = combat.combatants[parsed.data.combatantId];
 	if (!existing) {
 		return reject(
-			{ code: 'combatant-not-found', message: `Combatant ${parsed.data.combatantId} is not in combat.` },
+			{
+				code: 'combatant-not-found',
+				message: `Combatant ${parsed.data.combatantId} is not in combat.`,
+			},
 			state,
 		);
 	}
@@ -574,6 +573,20 @@ export function handleApplyCombatResource(
 			break;
 		}
 		case 'condition': {
+			// RC-SYS-2.3 — the ACTIVE system package owns the condition list. Adding a condition it
+			// does not declare is refused (fail closed: a stray key would render as an unknown badge
+			// nobody can explain). REMOVING is always allowed, so a key left over from a package the
+			// campaign has since switched away from can still be cleared off a combatant.
+			const resolved = resolveCondition(activeSystemPackageFor(state), payload.condition);
+			if (payload.present && !resolved.known) {
+				return reject(
+					{
+						code: 'condition-not-in-system',
+						message: `The active system has no condition named "${payload.condition}".`,
+					},
+					state,
+				);
+			}
 			const has = resources.conditions.includes(payload.condition);
 			resources.conditions = payload.present
 				? has
@@ -581,7 +594,7 @@ export function handleApplyCombatResource(
 					: [...resources.conditions, payload.condition]
 				: resources.conditions.filter((c) => c !== payload.condition);
 			logKind = 'condition-changed';
-			label = `${existing.name}: ${payload.present ? 'add' : 'remove'} ${payload.condition}`;
+			label = `${existing.name}: ${payload.present ? 'add' : 'remove'} ${resolved.label}`;
 			break;
 		}
 		case 'death-save': {
@@ -766,7 +779,9 @@ export function handleAddCombatants(
 					hidden: row.hidden,
 					// Fail closed: a hidden combatant ALWAYS carries a placeholder so the player view
 					// renders a placeholder row rather than omitting it (UX-SES-008 AC2).
-					placeholder: row.hidden ? (row.placeholder ?? DEFAULT_HIDDEN_PLACEHOLDER) : (row.placeholder ?? null),
+					placeholder: row.hidden
+						? (row.placeholder ?? DEFAULT_HIDDEN_PLACEHOLDER)
+						: (row.placeholder ?? null),
 				},
 				env.ids,
 			);
@@ -858,7 +873,10 @@ export function handleRemoveCombatant(
 	const existing = combat.combatants[parsed.data.combatantId];
 	if (!existing) {
 		return reject(
-			{ code: 'combatant-not-found', message: `Combatant ${parsed.data.combatantId} is not in combat.` },
+			{
+				code: 'combatant-not-found',
+				message: `Combatant ${parsed.data.combatantId} is not in combat.`,
+			},
 			state,
 		);
 	}
@@ -948,7 +966,10 @@ export function handleReorderCombatant(
 	const existing = combat.combatants[parsed.data.combatantId];
 	if (!existing) {
 		return reject(
-			{ code: 'combatant-not-found', message: `Combatant ${parsed.data.combatantId} is not in combat.` },
+			{
+				code: 'combatant-not-found',
+				message: `Combatant ${parsed.data.combatantId} is not in combat.`,
+			},
 			state,
 		);
 	}
@@ -1036,7 +1057,10 @@ export function handleSetCombatantVisibility(
 	const existing = combat.combatants[parsed.data.combatantId];
 	if (!existing) {
 		return reject(
-			{ code: 'combatant-not-found', message: `Combatant ${parsed.data.combatantId} is not in combat.` },
+			{
+				code: 'combatant-not-found',
+				message: `Combatant ${parsed.data.combatantId} is not in combat.`,
+			},
 			state,
 		);
 	}

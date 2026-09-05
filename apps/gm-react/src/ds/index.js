@@ -4,6 +4,7 @@ export * from './components/campaign/SessionTimeline.jsx';
 export * from './components/command/CommandPalette.jsx';
 export * from './components/condition/ConditionBadge.jsx';
 export * from './components/condition/ConditionTracker.jsx';
+export * from './components/condition/SystemProvider.jsx';
 export * from './components/core/Avatar.jsx';
 export * from './components/core/Brand.jsx';
 export * from './components/core/Breadcrumb.jsx';

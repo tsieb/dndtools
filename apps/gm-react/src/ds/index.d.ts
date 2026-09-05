@@ -70,7 +70,32 @@ export const CommandPalette: DSComponent;
 // Condition
 export const ConditionBadge: DSComponent;
 export const ConditionTracker: DSComponent;
-export const CONDITIONS: Record<string, unknown>;
+export const CONDITIONS: Record<string, ConditionDef>;
+export const DEFAULT_CONDITIONS: Record<string, ConditionDef>;
+// RC-SYS-2.3 — the active system package's condition catalog, published at mount.
+export interface ConditionDef {
+	label: string;
+	icon: string;
+	tone: string;
+}
+export interface SystemConditionInput {
+	key: string;
+	label?: string;
+	icon?: string;
+	severity?: string;
+}
+export interface ConditionCatalog {
+	/** The active package's conditions in authored order. EMPTY = the system declares none. */
+	conditions: ReadonlyArray<SystemConditionInput>;
+	/** key → label/icon/tone, for rendering. */
+	registry: Record<string, ConditionDef>;
+}
+export const SystemProvider: DSComponent;
+export function useConditionCatalog(): ConditionCatalog;
+export function useConditionDef(key: string | undefined): ConditionDef | undefined;
+export function conditionRegistry(
+	conditions: ReadonlyArray<SystemConditionInput> | undefined,
+): Record<string, ConditionDef>;
 
 // Map
 export const FogControls: DSComponent;

@@ -1966,7 +1966,12 @@ export type RejectionCode =
 	| 'system-select-loss-unacknowledged'
 	// `system.define` / `system.fork` targeted an id that is already installed. Fail closed: a define
 	// never silently overwrites an existing system (that is what `system.update` is for).
-	| 'system-package-exists';
+	| 'system-package-exists'
+	// --- RC-SYS-2.3 — condition rejections (append-only block) ------------------------------------
+	// `combat.apply-resource` tried to ADD a condition the ACTIVE system package does not declare.
+	// Fail closed: the package owns the condition list, so a key it never authored never lands on a
+	// combatant. Removal of an unknown key stays allowed, so leftovers can always be cleared.
+	| 'condition-not-in-system';
 
 export interface CommandRejection {
 	code: RejectionCode;

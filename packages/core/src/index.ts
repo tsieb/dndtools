@@ -5307,3 +5307,14 @@ export {
 	spellSlotResourceKey,
 	systemResourceFor,
 } from './state/character-resources';
+
+// RC-SYS-2.3 — conditions come from the ACTIVE system package. The tracker keeps storing bare keys
+// (so a saved combat survives a system switch); these resolve a key into the package's label, icon
+// and severity, and report honestly when the active package does not declare it.
+export type { ResolvedCondition } from './state/combat-tracker';
+export {
+	isSystemCondition,
+	resolveCombatantConditions,
+	resolveCondition,
+	systemConditionCatalog,
+} from './state/combat-tracker';
