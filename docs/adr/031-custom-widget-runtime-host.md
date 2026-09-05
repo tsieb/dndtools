@@ -99,6 +99,20 @@ Rules that hold for every message:
 The `worker` sandbox in `WidgetRuntimeSandbox` speaks the identical protocol minus the DOM messages,
 so a data-only widget can be moved between the two without a package change.
 
+**Amended by RC-WID-1.3 (2026-09-05): the frame loads a served document, not `srcdoc`.** This ADR
+originally described building the frame's `srcdoc` from the package assets. Implementing it showed
+that would have been correct in development and broken everywhere it matters: a document with a local
+scheme (`about:srcdoc`, `blob:`, `data:`) _inherits_ its embedder's Content-Security-Policy, so under
+the packaged shell's `script-src 'self'` — which an opaque origin can never match — every custom
+widget would have silently failed to run, and any later relaxation of the app's policy would have
+silently widened the sandbox. The frame therefore loads `apps/gm-react/public/widget-host.html`, a
+served first-party document that carries its own policy (`WIDGET_SANDBOX_CSP`, stated once in
+`packages/core/src/security/renderer-isolation.ts` and asserted identical in the document's `<meta>`
+and in the packaged shell's response header). The package's assets are delivered over the same
+`postMessage` channel as everything else, in an `init` message sent on `ready`; the assembly is
+unchanged, only its carrier. `connect-src 'none'` in that policy is what makes the `outbound` message
+the frame's _only_ route to the network rather than merely its intended one.
+
 ### 2. `widget.package.review` — one DM decision per permission, recorded durably
 
 A new DM-only core command `widget.package.review` is the single writer of

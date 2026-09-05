@@ -5268,3 +5268,24 @@ export {
 	characterSkillsForPackage,
 	passiveSkillScore,
 } from './queries/character-query';
+
+// --- RC-WID-1.3 — custom-widget sandbox document (SEC-001, ADR-031 §1) -------------------------------
+// The same renderer-isolation policy asked about the OTHER renderer this product hosts: the opaque-origin
+// iframe a `custom-html-js` widget runs in. `allow-scripts` without `allow-same-origin`, a SERVED document
+// (so it carries its own Content-Security-Policy instead of inheriting the host's), `connect-src 'none'`
+// so every outbound attempt goes back through the host's SEC-011 gate, and no `'unsafe-eval'`.
+export type {
+	WidgetSandboxDocumentConfig,
+	WidgetSandboxDocumentSource,
+	WidgetSandboxViolation,
+	WidgetSandboxViolationCode,
+} from './security/renderer-isolation';
+export {
+	FORBIDDEN_WIDGET_SANDBOX_TOKENS,
+	SECURE_WIDGET_SANDBOX_CONFIG,
+	WIDGET_SANDBOX_CSP,
+	WIDGET_SANDBOX_CSP_DIRECTIVES,
+	WIDGET_SANDBOX_IFRAME_TOKENS,
+	isWidgetSandboxSecure,
+	validateWidgetSandboxDocument,
+} from './security/renderer-isolation';

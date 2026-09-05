@@ -204,21 +204,58 @@ function buildCsp() {
 		// allowlist. WebSocket signaling origins must also appear explicitly in CSP.
 		`connect-src 'self' https: ${signalingOrigins.join(' ')} http://127.0.0.1:* http://localhost:* http://[::1]:*`,
 		"webrtc 'allow'",
+		// The only frame the app embeds is the custom-widget sandbox document, which is served from
+		// this same origin and then given an opaque one by its `sandbox` attribute (RC-WID-1.3).
+		"frame-src 'self'",
 		"object-src 'none'",
 		"base-uri 'self'",
 		"form-action 'none'",
 	].join('; ');
 }
 
+/**
+ * The custom-widget sandbox document is served from the app origin, so without this it would receive
+ * the app policy above — `script-src 'self'`, which an opaque origin can never match, so every custom
+ * widget would silently fail to run in the packaged build and only in the packaged build (RC-WID-1.3,
+ * ADR-031 §1). It gets its own, much stricter policy instead: nothing by default, inline script and
+ * style (the package's own code, injected by the host), no network at all — outbound requests go back
+ * through the host's `outbound` message and the SEC-011 gate — and no eval, so a package cannot
+ * assemble code its trust review never saw.
+ *
+ * This string is the serialization of `WIDGET_SANDBOX_CSP`
+ * (packages/core/src/security/renderer-isolation.ts) and must stay byte-identical to it and to the
+ * `<meta http-equiv>` in public/widget-host.html; hostBridge.test.ts asserts all three agree.
+ */
+const WIDGET_SANDBOX_PATH = '/widget-host.html';
+const WIDGET_SANDBOX_CSP = [
+	"default-src 'none'",
+	"script-src 'unsafe-inline'",
+	"style-src 'unsafe-inline'",
+	'img-src data:',
+	'font-src data:',
+	"connect-src 'none'",
+	"object-src 'none'",
+	"base-uri 'none'",
+	"form-action 'none'",
+].join('; ');
+
 function applyCsp() {
 	const csp = buildCsp();
 	session.defaultSession.webRequest.onHeadersReceived(
 		{ urls: [`${APP_ORIGIN}/*`] },
 		(details, cb) => {
+			// The sandbox document is the one response on this origin that must NOT carry the app policy.
+			const isSandboxDocument = (() => {
+				try {
+					return new URL(details.url).pathname === WIDGET_SANDBOX_PATH;
+				} catch {
+					return false;
+				}
+			})();
 			cb({
 				responseHeaders: {
 					...details.responseHeaders,
-					'Content-Security-Policy': [csp],
+					'Content-Security-Policy': [isSandboxDocument ? WIDGET_SANDBOX_CSP : csp],
 					'X-Content-Type-Options': ['nosniff'],
 				},
 			});

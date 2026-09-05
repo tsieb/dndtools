@@ -1,10 +1,11 @@
 import { Component, type ComponentType, type ReactNode } from 'react';
 import { findWidgetDefinition, type WidgetTemplateKind } from '@dndtools/core';
-import { Icon } from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { WidgetBody, hasBuiltinBody, type WidgetCommandHandler } from '../widget-bodies';
 import type { BoardWidget } from '../board-helpers';
 import { TEMPLATE_RENDERER_ENTRIES } from './templates';
+import { SandboxHost } from './SandboxHost';
+import { WidgetPlaceholder } from './WidgetPlaceholder';
 import {
 	resolveWidgetRenderer,
 	widgetCrashPlaceholder,
@@ -22,8 +23,9 @@ import {
  * the placeholder prints (ADR-031).
  *
  * The template and custom branches are registries on purpose. WID-1.2 filled `TEMPLATE_RENDERERS`
- * with a renderer for all eight template kinds and WID-1.3 supplies the sandbox host; until then the
- * custom branch resolves to the placeholder and nothing else in the app has to know the difference.
+ * with a renderer for all eight template kinds and WID-1.3 filled the custom branch with `SandboxHost`.
+ * Either can be dropped back to null and every affected widget degrades to the placeholder instead of
+ * disappearing, which is what the rollback plan in ADR-031 relies on.
  */
 
 /** Props a template or custom renderer receives. One shape for both, so registries stay uniform. */
@@ -45,53 +47,14 @@ export const TEMPLATE_RENDERERS = new Map<WidgetTemplateKind, WidgetRenderer>(
 	TEMPLATE_RENDERER_ENTRIES,
 );
 
-/** The sandboxed `custom-html-js` host. Null until RC-WID-1.3 lands `SandboxHost`. */
-export const CUSTOM_WIDGET_HOST: WidgetRenderer | null = null;
+/** The sandboxed `custom-html-js` host, landed by RC-WID-1.3 (`SandboxHost`, ADR-031 §1). */
+export const CUSTOM_WIDGET_HOST: WidgetRenderer | null = SandboxHost;
 
 /**
- * The frame body for a widget nothing can draw: what is missing, and what was kept. Exported so the
- * template and custom branches (WID-1.2 / WID-1.3) degrade to the SAME card rather than each
- * inventing an empty state.
+ * Re-exported from its own module so the sandbox host can render the SAME "disabled, preserved" card
+ * without an import cycle back through this registry. Every caller keeps importing it from here.
  */
-export function WidgetPlaceholder({ diagnostic }: { diagnostic: string }) {
-	return (
-		<div
-			data-testid="widget-placeholder"
-			style={{
-				height: '100%',
-				display: 'flex',
-				flexDirection: 'column',
-				gap: 4,
-				minHeight: 0,
-				overflow: 'hidden',
-				color: 'var(--color-text-secondary)',
-			}}
-		>
-			<span
-				style={{
-					display: 'inline-flex',
-					alignItems: 'center',
-					gap: 5,
-					font: '600 var(--text-2xs) var(--font-sans)',
-					color: 'var(--color-text-primary)',
-					flex: '0 0 auto',
-				}}
-			>
-				<Icon name="info" size={12} />
-				{WIDGET_PLACEHOLDER_COPY.label}
-			</span>
-			<span style={{ font: 'var(--text-xs)/1.4 var(--font-sans)' }}>{diagnostic}</span>
-			<span
-				style={{
-					font: 'var(--text-2xs)/1.4 var(--font-sans)',
-					color: 'var(--color-text-tertiary)',
-				}}
-			>
-				{WIDGET_PLACEHOLDER_COPY.reassurance}
-			</span>
-		</div>
-	);
-}
+export { WidgetPlaceholder };
 
 /**
  * Isolates ONE widget's render failure. Resets on `widgetId` so re-placing or swapping a widget in

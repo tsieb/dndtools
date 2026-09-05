@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<!--
+			The custom-widget sandbox document (RC-WID-1.3, ADR-031 §1).
+
+			This file is loaded into an iframe created with sandbox="allow-scripts" and no
+			allow-same-origin, so the document it becomes has an OPAQUE origin: no cookies, no
+			localStorage, no IndexedDB, no reach into the host's DOM or globals, and no way to name the
+			host's origin in a request. Package code runs here and nowhere else.
+
+			It is SERVED rather than handed over as `srcdoc` on purpose. A srcdoc/blob:/data: document
+			inherits the embedder's Content-Security-Policy, which would couple this sandbox to the app's
+			policy in both directions — the packaged shell's `script-src 'self'` would silently refuse to
+			run every widget, and any later relaxation of the app policy would silently widen the sandbox.
+			A served document carries the policy below, and `validateWidgetSandboxDocument`
+			(packages/core/src/security/renderer-isolation.ts) is what checks it.
+
+			The policy MUST stay byte-identical to `WIDGET_SANDBOX_CSP`; hostBridge.test.ts asserts it,
+			and electron/main.cjs serves the same string as a response header for this path.
+		-->
+		<meta
+			http-equiv="Content-Security-Policy"
+			content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+		/>
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Widget sandbox</title>
+		<style>
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				background: transparent;
+				color: var(--color-text-primary, #f2e8d8);
+				font:
+					13px/1.45 system-ui,
+					sans-serif;
+			}
+			#widget-root {
+				box-sizing: border-box;
+				min-height: 0;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="widget-root"></div>
+		<script>
+			/*
+			 * The guest half of host API v1. It knows three things and nothing else: how to talk to the
+			 * host over postMessage, how to install the package's assets once the host sends them, and how
+			 * to report its own height and its own failures.
+			 *
+			 * It answers no question itself. `requestPermission` and `outbound` are round trips to the
+			 * host, which calls the pure core policy (`resolveHostCapability`, `requestWidgetNetwork`) and
+			 * forwards the verdict — there is no second policy implementation down here to drift from the
+			 * first, and nothing a widget can monkey-patch to change an answer, because the answer is not
+			 * computed in this realm.
+			 */
+			(function () {
+				'use strict';
+
+				var CHANNEL = 'dndtools.widget-host';
+				var HOST_API_VERSION = 1;
+
+				var instanceId = null;
+				var installed = false;
+				var nextRequestId = 0;
+				var pending = Object.create(null);
+				var listeners = { render: [], configChanged: [], bindingChanged: [] };
+				var lastProps = null;
+				var reportedHeight = -1;
+
+				var root = document.getElementById('widget-root');
+
+				function post(kind, body) {
+					var message = { channel: CHANNEL, hostApiVersion: HOST_API_VERSION, kind: kind };
+					if (instanceId) message.widgetInstanceId = instanceId;
+					for (var key in body) {
+						if (Object.prototype.hasOwnProperty.call(body, key)) message[key] = body[key];
+					}
+					// The host origin is unknowable from an opaque origin, so the target is '*'. The host
+					// attributes the message by comparing event.source with its own frame, not by origin.
+					parent.postMessage(message, '*');
+				}
+
+				function request(kind, body) {
+					var id = 'r' + ++nextRequestId;
+					body.requestId = id;
+					return new Promise(function (resolve) {
+						pending[id] = resolve;
+						post(kind, body);
+					});
+				}
+
+				function fire(kind, payload) {
+					var callbacks = listeners[kind] || [];
+					for (var i = 0; i < callbacks.length; i += 1) {
+						try {
+							callbacks[i](payload);
+						} catch (error) {
+							reportFailure(error);
+						}
+					}
+				}
+
+				function reportFailure(error) {
+					var message =
+						error && error.message ? String(error.message) : 'The widget stopped while drawing.';
+					post('error', { message: message });
+				}
+
+				function reportHeight(height) {
+					var next = Math.ceil(height);
+					if (next === reportedHeight) return;
+					reportedHeight = next;
+					post('resize', { height: next });
+				}
+
+				/**
+				 * Install the package's assets. Stylesheet first, then markup, then code, so a script that
+				 * reads the DOM on its first line finds it. Markup goes in through innerHTML, which does not
+				 * execute script elements, so the entrypoint's inline scripts are collected by the host and
+				 * appended here as real elements instead — one code path, no silently-dead widget.
+				 */
+				function install(payload) {
+					if (installed) return;
+					installed = true;
+
+					if (payload.themeVariables) {
+						for (var name in payload.themeVariables) {
+							if (Object.prototype.hasOwnProperty.call(payload.themeVariables, name)) {
+								document.documentElement.style.setProperty(name, payload.themeVariables[name]);
+							}
+						}
+					}
+					if (payload.css) {
+						var style = document.createElement('style');
+						style.textContent = payload.css;
+						document.head.appendChild(style);
+					}
+					root.innerHTML = payload.html || '';
+
+					var scripts = payload.scripts || [];
+					for (var i = 0; i < scripts.length; i += 1) {
+						var element = document.createElement('script');
+						if (scripts[i].module) element.type = 'module';
+						element.textContent = scripts[i].code;
+						document.body.appendChild(element);
+					}
+					// A widget that registered a render callback while installing gets the props the host
+					// already sent; one that registers later gets them on the next change.
+					if (lastProps) fire('render', lastProps);
+					measure();
+				}
+
+				function measure() {
+					reportHeight(Math.max(root.scrollHeight, document.body.scrollHeight));
+				}
+
+				window.addEventListener('message', function (event) {
+					if (event.source !== parent) return;
+					var data = event.data;
+					if (!data || data.channel !== CHANNEL) return;
+					switch (data.kind) {
+						case 'init':
+							instanceId = data.widgetInstanceId || null;
+							try {
+								install(data);
+							} catch (error) {
+								reportFailure(error);
+							}
+							return;
+						case 'render':
+							lastProps = data.props;
+							fire('render', data.props);
+							measure();
+							return;
+						case 'configChanged':
+							if (lastProps) lastProps.configuration = data.configuration;
+							fire('configChanged', data.configuration);
+							measure();
+							return;
+						case 'bindingChanged':
+							if (lastProps) lastProps.binding = data.binding;
+							fire('bindingChanged', data.binding);
+							measure();
+							return;
+						case 'result': {
+							var resolve = pending[data.requestId];
+							if (resolve) {
+								delete pending[data.requestId];
+								resolve(data.result);
+							}
+							return;
+						}
+						default:
+							// Unknown host message kinds are dropped, not guessed at.
+							return;
+					}
+				});
+
+				window.addEventListener('error', function (event) {
+					reportFailure(event.error || { message: event.message });
+				});
+				window.addEventListener('unhandledrejection', function (event) {
+					reportFailure(event.reason || { message: 'A widget promise rejected.' });
+				});
+
+				if (typeof ResizeObserver === 'function') {
+					new ResizeObserver(measure).observe(root);
+				}
+
+				/** The ONLY surface package code gets. Everything on it is a message, not a capability. */
+				window.dndtoolsWidget = {
+					version: HOST_API_VERSION,
+					root: root,
+					onRender: function (callback) {
+						listeners.render.push(callback);
+						if (lastProps) callback(lastProps);
+					},
+					onConfigChanged: function (callback) {
+						listeners.configChanged.push(callback);
+					},
+					onBindingChanged: function (callback) {
+						listeners.bindingChanged.push(callback);
+					},
+					/** Ask the host to run a widget-DECLARED core command. The core decides, always. */
+					dispatch: function (descriptor) {
+						var d = descriptor || {};
+						return request('dispatch', {
+							commandType: d.commandType,
+							payload: d.payload || {},
+						});
+					},
+					/** Ask for a host-API capability. Denied unless the package's review approved it. */
+					requestPermission: function (kind) {
+						return request('requestPermission', { capability: kind });
+					},
+					/** Ask the host to make an outbound request. It runs the SEC-011 gate and answers. */
+					outbound: function (outboundRequest) {
+						var r = outboundRequest || {};
+						if (typeof outboundRequest === 'string') r = { url: outboundRequest };
+						return request('outbound', {
+							url: r.url || null,
+							destinationClass: r.destinationClass || null,
+							payload: r.payload === undefined ? null : r.payload,
+						});
+					},
+					setHeight: function (height) {
+						reportHeight(Number(height) || 0);
+					},
+				};
+
+				post('ready', { hostApiVersion: HOST_API_VERSION });
+			})();
+		</script>
+	</body>
+</html>
