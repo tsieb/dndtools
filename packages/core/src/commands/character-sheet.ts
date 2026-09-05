@@ -5,14 +5,11 @@ import {
 	updateCharacterAttacksInputSchema,
 } from '../schemas/commands';
 import type { Character, CharacterAttack, CharacterProficiencies } from '../state/character-state';
-import {
-	CHARACTER_ENTITY_TYPE,
-	proficienciesOf,
-	upsertCharacter,
-} from '../state/character-state';
+import { CHARACTER_ENTITY_TYPE, proficienciesOf, upsertCharacter } from '../state/character-state';
 import { normalizeVisibilityLevel } from '../permissions/visibility-filter';
 import { hasGrantedCapability } from '../permissions/grants';
 import type { Actor } from '../state/permission-state';
+import { activeSystemPackage, hydrateSystemsState } from '../state/system-package';
 import type { CommandResult, CoreEnvironment, CoreStateSlice } from './types';
 import {
 	appendOperationDraft,
@@ -113,6 +110,32 @@ export function handleSetCharacterProficiencies(
 	if ('rejection' in guard) return guard.rejection;
 	const { actor, existing } = guard;
 
+	// RC-SYS-2.1 — skills are whatever the ACTIVE SYSTEM PACKAGE declares. When the package declares a
+	// skill list, a key outside it is REJECTED with an honest message rather than silently stored: the
+	// sheet would have nowhere to show it and no attribute to bonus it from. A package that declares no
+	// skills at all makes no claim about them, so it constrains nothing (fail closed only where the
+	// system actually speaks).
+	const pkg = activeSystemPackage(hydrateSystemsState(state.systems));
+	if (parsed.data.skills !== undefined && pkg.skills.length > 0) {
+		const declared = new Set(pkg.skills.map((skill) => skill.key));
+		const unknown = Object.keys(parsed.data.skills).filter((skill) => !declared.has(skill));
+		if (unknown.length > 0) {
+			return reject(
+				{
+					// `invalid-payload`: the payload names a skill the active system does not have. No new
+					// rejection code — the shared `RejectionCode` union is not this story's to extend.
+					code: 'invalid-payload',
+					message: `${pkg.displayName} has no ${unknown.length === 1 ? 'skill' : 'skills'} ${unknown.join(', ')}.`,
+					issues: unknown.map((skill) => ({
+						path: `skills.${skill}`,
+						message: `${pkg.displayName} does not define this skill.`,
+					})),
+				},
+				state,
+			);
+		}
+	}
+
 	// PATCH semantics over the hydrated current block: a supplied facet replaces it; an omitted one is
 	// preserved. `skills` entries set to `none` are dropped (absent ⇒ `none`, keeping the map minimal).
 	const current = proficienciesOf(existing);
@@ -134,8 +157,7 @@ export function handleSetCharacterProficiencies(
 		: current.hitDice;
 	const proficiencies: CharacterProficiencies = {
 		skills,
-		saves:
-			parsed.data.saves !== undefined ? [...new Set(parsed.data.saves)] : current.saves,
+		saves: parsed.data.saves !== undefined ? [...new Set(parsed.data.saves)] : current.saves,
 		proficiencyBonus:
 			parsed.data.proficiencyBonus !== undefined
 				? parsed.data.proficiencyBonus

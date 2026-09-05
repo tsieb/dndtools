@@ -5220,3 +5220,28 @@ export {
 	dnd5eXpForChallengeRating,
 	isBuiltInSystemPackageId,
 } from './systems';
+
+// --- RC-SYS-2.1: characters read attributes / skills / derived values from the active package -----
+// The character domain no longer hard-codes six 5e abilities. `attributes` is the package-keyed score
+// map (hydrated from the six fixed fields for every existing document — additive, no schema bump); the
+// draft flow builds its attributes step from the package and omits it entirely for a system with none;
+// the derived reads evaluate the package's own formulas and say `null`/empty when it declares nothing.
+export type {
+	AbilityScoreKey,
+	// re-exported alongside the attribute API it belongs with
+} from './state/character-state';
+export {
+	ABILITY_SCORE_KEYS,
+	abilityScoreKeyFor,
+	characterAttributeScore,
+	characterAttributes,
+	normalizeCharacterAttributes,
+	setCharacterAttribute,
+} from './state/character-state';
+export { draftAttributeFieldId, draftStepsForPackage } from './state/character-draft-flow';
+export type { CharacterAttributeView, CharacterSkillView } from './queries/character-query';
+export {
+	characterAttributesForPackage,
+	characterSkillsForPackage,
+	passiveSkillScore,
+} from './queries/character-query';

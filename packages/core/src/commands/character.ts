@@ -32,7 +32,14 @@ import {
 	resolveFieldConflict,
 	validateFieldEdit,
 } from '../state/character-collaboration';
-import { computeDraftCompleteness, validateDraftStep } from '../state/character-draft-flow';
+import {
+	computeDraftCompleteness,
+	draftAttributeFieldId,
+	validateDraftStep,
+} from '../state/character-draft-flow';
+import { abilityScoreKeyFor, normalizeCharacterAttributes } from '../state/character-state';
+import type { SystemPackage } from '../state/system-package';
+import { activeSystemPackage, hydrateSystemsState } from '../state/system-package';
 import { hasGrantedCapability } from '../permissions/grants';
 import { requiredCapabilityForCharacterField } from '../permissions/character-field-authority';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
@@ -140,7 +147,10 @@ export function handleSetCharacterCombat(
 	const existing = characters.characters[parsed.data.characterId];
 	if (!existing) {
 		return reject(
-			{ code: 'character-not-found', message: `Character ${parsed.data.characterId} does not exist.` },
+			{
+				code: 'character-not-found',
+				message: `Character ${parsed.data.characterId} does not exist.`,
+			},
 			state,
 		);
 	}
@@ -207,7 +217,10 @@ export function handleCreateCharacterDraft(
 	const owner = state.permissions.actors[parsed.data.ownerActorId];
 	if (!owner) {
 		return reject(
-			{ code: 'unknown-actor', message: `Draft owner ${parsed.data.ownerActorId} is not registered.` },
+			{
+				code: 'unknown-actor',
+				message: `Draft owner ${parsed.data.ownerActorId} is not registered.`,
+			},
 			state,
 		);
 	}
@@ -271,7 +284,10 @@ export function handleTransferCharacterDraft(
 	const newOwner = state.permissions.actors[parsed.data.toOwnerActorId];
 	if (!newOwner) {
 		return reject(
-			{ code: 'unknown-actor', message: `New owner ${parsed.data.toOwnerActorId} is not registered.` },
+			{
+				code: 'unknown-actor',
+				message: `New owner ${parsed.data.toOwnerActorId} is not registered.`,
+			},
 			state,
 		);
 	}
@@ -284,7 +300,12 @@ export function handleTransferCharacterDraft(
 
 	const characters = ensureCharacterStateSlice(state.characters);
 	const now = env.clock();
-	const transfer = transferDraftOwnership(characters, parsed.data.draftId, parsed.data.toOwnerActorId, now);
+	const transfer = transferDraftOwnership(
+		characters,
+		parsed.data.draftId,
+		parsed.data.toOwnerActorId,
+		now,
+	);
 	if (!transfer.ok) {
 		const code =
 			transfer.error === 'draft-not-found'
@@ -427,8 +448,9 @@ export function handleUpdateCharacterDraftStep(
 	const updated = applyDraftStep(existing, parsed.data.stepId, parsed.data.values, now);
 	const nextCharacters = upsertDraft(characters, updated);
 
-	const stepValidation = validateDraftStep(parsed.data.stepId, parsed.data.values);
-	const completeness = computeDraftCompleteness(updated);
+	const pkg = activePackage(state);
+	const stepValidation = validateDraftStep(parsed.data.stepId, parsed.data.values, pkg);
+	const completeness = computeDraftCompleteness(updated, pkg);
 
 	const draftOp = appendOperationDraft(env, state.sync, actor.id, {
 		entityType: CHARACTER_DRAFT_ENTITY_TYPE,
@@ -458,6 +480,15 @@ export function handleUpdateCharacterDraftStep(
 		events,
 		operationIds: [draftOp.op.id],
 	};
+}
+
+/**
+ * RC-SYS-2.1 — the ACTIVE system package the draft flow and the finalized character are shaped by.
+ * Hydrated tolerantly so a vault written before the `systems` slice existed still resolves to the
+ * built-in 5e package and behaves exactly as it did.
+ */
+function activePackage(state: CoreStateSlice): SystemPackage {
+	return activeSystemPackage(hydrateSystemsState(state.systems));
 }
 
 export function handleFinalizeCharacterDraft(
@@ -490,7 +521,8 @@ export function handleFinalizeCharacterDraft(
 		return reject({ code: 'draft-finalized', message: 'This draft is already finalized.' }, state);
 	}
 
-	const completeness = computeDraftCompleteness(existing);
+	const pkg = activePackage(state);
+	const completeness = computeDraftCompleteness(existing, pkg);
 	if (!completeness.readyToFinalize) {
 		return reject(
 			{
@@ -518,7 +550,10 @@ export function handleFinalizeCharacterDraft(
 	// before (fail-safe defaults), while a saved kit carries onto the finalized character — including
 	// the draft's CUSTOM ATTACKS, which previously were silently dropped.
 	const kit = values['kit'] ?? {};
-	const name = typeof identity['name'] === 'string' && identity['name'].trim() ? identity['name'] : existing.name;
+	const name =
+		typeof identity['name'] === 'string' && identity['name'].trim()
+			? identity['name']
+			: existing.name;
 
 	const kitAttacks: Character['attacks'] = Array.isArray(kit['attacks'])
 		? (kit['attacks'] as unknown[])
@@ -530,6 +565,20 @@ export function handleFinalizeCharacterDraft(
 	const kitAc = numberOrUndefined(kit['ac']);
 	const kitSpeed = numberOrUndefined(kit['speed']);
 
+	// RC-SYS-2.1 — the attributes step's saved values are mapped through the ACTIVE PACKAGE's
+	// attributes: one that aliases a fixed ability field lands there (so a 5e PC finalizes into exactly
+	// the document it always did, six keys and no `attributes` map), anything else lands in the open
+	// package-keyed map. A package with no attributes finalizes a character with neither.
+	const finalizedAbilityScores: Character['abilityScores'] = {};
+	const finalizedOpenAttributes: Record<string, number> = {};
+	for (const attribute of pkg.attributes) {
+		const score = numberOrUndefined(abilities[draftAttributeFieldId(attribute)]);
+		const alias = abilityScoreKeyFor(attribute.key);
+		if (alias !== null) finalizedAbilityScores[alias] = score;
+		else if (score !== undefined) finalizedOpenAttributes[attribute.key] = score;
+	}
+	const finalizedAttributes = normalizeCharacterAttributes(finalizedOpenAttributes);
+
 	const character: Character = {
 		id: env.ids(),
 		kind: 'pc',
@@ -539,14 +588,8 @@ export function handleFinalizeCharacterDraft(
 		// party. Broader party visibility and the `owner` grant are later CHAR epics (CHAR-003/011).
 		visibility: 'shared',
 		sharedWith: [existing.ownerActorId],
-		abilityScores: {
-			str: numberOrUndefined(abilities['str']),
-			dex: numberOrUndefined(abilities['dex']),
-			con: numberOrUndefined(abilities['con']),
-			int: numberOrUndefined(abilities['int']),
-			wis: numberOrUndefined(abilities['wis']),
-			cha: numberOrUndefined(abilities['cha']),
-		},
+		abilityScores: finalizedAbilityScores,
+		...(finalizedAttributes ? { attributes: finalizedAttributes } : {}),
 		attacks: kitAttacks,
 		combat: {
 			hp: kitHp ?? 0,
@@ -651,7 +694,10 @@ export function handleEditCharacterField(
 	const existing = characters.characters[parsed.data.characterId];
 	if (!existing) {
 		return reject(
-			{ code: 'character-not-found', message: `Character ${parsed.data.characterId} does not exist.` },
+			{
+				code: 'character-not-found',
+				message: `Character ${parsed.data.characterId} does not exist.`,
+			},
 			state,
 		);
 	}
@@ -704,18 +750,23 @@ export function handleEditCharacterField(
 
 	const collaboration = ensureCollaboration(existing.collaboration);
 	const operationId = env.ids();
-	const result = applyFieldEdit(existing, collaboration, {
-		path: validation.path,
-		value: validation.value,
-		authorActorId: actor.id,
-		authorRole: actor.role,
-		baseRevision: parsed.data.baseRevision,
-	}, {
-		editId: env.ids(),
-		conflictId: env.ids(),
-		now,
-		operationId,
-	});
+	const result = applyFieldEdit(
+		existing,
+		collaboration,
+		{
+			path: validation.path,
+			value: validation.value,
+			authorActorId: actor.id,
+			authorRole: actor.role,
+			baseRevision: parsed.data.baseRevision,
+		},
+		{
+			editId: env.ids(),
+			conflictId: env.ids(),
+			now,
+			operationId,
+		},
+	);
 
 	if (result.outcome === 'noop') {
 		// Idempotent no-op: the value already matches. Accept without a new revision/op so a repeated
@@ -820,7 +871,10 @@ export function handleResolveCharacterConflict(
 	const existing = characters.characters[parsed.data.characterId];
 	if (!existing) {
 		return reject(
-			{ code: 'character-not-found', message: `Character ${parsed.data.characterId} does not exist.` },
+			{
+				code: 'character-not-found',
+				message: `Character ${parsed.data.characterId} does not exist.`,
+			},
 			state,
 		);
 	}
@@ -894,7 +948,11 @@ function draftAttackToCharacterAttack(
 	const name = typeof entry['name'] === 'string' ? entry['name'].trim() : '';
 	if (name === '') return null;
 	if (typeof entry['detail'] === 'string') {
-		return { id: typeof entry['id'] === 'string' && entry['id'] ? entry['id'] : ids(), name, detail: entry['detail'] };
+		return {
+			id: typeof entry['id'] === 'string' && entry['id'] ? entry['id'] : ids(),
+			name,
+			detail: entry['detail'],
+		};
 	}
 	const parts = [entry['kind'], entry['hit'], entry['dmg'], entry['type']]
 		.filter((part): part is string => typeof part === 'string' && part.trim() !== '')

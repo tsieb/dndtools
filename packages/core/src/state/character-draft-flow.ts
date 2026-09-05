@@ -1,5 +1,7 @@
 import type { CharacterDraft } from './character-state';
-import { draftStepValues } from './character-state';
+import { abilityScoreKeyFor, draftStepValues } from './character-state';
+import type { SystemAttribute, SystemPackage } from './system-package';
+import { DND5E_SYSTEM_PACKAGE } from '../systems';
 
 /**
  * CHAR-002 — the GUIDED, STRUCTURED PC-creation flow: rules, options, per-step VALIDATION, and a
@@ -10,9 +12,15 @@ import { draftStepValues } from './character-state';
  * "completed steps and unresolved validation issues are restored" (CHAR-002 AC2).
  *
  * The rule set is intentionally a SMALL, self-contained prototype rule system, not a full 5e engine:
- * an identity step, an ability-scores step with a point-budget rule, and a class/options step. Later
+ * an identity step, an attributes step with a point-budget rule, and a class/options step. Later
  * CHAR epics (leveling, inventory) extend the flow by adding steps and rules here without reshaping
  * the draft document.
+ *
+ * RC-SYS-2.1 — the ATTRIBUTES step is no longer six hard-coded abilities: it is BUILT from the active
+ * `SystemPackage`'s `attributes[]`. A package that declares none (the built-in Generic package) has no
+ * attributes step at all, so a Generic draft is complete without ever assigning a score. The step id
+ * and, under 5e, its field ids stay exactly what they were (`abilities`, `str`…`cha`), so a draft
+ * saved before this change resumes with its progress and issues intact.
  */
 
 export type CharacterDraftStepId = 'identity' | 'abilities' | 'class';
@@ -56,7 +64,10 @@ export const DRAFT_BACKGROUND_OPTIONS: readonly DraftStepOption[] = Object.freez
 	{ value: 'sage', label: 'Sage' },
 ]);
 
-/** The six ability ids in canonical order. */
+/**
+ * The six legacy ability field ids in canonical order — the ids a 5e attributes step still saves
+ * under (RC-SYS-2.1 keeps them for byte-stability; see {@link draftAttributeFieldId}).
+ */
 export const ABILITY_IDS = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
 export type AbilityId = (typeof ABILITY_IDS)[number];
 
@@ -80,55 +91,102 @@ const POINT_BUY_COST: Readonly<Record<number, number>> = Object.freeze({
 	15: 9,
 });
 
-/** The ordered step definitions for the guided flow. The single source of truth for the GUI. */
-export const DRAFT_STEPS: readonly DraftStepDefinition[] = Object.freeze([
-	{
-		id: 'identity',
-		order: 0,
-		title: 'Identity',
-		description: 'Name your character and choose a background.',
-		fields: [
-			{ id: 'name', label: 'Name', kind: 'text', required: true },
-			{
-				id: 'background',
-				label: 'Background',
-				kind: 'choice',
-				required: true,
-				options: [...DRAFT_BACKGROUND_OPTIONS],
-			},
-		],
-	},
-	{
+/**
+ * The field id an attribute is saved under. A package attribute that aliases one of the six fixed
+ * ability fields keeps that legacy short id (`strength` ⇒ `str`), so a draft saved before RC-SYS-2.1
+ * resumes against exactly the values it stored; anything else uses the package key verbatim.
+ */
+export function draftAttributeFieldId(attribute: SystemAttribute): string {
+	return abilityScoreKeyFor(attribute.key) ?? attribute.key;
+}
+
+/**
+ * Whether the point-buy budget rule applies to this package's attributes. Point buy is a rule about
+ * SCORES that turn into modifiers; a system whose attributes derive nothing (a pool system counting
+ * dice) is not scored that way, so it gets the field but not the budget.
+ */
+function usesPointBuy(attributes: readonly SystemAttribute[]): boolean {
+	return (
+		attributes.length > 0 &&
+		attributes.every((attribute) => attribute.derivation.kind === 'modifier')
+	);
+}
+
+/** The attributes step for a package, or `null` when the package declares no attributes. */
+function attributesStep(pkg: SystemPackage): DraftStepDefinition | null {
+	if (pkg.attributes.length === 0) return null;
+	const budgeted = usesPointBuy(pkg.attributes);
+	return {
 		id: 'abilities',
 		order: 1,
-		title: 'Ability scores',
-		description: `Assign ability scores using point buy (${ABILITY_POINT_BUDGET} points, each ${ABILITY_MIN}–${ABILITY_MAX}).`,
-		fields: ABILITY_IDS.map((ability) => ({
-			id: ability,
-			label: ability.toUpperCase(),
+		title: 'Attributes',
+		description: budgeted
+			? `Assign scores using point buy (${ABILITY_POINT_BUDGET} points, each ${ABILITY_MIN}–${ABILITY_MAX}).`
+			: 'Assign a rating to each attribute.',
+		fields: pkg.attributes.map((attribute) => ({
+			id: draftAttributeFieldId(attribute),
+			label: attribute.abbreviation,
 			kind: 'number' as const,
 			required: true,
 		})),
-	},
-	{
-		id: 'class',
-		order: 2,
-		title: 'Class',
-		description: 'Choose your class.',
-		fields: [
-			{
-				id: 'class',
-				label: 'Class',
-				kind: 'choice',
-				required: true,
-				options: [...DRAFT_CLASS_OPTIONS],
-			},
-		],
-	},
-]);
+	};
+}
 
-export function getDraftStep(stepId: string): DraftStepDefinition | undefined {
-	return DRAFT_STEPS.find((step) => step.id === stepId);
+/**
+ * The ordered step definitions for the guided flow under one system package (RC-SYS-2.1). The single
+ * source of truth for the GUI. Identity and class are flow-level prototype rules the package model
+ * does not describe, so they are present for every system; the attributes step is package-derived and
+ * disappears entirely for a system with no attributes.
+ */
+export function draftStepsForPackage(pkg: SystemPackage): DraftStepDefinition[] {
+	const attributes = attributesStep(pkg);
+	return [
+		{
+			id: 'identity',
+			order: 0,
+			title: 'Identity',
+			description: 'Name your character and choose a background.',
+			fields: [
+				{ id: 'name', label: 'Name', kind: 'text', required: true },
+				{
+					id: 'background',
+					label: 'Background',
+					kind: 'choice',
+					required: true,
+					options: [...DRAFT_BACKGROUND_OPTIONS],
+				},
+			],
+		},
+		...(attributes ? [attributes] : []),
+		{
+			id: 'class',
+			order: 2,
+			title: 'Class',
+			description: 'Choose your class.',
+			fields: [
+				{
+					id: 'class',
+					label: 'Class',
+					kind: 'choice',
+					required: true,
+					options: [...DRAFT_CLASS_OPTIONS],
+				},
+			],
+		},
+	];
+}
+
+/** The flow under the built-in 5e package — the shape every pre-RC-SYS-2.1 caller already expects. */
+export const DRAFT_STEPS: readonly DraftStepDefinition[] = Object.freeze(
+	draftStepsForPackage(DND5E_SYSTEM_PACKAGE),
+);
+
+/** One step definition under a package (5e by default). */
+export function getDraftStep(
+	stepId: string,
+	pkg: SystemPackage = DND5E_SYSTEM_PACKAGE,
+): DraftStepDefinition | undefined {
+	return draftStepsForPackage(pkg).find((step) => step.id === stepId);
 }
 
 /** A validation issue for one step field, or a step-level rule. Path is `step.field` or `step`. */
@@ -172,8 +230,9 @@ export function pointBuyCost(score: number): number | null {
 export function validateDraftStep(
 	stepId: string,
 	values: Record<string, unknown>,
+	pkg: SystemPackage = DND5E_SYSTEM_PACKAGE,
 ): DraftStepValidation {
-	const step = getDraftStep(stepId);
+	const step = getDraftStep(stepId, pkg);
 	if (!step) {
 		return {
 			stepId: stepId as CharacterDraftStepId,
@@ -182,6 +241,9 @@ export function validateDraftStep(
 		};
 	}
 	const issues: DraftValidationIssue[] = [];
+	// The point-buy bounds/budget are a rule about SCORES; a system whose attributes derive nothing
+	// still declares the fields but is not scored that way (RC-SYS-2.1).
+	const budgeted = step.id === 'abilities' && usesPointBuy(pkg.attributes);
 
 	for (const field of step.fields) {
 		const raw = values[field.id];
@@ -189,11 +251,15 @@ export function validateDraftStep(
 			const num = asNumber(raw);
 			if (num === null) {
 				if (field.required) {
-					issues.push({ stepId: step.id, fieldId: field.id, message: `${field.label} is required.` });
+					issues.push({
+						stepId: step.id,
+						fieldId: field.id,
+						message: `${field.label} is required.`,
+					});
 				}
 				continue;
 			}
-			if (step.id === 'abilities' && (num < ABILITY_MIN || num > ABILITY_MAX)) {
+			if (step.id === 'abilities' && budgeted && (num < ABILITY_MIN || num > ABILITY_MAX)) {
 				issues.push({
 					stepId: step.id,
 					fieldId: field.id,
@@ -204,7 +270,11 @@ export function validateDraftStep(
 			const text = asText(raw);
 			if (!text) {
 				if (field.required) {
-					issues.push({ stepId: step.id, fieldId: field.id, message: `${field.label} is required.` });
+					issues.push({
+						stepId: step.id,
+						fieldId: field.id,
+						message: `${field.label} is required.`,
+					});
 				}
 				continue;
 			}
@@ -225,17 +295,17 @@ export function validateDraftStep(
 
 	// Step-level rule: the abilities point-buy budget. Only enforced once every ability is a legal
 	// in-range score (otherwise the per-field range issues are the actionable ones).
-	if (step.id === 'abilities' && issues.length === 0) {
+	if (budgeted && issues.length === 0) {
 		let spent = 0;
-		for (const ability of ABILITY_IDS) {
-			const score = asNumber(values[ability]);
+		for (const field of step.fields) {
+			const score = asNumber(values[field.id]);
 			const cost = score === null ? null : pointBuyCost(score);
 			if (cost === null) {
 				// Defensive: a score outside the cost table that slipped past range checks.
 				issues.push({
 					stepId: step.id,
-					fieldId: ability,
-					message: `${ability.toUpperCase()} is not a legal point-buy score.`,
+					fieldId: field.id,
+					message: `${field.label} is not a legal point-buy score.`,
 				});
 			} else {
 				spent += cost;
@@ -273,23 +343,29 @@ export interface DraftCompleteness {
  * reopening a draft restores exactly the completed steps and unresolved validation issues (AC2). A
  * draft is `readyToFinalize` only when EVERY step is valid (AC1).
  */
-export function computeDraftCompleteness(draft: CharacterDraft): DraftCompleteness {
+export function computeDraftCompleteness(
+	draft: CharacterDraft,
+	pkg: SystemPackage = DND5E_SYSTEM_PACKAGE,
+): DraftCompleteness {
 	const valuesByStep = draftStepValues(draft);
-	const completed = new Set(draft.steps.filter((step) => step.completed).map((step) => step.stepId));
+	const completed = new Set(
+		draft.steps.filter((step) => step.completed).map((step) => step.stepId),
+	);
+	const definitions = draftStepsForPackage(pkg);
 
-	const steps = DRAFT_STEPS.map((definition) =>
-		validateDraftStep(definition.id, valuesByStep[definition.id] ?? {}),
+	const steps = definitions.map((definition) =>
+		validateDraftStep(definition.id, valuesByStep[definition.id] ?? {}, pkg),
 	);
 	const issues = steps.flatMap((step) => step.issues);
 	const readyToFinalize = steps.every((step) => step.valid);
 
-	const completedStepIds = DRAFT_STEPS.filter((definition) => completed.has(definition.id)).map(
-		(definition) => definition.id,
-	);
+	const completedStepIds = definitions
+		.filter((definition) => completed.has(definition.id))
+		.map((definition) => definition.id);
 
 	// The next step to resume: the first step that is either not yet completed, or completed but
 	// still invalid. Null when the draft is ready.
-	const nextStep = DRAFT_STEPS.find((definition) => {
+	const nextStep = definitions.find((definition) => {
 		const validation = steps.find((step) => step.stepId === definition.id);
 		return !completed.has(definition.id) || (validation ? !validation.valid : true);
 	});

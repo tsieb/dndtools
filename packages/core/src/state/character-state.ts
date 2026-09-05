@@ -152,6 +152,14 @@ export interface Character {
 	 */
 	sharedWith: ActorId[];
 	abilityScores: AbilityScores;
+	/**
+	 * RC-SYS-2.1 — scores keyed by the ACTIVE SYSTEM PACKAGE's attribute keys, for the attributes the
+	 * six fixed `abilityScores` fields cannot hold (a package that renamed them, added a seventh, or
+	 * dropped them entirely). Optional and absent on every 5e character — a key that aliases one of
+	 * the six fixed fields is written there instead, so existing documents round-trip byte-identically
+	 * and this slice needs no schema bump. Read both through {@link characterAttributes}.
+	 */
+	attributes?: Record<string, number>;
 	attacks: CharacterAttack[];
 	combat: CharacterCombatState;
 	/** Open structured sheet data the later CHAR epics extend (backstory, resources, …). */
@@ -202,6 +210,118 @@ export interface Character {
 /** Read the proficiencies block off a character, hydrating safe defaults. Pure. */
 export function proficienciesOf(character: Character): CharacterProficiencies {
 	return ensureCharacterProficiencies(character.proficiencies);
+}
+
+// --- Package-keyed attributes (RC-SYS-2.1) --------------------------------------------------------
+
+/**
+ * RC-SYS-2.1 — a character's scores are no longer six hard-coded 5e abilities: they are whatever the
+ * active `SystemPackage` declares in `attributes[]`, keyed by the package's attribute key.
+ *
+ * The durable document keeps BOTH shapes on purpose:
+ *
+ *   - {@link Character.abilityScores} stays exactly as it was written, so every vault ever saved
+ *     round-trips byte-identically and `characters` needs NO schema bump (this is the same additive
+ *     rule `proficiencies` / `inventory` followed).
+ *   - {@link Character.attributes} is the OPEN map a non-5e package writes into. It is absent on
+ *     every existing document and on every 5e character, which is what keeps the round-trip stable.
+ *
+ * {@link characterAttributes} is the HYDRATOR that turns the pair into one map, and
+ * {@link abilityScoreKeyFor} is the alias that lets a package attribute key (`strength`, or a short
+ * `str`) find the fixed field it was historically stored in.
+ */
+
+/** The six fixed {@link AbilityScores} fields, in canonical 5e order. */
+export const ABILITY_SCORE_KEYS = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
+export type AbilityScoreKey = (typeof ABILITY_SCORE_KEYS)[number];
+
+/**
+ * Package attribute key ⇒ the fixed {@link AbilityScores} field it hydrates from. Both the long 5e
+ * key the built-in package uses (`strength`) and the short legacy key (`str`) resolve, so a
+ * DM-authored package may spell its attributes either way and still read a character written before
+ * packages existed.
+ */
+const ABILITY_SCORE_ALIASES: Readonly<Record<string, AbilityScoreKey>> = Object.freeze({
+	str: 'str',
+	strength: 'str',
+	dex: 'dex',
+	dexterity: 'dex',
+	con: 'con',
+	constitution: 'con',
+	int: 'int',
+	intelligence: 'int',
+	wis: 'wis',
+	wisdom: 'wis',
+	cha: 'cha',
+	charisma: 'cha',
+});
+
+/** The fixed ability field a package attribute key maps onto, or `null` when it maps onto none. Pure. */
+export function abilityScoreKeyFor(attributeKey: string): AbilityScoreKey | null {
+	return ABILITY_SCORE_ALIASES[attributeKey.trim().toLowerCase()] ?? null;
+}
+
+/**
+ * The character's attribute scores as ONE map (RC-SYS-2.1 hydrator). The six fixed fields appear
+ * under their short keys; an explicit `attributes` entry wins over the fixed field it aliases, so a
+ * package that renamed an attribute is authoritative. Absent/non-finite values are omitted rather
+ * than defaulted — "no score" and "score 0" are different facts. Pure; never mutates.
+ */
+export function characterAttributes(character: Character): Record<string, number> {
+	const out: Record<string, number> = {};
+	for (const key of ABILITY_SCORE_KEYS) {
+		const score = character.abilityScores[key];
+		if (typeof score === 'number' && Number.isFinite(score)) out[key] = score;
+	}
+	for (const [key, score] of Object.entries(character.attributes ?? {})) {
+		if (typeof score === 'number' && Number.isFinite(score)) out[key] = score;
+	}
+	return out;
+}
+
+/**
+ * One attribute score for a package attribute key, or `undefined` when the character has none.
+ * Explicit `attributes` first, then the aliased fixed field. Pure.
+ */
+export function characterAttributeScore(
+	character: Character,
+	attributeKey: string,
+): number | undefined {
+	const explicit = character.attributes?.[attributeKey];
+	if (typeof explicit === 'number' && Number.isFinite(explicit)) return explicit;
+	const alias = abilityScoreKeyFor(attributeKey);
+	if (alias === null) return undefined;
+	const score = character.abilityScores[alias];
+	return typeof score === 'number' && Number.isFinite(score) ? score : undefined;
+}
+
+/**
+ * Set one attribute score, keeping the two shapes consistent (RC-SYS-2.1). A key that aliases one of
+ * the six fixed fields writes THERE and nowhere else, so a 5e character's document stays exactly the
+ * shape it has always had; any other key writes into the open `attributes` map. Pure: returns a new
+ * character, and never adds an empty `attributes` object to a document that had none.
+ */
+export function setCharacterAttribute(
+	character: Character,
+	attributeKey: string,
+	score: number,
+): Character {
+	const alias = abilityScoreKeyFor(attributeKey);
+	if (alias !== null && character.attributes?.[attributeKey] === undefined) {
+		return { ...character, abilityScores: { ...character.abilityScores, [alias]: score } };
+	}
+	return { ...character, attributes: { ...(character.attributes ?? {}), [attributeKey]: score } };
+}
+
+/** Drop empty attribute maps so a character with no package-keyed scores stores no `attributes`. Pure. */
+export function normalizeCharacterAttributes(
+	attributes: Record<string, number> | undefined,
+): Record<string, number> | undefined {
+	if (!attributes) return undefined;
+	const entries = Object.entries(attributes).filter(
+		([, score]) => typeof score === 'number' && Number.isFinite(score),
+	);
+	return entries.length === 0 ? undefined : Object.fromEntries(entries);
 }
 
 /** One step in the guided PC-creation flow, recorded on the draft as the player progresses. */
@@ -386,7 +506,9 @@ export function upsertPartyInventoryItem(
 		detail: input.detail ?? existing?.detail ?? '',
 		quantity: nonNeg(input.quantity, existing?.quantity ?? 1),
 		weight: nonNeg(input.weight, existing?.weight ?? 0),
-		visibility: normalizeVisibilityLevel(input.visibility ?? existing?.visibility ?? DEFAULT_VISIBILITY),
+		visibility: normalizeVisibilityLevel(
+			input.visibility ?? existing?.visibility ?? DEFAULT_VISIBILITY,
+		),
 		sharedWith: [...new Set(input.sharedWith ?? existing?.sharedWith ?? [])],
 		revision: (existing?.revision ?? 0) + 1,
 	};
@@ -421,6 +543,8 @@ export interface QuickCreateCharacterInput {
 	name: string;
 	visibility?: VisibilityLevel;
 	abilityScores?: AbilityScores;
+	/** RC-SYS-2.1 — package-keyed scores for attributes the six fixed fields cannot hold. */
+	attributes?: Record<string, number>;
 	attacks?: Array<{ id?: string; name: string; detail?: string }>;
 	combat?: Partial<CharacterCombatState>;
 	data?: Record<string, unknown>;
@@ -451,6 +575,22 @@ export function buildQuickCreatedCharacter(
 		name: attack.name,
 		detail: attack.detail ?? '',
 	}));
+	// RC-SYS-2.1 — package-keyed scores split the same way `setCharacterAttribute` splits them: a key
+	// that aliases one of the six fixed fields lands there (an explicit `abilityScores` value still
+	// wins, it is the more specific input), anything else lands in the open `attributes` map. A 5e
+	// quick-create therefore produces exactly the document it always did, with no `attributes` key.
+	const abilityScores: AbilityScores = { ...(input.abilityScores ?? {}) };
+	const openAttributes: Record<string, number> = {};
+	for (const [key, score] of Object.entries(input.attributes ?? {})) {
+		if (typeof score !== 'number' || !Number.isFinite(score)) continue;
+		const alias = abilityScoreKeyFor(key);
+		if (alias !== null) {
+			if (abilityScores[alias] === undefined) abilityScores[alias] = score;
+		} else {
+			openAttributes[key] = score;
+		}
+	}
+	const attributes = normalizeCharacterAttributes(openAttributes);
 	return {
 		id: meta.id,
 		kind: input.kind,
@@ -458,7 +598,8 @@ export function buildQuickCreatedCharacter(
 		// Fail closed: no explicit visibility ⇒ dm-only (CHAR-001 AC2).
 		visibility: normalizeVisibilityLevel(input.visibility ?? DEFAULT_VISIBILITY),
 		sharedWith: [],
-		abilityScores: { ...(input.abilityScores ?? {}) },
+		abilityScores,
+		...(attributes ? { attributes } : {}),
 		attacks,
 		combat,
 		data: { ...(input.data ?? {}) },
