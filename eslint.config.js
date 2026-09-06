@@ -3,6 +3,8 @@ import prettier from 'eslint-config-prettier';
 import ts from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
+import noLiteralJsxText from './scripts/eslint-rules/no-literal-jsx-text.js';
+import { allow as literalTextAllow } from './scripts/eslint-rules/no-literal-jsx-text.allow.js';
 
 // Lint config for the React GM app (`apps/gm-react`), the processing core (`packages/core`),
 // the cloud Lambdas (`packages/cloud-fns`), and repo tooling (`scripts/`, `tests/`). The Svelte
@@ -38,6 +40,23 @@ export default ts.config(
 			'@typescript-eslint/no-explicit-any': 'warn',
 			'react-hooks/rules-of-hooks': 'error',
 			'react-hooks/exhaustive-deps': 'warn',
+		},
+	},
+	{
+		// RC-UX-1.2: every user-visible string in the GM app comes out of `src/i18n/messages`.
+		// Scoped to the surfaces a person actually reads — the shell (`app/`), the screens and the
+		// design system — with a ratcheting allow-list (`no-literal-jsx-text.allow.mjs`) that a
+		// migrating commit has to lower. Tests and stories are out of scope: their strings are
+		// fixtures, not copy.
+		files: [
+			'apps/gm-react/src/app/**/*.tsx',
+			'apps/gm-react/src/screens/**/*.tsx',
+			'apps/gm-react/src/ds/**/*.tsx',
+		],
+		ignores: ['**/*.test.tsx'],
+		plugins: { i18n: { rules: { 'no-literal-jsx-text': noLiteralJsxText } } },
+		rules: {
+			'i18n/no-literal-jsx-text': ['error', { allow: literalTextAllow, root: import.meta.dirname }],
 		},
 	},
 	{

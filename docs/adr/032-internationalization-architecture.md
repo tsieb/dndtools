@@ -287,6 +287,22 @@ the old source string verbatim. The rest of the app is unmigrated and shows Engl
 which is §2's accepted trade; `es.ts` keeps translations for keys whose call sites UX-1.2 has yet to
 reach, so that migration is a re-pointing rather than a re-translation.
 
+**UX-1.2 in progress (2026-09-05).** `scripts/eslint-rules/no-literal-jsx-text.js` is wired into
+`eslint.config.js` over `apps/gm-react/src/{app,screens,ds}/**/*.tsx` and runs in `pnpm lint`. It
+flags JSX text and the nine translatable attributes (`aria-label`, `title`, `placeholder`, `alt`
+and friends); punctuation, numbers, single glyphs and the contents of `code`/`kbd`/`pre` are not
+language and are never flagged.
+
+The allow-list is a ratchet, not an exemption list. Each entry is a file and the number of
+untranslated strings it may still have; the rule fails when a file goes over that number _and_
+when it comes in under it, so a migrating commit must lower or delete its entry in the same
+change and the list cannot drift upward. New files carry no entry, so their first literal fails
+the gate. It opened at 161 files / 1735 strings.
+
+The Spanish catalog is held at 100% of the English key space, asserted at the 95% floor by
+`index.test.ts` › "keeps the Spanish catalog at or above 95% of the English key space". Every key a
+migration adds is translated in the same commit, so coverage never decays as the key space grows.
+
 ## Verification and Evidence
 
 - Catalogs and API: `apps/gm-react/src/i18n/messages/en.ts`, `messages/es.ts`,
@@ -294,8 +310,9 @@ reach, so that migration is a re-pointing rather than a re-translation.
 - Tests: `apps/gm-react/src/i18n/index.test.ts` (placeholder and plural-category consistency across
   every locale; missing-key fallback; ICU parse cases), `format.test.ts` (plural selection per locale,
   memoization, distance units from the System Package).
-- Lint: `scripts/eslint-rules/no-literal-jsx-text.js` and its allow-list; wired in `eslint.config.js`
-  and run by `pnpm lint`.
+- Lint: `scripts/eslint-rules/no-literal-jsx-text.js` and its allow-list
+  (`no-literal-jsx-text.allow.js`); wired in `eslint.config.js`, run by `pnpm lint`, unit-tested in
+  `tests/unit/no-literal-jsx-text.test.ts`.
 - Workflow: `pnpm i18n:export`, `pnpm i18n:import`, `pnpm i18n:check`,
   `docs/development/LOCALIZATION.md`.
 - E2E: the RTL case in `apps/gm-react/tests/e2e/responsive.spec.ts`, and a language-switch case

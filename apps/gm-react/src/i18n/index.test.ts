@@ -38,12 +38,19 @@ describe('message catalogs', () => {
 	});
 
 	it('falls back to the English source when a locale has not translated a key', () => {
-		const untranslated = (Object.keys(en) as MessageKey[]).find((key) => es[key] === undefined);
-		expect(
-			untranslated,
-			'expected at least one untranslated key to exercise the fallback',
-		).toBeDefined();
-		expect(translate('es', untranslated as MessageKey)).toBe(en[untranslated as MessageKey]);
+		// The gap is made rather than found: RC-UX-1.2 holds Spanish at full coverage, so a test
+		// that hunts for a real untranslated key would pass only while the catalog was incomplete.
+		// `loadCatalog` registers this exact object, so removing a key here removes it from the
+		// live catalog.
+		const key: MessageKey = 'common.action.save';
+		const translated = es[key];
+		delete es[key];
+		try {
+			expect(translate('es', key)).toBe(en[key]);
+		} finally {
+			es[key] = translated;
+		}
+		expect(translate('es', key)).toBe(translated);
 	});
 
 	it('renders the key itself rather than nothing when no catalog knows it', () => {
@@ -81,6 +88,14 @@ describe('message catalogs', () => {
 	it('reports catalog coverage', () => {
 		expect(catalogCoverage('en')).toBe(1);
 		expect(catalogCoverage('es')).toBeGreaterThan(0.9);
+	});
+
+	// RC-UX-1.2's second acceptance criterion. Migrating a screen adds English keys, so this is the
+	// check that stops the Spanish catalog quietly falling behind as the app grows: a key added
+	// without a translation shows Spanish readers English, and enough of them makes the locale a
+	// lie. 95% leaves room for a translator to lag one screen, not a whole workstream.
+	it('keeps the Spanish catalog at or above 95% of the English key space', () => {
+		expect(catalogCoverage('es')).toBeGreaterThanOrEqual(0.95);
 	});
 });
 

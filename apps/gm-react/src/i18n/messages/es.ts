@@ -68,6 +68,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.live.badge': 'Sesión en vivo',
 	'session.goLive.label': 'Entrar en vivo',
 	'session.goLive.blockedState': 'Entrar en vivo (no disponible — vuelve primero a En espera)',
+	'session.goLive.blockedPreview':
+		'Entrar en vivo (no disponible — sal primero de la vista previa de jugador)',
 	'session.goLive.needsScene':
 		'Crea una escena primero — una sesión en vivo necesita una escena activa.',
 	'session.goLive.needsSceneShort': 'Entra en vivo con una escena primero.',
@@ -82,6 +84,15 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.end.label': 'Terminar',
 	'session.end.liveLabel': 'Terminar la sesión en vivo',
 	'session.end.announcement': 'Sesión terminada — los jugadores volvieron a espera',
+	'session.end.confirmTitle': '¿Terminar la sesión en vivo?',
+	'session.end.confirmBody':
+		'Volver a En espera borra la escena y el mapa activos, todo el orden de iniciativa con los PG y estados de cada combatiente, los documentos entregados, los temporizadores y el registro de dados. No se archiva nada — usa Resumen en la pantalla de Sesión si quieres conservar un registro.',
+	'session.end.stay': 'Seguir en vivo',
+	'session.end.confirmAction': 'Terminar la sesión',
+	'session.end.toast': 'Sesión terminada — de vuelta en espera',
+	'session.movedToPrep': 'Sesión movida a Preparación',
+	'session.archivedIntoRecap': 'Sesión archivada en Resumen',
+	'session.updateFailed': 'No se pudo actualizar la sesión — inténtalo de nuevo.',
 	'projection.toPlayers': 'Proyectar a los jugadores',
 	'projection.mapProjected': 'Mapa proyectado a los jugadores',
 	'projection.noPlayers': 'Aún no hay jugadores — añádelos primero en Configuración → Jugadores.',
@@ -89,12 +100,18 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sceneDisplay.title': 'Pantalla de escena',
 	'sceneDisplay.exit': 'Salir de la pantalla de escena',
 	'sceneDisplay.none': 'Ninguna escena en pantalla',
+	'sceneDisplay.empty': 'No hay nada en la pantalla',
 	'sceneDisplay.onDisplay': 'En pantalla',
 	'sceneDisplay.nextCard': 'Siguiente carta',
 	'sceneDisplay.nextCardQueued': 'Siguiente carta ({count} en cola)',
+	'sceneDisplay.queueFirst': 'Pon primero una carta de escena en cola',
 	'sceneDisplay.clear': 'Limpiar la pantalla',
+	'sceneDisplay.clearFailed': 'No se pudo limpiar la pantalla — inténtalo de nuevo.',
+	'sceneDisplay.nextFailed': 'No se pudo mostrar la siguiente carta — inténtalo de nuevo.',
 	'sceneDisplay.secondScreen': 'Segunda pantalla',
 	'sceneDisplay.secondScreenOpen': 'Abrir en una segunda pantalla',
+	'sceneDisplay.popupBlocked':
+		'Tu navegador bloqueó la ventana de pantalla — permite las ventanas emergentes de este sitio.',
 	'sceneDisplay.secondScreenUnavailable':
 		'La segunda pantalla no está disponible en este dispositivo',
 	'sceneCards.atmosphere': 'Atmósfera',
@@ -108,6 +125,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Se muestra en la pantalla y se envía a los jugadores (máx. 500 caracteres).',
 	'sceneCards.noFlavorText': 'Sin texto de ambientación',
 	'sceneCards.heroImage': 'Enlace de imagen principal',
+	'sceneCards.heroImageDesktopClears':
+		'Los enlaces de imágenes remotas están bloqueados en la app de escritorio. Al guardar se borra este enlace.',
 	'sceneCards.heroImageDesktopBlocked':
 		'Los enlaces de imagen remotos están bloqueados en la app de escritorio; las cartas usan su fondo de ambiente.',
 	'sceneCards.heroImageSecureHelp':
