@@ -11,8 +11,8 @@ import {
 	type WidgetDraft,
 } from './draft';
 import { StepHeader, StepSection } from './fields';
-import { TEMPLATE_LABEL } from './vocabulary';
-import { useI18n, type MessageKey } from '../../i18n';
+import { RUNTIME_LABEL, TEMPLATE_LABEL, TRUST_RECOMMENDATION } from './vocabulary';
+import { useI18n } from '../../i18n';
 
 /**
  * Review — what will be installed, what it asks for, and the one button that writes it
@@ -23,13 +23,6 @@ import { useI18n, type MessageKey } from '../../i18n';
  * package, so a widget is judged here by exactly the standard it will be judged by afterwards.
  * Nothing is installed until this step's button is pressed, and a rejection is printed verbatim.
  */
-
-const RECOMMENDATION: Record<string, { label: MessageKey; tone: 'success' | 'warning' | 'error' }> =
-	{
-		'trusted-after-review': { label: 'extensions.plugins.recommendTrust', tone: 'success' },
-		'requires-review': { label: 'extensions.trust.recommend.review', tone: 'warning' },
-		'deny-until-fixed': { label: 'extensions.trust.recommend.deny', tone: 'error' },
-	};
 
 export function ReviewStep({
 	draft,
@@ -56,7 +49,7 @@ export function ReviewStep({
 	const pkg = useMemo(() => buildPackage(draft), [draft]);
 	const summary = useMemo(() => buildWidgetPackageReviewSummary(pkg), [pkg]);
 	const migration = generateMigration(draft);
-	const recommendation = RECOMMENDATION[summary.trustRecommendation];
+	const recommendation = TRUST_RECOMMENDATION[summary.trustRecommendation];
 	const recommendationLabel = recommendation
 		? t(recommendation.label)
 		: summary.trustRecommendation;
@@ -96,7 +89,13 @@ export function ReviewStep({
 						},
 						{ label: t('builder.review.widgetType'), value: draft.typeId || '—' },
 						{ label: t('builder.identity.version'), value: draft.version },
-						{ label: t('builder.review.drawsAs'), value: t(TEMPLATE_LABEL[draft.template]) },
+						{
+							label: t('builder.review.drawsAs'),
+							value:
+								draft.runtime === 'custom-html-js'
+									? t(RUNTIME_LABEL['custom-html-js'])
+									: t(TEMPLATE_LABEL[draft.template]),
+						},
 						{
 							label: t('builder.review.dataQueries'),
 							value:

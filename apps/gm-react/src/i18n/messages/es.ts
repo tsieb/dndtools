@@ -2439,6 +2439,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.issue.commandDuplicate': 'El comando {type} está declarado más de una vez.',
 	'builder.issue.tokenName': 'Cada token de estilo necesita un nombre.',
 	'builder.issue.tokenDuplicate': 'El token de estilo {name} está declarado más de una vez.',
+	'builder.issue.customCodeEmpty':
+		'Escribe el marcado del widget o su script antes de instalarlo. Un widget propio sin ninguno no dibuja nada.',
+	'builder.issue.networkDestinations':
+		'Elige al menos un destino para el permiso de red. Cualquier otro destino se deniega.',
+	'builder.issue.networkWithoutPermission':
+		'Pide el permiso de red o quita los destinos. Sin el permiso no conceden nada.',
 
 	'builder.identity.help':
 		'Ponle nombre al widget y di dónde va. Los ids son la forma en que la campaña se refiere a él para siempre, así que aquí se comprueban.',
@@ -2651,19 +2657,71 @@ export const es: Partial<Record<MessageKey, string>> = {
 
 	'builder.advanced.title': 'Avanzado',
 	'builder.advanced.help':
-		'Lo que el paquete le pide al anfitrión y lo que un revisor debería saber antes de confiar en él.',
+		'Cómo dibuja el widget, qué le pide al anfitrión y lo que un revisor debería saber antes de confiar en él.',
+	'builder.advanced.runtimeTitle': 'Cómo dibuja',
+	'builder.advanced.runtimeHelp':
+		'Un widget de plantilla se declara, no se programa. El código propio se ejecuta en un marco aislado.',
+	'builder.advanced.runtimeTemplate': 'Plantilla',
+	'builder.advanced.runtimeCustom': 'HTML y JavaScript propios',
+	'builder.advanced.runtimeTemplateNote':
+		'La plantilla elegida en el paso Datos dibuja este widget. Aquí no se escribe código.',
+	'builder.advanced.runtimeCustomNote':
+		'El código de abajo se ejecuta en un marco sin acceso a la bóveda, al almacenamiento ni a la página de la aplicación. Solo llega al anfitrión por la API de widgets.',
+	'builder.advanced.codeTitle': 'Código',
+	'builder.advanced.codeHelp':
+		'El marcado, los estilos y el script viajan como tres archivos del paquete. El marcado va dentro del cuerpo del marco; los otros dos se conectan por ti.',
+	'builder.advanced.partHtml': 'HTML',
+	'builder.advanced.partCss': 'CSS',
+	'builder.advanced.partJs': 'JavaScript',
+	'builder.advanced.format': 'Formatear',
+	'builder.advanced.formatHelp': 'Vuelve a sangrar el archivo. No reescribe el código.',
+	'builder.advanced.apiTitle': 'Referencia de la API del anfitrión',
+	'builder.advanced.apiHelp':
+		'Todo lo que el marco puede alcanzar, en window.dndtoolsWidget. Lo que no está aquí no existe dentro del aislamiento.',
+	'builder.advanced.api.root':
+		'El elemento donde dibujar. El marco no tiene otro documento que tocar.',
+	'builder.advanced.api.onRender':
+		'Se llama con los datos del widget cuando cambian, filtrados según quién mira.',
+	'builder.advanced.api.onConfigChanged': 'Se llama cuando cambia un ajuste del widget colocado.',
+	'builder.advanced.api.onBindingChanged': 'Se llama cuando el widget apunta a otra cosa.',
+	'builder.advanced.api.dispatch':
+		'Pide al anfitrión ejecutar uno de los comandos que este widget declara. El núcleo decide si puede.',
+	'builder.advanced.api.requestPermission':
+		'Pide un permiso del anfitrión. Denegado salvo que un revisor lo apruebe para este paquete.',
+	'builder.advanced.api.outbound':
+		'Pide al anfitrión enviar algo fuera. El anfitrión comprueba antes el destino y el contenido.',
+	'builder.advanced.api.setHeight':
+		'Informa de la altura del contenido para que el marco la ajuste.',
 	'builder.advanced.permsTitle': 'Permisos del anfitrión',
 	'builder.advanced.permsHelp':
 		'Solicitados, no concedidos. Todos los paquetes se instalan con todos denegados hasta que un revisor los apruebe.',
 	'builder.advanced.permsLegend': 'Permisos del anfitrión solicitados',
 	'builder.advanced.permsWarning':
 		'Un paquete que pide permisos del anfitrión se instala denegado y sigue denegado hasta que se revise.',
+	'builder.advanced.destinationsLegend': 'Destinos de red',
+	'builder.advanced.destination.vaultSync': 'Sincronización de la bóveda',
+	'builder.advanced.destination.assetCdn': 'Almacén de recursos',
+	'builder.advanced.destination.widgetDeclared': 'Su propia dirección declarada',
+	'builder.advanced.destination.analytics': 'Telemetría',
+	'builder.advanced.destinationHelp.vaultSync':
+		'el punto de sincronización configurado para esta bóveda.',
+	'builder.advanced.destinationHelp.assetCdn':
+		'el almacén desde el que se sirven imágenes y mapas.',
+	'builder.advanced.destinationHelp.widgetDeclared':
+		'una dirección que el paquete nombra y un revisor aprueba al instalar.',
+	'builder.advanced.destinationHelp.analytics':
+		'el destino de telemetría propia, cuando está activo.',
+	'builder.advanced.noDestinations': 'Ninguno solicitado',
+	'builder.advanced.securityTitle': 'Resumen de seguridad',
+	'builder.advanced.securityHelp':
+		'Se calcula del borrador mientras escribes. Es el mismo resumen que lee un revisor antes de confiar en el paquete.',
+	'builder.advanced.summaryCustomCode':
+		'Este paquete lleva código, así que necesita una revisión antes de ser de confianza.',
+	'builder.advanced.summaryNoCustomCode': 'Este paquete no lleva código propio.',
 	'builder.advanced.notesTitle': 'Notas de portabilidad',
 	'builder.advanced.notesHelp':
 		'Una por línea. Viajan con el paquete y se muestran a quien lo revise.',
 	'builder.advanced.notesPlaceholder': 'Necesita que la lista del grupo esté rellena.',
-	'builder.advanced.customCodeBody':
-		'Este constructor escribe widgets de plantilla, que no necesitan código propio. Escribir HTML y JavaScript propios necesita el anfitrión de widgets aislado, que no está en esta compilación — un paquete que lo declare se instala pero todavía no puede dibujar.',
 
 	'builder.review.helpInstall':
 		'Revisa lo que está a punto de instalarse. Llega desactivado y con todos los permisos del anfitrión denegados — actívalo desde Paquetes instalados cuando estés conforme.',
@@ -2707,6 +2765,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Dibujado con los datos de esta campaña, para el actor con el que estás viendo.',
 	'builder.preview.emptyQueries':
 		'{list} no tiene nada que mostrar ahora mismo, así que aparece el estado vacío del widget.',
+	'builder.preview.drawnInSandbox':
+		'El código propio del widget, ejecutándose en el marco aislado con todos los permisos del anfitrión denegados, como quedará tras instalarlo.',
+	'builder.preview.customDmOnly':
+		'Un widget con código propio se previsualiza como DM. Colócalo en una escena para ver lo que recibe un jugador.',
 	/* Conocimiento › la bóveda de notas, su importador y el visor de notas */
 	'knowledge.notes': 'Notas',
 	'knowledge.note': 'Nota',

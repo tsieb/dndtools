@@ -2369,6 +2369,12 @@ export const en = {
 	'builder.issue.commandDuplicate': 'Command {type} is declared more than once.',
 	'builder.issue.tokenName': 'Every style token needs a name.',
 	'builder.issue.tokenDuplicate': 'Style token {name} is declared more than once.',
+	'builder.issue.customCodeEmpty':
+		'Write the widget’s markup or its script before installing it. A custom widget with neither draws nothing.',
+	'builder.issue.networkDestinations':
+		'Pick at least one destination the network permission is for. A request to any other destination is denied.',
+	'builder.issue.networkWithoutPermission':
+		'Ask for the network permission, or clear the destinations. Without the permission they grant nothing.',
 
 	'builder.identity.help':
 		'Name the widget and say where it belongs. The ids are how the campaign refers to it forever, so they are slug-checked here.',
@@ -2576,19 +2582,67 @@ export const en = {
 
 	'builder.advanced.title': 'Advanced',
 	'builder.advanced.help':
-		'What the package asks the host for, and what a reviewer should know before trusting it.',
+		'How the widget draws, what it asks the host for, and what a reviewer should know before trusting it.',
+	'builder.advanced.runtimeTitle': 'How it draws',
+	'builder.advanced.runtimeHelp':
+		'A template widget is declared, not coded. Custom code runs in a sandboxed frame of its own.',
+	'builder.advanced.runtimeTemplate': 'Template',
+	'builder.advanced.runtimeCustom': 'Custom HTML and JavaScript',
+	'builder.advanced.runtimeTemplateNote':
+		'The template picked in the Data step draws this widget. Nothing here writes code.',
+	'builder.advanced.runtimeCustomNote':
+		'The code below runs in a frame with no access to the vault, storage or the app’s page. It reaches the host only through the widget API.',
+	'builder.advanced.codeTitle': 'Code',
+	'builder.advanced.codeHelp':
+		'Markup, styles and script ship as three files in the package. The markup goes inside the frame’s body; the other two are wired up for you.',
+	'builder.advanced.partHtml': 'HTML',
+	'builder.advanced.partCss': 'CSS',
+	'builder.advanced.partJs': 'JavaScript',
+	'builder.advanced.format': 'Format',
+	'builder.advanced.formatHelp': 'Re-indents the file. It does not rewrite the code.',
+	'builder.advanced.apiTitle': 'Host API reference',
+	'builder.advanced.apiHelp':
+		'Everything the frame can reach, on window.dndtoolsWidget. Anything not listed here is unavailable inside the sandbox.',
+	'builder.advanced.api.root':
+		'The element to draw into. The frame has no other document to touch.',
+	'builder.advanced.api.onRender':
+		'Called with the widget’s data whenever it changes, filtered for whoever is looking.',
+	'builder.advanced.api.onConfigChanged': 'Called when a setting on the placed widget changes.',
+	'builder.advanced.api.onBindingChanged': 'Called when the widget is pointed at something else.',
+	'builder.advanced.api.dispatch':
+		'Asks the host to run one of the commands this widget declares. The core decides whether it may.',
+	'builder.advanced.api.requestPermission':
+		'Asks for a host permission. Denied unless a reviewer approved it for this package.',
+	'builder.advanced.api.outbound':
+		'Asks the host to send something out. The host checks the destination and the payload first.',
+	'builder.advanced.api.setHeight': 'Reports how tall the content is, so the frame can fit it.',
 	'builder.advanced.permsTitle': 'Host permissions',
 	'builder.advanced.permsHelp':
 		'Requested, not granted. Every package installs with all of these denied until a reviewer approves them.',
 	'builder.advanced.permsLegend': 'Requested host permissions',
 	'builder.advanced.permsWarning':
 		'A package asking for host permissions installs denied and stays denied until it is reviewed.',
+	'builder.advanced.destinationsLegend': 'Network destinations',
+	'builder.advanced.destination.vaultSync': 'Vault sync',
+	'builder.advanced.destination.assetCdn': 'Asset store',
+	'builder.advanced.destination.widgetDeclared': 'Its own declared address',
+	'builder.advanced.destination.analytics': 'Telemetry',
+	'builder.advanced.destinationHelp.vaultSync': 'the sync endpoint this vault is configured for.',
+	'builder.advanced.destinationHelp.assetCdn': 'the asset store images and maps are served from.',
+	'builder.advanced.destinationHelp.widgetDeclared':
+		'an address the package names and a reviewer approves at install.',
+	'builder.advanced.destinationHelp.analytics': 'the first-party telemetry sink, when it is on.',
+	'builder.advanced.noDestinations': 'None requested',
+	'builder.advanced.securityTitle': 'Security summary',
+	'builder.advanced.securityHelp':
+		'Worked out from the draft as you type. It is the same summary a reviewer reads before trusting this package.',
+	'builder.advanced.summaryCustomCode':
+		'This package ships code, so it needs a review before it is trusted.',
+	'builder.advanced.summaryNoCustomCode': 'This package ships no code of its own.',
 	'builder.advanced.notesTitle': 'Portability notes',
 	'builder.advanced.notesHelp':
 		'One per line. These travel with the package and are shown to anyone reviewing it.',
 	'builder.advanced.notesPlaceholder': 'Needs the party roster to be populated.',
-	'builder.advanced.customCodeBody':
-		'This builder writes template widgets, which need no code of their own. Writing custom HTML and JavaScript needs the sandboxed widget host, which is not in this build — a package that declares it installs but cannot draw yet.',
 
 	'builder.review.helpInstall':
 		'Check what is about to be installed. It lands disabled with every host permission denied — enable it from Installed packages when you are happy with it.',
@@ -2631,6 +2685,10 @@ export const en = {
 		'Drawn with this campaign’s own data, for the actor you are viewing as.',
 	'builder.preview.emptyQueries':
 		'{list} has nothing to show right now, so the widget’s empty state is what appears.',
+	'builder.preview.drawnInSandbox':
+		'The widget’s own code, running in the sandboxed frame with every host permission denied, as it will after install.',
+	'builder.preview.customDmOnly':
+		'A widget running its own code previews as the DM. Place it on a scene to see what a player receives.',
 	/* Knowledge › the notes vault, its importer and the note viewer */
 	'knowledge.notes': 'Notes',
 	'knowledge.note': 'Note',

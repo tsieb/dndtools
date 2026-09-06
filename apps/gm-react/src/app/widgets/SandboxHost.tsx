@@ -3,6 +3,7 @@ import {
 	findPackageRecordForWidgetType,
 	findWidgetDefinition,
 	resolveCustomWidgetRuntimePolicy,
+	type WidgetPackageDefinition,
 	type WidgetPackageRecord,
 } from '@dndtools/core';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -84,9 +85,18 @@ interface HostFailure {
 export function SandboxHost({
 	widget,
 	onCommand,
+	previewPackage,
 }: {
 	widget: BoardWidget;
 	onCommand?: WidgetCommandHandler;
+	/**
+	 * An UNINSTALLED package to run instead of looking this widget's type up in the registry, so the
+	 * widget builder's preview (RC-WID-2.5) runs the draft in this very host rather than in a second
+	 * one that could disagree with it. There is no package RECORD for a draft and none is invented:
+	 * `approvedHostPermissions(null)` is empty, so a preview runs at exactly the trust an unreviewed
+	 * package has after install — every host permission denied.
+	 */
+	previewPackage?: WidgetPackageDefinition;
 }) {
 	const runtime = useRuntime();
 	const frameRef = useRef<HTMLIFrameElement | null>(null);
@@ -95,21 +105,25 @@ export function SandboxHost({
 	const [contentHeight, setContentHeight] = useState<number | null>(null);
 	const [failure, setFailure] = useState<HostFailure | null>(null);
 
-	const definition = findWidgetDefinition(runtime.state.widgets, widget.type) ?? null;
-	const record: WidgetPackageRecord | null =
-		findPackageRecordForWidgetType(runtime.state.widgets, widget.type) ?? null;
+	const definition = previewPackage
+		? (previewPackage.widgets.find((entry) => entry.type === widget.type) ?? null)
+		: (findWidgetDefinition(runtime.state.widgets, widget.type) ?? null);
+	const record: WidgetPackageRecord | null = previewPackage
+		? null
+		: (findPackageRecordForWidgetType(runtime.state.widgets, widget.type) ?? null);
 
 	// The props the frame receives come from the SAME actor-filtered resolution the declarative
 	// templates use (WID-1.2), so an untrusted renderer is fed exactly what the least-privileged
 	// viewer of this surface may see. A `dm` audience query is withheld before it ever reaches a frame.
 	const data = resolveWidgetTemplateData(runtime.state, runtime.activeActorId, definition, widget);
 
+	const source = previewPackage ?? record?.package ?? null;
 	const assembly = useMemo(
 		() =>
-			definition && record
-				? assembleWidgetDocument(record.package, definition, widget.configuration)
+			definition && source
+				? assembleWidgetDocument(source, definition, widget.configuration)
 				: null,
-		[definition, record, widget.configuration],
+		[definition, source, widget.configuration],
 	);
 
 	const policyIssue = useMemo(() => {
@@ -271,7 +285,7 @@ export function SandboxHost({
 		sentRef.current = next;
 	}, [ready, send, renderProps, widget.configuration]);
 
-	if (!definition || !record) {
+	if (!definition || !source) {
 		return <WidgetPlaceholder diagnostic="This widget's package is no longer installed." />;
 	}
 	if (policyIssue) return <WidgetPlaceholder diagnostic={policyIssue.message} />;

@@ -385,3 +385,92 @@ test.describe('widget builder: accessibility', () => {
 		).toEqual([]);
 	});
 });
+
+test.describe('widget builder: advanced step (RC-WID-2.5)', () => {
+	const CUSTOM_ID = 'workspace.torch-card';
+
+	test('writes a custom HTML/JS widget, previews it in the sandbox, and installs it unreviewed', async ({
+		page,
+	}) => {
+		const dialog = await openBuilder(page);
+		await dialog.getByLabel('Name', { exact: true }).fill('Torch card');
+		await dialog.getByRole('button', { name: 'Advanced', exact: true }).click();
+
+		// ── Turning code on fills the editors with a widget that runs, so the preview is never a blank
+		// frame the author has to debug blind.
+		await dialog.getByRole('radio', { name: 'Custom HTML and JavaScript' }).click();
+		const editor = dialog.getByTestId('widget-builder-code');
+		await expect(editor).toHaveValue(/data-title/);
+
+		// ── The security summary is the core's own, recomputed as the draft is typed: code means the
+		// package cannot be trusted without a review.
+		const summary = dialog.getByTestId('widget-builder-security-summary');
+		await expect(summary.getByText('Requires review')).toBeVisible();
+		await expect(summary.getByText('No host permissions requested.')).toBeVisible();
+
+		// ── The Format button re-indents the file it is showing, and nothing else.
+		await dialog.getByRole('radio', { name: 'CSS' }).click();
+		const css = dialog.getByTestId('widget-builder-code');
+		await css.fill('.card {\ncolor: red;\n}');
+		await dialog.getByRole('button', { name: 'Format' }).click();
+		await expect(css).toHaveValue('.card {\n  color: red;\n}');
+
+		// ── SEC-011: the destination picker only exists once the network permission is asked for, and
+		// a permission scoped to no destination blocks the install rather than shipping a dead grant.
+		await dialog.getByRole('checkbox', { name: 'Reach the network' }).click();
+		await expect(dialog.getByRole('group', { name: 'Network destinations' })).toBeVisible();
+		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await expect(dialog.getByRole('button', { name: 'Install widget' })).toBeDisabled();
+		await expect(dialog.getByText(/Pick at least one destination/)).toBeVisible();
+		await dialog.getByRole('button', { name: 'Advanced', exact: true }).click();
+		await dialog.getByRole('checkbox', { name: 'Its own declared address' }).click();
+		await expect(summary.getByText('Its own declared address')).toBeVisible();
+
+		// ── The preview RUNS the draft, in the same opaque-origin sandbox the board uses (WID-1.3).
+		await showPane(page, 'Preview');
+		await expect(dialog.locator('[data-widget-sandbox="torch-card"]')).toBeVisible();
+		// A widget running its own code previews as the DM; the picker says so rather than lying.
+		await expect(dialog.getByRole('radio', { name: 'Preview as player' })).toBeDisabled();
+
+		// ── Review installs it: custom runtime, three assets, and no trust it has not earned.
+		await showPane(page, 'Edit');
+		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await expect(dialog.getByText('Requires review')).toBeVisible();
+		await dialog.getByRole('button', { name: 'Install widget' }).click();
+		await expect(dialog).toHaveCount(0);
+
+		const record = await page.evaluate((packageId) => {
+			const packages = (
+				window.__rt!.state.widgets as {
+					packages: Record<
+						string,
+						{
+							enabled: boolean;
+							trust: { state: string };
+							package: {
+								assets: Array<{ path: string }>;
+								widgets: Array<{
+									renderEntrypoint?: { runtime: string; assetPath?: string };
+									networkDestinationClasses?: string[];
+								}>;
+							};
+						}
+					>;
+				}
+			).packages;
+			return packages[packageId] ?? null;
+		}, CUSTOM_ID);
+		expect(record).not.toBeNull();
+		const definition = record!.package.widgets[0]!;
+		expect(definition.renderEntrypoint?.runtime).toBe('custom-html-js');
+		expect(definition.renderEntrypoint?.assetPath).toBe('index.html');
+		expect(definition.networkDestinationClasses).toEqual(['widget-declared']);
+		expect(record!.package.assets.map((asset) => asset.path)).toEqual([
+			'index.html',
+			'styles.css',
+			'main.js',
+		]);
+		expect(record!.enabled).toBe(false);
+		expect(record!.trust.state).toBe('unreviewed');
+	});
+});

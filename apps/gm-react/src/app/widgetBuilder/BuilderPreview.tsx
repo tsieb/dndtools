@@ -10,6 +10,7 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import type { BoardWidget } from '../board-helpers';
 import { hasBuiltinBody } from '../widget-bodies';
 import { resolveWidgetRenderer } from '../widgets/resolveRenderer';
+import { SandboxHost } from '../widgets/SandboxHost';
 import { WidgetErrorBoundary, WidgetPlaceholder } from '../widgets/WidgetRenderSlot';
 import { WITHHELD_COPY, resolveWidgetTemplateData } from '../widgets/dataEnvironment';
 import { ActionPanelTemplate } from '../widgets/templates/ActionPanel';
@@ -62,21 +63,29 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 	const { t } = useI18n();
 	const runtime = useRuntime();
 	const [audience, setAudience] = useState<'dm' | 'player'>('dm');
-	const definition = useMemo(() => buildPackage(draft).widgets[0] ?? null, [draft]);
+	const pkg = useMemo(() => buildPackage(draft), [draft]);
+	const definition = pkg.widgets[0] ?? null;
+	// A custom-code draft is previewed by RUNNING it, in the same sandbox host the board uses
+	// (RC-WID-2.5). It is fed the draft package directly because nothing is installed yet, and with no
+	// package record it runs at an unreviewed package's trust: every host permission denied.
+	const isCustom = definition?.renderEntrypoint?.runtime === 'custom-html-js';
 
 	// The reserved preview actor holds no grants at all, so previewing as a player is the strictest
 	// reading of the declaration rather than one particular player's.
+	// A custom widget always previews as the DM (see the audience picker below), so the audience the
+	// preview actually runs at is not always the one the picker last held.
+	const effectiveAudience = isCustom ? 'dm' : audience;
 	const state = useMemo(
 		() =>
-			audience === 'player'
+			effectiveAudience === 'player'
 				? {
 						...runtime.state,
 						permissions: permissionsWithPreviewActors(runtime.state.permissions),
 					}
 				: runtime.state,
-		[audience, runtime.state],
+		[effectiveAudience, runtime.state],
 	);
-	const actorId = audience === 'player' ? PREVIEW_PLAYER_ACTOR_ID : runtime.activeActorId;
+	const actorId = effectiveAudience === 'player' ? PREVIEW_PLAYER_ACTOR_ID : runtime.activeActorId;
 
 	const widget: BoardWidget | null = useMemo(() => {
 		if (!definition) return null;
@@ -120,7 +129,7 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 		{
 			hasBuiltinBody,
 			hasTemplateRenderer: (template) => template in RAW_TEMPLATES && !hasBuiltinBody(widget.type),
-			hasCustomHost: false,
+			hasCustomHost: isCustom,
 		},
 	);
 
@@ -132,11 +141,18 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
 			<Seg
 				ariaLabel={t('builder.preview.audience')}
-				value={audience}
+				value={effectiveAudience}
 				onChange={(next: string) => setAudience(next === 'player' ? 'player' : 'dm')}
 				options={[
 					{ value: 'dm', label: t('builder.preview.asDm') },
-					{ value: 'player', label: t('builder.preview.asPlayer') },
+					{
+						value: 'player',
+						label: t('builder.preview.asPlayer'),
+						// The sandbox host reads the campaign from the runtime itself, so it cannot be shown
+						// the reserved preview actor's view. Saying so beats a toggle that silently lies.
+						disabled: isCustom,
+						title: isCustom ? t('builder.preview.customDmOnly') : undefined,
+					},
 				]}
 			/>
 			<div
@@ -162,7 +178,9 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 				</div>
 				<div style={{ flex: 1, minHeight: 0 }}>
 					<WidgetErrorBoundary widgetId={`${widget.type}:${plan.kind}`}>
-						{plan.kind === 'template' ? (
+						{plan.kind === 'custom' ? (
+							<SandboxHost widget={widget} previewPackage={pkg} />
+						) : plan.kind === 'template' ? (
 							<Template widget={widget} definition={definition} data={data} />
 						) : plan.kind === 'builtin' ? (
 							<WidgetPlaceholder
@@ -180,7 +198,11 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 			</div>
 			<p style={{ margin: 0, font: `12px/1.55 ${T.sans}`, color: T.ter }}>
 				{t(
-					audience === 'player' ? 'builder.preview.drawnAsPlayer' : 'builder.preview.drawnAsActor',
+					isCustom
+						? 'builder.preview.drawnInSandbox'
+						: effectiveAudience === 'player'
+							? 'builder.preview.drawnAsPlayer'
+							: 'builder.preview.drawnAsActor',
 				)}
 				{emptyQueries.length > 0 &&
 					` ${t('builder.preview.emptyQueries', {

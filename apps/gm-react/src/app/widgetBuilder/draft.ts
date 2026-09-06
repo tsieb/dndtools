@@ -10,6 +10,7 @@ import {
 	type WidgetDefinition,
 	type WidgetHostPermission,
 	type WidgetMigration,
+	type WidgetNetworkDestinationClass,
 	type WidgetPackageDefinition,
 	type WidgetStyleCapability,
 	type WidgetStyleIsolation,
@@ -20,6 +21,13 @@ import {
 	widgetFormulaIdentifiers,
 	widgetQueryFormulaIdentifier,
 } from '@dndtools/core';
+import {
+	CUSTOM_ENTRY_PATH,
+	CUSTOM_STYLE_PATH,
+	customCodeAssets,
+	readCustomCode,
+	type CustomCodeSource,
+} from './customCode';
 import type { MessageKey } from '../../i18n';
 
 /**
@@ -111,6 +119,12 @@ export interface WidgetDraft {
 	styleIsolation: WidgetStyleIsolation;
 	styleCapabilities: WidgetStyleCapability[];
 	/* Advanced */
+	/** How the widget draws: one of the eight declarative templates, or its own sandboxed code. */
+	runtime: 'template' | 'custom-html-js';
+	/** The three files a `custom-html-js` widget ships (RC-WID-2.5). Ignored by a template widget. */
+	customCode: CustomCodeSource;
+	/** SEC-011: the destination classes the `network` permission is being asked for. */
+	networkDestinations: WidgetNetworkDestinationClass[];
 	hostPermissions: WidgetHostPermission[];
 	portabilityWarnings: string[];
 	/* Provenance of the package this draft was read from, when it is an edit rather than a new one. */
@@ -164,6 +178,9 @@ export function emptyDraft(): WidgetDraft {
 		styleTokens: [],
 		styleIsolation: 'host-scoped',
 		styleCapabilities: ['css-variables', 'host-theme-tokens'],
+		runtime: 'template',
+		customCode: { html: '', css: '', js: '' },
+		networkDestinations: [],
 		hostPermissions: [],
 		portabilityWarnings: [],
 		baseVersion: null,
@@ -228,14 +245,29 @@ function buildWidgetDefinition(draft: WidgetDraft): WidgetDefinition {
 		icon: draft.icon || undefined,
 		placement: { surfaces: [...draft.surfaces], libraryListed: draft.libraryListed },
 		configFields,
-		renderEntrypoint: {
-			runtime: 'template',
-			template: draft.template,
-			hostApiVersion: CUSTOM_WIDGET_HOST_API_VERSION,
-		},
+		renderEntrypoint:
+			draft.runtime === 'custom-html-js'
+				? {
+						runtime: 'custom-html-js',
+						// Declared rather than left to the host's default, so the review summary and the
+						// runtime policy both read the isolation from the package itself.
+						sandbox: 'iframe',
+						assetPath: CUSTOM_ENTRY_PATH,
+						hostApiVersion: CUSTOM_WIDGET_HOST_API_VERSION,
+					}
+				: {
+						runtime: 'template',
+						template: draft.template,
+						hostApiVersion: CUSTOM_WIDGET_HOST_API_VERSION,
+					},
 		style: {
 			isolation: draft.styleIsolation,
 			capabilities: [...draft.styleCapabilities],
+			// The sandboxed document loads its stylesheet through this list as well as through the
+			// entrypoint's own <link>, so a reviewer sees the file named in the package.
+			...(draft.runtime === 'custom-html-js' && draft.customCode.css.trim()
+				? { stylesheetAssetPaths: [CUSTOM_STYLE_PATH] }
+				: {}),
 			tokens: draft.styleTokens.map((token) => ({ ...token })),
 			cssVariables: Object.fromEntries(
 				draft.styleTokens.map((token) => [`--widget-${token.name}`, token.value]),
@@ -254,6 +286,11 @@ function buildWidgetDefinition(draft: WidgetDraft): WidgetDefinition {
 		commands: draft.commands.map((command) => ({ ...command })),
 		events: [],
 		hostPermissions: [...draft.hostPermissions],
+		// Absent rather than empty when nothing is asked for: an empty array in the package would read
+		// as a declared-and-empty grant instead of no request at all.
+		...(draft.networkDestinations.length > 0
+			? { networkDestinationClasses: [...draft.networkDestinations] }
+			: {}),
 	};
 	return definition;
 }
@@ -314,7 +351,7 @@ export function buildPackage(
 		// A migration that does not target the package version is rejected by the installer, so a
 		// carried-forward entry from an older version is dropped rather than shipped broken.
 		migrations: migrations.filter((entry) => entry.toVersion === draft.version),
-		assets: [],
+		assets: draft.runtime === 'custom-html-js' ? customCodeAssets(draft.customCode) : [],
 		portabilityWarnings: [...draft.portabilityWarnings],
 		authoring: { source: 'user-authored', createdBy: 'widget-builder' },
 	};
@@ -357,6 +394,12 @@ export function readPackage(pkg: WidgetPackageDefinition): WidgetDraft {
 		styleTokens: (widget.style?.tokens ?? []).map((token) => ({ ...token })),
 		styleIsolation: widget.style?.isolation ?? base.styleIsolation,
 		styleCapabilities: [...(widget.style?.capabilities ?? base.styleCapabilities)],
+		runtime: widget.renderEntrypoint?.runtime === 'custom-html-js' ? 'custom-html-js' : 'template',
+		customCode:
+			widget.renderEntrypoint?.runtime === 'custom-html-js'
+				? readCustomCode(pkg.assets, widget.renderEntrypoint.assetPath)
+				: { html: '', css: '', js: '' },
+		networkDestinations: [...(widget.networkDestinationClasses ?? [])],
 		hostPermissions: [...widget.hostPermissions],
 		portabilityWarnings: [...pkg.portabilityWarnings],
 		baseVersion: pkg.version,
@@ -480,6 +523,17 @@ export function validateDraft(draft: WidgetDraft): DraftIssue[] {
 			add('commands', 'commands', 'builder.issue.commandDuplicate', { type: command.type });
 		commandTypes.add(command.type);
 	}
+
+	if (draft.runtime === 'custom-html-js') {
+		if (!draft.customCode.html.trim() && !draft.customCode.js.trim())
+			add('advanced', 'customCode', 'builder.issue.customCodeEmpty');
+	}
+	// A network grant scoped to no destination class can never be used: SEC-011 denies every class
+	// that was not approved, so asking for the permission without one is a request for nothing.
+	if (draft.hostPermissions.includes('network') && draft.networkDestinations.length === 0)
+		add('advanced', 'networkDestinations', 'builder.issue.networkDestinations');
+	if (!draft.hostPermissions.includes('network') && draft.networkDestinations.length > 0)
+		add('advanced', 'networkDestinations', 'builder.issue.networkWithoutPermission');
 
 	const tokenNames = new Set<string>();
 	for (const token of draft.styleTokens) {

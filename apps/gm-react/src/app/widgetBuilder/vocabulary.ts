@@ -1,9 +1,11 @@
 import {
 	ALL_HOST_PERMISSIONS,
+	WIDGET_DESTINATION_CLASSES,
 	type PlatformProfileId,
 	type WidgetConfigControl,
 	type WidgetDataQuerySource,
 	type WidgetHostPermission,
+	type WidgetNetworkDestinationClass,
 	type WidgetStyleCapability,
 	type WidgetStyleIsolation,
 	type WidgetSurface,
@@ -181,3 +183,90 @@ export const SEMANTIC_TOKEN_VALUES: { value: string; label: MessageKey }[] = [
 export const ICON_VOCABULARY: string[] = Object.keys(
 	ICON_REGISTRY as Record<string, string>,
 ).sort();
+
+/**
+ * The Advanced step's vocabularies (RC-WID-2.5).
+ *
+ * The host API reference is written from `public/widget-host.html`'s `window.dndtoolsWidget` — the
+ * only surface package code ever gets — so the panel documents what the sandbox actually exposes
+ * rather than an idea of it. Signatures are code and stay in the source language; every line of
+ * prose beside them is a catalog key.
+ */
+export const RUNTIME_LABEL: Record<'template' | 'custom-html-js', MessageKey> = {
+	template: 'builder.advanced.runtimeTemplate',
+	'custom-html-js': 'builder.advanced.runtimeCustom',
+};
+
+export const CODE_PART_LABEL: Record<'html' | 'css' | 'js', MessageKey> = {
+	html: 'builder.advanced.partHtml',
+	css: 'builder.advanced.partCss',
+	js: 'builder.advanced.partJs',
+};
+
+export interface HostApiEntry {
+	signature: string;
+	description: MessageKey;
+}
+
+export const HOST_API_REFERENCE: readonly HostApiEntry[] = Object.freeze([
+	{
+		signature: 'window.dndtoolsWidget.root',
+		description: 'builder.advanced.api.root',
+	},
+	{
+		signature: 'onRender(props => {})',
+		description: 'builder.advanced.api.onRender',
+	},
+	{
+		signature: 'onConfigChanged(configuration => {})',
+		description: 'builder.advanced.api.onConfigChanged',
+	},
+	{
+		signature: 'onBindingChanged(binding => {})',
+		description: 'builder.advanced.api.onBindingChanged',
+	},
+	{
+		signature: 'dispatch({ commandType, payload })',
+		description: 'builder.advanced.api.dispatch',
+	},
+	{
+		signature: 'requestPermission(kind)',
+		description: 'builder.advanced.api.requestPermission',
+	},
+	{
+		signature: 'outbound({ url, destinationClass, payload })',
+		description: 'builder.advanced.api.outbound',
+	},
+	{
+		signature: 'setHeight(pixels)',
+		description: 'builder.advanced.api.setHeight',
+	},
+] as const);
+
+export const NETWORK_DESTINATION_LABEL: Record<WidgetNetworkDestinationClass, MessageKey> = {
+	'vault-sync': 'builder.advanced.destination.vaultSync',
+	'asset-cdn': 'builder.advanced.destination.assetCdn',
+	'widget-declared': 'builder.advanced.destination.widgetDeclared',
+	analytics: 'builder.advanced.destination.analytics',
+};
+
+export const NETWORK_DESTINATION_HELP: Record<WidgetNetworkDestinationClass, MessageKey> = {
+	'vault-sync': 'builder.advanced.destinationHelp.vaultSync',
+	'asset-cdn': 'builder.advanced.destinationHelp.assetCdn',
+	'widget-declared': 'builder.advanced.destinationHelp.widgetDeclared',
+	analytics: 'builder.advanced.destinationHelp.analytics',
+};
+
+export const NETWORK_DESTINATIONS: WidgetNetworkDestinationClass[] = [
+	...WIDGET_DESTINATION_CLASSES,
+];
+
+/** How the core's trust recommendation is spoken and toned, wherever it is shown. */
+export const TRUST_RECOMMENDATION: Record<
+	string,
+	{ label: MessageKey; tone: 'success' | 'warning' | 'error' }
+> = {
+	'trusted-after-review': { label: 'extensions.plugins.recommendTrust', tone: 'success' },
+	'requires-review': { label: 'extensions.trust.recommend.review', tone: 'warning' },
+	'deny-until-fixed': { label: 'extensions.trust.recommend.deny', tone: 'error' },
+};
