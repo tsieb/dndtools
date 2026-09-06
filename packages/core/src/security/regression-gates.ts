@@ -33,6 +33,14 @@
  *   compromised store exposes only ciphertext + documented metadata). They are security-critical boundaries;
  *   SEC-008 AC1 keeps them covered.
  *
+ * RC-ENG-5.2 adds four more, for invariants that had no tracked regression gate yet:
+ *   a widget iframe cannot reach `window.parent`'s state (no `allow-same-origin` token, ever), the
+ *   sandbox document's Content-Security-Policy is exact (not merely "present"), a system package
+ *   cannot carry a function value anywhere in its data, and a player-private-store field can never
+ *   reach a returned view-model. The first two reuse the existing sandbox-document guard; the last
+ *   two are net-new generic structural walkers this module defines directly (see below), because
+ *   neither invariant belongs to an existing domain module.
+ *
  * Pure data + pure predicates — no DOM/storage/clock/entropy/network.
  */
 
@@ -50,7 +58,11 @@ export type SecurityBoundaryId =
 	| 'secret-custody'
 	| 'cloud-collaboration-boundary'
 	| 'cloud-security-model-gate'
-	| 'cloud-key-custody';
+	| 'cloud-key-custody'
+	| 'widget-parent-window-isolation'
+	| 'widget-sandbox-csp-exact'
+	| 'system-package-no-functions'
+	| 'private-store-view-model-exclusion';
 
 /**
  * One declared security boundary. `guardSurface` names the core export(s) that ENFORCE the boundary;
@@ -111,7 +123,8 @@ export const SECURITY_BOUNDARIES: readonly SecurityBoundaryDefinition[] = Object
 		id: 'sync-stream-filtering',
 		invariant:
 			'Player/observer replication streams are filtered by visibility/grants at the source: a hidden op/field/combatant never enters a non-DM stream, and the boundary guard re-proves no hidden content is delivered.',
-		guardSurface: 'filterReplicationStream, assertStreamCarriesNoHiddenContent, assertViewCarriesNoHiddenContent',
+		guardSurface:
+			'filterReplicationStream, assertStreamCarriesNoHiddenContent, assertViewCarriesNoHiddenContent',
 		coverageTest: 'packages/core/tests/sec-stream-privacy-coverage.test.ts',
 		requirementIds: ['SEC-005', 'SEC-010', 'SEC-008'],
 	},
@@ -160,7 +173,8 @@ export const SECURITY_BOUNDARIES: readonly SecurityBoundaryDefinition[] = Object
 		id: 'cloud-collaboration-boundary',
 		invariant:
 			'A cloud-collaboration request is decided fail-closed BEFORE any payload is generated: repeated invalid joins are rate-limited without leaking session existence; a revoked participant is denied and their queued ops at/after the revocation are rejected; a cross-tenant/session/stream request is denied; an unsupported payload version fails closed with an upgrade-required diagnostic; and a replayed nonce is rejected/ignored idempotently.',
-		guardSurface: 'evaluateCloudJoinGate, authorizeCloudRequest, evaluateJoinRateLimit, isQueuedOpAdmissibleAfterRevocation',
+		guardSurface:
+			'evaluateCloudJoinGate, authorizeCloudRequest, evaluateJoinRateLimit, isQueuedOpAdmissibleAfterRevocation',
 		coverageTest: 'packages/core/tests/security-cloud-boundary.test.ts',
 		requirementIds: ['SEC-005', 'SEC-008'],
 	},
@@ -168,7 +182,8 @@ export const SECURITY_BOUNDARIES: readonly SecurityBoundaryDefinition[] = Object
 		id: 'cloud-security-model-gate',
 		invariant:
 			'Cloud sync/collaboration release is BLOCKED until a complete, approved cloud security decision record (encryption responsibilities, key custody, server trust boundary, credential rotation, recovery tradeoffs) AND the SYNC-017 prerequisites are satisfied; under an end-to-end-encryption claim, server-side code paths see ONLY the explicitly allowed metadata classes — never hidden content.',
-		guardSurface: 'evaluateCloudReleaseGate, validateCloudSecurityRecord, assertServerSeesOnlyAllowedMetadata',
+		guardSurface:
+			'evaluateCloudReleaseGate, validateCloudSecurityRecord, assertServerSeesOnlyAllowedMetadata',
 		coverageTest: 'packages/core/tests/security-cloud-security-model.test.ts',
 		requirementIds: ['SEC-009', 'SEC-008'],
 	},
@@ -176,9 +191,42 @@ export const SECURITY_BOUNDARIES: readonly SecurityBoundaryDefinition[] = Object
 		id: 'cloud-key-custody',
 		invariant:
 			'Cloud key custody is enforced fail-closed: rotating the key on a participant revocation locks the removed participant out of the new content epoch (their credentials cannot decrypt newly delivered/synced content); a recovery flow restores ONLY the approved scope and never another vault/tenant/participant stream; and a compromised cloud store exposes ONLY ciphertext plus the documented metadata classes.',
-		guardSurface: 'assertRevokedCannotDecryptNewEpoch, assertRecoveryWithinScope, assertCompromiseMatchesTrustBoundary',
+		guardSurface:
+			'assertRevokedCannotDecryptNewEpoch, assertRecoveryWithinScope, assertCompromiseMatchesTrustBoundary',
 		coverageTest: 'packages/core/tests/security-key-custody.test.ts',
 		requirementIds: ['SEC-012', 'SEC-008'],
+	},
+	{
+		id: 'widget-parent-window-isolation',
+		invariant:
+			'A custom-widget iframe never carries the allow-same-origin sandbox token, so it can never reach window.parent/top DOM, storage, or cookies even though the reference exists — an opaque origin cannot cross the browser same-origin boundary to read it.',
+		guardSurface: 'validateWidgetSandboxDocument, FORBIDDEN_WIDGET_SANDBOX_TOKENS',
+		coverageTest: 'packages/core/tests/security-renderer-isolation.test.ts',
+		requirementIds: ['SEC-001', 'RC-ENG-5.2'],
+	},
+	{
+		id: 'widget-sandbox-csp-exact',
+		invariant:
+			"The widget sandbox document's Content-Security-Policy matches the declared baseline EXACTLY, directive by directive (not merely \"some policy present\"): a missing directive or a weakened value (e.g. connect-src widened off 'none') is rejected.",
+		guardSurface: 'validateWidgetSandboxDocument, WIDGET_SANDBOX_CSP_DIRECTIVES',
+		coverageTest: 'packages/core/tests/security-renderer-isolation.test.ts',
+		requirementIds: ['SEC-001', 'RC-ENG-5.2'],
+	},
+	{
+		id: 'system-package-no-functions',
+		invariant:
+			'A system package carries only plain, serializable data: no function value anywhere in its tree, however the package was constructed (parsed, generated, or built in-process) — a function would let "system package as data" become unreviewed code.',
+		guardSurface: 'assertSystemPackageCarriesNoFunctions',
+		coverageTest: 'packages/core/tests/sec-eng-5-2-structural-boundaries.test.ts',
+		requirementIds: ['RC-ENG-5.2'],
+	},
+	{
+		id: 'private-store-view-model-exclusion',
+		invariant:
+			'A player-private-store field (DM-invisible note/bookmark/impression) is never reachable from a returned view-model, at any depth — fail closed on any object key matching a declared private-field name, anywhere in the tree.',
+		guardSurface: 'assertViewModelExcludesPrivateFields',
+		coverageTest: 'packages/core/tests/sec-eng-5-2-structural-boundaries.test.ts',
+		requirementIds: ['RC-ENG-5.2'],
 	},
 ] as const);
 
@@ -190,6 +238,97 @@ export const SECURITY_BOUNDARY_IDS: readonly SecurityBoundaryId[] = Object.freez
 /** Look up one boundary by id, or undefined when the id is not declared. */
 export function findSecurityBoundary(id: string): SecurityBoundaryDefinition | undefined {
 	return SECURITY_BOUNDARIES.find((boundary) => boundary.id === id);
+}
+
+// ── RC-ENG-5.2 — two NET-NEW boundary predicates ──────────────────────────────────────────────────
+//
+// The other two RC-ENG-5.2 invariants (a widget iframe cannot reach `window.parent` state; the
+// sandbox document's CSP is exact) are ALREADY enforced by `validateWidgetSandboxDocument` in
+// `security/renderer-isolation.ts` (the absent `allow-same-origin` token is exactly what keeps a
+// same-origin `window.parent` reach out of reach; the CSP-directive loop is exactly the "exact"
+// check) — those two rows below just declare the existing guard as a tracked boundary, per this
+// module's "index, not reimplementation" rule.
+//
+// The remaining two invariants have no home yet (system packages / a player-private store), so —
+// same as every other row — a real guard has to exist before it can be declared. They live HERE
+// rather than in a domain module because neither invariant belongs to one: "no function value
+// anywhere in this data" and "no field with this name anywhere in this view-model" are generic,
+// reusable STRUCTURAL walkers, not something `system-package.ts` or a not-yet-built private-store
+// module needs to carry. `system-package.ts`'s own zod schema already refuses a function at parse
+// time (every field is concretely typed), but a package can also be constructed in-process — by a
+// generator, a fixture, an MCP tool, a future importer — without ever going through that parse
+// boundary; this walker is the fail-closed backstop for that path, mirroring the "even if earlier
+// validation missed it" posture `path-safety.ts` already uses for storage containment.
+
+/** One place in a value tree where a forbidden function or field name was found (dotted JSON path). */
+export interface StructuralLeakViolation {
+	/** Dotted/bracketed path to the offending value (e.g. `"data.effects[2].onHit"`). */
+	path: string;
+	/** The offending key name, for a field-name violation; absent for a bare function-value violation. */
+	fieldName?: string;
+}
+
+function walkStructure(
+	value: unknown,
+	path: string,
+	seen: Set<unknown>,
+	visit: (value: unknown, path: string, key: string | null) => void,
+	key: string | null = null,
+): void {
+	visit(value, path, key);
+	if (value === null || typeof value !== 'object') return;
+	if (seen.has(value)) return; // a cyclic reference can never hide a second copy of a leak
+	seen.add(value);
+	if (Array.isArray(value)) {
+		value.forEach((item, index) => walkStructure(item, `${path}[${index}]`, seen, visit, null));
+		return;
+	}
+	for (const [childKey, childValue] of Object.entries(value as Record<string, unknown>)) {
+		walkStructure(
+			childValue,
+			path === '' ? childKey : `${path}.${childKey}`,
+			seen,
+			visit,
+			childKey,
+		);
+	}
+}
+
+/**
+ * RC-ENG-5.2 — a system package (however it was constructed — parsed, generated, or built in-process)
+ * MUST carry only plain, serializable data: fail closed on any function-typed value anywhere in the
+ * tree. A system package that could carry a function would let the "system package as data" boundary
+ * (RC-SYS) turn into arbitrary code the DM never reviewed and the sync log cannot safely replicate.
+ * Pure; walks the value once, defends against cycles.
+ */
+export function assertSystemPackageCarriesNoFunctions(pkg: unknown): StructuralLeakViolation[] {
+	const violations: StructuralLeakViolation[] = [];
+	walkStructure(pkg, '$', new Set(), (value, path) => {
+		if (typeof value === 'function') violations.push({ path });
+	});
+	return violations;
+}
+
+/**
+ * RC-ENG-5.2 — a player-private-store field (e.g. a future `platform/storage/privateStore.ts` DM-
+ * invisible note/bookmark) must NEVER be reachable from a returned view-model, at any depth: fail
+ * closed on any object key matching a declared private-field name, anywhere in the tree. Generic and
+ * reusable, so the CHR-4.1 private-store view-model(s) can be proven clean with this ONE walker
+ * instead of a bespoke leak check per screen. Case-insensitive (a renamed/aliased field must not
+ * quietly slip past an exact-case check). Pure; walks the value once, defends against cycles.
+ */
+export function assertViewModelExcludesPrivateFields(
+	viewModel: unknown,
+	privateFieldNames: readonly string[],
+): StructuralLeakViolation[] {
+	const forbidden = new Set(privateFieldNames.map((name) => name.toLowerCase()));
+	const violations: StructuralLeakViolation[] = [];
+	walkStructure(viewModel, '$', new Set(), (_value, path, key) => {
+		if (key !== null && forbidden.has(key.toLowerCase())) {
+			violations.push({ path, fieldName: key });
+		}
+	});
+	return violations;
 }
 
 /** A problem the registry-consistency check found (used by the SEC-008 coverage meta-test). */

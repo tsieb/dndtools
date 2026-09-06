@@ -2740,10 +2740,13 @@ export type {
 	SecurityBoundaryDefinition,
 	SecurityBoundaryId,
 	SecurityBoundaryRegistryProblem,
+	StructuralLeakViolation,
 } from './security/regression-gates';
 export {
 	SECURITY_BOUNDARIES,
 	SECURITY_BOUNDARY_IDS,
+	assertSystemPackageCarriesNoFunctions,
+	assertViewModelExcludesPrivateFields,
 	findSecurityBoundary,
 	validateSecurityBoundaryRegistry,
 } from './security/regression-gates';
