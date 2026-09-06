@@ -5,13 +5,17 @@ import {
 	rollTableInputSchema,
 } from '../schemas/commands';
 import {
+	DICE_SCHEMA_VERSION,
 	parseDiceExpression,
+	readRollUnderSystem,
 	resolveMacro,
 	resolveTableDraw,
 	rollExpression,
 	type DiceMacro,
 	type DiceRollResult,
 } from '../state/dice';
+import type { SystemPackage } from '../state/system-package';
+import { activeSystemPackageFor } from './character';
 import {
 	CONTENT_ITEM_ENTITY_TYPE,
 	contentItemById,
@@ -30,7 +34,13 @@ import type { CombatLogEntry } from '../state/combat-tracker';
 import { hasGrantedCapability } from '../permissions/grants';
 import type { Actor } from '../state/permission-state';
 import { resolveDeliveryTarget } from '../collab/player-groups';
-import type { CommandRejection, CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
+import type {
+	CommandRejection,
+	CommandResult,
+	CoreEnvironment,
+	CoreEvent,
+	CoreStateSlice,
+} from './types';
 import {
 	appendOperationDraft,
 	ensureContentStateSlice,
@@ -138,11 +148,36 @@ function withSession(state: CoreStateSlice, diceHistory: SessionDiceRoll[]): Cor
 }
 
 /**
+ * RC-SYS-2.4 — how the encounter log SAYS a roll came out, under the active system package.
+ *
+ * A total is only the answer in a system that sums its dice. Under a pool package the same recorded
+ * draw means a number of SUCCESSES, and a log line that reported the sum would be quietly wrong in
+ * the DM's own history. The readout is derived from the recorded dice, so the label is built from
+ * what the package says a roll means rather than from a 5e-shaped assumption. Pure.
+ */
+function rollOutcomeLabel(pkg: SystemPackage, record: SessionDiceRoll): string {
+	if (!record.terms || record.seed === undefined) return String(record.total);
+	const readout = readRollUnderSystem(pkg, {
+		expression: record.expression,
+		seed: record.seed,
+		terms: record.terms,
+		dice: record.dice ?? [],
+		kept: record.kept ?? [],
+		modifier: record.modifier ?? 0,
+		total: record.total,
+		schemaVersion: DICE_SCHEMA_VERSION,
+	});
+	if (readout.headlineKind !== 'successes') return String(readout.total);
+	return readout.headline === 1 ? '1 success' : `${readout.headline} successes`;
+}
+
+/**
  * SES-002 AC5 — build a `roll` kind {@link CombatLogEntry} recording a dice roll made during active
  * combat. Carries the roll id (for cross-reference), visibility, and shared-with so the query layer
  * can filter the entry per-actor without duplicating the full roll payload.
  */
 function buildCombatRollLogEntry(
+	pkg: SystemPackage,
 	env: CoreEnvironment,
 	actor: Actor,
 	operationId: string,
@@ -153,7 +188,7 @@ function buildCombatRollLogEntry(
 	const prefix = record.label ? `${record.label}: ` : '';
 	const suffix =
 		record.sourceKind === 'table' && record.tableRowText ? ` (${record.tableRowText})` : '';
-	const label = `${prefix}${record.expression} → ${record.total}${suffix}`;
+	const label = `${prefix}${record.expression} → ${rollOutcomeLabel(pkg, record)}${suffix}`;
 	return {
 		id: env.ids(),
 		round,
@@ -190,7 +225,15 @@ function withSessionAndCombatRoll(
 	if (combat.status !== 'running') {
 		return { ...state, session: { ...state.session, diceHistory } };
 	}
-	const rollEntry = buildCombatRollLogEntry(env, actor, operationId, combat.round, combat.turn, record);
+	const rollEntry = buildCombatRollLogEntry(
+		activeSystemPackageFor(state),
+		env,
+		actor,
+		operationId,
+		combat.round,
+		combat.turn,
+		record,
+	);
 	const nextCombat = {
 		...combat,
 		log: [...combat.log, rollEntry],
@@ -339,9 +382,7 @@ export function handleRollDice(
 // --- SES-008 — draw a rollable table (a declared `dice-table` Vault Object) -----------------------
 
 /** Read the declared `dice` expression + `entries` rows from a `dice-table` content item, fail-closed. */
-function readDiceTable(
-	item: ContentItem,
-): { dice: string; entries: string[] } | CommandRejection {
+function readDiceTable(item: ContentItem): { dice: string; entries: string[] } | CommandRejection {
 	const subtype = item.fields[VAULT_OBJECT_SUBTYPE_KEY];
 	if (subtype !== 'dice-table') {
 		return {
@@ -354,7 +395,11 @@ function readDiceTable(
 	if (typeof dice !== 'string' || dice.trim() === '') {
 		return { code: 'invalid-dice-table', message: 'The table has no dice expression.' };
 	}
-	if (!Array.isArray(entries) || entries.length === 0 || !entries.every((e) => typeof e === 'string')) {
+	if (
+		!Array.isArray(entries) ||
+		entries.length === 0 ||
+		!entries.every((e) => typeof e === 'string')
+	) {
 		return { code: 'invalid-dice-table', message: 'The table has no result rows.' };
 	}
 	// Validate the declared dice expression up-front so a malformed table fails closed before any draw.
@@ -384,17 +429,17 @@ export function handleRollTable(
 	const item = contentItemById(content, input.tableItemId);
 	if (!item || !isLiveContentItem(item)) {
 		return reject(
-			{ code: 'content-item-not-found', message: `Dice table ${input.tableItemId} does not exist.` },
+			{
+				code: 'content-item-not-found',
+				message: `Dice table ${input.tableItemId} does not exist.`,
+			},
 			state,
 		);
 	}
 	// A rollable table is a DM session asset (SES-008 is DM-only/player-safe: dm-only); only the DM (or an
 	// authorized editor of the table) may draw it.
 	if (!actorMayUseTable(state, actor, item.id, now)) {
-		return reject(
-			{ code: 'actor-not-authorized', message: 'You may not draw this table.' },
-			state,
-		);
+		return reject({ code: 'actor-not-authorized', message: 'You may not draw this table.' }, state);
 	}
 	const table = readDiceTable(item);
 	if ('code' in table) return reject(table, state);
@@ -468,12 +513,31 @@ export function handleRollTable(
  * Authority to draw a table: the DM, or a player holding a write-capable grant on the table item.
  * `now` (from `env.clock()`) is required so expired grants are treated as inert (PERM-004 AC2).
  */
-function actorMayUseTable(state: CoreStateSlice, actor: Actor, itemId: string, now: string): boolean {
+function actorMayUseTable(
+	state: CoreStateSlice,
+	actor: Actor,
+	itemId: string,
+	now: string,
+): boolean {
 	if (hasDmAuthority(actor.role)) return true;
 	if (actor.role === 'observer') return false;
 	return (
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor', now) ||
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'contributor', now)
+		hasGrantedCapability(
+			state.permissions,
+			actor,
+			CONTENT_ITEM_ENTITY_TYPE,
+			itemId,
+			'section-editor',
+			now,
+		) ||
+		hasGrantedCapability(
+			state.permissions,
+			actor,
+			CONTENT_ITEM_ENTITY_TYPE,
+			itemId,
+			'contributor',
+			now,
+		)
 	);
 }
 

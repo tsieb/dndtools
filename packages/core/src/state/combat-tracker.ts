@@ -13,6 +13,7 @@ import type {
 	SystemConditionDuration,
 	SystemConditionSeverity,
 	SystemPackage,
+	SystemTurnModel,
 } from './system-package';
 
 /**
@@ -660,4 +661,98 @@ export function resolveCombatantConditions(
 	resources: CombatantResources,
 ): readonly ResolvedCondition[] {
 	return resources.conditions.map((key) => resolveCondition(pkg, key));
+}
+
+// ── RC-SYS-2.4 — the TURN MODEL comes from the active system package ─────────────────────────────
+
+/**
+ * RC-SYS-2.4 — the turn model as the tracker needs it: is there an ORDER at all, does the cursor
+ * mean "whose turn" or "who is in the spotlight", and does a combatant have an action budget.
+ *
+ * The tracker's state does not change shape. `order` stays the list the tracker walks and `turn`
+ * stays the index into it — under an unordered model that index is the SPOTLIGHT rather than a turn
+ * cursor. Reusing the existing cursor is deliberate: it means a campaign that switches system keeps
+ * its running combat, `combat.next-turn` keeps working (it moves the spotlight along the roster),
+ * and no persisted shape needs a migration for a rules change.
+ */
+export interface ResolvedTurnModel {
+	kind: SystemTurnModel['kind'];
+	/** True when the tracker runs a TURN ORDER; false when it is an unordered roster. */
+	ordered: boolean;
+	/** True when the cursor marks a SPOTLIGHT rather than whose turn it is. */
+	spotlight: boolean;
+	/** True when the model counts rounds. An unordered roster has no rounds to count. */
+	rounds: boolean;
+	/** Actions each combatant gets per turn, or null when the model declares no budget. */
+	actionsPerTurn: number | null;
+	/** The formula rolled for initiative, or null when the model does not roll one. */
+	initiativeFormula: string | null;
+}
+
+/** Resolve the active package's turn model into what the tracker has to decide. Pure. */
+export function resolveTurnModel(pkg: SystemPackage): ResolvedTurnModel {
+	const model = pkg.turnModel;
+	switch (model.kind) {
+		case 'initiative':
+			return {
+				kind: 'initiative',
+				ordered: true,
+				spotlight: false,
+				rounds: true,
+				actionsPerTurn: null,
+				initiativeFormula: model.initiativeFormula,
+			};
+		case 'actions-per-turn':
+			return {
+				kind: 'actions-per-turn',
+				ordered: true,
+				spotlight: false,
+				rounds: true,
+				actionsPerTurn: model.actionsPerTurn,
+				initiativeFormula: null,
+			};
+		case 'popcorn':
+			// The next actor is CHOSEN by the table, not computed, so there is no order to sort into —
+			// but the fight still runs in rounds, and the cursor still says whose turn it is.
+			return {
+				kind: 'popcorn',
+				ordered: false,
+				spotlight: false,
+				rounds: true,
+				actionsPerTurn: null,
+				initiativeFormula: null,
+			};
+		case 'none':
+		default:
+			return {
+				kind: 'none',
+				ordered: false,
+				spotlight: true,
+				rounds: false,
+				actionsPerTurn: null,
+				initiativeFormula: null,
+			};
+	}
+}
+
+/**
+ * Build the list the tracker walks, under the active package's turn model (RC-SYS-2.4). Pure and
+ * deterministic.
+ *
+ * An ORDERED model sorts by initiative exactly as {@link orderInitiative} always has — 5e's
+ * behaviour is byte-identical. An UNORDERED model keeps the combatants in the order they were added,
+ * because that is the only order the table actually authored: sorting a roster by an initiative
+ * number the system never rolls would be inventing a ranking. Tie-break keys are still stamped by
+ * input position in both cases, so the result is stable and auditable either way.
+ */
+export function orderForTurnModel(
+	pkg: SystemPackage,
+	combatants: Combatant[],
+): { combatants: Combatant[]; order: string[] } {
+	if (resolveTurnModel(pkg).ordered) return orderInitiative(combatants);
+	const stamped = combatants.map((combatant, index) => ({
+		...cloneCombatant(combatant),
+		tieBreak: index,
+	}));
+	return { combatants: stamped, order: stamped.map((c) => c.id) };
 }

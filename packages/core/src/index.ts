@@ -5446,3 +5446,20 @@ export {
 	movementPathTo,
 	resolveMovementSpeed,
 } from './queries/map-movement';
+
+// ── RC-SYS-2.4 — the dice model and the turn model come from the active system package ───────────
+// `readRollUnderSystem` reads an already-recorded draw through the package's dice model (a pool
+// counts successes, a 2d6 system reads a tier, crit is judged on the package's own crit rules);
+// `applySystemAdvantage` applies the package's advantage semantics instead of 5e's. On the tracker,
+// `resolveTurnModel` says whether there is a turn order at all and `orderForTurnModel` builds the
+// list the tracker walks — an unordered roster under a `none` model, initiative order otherwise.
+export type {
+	SystemAdvantageReason,
+	SystemAdvantageResult,
+	SystemRollDie,
+	SystemRollReadout,
+	SystemRollTier,
+} from './state/dice';
+export { applySystemAdvantage, readRollUnderSystem } from './state/dice';
+export type { ResolvedTurnModel } from './state/combat-tracker';
+export { orderForTurnModel, resolveTurnModel } from './state/combat-tracker';

@@ -1,0 +1,11 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`DiceResult renders the package’s dice model > a 2d6 package names the outcome tier 1`] = `"2d6 • Miss2[1, 1]"`;
+
+exports[`DiceResult renders the package’s dice model > a d20 package leads with the total 1`] = `"1d20+516[11] +5"`;
+
+exports[`DiceResult renders the package’s dice model > a pool package leads with the success COUNT and marks each successful die 1`] = `"5d6 • successes at 4+3successes25451"`;
+
+exports[`InitiativeRow renders the package’s turn model > a \`none\` package drops the initiative number and marks the SPOTLIGHT instead 1`] = `"GGoblin5/7−+"`;
+
+exports[`InitiativeRow renders the package’s turn model > an initiative package shows the number and marks whose turn it is 1`] = `"15GGoblin5/7−+"`;

@@ -1,3 +1,4 @@
+import type { SystemDiceModel, SystemPackage } from './system-package';
 import { createRng, normalizeSeed, type SeededRng } from './prng';
 
 /**
@@ -156,7 +157,10 @@ export function parseDiceExpression(input: string): DiceParseResult {
 		cursor += 1;
 	}
 	if (expectTerm && buffer === '') {
-		return { ok: false, error: { code: 'syntax', message: 'The expression ends with an operator.' } };
+		return {
+			ok: false,
+			error: { code: 'syntax', message: 'The expression ends with an operator.' },
+		};
 	}
 	const err = flush();
 	if (err) return { ok: false, error: err };
@@ -212,7 +216,10 @@ export function parseDiceExpression(input: string): DiceParseResult {
 		};
 	}
 
-	return { ok: true, expression: { terms, source: canonicalSource(terms), schemaVersion: DICE_SCHEMA_VERSION } };
+	return {
+		ok: true,
+		expression: { terms, source: canonicalSource(terms), schemaVersion: DICE_SCHEMA_VERSION },
+	};
 }
 
 /** Render a term's keep suffix back to canonical text. */
@@ -412,7 +419,9 @@ function resolveKeptIndices(rolled: readonly number[], keep: DiceKeep | null): n
 	const indexed = rolled.map((value, index) => ({ value, index }));
 	// Deterministic sort: by value, tie-broken by index, so equal faces keep a stable selection.
 	indexed.sort((a, b) =>
-		keep.kind === 'highest' ? b.value - a.value || a.index - b.index : a.value - b.value || a.index - b.index,
+		keep.kind === 'highest'
+			? b.value - a.value || a.index - b.index
+			: a.value - b.value || a.index - b.index,
 	);
 	const selected = indexed.slice(0, keep.count).map((entry) => entry.index);
 	return selected.sort((a, b) => a - b);
@@ -455,7 +464,9 @@ export function resolveTableDraw(
 	dice: string,
 	entries: readonly string[],
 	seed: number | string,
-): { ok: true; result: TableDrawResult } | { ok: false; error: DiceParseError | { code: 'empty-table'; message: string } } {
+):
+	| { ok: true; result: TableDrawResult }
+	| { ok: false; error: DiceParseError | { code: 'empty-table'; message: string } } {
 	if (entries.length === 0) {
 		return { ok: false, error: { code: 'empty-table', message: 'The table has no rows.' } };
 	}
@@ -493,4 +504,226 @@ export function resolveMacro(reference: string, macros: readonly DiceMacro[]): s
 	const name = reference.trim().replace(/^@/, '').toLowerCase();
 	const macro = macros.find((entry) => entry.name.trim().toLowerCase() === name);
 	return macro ? macro.expression : null;
+}
+
+// ── RC-SYS-2.4 — the DICE MODEL comes from the active system package ─────────────────────────────
+
+/**
+ * RC-SYS-2.4 — how a recorded roll READS under the active system package.
+ *
+ * The engine above is model-agnostic on purpose: it rolls dice and records faces, which is true in
+ * every system. What a system *makes of* those faces is not — d20 sums them against a target, a pool
+ * counts how many beat a threshold, a 2d6 system reads a tier. That interpretation belongs to the
+ * package, so this section turns a {@link DiceRollResult} plus a {@link SystemPackage} into the one
+ * readout a screen needs, and no screen carries a 5e-shaped assumption about what a roll means.
+ *
+ * Nothing here re-rolls or re-seeds: it is a pure read over an already-recorded draw, so a roll made
+ * under one package still reads honestly if the campaign later switches to another.
+ */
+
+/** One die in a readout: its face, and whether the package counts it as a success (pool models). */
+export interface SystemRollDie {
+	value: number;
+	/** True/false under a pool model; `null` when the package's model has no per-die success. */
+	success: boolean | null;
+}
+
+/** The PbtA-style outcome bands a 2d6 system reads off its total. */
+export type SystemRollTier = 'miss' | 'partial' | 'strong';
+
+/** A recorded roll, read through the active package's dice model. Pure value. */
+export interface SystemRollReadout {
+	model: SystemDiceModel;
+	/** The number the readout leads with. */
+	headline: number;
+	/** What {@link headline} counts: the summed total, or successes in a pool. */
+	headlineKind: 'total' | 'successes';
+	/** The kept dice with their per-die success flag. */
+	dice: readonly SystemRollDie[];
+	/** The package's per-die success threshold, or null when the model has none. */
+	successThreshold: number | null;
+	/** The flat modifier sum, carried through so a pool readout can still show a bonus. */
+	modifier: number;
+	/** The summed total, always available even when the headline is a success count. */
+	total: number;
+	/** Crit/fumble as `pkg.dice.crit` defines it, or null when nothing qualified. */
+	crit: 'success' | 'fail' | null;
+	/** The outcome tier for a `2d6-pbta` package, or null for every other model. */
+	tier: SystemRollTier | null;
+}
+
+/**
+ * The natural face a crit is judged on: the highest-sided dice term's kept dice. A crit is a
+ * property of the SYSTEM'S CORE DIE, not of the sum, so a `1d20+2d6` damage-and-attack expression
+ * still crits off the d20. With no dice at all (a flat expression) there is no natural face.
+ */
+function naturalFaces(result: DiceRollResult): number[] {
+	let widest = 0;
+	for (const term of result.terms) {
+		if (term.kind === 'dice' && term.sides > widest) widest = term.sides;
+	}
+	if (widest === 0) return [];
+	const faces: number[] = [];
+	for (const term of result.terms) {
+		if (term.kind === 'dice' && term.sides === widest) faces.push(...term.kept);
+	}
+	return faces;
+}
+
+/** Every kept die across the roll, in roll order. Pure. */
+function keptFaces(result: DiceRollResult): number[] {
+	const faces: number[] = [];
+	for (const term of result.terms) {
+		if (term.kind === 'dice') faces.push(...term.kept);
+	}
+	return faces;
+}
+
+/**
+ * Read a recorded roll under a system package (RC-SYS-2.4). PURE — the same (package, result)
+ * always reads the same way.
+ *
+ *   - `d20-plus-modifier` / `custom` lead with the TOTAL.
+ *   - `dice-pool` leads with the count of kept dice at or above `successThreshold`; each die carries
+ *     its own success flag so the interface can mark them individually rather than colour a number.
+ *   - `2d6-pbta` leads with the total and reads a TIER off the package's own crit rules:
+ *     `naturalHigh` is the floor of a strong hit and `naturalLow` the ceiling of a miss, with the
+ *     band between them a partial. The schema declares no separate tier fields, and inventing
+ *     6/7-9/10+ in core would hard-code one game's numbers into every package — so the tier is read
+ *     from what the package actually says, and a package that declares neither bound gets no tier.
+ *     A tiered package reports NO crit: its bounds are already spoken for by the tier.
+ *
+ * Crit is judged on the package's own `naturalHigh`/`naturalLow` against the widest die's natural
+ * faces; a package that declares neither never crits, which is exactly how a system with no crit
+ * rule should behave.
+ */
+export function readRollUnderSystem(pkg: SystemPackage, result: DiceRollResult): SystemRollReadout {
+	const model = pkg.dice.model;
+	const threshold = model === 'dice-pool' ? pkg.dice.successThreshold : null;
+	const faces = keptFaces(result);
+	const dice: SystemRollDie[] = faces.map((value) => ({
+		value,
+		success: threshold === null ? null : value >= threshold,
+	}));
+	const successCount = dice.reduce((count, die) => count + (die.success === true ? 1 : 0), 0);
+
+	const { naturalHigh, naturalLow } = pkg.dice.crit;
+	const tiered = model === '2d6-pbta' && (naturalHigh !== null || naturalLow !== null);
+
+	// Under a tiered model the crit bounds describe the TOTAL's bands, so they are read as a tier and
+	// NOT also as a natural crit — one set of numbers means one thing, and reporting a "fumble"
+	// alongside a miss would be the same fact said twice in two vocabularies.
+	let crit: 'success' | 'fail' | null = null;
+	if (!tiered) {
+		const naturals = naturalFaces(result);
+		if (naturalHigh !== null && naturals.some((face) => face >= naturalHigh)) crit = 'success';
+		else if (naturalLow !== null && naturals.some((face) => face <= naturalLow)) crit = 'fail';
+	}
+
+	let tier: SystemRollTier | null = null;
+	if (tiered) {
+		if (naturalHigh !== null && result.total >= naturalHigh) tier = 'strong';
+		else if (naturalLow !== null && result.total <= naturalLow) tier = 'miss';
+		else tier = 'partial';
+	}
+
+	return {
+		model,
+		headline: threshold === null ? result.total : successCount,
+		headlineKind: threshold === null ? 'total' : 'successes',
+		dice,
+		successThreshold: threshold,
+		modifier: result.modifier,
+		total: result.total,
+		crit,
+		tier,
+	};
+}
+
+/** Why {@link applySystemAdvantage} did or did not rewrite the expression. */
+export type SystemAdvantageReason =
+	| 'applied'
+	| 'normal'
+	| 'no-advantage'
+	| 'bonus-size-not-declared'
+	| 'expression-not-core-roll';
+
+/** The result of applying a package's advantage semantics to an expression. */
+export interface SystemAdvantageResult {
+	expression: string;
+	applied: boolean;
+	reason: SystemAdvantageReason;
+}
+
+/** The single dice term an advantage transform can act on, or null when the expression has no
+ * unique, un-kept, positive dice term to rewrite. Pure. */
+function soleDiceTerm(terms: readonly DiceExpressionTerm[]): DiceTerm | null {
+	const diceTerms = terms.filter((term): term is DiceTerm => term.kind === 'dice');
+	const target = diceTerms[0];
+	if (diceTerms.length !== 1 || !target || target.keep !== null || target.sign !== 1) return null;
+	return target;
+}
+
+/**
+ * RC-SYS-2.4 — apply the ACTIVE PACKAGE's advantage semantics to a dice expression. PURE.
+ *
+ * `applyAdvantageToExpression` above hard-codes 5e: one d20, rolled twice, keep the best. That is
+ * one system's answer. Here the package decides:
+ *
+ *   - `roll-twice-take-best` doubles the core die and keeps the highest (lowest for disadvantage) —
+ *     `1d20+5` ⇒ `2d20kh1+5`, and a package whose core die is a d100 gets `2d100kh1`.
+ *   - `extra-die` adds a die to the pool (advantage) or removes one, never below one (disadvantage) —
+ *     the Generic package's `5d6` ⇒ `6d6`.
+ *   - `bonus-modifier` is refused: the package declares the SEMANTICS but not the SIZE of the bonus,
+ *     and core will not invent a number and present it as the system's rule. The caller gets
+ *     `bonus-size-not-declared` and can say so plainly instead of silently rolling something else.
+ *   - `none` is refused as `no-advantage` — a system without advantage does not get one by accident.
+ *
+ * A refusal always returns the expression UNCHANGED, so a caller that ignores `applied` still rolls
+ * exactly what the participant typed. A malformed expression is likewise returned unchanged; the
+ * roll command's parser rejects it fail-closed with the real error.
+ */
+export function applySystemAdvantage(
+	pkg: SystemPackage,
+	input: string,
+	mode: DiceAdvantageMode,
+): SystemAdvantageResult {
+	if (mode === 'normal') return { expression: input, applied: false, reason: 'normal' };
+	const semantics = pkg.dice.advantage;
+	if (semantics === 'none') {
+		return { expression: input, applied: false, reason: 'no-advantage' };
+	}
+	if (semantics === 'bonus-modifier') {
+		return { expression: input, applied: false, reason: 'bonus-size-not-declared' };
+	}
+	const parsed = parseDiceExpression(input);
+	if (!parsed.ok) {
+		return { expression: input, applied: false, reason: 'expression-not-core-roll' };
+	}
+	const target = soleDiceTerm(parsed.expression.terms);
+	if (!target) {
+		return { expression: input, applied: false, reason: 'expression-not-core-roll' };
+	}
+	let replacement: DiceTerm;
+	if (semantics === 'roll-twice-take-best') {
+		// The transform is defined on the system's CORE roll: a single die of the package's own size.
+		const core = parseDiceExpression(pkg.dice.notation);
+		const coreTerm = core.ok ? soleDiceTerm(core.expression.terms) : null;
+		if (!coreTerm || target.count !== 1 || target.sides !== coreTerm.sides) {
+			return { expression: input, applied: false, reason: 'expression-not-core-roll' };
+		}
+		replacement = {
+			...target,
+			count: 2,
+			keep: { kind: mode === 'advantage' ? 'highest' : 'lowest', count: 1 },
+		};
+	} else {
+		const count = mode === 'advantage' ? target.count + 1 : Math.max(1, target.count - 1);
+		if (count > MAX_DICE_COUNT) {
+			return { expression: input, applied: false, reason: 'expression-not-core-roll' };
+		}
+		replacement = { ...target, count };
+	}
+	const terms = parsed.expression.terms.map((term) => (term === target ? replacement : term));
+	return { expression: canonicalSource(terms), applied: true, reason: 'applied' };
 }
