@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { buildWidgetPackageReviewSummary } from '@dndtools/core';
-import { Badge, Button, DefinitionList } from '../../ds';
+import { Badge, Button, DefinitionList, Field, Textarea } from '../../ds';
 import { T } from '../screen-kit';
 import {
 	STEP_LABEL,
@@ -26,6 +26,7 @@ import { useI18n } from '../../i18n';
 
 export function ReviewStep({
 	draft,
+	patch,
 	issues,
 	mode,
 	busy,
@@ -35,6 +36,7 @@ export function ReviewStep({
 	onSubmit,
 }: {
 	draft: WidgetDraft;
+	patch: (next: Partial<WidgetDraft>) => void;
 	issues: DraftIssue[];
 	/** Whether Review will install a new package or upgrade the one already carrying this id. */
 	mode: 'install' | 'upgrade';
@@ -141,6 +143,14 @@ export function ReviewStep({
 
 			{mode === 'upgrade' && (
 				<StepSection title={t('builder.review.placedCopies')}>
+					<Field label={t('builder.review.changelog')} help={t('builder.review.changelogHelp')}>
+						<Textarea
+							value={draft.changelog}
+							placeholder={t('builder.review.changelogPlaceholder')}
+							rows={3}
+							onChange={(e: { target: { value: string } }) => patch({ changelog: e.target.value })}
+						/>
+					</Field>
 					{migration ? (
 						<span style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
 							{t('builder.review.migrationFromTo', {

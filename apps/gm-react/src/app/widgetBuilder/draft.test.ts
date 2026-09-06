@@ -140,6 +140,14 @@ describe('RC-WID-2.1 widget builder draft', () => {
 		});
 	});
 
+	it('carries a changelog onto the generated migration (RC-WID-2.7)', () => {
+		const draft = readPackage(buildPackage(statusListDraft()));
+		// Untouched, a version bump still migrates cleanly; a changelog is optional, never required.
+		expect(generateMigration(draft)?.changelog).toBeUndefined();
+		const migration = generateMigration({ ...draft, changelog: '  Clearer health readout.  ' });
+		expect(migration?.changelog).toBe('Clearer health readout.');
+	});
+
 	it('upgrades a placed widget rather than disabling it', () => {
 		const box = campaign();
 		const first = statusListDraft();

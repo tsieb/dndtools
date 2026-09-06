@@ -484,6 +484,42 @@ describe('CANVAS-011: widget package upgrades and migration diagnostics', () => 
 		);
 	});
 
+	it('accepts and persists a changelog note on a migration (RC-WID-2.7)', () => {
+		const v1 = packageDefinition();
+		const v2 = packageDefinition({
+			version: '2.0.0',
+			widgets: [{ ...packageDefinition({ version: '2.0.0' }).widgets[0]!, version: '2.0.0' }],
+			migrations: [
+				{
+					widgetType: 'counter',
+					fromVersion: '1.0.0',
+					toVersion: '2.0.0',
+					changelog: 'Renamed the display label.',
+				},
+			],
+		});
+		const state = buildInitialState(DM_ACTOR);
+		const env = makeEnvironment();
+		const installed = dispatchCommand(state, env, {
+			type: 'widget.package.install',
+			actorId: DM_ACTOR.id,
+			payload: { package: v1 },
+		});
+		if (installed.status !== 'accepted') throw new Error('install');
+		const upgraded = dispatchCommand(installed.nextState, env, {
+			type: 'widget.package.upgrade',
+			actorId: DM_ACTOR.id,
+			payload: { package: v2 },
+		});
+		expect(upgraded.status).toBe('accepted');
+		if (upgraded.status !== 'accepted') return;
+		const migrations = upgraded.nextState.widgets.packages['workspace.counter']?.package.migrations;
+		expect(migrations?.[0]).toMatchObject({
+			toVersion: '2.0.0',
+			changelog: 'Renamed the display label.',
+		});
+	});
+
 	it('leaves a recoverable disabled instance when migration fails validation', () => {
 		const v1 = packageDefinition();
 		const v2 = packageDefinition({
@@ -784,7 +820,12 @@ describe('CANVAS-017: package review, disable, remove, and export', () => {
 		});
 		if (enabled.status !== 'accepted') throw new Error('enable');
 		const scene = createScene(enabled.nextState, env);
-		const { state: withWidget, widgetId } = addWidget(scene.state, scene.env, scene.sceneId, 'counter');
+		const { state: withWidget, widgetId } = addWidget(
+			scene.state,
+			scene.env,
+			scene.sceneId,
+			'counter',
+		);
 		const disableResult = dispatchCommand(withWidget, env, {
 			type: 'widget.package.disable',
 			actorId: DM_ACTOR.id,
@@ -919,22 +960,34 @@ describe('PERM-004 hardening — expired WIDGET grants are inert at authority gu
 			},
 		};
 
-		const configurePayload = { sceneId, widgetInstanceId: widgetId, configuration: { label: 'Changed' } };
+		const configurePayload = {
+			sceneId,
+			widgetInstanceId: widgetId,
+			configuration: { label: 'Changed' },
+		};
 
 		// Before expiry (12:30): manager grant is active; configure-widget is accepted.
-		const beforeExpiry = dispatchCommand(withExpiredManager, { ...setupEnv, clock: () => '2026-06-04T12:30:00.000Z' }, {
-			type: 'scene.configure-widget',
-			actorId: PLAYER_ACTOR.id,
-			payload: configurePayload,
-		});
+		const beforeExpiry = dispatchCommand(
+			withExpiredManager,
+			{ ...setupEnv, clock: () => '2026-06-04T12:30:00.000Z' },
+			{
+				type: 'scene.configure-widget',
+				actorId: PLAYER_ACTOR.id,
+				payload: configurePayload,
+			},
+		);
 		expect(beforeExpiry.status).toBe('accepted');
 
 		// After expiry (14:00): manager grant is inert; configure-widget is rejected fail-closed (PERM-004 AC2).
-		const afterExpiry = dispatchCommand(withExpiredManager, { ...setupEnv, clock: () => '2026-06-04T14:00:00.000Z' }, {
-			type: 'scene.configure-widget',
-			actorId: PLAYER_ACTOR.id,
-			payload: configurePayload,
-		});
+		const afterExpiry = dispatchCommand(
+			withExpiredManager,
+			{ ...setupEnv, clock: () => '2026-06-04T14:00:00.000Z' },
+			{
+				type: 'scene.configure-widget',
+				actorId: PLAYER_ACTOR.id,
+				payload: configurePayload,
+			},
+		);
 		expect(afterExpiry.status).toBe('rejected');
 		if (afterExpiry.status !== 'rejected') return;
 		expect(afterExpiry.rejection.code).toBe('actor-not-authorized');
@@ -991,19 +1044,27 @@ describe('PERM-004 hardening — expired WIDGET grants are inert at authority gu
 		};
 
 		// Before expiry (12:30): viewer grant is active; add-widget with binding is accepted.
-		const beforeExpiry = dispatchCommand(withGrants, { ...setupEnv, clock: () => '2026-06-04T12:30:00.000Z' }, {
-			type: 'scene.add-widget',
-			actorId: PLAYER_ACTOR.id,
-			payload: addPayload,
-		});
+		const beforeExpiry = dispatchCommand(
+			withGrants,
+			{ ...setupEnv, clock: () => '2026-06-04T12:30:00.000Z' },
+			{
+				type: 'scene.add-widget',
+				actorId: PLAYER_ACTOR.id,
+				payload: addPayload,
+			},
+		);
 		expect(beforeExpiry.status).toBe('accepted');
 
 		// After expiry (14:00): viewer grant is inert; add-widget with binding is rejected fail-closed (PERM-004 AC2).
-		const afterExpiry = dispatchCommand(withGrants, { ...setupEnv, clock: () => '2026-06-04T14:00:00.000Z' }, {
-			type: 'scene.add-widget',
-			actorId: PLAYER_ACTOR.id,
-			payload: addPayload,
-		});
+		const afterExpiry = dispatchCommand(
+			withGrants,
+			{ ...setupEnv, clock: () => '2026-06-04T14:00:00.000Z' },
+			{
+				type: 'scene.add-widget',
+				actorId: PLAYER_ACTOR.id,
+				payload: addPayload,
+			},
+		);
 		expect(afterExpiry.status).toBe('rejected');
 		if (afterExpiry.status !== 'rejected') return;
 		expect(afterExpiry.rejection.code).toBe('actor-not-authorized');

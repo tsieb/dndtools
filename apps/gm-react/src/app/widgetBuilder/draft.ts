@@ -130,6 +130,9 @@ export interface WidgetDraft {
 	/* Provenance of the package this draft was read from, when it is an edit rather than a new one. */
 	baseVersion: string | null;
 	baseConfigKeys: string[];
+	/** RC-WID-2.7 — what changed in this version. Carried onto the generated migration; never
+	 * read back from an installed package, because each version bump writes its own note. */
+	changelog: string;
 }
 
 /** Slug rules for a package id and a widget type id: lowercase words, `-` or `.` separated. */
@@ -185,6 +188,7 @@ export function emptyDraft(): WidgetDraft {
 		portabilityWarnings: [],
 		baseVersion: null,
 		baseConfigKeys: [],
+		changelog: '',
 	};
 }
 
@@ -320,6 +324,7 @@ export function generateMigration(draft: WidgetDraft): WidgetMigration | null {
 			added.map((field) => [field.key, field.default]),
 		);
 	}
+	if (draft.changelog.trim()) migration.changelog = draft.changelog.trim();
 	return migration;
 }
 

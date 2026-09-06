@@ -213,6 +213,7 @@ export function WidgetBuilder({
 		) : (
 			<ReviewStep
 				draft={draft}
+				patch={patch}
 				issues={issues}
 				mode={mode}
 				busy={busy}

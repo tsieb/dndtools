@@ -2066,6 +2066,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.plugins.enableLabel': 'Activar {name}',
 	'extensions.plugins.confirmRemove': 'Confirmar la eliminación',
 	'extensions.plugins.exportJson': 'Exportar JSON',
+	'extensions.plugins.newVersion': 'Nueva versión',
+	'extensions.plugins.newVersionLabel': 'Empezar una nueva versión de {name}',
 	'extensions.plugins.starterTitle': 'Biblioteca inicial',
 	'extensions.plugins.starterBadge': 'incluida · sin red',
 	'extensions.plugins.starterIntro':
@@ -2101,8 +2103,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Se instaló {id} desactivado y restringido. Revísalo arriba antes de activarlo.',
 	'extensions.plugins.upgraded': 'Se actualizó {id} y se actualizaron sus widgets colocados.',
 	'extensions.plugins.exportFailed': 'No se pudo exportar el paquete {id} ({reason}).',
-	'extensions.plugins.exported':
-		'Se exportó {id} al cuadro JSON de abajo — sube "version" (y declara "migrations" para los widgets colocados) para actualizarlo.',
+	'extensions.plugins.exportTitle': 'Exportar {name}',
+	'extensions.plugins.exported': 'Se descargó el archivo del paquete {id}.',
 	'extensions.plugins.tooLarge': 'Ese archivo de paquete es demasiado grande. El límite es 1 MB.',
 	'extensions.plugins.badJson': 'El JSON no es válido: {reason}',
 	'extensions.plugins.missingId':
@@ -2742,6 +2744,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.review.permsRequested': 'Permisos del anfitrión: {list}.',
 	'builder.review.playerVisibleWrites': 'Escrituras que los jugadores pueden ver: {count}.',
 	'builder.review.placedCopies': 'Copias colocadas',
+	'builder.review.changelog': 'Registro de cambios',
+	'builder.review.changelogHelp':
+		'Qué cambió en esta versión, guardado junto con el registro de migración.',
+	'builder.review.changelogPlaceholder': '¿Qué cambió en esta versión?',
 	'builder.review.migrationFromTo': 'Cada copia en la versión {from} pasa a {to}',
 	'builder.review.migrationGains': ', y gana los ajustes nuevos {settings}.',
 	'builder.review.noVersionBump':

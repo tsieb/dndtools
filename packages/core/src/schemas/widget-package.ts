@@ -254,6 +254,7 @@ export const widgetMigrationSchema = z
 		renameConfigurationKeys: z.record(z.string(), z.string().min(1)).optional(),
 		setConfigurationDefaults: z.record(z.string(), z.unknown()).optional(),
 		failWithDiagnostic: z.string().min(1).optional(),
+		changelog: z.string().min(1).optional(),
 	})
 	.strict();
 

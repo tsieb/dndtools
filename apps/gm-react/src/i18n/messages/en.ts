@@ -2010,6 +2010,8 @@ export const en = {
 	'extensions.plugins.enableLabel': 'Enable {name}',
 	'extensions.plugins.confirmRemove': 'Confirm remove',
 	'extensions.plugins.exportJson': 'Export JSON',
+	'extensions.plugins.newVersion': 'New version',
+	'extensions.plugins.newVersionLabel': 'Start a new version of {name}',
 	'extensions.plugins.starterTitle': 'Starter library',
 	'extensions.plugins.starterBadge': 'bundled · no network',
 	'extensions.plugins.starterIntro':
@@ -2044,8 +2046,8 @@ export const en = {
 		'Installed {id} in a disabled, restricted state. Review it above before enabling it.',
 	'extensions.plugins.upgraded': 'Upgraded {id} and updated its placed widgets.',
 	'extensions.plugins.exportFailed': 'Package {id} could not be exported ({reason}).',
-	'extensions.plugins.exported':
-		'Exported {id} into the JSON box below — bump "version" (and declare "migrations" for placed widgets) to upgrade it.',
+	'extensions.plugins.exportTitle': 'Export {name}',
+	'extensions.plugins.exported': 'Downloaded the package file for {id}.',
 	'extensions.plugins.tooLarge': 'That package file is too large. The limit is 1 MB.',
 	'extensions.plugins.badJson': 'Not valid JSON: {reason}',
 	'extensions.plugins.missingId':
@@ -2662,6 +2664,9 @@ export const en = {
 	'builder.review.permsRequested': 'Host permissions: {list}.',
 	'builder.review.playerVisibleWrites': 'Writes players can see: {count}.',
 	'builder.review.placedCopies': 'Placed copies',
+	'builder.review.changelog': 'Changelog',
+	'builder.review.changelogHelp': 'What changed in this version, kept with the migration record.',
+	'builder.review.changelogPlaceholder': 'What changed in this version?',
 	'builder.review.migrationFromTo': 'Every copy on version {from} moves to {to}',
 	'builder.review.migrationGains': ', and gains the new settings {settings}.',
 	'builder.review.noVersionBump':

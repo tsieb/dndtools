@@ -296,6 +296,9 @@ export interface WidgetMigration {
 	renameConfigurationKeys?: Record<string, string>;
 	setConfigurationDefaults?: Record<string, unknown>;
 	failWithDiagnostic?: string;
+	/** RC-WID-2.7 — what changed in this version, authored on the builder's Review step. Additive
+	 * and optional: a migration from before this field existed reads back unchanged. */
+	changelog?: string;
 }
 
 export interface WidgetPackageDefinition {

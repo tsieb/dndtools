@@ -10,6 +10,7 @@ import {
 import { Badge, Button, Icon, Switch, Textarea, Toaster } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
+import { downloadJsonFile, FileExportError } from '../../platform/download';
 /* ── RC-WID-2.1: the widget builder overlay is launched from this panel ─────────────────────── */
 import { WidgetBuilder } from './WidgetBuilder';
 /* ── RC-WID-1.5: the trust review sheet is opened from each installed package card ───────────── */
@@ -72,6 +73,14 @@ export function ExtPlugins() {
 	// RC-WID-2.1 — the builder is a full-screen overlay over this panel, not a route (same shape as
 	// the map editor over Atlas), so it is opened and closed from here.
 	const [builderOpen, setBuilderOpen] = useState(false);
+	// RC-WID-2.7 — "New version" opens the SAME overlay pre-filled from an installed package (a
+	// bumped semver, a generated migration entry) instead of a blank draft; null means "Build a
+	// widget" (new).
+	const [builderEditId, setBuilderEditId] = useState<string | null>(null);
+	const closeBuilder = () => {
+		setBuilderOpen(false);
+		setBuilderEditId(null);
+	};
 	// RC-WID-1.5 — the package currently open in the trust review sheet, by id.
 	const [reviewingId, setReviewingId] = useState<string | null>(null);
 	// The live widget-package registry — the "plugins" of this app. A removed package is gone, not listed.
@@ -151,22 +160,43 @@ export function ExtPlugins() {
 			);
 		});
 
-	// Prefill the JSON box with a card's real definition — the working upgrade path: export, bump
-	// `version` (declare `migrations` for placed widgets), paste back, and Install/upgrade.
-	const exportToDraft = (packageId: string) => {
-		const exported = exportWidgetPackage(
-			runtime.state.widgets,
-			{ ids: () => runtime.newId() },
-			packageId,
-		);
-		if ('kind' in exported) {
-			Toaster.error(
-				t('extensions.plugins.exportFailed', { id: packageId, reason: exported.reason }),
+	// RC-WID-2.7 — Export downloads the real package definition as a file, through the same
+	// `exportFile` path every other export in the app uses (browser download, or the Android
+	// share sheet); nothing here hand-builds the payload, `exportWidgetPackage` is the core's own.
+	const exportPackage = (packageId: string) =>
+		guard(async () => {
+			const exported = exportWidgetPackage(
+				runtime.state.widgets,
+				{ ids: () => runtime.newId() },
+				packageId,
 			);
-			return;
-		}
-		setJsonDraft(JSON.stringify(exported.package, null, 2));
-		Toaster.info(t('extensions.plugins.exported', { id: packageId }), { duration: 7000 });
+			if ('kind' in exported) {
+				Toaster.error(
+					t('extensions.plugins.exportFailed', { id: packageId, reason: exported.reason }),
+				);
+				return;
+			}
+			const filename = `${packageId.replace(/[^a-z0-9-]+/gi, '-').toLowerCase()}-${exported.package.version}.json`;
+			try {
+				const result = await downloadJsonFile(
+					filename,
+					exported.package,
+					t('extensions.plugins.exportTitle', { name: exported.package.displayName }),
+				);
+				if (result.status === 'exported') {
+					Toaster.success(t('extensions.plugins.exported', { id: packageId }));
+				}
+			} catch (error) {
+				Toaster.error(error instanceof FileExportError ? error.message : String(error));
+			}
+		});
+
+	// RC-WID-2.7 — "New version": open the builder pre-filled from this package. `readPackage`
+	// already bumps the patch version and `generateMigration` already writes the migration entry;
+	// this is only the entry point into that existing edit path from the installed list.
+	const newVersion = (packageId: string) => {
+		setBuilderEditId(packageId);
+		setBuilderOpen(true);
 	};
 
 	const applyJson = () =>
@@ -394,9 +424,22 @@ export function ExtPlugins() {
 														variant="ghost"
 														size="sm"
 														icon="upload"
-														onClick={() => exportToDraft(def.id)}
+														disabled={busy}
+														onClick={() => exportPackage(def.id)}
 													>
 														{t('extensions.plugins.exportJson')}
+													</Button>
+													<Button
+														variant="ghost"
+														size="sm"
+														icon="retry"
+														aria-label={t('extensions.plugins.newVersionLabel', {
+															name: def.displayName,
+														})}
+														disabled={!canWrite || busy}
+														onClick={() => newVersion(def.id)}
+													>
+														{t('extensions.plugins.newVersion')}
 													</Button>
 													<Button
 														variant="ghost"
@@ -498,7 +541,10 @@ export function ExtPlugins() {
 						size="sm"
 						icon="add"
 						disabled={!canWrite}
-						onClick={() => setBuilderOpen(true)}
+						onClick={() => {
+							setBuilderEditId(null);
+							setBuilderOpen(true);
+						}}
 					>
 						{t('extensions.plugins.buildTitle')}
 					</Button>
@@ -535,7 +581,14 @@ export function ExtPlugins() {
 					{t('extensions.plugins.marketBody')}
 				</div>
 			</Panel>
-			{builderOpen && <WidgetBuilder onClose={() => setBuilderOpen(false)} />}
+			{builderOpen && (
+				<WidgetBuilder
+					editPackage={
+						builderEditId ? (runtime.state.widgets.packages[builderEditId]?.package ?? null) : null
+					}
+					onClose={closeBuilder}
+				/>
+			)}
 			{reviewingId && (
 				<TrustReviewSheet packageId={reviewingId} onClose={() => setReviewingId(null)} />
 			)}

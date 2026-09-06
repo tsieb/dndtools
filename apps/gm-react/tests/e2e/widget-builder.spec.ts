@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { promises as fs } from 'node:fs';
 import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
 
 // WIDGET BUILDER — RC-WID-2.1. Extensions → Plugins → "Build a widget" opens a full-screen overlay
@@ -346,6 +347,81 @@ test.describe('widget builder: config and commands steps (RC-WID-2.3)', () => {
 				),
 			)
 			.toBe(6);
+	});
+});
+
+test.describe('widget builder: export and new version (RC-WID-2.7)', () => {
+	/** Install the minimal `Party status` package the other tests use, from a fresh vault. */
+	async function installMinimal(page: Page) {
+		const dialog = await openBuilder(page);
+		await dialog.getByLabel('Name', { exact: true }).fill('Party status');
+		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await dialog.getByRole('button', { name: 'Install widget' }).click();
+		await expect(dialog).toHaveCount(0);
+	}
+
+	test('export downloads the real package definition', async ({ page }) => {
+		await installMinimal(page);
+
+		const downloadPromise = page.waitForEvent('download');
+		await page
+			.getByTestId(`package-card-${PACKAGE_ID}`)
+			.getByRole('button', { name: 'Export JSON' })
+			.click();
+		const download = await downloadPromise;
+		expect(download.suggestedFilename()).toBe('workspace-party-status-1.0.0.json');
+
+		const path = await download.path();
+		const exported = JSON.parse(await fs.readFile(path!, 'utf8')) as {
+			id: string;
+			version: string;
+			displayName: string;
+		};
+		expect(exported.id).toBe(PACKAGE_ID);
+		expect(exported.version).toBe('1.0.0');
+		expect(exported.displayName).toBe('Party status');
+	});
+
+	test('new version pre-fills the builder with a bumped semver and writes a migration with the changelog', async ({
+		page,
+	}) => {
+		await installMinimal(page);
+
+		await page
+			.getByTestId(`package-card-${PACKAGE_ID}`)
+			.getByRole('button', { name: 'Start a new version of Party status' })
+			.click();
+		const dialog = page.getByRole('dialog', { name: /Widget builder/ });
+		await expect(dialog).toBeVisible();
+
+		// Pre-filled from the installed package: same identity, patch-bumped version.
+		await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue('Party status');
+		await expect(dialog.getByLabel('Version', { exact: true })).toHaveValue('1.0.1');
+
+		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await dialog.getByLabel('Changelog', { exact: true }).fill('Clarifies the health readout.');
+		// The migration this version bump writes is described before it is saved.
+		await expect(dialog.getByText('Every copy on version 1.0.0 moves to 1.0.1')).toBeVisible();
+		await dialog.getByRole('button', { name: 'Save new version' }).click();
+		await expect(dialog).toHaveCount(0);
+
+		const record = await page.evaluate((packageId) => {
+			const packages = window.__rt!.state.widgets.packages as Record<
+				string,
+				{
+					package: {
+						version: string;
+						migrations: Array<{ fromVersion: string; toVersion: string; changelog?: string }>;
+					};
+				}
+			>;
+			return packages[packageId] ?? null;
+		}, PACKAGE_ID);
+		expect(record).not.toBeNull();
+		expect(record!.package.version).toBe('1.0.1');
+		const migration = record!.package.migrations.find((entry) => entry.toVersion === '1.0.1');
+		expect(migration?.fromVersion).toBe('1.0.0');
+		expect(migration?.changelog).toBe('Clarifies the health readout.');
 	});
 });
 
