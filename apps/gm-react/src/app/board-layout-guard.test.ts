@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	BOARD_RIGHT_BOUND,
 	boardHasLayoutIssues,
+	boardLayoutIssues,
 	clampToColumns,
 	clampWidthToColumns,
 	repackBoardColumns,
@@ -70,6 +71,48 @@ describe('boardHasLayoutIssues', () => {
 		expect(boardHasLayoutIssues([rect('a', 24, 24, 240, 160), rect('b', 264, 24, 240, 160)])).toBe(
 			false,
 		);
+	});
+});
+
+describe('boardLayoutIssues', () => {
+	it('is empty for the default seeded three-column grid', () => {
+		const widgets = [
+			rect('a', 24, 24, 240, 160),
+			rect('b', 288, 24, 240, 160),
+			rect('c', 552, 24, 240, 160),
+		];
+		expect(boardLayoutIssues(widgets)).toEqual([]);
+	});
+
+	it('reports an overflow issue naming the offending widget', () => {
+		const widgets = [rect('a', BOARD_RIGHT_BOUND - 100, 24, 240, 160)];
+		expect(boardLayoutIssues(widgets)).toEqual([{ kind: 'overflow', widgetId: 'a' }]);
+	});
+
+	it('reports an overlap issue naming both widgets, once per pair', () => {
+		const widgets = [rect('a', 24, 24, 240, 160), rect('b', 24, 24, 240, 160)];
+		expect(boardLayoutIssues(widgets)).toEqual([
+			{ kind: 'overlap', widgetId: 'a', otherWidgetId: 'b' },
+		]);
+	});
+
+	it('reports both an overflow and an overlap when both are present', () => {
+		const widgets = [
+			rect('a', BOARD_RIGHT_BOUND - 100, 24, 240, 160),
+			rect('b', 24, 24, 240, 160),
+			rect('c', 24, 24, 240, 160),
+		];
+		expect(boardLayoutIssues(widgets)).toEqual([
+			{ kind: 'overflow', widgetId: 'a' },
+			{ kind: 'overlap', widgetId: 'b', otherWidgetId: 'c' },
+		]);
+	});
+
+	it('agrees with boardHasLayoutIssues on whether the board is clean', () => {
+		const dirty = [rect('a', 24, 24, 240, 160), rect('b', 24, 24, 240, 160)];
+		const clean = [rect('a', 24, 24, 240, 160), rect('b', 288, 24, 240, 160)];
+		expect(boardLayoutIssues(dirty).length > 0).toBe(boardHasLayoutIssues(dirty));
+		expect(boardLayoutIssues(clean).length > 0).toBe(boardHasLayoutIssues(clean));
 	});
 });
 

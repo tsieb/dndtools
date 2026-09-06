@@ -7,12 +7,12 @@ import {
 	resolveAddWidgetCommand,
 	type WidgetLibraryEntry,
 } from '@dndtools/core';
-import { Button, Card, Icon, IconButton, Input, Switch, Toaster } from '../ds';
+import { Button, Card, Icon, IconButton, Input, Popover, Switch, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { widgetRejectionMessage } from '../app/widget-rejection';
 import { SceneBoardCanvas, WidgetGlyph } from '../app/SceneBoardCanvas';
 import {
-	boardHasLayoutIssues,
+	boardLayoutIssues,
 	boardWidgetsOf,
 	clampToColumns,
 	clampWidthToColumns,
@@ -65,6 +65,10 @@ export function Board() {
 	const [presetName, setPresetName] = useState('');
 	const [status, setStatus] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	// RC-CAN-3.4 — the layout quality indicator's own popover, separate from Add/Layouts so opening
+	// it does not fight their shared side slot.
+	const [qualityOpen, setQualityOpen] = useState(false);
+	const qualityTriggerRef = useRef<HTMLButtonElement>(null);
 	const ensuringRef = useRef(false);
 
 	// A successful Add, or a saved layout preset, unmounts the panel with focus still inside it — the
@@ -217,7 +221,7 @@ export function Board() {
 	// The banner's fix: a deterministic greedy repack of every widget back into the board's columns,
 	// each changed position committed as its own `scene.move-widget` (the same undoable path a drag
 	// takes), so "Fix layout" is a real durable action rather than a client-only visual snap.
-	const layoutIssues = boardHasLayoutIssues(widgets);
+	const layoutIssues = boardLayoutIssues(widgets);
 	async function fixLayout() {
 		if (!homeSceneId) return;
 		const next = repackBoardColumns(widgets);
@@ -226,7 +230,17 @@ export function Board() {
 			if (!pos || (pos.x === widget.x && pos.y === widget.y)) continue;
 			await move(widget.id, pos.x, pos.y);
 		}
+		setQualityOpen(false);
 		setStatus(t('board.layoutFixed'));
+	}
+	// RC-CAN-3.4 — "Select" on a listed issue puts the offender under the SAME selection state a
+	// pointer click on the canvas sets (`SceneBoardCanvas` only paints the selected outline in edit
+	// mode), so it has to also enter edit mode rather than selecting a widget the canvas can't show
+	// as selected yet.
+	function selectIssue(widgetId: string) {
+		setSelectedId(widgetId);
+		if (!editing) setEditing(true);
+		setQualityOpen(false);
 	}
 	// Delete/Backspace on a focused widget frame is the ONLY widget-lifecycle operation on `/board`
 	// (there is no Inspector here). It used to stage a confirm dialog, because a destroy could not be
@@ -543,11 +557,14 @@ export function Board() {
 				</div>
 			)}
 
-			{/* RC-CAN-3.3: a widget dragged (or preset-applied) past the board's columns is clamped back
-			    onto the grid at the point it commits, but that snap can still land it on top of another
-			    widget. This banner names that honestly instead of leaving an invisible overlap, and
-			    offers the one-click fix. */}
-			{layoutIssues && (
+			{/* RC-CAN-3.3/3.4: a widget dragged (or preset-applied) past the board's columns is clamped
+			    back onto the grid at the point it commits, but that snap can still land it on top of
+			    another widget. This banner names that honestly instead of leaving an invisible overlap,
+			    and its own text is the quality indicator's trigger: a Popover lists every offender by
+			    name (shape — warning triangle for an overflow, error circle for an overlap — carries
+			    the distinction, not colour alone) with a "Select" that jumps the DM straight to it,
+			    alongside the one-click "Fix layout". */}
+			{layoutIssues.length > 0 && (
 				<Card
 					elevation="flat"
 					padding="sm"
@@ -557,16 +574,76 @@ export function Board() {
 						alignItems: 'center',
 						gap: 'var(--space-2)',
 						flex: '0 0 auto',
+						position: 'relative',
 						borderColor: 'var(--color-status-warning)',
 					}}
 				>
 					<Icon name="warning" size="sm" />
-					<span style={{ flex: 1, font: 'var(--text-xs) var(--font-sans)' }}>
-						{t('board.layoutIssues')}
-					</span>
+					<button
+						type="button"
+						ref={qualityTriggerRef}
+						aria-haspopup="true"
+						aria-expanded={qualityOpen}
+						data-testid="board-layout-quality-trigger"
+						onClick={() => setQualityOpen((v) => !v)}
+						style={{
+							flex: 1,
+							textAlign: 'left',
+							background: 'transparent',
+							border: 'none',
+							padding: 0,
+							cursor: 'pointer',
+							font: 'var(--text-xs) var(--font-sans)',
+							color: 'var(--color-text-primary)',
+							textDecoration: 'underline',
+							textUnderlineOffset: 2,
+						}}
+					>
+						{t('board.layoutIssues', { count: layoutIssues.length })}
+					</button>
 					<Button variant="secondary" size="sm" onClick={() => void fixLayout()}>
 						{t('board.fixLayout')}
 					</Button>
+					{qualityOpen && (
+						<Popover
+							triggerRef={qualityTriggerRef}
+							title={t('board.layoutIssuesTitle')}
+							onClose={() => setQualityOpen(false)}
+							style={{ position: 'absolute', top: '100%', left: 0, marginTop: 'var(--space-1)' }}
+						>
+							<ul
+								data-testid="board-layout-issue-list"
+								style={{
+									listStyle: 'none',
+									margin: 0,
+									padding: 0,
+									display: 'flex',
+									flexDirection: 'column',
+									gap: 'var(--space-2)',
+								}}
+							>
+								{layoutIssues.map((issue, index) => (
+									<li
+										key={`${issue.kind}-${issue.widgetId}-${issue.otherWidgetId ?? index}`}
+										style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}
+									>
+										<Icon name={issue.kind === 'overflow' ? 'warning' : 'error'} size="sm" />
+										<span style={{ flex: 1, font: 'var(--text-xs) var(--font-sans)' }}>
+											{issue.kind === 'overflow'
+												? t('board.layoutIssueOverflow', { widget: titleOf(issue.widgetId) })
+												: t('board.layoutIssueOverlap', {
+														widget: titleOf(issue.widgetId),
+														other: titleOf(issue.otherWidgetId!),
+													})}
+										</span>
+										<Button variant="ghost" size="sm" onClick={() => selectIssue(issue.widgetId)}>
+											{t('board.selectIssue')}
+										</Button>
+									</li>
+								))}
+							</ul>
+						</Popover>
+					)}
 				</Card>
 			)}
 

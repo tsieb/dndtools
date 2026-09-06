@@ -241,20 +241,47 @@ export function clampWidthToColumns(
 	return Math.min(w, Math.max(1, bound - Math.max(0, x)));
 }
 
+export type BoardLayoutIssueKind = 'overflow' | 'overlap';
+
+/**
+ * RC-CAN-3.4 — one entry per layout problem, named rather than collapsed into a single boolean, so
+ * the quality indicator's popover can list each offender and offer a "Select" that jumps straight
+ * to it instead of leaving the DM to hunt the board for whatever tripped the banner.
+ */
+export interface BoardLayoutIssue {
+	kind: BoardLayoutIssueKind;
+	widgetId: string;
+	/** The other widget in the pair, for an `overlap` issue (each overlapping pair reported once). */
+	otherWidgetId?: string;
+}
+
+/** Every overflow and overlap on the board, in widget order — the detail behind `boardHasLayoutIssues`. */
+export function boardLayoutIssues(
+	widgets: readonly BoardLayoutRect[],
+	bound: number = BOARD_RIGHT_BOUND,
+): BoardLayoutIssue[] {
+	const issues: BoardLayoutIssue[] = [];
+	for (const widget of widgets) {
+		if (widget.x < 0 || widget.y < 0 || widget.x + widget.w > bound) {
+			issues.push({ kind: 'overflow', widgetId: widget.id });
+		}
+	}
+	for (let i = 0; i < widgets.length; i++) {
+		for (let j = i + 1; j < widgets.length; j++) {
+			if (rectsOverlap(widgets[i], widgets[j])) {
+				issues.push({ kind: 'overlap', widgetId: widgets[i].id, otherWidgetId: widgets[j].id });
+			}
+		}
+	}
+	return issues;
+}
+
 /** True when any widget sits off the board's columns or overlaps another — the "Fix layout" trigger. */
 export function boardHasLayoutIssues(
 	widgets: readonly BoardLayoutRect[],
 	bound: number = BOARD_RIGHT_BOUND,
 ): boolean {
-	for (const widget of widgets) {
-		if (widget.x < 0 || widget.y < 0 || widget.x + widget.w > bound) return true;
-	}
-	for (let i = 0; i < widgets.length; i++) {
-		for (let j = i + 1; j < widgets.length; j++) {
-			if (rectsOverlap(widgets[i], widgets[j])) return true;
-		}
-	}
-	return false;
+	return boardLayoutIssues(widgets, bound).length > 0;
 }
 
 /**

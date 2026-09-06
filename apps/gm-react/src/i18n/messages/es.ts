@@ -3917,7 +3917,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'board.layoutSaved': 'Se guardó el diseño «{name}».',
 	'board.layoutApplied': 'Se aplicó el diseño «{name}» — puedes restaurar el diseño anterior.',
 	'board.layoutRestored': 'Se restauró el diseño anterior.',
-	'board.layoutIssues': 'Algunos widgets se superponen o se salen del tablero.',
+	'board.layoutIssues':
+		'{count, plural, one {# problema de diseño} other {# problemas de diseño}} — superpuestos o fuera del tablero.',
+	'board.layoutIssuesTitle': 'Problemas de diseño',
+	'board.layoutIssueOverflow': '«{widget}» está fuera del tablero',
+	'board.layoutIssueOverlap': '«{widget}» se superpone con «{other}»',
+	'board.selectIssue': 'Seleccionar',
 	'board.fixLayout': 'Corregir el diseño',
 	'board.layoutFixed': 'Se corrigió el diseño.',
 

@@ -3796,7 +3796,12 @@ export const en = {
 	'board.layoutSaved': 'Layout “{name}” saved.',
 	'board.layoutApplied': 'Layout “{name}” applied — you can restore the previous layout.',
 	'board.layoutRestored': 'Previous layout restored.',
-	'board.layoutIssues': 'Some widgets overlap or overflow the board.',
+	'board.layoutIssues':
+		'{count, plural, one {# layout issue} other {# layout issues}} — overlapping or off the board.',
+	'board.layoutIssuesTitle': 'Layout issues',
+	'board.layoutIssueOverflow': '“{widget}” is off the board',
+	'board.layoutIssueOverlap': '“{widget}” overlaps “{other}”',
+	'board.selectIssue': 'Select',
 	'board.fixLayout': 'Fix layout',
 	'board.layoutFixed': 'Layout fixed.',
 
