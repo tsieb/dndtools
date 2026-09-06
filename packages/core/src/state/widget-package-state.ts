@@ -181,6 +181,49 @@ export interface WidgetComputedFieldDefinition {
 	label: string;
 	inputQueryIds: string[];
 	valueType: WidgetSchemaFieldType;
+	/**
+	 * RC-WID-2.2 — an optional SYS-1.1 formula over the input queries' columns, e.g.
+	 * `party_sum / max(party_count, 1)`. Absent (the default) keeps the declared per-type reduction.
+	 * Only meaningful for `valueType: 'number'`; the grammar produces numbers and nothing else.
+	 */
+	formula?: string;
+}
+
+/**
+ * The columns a computed field's formula may reduce one data query to (RC-WID-2.2).
+ *
+ * A declared query yields ROWS, and the formula grammar reads numbers, so a query enters a formula
+ * only through these four aggregates. There is deliberately no way to name an individual row: a
+ * formula that could reach one row could be authored to reveal whether a particular hidden entity
+ * exists, which is exactly the leak the audience gate exists to stop.
+ */
+export type WidgetQueryColumn = 'count' | 'sum' | 'max' | 'active';
+
+export const WIDGET_QUERY_COLUMNS: readonly WidgetQueryColumn[] = Object.freeze([
+	'count',
+	'sum',
+	'max',
+	'active',
+]);
+
+/**
+ * The formula identifier one query's column is named by.
+ *
+ * Query ids are slugs (`party-hp`, `combat.round`) and the SYS-1.1 grammar only reads
+ * `[A-Za-z_][A-Za-z0-9_]*`, so the id is folded to underscores and suffixed with the column. The
+ * suffix also means an identifier can never collide with a grammar function name (`min`, `max`…).
+ */
+export function widgetQueryFormulaIdentifier(queryId: string, column: WidgetQueryColumn): string {
+	const folded = queryId.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+	const key = folded === '' ? 'query' : folded;
+	return `${/^[0-9]/.test(key) ? `q_${key}` : key}_${column}`;
+}
+
+/** Every identifier a formula over these queries may name, in declaration order. */
+export function widgetFormulaIdentifiers(queries: readonly WidgetDataQueryDefinition[]): string[] {
+	return queries.flatMap((query) =>
+		WIDGET_QUERY_COLUMNS.map((column) => widgetQueryFormulaIdentifier(query.id, column)),
+	);
 }
 
 export interface WidgetOutputWriteDefinition {

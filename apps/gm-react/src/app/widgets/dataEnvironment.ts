@@ -1,10 +1,13 @@
 import {
+	WIDGET_QUERY_COLUMNS,
+	evaluateFormula,
 	getCombatTrackerForActor,
 	getContentItemsForActor,
 	getPartyOverviewForActor,
 	hasDmAuthority,
 	listMapsForActor,
 	listScenesForActor,
+	widgetQueryFormulaIdentifier,
 	type CoreStateSlice,
 	type WidgetComputedFieldDefinition,
 	type WidgetDataQueryDefinition,
@@ -265,28 +268,64 @@ function displayOf(value: WidgetComputedValue['value']): string {
 }
 
 /**
+ * The numbers a formula may name: four aggregates per input query (RC-WID-2.2).
+ *
+ * A withheld query contributes ZEROES rather than being left out of the scope, so a formula that
+ * names it still evaluates — to a total that contains nothing the viewer was not allowed to see.
+ * Leaving the identifier undefined instead would turn "you may not see this" into a formula error,
+ * which tells the player the query exists and produces no answer at all.
+ */
+function formulaScope(inputs: readonly WidgetQueryResult[]): Record<string, number> {
+	const scope: Record<string, number> = {};
+	for (const result of inputs) {
+		const rows = result.withheld === null ? result.rows : [];
+		const totals: Record<(typeof WIDGET_QUERY_COLUMNS)[number], number> = {
+			count: rows.length,
+			sum: rows.reduce((total, r) => total + (r.value ?? 0), 0),
+			max: rows.reduce((total, r) => total + (r.max ?? 0), 0),
+			active: rows.filter((r) => r.active).length,
+		};
+		for (const column of WIDGET_QUERY_COLUMNS) {
+			scope[widgetQueryFormulaIdentifier(result.id, column)] = totals[column];
+		}
+	}
+	return scope;
+}
+
+/**
  * Evaluate one computed field over its input queries.
  *
- * The definition schema carries NO expression language — a computed field is `inputQueryIds` plus a
- * `valueType`, and nothing else. So the only faithful evaluation is a declared reduction per type:
- * a number sums the rows' measures (falling back to the row count when no row carries one), a string
- * lists the row names, a boolean asks whether there is anything at all, an array is the rows and an
- * object is the per-query row count. A package that wants arithmetic ships `custom-html-js`
- * (RC-WID-1.3); a template does not get a hidden formula engine here.
+ * Two ways to reduce, and the declaration picks. A field that carries a `formula` (RC-WID-2.2) is
+ * the SYS-1.1 declarative grammar applied to the four aggregates each input query exposes — no
+ * property access, no host call, no way to name an individual row. Everything else keeps the
+ * declared per-type reduction: a number sums the rows' measures (falling back to the row count when
+ * no row carries one), a string lists the row names, a boolean asks whether there is anything at
+ * all, an array is the rows and an object is the per-query row count.
  *
- * A withheld input contributes nothing, so a player's computed total can never be derived from rows
- * the player was not allowed to receive.
+ * A withheld input contributes nothing either way, so a player's computed total can never be
+ * derived from rows the player was not allowed to receive. A formula that fails to evaluate says so
+ * where the value would have been rather than printing a plausible zero.
  */
 function evaluateComputedField(
 	field: WidgetComputedFieldDefinition,
 	byId: Map<string, WidgetQueryResult>,
 ): WidgetComputedValue {
-	const inputs = field.inputQueryIds
+	const declared = field.inputQueryIds
 		.map((id) => byId.get(id))
-		.filter(
-			(result): result is WidgetQueryResult => result !== undefined && result.withheld === null,
-		);
+		.filter((result): result is WidgetQueryResult => result !== undefined);
+	const inputs = declared.filter((result) => result.withheld === null);
 	const rows = inputs.flatMap((result) => result.rows);
+
+	if (field.formula !== undefined && field.valueType === 'number') {
+		const result = evaluateFormula(field.formula, formulaScope(declared));
+		return {
+			id: field.id,
+			label: field.label,
+			valueType: 'number',
+			value: result.ok ? result.value : 0,
+			display: result.ok ? displayOf(result.value) : result.message,
+		};
+	}
 
 	let value: WidgetComputedValue['value'];
 	switch (field.valueType) {

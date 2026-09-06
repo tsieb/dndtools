@@ -43,6 +43,14 @@ derivations are declared as formulas in a tiny expression grammar and evaluated 
 `SystemsState.activeWidgetPackageId` — the two are different id namespaces, so they are never
 conflated.)
 
+(That same expression grammar is the only arithmetic a WIDGET package may declare. A widget's
+`computedFields` reduce its `dataQueries` to one value; a field may carry an optional `formula`
+evaluated by the same `evaluateFormula`, over the four aggregate columns each query exposes
+(`<query>_count`, `_sum`, `_max`, `_active`, named by `widgetQueryFormulaIdentifier`). There is no
+way to name an individual row, and a query withheld from the viewer contributes zeroes — so a
+formula can never become a channel around the query's own audience gate. A formula that names a
+query the package did not declare is rejected at install by `schemas/widget-package.ts`.)
+
 The sync **operation log** is a thirteenth persisted artifact; it is replayed rather than
 migrated (each operation carries its own schema version), so it is excluded from the
 migration document set.

@@ -311,6 +311,91 @@ describe('computed fields', () => {
 		expect(byId.get('counts')?.value).toEqual({ party: partyRows.length });
 	});
 
+	it('works out a formula over the queries it names', () => {
+		const { state } = campaign();
+		const definition = definitionWith(
+			[query('visible-characters', { id: 'party' })],
+			[
+				{
+					id: 'average-hp',
+					label: 'Average HP',
+					inputQueryIds: ['party'],
+					valueType: 'number',
+					formula: 'round(party_sum / max(party_count, 1))',
+				},
+			],
+		);
+		const data = resolveWidgetTemplateData(state, DM_ACTOR.id, definition, boardWidget());
+		const rows = data.queries[0].rows;
+		const expected = Math.round(
+			rows.reduce((sum, row) => sum + (row.value ?? 0), 0) / Math.max(rows.length, 1),
+		);
+		expect(data.computed[0].value).toBe(expected);
+		expect(data.computed[0].display).toBe(String(expected));
+	});
+
+	it('reads a withheld query as zeroes rather than failing the formula', () => {
+		const { state } = campaign();
+		const definition = definitionWith(
+			[query('visible-characters', { id: 'party', audience: 'dm' })],
+			[
+				{
+					id: 'total-hp',
+					label: 'Total HP',
+					inputQueryIds: ['party'],
+					valueType: 'number',
+					formula: 'party_sum + party_count',
+				},
+			],
+		);
+		expect(
+			resolveWidgetTemplateData(state, PLAYER_ACTOR.id, definition, boardWidget()).computed[0]
+				.value,
+		).toBe(0);
+		expect(
+			resolveWidgetTemplateData(state, DM_ACTOR.id, definition, boardWidget()).computed[0].value,
+		).toBeGreaterThan(0);
+	});
+
+	it('says a formula it cannot read is broken instead of printing a plausible zero', () => {
+		const { state } = campaign();
+		const definition = definitionWith(
+			[query('visible-characters', { id: 'party' })],
+			[
+				{
+					id: 'broken',
+					label: 'Broken',
+					inputQueryIds: ['party'],
+					valueType: 'number',
+					formula: 'gone_sum + 1',
+				},
+			],
+		);
+		const computed = resolveWidgetTemplateData(state, DM_ACTOR.id, definition, boardWidget())
+			.computed[0];
+		expect(computed.value).toBe(0);
+		expect(computed.display).not.toBe('0');
+		expect(computed.display.toLowerCase()).toContain('gone_sum');
+	});
+
+	it('keeps the declared reduction for a value type a formula cannot produce', () => {
+		const { state } = campaign();
+		const definition = definitionWith(
+			[query('visible-characters', { id: 'party' })],
+			[
+				{
+					id: 'names',
+					label: 'Names',
+					inputQueryIds: ['party'],
+					valueType: 'string',
+					formula: 'party_count',
+				},
+			],
+		);
+		const data = resolveWidgetTemplateData(state, DM_ACTOR.id, definition, boardWidget());
+		expect(data.computed[0].value).toBe(data.queries[0].rows.map((row) => row.primary).join(', '));
+	});
+
 	it('derives nothing from an input the viewer was not allowed to receive', () => {
 		const { state } = campaign();
 		const definition = definitionWith(

@@ -512,6 +512,7 @@ export type {
 	WidgetPackageTrustReview,
 	WidgetPackageTrustState,
 	WidgetPlacement,
+	WidgetQueryColumn,
 	WidgetRenderEntrypoint,
 	WidgetRuntimeKind,
 	WidgetRuntimeSandbox,
@@ -539,6 +540,10 @@ export {
 	resolveWidgetStyleVariables,
 	widgetSupportsSurface,
 	widgetSurfaces,
+	// RC-WID-2.2 — computed-field formulas over query columns.
+	WIDGET_QUERY_COLUMNS,
+	widgetFormulaIdentifiers,
+	widgetQueryFormulaIdentifier,
 } from './state/widget-package-state';
 
 export type {

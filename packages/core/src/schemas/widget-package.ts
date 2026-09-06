@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { ALL_HOST_PERMISSIONS } from '../state/widget-package-state';
+import { isValidFormula } from '../state/system-package';
+import { ALL_HOST_PERMISSIONS, widgetFormulaIdentifiers } from '../state/widget-package-state';
 
 const idSchema = z.string().min(1);
 
@@ -140,6 +141,9 @@ const widgetComputedFieldDefinitionSchema = z
 		label: z.string().min(1),
 		inputQueryIds: z.array(idSchema),
 		valueType: z.enum(['string', 'number', 'boolean', 'object', 'array']),
+		// RC-WID-2.2. Only its SHAPE is checked here: whether the expression parses depends on the
+		// sibling `dataQueries`, so the definition-level refinement below is where that is decided.
+		formula: z.string().min(1).optional(),
 	})
 	.strict();
 
@@ -176,9 +180,7 @@ const widgetConfigFieldSchema = z
 		label: z.string().min(1),
 		control: z.enum(['text', 'textarea', 'number', 'select', 'toggle', 'color']),
 		group: z.enum(['content', 'display', 'style']).optional(),
-		options: z
-			.array(z.object({ value: z.string(), label: z.string().min(1) }).strict())
-			.optional(),
+		options: z.array(z.object({ value: z.string(), label: z.string().min(1) }).strict()).optional(),
 		default: z.unknown().optional(),
 		min: z.number().finite().optional(),
 		max: z.number().finite().optional(),
@@ -226,7 +228,23 @@ const widgetDefinitionSchema = z
 			.array(z.enum(['vault-sync', 'asset-cdn', 'widget-declared', 'analytics']))
 			.optional(),
 	})
-	.strict();
+	.strict()
+	// RC-WID-2.2 — a computed field's formula is checked against the queries it may actually name,
+	// which is knowable only here, where the sibling `dataQueries` are in scope. A formula that
+	// reaches for a query that is not declared is rejected at install rather than failing silently
+	// at render time on somebody else's table.
+	.superRefine((definition, ctx) => {
+		const identifiers = widgetFormulaIdentifiers(definition.dataQueries ?? []);
+		(definition.computedFields ?? []).forEach((field, index) => {
+			if (field.formula === undefined) return;
+			if (isValidFormula(field.formula, identifiers)) return;
+			ctx.addIssue({
+				code: 'custom',
+				path: ['computedFields', index, 'formula'],
+				message: `Computed field ${field.id} has a formula that cannot be read against its data queries.`,
+			});
+		});
+	});
 
 export const widgetMigrationSchema = z
 	.object({
