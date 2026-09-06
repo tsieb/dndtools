@@ -1933,6 +1933,192 @@ export const en = {
 		'Package JSON needs a top-level "id" (or an export wrapper with "package.id").',
 	'extensions.plugins.systemLocked':
 		'Built-in system packages cannot be replaced with a package file.',
+	/* Community › shell, marketplace gate, export, discover, publish and the campaign wiki */
+	'community.sections': 'Community sections',
+	'community.tab.discover': 'Discover',
+	'community.tab.export': 'Export',
+	'community.tab.publish': 'Publish',
+	'community.tab.wiki': 'Campaign wiki',
+	'community.error': 'That didn’t go through — check your connection and try again.',
+
+	'community.market.title': 'Module marketplace',
+	'community.market.localOnly': 'Local-only build',
+	'community.market.signedOut': 'Signed out',
+	'community.market.signIn': 'Sign in',
+	'community.market.unavailable':
+		'The community marketplace is not available in this edition. You can still install a package file manually from Extensions → Plugins.',
+	'community.market.signInBrowse':
+		'Sign in to browse and install community modules. Everything else in the app works without an account.',
+	'community.market.signInPublish':
+		'Sign in to publish community modules. Everything else in the app works without an account.',
+
+	'community.export.title': 'Export',
+	'community.export.whatTitle': 'What to export',
+	'community.export.contentTypes': 'Content types',
+	'community.export.counts': '(current campaign counts)',
+	'community.export.empty': 'Nothing to export yet — create notes and content in Knowledge first.',
+	'community.export.includeKind': 'Include {kind} in module export',
+	'community.export.includeDmOnly': 'Include DM-only content',
+	'community.export.includeDmOnlyHelp':
+		'Off: a player-safe export with secrets redacted. On: a full DM backup.',
+	'community.export.saveTitle': 'Export campaign content',
+	'community.export.tally': '{total} vault items · {player} player-visible · {dmOnly} DM only',
+	'community.export.modeBackup': 'Full DM backup',
+	'community.export.modePortable': 'Player-safe export',
+	'community.export.allTypes': 'all types',
+	'community.export.someTypes': '{selected}/{total} types',
+	'community.export.downloads': 'downloads .md / .json',
+	'community.export.exporting': 'Exporting…',
+	'community.export.action': 'Export & download',
+	'community.export.doneBefore': 'Downloaded',
+	'community.export.doneMiddle': '— {count, plural, one {# item} other {# items}} in',
+	'community.export.doneAfter': 'mode · {omitted} omitted for visibility.',
+	'community.export.hint':
+		'One note exports as markdown; more become a JSON bundle you can re-import in Knowledge.',
+
+	'community.discover.modules': 'Modules',
+	'community.discover.loadFailed': 'Couldn’t load the marketplace',
+	'community.discover.loadFailedBody': 'Check your connection and try again.',
+	'community.discover.loading': 'Loading modules',
+	'community.discover.emptyTitle': 'No modules published yet',
+	'community.discover.emptyBody':
+		'Anything you publish from the Publish tab appears here for every signed-in player and DM.',
+	'community.discover.yours': 'Yours',
+	'community.discover.listingMeta': 'published {date} · {size} · fingerprint {fingerprint}…',
+	'community.discover.installNote':
+		'Installing runs the standard package review flow: the package arrives disabled and unreviewed, with every host permission denied until you enable it in Extensions → Plugins.',
+	'community.discover.installToVault': 'Install to vault',
+	'community.discover.removeListing': 'Remove listing',
+	'community.discover.removing': 'Removing…',
+	'community.discover.removeTitle': 'Remove this listing?',
+	'community.discover.removeDescription':
+		'Deleted from the marketplace server-side — this cannot be undone.',
+	'community.discover.removeBody':
+		'disappears from Discover for everyone. Copies already installed in vaults keep working — you can publish it again later.',
+	'community.discover.installTitle': 'Install this package?',
+	'community.discover.upgradeTitle': 'Upgrade this package?',
+	'community.discover.installDescription':
+		'Review what you’re adding to the vault before it lands.',
+	'community.discover.working': 'Working…',
+	'community.discover.installPackage': 'Install package',
+	'community.discover.upgradePackage': 'Upgrade package',
+	'community.discover.widgetCount': '{count, plural, one {# widget} other {# widgets}}',
+	'community.discover.packageId': 'package id',
+	'community.discover.upgradeNote':
+		'This upgrades your installed copy — declared migrations run against every placed widget.',
+	'community.discover.installDisabledNote':
+		'It will be installed disabled, with all host permissions blocked until you review and enable it.',
+	'community.discover.notAPackage': 'This module is not a valid widget package.',
+	'community.discover.clashesWithSystem':
+		'This module clashes with a code-defined system package and can’t be installed.',
+	'community.discover.installFailed': 'Could not install that package.',
+	'community.discover.upgraded': 'Upgraded {id} — declared migrations ran against placed widgets.',
+	'community.discover.installed':
+		'Installed {id} in a disabled, restricted state. Review its permissions in Extensions → Plugins before enabling it.',
+	'community.discover.listingRemoved': 'Listing removed from the marketplace.',
+
+	'community.publish.title': 'Publish an installed package',
+	'community.publish.intro':
+		'Publishing shares one of your installed widget packages (its full exported definition) with every signed-in user. System packages are code-defined and can’t be published.',
+	'community.publish.emptyTitle': 'No publishable packages',
+	'community.publish.emptyBody':
+		'Install or author a widget package in Extensions → Plugins first — system packages stay private.',
+	'community.publish.action': 'Publish',
+	'community.publish.yourListings': 'Your listings',
+	'community.publish.listingsFailed': 'Couldn’t load your listings',
+	'community.publish.loadingListings': 'Loading your listings',
+	'community.publish.nothingYet': 'Nothing published yet.',
+	'community.publish.unpublishBody':
+		'disappears from Discover for everyone. Copies already installed in vaults keep working — your local package stays, so you can publish it again later.',
+	'community.publish.dialogTitle': 'Publish to the marketplace',
+	'community.publish.dialogDescription':
+		'Shown to everyone browsing Discover — write it for a stranger’s table.',
+	'community.publish.publishing': 'Publishing…',
+	'community.publish.publishModule': 'Publish module',
+	'community.publish.name': 'Module name',
+	'community.publish.summary': 'Module summary',
+	'community.publish.summaryPlaceholder': 'What does this add to a table? (required)',
+	'community.publish.version': 'Module version',
+	'community.publish.versionPlaceholder': 'Version (e.g. 1.0.0)',
+	'community.publish.allRequired': 'Name, summary and version are all required.',
+	'community.publish.published': 'Published {name} to the marketplace.',
+
+	'community.wiki.settingsTitle': 'Publish settings',
+	'community.wiki.defaultTitle': 'My campaign wiki',
+	'community.wiki.localOnlyBody':
+		'Public wiki hosting is not available in this edition. The reading preview still shows exactly which campaign notes would be included.',
+	'community.wiki.signInPrompt':
+		'Sign in to publish a hosted campaign wiki. Everything else here works without an account.',
+	'community.wiki.beacon': 'Beacon',
+	'community.wiki.checkingPlan': 'Checking your plan…',
+	'community.wiki.beaconTryable':
+		'Publishing a hosted campaign wiki is a Beacon feature. Your player-visible notes are ready — try the Beacon preview at no charge to publish.',
+	'community.wiki.beaconLocked':
+		'Publishing a hosted campaign wiki is a Beacon feature. Your player-visible notes are ready, but plan changes are unavailable in this release.',
+	'community.wiki.seePlans': 'See plans',
+	'community.wiki.loadFailed': 'Couldn’t load your wiki',
+	'community.wiki.loadingStatus': 'Loading wiki status',
+	'community.wiki.publishedTitle': 'Published wiki',
+	'community.wiki.live': 'Live',
+	'community.wiki.publicLink': 'Public link',
+	'community.wiki.urlUnconfigured': 'Public app URL is not configured.',
+	'community.wiki.access': 'Access',
+	'community.wiki.accessField': 'Wiki access',
+	'community.wiki.accessPublic': 'Public',
+	'community.wiki.accessPublicNote': 'Anyone with the link; fine to index',
+	'community.wiki.accessUnlisted': 'Unlisted',
+	'community.wiki.accessUnlistedNote': 'Direct link only — relies on the link’s secrecy',
+	'community.wiki.accessPassword': 'Password',
+	'community.wiki.accessPasswordNote': 'Readers enter a password once',
+	'community.wiki.pages': 'Pages',
+	'community.wiki.size': 'Size',
+	'community.wiki.publishedMeta': 'Published {published} · updated {updated}.',
+	'community.wiki.remainsLive': 'This wiki remains live.',
+	'community.wiki.remainsLiveTryable':
+		'Try the Beacon preview to update its pages; you can unpublish it from any plan.',
+	'community.wiki.remainsLiveLocked':
+		'Plan changes are unavailable in this release, but you can still unpublish the wiki.',
+	'community.wiki.republish': 'Re-publish current notes',
+	'community.wiki.tryBeacon': 'Try Beacon preview',
+	'community.wiki.viewPlan': 'View plan details',
+	'community.wiki.unpublish': 'Unpublish',
+	'community.wiki.unpublishTitle': 'Unpublish this wiki?',
+	'community.wiki.unpublishDescription':
+		'The public link stops working immediately — this cannot be undone.',
+	'community.wiki.unpublishing': 'Unpublishing…',
+	'community.wiki.unpublishWiki': 'Unpublish wiki',
+	'community.wiki.unpublishBody':
+		'Anyone holding the link loses access at once. Your notes stay in the vault — you can publish again later (a new link is minted).',
+	'community.wiki.titlePlaceholder': 'Campaign wiki title',
+	'community.wiki.titleField': 'Wiki title',
+	'community.wiki.passwordPlaceholder': 'Reader password (min 6 characters)',
+	'community.wiki.passwordField': 'Wiki password',
+	'community.wiki.publishNote':
+		'Only player-visible notes publish — DM-only notes never leave the vault. Readers need no account.',
+	'community.wiki.publishWiki': 'Publish wiki',
+	'community.wiki.previewTitle': 'Reading preview',
+	'community.wiki.previewFallbackTitle': 'Your campaign wiki',
+	'community.wiki.previewSubtitle':
+		'A campaign wiki · {count, plural, one {# page} other {# pages}}',
+	'community.wiki.previewPages': 'Player-visible pages',
+	'community.wiki.previewEmpty':
+		'No player-visible notes yet — mark notes player-visible in Knowledge to include them.',
+	'community.wiki.previewMore': '… and {count} more',
+	'community.wiki.previewNote':
+		'Only player-visible notes appear. DM-only blocks are stripped from the published page.',
+	'community.wiki.eligiblePages': 'Eligible pages',
+	'community.wiki.theme': 'Theme',
+	'community.wiki.noPublicUrl': 'Public wiki links are not configured for this desktop build.',
+	'community.wiki.needsBeacon': 'Updating a hosted wiki is included in the Beacon preview.',
+	'community.wiki.needsPages':
+		'Mark at least one note player-visible in Knowledge before publishing.',
+	'community.wiki.needsTitle': 'Give the wiki a title.',
+	'community.wiki.needsPassword': 'A password wiki needs a password of at least 6 characters.',
+	'community.wiki.updated': 'Wiki updated — the public link is unchanged.',
+	'community.wiki.published': 'Wiki published — share the public link.',
+	'community.wiki.unpublished': 'Wiki unpublished — the public link no longer works.',
+	'community.wiki.linkCopied': 'Public link copied.',
+	'community.wiki.copyFailed': 'Could not copy — copy the link manually.',
 } as const;
 
 /** Every string the app can render, addressed by key. */

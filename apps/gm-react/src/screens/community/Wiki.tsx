@@ -17,8 +17,10 @@ import {
 } from '../../cloud/appApi';
 import { publicAppBaseUrl } from '../../platform/publicAppUrl';
 import { WIKI_ACCESS_MODES, buildWikiPages, errText, kb, wikiPublicUrl } from './shared';
+import { useI18n } from '../../i18n';
 
 export function CommWiki() {
+	const { t, formatDate, formatTime } = useI18n();
 	const isPhone = useViewport() === 'phone';
 	const runtime = useRuntime();
 	const auth = useAuth();
@@ -29,7 +31,7 @@ export function CommWiki() {
 	// Publishing is a Beacon feature (the server enforces it too — this only keeps the UI honest).
 	const canPublish = cloudReady && plan === 'beacon';
 
-	const [title, setTitle] = useState('My Campaign Wiki');
+	const [title, setTitle] = useState(() => t('community.wiki.defaultTitle'));
 	const [access, setAccess] = useState<WikiAccess>('unlisted');
 	const [password, setPassword] = useState('');
 	// undefined → the initial status fetch is in flight; null → nothing published; else the live status.
@@ -76,23 +78,23 @@ export function CommWiki() {
 
 	const publish = () => {
 		if (!publicAppBaseUrl()) {
-			Toaster.error('Public wiki links are not configured for this desktop build.');
+			Toaster.error(t('community.wiki.noPublicUrl'));
 			return;
 		}
 		if (!canPublish) {
-			Toaster.error('Updating a hosted wiki is included in the Beacon preview.');
+			Toaster.error(t('community.wiki.needsBeacon'));
 			return;
 		}
 		if (pages.length === 0) {
-			Toaster.error('Mark at least one note player-visible in Knowledge before publishing.');
+			Toaster.error(t('community.wiki.needsPages'));
 			return;
 		}
 		if (!title.trim()) {
-			Toaster.error('Give the wiki a title.');
+			Toaster.error(t('community.wiki.needsTitle'));
 			return;
 		}
 		if (access === 'password' && password.trim().length < 6) {
-			Toaster.error('A password wiki needs a password of at least 6 characters.');
+			Toaster.error(t('community.wiki.needsPassword'));
 			return;
 		}
 		setBusy(true);
@@ -105,13 +107,9 @@ export function CommWiki() {
 			.then((s) => {
 				setStatus(s);
 				setPassword('');
-				Toaster.success(
-					status
-						? 'Wiki updated — the public link is unchanged.'
-						: 'Wiki published — share the public link.',
-				);
+				Toaster.success(t(status ? 'community.wiki.updated' : 'community.wiki.published'));
 			})
-			.catch((e: unknown) => Toaster.error(errText(e)))
+			.catch((e: unknown) => Toaster.error(errText(e, t('community.error'))))
 			.finally(() => setBusy(false));
 	};
 
@@ -121,18 +119,18 @@ export function CommWiki() {
 			.then(() => {
 				setStatus(null);
 				setConfirmUnpublish(false);
-				Toaster.success('Wiki unpublished — the public link no longer works.');
+				Toaster.success(t('community.wiki.unpublished'));
 			})
-			.catch((e: unknown) => Toaster.error(errText(e)))
+			.catch((e: unknown) => Toaster.error(errText(e, t('community.error'))))
 			.finally(() => setBusy(false));
 	};
 
 	const copyLink = async (url: string) => {
 		try {
 			await navigator.clipboard.writeText(url);
-			Toaster.success('Public link copied.');
+			Toaster.success(t('community.wiki.linkCopied'));
 		} catch {
-			Toaster.error('Could not copy — copy the link manually.');
+			Toaster.error(t('community.wiki.copyFailed'));
 		}
 	};
 
@@ -140,21 +138,25 @@ export function CommWiki() {
 	let settings: React.ReactNode;
 	if (!isAccountApiConfigured) {
 		settings = (
-			<Panel title="Publish settings" action={<Badge status="neutral">Local-only build</Badge>}>
+			<Panel
+				title={t('community.wiki.settingsTitle')}
+				action={<Badge status="neutral">{t('community.market.localOnly')}</Badge>}
+			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					Public wiki hosting is not available in this edition. The reading preview still shows
-					exactly which campaign notes would be included.
+					{t('community.wiki.localOnlyBody')}
 				</div>
 				<EligibilityStat eligible={eligible} total={notes.length} />
 			</Panel>
 		);
 	} else if (auth.status !== 'signed-in') {
 		settings = (
-			<Panel title="Publish settings" action={<Badge status="neutral">Signed out</Badge>}>
+			<Panel
+				title={t('community.wiki.settingsTitle')}
+				action={<Badge status="neutral">{t('community.market.signedOut')}</Badge>}
+			>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
 					<div style={{ flex: '1 1 220px', font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-						Sign in to publish a hosted campaign wiki. Everything else here works without an
-						account.
+						{t('community.wiki.signInPrompt')}
 					</div>
 					<Button
 						variant="primary"
@@ -162,7 +164,7 @@ export function CommWiki() {
 						icon="UserCircle"
 						onClick={() => auth.openAuthModal()}
 					>
-						Sign in
+						{t('community.market.signIn')}
 					</Button>
 				</div>
 				<EligibilityStat eligible={eligible} total={notes.length} />
@@ -170,13 +172,18 @@ export function CommWiki() {
 		);
 	} else if (!canPublish && status === null) {
 		settings = (
-			<Panel title="Publish settings" action={<Badge status="accent">Beacon</Badge>}>
+			<Panel
+				title={t('community.wiki.settingsTitle')}
+				action={<Badge status="accent">{t('community.wiki.beacon')}</Badge>}
+			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					{planLoading
-						? 'Checking your plan…'
-						: canChangePlan
-							? 'Publishing a hosted campaign wiki is a Beacon feature. Your player-visible notes are ready — try the Beacon preview at no charge to publish.'
-							: 'Publishing a hosted campaign wiki is a Beacon feature. Your player-visible notes are ready, but plan changes are unavailable in this release.'}
+					{t(
+						planLoading
+							? 'community.wiki.checkingPlan'
+							: canChangePlan
+								? 'community.wiki.beaconTryable'
+								: 'community.wiki.beaconLocked',
+					)}
 				</div>
 				<Button
 					variant="primary"
@@ -185,22 +192,22 @@ export function CommWiki() {
 					disabled={planLoading}
 					onClick={() => navigate('/upgrade')}
 				>
-					See plans
+					{t('community.wiki.seePlans')}
 				</Button>
 				<EligibilityStat eligible={eligible} total={notes.length} />
 			</Panel>
 		);
 	} else if (statusFailed) {
 		settings = (
-			<Panel title="Publish settings">
+			<Panel title={t('community.wiki.settingsTitle')}>
 				<EmptyState
 					inset
 					icon="warning"
-					title="Couldn’t load your wiki"
-					description="Check your connection and try again."
+					title={t('community.wiki.loadFailed')}
+					description={t('community.discover.loadFailedBody')}
 					action={
 						<Button variant="secondary" size="sm" icon="retry" onClick={loadStatus}>
-							Retry
+							{t('common.action.retry')}
 						</Button>
 					}
 				/>
@@ -208,9 +215,9 @@ export function CommWiki() {
 		);
 	} else if (status === undefined) {
 		settings = (
-			<Panel title="Publish settings">
+			<Panel title={t('community.wiki.settingsTitle')}>
 				<LoadingRegion
-					label="Loading wiki status"
+					label={t('community.wiki.loadingStatus')}
 					style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
 				>
 					<Skeleton height={44} />
@@ -223,8 +230,11 @@ export function CommWiki() {
 		settings = (
 			// "ok" was not a Badge status — it fell through to `neutral`, dropping both the green and
 			// the status icon this positive state relies on for colour-independent meaning.
-			<Panel title="Published wiki" action={<Badge status="success">Live</Badge>}>
-				<div style={{ ...eb }}>Public link</div>
+			<Panel
+				title={t('community.wiki.publishedTitle')}
+				action={<Badge status="success">{t('community.wiki.live')}</Badge>}
+			>
+				<div style={{ ...eb }}>{t('community.wiki.publicLink')}</div>
 				<div
 					style={{
 						display: 'flex',
@@ -247,7 +257,7 @@ export function CommWiki() {
 							textOverflow: 'ellipsis',
 						}}
 					>
-						{url ?? 'Public app URL is not configured.'}
+						{url ?? t('community.wiki.urlUnconfigured')}
 					</span>
 					<Button
 						variant="ghost"
@@ -258,21 +268,32 @@ export function CommWiki() {
 							if (url) void copyLink(url);
 						}}
 					>
-						Copy
+						{t('common.action.copy')}
 					</Button>
 				</div>
 				<div style={{ display: 'flex', gap: 14, marginTop: 6 }}>
 					<Stat
-						label="Access"
-						value={WIKI_ACCESS_MODES.find((m) => m.value === status.access)?.label ?? status.access}
+						label={t('community.wiki.access')}
+						value={(() => {
+							const mode = WIKI_ACCESS_MODES.find((m) => m.value === status.access);
+							return mode ? t(mode.label) : status.access;
+						})()}
 						icon="lock"
 					/>
-					<Stat label="Pages" value={String(status.pageCount)} icon="knowledge-book" />
-					<Stat label="Size" value={kb(status.size)} icon="upload" />
+					<Stat
+						label={t('community.wiki.pages')}
+						value={String(status.pageCount)}
+						icon="knowledge-book"
+					/>
+					<Stat label={t('community.wiki.size')} value={kb(status.size)} icon="upload" />
 				</div>
 				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
-					Published {new Date(status.publishedAt).toLocaleDateString()} · updated{' '}
-					{new Date(status.updatedAt).toLocaleString()}.
+					{t('community.wiki.publishedMeta', {
+						published: formatDate(new Date(status.publishedAt)),
+						updated: `${formatDate(new Date(status.updatedAt))} ${formatTime(
+							new Date(status.updatedAt),
+						)}`,
+					})}
 				</div>
 				{!canPublish && (
 					<div
@@ -285,20 +306,22 @@ export function CommWiki() {
 							color: T.sub,
 						}}
 					>
-						This wiki remains live.{' '}
-						{canChangePlan
-							? 'Try the Beacon preview to update its pages; you can unpublish it from any plan.'
-							: 'Plan changes are unavailable in this release, but you can still unpublish the wiki.'}
+						{t('community.wiki.remainsLive')}{' '}
+						{t(
+							canChangePlan
+								? 'community.wiki.remainsLiveTryable'
+								: 'community.wiki.remainsLiveLocked',
+						)}
 					</div>
 				)}
 				<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
 					{canPublish ? (
 						<Button variant="secondary" size="md" icon="upload" disabled={busy} onClick={publish}>
-							{busy ? 'Working…' : 'Re-publish current notes'}
+							{busy ? t('community.discover.working') : t('community.wiki.republish')}
 						</Button>
 					) : (
 						<Button variant="primary" size="md" icon="sparkle" onClick={() => navigate('/upgrade')}>
-							{canChangePlan ? 'Try Beacon preview' : 'View plan details'}
+							{t(canChangePlan ? 'community.wiki.tryBeacon' : 'community.wiki.viewPlan')}
 						</Button>
 					)}
 					<Button
@@ -308,14 +331,14 @@ export function CommWiki() {
 						disabled={busy}
 						onClick={() => setConfirmUnpublish(true)}
 					>
-						Unpublish
+						{t('community.wiki.unpublish')}
 					</Button>
 				</div>
 				<Dialog
 					open={confirmUnpublish}
 					onClose={() => setConfirmUnpublish(false)}
-					title="Unpublish this wiki?"
-					description="The public link stops working immediately — this cannot be undone."
+					title={t('community.wiki.unpublishTitle')}
+					description={t('community.wiki.unpublishDescription')}
 					tone="danger"
 					size="sm"
 					footer={
@@ -326,17 +349,16 @@ export function CommWiki() {
 								disabled={busy}
 								onClick={() => setConfirmUnpublish(false)}
 							>
-								Cancel
+								{t('common.action.cancel')}
 							</Button>
 							<Button variant="danger" size="sm" icon="delete" disabled={busy} onClick={unpublish}>
-								{busy ? 'Unpublishing…' : 'Unpublish wiki'}
+								{busy ? t('community.wiki.unpublishing') : t('community.wiki.unpublishWiki')}
 							</Button>
 						</>
 					}
 				>
 					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-						Anyone holding the link loses access at once. Your notes stay in the vault — you can
-						publish again later (a new link is minted).
+						{t('community.wiki.unpublishBody')}
 					</div>
 				</Dialog>
 			</Panel>
@@ -344,19 +366,19 @@ export function CommWiki() {
 	} else {
 		// Signed-in, Beacon, nothing published yet: the publish form.
 		settings = (
-			<Panel title="Publish settings">
-				<div style={{ ...eb }}>Title</div>
+			<Panel title={t('community.wiki.settingsTitle')}>
+				<div style={{ ...eb }}>{t('common.field.title')}</div>
 				<Input
 					value={title}
 					onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
-					placeholder="Campaign wiki title"
-					aria-label="Wiki title"
+					placeholder={t('community.wiki.titlePlaceholder')}
+					aria-label={t('community.wiki.titleField')}
 					maxLength={120}
 				/>
-				<div style={{ ...eb, marginTop: 10 }}>Access</div>
+				<div style={{ ...eb, marginTop: 10 }}>{t('community.wiki.access')}</div>
 				<div
 					role="radiogroup"
-					aria-label="Wiki access"
+					aria-label={t('community.wiki.accessField')}
 					onKeyDown={radioGroupKeyDown}
 					style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
 				>
@@ -391,8 +413,8 @@ export function CommWiki() {
 								}}
 							/>
 							<span style={{ flex: 1 }}>
-								<div style={{ font: `600 12.5px ${T.sans}` }}>{m.label}</div>
-								<div style={{ font: `11px ${T.sans}`, color: T.ter }}>{m.note}</div>
+								<div style={{ font: `600 12.5px ${T.sans}` }}>{t(m.label)}</div>
+								<div style={{ font: `11px ${T.sans}`, color: T.ter }}>{t(m.note)}</div>
 							</span>
 						</button>
 					))}
@@ -402,15 +424,14 @@ export function CommWiki() {
 						type="password"
 						value={password}
 						onChange={(e: { target: { value: string } }) => setPassword(e.target.value)}
-						placeholder="Reader password (min 6 characters)"
-						aria-label="Wiki password"
+						placeholder={t('community.wiki.passwordPlaceholder')}
+						aria-label={t('community.wiki.passwordField')}
 						maxLength={100}
 					/>
 				)}
 				<EligibilityStat eligible={eligible} total={notes.length} />
 				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
-					Only player-visible notes publish — DM-only notes never leave the vault. Readers need no
-					account.
+					{t('community.wiki.publishNote')}
 				</div>
 				<Button
 					variant="primary"
@@ -419,7 +440,7 @@ export function CommWiki() {
 					disabled={busy || eligible === 0}
 					onClick={publish}
 				>
-					{busy ? 'Publishing…' : 'Publish wiki'}
+					{busy ? t('community.publish.publishing') : t('community.wiki.publishWiki')}
 				</Button>
 			</Panel>
 		);
@@ -435,7 +456,7 @@ export function CommWiki() {
 			}}
 		>
 			{settings}
-			<Panel title="Reading preview">
+			<Panel title={t('community.wiki.previewTitle')}>
 				<div
 					data-theme="parchment"
 					style={{
@@ -456,10 +477,10 @@ export function CommWiki() {
 						<div
 							style={{ font: `700 19px var(--font-display)`, color: 'var(--color-text-primary)' }}
 						>
-							{title.trim() || 'Your campaign wiki'}
+							{title.trim() || t('community.wiki.previewFallbackTitle')}
 						</div>
 						<div style={{ font: `12px var(--font-sans)`, color: 'var(--color-text-tertiary)' }}>
-							A campaign wiki · {eligible} {eligible === 1 ? 'page' : 'pages'}
+							{t('community.wiki.previewSubtitle', { count: eligible })}
 						</div>
 					</div>
 					<div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -471,7 +492,7 @@ export function CommWiki() {
 								color: 'var(--color-text-tertiary)',
 							}}
 						>
-							Player-visible pages
+							{t('community.wiki.previewPages')}
 						</div>
 						{eligibleNotes.slice(0, 3).map((n) => (
 							<div key={n.id} style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
@@ -487,25 +508,24 @@ export function CommWiki() {
 								<span
 									style={{ font: `11px var(--font-sans)`, color: 'var(--color-text-tertiary)' }}
 								>
-									{new Date(n.updatedAt).toLocaleDateString()}
+									{formatDate(new Date(n.updatedAt))}
 								</span>
 							</div>
 						))}
 						{eligible === 0 && (
 							<div style={{ font: `12.5px var(--font-sans)`, color: 'var(--color-text-tertiary)' }}>
-								No player-visible notes yet — mark notes player-visible in Knowledge to include
-								them.
+								{t('community.wiki.previewEmpty')}
 							</div>
 						)}
 						{eligible > 3 && (
 							<div style={{ font: `11px var(--font-sans)`, color: 'var(--color-text-tertiary)' }}>
-								… and {eligible - 3} more
+								{t('community.wiki.previewMore', { count: eligible - 3 })}
 							</div>
 						)}
 					</div>
 				</div>
 				<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-					Only player-visible notes appear. DM-only blocks are stripped from the published page.
+					{t('community.wiki.previewNote')}
 				</div>
 			</Panel>
 		</div>
@@ -514,10 +534,19 @@ export function CommWiki() {
 
 /** The shared eligibility stat row (eligible player-visible notes / total notes). */
 export function EligibilityStat({ eligible, total }: { eligible: number; total: number }) {
+	const { t } = useI18n();
 	return (
 		<div style={{ display: 'flex', gap: 14, marginTop: 6 }}>
-			<Stat label="Eligible pages" value={`${eligible}/${total}`} icon="knowledge-book" />
-			<Stat label="Theme" value="Parchment" icon="theme" />
+			<Stat
+				label={t('community.wiki.eligiblePages')}
+				value={`${eligible}/${total}`}
+				icon="knowledge-book"
+			/>
+			<Stat
+				label={t('community.wiki.theme')}
+				value={t('settings.appearance.themeParchment')}
+				icon="theme"
+			/>
 		</div>
 	);
 }

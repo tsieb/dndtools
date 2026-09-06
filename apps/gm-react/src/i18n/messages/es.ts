@@ -1988,4 +1988,196 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'El JSON del paquete necesita un "id" de primer nivel (o un envoltorio de exportación con "package.id").',
 	'extensions.plugins.systemLocked':
 		'Los paquetes de sistema integrados no se pueden reemplazar con un archivo de paquete.',
+	/* Comunidad › estructura, mercado, exportación, descubrir, publicar y el wiki de campaña */
+	'community.sections': 'Secciones de comunidad',
+	'community.tab.discover': 'Descubrir',
+	'community.tab.export': 'Exportar',
+	'community.tab.publish': 'Publicar',
+	'community.tab.wiki': 'Wiki de campaña',
+	'community.error': 'Eso no salió — revisa tu conexión e inténtalo de nuevo.',
+
+	'community.market.title': 'Mercado de módulos',
+	'community.market.localOnly': 'Compilación solo local',
+	'community.market.signedOut': 'Sesión cerrada',
+	'community.market.signIn': 'Iniciar sesión',
+	'community.market.unavailable':
+		'El mercado de la comunidad no está disponible en esta edición. Aún puedes instalar un archivo de paquete a mano desde Extensiones → Complementos.',
+	'community.market.signInBrowse':
+		'Inicia sesión para explorar e instalar módulos de la comunidad. Todo lo demás en la aplicación funciona sin cuenta.',
+	'community.market.signInPublish':
+		'Inicia sesión para publicar módulos de la comunidad. Todo lo demás en la aplicación funciona sin cuenta.',
+
+	'community.export.title': 'Exportar',
+	'community.export.whatTitle': 'Qué exportar',
+	'community.export.contentTypes': 'Tipos de contenido',
+	'community.export.counts': '(recuentos de la campaña actual)',
+	'community.export.empty':
+		'Todavía no hay nada que exportar — crea notas y contenido en Conocimiento primero.',
+	'community.export.includeKind': 'Incluir {kind} en la exportación del módulo',
+	'community.export.includeDmOnly': 'Incluir contenido solo del DJ',
+	'community.export.includeDmOnlyHelp':
+		'Desactivado: una exportación segura para jugadores con los secretos ocultos. Activado: una copia de seguridad completa del DJ.',
+	'community.export.saveTitle': 'Exportar el contenido de la campaña',
+	'community.export.tally':
+		'{total} elementos de la bóveda · {player} visibles para jugadores · {dmOnly} solo DJ',
+	'community.export.modeBackup': 'Copia de seguridad completa del DJ',
+	'community.export.modePortable': 'Exportación segura para jugadores',
+	'community.export.allTypes': 'todos los tipos',
+	'community.export.someTypes': '{selected}/{total} tipos',
+	'community.export.downloads': 'descarga .md / .json',
+	'community.export.exporting': 'Exportando…',
+	'community.export.action': 'Exportar y descargar',
+	'community.export.doneBefore': 'Se descargó',
+	'community.export.doneMiddle': '— {count, plural, one {# elemento} other {# elementos}} en modo',
+	'community.export.doneAfter': '· {omitted} omitidos por visibilidad.',
+	'community.export.hint':
+		'Una sola nota se exporta como markdown; varias se convierten en un paquete JSON que puedes volver a importar en Conocimiento.',
+
+	'community.discover.modules': 'Módulos',
+	'community.discover.loadFailed': 'No se pudo cargar el mercado',
+	'community.discover.loadFailedBody': 'Revisa tu conexión e inténtalo de nuevo.',
+	'community.discover.loading': 'Cargando módulos',
+	'community.discover.emptyTitle': 'Todavía no hay módulos publicados',
+	'community.discover.emptyBody':
+		'Todo lo que publiques desde la pestaña Publicar aparece aquí para cada jugador y DJ con sesión iniciada.',
+	'community.discover.yours': 'Tuyo',
+	'community.discover.listingMeta': 'publicado el {date} · {size} · huella {fingerprint}…',
+	'community.discover.installNote':
+		'Instalar sigue el flujo de revisión de paquetes habitual: el paquete llega desactivado y sin revisar, con todos los permisos del anfitrión denegados hasta que lo actives en Extensiones → Complementos.',
+	'community.discover.installToVault': 'Instalar en la bóveda',
+	'community.discover.removeListing': 'Quitar la publicación',
+	'community.discover.removing': 'Quitando…',
+	'community.discover.removeTitle': '¿Quitar esta publicación?',
+	'community.discover.removeDescription':
+		'Se borra del servidor del mercado — esto no se puede deshacer.',
+	'community.discover.removeBody':
+		'desaparece de Descubrir para todos. Las copias ya instaladas en bóvedas siguen funcionando — puedes volver a publicarlo más adelante.',
+	'community.discover.installTitle': '¿Instalar este paquete?',
+	'community.discover.upgradeTitle': '¿Actualizar este paquete?',
+	'community.discover.installDescription':
+		'Revisa lo que estás añadiendo a la bóveda antes de que llegue.',
+	'community.discover.working': 'Trabajando…',
+	'community.discover.installPackage': 'Instalar el paquete',
+	'community.discover.upgradePackage': 'Actualizar el paquete',
+	'community.discover.widgetCount': '{count, plural, one {# widget} other {# widgets}}',
+	'community.discover.packageId': 'id del paquete',
+	'community.discover.upgradeNote':
+		'Esto actualiza tu copia instalada — las migraciones declaradas se ejecutan sobre cada widget colocado.',
+	'community.discover.installDisabledNote':
+		'Se instalará desactivado, con todos los permisos del anfitrión bloqueados hasta que lo revises y lo actives.',
+	'community.discover.notAPackage': 'Este módulo no es un paquete de widgets válido.',
+	'community.discover.clashesWithSystem':
+		'Este módulo choca con un paquete de sistema definido en código y no se puede instalar.',
+	'community.discover.installFailed': 'No se pudo instalar ese paquete.',
+	'community.discover.upgraded':
+		'Se actualizó {id} — las migraciones declaradas se ejecutaron sobre los widgets colocados.',
+	'community.discover.installed':
+		'Se instaló {id} desactivado y restringido. Revisa sus permisos en Extensiones → Complementos antes de activarlo.',
+	'community.discover.listingRemoved': 'La publicación se quitó del mercado.',
+
+	'community.publish.title': 'Publicar un paquete instalado',
+	'community.publish.intro':
+		'Publicar comparte uno de tus paquetes de widgets instalados (su definición exportada completa) con todos los usuarios que hayan iniciado sesión. Los paquetes de sistema están definidos en código y no se pueden publicar.',
+	'community.publish.emptyTitle': 'No hay paquetes publicables',
+	'community.publish.emptyBody':
+		'Instala o crea un paquete de widgets en Extensiones → Complementos primero — los paquetes de sistema siguen siendo privados.',
+	'community.publish.action': 'Publicar',
+	'community.publish.yourListings': 'Tus publicaciones',
+	'community.publish.listingsFailed': 'No se pudieron cargar tus publicaciones',
+	'community.publish.loadingListings': 'Cargando tus publicaciones',
+	'community.publish.nothingYet': 'Todavía no has publicado nada.',
+	'community.publish.unpublishBody':
+		'desaparece de Descubrir para todos. Las copias ya instaladas en bóvedas siguen funcionando — tu paquete local se queda, así que puedes volver a publicarlo más adelante.',
+	'community.publish.dialogTitle': 'Publicar en el mercado',
+	'community.publish.dialogDescription':
+		'Se muestra a todos los que exploran Descubrir — escríbelo para la mesa de un desconocido.',
+	'community.publish.publishing': 'Publicando…',
+	'community.publish.publishModule': 'Publicar el módulo',
+	'community.publish.name': 'Nombre del módulo',
+	'community.publish.summary': 'Resumen del módulo',
+	'community.publish.summaryPlaceholder': '¿Qué aporta esto a una mesa? (obligatorio)',
+	'community.publish.version': 'Versión del módulo',
+	'community.publish.versionPlaceholder': 'Versión (p. ej. 1.0.0)',
+	'community.publish.allRequired': 'El nombre, el resumen y la versión son obligatorios.',
+	'community.publish.published': 'Se publicó {name} en el mercado.',
+
+	'community.wiki.settingsTitle': 'Ajustes de publicación',
+	'community.wiki.defaultTitle': 'Mi wiki de campaña',
+	'community.wiki.localOnlyBody':
+		'El alojamiento de wikis públicos no está disponible en esta edición. La vista previa de lectura sigue mostrando exactamente qué notas de la campaña se incluirían.',
+	'community.wiki.signInPrompt':
+		'Inicia sesión para publicar un wiki de campaña alojado. Todo lo demás aquí funciona sin cuenta.',
+	'community.wiki.beacon': 'Beacon',
+	'community.wiki.checkingPlan': 'Comprobando tu plan…',
+	'community.wiki.beaconTryable':
+		'Publicar un wiki de campaña alojado es una función de Beacon. Tus notas visibles para jugadores están listas — prueba Beacon sin coste para publicar.',
+	'community.wiki.beaconLocked':
+		'Publicar un wiki de campaña alojado es una función de Beacon. Tus notas visibles para jugadores están listas, pero los cambios de plan no están disponibles en esta versión.',
+	'community.wiki.seePlans': 'Ver los planes',
+	'community.wiki.loadFailed': 'No se pudo cargar tu wiki',
+	'community.wiki.loadingStatus': 'Cargando el estado del wiki',
+	'community.wiki.publishedTitle': 'Wiki publicado',
+	'community.wiki.live': 'En vivo',
+	'community.wiki.publicLink': 'Enlace público',
+	'community.wiki.urlUnconfigured': 'La URL pública de la aplicación no está configurada.',
+	'community.wiki.access': 'Acceso',
+	'community.wiki.accessField': 'Acceso del wiki',
+	'community.wiki.accessPublic': 'Público',
+	'community.wiki.accessPublicNote': 'Cualquiera con el enlace; se puede indexar',
+	'community.wiki.accessUnlisted': 'No listado',
+	'community.wiki.accessUnlistedNote':
+		'Solo con el enlace directo — depende del secreto del enlace',
+	'community.wiki.accessPassword': 'Contraseña',
+	'community.wiki.accessPasswordNote': 'Los lectores escriben una contraseña una vez',
+	'community.wiki.pages': 'Páginas',
+	'community.wiki.size': 'Tamaño',
+	'community.wiki.publishedMeta': 'Publicado el {published} · actualizado el {updated}.',
+	'community.wiki.remainsLive': 'Este wiki sigue en vivo.',
+	'community.wiki.remainsLiveTryable':
+		'Prueba Beacon para actualizar sus páginas; puedes dejar de publicarlo desde cualquier plan.',
+	'community.wiki.remainsLiveLocked':
+		'Los cambios de plan no están disponibles en esta versión, pero aún puedes dejar de publicar el wiki.',
+	'community.wiki.republish': 'Volver a publicar las notas actuales',
+	'community.wiki.tryBeacon': 'Probar Beacon',
+	'community.wiki.viewPlan': 'Ver los detalles del plan',
+	'community.wiki.unpublish': 'Dejar de publicar',
+	'community.wiki.unpublishTitle': '¿Dejar de publicar este wiki?',
+	'community.wiki.unpublishDescription':
+		'El enlace público deja de funcionar de inmediato — esto no se puede deshacer.',
+	'community.wiki.unpublishing': 'Dejando de publicar…',
+	'community.wiki.unpublishWiki': 'Dejar de publicar el wiki',
+	'community.wiki.unpublishBody':
+		'Quien tenga el enlace pierde el acceso al instante. Tus notas se quedan en la bóveda — puedes volver a publicar más adelante (se genera un enlace nuevo).',
+	'community.wiki.titlePlaceholder': 'Título del wiki de campaña',
+	'community.wiki.titleField': 'Título del wiki',
+	'community.wiki.passwordPlaceholder': 'Contraseña de lectura (mínimo 6 caracteres)',
+	'community.wiki.passwordField': 'Contraseña del wiki',
+	'community.wiki.publishNote':
+		'Solo se publican las notas visibles para jugadores — las notas solo del DJ nunca salen de la bóveda. Los lectores no necesitan cuenta.',
+	'community.wiki.publishWiki': 'Publicar el wiki',
+	'community.wiki.previewTitle': 'Vista previa de lectura',
+	'community.wiki.previewFallbackTitle': 'Tu wiki de campaña',
+	'community.wiki.previewSubtitle':
+		'Un wiki de campaña · {count, plural, one {# página} other {# páginas}}',
+	'community.wiki.previewPages': 'Páginas visibles para jugadores',
+	'community.wiki.previewEmpty':
+		'Todavía no hay notas visibles para jugadores — marca notas como visibles para jugadores en Conocimiento para incluirlas.',
+	'community.wiki.previewMore': '… y {count} más',
+	'community.wiki.previewNote':
+		'Solo aparecen las notas visibles para jugadores. Los bloques solo del DJ se quitan de la página publicada.',
+	'community.wiki.eligiblePages': 'Páginas aptas',
+	'community.wiki.theme': 'Tema',
+	'community.wiki.noPublicUrl':
+		'Los enlaces públicos del wiki no están configurados para esta compilación de escritorio.',
+	'community.wiki.needsBeacon': 'Actualizar un wiki alojado está incluido en Beacon.',
+	'community.wiki.needsPages':
+		'Marca al menos una nota como visible para jugadores en Conocimiento antes de publicar.',
+	'community.wiki.needsTitle': 'Ponle un título al wiki.',
+	'community.wiki.needsPassword':
+		'Un wiki con contraseña necesita una contraseña de al menos 6 caracteres.',
+	'community.wiki.updated': 'Wiki actualizado — el enlace público no cambia.',
+	'community.wiki.published': 'Wiki publicado — comparte el enlace público.',
+	'community.wiki.unpublished': 'Wiki despublicado — el enlace público ya no funciona.',
+	'community.wiki.linkCopied': 'Se copió el enlace público.',
+	'community.wiki.copyFailed': 'No se pudo copiar — copia el enlace a mano.',
 };

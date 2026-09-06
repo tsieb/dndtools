@@ -4,24 +4,37 @@ import { type WikiAccess, type WikiPage } from '../../cloud/appApi';
 import { publicAppHashUrl } from '../../platform/publicAppUrl';
 import { useAuth } from '../../cloud/AuthContext';
 import { isAccountApiConfigured } from '../../cloud/config';
+import { useI18n, type MessageKey } from '../../i18n';
 
 /* The Community tabs' shared helpers: error text, the wiki access modes, the note→wiki-page
  * projection, and the signed-out / unconfigured marketplace gate. Extracted from Community.tsx
  * unchanged (RC-STB-2.6). */
 
-export const errText = (e: unknown) =>
-	e instanceof Error && e.message
-		? e.message
-		: 'That didn’t go through — check your connection and try again.';
+/** The caller supplies the fallback so it comes out of the catalog: a thrown error's own message
+ * is already the server's words, but the generic sentence has to be translatable. */
+export const errText = (e: unknown, fallback: string) =>
+	e instanceof Error && e.message ? e.message : fallback;
 
 /** ARIA radio-group contract (mirrors Onboarding's): arrows move selection (selection follows
  * focus, wrapping), Tab skips the group as one stop. */
 
 // Wiki access vocabulary shown in the publish settings. `value` matches the server's WikiAccess enum.
-export const WIKI_ACCESS_MODES: { value: WikiAccess; label: string; note: string }[] = [
-	{ value: 'public', label: 'Public', note: 'Anyone with the link; fine to index' },
-	{ value: 'unlisted', label: 'Unlisted', note: 'Direct link only — relies on the link’s secrecy' },
-	{ value: 'password', label: 'Password', note: 'Readers enter a password once' },
+export const WIKI_ACCESS_MODES: { value: WikiAccess; label: MessageKey; note: MessageKey }[] = [
+	{
+		value: 'public',
+		label: 'community.wiki.accessPublic',
+		note: 'community.wiki.accessPublicNote',
+	},
+	{
+		value: 'unlisted',
+		label: 'community.wiki.accessUnlisted',
+		note: 'community.wiki.accessUnlistedNote',
+	},
+	{
+		value: 'password',
+		label: 'community.wiki.accessPassword',
+		note: 'community.wiki.accessPasswordNote',
+	},
 ];
 
 /** Lowercase kebab-case slug matching the server's WIKI_SLUG_RE (`[a-z0-9][a-z0-9-]{0,119}`). */
@@ -59,26 +72,32 @@ export function buildWikiPages(notes: EligibleNote[]): WikiPage[] {
 export const wikiPublicUrl = (wikiId: string) => publicAppHashUrl('/wiki', { id: wikiId });
 
 /** Fail-closed marketplace gate: local-only build, or signed out. */
-export function MarketplaceGate({ verb }: { verb: string }) {
+export function MarketplaceGate({ signInPrompt }: { signInPrompt: MessageKey }) {
+	const { t } = useI18n();
 	const auth = useAuth();
 	if (!isAccountApiConfigured) {
 		return (
-			<Panel title="Module marketplace" action={<Badge status="neutral">Local-only build</Badge>}>
+			<Panel
+				title={t('community.market.title')}
+				action={<Badge status="neutral">{t('community.market.localOnly')}</Badge>}
+			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					The community marketplace is not available in this edition. You can still install a
-					package file manually from Extensions → Plugins.
+					{t('community.market.unavailable')}
 				</div>
 			</Panel>
 		);
 	}
 	return (
-		<Panel title="Module marketplace" action={<Badge status="neutral">Signed out</Badge>}>
+		<Panel
+			title={t('community.market.title')}
+			action={<Badge status="neutral">{t('community.market.signedOut')}</Badge>}
+		>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
 				<div style={{ flex: '1 1 240px', font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					Sign in to {verb} community modules. Everything else in the app works without an account.
+					{t(signInPrompt)}
 				</div>
 				<Button variant="primary" size="sm" icon="UserCircle" onClick={() => auth.openAuthModal()}>
-					Sign in
+					{t('community.market.signIn')}
 				</Button>
 			</div>
 		</Panel>

@@ -11,8 +11,10 @@ import {
 	type ExportResult,
 } from '../../platform/download';
 import { errText } from './shared';
+import { useI18n } from '../../i18n';
 
 export function CommExport() {
+	const { t } = useI18n();
 	const isPhone = useViewport() === 'phone';
 	const runtime = useRuntime();
 	const dmId = runtime.defaultActorId;
@@ -67,7 +69,7 @@ export function CommExport() {
 		try {
 			await doExport();
 		} catch (error) {
-			Toaster.error(errText(error));
+			Toaster.error(errText(error, t('community.error')));
 		} finally {
 			setExporting(false);
 		}
@@ -102,7 +104,7 @@ export function CommExport() {
 				fileName,
 				files[0].markdown,
 				'text/markdown',
-				'Export campaign content',
+				t('community.export.saveTitle'),
 			);
 		} else {
 			// Multiple files ship as one JSON bundle (round-trips through the Knowledge import).
@@ -115,7 +117,7 @@ export function CommExport() {
 					mode,
 					files,
 				},
-				'Export campaign content',
+				t('community.export.saveTitle'),
 			);
 		}
 		if (exportResult.status === 'cancelled') return;
@@ -136,15 +138,17 @@ export function CommExport() {
 				alignItems: 'start',
 			}}
 		>
-			<Panel title="What to export">
+			<Panel title={t('community.export.whatTitle')}>
 				<div style={{ ...eb }}>
-					Content types{' '}
-					<span style={{ color: T.ter, font: `11px ${T.sans}` }}>(current campaign counts)</span>
+					{t('community.export.contentTypes')}{' '}
+					<span style={{ color: T.ter, font: `11px ${T.sans}` }}>
+						{t('community.export.counts')}
+					</span>
 				</div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 					{kinds.length === 0 ? (
 						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-							Nothing to export yet — create notes and content in Knowledge first.
+							{t('community.export.empty')}
 						</div>
 					) : (
 						kinds.map(([kind, count]) => (
@@ -162,7 +166,7 @@ export function CommExport() {
 							>
 								<Switch
 									checked={!offKinds[kind]}
-									aria-label={`Include ${kind} in module export`}
+									aria-label={t('community.export.includeKind', { kind })}
 									onChange={() => setOffKinds((s) => ({ ...s, [kind]: !s[kind] }))}
 								/>
 								<span style={{ flex: 1, font: `12.5px ${T.sans}`, textTransform: 'capitalize' }}>
@@ -188,7 +192,7 @@ export function CommExport() {
 				>
 					<Switch
 						checked={priv}
-						aria-label="Include DM-only content"
+						aria-label={t('community.export.includeDmOnly')}
 						onChange={() => setPriv((p: boolean) => !p)}
 					/>
 					<span style={{ flex: 1 }}>
@@ -200,15 +204,15 @@ export function CommExport() {
 								font: `600 12.5px ${T.sans}`,
 							}}
 						>
-							Include DM-only content <VisibilityChip level="dm-only" compact />
+							{t('community.export.includeDmOnly')} <VisibilityChip level="dm-only" compact />
 						</span>
 						<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
-							Off: a player-safe export with secrets redacted. On: a full DM backup.
+							{t('community.export.includeDmOnlyHelp')}
 						</span>
 					</span>
 				</label>
 			</Panel>
-			<Panel accent title="Export">
+			<Panel accent title={t('community.export.title')}>
 				<div
 					style={{
 						display: 'flex',
@@ -220,7 +224,11 @@ export function CommExport() {
 				>
 					<Icon name="check" size={16} color={T.ok} />
 					<span>
-						{items.length} vault items · {playerCount} player-visible · {dmOnlyCount} DM-only
+						{t('community.export.tally', {
+							total: items.length,
+							player: playerCount,
+							dmOnly: dmOnlyCount,
+						})}
 					</span>
 				</div>
 				<div
@@ -246,9 +254,14 @@ export function CommExport() {
 							textOverflow: 'ellipsis',
 						}}
 					>
-						{priv ? 'Full DM backup' : 'Player-safe export'} ·{' '}
-						{allSelected ? 'all types' : `${selectedKinds.length}/${kinds.length} types`} ·
-						downloads .md / .json
+						{t(priv ? 'community.export.modeBackup' : 'community.export.modePortable')} ·{' '}
+						{allSelected
+							? t('community.export.allTypes')
+							: t('community.export.someTypes', {
+									selected: selectedKinds.length,
+									total: kinds.length,
+								})}{' '}
+						· {t('community.export.downloads')}
 					</span>
 				</div>
 				<Button
@@ -258,7 +271,7 @@ export function CommExport() {
 					disabled={items.length === 0 || selectedKinds.length === 0 || exporting}
 					onClick={() => void runExport()}
 				>
-					{exporting ? 'Exporting…' : 'Export & download'}
+					{exporting ? t('community.export.exporting') : t('community.export.action')}
 				</Button>
 				{/* An export writes a file and reports what it omitted for visibility — the one thing a DM
 				    must hear. The region is mounted unconditionally (and the idle hint kept OUTSIDE it)
@@ -278,17 +291,17 @@ export function CommExport() {
 						<>
 							<Icon name="check" size={15} color={T.ok} />
 							<span>
-								Downloaded <code style={{ font: `11.5px ${T.mono}` }}>{result.file}</code> —{' '}
-								{result.exported} {result.exported === 1 ? 'item' : 'items'} in{' '}
-								<strong>{result.mode}</strong> mode · {result.omitted} omitted for visibility.
+								{t('community.export.doneBefore')}{' '}
+								<code style={{ font: `11.5px ${T.mono}` }}>{result.file}</code>{' '}
+								{t('community.export.doneMiddle', { count: result.exported })}{' '}
+								<strong>{result.mode}</strong>{' '}
+								{t('community.export.doneAfter', { omitted: result.omitted })}
 							</span>
 						</>
 					) : null}
 				</div>
 				{result ? null : (
-					<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-						One note exports as markdown; more become a JSON bundle you can re-import in Knowledge.
-					</div>
+					<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{t('community.export.hint')}</div>
 				)}
 			</Panel>
 		</div>

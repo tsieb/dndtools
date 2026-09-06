@@ -8,8 +8,10 @@ import { useAuth } from '../../cloud/AuthContext';
 import { isAccountApiConfigured } from '../../cloud/config';
 import { deleteModule, listModules, publishModule, type ModuleListing } from '../../cloud/appApi';
 import { MarketplaceGate, errText } from './shared';
+import { useI18n } from '../../i18n';
 
 export function CommPublish() {
+	const { t, formatDate } = useI18n();
 	const isPhone = useViewport() === 'phone';
 	const runtime = useRuntime();
 	const auth = useAuth();
@@ -47,7 +49,7 @@ export function CommPublish() {
 		if (cloudReady) loadMine();
 	}, [cloudReady, loadMine]);
 
-	if (!cloudReady) return <MarketplaceGate verb="publish" />;
+	if (!cloudReady) return <MarketplaceGate signInPrompt="community.market.signInPublish" />;
 
 	const openDraft = (def: WidgetPackageDefinition) =>
 		setDraft({
@@ -60,7 +62,7 @@ export function CommPublish() {
 	const publish = () => {
 		if (!draft) return;
 		if (!draft.name.trim() || !draft.summary.trim() || !draft.version.trim()) {
-			Toaster.error('Name, summary and version are all required.');
+			Toaster.error(t('community.publish.allRequired'));
 			return;
 		}
 		const exported = exportWidgetPackage(
@@ -69,7 +71,12 @@ export function CommPublish() {
 			draft.packageId,
 		);
 		if ('kind' in exported) {
-			Toaster.error(`Package ${draft.packageId} could not be exported (${exported.reason}).`);
+			Toaster.error(
+				t('extensions.plugins.exportFailed', {
+					id: draft.packageId,
+					reason: exported.reason,
+				}),
+			);
 			return;
 		}
 		setBusy(true);
@@ -80,11 +87,11 @@ export function CommPublish() {
 			package: exported.package,
 		})
 			.then(() => {
-				Toaster.success(`Published ${draft.name.trim()} to the marketplace.`);
+				Toaster.success(t('community.publish.published', { name: draft.name.trim() }));
 				setDraft(null);
 				loadMine();
 			})
-			.catch((e: unknown) => Toaster.error(errText(e)))
+			.catch((e: unknown) => Toaster.error(errText(e, t('community.error'))))
 			.finally(() => setBusy(false));
 	};
 
@@ -93,10 +100,10 @@ export function CommPublish() {
 		deleteModule(listing.moduleId)
 			.then(() => {
 				setConfirmUnpublish(null);
-				Toaster.success('Listing removed from the marketplace.');
+				Toaster.success(t('community.discover.listingRemoved'));
 				setMine((list) => (list ? list.filter((m) => m.moduleId !== listing.moduleId) : list));
 			})
-			.catch((e: unknown) => Toaster.error(errText(e)))
+			.catch((e: unknown) => Toaster.error(errText(e, t('community.error'))))
 			.finally(() => setBusy(false));
 	};
 
@@ -109,16 +116,15 @@ export function CommPublish() {
 				alignItems: 'start',
 			}}
 		>
-			<Panel title="Publish an installed package">
+			<Panel title={t('community.publish.title')}>
 				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
-					Publishing shares one of your installed widget packages (its full exported definition)
-					with every signed-in user. System packages are code-defined and can’t be published.
+					{t('community.publish.intro')}
 				</div>
 				{packages.length === 0 ? (
 					<EmptyState
 						icon="widget"
-						title="No publishable packages"
-						description="Install or author a widget package in Extensions → Plugins first — system packages stay private."
+						title={t('community.publish.emptyTitle')}
+						description={t('community.publish.emptyBody')}
 					/>
 				) : (
 					<div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -151,8 +157,8 @@ export function CommPublish() {
 								<div style={{ flex: 1, minWidth: 0 }}>
 									<div style={{ font: `600 13px ${T.sans}` }}>{def.displayName ?? def.id}</div>
 									<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
-										{def.id} · v{def.version} · {def.widgets.length} widget
-										{def.widgets.length === 1 ? '' : 's'}
+										{def.id} · v{def.version} ·{' '}
+										{t('community.discover.widgetCount', { count: def.widgets.length })}
 									</div>
 								</div>
 								<Button
@@ -162,36 +168,38 @@ export function CommPublish() {
 									disabled={busy}
 									onClick={() => openDraft(def)}
 								>
-									Publish
+									{t('community.publish.action')}
 								</Button>
 							</div>
 						))}
 					</div>
 				)}
 			</Panel>
-			<Panel accent title="Your listings">
+			<Panel accent title={t('community.publish.yourListings')}>
 				{mineFailed ? (
 					<EmptyState
 						inset
 						icon="warning"
-						title="Couldn’t load your listings"
-						description="Check your connection and try again."
+						title={t('community.publish.listingsFailed')}
+						description={t('community.discover.loadFailedBody')}
 						action={
 							<Button variant="secondary" size="sm" icon="retry" onClick={loadMine}>
-								Retry
+								{t('common.action.retry')}
 							</Button>
 						}
 					/>
 				) : mine === null ? (
 					<LoadingRegion
-						label="Loading your listings"
+						label={t('community.publish.loadingListings')}
 						style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
 					>
 						<Skeleton height={44} />
 						<Skeleton height={44} />
 					</LoadingRegion>
 				) : mine.length === 0 ? (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Nothing published yet.</div>
+					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						{t('community.publish.nothingYet')}
+					</div>
 				) : (
 					<div style={{ display: 'flex', flexDirection: 'column' }}>
 						{mine.map((m, i) => (
@@ -208,7 +216,7 @@ export function CommPublish() {
 								<div style={{ flex: 1, minWidth: 0 }}>
 									<div style={{ font: `600 13px ${T.sans}` }}>{m.name}</div>
 									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-										v{m.version} · {new Date(m.publishedAt).toLocaleDateString()}
+										v{m.version} · {formatDate(new Date(m.publishedAt))}
 									</div>
 								</div>
 								<Button
@@ -217,7 +225,7 @@ export function CommPublish() {
 									disabled={busy}
 									onClick={() => setConfirmUnpublish(m)}
 								>
-									Remove
+									{t('common.action.remove')}
 								</Button>
 							</div>
 						))}
@@ -227,8 +235,8 @@ export function CommPublish() {
 			<Dialog
 				open={confirmUnpublish !== null}
 				onClose={() => setConfirmUnpublish(null)}
-				title="Remove this listing?"
-				description="Deleted from the marketplace server-side — this cannot be undone."
+				title={t('community.discover.removeTitle')}
+				description={t('community.discover.removeDescription')}
 				tone="danger"
 				size="sm"
 				footer={
@@ -239,7 +247,7 @@ export function CommPublish() {
 							disabled={busy}
 							onClick={() => setConfirmUnpublish(null)}
 						>
-							Cancel
+							{t('common.action.cancel')}
 						</Button>
 						<Button
 							variant="danger"
@@ -248,31 +256,30 @@ export function CommPublish() {
 							disabled={busy}
 							onClick={() => confirmUnpublish && unpublish(confirmUnpublish)}
 						>
-							{busy ? 'Removing…' : 'Remove listing'}
+							{busy ? t('community.discover.removing') : t('community.discover.removeListing')}
 						</Button>
 					</>
 				}
 			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					<strong style={{ color: T.ink }}>{confirmUnpublish?.name}</strong> disappears from
-					Discover for everyone. Copies already installed in vaults keep working — your local
-					package stays, so you can publish it again later.
+					<strong style={{ color: T.ink }}>{confirmUnpublish?.name}</strong>{' '}
+					{t('community.publish.unpublishBody')}
 				</div>
 			</Dialog>
 			<Dialog
 				open={draft !== null}
 				onClose={() => setDraft(null)}
-				title="Publish to the marketplace"
-				description="Shown to everyone browsing Discover — write it for a stranger’s table."
+				title={t('community.publish.dialogTitle')}
+				description={t('community.publish.dialogDescription')}
 				icon="upload"
 				size="md"
 				footer={
 					<>
 						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setDraft(null)}>
-							Cancel
+							{t('common.action.cancel')}
 						</Button>
 						<Button variant="primary" size="sm" icon="upload" disabled={busy} onClick={publish}>
-							{busy ? 'Publishing…' : 'Publish module'}
+							{busy ? t('community.publish.publishing') : t('community.publish.publishModule')}
 						</Button>
 					</>
 				}
@@ -284,8 +291,8 @@ export function CommPublish() {
 							onChange={(e: { target: { value: string } }) =>
 								setDraft((d) => (d ? { ...d, name: e.target.value } : d))
 							}
-							placeholder="Module name"
-							aria-label="Module name"
+							placeholder={t('community.publish.name')}
+							aria-label={t('community.publish.name')}
 							maxLength={80}
 						/>
 						<Textarea
@@ -293,8 +300,8 @@ export function CommPublish() {
 							onChange={(e: { target: { value: string } }) =>
 								setDraft((d) => (d ? { ...d, summary: e.target.value } : d))
 							}
-							placeholder="What does this add to a table? (required)"
-							aria-label="Module summary"
+							placeholder={t('community.publish.summaryPlaceholder')}
+							aria-label={t('community.publish.summary')}
 							rows={3}
 							maxLength={280}
 						/>
@@ -303,8 +310,8 @@ export function CommPublish() {
 							onChange={(e: { target: { value: string } }) =>
 								setDraft((d) => (d ? { ...d, version: e.target.value } : d))
 							}
-							placeholder="Version (e.g. 1.0.0)"
-							aria-label="Module version"
+							placeholder={t('community.publish.versionPlaceholder')}
+							aria-label={t('community.publish.version')}
 							maxLength={20}
 						/>
 					</div>

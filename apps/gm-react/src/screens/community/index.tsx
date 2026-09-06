@@ -5,6 +5,7 @@ import { CommDiscover } from './Discover';
 import { CommExport } from './Export';
 import { CommPublish } from './Publish';
 import { CommWiki } from './Wiki';
+import { useI18n } from '../../i18n';
 
 /**
  * Community — discover/publish marketplace modules and export your work.
@@ -25,12 +26,13 @@ import { CommWiki } from './Wiki';
  */
 
 export function Community() {
+	const { t } = useI18n();
 	const [tab, setTab] = useState('discover');
 	const tabs = [
-		{ id: 'discover', label: 'Discover', icon: 'globe' },
-		{ id: 'export', label: 'Export', icon: 'send' },
-		{ id: 'publish', label: 'Publish', icon: 'upload' },
-		{ id: 'wiki', label: 'Campaign wiki', icon: 'knowledge-book' },
+		{ id: 'discover', label: t('community.tab.discover'), icon: 'globe' },
+		{ id: 'export', label: t('community.tab.export'), icon: 'send' },
+		{ id: 'publish', label: t('community.tab.publish'), icon: 'upload' },
+		{ id: 'wiki', label: t('community.tab.wiki'), icon: 'knowledge-book' },
 	];
 	return (
 		<Page max={1200}>
@@ -40,7 +42,7 @@ export function Community() {
 					onChange={setTab}
 					tabs={tabs}
 					idBase="community"
-					aria-label="Community sections"
+					aria-label={t('community.sections')}
 				/>
 			</div>
 			{/* One panel element, re-labelled per active tab — only one body is ever mounted, so a
