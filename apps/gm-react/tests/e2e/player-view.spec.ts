@@ -63,7 +63,9 @@ test.describe('player view: the projected stage', () => {
 		await page.getByRole('main').first().waitFor({ timeout: 20_000 });
 	});
 
-	test('keeps its dark theatre backdrop instead of painting a see-through box', async ({ page }) => {
+	test('keeps its dark theatre backdrop instead of painting a see-through box', async ({
+		page,
+	}) => {
 		// The stage set a `background` SHORTHAND carrying the two theatre gradients and then, on the
 		// very next line, a `backgroundImage` carrying the grid. React writes style keys in declaration
 		// order, so the second replaced the first's layers outright — and the shorthand had already
@@ -134,5 +136,95 @@ test.describe('player view: forced colors', () => {
 			await scrim.evaluate((el) => getComputedStyle(el).backgroundImage),
 			'the caption scrim must not keep its darkening gradient',
 		).toBe('none');
+	});
+});
+
+test.describe('player view: per-player scene assignments', () => {
+	// RC-CAN-6.2. `session.project-player-view` accepts a `playerActorIds` LIST, so it always could
+	// target one player at a time — but the only DM-side control (the Stage panel's single "Project"
+	// button) always sent the whole roster the same scene. `PlayerViewAssignments` (Stage panel, on
+	// `/session`) is the per-player control: one `Select` per participant, each an independent
+	// `session.project-player-view`. This drives two of the seeded demo players to two DIFFERENT
+	// scenes through that real control and reads the result back out of the core.
+	test('assigning two players different scenes through the Stage panel dispatches two independent assignments', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/session');
+		await seedFresh(page);
+
+		const setup = await page.evaluate(async () => {
+			const rt = window.__rt!;
+			const state = rt.state as unknown as {
+				permissions: { actors: Record<string, { id: string; displayName: string; role: string }> };
+			};
+			const players = Object.values(state.permissions.actors).filter((a) => a.role === 'player');
+			if (players.length < 2) return { ok: false, players: players.length };
+			const [playerA, playerB] = players;
+			const sceneAName = `Player View Scene A ${Date.now()}`;
+			const sceneBName = `Player View Scene B ${Date.now()}`;
+			const createA = await rt.dispatch({
+				type: 'scene.create',
+				actorId: rt.defaultActorId,
+				payload: { name: sceneAName, description: '', visibility: 'dm-only', tags: [] },
+			});
+			const createB = await rt.dispatch({
+				type: 'scene.create',
+				actorId: rt.defaultActorId,
+				payload: { name: sceneBName, description: '', visibility: 'dm-only', tags: [] },
+			});
+			if (createA.status !== 'accepted') return { ok: false, step: 'create A', ...createA };
+			if (createB.status !== 'accepted') return { ok: false, step: 'create B', ...createB };
+			const scenesById = rt.state.scenes.scenes as Record<string, { id: string; name: string }>;
+			const sceneA = Object.values(scenesById).find((s) => s.name === sceneAName)!;
+			const live = await rt.dispatch({
+				type: 'session.set-workflow',
+				actorId: rt.defaultActorId,
+				payload: { workflow: 'active', activeSceneId: sceneA.id },
+			});
+			if (live.status !== 'accepted') return { ok: false, step: 'go live', ...live };
+			return {
+				ok: true,
+				playerAId: playerA.id,
+				playerAName: playerA.displayName,
+				playerBId: playerB.id,
+				playerBName: playerB.displayName,
+				sceneAName,
+				sceneBName,
+			};
+		});
+		expect(setup.ok, JSON.stringify(setup)).toBe(true);
+		const { playerAId, playerAName, playerBId, playerBName, sceneAName, sceneBName } = setup as {
+			playerAId: string;
+			playerAName: string;
+			playerBId: string;
+			playerBName: string;
+			sceneAName: string;
+			sceneBName: string;
+		};
+
+		const assignments = page.getByTestId('player-view-assignments');
+		await expect(assignments).toBeVisible();
+		await assignments
+			.getByLabel(`Scene projected to ${playerAName}`, { exact: true })
+			.selectOption({ label: sceneAName });
+		await assignments
+			.getByLabel(`Scene projected to ${playerBName}`, { exact: true })
+			.selectOption({ label: sceneBName });
+
+		const assignedSceneId = (playerActorId: string) =>
+			page.evaluate(
+				(id) => window.__rt!.state.session.playerViewAssignments[id]?.target.sceneId ?? null,
+				playerActorId,
+			);
+		await expect.poll(() => assignedSceneId(playerAId)).not.toBeNull();
+		await expect.poll(() => assignedSceneId(playerBId)).not.toBeNull();
+		const [sceneIdA, sceneIdB] = await Promise.all([
+			assignedSceneId(playerAId),
+			assignedSceneId(playerBId),
+		]);
+		expect(sceneIdA, 'each player must be assigned their OWN scene, not the same one').not.toBe(
+			sceneIdB,
+		);
 	});
 });

@@ -1,13 +1,14 @@
 import {
 	allowedTransitionsFrom,
+	getPlayerViewController,
 	listScenesForActor,
 	type SessionWorkflowState,
 } from '@dndtools/core';
 import { useState } from 'react';
-import { Button, Dialog, StatusDot, Toaster } from '../ds';
+import { Button, Dialog, Select, StatusDot, Toaster } from '../ds';
 import { useI18n, type MessageKey } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
-import { T } from './screen-kit';
+import { SetRow, T } from './screen-kit';
 
 // Every core workflow state gets a spoken label so the status pill never shows a raw enum value.
 // Exported so `/session` names the state the same way this control does — it used to call every
@@ -186,5 +187,82 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 				}
 			/>
 		</>
+	);
+}
+
+/**
+ * PlayerViewAssignments — RC-CAN-6.2. `session.project-player-view` already lets the DM send each
+ * player a DIFFERENT scene (`PlayerViewAssignment`/`getPlayerViewController`, RC-WID-4.1's
+ * `PlayerViewsBody` widget only ever READS that state), but nothing dispatched it per player: the
+ * only control was the Stage panel's single "Project" button, which broadcasts one scene to the
+ * whole table. One `Select` per participant, each an independent `session.project-player-view` (or
+ * `session.revoke-player-view` for "— none —"), is the per-player assignment surface. Self-contained
+ * (reads the runtime and dispatches directly) so it drops into the Stage panel without new props.
+ */
+export function PlayerViewAssignments({
+	isLive,
+	previewing,
+}: {
+	isLive: boolean;
+	previewing: boolean;
+}) {
+	const runtime = useRuntime();
+	const { t } = useI18n();
+	const controller = getPlayerViewController(runtime.state, runtime.defaultActorId);
+	if (controller.kind !== 'available' || controller.participants.length === 0) return null;
+	const { sceneOptions, participants } = controller;
+
+	async function assign(playerActorId: string, sceneId: string) {
+		const command = sceneId
+			? {
+					type: 'session.project-player-view' as const,
+					actorId: runtime.defaultActorId,
+					payload: { playerActorIds: [playerActorId], target: { kind: 'scene' as const, sceneId } },
+				}
+			: {
+					type: 'session.revoke-player-view' as const,
+					actorId: runtime.defaultActorId,
+					payload: { playerActorIds: [playerActorId] },
+				};
+		const result = await runtime.dispatch(command);
+		if (result.status === 'rejected') Toaster.error(result.rejection.message);
+	}
+
+	return (
+		<div data-testid="player-view-assignments">
+			<div
+				style={{
+					font: `600 11px ${T.sans}`,
+					color: T.ter,
+					textTransform: 'uppercase',
+					letterSpacing: '0.04em',
+					marginTop: 8,
+				}}
+			>
+				{t('session.playerViews.title')}
+			</div>
+			{participants.map((participant) => (
+				<SetRow
+					key={participant.actorId}
+					label={participant.displayName}
+					control={
+						<Select
+							aria-label={t('session.playerViews.assignAria', { name: participant.displayName })}
+							value={
+								participant.assignment?.kind === 'assigned' ? participant.assignment.sceneId : ''
+							}
+							disabled={!isLive || previewing}
+							options={[
+								{ value: '', label: t('session.stage.noneOption') },
+								...sceneOptions.map((scene) => ({ value: scene.id, label: scene.name })),
+							]}
+							onChange={(e: { target: { value: string } }) =>
+								void assign(participant.actorId, e.target.value)
+							}
+						/>
+					}
+				/>
+			))}
+		</div>
 	);
 }

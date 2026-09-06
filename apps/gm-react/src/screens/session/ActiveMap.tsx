@@ -2,6 +2,7 @@ import { listMapsForActor } from '@dndtools/core';
 import { Button, Select } from '../../ds';
 import { useI18n } from '../../i18n';
 import { Panel, SetRow, T } from '../../app/screen-kit';
+import { PlayerViewAssignments } from '../../app/ProjectionControl';
 
 type MapEntry = ReturnType<typeof listMapsForActor>[number];
 
@@ -64,6 +65,9 @@ export function StagePanel({
 					</Button>
 				</>
 			)}
+			{/* RC-CAN-6.2: broadcasting the active map to every player is the row above; this lets the
+			    DM send a DIFFERENT scene to each one instead. */}
+			<PlayerViewAssignments isLive={isLive} previewing={previewing} />
 		</Panel>
 	);
 }
