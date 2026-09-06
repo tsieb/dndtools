@@ -135,3 +135,36 @@ to `baseline` once the measured values in `tests/perf/baseline.json` have settle
    `scripts/perf/capture.ts`.
 3. Do not weaken a target to make a change pass; adjust the registry only through the owned review it
    documents.
+
+## 5. Map Render: The Bake Layer (RC-MAP-3.3)
+
+The map renderer is SVG (ADR-014: the core's map model is already geometric). That is the right
+default — every feature is a real node, so hit-testing, focus and the screen-reader inventory come
+for free — but it does not survive a generated world. `world.continent` at its densest knobs emits
+324 features carrying 17,917 vertices, and roughly 15,000 of those vertices belong to biome
+polygons, kingdom territories, lakes and rivers: inert paper with no popover, no drag handle and no
+entry in the accessible inventory.
+
+`apps/gm-react/src/app/map/canvas/BakeLayer.tsx` moves exactly those four feature kinds (`fill`,
+`room`, `polygon`, `water`) onto a canvas-2d layer painted once and mounted UNDER the interactive
+SVG. Everything a person can point at or a screen reader must reach — POIs, tokens, props, doors,
+lights, text, roads, walls, routes and the whole fog stack — stays on the SVG. Nothing about
+hit-testing moves: the feature SVG is already `pointerEvents: 'none'` and the real hit targets are
+the marker divs in `MapMarkers.tsx`, so the canvas is `aria-hidden` decoration by construction.
+
+Three things about the threshold are deliberate:
+
+- **It fires on feature count OR vertex count** (120 / 4000). A world map is a few hundred features
+  carrying tens of thousands of vertices; a stamped dungeon floor is the opposite. A count threshold
+  high enough to leave a hand-painted map alone would never fire on the dense world it exists for.
+- **Below it, the renderer takes the byte-identical old path.** `planBake` returns the input array
+  itself, not a copy, so a small map does not even pay a new array identity.
+- **The ops are a faithful transcription of `FeatureShape.tsx`** — same tints, opacities and stroke
+  widths, colours resolved from the same semantic tokens at paint time. A baked map and an unbaked
+  one differ only in frame rate; otherwise the threshold would be a visible mode switch.
+
+The perf sample is `apps/gm-react/src/app/map/canvas/BakeLayer.test.ts`: it runs the real generator
+at its densest parameters, projects the result into `MapRenderComplexity` (one drawn SVG feature =
+one `visiblePois` unit, the model's per-drawn-element cost; the bake canvas is charged as one
+element so baking is never free) and grades it with the core's own `measureMapPanZoom`. Unbaked, the
+world breaches `map-pan-zoom-slim`; baked, it passes both device-class budgets.

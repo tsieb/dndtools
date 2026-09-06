@@ -29,6 +29,7 @@ import { useAssetObjectUrl } from '../../../platform/assetUrl';
 import { clamp01 } from '../mapVocab';
 import { type FogShape, type MapTool } from '../mapVisibility';
 import { type DragState, type Point } from './geometry';
+import { BakeLayer, planBake } from './BakeLayer';
 import { MapSvgLayers } from './MapSvgLayers';
 import { MapMarkers } from './MapMarkers';
 import { useI18n } from '../../../i18n';
@@ -244,6 +245,12 @@ export function MapCanvas({
 		});
 	}, [contentLayers, zoom, center.x, center.y]);
 
+	// PERF (RC-MAP-3.3): above a density threshold the inert terrain/biome fills move to a canvas-2d
+	// bake layer under the SVG, so a pan/zoom frame walks a few dozen interactive nodes instead of
+	// thousands of static ones. Below the threshold the plan is inactive and `plan.svg` is
+	// `visibleFeatures` itself, so a small map renders through the identical path as before.
+	const bakePlan = useMemo(() => planBake(visibleFeatures), [visibleFeatures]);
+
 	// ── Well-level gestures (fog rect/brush draw · polygon vertices · pan · click-to-place) ────
 	const onWellPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
 		pressRef.current = null; // a well press is never a marker press (markers stop propagation)
@@ -411,6 +418,7 @@ export function MapCanvas({
 						backgroundSize: '40px 40px',
 					}}
 				/>
+				{view && bakePlan.active && <BakeLayer groups={bakePlan.baked} zoom={zoom} />}
 				{view && (
 					<MapSvgLayers
 						view={view}
@@ -424,7 +432,7 @@ export function MapCanvas({
 						rasterUrl={rasterUrl}
 						annotationVisible={annotationVisible}
 						fogOps={fogOps}
-						visibleFeatures={visibleFeatures}
+						visibleFeatures={bakePlan.svg}
 						fogOpacity={fogOpacity}
 					/>
 				)}
