@@ -1922,4 +1922,70 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.customTypes.true': 'Verdadero',
 	'extensions.customTypes.false': 'Falso',
 	'extensions.customTypes.commaSeparated': 'separado por comas',
+	/* Extensiones › complementos (el registro de paquetes de widgets) */
+	'extensions.plugins.readOnly':
+		'Gestionar paquetes es solo para el DJ y es de solo lectura durante la vista previa — los controles de abajo están desactivados.',
+	'extensions.plugins.installedTitle': 'Paquetes instalados',
+	'extensions.plugins.installedCount': '{count, plural, one {# instalado} other {# instalados}}',
+	'extensions.plugins.installedIntro':
+		'Cada paquete está aislado y solo recibe los permisos que se muestran abajo. Los cambios en los paquetes instalados se guardan con esta campaña.',
+	'extensions.plugins.none': 'No hay paquetes de widgets instalados.',
+	'extensions.plugins.trustTrusted': 'De confianza',
+	'extensions.plugins.trustUnreviewed': 'Sin revisar',
+	'extensions.plugins.trustDenied': 'Denegado',
+	'extensions.plugins.recommendTrust': 'Confiar tras la revisión',
+	'extensions.plugins.needsReview': 'Necesita revisión',
+	'extensions.plugins.customCode': 'Código propio',
+	'extensions.plugins.migrationFailed': 'La migración falló',
+	'extensions.plugins.cardMeta':
+		'v{version} · {widgets, plural, one {# widget} other {# widgets}} · {recommendation}',
+	'extensions.plugins.noPerms': 'Sin permisos del anfitrión',
+	'extensions.plugins.network': 'Red: {destination}',
+	'extensions.plugins.review': 'Revisar',
+	'extensions.plugins.reviewLabel': 'Revisar {name}',
+	'extensions.plugins.enableLabel': 'Activar {name}',
+	'extensions.plugins.confirmRemove': 'Confirmar la eliminación',
+	'extensions.plugins.exportJson': 'Exportar JSON',
+	'extensions.plugins.starterTitle': 'Biblioteca inicial',
+	'extensions.plugins.starterBadge': 'incluida · sin red',
+	'extensions.plugins.starterIntro':
+		'Estos paquetes vienen con Lamplight y no necesitan conexión a la red. Cada uno se instala desactivado y con todos los permisos del anfitrión bloqueados; revísalo en la lista de instalados antes de activarlo.',
+	'extensions.plugins.sandboxed': 'aislado',
+	'extensions.plugins.installed': 'Instalado',
+	'extensions.plugins.install': 'Instalar',
+	'extensions.plugins.installLabel': 'Instalar {name}',
+	'extensions.plugins.buildTitle': 'Crear un widget',
+	'extensions.plugins.buildBadge': 'sin escribir código',
+	'extensions.plugins.buildIntro':
+		'Describe un widget paso a paso — qué muestra, qué puede hacer, qué aspecto tiene — y Lamplight crea el paquete por ti. Se instala desactivado, como cualquier otro paquete.',
+	'extensions.plugins.jsonTitle': 'Instalar o actualizar desde JSON',
+	'extensions.plugins.jsonIntro':
+		'Pega la definición de un paquete de widgets (o una exportación de una tarjeta de arriba). Un id nuevo se instala; un id ya instalado se actualiza en el sitio. Lamplight valida el paquete y ejecuta con seguridad los pasos de actualización declarados.',
+	'extensions.plugins.jsonPlaceholder':
+		'{ "id": "mi-paquete", "version": "1.0.0", "displayName": "Mi paquete", "widgets": [ … ] }',
+	'extensions.plugins.jsonField': 'JSON de la definición del paquete de widgets',
+	'extensions.plugins.installUpgrade': 'Instalar o actualizar el paquete',
+	'extensions.plugins.marketTitle': 'Mercado de la comunidad',
+	'extensions.plugins.marketBadge': 'No disponible',
+	'extensions.plugins.marketBody':
+		'El mercado de la comunidad no está disponible en esta edición. Instala desde la biblioteca inicial o añade arriba un archivo de paquete de confianza.',
+	'extensions.plugins.enabled': 'Se activó {id}.',
+	'extensions.plugins.disabled':
+		'Se desactivó {id} — sus widgets colocados quedan en pausa hasta que vuelvas a activarlo.',
+	'extensions.plugins.removed':
+		'Se quitó {id} — sus widgets colocados quedan como marcadores desactivados.',
+	'extensions.plugins.installedStarter':
+		'Se instaló {name} desactivado y restringido. Revísalo arriba antes de activarlo.',
+	'extensions.plugins.installedPackage':
+		'Se instaló {id} desactivado y restringido. Revísalo arriba antes de activarlo.',
+	'extensions.plugins.upgraded': 'Se actualizó {id} y se actualizaron sus widgets colocados.',
+	'extensions.plugins.exportFailed': 'No se pudo exportar el paquete {id} ({reason}).',
+	'extensions.plugins.exported':
+		'Se exportó {id} al cuadro JSON de abajo — sube "version" (y declara "migrations" para los widgets colocados) para actualizarlo.',
+	'extensions.plugins.tooLarge': 'Ese archivo de paquete es demasiado grande. El límite es 1 MB.',
+	'extensions.plugins.badJson': 'El JSON no es válido: {reason}',
+	'extensions.plugins.missingId':
+		'El JSON del paquete necesita un "id" de primer nivel (o un envoltorio de exportación con "package.id").',
+	'extensions.plugins.systemLocked':
+		'Los paquetes de sistema integrados no se pueden reemplazar con un archivo de paquete.',
 };

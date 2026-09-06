@@ -92,7 +92,6 @@ export const allow = {
 	'apps/gm-react/src/screens/community/Wiki.tsx': 47,
 	'apps/gm-react/src/screens/community/index.tsx': 1,
 	'apps/gm-react/src/screens/community/shared.tsx': 8,
-	'apps/gm-react/src/screens/extensions/Plugins.tsx': 34,
 	'apps/gm-react/src/screens/knowledge/Composer.tsx': 4,
 	'apps/gm-react/src/screens/knowledge/ImportPanel.tsx': 14,
 	'apps/gm-react/src/screens/knowledge/NoteViewer.tsx': 20,

@@ -13,6 +13,7 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import { WidgetBuilder } from './WidgetBuilder';
 /* ── RC-WID-1.5: the trust review sheet is opened from each installed package card ───────────── */
 import { TrustReviewSheet } from './TrustReviewSheet';
+import { useI18n, type MessageKey } from '../../i18n';
 
 /**
  * Plugins — the live widget-package registry (`runtime.state.widgets`). The installed list renders
@@ -28,29 +29,32 @@ const TRUST_TONE: Record<string, string> = {
 	denied: 'error',
 };
 // Machine tokens from the trust/review model, rendered as spoken labels.
-const TRUST_LABEL: Record<string, string> = {
-	trusted: 'Trusted',
-	unreviewed: 'Unreviewed',
-	denied: 'Denied',
+const TRUST_LABEL: Record<string, MessageKey> = {
+	trusted: 'extensions.plugins.trustTrusted',
+	unreviewed: 'extensions.plugins.trustUnreviewed',
+	denied: 'extensions.plugins.trustDenied',
 };
-const TRUST_RECOMMENDATION_LABEL: Record<string, string> = {
-	'trusted-after-review': 'Trust after review',
-	'requires-review': 'Requires review',
-	'deny-until-fixed': 'Deny until fixed',
+const TRUST_RECOMMENDATION_LABEL: Record<string, MessageKey> = {
+	'trusted-after-review': 'extensions.plugins.recommendTrust',
+	'requires-review': 'extensions.trust.recommend.review',
+	'deny-until-fixed': 'extensions.trust.recommend.deny',
 };
 
-const HOST_PERM_LABEL: Record<string, string> = {
-	filesystem: 'Filesystem',
-	clipboard: 'Clipboard',
-	network: 'Network',
-	'source-adapter': 'Source adapter',
-	asset: 'Assets',
-	'external-link': 'External links',
+const HOST_PERM_LABEL: Record<string, MessageKey> = {
+	filesystem: 'extensions.trust.perm.filesystem',
+	clipboard: 'extensions.trust.perm.clipboard',
+	network: 'extensions.trust.perm.network',
+	'source-adapter': 'extensions.trust.perm.sourceAdapter',
+	asset: 'extensions.trust.perm.asset',
+	'external-link': 'extensions.trust.perm.externalLink',
 };
 
 // Bundled starter library — packages the Core itself scaffolds (`scaffoldCustomWidgetPackageDraft`),
 // so every entry is valid by construction and still goes through the full `widget.package.install`
 // validation + trust pipeline. This is NOT a marketplace: nothing is fetched from anywhere.
+// The name and description of a starter are written into the installed package definition, so they
+// are durable vault state rather than screen copy: translating them would make what a campaign
+// stores depend on the locale the DM happened to install in. They stay in the source language.
 const STARTER_LIBRARY = [
 	{
 		packageId: 'starter.table-roller',
@@ -85,6 +89,7 @@ function buildStarterPackage(entry: (typeof STARTER_LIBRARY)[number]): WidgetPac
 }
 
 export function ExtPlugins() {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const dmId = runtime.defaultActorId;
 	const previewing = !!runtime.preview;
@@ -136,7 +141,7 @@ export function ExtPlugins() {
 						actorId: dmId,
 						payload: { packageId },
 					}),
-					`Enabled ${packageId}.`,
+					t('extensions.plugins.enabled', { id: packageId }),
 				);
 			} else {
 				finish(
@@ -145,7 +150,7 @@ export function ExtPlugins() {
 						actorId: dmId,
 						payload: { packageId, reason: 'Disabled by widget manager.' },
 					}),
-					`Disabled ${packageId} — its placed widgets are paused until re-enabled.`,
+					t('extensions.plugins.disabled', { id: packageId }),
 				);
 			}
 		});
@@ -159,7 +164,7 @@ export function ExtPlugins() {
 					actorId: dmId,
 					payload: { packageId },
 				}),
-				`Removed ${packageId} — its placed widgets remain as disabled placeholders.`,
+				t('extensions.plugins.removed', { id: packageId }),
 			);
 		});
 
@@ -171,7 +176,7 @@ export function ExtPlugins() {
 					actorId: dmId,
 					payload: { package: buildStarterPackage(entry) },
 				}),
-				`Installed ${entry.name} in a disabled, restricted state. Review it above before enabling it.`,
+				t('extensions.plugins.installedStarter', { name: entry.name }),
 			);
 		});
 
@@ -184,27 +189,30 @@ export function ExtPlugins() {
 			packageId,
 		);
 		if ('kind' in exported) {
-			Toaster.error(`Package ${packageId} could not be exported (${exported.reason}).`);
+			Toaster.error(
+				t('extensions.plugins.exportFailed', { id: packageId, reason: exported.reason }),
+			);
 			return;
 		}
 		setJsonDraft(JSON.stringify(exported.package, null, 2));
-		Toaster.info(
-			`Exported ${packageId} into the JSON box below — bump "version" (and declare "migrations" for placed widgets) to upgrade it.`,
-			{ duration: 7000 },
-		);
+		Toaster.info(t('extensions.plugins.exported', { id: packageId }), { duration: 7000 });
 	};
 
 	const applyJson = () =>
 		guard(async () => {
 			if (jsonDraft.length > 1024 * 1024) {
-				Toaster.error('That package file is too large. The limit is 1 MB.');
+				Toaster.error(t('extensions.plugins.tooLarge'));
 				return;
 			}
 			let parsed: unknown;
 			try {
 				parsed = JSON.parse(jsonDraft);
 			} catch (error) {
-				Toaster.error(`Not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
+				Toaster.error(
+					t('extensions.plugins.badJson', {
+						reason: error instanceof Error ? error.message : String(error),
+					}),
+				);
 				return;
 			}
 			// Accept a raw package definition or the { package: ... } export wrapper.
@@ -215,15 +223,13 @@ export function ExtPlugins() {
 			) as WidgetPackageDefinition;
 			const id = definition && typeof definition === 'object' ? definition.id : undefined;
 			if (typeof id !== 'string' || !id) {
-				Toaster.error(
-					'Package JSON needs a top-level "id" (or an export wrapper with "package.id").',
-				);
+				Toaster.error(t('extensions.plugins.missingId'));
 				return;
 			}
 			const existing = runtime.state.widgets.packages[id];
 			const isUpgrade = !!existing && !existing.removedAt;
 			if (isUpgrade && id.startsWith('system.')) {
-				Toaster.error('Built-in system packages cannot be replaced with a package file.');
+				Toaster.error(t('extensions.plugins.systemLocked'));
 				return;
 			}
 			const result = await runtime.dispatch({
@@ -234,8 +240,8 @@ export function ExtPlugins() {
 			finish(
 				result,
 				isUpgrade
-					? `Upgraded ${id} and updated its placed widgets.`
-					: `Installed ${id} in a disabled, restricted state. Review it above before enabling it.`,
+					? t('extensions.plugins.upgraded', { id })
+					: t('extensions.plugins.installedPackage', { id }),
 			);
 			if (result.status === 'accepted') setJsonDraft('');
 		});
@@ -244,22 +250,24 @@ export function ExtPlugins() {
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			{!canWrite && (
 				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-					Package management is DM-only and read-only while previewing — the controls below are
-					disabled.
+					{t('extensions.plugins.readOnly')}
 				</div>
 			)}
 			<Panel
-				title="Installed packages"
-				action={<Badge status="neutral">{packages.length} installed</Badge>}
+				title={t('extensions.plugins.installedTitle')}
+				action={
+					<Badge status="neutral">
+						{t('extensions.plugins.installedCount', { count: packages.length })}
+					</Badge>
+				}
 			>
 				<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
-					Each package is isolated and receives only the permissions shown below. Changes to
-					installed packages are saved with this campaign.
+					{t('extensions.plugins.installedIntro')}
 				</div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 					{packages.length === 0 && (
 						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-							No widget packages installed.
+							{t('extensions.plugins.none')}
 						</div>
 					)}
 					{packages.map((rec: any) => {
@@ -304,41 +312,47 @@ export function ExtPlugins() {
 									<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
 										<span style={{ font: `600 13.5px ${T.sans}` }}>{def.displayName}</span>
 										<Badge status={TRUST_TONE[rec.trust.state] as 'neutral'}>
-											{TRUST_LABEL[rec.trust.state] ?? rec.trust.state}
+											{TRUST_LABEL[rec.trust.state]
+												? t(TRUST_LABEL[rec.trust.state])
+												: rec.trust.state}
 										</Badge>
-										{isSystem && <Badge status="neutral">Built-in</Badge>}
+										{isSystem && <Badge status="neutral">{t('extensions.objects.builtIn')}</Badge>}
 										{needsReview && (
 											<Badge status="warning" icon="warning">
-												Needs review
+												{t('extensions.plugins.needsReview')}
 											</Badge>
 										)}
 										{review.customCodeWidgets.length > 0 && (
-											<Badge status="info">Custom code</Badge>
+											<Badge status="info">{t('extensions.plugins.customCode')}</Badge>
 										)}
 										{rec.migrationStatus?.state === 'failed' && (
 											<Badge status="error" icon="warning">
-												Migration failed
+												{t('extensions.plugins.migrationFailed')}
 											</Badge>
 										)}
 									</div>
 									<div style={{ font: `11.5px ${T.sans}`, color: T.ter, marginBottom: 6 }}>
-										v{def.version} · {widgetCount} {widgetCount === 1 ? 'widget' : 'widgets'} ·{' '}
-										{TRUST_RECOMMENDATION_LABEL[review.trustRecommendation] ??
-											review.trustRecommendation}
+										{t('extensions.plugins.cardMeta', {
+											version: def.version,
+											widgets: widgetCount,
+											recommendation: TRUST_RECOMMENDATION_LABEL[review.trustRecommendation]
+												? t(TRUST_RECOMMENDATION_LABEL[review.trustRecommendation])
+												: review.trustRecommendation,
+										})}
 									</div>
 									<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
 										{perms.length === 0 ? (
-											<Badge status="neutral">No host permissions</Badge>
+											<Badge status="neutral">{t('extensions.plugins.noPerms')}</Badge>
 										) : (
 											perms.map((p) => (
 												<Badge key={p} status="accent">
-													{HOST_PERM_LABEL[p] ?? p}
+													{HOST_PERM_LABEL[p] ? t(HOST_PERM_LABEL[p]) : p}
 												</Badge>
 											))
 										)}
 										{review.requestedNetworkDestinations.map((d: string) => (
 											<Badge key={d} status="warning">
-												Network: {d}
+												{t('extensions.plugins.network', { destination: d })}
 											</Badge>
 										))}
 									</div>
@@ -360,11 +374,11 @@ export function ExtPlugins() {
 										icon="permissions"
 										// Every card carries a "Review" button, so the visible word alone is not a
 										// distinguishing accessible name — the package name goes in the label.
-										aria-label={`Review ${def.displayName}`}
+										aria-label={t('extensions.plugins.reviewLabel', { name: def.displayName })}
 										disabled={!canWrite || busy}
 										onClick={() => setReviewingId(def.id)}
 									>
-										Review
+										{t('extensions.plugins.review')}
 									</Button>
 									<Switch
 										checked={rec.enabled}
@@ -373,7 +387,7 @@ export function ExtPlugins() {
 										// there strands focus on `<body>` mid-toggle, so it takes the soft form.
 										disabled={!canWrite}
 										aria-disabled={busy || undefined}
-										aria-label={`Enable ${def.displayName}`}
+										aria-label={t('extensions.plugins.enableLabel', { name: def.displayName })}
 										onChange={() => setEnabled(def.id, !rec.enabled)}
 									/>
 									{/* System packages are code-defined: no remove (the board's own widgets) and no JSON
@@ -393,14 +407,14 @@ export function ExtPlugins() {
 														disabled={!canWrite || busy}
 														onClick={() => removePackage(def.id)}
 													>
-														Confirm remove
+														{t('extensions.plugins.confirmRemove')}
 													</Button>
 													<Button
 														variant="ghost"
 														size="sm"
 														onClick={() => setConfirmRemoveId(null)}
 													>
-														Keep
+														{t('extensions.compendium.keep')}
 													</Button>
 												</>
 											) : (
@@ -411,7 +425,7 @@ export function ExtPlugins() {
 														icon="upload"
 														onClick={() => exportToDraft(def.id)}
 													>
-														Export JSON
+														{t('extensions.plugins.exportJson')}
 													</Button>
 													<Button
 														variant="ghost"
@@ -420,7 +434,7 @@ export function ExtPlugins() {
 														disabled={!canWrite || busy}
 														onClick={() => setConfirmRemoveId(def.id)}
 													>
-														Remove
+														{t('common.action.remove')}
 													</Button>
 												</>
 											)}
@@ -432,11 +446,12 @@ export function ExtPlugins() {
 					})}
 				</div>
 			</Panel>
-			<Panel title="Starter library" action={<Badge status="neutral">bundled · no network</Badge>}>
+			<Panel
+				title={t('extensions.plugins.starterTitle')}
+				action={<Badge status="neutral">{t('extensions.plugins.starterBadge')}</Badge>}
+			>
 				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
-					These packages are bundled with Lamplight and need no network connection. Each installs
-					disabled with all host permissions blocked; review it in the installed list before
-					enabling it.
+					{t('extensions.plugins.starterIntro')}
 				</div>
 				<div
 					style={{
@@ -465,25 +480,25 @@ export function ExtPlugins() {
 									<span style={{ font: `600 13px ${T.sans}`, flex: 1, minWidth: 0 }}>
 										{entry.name}
 									</span>
-									<Badge status="info">sandboxed</Badge>
+									<Badge status="info">{t('extensions.plugins.sandboxed')}</Badge>
 								</div>
 								<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub, flex: 1 }}>
 									{entry.desc}
 								</div>
 								{installed ? (
 									<Badge status="success" icon="check">
-										Installed
+										{t('extensions.plugins.installed')}
 									</Badge>
 								) : (
 									<Button
 										variant="secondary"
 										size="sm"
 										icon="import"
-										aria-label={`Install ${entry.name}`}
+										aria-label={t('extensions.plugins.installLabel', { name: entry.name })}
 										disabled={!canWrite || busy}
 										onClick={() => installStarter(entry)}
 									>
-										Install
+										{t('extensions.plugins.install')}
 									</Button>
 								)}
 							</div>
@@ -491,10 +506,12 @@ export function ExtPlugins() {
 					})}
 				</div>
 			</Panel>
-			<Panel title="Build a widget" action={<Badge status="neutral">no code needed</Badge>}>
+			<Panel
+				title={t('extensions.plugins.buildTitle')}
+				action={<Badge status="neutral">{t('extensions.plugins.buildBadge')}</Badge>}
+			>
 				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
-					Describe a widget step by step — what it shows, what it can do, how it looks — and
-					Lamplight builds the package for you. It installs disabled, like any other package.
+					{t('extensions.plugins.buildIntro')}
 				</div>
 				<div>
 					<Button
@@ -504,22 +521,20 @@ export function ExtPlugins() {
 						disabled={!canWrite}
 						onClick={() => setBuilderOpen(true)}
 					>
-						Build a widget
+						{t('extensions.plugins.buildTitle')}
 					</Button>
 				</div>
 			</Panel>
-			<Panel title="Install or upgrade from JSON">
+			<Panel title={t('extensions.plugins.jsonTitle')}>
 				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
-					Paste a widget-package definition (or an export from a card above). A new id installs; an
-					already-installed id upgrades in place. Lamplight validates the package and safely runs
-					any declared upgrade steps.
+					{t('extensions.plugins.jsonIntro')}
 				</div>
 				<Textarea
 					value={jsonDraft}
 					onChange={(e: { target: { value: string } }) => setJsonDraft(e.target.value)}
 					rows={10}
-					placeholder='{ "id": "my-package", "version": "1.0.0", "displayName": "My Package", "widgets": [ … ] }'
-					aria-label="Widget package definition JSON"
+					placeholder={t('extensions.plugins.jsonPlaceholder')}
+					aria-label={t('extensions.plugins.jsonField')}
 					maxLength={1024 * 1024}
 					style={{ fontFamily: T.mono, fontSize: 12 }}
 				/>
@@ -530,13 +545,15 @@ export function ExtPlugins() {
 					disabled={!canWrite || busy || !jsonDraft.trim()}
 					onClick={applyJson}
 				>
-					Install / upgrade package
+					{t('extensions.plugins.installUpgrade')}
 				</Button>
 			</Panel>
-			<Panel title="Community marketplace" action={<Badge status="neutral">Unavailable</Badge>}>
+			<Panel
+				title={t('extensions.plugins.marketTitle')}
+				action={<Badge status="neutral">{t('extensions.plugins.marketBadge')}</Badge>}
+			>
 				<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.ter }}>
-					The community marketplace is not available in this edition. Install from the starter
-					library or add a trusted package file above instead.
+					{t('extensions.plugins.marketBody')}
 				</div>
 			</Panel>
 			{builderOpen && <WidgetBuilder onClose={() => setBuilderOpen(false)} />}

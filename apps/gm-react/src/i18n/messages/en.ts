@@ -1868,6 +1868,71 @@ export const en = {
 	'extensions.customTypes.true': 'True',
 	'extensions.customTypes.false': 'False',
 	'extensions.customTypes.commaSeparated': 'comma-separated',
+	/* Extensions › plugins (the widget-package registry) */
+	'extensions.plugins.readOnly':
+		'Package management is DM only and read-only while previewing — the controls below are disabled.',
+	'extensions.plugins.installedTitle': 'Installed packages',
+	'extensions.plugins.installedCount': '{count, plural, one {# installed} other {# installed}}',
+	'extensions.plugins.installedIntro':
+		'Each package is isolated and receives only the permissions shown below. Changes to installed packages are saved with this campaign.',
+	'extensions.plugins.none': 'No widget packages installed.',
+	'extensions.plugins.trustTrusted': 'Trusted',
+	'extensions.plugins.trustUnreviewed': 'Unreviewed',
+	'extensions.plugins.trustDenied': 'Denied',
+	'extensions.plugins.recommendTrust': 'Trust after review',
+	'extensions.plugins.needsReview': 'Needs review',
+	'extensions.plugins.customCode': 'Custom code',
+	'extensions.plugins.migrationFailed': 'Migration failed',
+	'extensions.plugins.cardMeta':
+		'v{version} · {widgets, plural, one {# widget} other {# widgets}} · {recommendation}',
+	'extensions.plugins.noPerms': 'No host permissions',
+	'extensions.plugins.network': 'Network: {destination}',
+	'extensions.plugins.review': 'Review',
+	'extensions.plugins.reviewLabel': 'Review {name}',
+	'extensions.plugins.enableLabel': 'Enable {name}',
+	'extensions.plugins.confirmRemove': 'Confirm remove',
+	'extensions.plugins.exportJson': 'Export JSON',
+	'extensions.plugins.starterTitle': 'Starter library',
+	'extensions.plugins.starterBadge': 'bundled · no network',
+	'extensions.plugins.starterIntro':
+		'These packages are bundled with Lamplight and need no network connection. Each installs disabled with all host permissions blocked; review it in the installed list before enabling it.',
+	'extensions.plugins.sandboxed': 'sandboxed',
+	'extensions.plugins.installed': 'Installed',
+	'extensions.plugins.install': 'Install',
+	'extensions.plugins.installLabel': 'Install {name}',
+	'extensions.plugins.buildTitle': 'Build a widget',
+	'extensions.plugins.buildBadge': 'no code needed',
+	'extensions.plugins.buildIntro':
+		'Describe a widget step by step — what it shows, what it can do, how it looks — and Lamplight builds the package for you. It installs disabled, like any other package.',
+	'extensions.plugins.jsonTitle': 'Install or upgrade from JSON',
+	'extensions.plugins.jsonIntro':
+		'Paste a widget-package definition (or an export from a card above). A new id installs; an already-installed id upgrades in place. Lamplight validates the package and safely runs any declared upgrade steps.',
+	'extensions.plugins.jsonPlaceholder':
+		'{ "id": "my-package", "version": "1.0.0", "displayName": "My package", "widgets": [ … ] }',
+	'extensions.plugins.jsonField': 'Widget package definition JSON',
+	'extensions.plugins.installUpgrade': 'Install or upgrade package',
+	'extensions.plugins.marketTitle': 'Community marketplace',
+	'extensions.plugins.marketBadge': 'Unavailable',
+	'extensions.plugins.marketBody':
+		'The community marketplace is not available in this edition. Install from the starter library or add a trusted package file above instead.',
+	'extensions.plugins.enabled': 'Enabled {id}.',
+	'extensions.plugins.disabled': 'Disabled {id} — its placed widgets are paused until re-enabled.',
+	'extensions.plugins.removed':
+		'Removed {id} — its placed widgets remain as disabled placeholders.',
+	'extensions.plugins.installedStarter':
+		'Installed {name} in a disabled, restricted state. Review it above before enabling it.',
+	'extensions.plugins.installedPackage':
+		'Installed {id} in a disabled, restricted state. Review it above before enabling it.',
+	'extensions.plugins.upgraded': 'Upgraded {id} and updated its placed widgets.',
+	'extensions.plugins.exportFailed': 'Package {id} could not be exported ({reason}).',
+	'extensions.plugins.exported':
+		'Exported {id} into the JSON box below — bump "version" (and declare "migrations" for placed widgets) to upgrade it.',
+	'extensions.plugins.tooLarge': 'That package file is too large. The limit is 1 MB.',
+	'extensions.plugins.badJson': 'Not valid JSON: {reason}',
+	'extensions.plugins.missingId':
+		'Package JSON needs a top-level "id" (or an export wrapper with "package.id").',
+	'extensions.plugins.systemLocked':
+		'Built-in system packages cannot be replaced with a package file.',
 } as const;
 
 /** Every string the app can render, addressed by key. */
