@@ -18,7 +18,13 @@ export type {
 	SyncSourceStatusView,
 	SystemHealthLevel,
 } from './health';
-export { deriveHealthLevel, toSyncSourceStatusView } from './health';
+export { deriveHealthLevel, deriveLastSyncAt, toSyncSourceStatusView } from './health';
+
+export type { ErrorTaxonomyCategory, ErrorTaxonomyCounts, RawErrorRecord } from './error-taxonomy';
+export { ERROR_TAXONOMY_CATEGORIES, countErrorsByCategory } from './error-taxonomy';
+
+export type { RawStorageUsageEntry, StorageCategory, StorageUsageView } from './storage-usage';
+export { STORAGE_CATEGORIES, summarizeStorageUsage } from './storage-usage';
 
 export type {
 	DiagnosticsDenialReason,

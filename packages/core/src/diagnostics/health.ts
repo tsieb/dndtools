@@ -1,4 +1,7 @@
 import type { DurableStateDocumentId } from '../migration/schema-versions';
+import type { RawErrorRecord } from './error-taxonomy';
+import type { RawStorageUsageEntry } from './storage-usage';
+import type { PerfDiagnosticSample } from '../perf/diagnostics-privacy';
 
 /**
  * Shared, source-of-truth diagnostics inputs. These are produced by platform services
@@ -47,6 +50,28 @@ export interface DiagnosticsContextInput {
 	schema: SchemaHealthInput[];
 	/** Free-form environment facts (may contain paths/secrets; always redacted on export). */
 	environment: Record<string, unknown>;
+	/** RC-ENG-6.1 — raw error observations for the taxonomy count view. Optional/additive: absent
+	 *  or empty means "no errors observed", never a denial. Raw messages never leave this input. */
+	errorLog?: readonly RawErrorRecord[];
+	/** RC-ENG-6.1 — raw storage measurements for the usage-by-category view. Optional/additive. */
+	storageUsage?: readonly RawStorageUsageEntry[];
+	/** RC-ENG-6.1 — local perf-mark samples (PERF-009's local UX diagnostics store) to surface
+	 *  alongside the rest of the diagnostics view. Optional/additive. */
+	perfMarks?: readonly PerfDiagnosticSample[];
+}
+
+/**
+ * RC-ENG-6.1 — the most recent `lastSyncedAt` across all sync sources, or `null` when there are no
+ * sources or none has ever synced. Pure string comparison: ISO-8601 timestamps sort lexically.
+ */
+export function deriveLastSyncAt(sources: readonly SyncSourceStatusInput[]): string | null {
+	let latest: string | null = null;
+	for (const source of sources) {
+		if (source.lastSyncedAt && (!latest || source.lastSyncedAt > latest)) {
+			latest = source.lastSyncedAt;
+		}
+	}
+	return latest;
 }
 
 export type SystemHealthLevel = 'healthy' | 'degraded' | 'unhealthy';

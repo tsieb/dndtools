@@ -1811,6 +1811,13 @@ export {
 	toSyncSourceStatusView,
 } from './diagnostics';
 
+// RC-ENG-6.1 — error taxonomy counts, storage usage, and last-sync-at, added to the DM diagnostics
+// view / support bundle above. Privacy-safe by construction: counts and byte totals, never messages.
+export type { ErrorTaxonomyCategory, ErrorTaxonomyCounts, RawErrorRecord } from './diagnostics';
+export { ERROR_TAXONOMY_CATEGORIES, countErrorsByCategory } from './diagnostics';
+export type { RawStorageUsageEntry, StorageCategory, StorageUsageView } from './diagnostics';
+export { STORAGE_CATEGORIES, deriveLastSyncAt, summarizeStorageUsage } from './diagnostics';
+
 // PLAT-007: platform-service boundary (named methods, runtime schemas, size limits,
 // enum allowlist, structured errors).
 export type {

@@ -3,6 +3,7 @@ import type { ActorId } from '../state/ids';
 import type { PermissionGrant, PermissionState } from '../state/permission-state';
 import {
 	deriveHealthLevel,
+	deriveLastSyncAt,
 	toSyncSourceStatusView,
 	type CapabilityStatusView,
 	type DiagnosticsContextInput,
@@ -11,6 +12,9 @@ import {
 } from './health';
 import { redactValue } from './redaction';
 import type { ParticipantSafeStatusSummary } from './participant-status';
+import { countErrorsByCategory, type ErrorTaxonomyCounts } from './error-taxonomy';
+import { summarizeStorageUsage, type StorageUsageView } from './storage-usage';
+import type { PerfDiagnosticSample } from '../perf/diagnostics-privacy';
 
 /**
  * The capability set a DM must grant for another actor to export a support bundle
@@ -42,6 +46,14 @@ export interface DmDiagnosticsView {
 	syncSources: SyncSourceStatusView[];
 	capabilities: CapabilityStatusView[];
 	schema: SchemaHealthView[];
+	/** RC-ENG-6.1 — the most recent sync across all sources, or null if none has ever synced. */
+	lastSyncAt: string | null;
+	/** RC-ENG-6.1 — error observations by category. Counts only; never raw message text. */
+	errorTaxonomy: ErrorTaxonomyCounts;
+	/** RC-ENG-6.1 — local storage usage by category, in bytes. */
+	storageUsage: StorageUsageView;
+	/** RC-ENG-6.1 — local perf-mark samples (PERF-009 local UX diagnostics). */
+	perfMarks: readonly PerfDiagnosticSample[];
 }
 
 export type DmDiagnosticsResult =
@@ -104,6 +116,10 @@ export function getDmDiagnostics(
 			migrationRequired: entry.migrationRequired,
 			blocked: entry.blocked,
 		})),
+		lastSyncAt: deriveLastSyncAt(context.syncSources),
+		errorTaxonomy: countErrorsByCategory(context.errorLog ?? []),
+		storageUsage: summarizeStorageUsage(context.storageUsage ?? []),
+		perfMarks: context.perfMarks ?? [],
 	};
 }
 
@@ -135,6 +151,14 @@ export interface SupportBundle {
 	environment: unknown;
 	/** Participant-safe status summaries; always generic, never identifying (PLAT-017 AC3). */
 	participantStatus: ParticipantSafeStatusSummary[];
+	/** RC-ENG-6.1 — the most recent sync across all sources, or null if none has ever synced. */
+	lastSyncAt: string | null;
+	/** RC-ENG-6.1 — error observations by category. Counts only, safe unconditionally. */
+	errorTaxonomy: ErrorTaxonomyCounts;
+	/** RC-ENG-6.1 — local storage usage by category, in bytes. Safe unconditionally (no paths). */
+	storageUsage: StorageUsageView;
+	/** RC-ENG-6.1 — local perf-mark samples. Metric id + number only, safe unconditionally. */
+	perfMarks: readonly PerfDiagnosticSample[];
 }
 
 export type SupportBundleResult =
@@ -176,5 +200,11 @@ export function exportSupportBundle(
 		// Participant-safe summaries are generic by construction, so they are never
 		// un-redacted even when the user opts to include their own secrets/paths.
 		participantStatus: [...(options.participantStatus ?? [])],
+		lastSyncAt: deriveLastSyncAt(context.syncSources),
+		// Counts, byte totals, and metric-id/number pairs carry no content — safe to include
+		// unconditionally, with no dependency on the `includeSecrets` opt-in.
+		errorTaxonomy: countErrorsByCategory(context.errorLog ?? []),
+		storageUsage: summarizeStorageUsage(context.storageUsage ?? []),
+		perfMarks: context.perfMarks ?? [],
 	};
 }
