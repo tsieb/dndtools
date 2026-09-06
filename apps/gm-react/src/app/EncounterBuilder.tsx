@@ -17,6 +17,8 @@ import {
 } from '../ds';
 import { T, eb } from './screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { useI18n } from '../i18n';
+import type { MessageKey } from '../i18n';
 
 /**
  * EncounterBuilder — the Session screen's encounter-composition dialog (SES-006 → SES-002), split
@@ -89,11 +91,20 @@ const DIFFICULTY_BADGE: Record<string, 'neutral' | 'success' | 'info' | 'warning
 	deadly: 'error',
 };
 
-const KIND_GROUPS: { label: string; match: (c: RosterCharacter) => boolean }[] = [
-	{ label: 'Party', match: (c) => c.kind === 'pc' },
-	{ label: 'NPCs', match: (c) => c.kind === 'npc' || c.kind === 'sidekick' },
-	{ label: 'Monsters', match: (c) => c.kind === 'monster' },
+const KIND_GROUPS: { label: MessageKey; match: (c: RosterCharacter) => boolean }[] = [
+	{ label: 'encounter.group.party', match: (c) => c.kind === 'pc' },
+	{ label: 'encounter.group.npcs', match: (c) => c.kind === 'npc' || c.kind === 'sidekick' },
+	{ label: 'encounter.group.monsters', match: (c) => c.kind === 'monster' },
 ];
+
+/** The core's difficulty token rendered in the reader's language. */
+const DIFFICULTY_LABEL: Record<string, MessageKey> = {
+	trivial: 'encounter.difficulty.trivial',
+	easy: 'encounter.difficulty.easy',
+	medium: 'encounter.difficulty.medium',
+	hard: 'encounter.difficulty.hard',
+	deadly: 'encounter.difficulty.deadly',
+};
 
 export function EncounterDialog({
 	mode,
@@ -109,6 +120,7 @@ export function EncounterDialog({
 	defaultTitle: string;
 }) {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
 	const open = mode !== null;
 
@@ -259,7 +271,7 @@ export function EncounterDialog({
 
 	async function launch(): Promise<void> {
 		if (rows.length === 0) {
-			setError('Pick at least one combatant.');
+			setError(t('encounter.pickOne'));
 			return;
 		}
 		setError(null);
@@ -287,7 +299,7 @@ export function EncounterDialog({
 					setError(result.rejection.message);
 					return;
 				}
-				Toaster.success('Reinforcements joined the initiative order');
+				Toaster.success(t('encounter.reinforced'));
 				onClose();
 				return;
 			}
@@ -332,7 +344,7 @@ export function EncounterDialog({
 			}
 			const encounterId = extractId(built, 'encounterId') ?? extractId(built, 'id');
 			if (!encounterId) {
-				setError('The encounter couldn’t be started — try again.');
+				setError(t('encounter.startFailed'));
 				return;
 			}
 			builtIdRef.current = encounterId;
@@ -353,7 +365,7 @@ export function EncounterDialog({
 			return;
 		}
 		builtIdRef.current = null;
-		Toaster.success('Combat started — initiative is up');
+		Toaster.success(t('encounter.started'));
 		onClose();
 	}
 
@@ -361,12 +373,8 @@ export function EncounterDialog({
 		<Dialog
 			open={open}
 			onClose={onClose}
-			title={mode === 'reinforce' ? 'Add combatants' : 'Build encounter'}
-			description={
-				mode === 'reinforce'
-					? 'Reinforcements join the running initiative order. Blank initiative auto-rolls a d20.'
-					: 'Pick combatants from your roster, set or roll initiative, and start the fight.'
-			}
+			title={mode === 'reinforce' ? t('encounter.titleReinforce') : t('encounter.titleStart')}
+			description={mode === 'reinforce' ? t('encounter.descReinforce') : t('encounter.descStart')}
 			icon="sword"
 			size="lg"
 			// A composed roster is real work with no draft persistence and no undo, and this dialog is
@@ -376,7 +384,7 @@ export function EncounterDialog({
 			footer={
 				<>
 					<Button variant="ghost" size="sm" onClick={onClose}>
-						Cancel
+						{t('common.action.cancel')}
 					</Button>
 					<Button
 						variant="primary"
@@ -386,12 +394,14 @@ export function EncounterDialog({
 						// Hard `disabled` removes the tab stop and suppresses the tooltip, so the reason it
 						// is unavailable had no channel. The DS soft form keeps it focusable and announced.
 						aria-disabled={rows.length === 0 || undefined}
-						title={
-							rows.length === 0 ? 'Add at least one combatant to the roster first.' : undefined
-						}
+						title={rows.length === 0 ? t('encounter.needOne') : undefined}
 						onClick={() => void launch()}
 					>
-						{submitting ? 'Working…' : mode === 'reinforce' ? 'Add to combat' : 'Start combat'}
+						{submitting
+							? t('encounter.working')
+							: mode === 'reinforce'
+								? t('encounter.addToCombat')
+								: t('encounter.startCombat')}
 					</Button>
 				</>
 			}
@@ -404,11 +414,11 @@ export function EncounterDialog({
 				)}
 
 				{mode === 'start' && (
-					<Field label="Encounter title">
+					<Field label={t('encounter.encounterTitle')}>
 						<Input
 							value={title}
 							onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
-							placeholder="Ambush at the docks"
+							placeholder={t('encounter.titlePlaceholder')}
 						/>
 					</Field>
 				)}
@@ -425,9 +435,11 @@ export function EncounterDialog({
 						const members = characters.filter(group.match);
 						return (
 							<div key={group.label} style={{ minWidth: 0 }}>
-								<div style={{ ...eb, marginBottom: 6 }}>{group.label}</div>
+								<div style={{ ...eb, marginBottom: 6 }}>{t(group.label)}</div>
 								{members.length === 0 ? (
-									<div style={{ font: `12px ${T.sans}`, color: T.ter }}>None in the vault.</div>
+									<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+										{t('encounter.groupEmpty')}
+									</div>
 								) : (
 									<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
 										{members.map((c) => {
@@ -471,7 +483,10 @@ export function EncounterDialog({
 													<span
 														style={{ font: `10.5px ${T.mono}`, color: T.ter, whiteSpace: 'nowrap' }}
 													>
-														HP {c.combat?.maxHp ?? '—'} · AC {c.combat?.ac ?? '—'}
+														{t('encounter.hpAc', {
+															hp: c.combat?.maxHp ?? '—',
+															ac: c.combat?.ac ?? '—',
+														})}
 													</span>
 												</button>
 											);
@@ -485,17 +500,17 @@ export function EncounterDialog({
 
 				{/* Ad-hoc quick add — a monster that is not in the vault yet. */}
 				<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-					<Field label="Quick add" style={{ flex: '2 1 160px' }}>
+					<Field label={t('encounter.quickAdd')} style={{ flex: '2 1 160px' }}>
 						<Input
 							value={qName}
-							placeholder="e.g. Brine Cultist"
+							placeholder={t('encounter.quickAddPlaceholder')}
 							onChange={(e: { target: { value: string } }) => setQName(e.target.value)}
 							onKeyDown={(e: { key: string }) => {
 								if (e.key === 'Enter') quickAdd();
 							}}
 						/>
 					</Field>
-					<Field label="HP" style={{ width: 72 }}>
+					<Field label={t('encounter.hp')} style={{ width: 72 }}>
 						<Input
 							type="number"
 							// `quickAdd` floors at 1, so min={0} let the browser's own validation and the
@@ -505,7 +520,7 @@ export function EncounterDialog({
 							onChange={(e: { target: { value: string } }) => setQHp(e.target.value)}
 						/>
 					</Field>
-					<Field label="AC" style={{ width: 72 }}>
+					<Field label={t('encounter.ac')} style={{ width: 72 }}>
 						<Input
 							type="number"
 							min={0}
@@ -520,15 +535,17 @@ export function EncounterDialog({
 						disabled={!qName.trim()}
 						onClick={quickAdd}
 					>
-						Add
+						{t('encounter.add')}
 					</Button>
 				</div>
 
 				{/* The draft roster — per-combatant initiative (typed or rolled), count, CR, visibility. */}
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-					<div style={eb}>Combatants · {rows.length}</div>
+					<div style={eb}>{t('encounter.combatants', { count: rows.length })}</div>
 					{rows.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Nothing picked yet.</div>
+						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+							{t('encounter.nonePicked')}
+						</div>
 					) : (
 						rows.map((r) => (
 							<div
@@ -566,11 +583,11 @@ export function EncounterDialog({
 										color: T.ter,
 									}}
 								>
-									Init
+									{t('encounter.init')}
 									<Input
 										value={r.initiative}
-										placeholder="auto"
-										aria-label={`${r.name} initiative`}
+										placeholder={t('encounter.initPlaceholder')}
+										aria-label={t('encounter.initOf', { name: r.name })}
 										style={{ width: 58, textAlign: 'center', fontFamily: T.mono }}
 										onChange={(e: { target: { value: string } }) =>
 											patchRow(r.key, { initiative: e.target.value.replace(/[^-\d]/g, '') })
@@ -579,7 +596,7 @@ export function EncounterDialog({
 								</label>
 								<IconButton
 									icon="dice"
-									label={`Roll initiative for ${r.name}`}
+									label={t('encounter.rollInitiativeFor', { name: r.name })}
 									variant="ghost"
 									size="sm"
 									onClick={() => rollInitiative(r)}
@@ -601,7 +618,7 @@ export function EncounterDialog({
 												min={1}
 												max={20}
 												value={qtyDrafts[r.key] ?? r.quantity}
-												aria-label={`${r.name} quantity`}
+												aria-label={t('encounter.quantityOf', { name: r.name })}
 												style={{ width: 56, textAlign: 'center', fontFamily: T.mono }}
 												onChange={(e: { target: { value: string } }) =>
 													setQtyDrafts((d) => ({ ...d, [r.key]: e.target.value }))
@@ -625,13 +642,13 @@ export function EncounterDialog({
 													color: T.ter,
 												}}
 											>
-												CR
+												{t('encounter.cr')}
 												<Input
 													type="number"
 													min={0}
 													step={0.25}
 													value={crDrafts[r.key] ?? r.cr}
-													aria-label={`${r.name} challenge rating`}
+													aria-label={t('encounter.crOf', { name: r.name })}
 													style={{ width: 62, textAlign: 'center', fontFamily: T.mono }}
 													onChange={(e: { target: { value: string } }) =>
 														setCrDrafts((d) => ({ ...d, [r.key]: e.target.value }))
@@ -650,8 +667,8 @@ export function EncounterDialog({
 											icon={r.hidden ? 'visibility-hidden' : 'visibility-players'}
 											label={
 												r.hidden
-													? `${r.name} starts hidden from players`
-													: `${r.name} starts visible to players`
+													? t('encounter.startsHidden', { name: r.name })
+													: t('encounter.startsVisible', { name: r.name })
 											}
 											variant="ghost"
 											size="sm"
@@ -662,7 +679,7 @@ export function EncounterDialog({
 								)}
 								<IconButton
 									icon="close"
-									label={`Remove ${r.name} from the draft`}
+									label={t('encounter.removeFromDraft', { name: r.name })}
 									variant="ghost"
 									size="sm"
 									onClick={() => setRows((prev) => prev.filter((x) => x.key !== r.key))}
@@ -671,8 +688,9 @@ export function EncounterDialog({
 						))
 					)}
 					<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-						Blank initiative auto-rolls a d20{mode === 'start' ? ' + DEX modifier' : ''}. Hidden
-						foes show players an “Unknown creature” placeholder.
+						{mode === 'start'
+							? t('encounter.initiativeNoteStart')
+							: t('encounter.initiativeNoteReinforce')}
 					</div>
 				</div>
 
@@ -688,7 +706,7 @@ export function EncounterDialog({
 							paddingTop: 12,
 						}}
 					>
-						<Field label="Party size" style={{ width: 84 }}>
+						<Field label={t('encounter.partySize')} style={{ width: 84 }}>
 							<Input
 								type="number"
 								min={1}
@@ -696,7 +714,7 @@ export function EncounterDialog({
 								onChange={(e: { target: { value: string } }) => setPartySize(e.target.value)}
 							/>
 						</Field>
-						<Field label="Avg level" style={{ width: 84 }}>
+						<Field label={t('encounter.avgLevel')} style={{ width: 84 }}>
 							<Input
 								type="number"
 								min={1}
@@ -707,10 +725,13 @@ export function EncounterDialog({
 						</Field>
 						<div style={{ flex: '1 1 200px', minWidth: 160 }}>
 							<ProgressMeter
-								label="Challenge budget"
+								label={t('encounter.challengeBudget')}
 								value={challenge.encounterPoints}
 								max={Math.max(1, challenge.partyDeadlyThreshold)}
-								valueLabel={`${challenge.encounterPoints} / ${challenge.partyDeadlyThreshold} pts`}
+								valueLabel={t('encounter.points', {
+									value: challenge.encounterPoints,
+									max: challenge.partyDeadlyThreshold,
+								})}
 								tone={
 									challenge.difficulty === 'deadly'
 										? 'error'
@@ -724,7 +745,9 @@ export function EncounterDialog({
 							/>
 						</div>
 						<Badge status={DIFFICULTY_BADGE[challenge.difficulty] ?? 'neutral'}>
-							{challenge.difficulty}
+							{DIFFICULTY_LABEL[challenge.difficulty]
+								? t(DIFFICULTY_LABEL[challenge.difficulty])
+								: challenge.difficulty}
 						</Badge>
 					</div>
 				)}

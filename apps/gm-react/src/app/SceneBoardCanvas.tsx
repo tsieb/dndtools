@@ -7,6 +7,7 @@ import { HistoryBtn, WidgetFrame, ZoomBtn } from './canvas/WidgetFrame';
 // Inspector and AddWidgetPanel keep importing it from the path they always have.
 export { WidgetGlyph } from './canvas/WidgetFrame';
 import { srOnly } from './screen-kit';
+import { useI18n } from '../i18n';
 import type { LayoutHistory } from './canvas/useLayoutHistory';
 
 /**
@@ -115,6 +116,7 @@ export function SceneBoardCanvas({
 	// Keyboard roving-tabindex state: live frame elements by id + the last-focused widget.
 	const frameRefs = useRef(new Map<string, HTMLDivElement>());
 	const [focusedId, setFocusedId] = useState<string | null>(null);
+	const { t } = useI18n();
 	const [view, setView] = useState<View>({ tx: 32, ty: 32, scale: 1 });
 	// Optimistic per-gesture overrides (x/y for moves, w/h for resizes).
 	const [posDraft, setPosDraft] = useState<Record<string, { x: number; y: number }>>({});
@@ -615,7 +617,7 @@ export function SceneBoardCanvas({
 						boxShadow: 'var(--shadow-lg)',
 					}}
 				>
-					<ZoomBtn icon="zoom-out" label="Zoom out" onClick={() => zoom(1 / 1.2)} />
+					<ZoomBtn icon="zoom-out" label={t('boardCanvas.zoomOut')} onClick={() => zoom(1 / 1.2)} />
 					<span
 						style={{
 							font: 'var(--text-2xs) var(--font-mono)',
@@ -626,10 +628,10 @@ export function SceneBoardCanvas({
 					>
 						{Math.round(scale * 100)}%
 					</span>
-					<ZoomBtn icon="zoom-in" label="Zoom in" onClick={() => zoom(1.2)} />
+					<ZoomBtn icon="zoom-in" label={t('boardCanvas.zoomIn')} onClick={() => zoom(1.2)} />
 					<ZoomBtn
 						icon="zoom-fit"
-						label="Reset view"
+						label={t('boardCanvas.resetView')}
 						onClick={() => setView({ tx: 32, ty: 32, scale: 1 })}
 					/>
 				</div>

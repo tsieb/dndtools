@@ -11,8 +11,6 @@
  */
 export const allow = {
 	'apps/gm-react/src/app/ConnectedSources.tsx': 31,
-	'apps/gm-react/src/app/EncounterBuilder.tsx': 21,
-	'apps/gm-react/src/app/SceneBoardCanvas.tsx': 3,
 	'apps/gm-react/src/app/map/ImportMapDialog.tsx': 20,
 	'apps/gm-react/src/app/map/MapEditor.tsx': 22,
 	'apps/gm-react/src/app/map/ToolOptionsBar.tsx': 22,
@@ -25,5 +23,4 @@ export const allow = {
 	'apps/gm-react/src/app/map/dock/InspectorPanel.tsx': 48,
 	'apps/gm-react/src/app/map/dock/LayersPanel.tsx': 20,
 	'apps/gm-react/src/app/map/generate/GeneratePanel.tsx': 19,
-	'apps/gm-react/src/app/widget-bodies.tsx': 15,
 };

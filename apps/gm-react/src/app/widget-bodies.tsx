@@ -14,6 +14,8 @@ import { useRuntime } from '../runtime/RuntimeContext';
 import { useAssetObjectUrl } from '../platform/assetUrl';
 import { pickRasterAssetId } from './mapGeometry';
 import type { BoardWidget } from './board-helpers';
+import { useI18n } from '../i18n';
+import type { MessageKey } from '../i18n';
 
 /**
  * widget-bodies — the representative BODY each widget renders on the scene canvas, ported from the
@@ -168,11 +170,10 @@ function OpChip({
  * whose first press printed the raw internal string "Session widget commands require an active
  * workflow; current workflow is idle." into the screen's alert region.
  */
-const SESSION_ONLY_REASON = 'Go live in Session first — this reaches the table only during play.';
-
 function useSessionOnlyReason(): string | undefined {
 	const runtime = useRuntime();
-	return runtime.state.session.workflow === 'active' ? undefined : SESSION_ONLY_REASON;
+	const { t } = useI18n();
+	return runtime.state.session.workflow === 'active' ? undefined : t('widgetBody.sessionOnly');
 }
 
 function StatPill({ label, value }: { label: string; value: string }) {
@@ -211,9 +212,10 @@ function Muted({ children }: { children: React.ReactNode }) {
 }
 
 function NoteBody({ widget }: { widget: BoardWidget }) {
+	const { t } = useI18n();
 	const heading = cfg<string>(widget, 'heading');
 	const body = cfg<string>(widget, 'body');
-	if (!heading && !body) return <Muted>Empty note — select the widget to add text.</Muted>;
+	if (!heading && !body) return <Muted>{t('widgetBody.note.empty')}</Muted>;
 	return (
 		<div style={{ ...bodyWrap, gap: 6 }}>
 			{heading && (
@@ -249,6 +251,7 @@ function DiceBody({
 	onCommand?: WidgetCommandHandler;
 }) {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const formulas = (cfg<string>(widget, 'formulas') ?? 'd20')
 		.split(',')
 		.map((f) => f.trim())
@@ -290,8 +293,10 @@ function DiceBody({
 			<div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
 				<OpChip
 					icon="dice"
-					label="Roll"
-					ariaLabel={`Roll ${formulas[0] ?? 'dice'}`}
+					label={t('widgetBody.dice.roll')}
+					ariaLabel={t('widgetBody.dice.rollAria', {
+						expression: formulas[0] ?? t('widgetBody.dice.dice'),
+					})}
 					unavailableReason={sessionOnly}
 					onPress={canRoll ? () => onCommand('dice.roll', { expression: formulas[0] }) : undefined}
 				/>
@@ -311,7 +316,10 @@ function DiceBody({
 				>
 					{lastRoll && (
 						<>
-							<span style={SR_ONLY}>Last result for {lastRoll.expression} </span>= {lastRoll.total}
+							<span style={SR_ONLY}>
+								{t('widgetBody.dice.lastResult', { expression: lastRoll.expression })}{' '}
+							</span>
+							= {lastRoll.total}
 						</>
 					)}
 				</span>
@@ -334,6 +342,7 @@ function TimerBody({
 	onCommand?: WidgetCommandHandler;
 }) {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const configured = Number(cfg<number>(widget, 'durationSeconds') ?? 60) || 60;
 	// The DURABLE session timer for this widget instance (SES-005); the countdown view is a pure
 	// function of (timer, now) — the GUI only ticks a clock and re-derives (never owns timer state).
@@ -361,13 +370,18 @@ function TimerBody({
 		payload: Record<string, unknown>;
 	} =
 		countdown.status === 'running'
-			? { icon: 'pause', label: 'Pause', command: 'timer.pause', payload: {} }
+			? { icon: 'pause', label: t('widgetBody.timer.pause'), command: 'timer.pause', payload: {} }
 			: countdown.status === 'paused'
-				? { icon: 'play', label: 'Resume', command: 'timer.resume', payload: {} }
+				? {
+						icon: 'play',
+						label: t('widgetBody.timer.resume'),
+						command: 'timer.resume',
+						payload: {},
+					}
 				: {
 						icon: 'play',
-						label: 'Start',
-						ariaLabel: `Start ${configured}-second timer`,
+						label: t('widgetBody.timer.start'),
+						ariaLabel: t('widgetBody.timer.startAria', { seconds: configured }),
 						command: 'timer.start',
 						payload: { durationSeconds: configured },
 					};
@@ -410,7 +424,7 @@ function TimerBody({
 				{countdown.status !== 'stopped' && declares('timer.reset') && (
 					<OpChip
 						icon="retry"
-						label="Reset"
+						label={t('widgetBody.timer.reset')}
 						unavailableReason={sessionOnly}
 						onPress={op('timer.reset')}
 					/>
@@ -422,6 +436,7 @@ function TimerBody({
 
 function AudioBody() {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	// AUDIO-002/003 — the ONE actor-filtered session-audio read model: the DM sees the authoritative
 	// track + ambience mix; a participant only the player-safe track. Names resolve through the audio
 	// library only on the DM view (they are DM config, not part of the player-safe projection).
@@ -433,14 +448,14 @@ function AudioBody() {
 	);
 	const track = view.track;
 	if (!track) {
-		return <Muted>Nothing playing — cue a track from the session audio controls.</Muted>;
+		return <Muted>{t('widgetBody.audio.empty')}</Muted>;
 	}
 	const isDm = view.role === 'dm';
 	const title = isDm
 		? ((track.assetId ? runtime.state.audio.assets[track.assetId]?.title : undefined) ??
 			runtime.state.audio.sources[track.sourceId]?.displayName ??
 			track.sourceId)
-		: 'Session audio';
+		: t('widgetBody.audio.sessionAudio');
 	const ambienceCount = isDm ? Object.keys(view.ambienceLayers).length : 0;
 	const playing = track.status === 'playing';
 	return (
@@ -473,10 +488,10 @@ function AudioBody() {
 					{title}
 				</div>
 				<Muted>
-					{playing ? 'Playing' : 'Paused'} · vol {Math.round(track.volume * 100)}%
-					{ambienceCount > 0
-						? ` · ${ambienceCount} ambience ${ambienceCount === 1 ? 'layer' : 'layers'}`
-						: ''}
+					{playing
+						? t('widgetBody.audio.playing', { percent: Math.round(track.volume * 100) })
+						: t('widgetBody.audio.paused', { percent: Math.round(track.volume * 100) })}
+					{ambienceCount > 0 ? t('widgetBody.audio.ambience', { count: ambienceCount }) : ''}
 				</Muted>
 			</div>
 		</div>
@@ -485,6 +500,7 @@ function AudioBody() {
 
 function InitiativeBody({ widget }: { widget: BoardWidget }) {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const showHp = cfg<boolean>(widget, 'showHp') ?? true;
 	// SES-002 — the ONE actor-filtered combat read model; hidden combatants are already redacted.
 	const tracker = getCombatTrackerForActor(
@@ -501,10 +517,19 @@ function InitiativeBody({ widget }: { widget: BoardWidget }) {
 	return (
 		<div style={bodyWrap}>
 			<div style={{ display: 'flex', gap: 'var(--space-4)' }}>
-				<StatPill label="Round" value={running ? String(tracker.round) : '—'} />
-				<StatPill label="Turn" value={running ? (active?.name ?? `#${tracker.turn + 1}`) : '—'} />
+				<StatPill
+					label={t('widgetBody.initiative.round')}
+					value={running ? String(tracker.round) : '—'}
+				/>
+				<StatPill
+					label={t('widgetBody.initiative.turn')}
+					value={running ? (active?.name ?? `#${tracker.turn + 1}`) : '—'}
+				/>
 				{running && showHp && active?.resources && (
-					<StatPill label="HP" value={`${active.resources.hp} / ${active.resources.maxHp}`} />
+					<StatPill
+						label={t('widgetBody.initiative.hp')}
+						value={`${active.resources.hp} / ${active.resources.maxHp}`}
+					/>
 				)}
 			</div>
 			{running && orderNames.length > 0 ? (
@@ -513,7 +538,11 @@ function InitiativeBody({ widget }: { widget: BoardWidget }) {
 					{orderNames.length > 3 ? ` +${orderNames.length - 3}` : ''}
 				</Muted>
 			) : (
-				<Muted>No combat running · {showHp ? 'HP shown' : 'HP hidden'}</Muted>
+				<Muted>
+					{showHp
+						? t('widgetBody.initiative.noneHpShown')
+						: t('widgetBody.initiative.noneHpHidden')}
+				</Muted>
 			)}
 		</div>
 	);
@@ -523,9 +552,10 @@ const ABILITY_ORDER = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
 
 function CharacterBody({ widget }: { widget: BoardWidget }) {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const showAbilities = cfg<boolean>(widget, 'showAbilities') ?? true;
 	if (widget.requiresBinding && widget.status !== 'available') {
-		return <Muted>No character linked — choose one to show its stat block.</Muted>;
+		return <Muted>{t('widgetBody.character.noBinding')}</Muted>;
 	}
 	// Resolve the BOUND character through the actor-filtered query (redacted per viewer).
 	const boundId = widget.bindingRef?.entityType === 'character' ? widget.bindingRef.entityId : null;
@@ -551,8 +581,14 @@ function CharacterBody({ widget }: { widget: BoardWidget }) {
 				</div>
 			)}
 			<div style={{ display: 'flex', gap: 'var(--space-4)' }}>
-				<StatPill label="HP" value={view ? `${view.combat.hp} / ${view.combat.maxHp}` : '— / —'} />
-				<StatPill label="AC" value={view ? String(view.combat.ac) : '—'} />
+				<StatPill
+					label={t('widgetBody.initiative.hp')}
+					value={view ? `${view.combat.hp} / ${view.combat.maxHp}` : '— / —'}
+				/>
+				<StatPill
+					label={t('widgetBody.character.ac')}
+					value={view ? String(view.combat.ac) : '—'}
+				/>
 			</div>
 			{showAbilities && (
 				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -569,6 +605,7 @@ function CharacterBody({ widget }: { widget: BoardWidget }) {
 
 function MapBody({ widget }: { widget: BoardWidget }) {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const isDm = runtime.state.permissions.actors[runtime.defaultActorId]?.role === 'dm';
 	// Resolve the BOUND map through the actor-filtered view (hidden maps collapse to unavailable),
 	// then pick its raster base layer exactly like Atlas does. Hooks run before any early return.
@@ -590,15 +627,11 @@ function MapBody({ widget }: { widget: BoardWidget }) {
 			: null;
 	const rasterUrl = useAssetObjectUrl(rasterId);
 	if (widget.requiresBinding && widget.status !== 'available') {
-		return <Muted>No map linked — choose a map to show its layers.</Muted>;
+		return <Muted>{t('widgetBody.map.noBinding')}</Muted>;
 	}
 	if (!view || view.kind !== 'available') {
 		return (
-			<Muted>
-				{isDm
-					? 'The linked map is missing or was removed. Choose another map in edit mode.'
-					: 'The linked map isn’t available to you.'}
-			</Muted>
+			<Muted>{isDm ? t('widgetBody.map.missingDm') : t('widgetBody.map.missingPlayer')}</Muted>
 		);
 	}
 	return (
@@ -643,9 +676,10 @@ function ListBody({
 }: {
 	widget: BoardWidget;
 	kind: 'note' | 'object';
-	unit: string;
+	unit: MessageKey;
 }) {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	// The SAME visibility-respecting content read Knowledge lists with — a player-viewed board never
 	// shows a DM-only row here. `count` is the widget's configured row cap.
 	const count = Math.max(1, Number(cfg<number>(widget, 'count') ?? 5) || 5);
@@ -657,9 +691,7 @@ function ListBody({
 	if (items.length === 0) {
 		return (
 			<Muted>
-				{kind === 'note'
-					? 'No notes visible yet — prep notes appear here as you write them.'
-					: 'No reference objects visible yet — imported spells and objects appear here.'}
+				{kind === 'note' ? t('widgetBody.list.notesEmpty') : t('widgetBody.list.objectsEmpty')}
 			</Muted>
 		);
 	}
@@ -681,7 +713,11 @@ function ListBody({
 				</div>
 			))}
 			<Muted>
-				{shown.length} of {items.length} {unit}
+				{t('widgetBody.list.count', {
+					shown: shown.length,
+					total: items.length,
+					unit: t(unit),
+				})}
 			</Muted>
 		</div>
 	);
@@ -739,9 +775,9 @@ export function WidgetBody({
 		case 'map':
 			return <MapBody widget={widget} />;
 		case 'quick-reference':
-			return <ListBody widget={widget} kind="object" unit="reference rows" />;
+			return <ListBody widget={widget} kind="object" unit="widgetBody.list.unitObjects" />;
 		case 'prep':
-			return <ListBody widget={widget} kind="note" unit="prep notes" />;
+			return <ListBody widget={widget} kind="note" unit="widgetBody.list.unitNotes" />;
 		default:
 			// Unreachable through `resolveWidgetRenderer` (it only picks `builtin` for a type in
 			// BUILTIN_WIDGET_TYPES); kept so a direct caller degrades to the description rather than

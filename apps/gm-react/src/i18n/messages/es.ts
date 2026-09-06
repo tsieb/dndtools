@@ -3565,4 +3565,103 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'wikiReader.pagesNav': 'Páginas de la wiki',
 	'wikiReader.noPages': 'Esta wiki todavía no tiene páginas.',
 	'wikiReader.nothingPublished': 'Todavía no hay nada publicado en esta wiki.',
+
+	/* Lienzo del tablero › los controles de zoom */
+	'boardCanvas.zoomOut': 'Alejar',
+	'boardCanvas.zoomIn': 'Acercar',
+	'boardCanvas.resetView': 'Restablecer la vista',
+
+	/* Cuerpos de widget › el contenido dibujado a mano de los widgets integrados */
+	'widgetBody.sessionOnly':
+		'Ponte en vivo en Sesión primero — esto solo llega a la mesa durante el juego.',
+	'widgetBody.note.empty': 'Nota vacía — selecciona el widget para añadir texto.',
+	'widgetBody.dice.roll': 'Tirar',
+	'widgetBody.dice.rollAria': 'Tirar {expression}',
+	'widgetBody.dice.dice': 'dados',
+	'widgetBody.dice.lastResult': 'Último resultado de {expression}',
+	'widgetBody.timer.pause': 'Pausar',
+	'widgetBody.timer.resume': 'Reanudar',
+	'widgetBody.timer.start': 'Iniciar',
+	'widgetBody.timer.startAria': 'Iniciar un temporizador de {seconds} segundos',
+	'widgetBody.timer.reset': 'Reiniciar',
+	'widgetBody.audio.empty':
+		'No suena nada — pon una pista desde los controles de audio de la sesión.',
+	'widgetBody.audio.sessionAudio': 'Audio de la sesión',
+	'widgetBody.audio.playing': 'Sonando · vol {percent} %',
+	'widgetBody.audio.paused': 'En pausa · vol {percent} %',
+	'widgetBody.audio.ambience':
+		'{count, plural, one { · # capa de ambiente} other { · # capas de ambiente}}',
+	'widgetBody.initiative.round': 'Ronda',
+	'widgetBody.initiative.turn': 'Turno',
+	'widgetBody.initiative.hp': 'PG',
+	'widgetBody.initiative.noneHpShown': 'No hay combate en curso · PG visibles',
+	'widgetBody.initiative.noneHpHidden': 'No hay combate en curso · PG ocultos',
+	'widgetBody.character.noBinding':
+		'No hay ningún personaje vinculado — elige uno para mostrar su bloque de estadísticas.',
+	'widgetBody.character.ac': 'CA',
+	'widgetBody.map.noBinding':
+		'No hay ningún mapa vinculado — elige un mapa para mostrar sus capas.',
+	'widgetBody.map.missingDm':
+		'El mapa vinculado no está o se eliminó. Elige otro mapa en el modo de edición.',
+	'widgetBody.map.missingPlayer': 'El mapa vinculado no está disponible para ti.',
+	'widgetBody.list.notesEmpty':
+		'Todavía no hay notas visibles — las notas de preparación aparecen aquí a medida que las escribes.',
+	'widgetBody.list.objectsEmpty':
+		'Todavía no hay objetos de referencia visibles — los conjuros y objetos importados aparecen aquí.',
+	'widgetBody.list.count': '{shown} de {total} {unit}',
+	'widgetBody.list.unitNotes': 'notas de preparación',
+	'widgetBody.list.unitObjects': 'filas de referencia',
+
+	/* Constructor de encuentros › el diálogo de iniciar combate / refuerzos */
+	'encounter.titleReinforce': 'Añadir combatientes',
+	'encounter.titleStart': 'Construir un encuentro',
+	'encounter.descReinforce':
+		'Los refuerzos se unen al orden de iniciativa en curso. Una iniciativa en blanco tira un d20 automáticamente.',
+	'encounter.descStart':
+		'Elige combatientes de tu lista, fija o tira la iniciativa y empieza el combate.',
+	'encounter.needOne': 'Añade al menos un combatiente a la lista primero.',
+	'encounter.pickOne': 'Elige al menos un combatiente.',
+	'encounter.startFailed': 'No se pudo iniciar el encuentro — inténtalo de nuevo.',
+	'encounter.reinforced': 'Los refuerzos se unieron al orden de iniciativa',
+	'encounter.started': 'Combate iniciado — la iniciativa está en marcha',
+	'encounter.working': 'Trabajando…',
+	'encounter.addToCombat': 'Añadir al combate',
+	'encounter.startCombat': 'Iniciar el combate',
+	'encounter.encounterTitle': 'Título del encuentro',
+	'encounter.titlePlaceholder': 'Emboscada en los muelles',
+	'encounter.group.party': 'Grupo',
+	'encounter.group.npcs': 'PNJ',
+	'encounter.group.monsters': 'Monstruos',
+	'encounter.groupEmpty': 'Ninguno en la bóveda.',
+	'encounter.hpAc': 'PG {hp} · CA {ac}',
+	'encounter.quickAdd': 'Añadido rápido',
+	'encounter.quickAddPlaceholder': 'p. ej. Cultista de la salmuera',
+	'encounter.hp': 'PG',
+	'encounter.ac': 'CA',
+	'encounter.add': 'Añadir',
+	'encounter.combatants': 'Combatientes · {count}',
+	'encounter.nonePicked': 'Todavía no has elegido nada.',
+	'encounter.init': 'Inic.',
+	'encounter.initPlaceholder': 'auto',
+	'encounter.initOf': 'Iniciativa de {name}',
+	'encounter.rollInitiativeFor': 'Tirar la iniciativa de {name}',
+	'encounter.quantityOf': 'Cantidad de {name}',
+	'encounter.cr': 'VD',
+	'encounter.crOf': 'Valor de desafío de {name}',
+	'encounter.startsHidden': '{name} empieza oculto para los jugadores',
+	'encounter.startsVisible': '{name} empieza visible para los jugadores',
+	'encounter.removeFromDraft': 'Quitar a {name} del borrador',
+	'encounter.initiativeNoteStart':
+		'Una iniciativa en blanco tira un d20 + el modificador de DES automáticamente. Los enemigos ocultos se muestran a los jugadores como «Criatura desconocida».',
+	'encounter.initiativeNoteReinforce':
+		'Una iniciativa en blanco tira un d20 automáticamente. Los enemigos ocultos se muestran a los jugadores como «Criatura desconocida».',
+	'encounter.partySize': 'Tamaño del grupo',
+	'encounter.avgLevel': 'Nivel medio',
+	'encounter.challengeBudget': 'Presupuesto de desafío',
+	'encounter.points': '{value} / {max} pts',
+	'encounter.difficulty.trivial': 'trivial',
+	'encounter.difficulty.easy': 'fácil',
+	'encounter.difficulty.medium': 'medio',
+	'encounter.difficulty.hard': 'difícil',
+	'encounter.difficulty.deadly': 'mortal',
 };
