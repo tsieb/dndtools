@@ -4912,4 +4912,15 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'widgetGen.blockerNoAgent':
 		'Permite la herramienta de widgets a un agente en Ajustes, IA y herramientas, para generar un widget.',
 	'extensions.plugins.generated': 'Generado',
+	'widgetIterate.entry': 'Pedir al asistente que lo cambie…',
+	'widgetIterate.title': 'Pedir al asistente que cambie este widget',
+	'widgetIterate.intro':
+		'Describe el cambio. El asistente revisa el widget completo y tú eliges cuáles de sus cambios conservar.',
+	'widgetIterate.askField': '¿Qué debe cambiar?',
+	'widgetIterate.askHelp':
+		'El asistente ve el widget tal como está ahora, incluidas tus ediciones.',
+	'widgetIterate.askPlaceholder': 'Añade una columna con la ubicación del objeto',
+	'widgetIterate.run': 'Preguntar',
+	'widgetIterate.apply': 'Aplicar los cambios marcados',
+	'widgetIterate.noChanges': 'El asistente devolvió el widget sin cambios.',
 };

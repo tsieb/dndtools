@@ -4762,6 +4762,18 @@ export const en = {
 	'widgetGen.blockerNoAgent':
 		'Allow the widget tool for an agent in Settings, AI and tools, to generate a widget.',
 	'extensions.plugins.generated': 'Generated',
+	// RC-WID-3.3 — iterate on a generated widget from the Review step. The re-run is diffed against
+	// the draft on screen; only the fields the DM checks are applied.
+	'widgetIterate.entry': 'Ask the assistant to change…',
+	'widgetIterate.title': 'Ask the assistant to change this widget',
+	'widgetIterate.intro':
+		'Describe the change. The assistant revises the whole widget, and you choose which of its changes to keep.',
+	'widgetIterate.askField': 'What should change?',
+	'widgetIterate.askHelp': 'The assistant sees the widget as it stands now, including your edits.',
+	'widgetIterate.askPlaceholder': 'Add a column for the item location',
+	'widgetIterate.run': 'Ask',
+	'widgetIterate.apply': 'Apply checked changes',
+	'widgetIterate.noChanges': 'The assistant returned the widget unchanged.',
 } as const;
 
 /** Every string the app can render, addressed by key. */

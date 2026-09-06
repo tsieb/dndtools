@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { buildWidgetPackageReviewSummary } from '@dndtools/core';
 import { Badge, Button, DefinitionList, Field, Textarea } from '../../ds';
 import { T } from '../screen-kit';
@@ -10,6 +10,8 @@ import {
 	type DraftIssue,
 	type WidgetDraft,
 } from './draft';
+import { applyDraftDiff } from './draftDiff';
+import { IterateDialog } from './IterateDialog';
 import { StepHeader, StepSection } from './fields';
 import { RUNTIME_LABEL, TEMPLATE_LABEL, TRUST_RECOMMENDATION } from './vocabulary';
 import { useI18n } from '../../i18n';
@@ -48,6 +50,7 @@ export function ReviewStep({
 	onSubmit: () => void;
 }) {
 	const { t } = useI18n();
+	const [iterating, setIterating] = useState(false);
 	const pkg = useMemo(() => buildPackage(draft), [draft]);
 	const summary = useMemo(() => buildWidgetPackageReviewSummary(pkg), [pkg]);
 	const migration = generateMigration(draft);
@@ -63,6 +66,22 @@ export function ReviewStep({
 				title={t('builder.step.review')}
 				help={t(mode === 'upgrade' ? 'builder.review.helpUpgrade' : 'builder.review.helpInstall')}
 			/>
+
+			{/* RC-WID-3.3 — only offered on a widget the assistant generated (RC-WID-3.2): a hand-built
+			    draft has no prior AI run to re-run against. */}
+			{draft.authoring?.source === 'generated' && (
+				<div>
+					<Button variant="secondary" size="sm" icon="sparkle" onClick={() => setIterating(true)}>
+						{t('widgetIterate.entry')}
+					</Button>
+					<IterateDialog
+						open={iterating}
+						onClose={() => setIterating(false)}
+						draft={draft}
+						onApply={(fields, revised) => patch(applyDraftDiff(draft, revised, fields))}
+					/>
+				</div>
+			)}
 
 			{issues.length > 0 && (
 				<StepSection title={t('builder.review.fixFirst')}>
