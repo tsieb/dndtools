@@ -3,7 +3,9 @@ import { Icon, Input, Popover, SegmentedControl, Select, Slider, Switch } from '
 import { T } from '../screen-kit';
 import type { MapEditorApi } from './useMapEditor';
 import { TOOLS_BY_ID } from './tools';
-import { DOOR_KINDS, SCATTER_SETS, TERRAIN_STYLES, VIS_TEXT } from './mapVocab';
+import { DOOR_KINDS, SCATTER_SETS, TERRAIN_STYLES, VIS_TEXT_KEY } from './mapVocab';
+import { useI18n } from '../../i18n';
+import type { MessageKey } from '../../i18n';
 import type { SceneVisibility } from '@dndtools/core';
 
 /**
@@ -120,6 +122,7 @@ const stepBtn = {
 } as const;
 
 function SnapMenu({ editor }: { editor: MapEditorApi }) {
+	const { t } = useI18n();
 	const [open, setOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	return (
@@ -127,9 +130,9 @@ function SnapMenu({ editor }: { editor: MapEditorApi }) {
 			<button
 				type="button"
 				ref={triggerRef}
-				aria-label="Snapping options"
+				aria-label={t('toolOptions.snapping')}
 				aria-expanded={open}
-				title="Snapping — hold Ctrl to momentarily disable"
+				title={t('toolOptions.snappingHint')}
 				onClick={() => setOpen((v) => !v)}
 				style={{
 					display: 'inline-flex',
@@ -145,14 +148,14 @@ function SnapMenu({ editor }: { editor: MapEditorApi }) {
 				}}
 			>
 				<Icon name="tool-magnet" size={14} />
-				Snap
+				{t('toolOptions.snap')}
 			</button>
 			{open && (
 				<Popover
 					open
 					onClose={() => setOpen(false)}
 					triggerRef={triggerRef}
-					title="Snapping"
+					title={t('toolOptions.snapTitle')}
 					width={220}
 					placement="bottom"
 					// ds/Popover only sets a z-index in its `anchor` branch, and this options bar is a
@@ -170,10 +173,10 @@ function SnapMenu({ editor }: { editor: MapEditorApi }) {
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 						{(
 							[
-								['snapGrid', 'Snap to grid'],
-								['snapAngle', 'Snap to angle'],
-								['snapObject', 'Snap to objects'],
-							] as const
+								['snapGrid', 'toolOptions.snapGrid'],
+								['snapAngle', 'toolOptions.snapAngle'],
+								['snapObject', 'toolOptions.snapObject'],
+							] as const satisfies readonly (readonly [string, MessageKey])[]
 						).map(([key, label]) => (
 							<label
 								key={key}
@@ -184,16 +187,16 @@ function SnapMenu({ editor }: { editor: MapEditorApi }) {
 									gap: 10,
 								}}
 							>
-								<span style={{ font: `12.5px ${T.sans}`, color: T.ink }}>{label}</span>
+								<span style={{ font: `12.5px ${T.sans}`, color: T.ink }}>{t(label)}</span>
 								<Switch
 									checked={editor.options[key]}
-									aria-label={label}
+									aria-label={t(label)}
 									onChange={(v: boolean) => editor.setOption(key, v)}
 								/>
 							</label>
 						))}
 						<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
-							Hold Ctrl while drawing to disable temporarily.
+							{t('toolOptions.snapCtrlHint')}
 						</div>
 					</div>
 				</Popover>
@@ -203,20 +206,20 @@ function SnapMenu({ editor }: { editor: MapEditorApi }) {
 }
 
 export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
+	const { t } = useI18n();
 	const { tool, options, setOption } = editor;
 	const def = TOOLS_BY_ID.get(tool);
 
 	const visControl = (
 		<label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-			<span style={{ font: `12px ${T.sans}`, color: T.sub }}>New</span>
+			<span style={{ font: `12px ${T.sans}`, color: T.sub }}>{t('toolOptions.new')}</span>
 			<Select
 				value={options.newVisibility}
-				aria-label="New object visibility"
-				options={[
-					{ value: 'dm-only', label: VIS_TEXT['dm-only'] },
-					{ value: 'player-visible', label: VIS_TEXT['player-visible'] },
-					{ value: 'shared', label: VIS_TEXT.shared },
-				]}
+				aria-label={t('toolOptions.newVisibility')}
+				options={(['dm-only', 'player-visible', 'shared'] as const).map((v) => ({
+					value: v,
+					label: t(VIS_TEXT_KEY[v]),
+				}))}
 				onChange={(e: { target: { value: string } }) =>
 					setOption('newVisibility', e.target.value as SceneVisibility)
 				}
@@ -234,7 +237,7 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 					<TerrainSelect editor={editor} />
 					{tool === 'brush' && (
 						<NumberControl
-							label="Size"
+							label={t('toolOptions.size')}
 							value={options.brushSize}
 							min={5}
 							max={200}
@@ -249,7 +252,7 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 		case 'erase':
 			controls = (
 				<NumberControl
-					label="Size"
+					label={t('toolOptions.size')}
 					value={options.brushSize}
 					min={5}
 					max={200}
@@ -276,22 +279,22 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 		case 'door':
 			controls = (
 				<SegmentedControl
-					ariaLabel="Door type"
+					ariaLabel={t('toolOptions.doorType')}
 					value={options.doorKind}
 					onChange={(v: string) => setOption('doorKind', v as typeof options.doorKind)}
-					options={DOOR_KINDS.map((d) => ({ value: d.id, label: d.label }))}
+					options={DOOR_KINDS.map((d) => ({ value: d.id, label: t(d.label) }))}
 				/>
 			);
 			break;
 		case 'water':
 			controls = (
 				<SegmentedControl
-					ariaLabel="Water type"
+					ariaLabel={t('toolOptions.waterType')}
 					value={options.waterKind}
 					onChange={(v: string) => setOption('waterKind', v as typeof options.waterKind)}
 					options={[
-						{ value: 'river', label: 'River' },
-						{ value: 'lake', label: 'Lake' },
+						{ value: 'river', label: t('toolOptions.water.river') },
+						{ value: 'lake', label: t('toolOptions.water.lake') },
 					]}
 				/>
 			);
@@ -300,10 +303,10 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 			controls = (
 				<>
 					<label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-						<span style={{ font: `12px ${T.sans}`, color: T.sub }}>Colour</span>
+						<span style={{ font: `12px ${T.sans}`, color: T.sub }}>{t('toolOptions.colour')}</span>
 						<input
 							type="color"
-							aria-label="Light colour"
+							aria-label={t('toolOptions.lightColour')}
 							value={options.lightColor}
 							onChange={(e) => setOption('lightColor', e.target.value)}
 							style={{
@@ -317,7 +320,7 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 						/>
 					</label>
 					<NumberControl
-						label="Radius"
+						label={t('toolOptions.radius')}
 						value={Math.round(options.lightRadius * 100)}
 						min={2}
 						max={40}
@@ -331,7 +334,7 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 		case 'stamp':
 			controls = (
 				<div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-					<span style={{ font: `12px ${T.sans}`, color: T.sub }}>Object</span>
+					<span style={{ font: `12px ${T.sans}`, color: T.sub }}>{t('toolOptions.object')}</span>
 					<span
 						style={{
 							font: `600 12.5px ${T.sans}`,
@@ -360,7 +363,7 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 							font: `12px ${T.sans}`,
 						}}
 					>
-						<Icon name="tool-stamp" size={13} /> Choose…
+						<Icon name="tool-stamp" size={13} /> {t('toolOptions.choose')}
 					</button>
 				</div>
 			);
@@ -369,13 +372,13 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 			controls = (
 				<>
 					<SegmentedControl
-						ariaLabel="Scatter object"
+						ariaLabel={t('toolOptions.scatterObject')}
 						value={options.scatterObject}
 						onChange={(v: string) => setOption('scatterObject', v)}
-						options={SCATTER_SETS.map((s) => ({ value: s.id, label: s.label }))}
+						options={SCATTER_SETS.map((set) => ({ value: set.id, label: t(set.label) }))}
 					/>
 					<NumberControl
-						label="Density"
+						label={t('toolOptions.density')}
 						value={Math.round(options.scatterDensity * 100)}
 						min={5}
 						max={100}
@@ -390,22 +393,22 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 			controls = (
 				<>
 					<SegmentedControl
-						ariaLabel="Fog mode"
+						ariaLabel={t('toolOptions.fogMode')}
 						value={options.fogMode}
 						onChange={(v: string) => setOption('fogMode', v as typeof options.fogMode)}
 						options={[
-							{ value: 'reveal', label: 'Reveal' },
-							{ value: 'conceal', label: 'Conceal' },
+							{ value: 'reveal', label: t('toolOptions.fog.reveal') },
+							{ value: 'conceal', label: t('toolOptions.fog.conceal') },
 						]}
 					/>
 					<SegmentedControl
-						ariaLabel="Fog shape"
+						ariaLabel={t('toolOptions.fogShape')}
 						value={options.fogShape}
 						onChange={(v: string) => setOption('fogShape', v as typeof options.fogShape)}
 						options={[
-							{ value: 'rect', label: 'Rect' },
-							{ value: 'polygon', label: 'Polygon' },
-							{ value: 'stroke', label: 'Brush' },
+							{ value: 'rect', label: t('toolOptions.fogShape.rect') },
+							{ value: 'polygon', label: t('toolOptions.fogShape.polygon') },
+							{ value: 'stroke', label: t('toolOptions.fogShape.stroke') },
 						]}
 					/>
 					{/* The fog BRUSH reads `brushSize` (EditorCanvas passes it as `fogBrushRadius`) and the
@@ -414,7 +417,7 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 					    the terrain brush and the eraser, because it is literally the same option. */}
 					{options.fogShape === 'stroke' && (
 						<NumberControl
-							label="Size"
+							label={t('toolOptions.size')}
 							value={options.brushSize}
 							min={5}
 							max={200}
@@ -423,7 +426,7 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 						/>
 					)}
 					<NumberControl
-						label="Feather"
+						label={t('toolOptions.feather')}
 						value={Math.round(options.fogFeather * 100)}
 						min={0}
 						max={20}
@@ -437,11 +440,11 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 		case 'text':
 			controls = (
 				<label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-					<span style={{ font: `12px ${T.sans}`, color: T.sub }}>Label</span>
+					<span style={{ font: `12px ${T.sans}`, color: T.sub }}>{t('toolOptions.label')}</span>
 					<Input
 						value={options.labelText}
-						placeholder="Type the label, then click the map"
-						aria-label="Label text"
+						placeholder={t('toolOptions.labelPlaceholder')}
+						aria-label={t('toolOptions.labelText')}
 						onChange={(e: { target: { value: string } }) => setOption('labelText', e.target.value)}
 						style={{ width: 220 }}
 					/>
@@ -462,7 +465,7 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 	return (
 		<div
 			role="group"
-			aria-label={`${def?.label ?? 'Tool'} options`}
+			aria-label={t('toolOptions.groupLabel', { tool: def?.label ?? t('toolOptions.tool') })}
 			style={{
 				display: 'flex',
 				alignItems: 'center',
@@ -487,13 +490,14 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 }
 
 function TerrainSelect({ editor }: { editor: MapEditorApi }) {
+	const { t } = useI18n();
 	return (
 		<label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-			<span style={{ font: `12px ${T.sans}`, color: T.sub }}>Terrain</span>
+			<span style={{ font: `12px ${T.sans}`, color: T.sub }}>{t('toolOptions.terrain')}</span>
 			<Select
 				value={editor.options.terrainStyle}
-				aria-label="Terrain style"
-				options={TERRAIN_STYLES.map((s) => ({ value: s.id, label: s.label }))}
+				aria-label={t('toolOptions.terrainStyle')}
+				options={TERRAIN_STYLES.map((style) => ({ value: style.id, label: t(style.label) }))}
 				onChange={(e: { target: { value: string } }) =>
 					editor.setOption('terrainStyle', e.target.value)
 				}

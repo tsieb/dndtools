@@ -37,12 +37,14 @@ export function AssetsPanel({
 	const filtered = useMemo(() => {
 		const q = search.trim().toLowerCase();
 		return STAMP_ASSETS.filter((a) => {
-			if (q && !a.label.toLowerCase().includes(q) && !a.tags.some((t) => t.includes(q)))
+			// Search the RENDERED label, so a Spanish reader searching "árbol" matches the tile they
+			// can actually see rather than the English key's source text.
+			if (q && !t(a.label).toLowerCase().includes(q) && !a.tags.some((tag) => tag.includes(q)))
 				return false;
 			if (activeTags.length > 0 && !activeTags.every((t) => a.tags.includes(t))) return false;
 			return true;
 		});
-	}, [search, activeTags]);
+	}, [search, activeTags, t]);
 
 	const arm = (asset: StampAsset) => {
 		editor.setOption('stampAsset', asset.id);
@@ -88,14 +90,16 @@ export function AssetsPanel({
 					}}
 				>
 					{STAMP_TAGS.map((tag) => {
-						const on = activeTags.includes(tag);
+						const on = activeTags.includes(tag.id);
 						return (
 							<button
-								key={tag}
+								key={tag.id}
 								type="button"
 								aria-pressed={on}
 								onClick={() =>
-									setActiveTags((prev) => (on ? prev.filter((t) => t !== tag) : [...prev, tag]))
+									setActiveTags((prev) =>
+										on ? prev.filter((id) => id !== tag.id) : [...prev, tag.id],
+									)
 								}
 								style={{
 									padding: '5px 9px',
@@ -109,7 +113,7 @@ export function AssetsPanel({
 									whiteSpace: 'nowrap',
 								}}
 							>
-								{tag}
+								{t(tag.label)}
 							</button>
 						);
 					})}
@@ -200,7 +204,7 @@ function AssetGrid({
 							<button
 								type="button"
 								aria-pressed={on}
-								title={a.label}
+								title={t(a.label)}
 								onClick={() => onArm(a)}
 								style={{
 									display: 'flex',
@@ -226,15 +230,15 @@ function AssetGrid({
 										maxWidth: '100%',
 									}}
 								>
-									{a.label}
+									{t(a.label)}
 								</span>
 							</button>
 							<button
 								type="button"
 								aria-label={
 									fav
-										? t('mapDock.unfavorite', { name: a.label })
-										: t('mapDock.favorite', { name: a.label })
+										? t('mapDock.unfavorite', { name: t(a.label) })
+										: t('mapDock.favorite', { name: t(a.label) })
 								}
 								aria-pressed={fav}
 								onClick={() => onFav(a.id)}
