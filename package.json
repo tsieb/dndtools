@@ -60,7 +60,8 @@
 		"feature-audit": "tsx scripts/validate/feature-audit.ts",
 		"perf:capture": "tsx scripts/perf/capture.ts",
 		"perf:compare": "tsx scripts/perf/compare.ts",
-		"perf:baseline": "tsx scripts/perf/compare.ts --write-baseline"
+		"perf:baseline": "tsx scripts/perf/compare.ts --write-baseline",
+		"check:bundle-budget": "tsx scripts/check-bundle-budget.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

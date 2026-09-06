@@ -120,6 +120,9 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Enforce the production bundle budget (RC-ENG-1.2)
+        run: pnpm check:bundle-budget
+
       - name: Run unit tests
         run: pnpm test
 
