@@ -3,6 +3,7 @@ import { Badge, Checkbox, Textarea } from '../../ds';
 import { T } from '../screen-kit';
 import { StepHeader, StepSection, ToggleGroup, type StepProps } from './fields';
 import { HOST_PERMISSIONS, HOST_PERMISSION_LABEL } from './vocabulary';
+import { useI18n } from '../../i18n';
 
 /**
  * Advanced — the host permissions the package asks for, and the portability notes that travel with
@@ -18,22 +19,17 @@ import { HOST_PERMISSIONS, HOST_PERMISSION_LABEL } from './vocabulary';
  */
 
 export function AdvancedStep({ draft, patch }: StepProps) {
+	const { t } = useI18n();
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-			<StepHeader
-				title="Advanced"
-				help="What the package asks the host for, and what a reviewer should know before trusting it."
-			/>
-			<StepSection
-				title="Host permissions"
-				help="Requested, not granted. Every package installs with all of these denied until a reviewer approves them."
-			>
-				<ToggleGroup legend="Requested host permissions">
+			<StepHeader title={t('builder.advanced.title')} help={t('builder.advanced.help')} />
+			<StepSection title={t('builder.advanced.permsTitle')} help={t('builder.advanced.permsHelp')}>
+				<ToggleGroup legend={t('builder.advanced.permsLegend')}>
 					{HOST_PERMISSIONS.map((permission: WidgetHostPermission) => (
 						<Checkbox
 							key={permission}
 							checked={draft.hostPermissions.includes(permission)}
-							label={HOST_PERMISSION_LABEL[permission]}
+							label={t(HOST_PERMISSION_LABEL[permission])}
 							onChange={() =>
 								patch({
 									hostPermissions: draft.hostPermissions.includes(permission)
@@ -47,24 +43,20 @@ export function AdvancedStep({ draft, patch }: StepProps) {
 				{draft.hostPermissions.length > 0 && (
 					<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
 						<Badge status="warning" icon="warning">
-							Needs review
+							{t('extensions.plugins.needsReview')}
 						</Badge>
 						<span style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
-							A package asking for host permissions installs denied and stays denied until it is
-							reviewed.
+							{t('builder.advanced.permsWarning')}
 						</span>
 					</div>
 				)}
 			</StepSection>
-			<StepSection
-				title="Portability notes"
-				help="One per line. These travel with the package and are shown to anyone reviewing it."
-			>
+			<StepSection title={t('builder.advanced.notesTitle')} help={t('builder.advanced.notesHelp')}>
 				<Textarea
 					value={draft.portabilityWarnings.join('\n')}
 					rows={3}
-					aria-label="Portability notes"
-					placeholder="Needs the party roster to be populated."
+					aria-label={t('builder.advanced.notesTitle')}
+					placeholder={t('builder.advanced.notesPlaceholder')}
 					onChange={(e: { target: { value: string } }) =>
 						patch({
 							portabilityWarnings: e.target.value
@@ -75,11 +67,9 @@ export function AdvancedStep({ draft, patch }: StepProps) {
 					}
 				/>
 			</StepSection>
-			<StepSection title="Custom code">
+			<StepSection title={t('extensions.plugins.customCode')}>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter }}>
-					This builder writes template widgets, which need no code of their own. Writing custom HTML
-					and JavaScript needs the sandboxed widget host, which is not in this build — a package
-					that declares it installs but cannot draw yet.
+					{t('builder.advanced.customCodeBody')}
 				</div>
 			</StepSection>
 		</div>

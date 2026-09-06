@@ -12,6 +12,7 @@ import {
 } from './draft';
 import { StepHeader, StepSection } from './fields';
 import { TEMPLATE_LABEL } from './vocabulary';
+import { useI18n, type MessageKey } from '../../i18n';
 
 /**
  * Review — what will be installed, what it asks for, and the one button that writes it
@@ -23,11 +24,12 @@ import { TEMPLATE_LABEL } from './vocabulary';
  * Nothing is installed until this step's button is pressed, and a rejection is printed verbatim.
  */
 
-const RECOMMENDATION: Record<string, { label: string; tone: 'success' | 'warning' | 'error' }> = {
-	'trusted-after-review': { label: 'Trust after review', tone: 'success' },
-	'requires-review': { label: 'Requires review', tone: 'warning' },
-	'deny-until-fixed': { label: 'Deny until fixed', tone: 'error' },
-};
+const RECOMMENDATION: Record<string, { label: MessageKey; tone: 'success' | 'warning' | 'error' }> =
+	{
+		'trusted-after-review': { label: 'extensions.plugins.recommendTrust', tone: 'success' },
+		'requires-review': { label: 'extensions.trust.recommend.review', tone: 'warning' },
+		'deny-until-fixed': { label: 'extensions.trust.recommend.deny', tone: 'error' },
+	};
 
 export function ReviewStep({
 	draft,
@@ -50,36 +52,34 @@ export function ReviewStep({
 	onGoToStep: (step: BuilderStepId) => void;
 	onSubmit: () => void;
 }) {
+	const { t } = useI18n();
 	const pkg = useMemo(() => buildPackage(draft), [draft]);
 	const summary = useMemo(() => buildWidgetPackageReviewSummary(pkg), [pkg]);
 	const migration = generateMigration(draft);
-	const recommendation = RECOMMENDATION[summary.trustRecommendation] ?? {
-		label: summary.trustRecommendation,
-		tone: 'warning' as const,
-	};
+	const recommendation = RECOMMENDATION[summary.trustRecommendation];
+	const recommendationLabel = recommendation
+		? t(recommendation.label)
+		: summary.trustRecommendation;
+	const recommendationTone = recommendation?.tone ?? 'warning';
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 			<StepHeader
-				title="Review"
-				help={
-					mode === 'upgrade'
-						? 'This id is already installed, so this saves a new version and migrates every copy already placed on a scene.'
-						: 'Check what is about to be installed. It lands disabled with every host permission denied — enable it from Installed packages when you are happy with it.'
-				}
+				title={t('builder.step.review')}
+				help={t(mode === 'upgrade' ? 'builder.review.helpUpgrade' : 'builder.review.helpInstall')}
 			/>
 
 			{issues.length > 0 && (
-				<StepSection title="Fix these first">
+				<StepSection title={t('builder.review.fixFirst')}>
 					<ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 6 }}>
 						{issues.map((issue, index) => (
 							<li
 								key={`${issue.field}-${index}`}
 								style={{ font: `12.5px ${T.sans}`, color: T.ink }}
 							>
-								{issue.message}{' '}
+								{t(issue.message, issue.values)}{' '}
 								<Button variant="ghost" size="sm" onClick={() => onGoToStep(issue.step)}>
-									Go to {STEP_LABEL[issue.step]}
+									{t('builder.review.goTo', { step: t(STEP_LABEL[issue.step]) })}
 								</Button>
 							</li>
 						))}
@@ -87,46 +87,50 @@ export function ReviewStep({
 				</StepSection>
 			)}
 
-			<StepSection title="Summary">
+			<StepSection title={t('builder.review.summary')}>
 				<DefinitionList
 					items={[
-						{ label: 'Package', value: `${pkg.displayName || '—'} · ${pkg.id || '—'}` },
-						{ label: 'Widget type', value: draft.typeId || '—' },
-						{ label: 'Version', value: draft.version },
-						{ label: 'Draws as', value: TEMPLATE_LABEL[draft.template] },
 						{
-							label: 'Data queries',
+							label: t('builder.review.package'),
+							value: `${pkg.displayName || '—'} · ${pkg.id || '—'}`,
+						},
+						{ label: t('builder.review.widgetType'), value: draft.typeId || '—' },
+						{ label: t('builder.identity.version'), value: draft.version },
+						{ label: t('builder.review.drawsAs'), value: t(TEMPLATE_LABEL[draft.template]) },
+						{
+							label: t('builder.review.dataQueries'),
 							value:
 								draft.dataQueries.length === 0
-									? 'None'
+									? t('builder.review.none')
 									: draft.dataQueries.map((query) => query.label).join(', '),
 						},
 						{
-							label: 'Commands',
+							label: t('builder.step.commands'),
 							value:
 								draft.commands.length === 0
-									? 'None'
+									? t('builder.review.none')
 									: draft.commands.map((command) => command.displayName).join(', '),
 						},
 					]}
 				/>
 			</StepSection>
 
-			<StepSection
-				title="What it asks for"
-				help="The same review Lamplight shows for any installed package."
-			>
+			<StepSection title={t('builder.review.asksFor')} help={t('builder.review.asksForHelp')}>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-					<Badge status={recommendation.tone}>{recommendation.label}</Badge>
+					<Badge status={recommendationTone}>{recommendationLabel}</Badge>
 					<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
 						{summary.requestedHostPermissions.length === 0
-							? 'No host permissions requested.'
-							: `Host permissions: ${summary.requestedHostPermissions.join(', ')}.`}
+							? t('builder.review.noPermsRequested')
+							: t('builder.review.permsRequested', {
+									list: summary.requestedHostPermissions.join(', '),
+								})}
 					</span>
 				</div>
 				{summary.playerVisibleOutputs.length > 0 && (
 					<span style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
-						Writes players can see: {summary.playerVisibleOutputs.length}.
+						{t('builder.review.playerVisibleWrites', {
+							count: summary.playerVisibleOutputs.length,
+						})}
 					</span>
 				)}
 				{summary.portabilityWarnings.map((warning) => (
@@ -137,18 +141,22 @@ export function ReviewStep({
 			</StepSection>
 
 			{mode === 'upgrade' && (
-				<StepSection title="Placed copies">
+				<StepSection title={t('builder.review.placedCopies')}>
 					{migration ? (
 						<span style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-							Every copy on version {migration.fromVersion} moves to {migration.toVersion}
+							{t('builder.review.migrationFromTo', {
+								from: migration.fromVersion,
+								to: migration.toVersion,
+							})}
 							{migration.setConfigurationDefaults
-								? `, and gains the new settings ${Object.keys(migration.setConfigurationDefaults).join(', ')}.`
+								? t('builder.review.migrationGains', {
+										settings: Object.keys(migration.setConfigurationDefaults).join(', '),
+									})
 								: '.'}
 						</span>
 					) : (
 						<span style={{ font: `12.5px/1.6 ${T.sans}`, color: T.warn }}>
-							The version has not changed, so copies already placed keep the definition they have.
-							Raise the version on the Identity step to update them.
+							{t('builder.review.noVersionBump')}
 						</span>
 					)}
 				</StepSection>
@@ -177,11 +185,11 @@ export function ReviewStep({
 					disabled={!canWrite || busy || issues.length > 0}
 					onClick={onSubmit}
 				>
-					{mode === 'upgrade' ? 'Save new version' : 'Install widget'}
+					{t(mode === 'upgrade' ? 'builder.review.saveVersion' : 'builder.review.install')}
 				</Button>
 				{!canWrite && (
 					<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
-						Building widgets is DM-only, and read-only while previewing as someone else.
+						{t('builder.review.readOnly')}
 					</span>
 				)}
 			</div>

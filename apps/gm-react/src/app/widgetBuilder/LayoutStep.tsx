@@ -1,7 +1,10 @@
 import { Field, Input, Select } from '../../ds';
-import { DOCK_PREFERENCE_LABEL, type DockPreference } from './draft';
+import { type DockPreference } from './draft';
 import { FieldGrid, StepHeader, StepSection, issueFor, type StepProps } from './fields';
-import { RESIZE_LABEL } from './vocabulary';
+import { DOCK_PREFERENCE_LABEL, RESIZE_LABEL } from './vocabulary';
+import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
+
+type Translate = (key: MessageKey, values?: MessageValues) => string;
 
 /**
  * Layout — how big the widget starts, how small it may get, whether it resizes, and where it
@@ -12,14 +15,18 @@ import { RESIZE_LABEL } from './vocabulary';
  * needs no `schemaVersion` bump. `draft.ts` builds that field; this step only picks its default.
  */
 
-const DOCK_OPTIONS = (Object.keys(DOCK_PREFERENCE_LABEL) as DockPreference[]).map((value) => ({
-	value,
-	label: DOCK_PREFERENCE_LABEL[value],
-}));
+// Both option lists are copy, so they are built per locale rather than frozen at module load.
+const dockOptions = (t: Translate) =>
+	(Object.keys(DOCK_PREFERENCE_LABEL) as DockPreference[]).map((value) => ({
+		value,
+		label: t(DOCK_PREFERENCE_LABEL[value]),
+	}));
 
-const RESIZE_OPTIONS = (Object.keys(RESIZE_LABEL) as (keyof typeof RESIZE_LABEL)[]).map(
-	(value) => ({ value, label: RESIZE_LABEL[value] }),
-);
+const resizeOptions = (t: Translate) =>
+	(Object.keys(RESIZE_LABEL) as (keyof typeof RESIZE_LABEL)[]).map((value) => ({
+		value,
+		label: t(RESIZE_LABEL[value]),
+	}));
 
 function numberField(
 	label: string,
@@ -43,62 +50,63 @@ function numberField(
 }
 
 export function LayoutStep({ draft, patch, issues }: StepProps) {
+	const { t } = useI18n();
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-			<StepHeader
-				title="Layout"
-				help="The size the widget is placed at, the smallest it may be squeezed to, and how it behaves when a surface docks widgets."
-			/>
-			<StepSection title="Default size" help="Measured in canvas pixels.">
+			<StepHeader title={t('builder.layout.title')} help={t('builder.layout.help')} />
+			<StepSection
+				title={t('builder.layout.defaultSize')}
+				help={t('builder.layout.defaultSizeHelp')}
+			>
 				<FieldGrid>
 					{numberField(
-						'Default width',
+						t('builder.layout.defaultWidth'),
 						draft.defaultSize.width,
-						issueFor(issues, 'defaultSize.width'),
+						issueFor(issues, 'defaultSize.width', t),
 						(width) => patch({ defaultSize: { ...draft.defaultSize, width } }),
 					)}
 					{numberField(
-						'Default height',
+						t('builder.layout.defaultHeight'),
 						draft.defaultSize.height,
-						issueFor(issues, 'defaultSize.height'),
+						issueFor(issues, 'defaultSize.height', t),
 						(height) => patch({ defaultSize: { ...draft.defaultSize, height } }),
 					)}
 				</FieldGrid>
 			</StepSection>
-			<StepSection title="Minimum size" help="A widget is never squeezed below this.">
+			<StepSection title={t('builder.layout.minSize')} help={t('builder.layout.minSizeHelp')}>
 				<FieldGrid>
 					{numberField(
-						'Minimum width',
+						t('builder.layout.minWidth'),
 						draft.minSize.width,
-						issueFor(issues, 'minSize.width'),
+						issueFor(issues, 'minSize.width', t),
 						(width) => patch({ minSize: { ...draft.minSize, width } }),
 					)}
 					{numberField(
-						'Minimum height',
+						t('builder.layout.minHeight'),
 						draft.minSize.height,
-						issueFor(issues, 'minSize.height'),
+						issueFor(issues, 'minSize.height', t),
 						(height) => patch({ minSize: { ...draft.minSize, height } }),
 					)}
 				</FieldGrid>
 			</StepSection>
-			<StepSection title="Behaviour">
+			<StepSection title={t('builder.layout.behaviour')}>
 				<FieldGrid>
-					<Field label="Resize policy">
+					<Field label={t('builder.layout.resizePolicy')}>
 						<Select
 							value={draft.resizePolicy}
-							options={RESIZE_OPTIONS}
+							options={resizeOptions(t)}
 							onChange={(e: { target: { value: string } }) =>
 								patch({ resizePolicy: e.target.value as typeof draft.resizePolicy })
 							}
 						/>
 					</Field>
 					<Field
-						label="Dock preference"
-						help="Saved as a display setting on every placed copy. The scene canvas is free-form and leaves it alone."
+						label={t('builder.layout.dockPreference')}
+						help={t('builder.layout.dockPreferenceHelp')}
 					>
 						<Select
 							value={draft.dockPreference}
-							options={DOCK_OPTIONS}
+							options={dockOptions(t)}
 							onChange={(e: { target: { value: string } }) =>
 								patch({ dockPreference: e.target.value as DockPreference })
 							}

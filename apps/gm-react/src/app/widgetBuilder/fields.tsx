@@ -2,6 +2,10 @@ import type { ReactNode } from 'react';
 import { Button, IconButton } from '../../ds';
 import { T } from '../screen-kit';
 import type { DraftIssue, WidgetDraft } from './draft';
+import type { MessageKey, MessageValues } from '../../i18n';
+
+/** The catalog lookup the steps thread down, so this module renders no English of its own. */
+export type Translate = (key: MessageKey, values?: MessageValues) => string;
 
 /**
  * Shared form furniture for the widget builder's steps (RC-WID-2.1).
@@ -149,7 +153,8 @@ export interface StepProps {
 	issues: DraftIssue[];
 }
 
-/** The message raised against one field, for `Field`'s `error` slot. */
-export function issueFor(issues: DraftIssue[], field: string): string | undefined {
-	return issues.find((issue) => issue.field === field)?.message;
+/** The message raised against one field, rendered for `Field`'s `error` slot. */
+export function issueFor(issues: DraftIssue[], field: string, t: Translate): string | undefined {
+	const issue = issues.find((entry) => entry.field === field);
+	return issue ? t(issue.message, issue.values) : undefined;
 }

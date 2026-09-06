@@ -10,135 +10,145 @@ import {
 	type WidgetTemplateKind,
 } from '@dndtools/core';
 import { ICON_REGISTRY } from '../../ds';
+import type { MessageKey } from '../../i18n';
+import type { DockPreference } from './draft';
 
 /**
  * The spoken vocabularies the builder's pickers offer (RC-WID-2.1).
  *
  * Every list here is derived from, or exhaustively typed against, a core enum, so a kind added to
- * the schema fails the build here rather than quietly going unofferable. The labels are the copy
- * rules: sentence case, verbs first, and the safety words "DM only · Shared · Player visible" left
- * exactly as the design package spells them.
+ * the schema fails the build here rather than quietly going unofferable. Each entry is a catalog
+ * key rather than a spoken label (RC-UX-1.2): the copy rules — sentence case, verbs first, and the
+ * safety words "DM only · Shared · Player visible" exactly as the design package spells them —
+ * still apply, they just apply in `i18n/messages/en.ts` where a translator can see them.
  */
 
-export const TEMPLATE_LABEL: Record<WidgetTemplateKind, string> = {
-	'data-table': 'Data table',
-	'status-list': 'Status list',
-	tracker: 'Tracker',
-	'action-panel': 'Action panel',
-	'scene-message': 'Scene message',
-	chart: 'Chart',
-	'stat-block': 'Stat block',
-	'form-panel': 'Form panel',
+export const TEMPLATE_LABEL: Record<WidgetTemplateKind, MessageKey> = {
+	'data-table': 'builder.template.dataTable',
+	'status-list': 'builder.template.statusList',
+	tracker: 'builder.template.tracker',
+	'action-panel': 'builder.template.actionPanel',
+	'scene-message': 'builder.template.sceneMessage',
+	chart: 'builder.template.chart',
+	'stat-block': 'builder.template.statBlock',
+	'form-panel': 'builder.template.formPanel',
 };
 
-export const TEMPLATE_HELP: Record<WidgetTemplateKind, string> = {
-	'data-table': 'Rows and columns from one data query.',
-	'status-list': 'A list of names with a status line each, for combatants or party members.',
-	tracker: 'One measure drawn as a meter, for a countdown or a resource.',
-	'action-panel': 'Buttons that fire this widget’s declared commands.',
-	'scene-message': 'A short block of text for the table to read.',
-	chart: 'A bar chart over one query’s measure column.',
-	'stat-block': 'One entity’s key numbers and traits.',
-	'form-panel': 'Fields the DM fills in, submitted through a declared command.',
+export const TEMPLATE_HELP: Record<WidgetTemplateKind, MessageKey> = {
+	'data-table': 'builder.templateHelp.dataTable',
+	'status-list': 'builder.templateHelp.statusList',
+	tracker: 'builder.templateHelp.tracker',
+	'action-panel': 'builder.templateHelp.actionPanel',
+	'scene-message': 'builder.templateHelp.sceneMessage',
+	chart: 'builder.templateHelp.chart',
+	'stat-block': 'builder.templateHelp.statBlock',
+	'form-panel': 'builder.templateHelp.formPanel',
 };
 
 export const TEMPLATE_KINDS = Object.keys(TEMPLATE_LABEL) as WidgetTemplateKind[];
 
-export const QUERY_SOURCE_LABEL: Record<WidgetDataQuerySource, string> = {
-	'current-combatants': 'Current combatants',
-	'visible-characters': 'Characters you can see',
-	'selected-scene': 'The selected scene',
-	'session-state': 'Session state',
-	notes: 'Notes',
-	maps: 'Maps',
-	'content-objects': 'Vault objects',
-	binding: 'A declared binding',
+export const QUERY_SOURCE_LABEL: Record<WidgetDataQuerySource, MessageKey> = {
+	'current-combatants': 'builder.source.currentCombatants',
+	'visible-characters': 'builder.source.visibleCharacters',
+	'selected-scene': 'builder.source.selectedScene',
+	'session-state': 'builder.source.sessionState',
+	notes: 'builder.source.notes',
+	maps: 'builder.source.maps',
+	'content-objects': 'builder.source.contentObjects',
+	binding: 'builder.source.binding',
 };
 
 export const QUERY_SOURCES = Object.keys(QUERY_SOURCE_LABEL) as WidgetDataQuerySource[];
 
-export const AUDIENCE_LABEL: Record<'dm' | 'players' | 'shared', string> = {
-	dm: 'DM only',
-	players: 'Player visible',
-	shared: 'Shared',
+export const AUDIENCE_LABEL: Record<'dm' | 'players' | 'shared', MessageKey> = {
+	dm: 'builder.audience.dm',
+	players: 'builder.audience.players',
+	shared: 'builder.audience.shared',
 };
 
-export const CAPABILITY_LABEL: Record<'manager' | 'operator' | 'viewer', string> = {
-	manager: 'Campaign manager',
-	operator: 'Operator',
-	viewer: 'Viewer',
+export const CAPABILITY_LABEL: Record<'manager' | 'operator' | 'viewer', MessageKey> = {
+	manager: 'builder.capability.manager',
+	operator: 'builder.capability.operator',
+	viewer: 'builder.capability.viewer',
 };
 
-export const SURFACE_LABEL: Record<WidgetSurface, string> = {
-	scene: 'Scene canvas',
-	'command-center': 'Command Center',
-	'player-view': 'Player view',
+export const SURFACE_LABEL: Record<WidgetSurface, MessageKey> = {
+	scene: 'builder.surface.scene',
+	'command-center': 'builder.surface.commandCenter',
+	'player-view': 'builder.surface.playerView',
 };
 
 export const SURFACES = Object.keys(SURFACE_LABEL) as WidgetSurface[];
 
-export const PROFILE_LABEL: Record<PlatformProfileId, string> = {
-	desktop: 'Desktop',
-	tablet: 'Tablet',
-	mobile: 'Mobile',
-	web: 'Web',
+export const PROFILE_LABEL: Record<PlatformProfileId, MessageKey> = {
+	desktop: 'builder.profile.desktop',
+	tablet: 'builder.profile.tablet',
+	mobile: 'builder.profile.mobile',
+	web: 'builder.profile.web',
 };
 
 export const PROFILES = Object.keys(PROFILE_LABEL) as PlatformProfileId[];
 
-export const RESIZE_LABEL: Record<'fixed' | 'axis-locked' | 'free', string> = {
-	fixed: 'Fixed size',
-	'axis-locked': 'Resize on one axis',
-	free: 'Resize freely',
+export const DOCK_PREFERENCE_LABEL: Record<DockPreference, MessageKey> = {
+	canvas: 'builder.dock.canvas',
+	left: 'builder.dock.left',
+	right: 'builder.dock.right',
+	bottom: 'builder.dock.bottom',
 };
 
-export const CONTROL_LABEL: Record<WidgetConfigControl, string> = {
-	text: 'Single line of text',
-	textarea: 'Paragraph',
-	number: 'Number',
-	select: 'Choice',
-	toggle: 'On or off',
-	color: 'Colour',
+export const RESIZE_LABEL: Record<'fixed' | 'axis-locked' | 'free', MessageKey> = {
+	fixed: 'builder.resize.fixed',
+	'axis-locked': 'builder.resize.axisLocked',
+	free: 'builder.resize.free',
+};
+
+export const CONTROL_LABEL: Record<WidgetConfigControl, MessageKey> = {
+	text: 'builder.control.text',
+	textarea: 'builder.control.textarea',
+	number: 'builder.control.number',
+	select: 'builder.control.select',
+	toggle: 'builder.control.toggle',
+	color: 'builder.control.color',
 };
 
 export const CONTROLS = Object.keys(CONTROL_LABEL) as WidgetConfigControl[];
 
-export const FIELD_GROUP_LABEL: Record<'content' | 'display' | 'style', string> = {
-	content: 'Content',
-	display: 'Display',
-	style: 'Style',
+export const FIELD_GROUP_LABEL: Record<'content' | 'display' | 'style', MessageKey> = {
+	content: 'builder.group.content',
+	display: 'builder.group.display',
+	style: 'builder.group.style',
 };
 
-export const WRITES_TO_LABEL: Record<'scene' | 'session' | 'entity', string> = {
-	scene: 'The scene',
-	session: 'The session',
-	entity: 'A bound entity',
+export const WRITES_TO_LABEL: Record<'scene' | 'session' | 'entity', MessageKey> = {
+	scene: 'builder.writesTo.scene',
+	session: 'builder.writesTo.session',
+	entity: 'builder.writesTo.entity',
 };
 
-export const ISOLATION_LABEL: Record<WidgetStyleIsolation, string> = {
-	'host-scoped': 'Host scoped — inherits the app theme',
-	'shadow-root': 'Shadow root — isolated styles',
-	'iframe-document': 'Iframe document — fully separate',
+export const ISOLATION_LABEL: Record<WidgetStyleIsolation, MessageKey> = {
+	'host-scoped': 'builder.isolation.hostScoped',
+	'shadow-root': 'builder.isolation.shadowRoot',
+	'iframe-document': 'builder.isolation.iframeDocument',
 };
 
-export const STYLE_CAPABILITY_LABEL: Record<WidgetStyleCapability, string> = {
-	'css-variables': 'CSS variables',
-	'custom-stylesheet': 'Custom stylesheet',
-	'responsive-layout': 'Responsive layout',
-	'host-theme-tokens': 'Host theme tokens',
-	animation: 'Animation',
-	'custom-fonts': 'Custom fonts',
+export const STYLE_CAPABILITY_LABEL: Record<WidgetStyleCapability, MessageKey> = {
+	'css-variables': 'builder.styleCapability.cssVariables',
+	'custom-stylesheet': 'builder.styleCapability.customStylesheet',
+	'responsive-layout': 'builder.styleCapability.responsiveLayout',
+	'host-theme-tokens': 'builder.styleCapability.hostThemeTokens',
+	animation: 'builder.styleCapability.animation',
+	'custom-fonts': 'builder.styleCapability.customFonts',
 };
 
 export const STYLE_CAPABILITIES = Object.keys(STYLE_CAPABILITY_LABEL) as WidgetStyleCapability[];
 
-export const HOST_PERMISSION_LABEL: Record<WidgetHostPermission, string> = {
-	filesystem: 'Read and write files',
-	clipboard: 'Use the clipboard',
-	network: 'Reach the network',
-	'source-adapter': 'Read connected sources',
-	asset: 'Read campaign assets',
-	'external-link': 'Open external links',
+export const HOST_PERMISSION_LABEL: Record<WidgetHostPermission, MessageKey> = {
+	filesystem: 'builder.hostPermission.filesystem',
+	clipboard: 'builder.hostPermission.clipboard',
+	network: 'builder.hostPermission.network',
+	'source-adapter': 'builder.hostPermission.sourceAdapter',
+	asset: 'builder.hostPermission.asset',
+	'external-link': 'builder.hostPermission.externalLink',
 };
 
 export const HOST_PERMISSIONS: WidgetHostPermission[] = [...ALL_HOST_PERMISSIONS];
@@ -148,19 +158,19 @@ export const HOST_PERMISSIONS: WidgetHostPermission[] = [...ALL_HOST_PERMISSIONS
  * own colour space declares the `custom-stylesheet` capability and ships one (RC-WID-2.4), and a
  * value picked here re-themes with `data-theme` because it stays a `var()` reference.
  */
-export const SEMANTIC_TOKEN_VALUES: { value: string; label: string }[] = [
-	{ value: 'var(--color-accent)', label: 'Accent' },
-	{ value: 'var(--color-accent-subtle)', label: 'Accent, subtle' },
-	{ value: 'var(--color-surface)', label: 'Surface' },
-	{ value: 'var(--color-surface-raised)', label: 'Surface, raised' },
-	{ value: 'var(--color-surface-sunken)', label: 'Surface, sunken' },
-	{ value: 'var(--color-border)', label: 'Border' },
-	{ value: 'var(--color-text-primary)', label: 'Text, primary' },
-	{ value: 'var(--color-text-secondary)', label: 'Text, secondary' },
-	{ value: 'var(--color-text-tertiary)', label: 'Text, tertiary' },
-	{ value: 'var(--color-status-success)', label: 'Status, success' },
-	{ value: 'var(--color-status-warning)', label: 'Status, warning' },
-	{ value: 'var(--color-status-error)', label: 'Status, error' },
+export const SEMANTIC_TOKEN_VALUES: { value: string; label: MessageKey }[] = [
+	{ value: 'var(--color-accent)', label: 'builder.token.accent' },
+	{ value: 'var(--color-accent-subtle)', label: 'builder.token.accentSubtle' },
+	{ value: 'var(--color-surface)', label: 'builder.token.surface' },
+	{ value: 'var(--color-surface-raised)', label: 'builder.token.surfaceRaised' },
+	{ value: 'var(--color-surface-sunken)', label: 'builder.token.surfaceSunken' },
+	{ value: 'var(--color-border)', label: 'builder.token.border' },
+	{ value: 'var(--color-text-primary)', label: 'builder.token.textPrimary' },
+	{ value: 'var(--color-text-secondary)', label: 'builder.token.textSecondary' },
+	{ value: 'var(--color-text-tertiary)', label: 'builder.token.textTertiary' },
+	{ value: 'var(--color-status-success)', label: 'builder.token.statusSuccess' },
+	{ value: 'var(--color-status-warning)', label: 'builder.token.statusWarning' },
+	{ value: 'var(--color-status-error)', label: 'builder.token.statusError' },
 ];
 
 /**

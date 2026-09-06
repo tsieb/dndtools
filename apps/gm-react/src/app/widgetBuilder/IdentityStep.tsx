@@ -11,6 +11,7 @@ import {
 	type StepProps,
 } from './fields';
 import { ICON_VOCABULARY, PROFILES, PROFILE_LABEL, SURFACES, SURFACE_LABEL } from './vocabulary';
+import { useI18n } from '../../i18n';
 
 /**
  * Identity — what the widget IS: its ids, its name, the glyph and category the library lists it
@@ -25,6 +26,7 @@ function toggle<Item>(list: Item[], item: Item): Item[] {
 }
 
 export function IdentityStep({ draft, patch, issues }: StepProps) {
+	const { t } = useI18n();
 	const [idsTouched, setIdsTouched] = useState(() => draft.packageId !== '' || draft.typeId !== '');
 	const [iconFilter, setIconFilter] = useState('');
 	const icons = useMemo(() => {
@@ -47,57 +49,63 @@ export function IdentityStep({ draft, patch, issues }: StepProps) {
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-			<StepHeader
-				title="Identity"
-				help="Name the widget and say where it belongs. The ids are how the campaign refers to it forever, so they are slug-checked here."
-			/>
-			<StepSection title="Name and description">
-				<Field label="Name" required error={issueFor(issues, 'name')}>
+			<StepHeader title={t('builder.step.identity')} help={t('builder.identity.help')} />
+			<StepSection title={t('builder.identity.nameSection')}>
+				<Field label={t('builder.identity.name')} required error={issueFor(issues, 'name', t)}>
 					<Input
 						value={draft.name}
-						placeholder="Party status"
+						placeholder={t('builder.identity.namePlaceholder')}
 						onChange={(e: { target: { value: string } }) => setName(e.target.value)}
 					/>
 				</Field>
 				<Field
-					label="Description"
-					help="One line, shown in the widget library and the package review."
+					label={t('builder.identity.description')}
+					help={t('builder.identity.descriptionHelp')}
 				>
 					<Textarea
 						value={draft.description}
 						rows={2}
-						placeholder="Who is up, who is down, at a glance."
+						placeholder={t('builder.identity.descriptionPlaceholder')}
 						onChange={(e: { target: { value: string } }) => patch({ description: e.target.value })}
 					/>
 				</Field>
 			</StepSection>
 
-			<StepSection
-				title="Ids and version"
-				help="Lowercase letters, numbers, dots and hyphens. Changing an id after install creates a new widget rather than updating this one."
-			>
+			<StepSection title={t('builder.identity.idsSection')} help={t('builder.identity.idsHelp')}>
 				<FieldGrid>
-					<Field label="Package id" required error={issueFor(issues, 'packageId')}>
+					<Field
+						label={t('builder.identity.packageId')}
+						required
+						error={issueFor(issues, 'packageId', t)}
+					>
 						<Input
 							value={draft.packageId}
-							placeholder="workspace.party-status"
+							placeholder={t('builder.identity.packageIdPlaceholder')}
 							onChange={(e: { target: { value: string } }) => {
 								setIdsTouched(true);
 								patch({ packageId: e.target.value.trim() });
 							}}
 						/>
 					</Field>
-					<Field label="Widget type id" required error={issueFor(issues, 'typeId')}>
+					<Field
+						label={t('builder.identity.typeId')}
+						required
+						error={issueFor(issues, 'typeId', t)}
+					>
 						<Input
 							value={draft.typeId}
-							placeholder="party-status"
+							placeholder={t('builder.identity.typeIdPlaceholder')}
 							onChange={(e: { target: { value: string } }) => {
 								setIdsTouched(true);
 								patch({ typeId: e.target.value.trim() });
 							}}
 						/>
 					</Field>
-					<Field label="Version" required error={issueFor(issues, 'version')}>
+					<Field
+						label={t('builder.identity.version')}
+						required
+						error={issueFor(issues, 'version', t)}
+					>
 						<Input
 							value={draft.version}
 							placeholder="1.0.0"
@@ -106,35 +114,34 @@ export function IdentityStep({ draft, patch, issues }: StepProps) {
 							}
 						/>
 					</Field>
-					<Field label="Category" help="Groups the widget in the library.">
+					<Field label={t('builder.identity.category')} help={t('builder.identity.categoryHelp')}>
 						<Input
 							value={draft.category}
-							placeholder="Combat"
+							placeholder={t('builder.identity.categoryPlaceholder')}
 							onChange={(e: { target: { value: string } }) => patch({ category: e.target.value })}
 						/>
 					</Field>
 				</FieldGrid>
 				{draft.packageId && !SLUG_PATTERN.test(draft.packageId) && (
 					<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
-						Suggested: {slugify(draft.packageId) || 'workspace.my-widget'}
+						{t('builder.identity.suggested', {
+							id: slugify(draft.packageId) || 'workspace.my-widget',
+						})}
 					</span>
 				)}
 			</StepSection>
 
-			<StepSection
-				title="Icon"
-				help="Pick from the app's icon vocabulary so the widget stays in one family."
-			>
-				<Field label="Filter icons">
+			<StepSection title={t('builder.identity.icon')} help={t('builder.identity.iconHelp')}>
+				<Field label={t('builder.identity.filterIcons')}>
 					<Input
 						value={iconFilter}
-						placeholder="heart"
+						placeholder={t('builder.identity.filterPlaceholder')}
 						onChange={(e: { target: { value: string } }) => setIconFilter(e.target.value)}
 					/>
 				</Field>
 				<div
 					role="radiogroup"
-					aria-label="Widget icon"
+					aria-label={t('builder.identity.widgetIcon')}
 					onKeyDown={radioGroupKeyDown}
 					data-testid="builder-icon-picker"
 					style={{
@@ -182,48 +189,48 @@ export function IdentityStep({ draft, patch, issues }: StepProps) {
 					})}
 					{icons.length === 0 && (
 						<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
-							No icon in the vocabulary matches that.
+							{t('builder.identity.noIconMatch')}
 						</span>
 					)}
 				</div>
 			</StepSection>
 
-			<StepSection title="Where it can go">
-				<ToggleGroup legend="Surfaces">
+			<StepSection title={t('builder.identity.whereSection')}>
+				<ToggleGroup legend={t('builder.identity.surfaces')}>
 					{SURFACES.map((surface) => (
 						<Checkbox
 							key={surface}
 							checked={draft.surfaces.includes(surface)}
-							label={SURFACE_LABEL[surface]}
+							label={t(SURFACE_LABEL[surface])}
 							onChange={() => patch({ surfaces: toggle(draft.surfaces, surface) })}
 						/>
 					))}
 				</ToggleGroup>
-				{issueFor(issues, 'surfaces') && (
+				{issueFor(issues, 'surfaces', t) && (
 					<span style={{ font: `12px ${T.sans}`, color: T.err }}>
-						{issueFor(issues, 'surfaces')}
+						{issueFor(issues, 'surfaces', t)}
 					</span>
 				)}
-				<ToggleGroup legend="Supported device profiles">
+				<ToggleGroup legend={t('builder.identity.profiles')}>
 					{PROFILES.map((profile) => (
 						<Checkbox
 							key={profile}
 							checked={draft.supportedProfiles.includes(profile)}
-							label={PROFILE_LABEL[profile]}
+							label={t(PROFILE_LABEL[profile])}
 							onChange={() =>
 								patch({ supportedProfiles: toggle(draft.supportedProfiles, profile) })
 							}
 						/>
 					))}
 				</ToggleGroup>
-				{issueFor(issues, 'supportedProfiles') && (
+				{issueFor(issues, 'supportedProfiles', t) && (
 					<span style={{ font: `12px ${T.sans}`, color: T.err }}>
-						{issueFor(issues, 'supportedProfiles')}
+						{issueFor(issues, 'supportedProfiles', t)}
 					</span>
 				)}
 				<Switch
 					checked={draft.libraryListed}
-					label="List it in the Add widget library"
+					label={t('builder.identity.libraryListed')}
 					onChange={(next: boolean) => patch({ libraryListed: next })}
 				/>
 			</StepSection>

@@ -33,6 +33,9 @@ import {
 	TEMPLATE_KINDS,
 	TEMPLATE_LABEL,
 } from './vocabulary';
+import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
+
+type Translate = (key: MessageKey, values?: MessageValues) => string;
 
 /**
  * Data — which template kind draws the widget, what it draws FROM, and what it works out from that
@@ -55,32 +58,32 @@ import {
  *   player's total can never be derived from rows they never received.
  */
 
-const TEMPLATE_OPTIONS = TEMPLATE_KINDS.map((kind) => ({
-	value: kind,
-	label: TEMPLATE_LABEL[kind],
-}));
-const SOURCE_OPTIONS = QUERY_SOURCES.map((source) => ({
-	value: source,
-	label: QUERY_SOURCE_LABEL[source],
-}));
-const AUDIENCE_OPTIONS = (['dm', 'shared', 'players'] as const).map((value) => ({
-	value,
-	label: AUDIENCE_LABEL[value],
-}));
-const CAPABILITY_OPTIONS = (['viewer', 'operator', 'manager'] as const).map((value) => ({
-	value,
-	label: CAPABILITY_LABEL[value],
-}));
+const templateOptions = (t: Translate) =>
+	TEMPLATE_KINDS.map((kind) => ({ value: kind, label: t(TEMPLATE_LABEL[kind]) }));
+const sourceOptions = (t: Translate) =>
+	QUERY_SOURCES.map((source) => ({ value: source, label: t(QUERY_SOURCE_LABEL[source]) }));
+const audienceOptions = (t: Translate) =>
+	(['dm', 'shared', 'players'] as const).map((value) => ({
+		value,
+		label: t(AUDIENCE_LABEL[value]),
+	}));
+const capabilityOptions = (t: Translate) =>
+	(['viewer', 'operator', 'manager'] as const).map((value) => ({
+		value,
+		label: t(CAPABILITY_LABEL[value]),
+	}));
+// The five value types are schema words, not copy: they name the JSON type the field carries and
+// read the same in every locale.
 const VALUE_TYPE_OPTIONS = (['number', 'string', 'boolean', 'array', 'object'] as const).map(
 	(value) => ({ value, label: value }),
 );
 
 /** What each aggregate column means, so the formula reference does not need a manual. */
-const COLUMN_HELP: Record<(typeof WIDGET_QUERY_COLUMNS)[number], string> = {
-	count: 'how many rows',
-	sum: 'the rows’ values added up',
-	max: 'the rows’ ceilings added up',
-	active: 'how many rows are the current one',
+const COLUMN_HELP: Record<(typeof WIDGET_QUERY_COLUMNS)[number], MessageKey> = {
+	count: 'builder.column.count',
+	sum: 'builder.column.sum',
+	max: 'builder.column.max',
+	active: 'builder.column.active',
 };
 
 function nextQueryId(queries: WidgetDataQueryDefinition[], source: WidgetDataQuerySource): string {
@@ -92,6 +95,7 @@ function nextQueryId(queries: WidgetDataQueryDefinition[], source: WidgetDataQue
 }
 
 export function DataStep({ draft, patch, issues }: StepProps) {
+	const { t } = useI18n();
 	const setQuery = (index: number, next: WidgetDataQueryDefinition) =>
 		patch({ dataQueries: replaceAt(draft.dataQueries, index, next) });
 	const setComputed = (index: number, next: WidgetComputedFieldDefinition) =>
@@ -100,6 +104,8 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 	const allBindings = [...draft.requiredBindings, ...draft.optionalBindings];
 	const identifiers = widgetFormulaIdentifiers(draft.dataQueries);
 
+	// The seed labels below are written into the built package, so like every other stored label
+	// they stay in the source language until the author renames them.
 	const newBinding = (): WidgetBindingDefinition => ({
 		id: nextBindingId(draft),
 		label: 'Bound entity',
@@ -115,7 +121,7 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 				...draft.dataQueries,
 				{
 					id: nextQueryId(draft.dataQueries, source),
-					label: QUERY_SOURCE_LABEL[source],
+					label: t(QUERY_SOURCE_LABEL[source]),
 					source,
 					requiredCapability: 'viewer',
 					audience: 'shared',
@@ -141,16 +147,13 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-			<StepHeader
-				title="Data"
-				help="Choose how the widget draws itself, then declare what it reads. Lamplight resolves each query per viewer, so a DM-only query never reaches a player."
-			/>
+			<StepHeader title={t('builder.step.data')} help={t('builder.data.help')} />
 
-			<StepSection title="Template">
-				<Field label="Template kind" help={TEMPLATE_HELP[draft.template]}>
+			<StepSection title={t('builder.data.template')}>
+				<Field label={t('builder.data.templateKind')} help={t(TEMPLATE_HELP[draft.template])}>
 					<Select
 						value={draft.template}
-						options={TEMPLATE_OPTIONS}
+						options={templateOptions(t)}
 						onChange={(e: { target: { value: string } }) =>
 							patch({ template: e.target.value as WidgetTemplateKind })
 						}
@@ -158,13 +161,10 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 				</Field>
 			</StepSection>
 
-			<StepSection
-				title="Bindings"
-				help="The entities a placed copy is pointed at. A required binding makes the widget wait until the DM points it at something; an optional one is extra."
-			>
-				{issueFor(issues, 'bindings') && (
+			<StepSection title={t('builder.data.bindings')} help={t('builder.data.bindingsHelp')}>
+				{issueFor(issues, 'bindings', t) && (
 					<span style={{ font: `12px ${T.sans}`, color: T.err }}>
-						{issueFor(issues, 'bindings')}
+						{issueFor(issues, 'bindings', t)}
 					</span>
 				)}
 				<BindingRows
@@ -193,38 +193,35 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 				/>
 			</StepSection>
 
-			<StepSection
-				title="Data queries"
-				help="Each query names one source and who it is for. The first query is what a single-source template draws."
-			>
-				{issueFor(issues, 'dataQueries') && (
+			<StepSection title={t('builder.data.queries')} help={t('builder.data.queriesHelp')}>
+				{issueFor(issues, 'dataQueries', t) && (
 					<span style={{ font: `12px ${T.sans}`, color: T.err }}>
-						{issueFor(issues, 'dataQueries')}
+						{issueFor(issues, 'dataQueries', t)}
 					</span>
 				)}
 				<RowList
-					empty="No data queries yet. Without one the widget draws only its own settings."
-					addLabel="Add data query"
+					empty={t('builder.data.noQueries')}
+					addLabel={t('builder.data.addQuery')}
 					onAdd={addQuery}
 				>
 					{draft.dataQueries.map((query, index) => (
 						<RowCard
 							key={`query-${index}`}
 							title={query.label || query.id}
-							removeLabel={`Remove data query ${query.label || query.id}`}
+							removeLabel={t('builder.data.removeQuery', { name: query.label || query.id })}
 							onRemove={() => patch({ dataQueries: removeAt(draft.dataQueries, index) })}
 						>
 							<FieldGrid>
-								<Field label="Source">
+								<Field label={t('builder.data.source')}>
 									<Select
 										value={query.source}
-										options={SOURCE_OPTIONS}
+										options={sourceOptions(t)}
 										onChange={(e: { target: { value: string } }) => {
 											const source = e.target.value as WidgetDataQuerySource;
 											setQuery(index, {
 												...query,
 												source,
-												label: QUERY_SOURCE_LABEL[source],
+												label: t(QUERY_SOURCE_LABEL[source]),
 												// A binding list only means anything for the binding source; dropping it
 												// keeps the definition honest about what the query actually reads.
 												bindingIds: source === 'binding' ? (query.bindingIds ?? []) : undefined,
@@ -232,7 +229,7 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 										}}
 									/>
 								</Field>
-								<Field label="Label">
+								<Field label={t('builder.binding.label')}>
 									<Input
 										value={query.label}
 										onChange={(e: { target: { value: string } }) =>
@@ -240,7 +237,7 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 										}
 									/>
 								</Field>
-								<Field label="Id">
+								<Field label={t('builder.binding.id')}>
 									<Input
 										value={query.id}
 										onChange={(e: { target: { value: string } }) =>
@@ -248,10 +245,10 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 										}
 									/>
 								</Field>
-								<Field label="Audience" help="Who this query's rows are for.">
+								<Field label={t('builder.data.audience')} help={t('builder.data.audienceHelp')}>
 									<Select
 										value={query.audience}
-										options={AUDIENCE_OPTIONS}
+										options={audienceOptions(t)}
 										onChange={(e: { target: { value: string } }) =>
 											setQuery(index, {
 												...query,
@@ -260,10 +257,10 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 										}
 									/>
 								</Field>
-								<Field label="Needs">
+								<Field label={t('builder.binding.needs')}>
 									<Select
 										value={query.requiredCapability}
-										options={CAPABILITY_OPTIONS}
+										options={capabilityOptions(t)}
 										onChange={(e: { target: { value: string } }) =>
 											setQuery(index, {
 												...query,
@@ -284,12 +281,12 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 											marginBottom: 6,
 										}}
 									>
-										Reads which bindings
+										{t('builder.data.readsBindings')}
 									</legend>
 									<div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
 										{allBindings.length === 0 && (
 											<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
-												Declare a binding above first.
+												{t('builder.data.declareBindingFirst')}
 											</span>
 										)}
 										{allBindings.map((binding) => (
@@ -316,16 +313,17 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 				</RowList>
 			</StepSection>
 
-			<StepSection
-				title="Computed fields"
-				help="A value worked out from one or more queries. A withheld query contributes nothing, so a player's total is never derived from rows they never received."
-			>
-				{issueFor(issues, 'computedFields') && (
+			<StepSection title={t('builder.data.computed')} help={t('builder.data.computedHelp')}>
+				{issueFor(issues, 'computedFields', t) && (
 					<span style={{ font: `12px ${T.sans}`, color: T.err }}>
-						{issueFor(issues, 'computedFields')}
+						{issueFor(issues, 'computedFields', t)}
 					</span>
 				)}
-				<RowList empty="No computed fields." addLabel="Add computed field" onAdd={addComputed}>
+				<RowList
+					empty={t('builder.data.noComputed')}
+					addLabel={t('builder.data.addComputed')}
+					onAdd={addComputed}
+				>
 					{draft.computedFields.map((field, index) => {
 						const usesFormula = field.formula !== undefined;
 						const formulaBroken =
@@ -336,11 +334,13 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 							<RowCard
 								key={`computed-${index}`}
 								title={field.label || field.id}
-								removeLabel={`Remove computed field ${field.label || field.id}`}
+								removeLabel={t('builder.data.removeComputed', {
+									name: field.label || field.id,
+								})}
 								onRemove={() => patch({ computedFields: removeAt(draft.computedFields, index) })}
 							>
 								<FieldGrid>
-									<Field label="Label">
+									<Field label={t('builder.binding.label')}>
 										<Input
 											value={field.label}
 											onChange={(e: { target: { value: string } }) =>
@@ -348,7 +348,7 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 											}
 										/>
 									</Field>
-									<Field label="Value type">
+									<Field label={t('builder.data.valueType')}>
 										<Select
 											value={field.valueType}
 											options={VALUE_TYPE_OPTIONS}
@@ -370,12 +370,12 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 											marginBottom: 6,
 										}}
 									>
-										Reads from
+										{t('builder.data.readsFrom')}
 									</legend>
 									<div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
 										{draft.dataQueries.length === 0 && (
 											<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
-												Add a data query first.
+												{t('builder.data.addQueryFirst')}
 											</span>
 										)}
 										{draft.dataQueries.map((query) => (
@@ -401,7 +401,7 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 									<>
 										<Checkbox
 											checked={usesFormula}
-											label="Work it out with a formula"
+											label={t('builder.data.useFormula')}
 											onChange={() =>
 												setComputed(
 													index,
@@ -419,12 +419,8 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 										/>
 										{usesFormula && (
 											<Field
-												label="Formula"
-												error={
-													formulaBroken
-														? 'This formula cannot be read. Use the names below, numbers, + - * / ( ), and floor, ceil, round, abs, min, max.'
-														: undefined
-												}
+												label={t('builder.data.formula')}
+												error={formulaBroken ? t('builder.data.formulaBroken') : undefined}
 											>
 												<Input
 													value={field.formula ?? ''}
@@ -442,11 +438,11 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 												style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
 											>
 												<span style={{ font: `600 12px ${T.sans}`, color: T.sub }}>
-													Names you can use
+													{t('builder.data.namesYouCanUse')}
 												</span>
 												{draft.dataQueries.length === 0 ? (
 													<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
-														Add a data query to get names to add up.
+														{t('builder.data.addQueryForNames')}
 													</span>
 												) : (
 													<ul
@@ -468,7 +464,10 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 																	<code style={{ fontFamily: T.mono, color: T.sub }}>
 																		{widgetQueryFormulaIdentifier(query.id, column)}
 																	</code>{' '}
-																	— {query.label || query.id}, {COLUMN_HELP[column]}
+																	{t('builder.data.columnLine', {
+																		query: query.label || query.id,
+																		meaning: t(COLUMN_HELP[column]),
+																	})}
 																</li>
 															)),
 														)}
@@ -479,7 +478,7 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 									</>
 								) : (
 									<span style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
-										A formula works out a number. Set the value type to number to write one.
+										{t('builder.data.formulaNumbersOnly')}
 									</span>
 								)}
 							</RowCard>

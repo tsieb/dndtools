@@ -1,8 +1,9 @@
 import { type WidgetBindingDefinition } from '@dndtools/core';
 import { Checkbox, Field, Input, Select } from '../../ds';
 import { slugify, type WidgetDraft } from './draft';
-import { FieldGrid, RowCard, RowList, removeAt, replaceAt } from './fields';
+import { FieldGrid, RowCard, RowList, removeAt, replaceAt, type Translate } from './fields';
 import { CAPABILITY_LABEL } from './vocabulary';
+import { useI18n, type MessageKey } from '../../i18n';
 
 /**
  * The Data step's binding editor (RC-WID-2.2).
@@ -19,22 +20,24 @@ import { CAPABILITY_LABEL } from './vocabulary';
  */
 
 /** What a binding asks to do with the entity it is pointed at. Verbs first, no engine jargon. */
-const BINDING_MODE_LABEL: Record<WidgetBindingDefinition['mode'], string> = {
-	read: 'Read it',
-	operate: 'Read and act on it',
-	manage: 'Read, act on and change it',
-	observe: 'Watch it for changes',
+const BINDING_MODE_LABEL: Record<WidgetBindingDefinition['mode'], MessageKey> = {
+	read: 'builder.bindingMode.read',
+	operate: 'builder.bindingMode.operate',
+	manage: 'builder.bindingMode.manage',
+	observe: 'builder.bindingMode.observe',
 };
 
-const BINDING_MODE_OPTIONS = (['read', 'operate', 'manage', 'observe'] as const).map((value) => ({
-	value,
-	label: BINDING_MODE_LABEL[value],
-}));
+const bindingModeOptions = (t: Translate) =>
+	(['read', 'operate', 'manage', 'observe'] as const).map((value) => ({
+		value,
+		label: t(BINDING_MODE_LABEL[value]),
+	}));
 
-const CAPABILITY_OPTIONS = (['viewer', 'operator', 'manager'] as const).map((value) => ({
-	value,
-	label: CAPABILITY_LABEL[value],
-}));
+const capabilityOptions = (t: Translate) =>
+	(['viewer', 'operator', 'manager'] as const).map((value) => ({
+		value,
+		label: t(CAPABILITY_LABEL[value]),
+	}));
 
 /** An id no binding in the draft is using, whichever list it sits in. */
 export function nextBindingId(draft: WidgetDraft): string {
@@ -67,27 +70,31 @@ export function BindingRows({
 	onAdd: () => void;
 	onMove: (binding: WidgetBindingDefinition, index: number) => void;
 }) {
+	const { t } = useI18n();
 	const set = (index: number, next: WidgetBindingDefinition) =>
 		onChange(replaceAt(bindings, index, next));
 	return (
 		<RowList
-			empty={
-				kind === 'required'
-					? 'No required bindings. The widget draws without being pointed at anything.'
-					: 'No optional bindings.'
-			}
-			addLabel={kind === 'required' ? 'Add required binding' : 'Add optional binding'}
+			empty={t(kind === 'required' ? 'builder.binding.noRequired' : 'builder.binding.noOptional')}
+			addLabel={t(
+				kind === 'required' ? 'builder.binding.addRequired' : 'builder.binding.addOptional',
+			)}
 			onAdd={onAdd}
 		>
 			{bindings.map((binding, index) => (
 				<RowCard
 					key={`${kind}-binding-${index}`}
 					title={binding.label || binding.id}
-					removeLabel={`Remove ${kind} binding ${binding.label || binding.id}`}
+					removeLabel={t(
+						kind === 'required'
+							? 'builder.binding.removeRequired'
+							: 'builder.binding.removeOptional',
+						{ name: binding.label || binding.id },
+					)}
 					onRemove={() => onChange(removeAt(bindings, index))}
 				>
 					<FieldGrid>
-						<Field label="Label">
+						<Field label={t('builder.binding.label')}>
 							<Input
 								value={binding.label}
 								onChange={(e: { target: { value: string } }) =>
@@ -95,7 +102,7 @@ export function BindingRows({
 								}
 							/>
 						</Field>
-						<Field label="Id">
+						<Field label={t('builder.binding.id')}>
 							<Input
 								value={binding.id}
 								onChange={(e: { target: { value: string } }) =>
@@ -104,8 +111,8 @@ export function BindingRows({
 							/>
 						</Field>
 						<Field
-							label="Entity types"
-							help="What it may be pointed at, separated by commas — for example character, npc."
+							label={t('builder.binding.entityTypes')}
+							help={t('builder.binding.entityTypesHelp')}
 						>
 							<Input
 								value={binding.entityTypes.join(', ')}
@@ -114,10 +121,10 @@ export function BindingRows({
 								}
 							/>
 						</Field>
-						<Field label="Mode" help="What the widget asks to do with it.">
+						<Field label={t('builder.binding.mode')} help={t('builder.binding.modeHelp')}>
 							<Select
 								value={binding.mode}
-								options={BINDING_MODE_OPTIONS}
+								options={bindingModeOptions(t)}
 								onChange={(e: { target: { value: string } }) =>
 									set(index, {
 										...binding,
@@ -126,10 +133,10 @@ export function BindingRows({
 								}
 							/>
 						</Field>
-						<Field label="Needs">
+						<Field label={t('builder.binding.needs')}>
 							<Select
 								value={binding.requiredCapability}
-								options={CAPABILITY_OPTIONS}
+								options={capabilityOptions(t)}
 								onChange={(e: { target: { value: string } }) =>
 									set(index, {
 										...binding,
@@ -143,7 +150,7 @@ export function BindingRows({
 					<div>
 						<Checkbox
 							checked={kind === 'required'}
-							label="The widget cannot draw without it"
+							label={t('builder.binding.cannotDrawWithout')}
 							onChange={() => onMove(binding, index)}
 						/>
 					</div>

@@ -20,6 +20,9 @@ import {
 	STYLE_CAPABILITIES,
 	STYLE_CAPABILITY_LABEL,
 } from './vocabulary';
+import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
+
+type Translate = (key: MessageKey, values?: MessageValues) => string;
 
 /**
  * Style — the `--widget-*` tokens this widget exposes, and how isolated its styling is
@@ -31,31 +34,30 @@ import {
  * carries that further.
  */
 
-const ISOLATION_OPTIONS = (Object.keys(ISOLATION_LABEL) as WidgetStyleIsolation[]).map((value) => ({
-	value,
-	label: ISOLATION_LABEL[value],
-}));
+const isolationOptions = (t: Translate) =>
+	(Object.keys(ISOLATION_LABEL) as WidgetStyleIsolation[]).map((value) => ({
+		value,
+		label: t(ISOLATION_LABEL[value]),
+	}));
+
+const tokenValueOptions = (t: Translate) =>
+	SEMANTIC_TOKEN_VALUES.map((option) => ({ value: option.value, label: t(option.label) }));
 
 export function StyleStep({ draft, patch, issues }: StepProps) {
+	const { t } = useI18n();
 	const allowsRawValue = draft.styleCapabilities.includes('custom-stylesheet');
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-			<StepHeader
-				title="Style"
-				help="Declare the colours this widget exposes. They appear in the Inspector's Style group and follow the active theme."
-			/>
-			<StepSection
-				title="Tokens"
-				help="Each token becomes a --widget- variable the renderer can use."
-			>
-				{issueFor(issues, 'styleTokens') && (
+			<StepHeader title={t('builder.style.title')} help={t('builder.style.help')} />
+			<StepSection title={t('builder.style.tokens')} help={t('builder.style.tokensHelp')}>
+				{issueFor(issues, 'styleTokens', t) && (
 					<span style={{ font: `12px ${T.sans}`, color: T.err }}>
-						{issueFor(issues, 'styleTokens')}
+						{issueFor(issues, 'styleTokens', t)}
 					</span>
 				)}
 				<RowList
-					empty="No style tokens. The widget inherits the app theme as it is."
-					addLabel="Add style token"
+					empty={t('builder.style.noTokens')}
+					addLabel={t('builder.style.addToken')}
 					onAdd={() =>
 						patch({
 							styleTokens: [
@@ -72,11 +74,11 @@ export function StyleStep({ draft, patch, issues }: StepProps) {
 						<RowCard
 							key={`token-${index}`}
 							title={`--widget-${token.name}`}
-							removeLabel={`Remove style token ${token.name}`}
+							removeLabel={t('builder.style.removeToken', { name: token.name })}
 							onRemove={() => patch({ styleTokens: removeAt(draft.styleTokens, index) })}
 						>
 							<FieldGrid>
-								<Field label="Name" help="Exposed as --widget-<name>.">
+								<Field label={t('builder.style.name')} help={t('builder.style.nameHelp')}>
 									<Input
 										value={token.name}
 										onChange={(e: { target: { value: string } }) =>
@@ -89,7 +91,7 @@ export function StyleStep({ draft, patch, issues }: StepProps) {
 										}
 									/>
 								</Field>
-								<Field label="Value">
+								<Field label={t('builder.style.value')}>
 									{allowsRawValue &&
 									!SEMANTIC_TOKEN_VALUES.some((option) => option.value === token.value) ? (
 										<Input
@@ -106,7 +108,7 @@ export function StyleStep({ draft, patch, issues }: StepProps) {
 									) : (
 										<Select
 											value={token.value}
-											options={SEMANTIC_TOKEN_VALUES}
+											options={tokenValueOptions(t)}
 											onChange={(e: { target: { value: string } }) =>
 												patch({
 													styleTokens: replaceAt(draft.styleTokens, index, {
@@ -119,7 +121,10 @@ export function StyleStep({ draft, patch, issues }: StepProps) {
 									)}
 								</Field>
 							</FieldGrid>
-							<Field label="Description" help="What this colour is for.">
+							<Field
+								label={t('builder.style.description')}
+								help={t('builder.style.descriptionHelp')}
+							>
 								<Input
 									value={token.description ?? ''}
 									onChange={(e: { target: { value: string } }) =>
@@ -137,27 +142,26 @@ export function StyleStep({ draft, patch, issues }: StepProps) {
 				</RowList>
 				{!allowsRawValue && (
 					<span style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
-						Values come from the app's semantic tokens. Turn on Custom stylesheet below to type your
-						own.
+						{t('builder.style.semanticOnly')}
 					</span>
 				)}
 			</StepSection>
-			<StepSection title="Isolation and capabilities">
-				<Field label="Isolation" help="How separate this widget's styling is from the app's.">
+			<StepSection title={t('builder.style.isolationTitle')}>
+				<Field label={t('builder.style.isolation')} help={t('builder.style.isolationHelp')}>
 					<Select
 						value={draft.styleIsolation}
-						options={ISOLATION_OPTIONS}
+						options={isolationOptions(t)}
 						onChange={(e: { target: { value: string } }) =>
 							patch({ styleIsolation: e.target.value as WidgetStyleIsolation })
 						}
 					/>
 				</Field>
-				<ToggleGroup legend="Style capabilities">
+				<ToggleGroup legend={t('builder.style.capabilities')}>
 					{STYLE_CAPABILITIES.map((capability) => (
 						<Checkbox
 							key={capability}
 							checked={draft.styleCapabilities.includes(capability)}
-							label={STYLE_CAPABILITY_LABEL[capability]}
+							label={t(STYLE_CAPABILITY_LABEL[capability])}
 							onChange={() =>
 								patch({
 									styleCapabilities: draft.styleCapabilities.includes(capability)

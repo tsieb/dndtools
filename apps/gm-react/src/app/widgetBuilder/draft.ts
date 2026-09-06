@@ -20,6 +20,7 @@ import {
 	widgetFormulaIdentifiers,
 	widgetQueryFormulaIdentifier,
 } from '@dndtools/core';
+import type { MessageKey } from '../../i18n';
 
 /**
  * The widget builder's draft model (RC-WID-2.1) — the whole of the builder that is not React.
@@ -49,21 +50,27 @@ export const STEP_IDS = [
 
 export type BuilderStepId = (typeof STEP_IDS)[number];
 
-export const STEP_LABEL: Record<BuilderStepId, string> = {
-	identity: 'Identity',
-	layout: 'Layout',
-	data: 'Data',
-	config: 'Config fields',
-	commands: 'Commands',
-	style: 'Style',
-	advanced: 'Advanced',
-	review: 'Review',
+export const STEP_LABEL: Record<BuilderStepId, MessageKey> = {
+	identity: 'builder.step.identity',
+	layout: 'builder.step.layout',
+	data: 'builder.step.data',
+	config: 'builder.step.config',
+	commands: 'builder.step.commands',
+	style: 'builder.step.style',
+	advanced: 'builder.step.advanced',
+	review: 'builder.step.review',
 };
 
 /** Where a widget prefers to sit on a surface that docks widgets. See `buildPackage`. */
 export type DockPreference = 'canvas' | 'left' | 'right' | 'bottom';
 
-export const DOCK_PREFERENCE_LABEL: Record<DockPreference, string> = {
+export const DOCK_PREFERENCES: readonly DockPreference[] = ['canvas', 'left', 'right', 'bottom'];
+
+/** The dock preference's stored option labels. These are written into the built package as a
+ * declared config field, so they are durable package content rather than screen copy and stay in
+ * the source language; the Layout step's own picker renders `DOCK_PREFERENCE_LABEL` from
+ * `vocabulary.ts` through the catalog. */
+const STORED_DOCK_LABEL: Record<DockPreference, string> = {
 	canvas: 'Free on the canvas',
 	left: 'Left dock',
 	right: 'Right dock',
@@ -193,10 +200,7 @@ function dockPreferenceField(preference: DockPreference): WidgetConfigField {
 		group: 'display',
 		default: preference,
 		help: 'Where this widget prefers to sit on a surface that docks widgets.',
-		options: (Object.keys(DOCK_PREFERENCE_LABEL) as DockPreference[]).map((value) => ({
-			value,
-			label: DOCK_PREFERENCE_LABEL[value],
-		})),
+		options: DOCK_PREFERENCES.map((value) => ({ value, label: STORED_DOCK_LABEL[value] })),
 	};
 }
 
@@ -338,7 +342,9 @@ export function readPackage(pkg: WidgetPackageDefinition): WidgetDraft {
 		defaultSize: { ...widget.defaultSize },
 		minSize: { ...widget.minSize },
 		resizePolicy: widget.resizePolicy,
-		dockPreference: dockValue in DOCK_PREFERENCE_LABEL ? dockValue : 'canvas',
+		dockPreference: DOCK_PREFERENCES.includes(dockValue as DockPreference)
+			? (dockValue as DockPreference)
+			: 'canvas',
 		template: widget.renderEntrypoint?.template ?? base.template,
 		dataQueries: (widget.dataQueries ?? []).map((query) => ({ ...query })),
 		computedFields: (widget.computedFields ?? []).map((field) => ({ ...field })),
@@ -358,10 +364,13 @@ export function readPackage(pkg: WidgetPackageDefinition): WidgetDraft {
 	};
 }
 
+/** A problem, as a catalog key plus its values: the builder is framework-free of English so the
+ * step that renders it decides the wording per locale (RC-UX-1.2). */
 export interface DraftIssue {
 	step: BuilderStepId;
 	field: string;
-	message: string;
+	message: MessageKey;
+	values?: Record<string, string | number>;
 }
 
 /**
@@ -370,61 +379,51 @@ export interface DraftIssue {
  */
 export function validateDraft(draft: WidgetDraft): DraftIssue[] {
 	const issues: DraftIssue[] = [];
-	const add = (step: BuilderStepId, field: string, message: string) =>
-		issues.push({ step, field, message });
+	const add = (
+		step: BuilderStepId,
+		field: string,
+		message: MessageKey,
+		values?: Record<string, string | number>,
+	) => issues.push({ step, field, message, values });
 
-	if (!draft.name.trim()) add('identity', 'name', 'Give the widget a name.');
-	if (!draft.packageId) add('identity', 'packageId', 'Give the package an id.');
+	if (!draft.name.trim()) add('identity', 'name', 'builder.issue.name');
+	if (!draft.packageId) add('identity', 'packageId', 'builder.issue.packageId');
 	else if (!SLUG_PATTERN.test(draft.packageId))
-		add(
-			'identity',
-			'packageId',
-			'Use lowercase letters, numbers, dots and hyphens, for example workspace.party-status.',
-		);
-	if (!draft.typeId) add('identity', 'typeId', 'Give the widget a type id.');
-	else if (!SLUG_PATTERN.test(draft.typeId))
-		add(
-			'identity',
-			'typeId',
-			'Use lowercase letters, numbers, dots and hyphens, for example party-status.',
-		);
-	if (!SEMVER_PATTERN.test(draft.version))
-		add('identity', 'version', 'Use a three-part version, for example 1.0.0.');
-	if (draft.surfaces.length === 0) add('identity', 'surfaces', 'Choose at least one surface.');
+		add('identity', 'packageId', 'builder.issue.packageIdShape');
+	if (!draft.typeId) add('identity', 'typeId', 'builder.issue.typeId');
+	else if (!SLUG_PATTERN.test(draft.typeId)) add('identity', 'typeId', 'builder.issue.typeIdShape');
+	if (!SEMVER_PATTERN.test(draft.version)) add('identity', 'version', 'builder.issue.version');
+	if (draft.surfaces.length === 0) add('identity', 'surfaces', 'builder.issue.surfaces');
 	if (draft.supportedProfiles.length === 0)
-		add('identity', 'supportedProfiles', 'Choose at least one device profile.');
+		add('identity', 'supportedProfiles', 'builder.issue.profiles');
 
 	for (const axis of ['width', 'height'] as const) {
 		if (draft.defaultSize[axis] <= 0)
-			add('layout', `defaultSize.${axis}`, `Default ${axis} must be greater than zero.`);
+			add(
+				'layout',
+				`defaultSize.${axis}`,
+				`builder.issue.default${axis === 'width' ? 'Width' : 'Height'}`,
+			);
 		if (draft.minSize[axis] <= 0)
-			add('layout', `minSize.${axis}`, `Minimum ${axis} must be greater than zero.`);
+			add('layout', `minSize.${axis}`, `builder.issue.min${axis === 'width' ? 'Width' : 'Height'}`);
 		if (draft.minSize[axis] > draft.defaultSize[axis])
 			add(
 				'layout',
 				`minSize.${axis}`,
-				`Minimum ${axis} cannot be larger than the default ${axis}.`,
+				`builder.issue.min${axis === 'width' ? 'Width' : 'Height'}TooLarge`,
 			);
 	}
 
 	const bindingIds = new Set<string>();
 	for (const binding of [...draft.requiredBindings, ...draft.optionalBindings]) {
-		if (!binding.id) add('data', 'bindings', 'Every binding needs an id.');
+		if (!binding.id) add('data', 'bindings', 'builder.issue.bindingId');
 		else if (bindingIds.has(binding.id))
-			add('data', 'bindings', `Binding ${binding.id} is declared more than once.`);
+			add('data', 'bindings', 'builder.issue.bindingDuplicate', { id: binding.id });
 		else if (!SLUG_PATTERN.test(binding.id))
-			add(
-				'data',
-				'bindings',
-				`Binding id ${binding.id} must be lowercase words joined by hyphens.`,
-			);
+			add('data', 'bindings', 'builder.issue.bindingIdShape', { id: binding.id });
 		bindingIds.add(binding.id);
 		if (binding.entityTypes.length === 0)
-			add(
-				'data',
-				'bindings',
-				`Binding ${binding.id || 'without an id'} needs at least one entity type.`,
-			);
+			add('data', 'bindings', 'builder.issue.bindingEntityTypes', { id: binding.id });
 	}
 
 	const queryIds = new Set<string>();
@@ -432,28 +431,23 @@ export function validateDraft(draft: WidgetDraft): DraftIssue[] {
 	// would silently read the wrong query. Caught here rather than surprising the author at render.
 	const identifierOwners = new Map<string, string>();
 	for (const query of draft.dataQueries) {
-		if (!query.id) add('data', 'dataQueries', 'Every data query needs an id.');
+		if (!query.id) add('data', 'dataQueries', 'builder.issue.queryId');
 		else if (queryIds.has(query.id))
-			add('data', 'dataQueries', `Data query ${query.id} is declared more than once.`);
+			add('data', 'dataQueries', 'builder.issue.queryDuplicate', { id: query.id });
 		queryIds.add(query.id);
 		if (query.source === 'binding') {
 			for (const id of query.bindingIds ?? []) {
 				if (!bindingIds.has(id))
-					add(
-						'data',
-						'dataQueries',
-						`Data query ${query.id} reads a binding that is not declared.`,
-					);
+					add('data', 'dataQueries', 'builder.issue.queryUndeclaredBinding', { id: query.id });
 			}
 		}
 		const identifier = widgetQueryFormulaIdentifier(query.id, 'count');
 		const owner = identifierOwners.get(identifier);
 		if (owner !== undefined && owner !== query.id)
-			add(
-				'data',
-				'dataQueries',
-				`Data queries ${owner} and ${query.id} would share one name in a formula. Make the ids differ by more than punctuation.`,
-			);
+			add('data', 'dataQueries', 'builder.issue.queryIdentifierClash', {
+				owner,
+				id: query.id,
+			});
 		else identifierOwners.set(identifier, query.id);
 	}
 
@@ -461,41 +455,37 @@ export function validateDraft(draft: WidgetDraft): DraftIssue[] {
 	for (const field of draft.computedFields) {
 		for (const inputId of field.inputQueryIds) {
 			if (!queryIds.has(inputId))
-				add('data', 'computedFields', `Computed field ${field.id} reads a query that is gone.`);
+				add('data', 'computedFields', 'builder.issue.computedMissingQuery', { id: field.id });
 		}
 		if (field.formula !== undefined && field.valueType === 'number') {
 			if (!field.formula.trim())
-				add('data', 'computedFields', `Computed field ${field.id} has an empty formula.`);
+				add('data', 'computedFields', 'builder.issue.computedEmptyFormula', { id: field.id });
 			else if (!isValidFormula(field.formula, identifiers))
-				add(
-					'data',
-					'computedFields',
-					`Computed field ${field.id} has a formula that cannot be read. Use the names listed under the formula.`,
-				);
+				add('data', 'computedFields', 'builder.issue.computedBadFormula', { id: field.id });
 		}
 	}
 
 	const configKeys = new Set<string>();
 	for (const field of draft.configFields) {
-		if (!field.key) add('config', 'configFields', 'Every config field needs a key.');
+		if (!field.key) add('config', 'configFields', 'builder.issue.configKey');
 		else if (configKeys.has(field.key))
-			add('config', 'configFields', `Config key ${field.key} is declared more than once.`);
+			add('config', 'configFields', 'builder.issue.configDuplicate', { key: field.key });
 		configKeys.add(field.key);
 	}
 
 	const commandTypes = new Set<string>();
 	for (const command of draft.commands) {
-		if (!command.type) add('commands', 'commands', 'Every command needs a type.');
+		if (!command.type) add('commands', 'commands', 'builder.issue.commandType');
 		else if (commandTypes.has(command.type))
-			add('commands', 'commands', `Command ${command.type} is declared more than once.`);
+			add('commands', 'commands', 'builder.issue.commandDuplicate', { type: command.type });
 		commandTypes.add(command.type);
 	}
 
 	const tokenNames = new Set<string>();
 	for (const token of draft.styleTokens) {
-		if (!token.name) add('style', 'styleTokens', 'Every style token needs a name.');
+		if (!token.name) add('style', 'styleTokens', 'builder.issue.tokenName');
 		else if (tokenNames.has(token.name))
-			add('style', 'styleTokens', `Style token ${token.name} is declared more than once.`);
+			add('style', 'styleTokens', 'builder.issue.tokenDuplicate', { name: token.name });
 		tokenNames.add(token.name);
 	}
 

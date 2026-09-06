@@ -17,6 +17,9 @@ import {
 	type StepProps,
 } from './fields';
 import { CAPABILITY_LABEL, WRITES_TO_LABEL } from './vocabulary';
+import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
+
+type Translate = (key: MessageKey, values?: MessageValues) => string;
 
 /**
  * Commands — the actions a placed copy of this widget can take (RC-WID-2.1).
@@ -31,14 +34,17 @@ import { CAPABILITY_LABEL, WRITES_TO_LABEL } from './vocabulary';
  * per-command payload builders.
  */
 
+/** `label` names the chip in the picker and is translated; the descriptor's `displayName` is
+ * written into the built package, so like every other stored label it stays in the source
+ * language until the author renames it. */
 interface CatalogEntry {
-	label: string;
+	label: MessageKey;
 	descriptor: (typeId: string) => WidgetCommandDescriptor;
 }
 
 const CATALOG: CatalogEntry[] = [
 	{
-		label: 'Roll',
+		label: 'builder.catalog.roll',
 		descriptor: (typeId) => ({
 			type: `${typeId}.roll`,
 			displayName: 'Roll',
@@ -49,7 +55,7 @@ const CATALOG: CatalogEntry[] = [
 		}),
 	},
 	{
-		label: 'Advance',
+		label: 'builder.catalog.advance',
 		descriptor: (typeId) => ({
 			type: `${typeId}.advance`,
 			displayName: 'Advance',
@@ -60,7 +66,7 @@ const CATALOG: CatalogEntry[] = [
 		}),
 	},
 	{
-		label: 'Tick',
+		label: 'builder.catalog.tick',
 		descriptor: (typeId) => ({
 			type: `${typeId}.tick`,
 			displayName: 'Tick',
@@ -71,7 +77,7 @@ const CATALOG: CatalogEntry[] = [
 		}),
 	},
 	{
-		label: 'Reset',
+		label: 'builder.catalog.reset',
 		descriptor: (typeId) => ({
 			type: `${typeId}.reset`,
 			displayName: 'Reset',
@@ -82,7 +88,7 @@ const CATALOG: CatalogEntry[] = [
 		}),
 	},
 	{
-		label: 'Set value',
+		label: 'builder.catalog.setValue',
 		descriptor: (typeId) => ({
 			type: `${typeId}.set-config`,
 			displayName: 'Set value',
@@ -93,7 +99,7 @@ const CATALOG: CatalogEntry[] = [
 		}),
 	},
 	{
-		label: 'Show to players',
+		label: 'builder.catalog.show',
 		descriptor: (typeId) => ({
 			type: `${typeId}.show`,
 			displayName: 'Show to players',
@@ -105,34 +111,44 @@ const CATALOG: CatalogEntry[] = [
 	},
 ];
 
-const CAPABILITY_OPTIONS = (['viewer', 'operator', 'manager'] as const).map((value) => ({
-	value,
-	label: CAPABILITY_LABEL[value],
-}));
-const WRITES_TO_OPTIONS = (['scene', 'session', 'entity'] as const).map((value) => ({
-	value,
-	label: WRITES_TO_LABEL[value],
-}));
-const DESTINATION_OPTIONS: { value: WidgetOutputDestinationClass; label: string }[] = [
-	{ value: 'scene', label: 'The scene' },
-	{ value: 'session', label: 'The session' },
-	{ value: 'entity', label: 'A bound entity' },
-	{ value: 'player-visible-state', label: 'Player visible state' },
-	{ value: 'player-scene', label: 'The player scene' },
-];
+const capabilityOptions = (t: Translate) =>
+	(['viewer', 'operator', 'manager'] as const).map((value) => ({
+		value,
+		label: t(CAPABILITY_LABEL[value]),
+	}));
+const writesToOptions = (t: Translate) =>
+	(['scene', 'session', 'entity'] as const).map((value) => ({
+		value,
+		label: t(WRITES_TO_LABEL[value]),
+	}));
+// The five destinations this step offers. The core's class union is wider (it also carries the
+// classes only an installed package can reach), so this is a partial map on purpose.
+const DESTINATION_LABEL: Partial<Record<WidgetOutputDestinationClass, MessageKey>> = {
+	scene: 'builder.writesTo.scene',
+	session: 'builder.writesTo.session',
+	entity: 'builder.writesTo.entity',
+	'player-visible-state': 'builder.destination.playerVisibleState',
+	'player-scene': 'builder.destination.playerScene',
+};
+const destinationOptions = (t: Translate) =>
+	(Object.keys(DESTINATION_LABEL) as WidgetOutputDestinationClass[]).map((value) => ({
+		value,
+		label: t(DESTINATION_LABEL[value] ?? 'builder.writesTo.scene'),
+	}));
 
-const KIND_COPY: Record<'operate' | 'configure', { label: string; help: string }> = {
+const KIND_COPY: Record<'operate' | 'configure', { label: MessageKey; help: MessageKey }> = {
 	operate: {
-		label: 'Operate',
-		help: 'An operator at the table can fire this.',
+		label: 'builder.commandKind.operate',
+		help: 'builder.commandKind.operateHelp',
 	},
 	configure: {
-		label: 'Configure',
-		help: 'Only a campaign manager can fire this.',
+		label: 'builder.commandKind.configure',
+		help: 'builder.commandKind.configureHelp',
 	},
 };
 
 export function CommandsStep({ draft, patch, issues }: StepProps) {
+	const { t } = useI18n();
 	const setCommand = (index: number, next: WidgetCommandDescriptor) =>
 		patch({ commands: replaceAt(draft.commands, index, next) });
 
@@ -144,13 +160,10 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-			<StepHeader
-				title="Commands"
-				help="What this widget can do. Lamplight classifies each one as an operate or a configure action and enforces that at the table."
-			/>
+			<StepHeader title={t('builder.step.commands')} help={t('builder.commands.help')} />
 			<StepSection
-				title="Add from the catalogue"
-				help="Each entry is a ready-made descriptor named after this widget's type id."
+				title={t('builder.commands.catalogTitle')}
+				help={t('builder.commands.catalogHelp')}
 			>
 				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
 					{CATALOG.map((entry) => {
@@ -172,21 +185,23 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 									cursor: already ? 'default' : 'pointer',
 								}}
 							>
-								{already ? `${entry.label} — added` : entry.label}
+								{already
+									? t('builder.commands.alreadyAdded', { label: t(entry.label) })
+									: t(entry.label)}
 							</button>
 						);
 					})}
 				</div>
 			</StepSection>
-			<StepSection title="Declared commands">
-				{issueFor(issues, 'commands') && (
+			<StepSection title={t('builder.commands.declared')}>
+				{issueFor(issues, 'commands', t) && (
 					<span style={{ font: `12px ${T.sans}`, color: T.err }}>
-						{issueFor(issues, 'commands')}
+						{issueFor(issues, 'commands', t)}
 					</span>
 				)}
 				<RowList
-					empty="No commands. An action panel with no commands renders as a read-only card."
-					addLabel="Add a blank command"
+					empty={t('builder.commands.empty')}
+					addLabel={t('builder.commands.addBlank')}
 					onAdd={() =>
 						patch({
 							commands: [
@@ -209,19 +224,21 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 							<RowCard
 								key={`command-${index}`}
 								title={command.displayName || command.type}
-								removeLabel={`Remove command ${command.displayName || command.type}`}
+								removeLabel={t('builder.commands.remove', {
+									name: command.displayName || command.type,
+								})}
 								onRemove={() => patch({ commands: removeAt(draft.commands, index) })}
 							>
 								<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
 									<Badge status={kind === 'operate' ? 'info' : 'warning'}>
-										{KIND_COPY[kind].label}
+										{t(KIND_COPY[kind].label)}
 									</Badge>
 									<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
-										{KIND_COPY[kind].help}
+										{t(KIND_COPY[kind].help)}
 									</span>
 								</div>
 								<FieldGrid>
-									<Field label="Name">
+									<Field label={t('builder.commands.name')}>
 										<Input
 											value={command.displayName}
 											onChange={(e: { target: { value: string } }) =>
@@ -229,7 +246,7 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 											}
 										/>
 									</Field>
-									<Field label="Type" help="The dotted id the core dispatches.">
+									<Field label={t('builder.commands.type')} help={t('builder.commands.typeHelp')}>
 										<Input
 											value={command.type}
 											onChange={(e: { target: { value: string } }) =>
@@ -237,10 +254,10 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 											}
 										/>
 									</Field>
-									<Field label="Needs">
+									<Field label={t('builder.binding.needs')}>
 										<Select
 											value={command.requiredCapability}
-											options={CAPABILITY_OPTIONS}
+											options={capabilityOptions(t)}
 											onChange={(e: { target: { value: string } }) =>
 												setCommand(index, {
 													...command,
@@ -250,10 +267,10 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 											}
 										/>
 									</Field>
-									<Field label="Writes to">
+									<Field label={t('builder.commands.writesTo')}>
 										<Select
 											value={command.writesTo}
-											options={WRITES_TO_OPTIONS}
+											options={writesToOptions(t)}
 											onChange={(e: { target: { value: string } }) =>
 												setCommand(index, {
 													...command,
@@ -262,10 +279,13 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 											}
 										/>
 									</Field>
-									<Field label="Destination" help="What class of data this command reaches.">
+									<Field
+										label={t('builder.commands.destination')}
+										help={t('builder.commands.destinationHelp')}
+									>
 										<Select
 											value={command.destinationClass ?? 'scene'}
-											options={DESTINATION_OPTIONS}
+											options={destinationOptions(t)}
 											onChange={(e: { target: { value: string } }) =>
 												setCommand(index, {
 													...command,

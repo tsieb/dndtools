@@ -235,7 +235,7 @@ export function WidgetBuilder({
 								type="button"
 								onClick={() => goToStep(id)}
 								// The index badge is decoration; the step's NAME is the button's name.
-								aria-label={STEP_LABEL[id]}
+								aria-label={t(STEP_LABEL[id])}
 								aria-current={current ? 'step' : undefined}
 								style={{
 									width: '100%',
@@ -269,7 +269,7 @@ export function WidgetBuilder({
 								>
 									{index + 1}
 								</span>
-								<span style={{ flex: 1, minWidth: 0 }}>{STEP_LABEL[id]}</span>
+								<span style={{ flex: 1, minWidth: 0 }}>{t(STEP_LABEL[id])}</span>
 								{blocked && (
 									<Badge status="warning">{t('extensions.builder.needsAttention')}</Badge>
 								)}
@@ -385,7 +385,7 @@ export function WidgetBuilder({
 						{t('extensions.builder.stepOf', {
 							index: stepIndex + 1,
 							total: STEP_IDS.length,
-							label: STEP_LABEL[step],
+							label: t(STEP_LABEL[step]),
 						})}
 					</span>
 				</div>

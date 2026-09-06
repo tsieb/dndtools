@@ -14,6 +14,9 @@ import {
 	type StepProps,
 } from './fields';
 import { CONTROLS, CONTROL_LABEL, FIELD_GROUP_LABEL } from './vocabulary';
+import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
+
+type Translate = (key: MessageKey, values?: MessageValues) => string;
 
 /**
  * Config fields — the settings a DM edits on a PLACED copy of the widget (RC-WID-2.1).
@@ -26,14 +29,13 @@ import { CONTROLS, CONTROL_LABEL, FIELD_GROUP_LABEL } from './vocabulary';
  * RC-WID-2.3 extends this step with per-control validation ranges and grouped previews.
  */
 
-const CONTROL_OPTIONS = CONTROLS.map((control) => ({
-	value: control,
-	label: CONTROL_LABEL[control],
-}));
-const GROUP_OPTIONS = (['content', 'display', 'style'] as const).map((value) => ({
-	value,
-	label: FIELD_GROUP_LABEL[value],
-}));
+const controlOptions = (t: Translate) =>
+	CONTROLS.map((control) => ({ value: control, label: t(CONTROL_LABEL[control]) }));
+const groupOptions = (t: Translate) =>
+	(['content', 'display', 'style'] as const).map((value) => ({
+		value,
+		label: t(FIELD_GROUP_LABEL[value]),
+	}));
 
 function defaultFor(control: WidgetConfigControl): unknown {
 	if (control === 'number') return 0;
@@ -49,6 +51,7 @@ function defaultAsText(value: unknown): string {
 }
 
 export function ConfigStep({ draft, patch, issues }: StepProps) {
+	const { t } = useI18n();
 	const setField = (index: number, next: WidgetConfigField) =>
 		patch({ configFields: replaceAt(draft.configFields, index, next) });
 
@@ -60,6 +63,8 @@ export function ConfigStep({ draft, patch, issues }: StepProps) {
 				...draft.configFields,
 				{
 					key: `setting${index}`,
+					// A seed the DM immediately renames. It is written into the built package, so like
+					// every other stored label it stays in the source language rather than the UI's.
 					label: `Setting ${index}`,
 					control: 'text',
 					group: 'content',
@@ -71,30 +76,27 @@ export function ConfigStep({ draft, patch, issues }: StepProps) {
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-			<StepHeader
-				title="Config fields"
-				help="What the DM can change on each placed copy. Every field here becomes a control in the scene Inspector."
-			/>
-			<StepSection title="Fields">
-				{issueFor(issues, 'configFields') && (
+			<StepHeader title={t('builder.step.config')} help={t('builder.config.help')} />
+			<StepSection title={t('builder.config.fields')}>
+				{issueFor(issues, 'configFields', t) && (
 					<span style={{ font: `12px ${T.sans}`, color: T.err }}>
-						{issueFor(issues, 'configFields')}
+						{issueFor(issues, 'configFields', t)}
 					</span>
 				)}
 				<RowList
-					empty="No settings yet. A widget with none is the same on every scene."
-					addLabel="Add config field"
+					empty={t('builder.config.empty')}
+					addLabel={t('builder.config.addField')}
 					onAdd={addField}
 				>
 					{draft.configFields.map((field, index) => (
 						<RowCard
 							key={`config-${index}`}
 							title={field.label || field.key}
-							removeLabel={`Remove config field ${field.label || field.key}`}
+							removeLabel={t('builder.config.removeField', { name: field.label || field.key })}
 							onRemove={() => patch({ configFields: removeAt(draft.configFields, index) })}
 						>
 							<FieldGrid>
-								<Field label="Label">
+								<Field label={t('builder.config.label')}>
 									<Input
 										value={field.label}
 										onChange={(e: { target: { value: string } }) =>
@@ -103,11 +105,9 @@ export function ConfigStep({ draft, patch, issues }: StepProps) {
 									/>
 								</Field>
 								<Field
-									label="Key"
+									label={t('builder.config.key')}
 									error={
-										field.key === DOCK_PREFERENCE_KEY
-											? 'That key is reserved for the dock preference.'
-											: undefined
+										field.key === DOCK_PREFERENCE_KEY ? t('builder.config.reservedKey') : undefined
 									}
 								>
 									<Input
@@ -117,20 +117,20 @@ export function ConfigStep({ draft, patch, issues }: StepProps) {
 										}
 									/>
 								</Field>
-								<Field label="Control">
+								<Field label={t('builder.config.control')}>
 									<Select
 										value={field.control}
-										options={CONTROL_OPTIONS}
+										options={controlOptions(t)}
 										onChange={(e: { target: { value: string } }) => {
 											const control = e.target.value as WidgetConfigControl;
 											setField(index, { ...field, control, default: defaultFor(control) });
 										}}
 									/>
 								</Field>
-								<Field label="Group">
+								<Field label={t('builder.config.group')}>
 									<Select
 										value={field.group ?? 'content'}
-										options={GROUP_OPTIONS}
+										options={groupOptions(t)}
 										onChange={(e: { target: { value: string } }) =>
 											setField(index, {
 												...field,
@@ -143,11 +143,11 @@ export function ConfigStep({ draft, patch, issues }: StepProps) {
 							{field.control === 'toggle' ? (
 								<Switch
 									checked={field.default === true}
-									label="Starts switched on"
+									label={t('builder.config.startsOn')}
 									onChange={(next: boolean) => setField(index, { ...field, default: next })}
 								/>
 							) : (
-								<Field label="Default value">
+								<Field label={t('builder.config.defaultValue')}>
 									<Input
 										value={defaultAsText(field.default)}
 										onChange={(e: { target: { value: string } }) => {
@@ -165,7 +165,7 @@ export function ConfigStep({ draft, patch, issues }: StepProps) {
 									/>
 								</Field>
 							)}
-							<Field label="Help text" help="Shown under the control in the Inspector.">
+							<Field label={t('builder.config.helpText')} help={t('builder.config.helpTextHelp')}>
 								<Input
 									value={field.help ?? ''}
 									onChange={(e: { target: { value: string } }) =>
@@ -174,13 +174,10 @@ export function ConfigStep({ draft, patch, issues }: StepProps) {
 								/>
 							</Field>
 							{field.control === 'select' && (
-								<Field
-									label="Choices"
-									help="One per line, or value=Label to give a choice its own wording."
-								>
+								<Field label={t('builder.config.choices')} help={t('builder.config.choicesHelp')}>
 									<Input
 										value={(field.options ?? []).map((o) => `${o.value}=${o.label}`).join(', ')}
-										placeholder="calm=Calm, tense=Tense"
+										placeholder={t('builder.config.choicesPlaceholder')}
 										onChange={(e: { target: { value: string } }) =>
 											setField(index, {
 												...field,

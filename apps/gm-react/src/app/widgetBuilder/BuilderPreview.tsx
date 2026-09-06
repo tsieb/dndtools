@@ -22,6 +22,7 @@ import { StatusListTemplate } from '../widgets/templates/StatusList';
 import { TrackerTemplate } from '../widgets/templates/Tracker';
 import type { WidgetTemplateProps } from '../widgets/templates/shared';
 import { buildPackage, type WidgetDraft } from './draft';
+import { useI18n } from '../../i18n';
 
 /**
  * The builder's centre pane: the draft drawn through the real render path (RC-WID-2.1).
@@ -58,6 +59,7 @@ const RAW_TEMPLATES: Record<WidgetTemplateKind, ComponentType<WidgetTemplateProp
 };
 
 export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const [audience, setAudience] = useState<'dm' | 'player'>('dm');
 	const definition = useMemo(() => buildPackage(draft).widgets[0] ?? null, [draft]);
@@ -81,8 +83,8 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 		return {
 			id: 'widget-builder-preview',
 			type: definition.type,
-			title: definition.displayName || 'Untitled widget',
-			typeLabel: definition.category || 'Custom',
+			title: definition.displayName || t('builder.preview.untitled'),
+			typeLabel: definition.category || t('builder.preview.custom'),
 			icon: definition.icon ?? 'widget',
 			tier: 'custom',
 			description: definition.description ?? '',
@@ -99,7 +101,7 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 			commands: definition.commands.map((command) => command.type),
 			bindingRef: null,
 		};
-	}, [definition]);
+	}, [definition, t]);
 
 	const data = useMemo(
 		() => (widget ? resolveWidgetTemplateData(state, actorId, definition, widget) : null),
@@ -129,12 +131,12 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
 			<Seg
-				ariaLabel="Preview audience"
+				ariaLabel={t('builder.preview.audience')}
 				value={audience}
 				onChange={(next: string) => setAudience(next === 'player' ? 'player' : 'dm')}
 				options={[
-					{ value: 'dm', label: 'Preview as DM' },
-					{ value: 'player', label: 'Preview as player' },
+					{ value: 'dm', label: t('builder.preview.asDm') },
+					{ value: 'player', label: t('builder.preview.asPlayer') },
 				]}
 			/>
 			<div
@@ -164,12 +166,12 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 							<Template widget={widget} definition={definition} data={data} />
 						) : plan.kind === 'builtin' ? (
 							<WidgetPlaceholder
-								diagnostic={`A built-in widget already uses the type id ${widget.type}. Choose another id on the Identity step.`}
+								diagnostic={t('builder.preview.typeIdTaken', { type: widget.type })}
 							/>
 						) : (
 							<WidgetPlaceholder
 								diagnostic={
-									plan.kind === 'placeholder' ? plan.diagnostic : 'Nothing can draw this yet.'
+									plan.kind === 'placeholder' ? plan.diagnostic : t('builder.preview.nothingDraws')
 								}
 							/>
 						)}
@@ -177,11 +179,13 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 				</div>
 			</div>
 			<p style={{ margin: 0, font: `12px/1.55 ${T.sans}`, color: T.ter }}>
-				{audience === 'player'
-					? "Drawn with this campaign's own data, as a player with no grants would receive it."
-					: "Drawn with this campaign's own data, for the actor you are viewing as."}
+				{t(
+					audience === 'player' ? 'builder.preview.drawnAsPlayer' : 'builder.preview.drawnAsActor',
+				)}
 				{emptyQueries.length > 0 &&
-					` ${emptyQueries.map((query) => query.label).join(', ')} has nothing to show right now, so the widget's empty state is what appears.`}
+					` ${t('builder.preview.emptyQueries', {
+						list: emptyQueries.map((query) => query.label).join(', '),
+					})}`}
 			</p>
 			{withheldQueries.length > 0 && (
 				<ul
