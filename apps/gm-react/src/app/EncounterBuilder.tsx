@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
 	computeEncounterChallenge,
+	getActiveSystemForActor,
 	listCharactersForActor,
+	systemDeclaresChallenge,
 	type CommandResult,
 } from '@dndtools/core';
 import {
@@ -172,6 +174,16 @@ export function EncounterDialog({
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/mode change
 	}, [open, mode]);
 
+	// RC-SYS-2.5 — the CR/XP budget belongs to the active rules system. A system that declares neither
+	// challenge ratings nor an XP table gets `null` here, and the meter, its party inputs and the
+	// per-combatant CR field all go away rather than sitting there as controls that feed nothing.
+	const activePackage = useMemo(
+		() =>
+			getActiveSystemForActor(runtime.state.systems, runtime.state.permissions, actorId)
+				.activePackage,
+		[runtime.state.systems, runtime.state.permissions, actorId],
+	);
+	const declaresChallenge = systemDeclaresChallenge(activePackage);
 	const challenge = useMemo(
 		() =>
 			computeEncounterChallenge(
@@ -191,8 +203,9 @@ export function EncounterDialog({
 					size: Math.max(1, Math.trunc(Number(partySize)) || 1),
 					averageLevel: Math.min(20, Math.max(1, Math.trunc(Number(partyLevel)) || 1)),
 				},
+				activePackage,
 			),
-		[rows, partySize, partyLevel],
+		[rows, partySize, partyLevel, activePackage],
 	);
 
 	// Any edit to what the encounter IS invalidates the one a failed Start already committed: the
@@ -632,7 +645,7 @@ export function EncounterDialog({
 												}}
 											/>
 										</label>
-										{mode === 'start' && (
+										{mode === 'start' && declaresChallenge && (
 											<label
 												style={{
 													display: 'inline-flex',
@@ -695,7 +708,7 @@ export function EncounterDialog({
 				</div>
 
 				{/* Challenge budget — the deterministic core guidance (the template's XP-budget meter). */}
-				{mode === 'start' && (
+				{mode === 'start' && challenge && (
 					<div
 						style={{
 							display: 'flex',

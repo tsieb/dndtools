@@ -1,7 +1,4 @@
-import {
-	buildEncounterInputSchema,
-	updateEncounterInputSchema,
-} from '../schemas/commands';
+import { buildEncounterInputSchema, updateEncounterInputSchema } from '../schemas/commands';
 import {
 	ENCOUNTER_ENTITY_TYPE,
 	buildEncounter,
@@ -11,6 +8,7 @@ import {
 	upsertEncounter,
 } from '../state/encounter';
 import { CONTENT_ITEM_ENTITY_TYPE, contentItemById } from '../state/content';
+import { activeSystemPackageFor } from './character';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import { appendOperationDraft, parseInput, reject, requireActor, requireDm } from './helpers';
 
@@ -74,7 +72,13 @@ export function handleBuildEncounter(
 		now: env.clock(),
 		childIds: env.ids,
 	});
-	const challenge = computeEncounterChallenge(encounter.combatants, encounter.party);
+	// RC-SYS-2.5: the budget is the ACTIVE package's to declare. Under a package without challenge
+	// ratings or levels this is `null`, and the op/event carry `null` rather than a fabricated band.
+	const challenge = computeEncounterChallenge(
+		encounter.combatants,
+		encounter.party,
+		activeSystemPackageFor(state),
+	);
 	const nextEncounters = upsertEncounter(state.encounters, encounter);
 
 	const draft = appendOperationDraft(env, state.sync, actor.id, {
@@ -84,10 +88,13 @@ export function handleBuildEncounter(
 		path: `encounters/${encounter.id}`,
 		value: {
 			title: encounter.title,
-			difficulty: challenge.difficulty,
+			difficulty: challenge?.difficulty ?? null,
 			combatantCount: encounter.combatants.length,
 			// Record link TARGETS only (no content) — the link is a reference (Contract 4).
-			linkTargets: encounter.sessionLogLinks.map((link) => ({ kind: link.kind, targetId: link.targetId })),
+			linkTargets: encounter.sessionLogLinks.map((link) => ({
+				kind: link.kind,
+				targetId: link.targetId,
+			})),
 		},
 		beforeRevision: 0,
 		afterRevision: encounter.revision,
@@ -101,8 +108,8 @@ export function handleBuildEncounter(
 		{
 			kind: 'encounter.built',
 			encounterId: encounter.id,
-			difficulty: challenge.difficulty,
-			encounterPoints: challenge.encounterPoints,
+			difficulty: challenge?.difficulty ?? null,
+			encounterPoints: challenge?.encounterPoints ?? null,
 			combatantCount: encounter.combatants.length,
 			actorId: actor.id,
 		},
@@ -133,7 +140,10 @@ export function handleUpdateEncounter(
 	const existing = encounterById(state.encounters, parsed.data.encounterId);
 	if (!existing) {
 		return reject(
-			{ code: 'encounter-not-found', message: `Encounter ${parsed.data.encounterId} does not exist.` },
+			{
+				code: 'encounter-not-found',
+				message: `Encounter ${parsed.data.encounterId} does not exist.`,
+			},
 			state,
 		);
 	}
@@ -149,20 +159,31 @@ export function handleUpdateEncounter(
 			...(parsed.data.combatants !== undefined ? { combatants: parsed.data.combatants } : {}),
 			...(parsed.data.party !== undefined ? { party: parsed.data.party } : {}),
 			...(parsed.data.terrainNotes !== undefined ? { terrainNotes: parsed.data.terrainNotes } : {}),
-			...(parsed.data.specialActions !== undefined ? { specialActions: parsed.data.specialActions } : {}),
+			...(parsed.data.specialActions !== undefined
+				? { specialActions: parsed.data.specialActions }
+				: {}),
 			...(parsed.data.loot !== undefined ? { loot: parsed.data.loot } : {}),
-			...(parsed.data.sessionLogLinks !== undefined ? { sessionLogLinks: parsed.data.sessionLogLinks } : {}),
+			...(parsed.data.sessionLogLinks !== undefined
+				? { sessionLogLinks: parsed.data.sessionLogLinks }
+				: {}),
 		},
 		env.clock(),
 	);
 	if (!nextEncounters) {
 		return reject(
-			{ code: 'encounter-not-found', message: `Encounter ${parsed.data.encounterId} does not exist.` },
+			{
+				code: 'encounter-not-found',
+				message: `Encounter ${parsed.data.encounterId} does not exist.`,
+			},
 			state,
 		);
 	}
 	const updated = encounterById(nextEncounters, parsed.data.encounterId)!;
-	const challenge = computeEncounterChallenge(updated.combatants, updated.party);
+	const challenge = computeEncounterChallenge(
+		updated.combatants,
+		updated.party,
+		activeSystemPackageFor(state),
+	);
 
 	const draft = appendOperationDraft(env, state.sync, actor.id, {
 		entityType: ENCOUNTER_ENTITY_TYPE,
@@ -171,7 +192,7 @@ export function handleUpdateEncounter(
 		path: `encounters/${updated.id}`,
 		value: {
 			title: updated.title,
-			difficulty: challenge.difficulty,
+			difficulty: challenge?.difficulty ?? null,
 			combatantCount: updated.combatants.length,
 		},
 		beforeRevision: existing.revision,
@@ -188,8 +209,8 @@ export function handleUpdateEncounter(
 			{
 				kind: 'encounter.updated',
 				encounterId: updated.id,
-				difficulty: challenge.difficulty,
-				encounterPoints: challenge.encounterPoints,
+				difficulty: challenge?.difficulty ?? null,
+				encounterPoints: challenge?.encounterPoints ?? null,
 				combatantCount: updated.combatants.length,
 				actorId: actor.id,
 			},

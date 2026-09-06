@@ -37,12 +37,19 @@ function rejected(result: CommandResult): Extract<CommandResult, { status: 'reje
 	return result;
 }
 
-function dispatch(state: CoreStateSlice, env: CoreEnvironment, command: CoreCommand): CommandResult {
+function dispatch(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	command: CoreCommand,
+): CommandResult {
 	return dispatchCommand(state, env, command);
 }
 
 function selection(
-	overrides: Partial<EncounterCombatantSelection> & { kind: EncounterCombatantSelection['kind']; name: string },
+	overrides: Partial<EncounterCombatantSelection> & {
+		kind: EncounterCombatantSelection['kind'];
+		name: string;
+	},
 ): EncounterCombatantSelection {
 	return {
 		id: overrides.id ?? overrides.name,
@@ -72,11 +79,13 @@ describe('SES-006 deterministic challenge guidance', () => {
 
 	it('is a PURE function of (combatants + party): same inputs ⇒ same difficulty band', () => {
 		const party = { size: 4, averageLevel: 3 };
-		const combatants = [selection({ kind: 'monster', name: 'Goblin', challengeRating: 0.25, quantity: 8 })];
+		const combatants = [
+			selection({ kind: 'monster', name: 'Goblin', challengeRating: 0.25, quantity: 8 }),
+		];
 		const a = computeEncounterChallenge(combatants, party);
 		const b = computeEncounterChallenge(combatants, party);
 		expect(a).toEqual(b);
-		expect(a.threatCount).toBe(8);
+		expect(a!.threatCount).toBe(8);
 	});
 
 	it('escalates difficulty bands as the threat grows against a fixed party', () => {
@@ -90,8 +99,8 @@ describe('SES-006 deterministic challenge guidance', () => {
 			party,
 		);
 		const order = ['trivial', 'easy', 'medium', 'hard', 'deadly'];
-		expect(order.indexOf(deadly.difficulty)).toBeGreaterThan(order.indexOf(trivial.difficulty));
-		expect(deadly.difficulty).toBe('deadly');
+		expect(order.indexOf(deadly!.difficulty)).toBeGreaterThan(order.indexOf(trivial!.difficulty));
+		expect(deadly!.difficulty).toBe('deadly');
 	});
 
 	it('does not count party PCs as a threat', () => {
@@ -107,8 +116,8 @@ describe('SES-006 deterministic challenge guidance', () => {
 			[selection({ kind: 'monster', name: 'Wolf', challengeRating: 0.25, quantity: 2 })],
 			party,
 		);
-		expect(withPc.threatCount).toBe(2);
-		expect(withPc.encounterPoints).toBe(monstersOnly.encounterPoints);
+		expect(withPc!.threatCount).toBe(2);
+		expect(withPc!.encounterPoints).toBe(monstersOnly!.encounterPoints);
 	});
 });
 
@@ -123,11 +132,20 @@ describe('SES-006 build encounter (commands)', () => {
 				payload: {
 					title: 'Ambush at the bridge',
 					combatants: [
-						{ kind: 'monster', name: 'Goblin', challengeRating: 0.25, quantity: 4, maxHp: 7, initiative: 14 },
+						{
+							kind: 'monster',
+							name: 'Goblin',
+							challengeRating: 0.25,
+							quantity: 4,
+							maxHp: 7,
+							initiative: 14,
+						},
 					],
 					party: { size: 4, averageLevel: 2 },
 					terrainNotes: 'A rickety bridge over a ravine; difficult terrain at both ends.',
-					specialActions: [{ kind: 'lair', name: 'Collapsing planks', detail: 'DC 12 Dex save or fall.' }],
+					specialActions: [
+						{ kind: 'lair', name: 'Collapsing planks', detail: 'DC 12 Dex save or fall.' },
+					],
 					loot: [{ name: 'Goblin coin pouch', detail: '15 gp' }],
 				},
 			}),
@@ -214,8 +232,24 @@ describe('SES-006 encounter → combat flow (AC2)', () => {
 				payload: {
 					title: 'Goblin patrol',
 					combatants: [
-						{ kind: 'monster', name: 'Goblin', challengeRating: 0.25, quantity: 2, maxHp: 7, ac: 13, initiative: 14 },
-						{ kind: 'monster', name: 'Hobgoblin', challengeRating: 0.5, quantity: 1, maxHp: 11, ac: 18, initiative: 12 },
+						{
+							kind: 'monster',
+							name: 'Goblin',
+							challengeRating: 0.25,
+							quantity: 2,
+							maxHp: 7,
+							ac: 13,
+							initiative: 14,
+						},
+						{
+							kind: 'monster',
+							name: 'Hobgoblin',
+							challengeRating: 0.5,
+							quantity: 1,
+							maxHp: 11,
+							ac: 18,
+							initiative: 12,
+						},
 					],
 				},
 			}),
@@ -223,7 +257,11 @@ describe('SES-006 encounter → combat flow (AC2)', () => {
 		const encounterId = Object.keys(built.encounters.encounters)[0]!;
 		// Start a session and run combat FROM the encounter (by reference).
 		const home = accept(
-			dispatch(built, env, { type: 'command-center.ensure-home', actorId: DM_ACTOR.id, payload: {} }),
+			dispatch(built, env, {
+				type: 'command-center.ensure-home',
+				actorId: DM_ACTOR.id,
+				payload: {},
+			}),
 		).nextState;
 		const active = accept(
 			dispatch(home, env, {
@@ -243,7 +281,9 @@ describe('SES-006 encounter → combat flow (AC2)', () => {
 		expect(started.session.combat.order).toHaveLength(3);
 		expect(started.session.combat.encounterId).toBe(encounterId);
 		// The combatants seeded their HP/AC from the encounter selection.
-		const hob = Object.values(started.session.combat.combatants).find((c) => c.name === 'Hobgoblin')!;
+		const hob = Object.values(started.session.combat.combatants).find(
+			(c) => c.name === 'Hobgoblin',
+		)!;
 		expect(hob.resources.maxHp).toBe(11);
 		expect(hob.statBlock.ac).toBe(18);
 	});
@@ -258,7 +298,15 @@ describe('SES-006 encounter → combat flow (AC2)', () => {
 				payload: {
 					title: 'Swamp ambush',
 					combatants: [
-						{ kind: 'monster', name: 'Lizardfolk', challengeRating: 0.5, quantity: 1, maxHp: 22, ac: 15, initiative: 10 },
+						{
+							kind: 'monster',
+							name: 'Lizardfolk',
+							challengeRating: 0.5,
+							quantity: 1,
+							maxHp: 22,
+							ac: 15,
+							initiative: 10,
+						},
 					],
 					terrainNotes: 'Knee-deep swamp water; difficult terrain. Reeds provide half cover.',
 				},
@@ -266,7 +314,11 @@ describe('SES-006 encounter → combat flow (AC2)', () => {
 		).nextState;
 		const encounterId = Object.keys(built.encounters.encounters)[0]!;
 		const home = accept(
-			dispatch(built, env, { type: 'command-center.ensure-home', actorId: DM_ACTOR.id, payload: {} }),
+			dispatch(built, env, {
+				type: 'command-center.ensure-home',
+				actorId: DM_ACTOR.id,
+				payload: {},
+			}),
 		).nextState;
 		const active = accept(
 			dispatch(home, env, {
@@ -291,7 +343,11 @@ describe('SES-006 encounter → combat flow (AC2)', () => {
 		const env = makeEnvironment();
 		const base = buildInitialState(DM_ACTOR);
 		const home = accept(
-			dispatch(base, env, { type: 'command-center.ensure-home', actorId: DM_ACTOR.id, payload: {} }),
+			dispatch(base, env, {
+				type: 'command-center.ensure-home',
+				actorId: DM_ACTOR.id,
+				payload: {},
+			}),
 		).nextState;
 		const active = accept(
 			dispatch(home, env, {
@@ -305,9 +361,7 @@ describe('SES-006 encounter → combat flow (AC2)', () => {
 				type: 'combat.start',
 				actorId: DM_ACTOR.id,
 				payload: {
-					combatants: [
-						{ kind: 'npc', name: 'Bandit', ac: 12, initiative: 8, maxHp: 11 },
-					],
+					combatants: [{ kind: 'npc', name: 'Bandit', ac: 12, initiative: 8, maxHp: 11 }],
 				},
 			}),
 		).nextState;
@@ -351,7 +405,9 @@ describe('SES-006 actor-filtered encounter read model', () => {
 				actorId: DM_ACTOR.id,
 				payload: {
 					title: 'Secret boss',
-					combatants: [{ kind: 'monster', name: 'Dragon', challengeRating: 10, quantity: 1, maxHp: 200 }],
+					combatants: [
+						{ kind: 'monster', name: 'Dragon', challengeRating: 10, quantity: 1, maxHp: 200 },
+					],
 				},
 			}),
 		).nextState;
@@ -359,12 +415,16 @@ describe('SES-006 actor-filtered encounter read model', () => {
 
 		const dmList = listEncountersForActor(built.encounters, built.permissions, DM_ACTOR.id);
 		expect(dmList).toHaveLength(1);
-		expect(dmList[0]!.challenge.difficulty).toBeDefined();
+		expect(dmList[0]!.challenge!.difficulty).toBeDefined();
 
-		expect(listEncountersForActor(built.encounters, built.permissions, PLAYER_ACTOR.id)).toEqual([]);
-		expect(getEncounterForActor(built.encounters, built.permissions, PLAYER_ACTOR.id, encounterId)).toBeNull();
+		expect(listEncountersForActor(built.encounters, built.permissions, PLAYER_ACTOR.id)).toEqual(
+			[],
+		);
 		expect(
-			listEncountersForActor(built.encounters, built.permissions, OBSERVER_ACTOR.id),
-		).toEqual([]);
+			getEncounterForActor(built.encounters, built.permissions, PLAYER_ACTOR.id, encounterId),
+		).toBeNull();
+		expect(listEncountersForActor(built.encounters, built.permissions, OBSERVER_ACTOR.id)).toEqual(
+			[],
+		);
 	});
 });

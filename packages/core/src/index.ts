@@ -3953,6 +3953,7 @@ export {
 	ENCOUNTER_ENTITY_TYPE,
 	ENCOUNTER_SCHEMA_VERSION,
 	EMPTY_ENCOUNTER_STATE,
+	SYSTEM_CHALLENGE_FIELD_KEY,
 	buildEncounter,
 	challengePointsForCr,
 	cloneEncounter,
@@ -3960,6 +3961,7 @@ export {
 	encounterById,
 	ensureEncounterState,
 	partyDeadlyThreshold,
+	systemDeclaresChallenge,
 	updateEncounter,
 	upsertEncounter,
 } from './state/encounter';

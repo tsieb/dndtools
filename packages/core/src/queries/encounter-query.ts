@@ -11,6 +11,11 @@ import {
 	type EncounterState,
 	type SessionLogLink,
 } from '../state/encounter';
+import {
+	activeSystemPackage,
+	type SystemPackage,
+	type SystemsState,
+} from '../state/system-package';
 
 /**
  * SES-006 — THE single actor-filtered ENCOUNTER read model.
@@ -23,7 +28,8 @@ import {
  * loot, and session-log link targets never leak.
  *
  * Pure + deterministic. No GUI, no storage. Challenge guidance is recomputed (not stored) so it
- * always reflects the current combatant selection + party.
+ * always reflects the current combatant selection + party — and is `null` when the caller passes a
+ * `systems` state whose active package declares no challenge budget (RC-SYS-2.5).
  */
 
 /** A read-only encounter view with its computed challenge guidance (DM-only). */
@@ -36,14 +42,17 @@ export interface EncounterView {
 	specialActions: EncounterSpecialAction[];
 	loot: EncounterLootItem[];
 	sessionLogLinks: SessionLogLink[];
-	/** Deterministic CR / difficulty guidance computed from the current combatants + party. */
-	challenge: EncounterChallenge;
+	/**
+	 * Deterministic CR / difficulty guidance computed from the current combatants + party, or `null`
+	 * when the active system package declares no challenge/XP budget (RC-SYS-2.5).
+	 */
+	challenge: EncounterChallenge | null;
 	createdAt: string;
 	updatedAt: string;
 	revision: number;
 }
 
-function toView(encounter: Encounter): EncounterView {
+function toView(encounter: Encounter, pkg: SystemPackage | undefined): EncounterView {
 	return {
 		id: encounter.id,
 		title: encounter.title,
@@ -53,7 +62,7 @@ function toView(encounter: Encounter): EncounterView {
 		specialActions: encounter.specialActions.map((a) => ({ ...a })),
 		loot: encounter.loot.map((l) => ({ ...l })),
 		sessionLogLinks: encounter.sessionLogLinks.map((link) => ({ ...link })),
-		challenge: computeEncounterChallenge(encounter.combatants, encounter.party),
+		challenge: computeEncounterChallenge(encounter.combatants, encounter.party, pkg),
 		createdAt: encounter.createdAt,
 		updatedAt: encounter.updatedAt,
 		revision: encounter.revision,
@@ -68,12 +77,14 @@ export function listEncountersForActor(
 	state: EncounterState,
 	permissions: PermissionState,
 	actorId: string,
+	systems?: SystemsState,
 ): EncounterView[] {
 	const actor = getActor(permissions, actorId);
 	if (!hasDmAuthority(actor?.role)) return [];
+	const pkg = systems ? activeSystemPackage(systems) : undefined;
 	return Object.values(state.encounters)
 		.sort((a, b) => a.id.localeCompare(b.id))
-		.map(toView);
+		.map((encounter) => toView(encounter, pkg));
 }
 
 /**
@@ -86,10 +97,11 @@ export function getEncounterForActor(
 	permissions: PermissionState,
 	actorId: string,
 	encounterId: string,
+	systems?: SystemsState,
 ): EncounterView | null {
 	const actor = getActor(permissions, actorId);
 	if (!hasDmAuthority(actor?.role)) return null;
 	const encounter = state.encounters[encounterId];
 	if (!encounter) return null;
-	return toView(encounter);
+	return toView(encounter, systems ? activeSystemPackage(systems) : undefined);
 }

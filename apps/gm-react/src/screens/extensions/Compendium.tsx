@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+	getActiveSystemForActor,
 	getContentItemsForActor,
 	listCharactersForActor,
 	VAULT_OBJECT_SUBTYPE_KEY,
@@ -29,6 +30,7 @@ import {
 } from '../../app/compendium/open5e';
 import {
 	formatCr,
+	monsterFieldReport,
 	monsterToQuickCreatePayload,
 	spellToCreateObjectPayload,
 	type ImportSourceMeta,
@@ -166,12 +168,42 @@ export function ExtCompendium() {
 		? { document: result.document, license: result.license, attribution: result.attribution }
 		: null;
 
+	// RC-SYS-2.5 — a monster is imported into the ACTIVE system's creature schema, so the schema
+	// decides what fits. The report drives both the preview's unmapped-field list and the refusal.
+	const creatureSchema = useMemo(
+		() =>
+			getActiveSystemForActor(
+				runtime.state.systems,
+				runtime.state.permissions,
+				dmId,
+			).activePackage.creatureSchema.map((field) => ({
+				key: field.key,
+				label: field.label,
+				required: field.required,
+			})),
+		[runtime.state.systems, runtime.state.permissions, dmId],
+	);
+	const monsterFit = (monster: CompendiumMonster) => monsterFieldReport(monster, creatureSchema);
+
 	const importEntry = async (entry: CompendiumMonster | CompendiumSpell) => {
 		if (!canWrite || busyKey !== null || !sourceMeta) return;
 		setBusyKey(entry.key);
 		try {
 			if (kind === 'monster') {
 				const monster = entry as CompendiumMonster;
+				// Fail closed: the active system requires creature fields a 5e statblock cannot answer.
+				const fit = monsterFit(monster);
+				if (!fit.canHold) {
+					Toaster.error(
+						t('extensions.compendium.importFailed', {
+							name: monster.name,
+							reason: t('extensions.compendium.fitMissing', {
+								fields: fit.missingRequired.map((f) => f.label).join(', '),
+							}),
+						}),
+					);
+					return;
+				}
 				const res = await runtime.dispatch({
 					type: 'character.quick-create',
 					actorId: dmId,
@@ -253,6 +285,7 @@ export function ExtCompendium() {
 		setConfirmKey,
 		importEntry,
 		canWrite,
+		monsterFit,
 	};
 	const sourceBadge = loading ? (
 		<Badge status="neutral">{t('extensions.compendium.searching')}</Badge>

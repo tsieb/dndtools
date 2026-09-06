@@ -1199,16 +1199,18 @@ export type CoreEvent =
 	| {
 			kind: 'encounter.built';
 			encounterId: string;
-			difficulty: EncounterDifficulty;
-			encounterPoints: number;
+			/** `null` when the active system package declares no challenge budget (RC-SYS-2.5). */
+			difficulty: EncounterDifficulty | null;
+			encounterPoints: number | null;
 			combatantCount: number;
 			actorId: ActorId;
 	  }
 	| {
 			kind: 'encounter.updated';
 			encounterId: string;
-			difficulty: EncounterDifficulty;
-			encounterPoints: number;
+			/** `null` when the active system package declares no challenge budget (RC-SYS-2.5). */
+			difficulty: EncounterDifficulty | null;
+			encounterPoints: number | null;
 			combatantCount: number;
 			actorId: ActorId;
 	  }

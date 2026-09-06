@@ -1796,6 +1796,12 @@ export const en = {
 	'extensions.compendium.keep': 'Keep',
 	'extensions.compendium.open': 'Open',
 	'extensions.compendium.importFailed': '{name} was not imported: {reason}',
+	// RC-SYS-2.5 — the import field report: what the active rules system can hold of a 5e statblock.
+	'extensions.compendium.fitPartial':
+		'Your rules system has no place for {count} of these details.',
+	'extensions.compendium.fitUnmapped': 'Not imported: {fields}.',
+	'extensions.compendium.fitRefused': 'Your rules system cannot hold this creature.',
+	'extensions.compendium.fitMissing': 'It requires: {fields}.',
 	'extensions.compendium.monsterImported': '{name} added to the roster (DM only)',
 	'extensions.compendium.spellImported': '{name} saved to the vault (DM only)',
 	'extensions.compendium.armorClass': 'Armor class',

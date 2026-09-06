@@ -1,6 +1,7 @@
 import { Button } from '../../ds';
 import { T, eb } from '../../app/screen-kit';
 import { formatCr, spellDuration } from '../../app/compendium/import';
+import type { MonsterFieldReport } from '../../app/compendium/import';
 import type { CompendiumMonster, CompendiumSpell } from '../../app/compendium/types';
 import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
 
@@ -20,6 +21,11 @@ export interface EntryImportProps {
 	setConfirmKey: (key: string | null) => void;
 	importEntry: (entry: CompendiumMonster | CompendiumSpell) => Promise<void>;
 	canWrite: boolean;
+	/**
+	 * RC-SYS-2.5 — how the ACTIVE system package's creature schema fits this monster. `null` for a
+	 * spell (spells are vault objects, not creatures).
+	 */
+	monsterFit: (monster: CompendiumMonster) => MonsterFieldReport;
 }
 
 export const monsterMeta = (m: CompendiumMonster) =>
@@ -124,9 +130,58 @@ export function ImportControl({
 	);
 }
 
+/**
+ * RC-SYS-2.5 — the import FIELD REPORT: what the campaign's active rules system does and does not
+ * have a place for in this statblock.
+ *
+ * A 5e monster carries more than most systems declare. Rather than importing it and quietly losing
+ * the difference, the preview names the facts that have no home BEFORE the DM commits, and when the
+ * system requires a creature field a 5e statblock cannot answer, the import refuses outright — the
+ * button is disabled and the reason is on screen (no dead control, no fake success).
+ */
+function FieldReport({ report }: { report: MonsterFieldReport }) {
+	const { t } = useI18n();
+	if (report.canHold && report.unmapped.length === 0) return null;
+	const refuses = !report.canHold;
+	return (
+		<div
+			role="note"
+			style={{
+				display: 'flex',
+				flexDirection: 'column',
+				gap: 4,
+				padding: '8px 10px',
+				border: `1px solid ${refuses ? T.err : T.bd}`,
+				borderRadius: 10,
+				background: T.surf,
+			}}
+		>
+			<div style={{ font: `600 12px ${T.sans}`, color: refuses ? T.err : T.ink }}>
+				{refuses
+					? t('extensions.compendium.fitRefused')
+					: t('extensions.compendium.fitPartial', { count: report.unmapped.length })}
+			</div>
+			{refuses && (
+				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+					{t('extensions.compendium.fitMissing', {
+						fields: report.missingRequired.map((f) => f.label).join(', '),
+					})}
+				</div>
+			)}
+			{report.unmapped.length > 0 && (
+				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+					{t('extensions.compendium.fitUnmapped', {
+						fields: report.unmapped.map((f) => f.label).join(', '),
+					})}
+				</div>
+			)}
+		</div>
+	);
+}
+
 export function MonsterDetail({
 	monster,
-	imports: { inVault, busyKey, confirmKey, setConfirmKey, importEntry, canWrite },
+	imports: { inVault, busyKey, confirmKey, setConfirmKey, importEntry, canWrite, monsterFit },
 }: {
 	monster: CompendiumMonster;
 	imports: EntryImportProps;
@@ -134,6 +189,8 @@ export function MonsterDetail({
 	const { t } = useI18n();
 	const m = monster;
 	const scores = m.abilityScores;
+	// RC-SYS-2.5 — what this campaign's rules system can actually keep of a 5e statblock.
+	const fit = monsterFit(m);
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 			<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
@@ -250,11 +307,12 @@ export function MonsterDetail({
 					))}
 				</div>
 			)}
+			<FieldReport report={fit} />
 			<ImportControl
 				name={m.name}
 				inVault={inVault(m.name)}
 				busy={busyKey === m.key}
-				disabled={!canWrite || (busyKey !== null && busyKey !== m.key)}
+				disabled={!canWrite || !fit.canHold || (busyKey !== null && busyKey !== m.key)}
 				confirming={confirmKey === m.key}
 				onConfirmChange={(on) => setConfirmKey(on ? m.key : null)}
 				onImport={() => void importEntry(m)}

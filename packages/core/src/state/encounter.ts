@@ -1,5 +1,7 @@
 import type { ActorId } from './ids';
 import type { CombatantKind } from './combat-tracker';
+import type { SystemPackage } from './system-package';
+import { DND5E_SYSTEM_PACKAGE } from '../systems/dnd5e';
 
 /**
  * SES-006 — the DURABLE ENCOUNTER model + the PURE deterministic CHALLENGE GUIDANCE calculator.
@@ -173,6 +175,32 @@ export function encounterById(state: EncounterState, encounterId: string): Encou
 // --- Deterministic CR / difficulty CHALLENGE GUIDANCE (SES-006) ----------------------------------
 
 /**
+ * RC-SYS-2.5 — the creature-schema field key a package declares to say "my creatures have a
+ * challenge rating". A package that does not declare it has no CR to sum.
+ */
+export const SYSTEM_CHALLENGE_FIELD_KEY = 'challengeRating' as const;
+
+/**
+ * RC-SYS-2.5 — does the ACTIVE system package declare a challenge/XP budget at all?
+ *
+ * The budget is two halves and a package needs BOTH for the answer to mean anything:
+ *   - the THREAT half: its `creatureSchema` declares a `challengeRating` field, so a creature in
+ *     this system carries a rating that can be summed;
+ *   - the PARTY half: its `advancement` is an `xp-table` with thresholds, so "a party of N at level
+ *     L" is a quantity the system actually defines.
+ *
+ * D&D 5e declares both. The built-in Generic package declares neither: its creatures have a name, a
+ * concept and health, and it advances by milestone. Under Generic there is no honest number to show,
+ * so {@link computeEncounterChallenge} returns `null` and the meter goes away rather than showing a
+ * budget the system never promised. Pure.
+ */
+export function systemDeclaresChallenge(pkg: SystemPackage): boolean {
+	const hasCr = pkg.creatureSchema.some((field) => field.key === SYSTEM_CHALLENGE_FIELD_KEY);
+	const hasLevels = pkg.advancement.model === 'xp-table' && pkg.advancement.xpThresholds.length > 0;
+	return hasCr && hasLevels;
+}
+
+/**
  * Convert a single Challenge Rating to deterministic "challenge points" — a monotone, integer-stable
  * mapping derived from the 5e CR→XP table, scaled down to small integers so the math stays exact and
  * reproducible (no floating-point drift). Fractional CRs (1/8, 1/4, 1/2) map to small points; higher
@@ -243,12 +271,19 @@ function multiplierHundredths(threatCount: number): number {
  *   3. Compare the adjusted total against the party's deterministic difficulty thresholds, derived
  *      from the deadly threshold, to resolve the band: trivial / easy / medium / hard / deadly.
  *
+ * Returns `null` when the active package declares no challenge/XP budget
+ * ({@link systemDeclaresChallenge}).
+ *
  * Pure: no ambient randomness, clock, or storage.
  */
 export function computeEncounterChallenge(
 	combatants: EncounterCombatantSelection[],
 	party: PartyContext,
-): EncounterChallenge {
+	pkg: SystemPackage = DND5E_SYSTEM_PACKAGE,
+): EncounterChallenge | null {
+	// RC-SYS-2.5: no declaration, no number. Fail honest rather than quoting 5e math at a system
+	// that has neither challenge ratings nor levels.
+	if (!systemDeclaresChallenge(pkg)) return null;
 	let rawPoints = 0;
 	let threatCount = 0;
 	for (const selection of combatants) {
@@ -287,9 +322,13 @@ export interface BuildEncounterInput {
 	combatants?: Array<Partial<EncounterCombatantSelection> & { name: string; kind: CombatantKind }>;
 	party?: Partial<PartyContext>;
 	terrainNotes?: string;
-	specialActions?: Array<Partial<EncounterSpecialAction> & { kind: 'legendary' | 'lair'; name: string }>;
+	specialActions?: Array<
+		Partial<EncounterSpecialAction> & { kind: 'legendary' | 'lair'; name: string }
+	>;
 	loot?: Array<Partial<EncounterLootItem> & { name: string }>;
-	sessionLogLinks?: Array<Partial<SessionLogLink> & { kind: SessionLogLink['kind']; targetId: string }>;
+	sessionLogLinks?: Array<
+		Partial<SessionLogLink> & { kind: SessionLogLink['kind']; targetId: string }
+	>;
 }
 
 export interface EncounterMeta {
@@ -405,4 +444,3 @@ export function updateEncounter(
 	};
 	return { ...state, encounters: { ...state.encounters, [encounterId]: next } };
 }
-

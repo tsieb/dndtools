@@ -1850,6 +1850,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.compendium.keep': 'Conservar',
 	'extensions.compendium.open': 'Abrir',
 	'extensions.compendium.importFailed': 'No se importó {name}: {reason}',
+	// RC-SYS-2.5 — el informe de campos de la importación.
+	'extensions.compendium.fitPartial':
+		'Tu sistema de reglas no tiene lugar para {count} de estos datos.',
+	'extensions.compendium.fitUnmapped': 'Sin importar: {fields}.',
+	'extensions.compendium.fitRefused': 'Tu sistema de reglas no puede contener esta criatura.',
+	'extensions.compendium.fitMissing': 'Requiere: {fields}.',
 	'extensions.compendium.monsterImported': '{name} se añadió a la lista (solo DJ)',
 	'extensions.compendium.spellImported': '{name} se guardó en la bóveda (solo DJ)',
 	'extensions.compendium.armorClass': 'Clase de armadura',

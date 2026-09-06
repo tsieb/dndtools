@@ -57,20 +57,27 @@ export function formatSenses(
 /** An action's one-line detail for the quick-create attack list (legendary/usage limits prefixed). */
 export function actionDetail(action: MonsterAction): string {
 	const tags: string[] = [];
-	if (action.actionType === 'LEGENDARY_ACTION') tags.push(`Legendary${action.legendaryCost && action.legendaryCost > 1 ? ` (costs ${action.legendaryCost})` : ''}`);
+	if (action.actionType === 'LEGENDARY_ACTION')
+		tags.push(
+			`Legendary${action.legendaryCost && action.legendaryCost > 1 ? ` (costs ${action.legendaryCost})` : ''}`,
+		);
 	else if (action.actionType === 'BONUS_ACTION') tags.push('Bonus action');
 	else if (action.actionType === 'REACTION') tags.push('Reaction');
 	const usage = action.usageLimits;
 	if (usage && typeof usage === 'object') {
-		if (usage.type === 'PER_DAY' && typeof usage.param === 'number') tags.push(`${usage.param}/day`);
-		else if (usage.type === 'RECHARGE_ON_ROLL' && typeof usage.param === 'number') tags.push(`recharge ${usage.param}-6`);
+		if (usage.type === 'PER_DAY' && typeof usage.param === 'number')
+			tags.push(`${usage.param}/day`);
+		else if (usage.type === 'RECHARGE_ON_ROLL' && typeof usage.param === 'number')
+			tags.push(`recharge ${usage.param}-6`);
 	}
 	const prefix = tags.length > 0 ? `${tags.join(', ')}. ` : '';
 	return `${prefix}${action.desc}`.trim();
 }
 
 /** The core ability-score keys, mapped from the compendium's long names. */
-const ABILITY_KEYS: Array<[shortKey: 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', longKey: string]> = [
+const ABILITY_KEYS: Array<
+	[shortKey: 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', longKey: string]
+> = [
 	['str', 'strength'],
 	['dex', 'dexterity'],
 	['con', 'constitution'],
@@ -122,8 +129,10 @@ export function monsterToQuickCreatePayload(
 	if (monster.damageResistances) data.damageResistances = monster.damageResistances;
 	if (monster.damageVulnerabilities) data.damageVulnerabilities = monster.damageVulnerabilities;
 	if (monster.conditionImmunities) data.conditionImmunities = monster.conditionImmunities;
-	if (monster.savingThrows && Object.keys(monster.savingThrows).length > 0) data.savingThrows = monster.savingThrows;
-	if (monster.skillBonuses && Object.keys(monster.skillBonuses).length > 0) data.skillBonuses = monster.skillBonuses;
+	if (monster.savingThrows && Object.keys(monster.savingThrows).length > 0)
+		data.savingThrows = monster.savingThrows;
+	if (monster.skillBonuses && Object.keys(monster.skillBonuses).length > 0)
+		data.skillBonuses = monster.skillBonuses;
 	if (monster.traits && monster.traits.length > 0) data.traits = monster.traits;
 
 	return {
@@ -173,7 +182,8 @@ export function spellToCreateObjectPayload(
 	const bodyParts: string[] = [spell.desc];
 	if (spell.higherLevel) bodyParts.push(`**At higher levels.** ${spell.higherLevel}`);
 	if (spell.ritual) bodyParts.push('*Can be cast as a ritual.*');
-	if (spell.classes && spell.classes.length > 0) bodyParts.push(`**Classes:** ${spell.classes.join(', ')}`);
+	if (spell.classes && spell.classes.length > 0)
+		bodyParts.push(`**Classes:** ${spell.classes.join(', ')}`);
 	bodyParts.push(`---\n*Source: ${source.document} (${source.license}). ${source.attribution}*`);
 
 	return {
@@ -183,4 +193,172 @@ export function spellToCreateObjectPayload(
 		body: bodyParts.join('\n\n'),
 		// visibility omitted — fails closed to the subtype default (dm-only)
 	};
+}
+
+// --- RC-SYS-2.5 — mapping a 5e monster onto the ACTIVE package's creature schema ------------------
+
+/**
+ * RC-SYS-2.5 — one FACT a 5e compendium monster carries, named the way a DM would name it.
+ *
+ * The facts are the app's inventory of what an Open5e/SRD monster actually says. A system package
+ * declares which of them its creatures have (`creatureSchema`), under whatever key that system
+ * prefers — so each fact lists the schema keys that count as a home for it. A system's own naming is
+ * its business: 5e says `armorClass`, another package may say `ac` or `defense`, and both are the
+ * same fact.
+ */
+interface MonsterFact {
+	/** The fact's canonical key, matching the `data.*` key the import already writes. */
+	key: string;
+	label: string;
+	/** Creature-schema field keys, lower-cased, that this fact fills. */
+	schemaKeys: readonly string[];
+}
+
+/**
+ * Every fact a compendium monster can carry, in statblock reading order. `schemaKeys` are matched
+ * case-insensitively so a package that writes `HP` or `hitpoints` still counts as a home.
+ */
+const MONSTER_FACTS: readonly MonsterFact[] = [
+	{ key: 'name', label: 'Name', schemaKeys: ['name', 'title'] },
+	{ key: 'size', label: 'Size', schemaKeys: ['size'] },
+	{ key: 'type', label: 'Type', schemaKeys: ['type', 'kind', 'concept'] },
+	{ key: 'alignment', label: 'Alignment', schemaKeys: ['alignment'] },
+	{ key: 'ac', label: 'Armor class', schemaKeys: ['armorclass', 'ac', 'defense'] },
+	{ key: 'hp', label: 'Hit points', schemaKeys: ['hitpoints', 'hp', 'health', 'wounds'] },
+	{ key: 'hitDice', label: 'Hit dice', schemaKeys: ['hitdice'] },
+	{ key: 'speed', label: 'Speed', schemaKeys: ['speed', 'movement'] },
+	{
+		key: 'cr',
+		label: 'Challenge rating',
+		schemaKeys: ['challengerating', 'cr', 'challenge', 'threat'],
+	},
+	{ key: 'xp', label: 'Experience', schemaKeys: ['xp', 'experience'] },
+	{ key: 'abilityScores', label: 'Ability scores', schemaKeys: ['abilityscores', 'attributes'] },
+	{ key: 'savingThrows', label: 'Saving throws', schemaKeys: ['savingthrows', 'saves'] },
+	{ key: 'skillBonuses', label: 'Skills', schemaKeys: ['skillbonuses', 'skills'] },
+	{ key: 'senses', label: 'Senses', schemaKeys: ['senses'] },
+	{ key: 'languages', label: 'Languages', schemaKeys: ['languages'] },
+	{
+		key: 'damageResistances',
+		label: 'Damage resistances',
+		schemaKeys: ['damageresistances', 'resistances'],
+	},
+	{
+		key: 'damageImmunities',
+		label: 'Damage immunities',
+		schemaKeys: ['damageimmunities', 'immunities'],
+	},
+	{
+		key: 'damageVulnerabilities',
+		label: 'Damage vulnerabilities',
+		schemaKeys: ['damagevulnerabilities', 'vulnerabilities'],
+	},
+	{
+		key: 'conditionImmunities',
+		label: 'Condition immunities',
+		schemaKeys: ['conditionimmunities'],
+	},
+	{ key: 'traits', label: 'Traits', schemaKeys: ['traits', 'features'] },
+	{ key: 'actions', label: 'Actions', schemaKeys: ['actions', 'attacks'] },
+];
+
+/** The minimal creature-schema shape this module needs; structurally the core's `SystemCreatureField`. */
+export interface CreatureSchemaField {
+	key: string;
+	label: string;
+	required: boolean;
+}
+
+/** One line of the import field report: a package field, or a monster fact, and what filled it. */
+export interface FieldReportEntry {
+	key: string;
+	label: string;
+}
+
+/**
+ * RC-SYS-2.5 — what the ACTIVE package can and cannot hold of a given 5e monster.
+ *
+ * `mapped` are the package's own creature fields this monster fills, `unmapped` are the monster's
+ * facts the package declares no field for, and `missingRequired` are REQUIRED fields no 5e statblock
+ * fact can answer in principle — a horror system that insists on a Sanity score, say. A package with
+ * one of those CANNOT hold the monster: the import refuses and shows this report rather than writing
+ * a creature the system's own rules say is invalid.
+ *
+ * A required field whose fact EXISTS but is blank on this particular entry (the SRD's Donkey lists
+ * no speed) is ordinary data sparsity, not a system mismatch — the import proceeds and the field
+ * simply has no value, exactly as it would for a creature the DM typed in by hand.
+ */
+export interface MonsterFieldReport {
+	mapped: FieldReportEntry[];
+	unmapped: FieldReportEntry[];
+	missingRequired: FieldReportEntry[];
+	canHold: boolean;
+}
+
+/** Which monster facts this entry actually carries (an absent/blank field is not a fact it has). */
+function factsPresent(monster: CompendiumMonster): Set<string> {
+	const present = new Set<string>();
+	const add = (key: string, has: boolean) => {
+		if (has) present.add(key);
+	};
+	add('name', monster.name.trim() !== '');
+	add('size', !!monster.size);
+	add('type', !!monster.type);
+	add('alignment', !!monster.alignment);
+	add('ac', typeof monster.ac === 'number');
+	add('hp', typeof monster.hp === 'number');
+	add('hitDice', !!monster.hitDice);
+	add('speed', formatSpeed(monster.speed) !== '');
+	add('cr', typeof monster.cr === 'number');
+	add('xp', typeof monster.xp === 'number');
+	add('abilityScores', Object.keys(monster.abilityScores ?? {}).length > 0);
+	add('savingThrows', Object.keys(monster.savingThrows ?? {}).length > 0);
+	add('skillBonuses', Object.keys(monster.skillBonuses ?? {}).length > 0);
+	add('senses', formatSenses(monster.senses, monster.passivePerception) !== '');
+	add('languages', !!monster.languages);
+	add('damageResistances', !!monster.damageResistances);
+	add('damageImmunities', !!monster.damageImmunities);
+	add('damageVulnerabilities', !!monster.damageVulnerabilities);
+	add('conditionImmunities', !!monster.conditionImmunities);
+	add('traits', (monster.traits ?? []).length > 0);
+	add('actions', (monster.actions ?? []).length > 0);
+	return present;
+}
+
+/**
+ * RC-SYS-2.5 — map a compendium monster onto a package's creature schema and report the fit. Pure.
+ *
+ * A package with an EMPTY creature schema declares nothing about creatures, so there is nothing to
+ * check against: it holds the monster and reports no unmapped fields rather than declaring every
+ * fact homeless.
+ */
+export function monsterFieldReport(
+	monster: CompendiumMonster,
+	creatureSchema: readonly CreatureSchemaField[],
+): MonsterFieldReport {
+	if (creatureSchema.length === 0) {
+		return { mapped: [], unmapped: [], missingRequired: [], canHold: true };
+	}
+	const present = factsPresent(monster);
+	const mapped: FieldReportEntry[] = [];
+	const missingRequired: FieldReportEntry[] = [];
+	const housedFacts = new Set<string>();
+
+	for (const field of creatureSchema) {
+		const normalized = field.key.toLowerCase();
+		const fact = MONSTER_FACTS.find((f) => f.schemaKeys.includes(normalized));
+		if (!fact) {
+			// The schema asks for something a 5e statblock has no vocabulary for at all.
+			if (field.required) missingRequired.push({ key: field.key, label: field.label });
+			continue;
+		}
+		housedFacts.add(fact.key);
+		if (present.has(fact.key)) mapped.push({ key: field.key, label: field.label });
+	}
+
+	const unmapped = MONSTER_FACTS.filter((f) => present.has(f.key) && !housedFacts.has(f.key)).map(
+		(f) => ({ key: f.key, label: f.label }),
+	);
+
+	return { mapped, unmapped, missingRequired, canHold: missingRequired.length === 0 };
 }
