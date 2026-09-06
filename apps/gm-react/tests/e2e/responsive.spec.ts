@@ -998,6 +998,39 @@ test('the skip link moves focus to main without clobbering the hash route', asyn
 	expect(ring.offset).toBeLessThan(0);
 });
 
+// RC-UX-1.3 — RTL readiness smoke test. No locale ships `dir="rtl"` yet (RC-UX-1.1 owns that
+// wiring), so this forces the attribute directly, on the live document, to exercise the CSS
+// logical properties in styles/index.css independently of the locale system. A layout still built
+// on physical left/right would clip or overflow the instant the browser mirrors it; this pins that
+// it doesn't, on the eight busiest routes.
+test('primary routes stay reachable and unclipped with the document mirrored rtl', async ({
+	page,
+}) => {
+	await page.setViewportSize({ width: 1280, height: 800 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/');
+	await seedFresh(page);
+	await page.evaluate(() => {
+		document.documentElement.dir = 'rtl';
+	});
+	await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+
+	for (const route of ROUTES.slice(0, 8)) {
+		await page.evaluate((next) => {
+			window.location.hash = next;
+		}, route);
+		await page.waitForFunction((next) => window.location.hash === `#${next}`, route);
+		await page.locator('h1').first().waitFor({ state: 'attached', timeout: 20_000 });
+		await page.waitForTimeout(100);
+
+		await expectNoHorizontalOverflow(page, `${route} mirrored rtl`, '#main-content');
+		expect(
+			await clippedControls(page),
+			`${route} clipped an interactive control mirrored rtl`,
+		).toEqual([]);
+	}
+});
+
 // `/play` is rendered OUTSIDE AppShell, so it never inherited the shell's skip link — and
 // styles/index.css pins the player nav to the bottom of a phone while the `<aside>` stays the FIRST
 // child in the DOM. A plain player therefore tabbed through nine nav buttons (six primary + three

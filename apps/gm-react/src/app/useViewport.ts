@@ -43,6 +43,28 @@ export function useCompactTopBar(): boolean {
 	return compact;
 }
 
+/* RC-UX-1.3 — RTL readiness. `document.documentElement.dir` is the single source of truth for text
+ * direction (RC-UX-1.1 sets it once an RTL locale ships); this hook just reads it reactively, the
+ * same MutationObserver shape `windowChrome.ts` already uses for `data-theme`, so a runtime locale
+ * switch re-renders direction-sensitive layout without a reload. */
+export type Direction = 'ltr' | 'rtl';
+
+export function computeDirection(): Direction {
+	if (typeof document === 'undefined') return 'ltr';
+	return document.documentElement.dir === 'rtl' ? 'rtl' : 'ltr';
+}
+
+export function useDirection(): Direction {
+	const [dir, setDir] = useState<Direction>(() => computeDirection());
+	useEffect(() => {
+		const target = document.documentElement;
+		const observer = new MutationObserver(() => setDir(computeDirection()));
+		observer.observe(target, { attributes: true, attributeFilter: ['dir'] });
+		return () => observer.disconnect();
+	}, []);
+	return dir;
+}
+
 /**
  * The usable viewport height (VisualViewport when the Android keyboard is open). Components consume
  * this centralized responsive signal instead of adding their own global resize/keyboard probes.

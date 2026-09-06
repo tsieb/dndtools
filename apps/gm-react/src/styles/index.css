@@ -124,8 +124,7 @@ html[data-electron='true'] .electron-titlebar {
 	position: fixed;
 	z-index: 1000;
 	top: 0;
-	left: 0;
-	right: 0;
+	inset-inline: 0;
 	height: var(--native-titlebar-height);
 	display: flex;
 	align-items: center;
@@ -192,8 +191,7 @@ html[data-electron='true'] .app-fixed-viewport {
 	.player-view-sidebar {
 		position: fixed !important;
 		z-index: 80;
-		left: 0;
-		right: 0;
+		inset-inline: 0;
 		top: auto !important;
 		bottom: 0;
 		width: 100% !important;
@@ -229,8 +227,7 @@ html[data-electron='true'] .app-fixed-viewport {
 	}
 
 	.player-view-toast-viewport {
-		left: 12px !important;
-		right: 12px !important;
+		inset-inline: 12px !important;
 		bottom: calc(119px + env(safe-area-inset-bottom, 0px)) !important;
 	}
 
