@@ -13,7 +13,7 @@ capabilities = "CAPABILITY_NAMED_IAM"
 confirm_changeset = false
 resolve_s3 = true
 s3_prefix = "dndtools-dev-foundation"
-parameter_overrides = "ProjectName=dndtools Stage=dev NotificationEmail=trentonsieb@gmail.com MonthlyBudgetUsd=15 GitHubOrg=tsieb GitHubRepo=dndtools GitHubBranch=main CreateGitHubOidcProvider=true"
+parameter_overrides = "ProjectName=dndtools Stage=dev NotificationEmail=jade@sieb.net MonthlyBudgetUsd=12 CreateStageDashboard=false GitHubOrg=tsieb GitHubRepo=dndtools GitHubBranch=main CreateGitHubOidcProvider=true"
 tags = "project=dndtools stage=dev service=foundation owner=platform data-class=operational managed-by=sam"
 
 [prod.global.parameters]
@@ -26,5 +26,5 @@ capabilities = "CAPABILITY_NAMED_IAM"
 confirm_changeset = true
 resolve_s3 = true
 s3_prefix = "dndtools-prod-foundation"
-parameter_overrides = "ProjectName=dndtools Stage=prod NotificationEmail=trentonsieb@gmail.com MonthlyBudgetUsd=40 GitHubOrg=tsieb GitHubRepo=dndtools GitHubBranch=main GitHubEnvironment=production CreateGitHubOidcProvider=true CreateApiGatewayAccountRole=true"
+parameter_overrides = "ProjectName=dndtools Stage=prod NotificationEmail=jade@sieb.net MonthlyBudgetUsd=20 CreateStageDashboard=true GitHubOrg=tsieb GitHubRepo=dndtools GitHubBranch=main GitHubEnvironment=production CreateGitHubOidcProvider=true CreateApiGatewayAccountRole=true"
 tags = "project=dndtools stage=prod service=foundation owner=platform data-class=operational managed-by=sam"

@@ -1,8 +1,11 @@
 # dndtools cloud infrastructure (AWS SAM)
 
 Small, independently-deployable CloudFormation/SAM stacks that add opt-in cloud
-capabilities to the local-first app. Everything is pay-per-use / scale-to-zero
-**except** one `t4g.nano` running coturn (the only always-on cost, ~$3–8/mo).
+capabilities to the local-first app. Everything is pay-per-use / scale-to-zero **except** the
+prod `t4g.nano` running coturn and the prod alerts KMS key. Dev has no always-on compute at all:
+its TURN relay was torn down on 2026-09-03 and is rebuilt on demand. Steady state is roughly
+**$12/mo across both accounts**; see "Observability and what it costs" for how it got to $40 in
+August 2026 and what stops that recurring.
 
 ## Account & identity
 
@@ -36,16 +39,16 @@ require a deliberate user migration or pool replacement, not an in-place stack u
 
 ## Stacks (deploy order)
 
-| Order | Stack         | Purpose                                                                                                   | Always-on cost |
-| ----- | ------------- | --------------------------------------------------------------------------------------------------------- | -------------- |
-| 0     | `edge-cert`   | **us-east-1** ACM cert for the custom domain (apex + wildcard). Shared by all stages; deploy once         | none           |
-| 1     | `foundation`  | Budget alarm, GitHub OIDC deploy role, SSM namespace, alerts topic + its KMS key                          | ~$1/mo         |
-| 2     | `identity`    | Cognito user pool + app client (gates everything) + the SES configuration set all mail is sent through    | none           |
-| 3     | `turn`        | coturn on EC2 `t4g.nano` + Elastic IP + cred Lambda                                                       | ~$3–8/mo       |
-| 4     | `app-api`     | API GW HTTP + Lambda + DynamoDB (accounts/entitlements/invites/listings, TTL) + S3 (marketplace payloads) | none           |
-| 5     | `signaling`   | API GW WebSocket + Lambdas + DynamoDB (rooms/conns, TTL)                                                  | none           |
-| 6     | `sync-api`    | API GW HTTP + Lambdas + DynamoDB (op index) + S3 (ciphertext)                                             | none           |
-| 7     | `web-hosting` | S3 (private) + CloudFront (OAC) + CSP header                                                              | none           |
+| Order | Stack         | Purpose                                                                                                                         | Always-on cost                       |
+| ----- | ------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 0     | `edge-cert`   | **us-east-1** ACM cert for the custom domain (apex + wildcard). Shared by all stages; deploy once                               | none                                 |
+| 1     | `foundation`  | Budget + cost anomaly alerts, GitHub OIDC deploy role, SSM namespace, alerts topic (+ its KMS key in prod), the stage dashboard | ~$1/mo (prod only)                   |
+| 2     | `identity`    | Cognito user pool + app client (gates everything) + the SES configuration set all mail is sent through                          | none                                 |
+| 3     | `turn`        | coturn on EC2 `t4g.nano` + Elastic IP + cred Lambda                                                                             | ~$7.70/mo (prod only; dev torn down) |
+| 4     | `app-api`     | API GW HTTP + Lambda + DynamoDB (accounts/entitlements/invites/listings, TTL) + S3 (marketplace payloads)                       | none                                 |
+| 5     | `signaling`   | API GW WebSocket + Lambdas + DynamoDB (rooms/conns, TTL)                                                                        | none                                 |
+| 6     | `sync-api`    | API GW HTTP + Lambdas + DynamoDB (op index) + S3 (ciphertext)                                                                   | none                                 |
+| 7     | `web-hosting` | S3 (private) + CloudFront (OAC) + CSP header                                                                                    | none                                 |
 
 > `app-api` publishes the authoritative entitlement table name in SSM; both `signaling` and
 > `sync-api` resolve it at deploy time. Deploy **`app-api` before both dependent stacks**.
@@ -195,16 +198,106 @@ infra/deploy.sh identity prod
 All commands target the `dndtools` profile / `ca-central-1` via each stack's
 `samconfig.toml`.
 
-After each foundation deployment, confirm the SNS subscription email before relying on service alarm
-delivery. Weekly drift detection and the production promotion workflow treat out-of-band stack changes
-as failures.
+After each foundation deployment, confirm the SNS subscription email before relying on alarm
+delivery, and verify it against the topic rather than the stack — see "Observability and what it
+costs" below for why stack status is not evidence here. Weekly drift detection and the production
+promotion workflow treat out-of-band stack changes as failures.
 
-Confirming the subscription is necessary but **not** sufficient — the alerts topic must also be
-encrypted with the stack's own `AlertsKey`, never the AWS-managed `alias/aws/sns`. The managed key
-cannot grant `cloudwatch.amazonaws.com` access, so alarms still transition to ALARM while every
-notification fails with "CloudWatch Alarms does not have authorization to access the SNS topic
-encryption key" — and nothing in the alarm's own state reveals it. To verify a stage end-to-end,
-force a transition and confirm the action actually succeeded:
+## Observability and what it costs
+
+CloudWatch's free allowances are shared **across the whole organisation**, not granted per
+account, and they are consumed as _resource-months_ rather than counted as a headcount. That
+combination produces a bill which appears in the middle of a month for no visible reason, so it
+is worth stating outright:
+
+| Resource   | Free allowance (whole org) | Price beyond it           |
+| ---------- | -------------------------- | ------------------------- |
+| Dashboards | 3                          | $3.00 / dashboard / month |
+| Alarms     | 10                         | $0.10 / alarm / month     |
+| Logs       | 5 GB ingested              | $0.50 / GB                |
+
+This project learned the mechanic the expensive way, and the shape of the failure is the reason
+the stacks are arranged the way they now are.
+
+Through August 2026 the org held **eight** dashboards (four in dev, three in prod, one in a
+neighbouring account) and **twenty-four** alarms. Eight dashboards exhaust three dashboard-months
+in three-eighths of a month, so CloudWatch billed exactly $0.00 until 12 August and then $0.85/day
+for the rest of it. August came to $40.16 against July's $12.14; $15.89 of the rise was CloudWatch
+and $14.54 of that was dashboards. Every one of them was rendering empty widgets, because neither
+stage has ever served a Lambda invocation. Meanwhile the dev budget's $15 ceiling was breached at
+$19.33 and the alert went to an address nobody was watching.
+
+Three lessons are encoded in the templates now:
+
+1. **Three dashboards is a hard org-wide budget**, not a per-account one. Prod holds one; dev's is
+   off by default; the third slot is deliberately left spare.
+2. **A green alarm is not a delivered alarm.** Dev's thirteen alarms fired into a topic with no
+   confirmed subscriber for their entire life. They were never observability.
+3. **A ceiling you never approach cannot detect a regression.** A 3x cost increase sat entirely
+   inside prod's then-$40 budget without tripping it.
+
+### One dashboard per stage, owned by `foundation`
+
+The four per-stack dashboards (`app-api`, `sync-api`, `signaling`, `identity`) are gone. There is
+now a single `dndtools-<stage>-overview`, defined in `foundation`, carrying every widget the four
+used to carry plus the TURN heartbeat that none of them showed.
+
+It lives in `foundation` because a dashboard is a **stage-level** object: there is one per stage
+however many stacks exist, and `foundation` is the only stack guaranteed to deploy before all of
+them. That ordering is also the design constraint — `foundation` deploys _first_, so it cannot
+look up the service stacks' Lambda names, and those names are CloudFormation-generated
+(`dndtools-dev-app-api-AppFn-u8Pu5Apml7Gx`), so they cannot be hardcoded either.
+
+Every widget therefore uses a metric `SEARCH()` expression matched on the `dndtools-<stage>`
+prefix that all of them share. That buys three things worth keeping:
+
+- no cross-stack lookup, so no deploy-order coupling and no `ParameterNotFound`;
+- a new function, API or queue appears on the dashboard with no template change;
+- deploying it before any service stack exists is fine — a `SEARCH` over an empty namespace
+  renders an empty widget instead of failing.
+
+The cost of that choice: a widget is empty both when the stage is idle and when it is broken.
+**Alarms, not this dashboard, are what tell you something is wrong.**
+
+### The dev/prod split
+
+|                                    | dev                          | prod                     |
+| ---------------------------------- | ---------------------------- | ------------------------ |
+| Dashboard (`CreateStageDashboard`) | off                          | on                       |
+| Alarms (`CreateAlarms`)            | off                          | on                       |
+| Alerts-topic encryption            | none                         | customer-managed KMS key |
+| Log retention                      | 14 days                      | 90 days                  |
+| TURN relay                         | torn down; rebuild on demand | always on                |
+| Monthly budget ceiling             | $12                          | $20                      |
+
+Dev is not unmonitored. It keeps the two controls that catch the failure that actually happened —
+the **Budget** and **Cost Anomaly Detection**, both free, both now pointed at `jade@sieb.net` —
+and drops the ones that were costing money while notifying nobody.
+
+To turn dev observability on for a debugging session, then put it back:
+
+```bash
+DNDTOOLS_CREATE_ALARMS=true infra/deploy.sh app-api dev     # alarms for one stack
+# dashboard: flip CreateStageDashboard=true in infra/foundation/samconfig.toml, deploy, revert
+infra/deploy.sh foundation dev
+```
+
+Leaving either switched on in dev is what the org's spare dashboard slot and alarm headroom are
+for — it is affordable for days, not for months. Put them back when you are done.
+
+### Verifying that an alert can actually leave the account
+
+Confirm the SNS subscription email after every `foundation` deploy. This is necessary but not
+sufficient, and stack status will lie to you about it: an unconfirmed SNS email subscription is
+**deleted by AWS after three days** while CloudFormation still reports the resource
+`CREATE_COMPLETE`. That is exactly the state dev was found in. Check the topic, not the stack:
+
+```bash
+aws sns list-subscriptions-by-topic --topic-arn <arn> --profile <profile> --region ca-central-1
+# a real subscription has a SubscriptionArn; "PendingConfirmation" is not delivery
+```
+
+Then force a transition on a real alarm and confirm the action itself succeeded:
 
 ```bash
 aws cloudwatch set-alarm-state --alarm-name <alarm> --state-value ALARM \
@@ -214,6 +307,37 @@ aws cloudwatch describe-alarm-history --alarm-name <alarm> --history-item-type A
   --query 'AlarmHistoryItems[].HistoryData' --output text   # expect actionState "Succeeded"
 aws cloudwatch set-alarm-state --alarm-name <alarm> --state-value OK --state-reason restore ...
 ```
+
+### Alerts-topic encryption: the three-way choice
+
+Prod encrypts the operations topic with the stack's own `AlertsKey`; dev leaves it unencrypted.
+Both deliver. The option that does **not** deliver is the AWS-managed `alias/aws/sns`, whose
+policy cannot grant `cloudwatch.amazonaws.com` access and is not editable — alarms still
+transition to ALARM while every notification fails with "CloudWatch Alarms does not have
+authorization to access the SNS topic encryption key", and nothing in the alarm's state reveals
+it. Encryption was never what was broken; that key's _policy_ was. Never reach for it. The full
+matrix is recorded on `AlertsKey` in `infra/foundation/template.yaml`.
+
+### Rebuilding the dev TURN relay
+
+Dev's `turn` stack was torn down on 2026-09-03 — a `t4g.nano`, an Elastic IP and an 8 GB volume,
+~$7.70/month, running since 1 August for a stage with no traffic. It is a clean rebuild whenever
+LAN/WebRTC work resumes:
+
+```bash
+infra/deploy.sh turn dev
+infra/deploy.sh signaling dev     # REQUIRED after: see below
+```
+
+`signaling` resolves `/dndtools/<stage>/turn/secret-arn` and `/turn/uri` from SSM **at deploy
+time**, so tearing down `turn` deletes parameters that `signaling` needs. The consequences are
+asymmetric and worth knowing before you hit this:
+
+- the already-deployed dev `signaling` stack keeps working — it baked those values in at its last
+  deploy, and holds a secret ARN that no longer resolves;
+- any _new_ dev `signaling` deploy fails with `ParameterNotFound` until `turn` is rebuilt;
+- the rebuilt `turn` mints a **new** shared secret and a **new** Elastic IP, so `signaling` must be
+  redeployed afterwards to pick both up. Dev TURN credentials issued before the teardown are dead.
 
 ## Cloud backup security
 

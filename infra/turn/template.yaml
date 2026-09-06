@@ -52,6 +52,26 @@ Parameters:
       Immutable multi-architecture coturn image manifest digest. Update only after
       reviewing the release and verifying its linux/arm64 manifest.
 
+  CreateAlarms:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: >-
+      Create this stack's CloudWatch alarms.
+
+      CloudWatch bills $0.10/alarm/month beyond a free allowance of TEN alarms, and
+      like the dashboard allowance it is consumed across the whole ORGANISATION, as
+      alarm-months. Prod alone sits at eleven alarms, so prod is already the budget.
+
+      Dev sets this to false. That is not a cost decision alone: dev's alarms fired
+      into a topic with no confirmed subscriber for their entire life, so they were
+      never observability in the first place — they were $1.30/month of alarms that
+      notified nobody. Turn them on in dev only alongside a confirmed subscription on
+      the dev alerts topic, otherwise the same silence returns.
+
+Conditions:
+  ShouldCreateAlarms: !Equals [!Ref CreateAlarms, 'true']
+
 Resources:
   # Auto-generated shared secret for coturn use-auth-secret (TURN REST API).
   # Both coturn (here) and the signaling credential minter read it. Never in
@@ -304,6 +324,7 @@ Resources:
 
   TurnInstanceStatusAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: ShouldCreateAlarms
     Properties:
       AlarmDescription: TURN EC2 instance or host status check failed.
       Namespace: AWS/EC2
@@ -323,6 +344,7 @@ Resources:
 
   TurnApplicationHealthAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: ShouldCreateAlarms
     Properties:
       AlarmDescription: TURN container or UDP/TCP listener is unavailable.
       Namespace: !Sub '${ProjectName}/TURN'

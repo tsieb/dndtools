@@ -21,7 +21,7 @@ capabilities = "CAPABILITY_IAM"
 confirm_changeset = false
 resolve_s3 = true
 s3_prefix = "dndtools-dev-turn"
-parameter_overrides = "ProjectName=dndtools Stage=dev VpcId=vpc-0dd2698d9379f67e5 SubnetId=subnet-08806a047fd66a616 Realm=dndtools"
+parameter_overrides = "ProjectName=dndtools Stage=dev VpcId=vpc-0dd2698d9379f67e5 SubnetId=subnet-08806a047fd66a616 Realm=dndtools CreateAlarms=false"
 tags = "project=dndtools stage=dev service=turn owner=platform data-class=operational managed-by=sam"
 
 [prod.global.parameters]
@@ -34,5 +34,5 @@ capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 resolve_s3 = true
 s3_prefix = "dndtools-prod-turn"
-parameter_overrides = "ProjectName=dndtools Stage=prod VpcId=vpc-02e94e0afad0d4dc5 SubnetId=subnet-06fdf4980e6ec6962 Realm=dndtools"
+parameter_overrides = "ProjectName=dndtools Stage=prod VpcId=vpc-02e94e0afad0d4dc5 SubnetId=subnet-06fdf4980e6ec6962 Realm=dndtools CreateAlarms=true"
 tags = "project=dndtools stage=prod service=turn owner=platform data-class=operational managed-by=sam"

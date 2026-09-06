@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>dndtools RC loop</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--bg:#0f1115;--panel:#171a21;--line:#262b36;--fg:#d7dbe3;--dim:#8b93a3;--ok:#4cc38a;--warn:#e5b454;--bad:#e5484d;--acc:#7aa2f7;font-size:13px}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
+h1{font-size:15px;margin:0 12px 0 0}h2{font-size:13px;margin:0 0 8px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+main{display:grid;grid-template-columns:repeat(auto-fit,minmax(460px,1fr));gap:12px;padding:12px 16px}
+section{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px;min-width:0}
+section.wide{grid-column:1/-1}
+button,select,input{font:inherit;background:#1f232d;color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:3px 8px}
+button{cursor:pointer}button:hover{border-color:var(--acc)}button.danger{border-color:#5a2a2c}button.primary{background:#243a63;border-color:#3b5aa0}
+input[type=number]{width:70px}input[type=text]{width:140px}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;border:1px solid var(--line);color:var(--dim)}
+.pill.ok{color:var(--ok);border-color:#1f4d38}.pill.warn{color:var(--warn);border-color:#5a4520}.pill.bad{color:var(--bad);border-color:#5a2a2c}
+.bar{height:10px;background:#0b0d11;border:1px solid var(--line);border-radius:5px;overflow:hidden;margin:3px 0}
+.bar i{display:block;height:100%;background:var(--ok)}.bar i.warn{background:var(--warn)}.bar i.bad{background:var(--bad)}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:3px 6px;border-bottom:1px solid var(--line);vertical-align:top;white-space:nowrap}
+td.wrap{white-space:normal}th{color:var(--dim);font-weight:normal}tr:hover td{background:#1c202a}
+.slot{border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-bottom:8px}
+.slot .live{color:var(--dim);white-space:pre-wrap;word-break:break-word;max-height:80px;overflow:auto;margin-top:4px}
+.dim{color:var(--dim)}.small{font-size:11px}.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}
+.scroll{max-height:420px;overflow:auto}pre{margin:0;white-space:pre-wrap;word-break:break-word;font-size:11px;max-height:300px;overflow:auto;background:#0b0d11;padding:8px;border-radius:4px}
+#modal{position:fixed;inset:5%;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px;display:none;flex-direction:column;z-index:10}
+#modal pre{flex:1;max-height:none}#toast{position:fixed;bottom:12px;right:12px;background:#243a63;padding:6px 12px;border-radius:4px;display:none}
+label{color:var(--dim)}.grid2{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:center}
+</style></head><body>
+<header>
+  <h1>dndtools RC loop</h1>
+  <span id="state-pill" class="pill">…</span>
+  <span id="branches" class="dim small"></span>
+  <span style="flex:1"></span>
+  <button id="btn-pause">Pause</button><button id="btn-unpause">Resume</button>
+  <button id="btn-stop" class="danger" title="slots finish their current run, then idle">Stop after runs</button>
+  <button id="btn-unstop">Clear stop</button>
+  <label>slots <input type="number" id="scale" min="0" max="12"></label><button id="btn-scale">Scale</button>
+  <button id="btn-promote" title="fast-forward main to the integration branch at the next opportunity (after the promotion gate)">Promote now</button>
+  <button id="btn-usage">Refresh usage</button>
+  <span id="clock" class="dim small"></span>
+</header>
+<main>
+  <section id="usage"><h2>Plan allowances</h2><div id="usage-body"></div></section>
+  <section id="slots"><h2>Slots</h2><div id="slots-body"></div></section>
+  <section id="policy"><h2>Policy</h2><div id="policy-body"></div></section>
+  <section id="metrics"><h2>Tokens per function point (S=1 · M=3 · L=6)</h2><div id="metrics-body" class="scroll"></div></section>
+  <section id="queue"><h2>Up next (dispatcher order)</h2><div id="queue-body" class="scroll"></div></section>
+  <section id="events"><h2>Events</h2><pre id="events-body"></pre></section>
+  <section class="wide" id="runs"><h2>Runs</h2><div id="runs-body" class="scroll"></div></section>
+  <section class="wide" id="stories"><h2>Stories <span id="counts" class="dim"></span></h2>
+    <div class="row"><input type="text" id="f-q" placeholder="search id/title"><select id="f-status"><option value="">any status</option><option>open</option><option>claimed</option><option>done</option><option>skipped</option><option>blocked</option></select>
+    <select id="f-phase"><option value="">any phase</option><option>P0</option><option>P1</option><option>P2</option><option>P3</option><option>P4</option></select><input type="text" id="f-lane" placeholder="lane e.g. STB" style="width:90px"><label><input type="checkbox" id="f-ready"> ready only</label></div>
+    <div id="stories-body" class="scroll" style="max-height:600px"></div></section>
+</main>
+<div id="modal"><div class="row"><b id="modal-title"></b><span style="flex:1"></span><button id="modal-close">close</button></div><pre id="modal-body"></pre></div>
+<div id="toast"></div>
+<script>
+const $=s=>document.querySelector(s);let ST=null,editingPolicy=false;
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ago=t=>{if(!t)return'';const s=Math.max(0,Date.now()/1000-t);return s<90?Math.round(s)+'s':s<5400?Math.round(s/60)+'m':(s/3600).toFixed(1)+'h'};
+const when=t=>t?new Date(t*1000).toLocaleString([], {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+const k=n=>n==null?'':n>=1e6?(n/1e6).toFixed(2)+'M':n>=1e3?(n/1e3).toFixed(1)+'k':String(n);
+async function cmd(verb,arg){const r=await fetch('/api/cmd',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({verb,arg:arg??''})});const j=await r.json();toast(verb+': '+j.result);refresh();}
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2500)}
+async function showLog(path,title){const r=await fetch('/api/log?path='+encodeURIComponent(path)+'&bytes=80000');const txt=await r.text();
+  $('#modal-title').textContent=title||path;let out=txt;
+  if(txt.includes('"type":"assistant"')){out=txt.split('\n').filter(l=>l.startsWith('{')).map(l=>{try{const d=JSON.parse(l);if(d.type==='assistant'){return (d.message.content||[]).map(c=>c.type==='text'?'🗨 '+c.text:c.type==='tool_use'?'⚙ '+c.name+' '+JSON.stringify(c.input).slice(0,220):'').join('\n')}if(d.type==='result'){return '■ result: '+(d.result||'').slice(0,800)+'\n  cost $'+d.total_cost_usd+' turns '+d.num_turns}if(d.type==='user'){const c=(d.message&&d.message.content)||[];return c.map(x=>x.type==='tool_result'?'  ↳ '+String(typeof x.content==='string'?x.content:JSON.stringify(x.content)).slice(0,200).replace(/\n/g,' '):'').join('\n')}return ''}catch(e){return ''}}).filter(Boolean).join('\n')}
+  $('#modal-body').textContent=out;$('#modal').style.display='flex';$('#modal-body').scrollTop=1e9}
+$('#modal-close').onclick=()=>$('#modal').style.display='none';
+function pct(p,soft,max){const c=p>=max?'bad':p>=soft?'warn':'';return `<div class="bar"><i class="${c}" style="width:${Math.min(100,p)}%"></i></div>`}
+function renderUsage(s){const u=s.usage.claude||{},cfg=s.config.usage,v=s.verdicts.claude;let h='';
+  if(u.ok){h+=`<div><b>5h window</b> ${u.session.pct.toFixed(0)}% · resets ${when(u.session.resets_at)} (${ago(u.session.resets_at*2-Date.now()/1000)} left)</div>${pct(u.session.pct,cfg.session_soft_pct,cfg.session_max_pct)}`;
+    h+=`<div><b>weekly</b> ${u.weekly.pct.toFixed(0)}% · resets ${when(u.weekly.resets_at)}</div>${pct(u.weekly.pct,cfg.weekly_soft_pct,cfg.weekly_max_pct)}`;
+    for(const [n,w] of Object.entries(u.scoped||{}))h+=`<div><b>${esc(n)}</b> (weekly, scoped) ${w.pct.toFixed(0)}%</div>${pct(w.pct,cfg.weekly_soft_pct,cfg.weekly_max_pct)}`;
+  }else h+=`<div class="pill bad">claude usage unavailable: ${esc(u.error)}</div>`;
+  h+=`<div class="small" style="margin-top:6px">verdict: <span class="pill ${v.allowed_slots===0?'bad':v.allowed_slots===1?'warn':'ok'}">${v.allowed_slots>=99?'all slots may claim':v.allowed_slots+' slot(s) may claim'}</span> ${esc(v.reason||'')}</div>`;
+  const c=s.usage.codex;if(c&&c.ok){for(const [n,ws] of Object.entries(c.limits))h+=`<div class="small"><b>codex ${esc(n)}</b> ${ws.map(w=>w.pct.toFixed(0)+'% /'+(w.window_min>=10000?'week':Math.round(w.window_min/60)+'h')).join(' · ')}</div>`}
+  else if(c&&c.error&&c.error!=='no codex slot')h+=`<div class="small dim">codex: ${esc(c.error)}</div>`;
+  h+=`<div class="small dim">polled ${ago(s.usage.at)} ago · the IdlerGame loop and interactive sessions draw on the same allowance</div>`;$('#usage-body').innerHTML=h}
+function renderSlots(s){let h='';for(const sl of s.slots){const hb=sl.hb||{},c=sl.cfg,st=hb.state||'—';const cls=!sl.alive?'bad':st==='working'||st==='verifying'?'ok':st==='waiting'||st==='paused'?'warn':'';
+  h+=`<div class="slot"><div class="row"><b>slot ${sl.slot}</b> <span class="pill ${cls}">${sl.alive?st:'not running'}</span> ${c.enabled?'':'<span class="pill">disabled</span>'} ${sl.stop_requested?'<span class="pill warn">stopping after run</span>':''}
+   <span>${esc(hb.item||'')}</span> <span class="dim">${hb.since?ago(hb.since):''} ${esc(hb.extra||'')}</span><span style="flex:1"></span>
+   <select data-slot="${sl.slot}" data-k="backend"><option ${c.backend==='claude'?'selected':''}>claude</option><option ${c.backend==='codex'?'selected':''}>codex</option><option ${c.backend==='fake'?'selected':''}>fake</option></select>
+   <select data-slot="${sl.slot}" data-k="model">${['auto','sonnet','opus','fable','haiku'].map(m=>`<option ${c.model===m?'selected':''}>${m}</option>`).join('')}</select>
+   <select data-slot="${sl.slot}" data-k="effort">${['auto','low','medium','high','max'].map(m=>`<option ${c.effort===m?'selected':''}>${m}</option>`).join('')}</select>
+   <input type="text" data-slot="${sl.slot}" data-k="sizes" value="${(c.sizes||[]).join(',')}" style="width:60px" title="sizes this slot takes">
+   <input type="text" data-slot="${sl.slot}" data-k="lanes" value="${(c.lanes||[]).join(',')}" style="width:80px" placeholder="lanes" title="lane filter, empty = any">
+   ${c.enabled?`<button data-cmd="slot-disable" data-arg="${sl.slot}">disable</button>`:`<button data-cmd="slot-start" data-arg="${sl.slot}">enable</button>`}
+   <button data-cmd="slot-stop" data-arg="${sl.slot}" title="finish the current run then stop">stop</button>
+   <button class="danger" data-cmd="slot-kill" data-arg="${sl.slot}" title="kill the run now; the tree is salvaged">kill</button>
+   ${hb.log?`<button data-log="${esc(hb.log)}" data-title="slot ${sl.slot} ${esc(hb.item||'')}">log</button>`:''}</div>
+   ${sl.idle&&sl.idle.reason?`<div class="dim small">idle: ${esc(sl.idle.reason)} ${sl.idle.wait_until?'· until '+when(sl.idle.wait_until):''}</div>`:''}
+   ${sl.live&&(sl.live.last_tool||sl.live.last_text)?`<div class="live">⚙ ${esc(sl.live.last_tool)}\n🗨 ${esc(sl.live.last_text)}</div>`:''}</div>`}
+  $('#slots-body').innerHTML=h||'<div class="dim">no slots configured — scale up</div>';
+  document.querySelectorAll('#slots-body select,#slots-body input').forEach(el=>el.onchange=()=>{const v=el.dataset.k==='sizes'||el.dataset.k==='lanes'?el.value.split(',').map(x=>x.trim()).filter(Boolean):el.value;cmd('slot-set',JSON.stringify({slot:+el.dataset.slot,[el.dataset.k]:v}))})}
+function renderPolicy(s){if(editingPolicy)return;const c=s.config;const r=c.routing;const opt=(v,l)=>l.map(m=>`<option ${v===m?'selected':''}>${m}</option>`).join('');
+  const lanes=s.config.lane_priority.map(l=>`<label><input type="checkbox" data-lane="${l}" ${c.lanes_disabled.includes(l)?'':'checked'}>${l}</label>`).join(' ');
+  $('#policy-body').innerHTML=`<div class="grid2">
+   <label>routing</label><div>${['S','M','L','docs'].map(sz=>`${sz}: <select data-r="${sz}" data-k="model">${opt(r[sz].model,['sonnet','opus','fable','haiku'])}</select><select data-r="${sz}" data-k="effort">${opt(r[sz].effort,['low','medium','high','max'])}</select> `).join('')}</div>
+   <label>phase</label><div>mode <select id="p-mode">${opt(c.phase.mode,['gated','soft'])}</select> max <select id="p-max">${opt(c.phase.max,['P0','P1','P2','P3','P4'])}</select> unlock at <input type="number" id="p-unlock" value="${c.phase.unlock_pct}">% of the previous phase · gate now: <b>P${s.phase_limit}</b></div>
+   <label>concurrency</label><div>max per lane <input type="number" id="p-lane" value="${c.max_per_lane}"> · batch small stories <input type="number" id="p-batch" value="${c.batch_small}"> · give up after <input type="number" id="p-giveup" value="${c.give_up_after}"> failed runs</div>
+   <label>usage</label><div>5h soft <input type="number" id="u-ss" value="${c.usage.session_soft_pct}"> max <input type="number" id="u-sm" value="${c.usage.session_max_pct}"> · weekly soft <input type="number" id="u-ws" value="${c.usage.weekly_soft_pct}"> max <input type="number" id="u-wm" value="${c.usage.weekly_max_pct}"> · <label><input type="checkbox" id="u-pace" ${c.usage.pace?'checked':''}> pace weekly</label> slack <input type="number" id="u-slack" value="${c.usage.pace_slack_pct}"></div>
+   <label>promotion</label><div>every <input type="number" id="pr-int" value="${Math.round(c.promote_interval_s/3600)}">h · gate <select id="pr-gate">${opt(c.promote_gate,['none','build','e2e'])}</select> · last: ${esc(s.last_promote.result||'never')} ${s.last_promote.at?ago(s.last_promote.at)+' ago':''} · ${esc(s.ahead)} commit(s) ahead of ${esc(c.promote_to)}</div>
+   <label>gates</label><div>build for <input type="text" id="g-build" value="${c.gates.build_for.join(',')}" style="width:80px"> <label><input type="checkbox" id="g-fa" ${c.gates.feature_audit?'checked':''}> feature-audit</label> <label><input type="checkbox" id="g-e2e" ${c.gates.e2e_named_specs?'checked':''}> named e2e specs</label> · MCP <select id="g-mcp">${opt(c.mcp,['none','inherit'])}</select></div>
+   <label>lanes</label><div class="wrap">${lanes}</div>
+   <label>lane priority</label><div><input type="text" id="p-prio" value="${c.lane_priority.join(',')}" style="width:100%"></div>
+   </div><div class="row"><button class="primary" id="p-save">Save policy</button><span class="dim small">config: ${esc(s.ctl)}/config.json · roadmap ${esc(s.roadmap_hash)}</span></div>`;
+  $('#policy-body').querySelectorAll('input,select').forEach(e=>e.onfocus=()=>editingPolicy=true);
+  $('#p-save').onclick=()=>{const routing={};document.querySelectorAll('[data-r]').forEach(e=>{(routing[e.dataset.r]??={})[e.dataset.k]=e.value});
+    const patch={routing,phase:{mode:$('#p-mode').value,max:$('#p-max').value,unlock_pct:+$('#p-unlock').value},max_per_lane:+$('#p-lane').value,batch_small:+$('#p-batch').value,give_up_after:+$('#p-giveup').value,
+      usage:{session_soft_pct:+$('#u-ss').value,session_max_pct:+$('#u-sm').value,weekly_soft_pct:+$('#u-ws').value,weekly_max_pct:+$('#u-wm').value,pace:$('#u-pace').checked,pace_slack_pct:+$('#u-slack').value},
+      promote_interval_s:+$('#pr-int').value*3600,promote_gate:$('#pr-gate').value,gates:{build_for:$('#g-build').value.split(',').map(x=>x.trim()).filter(Boolean),feature_audit:$('#g-fa').checked,e2e_named_specs:$('#g-e2e').checked},mcp:$('#g-mcp').value,
+      lanes_disabled:[...document.querySelectorAll('[data-lane]')].filter(e=>!e.checked).map(e=>e.dataset.lane),lane_priority:$('#p-prio').value.split(',').map(x=>x.trim()).filter(Boolean)};
+    editingPolicy=false;cmd('config',JSON.stringify(patch))}}
+function renderMetrics(s){const m=s.metrics;const rows=Object.entries(m).sort();if(!rows.length){$('#metrics-body').innerHTML='<div class="dim">no runs yet</div>';return}
+  $('#metrics-body').innerHTML=`<table><tr><th>group</th><th>runs</th><th>landed</th><th>FP</th><th>tokens</th><th>tok/FP</th><th>out tok/FP</th><th>$/FP</th><th>land rate</th><th>min/run</th></tr>${rows.map(([kk,a])=>`<tr><td>${esc(kk)}</td><td>${a.runs}</td><td>${a.landed}</td><td>${a.fp}</td><td>${k(a.tokens)}</td><td><b>${k(a.tokens_per_fp)}</b></td><td>${k(a.out_tokens_per_fp)}</td><td>${a.cost_per_fp??''}</td><td>${a.land_rate??''}</td><td>${a.runs?Math.round(a.seconds/a.runs/60):''}</td></tr>`).join('')}</table>`}
+function renderQueue(s){$('#queue-body').innerHTML=s.queue.length?`<table>${s.queue.map((q,i)=>`<tr><td>${i+1}</td><td>${q.id}</td><td>${q.size}</td><td>${q.phase}</td><td class="wrap">${esc(q.title)}</td><td class="dim" title="stories it transitively unblocks">↳${q.unlocks}</td><td>${q.attempts?'tries '+q.attempts:''}</td><td><button data-cmd="pin" data-arg="${q.id}">pin</button></td></tr>`).join('')}</table>`:'<div class="dim">nothing claimable right now</div>'}
+function renderRuns(s){const r=[...s.runs].reverse();$('#runs-body').innerHTML=r.length?`<table><tr><th>when</th><th>slot</th><th>story</th><th>size</th><th>model</th><th>outcome</th><th>min</th><th>tokens</th><th>out</th><th>cost</th><th>attempts</th><th>fix</th><th>commit</th><th>note</th></tr>${r.map(x=>`<tr><td>${when(x.at)}</td><td>${x.slot}</td><td>${esc(x.id)}</td><td>${x.size||''}</td><td>${esc(x.model||'')}/${esc(x.effort||'')}</td><td><span class="pill ${x.outcome==='landed'?'ok':x.outcome==='partial'?'warn':x.outcome==='failed'||x.outcome==='nocommit'?'bad':''}">${x.outcome}</span></td><td>${Math.round((x.seconds||0)/60)}</td><td>${k(x.tokens_total)}</td><td>${k(x.tokens_out)}</td><td>${x.cost_usd?'$'+x.cost_usd.toFixed(2):''}</td><td>${x.attempts||''}${x.limit_waits?' ⏸'+x.limit_waits:''}</td><td>${x.fix_rounds||''}</td><td>${esc(x.commit||'')}</td><td class="wrap small">${esc(x.note||'')}</td></tr>`).join('')}</table>`:'<div class="dim">no runs yet</div>'}
+function renderStories(s){const q=$('#f-q').value.toLowerCase(),fs=$('#f-status').value,fp=$('#f-phase').value,fl=$('#f-lane').value.toUpperCase(),ready=$('#f-ready').checked;
+  const rows=s.stories.filter(x=>(!q||(x.id+' '+x.title).toLowerCase().includes(q))&&(!fs||x.status===fs)&&(!fp||x.phase===fp)&&(!fl||x.lane===fl)&&(!ready||(x.status==='open'&&!x.unmet.length)));
+  $('#counts').textContent=`${s.total} total · ${Object.entries(s.counts).map(([a,b])=>a+' '+b).join(' · ')}`;
+  $('#stories-body').innerHTML=`<table><tr><th></th><th>id</th><th>ph</th><th>sz</th><th>status</th><th>title</th><th>deps unmet</th><th>↳</th><th>tries</th><th>actions</th></tr>${rows.slice(0,400).map(x=>{const cls=x.status==='done'?'ok':x.status==='claimed'?'warn':x.status==='skipped'||x.status==='blocked'?'bad':'';
+   return `<tr><td>${x.pinned?'📌':''}${x.operator?'👤':''}</td><td>${x.id}</td><td>${x.phase}</td><td>${x.size}</td><td><span class="pill ${cls}">${x.status}</span>${x.claim?' s'+x.claim.slot:''}</td><td class="wrap">${esc(x.title)}${x.partial?' <span class="warn small">◐ '+esc(x.partial)+'</span>':''}${x.skip_reason?' <span class="small dim">'+esc(x.skip_reason)+'</span>':''}${x.note?' <span class="small dim">'+esc(x.note)+'</span>':''}</td><td class="small dim">${x.unmet.join(' ')}</td><td class="dim">${x.unlocks}</td><td>${x.attempts||''}${x.failures?'/'+x.failures+'✗':''}</td>
+   <td>${x.pinned?`<button data-cmd="unpin" data-arg="${x.id}">unpin</button>`:`<button data-cmd="pin" data-arg="${x.id}" title="claim next, ignoring phase and lane caps">pin</button>`}
+   ${x.status==='skipped'||x.status==='blocked'?`<button data-cmd="unskip" data-arg="${x.id}">reopen</button>`:x.status==='open'?`<button data-cmd="skip" data-arg="${x.id} dashboard">skip</button><button data-cmd="set-status" data-arg="${x.id} done operator">done</button><button data-cmd="set-status" data-arg="${x.id} blocked operator">block</button>`:x.status==='claimed'?`<button data-cmd="release" data-arg="${x.id}" title="drop the claim (a dead runner's)">release</button>`:x.status==='done'?`<button data-cmd="set-status" data-arg="${x.id} open reopened">reopen</button>`:''}</td></tr>`}).join('')}</table>${rows.length>400?'<div class="dim">…'+(rows.length-400)+' more</div>':''}`}
+function render(s){ST=s;const pill=$('#state-pill');pill.textContent=s.stopping?'stopping':s.paused?'paused':(s.supervisor.pid?'running':'no supervisor');pill.className='pill '+(s.stopping?'bad':s.paused?'warn':s.supervisor.pid?'ok':'bad');
+  $('#branches').textContent=Object.entries(s.branches).map(([b,sha])=>b+'@'+sha).join(' · ')+(s.salvage.length?' · salvage: '+s.salvage.join(', '):'')+(s.roadmap_error?' · '+s.roadmap_error:'');
+  if(document.activeElement!==$('#scale'))$('#scale').value=s.config.slots.filter(x=>x.enabled).length;
+  renderUsage(s);renderSlots(s);renderPolicy(s);renderMetrics(s);renderQueue(s);renderRuns(s);renderStories(s);$('#events-body').textContent=s.events.slice().reverse().join('\n');$('#clock').textContent=new Date().toLocaleTimeString();
+  document.querySelectorAll('[data-cmd]').forEach(b=>b.onclick=()=>cmd(b.dataset.cmd,b.dataset.arg));document.querySelectorAll('[data-log]').forEach(b=>b.onclick=()=>showLog(b.dataset.log,b.dataset.title))}
+async function refresh(fresh){try{const r=await fetch('/api/state'+(fresh?'?fresh=1':''));render(await r.json())}catch(e){$('#state-pill').textContent='unreachable';$('#state-pill').className='pill bad'}}
+$('#btn-pause').onclick=()=>cmd('pause');$('#btn-unpause').onclick=()=>cmd('unpause');$('#btn-stop').onclick=()=>confirm('Stop every slot after its current run?')&&cmd('stop');$('#btn-unstop').onclick=()=>cmd('unstop');
+$('#btn-scale').onclick=()=>cmd('scale',$('#scale').value);$('#btn-promote').onclick=()=>cmd('promote');$('#btn-usage').onclick=()=>refresh(true);
+['#f-q','#f-status','#f-phase','#f-lane','#f-ready'].forEach(s=>$(s).oninput=()=>ST&&renderStories(ST));
+refresh();setInterval(()=>refresh(),5000);
+</script></body></html>

@@ -56,7 +56,25 @@ Parameters:
       fresh account cannot reserve at all (reservation must leave >=10 unreserved), so a new
       account deploys with 'false' until the quota increase (requested 2026-07-23) is granted.
 
+  CreateAlarms:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: >-
+      Create this stack's CloudWatch alarms.
+
+      CloudWatch bills $0.10/alarm/month beyond a free allowance of TEN alarms, and
+      like the dashboard allowance it is consumed across the whole ORGANISATION, as
+      alarm-months. Prod alone sits at eleven alarms, so prod is already the budget.
+
+      Dev sets this to false. That is not a cost decision alone: dev's alarms fired
+      into a topic with no confirmed subscriber for their entire life, so they were
+      never observability in the first place — they were $1.30/month of alarms that
+      notified nobody. Turn them on in dev only alongside a confirmed subscription on
+      the dev alerts topic, otherwise the same silence returns.
+
 Conditions:
+  ShouldCreateAlarms: !Equals [!Ref CreateAlarms, 'true']
   ShouldReserveConcurrency: !Equals [!Ref ReserveLambdaConcurrency, 'true']
   IsProd: !Equals [!Ref Stage, prod]
   HasSyncOpsTable: !Not [!Equals [!Ref SyncOpsTableName, '']]
@@ -413,6 +431,7 @@ Resources:
 
   AppFunctionErrorsAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: ShouldCreateAlarms
     Properties:
       AlarmDescription: App API Lambda returned one or more unhandled errors in five minutes.
       Namespace: AWS/Lambda
@@ -443,6 +462,7 @@ Resources:
 
   AppApi5xxAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: ShouldCreateAlarms
     Properties:
       AlarmDescription: App API returned one or more 5xx responses in five minutes.
       Namespace: Dndtools/Api
@@ -459,6 +479,7 @@ Resources:
 
   AppFunctionThrottlesAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: ShouldCreateAlarms
     Properties:
       AlarmDescription: App API Lambda concurrency throttling was observed.
       Namespace: AWS/Lambda
@@ -475,13 +496,6 @@ Resources:
       TreatMissingData: notBreaching
       AlarmActions:
         - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/ops/alerts-topic-arn}}'
-
-  AppApiDashboard:
-    Type: AWS::CloudWatch::Dashboard
-    Properties:
-      DashboardName: !Sub '${ProjectName}-${Stage}-app-api'
-      DashboardBody: !Sub >-
-        {"widgets":[{"type":"metric","width":12,"height":6,"properties":{"title":"App API Lambda","region":"${AWS::Region}","stat":"Sum","period":300,"metrics":[["AWS/Lambda","Invocations","FunctionName","${AppFn}"],[".","Errors",".","."],[".","Throttles",".","."]]}},{"type":"metric","width":12,"height":6,"properties":{"title":"App API latency","region":"${AWS::Region}","stat":"p95","period":300,"metrics":[["AWS/Lambda","Duration","FunctionName","${AppFn}"]]}}]}
 
   # --- Publish the API URL for the client build --------------------------------
   ParamAppApiUrl:

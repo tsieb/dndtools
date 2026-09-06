@@ -1,0 +1,7 @@
+{
+  "autoCompactEnabled": true,
+  "hooks": {
+    "PreCompact": [{"hooks": [{"type": "command", "command": "/home/trinkle/Programming/dndtools/tools/loop/hooks/precompact.sh", "timeout": 20}]}],
+    "SessionStart": [{"hooks": [{"type": "command", "command": "/home/trinkle/Programming/dndtools/tools/loop/hooks/sessionstart.sh", "timeout": 20}]}]
+  }
+}

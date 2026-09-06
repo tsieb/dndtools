@@ -1,5 +1,8 @@
 # Roadmap
 
+> **Execution plan:** the detailed, story-level path from this baseline to Release Candidate 1 is
+> [`RC_ROADMAP.md`](RC_ROADMAP.md). This page stays the short thematic summary.
+
 This roadmap starts from the current baseline: a browser-first React GM app (`apps/gm-react`) on a
 framework-free processing core (`packages/core`), with an opt-in AWS cloud backend and LAN/serverless
 remote play. The detailed backlog is the initiative set — see

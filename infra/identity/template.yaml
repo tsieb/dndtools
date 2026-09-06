@@ -44,6 +44,23 @@ Parameters:
     Description: >-
       Verified From address displayed on Cognito confirmation and recovery messages. Required for prod.
 
+  CreateAlarms:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: >-
+      Create this stack's CloudWatch alarms.
+
+      CloudWatch bills $0.10/alarm/month beyond a free allowance of TEN alarms, and
+      like the dashboard allowance it is consumed across the whole ORGANISATION, as
+      alarm-months. Prod alone sits at eleven alarms, so prod is already the budget.
+
+      Dev sets this to false. That is not a cost decision alone: dev's alarms fired
+      into a topic with no confirmed subscriber for their entire life, so they were
+      never observability in the first place — they were $1.30/month of alarms that
+      notified nobody. Turn them on in dev only alongside a confirmed subscription on
+      the dev alerts topic, otherwise the same silence returns.
+
 Rules:
   ProductionEmailMustUseSes:
     RuleCondition: !Equals [!Ref Stage, prod]
@@ -54,6 +71,7 @@ Rules:
         AssertDescription: Production identity requires a verified CognitoEmailFrom address.
 
 Conditions:
+  ShouldCreateAlarms: !Equals [!Ref CreateAlarms, 'true']
   # ADMIN_USER_PASSWORD_AUTH is a non-SRP password flow used only by automated
   # verification scripts in dev. It is a standing weakening (anyone able to call
   # AdminInitiateAuth can attempt password auth), so it is enabled in dev only —
@@ -228,6 +246,7 @@ Resources:
   # rather than a notification that action has already been taken against the account.
   EmailBounceRateAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: ShouldCreateAlarms
     Properties:
       AlarmDescription: >-
         SES account bounce rate is at or above 5% — the level at which AWS places a sending
@@ -248,6 +267,7 @@ Resources:
 
   EmailComplaintRateAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: ShouldCreateAlarms
     Properties:
       AlarmDescription: >-
         SES account complaint rate is at or above 0.1% — the level at which AWS places a
@@ -263,13 +283,6 @@ Resources:
       TreatMissingData: notBreaching
       AlarmActions:
         - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/ops/alerts-topic-arn}}'
-
-  EmailDeliverabilityDashboard:
-    Type: AWS::CloudWatch::Dashboard
-    Properties:
-      DashboardName: !Sub '${ProjectName}-${Stage}-email'
-      DashboardBody: !Sub >-
-        {"widgets":[{"type":"metric","width":12,"height":6,"properties":{"title":"Outcomes","region":"${AWS::Region}","stat":"Sum","period":3600,"metrics":[["AWS/SES","Send","ses:configuration-set","${EmailConfigurationSet}"],[".","Delivery",".","."],[".","Bounce",".","."],[".","Complaint",".","."],[".","Reject",".","."]]}},{"type":"metric","width":12,"height":6,"properties":{"title":"Account reputation","region":"${AWS::Region}","stat":"Average","period":3600,"yAxis":{"left":{"min":0}},"metrics":[["AWS/SES","Reputation.BounceRate"],[".","Reputation.ComplaintRate"]],"annotations":{"horizontal":[{"label":"AWS review (bounce)","value":0.05},{"label":"AWS review (complaint)","value":0.001}]}}}]}
 
   # --- Publish identity coordinates to SSM for downstream stacks + client build.
   ParamEmailConfigSet:
