@@ -93,3 +93,44 @@ the model a rich, well-described, fail-closed tool surface and to keep the user 
   the loop stops. Threading a signal into the transport is a future option.
 - The local Ollama origin is only network-authorized in dev / via `VITE_AI_ALLOWED_ORIGINS` / the
   Electron `allowAiOrigin` bridge — surfaced in the Ollama card copy so a hosted build fails honestly.
+
+## Amendment — RC-AI-1.2 as built (2026-09-05)
+
+Six more staged write tools land on the same contract (`kind:'write'`, `durable`, **no `visibility`
+argument** ⇒ fail closed to `dm-only`, each bound to an EXISTING command, each with a model-facing
+`description`):
+
+- `encounter.create` → `encounter.build`. Combatant selection, party context, terrain notes,
+  legendary/lair actions, loot. It forwards `sessionLogLinks: []` (an agent cannot bind vault
+  references) and never takes a difficulty — the core computes the challenge guidance itself.
+- `quest.create` → `content.create-item`, producing a `quest` Vault Object (`status` plus
+  `{id, text, done}` objectives). Objective ids are index-derived, keeping the mapping pure.
+- `faction.create` → `content.create-item`, producing a `faction` dossier. `secret` is the subtype's
+  DM-only field, so it stays redacted from players even if the DM later shares the note.
+- `map.poi.create` → `map.create-poi`, in normalized (0..1) map space. `layerId` is optional.
+- `scene.card.update` → `scene-card.update`. Title/mood/flavor only; the command cannot change
+  visibility at all, and hero-image/audio refs are never forwarded.
+- `note.append` → `content.update-item`. Appends rather than replaces, so a model adding to a long
+  note cannot silently drop the DM's prose.
+
+**`writeCommandPayload` is now state-aware and fallible.** Two of these tools resolve their payload
+against current state — `note.append` needs the note's present body and revision, `map.poi.create`
+needs a layer on the target map — so the mapper's signature becomes
+`(state, tool, actorId, input) → {ok:true, payload} | {ok:false, message}`. It reads state ONLY
+through the actor-filtered queries (`getContentItemDetailForActor`, `getMapViewForActor`), so it
+confers no authority: an agent can only touch what its bound actor may already see, and the bound
+command still re-validates and re-checks authority at dispatch. A failed resolution denies with the
+same generic `invalid-input` envelope a schema failure produces, and a hidden target is
+indistinguishable from a missing one — the write surface is not an existence probe. Both the direct
+path (`invokeMcpTool`) and the staged path (`invokeMcpToolAsAgent`) go through it, so the ADR's
+staged-equals-direct invariant above still holds.
+
+`note.append` snapshots the note's revision as `baseRevision` at STAGING time. A human edit landing
+before approval therefore records a `content.item-conflict` rather than clobbering the newer text —
+the same conflict posture as `note.update`.
+
+**Not covered by the live-model smoke harness:** `map.poi.create`, `scene.card.update`, and
+`note.append` all need a seeded vault (a map, a card, a note) that the harness's empty headless state
+does not have. They are covered by dedicated core tests instead
+(`packages/core/tests/mcp-agent-write-tools.test.ts`); the three creation tools that work from an
+empty vault gained smoke scenarios.

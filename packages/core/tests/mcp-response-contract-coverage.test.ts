@@ -10,6 +10,7 @@ import {
 	buildCertifiedMcpResponse,
 	certifyMcpResponse,
 	createBaselineMcpToolRegistry,
+	createDemoMapState,
 	dispatchCommand,
 	invokeMcpTool,
 	toMcpResponseEnvelope,
@@ -34,17 +35,38 @@ const registry = createBaselineMcpToolRegistry();
 /** Placeholder in VALID_INPUT['note.update'] swapped for the real seeded note id inside `run`. */
 const SEEDED_NOTE = '__seeded_note__';
 
-/** Build a fresh DM/player state pre-seeded with one note; returns the state + the note's real id. */
-function stateWithSeededNote(): { state: CoreStateSlice; noteId: string } {
-	const created = dispatchCommand(buildInitialState(DM_ACTOR, PLAYER_ACTOR), env, {
-		type: 'content.create-item',
-		actorId: DM_ACTOR.id,
-		payload: { kind: 'note', title: 'Seed note', body: 'seed body' },
-	});
+/** Placeholder in VALID_INPUT['scene.card.update'] swapped for the real seeded card id inside `run`. */
+const SEEDED_CARD = '__seeded_card__';
+
+/**
+ * Build a fresh DM/player state pre-seeded with the targets the state-resolved write tools need: one
+ * note (`note.update`, `note.append`), the demo maps (`map.poi.create`), and one scene card
+ * (`scene.card.update`). Returns the state plus the real ids the sentinels are swapped for.
+ */
+function stateWithSeededTargets(): { state: CoreStateSlice; noteId: string; cardId: string } {
+	const created = dispatchCommand(
+		{ ...buildInitialState(DM_ACTOR, PLAYER_ACTOR), maps: createDemoMapState() },
+		env,
+		{
+			type: 'content.create-item',
+			actorId: DM_ACTOR.id,
+			payload: { kind: 'note', title: 'Seed note', body: 'seed body' },
+		},
+	);
 	if (created.status !== 'accepted') throw new Error('failed to seed a note for coverage');
 	const changed = created.events.find((e) => e.kind === 'content.item-changed');
 	if (!changed || changed.kind !== 'content.item-changed') throw new Error('no seeded note id');
-	return { state: created.nextState, noteId: changed.itemId };
+
+	const card = dispatchCommand(created.nextState, env, {
+		type: 'scene-card.create',
+		actorId: DM_ACTOR.id,
+		payload: { title: 'Seed card', mood: 'social' },
+	});
+	if (card.status !== 'accepted') throw new Error('failed to seed a scene card for coverage');
+	const cardEvent = card.events.find((e) => e.kind === 'scene-card.created');
+	if (!cardEvent || cardEvent.kind !== 'scene-card.created') throw new Error('no seeded card id');
+
+	return { state: card.nextState, noteId: changed.itemId, cardId: cardEvent.cardId };
 }
 
 /** A valid input per tool (mirrors the MCP-005 coverage manifest's accepted inputs). */
@@ -86,6 +108,27 @@ const VALID_INPUT: Record<string, unknown> = {
 		title: 'Revised heading',
 		body: 'Updated by the agent.',
 	},
+	// RC-AI-1.2 campaign-authoring write tools. `map.poi.create` addresses the demo map state and
+	// `scene.card.update`/`note.append` address the seeded card/note (sentinels swapped in `run`).
+	'encounter.create': {
+		title: 'Bridge ambush',
+		combatants: [{ kind: 'monster', name: 'Bandit', challengeRating: 0.5, quantity: 4 }],
+		party: { size: 4, averageLevel: 3 },
+	},
+	'quest.create': {
+		title: 'Find the drowned crown',
+		status: 'active',
+		objectives: ['Reach the sunken chapel'],
+	},
+	'faction.create': { name: 'The Fen Circle', kind: 'cult', stance: 'hostile' },
+	'map.poi.create': {
+		mapId: 'map-western-reaches',
+		label: 'Watchtower',
+		category: 'landmark',
+		position: { x: 0.25, y: 0.3 },
+	},
+	'scene.card.update': { cardId: SEEDED_CARD, flavorText: 'Rain drums on the tin roof.' },
+	'note.append': { itemId: SEEDED_NOTE, text: 'They met the Fen Circle at dusk.' },
 };
 
 /** An invalid input per tool (mirrors the MCP-005 coverage manifest's rejected inputs). */
@@ -109,15 +152,24 @@ const INVALID_INPUT: Record<string, unknown> = {
 	'table.create': { title: 'Broken', dice: '1d4', entries: [] }, // empty entries fail the min(1) schema
 	'character.create': { kind: 'npc' }, // missing required name
 	'note.update': {}, // missing required itemId
+	'encounter.create': { title: 'Empty', combatants: [] }, // an encounter needs a combatant
+	'quest.create': { title: 'Find the crown', status: 'maybe' }, // not a declared quest status
+	'faction.create': { name: 'The Fen Circle', stance: 'grumpy' }, // not a declared stance
+	'map.poi.create': { mapId: 'map-western-reaches', label: 'x', position: { x: 4, y: 0.5 } }, // x is 0..1
+	'scene.card.update': { cardId: 'card-1' }, // nothing to update
+	'note.append': { text: 'more prose' }, // missing required itemId
 };
 
 function run(toolId: string, input: unknown, actorId: string): McpToolResult {
-	// Seed a note so the note.update coverage case has a real target; the sentinel id is swapped in.
-	const { state, noteId } = stateWithSeededNote();
-	const resolvedInput =
-		input && typeof input === 'object' && (input as { itemId?: unknown }).itemId === SEEDED_NOTE
-			? { ...(input as object), itemId: noteId }
-			: input;
+	// Seed the note/map/card targets so the state-resolved coverage cases address something real; the
+	// sentinel ids are swapped for the ids the seeding actually minted.
+	const { state, noteId, cardId } = stateWithSeededTargets();
+	let resolvedInput = input;
+	if (input && typeof input === 'object') {
+		const record = input as { itemId?: unknown; cardId?: unknown };
+		if (record.itemId === SEEDED_NOTE) resolvedInput = { ...(input as object), itemId: noteId };
+		else if (record.cardId === SEEDED_CARD) resolvedInput = { ...(input as object), cardId };
+	}
 	return invokeMcpTool(state, env, registry, {
 		toolId,
 		actorId,

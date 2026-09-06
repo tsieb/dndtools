@@ -246,6 +246,17 @@ export function invokeMcpToolAsAgent(
 		return { result, nextState: state };
 	}
 
+	// Resolve the MAPPED command payload BEFORE staging. RC-AI-1.2 made this fallible: a tool whose
+	// payload is resolved against current state (`note.append`, `map.poi.create`) denies when the target
+	// is not visible to the bound actor. Delegate the denial to the tool-level dispatch so a staged
+	// write and a direct one produce the IDENTICAL envelope — and because the mapping fails there too,
+	// no command is dispatched on the way.
+	const resolved = writeCommandPayload(state, tool, identity.actorId, parsed.data);
+	if (!resolved.ok) {
+		const result = invokeMcpTool(state, env, registry, toolInvocation);
+		return { result, nextState: state };
+	}
+
 	const proposalId = env.ids();
 	const now = env.clock();
 	const proposal: McpStagedProposal = {
@@ -260,7 +271,7 @@ export function invokeMcpToolAsAgent(
 		// payload against current state (so staging can never smuggle a field the command rejects). For
 		// the baseline tools this is identity; for tools whose input differs from the command shape (e.g.
 		// a dice-table's rows mapped into `fields`) it is what makes the approved write valid.
-		payload: writeCommandPayload(tool, parsed.data),
+		payload: resolved.payload,
 		policyMode: identity.policyMode,
 		writeRisk: tool.writeRisk,
 		...(invocation.idempotencyKey !== undefined

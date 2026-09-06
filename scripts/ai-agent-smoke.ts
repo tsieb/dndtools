@@ -8,9 +8,11 @@
  *   - `invoke`→ the Core's fail-closed `invokeMcpToolAsAgent` (identity → policy → stage pipeline).
  *
  * It asserts that, from a plain-English ask, the model works through the tools and lands a STAGED,
- * schema-valid proposal — proving the new write tools (table.create, character.create) are usable by
- * a real model end to end. Skips cleanly (exit 0) when Ollama is not running, so CI without a local
- * model is unaffected.
+ * schema-valid proposal — proving the write tools (table.create, character.create, and the RC-AI-1.2
+ * encounter/quest/faction creators) are usable by a real model end to end. The tools that need an
+ * existing target (map.poi.create, scene.card.update, note.append) are not scenarios here: this
+ * harness runs an EMPTY headless vault, so they are covered by dedicated core tests instead. Skips
+ * cleanly (exit 0) when Ollama is not running, so CI without a local model is unaffected.
  *
  * Run:  pnpm tsx scripts/ai-agent-smoke.ts   (or: OLLAMA_MODEL=llama3.1:8b pnpm tsx scripts/ai-agent-smoke.ts)
  */
@@ -18,6 +20,7 @@ import { z } from 'zod';
 import {
 	MCP_BASELINE_TOOL_IDS,
 	MCP_POLICY_MODES,
+	buildEncounterInputSchema,
 	createBaselineMcpToolRegistry,
 	createContentItemInputSchema,
 	dispatchCommand,
@@ -185,6 +188,12 @@ interface Scenario {
 	prompt: string;
 	commandType: string;
 	schema: z.ZodType;
+	/**
+	 * The tool the scenario expects. Required whenever several tools share one `commandType` (quest,
+	 * faction, table, and note creation all dispatch `content.create-item`), so the assertion cannot
+	 * pass on a proposal the model staged with a different tool.
+	 */
+	toolId?: string;
 }
 
 const SCENARIOS: Scenario[] = [
@@ -194,6 +203,7 @@ const SCENARIOS: Scenario[] = [
 			'Generate a random d8 table of eerie sounds heard in a haunted swamp at night, and SAVE it as a ' +
 			'rollable table. The table needs a title, the dice expression "1d8", and exactly 8 result rows.',
 		commandType: 'content.create-item',
+		toolId: 'table.create',
 		schema: createContentItemInputSchema,
 	},
 	{
@@ -203,6 +213,36 @@ const SCENARIOS: Scenario[] = [
 			'block (hp, maxHp, ac), and put its class and level in the data field. Stage it for my review.',
 		commandType: 'character.quick-create',
 		schema: quickCreateCharacterInputSchema,
+	},
+	// RC-AI-1.2 — the campaign-authoring write tools. Each proves a real model can drive the tool from
+	// plain English to a staged, schema-valid proposal for the bound command.
+	{
+		name: 'encounter building → encounter.create',
+		prompt:
+			'Build me a combat encounter called "Bridge ambush" for a party of four level-3 characters: ' +
+			'four CR 1/2 bandits and one CR 2 bandit captain, on a rope bridge over a gorge. Stage it for ' +
+			'my review.',
+		commandType: 'encounter.build',
+		toolId: 'encounter.create',
+		schema: buildEncounterInputSchema,
+	},
+	{
+		name: 'quest authoring → quest.create',
+		prompt:
+			'Create an active quest called "Find the drowned crown" with three objectives the party works ' +
+			'through in order, and a short paragraph of hooks and rewards in the body. Stage it for review.',
+		commandType: 'content.create-item',
+		toolId: 'quest.create',
+		schema: createContentItemInputSchema,
+	},
+	{
+		name: 'faction authoring → faction.create',
+		prompt:
+			'Write me a faction dossier for a hostile swamp cult called The Fen Circle: give it a leader, ' +
+			'two or three goals in priority order, and one secret only I should know. Stage it for review.',
+		commandType: 'content.create-item',
+		toolId: 'faction.create',
+		schema: createContentItemInputSchema,
 	},
 ];
 
@@ -241,10 +281,14 @@ async function runScenario(scenario: Scenario): Promise<boolean> {
 
 	// The proof: a staged proposal for the expected command whose captured payload is schema-valid.
 	const proposals = Object.values(state.mcp.proposals) as McpStagedProposal[];
-	const match = proposals.find((p) => p.commandType === scenario.commandType);
+	const match = proposals.find(
+		(p) =>
+			p.commandType === scenario.commandType &&
+			(scenario.toolId === undefined || p.toolId === scenario.toolId),
+	);
 	if (!match) {
 		console.log(
-			`   ✗ FAIL — no staged proposal for ${scenario.commandType} (model did not complete the task)`,
+			`   ✗ FAIL — no staged proposal for ${scenario.toolId ?? scenario.commandType} (model did not complete the task)`,
 		);
 		return false;
 	}

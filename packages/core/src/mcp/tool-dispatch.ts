@@ -3,6 +3,7 @@ import type { CommandResult, CoreEnvironment, CoreStateSlice } from '../commands
 import { dispatchCommand } from '../commands/dispatch';
 import type { McpToolDefinition, McpToolRegistry } from './tool-registry';
 import { getContentItemsForActor, getContentItemDetailForActor } from '../queries/content-query';
+import { getMapViewForActor } from '../queries/map-query';
 import { listCharactersForActor } from '../queries/character-query';
 import { searchVaultForActor } from '../queries/search-query';
 import { getGraphRelationships } from '../queries/graph-api';
@@ -259,19 +260,42 @@ function runReadTool(
 }
 
 /**
+ * The outcome of mapping a write tool's input onto its bound command payload. A mapping can FAIL:
+ * RC-AI-1.2 added tools whose payload is resolved against CURRENT state through the actor-filtered
+ * reads (`note.append` needs the note's present body + revision; `map.poi.create` needs a layer on
+ * the target map), and a target the bound actor cannot see must deny rather than guess. The failure
+ * `message` is GENERIC — a hidden target and a missing one read identically, so an agent cannot probe
+ * for existence through the write surface.
+ */
+export type McpWritePayloadResolution =
+	| { ok: true; payload: unknown }
+	| { ok: false; message: string };
+
+/** Append `text` to `body`, separated by a blank line, optionally under its own markdown heading. */
+function appendedNoteBody(body: string, text: string, heading: string | undefined): string {
+	const section = heading === undefined || heading === '' ? text : `## ${heading}\n\n${text}`;
+	return body === '' ? section : `${body}\n\n${section}`;
+}
+
+/**
  * Map the (already schema-validated) write-tool input to the bound command payload. Returns the
  * payload the command's OWN validator will re-check. Centralized here so a write tool can never
  * smuggle a field the command does not accept, and so visibility-widening fields are never forwarded
  * (the note-create tool does NOT pass a visibility, so the command defaults it fail-closed).
+ *
+ * The mapper reads state ONLY through the actor-filtered query surfaces, so it grants no authority:
+ * whatever it resolves, the bound command still re-validates and re-checks authority at dispatch.
  */
 export function writeCommandPayload(
+	state: CoreStateSlice,
 	tool: Extract<McpToolDefinition, { kind: 'write' }>,
+	actorId: string,
 	input: unknown,
-): unknown {
+): McpWritePayloadResolution {
 	switch (tool.commandType) {
 		case 'content.create-item': {
-			// `content.create-item` backs TWO tools; branch on the tool id so neither can smuggle the
-			// other's fields (a note.create can never carry table `fields`, and vice versa).
+			// `content.create-item` backs FOUR tools; branch on the tool id so none can smuggle another's
+			// fields (a note.create can never carry table `fields`, and vice versa).
 			if (tool.id === 'table.create') {
 				const { title, dice, entries } = input as {
 					title: string;
@@ -281,10 +305,73 @@ export function writeCommandPayload(
 				// A rollable `dice-table` Vault Object: the EXACT `fields` shape `readDiceTable`
 				// (commands/dice.ts) reads. No `visibility` ⇒ the table fails closed to `dm-only`.
 				return {
-					kind: 'object',
-					title,
-					body: '',
-					fields: { [VAULT_OBJECT_SUBTYPE_KEY]: 'dice-table', dice, entries },
+					ok: true,
+					payload: {
+						kind: 'object',
+						title,
+						body: '',
+						fields: { [VAULT_OBJECT_SUBTYPE_KEY]: 'dice-table', dice, entries },
+					},
+				};
+			}
+			if (tool.id === 'quest.create') {
+				const { title, status, objectives, body } = input as {
+					title: string;
+					status: string;
+					objectives: string[];
+					body: string;
+				};
+				// A `quest` Vault Object: the exact `fields` the subtype schema declares
+				// (state/vault-object-schema.ts). Objective ids are INDEX-DERIVED, not minted, so the
+				// mapping stays pure and a replayed staging produces a byte-identical payload.
+				return {
+					ok: true,
+					payload: {
+						kind: 'object',
+						title,
+						body,
+						fields: {
+							[VAULT_OBJECT_SUBTYPE_KEY]: 'quest',
+							title,
+							status,
+							objectives: objectives.map((text, index) => ({
+								id: `objective-${index + 1}`,
+								text,
+								done: false,
+							})),
+						},
+					},
+				};
+			}
+			if (tool.id === 'faction.create') {
+				const { name, kind, stance, leader, goals, secret, body } = input as {
+					name: string;
+					kind: string;
+					stance: string;
+					leader: string;
+					goals: string[];
+					secret: string;
+					body: string;
+				};
+				// A `faction` Vault Object. `secret` is the subtype's DM-only field: the dossier itself
+				// fails closed to `dm-only`, and the field stays redacted from players even if the DM
+				// later shares the note.
+				return {
+					ok: true,
+					payload: {
+						kind: 'object',
+						title: name,
+						body,
+						fields: {
+							[VAULT_OBJECT_SUBTYPE_KEY]: 'faction',
+							name,
+							kind,
+							stance,
+							leader,
+							goals,
+							secret,
+						},
+					},
 				};
 			}
 			const { title, body, kind } = input as {
@@ -294,9 +381,36 @@ export function writeCommandPayload(
 			};
 			// Only the agent-safe fields cross over. No `visibility` ⇒ the command fails closed to
 			// `dm-only`, so an agent can never publish content to players by a tool call alone.
-			return { kind, title, body };
+			return { ok: true, payload: { kind, title, body } };
 		}
 		case 'content.update-item': {
+			if (tool.id === 'note.append') {
+				const { itemId, text, heading } = input as {
+					itemId: string;
+					text: string;
+					heading?: string;
+				};
+				// APPEND, resolved against CURRENT state through the ACTOR-FILTERED note read: an agent
+				// can only append to a note its bound actor may already see, and a hidden note denies
+				// exactly like a missing one. The CURRENT revision rides along as `baseRevision`, so a
+				// human edit landing between staging and approval records a conflict rather than losing
+				// the DM's prose to the agent's rewrite.
+				const detail = getContentItemDetailForActor(
+					state.content,
+					state.permissions,
+					actorId,
+					itemId,
+				);
+				if (!detail.visible) return { ok: false, message: 'That note is not available.' };
+				return {
+					ok: true,
+					payload: {
+						itemId,
+						baseRevision: detail.revision,
+						body: appendedNoteBody(detail.body, text, heading),
+					},
+				};
+			}
 			const { itemId, baseRevision, title, body } = input as {
 				itemId: string;
 				baseRevision: number;
@@ -306,10 +420,13 @@ export function writeCommandPayload(
 			// Only the two agent-safe content fields cross over (never `fields`/visibility/timeline
 			// widening). The command re-validates that at least one field is present, fail-closed.
 			return {
-				itemId,
-				baseRevision,
-				...(title !== undefined ? { title } : {}),
-				...(body !== undefined ? { body } : {}),
+				ok: true,
+				payload: {
+					itemId,
+					baseRevision,
+					...(title !== undefined ? { title } : {}),
+					...(body !== undefined ? { body } : {}),
+				},
 			};
 		}
 		case 'character.quick-create': {
@@ -322,7 +439,7 @@ export function writeCommandPayload(
 			};
 			// Agent-safe stat fields only. No `visibility` ⇒ the character fails closed to `dm-only`
 			// (never player-visible by a tool call alone). The command re-validates the full payload.
-			return { kind, name, abilityScores, combat, data };
+			return { ok: true, payload: { kind, name, abilityScores, combat, data } };
 		}
 		case 'scene-card.create': {
 			const { title, mood, flavorText } = input as {
@@ -332,12 +449,86 @@ export function writeCommandPayload(
 			};
 			// Agent-safe presentation fields only. No `visibility` ⇒ the card fails closed to `dm-only`
 			// (never pushed to players); no hero-image/audio refs (an agent cannot bind vault assets).
-			return { title, mood, flavorText };
+			return { ok: true, payload: { title, mood, flavorText } };
+		}
+		case 'scene-card.update': {
+			const { cardId, title, mood, flavorText } = input as {
+				cardId: string;
+				title?: string;
+				mood?: string;
+				flavorText?: string;
+			};
+			// Presentation fields only. `scene-card.update` cannot change visibility at all, and the
+			// hero-image/audio refs are omitted, so a revision can never push a card to players.
+			return {
+				ok: true,
+				payload: {
+					cardId,
+					...(title !== undefined ? { title } : {}),
+					...(mood !== undefined ? { mood } : {}),
+					...(flavorText !== undefined ? { flavorText } : {}),
+				},
+			};
+		}
+		case 'encounter.build': {
+			const { title, combatants, party, terrainNotes, specialActions, loot } = input as {
+				title: string;
+				combatants: Array<Record<string, unknown>>;
+				party?: { size: number; averageLevel: number };
+				terrainNotes: string;
+				specialActions: Array<Record<string, unknown>>;
+				loot: Array<Record<string, unknown>>;
+			};
+			// No `sessionLogLinks` ⇒ an agent cannot bind vault references, and no ids ⇒ the command
+			// mints them. Difficulty is never forwarded: the core computes challenge guidance itself.
+			return {
+				ok: true,
+				payload: {
+					title,
+					combatants,
+					...(party !== undefined ? { party } : {}),
+					terrainNotes,
+					specialActions,
+					loot,
+					sessionLogLinks: [],
+				},
+			};
+		}
+		case 'map.create-poi': {
+			const { mapId, layerId, label, category, position, notes } = input as {
+				mapId: string;
+				layerId?: string;
+				label: string;
+				category: string;
+				position: { x: number; y: number };
+				notes: string;
+			};
+			// Resolve the target layer through the ACTOR-FILTERED map view: an agent can only pin a map
+			// it may see, onto a layer it may see. An unavailable map, a layerless map, and a layer the
+			// actor cannot see all deny with the SAME generic message (no existence probe).
+			const view = getMapViewForActor(state.maps, state.permissions, actorId, mapId);
+			if (!('layers' in view)) return { ok: false, message: 'That map is not available.' };
+			const resolvedLayer =
+				layerId === undefined ? view.layers[0] : view.layers.find((layer) => layer.id === layerId);
+			if (!resolvedLayer) return { ok: false, message: 'That map is not available.' };
+			// No `visibility` ⇒ the POI fails closed to `dm-only`; no `linkedEntity*` ⇒ an agent cannot
+			// bind the pin to a vault entity.
+			return {
+				ok: true,
+				payload: {
+					mapId,
+					layerId: resolvedLayer.id,
+					label,
+					category,
+					position,
+					notes,
+				},
+			};
 		}
 		default:
 			// A registered write tool with an unmapped command forwards its raw input; the command's
 			// own validator still re-checks it fail-closed. Unreachable for the baseline registry.
-			return input;
+			return { ok: true, payload: input };
 	}
 }
 
@@ -390,7 +581,13 @@ export function invokeMcpTool(
 		return { status: 'read-ok', toolId: tool.id, data };
 	}
 
-	const payload = writeCommandPayload(tool, parsed.data);
+	const resolved = writeCommandPayload(state, tool, invocation.actorId, parsed.data);
+	if (!resolved.ok) {
+		// The payload could not be resolved against what this actor may see (RC-AI-1.2). Deny with the
+		// same `invalid-input` envelope a schema failure produces — no command is dispatched.
+		return deny(invocation.toolId, 'invalid-input', resolved.message);
+	}
+	const payload = resolved.payload;
 	const commandResult = dispatchCommand(state, env, {
 		type: tool.commandType,
 		actorId: invocation.actorId,

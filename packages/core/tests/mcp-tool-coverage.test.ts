@@ -7,7 +7,12 @@ import {
 } from '../src/testing/fixtures';
 import {
 	createBaselineMcpToolRegistry,
+	createDemoMapState,
+	dispatchCommand,
 	invokeMcpTool,
+	type CommandResult,
+	type CoreCommand,
+	type CoreStateSlice,
 	type McpToolDefinition,
 	type McpToolResult,
 } from '../src';
@@ -52,6 +57,25 @@ interface McpToolCoverageRow {
 	invalidInput: unknown;
 	/** A builder for a VALID input the tool accepts (read returns data; write reaches dispatch). */
 	validInput: unknown;
+	/**
+	 * RC-AI-1.2 — optional state SEED for a tool whose payload is resolved against current state
+	 * (`note.append` needs a real note, `map.poi.create` a real map, `scene.card.update` a real card).
+	 * It returns the seeded state and may rewrite `validInput` with the ids it just minted. Without a
+	 * seed the row runs against the bare initial state, exactly as before.
+	 */
+	setup?: (state: CoreStateSlice) => { state: CoreStateSlice; validInput?: unknown };
+}
+
+/** Dispatch a setup command in a coverage row's seed, failing loudly if the fixture itself is wrong. */
+function seedCommand(
+	state: CoreStateSlice,
+	command: CoreCommand,
+): Extract<CommandResult, { status: 'accepted' }> {
+	const result = dispatchCommand(state, env, command);
+	if (result.status !== 'accepted') {
+		throw new Error(`coverage seed ${command.type} rejected: ${result.rejection.message}`);
+	}
+	return result;
 }
 
 /**
@@ -255,6 +279,146 @@ const MCP_TOOL_COVERAGE: McpToolCoverageRow[] = [
 			body: 'Updated by the agent.',
 		},
 	},
+	// --- RC-AI-1.2 — the campaign-authoring write tools -------------------------------------------
+	{
+		// Routes through `encounter.build`; difficulty is computed by the core, never an argument, and
+		// session-log links are never forwarded (an agent cannot bind vault references).
+		toolId: 'encounter.create',
+		kind: 'write',
+		behaviors: [
+			'schema-validation',
+			'actor-policy',
+			'visibility-filtering',
+			'idempotency',
+			'staged-preview',
+			'direct-mode',
+			'failure-handling',
+		],
+		invalidInput: { title: 'Ambush', combatants: [] }, // an encounter needs at least one combatant
+		validInput: {
+			title: 'Bridge ambush',
+			combatants: [{ kind: 'monster', name: 'Bandit', challengeRating: 0.5, quantity: 4 }],
+			party: { size: 4, averageLevel: 3 },
+		},
+	},
+	{
+		// A `quest` Vault Object through `content.create-item`; no visibility ⇒ fails closed to dm-only.
+		toolId: 'quest.create',
+		kind: 'write',
+		behaviors: [
+			'schema-validation',
+			'actor-policy',
+			'visibility-filtering',
+			'idempotency',
+			'staged-preview',
+			'direct-mode',
+			'failure-handling',
+		],
+		invalidInput: { title: 'Find the crown', status: 'maybe' }, // not a declared quest status
+		validInput: {
+			title: 'Find the drowned crown',
+			status: 'active',
+			objectives: ['Reach the sunken chapel', 'Recover the crown'],
+		},
+	},
+	{
+		// A `faction` Vault Object through `content.create-item`; `secret` stays a DM-only field.
+		toolId: 'faction.create',
+		kind: 'write',
+		behaviors: [
+			'schema-validation',
+			'actor-policy',
+			'visibility-filtering',
+			'idempotency',
+			'staged-preview',
+			'direct-mode',
+			'failure-handling',
+		],
+		invalidInput: { name: 'The Fen Circle', stance: 'grumpy' }, // not a declared stance
+		validInput: { name: 'The Fen Circle', kind: 'cult', stance: 'hostile' },
+	},
+	{
+		// Routes through `map.create-poi` on a real map; no visibility ⇒ the pin fails closed to dm-only.
+		toolId: 'map.poi.create',
+		kind: 'write',
+		behaviors: [
+			'schema-validation',
+			'actor-policy',
+			'visibility-filtering',
+			'idempotency',
+			'staged-preview',
+			'direct-mode',
+			'failure-handling',
+		],
+		invalidInput: { mapId: 'map-western-reaches', label: 'x', position: { x: 4, y: 0.5 } }, // x is normalized 0..1
+		validInput: {
+			mapId: 'map-western-reaches',
+			label: 'Watchtower',
+			category: 'landmark',
+			position: { x: 0.25, y: 0.3 },
+		},
+		setup: (state) => ({ state: { ...state, maps: createDemoMapState() } }),
+	},
+	{
+		// Routes through `scene-card.update` on an existing card; visibility is not updatable at all.
+		toolId: 'scene.card.update',
+		kind: 'write',
+		behaviors: [
+			'schema-validation',
+			'actor-policy',
+			'visibility-filtering',
+			'idempotency',
+			'staged-preview',
+			'direct-mode',
+			'failure-handling',
+		],
+		invalidInput: { cardId: 'card-1' }, // nothing to update
+		validInput: { cardId: 'card-1', flavorText: 'Rain drums on the tin roof.' },
+		setup: (state) => {
+			const created = seedCommand(state, {
+				type: 'scene-card.create',
+				actorId: DM_ACTOR.id,
+				payload: { title: 'The Sunken Tavern', mood: 'social' },
+			});
+			const event = created.events.find((e) => e.kind === 'scene-card.created');
+			if (!event || event.kind !== 'scene-card.created') throw new Error('no scene card id');
+			return {
+				state: created.nextState,
+				validInput: { cardId: event.cardId, flavorText: 'Rain drums on the tin roof.' },
+			};
+		},
+	},
+	{
+		// Routes through `content.update-item` with the body read from the ACTOR-FILTERED note detail.
+		toolId: 'note.append',
+		kind: 'write',
+		behaviors: [
+			'schema-validation',
+			'actor-policy',
+			'visibility-filtering',
+			'idempotency',
+			'staged-preview',
+			'direct-mode',
+			'failure-handling',
+		],
+		invalidInput: { text: 'more prose' }, // missing required itemId
+		validInput: { itemId: 'item-anything', text: 'more prose' },
+		setup: (state) => {
+			const created = seedCommand(state, {
+				type: 'content.create-item',
+				actorId: DM_ACTOR.id,
+				payload: { kind: 'note', title: 'Session 4', body: 'The party crossed the fen.' },
+			});
+			const item = Object.values(created.nextState.content.items).find(
+				(candidate) => candidate.title === 'Session 4',
+			);
+			if (!item) throw new Error('no seeded note');
+			return {
+				state: created.nextState,
+				validInput: { itemId: item.id, text: 'They met the Fen Circle at dusk.' },
+			};
+		},
+	},
 ];
 
 function denied(result: McpToolResult): Extract<McpToolResult, { status: 'denied' }> {
@@ -336,12 +500,13 @@ describe('MCP-005 — every tool runs end-to-end with valid input (no tool ships
 
 	for (const row of MCP_TOOL_COVERAGE) {
 		it(`${row.toolId} produces a non-denied envelope for valid input`, () => {
-			const state = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
+			const seeded = row.setup?.(buildInitialState(DM_ACTOR, PLAYER_ACTOR));
+			const state = seeded?.state ?? buildInitialState(DM_ACTOR, PLAYER_ACTOR);
 			const result = invokeMcpTool(state, env, registry, {
 				toolId: row.toolId,
 				actorId: DM_ACTOR.id,
 				agentId: 'agent-test',
-				input: row.validInput,
+				input: seeded?.validInput ?? row.validInput,
 			});
 			if (row.kind === 'read') {
 				expect(result.status).toBe('read-ok');

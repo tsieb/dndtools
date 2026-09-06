@@ -76,6 +76,13 @@ describe('MCP-002 — the baseline tool set includes dice.roll and session.prep'
 				'table.create',
 				'character.create',
 				'note.update',
+				// RC-AI-1.2 — the campaign-authoring staged write tools.
+				'encounter.create',
+				'quest.create',
+				'faction.create',
+				'map.poi.create',
+				'scene.card.update',
+				'note.append',
 			].sort(),
 		);
 	});

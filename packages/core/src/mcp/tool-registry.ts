@@ -120,6 +120,17 @@ export const MCP_BASELINE_TOOL_IDS = [
 	'table.create',
 	'character.create',
 	'note.update',
+	// RC-AI-1.2 — the campaign-authoring WRITE surface. Each binds exactly ONE existing command and
+	// accepts NO `visibility` argument, so every agent-authored encounter, quest, faction, POI, scene
+	// card revision, and note append fails closed to `dm-only`. Two of them are resolved against
+	// ACTOR-FILTERED state at staging time (`map.poi.create` resolves the map's layer, `note.append`
+	// reads the current body + revision), so an agent can only touch what its bound actor may see.
+	'encounter.create',
+	'quest.create',
+	'faction.create',
+	'map.poi.create',
+	'scene.card.update',
+	'note.append',
 ] as const;
 
 export type McpBaselineToolId = (typeof MCP_BASELINE_TOOL_IDS)[number];
@@ -341,6 +352,160 @@ export const mcpNoteUpdateInputSchema = z
 	});
 
 /**
+ * RC-AI-1.2 — the `encounter.create` WRITE tool input. Mirrors the agent-safe subset of
+ * `buildEncounterInputSchema`: title, combatant selection, party context, and terrain notes, plus the
+ * legendary/lair actions and loot the model is genuinely good at inventing. It OMITS `sessionLogLinks`
+ * and a combatant's `characterId` — an agent cannot bind vault references — and it omits every id, so
+ * the command mints them. Difficulty is NOT an argument: the core computes the challenge guidance
+ * deterministically from the combatants and party. `encounter.build` is DM-only, so the tool inherits
+ * that gate; nothing here is player-facing.
+ */
+export const mcpEncounterCreateInputSchema = z
+	.object({
+		title: nonEmpty,
+		combatants: z
+			.array(
+				z
+					.object({
+						kind: z.enum(['character', 'npc', 'monster']),
+						name: nonEmpty,
+						challengeRating: z.number().nonnegative().default(0),
+						quantity: z.number().int().positive().max(99).default(1),
+						maxHp: z.number().int().nonnegative().default(0),
+						ac: z.number().int().nonnegative().default(10),
+						hidden: z.boolean().default(false),
+					})
+					.strict(),
+			)
+			.min(1)
+			.max(50),
+		party: z
+			.object({
+				size: z.number().int().positive().max(12).default(4),
+				averageLevel: z.number().int().min(1).max(20).default(1),
+			})
+			.strict()
+			.optional(),
+		terrainNotes: z.string().max(2000).default(''),
+		specialActions: z
+			.array(
+				z
+					.object({
+						kind: z.enum(['legendary', 'lair']),
+						name: nonEmpty,
+						detail: z.string().max(1000).default(''),
+					})
+					.strict(),
+			)
+			.max(20)
+			.default([]),
+		loot: z
+			.array(z.object({ name: nonEmpty, detail: z.string().max(1000).default('') }).strict())
+			.max(50)
+			.default([]),
+	})
+	.strict();
+
+/**
+ * RC-AI-1.2 — the `quest.create` WRITE tool input. A quest is a note-backed Vault Object (subtype
+ * `quest`, `state/vault-object-schema.ts`), so this dispatches `content.create-item` and
+ * `writeCommandPayload` maps the input into the exact `fields` shape the subtype declares. Prose
+ * (hooks, rewards, journal) goes in `body`. No `visibility` argument ⇒ fails closed to `dm-only`.
+ */
+export const mcpQuestCreateInputSchema = z
+	.object({
+		title: nonEmpty,
+		status: z.enum(['active', 'completed', 'failed', 'paused']).default('active'),
+		objectives: z.array(nonEmpty).max(50).default([]),
+		body: z.string().max(20000).default(''),
+	})
+	.strict();
+
+/**
+ * RC-AI-1.2 — the `faction.create` WRITE tool input. A faction dossier is a note-backed Vault Object
+ * (subtype `faction`), dispatched through `content.create-item`. The DM-only `secret` field is
+ * accepted because the whole object fails closed to `dm-only` and the field is redacted from players
+ * by the subtype schema even if the DM later shares the dossier. Prose goes in `body`.
+ */
+export const mcpFactionCreateInputSchema = z
+	.object({
+		name: nonEmpty,
+		kind: z.enum(['cult', 'militia', 'guild', 'party', 'order', 'other']).default('other'),
+		stance: z.enum(['hostile', 'neutral', 'friendly', 'allied']).default('neutral'),
+		leader: z.string().max(200).default(''),
+		goals: z.array(nonEmpty).max(20).default([]),
+		secret: z.string().max(2000).default(''),
+		body: z.string().max(20000).default(''),
+	})
+	.strict();
+
+/**
+ * RC-AI-1.2 — the `map.poi.create` WRITE tool input. Positions are NORMALIZED map space (0..1 on both
+ * axes), the model the whole map subsystem uses. `layerId` is OPTIONAL: omitted, the payload mapper
+ * resolves the map's first ACTOR-VISIBLE layer, so a model that only knows a map id can still place a
+ * pin. No `visibility` argument ⇒ the POI fails closed to `dm-only`; no `linkedEntity*` ⇒ an agent
+ * cannot bind the pin to a vault entity.
+ */
+export const mcpMapPoiCreateInputSchema = z
+	.object({
+		mapId: nonEmpty,
+		layerId: nonEmpty.optional(),
+		label: nonEmpty,
+		category: z
+			.enum([
+				'settlement',
+				'landmark',
+				'dungeon',
+				'quest',
+				'hazard',
+				'shop',
+				'npc',
+				'note',
+				'other',
+			])
+			.default('other'),
+		position: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).strict(),
+		notes: z.string().max(2000).default(''),
+	})
+	.strict();
+
+/**
+ * RC-AI-1.2 — the `scene.card.update` WRITE tool input. Revises an EXISTING scene card's presentation
+ * fields only. It omits `heroImage` and `audioAssociationId` (an agent cannot bind vault assets) and
+ * there is no visibility argument — `scene-card.update` cannot change visibility at all, so an agent
+ * can never push a card to players by revising it.
+ */
+export const mcpSceneCardUpdateInputSchema = z
+	.object({
+		cardId: nonEmpty,
+		title: nonEmpty.optional(),
+		mood: z.enum(['combat', 'exploration', 'mystery', 'social', 'rest']).optional(),
+		flavorText: z.string().max(500).optional(),
+	})
+	.strict()
+	.refine(
+		(value) =>
+			value.title !== undefined || value.mood !== undefined || value.flavorText !== undefined,
+		{ message: 'Provide a title, mood, or flavor text to update.' },
+	);
+
+/**
+ * RC-AI-1.2 — the `note.append` WRITE tool input. APPENDS to an existing note instead of replacing it
+ * (the failure mode `note.update` has: a model that rewrites a long note loses the DM's prose). The
+ * agent supplies only the text; `writeCommandPayload` reads the CURRENT body + revision through the
+ * ACTOR-FILTERED note read and stages `{itemId, baseRevision, body}` — so a human edit landing before
+ * approval records a conflict rather than a clobber, exactly like `note.update`.
+ */
+export const mcpNoteAppendInputSchema = z
+	.object({
+		itemId: nonEmpty,
+		text: nonEmpty.max(20000),
+		/** Optional markdown heading written above the appended text (its own `##` line). */
+		heading: z.string().max(200).optional(),
+	})
+	.strict();
+
+/**
  * The canonical baseline MCP tool registry: the MCP-002 baseline read tools + the enforced staged
  * note-create write tool. Every entry binds to an EXISTING command/query — no tool introduces a new
  * mutation path. This is the allowlist the dispatcher routes through; an id outside it is denied.
@@ -509,6 +674,88 @@ export function createBaselineMcpToolRegistry(): McpToolRegistry {
 				"title and/or body plus the note's current revision as baseRevision. If the note changes before " +
 				'approval, Lamplight records a conflict instead of overwriting the newer edit. Staged for DM ' +
 				'approval; never applied immediately.',
+		},
+		// RC-AI-1.2 — the campaign-authoring write surface. Each names ONE bound command and accepts no
+		// `visibility`, so every one fails closed to `dm-only`.
+		{
+			id: 'encounter.create',
+			kind: 'write',
+			commandType: 'encounter.build',
+			writeRisk: 'durable',
+			inputSchema: mcpEncounterCreateInputSchema,
+			title: 'Build an encounter (staged)',
+			description:
+				'Build a combat encounter. Provide a title and the combatants (kind npc/monster/character, ' +
+				'name, challengeRating, quantity, maxHp, ac); add `party` (size and averageLevel) so ' +
+				'Lamplight can compute the difficulty for you — do not state a difficulty yourself. ' +
+				'Optionally add terrainNotes, legendary or lair specialActions, and loot. Read the setting ' +
+				'first with note.search or a bundle so the encounter fits. Staged for DM approval; never ' +
+				'applied immediately.',
+		},
+		{
+			id: 'quest.create',
+			kind: 'write',
+			commandType: 'content.create-item',
+			writeRisk: 'durable',
+			inputSchema: mcpQuestCreateInputSchema,
+			title: 'Create a quest (staged)',
+			description:
+				'Create a quest with a status (active, completed, failed, or paused) and its objectives, ' +
+				'one short line each, in the order the party would meet them. Put hooks, rewards, and ' +
+				'background prose in `body` as markdown. Staged for DM approval; never applied immediately.',
+		},
+		{
+			id: 'faction.create',
+			kind: 'write',
+			commandType: 'content.create-item',
+			writeRisk: 'durable',
+			inputSchema: mcpFactionCreateInputSchema,
+			title: 'Create a faction dossier (staged)',
+			description:
+				'Create a faction dossier: name, kind (cult, militia, guild, party, order, or other), ' +
+				'stance toward the party (hostile, neutral, friendly, or allied), leader, and goals in ' +
+				'priority order. Anything the players must not learn goes in `secret`, which stays DM only. ' +
+				'Put history and holdings in `body`. Staged for DM approval; never applied immediately.',
+		},
+		{
+			id: 'map.poi.create',
+			kind: 'write',
+			commandType: 'map.create-poi',
+			writeRisk: 'durable',
+			inputSchema: mcpMapPoiCreateInputSchema,
+			title: 'Place a map point of interest (staged)',
+			description:
+				'Place a labelled pin on a map. Find the mapId with note.search first. `position` is ' +
+				'normalized map space: x and y each run from 0 (left/top) to 1 (right/bottom), so the centre ' +
+				'is {x: 0.5, y: 0.5}. Choose a category and add notes. Leave layerId out and the pin lands on ' +
+				"the map's first layer. Staged for DM approval; never applied immediately.",
+		},
+		{
+			id: 'scene.card.update',
+			kind: 'write',
+			commandType: 'scene-card.update',
+			writeRisk: 'durable',
+			inputSchema: mcpSceneCardUpdateInputSchema,
+			title: 'Revise a scene card (staged)',
+			description:
+				'Revise an existing scene card: its title, mood (combat, exploration, mystery, social, or ' +
+				'rest), and flavor text (up to 500 characters of read-aloud atmosphere). Find the cardId ' +
+				'first. Revising a card never changes who can see it. Staged for DM approval; never applied ' +
+				'immediately.',
+		},
+		{
+			id: 'note.append',
+			kind: 'write',
+			commandType: 'content.update-item',
+			writeRisk: 'durable',
+			inputSchema: mcpNoteAppendInputSchema,
+			title: 'Append to a note (staged)',
+			description:
+				'Add text to the END of an existing note, keeping everything already written. Find the ' +
+				'itemId with note.search or note.list. Pass an optional `heading` to start a new section. ' +
+				'Prefer this over note.update when you are adding to a note rather than rewriting it. If ' +
+				'the note changes before approval, Lamplight records a conflict instead of overwriting the ' +
+				'newer edit. Staged for DM approval; never applied immediately.',
 		},
 	]);
 }
