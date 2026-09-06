@@ -405,3 +405,179 @@ describe('resolveAiProviderConfig — fail closed', () => {
 		expect(allowed).toBe(import.meta.env.DEV);
 	});
 });
+
+// --- model router (RC-AI-3.1) --------------------------------------------------------------------
+// The router names the backends the assistant can reach, states what each one can do, and routes
+// each task to one of them. Everything it persists is non-secret metadata; the credential path
+// stays exactly as the cases above assert. Node reports a web runtime, whose capabilities allow
+// http loopback, so the local-runner cases below exercise the available path unless a case mocks
+// the platform as Android.
+
+/** Load providerConfig with the platform reporting an Android runtime (no loopback allowed). */
+async function loadConfigOnAndroid() {
+	vi.resetModules();
+	const actual = await vi.importActual<typeof import('../platform/capabilities')>(
+		'../platform/capabilities',
+	);
+	vi.doMock('../platform/capabilities', () => ({
+		...actual,
+		getPlatformCapabilities: () => ({
+			...actual.getPlatformCapabilities(),
+			runtimeKind: 'android',
+			allowHttpLoopbackAi: false,
+		}),
+	}));
+	const mod = await import('./providerConfig');
+	mod.__testing.resetMemory();
+	return mod;
+}
+
+describe('model router — backend capabilities', () => {
+	it('reports Anthropic as generation-only with its declared context window', async () => {
+		const cfg = await loadConfig();
+		const status = cfg.describeAiBackend('provider');
+		expect(status.capabilities).toEqual({
+			generation: true,
+			embeddings: false,
+			contextTokens: 200_000,
+		});
+	});
+
+	it('reports an OpenAI-compatible endpoint as embeddings-capable with an undeclared context', async () => {
+		const cfg = await loadConfig();
+		cfg.saveAiProviderSettings({
+			provider: 'openai-compatible',
+			model: 'some-vendor-model',
+			baseUrl: 'https://api.example.com/v1',
+		});
+		const status = cfg.describeAiBackend('provider');
+		expect(status.capabilities.embeddings).toBe(true);
+		expect(status.capabilities.contextTokens).toBeNull();
+	});
+
+	it('declares context windows per model id rather than per provider', async () => {
+		const cfg = await loadConfig();
+		expect(cfg.declaredContextTokens('claude-opus-5')).toBe(200_000);
+		expect(cfg.declaredContextTokens('gpt-4o-mini')).toBe(128_000);
+		expect(cfg.declaredContextTokens('qwen2.5:7b')).toBe(32_768);
+		expect(cfg.declaredContextTokens('something-nobody-published')).toBeNull();
+	});
+
+	it('states the one reason a backend is unusable, worst gate first', async () => {
+		const cfg = await loadConfig();
+		// No key yet, and the local runner needs neither key nor settings.
+		expect(cfg.describeAiBackend('provider')).toMatchObject({
+			available: false,
+			reason: 'no-key',
+		});
+		expect(cfg.describeAiBackend('local')).toMatchObject({ available: true, reason: null });
+		// Consent is the outermost gate for every backend.
+		localStore.setItem('dndtools.ai.usage-preference', 'none');
+		for (const backend of cfg.AI_BACKEND_IDS) {
+			expect(cfg.describeAiBackend(backend)).toMatchObject({
+				available: false,
+				reason: 'consent-off',
+			});
+		}
+	});
+
+	it('reports incomplete provider settings before it looks for a key', async () => {
+		const cfg = await loadConfig();
+		cfg.saveAiProviderSettings({ provider: 'openai-compatible', baseUrl: '' });
+		expect(cfg.describeAiBackend('provider')).toMatchObject({
+			available: false,
+			reason: 'incomplete-settings',
+			destination: null,
+		});
+	});
+
+	it('fails the local runner closed on a platform that blocks loopback requests', async () => {
+		const cfg = await loadConfigOnAndroid();
+		expect(cfg.describeAiBackend('local')).toMatchObject({
+			available: false,
+			reason: 'platform-unsupported',
+		});
+		expect(cfg.routeAiTask('assistant')).toMatchObject({ available: false });
+		vi.doUnmock('../platform/capabilities');
+	});
+});
+
+describe('model router — per-task routing', () => {
+	it('routes every task to the configured provider until told otherwise', async () => {
+		const cfg = await loadConfig();
+		expect(cfg.getAiTaskRouting()).toEqual({ assistant: 'provider', embeddings: 'provider' });
+	});
+
+	it('persists a routing patch and ignores a corrupt stored table', async () => {
+		const cfg = await loadConfig();
+		cfg.saveAiTaskRouting({ assistant: 'local' });
+		expect((await loadConfig()).getAiTaskRouting().assistant).toBe('local');
+		localStore.setItem('dndtools.ai.task-routing', '{ not json');
+		expect((await loadConfig()).getAiTaskRouting()).toEqual({
+			assistant: 'provider',
+			embeddings: 'provider',
+		});
+		localStore.setItem('dndtools.ai.task-routing', JSON.stringify({ assistant: 'nonsense' }));
+		expect((await loadConfig()).getAiTaskRouting().assistant).toBe('provider');
+	});
+
+	it('keeps the routing table out of the credential path', async () => {
+		const cfg = await loadConfig();
+		cfg.saveAiTaskRouting({ assistant: 'local' });
+		cfg.saveAiLocalBackendSettings({ model: 'qwen2.5:14b' });
+		expect(localStore.values().join(' ')).not.toContain('sk-');
+		expect(sessionStore.size).toBe(0);
+	});
+
+	it('turns one job off without touching the credential', async () => {
+		const cfg = await loadConfig();
+		await cfg.setAiProviderKey('sk-a');
+		cfg.saveAiTaskRouting({ assistant: 'off' });
+		expect(cfg.routeAiTask('assistant')).toEqual({
+			available: false,
+			backendId: null,
+			reason: 'task-off',
+		});
+		// The assistant surface follows the router, so it goes off with it.
+		expect(cfg.resolveAiProviderConfig()).toBeNull();
+		expect(cfg.getAiProviderKey()).toBe('sk-a');
+		cfg.saveAiTaskRouting({ assistant: 'provider' });
+		expect(cfg.resolveAiProviderConfig()).not.toBeNull();
+	});
+
+	it('refuses a task the chosen backend cannot do, naming the missing capability', async () => {
+		const cfg = await loadConfig();
+		await cfg.setAiProviderKey('sk-a');
+		// Anthropic can generate but has no embeddings endpoint.
+		expect(cfg.routeAiTask('assistant').available).toBe(true);
+		expect(cfg.routeAiTask('embeddings')).toEqual({
+			available: false,
+			backendId: 'provider',
+			reason: 'capability-missing',
+		});
+	});
+
+	it('routes a task to the local runner with its own model and no provider key', async () => {
+		const cfg = await loadConfig();
+		cfg.saveAiLocalBackendSettings({ model: 'nomic-embed-text' });
+		cfg.saveAiTaskRouting({ embeddings: 'local' });
+		const route = cfg.routeAiTask('embeddings');
+		expect(route).toMatchObject({ available: true, backendId: 'local' });
+		expect(route.available && route.config).toEqual({
+			provider: 'openai-compatible',
+			model: 'nomic-embed-text',
+			baseUrl: 'http://localhost:11434/v1',
+			apiKey: cfg.__testing.LOCAL_BEARER_PLACEHOLDER,
+		});
+		// The configured provider is still keyless, so the generation task remains off.
+		expect(cfg.routeAiTask('assistant')).toMatchObject({ reason: 'no-key' });
+	});
+
+	it('falls back to the shipped local model when the stored one is blank or corrupt', async () => {
+		const cfg = await loadConfig();
+		expect(cfg.getAiLocalBackendSettings().model).toBe('qwen2.5:7b');
+		expect(cfg.saveAiLocalBackendSettings({ model: '   ' }).model).toBe('qwen2.5:7b');
+		localStore.setItem('dndtools.ai.local-backend', '{ not json');
+		expect(cfg.getAiLocalBackendSettings().model).toBe('qwen2.5:7b');
+	});
+});

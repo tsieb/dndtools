@@ -12,6 +12,7 @@ import { useI18n, type MessageKey } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { baselineAllowlistMembership, toggleBaselineToolAllowlist } from '../../ai/mcpBridge';
 import { AiProviderPanel } from './AiProvider';
+import { AiRouterPanel } from './AiStatus';
 import { AiAssistantPanel } from './AiAssistant';
 import { errMsg } from './shared';
 /* ---- AI & tools (REAL — the durable MCP identity/policy/staged-writes slice + `mcp.*` commands,
@@ -165,6 +166,8 @@ export function SettingsAI() {
 			</Panel>
 
 			<AiProviderPanel onConfiguredChange={() => bumpAiConfig((v) => v + 1)} />
+
+			<AiRouterPanel onRoutingChange={() => bumpAiConfig((v) => v + 1)} />
 
 			<AiAssistantPanel canWrite={canWrite} />
 

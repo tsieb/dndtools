@@ -1335,6 +1335,44 @@ export const en = {
 	'settings.assistant.stoppedTitle': 'Assistant run stopped',
 	'settings.assistant.stoppedBody': 'See the transcript for the reason.',
 
+	/* Settings › AI & tools › Model routing */
+	'settings.router.title': 'Model routing',
+	'settings.router.intro':
+		'Choose which model runner serves each job. A backend that cannot do a job, or is not ready, says so here rather than failing when the assistant runs.',
+	'settings.router.backendsHeading': 'Backends',
+	'settings.router.backend.provider': 'Configured provider',
+	'settings.router.backend.local': 'Local runner',
+	'settings.router.backend.localHelp':
+		'An Ollama daemon on this device. Nothing leaves the machine, and no key is needed.',
+	'settings.router.ready': 'Ready',
+	'settings.router.notReady': 'Not ready',
+	'settings.router.reason.consentOff': 'Turn on complete AI use above to reach any model.',
+	'settings.router.reason.platformUnsupported':
+		'Local model runners need the desktop app — this platform blocks loopback requests.',
+	'settings.router.reason.incompleteSettings': 'Finish the provider settings above.',
+	'settings.router.reason.noKey': 'Save a provider API key above.',
+	'settings.router.reason.taskOff': 'This job is turned off.',
+	'settings.router.reason.capabilityMissing': 'This backend does not offer that capability.',
+	'settings.router.capability.generation': 'Writes text',
+	'settings.router.capability.embeddings': 'Makes search vectors',
+	'settings.router.capability.noEmbeddings': 'No search vectors',
+	'settings.router.capability.context': 'Context {tokens} tokens',
+	'settings.router.capability.contextUndeclared': 'Context not declared',
+	'settings.router.modelRow': 'Local model',
+	'settings.router.modelHelp': 'The model id to ask the local runner for, for example {model}.',
+	'settings.router.modelAria': 'Local runner model id',
+	'settings.router.assistantRow': 'Assistant',
+	'settings.router.assistantHelp': 'The backend that answers assistant runs and calls tools.',
+	'settings.router.assistantAria': 'Assistant backend',
+	'settings.router.routeOff': 'Off',
+	'settings.router.embeddingsRow': 'Semantic search',
+	'settings.router.embeddingsHelp':
+		'Search still runs on keywords only. When vector search arrives it will use this backend.',
+	'settings.router.embeddingsReady': 'Ready on {backend}',
+	'settings.router.routeSaved': 'Assistant backend set to {backend}.',
+	'settings.router.routeSavedOff': 'Assistant backend turned off.',
+	'settings.router.localModelSaved': 'Local model set to {model}.',
+
 	/* Settings › AI & tools › Provider */
 	'settings.provider.title': 'AI provider',
 	'settings.provider.configured': 'Configured',

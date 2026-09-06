@@ -1383,6 +1383,46 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.assistant.stoppedBody': 'Consulta la transcripción para ver el motivo.',
 
 	/* Ajustes › IA y herramientas › Proveedor */
+	'settings.router.title': 'Enrutado de modelos',
+	'settings.router.intro':
+		'Elige qué motor de modelos atiende cada tarea. Un motor que no puede hacer una tarea, o que no está listo, lo indica aquí en vez de fallar al ejecutar el asistente.',
+	'settings.router.backendsHeading': 'Motores',
+	'settings.router.backend.provider': 'Proveedor configurado',
+	'settings.router.backend.local': 'Motor local',
+	'settings.router.backend.localHelp':
+		'Un servicio Ollama en este dispositivo. Nada sale de la máquina y no hace falta clave.',
+	'settings.router.ready': 'Listo',
+	'settings.router.notReady': 'No está listo',
+	'settings.router.reason.consentOff':
+		'Activa el uso completo de IA arriba para alcanzar un modelo.',
+	'settings.router.reason.platformUnsupported':
+		'Los motores locales necesitan la aplicación de escritorio: esta plataforma bloquea las peticiones de bucle local.',
+	'settings.router.reason.incompleteSettings': 'Completa los ajustes del proveedor de arriba.',
+	'settings.router.reason.noKey': 'Guarda una clave de API del proveedor arriba.',
+	'settings.router.reason.taskOff': 'Esta tarea está desactivada.',
+	'settings.router.reason.capabilityMissing': 'Este motor no ofrece esa capacidad.',
+	'settings.router.capability.generation': 'Escribe texto',
+	'settings.router.capability.embeddings': 'Crea vectores de búsqueda',
+	'settings.router.capability.noEmbeddings': 'Sin vectores de búsqueda',
+	'settings.router.capability.context': 'Contexto {tokens} tokens',
+	'settings.router.capability.contextUndeclared': 'Contexto no declarado',
+	'settings.router.modelRow': 'Modelo local',
+	'settings.router.modelHelp':
+		'El identificador de modelo que pedir al motor local, por ejemplo {model}.',
+	'settings.router.modelAria': 'Identificador del modelo local',
+	'settings.router.assistantRow': 'Asistente',
+	'settings.router.assistantHelp':
+		'El motor que responde a las ejecuciones del asistente y llama a las herramientas.',
+	'settings.router.assistantAria': 'Motor del asistente',
+	'settings.router.routeOff': 'Desactivado',
+	'settings.router.embeddingsRow': 'Búsqueda semántica',
+	'settings.router.embeddingsHelp':
+		'La búsqueda todavía funciona solo por palabras clave. Cuando llegue la búsqueda vectorial usará este motor.',
+	'settings.router.embeddingsReady': 'Listo en {backend}',
+	'settings.router.routeSaved': 'Motor del asistente fijado en {backend}.',
+	'settings.router.routeSavedOff': 'Motor del asistente desactivado.',
+	'settings.router.localModelSaved': 'Modelo local fijado en {model}.',
+
 	'settings.provider.title': 'Proveedor de IA',
 	'settings.provider.configured': 'Configurado',
 	'settings.provider.notConfigured': 'Sin configurar',

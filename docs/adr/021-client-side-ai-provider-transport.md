@@ -86,6 +86,19 @@ module `apps/gm-react/src/ai/` (transport layer, alongside `src/cloud` / `src/ne
    disabled with an honest reason until every prerequisite is real: provider key present, MCP master
    switch on, a registered agent binding, and DM (not previewing).
 
+5. **Model router** (`providerConfig.ts`, added by RC-AI-3.1): two backends are addressable — the
+   BYO-key `provider` configured above, and a keyless `local` Ollama runner at
+   `http://localhost:11434/v1` on platforms that allow loopback traffic. Each backend declares what
+   it can do (generation, embeddings, and the model's declared context window, `null` when nothing
+   publishes one), and each AI task (`assistant`, `embeddings`) routes to one backend or to `off`.
+   `resolveAiProviderConfig()` is now the `assistant` route, so the transport's fail-closed contract
+   above is unchanged and consent stays the outermost gate. The routing table and the local model id
+   are non-secret `localStorage` settings on the same metadata/secret split; the local runner needs
+   no credential, so nothing in the router touches key custody. A route that cannot run returns the
+   one reason why — consent off, platform unsupported, incomplete settings, no key, task off, or a
+   capability the backend does not offer — which the Settings status card states in place of a
+   silent failure at the wire.
+
 ## Consequences
 
 ### Positive
@@ -152,6 +165,11 @@ module `apps/gm-react/src/ai/` (transport layer, alongside `src/cloud` / `src/ne
   Core registry, honest result folding incl. "staged, NOT applied", and the exchange loop routing
   each call through the injected agent pipeline with a bounded tool budget).
 - Runtime seam: `apps/gm-react/src/runtime/SceneRuntime.ts` (`invokeAgentTool`).
-- Entry surface: `apps/gm-react/src/screens/Settings.tsx` (`AiProviderPanel`, `AiAssistantPanel`).
+- Entry surface: `apps/gm-react/src/screens/Settings.tsx` (`AiProviderPanel`, `AiRouterPanel`,
+  `AiAssistantPanel`).
+- Model router: `apps/gm-react/src/ai/providerConfig.ts` + `providerConfig.test.ts` (backend
+  capabilities per model id, the one-reason unavailable states, per-task routing persistence and
+  corrupt-table fallback, the keyless local route, and the assistant surface following the route);
+  status card `apps/gm-react/src/screens/settings/AiStatus.tsx`.
 - Model/API reference: the Anthropic Messages API shape and `claude-sonnet-5` default follow the
   `claude-api` skill (direct-browser-access header, `anthropic-version: 2023-06-01`).

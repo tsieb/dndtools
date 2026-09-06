@@ -19,6 +19,7 @@
 
 import { durableSecretStore, hasDurableSecretStoreBridge } from '../cloud/secureStore';
 import { getElectronNetworkPolicyBridge, getPlatformCapabilities } from '../platform/capabilities';
+import { LOCAL_OLLAMA } from './localLlmGuidance';
 import { isAiAssistantEnabled } from './usagePreference';
 
 /** The two supported transports: Anthropic's Messages API, or any OpenAI-compatible endpoint. */
@@ -484,7 +485,7 @@ export async function hydrateAiProviderKey(): Promise<void> {
  * no key configured, or an OpenAI-compatible provider without a base URL. FAIL CLOSED — the
  * caller never fabricates a partial config.
  */
-export function resolveAiProviderConfig(): ResolvedAiProviderConfig | null {
+function resolveConfiguredProviderConfig(): ResolvedAiProviderConfig | null {
 	// Consent is the outermost gate. A retained key is never enough to reactivate model access.
 	if (!isAiAssistantEnabled()) return null;
 	const settings = getAiProviderSettings();
@@ -498,9 +499,258 @@ export function resolveAiProviderConfig(): ResolvedAiProviderConfig | null {
 	return { ...settings, apiKey };
 }
 
+export function resolveAiProviderConfig(): ResolvedAiProviderConfig | null {
+	const route = routeAiTask('assistant');
+	return route.available ? route.config : null;
+}
+
 /** True only when a transport call could actually be made (key + complete settings). */
 export function isAiProviderConfigured(): boolean {
 	return resolveAiProviderConfig() !== null;
+}
+
+// --- model router: backends, capabilities and per-task routing (RC-AI-3.1) ------------------------
+/**
+ * One assistant can speak to more than one model runner, and not every runner can do every job:
+ * Anthropic's API generates text but exposes no embeddings endpoint, a local Ollama does both but
+ * only while the desktop app allows loopback traffic. The router names the BACKENDS, states what
+ * each one can actually do, and lets each AI task pick which backend serves it — so a surface can
+ * say why it is off instead of failing at the wire.
+ *
+ * The routing table and the local-runner model id are plain non-secret settings (localStorage,
+ * same split as the provider settings above). No credential travels through this section: the
+ * configured provider keeps its scoped custody, and the local runner needs none at all.
+ */
+
+/** `provider` = the BYO-key provider configured above. `local` = an Ollama runner on this device. */
+export type AiBackendId = 'provider' | 'local';
+
+export const AI_BACKEND_IDS: readonly AiBackendId[] = ['provider', 'local'];
+
+/** The jobs a backend can be asked to do. Each maps to one required capability. */
+export type AiTaskId = 'assistant' | 'embeddings';
+
+export const AI_TASK_IDS: readonly AiTaskId[] = ['assistant', 'embeddings'];
+
+/** A task can also be routed nowhere, which turns that job off without touching the credential. */
+export type AiTaskRoute = AiBackendId | 'off';
+
+export type AiTaskRouting = Record<AiTaskId, AiTaskRoute>;
+
+/**
+ * What a backend can do. `contextTokens` is null when nothing declares a window — an
+ * OpenAI-compatible endpoint never reports one over the wire, and guessing would present a number
+ * the UI would then show as fact.
+ */
+export interface AiBackendCapabilities {
+	generation: boolean;
+	embeddings: boolean;
+	contextTokens: number | null;
+}
+
+/** Why a backend cannot be used right now. Every value is something the UI can state plainly. */
+export type AiBackendUnavailableReason =
+	| 'consent-off'
+	| 'platform-unsupported'
+	| 'incomplete-settings'
+	| 'no-key';
+
+export type AiRouteUnavailableReason =
+	| AiBackendUnavailableReason
+	| 'task-off'
+	| 'capability-missing';
+
+export interface AiBackendStatus {
+	id: AiBackendId;
+	/** The model id this backend would send. */
+	model: string;
+	/** Where its requests would go, or null when the settings do not resolve to one. */
+	destination: AiProviderDestination | null;
+	capabilities: AiBackendCapabilities;
+	available: boolean;
+	reason: AiBackendUnavailableReason | null;
+}
+
+export type AiRouteResult =
+	| { available: true; backendId: AiBackendId; config: ResolvedAiProviderConfig }
+	| { available: false; backendId: AiBackendId | null; reason: AiRouteUnavailableReason };
+
+const TASK_ROUTING_KEY = 'dndtools.ai.task-routing';
+const LOCAL_BACKEND_KEY = 'dndtools.ai.local-backend';
+/**
+ * Ollama's OpenAI-compatible endpoint ignores the Authorization header, but the header itself is
+ * mandatory in that wire format. This placeholder is the header's filler, never a credential: it
+ * is a literal in the source, is not stored, and reaches only a loopback address.
+ */
+const LOCAL_BEARER_PLACEHOLDER = 'ollama';
+const ANTHROPIC_CONTEXT_TOKENS = 200_000;
+
+/** Context windows the vendors publish for the model ids we ship as presets. */
+const DECLARED_CONTEXT_TOKENS: Readonly<Record<string, number>> = {
+	'gpt-4o': 128_000,
+	'gpt-4o-mini': 128_000,
+	'gemini-2.0-flash': 1_000_000,
+	'qwen2.5:7b': 32_768,
+};
+
+const DEFAULT_TASK_ROUTING: AiTaskRouting = { assistant: 'provider', embeddings: 'provider' };
+
+function isTaskRoute(value: unknown): value is AiTaskRoute {
+	return value === 'off' || (AI_BACKEND_IDS as readonly string[]).includes(value as string);
+}
+
+/** The declared context window for a model id, or null when nobody declares one. */
+export function declaredContextTokens(model: string): number | null {
+	const id = model.trim();
+	if (id in DECLARED_CONTEXT_TOKENS) return DECLARED_CONTEXT_TOKENS[id];
+	// Every Claude model Lamplight can address publishes the same window.
+	if (id.startsWith('claude-')) return ANTHROPIC_CONTEXT_TOKENS;
+	return null;
+}
+
+function capabilitiesForProvider(settings: AiProviderSettings): AiBackendCapabilities {
+	return {
+		generation: true,
+		// The Anthropic API has no embeddings endpoint; every OpenAI-compatible endpoint has one.
+		embeddings: settings.provider !== 'anthropic',
+		contextTokens: declaredContextTokens(settings.model),
+	};
+}
+
+/** The persisted non-secret local-runner settings (the endpoint itself is fixed, not user input). */
+export function getAiLocalBackendSettings(): { model: string } {
+	try {
+		const raw = localStorage.getItem(LOCAL_BACKEND_KEY);
+		if (!raw) return { model: LOCAL_OLLAMA.defaultModel };
+		const parsed = JSON.parse(raw) as { model?: unknown };
+		const model = typeof parsed.model === 'string' ? parsed.model.trim() : '';
+		return {
+			model: model !== '' && model.length <= MAX_MODEL_CHARS ? model : LOCAL_OLLAMA.defaultModel,
+		};
+	} catch {
+		return { model: LOCAL_OLLAMA.defaultModel };
+	}
+}
+
+export function saveAiLocalBackendSettings(patch: { model?: string }): { model: string } {
+	const next = { ...getAiLocalBackendSettings(), ...patch };
+	if (next.model.trim() === '') next.model = LOCAL_OLLAMA.defaultModel;
+	next.model = next.model.trim().slice(0, MAX_MODEL_CHARS);
+	try {
+		localStorage.setItem(LOCAL_BACKEND_KEY, JSON.stringify(next));
+	} catch {
+		/* settings persistence is best-effort; the in-session value still applies via the caller */
+	}
+	return next;
+}
+
+/** The local runner as provider settings. Its base URL is a constant, never user-entered. */
+function localBackendSettings(): AiProviderSettings {
+	return {
+		provider: 'openai-compatible',
+		model: getAiLocalBackendSettings().model,
+		baseUrl: LOCAL_OLLAMA.baseUrl,
+	};
+}
+
+function resolveLocalBackendConfig(): ResolvedAiProviderConfig | null {
+	if (!getPlatformCapabilities().allowHttpLoopbackAi) return null;
+	const settings = localBackendSettings();
+	const base = validateAiBaseUrl(settings.baseUrl);
+	if (!base.valid) return null;
+	return { ...settings, baseUrl: base.normalized, apiKey: LOCAL_BEARER_PLACEHOLDER };
+}
+
+/** What one backend can do right now, and if it cannot be used, the one reason why. */
+export function describeAiBackend(id: AiBackendId): AiBackendStatus {
+	const settings = id === 'local' ? localBackendSettings() : getAiProviderSettings();
+	const destination = resolveAiProviderDestination(settings);
+	const status: AiBackendStatus = {
+		id,
+		model: settings.model,
+		destination,
+		capabilities:
+			id === 'local'
+				? {
+						generation: true,
+						embeddings: true,
+						contextTokens: declaredContextTokens(settings.model),
+					}
+				: capabilitiesForProvider(settings),
+		available: false,
+		reason: null,
+	};
+	// Consent is the outermost gate for every backend, exactly as it is for the transport.
+	if (!isAiAssistantEnabled()) return { ...status, reason: 'consent-off' };
+	if (id === 'local') {
+		if (!getPlatformCapabilities().allowHttpLoopbackAi) {
+			return { ...status, reason: 'platform-unsupported' };
+		}
+		if (!destination) return { ...status, reason: 'incomplete-settings' };
+		return { ...status, available: true };
+	}
+	if (!destination) return { ...status, reason: 'incomplete-settings' };
+	if (getAiProviderKeyForSettings(settings) === null) return { ...status, reason: 'no-key' };
+	return { ...status, available: true };
+}
+
+export function listAiBackendStatus(): AiBackendStatus[] {
+	return AI_BACKEND_IDS.map(describeAiBackend);
+}
+
+/** The persisted routing table, hydrated fail-safe (corrupt or absent ⇒ the configured provider). */
+export function getAiTaskRouting(): AiTaskRouting {
+	try {
+		const raw = localStorage.getItem(TASK_ROUTING_KEY);
+		if (!raw) return { ...DEFAULT_TASK_ROUTING };
+		const parsed = JSON.parse(raw) as Partial<Record<AiTaskId, unknown>>;
+		const next = { ...DEFAULT_TASK_ROUTING };
+		for (const task of AI_TASK_IDS) {
+			const value = parsed[task];
+			if (isTaskRoute(value)) next[task] = value;
+		}
+		return next;
+	} catch {
+		return { ...DEFAULT_TASK_ROUTING };
+	}
+}
+
+export function saveAiTaskRouting(patch: Partial<AiTaskRouting>): AiTaskRouting {
+	const next = { ...getAiTaskRouting(), ...patch };
+	try {
+		localStorage.setItem(TASK_ROUTING_KEY, JSON.stringify(next));
+	} catch {
+		/* settings persistence is best-effort; the in-session value still applies via the caller */
+	}
+	return next;
+}
+
+/** The capability a task cannot run without. */
+export function requiredCapabilityFor(task: AiTaskId): 'generation' | 'embeddings' {
+	return task === 'embeddings' ? 'embeddings' : 'generation';
+}
+
+/**
+ * Route one task to a usable backend. FAIL CLOSED and say why: a task routed nowhere, a backend
+ * that is not ready, or a backend that cannot do this job all return a reason rather than a
+ * half-built config the caller would discover at the wire.
+ */
+export function routeAiTask(task: AiTaskId): AiRouteResult {
+	const route = getAiTaskRouting()[task];
+	if (route === 'off') return { available: false, backendId: null, reason: 'task-off' };
+	const status = describeAiBackend(route);
+	if (!status.available) {
+		return { available: false, backendId: route, reason: status.reason ?? 'incomplete-settings' };
+	}
+	if (!status.capabilities[requiredCapabilityFor(task)]) {
+		return { available: false, backendId: route, reason: 'capability-missing' };
+	}
+	const config =
+		route === 'local' ? resolveLocalBackendConfig() : resolveConfiguredProviderConfig();
+	if (!config) {
+		return { available: false, backendId: route, reason: 'incomplete-settings' };
+	}
+	return { available: true, backendId: route, config };
 }
 
 export const __testing = {
@@ -508,6 +758,9 @@ export const __testing = {
 	LEGACY_KEY_SESSION_KEY,
 	LEGACY_KEY_DURABLE_KEY,
 	ACTIVE_SCOPE_KEY,
+	TASK_ROUTING_KEY,
+	LOCAL_BACKEND_KEY,
+	LOCAL_BEARER_PLACEHOLDER,
 	sessionKeyForScope,
 	durableKeyForScope,
 	/** Reset the module-memory key between tests (module state persists across cases). */
