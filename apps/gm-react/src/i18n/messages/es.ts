@@ -103,6 +103,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Elige el idioma que se usa en Lamplight. Tu elección se guarda en este dispositivo.',
 	'settings.language.appliesImmediately':
 		'Los cambios de idioma se aplican de inmediato, incluidos menús, diálogos, ayudas y etiquetas para lectores de pantalla.',
+	'settings.language.coverage': '{percent}% traducido',
 	'session.state.live': 'En vivo',
 	'session.state.standby': 'En espera',
 	'session.state.prep': 'Preparación',

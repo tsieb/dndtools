@@ -106,6 +106,8 @@ export const en = {
 		'Choose the language used throughout Lamplight. Your choice is saved on this device.',
 	'settings.language.appliesImmediately':
 		'Language changes apply immediately, including menus, dialogs, tooltips, and screen-reader labels.',
+	// RC-UX-1.4 — the community translation workflow's coverage badge (Settings › Language).
+	'settings.language.coverage': '{percent}% translated',
 	'session.state.live': 'Live',
 	'session.state.standby': 'Standby',
 	'session.state.prep': 'Prep',
