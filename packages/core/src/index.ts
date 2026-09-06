@@ -5318,3 +5318,9 @@ export {
 	resolveCondition,
 	systemConditionCatalog,
 } from './state/combat-tracker';
+
+// RC-CAN-1.1 — pure inverse builders for the scene canvas layout commands (ADR-029 §1). The undo
+// STACK stays app-side, local and never synced, exactly as `buildMapInverse` established; the core
+// only answers "what command exactly undoes this one".
+export type { UndoableWidgetCommand } from './lifecycle/widget-undo';
+export { buildWidgetInverse } from './lifecycle/widget-undo';
