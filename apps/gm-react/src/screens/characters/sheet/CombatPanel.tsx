@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
 import { Button, ConditionTracker, Field, HPBar, Input, Select, Stat } from '../../../ds';
+import type { DSChangeEvent } from '../../../ds';
 import { type CharacterResources, type CharacterView } from '@dndtools/core';
 import { Panel, T, eb } from '../../../app/screen-kit';
 import { STANDARD_CONDITIONS, condKey } from '../shared';
@@ -98,7 +99,7 @@ export function CombatPanel({
 								// cleared, so "12" could not be typed over "3". Hold the text, commit
 								// on blur — the pattern EncounterBuilder's CR/quantity fields use.
 								value={hpDraft}
-								onChange={(e: any) => setHpDraft(e.target.value)}
+								onChange={(e: DSChangeEvent) => setHpDraft(e.target.value)}
 								onBlur={commitHpAmount}
 							/>
 						</Field>
@@ -115,7 +116,7 @@ export function CombatPanel({
 								type="number"
 								value={acDraft}
 								placeholder={String(view.combat.ac)}
-								onChange={(e: any) => setAcDraft(e.target.value)}
+								onChange={(e: DSChangeEvent) => setAcDraft(e.target.value)}
 							/>
 						</Field>
 						<Button variant="secondary" size="sm" onClick={applyAc}>
@@ -127,7 +128,7 @@ export function CombatPanel({
 						<Field label={t('characters.addCondition')} style={{ minWidth: 160, flex: 1 }}>
 							<Select
 								value={conditionInput}
-								onChange={(e: any) => setConditionInput(e.target.value)}
+								onChange={(e: DSChangeEvent) => setConditionInput(e.target.value)}
 								options={[
 									{ value: '', label: t('characters.choose') },
 									...STANDARD_CONDITIONS.map((c) => ({ value: c, label: c })),

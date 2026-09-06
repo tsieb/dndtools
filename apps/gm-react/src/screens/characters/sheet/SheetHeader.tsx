@@ -1,5 +1,6 @@
 import { type Dispatch, type SetStateAction } from 'react';
 import { Avatar, Badge, Button, IconButton, Input, Stat, VisibilityChip } from '../../../ds';
+import type { DSChangeEvent, DSKeyboardEvent } from '../../../ds';
 import { T, srOnly } from '../../../app/screen-kit';
 import { type AdvancementState, type CharacterView } from '@dndtools/core';
 import { BackBar, KIND_LABEL, KIND_TONE, subtitleOf, visChip } from '../shared';
@@ -72,9 +73,9 @@ export function SheetHeader({
 							<Input
 								value={nameDraft}
 								autoFocus
-								onChange={(e: any) => setNameDraft(e.target.value)}
+								onChange={(e: DSChangeEvent) => setNameDraft(e.target.value)}
 								onBlur={saveName}
-								onKeyDown={(e: any) => {
+								onKeyDown={(e: DSKeyboardEvent) => {
 									if (e.key === 'Enter') saveName();
 									if (e.key === 'Escape') setEditingName(false);
 								}}

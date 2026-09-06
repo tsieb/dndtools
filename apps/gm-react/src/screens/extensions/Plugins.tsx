@@ -85,7 +85,7 @@ export function ExtPlugins() {
 	const [reviewingId, setReviewingId] = useState<string | null>(null);
 	// The live widget-package registry — the "plugins" of this app. A removed package is gone, not listed.
 	const packages = useMemo(
-		() => Object.values(runtime.state.widgets.packages).filter((rec: any) => !rec.removedAt),
+		() => Object.values(runtime.state.widgets.packages).filter((rec) => !rec.removedAt),
 		[runtime.state.widgets],
 	);
 
@@ -271,7 +271,7 @@ export function ExtPlugins() {
 							{t('extensions.plugins.none')}
 						</div>
 					)}
-					{packages.map((rec: any) => {
+					{packages.map((rec) => {
 						const def = rec.package;
 						const isSystem = def.id.startsWith('system.');
 						const review = buildWidgetPackageReviewSummary(def);

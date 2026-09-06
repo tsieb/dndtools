@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
 import { Badge, Button, Field, Icon, Input, SpellSlots } from '../../../ds';
+import type { DSChangeEvent } from '../../../ds';
 import {
 	availableClassResource,
 	availableSlots,
@@ -217,7 +218,7 @@ export function SpellsPanel({
 							<Input
 								value={spellName}
 								placeholder={t('characters.spellPlaceholder')}
-								onChange={(e: any) => setSpellName(e.target.value)}
+								onChange={(e: DSChangeEvent) => setSpellName(e.target.value)}
 							/>
 						</Field>
 						<Field label={t('characters.level')} style={{ width: 70 }}>
@@ -226,7 +227,7 @@ export function SpellsPanel({
 								min={0}
 								max={9}
 								value={spellLevel}
-								onChange={(e: any) => setSpellLevel(e.target.value)}
+								onChange={(e: DSChangeEvent) => setSpellLevel(e.target.value)}
 							/>
 						</Field>
 						<Button variant="secondary" size="sm" disabled={!spellName.trim()} onClick={addSpell}>
@@ -240,7 +241,7 @@ export function SpellsPanel({
 								min={0}
 								max={9}
 								value={slotLevel}
-								onChange={(e: any) => setSlotLevel(e.target.value)}
+								onChange={(e: DSChangeEvent) => setSlotLevel(e.target.value)}
 							/>
 						</Field>
 						<Field label={t('characters.maxSlots')} style={{ width: 90 }}>
@@ -249,7 +250,7 @@ export function SpellsPanel({
 								min={0}
 								value={slotMax}
 								placeholder="0"
-								onChange={(e: any) => setSlotMax(e.target.value)}
+								onChange={(e: DSChangeEvent) => setSlotMax(e.target.value)}
 							/>
 						</Field>
 						<Button

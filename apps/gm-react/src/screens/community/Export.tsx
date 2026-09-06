@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { getContentItemsForActor } from '@dndtools/core';
+import { getContentItemsForActor, type CoreEvent } from '@dndtools/core';
 import { Button, Icon, Switch, Toaster, VisibilityChip } from '../../ds';
 import { Panel, T, eb } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
@@ -91,9 +91,12 @@ export function CommExport() {
 			Toaster.error(res.rejection.message);
 			return;
 		}
-		const ev = res.events.find((e: any) => e.kind === 'content.exported') as any;
+		// CONTENT-008 — the export payload rides the event, so narrow the union rather than casting.
+		const ev = res.events.find(
+			(e): e is Extract<CoreEvent, { kind: 'content.exported' }> => e.kind === 'content.exported',
+		);
 		if (!ev) return;
-		const files: { path: string; markdown: string }[] = ev.export?.files ?? [];
+		const files: { path: string; markdown: string }[] = ev.export.files;
 		const mode: string = ev.mode;
 		let fileName: string;
 		let exportResult: ExportResult;

@@ -4,6 +4,7 @@ import {
 	validateAdvancement,
 	type AdvancementState,
 	type Character,
+	type CoreCommand,
 } from '@dndtools/core';
 
 /**
@@ -26,10 +27,7 @@ export function useAdvancementEditor({
 	actorId: string;
 	id: string;
 	isDm: boolean;
-	dispatch: (
-		command: { type: string; actorId: string; payload: Record<string, unknown> },
-		okNote?: string,
-	) => Promise<boolean>;
+	dispatch: (command: CoreCommand, okNote?: string) => Promise<boolean>;
 	setError: (next: { text: string; field?: 'ac' | 'slots' | 'xp' }) => void;
 }) {
 	// XP / advancement local inputs.

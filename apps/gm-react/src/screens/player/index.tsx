@@ -26,6 +26,7 @@ import {
 	Tabs,
 	tabPanelProps,
 } from '../../ds';
+import type { DSChangeEvent } from '../../ds';
 import { Page, Panel, T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -256,7 +257,7 @@ export function Player() {
 				{data.pcs.length > 1 && (
 					<Select
 						value={charId}
-						onChange={(e: any) => {
+						onChange={(e: DSChangeEvent) => {
 							// The error banner is screen-level and was only ever cleared by the NEXT
 							// successful dispatch, so a rejected write kept accusing the user from the top
 							// of an unrelated character or tab.

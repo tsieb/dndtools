@@ -5,6 +5,7 @@
  * behaviour change.
  */
 import { Button, IconButton, Select, Toaster } from '../../../ds';
+import type { DSChangeEvent } from '../../../ds';
 import { Seg, T, eb } from '../../screen-kit';
 import { BUILDER, modOf, type ScoreMethod } from '../data';
 import type { Wizard } from '../wizard';
@@ -86,7 +87,7 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 						{method === 'standard' ? (
 							<Select
 								value={assign[k]}
-								onChange={(e: any) => setAssign((s) => ({ ...s, [k]: e.target.value }))}
+								onChange={(e: DSChangeEvent) => setAssign((s) => ({ ...s, [k]: e.target.value }))}
 								options={[
 									{ value: '', label: '—' },
 									...remainingArray(k).map((v) => ({

@@ -12,6 +12,7 @@ import {
 	Input,
 	Toaster,
 } from '../../ds';
+import type { DSChangeEvent } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import { condKey, type Dispatch } from './shared';
@@ -354,14 +355,14 @@ export function PlayerParty({
 								<Input
 									value={itemName}
 									aria-label={t('player.party.itemName')}
-									onChange={(e: any) => setItemName(e.target.value)}
+									onChange={(e: DSChangeEvent) => setItemName(e.target.value)}
 									placeholder={t('player.party.itemNamePlaceholder')}
 									style={{ flex: 1 }}
 								/>
 								<Input
 									value={itemDetail}
 									aria-label={t('player.party.itemDetail')}
-									onChange={(e: any) => setItemDetail(e.target.value)}
+									onChange={(e: DSChangeEvent) => setItemDetail(e.target.value)}
 									placeholder={t('player.party.itemDetailPlaceholder')}
 									style={{ flex: 1 }}
 								/>

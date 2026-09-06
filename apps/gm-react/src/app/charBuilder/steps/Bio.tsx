@@ -5,6 +5,7 @@
  * behaviour change.
  */
 import { Textarea } from '../../../ds';
+import type { DSChangeEvent } from '../../../ds';
 import { FieldLabel, HonestNote, Tile } from '../ui';
 import type { Wizard } from '../wizard';
 import { useI18n } from '../../../i18n';
@@ -18,7 +19,7 @@ export function BioStep({ w }: { w: Wizard }) {
 				<FieldLabel>{t('charBuilder.bio')}</FieldLabel>
 				<Textarea
 					value={bio}
-					onChange={(e: any) => setBio(e.target.value)}
+					onChange={(e: DSChangeEvent) => setBio(e.target.value)}
 					rows={4}
 					placeholder={t('charBuilder.bioPlaceholder')}
 					style={{ width: '100%' }}
@@ -33,7 +34,7 @@ export function BioStep({ w }: { w: Wizard }) {
 				) : (
 					<Textarea
 						value={dmNotes}
-						onChange={(e: any) => setDmNotes(e.target.value)}
+						onChange={(e: DSChangeEvent) => setDmNotes(e.target.value)}
 						rows={3}
 						placeholder={t('charBuilder.dmNotesPlaceholder')}
 						style={{ width: '100%' }}

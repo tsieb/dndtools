@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { CharacterInventory, CharacterView, EncumbranceState } from '@dndtools/core';
 import { ABILITY_IDS, SKILLS } from '../../app/charImport/skills';
 import { Button, DefinitionList, Field, Icon, Input, Stat, Textarea } from '../../ds';
+import type { DSChangeEvent } from '../../ds';
 import { Panel, T, eb } from '../../app/screen-kit';
 import { useI18n, type MessageKey } from '../../i18n';
 import { useViewport } from '../../app/useViewport';
@@ -185,7 +186,9 @@ export function PlayerSheet({
 										<Input
 											value={drafts[f.key] ?? ''}
 											placeholder={f.hint ? t(f.hint) : undefined}
-											onChange={(e: any) => setDrafts((d) => ({ ...d, [f.key]: e.target.value }))}
+											onChange={(e: DSChangeEvent) =>
+												setDrafts((d) => ({ ...d, [f.key]: e.target.value }))
+											}
 										/>
 									</Field>
 								))}
@@ -218,7 +221,7 @@ export function PlayerSheet({
 							</div>
 						) : (
 							<div style={{ display: 'flex', flexDirection: 'column' }}>
-								{C.attacks.map((a: any, i: number) => (
+								{C.attacks.map((a, i) => (
 									<div
 										key={a.id ?? i}
 										style={{
@@ -258,7 +261,7 @@ export function PlayerSheet({
 							<Textarea
 								rows={4}
 								value={backstoryDraft}
-								onChange={(e: any) => setBackstoryDraft(e.target.value)}
+								onChange={(e: DSChangeEvent) => setBackstoryDraft(e.target.value)}
 								placeholder={t('player.sheet.backstoryPlaceholder')}
 							/>
 							<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>

@@ -11,6 +11,7 @@ import {
 	Textarea,
 	Toaster,
 } from '../../ds';
+import type { DSChangeEvent } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import { JOURNAL_KINDS, type Dispatch } from './shared';
@@ -175,13 +176,13 @@ export function PlayerJournal({
 													<Input
 														value={editTitle}
 														aria-label={t('player.journal.entryTitle')}
-														onChange={(e: any) => setEditTitle(e.target.value)}
+														onChange={(e: DSChangeEvent) => setEditTitle(e.target.value)}
 													/>
 													<Textarea
 														rows={2}
 														value={editBody}
 														aria-label={t('player.journal.entryBody')}
-														onChange={(e: any) => setEditBody(e.target.value)}
+														onChange={(e: DSChangeEvent) => setEditBody(e.target.value)}
 													/>
 													<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
 														<Button variant="ghost" size="sm" onClick={() => setEditId(null)}>
@@ -297,13 +298,13 @@ export function PlayerJournal({
 									<Input
 										value={title}
 										aria-label={t('player.journal.entryTitle')}
-										onChange={(e: any) => setTitle(e.target.value)}
+										onChange={(e: DSChangeEvent) => setTitle(e.target.value)}
 										placeholder={t('player.journal.entryTitlePlaceholder')}
 										style={{ flex: 1 }}
 									/>
 									<Select
 										value={kind}
-										onChange={(e: any) => setKind(e.target.value)}
+										onChange={(e: DSChangeEvent) => setKind(e.target.value)}
 										options={kindOptions}
 										aria-label={t('player.journal.entryKind')}
 										style={{ width: 170 }}
@@ -312,7 +313,7 @@ export function PlayerJournal({
 								<Textarea
 									value={body}
 									aria-label={t('player.journal.entryBody')}
-									onChange={(e: any) => setBody(e.target.value)}
+									onChange={(e: DSChangeEvent) => setBody(e.target.value)}
 									placeholder={t('player.journal.entryBodyPlaceholder')}
 									rows={2}
 								/>

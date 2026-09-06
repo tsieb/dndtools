@@ -7,6 +7,7 @@ import {
 	advancementStateOf,
 	passivePerception,
 	effectiveProficiencyBonus,
+	type CoreCommand,
 	type PreparedSpell,
 } from '@dndtools/core';
 import { EmptyState } from '../../ds';
@@ -184,7 +185,7 @@ export function CharacterSheet({ id, onBack }: { id: string; onBack: () => void 
 	// conditions, rename, prepared spells, slots, attacks, sharing, XP, each advancement step —
 	// changes only a number or a pill, which is invisible to assistive tech: the DM's primary
 	// authoring surface confirmed nothing at all. `Player.tsx` already carries this one-node pattern.
-	async function dispatch(command: any, okNote?: string): Promise<boolean> {
+	async function dispatch(command: CoreCommand, okNote?: string): Promise<boolean> {
 		setError(null);
 		// Emptying the region for the duration of the write does two jobs. It stops a stale SUCCESS
 		// note sitting under a fresh error (only `error` was being cleared), and — because assistive

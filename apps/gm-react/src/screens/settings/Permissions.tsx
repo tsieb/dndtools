@@ -68,10 +68,12 @@ export function SettingsPermissions() {
 		grantId: g.id,
 		set: describeCapabilitySet(g.entityType, g.capabilitySet)?.label ?? g.capabilitySet,
 		type: g.entityType,
-		entity: (runtime.state.scenes.scenes as any)[g.entityId]?.name ?? g.entityId,
+		entity: runtime.state.scenes.scenes[g.entityId]?.name ?? g.entityId,
 		to: actors[g.playerActorId]?.displayName ?? g.playerActorId,
 		expires: g.expiresAt ? formatDate(new Date(g.expiresAt)) : null,
 	}));
+	/** One row of the active-grants table; `DataTable`'s props are untyped, so `rowKey` says so. */
+	type GrantRow = (typeof grantRows)[number];
 
 	// Revoke is recoverable here (the grant's full shape is in hand), so the toast carries an Undo
 	// that re-dispatches the same `permission.grant-capability-set` — mirroring the scene-delete flow.
@@ -242,13 +244,13 @@ export function SettingsPermissions() {
 							key: 'expires',
 							header: t('settings.permissions.colExpires'),
 							align: 'right',
-							render: (v: any) => v || '—',
+							render: (v: string | null) => v || '—',
 						},
 						{
 							key: 'grantId',
 							header: '',
 							align: 'right',
-							render: (id: any) => (
+							render: (id: string) => (
 								<Button variant="ghost" size="sm" icon="trash" onClick={() => revoke(id)}>
 									{t('settings.permissions.revoke')}
 								</Button>
@@ -256,7 +258,7 @@ export function SettingsPermissions() {
 						},
 					]}
 					rows={grantRows}
-					rowKey={(r: any) => r.grantId}
+					rowKey={(r: GrantRow) => r.grantId}
 					empty={t('settings.permissions.noGrants')}
 				/>
 			</Panel>

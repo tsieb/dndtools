@@ -6,6 +6,7 @@ import {
 	type EligibilityResult,
 } from '@dndtools/core';
 import { Badge, Button, Icon, Input, ProgressMeter } from '../../ds';
+import type { DSChangeEvent } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { useI18n, type MessageKey } from '../../i18n';
 import type { Dispatch } from './shared';
@@ -290,7 +291,9 @@ export function PlayerLevelUp({
 										value={inputs[field] ?? ''}
 										placeholder={done ? String(saved) : stepLabel}
 										aria-label={stepLabel}
-										onChange={(e: any) => setInputs((v) => ({ ...v, [field]: e.target.value }))}
+										onChange={(e: DSChangeEvent) =>
+											setInputs((v) => ({ ...v, [field]: e.target.value }))
+										}
 										style={{ maxWidth: 220 }}
 									/>
 									<Button

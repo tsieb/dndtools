@@ -154,3 +154,15 @@ export const ProgressMeter: DSComponent;
 export const Skeleton: DSComponent;
 /* RC-SYS-3.1 */
 export const SystemPackageCard: DSComponent;
+
+/* RC-ENG-4.1 — typed form-control events.
+   `Input`, `Textarea` and `Select` spread `{...rest}` straight onto the native element, so their
+   `onChange` / `onKeyDown` really are the React DOM events. The facade above types every DS prop
+   as `unknown` (see the header note), which means a handler's parameter has no contextual type and
+   call sites must annotate it. These aliases are that annotation, so screens no longer reach for
+   `any` at the seam. Type-only: nothing is emitted, `index.js` has no matching runtime export. */
+export type DSFieldElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+export type DSChangeEvent = import('react').ChangeEvent<DSFieldElement>;
+export type DSKeyboardEvent = import('react').KeyboardEvent<DSFieldElement>;
+/** The `status` tones `Badge` paints (its `STATUS` map in `components/feedback/Badge.jsx`). */
+export type DSBadgeStatus = 'success' | 'warning' | 'error' | 'info' | 'accent' | 'neutral';

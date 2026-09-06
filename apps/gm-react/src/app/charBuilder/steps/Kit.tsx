@@ -5,6 +5,7 @@
  * behaviour change.
  */
 import { Icon, IconButton, Input } from '../../../ds';
+import type { DSChangeEvent } from '../../../ds';
 import { T } from '../../screen-kit';
 import { FieldLabel, NumStepper } from '../ui';
 import type { Wizard } from '../wizard';
@@ -83,7 +84,7 @@ export function KitStep({ w }: { w: Wizard }) {
 							<Input
 								value={at.name}
 								aria-label={t('characters.attackName')}
-								onChange={(e: any) =>
+								onChange={(e: DSChangeEvent) =>
 									setAttacks((a) =>
 										a.map((x, j) => (j === idx ? { ...x, name: e.target.value } : x)),
 									)
@@ -93,7 +94,7 @@ export function KitStep({ w }: { w: Wizard }) {
 							<Input
 								value={at.kind}
 								aria-label={t('charBuilder.attackKind')}
-								onChange={(e: any) =>
+								onChange={(e: DSChangeEvent) =>
 									setAttacks((a) =>
 										a.map((x, j) => (j === idx ? { ...x, kind: e.target.value } : x)),
 									)
@@ -103,7 +104,7 @@ export function KitStep({ w }: { w: Wizard }) {
 							<Input
 								value={at.hit}
 								aria-label={t('charBuilder.attackToHit')}
-								onChange={(e: any) =>
+								onChange={(e: DSChangeEvent) =>
 									setAttacks((a) =>
 										a.map((x, j) => (j === idx ? { ...x, hit: e.target.value } : x)),
 									)
@@ -113,7 +114,7 @@ export function KitStep({ w }: { w: Wizard }) {
 							<Input
 								value={at.dmg}
 								aria-label={t('charBuilder.attackDamage')}
-								onChange={(e: any) =>
+								onChange={(e: DSChangeEvent) =>
 									setAttacks((a) =>
 										a.map((x, j) => (j === idx ? { ...x, dmg: e.target.value } : x)),
 									)
@@ -123,7 +124,7 @@ export function KitStep({ w }: { w: Wizard }) {
 							<Input
 								value={at.type}
 								aria-label={t('charBuilder.damageType')}
-								onChange={(e: any) =>
+								onChange={(e: DSChangeEvent) =>
 									setAttacks((a) =>
 										a.map((x, j) => (j === idx ? { ...x, type: e.target.value } : x)),
 									)

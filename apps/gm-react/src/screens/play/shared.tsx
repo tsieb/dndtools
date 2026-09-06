@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Badge, CONDITIONS, Icon } from '../../ds';
+import type { DSBadgeStatus } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
 import { T } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
@@ -19,7 +20,7 @@ export const PLAYER_ACTOR_ID = 'actor-player';
 export const TIERS = ['observer', 'player', 'trusted', 'codm'] as const;
 export const TIER_META: Record<
 	string,
-	{ label: MessageKey; role: MessageKey; badge: any; icon: string; blurb: MessageKey }
+	{ label: MessageKey; role: MessageKey; badge: DSBadgeStatus; icon: string; blurb: MessageKey }
 > = {
 	observer: {
 		label: 'play.tier.observer',
@@ -108,7 +109,7 @@ export function kindLabelKey(kind: string): MessageKey | null {
 }
 
 export function condKey(s: string): string | null {
-	const C = (CONDITIONS as any) || {};
+	const C = CONDITIONS ?? {};
 	const k = String(s).toLowerCase();
 	return COND_ALIAS[k] || (C[k] ? k : null);
 }

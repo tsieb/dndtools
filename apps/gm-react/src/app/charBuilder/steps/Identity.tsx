@@ -5,6 +5,7 @@
  * behaviour change.
  */
 import { Input, Select } from '../../../ds';
+import type { DSChangeEvent } from '../../../ds';
 import { T } from '../../screen-kit';
 import { ALIGNMENTS, BUILDER, KINDS, portraitGradient } from '../data';
 import { FieldLabel, HonestNote, Tile } from '../ui';
@@ -64,7 +65,7 @@ export function IdentityStep({ w }: { w: Wizard }) {
 					<FieldLabel>{t('charBuilder.name')}</FieldLabel>
 					<Input
 						value={name}
-						onChange={(e: any) => setName(e.target.value)}
+						onChange={(e: DSChangeEvent) => setName(e.target.value)}
 						placeholder={t('charBuilder.namePlaceholder')}
 						aria-label={t('charBuilder.name')}
 						style={{ width: '100%' }}
@@ -74,7 +75,7 @@ export function IdentityStep({ w }: { w: Wizard }) {
 					<FieldLabel>{t('charBuilder.alignment')}</FieldLabel>
 					<Select
 						value={align}
-						onChange={(e: any) => setAlign(e.target.value)}
+						onChange={(e: DSChangeEvent) => setAlign(e.target.value)}
 						options={ALIGNMENTS.map((a) => ({ value: a, label: a }))}
 						aria-label={t('charBuilder.alignment')}
 						style={{ width: '100%' }}
@@ -98,7 +99,7 @@ export function IdentityStep({ w }: { w: Wizard }) {
 						{players.length > 0 ? (
 							<Select
 								value={ownerId}
-								onChange={(e: any) => setOwner(e.target.value)}
+								onChange={(e: DSChangeEvent) => setOwner(e.target.value)}
 								options={players.map((p) => ({ value: p.id, label: p.displayName }))}
 								aria-label={t('charBuilder.ownedByLabel')}
 								style={{ width: '100%' }}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { CharacterInventory, EncumbranceState, EquipmentItem } from '@dndtools/core';
 import { Badge, Button, Field, Icon, IconButton, Input, ProgressMeter, Stat } from '../../ds';
+import type { DSChangeEvent } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { useI18n, type MessageKey } from '../../i18n';
 import { useViewport } from '../../app/useViewport';
@@ -238,7 +239,7 @@ export function PlayerEquipment({
 						<Field label={t('player.equipment.itemField')}>
 							<Input
 								value={name}
-								onChange={(e: any) => setName(e.target.value)}
+								onChange={(e: DSChangeEvent) => setName(e.target.value)}
 								placeholder={t('player.equipment.itemPlaceholder')}
 							/>
 						</Field>
@@ -246,7 +247,7 @@ export function PlayerEquipment({
 							<Input
 								type="number"
 								value={qty}
-								onChange={(e: any) => setQty(e.target.value)}
+								onChange={(e: DSChangeEvent) => setQty(e.target.value)}
 								style={{ width: 70 }}
 							/>
 						</Field>
@@ -254,7 +255,7 @@ export function PlayerEquipment({
 							<Input
 								type="number"
 								value={weight}
-								onChange={(e: any) => setWeight(e.target.value)}
+								onChange={(e: DSChangeEvent) => setWeight(e.target.value)}
 								placeholder="0"
 								style={{ width: 90 }}
 							/>

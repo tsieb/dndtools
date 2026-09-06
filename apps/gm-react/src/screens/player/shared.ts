@@ -1,5 +1,6 @@
 import type {
 	AdvancementState,
+	CoreCommand,
 	CharacterInventory,
 	CharacterResources,
 	CharacterView,
@@ -55,7 +56,7 @@ const COND_ALIAS: Record<string, string> = {
 };
 export const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 export function condKey(s: string): string | null {
-	const C = (CONDITIONS as any) || {};
+	const C = CONDITIONS ?? {};
 	const k = String(s).toLowerCase();
 	return COND_ALIAS[k] || (C[k] ? k : null);
 }
@@ -97,4 +98,4 @@ export interface PlayerData {
 	isDm: boolean;
 }
 
-export type Dispatch = (command: any) => Promise<boolean>;
+export type Dispatch = (command: CoreCommand) => Promise<boolean>;

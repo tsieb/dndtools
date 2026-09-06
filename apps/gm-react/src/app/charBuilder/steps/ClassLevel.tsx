@@ -5,6 +5,7 @@
  * behaviour change.
  */
 import { Select } from '../../../ds';
+import type { DSChangeEvent } from '../../../ds';
 import { T } from '../../screen-kit';
 import { FieldLabel, NumStepper, Tile } from '../ui';
 import type { Wizard } from '../wizard';
@@ -80,7 +81,7 @@ export function ClassLevelStep({ w }: { w: Wizard }) {
 					<FieldLabel hint={t('charBuilder.subclassHint')}>{t('charBuilder.subclass')}</FieldLabel>
 					<Select
 						value={subclass}
-						onChange={(e: any) => setSubclass(e.target.value)}
+						onChange={(e: DSChangeEvent) => setSubclass(e.target.value)}
 						options={[
 							{ value: '', label: t('charBuilder.noneYet') },
 							...clsObj.sub.split(', ').map((s) => ({ value: s, label: s })),

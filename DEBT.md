@@ -42,7 +42,15 @@ Each debt item must include:
 - `Owner`: platform
 - `Resolution Window`: 2026 Q4
 - `Targets`: `apps/gm-react/src/**` (notably `Settings.tsx`, `Upgrade.tsx`, runtime + net view-models).
-- `Status`: open
+- `Status`: resolved (2026-09-06, RC-ENG-4.1). `runtime/*`, `net/*`, `screens/settings/*` and
+  `Upgrade.tsx` had already come clean through the STB-2 splits; this pass took the app from 72
+  sites to 11, all of them inside `app/compendium/*` (the Open5e external-JSON projector and its
+  test), which is RC-SYS-2.5's file. The bulk was DS form controls: the `.jsx` components are typed
+  through a facade whose props are `unknown`, so every `onChange` handler had to annotate its own
+  parameter and reached for `any`. `ds/index.d.ts` now publishes `DSChangeEvent`,
+  `DSKeyboardEvent` and `DSBadgeStatus` for that seam, and the dispatch seams
+  (`CharacterSheet.tsx`, `sheet/useAdvancementEditor.ts`, `screens/player/shared.ts`) take a real
+  `CoreCommand`.
 
 ### DEBT-2026-003 — Port the Svelte E2E corpus to the React app
 

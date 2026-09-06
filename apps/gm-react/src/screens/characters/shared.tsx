@@ -60,7 +60,7 @@ export const COND_ALIAS: Record<string, string> = {
 };
 export function condKey(s: string): string | null {
 	const k = String(s).toLowerCase();
-	return COND_ALIAS[k] || ((CONDITIONS as any)[k] ? k : null);
+	return COND_ALIAS[k] || (CONDITIONS[k] ? k : null);
 }
 
 /** A stable card gradient angle derived from the character id (fallback when no portrait tone). */

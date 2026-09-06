@@ -1,4 +1,5 @@
 import { Button, Field, Icon, Select, VisibilityChip } from '../../../ds';
+import type { DSChangeEvent } from '../../../ds';
 import { type Actor, type Character, type CharacterView } from '@dndtools/core';
 import { Panel, T } from '../../../app/screen-kit';
 import { useRuntime } from '../../../runtime/RuntimeContext';
@@ -61,7 +62,9 @@ export function SharingPanel({
 						<Field label={t('characters.whoCanSee')}>
 							<Select
 								value={shareDraft.visibility}
-								onChange={(e: any) => setShareDraft((d) => ({ ...d!, visibility: e.target.value }))}
+								onChange={(e: DSChangeEvent) =>
+									setShareDraft((d) => ({ ...d!, visibility: e.target.value }))
+								}
 								options={[
 									{ value: 'dm-only', label: t('common.visibility.dmOnly') },
 									{ value: 'player-visible', label: t('characters.allPlayers') },

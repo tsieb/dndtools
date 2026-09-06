@@ -1,4 +1,5 @@
 import { Button, DataTable, IconButton, Input } from '../../../ds';
+import type { DSChangeEvent } from '../../../ds';
 import { type CharacterView } from '@dndtools/core';
 import { Panel, T } from '../../../app/screen-kit';
 import { useI18n } from '../../../i18n';
@@ -40,7 +41,7 @@ export function AttacksPanel({
 						icon="note-edit"
 						onClick={() =>
 							setAttackRows(
-								view.attacks.map((a: any) => ({
+								view.attacks.map((a) => ({
 									id: a.id,
 									name: a.name,
 									detail: a.detail ?? '',
@@ -78,7 +79,7 @@ export function AttacksPanel({
 								// remove button got a full-width row to itself. Letting Name own row 1
 								// puts Detail + remove on row 2, and keeps DOM order == reading order.
 								style={isPhone ? { gridColumn: '1 / -1' } : undefined}
-								onChange={(e: any) =>
+								onChange={(e: DSChangeEvent) =>
 									setAttackRows((rows) =>
 										rows!.map((x, j) => (j === idx ? { ...x, name: e.target.value } : x)),
 									)
@@ -88,7 +89,7 @@ export function AttacksPanel({
 								value={a.detail}
 								aria-label={t('characters.attackDetail')}
 								placeholder={t('characters.attackDetailPlaceholder')}
-								onChange={(e: any) =>
+								onChange={(e: DSChangeEvent) =>
 									setAttackRows((rows) =>
 										rows!.map((x, j) => (j === idx ? { ...x, detail: e.target.value } : x)),
 									)
@@ -134,7 +135,7 @@ export function AttacksPanel({
 						{ key: 'detail', header: t('characters.detail'), mono: true },
 					]}
 					rows={view.attacks}
-					rowKey={(r: any) => r.id}
+					rowKey={(r: (typeof view.attacks)[number]) => r.id}
 				/>
 			) : (
 				<div style={{ font: `13px ${T.sans}`, color: T.ter }}>

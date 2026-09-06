@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
 import { Button, Field, Input } from '../../../ds';
+import type { DSChangeEvent } from '../../../ds';
 import { xpForLevel, type AdvancementState, type AdvancementValidation } from '@dndtools/core';
 import { Panel, T, mono } from '../../../app/screen-kit';
 import { useI18n } from '../../../i18n';
@@ -87,22 +88,28 @@ export function AdvancementPanel({
 						}}
 					>
 						<Field label={t('characters.classGaining')}>
-							<Input value={className} onChange={(e: any) => setClassName(e.target.value)} />
+							<Input
+								value={className}
+								onChange={(e: DSChangeEvent) => setClassName(e.target.value)}
+							/>
 						</Field>
 						<Field label={t('characters.hpGained')}>
 							<Input
 								type="number"
 								value={hpGained}
-								onChange={(e: any) => setHpGained(e.target.value)}
+								onChange={(e: DSChangeEvent) => setHpGained(e.target.value)}
 							/>
 						</Field>
 						<Field label={t('characters.subclassIfRequired')}>
-							<Input value={subclass} onChange={(e: any) => setSubclass(e.target.value)} />
+							<Input
+								value={subclass}
+								onChange={(e: DSChangeEvent) => setSubclass(e.target.value)}
+							/>
 						</Field>
 						<Field label={t('characters.abilityOrFeat')}>
 							<Input
 								value={abilityOrFeat}
-								onChange={(e: any) => setAbilityOrFeat(e.target.value)}
+								onChange={(e: DSChangeEvent) => setAbilityOrFeat(e.target.value)}
 							/>
 						</Field>
 					</div>
@@ -115,7 +122,7 @@ export function AdvancementPanel({
 								color: T.warn ?? T.sub,
 							}}
 						>
-							{draftValidation.issues.map((iss: any) => (
+							{draftValidation.issues.map((iss) => (
 								<li key={iss.field}>{iss.message}</li>
 							))}
 						</ul>
@@ -160,7 +167,7 @@ export function AdvancementPanel({
 						<Input
 							type="number"
 							value={xpInput}
-							onChange={(e: any) => setXpInput(e.target.value)}
+							onChange={(e: DSChangeEvent) => setXpInput(e.target.value)}
 						/>
 					</Field>
 					<Button variant="secondary" size="sm" onClick={setXp}>
