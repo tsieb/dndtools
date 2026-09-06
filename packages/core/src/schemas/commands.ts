@@ -415,10 +415,14 @@ export const reorderSceneCardQueueInputSchema = z
 // Advance the queue: activate the head card and remove it from the queue. No arguments.
 export const advanceSceneCardQueueInputSchema = z.object({}).strict();
 
+// RC-SES-1.3 — `title` NAMES the session being started ("Session 12 — the drowned vault"). Optional
+// and additive: absent leaves the current name untouched, `null` clears it. Trimmed and bounded so a
+// name stays a name; every reset transition clears it regardless of what is passed.
 export const setSessionWorkflowInputSchema = z
 	.object({
 		workflow: z.enum(['idle', 'prep', 'active', 'paused', 'ending', 'recap', 'archived']),
 		activeSceneId: z.union([z.literal(null), idSchema]).optional(),
+		title: z.union([z.literal(null), z.string().trim().min(1).max(120)]).optional(),
 	})
 	.strict();
 

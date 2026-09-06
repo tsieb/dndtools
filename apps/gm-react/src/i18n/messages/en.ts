@@ -127,6 +127,25 @@ export const en = {
 	'session.goLive.returnToStandby': 'Return to Standby first — you cannot go live from {state}.',
 	'session.goLive.hint': 'Go live to open combat, dice, handouts, and what players see.',
 	'session.goLive.announcement': 'You are live — combat, dice, and maps now reach players',
+	// RC-SES-1.3 — the start flow: continue the scene the session was already on, or start a new one
+	// with a name. The name is durable session state, so it is worded as a name, not a label.
+	'session.start.title': 'Start a session',
+	'session.start.description': 'Choose the scene players see once the session is live.',
+	'session.start.modeLabel': 'How to start',
+	'session.start.continueOption': 'Continue',
+	'session.start.newOption': 'New session',
+	'session.start.continueQuestion': 'Continue {scene}?',
+	'session.start.continueBody':
+		'Players return to {scene}, and combat, dice, handouts and the map open again.',
+	'session.start.scene': 'Scene',
+	'session.start.name': 'Session name',
+	'session.start.namePlaceholder': 'Session 12 — the drowned vault',
+	'session.start.nameHint':
+		'Optional. The name shows in the session header and on the archive you write up afterwards.',
+	'session.start.cancel': 'Cancel',
+	'session.start.noScenes': 'Create a scene first — a live session needs an active scene.',
+	'session.start.confirm': 'Go live',
+	'session.header.sessionScene': 'Scene: {scene}',
 	'session.end.label': 'End',
 	'session.end.liveLabel': 'End live session',
 	'session.end.confirmTitle': 'End the live session?',
@@ -134,6 +153,12 @@ export const en = {
 		'Returning to standby clears the active scene and map, the whole initiative order with every combatant’s HP and conditions, delivered handouts, timers and the dice log. Nothing is archived — use Recap on the Session screen if you want to keep a record.',
 	'session.end.stay': 'Stay live',
 	'session.end.confirmAction': 'End session',
+	// RC-SES-1.3 — ending has two honest outcomes: keep the session as an archive to write up, or
+	// discard it. The dialog names both rather than offering one destructive button.
+	'session.end.chooseBody':
+		'Ending into Recap archives this session — the scene and map, the initiative order, the handouts and the dice log — so you can write it up. Ending without a record clears all of it and archives nothing.',
+	'session.end.review': 'End and review',
+	'session.end.reviewHint': 'Archives the session and opens Recap.',
 	'session.end.announcement': 'Session ended — players returned to standby',
 	'session.end.toast': 'Session ended — back on standby',
 	'session.movedToPrep': 'Session moved to Prep',

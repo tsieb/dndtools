@@ -31,7 +31,14 @@ import { CampaignDatePanel } from './CampaignDate';
 import { CombatPanel, ConditionPickerDialog } from './CombatTracker';
 import { DicePanel } from './DiceTray';
 import { HandoutsPanel } from './Handouts';
-import { EndCombatDialog, EndSessionDialog, SessionHeader, StandbyCard } from './Lifecycle';
+import {
+	EndCombatDialog,
+	EndSessionDialog,
+	SessionHeader,
+	StandbyCard,
+	StartSessionDialog,
+	type SessionStartChoice,
+} from './Lifecycle';
 import { AudioPanel } from './NowPlaying';
 import { RecapPanel } from './PrepRecap';
 import { PartyPanel, RosterPanel } from './Roster';
@@ -78,6 +85,7 @@ export function Session() {
 		dice,
 		characters,
 		party,
+		startableScenes,
 		activeSceneName,
 		activeSceneId,
 		handouts,
@@ -153,6 +161,9 @@ export function Session() {
 			dice,
 			characters,
 			party: characters.filter((c) => c.kind === 'pc'),
+			// RC-SES-1.3 — the start flow picks the scene explicitly, so it needs the (actor-scoped,
+			// non-template) scenes by name rather than the single resolved active one.
+			startableScenes: scenes.filter((s) => !s.isTemplate).map((s) => ({ id: s.id, name: s.name })),
 			activeSceneName: scenes.find((s) => s.id === activeSceneId)?.name ?? null,
 			activeSceneId,
 			handouts: getHandoutsForActor(session, perms, actorId),
@@ -196,6 +207,8 @@ export function Session() {
 	// irreversible actions in this app.
 	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
 	const [standbyConfirmOpen, setStandbyConfirmOpen] = useState(false);
+	// RC-SES-1.3 — the start flow's dialog (continue the current scene, or a new session with a name).
+	const [startOpen, setStartOpen] = useState(false);
 
 	// Create-intent handoff from the "Build encounter" launchers (⌘K palette, the shell's Create
 	// menu). They used to perform a bare navigation to /session and leave the DM to hunt for the
@@ -232,22 +245,35 @@ export function Session() {
 		return t('session.end.toast');
 	}
 
-	async function goLive(): Promise<void> {
-		const sceneId =
-			runtime.state.session.activeSceneId ??
-			runtime.state.commandCenter.homeSceneId ??
-			listScenesForActor(runtime.state.scenes, runtime.state.permissions, actorId).filter(
-				(s) => !s.isTemplate,
-			)[0]?.id;
-		if (!sceneId) {
+	/** The scene a "Continue" start resumes: the session's own scene, else the home Scene. */
+	function continueSceneId(): string | null {
+		return runtime.state.session.activeSceneId ?? runtime.state.commandCenter.homeSceneId ?? null;
+	}
+
+	// RC-SES-1.3 — going live is a flow, not a press: the dialog asks which scene (and lets a new
+	// session be named) instead of silently resolving one. Opening it is still gated exactly as the
+	// dispatch was, so a blocked "Go live" opens nothing rather than raising a dialog it cannot honour.
+	function openStart(): void {
+		if (previewing || !isDm || !canGoLive) return;
+		if (startableScenes.length === 0) {
 			Toaster.warning(t('session.goLive.needsScene'));
 			return;
 		}
+		setStartOpen(true);
+	}
+
+	async function goLive(choice: SessionStartChoice): Promise<void> {
 		await dispatch(
 			{
 				type: 'session.set-workflow',
 				actorId,
-				payload: { workflow: 'active', activeSceneId: sceneId },
+				payload: {
+					workflow: 'active',
+					activeSceneId: choice.sceneId,
+					// An unnamed start clears any name left on the slice, so a new session never inherits
+					// the previous one's name.
+					title: choice.title,
+				},
 			},
 			t('session.goLive.announcement'),
 		);
@@ -297,9 +323,11 @@ export function Session() {
 			<SessionHeader
 				workflow={workflow}
 				sceneName={activeSceneName}
+				sessionTitle={runtime.state.session.title}
 				previewing={previewing}
 				isDm={isDm}
 				onSetWorkflow={(w) => setWorkflow(w)}
+				onEnd={() => setStandbyConfirmOpen(true)}
 			/>
 
 			{!isLive && (
@@ -308,7 +336,7 @@ export function Session() {
 					canGoLive={canGoLive}
 					previewing={previewing}
 					isDm={isDm}
-					onGoLive={() => void goLive()}
+					onGoLive={openStart}
 					t={t}
 				/>
 			)}
@@ -505,13 +533,31 @@ export function Session() {
 			/>
 			<EndSessionDialog
 				open={standbyConfirmOpen}
+				canReview={allowedTransitionsFrom(workflow as SessionWorkflowState).includes('recap')}
 				onClose={() => setStandbyConfirmOpen(false)}
+				onReview={() => {
+					setStandbyConfirmOpen(false);
+					void dispatch(
+						{ type: 'session.set-workflow', actorId, payload: { workflow: 'recap' } },
+						workflowAnnounce('recap'),
+					);
+				}}
 				onConfirm={() => {
 					setStandbyConfirmOpen(false);
 					void dispatch(
 						{ type: 'session.set-workflow', actorId, payload: { workflow: 'idle' } },
 						workflowAnnounce('idle'),
 					);
+				}}
+			/>
+			<StartSessionDialog
+				open={startOpen}
+				scenes={startableScenes}
+				continueSceneId={continueSceneId()}
+				onClose={() => setStartOpen(false)}
+				onConfirm={(choice) => {
+					setStartOpen(false);
+					void goLive(choice);
 				}}
 			/>
 			<ConditionPickerDialog
@@ -535,7 +581,7 @@ export function Session() {
 		// the full-red "End the live session?" dialog for a teardown the core would then refuse
 		// read-only. The Seg now disables those options, and this is the belt-and-braces guard.
 		if (previewing || !isDm) return;
-		if (target === 'active') return void goLive();
+		if (target === 'active') return openStart();
 		// `idle` runs resetLiveSessionFields (session-control.ts) — it discards the round, the whole
 		// initiative order with every combatant's HP and conditions, the delivered handouts, the dice
 		// log, the timers and the staged map, and unlike Recap it writes NO archive. That is a strict

@@ -493,6 +493,7 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	const session = trustedPersistedDocument<SessionState>(sessionDoc, 'session') ?? {
 		workflow: EMPTY_SESSION_STATE.workflow,
 		workflowRevision: EMPTY_SESSION_STATE.workflowRevision,
+		title: EMPTY_SESSION_STATE.title,
 		activeSceneId: EMPTY_SESSION_STATE.activeSceneId,
 		activeMap: EMPTY_SESSION_STATE.activeMap,
 		combat: ensureSessionCombatState(EMPTY_SESSION_STATE.combat),
@@ -542,6 +543,8 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	session.archives ??= {};
 	// RC-MAP-1.4 — a session document persisted before the party location field restores with no mark.
 	session.partyLocation ??= null;
+	// RC-SES-1.3 — a session document persisted before the session name restores unnamed.
+	session.title ??= null;
 	const widgets = mergeSystemWidgetPackages(
 		trustedPersistedDocument<WidgetPackageState>(widgetPackageDoc, 'widgets') ?? {
 			packages: {},

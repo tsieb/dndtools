@@ -24,7 +24,12 @@ import {
 	type SessionLifecycleIntent,
 	type SessionWorkflowState,
 } from '../src';
-import { DM_ACTOR, PLAYER_ACTOR, buildInitialState, makeEnvironment } from '../src/testing/fixtures';
+import {
+	DM_ACTOR,
+	PLAYER_ACTOR,
+	buildInitialState,
+	makeEnvironment,
+} from '../src/testing/fixtures';
 import type { CoreEnvironment } from '../src/commands/types';
 
 function accept(result: CommandResult): Extract<CommandResult, { status: 'accepted' }> {
@@ -675,10 +680,9 @@ describe('SES-010: standard async action model for session commands', () => {
 	});
 
 	it('does not fabricate undo for a workflow transition (it is not reversible)', () => {
-		const lifecycle = markSuccess(
-			markPending(createCommandLifecycle('session.set-workflow')),
-			['op-x'],
-		);
+		const lifecycle = markSuccess(markPending(createCommandLifecycle('session.set-workflow')), [
+			'op-x',
+		]);
 		expect(canUndo(lifecycle)).toBe(false);
 		expect(recoveryAction(lifecycle)).toBe('none');
 	});
@@ -749,5 +753,79 @@ describe('SES regression: active-gated commands still work after formalization',
 			}),
 		);
 		expect(Object.keys(handout.nextState.session.handouts)).toHaveLength(1);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// RC-SES-1.3 — the session NAME carried by the start flow
+// ---------------------------------------------------------------------------
+
+describe('RC-SES-1.3: session name', () => {
+	function start(title?: string | null) {
+		const env = makeEnvironment();
+		const { state, homeSceneId } = ensureHome(buildInitialState(DM_ACTOR, PLAYER_ACTOR), env);
+		const result = dispatchCommand(state, env, {
+			type: 'session.set-workflow',
+			actorId: DM_ACTOR.id,
+			payload: {
+				workflow: 'active',
+				activeSceneId: homeSceneId,
+				...(title !== undefined ? { title } : {}),
+			},
+		});
+		return { env, homeSceneId, result };
+	}
+
+	it('starts unnamed by default and takes the name the start flow passes', () => {
+		expect(buildInitialState(DM_ACTOR, PLAYER_ACTOR).session.title).toBeNull();
+		expect(accept(start('Session 12 — the drowned vault').result).nextState.session.title).toBe(
+			'Session 12 — the drowned vault',
+		);
+		expect(accept(start().result).nextState.session.title).toBeNull();
+	});
+
+	it('trims the name and rejects one longer than 120 characters', () => {
+		expect(accept(start('  The drowned vault  ').result).nextState.session.title).toBe(
+			'The drowned vault',
+		);
+		const tooLong = start('x'.repeat(121)).result;
+		expect(tooLong.status).toBe('rejected');
+	});
+
+	it('keeps the name across a pause and clears it on reset to idle', () => {
+		const { env, homeSceneId, result } = start('The drowned vault');
+		let current = accept(result).nextState;
+		current = accept(setWorkflow(current, env, 'paused', homeSceneId)).nextState;
+		expect(current.session.title).toBe('The drowned vault');
+		current = accept(setWorkflow(current, env, 'idle')).nextState;
+		expect(current.session.title).toBeNull();
+	});
+
+	it('snapshots the name onto the archive and clears it from the live session', () => {
+		const { env, result } = start('The drowned vault');
+		const current = accept(setWorkflow(accept(result).nextState, env, 'recap')).nextState;
+		expect(current.session.title).toBeNull();
+		const archiveId = current.session.recapArchiveId;
+		expect(archiveId).not.toBeNull();
+		expect(current.session.archives[archiveId!]?.title).toBe('The drowned vault');
+	});
+
+	it('leaves an unnamed session out of the archive shape entirely', () => {
+		const { env, result } = start();
+		const current = accept(setWorkflow(accept(result).nextState, env, 'recap')).nextState;
+		const archive = current.session.archives[current.session.recapArchiveId!];
+		expect(archive && 'title' in archive).toBe(false);
+	});
+
+	it('clears the name when the start flow passes an explicit null', () => {
+		const { env, homeSceneId, result } = start('The drowned vault');
+		const current = accept(
+			dispatchCommand(accept(result).nextState, env, {
+				type: 'session.set-workflow',
+				actorId: DM_ACTOR.id,
+				payload: { workflow: 'active', activeSceneId: homeSceneId, title: null },
+			}),
+		).nextState;
+		expect(current.session.title).toBeNull();
 	});
 });

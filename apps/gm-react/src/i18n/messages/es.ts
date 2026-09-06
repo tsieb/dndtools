@@ -131,6 +131,29 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.end.label': 'Terminar',
 	'session.end.liveLabel': 'Terminar la sesión en vivo',
 	'session.end.announcement': 'Sesión terminada — los jugadores volvieron a espera',
+	'session.start.title': 'Iniciar una sesión',
+	'session.start.description':
+		'Elige la escena que verán los jugadores cuando la sesión esté en vivo.',
+	'session.start.modeLabel': 'Cómo empezar',
+	'session.start.continueOption': 'Continuar',
+	'session.start.newOption': 'Sesión nueva',
+	'session.start.continueQuestion': '¿Continuar {scene}?',
+	'session.start.continueBody':
+		'Los jugadores vuelven a {scene}, y el combate, los dados, los documentos y el mapa se abren de nuevo.',
+	'session.start.scene': 'Escena',
+	'session.start.name': 'Nombre de la sesión',
+	'session.start.namePlaceholder': 'Sesión 12 — la cripta anegada',
+	'session.start.nameHint':
+		'Opcional. El nombre aparece en la cabecera de la sesión y en el archivo que redactes después.',
+	'session.start.cancel': 'Cancelar',
+	'session.start.noScenes':
+		'Crea una escena primero — una sesión en vivo necesita una escena activa.',
+	'session.start.confirm': 'Ponerse en vivo',
+	'session.header.sessionScene': 'Escena: {scene}',
+	'session.end.chooseBody':
+		'Terminar en Resumen archiva esta sesión — la escena y el mapa, el orden de iniciativa, los documentos y el registro de dados — para que puedas redactarla. Terminar sin registro lo borra todo y no archiva nada.',
+	'session.end.review': 'Terminar y revisar',
+	'session.end.reviewHint': 'Archiva la sesión y abre Resumen.',
 	'session.end.confirmTitle': '¿Terminar la sesión en vivo?',
 	'session.end.confirmBody':
 		'Volver a En espera borra la escena y el mapa activos, todo el orden de iniciativa con los PG y estados de cada combatiente, los documentos entregados, los temporizadores y el registro de dados. No se archiva nada — usa Resumen en la pantalla de Sesión si quieres conservar un registro.',

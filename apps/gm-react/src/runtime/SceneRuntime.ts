@@ -80,6 +80,7 @@ function emptySlice(): CoreStateSlice {
 		session: {
 			workflow: EMPTY_SESSION_STATE.workflow,
 			workflowRevision: EMPTY_SESSION_STATE.workflowRevision,
+			title: EMPTY_SESSION_STATE.title,
 			activeSceneId: EMPTY_SESSION_STATE.activeSceneId,
 			activeMap: EMPTY_SESSION_STATE.activeMap,
 			combat: ensureSessionCombatState(EMPTY_SESSION_STATE.combat),

@@ -87,6 +87,9 @@ function resetLiveSessionFields(session: CoreStateSlice['session']): CoreStateSl
 	return {
 		...session,
 		activeSceneId: null,
+		// RC-SES-1.3 — the session NAME is live state: a reset ends that session, so the next one starts
+		// unnamed rather than inheriting a name for a session that is over. The archive keeps it.
+		title: null,
 		activeMap: null,
 		combat: { ...EMPTY_SESSION_COMBAT_STATE },
 		diceHistory: [],
@@ -158,6 +161,10 @@ function archiveCurrentSession(
 		),
 		// AUDIO-002 / AUDIO-003 — snapshot the currently-playing audio so recap can review what was playing.
 		audioPlayback: cloneSessionAudioState(ensureSessionAudioState(session.audioPlayback)),
+		// RC-SES-1.3 — snapshot the session NAME so the recap (and the SES-4.1 capture note) can say
+		// which session it is reviewing. Written only when the session was named, so an archive of an
+		// unnamed session keeps the exact shape it had before this field existed.
+		...(session.title ? { title: session.title } : {}),
 	};
 
 	return {
@@ -370,6 +377,9 @@ export function handleSetSessionWorkflow(
 		nextSession = {
 			...nextSession,
 			activeSceneId: requestedSceneId ?? null,
+			// RC-SES-1.3 — an absent `title` leaves the current name alone (pausing a named session keeps
+			// its name); an explicit `null` clears it. The reset transitions above always clear it.
+			...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
 		};
 	}
 
@@ -398,6 +408,7 @@ export function handleSetSessionWorkflow(
 			to: targetWorkflow,
 			activeSceneId: nextSession.activeSceneId,
 			recapArchiveId: nextSession.recapArchiveId,
+			title: nextSession.title,
 		},
 		beforeRevision: state.session.workflowRevision,
 		afterRevision: nextSession.workflowRevision,

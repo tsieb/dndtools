@@ -274,6 +274,7 @@ function EMPTY_SESSION(): SessionState {
 	return {
 		workflow: 'active',
 		workflowRevision: 1,
+		title: null,
 		activeSceneId: null,
 		activeMap: null,
 		combat: EMPTY_SESSION_COMBAT_STATE,

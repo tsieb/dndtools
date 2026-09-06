@@ -115,6 +115,7 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 			recapArchiveId: EMPTY_SESSION_STATE.recapArchiveId,
 			archives: { ...EMPTY_SESSION_STATE.archives },
 			partyLocation: EMPTY_SESSION_STATE.partyLocation,
+			title: EMPTY_SESSION_STATE.title,
 			schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
 		},
 		widgets: createSystemWidgetPackages(),

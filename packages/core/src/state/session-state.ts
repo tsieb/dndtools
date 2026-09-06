@@ -411,11 +411,25 @@ export interface SessionArchiveSnapshot {
 	audioPlayback?: SessionAudioState;
 	/** SES-009 — the DM-authored recap markdown for this archive (back-compat optional; absent ⇒ none). */
 	recap?: SessionArchiveRecap;
+	/**
+	 * RC-SES-1.3 — the session NAME at archive time (back-compat optional; absent ⇒ the session was
+	 * never named). Written only when a name exists, so archives of unnamed sessions round-trip
+	 * byte-identically to the ones written before this field.
+	 */
+	title?: string;
 }
 
 export interface SessionState {
 	workflow: SessionWorkflowState;
 	workflowRevision: number;
+	/**
+	 * RC-SES-1.3 — the DM-given NAME of the live session ("Session 12 — the drowned vault"), set when
+	 * the session is started and cleared by every reset. Additive and nullable: a session document
+	 * persisted before this field existed restores with no name, and an unnamed session is normal
+	 * (`null`), not an error. It is snapshotted onto the archive so the recap knows what it is
+	 * reviewing.
+	 */
+	title: string | null;
 	activeSceneId: SceneId | null;
 	activeMap: SessionActiveMapSelection | null;
 	combat: SessionCombatState;
@@ -459,6 +473,7 @@ export interface SessionState {
 export const EMPTY_SESSION_STATE: SessionState = Object.freeze({
 	workflow: 'idle',
 	workflowRevision: 0,
+	title: null,
 	activeSceneId: null,
 	activeMap: null,
 	combat: EMPTY_COMBAT_TRACKER_STATE,

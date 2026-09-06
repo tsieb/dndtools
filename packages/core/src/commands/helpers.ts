@@ -295,6 +295,9 @@ export function ensureSessionState(state: SessionState | undefined): SessionStat
 		// RC-MAP-1.4 — hydrate the party's atlas location fail-closed: a session document persisted before
 		// this field existed restores with no mark (never undefined).
 		partyLocation: state?.partyLocation ?? null,
+		// RC-SES-1.3 — hydrate the session name fail-closed: a session document persisted before this
+		// field existed (or one carrying a non-string) restores unnamed, never undefined.
+		title: typeof state?.title === 'string' ? state.title : null,
 		schemaVersion: SESSION_STATE_SCHEMA_VERSION,
 	};
 }
