@@ -3,6 +3,7 @@ import { Icon, Input } from '../../../ds';
 import { T, eb } from '../../screen-kit';
 import type { MapEditorApi } from '../useMapEditor';
 import { STAMP_ASSETS, STAMP_TAGS, type StampAsset } from '../mapVocab';
+import { useI18n } from '../../../i18n';
 
 /**
  * MAP-021 — the Assets browser for the Stamp tool. Searchable by name+tags, filterable by a tag rail,
@@ -27,6 +28,7 @@ export function AssetsPanel({
 	favorites: string[];
 	setFavorites: Dispatch<SetStateAction<string[]>>;
 }) {
+	const { t } = useI18n();
 	const [search, setSearch] = useState('');
 	const [activeTags, setActiveTags] = useState<string[]>([]);
 
@@ -70,8 +72,8 @@ export function AssetsPanel({
 			<Input
 				value={search}
 				icon="search"
-				placeholder="Search objects"
-				aria-label="Search assets"
+				placeholder={t('mapDock.searchObjects')}
+				aria-label={t('mapDock.searchAssets')}
 				onChange={(e: { target: { value: string } }) => setSearch(e.target.value)}
 			/>
 			<div style={{ display: 'flex', gap: 10, minHeight: 0, flex: 1 }}>
@@ -126,7 +128,7 @@ export function AssetsPanel({
 				>
 					{favAssets.length > 0 && (
 						<AssetGrid
-							title="Favorites"
+							title={t('mapDock.favorites')}
 							assets={favAssets}
 							current={current}
 							favorites={favorites}
@@ -136,7 +138,7 @@ export function AssetsPanel({
 					)}
 					{recentAssets.length > 0 && (
 						<AssetGrid
-							title="Recents"
+							title={t('mapDock.recents')}
 							assets={recentAssets}
 							current={current}
 							favorites={favorites}
@@ -145,7 +147,7 @@ export function AssetsPanel({
 						/>
 					)}
 					<AssetGrid
-						title="All objects"
+						title={t('mapDock.allObjects')}
 						assets={filtered}
 						current={current}
 						favorites={favorites}
@@ -158,7 +160,7 @@ export function AssetsPanel({
 				{/* "Drag also works." was removed with the `draggable` attribute below it: no canvas under
 				    src/app/map has ever had an `onDrop`/`onDragOver` handler, so dragging a tile did
 				    nothing. Click-to-arm is the real path — and the WCAG 2.5.7 dragging-free one. */}
-				Click an object to arm the Stamp tool, then click the map to place.
+				{t('mapDock.stampHint')}
 			</div>
 		</div>
 	);
@@ -179,6 +181,7 @@ function AssetGrid({
 	onArm: (a: StampAsset) => void;
 	onFav: (id: string) => void;
 }) {
+	const { t } = useI18n();
 	return (
 		<div>
 			<div style={{ ...eb, marginBottom: 6 }}>{title}</div>
@@ -228,7 +231,11 @@ function AssetGrid({
 							</button>
 							<button
 								type="button"
-								aria-label={fav ? `Unfavorite ${a.label}` : `Favorite ${a.label}`}
+								aria-label={
+									fav
+										? t('mapDock.unfavorite', { name: a.label })
+										: t('mapDock.favorite', { name: a.label })
+								}
 								aria-pressed={fav}
 								onClick={() => onFav(a.id)}
 								// A ~16px target (under the 24px WCAG 2.5.8 minimum) sitting absolutely on top
@@ -257,7 +264,7 @@ function AssetGrid({
 					);
 				})}
 				{assets.length === 0 && (
-					<span style={{ font: `12px ${T.sans}`, color: T.ter }}>No matches.</span>
+					<span style={{ font: `12px ${T.sans}`, color: T.ter }}>{t('mapDock.noMatches')}</span>
 				)}
 			</div>
 		</div>

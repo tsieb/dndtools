@@ -17,9 +17,6 @@ export const allow = {
 	// exception sitting exactly at its 1079-line baseline, and the `useI18n` import plus the
 	// hook call cost two lines the gate will not allow. It migrates once the file is split.
 	'apps/gm-react/src/app/map/canvas/EditorCanvas.tsx': 4,
-	'apps/gm-react/src/app/map/dock/AssetsPanel.tsx': 7,
-	'apps/gm-react/src/app/map/dock/HistoryPanel.tsx': 7,
 	'apps/gm-react/src/app/map/dock/InspectorPanel.tsx': 48,
-	'apps/gm-react/src/app/map/dock/LayersPanel.tsx': 20,
 	'apps/gm-react/src/app/map/generate/GeneratePanel.tsx': 19,
 };

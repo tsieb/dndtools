@@ -1,6 +1,7 @@
 import { Icon } from '../../../ds';
 import { T, eb } from '../../screen-kit';
 import type { MapEditorApi } from '../useMapEditor';
+import { useI18n } from '../../../i18n';
 
 /**
  * MAP-021 — the History panel: the local undo stack as a labelled list, newest at the current position.
@@ -9,6 +10,7 @@ import type { MapEditorApi } from '../useMapEditor';
  * number of times, so it stays a pure view over the same non-durable stack the keyboard uses.
  */
 export function HistoryPanel({ editor }: { editor: MapEditorApi }) {
+	const { t } = useI18n();
 	// Present newest-first: redo branch (future) on top, then the current point, then past steps.
 	const redo = [...editor.redoStack].reverse(); // nearest redo first
 	const history = [...editor.history].reverse(); // most recent done first
@@ -27,25 +29,25 @@ export function HistoryPanel({ editor }: { editor: MapEditorApi }) {
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 8, height: '100%' }}>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-				<span style={eb}>History</span>
+				<span style={eb}>{t('mapDock.history')}</span>
 				<span style={{ flex: 1 }} />
 				<button
 					type="button"
 					disabled={!editor.canUndo}
 					onClick={() => void editor.undo()}
-					title="Undo (Ctrl+Z)"
+					title={t('mapDock.undoShortcut')}
 					style={hdrBtn(!editor.canUndo)}
 				>
-					<Icon name="undo" size={14} /> Undo
+					<Icon name="undo" size={14} /> {t('common.action.undo')}
 				</button>
 				<button
 					type="button"
 					disabled={!editor.canRedo}
 					onClick={() => void editor.redo()}
-					title="Redo (Ctrl+Shift+Z)"
+					title={t('mapDock.redoShortcut')}
 					style={hdrBtn(!editor.canRedo)}
 				>
-					<Icon name="redo" size={14} /> Redo
+					<Icon name="redo" size={14} /> {t('mapEditor.redo')}
 				</button>
 			</div>
 
@@ -57,7 +59,7 @@ export function HistoryPanel({ editor }: { editor: MapEditorApi }) {
 						faded
 						icon="redo"
 						onClick={() => doRedo(i + 1)}
-						hint={i === 0 ? 'next redo' : undefined}
+						hint={i === 0 ? t('mapDock.nextRedo') : undefined}
 					/>
 				))}
 
@@ -73,7 +75,7 @@ export function HistoryPanel({ editor }: { editor: MapEditorApi }) {
 						borderBottom: history.length ? `1px dashed ${T.bd}` : 'none',
 					}}
 				>
-					<Icon name="tool-crosshair" size={12} color={T.acc} /> Current state
+					<Icon name="tool-crosshair" size={12} color={T.acc} /> {t('mapDock.currentState')}
 				</div>
 
 				{history.map((entry, i) => (
@@ -82,13 +84,13 @@ export function HistoryPanel({ editor }: { editor: MapEditorApi }) {
 						label={entry.label}
 						icon="tool-select"
 						onClick={() => doUndo(i + 1)}
-						hint={i === 0 ? 'last action' : undefined}
+						hint={i === 0 ? t('mapDock.lastAction') : undefined}
 					/>
 				))}
 
 				{empty && (
 					<div style={{ font: `12px ${T.sans}`, color: T.ter, padding: '10px 4px' }}>
-						No actions yet. Edits appear here.
+						{t('mapDock.noActions')}
 					</div>
 				)}
 			</div>

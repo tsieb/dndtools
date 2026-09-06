@@ -5,6 +5,7 @@ import { T, eb } from '../../screen-kit';
 import type { MapEditorApi } from '../useMapEditor';
 import { CATEGORY_TO_BADGE, VIS_CORE_TO_DS, VIS_DS_TO_CORE } from '../mapVocab';
 import { categoryForTool } from '../useMapEditor';
+import { useI18n } from '../../../i18n';
 
 /**
  * MAP-021 — the real Layers panel. A tag/category filter bar, then the render-ordered list built on the
@@ -23,6 +24,7 @@ export function LayersPanel({
 	editor: MapEditorApi;
 	announce: (message: string) => void;
 }) {
+	const { t } = useI18n();
 	const { layers, isDm, activeLayerId, run, mapId, actorId, nextId } = editor;
 	const [filter, setFilter] = useState('');
 	const [menuFor, setMenuFor] = useState<string | null>(null);
@@ -72,14 +74,14 @@ export function LayersPanel({
 				visibility: 'dm-only',
 			},
 		} as never).then((accepted) => {
-			if (accepted) announce('Layer added.');
+			if (accepted) announce(t('mapDock.layerAdded'));
 		});
 	}
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 10, height: '100%' }}>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-				<span style={eb}>Layers · {layers.length}</span>
+				<span style={eb}>{t('mapDock.layers', { count: layers.length })}</span>
 				<span style={{ flex: 1 }} />
 				{isDm && (
 					<Button
@@ -89,7 +91,7 @@ export function LayersPanel({
 						onClick={addLayer}
 						disabled={editor.busy}
 					>
-						Add layer
+						{t('mapDock.addLayer')}
 					</Button>
 				)}
 			</div>
@@ -97,8 +99,8 @@ export function LayersPanel({
 			<Input
 				value={filter}
 				icon="search"
-				placeholder="Filter by name or tag"
-				aria-label="Filter layers"
+				placeholder={t('mapDock.filterPlaceholder')}
+				aria-label={t('mapDock.filterLabel')}
 				onChange={(e: { target: { value: string } }) => setFilter(e.target.value)}
 			/>
 			{allTags.length > 0 && (
@@ -123,7 +125,7 @@ export function LayersPanel({
 
 			<div
 				role="list"
-				aria-label="Map layers"
+				aria-label={t('mapDock.layerList')}
 				style={{ display: 'flex', flexDirection: 'column', gap: 1, overflowY: 'auto', flex: 1 }}
 			>
 				{shown.map((l) => {
@@ -255,7 +257,7 @@ export function LayersPanel({
 									// Named without a visible header: an unnamed role="dialog" is an axe
 									// `aria-dialog-name` violation, and this menu is reached from a row
 									// whose identity is the only thing that makes its actions meaningful.
-									aria-label={`Layer actions — ${l.name}`}
+									aria-label={t('mapDock.layerActions', { name: l.name })}
 									width={200}
 									placement="bottom"
 									style={{
@@ -269,7 +271,7 @@ export function LayersPanel({
 									<div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
 										<MenuItem
 											icon="chevron-up"
-											label="Move up"
+											label={t('mapDock.moveUp')}
 											disabled={index === 0}
 											onClick={() => {
 												reorder(l.layerId, index - 1);
@@ -278,7 +280,7 @@ export function LayersPanel({
 										/>
 										<MenuItem
 											icon="chevron-down"
-											label="Move down"
+											label={t('mapDock.moveDown')}
 											disabled={index === layers.length - 1}
 											onClick={() => {
 												reorder(l.layerId, index + 1);
@@ -287,7 +289,7 @@ export function LayersPanel({
 										/>
 										<MenuItem
 											icon="duplicate"
-											label="Duplicate"
+											label={t('mapDock.duplicate')}
 											onClick={() => {
 												void run({
 													type: 'map.duplicate-layer',
@@ -299,7 +301,7 @@ export function LayersPanel({
 										/>
 										<MenuItem
 											icon="tag"
-											label="Edit tags"
+											label={t('mapDock.editTags')}
 											onClick={() => {
 												setTagsFor(l);
 												setMenuFor(null);
@@ -307,7 +309,7 @@ export function LayersPanel({
 										/>
 										<MenuItem
 											icon="delete"
-											label="Delete"
+											label={t('common.action.delete')}
 											danger
 											onClick={() => {
 												setConfirmDelete(l);
@@ -327,22 +329,19 @@ export function LayersPanel({
 						title={
 							layers.length === 0
 								? isDm
-									? 'No layers yet'
-									: 'No layers are visible to you'
-								: 'No layers match the filter'
+									? t('mapDock.noLayers')
+									: t('mapDock.noLayersForYou')
+								: t('mapDock.noLayersMatch')
 						}
-						description={
-							isDm && layers.length === 0
-								? 'Add one above, or generate a map with the Generate tool.'
-								: undefined
-						}
+						description={isDm && layers.length === 0 ? t('mapDock.addOrGenerate') : undefined}
 					/>
 				)}
 			</div>
 
 			<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
-				The <strong style={{ color: T.sub }}>active</strong> layer (click to set) receives new
-				content. Drag a row or press Alt+↑/↓ to reorder.
+				{t('mapDock.activeHintBefore')}{' '}
+				<strong style={{ color: T.sub }}>{t('mapDock.activeWord')}</strong>{' '}
+				{t('mapDock.activeHintAfter')}
 			</div>
 
 			{tagsFor && <TagsDialog editor={editor} layer={tagsFor} onClose={() => setTagsFor(null)} />}
@@ -351,15 +350,15 @@ export function LayersPanel({
 				<Dialog
 					open
 					onClose={() => setConfirmDelete(null)}
-					title={`Delete layer “${confirmDelete.name}”?`}
-					description="The layer and its content are removed. You can undo this."
+					title={t('mapDock.deleteLayerTitle', { name: confirmDelete.name })}
+					description={t('mapDock.deleteLayerBody')}
 					tone="danger"
 					icon="delete"
 					size="sm"
 					footer={
 						<>
 							<Button variant="ghost" size="sm" onClick={() => setConfirmDelete(null)}>
-								Cancel
+								{t('common.action.cancel')}
 							</Button>
 							<Button
 								variant="danger"
@@ -377,12 +376,12 @@ export function LayersPanel({
 										payload: { mapId, layerId: confirmDelete.layerId },
 									} as never).then((accepted) => {
 										if (!accepted) return;
-										announce(`Layer “${name}” deleted.`);
+										announce(t('mapDock.layerDeleted', { name }));
 										setConfirmDelete(null);
 									});
 								}}
 							>
-								Delete
+								{t('common.action.delete')}
 							</Button>
 						</>
 					}
@@ -454,18 +453,19 @@ function TagsDialog({
 	layer: MapLayerQueryEntry;
 	onClose: () => void;
 }) {
+	const { t } = useI18n();
 	const [draft, setDraft] = useState(layer.tags.join(', '));
 	return (
 		<Dialog
 			open
 			onClose={onClose}
-			title={`Tags — ${layer.name}`}
+			title={t('mapDock.tagsTitle', { name: layer.name })}
 			icon="tag"
 			size="sm"
 			footer={
 				<>
 					<Button variant="ghost" size="sm" onClick={onClose}>
-						Cancel
+						{t('common.action.cancel')}
 					</Button>
 					<Button
 						variant="primary"
@@ -484,19 +484,19 @@ function TagsDialog({
 							onClose();
 						}}
 					>
-						Save
+						{t('common.action.save')}
 					</Button>
 				</>
 			}
 		>
 			<Input
 				value={draft}
-				aria-label="Comma-separated tags"
-				placeholder="e.g. combat, ruins, flooded"
+				aria-label={t('mapDock.tagsLabel')}
+				placeholder={t('mapDock.tagsPlaceholder')}
 				onChange={(e: { target: { value: string } }) => setDraft(e.target.value)}
 			/>
 			<div style={{ marginTop: 8, font: `11.5px ${T.sans}`, color: T.ter }}>
-				Comma-separated. Tags drive the filter bar and layer queries.
+				{t('mapDock.tagsHelp')}
 			</div>
 		</Dialog>
 	);
