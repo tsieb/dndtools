@@ -226,6 +226,7 @@ function runReadTool(
 		case 'bundle.continuity':
 		case 'bundle.open-threads':
 		case 'bundle.coverage-gaps':
+		case 'bundle.stale-notes':
 		case 'bundle.campaign-health': {
 			// SEMANTIC BUNDLES (MCP-006 / MCP-013) — the bounded, source-cited, calendar-aware context package.
 			// Composed from the SAME actor-filtered deterministic reads, so a non-DM agent receives the

@@ -69,7 +69,12 @@ const HARPTOS = {
 	],
 	epochLabel: 'DR',
 };
-const dateOf = (month: number, day: number, year = 1372) => ({ calendarId: 'cal-harptos', year, month, day });
+const dateOf = (month: number, day: number, year = 1372) => ({
+	calendarId: 'cal-harptos',
+	year,
+	month,
+	day,
+});
 
 function inputsFor(state: CoreStateSlice, actorId: string): SemanticBundleInputs {
 	return {
@@ -122,7 +127,8 @@ function richVault(env: CoreEnvironment): { state: CoreStateSlice; threadItemId:
 	);
 	state = threadNote.nextState;
 	const threadEvent = threadNote.events.find((e) => e.kind === 'content.item-changed');
-	const threadItemId = threadEvent && threadEvent.kind === 'content.item-changed' ? threadEvent.itemId : '';
+	const threadItemId =
+		threadEvent && threadEvent.kind === 'content.item-changed' ? threadEvent.itemId : '';
 
 	// A player-visible note (so a player has some visible graph for the generalized summary).
 	state = accepted(
@@ -138,20 +144,31 @@ function richVault(env: CoreEnvironment): { state: CoreStateSlice; threadItemId:
 		),
 	).nextState;
 
-	state = accepted(dispatchCommand(state, env, cmd('session.set-campaign-date', { date: dateOf(1, 10) }))).nextState;
+	state = accepted(
+		dispatchCommand(state, env, cmd('session.set-campaign-date', { date: dateOf(1, 10) })),
+	).nextState;
 	// A DM-only dated event (a hidden timeline event) + a player-visible bare dated marker.
 	state = accepted(
 		dispatchCommand(
 			state,
 			env,
-			cmd('session.link-calendar-date', { kind: 'note', label: 'Secret ritual', date: dateOf(1, 20), targetId: threadItemId }),
+			cmd('session.link-calendar-date', {
+				kind: 'note',
+				label: 'Secret ritual',
+				date: dateOf(1, 20),
+				targetId: threadItemId,
+			}),
 		),
 	).nextState;
 	state = accepted(
 		dispatchCommand(
 			state,
 			env,
-			cmd('session.link-calendar-date', { kind: 'event', label: 'The town fair', date: dateOf(1, 25) }),
+			cmd('session.link-calendar-date', {
+				kind: 'event',
+				label: 'The town fair',
+				date: dateOf(1, 25),
+			}),
 		),
 	).nextState;
 
@@ -159,12 +176,20 @@ function richVault(env: CoreEnvironment): { state: CoreStateSlice; threadItemId:
 		dispatchCommand(
 			state,
 			env,
-			cmd('session.pin-quick-reference', { kind: 'open-thread', label: 'Poison mystery', targetId: threadItemId }),
+			cmd('session.pin-quick-reference', {
+				kind: 'open-thread',
+				label: 'Poison mystery',
+				targetId: threadItemId,
+			}),
 		),
 	).nextState;
 
 	state = accepted(
-		dispatchCommand(state, env, cmd('session.set-workflow', { workflow: 'active', activeSceneId: sceneId })),
+		dispatchCommand(
+			state,
+			env,
+			cmd('session.set-workflow', { workflow: 'active', activeSceneId: sceneId }),
+		),
 	).nextState;
 	state = accepted(
 		dispatchCommand(
@@ -200,8 +225,12 @@ describe('MCP-006 AC1 — a session-prep bundle includes bounded source referenc
 		expect(bundle.dmScoped).toBe(true);
 		expect(bundle.content.digest).not.toBeNull();
 		// The digest exposes the DM-only thread (visible to the DM) and the handout outcome.
-		expect(bundle.content.digest!.unresolvedThreads.map((t) => t.title)).toContain('Who poisoned the duke?');
-		expect(bundle.content.digest!.handoutOutcomes.map((h) => h.handoutTitle)).toContain('The cryptic letter');
+		expect(bundle.content.digest!.unresolvedThreads.map((t) => t.title)).toContain(
+			'Who poisoned the duke?',
+		);
+		expect(bundle.content.digest!.handoutOutcomes.map((h) => h.handoutTitle)).toContain(
+			'The cryptic letter',
+		);
 
 		// BOUNDED SOURCE REFERENCES — the bundle cites the sources it drew on (id/kind only, never content).
 		expect(bundle.citations.length).toBeGreaterThan(0);
@@ -251,7 +280,11 @@ describe('MCP-006 AC2 — semantic compression chooses summaries over raw full-v
 		state = accepted(dispatchCommand(state, env, cmd('command-center.ensure-home', {}))).nextState;
 		const sceneId = state.commandCenter.homeSceneId!;
 		state = accepted(
-			dispatchCommand(state, env, cmd('session.set-workflow', { workflow: 'active', activeSceneId: sceneId })),
+			dispatchCommand(
+				state,
+				env,
+				cmd('session.set-workflow', { workflow: 'active', activeSceneId: sceneId }),
+			),
 		).nextState;
 		// Pin MANY open threads so the open-threads bundle exceeds a small budget.
 		for (let i = 0; i < 9; i += 1) {
@@ -259,14 +292,23 @@ describe('MCP-006 AC2 — semantic compression chooses summaries over raw full-v
 				dispatchCommand(
 					state,
 					env,
-					cmd('content.create-item', { kind: 'note', title: `Thread ${i}`, body: 'x', visibility: 'dm-only' }),
+					cmd('content.create-item', {
+						kind: 'note',
+						title: `Thread ${i}`,
+						body: 'x',
+						visibility: 'dm-only',
+					}),
 				),
 			);
 			state = note.nextState;
 			const ev = note.events.find((e) => e.kind === 'content.item-changed');
 			const id = ev && ev.kind === 'content.item-changed' ? ev.itemId : '';
 			state = accepted(
-				dispatchCommand(state, env, cmd('session.pin-quick-reference', { kind: 'open-thread', label: `T${i}`, targetId: id })),
+				dispatchCommand(
+					state,
+					env,
+					cmd('session.pin-quick-reference', { kind: 'open-thread', label: `T${i}`, targetId: id }),
+				),
 			).nextState;
 		}
 
@@ -313,6 +355,34 @@ describe('MCP-013 AC1 — a DM recap/prep bundle includes visible custom dates +
 		expect(bundle.content.health).not.toBeNull();
 		expect(bundle.content.dateGraph).not.toBeNull();
 		expect(bundle.content.dateGraph!.nodes.length).toBeGreaterThan(0);
+	});
+});
+
+describe('RC-AI-1.3 — stale-notes is the narrowest health bundle (staleness findings only)', () => {
+	it('carries only the staleness findings: no missing links, gaps, threads, digest, or calendar', () => {
+		const env = makeEnvironment();
+		const { state } = richVault(env);
+		const bundle = bundleFor(state, DM_ACTOR.id, 'stale-notes');
+		expect(bundle.dmScoped).toBe(true);
+		expect(bundle.content.health).not.toBeNull();
+		expect(bundle.content.health!.missingLinks).toEqual([]);
+		expect(bundle.content.health!.contentGaps).toEqual([]);
+		expect(bundle.content.health!.openThreads).toEqual([]);
+		expect(bundle.content.digest).toBeNull();
+		expect(bundle.content.calendar).toBeNull();
+		expect(bundle.content.dateGraph).toBeNull();
+		expect(bundle.mode).toBeNull();
+		// Every citation this bundle can carry is a `note` (the staleness findings), never a thread/handout.
+		for (const citation of bundle.citations) expect(citation.kind).toBe('note');
+	});
+
+	it('a player agent gets the generalized, finding-free bundle (no leak)', () => {
+		const env = makeEnvironment();
+		const { state } = richVault(env);
+		const bundle = bundleFor(state, PLAYER_ACTOR.id, 'stale-notes');
+		expect(bundle.dmScoped).toBe(false);
+		expect(bundle.content.health).toBeNull();
+		expect(bundle.playerSummary).not.toBeNull();
 	});
 });
 

@@ -31,15 +31,16 @@ import {
 
 /**
  * MCP-006 / MCP-013 — THE SEMANTIC BUNDLE TOOLS: bounded, SOURCE-CITED CONTEXT PACKAGES for session prep,
- * recap, continuity, open threads, coverage gaps, and campaign health, CALENDAR-aware (Feature Inventory
- * I5; Vision AI role). A bundle is NOT a new dataset and NOT a new index — it is a COMPOSITION over the
- * EXISTING deterministic, actor-filtered Processing-Core reads:
+ * recap, continuity, open threads, coverage gaps, stale notes, and campaign health, CALENDAR-aware (Feature
+ * Inventory I5; Vision AI role). A bundle is NOT a new dataset and NOT a new index — it is a COMPOSITION
+ * over the EXISTING deterministic, actor-filtered Processing-Core reads:
  *
  *   - PREP / RECAP / CONTINUITY / OPEN-THREADS ← {@link getPrepRecapDigest} (SES-009): unresolved threads,
  *     recent changes, handout outcomes, combat summaries, the calendar context, and continuity prompts,
  *     all already actor-filtered and DM-gated.
- *   - COVERAGE GAPS / CAMPAIGN HEALTH ← {@link getGraphHealthForDm} (GRAPH-007): stale notes, missing links,
- *     content gaps, open threads, and the deterministic coverage grade.
+ *   - COVERAGE GAPS / STALE NOTES / CAMPAIGN HEALTH ← {@link getGraphHealthForDm} (GRAPH-007): stale notes,
+ *     missing links, content gaps, open threads, and the deterministic coverage grade. `stale-notes` keeps
+ *     only the staleness findings — the narrowest health bundle, RC-AI-1.3.
  *   - CALENDAR / CUSTOM-TIME CONTEXT (MCP-013) ← {@link getCalendarContextForActor} (SES-012) +
  *     {@link getDateGraphIndexForActor} (GRAPH-009): the campaign current date, the visible past/upcoming
  *     linked dated events, and the visible date-relationship graph — included ONLY when the visible source
@@ -82,6 +83,8 @@ export type SemanticBundleKind =
 	| 'open-threads'
 	/** Coverage gaps: the graph-health stale/missing/gap/thread findings. */
 	| 'coverage-gaps'
+	/** Stale notes only: the staleness-finding subset of coverage gaps (the smallest health bundle). */
+	| 'stale-notes'
 	/** Campaign health: the coverage grade + the dated-relationship campaign timeline overview. */
 	| 'campaign-health';
 
@@ -92,6 +95,7 @@ export const SEMANTIC_BUNDLE_KINDS = [
 	'continuity',
 	'open-threads',
 	'coverage-gaps',
+	'stale-notes',
 	'campaign-health',
 ] as const;
 
@@ -291,13 +295,19 @@ function buildDmContent(
 		for (const thread of threads.kept) citations.push({ kind: 'thread', ref: thread.panelId });
 
 		const onlyThreads = kind === 'open-threads';
-		const changes = onlyThreads ? { kept: [], omitted: 0 } : boundToBudget(full.recentChanges, budget);
+		const changes = onlyThreads
+			? { kept: [], omitted: 0 }
+			: boundToBudget(full.recentChanges, budget);
 		omitted += changes.omitted;
-		for (const change of changes.kept) citations.push({ kind: change.entityType, ref: change.entityId });
+		for (const change of changes.kept)
+			citations.push({ kind: change.entityType, ref: change.entityId });
 
-		const handouts = onlyThreads ? { kept: [], omitted: 0 } : boundToBudget(full.handoutOutcomes, budget);
+		const handouts = onlyThreads
+			? { kept: [], omitted: 0 }
+			: boundToBudget(full.handoutOutcomes, budget);
 		omitted += handouts.omitted;
-		for (const handout of handouts.kept) citations.push({ kind: 'handout', ref: handout.handoutId });
+		for (const handout of handouts.kept)
+			citations.push({ kind: 'handout', ref: handout.handoutId });
 
 		const prompts = boundToBudget(full.continuityPrompts, budget);
 		omitted += prompts.omitted;
@@ -311,11 +321,16 @@ function buildDmContent(
 		};
 
 		// MCP-013 calendar context: include ONLY when the visible source data actually carries dates.
-		if (full.calendarContext.currentDate || full.calendarContext.past.length > 0 || full.calendarContext.upcoming.length > 0) {
+		if (
+			full.calendarContext.currentDate ||
+			full.calendarContext.past.length > 0 ||
+			full.calendarContext.upcoming.length > 0
+		) {
 			calendar = buildCalendarContext(full.calendarContext, budget, citations);
 		}
-	} else {
+	} else if (kind !== 'stale-notes') {
 		// COVERAGE / CAMPAIGN-HEALTH bundles read the calendar context directly (no digest needed).
+		// `stale-notes` skips it too — it is the narrowest health bundle (staleness findings only).
 		const context = getCalendarContextForActor(
 			inputs.session,
 			inputs.content,
@@ -329,9 +344,12 @@ function buildDmContent(
 		}
 	}
 
-	// COVERAGE GAPS / CAMPAIGN HEALTH ← the DM graph-health report (already DM-gated). Bounded by section.
+	// COVERAGE GAPS / STALE NOTES / CAMPAIGN HEALTH ← the DM graph-health report (already DM-gated).
+	// Bounded by section. `stale-notes` keeps ONLY the staleness findings — the smallest, most-focused
+	// health bundle, mirroring how `open-threads` narrows the digest to its one section.
 	let health: GraphHealthReport | null = null;
-	if (kind === 'coverage-gaps' || kind === 'campaign-health') {
+	if (kind === 'coverage-gaps' || kind === 'stale-notes' || kind === 'campaign-health') {
+		const onlyStale = kind === 'stale-notes';
 		const fullHealth = getGraphHealthForDm(
 			inputs.content,
 			inputs.permissions,
@@ -339,9 +357,15 @@ function buildDmContent(
 			referenceInstant,
 		);
 		const stale = boundToBudget(fullHealth.staleNotes, budget);
-		const missing = boundToBudget(fullHealth.missingLinks, budget);
-		const gaps = boundToBudget(fullHealth.contentGaps, budget);
-		const threads = boundToBudget(fullHealth.openThreads, budget);
+		const missing = onlyStale
+			? { kept: [], omitted: 0 }
+			: boundToBudget(fullHealth.missingLinks, budget);
+		const gaps = onlyStale
+			? { kept: [], omitted: 0 }
+			: boundToBudget(fullHealth.contentGaps, budget);
+		const threads = onlyStale
+			? { kept: [], omitted: 0 }
+			: boundToBudget(fullHealth.openThreads, budget);
 		omitted += stale.omitted + missing.omitted + gaps.omitted + threads.omitted;
 		for (const note of stale.kept) citations.push({ kind: 'note', ref: note.itemId });
 		for (const link of missing.kept) citations.push({ kind: 'note', ref: link.sourceId });
@@ -378,7 +402,11 @@ function buildDmContent(
  * without leaking content. Bounded by the budget (AC2). The citation ref is the link id (opaque).
  */
 function buildCalendarContext(
-	context: { currentDate: { display: string } | null; past: readonly { id: string; date: { display: string }; label: string }[]; upcoming: readonly { id: string; date: { display: string }; label: string }[] },
+	context: {
+		currentDate: { display: string } | null;
+		past: readonly { id: string; date: { display: string }; label: string }[];
+		upcoming: readonly { id: string; date: { display: string }; label: string }[];
+	},
 	budget: number,
 	citations: BundleCitation[],
 ): BundleCalendarContext {
@@ -442,7 +470,10 @@ export function buildSemanticBundle(
 		);
 		return {
 			kind,
-			mode: kind === 'coverage-gaps' || kind === 'campaign-health' ? null : mode,
+			mode:
+				kind === 'coverage-gaps' || kind === 'stale-notes' || kind === 'campaign-health'
+					? null
+					: mode,
 			dmScoped: false,
 			content: EMPTY_CONTENT,
 			citations: [],
@@ -467,7 +498,10 @@ export function buildSemanticBundle(
 
 	return {
 		kind,
-		mode: kind === 'coverage-gaps' || kind === 'campaign-health' ? null : mode,
+		mode:
+			kind === 'coverage-gaps' || kind === 'stale-notes' || kind === 'campaign-health'
+				? null
+				: mode,
 		dmScoped: true,
 		content: built.content,
 		citations: built.citations,

@@ -181,6 +181,13 @@ const MCP_TOOL_COVERAGE: McpToolCoverageRow[] = [
 		validInput: { referenceInstant: '2026-06-05T00:00:00.000Z' },
 	},
 	{
+		toolId: 'bundle.stale-notes',
+		kind: 'read',
+		behaviors: ['schema-validation', 'actor-policy', 'visibility-filtering', 'failure-handling'],
+		invalidInput: { referenceInstant: '2026-06-05T00:00:00.000Z', itemBudget: 0 }, // budget must be positive
+		validInput: { referenceInstant: '2026-06-05T00:00:00.000Z' },
+	},
+	{
 		toolId: 'bundle.campaign-health',
 		kind: 'read',
 		behaviors: ['schema-validation', 'actor-policy', 'visibility-filtering', 'failure-handling'],

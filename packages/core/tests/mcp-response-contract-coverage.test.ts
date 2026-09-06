@@ -85,6 +85,7 @@ const VALID_INPUT: Record<string, unknown> = {
 	'bundle.continuity': { referenceInstant: '2026-06-05T00:00:00.000Z' },
 	'bundle.open-threads': { referenceInstant: '2026-06-05T00:00:00.000Z' },
 	'bundle.coverage-gaps': { referenceInstant: '2026-06-05T00:00:00.000Z' },
+	'bundle.stale-notes': { referenceInstant: '2026-06-05T00:00:00.000Z' },
 	'bundle.campaign-health': { referenceInstant: '2026-06-05T00:00:00.000Z' },
 	'note.create': { title: 'Drafted', body: 'by the agent' },
 	create_scene_card: { title: 'Ambush at the Bridge', mood: 'combat', flavorText: 'Steel rings.' },
@@ -146,6 +147,7 @@ const INVALID_INPUT: Record<string, unknown> = {
 	'bundle.continuity': { referenceInstant: '' },
 	'bundle.open-threads': { referenceInstant: '2026-06-05T00:00:00.000Z', extra: true },
 	'bundle.coverage-gaps': {}, // missing required referenceInstant
+	'bundle.stale-notes': { referenceInstant: '2026-06-05T00:00:00.000Z', itemBudget: 0 },
 	'bundle.campaign-health': { referenceInstant: 123 },
 	'note.create': { title: '' },
 	create_scene_card: { title: '' },

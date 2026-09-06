@@ -104,6 +104,8 @@ export const MCP_BASELINE_TOOL_IDS = [
 	'bundle.continuity',
 	'bundle.open-threads',
 	'bundle.coverage-gaps',
+	// RC-AI-1.3 — the staleness-finding subset of coverage-gaps (the smallest health bundle).
+	'bundle.stale-notes',
 	'bundle.campaign-health',
 	// A representative WRITE tool whose enforcement this branch proves end-to-end (the staged note
 	// create — Glossary "Staged Write" / MCP-004 AC2). It dispatches the existing content-create command.
@@ -610,6 +612,13 @@ export function createBaselineMcpToolRegistry(): McpToolRegistry {
 			queryId: 'bundle.coverage-gaps',
 			inputSchema: mcpBundleInputSchema,
 			title: 'Coverage gaps semantic bundle',
+		},
+		{
+			id: 'bundle.stale-notes',
+			kind: 'read',
+			queryId: 'bundle.stale-notes',
+			inputSchema: mcpBundleInputSchema,
+			title: 'Stale notes semantic bundle',
 		},
 		{
 			id: 'bundle.campaign-health',
