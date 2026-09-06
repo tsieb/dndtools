@@ -16,6 +16,7 @@ import { useViewport } from '../app/useViewport';
 import { usePanelFocusReturn } from '../app/usePanelFocusReturn';
 import { useLayoutHistory } from '../app/canvas/useLayoutHistory';
 import { Page, srOnly } from '../app/screen-kit';
+import { useI18n } from '../i18n';
 import { widgetProfileForRuntime } from '../platform/capabilities';
 
 /**
@@ -39,6 +40,7 @@ const PERSIST_FAILED =
 
 export function Board() {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const viewport = useViewport();
 	const actorId = runtime.defaultActorId;
 	const isDm = runtime.state.permissions.actors[actorId]?.role === 'dm';
@@ -258,7 +260,7 @@ export function Board() {
 			payload: { name: presetName.trim() },
 		});
 		if (ok) {
-			setStatus(`Layout “${presetName.trim()}” saved.`);
+			setStatus(t('board.layoutSaved', { name: presetName.trim() }));
 			setPresetName('');
 		}
 	}
@@ -285,11 +287,11 @@ export function Board() {
 			actorId,
 			payload: { presetId },
 		});
-		if (ok) setStatus(`Layout “${name}” applied — you can restore the previous layout.`);
+		if (ok) setStatus(t('board.layoutApplied', { name }));
 	}
 	async function restoreSafePoint() {
 		const ok = await dispatch({ type: 'command-center.restore-auto-save', actorId, payload: {} });
-		if (ok) setStatus('Previous layout restored.');
+		if (ok) setStatus(t('board.layoutRestored'));
 	}
 
 	if (!isDm) {
@@ -309,7 +311,7 @@ export function Board() {
 							color: 'var(--color-text-primary)',
 						}}
 					>
-						The GM Screen is the DM&apos;s control board
+						{t('board.playerTitle')}
 					</span>
 					<span
 						style={{
@@ -317,7 +319,7 @@ export function Board() {
 							color: 'var(--color-text-secondary)',
 						}}
 					>
-						Only the DM can arrange it. Switch back to the DM view to make changes.
+						{t('board.playerBody')}
 					</span>
 				</Card>
 			</Page>
@@ -384,7 +386,7 @@ export function Board() {
 							color: 'var(--color-text-primary)',
 						}}
 					>
-						GM Screen
+						{t('board.title')}
 					</h2>
 					<div
 						style={{
@@ -392,7 +394,7 @@ export function Board() {
 							color: 'var(--color-text-tertiary)',
 						}}
 					>
-						{widgets.length} widget{widgets.length === 1 ? '' : 's'} · your home board
+						{t('board.widgetCount', { count: widgets.length })}
 					</div>
 				</div>
 				<div style={{ flex: 1 }} />
@@ -408,7 +410,7 @@ export function Board() {
 										color: 'var(--color-text-secondary)',
 									}}
 								>
-									Snap
+									{t('board.snap')}
 								</span>
 							}
 						/>
@@ -422,7 +424,7 @@ export function Board() {
 								setLayoutsOpen(false);
 							}}
 						>
-							Add
+							{t('board.add')}
 						</Button>
 						{/* Add and Layouts share the same side slot, so opening one closes the other. */}
 						<Button
@@ -435,7 +437,7 @@ export function Board() {
 								setAddOpen(false);
 							}}
 						>
-							Layouts
+							{t('board.layouts')}
 						</Button>
 					</>
 				)}
@@ -452,7 +454,7 @@ export function Board() {
 						setLayoutsOpen(false);
 					}}
 				>
-					{editing ? 'Done' : 'Edit layout'}
+					{editing ? t('board.done') : t('board.editLayout')}
 				</Button>
 			</div>
 
@@ -530,13 +532,11 @@ export function Board() {
 					focusOrder={focusOrder}
 					onRemove={remove}
 					onWidgetCommand={operateWidget}
-					emptyHint={
-						ready ? 'Press Edit layout, then Add to place a widget.' : 'Preparing your GM Screen…'
-					}
+					emptyHint={ready ? t('board.emptyHint') : t('board.preparingHint')}
 					// Both branches are named: falling through to the canvas default meant a DM who removed
 					// every widget from the GM Screen was told "An empty scene" — scene vocabulary on a
 					// surface that is deliberately not a scene.
-					emptyTitle={ready ? 'Your GM Screen is empty' : 'Setting up your GM Screen'}
+					emptyTitle={ready ? t('board.emptyTitle') : t('board.preparingTitle')}
 					history={history}
 				/>
 
@@ -571,11 +571,11 @@ export function Board() {
 									color: 'var(--color-text-primary)',
 								}}
 							>
-								Add widget
+								{t('board.addWidget')}
 							</span>
 							<IconButton
 								icon="close"
-								label="Close"
+								label={t('common.action.close')}
 								variant="ghost"
 								size="sm"
 								onClick={() => setAddOpen(false)}
@@ -588,7 +588,7 @@ export function Board() {
 									color: 'var(--color-text-tertiary)',
 								}}
 							>
-								No widgets are available to add right now.
+								{t('board.noWidgets')}
 							</div>
 						) : (
 							library.map((entry) => (
@@ -667,11 +667,11 @@ export function Board() {
 									color: 'var(--color-text-primary)',
 								}}
 							>
-								Layouts
+								{t('board.layouts')}
 							</span>
 							<IconButton
 								icon="close"
-								label="Close layouts"
+								label={t('board.closeLayouts')}
 								variant="ghost"
 								size="sm"
 								onClick={() => setLayoutsOpen(false)}
@@ -684,14 +684,14 @@ export function Board() {
 									color: 'var(--color-text-secondary)',
 								}}
 							>
-								Save current layout
+								{t('board.saveCurrentLayout')}
 							</span>
 							<div style={{ display: 'flex', gap: 6 }}>
 								<Input
 									value={presetName}
-									aria-label="Layout name"
+									aria-label={t('board.layoutName')}
 									onChange={(e: { target: { value: string } }) => setPresetName(e.target.value)}
-									placeholder="e.g. Combat night"
+									placeholder={t('board.layoutNamePlaceholder')}
 								/>
 								<Button
 									variant="secondary"
@@ -700,7 +700,7 @@ export function Board() {
 									disabled={!presetName.trim()}
 									onClick={savePreset}
 								>
-									Save
+									{t('common.action.save')}
 								</Button>
 							</div>
 						</div>
@@ -712,7 +712,7 @@ export function Board() {
 										color: 'var(--color-text-secondary)',
 									}}
 								>
-									Apply a saved layout
+									{t('board.applySavedLayout')}
 								</span>
 								{presets.map((preset) => (
 									<Button
@@ -736,7 +736,7 @@ export function Board() {
 								onClick={restoreSafePoint}
 								style={{ alignSelf: 'flex-start' }}
 							>
-								Restore previous layout
+								{t('board.restorePrevious')}
 							</Button>
 						)}
 					</Card>

@@ -26,8 +26,6 @@ export const allow = {
 	'apps/gm-react/src/app/map/dock/LayersPanel.tsx': 20,
 	'apps/gm-react/src/app/map/generate/GeneratePanel.tsx': 19,
 	'apps/gm-react/src/app/widget-bodies.tsx': 15,
-	'apps/gm-react/src/screens/Board.tsx': 19,
-	'apps/gm-react/src/screens/Graph.tsx': 18,
 	'apps/gm-react/src/screens/ScenesCreator.tsx': 18,
 	'apps/gm-react/src/screens/WikiReader.tsx': 17,
 };
