@@ -1,32 +1,25 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
 	activeSystemPackage,
 	isBuiltInSystemPackageId,
 	previewSystemPackageSelect,
 	type CommandResult,
 	type SystemPackage,
+	type SystemPackageSelectFinding,
 	type SystemPackageSelectPreviewResult,
 } from '@dndtools/core';
 import {
 	CATEGORY_LABEL,
-	FINDING_LABEL,
+	FINDING_GROUP_LABEL,
+	FINDING_GROUP_ORDER,
 	FINDING_TONE,
 	chipsFor,
 	declaresFor,
 	sigilFor,
 	tierFor,
 } from './systemVocab';
-import {
-	Badge,
-	Button,
-	Checkbox,
-	Dialog,
-	Field,
-	Icon,
-	Input,
-	SystemPackageCard,
-	Toaster,
-} from '../../ds';
+import { Badge, Button, Dialog, Field, Icon, Input, SystemPackageCard, Toaster } from '../../ds';
 import { Panel, T, eb } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -64,10 +57,23 @@ function SystemSelectDialog({
 	onClose: () => void;
 }) {
 	const { t } = useI18n();
-	const [ack, setAck] = useState(false);
+	const navigate = useNavigate();
+	const [phrase, setPhrase] = useState('');
 	const available = preview.kind === 'available';
 	const destructive = available && preview.destructive;
+	// RC-SYS-3.2 — a checkbox is a single click; the drop count on some switches runs into the
+	// dozens, so the acknowledgment is TYPED: the DM has to read and reproduce the word the dry-run
+	// itself is using ("drop"), the same self-documenting pattern account deletion already uses
+	// (`settings/Account.tsx`'s `deletePhrase`).
+	const dropPhrase = t('extensions.system.select.dropPhrase').trim().toLowerCase();
+	const ack = phrase.trim().toLowerCase() === dropPhrase;
 	const canApply = available && (!destructive || ack) && canWrite && !busy;
+	const allFindings: SystemPackageSelectFinding[] =
+		preview.kind === 'available' ? preview.findings : [];
+	const groups = FINDING_GROUP_ORDER.map((effect) => ({
+		effect,
+		findings: allFindings.filter((f) => f.effect === effect),
+	})).filter((group) => group.findings.length > 0);
 	return (
 		<Dialog
 			open
@@ -126,57 +132,87 @@ function SystemSelectDialog({
 								})
 							: t('extensions.system.select.safe')}
 					</div>
-					{preview.findings.length === 0 ? (
+					{allFindings.length === 0 ? (
 						<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
 							{t('extensions.system.select.noFindings')}
 						</div>
 					) : (
-						<div
-							style={{
-								display: 'flex',
-								flexDirection: 'column',
-								border: `1px solid ${T.bd}`,
-								borderRadius: 10,
-								overflow: 'hidden',
-								maxHeight: 300,
-								overflowY: 'auto',
-							}}
-						>
-							{preview.findings.map((f, i) => (
-								<div
-									key={`${f.category}.${f.key}`}
-									style={{
-										display: 'flex',
-										alignItems: 'center',
-										flexWrap: 'wrap',
-										gap: 10,
-										padding: '9px 14px',
-										borderTop: i ? `1px solid ${T.bd}` : 'none',
-										background: i % 2 ? T.alt : 'transparent',
-									}}
-								>
-									<span style={{ ...eb, width: 78, flex: '0 0 auto' }}>
-										{t(CATEGORY_LABEL[f.category] ?? 'extensions.system.category.attribute')}
-									</span>
-									<span style={{ font: `600 12.5px ${T.sans}`, flex: '0 0 auto' }}>{f.label}</span>
-									<Badge status={FINDING_TONE[f.effect] ?? 'neutral'}>
-										{FINDING_LABEL[f.effect] ? t(FINDING_LABEL[f.effect]) : f.effect}
-									</Badge>
-									<span
-										style={{ font: `11.5px ${T.mono}`, color: T.ter, width: 44, flex: '0 0 auto' }}
-									>
-										×{f.instanceCount}
-									</span>
-									<span
+						// RC-SYS-3.2 — grouped as maps directly / carries over / drops (FINDING_GROUP_ORDER),
+						// each with its own instance counts, rather than one flat list a DM has to scan for
+						// the word "Dropped".
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+							{groups.map((group) => (
+								<div key={group.effect}>
+									<div
 										style={{
-											flex: '1 1 200px',
-											minWidth: 0,
-											font: `12px/1.4 ${T.sans}`,
-											color: T.sub,
+											display: 'flex',
+											alignItems: 'center',
+											gap: 8,
+											marginBottom: 4,
+											font: `600 11px ${T.sans}`,
+											color: T.ter,
+											textTransform: 'uppercase',
+											letterSpacing: '0.04em',
 										}}
 									>
-										{f.note}
-									</span>
+										{t(FINDING_GROUP_LABEL[group.effect])}
+										<Badge status={FINDING_TONE[group.effect] ?? 'neutral'}>
+											{group.findings.length}
+										</Badge>
+									</div>
+									<div
+										style={{
+											display: 'flex',
+											flexDirection: 'column',
+											border: `1px solid ${T.bd}`,
+											borderRadius: 10,
+											overflow: 'hidden',
+											maxHeight: 220,
+											overflowY: 'auto',
+										}}
+									>
+										{group.findings.map((f, i) => (
+											<div
+												key={`${f.category}.${f.key}`}
+												style={{
+													display: 'flex',
+													alignItems: 'center',
+													flexWrap: 'wrap',
+													gap: 10,
+													padding: '9px 14px',
+													borderTop: i ? `1px solid ${T.bd}` : 'none',
+													background: i % 2 ? T.alt : 'transparent',
+												}}
+											>
+												<span style={{ ...eb, width: 78, flex: '0 0 auto' }}>
+													{t(CATEGORY_LABEL[f.category] ?? 'extensions.system.category.attribute')}
+												</span>
+												<span style={{ font: `600 12.5px ${T.sans}`, flex: '0 0 auto' }}>
+													{f.label}
+												</span>
+												<span
+													style={{
+														font: `11.5px ${T.mono}`,
+														color: T.ter,
+														width: 44,
+														flex: '0 0 auto',
+													}}
+												>
+													×{f.instanceCount}
+												</span>
+												<span
+													style={{
+														flex: '1 1 200px',
+														minWidth: 0,
+														font: `12px/1.4 ${T.sans}`,
+														color: T.sub,
+													}}
+												>
+													{f.note}
+												</span>
+											</div>
+										))}
+									</div>
 								</div>
 							))}
 						</div>
@@ -185,7 +221,7 @@ function SystemSelectDialog({
 						<div
 							style={{
 								display: 'flex',
-								alignItems: 'center',
+								flexDirection: 'column',
 								gap: 10,
 								padding: '10px 12px',
 								borderRadius: 9,
@@ -193,14 +229,28 @@ function SystemSelectDialog({
 								background: T.accSub,
 							}}
 						>
-							<div style={{ flex: 1, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+							<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
 								{t('extensions.system.select.destructiveBody')}
 							</div>
-							<Checkbox
-								checked={ack}
-								onChange={(v: boolean) => setAck(v)}
-								label={t('extensions.system.understand')}
-							/>
+							<Button
+								variant="ghost"
+								size="sm"
+								icon="download"
+								style={{ alignSelf: 'flex-start' }}
+								onClick={() => navigate('/settings?tab=sync')}
+							>
+								{t('extensions.system.select.backupLink')}
+							</Button>
+							<Field label={t('extensions.system.select.dropPhraseLabel', { phrase: dropPhrase })}>
+								<Input
+									id="system-select-drop-confirmation"
+									value={phrase}
+									onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhrase(e.target.value)}
+									placeholder={dropPhrase}
+									autoComplete="off"
+									disabled={busy}
+								/>
+							</Field>
 						</div>
 					)}
 					{preview.clean && (

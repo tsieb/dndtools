@@ -1888,6 +1888,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.system.select.clean': 'No se pierde nada: el cambio se aplica sin más.',
 	'extensions.system.select.nothingChanged': 'No se cambió nada.',
 	'extensions.system.select.done': 'Ahora juegas {name}.',
+	'extensions.system.select.group.keep': 'Se asigna directo',
+	'extensions.system.select.group.remap': 'Se conserva',
+	'extensions.system.select.group.drop': 'Se descarta',
+	'extensions.system.select.backupLink': 'Exporta una copia de seguridad primero',
+	'extensions.system.select.dropPhrase': 'descartar',
+	'extensions.system.select.dropPhraseLabel': 'Escribe "{phrase}" para confirmar que lo entiendes',
 	'extensions.system.build.title': 'Crea el tuyo',
 	'extensions.system.build.body':
 		'Parte del sistema que estás leyendo y dale su propio nombre; después renombra sus roles, atributos y recursos.',

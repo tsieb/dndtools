@@ -1832,6 +1832,12 @@ export const en = {
 	'extensions.system.select.clean': 'Nothing is lost — the switch applies cleanly.',
 	'extensions.system.select.nothingChanged': 'Nothing was changed.',
 	'extensions.system.select.done': 'Now playing {name}.',
+	'extensions.system.select.group.keep': 'Maps directly',
+	'extensions.system.select.group.remap': 'Carries over',
+	'extensions.system.select.group.drop': 'Drops',
+	'extensions.system.select.backupLink': 'Export a backup first',
+	'extensions.system.select.dropPhrase': 'drop',
+	'extensions.system.select.dropPhraseLabel': 'Type "{phrase}" to confirm you understand',
 	'extensions.system.build.title': 'Build your own',
 	'extensions.system.build.body':
 		'Start from the system you are reading and give the copy its own name — then rename its roles, attributes and resources.',

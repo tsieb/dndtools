@@ -8,7 +8,11 @@
  * Lives beside `System.tsx` rather than inside it to keep that screen under its file-size baseline
  * (RC-STB-2.7), the same shape as `campaignVocab.ts`.
  */
-import { isBuiltInSystemPackageId, type SystemPackage } from '@dndtools/core';
+import {
+	isBuiltInSystemPackageId,
+	type SystemPackage,
+	type SystemPackageSelectFinding,
+} from '@dndtools/core';
 import type { MessageKey } from '../../i18n';
 
 export type Translate = (key: MessageKey, values?: Record<string, string | number>) => string;
@@ -44,6 +48,22 @@ export const CATEGORY_LABEL: Record<string, MessageKey> = {
 	resource: 'extensions.system.category.resource',
 	condition: 'extensions.system.category.condition',
 	skill: 'extensions.system.category.skill',
+};
+
+/**
+ * RC-SYS-3.2 — the dry-run dialog groups its findings under these three headings (maps directly /
+ * carries over / drops) rather than one flat list, in this order — the safe half first, the
+ * destructive half last, right above the typed acknowledgment it gates.
+ */
+export const FINDING_GROUP_ORDER: SystemPackageSelectFinding['effect'][] = [
+	'keep',
+	'remap',
+	'drop',
+];
+export const FINDING_GROUP_LABEL: Record<SystemPackageSelectFinding['effect'], MessageKey> = {
+	keep: 'extensions.system.select.group.keep',
+	remap: 'extensions.system.select.group.remap',
+	drop: 'extensions.system.select.group.drop',
 };
 
 /** A package's sigil: forked packages read as authored, built-ins as shipped. */

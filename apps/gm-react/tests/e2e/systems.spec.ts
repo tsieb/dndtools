@@ -39,8 +39,10 @@ async function switchTo(page: Page, name: string, expectedId: string): Promise<v
 	// Nothing has changed yet — the dry-run is a read.
 	expect(await activeSystemId(page)).not.toBe(expectedId);
 
-	const ack = dialog.getByRole('checkbox', { name: 'I understand' });
-	if ((await ack.count()) > 0) await ack.click();
+	// RC-SYS-3.2 — a destructive switch is gated behind a TYPED acknowledgment, not a checkbox: the
+	// word shown in the dialog's own copy (`extensions.system.select.dropPhrase`).
+	const phraseField = dialog.getByLabel(/Type "drop" to confirm/);
+	if ((await phraseField.count()) > 0) await phraseField.fill('drop');
 	await dialog.getByRole('button', { name: 'Switch system' }).click();
 
 	await page.waitForFunction(
@@ -98,6 +100,55 @@ test.describe('system package picker', () => {
 
 		await switchTo(page, 'D&D 5e', DND5E);
 		expect(await activeSystemId(page)).toBe(DND5E);
+	});
+
+	// RC-SYS-3.2 — the dry-run dialog's acceptance criterion: a destructive switch is IMPOSSIBLE
+	// without the typed acknowledgment, and the typed word alone (no exact click target) is what
+	// gates it — a stray click on the Switch button while the field is empty, or filled with the
+	// wrong word, must never apply.
+	test('destructive switch impossible without the typed acknowledgment', async ({ page }) => {
+		await page
+			.getByRole('button', { name: /^Generic/ })
+			.first()
+			.click();
+		await page.getByRole('button', { name: 'Preview this system' }).click();
+		const dialog = page.getByRole('dialog');
+		await expect(dialog.getByText('Switch to Generic').first()).toBeVisible();
+
+		const apply = dialog.getByRole('button', { name: 'Switch system' });
+		const phraseField = dialog.getByLabel(/Type "drop" to confirm/);
+		await expect(phraseField).toBeVisible();
+
+		// Empty field: the switch stays disabled.
+		await expect(apply).toBeDisabled();
+
+		// The wrong word does not satisfy it either — a DM skimming and typing "yes" must not slip
+		// through.
+		await phraseField.fill('yes');
+		await expect(apply).toBeDisabled();
+		expect(await activeSystemId(page)).toBe(DND5E);
+
+		// The exact word (case-insensitively) opens it, and only then does the switch actually apply.
+		await phraseField.fill('DROP');
+		await expect(apply).toBeEnabled();
+		await apply.click();
+		await page.waitForFunction(
+			(id) => (window.__rt!.state.systems as { activePackageId: string }).activePackageId === id,
+			GENERIC,
+			{ timeout: 10_000 },
+		);
+	});
+
+	// RC-SYS-3.2 — the dialog groups findings under headings and offers a way to back up first.
+	test('the dry-run dialog groups findings and links to a backup', async ({ page }) => {
+		await page
+			.getByRole('button', { name: /^Generic/ })
+			.first()
+			.click();
+		await page.getByRole('button', { name: 'Preview this system' }).click();
+		const dialog = page.getByRole('dialog');
+		await expect(dialog.getByText('Drops')).toBeVisible();
+		await expect(dialog.getByRole('button', { name: 'Export a backup first' })).toBeVisible();
 	});
 
 	// RC-SYS-2.6 — the acceptance criterion for vocabulary everywhere. 5e calls the person running
