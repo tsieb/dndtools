@@ -116,15 +116,22 @@ export function parseCharacterImport(text: string): ImportParseResult {
 	try {
 		raw = JSON.parse(text);
 	} catch (err) {
-		return { ok: false, error: `Not valid JSON: ${err instanceof Error ? err.message : String(err)}` };
+		return {
+			ok: false,
+			error: `Not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+		};
 	}
 	if (!isRecord(raw)) {
-		return { ok: false, error: 'The file is valid JSON but not a character document (expected an object).' };
+		return {
+			ok: false,
+			error: 'The file is valid JSON but not a character document (expected an object).',
+		};
 	}
 	// The D&D Beyond character service wraps the document in { data: … }.
 	const doc = isRecord(raw.data) && looksLikeDdb(raw.data) ? raw.data : raw;
 	if (isRecord(doc) && looksLikeDdb(doc)) return mapDdb(doc);
-	if (nonEmptyString((doc as Record<string, unknown>).name)) return mapNative(doc as Record<string, unknown>);
+	if (nonEmptyString((doc as Record<string, unknown>).name))
+		return mapNative(doc as Record<string, unknown>);
 	return {
 		ok: false,
 		error:
@@ -183,10 +190,17 @@ function mapNative(doc: Record<string, unknown>): ImportParseResult {
 		if (rawKind === 'npc' || rawKind === 'monster' || rawKind === 'sidekick') {
 			kind = take('kind', rawKind, `imported as ${rawKind.toUpperCase()}`);
 		} else if (rawKind === 'pc') {
-			kind = take('kind', 'npc', 'PC files import as an NPC-kind sheet — the guided draft flow owns PC creation');
+			kind = take(
+				'kind',
+				'npc',
+				'PC files import as an NPC-kind sheet — the guided draft flow owns PC creation',
+			);
 		} else {
 			consumed.add('kind');
-			unmapped.push({ field: 'kind', detail: `unknown kind "${String(doc.kind)}" — defaulting to NPC` });
+			unmapped.push({
+				field: 'kind',
+				detail: `unknown kind "${String(doc.kind)}" — defaulting to NPC`,
+			});
 		}
 	}
 
@@ -198,13 +212,20 @@ function mapNative(doc: Record<string, unknown>): ImportParseResult {
 			visibility = take('visibility', rawVis, `visibility "${rawVis}"`);
 		} else {
 			consumed.add('visibility');
-			unmapped.push({ field: 'visibility', detail: `unknown visibility "${String(doc.visibility)}" — imported DM-only (fail closed)` });
+			unmapped.push({
+				field: 'visibility',
+				detail: `unknown visibility "${String(doc.visibility)}" — imported DM-only (fail closed)`,
+			});
 		}
 	}
 
 	// Ability scores.
 	const abilityScores: Partial<Record<AbilityId, number>> = {};
-	const abilitySource = isRecord(doc.abilityScores) ? doc.abilityScores : isRecord(doc.abilities) ? doc.abilities : null;
+	const abilitySource = isRecord(doc.abilityScores)
+		? doc.abilityScores
+		: isRecord(doc.abilities)
+			? doc.abilities
+			: null;
 	const abilityKey = isRecord(doc.abilityScores) ? 'abilityScores' : 'abilities';
 	if (abilitySource) {
 		consumed.add(abilityKey);
@@ -232,7 +253,8 @@ function mapNative(doc: Record<string, unknown>): ImportParseResult {
 		if (doc.maxHp !== undefined) take('maxHp', combat.maxHp, `max hit points ${combat.maxHp}`);
 	}
 	const tempHp = asInt(doc.tempHp);
-	if (tempHp !== undefined && tempHp >= 0) combat.tempHp = take('tempHp', tempHp, `temp HP ${tempHp}`);
+	if (tempHp !== undefined && tempHp >= 0)
+		combat.tempHp = take('tempHp', tempHp, `temp HP ${tempHp}`);
 	const ac = asInt(doc.ac);
 	if (ac !== undefined) combat.ac = take('ac', ac, `armor class ${ac}`);
 
@@ -241,7 +263,9 @@ function mapNative(doc: Record<string, unknown>): ImportParseResult {
 	const dmOnlyFields: string[] = [];
 	const stringField = (key: string, label: string) => {
 		if (doc[key] === undefined) return;
-		const v = nonEmptyString(doc[key]) ?? (asFiniteNumber(doc[key]) !== undefined ? String(asFiniteNumber(doc[key])) : undefined);
+		const v =
+			nonEmptyString(doc[key]) ??
+			(asFiniteNumber(doc[key]) !== undefined ? String(asFiniteNumber(doc[key])) : undefined);
 		if (v !== undefined) {
 			data[key] = take(key, v, `${label} "${v.length > 40 ? `${v.slice(0, 40)}…` : v}"`);
 		} else {
@@ -278,11 +302,18 @@ function mapNative(doc: Record<string, unknown>): ImportParseResult {
 			const level = nonEmptyString(v)?.toLowerCase();
 			if (id && (level === 'proficient' || level === 'expertise')) skills[id] = level;
 			else if (!id) unmapped.push({ field: `skills.${k}`, detail: 'unknown skill' });
-			else unmapped.push({ field: `skills.${k}`, detail: `unknown proficiency level "${String(v)}" (use "proficient" or "expertise")` });
+			else
+				unmapped.push({
+					field: `skills.${k}`,
+					detail: `unknown proficiency level "${String(v)}" (use "proficient" or "expertise")`,
+				});
 		}
 		if (Object.keys(skills).length > 0) {
 			proficiencies.skills = skills;
-			mapped.push({ field: 'skills', detail: `${plural(Object.keys(skills).length, 'skill proficiency')}` });
+			mapped.push({
+				field: 'skills',
+				detail: `${plural(Object.keys(skills).length, 'skill proficiency')}`,
+			});
 		}
 	}
 	if (Array.isArray(doc.saves)) {
@@ -291,7 +322,11 @@ function mapNative(doc: Record<string, unknown>): ImportParseResult {
 		for (const s of doc.saves) {
 			const key = nonEmptyString(s)?.toLowerCase();
 			if (key && isAbilityId(key)) saves.push(key);
-			else unmapped.push({ field: `saves.${String(s)}`, detail: 'not an ability id (str/dex/con/int/wis/cha)' });
+			else
+				unmapped.push({
+					field: `saves.${String(s)}`,
+					detail: 'not an ability id (str/dex/con/int/wis/cha)',
+				});
 		}
 		if (saves.length > 0) {
 			proficiencies.saves = saves;
@@ -318,7 +353,10 @@ function mapNative(doc: Record<string, unknown>): ImportParseResult {
 			proficiencies.hitDice = { die, total, spent };
 			mapped.push({ field: 'hitDice', detail: `${total}× ${die}` });
 		} else {
-			unmapped.push({ field: 'hitDice', detail: 'expected { "die": "d8", "total": n, "spent": n }' });
+			unmapped.push({
+				field: 'hitDice',
+				detail: 'expected { "die": "d8", "total": n, "spent": n }',
+			});
 		}
 	}
 
@@ -335,7 +373,8 @@ function mapNative(doc: Record<string, unknown>): ImportParseResult {
 			const detail = isRecord(a) ? (nonEmptyString(a.detail) ?? '') : '';
 			attacks.push({ name: attackName, detail });
 		});
-		if (attacks.length > 0) mapped.push({ field: 'attacks', detail: plural(attacks.length, 'attack') });
+		if (attacks.length > 0)
+			mapped.push({ field: 'attacks', detail: plural(attacks.length, 'attack') });
 	}
 
 	// Spells.
@@ -369,7 +408,8 @@ function mapNative(doc: Record<string, unknown>): ImportParseResult {
 
 	// FAIL-CLOSED sweep: every remaining top-level key is reported, never silently dropped.
 	for (const key of Object.keys(doc)) {
-		if (!consumed.has(key)) unmapped.push({ field: key, detail: 'no mapping for this field — not imported' });
+		if (!consumed.has(key))
+			unmapped.push({ field: key, detail: 'no mapping for this field — not imported' });
 	}
 
 	return {
@@ -389,16 +429,33 @@ function mapNative(doc: Record<string, unknown>): ImportParseResult {
 
 // ── The D&D Beyond character-export shape ──────────────────────────────────────────────────────
 
-const DDB_STAT_IDS: Record<number, AbilityId> = { 1: 'str', 2: 'dex', 3: 'con', 4: 'int', 5: 'wis', 6: 'cha' };
+const DDB_STAT_IDS: Record<number, AbilityId> = {
+	1: 'str',
+	2: 'dex',
+	3: 'con',
+	4: 'int',
+	5: 'wis',
+	6: 'cha',
+};
 /** DDB modifier subTypes use FULL ability names (`dexterity-score`, `wisdom-saving-throws`). */
 const DDB_ABILITY_NAMES: Record<string, AbilityId> = {
-	strength: 'str', dexterity: 'dex', constitution: 'con',
-	intelligence: 'int', wisdom: 'wis', charisma: 'cha',
+	strength: 'str',
+	dexterity: 'dex',
+	constitution: 'con',
+	intelligence: 'int',
+	wisdom: 'wis',
+	charisma: 'cha',
 };
 const DDB_ALIGNMENTS: Record<number, string> = {
-	1: 'Lawful good', 2: 'Neutral good', 3: 'Chaotic good',
-	4: 'Lawful neutral', 5: 'Neutral', 6: 'Chaotic neutral',
-	7: 'Lawful evil', 8: 'Neutral evil', 9: 'Chaotic evil',
+	1: 'Lawful good',
+	2: 'Neutral good',
+	3: 'Chaotic good',
+	4: 'Lawful neutral',
+	5: 'Neutral',
+	6: 'Chaotic neutral',
+	7: 'Lawful evil',
+	8: 'Neutral evil',
+	9: 'Chaotic evil',
 };
 
 /** DDB top-level keys we deliberately do not import, each with an honest reason. */
@@ -415,7 +472,8 @@ const DDB_SKIPPED: Record<string, string> = {
 	spellSlots: 'spell-slot state is not imported — declare slots on the sheet after import',
 	pactMagic: 'pact-magic slots are not imported — declare slots on the sheet after import',
 	campaign: 'campaign linkage is not imported',
-	traits: 'personality traits/ideals/bonds/flaws are not imported — fold them into the bio if needed',
+	traits:
+		'personality traits/ideals/bonds/flaws are not imported — fold them into the bio if needed',
 	customDefenseAdjustments: 'defense adjustments are not imported',
 	customSenses: 'custom senses are not imported',
 	customSpeeds: 'custom speeds are not imported',
@@ -428,13 +486,48 @@ const DDB_SKIPPED: Record<string, string> = {
 
 /** Purely-cosmetic/service metadata: ignorable without a per-key report line. */
 const DDB_META_KEYS = new Set([
-	'id', 'userId', 'username', 'readonlyUrl', 'avatarUrl', 'frameAvatarUrl', 'backdropAvatarUrl',
-	'smallBackdropAvatarUrl', 'largeBackdropAvatarUrl', 'thumbnailBackdropAvatarUrl', 'themeColor',
-	'avatarId', 'frameAvatarId', 'backdropAvatarId', 'smallBackdropAvatarId', 'largeBackdropAvatarId',
-	'thumbnailBackdropAvatarId', 'defaultBackdrop', 'decorations', 'socialName', 'gender', 'faith',
-	'age', 'hair', 'eyes', 'skin', 'height', 'weight', 'lifestyleId', 'lifestyle', 'preferences',
-	'configuration', 'dateModified', 'providedFrom', 'canEdit', 'status', 'statusSlug',
-	'campaignSetting', 'isAssignedToPlayer', 'activeSourceCategories', 'sources', 'customItems',
+	'id',
+	'userId',
+	'username',
+	'readonlyUrl',
+	'avatarUrl',
+	'frameAvatarUrl',
+	'backdropAvatarUrl',
+	'smallBackdropAvatarUrl',
+	'largeBackdropAvatarUrl',
+	'thumbnailBackdropAvatarUrl',
+	'themeColor',
+	'avatarId',
+	'frameAvatarId',
+	'backdropAvatarId',
+	'smallBackdropAvatarId',
+	'largeBackdropAvatarId',
+	'thumbnailBackdropAvatarId',
+	'defaultBackdrop',
+	'decorations',
+	'socialName',
+	'gender',
+	'faith',
+	'age',
+	'hair',
+	'eyes',
+	'skin',
+	'height',
+	'weight',
+	'lifestyleId',
+	'lifestyle',
+	'preferences',
+	'configuration',
+	'dateModified',
+	'providedFrom',
+	'canEdit',
+	'status',
+	'statusSlug',
+	'campaignSetting',
+	'isAssignedToPlayer',
+	'activeSourceCategories',
+	'sources',
+	'customItems',
 ]);
 
 function mapDdb(doc: Record<string, unknown>): ImportParseResult {
@@ -447,7 +540,8 @@ function mapDdb(doc: Record<string, unknown>): ImportParseResult {
 	mapped.push({ field: 'name', detail: `character name "${name}"` });
 	mapped.push({
 		field: 'kind',
-		detail: 'D&D Beyond characters import as an NPC-kind sheet (the guided draft flow owns PC creation), DM-only until shared',
+		detail:
+			'D&D Beyond characters import as an NPC-kind sheet (the guided draft flow owns PC creation), DM-only until shared',
 	});
 
 	// Ability scores: base stats + bonusStats + racial/ASI `-score` bonus modifiers; overrideStats win.
@@ -531,15 +625,27 @@ function mapDdb(doc: Record<string, unknown>): ImportParseResult {
 		}
 		if (totalLevel > 0) data.level = String(totalLevel);
 		if (firstDie !== undefined && totalLevel > 0) {
-			hitDice = { die: `d${firstDie}`, total: totalLevel, spent: Math.min(hitDiceSpent, totalLevel) };
-			mapped.push({ field: 'hit dice', detail: `${hitDice.total}× ${hitDice.die} (from class levels)` });
+			hitDice = {
+				die: `d${firstDie}`,
+				total: totalLevel,
+				spent: Math.min(hitDiceSpent, totalLevel),
+			};
+			mapped.push({
+				field: 'hit dice',
+				detail: `${hitDice.total}× ${hitDice.die} (from class levels)`,
+			});
 		}
 	}
 
 	// Hit points: base + CON modifier per level (the DDB formula); overrides win; removed subtracts.
 	const combat: ImportQuickCreate['combat'] = {};
 	{
-		consumed.add('baseHitPoints').add('bonusHitPoints').add('overrideHitPoints').add('removedHitPoints').add('temporaryHitPoints');
+		consumed
+			.add('baseHitPoints')
+			.add('bonusHitPoints')
+			.add('overrideHitPoints')
+			.add('removedHitPoints')
+			.add('temporaryHitPoints');
 		const conMod = Math.floor(((abilityScores.con ?? 10) - 10) / 2);
 		const override = doc.overrideHitPoints === null ? undefined : asInt(doc.overrideHitPoints);
 		const base = asInt(doc.baseHitPoints);
@@ -548,7 +654,10 @@ function mapDdb(doc: Record<string, unknown>): ImportParseResult {
 		if (maxHp !== undefined) {
 			combat.maxHp = maxHp;
 			combat.hp = Math.max(0, maxHp - (asInt(doc.removedHitPoints) ?? 0));
-			mapped.push({ field: 'hit points', detail: `${combat.hp}/${combat.maxHp}${override === undefined ? ' (base + CON × level)' : ' (override)'}` });
+			mapped.push({
+				field: 'hit points',
+				detail: `${combat.hp}/${combat.maxHp}${override === undefined ? ' (base + CON × level)' : ' (override)'}`,
+			});
 		}
 		const tempHp = asInt(doc.temporaryHitPoints);
 		if (tempHp !== undefined && tempHp > 0) {
@@ -559,7 +668,8 @@ function mapDdb(doc: Record<string, unknown>): ImportParseResult {
 	// AC is computed from inventory in D&D Beyond — not derivable here. Reported, defaulted to 10.
 	unmapped.push({
 		field: 'armor class',
-		detail: 'D&D Beyond derives AC from equipped items — set AC on the sheet after import (defaults to 10)',
+		detail:
+			'D&D Beyond derives AC from equipped items — set AC on the sheet after import (defaults to 10)',
 	});
 
 	// Race / background / alignment / backstory / inspiration.
@@ -587,7 +697,10 @@ function mapDdb(doc: Record<string, unknown>): ImportParseResult {
 			data.alignment = alignment;
 			mapped.push({ field: 'alignmentId', detail: alignment });
 		} else if (doc.alignmentId !== null) {
-			unmapped.push({ field: 'alignmentId', detail: `unknown alignment id ${String(doc.alignmentId)}` });
+			unmapped.push({
+				field: 'alignmentId',
+				detail: `unknown alignment id ${String(doc.alignmentId)}`,
+			});
 		}
 	}
 	if (isRecord(doc.notes)) {
@@ -597,9 +710,14 @@ function mapDdb(doc: Record<string, unknown>): ImportParseResult {
 			data.bio = backstory;
 			mapped.push({ field: 'notes.backstory', detail: 'backstory → bio' });
 		}
-		const otherNotes = Object.entries(doc.notes).filter(([k, v]) => k !== 'backstory' && nonEmptyString(v));
+		const otherNotes = Object.entries(doc.notes).filter(
+			([k, v]) => k !== 'backstory' && nonEmptyString(v),
+		);
 		if (otherNotes.length > 0) {
-			unmapped.push({ field: 'notes', detail: `${otherNotes.map(([k]) => k).join(', ')} — not imported` });
+			unmapped.push({
+				field: 'notes',
+				detail: `${otherNotes.map(([k]) => k).join(', ')} — not imported`,
+			});
 		}
 	}
 	if (doc.inspiration === true) {
@@ -611,7 +729,10 @@ function mapDdb(doc: Record<string, unknown>): ImportParseResult {
 	}
 	if (doc.currentXp !== undefined) {
 		consumed.add('currentXp');
-		unmapped.push({ field: 'currentXp', detail: 'XP is managed by the advancement flow — set it on the sheet after import' });
+		unmapped.push({
+			field: 'currentXp',
+			detail: 'XP is managed by the advancement flow — set it on the sheet after import',
+		});
 	}
 
 	// Proficiencies from modifiers: skill proficiency/expertise + `-saving-throws`.
@@ -654,11 +775,17 @@ function mapDdb(doc: Record<string, unknown>): ImportParseResult {
 		}
 		if (Object.keys(skills).length > 0) {
 			proficiencies.skills = skills;
-			mapped.push({ field: 'modifiers (skills)', detail: plural(Object.keys(skills).length, 'skill proficiency') });
+			mapped.push({
+				field: 'modifiers (skills)',
+				detail: plural(Object.keys(skills).length, 'skill proficiency'),
+			});
 		}
 		if (saves.size > 0) {
 			proficiencies.saves = [...saves];
-			mapped.push({ field: 'modifiers (saves)', detail: [...saves].map((s) => s.toUpperCase()).join(', ') });
+			mapped.push({
+				field: 'modifiers (saves)',
+				detail: [...saves].map((s) => s.toUpperCase()).join(', '),
+			});
 		}
 		if (unrecognized > 0) {
 			unmapped.push({
@@ -712,16 +839,22 @@ function mapDdb(doc: Record<string, unknown>): ImportParseResult {
 			for (const list of Object.values(doc.spells)) collect(list);
 		}
 		if (spells.length > 0) mapped.push({ field: 'spells', detail: plural(spells.length, 'spell') });
-		if (skippedSpells > 0) unmapped.push({ field: 'spells', detail: `${plural(skippedSpells, 'spell entry')} had no readable name/level` });
+		if (skippedSpells > 0)
+			unmapped.push({
+				field: 'spells',
+				detail: `${plural(skippedSpells, 'spell entry')} had no readable name/level`,
+			});
 	}
 
 	// Deliberately-skipped keys (each with a reason) + the fail-closed sweep for everything else.
 	for (const [key, reason] of Object.entries(DDB_SKIPPED)) {
-		if (doc[key] !== undefined && !isEmptyish(doc[key])) unmapped.push({ field: key, detail: reason });
+		if (doc[key] !== undefined && !isEmptyish(doc[key]))
+			unmapped.push({ field: key, detail: reason });
 		consumed.add(key);
 	}
 	for (const key of Object.keys(doc)) {
-		if (!consumed.has(key)) unmapped.push({ field: key, detail: 'no mapping for this field — not imported' });
+		if (!consumed.has(key))
+			unmapped.push({ field: key, detail: 'no mapping for this field — not imported' });
 	}
 
 	return {
@@ -730,7 +863,15 @@ function mapDdb(doc: Record<string, unknown>): ImportParseResult {
 			source: 'dndbeyond',
 			name,
 			// Fail closed: an import is DM-only until the DM shares it (`character.set-sharing`).
-			quickCreate: { kind: 'npc', name, visibility: 'dm-only', abilityScores, combat, data, dmOnlyFields: [] },
+			quickCreate: {
+				kind: 'npc',
+				name,
+				visibility: 'dm-only',
+				abilityScores,
+				combat,
+				data,
+				dmOnlyFields: [],
+			},
 			proficiencies: Object.keys(proficiencies).length > 0 ? proficiencies : null,
 			spells,
 			attacks: [],
@@ -749,7 +890,12 @@ function isEmptyish(v: unknown): boolean {
 }
 
 const DDB_ACTIVATION: Record<number, string> = {
-	1: 'action', 3: 'bonus action', 4: 'reaction', 6: 'minute', 7: 'hour', 8: 'special',
+	1: 'action',
+	3: 'bonus action',
+	4: 'reaction',
+	6: 'minute',
+	7: 'hour',
+	8: 'special',
 };
 
 /** Best-effort SRD-style detail strings from a DDB spell definition. Unparsable ⇒ field omitted. */
@@ -798,4 +944,138 @@ function ddbSpellDetail(def: Record<string, unknown>): Partial<ImportSpell> {
 		} else if (interval !== undefined && unit) out.duration = plural(interval, unit);
 	}
 	return out;
+}
+
+// ── RC-SYS-2.5 — fitting the plan to the ACTIVE system package ─────────────────────────────────
+
+/**
+ * RC-SYS-2.5 — the parts of the active {@link import('@dndtools/core').SystemPackage} a 5e character
+ * file has to be measured against, reduced to plain data so this module stays pure.
+ *
+ * `attributeKeys` and `skillKeys` are the package's own keys; both are matched case-insensitively
+ * and 5e's long attribute names (`dexterity`) are recognised as the short ids the plan uses (`dex`).
+ */
+export interface SystemFitInput {
+	displayName: string;
+	attributeKeys: readonly string[];
+	skillKeys: readonly string[];
+	/** True when the package declares any `slots` resource — somewhere for a spell list to live. */
+	declaresSpellSlots: boolean;
+	/** True when the package declares a `proficiencyBonus` derived value. */
+	declaresProficiencyBonus: boolean;
+	/** What this system calls a spell, for the report line ("Spells", "Powers", "Moves"). */
+	abilityPlural: string;
+}
+
+/** Long-form 5e attribute names → the short ids the import plan uses. */
+const LONG_ABILITY_NAMES: Record<string, AbilityId> = {
+	strength: 'str',
+	dexterity: 'dex',
+	constitution: 'con',
+	intelligence: 'int',
+	wisdom: 'wis',
+	charisma: 'cha',
+};
+
+/** The short ability ids a package's `attributes[]` covers, under either naming. */
+function declaredAbilityIds(attributeKeys: readonly string[]): Set<string> {
+	const ids = new Set<string>();
+	for (const raw of attributeKeys) {
+		const key = raw.toLowerCase();
+		if (isAbilityId(key)) ids.add(key);
+		const long = LONG_ABILITY_NAMES[key];
+		if (long) ids.add(long);
+	}
+	return ids;
+}
+
+/**
+ * RC-SYS-2.5 — narrow an import plan to what the ACTIVE rules system can actually hold.
+ *
+ * `parseCharacterImport` reads a 5e character file and knows nothing about the campaign's system.
+ * A campaign running a narrative package has no ability scores, no skill list and nowhere to put a
+ * spell list, and importing them anyway would write a character its own system cannot describe. So
+ * every part the package does not declare is REMOVED from the payloads and reported in
+ * `plan.unmapped` — the same preview the DM already reads before committing, which is the only place
+ * the difference can honestly be shown.
+ *
+ * Pure: a new plan, the input untouched. A package that declares the lot gets its plan back
+ * unchanged, so 5e imports are byte-identical.
+ */
+export function applySystemFit(plan: ImportPlan, system: SystemFitInput): ImportPlan {
+	const unmapped: ImportFieldNote[] = [...plan.unmapped];
+	const declaredAbilities = declaredAbilityIds(system.attributeKeys);
+
+	const abilityScores: Partial<Record<AbilityId, number>> = {};
+	const droppedAbilities: string[] = [];
+	for (const [id, score] of Object.entries(plan.quickCreate.abilityScores)) {
+		if (declaredAbilities.has(id)) abilityScores[id as AbilityId] = score;
+		else droppedAbilities.push(id.toUpperCase());
+	}
+	if (droppedAbilities.length > 0) {
+		unmapped.push({
+			field: 'abilityScores',
+			detail: `${system.displayName} has no ${droppedAbilities.join(', ')} — not imported.`,
+		});
+	}
+
+	let proficiencies = plan.proficiencies;
+	if (proficiencies) {
+		const declaredSkills = new Set(system.skillKeys.map((k) => k.toLowerCase()));
+		const skills: Record<string, 'proficient' | 'expertise'> = {};
+		const droppedSkills: string[] = [];
+		for (const [key, level] of Object.entries(proficiencies.skills ?? {})) {
+			if (declaredSkills.has(key.toLowerCase())) skills[key] = level;
+			else droppedSkills.push(key);
+		}
+		if (droppedSkills.length > 0) {
+			unmapped.push({
+				field: 'proficiencies.skills',
+				detail: `${system.displayName} does not list ${droppedSkills.join(', ')} — not imported.`,
+			});
+		}
+		const saves = (proficiencies.saves ?? []).filter((s) => declaredAbilities.has(s.toLowerCase()));
+		if (saves.length < (proficiencies.saves ?? []).length) {
+			unmapped.push({
+				field: 'proficiencies.saves',
+				detail: `${system.displayName} has no saving throws for those attributes — not imported.`,
+			});
+		}
+		if (!system.declaresProficiencyBonus && proficiencies.proficiencyBonus !== undefined) {
+			unmapped.push({
+				field: 'proficiencies.proficiencyBonus',
+				detail: `${system.displayName} derives no proficiency bonus — not imported.`,
+			});
+		}
+		proficiencies = {
+			...proficiencies,
+			...(Object.keys(skills).length > 0 ? { skills } : { skills: undefined }),
+			...(saves.length > 0 ? { saves } : { saves: undefined }),
+			...(system.declaresProficiencyBonus ? {} : { proficiencyBonus: undefined }),
+		};
+		// Nothing left to set is nothing to dispatch.
+		const hasAny =
+			Object.keys(proficiencies.skills ?? {}).length > 0 ||
+			(proficiencies.saves ?? []).length > 0 ||
+			proficiencies.proficiencyBonus !== undefined ||
+			proficiencies.hitDice !== undefined;
+		if (!hasAny) proficiencies = null;
+	}
+
+	let spells = plan.spells;
+	if (!system.declaresSpellSlots && spells.length > 0) {
+		unmapped.push({
+			field: 'spells',
+			detail: `${system.displayName} has no ${system.abilityPlural.toLowerCase()} to import them into — ${spells.length} not imported.`,
+		});
+		spells = [];
+	}
+
+	return {
+		...plan,
+		quickCreate: { ...plan.quickCreate, abilityScores },
+		proficiencies,
+		spells,
+		unmapped,
+	};
 }

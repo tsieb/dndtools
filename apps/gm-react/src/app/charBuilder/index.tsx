@@ -41,14 +41,19 @@
  * (`wizard`). This file keeps the state, the phase orchestration and the wizard frame.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { validateDraftStep } from '@dndtools/core';
+import { getActiveSystemForActor, validateDraftStep } from '@dndtools/core';
 import { Button, Toaster } from '../../ds';
 import { T } from '../screen-kit';
 import { useViewport } from '../useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { registerBackHandler } from '../../platform/backNavigation';
 import { pickTextFile } from '../../platform/filePick';
-import { parseCharacterImport, type ImportPlan } from '../charImport/ddbJson';
+import {
+	applySystemFit,
+	parseCharacterImport,
+	type ImportPlan,
+	type SystemFitInput,
+} from '../charImport/ddbJson';
 import {
 	BUILDER,
 	CORE_PC_BACKGROUNDS,
@@ -95,6 +100,22 @@ export function CharBuilder({
 	const isPhone = useViewport() === 'phone';
 	const dmActorId = runtime.defaultActorId;
 	const players = runtime.actors.filter((a) => a.role === 'player');
+	// RC-SYS-2.5 — the active rules system, as the plain data the pure import mapper measures against.
+	const systemFit: SystemFitInput = useMemo(() => {
+		const pkg = getActiveSystemForActor(
+			runtime.state.systems,
+			runtime.state.permissions,
+			dmActorId,
+		).activePackage;
+		return {
+			displayName: pkg.displayName,
+			attributeKeys: pkg.attributes.map((a) => a.key),
+			skillKeys: pkg.skills.map((sk) => sk.key),
+			declaresSpellSlots: pkg.resources.some((r) => r.kind === 'slots'),
+			declaresProficiencyBonus: pkg.derived.some((d) => d.key === 'proficiencyBonus'),
+			abilityPlural: pkg.vocabulary.abilityPlural,
+		};
+	}, [runtime.state.systems, runtime.state.permissions, dmActorId]);
 
 	const [phase, setPhase] = useState<'choose' | 'scratch' | 'import'>('choose');
 	const [i, setI] = useState(0);
@@ -343,7 +364,9 @@ export function CharBuilder({
 		if (!picked) return; // cancelled
 		const result = parseCharacterImport(picked.text);
 		if (result.ok) {
-			setImportPlan(result.plan);
+			// RC-SYS-2.5 — the file is 5e; the campaign may not be. Narrow the plan to what the active
+			// package declares BEFORE the preview, so "Couldn't map" tells the truth about this system.
+			setImportPlan(applySystemFit(result.plan, systemFit));
 			setImportError(null);
 		} else {
 			setImportPlan(null);
