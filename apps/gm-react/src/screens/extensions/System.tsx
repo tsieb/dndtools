@@ -4,6 +4,7 @@ import {
 	activeSystemPackage,
 	isBuiltInSystemPackageId,
 	previewSystemPackageSelect,
+	STARTER_SYSTEM_LIBRARY,
 	type CommandResult,
 	type SystemPackage,
 	type SystemPackageSelectFinding,
@@ -419,6 +420,39 @@ export function ExtSystem() {
 			.finally(() => setBusy(false));
 	};
 
+	/* ---- RC-SYS-3.5 — the starter library ------------------------------------------------------
+	 *
+	 * Samples ship with the build as DATA but are NOT built in: they arrive through the ordinary
+	 * `system.define` command into the `custom:` namespace, so an installed sample is the DM's own
+	 * copy from the first second — forkable, editable, deletable, exactly like a fork. Only samples
+	 * the vault does not already carry are offered, so the section empties itself as it is used.
+	 */
+	const library = useMemo(
+		() => STARTER_SYSTEM_LIBRARY.filter((pkg) => !systems.packages[pkg.id]),
+		[systems],
+	);
+
+	const installSample = (pkg: SystemPackage) => {
+		if (busy) return;
+		setBusy(true);
+		void runtime
+			.dispatch({ type: 'system.define', actorId: dmId, payload: { package: pkg } })
+			.then((res: CommandResult) => {
+				if (res.status === 'accepted') {
+					Toaster.success(t('extensions.system.library.done', { name: pkg.displayName }));
+					// It is a real package now, so it opens where every other package opens: the detail
+					// view, with the dry-run switch one button away.
+					setDetailId(pkg.id);
+				} else {
+					Toaster.error(res.rejection.message);
+				}
+			})
+			.catch((error: unknown) =>
+				Toaster.error(error instanceof Error ? error.message : String(error)),
+			)
+			.finally(() => setBusy(false));
+	};
+
 	const card = (pkg: SystemPackage, compact: boolean) => (
 		<SystemPackageCard
 			key={pkg.id}
@@ -677,6 +711,38 @@ export function ExtSystem() {
 						{packages.map((pkg) => card(pkg, false))}
 						{buildYourOwn(false)}
 					</div>
+					{/* RC-SYS-3.5 — the starter library, below the gallery: these are not installed yet. */}
+					{library.length > 0 && (
+						<Panel title={t('extensions.system.library.title')}>
+							<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+								{t('extensions.system.library.body')}
+							</div>
+							<div
+								style={{
+									display: 'grid',
+									gridTemplateColumns: 'repeat(auto-fill,minmax(288px,1fr))',
+									gap: 14,
+								}}
+							>
+								{library.map((pkg) => (
+									<SystemPackageCard
+										key={pkg.id}
+										name={pkg.displayName}
+										tier={t('extensions.system.library.tier')}
+										summary={pkg.summary}
+										chips={chipsFor(pkg, t)}
+										icon="wand"
+										compact={false}
+										aria-label={t('extensions.system.library.install', {
+											name: pkg.displayName,
+										})}
+										disabled={!canWrite || busy}
+										onSelect={() => installSample(pkg)}
+									/>
+								))}
+							</div>
+						</Panel>
+					)}
 					<ExtSystemWidgetPackage />
 				</>
 			)}

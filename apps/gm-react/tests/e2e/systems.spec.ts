@@ -10,6 +10,7 @@ import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_hel
 
 const DND5E = 'builtin:dnd5e';
 const GENERIC = 'builtin:generic';
+const PF2E = 'custom:pathfinder-2e';
 
 /** The campaign's active system package id, straight off the durable slice. */
 function activeSystemId(page: Page): Promise<string> {
@@ -303,6 +304,74 @@ test.describe('system package picker', () => {
 		await waitReady(page);
 		await page.getByRole('tab', { name: 'Resources' }).click();
 		await expect(page.getByText('Sanity', { exact: true })).toBeVisible();
+	});
+});
+
+// RC-SYS-3.5 — SAMPLE SYSTEMS: Pathfinder 2e ships with the build as data but is not built in.
+// It reaches a campaign only through the picker, through the ordinary `system.define` command, and
+// once installed it is an ordinary DM-authored package that the same dry-run switches to.
+test.describe('sample systems', () => {
+	test.beforeEach(async ({ page }) => {
+		test.slow();
+		await markOnboarded(page);
+		await gotoRoute(page, '/extensions');
+		await seedFresh(page);
+		await waitReady(page);
+		await openSystemTab(page);
+	});
+
+	test('installs Pathfinder 2e from the library and switches the campaign to it', async ({
+		page,
+	}) => {
+		// A fresh vault carries the two built-ins and nothing else, so the sample is on offer.
+		expect(
+			await page.evaluate(() =>
+				Object.keys((window.__rt!.state.systems as { packages: Record<string, unknown> }).packages),
+			),
+		).toEqual([DND5E, GENERIC]);
+		await expect(page.getByRole('heading', { name: 'Sample systems' })).toBeVisible();
+
+		await page.getByRole('button', { name: /^Install Pathfinder 2e/ }).click();
+		await page.waitForFunction(
+			(id) =>
+				(window.__rt!.state.systems as { packages: Record<string, unknown> }).packages[id] !==
+				undefined,
+			PF2E,
+			{ timeout: 10_000 },
+		);
+		// Installing does not activate: the campaign is still playing what it was playing.
+		expect(await activeSystemId(page)).toBe(DND5E);
+		// It landed as the DM's own copy, in the authorable namespace, and left the library.
+		expect(PF2E.startsWith('custom:')).toBe(true);
+		await expect(page.getByText('What this package declares')).toBeVisible();
+
+		await page.getByRole('button', { name: 'Preview this system' }).click();
+		const dialog = page.getByRole('dialog');
+		const phraseField = dialog.getByLabel(/Type "drop" to confirm/);
+		if ((await phraseField.count()) > 0) await phraseField.fill('drop');
+		await dialog.getByRole('button', { name: 'Switch system' }).click();
+		await page.waitForFunction(
+			(id) => (window.__rt!.state.systems as { activePackageId: string }).activePackageId === id,
+			PF2E,
+			{ timeout: 10_000 },
+		);
+
+		// The acceptance the sample exists to prove: a package nobody hard-coded now supplies the
+		// turn model, and it is the three-action economy the tracker draws as pips.
+		expect(
+			await page.evaluate((id) => {
+				const pkg = (
+					window.__rt!.state.systems as {
+						packages: Record<string, { turnModel: { kind: string; actionsPerTurn?: number } }>;
+					}
+				).packages[id]!;
+				return pkg.turnModel;
+			}, PF2E),
+		).toEqual({ kind: 'actions-per-turn', actionsPerTurn: 3 });
+
+		// A second visit no longer offers it — the section only shows what is not installed.
+		await page.getByRole('button', { name: 'All systems' }).click();
+		await expect(page.getByRole('button', { name: /^Install Pathfinder 2e/ })).toHaveCount(0);
 	});
 });
 

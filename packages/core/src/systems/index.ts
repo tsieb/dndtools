@@ -56,3 +56,11 @@ export function isBuiltInSystemPackageId(packageId: string): boolean {
 export function builtInSystemPackage(packageId: string): SystemPackage | undefined {
 	return BUILT_IN_SYSTEM_PACKAGES.find((pkg) => pkg.id === packageId);
 }
+
+/* ---- RC-SYS-3.5 — the starter library (samples: installed, never built in) --------------------- */
+export {
+	PF2E_SAMPLE_SYSTEM_PACKAGE,
+	PF2E_SAMPLE_SYSTEM_PACKAGE_ID,
+	STARTER_SYSTEM_LIBRARY,
+	starterSystemPackage,
+} from './samples';

@@ -5491,3 +5491,11 @@ export {
 	buildStarterWidgetPackage,
 	findStarterWidget,
 } from './state/starter-widgets';
+
+/* ---- RC-SYS-3.5 — the system starter library ------------------------------------------------- */
+export {
+	PF2E_SAMPLE_SYSTEM_PACKAGE,
+	PF2E_SAMPLE_SYSTEM_PACKAGE_ID,
+	STARTER_SYSTEM_LIBRARY,
+	starterSystemPackage,
+} from './systems';

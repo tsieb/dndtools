@@ -1851,6 +1851,14 @@ export const en = {
 	'extensions.system.fork.note':
 		'The fork lands in the gallery straight away and opens in the system builder, where you can edit it field by field.',
 	'extensions.system.fork.done': '{name} is ready to edit.',
+	/* RC-SYS-3.5 — sample systems: they ship with the build but install rather than come built in.
+	   Not called the "starter library" — that name already belongs to the WIDGET starter library. */
+	'extensions.system.library.title': 'Sample systems',
+	'extensions.system.library.body':
+		'Sample systems that come with the app but are not installed yet. Install one and it lands in your gallery as your own copy, ready to switch to or edit.',
+	'extensions.system.library.tier': 'Sample · not installed',
+	'extensions.system.library.install': 'Install {name}',
+	'extensions.system.library.done': '{name} is installed. Preview the switch when you are ready.',
 	/* Extensions › system builder (RC-SYS-3.3) — fork a rules system and edit it field by field */
 	'systemBuilder.steps': 'Builder steps',
 	'systemBuilder.stepOf': 'Step {index} of {total} — {label}',

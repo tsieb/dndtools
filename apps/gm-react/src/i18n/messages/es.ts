@@ -1907,6 +1907,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.system.fork.note':
 		'La bifurcación aparece en la galería enseguida y se abre en el constructor de sistemas, donde puedes editarla campo a campo.',
 	'extensions.system.fork.done': '{name} está lista para editar.',
+	/* RC-SYS-3.5 — sistemas de muestra: se instalan, no vienen integrados */
+	'extensions.system.library.title': 'Sistemas de muestra',
+	'extensions.system.library.body':
+		'Sistemas de muestra que vienen con la aplicación pero aún no están instalados. Instala uno y aparecerá en tu galería como tu propia copia, listo para activar o editar.',
+	'extensions.system.library.tier': 'Muestra · sin instalar',
+	'extensions.system.library.install': 'Instalar {name}',
+	'extensions.system.library.done': '{name} está instalado. Previsualiza el cambio cuando quieras.',
 	/* Extensions › constructor de sistemas (RC-SYS-3.3) */
 	'systemBuilder.steps': 'Pasos del constructor',
 	'systemBuilder.stepOf': 'Paso {index} de {total} — {label}',

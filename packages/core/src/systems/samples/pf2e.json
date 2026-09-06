@@ -1,0 +1,696 @@
+{
+	"id": "custom:pathfinder-2e",
+	"version": "1.0.0",
+	"displayName": "Pathfinder 2e",
+	"summary": "A tactical d20 system built on a three-action turn, four degrees of success, and twenty levels of tightly-scaled proficiency.",
+	"vocabulary": {
+		"gameMaster": "GM",
+		"player": "Player",
+		"character": "Character",
+		"ability": "Spell",
+		"abilityPlural": "Spells",
+		"levelUpVerb": "Level up",
+		"levelNoun": "Level",
+		"hitPoints": "Hit Points",
+		"session": "Session",
+		"campaign": "Campaign"
+	},
+	"attributes": [
+		{
+			"key": "strength",
+			"label": "Strength",
+			"abbreviation": "STR",
+			"derivation": {
+				"kind": "modifier",
+				"formula": "floor((score-10)/2)"
+			}
+		},
+		{
+			"key": "dexterity",
+			"label": "Dexterity",
+			"abbreviation": "DEX",
+			"derivation": {
+				"kind": "modifier",
+				"formula": "floor((score-10)/2)"
+			}
+		},
+		{
+			"key": "constitution",
+			"label": "Constitution",
+			"abbreviation": "CON",
+			"derivation": {
+				"kind": "modifier",
+				"formula": "floor((score-10)/2)"
+			}
+		},
+		{
+			"key": "intelligence",
+			"label": "Intelligence",
+			"abbreviation": "INT",
+			"derivation": {
+				"kind": "modifier",
+				"formula": "floor((score-10)/2)"
+			}
+		},
+		{
+			"key": "wisdom",
+			"label": "Wisdom",
+			"abbreviation": "WIS",
+			"derivation": {
+				"kind": "modifier",
+				"formula": "floor((score-10)/2)"
+			}
+		},
+		{
+			"key": "charisma",
+			"label": "Charisma",
+			"abbreviation": "CHA",
+			"derivation": {
+				"kind": "modifier",
+				"formula": "floor((score-10)/2)"
+			}
+		}
+	],
+	"resources": [
+		{
+			"key": "hitPoints",
+			"label": "Hit Points",
+			"kind": "pool",
+			"maxFormula": null,
+			"recovery": "long",
+			"diceNotation": null
+		},
+		{
+			"key": "heroPoints",
+			"label": "Hero Points",
+			"kind": "pool",
+			"maxFormula": "3",
+			"recovery": "scene",
+			"diceNotation": null
+		},
+		{
+			"key": "focusPoints",
+			"label": "Focus Points",
+			"kind": "pool",
+			"maxFormula": "3",
+			"recovery": "short",
+			"diceNotation": null
+		},
+		{
+			"key": "spellSlot1",
+			"label": "Rank 1 spell slots",
+			"kind": "slots",
+			"maxFormula": null,
+			"recovery": "long",
+			"diceNotation": null
+		},
+		{
+			"key": "spellSlot2",
+			"label": "Rank 2 spell slots",
+			"kind": "slots",
+			"maxFormula": null,
+			"recovery": "long",
+			"diceNotation": null
+		},
+		{
+			"key": "spellSlot3",
+			"label": "Rank 3 spell slots",
+			"kind": "slots",
+			"maxFormula": null,
+			"recovery": "long",
+			"diceNotation": null
+		},
+		{
+			"key": "spellSlot4",
+			"label": "Rank 4 spell slots",
+			"kind": "slots",
+			"maxFormula": null,
+			"recovery": "long",
+			"diceNotation": null
+		},
+		{
+			"key": "spellSlot5",
+			"label": "Rank 5 spell slots",
+			"kind": "slots",
+			"maxFormula": null,
+			"recovery": "long",
+			"diceNotation": null
+		},
+		{
+			"key": "spellSlot6",
+			"label": "Rank 6 spell slots",
+			"kind": "slots",
+			"maxFormula": null,
+			"recovery": "long",
+			"diceNotation": null
+		},
+		{
+			"key": "spellSlot7",
+			"label": "Rank 7 spell slots",
+			"kind": "slots",
+			"maxFormula": null,
+			"recovery": "long",
+			"diceNotation": null
+		},
+		{
+			"key": "spellSlot8",
+			"label": "Rank 8 spell slots",
+			"kind": "slots",
+			"maxFormula": null,
+			"recovery": "long",
+			"diceNotation": null
+		},
+		{
+			"key": "spellSlot9",
+			"label": "Rank 9 spell slots",
+			"kind": "slots",
+			"maxFormula": null,
+			"recovery": "long",
+			"diceNotation": null
+		},
+		{
+			"key": "spellSlot10",
+			"label": "Rank 10 spell slots",
+			"kind": "slots",
+			"maxFormula": null,
+			"recovery": "long",
+			"diceNotation": null
+		}
+	],
+	"conditions": [
+		{
+			"key": "blinded",
+			"label": "Blinded",
+			"icon": "cond-blinded",
+			"severity": "severe",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": null
+		},
+		{
+			"key": "clumsy",
+			"label": "Clumsy",
+			"icon": "cond-restrained",
+			"severity": "minor",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": 4
+		},
+		{
+			"key": "concealed",
+			"label": "Concealed",
+			"icon": "cond-invisible",
+			"severity": "boon",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": null
+		},
+		{
+			"key": "confused",
+			"label": "Confused",
+			"icon": "cond-charmed",
+			"severity": "severe",
+			"defaultDuration": "rounds",
+			"defaultRounds": 1,
+			"maxStacks": null
+		},
+		{
+			"key": "dazzled",
+			"label": "Dazzled",
+			"icon": "cond-blinded",
+			"severity": "minor",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": null
+		},
+		{
+			"key": "deafened",
+			"label": "Deafened",
+			"icon": "cond-deafened",
+			"severity": "minor",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": null
+		},
+		{
+			"key": "doomed",
+			"label": "Doomed",
+			"icon": "cond-cursed",
+			"severity": "severe",
+			"defaultDuration": "rest",
+			"defaultRounds": null,
+			"maxStacks": 4
+		},
+		{
+			"key": "drained",
+			"label": "Drained",
+			"icon": "cond-poisoned",
+			"severity": "major",
+			"defaultDuration": "rest",
+			"defaultRounds": null,
+			"maxStacks": 4
+		},
+		{
+			"key": "dying",
+			"label": "Dying",
+			"icon": "cond-unconscious",
+			"severity": "severe",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": 4
+		},
+		{
+			"key": "enfeebled",
+			"label": "Enfeebled",
+			"icon": "cond-exhaustion",
+			"severity": "minor",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": 4
+		},
+		{
+			"key": "fascinated",
+			"label": "Fascinated",
+			"icon": "cond-charmed",
+			"severity": "minor",
+			"defaultDuration": "scene",
+			"defaultRounds": null,
+			"maxStacks": null
+		},
+		{
+			"key": "fatigued",
+			"label": "Fatigued",
+			"icon": "cond-exhaustion",
+			"severity": "minor",
+			"defaultDuration": "rest",
+			"defaultRounds": null,
+			"maxStacks": null
+		},
+		{
+			"key": "fleeing",
+			"label": "Fleeing",
+			"icon": "cond-frightened",
+			"severity": "major",
+			"defaultDuration": "rounds",
+			"defaultRounds": 1,
+			"maxStacks": null
+		},
+		{
+			"key": "frightened",
+			"label": "Frightened",
+			"icon": "cond-frightened",
+			"severity": "major",
+			"defaultDuration": "rounds",
+			"defaultRounds": 1,
+			"maxStacks": 4
+		},
+		{
+			"key": "grabbed",
+			"label": "Grabbed",
+			"icon": "cond-grappled",
+			"severity": "major",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": null
+		},
+		{
+			"key": "hidden",
+			"label": "Hidden",
+			"icon": "cond-invisible",
+			"severity": "boon",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": null
+		},
+		{
+			"key": "immobilized",
+			"label": "Immobilized",
+			"icon": "cond-restrained",
+			"severity": "major",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": null
+		},
+		{
+			"key": "invisible",
+			"label": "Invisible",
+			"icon": "cond-invisible",
+			"severity": "boon",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": null
+		},
+		{
+			"key": "off-guard",
+			"label": "Off-Guard",
+			"icon": "cond-grappled",
+			"severity": "minor",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": null
+		},
+		{
+			"key": "paralyzed",
+			"label": "Paralyzed",
+			"icon": "cond-paralyzed",
+			"severity": "severe",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": null
+		},
+		{
+			"key": "persistent-damage",
+			"label": "Persistent Damage",
+			"icon": "cond-poisoned",
+			"severity": "major",
+			"defaultDuration": "save-ends",
+			"defaultRounds": null,
+			"maxStacks": null
+		},
+		{
+			"key": "petrified",
+			"label": "Petrified",
+			"icon": "cond-petrified",
+			"severity": "severe",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": null
+		},
+		{
+			"key": "prone",
+			"label": "Prone",
+			"icon": "cond-prone",
+			"severity": "minor",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": null
+		},
+		{
+			"key": "quickened",
+			"label": "Quickened",
+			"icon": "cond-blessed",
+			"severity": "boon",
+			"defaultDuration": "rounds",
+			"defaultRounds": 1,
+			"maxStacks": null
+		},
+		{
+			"key": "restrained",
+			"label": "Restrained",
+			"icon": "cond-restrained",
+			"severity": "severe",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": null
+		},
+		{
+			"key": "sickened",
+			"label": "Sickened",
+			"icon": "cond-poisoned",
+			"severity": "major",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": 4
+		},
+		{
+			"key": "slowed",
+			"label": "Slowed",
+			"icon": "cond-stunned",
+			"severity": "major",
+			"defaultDuration": "rounds",
+			"defaultRounds": 1,
+			"maxStacks": 3
+		},
+		{
+			"key": "stunned",
+			"label": "Stunned",
+			"icon": "cond-stunned",
+			"severity": "severe",
+			"defaultDuration": "rounds",
+			"defaultRounds": 1,
+			"maxStacks": 4
+		},
+		{
+			"key": "stupefied",
+			"label": "Stupefied",
+			"icon": "cond-incapacitated",
+			"severity": "major",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": 4
+		},
+		{
+			"key": "unconscious",
+			"label": "Unconscious",
+			"icon": "cond-unconscious",
+			"severity": "severe",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": null
+		},
+		{
+			"key": "undetected",
+			"label": "Undetected",
+			"icon": "cond-invisible",
+			"severity": "boon",
+			"defaultDuration": "until-removed",
+			"defaultRounds": null,
+			"maxStacks": null
+		},
+		{
+			"key": "wounded",
+			"label": "Wounded",
+			"icon": "cond-exhaustion",
+			"severity": "major",
+			"defaultDuration": "rest",
+			"defaultRounds": null,
+			"maxStacks": 3
+		}
+	],
+	"dice": {
+		"model": "d20-plus-modifier",
+		"notation": "1d20",
+		"advantage": "none",
+		"successThreshold": null,
+		"crit": {
+			"naturalHigh": 20,
+			"naturalLow": 1,
+			"effect": "double-dice"
+		}
+	},
+	"turnModel": {
+		"kind": "actions-per-turn",
+		"actionsPerTurn": 3
+	},
+	"creatureSchema": [
+		{
+			"key": "name",
+			"label": "Name",
+			"type": "string",
+			"required": true,
+			"options": null
+		},
+		{
+			"key": "level",
+			"label": "Level",
+			"type": "number",
+			"required": true,
+			"options": null
+		},
+		{
+			"key": "size",
+			"label": "Size",
+			"type": "enum",
+			"required": true,
+			"options": ["Tiny", "Small", "Medium", "Large", "Huge", "Gargantuan"]
+		},
+		{
+			"key": "rarity",
+			"label": "Rarity",
+			"type": "enum",
+			"required": true,
+			"options": ["Common", "Uncommon", "Rare", "Unique"]
+		},
+		{
+			"key": "traits",
+			"label": "Traits",
+			"type": "string",
+			"required": false,
+			"options": null
+		},
+		{
+			"key": "armorClass",
+			"label": "Armor Class",
+			"type": "number",
+			"required": true,
+			"options": null
+		},
+		{
+			"key": "perception",
+			"label": "Perception",
+			"type": "number",
+			"required": true,
+			"options": null
+		},
+		{
+			"key": "speed",
+			"label": "Speed",
+			"type": "string",
+			"required": false,
+			"options": null
+		},
+		{
+			"key": "notes",
+			"label": "Notes",
+			"type": "text",
+			"required": false,
+			"options": null
+		}
+	],
+	"advancement": {
+		"model": "xp-table",
+		"levelCap": 20,
+		"xpThresholds": [
+			0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 13000, 14000,
+			15000, 16000, 17000, 18000, 19000
+		]
+	},
+	"skills": [
+		{
+			"key": "acrobatics",
+			"label": "Acrobatics",
+			"attribute": "dexterity"
+		},
+		{
+			"key": "arcana",
+			"label": "Arcana",
+			"attribute": "intelligence"
+		},
+		{
+			"key": "athletics",
+			"label": "Athletics",
+			"attribute": "strength"
+		},
+		{
+			"key": "crafting",
+			"label": "Crafting",
+			"attribute": "intelligence"
+		},
+		{
+			"key": "deception",
+			"label": "Deception",
+			"attribute": "charisma"
+		},
+		{
+			"key": "diplomacy",
+			"label": "Diplomacy",
+			"attribute": "charisma"
+		},
+		{
+			"key": "intimidation",
+			"label": "Intimidation",
+			"attribute": "charisma"
+		},
+		{
+			"key": "medicine",
+			"label": "Medicine",
+			"attribute": "wisdom"
+		},
+		{
+			"key": "nature",
+			"label": "Nature",
+			"attribute": "wisdom"
+		},
+		{
+			"key": "occultism",
+			"label": "Occultism",
+			"attribute": "intelligence"
+		},
+		{
+			"key": "performance",
+			"label": "Performance",
+			"attribute": "charisma"
+		},
+		{
+			"key": "religion",
+			"label": "Religion",
+			"attribute": "wisdom"
+		},
+		{
+			"key": "society",
+			"label": "Society",
+			"attribute": "intelligence"
+		},
+		{
+			"key": "stealth",
+			"label": "Stealth",
+			"attribute": "dexterity"
+		},
+		{
+			"key": "survival",
+			"label": "Survival",
+			"attribute": "wisdom"
+		},
+		{
+			"key": "thievery",
+			"label": "Thievery",
+			"attribute": "dexterity"
+		}
+	],
+	"derived": [
+		{
+			"key": "abilityModifier",
+			"label": "Ability modifier",
+			"formula": "floor((score-10)/2)",
+			"inputs": ["score"]
+		},
+		{
+			"key": "untrainedBonus",
+			"label": "Untrained proficiency",
+			"formula": "0",
+			"inputs": []
+		},
+		{
+			"key": "trainedBonus",
+			"label": "Trained proficiency",
+			"formula": "level+2",
+			"inputs": ["level"]
+		},
+		{
+			"key": "expertBonus",
+			"label": "Expert proficiency",
+			"formula": "level+4",
+			"inputs": ["level"]
+		},
+		{
+			"key": "masterBonus",
+			"label": "Master proficiency",
+			"formula": "level+6",
+			"inputs": ["level"]
+		},
+		{
+			"key": "legendaryBonus",
+			"label": "Legendary proficiency",
+			"formula": "level+8",
+			"inputs": ["level"]
+		},
+		{
+			"key": "classDc",
+			"label": "Class DC",
+			"formula": "10+level+2+modifier",
+			"inputs": ["level", "modifier"]
+		},
+		{
+			"key": "spellDc",
+			"label": "Spell DC",
+			"formula": "10+level+2+modifier",
+			"inputs": ["level", "modifier"]
+		},
+		{
+			"key": "spellAttack",
+			"label": "Spell attack modifier",
+			"formula": "level+2+modifier",
+			"inputs": ["level", "modifier"]
+		}
+	]
+}
