@@ -2640,4 +2640,205 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'knowledge.revealBody':
 		'Los jugadores pueden leer esta nota desde el momento en que la compartas. Volver a ocultarla después no deshace lo que ya han leído.',
 	'knowledge.keepDmOnly': 'Mantener solo para el DJ',
+	/* Audio › reproducción, tablero de sonidos, pistas, ambiente, salida, preajustes y automatización */
+	'audio.sections': 'Secciones de audio',
+	'audio.tab.playback': 'Reproducción',
+	'audio.tab.presets': 'Preajustes',
+	'audio.tab.automation': 'Automatización',
+	'audio.nowPlaying': 'Sonando ahora',
+	'audio.nothingPlaying': 'No suena nada',
+	'audio.playing': 'Sonando',
+	'audio.paused': 'En pausa',
+	'audio.idle': 'Inactivo',
+	'audio.pause': 'Pausar',
+	'audio.resume': 'Reanudar',
+	'audio.stop': 'Detener',
+	'audio.masterVolume': 'Volumen general',
+	'audio.changeFailed': 'No se pudo guardar ese cambio.',
+	'audio.imported': 'Se importó «{title}» al tablero de sonidos.',
+	'audio.importDeduped':
+		'«{title}» ya estaba en la biblioteca — se actualizaron los metadatos y se dedujeron los bytes.',
+	'audio.importNoLicense':
+		'«{title}» no declara licencia — revísala antes de compartirla o exportarla.',
+	'audio.importFailed': 'No se pudo importar ese archivo de audio.',
+	'audio.addError.desktopBlocksStreams':
+		'La aplicación de escritorio bloquea las emisiones remotas. Importa el archivo de audio en su lugar.',
+	'audio.addError.needsUrl': 'Una emisión web necesita una URL.',
+	'audio.addError.androidHttps':
+		'Las emisiones de audio en Android deben usar una URL HTTPS válida. Importa el archivo o usa un servidor cifrado.',
+	'audio.unbound': 'Se desvinculó el audio de «{name}».',
+	'audio.layerRemoved': 'Se quitó la capa de ambiente «{name}».',
+
+	'audio.sourceKind.webStream': 'Emisión web (URL)',
+	'audio.sourceKind.bundledPreset': 'Preajuste incluido',
+	'audio.sourceKind.localFile': 'Biblioteca de archivos locales',
+	'audio.trigger.combatStart': 'Empieza el combate',
+	'audio.trigger.mapReveal': 'Se revela un mapa',
+	'audio.trigger.sceneActivation': 'Se activa una escena',
+	'audio.trigger.handoutDelivery': 'Se entrega un documento',
+	'audio.action.play': 'Reproducir',
+	'audio.action.crossfade': 'Fundido cruzado',
+	'audio.action.stop': 'Detener',
+
+	'audio.soundboard.title': 'Tablero de sonidos',
+	'audio.soundboard.assets': '{count, plural, one {# recurso} other {# recursos}}',
+	'audio.soundboard.import': 'Importar audio…',
+	'audio.soundboard.importing': 'Importando…',
+	'audio.soundboard.emptyTitle': 'La biblioteca de audio está vacía.',
+	'audio.soundboard.emptyBody':
+		'Importa un archivo de audio local para armar tu tablero de sonidos, o añade abajo una pista en emisión — cualquiera de los dos se convierte en audio real de la sesión.',
+	'audio.soundboard.checkingDevice': 'Comprobando este dispositivo…',
+	'audio.soundboard.bytesMissing':
+		'Faltan los bytes del archivo en este dispositivo — vuelve a importarlo para recuperarlo',
+	'audio.soundboard.reviewLicense': 'Revisar la licencia',
+
+	'audio.tracks.title': 'Pistas y fuentes',
+	'audio.tracks.count': '{count, plural, one {# fuente} other {# fuentes}}',
+	'audio.tracks.name': 'Nombre de la pista',
+	'audio.tracks.namePlaceholder': 'Murmullo de taberna',
+	'audio.tracks.kind': 'Tipo',
+	'audio.tracks.streamUrl': 'URL de la emisión',
+	'audio.tracks.urlPlaceholder': 'https://example.com/ambience.mp3',
+	'audio.tracks.urlHelp':
+		'Una URL de audio directa — la emisión es la pista, no hace falta importar ningún archivo.',
+	'audio.tracks.urlHelpAndroid':
+		'Una URL de audio HTTPS directa. Android bloquea las emisiones HTTP sin cifrar.',
+	'audio.tracks.urlHelpLocal':
+		'Solo las emisiones web llevan URL. Para archivos locales usa «Importar audio…» arriba — guarda los bytes y crea la fuente en un solo paso.',
+	'audio.tracks.desktopBlocksRemote':
+		'La aplicación de escritorio bloquea los enlaces de audio remotos. Importa audio arriba para que la reproducción sea local y esté disponible sin conexión.',
+	'audio.tracks.add': 'Añadir pista',
+	'audio.tracks.adding': 'Añadiendo…',
+	'audio.tracks.added': 'Se añadió «{name}»',
+	'audio.tracks.dmOnly': 'La configuración de audio es solo para el DJ.',
+	'audio.tracks.dmOnlyPreviewing':
+		'La configuración de audio es solo para el DJ — sal de la vista previa para añadir pistas.',
+	'audio.tracks.blockedDesktop': 'Bloqueado en escritorio',
+	'audio.tracks.httpsRequired': 'Se requiere HTTPS',
+	'audio.tracks.playbackReady': 'Lista para reproducir',
+	'audio.tracks.play': 'Reproducir {name}',
+	'audio.tracks.playAction': 'Reproducir',
+	'audio.tracks.importInstead': 'Impórtalo en su lugar',
+	'audio.tracks.viaSoundboard': 'Desde el tablero',
+	'audio.tracks.remoteBlockedTitle':
+		'La política de seguridad de escritorio bloquea las emisiones remotas.',
+	'audio.tracks.viaSoundboardTitle':
+		'Reproduce los archivos importados de esta fuente desde el tablero de sonidos de arriba.',
+
+	'audio.ambience.title': 'Mezclador de ambiente',
+	'audio.ambience.live': '{count} en vivo',
+	'audio.ambience.intro':
+		'Capas en bucle mezcladas bajo la pista principal y guardadas con esta campaña.',
+	'audio.ambience.emptyTitle': 'No hay capas de ambiente.',
+	'audio.ambience.emptyBody':
+		'Añade una capa en bucle (lluvia, murmullo de taberna) bajo la pista principal desde cualquier fuente lista para reproducir.',
+	'audio.ambience.mute': 'Silenciar {name}',
+	'audio.ambience.unmute': 'Dejar de silenciar {name}',
+	'audio.ambience.volume': 'Volumen de {name}',
+	'audio.ambience.removeLayer': 'Quitar la capa {name}',
+	'audio.ambience.layerSource': 'Fuente de la capa de ambiente',
+	'audio.ambience.addLayer': 'Añadir capa',
+	'audio.ambience.noSources':
+		'Todavía no hay fuentes listas para reproducir — importa un archivo de audio o añade primero una pista en emisión.',
+	'audio.ambience.noSourcesDesktop':
+		'Todavía no hay fuentes listas para reproducir — importa un archivo de audio.',
+
+	'audio.output.title': 'Dispositivo de salida',
+	'audio.output.noRoutingA':
+		'Este navegador no puede enviar el audio a un dispositivo de salida concreto (no hay',
+	'audio.output.noRoutingB':
+		'— p. ej. Firefox). El audio de la sesión usa la salida predeterminada de la plataforma.',
+	'audio.output.hostOutput': 'Salida del anfitrión de la sesión',
+	'audio.output.hostOutputHelp':
+		'Dónde reproduce ESTE dispositivo el audio de la sesión. Los dispositivos de los jugadores enrutan localmente — esto nunca cambia los suyos.',
+	'audio.output.platformDefault': 'Predeterminada de la plataforma',
+	'audio.output.savedDevice': 'Dispositivo guardado',
+	'audio.output.notConnected': '{name} (no conectado)',
+	'audio.output.routed': 'Enrutado al dispositivo seleccionado.',
+	'audio.output.routingUnavailable':
+		'Enrutado no disponible — se usa la salida predeterminada de la plataforma.',
+	'audio.output.platformDefaultStatus': 'Salida predeterminada de la plataforma.',
+	'audio.output.unsupported': 'Este navegador no expone los dispositivos de salida de audio.',
+	'audio.output.unnamed': 'Dispositivo de salida {index}',
+	'audio.output.needsPermission':
+		'Los nombres de los dispositivos aparecen cuando el navegador concede permiso de medios; las salidas sin nombre siguen funcionando.',
+	'audio.output.enumerateFailed':
+		'No se pudieron enumerar los dispositivos de salida en este navegador.',
+
+	'audio.bindings.title': 'Vínculos de escena',
+	'audio.bindings.emptyTitle': 'Todavía no hay escenas.',
+	'audio.bindings.emptyBody':
+		'Crea una escena en la sección Escenas — cada una puede llevar su propia señal de ambiente.',
+	'audio.bindings.cues': '{count, plural, one {# señal} other {# señales}}',
+	'audio.bindings.bind': 'Vincular',
+	'audio.bindings.bindTo': 'Vincular audio a {name}',
+	'audio.bindings.unbind': 'Desvincular',
+	'audio.bindings.unbindFrom': 'Desvincular el audio de {name}',
+	'audio.bindings.desktopUnavailable':
+		'Los vínculos de escena con emisiones remotas no están disponibles en la aplicación de escritorio.',
+	'audio.bindings.needsStreamTrack':
+		'Añade una pista de emisión web (en Pistas y fuentes) para vincular escenas.',
+
+	'audio.presets.title': 'Tus paquetes de escena',
+	'audio.presets.count': '{count, plural, one {# paquete} other {# paquetes}}',
+	'audio.presets.intro':
+		'Guarda la pista y el ambiente actuales como una atmósfera reutilizable y vuelve a aplicarla en un solo paso.',
+	'audio.presets.name': 'Nombre del paquete',
+	'audio.presets.namePlaceholder': 'Noche de taberna',
+	'audio.presets.category': 'Categoría',
+	'audio.presets.saving': 'Guardando…',
+	'audio.presets.saveCurrent': 'Guardar el audio actual',
+	'audio.presets.nothingToCapture':
+		'Reproduce una pista o añade una capa de ambiente para capturarlo.',
+	'audio.presets.dmOnly': 'Los preajustes son solo para el DJ.',
+	'audio.presets.dmOnlyPreviewing':
+		'Los preajustes son solo para el DJ — sal de la vista previa para guardar o aplicar.',
+	'audio.presets.emptyTitle': 'Todavía no hay paquetes de escena.',
+	'audio.presets.emptyBody':
+		'Prepara una pista y algo de ambiente y guárdalo aquí para volver a aplicar toda la atmósfera más tarde.',
+	'audio.presets.layers': '{count, plural, one {# capa} other {# capas}}',
+	'audio.presets.apply': 'Aplicar {name}',
+	'audio.presets.applyAction': 'Aplicar',
+	'audio.presets.delete': 'Borrar {name}',
+	'audio.presets.libraryTitle': 'Biblioteca de atmósferas',
+	'audio.presets.libraryIntro':
+		'Recetas de atmósfera incluidas, agrupadas por tipo de escena. Aplica una cuando sus capas estén vinculadas a tus propias fuentes — si no, la aplicación te dice qué vincular y nunca adivina una pista.',
+
+	'audio.automation.title': 'Reglas de automatización',
+	'audio.automation.count': '{count, plural, one {# regla} other {# reglas}}',
+	'audio.automation.intro':
+		'Cada regla asigna un evento de la sesión a un comando de audio declarado. El estado de abajo es el veredicto determinista del resolutor del núcleo frente a la biblioteca actual y a la disponibilidad real de archivos en este dispositivo — una regla bloqueada se señala, nunca se salta en silencio.',
+	'audio.automation.emptyTitle': 'No hay reglas de automatización.',
+	'audio.automation.emptyBody':
+		'Asigna un evento de la sesión — que empiece el combate, que se active una escena — a una señal de audio con el formulario de al lado.',
+	'audio.automation.ruleLine': '{trigger} ({scope}) → {action} · {source}',
+	'audio.automation.anyScope': 'cualquiera',
+	'audio.automation.disabled': 'Desactivada',
+	'audio.automation.checking': 'Comprobando…',
+	'audio.automation.ready': 'Lista',
+	'audio.automation.blocked': 'Bloqueada',
+	'audio.automation.enableRule': 'Activar {label}',
+	'audio.automation.runRule': 'Ejecutar {label} ahora',
+	'audio.automation.runNow': 'Ejecutar ahora',
+	'audio.automation.deleteRule': 'Borrar {label}',
+	'audio.automation.newRule': 'Regla nueva',
+	'audio.automation.label': 'Etiqueta',
+	'audio.automation.labelHelp': 'Opcional — por defecto «acción al activarse».',
+	'audio.automation.labelPlaceholder': 'Tambores de guerra al empezar el combate',
+	'audio.automation.when': 'Cuándo',
+	'audio.automation.do': 'Hacer',
+	'audio.automation.scene': 'Escena',
+	'audio.automation.sceneHelp': 'Que se active para una escena, o para cualquiera.',
+	'audio.automation.anyScene': 'Cualquier escena',
+	'audio.automation.source': 'Fuente',
+	'audio.automation.asset': 'Recurso',
+	'audio.automation.assetHelp':
+		'Obligatorio para una fuente local o incluida; una emisión web reproduce la propia emisión.',
+	'audio.automation.noAsset': '— ninguno (la emisión es la pista) —',
+	'audio.automation.addRule': 'Añadir regla',
+	'audio.automation.needsSource':
+		'Añade una pista o importa audio primero — una regla necesita una fuente.',
+	'audio.automation.dmOnly': 'La automatización es solo para el DJ.',
+	'audio.automation.dmOnlyPreviewing':
+		'La automatización es solo para el DJ — sal de la vista previa para editar reglas.',
 };

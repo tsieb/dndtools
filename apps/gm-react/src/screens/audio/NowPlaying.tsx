@@ -2,6 +2,7 @@ import { Button, Icon, StatusDot } from '../../ds';
 import { type CoreCommand } from '@dndtools/core';
 import { T, eb } from '../../app/screen-kit';
 import { CommitSlider } from './shared';
+import { useI18n } from '../../i18n';
 import { type AudioPlaybackSnapshot, type AudioTrackView } from './types';
 
 /** The now-playing strip — the durable SESSION-OWNED track, its transport and the authoritative
@@ -25,6 +26,7 @@ export function NowPlaying({
 	masterPct: number;
 	dispatch: (command: CoreCommand) => void;
 }) {
+	const { t } = useI18n();
 	return (
 		<>
 			{/* now-playing strip — the durable SESSION-OWNED track + real transport */}
@@ -58,7 +60,7 @@ export function NowPlaying({
 					<Icon name="audio" size="lg" />
 				</span>
 				<div style={{ flex: 1, minWidth: 0 }}>
-					<div style={{ ...eb, marginBottom: 2 }}>Now playing</div>
+					<div style={{ ...eb, marginBottom: 2 }}>{t('audio.nowPlaying')}</div>
 					<div style={{ font: `700 17px ${T.disp}` }}>{trackLabel}</div>
 				</div>
 				<div
@@ -71,7 +73,7 @@ export function NowPlaying({
 					}}
 				>
 					<StatusDot status={playing ? 'live' : 'idle'} pulse={playing} />{' '}
-					{track ? (playing ? 'Playing' : 'Paused') : 'Idle'}
+					{t(track ? (playing ? 'audio.playing' : 'audio.paused') : 'audio.idle')}
 				</div>
 				{track && (
 					<div style={{ display: 'flex', gap: 7 }}>
@@ -85,7 +87,7 @@ export function NowPlaying({
 									dispatch({ type: 'session.audio.pause', actorId: dmId, payload: {} })
 								}
 							>
-								Pause
+								{t('audio.pause')}
 							</Button>
 						) : (
 							<Button
@@ -97,7 +99,7 @@ export function NowPlaying({
 									dispatch({ type: 'session.audio.resume', actorId: dmId, payload: {} })
 								}
 							>
-								Resume
+								{t('audio.resume')}
 							</Button>
 						)}
 						<Button
@@ -107,7 +109,7 @@ export function NowPlaying({
 							disabled={!canEdit}
 							onClick={() => dispatch({ type: 'session.audio.stop', actorId: dmId, payload: {} })}
 						>
-							Stop
+							{t('audio.stop')}
 						</Button>
 					</div>
 				)}
@@ -136,7 +138,7 @@ export function NowPlaying({
 						}
 						format={(v: number) => `${v}%`}
 						steppers
-						aria-label="Master volume"
+						aria-label={t('audio.masterVolume')}
 						style={{ flex: 1, minWidth: 0 }}
 					/>
 				</div>

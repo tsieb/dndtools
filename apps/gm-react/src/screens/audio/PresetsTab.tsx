@@ -8,6 +8,7 @@ import {
 } from '@dndtools/core';
 import { Button, EmptyState, Field, Icon, Input, Select, tabPanelProps } from '../../ds';
 import { Panel, T, eb } from '../../app/screen-kit';
+import { useI18n } from '../../i18n';
 
 /** The Presets tab (AUDIO-014) — the built-in atmosphere catalog and the DM's saved scene
  * packages. Extracted from Audio.tsx unchanged (RC-STB-2.6). */
@@ -44,6 +45,7 @@ export function PresetsTab({
 	saveCurrentPreset: (event: FormEvent) => Promise<void>;
 	deletePreset: (preset: AudioPreset) => Promise<void>;
 }) {
+	const { t } = useI18n();
 	return (
 		<div
 			{...tabPanelProps('audio', 'presets')}
@@ -56,16 +58,15 @@ export function PresetsTab({
 		>
 			{/* your scene packages — captured from the LIVE session audio; apply/delete are real commands */}
 			<Panel
-				title="Your scene packages"
+				title={t('audio.presets.title')}
 				action={
 					<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-						{userPresets.length} {userPresets.length === 1 ? 'package' : 'packages'}
+						{t('audio.presets.count', { count: userPresets.length })}
 					</span>
 				}
 			>
 				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, marginBottom: 10 }}>
-					Save the current track and ambience as a reusable atmosphere, then apply it again in one
-					action.
+					{t('audio.presets.intro')}
 				</div>
 				{canEdit ? (
 					<form
@@ -79,15 +80,15 @@ export function PresetsTab({
 								gap: 10,
 							}}
 						>
-							<Field label="Package name" htmlFor="preset-name" required>
+							<Field label={t('audio.presets.name')} htmlFor="preset-name" required>
 								<Input
 									id="preset-name"
 									value={presetName}
 									onChange={(e: { target: { value: string } }) => setPresetName(e.target.value)}
-									placeholder="Tavern night"
+									placeholder={t('audio.presets.namePlaceholder')}
 								/>
 							</Field>
-							<Field label="Category" htmlFor="preset-category">
+							<Field label={t('audio.presets.category')} htmlFor="preset-category">
 								<Select
 									id="preset-category"
 									value={presetCategory}
@@ -109,11 +110,11 @@ export function PresetsTab({
 								icon="add"
 								disabled={!canSavePreset || presetBusy || !presetName.trim()}
 							>
-								{presetBusy ? 'Saving…' : 'Save current audio'}
+								{presetBusy ? t('audio.presets.saving') : t('audio.presets.saveCurrent')}
 							</Button>
 							{!canSavePreset && (
 								<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
-									Play a track or add an ambience layer to capture.
+									{t('audio.presets.nothingToCapture')}
 								</span>
 							)}
 							{presetError && (
@@ -128,15 +129,15 @@ export function PresetsTab({
 					</form>
 				) : (
 					<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 12 }}>
-						Presets are DM-only{previewing ? ' — exit preview to save or apply.' : '.'}
+						{t(previewing ? 'audio.presets.dmOnlyPreviewing' : 'audio.presets.dmOnly')}
 					</div>
 				)}
 				{userPresets.length === 0 ? (
 					<EmptyState
 						inset
 						icon="sparkle"
-						title="No scene packages yet."
-						description="Set up a track and some ambience, then save it here to re-apply the whole atmosphere later."
+						title={t('audio.presets.emptyTitle')}
+						description={t('audio.presets.emptyBody')}
 					/>
 				) : (
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -157,8 +158,8 @@ export function PresetsTab({
 								<div style={{ flex: 1, minWidth: 0 }}>
 									<div style={{ font: `600 12.5px ${T.sans}` }}>{preset.name}</div>
 									<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
-										{AUDIO_PRESET_CATEGORY_LABELS[preset.category]} · {preset.layers.length}{' '}
-										{preset.layers.length === 1 ? 'layer' : 'layers'}
+										{AUDIO_PRESET_CATEGORY_LABELS[preset.category]} ·{' '}
+										{t('audio.presets.layers', { count: preset.layers.length })}
 									</div>
 								</div>
 								<Button
@@ -166,17 +167,17 @@ export function PresetsTab({
 									size="sm"
 									icon="play"
 									disabled={!canEdit}
-									aria-label={`Apply ${preset.name}`}
+									aria-label={t('audio.presets.apply', { name: preset.name })}
 									onClick={() => void applyPreset(preset)}
 								>
-									Apply
+									{t('audio.presets.applyAction')}
 								</Button>
 								<Button
 									variant="ghost"
 									size="sm"
 									icon="delete"
 									disabled={!canEdit}
-									aria-label={`Delete ${preset.name}`}
+									aria-label={t('audio.presets.delete', { name: preset.name })}
 									onClick={() => void deletePreset(preset)}
 								/>
 							</div>
@@ -186,10 +187,9 @@ export function PresetsTab({
 			</Panel>
 
 			{/* built-in atmosphere library — a browsable catalog of recipes, grouped by category */}
-			<Panel title="Atmosphere library">
+			<Panel title={t('audio.presets.libraryTitle')}>
 				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, marginBottom: 10 }}>
-					Shipped atmosphere recipes, grouped by scene type. Apply one once its layers are bound to
-					your own sources — otherwise the app tells you what to bind, never guesses a track.
+					{t('audio.presets.libraryIntro')}
 				</div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 					{AUDIO_PRESET_CATEGORIES.map((category) => {
@@ -232,7 +232,7 @@ export function PresetsTab({
 													{preset.name}
 												</div>
 												<div style={{ font: `10.5px ${T.sans}`, color: T.ter }}>
-													{preset.layers.length} {preset.layers.length === 1 ? 'layer' : 'layers'}
+													{t('audio.presets.layers', { count: preset.layers.length })}
 												</div>
 											</div>
 											<Button
@@ -240,7 +240,7 @@ export function PresetsTab({
 												size="sm"
 												icon="play"
 												disabled={!canEdit}
-												aria-label={`Apply ${preset.name}`}
+												aria-label={t('audio.presets.apply', { name: preset.name })}
 												onClick={() => void applyPreset(preset)}
 											/>
 										</div>

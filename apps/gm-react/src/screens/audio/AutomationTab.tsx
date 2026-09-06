@@ -22,6 +22,7 @@ import {
 } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { ACTION_LABELS, TRIGGER_LABELS } from './shared';
+import { useI18n } from '../../i18n';
 import { type SceneListRow } from './types';
 
 /** The Automation tab (AUDIO-005) — the rule list with each rule's deterministic resolution, and
@@ -89,6 +90,7 @@ export function AutomationTab({
 	runRuleNow: (rule: AudioAutomationRule) => Promise<void>;
 	sceneNameById: (id: string | null) => string | null;
 }) {
+	const { t } = useI18n();
 	return (
 		<div
 			{...tabPanelProps('audio', 'automation')}
@@ -100,24 +102,22 @@ export function AutomationTab({
 			}}
 		>
 			<Panel
-				title="Automation rules"
+				title={t('audio.automation.title')}
 				action={
 					<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-						{automationRules.length} {automationRules.length === 1 ? 'rule' : 'rules'}
+						{t('audio.automation.count', { count: automationRules.length })}
 					</span>
 				}
 			>
 				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
-					Each rule maps a session event to a declared audio command. The status below is the core
-					resolver&rsquo;s deterministic verdict against the current library and this device&rsquo;s
-					real file availability — a blocked rule is flagged, never silently bypassed.
+					{t('audio.automation.intro')}
 				</div>
 				{automationRules.length === 0 && (
 					<EmptyState
 						inset
 						icon="wand"
-						title="No automation rules."
-						description="Map a session event — combat starting, a scene activating — to an audio cue with the form beside."
+						title={t('audio.automation.emptyTitle')}
+						description={t('audio.automation.emptyBody')}
 					/>
 				)}
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -178,26 +178,29 @@ export function AutomationTab({
 											{rule.label}
 										</div>
 										<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
-											{TRIGGER_LABELS[rule.trigger]}
-											{scopeName ? ` (${scopeName})` : ' (any)'} → {ACTION_LABELS[rule.action]} ·{' '}
-											{sourceName}
+											{t('audio.automation.ruleLine', {
+												trigger: t(TRIGGER_LABELS[rule.trigger]),
+												scope: scopeName ?? t('audio.automation.anyScope'),
+												action: t(ACTION_LABELS[rule.action]),
+												source: sourceName,
+											})}
 											{assetName ? ` · ${assetName}` : ''}
 										</div>
 									</div>
 									{!rule.enabled ? (
-										<Badge status="neutral">Disabled</Badge>
+										<Badge status="neutral">{t('audio.automation.disabled')}</Badge>
 									) : outcome === 'checking' ? (
-										<Badge status="neutral">Checking…</Badge>
+										<Badge status="neutral">{t('audio.automation.checking')}</Badge>
 									) : outcome?.status === 'requested' ? (
-										<Badge status="success">Ready</Badge>
+										<Badge status="success">{t('audio.automation.ready')}</Badge>
 									) : outcome?.status === 'blocked' ? (
-										<Badge status="warning">Blocked</Badge>
+										<Badge status="warning">{t('audio.automation.blocked')}</Badge>
 									) : null}
 									<Switch
 										checked={rule.enabled}
 										disabled={!canEdit}
 										onChange={(v: boolean) => toggleRuleEnabled(rule, v)}
-										aria-label={`Enable ${rule.label}`}
+										aria-label={t('audio.automation.enableRule', { label: rule.label })}
 									/>
 									{outcome !== 'checking' && outcome?.status === 'requested' && (
 										<Button
@@ -205,10 +208,10 @@ export function AutomationTab({
 											size="sm"
 											icon="play"
 											disabled={!canEdit}
-											aria-label={`Run ${rule.label} now`}
+											aria-label={t('audio.automation.runRule', { label: rule.label })}
 											onClick={() => void runRuleNow(rule)}
 										>
-											Run now
+											{t('audio.automation.runNow')}
 										</Button>
 									)}
 									<Button
@@ -216,7 +219,7 @@ export function AutomationTab({
 										size="sm"
 										icon="delete"
 										disabled={!canEdit}
-										aria-label={`Delete ${rule.label}`}
+										aria-label={t('audio.automation.deleteRule', { label: rule.label })}
 										onClick={() => void deleteRule(rule)}
 									/>
 								</div>
@@ -237,19 +240,19 @@ export function AutomationTab({
 				</div>
 			</Panel>
 
-			<Panel title="New rule">
+			<Panel title={t('audio.automation.newRule')}>
 				{canEdit ? (
 					<form onSubmit={createRule} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 						<Field
-							label="Label"
+							label={t('audio.automation.label')}
 							htmlFor="automation-label"
-							help="Optional — defaults to “action on trigger”."
+							help={t('audio.automation.labelHelp')}
 						>
 							<Input
 								id="automation-label"
 								value={ruleLabel}
 								onChange={(e: { target: { value: string } }) => setRuleLabel(e.target.value)}
-								placeholder="Battle drums on combat"
+								placeholder={t('audio.automation.labelPlaceholder')}
 							/>
 						</Field>
 						<div
@@ -259,7 +262,7 @@ export function AutomationTab({
 								gap: 10,
 							}}
 						>
-							<Field label="When" htmlFor="automation-trigger">
+							<Field label={t('audio.automation.when')} htmlFor="automation-trigger">
 								<Select
 									id="automation-trigger"
 									value={ruleTrigger}
@@ -267,13 +270,13 @@ export function AutomationTab({
 										setRuleTrigger(e.target.value as AudioAutomationTriggerKind);
 										setRuleScopeId('');
 									}}
-									options={AUDIO_AUTOMATION_TRIGGER_KINDS.map((t) => ({
-										value: t,
-										label: TRIGGER_LABELS[t],
+									options={AUDIO_AUTOMATION_TRIGGER_KINDS.map((kind) => ({
+										value: kind,
+										label: t(TRIGGER_LABELS[kind]),
 									}))}
 								/>
 							</Field>
-							<Field label="Do" htmlFor="automation-action">
+							<Field label={t('audio.automation.do')} htmlFor="automation-action">
 								<Select
 									id="automation-action"
 									value={ruleAction}
@@ -282,25 +285,29 @@ export function AutomationTab({
 									}
 									options={AUDIO_AUTOMATION_ACTIONS.map((a) => ({
 										value: a,
-										label: ACTION_LABELS[a],
+										label: t(ACTION_LABELS[a]),
 									}))}
 								/>
 							</Field>
 						</div>
 						{ruleTrigger === 'scene-activation' && (
-							<Field label="Scene" htmlFor="automation-scope" help="Fire for one scene, or any.">
+							<Field
+								label={t('audio.automation.scene')}
+								htmlFor="automation-scope"
+								help={t('audio.automation.sceneHelp')}
+							>
 								<Select
 									id="automation-scope"
 									value={ruleScopeId}
 									onChange={(e: { target: { value: string } }) => setRuleScopeId(e.target.value)}
 									options={[
-										{ value: '', label: 'Any scene' },
+										{ value: '', label: t('audio.automation.anyScene') },
 										...scenes.map((s) => ({ value: s.id, label: s.name })),
 									]}
 								/>
 							</Field>
 						)}
-						<Field label="Source" htmlFor="automation-source">
+						<Field label={t('audio.automation.source')} htmlFor="automation-source">
 							<Select
 								id="automation-source"
 								value={ruleFormSourceId}
@@ -317,16 +324,16 @@ export function AutomationTab({
 						</Field>
 						{ruleAction !== 'stop' && (
 							<Field
-								label="Asset"
+								label={t('audio.automation.asset')}
 								htmlFor="automation-asset"
-								help="Required for a local/bundled source; a web stream plays the stream itself."
+								help={t('audio.automation.assetHelp')}
 							>
 								<Select
 									id="automation-asset"
 									value={ruleAssetId}
 									onChange={(e: { target: { value: string } }) => setRuleAssetId(e.target.value)}
 									options={[
-										{ value: '', label: '— none (stream is the track) —' },
+										{ value: '', label: t('audio.automation.noAsset') },
 										...ruleSourceAssets.map((a) => ({
 											value: a.id,
 											label: a.title || a.fileName,
@@ -343,11 +350,11 @@ export function AutomationTab({
 								icon="add"
 								disabled={ruleBusy || usableSources.length === 0}
 							>
-								{ruleBusy ? 'Saving…' : 'Add rule'}
+								{ruleBusy ? t('audio.presets.saving') : t('audio.automation.addRule')}
 							</Button>
 							{usableSources.length === 0 && (
 								<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
-									Add a track or import audio first — a rule needs a source.
+									{t('audio.automation.needsSource')}
 								</span>
 							)}
 							{ruleError && (
@@ -362,7 +369,7 @@ export function AutomationTab({
 					</form>
 				) : (
 					<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
-						Automation is DM-only{previewing ? ' — exit preview to edit rules.' : '.'}
+						{t(previewing ? 'audio.automation.dmOnlyPreviewing' : 'audio.automation.dmOnly')}
 					</div>
 				)}
 			</Panel>

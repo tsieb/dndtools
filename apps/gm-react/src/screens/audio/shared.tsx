@@ -2,28 +2,29 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { type AudioAutomationAction, type AudioAutomationTriggerKind } from '@dndtools/core';
 import { Slider } from '../../ds';
 import { hasAssetBytes } from '../../platform/storage/assetStore';
+import { useI18n, type MessageKey } from '../../i18n';
 
 /* The Audio screen's option tables, its two device-facing hooks (asset-byte presence and the
  * output-device list) and the commit-on-release slider. Extracted from Audio.tsx unchanged
  * (RC-STB-2.6). */
 
-export const SOURCE_KIND_OPTIONS = [
-	{ value: 'web-stream', label: 'Web stream (URL)' },
-	{ value: 'bundled-preset', label: 'Bundled preset' },
-	{ value: 'local-file', label: 'Local file library' },
-] as const;
-export type SourceKind = (typeof SOURCE_KIND_OPTIONS)[number]['value'];
+export const SOURCE_KINDS = [
+	{ value: 'web-stream', label: 'audio.sourceKind.webStream' },
+	{ value: 'bundled-preset', label: 'audio.sourceKind.bundledPreset' },
+	{ value: 'local-file', label: 'audio.sourceKind.localFile' },
+] as const satisfies readonly { value: string; label: MessageKey }[];
+export type SourceKind = (typeof SOURCE_KINDS)[number]['value'];
 
-export const TRIGGER_LABELS: Record<AudioAutomationTriggerKind, string> = {
-	'combat-start': 'Combat starts',
-	'map-reveal': 'Map reveal',
-	'scene-activation': 'Scene activation',
-	'handout-delivery': 'Handout delivery',
+export const TRIGGER_LABELS: Record<AudioAutomationTriggerKind, MessageKey> = {
+	'combat-start': 'audio.trigger.combatStart',
+	'map-reveal': 'audio.trigger.mapReveal',
+	'scene-activation': 'audio.trigger.sceneActivation',
+	'handout-delivery': 'audio.trigger.handoutDelivery',
 };
-export const ACTION_LABELS: Record<AudioAutomationAction, string> = {
-	play: 'Play',
-	crossfade: 'Crossfade',
-	stop: 'Stop',
+export const ACTION_LABELS: Record<AudioAutomationAction, MessageKey> = {
+	play: 'audio.action.play',
+	crossfade: 'audio.action.crossfade',
+	stop: 'audio.action.stop',
 };
 
 /** Whether this browser can switch `<audio>` output devices at all (Firefox can't, e.g.). */
@@ -73,13 +74,14 @@ export function useAudioOutputDevices(enabled: boolean): {
 	outputs: OutputDeviceOption[];
 	note: string | null;
 } {
+	const { t } = useI18n();
 	const [outputs, setOutputs] = useState<OutputDeviceOption[]>([]);
 	const [note, setNote] = useState<string | null>(null);
 	useEffect(() => {
 		if (!enabled) return;
 		const media = typeof navigator !== 'undefined' ? navigator.mediaDevices : undefined;
 		if (!media?.enumerateDevices) {
-			setNote('This browser does not expose audio output devices.');
+			setNote(t('audio.output.unsupported'));
 			return;
 		}
 		let cancelled = false;
@@ -98,17 +100,17 @@ export function useAudioOutputDevices(enabled: boolean): {
 					setOutputs(
 						unique.map((d, i) => ({
 							deviceId: d.deviceId,
-							label: d.label || `Output device ${i + 1}`,
+							label: d.label || t('audio.output.unnamed', { index: i + 1 }),
 						})),
 					);
 					setNote(
 						unique.length === 0 || unique.some((d) => !d.label)
-							? 'Device names appear once the browser has granted media permission; unnamed outputs still work.'
+							? t('audio.output.needsPermission')
 							: null,
 					);
 				},
 				() => {
-					if (!cancelled) setNote('Output devices could not be enumerated on this browser.');
+					if (!cancelled) setNote(t('audio.output.enumerateFailed'));
 				},
 			);
 		};
@@ -118,7 +120,7 @@ export function useAudioOutputDevices(enabled: boolean): {
 			cancelled = true;
 			media.removeEventListener?.('devicechange', refresh);
 		};
-	}, [enabled]);
+	}, [enabled, t]);
 	return { outputs, note };
 }
 

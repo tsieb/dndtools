@@ -31,6 +31,7 @@ import { PlaybackLeft } from './panels/PlaybackLeft';
 import { PlaybackRight } from './panels/PlaybackRight';
 import { PresetsTab } from './PresetsTab';
 import { AutomationTab } from './AutomationTab';
+import { useI18n } from '../../i18n';
 
 /**
  * Audio — soundboard + session-audio transport, wired to the live Processing Core. The now-playing
@@ -56,6 +57,7 @@ import { AutomationTab } from './AutomationTab';
  */
 
 export function Audio() {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const viewport = useViewport();
 	const capabilities = usePlatformCapabilities();
@@ -116,7 +118,7 @@ export function Audio() {
 			sources.find((s) => s.sourceId === track.sourceId)?.displayName ??
 			track.assetId ??
 			track.sourceId)
-		: 'Nothing playing';
+		: t('audio.nothingPlaying');
 	const streamIsAllowed = (source: AudioSourceClassification): boolean => {
 		if (source.type !== 'web-stream') return true;
 		if (nativeDesktop) return false;
@@ -159,7 +161,7 @@ export function Audio() {
 				if (result.status !== 'accepted') Toaster.error(result.rejection.message);
 			})
 			.catch((error: unknown) =>
-				Toaster.error(error instanceof Error ? error.message : 'That change could not be saved.'),
+				Toaster.error(error instanceof Error ? error.message : t('audio.changeFailed')),
 			);
 	};
 
@@ -177,7 +179,7 @@ export function Audio() {
 			const result = await runtime.dispatch(command);
 			return result.status === 'accepted' ? null : result.rejection.message;
 		} catch (error) {
-			return error instanceof Error ? error.message : 'That change could not be saved.';
+			return error instanceof Error ? error.message : t('audio.changeFailed');
 		}
 	};
 
@@ -198,22 +200,18 @@ export function Audio() {
 				return;
 			}
 			Toaster.success(
-				outcome.deduped
-					? `“${outcome.title}” was already in the library — metadata refreshed, bytes deduped.`
-					: `“${outcome.title}” imported to the soundboard.`,
+				t(outcome.deduped ? 'audio.importDeduped' : 'audio.imported', {
+					title: outcome.title,
+				}),
 			);
 			if (outcome.needsLicenseReview) {
-				Toaster.warning(
-					`“${outcome.title}” has no declared license — review it before sharing or export.`,
-				);
+				Toaster.warning(t('audio.importNoLicense', { title: outcome.title }));
 			}
 		} catch (error) {
 			// The picked file's BYTES are written to the device asset store BEFORE the dispatch, so an
 			// unwinding throw orphans them. Without this the whole import looked like it had never
 			// registered: no message, no new asset, and storage silently consumed.
-			setImportError(
-				error instanceof Error ? error.message : 'That audio file could not be imported.',
-			);
+			setImportError(error instanceof Error ? error.message : t('audio.importFailed'));
 		} finally {
 			setImportBusy(false);
 		}
@@ -249,11 +247,11 @@ export function Audio() {
 		e.preventDefault();
 		if (addBusy || !trackName.trim()) return;
 		if (nativeDesktop && trackKind === 'web-stream') {
-			setAddError('The desktop app blocks remote streams. Import the audio file instead.');
+			setAddError(t('audio.addError.desktopBlocksStreams'));
 			return;
 		}
 		if (trackKind === 'web-stream' && !trackUrl.trim()) {
-			setAddError('A web stream needs a stream URL.');
+			setAddError(t('audio.addError.needsUrl'));
 			return;
 		}
 		if (
@@ -261,9 +259,7 @@ export function Audio() {
 			android &&
 			!isNetworkDestinationAllowed(trackUrl.trim(), capabilities.runtimeKind)
 		) {
-			setAddError(
-				'Android audio streams must use a valid HTTPS URL. Import the file or use an encrypted host.',
-			);
+			setAddError(t('audio.addError.androidHttps'));
 			return;
 		}
 		setAddBusy(true);
@@ -317,6 +313,8 @@ export function Audio() {
 				targetKind: 'scene',
 				targetId: sceneId,
 				presetKind: 'ambient',
+				// A stored association label: it is written into the campaign, so like every other
+				// durable label it stays in the source language rather than the reader's.
 				label: `${sceneName} ambience`,
 				sourceId: webStreamSource.sourceId,
 			},
@@ -339,7 +337,7 @@ export function Audio() {
 				return;
 			}
 		}
-		Toaster.success(`Audio unbound from “${sceneName}”.`);
+		Toaster.success(t('audio.unbound', { name: sceneName }));
 	};
 
 	const masterPct = track ? Math.round(track.volume * 100) : 100;
@@ -388,8 +386,8 @@ export function Audio() {
 			return;
 		}
 		Toaster.show({
-			message: `“${sourceName}” ambience layer removed.`,
-			action: 'Undo',
+			message: t('audio.layerRemoved', { name: sourceName }),
+			action: t('common.action.undo'),
 			onAction: () => void setLayer(layerId, previous.sourceId, previous.volume, previous.muted),
 		});
 	};
@@ -399,18 +397,20 @@ export function Audio() {
 	const selectedOutputId = dmView?.outputDevice?.deviceId ?? '';
 	const outputOptions = useMemo(() => {
 		const options = [
-			{ value: '', label: 'Platform default' },
+			{ value: '', label: t('audio.output.platformDefault') },
 			...outputs.map((o) => ({ value: o.deviceId, label: o.label })),
 		];
 		// A stored selection whose device is currently unplugged still shows honestly (and can be cleared).
 		if (selectedOutputId && !outputs.some((o) => o.deviceId === selectedOutputId)) {
 			options.push({
 				value: selectedOutputId,
-				label: `${dmView?.outputDevice?.label ?? 'Saved device'} (not connected)`,
+				label: t('audio.output.notConnected', {
+					name: dmView?.outputDevice?.label ?? t('audio.output.savedDevice'),
+				}),
 			});
 		}
 		return options;
-	}, [outputs, selectedOutputId, dmView?.outputDevice?.label]);
+	}, [outputs, selectedOutputId, dmView?.outputDevice?.label, t]);
 
 	const chooseOutput = (deviceId: string) => {
 		const device = outputs.find((o) => o.deviceId === deviceId);
@@ -465,11 +465,11 @@ export function Audio() {
 			/>
 
 			<Tabs
-				aria-label="Audio sections"
+				aria-label={t('audio.sections')}
 				tabs={[
-					{ id: 'playback', label: 'Playback', icon: 'audio' },
-					{ id: 'presets', label: 'Presets', icon: 'sparkle' },
-					{ id: 'automation', label: 'Automation', icon: 'wand' },
+					{ id: 'playback', label: t('audio.tab.playback'), icon: 'audio' },
+					{ id: 'presets', label: t('audio.tab.presets'), icon: 'sparkle' },
+					{ id: 'automation', label: t('audio.tab.automation'), icon: 'wand' },
 				]}
 				value={tab}
 				onChange={(id: string) => setTab(id as 'playback' | 'presets' | 'automation')}
