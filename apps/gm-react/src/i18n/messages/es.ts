@@ -600,6 +600,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.a11y.shortcutDelete': 'Quitar el widget seleccionado (modo edición del lienzo)',
 	'settings.a11y.shortcutEsc':
 		'Cerrar el diálogo / deseleccionar el widget / salir de la vista previa',
+	'shortcuts.title': 'Atajos de teclado',
+	'shortcuts.scope.global': 'En cualquier lugar',
+	'shortcuts.scope.canvas': 'Lienzo de escena',
+	'shortcuts.scope.map': 'Editor de mapas',
+	'shortcuts.action.help': 'Mostrar esta lista de atajos de teclado',
+	'shortcuts.action.sceneDisplay': 'Entrar o salir de la pantalla completa de la escena',
+	'shortcuts.action.advanceCard': 'Mostrar a los jugadores la siguiente tarjeta en cola',
+	'shortcuts.action.canvasUndoRedo': 'Deshacer o rehacer el último cambio del lienzo',
 	'settings.a11y.safetyChecks': 'Comprobaciones de seguridad para jugadores',
 	'settings.a11y.safetyIntro':
 		'Estas comprobaciones usan las mismas vistas que reciben tus jugadores y confirman que el contenido solo para el DM sigue oculto.',

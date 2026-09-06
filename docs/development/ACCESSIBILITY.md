@@ -64,6 +64,13 @@ DS primitives instead of re-implementing ARIA/keyboard wiring:
 - Icons go through `apps/gm-react/src/ds/components/core/Icon.jsx`, which maps semantic names to
   `lucide-react` PascalCase components via an `ICON_REGISTRY`. Never import raw icon components ad hoc.
 
+Keyboard shortcuts are declared once, in `apps/gm-react/src/app/shortcuts/registry.ts`. A handler
+fires a shortcut through `matchesShortcut('<id>', event, { typing })` and every surface that PRINTS
+the keymap — the `?` overlay (`app/help/ShortcutsDialog.tsx`), the map editor's overlay, and
+Settings › Accessibility — renders the same entries. Adding a shortcut means adding a registry entry,
+so a key can neither fire undocumented nor be advertised without an implementation. Only the command
+palette carries `whileTyping`; every other combo is suppressed while a text field has focus.
+
 Heading contract: every route renders exactly one `<h1>`; use `<h2>`/`<h3>` for sections without
 skipping levels; do not use headings for visual emphasis (use `<strong>`/`<em>`/styled text). The axe
 gate's `heading-order` rule enforces this on every scanned route.

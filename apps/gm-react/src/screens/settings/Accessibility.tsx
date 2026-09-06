@@ -6,20 +6,15 @@ import { Panel, SetRow, T } from '../../app/screen-kit';
 import { nextHighContrastTheme } from '../settings-validation';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { PREV_THEME_KEY, readLocal, setDocAttr, writeLocal } from './shared';
+import { shortcutsForScope, type ShortcutScope } from '../../app/shortcuts/registry';
 /* ---- Accessibility (REAL persisted prefs — write the SAME doc attrs Appearance owns) ------------- */
-/** The shortcuts this build actually implements (AppShell ⌘K, SceneBoardCanvas keyboard nav, the
- * skip link) — an authored list, but of REAL behavior, replacing the prototype's mock table. */
-/* The `keys` column is the legend printed on the physical key, not prose — it stays as typed in
- * every locale. Only `action` carries language, so only `action` comes from the catalog. */
-const REAL_SHORTCUTS: { keys: string; action: MessageKey }[] = [
-	{ keys: '⌘K / Ctrl+K', action: 'settings.a11y.shortcutPalette' },
-	{ keys: 'Tab', action: 'settings.a11y.shortcutTab' },
-	{ keys: '← ↑ ↓ →', action: 'settings.a11y.shortcutArrows' },
-	{ keys: 'Enter / Space', action: 'settings.a11y.shortcutEnter' },
-	{ keys: 'Shift + Arrows', action: 'settings.a11y.shortcutShiftArrows' },
-	{ keys: 'Delete', action: 'settings.a11y.shortcutDelete' },
-	{ keys: 'Esc', action: 'settings.a11y.shortcutEsc' },
-];
+/* The registry's scopes, in the order this page prints them, with their section headings. */
+const SHORTCUT_SCOPES: readonly ShortcutScope[] = ['global', 'canvas', 'map'];
+const SCOPE_LABEL: Record<ShortcutScope, MessageKey> = {
+	global: 'shortcuts.scope.global',
+	canvas: 'shortcuts.scope.canvas',
+	map: 'shortcuts.scope.map',
+};
 export function SettingsAccessibility() {
 	const { t } = useI18n();
 	const runtime = useRuntime();
@@ -121,45 +116,62 @@ export function SettingsAccessibility() {
 					}
 				/>
 			</Panel>
+			{/* RC-UX-3.3 — printed from app/shortcuts/registry.ts, the same declarations the handlers
+			    fire on, so this page can no longer advertise a key the build does not implement. */}
 			<Panel title={t('settings.a11y.shortcuts')}>
-				<div
-					style={{
-						display: 'grid',
-						gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,280px),1fr))',
-						gap: '8px 24px',
-					}}
-				>
-					{REAL_SHORTCUTS.map((s, i) => (
-						<div
-							key={i}
-							style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0 }}
+				{SHORTCUT_SCOPES.map((scope) => (
+					<section key={scope} aria-label={t(SCOPE_LABEL[scope])} style={{ marginBottom: 14 }}>
+						<h3
+							style={{
+								margin: '0 0 6px',
+								font: `600 12px ${T.sans}`,
+								letterSpacing: '.06em',
+								textTransform: 'uppercase',
+								color: T.ter,
+							}}
 						>
-							<span
-								style={{
-									font: `12px ${T.mono}`,
-									color: T.ink,
-									border: `1px solid ${T.bd}`,
-									borderRadius: 5,
-									padding: '2px 7px',
-									background: T.alt,
-									whiteSpace: 'nowrap',
-								}}
-							>
-								{s.keys}
-							</span>
-							<span
-								style={{
-									minWidth: 0,
-									font: `12.5px ${T.sans}`,
-									color: T.sub,
-									overflowWrap: 'anywhere',
-								}}
-							>
-								{t(s.action)}
-							</span>
+							{t(SCOPE_LABEL[scope])}
+						</h3>
+						<div
+							style={{
+								display: 'grid',
+								gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,280px),1fr))',
+								gap: '8px 24px',
+							}}
+						>
+							{shortcutsForScope(scope).map((s) => (
+								<div
+									key={s.id}
+									style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0 }}
+								>
+									<span
+										style={{
+											font: `12px ${T.mono}`,
+											color: T.ink,
+											border: `1px solid ${T.bd}`,
+											borderRadius: 5,
+											padding: '2px 7px',
+											background: T.alt,
+											whiteSpace: 'nowrap',
+										}}
+									>
+										{s.keys}
+									</span>
+									<span
+										style={{
+											minWidth: 0,
+											font: `12.5px ${T.sans}`,
+											color: T.sub,
+											overflowWrap: 'anywhere',
+										}}
+									>
+										{t(s.action)}
+									</span>
+								</div>
+							))}
 						</div>
-					))}
-				</div>
+					</section>
+				))}
 			</Panel>
 			<Panel title={t('settings.a11y.safetyChecks')}>
 				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>

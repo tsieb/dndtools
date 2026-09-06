@@ -579,6 +579,15 @@ export const en = {
 	'settings.a11y.shortcutShiftArrows': 'Resize the selected widget (canvas edit mode)',
 	'settings.a11y.shortcutDelete': 'Remove the selected widget (canvas edit mode)',
 	'settings.a11y.shortcutEsc': 'Close dialog / deselect widget / exit preview',
+	/* RC-UX-3.3 — the shortcut registry's own strings (app/shortcuts/registry.ts). */
+	'shortcuts.title': 'Keyboard shortcuts',
+	'shortcuts.scope.global': 'Anywhere',
+	'shortcuts.scope.canvas': 'Scene canvas',
+	'shortcuts.scope.map': 'Map editor',
+	'shortcuts.action.help': 'Show this list of keyboard shortcuts',
+	'shortcuts.action.sceneDisplay': 'Enter or leave the fullscreen scene display',
+	'shortcuts.action.advanceCard': 'Show the next queued scene card to players',
+	'shortcuts.action.canvasUndoRedo': 'Undo or redo the last canvas change',
 	'settings.a11y.safetyChecks': 'Player-safety checks',
 	'settings.a11y.safetyIntro':
 		'These checks use the same views your players receive and confirm DM-only content stays hidden.',

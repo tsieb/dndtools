@@ -11,6 +11,8 @@ import { Sidebar } from './shell/Sidebar';
 import { RailNav } from './shell/RailNav';
 import { TopBar } from './shell/TopBar';
 import { Footer } from './shell/Footer';
+import { ShortcutsDialog } from './help/ShortcutsDialog';
+import { matchesShortcut } from './shortcuts/registry';
 
 /**
  * AppShell — the React port of the online prototype's shell (app.jsx Sidebar + Topbar): a 264px
@@ -33,6 +35,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 	const [paletteOpen, setPaletteOpen] = useState(false);
 	// I11 S11.2.2 — the in-window fullscreen scene display (Ctrl+Shift+S toggles; Escape exits).
 	const [displayOpen, setDisplayOpen] = useState(false);
+	// RC-UX-3.3 — the `?` overlay, printed from the shortcut registry these handlers fire on.
+	const [shortcutsOpen, setShortcutsOpen] = useState(false);
 	const viewport = useViewport();
 	const compactToolbar = useCompactTopBar();
 	const runtime = useRuntime();
@@ -40,7 +44,16 @@ export function AppShell({ children }: { children: ReactNode }) {
 	useSceneDisplayBroadcast(runtime);
 	useEffect(() => {
 		function onKey(e: KeyboardEvent) {
-			const cmdK = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k';
+			// RC-UX-3.3 — every combo below is declared once in app/shortcuts/registry.ts, which the
+			// `?` overlay and Settings › Accessibility print. A key that fires here is documented there.
+			const el = e.target as HTMLElement | null;
+			const typing =
+				!!el &&
+				(el.tagName === 'INPUT' ||
+					el.tagName === 'TEXTAREA' ||
+					el.tagName === 'SELECT' ||
+					el.isContentEditable);
+			const cmdK = matchesShortcut('global.palette', e, { typing });
 			// The palette is itself `aria-modal`, so the overlay guard below used to swallow the very
 			// keystroke that should dismiss it — Cmd/Ctrl+K could open the palette but never close it.
 			// Handle the closing direction first, before the guard sees the palette as "some overlay".
@@ -64,22 +77,22 @@ export function AppShell({ children }: { children: ReactNode }) {
 			}
 			// Ctrl/Cmd+Right is the OS "move by word" binding and Ctrl+Shift+S is a common save-as, so
 			// firing them while the DM is typing (a handout body, a note, a scene name) hijacks the
-			// caret and silently advances the players' queue. ⌘K stays deliberately global.
-			const el = e.target as HTMLElement | null;
-			const typing =
-				!!el &&
-				(el.tagName === 'INPUT' ||
-					el.tagName === 'TEXTAREA' ||
-					el.tagName === 'SELECT' ||
-					el.isContentEditable);
+			// caret and silently advances the players' queue — the registry's `whileTyping` flag, which
+			// only the palette carries, is what keeps them off. ⌘K stays deliberately global.
+			// RC-UX-3.3 — `?` opens the shortcut overlay.
+			if (matchesShortcut('global.help', e, { typing })) {
+				e.preventDefault();
+				setShortcutsOpen(true);
+				return;
+			}
 			// I11 S11.2.2 — Ctrl/Cmd+Shift+S enters/exits the fullscreen scene display.
-			if (!typing && (e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 's') {
+			if (matchesShortcut('global.sceneDisplay', e, { typing })) {
 				e.preventDefault();
 				setDisplayOpen((v) => !v);
 				return;
 			}
 			// I11 S11.2.3 — Ctrl/Cmd+Right advances the scene queue during play (only when a card is queued).
-			if (!typing && (e.metaKey || e.ctrlKey) && e.key === 'ArrowRight') {
+			if (matchesShortcut('global.advanceCard', e, { typing })) {
 				const display = getSceneDisplayForActor(
 					runtime.state.session,
 					runtime.state.permissions,
@@ -213,6 +226,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 			</div>
 			<CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 			<SceneDisplayOverlay open={displayOpen} onClose={() => setDisplayOpen(false)} />
+			{shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
 			{/* On phone the tab bar owns the bottom edge (52px buttons + --space-1 padding + 1px
 			    border) PLUS the bottom safe area, which the bar also pads for — omitting it here put
 			    toasts on top of the primary nav on any device with a home indicator. */}

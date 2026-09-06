@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Button, Dialog, Icon, SegmentedControl } from '../../ds';
+import { Icon, SegmentedControl } from '../../ds';
 import { T } from '../screen-kit';
 import type { MapEditorApi } from './useMapEditor';
-import { TOOLS_BY_ID, TOOL_GROUPS } from './tools';
+import { TOOLS_BY_ID } from './tools';
 import { useI18n } from '../../i18n';
+import { ShortcutsDialog } from '../help/ShortcutsDialog';
 
 /**
  * The map editor's three small chrome pieces: the phone tool strip, the header menu row and the
@@ -118,61 +119,7 @@ export function HeaderMenuItem({
 
 export function ShortcutOverlay({ onClose }: { onClose: () => void }) {
 	const { t } = useI18n();
-	const rows: Array<[string, string]> = [
-		[
-			t('mapEditor.shortcut.tools'),
-			TOOL_GROUPS.flatMap((g) => g.tools)
-				.filter((tool) => tool.shortcut)
-				.map((tool) =>
-					t('mapEditor.shortcut.toolEntry', {
-						shortcut: tool.shortcut!.toUpperCase(),
-						label: t(tool.label),
-					}),
-				)
-				.join(' · '),
-		],
-		[t('mapEditor.shortcut.brushSize'), t('mapEditor.shortcut.brushSizeKeys')],
-		[t('mapEditor.shortcut.undoRedo'), 'Ctrl/⌘+Z · Ctrl/⌘+Shift+Z'],
-		[t('mapEditor.shortcut.zoom'), t('mapEditor.shortcut.zoomKeys')],
-		[t('mapEditor.shortcut.pan'), t('mapEditor.shortcut.panKeys')],
-		[t('mapEditor.shortcut.nudge'), t('mapEditor.shortcut.nudgeKeys')],
-		[t('mapEditor.shortcut.delete'), t('mapEditor.shortcut.deleteKeys')],
-		[t('mapEditor.shortcut.cancel'), 'Esc'],
-		[t('mapEditor.shortcut.finishPath'), t('mapEditor.shortcut.finishPathKeys')],
-		[t('mapEditor.shortcut.palette'), 'Ctrl/⌘+K'],
-		[t('mapEditor.shortcut.overlay'), '?'],
-	];
-	return (
-		<Dialog
-			open
-			onClose={onClose}
-			title={t('mapEditor.shortcuts')}
-			icon="info"
-			size="md"
-			footer={
-				<Button variant="primary" size="sm" onClick={onClose}>
-					{t('common.action.done')}
-				</Button>
-			}
-		>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-				{rows.map(([k, v]) => (
-					<div
-						key={k}
-						style={{
-							display: 'flex',
-							gap: 12,
-							padding: '8px 0',
-							borderBottom: `1px solid ${T.bd}`,
-						}}
-					>
-						<span style={{ flex: '0 0 150px', font: `600 12.5px ${T.sans}`, color: T.ink }}>
-							{k}
-						</span>
-						<span style={{ flex: 1, font: `12.5px ${T.sans}`, color: T.sub }}>{v}</span>
-					</div>
-				))}
-			</div>
-		</Dialog>
-	);
+	// RC-UX-3.3 — the editor keymap is no longer re-typed here: both this overlay and the keyboard
+	// layer read app/shortcuts/registry.ts, whose map entries derive their tool keys from TOOL_GROUPS.
+	return <ShortcutsDialog onClose={onClose} scopes={['map']} title={t('mapEditor.shortcuts')} />;
 }
