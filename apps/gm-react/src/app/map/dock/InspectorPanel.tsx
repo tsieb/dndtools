@@ -11,6 +11,8 @@ import { useRuntime } from '../../../runtime/RuntimeContext';
 import { exportFile, FileExportError } from '../../../platform/download';
 import type { MapEditorApi } from '../useMapEditor';
 import { VIS_TEXT, bulkResultMessage } from '../mapVocab';
+import { useI18n } from '../../../i18n';
+import type { MessageKey } from '../../../i18n';
 
 const VIS_CHIP: Record<string, string> = {
 	'dm-only': 'dm-only',
@@ -28,6 +30,14 @@ const POI_CATEGORIES = [
 	'note',
 	'other',
 ] as const;
+
+/** The three visibility levels as the Select renders them — the same copy `VIS_TEXT` carries, but
+ * addressed by key so a translated build shows a translated option. */
+const VIS_OPTION_KEYS: { value: SceneVisibility; label: MessageKey }[] = [
+	{ value: 'dm-only', label: 'common.visibility.dmOnly' },
+	{ value: 'player-visible', label: 'common.visibility.playerVisible' },
+	{ value: 'shared', label: 'common.visibility.shared' },
+];
 
 /**
  * A Slider whose DURABLE write happens once per gesture instead of once per step.
@@ -128,6 +138,7 @@ function MapInspector({
 	announce: (m: string) => void;
 }) {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const map = editor.map;
 	const [name, setName] = useState(map?.name ?? '');
 	const [desc, setDesc] = useState(map?.description ?? '');
@@ -141,7 +152,8 @@ function MapInspector({
 		setScaleUnit(map?.scale?.unit ?? 'miles');
 	}, [map?.name, map?.description, map?.scale]);
 
-	if (!map) return <div style={{ font: `13px ${T.sans}`, color: T.sub }}>No map open.</div>;
+	if (!map)
+		return <div style={{ font: `13px ${T.sans}`, color: T.sub }}>{t('mapInspector.noMap')}</div>;
 	const { run, actorId, mapId, isDm } = editor;
 	const overlay = map.overlay;
 
@@ -194,22 +206,22 @@ function MapInspector({
 		} as never).then((accepted) => {
 			// `run` is single-flight and also returns false on a core refusal, so announcing on the
 			// next line claimed a whole wall/door/light pass had landed when nothing had.
-			if (accepted) announce('Derived walls, doors, and lights.');
+			if (accepted) announce(t('mapInspector.derived'));
 		});
 	}
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-			<Section title="Map">
+			<Section title={t('mapInspector.map')}>
 				{isDm ? (
 					<>
-						<Field label="Name">
+						<Field label={t('mapInspector.name')}>
 							<Input
 								value={name}
 								onChange={(e: { target: { value: string } }) => setName(e.target.value)}
 							/>
 						</Field>
-						<Field label="Description">
+						<Field label={t('mapInspector.description')}>
 							<Textarea
 								rows={2}
 								value={desc}
@@ -233,7 +245,7 @@ function MapInspector({
 								} as never)
 							}
 						>
-							Save name & description
+							{t('mapInspector.saveMeta')}
 						</Button>
 					</>
 				) : (
@@ -246,7 +258,7 @@ function MapInspector({
 							color: T.sub,
 						}}
 					>
-						<span>Name</span>
+						<span>{t('mapInspector.name')}</span>
 						<span style={{ color: T.ink }}>{map.name}</span>
 					</div>
 				)}
@@ -260,24 +272,24 @@ function MapInspector({
 						color: T.sub,
 					}}
 				>
-					<span>Visibility</span>
+					<span>{t('common.visibility.label')}</span>
 					<VisibilityChip level={VIS_CHIP[map.visibility] ?? 'dm-only'} />
 				</div>
 			</Section>
 
 			{isDm && (
-				<Section title="Scale">
+				<Section title={t('mapInspector.scale')}>
 					<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-						<Field label="Distance across" style={{ flex: 1 }}>
+						<Field label={t('mapInspector.distanceAcross')} style={{ flex: 1 }}>
 							<Input
 								type="number"
 								value={scaleUnits}
-								placeholder="e.g. 120"
-								aria-label="Distance across the map"
+								placeholder={t('mapInspector.distancePlaceholder')}
+								aria-label={t('mapInspector.distanceLabel')}
 								onChange={(e: { target: { value: string } }) => setScaleUnits(e.target.value)}
 							/>
 						</Field>
-						<Field label="Unit" style={{ flex: 1 }}>
+						<Field label={t('mapInspector.unit')} style={{ flex: 1 }}>
 							<Input
 								value={scaleUnit}
 								onChange={(e: { target: { value: string } }) => setScaleUnit(e.target.value)}
@@ -301,7 +313,7 @@ function MapInspector({
 								} as never)
 							}
 						>
-							Set scale
+							{t('mapInspector.setScale')}
 						</Button>
 						{map.scale && (
 							<Button
@@ -316,7 +328,7 @@ function MapInspector({
 									} as never)
 								}
 							>
-								Clear
+								{t('mapInspector.clear')}
 							</Button>
 						)}
 					</div>
@@ -324,14 +336,14 @@ function MapInspector({
 			)}
 
 			{isDm && (
-				<Section title="Projection">
+				<Section title={t('mapInspector.projection')}>
 					<Select
 						value={runtime.state.maps.maps[mapId]?.projection.kind ?? 'flat'}
-						aria-label="Projection"
+						aria-label={t('mapInspector.projection')}
 						options={[
-							{ value: 'flat', label: 'Flat' },
-							{ value: 'equirectangular', label: 'Equirectangular' },
-							{ value: 'web-mercator', label: 'Web Mercator' },
+							{ value: 'flat', label: t('mapInspector.projection.flat') },
+							{ value: 'equirectangular', label: t('mapInspector.projection.equirectangular') },
+							{ value: 'web-mercator', label: t('mapInspector.projection.webMercator') },
 						]}
 						onChange={(e: { target: { value: string } }) =>
 							void run({
@@ -345,7 +357,7 @@ function MapInspector({
 			)}
 
 			{isDm && overlay && (
-				<Section title="Grid & overlay">
+				<Section title={t('mapInspector.gridOverlay')}>
 					<label
 						style={{
 							display: 'flex',
@@ -354,17 +366,19 @@ function MapInspector({
 							gap: 10,
 						}}
 					>
-						<span style={{ font: `12.5px ${T.sans}`, color: T.ink }}>Grid mode</span>
+						<span style={{ font: `12.5px ${T.sans}`, color: T.ink }}>
+							{t('mapInspector.gridMode')}
+						</span>
 						<Select
 							value={overlay.mode}
-							aria-label="Overlay mode"
+							aria-label={t('mapInspector.overlayMode')}
 							options={[
-								{ value: 'none', label: 'None' },
-								{ value: 'grid-align', label: 'Grid align' },
-								{ value: 'token', label: 'Token' },
-								{ value: 'range', label: 'Range' },
-								{ value: 'area-of-effect', label: 'Area of effect' },
-								{ value: 'combat', label: 'Combat' },
+								{ value: 'none', label: t('mapInspector.overlay.none') },
+								{ value: 'grid-align', label: t('mapInspector.overlay.gridAlign') },
+								{ value: 'token', label: t('mapInspector.overlay.token') },
+								{ value: 'range', label: t('mapInspector.overlay.range') },
+								{ value: 'area-of-effect', label: t('mapInspector.overlay.areaOfEffect') },
+								{ value: 'combat', label: t('mapInspector.overlay.combat') },
 							]}
 							onChange={(e: { target: { value: string } }) =>
 								void run({
@@ -378,14 +392,14 @@ function MapInspector({
 					</label>
 					<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 						<span style={{ font: `12.5px ${T.sans}`, color: T.sub, minWidth: 66 }}>
-							Cells across
+							{t('mapInspector.cellsAcross')}
 						</span>
 						<CommitSlider
 							min={2}
 							max={40}
 							step={1}
 							value={overlay.gridSize}
-							aria-label="Grid cells across"
+							aria-label={t('mapInspector.gridCellsAcross')}
 							format={String}
 							onCommit={(v: number) =>
 								void run({
@@ -411,11 +425,13 @@ function MapInspector({
 							gap: 10,
 						}}
 					>
-						<span style={{ font: `12.5px ${T.sans}`, color: T.ink }}>Show grid</span>
+						<span style={{ font: `12.5px ${T.sans}`, color: T.ink }}>
+							{t('mapInspector.showGrid')}
+						</span>
 						<input
 							type="checkbox"
 							checked={overlay.gridVisible}
-							aria-label="Show grid"
+							aria-label={t('mapInspector.showGrid')}
 							onChange={() =>
 								void run({
 									type: 'map.configure-overlay',
@@ -430,9 +446,9 @@ function MapInspector({
 			)}
 
 			{isDm && (
-				<Section title="Export & derive">
+				<Section title={t('mapInspector.exportDerive')}>
 					<Button variant="secondary" size="sm" icon="download" onClick={() => void exportUvtt()}>
-						Export for other VTTs (.dd2vtt)
+						{t('mapInspector.exportUvtt')}
 					</Button>
 					<Button
 						variant="ghost"
@@ -441,7 +457,7 @@ function MapInspector({
 						disabled={editor.busy}
 						onClick={deriveAll}
 					>
-						Derive walls / doors / lights
+						{t('mapInspector.derive')}
 					</Button>
 				</Section>
 			)}
@@ -457,15 +473,15 @@ function MapInspector({
 			>
 				{(
 					[
-						['Layers', editor.layers.length],
-						['Points of interest', map.pois.length],
-						['Tokens', map.tokens.length],
-						['Fog edits', map.fog.length],
-						['Routes', map.routes.length],
-					] as const
+						['mapInspector.count.layers', editor.layers.length],
+						['mapInspector.count.pois', map.pois.length],
+						['mapInspector.count.tokens', map.tokens.length],
+						['mapInspector.count.fog', map.fog.length],
+						['mapInspector.count.routes', map.routes.length],
+					] as const satisfies readonly (readonly [MessageKey, number])[]
 				).map(([k, v]) => (
 					<div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
-						<span>{k}</span>
+						<span>{t(k)}</span>
 						<span style={{ font: `12px ${T.mono}`, color: T.ink }}>{v}</span>
 					</div>
 				))}
@@ -484,6 +500,7 @@ function PoiInspector({
 	poi: MapPoiView;
 	announce: (m: string) => void;
 }) {
+	const { t } = useI18n();
 	const [label, setLabel] = useState(poi.label);
 	const [notes, setNotes] = useState(poi.notes);
 	const [linkType, setLinkType] = useState(poi.linkedEntityType ?? '');
@@ -504,35 +521,34 @@ function PoiInspector({
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-			<Section title="Point of interest">
-				<Field label="Label">
+			<Section title={t('mapInspector.poi')}>
+				<Field label={t('mapInspector.label')}>
 					<Input
 						value={label}
 						onChange={(e: { target: { value: string } }) => setLabel(e.target.value)}
 						onBlur={() => label.trim() && label !== poi.label && patch({ label: label.trim() })}
 					/>
 				</Field>
-				<Field label="Category">
+				<Field label={t('mapInspector.category')}>
 					<Select
 						value={poi.category}
-						options={POI_CATEGORIES.map((c) => ({ value: c, label: c }))}
+						options={POI_CATEGORIES.map((c) => ({
+							value: c,
+							label: t(`mapInspector.poiCategory.${c}` as MessageKey),
+						}))}
 						onChange={(e: { target: { value: string } }) => patch({ category: e.target.value })}
 					/>
 				</Field>
-				<Field label="Visibility">
+				<Field label={t('common.visibility.label')}>
 					<Select
 						value={poi.visibility}
-						options={[
-							{ value: 'dm-only', label: VIS_TEXT['dm-only'] },
-							{ value: 'player-visible', label: VIS_TEXT['player-visible'] },
-							{ value: 'shared', label: VIS_TEXT.shared },
-						]}
+						options={VIS_OPTION_KEYS.map((o) => ({ value: o.value, label: t(o.label) }))}
 						onChange={(e: { target: { value: string } }) =>
 							patch({ visibility: e.target.value as SceneVisibility })
 						}
 					/>
 				</Field>
-				<Field label="Notes" help="A player only ever sees a player-visible POI's notes.">
+				<Field label={t('mapInspector.notes')} help={t('mapInspector.notesHelp')}>
 					<Textarea
 						rows={3}
 						value={notes}
@@ -542,19 +558,19 @@ function PoiInspector({
 				</Field>
 			</Section>
 
-			<Section title="Link">
+			<Section title={t('mapInspector.link')}>
 				<div style={{ display: 'flex', gap: 8 }}>
-					<Field label="Entity type" style={{ flex: 1 }}>
+					<Field label={t('mapInspector.entityType')} style={{ flex: 1 }}>
 						<Input
 							value={linkType}
-							placeholder="e.g. note, character"
+							placeholder={t('mapInspector.entityTypePlaceholder')}
 							onChange={(e: { target: { value: string } }) => setLinkType(e.target.value)}
 						/>
 					</Field>
-					<Field label="Entity id" style={{ flex: 1 }}>
+					<Field label={t('mapInspector.entityId')} style={{ flex: 1 }}>
 						<Input
 							value={linkId}
-							placeholder="id"
+							placeholder={t('mapInspector.entityIdPlaceholder')}
 							onChange={(e: { target: { value: string } }) => setLinkId(e.target.value)}
 						/>
 					</Field>
@@ -571,7 +587,7 @@ function PoiInspector({
 						})
 					}
 				>
-					Save link
+					{t('mapInspector.saveLink')}
 				</Button>
 			</Section>
 
@@ -590,10 +606,10 @@ function PoiInspector({
 					} as never);
 					if (!ok) return;
 					editor.clearSelection();
-					announce(`POI “${poi.label}” deleted.`);
+					announce(t('mapInspector.poiDeleted', { label: poi.label }));
 				}}
 			>
-				Delete POI
+				{t('mapInspector.deletePoi')}
 			</Button>
 		</div>
 	);
@@ -609,6 +625,7 @@ function TokenInspector({
 	token: MapTokenView;
 	announce: (m: string) => void;
 }) {
+	const { t } = useI18n();
 	const [label, setLabel] = useState(token.label);
 	useEffect(() => setLabel(token.label), [token.id, token.label]);
 	const { run, actorId, mapId } = editor;
@@ -621,8 +638,8 @@ function TokenInspector({
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-			<Section title="Token">
-				<Field label="Label">
+			<Section title={t('mapInspector.token')}>
+				<Field label={t('mapInspector.label')}>
 					<Input
 						value={label}
 						onChange={(e: { target: { value: string } }) => setLabel(e.target.value)}
@@ -630,34 +647,32 @@ function TokenInspector({
 					/>
 				</Field>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-					<span style={{ font: `12.5px ${T.sans}`, color: T.sub, minWidth: 40 }}>Size</span>
+					<span style={{ font: `12.5px ${T.sans}`, color: T.sub, minWidth: 40 }}>
+						{t('mapInspector.size')}
+					</span>
 					<CommitSlider
 						min={0.5}
 						max={4}
 						step={0.5}
 						value={token.size}
-						aria-label="Token size"
+						aria-label={t('mapInspector.tokenSize')}
 						format={(v: number) => `${v}×`}
 						onCommit={(v: number) => patch({ size: v })}
 						style={{ flex: 1 }}
 						readoutStyle={{ font: `12px ${T.mono}`, color: T.ink }}
 					/>
 				</div>
-				<Field label="Visibility">
+				<Field label={t('common.visibility.label')}>
 					<Select
 						value={token.visibility}
-						options={[
-							{ value: 'dm-only', label: VIS_TEXT['dm-only'] },
-							{ value: 'player-visible', label: VIS_TEXT['player-visible'] },
-							{ value: 'shared', label: VIS_TEXT.shared },
-						]}
+						options={VIS_OPTION_KEYS.map((o) => ({ value: o.value, label: t(o.label) }))}
 						onChange={(e: { target: { value: string } }) =>
 							patch({ visibility: e.target.value as SceneVisibility })
 						}
 					/>
 				</Field>
 				<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-					{token.linkedActorId ? 'Linked to an actor.' : 'Not linked to an actor.'}
+					{token.linkedActorId ? t('mapInspector.linkedActor') : t('mapInspector.notLinkedActor')}
 				</div>
 			</Section>
 
@@ -674,10 +689,10 @@ function TokenInspector({
 					} as never);
 					if (!ok) return;
 					editor.clearSelection();
-					announce(`Token “${token.label}” deleted.`);
+					announce(t('mapInspector.tokenDeleted', { label: token.label }));
 				}}
 			>
-				Delete token
+				{t('mapInspector.deleteToken')}
 			</Button>
 		</div>
 	);
@@ -691,6 +706,7 @@ function MultiInspector({
 	editor: MapEditorApi;
 	announce: (m: string) => void;
 }) {
+	const { t } = useI18n();
 	const { run, actorId, mapId } = editor;
 	const pois = editor.map?.pois ?? [];
 	const tokens = editor.map?.tokens ?? [];
@@ -774,11 +790,12 @@ function MultiInspector({
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-			<Section title={`${editor.selection.length} selected`}>
+			<Section title={t('mapInspector.selectedCount', { count: editor.selection.length })}>
 				<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
-					{selectedPois.length} POI{selectedPois.length === 1 ? '' : 's'} · {selectedTokens.length}{' '}
-					token
-					{selectedTokens.length === 1 ? '' : 's'}
+					{t('mapInspector.selectionBreakdown', {
+						pois: selectedPois.length,
+						tokens: selectedTokens.length,
+					})}
 				</div>
 				<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
 					<Button
@@ -787,7 +804,7 @@ function MultiInspector({
 						icon="dm-only"
 						onClick={() => setVisibility('dm-only')}
 					>
-						DM only
+						{t('common.visibility.dmOnly')}
 					</Button>
 					<Button
 						variant="secondary"
@@ -795,11 +812,11 @@ function MultiInspector({
 						icon="visibility-players"
 						onClick={() => setVisibility('player-visible')}
 					>
-						Player visible
+						{t('common.visibility.playerVisible')}
 					</Button>
 				</div>
 				<Button variant="danger" size="sm" icon="delete" onClick={deleteAll}>
-					Delete selection
+					{t('mapInspector.deleteSelection')}
 				</Button>
 			</Section>
 		</div>
