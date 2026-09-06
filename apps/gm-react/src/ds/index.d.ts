@@ -152,3 +152,5 @@ export const SpellSlots: DSComponent;
 export const EmptyState: DSComponent;
 export const ProgressMeter: DSComponent;
 export const Skeleton: DSComponent;
+/* RC-SYS-3.1 */
+export const SystemPackageCard: DSComponent;

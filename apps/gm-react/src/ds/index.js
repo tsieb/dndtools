@@ -59,3 +59,5 @@ export * from './components/spell/SpellSlots.jsx';
 export * from './components/system/EmptyState.jsx';
 export * from './components/system/ProgressMeter.jsx';
 export * from './components/system/Skeleton.jsx';
+/* RC-SYS-3.1 */
+export * from './components/system/SystemPackageCard.jsx';

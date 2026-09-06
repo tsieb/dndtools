@@ -34,9 +34,13 @@ import { useI18n } from '../../i18n';
  *
  * REAL — the Object types tab renders the Core's declared vault-object schema registry
  * (`listVaultObjectSchemas`) with live per-subtype counts from the actor-filtered content read; the
- * System tab runs the real `previewSystemSwitch` dry-run and applies through the real
- * `widget.package.switch-system` command (fail-closed: a non-migratable vault or an unacknowledged
- * destructive drop blocks the switch); the Theme studio persists the preset choice through the same
+ * System tab is the SYSTEM PACKAGE PICKER (RC-SYS-3.1) over the packages installed in the `systems`
+ * slice — each card describes what that package declares, choosing one runs the real
+ * `previewSystemPackageSelect` dry-run and applies through `system.select`, "Build your own"
+ * dispatches `system.fork`, and the widget-package switch (`previewSystemSwitch` gating
+ * `widget.package.switch-system`) keeps its own section below the gallery. Both are fail-closed: a
+ * non-migratable vault or an unacknowledged destructive drop blocks the switch. The Theme studio
+ * persists the preset choice through the same
  * mechanism Settings → Appearance uses and lists the LIVE token values of the active preset.
  *
  * HONEST LIMITS (no core command — each panel says so, no fake controls):
