@@ -70,6 +70,27 @@ reading a live agent log — is on the dashboard. It writes `config.json` in the
 `PARTIAL <id>: …` lands a green part and keeps the story open; `HANDOFF` lines go to the events.
 A story that fails `give_up_after` runs is retired to `skipped(loop …)` — reopen it on the dashboard.
 
+## Machine budget
+
+Vitest and Playwright both default to "use every core", and every slot runs both — the agent
+while it works, the wrapper at the gates — so five slots once meant 80 Node forks, 40 Chromiums
+and an ffmpeg per browser on a 16-core box. `config.resources` bounds that:
+
+| Key | Default (16 cores) | What |
+| --- | --- | --- |
+| `heavy_jobs` | 2 | verify/promotion gates running at the same time across ALL slots (flock semaphore on `state/heavy-N.lock`; a slot past it shows `queued` on the dashboard) |
+| `test_workers` | 3 | Vitest forks per run — exported as `DNDTOOLS_TEST_WORKERS`, repeated as `--maxWorkers` on the gates |
+| `pw_workers` | 2 | Playwright workers per slot run — exported as `DNDTOOLS_PW_WORKERS`, repeated as `--workers` on the named-spec gate |
+| `promote_pw_workers` | 4 | the full-suite promotion gate's Playwright workers |
+| `nice` | 10 | the runner renices itself (agent, its commands, gates inherit); the unit also sets `Nice=10` |
+
+The repo's `vitest.workers.ts` and `playwright.config.ts` read the two `DNDTOOLS_*_WORKERS`
+variables, so the agent's own test runs are capped too, and video recording is off unless
+`DNDTOOLS_E2E_VIDEO=1`. The briefing tells the agent to run only the named specs and the changed
+package's unit suite; the full suite is the promotion gate's job. Edit `resources` in
+`config.json`; slots pick it up at their next run (the runner itself needs a restart for a new
+`run-loop.sh`).
+
 ## Token economics
 
 The dashboard's metrics table groups `runs.jsonl` by model, size and lane: tokens per landed

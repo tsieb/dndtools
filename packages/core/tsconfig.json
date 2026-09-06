@@ -15,6 +15,8 @@
 		"isolatedModules": true,
 		"allowImportingTsExtensions": true,
 		"noEmit": true,
+		"incremental": true,
+		"tsBuildInfoFile": "node_modules/.cache/tsc/core.tsbuildinfo",
 		"types": ["node"],
 		"sourceMap": true,
 		"rootDir": "."

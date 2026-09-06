@@ -17,6 +17,13 @@ CTL="${LOOP_CTL:-$HOME/Programming/dndtools-loop}"
 RCL="$HERE/rcloop.py"
 export LOOP_CTL="$CTL" LOOP_SLOT="$SLOT"
 export PATH="$HOME/.local/bin:$PATH"
+# node/pnpm live under fnm, which systemd's PATH does not know; the default alias is stable.
+if ! command -v pnpm >/dev/null 2>&1; then
+  for d in "$HOME/.local/share/fnm/aliases/default/bin" "$HOME/.local/share/fnm/node-versions"/*/installation/bin; do
+    [ -x "$d/pnpm" ] && { export PATH="$d:$PATH"; break; }
+  done
+fi
+command -v pnpm >/dev/null 2>&1 || { echo "pnpm not found on PATH" >&2; exit 2; }
 export GIT_EDITOR=true GIT_SEQUENCE_EDITOR=true GIT_MERGE_AUTOEDIT=no CI=""
 
 WT="$CTL/wt-$SLOT"
@@ -28,7 +35,7 @@ EVENTS="$CTL/events.log"
 STOPFILE="$CTL/STOP"; STOPSLOT="$CTL/STOP-$SLOT"; PAUSEFILE="$CTL/PAUSE"
 mkdir -p "$SD" "$LOGS" "$SALVAGE" "$CTL/state"
 
-log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [slot-$SLOT] $*" | tee -a "$SUMMARY"; }
+log() { local line="[$(date '+%Y-%m-%d %H:%M:%S')] [slot-$SLOT] $*"; echo "$line" >> "$SUMMARY"; [ -t 1 ] && echo "$line"; return 0; }
 event() { log "$*"; echo "[$(date '+%Y-%m-%d %H:%M:%S')] [slot-$SLOT] $*" >> "$EVENTS"; }
 stopping() { [ -f "$STOPFILE" ] || [ -f "$STOPSLOT" ]; }
 hb() { python3 - "$SD/heartbeat.json" "$1" "${2:-}" "${3:-}" "${4:-}" <<'PY'
@@ -50,6 +57,31 @@ load_slot_env
 BRANCH="$LOOP_BRANCH"; PROMOTE_TO="$LOOP_PROMOTE_TO"
 BACKEND_SH="$HERE/lib/backend-$LOOP_BACKEND.sh"
 LIMIT_BACKOFF=1800; MAX_WAIT=$((3 * 86400)); VERIFY_TIMEOUT=$((50 * 60))
+
+# Everything this runner spawns — the agent, the commands it runs, the gates — at low priority, so
+# five slots verifying at once never starve the owner's interactive session.
+renice -n "${LOOP_NICE:-10}" -p $$ >/dev/null 2>&1 || true
+command -v ionice >/dev/null 2>&1 && ionice -c2 -n7 -p $$ >/dev/null 2>&1 || true
+
+# Cross-slot semaphore for the heavy verifications (unit suites, Playwright, build): at most
+# LOOP_HEAVY_JOBS of them run at the same time across ALL slots. flock on numbered lock files —
+# a lock dies with its holder, so a killed slot never wedges the others.
+HEAVY_FD=""
+heavy_acquire() {
+  local n="${LOOP_HEAVY_JOBS:-2}" i fd waited=0
+  [ -n "$HEAVY_FD" ] && return 0
+  while true; do
+    for ((i = 1; i <= n; i++)); do
+      exec {fd}>"$CTL/state/heavy-$i.lock"
+      if flock -n "$fd"; then HEAVY_FD="$fd"; [ "$waited" -gt 0 ] && log "  verification slot $i free after ${waited}s"; return 0; fi
+      exec {fd}>&-
+    done
+    [ "$waited" = 0 ] && log "  all $n verification slots busy — queued"
+    hb queued "${ITEM_ID:-}" "" "waiting for one of $n verification slots (${waited}s)"
+    sleep 20; waited=$(( waited + 20 ))
+  done
+}
+heavy_release() { [ -n "$HEAVY_FD" ] || return 0; flock -u "$HEAVY_FD"; exec {HEAVY_FD}>&-; HEAVY_FD=""; }
 
 # ------------------------------------------------------------------------------------ guards
 if [ -f "$SD/runner.json" ] && kill -0 "$(jget "$SD/runner.json" pid)" 2>/dev/null; then
@@ -108,7 +140,11 @@ ensure_branch() {
     rm -rf "$WT/tools/loop"; cp -r "$HERE" "$WT/tools/loop"; rm -rf "$WT/tools/loop/__pycache__"
     git -C "$WT" add docs/planning tools/loop
     git -C "$WT" commit -q -m "chore(loop): seed the RC roadmap and the autonomous loop tooling" -m "Committed by the loop wrapper so every slot reads one roadmap." \
-      && git -C "$WT" push origin "HEAD:refs/heads/$BRANCH" >/dev/null 2>&1 && git -C "$WT" fetch origin -q || { log "FATAL: seeding failed"; return 1; }
+      && git -C "$WT" push origin "HEAD:refs/heads/$BRANCH" >/dev/null 2>&1 || {
+        git -C "$WT" fetch origin -q
+        git -C "$WT" cat-file -e "origin/$BRANCH:docs/planning/RC_ROADMAP.md" 2>/dev/null && { log "another slot seeded first — using its commit"; git -C "$WT" reset -q --hard "origin/$BRANCH"; return 0; }
+        log "FATAL: seeding failed"; return 1; }
+    git -C "$WT" fetch origin -q
   fi
 }
 
@@ -187,8 +223,10 @@ PY
 
 changed_files() { git -C "$WT" diff --name-only "$1" HEAD 2>/dev/null; }
 
-# Gates by what changed — every one is the wrapper's, none costs model tokens.
-verify_tree() {
+# Gates by what changed — every one is the wrapper's, none costs model tokens. The heavy ones
+# (everything after prettier) run under the cross-slot semaphore with explicit worker caps.
+verify_tree() { heavy_acquire; verify_tree_gates "$@"; local r=$?; heavy_release; return $r; }
+verify_tree_gates() {
   local base="$1" ok=1 files code=0 core=0 app=0 cloud=0 tooling=0 docsreq=0 specs=() sp
   VLOG="$LOGS/run-$RUNTAG-verify$2.log"; : > "$VLOG"
   files="$(changed_files "$base")"
@@ -212,14 +250,15 @@ verify_tree() {
   fi
   if [ $code = 1 ]; then run typecheck pnpm typecheck || ok=0; fi
   if [ $ok = 1 ] && [ $code = 1 ]; then run lint pnpm lint || ok=0; fi
-  if [ $ok = 1 ] && [ $core = 1 ]; then run test:critical pnpm test:critical || ok=0; fi
-  if [ $ok = 1 ] && [ $app = 1 ]; then run test:app pnpm test:app || ok=0; fi
-  if [ $ok = 1 ] && [ $cloud = 1 ]; then run test:cloud pnpm test:cloud || ok=0; fi
-  if [ $ok = 1 ] && [ $tooling = 1 ]; then run test:tooling pnpm test:tooling || ok=0; fi
+  local vw="--maxWorkers=${DNDTOOLS_TEST_WORKERS:-3}" pw="--workers=${DNDTOOLS_PW_WORKERS:-2}"
+  if [ $ok = 1 ] && [ $core = 1 ]; then run test:critical pnpm test:critical "$vw" || ok=0; fi
+  if [ $ok = 1 ] && [ $app = 1 ]; then run test:app pnpm test:app "$vw" || ok=0; fi
+  if [ $ok = 1 ] && [ $cloud = 1 ]; then run test:cloud pnpm test:cloud "$vw" || ok=0; fi
+  if [ $ok = 1 ] && [ $tooling = 1 ]; then run test:tooling pnpm test:tooling "$vw" || ok=0; fi
   if [ $ok = 1 ] && [ $app = 1 ] && [ "$LOOP_E2E_NAMED" = 1 ]; then
     for sp in $ITEM_SPECS; do [ -f "$WT/apps/gm-react/tests/e2e/$sp" ] && specs+=("tests/e2e/$sp"); done
     if [ "${#specs[@]}" -gt 0 ]; then
-      run e2e pnpm --filter @dndtools/gm-react exec playwright test "${specs[@]}" --project=desktop-chromium --project=mobile-chromium || ok=0
+      run e2e pnpm --filter @dndtools/gm-react exec playwright test "${specs[@]}" --project=desktop-chromium --project=mobile-chromium "$pw" || ok=0
     fi
   fi
   if [ $ok = 1 ] && { [ $app = 1 ] || [ $core = 1 ]; } && [[ ",$LOOP_BUILD_FOR," == *",$ITEM_SIZE,"* ]]; then run build pnpm build || ok=0; fi
@@ -269,10 +308,20 @@ maybe_promote() {
       git -C "$WT" push origin "HEAD:refs/heads/$BRANCH" >/dev/null 2>&1 && new="$(git -C "$WT" rev-parse HEAD)"
   fi
   plog="$LOGS/promote-$(date +%Y%m%d-%H%M%S).log"; : > "$plog"
-  case "$LOOP_PROMOTE_GATE" in
-    e2e)   ( cd "$WT" && timeout 3600 pnpm typecheck && timeout 3600 pnpm build && timeout 5400 pnpm e2e ) >>"$plog" 2>&1 || { event "❌ promotion gate ($LOOP_PROMOTE_GATE) FAILED on $BRANCH — see $plog"; echo "{\"at\": $(date +%s), \"result\": \"gate failed\", \"log\": \"$plog\"}" > "$CTL/state/promote.json"; return 0; } ;;
-    build) ( cd "$WT" && timeout 3600 pnpm typecheck && timeout 3600 pnpm build ) >>"$plog" 2>&1 || { event "❌ promotion gate (build) FAILED on $BRANCH — see $plog"; echo "{\"at\": $(date +%s), \"result\": \"gate failed\", \"log\": \"$plog\"}" > "$CTL/state/promote.json"; return 0; } ;;
-  esac
+  # The full suite is the heaviest thing the loop runs: it takes a verification slot like any gate
+  # and its own (larger) Playwright worker budget.
+  promote_gate() {
+    case "$LOOP_PROMOTE_GATE" in
+      e2e)   ( cd "$WT" && export DNDTOOLS_PW_WORKERS="${LOOP_PROMOTE_PW_WORKERS:-4}" && timeout 3600 pnpm typecheck && timeout 3600 pnpm build && timeout 5400 pnpm e2e --workers="$DNDTOOLS_PW_WORKERS" ) >>"$plog" 2>&1 ;;
+      build) ( cd "$WT" && timeout 3600 pnpm typecheck && timeout 3600 pnpm build ) >>"$plog" 2>&1 ;;
+      *)     true ;;
+    esac
+  }
+  heavy_acquire; promote_gate; gate_rc=$?; heavy_release
+  if [ "$gate_rc" != 0 ]; then
+    event "❌ promotion gate ($LOOP_PROMOTE_GATE) FAILED on $BRANCH — see $plog"
+    echo "{\"at\": $(date +%s), \"result\": \"gate failed\", \"log\": \"$plog\"}" > "$CTL/state/promote.json"; flock -u 9; return 0
+  fi
   if git -C "$WT" push origin "$new:refs/heads/$PROMOTE_TO" >>"$plog" 2>&1; then
     n="$(git -C "$WT" rev-list --count "$old..$new")"
     event "✅ promoted $BRANCH → $PROMOTE_TO: $n commit(s), ${new:0:7} (CI runs now)"
@@ -306,6 +355,9 @@ while true; do
   hb claiming
   if ! "$RCL" claim --slot "$SLOT" --run "$RUNTAG" --repo "$WT" > "$ITEM_FILE" 2>"$SD/claim.err"; then
     rm -f "$ITEM_FILE"; run=$(( run - 1 )); echo "$run" > "$SD/run-counter"
+    # A promotion due while the loop is idle (nothing claimable, or waiting out a usage limit)
+    # would otherwise never fire — maybe_promote only ran as a side effect of a finished run.
+    maybe_promote
     reason="$(python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(d.get("reason",""))' "$SD/idle.json" 2>/dev/null)"
     wait_until="$(python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(int(d.get("wait_until") or 0))' "$SD/idle.json" 2>/dev/null || echo 0)"
     hb idle "" "" "$reason"

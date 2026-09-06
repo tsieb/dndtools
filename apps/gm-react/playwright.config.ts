@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { availableParallelism } from 'node:os';
 
 // The whole-app validation harness owns the Vite process so every browser check shares the
 // same local-only server. GitHub Actions sets CI=1, where standalone Playwright runs must still
@@ -12,6 +13,23 @@ const reuseValidationServer = process.env.DNDTOOLS_PLAYWRIGHT_REUSE_MANAGED_SERV
 // other checkout's server — testing someone else's working tree and reporting it as your own.
 const port = Number(process.env.DNDTOOLS_E2E_PORT ?? 5273);
 
+// Worker cap. Playwright's default is half the logical CPUs — 8 Chromium instances on a 16-core
+// box — and several concurrent runs (the RC loop's slots, the promotion gate, an interactive run)
+// multiply that until the machine saturates and every test crawls. A quarter of the CPUs is the
+// default here; `DNDTOOLS_PW_WORKERS` sets an explicit budget (the loop gives each slot one) and
+// the CLI's `--workers` still overrides both. CI keeps its serial run.
+const workersFromEnv = Number(process.env.DNDTOOLS_PW_WORKERS);
+const workers = process.env.CI
+	? 1
+	: Number.isFinite(workersFromEnv) && workersFromEnv >= 1
+		? Math.floor(workersFromEnv)
+		: Math.max(1, Math.min(4, Math.floor(availableParallelism() / 4)));
+
+// Video is the single most expensive artifact: `retain-on-failure` still screencasts EVERY test
+// through an ffmpeg process per browser and only discards the file afterwards. Failures already
+// get a screenshot; opt back into video with DNDTOOLS_E2E_VIDEO=1 when a failure needs it.
+const video = process.env.DNDTOOLS_E2E_VIDEO === '1' ? 'retain-on-failure' : 'off';
+
 // Playwright config for the React GM app (@dndtools/gm-react).
 //
 // The specs MUST run against the Vite DEV server (`pnpm dev`, port 5273), not `vite preview`:
@@ -23,13 +41,13 @@ export default defineConfig({
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
-	workers: process.env.CI ? 1 : undefined,
+	workers,
 	reporter: [['list']],
 	use: {
 		baseURL: `http://localhost:${port}`,
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure',
-		video: 'retain-on-failure',
+		video,
 	},
 	projects: [
 		{ name: 'desktop-chromium', use: { ...devices['Desktop Chrome'] } },

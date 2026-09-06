@@ -104,5 +104,24 @@ class Result(unittest.TestCase):
         self.assertFalse(r.parse_result(p, "claude")["limit"])  # prose never trips the detector once a result exists
 
 
+class Resources(unittest.TestCase):
+    def test_slot_env_exports_the_machine_budget(self):
+        import io, contextlib, types
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            r.cmd_slot_env(types.SimpleNamespace(slot="2"))
+        env = dict(line[len("export "):].split("=", 1) for line in buf.getvalue().splitlines())
+        for k in ("LOOP_HEAVY_JOBS", "LOOP_NICE", "DNDTOOLS_TEST_WORKERS", "DNDTOOLS_PW_WORKERS", "LOOP_PROMOTE_PW_WORKERS"):
+            self.assertGreaterEqual(int(json.loads(env[k])), 1, k)
+        self.assertEqual(json.loads(env["DNDTOOLS_E2E_PORT"]), "5293")
+
+    def test_resource_env_clamps_and_merges_overrides(self):
+        env = r.resource_env({"resources": {"pw_workers": 0, "nice": 40, "heavy_jobs": 1}})
+        self.assertEqual(env["DNDTOOLS_PW_WORKERS"], 1)
+        self.assertEqual(env["LOOP_NICE"], 19)
+        self.assertEqual(env["LOOP_HEAVY_JOBS"], 1)
+        self.assertEqual(env["DNDTOOLS_TEST_WORKERS"], r.DEFAULT_CONFIG["resources"]["test_workers"])
+
+
 if __name__ == "__main__":
     unittest.main()
