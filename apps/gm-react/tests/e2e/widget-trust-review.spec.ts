@@ -12,7 +12,7 @@ import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_hel
  * from INSIDE the sandboxed frame, which is the only place that proves the grant is real.
  */
 
-const STARTER_NAME = 'Table Roller Panel';
+const STARTER_NAME = 'Table Roller';
 const STARTER_ID = 'starter.table-roller';
 const CLIPBOARD_ID = 'workspace.clipwidget';
 
@@ -155,7 +155,9 @@ test.describe('widget trust review', () => {
 		const sceneId = await createScene(page, `Review Scene ${Date.now()}`);
 		await placeWidget(page, sceneId, 'table-roller');
 		await gotoRoute(page, `/scene/${sceneId}`);
-		await expect(page.locator('iframe[data-widget-sandbox="table-roller"]')).toBeVisible();
+		// RC-WID-1.6 — the Table Roller starter is a TEMPLATE widget now (an action panel over a
+		// declared `dice.roll`), not a code shell, so what proves it placed is the template it draws.
+		await expect(page.locator('[data-testid="widget-template-action-panel"]')).toBeVisible();
 	});
 
 	test('allowing a permission in the review sheet is what unlocks it in the sandbox', async ({

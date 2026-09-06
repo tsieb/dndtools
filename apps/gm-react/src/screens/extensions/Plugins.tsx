@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import {
+	STARTER_WIDGET_LIBRARY,
 	buildWidgetPackageReviewSummary,
 	exportWidgetPackage,
-	scaffoldCustomWidgetPackageDraft,
 	type CommandResult,
+	type StarterWidgetEntry,
 	type WidgetPackageDefinition,
 } from '@dndtools/core';
 import { Badge, Button, Icon, Switch, Textarea, Toaster } from '../../ds';
@@ -49,44 +50,14 @@ const HOST_PERM_LABEL: Record<string, MessageKey> = {
 	'external-link': 'extensions.trust.perm.externalLink',
 };
 
-// Bundled starter library — packages the Core itself scaffolds (`scaffoldCustomWidgetPackageDraft`),
-// so every entry is valid by construction and still goes through the full `widget.package.install`
-// validation + trust pipeline. This is NOT a marketplace: nothing is fetched from anywhere.
-// The name and description of a starter are written into the installed package definition, so they
-// are durable vault state rather than screen copy: translating them would make what a campaign
-// stores depend on the locale the DM happened to install in. They stay in the source language.
-const STARTER_LIBRARY = [
-	{
-		packageId: 'starter.table-roller',
-		widgetType: 'table-roller',
-		name: 'Table Roller Panel',
-		desc: 'A sandboxed starter widget shell for rolling on your own random tables.',
-	},
-	{
-		packageId: 'starter.weather-tracker',
-		widgetType: 'weather-tracker',
-		name: 'Weather Tracker',
-		desc: 'A sandboxed starter widget shell for tracking travel weather scene to scene.',
-	},
-	{
-		packageId: 'starter.loot-ledger',
-		widgetType: 'loot-ledger',
-		name: 'Party Loot Ledger',
-		desc: 'A sandboxed starter widget shell for logging treasure splits between sessions.',
-	},
-] as const;
-
-function buildStarterPackage(entry: (typeof STARTER_LIBRARY)[number]): WidgetPackageDefinition {
-	const draft = scaffoldCustomWidgetPackageDraft({
-		packageId: entry.packageId,
-		widgetType: entry.widgetType,
-		displayName: entry.name,
-		description: entry.desc,
-	});
-	// The scaffolder stamps drafts as LLM-`generated`; these ship with the app, so re-stamp the
-	// provenance as `workspace` (a first-party bundled draft, not model output).
-	return { ...draft.package, authoring: { source: 'workspace', createdBy: 'starter-library' } };
-}
+// Bundled starter library — RC-WID-1.6. The seven packages live in the Core
+// (`packages/core/src/state/starter-widgets/`), because what a starter IS — its template, its data
+// queries, its declared commands — is package definition, not screen code. This tab only lists them
+// and dispatches the ordinary `widget.package.install`. This is NOT a marketplace: nothing is
+// fetched from anywhere.
+// Each starter's name and description are written into the installed package definition, so they are
+// durable vault state rather than screen copy: translating them would make what a campaign stores
+// depend on the locale the DM happened to install in. They stay in the source language.
 
 export function ExtPlugins() {
 	const { t } = useI18n();
@@ -168,13 +139,13 @@ export function ExtPlugins() {
 			);
 		});
 
-	const installStarter = (entry: (typeof STARTER_LIBRARY)[number]) =>
+	const installStarter = (entry: StarterWidgetEntry) =>
 		guard(async () => {
 			finish(
 				await runtime.dispatch({
 					type: 'widget.package.install',
 					actorId: dmId,
-					payload: { package: buildStarterPackage(entry) },
+					payload: { package: entry.build() },
 				}),
 				t('extensions.plugins.installedStarter', { name: entry.name }),
 			);
@@ -460,7 +431,7 @@ export function ExtPlugins() {
 						gap: 12,
 					}}
 				>
-					{STARTER_LIBRARY.map((entry) => {
+					{STARTER_WIDGET_LIBRARY.map((entry) => {
 						const rec = runtime.state.widgets.packages[entry.packageId];
 						const installed = !!rec && !rec.removedAt;
 						return (
@@ -480,10 +451,18 @@ export function ExtPlugins() {
 									<span style={{ font: `600 13px ${T.sans}`, flex: 1, minWidth: 0 }}>
 										{entry.name}
 									</span>
-									<Badge status="info">{t('extensions.plugins.sandboxed')}</Badge>
+									{/* Which half of the runtime this one is: code in the sandbox, or the host's own
+									    template renderer drawing declared data. */}
+									<Badge status="info">
+										{t(
+											entry.shipsCode
+												? 'extensions.plugins.sandboxed'
+												: 'extensions.plugins.starterNoCode',
+										)}
+									</Badge>
 								</div>
 								<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub, flex: 1 }}>
-									{entry.desc}
+									{entry.description}
 								</div>
 								{installed ? (
 									<Badge status="success" icon="check">

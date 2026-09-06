@@ -2065,6 +2065,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.plugins.starterIntro':
 		'Estos paquetes vienen con Lamplight y no necesitan conexión a la red. Cada uno se instala desactivado y con todos los permisos del anfitrión bloqueados; revísalo en la lista de instalados antes de activarlo.',
 	'extensions.plugins.sandboxed': 'aislado',
+	'extensions.plugins.starterNoCode': 'sin código',
 	'extensions.plugins.installed': 'Instalado',
 	'extensions.plugins.install': 'Instalar',
 	'extensions.plugins.installLabel': 'Instalar {name}',

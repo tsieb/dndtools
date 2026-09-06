@@ -2009,6 +2009,7 @@ export const en = {
 	'extensions.plugins.starterIntro':
 		'These packages are bundled with Lamplight and need no network connection. Each installs disabled with all host permissions blocked; review it in the installed list before enabling it.',
 	'extensions.plugins.sandboxed': 'sandboxed',
+	'extensions.plugins.starterNoCode': 'no code',
 	'extensions.plugins.installed': 'Installed',
 	'extensions.plugins.install': 'Install',
 	'extensions.plugins.installLabel': 'Install {name}',

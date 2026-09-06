@@ -5471,3 +5471,23 @@ export type {
 export { applySystemAdvantage, readRollUnderSystem } from './state/dice';
 export type { ResolvedTurnModel } from './state/combat-tracker';
 export { orderForTurnModel, resolveTurnModel } from './state/combat-tracker';
+
+// ── RC-WID-1.6 — the bundled starter widget library ─────────────────────────────────────────────
+// Seven real packages the widget manager installs instead of three empty shells: one per template
+// family (`action-panel`, `tracker` ×2, `scene-message`, `stat-block`, `data-table`) plus the
+// sandboxed `custom-html-js` Torchlight card. Each is built by the ordinary scaffolder and installed
+// through the ordinary `widget.package.install` pipeline — none of them is privileged.
+export type { StarterWidgetEntry } from './state/starter-widgets';
+export {
+	COUNTDOWN_CLOCK_STARTER,
+	LOOT_LEDGER_STARTER,
+	NPC_QUICK_CARD_STARTER,
+	RUMOR_BOARD_STARTER,
+	STARTER_PLACEMENT,
+	STARTER_WIDGET_LIBRARY,
+	TABLE_ROLLER_STARTER,
+	TORCHLIGHT_STARTER,
+	WEATHER_TRACKER_STARTER,
+	buildStarterWidgetPackage,
+	findStarterWidget,
+} from './state/starter-widgets';
