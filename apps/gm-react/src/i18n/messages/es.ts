@@ -18,6 +18,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'common.action.copy': 'Copiar',
 	'common.action.undo': 'Deshacer',
 	'common.action.show': 'Mostrar',
+	'common.action.add': 'Añadir',
+	'common.badge.recommended': 'Recomendado',
 	'common.action.showAgain': 'Mostrar de nuevo',
 	'common.state.loading': 'Cargando',
 	'common.state.copied': 'Copiado',
@@ -38,6 +40,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'nav.playerView': 'Vista de jugador',
 	'nav.joinTable': 'Unirse a una mesa',
 	'nav.hostTable': 'Organizar una mesa en vivo',
+	'nav.scenes': 'Escenas',
+	'nav.atlas': 'Atlas',
+	'nav.knowledge': 'Conocimiento',
 	'settings.title': 'Configuración',
 	'settings.appearance': 'Apariencia',
 	'settings.accessibility': 'Accesibilidad',
@@ -184,4 +189,123 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'status.online': 'En línea',
 	'status.away': 'Ausente',
 	'status.offline': 'Desconectado',
+	'onboarding.dialogLabel': 'Configuración inicial',
+	'onboarding.skip': 'Omitir la configuración',
+	'onboarding.stepCounter': 'Paso {current} de {total}',
+	'onboarding.railProgress': '{title} · {current}/{total}',
+	'onboarding.timeEstimate': 'Unos 2 minutos hasta tu primera escena',
+	'onboarding.getStarted': 'Empezar',
+	'onboarding.continue': 'Continuar',
+	'onboarding.chooseToContinue': 'Elige una opción para continuar',
+	'onboarding.blockedNoPrivacy': 'Elige cómo guarda este baúl tu campaña para poder continuar',
+	'onboarding.blockedNoAck': 'Escribe “{phrase}” exactamente para continuar',
+	'onboarding.clearingVault': 'Vaciando el baúl…',
+	'onboarding.restoringSample': 'Restaurando el ejemplo…',
+	'onboarding.clearAndStartFresh': 'Borrar el ejemplo y empezar de cero',
+	'onboarding.enterCommandCenter': 'Entrar al Centro de mando',
+	'onboarding.step.welcome': 'Bienvenida',
+	'onboarding.step.vault': 'Tu baúl',
+	'onboarding.step.privacy': 'Privacidad',
+	'onboarding.step.experience': 'Experiencia',
+	'onboarding.step.tools': 'Herramientas',
+	'onboarding.step.players': 'Tu grupo',
+	'onboarding.step.ready': 'Listo',
+	'onboarding.welcome.title': 'Dirige una mesa mejor.',
+	'onboarding.welcome.body':
+		'Lamplight es un centro de mando a la luz de las velas para el juego en vivo — combate, dados, mapas, constantes del grupo y lo que ven tus jugadores, todo en un mismo tablero espacial. Vamos a preparar el tuyo.',
+	'onboarding.welcome.anySystem': 'Cualquier sistema — D&D 5e, narrativo o el tuyo propio',
+	'onboarding.welcome.localFirst': 'Local primero; copia en la nube solo si tú lo eliges',
+	'onboarding.welcome.playerSafe': 'Seguro para jugadores desde el diseño',
+	'onboarding.vault.groupLabel': 'Elección de baúl',
+	'onboarding.vault.title': '¿Dónde debe vivir tu mundo?',
+	'onboarding.vault.introEmpty':
+		'Tu baúl vive en este dispositivo — cada nota, mapa y personaje. Este dispositivo empezó de cero, así que el baúl está vacío por ahora.',
+	'onboarding.vault.introSample':
+		'Tu baúl vive en este dispositivo — cada nota, mapa y personaje. La campaña de ejemplo ya está cargada, así que nada empieza vacío.',
+	'onboarding.vault.loadSample': 'Cargar la campaña de ejemplo',
+	'onboarding.vault.keepSample': 'Conservar la campaña de ejemplo',
+	'onboarding.vault.sampleDescEmpty':
+		'Carga la mesa de ejemplo — escenas, grupo, mapas y notas — para que explores sin que nada empiece vacío. Todo se puede editar o eliminar después.',
+	'onboarding.vault.sampleDescLoaded':
+		'Explora con una mesa ya montada: {scenes} escenas · {pcs} PJ · {npcs} PNJ · {maps, plural, one {# mapa} other {# mapas}} · {notes} notas. Todo se puede editar o eliminar después.',
+	'onboarding.vault.fresh': 'Empezar de cero',
+	'onboarding.vault.freshDescEmpty':
+		'Deja vacío el baúl de este dispositivo. Tu propia campaña desde una página en blanco.',
+	'onboarding.vault.freshDescLoaded':
+		'Borra la campaña de ejemplo de este dispositivo y arranca un baúl vacío. Tu propia campaña desde una página en blanco.',
+	'onboarding.vault.importHint':
+		'Importar desde Obsidian, Google Docs o una exportación de Roll20 está en Ajustes → Conexiones del baúl.',
+	'onboarding.privacy.groupLabel': 'Modo de privacidad del baúl',
+	'onboarding.privacy.title': '¿Quién puede leer tu mundo?',
+	'onboarding.privacy.intro':
+		'Esto decide cómo se guarda tu campaña si algún día usas funciones en la nube. No hay valor por defecto — la elección es tuya y puedes cambiarla después en Ajustes → Sincronización.',
+	'onboarding.privacy.privateTitle': 'Baúl privado (cifrado de extremo a extremo)',
+	'onboarding.privacy.privateDesc':
+		'Tu campaña se cifra en tus dispositivos antes de que nada salga de ellos, y solo tus dispositivos tienen las claves — el servicio nunca puede leerla. Las funciones que dependen del servidor (IA de campaña, búsqueda en la nube, abrir tu campaña desde cualquier navegador) no estarán disponibles para este baúl.',
+	'onboarding.privacy.cloudTitle': 'Baúl mejorado con la nube',
+	'onboarding.privacy.cloudDesc':
+		'Cifrado en tránsito y en reposo con claves gestionadas por el servicio, y legible por el servicio para habilitar próximas funciones — IA de campaña, búsqueda en la nube y acceso desde cualquier navegador. Hoy tus datos siguen cifrados de extremo a extremo; esto registra tu consentimiento para cuando lleguen esas funciones.',
+	'onboarding.privacy.noRecoveryTitle': 'Nadie puede recuperar esto por ti',
+	'onboarding.privacy.noRecoveryBody':
+		'Las copias en la nube de un baúl privado solo se pueden abrir con claves guardadas en tus dispositivos. Si pierdes todos tus dispositivos sin exportar una clave de recuperación (Ajustes → Sincronización), la copia en la nube se pierde para siempre — el servicio no puede restablecerla ni restaurarla.',
+	'onboarding.privacy.ackPrompt': 'Escribe {phrase} para confirmar que lo entiendes.',
+	'onboarding.privacy.ackFieldLabel': 'Escribe “{phrase}” para confirmar',
+	'onboarding.privacy.ackMismatch': 'Eso no coincide — escribe “{phrase}” exactamente.',
+	'onboarding.experience.groupLabel': 'Complejidad de la experiencia',
+	'onboarding.experience.title': '¿Cuánto quieres ver en pantalla?',
+	'onboarding.experience.intro':
+		'Puedes cambiarlo cuando quieras en Ajustes. Solo afecta a cuánto se muestra — nunca a lo que puedes hacer.',
+	'onboarding.experience.beginner': 'Principiante',
+	'onboarding.experience.beginnerBlurb':
+		'Solo lo esencial. Indicaciones guiadas, ajustes preestablecidos en vez de campos y paneles avanzados ocultos hasta que los pidas.',
+	'onboarding.experience.standard': 'Estándar',
+	'onboarding.experience.standardBlurb':
+		'El equipo completo de mesa con valores sensatos. Aquí vive la mayoría de DM.',
+	'onboarding.experience.expert': 'Experto',
+	'onboarding.experience.expertBlurb':
+		'Todos los controles avanzados, automatización, permisos, extensiones y diagnósticos.',
+	'onboarding.tools.groupLabel': 'Herramientas opcionales',
+	'onboarding.tools.title': '¿Qué herramientas opcionales quieres?',
+	'onboarding.tools.intro':
+		'Elige qué pertenece a tu espacio de trabajo. Después solo podrás cambiarlo desde Ajustes.',
+	'onboarding.tools.completeTitle': 'Asistente y generadores',
+	'onboarding.tools.completeDesc':
+		'Muestra el asistente de campaña opcional y su configuración, junto a los generadores aleatorios integrados.',
+	'onboarding.tools.generatorsTitle': 'Solo generadores',
+	'onboarding.tools.generatorsDesc':
+		'Conserva los generadores integrados y sin conexión de Lamplight, como la generación de mapas. No se muestra ningún asistente ni control de modelos.',
+	'onboarding.tools.noneTitle': 'Ninguna',
+	'onboarding.tools.noneBadge': 'Privado por defecto',
+	'onboarding.tools.noneDesc':
+		'Mantén todas las herramientas de IA opcionales fuera de la vista. No aparece ninguna interfaz de proveedor ni de asistente fuera de Ajustes.',
+	'onboarding.players.title': 'Trae a tu grupo.',
+	'onboarding.players.intro':
+		'Si quieres, anota quién está en tu mesa. Estos datos se quedan en este dispositivo; la configuración inicial no envía invitaciones.',
+	'onboarding.players.field': 'Nombre o correo del jugador',
+	'onboarding.players.savedOnDevice': 'Guardado en este dispositivo',
+	'onboarding.players.remove': 'Quitar a {name}',
+	'onboarding.players.empty':
+		'Todavía no has anotado jugadores — no pasa nada; puedes empezar preparando en solitario.',
+	'onboarding.ready.title': 'Ya puedes dirigir.',
+	'onboarding.ready.intro':
+		'Tu lista de preparación de mesa, leída en vivo desde el baúl — salta a cualquier punto pendiente.',
+	'onboarding.ready.freshWarning':
+		'Elegiste empezar de cero, así que terminar la configuración borra la campaña de ejemplo. Los puntos de abajo describen el baúl de ejemplo que estás a punto de reemplazar.',
+	'onboarding.ready.rowFresh':
+		'{label} — borrar la campaña de ejemplo, terminar la configuración y abrir {dest}',
+	'onboarding.ready.row': '{label} — terminar la configuración y abrir {dest}',
+	'onboarding.ready.sceneStaged': 'Hay una escena preparada',
+	'onboarding.ready.partyRostered': 'El grupo está en la lista',
+	'onboarding.ready.mapInAtlas': 'Hay un mapa en el atlas',
+	'onboarding.ready.notesStarted': 'Notas de sesión empezadas',
+	'onboarding.ready.goLive': 'Entrar en vivo desde Sesión',
+	'onboarding.ready.tourBoardTitle': 'Este es tu Centro de mando',
+	'onboarding.ready.tourBoardBody':
+		'El tablero de widgets de juego en vivo — sesión, combate, dados, mapas. Todo lo que diriges en la mesa empieza aquí.',
+	'onboarding.ready.tourPaletteTitle': 'Pulsa ⌘K para ir a cualquier sitio',
+	'onboarding.ready.tourPaletteBody':
+		'Busca cualquier entidad de tu baúl — notas, mapas, documentos, tiradas — sin salir de la mesa.',
+	'onboarding.ready.tourPlayerSafeTitle': 'Seguro para jugadores desde el diseño',
+	'onboarding.ready.tourPlayerSafeBody':
+		'Previsualiza como cualquier jugador desde la barra superior. El contenido solo para el DM sigue oculto en la vista de ese jugador.',
 };

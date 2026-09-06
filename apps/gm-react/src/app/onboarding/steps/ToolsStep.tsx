@@ -1,3 +1,4 @@
+import { useI18n } from '../../../i18n';
 import { T, radioGroupKeyDown } from '../../screen-kit';
 import { ChoiceCard } from '../ChoiceCard';
 import { type AiUsagePreference } from '../../../ai/usagePreference';
@@ -10,40 +11,41 @@ export function ToolsStep({
 	aiUsage: AiUsagePreference;
 	setAiUsage: (value: AiUsagePreference) => void;
 }) {
+	const { t } = useI18n();
 	return (
 		<div
 			style={{ paddingTop: 14 }}
 			role="radiogroup"
-			aria-label="Optional tools"
+			aria-label={t('onboarding.tools.groupLabel')}
 			onKeyDown={radioGroupKeyDown}
 		>
 			<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>
-				Which optional tools do you want?
+				{t('onboarding.tools.title')}
 			</h2>
 			<p style={{ margin: '0 0 18px', font: `13px ${T.sans}`, color: T.ter }}>
-				Choose what belongs in your workspace. You can change this later only from Settings.
+				{t('onboarding.tools.intro')}
 			</p>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
 				<ChoiceCard
 					on={aiUsage === 'complete'}
 					icon="sparkle"
-					title="Assistant and generators"
-					desc="Show the optional campaign assistant and its setup, alongside built-in random generators."
+					title={t('onboarding.tools.completeTitle')}
+					desc={t('onboarding.tools.completeDesc')}
 					onPick={() => setAiUsage('complete')}
 				/>
 				<ChoiceCard
 					on={aiUsage === 'generation-only'}
 					icon="tool-generate"
-					title="Generators only"
-					desc="Keep Lamplight’s built-in offline generators, such as map generation. No assistant or model controls are shown."
+					title={t('onboarding.tools.generatorsTitle')}
+					desc={t('onboarding.tools.generatorsDesc')}
 					onPick={() => setAiUsage('generation-only')}
 				/>
 				<ChoiceCard
 					on={aiUsage === 'none'}
 					icon="close"
-					title="None"
-					badge="Private by default"
-					desc="Keep all optional AI tools out of sight. No provider or assistant UI appears anywhere outside Settings."
+					title={t('onboarding.tools.noneTitle')}
+					badge={t('onboarding.tools.noneBadge')}
+					desc={t('onboarding.tools.noneDesc')}
 					onPick={() => setAiUsage('none')}
 				/>
 			</div>

@@ -1,8 +1,16 @@
 import { Icon } from '../../../ds';
+import { useI18n, type MessageKey } from '../../../i18n';
 import { T } from '../../screen-kit';
 
 /** Step 1 — welcome. Extracted from Onboarding.tsx unchanged (RC-STB-2.6). */
+const PILLS: MessageKey[] = [
+	'onboarding.welcome.anySystem',
+	'onboarding.welcome.localFirst',
+	'onboarding.welcome.playerSafe',
+];
+
 export function WelcomeStep() {
+	const { t } = useI18n();
 	return (
 		<div
 			style={{
@@ -30,7 +38,7 @@ export function WelcomeStep() {
 			</span>
 			<div>
 				<h2 style={{ margin: 0, font: `700 28px ${T.disp}`, letterSpacing: '-.01em' }}>
-					Run a better table.
+					{t('onboarding.welcome.title')}
 				</h2>
 				<p
 					style={{
@@ -40,18 +48,13 @@ export function WelcomeStep() {
 						maxWidth: 440,
 					}}
 				>
-					Lamplight is a candle-lit command center for live play — combat, dice, maps, party vitals
-					and what your players see, all in one spatial board. Let's get yours set up.
+					{t('onboarding.welcome.body')}
 				</p>
 			</div>
 			<div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-				{[
-					'Any system — D&D 5e, narrative, or your own',
-					'Local-first, cloud backup only when you choose',
-					'Player-safe by design',
-				].map((t) => (
+				{PILLS.map((key) => (
 					<span
-						key={t}
+						key={key}
 						style={{
 							display: 'inline-flex',
 							alignItems: 'center',
@@ -65,7 +68,7 @@ export function WelcomeStep() {
 						}}
 					>
 						<Icon name="check" size={13} color={T.acc} />
-						{t}
+						{t(key)}
 					</span>
 				))}
 			</div>

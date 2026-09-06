@@ -1,4 +1,5 @@
 import { Icon } from '../../../ds';
+import { useI18n } from '../../../i18n';
 import { T, radioGroupKeyDown } from '../../screen-kit';
 import { ChoiceCard } from '../ChoiceCard';
 
@@ -15,43 +16,46 @@ export function VaultStep({
 	vaultFacts: { scenes: number; pcs: number; npcs: number; maps: number; notes: number };
 	vaultEmpty: boolean;
 }) {
+	const { t } = useI18n();
 	return (
 		<div
 			style={{ paddingTop: 14 }}
 			role="radiogroup"
-			aria-label="Vault choice"
+			aria-label={t('onboarding.vault.groupLabel')}
 			onKeyDown={radioGroupKeyDown}
 		>
 			<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>
-				Where should your world live?
+				{t('onboarding.vault.title')}
 			</h2>
 			<p style={{ margin: '0 0 18px', font: `13px ${T.sans}`, color: T.ter }}>
-				{vaultEmpty
-					? 'Your vault lives on this device — every note, map, and character. This device started fresh, so the vault is currently empty.'
-					: 'Your vault lives on this device — every note, map, and character. The sample campaign is already loaded so nothing starts empty.'}
+				{t(vaultEmpty ? 'onboarding.vault.introEmpty' : 'onboarding.vault.introSample')}
 			</p>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
 				<ChoiceCard
 					on={vault === 'sample'}
 					icon="scene"
-					title={vaultEmpty ? 'Load the sample campaign' : 'Keep the sample campaign'}
-					badge="Recommended"
+					title={t(vaultEmpty ? 'onboarding.vault.loadSample' : 'onboarding.vault.keepSample')}
+					badge={t('common.badge.recommended')}
 					desc={
 						vaultEmpty
-							? 'Loads the sample table — scenes, party, maps and notes — so you can explore with nothing starting empty. Everything is editable or deletable later.'
-							: `Explore with a table already set: ${vaultFacts.scenes} scenes · ${vaultFacts.pcs} PCs · ${vaultFacts.npcs} NPCs · ${vaultFacts.maps} ${vaultFacts.maps === 1 ? 'map' : 'maps'} · ${vaultFacts.notes} notes. Everything is editable or deletable later.`
+							? t('onboarding.vault.sampleDescEmpty')
+							: t('onboarding.vault.sampleDescLoaded', {
+									scenes: vaultFacts.scenes,
+									pcs: vaultFacts.pcs,
+									npcs: vaultFacts.npcs,
+									maps: vaultFacts.maps,
+									notes: vaultFacts.notes,
+								})
 					}
 					onPick={() => setVault('sample')}
 				/>
 				<ChoiceCard
 					on={vault === 'fresh'}
 					icon="add"
-					title="Start fresh"
-					desc={
-						vaultEmpty
-							? "Keeps this device's vault empty. Your own campaign from a blank page."
-							: 'Clears the sample campaign from this device and boots an empty vault. Your own campaign from a blank page.'
-					}
+					title={t('onboarding.vault.fresh')}
+					desc={t(
+						vaultEmpty ? 'onboarding.vault.freshDescEmpty' : 'onboarding.vault.freshDescLoaded',
+					)}
 					onPick={() => setVault('fresh')}
 				/>
 			</div>
@@ -65,8 +69,7 @@ export function VaultStep({
 					gap: 7,
 				}}
 			>
-				<Icon name="import" size={13} /> Importing from Obsidian, Google Docs or a Roll20 export
-				lives in Settings → Vault connections.
+				<Icon name="import" size={13} /> {t('onboarding.vault.importHint')}
 			</p>
 		</div>
 	);

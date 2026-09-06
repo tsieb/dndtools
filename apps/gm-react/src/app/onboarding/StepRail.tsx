@@ -1,4 +1,5 @@
 import { BrandLockup, Icon } from '../../ds';
+import { useI18n } from '../../i18n';
 import { T } from '../screen-kit';
 import { ONB_STEPS } from './shared';
 
@@ -14,6 +15,7 @@ export function StepRail({
 	isPhone: boolean;
 	step: (typeof ONB_STEPS)[number];
 }) {
+	const { t } = useI18n();
 	return (
 		<div
 			style={{
@@ -43,7 +45,11 @@ export function StepRail({
 				/>
 				{isPhone && (
 					<span style={{ font: `600 12px ${T.sans}`, color: T.sub }}>
-						{step.title} · {i + 1}/{ONB_STEPS.length}
+						{t('onboarding.railProgress', {
+							title: t(step.title),
+							current: i + 1,
+							total: ONB_STEPS.length,
+						})}
 					</span>
 				)}
 			</div>
@@ -93,7 +99,7 @@ export function StepRail({
 										color: on ? T.ink : T.sub,
 									}}
 								>
-									{s.title}
+									{t(s.title)}
 								</span>
 							</div>
 						);
@@ -110,7 +116,7 @@ export function StepRail({
 						color: T.ter,
 					}}
 				>
-					<Icon name="recent" size={13} /> About 2 minutes to your first scene
+					<Icon name="recent" size={13} /> {t('onboarding.timeEstimate')}
 				</div>
 			)}
 		</div>

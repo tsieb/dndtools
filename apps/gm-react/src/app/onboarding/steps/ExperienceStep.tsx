@@ -1,5 +1,6 @@
 import { DEFAULT_FEATURE_TIER, visibleFeatures, type FeatureTier } from '@dndtools/core';
 import { Badge, Icon } from '../../../ds';
+import { useI18n } from '../../../i18n';
 import { T, radioGroupKeyDown } from '../../screen-kit';
 import { COMPLEXITY_LEVELS, LEVEL_TO_TIER } from '../shared';
 
@@ -14,19 +15,19 @@ export function ExperienceStep({
 	tier: FeatureTier;
 	setTier: (tier: FeatureTier) => void;
 }) {
+	const { t } = useI18n();
 	return (
 		<div
 			style={{ paddingTop: 14 }}
 			role="radiogroup"
-			aria-label="Experience complexity"
+			aria-label={t('onboarding.experience.groupLabel')}
 			onKeyDown={radioGroupKeyDown}
 		>
 			<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>
-				How much do you want on screen?
+				{t('onboarding.experience.title')}
 			</h2>
 			<p style={{ margin: '0 0 18px', font: `13px ${T.sans}`, color: T.ter }}>
-				You can change this any time in Settings. It only affects how much is revealed — never what
-				you can do.
+				{t('onboarding.experience.intro')}
 			</p>
 			<div
 				style={{
@@ -76,11 +77,11 @@ export function ExperienceStep({
 							</span>
 							<span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
 								<span style={{ font: `700 14px ${T.disp}`, color: on ? T.acc : T.ink }}>
-									{l.name}
+									{t(l.name)}
 								</span>
-								{l.rec && !on && <Badge status="neutral">Recommended</Badge>}
+								{l.rec && !on && <Badge status="neutral">{t('common.badge.recommended')}</Badge>}
 							</span>
-							<span style={{ font: `11.5px/1.5 ${T.sans}`, color: T.sub }}>{l.blurb}</span>
+							<span style={{ font: `11.5px/1.5 ${T.sans}`, color: T.sub }}>{t(l.blurb)}</span>
 							<span style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 2 }}>
 								{reveals.slice(0, 4).map((r) => (
 									<span

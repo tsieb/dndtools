@@ -1,4 +1,5 @@
 import { Avatar, Badge, Button, IconButton, Input } from '../../../ds';
+import { useI18n } from '../../../i18n';
 import { T } from '../../screen-kit';
 import { MAX_PARTY_NOTE_CHARS } from '../shared';
 
@@ -17,12 +18,14 @@ export function PlayersStep({
 	setDraft: (value: string) => void;
 	addEmail: () => void;
 }) {
+	const { t } = useI18n();
 	return (
 		<div style={{ paddingTop: 14 }}>
-			<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>Bring your party.</h2>
+			<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>
+				{t('onboarding.players.title')}
+			</h2>
 			<p style={{ margin: '0 0 18px', font: `13px ${T.sans}`, color: T.ter }}>
-				Optionally note who is at your table. These details stay on this device; onboarding does not
-				send invitations.
+				{t('onboarding.players.intro')}
 			</p>
 			<div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
 				<Input
@@ -34,13 +37,13 @@ export function PlayersStep({
 							addEmail();
 						}
 					}}
-					placeholder="Player name or email"
-					aria-label="Player name or email"
+					placeholder={t('onboarding.players.field')}
+					aria-label={t('onboarding.players.field')}
 					maxLength={MAX_PARTY_NOTE_CHARS}
 					style={{ flex: 1, minWidth: 0 }}
 				/>
 				<Button variant="secondary" icon="add" onClick={addEmail}>
-					Add
+					{t('common.action.add')}
 				</Button>
 			</div>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -69,11 +72,11 @@ export function PlayersStep({
 							{e}
 						</span>
 						<span style={{ flex: '0 0 auto' }}>
-							<Badge status="info">Saved on this device</Badge>
+							<Badge status="info">{t('onboarding.players.savedOnDevice')}</Badge>
 						</span>
 						<IconButton
 							icon="close"
-							label={`Remove ${e}`}
+							label={t('onboarding.players.remove', { name: e })}
 							variant="ghost"
 							size="sm"
 							onClick={() => setEmails((arr) => arr.filter((_, k) => k !== j))}
@@ -82,7 +85,7 @@ export function PlayersStep({
 				))}
 				{emails.length === 0 && (
 					<div style={{ font: `12.5px ${T.sans}`, color: T.ter, padding: '10px 0' }}>
-						No players noted yet — that is fine; you can start with solo prep.
+						{t('onboarding.players.empty')}
 					</div>
 				)}
 			</div>

@@ -1,5 +1,6 @@
 import { type VaultPrivacyMode } from '@dndtools/core';
 import { Input } from '../../../ds';
+import { useI18n } from '../../../i18n';
 import { T, radioGroupKeyDown } from '../../screen-kit';
 import { ChoiceCard } from '../ChoiceCard';
 import { PRIVACY_ACK_PHRASE } from '../shared';
@@ -21,29 +22,40 @@ export function PrivacyStep({
 	ackOk: boolean;
 	ackErrorId: string;
 }) {
+	const { t } = useI18n();
+	// One translatable sentence, split around the acknowledgment phrase so the phrase keeps its
+	// emphasis and the rest of the sentence keeps its locale's word order. The phrase itself is
+	// never translated — it is what the user has to type (ADR-026).
+	const ackPrompt = t('onboarding.privacy.ackPrompt', { phrase: PRIVACY_ACK_PHRASE });
+	const [ackBefore, ackAfter = ''] = ackPrompt.split(PRIVACY_ACK_PHRASE);
 	return (
 		<div style={{ paddingTop: 14 }}>
-			<div role="radiogroup" aria-label="Vault privacy mode" onKeyDown={radioGroupKeyDown}>
-				<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>Who can read your world?</h2>
+			<div
+				role="radiogroup"
+				aria-label={t('onboarding.privacy.groupLabel')}
+				onKeyDown={radioGroupKeyDown}
+			>
+				<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>
+					{t('onboarding.privacy.title')}
+				</h2>
 				<p style={{ margin: '0 0 18px', font: `13px ${T.sans}`, color: T.ter }}>
-					This decides how your campaign is stored if you ever use cloud features. There is no
-					preset — this choice is yours, and you can change it later in Settings → Sync.
+					{t('onboarding.privacy.intro')}
 				</p>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
 					<ChoiceCard
 						on={privacy === 'private-e2ee'}
 						tabbable={privacy === 'private-e2ee' || privacy === null}
 						icon="lock"
-						title="Private vault (end-to-end encrypted)"
-						desc="Your campaign is encrypted on your devices before anything leaves them, and only your devices hold the keys — the service can never read it. Server-powered features (campaign AI, cloud search, opening your campaign from any browser) will not be available to this vault."
+						title={t('onboarding.privacy.privateTitle')}
+						desc={t('onboarding.privacy.privateDesc')}
 						onPick={() => setPrivacy('private-e2ee')}
 					/>
 					<ChoiceCard
 						on={privacy === 'cloud-enhanced'}
 						tabbable={privacy === 'cloud-enhanced'}
 						icon="unlock"
-						title="Cloud-Enhanced vault"
-						desc="Encrypted in transit and at rest with service-managed keys, and readable by the service to power upcoming features — campaign AI, cloud search, and access from any browser. Today your data is still end-to-end encrypted; this records your consent for when those features arrive."
+						title={t('onboarding.privacy.cloudTitle')}
+						desc={t('onboarding.privacy.cloudDesc')}
 						onPick={() => setPrivacy('cloud-enhanced')}
 					/>
 				</div>
@@ -59,14 +71,12 @@ export function PrivacyStep({
 					}}
 				>
 					<div style={{ font: `600 12.5px ${T.sans}`, marginBottom: 4 }}>
-						No one can recover this for you
+						{t('onboarding.privacy.noRecoveryTitle')}
 					</div>
 					<p style={{ margin: '0 0 10px', font: `12px/1.6 ${T.sans}`, color: T.sub }}>
-						Cloud backups of a Private vault can only be opened with keys held on your devices. If
-						you lose every device without exporting a recovery key (Settings → Sync), the cloud copy
-						is gone for good — the service cannot reset or restore it. Type{' '}
-						<strong style={{ color: T.ink }}>{PRIVACY_ACK_PHRASE}</strong> to confirm you
-						understand.
+						{t('onboarding.privacy.noRecoveryBody')} {ackBefore}
+						<strong style={{ color: T.ink }}>{PRIVACY_ACK_PHRASE}</strong>
+						{ackAfter}
 					</p>
 					{/* The field silently gated the whole wizard: a near-miss ("I hold the key")
 										    produced no error, no invalid state and no hint that this was what
@@ -75,7 +85,7 @@ export function PrivacyStep({
 						value={ack}
 						onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAck(e.target.value)}
 						placeholder={PRIVACY_ACK_PHRASE}
-						aria-label={`Type "${PRIVACY_ACK_PHRASE}" to confirm`}
+						aria-label={t('onboarding.privacy.ackFieldLabel', { phrase: PRIVACY_ACK_PHRASE })}
 						aria-invalid={ack.trim() !== '' && !ackOk ? true : undefined}
 						aria-describedby={ack.trim() !== '' && !ackOk ? ackErrorId : undefined}
 						maxLength={PRIVACY_ACK_PHRASE.length}
@@ -91,7 +101,7 @@ export function PrivacyStep({
 								color: 'var(--color-status-error-text)',
 							}}
 						>
-							That does not match — type “{PRIVACY_ACK_PHRASE}” exactly.
+							{t('onboarding.privacy.ackMismatch', { phrase: PRIVACY_ACK_PHRASE })}
 						</div>
 					)}
 				</div>

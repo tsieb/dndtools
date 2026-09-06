@@ -24,6 +24,8 @@ export const en = {
 	'common.action.undo': 'Undo',
 	'common.action.show': 'Show',
 	'common.action.showAgain': 'Show again',
+	'common.action.add': 'Add',
+	'common.badge.recommended': 'Recommended',
 	'common.state.loading': 'Loading',
 	'common.state.copied': 'Copied',
 	'common.field.title': 'Title',
@@ -43,6 +45,9 @@ export const en = {
 	'nav.playerView': 'Player view',
 	'nav.joinTable': 'Join a table',
 	'nav.hostTable': 'Host a live table',
+	'nav.scenes': 'Scenes',
+	'nav.atlas': 'Atlas',
+	'nav.knowledge': 'Knowledge',
 	'settings.title': 'Settings',
 	'settings.appearance': 'Appearance',
 	'settings.accessibility': 'Accessibility',
@@ -178,6 +183,123 @@ export const en = {
 	'status.online': 'Online',
 	'status.away': 'Away',
 	'status.offline': 'Offline',
+	'onboarding.dialogLabel': 'First-run setup',
+	'onboarding.skip': 'Skip setup',
+	'onboarding.stepCounter': 'Step {current} of {total}',
+	'onboarding.railProgress': '{title} · {current}/{total}',
+	'onboarding.timeEstimate': 'About 2 minutes to your first scene',
+	'onboarding.getStarted': 'Get started',
+	'onboarding.continue': 'Continue',
+	'onboarding.chooseToContinue': 'Choose an option to continue',
+	'onboarding.blockedNoPrivacy': 'Choose how this vault stores your campaign to continue',
+	'onboarding.blockedNoAck': 'Type "{phrase}" exactly to continue',
+	'onboarding.clearingVault': 'Clearing vault…',
+	'onboarding.restoringSample': 'Restoring sample…',
+	'onboarding.clearAndStartFresh': 'Clear sample & start fresh',
+	'onboarding.enterCommandCenter': 'Enter Command Center',
+	'onboarding.step.welcome': 'Welcome',
+	'onboarding.step.vault': 'Your vault',
+	'onboarding.step.privacy': 'Privacy',
+	'onboarding.step.experience': 'Experience',
+	'onboarding.step.tools': 'Tools',
+	'onboarding.step.players': 'Your party',
+	'onboarding.step.ready': 'Ready',
+	'onboarding.welcome.title': 'Run a better table.',
+	'onboarding.welcome.body':
+		"Lamplight is a candle-lit command center for live play — combat, dice, maps, party vitals and what your players see, all in one spatial board. Let's get yours set up.",
+	'onboarding.welcome.anySystem': 'Any system — D&D 5e, narrative, or your own',
+	'onboarding.welcome.localFirst': 'Local-first, cloud backup only when you choose',
+	'onboarding.welcome.playerSafe': 'Player-safe by design',
+	'onboarding.vault.groupLabel': 'Vault choice',
+	'onboarding.vault.title': 'Where should your world live?',
+	'onboarding.vault.introEmpty':
+		'Your vault lives on this device — every note, map, and character. This device started fresh, so the vault is currently empty.',
+	'onboarding.vault.introSample':
+		'Your vault lives on this device — every note, map, and character. The sample campaign is already loaded so nothing starts empty.',
+	'onboarding.vault.loadSample': 'Load the sample campaign',
+	'onboarding.vault.keepSample': 'Keep the sample campaign',
+	'onboarding.vault.sampleDescEmpty':
+		'Loads the sample table — scenes, party, maps and notes — so you can explore with nothing starting empty. Everything is editable or deletable later.',
+	'onboarding.vault.sampleDescLoaded':
+		'Explore with a table already set: {scenes} scenes · {pcs} PCs · {npcs} NPCs · {maps, plural, one {# map} other {# maps}} · {notes} notes. Everything is editable or deletable later.',
+	'onboarding.vault.fresh': 'Start fresh',
+	'onboarding.vault.freshDescEmpty':
+		"Keeps this device's vault empty. Your own campaign from a blank page.",
+	'onboarding.vault.freshDescLoaded':
+		'Clears the sample campaign from this device and boots an empty vault. Your own campaign from a blank page.',
+	'onboarding.vault.importHint':
+		'Importing from Obsidian, Google Docs or a Roll20 export lives in Settings → Vault connections.',
+	'onboarding.privacy.groupLabel': 'Vault privacy mode',
+	'onboarding.privacy.title': 'Who can read your world?',
+	'onboarding.privacy.intro':
+		'This decides how your campaign is stored if you ever use cloud features. There is no preset — this choice is yours, and you can change it later in Settings → Sync.',
+	'onboarding.privacy.privateTitle': 'Private vault (end-to-end encrypted)',
+	'onboarding.privacy.privateDesc':
+		'Your campaign is encrypted on your devices before anything leaves them, and only your devices hold the keys — the service can never read it. Server-powered features (campaign AI, cloud search, opening your campaign from any browser) will not be available to this vault.',
+	'onboarding.privacy.cloudTitle': 'Cloud-Enhanced vault',
+	'onboarding.privacy.cloudDesc':
+		'Encrypted in transit and at rest with service-managed keys, and readable by the service to power upcoming features — campaign AI, cloud search, and access from any browser. Today your data is still end-to-end encrypted; this records your consent for when those features arrive.',
+	'onboarding.privacy.noRecoveryTitle': 'No one can recover this for you',
+	'onboarding.privacy.noRecoveryBody':
+		'Cloud backups of a Private vault can only be opened with keys held on your devices. If you lose every device without exporting a recovery key (Settings → Sync), the cloud copy is gone for good — the service cannot reset or restore it.',
+	'onboarding.privacy.ackPrompt': 'Type {phrase} to confirm you understand.',
+	'onboarding.privacy.ackFieldLabel': 'Type "{phrase}" to confirm',
+	'onboarding.privacy.ackMismatch': 'That does not match — type “{phrase}” exactly.',
+	'onboarding.experience.groupLabel': 'Experience complexity',
+	'onboarding.experience.title': 'How much do you want on screen?',
+	'onboarding.experience.intro':
+		'You can change this any time in Settings. It only affects how much is revealed — never what you can do.',
+	'onboarding.experience.beginner': 'Beginner',
+	'onboarding.experience.beginnerBlurb':
+		'The essentials only. Guided prompts, presets over fields, advanced panels hidden until you ask.',
+	'onboarding.experience.standard': 'Standard',
+	'onboarding.experience.standardBlurb':
+		'The full table toolkit with sensible defaults. Most DMs live here.',
+	'onboarding.experience.expert': 'Expert',
+	'onboarding.experience.expertBlurb':
+		'All advanced controls, automation, permissions, extensions, and diagnostics.',
+	'onboarding.tools.groupLabel': 'Optional tools',
+	'onboarding.tools.title': 'Which optional tools do you want?',
+	'onboarding.tools.intro':
+		'Choose what belongs in your workspace. You can change this later only from Settings.',
+	'onboarding.tools.completeTitle': 'Assistant and generators',
+	'onboarding.tools.completeDesc':
+		'Show the optional campaign assistant and its setup, alongside built-in random generators.',
+	'onboarding.tools.generatorsTitle': 'Generators only',
+	'onboarding.tools.generatorsDesc':
+		'Keep Lamplight’s built-in offline generators, such as map generation. No assistant or model controls are shown.',
+	'onboarding.tools.noneTitle': 'None',
+	'onboarding.tools.noneBadge': 'Private by default',
+	'onboarding.tools.noneDesc':
+		'Keep all optional AI tools out of sight. No provider or assistant UI appears anywhere outside Settings.',
+	'onboarding.players.title': 'Bring your party.',
+	'onboarding.players.intro':
+		'Optionally note who is at your table. These details stay on this device; onboarding does not send invitations.',
+	'onboarding.players.field': 'Player name or email',
+	'onboarding.players.savedOnDevice': 'Saved on this device',
+	'onboarding.players.remove': 'Remove {name}',
+	'onboarding.players.empty': 'No players noted yet — that is fine; you can start with solo prep.',
+	'onboarding.ready.title': "You're ready to run.",
+	'onboarding.ready.intro':
+		'Your table-readiness checklist, read live from the vault — jump to any unfinished item.',
+	'onboarding.ready.freshWarning':
+		'You chose to start fresh, so finishing setup clears the sample campaign. The items below describe the sample vault you are about to replace.',
+	'onboarding.ready.rowFresh': '{label} — clear the sample campaign, finish setup and open {dest}',
+	'onboarding.ready.row': '{label} — finish setup and open {dest}',
+	'onboarding.ready.sceneStaged': 'A scene is staged',
+	'onboarding.ready.partyRostered': 'The party is rostered',
+	'onboarding.ready.mapInAtlas': 'A map is in the atlas',
+	'onboarding.ready.notesStarted': 'Session notes started',
+	'onboarding.ready.goLive': 'Go live from Session',
+	'onboarding.ready.tourBoardTitle': 'This is your Command Center',
+	'onboarding.ready.tourBoardBody':
+		'The board of live-play widgets — session, combat, dice, maps. Everything you run at the table starts here.',
+	'onboarding.ready.tourPaletteTitle': 'Press ⌘K to go anywhere',
+	'onboarding.ready.tourPaletteBody':
+		'Search every entity in your vault — notes, maps, handouts, rolls — without leaving the table.',
+	'onboarding.ready.tourPlayerSafeTitle': 'Player-safe by design',
+	'onboarding.ready.tourPlayerSafeBody':
+		'Preview as any player from the top bar. DM-only content stays hidden in that player’s view.',
 } as const;
 
 /** Every string the app can render, addressed by key. */

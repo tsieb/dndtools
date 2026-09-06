@@ -1,4 +1,5 @@
 import { DEFAULT_FEATURE_TIER, type FeatureTier } from '@dndtools/core';
+import type { MessageKey } from '../../i18n';
 
 /* The onboarding wizard's device-local storage keys, the tier/complexity tables and the step
  * definition. Extracted from Onboarding.tsx unchanged (RC-STB-2.6). */
@@ -18,32 +19,38 @@ export const LEVEL_TO_TIER: Record<string, FeatureTier> = {
 	expert: 'advanced',
 };
 
-// The experience-step card copy (design vocabulary). Each card's REVEALS list stays live — read from
-// the Core's `visibleFeatures()` for the mapped tier, never from static copy.
+// The experience-step cards (design vocabulary). The table holds message keys rather than English,
+// so the step reads in the active locale (RC-UX-1.2). Each card's REVEALS list stays live — read
+// from the Core's `visibleFeatures()` for the mapped tier, never from static copy.
 export const COMPLEXITY_LEVELS = [
 	{
 		id: 'beginner',
-		name: 'Beginner',
+		name: 'onboarding.experience.beginner',
 		icon: 'Sprout',
 		rec: false,
-		blurb:
-			'The essentials only. Guided prompts, presets over fields, advanced panels hidden until you ask.',
+		blurb: 'onboarding.experience.beginnerBlurb',
 	},
 	{
 		id: 'standard',
-		name: 'Standard',
+		name: 'onboarding.experience.standard',
 		icon: 'SlidersHorizontal',
 		rec: true,
-		blurb: 'The full table toolkit with sensible defaults. Most DMs live here.',
+		blurb: 'onboarding.experience.standardBlurb',
 	},
 	{
 		id: 'expert',
-		name: 'Expert',
+		name: 'onboarding.experience.expert',
 		icon: 'Wrench',
 		rec: false,
-		blurb: 'All advanced controls, automation, permissions, extensions, and diagnostics.',
+		blurb: 'onboarding.experience.expertBlurb',
 	},
-] as const;
+] as const satisfies ReadonlyArray<{
+	id: string;
+	name: MessageKey;
+	icon: string;
+	rec: boolean;
+	blurb: MessageKey;
+}>;
 
 export function readStorage(key: string): string | null {
 	try {
@@ -103,14 +110,14 @@ export function readStoredPartyNotes(): string[] {
 /** ARIA radio-group contract: arrows move selection (selection follows focus), Tab skips the group. */
 
 export const ONB_STEPS = [
-	{ id: 'welcome', title: 'Welcome', icon: 'sparkle' },
-	{ id: 'vault', title: 'Your vault', icon: 'vault' },
-	{ id: 'privacy', title: 'Privacy', icon: 'shield' },
-	{ id: 'experience', title: 'Experience', icon: 'sliders' },
-	{ id: 'tools', title: 'Tools', icon: 'sparkle' },
-	{ id: 'players', title: 'Your party', icon: 'players' },
-	{ id: 'ready', title: 'Ready', icon: 'flag' },
-] as const;
+	{ id: 'welcome', title: 'onboarding.step.welcome', icon: 'sparkle' },
+	{ id: 'vault', title: 'onboarding.step.vault', icon: 'vault' },
+	{ id: 'privacy', title: 'onboarding.step.privacy', icon: 'shield' },
+	{ id: 'experience', title: 'onboarding.step.experience', icon: 'sliders' },
+	{ id: 'tools', title: 'onboarding.step.tools', icon: 'sparkle' },
+	{ id: 'players', title: 'onboarding.step.players', icon: 'players' },
+	{ id: 'ready', title: 'onboarding.step.ready', icon: 'flag' },
+] as const satisfies ReadonlyArray<{ id: string; title: MessageKey; icon: string }>;
 
 export const PRIVACY_STEP_INDEX = ONB_STEPS.findIndex((s) => s.id === 'privacy');
 /** ADR-026 — the typed acknowledgment for choosing Private (E2EE), mirroring AccountDangerPanel. */

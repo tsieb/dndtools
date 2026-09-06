@@ -1,4 +1,5 @@
 import { Icon } from '../../../ds';
+import { useI18n, type MessageKey } from '../../../i18n';
 import { T } from '../../screen-kit';
 
 /** Step 7 — the table-readiness checklist, read live from the vault, plus the three orientation
@@ -14,15 +15,18 @@ export function ReadyStep({
 	isDesktop: boolean;
 	vault: 'sample' | 'fresh';
 	wiping: boolean;
-	checklist: Array<{ id: string; label: string; done: boolean; to: string; dest: string }>;
-	tour: Array<{ id: string; title: string; body: string }>;
+	checklist: Array<{ id: string; label: MessageKey; done: boolean; to: string; dest: MessageKey }>;
+	tour: Array<{ id: string; title: MessageKey; body: MessageKey }>;
 	finish: (to?: string) => Promise<void>;
 }) {
+	const { t } = useI18n();
 	return (
 		<div style={{ paddingTop: 14 }}>
-			<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>You're ready to run.</h2>
+			<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>
+				{t('onboarding.ready.title')}
+			</h2>
 			<p style={{ margin: '0 0 18px', font: `13px ${T.sans}`, color: T.ter }}>
-				Your table-readiness checklist, read live from the vault — jump to any unfinished item.
+				{t('onboarding.ready.intro')}
 			</p>
 			{vault === 'fresh' && (
 				// The checklist is derived from the SAMPLE vault, which finishing is about to erase —
@@ -42,10 +46,7 @@ export function ReadyStep({
 					}}
 				>
 					<Icon name="warning" size={15} />
-					<span>
-						You chose to start fresh, so finishing setup clears the sample campaign. The items below
-						describe the sample vault you are about to replace.
-					</span>
+					<span>{t('onboarding.ready.freshWarning')}</span>
 				</div>
 			)}
 			<div
@@ -65,11 +66,10 @@ export function ReadyStep({
 							// The row is a COMPLETION shortcut, not a plain link: it ends setup and, when
 							// the user chose "start fresh", applies the sample wipe. "A map is in the
 							// atlas" alone announces none of that, so name the consequence.
-							aria-label={
-								vault === 'fresh'
-									? `${c.label} — clear the sample campaign, finish setup and open ${c.dest}`
-									: `${c.label} — finish setup and open ${c.dest}`
-							}
+							aria-label={t(
+								vault === 'fresh' ? 'onboarding.ready.rowFresh' : 'onboarding.ready.row',
+								{ label: t(c.label), dest: t(c.dest) },
+							)}
 							onClick={() => void finish(c.to)}
 							style={{
 								display: 'flex',
@@ -107,16 +107,16 @@ export function ReadyStep({
 									textDecoration: c.done ? 'line-through' : 'none',
 								}}
 							>
-								{c.label}
+								{t(c.label)}
 							</span>
 							<Icon name="chevron-right" size={13} color={T.ter} />
 						</button>
 					))}
 				</div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-					{tour.map((t) => (
+					{tour.map((card) => (
 						<div
-							key={t.id}
+							key={card.id}
 							style={{
 								padding: 12,
 								borderRadius: 10,
@@ -125,9 +125,9 @@ export function ReadyStep({
 							}}
 						>
 							<div style={{ font: `600 12.5px ${T.sans}`, color: T.acc, marginBottom: 3 }}>
-								{t.title}
+								{t(card.title)}
 							</div>
-							<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.sub }}>{t.body}</div>
+							<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.sub }}>{t(card.body)}</div>
 						</div>
 					))}
 				</div>

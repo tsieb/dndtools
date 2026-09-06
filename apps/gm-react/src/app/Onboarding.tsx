@@ -9,6 +9,7 @@ import {
 	type VaultPrivacyMode,
 } from '@dndtools/core';
 import { Button, Toaster } from '../ds';
+import { useI18n, type MessageKey } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { registerBackHandler } from '../platform/backNavigation';
 import { resetCoreStorage } from '../platform/storage/coreStore';
@@ -81,6 +82,7 @@ export {
 
 export function Onboarding() {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const viewport = useViewport();
 	const isPhone = viewport === 'phone';
 	const isDesktop = viewport === 'desktop';
@@ -263,58 +265,64 @@ export function Onboarding() {
 		setDraft('');
 	}
 
-	const checklist = [
+	const checklist: Array<{
+		id: string;
+		label: MessageKey;
+		done: boolean;
+		to: string;
+		dest: MessageKey;
+	}> = [
 		{
 			id: 'scene',
-			label: 'A scene is staged',
+			label: 'onboarding.ready.sceneStaged',
 			done: vaultFacts.scenes > 0,
 			to: '/scenes',
-			dest: 'Scenes',
+			dest: 'nav.scenes',
 		},
 		{
 			id: 'party',
-			label: 'The party is rostered',
+			label: 'onboarding.ready.partyRostered',
 			done: vaultFacts.pcs > 0,
 			to: '/characters',
-			dest: 'Characters',
+			dest: 'nav.characters',
 		},
 		{
 			id: 'map',
-			label: 'A map is in the atlas',
+			label: 'onboarding.ready.mapInAtlas',
 			done: vaultFacts.maps > 0,
 			to: '/atlas',
-			dest: 'Atlas',
+			dest: 'nav.atlas',
 		},
 		{
 			id: 'notes',
-			label: 'Session notes started',
+			label: 'onboarding.ready.notesStarted',
 			done: vaultFacts.notes > 0,
 			to: '/knowledge',
-			dest: 'Knowledge',
+			dest: 'nav.knowledge',
 		},
 		{
 			id: 'live',
-			label: 'Go live from Session',
+			label: 'onboarding.ready.goLive',
 			done: runtime.state.session.activeSceneId !== null,
 			to: '/session',
-			dest: 'Session',
+			dest: 'nav.session',
 		},
 	];
-	const tour = [
+	const tour: Array<{ id: string; title: MessageKey; body: MessageKey }> = [
 		{
 			id: 'tr1',
-			title: 'This is your Command Center',
-			body: 'The board of live-play widgets — session, combat, dice, maps. Everything you run at the table starts here.',
+			title: 'onboarding.ready.tourBoardTitle',
+			body: 'onboarding.ready.tourBoardBody',
 		},
 		{
 			id: 'tr2',
-			title: 'Press ⌘K to go anywhere',
-			body: 'Search every entity in your vault — notes, maps, handouts, rolls — without leaving the table.',
+			title: 'onboarding.ready.tourPaletteTitle',
+			body: 'onboarding.ready.tourPaletteBody',
 		},
 		{
 			id: 'tr3',
-			title: 'Player-safe by design',
-			body: 'Preview as any player from the top bar. DM-only content stays hidden in that player’s view.',
+			title: 'onboarding.ready.tourPlayerSafeTitle',
+			body: 'onboarding.ready.tourPlayerSafeBody',
 		},
 	];
 
@@ -362,7 +370,7 @@ export function Onboarding() {
 			data-fullscreen-overlay="onboarding"
 			role="dialog"
 			aria-modal="true"
-			aria-label="First-run setup"
+			aria-label={t('onboarding.dialogLabel')}
 			onKeyDown={onKeyDown}
 			style={{
 				position: 'fixed',
@@ -409,7 +417,7 @@ export function Onboarding() {
 						}}
 					>
 						<Button variant="ghost" size="sm" onClick={skip}>
-							Skip setup
+							{t('onboarding.skip')}
 						</Button>
 					</div>
 					<div
@@ -479,12 +487,12 @@ export function Onboarding() {
 					>
 						{i > 0 && (
 							<Button variant="ghost" onClick={back} icon="chevron-left">
-								Back
+								{t('common.action.back')}
 							</Button>
 						)}
 						<div style={{ flex: 1 }} />
 						<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-							Step {i + 1} of {ONB_STEPS.length}
+							{t('onboarding.stepCounter', { current: i + 1, total: ONB_STEPS.length })}
 						</span>
 						{i < ONB_STEPS.length - 1 ? (
 							// Soft-disable: a HARD `disabled` took the button out of the tab order and
@@ -500,16 +508,16 @@ export function Onboarding() {
 								title={
 									step.id === 'privacy' && !privacyDecided
 										? privacy === null
-											? 'Choose how this vault stores your campaign to continue'
-											: `Type "${PRIVACY_ACK_PHRASE}" exactly to continue`
+											? t('onboarding.blockedNoPrivacy')
+											: t('onboarding.blockedNoAck', { phrase: PRIVACY_ACK_PHRASE })
 										: undefined
 								}
 							>
 								{step.id === 'welcome'
-									? 'Get started'
+									? t('onboarding.getStarted')
 									: step.id === 'privacy' && privacy === null
-										? 'Choose an option to continue'
-										: 'Continue'}
+										? t('onboarding.chooseToContinue')
+										: t('onboarding.continue')}
 							</Button>
 						) : (
 							<Button
@@ -520,11 +528,11 @@ export function Onboarding() {
 							>
 								{wiping
 									? vault === 'fresh'
-										? 'Clearing vault…'
-										: 'Restoring sample…'
+										? t('onboarding.clearingVault')
+										: t('onboarding.restoringSample')
 									: vault === 'fresh'
-										? 'Clear sample & start fresh'
-										: 'Enter Command Center'}
+										? t('onboarding.clearAndStartFresh')
+										: t('onboarding.enterCommandCenter')}
 							</Button>
 						)}
 					</div>
