@@ -754,6 +754,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'shell.allScenes': 'Todas las escenas ({count})',
 	'shell.dmPresence': '{gm} · {presence}',
 	'shell.breadcrumb': 'Ruta de navegación',
+	'shell.help': 'Ayuda',
 	'viewAs.dmView': 'Vista del DM',
 	'viewAs.label': 'Ver como',
 	'viewAs.trigger': 'Previsualizar como otro rol',
@@ -4923,4 +4924,18 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'widgetIterate.run': 'Preguntar',
 	'widgetIterate.apply': 'Aplicar los cambios marcados',
 	'widgetIterate.noChanges': 'El asistente devolvió el widget sin cambios.',
+
+	// RC-UX-3.4 — el menú de ayuda: primeros pasos, novedades y un enlace a los atajos de teclado.
+	'help.title': 'Ayuda',
+	'help.gettingStarted': 'Primeros pasos',
+	'help.gettingStartedProgress': '{done} de {total} configurados',
+	'help.gettingStartedParticipant': 'La configuración es solo del DM: tu vista ya está lista.',
+	'help.gettingStartedComplete':
+		'La configuración está lista. Sube la profundidad en Ajustes para desbloquear más.',
+	'help.whatsNew': 'Novedades',
+	'help.whatsNewBadgeLabel': 'Nuevas notas de la versión',
+	'help.whatsNewVersion': 'Versión {version}',
+	'help.whatsNewNone': 'Aún no hay notas de versión.',
+	'help.keyboardShortcuts': 'Atajos de teclado',
+	'help.keyboardShortcutsBody': 'Consulta todos los atajos del panel y del lienzo.',
 };

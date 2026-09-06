@@ -146,6 +146,14 @@
 			"removalCriteria": "Route through a typed platform-clipboard adapter once one exists (DEBT-2026-001)."
 		},
 		{
+			"id": "help-menu-whats-new-seen-localstorage",
+			"path": "apps/gm-react/src/app/help/HelpMenu.tsx",
+			"primitives": ["localStorage"],
+			"owner": "SHELL (help)",
+			"rationale": "RC-UX-3.4 — the What's new badge tracks the last release version the DM has opened the Help menu for. This is device-scoped UI state (which build a browser profile has already seen a changelog for), never durable vault or sync state, guarded by a try/catch — same rationale as onboarding-invite-localstorage and settings-device-prefs-localstorage.",
+			"removalCriteria": "Route device preferences through a typed platform-preferences adapter once the React platform layer lands."
+		},
+		{
 			"id": "wikireader-test-jsdom-matchmedia-polyfill",
 			"path": "apps/gm-react/src/screens/WikiReader.test.tsx",
 			"primitives": ["viewport-sniff"],

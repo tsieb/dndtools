@@ -728,6 +728,7 @@ export const en = {
 	'shell.allScenes': 'All scenes ({count})',
 	'shell.dmPresence': '{gm} · {presence}',
 	'shell.breadcrumb': 'Breadcrumb',
+	'shell.help': 'Help',
 	'viewAs.dmView': 'DM view',
 	'viewAs.label': 'View as',
 	'viewAs.trigger': 'Preview as another role',
@@ -4774,6 +4775,19 @@ export const en = {
 	'widgetIterate.run': 'Ask',
 	'widgetIterate.apply': 'Apply checked changes',
 	'widgetIterate.noChanges': 'The assistant returned the widget unchanged.',
+
+	// RC-UX-3.4 — the Help menu: getting started, what's new, and a link into the shortcut overlay.
+	'help.title': 'Help',
+	'help.gettingStarted': 'Getting started',
+	'help.gettingStartedProgress': '{done} of {total} set up',
+	'help.gettingStartedParticipant': 'Setup is DM only — your view is ready to use.',
+	'help.gettingStartedComplete': 'Setup is done. Raise the depth in Settings to unlock more.',
+	'help.whatsNew': "What's new",
+	'help.whatsNewBadgeLabel': 'New release notes',
+	'help.whatsNewVersion': 'Version {version}',
+	'help.whatsNewNone': 'No release notes yet.',
+	'help.keyboardShortcuts': 'Keyboard shortcuts',
+	'help.keyboardShortcutsBody': 'See every shortcut for the shell and the canvas.',
 } as const;
 
 /** Every string the app can render, addressed by key. */

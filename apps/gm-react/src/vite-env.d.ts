@@ -4,6 +4,13 @@
 // they are vendored design source consumed loosely (props validated at runtime), not app code.
 declare module '*.jsx';
 
+// RC-UX-3.4 — the Help menu's "What's new" section reads the repo's own CHANGELOG.md as a raw
+// string (Vite's `?raw` import suffix) rather than a duplicated/generated copy.
+declare module '*.md?raw' {
+	const content: string;
+	export default content;
+}
+
 interface ImportMetaEnv {
 	// Set to '1' by the demo build (`build:demo`) so the app boots straight into the seeded sample
 	// campaign, skipping the first-run onboarding overlay. Unset (undefined) in the standard build.
