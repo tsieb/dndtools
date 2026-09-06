@@ -3,10 +3,15 @@ Description: >-
   dndtools foundation stack — account-wide guardrails that every other stack
   depends on but that change rarely: a monthly cost Budget (pre-revenue tripwire),
   the GitHub Actions OIDC provider + CI deploy role (keyless deploys), and the
-  SSM Parameter Store namespace convention (/dndtools/<stage>/...). Deploy this
-  FIRST. Its only always-on billable resource is the KMS key that encrypts the
-  operational alerts topic (~$1/month; see AlertsKey for why the AWS-managed key
-  cannot be used).
+  SSM Parameter Store namespace convention (/dndtools/<stage>/...), and the single
+  per-stage CloudWatch dashboard. Deploy this FIRST.
+
+  Always-on billable resources, and why they are shaped the way they are:
+    - KMS key encrypting the alerts topic: PROD ONLY (~$1/month). See AlertsKey.
+    - CloudWatch dashboard: opt-in per stage, and free only while the ORGANISATION
+      stays at or under three dashboards in total. See StageOverviewDashboard.
+  Everything else here is free at this scale (Budgets, Cost Anomaly Detection, the
+  first CloudTrail trail, SSM parameters, IAM).
 
 Parameters:
   ProjectName:
@@ -20,12 +25,26 @@ Parameters:
     Description: Deployment stage. Each stage is an independent set of parameters.
   NotificationEmail:
     Type: String
-    Default: trentonsieb@gmail.com
-    Description: Email address that receives Budget threshold alerts.
+    Default: jade@sieb.net
+    Description: >-
+      Address that receives Budget threshold alerts, and that the operations SNS topic
+      subscribes. Both stages use the same address deliberately: a split (dev on one
+      address, prod on another) is how dev's $15 ceiling came to be breached in August
+      2026 without anyone acting on it.
+
+      An SNS email subscription needs a confirmation click, and AWS DELETES an
+      unconfirmed subscription after three days — while CloudFormation still reports the
+      subscription resource as CREATE_COMPLETE. Confirm it, then verify with
+      `aws sns list-subscriptions-by-topic`; do not trust stack status for this.
   MonthlyBudgetUsd:
     Type: Number
-    Default: 15
-    Description: Monthly cost ceiling in USD. Alerts fire at 40/80/100% (see below).
+    Default: 12
+    Description: >-
+      Monthly cost ceiling in USD; alerts fire at 40% actual, 80% forecast and 100%
+      actual. Set it near the expected steady-state bill rather than at a comfortable
+      distance from it — a ceiling generous enough never to be approached cannot detect
+      a regression. The August 2026 dashboard regression tripled the org bill and still
+      sat inside prod's then-$40 ceiling.
   GitHubOrg:
     Type: String
     Default: tsieb
@@ -56,6 +75,23 @@ Parameters:
       IAM permits only one provider for token.actions.githubusercontent.com per account.
       Set false for an additional stage in an account where the shared provider already exists.
 
+  CreateStageDashboard:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: >-
+      Create this stage's single CloudWatch overview dashboard.
+
+      CloudWatch bills $3/dashboard/month beyond a free allowance of THREE
+      dashboards, and that allowance is consumed across the whole ORGANISATION
+      (consolidated billing), not per account. It is also consumed as
+      dashboard-MONTHS, so eight dashboards exhaust three dashboard-months around
+      day 12 — which is how a dashboard bill appears mid-month out of nowhere.
+
+      Treat three as a hard org-wide budget. Prod holds one permanently; dev is off
+      by default and meant to be flipped on only while actively debugging (set
+      true, deploy, then set it back to false). Leave the third slot spare.
+
   CreateApiGatewayAccountRole:
     Type: String
     Default: 'true'
@@ -70,6 +106,7 @@ Conditions:
   IsProd: !Equals [!Ref Stage, prod]
   ShouldCreateGitHubOidcProvider: !Equals [!Ref CreateGitHubOidcProvider, 'true']
   ShouldCreateApiGatewayAccountRole: !Equals [!Ref CreateApiGatewayAccountRole, 'true']
+  ShouldCreateStageDashboard: !Equals [!Ref CreateStageDashboard, 'true']
 
 Resources:
   # --- API Gateway account logging role (account-wide singleton) -----------------
@@ -98,11 +135,26 @@ Resources:
 
   # --- Cost guardrail: a monthly budget with escalating email alerts. -------
   # Budgets is a global service; the resource is fine to create from any region.
+  #
+  # BudgetName is deliberately NOT set, and that is load-bearing rather than an oversight.
+  # `NotificationsWithSubscribers` is a Replacement-update property, so changing the alert
+  # threshold set OR the subscriber address makes CloudFormation replace the budget — and
+  # replacement is create-then-delete. With an explicit BudgetName the new budget collides
+  # with the old one that is still standing, and the update dies with:
+  #
+  #   "A budget or resource with the same name but a different internalId already exists.
+  #    (Service: Budgets, Status Code: 400)"
+  #
+  # A named budget therefore cannot have its notifications changed by CloudFormation, ever.
+  # This wedged BOTH accounts: dndtools-prod-foundation sat in UPDATE_ROLLBACK_COMPLETE from
+  # 2026-08-03 until 2026-09-03 for exactly this reason, and dev reproduced it on the first
+  # attempt to repoint the alert email. Letting CloudFormation generate the physical name
+  # costs a readable console label and buys a resource that can actually be updated.
+  # The generated name is published as the BudgetName output and read from there.
   MonthlyCostBudget:
     Type: AWS::Budgets::Budget
     Properties:
       Budget:
-        BudgetName: !Sub '${ProjectName}-${Stage}-monthly'
         BudgetType: COST
         TimeUnit: MONTHLY
         BudgetLimit:
@@ -112,7 +164,7 @@ Resources:
         - Notification:
             NotificationType: ACTUAL
             ComparisonOperator: GREATER_THAN
-            Threshold: 40 # ~$10 on a $25 ceiling — early warning
+            Threshold: 40 # early warning while the month can still be corrected
             ThresholdType: PERCENTAGE
           Subscribers:
             - SubscriptionType: EMAIL
@@ -120,7 +172,7 @@ Resources:
         - Notification:
             NotificationType: FORECASTED
             ComparisonOperator: GREATER_THAN
-            Threshold: 80 # projected to blow ~$20
+            Threshold: 80 # forecast to breach; fires long before the ceiling is hit
             ThresholdType: PERCENTAGE
           Subscribers:
             - SubscriptionType: EMAIL
@@ -494,15 +546,28 @@ Resources:
       Value: !GetAtt AuditTrail.Arn
       Description: Account audit trail ARN for promotion/runbook checks.
 
-  # The alerts topic MUST NOT use the AWS-managed key `alias/aws/sns`. That key's policy
-  # grants only account principals calling through SNS, and it is not editable — so when
-  # CloudWatch Alarms tried to publish, every action failed with "CloudWatch Alarms does
-  # not have authorization to access the SNS topic encryption key." The failure is
-  # invisible from the alarm's own state: it still transitions to ALARM, the notification
-  # just never leaves. Every alarm in this project was silent from creation until this key
-  # was introduced (proven 2026-08-02 by forcing an alarm state transition in prod).
-  # Cost Anomaly Detection publishes here too and would fail the same way.
+  # Encryption on the alerts topic has exactly three possible shapes, and only two of them
+  # deliver notifications. Getting this wrong is silent, so the full matrix is recorded here:
+  #
+  #   1. AWS-managed key `alias/aws/sns`  — BROKEN. Its policy grants only account principals
+  #      calling through SNS and is NOT editable, so CloudWatch Alarms publishing failed with
+  #      "CloudWatch Alarms does not have authorization to access the SNS topic encryption
+  #      key." The failure is invisible from the alarm's own state: it still transitions to
+  #      ALARM, the notification just never leaves. Every alarm in this project was silent
+  #      from creation until 2026-08-02, proven by forcing an alarm transition in prod.
+  #      Cost Anomaly Detection publishes here too and fails the same way. NEVER use this.
+  #   2. This customer-managed key      — WORKS. Its policy names the publishing services
+  #      explicitly. Costs ~$1/month per key, per account.
+  #   3. No encryption at all           — WORKS. SNS server-side encryption is optional and
+  #      is not what was ever broken; case 1 failed on the key POLICY, not on encryption.
+  #      Free.
+  #
+  # Prod takes (2): the topic carries account-identifying operational detail and $1/month is
+  # not worth arguing about. Dev takes (3): the same $1/month is 5% of an idle dev account's
+  # bill, and dev alert traffic is cost-anomaly notices about an account with no user data in
+  # it. If dev ever carries anything sensitive, flip this condition — do NOT reach for (1).
   AlertsKey:
+    Condition: IsProd
     Type: AWS::KMS::Key
     # Deleting this key silently breaks alarm delivery again, and the topic outlives any
     # single deploy — keep it if the stack is ever torn down and rebuilt.
@@ -537,6 +602,7 @@ Resources:
                 'aws:SourceAccount': !Ref 'AWS::AccountId'
 
   AlertsKeyAlias:
+    Condition: IsProd
     Type: AWS::KMS::Alias
     Properties:
       AliasName: !Sub 'alias/${ProjectName}-${Stage}-alerts'
@@ -548,13 +614,44 @@ Resources:
     Type: AWS::SNS::Topic
     Properties:
       TopicName: !Sub '${ProjectName}-${Stage}-operational-alerts'
-      KmsMasterKeyId: !Ref AlertsKey
+      # Unencrypted in dev by design — see the matrix on AlertsKey. AWS::NoValue removes the
+      # property entirely rather than setting it empty, which SNS would reject.
+      KmsMasterKeyId: !If [IsProd, !Ref AlertsKey, !Ref 'AWS::NoValue']
       Tags:
         - { Key: project, Value: !Ref ProjectName }
         - { Key: stage, Value: !Ref Stage }
         - { Key: service, Value: foundation }
         - { Key: owner, Value: platform }
         - { Key: data-class, Value: operational }
+
+  # --- The stage's single CloudWatch dashboard --------------------------------
+  # This replaces four per-stack dashboards (app-api, sync-api, signaling, identity).
+  # They cost $3/month each beyond the org-wide allowance of three; see the
+  # CreateStageDashboard parameter for how that allowance is actually consumed.
+  #
+  # It lives in `foundation` rather than in the service stacks because a dashboard is
+  # a STAGE-level object: there is one per stage no matter how many stacks exist, and
+  # foundation is the only stack guaranteed to be deployed before all of them.
+  #
+  # That inverts the usual dependency problem — foundation deploys FIRST, so it cannot
+  # know the service stacks' Lambda function names, and those names are CloudFormation
+  # generated (`dndtools-dev-app-api-AppFn-u8Pu5Apml7Gx`), so they cannot be hardcoded
+  # either. Every widget therefore uses a metric SEARCH expression matched on the
+  # `${ProjectName}-${Stage}` prefix that all of them share. That buys three things:
+  #   - no cross-stack lookup, so no deploy-order coupling and no ParameterNotFound;
+  #   - a new function/API/queue appears on the dashboard with no template change;
+  #   - deploying this before any service stack exists is fine — SEARCH over a
+  #     namespace with no metrics renders an empty widget rather than failing.
+  # The cost is that widgets are empty until something is actually invoked, which is
+  # indistinguishable from a healthy idle stage. Alarms, not this dashboard, are what
+  # tell you something is wrong.
+  StageOverviewDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Condition: ShouldCreateStageDashboard
+    Properties:
+      DashboardName: !Sub '${ProjectName}-${Stage}-overview'
+      DashboardBody: !Sub >-
+        {"widgets":[{"type":"metric","x":0,"y":0,"width":12,"height":6,"properties":{"title":"Lambda invocations","region":"${AWS::Region}","view":"timeSeries","stacked":false,"period":300,"metrics":[[{"expression":"SEARCH('{AWS/Lambda,FunctionName} MetricName=\"Invocations\" ${ProjectName}-${Stage}', 'Sum', 300)","id":"e1","label":"","region":"${AWS::Region}"}]]}},{"type":"metric","x":12,"y":0,"width":12,"height":6,"properties":{"title":"Lambda errors and throttles","region":"${AWS::Region}","view":"timeSeries","stacked":false,"period":300,"metrics":[[{"expression":"SEARCH('{AWS/Lambda,FunctionName} MetricName=\"Errors\" ${ProjectName}-${Stage}', 'Sum', 300)","id":"e1","label":"errors","region":"${AWS::Region}"}],[{"expression":"SEARCH('{AWS/Lambda,FunctionName} MetricName=\"Throttles\" ${ProjectName}-${Stage}', 'Sum', 300)","id":"e2","label":"throttles","region":"${AWS::Region}"}]]}},{"type":"metric","x":0,"y":6,"width":12,"height":6,"properties":{"title":"Lambda duration p95","region":"${AWS::Region}","view":"timeSeries","stacked":false,"period":300,"metrics":[[{"expression":"SEARCH('{AWS/Lambda,FunctionName} MetricName=\"Duration\" ${ProjectName}-${Stage}', 'p95', 300)","id":"e1","label":"","region":"${AWS::Region}"}]]}},{"type":"metric","x":12,"y":6,"width":12,"height":6,"properties":{"title":"API 5xx responses","region":"${AWS::Region}","view":"timeSeries","stacked":false,"period":300,"metrics":[[{"expression":"SEARCH('{Dndtools/Api} ${ProjectName}-${Stage}', 'Sum', 300)","id":"e1","label":"","region":"${AWS::Region}"}]]}},{"type":"metric","x":0,"y":12,"width":12,"height":6,"properties":{"title":"Email outcomes","region":"${AWS::Region}","view":"timeSeries","stacked":false,"period":3600,"metrics":[[{"expression":"SEARCH('{AWS/SES,ses:configuration-set} ${ProjectName}-${Stage}-email', 'Sum', 3600)","id":"e1","label":"","region":"${AWS::Region}"}]]}},{"type":"metric","x":12,"y":12,"width":12,"height":6,"properties":{"title":"Email account reputation","region":"${AWS::Region}","view":"timeSeries","stacked":false,"period":3600,"metrics":[["AWS/SES","Reputation.BounceRate"],[".","Reputation.ComplaintRate"]],"stat":"Average","yAxis":{"left":{"min":0}},"annotations":{"horizontal":[{"label":"AWS review (bounce)","value":0.05},{"label":"AWS review (complaint)","value":0.001}]}}},{"type":"metric","x":0,"y":18,"width":24,"height":6,"properties":{"title":"TURN relay heartbeat","region":"${AWS::Region}","view":"timeSeries","stacked":false,"period":60,"metrics":[["${ProjectName}/TURN","Healthy","Stage","${Stage}"]],"stat":"Minimum","yAxis":{"left":{"min":0,"max":1}}}}]}
 
   # Account-level monitor is stage-scoped because dev and prod live in separate
   # accounts. The low threshold provides an early warning; it never blocks usage.
@@ -602,11 +699,19 @@ Outputs:
     Description: Root SSM namespace all stacks read/write under.
     Value: !Sub '/${ProjectName}/${Stage}'
   BudgetName:
-    Description: The monthly cost budget name.
-    Value: !Sub '${ProjectName}-${Stage}-monthly'
+    Description: >-
+      The monthly cost budget's CloudFormation-generated name. Not a stable slug — see
+      MonthlyCostBudget for why the name is generated rather than declared.
+    Value: !Ref MonthlyCostBudget
   OperationalAlertsTopicArn:
     Description: Confirm the email subscription before relying on alarm delivery.
     Value: !Ref OperationalAlertsTopic
+  StageOverviewDashboardName:
+    Condition: ShouldCreateStageDashboard
+    Description: >-
+      The stage's single CloudWatch dashboard. Empty widgets mean no traffic, not a broken
+      dashboard — see StageOverviewDashboard.
+    Value: !Sub '${ProjectName}-${Stage}-overview'
   CostAnomalyMonitorArn:
     Description: Daily account-level cost anomaly monitor (alerts through operations SNS).
     Value: !GetAtt CostAnomalyMonitor.MonitorArn

@@ -83,8 +83,33 @@ if [ "${CI:-false}" = "true" ]; then
   # interactive SAM prompt on a headless runner; local prod deploys keep confirm_changeset=true.
   DEPLOY_FLAGS+=(--no-confirm-changeset)
 fi
-DEPLOY_OVERRIDES=()
+# Holds BARE `Key=Value` pairs. The `--parameter-overrides` flag is attached once, at the
+# bottom, only if this array is non-empty.
+#
+# It used to hold the flag inline, which hid a silent bug: `signaling` never set the flag
+# (its branch only ever appended), so `sam deploy` was invoked with a stray positional
+# `ReserveLambdaConcurrency=false`. sam accepts and DISCARDS unknown positional arguments
+# rather than erroring, so signaling silently never received the override. It was harmless
+# only because the value passed happened to equal the template default.
+PARAM_OVERRIDES=()
 SYNC_OPS_TABLE_NAME=""
+
+# Log retention differs by stage: short in dev (cheap, and dev logs have no audit value),
+# long in prod. This used to be hardcoded to 30 for every stage, which silently overrode the
+# 14/90 split each samconfig.toml declares — the samconfig values were dead config.
+case "$STAGE" in
+  dev)  LOG_RETENTION_DAYS=14 ;;
+  prod) LOG_RETENTION_DAYS=90 ;;
+esac
+
+# Alarms and the stage dashboard are billed past a per-ORGANISATION free allowance (10 alarms,
+# 3 dashboards), so dev runs without them by default and prod carries the full set. Override
+# for a dev debugging session with DNDTOOLS_CREATE_ALARMS=true. See infra/README.md
+# "Observability and what it costs".
+case "$STAGE" in
+  dev)  CREATE_ALARMS="${DNDTOOLS_CREATE_ALARMS:-false}" ;;
+  prod) CREATE_ALARMS="${DNDTOOLS_CREATE_ALARMS:-true}" ;;
+esac
 WEB_ORIGIN="${DNDTOOLS_WEB_ORIGIN:-}"
 
 # Once hosting exists, keep every later API/identity update on the deployed origin even when the
@@ -139,17 +164,17 @@ case "$STACK" in
     if [ -n "$WEB_ORIGIN" ]; then
       CALLBACK_URLS="$CALLBACK_URLS,$WEB_ORIGIN/"
     fi
-    DEPLOY_OVERRIDES=(
-      --parameter-overrides
+    PARAM_OVERRIDES=(
       "ProjectName=dndtools"
       "Stage=$STAGE"
       "DomainPrefix=$DOMAIN_PREFIX"
       "CallbackUrls=$CALLBACK_URLS"
       "LogoutUrls=$CALLBACK_URLS"
+      "CreateAlarms=$CREATE_ALARMS"
     )
     if [ "$STAGE" = "prod" ]; then
       COGNITO_EMAIL_FROM_OVERRIDE="$(sam_quote_override_value "$DNDTOOLS_COGNITO_EMAIL_FROM")"
-      DEPLOY_OVERRIDES+=(
+      PARAM_OVERRIDES+=(
         "CognitoEmailSourceArn=$DNDTOOLS_COGNITO_EMAIL_SOURCE_ARN"
         "CognitoEmailFrom=$COGNITO_EMAIL_FROM_OVERRIDE"
       )
@@ -159,15 +184,15 @@ case "$STACK" in
     # Hosting needs the deployed API ids for CSP, while the APIs need the final CloudFront origin
     # for CORS. Initial stage creation uses invalid.example, creates hosting, then calls this explicit
     # second pass with the real origin to close that dependency cycle safely.
-    DEPLOY_OVERRIDES=(
-      --parameter-overrides
+    PARAM_OVERRIDES=(
       "ProjectName=dndtools"
       "Stage=$STAGE"
       "WebOrigin=${WEB_ORIGIN:-https://invalid.example}"
-      "LogRetentionDays=30"
+      "LogRetentionDays=$LOG_RETENTION_DAYS"
+      "CreateAlarms=$CREATE_ALARMS"
     )
     if [ "$STACK" = "app-api" ] && [ -n "$SYNC_OPS_TABLE_NAME" ]; then
-      DEPLOY_OVERRIDES+=("SyncOpsTableName=$SYNC_OPS_TABLE_NAME")
+      PARAM_OVERRIDES+=("SyncOpsTableName=$SYNC_OPS_TABLE_NAME")
     fi
     # Invite email stays disabled (fail-closed) until a verified sender is configured. The
     # value cannot live in samconfig: these CLI --parameter-overrides REPLACE the samconfig
@@ -191,7 +216,7 @@ case "$STACK" in
           --profile "$PROFILE" 2>/dev/null || true)
       fi
       if [ -n "$INVITE_SENDER" ]; then
-        DEPLOY_OVERRIDES+=("InviteSender=$(sam_quote_override_value "$INVITE_SENDER")")
+        PARAM_OVERRIDES+=("InviteSender=$(sam_quote_override_value "$INVITE_SENDER")")
       else
         echo "    invite email is not configured for $STAGE; invites still mint links and report emailStatus=not-configured"
       fi
@@ -203,11 +228,38 @@ esac
 # at the 10-concurrency new-account floor (increase to 1000 requested 2026-07-23), and any
 # reservation below that floor is rejected. Once the quota lands, flip the guardrails on with
 # DNDTOOLS_RESERVE_CONCURRENCY=true (locally or as a CI env var).
+# signaling takes no stack-specific CLI overrides above, so this is where its list is built.
+# It must be COMPLETE, not just the pairs that vary: `--parameter-overrides` REPLACES the
+# samconfig list wholesale, and while a CloudFormation *update* keeps a previous value for an
+# omitted parameter, a *create* falls back to the template default — which would silently give
+# a brand-new prod stack `Stage=dev`.
 case "$STACK" in
-  signaling|sync-api|app-api)
-    DEPLOY_OVERRIDES+=("ReserveLambdaConcurrency=${DNDTOOLS_RESERVE_CONCURRENCY:-false}")
+  signaling)
+    PARAM_OVERRIDES+=(
+      "ProjectName=dndtools"
+      "Stage=$STAGE"
+      "LogRetentionDays=$LOG_RETENTION_DAYS"
+      "CreateAlarms=$CREATE_ALARMS"
+    )
     ;;
 esac
-( cd "$STACK_DIR" && sam deploy --config-env "$STAGE" --profile "$PROFILE" --region "$REGION" "${DEPLOY_FLAGS[@]}" "${DEPLOY_OVERRIDES[@]}" )
+
+# NOTE ON COMPLETENESS: only stacks whose parameters must be COMPUTED at deploy time (the web
+# origin, the sync table name, the invite sender, the concurrency env switch) are overridden
+# from here, and each such list is complete. Stacks whose per-stage config is static — `turn`
+# (VpcId/SubnetId), `foundation`, `web-hosting`, `edge-cert` — deliberately take NO overrides
+# here, so their samconfig.toml stays the single source of truth. Adding a lone pair for one of
+# them would replace its whole samconfig list and drop, say, the VPC ids.
+
+case "$STACK" in
+  signaling|sync-api|app-api)
+    PARAM_OVERRIDES+=("ReserveLambdaConcurrency=${DNDTOOLS_RESERVE_CONCURRENCY:-false}")
+    ;;
+esac
+if [ ${#PARAM_OVERRIDES[@]} -gt 0 ]; then
+  DEPLOY_FLAGS+=(--parameter-overrides "${PARAM_OVERRIDES[@]}")
+fi
+
+( cd "$STACK_DIR" && sam deploy --config-env "$STAGE" --profile "$PROFILE" --region "$REGION" "${DEPLOY_FLAGS[@]}" )
 
 echo "==> $STACK / $STAGE : done"

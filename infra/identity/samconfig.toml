@@ -10,7 +10,7 @@ capabilities = "CAPABILITY_IAM"
 confirm_changeset = false
 resolve_s3 = true
 s3_prefix = "dndtools-dev-identity"
-parameter_overrides = "ProjectName=dndtools Stage=dev DomainPrefix=dndtools-dev-auth CallbackUrls='http://localhost:5273/,http://localhost:4273/,dndtools://auth' LogoutUrls='http://localhost:5273/,http://localhost:4273/,dndtools://auth'"
+parameter_overrides = "ProjectName=dndtools Stage=dev CreateAlarms=false DomainPrefix=dndtools-dev-auth CallbackUrls='http://localhost:5273/,http://localhost:4273/,dndtools://auth' LogoutUrls='http://localhost:5273/,http://localhost:4273/,dndtools://auth'"
 tags = "project=dndtools stage=dev service=identity owner=platform data-class=customer managed-by=sam"
 
 [prod.global.parameters]
@@ -23,5 +23,5 @@ capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 resolve_s3 = true
 s3_prefix = "dndtools-prod-identity"
-parameter_overrides = "ProjectName=dndtools Stage=prod DomainPrefix=dndtools-prod-auth"
+parameter_overrides = "ProjectName=dndtools Stage=prod CreateAlarms=true DomainPrefix=dndtools-prod-auth"
 tags = "project=dndtools stage=prod service=identity owner=platform data-class=customer managed-by=sam"

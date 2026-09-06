@@ -38,7 +38,25 @@ Parameters:
       account's Lambda "Concurrent executions" quota to be above its 10-concurrency floor; a fresh
       account cannot reserve at all, so this defaults off until the quota increase is granted.
 
+  CreateAlarms:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: >-
+      Create this stack's CloudWatch alarms.
+
+      CloudWatch bills $0.10/alarm/month beyond a free allowance of TEN alarms, and
+      like the dashboard allowance it is consumed across the whole ORGANISATION, as
+      alarm-months. Prod alone sits at eleven alarms, so prod is already the budget.
+
+      Dev sets this to false. That is not a cost decision alone: dev's alarms fired
+      into a topic with no confirmed subscriber for their entire life, so they were
+      never observability in the first place — they were $1.30/month of alarms that
+      notified nobody. Turn them on in dev only alongside a confirmed subscription on
+      the dev alerts topic, otherwise the same silence returns.
+
 Conditions:
+  ShouldCreateAlarms: !Equals [!Ref CreateAlarms, 'true']
   ShouldReserveConcurrency: !Equals [!Ref ReserveLambdaConcurrency, 'true']
 
 Globals:
@@ -256,6 +274,7 @@ Resources:
 
   SignalingFunctionErrorsAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: ShouldCreateAlarms
     Properties:
       AlarmDescription: Signaling Lambda returned one or more unhandled errors in five minutes.
       Namespace: AWS/Lambda
@@ -286,6 +305,7 @@ Resources:
 
   SignalingApi5xxAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: ShouldCreateAlarms
     Properties:
       AlarmDescription: Signaling API returned one or more 5xx responses in five minutes.
       Namespace: Dndtools/Api
@@ -302,6 +322,7 @@ Resources:
 
   SignalingFunctionThrottlesAlarm:
     Type: AWS::CloudWatch::Alarm
+    Condition: ShouldCreateAlarms
     Properties:
       AlarmDescription: Signaling Lambda concurrency throttling was observed.
       Namespace: AWS/Lambda
@@ -318,13 +339,6 @@ Resources:
       TreatMissingData: notBreaching
       AlarmActions:
         - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/ops/alerts-topic-arn}}'
-
-  SignalingDashboard:
-    Type: AWS::CloudWatch::Dashboard
-    Properties:
-      DashboardName: !Sub '${ProjectName}-${Stage}-signaling'
-      DashboardBody: !Sub >-
-        {"widgets":[{"type":"metric","width":12,"height":6,"properties":{"title":"Signaling Lambda","region":"${AWS::Region}","stat":"Sum","period":300,"metrics":[["AWS/Lambda","Invocations","FunctionName","${SignalingFn}"],[".","Errors",".","."],[".","Throttles",".","."]]}},{"type":"metric","width":12,"height":6,"properties":{"title":"Authorizer","region":"${AWS::Region}","stat":"Sum","period":300,"metrics":[["AWS/Lambda","Invocations","FunctionName","${AuthorizerFn}"],[".","Errors",".","."]]}}]}
 
   # --- Publish the WS URL for the client build ------------------------------
   ParamSignalingWsUrl:

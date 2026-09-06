@@ -10,7 +10,7 @@ capabilities = "CAPABILITY_IAM"
 confirm_changeset = false
 resolve_s3 = true
 s3_prefix = "dndtools-dev-signaling"
-parameter_overrides = "ProjectName=dndtools Stage=dev LogRetentionDays=14"
+parameter_overrides = "ProjectName=dndtools Stage=dev LogRetentionDays=14 CreateAlarms=false"
 tags = "project=dndtools stage=dev service=signaling owner=platform data-class=operational managed-by=sam"
 
 [prod.global.parameters]
@@ -23,5 +23,5 @@ capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 resolve_s3 = true
 s3_prefix = "dndtools-prod-signaling"
-parameter_overrides = "ProjectName=dndtools Stage=prod LogRetentionDays=90"
+parameter_overrides = "ProjectName=dndtools Stage=prod LogRetentionDays=90 CreateAlarms=true"
 tags = "project=dndtools stage=prod service=signaling owner=platform data-class=operational managed-by=sam"

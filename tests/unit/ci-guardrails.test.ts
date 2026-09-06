@@ -82,8 +82,8 @@ describe('CI guardrails', () => {
 		expect(prod.featureFlags.every((flag) => !flag.enabled)).toBe(true);
 		expect(foundation).toContain('AWS::CE::AnomalyMonitor');
 		expect(foundation).toContain('AWS::CloudTrail::Trail');
-		expect(foundationConfig).toContain('MonthlyBudgetUsd=15');
-		expect(foundationConfig).toContain('MonthlyBudgetUsd=40');
+		expect(foundationConfig).toContain('MonthlyBudgetUsd=12');
+		expect(foundationConfig).toContain('MonthlyBudgetUsd=20');
 		expect(foundationConfig).toContain('CreateGitHubOidcProvider=true');
 		expect(foundationConfig).toContain('CreateApiGatewayAccountRole=true');
 	});

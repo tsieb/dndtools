@@ -46,3 +46,5 @@ tests/perf/current.json
 # Cloud infra build artifacts
 packages/cloud-fns/build/
 infra/**/.aws-sam/
+__pycache__/
+*.pyc
