@@ -5,6 +5,7 @@ import {
 	TemplateEmpty,
 	TemplateNote,
 	TemplateShell,
+	cfg,
 	type WidgetTemplateProps,
 } from './shared';
 
@@ -22,6 +23,12 @@ import {
  *   disabled with the reason, rather than silently doing nothing when pressed.
  *
  * Buttons are real `<button>`s, so pointer and keyboard dispatch the identical command (WCAG 2.2 AA).
+ *
+ * A command's PAYLOAD comes from the widget's configuration, by the same rule `form-panel` already
+ * uses: the keys the descriptor's `payloadSchema` names are read off the instance (falling back to
+ * the declared field default), and nothing else is sent — the schemas the core validates against are
+ * strict, so an unnamed key would be rejected. Without this a declared command whose schema requires
+ * anything at all (`dice.roll` needs an expression) would be a button that can only ever fail.
  */
 export function ActionPanelTemplate({ widget, definition, data, onCommand }: WidgetTemplateProps) {
 	const { t } = useI18n();
@@ -34,6 +41,15 @@ export function ActionPanelTemplate({ widget, definition, data, onCommand }: Wid
 	const actions = declared.filter(
 		(command) => command.requiredCapability !== 'manager' || data.isDm,
 	);
+	// The configured values for exactly the keys this command declares. An undefined key is omitted
+	// rather than sent as `undefined`, so a required field that was never configured is refused by
+	// the core with its own message instead of being papered over here.
+	const payloadFor = (command: (typeof actions)[number]): Record<string, unknown> =>
+		Object.fromEntries(
+			Object.keys(command.payloadSchema.properties ?? {})
+				.map((key) => [key, cfg(widget, key)] as const)
+				.filter(([, value]) => value !== undefined),
+		);
 
 	return (
 		<TemplateShell testId="widget-template-action-panel">
@@ -57,7 +73,7 @@ export function ActionPanelTemplate({ widget, definition, data, onCommand }: Wid
 							variant="secondary"
 							aria-disabled={onCommand ? undefined : true}
 							title={onCommand ? undefined : t('widgetTemplate.finishEditing')}
-							onClick={onCommand ? () => onCommand(command.type, {}) : undefined}
+							onClick={onCommand ? () => onCommand(command.type, payloadFor(command)) : undefined}
 						>
 							{command.displayName}
 						</Button>

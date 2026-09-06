@@ -300,6 +300,77 @@ describe('each template renders its fixture package', () => {
 		expect(dispatched).toEqual([['fixture.roll', {}]]);
 	});
 
+	// RC-WID-1.6 — the starter Table Roller declares `dice.roll`, whose payload schema REQUIRES an
+	// expression. A panel that sent an empty payload would make every such button reject, so the
+	// declared keys are read off the instance configuration (falling back to the field default).
+	it('action-panel fills a declared payload from the widget configuration', () => {
+		const dispatched: [string, Record<string, unknown>][] = [];
+		renderTemplate(
+			ActionPanelTemplate,
+			fixturePackage('action-panel', {
+				configFields: [
+					{ key: 'expression', label: 'Dice expression', control: 'text', default: '1d20' },
+					{ key: 'label', label: 'Roll label', control: 'text', default: 'Table roll' },
+					{ key: 'unrelated', label: 'Not in the schema', control: 'text', default: 'ignored' },
+				],
+				commands: [
+					{
+						type: 'dice.roll',
+						displayName: 'Roll the table',
+						requiredCapability: 'operator',
+						payloadSchema: {
+							type: 'object',
+							required: ['expression'],
+							properties: { expression: { type: 'string' }, label: { type: 'string' } },
+						},
+						writesTo: 'session',
+					},
+				],
+			}),
+			{
+				widget: { configuration: { expression: '2d6+1' } },
+				onCommand: (type, payload) => dispatched.push([type, payload]),
+			},
+		);
+		const button = container.querySelector('button');
+		act(() => button?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+		// The configured value wins, the unset one falls back to its default, and a config key the
+		// schema does not name is not sent — the core's payload schemas are strict.
+		expect(dispatched).toEqual([['dice.roll', { expression: '2d6+1', label: 'Table roll' }]]);
+	});
+
+	// RC-WID-1.6 — the Weather Tracker and the Countdown Clock track a DM's judgement, not something
+	// the core derives, so their measures are configuration. A bounded number is a meter, an
+	// unbounded one a figure, and the remaining settings are listed.
+	it('tracker reads out its configured settings when no row carries a measure', () => {
+		const text = renderTemplate(
+			TrackerTemplate,
+			fixturePackage('tracker', {
+				dataQueries: [
+					{
+						id: 'scene',
+						label: 'Weather over',
+						source: 'selected-scene',
+						requiredCapability: 'viewer',
+						audience: 'shared',
+					},
+				],
+				computedFields: [],
+				configFields: [
+					{ key: 'wind', label: 'Wind', control: 'number', default: 3, min: 0, max: 10 },
+					{ key: 'temperature', label: 'Temperature', control: 'number', default: 12 },
+					{ key: 'condition', label: 'Condition', control: 'text', default: 'Fog' },
+				],
+			}),
+			{ widget: { configuration: { wind: 7 } } },
+		);
+		expect(text).toContain('7 of 10');
+		expect(text).toContain('Temperature');
+		expect(text).toContain('Fog');
+		// The row-count fallback is for a tracker with nothing else to say; it does not pile on here.
+		expect(text).not.toContain('rows');
+	});
+
 	it('action-panel hides a manager-only action from a player', () => {
 		const text = renderTemplate(
 			ActionPanelTemplate,
