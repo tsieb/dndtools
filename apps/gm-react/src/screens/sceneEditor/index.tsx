@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
 	findWidgetDefinition,
@@ -8,10 +8,11 @@ import {
 	resolveAddWidgetCommand,
 	type WidgetLibraryEntry,
 } from '@dndtools/core';
-import { Button, Card, Dialog, Icon, IconButton, Switch } from '../../ds';
+import { Button, Card, Icon, IconButton, Switch, Toaster } from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { widgetRejectionMessage } from '../../app/widget-rejection';
 import { SceneBoardCanvas } from '../../app/SceneBoardCanvas';
+import { useLayoutHistory } from '../../app/canvas/useLayoutHistory';
 import { boardWidgetsOf, payloadIndex, type BoardWidget } from '../../app/board-helpers';
 import { useViewport } from '../../app/useViewport';
 import { usePanelFocusReturn } from '../../app/usePanelFocusReturn';
@@ -45,7 +46,6 @@ export function SceneEditor() {
 	const [addOpen, setAddOpen] = useState(false);
 	const [metaOpen, setMetaOpen] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [pendingDestroyId, setPendingDestroyId] = useState<string | null>(null);
 
 	// `/scene/:id` is ONE route element, so React Router reuses this component across param changes and
 	// never unmounts it on a scene→scene navigation (the sidebar and ⌘K both do exactly that). Every
@@ -57,7 +57,6 @@ export function SceneEditor() {
 		setAddOpen(false);
 		setSelectedId(null);
 		setEditing(false);
-		setPendingDestroyId(null);
 		setError(null);
 	}, [id]);
 
@@ -87,7 +86,6 @@ export function SceneEditor() {
 
 	const selectedInstance = rawScene?.widgets.find((w) => w.id === selectedId) ?? null;
 	const selectedWidget = widgets.find((w) => w.id === selectedId) ?? null;
-	const pendingDestroy = widgets.find((w) => w.id === pendingDestroyId) ?? null;
 
 	// Each of these panels has a path that unmounts it while focus is still inside: a successful Add,
 	// a saved metadata edit, the Inspector's Close, a deselect. See usePanelFocusReturn.
@@ -120,19 +118,35 @@ export function SceneEditor() {
 		return true;
 	}
 
+	// RC-CAN-1.3: the local, never-synced undo stack for this scene. It is cleared whenever `id`
+	// changes, so Ctrl+Z on one scene can never dispatch an inverse addressed to the previous one.
+	const history = useLayoutHistory({ sceneId: id ?? null, runtime, dispatch });
+	// The Undo toast's callback outlives the render that raised it (the toast store is outside React),
+	// so it reads the stack through a ref rather than closing over one render's copy.
+	const historyRef = useRef(history);
+	historyRef.current = history;
+	const titleOf = (widgetInstanceId: string) =>
+		widgets.find((w) => w.id === widgetInstanceId)?.title ?? 'widget';
+
 	function move(widgetInstanceId: string, x: number, y: number) {
-		return dispatch({
-			type: 'scene.move-widget',
-			actorId,
-			payload: { sceneId: id, widgetInstanceId, x, y },
-		});
+		return history.run(
+			{
+				type: 'scene.move-widget',
+				actorId,
+				payload: { sceneId: id, widgetInstanceId, x, y },
+			},
+			`Moved ${titleOf(widgetInstanceId)}`,
+		);
 	}
 	function resize(widgetInstanceId: string, w: number, h: number) {
-		return dispatch({
-			type: 'scene.resize-widget',
-			actorId,
-			payload: { sceneId: id, widgetInstanceId, w, h },
-		});
+		return history.run(
+			{
+				type: 'scene.resize-widget',
+				actorId,
+				payload: { sceneId: id, widgetInstanceId, w, h },
+			},
+			`Resized ${titleOf(widgetInstanceId)}`,
+		);
 	}
 	async function addWidget(entry: WidgetLibraryEntry) {
 		const count = rawScene?.widgets.length ?? 0;
@@ -145,20 +159,30 @@ export function SceneEditor() {
 			if (!editing) setEditing(true);
 		}
 	}
-	// Destroying a widget is unrecoverable — the core has no `scene.restore-widget` counterpart, so
-	// there is nothing an Undo toast could dispatch. Both entry points (the Inspector's Remove button
-	// and Delete/Backspace on a focused widget frame in edit mode) stage here and wait for a confirm.
-	function destroy(widgetInstanceId: string) {
-		setPendingDestroyId(widgetInstanceId);
-	}
-	function confirmDestroy(widgetInstanceId: string) {
-		setPendingDestroyId(null);
+	// Removing a widget used to stage a confirm dialog, because a destroy took the instance's
+	// configuration with it for good. RC-CAN-1.2 gave the core `scene.restore-widget`, so both entry
+	// points (the Inspector's Remove button and Delete/Backspace on a focused frame) now just do it
+	// and offer Undo — in a toast that holds open until it is taken or dismissed, and on Ctrl+Z.
+	async function destroy(widgetInstanceId: string) {
+		const title = titleOf(widgetInstanceId);
 		setSelectedId(null);
-		return dispatch({
-			type: 'scene.destroy-widget',
-			actorId,
-			payload: { sceneId: id, widgetInstanceId },
-		});
+		const ok = await history.run(
+			{
+				type: 'scene.destroy-widget',
+				actorId,
+				payload: { sceneId: id, widgetInstanceId },
+			},
+			`Removed ${title}`,
+		);
+		if (ok) {
+			Toaster.show({
+				message: `Removed ${title}`,
+				action: 'Undo',
+				onAction: () => {
+					void historyRef.current.undo();
+				},
+			});
+		}
 	}
 	// VIEW-mode widget operation (SES-005/SES-003): dispatch a widget-DECLARED durable command through
 	// the one envelope the core accepts — fresh idempotencyKey per press + the scene's current revision
@@ -437,6 +461,7 @@ export function SceneEditor() {
 					focusOrder={summary.focusOrder.map((entry) => entry.widgetInstanceId)}
 					onRemove={destroy}
 					onWidgetCommand={operateWidget}
+					history={history}
 					emptyHint={
 						editing
 							? 'Press Add to place your first widget.'
@@ -469,32 +494,6 @@ export function SceneEditor() {
 						onClose={() => setAddOpen(false)}
 					/>
 				)}
-
-				<Dialog
-					open={!!pendingDestroy}
-					onClose={() => setPendingDestroyId(null)}
-					title={`Remove “${pendingDestroy?.title ?? 'this widget'}”?`}
-					description="The widget and its configuration leave this scene. There is no undo for a removed widget — you would have to add and configure a new one."
-					icon="delete"
-					size="sm"
-					footer={
-						<>
-							<Button variant="secondary" size="sm" onClick={() => setPendingDestroyId(null)}>
-								Keep
-							</Button>
-							<Button
-								variant="danger"
-								size="sm"
-								icon="delete"
-								onClick={() => {
-									if (pendingDestroyId) void confirmDestroy(pendingDestroyId);
-								}}
-							>
-								Remove widget
-							</Button>
-						</>
-					}
-				/>
 
 				{editing && selectedWidget && selectedInstance && !addOpen && !metaOpen && (
 					<Inspector

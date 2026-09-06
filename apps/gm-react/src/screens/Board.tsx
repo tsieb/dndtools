@@ -7,13 +7,14 @@ import {
 	resolveAddWidgetCommand,
 	type WidgetLibraryEntry,
 } from '@dndtools/core';
-import { Button, Card, Dialog, Icon, IconButton, Input, Switch } from '../ds';
+import { Button, Card, Icon, IconButton, Input, Switch, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { widgetRejectionMessage } from '../app/widget-rejection';
 import { SceneBoardCanvas, WidgetGlyph } from '../app/SceneBoardCanvas';
 import { boardWidgetsOf, payloadIndex, type BoardWidget } from '../app/board-helpers';
 import { useViewport } from '../app/useViewport';
 import { usePanelFocusReturn } from '../app/usePanelFocusReturn';
+import { useLayoutHistory } from '../app/canvas/useLayoutHistory';
 import { Page, srOnly } from '../app/screen-kit';
 import { widgetProfileForRuntime } from '../platform/capabilities';
 
@@ -54,7 +55,6 @@ export function Board() {
 	const [presetName, setPresetName] = useState('');
 	const [status, setStatus] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const [pendingDestroyId, setPendingDestroyId] = useState<string | null>(null);
 	const ensuringRef = useRef(false);
 
 	// A successful Add, or a saved layout preset, unmounts the panel with focus still inside it — the
@@ -117,8 +117,6 @@ export function Board() {
 		);
 	}, [ready, homeSceneId, runtime.state.scenes, runtime.state.widgets, summary]);
 
-	const pendingDestroy = widgets.find((w) => w.id === pendingDestroyId) ?? null;
-
 	const presets = Object.values(runtime.state.commandCenter.presets).sort((a, b) =>
 		a.name.localeCompare(b.name),
 	);
@@ -160,39 +158,60 @@ export function Board() {
 		return true;
 	}
 
+	const history = useLayoutHistory({ sceneId: homeSceneId ?? null, runtime, dispatch });
+	// A stable callback for the Undo toast: the toast store lives outside React, so the closure it
+	// keeps must not capture a particular render's stack.
+	const historyRef = useRef(history);
+	historyRef.current = history;
+	const undoRemoval = () => {
+		void historyRef.current.undo();
+	};
+
+	// RC-CAN-1.3: every layout write goes through the local undo stack, so `Ctrl+Z` and the canvas's
+	// Undo button reverse it by dispatching the core-built inverse — an ordinary durable command.
+	const titleOf = (widgetInstanceId: string) =>
+		widgets.find((w) => w.id === widgetInstanceId)?.title ?? 'widget';
+
 	function move(widgetInstanceId: string, x: number, y: number) {
 		if (!homeSceneId) return;
-		return dispatch({
-			type: 'scene.move-widget',
-			actorId,
-			payload: { sceneId: homeSceneId, widgetInstanceId, x, y },
-		});
+		return history.run(
+			{
+				type: 'scene.move-widget',
+				actorId,
+				payload: { sceneId: homeSceneId, widgetInstanceId, x, y },
+			},
+			`Moved ${titleOf(widgetInstanceId)}`,
+		);
 	}
 	function resize(widgetInstanceId: string, w: number, h: number) {
 		if (!homeSceneId) return;
-		return dispatch({
-			type: 'scene.resize-widget',
-			actorId,
-			payload: { sceneId: homeSceneId, widgetInstanceId, w, h },
-		});
+		return history.run(
+			{
+				type: 'scene.resize-widget',
+				actorId,
+				payload: { sceneId: homeSceneId, widgetInstanceId, w, h },
+			},
+			`Resized ${titleOf(widgetInstanceId)}`,
+		);
 	}
 	// Delete/Backspace on a focused widget frame is the ONLY widget-lifecycle operation on `/board`
-	// (there is no Inspector here), and `scene.destroy-widget` has no restore counterpart — it takes
-	// the instance's configuration (a note's text, a timer's duration, a map binding) with it. So a
-	// bare Backspace while arrow-navigating frames stages a confirm, exactly as SceneEditor does.
-	function remove(widgetInstanceId: string) {
+	// (there is no Inspector here). It used to stage a confirm dialog, because a destroy could not be
+	// taken back. RC-CAN-1.2 gave the core `scene.restore-widget`, so the removal now just happens and
+	// offers Undo in a toast — the toast holds open until it is taken or dismissed (Toast.jsx pins any
+	// toast carrying an action), and the same reversal is on `Ctrl+Z`.
+	async function remove(widgetInstanceId: string) {
 		if (!homeSceneId) return;
-		setPendingDestroyId(widgetInstanceId);
-	}
-	function confirmDestroy(widgetInstanceId: string) {
-		if (!homeSceneId) return;
-		setPendingDestroyId(null);
+		const title = titleOf(widgetInstanceId);
 		setSelectedId((cur) => (cur === widgetInstanceId ? null : cur));
-		return dispatch({
-			type: 'scene.destroy-widget',
-			actorId,
-			payload: { sceneId: homeSceneId, widgetInstanceId },
-		});
+		const ok = await history.run(
+			{
+				type: 'scene.destroy-widget',
+				actorId,
+				payload: { sceneId: homeSceneId, widgetInstanceId },
+			},
+			`Removed ${title}`,
+		);
+		if (ok) Toaster.show({ message: `Removed ${title}`, action: 'Undo', onAction: undoRemoval });
 	}
 	// VIEW-mode widget operation (SES-005/SES-003): a widget-DECLARED durable command through the one
 	// envelope the core accepts — fresh idempotencyKey per press + the scene's current revision.
@@ -518,32 +537,7 @@ export function Board() {
 					// every widget from the GM Screen was told "An empty scene" — scene vocabulary on a
 					// surface that is deliberately not a scene.
 					emptyTitle={ready ? 'Your GM Screen is empty' : 'Setting up your GM Screen'}
-				/>
-
-				<Dialog
-					open={!!pendingDestroy}
-					onClose={() => setPendingDestroyId(null)}
-					title={`Remove “${pendingDestroy?.title ?? 'this widget'}”?`}
-					description="The widget and its configuration leave your GM Screen. There is no undo for a removed widget — you would have to add and configure a new one."
-					icon="delete"
-					size="sm"
-					footer={
-						<>
-							<Button variant="secondary" size="sm" onClick={() => setPendingDestroyId(null)}>
-								Keep
-							</Button>
-							<Button
-								variant="danger"
-								size="sm"
-								icon="delete"
-								onClick={() => {
-									if (pendingDestroyId) void confirmDestroy(pendingDestroyId);
-								}}
-							>
-								Remove widget
-							</Button>
-						</>
-					}
+					history={history}
 				/>
 
 				{addOpen && (

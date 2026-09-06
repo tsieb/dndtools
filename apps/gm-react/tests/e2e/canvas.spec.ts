@@ -206,10 +206,11 @@ test.describe('canvas: board + scene mount and round-trip', () => {
 	});
 });
 
-test.describe('canvas: destroying a widget is confirmed', () => {
-	// `scene.destroy-widget` has NO restore counterpart in the core, so there is nothing an Undo toast
-	// could dispatch — a single click (or a stray Delete keypress while arrow-navigating the frames in
-	// edit mode) used to permanently destroy a widget and its configuration.
+test.describe('canvas: layout history and reversible removal', () => {
+	// RC-CAN-1.3. Removing a widget used to be gated behind a confirm dialog because the core had no
+	// way to put it back. It does now (`scene.restore-widget`), so the canvas keeps a local undo stack
+	// instead: a removal happens at once and is reversed by the toast's Undo, the toolbar's Undo, or
+	// Ctrl+Z — and so are moves and resizes.
 	async function sceneWithOneWidget(page: import('@playwright/test').Page): Promise<string> {
 		await markOnboarded(page);
 		await gotoRoute(page, '/scenes');
@@ -241,6 +242,25 @@ test.describe('canvas: destroying a widget is confirmed', () => {
 			{ timeout: 10_000 },
 		);
 		return sceneId!;
+	}
+
+	/** The seeded home scene on `/board`, waited for rather than raced (see `goLive` above). */
+	async function boardWithWidgets(page: import('@playwright/test').Page): Promise<string> {
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		const handle = await page.waitForFunction(
+			() => {
+				const rt = window.__rt!;
+				const id = rt.state.commandCenter.homeSceneId;
+				return id && (rt.state.scenes.scenes[id]?.widgets.length ?? 0) > 0 ? id : null;
+			},
+			null,
+			{ timeout: 20_000 },
+		);
+		return (await handle.jsonValue()) as string;
 	}
 
 	const widgetCount = (page: import('@playwright/test').Page, sceneId: string) =>
@@ -280,32 +300,33 @@ test.describe('canvas: destroying a widget is confirmed', () => {
 		await expect(page.getByTestId('scene-meta-panel')).toHaveCount(0);
 	});
 
-	test('the Inspector Remove asks first, and Keep leaves the widget alone', async ({ page }) => {
+	test('the Inspector Remove takes effect at once, and the toast Undo puts the widget back', async ({
+		page,
+	}) => {
 		const sceneId = await sceneWithOneWidget(page);
 		const widgetId = await page.evaluate(
 			(id) => window.__rt!.state.scenes.scenes[id].widgets[0].id,
 			sceneId,
 		);
 
-		// Select the widget to open the Inspector, then ask to remove it. Enter on a focused frame is
-		// the frame's own select gesture — a pointer press there would start a move drag instead.
+		// Select the widget to open the Inspector, then remove it. Enter on a focused frame is the
+		// frame's own select gesture — a pointer press there would start a move drag instead.
 		await page.getByTestId(`widget-${widgetId}`).focus();
 		await page.keyboard.press('Enter');
 		await page.getByRole('button', { name: 'Remove widget' }).click();
 
-		const confirm = page.getByRole('dialog', { name: /Remove/ });
-		await expect(confirm).toBeVisible();
-		await confirm.getByRole('button', { name: 'Keep' }).click();
-		await expect(confirm).toHaveCount(0);
-		expect(await widgetCount(page, sceneId)).toBe(1);
-
-		// Confirming does destroy it.
-		await page.getByRole('button', { name: 'Remove widget' }).click();
-		await page
-			.getByRole('dialog', { name: /Remove/ })
-			.getByRole('button', { name: 'Remove widget' })
-			.click();
+		// No question: it is gone, and the offer to undo is on screen instead.
 		await expect.poll(() => widgetCount(page, sceneId)).toBe(0);
+		const undo = page.getByRole('button', { name: 'Undo', exact: true });
+		await expect(undo).toBeVisible();
+		await expect(page.getByText(/^Removed /)).toBeVisible();
+
+		// Undo restores the SAME instance, not a fresh one — that is the whole point of the tombstone.
+		await undo.click();
+		await expect.poll(() => widgetCount(page, sceneId)).toBe(1);
+		expect(
+			await page.evaluate((id) => window.__rt!.state.scenes.scenes[id].widgets[0].id, sceneId),
+		).toBe(widgetId);
 	});
 
 	// `Section`'s label is an unassociated <span> and the DS `Select` renders a bare <select> (only
@@ -341,26 +362,10 @@ test.describe('canvas: destroying a widget is confirmed', () => {
 	});
 
 	// /board has NO Inspector, so Delete on a focused frame is the only widget-lifecycle operation on
-	// that surface — and it destroyed the instance's configuration (a note's body, a timer's duration,
-	// a map binding) with no confirm, no toast and no undo. Same gate as /scene/:id now.
-	test('Delete on a focused /board widget frame asks first, and Escape keeps it', async ({
-		page,
-	}) => {
-		await markOnboarded(page);
-		await gotoRoute(page, '/board');
-		await seedFresh(page);
-		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
-		await waitReady(page);
-		const homeSceneId = await page.waitForFunction(
-			() => {
-				const rt = window.__rt!;
-				const id = rt.state.commandCenter.homeSceneId;
-				return id && (rt.state.scenes.scenes[id]?.widgets.length ?? 0) > 0 ? id : null;
-			},
-			null,
-			{ timeout: 20_000 },
-		);
-		const sceneId = (await homeSceneId.jsonValue()) as string;
+	// that surface. It is no longer a wall or a question: the removal lands and the Undo toast — which
+	// never auto-dismisses, because it carries an action — is the safety net.
+	test('Delete on a focused /board widget frame removes it and offers Undo', async ({ page }) => {
+		const sceneId = await boardWithWidgets(page);
 		const before = await widgetCount(page, sceneId);
 		expect(before).toBeGreaterThan(0);
 
@@ -372,26 +377,14 @@ test.describe('canvas: destroying a widget is confirmed', () => {
 		await page.getByTestId(`widget-${widgetId}`).focus();
 		await page.keyboard.press('Delete');
 
-		const confirm = page.getByRole('dialog', { name: /Remove/ });
-		await expect(confirm).toBeVisible();
-		// Nothing left the board while the question was on screen.
-		expect(await widgetCount(page, sceneId)).toBe(before);
-
-		await page.keyboard.press('Escape');
-		await expect(confirm).toHaveCount(0);
-		expect(await widgetCount(page, sceneId)).toBe(before);
-
-		// And confirming still works, so the gate is a question and not a wall.
-		await page.getByTestId(`widget-${widgetId}`).focus();
-		await page.keyboard.press('Delete');
-		await page
-			.getByRole('dialog', { name: /Remove/ })
-			.getByRole('button', { name: 'Remove widget' })
-			.click();
 		await expect.poll(() => widgetCount(page, sceneId)).toBe(before - 1);
+		const undo = page.getByRole('button', { name: 'Undo', exact: true });
+		await expect(undo).toBeVisible();
+		await undo.click();
+		await expect.poll(() => widgetCount(page, sceneId)).toBe(before);
 	});
 
-	test('a stray Delete keypress on a focused widget frame cannot destroy it outright', async ({
+	test('Ctrl+Z on the canvas reverses a removal, and announces what it reversed', async ({
 		page,
 	}) => {
 		const sceneId = await sceneWithOneWidget(page);
@@ -399,18 +392,60 @@ test.describe('canvas: destroying a widget is confirmed', () => {
 			(id) => window.__rt!.state.scenes.scenes[id].widgets[0].id,
 			sceneId,
 		);
+		const canvas = page.getByTestId('scene-board-canvas');
 
-		// The keyboard path had no confirmation UI attached at all — arrow-navigating the frames and
-		// hitting Delete removed a widget silently.
 		await page.getByTestId(`widget-${widgetId}`).focus();
 		await page.keyboard.press('Delete');
-		await expect(page.getByRole('dialog', { name: /Remove/ })).toBeVisible();
-		expect(await widgetCount(page, sceneId)).toBe(1);
+		await expect.poll(() => widgetCount(page, sceneId)).toBe(0);
 
-		await page.keyboard.press('Escape');
-		await expect(page.getByRole('dialog', { name: /Remove/ })).toHaveCount(0);
-		expect(await widgetCount(page, sceneId)).toBe(1);
+		// Dismiss the toast so the only remaining route back is the keyboard one.
+		await page.getByRole('button', { name: 'Dismiss' }).first().click();
+		await canvas.click({ position: { x: 6, y: 6 } });
+		await page.keyboard.press('Control+z');
+
+		await expect.poll(() => widgetCount(page, sceneId)).toBe(1);
+		await expect(canvas.getByRole('status')).toContainText(/^Undone: removed /);
 	});
+
+	test('undo and redo reverse a widget move, on the canvas and from the toolbar', async ({
+		page,
+	}) => {
+		const sceneId = await sceneWithOneWidget(page);
+		const widgetId = await page.evaluate(
+			(id) => window.__rt!.state.scenes.scenes[id].widgets[0].id,
+			sceneId,
+		);
+		const xOf = () =>
+			page.evaluate((id) => window.__rt!.state.scenes.scenes[id].widgets[0].layout.x, sceneId);
+		const canvas = page.getByTestId('scene-board-canvas');
+		const originalX = await xOf();
+
+		// Select the frame, then one arrow step — the keyboard equivalent of a drag, committed as one
+		// `scene.move-widget`.
+		await page.getByTestId(`widget-${widgetId}`).focus();
+		await page.keyboard.press('Enter');
+		await page.keyboard.press('ArrowRight');
+		await expect.poll(xOf).toBeGreaterThan(originalX);
+
+		await page.keyboard.press('Control+z');
+		await expect.poll(xOf).toBe(originalX);
+		await expect(canvas.getByRole('status')).toContainText(/^Undone: moved /);
+
+		// Redo through the toolbar button, so the pointer path is exercised too (WCAG 2.5.7: the
+		// button and the shortcut dispatch the same command).
+		const controls = page.getByTestId('canvas-history-controls');
+		await controls.getByRole('button', { name: /^Redo/ }).click();
+		await expect.poll(xOf).toBeGreaterThan(originalX);
+		await expect(canvas.getByRole('status')).toContainText(/^Redone: moved /);
+
+		await controls.getByRole('button', { name: /^Undo/ }).click();
+		await expect.poll(xOf).toBe(originalX);
+	});
+
+	// Undo of a `scene.resize-widget` is covered in src/app/canvas/useLayoutHistory.test.tsx instead:
+	// every widget that ships today is `system` tier, and the canvas deliberately offers system
+	// widgets no resize handle and swallows their Shift+Arrow — so there is no pointer or keyboard
+	// path an end-to-end test could take to a resize on this surface.
 });
 
 test.describe('canvas: side panels close on Escape', () => {

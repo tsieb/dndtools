@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { Icon } from '../ds';
 import { isWidgetResizable, TIER_LABEL, visibilityChip, type BoardWidget } from './board-helpers';
 import { WidgetRenderSlot, type WidgetCommandHandler } from './widgets/WidgetRenderSlot';
+import { srOnly } from './screen-kit';
+import type { LayoutHistory } from './canvas/useLayoutHistory';
 
 /**
  * SceneBoardCanvas — the ONE canvas engine the prototype's `scene-canvas.jsx` describes: the same
@@ -85,6 +87,9 @@ export interface SceneBoardCanvasProps {
 	emptyHint?: string;
 	/** Overrides the empty-state headline — the caller uses it to say "loading" instead of "empty". */
 	emptyTitle?: string;
+	/** RC-CAN-1.3: the screen's local layout undo stack. Supplying it renders the Undo/Redo cluster,
+	 *  binds `Ctrl+Z` / `Ctrl+Shift+Z` inside this canvas and announces each reversal. */
+	history?: LayoutHistory;
 }
 
 /** Arrow-key vector: [dx, dy] in grid steps. */
@@ -121,6 +126,7 @@ export function SceneBoardCanvas({
 	onWidgetCommand,
 	emptyHint,
 	emptyTitle,
+	history,
 }: SceneBoardCanvasProps) {
 	const wrapRef = useRef<HTMLDivElement | null>(null);
 	const [wrapWidth, setWrapWidth] = useState(0);
@@ -424,6 +430,28 @@ export function SceneBoardCanvas({
 		if (next) frameRefs.current.get(next)?.focus();
 	};
 
+	/**
+	 * `Ctrl+Z` / `Ctrl+Shift+Z` (and `Ctrl+Y`, which is what Windows editors train), SCOPED to this
+	 * canvas: the handler sits on the canvas wrapper, so the shortcut only fires while focus is
+	 * somewhere inside the board. A global listener would have let Ctrl+Z on a Settings form reverse
+	 * a widget move nobody could see.
+	 */
+	const canvasKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+		if (!history) return;
+		if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+		// A widget body can hold a real text field, where Ctrl+Z is the browser's own text undo.
+		const target = e.target as HTMLElement | null;
+		if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+		const key = e.key.toLowerCase();
+		if (key === 'z' && !e.shiftKey) {
+			e.preventDefault();
+			void history.undo();
+		} else if ((key === 'z' && e.shiftKey) || key === 'y') {
+			e.preventDefault();
+			void history.redo();
+		}
+	};
+
 	const frames = widgets.map((w) => {
 		const pos = posDraft[w.id] ?? { x: w.x, y: w.y };
 		const size = sizeDraft[w.id] ?? { w: w.w, h: w.h };
@@ -472,7 +500,11 @@ export function SceneBoardCanvas({
 		<div
 			ref={wrapRef}
 			data-testid={`scene-board-${policy}`}
+			// Focusable only programmatically/by click, so the canvas can own its own shortcuts without
+			// adding a stop on the Tab order (the widget frames are the real tab stops).
+			tabIndex={history ? -1 : undefined}
 			onWheel={onWheel}
+			onKeyDown={canvasKeyDown}
 			onPointerDown={onBgDown}
 			style={{
 				position: 'relative',
@@ -538,6 +570,53 @@ export function SceneBoardCanvas({
 				)}
 				{frames}
 			</div>
+
+			{history && editing && (
+				<div
+					data-testid="canvas-history-controls"
+					style={{
+						position: 'absolute',
+						// The bounded board scrolls, and an absolutely-positioned child scrolls with it —
+						// so the cluster is anchored to the TOP there (where an edit session starts and
+						// where the board sits by default) and to the free canvas's idle bottom-left
+						// corner, opposite its zoom cluster, where nothing else is painted.
+						...(policy === 'bounded' ? { top: 12, right: 12 } : { left: 16, bottom: 16 }),
+						display: 'flex',
+						alignItems: 'center',
+						gap: 2,
+						padding: 4,
+						borderRadius: 'var(--radius-md)',
+						background: 'var(--color-surface-overlay)',
+						border: '1px solid var(--color-border-strong)',
+						boxShadow: 'var(--shadow-lg)',
+					}}
+				>
+					<HistoryBtn
+						icon="undo"
+						label={history.undoLabel ? `Undo ${history.undoLabel.toLowerCase()}` : 'Undo'}
+						disabled={!history.canUndo}
+						onClick={() => void history.undo()}
+					/>
+					<HistoryBtn
+						icon="redo"
+						label={history.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : 'Redo'}
+						disabled={!history.canRedo}
+						onClick={() => void history.redo()}
+					/>
+				</div>
+			)}
+
+			{/* Permanent live region: it is in the a11y tree before the first undo, so the reversal is
+			    announced by the CONTENT changing rather than by a region being inserted with its text
+			    already in it — which screen readers routinely drop. Re-keying on `seq` replaces the
+			    child node, so undoing the same move twice still announces twice. */}
+			{history && (
+				<div role="status" aria-live="polite" aria-atomic="true" style={srOnly}>
+					{history.announcement && (
+						<span key={history.announcement.seq}>{history.announcement.text}</span>
+					)}
+				</div>
+			)}
 
 			{policy === 'canvas' && (
 				<div
@@ -614,6 +693,46 @@ export function SceneBoardCanvas({
 				</div>
 			)}
 		</div>
+	);
+}
+
+/** Undo/Redo overlay control. Disabled — not hidden — so the canvas never gains or loses a control
+ *  under the user's cursor, and the shortcut and the button always agree about what is available. */
+function HistoryBtn({
+	icon,
+	label,
+	disabled,
+	onClick,
+}: {
+	icon: string;
+	label: string;
+	disabled: boolean;
+	onClick: () => void;
+}) {
+	return (
+		<button
+			type="button"
+			title={label}
+			aria-label={label}
+			disabled={disabled}
+			onClick={onClick}
+			onPointerDown={(e) => e.stopPropagation()}
+			style={{
+				display: 'inline-flex',
+				alignItems: 'center',
+				justifyContent: 'center',
+				width: 28,
+				height: 28,
+				border: 'none',
+				borderRadius: 'var(--radius-sm)',
+				background: 'transparent',
+				color: disabled ? 'var(--color-text-tertiary)' : 'var(--color-text-secondary)',
+				cursor: disabled ? 'default' : 'pointer',
+				opacity: disabled ? 0.5 : 1,
+			}}
+		>
+			<Icon name={icon} size="sm" />
+		</button>
 	);
 }
 

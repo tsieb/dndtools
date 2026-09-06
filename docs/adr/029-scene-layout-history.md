@@ -204,3 +204,33 @@ whose package was removed or disabled while it sat in the bin comes back as the 
 placeholder those commands leave on live instances, so the undo always succeeds without pretending
 the widget works. `buildWidgetInverse` now inverts `scene.destroy-widget` to `scene.restore-widget`
 (it was refused in RC-CAN-1.1 pending this command), and `UNDOABLE_COMMAND_TYPES` maps the pair.
+
+## Amendment — RC-CAN-1.3 as built (2026-09-05)
+
+The app half of §1 shipped, with three departures from the decision above.
+
+1. **The hook is `apps/gm-react/src/app/canvas/useLayoutHistory.ts`, not a hook under
+   `screens/scenes`.** Two screens own a canvas — `screens/Board.tsx` (`/board`, bounded policy) and
+   `screens/sceneEditor/index.tsx` (`/scene/:id`, free canvas) — and they share one engine,
+   `app/SceneBoardCanvas.tsx`. A stack living in either screen would have had to be reinvented in the
+   other. Depth is 50 (`MAX_LAYOUT_HISTORY`), per the plan of record; the ADR named no depth.
+2. **The hook takes the runtime as an argument instead of reading `useRuntime()`.** That is what lets
+   the stack be exercised against a plain Core state holder in `useLayoutHistory.test.tsx` — which is
+   the only place a `scene.resize-widget` undo can be tested at all, because every widget that ships
+   today is `system` tier and the canvas gives system widgets no resize handle and swallows their
+   `Shift+Arrow`. The end-to-end acceptance in `canvas.spec.ts` therefore covers undo of a move and
+   of a destroy on both profiles, and the resize case is covered as a unit.
+3. **Undo of `scene.add-widget` is not wired.** §1 says the app routes an add-undo to
+   `scene.destroy-widget` using the id off the `scene.widget-added` event. The screens' guarded
+   `dispatch` returns only whether the command was accepted, so the minted id is not in reach without
+   widening that seam; `buildWidgetInverse` honestly returns `null`, and the hook records nothing
+   rather than pushing a step that would do the wrong thing. Adding a widget therefore leaves the
+   stack alone. HANDOFF: routing it needs `dispatch` to surface the accepted result's events.
+
+Also as built: removing a widget no longer stages a confirm dialog on either screen. The dialog
+existed because a destroy could not be taken back; RC-CAN-1.2 made it reversible, so the removal
+happens at once and offers "Undo" in a toast that never auto-dismisses (`Toast.jsx` pins any toast
+carrying an action, WCAG 2.2.1), backed by the same `scene.restore-widget` the stack dispatches for
+`Ctrl+Z`. The canvas hosts a permanent `role="status"` region that announces "Undone: moved Timer" /
+"Redone: moved Timer"; it is re-keyed on a sequence number so repeating an identical reversal is
+announced every time rather than being swallowed as an unchanged string.
