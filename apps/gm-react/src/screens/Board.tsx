@@ -11,7 +11,15 @@ import { Button, Card, Icon, IconButton, Input, Switch, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { widgetRejectionMessage } from '../app/widget-rejection';
 import { SceneBoardCanvas, WidgetGlyph } from '../app/SceneBoardCanvas';
-import { boardWidgetsOf, payloadIndex, type BoardWidget } from '../app/board-helpers';
+import {
+	boardHasLayoutIssues,
+	boardWidgetsOf,
+	clampToColumns,
+	clampWidthToColumns,
+	payloadIndex,
+	repackBoardColumns,
+	type BoardWidget,
+} from '../app/board-helpers';
 import { useViewport } from '../app/useViewport';
 import { usePanelFocusReturn } from '../app/usePanelFocusReturn';
 import { useLayoutHistory } from '../app/canvas/useLayoutHistory';
@@ -174,27 +182,51 @@ export function Board() {
 	const titleOf = (widgetInstanceId: string) =>
 		widgets.find((w) => w.id === widgetInstanceId)?.title ?? 'widget';
 
+	// RC-CAN-3.3: the bounded board has no free horizontal scroll (SceneBoardCanvas fit-scales its
+	// whole extent to the pane), so a drag or arrow-nudge past the board's own right edge either
+	// dragged that scale down for every widget or landed invisibly on another one. Every move/resize
+	// is clamped to the board's columns here, at the one place both the pointer and keyboard paths
+	// (SceneBoardCanvas's `onMove`/`onResize`) commit through — the drop is "snapped back" onto the
+	// grid instead of silently growing the board.
 	function move(widgetInstanceId: string, x: number, y: number) {
 		if (!homeSceneId) return;
+		const widget = widgets.find((w) => w.id === widgetInstanceId);
+		const clampedX = widget ? clampToColumns(x, widget.w) : x;
 		return history.run(
 			{
 				type: 'scene.move-widget',
 				actorId,
-				payload: { sceneId: homeSceneId, widgetInstanceId, x, y },
+				payload: { sceneId: homeSceneId, widgetInstanceId, x: clampedX, y: Math.max(0, y) },
 			},
 			`Moved ${titleOf(widgetInstanceId)}`,
 		);
 	}
 	function resize(widgetInstanceId: string, w: number, h: number) {
 		if (!homeSceneId) return;
+		const widget = widgets.find((wid) => wid.id === widgetInstanceId);
+		const clampedW = widget ? clampWidthToColumns(widget.x, w) : w;
 		return history.run(
 			{
 				type: 'scene.resize-widget',
 				actorId,
-				payload: { sceneId: homeSceneId, widgetInstanceId, w, h },
+				payload: { sceneId: homeSceneId, widgetInstanceId, w: clampedW, h },
 			},
 			`Resized ${titleOf(widgetInstanceId)}`,
 		);
+	}
+	// The banner's fix: a deterministic greedy repack of every widget back into the board's columns,
+	// each changed position committed as its own `scene.move-widget` (the same undoable path a drag
+	// takes), so "Fix layout" is a real durable action rather than a client-only visual snap.
+	const layoutIssues = boardHasLayoutIssues(widgets);
+	async function fixLayout() {
+		if (!homeSceneId) return;
+		const next = repackBoardColumns(widgets);
+		for (const widget of widgets) {
+			const pos = next.get(widget.id);
+			if (!pos || (pos.x === widget.x && pos.y === widget.y)) continue;
+			await move(widget.id, pos.x, pos.y);
+		}
+		setStatus(t('board.layoutFixed'));
 	}
 	// Delete/Backspace on a focused widget frame is the ONLY widget-lifecycle operation on `/board`
 	// (there is no Inspector here). It used to stage a confirm dialog, because a destroy could not be
@@ -509,6 +541,33 @@ export function Board() {
 				>
 					<Icon name="warning" size="sm" /> {error}
 				</div>
+			)}
+
+			{/* RC-CAN-3.3: a widget dragged (or preset-applied) past the board's columns is clamped back
+			    onto the grid at the point it commits, but that snap can still land it on top of another
+			    widget. This banner names that honestly instead of leaving an invisible overlap, and
+			    offers the one-click fix. */}
+			{layoutIssues && (
+				<Card
+					elevation="flat"
+					padding="sm"
+					data-testid="board-layout-banner"
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: 'var(--space-2)',
+						flex: '0 0 auto',
+						borderColor: 'var(--color-status-warning)',
+					}}
+				>
+					<Icon name="warning" size="sm" />
+					<span style={{ flex: 1, font: 'var(--text-xs) var(--font-sans)' }}>
+						{t('board.layoutIssues')}
+					</span>
+					<Button variant="secondary" size="sm" onClick={() => void fixLayout()}>
+						{t('board.fixLayout')}
+					</Button>
+				</Card>
 			)}
 
 			<div

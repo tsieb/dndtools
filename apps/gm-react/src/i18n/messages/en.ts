@@ -346,6 +346,8 @@ export const en = {
 	'session.stage.activeMapHelp': 'What you stage for the table.',
 	'session.stage.noneOption': '— none —',
 	'session.stage.project': 'Project to players',
+	'session.playerViews.title': 'Player views',
+	'session.playerViews.assignAria': 'Scene projected to {name}',
 	'session.dice.title': 'Dice',
 	'session.dice.announcement': 'Rolled {expression} — total {total}.',
 	'session.dice.goLive': 'Dice rolls record to the live session — go live to roll.',
@@ -3794,6 +3796,9 @@ export const en = {
 	'board.layoutSaved': 'Layout “{name}” saved.',
 	'board.layoutApplied': 'Layout “{name}” applied — you can restore the previous layout.',
 	'board.layoutRestored': 'Previous layout restored.',
+	'board.layoutIssues': 'Some widgets overlap or overflow the board.',
+	'board.fixLayout': 'Fix layout',
+	'board.layoutFixed': 'Layout fixed.',
 
 	/* Graph › the entity graph, its search rail and the health report */
 	'graph.kind.note': 'Note',

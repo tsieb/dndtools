@@ -356,6 +356,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.stage.activeMapHelp': 'Lo que preparas para la mesa.',
 	'session.stage.noneOption': '— ninguno —',
 	'session.stage.project': 'Proyectar a los jugadores',
+	'session.playerViews.title': 'Vistas de jugadores',
+	'session.playerViews.assignAria': 'Escena proyectada a {name}',
 	'session.dice.title': 'Dados',
 	'session.dice.announcement': 'Tirada de {expression} — total {total}.',
 	'session.dice.goLive':
@@ -3915,6 +3917,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'board.layoutSaved': 'Se guardó el diseño «{name}».',
 	'board.layoutApplied': 'Se aplicó el diseño «{name}» — puedes restaurar el diseño anterior.',
 	'board.layoutRestored': 'Se restauró el diseño anterior.',
+	'board.layoutIssues': 'Algunos widgets se superponen o se salen del tablero.',
+	'board.fixLayout': 'Corregir el diseño',
+	'board.layoutFixed': 'Se corrigió el diseño.',
 
 	/* Grafo › el grafo de entidades, su barra de búsqueda y el informe de salud */
 	'graph.kind.note': 'Nota',

@@ -448,6 +448,78 @@ test.describe('canvas: layout history and reversible removal', () => {
 	// path an end-to-end test could take to a resize on this surface.
 });
 
+test.describe('canvas: board column-overflow guard', () => {
+	// RC-CAN-3.3. `/board` is the bounded canvas (`SceneBoardCanvas` `policy="bounded"`): it has no
+	// free horizontal scroll, so a widget dragged past the board's own three seeded columns must be
+	// clamped back onto the grid rather than silently growing the board or landing invisibly on
+	// another widget. The seeded home scene's third-column widget ('dice', index 2) sits at a known
+	// x, so dragging the first ('map', index 0) far past the right edge and having it clamp there
+	// deterministically produces an overlap the "Fix layout" banner must catch.
+	test('an off-grid drop is snapped back onto the grid, and the resulting overlap shows a Fix layout banner', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		const handle = await page.waitForFunction(
+			() => {
+				const rt = window.__rt!;
+				const id = rt.state.commandCenter.homeSceneId;
+				return id && (rt.state.scenes.scenes[id]?.widgets.length ?? 0) > 0 ? id : null;
+			},
+			null,
+			{ timeout: 20_000 },
+		);
+		const sceneId = (await handle.jsonValue()) as string;
+		const { mapId, mapW, diceId, diceX } = await page.evaluate((id) => {
+			const scene = window.__rt!.state.scenes.scenes[id];
+			return {
+				mapId: scene.widgets[0].id,
+				mapW: scene.widgets[0].layout.w,
+				diceId: scene.widgets[2].id,
+				diceX: scene.widgets[2].layout.x,
+			};
+		}, sceneId);
+
+		await page.getByRole('button', { name: 'Edit layout' }).click();
+		const frame = page.getByTestId(`widget-${mapId}`);
+		const box = await frame.boundingBox();
+		expect(box).not.toBeNull();
+
+		// One continuous drag, far past the board's right edge.
+		await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+		await page.mouse.down();
+		await page.mouse.move(box!.x + box!.width / 2 + 4000, box!.y + box!.height / 2, { steps: 5 });
+		await page.mouse.up();
+
+		const xOf = (widgetId: string) =>
+			page.evaluate(
+				(args) =>
+					window.__rt!.state.scenes.scenes[args.id].widgets.find((w) => w.id === args.widgetId)!
+						.layout.x,
+				{ id: sceneId, widgetId },
+			);
+
+		// Snapped back to the board's right bound (3 columns of 240px widgets, 24px margin/gutter —
+		// see board-helpers.ts BOARD_RIGHT_BOUND) rather than left free to grow the board.
+		await expect.poll(() => xOf(mapId)).toBe(792 - mapW);
+
+		// Clamped onto the same column as the existing third widget: an exact overlap, so the banner
+		// names it instead of leaving it invisible.
+		expect(await xOf(mapId)).toBe(diceX);
+		const banner = page.getByTestId('board-layout-banner');
+		await expect(banner).toBeVisible();
+
+		await banner.getByRole('button', { name: 'Fix layout' }).click();
+		await expect(banner).toHaveCount(0);
+
+		// The fix actually separated the two widgets, not just hidden the banner.
+		await expect.poll(() => xOf(mapId)).not.toBe(await xOf(diceId));
+	});
+});
+
 test.describe('canvas: side panels close on Escape', () => {
 	test('the /board Add-widget panel closes on Escape from within the panel', async ({ page }) => {
 		await markOnboarded(page);
