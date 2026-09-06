@@ -212,6 +212,40 @@ Generation is an MCP **write** tool (`mcp/tool-registry.ts`), not a special assi
   and packages pinned to a higher version must be refused with a clear diagnostic rather than
   rendered optimistically.
 
+## Amendment — RC-WID-1.4 as built: the worker sandbox (2026-09-06)
+
+Decision 1 says the `worker` sandbox "speaks the identical protocol minus the DOM messages". Building
+it (`app/widgets/WorkerHost.ts`) settled what that means precisely, and added one message.
+
+**What is dropped, and what is added.** `resize` is gone: a widget with no DOM has no content height
+to report, so a data-only widget's size is its frame's. `render` / `configChanged` / `bindingChanged`
+in and `ready` / `dispatch` / `requestPermission` / `outbound` / `error` out are unchanged and go
+through the same `hostBridge` decision functions, so there is one policy and not two. The addition is
+**`result`**: a widget with no DOM has no other way to say what it drew. Its payload is projected into
+the same `WidgetTemplateData` the WID-1.2 templates read and drawn through the template kind the
+entrypoint declares (a data table when it declares none) — so a data-only widget's output is rendered
+by code the app shipped, never by markup the package wrote.
+
+**A result is checked, not believed.** `normalizeWorkerResult` is a whitelist over the row shape:
+unknown fields dropped, strings truncated, non-finite numbers omitted, rows with no name discarded,
+the row count clamped. The projected query is never marked `withheld` — a worker is fed props that
+have ALREADY been filtered for the viewing actor, so anything it can echo is something that actor may
+see.
+
+**Every exchange is on a clock, and the clock ends in `terminate()`.** This is the one way a worker is
+more dangerous than a frame: a frame that hangs hangs itself, while a worker that hangs holds a thread
+and never answers again. So the worker gets the same 8s to say `ready` and 3s per render to answer,
+and a missed deadline is not retried or awaited — the worker is terminated, the failure goes through
+`isolateWidgetFailure`, and the widget shows the "disabled, preserved" placeholder with the specific
+reason. The session is final: a failed widget is shown as stopped rather than silently restarted.
+
+**Known gap: the packaged shell has no `worker-src`.** The worker is built from a blob of the
+assembled script, which is the only way to run code that arrived as package data. `buildCsp()` in
+`electron/main.cjs` and the hosted policy in `infra/web-hosting/template.yaml` do not admit `blob:`
+workers yet, so in the packaged app the constructor throws and the widget shows "Background widgets do
+not run on this build yet." — fail closed and visibly, rather than an empty frame. Admitting
+`worker-src 'self' blob:` in both policies is the remaining step.
+
 ## Amendment — RC-WID-3.1 as built (2026-09-06)
 
 `widget.package.propose` is implemented exactly as decision 4 above describes — `kind: 'write'`,

@@ -5,6 +5,7 @@ import { WidgetBody, hasBuiltinBody, type WidgetCommandHandler } from '../widget
 import type { BoardWidget } from '../board-helpers';
 import { TEMPLATE_RENDERER_ENTRIES } from './templates';
 import { SandboxHost } from './SandboxHost';
+import { WorkerHost } from './WorkerHost';
 import { WidgetPlaceholder } from './WidgetPlaceholder';
 import {
 	resolveWidgetRenderer,
@@ -49,6 +50,14 @@ export const TEMPLATE_RENDERERS = new Map<WidgetTemplateKind, WidgetRenderer>(
 
 /** The sandboxed `custom-html-js` host, landed by RC-WID-1.3 (`SandboxHost`, ADR-031 §1). */
 export const CUSTOM_WIDGET_HOST: WidgetRenderer | null = SandboxHost;
+
+/**
+ * The DATA-ONLY host for the same runtime, landed by RC-WID-1.4. A package that pairs
+ * `custom-html-js` with `sandbox: 'worker'` ships code but no interface: it runs off the main thread
+ * with no DOM at all and its result is drawn by one of the eight templates. Same branch of the
+ * resolver, same protocol, same policy — a different place for the code to run.
+ */
+export const WORKER_WIDGET_HOST: WidgetRenderer | null = WorkerHost;
 
 /**
  * Re-exported from its own module so the sandbox host can render the SAME "disabled, preserved" card
@@ -103,7 +112,9 @@ function renderPlan(plan: WidgetRenderPlan, props: WidgetRendererProps): ReactNo
 			);
 		}
 		case 'custom': {
-			const Host = CUSTOM_WIDGET_HOST;
+			// Which sandbox the package asked for. Anything that is not a worker gets the frame, so a
+			// package that names no sandbox keeps the RC-WID-1.3 behaviour it had.
+			const Host = plan.entrypoint.sandbox === 'worker' ? WORKER_WIDGET_HOST : CUSTOM_WIDGET_HOST;
 			return Host ? (
 				<Host {...props} />
 			) : (
