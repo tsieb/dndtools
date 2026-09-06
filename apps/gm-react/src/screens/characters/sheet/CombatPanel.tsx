@@ -3,6 +3,7 @@ import { Button, ConditionTracker, Field, HPBar, Input, Select, Stat } from '../
 import { type CharacterResources, type CharacterView } from '@dndtools/core';
 import { Panel, T, eb } from '../../../app/screen-kit';
 import { STANDARD_CONDITIONS, condKey } from '../shared';
+import { useI18n } from '../../../i18n';
 
 /** Hit points, AC, death saves and the condition tracker — the DM-only `character.set-combat`
  * surface. Extracted from Characters.tsx unchanged (RC-STB-2.6). */
@@ -41,20 +42,23 @@ export function CombatPanel({
 	setCondition: (name: string, present: boolean) => Promise<void>;
 	fieldError: (field: 'ac' | 'slots' | 'xp') => ReactNode;
 }) {
+	const { t } = useI18n();
 	return (
-		<Panel accent title="Combat">
-			<HPBar current={view.combat.hp} max={view.combat.maxHp} label="Hit points" />
+		<Panel accent title={t('characters.combat')}>
+			<HPBar current={view.combat.hp} max={view.combat.maxHp} label={t('characters.hitPoints')} />
 			<div style={{ display: 'flex', gap: 14, marginTop: 8 }}>
-				<Stat label="AC" value={String(view.combat.ac)} icon="shield" />
-				{view.combat.tempHp > 0 && <Stat label="Temp" value={String(view.combat.tempHp)} />}
+				<Stat label={t('characters.ac')} value={String(view.combat.ac)} icon="shield" />
+				{view.combat.tempHp > 0 && (
+					<Stat label={t('characters.temp')} value={String(view.combat.tempHp)} />
+				)}
 				{resources && resources.deathSaves.successes + resources.deathSaves.failures > 0 && (
 					<Stat
-						label="Death saves"
+						label={t('characters.deathSaves')}
 						value={`${resources.deathSaves.successes}✓ / ${resources.deathSaves.failures}✗`}
 					/>
 				)}
 			</div>
-			<div style={{ ...eb, marginTop: 10 }}>Conditions</div>
+			<div style={{ ...eb, marginTop: 10 }}>{t('characters.conditions')}</div>
 			{/* DS ConditionTracker — the character-sheet template's stacked condition set; each
 						    registry key keeps its DISTINCT icon shape (grayscale-safe), unknown strings render
 						    as labeled badges. Removal (edit mode) round-trips character.set-combat. The add
@@ -71,7 +75,7 @@ export function CombatPanel({
 					}
 				/>
 			) : (
-				<span style={{ font: `13px ${T.sans}`, color: T.ter }}>None</span>
+				<span style={{ font: `13px ${T.sans}`, color: T.ter }}>{t('characters.none')}</span>
 			)}
 
 			{editMode && isDm && (
@@ -86,7 +90,7 @@ export function CombatPanel({
 					}}
 				>
 					<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-						<Field label="Amount" style={{ width: 90 }}>
+						<Field label={t('characters.amount')} style={{ width: 90 }}>
 							<Input
 								type="number"
 								min={1}
@@ -99,14 +103,14 @@ export function CombatPanel({
 							/>
 						</Field>
 						<Button variant="secondary" size="sm" onClick={() => applyHp(-typedHpAmount())}>
-							Damage
+							{t('characters.damage')}
 						</Button>
 						<Button variant="secondary" size="sm" onClick={() => applyHp(typedHpAmount())}>
-							Heal
+							{t('characters.heal')}
 						</Button>
 					</div>
 					<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-						<Field label="Set AC" style={{ width: 90 }}>
+						<Field label={t('characters.setAc')} style={{ width: 90 }}>
 							<Input
 								type="number"
 								value={acDraft}
@@ -115,17 +119,17 @@ export function CombatPanel({
 							/>
 						</Field>
 						<Button variant="secondary" size="sm" onClick={applyAc}>
-							Set AC
+							{t('characters.setAc')}
 						</Button>
 						{fieldError('ac')}
 					</div>
 					<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-						<Field label="Add condition" style={{ minWidth: 160, flex: 1 }}>
+						<Field label={t('characters.addCondition')} style={{ minWidth: 160, flex: 1 }}>
 							<Select
 								value={conditionInput}
 								onChange={(e: any) => setConditionInput(e.target.value)}
 								options={[
-									{ value: '', label: 'Choose…' },
+									{ value: '', label: t('characters.choose') },
 									...STANDARD_CONDITIONS.map((c) => ({ value: c, label: c })),
 								]}
 							/>
@@ -136,7 +140,7 @@ export function CombatPanel({
 							disabled={!conditionInput}
 							onClick={() => setCondition(conditionInput, true)}
 						>
-							Add
+							{t('common.action.add')}
 						</Button>
 					</div>
 				</div>

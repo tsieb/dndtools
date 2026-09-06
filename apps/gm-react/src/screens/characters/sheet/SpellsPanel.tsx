@@ -8,6 +8,7 @@ import {
 	type SpellSlotLevel,
 } from '@dndtools/core';
 import { Panel, T, eb, mono } from '../../../app/screen-kit';
+import { useI18n } from '../../../i18n';
 
 /** The spellcasting panel — slot economy, class resources, known/prepared spells and the DM's
  * declare-slot / add-spell editors. Extracted from Characters.tsx unchanged (RC-STB-2.6). */
@@ -50,8 +51,9 @@ export function SpellsPanel({
 	declareSlots: () => Promise<void>;
 	fieldError: (field: 'ac' | 'slots' | 'xp') => ReactNode;
 }) {
+	const { t } = useI18n();
 	return (
-		<Panel title="Spellcasting">
+		<Panel title={t('characters.spellcasting')}>
 			{slots.length > 0 && (
 				// Live slot economy (character-sheet template: SpellSlots WITH onToggle) — a pip
 				// click spends/recovers through character.set-spell-slots (CHAR-008, DM-or-owner,
@@ -104,7 +106,9 @@ export function SpellsPanel({
 									    older {id,name,level,prepared} records show the name alone — no field is
 									    ever fabricated. Prepared toggles via character.set-spell. */}
 					<div style={{ ...eb, marginBottom: 6 }}>
-						Spells ({spells.filter((s) => s.prepared).length} prepared)
+						{t('characters.spellsPrepared', {
+							count: spells.filter((s) => s.prepared).length,
+						})}
 					</div>
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
 						{spells.map((s) => (
@@ -209,14 +213,14 @@ export function SpellsPanel({
 					}}
 				>
 					<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-						<Field label="Add spell" style={{ minWidth: 140, flex: 1 }}>
+						<Field label={t('characters.addSpell')} style={{ minWidth: 140, flex: 1 }}>
 							<Input
 								value={spellName}
-								placeholder="Cure Wounds"
+								placeholder={t('characters.spellPlaceholder')}
 								onChange={(e: any) => setSpellName(e.target.value)}
 							/>
 						</Field>
-						<Field label="Level" style={{ width: 70 }}>
+						<Field label={t('characters.level')} style={{ width: 70 }}>
 							<Input
 								type="number"
 								min={0}
@@ -226,11 +230,11 @@ export function SpellsPanel({
 							/>
 						</Field>
 						<Button variant="secondary" size="sm" disabled={!spellName.trim()} onClick={addSpell}>
-							Add
+							{t('common.action.add')}
 						</Button>
 					</div>
 					<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-						<Field label="Slot level" style={{ width: 90 }}>
+						<Field label={t('characters.slotLevel')} style={{ width: 90 }}>
 							<Input
 								type="number"
 								min={0}
@@ -239,7 +243,7 @@ export function SpellsPanel({
 								onChange={(e: any) => setSlotLevel(e.target.value)}
 							/>
 						</Field>
-						<Field label="Max slots" style={{ width: 90 }}>
+						<Field label={t('characters.maxSlots')} style={{ width: 90 }}>
 							<Input
 								type="number"
 								min={0}
@@ -254,7 +258,7 @@ export function SpellsPanel({
 							disabled={slotMax.trim() === ''}
 							onClick={declareSlots}
 						>
-							Set slots
+							{t('characters.setSlots')}
 						</Button>
 						{fieldError('slots')}
 					</div>

@@ -15,6 +15,7 @@ import { Page, T } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { CharCard } from './CharCard';
 import { CharacterSheet } from './CharacterSheet';
+import { useI18n } from '../../i18n';
 
 /**
  * Characters — the roster library, wired to the live Processing Core.
@@ -53,6 +54,7 @@ import { CharacterSheet } from './CharacterSheet';
  */
 
 export function Characters() {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -104,10 +106,10 @@ export function Characters() {
 		return c.kind === kind;
 	});
 	const tabs = [
-		{ id: 'all', label: 'All' },
-		{ id: 'pc', label: 'Party' },
-		{ id: 'npc', label: 'NPCs' },
-		{ id: 'monster', label: 'Bestiary' },
+		{ id: 'all', label: t('characters.filter.all') },
+		{ id: 'pc', label: t('characters.filter.party') },
+		{ id: 'npc', label: t('characters.filter.npcs') },
+		{ id: 'monster', label: t('characters.filter.bestiary') },
 	];
 
 	const partyPcs = data.characters.filter((c) => c.kind === 'pc');
@@ -160,12 +162,12 @@ export function Characters() {
 					onChange={setKind}
 					tabs={tabs}
 					idBase="characters"
-					aria-label="Roster filter"
+					aria-label={t('characters.rosterFilter')}
 				/>
 				<div style={{ flex: 1 }} />
 				{data.isDm && partyPcs.length > 0 && (
 					<Button variant="ghost" size="sm" icon="sword" onClick={startCombat}>
-						Start combat
+						{t('characters.startCombat')}
 					</Button>
 				)}
 				{/* REAL import (WS-4): opens the CharBuilder's file-import path — a D&D Beyond export or
@@ -180,7 +182,7 @@ export function Characters() {
 							setCreating(true);
 						}}
 					>
-						Import character (JSON)
+						{t('characters.importJson')}
 					</Button>
 				)}
 				{data.isDm && (
@@ -190,7 +192,7 @@ export function Characters() {
 						icon="new-character"
 						onClick={() => setCreating(true)}
 					>
-						New character
+						{t('characters.newCharacter')}
 					</Button>
 				)}
 			</div>
@@ -217,7 +219,7 @@ export function Characters() {
 					<span style={{ flex: 1, minWidth: 0 }}>{notice.text}</span>
 					<IconButton
 						icon="close"
-						label="Dismiss message"
+						label={t('characters.dismissMessage')}
 						variant="ghost"
 						size="sm"
 						onClick={() => setNotice(null)}
@@ -229,14 +231,14 @@ export function Characters() {
 				{list.length === 0 ? (
 					<EmptyState
 						icon="characters-person"
-						title={
-							data.characters.length === 0 ? 'Your roster is empty' : 'No one matches this filter'
-						}
-						description={
+						title={t(
+							data.characters.length === 0 ? 'characters.emptyRoster' : 'characters.noMatches',
+						)}
+						description={t(
 							data.characters.length === 0
-								? 'Add the party’s heroes, then the NPCs they’ll meet.'
-								: 'No characters match this filter.'
-						}
+								? 'characters.emptyRosterBody'
+								: 'characters.noMatchesBody',
+						)}
 						action={
 							data.isDm ? (
 								<Button
@@ -245,7 +247,7 @@ export function Characters() {
 									icon="new-character"
 									onClick={() => setCreating(true)}
 								>
-									New character
+									{t('characters.newCharacter')}
 								</Button>
 							) : undefined
 						}

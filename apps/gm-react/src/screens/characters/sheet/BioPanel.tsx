@@ -2,6 +2,7 @@ import { Icon } from '../../../ds';
 import { Panel } from '../../../app/screen-kit';
 import { type CharacterView, type SearchHit } from '@dndtools/core';
 import { T } from '../../../app/screen-kit';
+import { useI18n } from '../../../i18n';
 
 /** The character's bio and the notes that mention it (the same actor-filtered full-text read the
  * command palette uses). Extracted from Characters.tsx unchanged (RC-STB-2.6). */
@@ -14,16 +15,17 @@ export function BioPanel({
 	mentions: SearchHit[];
 	onOpenMention: (hit: SearchHit) => void;
 }) {
+	const { t } = useI18n();
 	return (
 		<>
 			{typeof view.data.bio === 'string' && view.data.bio.trim() !== '' && (
-				<Panel title="Bio">
+				<Panel title={t('characters.bio')}>
 					<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub }}>{String(view.data.bio)}</div>
 				</Panel>
 			)}
 
 			{mentions.length > 0 && (
-				<Panel title="Mentioned in">
+				<Panel title={t('characters.mentionedIn')}>
 					{mentions.map((hit) => (
 						<button
 							key={`${hit.type}:${hit.id}`}

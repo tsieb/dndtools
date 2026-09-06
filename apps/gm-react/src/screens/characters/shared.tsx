@@ -1,15 +1,16 @@
 import { CONDITIONS, Icon } from '../../ds';
 import { type CharacterView } from '@dndtools/core';
 import { T } from '../../app/screen-kit';
+import { useI18n, type MessageKey } from '../../i18n';
 
 /* The roster/sheet's shared label tables, the condition-alias normaliser, the portrait gradient
  * helpers and the screen's own back bar. Extracted from Characters.tsx unchanged (RC-STB-2.6). */
 
-export const KIND_LABEL: Record<string, string> = {
-	pc: 'PC',
-	npc: 'NPC',
-	monster: 'Monster',
-	sidekick: 'Sidekick',
+export const KIND_LABEL: Record<string, MessageKey> = {
+	pc: 'characters.kind.pc',
+	npc: 'characters.kind.npc',
+	monster: 'characters.kind.monster',
+	sidekick: 'characters.kind.sidekick',
 };
 export const KIND_TONE: Record<string, string> = {
 	pc: 'success',
@@ -83,18 +84,23 @@ export function visChip(visibility: string) {
 }
 
 /** A human subtitle from whatever the sheet `data` actually carries, else the kind label. */
-export function subtitleOf(view: CharacterView, level: number | null): string {
+export function subtitleOf(
+	view: CharacterView,
+	level: number | null,
+	t: (key: MessageKey) => string,
+): string {
 	const cls = typeof view.data.class === 'string' ? (view.data.class as string) : null;
 	const bg = typeof view.data.background === 'string' ? (view.data.background as string) : null;
 	const parts: string[] = [];
 	if (cls) parts.push(level ? `${cls} ${level}` : cls);
 	if (bg) parts.push(bg);
-	return parts.join(' · ') || KIND_LABEL[view.kind] || view.kind;
+	return parts.join(' · ') || (KIND_LABEL[view.kind] ? t(KIND_LABEL[view.kind]) : view.kind);
 }
 
 export function BackBar({ onBack }: { onBack: () => void }) {
+	const { t } = useI18n();
 	return (
-		<nav aria-label="Breadcrumb" style={{ marginBottom: 14 }}>
+		<nav aria-label={t('characters.breadcrumb')} style={{ marginBottom: 14 }}>
 			<button
 				type="button"
 				onClick={onBack}
@@ -112,7 +118,7 @@ export function BackBar({ onBack }: { onBack: () => void }) {
 				}}
 			>
 				<Icon name="chevron-left" size={14} />
-				Characters
+				{t('characters.title')}
 			</button>
 		</nav>
 	);

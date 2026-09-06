@@ -3,6 +3,7 @@ import { type Actor, type Character, type CharacterView } from '@dndtools/core';
 import { Panel, T } from '../../../app/screen-kit';
 import { useRuntime } from '../../../runtime/RuntimeContext';
 import { visChip } from '../shared';
+import { useI18n } from '../../../i18n';
 
 /** The DM-only sharing editor — entity visibility plus the explicit `sharedWith` delivery list.
  * Fail-closed: nothing here widens by default. Extracted from Characters.tsx unchanged
@@ -28,6 +29,7 @@ export function SharingPanel({
 	) => void;
 	applySharing: () => Promise<void>;
 }) {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	return (
 		<>
@@ -35,7 +37,7 @@ export function SharingPanel({
 					    `sharedWith` delivery list). Fail-closed: nothing here widens by default; the DM
 					    states the audience and applies it in one command. */}
 			<Panel
-				title="Sharing"
+				title={t('characters.sharing')}
 				action={
 					shareDraft === null ? (
 						<Button
@@ -49,21 +51,21 @@ export function SharingPanel({
 								})
 							}
 						>
-							Change
+							{t('characters.change')}
 						</Button>
 					) : undefined
 				}
 			>
 				{shareDraft ? (
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-						<Field label="Who can see this character">
+						<Field label={t('characters.whoCanSee')}>
 							<Select
 								value={shareDraft.visibility}
 								onChange={(e: any) => setShareDraft((d) => ({ ...d!, visibility: e.target.value }))}
 								options={[
-									{ value: 'dm-only', label: 'DM only' },
-									{ value: 'player-visible', label: 'All players' },
-									{ value: 'shared', label: 'Specific players' },
+									{ value: 'dm-only', label: t('common.visibility.dmOnly') },
+									{ value: 'player-visible', label: t('characters.allPlayers') },
+									{ value: 'shared', label: t('characters.specificPlayers') },
 								]}
 							/>
 						</Field>
@@ -106,15 +108,15 @@ export function SharingPanel({
 								</div>
 							) : (
 								<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-									No players yet — add a player in Settings first.
+									{t('characters.noPlayersYet')}
 								</div>
 							))}
 						<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
 							<Button variant="ghost" size="sm" onClick={() => setShareDraft(null)}>
-								Cancel
+								{t('common.action.cancel')}
 							</Button>
 							<Button variant="primary" size="sm" onClick={applySharing}>
-								Apply
+								{t('characters.applySharing')}
 							</Button>
 						</div>
 					</div>
@@ -123,12 +125,16 @@ export function SharingPanel({
 						<VisibilityChip level={visChip(view.visibility)} />
 						<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
 							{view.visibility === 'dm-only'
-								? 'Hidden from players until you share it.'
+								? t('characters.shareHidden')
 								: view.visibility === 'shared'
 									? record.sharedWith.length > 0
-										? `Shared with ${record.sharedWith.map((aid) => runtime.state.permissions.actors[aid]?.displayName ?? aid).join(', ')}.`
-										: 'Shared, but delivered to no one yet.'
-									: 'Visible to all players.'}
+										? t('characters.sharedWith', {
+												names: record.sharedWith
+													.map((aid) => runtime.state.permissions.actors[aid]?.displayName ?? aid)
+													.join(', '),
+											})
+										: t('characters.sharedWithNobody')
+									: t('characters.shareAllPlayers')}
 						</span>
 					</div>
 				)}

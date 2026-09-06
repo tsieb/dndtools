@@ -24,9 +24,11 @@ import { ReferencePanel } from './sheet/ReferencePanel';
 import { SharingPanel } from './sheet/SharingPanel';
 import { BioPanel } from './sheet/BioPanel';
 import { useAdvancementEditor } from './sheet/useAdvancementEditor';
+import { useI18n } from '../../i18n';
 
 // ── The live character sheet, bound to the redacted core view ───────────────────────────────────
 export function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const navigate = useNavigate();
 	const isPhone = useViewport() === 'phone';
@@ -171,8 +173,8 @@ export function CharacterSheet({ id, onBack }: { id: string; onBack: () => void 
 				<BackBar onBack={onBack} />
 				<EmptyState
 					icon="dm-only"
-					title="Character unavailable"
-					description="This character is not visible to you."
+					title={t('characters.unavailableTitle')}
+					description={t('characters.unavailableBody')}
 				/>
 			</Page>
 		);

@@ -2,6 +2,7 @@ import { type ReactNode } from 'react';
 import { Button, Field, Input } from '../../../ds';
 import { xpForLevel, type AdvancementState, type AdvancementValidation } from '@dndtools/core';
 import { Panel, T, mono } from '../../../app/screen-kit';
+import { useI18n } from '../../../i18n';
 
 /** The staged level-up panel — XP, open/choices/commit/cancel. Extracted from Characters.tsx
  * unchanged (RC-STB-2.6). */
@@ -52,8 +53,9 @@ export function AdvancementPanel({
 	fieldError: (field: 'ac' | 'slots' | 'xp') => ReactNode;
 	isPhone: boolean;
 }) {
+	const { t } = useI18n();
 	return (
-		<Panel title="Advancement">
+		<Panel title={t('characters.advancement')}>
 			<div
 				style={{
 					display: 'flex',
@@ -64,18 +66,18 @@ export function AdvancementPanel({
 					color: T.sub,
 				}}
 			>
-				<span style={mono}>Level {advancement.level}</span>
-				<span style={mono}>XP {advancement.xp}</span>
+				<span style={mono}>{t('characters.levelValue', { level: advancement.level })}</span>
+				<span style={mono}>{t('characters.xpValue', { xp: advancement.xp })}</span>
 				{advancement.level < 20 && (
 					<span style={{ color: T.ter }}>
-						next at {xpForLevel(advancement.level + 1) ?? '—'} XP
+						{t('characters.nextAt', { xp: xpForLevel(advancement.level + 1) ?? '—' })}
 					</span>
 				)}
 			</div>
 			{draft ? (
 				<div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
 					<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
-						Advancing to level {draft.toLevel} ({draft.mode}).
+						{t('characters.advancingTo', { level: draft.toLevel, mode: draft.mode })}
 					</div>
 					<div
 						style={{
@@ -84,20 +86,20 @@ export function AdvancementPanel({
 							gap: 10,
 						}}
 					>
-						<Field label="Class gaining the level">
+						<Field label={t('characters.classGaining')}>
 							<Input value={className} onChange={(e: any) => setClassName(e.target.value)} />
 						</Field>
-						<Field label="Hit points gained">
+						<Field label={t('characters.hpGained')}>
 							<Input
 								type="number"
 								value={hpGained}
 								onChange={(e: any) => setHpGained(e.target.value)}
 							/>
 						</Field>
-						<Field label="Subclass (if required)">
+						<Field label={t('characters.subclassIfRequired')}>
 							<Input value={subclass} onChange={(e: any) => setSubclass(e.target.value)} />
 						</Field>
-						<Field label="Ability / feat (if required)">
+						<Field label={t('characters.abilityOrFeat')}>
 							<Input
 								value={abilityOrFeat}
 								onChange={(e: any) => setAbilityOrFeat(e.target.value)}
@@ -119,7 +121,7 @@ export function AdvancementPanel({
 						</ul>
 					) : draftValidation?.complete ? (
 						<div style={{ font: `12.5px ${T.sans}`, color: T.acc }}>
-							All choices valid — ready to finalize.
+							{t('characters.choicesValid')}
 						</div>
 					) : null}
 					<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -129,7 +131,7 @@ export function AdvancementPanel({
 							disabled={!hasAdvancementChoice}
 							onClick={saveChoices}
 						>
-							Save choices
+							{t('characters.saveChoices')}
 						</Button>
 						<Button
 							variant="primary"
@@ -137,10 +139,10 @@ export function AdvancementPanel({
 							disabled={!draftValidation?.complete}
 							onClick={commitAdvancement}
 						>
-							Finish level-up
+							{t('characters.finishLevelUp')}
 						</Button>
 						<Button variant="ghost" size="sm" onClick={cancelAdvancement}>
-							Cancel
+							{t('common.action.cancel')}
 						</Button>
 					</div>
 				</div>
@@ -154,7 +156,7 @@ export function AdvancementPanel({
 						flexWrap: 'wrap',
 					}}
 				>
-					<Field label="Set XP" style={{ width: 120 }}>
+					<Field label={t('characters.setXp')} style={{ width: 120 }}>
 						<Input
 							type="number"
 							value={xpInput}
@@ -162,7 +164,7 @@ export function AdvancementPanel({
 						/>
 					</Field>
 					<Button variant="secondary" size="sm" onClick={setXp}>
-						Set XP
+						{t('characters.setXp')}
 					</Button>
 					<Button
 						variant="primary"
@@ -170,10 +172,10 @@ export function AdvancementPanel({
 						disabled={!xpEligible?.eligible}
 						onClick={() => openAdvancement('xp')}
 					>
-						Level up (XP)
+						{t('characters.levelUpXp')}
 					</Button>
 					<Button variant="secondary" size="sm" onClick={() => openAdvancement('milestone')}>
-						Level up (milestone)
+						{t('characters.levelUpMilestone')}
 					</Button>
 					{fieldError('xp')}
 				</div>

@@ -3,8 +3,10 @@ import { type CharacterView } from '@dndtools/core';
 import { T } from '../../app/screen-kit';
 import { portraitGradient } from '../../app/charBuilder';
 import { KIND_LABEL, KIND_TONE, gradOf, subtitleOf, visChip } from './shared';
+import { useI18n } from '../../i18n';
 
 export function CharCard({ view, onOpen }: { view: CharacterView; onOpen: () => void }) {
+	const { t } = useI18n();
 	const grad = gradOf(view);
 	const conditions = view.combat.conditions;
 	return (
@@ -30,7 +32,7 @@ export function CharCard({ view, onOpen }: { view: CharacterView; onOpen: () => 
 				</div>
 				<div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 6 }}>
 					<Badge status={KIND_TONE[view.kind] || 'neutral'}>
-						{KIND_LABEL[view.kind] || view.kind}
+						{KIND_LABEL[view.kind] ? t(KIND_LABEL[view.kind]) : view.kind}
 					</Badge>
 				</div>
 			</div>
@@ -42,7 +44,7 @@ export function CharCard({ view, onOpen }: { view: CharacterView; onOpen: () => 
 					<VisibilityChip level={visChip(view.visibility)} compact />
 				</div>
 				<div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: 2 }}>
-					{subtitleOf(view, null)}
+					{subtitleOf(view, null, t)}
 				</div>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 11 }}>
 					<span
@@ -70,7 +72,9 @@ export function CharCard({ view, onOpen }: { view: CharacterView; onOpen: () => 
 						{view.combat.ac}
 					</span>
 					{conditions.length > 0 && (
-						<span style={{ font: `12px ${T.mono}`, color: T.ter }}>{conditions.length} cond.</span>
+						<span style={{ font: `12px ${T.mono}`, color: T.ter }}>
+							{t('characters.conditionCount', { count: conditions.length })}
+						</span>
 					)}
 				</div>
 			</div>

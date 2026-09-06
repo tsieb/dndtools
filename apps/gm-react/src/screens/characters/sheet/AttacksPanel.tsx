@@ -1,6 +1,7 @@
 import { Button, DataTable, IconButton, Input } from '../../../ds';
 import { type CharacterView } from '@dndtools/core';
 import { Panel, T } from '../../../app/screen-kit';
+import { useI18n } from '../../../i18n';
 
 /** The attacks list and its DM/owner full-replacement editor (`character.update-attacks`).
  * Extracted from Characters.tsx unchanged (RC-STB-2.6). */
@@ -27,9 +28,10 @@ export function AttacksPanel({
 	saveAttacks: () => Promise<void>;
 	isPhone: boolean;
 }) {
+	const { t } = useI18n();
 	return (
 		<Panel
-			title="Attacks"
+			title={t('characters.attacks')}
 			action={
 				editMode && isDm && attackRows === null ? (
 					<Button
@@ -46,7 +48,7 @@ export function AttacksPanel({
 							)
 						}
 					>
-						Edit attacks
+						{t('characters.editAttacks')}
 					</Button>
 				) : undefined
 			}
@@ -69,8 +71,8 @@ export function AttacksPanel({
 						>
 							<Input
 								value={a.name}
-								aria-label="Attack name"
-								placeholder="Name"
+								aria-label={t('characters.attackName')}
+								placeholder={t('characters.name')}
 								// Two tracks but THREE children: with everything auto-placed, the Detail
 								// input landed in the 28px remove column (~4 characters wide) and the
 								// remove button got a full-width row to itself. Letting Name own row 1
@@ -84,8 +86,8 @@ export function AttacksPanel({
 							/>
 							<Input
 								value={a.detail}
-								aria-label="Attack detail"
-								placeholder="e.g. Melee · +4 to hit · 1d8+2 slashing"
+								aria-label={t('characters.attackDetail')}
+								placeholder={t('characters.attackDetailPlaceholder')}
 								onChange={(e: any) =>
 									setAttackRows((rows) =>
 										rows!.map((x, j) => (j === idx ? { ...x, detail: e.target.value } : x)),
@@ -94,7 +96,7 @@ export function AttacksPanel({
 							/>
 							<IconButton
 								icon="close"
-								label="Remove attack"
+								label={t('characters.removeAttack')}
 								variant="ghost"
 								size="sm"
 								onClick={() => setAttackRows((rows) => rows!.filter((_, j) => j !== idx))}
@@ -103,7 +105,7 @@ export function AttacksPanel({
 					))}
 					{attackRows.length === 0 && (
 						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-							Saving with no rows clears the attack list.
+							{t('characters.attacksClearNote')}
 						</div>
 					)}
 					<div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -113,30 +115,30 @@ export function AttacksPanel({
 							icon="add"
 							onClick={() => setAttackRows((rows) => [...(rows ?? []), { name: '', detail: '' }])}
 						>
-							Add attack
+							{t('characters.addAttack')}
 						</Button>
 						<div style={{ flex: 1 }} />
 						<Button variant="ghost" size="sm" onClick={() => setAttackRows(null)}>
-							Cancel
+							{t('common.action.cancel')}
 						</Button>
 						<Button variant="primary" size="sm" onClick={saveAttacks}>
-							Save attacks
+							{t('characters.saveAttacks')}
 						</Button>
 					</div>
 				</div>
 			) : view.attacks.length > 0 ? (
 				<DataTable
-					ariaLabel="Attacks"
+					ariaLabel={t('characters.attacks')}
 					columns={[
-						{ key: 'name', header: 'Name', strong: true },
-						{ key: 'detail', header: 'Detail', mono: true },
+						{ key: 'name', header: t('characters.name'), strong: true },
+						{ key: 'detail', header: t('characters.detail'), mono: true },
 					]}
 					rows={view.attacks}
 					rowKey={(r: any) => r.id}
 				/>
 			) : (
 				<div style={{ font: `13px ${T.sans}`, color: T.ter }}>
-					No attacks recorded.{isDm ? ' Use Edit to add them.' : ''}
+					{t(isDm ? 'characters.noAttacksDm' : 'characters.noAttacks')}
 				</div>
 			)}
 		</Panel>

@@ -3,6 +3,7 @@ import { Avatar, Badge, Button, IconButton, Input, Stat, VisibilityChip } from '
 import { T, srOnly } from '../../../app/screen-kit';
 import { type AdvancementState, type CharacterView } from '@dndtools/core';
 import { BackBar, KIND_LABEL, KIND_TONE, subtitleOf, visChip } from '../shared';
+import { useI18n } from '../../../i18n';
 
 /** The sheet's back bar, live regions and identity header (portrait, name + rename, kind/visibility
  * chips, the DM edit-mode toggle). Extracted from Characters.tsx unchanged (RC-STB-2.6). */
@@ -39,6 +40,7 @@ export function SheetHeader({
 	saveName: () => Promise<void>;
 	onBack: () => void;
 }) {
+	const { t } = useI18n();
 	return (
 		<>
 			<BackBar onBack={onBack} />
@@ -84,7 +86,7 @@ export function SheetHeader({
 								{isDm && (
 									<IconButton
 										icon="note-edit"
-										label="Rename character"
+										label={t('characters.rename')}
 										variant="ghost"
 										size="sm"
 										onClick={() => {
@@ -96,17 +98,17 @@ export function SheetHeader({
 							</>
 						)}
 						<Badge status={KIND_TONE[view.kind] || 'neutral'}>
-							{KIND_LABEL[view.kind] || view.kind}
+							{KIND_LABEL[view.kind] ? t(KIND_LABEL[view.kind]) : view.kind}
 						</Badge>
 						<VisibilityChip level={visChip(view.visibility)} />
 					</div>
 					<div style={{ font: `13.5px ${T.sans}`, color: T.sub, marginTop: 4 }}>
-						{subtitleOf(view, advancement?.level ?? null)}
+						{subtitleOf(view, advancement?.level ?? null, t)}
 					</div>
 				</div>
 				<div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-					<Stat label="AC" value={String(view.combat.ac)} icon="shield" />
-					{advancement && <Stat label="Level" value={String(advancement.level)} />}
+					<Stat label={t('characters.ac')} value={String(view.combat.ac)} icon="shield" />
+					{advancement && <Stat label={t('characters.level')} value={String(advancement.level)} />}
 					{isDm && (
 						<Button
 							variant={editMode ? 'primary' : 'secondary'}

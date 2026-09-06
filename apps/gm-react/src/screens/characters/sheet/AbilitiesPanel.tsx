@@ -3,6 +3,7 @@ import { type CharacterView } from '@dndtools/core';
 import { ABILITY_IDS, SKILLS } from '../../../app/charImport/skills';
 import { Panel, T, eb, mono } from '../../../app/screen-kit';
 import { sgn } from '../shared';
+import { useI18n } from '../../../i18n';
 
 /** Ability scores + the structured skills / saves / hit dice / passive perception panel. Extracted
  * from Characters.tsx unchanged (RC-STB-2.6). */
@@ -23,10 +24,11 @@ export function AbilitiesPanel({
 	abilityCells: { key: string; val: number }[];
 	isPhone: boolean;
 }) {
+	const { t } = useI18n();
 	return (
 		<>
 			{abilityCells.length > 0 ? (
-				<Panel title="Ability scores">
+				<Panel title={t('characters.abilityScores')}>
 					<div
 						style={{
 							display: 'grid',
@@ -49,26 +51,26 @@ export function AbilitiesPanel({
 			{/* Skills / saves / hit dice / passive perception — the structured `proficiencies` slice.
 					    Bonuses derive from the pure core queries (effectiveProficiencyBonus / passivePerception)
 					    plus the shared skill registry; nothing here is stored, so it can never drift. */}
-			<Panel title="Skills & saves">
+			<Panel title={t('characters.skillsSaves')}>
 				{hasProficiencyData && prof && profBonus !== null ? (
 					<>
 						<div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 14 }}>
-							<Stat label="Proficiency" value={sgn(profBonus)} />
+							<Stat label={t('characters.proficiency')} value={sgn(profBonus)} />
 							{passivePer !== null && (
 								<Stat
-									label="Passive Perception"
+									label={t('characters.passivePerception')}
 									value={String(passivePer)}
 									icon="visibility-players"
 								/>
 							)}
 							{prof.hitDice.total > 0 && (
 								<Stat
-									label="Hit dice"
+									label={t('characters.hitDice')}
 									value={`${prof.hitDice.total - prof.hitDice.spent}/${prof.hitDice.total} ${prof.hitDice.die}`}
 								/>
 							)}
 						</div>
-						<div style={{ ...eb, marginBottom: 6 }}>Saving throws</div>
+						<div style={{ ...eb, marginBottom: 6 }}>{t('characters.savingThrows')}</div>
 						<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
 							{ABILITY_IDS.map((a) => {
 								const proficient = prof.saves.includes(a);
@@ -95,7 +97,7 @@ export function AbilitiesPanel({
 								);
 							})}
 						</div>
-						<div style={{ ...eb, marginBottom: 6 }}>Skills</div>
+						<div style={{ ...eb, marginBottom: 6 }}>{t('characters.skills')}</div>
 						<div
 							style={{
 								display: 'grid',
@@ -140,15 +142,14 @@ export function AbilitiesPanel({
 							})}
 						</div>
 						<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 8 }}>
-							● proficient · ★ expertise (double proficiency)
+							{t('characters.proficiencyLegend')}
 						</div>
 					</>
 				) : (
 					// Honest empty state — no fabricated skill sheet when the character carries no
 					// proficiency data (older records, bare quick-creates).
 					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>
-						No skills, saves, or hit dice recorded for this character. Import a character file
-						(JSON) or set proficiencies to see save/skill bonuses and passive perception here.
+						{t('characters.noProficiencyData')}
 					</div>
 				)}
 			</Panel>
