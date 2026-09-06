@@ -1,0 +1,41 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`every system widget type has a body > atlas renders a body the DM can read 1`] = `"Maps1SharingNo oneOld mill"`;
+
+exports[`every system widget type has a body > audio renders a body the DM can read 1`] = `"Nothing playing — cue a track from the session audio controls."`;
+
+exports[`every system widget type has a body > character renders a body the DM can read 1`] = `"HP— / —AC—STRDEXCONINTWISCHA"`;
+
+exports[`every system widget type has a body > characters renders a body the DM can read 1`] = `"Party1Others1Brannor 18/24Ysolde 0/0"`;
+
+exports[`every system widget type has a body > combat renders a body the DM can read 1`] = `"Round1TurnBrannorMill ambushTrivial"`;
+
+exports[`every system widget type has a body > data-hub renders a body the DM can read 1`] = `"Scenes0Party1Campaign0Tables also show Updated · Visibility."`;
+
+exports[`every system widget type has a body > dice renders a body the DM can read 1`] = `"d20 Roll"`;
+
+exports[`every system widget type has a body > getting-started renders a body the DM can read 1`] = `"Setup1 / 2DepthCoreSet up your Command CenterCreate your first Scene"`;
+
+exports[`every system widget type has a body > handout renders a body the DM can read 1`] = `"Empty note — select the widget to add text."`;
+
+exports[`every system widget type has a body > initiative-tracker renders a body the DM can read 1`] = `"Round1TurnBrannorHP24 / 24Brannor"`;
+
+exports[`every system widget type has a body > map renders a body the DM can read 1`] = `"The linked map is missing or was removed. Choose another map in edit mode."`;
+
+exports[`every system widget type has a body > note renders a body the DM can read 1`] = `"Empty note — select the widget to add text."`;
+
+exports[`every system widget type has a body > notes renders a body the DM can read 1`] = `"Tavern rumours1 of 1 notes"`;
+
+exports[`every system widget type has a body > player-views renders a body the DM can read 1`] = `"Players1Assigned0Test Player · no view"`;
+
+exports[`every system widget type has a body > prep renders a body the DM can read 1`] = `"Tavern rumours1 of 1 prep notes"`;
+
+exports[`every system widget type has a body > quick-reference renders a body the DM can read 1`] = `"No reference objects visible yet — imported spells and objects appear here."`;
+
+exports[`every system widget type has a body > search renders a body the DM can read 1`] = `"Saved1Pinned1Open threads"`;
+
+exports[`every system widget type has a body > session renders a body the DM can read 1`] = `"PhaseActiveTurnBrannor1 playerSilent"`;
+
+exports[`every system widget type has a body > timer renders a body the DM can read 1`] = `"1:00 Start"`;
+
+exports[`every system widget type has a body > tools renders a body the DM can read 1`] = `"Widgets7Layouts0Save a layout from the GM Screen toolbar to restore it later."`;

@@ -8,6 +8,16 @@ import { InitiativeBody } from './InitiativeBody';
 import { CharacterBody } from './CharacterBody';
 import { MapBody } from './MapBody';
 import { ListBody } from './ListBody';
+import { AtlasBody } from './AtlasBody';
+import { CharactersBody } from './CharactersBody';
+import { CombatBody } from './CombatBody';
+import { DataHubBody } from './DataHubBody';
+import { GettingStartedBody } from './GettingStartedBody';
+import { NotesBody } from './NotesBody';
+import { PlayerViewsBody } from './PlayerViewsBody';
+import { SearchBody } from './SearchBody';
+import { SessionBody } from './SessionBody';
+import { ToolsBody } from './ToolsBody';
 
 export type { WidgetCommandHandler } from '../../widget-body-kit';
 
@@ -51,6 +61,20 @@ export const BUILTIN_WIDGET_TYPES: readonly string[] = [
 	'map',
 	'quick-reference',
 	'prep',
+	// The Command Center's own widgets (RC-WID-4.1). They are real definitions on the
+	// `command-center` surface, seeded onto the GM Screen's home scene, and they render through the
+	// SAME slot as a scene widget — so without a body here every one of them drew the "Nothing here
+	// knows how to draw this widget" placeholder on the app's home surface.
+	'session',
+	'getting-started',
+	'tools',
+	'data-hub',
+	'atlas',
+	'characters',
+	'player-views',
+	'combat',
+	'notes',
+	'search',
 ];
 
 const BUILTIN_WIDGET_TYPE_SET = new Set(BUILTIN_WIDGET_TYPES);
@@ -88,6 +112,26 @@ export function WidgetBody({
 			return <ListBody widget={widget} kind="object" unit="widgetBody.list.unitObjects" />;
 		case 'prep':
 			return <ListBody widget={widget} kind="note" unit="widgetBody.list.unitNotes" />;
+		case 'session':
+			return <SessionBody />;
+		case 'getting-started':
+			return <GettingStartedBody />;
+		case 'tools':
+			return <ToolsBody />;
+		case 'data-hub':
+			return <DataHubBody widget={widget} />;
+		case 'atlas':
+			return <AtlasBody widget={widget} />;
+		case 'characters':
+			return <CharactersBody widget={widget} />;
+		case 'player-views':
+			return <PlayerViewsBody />;
+		case 'combat':
+			return <CombatBody widget={widget} />;
+		case 'notes':
+			return <NotesBody widget={widget} />;
+		case 'search':
+			return <SearchBody />;
 		default:
 			// Unreachable through `resolveWidgetRenderer` (it only picks `builtin` for a type in
 			// BUILTIN_WIDGET_TYPES); kept so a direct caller degrades to the description rather than
