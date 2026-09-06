@@ -12,7 +12,7 @@ import {
 	MAX_TOOL_PASSES,
 	type AssistantExchangeOptions,
 } from './mcpBridge';
-import type { AiReply } from './transport';
+import { AiTransportError, type AiReply } from './transport';
 
 // mcpBridge.ts is the ONLY door from the model to the vault. These tests prove: tool specs are
 // projected from the real Core registry (name-sanitized, write tools announce staging), every
@@ -451,6 +451,49 @@ describe('runAssistantExchange — live run protocol (ADR-025)', () => {
 		});
 		expect(result.status).toBe('cancelled');
 		expect(send).not.toHaveBeenCalled();
+	});
+
+	it('forwards its own signal and a per-pass onToken as the send options (RC-AI-1.1)', async () => {
+		const controller = new AbortController();
+		const seenOptions: Array<{ signal?: AbortSignal } | undefined> = [];
+		const send: AssistantExchangeOptions['send'] = async (_request, options) => {
+			seenOptions.push(options);
+			options?.onToken?.('partial ');
+			options?.onToken?.('answer');
+			return textReply('done');
+		};
+		const events: import('./mcpBridge').AssistantRunEvent[] = [];
+
+		await runAssistantExchange({
+			send,
+			invoke: vi.fn(),
+			tools: specs,
+			turns: [],
+			userText: 'go',
+			signal: controller.signal,
+			onEvent: (e) => events.push(e),
+		});
+
+		expect(seenOptions[0]?.signal).toBe(controller.signal);
+		const streamed = events
+			.filter((e) => e.type === 'status' && e.status === 'working')
+			.map((e) => (e as { streamText?: string }).streamText);
+		expect(streamed).toContain('partial ');
+		expect(streamed.at(-1)).toBe('partial answer');
+	});
+
+	it('reports a mid-flight transport abort as cancelled, not failed', async () => {
+		const send: AssistantExchangeOptions['send'] = async () => {
+			throw new AiTransportError('aborted', null, 'The request was cancelled.');
+		};
+		const result = await runAssistantExchange({
+			send,
+			invoke: vi.fn(),
+			tools: specs,
+			turns: [],
+			userText: 'go',
+		});
+		expect(result.status).toBe('cancelled');
 	});
 
 	it('carries structured validation issues on a denied write so the user sees the model self-correct', async () => {

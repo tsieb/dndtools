@@ -27,7 +27,15 @@ import {
 	type McpAgentToolResult,
 	type McpToolRegistry,
 } from '@dndtools/core';
-import type { AiChatRequest, AiReply, AiToolResult, AiToolSpec, AiTurn } from './transport';
+import {
+	AiTransportError,
+	type AiChatOptions,
+	type AiChatRequest,
+	type AiReply,
+	type AiToolResult,
+	type AiToolSpec,
+	type AiTurn,
+} from './transport';
 
 // Bound read payloads so one broad query cannot blow the context window (or the wallet).
 const MAX_TOOL_RESULT_CHARS = 16000;
@@ -163,6 +171,13 @@ export type AssistantRunEvent =
 			maxPasses: number;
 			/** The tool being invoked while `working`, if any. */
 			activeToolId?: string;
+			/**
+			 * The reply text accumulated so far this pass, from provider token streaming
+			 * (RC-AI-1.1). Grows across repeated `working` events until the pass's `send` resolves;
+			 * absent when the transport is not streaming (no `onToken` support, or a non-streaming
+			 * provider reply). A UI may fold this into the same phase line as the pass/tool readout.
+			 */
+			streamText?: string;
 	  }
 	| { type: 'feed'; event: AssistantEvent };
 
@@ -254,8 +269,14 @@ export const ASSISTANT_SYSTEM_PROMPT = [
 ].join(' ');
 
 export interface AssistantExchangeOptions {
-	/** The transport call (the UI passes `sendAiChat` bound to the resolved config). */
-	send: (request: AiChatRequest) => Promise<AiReply>;
+	/**
+	 * The transport call (the UI passes `sendAiChat` bound to the resolved config). The loop
+	 * passes its own `signal` and a per-pass `onToken` as the second argument — a caller that
+	 * forwards both to `sendAiChat` gets an immediate mid-flight cancel and live token streaming
+	 * into {@link AssistantRunEvent}'s `streamText`; a caller that ignores the second argument gets
+	 * the exact prior behaviour (cancel only takes effect between passes, no stream text).
+	 */
+	send: (request: AiChatRequest, options?: AiChatOptions) => Promise<AiReply>;
 	/** Routes one tool call through the Core agent pipeline (SceneRuntime.invokeAgentTool). */
 	invoke: (toolId: string, input: unknown) => Promise<McpAgentToolResult>;
 	/** The offered tool surface (buildAiToolSpecs()). */
@@ -293,9 +314,11 @@ export interface AssistantExchangeResult {
  * text. Bounded by `maxToolPasses`; when the budget runs out the pending calls are answered with an
  * explicit budget error and then receives one tools-disabled final model response (keeping the transcript
  * wire-valid) instead of silently dropping them. Every status transition and display event is streamed
- * through `onEvent` as it happens (ADR-025), and an aborted `signal` stops the loop between passes. Always
- * resolves (never rejects): transport and observer failures are isolated so the caller can notify without
- * a try/catch around this call.
+ * through `onEvent` as it happens (ADR-025). An aborted `signal` always stops the loop between passes;
+ * a caller whose `send` forwards the signal into the transport's `fetch` (RC-AI-1.1) also gets an
+ * immediate mid-flight cancel instead of waiting for the in-flight request to land. Always resolves
+ * (never rejects): transport and observer failures are isolated so the caller can notify without a
+ * try/catch around this call.
  */
 export async function runAssistantExchange(
 	options: AssistantExchangeOptions,
@@ -313,13 +336,18 @@ export async function runAssistantExchange(
 			// Progress observers are UI niceties. A broken observer must never abort the authoritative run.
 		}
 	};
-	const emitStatus = (status: AssistantRunStatus, activeToolId?: string): void =>
+	const emitStatus = (
+		status: AssistantRunStatus,
+		activeToolId?: string,
+		streamText?: string,
+	): void =>
 		emit({
 			type: 'status',
 			status,
 			pass: currentPass + 1,
 			maxPasses: maxToolPasses,
 			...(activeToolId ? { activeToolId } : {}),
+			...(streamText ? { streamText } : {}),
 		});
 	const pushEvent = (event: AssistantEvent): void => {
 		events.push(event);
@@ -339,10 +367,23 @@ export async function runAssistantExchange(
 		emitStatus('working');
 
 		let reply: AiReply;
+		let streamText = '';
 		try {
-			reply = await send({ system: ASSISTANT_SYSTEM_PROMPT, turns, tools });
+			reply = await send(
+				{ system: ASSISTANT_SYSTEM_PROMPT, turns, tools },
+				{
+					signal,
+					onToken: (delta) => {
+						streamText += delta;
+						emitStatus('working', undefined, streamText);
+					},
+				},
+			);
 		} catch (error) {
-			// The transport threw (auth/network/api). Surface it honestly and end the run failed.
+			// A cancelled in-flight request (RC-AI-1.1: the signal now reaches the actual fetch) is the
+			// user's own Cancel, not a failure — report it the same way the between-passes cancel does.
+			if (error instanceof AiTransportError && error.kind === 'aborted') return finish('cancelled');
+			// Any other transport failure (auth/network/api). Surface it honestly and end the run failed.
 			const message = error instanceof Error ? error.message : String(error);
 			pushEvent({ type: 'text', text: `[The run stopped: ${message}]` });
 			return finish('failed');
@@ -410,9 +451,21 @@ export async function runAssistantExchange(
 			// Give the model one tools-disabled turn to summarize what it accomplished. This both produces a
 			// useful final answer and closes the provider transcript with an assistant turn after tool results.
 			let finalReply: AiReply;
+			let finalStreamText = '';
 			try {
-				finalReply = await send({ system: ASSISTANT_SYSTEM_PROMPT, turns, tools: [] });
+				finalReply = await send(
+					{ system: ASSISTANT_SYSTEM_PROMPT, turns, tools: [] },
+					{
+						signal,
+						onToken: (delta) => {
+							finalStreamText += delta;
+							emitStatus('working', undefined, finalStreamText);
+						},
+					},
+				);
 			} catch (error) {
+				if (error instanceof AiTransportError && error.kind === 'aborted')
+					return finish('cancelled');
 				const message = error instanceof Error ? error.message : String(error);
 				const text = `[The tool budget was exhausted and the final summary failed: ${message}]`;
 				turns.push({ role: 'assistant', text, toolCalls: [] });

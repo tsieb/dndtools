@@ -69,9 +69,27 @@ export interface AiReply {
 	stopReason: 'end' | 'tool-use' | 'max-tokens' | 'refusal' | 'other';
 }
 
+/**
+ * Per-call knobs that do not change the request's meaning, only how it is carried out:
+ * `signal` reaches the actual `fetch` (RC-AI-1.1) so a cancel takes effect immediately instead of
+ * waiting for an in-flight response to land; `onToken` opts into provider streaming and fires for
+ * every text delta as it arrives, so a caller can show live progress instead of a silent wait for
+ * the whole reply. Both are optional — omitting them reproduces the exact prior one-shot behaviour.
+ */
+export interface AiChatOptions {
+	signal?: AbortSignal;
+	onToken?: (delta: string) => void;
+}
+
 // --- typed errors (mirrors AppApiError's honest 4xx-message / generic-5xx split) ------------------
 
-export type AiTransportErrorKind = 'not-configured' | 'auth' | 'rate-limit' | 'api' | 'network';
+export type AiTransportErrorKind =
+	| 'not-configured'
+	| 'auth'
+	| 'rate-limit'
+	| 'api'
+	| 'network'
+	| 'aborted';
 
 export class AiTransportError extends Error {
 	readonly kind: AiTransportErrorKind;
@@ -114,6 +132,59 @@ async function toTransportError(response: Response): Promise<AiTransportError> {
 		response.status,
 		`AI provider request failed (${response.status})${detail}.`,
 	);
+}
+
+/** A thrown `fetch` is either a user/caller cancellation or an actual network failure — tell them
+ *  apart so a cancelled run reports `cancelled`, never a false `failed`. */
+function toNetworkOrAbortError(
+	error: unknown,
+	signal: AbortSignal | undefined,
+	fallbackMessage: string,
+): AiTransportError {
+	if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
+		return new AiTransportError('aborted', null, 'The request was cancelled.');
+	}
+	return new AiTransportError('network', null, fallbackMessage);
+}
+
+// --- streaming (SSE) ---------------------------------------------------------------------------------
+
+/** Parse a `text/event-stream` body into its JSON `data:` payloads, one per blank-line-delimited
+ *  frame. A frame whose data is the literal `[DONE]` sentinel (OpenAI-compatible) ends the stream. */
+async function* readSseEvents(response: Response): AsyncGenerator<Record<string, unknown>> {
+	const reader = response.body?.getReader();
+	if (!reader) return;
+	const decoder = new TextDecoder();
+	let buffer = '';
+	for (;;) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		buffer += decoder.decode(value, { stream: true });
+		let boundary: number;
+		while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+			const frame = buffer.slice(0, boundary);
+			buffer = buffer.slice(boundary + 2);
+			const data = frame
+				.split('\n')
+				.filter((line) => line.startsWith('data:'))
+				.map((line) => line.slice(5).trim())
+				.join('\n');
+			if (data === '' || data === '[DONE]') continue;
+			try {
+				yield JSON.parse(data) as Record<string, unknown>;
+			} catch {
+				// A malformed SSE frame is skipped, not fatal — the stream carries many frames.
+			}
+		}
+	}
+}
+
+function safeParseJson(raw: string): unknown {
+	try {
+		return JSON.parse(raw);
+	} catch {
+		return {};
+	}
 }
 
 // --- Anthropic Messages API shaping ----------------------------------------------------------------
@@ -184,15 +255,82 @@ function parseAnthropicReply(body: AnthropicResponse): AiReply {
 	return { text, toolCalls, stopReason };
 }
 
+/** One content block as it accumulates across streamed deltas, before it is folded into the same
+ *  {@link AnthropicResponse} shape the non-streaming path returns (one parser, either path). */
+interface AnthropicStreamBlock {
+	type: 'text' | 'tool_use';
+	text?: string;
+	id?: string;
+	name?: string;
+	inputJson?: string;
+}
+
+async function streamAnthropicReply(
+	response: Response,
+	onToken: (delta: string) => void,
+): Promise<AnthropicResponse> {
+	const blocks: AnthropicStreamBlock[] = [];
+	let stopReason: string | undefined;
+	for await (const event of readSseEvents(response)) {
+		switch (event.type) {
+			case 'content_block_start': {
+				const index = event.index as number;
+				const block = event.content_block as { type: string; id?: string; name?: string };
+				blocks[index] =
+					block.type === 'tool_use'
+						? { type: 'tool_use', id: block.id, name: block.name, inputJson: '' }
+						: { type: 'text', text: '' };
+				break;
+			}
+			case 'content_block_delta': {
+				const index = event.index as number;
+				const block = blocks[index];
+				const delta = event.delta as { type: string; text?: string; partial_json?: string };
+				if (!block) break;
+				if (delta.type === 'text_delta' && typeof delta.text === 'string') {
+					block.text = (block.text ?? '') + delta.text;
+					onToken(delta.text);
+				} else if (delta.type === 'input_json_delta' && typeof delta.partial_json === 'string') {
+					block.inputJson = (block.inputJson ?? '') + delta.partial_json;
+				}
+				break;
+			}
+			case 'message_delta': {
+				const delta = event.delta as { stop_reason?: string } | undefined;
+				if (delta?.stop_reason) stopReason = delta.stop_reason;
+				break;
+			}
+			default:
+				break;
+		}
+	}
+	return {
+		content: blocks.map((block) =>
+			block.type === 'tool_use'
+				? {
+						type: 'tool_use',
+						id: block.id,
+						name: block.name,
+						input: safeParseJson(block.inputJson ?? '{}'),
+					}
+				: { type: 'text', text: block.text ?? '' },
+		),
+		stop_reason: stopReason,
+	};
+}
+
 async function sendAnthropic(
 	config: ResolvedAiProviderConfig,
 	request: AiChatRequest,
+	options?: AiChatOptions,
 ): Promise<AiReply> {
+	const streaming = options?.onToken !== undefined;
 	const body = {
 		model: config.model,
 		max_tokens: MAX_TOKENS,
 		system: request.system,
 		messages: anthropicMessages(request.turns),
+		...(streaming ? { stream: true } : {}),
 		...(request.tools.length > 0
 			? {
 					tools: request.tools.map((tool) => ({
@@ -209,6 +347,7 @@ async function sendAnthropic(
 			method: 'POST',
 			// A redirect must never carry a provider credential beyond its confirmed origin.
 			redirect: 'error',
+			signal: options?.signal,
 			headers: {
 				'content-type': 'application/json',
 				'x-api-key': config.apiKey,
@@ -218,14 +357,16 @@ async function sendAnthropic(
 			},
 			body: JSON.stringify(body),
 		});
-	} catch {
-		throw new AiTransportError(
-			'network',
-			null,
+	} catch (error) {
+		throw toNetworkOrAbortError(
+			error,
+			options?.signal,
 			'Could not reach the AI provider — check your connection.',
 		);
 	}
 	if (!response.ok) throw await toTransportError(response);
+	if (streaming)
+		return parseAnthropicReply(await streamAnthropicReply(response, options!.onToken!));
 	return parseAnthropicReply((await response.json()) as AnthropicResponse);
 }
 
@@ -315,14 +456,71 @@ function parseOpenAiReply(body: OpenAiResponse): AiReply {
 	return { text: choice?.message?.content ?? '', toolCalls, stopReason };
 }
 
+/** One `tool_calls` entry as it accumulates: the id/name arrive once, `arguments` arrives in
+ *  string fragments across many deltas and is concatenated in order before parsing. */
+interface OpenAiStreamToolCall {
+	id?: string;
+	function?: { name?: string; arguments?: string };
+}
+
+async function streamOpenAiReply(
+	response: Response,
+	onToken: (delta: string) => void,
+): Promise<OpenAiResponse> {
+	let content = '';
+	const toolCalls: OpenAiStreamToolCall[] = [];
+	let finishReason: string | undefined;
+	for await (const event of readSseEvents(response)) {
+		const choice = (event.choices as Array<Record<string, unknown>> | undefined)?.[0];
+		if (!choice) continue;
+		const delta = choice.delta as
+			| {
+					content?: string;
+					tool_calls?: Array<{
+						index: number;
+						id?: string;
+						function?: { name?: string; arguments?: string };
+					}>;
+			  }
+			| undefined;
+		if (typeof delta?.content === 'string' && delta.content !== '') {
+			content += delta.content;
+			onToken(delta.content);
+		}
+		for (const call of delta?.tool_calls ?? []) {
+			const existing = toolCalls[call.index] ?? {};
+			toolCalls[call.index] = {
+				id: call.id ?? existing.id,
+				function: {
+					name: call.function?.name ?? existing.function?.name,
+					arguments: (existing.function?.arguments ?? '') + (call.function?.arguments ?? ''),
+				},
+			};
+		}
+		const reason = choice.finish_reason as string | null | undefined;
+		if (typeof reason === 'string') finishReason = reason;
+	}
+	return {
+		choices: [
+			{
+				message: { content: content === '' ? null : content, tool_calls: toolCalls },
+				finish_reason: finishReason,
+			},
+		],
+	};
+}
+
 async function sendOpenAiCompatible(
 	config: ResolvedAiProviderConfig,
 	request: AiChatRequest,
+	options?: AiChatOptions,
 ): Promise<AiReply> {
+	const streaming = options?.onToken !== undefined;
 	const base = config.baseUrl.replace(/\/+$/, '');
 	const body = {
 		model: config.model,
 		messages: openAiMessages(request.system, request.turns),
+		...(streaming ? { stream: true } : {}),
 		...(request.tools.length > 0
 			? {
 					tools: request.tools.map((tool) => ({
@@ -342,20 +540,22 @@ async function sendOpenAiCompatible(
 			method: 'POST',
 			// A redirect must never carry a provider credential beyond its confirmed origin.
 			redirect: 'error',
+			signal: options?.signal,
 			headers: {
 				'content-type': 'application/json',
 				authorization: `Bearer ${config.apiKey}`,
 			},
 			body: JSON.stringify(body),
 		});
-	} catch {
-		throw new AiTransportError(
-			'network',
-			null,
+	} catch (error) {
+		throw toNetworkOrAbortError(
+			error,
+			options?.signal,
 			'Could not reach the AI provider — check the base URL and your connection.',
 		);
 	}
 	if (!response.ok) throw await toTransportError(response);
+	if (streaming) return parseOpenAiReply(await streamOpenAiReply(response, options!.onToken!));
 	return parseOpenAiReply((await response.json()) as OpenAiResponse);
 }
 
@@ -368,7 +568,13 @@ async function sendOpenAiCompatible(
 export async function sendAiChat(
 	config: ResolvedAiProviderConfig | null,
 	request: AiChatRequest,
+	options?: AiChatOptions,
 ): Promise<AiReply> {
+	// A signal that is already aborted (e.g. the user cancelled between the caller queuing this
+	// call and it starting) fails closed before any network I/O, same as the other fail-closed guards.
+	if (options?.signal?.aborted) {
+		throw new AiTransportError('aborted', null, 'The request was cancelled.');
+	}
 	// Check again for every network exchange. A multi-pass assistant run that was already in flight
 	// therefore stops before its next provider request when the user turns AI off in Settings.
 	if (!isAiAssistantEnabled() || config === null) {
@@ -386,8 +592,8 @@ export async function sendAiChat(
 		);
 	}
 	return config.provider === 'anthropic'
-		? sendAnthropic(config, request)
-		: sendOpenAiCompatible(config, request);
+		? sendAnthropic(config, request, options)
+		: sendOpenAiCompatible(config, request, options);
 }
 
 export const __testing = { ANTHROPIC_BASE_URL, ANTHROPIC_VERSION, MAX_TOKENS };

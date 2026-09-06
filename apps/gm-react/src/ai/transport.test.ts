@@ -27,6 +27,18 @@ const openAiConfig: ResolvedAiProviderConfig = {
 const jsonResponse = (status: number, body: unknown) =>
 	new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
+/** A `text/event-stream` Response whose body yields the given SSE frames one at a time. */
+function sseResponse(frames: string[]): Response {
+	const stream = new ReadableStream<Uint8Array>({
+		start(controller) {
+			const encoder = new TextEncoder();
+			for (const frame of frames) controller.enqueue(encoder.encode(`${frame}\n\n`));
+			controller.close();
+		},
+	});
+	return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+}
+
 function lastFetch(): { url: string; init: RequestInit; body: Record<string, unknown> } {
 	const [url, init] = fetchMock.mock.calls.at(-1) as [string, RequestInit];
 	return { url, init, body: JSON.parse(init.body as string) as Record<string, unknown> };
@@ -274,5 +286,129 @@ describe('error surfaces', () => {
 		await expect(
 			sendAiChat(openAiConfig, { system: 's', turns: [], tools: [] }),
 		).rejects.toMatchObject({ kind: 'network', status: null });
+	});
+});
+
+// RC-AI-1.1: the signal now reaches the actual fetch (so Cancel takes effect mid-flight, not only
+// between passes), and an `onToken` callback opts into provider streaming.
+describe('abort signal threading', () => {
+	it('passes the caller signal into the Anthropic fetch call', async () => {
+		fetchMock.mockResolvedValue(jsonResponse(200, { content: [], stop_reason: 'end_turn' }));
+		const controller = new AbortController();
+		await sendAiChat(
+			anthropicConfig,
+			{ system: 's', turns: [], tools: [] },
+			{ signal: controller.signal },
+		);
+		expect(lastFetch().init.signal).toBe(controller.signal);
+	});
+
+	it('passes the caller signal into the OpenAI-compatible fetch call', async () => {
+		fetchMock.mockResolvedValue(
+			jsonResponse(200, { choices: [{ message: { content: 'hi' }, finish_reason: 'stop' }] }),
+		);
+		const controller = new AbortController();
+		await sendAiChat(
+			openAiConfig,
+			{ system: 's', turns: [], tools: [] },
+			{ signal: controller.signal },
+		);
+		expect(lastFetch().init.signal).toBe(controller.signal);
+	});
+
+	it('fails closed with a typed aborted error before any network I/O when already aborted', async () => {
+		const controller = new AbortController();
+		controller.abort();
+		await expect(
+			sendAiChat(
+				anthropicConfig,
+				{ system: 's', turns: [], tools: [] },
+				{ signal: controller.signal },
+			),
+		).rejects.toMatchObject({ kind: 'aborted' });
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it('maps a mid-flight AbortError from fetch to the typed aborted kind, not network', async () => {
+		const controller = new AbortController();
+		fetchMock.mockImplementation(() => {
+			controller.abort();
+			return Promise.reject(new DOMException('The user aborted a request.', 'AbortError'));
+		});
+		await expect(
+			sendAiChat(
+				anthropicConfig,
+				{ system: 's', turns: [], tools: [] },
+				{ signal: controller.signal },
+			),
+		).rejects.toMatchObject({ kind: 'aborted' });
+	});
+});
+
+describe('token streaming', () => {
+	it('streams Anthropic text deltas to onToken and assembles the same reply shape as non-streaming', async () => {
+		fetchMock.mockResolvedValue(
+			sseResponse([
+				'data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}',
+				'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hel"}}',
+				'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"lo"}}',
+				'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"}}',
+			]),
+		);
+		const tokens: string[] = [];
+		const reply = await sendAiChat(
+			anthropicConfig,
+			{ system: 's', turns: [{ role: 'user', text: 'hi' }], tools: [] },
+			{ onToken: (t) => tokens.push(t) },
+		);
+		expect(tokens).toEqual(['Hel', 'lo']);
+		expect(reply.text).toBe('Hello');
+		expect(reply.stopReason).toBe('end');
+		expect(lastFetch().body.stream).toBe(true);
+	});
+
+	it('streams an Anthropic tool_use block, assembling the final input from partial_json deltas', async () => {
+		fetchMock.mockResolvedValue(
+			sseResponse([
+				'data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"tu_1","name":"note__read"}}',
+				'data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\\"id\\":"}}',
+				'data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"\\"n1\\"}"}}',
+				'data: {"type":"message_delta","delta":{"stop_reason":"tool_use"}}',
+			]),
+		);
+		const reply = await sendAiChat(
+			anthropicConfig,
+			{ system: 's', turns: [{ role: 'user', text: 'hi' }], tools: [] },
+			{ onToken: () => {} },
+		);
+		expect(reply.toolCalls).toEqual([{ id: 'tu_1', name: 'note__read', input: { id: 'n1' } }]);
+		expect(reply.stopReason).toBe('tool-use');
+	});
+
+	it('streams OpenAI-compatible content deltas and finish_reason to the same reply shape', async () => {
+		fetchMock.mockResolvedValue(
+			sseResponse([
+				'data: {"choices":[{"delta":{"content":"Hel"},"finish_reason":null}]}',
+				'data: {"choices":[{"delta":{"content":"lo"},"finish_reason":null}]}',
+				'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}',
+				'data: [DONE]',
+			]),
+		);
+		const tokens: string[] = [];
+		const reply = await sendAiChat(
+			openAiConfig,
+			{ system: 's', turns: [{ role: 'user', text: 'hi' }], tools: [] },
+			{ onToken: (t) => tokens.push(t) },
+		);
+		expect(tokens).toEqual(['Hel', 'lo']);
+		expect(reply.text).toBe('Hello');
+		expect(reply.stopReason).toBe('end');
+		expect(lastFetch().body.stream).toBe(true);
+	});
+
+	it('does not request streaming when onToken is not supplied', async () => {
+		fetchMock.mockResolvedValue(jsonResponse(200, { content: [], stop_reason: 'end_turn' }));
+		await sendAiChat(anthropicConfig, { system: 's', turns: [], tools: [] });
+		expect(lastFetch().body).not.toHaveProperty('stream');
 	});
 });
