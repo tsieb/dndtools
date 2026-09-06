@@ -41,7 +41,7 @@ import type { MessageKey, MessageValues } from '../../i18n';
 
 export type FogMode = 'reveal' | 'conceal';
 export type FogShape = 'rect' | 'polygon' | 'stroke';
-export type DockPanel = 'inspector' | 'layers' | 'assets' | 'history';
+export type DockPanel = 'inspector' | 'layers' | 'assets' | 'graph' | 'history';
 /** Skin the editor's notice banner wears. `warning` is the default because every notice the hook
  *  itself writes is a rejection or a thrown error. */
 export type MapNoticeTone = 'warning' | 'info' | 'success';

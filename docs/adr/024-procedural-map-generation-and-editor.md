@@ -112,6 +112,10 @@ growing the chrome, and teach the keymap passively by showing each shortcut.
   removes whole features); a river vs lake is distinguished by style token, not point count. `props` is a
   flat primitive record by design, not an open object graph, to keep it serializable and unable to smuggle
   arbitrary payloads into durable state.
-- **Follow-up:** the canvas-2d bake layer if a real map exceeds the culled SVG budget; a graph view of a
-  dungeon's room graph; live-drag sea-level as an `applies: 'immediate'` generation knob once the renderer
-  can re-threshold without a full re-run.
+- **Follow-up:** the canvas-2d bake layer if a real map exceeds the culled SVG budget; live-drag sea-level
+  as an `applies: 'immediate'` generation knob once the renderer can re-threshold without a full re-run.
+  The room-graph view landed with RC-MAP-3.4: `deriveRoomGraph` (`packages/core/src/generation/
+room-graph.ts`) derives rooms, corridors and their links back out of the PERSISTED features rather than
+  from generator output, so a hand-drawn or imported map has a graph too, and per-room stocking rides an
+  additive `props.stocking` written through the existing `map.update-features` command — no new command
+  and, per §2, no schema-version bump.

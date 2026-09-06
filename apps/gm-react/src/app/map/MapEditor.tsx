@@ -28,6 +28,7 @@ import { InspectorPanel } from './dock/InspectorPanel';
 import { LayersPanel } from './dock/LayersPanel';
 import { AssetsPanel } from './dock/AssetsPanel';
 import { HistoryPanel } from './dock/HistoryPanel';
+import { GraphPanel } from './dock/GraphPanel';
 import { HeaderMenuItem, QuickToolStrip, ShortcutOverlay } from './MapEditorChrome';
 
 /** A11Y-011: severity must survive grayscale, so each notice tone gets a DISTINCT glyph shape. */
@@ -551,7 +552,12 @@ export function MapEditor({
 					{ id: 'inspector', label: t('mapEditor.dock.inspector'), icon: 'sliders' },
 					{ id: 'layers', label: t('mapEditor.dock.layers'), icon: 'layers' },
 					...(!quickMapMode
-						? [{ id: 'assets', label: t('mapEditor.dock.assets'), icon: 'tool-stamp' }]
+						? [
+								{ id: 'assets', label: t('mapEditor.dock.assets'), icon: 'tool-stamp' },
+								// RC-MAP-3.4 — `layer-roads` is Waypoints: the node-and-link glyph, and the
+								// closest thing the registered icon vocabulary has to a graph.
+								{ id: 'graph', label: t('mapEditor.dock.graph'), icon: 'layer-roads' },
+							]
 						: []),
 					{ id: 'history', label: t('mapEditor.dock.history'), icon: 'recent' },
 				]}
@@ -571,6 +577,7 @@ export function MapEditor({
 						setFavorites={setAssetFavorites}
 					/>
 				)}
+				{editor.dock === 'graph' && <GraphPanel editor={editor} announce={announce} />}
 				{editor.dock === 'history' && <HistoryPanel editor={editor} />}
 			</div>
 		</>

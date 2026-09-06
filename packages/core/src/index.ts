@@ -5554,3 +5554,27 @@ export type {
 } from './mcp/proposal-conflict';
 export { MCP_CONFLICT_RESOLUTIONS, computeMcpProposalConflict } from './mcp/proposal-conflict';
 export type { McpProposalBaseSnapshot } from './state/mcp-policy';
+
+// --- RC-MAP-3.4 — the ROOM GRAPH derived from the map as it stands ---------------------------------
+// `stockDungeon` keys a dungeon once, at generation. `deriveRoomGraph` reads the graph back out of the
+// persisted features, so a hand-drawn, imported or edited map has one too: rooms and corridors as
+// nodes, touching floor and door features as edges, plus the wing nothing connects to. Stocking rides
+// an additive `props.stocking` on the room feature and is written with the existing
+// `map.update-features` command, so it is undoable and needs no schemaVersion bump.
+export type {
+	DeriveRoomGraphOptions,
+	RoomGraph,
+	RoomGraphBounds,
+	RoomGraphEdge,
+	RoomGraphLayer,
+	RoomGraphNode,
+	RoomStocking,
+} from './generation/room-graph';
+export {
+	ROOM_STOCKING_KINDS,
+	ROOM_STOCKING_PROP,
+	ROOM_GRAPH_TOUCH_TOLERANCE,
+	deriveRoomGraph,
+	readStocking,
+	withStocking,
+} from './generation/room-graph';
