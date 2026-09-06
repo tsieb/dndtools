@@ -9,6 +9,7 @@ import type {
 	PartyOverview,
 } from '@dndtools/core';
 import { CONDITIONS } from '../../ds';
+import type { MessageKey } from '../../i18n';
 
 /**
  * Shared vocabulary for the owner character sheet: the ability/condition label maps, the small
@@ -59,13 +60,14 @@ export function condKey(s: string): string | null {
 	return COND_ALIAS[k] || (C[k] ? k : null);
 }
 
-/** The journal-entry kinds the core accepts (schemas/commands.ts `journalEntryKindSchema`). */
-export const JOURNAL_KINDS = [
-	{ value: 'note', label: 'Note' },
-	{ value: 'bookmark', label: 'Bookmark' },
-	{ value: 'npc-impression', label: 'NPC impression' },
-	{ value: 'personal-quest', label: 'Personal quest' },
-	{ value: 'session-highlight', label: 'Session highlight' },
+/** The journal-entry kinds the core accepts (schemas/commands.ts `journalEntryKindSchema`), each
+ * named by a catalog key — the value is the core's enum, the label is copy. */
+export const JOURNAL_KINDS: { value: string; label: MessageKey }[] = [
+	{ value: 'note', label: 'player.journal.kind.note' },
+	{ value: 'bookmark', label: 'player.journal.kind.bookmark' },
+	{ value: 'npc-impression', label: 'player.journal.kind.npcImpression' },
+	{ value: 'personal-quest', label: 'player.journal.kind.personalQuest' },
+	{ value: 'session-highlight', label: 'player.journal.kind.sessionHighlight' },
 ];
 
 /** Core data resolved for the active actor, plus the chosen PC id used by every write below. */

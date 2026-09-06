@@ -13,6 +13,7 @@ import {
 	Toaster,
 } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
+import { useI18n } from '../../i18n';
 import { condKey, type Dispatch } from './shared';
 
 // ── Party — real overview + DM-only logistics (marching order / shared stash, CHAR-011) ──────────
@@ -31,6 +32,7 @@ export function PlayerParty({
 	compact: boolean;
 	dispatch: Dispatch;
 }) {
+	const { t } = useI18n();
 	// Real party overview — members are the visible PCs only (DM-only NPCs never reach this list).
 	const members = party.members.filter((m) => m.kind === 'pc');
 	const [itemName, setItemName] = useState('');
@@ -60,11 +62,11 @@ export function PlayerParty({
 		const previous = [...party.marchingOrder];
 		const ok = await setOrder([]);
 		if (!ok) return;
-		Toaster.success('Marching order cleared', {
-			action: 'Undo',
+		Toaster.success(t('player.party.orderCleared'), {
+			action: t('common.action.undo'),
 			onAction: () => {
 				void setOrder(previous).then((restored) => {
-					if (restored) Toaster.success('Marching order restored');
+					if (restored) Toaster.success(t('player.party.orderRestored'));
 				});
 			},
 		});
@@ -96,8 +98,8 @@ export function PlayerParty({
 			payload: { itemId: item.id },
 		});
 		if (!ok) return;
-		Toaster.success(`“${item.name}” removed from the stash`, {
-			action: 'Undo',
+		Toaster.success(t('player.party.itemRemoved', { name: item.name }), {
+			action: t('common.action.undo'),
 			onAction: () => {
 				void dispatch({
 					type: 'character.upsert-party-inventory-item',
@@ -110,7 +112,7 @@ export function PlayerParty({
 						sharedWith: [],
 					},
 				}).then((restored) => {
-					if (restored) Toaster.success(`“${item.name}” restored`);
+					if (restored) Toaster.success(t('player.party.itemRestored', { name: item.name }));
 				});
 			},
 		});
@@ -126,11 +128,9 @@ export function PlayerParty({
 			}}
 		>
 			<Panel
-				title="The party"
+				title={t('player.party.title')}
 				action={
-					<Badge status="neutral">
-						{members.length} {members.length === 1 ? 'member' : 'members'}
-					</Badge>
+					<Badge status="neutral">{t('player.party.memberCount', { count: members.length })}</Badge>
 				}
 			>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
@@ -162,14 +162,19 @@ export function PlayerParty({
 								<div style={{ flex: 1, minWidth: 0 }}>
 									<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 										<span style={{ font: `600 13.5px ${T.sans}` }}>{p.name}</span>
-										{self && <Badge status="accent">You</Badge>}
-										<span style={{ font: `11px ${T.sans}`, color: T.ter }}>AC {p.ac}</span>
+										{self && <Badge status="accent">{t('player.party.you')}</Badge>}
+										<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
+											{t('player.party.ac', { ac: p.ac })}
+										</span>
 									</div>
 									<div style={{ marginTop: 5, maxWidth: 240 }}>
 										<HPBar current={p.hp} max={p.maxHp} size="sm" />
 									</div>
 									<div style={{ font: `11px ${T.mono}`, color: T.ter, marginTop: 4 }}>
-										{p.availableSpellSlots} slots · {p.availableClassResources} resources
+										{t('player.party.slotsAndResources', {
+											slots: p.availableSpellSlots,
+											resources: p.availableClassResources,
+										})}
 									</div>
 								</div>
 								<div
@@ -202,18 +207,20 @@ export function PlayerParty({
 			</Panel>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 				<Panel
-					title="Marching order"
+					title={t('player.party.marchingOrder')}
 					action={
 						isDm && party.marchingOrder.length > 0 ? (
 							<Button variant="ghost" size="sm" onClick={() => void clearOrder()}>
-								Clear order
+								{t('player.party.clearOrder')}
 							</Button>
 						) : undefined
 					}
 				>
 					{party.marchingOrder.length === 0 ? (
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-							<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No marching order set.</div>
+							<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+								{t('player.party.noOrder')}
+							</div>
 							{isDm && members.length > 0 && (
 								<Button
 									variant="secondary"
@@ -221,7 +228,7 @@ export function PlayerParty({
 									icon="players"
 									onClick={() => setOrder(members.map((m) => m.characterId))}
 								>
-									Set from roster
+									{t('player.party.setFromRoster')}
 								</Button>
 							)}
 						</div>
@@ -263,7 +270,9 @@ export function PlayerParty({
 												    Soft keeps the tab stop, the name and the explanation. */}
 												<IconButton
 													icon="chevron-up"
-													label={`Move ${m?.name ?? 'member'} up`}
+													label={t('player.party.moveUp', {
+														name: m?.name ?? t('player.party.member'),
+													})}
 													variant="ghost"
 													size="sm"
 													aria-disabled={i === 0 || undefined}
@@ -274,7 +283,9 @@ export function PlayerParty({
 												/>
 												<IconButton
 													icon="chevron-down"
-													label={`Move ${m?.name ?? 'member'} down`}
+													label={t('player.party.moveDown', {
+														name: m?.name ?? t('player.party.member'),
+													})}
 													variant="ghost"
 													size="sm"
 													aria-disabled={i === party.marchingOrder.length - 1 || undefined}
@@ -291,9 +302,11 @@ export function PlayerParty({
 						</div>
 					)}
 				</Panel>
-				<Panel title="Shared stash">
+				<Panel title={t('player.party.stash')}>
 					{party.inventory.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>The party stash is empty.</div>
+						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+							{t('player.party.stashEmpty')}
+						</div>
 					) : (
 						party.inventory.map((s, i) => (
 							<div
@@ -311,13 +324,13 @@ export function PlayerParty({
 								<span style={{ font: `11px ${T.sans}`, color: T.ter }}>{s.detail}</span>
 								{isDm && s.visibility === 'dm-only' && (
 									<Badge status="neutral" icon="hidden">
-										dm-only
+										{t('common.visibility.dmOnly')}
 									</Badge>
 								)}
 								{isDm && (
 									<IconButton
 										icon="close"
-										label={`Remove ${s.name}`}
+										label={t('player.party.removeItem', { name: s.name })}
 										variant="ghost"
 										size="sm"
 										onClick={() => void removeItem(s)}
@@ -340,16 +353,16 @@ export function PlayerParty({
 							<div style={{ display: 'flex', gap: 8 }}>
 								<Input
 									value={itemName}
-									aria-label="Item name"
+									aria-label={t('player.party.itemName')}
 									onChange={(e: any) => setItemName(e.target.value)}
-									placeholder="Item name…"
+									placeholder={t('player.party.itemNamePlaceholder')}
 									style={{ flex: 1 }}
 								/>
 								<Input
 									value={itemDetail}
-									aria-label="Item detail"
+									aria-label={t('player.party.itemDetail')}
 									onChange={(e: any) => setItemDetail(e.target.value)}
-									placeholder="Detail (optional)"
+									placeholder={t('player.party.itemDetailPlaceholder')}
 									style={{ flex: 1 }}
 								/>
 							</div>
@@ -361,7 +374,7 @@ export function PlayerParty({
 									disabled={!itemName.trim()}
 									onClick={addItem}
 								>
-									Add to stash
+									{t('player.party.addToStash')}
 								</Button>
 							</div>
 						</div>

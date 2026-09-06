@@ -12,6 +12,7 @@ import {
 	Toaster,
 } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
+import { useI18n } from '../../i18n';
 import { JOURNAL_KINDS, type Dispatch } from './shared';
 
 // ── Journal — real entries with add / edit / remove / share; quests + highlights are entry KINDS ──
@@ -30,6 +31,7 @@ export function PlayerJournal({
 	compact: boolean;
 	dispatch: Dispatch;
 }) {
+	const { t, formatDate } = useI18n();
 	const [title, setTitle] = useState('');
 	const [body, setBody] = useState('');
 	const [kind, setKind] = useState('note');
@@ -92,8 +94,8 @@ export function PlayerJournal({
 		});
 		if (!ok) return;
 		const { kind: entryKind, title: entryTitle, body: entryBody, visibility } = entry;
-		Toaster.success(`“${entryTitle}” deleted`, {
-			action: 'Undo',
+		Toaster.success(t('player.journal.deleted', { title: entryTitle }), {
+			action: t('common.action.undo'),
 			onAction: () => {
 				void dispatch({
 					type: 'character.add-journal-entry',
@@ -107,7 +109,7 @@ export function PlayerJournal({
 						sharedWith: [],
 					},
 				}).then((restored) => {
-					if (restored) Toaster.success(`“${entryTitle}” restored`);
+					if (restored) Toaster.success(t('player.journal.restored', { title: entryTitle }));
 				});
 			},
 		});
@@ -117,6 +119,10 @@ export function PlayerJournal({
 	// their own side panels; the main list carries every entry (the editable source of truth).
 	const quests = entries.filter((e) => e.kind === 'personal-quest');
 	const highlights = entries.filter((e) => e.kind === 'session-highlight');
+	// The kind picker and the per-entry badge read the same catalogued labels, so a kind is spelled
+	// once per locale rather than showing the core's enum value on the badge.
+	const kindOptions = JOURNAL_KINDS.map((k) => ({ value: k.value, label: t(k.label) }));
+	const kindLabel = (value: string) => kindOptions.find((k) => k.value === value)?.label ?? value;
 
 	return (
 		<div>
@@ -134,7 +140,7 @@ export function PlayerJournal({
 			>
 				<Icon name="hidden" size={16} color="var(--color-dm-only-badge)" />
 				<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
-					Private journal — entries are owner-private until you explicitly share one with the table.
+					{t('player.journal.privateNote')}
 				</span>
 			</div>
 			<div
@@ -146,13 +152,13 @@ export function PlayerJournal({
 				}}
 			>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-					<Panel title={`Journal entries (${entries.length})`}>
+					<Panel title={t('player.journal.entries', { count: entries.length })}>
 						{entries.length === 0 ? (
 							<EmptyState
 								inset
 								icon="note-edit"
-								title="No entries yet"
-								description="Write the first journal entry below — it stays private until shared."
+								title={t('player.journal.noEntriesTitle')}
+								description={t('player.journal.noEntriesBody')}
 							/>
 						) : (
 							<div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -168,18 +174,18 @@ export function PlayerJournal({
 												<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 													<Input
 														value={editTitle}
-														aria-label="Entry title"
+														aria-label={t('player.journal.entryTitle')}
 														onChange={(e: any) => setEditTitle(e.target.value)}
 													/>
 													<Textarea
 														rows={2}
 														value={editBody}
-														aria-label="Entry body"
+														aria-label={t('player.journal.entryBody')}
 														onChange={(e: any) => setEditBody(e.target.value)}
 													/>
 													<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
 														<Button variant="ghost" size="sm" onClick={() => setEditId(null)}>
-															Cancel
+															{t('common.action.cancel')}
 														</Button>
 														<Button
 															variant="primary"
@@ -187,7 +193,7 @@ export function PlayerJournal({
 															disabled={!editTitle.trim()}
 															onClick={saveEdit}
 														>
-															Save
+															{t('common.action.save')}
 														</Button>
 													</div>
 												</div>
@@ -202,7 +208,7 @@ export function PlayerJournal({
 														}}
 													>
 														<span style={{ font: `600 13px ${T.sans}` }}>{im.title}</span>
-														<Badge status="neutral">{im.kind}</Badge>
+														<Badge status="neutral">{kindLabel(im.kind)}</Badge>
 														{canAuthor && (
 															<span
 																style={{
@@ -220,7 +226,12 @@ export function PlayerJournal({
 																	// Every entry rendered an identically-named toggle, so
 																	// browsing by control gave no way to tell which journal
 																	// entry was about to be shared with the whole table.
-																	aria-label={`${shared ? 'Shared' : 'Private'} — ${im.title}`}
+																	aria-label={t(
+																		shared
+																			? 'player.journal.sharedEntry'
+																			: 'player.journal.privateEntry',
+																		{ title: im.title },
+																	)}
 																	onClick={() => toggleShare(im)}
 																	style={{
 																		display: 'inline-flex',
@@ -240,18 +251,18 @@ export function PlayerJournal({
 																	}}
 																>
 																	<Icon name={shared ? 'visibility-players' : 'hidden'} size={12} />
-																	{shared ? 'Shared' : 'Private'}
+																	{t(shared ? 'player.journal.shared' : 'player.journal.private')}
 																</button>
 																<IconButton
 																	icon="note-edit"
-																	label={`Edit ${im.title}`}
+																	label={t('player.journal.editEntry', { title: im.title })}
 																	variant="ghost"
 																	size="sm"
 																	onClick={() => startEdit(im)}
 																/>
 																<IconButton
 																	icon="close"
-																	label={`Delete ${im.title}`}
+																	label={t('player.journal.deleteEntry', { title: im.title })}
 																	variant="ghost"
 																	size="sm"
 																	onClick={() => void remove(im)}
@@ -285,24 +296,24 @@ export function PlayerJournal({
 								<div style={{ display: 'flex', gap: 8 }}>
 									<Input
 										value={title}
-										aria-label="Entry title"
+										aria-label={t('player.journal.entryTitle')}
 										onChange={(e: any) => setTitle(e.target.value)}
-										placeholder="Entry title…"
+										placeholder={t('player.journal.entryTitlePlaceholder')}
 										style={{ flex: 1 }}
 									/>
 									<Select
 										value={kind}
 										onChange={(e: any) => setKind(e.target.value)}
-										options={JOURNAL_KINDS}
-										aria-label="Entry kind"
+										options={kindOptions}
+										aria-label={t('player.journal.entryKind')}
 										style={{ width: 170 }}
 									/>
 								</div>
 								<Textarea
 									value={body}
-									aria-label="Entry body"
+									aria-label={t('player.journal.entryBody')}
 									onChange={(e: any) => setBody(e.target.value)}
-									placeholder="What happened…"
+									placeholder={t('player.journal.entryBodyPlaceholder')}
 									rows={2}
 								/>
 								<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -313,7 +324,7 @@ export function PlayerJournal({
 										disabled={!title.trim()}
 										onClick={add}
 									>
-										Add entry
+										{t('player.journal.addEntry')}
 									</Button>
 								</div>
 							</div>
@@ -322,13 +333,13 @@ export function PlayerJournal({
 				</div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 					{/* Real projections of the journal's `personal-quest` / `session-highlight` entry kinds. */}
-					<Panel title={`Personal quests (${quests.length})`}>
+					<Panel title={t('player.journal.quests', { count: quests.length })}>
 						{quests.length === 0 ? (
 							<EmptyState
 								inset
 								icon="flag"
-								title="No personal quests"
-								description='Add a journal entry with the "Personal quest" kind to track one here.'
+								title={t('player.journal.noQuestsTitle')}
+								description={t('player.journal.noQuestsBody')}
 							/>
 						) : (
 							quests.map((q, i) => (
@@ -354,13 +365,13 @@ export function PlayerJournal({
 							))
 						)}
 					</Panel>
-					<Panel title={`Session highlights (${highlights.length})`}>
+					<Panel title={t('player.journal.highlights', { count: highlights.length })}>
 						{highlights.length === 0 ? (
 							<EmptyState
 								inset
 								icon="sparkle"
-								title="No highlights yet"
-								description='Add a journal entry with the "Session highlight" kind to capture one.'
+								title={t('player.journal.noHighlightsTitle')}
+								description={t('player.journal.noHighlightsBody')}
 							/>
 						) : (
 							highlights.map((h, i) => (
@@ -369,9 +380,9 @@ export function PlayerJournal({
 									style={{ padding: '9px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}
 								>
 									<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-										<Badge status="accent">highlight</Badge>
+										<Badge status="accent">{t('player.journal.highlightBadge')}</Badge>
 										<span style={{ marginLeft: 'auto', font: `10.5px ${T.mono}`, color: T.ter }}>
-											{new Date(h.updatedAt).toLocaleDateString()}
+											{formatDate(new Date(h.updatedAt))}
 										</span>
 									</div>
 									<div style={{ font: `600 12.5px ${T.sans}` }}>{h.title}</div>

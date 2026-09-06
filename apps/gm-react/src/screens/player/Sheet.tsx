@@ -3,18 +3,19 @@ import type { CharacterInventory, CharacterView, EncumbranceState } from '@dndto
 import { ABILITY_IDS, SKILLS } from '../../app/charImport/skills';
 import { Button, DefinitionList, Field, Icon, Input, Stat, Textarea } from '../../ds';
 import { Panel, T, eb } from '../../app/screen-kit';
+import { useI18n, type MessageKey } from '../../i18n';
 import { useViewport } from '../../app/useViewport';
 import { ABIL_ORDER, abilMod, sgn } from '../../app/character/abilities';
 import { ABIL_FULL, ABIL_LABEL, cap, type Dispatch } from './shared';
 import { PlayerEquipment } from './Equipment';
 
 // ── Sheet — real abilities, attacks, identity fields (edit-field) + one labeled honest gap ────────
-const IDENTITY_FIELDS: { key: string; label: string; hint?: string }[] = [
-	{ key: 'race', label: 'Race' },
-	{ key: 'subclass', label: 'Subclass' },
-	{ key: 'background', label: 'Background' },
-	{ key: 'speed', label: 'Speed (ft)' },
-	{ key: 'init', label: 'Initiative bonus', hint: 'e.g. +2' },
+const IDENTITY_FIELDS: { key: string; label: MessageKey; hint?: MessageKey }[] = [
+	{ key: 'race', label: 'player.sheet.race' },
+	{ key: 'subclass', label: 'player.sheet.subclass' },
+	{ key: 'background', label: 'player.sheet.background' },
+	{ key: 'speed', label: 'player.sheet.speed' },
+	{ key: 'init', label: 'player.sheet.init', hint: 'player.sheet.initHint' },
 ];
 
 export function PlayerSheet({
@@ -44,6 +45,7 @@ export function PlayerSheet({
 	canManageInventory: boolean;
 	dispatch: Dispatch;
 }) {
+	const { t } = useI18n();
 	const viewport = useViewport();
 	const isPhone = viewport === 'phone';
 	const [editing, setEditing] = useState(false);
@@ -155,22 +157,22 @@ export function PlayerSheet({
 					}}
 				>
 					<Panel
-						title="Identity"
+						title={t('player.sheet.identity')}
 						pad={14}
 						action={
 							isDm ? (
 								editing ? (
 									<div style={{ display: 'flex', gap: 6 }}>
 										<Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
-											Cancel
+											{t('common.action.cancel')}
 										</Button>
 										<Button variant="primary" size="sm" onClick={saveEdit}>
-											Save
+											{t('common.action.save')}
 										</Button>
 									</div>
 								) : (
 									<Button variant="secondary" size="sm" icon="note-edit" onClick={startEdit}>
-										Edit
+										{t('common.action.edit')}
 									</Button>
 								)
 							) : undefined
@@ -179,36 +181,40 @@ export function PlayerSheet({
 						{editing ? (
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 								{IDENTITY_FIELDS.map((f) => (
-									<Field key={f.key} label={f.label}>
+									<Field key={f.key} label={t(f.label)}>
 										<Input
 											value={drafts[f.key] ?? ''}
-											placeholder={f.hint}
+											placeholder={f.hint ? t(f.hint) : undefined}
 											onChange={(e: any) => setDrafts((d) => ({ ...d, [f.key]: e.target.value }))}
 										/>
 									</Field>
 								))}
 								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-									Changes appear everywhere this character is used.
+									{t('player.sheet.editNote')}
 								</div>
 							</div>
 						) : (
 							<DefinitionList
 								layout={isPhone ? 'stacked' : 'rows'}
 								items={[
-									{ label: 'Class', value: cls ? cap(cls) : '—' },
-									{ label: 'Level', value: level != null ? String(level) : '—', mono: true },
+									{ label: t('player.sheet.class'), value: cls ? cap(cls) : '—' },
+									{
+										label: t('player.sheet.level'),
+										value: level != null ? String(level) : '—',
+										mono: true,
+									},
 									...IDENTITY_FIELDS.map((f) => ({
-										label: f.label,
+										label: t(f.label),
 										value: dataStr(f.key) ? cap(dataStr(f.key)!) : '—',
 									})),
 								]}
 							/>
 						)}
 					</Panel>
-					<Panel title="Attacks" pad={14}>
+					<Panel title={t('player.sheet.attacks')} pad={14}>
 						{C.attacks.length === 0 ? (
 							<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-								No attacks recorded — the DM adds them on the roster sheet.
+								{t('player.sheet.noAttacks')}
 							</div>
 						) : (
 							<div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -233,7 +239,7 @@ export function PlayerSheet({
 					</Panel>
 				</div>
 				<Panel
-					title="Backstory"
+					title={t('player.sheet.backstory')}
 					action={
 						isDm && backstoryDraft === null ? (
 							<Button
@@ -242,7 +248,7 @@ export function PlayerSheet({
 								icon="note-edit"
 								onClick={() => setBackstoryDraft(backstory ?? '')}
 							>
-								Edit
+								{t('common.action.edit')}
 							</Button>
 						) : undefined
 					}
@@ -253,14 +259,14 @@ export function PlayerSheet({
 								rows={4}
 								value={backstoryDraft}
 								onChange={(e: any) => setBackstoryDraft(e.target.value)}
-								placeholder="Where they came from, what they want…"
+								placeholder={t('player.sheet.backstoryPlaceholder')}
 							/>
 							<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
 								<Button variant="ghost" size="sm" onClick={() => setBackstoryDraft(null)}>
-									Cancel
+									{t('common.action.cancel')}
 								</Button>
 								<Button variant="primary" size="sm" onClick={saveBackstory}>
-									Save
+									{t('common.action.save')}
 								</Button>
 							</div>
 						</div>
@@ -269,33 +275,35 @@ export function PlayerSheet({
 							{backstory}
 						</div>
 					) : (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No backstory written yet.</div>
+						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+							{t('player.sheet.noBackstory')}
+						</div>
 					)}
 				</Panel>
 				{/* Skills / saves / hit dice / passive perception — the view's structured `proficiencies`
 				    block (player-safe: read through the redacted view + post-gate pure queries), the same
 				    slice the roster sheet renders. */}
-				<Panel title="Skills & saves">
+				<Panel title={t('player.sheet.skillsAndSaves')}>
 					{hasProficiencyData && profBonus !== null ? (
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 							<div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-								<Stat label="Proficiency" value={sgn(profBonus)} />
+								<Stat label={t('player.sheet.proficiency')} value={sgn(profBonus)} />
 								{passive !== null && (
 									<Stat
-										label="Passive Perception"
+										label={t('player.sheet.passivePerception')}
 										value={String(passive)}
 										icon="visibility-players"
 									/>
 								)}
 								{prof.hitDice.total > 0 && (
 									<Stat
-										label="Hit dice"
+										label={t('player.sheet.hitDice')}
 										value={`${prof.hitDice.total - prof.hitDice.spent}/${prof.hitDice.total} ${prof.hitDice.die}`}
 									/>
 								)}
 							</div>
 							<div>
-								<div style={{ ...eb, marginBottom: 6 }}>Saving throws</div>
+								<div style={{ ...eb, marginBottom: 6 }}>{t('player.sheet.savingThrows')}</div>
 								<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
 									{ABILITY_IDS.map((a) => {
 										const proficient = prof.saves.includes(a);
@@ -323,7 +331,7 @@ export function PlayerSheet({
 								</div>
 							</div>
 							<div>
-								<div style={{ ...eb, marginBottom: 6 }}>Skills</div>
+								<div style={{ ...eb, marginBottom: 6 }}>{t('player.sheet.skills')}</div>
 								<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 18px' }}>
 									{SKILLS.map((s) => {
 										const skillLevel = prof.skills[s.id] ?? 'none';
@@ -366,15 +374,14 @@ export function PlayerSheet({
 									})}
 								</div>
 								<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 8 }}>
-									● proficient · ★ expertise (double proficiency)
+									{t('player.sheet.proficiencyLegend')}
 								</div>
 							</div>
 						</div>
 					) : (
 						// Honest empty state — no proficiency data on this character yet, nothing is faked.
 						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-							No skills, saves, or hit dice recorded for this character yet — they're set on the
-							roster sheet or arrive with a character-file import.
+							{t('player.sheet.noProficiencies')}
 						</div>
 					)}
 				</Panel>

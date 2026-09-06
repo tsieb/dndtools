@@ -7,25 +7,36 @@ import {
 } from '@dndtools/core';
 import { Badge, Button, Icon, Input, ProgressMeter } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
+import { useI18n, type MessageKey } from '../../i18n';
 import type { Dispatch } from './shared';
 
 // ── Level up — the REAL staged CHAR-009 advancement flow (same commands as /characters) ──────────
-const STEP_META: Record<string, { label: string; kind: string; detail: string; number?: boolean }> =
-	{
-		className: { label: 'Class', kind: 'class', detail: 'Which class gains this level.' },
-		hitPointsGained: {
-			label: 'Hit points',
-			kind: 'hp',
-			detail: 'HP gained at this level — roll your hit die or take the average.',
-			number: true,
-		},
-		subclass: { label: 'Subclass', kind: 'choice', detail: 'This level unlocks your subclass.' },
-		abilityOrFeat: {
-			label: 'Ability or feat',
-			kind: 'choice',
-			detail: 'Choose an ability score improvement or a feat.',
-		},
-	};
+const STEP_META: Record<
+	string,
+	{ label: MessageKey; kind: MessageKey; detail: MessageKey; number?: boolean }
+> = {
+	className: {
+		label: 'player.levelUp.step.class',
+		kind: 'player.levelUp.kind.class',
+		detail: 'player.levelUp.step.classDetail',
+	},
+	hitPointsGained: {
+		label: 'player.levelUp.step.hp',
+		kind: 'player.levelUp.kind.hp',
+		detail: 'player.levelUp.step.hpDetail',
+		number: true,
+	},
+	subclass: {
+		label: 'player.levelUp.step.subclass',
+		kind: 'player.levelUp.kind.choice',
+		detail: 'player.levelUp.step.subclassDetail',
+	},
+	abilityOrFeat: {
+		label: 'player.levelUp.step.abilityOrFeat',
+		kind: 'player.levelUp.kind.choice',
+		detail: 'player.levelUp.step.abilityOrFeatDetail',
+	},
+};
 
 export function PlayerLevelUp({
 	charId,
@@ -42,6 +53,7 @@ export function PlayerLevelUp({
 	milestoneEligible: EligibilityResult | null;
 	dispatch: Dispatch;
 }) {
+	const { t, formatNumber } = useI18n();
 	const [inputs, setInputs] = useState<Record<string, string>>({});
 	const draft = advancement?.draft ?? null;
 	const level = advancement?.level ?? 1;
@@ -110,18 +122,23 @@ export function PlayerLevelUp({
 						{level}
 					</span>
 					<div style={{ flex: 1 }}>
-						<div style={{ font: `700 18px ${T.disp}` }}>Level {level}</div>
+						<div style={{ font: `700 18px ${T.disp}` }}>{t('player.levelUp.level', { level })}</div>
 						<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
-							{level >= 20 ? 'Maximum level reached.' : `Next: level ${level + 1}`}
+							{level >= 20
+								? t('player.levelUp.maxLevel')
+								: t('player.levelUp.next', { level: level + 1 })}
 						</div>
 					</div>
 				</div>
 				{nextXp !== null && (
-					<Panel title="Experience" pad={14} style={{ marginBottom: 16 }}>
+					<Panel title={t('player.levelUp.experience')} pad={14} style={{ marginBottom: 16 }}>
 						<ProgressMeter
 							value={Math.min(xp, nextXp)}
 							max={nextXp}
-							label={`${xp} / ${nextXp} XP`}
+							label={t('player.levelUp.xpMeter', {
+								xp: formatNumber(xp),
+								next: formatNumber(nextXp),
+							})}
 						/>
 						{xpEligible && !xpEligible.eligible && (
 							<div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: 6 }}>
@@ -138,7 +155,7 @@ export function PlayerLevelUp({
 						disabled={!xpEligible?.eligible}
 						onClick={() => open('xp')}
 					>
-						Level up (XP)
+						{t('player.levelUp.byXp')}
 					</Button>
 					<Button
 						variant="secondary"
@@ -146,7 +163,7 @@ export function PlayerLevelUp({
 						disabled={!milestoneEligible?.eligible}
 						onClick={() => open('milestone')}
 					>
-						Level up (milestone)
+						{t('player.levelUp.byMilestone')}
 					</Button>
 				</div>
 				{milestoneEligible && !milestoneEligible.eligible && (
@@ -198,23 +215,29 @@ export function PlayerLevelUp({
 				</span>
 				<div style={{ flex: 1 }}>
 					<div style={{ font: `700 18px ${T.disp}` }}>
-						Level {draft.fromLevel} → {draft.toLevel}
+						{t('player.levelUp.fromTo', { from: draft.fromLevel, to: draft.toLevel })}
 					</div>
 					<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
 						{/* `draft.mode` is the raw core enum, so this read "xp advancement" / "milestone
 						    advancement" — lowercase, and XP as a word rather than the initialism. */}
-						{draft.mode === 'xp' ? 'XP' : 'Milestone'} advancement · {doneCount}/{required.length}{' '}
-						choices made
+						{t('player.levelUp.progress', {
+							mode: t(
+								draft.mode === 'xp' ? 'player.levelUp.modeXp' : 'player.levelUp.modeMilestone',
+							),
+							done: doneCount,
+							total: required.length,
+						})}
 					</div>
 				</div>
 				<Button variant="ghost" size="sm" onClick={cancel}>
-					Cancel
+					{t('common.action.cancel')}
 				</Button>
 			</div>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
 				{required.map((req, i) => {
 					const field = req.field as string;
-					const meta = STEP_META[field] ?? { label: field, kind: 'choice', detail: '' };
+					const meta = STEP_META[field] ?? null;
+					const stepLabel = meta ? t(meta.label) : field;
 					const saved = (draft.choices as Record<string, unknown>)[field];
 					const done = !pending.has(field);
 					return (
@@ -250,8 +273,8 @@ export function PlayerLevelUp({
 							</span>
 							<div style={{ flex: 1 }}>
 								<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-									<span style={{ font: `600 13.5px ${T.sans}` }}>{meta.label}</span>
-									<Badge status="neutral">{meta.kind}</Badge>
+									<span style={{ font: `600 13.5px ${T.sans}` }}>{stepLabel}</span>
+									{meta && <Badge status="neutral">{t(meta.kind)}</Badge>}
 								</div>
 								{done ? (
 									<div style={{ font: `12.5px ${T.sans}`, color: T.acc }}>{String(saved)}</div>
@@ -259,14 +282,14 @@ export function PlayerLevelUp({
 									<div style={{ font: `12px ${T.sans}`, color: T.warn }}>{pending.get(field)}</div>
 								)}
 								<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub, marginTop: 2 }}>
-									{meta.detail}
+									{meta ? t(meta.detail) : ''}
 								</div>
 								<div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
 									<Input
-										type={meta.number ? 'number' : 'text'}
+										type={meta?.number ? 'number' : 'text'}
 										value={inputs[field] ?? ''}
-										placeholder={done ? String(saved) : meta.label}
-										aria-label={meta.label}
+										placeholder={done ? String(saved) : stepLabel}
+										aria-label={stepLabel}
 										onChange={(e: any) => setInputs((v) => ({ ...v, [field]: e.target.value }))}
 										style={{ maxWidth: 220 }}
 									/>
@@ -276,7 +299,7 @@ export function PlayerLevelUp({
 										disabled={!(inputs[field] ?? '').trim()}
 										onClick={() => saveChoice(field)}
 									>
-										{done ? 'Change' : 'Choose'}
+										{t(done ? 'player.levelUp.change' : 'player.levelUp.choose')}
 									</Button>
 								</div>
 							</div>
@@ -293,8 +316,8 @@ export function PlayerLevelUp({
 					onClick={finish}
 				>
 					{openIssues.complete
-						? `Finish — become level ${draft.toLevel}`
-						: 'Make all choices to finish'}
+						? t('player.levelUp.finish', { level: draft.toLevel })
+						: t('player.levelUp.incomplete')}
 				</Button>
 			</div>
 		</div>

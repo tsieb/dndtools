@@ -27,6 +27,7 @@ import {
 	tabPanelProps,
 } from '../../ds';
 import { Page, Panel, T } from '../../app/screen-kit';
+import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useViewport } from '../../app/useViewport';
 import { cap, condKey, type PlayerData } from './shared';
@@ -73,6 +74,7 @@ import { PlayerJournal } from './Journal';
  */
 
 export function Player() {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const viewport = useViewport();
 	const actorId = runtime.defaultActorId;
@@ -159,11 +161,8 @@ export function Player() {
 	if (!C || !data.characterId) {
 		return (
 			<Page max={1180}>
-				<Panel title="No character yet">
-					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>
-						No player character is available in this view yet. Create one in Characters to get
-						started.
-					</div>
+				<Panel title={t('player.empty.title')}>
+					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>{t('player.empty.body')}</div>
 				</Panel>
 			</Page>
 		);
@@ -179,13 +178,13 @@ export function Player() {
 	const insp = ds('inspiration') === 'yes';
 
 	const tabs = [
-		{ id: 'sheet', label: 'Sheet', icon: 'characters-person' },
-		{ id: 'resources', label: 'Resources', icon: 'sparkle' },
-		{ id: 'party', label: 'Party', icon: 'players' },
+		{ id: 'sheet', label: t('player.tab.sheet'), icon: 'characters-person' },
+		{ id: 'resources', label: t('player.tab.resources'), icon: 'sparkle' },
+		{ id: 'party', label: t('player.tab.party'), icon: 'players' },
 		// The level-up tab drives the REAL staged advancement — shown only to an actor the core would
 		// authorize (DM / granted owner), so it is never a dead surface.
-		...(data.canAdvance ? [{ id: 'levelup', label: 'Level up', icon: 'flag' }] : []),
-		{ id: 'journal', label: 'Journal', icon: 'note-edit' },
+		...(data.canAdvance ? [{ id: 'levelup', label: t('player.tab.levelUp'), icon: 'flag' }] : []),
+		{ id: 'journal', label: t('player.tab.journal'), icon: 'note-edit' },
 	];
 	const activeTab = tabs.some((t) => t.id === tab) ? tab : 'sheet';
 
@@ -205,11 +204,7 @@ export function Player() {
 				payload: { characterId: charId, kind: 'hp', delta: sign * amount },
 			})
 		)
-			setHpNote(
-				sign < 0
-					? `Took ${amount} damage.`
-					: `Healed ${amount} hit point${amount === 1 ? '' : 's'}.`,
-			);
+			setHpNote(t(sign < 0 ? 'player.hp.damaged' : 'player.hp.healed', { amount }));
 	};
 	// Real inspiration toggle: `character.edit-field` on the `data.inspiration` sheet string.
 	const toggleInspiration = () =>
@@ -224,8 +219,8 @@ export function Player() {
 	const cls = ds('class');
 	const identityLine = [
 		ds('race'),
-		`${cls ? cap(cls) : 'Adventurer'}${level != null ? ` ${level}` : ''}${ds('subclass') ? ` (${cap(ds('subclass')!)})` : ''}`,
-		ds('background') ? `${cap(ds('background')!)} background` : null,
+		`${cls ? cap(cls) : t('player.identity.adventurer')}${level != null ? ` ${level}` : ''}${ds('subclass') ? ` (${cap(ds('subclass')!)})` : ''}`,
+		ds('background') ? t('player.identity.background', { name: cap(ds('background')!) }) : null,
 	]
 		.filter(Boolean)
 		.join(' · ');
@@ -252,7 +247,7 @@ export function Player() {
 				<div style={{ minWidth: 0 }}>
 					<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 						<span style={{ font: `700 17px ${T.disp}` }}>{name}</span>
-						<Badge status="success">PC</Badge>
+						<Badge status="success">{t('player.pcBadge')}</Badge>
 					</div>
 					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{identityLine}</div>
 				</div>
@@ -270,7 +265,7 @@ export function Player() {
 							setPcChoice(e.target.value);
 						}}
 						options={data.pcs.map((p) => ({ value: p.id, label: p.name }))}
-						aria-label="Switch character"
+						aria-label={t('player.switchCharacter')}
 					/>
 				)}
 				{/* HP stepper — real combat-resource write */}
@@ -287,7 +282,7 @@ export function Player() {
 				>
 					<IconButton
 						icon="chevron-down"
-						label={`Damage ${hpStep()}`}
+						label={t('player.hp.damageBy', { amount: hpStep() })}
 						variant="ghost"
 						size="sm"
 						onClick={() => void stepHp(-1)}
@@ -304,12 +299,12 @@ export function Player() {
 							<span style={{ font: `13px ${T.mono}`, color: T.ter }}> / {maxHp}</span>
 						</div>
 						<div style={{ font: `9.5px ${T.sans}`, letterSpacing: '.08em', color: T.ter }}>
-							HIT POINTS
+							{t('player.hp.label')}
 						</div>
 					</div>
 					<IconButton
 						icon="chevron-up"
-						label={`Heal ${hpStep()}`}
+						label={t('player.hp.healBy', { amount: hpStep() })}
 						variant="ghost"
 						size="sm"
 						onClick={() => void stepHp(1)}
@@ -317,7 +312,7 @@ export function Player() {
 					<input
 						type="text"
 						inputMode="numeric"
-						aria-label="Hit point change amount"
+						aria-label={t('player.hp.amountLabel')}
 						value={hpAmount}
 						onChange={(e) => setHpAmount(e.target.value)}
 						onBlur={() => setHpAmount(String(hpStep()))}
@@ -333,10 +328,14 @@ export function Player() {
 						}}
 					/>
 				</div>
-				<Stat label="AC" value={String(C.combat.ac)} icon="shield" />
+				<Stat label={t('player.stat.ac')} value={String(C.combat.ac)} icon="shield" />
 				{/* speed / initiative — `data.*` sheet strings (edited on the Sheet tab); '—' until authored */}
-				<Stat label="Speed" value={ds('speed') ? `${ds('speed')}ft` : '—'} icon="travel" />
-				<Stat label="Init" value={ds('init') ?? '—'} icon="session-bolt" />
+				<Stat
+					label={t('player.stat.speed')}
+					value={ds('speed') ? t('player.stat.speedValue', { feet: ds('speed') ?? '' }) : '—'}
+					icon="travel"
+				/>
+				<Stat label={t('player.stat.init')} value={ds('init') ?? '—'} icon="session-bolt" />
 				<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
 					{conditions.map((c: string) => {
 						const k = condKey(c);
@@ -368,7 +367,7 @@ export function Player() {
 					}}
 				>
 					<Icon name="sparkle" size={15} />
-					{insp ? 'Inspiration' : 'No inspiration'}
+					{t(insp ? 'player.inspiration.on' : 'player.inspiration.off')}
 				</button>
 			</div>
 
@@ -396,7 +395,7 @@ export function Player() {
 			<Page max={1180}>
 				<div style={{ marginBottom: 18 }}>
 					<Tabs
-						aria-label="Character sections"
+						aria-label={t('player.sections')}
 						value={activeTab}
 						onChange={(next: string) => {
 							setErr(null);

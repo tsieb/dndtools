@@ -2,25 +2,26 @@ import { useState } from 'react';
 import type { CharacterInventory, EncumbranceState, EquipmentItem } from '@dndtools/core';
 import { Badge, Button, Field, Icon, IconButton, Input, ProgressMeter, Stat } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
+import { useI18n, type MessageKey } from '../../i18n';
 import { useViewport } from '../../app/useViewport';
 import type { Dispatch } from './shared';
 
 // ── Equipment / currency / encumbrance — REAL structured inventory (I10 S10.1.3 / S10.4.2) ────────
-const COIN_ORDER: { key: 'pp' | 'gp' | 'ep' | 'sp' | 'cp'; label: string }[] = [
-	{ key: 'pp', label: 'PP' },
-	{ key: 'gp', label: 'GP' },
-	{ key: 'ep', label: 'EP' },
-	{ key: 'sp', label: 'SP' },
-	{ key: 'cp', label: 'CP' },
+const COIN_ORDER: { key: 'pp' | 'gp' | 'ep' | 'sp' | 'cp'; label: MessageKey }[] = [
+	{ key: 'pp', label: 'player.equipment.coin.pp' },
+	{ key: 'gp', label: 'player.equipment.coin.gp' },
+	{ key: 'ep', label: 'player.equipment.coin.ep' },
+	{ key: 'sp', label: 'player.equipment.coin.sp' },
+	{ key: 'cp', label: 'player.equipment.coin.cp' },
 ];
 const ENCUMBRANCE_META: Record<
 	EncumbranceState['level'],
-	{ label: string; status: 'success' | 'warning' | 'error' }
+	{ label: MessageKey; status: 'success' | 'warning' | 'error' }
 > = {
-	unencumbered: { label: 'Unencumbered', status: 'success' },
-	encumbered: { label: 'Encumbered', status: 'warning' },
-	'heavily-encumbered': { label: 'Heavily encumbered', status: 'warning' },
-	overloaded: { label: 'Overloaded', status: 'error' },
+	unencumbered: { label: 'player.equipment.enc.unencumbered', status: 'success' },
+	encumbered: { label: 'player.equipment.enc.encumbered', status: 'warning' },
+	'heavily-encumbered': { label: 'player.equipment.enc.heavilyEncumbered', status: 'warning' },
+	overloaded: { label: 'player.equipment.enc.overloaded', status: 'error' },
 };
 
 export function PlayerEquipment({
@@ -38,6 +39,7 @@ export function PlayerEquipment({
 	canManage: boolean;
 	dispatch: Dispatch;
 }) {
+	const { t, formatDistance, formatUnit } = useI18n();
 	const viewport = useViewport();
 	const [name, setName] = useState('');
 	const [qty, setQty] = useState('1');
@@ -105,6 +107,9 @@ export function PlayerEquipment({
 
 	const enc = encumbrance;
 	const encMeta = enc ? ENCUMBRANCE_META[enc.level] : null;
+	// Weights are pounds because the rules carry them in pounds; only the number and the unit's
+	// spelling are localized (ADR-032 §4, the same split `formatDistance` makes for feet).
+	const lb = (value: number) => formatUnit(Number(value.toFixed(value % 1 ? 1 : 0)), 'pound');
 
 	return (
 		<div
@@ -115,9 +120,11 @@ export function PlayerEquipment({
 				alignItems: 'start',
 			}}
 		>
-			<Panel title={`Equipment (${items.length})`}>
+			<Panel title={t('player.equipment.title', { count: items.length })}>
 				{items.length === 0 ? (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No equipment carried yet.</div>
+					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						{t('player.equipment.empty')}
+					</div>
 				) : (
 					<div style={{ display: 'flex', flexDirection: 'column' }}>
 						{items.map((item, i) => (
@@ -141,13 +148,15 @@ export function PlayerEquipment({
 										{item.name}
 										{item.equipped && (
 											<span style={{ marginLeft: 6 }}>
-												<Badge status="accent">equipped</Badge>
+												<Badge status="accent">{t('player.equipment.equippedBadge')}</Badge>
 											</span>
 										)}
 									</div>
 									<div style={{ font: `11px ${T.mono}`, color: T.ter }}>
-										{item.weight} lb each ·{' '}
-										{(item.quantity * item.weight).toFixed(item.weight % 1 ? 1 : 0)} lb total
+										{t('player.equipment.weights', {
+											each: lb(item.weight),
+											total: lb(item.quantity * item.weight),
+										})}
 										{item.notes ? ` · ${item.notes}` : ''}
 									</div>
 								</div>
@@ -158,11 +167,12 @@ export function PlayerEquipment({
 											// At 1, stepping down clamped to 0 and left a `×0` ghost row that stayed in
 											// the list and kept accepting presses. Removing the item is a different,
 											// already-present action — so say so instead of pretending to work.
-											label={
+											label={t(
 												item.quantity <= 1
-													? `Cannot go below one ${item.name} — use Remove ${item.name}`
-													: `One fewer ${item.name}`
-											}
+													? 'player.equipment.cannotGoBelowOne'
+													: 'player.equipment.oneFewer',
+												{ name: item.name },
+											)}
 											aria-disabled={item.quantity <= 1 ? true : undefined}
 											variant="ghost"
 											size="sm"
@@ -173,7 +183,7 @@ export function PlayerEquipment({
 										</span>
 										<IconButton
 											icon="chevron-up"
-											label={`One more ${item.name}`}
+											label={t('player.equipment.oneMore', { name: item.name })}
 											variant="ghost"
 											size="sm"
 											onClick={() => void stepQty(item, 1)}
@@ -196,11 +206,11 @@ export function PlayerEquipment({
 												color: item.equipped ? T.acc : T.ter,
 											}}
 										>
-											{item.equipped ? 'Equipped' : 'Equip'}
+											{t(item.equipped ? 'player.equipment.equipped' : 'player.equipment.equip')}
 										</button>
 										<IconButton
 											icon="close"
-											label={`Remove ${item.name}`}
+											label={t('player.equipment.removeItem', { name: item.name })}
 											variant="ghost"
 											size="sm"
 											onClick={() => void removeItem(item)}
@@ -225,14 +235,14 @@ export function PlayerEquipment({
 							flexWrap: 'wrap',
 						}}
 					>
-						<Field label="Item">
+						<Field label={t('player.equipment.itemField')}>
 							<Input
 								value={name}
 								onChange={(e: any) => setName(e.target.value)}
-								placeholder="Longsword…"
+								placeholder={t('player.equipment.itemPlaceholder')}
 							/>
 						</Field>
-						<Field label="Qty">
+						<Field label={t('player.equipment.qtyField')}>
 							<Input
 								type="number"
 								value={qty}
@@ -240,7 +250,7 @@ export function PlayerEquipment({
 								style={{ width: 70 }}
 							/>
 						</Field>
-						<Field label="Weight (lb)">
+						<Field label={t('player.equipment.weightField')}>
 							<Input
 								type="number"
 								value={weight}
@@ -256,50 +266,51 @@ export function PlayerEquipment({
 							disabled={!name.trim()}
 							onClick={addItem}
 						>
-							Add
+							{t('common.action.add')}
 						</Button>
 					</div>
 				)}
 			</Panel>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-				<Panel title="Encumbrance">
+				<Panel title={t('player.equipment.encumbrance')}>
 					{enc && encMeta ? (
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 							<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-								<Badge status={encMeta.status}>{encMeta.label}</Badge>
+								<Badge status={encMeta.status}>{t(encMeta.label)}</Badge>
 								{enc.speedPenalty !== 0 && (
 									<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-										Speed {enc.speedPenalty} ft
+										{t('player.equipment.speedPenalty', {
+											amount: formatDistance(enc.speedPenalty),
+										})}
 									</span>
 								)}
 							</div>
 							<ProgressMeter
 								value={Math.min(enc.carriedWeight, enc.carryCapacity)}
 								max={enc.carryCapacity || 1}
-								label={`${enc.carriedWeight.toFixed(enc.carriedWeight % 1 ? 1 : 0)} / ${enc.carryCapacity} lb`}
+								label={t('player.equipment.carried', {
+									carried: enc.carriedWeight.toFixed(enc.carriedWeight % 1 ? 1 : 0),
+									capacity: lb(enc.carryCapacity),
+								})}
 							/>
 							<div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-								<Stat
-									label="Items"
-									value={`${enc.itemWeight.toFixed(enc.itemWeight % 1 ? 1 : 0)} lb`}
-								/>
-								<Stat
-									label="Coins"
-									value={`${enc.coinWeight.toFixed(enc.coinWeight % 1 ? 1 : 0)} lb`}
-								/>
-								<Stat label="Capacity" value={`${enc.carryCapacity} lb`} />
+								<Stat label={t('player.equipment.itemsStat')} value={lb(enc.itemWeight)} />
+								<Stat label={t('player.equipment.coinsStat')} value={lb(enc.coinWeight)} />
+								<Stat label={t('player.equipment.capacityStat')} value={lb(enc.carryCapacity)} />
 							</div>
 						</div>
 					) : (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No encumbrance data.</div>
+						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+							{t('player.equipment.noEncumbrance')}
+						</div>
 					)}
 				</Panel>
 				<Panel
-					title="Currency"
+					title={t('player.equipment.currency')}
 					action={
 						canManage ? (
 							<Button variant="ghost" size="sm" onClick={() => void consolidate()}>
-								Consolidate
+								{t('player.equipment.consolidate')}
 							</Button>
 						) : undefined
 					}
@@ -311,21 +322,21 @@ export function PlayerEquipment({
 								style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0' }}
 							>
 								<span style={{ font: `700 12px ${T.mono}`, color: T.acc, width: 26 }}>
-									{coin.label}
+									{t(coin.label)}
 								</span>
 								<span style={{ flex: 1, font: `13px ${T.mono}` }}>{currency[coin.key]}</span>
 								{canManage && (
 									<div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
 										<IconButton
 											icon="chevron-down"
-											label={`Spend one ${coin.label}`}
+											label={t('player.equipment.spendCoin', { coin: t(coin.label) })}
 											variant="ghost"
 											size="sm"
 											onClick={() => void adjustCoin(coin.key, -1)}
 										/>
 										<IconButton
 											icon="chevron-up"
-											label={`Add one ${coin.label}`}
+											label={t('player.equipment.addCoin', { coin: t(coin.label) })}
 											variant="ghost"
 											size="sm"
 											onClick={() => void adjustCoin(coin.key, 1)}

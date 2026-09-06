@@ -1,6 +1,7 @@
 import { availableSlots, type CharacterResources } from '@dndtools/core';
 import { Badge, Button, EmptyState, Icon, SpellSlots } from '../../ds';
 import { Panel, T, eb } from '../../app/screen-kit';
+import { useI18n } from '../../i18n';
 import type { Dispatch } from './shared';
 
 export function PlayerResources({
@@ -16,6 +17,7 @@ export function PlayerResources({
 	compact: boolean;
 	dispatch: Dispatch;
 }) {
+	const { t } = useI18n();
 	const r = resources;
 	const slots = r ? Object.values(r.spellSlots).sort((a, b) => a.level - b.level) : [];
 	const classResources = r ? Object.values(r.classResources) : [];
@@ -98,21 +100,25 @@ export function PlayerResources({
 					>
 						<Icon name="concentration" size="lg" color={T.acc} />
 						<div style={{ flex: 1 }}>
-							<div style={{ font: `700 14px ${T.disp}` }}>Concentrating · {con.effect}</div>
-							<div style={{ font: `12px ${T.sans}`, color: T.sub }}>Maintained effect</div>
+							<div style={{ font: `700 14px ${T.disp}` }}>
+								{t('player.vitals.concentrating', { effect: con.effect ?? '' })}
+							</div>
+							<div style={{ font: `12px ${T.sans}`, color: T.sub }}>
+								{t('player.vitals.maintainedEffect')}
+							</div>
 						</div>
 						<Button variant="ghost" size="sm" onClick={dropConcentration}>
-							Drop
+							{t('player.vitals.drop')}
 						</Button>
 					</div>
 				)}
-				<Panel title="Spell slots">
+				<Panel title={t('player.vitals.spellSlots')}>
 					{slots.length === 0 ? (
 						<EmptyState
 							inset
 							icon="sparkle"
-							title="No spell slots"
-							description="No spell slots are tracked for this character yet."
+							title={t('player.vitals.noSlotsTitle')}
+							description={t('player.vitals.noSlotsBody')}
 						/>
 					) : (
 						// The DS SpellSlots economy (same component as the roster sheet) — a pip click
@@ -130,13 +136,13 @@ export function PlayerResources({
 						/>
 					)}
 				</Panel>
-				<Panel title="Class resources">
+				<Panel title={t('player.vitals.classResources')}>
 					{classResources.length === 0 ? (
 						<EmptyState
 							inset
 							icon="sparkle"
-							title="No class resources"
-							description="Resources like Rage or Ki appear here once the sheet tracks them."
+							title={t('player.vitals.noResourcesTitle')}
+							description={t('player.vitals.noResourcesBody')}
 						/>
 					) : (
 						// Named resources keep round pips (the DS SpellSlots row is hard-labeled "Lvl N", which
@@ -158,7 +164,11 @@ export function PlayerResources({
 									<div style={{ flex: 1 }}>
 										<div style={{ font: `600 12.5px ${T.sans}` }}>{res.name}</div>
 										<div style={{ font: `10.5px ${T.sans}`, color: T.ter }}>
-											Recovers on {res.recharge} rest
+											{t(
+												res.recharge === 'short'
+													? 'player.vitals.recoversShort'
+													: 'player.vitals.recoversLong',
+											)}
 										</div>
 									</div>
 									{/* 13px pips failed WCAG 2.5.8 (24px minimum). Growing them is only safe together
@@ -179,7 +189,10 @@ export function PlayerResources({
 											<button
 												key={j}
 												type="button"
-												aria-label={`${res.name} use ${j + 1} ${j < cur ? 'available' : 'expended'}`}
+												aria-label={t(
+													j < cur ? 'player.vitals.useAvailable' : 'player.vitals.useExpended',
+													{ name: res.name, index: j + 1 },
+												)}
 												aria-pressed={j < cur}
 												onClick={() => toggleResource(res, j)}
 												style={{
@@ -208,10 +221,10 @@ export function PlayerResources({
 			</div>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 				<Panel
-					title="Death saves"
+					title={t('player.vitals.deathSaves')}
 					action={
 						<Badge status={death.stable ? 'success' : 'neutral'}>
-							{death.stable ? 'Stable' : 'Conscious'}
+							{t(death.stable ? 'player.vitals.stable' : 'player.vitals.conscious')}
 						</Badge>
 					}
 				>
@@ -219,7 +232,11 @@ export function PlayerResources({
 						{(['successes', 'failures'] as const).map((k) => (
 							<div key={k}>
 								<div style={{ ...eb, color: k === 'failures' ? T.err : T.ok, marginBottom: 6 }}>
-									{k}
+									{t(
+										k === 'failures'
+											? 'player.vitals.deathFailures'
+											: 'player.vitals.deathSuccesses',
+									)}
 								</div>
 								{/* The pips were filled-vs-transparent ONLY: colour as the sole carrier of the
 								    state (WCAG 1.4.1), with no text equivalent anywhere (1.1.1), so the count
@@ -228,7 +245,12 @@ export function PlayerResources({
 								    group; the visible `n/3` gives every reader the number. */}
 								<div
 									role="img"
-									aria-label={`${death[k]} of 3 ${k}`}
+									aria-label={t(
+										k === 'failures'
+											? 'player.vitals.deathFailuresCount'
+											: 'player.vitals.deathSuccessesCount',
+										{ count: death[k] },
+									)}
 									style={{ display: 'flex', gap: 7, alignItems: 'center' }}
 								>
 									{Array.from({ length: 3 }).map((_, i) => (
@@ -253,30 +275,33 @@ export function PlayerResources({
 					</div>
 				</Panel>
 				<Panel
-					title="Rest"
+					title={t('player.vitals.rest')}
 					action={
 						<div style={{ display: 'flex', gap: 7 }}>
 							<Button variant="secondary" size="sm" icon="recent" onClick={() => rest('short')}>
-								Short rest
+								{t('player.vitals.shortRest')}
 							</Button>
 							<Button variant="primary" size="sm" icon="theme" onClick={() => rest('long')}>
-								Long rest
+								{t('player.vitals.longRest')}
 							</Button>
 						</div>
 					}
 				>
 					<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>
-						A short rest recovers short-rest resources; a long rest restores spell slots, long-rest
-						resources, and clears conditions.
+						{t('player.vitals.restHelp')}
 					</div>
 				</Panel>
-				<Panel title={`Prepared spells (${spells.filter((s) => s.prepared).length})`}>
+				<Panel
+					title={t('player.vitals.preparedSpells', {
+						count: spells.filter((s) => s.prepared).length,
+					})}
+				>
 					{spells.length === 0 ? (
 						<EmptyState
 							inset
 							icon="knowledge-book"
-							title="No spells tracked"
-							description="Spells the character learns show up here with a prepared toggle."
+							title={t('player.vitals.noSpellsTitle')}
+							description={t('player.vitals.noSpellsBody')}
 						/>
 					) : (
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -346,7 +371,7 @@ export function PlayerResources({
 										}}
 									>
 										{s.prepared && <Icon name="check" size={12} />}
-										{s.prepared ? 'Prepared' : 'Not prepared'}
+										{t(s.prepared ? 'player.vitals.prepared' : 'player.vitals.notPrepared')}
 									</button>
 								</div>
 							))}
