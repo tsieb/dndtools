@@ -30,85 +30,153 @@ type Translate = (key: MessageKey, values?: MessageValues) => string;
  * live on each row, so the authority a command will actually have is visible while it is written,
  * not discovered later.
  *
- * The catalogue below is the starting point RC-WID-2.3 grows into the full templated set with
- * per-command payload builders.
+ * RC-WID-2.3 grows that into the full templated catalogue and makes the classification BINDING
+ * rather than advisory: a command whose verb configures the widget can only be declared as
+ * `manager`, because `classifyWidgetCommand` will treat it as a configure action whatever the
+ * descriptor claims. Letting an author declare `rename` as `operator` would ship a package whose
+ * own declaration disagrees with the authority the core grants it — the button would render for a
+ * player and then be refused. Reconciling the two here is what keeps the declaration honest.
  */
 
 /** `label` names the chip in the picker and is translated; the descriptor's `displayName` is
  * written into the built package, so like every other stored label it stays in the source
  * language until the author renames it. */
-interface CatalogEntry {
+export interface CatalogEntry {
 	label: MessageKey;
 	descriptor: (typeId: string) => WidgetCommandDescriptor;
 }
 
-const CATALOG: CatalogEntry[] = [
-	{
-		label: 'builder.catalog.roll',
-		descriptor: (typeId) => ({
-			type: `${typeId}.roll`,
-			displayName: 'Roll',
-			requiredCapability: 'operator',
-			payloadSchema: { type: 'object', properties: { formula: { type: 'string' } } },
-			writesTo: 'session',
-			destinationClass: 'session',
-		}),
-	},
-	{
-		label: 'builder.catalog.advance',
-		descriptor: (typeId) => ({
-			type: `${typeId}.advance`,
-			displayName: 'Advance',
-			requiredCapability: 'operator',
-			payloadSchema: { type: 'object', properties: { by: { type: 'number' } } },
-			writesTo: 'scene',
-			destinationClass: 'scene',
-		}),
-	},
-	{
-		label: 'builder.catalog.tick',
-		descriptor: (typeId) => ({
-			type: `${typeId}.tick`,
-			displayName: 'Tick',
-			requiredCapability: 'operator',
-			payloadSchema: { type: 'object' },
-			writesTo: 'scene',
-			destinationClass: 'scene',
-		}),
-	},
-	{
-		label: 'builder.catalog.reset',
-		descriptor: (typeId) => ({
-			type: `${typeId}.reset`,
-			displayName: 'Reset',
-			requiredCapability: 'operator',
-			payloadSchema: { type: 'object' },
-			writesTo: 'scene',
-			destinationClass: 'scene',
-		}),
-	},
-	{
-		label: 'builder.catalog.setValue',
-		descriptor: (typeId) => ({
-			type: `${typeId}.set-config`,
-			displayName: 'Set value',
-			requiredCapability: 'manager',
-			payloadSchema: { type: 'object', properties: { value: { type: 'string' } } },
-			writesTo: 'scene',
-			destinationClass: 'scene',
-		}),
-	},
-	{
-		label: 'builder.catalog.show',
-		descriptor: (typeId) => ({
-			type: `${typeId}.show`,
-			displayName: 'Show to players',
-			requiredCapability: 'operator',
-			payloadSchema: { type: 'object', properties: { text: { type: 'string' } } },
-			writesTo: 'scene',
-			destinationClass: 'player-visible-state',
-		}),
-	},
+/** Shorthand for a catalogue row: everything a descriptor needs beyond its verb and wording. */
+function entry(
+	verb: string,
+	label: MessageKey,
+	displayName: string,
+	rest: Omit<WidgetCommandDescriptor, 'type' | 'displayName'>,
+): CatalogEntry {
+	return {
+		label,
+		descriptor: (typeId) => ({ type: `${typeId}.${verb}`, displayName, ...rest }),
+	};
+}
+
+const OPERATE_PAYLOAD: WidgetCommandDescriptor['payloadSchema'] = { type: 'object' };
+
+/**
+ * The templated command descriptors an author picks from. Each is a real, valid descriptor: the verb
+ * decides the authority (`OPERATE_ACTION_VERBS` / `CONFIGURE_ACTION_VERBS`), `writesTo` and
+ * `destinationClass` say what it reaches, and `payloadSchema` names the configuration keys the
+ * templates read off a placed copy before dispatching.
+ */
+export const CATALOG: CatalogEntry[] = [
+	entry('roll', 'builder.catalog.roll', 'Roll', {
+		requiredCapability: 'operator',
+		payloadSchema: { type: 'object', properties: { formula: { type: 'string' } } },
+		writesTo: 'session',
+		destinationClass: 'session',
+	}),
+	entry('draw', 'builder.catalog.draw', 'Draw', {
+		requiredCapability: 'operator',
+		payloadSchema: OPERATE_PAYLOAD,
+		writesTo: 'session',
+		destinationClass: 'session',
+	}),
+	entry('start', 'builder.catalog.start', 'Start', {
+		requiredCapability: 'operator',
+		payloadSchema: OPERATE_PAYLOAD,
+		writesTo: 'scene',
+		destinationClass: 'scene',
+	}),
+	entry('pause', 'builder.catalog.pause', 'Pause', {
+		requiredCapability: 'operator',
+		payloadSchema: OPERATE_PAYLOAD,
+		writesTo: 'scene',
+		destinationClass: 'scene',
+	}),
+	entry('resume', 'builder.catalog.resume', 'Resume', {
+		requiredCapability: 'operator',
+		payloadSchema: OPERATE_PAYLOAD,
+		writesTo: 'scene',
+		destinationClass: 'scene',
+	}),
+	entry('advance', 'builder.catalog.advance', 'Advance', {
+		requiredCapability: 'operator',
+		payloadSchema: { type: 'object', properties: { by: { type: 'number' } } },
+		writesTo: 'scene',
+		destinationClass: 'scene',
+	}),
+	entry('tick', 'builder.catalog.tick', 'Tick', {
+		requiredCapability: 'operator',
+		payloadSchema: OPERATE_PAYLOAD,
+		writesTo: 'scene',
+		destinationClass: 'scene',
+	}),
+	entry('reset', 'builder.catalog.reset', 'Reset', {
+		requiredCapability: 'operator',
+		payloadSchema: OPERATE_PAYLOAD,
+		writesTo: 'scene',
+		destinationClass: 'scene',
+	}),
+	entry('mark-complete', 'builder.catalog.markComplete', 'Mark complete', {
+		requiredCapability: 'operator',
+		payloadSchema: OPERATE_PAYLOAD,
+		writesTo: 'scene',
+		destinationClass: 'scene',
+	}),
+	entry('write-note-line', 'builder.catalog.writeNoteLine', 'Write a note line', {
+		requiredCapability: 'operator',
+		payloadSchema: { type: 'object', properties: { line: { type: 'string' } } },
+		writesTo: 'entity',
+		destinationClass: 'entity',
+	}),
+	entry('show', 'builder.catalog.show', 'Show to players', {
+		requiredCapability: 'operator',
+		payloadSchema: { type: 'object', properties: { text: { type: 'string' } } },
+		writesTo: 'scene',
+		destinationClass: 'player-visible-state',
+	}),
+	entry('set-config', 'builder.catalog.setValue', 'Set value', {
+		requiredCapability: 'manager',
+		payloadSchema: { type: 'object', properties: { value: { type: 'string' } } },
+		writesTo: 'scene',
+		destinationClass: 'scene',
+	}),
+	entry('rename', 'builder.catalog.rename', 'Rename', {
+		requiredCapability: 'manager',
+		payloadSchema: { type: 'object', properties: { name: { type: 'string' } } },
+		writesTo: 'scene',
+		destinationClass: 'scene',
+	}),
+	entry('set-duration', 'builder.catalog.setDuration', 'Set duration', {
+		requiredCapability: 'manager',
+		payloadSchema: { type: 'object', properties: { seconds: { type: 'number' } } },
+		writesTo: 'scene',
+		destinationClass: 'scene',
+	}),
+];
+
+/**
+ * Raise a descriptor's declared capability to match how the core will actually classify it.
+ *
+ * `classifyWidgetCommand` is the authority: a configure VERB is a configure action even when the
+ * descriptor says `operator`. Storing `operator` on such a command would be a declaration the core
+ * silently overrules, so the step stores what the core will enforce instead.
+ */
+export function reconcileCommandAuthority(
+	descriptor: WidgetCommandDescriptor,
+): WidgetCommandDescriptor {
+	if (classifyWidgetCommand(descriptor) !== 'configure') return descriptor;
+	if (descriptor.requiredCapability === 'manager') return descriptor;
+	return { ...descriptor, requiredCapability: 'manager' };
+}
+
+/** Whether the VERB alone forces a configure classification, whatever capability is declared. */
+export function verbForcesConfigure(descriptor: WidgetCommandDescriptor): boolean {
+	return classifyWidgetCommand({ ...descriptor, requiredCapability: 'operator' }) === 'configure';
+}
+
+/** When the verb forces a configure classification, `manager` is the only truthful declaration. */
+const managerOnlyOption = (t: Translate) => [
+	{ value: 'manager', label: t(CAPABILITY_LABEL.manager) },
 ];
 
 const capabilityOptions = (t: Translate) =>
@@ -150,10 +218,10 @@ const KIND_COPY: Record<'operate' | 'configure', { label: MessageKey; help: Mess
 export function CommandsStep({ draft, patch, issues }: StepProps) {
 	const { t } = useI18n();
 	const setCommand = (index: number, next: WidgetCommandDescriptor) =>
-		patch({ commands: replaceAt(draft.commands, index, next) });
+		patch({ commands: replaceAt(draft.commands, index, reconcileCommandAuthority(next)) });
 
 	const addCommand = (entry: CatalogEntry) => {
-		const descriptor = entry.descriptor(draft.typeId || 'widget');
+		const descriptor = reconcileCommandAuthority(entry.descriptor(draft.typeId || 'widget'));
 		if (draft.commands.some((command) => command.type === descriptor.type)) return;
 		patch({ commands: [...draft.commands, descriptor] });
 	};
@@ -165,33 +233,46 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 				title={t('builder.commands.catalogTitle')}
 				help={t('builder.commands.catalogHelp')}
 			>
-				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-					{CATALOG.map((entry) => {
-						const type = entry.descriptor(draft.typeId || 'widget').type;
-						const already = draft.commands.some((command) => command.type === type);
-						return (
-							<button
-								key={entry.label}
-								type="button"
-								disabled={already}
-								onClick={() => addCommand(entry)}
-								style={{
-									font: `600 12px ${T.sans}`,
-									color: already ? T.ter : T.ink,
-									padding: '6px 11px',
-									borderRadius: 999,
-									border: `1px solid ${already ? T.bd : T.bdS}`,
-									background: already ? T.sunken : T.surf,
-									cursor: already ? 'default' : 'pointer',
-								}}
-							>
-								{already
-									? t('builder.commands.alreadyAdded', { label: t(entry.label) })
-									: t(entry.label)}
-							</button>
-						);
-					})}
-				</div>
+				{(['operate', 'configure'] as const).map((group) => {
+					const entries = CATALOG.filter(
+						(candidate) =>
+							classifyWidgetCommand(candidate.descriptor(draft.typeId || 'widget')) === group,
+					);
+					return (
+						<div key={group} style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+							<span style={{ font: `600 11.5px ${T.sans}`, color: T.ter }}>
+								{t(KIND_COPY[group].label)} — {t(KIND_COPY[group].help)}
+							</span>
+							<div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+								{entries.map((catalogEntry) => {
+									const type = catalogEntry.descriptor(draft.typeId || 'widget').type;
+									const already = draft.commands.some((command) => command.type === type);
+									return (
+										<button
+											key={catalogEntry.label}
+											type="button"
+											disabled={already}
+											onClick={() => addCommand(catalogEntry)}
+											style={{
+												font: `600 12px ${T.sans}`,
+												color: already ? T.ter : T.ink,
+												padding: '6px 11px',
+												borderRadius: 999,
+												border: `1px solid ${already ? T.bd : T.bdS}`,
+												background: already ? T.sunken : T.surf,
+												cursor: already ? 'default' : 'pointer',
+											}}
+										>
+											{already
+												? t('builder.commands.alreadyAdded', { label: t(catalogEntry.label) })
+												: t(catalogEntry.label)}
+										</button>
+									);
+								})}
+							</div>
+						</div>
+					);
+				})}
 			</StepSection>
 			<StepSection title={t('builder.commands.declared')}>
 				{issueFor(issues, 'commands', t) && (
@@ -220,6 +301,9 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 				>
 					{draft.commands.map((command, index) => {
 						const kind = classifyWidgetCommand(command);
+						// A configure VERB is a configure action whatever the descriptor declares, so the
+						// only capability that can honestly be stored on it is `manager`.
+						const forced = verbForcesConfigure(command);
 						return (
 							<RowCard
 								key={`command-${index}`}
@@ -254,10 +338,13 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 											}
 										/>
 									</Field>
-									<Field label={t('builder.binding.needs')}>
+									<Field
+										label={t('builder.binding.needs')}
+										help={forced ? t('builder.commands.verbForcesManager') : undefined}
+									>
 										<Select
 											value={command.requiredCapability}
-											options={capabilityOptions(t)}
+											options={forced ? managerOnlyOption(t) : capabilityOptions(t)}
 											onChange={(e: { target: { value: string } }) =>
 												setCommand(index, {
 													...command,

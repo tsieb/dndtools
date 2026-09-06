@@ -1,3 +1,4 @@
+import { classifyWidgetCommand } from '@dndtools/core';
 import { Button } from '../../../ds';
 import { useI18n } from '../../../i18n';
 import {
@@ -16,9 +17,12 @@ import {
  *
  * Two rules keep the panel honest:
  *
- * - A `manager` command is not rendered for a viewer without DM authority. Showing a control that
- *   the core will refuse is a dead control; omitting it is the same fail-closed answer the data
- *   queries give.
+ * - A CONFIGURE command is not rendered for a viewer without DM authority. The test is
+ *   `classifyWidgetCommand`, the same policy `widget.dispatch-command` runs, not the descriptor's
+ *   declared capability: a configure VERB (`rename`, `set-config`, `bind`…) is a configure action
+ *   even when the package declares it `operator`, so testing the declaration alone would render a
+ *   button for a player that the core then refuses. Showing a control the core will refuse is a
+ *   dead control; omitting it is the same fail-closed answer the data queries give (RC-WID-2.3).
  * - With no `onCommand` (the DM is editing the layout, so bodies are inert) the buttons render
  *   disabled with the reason, rather than silently doing nothing when pressed.
  *
@@ -39,7 +43,7 @@ export function ActionPanelTemplate({ widget, definition, data, onCommand }: Wid
 		(command) => widget.commands.includes(command.type) || widget.commands.length === 0,
 	);
 	const actions = declared.filter(
-		(command) => command.requiredCapability !== 'manager' || data.isDm,
+		(command) => classifyWidgetCommand(command) === 'operate' || data.isDm,
 	);
 	// The configured values for exactly the keys this command declares. An undefined key is omitted
 	// rather than sent as `undefined`, so a required field that was never configured is refused by

@@ -391,6 +391,29 @@ describe('each template renders its fixture package', () => {
 		expect(text).toContain('This widget declares no actions yet.');
 	});
 
+	// RC-WID-2.3 — the authority is the VERB, not the declaration. A package that calls `rename` an
+	// operator action would otherwise paint a button for a player that `widget.dispatch-command`
+	// refuses on press; `classifyWidgetCommand` is the same test the core makes.
+	it('action-panel hides a configure verb from a player even when it declares operator', () => {
+		const pkg = fixturePackage('action-panel', {
+			commands: [
+				{
+					type: 'fixture.rename',
+					displayName: 'Rename the widget',
+					requiredCapability: 'operator',
+					payloadSchema: { type: 'object' },
+					writesTo: 'scene',
+				},
+			],
+		});
+		const forPlayer = renderTemplate(ActionPanelTemplate, pkg, { actorId: PLAYER_ACTOR.id });
+		expect(container.querySelector('button')).toBeNull();
+		expect(forPlayer).toContain('This widget declares no actions yet.');
+
+		const forDm = renderTemplate(ActionPanelTemplate, pkg, { actorId: DM_ACTOR.id });
+		expect(forDm).toContain('Rename the widget');
+	});
+
 	it('scene-message prints its configured message', () => {
 		const text = renderTemplate(
 			SceneMessageTemplate,

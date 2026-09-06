@@ -1,3 +1,4 @@
+import { classifyWidgetCommand } from '@dndtools/core';
 import { useState } from 'react';
 import { Button, DefinitionList, Field, Input, Select, Switch, Textarea } from '../../../ds';
 import { useI18n } from '../../../i18n';
@@ -32,9 +33,11 @@ export function FormPanelTemplate({ widget, definition, data, onCommand }: Widge
 	const fields = (definition?.configFields ?? widget.configFields).filter(
 		(field) => (field.group ?? 'content') === 'content',
 	);
+	// The same fail-closed test `action-panel` makes: a configure VERB is a configure action whatever
+	// the descriptor declares, so a viewer is never offered a Submit the core would refuse.
 	const command =
 		(definition?.commands ?? []).find(
-			(candidate) => candidate.requiredCapability !== 'manager' || data.isDm,
+			(candidate) => classifyWidgetCommand(candidate) === 'operate' || data.isDm,
 		) ?? null;
 
 	const [values, setValues] = useState<Record<string, unknown>>({});
