@@ -7,6 +7,7 @@ import { useSession } from '../../net/SessionContext';
 import { buildPlayerData } from '../../net/viewModels';
 import { JoinSessionButton } from '../../net/SessionPanel';
 import { useViewport } from '../../app/useViewport';
+import { useI18n, type MessageKey } from '../../i18n';
 import {
 	ElevatedLocked,
 	minTierLabel,
@@ -58,6 +59,7 @@ import { AssistSection, AtlasSection, BestiarySection } from './Elevated';
  */
 
 export function PlayerView() {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const viewport = useViewport();
 	const session = useSession();
@@ -138,16 +140,27 @@ export function PlayerView() {
 	const allowedIds = allItems.filter((n) => r >= n.min).map((n) => n.id);
 	const current = allowedIds.includes(section) ? section : 'stage';
 
-	const navRow = (n: { id: string; label: string; icon: string; min: number }, locked: boolean) => (
+	const navRow = (
+		n: { id: string; label: MessageKey; icon: string; min: number },
+		locked: boolean,
+	) => (
 		<button
 			className={`player-view-nav-row${n.min >= 3 ? ' player-view-nav-elevated' : ''}`}
 			key={n.id}
 			type="button"
-			aria-label={locked ? `${n.label} — requires the ${minTierLabel(n.min)} seat` : n.label}
+			aria-label={
+				locked
+					? t('play.nav.lockedLabel', { section: t(n.label), tier: t(minTierLabel(n.min)) })
+					: t(n.label)
+			}
 			// The active section was signalled by border/background/weight only, so AT and
 			// high-contrast users had no way to tell which of the nine sections they were in.
 			aria-current={!locked && current === n.id ? 'page' : undefined}
-			title={locked ? `${n.label} requires ${minTierLabel(n.min)}` : n.label}
+			title={
+				locked
+					? t('play.nav.lockedTitle', { section: t(n.label), tier: t(minTierLabel(n.min)) })
+					: t(n.label)
+			}
 			// `disabled` made the lock-reason toast below unreachable dead code AND removed the row
 			// from the tab order, so the aria-label explaining the seat requirement could never be
 			// read. aria-disabled keeps it focusable and lets the explanation fire.
@@ -157,9 +170,10 @@ export function PlayerView() {
 					// Honest lock reason: the Trusted/Co-DM tiers do not EXIST in the core roles yet, so
 					// there is nothing the DM could grant — say so instead of implying a grantable permission.
 					toast(
-						n.min >= 2
-							? `${n.label} needs the ${minTierLabel(n.min)} seat — ask your DM to promote you`
-							: `${n.label} needs ${minTierLabel(n.min)} permission`,
+						t(n.min >= 2 ? 'play.nav.lockedSeatToast' : 'play.nav.lockedPermissionToast', {
+							section: t(n.label),
+							tier: t(minTierLabel(n.min)),
+						}),
 						'info',
 						'hidden',
 					);
@@ -193,7 +207,7 @@ export function PlayerView() {
 					color: current === n.id && !locked ? T.ink : T.sub,
 				}}
 			>
-				{n.label}
+				{t(n.label)}
 			</span>
 			{locked && <Icon name="hidden" size={14} color={T.ter} />}
 		</button>
@@ -229,8 +243,10 @@ export function PlayerView() {
 	else if (current === 'atlas') body = <AtlasSection data={data} />;
 	else if (current === 'bestiary') body = <BestiarySection data={data} />;
 	else if (current === 'assist') body = <AssistSection data={data} />;
-	else
-		body = <ElevatedLocked label={NAV_ELEVATED.find((n) => n.id === current)?.label ?? 'Tool'} />;
+	else {
+		const lockedItem = NAV_ELEVATED.find((n) => n.id === current);
+		body = <ElevatedLocked label={lockedItem ? t(lockedItem.label) : t('play.locked.badge')} />;
+	}
 
 	return (
 		<div
@@ -271,7 +287,7 @@ export function PlayerView() {
 				onFocus={(e) => (e.currentTarget.style.top = '8px')}
 				onBlur={(e) => (e.currentTarget.style.top = '-48px')}
 			>
-				Skip to content
+				{t('shell.skipToContent')}
 			</a>
 			{/* sidebar */}
 			<aside
@@ -311,17 +327,17 @@ export function PlayerView() {
 						</div>
 						<div className="player-view-brand-copy" style={{ minWidth: 0 }}>
 							<div style={{ font: `700 14px ${T.disp}`, color: T.ink, lineHeight: 1.1 }}>
-								Player view
+								{t('play.brand')}
 							</div>
 							<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
-								{data.live ? 'Session live' : 'Standby'}
+								{t(data.live ? 'play.sessionLive' : 'play.standby')}
 							</div>
 						</div>
 					</div>
 				</div>
 				<nav
 					className="player-view-nav"
-					aria-label="Player sections"
+					aria-label={t('play.nav.label')}
 					style={{
 						flex: 1,
 						overflow: 'auto',
@@ -342,7 +358,7 @@ export function PlayerView() {
 							gap: 7,
 						}}
 					>
-						<span>Elevated</span>
+						<span>{t('play.nav.elevated')}</span>
 						<span style={{ flex: 1, height: 1, background: T.bd }} />
 						{r < 3 && <Icon name="hidden" size={13} color={T.ter} />}
 					</div>
@@ -373,7 +389,7 @@ export function PlayerView() {
 							>
 								{data.displayName}
 							</div>
-							<div style={{ font: `11px ${T.sans}`, color: T.ter }}>{meta.role}</div>
+							<div style={{ font: `11px ${T.sans}`, color: T.ter }}>{t(meta.role)}</div>
 						</div>
 					</div>
 				</div>
@@ -405,10 +421,10 @@ export function PlayerView() {
 						}}
 					>
 						<Icon name={meta.icon} size={15} color={T.acc} />
-						<span style={{ font: `600 12.5px ${T.sans}`, color: T.acc }}>{meta.label}</span>
+						<span style={{ font: `600 12.5px ${T.sans}`, color: T.acc }}>{t(meta.label)}</span>
 					</span>
 					<span style={{ font: `12.5px ${T.sans}`, color: T.sub, flex: 1, minWidth: 0 }}>
-						{meta.blurb}
+						{t(meta.blurb)}
 					</span>
 					<JoinSessionButton />
 					<span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>

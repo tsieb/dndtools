@@ -1,13 +1,15 @@
 import { Badge, Icon } from '../../ds';
 import { T } from '../../app/screen-kit';
 import { moodTheme } from '../../app/sceneCardMood';
+import { useI18n } from '../../i18n';
 import { Panel, PvPage, SectionHead, type LiveData } from './shared';
 
 // 6 · JOURNAL — the entries the DM has shared with this player (read-only on the device).
 export function JournalSection({ data }: { data: LiveData }) {
+	const { t } = useI18n();
 	return (
 		<PvPage max={1080}>
-			<SectionHead title="Journal" sub="Entries the DM has shared with you" />
+			<SectionHead title={t('play.journal.title')} sub={t('play.journal.sub')} />
 			<div
 				style={{
 					display: 'flex',
@@ -22,14 +24,12 @@ export function JournalSection({ data }: { data: LiveData }) {
 			>
 				<Icon name="hidden" size={16} color="var(--color-dm-only-badge)" />
 				<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
-					You see entries shared with you; author private notes in your full character app.
+					{t('play.journal.privateNote')}
 				</span>
 			</div>
-			<Panel title={`Shared entries (${data.journal.length})`}>
+			<Panel title={t('play.journal.sharedEntries', { count: data.journal.length })}>
 				{data.journal.length === 0 ? (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						No journal entries have been shared with you.
-					</div>
+					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('play.journal.empty')}</div>
 				) : (
 					<div style={{ display: 'flex', flexDirection: 'column' }}>
 						{data.journal.map((e, i) => (
@@ -49,11 +49,9 @@ export function JournalSection({ data }: { data: LiveData }) {
 			</Panel>
 			{/* I11 S11.2.4 — the reviewable SCENE HISTORY: player-visible scene cards the DM has pushed. */}
 			<div style={{ marginTop: 18 }} />
-			<Panel title={`Scene history (${data.sceneHistory.length})`}>
+			<Panel title={t('play.journal.sceneHistory', { count: data.sceneHistory.length })}>
 				{data.sceneHistory.length === 0 ? (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						No scenes have been shown to the table yet.
-					</div>
+					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('play.journal.noScenes')}</div>
 				) : (
 					<div style={{ display: 'flex', flexDirection: 'column' }}>
 						{[...data.sceneHistory].reverse().map((row, i) => {

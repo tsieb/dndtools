@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Badge, Icon } from '../../ds';
 import { T } from '../../app/screen-kit';
+import { useI18n } from '../../i18n';
 import { Panel, PvPage, SectionHead, type LiveData } from './shared';
 
 // 5 · HANDOUTS — everything the DM has shared with this player (visible notes). Read-only.
@@ -10,6 +11,7 @@ const HANDOUT_ICON: Record<string, string> = {
 	recap: 'campaign-scroll',
 };
 export function HandoutsSection({ data }: { data: LiveData }) {
+	const { t } = useI18n();
 	const shared = data.handouts;
 	// undefined means "pick the first available item"; null is an explicit user collapse.
 	// Keeping those states distinct lets live data reconcile a removed selection without making
@@ -20,15 +22,15 @@ export function HandoutsSection({ data }: { data: LiveData }) {
 	return (
 		<PvPage max={900}>
 			<SectionHead
-				title="Handouts"
-				sub="Notes and props your DM has revealed to you"
-				action={<Badge status="neutral">{shared.length} shared</Badge>}
+				title={t('play.handouts.title')}
+				sub={t('play.handouts.sub')}
+				action={
+					<Badge status="neutral">{t('play.handouts.shared', { count: shared.length })}</Badge>
+				}
 			/>
 			{shared.length === 0 ? (
 				<Panel>
-					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>
-						Your DM hasn't shared any handouts with you yet.
-					</div>
+					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>{t('play.handouts.empty')}</div>
 				</Panel>
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -83,7 +85,9 @@ export function HandoutsSection({ data }: { data: LiveData }) {
 											<Badge status="info">{n.kind}</Badge>
 										</div>
 										<div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: 2 }}>
-											Updated {new Date(n.updatedAt).toLocaleDateString()}
+											{t('play.handouts.updated', {
+												date: new Date(n.updatedAt).toLocaleDateString(),
+											})}
 										</div>
 									</div>
 									<Icon name={isOpen ? 'chevron-up' : 'chevron-down'} size={18} color={T.ter} />

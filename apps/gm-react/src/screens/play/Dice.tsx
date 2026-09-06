@@ -5,6 +5,7 @@ import { T, eb } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { sgn } from '../../app/character/abilities';
 import { Panel, PvPage, SectionHead } from './shared';
+import { useI18n } from '../../i18n';
 
 // 3 · DICE — the REAL table roller: every roll dispatches `dice.roll` AS the player actor and is
 // recorded in the shared, durable session log (the same history the DM's /session panel reads). The
@@ -35,6 +36,7 @@ export function DiceSection({
 	actorName: (id: string) => string;
 	onRoll: (expression: string, label: string) => Promise<DiceRollView | null>;
 }) {
+	const { t } = useI18n();
 	const viewport = useViewport();
 	const [mode, setMode] = useState<'normal' | 'adv' | 'dis'>('normal');
 	const [mod, setMod] = useState(0);
@@ -48,7 +50,11 @@ export function DiceSection({
 					? '2d20kl1'
 					: `1d${faces}`;
 		const expression = `${term}${mod !== 0 ? (mod > 0 ? `+${mod}` : String(mod)) : ''}`;
-		const label = `d${faces}${faces === 20 && mode !== 'normal' ? ` · ${mode === 'adv' ? 'advantage' : 'disadvantage'}` : ''}`;
+		const label = `d${faces}${
+			faces === 20 && mode !== 'normal'
+				? ` · ${t(mode === 'adv' ? 'play.dice.advantageLabel' : 'play.dice.disadvantageLabel')}`
+				: ''
+		}`;
 		void onRoll(expression, label);
 	};
 	// Newest first for display; the query returns the durable log oldest-first.
@@ -73,10 +79,7 @@ export function DiceSection({
 	);
 	return (
 		<PvPage max={920}>
-			<SectionHead
-				title="Dice"
-				sub="Rolls are recorded to the table's shared session log, attributed to you"
-			/>
+			<SectionHead title={t('play.dice.title')} sub={t('play.dice.sub')} />
 			{!sessionActive && (
 				<div
 					style={{
@@ -92,7 +95,7 @@ export function DiceSection({
 				>
 					<Icon name="hidden" size={15} color="var(--color-status-warning-text)" />
 					<span style={{ font: `12.5px ${T.sans}`, color: 'var(--color-status-warning-text)' }}>
-						Rolling needs a live session — the dice unlock when your DM starts one.
+						{t('play.dice.needsSession')}
 					</span>
 				</div>
 			)}
@@ -105,7 +108,7 @@ export function DiceSection({
 					alignItems: 'start',
 				}}
 			>
-				<Panel title="Roll" pad={16}>
+				<Panel title={t('play.dice.roll')} pad={16}>
 					<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
 						{DICE.map((f) => (
 							<button
@@ -129,7 +132,7 @@ export function DiceSection({
 						))}
 					</div>
 					<div style={{ marginTop: 14 }}>
-						<div style={{ ...eb, marginBottom: 6 }}>d20 mode</div>
+						<div style={{ ...eb, marginBottom: 6 }}>{t('play.dice.d20Mode')}</div>
 						<div
 							style={{
 								display: 'flex',
@@ -138,16 +141,16 @@ export function DiceSection({
 								border: `1px solid ${T.bd}`,
 							}}
 						>
-							{seg('dis', 'Disadvantage')}
-							{seg('normal', 'Normal')}
-							{seg('adv', 'Advantage')}
+							{seg('dis', t('play.dice.disadvantage'))}
+							{seg('normal', t('play.dice.normal'))}
+							{seg('adv', t('play.dice.advantage'))}
 						</div>
 					</div>
 					<div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-						<span style={eb}>Modifier</span>
+						<span style={eb}>{t('play.dice.modifier')}</span>
 						<IconButton
 							icon="chevron-down"
-							label="−1"
+							label={t('play.dice.decrement')}
 							variant="ghost"
 							size="sm"
 							onClick={() => setMod((m) => m - 1)}
@@ -164,7 +167,7 @@ export function DiceSection({
 						</span>
 						<IconButton
 							icon="chevron-up"
-							label="+1"
+							label={t('play.dice.increment')}
 							variant="ghost"
 							size="sm"
 							onClick={() => setMod((m) => m + 1)}
@@ -172,9 +175,11 @@ export function DiceSection({
 					</div>
 				</Panel>
 				<Panel
-					title="Table roll log"
+					title={t('play.dice.log')}
 					pad={14}
-					action={<Badge status="neutral">{rolls.length} recorded</Badge>}
+					action={
+						<Badge status="neutral">{t('play.dice.recorded', { count: rolls.length })}</Badge>
+					}
 				>
 					<div
 						style={{
@@ -194,15 +199,13 @@ export function DiceSection({
 									textAlign: 'center',
 								}}
 							>
-								{sessionActive
-									? 'No rolls yet — pick a die.'
-									: 'The shared roll log fills up during a live session.'}
+								{t(sessionActive ? 'play.dice.noRolls' : 'play.dice.logFillsUp')}
 							</div>
 						)}
 						{recent.map((d) => (
 							<div key={d.id}>
 								<div style={{ font: `10.5px ${T.sans}`, color: T.ter, marginBottom: 3 }}>
-									{d.actorId === viewer ? 'You' : actorName(d.actorId)}
+									{d.actorId === viewer ? t('play.dice.you') : actorName(d.actorId)}
 									{d.label ? ` · ${d.label}` : ''}
 								</div>
 								<DiceResult

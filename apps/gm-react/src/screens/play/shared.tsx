@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Badge, CONDITIONS, Icon } from '../../ds';
+import { useI18n, type MessageKey } from '../../i18n';
 import { T } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import type { PlayerData } from '../../net/viewModels';
@@ -18,60 +19,62 @@ export const PLAYER_ACTOR_ID = 'actor-player';
 export const TIERS = ['observer', 'player', 'trusted', 'codm'] as const;
 export const TIER_META: Record<
 	string,
-	{ label: string; role: string; badge: any; icon: string; blurb: string }
+	{ label: MessageKey; role: MessageKey; badge: any; icon: string; blurb: MessageKey }
 > = {
 	observer: {
-		label: 'Observer',
-		role: 'Read-only seat',
+		label: 'play.tier.observer',
+		role: 'play.tier.observerRole',
 		badge: 'neutral',
 		icon: 'reveal',
-		blurb: 'You can watch what the table sees and read shared handouts.',
+		blurb: 'play.tier.observerBlurb',
 	},
 	player: {
-		label: 'Player',
-		role: 'Your own character',
+		label: 'play.tier.player',
+		role: 'play.tier.playerRole',
 		badge: 'success',
 		icon: 'characters-person',
-		blurb: 'Run your sheet, roll your dice, and read what the DM shares with the table.',
+		blurb: 'play.tier.playerBlurb',
 	},
 	trusted: {
-		label: 'Trusted player',
-		role: 'Shared editing granted',
+		label: 'play.tier.trusted',
+		role: 'play.tier.trustedRole',
 		badge: 'info',
 		icon: 'flag',
-		blurb: 'A player, plus shared-stash editing and recap posting.',
+		blurb: 'play.tier.trustedBlurb',
 	},
 	codm: {
-		label: 'Co-DM',
-		role: 'Elevated table tools',
+		label: 'play.tier.codm',
+		role: 'play.tier.codmRole',
 		badge: 'accent',
 		icon: 'session-bolt',
-		blurb: 'Granted GM tools — the revealed Atlas, the bestiary, and live combat assist.',
+		blurb: 'play.tier.codmBlurb',
 	},
 };
 
-export const NAV = [
-	{ id: 'stage', label: 'Now playing', icon: 'home', min: 0 },
-	{ id: 'sheet', label: 'My character', icon: 'characters-person', min: 1 },
-	{ id: 'dice', label: 'Dice', icon: 'dice', min: 1 },
-	{ id: 'party', label: 'Party', icon: 'players', min: 0 },
-	{ id: 'handouts', label: 'Handouts', icon: 'knowledge-book', min: 0 },
-	{ id: 'journal', label: 'Journal', icon: 'note-edit', min: 1 },
+type PlayNavItem = { id: string; label: MessageKey; icon: string; min: number };
+export const NAV: PlayNavItem[] = [
+	{ id: 'stage', label: 'play.nav.stage', icon: 'home', min: 0 },
+	{ id: 'sheet', label: 'play.nav.sheet', icon: 'characters-person', min: 1 },
+	{ id: 'dice', label: 'play.nav.dice', icon: 'dice', min: 1 },
+	{ id: 'party', label: 'play.nav.party', icon: 'players', min: 0 },
+	{ id: 'handouts', label: 'play.nav.handouts', icon: 'knowledge-book', min: 0 },
+	{ id: 'journal', label: 'play.nav.journal', icon: 'note-edit', min: 1 },
 ];
-export const NAV_ELEVATED = [
-	{ id: 'atlas', label: 'Maps', icon: 'atlas-map', min: 3 },
-	{ id: 'bestiary', label: 'Bestiary', icon: 'campaign-scroll', min: 3 },
-	{ id: 'assist', label: 'Combat assist', icon: 'session-bolt', min: 3 },
+export const NAV_ELEVATED: PlayNavItem[] = [
+	{ id: 'atlas', label: 'play.nav.atlas', icon: 'atlas-map', min: 3 },
+	{ id: 'bestiary', label: 'play.nav.bestiary', icon: 'campaign-scroll', min: 3 },
+	{ id: 'assist', label: 'play.nav.assist', icon: 'session-bolt', min: 3 },
 ];
-export const minTierLabel = (min: number) => TIER_META[TIERS[min]].label;
+/** The seat a section needs, as a message key — the caller renders it. */
+export const minTierLabel = (min: number): MessageKey => TIER_META[TIERS[min]].label;
 
-export const ABIL_FULL: Record<string, string> = {
-	str: 'Strength',
-	dex: 'Dexterity',
-	con: 'Constitution',
-	int: 'Intelligence',
-	wis: 'Wisdom',
-	cha: 'Charisma',
+export const ABIL_FULL: Record<string, MessageKey> = {
+	str: 'play.ability.str',
+	dex: 'play.ability.dex',
+	con: 'play.ability.con',
+	int: 'play.ability.int',
+	wis: 'play.ability.wis',
+	cha: 'play.ability.cha',
 };
 const COND_ALIAS: Record<string, string> = {
 	concentrating: 'concentration',
@@ -96,11 +99,12 @@ const COND_ALIAS: Record<string, string> = {
  * rendered it straight into a Badge, so the table read a lowercase "npc" / "monster" beside properly
  * cased names — and "NPC" lost its capitalisation as an initialism entirely.
  */
-export function kindLabel(kind: string): string {
-	if (kind === 'npc') return 'NPC';
-	if (kind === 'character') return 'Character';
-	if (kind === 'monster') return 'Monster';
-	return kind;
+/** The creature-kind token as a message key; an unknown token has no key and renders raw. */
+export function kindLabelKey(kind: string): MessageKey | null {
+	if (kind === 'npc') return 'play.kind.npc';
+	if (kind === 'character') return 'play.kind.character';
+	if (kind === 'monster') return 'play.kind.monster';
+	return null;
 }
 
 export function condKey(s: string): string | null {
@@ -250,6 +254,10 @@ export function SectionHead({
 	);
 }
 export function LockedNote({ what }: { what: string }) {
+	const { t } = useI18n();
+	const coDm = t('play.locked.coDm');
+	const note = t('play.locked.note', { what, coDm });
+	const [noteBefore, noteAfter = ''] = note.split(coDm);
 	return (
 		<div
 			style={{
@@ -264,9 +272,9 @@ export function LockedNote({ what }: { what: string }) {
 		>
 			<Icon name="hidden" size={16} color="var(--color-dm-only-badge)" />
 			<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
-				{what} is a <strong style={{ color: T.ink }}>Co-DM</strong> tool. Your seat is not a Co-DM
-				seat — ask your DM to promote you to Co-DM (a plan with Co-DM seats is required) to unlock
-				it.
+				{noteBefore}
+				<strong style={{ color: T.ink }}>{coDm}</strong>
+				{noteAfter}
 			</span>
 		</div>
 	);
@@ -280,14 +288,15 @@ export type LiveData = PlayerData;
 // ELEVATED fallback — reached only when a non-Co-DM seat somehow routes to an elevated section (the
 // nav is gated so this is defensive). A real Co-DM seat renders the live panels below instead.
 export function ElevatedLocked({ label }: { label: string }) {
+	const { t } = useI18n();
 	return (
 		<PvPage max={900}>
 			<SectionHead
 				title={label}
-				sub="A Co-DM tool — available on a Co-DM seat"
+				sub={t('play.locked.sub')}
 				action={
 					<Badge status="accent" icon="session-bolt">
-						Co-DM tool
+						{t('play.locked.badge')}
 					</Badge>
 				}
 			/>

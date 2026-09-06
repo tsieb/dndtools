@@ -7,6 +7,7 @@ import { useAssetObjectUrl } from '../../platform/assetUrl';
 import { useViewport } from '../../app/useViewport';
 import { isNetworkDestinationAllowed, usePlatformCapabilities } from '../../platform/capabilities';
 import { Panel, PvPage, SectionHead, type LiveData } from './shared';
+import { useI18n } from '../../i18n';
 
 /**
  * I11 S11.2.4 — the dismissible SCENE PUSH banner. When the DM activates a player-visible scene card the
@@ -15,6 +16,7 @@ import { Panel, PvPage, SectionHead, type LiveData } from './shared';
  * revision) re-shows. `aria-live="polite"` announces it without stealing focus.
  */
 export function SceneBanner({ card }: { card: SceneCardView | null }) {
+	const { t } = useI18n();
 	const viewport = useViewport();
 	const capabilities = usePlatformCapabilities();
 	const [dismissedKey, setDismissedKey] = useState<string | null>(null);
@@ -96,7 +98,7 @@ export function SceneBanner({ card }: { card: SceneCardView | null }) {
 						textTransform: 'uppercase',
 					}}
 				>
-					{theme.label} · Now on scene
+					{t('play.stage.nowOnScene', { mood: theme.label })}
 				</span>
 				<div style={{ font: `800 19px ${T.disp}`, color: theme.ink, lineHeight: 1.15 }}>
 					{card.title}
@@ -116,7 +118,7 @@ export function SceneBanner({ card }: { card: SceneCardView | null }) {
 			</div>
 			<IconButton
 				icon="close"
-				label="Dismiss scene banner"
+				label={t('play.stage.dismissBanner')}
 				variant="ghost"
 				size="sm"
 				onClick={() => setDismissedKey(key)}
@@ -144,6 +146,7 @@ export function StageSection({
 	selfPresence: { hand?: boolean; ready?: boolean } | null;
 	onPresence: (hand: boolean, ready: boolean) => void;
 }) {
+	const { t } = useI18n();
 	const viewport = useViewport();
 	const { live, sceneName } = data;
 	const [hand, setHand] = useState(false);
@@ -190,13 +193,13 @@ export function StageSection({
 	return (
 		<PvPage max={1180}>
 			<SectionHead
-				title="Now playing"
+				title={t('play.nav.stage')}
 				sub={
 					live
 						? sceneName
-							? `${sceneName} · projected from the table`
-							: 'The session is live'
-						: 'Waiting for your DM to start the session'
+							? t('play.stage.subScene', { scene: sceneName })
+							: t('play.stage.subLive')
+						: t('play.stage.sub')
 				}
 				action={
 					<span
@@ -224,7 +227,7 @@ export function StageSection({
 								color: live ? 'var(--color-status-success-text)' : T.ter,
 							}}
 						>
-							{live ? 'Session live' : 'Standby'}
+							{t(live ? 'play.sessionLive' : 'play.standby')}
 						</span>
 					</span>
 				}
@@ -289,7 +292,7 @@ export function StageSection({
 						)}
 						<div style={{ position: 'absolute', top: 14, left: 16 }}>
 							<span style={{ ...eb, color: 'color-mix(in srgb, var(--color-accent) 80%, #fff)' }}>
-								What the table sees
+								{t('play.stage.whatTheTableSees')}
 							</span>
 						</div>
 						{projected && !projectedRasterUrl && (
@@ -333,13 +336,13 @@ export function StageSection({
 									<div
 										style={{ marginTop: 2, font: `13px ${T.sans}`, color: 'rgba(243,231,210,.85)' }}
 									>
-										Map: {projected.name}
+										{t('play.stage.map', { name: projected.name })}
 									</div>
 								)}
 								<div
 									style={{ marginTop: 3, font: `13px ${T.sans}`, color: 'rgba(243,231,210,.7)' }}
 								>
-									Projected to your view by the DM
+									{t('play.stage.projectedByDm')}
 								</div>
 							</div>
 						) : (
@@ -360,7 +363,7 @@ export function StageSection({
 								}}
 							>
 								<Icon name="atlas-map" size="xl" color="rgba(243,231,210,.7)" />
-								<span style={{ font: `14px ${T.sans}` }}>Nothing is being shown yet.</span>
+								<span style={{ font: `14px ${T.sans}` }}>{t('play.stage.nothingShown')}</span>
 							</div>
 						)}
 					</div>
@@ -437,27 +440,31 @@ export function StageSection({
 								}}
 							>
 								<Icon name="reveal" size={15} color={T.ter} />
-								Watching the table
+								{t('play.stage.watching')}
 							</span>
 						)}
 						<div style={{ flex: 1 }} />
 						<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
-							Your DM controls what's revealed.
+							{t('play.stage.dmControls')}
 						</span>
 					</div>
 				</div>
 
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 					<Panel
-						title="This turn"
+						title={t('play.stage.thisTurn')}
 						accent
 						action={
-							data.round != null ? <Badge status="neutral">Round {data.round}</Badge> : undefined
+							data.round != null ? (
+								<Badge status="neutral">{t('play.stage.round', { round: data.round })}</Badge>
+							) : undefined
 						}
 					>
 						{data.turnOrder.length === 0 ? (
 							<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-								{data.activeName ? `Active: ${data.activeName}` : 'No combat running.'}
+								{data.activeName
+									? t('play.stage.activeCombatant', { name: data.activeName })
+									: t('play.stage.noCombat')}
 							</div>
 						) : (
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -497,10 +504,10 @@ export function StageSection({
 							</div>
 						)}
 					</Panel>
-					<Panel title="Shared handouts">
+					<Panel title={t('play.stage.sharedHandouts')}>
 						{data.handouts.length === 0 ? (
 							<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-								Nothing shared with you yet.
+								{t('play.stage.nothingShared')}
 							</div>
 						) : (
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

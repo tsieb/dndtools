@@ -5,19 +5,19 @@ import { T, eb } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { ABIL_ORDER, abilMod, sgn } from '../../app/character/abilities';
 import { ABIL_FULL, condKey, Panel, PvPage, SectionHead, type LiveData } from './shared';
+import { useI18n } from '../../i18n';
 
 // 2 · MY CHARACTER — the player's own sheet, read-only on the live device.
 export function SheetSection({ data }: { data: LiveData }) {
+	const { t } = useI18n();
 	const viewport = useViewport();
 	const C = data.pc;
 	if (!C) {
 		return (
 			<PvPage max={1140}>
-				<SectionHead title="My character" />
+				<SectionHead title={t('play.sheet.title')} />
 				<Panel>
-					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>
-						No character has been assigned to you yet.
-					</div>
+					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>{t('play.sheet.unassigned')}</div>
 				</Panel>
 			</PvPage>
 		);
@@ -26,7 +26,7 @@ export function SheetSection({ data }: { data: LiveData }) {
 	const slots = r ? Object.values(r.spellSlots).sort((a, b) => a.level - b.level) : [];
 	// Real sheet identity: the `data.class` field the draft flow writes + the CHAR-009 level.
 	const cls = typeof C.data?.class === 'string' && C.data.class.trim() !== '' ? C.data.class : null;
-	const clsLabel = cls ? cls.charAt(0).toUpperCase() + cls.slice(1) : 'Adventurer';
+	const clsLabel = cls ? cls.charAt(0).toUpperCase() + cls.slice(1) : t('play.sheet.adventurer');
 	const cardBox: CSSProperties = {
 		textAlign: 'center',
 		padding: '10px 6px',
@@ -57,11 +57,11 @@ export function SheetSection({ data }: { data: LiveData }) {
 						{/* Every other section renders SectionHead's <h1>; the sheet jumped straight to this
 						    strip, so the ONE section a player lives in had no heading at all. */}
 						<h1 style={{ margin: 0, font: `700 16px ${T.disp}`, color: T.ink }}>{C.name}</h1>
-						<Badge status="success">PC</Badge>
+						<Badge status="success">{t('play.sheet.pc')}</Badge>
 					</div>
 					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
 						{clsLabel}
-						{data.level != null ? ` · Level ${data.level}` : ''}
+						{data.level != null ? t('play.sheet.characterLevel', { level: data.level }) : ''}
 					</div>
 				</div>
 				<div
@@ -84,9 +84,9 @@ export function SheetSection({ data }: { data: LiveData }) {
 						{C.combat.hp}
 						<span style={{ font: `13px ${T.mono}`, color: T.ter }}> / {C.combat.maxHp}</span>
 					</div>
-					<div style={{ ...eb, color: T.ter }}>Hit points</div>
+					<div style={{ ...eb, color: T.ter }}>{t('play.sheet.hitPoints')}</div>
 				</div>
-				<Stat label="AC" value={String(C.combat.ac)} icon="shield" />
+				<Stat label={t('play.sheet.armorClass')} value={String(C.combat.ac)} icon="shield" />
 				<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
 					{C.combat.conditions.map((c) => {
 						const k = condKey(c);
@@ -122,7 +122,7 @@ export function SheetSection({ data }: { data: LiveData }) {
 							const score = (C.abilityScores as Record<string, number | undefined>)[key];
 							return (
 								<div key={key} style={cardBox}>
-									<div style={{ ...eb, color: T.ter }}>{ABIL_FULL[key]}</div>
+									<div style={{ ...eb, color: T.ter }}>{t(ABIL_FULL[key])}</div>
 									<div style={{ font: `700 24px ${T.mono}`, lineHeight: 1, color: T.ink }}>
 										{sgn(abilMod(score))}
 									</div>
@@ -134,10 +134,10 @@ export function SheetSection({ data }: { data: LiveData }) {
 						})}
 					</div>
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-						<Panel title="Spell slots">
+						<Panel title={t('play.sheet.spellSlots')}>
 							{slots.length === 0 ? (
 								<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-									No spell slots tracked.
+									{t('play.sheet.noSpellSlots')}
 								</div>
 							) : (
 								<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -146,7 +146,7 @@ export function SheetSection({ data }: { data: LiveData }) {
 										return (
 											<div key={s.level} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
 												<span style={{ font: `600 12px ${T.sans}`, color: T.sub, width: 48 }}>
-													Level {s.level}
+													{t('play.sheet.slotLevel', { level: s.level })}
 												</span>
 												<div style={{ display: 'flex', gap: 7, flex: 1 }}>
 													{Array.from({ length: s.max }).map((_, i) => (
@@ -172,10 +172,9 @@ export function SheetSection({ data }: { data: LiveData }) {
 								</div>
 							)}
 						</Panel>
-						<Panel title="Conditions & status">
+						<Panel title={t('play.sheet.conditions')}>
 							<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
-								This is your live sheet as the table sees it. Edits are made in your full character
-								app.
+								{t('play.sheet.conditionsHelp')}
 							</div>
 						</Panel>
 					</div>

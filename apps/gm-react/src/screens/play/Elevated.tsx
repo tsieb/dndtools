@@ -2,27 +2,27 @@ import { useState } from 'react';
 import { Avatar, Badge, Chip, HPBar, Icon, VisibilityChip } from '../../ds';
 import { T } from '../../app/screen-kit';
 import { ABIL_ORDER } from '../../app/character/abilities';
-import { kindLabel, Panel, PvPage, SectionHead, type LiveData } from './shared';
+import { kindLabelKey, Panel, PvPage, SectionHead, type LiveData } from './shared';
+import { useI18n } from '../../i18n';
 
 // ELEVATED · ATLAS — every scene the Co-DM may see, INCLUDING dm-only scenes a player never gets.
 export function AtlasSection({ data }: { data: LiveData }) {
+	const { t } = useI18n();
 	const scenes = data.elevated?.scenes ?? [];
 	return (
 		<PvPage max={1140}>
 			<SectionHead
-				title="Maps & scenes"
-				sub="The full atlas — including scenes your DM keeps hidden from the table"
+				title={t('play.atlas.title')}
+				sub={t('play.atlas.sub')}
 				action={
 					<Badge status="accent" icon="atlas-map">
-						{scenes.length} scenes
+						{t('play.atlas.count', { count: scenes.length })}
 					</Badge>
 				}
 			/>
 			{scenes.length === 0 ? (
 				<Panel>
-					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>
-						No scenes have been authored in this campaign yet.
-					</div>
+					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>{t('play.atlas.empty')}</div>
 				</Panel>
 			) : (
 				<div
@@ -64,7 +64,9 @@ export function AtlasSection({ data }: { data: LiveData }) {
 								<VisibilityChip level={s.visibility} compact />
 							</div>
 							<div style={{ font: `11.5px ${T.sans}`, color: T.ter, marginTop: 6 }}>
-								Updated {new Date(s.updatedAt).toLocaleDateString()}
+								{t('play.handouts.updated', {
+									date: new Date(s.updatedAt).toLocaleDateString(),
+								})}
 							</div>
 							{s.tags.length > 0 && (
 								<div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
@@ -85,6 +87,7 @@ export function AtlasSection({ data }: { data: LiveData }) {
 
 // ELEVATED · BESTIARY — the DM's creature/NPC roster (non-PC characters) the Co-DM may see.
 export function BestiarySection({ data }: { data: LiveData }) {
+	const { t } = useI18n();
 	const creatures = data.elevated?.bestiary ?? [];
 	const [open, setOpen] = useState<string | null | undefined>(undefined);
 	const openId =
@@ -96,8 +99,8 @@ export function BestiarySection({ data }: { data: LiveData }) {
 	return (
 		<PvPage max={900}>
 			<SectionHead
-				title="Bestiary"
-				sub="NPCs and monsters your DM has authored — hidden from players"
+				title={t('play.bestiary.title')}
+				sub={t('play.bestiary.sub')}
 				action={
 					<Badge status="accent" icon="campaign-scroll">
 						{creatures.length}
@@ -106,9 +109,7 @@ export function BestiarySection({ data }: { data: LiveData }) {
 			/>
 			{creatures.length === 0 ? (
 				<Panel>
-					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>
-						No NPCs or monsters have been authored yet.
-					</div>
+					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>{t('play.bestiary.empty')}</div>
 				</Panel>
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -146,11 +147,17 @@ export function BestiarySection({ data }: { data: LiveData }) {
 									<div style={{ flex: 1, minWidth: 0 }}>
 										<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 											<span style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>{c.name}</span>
-											<Badge status="neutral">{kindLabel(c.kind)}</Badge>
+											<Badge status="neutral">
+												{kindLabelKey(c.kind) ? t(kindLabelKey(c.kind)!) : c.kind}
+											</Badge>
 										</div>
 										{res && (
 											<div style={{ font: `11.5px ${T.sans}`, color: T.ter, marginTop: 2 }}>
-												HP {res.hp}/{res.maxHp} · AC {res.ac}
+												{t('play.bestiary.stats', {
+													hp: res.hp,
+													maxHp: res.maxHp,
+													ac: res.ac,
+												})}
 											</div>
 										)}
 									</div>
@@ -196,28 +203,29 @@ export function BestiarySection({ data }: { data: LiveData }) {
 
 // ELEVATED · COMBAT ASSIST — the FULL combat tracker: hidden combatants + real HP a player never sees.
 export function AssistSection({ data }: { data: LiveData }) {
+	const { t } = useI18n();
 	const combat = data.elevated?.combat ?? null;
 	const running = combat?.status === 'running';
 	const combatants = combat?.combatants ?? [];
 	return (
 		<PvPage max={1000}>
 			<SectionHead
-				title="Combat assist"
-				sub="The live initiative order — including hidden combatants and full stat blocks"
+				title={t('play.assist.title')}
+				sub={t('play.assist.sub')}
 				action={
 					<Badge status={running ? 'success' : 'neutral'} icon="session-bolt">
-						{running ? `Round ${combat?.round}` : 'No combat'}
+						{running
+							? t('play.assist.round', { round: combat?.round ?? 0 })
+							: t('play.assist.noCombatBadge')}
 					</Badge>
 				}
 			/>
 			{!running || combatants.length === 0 ? (
 				<Panel>
-					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>
-						No combat is running. When the DM starts an encounter the full order appears here.
-					</div>
+					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>{t('play.assist.empty')}</div>
 				</Panel>
 			) : (
-				<Panel title="Initiative order">
+				<Panel title={t('play.assist.initiativeOrder')}>
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 						{combatants.map((c) => (
 							<div
@@ -255,9 +263,11 @@ export function AssistSection({ data }: { data: LiveData }) {
 										>
 											{c.name}
 										</span>
-										{c.hidden && <Badge status="accent">Hidden</Badge>}
-										{c.isActive && <Badge status="success">Active</Badge>}
-										<Badge status="neutral">{kindLabel(c.kind)}</Badge>
+										{c.hidden && <Badge status="accent">{t('play.assist.hidden')}</Badge>}
+										{c.isActive && <Badge status="success">{t('play.assist.active')}</Badge>}
+										<Badge status="neutral">
+											{kindLabelKey(c.kind) ? t(kindLabelKey(c.kind)!) : c.kind}
+										</Badge>
 									</div>
 								</div>
 								{c.resources ? (
