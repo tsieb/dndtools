@@ -1,22 +1,42 @@
 import { useNavigate } from 'react-router-dom';
 import { Badge, Button, Icon } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
+import { useI18n } from '../../i18n';
 import { PLAN_CARDS, useEntitlements } from '../../cloud/entitlements';
 /* ---- Subscription (REAL entitlements hook — server-backed when signed in, honest local fallback;
  * plans are ALWAYS explicitly simulated: no payment processor exists anywhere in this product) ------ */
 export function SettingsSubscription() {
+	const { t, formatNumber } = useI18n();
 	const navigate = useNavigate();
 	const ent = useEntitlements();
 	const current = PLAN_CARDS.find((p) => p.id === ent.plan) ?? PLAN_CARDS[0];
+	// Prices are planned launch prices in USD; the currency renders per locale, the amount does not
+	// change. Whole dollars only — every planned price is a round number.
+	const price = (amount: number) =>
+		formatNumber(amount, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+	// The link text is emphasised mid-sentence, so format each sentence whole and split it around
+	// that value rather than freezing English word order into fragments.
+	const plansLink = t('settings.subscription.plansLink');
+	const gatedSentence = t('settings.subscription.noSelfServe', { link: plansLink });
+	const [gatedBefore, gatedAfter = ''] = gatedSentence.split(plansLink);
+	const previewSentence = t('settings.subscription.previewBody', {
+		link: plansLink,
+		location: t(
+			ent.serverBacked
+				? 'settings.subscription.storedOnAccount'
+				: 'settings.subscription.storedOnDevice',
+		),
+	});
+	const [previewBefore, previewAfter = ''] = previewSentence.split(plansLink);
 	const sourceBadge =
 		ent.source === 'server' ? (
 			<Badge status="success" icon="check">
-				Account preview
+				{t('settings.subscription.sourceAccount')}
 			</Badge>
 		) : ent.source === 'cache' ? (
-			<Badge status="warning">Last known (offline)</Badge>
+			<Badge status="warning">{t('settings.subscription.sourceCache')}</Badge>
 		) : (
-			<Badge status="neutral">This device only</Badge>
+			<Badge status="neutral">{t('settings.subscription.sourceDevice')}</Badge>
 		);
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -54,17 +74,21 @@ export function SettingsSubscription() {
 						{sourceBadge}
 					</div>
 					<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
-						{current.tagline} · {current.price ? `$${current.price}/mo planned` : 'Free'} · preview
-						access, no payment
+						{t('settings.subscription.planLine', {
+							tagline: current.tagline,
+							price: current.price
+								? t('settings.subscription.pricePlanned', { price: price(current.price) })
+								: t('settings.subscription.free'),
+						})}
 					</div>
 				</div>
 				<Button variant="secondary" size="sm" icon="arrow-up" onClick={() => navigate('/upgrade')}>
-					Compare preview plans
+					{t('settings.subscription.compare')}
 				</Button>
 			</div>
 
 			<Panel
-				title="Plan preview"
+				title={t('settings.subscription.planPreview')}
 				action={
 					<Button
 						variant="ghost"
@@ -72,7 +96,7 @@ export function SettingsSubscription() {
 						iconRight="arrow-right"
 						onClick={() => navigate('/upgrade')}
 					>
-						Full comparison
+						{t('settings.subscription.fullComparison')}
 					</Button>
 				}
 			>
@@ -115,7 +139,7 @@ export function SettingsSubscription() {
 											borderRadius: 20,
 										}}
 									>
-										Recommended
+										{t('common.badge.recommended')}
 									</span>
 								)}
 								<div>
@@ -126,10 +150,12 @@ export function SettingsSubscription() {
 								</div>
 								<div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
 									<span style={{ font: `700 26px ${T.mono}`, color: T.ink }}>
-										{pl.price ? `$${pl.price}` : 'Free'}
+										{pl.price ? price(pl.price) : t('settings.subscription.free')}
 									</span>
 									{pl.price > 0 && (
-										<span style={{ font: `12px ${T.sans}`, color: T.ter }}>/mo</span>
+										<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+											{t('settings.subscription.perMonth')}
+										</span>
 									)}
 								</div>
 								<div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
@@ -153,7 +179,7 @@ export function SettingsSubscription() {
 								</div>
 								{on ? (
 									<Button variant="secondary" size="sm" disabled>
-										Current plan
+										{t('settings.subscription.currentPlan')}
 									</Button>
 								) : (
 									<Button
@@ -163,10 +189,10 @@ export function SettingsSubscription() {
 										onClick={() => navigate('/upgrade')}
 									>
 										{ent.serverBacked && !ent.canChangePlan
-											? 'View plan'
+											? t('settings.subscription.viewPlan')
 											: pl.cloud
-												? 'Try preview'
-												: 'Switch'}
+												? t('settings.subscription.tryPreview')
+												: t('settings.subscription.switch')}
 									</Button>
 								)}
 							</div>
@@ -176,22 +202,24 @@ export function SettingsSubscription() {
 			</Panel>
 
 			<Panel
-				title={ent.serverBacked && !ent.canChangePlan ? 'Plan availability' : 'Preview access'}
+				title={t(
+					ent.serverBacked && !ent.canChangePlan
+						? 'settings.subscription.availabilityTitle'
+						: 'settings.subscription.previewTitle',
+				)}
 			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter }}>
 					{ent.serverBacked && !ent.canChangePlan ? (
 						<>
-							Self-service cloud plan changes are not available in this release. The app cannot take
-							a payment or activate a paid plan. See{' '}
-							<strong style={{ color: T.ink }}>Plans &amp; cloud</strong> for planned hosted
-							features; local play remains available.
+							{gatedBefore}
+							<strong style={{ color: T.ink }}>{plansLink}</strong>
+							{gatedAfter}
 						</>
 					) : (
 						<>
-							Cloud plans are currently a free preview. Listed prices are planned launch prices; the
-							app does not request a payment method or charge you. Your selection is stored{' '}
-							{ent.serverBacked ? 'on your account' : 'on this device'} and can be changed from{' '}
-							<strong style={{ color: T.ink }}>Plans &amp; cloud</strong>.
+							{previewBefore}
+							<strong style={{ color: T.ink }}>{plansLink}</strong>
+							{previewAfter}
 						</>
 					)}
 				</div>

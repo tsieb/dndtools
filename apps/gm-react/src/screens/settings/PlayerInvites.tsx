@@ -11,6 +11,7 @@ import {
 	Toaster,
 } from '../../ds';
 import { LoadingRegion, Panel, Seg, T } from '../../app/screen-kit';
+import { useI18n } from '../../i18n';
 import { isAccountApiConfigured } from '../../cloud/config';
 import {
 	createInvite as apiCreateInvite,
@@ -27,12 +28,12 @@ import { errMsg } from './shared';
 /** The web join link an invite token redeems at — the /join route outside the DM shell. */
 const inviteJoinUrl = (token: string) => publicAppHashUrl('/join', { token });
 
-const copyText = async (text: string, okMessage: string) => {
+const copyText = async (text: string, okMessage: string, failMessage: string) => {
 	try {
 		await navigator.clipboard.writeText(text);
 		Toaster.success(okMessage);
 	} catch {
-		Toaster.error('Could not copy — copy the link manually.');
+		Toaster.error(failMessage);
 	}
 };
 
@@ -46,6 +47,7 @@ export function InvitesPanel({
 	createOpen: boolean;
 	onCloseCreate: () => void;
 }) {
+	const { t, formatDate } = useI18n();
 	const ent = useEntitlements();
 	const coDmSeats = coDmSeatsForPlan(ent.plan);
 	const [invites, setInvites] = useState<Invite[] | null>(null);
@@ -99,26 +101,24 @@ export function InvitesPanel({
 	};
 	const mint = () => {
 		if (!publicAppBaseUrl()) {
-			Toaster.error('Shareable links are not configured for this desktop build.');
+			Toaster.error(t('settings.invites.noPublicUrl'));
 			return;
 		}
 		const name = campaignName.trim();
 		if (!name) {
-			Toaster.error('Give the invite a campaign name.');
+			Toaster.error(t('settings.invites.needName'));
 			return;
 		}
 		if (role === 'co-dm' && coDmSeats <= 0) {
 			Toaster.error(
-				ent.canChangePlan
-					? 'Try the Lantern or Beacon preview to invite a Co-DM at no charge.'
-					: 'Your current plan has no Co-DM seats, and plan changes are unavailable in this release.',
+				t(ent.canChangePlan ? 'settings.invites.noSeatsUpgrade' : 'settings.invites.noSeatsLocked'),
 			);
 			return;
 		}
 		const to = email.trim();
 		// Catch an obvious typo client-side; the server validates authoritatively.
 		if (to && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
-			Toaster.error('Enter a valid email address, or leave it blank to just get a link.');
+			Toaster.error(t('settings.invites.badEmail'));
 			return;
 		}
 		setBusy(true);
@@ -132,9 +132,9 @@ export function InvitesPanel({
 				setMinted(invite);
 				setInvites((list) => (list ? [invite, ...list] : [invite]));
 				if (invite.emailStatus === 'sent')
-					Toaster.success(`Invite emailed to ${invite.emailedTo ?? to}.`);
+					Toaster.success(t('settings.invites.emailed', { email: invite.emailedTo ?? to }));
 			})
-			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not create the invite.')))
+			.catch((e: unknown) => Toaster.error(errMsg(e, t('settings.invites.createFailed'))))
 			.finally(() => setBusy(false));
 	};
 	const revoke = (inviteId: string) => {
@@ -143,24 +143,31 @@ export function InvitesPanel({
 			.then(() => {
 				setInvites((list) => (list ? list.filter((i) => i.inviteId !== inviteId) : list));
 				setPendingRevoke(null);
-				Toaster.success('Invite revoked — its link no longer works.');
+				Toaster.success(t('settings.invites.revoked'));
 			})
-			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not revoke that invite.')))
+			.catch((e: unknown) => Toaster.error(errMsg(e, t('settings.invites.revokeFailed'))))
 			.finally(() => setBusy(false));
 	};
+	// The campaign name is emphasised mid-sentence, so format the whole sentence and split it around
+	// that value rather than freezing English word order into two fragments.
+	const revokeName = pendingRevoke?.campaignName ?? '';
+	const revokeSentence = t('settings.invites.revokeBody', { campaign: revokeName });
+	const [revokeBefore, revokeAfter = ''] = revokeSentence.split(revokeName);
 	return (
-		<Panel title="Pending invites">
+		<Panel title={t('settings.invites.title')}>
 			{!cloudReady ? (
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter }}>
-					Online invite links work before the invitee opens the app.{' '}
-					{isAccountApiConfigured
-						? 'Sign in to create and manage them.'
-						: 'Online invite links are unavailable here — share a live-table code directly instead.'}
+					{t('settings.invites.beforeAppIntro')}{' '}
+					{t(
+						isAccountApiConfigured
+							? 'settings.invites.signInToManage'
+							: 'settings.invites.unavailableHere',
+					)}
 				</div>
 			) : failed ? (
 				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
 					<span style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						Couldn’t load your invites.
+						{t('settings.invites.loadFailed')}
 					</span>
 					<Button
 						variant="secondary"
@@ -172,12 +179,12 @@ export function InvitesPanel({
 							setReloadNonce((n) => n + 1);
 						}}
 					>
-						Retry
+						{t('common.action.retry')}
 					</Button>
 				</div>
 			) : invites === null ? (
 				<LoadingRegion
-					label="Loading invites"
+					label={t('settings.invites.loading')}
 					style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
 				>
 					<Skeleton height={44} />
@@ -187,8 +194,8 @@ export function InvitesPanel({
 				<EmptyState
 					inset
 					icon="send"
-					title="No pending invites"
-					description="“Invite player” creates a shareable join link (it expires after 14 days)."
+					title={t('settings.invites.emptyTitle')}
+					description={t('settings.invites.emptyBody')}
 				/>
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -209,11 +216,15 @@ export function InvitesPanel({
 								<div style={{ flex: 1, minWidth: 0 }}>
 									<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 										<span style={{ font: `600 13px ${T.sans}` }}>{v.campaignName}</span>
-										{v.role === 'co-dm' && <Badge status="accent">Co-DM</Badge>}
+										{v.role === 'co-dm' && (
+											<Badge status="accent">{t('settings.invites.coDm')}</Badge>
+										)}
 									</div>
 									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-										{v.note ? `${v.note} · ` : ''}expires{' '}
-										{new Date(v.expiresAt * 1000).toLocaleDateString()}
+										{t(v.note ? 'settings.invites.noteAndExpiry' : 'settings.invites.expiry', {
+											note: v.note ?? '',
+											date: formatDate(new Date(v.expiresAt * 1000)),
+										})}
 									</div>
 								</div>
 								<Button
@@ -221,15 +232,22 @@ export function InvitesPanel({
 									size="sm"
 									icon="link"
 									disabled={busy || !joinUrl}
-									title={joinUrl ? undefined : 'Public app URL is not configured'}
-									aria-label={
+									title={joinUrl ? undefined : t('settings.invites.noPublicUrlShort')}
+									aria-label={t(
 										joinUrl
-											? 'Copy join link'
-											: 'Copy link (unavailable — public app URL is not configured)'
+											? 'settings.invites.copyLinkLabel'
+											: 'settings.invites.copyLinkDisabled',
+									)}
+									onClick={() =>
+										joinUrl &&
+										void copyText(
+											joinUrl,
+											t('settings.invites.linkCopied'),
+											t('settings.invites.copyFailed'),
+										)
 									}
-									onClick={() => joinUrl && void copyText(joinUrl, 'Join link copied.')}
 								>
-									Copy link
+									{t('settings.invites.copyLink')}
 								</Button>
 								<Button
 									variant="ghost"
@@ -237,7 +255,7 @@ export function InvitesPanel({
 									disabled={busy}
 									onClick={() => setPendingRevoke(v)}
 								>
-									Revoke
+									{t('settings.invites.revoke')}
 								</Button>
 							</div>
 						);
@@ -247,8 +265,8 @@ export function InvitesPanel({
 			<Dialog
 				open={pendingRevoke !== null}
 				onClose={() => setPendingRevoke(null)}
-				title="Revoke this invite?"
-				description="The link stops working for good — revocation cannot be undone."
+				title={t('settings.invites.revokeTitle')}
+				description={t('settings.invites.revokeDescription')}
 				tone="danger"
 				size="sm"
 				footer={
@@ -259,7 +277,7 @@ export function InvitesPanel({
 							disabled={busy}
 							onClick={() => setPendingRevoke(null)}
 						>
-							Cancel
+							{t('common.action.cancel')}
 						</Button>
 						<Button
 							variant="danger"
@@ -267,40 +285,38 @@ export function InvitesPanel({
 							disabled={busy}
 							onClick={() => pendingRevoke && revoke(pendingRevoke.inviteId)}
 						>
-							{busy ? 'Revoking…' : 'Revoke invite'}
+							{busy ? t('settings.invites.revoking') : t('settings.invites.revokeInvite')}
 						</Button>
 					</>
 				}
 			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					The join link for <strong style={{ color: T.ink }}>{pendingRevoke?.campaignName}</strong>{' '}
-					stops working immediately, even if it was already shared. Anyone who already joined keeps
-					their seat — mint a new invite to replace it.
+					{revokeBefore}
+					<strong style={{ color: T.ink }}>{revokeName}</strong>
+					{revokeAfter}
 				</div>
 			</Dialog>
 			<Dialog
 				open={createOpen}
 				onClose={close}
-				title={minted ? 'Invite ready to share' : 'Invite a player'}
-				description={
-					minted
-						? 'Send this link however you like — it works for 14 days or until you revoke it.'
-						: 'Creates a shareable join link — add an email to send it, or share the link yourself.'
-				}
+				title={t(minted ? 'settings.invites.readyTitle' : 'settings.invites.createTitle')}
+				description={t(
+					minted ? 'settings.invites.readyDescription' : 'settings.invites.createDescription',
+				)}
 				icon="send"
 				size="md"
 				footer={
 					minted ? (
 						<Button variant="primary" size="sm" onClick={close}>
-							Done
+							{t('common.action.done')}
 						</Button>
 					) : (
 						<>
 							<Button variant="secondary" size="sm" disabled={busy} onClick={close}>
-								Cancel
+								{t('common.action.cancel')}
 							</Button>
 							<Button variant="primary" size="sm" icon="send" disabled={busy} onClick={mint}>
-								{busy ? 'Creating…' : 'Create invite'}
+								{busy ? t('settings.invites.creating') : t('settings.invites.createInvite')}
 							</Button>
 						</>
 					)
@@ -330,8 +346,8 @@ export function InvitesPanel({
 								/>
 								<span>
 									{minted.emailStatus === 'sent'
-										? `Emailed to ${minted.emailedTo}. They can also use the link below.`
-										: 'Email couldn’t be sent — email delivery isn’t set up for this app. Share the link below instead.'}
+										? t('settings.invites.emailSent', { email: minted.emailedTo ?? '' })
+										: t('settings.invites.emailUnavailable')}
 								</span>
 							</div>
 						)}
@@ -339,7 +355,7 @@ export function InvitesPanel({
 						{qr && (
 							<img
 								src={qr}
-								alt="QR code for the join link"
+								alt={t('settings.invites.qrAlt')}
 								style={{
 									width: 168,
 									height: 168,
@@ -358,16 +374,23 @@ export function InvitesPanel({
 								textAlign: 'center',
 							}}
 						>
-							{mintedJoinUrl ?? 'Public app URL is not configured.'}
+							{mintedJoinUrl ?? t('settings.invites.noPublicUrlShort')}
 						</code>
 						<Button
 							variant="secondary"
 							size="sm"
 							icon="link"
 							disabled={!mintedJoinUrl}
-							onClick={() => mintedJoinUrl && void copyText(mintedJoinUrl, 'Join link copied.')}
+							onClick={() =>
+								mintedJoinUrl &&
+								void copyText(
+									mintedJoinUrl,
+									t('settings.invites.linkCopied'),
+									t('settings.invites.copyFailed'),
+								)
+							}
 						>
-							Copy link
+							{t('settings.invites.copyLink')}
 						</Button>
 					</div>
 				) : (
@@ -375,15 +398,15 @@ export function InvitesPanel({
 						<Input
 							value={campaignName}
 							onChange={(e: { target: { value: string } }) => setCampaignName(e.target.value)}
-							placeholder="Campaign name (shown to the invitee)"
-							aria-label="Campaign name"
+							placeholder={t('settings.invites.campaignPlaceholder')}
+							aria-label={t('settings.invites.campaignLabel')}
 							maxLength={80}
 						/>
 						<Textarea
 							value={note}
 							onChange={(e: { target: { value: string } }) => setNote(e.target.value)}
-							placeholder="Note (optional) — e.g. “We play Fridays at 7”"
-							aria-label="Invite note"
+							placeholder={t('settings.invites.notePlaceholder')}
+							aria-label={t('settings.invites.noteLabel')}
 							rows={2}
 							maxLength={200}
 						/>
@@ -396,35 +419,37 @@ export function InvitesPanel({
 									letterSpacing: '.06em',
 								}}
 							>
-								Seat
+								{t('settings.invites.seat')}
 							</span>
 							<Seg
-								ariaLabel="Seat"
+								ariaLabel={t('settings.invites.seat')}
 								value={role}
 								onChange={(v: string) => setRole(v as 'player' | 'co-dm')}
 								options={[
-									{ value: 'player', label: 'Player' },
-									{ value: 'co-dm', label: coDmSeats > 0 ? 'Co-DM' : 'Co-DM (no seats)' },
+									{ value: 'player', label: t('settings.invites.seatPlayer') },
+									{
+										value: 'co-dm',
+										label: t(
+											coDmSeats > 0 ? 'settings.invites.coDm' : 'settings.invites.coDmNoSeats',
+										),
+									},
 								]}
 							/>
 							<span style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
-								{role === 'co-dm'
-									? 'A Co-DM sees your DM-only prep and helps run the table. Finish the promotion from the Players roster once they join your session.'
-									: 'An ordinary player seat — sees only what you share with the table.'}
+								{t(role === 'co-dm' ? 'settings.invites.coDmHelp' : 'settings.invites.playerHelp')}
 							</span>
 						</div>
 						<Input
 							type="email"
 							value={email}
 							onChange={(e: { target: { value: string } }) => setEmail(e.target.value)}
-							placeholder="Email invite to… (optional)"
-							aria-label="Recipient email"
+							placeholder={t('settings.invites.emailPlaceholder')}
+							aria-label={t('settings.invites.emailLabel')}
 							autoComplete="off"
 							maxLength={254}
 						/>
 						<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
-							Leave email blank to just get a shareable link + QR code. When set, we’ll also email
-							the invite if this app has email delivery configured.
+							{t('settings.invites.emailHelp')}
 						</div>
 					</div>
 				)}

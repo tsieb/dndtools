@@ -796,6 +796,182 @@ export const en = {
 	'play.assist.initiativeOrder': 'Initiative order',
 	'play.assist.hidden': 'Hidden',
 	'play.assist.active': 'Active',
+
+	/* Settings › Account */
+	'settings.account.profile': 'Profile',
+	'settings.account.cloudAccount': 'Cloud account',
+	'settings.account.loadFailed':
+		'Couldn’t load your profile — check your connection and try again.',
+	'settings.account.displayName': 'Display name',
+	'settings.account.nameLength': 'Display name must be 1–60 characters.',
+	'settings.account.nameUpdated': 'Display name updated.',
+	'settings.account.memberSince': 'Member since {date}',
+	'settings.account.dangerZone': 'Danger zone',
+	'settings.account.dangerHeading': 'Download or delete your online account',
+	'settings.account.dangerBody':
+		'The account record includes your profile, preview plan, invites, and published module and wiki metadata. It cannot include encrypted campaign contents; download a local vault backup separately. Deleting the account never deletes campaigns stored on this device.',
+	'settings.account.download': 'Download account record',
+	'settings.account.exportFileTitle': 'Export Lamplight account data',
+	'settings.account.exported': 'Online account record exported.',
+	'settings.account.exportFailed': 'Could not export your account record.',
+	'settings.account.delete': 'Delete account',
+	'settings.account.deleteDialogTitle': 'Delete this account?',
+	'settings.account.deleteDialogDescription':
+		'Permanent: the encrypted cloud copy, invites, published content, plan data, and sign-in are removed.',
+	'settings.account.deleteBody':
+		'Campaigns on this device are not touched. The service first locks the account and removes the encrypted cloud copy; only after that purge is confirmed does it remove account data and the sign-in. If any step cannot be confirmed, deletion stops so you can retry safely. This cannot be undone. Type {phrase} to confirm.',
+	'settings.account.deletePhrase': 'delete my account',
+	'settings.account.deletePhraseLabel': 'Type “{phrase}” to confirm',
+	'settings.account.deleting': 'Deleting…',
+	'settings.account.deleteForever': 'Delete forever',
+	'settings.account.signInBeforeDelete': 'Sign in again before deleting the account.',
+	'settings.account.warnKeyNotRemoved': 'the local encrypted-backup key was not removed',
+	'settings.account.warnSignOutUnverified': 'the local sign-out could not be verified',
+	'settings.account.deletedWithWarnings':
+		'Your online account was deleted, but {warnings}. Close and reopen the app to retry queued key removal. If the warning returns, remove the saved Lamplight credential with your operating-system credential manager.',
+	'settings.account.deleted': 'Your account has been deleted. Local vaults stay on this device.',
+	'settings.account.deleteFailed': 'Could not delete your account.',
+	'settings.account.localOnly': 'Local-only build',
+	'settings.account.localOnlyBody':
+		'Account-management services aren’t available in this edition. Your campaigns and core table tools remain saved locally on this device.',
+	'settings.account.signedOut': 'Signed out',
+	'settings.account.signedOutBody':
+		'Sign in to manage your profile, remembered devices, campaign invites, and preview plan. Your local campaign does not require an account.',
+	'settings.account.signIn': 'Sign in',
+	'settings.account.onboardingTitle': 'Onboarding & help',
+	'settings.account.replaySetup': 'Replay setup',
+	'settings.account.onboardingBody':
+		'Re-run the guided first-time setup, revisit the product tour, or reopen the table-readiness checklist any time.',
+
+	/* Settings › Account › Remembered devices */
+	'settings.devices.title': 'Remembered devices',
+	'settings.devices.intro':
+		'Devices this account recognizes after sign-in. Forgetting one does not erase its local data or immediately close a session already open there. “Sign out everywhere” prevents those sessions from renewing.',
+	'settings.devices.unnamed': 'Remembered device',
+	'settings.devices.platform.apple': 'iPhone or iPad',
+	'settings.devices.platform.android': 'Android device',
+	'settings.devices.platform.windows': 'Windows PC',
+	'settings.devices.platform.mac': 'Mac',
+	'settings.devices.platform.linux': 'Linux device',
+	'settings.devices.browserOnPlatform': '{browser} on {platform}',
+	'settings.devices.lastSeen': 'Last seen {when}',
+	'settings.devices.lastSeenUnknown': 'Last seen: unknown',
+	'settings.devices.loading': 'Loading devices',
+	'settings.devices.loadFailed': 'Couldn’t load your devices.',
+	'settings.devices.emptyTitle': 'No remembered devices yet',
+	'settings.devices.emptyBody': 'Devices appear here after they sign in.',
+	'settings.devices.forget': 'Forget',
+	'settings.devices.forgetTitle': 'Forget this device?',
+	'settings.devices.forgetDescription': 'Remove it from your account’s remembered-device list.',
+	'settings.devices.forgetBody':
+		'{device} will no longer be recognized as a remembered device. Nothing on it is erased, and its current session may remain open until it expires; use “Sign out everywhere” to prevent account sessions from renewing.',
+	'settings.devices.forgetting': 'Forgetting…',
+	'settings.devices.forgetDevice': 'Forget device',
+	'settings.devices.forgotten':
+		'Device forgotten. A session already open there may continue until it expires.',
+	'settings.devices.forgetFailed': 'Could not forget that device.',
+	'settings.devices.signOutEverywhere': 'Sign out everywhere',
+	'settings.devices.signOutTitle': 'Sign out everywhere?',
+	'settings.devices.signOutDescription':
+		'Stop future token refresh on every device, including this one.',
+	'settings.devices.signOutBody':
+		'This device signs out now. Other devices cannot refresh their sessions, but access tokens already issued to them can remain valid until they expire (normally within an hour).',
+	'settings.devices.signingOut': 'Signing out…',
+	'settings.devices.signedOutEverywhere':
+		'Sign-out requested everywhere. Open sessions may continue until they expire.',
+	'settings.devices.signOutFailed': 'Could not sign out everywhere.',
+
+	/* Settings › Subscription */
+	'settings.subscription.sourceAccount': 'Account preview',
+	'settings.subscription.sourceCache': 'Last known (offline)',
+	'settings.subscription.sourceDevice': 'This device only',
+	'settings.subscription.free': 'Free',
+	'settings.subscription.perMonth': '/mo',
+	'settings.subscription.pricePlanned': '{price}/mo planned',
+	'settings.subscription.planLine': '{tagline} · {price} · preview access, no payment',
+	'settings.subscription.compare': 'Compare preview plans',
+	'settings.subscription.planPreview': 'Plan preview',
+	'settings.subscription.fullComparison': 'Full comparison',
+	'settings.subscription.currentPlan': 'Current plan',
+	'settings.subscription.viewPlan': 'View plan',
+	'settings.subscription.tryPreview': 'Try preview',
+	'settings.subscription.switch': 'Switch',
+	'settings.subscription.plansLink': 'Plans & cloud',
+	'settings.subscription.availabilityTitle': 'Plan availability',
+	'settings.subscription.previewTitle': 'Preview access',
+	'settings.subscription.noSelfServe':
+		'Self-service cloud plan changes are not available in this release. The app cannot take a payment or activate a paid plan. See {link} for planned hosted features; local play remains available.',
+	'settings.subscription.storedOnAccount': 'on your account',
+	'settings.subscription.storedOnDevice': 'on this device',
+	'settings.subscription.previewBody':
+		'Cloud plans are currently a free preview. Listed prices are planned launch prices; the app does not request a payment method or charge you. Your selection is stored {location} and can be changed from {link}.',
+
+	/* Settings › Players › Invites */
+	'settings.invites.title': 'Pending invites',
+	'settings.invites.beforeAppIntro': 'Online invite links work before the invitee opens the app.',
+	'settings.invites.signInToManage': 'Sign in to create and manage them.',
+	'settings.invites.unavailableHere':
+		'Online invite links are unavailable here — share a live-table code directly instead.',
+	'settings.invites.loading': 'Loading invites',
+	'settings.invites.loadFailed': 'Couldn’t load your invites.',
+	'settings.invites.emptyTitle': 'No pending invites',
+	'settings.invites.emptyBody':
+		'“Invite player” creates a shareable join link (it expires after 14 days).',
+	'settings.invites.coDm': 'Co-DM',
+	'settings.invites.coDmNoSeats': 'Co-DM (no seats)',
+	'settings.invites.expiry': 'expires {date}',
+	'settings.invites.noteAndExpiry': '{note} · expires {date}',
+	'settings.invites.copyLink': 'Copy link',
+	'settings.invites.copyLinkLabel': 'Copy join link',
+	'settings.invites.copyLinkDisabled': 'Copy link (unavailable — public app URL is not configured)',
+	'settings.invites.linkCopied': 'Join link copied.',
+	'settings.invites.copyFailed': 'Could not copy — copy the link manually.',
+	'settings.invites.noPublicUrl': 'Shareable links are not configured for this desktop build.',
+	'settings.invites.noPublicUrlShort': 'Public app URL is not configured.',
+	'settings.invites.revoke': 'Revoke',
+	'settings.invites.revokeTitle': 'Revoke this invite?',
+	'settings.invites.revokeDescription':
+		'The link stops working for good — revocation cannot be undone.',
+	'settings.invites.revokeBody':
+		'The join link for {campaign} stops working immediately, even if it was already shared. Anyone who already joined keeps their seat — mint a new invite to replace it.',
+	'settings.invites.revoking': 'Revoking…',
+	'settings.invites.revokeInvite': 'Revoke invite',
+	'settings.invites.revoked': 'Invite revoked — its link no longer works.',
+	'settings.invites.revokeFailed': 'Could not revoke that invite.',
+	'settings.invites.createTitle': 'Invite a player',
+	'settings.invites.createDescription':
+		'Creates a shareable join link — add an email to send it, or share the link yourself.',
+	'settings.invites.readyTitle': 'Invite ready to share',
+	'settings.invites.readyDescription':
+		'Send this link however you like — it works for 14 days or until you revoke it.',
+	'settings.invites.creating': 'Creating…',
+	'settings.invites.createInvite': 'Create invite',
+	'settings.invites.createFailed': 'Could not create the invite.',
+	'settings.invites.needName': 'Give the invite a campaign name.',
+	'settings.invites.noSeatsUpgrade':
+		'Try the Lantern or Beacon preview to invite a Co-DM at no charge.',
+	'settings.invites.noSeatsLocked':
+		'Your current plan has no Co-DM seats, and plan changes are unavailable in this release.',
+	'settings.invites.badEmail': 'Enter a valid email address, or leave it blank to just get a link.',
+	'settings.invites.emailed': 'Invite emailed to {email}.',
+	'settings.invites.emailSent': 'Emailed to {email}. They can also use the link below.',
+	'settings.invites.emailUnavailable':
+		'Email couldn’t be sent — email delivery isn’t set up for this app. Share the link below instead.',
+	'settings.invites.qrAlt': 'QR code for the join link',
+	'settings.invites.campaignPlaceholder': 'Campaign name (shown to the invitee)',
+	'settings.invites.campaignLabel': 'Campaign name',
+	'settings.invites.notePlaceholder': 'Note (optional) — e.g. “We play Fridays at 7”',
+	'settings.invites.noteLabel': 'Invite note',
+	'settings.invites.seat': 'Seat',
+	'settings.invites.seatPlayer': 'Player',
+	'settings.invites.coDmHelp':
+		'A Co-DM sees your DM-only prep and helps run the table. Finish the promotion from the Players roster once they join your session.',
+	'settings.invites.playerHelp':
+		'An ordinary player seat — sees only what you share with the table.',
+	'settings.invites.emailPlaceholder': 'Email invite to… (optional)',
+	'settings.invites.emailLabel': 'Recipient email',
+	'settings.invites.emailHelp':
+		'Leave email blank to just get a shareable link + QR code. When set, we’ll also email the invite if this app has email delivery configured.',
 } as const;
 
 /** Every string the app can render, addressed by key. */

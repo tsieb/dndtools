@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Avatar, Badge, Button, Dialog, Input, Toaster } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
+import { useI18n } from '../../i18n';
 import { useCloudSync } from '../../cloud/CloudSyncContext';
 import { useAuth } from '../../cloud/AuthContext';
 import { forgetCloudSyncAccount } from '../../cloud/cloudSync';
@@ -20,6 +21,7 @@ import { AccountDevicesPanel } from './AccountDevices';
  * export, delete); honest labeled fallback otherwise. ------------------------------------------- */
 /** Profile from Cognito via the app-api: display-name edit is a REAL account write. */
 function AccountProfilePanel() {
+	const { t, formatDate } = useI18n();
 	const [profile, setProfile] = useState<Profile | null>(null);
 	const [failed, setFailed] = useState(false);
 	const [editing, setEditing] = useState(false);
@@ -45,7 +47,7 @@ function AccountProfilePanel() {
 	const save = () => {
 		const name = draft.trim();
 		if (!name || name.length > 60) {
-			Toaster.error('Display name must be 1–60 characters.');
+			Toaster.error(t('settings.account.nameLength'));
 			return;
 		}
 		setBusy(true);
@@ -53,18 +55,18 @@ function AccountProfilePanel() {
 			.then((displayName) => {
 				setProfile((prof) => (prof ? { ...prof, displayName } : prof));
 				setEditing(false);
-				Toaster.success('Display name updated.');
+				Toaster.success(t('settings.account.nameUpdated'));
 			})
-			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not update your profile.')))
+			.catch((e: unknown) => Toaster.error(errMsg(e, t('settings.profileUpdateFailed'))))
 			.finally(() => setBusy(false));
 	};
 	const shownName = profile?.displayName || profile?.email || '…';
 	return (
 		<Panel
-			title="Profile"
+			title={t('settings.account.profile')}
 			action={
 				<Badge status="success" icon="check">
-					Cloud account
+					{t('settings.account.cloudAccount')}
 				</Badge>
 			}
 		>
@@ -76,7 +78,7 @@ function AccountProfilePanel() {
 						role="alert"
 						style={{ font: `12.5px ${T.sans}`, color: T.ter, flex: 1, minWidth: 0 }}
 					>
-						Couldn’t load your profile — check your connection and try again.
+						{t('settings.account.loadFailed')}
 					</div>
 					<Button
 						variant="secondary"
@@ -84,7 +86,7 @@ function AccountProfilePanel() {
 						icon="retry"
 						onClick={() => setReloadKey((n) => n + 1)}
 					>
-						Retry
+						{t('common.action.retry')}
 					</Button>
 				</div>
 			) : (
@@ -96,15 +98,15 @@ function AccountProfilePanel() {
 								<Input
 									value={draft}
 									onChange={(e: { target: { value: string } }) => setDraft(e.target.value)}
-									placeholder="Display name"
-									aria-label="Display name"
+									placeholder={t('settings.account.displayName')}
+									aria-label={t('settings.account.displayName')}
 									maxLength={60}
 								/>
 								<Button variant="primary" size="sm" icon="check" disabled={busy} onClick={save}>
-									Save
+									{t('common.action.save')}
 								</Button>
 								<Button variant="ghost" size="sm" disabled={busy} onClick={() => setEditing(false)}>
-									Cancel
+									{t('common.action.cancel')}
 								</Button>
 							</div>
 						) : (
@@ -114,7 +116,9 @@ function AccountProfilePanel() {
 						{profile?.createdAt && (
 							<div style={{ display: 'flex', gap: 7, marginTop: 7, flexWrap: 'wrap' }}>
 								<Badge status="neutral">
-									Member since {new Date(profile.createdAt).toLocaleDateString()}
+									{t('settings.account.memberSince', {
+										date: formatDate(new Date(profile.createdAt)),
+									})}
 								</Badge>
 							</div>
 						)}
@@ -130,7 +134,7 @@ function AccountProfilePanel() {
 								setEditing(true);
 							}}
 						>
-							Edit
+							{t('common.action.edit')}
 						</Button>
 					)}
 				</div>
@@ -139,13 +143,16 @@ function AccountProfilePanel() {
 	);
 }
 /** Export (real backend data) + delete account behind a type-to-confirm dialog. */
-const DELETE_PHRASE = 'delete my account';
 function AccountDangerPanel() {
+	const { t, formatList } = useI18n();
 	const auth = useAuth();
 	const cloud = useCloudSync();
 	const [busy, setBusy] = useState(false);
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const [phrase, setPhrase] = useState('');
+	// The confirmation phrase is copy, not a magic token: a Spanish reader is asked to type the
+	// Spanish sentence they can see on screen, and the comparison reads the same catalog entry.
+	const deletePhrase = t('settings.account.deletePhrase');
 	const exportData = async () => {
 		setBusy(true);
 		try {
@@ -153,11 +160,11 @@ function AccountDangerPanel() {
 			const result = await downloadJsonFile(
 				`dndtools-account-${fileDateStamp()}.json`,
 				data,
-				'Export Lamplight account data',
+				t('settings.account.exportFileTitle'),
 			);
-			if (result.status === 'exported') Toaster.success('Online account record exported.');
+			if (result.status === 'exported') Toaster.success(t('settings.account.exported'));
 		} catch (e: unknown) {
-			Toaster.error(errMsg(e, 'Could not export your account record.'));
+			Toaster.error(errMsg(e, t('settings.account.exportFailed')));
 		} finally {
 			setBusy(false);
 		}
@@ -165,7 +172,7 @@ function AccountDangerPanel() {
 	const destroy = async () => {
 		const accountId = auth.user?.sub;
 		if (!accountId) {
-			Toaster.error('Sign in again before deleting the account.');
+			Toaster.error(t('settings.account.signInBeforeDelete'));
 			return;
 		}
 		setBusy(true);
@@ -182,40 +189,48 @@ function AccountDangerPanel() {
 			try {
 				await forgetCloudSyncAccount(accountId);
 			} catch (error) {
-				cleanupWarnings.push(errMsg(error, 'the local encrypted-backup key was not removed'));
+				cleanupWarnings.push(errMsg(error, t('settings.account.warnKeyNotRemoved')));
 			}
 			try {
 				await auth.signOut();
 			} catch {
-				cleanupWarnings.push('the local sign-out could not be verified');
+				cleanupWarnings.push(t('settings.account.warnSignOutUnverified'));
 			}
 			setConfirmOpen(false);
 			if (cleanupWarnings.length > 0) {
 				Toaster.error(
-					`Your online account was deleted, but ${cleanupWarnings.join(' and ')}. Close and reopen the app to retry queued key removal. If the warning returns, remove the saved Lamplight credential with your operating-system credential manager.`,
+					t('settings.account.deletedWithWarnings', {
+						// `and` is a conjunction, not punctuation: Intl.ListFormat spells it per locale.
+						warnings: formatList(cleanupWarnings, { type: 'conjunction' }),
+					}),
 				);
 			} else {
-				Toaster.success('Your account has been deleted. Local vaults stay on this device.');
+				Toaster.success(t('settings.account.deleted'));
 			}
 		} catch (e) {
-			Toaster.error(errMsg(e, 'Could not delete your account.'));
+			Toaster.error(errMsg(e, t('settings.account.deleteFailed')));
 		} finally {
 			setBusy(false);
 		}
 	};
+	// The phrase is emphasised mid-sentence, so format the whole sentence and split it around the
+	// value rather than freezing English word order into two fragments.
+	const confirmSentence = t('settings.account.deleteBody', { phrase: deletePhrase });
+	const [confirmBefore, confirmAfter = ''] = confirmSentence.split(deletePhrase);
 	return (
-		<Panel title="Danger zone" style={{ borderColor: 'var(--color-status-error-border)' }}>
+		<Panel
+			title={t('settings.account.dangerZone')}
+			style={{ borderColor: 'var(--color-status-error-border)' }}
+		>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
 				<div style={{ flex: '1 1 240px' }}>
-					<div style={{ font: `600 13px ${T.sans}` }}>Download or delete your online account</div>
+					<div style={{ font: `600 13px ${T.sans}` }}>{t('settings.account.dangerHeading')}</div>
 					<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-						The account record includes your profile, preview plan, invites, and published module
-						and wiki metadata. It cannot include encrypted campaign contents; download a local vault
-						backup separately. Deleting the account never deletes campaigns stored on this device.
+						{t('settings.account.dangerBody')}
 					</div>
 				</div>
 				<Button variant="secondary" size="sm" icon="download" disabled={busy} onClick={exportData}>
-					Download account record
+					{t('settings.account.download')}
 				</Button>
 				<Button
 					variant="danger"
@@ -227,14 +242,14 @@ function AccountDangerPanel() {
 						setConfirmOpen(true);
 					}}
 				>
-					Delete account
+					{t('settings.account.delete')}
 				</Button>
 			</div>
 			<Dialog
 				open={confirmOpen}
 				onClose={() => setConfirmOpen(false)}
-				title="Delete this account?"
-				description="Permanent: the encrypted cloud copy, invites, published content, plan data, and sign-in are removed."
+				title={t('settings.account.deleteDialogTitle')}
+				description={t('settings.account.deleteDialogDescription')}
 				icon="warning"
 				size="md"
 				dismissible={!busy}
@@ -249,35 +264,33 @@ function AccountDangerPanel() {
 							disabled={busy}
 							onClick={() => setConfirmOpen(false)}
 						>
-							Cancel
+							{t('common.action.cancel')}
 						</Button>
 						<Button
 							variant="danger"
 							size="sm"
 							icon="trash"
-							disabled={busy || phrase.trim().toLowerCase() !== DELETE_PHRASE}
+							disabled={busy || phrase.trim().toLowerCase() !== deletePhrase}
 							onClick={destroy}
 						>
-							{busy ? 'Deleting…' : 'Delete forever'}
+							{busy ? t('settings.account.deleting') : t('settings.account.deleteForever')}
 						</Button>
 					</>
 				}
 			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 10 }}>
-					Campaigns on this device are not touched. The service first locks the account and removes
-					the encrypted cloud copy; only after that purge is confirmed does it remove account data
-					and the sign-in. If any step cannot be confirmed, deletion stops so you can retry safely.
-					This cannot be undone. Type <strong style={{ color: T.ink }}>{DELETE_PHRASE}</strong> to
-					confirm.
+					{confirmBefore}
+					<strong style={{ color: T.ink }}>{deletePhrase}</strong>
+					{confirmAfter}
 				</div>
 				<Input
 					id="delete-account-confirmation"
 					value={phrase}
 					onChange={(e: { target: { value: string } }) => setPhrase(e.target.value)}
-					placeholder={DELETE_PHRASE}
-					aria-label={`Type "${DELETE_PHRASE}" to confirm`}
+					placeholder={deletePhrase}
+					aria-label={t('settings.account.deletePhraseLabel', { phrase: deletePhrase })}
 					autoComplete="off"
-					maxLength={DELETE_PHRASE.length}
+					maxLength={deletePhrase.length}
 					disabled={busy}
 				/>
 			</Dialog>
@@ -286,26 +299,31 @@ function AccountDangerPanel() {
 }
 /** Honest gate when the account surface can't be real: local-only build, or signed out. */
 function CloudAccountGate() {
+	const { t } = useI18n();
 	const auth = useAuth();
 	if (!isAccountApiConfigured) {
 		return (
-			<Panel title="Cloud account" action={<Badge status="neutral">Local-only build</Badge>}>
+			<Panel
+				title={t('settings.account.cloudAccount')}
+				action={<Badge status="neutral">{t('settings.account.localOnly')}</Badge>}
+			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					Account-management services aren’t available in this edition. Your campaigns and core
-					table tools remain saved locally on this device.
+					{t('settings.account.localOnlyBody')}
 				</div>
 			</Panel>
 		);
 	}
 	return (
-		<Panel title="Cloud account" action={<Badge status="neutral">Signed out</Badge>}>
+		<Panel
+			title={t('settings.account.cloudAccount')}
+			action={<Badge status="neutral">{t('settings.account.signedOut')}</Badge>}
+		>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
 				<div style={{ flex: '1 1 240px', font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					Sign in to manage your profile, remembered devices, campaign invites, and preview plan.
-					Your local campaign does not require an account.
+					{t('settings.account.signedOutBody')}
 				</div>
 				<Button variant="primary" size="sm" icon="UserCircle" onClick={() => auth.openAuthModal()}>
-					Sign in
+					{t('settings.account.signIn')}
 				</Button>
 			</div>
 		</Panel>
@@ -313,6 +331,7 @@ function CloudAccountGate() {
 }
 
 export function SettingsAccount() {
+	const { t } = useI18n();
 	const auth = useAuth();
 	// The account surface is REAL (app-api) when the backend is configured AND the user is signed
 	// in; otherwise it shows an honest gate — no fake profile pretending to be yours.
@@ -329,7 +348,7 @@ export function SettingsAccount() {
 			)}
 
 			<Panel
-				title="Onboarding & help"
+				title={t('settings.account.onboardingTitle')}
 				action={
 					<Button
 						variant="ghost"
@@ -345,13 +364,12 @@ export function SettingsAccount() {
 							window.dispatchEvent(new Event(REPLAY_EVENT));
 						}}
 					>
-						Replay setup
+						{t('settings.account.replaySetup')}
 					</Button>
 				}
 			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					Re-run the guided first-time setup, revisit the product tour, or reopen the
-					table-readiness checklist any time.
+					{t('settings.account.onboardingBody')}
 				</div>
 			</Panel>
 

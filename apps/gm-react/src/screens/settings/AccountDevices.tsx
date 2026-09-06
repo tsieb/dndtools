@@ -1,24 +1,31 @@
 import { useEffect, useState } from 'react';
 import { Button, Dialog, EmptyState, Icon, Skeleton, Toaster } from '../../ds';
 import { LoadingRegion, Panel, T } from '../../app/screen-kit';
+import { useI18n, type MessageKey } from '../../i18n';
 import { useAuth } from '../../cloud/AuthContext';
 import { listDevices, revokeAllSessions, revokeDevice, type Device } from '../../cloud/appApi';
 import { errMsg } from './shared';
 /* ---- Account devices (REAL app-api — the remembered sign-ins and the global sign-out) ------------ */
-function friendlyDeviceName(raw: string): string {
+/** The user agent is turned into something a person recognizes. Browser names are brands and stay
+ * as they are; the device words around them are copy, so they come out of the catalog. */
+function friendlyDeviceName(
+	raw: string,
+	t: (key: MessageKey, values?: Record<string, string>) => string,
+): string {
 	const value = raw.trim();
-	if (!value) return 'Remembered device';
-	const platform = /iPhone|iPad/i.test(value)
-		? 'iPhone or iPad'
+	if (!value) return t('settings.devices.unnamed');
+	const platformKey: MessageKey | null = /iPhone|iPad/i.test(value)
+		? 'settings.devices.platform.apple'
 		: /Android/i.test(value)
-			? 'Android device'
+			? 'settings.devices.platform.android'
 			: /Windows/i.test(value)
-				? 'Windows PC'
+				? 'settings.devices.platform.windows'
 				: /Macintosh|Mac OS/i.test(value)
-					? 'Mac'
+					? 'settings.devices.platform.mac'
 					: /Linux/i.test(value)
-						? 'Linux device'
+						? 'settings.devices.platform.linux'
 						: null;
+	const platform = platformKey ? t(platformKey) : null;
 	const browser = /Edg\//.test(value)
 		? 'Edge'
 		: /Firefox\//.test(value)
@@ -28,13 +35,14 @@ function friendlyDeviceName(raw: string): string {
 				: /Safari\//.test(value)
 					? 'Safari'
 					: null;
-	if (browser && platform) return `${browser} on ${platform}`;
+	if (browser && platform) return t('settings.devices.browserOnPlatform', { browser, platform });
 	if (platform) return platform;
 	return value.length > 60 ? `${value.slice(0, 57)}…` : value;
 }
 
 /** Devices remembered by Cognito, plus the separate global sign-out action. */
 export function AccountDevicesPanel() {
+	const { t, formatDate } = useI18n();
 	const auth = useAuth();
 	const [devices, setDevices] = useState<Device[] | null>(null);
 	const [failed, setFailed] = useState(false);
@@ -55,11 +63,9 @@ export function AccountDevicesPanel() {
 			.then(() => {
 				setDevices((list) => (list ? list.filter((d) => d.deviceKey !== deviceKey) : list));
 				setPendingRevoke(null);
-				Toaster.success(
-					'Device forgotten. A session already open there may continue until it expires.',
-				);
+				Toaster.success(t('settings.devices.forgotten'));
 			})
-			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not forget that device.')))
+			.catch((e: unknown) => Toaster.error(errMsg(e, t('settings.devices.forgetFailed'))))
 			.finally(() => setBusy(false));
 	};
 	const signOutEverywhere = () => {
@@ -67,17 +73,20 @@ export function AccountDevicesPanel() {
 		revokeAllSessions()
 			.then(async () => {
 				setSignOutOpen(false);
-				Toaster.success(
-					'Sign-out requested everywhere. Open sessions may continue until they expire.',
-				);
+				Toaster.success(t('settings.devices.signedOutEverywhere'));
 				await auth.signOut(); // the global revoke killed this session's refresh token too
 			})
-			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not sign out everywhere.')))
+			.catch((e: unknown) => Toaster.error(errMsg(e, t('settings.devices.signOutFailed'))))
 			.finally(() => setBusy(false));
 	};
+	// The device name is emphasised mid-sentence, so format the whole sentence and split it around
+	// that value rather than freezing English word order into two fragments.
+	const pendingName = friendlyDeviceName(pendingRevoke?.name ?? '', t);
+	const forgetSentence = t('settings.devices.forgetBody', { device: pendingName });
+	const [forgetBefore, forgetAfter = ''] = forgetSentence.split(pendingName);
 	return (
 		<Panel
-			title="Remembered devices"
+			title={t('settings.devices.title')}
 			action={
 				<Button
 					variant="ghost"
@@ -86,20 +95,18 @@ export function AccountDevicesPanel() {
 					disabled={busy}
 					onClick={() => setSignOutOpen(true)}
 				>
-					Sign out everywhere
+					{t('settings.devices.signOutEverywhere')}
 				</Button>
 			}
 		>
 			<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
-				Devices this account recognizes after sign-in. Forgetting one does not erase its local data
-				or immediately close a session already open there. “Sign out everywhere” prevents those
-				sessions from renewing.
+				{t('settings.devices.intro')}
 			</div>
 			{failed ? (
 				// Was dead text telling the user to reopen the tab; `load` is right here.
 				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
 					<span style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						Couldn’t load your devices.
+						{t('settings.devices.loadFailed')}
 					</span>
 					<Button
 						variant="secondary"
@@ -110,12 +117,12 @@ export function AccountDevicesPanel() {
 							load();
 						}}
 					>
-						Retry
+						{t('common.action.retry')}
 					</Button>
 				</div>
 			) : devices === null ? (
 				<LoadingRegion
-					label="Loading devices"
+					label={t('settings.devices.loading')}
 					style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
 				>
 					<Skeleton height={46} />
@@ -125,8 +132,8 @@ export function AccountDevicesPanel() {
 				<EmptyState
 					inset
 					icon="Monitor"
-					title="No remembered devices yet"
-					description="Devices appear here after they sign in."
+					title={t('settings.devices.emptyTitle')}
+					description={t('settings.devices.emptyBody')}
 				/>
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -157,15 +164,20 @@ export function AccountDevicesPanel() {
 								<Icon name="Monitor" size="sm" />
 							</span>
 							<div style={{ flex: 1, minWidth: 0 }}>
-								<div style={{ font: `600 13px ${T.sans}` }}>{friendlyDeviceName(d.name)}</div>
+								<div style={{ font: `600 13px ${T.sans}` }}>{friendlyDeviceName(d.name, t)}</div>
 								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
 									{d.lastSeen
-										? `Last seen ${new Date(d.lastSeen).toLocaleString()}`
-										: 'Last seen: unknown'}
+										? t('settings.devices.lastSeen', {
+												when: formatDate(new Date(d.lastSeen), {
+													dateStyle: 'medium',
+													timeStyle: 'short',
+												}),
+											})
+										: t('settings.devices.lastSeenUnknown')}
 								</div>
 							</div>
 							<Button variant="ghost" size="sm" disabled={busy} onClick={() => setPendingRevoke(d)}>
-								Forget
+								{t('settings.devices.forget')}
 							</Button>
 						</div>
 					))}
@@ -174,8 +186,8 @@ export function AccountDevicesPanel() {
 			<Dialog
 				open={pendingRevoke !== null}
 				onClose={() => setPendingRevoke(null)}
-				title="Forget this device?"
-				description="Remove it from your account’s remembered-device list."
+				title={t('settings.devices.forgetTitle')}
+				description={t('settings.devices.forgetDescription')}
 				tone="danger"
 				size="sm"
 				footer={
@@ -186,7 +198,7 @@ export function AccountDevicesPanel() {
 							disabled={busy}
 							onClick={() => setPendingRevoke(null)}
 						>
-							Cancel
+							{t('common.action.cancel')}
 						</Button>
 						<Button
 							variant="danger"
@@ -194,23 +206,22 @@ export function AccountDevicesPanel() {
 							disabled={busy}
 							onClick={() => pendingRevoke && revoke(pendingRevoke.deviceKey)}
 						>
-							{busy ? 'Forgetting…' : 'Forget device'}
+							{busy ? t('settings.devices.forgetting') : t('settings.devices.forgetDevice')}
 						</Button>
 					</>
 				}
 			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					<strong style={{ color: T.ink }}>{friendlyDeviceName(pendingRevoke?.name ?? '')}</strong>{' '}
-					will no longer be recognized as a remembered device. Nothing on it is erased, and its
-					current session may remain open until it expires; use “Sign out everywhere” to prevent
-					account sessions from renewing.
+					{forgetBefore}
+					<strong style={{ color: T.ink }}>{pendingName}</strong>
+					{forgetAfter}
 				</div>
 			</Dialog>
 			<Dialog
 				open={signOutOpen}
 				onClose={() => setSignOutOpen(false)}
-				title="Sign out everywhere?"
-				description="Stop future token refresh on every device, including this one."
+				title={t('settings.devices.signOutTitle')}
+				description={t('settings.devices.signOutDescription')}
 				tone="danger"
 				size="sm"
 				footer={
@@ -221,17 +232,16 @@ export function AccountDevicesPanel() {
 							disabled={busy}
 							onClick={() => setSignOutOpen(false)}
 						>
-							Cancel
+							{t('common.action.cancel')}
 						</Button>
 						<Button variant="danger" size="sm" disabled={busy} onClick={signOutEverywhere}>
-							{busy ? 'Signing out…' : 'Sign out everywhere'}
+							{busy ? t('settings.devices.signingOut') : t('settings.devices.signOutEverywhere')}
 						</Button>
 					</>
 				}
 			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					This device signs out now. Other devices cannot refresh their sessions, but access tokens
-					already issued to them can remain valid until they expire (normally within an hour).
+					{t('settings.devices.signOutBody')}
 				</div>
 			</Dialog>
 		</Panel>

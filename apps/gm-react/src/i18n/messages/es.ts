@@ -825,4 +825,187 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.assist.initiativeOrder': 'Orden de iniciativa',
 	'play.assist.hidden': 'Oculto',
 	'play.assist.active': 'Activo',
+
+	/* Ajustes › Cuenta */
+	'settings.account.profile': 'Perfil',
+	'settings.account.cloudAccount': 'Cuenta en la nube',
+	'settings.account.loadFailed':
+		'No se pudo cargar tu perfil: comprueba la conexión e inténtalo de nuevo.',
+	'settings.account.displayName': 'Nombre visible',
+	'settings.account.nameLength': 'El nombre visible debe tener entre 1 y 60 caracteres.',
+	'settings.account.nameUpdated': 'Nombre visible actualizado.',
+	'settings.account.memberSince': 'Miembro desde {date}',
+	'settings.account.dangerZone': 'Zona de riesgo',
+	'settings.account.dangerHeading': 'Descarga o elimina tu cuenta en línea',
+	'settings.account.dangerBody':
+		'El registro de la cuenta incluye tu perfil, el plan de vista previa, las invitaciones y los metadatos de los módulos y wikis publicados. No puede incluir el contenido cifrado de las campañas; descarga aparte una copia local del baúl. Eliminar la cuenta nunca elimina las campañas guardadas en este dispositivo.',
+	'settings.account.download': 'Descargar registro de la cuenta',
+	'settings.account.exportFileTitle': 'Exportar los datos de la cuenta de Lamplight',
+	'settings.account.exported': 'Registro de la cuenta en línea exportado.',
+	'settings.account.exportFailed': 'No se pudo exportar el registro de tu cuenta.',
+	'settings.account.delete': 'Eliminar cuenta',
+	'settings.account.deleteDialogTitle': '¿Eliminar esta cuenta?',
+	'settings.account.deleteDialogDescription':
+		'Permanente: se eliminan la copia cifrada en la nube, las invitaciones, el contenido publicado, los datos del plan y el inicio de sesión.',
+	'settings.account.deleteBody':
+		'Las campañas de este dispositivo no se tocan. El servicio bloquea primero la cuenta y elimina la copia cifrada en la nube; solo cuando esa purga se confirma elimina los datos de la cuenta y el inicio de sesión. Si algún paso no se puede confirmar, la eliminación se detiene para que puedas reintentarlo sin riesgo. Esto no se puede deshacer. Escribe {phrase} para confirmar.',
+	'settings.account.deletePhrase': 'eliminar mi cuenta',
+	'settings.account.deletePhraseLabel': 'Escribe «{phrase}» para confirmar',
+	'settings.account.deleting': 'Eliminando…',
+	'settings.account.deleteForever': 'Eliminar para siempre',
+	'settings.account.signInBeforeDelete': 'Vuelve a iniciar sesión antes de eliminar la cuenta.',
+	'settings.account.warnKeyNotRemoved': 'no se eliminó la clave local de la copia cifrada',
+	'settings.account.warnSignOutUnverified': 'no se pudo verificar el cierre de sesión local',
+	'settings.account.deletedWithWarnings':
+		'Tu cuenta en línea se eliminó, pero {warnings}. Cierra y vuelve a abrir la aplicación para reintentar la eliminación de claves pendiente. Si el aviso vuelve a aparecer, elimina la credencial guardada de Lamplight con el gestor de credenciales de tu sistema operativo.',
+	'settings.account.deleted':
+		'Tu cuenta se ha eliminado. Los baúles locales permanecen en este dispositivo.',
+	'settings.account.deleteFailed': 'No se pudo eliminar tu cuenta.',
+	'settings.account.localOnly': 'Edición local',
+	'settings.account.localOnlyBody':
+		'Los servicios de gestión de cuentas no están disponibles en esta edición. Tus campañas y las herramientas básicas de mesa siguen guardadas localmente en este dispositivo.',
+	'settings.account.signedOut': 'Sesión cerrada',
+	'settings.account.signedOutBody':
+		'Inicia sesión para gestionar tu perfil, los dispositivos recordados, las invitaciones de campaña y el plan de vista previa. Tu campaña local no necesita una cuenta.',
+	'settings.account.signIn': 'Iniciar sesión',
+	'settings.account.onboardingTitle': 'Primeros pasos y ayuda',
+	'settings.account.replaySetup': 'Repetir la configuración',
+	'settings.account.onboardingBody':
+		'Vuelve a ejecutar la configuración guiada, repasa el recorrido por el producto o reabre la lista de preparación de la mesa cuando quieras.',
+
+	/* Ajustes › Cuenta › Dispositivos recordados */
+	'settings.devices.title': 'Dispositivos recordados',
+	'settings.devices.intro':
+		'Dispositivos que esta cuenta reconoce tras iniciar sesión. Olvidar uno no borra sus datos locales ni cierra de inmediato una sesión ya abierta allí. «Cerrar sesión en todas partes» impide que esas sesiones se renueven.',
+	'settings.devices.unnamed': 'Dispositivo recordado',
+	'settings.devices.platform.apple': 'iPhone o iPad',
+	'settings.devices.platform.android': 'Dispositivo Android',
+	'settings.devices.platform.windows': 'PC con Windows',
+	'settings.devices.platform.mac': 'Mac',
+	'settings.devices.platform.linux': 'Dispositivo Linux',
+	'settings.devices.browserOnPlatform': '{browser} en {platform}',
+	'settings.devices.lastSeen': 'Visto por última vez {when}',
+	'settings.devices.lastSeenUnknown': 'Visto por última vez: se desconoce',
+	'settings.devices.loading': 'Cargando dispositivos',
+	'settings.devices.loadFailed': 'No se pudieron cargar tus dispositivos.',
+	'settings.devices.emptyTitle': 'Todavía no hay dispositivos recordados',
+	'settings.devices.emptyBody': 'Los dispositivos aparecen aquí después de iniciar sesión.',
+	'settings.devices.forget': 'Olvidar',
+	'settings.devices.forgetTitle': '¿Olvidar este dispositivo?',
+	'settings.devices.forgetDescription':
+		'Quítalo de la lista de dispositivos recordados de tu cuenta.',
+	'settings.devices.forgetBody':
+		'{device} dejará de reconocerse como dispositivo recordado. No se borra nada en él y su sesión actual puede seguir abierta hasta que caduque; usa «Cerrar sesión en todas partes» para impedir que las sesiones de la cuenta se renueven.',
+	'settings.devices.forgetting': 'Olvidando…',
+	'settings.devices.forgetDevice': 'Olvidar dispositivo',
+	'settings.devices.forgotten':
+		'Dispositivo olvidado. Una sesión ya abierta allí puede continuar hasta que caduque.',
+	'settings.devices.forgetFailed': 'No se pudo olvidar ese dispositivo.',
+	'settings.devices.signOutEverywhere': 'Cerrar sesión en todas partes',
+	'settings.devices.signOutTitle': '¿Cerrar sesión en todas partes?',
+	'settings.devices.signOutDescription':
+		'Impide la renovación de tokens en todos los dispositivos, incluido este.',
+	'settings.devices.signOutBody':
+		'Este dispositivo cierra la sesión ahora. Los demás dispositivos no pueden renovar sus sesiones, pero los tokens de acceso ya emitidos pueden seguir siendo válidos hasta que caduquen (normalmente en menos de una hora).',
+	'settings.devices.signingOut': 'Cerrando sesión…',
+	'settings.devices.signedOutEverywhere':
+		'Cierre de sesión solicitado en todas partes. Las sesiones abiertas pueden continuar hasta que caduquen.',
+	'settings.devices.signOutFailed': 'No se pudo cerrar la sesión en todas partes.',
+
+	/* Ajustes › Suscripción */
+	'settings.subscription.sourceAccount': 'Vista previa de la cuenta',
+	'settings.subscription.sourceCache': 'Último dato conocido (sin conexión)',
+	'settings.subscription.sourceDevice': 'Solo este dispositivo',
+	'settings.subscription.free': 'Gratis',
+	'settings.subscription.perMonth': '/mes',
+	'settings.subscription.pricePlanned': '{price}/mes previsto',
+	'settings.subscription.planLine': '{tagline} · {price} · acceso de vista previa, sin pago',
+	'settings.subscription.compare': 'Comparar los planes de vista previa',
+	'settings.subscription.planPreview': 'Vista previa del plan',
+	'settings.subscription.fullComparison': 'Comparación completa',
+	'settings.subscription.currentPlan': 'Plan actual',
+	'settings.subscription.viewPlan': 'Ver el plan',
+	'settings.subscription.tryPreview': 'Probar la vista previa',
+	'settings.subscription.switch': 'Cambiar',
+	'settings.subscription.plansLink': 'Planes y nube',
+	'settings.subscription.availabilityTitle': 'Disponibilidad de los planes',
+	'settings.subscription.previewTitle': 'Acceso de vista previa',
+	'settings.subscription.noSelfServe':
+		'En esta versión no se pueden cambiar los planes de nube por tu cuenta. La aplicación no puede cobrar ni activar un plan de pago. Consulta {link} para ver las funciones alojadas previstas; el juego local sigue disponible.',
+	'settings.subscription.storedOnAccount': 'en tu cuenta',
+	'settings.subscription.storedOnDevice': 'en este dispositivo',
+	'settings.subscription.previewBody':
+		'Los planes de nube son ahora mismo una vista previa gratuita. Los precios indicados son los previstos para el lanzamiento; la aplicación no pide un método de pago ni te cobra. Tu selección se guarda {location} y se puede cambiar desde {link}.',
+
+	/* Ajustes › Jugadores › Invitaciones */
+	'settings.invites.title': 'Invitaciones pendientes',
+	'settings.invites.beforeAppIntro':
+		'Los enlaces de invitación en línea funcionan antes de que la persona invitada abra la aplicación.',
+	'settings.invites.signInToManage': 'Inicia sesión para crearlos y gestionarlos.',
+	'settings.invites.unavailableHere':
+		'Los enlaces de invitación en línea no están disponibles aquí: comparte directamente un código de mesa en vivo.',
+	'settings.invites.loading': 'Cargando invitaciones',
+	'settings.invites.loadFailed': 'No se pudieron cargar tus invitaciones.',
+	'settings.invites.emptyTitle': 'No hay invitaciones pendientes',
+	'settings.invites.emptyBody':
+		'«Invitar jugador» crea un enlace para unirse que puedes compartir (caduca a los 14 días).',
+	'settings.invites.coDm': 'Co-DM',
+	'settings.invites.coDmNoSeats': 'Co-DM (sin plazas)',
+	'settings.invites.expiry': 'caduca el {date}',
+	'settings.invites.noteAndExpiry': '{note} · caduca el {date}',
+	'settings.invites.copyLink': 'Copiar enlace',
+	'settings.invites.copyLinkLabel': 'Copiar el enlace para unirse',
+	'settings.invites.copyLinkDisabled':
+		'Copiar enlace (no disponible: la URL pública de la aplicación no está configurada)',
+	'settings.invites.linkCopied': 'Enlace para unirse copiado.',
+	'settings.invites.copyFailed': 'No se pudo copiar: copia el enlace manualmente.',
+	'settings.invites.noPublicUrl':
+		'Los enlaces para compartir no están configurados en esta versión de escritorio.',
+	'settings.invites.noPublicUrlShort': 'La URL pública de la aplicación no está configurada.',
+	'settings.invites.revoke': 'Revocar',
+	'settings.invites.revokeTitle': '¿Revocar esta invitación?',
+	'settings.invites.revokeDescription':
+		'El enlace deja de funcionar para siempre: la revocación no se puede deshacer.',
+	'settings.invites.revokeBody':
+		'El enlace para unirse a {campaign} deja de funcionar de inmediato, aunque ya se haya compartido. Quien ya se haya unido conserva su plaza: crea una invitación nueva para sustituirla.',
+	'settings.invites.revoking': 'Revocando…',
+	'settings.invites.revokeInvite': 'Revocar invitación',
+	'settings.invites.revoked': 'Invitación revocada: su enlace ya no funciona.',
+	'settings.invites.revokeFailed': 'No se pudo revocar esa invitación.',
+	'settings.invites.createTitle': 'Invitar a un jugador',
+	'settings.invites.createDescription':
+		'Crea un enlace para unirse que puedes compartir: añade un correo para enviarlo o comparte tú el enlace.',
+	'settings.invites.readyTitle': 'Invitación lista para compartir',
+	'settings.invites.readyDescription':
+		'Envía este enlace como prefieras: funciona durante 14 días o hasta que lo revoques.',
+	'settings.invites.creating': 'Creando…',
+	'settings.invites.createInvite': 'Crear invitación',
+	'settings.invites.createFailed': 'No se pudo crear la invitación.',
+	'settings.invites.needName': 'Ponle a la invitación un nombre de campaña.',
+	'settings.invites.noSeatsUpgrade':
+		'Prueba la vista previa Lantern o Beacon para invitar a un Co-DM sin coste.',
+	'settings.invites.noSeatsLocked':
+		'Tu plan actual no tiene plazas de Co-DM y en esta versión no se pueden cambiar los planes.',
+	'settings.invites.badEmail':
+		'Escribe una dirección de correo válida o déjala en blanco para obtener solo un enlace.',
+	'settings.invites.emailed': 'Invitación enviada por correo a {email}.',
+	'settings.invites.emailSent':
+		'Enviada por correo a {email}. También puede usar el enlace de abajo.',
+	'settings.invites.emailUnavailable':
+		'No se pudo enviar el correo: esta aplicación no tiene configurado el envío de correo. Comparte el enlace de abajo.',
+	'settings.invites.qrAlt': 'Código QR del enlace para unirse',
+	'settings.invites.campaignPlaceholder': 'Nombre de la campaña (se muestra a quien invitas)',
+	'settings.invites.campaignLabel': 'Nombre de la campaña',
+	'settings.invites.notePlaceholder': 'Nota (opcional): p. ej. «Jugamos los viernes a las 19»',
+	'settings.invites.noteLabel': 'Nota de la invitación',
+	'settings.invites.seat': 'Plaza',
+	'settings.invites.seatPlayer': 'Jugador',
+	'settings.invites.coDmHelp':
+		'Un Co-DM ve tu preparación solo para el DM y ayuda a dirigir la mesa. Termina el ascenso desde la lista de Jugadores cuando se una a tu sesión.',
+	'settings.invites.playerHelp':
+		'Una plaza de jugador normal: solo ve lo que compartes con la mesa.',
+	'settings.invites.emailPlaceholder': 'Enviar la invitación por correo a… (opcional)',
+	'settings.invites.emailLabel': 'Correo del destinatario',
+	'settings.invites.emailHelp':
+		'Deja el correo en blanco para obtener solo un enlace para compartir y un código QR. Si lo rellenas, también enviaremos la invitación por correo si esta aplicación tiene configurado el envío.',
 };
