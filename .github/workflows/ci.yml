@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       runtime: ${{ steps.filter.outputs.runtime }}
+      tier: ${{ steps.tier.outputs.tier }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -38,9 +39,44 @@ jobs:
               - 'vitest.*.config.ts'
               - '.github/workflows/ci.yml'
               - '.github/workflows/release.yml'
+      # RC-ENG-2.1 — tiered branch model (GIT_WORKFLOW.md §3.3, §1.5): a PR into an `initiative/*`
+      # branch is epic-level work and only needs the fast smoke gate; a push/PR into `main` (or a
+      # manual dispatch) is an initiative-integration and needs the full gate.
+      - name: Determine CI tier
+        id: tier
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.base.ref }}" == initiative/* ]]; then
+            echo "tier=smoke" >> "$GITHUB_OUTPUT"
+          else
+            echo "tier=full" >> "$GITHUB_OUTPUT"
+          fi
+
+  smoke-gate:
+    name: smoke-gate
+    needs: [changes]
+    if: needs.changes.outputs.tier == 'smoke'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run the smoke gate (lint:boundary + typecheck + critical unit subset)
+        run: pnpm test:smoke
 
   build-and-test:
     name: build-and-test
+    needs: [changes]
+    if: needs.changes.outputs.tier == 'full'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -102,7 +138,7 @@ jobs:
   browser-e2e:
     name: browser E2E (${{ matrix.name }})
     needs: [changes, build-and-test]
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true'
+    if: needs.changes.outputs.tier == 'full' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 35
     strategy:
@@ -152,7 +188,7 @@ jobs:
   accessibility:
     name: accessibility (desktop + mobile)
     needs: [changes, build-and-test]
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true'
+    if: needs.changes.outputs.tier == 'full' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -191,7 +227,7 @@ jobs:
   desktop-smoke:
     name: Electron smoke (Linux)
     needs: [changes, build-and-test]
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true'
+    if: needs.changes.outputs.tier == 'full' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -213,7 +249,7 @@ jobs:
   android-checks:
     name: Android unit, lint, and package checks
     needs: [changes, build-and-test]
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true'
+    if: needs.changes.outputs.tier == 'full' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 55
     steps:

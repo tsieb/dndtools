@@ -25,7 +25,7 @@
 		"test:app": "vitest run --config vitest.app.config.ts",
 		"test:critical": "pnpm --filter @dndtools/core test",
 		"test:coverage:core": "pnpm --filter @dndtools/core exec vitest run --coverage",
-		"test:smoke": "pnpm lint:boundary && pnpm typecheck",
+		"test:smoke": "pnpm lint:boundary && pnpm typecheck && pnpm --filter @dndtools/core test:smoke",
 		"e2e": "pnpm --filter @dndtools/gm-react e2e",
 		"lint": "eslint . && pnpm lint:boundary && pnpm a11y:contrast",
 		"lint:boundary": "tsx scripts/boundary-lint.ts",

@@ -130,13 +130,26 @@ No git hooks are installed in this repo, so these are run by hand — run them b
 
 ### 3.2 Smoke Gate
 
-`pnpm test:smoke` is the fast local gate: `pnpm lint:boundary` + `pnpm typecheck`. Use it while iterating; run `pnpm check` before handoff.
+`pnpm test:smoke` is the fast local gate: `pnpm lint:boundary` + `pnpm typecheck` + the curated
+critical-unit subset (`packages/core/vitest.smoke.config.ts` — schemas, migration, permission
+grants, the cloud/renderer/privacy security boundaries, command dispatch). Runs in well under 60s
+(~30s locally). Use it while iterating; run `pnpm check` before handoff. CI runs the same gate as
+the `smoke-gate` job on every PR into an `initiative/*` branch (see §3.3).
 
 ### 3.3 CI Gate
 
-Every push to `main` and every pull request runs `.github/workflows/ci.yml`:
+`.github/workflows/ci.yml` is tiered by the PR's **base** branch (the `changes` job's `tier`
+output): a PR into an `initiative/*` branch gets the fast smoke tier; a push to `main`, a PR into
+`main`, or a manual `workflow_dispatch` gets the full tier.
 
-- `build-and-test` — credentials scan, quality gates, lint, typecheck, production build, and all unit suites
+**Smoke tier** (PR base is `initiative/*`):
+
+- `smoke-gate` — `pnpm test:smoke` (lint:boundary + typecheck + the curated critical-unit subset)
+
+**Full tier** (push to `main`, PR into `main`, or `workflow_dispatch`):
+
+- `build-and-test` — credentials scan, quality gates, lint, typecheck, production build, the
+  production bundle budget (RC-ENG-1.2), and all unit suites
 - `browser-e2e` — path-filtered, two-shard Playwright suite with failure diagnostics
 - `accessibility` — path-filtered desktop/mobile axe scan and merged report
 - `desktop-smoke` — path-filtered Electron boot, CSP, and persistence smoke on Linux
@@ -186,7 +199,7 @@ GitHub Settings -> Branches -> Add rule:
 - Require a pull request before merging: enabled
 - Require status checks to pass before merging: enabled
 - Required checks:
-  - `build-and-test`
+  - `smoke-gate`
 - Require branches to be up to date before merging: enabled
 - Do not allow bypassing the above settings
 - Allow force pushes: disabled

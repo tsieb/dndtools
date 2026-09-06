@@ -13,7 +13,8 @@
 	"scripts": {
 		"build": "tsc -p tsconfig.json --noEmit",
 		"typecheck": "tsc -p tsconfig.json --noEmit",
-		"test": "vitest run"
+		"test": "vitest run",
+		"test:smoke": "vitest run --config vitest.smoke.config.ts"
 	},
 	"devDependencies": {
 		"@types/node": "^24.12.4",
