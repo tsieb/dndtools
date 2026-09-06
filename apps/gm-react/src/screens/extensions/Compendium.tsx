@@ -40,6 +40,9 @@ import type {
 	CompendiumSpell,
 } from '../../app/compendium/types';
 import { eventField } from './shared';
+import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
+
+type Translate = (key: MessageKey, values?: MessageValues) => string;
 import {
 	ImportControl,
 	MonsterDetail,
@@ -52,17 +55,25 @@ import {
 /* ---- Compendium (real Open5e browse + import) --------------------------------------------------- */
 
 const CR_VALUES = [0, 0.125, 0.25, 0.5, ...Array.from({ length: 30 }, (_, i) => i + 1)];
-const CR_OPTIONS = [
-	{ value: 'any', label: 'Any CR' },
-	...CR_VALUES.map((cr) => ({ value: String(cr), label: `CR ${formatCr(cr)}` })),
+// The filter options are copy, so they are built per locale rather than frozen at module load.
+const crOptions = (t: Translate) => [
+	{ value: 'any', label: t('extensions.compendium.anyCr') },
+	...CR_VALUES.map((cr) => ({
+		value: String(cr),
+		label: t('extensions.compendium.crValue', { cr: formatCr(cr) }),
+	})),
 ];
-const LEVEL_OPTIONS = [
-	{ value: 'any', label: 'Any level' },
-	{ value: '0', label: 'Cantrip' },
-	...Array.from({ length: 9 }, (_, i) => ({ value: String(i + 1), label: `Level ${i + 1}` })),
+const levelOptions = (t: Translate) => [
+	{ value: 'any', label: t('extensions.compendium.anyLevel') },
+	{ value: '0', label: t('extensions.compendium.cantrip') },
+	...Array.from({ length: 9 }, (_, i) => ({
+		value: String(i + 1),
+		label: t('extensions.compendium.levelValue', { level: i + 1 }),
+	})),
 ];
 
 export function ExtCompendium() {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const isPhone = useViewport() === 'phone';
 	const navigate = useNavigate();
@@ -89,6 +100,8 @@ export function ExtCompendium() {
 	const [pendingDocKey, setPendingDocKey] = useState(SRD_DOCUMENT_KEY);
 	const [activeDoc, setActiveDoc] = useState<Open5eDocument | null>(null); // null = the default SRD
 	const abortRef = useRef<AbortController | null>(null);
+	const crOpts = useMemo(() => crOptions(t), [t]);
+	const levelOpts = useMemo(() => levelOptions(t), [t]);
 
 	// Debounced, abortable search — live Open5e first, bundled SRD on network failure (the client
 	// re-throws intentional aborts so a stale query can never clobber a fresh one).
@@ -165,13 +178,23 @@ export function ExtCompendium() {
 					payload: monsterToQuickCreatePayload(monster, sourceMeta),
 				});
 				if (res.status === 'rejected') {
-					Toaster.error(`${monster.name} was not imported: ${res.rejection.message}`);
+					Toaster.error(
+						t('extensions.compendium.importFailed', {
+							name: monster.name,
+							reason: res.rejection.message,
+						}),
+					);
 					return;
 				}
 				const id = eventField(res, 'character.created', 'characterId');
 				Toaster.success(
-					`${monster.name} added to the roster (DM-only)`,
-					id ? { action: 'Open', onAction: () => navigate(`/characters/${id}`) } : undefined,
+					t('extensions.compendium.monsterImported', { name: monster.name }),
+					id
+						? {
+								action: t('extensions.compendium.open'),
+								onAction: () => navigate(`/characters/${id}`),
+							}
+						: undefined,
 				);
 			} else {
 				const spell = entry as CompendiumSpell;
@@ -181,13 +204,23 @@ export function ExtCompendium() {
 					payload: spellToCreateObjectPayload(spell, sourceMeta),
 				});
 				if (res.status === 'rejected') {
-					Toaster.error(`${spell.name} was not imported: ${res.rejection.message}`);
+					Toaster.error(
+						t('extensions.compendium.importFailed', {
+							name: spell.name,
+							reason: res.rejection.message,
+						}),
+					);
 					return;
 				}
 				const id = eventField(res, 'content.object-changed', 'itemId');
 				Toaster.success(
-					`${spell.name} saved to the vault (DM-only)`,
-					id ? { action: 'Open', onAction: () => navigate(`/knowledge/${id}`) } : undefined,
+					t('extensions.compendium.spellImported', { name: spell.name }),
+					id
+						? {
+								action: t('extensions.compendium.open'),
+								onAction: () => navigate(`/knowledge/${id}`),
+							}
+						: undefined,
 				);
 			}
 		} catch (error) {
@@ -207,11 +240,7 @@ export function ExtCompendium() {
 		setDocsError(null);
 		listDocuments()
 			.then(setDocs)
-			.catch(() =>
-				setDocsError(
-					'The Open5e source list could not be reached — only the bundled SRD is available offline.',
-				),
-			);
+			.catch(() => setDocsError(t('extensions.compendium.sourceListFailed')));
 	};
 	const pendingDoc = docs?.find((d) => d.key === pendingDocKey) ?? null;
 
@@ -226,18 +255,18 @@ export function ExtCompendium() {
 		canWrite,
 	};
 	const sourceBadge = loading ? (
-		<Badge status="neutral">searching…</Badge>
+		<Badge status="neutral">{t('extensions.compendium.searching')}</Badge>
 	) : result?.source === 'live' ? (
 		<Badge status="success" icon="check">
-			Live · Open5e API
+			{t('extensions.compendium.sourceLive')}
 		</Badge>
 	) : result ? (
 		<Badge status="warning" icon="warning">
-			Offline — bundled SRD
+			{t('extensions.compendium.sourceOffline')}
 		</Badge>
 	) : (
 		<Badge status="error" icon="warning">
-			unavailable
+			{t('extensions.compendium.sourceUnavailable')}
 		</Badge>
 	);
 
@@ -254,17 +283,16 @@ export function ExtCompendium() {
 					alignItems: 'start',
 				}}
 			>
-				<Panel title="Open5e compendium" action={sourceBadge}>
+				<Panel title={t('extensions.compendium.title')} action={sourceBadge}>
 					{!canWrite && (
 						<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 8 }}>
-							Importing is DM-only and read-only while previewing — browsing works, the import
-							buttons are disabled.
+							{t('extensions.compendium.readOnly')}
 						</div>
 					)}
 					{/* kind selector */}
 					<div style={{ marginBottom: 10 }}>
 						<SegmentedControl
-							ariaLabel="Compendium entry kind"
+							ariaLabel={t('extensions.compendium.kind')}
 							size="sm"
 							value={kind}
 							onChange={(id: string) => {
@@ -278,7 +306,7 @@ export function ExtCompendium() {
 									label: (
 										<>
 											<Icon name="monster-claw" size={14} />
-											Monsters
+											{t('extensions.compendium.monsters')}
 											{kind === 'monster' && result ? (
 												<span style={{ opacity: 0.75 }}>{result.total}</span>
 											) : null}
@@ -290,7 +318,7 @@ export function ExtCompendium() {
 									label: (
 										<>
 											<Icon name="spell-sparkle" size={14} />
-											Spells
+											{t('extensions.compendium.spells')}
 											{kind === 'spell' && result ? (
 												<span style={{ opacity: 0.75 }}>{result.total}</span>
 											) : null}
@@ -306,24 +334,26 @@ export function ExtCompendium() {
 							<Input
 								value={search}
 								onChange={(e: { target: { value: string } }) => setSearch(e.target.value)}
-								placeholder={
-									kind === 'monster' ? 'Search monsters by name…' : 'Search spells by name…'
-								}
-								aria-label="Search the compendium by name"
+								placeholder={t(
+									kind === 'monster'
+										? 'extensions.compendium.searchMonsters'
+										: 'extensions.compendium.searchSpells',
+								)}
+								aria-label={t('extensions.compendium.searchLabel')}
 							/>
 						</span>
 						<span style={{ flex: '0 0 130px' }}>
 							{kind === 'monster' ? (
 								<Select
-									aria-label="Filter by challenge rating"
-									options={CR_OPTIONS}
+									aria-label={t('extensions.compendium.filterCr')}
+									options={crOpts}
 									value={cr}
 									onChange={(e: { target: { value: string } }) => setCr(e.target.value)}
 								/>
 							) : (
 								<Select
-									aria-label="Filter by spell level"
-									options={LEVEL_OPTIONS}
+									aria-label={t('extensions.compendium.filterLevel')}
+									options={levelOpts}
 									value={level}
 									onChange={(e: { target: { value: string } }) => setLevel(e.target.value)}
 								/>
@@ -345,20 +375,21 @@ export function ExtCompendium() {
 					>
 						<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 							<span style={{ font: `12px ${T.sans}`, color: T.sub, flex: 1, minWidth: 0 }}>
-								Source:{' '}
+								{t('extensions.compendium.source')}{' '}
 								<span style={{ font: `600 12px ${T.sans}`, color: T.ink }}>
 									{activeDoc ? activeDoc.name : 'SRD 5.1'}
 								</span>{' '}
 								<span style={{ color: T.ter }}>
 									·{' '}
 									{activeDoc
-										? activeDoc.licenses.map((l) => l.name).join(', ') || 'see publisher'
+										? activeDoc.licenses.map((l) => l.name).join(', ') ||
+											t('extensions.compendium.seePublisher')
 										: 'CC-BY-4.0'}
 								</span>
 							</span>
 							{!sourceUiOpen && (
 								<Button variant="ghost" size="sm" onClick={openSourcePicker}>
-									Other sources…
+									{t('extensions.compendium.otherSources')}
 								</Button>
 							)}
 						</div>
@@ -376,10 +407,10 @@ export function ExtCompendium() {
 										</div>
 										<div style={{ display: 'flex', gap: 6 }}>
 											<Button variant="secondary" size="sm" onClick={openSourcePicker}>
-												Try again
+												{t('common.action.retry')}
 											</Button>
 											<Button variant="ghost" size="sm" onClick={() => setSourceUiOpen(false)}>
-												Cancel
+												{t('common.action.cancel')}
 											</Button>
 										</div>
 									</>
@@ -387,7 +418,7 @@ export function ExtCompendium() {
 								{docs && (
 									<>
 										<Select
-											aria-label="Choose a source document"
+											aria-label={t('extensions.compendium.chooseSource')}
 											options={docs.map((d) => ({
 												value: d.key,
 												label: `${d.name} — ${d.publisher}`,
@@ -399,14 +430,13 @@ export function ExtCompendium() {
 										/>
 										{pendingDoc && (
 											<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
-												License:{' '}
+												{t('extensions.compendium.license')}{' '}
 												<span style={{ color: T.sub }}>
 													{pendingDoc.licenses.map((l) => l.name).join(', ') ||
-														'see the publisher’s terms'}
+														t('extensions.compendium.seeTerms')}
 												</span>
-												{pendingDoc.permalink ? ` · ${pendingDoc.permalink}` : ''}. Content from
-												this source is fetched live from the Open5e API and remains under its
-												publisher’s license.
+												{pendingDoc.permalink ? ` · ${pendingDoc.permalink}` : ''}
+												{t('extensions.compendium.licenseNote')}
 											</div>
 										)}
 										<div style={{ display: 'flex', gap: 6 }}>
@@ -422,10 +452,10 @@ export function ExtCompendium() {
 													setSelKey(null);
 												}}
 											>
-												Use this source
+												{t('extensions.compendium.useSource')}
 											</Button>
 											<Button variant="ghost" size="sm" onClick={() => setSourceUiOpen(false)}>
-												Cancel
+												{t('common.action.cancel')}
 											</Button>
 										</div>
 									</>
@@ -434,8 +464,7 @@ export function ExtCompendium() {
 						)}
 						{activeDoc && result?.source === 'bundled' && (
 							<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.err }}>
-								{activeDoc.name} needs the live API — offline results below are the bundled SRD
-								instead.
+								{t('extensions.compendium.needsLiveApi', { name: activeDoc.name })}
 							</div>
 						)}
 					</div>
@@ -445,7 +474,7 @@ export function ExtCompendium() {
 						// `aria-hidden` Skeletons, so the debounced compendium search announced neither
 						// its loading nor its completion. LoadingRegion puts the text INSIDE.
 						<LoadingRegion
-							label="Loading results"
+							label={t('extensions.compendium.loadingResults')}
 							style={{ display: 'flex', flexDirection: 'column', gap: 9 }}
 						>
 							{[0, 1, 2, 3].map((i) => (
@@ -456,15 +485,17 @@ export function ExtCompendium() {
 					{!loading && !result && (
 						<EmptyState
 							icon="warning"
-							title="Compendium unavailable"
-							description="Neither the online compendium nor the bundled reference could be loaded — check your connection and reload."
+							title={t('extensions.compendium.unavailableTitle')}
+							description={t('extensions.compendium.unavailableBody')}
 						/>
 					)}
 					{!loading && result && entries.length === 0 && (
 						<EmptyState
 							icon="search"
-							title="No matches"
-							description={`Nothing in ${result.document} matches this search — try a different name or clear the filter.`}
+							title={t('extensions.compendium.noMatchesTitle')}
+							description={t('extensions.compendium.noMatchesBody', {
+								document: result.document,
+							})}
 						/>
 					)}
 					{!loading && entries.length > 0 && (
@@ -491,7 +522,7 @@ export function ExtCompendium() {
 										<button
 											type="button"
 											aria-pressed={selKey === entry.key}
-											aria-label={`Select ${entry.name}`}
+											aria-label={t('extensions.compendium.selectEntry', { name: entry.name })}
 											onClick={() => setSelKey(entry.key)}
 											style={{
 												flex: 1,
@@ -510,14 +541,14 @@ export function ExtCompendium() {
 												<span style={{ font: `600 13.5px ${T.sans}` }}>{entry.name}</span>
 												{dup && (
 													<Badge status="success" icon="check">
-														In vault
+														{t('extensions.compendium.inVault')}
 													</Badge>
 												)}
 											</div>
 											<div style={{ font: `11.5px ${T.mono}`, color: T.ter, margin: '2px 0 0' }}>
 												{kind === 'monster'
 													? monsterMeta(entry as CompendiumMonster)
-													: spellMeta(entry as CompendiumSpell)}
+													: spellMeta(entry as CompendiumSpell, t)}
 											</div>
 										</button>
 										<span onClick={(e) => e.stopPropagation()} style={{ alignSelf: 'center' }}>
@@ -543,8 +574,10 @@ export function ExtCompendium() {
 										padding: '2px 0 0',
 									}}
 								>
-									Showing the first {entries.length} of {result.total} matches — refine the search
-									to narrow it down.
+									{t('extensions.compendium.showingFirst', {
+										shown: entries.length,
+										total: result.total,
+									})}
 								</div>
 							)}
 						</div>
@@ -553,16 +586,22 @@ export function ExtCompendium() {
 				{/* detail panel */}
 				<Panel
 					accent
-					title={selected ? selected.name : 'Entry details'}
+					title={selected ? selected.name : t('extensions.compendium.entryDetails')}
 					action={
-						selected && <Badge status="info">{kind === 'monster' ? 'Monster' : 'Spell'}</Badge>
+						selected && (
+							<Badge status="info">
+								{t(
+									kind === 'monster'
+										? 'extensions.compendium.monster'
+										: 'extensions.compendium.spell',
+								)}
+							</Badge>
+						)
 					}
 				>
 					{!selected && (
 						<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.ter }}>
-							Select an entry to review its statblock before importing. Monsters land in the roster
-							as DM-only quick-create characters (usable in the Encounter Builder); spells become
-							DM-only vault objects on the Knowledge screen.
+							{t('extensions.compendium.selectPrompt')}
 						</div>
 					)}
 					{selected && kind === 'monster' && (

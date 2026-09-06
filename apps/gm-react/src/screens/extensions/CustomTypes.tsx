@@ -12,16 +12,20 @@ import { Badge, Button, Checkbox, Dialog, Icon, Input, Select, Toaster } from '.
 import { Panel, T, mono } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { eventField, VISIBILITY_WORD } from './shared';
+import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
+
+type Translate = (key: MessageKey, values?: MessageValues) => string;
 
 /* ---- Custom object types (REAL — `content.define/update/delete-object-type` + `content.create/update-object`) */
 
-const FIELD_KIND_OPTIONS: { value: VaultObjectFieldType; label: string }[] = [
-	{ value: 'string', label: 'Text' },
-	{ value: 'number', label: 'Number' },
-	{ value: 'boolean', label: 'Boolean' },
-	{ value: 'string-array', label: 'Text list' },
-	{ value: 'object', label: 'Object' },
-	{ value: 'object-array', label: 'Object list' },
+// The field kinds are copy, so they are built per locale rather than frozen at module load.
+const fieldKindOptions = (t: Translate): { value: VaultObjectFieldType; label: string }[] => [
+	{ value: 'string', label: t('extensions.customTypes.kind.string') },
+	{ value: 'number', label: t('extensions.customTypes.kind.number') },
+	{ value: 'boolean', label: t('extensions.customTypes.kind.boolean') },
+	{ value: 'string-array', label: t('extensions.customTypes.kind.stringArray') },
+	{ value: 'object', label: t('extensions.customTypes.kind.object') },
+	{ value: 'object-array', label: t('extensions.customTypes.kind.objectArray') },
 ];
 
 interface FieldDraft {
@@ -34,6 +38,7 @@ interface FieldDraft {
 const emptyField = (): FieldDraft => ({ key: '', type: 'string', required: false, dmOnly: false });
 
 export function CustomObjectTypes() {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const dmId = runtime.defaultActorId;
 	const previewing = !!runtime.preview;
@@ -44,6 +49,7 @@ export function CustomObjectTypes() {
 		() => listCustomObjectTypeSummaries(runtime.state.content.customObjectTypes),
 		[runtime.state.content.customObjectTypes],
 	);
+	const fieldKinds = useMemo(() => fieldKindOptions(t), [t]);
 	const items = getContentItemsForActor(runtime.state.content, runtime.state.permissions, dmId);
 	const countFor = (typeId: string): number =>
 		items.filter((i) => i.kind === 'object' && i.fields[VAULT_OBJECT_SUBTYPE_KEY] === typeId)
@@ -109,7 +115,11 @@ export function CustomObjectTypes() {
 				Toaster.error(issues ? `${res.rejection.message} ${issues}` : res.rejection.message);
 				return;
 			}
-			Toaster.success(editId ? `Updated "${payload.label}"` : `Created "${payload.label}"`);
+			Toaster.success(
+				t(editId ? 'extensions.customTypes.updated' : 'extensions.customTypes.created', {
+					label: payload.label,
+				}),
+			);
 			resetForm();
 		} catch (error) {
 			Toaster.error(error instanceof Error ? error.message : String(error));
@@ -132,7 +142,7 @@ export function CustomObjectTypes() {
 				Toaster.error(res.rejection.message);
 				return;
 			}
-			Toaster.success(`Deleted "${def.label}"`);
+			Toaster.success(t('extensions.customTypes.deleted', { label: def.label }));
 			if (editId === def.id) resetForm();
 		} catch (error) {
 			Toaster.error(error instanceof Error ? error.message : String(error));
@@ -144,19 +154,19 @@ export function CustomObjectTypes() {
 	return (
 		<>
 			<Panel
-				title="Custom object types"
+				title={t('extensions.customTypes.title')}
 				action={
-					<Badge status={summaries.length ? 'accent' : 'neutral'}>{summaries.length} defined</Badge>
+					<Badge status={summaries.length ? 'accent' : 'neutral'}>
+						{t('extensions.customTypes.definedCount', { count: summaries.length })}
+					</Badge>
 				}
 			>
 				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
-					Define your own vault-object types with a small field schema. A custom type is first-class
-					— its objects create, validate, and list alongside the built-in types above. Deleting a
-					type is blocked while any of its objects still exist.
+					{t('extensions.customTypes.intro')}
 				</div>
 				{summaries.length === 0 ? (
 					<div style={{ font: `12px ${T.sans}`, color: T.ter, padding: '4px 0' }}>
-						No custom types yet.
+						{t('extensions.customTypes.empty')}
 					</div>
 				) : (
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -202,18 +212,23 @@ export function CustomObjectTypes() {
 											style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
 										>
 											<span style={{ font: `600 13.5px ${T.sans}` }}>{s.label}</span>
-											<Badge status="neutral">Custom</Badge>
+											<Badge status="neutral">{t('extensions.customTypes.custom')}</Badge>
 											{s.dmOnlyFields.length > 0 && (
 												<Badge status="accent">
-													{s.dmOnlyFields.length} DM-only{' '}
-													{s.dmOnlyFields.length === 1 ? 'field' : 'fields'}
+													{t('extensions.objects.dmOnlyFields', {
+														count: s.dmOnlyFields.length,
+													})}
 												</Badge>
 											)}
 										</div>
 										<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-											<span style={mono}>{s.id}</span> · {s.fieldCount}{' '}
-											{s.fieldCount === 1 ? 'field' : 'fields'} · defaults to{' '}
-											{VISIBILITY_WORD[s.defaultVisibility] ?? s.defaultVisibility}
+											<span style={mono}>{s.id}</span>{' '}
+											{t('extensions.customTypes.summaryMeta', {
+												fields: s.fieldCount,
+												visibility: VISIBILITY_WORD[s.defaultVisibility]
+													? t(VISIBILITY_WORD[s.defaultVisibility])
+													: s.defaultVisibility,
+											})}
 										</div>
 									</div>
 									<span
@@ -223,7 +238,7 @@ export function CustomObjectTypes() {
 											flex: '0 0 auto',
 										}}
 									>
-										{count} in vault
+										{t('extensions.objects.inVault', { count })}
 									</span>
 									<div
 										style={{
@@ -242,7 +257,7 @@ export function CustomObjectTypes() {
 												disabled={!canWrite || busy}
 												onClick={() => setInstanceOf(def)}
 											>
-												New
+												{t('extensions.customTypes.new')}
 											</Button>
 										)}
 										{def && (
@@ -253,7 +268,7 @@ export function CustomObjectTypes() {
 												disabled={!canWrite || busy}
 												onClick={() => startEdit(def)}
 											>
-												Edit
+												{t('common.action.edit')}
 											</Button>
 										)}
 										{def && confirmDeleteId === def.id && (
@@ -267,10 +282,12 @@ export function CustomObjectTypes() {
 													disabled={!canWrite || busy}
 													onClick={() => deleteType(def)}
 												>
-													{count > 0 ? `Confirm delete (${count} in vault)` : 'Confirm delete'}
+													{count > 0
+														? t('extensions.customTypes.confirmDeleteCount', { count })
+														: t('extensions.customTypes.confirmDelete')}
 												</Button>
 												<Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>
-													Keep
+													{t('extensions.compendium.keep')}
 												</Button>
 											</>
 										)}
@@ -282,7 +299,7 @@ export function CustomObjectTypes() {
 												disabled={!canWrite || busy}
 												onClick={() => setConfirmDeleteId(def.id)}
 											>
-												Delete
+												{t('common.action.delete')}
 											</Button>
 										)}
 									</div>
@@ -293,12 +310,17 @@ export function CustomObjectTypes() {
 				)}
 			</Panel>
 
-			<Panel title={editId ? `Edit type · ${editId}` : 'Define a new type'} accent={!!editId}>
+			<Panel
+				title={
+					editId
+						? t('extensions.customTypes.editType', { id: editId })
+						: t('extensions.customTypes.defineTitle')
+				}
+				accent={!!editId}
+			>
 				{!canWrite && (
 					<div style={{ font: `12px ${T.sans}`, color: T.ter, marginBottom: 4 }}>
-						{previewing
-							? 'Exit preview to author types.'
-							: 'Only the DM may define custom object types.'}
+						{t(previewing ? 'extensions.customTypes.exitPreview' : 'extensions.customTypes.dmOnly')}
 					</div>
 				)}
 				<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -306,13 +328,13 @@ export function CustomObjectTypes() {
 						<label
 							style={{ font: `11.5px ${T.sans}`, color: T.sub, display: 'block', marginBottom: 4 }}
 						>
-							Label
+							{t('extensions.customTypes.label')}
 						</label>
 						<Input
 							value={label}
 							onChange={(e: { target: { value: string } }) => setLabel(e.target.value)}
-							placeholder="e.g. Tavern"
-							aria-label="Custom type label"
+							placeholder={t('extensions.customTypes.labelPlaceholder')}
+							aria-label={t('extensions.customTypes.labelField')}
 							disabled={!canWrite}
 						/>
 					</span>
@@ -322,7 +344,9 @@ export function CustomObjectTypes() {
 				</div>
 
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-					<span style={{ font: `11.5px ${T.sans}`, color: T.sub }}>Fields</span>
+					<span style={{ font: `11.5px ${T.sans}`, color: T.sub }}>
+						{t('extensions.customTypes.fields')}
+					</span>
 					{fields.map((f, i) => (
 						<div
 							key={i}
@@ -336,15 +360,15 @@ export function CustomObjectTypes() {
 											prev.map((p, j) => (j === i ? { ...p, key: e.target.value } : p)),
 										)
 									}
-									placeholder="field key (e.g. proprietor)"
-									aria-label={`Field ${i + 1} key`}
+									placeholder={t('extensions.customTypes.fieldKeyPlaceholder')}
+									aria-label={t('extensions.customTypes.fieldKey', { index: i + 1 })}
 									disabled={!canWrite}
 								/>
 							</span>
 							<span style={{ flex: '0 0 130px' }}>
 								<Select
-									aria-label={`Field ${i + 1} kind`}
-									options={FIELD_KIND_OPTIONS}
+									aria-label={t('extensions.customTypes.fieldKind', { index: i + 1 })}
+									options={fieldKinds}
 									value={f.type}
 									onChange={(e: { target: { value: string } }) =>
 										setFields((prev) =>
@@ -360,14 +384,14 @@ export function CustomObjectTypes() {
 								onChange={(v: boolean) =>
 									setFields((prev) => prev.map((p, j) => (j === i ? { ...p, required: v } : p)))
 								}
-								label="Required"
+								label={t('extensions.customTypes.required')}
 							/>
 							<Checkbox
 								checked={f.dmOnly}
 								onChange={(v: boolean) =>
 									setFields((prev) => prev.map((p, j) => (j === i ? { ...p, dmOnly: v } : p)))
 								}
-								label="DM-only"
+								label={t('extensions.customTypes.dmOnlyField')}
 							/>
 							<Button
 								variant="ghost"
@@ -377,7 +401,7 @@ export function CustomObjectTypes() {
 								onClick={() =>
 									setFields((prev) => (prev.length === 1 ? prev : prev.filter((_, j) => j !== i)))
 								}
-								aria-label={`Remove field ${i + 1}`}
+								aria-label={t('extensions.customTypes.removeField', { index: i + 1 })}
 							/>
 						</div>
 					))}
@@ -389,7 +413,7 @@ export function CustomObjectTypes() {
 							disabled={!canWrite || fields.length >= 40}
 							onClick={() => setFields((prev) => [...prev, emptyField()])}
 						>
-							Add field
+							{t('extensions.customTypes.addField')}
 						</Button>
 					</span>
 				</div>
@@ -402,11 +426,15 @@ export function CustomObjectTypes() {
 						disabled={!canSubmit}
 						onClick={submitType}
 					>
-						{busy ? 'Saving…' : editId ? 'Save changes' : 'Define type'}
+						{busy
+							? t('extensions.customTypes.saving')
+							: editId
+								? t('extensions.customTypes.saveChanges')
+								: t('extensions.customTypes.defineType')}
 					</Button>
 					{editId && (
 						<Button variant="ghost" size="sm" onClick={resetForm} disabled={busy}>
-							Cancel edit
+							{t('extensions.customTypes.cancelEdit')}
 						</Button>
 					)}
 				</div>
@@ -427,6 +455,7 @@ function CustomObjectInstanceDialog({
 	def: CustomObjectTypeDefinition;
 	onClose: () => void;
 }) {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const navigate = useNavigate();
 	const dmId = runtime.defaultActorId;
@@ -476,8 +505,13 @@ function CustomObjectInstanceDialog({
 			}
 			const id = eventField(res, 'content.object-changed', 'itemId');
 			Toaster.success(
-				`Created ${title.trim()} (DM-only)`,
-				id ? { action: 'Open', onAction: () => navigate(`/knowledge/${id}`) } : undefined,
+				t('extensions.customTypes.instanceCreated', { title: title.trim() }),
+				id
+					? {
+							action: t('extensions.compendium.open'),
+							onAction: () => navigate(`/knowledge/${id}`),
+						}
+					: undefined,
 			);
 			onClose();
 		} catch (error) {
@@ -491,13 +525,13 @@ function CustomObjectInstanceDialog({
 		<Dialog
 			open
 			onClose={onClose}
-			title={`New ${def.label}`}
+			title={t('extensions.customTypes.newInstance', { label: def.label })}
 			description={def.id}
 			size="md"
 			footer={
 				<>
 					<Button variant="secondary" size="sm" disabled={busy} onClick={onClose}>
-						Cancel
+						{t('common.action.cancel')}
 					</Button>
 					<Button
 						variant="primary"
@@ -506,7 +540,7 @@ function CustomObjectInstanceDialog({
 						disabled={busy || title.trim() === ''}
 						onClick={create}
 					>
-						{busy ? 'Creating…' : 'Create'}
+						{busy ? t('extensions.customTypes.creating') : t('common.action.create')}
 					</Button>
 				</>
 			}
@@ -523,13 +557,13 @@ function CustomObjectInstanceDialog({
 						    visible word and the accessible name disagreed — the label fixed above was
 						    announced to nobody, and voice control ("click Title") could not reach the
 						    field (WCAG 2.5.3). Matching the two lets the aria-label go. */}
-						Object title
+						{t('extensions.customTypes.objectTitle')}
 					</label>
 					<Input
 						id="custom-object-title"
 						value={title}
 						onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
-						placeholder="Title"
+						placeholder={t('common.field.title')}
 					/>
 				</span>
 				{def.fields.map((f) => (
@@ -550,8 +584,12 @@ function CustomObjectInstanceDialog({
 						>
 							{f.key}
 							<span style={{ color: T.ter }}>· {f.type}</span>
-							{f.required && <span style={{ color: T.acc }}>required</span>}
-							{f.dmOnly && <span style={{ color: T.acc }}>DM-only</span>}
+							{f.required && (
+								<span style={{ color: T.acc }}>{t('extensions.customTypes.requiredWord')}</span>
+							)}
+							{f.dmOnly && (
+								<span style={{ color: T.acc }}>{t('extensions.customTypes.dmOnlyWord')}</span>
+							)}
 						</label>
 						{f.type === 'boolean' ? (
 							<Select
@@ -559,8 +597,8 @@ function CustomObjectInstanceDialog({
 								aria-required={f.required || undefined}
 								options={[
 									{ value: '', label: '—' },
-									{ value: 'true', label: 'True' },
-									{ value: 'false', label: 'False' },
+									{ value: 'true', label: t('extensions.customTypes.true') },
+									{ value: 'false', label: t('extensions.customTypes.false') },
 								]}
 								value={values[f.key] ?? ''}
 								onChange={(e: { target: { value: string } }) => setValue(f.key, e.target.value)}
@@ -575,7 +613,9 @@ function CustomObjectInstanceDialog({
 								inputMode={f.type === 'number' ? 'decimal' : undefined}
 								value={values[f.key] ?? ''}
 								onChange={(e: { target: { value: string } }) => setValue(f.key, e.target.value)}
-								placeholder={f.type === 'string-array' ? 'comma-separated' : f.type}
+								placeholder={
+									f.type === 'string-array' ? t('extensions.customTypes.commaSeparated') : f.type
+								}
 							/>
 						)}
 					</span>

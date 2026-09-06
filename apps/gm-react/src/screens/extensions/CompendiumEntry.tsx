@@ -2,6 +2,9 @@ import { Button } from '../../ds';
 import { T, eb } from '../../app/screen-kit';
 import { formatCr, spellDuration } from '../../app/compendium/import';
 import type { CompendiumMonster, CompendiumSpell } from '../../app/compendium/types';
+import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
+
+type Translate = (key: MessageKey, values?: MessageValues) => string;
 
 /**
  * Compendium entry rendering — the per-entry primitives (meta lines, the duplicate-guarded import
@@ -21,9 +24,15 @@ export interface EntryImportProps {
 
 export const monsterMeta = (m: CompendiumMonster) =>
 	`${m.size} ${m.type} · CR ${formatCr(m.cr)}${m.ac != null ? ` · AC ${m.ac}` : ''}${m.hp != null ? ` · HP ${m.hp}` : ''}`;
-export const spellMeta = (s: CompendiumSpell) =>
-	`${s.level === 0 ? 'Cantrip' : `Level ${s.level}`} ${s.school} · ${s.castingTime} · ${s.range}`;
+export const spellMeta = (s: CompendiumSpell, t: Translate) =>
+	`${
+		s.level === 0
+			? t('extensions.compendium.cantrip')
+			: t('extensions.compendium.levelValue', { level: s.level })
+	} ${s.school} · ${s.castingTime} · ${s.range}`;
 
+// The ability abbreviations are rules vocabulary rather than interface copy — they come from the
+// system, not from this screen. See the HANDOFF in the commit that migrated `screens/player/`.
 const ABILITY_COLUMNS: Array<[label: string, key: string]> = [
 	['STR', 'strength'],
 	['DEX', 'dexterity'],
@@ -67,6 +76,7 @@ export function ImportControl({
 	onImport: () => void;
 	size?: 'sm' | 'md';
 }) {
+	const { t } = useI18n();
 	if (inVault && confirming) {
 		return (
 			<span style={{ display: 'inline-flex', gap: 6 }}>
@@ -79,10 +89,10 @@ export function ImportControl({
 					disabled={disabled || busy}
 					onClick={onImport}
 				>
-					Import copy
+					{t('extensions.compendium.importCopy')}
 				</Button>
 				<Button variant="ghost" size={size} onClick={() => onConfirmChange(false)}>
-					Keep
+					{t('extensions.compendium.keep')}
 				</Button>
 			</span>
 		);
@@ -94,10 +104,10 @@ export function ImportControl({
 				size={size}
 				icon="import"
 				disabled={disabled || busy}
-				aria-label={`Import ${name} again (already in vault)`}
+				aria-label={t('extensions.compendium.importAgainLabel', { name })}
 				onClick={() => onConfirmChange(true)}
 			>
-				Import again
+				{t('extensions.compendium.importAgain')}
 			</Button>
 		);
 	}
@@ -109,7 +119,7 @@ export function ImportControl({
 			disabled={disabled || busy}
 			onClick={onImport}
 		>
-			{busy ? 'Importing…' : 'Import'}
+			{busy ? t('extensions.compendium.importing') : t('extensions.compendium.import')}
 		</Button>
 	);
 }
@@ -121,6 +131,7 @@ export function MonsterDetail({
 	monster: CompendiumMonster;
 	imports: EntryImportProps;
 }) {
+	const { t } = useI18n();
 	const m = monster;
 	const scores = m.abilityScores;
 	return (
@@ -149,35 +160,50 @@ export function MonsterDetail({
 			)}
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
 				<DetailLine
-					label="Armor Class"
+					label={t('extensions.compendium.armorClass')}
 					value={m.ac != null ? `${m.ac}${m.acDetail ? ` (${m.acDetail})` : ''}` : undefined}
 				/>
 				<DetailLine
-					label="Hit Points"
+					label={t('extensions.compendium.hitPoints')}
 					value={m.hp != null ? `${m.hp}${m.hitDice ? ` (${m.hitDice})` : ''}` : undefined}
 				/>
 				<DetailLine
-					label="Speed"
+					label={t('extensions.compendium.speed')}
 					value={
 						Object.entries(m.speed ?? {})
 							.filter(([, v]) => typeof v === 'number' && v > 0)
-							.map(([mode, v]) => `${mode} ${v} ft.`)
+							.map(([mode, v]) =>
+								t('extensions.compendium.feet', { label: mode, value: v as number }),
+							)
 							.join(', ') || undefined
 					}
 				/>
 				<DetailLine
-					label="Senses"
+					label={t('extensions.compendium.senses')}
 					value={
 						[
-							...Object.entries(m.senses ?? {}).map(([s, r]) => `${s} ${r} ft.`),
-							...(m.passivePerception != null ? [`passive Perception ${m.passivePerception}`] : []),
+							...Object.entries(m.senses ?? {}).map(([sense, range]) =>
+								t('extensions.compendium.feet', { label: sense, value: range }),
+							),
+							...(m.passivePerception != null
+								? [t('extensions.compendium.passivePerception', { value: m.passivePerception })]
+								: []),
 						].join(', ') || undefined
 					}
 				/>
-				<DetailLine label="Languages" value={m.languages} />
-				<DetailLine label="Damage immunities" value={m.damageImmunities} />
-				<DetailLine label="Damage resistances" value={m.damageResistances} />
-				<DetailLine label="Condition immunities" value={m.conditionImmunities} />
+				<DetailLine label={t('extensions.compendium.languages')} value={m.languages} />
+				<DetailLine
+					label={t('extensions.compendium.damageImmunities')}
+					value={m.damageImmunities}
+				/>
+				<DetailLine
+					label={t('extensions.compendium.damageResistances')}
+					value={m.damageResistances}
+				/>
+				<DetailLine
+					label={t('extensions.compendium.conditionImmunities')}
+					value={m.conditionImmunities}
+				/>
 			</div>
 			{((m.traits?.length ?? 0) > 0 || (m.actions?.length ?? 0) > 0) && (
 				// Text-only bounded scroller: without a tab stop a keyboard user
@@ -186,7 +212,7 @@ export function MonsterDetail({
 				<div
 					tabIndex={0}
 					role="group"
-					aria-label="Traits and actions"
+					aria-label={t('extensions.compendium.traitsActions')}
 					style={{
 						maxHeight: 300,
 						overflowY: 'auto',
@@ -199,18 +225,25 @@ export function MonsterDetail({
 						background: T.surf,
 					}}
 				>
-					{(m.traits ?? []).map((t) => (
-						<div key={`t-${t.name}`} style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
-							<span style={{ font: `600 italic 12px ${T.sans}`, color: T.ink }}>{t.name}. </span>
-							{t.desc}
+					{(m.traits ?? []).map((trait) => (
+						<div key={`t-${trait.name}`} style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+							<span style={{ font: `600 italic 12px ${T.sans}`, color: T.ink }}>
+								{trait.name}.{' '}
+							</span>
+							{trait.desc}
 						</div>
 					))}
-					{(m.actions ?? []).length > 0 && <div style={{ ...eb, marginTop: 2 }}>Actions</div>}
+					{(m.actions ?? []).length > 0 && (
+						<div style={{ ...eb, marginTop: 2 }}>{t('extensions.compendium.actions')}</div>
+					)}
 					{(m.actions ?? []).map((a) => (
 						<div key={`a-${a.name}`} style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
 							<span style={{ font: `600 12px ${T.sans}`, color: T.ink }}>
 								{a.name}
-								{a.actionType === 'LEGENDARY_ACTION' ? ' (legendary)' : ''}.{' '}
+								{a.actionType === 'LEGENDARY_ACTION'
+									? ` (${t('extensions.compendium.legendary')})`
+									: ''}
+								.{' '}
 							</span>
 							{a.desc}
 						</div>
@@ -238,24 +271,25 @@ export function SpellDetail({
 	spell: CompendiumSpell;
 	imports: EntryImportProps;
 }) {
+	const { t } = useI18n();
 	const s = spell;
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 			<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
-				{spellMeta(s)}
-				{s.ritual ? ' · ritual' : ''}
+				{spellMeta(s, t)}
+				{s.ritual ? ` · ${t('extensions.compendium.ritual')}` : ''}
 			</div>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-				<DetailLine label="Casting time" value={s.castingTime} />
-				<DetailLine label="Range" value={s.range} />
-				<DetailLine label="Components" value={s.components} />
-				<DetailLine label="Duration" value={spellDuration(s)} />
-				<DetailLine label="Classes" value={s.classes?.join(', ')} />
+				<DetailLine label={t('extensions.compendium.castingTime')} value={s.castingTime} />
+				<DetailLine label={t('extensions.compendium.range')} value={s.range} />
+				<DetailLine label={t('extensions.compendium.components')} value={s.components} />
+				<DetailLine label={t('extensions.compendium.duration')} value={spellDuration(s)} />
+				<DetailLine label={t('extensions.compendium.classes')} value={s.classes?.join(', ')} />
 			</div>
 			<div
 				tabIndex={0}
 				role="group"
-				aria-label="Spell description"
+				aria-label={t('extensions.compendium.spellDescription')}
 				style={{
 					maxHeight: 300,
 					overflowY: 'auto',
@@ -269,7 +303,7 @@ export function SpellDetail({
 				}}
 			>
 				{s.desc}
-				{s.higherLevel ? `\n\nAt higher levels. ${s.higherLevel}` : ''}
+				{s.higherLevel ? `\n\n${t('extensions.compendium.higherLevels')} ${s.higherLevel}` : ''}
 			</div>
 			<ImportControl
 				name={s.name}
