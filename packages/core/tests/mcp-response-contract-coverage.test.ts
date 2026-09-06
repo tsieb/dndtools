@@ -130,6 +130,12 @@ const VALID_INPUT: Record<string, unknown> = {
 	},
 	'scene.card.update': { cardId: SEEDED_CARD, flavorText: 'Rain drums on the tin roof.' },
 	'note.append': { itemId: SEEDED_NOTE, text: 'They met the Fen Circle at dusk.' },
+	'widget.package.propose': {
+		displayName: 'Party loot ledger',
+		prompt: 'Make me a loot ledger widget.',
+		template: 'data-table',
+		dataQueries: [{ id: 'loot', label: 'Loot items', source: 'content-objects' }],
+	},
 };
 
 /** An invalid input per tool (mirrors the MCP-005 coverage manifest's rejected inputs). */
@@ -160,6 +166,12 @@ const INVALID_INPUT: Record<string, unknown> = {
 	'map.poi.create': { mapId: 'map-western-reaches', label: 'x', position: { x: 4, y: 0.5 } }, // x is 0..1
 	'scene.card.update': { cardId: 'card-1' }, // nothing to update
 	'note.append': { text: 'more prose' }, // missing required itemId
+	// Not one of the eight declared template renderers.
+	'widget.package.propose': {
+		displayName: 'Timeline',
+		prompt: 'Make me a timeline.',
+		template: 'timeline',
+	},
 };
 
 function run(toolId: string, input: unknown, actorId: string): McpToolResult {

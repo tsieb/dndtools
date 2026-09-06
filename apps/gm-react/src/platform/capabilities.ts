@@ -140,7 +140,9 @@ export function capabilitiesForRuntime(
 
 const startupSignals = readRuntimeSignals();
 const devRuntimeOverride: RuntimeKind | null =
-	import.meta.env.DEV &&
+	// `import.meta.env` is injected by Vite. Optional so this module also loads under a plain Node
+	// runner (`scripts/ai-agent-smoke.ts` imports the AI bridge, which reaches here transitively).
+	import.meta.env?.DEV &&
 	(globalThis as typeof globalThis & { __DNDTOOLS_TEST_RUNTIME_KIND__?: unknown })
 		.__DNDTOOLS_TEST_RUNTIME_KIND__ === 'android'
 		? 'android'

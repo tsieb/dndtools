@@ -11,6 +11,11 @@ import { getPrepRecapDigest } from '../queries/prep-recap-digest';
 import { rollExpression } from '../state/dice';
 import { VAULT_OBJECT_SUBTYPE_KEY } from '../state/vault-object';
 import { buildSemanticBundle, type SemanticBundleKind } from './semantic-bundles';
+import {
+	hashWidgetPromptText,
+	scaffoldCustomWidgetPackageDraft,
+} from '../queries/widget-package-review';
+import type { mcpWidgetPackageProposeInputSchema } from './tool-registry';
 
 /**
  * MCP-004 / MCP-011 (composition seam) — the SINGLE, FAIL-CLOSED ENTRY POINT for every MCP tool call.
@@ -525,6 +530,71 @@ export function writeCommandPayload(
 					notes,
 				},
 			};
+		}
+		case 'widget.package.install': {
+			// RC-WID-3.1 — turn the model's STRUCTURED draft into a full `WidgetPackageDefinition`. The
+			// tool input carries no code, no host permissions, and no network classes (see the schema),
+			// so everything the scaffold cannot derive from the draft simply is not there: the widget is
+			// a TEMPLATE widget over declared, actor-filtered queries. `authoring.source` is `generated`
+			// and `authoring.promptHash` fingerprints the DM's ask, so the Plugins list can say where the
+			// package came from without persisting the prompt itself. The install command re-validates
+			// the whole definition and leaves it unreviewed, disabled, and permission-denied.
+			const draft = input as z.infer<typeof mcpWidgetPackageProposeInputSchema>;
+			// The draft names bindings and config fields; the SHAPE around them (a binding's entity types
+			// and mode, a config field's group) is the scaffold's default, because those are fields the DM
+			// edits in the builder rather than ones a model needs to invent (see the tool's schema doc).
+			const bindingDefinition = (binding: (typeof draft.bindings)[number]) => ({
+				id: binding.id,
+				label: binding.label,
+				entityTypes: [],
+				mode: 'read' as const,
+				requiredCapability: 'viewer' as const,
+			});
+			const scaffolded = scaffoldCustomWidgetPackageDraft({
+				displayName: draft.displayName,
+				widgetType: draft.displayName,
+				template: draft.template,
+				...(draft.description === '' ? {} : { description: draft.description }),
+				promptSummary: draft.description === '' ? draft.displayName : draft.description,
+				promptHash: hashWidgetPromptText(draft.prompt),
+				dataQueries: draft.dataQueries.map((query) => ({
+					id: query.id,
+					label: query.label,
+					source: query.source,
+					requiredCapability: 'viewer' as const,
+					audience: query.audience,
+					...(query.bindingIds !== undefined ? { bindingIds: [...query.bindingIds] } : {}),
+				})),
+				requiredBindings: draft.bindings
+					.filter((binding) => !binding.optional)
+					.map(bindingDefinition),
+				optionalBindings: draft.bindings
+					.filter((binding) => binding.optional)
+					.map(bindingDefinition),
+				configFields: draft.configFields.map((field) => ({
+					key: field.key,
+					label: field.label,
+					control: field.control,
+					group: 'content' as const,
+					...(field.options !== undefined
+						? { options: field.options.map((option) => ({ value: option, label: option })) }
+						: {}),
+				})),
+				commands: draft.commands.map((command) => ({
+					type: command.type,
+					displayName: command.displayName,
+					requiredCapability: 'operator' as const,
+					// The draft declares no payload shape, so the descriptor accepts a permissive object —
+					// the same posture the built-in widgets take. `destinationClass` is deliberately NOT
+					// derived: it defaults to `writesTo`, which is never a lower-privilege destination.
+					payloadSchema: { type: 'object' as const, additionalProperties: true },
+					writesTo: command.writesTo,
+				})),
+				...(draft.styleTokens.length > 0
+					? { styleTokens: draft.styleTokens.map((token) => ({ ...token })) }
+					: {}),
+			});
+			return { ok: true, payload: { package: scaffolded.package } };
 		}
 		default:
 			// A registered write tool with an unmapped command forwards its raw input; the command's

@@ -530,6 +530,10 @@ export type {
 } from './state/widget-package-state';
 export {
 	ALL_HOST_PERMISSIONS,
+	// RC-WID-3.1 — the eight template kinds and the eight data-query sources, as one source of truth
+	// shared by the builder, the MCP propose tool's schema, and its model-facing description.
+	ALL_WIDGET_DATA_QUERY_SOURCES,
+	ALL_WIDGET_TEMPLATE_KINDS,
 	DEFAULT_WIDGET_SURFACES,
 	EMPTY_WIDGET_PACKAGE_STATE,
 	SYSTEM_WIDGET_PACKAGE_STATE,
@@ -1349,6 +1353,8 @@ export type {
 export {
 	CUSTOM_WIDGET_HOST_API_VERSION,
 	buildWidgetPackageReviewSummary,
+	// RC-WID-3.1 — the prompt fingerprint recorded as provenance on a generated package.
+	hashWidgetPromptText,
 	scaffoldCustomWidgetPackageDraft,
 	stageWidgetWizardDraft,
 } from './queries/widget-package-review';
@@ -4837,6 +4843,8 @@ export {
 	mcpNoteCreateInputSchema,
 	mcpNoteSearchInputSchema,
 	mcpSessionPrepInputSchema,
+	// RC-WID-3.1 — the structured widget-draft input the `widget.package.propose` tool accepts.
+	mcpWidgetPackageProposeInputSchema,
 } from './mcp/tool-registry';
 export type { McpDenyReason, McpToolInvocation, McpToolResult } from './mcp/tool-dispatch';
 export { invokeMcpTool } from './mcp/tool-dispatch';

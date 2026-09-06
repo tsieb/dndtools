@@ -85,6 +85,8 @@ describe('MCP-002 — the baseline tool set includes dice.roll and session.prep'
 				'map.poi.create',
 				'scene.card.update',
 				'note.append',
+				// RC-WID-3.1 — the widget-authoring staged write tool.
+				'widget.package.propose',
 			].sort(),
 		);
 	});

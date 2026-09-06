@@ -1,15 +1,23 @@
 import type {
 	WidgetCommandDescriptor,
+	WidgetConfigField,
+	WidgetDataSchema,
 	WidgetDefinition,
 	WidgetDiagnostic,
 	WidgetHostPermission,
 	WidgetNetworkDestinationClass,
 	WidgetOutputDestinationClass,
 	WidgetPackageDefinition,
+	WidgetSchemaFieldType,
 	WidgetStyleCapability,
 	WidgetStyleIsolation,
+	WidgetTemplateKind,
 } from '../state/widget-package-state';
-import { ALL_HOST_PERMISSIONS } from '../state/widget-package-state';
+import {
+	ALL_HOST_PERMISSIONS,
+	WIDGET_RENDER_HOST_API_VERSION,
+} from '../state/widget-package-state';
+import { assetId, hashAssetBytes } from '../state/map-assets';
 import {
 	CUSTOM_WIDGET_HOST_API_VERSION,
 	resolveCustomWidgetRuntimePolicy,
@@ -241,8 +249,22 @@ export interface ScaffoldCustomWidgetPackageDraftInput {
 	createdBy?: string;
 	llmProvider?: string;
 	promptSummary?: string;
+	/**
+	 * RC-WID-3.1 — the fingerprint of the prompt this draft came from. Recorded as provenance on the
+	 * package's `authoring` block; see {@link hashWidgetPromptText}.
+	 */
+	promptHash?: string;
+	/** Library category the widget is grouped under (e.g. 'Combat', 'Reference'). */
+	category?: string;
 	hostPermissions?: readonly WidgetHostPermission[];
 	networkDestinationClasses?: readonly WidgetNetworkDestinationClass[];
+	/**
+	 * RC-WID-3.1 — scaffold a TEMPLATE widget instead of a custom-code one. With a template kind the
+	 * draft declares `renderEntrypoint: { runtime: 'template', template }` and ships NO html/css/js
+	 * assets at all: the widget is rendered by the host's own template renderer over its declared
+	 * data queries. Absent (the default) keeps the original `custom-html-js` scaffold.
+	 */
+	template?: WidgetTemplateKind;
 	styleIsolation?: WidgetStyleIsolation;
 	styleCapabilities?: readonly WidgetStyleCapability[];
 	styleTokens?: readonly { name: string; value: string; description?: string }[];
@@ -251,9 +273,47 @@ export interface ScaffoldCustomWidgetPackageDraftInput {
 	css?: string;
 	javascript?: string;
 	dataQueries?: WidgetPackageDefinition['widgets'][number]['dataQueries'];
+	computedFields?: WidgetPackageDefinition['widgets'][number]['computedFields'];
+	/** Declarative Customize-panel fields. Each key also becomes a `configurationSchema` property. */
+	configFields?: readonly WidgetConfigField[];
 	requiredBindings?: WidgetPackageDefinition['widgets'][number]['requiredBindings'];
+	optionalBindings?: WidgetPackageDefinition['widgets'][number]['optionalBindings'];
 	commands?: WidgetPackageDefinition['widgets'][number]['commands'];
 	outputWrites?: WidgetPackageDefinition['widgets'][number]['outputWrites'];
+	defaultSize?: { width: number; height: number };
+	minSize?: { width: number; height: number };
+}
+
+/** The schema field type a config control stores, so a declared field lands in the config schema. */
+function configFieldType(control: WidgetConfigField['control']): WidgetSchemaFieldType {
+	if (control === 'number') return 'number';
+	if (control === 'toggle') return 'boolean';
+	return 'string';
+}
+
+/**
+ * Build the widget's `configurationSchema` from its declared config fields. The schema stays
+ * `additionalProperties: true` because the GUI stores per-instance layout flags and style-token
+ * overrides alongside the declared keys (the same reason the built-in widgets do).
+ */
+function configurationSchemaFor(fields: readonly WidgetConfigField[]): WidgetDataSchema {
+	if (fields.length === 0) return { type: 'object', additionalProperties: true };
+	return {
+		type: 'object',
+		properties: Object.fromEntries(
+			fields.map((field) => [field.key, { type: configFieldType(field.control) }]),
+		),
+		additionalProperties: true,
+	};
+}
+
+/**
+ * RC-WID-3.1 — content-address a natural-language prompt so a generated package can record WHICH ask
+ * produced it without persisting the ask. Reuses the map-asset content-address algorithm
+ * (`fnv1a64-<checksum>`), so it is pure, deterministic, and identical on every device.
+ */
+export function hashWidgetPromptText(prompt: string): string {
+	return assetId(hashAssetBytes(new TextEncoder().encode(prompt)));
 }
 
 export function scaffoldCustomWidgetPackageDraft(
@@ -264,6 +324,9 @@ export function scaffoldCustomWidgetPackageDraft(
 	const widgetType = input.widgetType ?? widgetSlug;
 	const displayName = pascalWords(input.displayName);
 	const assetBase = `widgets/${widgetSlug}`;
+	// RC-WID-3.1 — a TEMPLATE draft is rendered by the host's own renderer, so it ships no code at
+	// all: no html/css/js assets, and an entrypoint that names the template kind instead of a file.
+	const isTemplate = input.template !== undefined;
 	const styleTokens = [
 		...(input.styleTokens ?? [
 			{ name: 'accent', value: '#3b82f6', description: 'Primary accent color.' },
@@ -329,6 +392,7 @@ export function scaffoldCustomWidgetPackageDraft(
 			createdBy: input.createdBy,
 			llmProvider: input.llmProvider ?? 'local-placeholder',
 			promptSummary: input.promptSummary ?? input.description,
+			...(input.promptHash !== undefined ? { promptHash: input.promptHash } : {}),
 		},
 		widgets: [
 			{
@@ -336,28 +400,45 @@ export function scaffoldCustomWidgetPackageDraft(
 				version: '1.0.0',
 				displayName,
 				author: 'workspace',
-				renderEntrypoint: {
-					runtime: 'custom-html-js',
-					sandbox: 'iframe',
-					assetPath: `${assetBase}/index.html`,
-					hostApiVersion: CUSTOM_WIDGET_HOST_API_VERSION,
-				},
+				...(input.category !== undefined ? { category: input.category } : {}),
+				...(input.description !== undefined ? { description: input.description } : {}),
+				...(input.configFields !== undefined
+					? { configFields: input.configFields.map((field) => ({ ...field })) }
+					: {}),
+				renderEntrypoint: isTemplate
+					? {
+							runtime: 'template',
+							template: input.template,
+							hostApiVersion: WIDGET_RENDER_HOST_API_VERSION,
+						}
+					: {
+							runtime: 'custom-html-js',
+							sandbox: 'iframe',
+							assetPath: `${assetBase}/index.html`,
+							hostApiVersion: CUSTOM_WIDGET_HOST_API_VERSION,
+						},
 				style: {
-					isolation: input.styleIsolation ?? 'iframe-document',
-					stylesheetAssetPaths: [`${assetBase}/styles.css`],
-					capabilities: [...(input.styleCapabilities ?? ['css-variables', 'custom-stylesheet'])],
+					isolation: input.styleIsolation ?? (isTemplate ? 'host-scoped' : 'iframe-document'),
+					...(isTemplate ? {} : { stylesheetAssetPaths: [`${assetBase}/styles.css`] }),
+					capabilities: [
+						...(input.styleCapabilities ??
+							(isTemplate
+								? ['css-variables', 'host-theme-tokens']
+								: ['css-variables', 'custom-stylesheet'])),
+					],
 					tokens: styleTokens.map((token) => ({ ...token })),
 					cssVariables,
 				},
 				supportedProfiles: ['desktop', 'tablet', 'mobile', 'web'],
-				defaultSize: { width: 360, height: 240 },
-				minSize: { width: 220, height: 140 },
+				defaultSize: input.defaultSize ?? { width: 360, height: 240 },
+				minSize: input.minSize ?? { width: 220, height: 140 },
 				resizePolicy: 'free',
 				requiredBindings: [...(input.requiredBindings ?? [])],
-				optionalBindings: [],
+				optionalBindings: [...(input.optionalBindings ?? [])],
 				dataQueries: input.dataQueries ? [...input.dataQueries] : [],
+				computedFields: input.computedFields ? [...input.computedFields] : [],
 				outputWrites: input.outputWrites ? [...input.outputWrites] : [],
-				configurationSchema: { type: 'object', additionalProperties: true },
+				configurationSchema: configurationSchemaFor(input.configFields ?? []),
 				runtimeStateSchema: { type: 'object', additionalProperties: true },
 				localStateSchema: { type: 'object', additionalProperties: true },
 				capabilitySets: ['manager', 'operator', 'viewer'],
@@ -368,11 +449,13 @@ export function scaffoldCustomWidgetPackageDraft(
 			},
 		],
 		migrations: [],
-		assets: [
-			{ path: `${assetBase}/index.html`, kind: 'html', entrypoint: true, content: html },
-			{ path: `${assetBase}/styles.css`, kind: 'css', content: css },
-			{ path: `${assetBase}/main.js`, kind: 'javascript', content: js },
-		],
+		assets: isTemplate
+			? []
+			: [
+					{ path: `${assetBase}/index.html`, kind: 'html', entrypoint: true, content: html },
+					{ path: `${assetBase}/styles.css`, kind: 'css', content: css },
+					{ path: `${assetBase}/main.js`, kind: 'javascript', content: js },
+				],
 		portabilityWarnings: [],
 	};
 	return stageWidgetWizardDraft({

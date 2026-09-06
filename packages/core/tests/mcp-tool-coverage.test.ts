@@ -426,6 +426,28 @@ const MCP_TOOL_COVERAGE: McpToolCoverageRow[] = [
 			};
 		},
 	},
+	{
+		// RC-WID-3.1 — the structured widget draft. Needs no seed: the package is built entirely from
+		// the tool input, and `widget.package.install` is DM-only, so the player row proves the gate.
+		toolId: 'widget.package.propose',
+		kind: 'write',
+		behaviors: [
+			'schema-validation',
+			'actor-policy',
+			'visibility-filtering',
+			'idempotency',
+			'staged-preview',
+			'direct-mode',
+			'failure-handling',
+		],
+		invalidInput: { displayName: 'Timeline', prompt: 'Make a timeline.', template: 'timeline' },
+		validInput: {
+			displayName: 'Party loot ledger',
+			prompt: 'Make me a loot ledger widget.',
+			template: 'data-table',
+			dataQueries: [{ id: 'loot', label: 'Loot items', source: 'content-objects' }],
+		},
+	},
 ];
 
 function denied(result: McpToolResult): Extract<McpToolResult, { status: 'denied' }> {

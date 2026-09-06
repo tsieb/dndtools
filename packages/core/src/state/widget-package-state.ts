@@ -241,6 +241,14 @@ export interface WidgetAuthoringProvenance {
 	createdAt?: string;
 	llmProvider?: string;
 	promptSummary?: string;
+	/**
+	 * RC-WID-3.1 — a content-addressed fingerprint of the natural-language prompt a GENERATED package
+	 * came from (`<algorithm>-<checksum>`, the map-asset content-address algorithm). It records WHICH
+	 * ask produced this package without persisting the ask itself, so two packages generated from the
+	 * same prompt are recognisably the same lineage and a regenerated one is recognisably different.
+	 * Additive and optional: packages written before RC-WID-3.1 simply do not carry it.
+	 */
+	promptHash?: string;
 	reviewNotes?: string[];
 }
 
@@ -352,6 +360,39 @@ export const ALL_HOST_PERMISSIONS: WidgetHostPermission[] = [
 	'asset',
 	'external-link',
 ];
+
+/**
+ * Every declared template renderer, in a stable order (RC-WID-1.2 ships one renderer per entry).
+ * Exported so the widget builder, the MCP `widget.package.propose` tool schema, and its
+ * model-facing description all name the SAME eight kinds — a ninth can never appear in one place
+ * and be missing from another.
+ */
+export const ALL_WIDGET_TEMPLATE_KINDS = [
+	'data-table',
+	'status-list',
+	'tracker',
+	'action-panel',
+	'scene-message',
+	'chart',
+	'stat-block',
+	'form-panel',
+] as const satisfies readonly WidgetTemplateKind[];
+
+/**
+ * Every declared data-query source, in a stable order. Each resolves against an ACTOR-FILTERED core
+ * read, so a declared query can never widen what its viewer may see. Shares one source of truth with
+ * the builder and the `widget.package.propose` tool schema for the same reason as the template list.
+ */
+export const ALL_WIDGET_DATA_QUERY_SOURCES = [
+	'current-combatants',
+	'visible-characters',
+	'selected-scene',
+	'session-state',
+	'notes',
+	'maps',
+	'content-objects',
+	'binding',
+] as const satisfies readonly WidgetDataQuerySource[];
 
 export const EMPTY_WIDGET_PACKAGE_STATE: WidgetPackageState = Object.freeze({
 	packages: {},

@@ -286,6 +286,9 @@ export const widgetPackageDefinitionSchema = z
 				createdAt: z.string().min(1).optional(),
 				llmProvider: z.string().min(1).optional(),
 				promptSummary: z.string().min(1).optional(),
+				// RC-WID-3.1 — the content-addressed fingerprint of the prompt a generated package came
+				// from. Additive and optional: packages authored before it parse unchanged.
+				promptHash: z.string().min(1).optional(),
 				reviewNotes: z.array(z.string().min(1)).optional(),
 			})
 			.strict()

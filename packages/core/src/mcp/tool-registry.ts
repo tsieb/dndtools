@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import {
+	ALL_WIDGET_DATA_QUERY_SOURCES,
+	ALL_WIDGET_TEMPLATE_KINDS,
+} from '../state/widget-package-state';
 
 /**
  * MCP-004 / MCP-005 — the typed, FAIL-CLOSED MCP TOOL REGISTRY.
@@ -133,6 +137,10 @@ export const MCP_BASELINE_TOOL_IDS = [
 	'map.poi.create',
 	'scene.card.update',
 	'note.append',
+	// RC-WID-3.1 — the widget-authoring WRITE surface. It stages a `widget.package.install`, and an
+	// installed package starts UNREVIEWED, DISABLED, with every host permission denied — so even an
+	// approved proposal only puts a widget in front of the DM's trust review, never on a scene.
+	'widget.package.propose',
 ] as const;
 
 export type McpBaselineToolId = (typeof MCP_BASELINE_TOOL_IDS)[number];
@@ -508,6 +516,191 @@ export const mcpNoteAppendInputSchema = z
 	.strict();
 
 /**
+ * RC-WID-3.1 — the `widget.package.propose` WRITE tool input: a STRUCTURED widget draft the model has
+ * already turned the DM's plain-English ask into. It is deliberately far narrower than
+ * `WidgetPackageDefinition`, and the narrowing is the security story:
+ *
+ *   - `template` is REQUIRED and picks one of the eight declared TEMPLATE renderers. There is no way
+ *     to submit html, css, or javascript, so an agent can never author EXECUTABLE widget code — it
+ *     composes renderers the host already ships over queries the core already answers.
+ *   - `hostPermissions` and `networkDestinationClasses` are not accepted at all, so a generated
+ *     package can never request the filesystem, the clipboard, the network, or an external link.
+ *   - a query's `audience` defaults to `dm`, so a query the model forgot to classify is DM only.
+ *   - a command declares only `writesTo` (scene / session / entity). The lower-privilege destination
+ *     classes — player-visible state, a player scene, the clipboard, the network, an export — are
+ *     not expressible, so a generated widget cannot declare a cross-privilege write.
+ *   - a binding's mode is limited to reading and watching; a generated widget cannot declare that it
+ *     CHANGES a bound entity.
+ *
+ * The staged proposal's payload is the fully validated `WidgetPackageDefinition` (built by
+ * `scaffoldCustomWidgetPackageDraft`) carrying provenance `generated` plus the prompt's fingerprint.
+ * Approving it dispatches `widget.package.install`, which is DM-only and leaves the package
+ * UNREVIEWED, DISABLED, and with every host permission denied.
+ *
+ * It is also deliberately SMALL. Every tool's JSON schema is sent to the model on every pass, and a
+ * widget draft is the most structured input on the whole surface — a first cut ran to 5.3 KB, a
+ * quarter of the entire 27-tool payload, and measurably degraded a 7B local model's tool choice
+ * across UNRELATED scenarios. So the fields a DM can just as easily set afterwards in the builder
+ * (a binding's entity types and mode, a config field's default/placeholder/help, a command's
+ * required capability) are not accepted here. The scaffold's defaults cover them, and RC-WID-3.2
+ * opens the proposal in the manual builder with every field editable.
+ */
+const widgetProposeIdSchema = z
+	.string()
+	.min(1)
+	.max(60)
+	.regex(/^[a-z][a-z0-9-]*$/, 'Use a lower-case slug, e.g. "party-loot".');
+
+export const mcpWidgetPackageProposeInputSchema = z
+	.object({
+		displayName: nonEmpty.max(80),
+		description: z.string().max(500).default(''),
+		/** The DM's original ask, recorded as a provenance fingerprint (never stored verbatim). */
+		prompt: nonEmpty.max(4000),
+		template: z.enum(ALL_WIDGET_TEMPLATE_KINDS),
+		dataQueries: z
+			.array(
+				z
+					.object({
+						id: widgetProposeIdSchema,
+						label: nonEmpty.max(80),
+						source: z.enum(ALL_WIDGET_DATA_QUERY_SOURCES),
+						audience: z.enum(['dm', 'players', 'shared']).default('dm'),
+						bindingIds: z.array(widgetProposeIdSchema).max(4).optional(),
+					})
+					.strict(),
+			)
+			.max(8)
+			.default([]),
+		bindings: z
+			.array(
+				z
+					.object({
+						id: widgetProposeIdSchema,
+						label: nonEmpty.max(80),
+						optional: z.boolean().default(false),
+					})
+					.strict(),
+			)
+			.max(8)
+			.default([]),
+		configFields: z
+			.array(
+				z
+					.object({
+						key: widgetProposeIdSchema,
+						label: nonEmpty.max(80),
+						control: z.enum(['text', 'textarea', 'number', 'select', 'toggle', 'color']),
+						options: z.array(nonEmpty.max(60)).max(20).optional(),
+					})
+					.strict(),
+			)
+			.max(12)
+			.default([]),
+		commands: z
+			.array(
+				z
+					.object({
+						type: widgetProposeIdSchema,
+						displayName: nonEmpty.max(80),
+						writesTo: z.enum(['scene', 'session', 'entity']),
+					})
+					.strict(),
+			)
+			.max(8)
+			.default([]),
+		styleTokens: z
+			.array(
+				z
+					.object({
+						name: widgetProposeIdSchema,
+						value: z.string().regex(/^(#[0-9a-fA-F]{3,8}|var\(--[a-z0-9-]+\))$/),
+					})
+					.strict(),
+			)
+			.max(8)
+			.default([]),
+	})
+	.strict()
+	.superRefine((value, context) => {
+		const bindingIds = new Set(value.bindings.map((binding) => binding.id));
+		value.dataQueries.forEach((query, index) => {
+			if (query.source !== 'binding') return;
+			const named = query.bindingIds ?? [];
+			if (named.length === 0) {
+				context.addIssue({
+					code: 'custom',
+					path: ['dataQueries', index, 'bindingIds'],
+					message: 'A binding query must name at least one declared binding.',
+				});
+				return;
+			}
+			for (const bindingId of named) {
+				if (!bindingIds.has(bindingId)) {
+					context.addIssue({
+						code: 'custom',
+						path: ['dataQueries', index, 'bindingIds'],
+						message: `No binding is declared with id "${bindingId}".`,
+					});
+				}
+			}
+		});
+	});
+
+/** A SHORT gloss per template renderer, in `ALL_WIDGET_TEMPLATE_KINDS` order. */
+const WIDGET_TEMPLATE_GUIDANCE: Record<(typeof ALL_WIDGET_TEMPLATE_KINDS)[number], string> = {
+	'data-table': 'rows and columns',
+	'status-list': 'things each showing a state',
+	tracker: 'numbers between a floor and a ceiling',
+	'action-panel': 'buttons the DM presses',
+	'scene-message': 'read-aloud text',
+	chart: 'values plotted',
+	'stat-block': 'one creature',
+	'form-panel': 'labelled inputs',
+};
+
+/** A SHORT gloss per data-query source, in `ALL_WIDGET_DATA_QUERY_SOURCES` order. */
+const WIDGET_QUERY_SOURCE_GUIDANCE: Record<(typeof ALL_WIDGET_DATA_QUERY_SOURCES)[number], string> =
+	{
+		'current-combatants': 'the running combat, in initiative order',
+		'visible-characters': 'the characters this viewer may see',
+		'selected-scene': 'the scene currently open',
+		'session-state': 'the running session',
+		notes: 'the vault\u2019s notes',
+		maps: 'the maps and their pins',
+		'content-objects': 'quests, factions, items, roll tables',
+		binding: 'what the DM points a copy at (declare the binding first)',
+	};
+
+/** `name (gloss)` for each entry of a guidance table, comma-joined. */
+function guidanceLine<K extends string>(keys: readonly K[], gloss: Record<K, string>): string {
+	return keys.map((key) => `${key} (${gloss[key]})`).join(', ');
+}
+
+/**
+ * The model-facing description for `widget.package.propose`. Built from the shared const arrays so
+ * the eight templates and eight sources it teaches are the SAME eight the input schema accepts.
+ *
+ * It opens by NARROWING the tool and naming the tools that are not it. The live smoke against a 7B
+ * local model proved why: an earlier, broader phrasing ("design a widget from what the DM wants to
+ * see") pulled the model onto this tool for asks about tables, encounters, and factions — it went
+ * from 5/6 scenarios to 2/6. A write tool's description is part of its contract with the model, and
+ * a tool that answers too many asks is as much a defect as one that answers none.
+ */
+const WIDGET_PACKAGE_PROPOSE_DESCRIPTION = [
+	'Design a WIDGET: a panel the DM places on their scene screen. Use this ONLY when they ask for a',
+	'widget, panel, display, board, or on-screen tracker. For CONTENT — a table, an NPC, an encounter,',
+	'a quest, a faction, a note, a map pin — use that content tool instead; this one is not it.',
+	'You write no code. Pick one `template`:',
+	`  ${guidanceLine(ALL_WIDGET_TEMPLATE_KINDS, WIDGET_TEMPLATE_GUIDANCE)}.`,
+	'Each `dataQueries[].source` is one of:',
+	`  ${guidanceLine(ALL_WIDGET_DATA_QUERY_SOURCES, WIDGET_QUERY_SOURCE_GUIDANCE)}.`,
+	'A query\u2019s `audience` is dm (the default), players, or shared — widen it only when the DM asked',
+	'for something the table should see. Pass their request verbatim as `prompt`.',
+	'Staged for DM approval; the widget arrives switched off, awaiting their trust review.',
+].join('\n');
+
+/**
  * The canonical baseline MCP tool registry: the MCP-002 baseline read tools + the enforced staged
  * note-create write tool. Every entry binds to an EXISTING command/query — no tool introduces a new
  * mutation path. This is the allowlist the dispatcher routes through; an id outside it is denied.
@@ -765,6 +958,18 @@ export function createBaselineMcpToolRegistry(): McpToolRegistry {
 				'Prefer this over note.update when you are adding to a note rather than rewriting it. If ' +
 				'the note changes before approval, Lamplight records a conflict instead of overwriting the ' +
 				'newer edit. Staged for DM approval; never applied immediately.',
+		},
+		// RC-WID-3.1 — the widget-authoring write surface. The description is what TEACHES the model the
+		// eight templates and the eight data sources, so a plain-English ask becomes a valid draft in one
+		// call. It is generated from the shared const arrays, so it can never drift from the schema.
+		{
+			id: 'widget.package.propose',
+			kind: 'write',
+			commandType: 'widget.package.install',
+			writeRisk: 'durable',
+			inputSchema: mcpWidgetPackageProposeInputSchema,
+			title: 'Propose a widget (staged)',
+			description: WIDGET_PACKAGE_PROPOSE_DESCRIPTION,
 		},
 	]);
 }

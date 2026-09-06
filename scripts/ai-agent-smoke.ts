@@ -8,11 +8,12 @@
  *   - `invoke`→ the Core's fail-closed `invokeMcpToolAsAgent` (identity → policy → stage pipeline).
  *
  * It asserts that, from a plain-English ask, the model works through the tools and lands a STAGED,
- * schema-valid proposal — proving the write tools (table.create, character.create, and the RC-AI-1.2
- * encounter/quest/faction creators) are usable by a real model end to end. The tools that need an
- * existing target (map.poi.create, scene.card.update, note.append) are not scenarios here: this
- * harness runs an EMPTY headless vault, so they are covered by dedicated core tests instead. Skips
- * cleanly (exit 0) when Ollama is not running, so CI without a local model is unaffected.
+ * schema-valid proposal — proving the write tools (table.create, character.create, the RC-AI-1.2
+ * encounter/quest/faction creators, and the RC-WID-3.1 widget author) are usable by a real model end
+ * to end. The tools that need an existing target (map.poi.create, scene.card.update, note.append)
+ * are not scenarios here: this harness runs an EMPTY headless vault, so they are covered by
+ * dedicated core tests instead. Skips cleanly (exit 0) when Ollama is not running, so CI without a
+ * local model is unaffected.
  *
  * Run:  pnpm tsx scripts/ai-agent-smoke.ts   (or: OLLAMA_MODEL=llama3.1:8b pnpm tsx scripts/ai-agent-smoke.ts)
  */
@@ -24,6 +25,7 @@ import {
 	createBaselineMcpToolRegistry,
 	createContentItemInputSchema,
 	dispatchCommand,
+	installWidgetPackageInputSchema,
 	invokeMcpToolAsAgent,
 	quickCreateCharacterInputSchema,
 	type CoreEnvironment,
@@ -243,6 +245,18 @@ const SCENARIOS: Scenario[] = [
 		commandType: 'content.create-item',
 		toolId: 'faction.create',
 		schema: createContentItemInputSchema,
+	},
+	// RC-WID-3.1 — the widget-authoring write tool. This is the hardest scenario for a small local
+	// model: it has to pick a template kind and data sources from the tool description alone, with no
+	// example to copy. It proves the description actually TEACHES the eight templates and eight sources.
+	{
+		name: 'widget authoring → widget.package.propose',
+		prompt:
+			'Make me a loot ledger widget for my scene: a table of the treasure the party has picked up, ' +
+			'with a button to mark an item as sold. Stage it for my review.',
+		commandType: 'widget.package.install',
+		toolId: 'widget.package.propose',
+		schema: installWidgetPackageInputSchema,
 	},
 ];
 
