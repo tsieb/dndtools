@@ -260,6 +260,114 @@ test('a11y axe gate: /session with a running initiative tracker', async ({ page 
 	await assertAxeState(page, testInfo, '/session#combat', 'session-combat');
 });
 
+// RC-UX-2.1 — the scene canvas editor (`/scene/:id`) is a durable workspace but, unlike the other
+// routes above, it needs a REAL scene id: an empty vault's default scene is enough, so resolve the
+// one the demo seed already carries (Command Center's home Scene, or the first non-template Scene)
+// rather than inventing an id that would only ever render the route's "not found" state.
+test('a11y axe gate: /scene/:id', async ({ page }, testInfo) => {
+	await openRoute(page, '/');
+	const sceneId = await page.evaluate(() => {
+		const rt = window.__rt!;
+		const state = rt.state as unknown as {
+			commandCenter: { homeSceneId: string | null };
+			scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+		};
+		return (
+			state.commandCenter.homeSceneId ??
+			Object.values(state.scenes.scenes).find((s) => !s.isTemplate)?.id ??
+			null
+		);
+	});
+	expect(sceneId, 'the default vault has no Scene to open the editor on').not.toBeNull();
+	await openRoute(page, `/scene/${sceneId}`);
+	await assertAxeState(page, testInfo, '/scene/:id', 'scene-editor');
+});
+
+// RC-UX-2.1 — `/display` (I11 S11.2.2's second-screen projector) is chrome-less like `/play` and
+// `/join`, but unlike them it carries no shell OR `role="main"` landmark at all: it is a single fixed
+// full-bleed surface (`SceneDisplay.tsx`), so `openStandaloneRoute`'s landmark wait can never resolve
+// there. Wait on that surface's own wrapper instead.
+test('a11y axe gate: /display', async ({ page }, testInfo) => {
+	await page.addInitScript(() => {
+		try {
+			window.localStorage.setItem('dndtools:react:onboarded', 'gate');
+		} catch {
+			/* best-effort */
+		}
+	});
+	await page.goto('/#/display', { waitUntil: 'domcontentloaded' });
+	await page.locator('.app-fixed-viewport').waitFor({ state: 'attached', timeout: 20_000 });
+	await page.waitForTimeout(400);
+	await assertAxeState(page, testInfo, '/display', 'display');
+});
+
+// RC-UX-2.1 — the full-screen creative-app overlays (map editor, widget builder, system builder,
+// character builder) are durable workspaces in their own right but only exist in an OPEN state, so
+// each gets its own scan of that state rather than a ROUTES entry.
+
+test('a11y axe gate: map editor (open state)', async ({ page }, testInfo) => {
+	await openRoute(page, '/atlas');
+	const mapId = await page.evaluate(async () => {
+		const rt = window.__rt!;
+		const res = await rt.dispatch({
+			type: 'map.create',
+			actorId: rt.defaultActorId,
+			payload: {
+				name: 'Axe Gate Map',
+				visibility: 'dm-only',
+				projection: { kind: 'flat', rotationDegrees: 0 },
+				initialLayers: [{ name: 'Base', category: 'base', visibility: 'dm-only' }],
+			},
+		});
+		if (res.status !== 'accepted') return null;
+		const created = (res.events ?? []).find(
+			(e) => (e as { kind?: string }).kind === 'map.created',
+		) as { mapId?: string } | undefined;
+		return created?.mapId ?? null;
+	});
+	expect(mapId, 'map.create must be accepted to reach the editor').not.toBeNull();
+	await page.getByRole('button', { name: 'Axe Gate Map', exact: true }).click();
+	const openBtn = page.getByRole('button', { name: 'Open in map editor' });
+	await expect(openBtn).toBeEnabled();
+	await openBtn.click();
+	await expect(page.getByRole('dialog', { name: 'Map editor — Axe Gate Map' })).toBeVisible();
+	await page.waitForTimeout(250);
+	await assertAxeState(page, testInfo, '/atlas#map-editor', 'map-editor');
+});
+
+test('a11y axe gate: widget builder (open state)', async ({ page }, testInfo) => {
+	await openRoute(page, '/extensions');
+	await page.getByRole('button', { name: 'Build a widget' }).click();
+	const dialog = page.getByRole('dialog', { name: /Widget builder/ });
+	await expect(dialog).toBeVisible();
+	await page.waitForTimeout(250);
+	await assertAxeState(page, testInfo, '/extensions#widget-builder', 'widget-builder');
+});
+
+test('a11y axe gate: system builder (open state)', async ({ page }, testInfo) => {
+	await openRoute(page, '/extensions');
+	await page.getByRole('tab', { name: 'System' }).click();
+	await expect(page.getByText('Choose a system')).not.toHaveCount(0);
+	await page.getByRole('button', { name: /Build your own/ }).click();
+	const forkDialog = page.getByRole('dialog');
+	await expect(forkDialog.getByText('Fork a system')).toBeVisible();
+	await forkDialog.getByRole('button', { name: 'Create the fork' }).click();
+	const builder = page.getByRole('dialog', { name: /^System builder/ });
+	await expect(builder).toBeVisible();
+	await page.waitForTimeout(250);
+	await assertAxeState(page, testInfo, '/extensions#system-builder', 'system-builder');
+});
+
+test('a11y axe gate: character builder (open state)', async ({ page }, testInfo) => {
+	await openRoute(page, '/characters');
+	await page.getByRole('button', { name: 'New character', exact: true }).first().click();
+	await page.getByRole('button', { name: /Build from scratch/ }).click();
+	const wizard = page.getByRole('dialog', { name: 'New character wizard' });
+	await expect(wizard).toBeVisible();
+	await page.waitForTimeout(250);
+	await assertAxeState(page, testInfo, '/characters#new-character-wizard', 'char-builder');
+});
+
 test('a11y axe gate: opened command palette and compact table controls', async ({
 	page,
 }, testInfo) => {
