@@ -2012,6 +2012,22 @@ export type {
 } from './perf/measurement';
 export { measureBudget, measureBudgetSuite } from './perf/measurement';
 
+// RC-ENG-1.1 — BASELINE COMPARISON for the perf measurement pipeline: grade a fresh run against the
+// recorded baseline as well as against the declared target, so a regression inside a budget's slack
+// is still caught. Drift is oriented so positive always means worse, whichever way the metric points.
+// Fail closed: an un-run scenario compares as `not-measured`, never as `steady`.
+export type {
+	BaselineComparison,
+	BaselineComparisonSuite,
+	BaselineComparisonVerdict,
+	BudgetBaselineEntry,
+} from './perf/measurement';
+export {
+	DEFAULT_BASELINE_TOLERANCE,
+	compareSuiteToBaseline,
+	compareToBaseline,
+} from './perf/measurement';
+
 // PERF-005 — BUNDLE + MEMORY BUDGETS with PATH-AWARE GATES. Declares the core-bundle-size and
 // long-session-memory budgets as ordinary PerformanceBudgets (graded by the SAME measureBudget), and
 // adds the path-aware gate: a feature disabled-by-tier / out-of-scope must be lazy-loaded or excluded,

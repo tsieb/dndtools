@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+	DEFAULT_BASELINE_TOLERANCE,
+	compareSuiteToBaseline,
+	compareToBaseline,
 	measureBudget,
 	measureBudgetSuite,
 	type BudgetApprovedException,
@@ -14,7 +17,13 @@ const LATENCY: PerformanceBudget = {
 	userFacingRisk: 'A laggy update.',
 	dataset: 'Single command',
 	deviceClass: 'Desktop reference',
-	metric: { kind: 'latency-ms-p95', direction: 'lower-is-better', target: 100, unit: 'ms', percentile: 95 },
+	metric: {
+		kind: 'latency-ms-p95',
+		direction: 'lower-is-better',
+		target: 100,
+		unit: 'ms',
+		percentile: 95,
+	},
 	maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
 };
 
@@ -25,7 +34,13 @@ const FPS: PerformanceBudget = {
 	userFacingRisk: 'Stuttery panning.',
 	dataset: '4 layers',
 	deviceClass: 'Desktop reference',
-	metric: { kind: 'throughput-fps-p95', direction: 'higher-is-better', target: 50, unit: 'fps', percentile: 95 },
+	metric: {
+		kind: 'throughput-fps-p95',
+		direction: 'higher-is-better',
+		target: 50,
+		unit: 'fps',
+		percentile: 95,
+	},
 	maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
 };
 
@@ -281,5 +296,122 @@ describe('PERF-007 measureBudgetSuite — fail closed across a set', () => {
 
 	it('an empty suite does not pass (nothing was proven)', () => {
 		expect(measureBudgetSuite([], REGISTRY).allPassed).toBe(false);
+	});
+});
+
+describe('RC-ENG-1.1 gradeObservedValue — a frame-rate FLOOR grades the slow tail', () => {
+	it('grades the complement percentile, so a mostly-fast pan with a stuttering tail BREACHES', () => {
+		// 20 samples: 19 comfortably above the 50fps floor, 1 badly stalled. The nearest-rank p95
+		// would grade ~60fps (the best frames) and report this stutter as a pass; the p5 complement
+		// grades the tail the user feels.
+		const samples = [12, ...Array.from({ length: 19 }, () => 60)];
+		const m = measureBudget('fps', samples, REGISTRY);
+		expect(m.observedValue).toBe(12);
+		expect(m.result).toBe('breach');
+		expect(m.message).toContain('p5');
+	});
+
+	it('a ceiling still grades the declared percentile (the slow tail, unchanged)', () => {
+		const samples = [...Array.from({ length: 9 }, () => 10), 900];
+		const m = measureBudget('lat', samples, REGISTRY);
+		expect(m.observedValue).toBe(900);
+		expect(m.result).toBe('breach');
+		expect(m.message).toContain('p95');
+	});
+});
+
+describe('RC-ENG-1.1 compareToBaseline', () => {
+	it('a ceiling that got slower beyond tolerance REGRESSED, with positive drift', () => {
+		const c = compareToBaseline(measureBudget('lat', [50], REGISTRY), 40);
+		expect(c.verdict).toBe('regressed');
+		expect(c.driftRatio).toBeCloseTo(0.25);
+		expect(c.message).toContain('worse than');
+	});
+
+	it('a ceiling inside the tolerance band is STEADY', () => {
+		const c = compareToBaseline(measureBudget('lat', [44], REGISTRY), 40);
+		expect(c.verdict).toBe('steady');
+	});
+
+	it('a ceiling that got faster beyond tolerance IMPROVED, with negative drift', () => {
+		const c = compareToBaseline(measureBudget('lat', [20], REGISTRY), 40);
+		expect(c.verdict).toBe('improved');
+		expect(c.driftRatio).toBeLessThan(0);
+	});
+
+	it('a FLOOR that lost frame rate REGRESSED even though the number went DOWN', () => {
+		const c = compareToBaseline(measureBudget('fps', [55], REGISTRY), 90);
+		expect(c.verdict).toBe('regressed');
+		expect(c.driftRatio).toBeGreaterThan(0);
+	});
+
+	it('a FLOOR that gained frame rate IMPROVED', () => {
+		const c = compareToBaseline(measureBudget('fps', [90], REGISTRY), 60);
+		expect(c.verdict).toBe('improved');
+	});
+
+	it('no recorded baseline reports NO-BASELINE, never a silent pass', () => {
+		const c = compareToBaseline(measureBudget('lat', [50], REGISTRY), null);
+		expect(c.verdict).toBe('no-baseline');
+		expect(c.baselineValue).toBeNull();
+	});
+
+	it('a scenario that produced no samples is NOT-MEASURED, never steady', () => {
+		const c = compareToBaseline(measureBudget('lat', [], REGISTRY), 40);
+		expect(c.verdict).toBe('not-measured');
+		expect(c.observedValue).toBeNull();
+	});
+
+	it('an unknown budget id is NOT-MEASURED', () => {
+		const c = compareToBaseline(measureBudget('nope', [50], REGISTRY), 40);
+		expect(c.verdict).toBe('not-measured');
+	});
+
+	it('a wider tolerance forgives a drift the default would fail', () => {
+		const measurement = measureBudget('lat', [50], REGISTRY);
+		expect(compareToBaseline(measurement, 40, DEFAULT_BASELINE_TOLERANCE).verdict).toBe(
+			'regressed',
+		);
+		expect(compareToBaseline(measurement, 40, 0.5).verdict).toBe('steady');
+	});
+});
+
+describe('RC-ENG-1.1 compareSuiteToBaseline', () => {
+	const baselines = [
+		{ budgetId: 'lat', observedValue: 40 },
+		{ budgetId: 'fps', observedValue: 60 },
+	];
+
+	it('is clean when nothing regressed and everything ran', () => {
+		const suite = compareSuiteToBaseline(
+			[measureBudget('lat', [42], REGISTRY), measureBudget('fps', [62], REGISTRY)],
+			baselines,
+		);
+		expect(suite.clean).toBe(true);
+		expect(suite.steadyCount).toBe(2);
+	});
+
+	it('is NOT clean when one budget regressed', () => {
+		const suite = compareSuiteToBaseline(
+			[measureBudget('lat', [80], REGISTRY), measureBudget('fps', [62], REGISTRY)],
+			baselines,
+		);
+		expect(suite.clean).toBe(false);
+		expect(suite.regressedCount).toBe(1);
+	});
+
+	it('is NOT clean when a scenario produced no samples', () => {
+		const suite = compareSuiteToBaseline(
+			[measureBudget('lat', [], REGISTRY), measureBudget('fps', [62], REGISTRY)],
+			baselines,
+		);
+		expect(suite.clean).toBe(false);
+		expect(suite.notMeasuredCount).toBe(1);
+	});
+
+	it('a brand-new budget with no baseline records its value without blocking', () => {
+		const suite = compareSuiteToBaseline([measureBudget('dur', [1000], REGISTRY)], baselines);
+		expect(suite.missingBaselineCount).toBe(1);
+		expect(suite.clean).toBe(true);
 	});
 });
