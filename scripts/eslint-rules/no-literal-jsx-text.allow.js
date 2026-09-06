@@ -27,13 +27,11 @@ export const allow = {
 	'apps/gm-react/src/app/map/generate/GeneratePanel.tsx': 19,
 	'apps/gm-react/src/app/widget-bodies.tsx': 15,
 	'apps/gm-react/src/screens/Board.tsx': 19,
-	'apps/gm-react/src/screens/Campaign.tsx': 37,
 	'apps/gm-react/src/screens/CommandCenter.tsx': 10,
 	'apps/gm-react/src/screens/Graph.tsx': 18,
 	'apps/gm-react/src/screens/Join.tsx': 15,
 	'apps/gm-react/src/screens/SceneCardsPanel.tsx': 4,
 	'apps/gm-react/src/screens/SceneDisplay.tsx': 2,
 	'apps/gm-react/src/screens/ScenesCreator.tsx': 18,
-	'apps/gm-react/src/screens/Upgrade.tsx': 25,
 	'apps/gm-react/src/screens/WikiReader.tsx': 17,
 };

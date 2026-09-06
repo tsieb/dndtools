@@ -28,7 +28,11 @@ import {
 	VisibilityChip,
 } from '../ds';
 import { Page, Panel, T, eb } from '../app/screen-kit';
+import { useI18n } from '../i18n';
+import type { MessageKey } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
+
+type Translate = (key: MessageKey, values?: Record<string, string | number>) => string;
 
 /**
  * Campaign — the structured-entity / world-model lens, wired to the live Processing Core.
@@ -52,19 +56,21 @@ const STANCE_TONE: Record<string, string> = {
 	allied: 'accent',
 };
 
-const STANCE_OPTIONS = [
-	{ value: 'hostile', label: 'Hostile' },
-	{ value: 'neutral', label: 'Neutral' },
-	{ value: 'friendly', label: 'Friendly' },
-	{ value: 'allied', label: 'Allied' },
+// Every option table below carries a message KEY, not a label: the caller renders it with `t` so a
+// non-English locale gets the translated option instead of the English source (RC-UX-1.2).
+const STANCE_OPTIONS: { value: string; label: MessageKey }[] = [
+	{ value: 'hostile', label: 'campaign.stance.hostile' },
+	{ value: 'neutral', label: 'campaign.stance.neutral' },
+	{ value: 'friendly', label: 'campaign.stance.friendly' },
+	{ value: 'allied', label: 'campaign.stance.allied' },
 ];
 
 // The `quest` subtype's declared status vocabulary (schemas: active | completed | failed | paused).
-const QUEST_STATUS_OPTIONS = [
-	{ value: 'active', label: 'Active' },
-	{ value: 'completed', label: 'Completed' },
-	{ value: 'failed', label: 'Failed' },
-	{ value: 'paused', label: 'Paused' },
+const QUEST_STATUS_OPTIONS: { value: string; label: MessageKey }[] = [
+	{ value: 'active', label: 'campaign.questStatus.active' },
+	{ value: 'completed', label: 'campaign.questStatus.completed' },
+	{ value: 'failed', label: 'campaign.questStatus.failed' },
+	{ value: 'paused', label: 'campaign.questStatus.paused' },
 ];
 
 // Core quest status → the DS QuestCard status key (the card calls the paused state "onhold").
@@ -75,13 +81,13 @@ const QUEST_CARD_STATUS: Record<string, string> = {
 	paused: 'onhold',
 };
 
-const FACTION_KIND_OPTIONS = [
-	{ value: 'cult', label: 'Cult' },
-	{ value: 'militia', label: 'Militia' },
-	{ value: 'guild', label: 'Guild' },
-	{ value: 'party', label: 'Party' },
-	{ value: 'order', label: 'Order' },
-	{ value: 'other', label: 'Other' },
+const FACTION_KIND_OPTIONS: { value: string; label: MessageKey }[] = [
+	{ value: 'cult', label: 'campaign.factionKind.cult' },
+	{ value: 'militia', label: 'campaign.factionKind.militia' },
+	{ value: 'guild', label: 'campaign.factionKind.guild' },
+	{ value: 'party', label: 'campaign.factionKind.party' },
+	{ value: 'order', label: 'campaign.factionKind.order' },
+	{ value: 'other', label: 'campaign.factionKind.other' },
 ];
 
 // Core visibility → the safety-critical VisibilityChip level (same map as Knowledge).
@@ -90,17 +96,33 @@ const VIS_CHIP: Record<string, string> = {
 	'player-visible': 'players',
 	shared: 'players',
 };
-const VIS_OPTIONS = [
-	{ value: 'dm-only', label: 'DM only' },
-	{ value: 'player-visible', label: 'Players' },
-	{ value: 'shared', label: 'Shared' },
+const VIS_OPTIONS: { value: string; label: MessageKey }[] = [
+	{ value: 'dm-only', label: 'common.visibility.dmOnly' },
+	{ value: 'player-visible', label: 'campaign.vis.players' },
+	{ value: 'shared', label: 'common.visibility.shared' },
 ];
 
-const KIND_LABEL: Record<string, string> = {
-	pc: 'PC',
-	npc: 'NPC',
-	monster: 'Monster',
-	sidekick: 'Sidekick',
+const KIND_LABEL: Record<string, MessageKey> = {
+	pc: 'characters.kind.pc',
+	npc: 'characters.kind.npc',
+	monster: 'characters.kind.monster',
+	sidekick: 'characters.kind.sidekick',
+};
+
+/** A key-carrying option table rendered for the DS `Select`, which wants plain labels. */
+const options = (table: { value: string; label: MessageKey }[], t: Translate) =>
+	table.map((option) => ({ value: option.value, label: t(option.label) }));
+
+/** One option's label — or the stored value itself, should the subtype's vocabulary ever widen
+ * past what this screen declares. Falling back to the raw value keeps a widened schema readable
+ * instead of silently relabelling it as something else. */
+const optionLabel = (
+	table: { value: string; label: MessageKey }[],
+	value: string,
+	t: Translate,
+) => {
+	const key = table.find((option) => option.value === value)?.label;
+	return key ? t(key) : value;
 };
 
 /** First non-heading body line, marker-stripped — the one-line summary for list cards. */
@@ -168,6 +190,7 @@ function QuestCardRow({
 	onEdit: () => void;
 }) {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
 	const status = str(row.fields.status) || 'active';
 	const objectives = objectiveArray(row.fields.objectives);
@@ -187,7 +210,7 @@ function QuestCardRow({
 			<QuestCard
 				title={row.view.title}
 				status={QUEST_CARD_STATUS[status] ?? 'active'}
-				hook={bodySummary(row.view.body, 'No hook written yet.')}
+				hook={bodySummary(row.view.body, t('campaign.quest.noHook'))}
 				objectives={objectives.map((o) => ({ label: o.text, done: o.done }))}
 				onToggleObjective={
 					canAuthor
@@ -207,15 +230,15 @@ function QuestCardRow({
 						<div style={{ flex: 1 }} />
 						<IconButton
 							icon="note-edit"
-							label={`Edit ${row.view.title}`}
+							label={t('campaign.edit', { title: row.view.title })}
 							variant="ghost"
 							size="sm"
 							onClick={onEdit}
 						/>
-						<span style={{ ...eb }}>Status</span>
+						<span style={{ ...eb }}>{t('campaign.status')}</span>
 						<Select
-							aria-label={`Status of ${row.view.title}`}
-							options={QUEST_STATUS_OPTIONS}
+							aria-label={t('campaign.statusOf', { title: row.view.title })}
+							options={options(QUEST_STATUS_OPTIONS, t)}
 							value={status}
 							onChange={(e: { target: { value: string } }) =>
 								void update({ status: e.target.value })
@@ -236,6 +259,7 @@ function QuestCardRow({
  */
 function QuestEditor({ quest, onClose }: { quest: QuestRow | null; onClose: () => void }) {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
 	const existingObjectives = objectiveArray(quest?.fields.objectives);
 	const [title, setTitle] = useState(quest?.view.title ?? '');
@@ -250,7 +274,7 @@ function QuestEditor({ quest, onClose }: { quest: QuestRow | null; onClose: () =
 
 	async function save() {
 		if (!title.trim()) {
-			setErr('A quest needs a title.');
+			setErr(t('campaign.quest.needsTitle'));
 			return;
 		}
 		setBusy(true);
@@ -316,17 +340,24 @@ function QuestEditor({ quest, onClose }: { quest: QuestRow | null; onClose: () =
 			// Confirm the write. `onClose()` unmounts this whole Panel, so with no toast a successful
 			// save was indistinguishable from a dead button: the editor vanished, focus fell to <body>,
 			// and nothing anywhere said the quest had been stored.
-			Toaster.success(quest ? `Saved “${title.trim()}”` : `Created “${title.trim()}”`);
+			Toaster.success(
+				quest
+					? t('campaign.saved', { title: title.trim() })
+					: t('campaign.created', { title: title.trim() }),
+			);
 			onClose();
 		} catch {
-			setErr("That couldn't be saved to this device. Check storage space and try again.");
+			setErr(t('campaign.saveFailed'));
 		} finally {
 			setBusy(false);
 		}
 	}
 
 	return (
-		<Panel title={quest ? `Edit ${quest.view.title}` : 'New quest'} accent>
+		<Panel
+			title={quest ? t('campaign.edit', { title: quest.view.title }) : t('campaign.quest.new')}
+			accent
+		>
 			{/* A real <form> so Enter submits — the natural "type a title, press Enter" was a no-op. */}
 			<form
 				onSubmit={(e) => {
@@ -343,41 +374,41 @@ function QuestEditor({ quest, onClose }: { quest: QuestRow | null; onClose: () =
 						gap: 12,
 					}}
 				>
-					<Field label="Title" required>
+					<Field label={t('common.field.title')} required>
 						<Input
 							value={title}
 							onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
-							placeholder="Wake of the Drowned God"
+							placeholder={t('campaign.quest.titlePlaceholder')}
 						/>
 					</Field>
-					<Field label="Status">
+					<Field label={t('campaign.status')}>
 						<Select
-							options={QUEST_STATUS_OPTIONS}
+							options={options(QUEST_STATUS_OPTIONS, t)}
 							value={status}
 							onChange={(e: { target: { value: string } }) => setStatus(e.target.value)}
 						/>
 					</Field>
 				</div>
-				<Field label="Objectives" help="One objective per line — each becomes a checklist item.">
+				<Field label={t('campaign.quest.objectives')} help={t('campaign.quest.objectivesHelp')}>
 					<Textarea
 						value={objectivesText}
 						onChange={(e: { target: { value: string } }) => setObjectivesText(e.target.value)}
 						rows={3}
-						placeholder={'Find who is buying the shipments\nMap the flooded vault level'}
+						placeholder={t('campaign.quest.objectivesPlaceholder')}
 					/>
 				</Field>
-				<Field label="Hook & journal" help="Markdown prose — the hook, rewards, session journal.">
+				<Field label={t('campaign.quest.hook')} help={t('campaign.quest.hookHelp')}>
 					<Textarea
 						value={body}
 						onChange={(e: { target: { value: string } }) => setBody(e.target.value)}
 						rows={4}
-						placeholder="Mother Sild wants the party to trace the tithe barrels back upriver…"
+						placeholder={t('campaign.quest.hookPlaceholder')}
 					/>
 				</Field>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-					<Field label="Visibility">
+					<Field label={t('common.visibility.label')}>
 						<Select
-							options={VIS_OPTIONS}
+							options={options(VIS_OPTIONS, t)}
 							value={visibility}
 							onChange={(e: { target: { value: string } }) => setVisibility(e.target.value)}
 						/>
@@ -389,10 +420,10 @@ function QuestEditor({ quest, onClose }: { quest: QuestRow | null; onClose: () =
 						</span>
 					)}
 					<Button variant="ghost" size="sm" disabled={busy} onClick={onClose}>
-						Cancel
+						{t('common.action.cancel')}
 					</Button>
 					<Button type="submit" variant="primary" size="sm" icon="check" disabled={busy}>
-						{quest ? 'Save quest' : 'Create quest'}
+						{quest ? t('campaign.quest.save') : t('campaign.quest.create')}
 					</Button>
 				</div>
 			</form>
@@ -409,6 +440,7 @@ function FactionCard({
 	canAuthor: boolean;
 	onEdit: () => void;
 }) {
+	const { t } = useI18n();
 	const { view, fields } = row;
 	const stance = str(fields.stance) || 'neutral';
 	const kind = str(fields.kind);
@@ -437,12 +469,12 @@ function FactionCard({
 				</h3>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
 					<Badge status={STANCE_TONE[stance] || 'neutral'}>
-						{STANCE_OPTIONS.find((o) => o.value === stance)?.label ?? stance}
+						{optionLabel(STANCE_OPTIONS, stance, t)}
 					</Badge>
 					{canAuthor && (
 						<IconButton
 							icon="note-edit"
-							label={`Edit ${view.title}`}
+							label={t('campaign.edit', { title: view.title })}
 							variant="ghost"
 							size="sm"
 							onClick={onEdit}
@@ -454,18 +486,18 @@ function FactionCard({
 				<VisibilityChip level={VIS_CHIP[view.visibility] || 'dm-only'} />
 				{(kind || leader) && (
 					<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
-						{kind}
+						{kind ? optionLabel(FACTION_KIND_OPTIONS, kind, t) : ''}
 						{kind && leader ? ' · ' : ''}
-						{leader ? `led by ${leader}` : ''}
+						{leader ? t('campaign.faction.ledBy', { name: leader }) : ''}
 					</span>
 				)}
 			</div>
 			<div style={{ font: `13px/1.5 ${T.sans}`, color: T.sub }}>
-				{bodySummary(view.body, 'No dossier written yet.')}
+				{bodySummary(view.body, t('campaign.faction.noDossier'))}
 			</div>
 			{goals.length > 0 && (
 				<div>
-					<div style={{ ...eb, marginBottom: 4 }}>Goals</div>
+					<div style={{ ...eb, marginBottom: 4 }}>{t('campaign.faction.goals')}</div>
 					{goals.map((goal, i) => (
 						<div
 							key={i}
@@ -495,7 +527,7 @@ function FactionCard({
 			)}
 			{secret && (
 				<div style={{ borderTop: `1px solid ${T.bd}`, paddingTop: 8 }}>
-					<div style={{ ...eb, color: T.dm, marginBottom: 3 }}>DM secret</div>
+					<div style={{ ...eb, color: T.dm, marginBottom: 3 }}>{t('campaign.faction.secret')}</div>
 					<div style={{ font: `italic 12.5px/1.5 ${T.sans}`, color: T.sub }}>{secret}</div>
 				</div>
 			)}
@@ -510,6 +542,7 @@ function FactionCard({
  */
 function FactionEditor({ faction, onClose }: { faction: FactionRow | null; onClose: () => void }) {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
 	const [name, setName] = useState(faction?.view.title ?? '');
 	const [kind, setKind] = useState(str(faction?.fields.kind) || 'other');
@@ -526,7 +559,7 @@ function FactionEditor({ faction, onClose }: { faction: FactionRow | null; onClo
 
 	async function save() {
 		if (!name.trim()) {
-			setErr('A faction needs a name.');
+			setErr(t('campaign.faction.needsName'));
 			return;
 		}
 		setBusy(true);
@@ -580,17 +613,26 @@ function FactionEditor({ faction, onClose }: { faction: FactionRow | null; onClo
 			}
 			// Same reason as the quest editor above: the Panel unmounts, so the toast is the only
 			// confirmation a successful faction save ever produces.
-			Toaster.success(faction ? `Saved “${name.trim()}”` : `Created “${name.trim()}”`);
+			Toaster.success(
+				faction
+					? t('campaign.saved', { title: name.trim() })
+					: t('campaign.created', { title: name.trim() }),
+			);
 			onClose();
 		} catch {
-			setErr("That couldn't be saved to this device. Check storage space and try again.");
+			setErr(t('campaign.saveFailed'));
 		} finally {
 			setBusy(false);
 		}
 	}
 
 	return (
-		<Panel title={faction ? `Edit ${faction.view.title}` : 'New faction'} accent>
+		<Panel
+			title={
+				faction ? t('campaign.edit', { title: faction.view.title }) : t('campaign.faction.new')
+			}
+			accent
+		>
 			{/* See QuestEditor — Enter submits rather than doing nothing. */}
 			<form
 				onSubmit={(e) => {
@@ -607,62 +649,62 @@ function FactionEditor({ faction, onClose }: { faction: FactionRow | null; onClo
 						gap: 12,
 					}}
 				>
-					<Field label="Name" required>
+					<Field label={t('campaign.faction.name')} required>
 						<Input
 							value={name}
 							onChange={(e: { target: { value: string } }) => setName(e.target.value)}
-							placeholder="The Brine Hand"
+							placeholder={t('campaign.faction.namePlaceholder')}
 						/>
 					</Field>
-					<Field label="Kind">
+					<Field label={t('campaign.faction.kind')}>
 						<Select
-							options={FACTION_KIND_OPTIONS}
+							options={options(FACTION_KIND_OPTIONS, t)}
 							value={kind}
 							onChange={(e: { target: { value: string } }) => setKind(e.target.value)}
 						/>
 					</Field>
-					<Field label="Stance">
+					<Field label={t('campaign.faction.stance')}>
 						<Select
-							options={STANCE_OPTIONS}
+							options={options(STANCE_OPTIONS, t)}
 							value={stance}
 							onChange={(e: { target: { value: string } }) => setStance(e.target.value)}
 						/>
 					</Field>
-					<Field label="Leader">
+					<Field label={t('campaign.faction.leader')}>
 						<Input
 							value={leader}
 							onChange={(e: { target: { value: string } }) => setLeader(e.target.value)}
-							placeholder="Mother Sild"
+							placeholder={t('campaign.faction.leaderPlaceholder')}
 						/>
 					</Field>
 				</div>
-				<Field label="Goals" help="One goal per line.">
+				<Field label={t('campaign.faction.goals')} help={t('campaign.faction.goalsHelp')}>
 					<Textarea
 						value={goalsText}
 						onChange={(e: { target: { value: string } }) => setGoalsText(e.target.value)}
 						rows={3}
-						placeholder={'Wake what sleeps below the vaults\nKeep the shipment route open'}
+						placeholder={t('campaign.faction.goalsPlaceholder')}
 					/>
 				</Field>
-				<Field label="Dossier notes" help="Markdown prose — summary, holdings, history.">
+				<Field label={t('campaign.faction.dossier')} help={t('campaign.faction.dossierHelp')}>
 					<Textarea
 						value={body}
 						onChange={(e: { target: { value: string } }) => setBody(e.target.value)}
 						rows={5}
-						placeholder="A drowned-god cult that took the Sunken Outpost as a smuggling waypoint…"
+						placeholder={t('campaign.faction.dossierPlaceholder')}
 					/>
 				</Field>
-				<Field label="DM secret" help="Visible only to DMs; it never appears in a player view.">
+				<Field label={t('campaign.faction.secret')} help={t('campaign.faction.secretHelp')}>
 					<Input
 						value={secret}
 						onChange={(e: { target: { value: string } }) => setSecret(e.target.value)}
-						placeholder="Sild translates for the cult rather than leading it."
+						placeholder={t('campaign.faction.secretPlaceholder')}
 					/>
 				</Field>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-					<Field label="Visibility">
+					<Field label={t('common.visibility.label')}>
 						<Select
-							options={VIS_OPTIONS}
+							options={options(VIS_OPTIONS, t)}
 							value={visibility}
 							onChange={(e: { target: { value: string } }) => setVisibility(e.target.value)}
 						/>
@@ -674,10 +716,10 @@ function FactionEditor({ faction, onClose }: { faction: FactionRow | null; onClo
 						</span>
 					)}
 					<Button variant="ghost" size="sm" disabled={busy} onClick={onClose}>
-						Cancel
+						{t('common.action.cancel')}
 					</Button>
 					<Button type="submit" variant="primary" size="sm" icon="check" disabled={busy}>
-						{faction ? 'Save faction' : 'Create faction'}
+						{faction ? t('campaign.faction.save') : t('campaign.faction.create')}
 					</Button>
 				</div>
 			</form>
@@ -689,6 +731,7 @@ export function Campaign() {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
 	const [tab, setTab] = useState('quests');
 	// null = closed · { id: null } = composing a new faction · { id } = editing that faction.
@@ -741,10 +784,10 @@ export function Campaign() {
 	}, [runtime.state, actorId]);
 
 	const tabs = [
-		{ id: 'quests', label: 'Quests', icon: 'flag' },
-		{ id: 'npcs', label: 'NPCs' },
-		{ id: 'factions', label: 'Factions' },
-		{ id: 'timeline', label: 'Timeline', icon: 'recent' },
+		{ id: 'quests', label: t('campaign.tab.quests'), icon: 'flag' },
+		{ id: 'npcs', label: t('campaign.tab.npcs') },
+		{ id: 'factions', label: t('campaign.tab.factions') },
+		{ id: 'timeline', label: t('campaign.tab.timeline'), icon: 'recent' },
 	];
 
 	const editingFaction = factionEditor?.id
@@ -762,11 +805,11 @@ export function Campaign() {
 					onChange={setTab}
 					tabs={tabs}
 					idBase="campaign"
-					aria-label="Campaign sections"
+					aria-label={t('campaign.sections')}
 				/>
 			</div>
 			<h2 className="visually-hidden">
-				{tabs.find((item) => item.id === tab)?.label ?? 'Campaign'}
+				{tabs.find((item) => item.id === tab)?.label ?? t('campaign.title')}
 			</h2>
 
 			{/* One panel element, re-labelled per active tab — only one body is ever mounted. */}
@@ -781,7 +824,7 @@ export function Campaign() {
 									icon="add"
 									onClick={() => setQuestEditor({ id: null })}
 								>
-									New quest
+									{t('campaign.quest.new')}
 								</Button>
 							</div>
 						)}
@@ -795,11 +838,9 @@ export function Campaign() {
 						{data.quests.length === 0 ? (
 							<EmptyState
 								icon="campaign-scroll"
-								title="No quests yet"
+								title={t('campaign.quest.emptyTitle')}
 								description={
-									canAuthor
-										? 'Track the party’s quests — status, objectives, and hooks — all in one place.'
-										: 'No quests have been shared with you yet.'
+									canAuthor ? t('campaign.quest.emptyDm') : t('campaign.quest.emptyPlayer')
 								}
 								action={
 									canAuthor && !questEditor ? (
@@ -809,7 +850,7 @@ export function Campaign() {
 											icon="add"
 											onClick={() => setQuestEditor({ id: null })}
 										>
-											Create the first quest
+											{t('campaign.quest.createFirst')}
 										</Button>
 									) : undefined
 								}
@@ -841,8 +882,8 @@ export function Campaign() {
 					(data.npcs.length === 0 ? (
 						<EmptyState
 							icon="characters-person"
-							title="No NPCs yet"
-							description="NPCs and monsters you create in Characters appear here."
+							title={t('campaign.npc.emptyTitle')}
+							description={t('campaign.npc.emptyDesc')}
 							action={
 								canAuthor ? (
 									<Button
@@ -853,7 +894,7 @@ export function Campaign() {
 											navigate('/characters', { state: { create: true, kind: 'npc' } })
 										}
 									>
-										New NPC
+										{t('campaign.npc.new')}
 									</Button>
 								) : undefined
 							}
@@ -876,7 +917,7 @@ export function Campaign() {
 								<NpcCard
 									key={n.id}
 									name={n.name}
-									role={KIND_LABEL[n.kind] ?? n.kind}
+									role={KIND_LABEL[n.kind] ? t(KIND_LABEL[n.kind]) : n.kind}
 									onClick={() => navigate(`/characters/${n.id}`)}
 									// `disposition` is deliberately omitted: nothing in the model backs it, and the
 									// previous hard-coded "neutral" asserted a disposition for every NPC including
@@ -887,7 +928,10 @@ export function Campaign() {
 									// secret. They are plain tags now.
 									// The kind is NOT repeated here: `role` above already renders it directly under
 									// the name, so every card read "NPC / NPC · AC 13 · 8 HP".
-									tags={[`AC ${n.combat?.ac ?? '—'}`, `${n.combat?.hp ?? '—'} HP`]}
+									tags={[
+										t('campaign.npc.ac', { value: n.combat?.ac ?? '—' }),
+										t('campaign.npc.hp', { value: n.combat?.hp ?? '—' }),
+									]}
 									dmOnly={n.visibility === 'dm-only'}
 								/>
 							))}
@@ -904,7 +948,7 @@ export function Campaign() {
 									icon="add"
 									onClick={() => setFactionEditor({ id: null })}
 								>
-									New faction
+									{t('campaign.faction.new')}
 								</Button>
 							</div>
 						)}
@@ -918,11 +962,9 @@ export function Campaign() {
 						{data.factions.length === 0 ? (
 							<EmptyState
 								icon="flag"
-								title="No factions yet"
+								title={t('campaign.faction.emptyTitle')}
 								description={
-									canAuthor
-										? 'Chart the powers pulling at your table — create the first faction dossier.'
-										: 'No factions have been shared with you yet.'
+									canAuthor ? t('campaign.faction.emptyDm') : t('campaign.faction.emptyPlayer')
 								}
 								action={undefined}
 							/>
@@ -949,22 +991,22 @@ export function Campaign() {
 				)}
 
 				{tab === 'timeline' && (
-					<Panel title="Campaign timeline" style={{ maxWidth: 680 }}>
+					<Panel title={t('campaign.timeline.title')} style={{ maxWidth: 680 }}>
 						<div style={{ font: `12.5px ${T.sans}`, color: T.sub, marginBottom: 4 }}>
 							{data.currentDate ? (
 								<>
-									Current campaign date:{' '}
+									{t('campaign.timeline.currentDate')}{' '}
 									<strong style={{ color: T.ink }}>{data.currentDate.display}</strong>
 								</>
 							) : (
-								'No campaign date set — set it from the Session screen.'
+								t('campaign.timeline.noDate')
 							)}
 						</div>
 						{data.timeline.length === 0 ? (
 							<EmptyState
 								icon="recent"
-								title="No dated events yet"
-								description="Notes with calendar dates build the campaign timeline. Add a date to a note to see it here."
+								title={t('campaign.timeline.emptyTitle')}
+								description={t('campaign.timeline.emptyDesc')}
 								action={undefined}
 								inset
 							/>

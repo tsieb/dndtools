@@ -4,6 +4,7 @@ import { BackBar, Page, T, eb } from '../app/screen-kit';
 import { useAuth } from '../cloud/AuthContext';
 import { isAccountApiConfigured } from '../cloud/config';
 import { useViewport } from '../app/useViewport';
+import { useI18n } from '../i18n';
 import {
 	OFFLINE_FALLBACK_MATRIX,
 	PLAN_CARDS,
@@ -29,21 +30,21 @@ import {
 const PLANS: PlanCard[] = PLAN_CARDS;
 const planById = (id: string) => PLANS.find((p) => p.id === id) || PLANS[0];
 
-const WHY_PREVIEW =
-	'Lamplight keeps your local campaign and core table tools available for free. Lantern and Beacon are no-charge previews of optional hosted services: encrypted off-device backup, internet play, and campaign publishing. Availability depends on this build and device.';
-const WHY_UNAVAILABLE =
-	'Lamplight keeps your local campaign and core table tools available for free. Lantern and Beacon describe planned hosted services, but this release cannot activate a paid cloud plan or take payment.';
-
 function MatrixCell({ v, accent }: { v: unknown; accent?: boolean }) {
+	const { t } = useI18n();
 	if (v === true)
 		return (
-			<span role="img" aria-label="Included">
+			<span role="img" aria-label={t('upgrade.included')}>
 				<Icon name="check" size={16} color={accent ? T.acc : T.ok} />
 			</span>
 		);
 	if (v === false)
 		return (
-			<span role="img" aria-label="Not included" style={{ font: `13px ${T.sans}`, color: T.ter }}>
+			<span
+				role="img"
+				aria-label={t('upgrade.notIncluded')}
+				style={{ font: `13px ${T.sans}`, color: T.ter }}
+			>
 				—
 			</span>
 		);
@@ -75,27 +76,38 @@ function ChangePlanDialog({
 	onClose: () => void;
 	onConfirm: (id: PlanId) => void;
 }) {
+	const { t } = useI18n();
 	const target = toId ? planById(toId) : null;
 	if (!target) return null;
 	const current = planById(currentId);
 	const up = (target.price || 0) > (current?.price || 0);
 	const losesCloud = !!current?.cloud && !target.cloud;
-	const price = target.price ? (annual ? `$${target.price * 10}` : `$${target.price}`) : 'Free';
-	const per = target.price ? (annual ? '/yr' : '/mo') : '';
+	const price = target.price
+		? annual
+			? `$${target.price * 10}`
+			: `$${target.price}`
+		: t('upgrade.free');
+	const per = target.price ? (annual ? t('upgrade.perYear') : t('upgrade.perMonth')) : '';
 	return (
 		<Dialog
 			open
 			onClose={onClose}
-			title={target.cloud ? `Try ${target.name} preview` : `Switch to ${target.name}`}
+			title={
+				target.cloud
+					? t('upgrade.tryPreview', { plan: target.name })
+					: t('upgrade.switchTo', { plan: target.name })
+			}
 			description={
-				losesCloud ? 'This turns off hosted features now' : `${current?.name} → ${target.name}`
+				losesCloud
+					? t('upgrade.dialog.losesCloud')
+					: t('upgrade.dialog.transition', { from: current?.name ?? '', to: target.name })
 			}
 			icon={target.cloud ? 'connection' : 'home'}
 			size="md"
 			footer={
 				<>
 					<Button variant="secondary" size="sm" onClick={onClose} disabled={busy}>
-						Cancel
+						{t('common.action.cancel')}
 					</Button>
 					<Button
 						variant="primary"
@@ -104,7 +116,7 @@ function ChangePlanDialog({
 						disabled={busy}
 						onClick={() => onConfirm(target.id)}
 					>
-						{busy ? 'Saving…' : 'Save plan choice'}
+						{busy ? t('upgrade.dialog.saving') : t('upgrade.dialog.save')}
 					</Button>
 				</>
 			}
@@ -151,10 +163,7 @@ function ChangePlanDialog({
 					<span style={{ marginTop: 1 }}>
 						<Icon name="warning" size={14} color={T.warn} />
 					</span>
-					<span>
-						Cloud backup and internet play stop as soon as you switch. Your vaults and everything in
-						them stay on this device.
-					</span>
+					<span>{t('upgrade.dialog.cloudWarning')}</span>
 				</div>
 			)}
 			{/* Honest checkout: there is NO payment processor — the plan choice is real, the charge is not. */}
@@ -176,10 +185,8 @@ function ChangePlanDialog({
 					<Icon name="info" size={13} color={T.acc} />
 				</span>
 				<span>
-					<strong style={{ color: T.ink }}>Cloud-plan preview — no payment is taken.</strong>{' '}
-					{serverBacked
-						? 'Your choice is saved to your account. No card or payment details are requested.'
-						: 'No account is connected, so your plan choice is saved on this device only.'}
+					<strong style={{ color: T.ink }}>{t('upgrade.dialog.noPayment')}</strong>{' '}
+					{serverBacked ? t('upgrade.dialog.savedToAccount') : t('upgrade.dialog.savedToDevice')}
 				</span>
 			</div>
 		</Dialog>
@@ -190,6 +197,7 @@ export function Upgrade() {
 	const viewport = useViewport();
 	const auth = useAuth();
 	const ent = useEntitlements();
+	const { t } = useI18n();
 	const [annual, setAnnual] = useState(false);
 	const [confirmTo, setConfirmTo] = useState<PlanId | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -198,14 +206,15 @@ export function Upgrade() {
 	// annotated offline fallback otherwise. Both share the same shape.
 	const matrix = ent.features ?? OFFLINE_FALLBACK_MATRIX;
 	const priceStr = (p: PlanCard) =>
-		p.price ? (annual ? `$${p.price * 10}` : `$${p.price}`) : 'Free';
-	const perStr = (p: PlanCard) => (p.price ? (annual ? '/yr' : '/mo') : '');
+		p.price ? (annual ? `$${p.price * 10}` : `$${p.price}`) : t('upgrade.free');
+	const perStr = (p: PlanCard) =>
+		p.price ? (annual ? t('upgrade.perYear') : t('upgrade.perMonth')) : '';
 	const currentPrice = planById(planId)?.price || 0;
 	const planChangesUnavailable = ent.serverBacked && !ent.loading && !ent.canChangePlan;
 
 	const confirmChange = (id: PlanId) => {
 		if (!ent.canChangePlan) {
-			Toaster.error('Self-service cloud plan changes are not available in this release.');
+			Toaster.error(t('upgrade.changeUnavailable'));
 			return;
 		}
 		setBusy(true);
@@ -215,12 +224,12 @@ export function Upgrade() {
 				setConfirmTo(null);
 				Toaster.success(
 					ent.serverBacked && ent.simulated
-						? `Now trying the ${planById(id)?.name} preview — no payment taken.`
-						: `Now on ${planById(id)?.name} on this device.`,
+						? t('upgrade.nowPreviewing', { plan: planById(id)?.name ?? '' })
+						: t('upgrade.nowOnDevice', { plan: planById(id)?.name ?? '' }),
 				);
 			})
 			.catch((e: unknown) => {
-				Toaster.error(e instanceof Error ? e.message : 'Could not change the plan.');
+				Toaster.error(e instanceof Error ? e.message : t('upgrade.changeFailed'));
 			})
 			.finally(() => setBusy(false));
 	};
@@ -231,7 +240,7 @@ export function Upgrade() {
 
 	return (
 		<Page max={1080}>
-			<BackBar to="/settings" label="Settings" />
+			<BackBar to="/settings" label={t('shell.navSettings')} />
 
 			{/* hero */}
 			<div style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto 8px' }}>
@@ -250,7 +259,7 @@ export function Upgrade() {
 					}}
 				>
 					<Icon name="Sprout" size={13} />
-					Local-first · your table runs offline
+					{t('upgrade.localFirst')}
 				</span>
 				<h2
 					style={{
@@ -260,12 +269,10 @@ export function Upgrade() {
 						color: T.ink,
 					}}
 				>
-					{planChangesUnavailable
-						? 'Local play stays free. Cloud plan sign-up is not available yet.'
-						: 'Local play stays free. Cloud plans are in preview.'}
+					{planChangesUnavailable ? t('upgrade.headingUnavailable') : t('upgrade.headingPreview')}
 				</h2>
 				<p style={{ font: `14px/1.7 ${T.sans}`, color: T.sub, marginTop: 12 }}>
-					{planChangesUnavailable ? WHY_UNAVAILABLE : WHY_PREVIEW}
+					{planChangesUnavailable ? t('upgrade.whyUnavailable') : t('upgrade.whyPreview')}
 				</p>
 			</div>
 
@@ -286,11 +293,9 @@ export function Upgrade() {
 					}}
 				>
 					<Icon name="UserCircle" size={16} color={T.acc} />
-					<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
-						Your plan choice is saved on this device. Sign in to keep it with your account.
-					</span>
+					<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>{t('upgrade.signInNudge')}</span>
 					<Button variant="secondary" size="sm" onClick={() => auth.openAuthModal()}>
-						Sign in
+						{t('settings.account.signIn')}
 					</Button>
 				</div>
 			)}
@@ -307,16 +312,16 @@ export function Upgrade() {
 				}}
 			>
 				<span style={{ font: `12.5px ${T.sans}`, color: annual ? T.ter : T.ink }}>
-					Monthly price
+					{t('upgrade.monthlyPrice')}
 				</span>
 				<Switch
 					checked={annual}
 					onChange={() => setAnnual((v) => !v)}
 					label=""
-					aria-label="Show planned annual pricing"
+					aria-label={t('upgrade.showAnnual')}
 				/>
 				<span style={{ font: `12.5px ${T.sans}`, color: annual ? T.ink : T.ter }}>
-					Annual price
+					{t('upgrade.annualPrice')}
 				</span>
 				<span
 					style={{
@@ -328,7 +333,7 @@ export function Upgrade() {
 						padding: '2px 8px',
 					}}
 				>
-					Planned: 2 months free
+					{t('upgrade.annualSaving')}
 				</span>
 			</div>
 
@@ -377,7 +382,7 @@ export function Upgrade() {
 										borderRadius: 20,
 									}}
 								>
-									Recommended
+									{t('common.badge.recommended')}
 								</span>
 							)}
 							<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -415,7 +420,7 @@ export function Upgrade() {
 										}}
 									>
 										<Icon name="connection" size={12} color={T.acc} />
-										Cloud
+										{t('upgrade.cloud')}
 									</span>
 								)}
 							</div>
@@ -442,7 +447,7 @@ export function Upgrade() {
 							{/* Opens the changePlan confirm dialog — a real (simulated-checkout) plan change; server-backed when signed in. */}
 							{on ? (
 								<Button variant="secondary" size="md" disabled icon="check">
-									Your current plan
+									{t('upgrade.currentPlan')}
 								</Button>
 							) : isUpgrade ? (
 								/* icon="ArrowUp" is the direct Lucide name (like "Sprout" above): it renders correctly whether or not the registry carries an 'arrow-up' alias, unlike unknown kebab names which fall back to a Square glyph. */
@@ -453,7 +458,9 @@ export function Upgrade() {
 									disabled={ent.loading || !ent.canChangePlan}
 									onClick={() => setConfirmTo(pl.id)}
 								>
-									{ent.canChangePlan ? `Try ${pl.name} preview` : 'Plan changes unavailable'}
+									{ent.canChangePlan
+										? t('upgrade.tryPreview', { plan: pl.name })
+										: t('upgrade.changesUnavailable')}
 								</Button>
 							) : (
 								<Button
@@ -462,7 +469,9 @@ export function Upgrade() {
 									disabled={ent.loading || !ent.canChangePlan}
 									onClick={() => setConfirmTo(pl.id)}
 								>
-									{ent.canChangePlan ? `Switch to ${pl.name}` : 'Plan changes unavailable'}
+									{ent.canChangePlan
+										? t('upgrade.switchTo', { plan: pl.name })
+										: t('upgrade.changesUnavailable')}
 								</Button>
 							)}
 						</div>
@@ -487,16 +496,13 @@ export function Upgrade() {
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
 					{planChangesUnavailable ? (
 						<>
-							<strong style={{ color: T.ink }}>Cloud plan sign-up is not available.</strong> The
-							listed prices describe planned hosted services; this release cannot take payment or
-							activate a paid plan. Your local vaults and table tools remain available.
+							<strong style={{ color: T.ink }}>{t('upgrade.note.unavailableLead')}</strong>{' '}
+							{t('upgrade.note.unavailableBody')}
 						</>
 					) : (
 						<>
-							<strong style={{ color: T.ink }}>Preview access is free.</strong> The listed prices
-							are planned launch prices for hosted services such as encrypted backup, internet play,
-							and publishing. No card is requested during the preview, and your local vaults never
-							depend on a cloud plan.
+							<strong style={{ color: T.ink }}>{t('upgrade.note.previewLead')}</strong>{' '}
+							{t('upgrade.note.previewBody')}
 						</>
 					)}
 				</div>
@@ -505,7 +511,7 @@ export function Upgrade() {
 			{/* detailed matrix — served by the account backend when reachable (single source of truth) */}
 			<div
 				role="region"
-				aria-label="Plan feature comparison"
+				aria-label={t('upgrade.matrix.region')}
 				tabIndex={0}
 				style={{
 					borderRadius: 16,
@@ -515,7 +521,7 @@ export function Upgrade() {
 					marginTop: 8,
 				}}
 			>
-				<div role="table" aria-label="Plan feature comparison" style={{ minWidth: 620 }}>
+				<div role="table" aria-label={t('upgrade.matrix.region')} style={{ minWidth: 620 }}>
 					<div
 						role="row"
 						style={{
@@ -529,7 +535,7 @@ export function Upgrade() {
 						}}
 					>
 						<div role="columnheader" style={{ font: `700 14px ${T.disp}`, color: T.ink }}>
-							Compare every feature
+							{t('upgrade.matrix.title')}
 							{ent.source !== 'server' && (
 								<span
 									style={{
@@ -539,9 +545,7 @@ export function Upgrade() {
 										marginTop: 2,
 									}}
 								>
-									{ent.source === 'cache'
-										? 'Showing the last plan details saved for this account (offline).'
-										: 'Offline comparison — connect an account to load live plan details.'}
+									{ent.source === 'cache' ? t('upgrade.matrix.cache') : t('upgrade.matrix.offline')}
 								</span>
 							)}
 						</div>
@@ -608,7 +612,7 @@ export function Upgrade() {
 										{r.label}
 										{r.cloud && (
 											<span
-												title="Requires a cloud plan"
+												title={t('upgrade.matrix.cloudOnly')}
 												style={{
 													display: 'inline-flex',
 													alignItems: 'center',
@@ -624,7 +628,7 @@ export function Upgrade() {
 												}}
 											>
 												<Icon name="connection" size={9} />
-												Cloud
+												{t('upgrade.cloud')}
 											</span>
 										)}
 									</div>
@@ -645,9 +649,7 @@ export function Upgrade() {
 			</div>
 
 			<div style={{ textAlign: 'center', font: `12px ${T.sans}`, color: T.ter, marginTop: 18 }}>
-				{planChangesUnavailable
-					? 'Planned prices are in USD. This release has no billing or payment flow. No account is needed to keep playing locally.'
-					: 'Planned prices are in USD. Preview access is free: there is no billing, payment method, or charge. No account is needed to keep playing locally.'}
+				{planChangesUnavailable ? t('upgrade.footer.unavailable') : t('upgrade.footer.preview')}
 			</div>
 
 			<ChangePlanDialog
