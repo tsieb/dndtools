@@ -1,4 +1,5 @@
 import { Button, DiceResult, Input } from '../../ds';
+import { useI18n } from '../../i18n';
 import { Panel, T, mono } from '../../app/screen-kit';
 
 // ── Dice ──────────────────────────────────────────────────────────────────────────────────────────
@@ -25,23 +26,24 @@ export function DicePanel({
 	onExpr: (v: string) => void;
 	onRoll: (expression: string) => void;
 }) {
+	const { t } = useI18n();
 	const presets = ['1d20', '1d20+5', '2d6+3', '1d8+2', '4d6'];
 	// `getDiceHistoryForActor` returns rolls oldest-first (appended), so the newest is the LAST element.
 	const recent = [...rolls].reverse();
 	const last = recent[0];
 	const disabled = !isLive || previewing;
 	return (
-		<Panel title="Dice">
+		<Panel title={t('session.dice.title')}>
 			{/* `DiceResult` is a plain <div> and `onRoll` passes no `ok` string, so pressing Roll used
 			    to produce no announcement whatsoever — the result simply appeared. Permanently mounted
 			    for the same reason as the combat readout above. */}
 			<div className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
-				{last ? `Rolled ${last.expression} — total ${last.total}.` : ''}
+				{last
+					? t('session.dice.announcement', { expression: last.expression, total: last.total })
+					: ''}
 			</div>
 			{!isLive && (
-				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-					Dice rolls record to the live session — go live to roll.
-				</div>
+				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{t('session.dice.goLive')}</div>
 			)}
 			<div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
 				{presets.map((p) => (
@@ -69,12 +71,12 @@ export function DicePanel({
 				<Input
 					value={expr}
 					onChange={(e: { target: { value: string } }) => onExpr(e.target.value)}
-					placeholder="e.g. 3d6+2"
-					aria-label="Dice expression"
+					placeholder={t('session.dice.expressionPlaceholder')}
+					aria-label={t('session.dice.expression')}
 					style={{ flex: 1 }}
 				/>
 				<Button type="submit" variant="accent" icon="dice" disabled={disabled || !expr.trim()}>
-					Roll
+					{t('session.dice.roll')}
 				</Button>
 			</form>
 			{last && (

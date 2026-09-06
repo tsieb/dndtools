@@ -30,14 +30,19 @@ export function SessionHeader({
 	// transition + error toast (e.g. active→prep, recap→active are not legal). The current phase stays
 	// enabled regardless (Seg keeps the checked option active).
 	const allowed = new Set<string>(allowedTransitionsFrom(workflow as SessionWorkflowState));
+	// One sentence, split around the scene name so the name keeps its emphasis and the sentence
+	// keeps its locale's word order.
+	const scene = sceneName ?? t('session.header.theScene');
+	const playersSee = t('session.header.playersSee', { scene });
+	const [playersSeeBefore, playersSeeAfter = ''] = playersSee.split(scene);
 	// Previewing as a player (or being a player at all) has to block the rail as well as the core.
 	// Without this, ArrowLeft from "Live" while previewing raised the full-red "End the live session?"
 	// dialog for a teardown that would then be refused read-only — the loudest possible lie about what
 	// a press was going to do.
 	const blocked = previewing
-		? 'Exit player preview to change the session phase.'
+		? t('session.header.blockedPreview')
 		: !isDm
-			? 'Only the DM can change the session phase.'
+			? t('session.header.blockedNotDm')
 			: null;
 	const option = (value: string, label: string, reason: string) => ({
 		value,
@@ -50,22 +55,24 @@ export function SessionHeader({
 			style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}
 		>
 			<div style={{ minWidth: 0 }}>
-				<div style={eb}>Live session</div>
-				<div style={{ font: `700 19px/1.1 ${T.disp}` }}>{sceneName ?? 'No active scene'}</div>
+				<div style={eb}>{t('session.header.eyebrow')}</div>
+				<div style={{ font: `700 19px/1.1 ${T.disp}` }}>
+					{sceneName ?? t('session.header.noScene')}
+				</div>
 			</div>
 			<Seg
 				value={phase}
-				ariaLabel="Session phase"
+				ariaLabel={t('session.header.phaseLabel')}
 				onChange={(v) => onSetWorkflow(v as 'idle' | 'prep' | 'active' | 'recap')}
 				options={[
 					// `idle` (Standby) has to be offered. Without it, `recap` — whose only legal moves
 					// are recap/archived/idle — had EVERY segment disabled or already checked, and the
 					// standby card's Go live was rejected by the core, so a DM who ended one session
 					// could not start another without editing IndexedDB.
-					option('idle', 'Standby', 'Standby is not available from here.'),
-					option('prep', 'Prep', 'Return to Standby before going back to Prep.'),
-					option('active', 'Live', 'Return to Standby before going live again.'),
-					option('recap', 'Recap', 'Recap is only available while a session is live.'),
+					option('idle', t('session.state.standby'), t('session.phase.standbyReason')),
+					option('prep', t('session.state.prep'), t('session.phase.prepReason')),
+					option('active', t('session.state.live'), t('session.phase.liveReason')),
+					option('recap', t('session.state.recap'), t('session.phase.recapReason')),
 				]}
 			/>
 			<div style={{ flex: 1 }} />
@@ -81,7 +88,9 @@ export function SessionHeader({
 				<StatusDot status={workflow === 'active' ? 'live' : 'idle'} pulse={workflow === 'active'} />
 				{workflow === 'active' ? (
 					<>
-						Players see <strong style={{ color: T.ink }}>{sceneName ?? 'the scene'}</strong>
+						{playersSeeBefore}
+						<strong style={{ color: T.ink }}>{scene}</strong>
+						{playersSeeAfter}
 					</>
 				) : (
 					// Was a hard-coded "Standby" for all six non-live states, sitting right beside a
@@ -186,12 +195,13 @@ export function EndCombatDialog({
 	onClose: () => void;
 	onConfirm: () => void;
 }) {
+	const { t } = useI18n();
 	return (
 		<Dialog
 			open={open}
 			onClose={onClose}
-			title="End this combat?"
-			description={`Round ${round} and the initiative order are discarded, along with every combatant's current HP and conditions. There is no undo — you would have to build the encounter again from your roster.`}
+			title={t('session.endCombat.title')}
+			description={t('session.endCombat.body', { round })}
 			icon="warning"
 			// Without `tone`, Dialog leaves `accent` undefined and the header mark renders gold on
 			// --color-accent-subtle — visually identical to an info dialog, on the app's most
@@ -201,10 +211,10 @@ export function EndCombatDialog({
 			footer={
 				<>
 					<Button variant="secondary" size="sm" onClick={onClose}>
-						Keep running
+						{t('session.endCombat.keep')}
 					</Button>
 					<Button variant="danger" size="sm" icon="close" onClick={onConfirm}>
-						End combat
+						{t('session.combat.end')}
 					</Button>
 				</>
 			}
@@ -225,22 +235,23 @@ export function EndSessionDialog({
 	onClose: () => void;
 	onConfirm: () => void;
 }) {
+	const { t } = useI18n();
 	return (
 		<Dialog
 			open={open}
 			onClose={onClose}
-			title="End the live session?"
-			description="Returning to standby clears the active scene and map, the whole initiative order with every combatant's HP and conditions, delivered handouts, timers and the dice log. Nothing is archived — choose Recap instead if you want to keep a record."
+			title={t('session.end.confirmTitle')}
+			description={t('session.endSession.body')}
 			icon="warning"
 			tone="danger"
 			size="sm"
 			footer={
 				<>
 					<Button variant="secondary" size="sm" onClick={onClose}>
-						Stay live
+						{t('session.end.stay')}
 					</Button>
 					<Button variant="danger" size="sm" icon="close" onClick={onConfirm}>
-						End session
+						{t('session.end.confirmAction')}
 					</Button>
 				</>
 			}

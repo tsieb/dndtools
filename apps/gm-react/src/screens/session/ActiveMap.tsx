@@ -1,5 +1,6 @@
 import { listMapsForActor } from '@dndtools/core';
 import { Button, Select } from '../../ds';
+import { useI18n } from '../../i18n';
 import { Panel, SetRow, T } from '../../app/screen-kit';
 
 type MapEntry = ReturnType<typeof listMapsForActor>[number];
@@ -21,21 +22,20 @@ export function StagePanel({
 	onSelect: (mapId: string) => void;
 	onProject: () => void;
 }) {
+	const { t } = useI18n();
 	if (!isDm) return null;
 	return (
-		<Panel title="Stage">
+		<Panel title={t('session.stage.title')}>
 			{maps.length === 0 ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-					No maps yet — create one in the Atlas.
-				</div>
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('session.stage.noMaps')}</div>
 			) : (
 				<>
 					<SetRow
-						label="Active map"
-						help="What you stage for the table."
+						label={t('session.stage.activeMap')}
+						help={t('session.stage.activeMapHelp')}
 						control={
 							<Select
-								aria-label="Active map"
+								aria-label={t('session.stage.activeMap')}
 								value={activeMapId ?? ''}
 								disabled={previewing}
 								options={[
@@ -44,7 +44,7 @@ export function StagePanel({
 									// (`session.set-active-map` requires a real id), so leaving "— none —"
 									// selectable meant the DM picked it, the dropdown snapped back, and nothing
 									// explained why.
-									...(activeMapId ? [] : [{ value: '', label: '— none —' }]),
+									...(activeMapId ? [] : [{ value: '', label: t('session.stage.noneOption') }]),
 									...maps.map((m) => ({ value: m.id, label: m.name })),
 								]}
 								onChange={(e: { target: { value: string } }) => {
@@ -60,7 +60,7 @@ export function StagePanel({
 						disabled={!isLive || previewing || !activeMapId}
 						onClick={onProject}
 					>
-						Project to players
+						{t('session.stage.project')}
 					</Button>
 				</>
 			)}

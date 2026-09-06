@@ -1,18 +1,19 @@
 import { getHandoutsForActor, getHandoutStatusForDm } from '@dndtools/core';
 import { Badge, Button, Field, IconButton, Input, Textarea } from '../../ds';
+import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, T } from '../../app/screen-kit';
 
 type HandoutView = ReturnType<typeof getHandoutsForActor>[number];
 type HandoutStatusView = ReturnType<typeof getHandoutStatusForDm>[number];
 
 // Spoken labels for the handout kinds — the raw kind token never renders to users.
-const HANDOUT_KIND_LABEL: Record<string, string> = {
-	handout: 'Handout',
-	image: 'Image',
-	note: 'Note',
-	'map-fragment': 'Map fragment',
-	cipher: 'Cipher',
-	rumor: 'Rumor',
+const HANDOUT_KIND_LABEL: Record<string, MessageKey> = {
+	handout: 'session.handouts.kind.handout',
+	image: 'session.handouts.kind.image',
+	note: 'session.handouts.kind.note',
+	'map-fragment': 'session.handouts.kind.mapFragment',
+	cipher: 'session.handouts.kind.cipher',
+	rumor: 'session.handouts.kind.rumor',
 };
 
 export function HandoutsPanel({
@@ -44,14 +45,15 @@ export function HandoutsPanel({
 	onRevoke: (id: string) => void;
 	onAcknowledge: (id: string) => void;
 }) {
+	const { t } = useI18n();
 	const statusById = new Map(status.map((s) => [s.handoutId, s]));
 	return (
-		<Panel title="Handouts">
+		<Panel title={t('session.handouts.title')}>
 			{isDm ? (
 				<>
 					{!isLive && (
 						<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-							Handouts deliver to the live session — go live to push to players.
+							{t('session.handouts.goLive')}
 						</div>
 					)}
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -59,18 +61,18 @@ export function HandoutsPanel({
 						    not a label, and it disappears the moment the DM types (WCAG 3.3.2). axe
 						    cannot flag it, because HTML-AAM accepts placeholder as an accname
 						    fallback — so the a11y gate stayed green over it. */}
-						<Field label="Handout title">
+						<Field label={t('session.handouts.titleField')}>
 							<Input
 								value={title}
 								onChange={(e: { target: { value: string } }) => onTitle(e.target.value)}
-								placeholder="Handout title"
+								placeholder={t('session.handouts.titleField')}
 							/>
 						</Field>
-						<Field label="What the players read">
+						<Field label={t('session.handouts.bodyField')}>
 							<Textarea
 								value={body}
 								onChange={(e: { target: { value: string } }) => onBody(e.target.value)}
-								placeholder="What the players read…"
+								placeholder={t('session.handouts.bodyPlaceholder')}
 								rows={3}
 							/>
 						</Field>
@@ -86,9 +88,9 @@ export function HandoutsPanel({
 							aria-disabled={!canDeliver || !title.trim() || undefined}
 							title={
 								!canDeliver
-									? 'Go live to push handouts to players'
+									? t('session.handouts.blockedNotLive')
 									: !title.trim()
-										? 'Give the handout a title first'
+										? t('session.handouts.blockedNoTitle')
 										: undefined
 							}
 							onClick={() => {
@@ -96,18 +98,18 @@ export function HandoutsPanel({
 								onDeliver();
 							}}
 						>
-							Push to players
+							{t('session.handouts.push')}
 						</Button>
 					</div>
 				</>
 			) : (
 				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-					Handouts the DM has shared with you appear here.
+					{t('session.handouts.playerIntro')}
 				</div>
 			)}
 
 			{handouts.length === 0 ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No handouts delivered yet.</div>
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('session.handouts.empty')}</div>
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 					{handouts.map((h) => {
@@ -140,31 +142,33 @@ export function HandoutsPanel({
 										{h.title}
 									</div>
 									<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
-										{HANDOUT_KIND_LABEL[h.handoutKind] ?? 'Handout'} · {h.sections.length}{' '}
-										{h.sections.length === 1 ? 'section' : 'sections'}
-										{isDm ? ` · ${opened}/${delivered} opened` : ''}
+										{t('session.handouts.meta', {
+											kind: t(HANDOUT_KIND_LABEL[h.handoutKind] ?? 'session.handouts.kind.handout'),
+											sections: h.sections.length,
+										})}
+										{isDm ? ` · ${t('session.handouts.opened', { opened, delivered })}` : ''}
 									</div>
 								</div>
 								{isDm ? (
 									<IconButton
 										icon="close"
-										label={`Revoke handout — ${h.title}`}
+										label={t('session.handouts.revoke', { title: h.title })}
 										variant="ghost"
 										size="sm"
 										disabled={previewing}
 										onClick={() => onRevoke(h.id)}
 									/>
 								) : h.acknowledged ? (
-									<Badge status="success">Read</Badge>
+									<Badge status="success">{t('session.handouts.read')}</Badge>
 								) : (
 									<Button
 										variant="secondary"
 										size="sm"
-										aria-label={`Mark read — ${h.title}`}
+										aria-label={t('session.handouts.markReadFor', { title: h.title })}
 										disabled={previewing}
 										onClick={() => onAcknowledge(h.id)}
 									>
-										Mark read
+										{t('session.handouts.markRead')}
 									</Button>
 								)}
 							</div>

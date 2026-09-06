@@ -12,6 +12,7 @@ import {
 	VisibilityChip,
 	useConditionCatalog,
 } from '../../ds';
+import { useI18n } from '../../i18n';
 import { Panel, T, eb } from '../../app/screen-kit';
 
 type CombatantRow = CombatTrackerView['combatants'][number];
@@ -57,6 +58,7 @@ export function CombatPanel({
 	onReorder: (id: string, direction: 'earlier' | 'later') => void;
 	onVisibility: (id: string, hidden: boolean) => void;
 }) {
+	const { t } = useI18n();
 	// RC-SYS-2.3 — the conditions the ACTIVE system package declares; empty means the picker is not
 	// offered at all rather than opening on nothing.
 	const { conditions: systemConditions } = useConditionCatalog();
@@ -78,7 +80,7 @@ export function CombatPanel({
 
 	return (
 		<Panel
-			title="Combat"
+			title={t('session.combat.title')}
 			action={
 				running ? (
 					<div style={{ display: 'flex', gap: 7 }}>
@@ -90,11 +92,11 @@ export function CombatPanel({
 								disabled={previewing}
 								onClick={onAdd}
 							>
-								Add
+								{t('common.action.add')}
 							</Button>
 						)}
 						<Button variant="ghost" size="sm" icon="close" disabled={previewing} onClick={onEnd}>
-							End combat
+							{t('session.combat.end')}
 						</Button>
 					</div>
 				) : (
@@ -109,25 +111,25 @@ export function CombatPanel({
 						aria-disabled={!isLive || previewing || !isDm || undefined}
 						title={
 							previewing
-								? 'Exit player preview to build an encounter'
+								? t('session.combat.buildBlockedPreview')
 								: !isDm
-									? 'Only the DM can build an encounter'
+									? t('session.combat.buildBlockedNotDm')
 									: !isLive
-										? 'Go live before building an encounter'
-										: 'Build encounter'
+										? t('session.combat.buildBlockedNotLive')
+										: t('session.combat.build')
 						}
 						aria-label={
 							previewing
-								? 'Build encounter (unavailable — exit player preview first)'
+								? t('session.combat.buildLabelPreview')
 								: !isDm
-									? 'Build encounter (unavailable — DM only)'
+									? t('session.combat.buildLabelNotDm')
 									: !isLive
-										? 'Build encounter (unavailable — go live first)'
-										: 'Build encounter'
+										? t('session.combat.buildLabelNotLive')
+										: t('session.combat.build')
 						}
 						onClick={onStart}
 					>
-						Build encounter
+						{t('session.combat.build')}
 					</Button>
 				)
 			}
@@ -140,9 +142,16 @@ export function CombatPanel({
 			    dropped) and sits OUTSIDE the `<ul>` so it cannot join the list's text. */}
 			<div className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
 				{running && activeCombatant
-					? `Round ${tracker.round}, turn ${tracker.turn + 1} — ${activeCombatant.name}. ${
+					? `${t('session.combat.turnAnnouncement', {
+							round: tracker.round,
+							turn: tracker.turn + 1,
+							name: activeCombatant.name,
+						})} ${
 							activeCombatant.resources
-								? `${activeCombatant.resources.hp} of ${activeCombatant.resources.maxHp} hit points.`
+								? t('session.combat.hitPointsAnnouncement', {
+										hp: activeCombatant.resources.hp,
+										max: activeCombatant.resources.maxHp,
+									})
 								: ''
 						}`
 					: ''}
@@ -150,21 +159,21 @@ export function CombatPanel({
 			{!running ? (
 				<EmptyState
 					icon="sword"
-					title={isLive ? 'No combat running' : 'Go live to start combat'}
-					description={
-						isLive
-							? 'Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it.'
-							: 'Combat is open only while the session is live.'
-					}
+					title={t(isLive ? 'session.combat.noneRunning' : 'session.combat.goLiveTitle')}
+					description={t(isLive ? 'session.combat.noneRunningHelp' : 'session.combat.goLiveHelp')}
 				/>
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 					<div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>
-						<StatPill label="Round" value={String(tracker.round)} tone="accent" />
-						<StatPill label="Turn" value={String(tracker.turn + 1)} />
+						<StatPill
+							label={t('session.combat.round')}
+							value={String(tracker.round)}
+							tone="accent"
+						/>
+						<StatPill label={t('session.combat.turn')} value={String(tracker.turn + 1)} />
 						{lowest && lowest.resources && (
 							<StatPill
-								label="Lowest HP"
+								label={t('session.combat.lowestHp')}
 								value={`${lowest.resources.hp}/${lowest.resources.maxHp}`}
 								tone="error"
 							/>
@@ -172,7 +181,7 @@ export function CombatPanel({
 						<div style={{ flex: 1 }} />
 						<IconButton
 							icon="chevron-left"
-							label="Previous turn"
+							label={t('session.combat.previousTurn')}
 							variant="ghost"
 							size="sm"
 							disabled={previewing}
@@ -185,7 +194,7 @@ export function CombatPanel({
 							disabled={previewing}
 							onClick={onAdvance}
 						>
-							Next turn
+							{t('session.combat.nextTurn')}
 						</Button>
 					</div>
 
@@ -283,9 +292,11 @@ export function CombatPanel({
 												{c.name}
 											</button>
 											{c.hidden && <VisibilityChip level="dm-only" compact />}
-											{active && <Badge status="success">Active</Badge>}
-											{c.isBloodied && <Badge status="warning">Bloodied</Badge>}
-											{c.isDefeated && <Badge status="error">Down</Badge>}
+											{active && <Badge status="success">{t('session.combat.active')}</Badge>}
+											{c.isBloodied && (
+												<Badge status="warning">{t('session.combat.bloodied')}</Badge>
+											)}
+											{c.isDefeated && <Badge status="error">{t('session.combat.down')}</Badge>}
 										</div>
 										{res && (
 											<div style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -293,7 +304,7 @@ export function CombatPanel({
 													<HPBar current={res.hp} max={res.maxHp} size="sm" />
 												</div>
 												<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
-													AC {c.statBlock.ac ?? '—'}
+													{t('session.combat.armorClass', { value: c.statBlock.ac ?? '—' })}
 												</span>
 											</div>
 										)}
@@ -324,7 +335,7 @@ export function CombatPanel({
 											    stay as the PREFIX so combat.spec's substring match still hits. */}
 											<IconButton
 												icon="add"
-												label={`Heal 1 HP — ${c.name}`}
+												label={t('session.combat.heal', { name: c.name })}
 												variant="ghost"
 												size="sm"
 												disabled={previewing}
@@ -332,7 +343,7 @@ export function CombatPanel({
 											/>
 											<IconButton
 												icon="remove"
-												label={`Damage 1 HP — ${c.name}`}
+												label={t('session.combat.damage', { name: c.name })}
 												variant="ghost"
 												size="sm"
 												disabled={previewing}
@@ -355,7 +366,7 @@ export function CombatPanel({
 								gap: 10,
 							}}
 						>
-							<div style={{ ...eb }}>Selected · {selected.name}</div>
+							<div style={{ ...eb }}>{t('session.combat.selected', { name: selected.name })}</div>
 							<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
 								{/* RC-SYS-2.3 — no conditions in the active system means no picker to open. Say so
 								    rather than leaving a control that can only ever show an empty dialog. */}
@@ -368,11 +379,11 @@ export function CombatPanel({
 											disabled={previewing}
 											onClick={() => onPickCondition(selected.id)}
 										>
-											Add condition
+											{t('session.combat.addCondition')}
 										</Button>
 									) : (
 										<span style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-											This system has no conditions.
+											{t('session.combat.noSystemConditions')}
 										</span>
 									))}
 								{isDm && (
@@ -387,7 +398,7 @@ export function CombatPanel({
 										    soft (focusable, named, swallows the press); `previewing` stays hard. */}
 										<IconButton
 											icon="chevron-up"
-											label={`Move ${selected.name} earlier in initiative`}
+											label={t('session.combat.moveEarlier', { name: selected.name })}
 											variant="ghost"
 											size="sm"
 											disabled={previewing}
@@ -399,7 +410,7 @@ export function CombatPanel({
 										/>
 										<IconButton
 											icon="chevron-down"
-											label={`Move ${selected.name} later in initiative`}
+											label={t('session.combat.moveLater', { name: selected.name })}
 											variant="ghost"
 											size="sm"
 											disabled={previewing}
@@ -421,7 +432,7 @@ export function CombatPanel({
 											disabled={previewing}
 											onClick={() => onVisibility(selected.id, !selected.hidden)}
 										>
-											{selected.hidden ? 'Reveal' : 'Hide'}
+											{t(selected.hidden ? 'session.combat.reveal' : 'session.combat.hide')}
 										</Button>
 										<Button
 											variant="ghost"
@@ -430,14 +441,14 @@ export function CombatPanel({
 											disabled={previewing}
 											onClick={() => onRemove(selected.id, selected.name)}
 										>
-											Remove
+											{t('common.action.remove')}
 										</Button>
 									</>
 								)}
 							</div>
 							{isDm && selected.hidden && (
 								<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-									Players see this row as “Unknown creature”.
+									{t('session.combat.hiddenNote')}
 								</div>
 							)}
 						</div>
@@ -459,6 +470,7 @@ export function ConditionPickerDialog({
 	onClose: () => void;
 	onPick: (combatantId: string, condition: string) => void;
 }) {
+	const { t } = useI18n();
 	// RC-SYS-2.3 — the ACTIVE system package decides what can be applied, in the order it authored.
 	const { conditions } = useConditionCatalog();
 	const present = new Set(target?.resources?.conditions ?? []);
@@ -467,8 +479,12 @@ export function ConditionPickerDialog({
 		<Dialog
 			open={!!target}
 			onClose={onClose}
-			title={`Add condition${target ? ` — ${target.name}` : ''}`}
-			description="Each condition has its own icon, so it stays readable at a glance."
+			title={
+				target
+					? t('session.combat.addConditionFor', { name: target.name })
+					: t('session.combat.addCondition')
+			}
+			description={t('session.combat.addConditionHelp')}
 			icon="cond-poisoned"
 			size="md"
 		>
@@ -477,7 +493,9 @@ export function ConditionPickerDialog({
 					<button
 						key={k}
 						type="button"
-						aria-label={`Add ${conditions.find((c) => c.key === k)?.label ?? k}`}
+						aria-label={t('session.combat.addNamedCondition', {
+							condition: conditions.find((c) => c.key === k)?.label ?? k,
+						})}
 						onClick={() => target && onPick(target.id, k)}
 						style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
 					>
@@ -486,9 +504,11 @@ export function ConditionPickerDialog({
 				))}
 				{keys.length === 0 && (
 					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						{conditions.length === 0
-							? 'This system has no conditions.'
-							: 'Every condition is already applied.'}
+						{t(
+							conditions.length === 0
+								? 'session.combat.noSystemConditions'
+								: 'session.combat.allConditionsApplied',
+						)}
 					</div>
 				)}
 			</div>

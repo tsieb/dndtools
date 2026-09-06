@@ -1,5 +1,6 @@
 import type { ProjectedPresenceEntry } from '@dndtools/core';
 import { Avatar, Badge, HPBar, StatusDot } from '../../ds';
+import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, T } from '../../app/screen-kit';
 import type { HostPeer } from '../../net/SessionHost';
 
@@ -13,16 +14,16 @@ import type { HostPeer } from '../../net/SessionHost';
  * host, hosting with nobody joined ⇒ it says players appear as they connect.
  */
 // Roles and presence arrive as machine tokens; these are the words players and DMs actually read.
-const ROLE_LABEL: Record<string, string> = {
-	dm: 'DM',
-	'co-dm': 'Co-DM',
-	player: 'Player',
-	observer: 'Observer',
+const ROLE_LABEL: Record<string, MessageKey> = {
+	dm: 'session.roster.role.dm',
+	'co-dm': 'session.roster.role.coDm',
+	player: 'session.roster.role.player',
+	observer: 'session.roster.role.observer',
 };
-const PRESENCE_LABEL: Record<string, string> = {
-	online: 'Online',
-	away: 'Away',
-	offline: 'Offline',
+const PRESENCE_LABEL: Record<string, MessageKey> = {
+	online: 'status.online',
+	away: 'status.away',
+	offline: 'status.offline',
 };
 
 export function RosterPanel({
@@ -34,26 +35,32 @@ export function RosterPanel({
 	peers: HostPeer[];
 	presence: Map<string, ProjectedPresenceEntry>;
 }) {
+	const { t } = useI18n();
 	const connected = peers.filter((p) => p.connected);
+	// One translatable sentence with the Host control named inside it, split around that name so it
+	// keeps its emphasis without freezing English word order into two catalog fragments.
+	const notHosting = t('session.roster.notHosting', { host: t('session.roster.hostAction') });
+	const [hostBefore, hostAfter = ''] = notHosting.split(t('session.roster.hostAction'));
 	return (
 		<Panel
-			title="Table roster"
+			title={t('session.roster.title')}
 			action={
 				hosting ? (
 					<Badge status={connected.length > 0 ? 'success' : 'neutral'}>
-						{connected.length} connected
+						{t('session.roster.connectedCount', { count: connected.length })}
 					</Badge>
 				) : undefined
 			}
 		>
 			{!hosting ? (
 				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-					No live table yet. Use <strong style={{ color: T.sub }}>Host</strong> in the top bar to
-					open your table — players appear here as they connect.
+					{hostBefore}
+					<strong style={{ color: T.sub }}>{t('session.roster.hostAction')}</strong>
+					{hostAfter}
 				</div>
 			) : peers.length === 0 ? (
 				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-					Hosting — no players yet. Invite from the Host panel; players appear here as they connect.
+					{t('session.roster.hostingEmpty')}
 				</div>
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -88,24 +95,24 @@ export function RosterPanel({
 										{p.displayName}
 									</div>
 									<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
-										{ROLE_LABEL[p.role] ?? p.role}
+										{ROLE_LABEL[p.role] ? t(ROLE_LABEL[p.role]) : p.role}
 										{p.connected
-											? ` · ${PRESENCE_LABEL[status] ?? status}`
-											: ' · Invited — not connected yet'}
+											? ` · ${PRESENCE_LABEL[status] ? t(PRESENCE_LABEL[status]) : status}`
+											: ` · ${t('session.roster.notConnected')}`}
 										{entry && entry.device !== 'unknown' ? ` · ${entry.device}` : ''}
 									</div>
 								</div>
 								{p.connected &&
 									(p.hand ? (
 										<Badge status="accent" icon="flag">
-											Hand raised
+											{t('session.roster.handRaised')}
 										</Badge>
 									) : p.ready ? (
 										<Badge status="success" icon="check">
-											Ready
+											{t('session.roster.ready')}
 										</Badge>
 									) : (
-										<Badge status="neutral">Connected</Badge>
+										<Badge status="neutral">{t('status.connected')}</Badge>
 									))}
 							</div>
 						);
@@ -121,10 +128,11 @@ export function PartyPanel({
 }: {
 	party: { id: string; name: string; combat?: { hp: number; maxHp: number } }[];
 }) {
+	const { t } = useI18n();
 	return (
-		<Panel title="Party">
+		<Panel title={t('session.party.title')}>
 			{party.length === 0 ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No player characters yet.</div>
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('session.party.empty')}</div>
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 					{party.map((p) => (
@@ -156,7 +164,7 @@ export function PartyPanel({
 										>
 											{p.name}
 										</span>
-										<span style={{ color: T.ter }}>No hit points recorded</span>
+										<span style={{ color: T.ter }}>{t('session.party.noHitPoints')}</span>
 									</div>
 								)}
 							</div>

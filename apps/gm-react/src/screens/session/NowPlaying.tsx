@@ -1,5 +1,6 @@
 import { getSessionAudioView } from '@dndtools/core';
 import { Badge, Button, Icon, Slider } from '../../ds';
+import { useI18n } from '../../i18n';
 import { Panel, T } from '../../app/screen-kit';
 
 type SessionAudioView = ReturnType<typeof getSessionAudioView>;
@@ -23,9 +24,10 @@ export function AudioPanel({
 	onStop: () => void;
 	onVolume: (volume: number) => void;
 }) {
+	const { t } = useI18n();
 	const track = audio.track;
 	return (
-		<Panel title="Now playing">
+		<Panel title={t('session.audio.title')}>
 			{!track ? (
 				<div
 					style={{
@@ -37,7 +39,7 @@ export function AudioPanel({
 					}}
 				>
 					<Icon name="audio" size="sm" color={T.ter} />
-					Nothing playing. Start ambience from the Audio library.
+					{t('session.audio.empty')}
 				</div>
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -55,10 +57,12 @@ export function AudioPanel({
 							>
 								{trackLabel ?? track.assetId ?? track.sourceId}
 							</div>
-							<div style={{ font: `11px ${T.sans}`, color: T.ter }}>session audio</div>
+							<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+								{t('session.audio.source')}
+							</div>
 						</div>
 						<Badge status={track.status === 'playing' ? 'success' : 'neutral'}>
-							{track.status === 'playing' ? 'Playing' : 'Paused'}
+							{t(track.status === 'playing' ? 'session.audio.playing' : 'session.audio.paused')}
 						</Badge>
 					</div>
 					{isDm && (
@@ -72,7 +76,7 @@ export function AudioPanel({
 										disabled={previewing}
 										onClick={onPause}
 									>
-										Pause
+										{t('session.audio.pause')}
 									</Button>
 								) : (
 									<Button
@@ -82,7 +86,7 @@ export function AudioPanel({
 										disabled={previewing}
 										onClick={onResume}
 									>
-										Resume
+										{t('session.audio.resume')}
 									</Button>
 								)}
 								<Button
@@ -92,11 +96,11 @@ export function AudioPanel({
 									disabled={previewing}
 									onClick={onStop}
 								>
-									Stop
+									{t('session.audio.stop')}
 								</Button>
 							</div>
 							<Slider
-								label="Volume"
+								label={t('session.audio.volume')}
 								min={0}
 								max={1}
 								step={0.05}

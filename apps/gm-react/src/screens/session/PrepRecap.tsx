@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { PrepRecapDigest, SessionArchiveSnapshot } from '@dndtools/core';
 import { Button, Select, Textarea, VisibilityChip } from '../../ds';
+import { useI18n } from '../../i18n';
 import { Panel, T, eb } from '../../app/screen-kit';
 
 // ── Prep & recap (SES-009 — the continuity digest, session archives, recap authoring) ─────────────
@@ -30,6 +31,7 @@ export function RecapPanel({
 	previewing: boolean;
 	onAuthor: (archiveId: string, markdown: string) => Promise<boolean>;
 }) {
+	const { t } = useI18n();
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [draft, setDraft] = useState('');
 	const [busy, setBusy] = useState(false);
@@ -60,13 +62,15 @@ export function RecapPanel({
 
 	return (
 		// The whole panel (digest + recap authoring) is DM-only — labeled explicitly in the header.
-		<Panel title="Prep & recap" action={<VisibilityChip level="dm-only" compact />}>
+		<Panel title={t('session.prep.title')} action={<VisibilityChip level="dm-only" compact />}>
 			<div>
 				<div style={{ ...eb, marginBottom: 5 }}>
-					{digest.mode === 'recap' ? 'What happened' : 'Carry into the session'}
+					{t(digest.mode === 'recap' ? 'session.prep.whatHappened' : 'session.prep.carryInto')}
 				</div>
 				{prompts.length === 0 ? (
-					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>Nothing to carry over yet.</div>
+					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+						{t('session.prep.nothingToCarry')}
+					</div>
 				) : (
 					prompts.map((p) => (
 						<div
@@ -105,20 +109,18 @@ export function RecapPanel({
 					gap: 8,
 				}}
 			>
-				<div style={eb}>Session archives</div>
+				<div style={eb}>{t('session.prep.archives')}</div>
 				{archives.length === 0 ? (
-					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-						No archived sessions yet. Ending a live session into Recap creates one here.
-					</div>
+					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{t('session.prep.noArchives')}</div>
 				) : (
 					<>
 						{archives.length > 1 && (
 							<Select
-								aria-label="Archived session"
+								aria-label={t('session.prep.archivedSession')}
 								value={target?.id ?? ''}
 								options={archives.map((a) => ({
 									value: a.id,
-									label: `${formatArchiveStamp(a.archivedAt)}${a.recap ? ' · has recap' : ''}`,
+									label: `${formatArchiveStamp(a.archivedAt)}${a.recap ? ` · ${t('session.prep.hasRecap')}` : ''}`,
 								}))}
 								onChange={(e: { target: { value: string } }) => setSelectedId(e.target.value)}
 							/>
@@ -127,17 +129,19 @@ export function RecapPanel({
 							<>
 								<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
 									{formatArchiveStamp(target.archivedAt)}
-									{target.recap ? ` · recap v${target.recap.revision}` : ' · no recap yet'}
+									{target.recap
+										? ` · ${t('session.prep.recapRevision', { revision: target.recap.revision })}`
+										: ` · ${t('session.prep.noRecapYet')}`}
 								</div>
 								<Textarea
 									value={draft}
 									onChange={(e: { target: { value: string } }) => setDraft(e.target.value)}
 									rows={4}
-									aria-label="Session recap"
-									placeholder="What happened this session…"
+									aria-label={t('session.prep.recapField')}
+									placeholder={t('session.prep.recapPlaceholder')}
 								/>
 								<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
-									Markdown supported. Saving replaces the recap for this archive.
+									{t('session.prep.markdownHelp')}
 								</div>
 								<Button
 									variant="primary"
@@ -149,7 +153,7 @@ export function RecapPanel({
 									disabled={previewing || busy || (!draft.trim() && !target.recap)}
 									onClick={() => void save()}
 								>
-									{target.recap ? 'Update recap' : 'Save recap'}
+									{t(target.recap ? 'session.prep.updateRecap' : 'session.prep.saveRecap')}
 								</Button>
 							</>
 						)}

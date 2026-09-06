@@ -7,6 +7,7 @@ import {
 	type CustomDate,
 } from '@dndtools/core';
 import { Button, Field, Icon, Input, Select } from '../../ds';
+import { useI18n } from '../../i18n';
 import { Panel, T } from '../../app/screen-kit';
 
 type ContinuityDate = NonNullable<ReturnType<typeof getCalendarContinuityForActor>['currentDate']>;
@@ -24,6 +25,7 @@ export function CampaignDatePanel({
 	previewing: boolean;
 	onSet: (date: CustomDate, ok: string) => void;
 }) {
+	const { t } = useI18n();
 	const [year, setYear] = useState(1);
 	const [month, setMonth] = useState(1);
 	const [day, setDay] = useState(1);
@@ -47,10 +49,8 @@ export function CampaignDatePanel({
 
 	if (!calendar) {
 		return (
-			<Panel title="Campaign date">
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-					This campaign has no calendar yet, so there is no date to set.
-				</div>
+			<Panel title={t('session.date.title')}>
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('session.date.noCalendar')}</div>
 			</Panel>
 		);
 	}
@@ -88,18 +88,18 @@ export function CampaignDatePanel({
 				month,
 				day: parsedDay(),
 			},
-			'Campaign date set',
+			t('session.date.setOk'),
 		);
 	}
 
 	function advanceDay() {
 		if (!calendar || !current) return;
 		const next = addDays(calendar, current.value, 1);
-		if (next) onSet(next, 'Campaign date advanced one day');
+		if (next) onSet(next, t('session.date.advancedOk'));
 	}
 
 	return (
-		<Panel title="Campaign date">
+		<Panel title={t('session.date.title')}>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
 				<Icon name="recent" size="sm" color={current ? T.acc : T.ter} />
 				<div style={{ flex: '1 1 180px', minWidth: 0 }}>
@@ -112,10 +112,10 @@ export function CampaignDatePanel({
 							textOverflow: 'ellipsis',
 						}}
 					>
-						{current ? current.display : 'No date set'}
+						{current ? current.display : t('session.date.none')}
 					</div>
 					<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
-						{calendar.name} · drives the Campaign timeline
+						{t('session.date.drives', { calendar: calendar.name })}
 					</div>
 				</div>
 				<Button
@@ -125,11 +125,11 @@ export function CampaignDatePanel({
 					disabled={previewing || !current}
 					onClick={advanceDay}
 				>
-					+1 day
+					{t('session.date.advance')}
 				</Button>
 			</div>
 			<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-				<Field label="Month" style={{ flex: '1 1 120px' }}>
+				<Field label={t('session.date.month')} style={{ flex: '1 1 120px' }}>
 					<Select
 						value={String(month)}
 						disabled={previewing}
@@ -144,7 +144,7 @@ export function CampaignDatePanel({
 						}}
 					/>
 				</Field>
-				<Field label="Day" style={{ width: 70 }}>
+				<Field label={t('session.date.day')} style={{ width: 70 }}>
 					<Input
 						type="number"
 						min={1}
@@ -155,7 +155,7 @@ export function CampaignDatePanel({
 						onBlur={commitDay}
 					/>
 				</Field>
-				<Field label="Year" style={{ width: 84 }}>
+				<Field label={t('session.date.year')} style={{ width: 84 }}>
 					<Input
 						type="number"
 						value={yearText}
@@ -165,7 +165,7 @@ export function CampaignDatePanel({
 					/>
 				</Field>
 				<Button variant="primary" size="sm" icon="check" disabled={previewing} onClick={setDate}>
-					Set date
+					{t('session.date.set')}
 				</Button>
 			</div>
 		</Panel>
