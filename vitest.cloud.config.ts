@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
+import { testWorkers } from './vitest.workers';
 
 // Cloud / online-play test suite. Covers the code added for internet remote play and
 // Cognito accounts, which live OUTSIDE the packages that already run Vitest:
@@ -29,5 +30,6 @@ export default defineConfig({
 		],
 		environment: 'node',
 		globals: false,
+		maxWorkers: testWorkers(),
 	},
 });

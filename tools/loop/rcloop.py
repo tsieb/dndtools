@@ -45,6 +45,8 @@ ROADMAP_REL = "docs/planning/RC_ROADMAP.md"
 LANES = ["STB", "SYS", "WID", "CAN", "MAP", "ENG", "UX", "AI", "SES", "CHR", "KNW", "AUD", "CLD", "DSN", "PLT", "DOC"]
 FP = {"S": 1.0, "M": 3.0, "L": 6.0, "XL": 10.0}  # "function points" per story size, for tokens/FP
 
+_CPUS = os.cpu_count() or 4
+
 DEFAULT_CONFIG = {
     "branch": "loop/rc",
     "promote_to": "main",
@@ -85,6 +87,18 @@ DEFAULT_CONFIG = {
         "codex_max_pct": 90,
     },
     "mcp": "none",  # none | inherit  (MCP tool definitions cost tokens on every turn)
+    # Machine budget. Every slot runs Vitest and Playwright (the agent during its work, the wrapper
+    # at the gates) and the defaults of both are "use every core": five slots did that at once and
+    # pinned a 16-core box. `heavy_jobs` is a flock semaphore across ALL slots for gate/promotion
+    # verification; the worker counts go out as DNDTOOLS_TEST_WORKERS / DNDTOOLS_PW_WORKERS (the
+    # repo's vitest/playwright configs honour them) and as explicit flags on the wrapper's gates.
+    "resources": {
+        "heavy_jobs": 2,  # concurrent verify_tree/promotion gates across all slots
+        "test_workers": max(2, min(6, _CPUS // 5)),  # Vitest forks per run
+        "pw_workers": max(1, min(4, _CPUS // 8)),  # Playwright workers per slot run
+        "promote_pw_workers": max(2, min(6, _CPUS // 4)),  # the full-suite promotion gate
+        "nice": 10,  # renice for the whole runner (agent, its commands, the gates)
+    },
     "min_gap_s": 45,
     "idle_wait_s": 600,
     "dashboard_port": 4991,
@@ -719,7 +733,8 @@ def cmd_set(a) -> int:
 GATES_TEXT = """- `pnpm typecheck` and `pnpm lint` (both include the core boundary lint) — on the FINAL tree, no edits after.
 - `pnpm format:fix:changed` before committing (formats only the files you touched; never add a repo-wide `format:check` to CI).
 - Unit tests for what you changed: `pnpm test:critical` (packages/core), `pnpm test:app` (apps/gm-react app layer), `pnpm test:cloud`, `pnpm test:tooling`.
-- `pnpm e2e -- <spec>` on both profiles when a screen changed: `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/<name>.spec.ts --project=desktop-chromium --project=mobile-chromium` (the port is already set for you via `DNDTOOLS_E2E_PORT`).
+- `pnpm e2e -- <spec>` on both profiles when a screen changed: `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/<name>.spec.ts --project=desktop-chromium --project=mobile-chromium` (the port is already set for you via `DNDTOOLS_E2E_PORT`). Named specs only — never the whole suite or a whole project; the promotion gate runs those.
+- Worker counts are preset (`DNDTOOLS_TEST_WORKERS`, `DNDTOOLS_PW_WORKERS`): never pass a larger `--workers` / `--maxWorkers`. Unit tests: the package you changed, not all four suites.
 - `pnpm build` when you touched app or core code with a `M`/`L` story.
 - `pnpm feature-audit` when you touched `docs/requirements/` or screens (drift must stay at zero)."""
 
@@ -853,6 +868,18 @@ def cmd_result(a) -> int:
 # ----------------------------------------------------------------------------- slot env / roadmap sync / status
 
 
+def resource_env(cfg: dict) -> dict:
+    """The machine budget as environment: the semaphore width, the renice, and the worker caps
+    that the repo's vitest/playwright configs read (and the wrapper repeats as explicit flags)."""
+    r = deep_merge(DEFAULT_CONFIG["resources"], cfg.get("resources") or {})
+    clamp = lambda v, lo: max(lo, int(v))
+    return {
+        "LOOP_HEAVY_JOBS": clamp(r["heavy_jobs"], 1), "LOOP_NICE": max(0, min(19, int(r["nice"]))),
+        "DNDTOOLS_TEST_WORKERS": clamp(r["test_workers"], 1), "DNDTOOLS_PW_WORKERS": clamp(r["pw_workers"], 1),
+        "LOOP_PROMOTE_PW_WORKERS": clamp(r["promote_pw_workers"], 1),
+    }
+
+
 def cmd_slot_env(a) -> int:
     cfg = load_config()
     i = int(a.slot)
@@ -863,6 +890,7 @@ def cmd_slot_env(a) -> int:
         "LOOP_MCP": cfg["mcp"], "LOOP_BUILD_FOR": ",".join(cfg["gates"]["build_for"]), "LOOP_FEATURE_AUDIT": int(bool(cfg["gates"]["feature_audit"])),
         "LOOP_E2E_NAMED": int(bool(cfg["gates"]["e2e_named_specs"])), "DNDTOOLS_E2E_PORT": 5273 + 10 * i,
     }
+    kv.update(resource_env(cfg))
     for k, v in kv.items():
         print(f"export {k}={json.dumps(str(v))}")
     return 0

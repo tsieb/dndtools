@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
+import { testWorkers } from './vitest.workers';
 
 // Root workspace tooling tests: the control-plane checks that live at the repo root
 // (workpack generation/validation, CI guardrails, generated-doc audits, and the
@@ -18,6 +19,7 @@ export default defineConfig({
 	test: {
 		include: ['tests/unit/**/*.test.ts'],
 		environment: 'node',
+		maxWorkers: testWorkers(),
 	},
 	resolve: {
 		alias: [

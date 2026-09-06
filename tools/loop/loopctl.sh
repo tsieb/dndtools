@@ -29,6 +29,7 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
+Nice=10
 WorkingDirectory=$CTL
 Environment=LOOP_CTL=$CTL
 Environment=PATH=$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin

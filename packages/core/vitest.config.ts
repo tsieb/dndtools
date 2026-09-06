@@ -1,10 +1,12 @@
 import { defineConfig } from 'vitest/config';
+import { testWorkers } from '../../vitest.workers';
 
 export default defineConfig({
 	test: {
 		include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
 		environment: 'node',
 		globals: false,
+		maxWorkers: testWorkers(),
 		coverage: {
 			provider: 'v8',
 			reporter: ['text', 'json-summary', 'html'],

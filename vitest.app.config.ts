@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
+import { testWorkers } from './vitest.workers';
 
 // App-layer unit suite for apps/gm-react OUTSIDE the net/cloud transport slice (which
 // vitest.cloud.config.ts owns): the platform storage adapters (asset-byte store, backup
@@ -19,13 +20,10 @@ export default defineConfig({
 		// `.tsx` too, so the design-system components can be asserted against a real DOM (each such
 		// file opts into jsdom with its own `@vitest-environment` pragma).
 		include: ['apps/gm-react/src/**/*.test.{ts,tsx}'],
-		exclude: [
-			'**/node_modules/**',
-			'apps/gm-react/src/net/**',
-			'apps/gm-react/src/cloud/**',
-		],
+		exclude: ['**/node_modules/**', 'apps/gm-react/src/net/**', 'apps/gm-react/src/cloud/**'],
 		environment: 'node',
 		globals: false,
 		setupFiles: ['fake-indexeddb/auto'],
+		maxWorkers: testWorkers(),
 	},
 });

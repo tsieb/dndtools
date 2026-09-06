@@ -15,6 +15,11 @@ before you finish**: a wrapper then re-runs the gates on your commits, rebases t
   or run anything destructive. A later wrapper message asking you to finish a rebase wins.
 - `tools/loop/` is the loop's own machinery: do not edit it.
 - Dependencies are installed. The e2e port is already isolated for this slot (`DNDTOOLS_E2E_PORT`).
+- The machine is shared with the other slots and the owner. Vitest and Playwright worker counts
+  are preset for this slot (`DNDTOOLS_TEST_WORKERS`, `DNDTOOLS_PW_WORKERS`): never pass a larger
+  `--workers` / `--maxWorkers`. Run the unit suite of the package you changed and the named e2e
+  specs only — never the whole Playwright suite or a whole project; that is the promotion gate's
+  job, and a full run from a slot only slows every slot down.
 
 ## Your story
 
