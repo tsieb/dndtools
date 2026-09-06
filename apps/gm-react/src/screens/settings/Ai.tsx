@@ -2,7 +2,6 @@ import { useState } from 'react';
 import {
 	MCP_BASELINE_TOOL_IDS,
 	MCP_POLICY_MODES,
-	computeMcpProposalConflict,
 	type CommandResult,
 	type McpPolicyMode,
 	type McpStagedProposal,
@@ -15,8 +14,8 @@ import { baselineAllowlistMembership, toggleBaselineToolAllowlist } from '../../
 import { AiProviderPanel } from './AiProvider';
 import { AiRouterPanel } from './AiStatus';
 import { AiAssistantPanel } from './AiAssistant';
-import { AiProposalPreview } from './AiProposalPreview';
-import { AiProposalConflict } from './AiProposalConflict';
+import { AiBatchReviewPanel } from './AiBatchReview';
+import { AiAuditBrowser } from './AiAuditBrowser';
 import { errMsg } from './shared';
 /* ---- AI & tools (REAL — the durable MCP identity/policy/staged-writes slice + `mcp.*` commands,
  * PLUS the client-side provider transport (ADR-021, closing the ADR-014 deferral). The POLICY layer:
@@ -33,7 +32,7 @@ const MCP_MODE_LABEL: Record<McpPolicyMode, MessageKey> = {
 };
 
 export function SettingsAI() {
-	const { t, formatDate } = useI18n();
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
 	const mcp = runtime.state.mcp;
@@ -78,7 +77,6 @@ export function SettingsAI() {
 	const pending = (Object.values(mcp.proposals) as McpStagedProposal[]).filter(
 		(pr) => pr.status === 'pending',
 	);
-	const recentAudit = mcp.auditEntries.slice(-5).reverse();
 	const actorName = (id: string) => runtime.state.permissions.actors[id]?.displayName ?? id;
 
 	const registerAgent = () => {
@@ -372,99 +370,15 @@ export function SettingsAI() {
 				</div>
 			</Panel>
 
-			<Panel
-				title={t('settings.ai.stagedTitle')}
-				action={<Badge status={pending.length ? 'warning' : 'success'}>{pending.length}</Badge>}
-			>
-				{pending.length === 0 ? (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						{t('settings.ai.nothingStaged')}
-					</div>
-				) : (
-					pending.map((pr, i) => {
-						// RC-AI-2.2 — a staged rewrite whose base went stale cannot be approved as staged:
-						// the commit would record a conflict and leave the note untouched while the panel
-						// claimed success. When the Core reports a conflict, the three-way choice REPLACES
-						// the approve control rather than sitting beside a button that cannot land.
-						const conflict = computeMcpProposalConflict(runtime.state, pr);
-						return (
-							<div
-								key={pr.id}
-								style={{
-									display: 'flex',
-									alignItems: 'center',
-									gap: 10,
-									padding: '10px 0',
-									borderTop: i ? `1px solid ${T.bd}` : 'none',
-									flexWrap: 'wrap',
-								}}
-							>
-								<Icon name="warning" size={15} color={T.warn} />
-								<div style={{ flex: '1 1 200px', minWidth: 0 }}>
-									<div style={{ font: `600 13px ${T.sans}` }}>{pr.commandType}</div>
-									<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
-										{t('settings.ai.proposalMeta', {
-											agent: pr.agentId,
-											actor: actorName(pr.actorId),
-											tool: pr.toolId,
-											risk: pr.writeRisk,
-										})}
-									</div>
-									{/* RC-AI-2.1 — what approving this would actually change, computed by the Core. */}
-									<AiProposalPreview proposal={pr} />
-									{conflict !== null && (
-										<AiProposalConflict
-											conflict={conflict}
-											canWrite={canWrite}
-											busy={busy}
-											onResolve={(resolution) =>
-												run(
-													{
-														type: 'mcp.resolve-proposal-conflict',
-														actorId,
-														payload: { proposalId: pr.id, resolution },
-													},
-													t('settings.ai.conflictResolved'),
-												)
-											}
-										/>
-									)}
-								</div>
-								{conflict === null && (
-									<Button
-										variant="secondary"
-										size="sm"
-										icon="check"
-										disabled={!canWrite || busy}
-										onClick={() =>
-											run(
-												{ type: 'mcp.approve-proposal', actorId, payload: { proposalId: pr.id } },
-												t('settings.ai.proposalApproved'),
-											)
-										}
-									>
-										{t('settings.ai.approve')}
-									</Button>
-								)}
-								<Button
-									variant="ghost"
-									size="sm"
-									icon="close"
-									disabled={!canWrite || busy}
-									onClick={() =>
-										run(
-											{ type: 'mcp.reject-proposal', actorId, payload: { proposalId: pr.id } },
-											t('settings.ai.proposalRejected'),
-										)
-									}
-								>
-									{t('settings.ai.reject')}
-								</Button>
-							</div>
-						);
-					})
-				)}
-			</Panel>
+			<AiBatchReviewPanel
+				pending={pending}
+				bindings={bindings}
+				actorName={actorName}
+				actorId={actorId}
+				canWrite={canWrite}
+				busy={busy}
+				setBusy={setBusy}
+			/>
 
 			<Panel title={t('settings.ai.registryTitle')}>
 				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
@@ -477,50 +391,9 @@ export function SettingsAI() {
 						</Chip>
 					))}
 				</div>
-				{recentAudit.length > 0 && (
-					<div style={{ marginTop: 12 }}>
-						<div
-							style={{
-								font: `600 11px ${T.sans}`,
-								letterSpacing: '.08em',
-								textTransform: 'uppercase',
-								color: T.ter,
-								marginBottom: 6,
-							}}
-						>
-							{t('settings.ai.recentActivity')}
-						</div>
-						{recentAudit.map((a) => (
-							<div
-								key={a.id}
-								style={{
-									display: 'flex',
-									alignItems: 'center',
-									gap: 8,
-									padding: '5px 0',
-									font: `12px ${T.sans}`,
-									color: T.sub,
-								}}
-							>
-								<Badge
-									status={a.mode === 'denied' ? 'error' : a.mode === 'staged' ? 'warning' : 'info'}
-								>
-									{a.mode}
-								</Badge>
-								<span style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
-									{a.agentId} · {a.toolId}
-								</span>
-								<span style={{ marginLeft: 'auto', font: `11px ${T.sans}`, color: T.ter }}>
-									{formatDate(new Date(a.recordedAt), {
-										dateStyle: 'medium',
-										timeStyle: 'short',
-									})}
-								</span>
-							</div>
-						))}
-					</div>
-				)}
 			</Panel>
+
+			<AiAuditBrowser entries={mcp.auditEntries} bindings={bindings} actorName={actorName} />
 		</div>
 	);
 }

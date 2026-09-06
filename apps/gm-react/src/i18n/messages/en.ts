@@ -1436,7 +1436,46 @@ export const en = {
 	'settings.ai.registryTitle': 'Tool registry (baseline)',
 	'settings.ai.registryIntro':
 		'The campaign tools an agent may be granted. Read results respect its chosen identity, and changes wait for review unless you explicitly choose a more permissive policy.',
-	'settings.ai.recentActivity': 'Recent agent activity',
+
+	/* Settings › AI & tools › Batch review (RC-AI-2.4) */
+	'settings.ai.batchFilterAgent': 'Filter staged writes by agent',
+	'settings.ai.batchFilterAgentAll': 'All agents',
+	'settings.ai.batchFilterRisk': 'Filter by risk',
+	'settings.ai.batchFilterRiskAll': 'All',
+	'settings.ai.batchFilterRiskLow': 'Low risk',
+	'settings.ai.batchFilterRiskDurable': 'Durable',
+	'settings.ai.batchSelectGroup': 'Select all staged by {agent}',
+	'settings.ai.batchSelectedCount': '{count} selected',
+	'settings.ai.batchApproveSelected': 'Approve selected',
+	'settings.ai.batchRejectSelected': 'Reject selected',
+	'settings.ai.batchNothingApprovable':
+		'The selected proposals each need their conflict resolved first.',
+	'settings.ai.batchApproveAllOk':
+		'{ok, plural, one {# proposal} other {# proposals}} approved and committed.',
+	'settings.ai.batchApproveResult': '{ok} approved, {failed} could not be approved.',
+	'settings.ai.batchRejectAllOk': '{ok, plural, one {# proposal} other {# proposals}} rejected.',
+	'settings.ai.batchRejectResult': '{ok} rejected, {failed} could not be rejected.',
+	'settings.ai.batchNoMatch': 'No staged writes match these filters.',
+	'settings.ai.batchGroupHeading': '{agent} · {count}',
+	'settings.ai.selectProposalAria': 'Select the {tool} proposal from {agent}',
+
+	/* Settings › AI & tools › Audit browser (RC-AI-2.3) */
+	'settings.ai.auditTitle': 'Audit trail',
+	'settings.ai.auditIntro':
+		'Every agent write attempt, staged or direct or denied. Export takes the full trail, not just what the filters below are showing.',
+	'settings.ai.auditFilterMode': 'Filter by outcome',
+	'settings.ai.auditFilterAll': 'All',
+	'settings.ai.auditFilterAgent': 'Filter audit trail by agent',
+	'settings.ai.auditFilterAgentAll': 'All agents',
+	'settings.ai.auditMode.staged': 'Staged',
+	'settings.ai.auditMode.direct': 'Committed',
+	'settings.ai.auditMode.denied': 'Denied',
+	'settings.ai.auditAsActor': 'as {actor}',
+	'settings.ai.auditExport': 'Export audit trail',
+	'settings.ai.auditExported': 'Audit trail exported.',
+	'settings.ai.auditExportFailed': 'Could not export the audit trail.',
+	'settings.ai.auditEmpty': 'No agent activity yet.',
+	'settings.ai.auditNoMatch': 'No activity matches these filters.',
 
 	/* Settings › AI & tools › Assistant */
 	'settings.assistant.title': 'Assistant',

@@ -1476,7 +1476,47 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.ai.registryTitle': 'Registro de herramientas (básico)',
 	'settings.ai.registryIntro':
 		'Las herramientas de campaña que se pueden conceder a un agente. Los resultados de lectura respetan la identidad elegida y los cambios esperan revisión salvo que elijas explícitamente una política más permisiva.',
-	'settings.ai.recentActivity': 'Actividad reciente de los agentes',
+
+	/* Ajustes › IA y herramientas › Revisión por lotes (RC-AI-2.4) */
+	'settings.ai.batchFilterAgent': 'Filtrar propuestas en espera por agente',
+	'settings.ai.batchFilterAgentAll': 'Todos los agentes',
+	'settings.ai.batchFilterRisk': 'Filtrar por riesgo',
+	'settings.ai.batchFilterRiskAll': 'Todos',
+	'settings.ai.batchFilterRiskLow': 'Riesgo bajo',
+	'settings.ai.batchFilterRiskDurable': 'Duradero',
+	'settings.ai.batchSelectGroup': 'Seleccionar todo lo puesto en espera por {agent}',
+	'settings.ai.batchSelectedCount': '{count} seleccionadas',
+	'settings.ai.batchApproveSelected': 'Aprobar seleccionadas',
+	'settings.ai.batchRejectSelected': 'Rechazar seleccionadas',
+	'settings.ai.batchNothingApprovable':
+		'Cada propuesta seleccionada necesita primero que se resuelva su conflicto.',
+	'settings.ai.batchApproveAllOk':
+		'{ok, plural, one {# propuesta aprobada y confirmada} other {# propuestas aprobadas y confirmadas}}.',
+	'settings.ai.batchApproveResult': '{ok} aprobadas, {failed} no se pudieron aprobar.',
+	'settings.ai.batchRejectAllOk':
+		'{ok, plural, one {# propuesta rechazada} other {# propuestas rechazadas}}.',
+	'settings.ai.batchRejectResult': '{ok} rechazadas, {failed} no se pudieron rechazar.',
+	'settings.ai.batchNoMatch': 'Ninguna escritura en espera coincide con estos filtros.',
+	'settings.ai.batchGroupHeading': '{agent} · {count}',
+	'settings.ai.selectProposalAria': 'Seleccionar la propuesta de {tool} de {agent}',
+
+	/* Ajustes › IA y herramientas › Explorador de auditoría (RC-AI-2.3) */
+	'settings.ai.auditTitle': 'Registro de auditoría',
+	'settings.ai.auditIntro':
+		'Cada intento de escritura de un agente: puesto en espera, confirmado directo o denegado. La exportación toma el registro completo, no solo lo que muestran los filtros de abajo.',
+	'settings.ai.auditFilterMode': 'Filtrar por resultado',
+	'settings.ai.auditFilterAll': 'Todos',
+	'settings.ai.auditFilterAgent': 'Filtrar el registro de auditoría por agente',
+	'settings.ai.auditFilterAgentAll': 'Todos los agentes',
+	'settings.ai.auditMode.staged': 'En espera',
+	'settings.ai.auditMode.direct': 'Confirmado',
+	'settings.ai.auditMode.denied': 'Denegado',
+	'settings.ai.auditAsActor': 'como {actor}',
+	'settings.ai.auditExport': 'Exportar registro de auditoría',
+	'settings.ai.auditExported': 'Registro de auditoría exportado.',
+	'settings.ai.auditExportFailed': 'No se pudo exportar el registro de auditoría.',
+	'settings.ai.auditEmpty': 'Aún no hay actividad de agentes.',
+	'settings.ai.auditNoMatch': 'Ninguna actividad coincide con estos filtros.',
 
 	/* Ajustes › IA y herramientas › Asistente */
 	'settings.assistant.title': 'Asistente',
