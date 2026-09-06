@@ -6,6 +6,8 @@ import {
 	type ConcentrationState,
 	type DeathSaveState,
 } from './character-resources';
+import type { AreaTemplate, TemplateKind } from '../geometry/template';
+import { isAreaTemplate } from '../geometry/template';
 import type {
 	SystemCondition,
 	SystemConditionDuration,
@@ -304,6 +306,76 @@ export function autoPlaceCombatTokens(
 	return tokens;
 }
 
+// ── RC-MAP-1.2 — AoE TEMPLATES: the shapes on the board while combat runs ───────────────────────
+
+/**
+ * RC-MAP-1.2 — a placed AREA-OF-EFFECT template: the fireball sphere, the dragon's cone, the
+ * lightning line, the wall's cube, sitting on the map so the table can see who is caught.
+ *
+ * A template is EPHEMERAL SESSION STATE. It lives in the combat slice, not on the map document, for
+ * the same reason a combat token does: it belongs to this fight, and when the fight ends it goes away
+ * (`combat.end` clears every template) instead of leaving a mystery circle on a map a player is shown
+ * three sessions later. Nothing about a template edits the map, so nothing has to be undone.
+ *
+ * The geometry is {@link AreaTemplate}: a normalized origin (0..1, the vector model from ADR-014/024
+ * — never pixels), a rotation in degrees clockwise from north, and a size in TABLE UNITS (feet), so a
+ * 20-foot radius stays 20 feet at any zoom and on any map. Which CELLS that covers is not stored —
+ * it is derived by `templateCells` from the map's own grid, so changing a map's grid never leaves a
+ * template holding a stale cell list.
+ */
+export interface CombatTemplate extends AreaTemplate {
+	id: string;
+	/** The map the template is drawn on. */
+	mapId: string;
+	/** A short label for the effect ("Fireball", "Breath weapon"). Never blank. */
+	label: string;
+	/** The combatant the effect came from, when it came from one. */
+	sourceCombatantId: string | null;
+	/** Who placed it, and when — provenance for the DM, not a permission check. */
+	placedBy: ActorId;
+	placedAt: string;
+}
+
+/** The most templates one combat may hold at once. Past this the board is noise, not information. */
+export const MAX_COMBAT_TEMPLATES = 32;
+
+/** The longest a template's defining size may be, in table units. A mile-wide cone is a typo. */
+export const MAX_TEMPLATE_SIZE_UNITS = 1000;
+
+/** Deep-clone a template (so callers never mutate shared frozen state). Pure. */
+export function cloneCombatTemplate(template: CombatTemplate): CombatTemplate {
+	return {
+		...template,
+		origin: { x: template.origin.x, y: template.origin.y },
+		...(template.width === undefined ? {} : { width: template.width }),
+	};
+}
+
+/**
+ * Whether a stored template is well-formed: a real id, map and label on top of a well-formed
+ * {@link AreaTemplate} geometry, with the size inside {@link MAX_TEMPLATE_SIZE_UNITS}. Pure; the
+ * command layer turns a `false` into a rejection rather than silently repairing a bad shape.
+ */
+export function isCombatTemplate(template: CombatTemplate): boolean {
+	if (template.id.trim() === '') return false;
+	if (template.mapId.trim() === '') return false;
+	if (template.label.trim() === '') return false;
+	if (template.size > MAX_TEMPLATE_SIZE_UNITS) return false;
+	if (template.width !== undefined && template.width > MAX_TEMPLATE_SIZE_UNITS) return false;
+	return isAreaTemplate(template);
+}
+
+/** The templates placed on one map, in placement order. Pure. */
+export function templatesOnMap(
+	state: SessionCombatState,
+	mapId: string,
+): readonly CombatTemplate[] {
+	return state.templates.filter((template) => template.mapId === mapId);
+}
+
+/** Re-exported so a caller reading combat state does not need a second import for the shape union. */
+export type { TemplateKind };
+
 /**
  * The durable session COMBAT state (SES-002). Replaces the earlier minimal combat placeholder: it now
  * carries the full combatant list, the initiative ORDER (combatant ids in turn order), the round/turn
@@ -335,6 +407,12 @@ export interface SessionCombatState {
 	 * into the map read while `status` is `running`.
 	 */
 	tokens: Record<string, CombatToken>;
+	/**
+	 * RC-MAP-1.2 — the AoE templates currently on the board, in placement order. Additive: a combat
+	 * persisted before templates existed hydrates to `[]`, so no schema bump is needed. Ephemeral —
+	 * `combat.end` clears the list, because an area of effect belongs to the fight it was cast in.
+	 */
+	templates: CombatTemplate[];
 	/** The durable ENCOUNTER LOG, oldest first. */
 	log: CombatLogEntry[];
 	revision: number;
@@ -350,6 +428,7 @@ export const EMPTY_SESSION_COMBAT_STATE: SessionCombatState = Object.freeze({
 	combatants: {},
 	order: [],
 	tokens: {},
+	templates: [],
 	log: [],
 	revision: 0,
 	schemaVersion: COMBAT_TRACKER_SCHEMA_VERSION,
@@ -416,6 +495,12 @@ export function ensureSessionCombatState(
 	for (const [id, token] of Object.entries(state?.tokens ?? {})) {
 		if (isCombatTokenPlacement(token)) tokens[id] = cloneCombatToken(token);
 	}
+	// RC-MAP-1.2 — templates are additive too, and only well-formed ones survive hydration, so a
+	// corrupted shape can never reach a renderer or a coverage query.
+	const templates: CombatTemplate[] = [];
+	for (const template of state?.templates ?? []) {
+		if (isCombatTemplate(template)) templates.push(cloneCombatTemplate(template));
+	}
 	return {
 		status: state?.status ?? 'idle',
 		encounterId: state?.encounterId ?? null,
@@ -425,6 +510,7 @@ export function ensureSessionCombatState(
 		combatants,
 		order: state?.order ? [...state.order] : [],
 		tokens,
+		templates,
 		log: state?.log ? state.log.map((entry) => ({ ...entry })) : [],
 		revision: state?.revision ?? 0,
 		schemaVersion: COMBAT_TRACKER_SCHEMA_VERSION,

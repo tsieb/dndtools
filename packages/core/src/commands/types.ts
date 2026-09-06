@@ -223,6 +223,12 @@ export type CoreCommand =
 	| { type: 'combat.place-token'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'combat.move-token'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'combat.remove-token'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// RC-MAP-1.2: session combat AoE TEMPLATES — the shapes an area of effect covers while combat
+	// runs. DM-only both ways (what a spell covers is the DM's ruling), active-session + running-combat
+	// gated, and cleared wholesale by `combat.end` because a template belongs to the fight it was
+	// cast in.
+	| { type: 'combat.place-template'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'combat.remove-template'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// SES-006: build / update a durable encounter (DM-only) — combatant selection, challenge guidance,
 	// terrain notes, legendary/lair actions, loot, and generated session-log links (by reference).
 	| { type: 'encounter.build'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -1163,6 +1169,25 @@ export type CoreEvent =
 			position: { x: number; y: number };
 			revision: number;
 	  }
+	// RC-MAP-1.2 — an area-of-effect template appeared on / left the board. Carries the shape and the
+	// map so an overlay can redraw without re-reading state; never the label, which is DM-authored
+	// copy and an event bus reaches surfaces that have not applied the actor-scoped visibility filter.
+	| {
+			kind: 'combat.template-placed';
+			actorId: ActorId;
+			templateId: string;
+			templateKind: 'sphere' | 'cone' | 'line' | 'cube';
+			mapId: string;
+			revision: number;
+	  }
+	| {
+			kind: 'combat.template-removed';
+			actorId: ActorId;
+			templateId: string;
+			templateKind: 'sphere' | 'cone' | 'line' | 'cube';
+			mapId: string;
+			revision: number;
+	  }
 	| {
 			kind: 'combat.token-removed';
 			actorId: ActorId;
@@ -1938,6 +1963,9 @@ export type RejectionCode =
 	// `combatant-not-found` so the interface can offer "place on the map" rather than an error about a
 	// combatant that is plainly in the initiative order.
 	| 'combat-token-not-placed'
+	// RC-MAP-1.2 — the AoE template asked for is not on the board, or the board is already full.
+	| 'template-not-found'
+	| 'template-limit-reached'
 	// SES-003 — a dice expression failed the pure deterministic parser (malformed; never evaluated).
 	| 'invalid-dice-expression'
 	// SES-003 — a macro reference resolved to no defined macro (fail closed; no roll produced).

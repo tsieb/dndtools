@@ -87,8 +87,10 @@ import {
 	handleApplyCombatResource,
 	handleEndCombat,
 	handleMoveCombatToken,
+	handlePlaceCombatTemplate,
 	handlePlaceCombatToken,
 	handlePreviousCombatTurn,
+	handleRemoveCombatTemplate,
 	handleRemoveCombatToken,
 	handleRemoveCombatant,
 	handleReorderCombatant,
@@ -428,6 +430,11 @@ export function dispatchCommand(
 			return handleMoveCombatToken(state, env, command.actorId, command.payload);
 		case 'combat.remove-token':
 			return handleRemoveCombatToken(state, env, command.actorId, command.payload);
+		// RC-MAP-1.2 — AoE templates on the board while combat runs (DM-only, cleared by combat.end).
+		case 'combat.place-template':
+			return handlePlaceCombatTemplate(state, env, command.actorId, command.payload);
+		case 'combat.remove-template':
+			return handleRemoveCombatTemplate(state, env, command.actorId, command.payload);
 		case 'encounter.build':
 			return handleBuildEncounter(state, env, command.actorId, command.payload);
 		case 'encounter.update':

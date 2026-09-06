@@ -3859,6 +3859,7 @@ export type {
 	CombatAdvance,
 	CombatLogEntry,
 	CombatStatus,
+	CombatTemplate,
 	CombatToken,
 	SessionCombatState,
 } from './state/combat-tracker';
@@ -3882,6 +3883,14 @@ export {
 	isCombatTokenPlacement,
 	orderInitiative,
 	previousTurn,
+} from './state/combat-tracker';
+// RC-MAP-1.2 — session AoE templates: the ephemeral shapes on the board while combat runs.
+export {
+	MAX_COMBAT_TEMPLATES,
+	MAX_TEMPLATE_SIZE_UNITS,
+	cloneCombatTemplate,
+	isCombatTemplate,
+	templatesOnMap,
 } from './state/combat-tracker';
 
 // SES-002 — THE single actor-filtered combat tracker read model. Hidden combatants are omitted (or
@@ -5135,6 +5144,28 @@ export {
 	segmentsIntersect,
 	simplify,
 	unionBoundary,
+} from './geometry';
+
+// RC-MAP-1.2 — area-of-effect TEMPLATE coverage. The app draws the overlay and the core answers
+// "which cells does this cover?", so the shape a player sees and the shape a ruling uses are one
+// piece of math. Square and hex grids, the DMG's "covers at least half a cell" rule.
+export type {
+	AreaTemplate,
+	TemplateCell,
+	TemplateGrid,
+	TemplateGridKind,
+	TemplateKind,
+} from './geometry';
+export {
+	DEFAULT_LINE_WIDTH,
+	TEMPLATE_KINDS,
+	isAreaTemplate,
+	isPointInTemplate,
+	isTemplateGrid,
+	templateCellCenter,
+	templateCellCount,
+	templateCells,
+	templateCoversPoint,
 } from './geometry';
 
 // MAP-021 — per-subsystem RNG streams. The reason a GM can nudge "room count" without their rivers,

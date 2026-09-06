@@ -2608,6 +2608,31 @@ export const moveCombatTokenInputSchema = z
 
 export const removeCombatTokenInputSchema = z.object({ combatantId: idSchema }).strict();
 
+// ── RC-MAP-1.2 — session combat AoE TEMPLATES (place / remove) ──────────────────────────────────
+// A template is the shape an area of effect covers while combat runs. Its origin is NORMALIZED like
+// every other map annotation; its SIZE is in TABLE UNITS (feet), because "20-foot radius" is what the
+// spell says and what stays true at any zoom. `rotation` is degrees clockwise from north and is
+// ignored for a sphere. `width` is a line's width and is meaningless on the other three shapes, so it
+// is optional and defaults to 5 feet at the command layer.
+const templateKindSchema = z.enum(['sphere', 'cone', 'line', 'cube']);
+const templateSizeSchema = z.number().positive().max(1000);
+
+export const placeCombatTemplateInputSchema = z
+	.object({
+		kind: templateKindSchema,
+		mapId: idSchema,
+		label: z.string().min(1).max(80),
+		x: normalizedAxisSchema,
+		y: normalizedAxisSchema,
+		rotation: z.number().min(0).lt(360).default(0),
+		size: templateSizeSchema,
+		width: templateSizeSchema.optional(),
+		sourceCombatantId: z.union([z.literal(null), idSchema]).optional(),
+	})
+	.strict();
+
+export const removeCombatTemplateInputSchema = z.object({ templateId: idSchema }).strict();
+
 // SES-002 — end combat, persisting the durable encounter log. Optional closing note.
 export const endCombatInputSchema = z
 	.object({

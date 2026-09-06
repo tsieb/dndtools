@@ -5,8 +5,10 @@ import {
 	applyCombatResourceInputSchema,
 	endCombatInputSchema,
 	moveCombatTokenInputSchema,
+	placeCombatTemplateInputSchema,
 	placeCombatTokenInputSchema,
 	previousCombatTurnInputSchema,
+	removeCombatTemplateInputSchema,
 	removeCombatTokenInputSchema,
 	removeCombatantInputSchema,
 	reorderCombatantInputSchema,
@@ -18,10 +20,13 @@ import {
 	activeCombatant,
 	advanceTurn,
 	autoPlaceCombatTokens,
+	MAX_COMBAT_TEMPLATES,
+	cloneCombatTemplate,
 	cloneCombatToken,
 	cloneCombatant,
 	cloneResources,
 	initiativeInsertionIndex,
+	isCombatTemplate,
 	isCombatTokenPlacement,
 	orderInitiative,
 	previousTurn,
@@ -29,6 +34,7 @@ import {
 	type Combatant,
 	type CombatantResources,
 	type CombatLogEntry,
+	type CombatTemplate,
 	type CombatToken,
 	type SessionCombatState,
 } from '../state/combat-tracker';
@@ -275,6 +281,8 @@ export function handleStartCombat(
 		combatants: combatantMap,
 		order: ordered.order,
 		tokens,
+		// RC-MAP-1.2 — a new fight starts with a clear board: no area of effect carries over.
+		templates: [],
 		log: [],
 		revision: state.session.combat.revision + 1,
 		schemaVersion: state.session.combat.schemaVersion,
@@ -1434,6 +1442,188 @@ export function handleRemoveCombatToken(
 	};
 }
 
+// ── RC-MAP-1.2 — session combat AoE TEMPLATES (place / remove) ──────────────────────────────────
+//
+// A template is the SHAPE an area of effect covers — the fireball's sphere, the dragon's cone —
+// drawn on the map so the table can see who is caught. It is EPHEMERAL: it lives in the combat slice
+// alongside the tokens, and `combat.end` clears every one of them, because an area of effect belongs
+// to the fight it was cast in and should not outlive it as a mystery circle on a map a player is
+// shown later.
+//
+// Authority: DM-only, both ways. Placing an AoE is a call about what a spell covers, which is the
+// DM's ruling to make; a player asking "does it reach the ogre?" is answered by the DM moving the
+// template, not by the player drawing their own. Both writes append a durable op with before AND
+// after so they replay and invert. Neither writes an ENCOUNTER-LOG entry: templates are placed,
+// nudged and cleared many times a round, and logging that would bury the events that matter (the
+// same reasoning that keeps token MOVES out of the log).
+//
+// Which CELLS a template covers is never stored. `templateCells` in `geometry/template.ts` derives it
+// from the map's own grid on demand, so re-gridding a map can never leave a template holding a stale
+// cell list.
+
+/** Replace the template list, bumping the revision. */
+function withTemplates(
+	combat: SessionCombatState,
+	templates: CombatTemplate[],
+): SessionCombatState {
+	return { ...combat, templates, revision: combat.revision + 1 };
+}
+
+/**
+ * RC-MAP-1.2 — PLACE an area-of-effect template on a map (DM-only). The origin is normalized, the
+ * size is in table units (feet), and `rotation` points the shape; a sphere ignores it.
+ */
+export function handlePlaceCombatTemplate(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const gate = requireRunningCombatAsDm(state, actorId);
+	if ('rejection' in gate) return reject(gate.rejection, state);
+	const actor = gate.actor;
+
+	const parsed = parseInput(placeCombatTemplateInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const map = state.maps.maps[parsed.data.mapId];
+	if (!map) {
+		return reject(
+			{ code: 'map-not-found', message: `Map ${parsed.data.mapId} does not exist.` },
+			state,
+		);
+	}
+
+	const combat = state.session.combat;
+	if (combat.templates.length >= MAX_COMBAT_TEMPLATES) {
+		return reject(
+			{
+				code: 'template-limit-reached',
+				message: `This combat already has ${MAX_COMBAT_TEMPLATES} areas of effect. Remove one first.`,
+			},
+			state,
+		);
+	}
+
+	const sourceCombatantId = parsed.data.sourceCombatantId ?? null;
+	if (sourceCombatantId !== null && !combat.combatants[sourceCombatantId]) {
+		return reject(
+			{
+				code: 'combatant-not-found',
+				message: `Combatant ${sourceCombatantId} is not in combat.`,
+			},
+			state,
+		);
+	}
+
+	const template: CombatTemplate = {
+		id: env.ids(),
+		kind: parsed.data.kind,
+		mapId: parsed.data.mapId,
+		label: parsed.data.label.trim(),
+		origin: { x: parsed.data.x, y: parsed.data.y },
+		rotation: parsed.data.rotation,
+		size: parsed.data.size,
+		...(parsed.data.width === undefined ? {} : { width: parsed.data.width }),
+		sourceCombatantId,
+		placedBy: actor.id,
+		placedAt: env.clock(),
+	};
+	if (!isCombatTemplate(template)) {
+		return reject(
+			{ code: 'invalid-payload', message: 'That area of effect is not a usable shape.' },
+			state,
+		);
+	}
+
+	const nextCombat = withTemplates(combat, [...combat.templates, template]);
+
+	const draft = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: COMBAT_ENTITY_TYPE,
+		entityId: SESSION_ENTITY_ID,
+		opType: 'combat.place-template',
+		path: `combat/templates/${template.id}`,
+		value: { before: null, after: cloneCombatTemplate(template) },
+		beforeRevision: combat.revision,
+		afterRevision: nextCombat.revision,
+		dependencies: [`map:${map.id}`],
+	});
+
+	return {
+		status: 'accepted',
+		nextState: withCombat({ ...state, sync: draft.log }, nextCombat),
+		events: [
+			{
+				kind: 'combat.template-placed',
+				actorId: actor.id,
+				templateId: template.id,
+				templateKind: template.kind,
+				mapId: template.mapId,
+				revision: nextCombat.revision,
+			},
+		],
+		operationIds: [draft.op.id],
+	};
+}
+
+/** RC-MAP-1.2 — take an area-of-effect template OFF the board (DM-only). */
+export function handleRemoveCombatTemplate(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const gate = requireRunningCombatAsDm(state, actorId);
+	if ('rejection' in gate) return reject(gate.rejection, state);
+	const actor = gate.actor;
+
+	const parsed = parseInput(removeCombatTemplateInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const combat = state.session.combat;
+	const before = combat.templates.find((entry) => entry.id === parsed.data.templateId);
+	if (!before) {
+		return reject(
+			{
+				code: 'template-not-found',
+				message: `Area of effect ${parsed.data.templateId} is not on the board.`,
+			},
+			state,
+		);
+	}
+
+	const nextCombat = withTemplates(
+		combat,
+		combat.templates.filter((entry) => entry.id !== before.id),
+	);
+
+	const draft = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: COMBAT_ENTITY_TYPE,
+		entityId: SESSION_ENTITY_ID,
+		opType: 'combat.remove-template',
+		path: `combat/templates/${before.id}`,
+		value: { before: cloneCombatTemplate(before), after: null },
+		beforeRevision: combat.revision,
+		afterRevision: nextCombat.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: withCombat({ ...state, sync: draft.log }, nextCombat),
+		events: [
+			{
+				kind: 'combat.template-removed',
+				actorId: actor.id,
+				templateId: before.id,
+				templateKind: before.kind,
+				mapId: before.mapId,
+				revision: nextCombat.revision,
+			},
+		],
+		operationIds: [draft.op.id],
+	};
+}
+
 export function handleEndCombat(
 	state: CoreStateSlice,
 	env: CoreEnvironment,
@@ -1459,6 +1649,9 @@ export function handleEndCombat(
 	let nextCombat: SessionCombatState = {
 		...combat,
 		status: 'ended',
+		// RC-MAP-1.2 — the areas of effect belonged to this fight. They go with it, so no template
+		// outlives the combat that placed it on a map a player may be shown later.
+		templates: [],
 		revision: combat.revision + 1,
 	};
 	const endEntry = combatLogEntry(
@@ -1480,7 +1673,11 @@ export function handleEndCombat(
 		entityId: SESSION_ENTITY_ID,
 		opType: 'combat.end',
 		path: 'combat/status',
-		value: { status: 'ended', logEntries: nextCombat.log.length },
+		value: {
+			status: 'ended',
+			logEntries: nextCombat.log.length,
+			templatesCleared: combat.templates.length,
+		},
 		beforeRevision: combat.revision,
 		afterRevision: nextCombat.revision,
 	});

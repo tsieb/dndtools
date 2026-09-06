@@ -68,3 +68,28 @@ export {
 	segmentIntersection,
 	segmentsIntersect,
 } from './intersect';
+
+// RC-MAP-1.2 — area-of-effect TEMPLATE coverage (sphere / cone / line / cube, square and hex grids).
+export type {
+	AreaTemplate,
+	TemplateCell,
+	TemplateGrid,
+	TemplateGridKind,
+	TemplateKind,
+} from './template';
+export {
+	CELL_SAMPLES,
+	DEFAULT_LINE_WIDTH,
+	MAX_TEMPLATE_CELLS_SCANNED,
+	TEMPLATE_KINDS,
+	isAreaTemplate,
+	isPointInTemplate,
+	isTemplateGrid,
+	templateCellCenter,
+	templateCellCount,
+	templateCellCoverage,
+	templateCells,
+	templateCoversPoint,
+	templateDirection,
+	templateReach,
+} from './template';
