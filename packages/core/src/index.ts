@@ -5394,3 +5394,37 @@ export {
 	sceneTombstones,
 	withTombstones,
 } from './state/scene-state';
+
+// RC-MAP-1.3 — MOVEMENT RANGE AND PATH. Dijkstra over grid cells, from the walls, doors and
+// `terrain: difficult` features the map already carries; speed comes from the active system
+// package, and `getCombatantMovementForActor` is the one actor-filtered read (a hidden combatant's
+// range is `unavailable`, and a dm-only wall blocks a player without its geometry reaching them).
+export type {
+	CombatantMovementInput,
+	CombatantMovementResult,
+	MovementCell,
+	MovementDiagonalRule,
+	MovementInput,
+	MovementOptions,
+	MovementRange,
+	MovementReach,
+	MovementSpeed,
+	MovementSpeedSource,
+} from './queries/map-movement';
+export {
+	DEFAULT_DIFFICULT_TERRAIN_MULTIPLIER,
+	DEFAULT_MOVEMENT_SPEED_UNITS,
+	DIFFICULT_TERRAIN_PROP,
+	DIFFICULT_TERRAIN_VALUE,
+	MAX_MOVEMENT_CELLS_SCANNED,
+	blocksMovement,
+	computeMovementRange,
+	getCombatantMovementForActor,
+	isCellReachable,
+	isDifficultTerrain,
+	movementCellAt,
+	movementCellCenter,
+	movementCostTo,
+	movementPathTo,
+	resolveMovementSpeed,
+} from './queries/map-movement';
