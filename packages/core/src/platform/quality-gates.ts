@@ -465,11 +465,6 @@ export const FILE_SIZE_EXCEPTIONS: readonly FileSizeException[] = [
 		reason: 'Pre-existing, outside RC-STB-2 scope.',
 	},
 	{
-		path: 'apps/gm-react/src/app/SceneBoardCanvas.tsx',
-		baselineLines: 863,
-		reason: 'Pre-existing, outside RC-STB-2 scope.',
-	},
-	{
 		path: 'apps/gm-react/src/app/map/dock/InspectorPanel.tsx',
 		baselineLines: 807,
 		reason: 'Pre-existing, outside RC-STB-2 scope.',
