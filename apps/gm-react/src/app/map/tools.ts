@@ -16,6 +16,7 @@
  */
 
 import type { MapLayerCategory } from '@dndtools/core';
+import type { MessageKey } from '../../i18n';
 
 /** A concrete tool the user can activate. Ids are stable — they key persisted per-tool options. */
 export type ToolId =
@@ -53,18 +54,19 @@ export type ToolKind = 'radio' | 'toggle' | 'action';
 
 export interface ToolDef {
 	id: ToolId;
-	label: string;
+	/** RC-UX-1.2: a message key, rendered by the rail / palette / options bar with `t`. */
+	label: MessageKey;
 	icon: string;
 	/** Single-key shortcut (lowercase). Shown in the tooltip and the command palette. */
 	shortcut?: string;
 	/** One line explaining what the tool does; shown in the tool-options bar hint and the palette. */
-	hint: string;
+	hint: MessageKey;
 	kind: ToolKind;
 }
 
 export interface ToolGroupDef {
 	id: string;
-	label: string;
+	label: MessageKey;
 	icon: string;
 	/** The layer category this group authors into. Selecting the group scopes new content here. */
 	category: MapLayerCategory;
@@ -78,233 +80,233 @@ export interface ToolGroupDef {
 export const TOOL_GROUPS: readonly ToolGroupDef[] = Object.freeze([
 	{
 		id: 'select',
-		label: 'Select',
+		label: 'mapTool.group.select',
 		icon: 'tool-select',
 		category: 'base',
 		tools: [
 			{
 				id: 'select',
-				label: 'Select & move',
+				label: 'mapTool.select.label',
 				icon: 'tool-select',
 				shortcut: 'v',
 				kind: 'radio',
-				hint: 'Click to select; drag to move. With one object selected, arrow keys nudge it.',
+				hint: 'mapTool.select.hint',
 			},
 			{
 				id: 'marquee',
-				label: 'Marquee',
+				label: 'mapTool.marquee.label',
 				icon: 'tool-select',
 				shortcut: 'm',
 				kind: 'radio',
-				hint: 'Drag a box to select the pins and tokens inside it. Shift adds to the selection.',
+				hint: 'mapTool.marquee.hint',
 			},
 			{
 				id: 'pan',
-				label: 'Pan',
+				label: 'mapTool.pan.label',
 				icon: 'Hand',
 				shortcut: 'h',
 				kind: 'radio',
-				hint: 'Drag to pan. Hold Space with any tool to pan temporarily.',
+				hint: 'mapTool.pan.hint',
 			},
 		],
 	},
 	{
 		id: 'terrain',
-		label: 'Terrain',
+		label: 'mapTool.group.terrain',
 		icon: 'layer-terrain',
 		category: 'terrain',
 		tools: [
 			{
 				id: 'brush',
-				label: 'Terrain brush',
+				label: 'mapTool.brush.label',
 				icon: 'tool-brush',
 				shortcut: 'b',
 				kind: 'radio',
-				hint: 'Paint terrain. [ and ] change the brush size.',
+				hint: 'mapTool.brush.hint',
 			},
 			{
 				id: 'fill',
-				label: 'Fill area',
+				label: 'mapTool.fill.label',
 				icon: 'tool-fill',
 				shortcut: 'g',
 				kind: 'radio',
-				hint: 'Click a grid cell to fill it with the active terrain.',
+				hint: 'mapTool.fill.hint',
 			},
 			{
 				id: 'erase',
-				label: 'Erase',
+				label: 'mapTool.erase.label',
 				icon: 'tool-eraser',
 				shortcut: 'e',
 				kind: 'radio',
-				hint: 'Erase painted content on the active layer.',
+				hint: 'mapTool.erase.hint',
 			},
 		],
 	},
 	{
 		id: 'structure',
-		label: 'Structure',
+		label: 'mapTool.group.structure',
 		icon: 'layer-walls',
 		category: 'base',
 		tools: [
 			{
 				id: 'room',
-				label: 'Room',
+				label: 'mapTool.room.label',
 				icon: 'tool-room',
 				shortcut: 'r',
 				kind: 'radio',
-				hint: 'Drag a rectangular room. Shift constrains to a square.',
+				hint: 'mapTool.room.hint',
 			},
 			{
 				id: 'wall',
-				label: 'Wall',
+				label: 'mapTool.wall.label',
 				icon: 'tool-wall',
 				shortcut: 'p',
 				kind: 'radio',
-				hint: 'Click to lay wall segments. Enter finishes, Esc cancels.',
+				hint: 'mapTool.wall.hint',
 			},
 			{
 				id: 'door',
-				label: 'Door',
+				label: 'mapTool.door.label',
 				icon: 'tool-door',
 				shortcut: 'd',
 				kind: 'radio',
-				hint: 'Place a door on a wall. Pick the door kind in the options bar.',
+				hint: 'mapTool.door.hint',
 			},
 			{
 				id: 'water',
-				label: 'Water',
+				label: 'mapTool.water.label',
 				icon: 'layer-water',
 				shortcut: 'j',
 				kind: 'radio',
-				hint: 'Draw a river (click a path) or a lake (close the loop).',
+				hint: 'mapTool.water.hint',
 			},
 		],
 	},
 	{
 		id: 'objects',
-		label: 'Objects',
+		label: 'mapTool.group.objects',
 		icon: 'layer-poi',
 		category: 'base',
 		tools: [
 			{
 				id: 'stamp',
-				label: 'Stamp',
+				label: 'mapTool.stamp.label',
 				icon: 'tool-stamp',
 				shortcut: 's',
 				kind: 'radio',
-				hint: 'Place an object. It stays armed for repeat placement; Esc disarms.',
+				hint: 'mapTool.stamp.hint',
 			},
 			{
 				id: 'scatter',
-				label: 'Scatter',
+				label: 'mapTool.scatter.label',
 				icon: 'tool-scatter',
 				shortcut: 'k',
 				kind: 'radio',
-				hint: 'Sweep to scatter many objects with natural spacing.',
+				hint: 'mapTool.scatter.hint',
 			},
 		],
 	},
 	{
 		id: 'light',
-		label: 'Lighting',
+		label: 'mapTool.group.light',
 		icon: 'tool-light',
 		category: 'dm-annotations',
 		tools: [
 			{
 				id: 'light',
-				label: 'Light',
+				label: 'mapTool.light.label',
 				icon: 'tool-light',
 				shortcut: 'l',
 				kind: 'radio',
-				hint: 'Place a light source. Radius and color are in the options bar.',
+				hint: 'mapTool.light.hint',
 			},
 		],
 	},
 	{
 		id: 'fog',
-		label: 'Fog of war',
+		label: 'mapTool.group.fog',
 		icon: 'layer-fog',
 		category: 'fog',
 		tools: [
 			{
 				id: 'fog',
-				label: 'Fog',
+				label: 'mapTool.fog.label',
 				icon: 'layer-fog',
 				shortcut: 'f',
 				kind: 'radio',
-				hint: 'Reveal or conceal areas. Rectangle, polygon, or brush in the options bar.',
+				hint: 'mapTool.fog.hint',
 			},
 		],
 	},
 	{
 		id: 'tokens',
-		label: 'Tokens',
+		label: 'mapTool.group.tokens',
 		icon: 'tool-token',
 		category: 'player-overlay',
 		tools: [
 			{
 				id: 'token',
-				label: 'Token',
+				label: 'mapTool.token.label',
 				icon: 'tool-token',
 				shortcut: 't',
 				kind: 'radio',
-				hint: 'Place a combat token. Link it to an actor in the inspector.',
+				hint: 'mapTool.token.hint',
 			},
 		],
 	},
 	{
 		id: 'annotate',
-		label: 'Notes',
+		label: 'mapTool.group.annotate',
 		icon: 'poi',
 		category: 'poi',
 		tools: [
 			{
 				id: 'poi',
-				label: 'Point of interest',
+				label: 'mapTool.poi.label',
 				icon: 'poi',
 				shortcut: 'n',
 				kind: 'radio',
-				hint: 'Drop a labelled pin. Link it to a note or an entity in the inspector.',
+				hint: 'mapTool.poi.hint',
 			},
 			{
 				id: 'route',
-				label: 'Route',
+				label: 'mapTool.route.label',
 				icon: 'tool-route',
 				shortcut: 'o',
 				kind: 'radio',
-				hint: 'Click waypoints to draw a travel route. Enter finishes.',
+				hint: 'mapTool.route.hint',
 			},
 			{
 				id: 'text',
-				label: 'Label',
+				label: 'mapTool.text.label',
 				icon: 'tool-text',
 				shortcut: 'x',
 				kind: 'radio',
-				hint: 'Place a map label. Type, then click away to commit.',
+				hint: 'mapTool.text.hint',
 			},
 			{
 				id: 'measure',
-				label: 'Measure',
+				label: 'mapTool.measure.label',
 				icon: 'tool-measure',
 				shortcut: 'u',
 				kind: 'radio',
-				hint: 'Drag to measure a distance using the map scale. Nothing is saved.',
+				hint: 'mapTool.measure.hint',
 			},
 		],
 	},
 	{
 		id: 'generate',
-		label: 'Generate',
+		label: 'mapTool.group.generate',
 		icon: 'tool-generate',
 		category: 'base',
 		tools: [
 			{
 				id: 'generate',
-				label: 'Generate',
+				label: 'mapTool.generate.label',
 				icon: 'tool-generate',
 				shortcut: 'q',
 				kind: 'radio',
-				hint: 'Generate a dungeon, cave, city, or world into a preview you can accept or reroll.',
+				hint: 'mapTool.generate.hint',
 			},
 		],
 	},

@@ -71,8 +71,8 @@ export function ToolRail({
 						<button
 							key={g.id}
 							type="button"
-							title={isOpen ? `${g.label} — hide tools` : g.label}
-							aria-label={g.label}
+							title={isOpen ? t('mapTool.hideTools', { group: t(g.label) }) : t(g.label)}
+							aria-label={t(g.label)}
 							aria-pressed={isActiveGroup}
 							aria-expanded={isOpen}
 							aria-controls={isOpen ? flyoutId : undefined}
@@ -115,7 +115,7 @@ export function ToolRail({
 				<div
 					id={flyoutId}
 					role="group"
-					aria-label={`${group.label} tools`}
+					aria-label={t('mapTool.groupTools', { group: t(group.label) })}
 					style={
 						horizontal
 							? {
@@ -158,7 +158,7 @@ export function ToolRail({
 								padding: '2px 8px 4px',
 							}}
 						>
-							{group.label}
+							{t(group.label)}
 						</div>
 					)}
 					{group.tools.map((tool) => {
@@ -169,7 +169,14 @@ export function ToolRail({
 								key={tool.id}
 								type="button"
 								aria-pressed={on}
-								title={`${def.hint}${def.shortcut ? ` (${def.shortcut.toUpperCase()})` : ''}`}
+								title={
+									def.shortcut
+										? t('mapTool.hintWithShortcut', {
+												hint: t(def.hint),
+												shortcut: def.shortcut.toUpperCase(),
+											})
+										: t(def.hint)
+								}
 								onClick={() => onSelect(tool.id)}
 								style={{
 									display: 'inline-flex',
@@ -188,7 +195,7 @@ export function ToolRail({
 								<Icon name={def.icon} size={15} color={on ? T.acc : T.sub} />
 								{/* Horizontal orientation is the touch layout: a bare icon next to a keyboard
 							    shortcut is the wrong way round there — name the tool, drop the chip. */}
-								<span style={{ flex: 1, textAlign: 'left' }}>{def.label}</span>
+								<span style={{ flex: 1, textAlign: 'left' }}>{t(def.label)}</span>
 								{!horizontal && def.shortcut && (
 									<kbd
 										style={{

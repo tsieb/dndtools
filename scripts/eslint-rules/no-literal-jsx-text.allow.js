@@ -8,11 +8,9 @@
  *
  * Adding a file here is not a way to land new untranslated copy. New screens carry no entry, so
  * the first literal they render fails the gate.
+ *
+ * RC-UX-1.2 emptied this list: every file that renders user-visible text reads it out of
+ * `apps/gm-react/src/i18n/messages`. It stays here as the ratchet's floor — the rule fails on the
+ * first literal any file reintroduces, and nothing may be added back.
  */
-export const allow = {
-	'apps/gm-react/src/app/map/MapEditor.tsx': 22,
-	// Blocked on RC-STB-2.7, not on the migration: this file is a grandfathered file-size
-	// exception sitting exactly at its 1079-line baseline, and the `useI18n` import plus the
-	// hook call cost two lines the gate will not allow. It migrates once the file is split.
-	'apps/gm-react/src/app/map/canvas/EditorCanvas.tsx': 4,
-};
+export const allow = {};

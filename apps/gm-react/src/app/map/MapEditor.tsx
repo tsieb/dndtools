@@ -3,11 +3,9 @@ import { GENERATORS, exportUvttJson } from '@dndtools/core';
 import {
 	Button,
 	CommandPalette,
-	Dialog,
 	Icon,
 	IconButton,
 	Popover,
-	SegmentedControl,
 	Sheet,
 	Tabs,
 	tabPanelProps,
@@ -18,9 +16,10 @@ import { useViewport, useViewportHeight } from '../useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { ImportMapDialog } from './ImportMapDialog';
 import { VIS_CHIP } from './mapVisibility';
-import { useMapEditor, type FogMode, type MapEditorApi, type MapNoticeTone } from './useMapEditor';
+import { useMapEditor, type FogMode, type MapNoticeTone } from './useMapEditor';
 import type { ToolId } from './tools';
-import { TOOL_GROUPS, TOOLS_BY_ID } from './tools';
+import { TOOLS_BY_ID } from './tools';
+import { useI18n } from '../../i18n';
 import { useMapKeyboard } from './keyboard';
 import { ToolRail } from './ToolRail';
 import { ToolOptionsBar } from './ToolOptionsBar';
@@ -29,6 +28,7 @@ import { InspectorPanel } from './dock/InspectorPanel';
 import { LayersPanel } from './dock/LayersPanel';
 import { AssetsPanel } from './dock/AssetsPanel';
 import { HistoryPanel } from './dock/HistoryPanel';
+import { HeaderMenuItem, QuickToolStrip, ShortcutOverlay } from './MapEditorChrome';
 
 /** A11Y-011: severity must survive grayscale, so each notice tone gets a DISTINCT glyph shape. */
 const NOTICE_ICON: Record<MapNoticeTone, string> = {
@@ -79,6 +79,7 @@ export function MapEditor({
 	initialFogMode?: FogMode;
 	onClose: () => void;
 }) {
+	const { t } = useI18n();
 	const capabilities = usePlatformCapabilities();
 	const quickMapMode = capabilities.quickMapMode;
 	const editor = useMapEditor(
@@ -323,19 +324,19 @@ export function MapEditor({
 	const paletteCommands = useMemo(() => {
 		const tools = [...TOOLS_BY_ID.values()]
 			.filter((tool) => !quickMapMode || isQuickMapTool(tool.id))
-			.map((t) => ({
-				id: `tool-${t.id}`,
-				label: `Tool: ${t.label}`,
-				group: 'Tools',
-				icon: t.icon,
-				shortcut: t.shortcut ? t.shortcut.toUpperCase() : undefined,
-				keywords: t.hint,
-				run: () => editor.setTool(t.id),
+			.map((tool) => ({
+				id: `tool-${tool.id}`,
+				label: t('mapEditor.palette.tool', { name: t(tool.label) }),
+				group: t('mapEditor.palette.group.tools'),
+				icon: tool.icon,
+				shortcut: tool.shortcut ? tool.shortcut.toUpperCase() : undefined,
+				keywords: t(tool.hint),
+				run: () => editor.setTool(tool.id),
 			}));
 		const layerCmds = editor.layers.map((l) => ({
 			id: `layer-${l.layerId}`,
-			label: `Layer: ${l.name}`,
-			group: 'Layers',
+			label: t('mapEditor.palette.layer', { name: l.name }),
+			group: t('mapEditor.palette.group.layers'),
 			icon: 'layers',
 			run: () => {
 				editor.setActiveLayerId(l.layerId);
@@ -344,8 +345,8 @@ export function MapEditor({
 		}));
 		const genCmds = GENERATORS.map((g) => ({
 			id: `gen-${g.id}`,
-			label: `Generate: ${g.label}`,
-			group: 'Generators',
+			label: t('mapEditor.palette.generate', { name: g.label }),
+			group: t('mapEditor.palette.group.generators'),
 			icon: 'tool-generate',
 			keywords: `${g.description} ${g.bestFor}`,
 			run: () => {
@@ -356,8 +357,8 @@ export function MapEditor({
 		const actions = [
 			{
 				id: 'act-undo',
-				label: 'Undo',
-				group: 'Actions',
+				label: t('common.action.undo'),
+				group: t('mapEditor.palette.group.actions'),
 				icon: 'undo',
 				shortcut: ['⌘', 'Z'],
 				disabled: !editor.canUndo,
@@ -365,37 +366,37 @@ export function MapEditor({
 			},
 			{
 				id: 'act-redo',
-				label: 'Redo',
-				group: 'Actions',
+				label: t('mapEditor.redo'),
+				group: t('mapEditor.palette.group.actions'),
 				icon: 'redo',
 				disabled: !editor.canRedo,
 				run: () => void editor.redo(),
 			},
 			{
 				id: 'act-export',
-				label: 'Export for other VTTs (.dd2vtt)',
-				group: 'Actions',
+				label: t('mapEditor.exportUvtt'),
+				group: t('mapEditor.palette.group.actions'),
 				icon: 'download',
 				run: () => void exportUvtt(),
 			},
 			{
 				id: 'act-import',
-				label: 'Import map',
-				group: 'Actions',
+				label: t('mapEditor.palette.import'),
+				group: t('mapEditor.palette.group.actions'),
 				icon: 'import',
 				run: () => setImportOpen(true),
 			},
 			{
 				id: 'act-project',
-				label: 'Project to players',
-				group: 'Actions',
+				label: t('mapEditor.projectToPlayers'),
+				group: t('mapEditor.palette.group.actions'),
 				icon: 'visibility-players',
 				run: () => void projectToPlayers(),
 			},
 			{
 				id: 'act-help',
-				label: 'Keyboard shortcuts',
-				group: 'Actions',
+				label: t('mapEditor.shortcuts'),
+				group: t('mapEditor.palette.group.actions'),
 				icon: 'info',
 				shortcut: '?',
 				run: () => setHelpOpen(true),
@@ -413,7 +414,7 @@ export function MapEditor({
 				tabIndex={-1}
 				role="dialog"
 				aria-modal="true"
-				aria-label="Map editor"
+				aria-label={t('mapEditor.dialogLabel')}
 				style={{
 					position: 'fixed',
 					inset: 0,
@@ -428,9 +429,9 @@ export function MapEditor({
 					font: `13px ${T.sans}`,
 				}}
 			>
-				This map is unavailable to you.
+				{t('mapEditor.unavailable')}
 				<Button variant="secondary" size="sm" icon="arrow-left" onClick={onClose}>
-					Back to Atlas
+					{t('mapEditor.backToAtlas')}
 				</Button>
 			</div>
 		);
@@ -468,15 +469,17 @@ export function MapEditor({
 	) : (
 		<>
 			<Tabs
-				aria-label="Map editor panels"
+				aria-label={t('mapEditor.panelsLabel')}
 				value={editor.dock}
 				idBase="map-dock"
 				onChange={(v: string) => editor.setDock(v as typeof editor.dock)}
 				tabs={[
-					{ id: 'inspector', label: 'Selected', icon: 'sliders' },
-					{ id: 'layers', label: 'Layers', icon: 'layers' },
-					...(!quickMapMode ? [{ id: 'assets', label: 'Assets', icon: 'tool-stamp' }] : []),
-					{ id: 'history', label: 'History', icon: 'recent' },
+					{ id: 'inspector', label: t('mapEditor.dock.inspector'), icon: 'sliders' },
+					{ id: 'layers', label: t('mapEditor.dock.layers'), icon: 'layers' },
+					...(!quickMapMode
+						? [{ id: 'assets', label: t('mapEditor.dock.assets'), icon: 'tool-stamp' }]
+						: []),
+					{ id: 'history', label: t('mapEditor.dock.history'), icon: 'recent' },
 				]}
 			/>
 			<div
@@ -544,13 +547,13 @@ export function MapEditor({
 			>
 				<IconButton
 					icon="arrow-left"
-					label="Back to Atlas"
+					label={t('mapEditor.backToAtlas')}
 					variant="ghost"
 					size="sm"
 					onClick={onClose}
 				/>
 				<nav
-					aria-label="Breadcrumb"
+					aria-label={t('mapEditor.breadcrumb')}
 					style={{
 						display: 'flex',
 						alignItems: 'center',
@@ -559,7 +562,9 @@ export function MapEditor({
 						flex: isPhone ? 1 : undefined,
 					}}
 				>
-					{!isPhone && <span style={{ font: `12px ${T.sans}`, color: T.ter }}>Atlas</span>}
+					{!isPhone && (
+						<span style={{ font: `12px ${T.sans}`, color: T.ter }}>{t('mapEditor.atlas')}</span>
+					)}
 					{!isPhone && <Icon name="chevron-right" size={13} color={T.ter} />}
 					<h1
 						style={{
@@ -599,7 +604,7 @@ export function MapEditor({
 							size={13}
 							color={editor.busy ? T.ter : T.ok}
 						/>
-						{editor.busy ? 'Saving…' : 'Saved on this device'}
+						{editor.busy ? t('mapEditor.saving') : t('mapEditor.saved')}
 					</span>
 				)}
 				{!quickMapMode && (
@@ -607,7 +612,7 @@ export function MapEditor({
 						<button
 							type="button"
 							onClick={() => setPaletteOpen(true)}
-							aria-label="Search — command palette"
+							aria-label={t('mapEditor.searchPalette')}
 							style={{
 								display: 'inline-flex',
 								alignItems: 'center',
@@ -622,7 +627,7 @@ export function MapEditor({
 							}}
 						>
 							<Icon name="search" size={14} />
-							{!isPhone && <span>Search</span>}
+							{!isPhone && <span>{t('mapEditor.search')}</span>}
 							{!isPhone && (
 								<kbd
 									style={{
@@ -640,7 +645,7 @@ export function MapEditor({
 						<div style={{ display: 'flex', gap: 2 }}>
 							<IconButton
 								icon="undo"
-								label="Undo"
+								label={t('common.action.undo')}
 								variant="ghost"
 								size="sm"
 								disabled={!editor.canUndo}
@@ -648,7 +653,7 @@ export function MapEditor({
 							/>
 							<IconButton
 								icon="redo"
-								label="Redo"
+								label={t('mapEditor.redo')}
 								variant="ghost"
 								size="sm"
 								disabled={!editor.canRedo}
@@ -668,9 +673,9 @@ export function MapEditor({
 							iconRight="chevron-down"
 							onClick={() => setExportOpen((v) => !v)}
 							aria-expanded={exportOpen}
-							aria-label={quickMapMode ? 'More map actions' : 'Export'}
+							aria-label={quickMapMode ? t('mapEditor.moreActions') : t('mapEditor.export')}
 						>
-							{isPhone || quickMapMode ? '' : 'Export'}
+							{isPhone || quickMapMode ? '' : t('mapEditor.export')}
 						</Button>
 					</span>
 					{exportOpen && (
@@ -682,7 +687,7 @@ export function MapEditor({
 							// `Popover` derives its accessible name only from a STRING `title`, so this one
 							// rendered an unnamed `role="dialog"` (axe `aria-dialog-name`). The axe gate never
 							// opens a popover, so nothing was going to catch it.
-							aria-label={quickMapMode ? 'More map actions' : 'Export map'}
+							aria-label={quickMapMode ? t('mapEditor.moreActions') : t('mapEditor.exportMenu')}
 							width={220}
 							placement="bottom"
 							style={{
@@ -696,12 +701,12 @@ export function MapEditor({
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
 								<HeaderMenuItem
 									icon="download"
-									label="Export for other VTTs (.dd2vtt)"
+									label={t('mapEditor.exportUvtt')}
 									onClick={() => void exportUvtt()}
 								/>
 								<HeaderMenuItem
 									icon="import"
-									label="Import map…"
+									label={t('mapEditor.importMap')}
 									onClick={() => {
 										setExportOpen(false);
 										setImportOpen(true);
@@ -710,13 +715,10 @@ export function MapEditor({
 								{quickMapMode && (
 									<HeaderMenuItem
 										icon="info"
-										label="About advanced drawing"
+										label={t('mapEditor.aboutAdvanced')}
 										onClick={() => {
 											setExportOpen(false);
-											editor.setNotice(
-												'Advanced map drawing is available in the desktop app. Everything drawn there stays visible and safe here.',
-												'info',
-											);
+											editor.setNotice(t('mapEditor.advancedNotice'), 'info');
 										}}
 									/>
 								)}
@@ -731,9 +733,9 @@ export function MapEditor({
 						icon="visibility-players"
 						onClick={() => void projectToPlayers()}
 						disabled={editor.busy || projecting}
-						aria-label="Project to players"
+						aria-label={t('mapEditor.projectToPlayers')}
 					>
-						{isPhone ? '' : 'Project'}
+						{isPhone ? '' : t('mapEditor.project')}
 					</Button>
 				)}
 			</header>
@@ -763,7 +765,7 @@ export function MapEditor({
 					<button
 						type="button"
 						onClick={() => editor.setNotice(null)}
-						aria-label="Dismiss"
+						aria-label={t('mapEditor.dismiss')}
 						// ~18px around a 14px glyph — under the 24px WCAG 2.5.8 minimum.
 						style={{
 							border: 'none',
@@ -822,7 +824,7 @@ export function MapEditor({
 						>
 							<div
 								role="separator"
-								aria-label="Resize map details sheet"
+								aria-label={t('mapEditor.resizeSheet')}
 								aria-orientation="horizontal"
 								aria-valuemin={220}
 								aria-valuemax={quickSheetMax}
@@ -895,7 +897,7 @@ export function MapEditor({
 						</div>
 						<IconButton
 							icon="layers"
-							label="Panels"
+							label={t('mapEditor.panels')}
 							// IconButton has no "primary" variant — it silently fell through to `ghost`, so
 							// the open state lost its border and read as disabled. It is also a toggle.
 							variant={mobileDock ? 'accent' : 'outline'}
@@ -908,7 +910,12 @@ export function MapEditor({
 						/>
 					</div>
 					{mobileDock && (
-						<Sheet open side="bottom" title="Map panels" onClose={() => setMobileDock(false)}>
+						<Sheet
+							open
+							side="bottom"
+							title={t('mapEditor.mapPanels')}
+							onClose={() => setMobileDock(false)}
+						>
 							{dockBody}
 						</Sheet>
 					)}
@@ -970,8 +977,13 @@ export function MapEditor({
 					open
 					onClose={() => setPaletteOpen(false)}
 					commands={paletteCommands}
-					groupOrder={['Tools', 'Layers', 'Generators', 'Actions']}
-					placeholder="Search tools, layers, generators, actions…"
+					groupOrder={[
+						t('mapEditor.palette.group.tools'),
+						t('mapEditor.palette.group.layers'),
+						t('mapEditor.palette.group.generators'),
+						t('mapEditor.palette.group.actions'),
+					]}
+					placeholder={t('mapEditor.palettePlaceholder')}
 				/>
 			)}
 			{importOpen && (
@@ -979,162 +991,5 @@ export function MapEditor({
 			)}
 			{helpOpen && <ShortcutOverlay onClose={() => setHelpOpen(false)} />}
 		</div>
-	);
-}
-
-function QuickToolStrip({ editor }: { editor: MapEditorApi }) {
-	const definition = TOOLS_BY_ID.get(editor.tool);
-	const editing = !['pan', 'select'].includes(editor.tool);
-	const guidance =
-		editor.tool === 'pan'
-			? 'Drag to navigate. Pinch with two fingers to zoom around the gesture.'
-			: editor.tool === 'select'
-				? 'Tap a token or POI to select it; drag to move it. Properties open in the sheet.'
-				: editor.tool === 'generate'
-					? 'Choose a preset in the sheet, preview it on the canvas, then accept once.'
-					: 'Edit mode armed. Complete one placement or fog gesture to return to Navigate.';
-	return (
-		<div
-			role="status"
-			aria-live="polite"
-			style={{
-				display: 'flex',
-				alignItems: 'center',
-				gap: 10,
-				flexWrap: 'wrap',
-				minHeight: 50,
-				padding:
-					'6px max(10px, var(--safe-area-right, 0px)) 6px max(10px, var(--safe-area-left, 0px))',
-				borderBottom: `1px solid ${T.bd}`,
-				background: editing ? T.accSub : T.surf,
-				overflow: 'hidden',
-			}}
-		>
-			<span
-				style={{
-					display: 'inline-flex',
-					alignItems: 'center',
-					gap: 6,
-					font: `700 12px ${T.sans}`,
-					color: editing ? T.acc : T.ink,
-					whiteSpace: 'nowrap',
-				}}
-			>
-				<Icon name={definition?.icon ?? 'tool-select'} size={16} />
-				{editor.tool === 'pan' ? 'Navigate' : definition?.label}
-				{editing ? ' · armed' : ''}
-			</span>
-			{editor.tool === 'fog' && (
-				<SegmentedControl
-					ariaLabel="Fog mode"
-					value={editor.options.fogMode}
-					onChange={(value: string) =>
-						editor.setOption('fogMode', value as typeof editor.options.fogMode)
-					}
-					options={[
-						{ value: 'reveal', label: 'Reveal' },
-						{ value: 'conceal', label: 'Conceal' },
-					]}
-				/>
-			)}
-			<span style={{ flex: 1, minWidth: 150, font: `11.5px ${T.sans}`, color: T.sub }}>
-				{guidance}
-			</span>
-		</div>
-	);
-}
-
-function HeaderMenuItem({
-	icon,
-	label,
-	onClick,
-}: {
-	icon: string;
-	label: string;
-	onClick: () => void;
-}) {
-	// Same gap as LayersPanel's MenuItem: no global `button:hover`, and inline styles can't express it,
-	// so the editor's header menu highlighted nothing under the cursor.
-	const [hov, setHov] = useState(false);
-	return (
-		<button
-			type="button"
-			onClick={onClick}
-			onMouseEnter={() => setHov(true)}
-			onMouseLeave={() => setHov(false)}
-			onFocus={() => setHov(true)}
-			onBlur={() => setHov(false)}
-			style={{
-				display: 'flex',
-				alignItems: 'center',
-				gap: 9,
-				padding: '8px 10px',
-				borderRadius: 7,
-				border: 'none',
-				background: hov ? T.hover : 'transparent',
-				cursor: 'pointer',
-				color: T.ink,
-				font: `12.5px ${T.sans}`,
-				textAlign: 'left',
-			}}
-		>
-			<Icon name={icon} size={14} color={T.ter} />
-			{label}
-		</button>
-	);
-}
-
-function ShortcutOverlay({ onClose }: { onClose: () => void }) {
-	const rows: Array<[string, string]> = [
-		[
-			'Tools',
-			TOOL_GROUPS.flatMap((g) => g.tools)
-				.filter((t) => t.shortcut)
-				.map((t) => `${t.shortcut!.toUpperCase()} ${t.label}`)
-				.join(' · '),
-		],
-		['Brush size', '[ smaller · ] larger'],
-		['Undo / Redo', 'Ctrl/⌘+Z · Ctrl/⌘+Shift+Z'],
-		['Zoom', '+ in · − out · 0 fit · wheel to cursor'],
-		['Pan', 'Hold Space and drag'],
-		['Nudge selection', 'Arrow keys (Shift = larger step)'],
-		['Delete', 'Delete / Backspace'],
-		['Cancel / deselect / exit', 'Esc'],
-		['Finish a path', 'Enter or double-click'],
-		['Command palette', 'Ctrl/⌘+K'],
-		['This overlay', '?'],
-	];
-	return (
-		<Dialog
-			open
-			onClose={onClose}
-			title="Keyboard shortcuts"
-			icon="info"
-			size="md"
-			footer={
-				<Button variant="primary" size="sm" onClick={onClose}>
-					Done
-				</Button>
-			}
-		>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-				{rows.map(([k, v]) => (
-					<div
-						key={k}
-						style={{
-							display: 'flex',
-							gap: 12,
-							padding: '8px 0',
-							borderBottom: `1px solid ${T.bd}`,
-						}}
-					>
-						<span style={{ flex: '0 0 150px', font: `600 12.5px ${T.sans}`, color: T.ink }}>
-							{k}
-						</span>
-						<span style={{ flex: 1, font: `12.5px ${T.sans}`, color: T.sub }}>{v}</span>
-					</div>
-				))}
-			</div>
-		</Dialog>
 	);
 }

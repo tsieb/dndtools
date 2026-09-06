@@ -36,7 +36,7 @@ export function StatusBar({
 		>
 			<span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
 				<Icon name={def?.icon ?? 'tool-select'} size={12} color={T.ter} />
-				{def?.label ?? editor.tool}
+				{def ? t(def.label) : editor.tool}
 			</span>
 			<span>{t('mapEditor.layerName', { name: activeLayerName ?? '—' })}</span>
 			<span>{Math.round(editor.zoom * 100)}%</span>
@@ -58,7 +58,7 @@ export function StatusBar({
 					fontFamily: T.sans,
 				}}
 			>
-				{def?.hint}
+				{def ? t(def.hint) : null}
 			</span>
 		</div>
 	);

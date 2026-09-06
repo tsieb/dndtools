@@ -15,7 +15,6 @@ import { FeatureShape } from './FeatureShape';
 import { MapCanvas } from './MapCanvas';
 import { clamp01 } from '../mapVocab';
 import { viewportForPinch } from '../quickMap';
-import { TOOLS_BY_ID } from '../tools';
 import { categoryForTool } from '../useMapEditor';
 import type { MapEditorApi } from '../useMapEditor';
 
@@ -772,7 +771,7 @@ export function EditorCanvas({
 			role="application"
 			// The human label, not the internal id — a screen reader used to announce
 			// "Drawing tool: poi".
-			aria-label={`Map canvas — ${editor.map?.name ?? 'map'}. Drawing tool: ${TOOLS_BY_ID.get(tool)?.label ?? tool}.`}
+			aria-label={`Map canvas — ${editor.map?.name ?? 'map'}. Drawing tool: ${editor.toolLabel}.`}
 			onPointerDownCapture={onTouchDownCapture}
 			onPointerMoveCapture={onTouchMoveCapture}
 			onPointerUpCapture={endTouchCapture}
@@ -988,21 +987,21 @@ export function EditorCanvas({
 			>
 				<IconButton
 					icon="zoom-in"
-					label="Zoom in"
+					label={editor.t('atlas.zoomIn')}
 					variant="outline"
 					size="sm"
 					onClick={() => editor.setZoom(Math.min(6, +(zoom + 0.2).toFixed(2)))}
 				/>
 				<IconButton
 					icon="zoom-out"
-					label="Zoom out"
+					label={editor.t('atlas.zoomOut')}
 					variant="outline"
 					size="sm"
 					onClick={() => editor.setZoom(Math.max(0.4, +(zoom - 0.2).toFixed(2)))}
 				/>
 				<IconButton
 					icon="zoom-fit"
-					label="Fit"
+					label={editor.t('atlas.fit')}
 					variant="outline"
 					size="sm"
 					onClick={() => {
@@ -1071,7 +1070,7 @@ export function EditorCanvas({
 						color: T.sub,
 					}}
 				>
-					Click to add points · Enter or double-click finishes · Esc cancels
+					{editor.t('mapEditor.polygonHint')}
 				</div>
 			)}
 		</div>

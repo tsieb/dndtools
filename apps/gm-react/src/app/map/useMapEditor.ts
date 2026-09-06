@@ -30,7 +30,9 @@ import {
 } from '@dndtools/core';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import type { ToolId } from './tools';
-import { GROUP_OF_TOOL } from './tools';
+import { GROUP_OF_TOOL, TOOLS_BY_ID } from './tools';
+import { useI18n } from '../../i18n';
+import type { MessageKey, MessageValues } from '../../i18n';
 
 export type FogMode = 'reveal' | 'conceal';
 export type FogShape = 'rect' | 'polygon' | 'stroke';
@@ -119,6 +121,13 @@ export interface MapEditorApi {
 
 	// Tool + layer state
 	tool: ToolId;
+	/** The active tool's name in the reader's language (RC-UX-1.2), for anything that has to say
+	 * which tool is armed without importing the tool table and the catalog itself. */
+	toolLabel: string;
+	/** The message-catalog reader. Panels normally call `useI18n` themselves; this is here for the
+	 * canvas, which sits exactly on its RC-STB-2.7 line baseline and cannot afford the import plus
+	 * the hook call until RC-STB-2.7 splits it. */
+	t: (key: MessageKey, values?: MessageValues) => string;
 	setTool: (tool: ToolId) => void;
 	activeLayerId: string | null;
 	setActiveLayerId: (id: string | null) => void;
@@ -172,10 +181,12 @@ function mapViewOrNull(result: ReturnType<typeof getMapViewForActor>) {
 
 export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): MapEditorApi {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
 	const isDm = runtime.state.permissions.actors[actorId]?.role === 'dm';
 
 	const [tool, setToolState] = useState<ToolId>(initialTool);
+	const toolLabel = t(TOOLS_BY_ID.get(tool)?.label ?? 'mapTool.select.label');
 	const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
 	const [selection, setSelection] = useState<readonly string[]>([]);
 	const [zoom, setZoom] = useState(1);
@@ -390,6 +401,8 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 		map: map as NonNullable<ReturnType<typeof mapViewOrNull>>,
 		layers,
 		tool,
+		toolLabel,
+		t,
 		setTool,
 		activeLayerId,
 		setActiveLayerId,

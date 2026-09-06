@@ -465,7 +465,9 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 	return (
 		<div
 			role="group"
-			aria-label={t('toolOptions.groupLabel', { tool: def?.label ?? t('toolOptions.tool') })}
+			aria-label={t('toolOptions.groupLabel', {
+				tool: def ? t(def.label) : t('toolOptions.tool'),
+			})}
 			style={{
 				display: 'flex',
 				alignItems: 'center',
@@ -480,11 +482,13 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 			<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
 				<Icon name={def?.icon ?? 'tool-select'} size={15} color={T.acc} />
 				<span style={{ font: `600 12.5px ${T.sans}`, color: T.ink, whiteSpace: 'nowrap' }}>
-					{def?.label ?? tool}
+					{def ? t(def.label) : tool}
 				</span>
 			</span>
 			<span style={{ width: 1, height: 22, background: T.bd }} aria-hidden />
-			{controls ?? <span style={{ font: `12px ${T.sans}`, color: T.ter }}>{def?.hint}</span>}
+			{controls ?? (
+				<span style={{ font: `12px ${T.sans}`, color: T.ter }}>{def ? t(def.hint) : null}</span>
+			)}
 		</div>
 	);
 }

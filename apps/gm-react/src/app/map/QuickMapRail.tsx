@@ -45,7 +45,7 @@ export function QuickMapRail({
 					<button
 						key={toolId}
 						type="button"
-						aria-label={toolId === 'pan' ? 'Navigate map' : tool.label}
+						aria-label={toolId === 'pan' ? t('mapTool.navigateMap') : t(tool.label)}
 						aria-pressed={active}
 						onClick={() => onSelect(toolId)}
 						style={{
@@ -68,7 +68,11 @@ export function QuickMapRail({
 					>
 						<Icon name={tool.icon} size={18} />
 						<span>
-							{toolId === 'pan' ? 'Navigate' : tool.label.replace('Point of interest', 'POI')}
+							{toolId === 'pan'
+								? t('mapTool.navigate')
+								: toolId === 'poi'
+									? t('mapTool.poiShort')
+									: t(tool.label)}
 						</span>
 					</button>
 				);
