@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import { containsSensitiveData } from '../diagnostics/redaction';
-import type { CommandResult } from '../commands/types';
+import type { CommandResult, CoreStateSlice } from '../commands/types';
 import type { McpToolResult } from './tool-dispatch';
 import type { McpAgentToolResult } from './agent-dispatch';
+import type { McpStagedProposal } from '../state/mcp-policy';
+import { getContentItemDetailForActor, getContentItemsForActor } from '../queries/content-query';
 
 /**
  * MCP-010 — the STABLE, VERSIONED, SCHEMA-VALIDATED MCP/AI RESPONSE CONTRACT.
@@ -137,13 +139,9 @@ export interface McpResponseEnvelope {
 
 // --- The Zod CONTRACT the envelope is validated against (machine-checkable, deterministic) ----------
 
-const warningSchema = z
-	.object({ code: z.string().min(1), message: z.string().min(1) })
-	.strict();
+const warningSchema = z.object({ code: z.string().min(1), message: z.string().min(1) }).strict();
 
-const citationSchema = z
-	.object({ kind: z.string().min(1), ref: z.string().min(1) })
-	.strict();
+const citationSchema = z.object({ kind: z.string().min(1), ref: z.string().min(1) }).strict();
 
 const remediationSchema = z
 	.object({ action: z.string().min(1), message: z.string().min(1) })
@@ -153,9 +151,7 @@ const errorSchema = z
 	.object({
 		code: z.string().min(1),
 		message: z.string().min(1),
-		issues: z
-			.array(z.object({ path: z.string(), message: z.string() }).strict())
-			.optional(),
+		issues: z.array(z.object({ path: z.string(), message: z.string() }).strict()).optional(),
 	})
 	.strict();
 
@@ -231,7 +227,8 @@ const REMEDIATION_BY_CODE: Record<string, McpResponseRemediation> = {
 	},
 	disabled: {
 		action: 'adjust-policy',
-		message: 'This agent policy mode is disabled. The DM must grant a policy mode that permits tools.',
+		message:
+			'This agent policy mode is disabled. The DM must grant a policy mode that permits tools.',
 	},
 	'not-allowlisted': {
 		action: 'allowlist-tool',
@@ -466,10 +463,7 @@ export function isConformantMcpResponse(candidate: unknown): candidate is McpRes
  * function the future MCP transport calls to obtain the response it serializes. The returned envelope is
  * ALWAYS contract-conformant (a malformed/leaky projection is replaced with the safe error).
  */
-export function buildCertifiedMcpResponse(
-	result: McpToolResult,
-	id: string,
-): McpResponseEnvelope {
+export function buildCertifiedMcpResponse(result: McpToolResult, id: string): McpResponseEnvelope {
 	return certifyMcpResponse(toMcpResponseEnvelope(result, id)).envelope;
 }
 
@@ -482,4 +476,389 @@ export function buildCertifiedMcpAgentResponse(
 	id: string,
 ): McpResponseEnvelope {
 	return certifyMcpResponse(toMcpAgentResponseEnvelope(result, id)).envelope;
+}
+
+// --- RC-AI-2.1 — the SEMANTIC DIFF PREVIEW for a staged proposal ------------------------------------
+
+/**
+ * RC-AI-2.1 — a DM-facing, human-reviewable PREVIEW of what a staged proposal would do if approved.
+ *
+ * The staged-proposal record (`McpStagedProposal`) deliberately captures only what the approval needs to
+ * re-dispatch the write: tool, command type, and the schema-validated payload. That is enough to COMMIT
+ * a proposal but not enough to REVIEW one — "content.update-item on note-7" tells a DM nothing about
+ * whether the agent rewrote two lines or replaced the whole dossier. This section closes that gap: it
+ * projects (proposal + CURRENT state) into a structural summary, a line delta, and the backlink impact.
+ *
+ * Three deliberate properties:
+ *
+ *   1. DERIVED, NOT SNAPSHOTTED. The preview is computed on demand from current state rather than
+ *      frozen onto the proposal at staging time. It therefore needs no persisted-shape change (no
+ *      `schemaVersion` bump, no migration for a value that is a pure function of state), and it stays
+ *      HONEST: if a human edited the note between staging and approval, the preview diffs against what
+ *      is actually there now — and reports the drift as a `stale-base-revision` warning — instead of
+ *      showing the DM a diff against a base that no longer exists.
+ *   2. ACTOR-FILTERED. Every baseline read goes through the actor-scoped content queries AS THE
+ *      PROPOSAL'S BOUND ACTOR (`proposal.actorId`), never as the reviewing DM. A proposal whose target
+ *      the agent's actor cannot see yields no baseline and says so, rather than leaking the note's
+ *      current contents into the review panel through the preview side-channel.
+ *   3. NOT ON THE AGENT WIRE. The preview is NOT embedded in {@link McpResponseEnvelope}. The envelope
+ *      is what leaves the core TO AN AGENT; a staged write's receipt there is the proposal id and
+ *      nothing more. Handing an agent a diff of the note it just proposed changing would widen what a
+ *      staged (uncommitted!) write returns, and vault prose flowing through `certifyMcpResponse`'s leak
+ *      scan would fail responses for content the DM legitimately wrote. AI proposes; the DM reviews.
+ *
+ * Pure + deterministic: same state + same proposal ⇒ same preview. Performs no I/O and mutates nothing.
+ */
+
+/** How a proposal changes the vault, coarsely — the one word that leads the review row. */
+export type McpProposalChangeKind = 'create' | 'update' | 'append' | 'other';
+
+/** ONE structural change line: which field moves, and (when a baseline exists) from what to what. */
+export interface McpProposalFieldChange {
+	/** The payload field path (e.g. `title`, `body`, `fields.status`). */
+	path: string;
+	change: 'added' | 'changed' | 'removed';
+	/** The current value, truncated for display. `null` when there is no baseline to compare against. */
+	before: string | null;
+	/** The proposed value, truncated for display. `null` when the change removes the field. */
+	after: string | null;
+}
+
+/** The LINE DELTA over a text body: how many lines the change adds, drops, and leaves alone. */
+export interface McpProposalLineDelta {
+	added: number;
+	removed: number;
+	unchanged: number;
+}
+
+/**
+ * The BACKLINK IMPACT of a proposal. `added`/`removed` are the `[[wikilink]]` targets the proposed body
+ * introduces or drops (outgoing links). `incoming` are the titles of notes that link TO the target note
+ * today — the notes whose links a title change would strand. Titles only, all actor-filtered.
+ */
+export interface McpProposalBacklinkImpact {
+	added: string[];
+	removed: string[];
+	incoming: string[];
+}
+
+/** THE PREVIEW a DM reviews before approving a staged write. Derived; carries no command authority. */
+export interface McpProposalPreview {
+	proposalId: string;
+	toolId: string;
+	commandType: string;
+	changeKind: McpProposalChangeKind;
+	/** What the write lands on. `resolved` is false when the baseline could not be read. */
+	target: { kind: string; id: string | null; label: string | null; resolved: boolean };
+	/** A concise, generic one-line summary of the change (safe to read aloud; no engine jargon). */
+	summary: string;
+	/** The structural summary: one line per changed field, in payload order. */
+	fields: McpProposalFieldChange[];
+	/** The line delta for a text body change. `null` when the proposal changes no body text. */
+	lineDelta: McpProposalLineDelta | null;
+	backlinks: McpProposalBacklinkImpact;
+	/** Honest caveats: no baseline, a drifted base revision, a bounded scan. Empty when none. */
+	warnings: McpResponseWarning[];
+}
+
+/** Display caps so one preview can never become an unbounded render (or an unbounded diff). */
+const PREVIEW_VALUE_CHARS = 140;
+const PREVIEW_DIFF_MAX_LINES = 400;
+const PREVIEW_MAX_LINKS = 20;
+
+/** Render any payload value as a short, single-line display string. Never throws. */
+function previewValue(value: unknown): string {
+	if (value === null || value === undefined) return '';
+	const raw =
+		typeof value === 'string'
+			? value
+			: typeof value === 'number' || typeof value === 'boolean'
+				? String(value)
+				: safeJson(value);
+	const oneLine = raw.replace(/\s+/g, ' ').trim();
+	return oneLine.length > PREVIEW_VALUE_CHARS
+		? `${oneLine.slice(0, PREVIEW_VALUE_CHARS - 1)}…`
+		: oneLine;
+}
+
+/** JSON that cannot throw on a cycle (a payload is schema-validated, but the preview stays total). */
+function safeJson(value: unknown): string {
+	try {
+		return JSON.stringify(value) ?? '';
+	} catch {
+		return '';
+	}
+}
+
+/** Every `[[wikilink]]` target named in a body, section anchor stripped, de-duplicated, in order. */
+function wikilinkTargets(body: string): string[] {
+	const targets: string[] = [];
+	const seen = new Set<string>();
+	for (const match of body.matchAll(/\[\[([^\]]+?)\]\]/g)) {
+		const inner = match[1] ?? '';
+		// `[[Note|alias]]` and `[[Note#Section]]` both point at `Note`.
+		const target = inner.split('|')[0]!.split('#')[0]!.trim();
+		if (target === '' || seen.has(target)) continue;
+		seen.add(target);
+		targets.push(target);
+	}
+	return targets;
+}
+
+/**
+ * The LINE DELTA between two bodies, by longest-common-subsequence over lines: a moved or re-wrapped
+ * paragraph counts once, not twice. Bounded — beyond {@link PREVIEW_DIFF_MAX_LINES} on either side the
+ * quadratic table is refused and the caller reports the totals with a `diff-bounded` warning instead of
+ * silently producing a wrong (or slow) number.
+ */
+function lineDelta(
+	before: string,
+	after: string,
+): { delta: McpProposalLineDelta; bounded: boolean } {
+	const a = before === '' ? [] : before.split(/\r?\n/);
+	const b = after === '' ? [] : after.split(/\r?\n/);
+	if (a.length > PREVIEW_DIFF_MAX_LINES || b.length > PREVIEW_DIFF_MAX_LINES) {
+		return { delta: { added: b.length, removed: a.length, unchanged: 0 }, bounded: true };
+	}
+	// Classic LCS table over lines; `table[i][j]` = LCS length of a[i..] and b[j..].
+	const table: number[][] = Array.from({ length: a.length + 1 }, () =>
+		new Array<number>(b.length + 1).fill(0),
+	);
+	for (let i = a.length - 1; i >= 0; i -= 1) {
+		for (let j = b.length - 1; j >= 0; j -= 1) {
+			table[i]![j] =
+				a[i] === b[j] ? table[i + 1]![j + 1]! + 1 : Math.max(table[i + 1]![j]!, table[i]![j + 1]!);
+		}
+	}
+	const unchanged = table[0]![0]!;
+	return {
+		delta: { added: b.length - unchanged, removed: a.length - unchanged, unchanged },
+		bounded: false,
+	};
+}
+
+/** The notes that currently link to `title`, read as the proposal's own actor. Titles only, bounded. */
+function incomingBacklinks(
+	state: CoreStateSlice,
+	actorId: string,
+	targetId: string,
+	title: string,
+): { titles: string[]; bounded: boolean } {
+	if (title === '') return { titles: [], bounded: false };
+	const needle = title.toLowerCase();
+	const titles: string[] = [];
+	for (const item of getContentItemsForActor(state.content, state.permissions, actorId)) {
+		if (item.id === targetId) continue;
+		if (!wikilinkTargets(item.body).some((target) => target.toLowerCase() === needle)) continue;
+		if (titles.length >= PREVIEW_MAX_LINKS) return { titles, bounded: true };
+		titles.push(item.title);
+	}
+	return { titles, bounded: false };
+}
+
+/** The empty backlink impact (no body text moves ⇒ no outgoing link changes). */
+const NO_BACKLINKS: McpProposalBacklinkImpact = { added: [], removed: [], incoming: [] };
+
+/** A field-by-field structural summary of a payload with NO baseline (a create, or an opaque target). */
+function structuralFields(payload: unknown, skip: ReadonlySet<string>): McpProposalFieldChange[] {
+	if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) return [];
+	const changes: McpProposalFieldChange[] = [];
+	for (const [key, value] of Object.entries(payload as Record<string, unknown>)) {
+		if (skip.has(key)) continue;
+		if (value === undefined) continue;
+		changes.push({ path: key, change: 'added', before: null, after: previewValue(value) });
+	}
+	return changes;
+}
+
+/** Payload keys that are plumbing, not content: never shown as a change line. */
+const PREVIEW_SKIP_KEYS: ReadonlySet<string> = new Set([
+	'itemId',
+	'baseRevision',
+	'cardId',
+	'mapId',
+]);
+
+/** The one-line summary, composed from the change kind + what the write lands on. */
+function previewSummary(
+	kind: McpProposalChangeKind,
+	targetLabel: string | null,
+	delta: McpProposalLineDelta | null,
+): string {
+	const what = targetLabel === null || targetLabel === '' ? 'a vault entry' : `"${targetLabel}"`;
+	const lines =
+		delta === null
+			? ''
+			: ` (+${delta.added} / −${delta.removed} ${delta.added + delta.removed === 1 ? 'line' : 'lines'})`;
+	switch (kind) {
+		case 'create':
+			return `Creates ${what}${lines}.`;
+		case 'update':
+			return `Updates ${what}${lines}.`;
+		case 'append':
+			return `Appends to ${what}${lines}.`;
+		case 'other':
+			return `Changes ${what}${lines}.`;
+	}
+}
+
+/** The content-item change kinds, by the tool that staged the write. */
+function contentChangeKind(toolId: string): McpProposalChangeKind {
+	return toolId === 'note.append' ? 'append' : 'update';
+}
+
+/**
+ * RC-AI-2.1 — compute the review preview for ONE staged proposal against CURRENT state.
+ *
+ * A `content.update-item` proposal (the only write that replaces existing prose) gets the full
+ * treatment: the current note is read AS THE PROPOSAL'S ACTOR, the body is line-diffed, the outgoing
+ * wikilinks are set-differenced, and — when the title moves — the notes that link to the old title are
+ * listed as strandable incoming backlinks. Every other write is a creation, so it gets a structural
+ * field summary plus the line count of any body it brings.
+ *
+ * Total: an unreadable target, a payload of an unexpected shape, and an unknown command type all
+ * degrade to a preview that SAYS it has no baseline (`no-baseline`) rather than inventing one. Pure.
+ */
+export function computeMcpProposalPreview(
+	state: CoreStateSlice,
+	proposal: McpStagedProposal,
+): McpProposalPreview {
+	const base: Omit<McpProposalPreview, 'summary'> = {
+		proposalId: proposal.id,
+		toolId: proposal.toolId,
+		commandType: proposal.commandType,
+		changeKind: 'other',
+		target: { kind: 'entry', id: null, label: null, resolved: false },
+		fields: [],
+		lineDelta: null,
+		backlinks: NO_BACKLINKS,
+		warnings: [],
+	};
+	const payload =
+		proposal.payload !== null && typeof proposal.payload === 'object'
+			? (proposal.payload as Record<string, unknown>)
+			: {};
+
+	if (proposal.commandType === 'content.update-item') {
+		const itemId = typeof payload.itemId === 'string' ? payload.itemId : '';
+		const detail = getContentItemDetailForActor(
+			state.content,
+			state.permissions,
+			proposal.actorId,
+			itemId,
+		);
+		const kind = contentChangeKind(proposal.toolId);
+		if (!detail.visible) {
+			// Fail honest, not closed: the proposal is still reviewable, but the panel must not pretend
+			// it knows what the note says today.
+			const fields = structuralFields(payload, PREVIEW_SKIP_KEYS);
+			return {
+				...base,
+				changeKind: kind,
+				target: { kind: 'note', id: itemId === '' ? null : itemId, label: null, resolved: false },
+				fields,
+				summary: previewSummary(kind, null, null),
+				warnings: [
+					{
+						code: 'no-baseline',
+						message:
+							'The target is not available to the agent, so there is nothing to compare against.',
+					},
+				],
+			};
+		}
+		const warnings: McpResponseWarning[] = [];
+		if (typeof payload.baseRevision === 'number' && payload.baseRevision !== detail.revision) {
+			warnings.push({
+				code: 'stale-base-revision',
+				message:
+					'The target changed after this was staged. Approving would be rejected as a conflict.',
+			});
+		}
+		const nextTitle = typeof payload.title === 'string' ? payload.title : undefined;
+		const nextBody = typeof payload.body === 'string' ? payload.body : undefined;
+		const fields: McpProposalFieldChange[] = [];
+		if (nextTitle !== undefined && nextTitle !== detail.title) {
+			fields.push({
+				path: 'title',
+				change: 'changed',
+				before: previewValue(detail.title),
+				after: previewValue(nextTitle),
+			});
+		}
+		let delta: McpProposalLineDelta | null = null;
+		let backlinks: McpProposalBacklinkImpact = NO_BACKLINKS;
+		if (nextBody !== undefined && nextBody !== detail.body) {
+			const computed = lineDelta(detail.body, nextBody);
+			delta = computed.delta;
+			if (computed.bounded) {
+				warnings.push({
+					code: 'diff-bounded',
+					message: 'The note is too long to diff line by line; totals are shown instead.',
+				});
+			}
+			const beforeLinks = wikilinkTargets(detail.body);
+			const afterLinks = wikilinkTargets(nextBody);
+			backlinks = {
+				added: afterLinks.filter((link) => !beforeLinks.includes(link)).slice(0, PREVIEW_MAX_LINKS),
+				removed: beforeLinks
+					.filter((link) => !afterLinks.includes(link))
+					.slice(0, PREVIEW_MAX_LINKS),
+				incoming: [],
+			};
+			fields.push({
+				path: 'body',
+				change: 'changed',
+				before: previewValue(detail.body),
+				after: previewValue(nextBody),
+			});
+		}
+		// A title change strands every link that names the OLD title, so those notes are the ones a DM
+		// needs to see before approving. Only computed when the title actually moves.
+		if (nextTitle !== undefined && nextTitle !== detail.title) {
+			const incoming = incomingBacklinks(state, proposal.actorId, detail.id, detail.title);
+			backlinks = { ...backlinks, incoming: incoming.titles };
+			if (incoming.bounded) {
+				warnings.push({
+					code: 'backlinks-bounded',
+					message: 'Only the first linked notes are listed; more link to this title.',
+				});
+			}
+		}
+		return {
+			...base,
+			changeKind: kind,
+			target: { kind: 'note', id: detail.id, label: detail.title, resolved: true },
+			fields,
+			lineDelta: delta,
+			backlinks,
+			summary: previewSummary(kind, detail.title, delta),
+			warnings,
+		};
+	}
+
+	// Every other bound command CREATES something. There is no baseline by definition, so the preview is
+	// the structural field summary plus the size of any prose the payload brings.
+	const label =
+		typeof payload.title === 'string'
+			? payload.title
+			: typeof payload.name === 'string'
+				? payload.name
+				: typeof payload.label === 'string'
+					? payload.label
+					: null;
+	const body = typeof payload.body === 'string' ? payload.body : '';
+	const delta = body === '' ? null : lineDelta('', body).delta;
+	return {
+		...base,
+		changeKind: 'create',
+		target: { kind: 'entry', id: null, label, resolved: true },
+		fields: structuralFields(payload, PREVIEW_SKIP_KEYS),
+		lineDelta: delta,
+		backlinks:
+			body === ''
+				? NO_BACKLINKS
+				: { added: wikilinkTargets(body).slice(0, PREVIEW_MAX_LINKS), removed: [], incoming: [] },
+		summary: previewSummary('create', label, delta),
+	};
 }

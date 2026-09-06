@@ -1297,6 +1297,32 @@ export const en = {
 	'settings.ai.reject': 'Reject',
 	'settings.ai.proposalApproved': 'Proposal approved and committed through the normal dispatch.',
 	'settings.ai.proposalRejected': 'Proposal rejected — nothing was written.',
+	/* RC-AI-2.1 — the semantic diff preview a DM reads before approving a staged write. */
+	'settings.ai.previewSummary.create': 'Creates {target}.',
+	'settings.ai.previewSummary.update': 'Updates {target}.',
+	'settings.ai.previewSummary.append': 'Appends to {target}.',
+	'settings.ai.previewSummary.other': 'Changes {target}.',
+	'settings.ai.previewUnknownTarget': 'a campaign entry',
+	'settings.ai.previewLines': '{added} lines added, {removed} removed',
+	'settings.ai.previewShow': 'Show changes',
+	'settings.ai.previewHide': 'Hide changes',
+	'settings.ai.previewRegion': 'Changes proposed for {target}',
+	'settings.ai.previewBefore': 'Now',
+	'settings.ai.previewAfter': 'Proposed',
+	'settings.ai.previewChange.added': 'added',
+	'settings.ai.previewChange.changed': 'changed',
+	'settings.ai.previewChange.removed': 'removed',
+	'settings.ai.previewLinksAdded': 'Links added',
+	'settings.ai.previewLinksRemoved': 'Links removed',
+	'settings.ai.previewLinksIncoming': 'Notes linking here',
+	'settings.ai.previewWarn.noBaseline':
+		'The target is not available to this agent, so there is nothing to compare against.',
+	'settings.ai.previewWarn.staleBase':
+		'The target changed after this was staged. Approving it would be rejected as a conflict.',
+	'settings.ai.previewWarn.diffBounded':
+		'The note is too long to compare line by line, so only the totals are shown.',
+	'settings.ai.previewWarn.backlinksBounded':
+		'Only the first linked notes are listed. More notes link to this title.',
 	'settings.ai.registryTitle': 'Tool registry (baseline)',
 	'settings.ai.registryIntro':
 		'The campaign tools an agent may be granted. Read results respect its chosen identity, and changes wait for review unless you explicitly choose a more permissive policy.',

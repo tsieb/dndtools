@@ -4909,6 +4909,23 @@ export {
 	toMcpResponseEnvelope,
 } from './mcp/response-contract';
 
+// --- RC-AI-2.1 — the SEMANTIC DIFF PREVIEW for a staged proposal ------------------------------------
+// A staged proposal records what the approval needs to RE-DISPATCH the write (tool, command type,
+// validated payload) — enough to commit, not enough to REVIEW. `computeMcpProposalPreview` projects
+// (proposal + CURRENT state) into what a DM actually needs before approving: a structural field summary,
+// a line delta over the body, and the backlink impact (outgoing links added/dropped, plus the notes a
+// title change would strand). DERIVED, not snapshotted — no persisted-shape change, and the diff stays
+// honest against state that moved since staging (reported as `stale-base-revision`). Baselines are read
+// AS THE PROPOSAL'S BOUND ACTOR, never as the reviewing DM, and the preview is NOT put on the agent wire.
+export type {
+	McpProposalBacklinkImpact,
+	McpProposalChangeKind,
+	McpProposalFieldChange,
+	McpProposalLineDelta,
+	McpProposalPreview,
+} from './mcp/response-contract';
+export { computeMcpProposalPreview } from './mcp/response-contract';
+
 // MCP-007 / MCP-008 — THE AI-BOUNDARY CONTRACT: the architectural rule, as enforceable Processing-Core code,
 // that AI is OPTIONAL and ANNOTATIVE — never load-bearing, never authoritative, never a mutation path, and
 // never a visibility bypass. It FORMALIZES the established `SemanticAssist` / `HealthAiExplainer` pattern

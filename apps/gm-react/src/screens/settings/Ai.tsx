@@ -14,6 +14,7 @@ import { baselineAllowlistMembership, toggleBaselineToolAllowlist } from '../../
 import { AiProviderPanel } from './AiProvider';
 import { AiRouterPanel } from './AiStatus';
 import { AiAssistantPanel } from './AiAssistant';
+import { AiProposalPreview } from './AiProposalPreview';
 import { errMsg } from './shared';
 /* ---- AI & tools (REAL — the durable MCP identity/policy/staged-writes slice + `mcp.*` commands,
  * PLUS the client-side provider transport (ADR-021, closing the ADR-014 deferral). The POLICY layer:
@@ -401,6 +402,8 @@ export function SettingsAI() {
 										risk: pr.writeRisk,
 									})}
 								</div>
+								{/* RC-AI-2.1 — what approving this would actually change, computed by the Core. */}
+								<AiProposalPreview proposal={pr} />
 							</div>
 							<Button
 								variant="secondary"

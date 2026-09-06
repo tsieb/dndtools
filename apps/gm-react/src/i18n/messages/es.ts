@@ -1339,6 +1339,32 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.ai.reject': 'Rechazar',
 	'settings.ai.proposalApproved': 'Propuesta aprobada y confirmada por el envío normal.',
 	'settings.ai.proposalRejected': 'Propuesta rechazada: no se escribió nada.',
+	/* RC-AI-2.1 — la vista previa de cambios que el DM lee antes de aprobar una escritura preparada. */
+	'settings.ai.previewSummary.create': 'Crea {target}.',
+	'settings.ai.previewSummary.update': 'Actualiza {target}.',
+	'settings.ai.previewSummary.append': 'Añade a {target}.',
+	'settings.ai.previewSummary.other': 'Cambia {target}.',
+	'settings.ai.previewUnknownTarget': 'una entrada de la campaña',
+	'settings.ai.previewLines': '{added} líneas añadidas, {removed} eliminadas',
+	'settings.ai.previewShow': 'Ver cambios',
+	'settings.ai.previewHide': 'Ocultar cambios',
+	'settings.ai.previewRegion': 'Cambios propuestos para {target}',
+	'settings.ai.previewBefore': 'Ahora',
+	'settings.ai.previewAfter': 'Propuesto',
+	'settings.ai.previewChange.added': 'añadido',
+	'settings.ai.previewChange.changed': 'cambiado',
+	'settings.ai.previewChange.removed': 'eliminado',
+	'settings.ai.previewLinksAdded': 'Enlaces añadidos',
+	'settings.ai.previewLinksRemoved': 'Enlaces eliminados',
+	'settings.ai.previewLinksIncoming': 'Notas que enlazan aquí',
+	'settings.ai.previewWarn.noBaseline':
+		'El destino no está disponible para este agente, así que no hay nada con lo que comparar.',
+	'settings.ai.previewWarn.staleBase':
+		'El destino cambió después de prepararse. Aprobarlo se rechazaría como conflicto.',
+	'settings.ai.previewWarn.diffBounded':
+		'La nota es demasiado larga para compararla línea a línea, así que solo se muestran los totales.',
+	'settings.ai.previewWarn.backlinksBounded':
+		'Solo se listan las primeras notas enlazadas. Hay más notas que enlazan a este título.',
 	'settings.ai.registryTitle': 'Registro de herramientas (básico)',
 	'settings.ai.registryIntro':
 		'Las herramientas de campaña que se pueden conceder a un agente. Los resultados de lectura respetan la identidad elegida y los cambios esperan revisión salvo que elijas explícitamente una política más permisiva.',
