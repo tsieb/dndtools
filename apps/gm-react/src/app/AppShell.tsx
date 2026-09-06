@@ -11,6 +11,7 @@ import { Sidebar } from './shell/Sidebar';
 import { RailNav } from './shell/RailNav';
 import { TopBar } from './shell/TopBar';
 import { Footer } from './shell/Footer';
+import { SessionRail } from './shell/SessionRail';
 import { ShortcutsDialog } from './help/ShortcutsDialog';
 import { matchesShortcut } from './shortcuts/registry';
 
@@ -224,6 +225,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 				</main>
 				{viewport === 'phone' && <Footer />}
 			</div>
+			{/* RC-SES-1.1 — the desktop right rail of a live session. It renders nothing at all unless
+			    the Core's session workflow is `active`, and the narrower tiers keep their own posture
+			    signals (the rail dot, the phone status strip) rather than losing width to a panel. */}
+			{viewport === 'desktop' && <SessionRail />}
 			<CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 			<SceneDisplayOverlay open={displayOpen} onClose={() => setDisplayOpen(false)} />
 			{shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}

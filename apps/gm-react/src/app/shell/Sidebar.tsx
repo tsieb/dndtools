@@ -23,6 +23,7 @@ import {
 import { T } from '../screen-kit';
 import { SECTION_PATH } from './sections';
 import { SceneSideRow, SideGroup, SideRow, sceneStatus, usePresenceStatus } from './rows';
+import { useSessionPosture } from './session-posture';
 
 /* Desktop (≥1025px): the 264px sidebar — brand · campaign chip · Run the table / Scenes / Library /
  * Platform / Recent · player + settings + DM account. Extracted from AppShell.tsx unchanged
@@ -39,6 +40,10 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const activeSceneId = runtime.state.session.activeSceneId;
 	const dmActor = runtime.state.permissions.actors[actorId];
 	const presence = usePresenceStatus();
+	// RC-SES-1.1 — the live posture comes from the session WORKFLOW, not from a selected scene: a
+	// scene stays active through Standby, so the old `activeSceneId` test marked the row LIVE while
+	// the Core was refusing every session command.
+	const posture = useSessionPosture();
 	const { t } = useI18n();
 
 	const { scenes, counts, recent } = useMemo(() => {
@@ -90,17 +95,29 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 		};
 	}, [runtime.state, actorId, activeSceneId, t]);
 
-	const row = (s: NavSection, badge?: ReactNode) => (
-		<SideRow
-			key={s.id}
-			icon={s.icon}
-			label={t(s.labelKey)}
-			sub={counts[s.id] ?? (s.subKey ? t(s.subKey) : undefined)}
-			active={active === s.id}
-			onClick={() => go(s.id)}
-			badge={badge}
-		/>
-	);
+	const row = (s: NavSection, badge?: ReactNode) => {
+		// RC-SES-1.1 — a live entry is wrapped, not restyled: the ring is a decorative box-shadow on
+		// the wrapper (reduced motion pins it to its static resting frame), while the state itself is
+		// carried by the text badge and the row's own accessible name.
+		const ringed = s.liveBadge === true && posture.live;
+		const rendered = (
+			<SideRow
+				key={s.id}
+				icon={s.icon}
+				label={t(s.labelKey)}
+				sub={counts[s.id] ?? (s.subKey ? t(s.subKey) : undefined)}
+				active={active === s.id}
+				onClick={() => go(s.id)}
+				badge={badge}
+			/>
+		);
+		if (!ringed) return rendered;
+		return (
+			<div key={s.id} className="session-live-ring" data-testid="sidebar-session-live">
+				{rendered}
+			</div>
+		);
+	};
 
 	const [showAllScenes, setShowAllScenes] = useState(false);
 	const [moreOpen, setMoreOpen] = useState(false);
@@ -193,7 +210,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 						{RUN.map((s) =>
 							row(
 								s,
-								s.id === 'session' && activeSceneId ? (
+								s.liveBadge === true && posture.live ? (
 									<span
 										style={{
 											font: `700 9px ${T.sans}`,

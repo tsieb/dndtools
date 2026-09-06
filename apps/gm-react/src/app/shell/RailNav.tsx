@@ -1,19 +1,19 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Icon, IconButton, NavRail } from '../../ds';
 import { useI18n } from '../../i18n';
-import { useRuntime } from '../../runtime/RuntimeContext';
 import { activeSectionId } from '../nav';
 import { T } from '../screen-kit';
 import { ALL_SECTIONS, SECTION_PATH } from './sections';
+import { useSessionPosture } from './session-posture';
 
 /** Tablet: the DS NavRail — icon-only, labels move to the accessible name/tooltip. */
 export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const { t } = useI18n();
 	const navigate = useNavigate();
 	const location = useLocation();
-	const runtime = useRuntime();
 	const active = activeSectionId(location.pathname);
-	const liveDot = runtime.state.session.activeSceneId != null;
+	// RC-SES-1.1 — one source for "live" across all three navigations: the session workflow.
+	const live = useSessionPosture().live;
 	return (
 		<NavRail
 			width={64}
@@ -26,7 +26,7 @@ export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 				key: s.id,
 				icon: s.icon,
 				label: t(s.labelKey),
-				badge: s.id === 'session' && liveDot ? '•' : undefined,
+				badge: s.liveBadge === true && live ? '•' : undefined,
 			}))}
 			active={active}
 			onSelect={(id: string) => navigate(SECTION_PATH[id] ?? '/')}

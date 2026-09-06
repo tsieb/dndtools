@@ -22,6 +22,12 @@ only the presentation of the navigation changes.
   - The full sidebar (`Sidebar`, width `264px`): brand, campaign chip, grouped nav
     (Run the table / Scenes / Library / More), Recent scenes, and the player/settings/
     account footer.
+  - While the Core's `session.workflow` is `active`, a right rail (`SessionRail`, width
+    `272px`) opens itself on the far side of the shell and can be collapsed to a narrow
+    reopen control (RC-SES-1.1). It renders nothing on any other workflow state and is
+    never mounted below `desktop` — the narrower tiers carry the same posture as a rail dot
+    (`rail`) or a 16px accent status strip above the tab bar (`phone`), so no tier loses a
+    destination to the panel.
 
 ## Source Of Truth
 

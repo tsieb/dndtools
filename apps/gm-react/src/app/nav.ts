@@ -17,6 +17,13 @@ export interface NavSection {
 	path: string;
 	/** Optional secondary line shown under the label in the sidebar. */
 	subKey?: MessageKey;
+	/**
+	 * RC-SES-1.1 — this entry carries the session-live posture: while `session.workflow === 'active'`
+	 * the sidebar row and the tablet rail mark it live (a pulsing ring that reduced motion renders
+	 * static). Declared here, on the one navigation source of truth, so the three navigations cannot
+	 * disagree about which destination is the live one.
+	 */
+	liveBadge?: boolean;
 }
 
 /** Run the table — the live-play destinations. */
@@ -41,6 +48,7 @@ export const RUN: NavSection[] = [
 		icon: 'session-bolt',
 		path: '/session',
 		subKey: 'nav.sub.session',
+		liveBadge: true,
 	},
 ];
 

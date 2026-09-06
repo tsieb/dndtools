@@ -281,3 +281,25 @@ html[data-electron='true'] .app-fixed-viewport {
 		background-image: none !important;
 	}
 }
+
+/* RC-SES-1.1 — the session-live posture ring on the Session navigation entry. The RESTING frame is
+   the ring itself, and the animation only breathes its spread: under `data-motion="reduced|none"`
+   the block above collapses the duration and pins the iteration count, which leaves the element on
+   that resting frame — so reduced motion degrades to a static ring rather than to nothing. The ring
+   is drawn with `box-shadow` (no layout cost) and is decorative: the row also carries a text badge,
+   so the state never rests on motion or colour alone. */
+@keyframes session-live-ring {
+	0%,
+	100% {
+		box-shadow: 0 0 0 1.5px var(--color-accent-border);
+	}
+	50% {
+		box-shadow: 0 0 0 3px var(--color-accent-subtle);
+	}
+}
+
+.session-live-ring {
+	border-radius: 8px;
+	box-shadow: 0 0 0 1.5px var(--color-accent-border);
+	animation: session-live-ring 2s var(--easing-standard) infinite;
+}

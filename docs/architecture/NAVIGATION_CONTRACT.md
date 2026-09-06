@@ -27,6 +27,18 @@ sheet, top bar, command palette, Command Center's library cards) calls `t` on it
 here would leak untranslated into all seven at once. Keys whose message carries a `{gm}` or
 `{player}` placeholder also follow the active System Package's vocabulary (RC-SYS-2.6).
 
+### Live posture (RC-SES-1.1)
+
+`NavSection.liveBadge` marks the ONE destination that carries the session-live posture (the
+Session entry). While the Core's `session.workflow` is `active`, every navigation renderer
+marks that entry from this single flag — the sidebar row gains a text badge plus the
+`.session-live-ring` box-shadow ring, the tablet rail and the phone tab bar gain a dot. The
+"live" answer itself comes from `useSessionPosture()`
+(`apps/gm-react/src/app/shell/session-posture.ts`), never from a renderer's own reading of
+session state, so the three navigations cannot disagree about whether the table is running.
+The ring's resting frame IS its reduced-motion appearance, and the state is never carried by
+motion or colour alone.
+
 ## 2. Layer model
 
 Navigation elements are classified as exactly one of `global`, `local`, or `contextual`.

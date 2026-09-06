@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Icon, IconButton, Sheet } from '../../ds';
+import { Icon, IconButton, Sheet, StatusDot } from '../../ds';
 import { useI18n } from '../../i18n';
 import { ViewAsControl } from '../ViewAsControl';
 import { ProjectionControl } from '../ProjectionControl';
@@ -8,6 +8,7 @@ import { HostSessionButton, AccountButton } from '../../net/SessionPanel';
 import { useViewport } from '../useViewport';
 import { activeSectionId, sectionLabelKey, sectionSubtitleKey } from '../nav';
 import { T } from '../screen-kit';
+import { useSessionPosture } from './session-posture';
 
 /* The calm top bar — title / subtitle, ⌘K search, view-as + projection, and on compact widths the
  * overflow sheet that holds them. Extracted from AppShell.tsx unchanged (RC-STB-2.6). */
@@ -31,6 +32,20 @@ export function TopBar({
 	const subtitleKey = sectionSubtitleKey(id);
 	const sub = subtitleKey ? t(subtitleKey) : '';
 	const compact = viewport !== 'desktop' || compactToolbar;
+	// RC-SES-1.1 — the live posture in the top bar is STATUS ONLY (TOPBAR_CHARTER): a non-interactive
+	// label that says the table is live and for how long. Starting, pausing and ending a session stay
+	// on /session and the projection control; nothing here is clickable. It is deliberately NOT an
+	// aria-live region — a clock that ticks every second would talk over everything else.
+	const posture = useSessionPosture();
+	// On the phone the posture lives in the tab-bar status strip instead: a 375px top bar already
+	// carries the title, search and the table-controls button, and a fourth chip would squeeze the
+	// title to an ellipsis on the one profile that can least afford it.
+	const liveLabel =
+		posture.live && viewport !== 'phone'
+			? posture.elapsed
+				? t('shell.sessionLiveElapsed', { elapsed: posture.elapsed })
+				: t('shell.sessionLive')
+			: null;
 	return (
 		<>
 			<header
@@ -79,6 +94,27 @@ export function TopBar({
 						</div>
 					)}
 				</div>
+				{liveLabel && (
+					<span
+						data-testid="topbar-session-live"
+						style={{
+							display: 'inline-flex',
+							alignItems: 'center',
+							gap: 6,
+							flex: '0 0 auto',
+							padding: '3px 9px',
+							borderRadius: 20,
+							background: T.accSub,
+							border: `1px solid ${T.accBd}`,
+							color: T.acc,
+							font: `600 12px ${T.sans}`,
+							whiteSpace: 'nowrap',
+						}}
+					>
+						<StatusDot status="live" pulse />
+						{liveLabel}
+					</span>
+				)}
 				{compact ? (
 					<IconButton
 						icon="search"

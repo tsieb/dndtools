@@ -24,7 +24,14 @@ utilities. It does **not** host content actions.
    sourced from `SECTION_TITLES`.
 2. **Command palette trigger** — the "Search everything… ⌘K" button that opens
    `CommandPalette` (⌘K / Ctrl+K is also bound globally in `AppShell`).
-3. **Session / cross-route utilities**, right-aligned:
+3. **Session-live status** (RC-SES-1.1) — while the Core's `session.workflow` is `active` the top
+   bar carries a single non-interactive label, "Session live · 01:12", built from
+   `useSessionPosture()` in `apps/gm-react/src/app/shell/session-posture.ts`. It is **status
+   only**: no button, no link, no menu. Starting, pausing and ending a session remain on
+   `/session` and in `ProjectionControl`. It is not an `aria-live` region — a clock that ticked
+   once a second would talk over every other announcement. It is omitted on the phone profile,
+   where the same posture is carried by the accent status strip above the tab bar.
+4. **Session / cross-route utilities**, right-aligned:
    - `HostSessionButton` (remote play)
    - `ViewAsControl` (actor "view as" switch)
    - `ProjectionControl` (player-view projection)
