@@ -859,7 +859,18 @@ export type CoreCommand =
 	// --- RC-MAP-1.4 — MARK THE PARTY'S ATLAS LOCATION (append-only block) -------------------------
 	// Set where the party currently stands: one map + a normalized position. DM-only; campaign-level
 	// (not reset by a session workflow transition).
-	| { type: 'session.mark-party'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'session.mark-party'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// --- RC-AI-2.2 — RESOLVE A STAGED WRITE'S THREE-WAY CONFLICT (append-only block) ---------------
+	// A staged note rewrite whose base revision has gone stale cannot be approved as staged: the
+	// commit would record a conflict op and leave the note untouched while the proposal reads
+	// approved. This settles the divergence explicitly — keep the assistant's version, keep the
+	// note as it stands, or take the clean three-way merge — as ONE validated command. DM-only.
+	| {
+			type: 'mcp.resolve-proposal-conflict';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }

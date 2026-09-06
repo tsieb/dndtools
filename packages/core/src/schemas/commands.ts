@@ -3317,3 +3317,15 @@ export const markPartyInputSchema = z
 		y: z.number().min(0).max(1),
 	})
 	.strict();
+
+// --- RC-AI-2.2 — RESOLVE A STAGED WRITE'S THREE-WAY CONFLICT (append-only block) --------------------
+// The DM picks ONE side of a diverged note rewrite. The merged text is NOT accepted from the caller:
+// the handler recomputes it from the Core's own three-way record, so a client can never smuggle prose
+// into the vault under the guise of "the merge" — the same reason approval re-dispatches the captured
+// payload rather than a client-supplied one.
+export const resolveMcpProposalConflictInputSchema = z
+	.object({
+		proposalId: idSchema,
+		resolution: z.enum(['keep-ai', 'keep-mine', 'merge']),
+	})
+	.strict();

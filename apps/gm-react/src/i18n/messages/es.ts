@@ -1417,6 +1417,38 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'La nota es demasiado larga para compararla línea a línea, así que solo se muestran los totales.',
 	'settings.ai.previewWarn.backlinksBounded':
 		'Solo se listan las primeras notas enlazadas. Hay más notas que enlazan a este título.',
+	/* RC-AI-2.2 — revisión de conflicto a tres bandas */
+	'settings.ai.conflictHeading': 'La nota cambió después de que el asistente la leyera',
+	'settings.ai.conflictIntro':
+		'Dos ediciones se han separado. Elige cuál conserva la nota: aprobarla tal cual no escribiría nada.',
+	'settings.ai.conflictShow': 'Mostrar ambas versiones',
+	'settings.ai.conflictHide': 'Ocultar ambas versiones',
+	'settings.ai.conflictRegion': 'Pasajes divergentes en {target}',
+	'settings.ai.conflictLine': 'Línea {line}',
+	'settings.ai.conflictBase': 'Lo que leyó el asistente',
+	'settings.ai.conflictAi': 'El asistente propone',
+	'settings.ai.conflictMine': 'La nota ahora',
+	'settings.ai.conflictKind.aiOnly': 'Solo lo cambió el asistente',
+	'settings.ai.conflictKind.mineOnly': 'Solo lo cambiaste tú',
+	'settings.ai.conflictKind.agreed': 'Ambos hicieron el mismo cambio',
+	'settings.ai.conflictKind.conflicting': 'Ambos cambiaron este pasaje',
+	'settings.ai.conflictKeepAi': 'Conservar la versión del asistente',
+	'settings.ai.conflictKeepMine': 'Conservar la nota tal como está',
+	'settings.ai.conflictMerge': 'Combinar ambas',
+	'settings.ai.conflictMergeHint':
+		'Las dos ediciones tocan líneas distintas, así que se pueden conservar ambas.',
+	'settings.ai.conflictResolved': 'Conflicto resuelto.',
+	'settings.ai.conflictTitleRow': 'Título',
+	'settings.ai.conflictWarn.noBaseSnapshot':
+		'Esta propuesta se preparó sin una base, así que las dos ediciones no se pueden combinar.',
+	'settings.ai.conflictWarn.overlappingEdits':
+		'El asistente y la nota cambiaron las mismas líneas, así que no hay combinación que ofrecer.',
+	'settings.ai.conflictWarn.titleConflict':
+		'El asistente y la nota dan títulos distintos a esta entrada.',
+	'settings.ai.conflictWarn.diffBounded':
+		'La nota es demasiado larga para compararla línea a línea, así que no se puede combinar aquí.',
+	'settings.ai.conflictWarn.hunksBounded':
+		'Solo se listan los primeros pasajes divergentes. La nota tiene más.',
 	'settings.ai.registryTitle': 'Registro de herramientas (básico)',
 	'settings.ai.registryIntro':
 		'Las herramientas de campaña que se pueden conceder a un agente. Los resultados de lectura respetan la identidad elegida y los cambios esperan revisión salvo que elijas explícitamente una política más permisiva.',

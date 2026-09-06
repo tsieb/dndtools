@@ -62,7 +62,12 @@ export const MCP_POLICY_ENTITY_TYPE = 'mcp-policy' as const;
  *   - `trusted_direct` — an allowlisted write may commit DIRECTLY, but ONLY through the same Processing
  *     Core validation + audit a human gets (MCP-009 AC4); a non-allowlisted tool is still staged.
  */
-export const MCP_POLICY_MODES = ['disabled', 'strict_review', 'balanced', 'trusted_direct'] as const;
+export const MCP_POLICY_MODES = [
+	'disabled',
+	'strict_review',
+	'balanced',
+	'trusted_direct',
+] as const;
 export type McpPolicyMode = (typeof MCP_POLICY_MODES)[number];
 
 /** Narrow an arbitrary value to a declared policy mode (fail closed: anything else is rejected). */
@@ -118,6 +123,24 @@ export interface McpAgentPolicy {
 	revision: number;
 }
 
+/**
+ * RC-AI-2.2 — the BASE a staged note rewrite was written against, captured at staging time.
+ *
+ * `content.update-item` already carries `baseRevision`, which is enough to DETECT that a human edited
+ * the note after the agent read it. It is not enough to RESOLVE that divergence: a three-way merge
+ * needs the base TEXT, and the vault keeps no revision history, so by review time the prose the agent
+ * started from is gone. This is the smallest honest fix — the title/body/revision the staging read
+ * already had in hand. Optional: a proposal staged by an older build carries none, and the conflict
+ * record then says so and withholds the merge rather than inventing a baseline.
+ */
+export interface McpProposalBaseSnapshot {
+	/** The content item the base was read from (guards a payload rewritten to point elsewhere). */
+	itemId: string;
+	revision: number;
+	title: string;
+	body: string;
+}
+
 /** Whether a staged proposal is awaiting review, or was approved/rejected/expired (terminal). */
 export type McpProposalStatus = 'pending' | 'approved' | 'rejected' | 'expired';
 
@@ -145,6 +168,11 @@ export interface McpStagedProposal {
 	writeRisk: 'low-risk' | 'durable';
 	/** Optional idempotency key forwarded to the dispatch at approval (idempotent commit). */
 	idempotencyKey?: string;
+	/**
+	 * RC-AI-2.2 — the note as it stood when the write was staged, for the three-way conflict record.
+	 * Present only for a note rewrite; absent on every other command and on pre-RC-AI-2.2 proposals.
+	 */
+	baseSnapshot?: McpProposalBaseSnapshot;
 	status: McpProposalStatus;
 	createdAt: string;
 	/** When the proposal was approved/rejected/expired; null while pending. */
@@ -260,6 +288,21 @@ function ensurePolicy(policy: McpAgentPolicy): McpAgentPolicy {
 	};
 }
 
+/** RC-AI-2.2 — a persisted base snapshot, or null when it is absent or not the shape we wrote. */
+function ensureBaseSnapshot(snapshot: unknown): McpProposalBaseSnapshot | null {
+	if (snapshot === null || typeof snapshot !== 'object') return null;
+	const candidate = snapshot as Partial<McpProposalBaseSnapshot>;
+	if (typeof candidate.itemId !== 'string' || candidate.itemId === '') return null;
+	if (typeof candidate.revision !== 'number' || !Number.isFinite(candidate.revision)) return null;
+	if (typeof candidate.title !== 'string' || typeof candidate.body !== 'string') return null;
+	return {
+		itemId: candidate.itemId,
+		revision: candidate.revision,
+		title: candidate.title,
+		body: candidate.body,
+	};
+}
+
 /**
  * Hydrate one proposal fail-closed: a proposal persisted in a non-terminal `pending` state stays pending
  * (the DM must still review it), but an UNKNOWN status collapses to `rejected` so a corrupt record can
@@ -267,6 +310,7 @@ function ensurePolicy(policy: McpAgentPolicy): McpAgentPolicy {
  */
 function ensureProposal(proposal: McpStagedProposal): McpStagedProposal | null {
 	if (!proposal.id || !proposal.commandType) return null;
+	const baseSnapshot = ensureBaseSnapshot(proposal.baseSnapshot);
 	const status: McpProposalStatus =
 		proposal.status === 'pending' ||
 		proposal.status === 'approved' ||
@@ -284,6 +328,9 @@ function ensureProposal(proposal: McpStagedProposal): McpStagedProposal | null {
 		policyMode: isMcpPolicyMode(proposal.policyMode) ? proposal.policyMode : 'disabled',
 		writeRisk: proposal.writeRisk === 'low-risk' ? 'low-risk' : 'durable',
 		...(proposal.idempotencyKey !== undefined ? { idempotencyKey: proposal.idempotencyKey } : {}),
+		// RC-AI-2.2 — carry the captured base across a reload, shape-checked: a corrupt snapshot is
+		// DROPPED (the conflict record then reports no baseline) rather than restored as a fake base.
+		...(baseSnapshot !== null ? { baseSnapshot } : {}),
 		status,
 		createdAt: proposal.createdAt,
 		resolvedAt: proposal.resolvedAt ?? null,
@@ -337,16 +384,25 @@ export function isMcpEnabled(state: McpPolicyState): boolean {
 }
 
 /** Look up an agent binding by agent id, or undefined. Pure. */
-export function mcpBindingByAgentId(state: McpPolicyState, agentId: string): McpAgentBinding | undefined {
+export function mcpBindingByAgentId(
+	state: McpPolicyState,
+	agentId: string,
+): McpAgentBinding | undefined {
 	return state.bindings[agentId];
 }
 
 /** Look up an agent policy by agent id, or undefined. Pure. */
-export function mcpPolicyByAgentId(state: McpPolicyState, agentId: string): McpAgentPolicy | undefined {
+export function mcpPolicyByAgentId(
+	state: McpPolicyState,
+	agentId: string,
+): McpAgentPolicy | undefined {
 	return state.policies[agentId];
 }
 
 /** Look up a staged proposal by id, or undefined. Pure. */
-export function mcpProposalById(state: McpPolicyState, proposalId: string): McpStagedProposal | undefined {
+export function mcpProposalById(
+	state: McpPolicyState,
+	proposalId: string,
+): McpStagedProposal | undefined {
 	return state.proposals[proposalId];
 }

@@ -1,6 +1,7 @@
 import {
 	approveMcpProposalInputSchema,
 	rejectMcpProposalInputSchema,
+	resolveMcpProposalConflictInputSchema,
 	removeMcpAgentBindingInputSchema,
 	setMcpAgentBindingInputSchema,
 	setMcpAgentPolicyInputSchema,
@@ -19,6 +20,7 @@ import {
 import type { CommandResult, CoreCommand, CoreEnvironment, CoreStateSlice } from './types';
 import { appendOperationDraft, parseInput, reject, requireActor, requireDm } from './helpers';
 import { dispatchCommand } from './dispatch';
+import { computeMcpProposalConflict } from '../mcp/proposal-conflict';
 
 /**
  * MCP-003 / MCP-009 / MCP-011 — the DM-ONLY administrative command handlers for the MCP identity, policy,
@@ -312,10 +314,7 @@ export function handleSetMcpVaultDefault(
 
 	return {
 		status: 'accepted',
-		nextState: withMcp(
-			{ ...state, sync: nextLog },
-			{ ...state.mcp, vaultDefaultMode: input.mode },
-		),
+		nextState: withMcp({ ...state, sync: nextLog }, { ...state.mcp, vaultDefaultMode: input.mode }),
 		events: [{ kind: 'mcp.vault-default-changed', mode: input.mode, actorId: actor.id }],
 		operationIds: [op.id],
 	};
@@ -507,5 +506,182 @@ export function handleRejectMcpProposal(
 			},
 		],
 		operationIds: [op.id],
+	};
+}
+
+// --- RC-AI-2.2 — RESOLVE A STAGED WRITE'S THREE-WAY CONFLICT (append-only block) --------------------
+
+/**
+ * RC-AI-2.2 — settle a staged note rewrite whose base revision went stale.
+ *
+ * Approving such a proposal AS STAGED is the one place the staged-write pipeline could still report a
+ * fake success: `content.update-item` sees the stale `baseRevision`, records a `content.item-conflict`
+ * op, leaves the note UNCHANGED — and the approval nonetheless marks the proposal approved and tells
+ * the DM the write landed. This command replaces that with an explicit three-way decision:
+ *
+ *   - `keep-ai`   — the assistant's version wins. The captured payload is re-dispatched REBASED onto the
+ *                   note's CURRENT revision, as the SAME bound actor, through the SAME authorized
+ *                   dispatch. The human edit is overwritten because the DM said so, not silently.
+ *   - `keep-mine` — the note stands. No durable write; the proposal becomes terminal (rejected).
+ *   - `merge`     — the Core's own diff3 result is written. Offered ONLY when the merge is clean (the
+ *                   two edits touch different lines) and only when a base snapshot exists; the merged
+ *                   text comes from the Core record, never from the caller.
+ *
+ * Fail closed: DM-only; the proposal must exist and be PENDING; the proposal must actually BE in
+ * conflict (a proposal with a live base is `invalid-state` here — approve or reject it instead); and a
+ * `merge` with no clean merge to take is `invalid-state` rather than a guess. The re-dispatch re-runs
+ * the command's own authority/schema/visibility checks, so a grant revoked since staging still blocks
+ * the write exactly as it blocks an approval.
+ */
+export function handleResolveMcpProposalConflict(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(resolveMcpProposalConflictInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const input = parsed.data;
+
+	const proposal = state.mcp.proposals[input.proposalId];
+	if (!proposal) {
+		return reject(
+			{ code: 'mcp-proposal-not-found', message: `Proposal ${input.proposalId} does not exist.` },
+			state,
+		);
+	}
+	if (proposal.status !== 'pending') {
+		return reject(
+			{
+				code: 'mcp-proposal-not-pending',
+				message: `Proposal ${input.proposalId} is ${proposal.status}, not pending.`,
+			},
+			state,
+		);
+	}
+
+	const conflict = computeMcpProposalConflict(state, proposal);
+	if (!conflict) {
+		return reject(
+			{
+				code: 'invalid-state',
+				message: 'This proposal is not in conflict. Approve or reject it instead.',
+			},
+			state,
+		);
+	}
+	if (!conflict.resolutions.includes(input.resolution)) {
+		return reject(
+			{
+				code: 'invalid-state',
+				message:
+					input.resolution === 'merge'
+						? 'The two edits touch the same lines, so there is no merge to take.'
+						: `Resolution ${input.resolution} is not available for this conflict.`,
+			},
+			state,
+		);
+	}
+
+	const now = env.clock();
+
+	// KEEP MINE — the note stands as written. No durable write; the proposal becomes terminal so it can
+	// never be approved later against a base that is now two edits old.
+	if (input.resolution === 'keep-mine') {
+		const rejectedProposal: McpStagedProposal = {
+			...proposal,
+			status: 'rejected',
+			resolvedAt: now,
+			resolvedBy: actor.id,
+		};
+		const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+			entityType: MCP_POLICY_ENTITY_TYPE,
+			entityId: proposal.id,
+			opType: 'mcp.reject-proposal',
+			path: `proposals/${proposal.id}`,
+			value: { proposalId: proposal.id, status: 'rejected', resolution: 'keep-mine' },
+		});
+		return {
+			status: 'accepted',
+			nextState: withMcp(
+				{ ...state, sync: nextLog },
+				{ ...state.mcp, proposals: { ...state.mcp.proposals, [proposal.id]: rejectedProposal } },
+			),
+			events: [
+				{
+					kind: 'mcp.proposal-rejected',
+					proposalId: proposal.id,
+					agentId: proposal.agentId,
+					reason: 'rejected',
+					actorId: actor.id,
+				},
+			],
+			operationIds: [op.id],
+		};
+	}
+
+	// KEEP AI / MERGE — both write, both REBASE onto the note's current revision, and both go through
+	// the ordinary authorized dispatch as the proposal's bound actor. The only difference is whose text.
+	const chosen = input.resolution === 'merge' ? conflict.merge! : conflict.ai;
+	const commitResult = dispatchCommand(state, env, {
+		type: 'content.update-item',
+		actorId: proposal.actorId,
+		payload: {
+			itemId: conflict.itemId,
+			baseRevision: conflict.current.revision,
+			title: chosen.title,
+			body: chosen.body,
+		},
+		...(proposal.idempotencyKey !== undefined ? { idempotencyKey: proposal.idempotencyKey } : {}),
+	} as CoreCommand);
+	if (commitResult.status !== 'accepted') return reject(commitResult.rejection, state);
+
+	const committedState = commitResult.nextState;
+	const approvedProposal: McpStagedProposal = {
+		...proposal,
+		status: 'approved',
+		resolvedAt: now,
+		resolvedBy: actor.id,
+	};
+	const auditEntry: McpAuditEntry = {
+		id: env.ids(),
+		agentId: proposal.agentId,
+		actorId: proposal.actorId,
+		policyMode: proposal.policyMode,
+		toolId: proposal.toolId,
+		mode: 'staged',
+		proposalId: proposal.id,
+		visible: true,
+		recordedAt: now,
+	};
+	const nextMcp = appendAuditEntry(
+		{
+			...committedState.mcp,
+			proposals: { ...committedState.mcp.proposals, [proposal.id]: approvedProposal },
+		},
+		auditEntry,
+	);
+
+	return {
+		status: 'accepted',
+		nextState: withMcp(committedState, nextMcp),
+		events: [
+			...commitResult.events,
+			{
+				kind: 'mcp.proposal-approved',
+				proposalId: proposal.id,
+				agentId: proposal.agentId,
+				boundActorId: proposal.actorId,
+				commandType: proposal.commandType,
+				committedOperationIds: commitResult.operationIds,
+				actorId: actor.id,
+			},
+		],
+		operationIds: commitResult.operationIds,
 	};
 }

@@ -5,6 +5,7 @@ import {
 	type McpAuditEntry,
 	type McpStagedProposal,
 } from '../state/mcp-policy';
+import { captureProposalBase } from './proposal-conflict';
 import type { McpToolRegistry } from './tool-registry';
 import { resolveAgentIdentity, type McpIdentityDenyReason } from './identity';
 import { decidePolicy, type McpPolicyDenyReason } from './policy';
@@ -257,6 +258,20 @@ export function invokeMcpToolAsAgent(
 		return { result, nextState: state };
 	}
 
+	// --- RC-AI-2.2 — capture the BASE a note rewrite is written against -----------------------------
+	// `baseRevision` alone detects that a human edited the note after the agent read it; it cannot
+	// RESOLVE that divergence, because the vault keeps no revision history and by review time the prose
+	// the agent started from is gone. Snapshot it here, read as the BOUND ACTOR (never wider than the
+	// read the agent already made), so the review panel can offer a real three-way choice. Any other
+	// command stages exactly as before.
+	const baseSnapshot = captureProposalBase(
+		state,
+		identity.actorId,
+		tool.commandType,
+		resolved.payload,
+	);
+	// -----------------------------------------------------------------------------------------------
+
 	const proposalId = env.ids();
 	const now = env.clock();
 	const proposal: McpStagedProposal = {
@@ -277,6 +292,7 @@ export function invokeMcpToolAsAgent(
 		...(invocation.idempotencyKey !== undefined
 			? { idempotencyKey: invocation.idempotencyKey }
 			: {}),
+		...(baseSnapshot !== null ? { baseSnapshot } : {}),
 		status: 'pending',
 		createdAt: now,
 		resolvedAt: null,

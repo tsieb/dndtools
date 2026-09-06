@@ -5537,3 +5537,20 @@ export {
 	STARTER_SYSTEM_LIBRARY,
 	starterSystemPackage,
 } from './systems';
+
+// --- RC-AI-2.2 — the THREE-WAY CONFLICT RECORD for a staged proposal --------------------------------
+// A staged note rewrite carries the revision the agent read. When a human edits that note first, the
+// two edits have diverged and approving the proposal as staged writes NOTHING while reporting success.
+// `computeMcpProposalConflict` projects (proposal + CURRENT state + the base captured at staging) into
+// the three sides a merge needs — base, assistant, note-as-it-stands — with the per-region attribution
+// and the diff3 merge when the edits do not overlap. Resolving is the validated
+// `mcp.resolve-proposal-conflict` command; the record itself is pure and read as the proposal's actor.
+export type {
+	McpConflictHunk,
+	McpConflictHunkKind,
+	McpConflictResolution,
+	McpConflictSide,
+	McpProposalConflict,
+} from './mcp/proposal-conflict';
+export { MCP_CONFLICT_RESOLUTIONS, computeMcpProposalConflict } from './mcp/proposal-conflict';
+export type { McpProposalBaseSnapshot } from './state/mcp-policy';

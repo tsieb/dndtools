@@ -1376,6 +1376,37 @@ export const en = {
 		'The note is too long to compare line by line, so only the totals are shown.',
 	'settings.ai.previewWarn.backlinksBounded':
 		'Only the first linked notes are listed. More notes link to this title.',
+	/* RC-AI-2.2 — three-way conflict review */
+	'settings.ai.conflictHeading': 'This note changed after the assistant read it',
+	'settings.ai.conflictIntro':
+		'Two edits have diverged. Choose which one the note should keep — approving as staged would write nothing.',
+	'settings.ai.conflictShow': 'Show both versions',
+	'settings.ai.conflictHide': 'Hide both versions',
+	'settings.ai.conflictRegion': 'Diverging passages in {target}',
+	'settings.ai.conflictLine': 'Line {line}',
+	'settings.ai.conflictBase': 'Read by the assistant',
+	'settings.ai.conflictAi': 'Assistant proposes',
+	'settings.ai.conflictMine': 'The note now',
+	'settings.ai.conflictKind.aiOnly': 'Only the assistant changed this',
+	'settings.ai.conflictKind.mineOnly': 'Only you changed this',
+	'settings.ai.conflictKind.agreed': 'Both made the same change',
+	'settings.ai.conflictKind.conflicting': 'Both changed this passage',
+	'settings.ai.conflictKeepAi': "Keep the assistant's version",
+	'settings.ai.conflictKeepMine': 'Keep the note as it is',
+	'settings.ai.conflictMerge': 'Merge both',
+	'settings.ai.conflictMergeHint': 'The two edits touch different lines, so both can be kept.',
+	'settings.ai.conflictResolved': 'Conflict resolved.',
+	'settings.ai.conflictTitleRow': 'Title',
+	'settings.ai.conflictWarn.noBaseSnapshot':
+		'This proposal was staged without a baseline, so the two edits cannot be merged.',
+	'settings.ai.conflictWarn.overlappingEdits':
+		'The assistant and the note changed the same lines, so there is no merge to offer.',
+	'settings.ai.conflictWarn.titleConflict':
+		'The assistant and the note give this entry different titles.',
+	'settings.ai.conflictWarn.diffBounded':
+		'The note is too long to compare line by line, so it cannot be merged here.',
+	'settings.ai.conflictWarn.hunksBounded':
+		'Only the first differing passages are listed. The note has more.',
 	'settings.ai.registryTitle': 'Tool registry (baseline)',
 	'settings.ai.registryIntro':
 		'The campaign tools an agent may be granted. Read results respect its chosen identity, and changes wait for review unless you explicitly choose a more permissive policy.',

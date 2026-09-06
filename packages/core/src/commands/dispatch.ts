@@ -273,6 +273,7 @@ import { handleResolveVaultConflict } from './conflict-resolution';
 import {
 	handleApproveMcpProposal,
 	handleRejectMcpProposal,
+	handleResolveMcpProposalConflict,
 	handleRemoveMcpAgentBinding,
 	handleSetMcpAgentBinding,
 	handleSetMcpAgentPolicy,
@@ -787,6 +788,9 @@ export function dispatchCommand(
 			return handleApproveMcpProposal(state, env, command.actorId, command.payload);
 		case 'mcp.reject-proposal':
 			return handleRejectMcpProposal(state, env, command.actorId, command.payload);
+		// --- RC-AI-2.2 — three-way conflict resolution for a staged write (append-only) -------------
+		case 'mcp.resolve-proposal-conflict':
+			return handleResolveMcpProposalConflict(state, env, command.actorId, command.payload);
 	}
 }
 

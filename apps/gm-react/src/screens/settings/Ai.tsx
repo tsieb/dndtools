@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
 	MCP_BASELINE_TOOL_IDS,
 	MCP_POLICY_MODES,
+	computeMcpProposalConflict,
 	type CommandResult,
 	type McpPolicyMode,
 	type McpStagedProposal,
@@ -15,6 +16,7 @@ import { AiProviderPanel } from './AiProvider';
 import { AiRouterPanel } from './AiStatus';
 import { AiAssistantPanel } from './AiAssistant';
 import { AiProposalPreview } from './AiProposalPreview';
+import { AiProposalConflict } from './AiProposalConflict';
 import { errMsg } from './shared';
 /* ---- AI & tools (REAL — the durable MCP identity/policy/staged-writes slice + `mcp.*` commands,
  * PLUS the client-side provider transport (ADR-021, closing the ADR-014 deferral). The POLICY layer:
@@ -379,62 +381,88 @@ export function SettingsAI() {
 						{t('settings.ai.nothingStaged')}
 					</div>
 				) : (
-					pending.map((pr, i) => (
-						<div
-							key={pr.id}
-							style={{
-								display: 'flex',
-								alignItems: 'center',
-								gap: 10,
-								padding: '10px 0',
-								borderTop: i ? `1px solid ${T.bd}` : 'none',
-								flexWrap: 'wrap',
-							}}
-						>
-							<Icon name="warning" size={15} color={T.warn} />
-							<div style={{ flex: '1 1 200px', minWidth: 0 }}>
-								<div style={{ font: `600 13px ${T.sans}` }}>{pr.commandType}</div>
-								<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
-									{t('settings.ai.proposalMeta', {
-										agent: pr.agentId,
-										actor: actorName(pr.actorId),
-										tool: pr.toolId,
-										risk: pr.writeRisk,
-									})}
+					pending.map((pr, i) => {
+						// RC-AI-2.2 — a staged rewrite whose base went stale cannot be approved as staged:
+						// the commit would record a conflict and leave the note untouched while the panel
+						// claimed success. When the Core reports a conflict, the three-way choice REPLACES
+						// the approve control rather than sitting beside a button that cannot land.
+						const conflict = computeMcpProposalConflict(runtime.state, pr);
+						return (
+							<div
+								key={pr.id}
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: 10,
+									padding: '10px 0',
+									borderTop: i ? `1px solid ${T.bd}` : 'none',
+									flexWrap: 'wrap',
+								}}
+							>
+								<Icon name="warning" size={15} color={T.warn} />
+								<div style={{ flex: '1 1 200px', minWidth: 0 }}>
+									<div style={{ font: `600 13px ${T.sans}` }}>{pr.commandType}</div>
+									<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
+										{t('settings.ai.proposalMeta', {
+											agent: pr.agentId,
+											actor: actorName(pr.actorId),
+											tool: pr.toolId,
+											risk: pr.writeRisk,
+										})}
+									</div>
+									{/* RC-AI-2.1 — what approving this would actually change, computed by the Core. */}
+									<AiProposalPreview proposal={pr} />
+									{conflict !== null && (
+										<AiProposalConflict
+											conflict={conflict}
+											canWrite={canWrite}
+											busy={busy}
+											onResolve={(resolution) =>
+												run(
+													{
+														type: 'mcp.resolve-proposal-conflict',
+														actorId,
+														payload: { proposalId: pr.id, resolution },
+													},
+													t('settings.ai.conflictResolved'),
+												)
+											}
+										/>
+									)}
 								</div>
-								{/* RC-AI-2.1 — what approving this would actually change, computed by the Core. */}
-								<AiProposalPreview proposal={pr} />
+								{conflict === null && (
+									<Button
+										variant="secondary"
+										size="sm"
+										icon="check"
+										disabled={!canWrite || busy}
+										onClick={() =>
+											run(
+												{ type: 'mcp.approve-proposal', actorId, payload: { proposalId: pr.id } },
+												t('settings.ai.proposalApproved'),
+											)
+										}
+									>
+										{t('settings.ai.approve')}
+									</Button>
+								)}
+								<Button
+									variant="ghost"
+									size="sm"
+									icon="close"
+									disabled={!canWrite || busy}
+									onClick={() =>
+										run(
+											{ type: 'mcp.reject-proposal', actorId, payload: { proposalId: pr.id } },
+											t('settings.ai.proposalRejected'),
+										)
+									}
+								>
+									{t('settings.ai.reject')}
+								</Button>
 							</div>
-							<Button
-								variant="secondary"
-								size="sm"
-								icon="check"
-								disabled={!canWrite || busy}
-								onClick={() =>
-									run(
-										{ type: 'mcp.approve-proposal', actorId, payload: { proposalId: pr.id } },
-										t('settings.ai.proposalApproved'),
-									)
-								}
-							>
-								{t('settings.ai.approve')}
-							</Button>
-							<Button
-								variant="ghost"
-								size="sm"
-								icon="close"
-								disabled={!canWrite || busy}
-								onClick={() =>
-									run(
-										{ type: 'mcp.reject-proposal', actorId, payload: { proposalId: pr.id } },
-										t('settings.ai.proposalRejected'),
-									)
-								}
-							>
-								{t('settings.ai.reject')}
-							</Button>
-						</div>
-					))
+						);
+					})
 				)}
 			</Panel>
 
