@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { PrepRecapDigest, SessionArchiveSnapshot } from '@dndtools/core';
+import type { MapListEntry, PrepRecapDigest, SessionArchiveSnapshot } from '@dndtools/core';
 import { Button, Select, Textarea, VisibilityChip } from '../../ds';
 import { useI18n } from '../../i18n';
 import { Panel, T, eb } from '../../app/screen-kit';
@@ -13,6 +13,72 @@ function formatArchiveStamp(iso: string): string {
 }
 
 /**
+ * RC-MAP-2.6 — the archived encounter's final map: the map that was active when the DM ended the
+ * session, with a dot for every combat token still on it at archive time (the `combat.tokens` /
+ * `combat.templates` RC-MAP-1.1/1.2 wrote survive into the snapshot untouched — `archiveCurrentSession`
+ * copies the whole `combat` slice, so there is nothing new to persist here). This is a POSITION
+ * thumbnail, not a rendered map (no walls/terrain) — the label says so rather than implying more.
+ */
+function ArchiveFinalMap({
+	archive,
+	mapName,
+}: {
+	archive: SessionArchiveSnapshot;
+	mapName: string | null;
+}) {
+	const { t } = useI18n();
+	const activeMap = archive.activeMap;
+	if (!activeMap) return null;
+	const tokens = Object.entries(archive.combat.tokens)
+		.filter(([, token]) => token.mapId === activeMap.mapId)
+		.map(([combatantId, token]) => ({ token, combatant: archive.combat.combatants[combatantId] }));
+
+	return (
+		<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+			<div
+				aria-hidden
+				style={{
+					position: 'relative',
+					width: 72,
+					height: 54,
+					flex: '0 0 auto',
+					borderRadius: 6,
+					border: `1px solid ${T.bd}`,
+					background: T.sunken,
+					overflow: 'hidden',
+				}}
+			>
+				{tokens.map(({ token, combatant }, i) => (
+					<span
+						key={i}
+						title={combatant?.name}
+						style={{
+							position: 'absolute',
+							left: `${token.x * 100}%`,
+							top: `${token.y * 100}%`,
+							transform: 'translate(-50%, -50%)',
+							width: 6,
+							height: 6,
+							borderRadius: '50%',
+							background: combatant?.kind === 'character' ? T.acc : T.sub,
+						}}
+					/>
+				))}
+			</div>
+			<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+				{t('session.prep.finalMap', { name: mapName ?? activeMap.mapId })}
+				{tokens.length === 0 && (
+					<>
+						<br />
+						{t('session.prep.finalMapNoTokens')}
+					</>
+				)}
+			</div>
+		</div>
+	);
+}
+
+/**
  * RecapPanel — the DM-only SES-009 surface: the computed prep/recap continuity digest (pure
  * derivation, never a copied dataset), the durable session archives, and recap AUTHORING via
  * `session.author-recap` (markdown onto the selected archive; re-saving replaces it). Ending a live
@@ -21,12 +87,14 @@ function formatArchiveStamp(iso: string): string {
 export function RecapPanel({
 	digest,
 	archives,
+	maps,
 	defaultArchiveId,
 	previewing,
 	onAuthor,
 }: {
 	digest: PrepRecapDigest;
 	archives: SessionArchiveSnapshot[];
+	maps: MapListEntry[];
 	defaultArchiveId: string | null;
 	previewing: boolean;
 	onAuthor: (archiveId: string, markdown: string) => Promise<boolean>;
@@ -133,6 +201,12 @@ export function RecapPanel({
 										? ` · ${t('session.prep.recapRevision', { revision: target.recap.revision })}`
 										: ` · ${t('session.prep.noRecapYet')}`}
 								</div>
+								{target.activeMap && (
+									<ArchiveFinalMap
+										archive={target}
+										mapName={maps.find((m) => m.id === target.activeMap?.mapId)?.name ?? null}
+									/>
+								)}
 								<Textarea
 									value={draft}
 									onChange={(e: { target: { value: string } }) => setDraft(e.target.value)}

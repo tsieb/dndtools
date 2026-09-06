@@ -331,6 +331,106 @@ test.describe('session: Recap is not a dead end', () => {
 	});
 });
 
+// RC-MAP-2.6 — archiving a session (`session.set-workflow {workflow:'recap'}`) snapshots the WHOLE
+// `combat` slice, so a map that had combat tokens on it at archive time carries them into
+// `SessionArchiveSnapshot.combat.tokens` untouched (RC-MAP-1.1's auto-place-on-`combat.start` put them
+// there). `PrepRecap.tsx`'s `ArchiveFinalMap` reads that straight off the selected archive.
+test.describe('session: the archived encounter shows its final map', () => {
+	test('the recap panel shows a positions thumbnail for the map combat ended on', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/session');
+		await seedFresh(page);
+		await gotoRoute(page, '/session');
+
+		const result = await page.evaluate(async () => {
+			const rt = window.__rt!;
+			const state = rt.state as unknown as {
+				commandCenter: { homeSceneId: string | null };
+				scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+			};
+			const sceneId =
+				state.commandCenter.homeSceneId ??
+				Object.values(state.scenes.scenes).find((s) => !s.isTemplate)?.id;
+
+			const map = await rt.dispatch({
+				type: 'map.create',
+				actorId: rt.defaultActorId,
+				payload: {
+					name: 'Final Stand',
+					visibility: 'dm-only',
+					projection: { kind: 'flat', rotationDegrees: 0 },
+					initialLayers: [{ name: 'Base', category: 'base', visibility: 'dm-only' }],
+				},
+			});
+			if (map.status !== 'accepted') return { step: 'create map', ...map };
+			const mapId = (map.events?.find((e) => e.kind === 'map.created') as { mapId?: string })
+				?.mapId;
+
+			// session.set-active-map requires a Command Center home Scene to exist first.
+			const home = await rt.dispatch({
+				type: 'command-center.ensure-home',
+				actorId: rt.defaultActorId,
+				payload: {},
+			});
+			if (home.status !== 'accepted') return { step: 'ensure command center home', ...home };
+
+			const activated = await rt.dispatch({
+				type: 'session.set-active-map',
+				actorId: rt.defaultActorId,
+				payload: { mapId },
+			});
+			if (activated.status !== 'accepted') return { step: 'set active map', ...activated };
+
+			const live = await rt.dispatch({
+				type: 'session.set-workflow',
+				actorId: rt.defaultActorId,
+				payload: { workflow: 'active', activeSceneId: sceneId },
+			});
+			if (live.status !== 'accepted') return { step: 'go live', ...live };
+
+			// combat.start auto-places tokens on the active map (RC-MAP-1.1).
+			const started = await rt.dispatch({
+				type: 'combat.start',
+				actorId: rt.defaultActorId,
+				payload: {
+					combatants: [
+						{ kind: 'character', name: 'Ardyn', ac: 16, initiative: 15, maxHp: 24 },
+						{ kind: 'monster', name: 'Bog Lurker', ac: 13, initiative: 9, maxHp: 22 },
+					],
+				},
+			});
+			if (started.status !== 'accepted') return { step: 'start combat', ...started };
+
+			const recap = await rt.dispatch({
+				type: 'session.set-workflow',
+				actorId: rt.defaultActorId,
+				payload: { workflow: 'recap' },
+			});
+			if (recap.status !== 'accepted') return { step: 'recap', ...recap };
+			return { step: 'done', status: 'accepted', mapId };
+		});
+		expect(result.status, `${result.step}: ${JSON.stringify(result.rejection ?? {})}`).toBe(
+			'accepted',
+		);
+
+		// The panel's own map-name label, from the archive's `activeMap.mapId` resolved against
+		// the actor's map list — proves the thumbnail is keyed to the right archive/map.
+		await expect(page.getByText('Final board — Final Stand')).toBeVisible();
+
+		const tokensPersisted = await page.evaluate(() => {
+			const archives = window.__rt!.state.session.archives as Record<
+				string,
+				{ combat: { tokens: Record<string, { mapId: string }> } }
+			>;
+			const archive = Object.values(archives)[0];
+			return archive ? Object.keys(archive.combat.tokens).length : 0;
+		});
+		expect(tokensPersisted).toBe(2);
+	});
+});
+
 // The phase Seg's "Standby" option was added to give the `recap` workflow an exit, but it is offered
 // from `active` too — and from there `session.set-workflow {workflow:'idle'}` runs the core's
 // `resetLiveSessionFields`, which nulls the active scene and map and wipes combat (the round, the

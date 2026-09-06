@@ -467,6 +467,8 @@ export const en = {
 	'session.prep.markdownHelp': 'Markdown supported. Saving replaces the recap for this archive.',
 	'session.prep.updateRecap': 'Update recap',
 	'session.prep.saveRecap': 'Save recap',
+	'session.prep.finalMap': 'Final board — {name}',
+	'session.prep.finalMapNoTokens': 'No combatants were on the map when the session ended.',
 	'session.schedule.title': 'Schedule next session',
 	'session.schedule.notConfigured':
 		'Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at {guide}.',

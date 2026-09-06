@@ -482,6 +482,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Admite Markdown. Al guardar se reemplaza el resumen de este archivo.',
 	'session.prep.updateRecap': 'Actualizar el resumen',
 	'session.prep.saveRecap': 'Guardar el resumen',
+	'session.prep.finalMap': 'Tablero final — {name}',
+	'session.prep.finalMapNoTokens': 'Nadie estaba en el mapa cuando terminó la sesión.',
 	'session.schedule.title': 'Programar la próxima sesión',
 	'session.schedule.notConfigured':
 		'La programación con Google Calendar no está configurada en esta instalación. Una configuración única en Google Cloud la habilita — consulta la guía en {guide}.',

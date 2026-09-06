@@ -466,6 +466,7 @@ export function Session() {
 						<RecapPanel
 							digest={digest}
 							archives={archives}
+							maps={maps}
 							defaultArchiveId={recapArchiveId}
 							previewing={previewing}
 							onAuthor={(archiveId, markdown) =>
