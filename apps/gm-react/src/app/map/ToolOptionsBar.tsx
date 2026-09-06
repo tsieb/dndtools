@@ -2,11 +2,12 @@ import { useRef, useState } from 'react';
 import { Icon, Input, Popover, SegmentedControl, Select, Slider, Switch } from '../../ds';
 import { T } from '../screen-kit';
 import type { MapEditorApi } from './useMapEditor';
-import { TOOLS_BY_ID } from './tools';
-import { DOOR_KINDS, SCATTER_SETS, TERRAIN_STYLES, VIS_TEXT_KEY } from './mapVocab';
+import { STAMP_ROTATION, STAMP_SIZE_PERCENT, TOOLS_BY_ID } from './tools';
+import { DOOR_KINDS, propLabel, SCATTER_SETS, TERRAIN_STYLES, VIS_TEXT_KEY } from './mapVocab';
+import { PropGlyph } from './dock/AssetsPanel';
 import { useI18n } from '../../i18n';
 import type { MessageKey } from '../../i18n';
-import type { SceneVisibility } from '@dndtools/core';
+import { getProp, type SceneVisibility } from '@dndtools/core';
 
 /**
  * MAP-021 — the context-sensitive tool-options bar. THE DECISION RULE: this bar carries parameters of
@@ -331,12 +332,18 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 				</>
 			);
 			break;
-		case 'stamp':
+		case 'stamp': {
+			// RC-MAP-3.1 — the armed object reads as itself: its own catalogue glyph and localized name,
+			// not the raw id with the `prop:` filed off (which showed a DM "double-doors").
+			const armed = getProp(options.stampAsset);
 			controls = (
 				<div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
 					<span style={{ font: `12px ${T.sans}`, color: T.sub }}>{t('toolOptions.object')}</span>
 					<span
 						style={{
+							display: 'inline-flex',
+							alignItems: 'center',
+							gap: 6,
 							font: `600 12.5px ${T.sans}`,
 							color: T.ink,
 							padding: '5px 10px',
@@ -345,7 +352,8 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 							background: T.raised,
 						}}
 					>
-						{options.stampAsset.replace(/^prop:/, '')}
+						{armed && <PropGlyph glyph={armed.glyph} size={14} color={T.sub} />}
+						{armed ? propLabel(armed, t) : options.stampAsset.replace(/^prop:/, '')}
 					</span>
 					<button
 						type="button"
@@ -365,9 +373,30 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 					>
 						<Icon name="tool-stamp" size={13} /> {t('toolOptions.choose')}
 					</button>
+					<NumberControl
+						label={t('toolOptions.rotation')}
+						value={options.stampRotation}
+						min={STAMP_ROTATION.min}
+						max={STAMP_ROTATION.max}
+						step={STAMP_ROTATION.step}
+						unit="°"
+						width={130}
+						onChange={(v) => setOption('stampRotation', v)}
+					/>
+					<NumberControl
+						label={t('toolOptions.stampSize')}
+						value={Math.round(options.stampScale * 100)}
+						min={STAMP_SIZE_PERCENT.min}
+						max={STAMP_SIZE_PERCENT.max}
+						step={STAMP_SIZE_PERCENT.step}
+						unit="%"
+						width={130}
+						onChange={(v) => setOption('stampScale', v / 100)}
+					/>
 				</div>
 			);
 			break;
+		}
 		case 'scatter':
 			controls = (
 				<>

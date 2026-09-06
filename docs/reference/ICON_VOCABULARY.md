@@ -33,7 +33,11 @@ Sizes resolve to `--icon-size-*` CSS variables.
 ## Conventions
 
 1. **Single family, single weight.** Lucide only, 2px stroke, via the `Icon` component. No inline SVG
-   glyphs in components.
+   glyphs in components — with one carved exception: **map content is not iconography**. The prop
+   catalogue (`packages/core/src/generation/props.ts`, RC-MAP-3.1) ships a vector glyph per stamp so a
+   placed chest draws as a chest on the canvas, and the Assets panel previews the same path. Those are
+   pictures of the DM's own map objects, drawn by `PropGlyph`, and they are always `aria-hidden` behind
+   a text label. Every CONTROL on those surfaces still uses `Icon`.
 2. **Semantic names.** Reference icons by their semantic registry key, not by raw Lucide names, so a
    glyph swap is a one-line registry change.
 3. **Distinct shapes for status.** Status and 5e condition keys each map to a **distinct** shape so

@@ -312,6 +312,17 @@ export const TOOL_GROUPS: readonly ToolGroupDef[] = Object.freeze([
 	},
 ]);
 
+/**
+ * RC-MAP-3.1 — the Stamp tool's placement options.
+ *
+ * Rotation is in whole degrees and steps by 15 because a DM aligning a bed to a wall wants eight
+ * o'clock positions, not a continuous dial they have to nudge; size is a PERCENTAGE of the catalogue
+ * entry's own default scale, so "100%" means "a normal one of these" for a mushroom and for an altar
+ * alike rather than a shared absolute the small props would vanish inside.
+ */
+export const STAMP_ROTATION = Object.freeze({ min: 0, max: 345, step: 15 });
+export const STAMP_SIZE_PERCENT = Object.freeze({ min: 25, max: 300, step: 25 });
+
 /** Flat lookup for a tool by id. */
 export const TOOLS_BY_ID: ReadonlyMap<ToolId, ToolDef> = new Map(
 	TOOL_GROUPS.flatMap((group) => group.tools.map((tool) => [tool.id, tool] as const)),

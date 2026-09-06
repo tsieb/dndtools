@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { TERRAIN_STYLES, bulkResultMessage, terrainColor } from './mapVocab';
+import { PROP_CATALOG, PROP_CATEGORIES, type PropCatalogEntry } from '@dndtools/core';
+import {
+	PROP_CATEGORY_LABEL_KEYS,
+	PROP_LABEL_KEYS,
+	TERRAIN_STYLES,
+	bulkResultMessage,
+	propLabel,
+	terrainColor,
+} from './mapVocab';
+import { en } from '../../i18n/messages/en';
 
 // The brush, fill and room tools all write the chosen `terrain:*` id into `feature.style`, but the
 // shared renderer (`FeatureShape`) only read the LAYER category colour — so all eight entries of the
@@ -119,5 +128,35 @@ describe('bulkResultMessage', () => {
 				refusedVerb: 'deleted',
 			}),
 		).toBe('');
+	});
+});
+
+// RC-MAP-3.1 — the catalogue lives in the core and the LABELS live here, so the two lists drift apart
+// silently unless something holds them together: an untranslated prop would show up in the Assets
+// panel under its English catalogue name with nothing to say it had been missed.
+describe('prop labels', () => {
+	it('gives every catalogued prop and category a message key that exists in the catalog', () => {
+		for (const entry of PROP_CATALOG) {
+			const key = PROP_LABEL_KEYS[entry.id];
+			expect(key, `no label key for ${entry.id}`).toBeDefined();
+			expect(en[key!], `label key ${key} is not in the English catalog`).toBeTruthy();
+		}
+		for (const category of PROP_CATEGORIES) {
+			expect(en[PROP_CATEGORY_LABEL_KEYS[category]]).toBeTruthy();
+		}
+	});
+
+	it('has no label key for a prop the catalogue no longer stocks', () => {
+		const stocked = new Set(PROP_CATALOG.map((entry) => entry.id));
+		expect(Object.keys(PROP_LABEL_KEYS).filter((id) => !stocked.has(id))).toEqual([]);
+	});
+
+	it('renders the localized label, and falls back to the catalogue name for an unlabelled prop', () => {
+		const t = (key: string) => `t:${key}`;
+		const chest = PROP_CATALOG.find((entry) => entry.id === 'prop:chest')!;
+		expect(propLabel(chest, t as never)).toBe('t:mapVocab.prop.chest');
+
+		const unlabelled = { ...chest, id: 'prop:not-labelled', name: 'Oubliette' } as PropCatalogEntry;
+		expect(propLabel(unlabelled, t as never)).toBe('Oubliette');
 	});
 });

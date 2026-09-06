@@ -1,4 +1,4 @@
-import { type MapFeature } from '@dndtools/core';
+import { getProp, type MapFeature } from '@dndtools/core';
 import { terrainColor } from '../mapVocab';
 import { rectOf } from './geometry';
 
@@ -83,15 +83,35 @@ export function FeatureShape({ feature, color }: { feature: MapFeature; color: s
 			return <circle cx={p.x * 100} cy={p.y * 100} r={1.1} fill={color} />;
 		}
 		case 'prop': {
+			// RC-MAP-3.1 — a prop draws its CATALOGUE GLYPH, rotated and scaled from its own props. Every
+			// prop used to render as the same anonymous dot, so a stamped chest, statue and bush were
+			// literally indistinguishable on the map. A style the catalogue does not stock still falls
+			// back to that dot rather than vanishing — a forward-compatible core stays visible.
 			const p = feature.points[0]!;
 			const scale = typeof props.scale === 'number' ? props.scale : 1;
+			const entry = getProp(feature.style);
+			if (!entry) {
+				return (
+					<circle
+						cx={p.x * 100}
+						cy={p.y * 100}
+						r={Math.max(0.5, 0.9 * scale)}
+						fill={color}
+						fillOpacity={0.85}
+					/>
+				);
+			}
+			const rotation = typeof props.rotation === 'number' ? props.rotation : 0;
+			// The glyph is drawn in a -1..1 box; 1.5 viewBox units per box unit puts a default-scale prop
+			// at the same footprint the old dot occupied.
+			const size = 1.5 * scale * entry.defaultScale;
 			return (
-				<circle
-					cx={p.x * 100}
-					cy={p.y * 100}
-					r={Math.max(0.5, 0.9 * scale)}
+				<path
+					d={entry.glyph}
 					fill={color}
 					fillOpacity={0.85}
+					fillRule="evenodd"
+					transform={`translate(${(p.x * 100).toFixed(2)} ${(p.y * 100).toFixed(2)}) rotate(${rotation}) scale(${size.toFixed(3)})`}
 				/>
 			);
 		}

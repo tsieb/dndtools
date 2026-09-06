@@ -42,6 +42,15 @@ import {
  * directions, and a slider you drag right to get less of something is a slider nobody trusts.
  */
 
+/**
+ * RC-MAP-3.1 — the prop CATALOGUE (what a prop IS: category, glyph, default scale) lives in `./props`;
+ * this file owns the SAMPLERS (where props go). It is re-exported here because scatter is the module
+ * every consumer of props already imports, and because `OBJECT_KINDS` below may only stock ids the
+ * catalogue stocks — `tests/generation-props.test.ts` holds the two sides together.
+ */
+export type { PropCatalogEntry, PropCategoryId } from './props';
+export { getProp, PROP_CATALOG, PROP_CATEGORIES, propsInCategory, searchProps } from './props';
+
 /** Absolute ceiling on emitted props, whatever the params say. A map is dressing, not a particle system. */
 const MAX_SCATTER = 3000;
 
@@ -115,6 +124,12 @@ const OBJECT_KINDS: Readonly<Record<string, ObjectKind>> = {
 		scale: 0.8,
 	},
 };
+
+/**
+ * The object kinds the `object` param accepts, in menu order. Exported so a test can run every one of
+ * them and check the styles they emit against the prop catalogue (RC-MAP-3.1).
+ */
+export const OBJECT_KIND_IDS: readonly string[] = Object.freeze(Object.keys(OBJECT_KINDS));
 
 const TREE_MIXES: Readonly<
 	Record<string, { canopy: readonly string[]; weights: readonly number[] }>

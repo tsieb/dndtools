@@ -1,13 +1,27 @@
 import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import {
+	getProp,
+	PROP_CATALOG,
+	PROP_CATEGORIES,
+	searchProps,
+	type PropCatalogEntry,
+	type PropCategoryId,
+} from '@dndtools/core';
 import { Icon, Input } from '../../../ds';
 import { T, eb } from '../../screen-kit';
 import type { MapEditorApi } from '../useMapEditor';
-import { STAMP_ASSETS, STAMP_TAGS, type StampAsset } from '../mapVocab';
+import { PROP_CATEGORY_LABEL_KEYS, propLabel } from '../mapVocab';
 import { useI18n } from '../../../i18n';
 
 /**
- * MAP-021 — the Assets browser for the Stamp tool. Searchable by name+tags, filterable by a tag rail,
- * with Recents + Favorites. Selecting an asset sets `editor.options.stampAsset` and arms Stamp.
+ * RC-MAP-3.1 — the stamp/prop library for the Stamp tool. Categories down the side, search across
+ * name/category/tags, Favorites and Recents on top; selecting an entry sets `options.stampAsset` and
+ * arms Stamp, and the Rotation/Size controls in the tool-options bar apply to the next placement.
+ *
+ * Every tile draws the entry's own VECTOR GLYPH — the same path the canvas renders the placed prop
+ * with — so the library is a picture of what you are about to stamp rather than a grid of the same
+ * generic icon. These glyphs are catalogue content, not UI iconography: the Lucide vocabulary in
+ * `docs/reference/ICON_VOCABULARY.md` still owns every control icon on this panel.
  *
  * Scatter is deliberately NOT driven from here: it has its own five-set vocabulary (`SCATTER_SETS`,
  * read through `options.scatterObject`) with its own SegmentedControl in the tool options bar.
@@ -30,41 +44,45 @@ export function AssetsPanel({
 }) {
 	const { t } = useI18n();
 	const [search, setSearch] = useState('');
-	const [activeTags, setActiveTags] = useState<string[]>([]);
+	const [category, setCategory] = useState<PropCategoryId | null>(null);
 
 	const current = editor.options.stampAsset;
 
 	const filtered = useMemo(() => {
 		const q = search.trim().toLowerCase();
-		return STAMP_ASSETS.filter((a) => {
-			// Search the RENDERED label, so a Spanish reader searching "árbol" matches the tile they
-			// can actually see rather than the English key's source text.
-			if (q && !t(a.label).toLowerCase().includes(q) && !a.tags.some((tag) => tag.includes(q)))
-				return false;
-			if (activeTags.length > 0 && !activeTags.every((t) => a.tags.includes(t))) return false;
-			return true;
+		// The core searches id/name/category/tags; the panel adds the RENDERED label, so a Spanish
+		// reader searching "árbol" matches the tile they can actually see rather than the English key.
+		const matched = q
+			? new Set(searchProps(q).map((entry) => entry.id))
+			: new Set(PROP_CATALOG.map((entry) => entry.id));
+		return PROP_CATALOG.filter((entry) => {
+			if (category && entry.category !== category) return false;
+			if (!q) return true;
+			return matched.has(entry.id) || propLabel(entry, t).toLowerCase().includes(q);
 		});
-	}, [search, activeTags, t]);
+	}, [search, category, t]);
 
-	const arm = (asset: StampAsset) => {
-		editor.setOption('stampAsset', asset.id);
+	const arm = (entry: PropCatalogEntry) => {
+		editor.setOption('stampAsset', entry.id);
 		// Scatter used to be exempted from the arm here, but it reads `options.scatterObject`, never
 		// `stampAsset` (EditorCanvas.tsx:418 vs :492) — so with Scatter armed, clicking a tile lit it
 		// up as selected and then changed absolutely nothing on the canvas. Stamp is the only tool
 		// this panel can configure, so arming an asset arms Stamp.
 		if (editor.tool !== 'stamp') editor.setTool('stamp');
-		setRecent((prev) => [asset.id, ...prev.filter((x) => x !== asset.id)].slice(0, 6));
+		setRecent((prev) => [entry.id, ...prev.filter((x) => x !== entry.id)].slice(0, 6));
 	};
 
 	const toggleFav = (id: string) =>
 		setFavorites((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
 	const recentAssets = recent
-		.map((id) => STAMP_ASSETS.find((a) => a.id === id))
-		.filter((a): a is StampAsset => !!a);
+		.map((id) => getProp(id))
+		.filter((entry): entry is PropCatalogEntry => !!entry);
 	const favAssets = favorites
-		.map((id) => STAMP_ASSETS.find((a) => a.id === id))
-		.filter((a): a is StampAsset => !!a);
+		.map((id) => getProp(id))
+		.filter((entry): entry is PropCatalogEntry => !!entry);
+
+	const shelfTitle = category ? t(PROP_CATEGORY_LABEL_KEYS[category]) : t('mapDock.allObjects');
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: '100%' }}>
@@ -79,8 +97,10 @@ export function AssetsPanel({
 				onChange={(e: { target: { value: string } }) => setSearch(e.target.value)}
 			/>
 			<div style={{ display: 'flex', gap: 10, minHeight: 0, flex: 1 }}>
-				{/* tag rail */}
+				{/* category rail — one shelf at a time, because a prop belongs to exactly one shelf */}
 				<div
+					role="group"
+					aria-label={t('mapDock.categories')}
 					style={{
 						display: 'flex',
 						flexDirection: 'column',
@@ -89,18 +109,14 @@ export function AssetsPanel({
 						overflowY: 'auto',
 					}}
 				>
-					{STAMP_TAGS.map((tag) => {
-						const on = activeTags.includes(tag.id);
+					{[null, ...PROP_CATEGORIES].map((id) => {
+						const on = category === id;
 						return (
 							<button
-								key={tag.id}
+								key={id ?? 'all'}
 								type="button"
 								aria-pressed={on}
-								onClick={() =>
-									setActiveTags((prev) =>
-										on ? prev.filter((id) => id !== tag.id) : [...prev, tag.id],
-									)
-								}
+								onClick={() => setCategory(id)}
 								style={{
 									padding: '5px 9px',
 									borderRadius: 7,
@@ -113,7 +129,7 @@ export function AssetsPanel({
 									whiteSpace: 'nowrap',
 								}}
 							>
-								{t(tag.label)}
+								{id ? t(PROP_CATEGORY_LABEL_KEYS[id]) : t('mapDock.allCategories')}
 							</button>
 						);
 					})}
@@ -150,8 +166,16 @@ export function AssetsPanel({
 							onFav={toggleFav}
 						/>
 					)}
+					{/* Honest about what a door STAMP is: dressing. The Door tool authors the door that
+					    opens, and a DM who stamps this one and then wonders why it will not open has been
+					    misled by us, not by themselves. */}
+					{category === 'doors' && (
+						<p style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, margin: 0 }}>
+							{t('mapDock.doorsNote')}
+						</p>
+					)}
 					<AssetGrid
-						title={t('mapDock.allObjects')}
+						title={shelfTitle}
 						assets={filtered}
 						current={current}
 						favorites={favorites}
@@ -170,6 +194,24 @@ export function AssetsPanel({
 	);
 }
 
+/**
+ * A catalogue glyph at tile size. `viewBox` is the catalogue's own `-1..1` box with a hair of padding,
+ * so a tile preview and the placed prop are the same drawing at two sizes.
+ */
+export function PropGlyph({ glyph, size, color }: { glyph: string; size: number; color: string }) {
+	return (
+		<svg
+			width={size}
+			height={size}
+			viewBox="-1.15 -1.15 2.3 2.3"
+			aria-hidden="true"
+			focusable="false"
+		>
+			<path d={glyph} fill={color} fillRule="evenodd" />
+		</svg>
+	);
+}
+
 function AssetGrid({
 	title,
 	assets,
@@ -179,16 +221,18 @@ function AssetGrid({
 	onFav,
 }: {
 	title: string;
-	assets: StampAsset[];
+	assets: readonly PropCatalogEntry[];
 	current: string;
 	favorites: string[];
-	onArm: (a: StampAsset) => void;
+	onArm: (entry: PropCatalogEntry) => void;
 	onFav: (id: string) => void;
 }) {
 	const { t } = useI18n();
 	return (
 		<div>
-			<div style={{ ...eb, marginBottom: 6 }}>{title}</div>
+			<div style={{ ...eb, marginBottom: 6 }}>
+				{title} · {assets.length}
+			</div>
 			<div
 				style={{
 					display: 'grid',
@@ -199,12 +243,13 @@ function AssetGrid({
 				{assets.map((a) => {
 					const on = a.id === current;
 					const fav = favorites.includes(a.id);
+					const label = propLabel(a, t);
 					return (
 						<div key={a.id} style={{ position: 'relative' }}>
 							<button
 								type="button"
 								aria-pressed={on}
-								title={t(a.label)}
+								title={label}
 								onClick={() => onArm(a)}
 								style={{
 									display: 'flex',
@@ -221,7 +266,7 @@ function AssetGrid({
 									font: `11px ${T.sans}`,
 								}}
 							>
-								<Icon name={a.icon} size={22} color={on ? T.acc : T.sub} />
+								<PropGlyph glyph={a.glyph} size={26} color={on ? T.acc : T.sub} />
 								<span
 									style={{
 										whiteSpace: 'nowrap',
@@ -230,15 +275,15 @@ function AssetGrid({
 										maxWidth: '100%',
 									}}
 								>
-									{t(a.label)}
+									{label}
 								</span>
 							</button>
 							<button
 								type="button"
 								aria-label={
 									fav
-										? t('mapDock.unfavorite', { name: t(a.label) })
-										: t('mapDock.favorite', { name: t(a.label) })
+										? t('mapDock.unfavorite', { name: label })
+										: t('mapDock.favorite', { name: label })
 								}
 								aria-pressed={fav}
 								onClick={() => onFav(a.id)}

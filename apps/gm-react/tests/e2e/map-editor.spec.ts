@@ -138,6 +138,30 @@ function waterStyles(page: Page, mapId: string): Promise<string[]> {
 	}, mapId);
 }
 
+/** Every `prop` feature on the map, with the placement options the Stamp tool wrote (RC-MAP-3.1). */
+function propFeatures(
+	page: Page,
+	mapId: string,
+): Promise<Array<{ style: string; rotation?: number; scale?: number }>> {
+	return page.evaluate((mid) => {
+		const m = window.__rt?.state?.maps?.maps?.[mid] as
+			| {
+					layers: Array<{
+						content: Array<{
+							kind: string;
+							style: string;
+							props?: { rotation?: number; scale?: number };
+						}>;
+					}>;
+			  }
+			| undefined;
+		return (m?.layers ?? [])
+			.flatMap((l) => l.content)
+			.filter((f) => f.kind === 'prop')
+			.map((f) => ({ style: f.style, rotation: f.props?.rotation, scale: f.props?.scale }));
+	}, mapId);
+}
+
 /**
  * Select a map by name in the Atlas switcher, then open it in the full-screen editor. The vault is
  * seeded with several demo maps (`createDemoMapState`), so the map MUST be selected by its unique name
@@ -969,6 +993,64 @@ test.describe('map editor: assets browser', () => {
 		}
 		// The armed tool is now one that actually consumes `stampAsset`.
 		await expectActiveTool(page, 'Stamp');
+	});
+
+	// RC-MAP-3.1 — the library is a real catalogue: shelves, search, and placement options that reach
+	// the durable feature. The assertion is on the CORE record, not on the canvas: a stamp that draws a
+	// rotated chest but persists an unrotated one would look right and reload wrong.
+	test('a category, a search and the Rotation/Size options stamp the chosen prop', async ({
+		page,
+	}, testInfo) => {
+		await openAtlas(page);
+		const name = `Prop Library ${Date.now()}`;
+		const mapId = await createMap(page, { name });
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		await revealDock(page, testInfo);
+		await page.getByRole('tab', { name: 'Assets' }).click();
+
+		// Shelve down to Treasure, then search within it: both filters are live at once.
+		const shelves = page.getByRole('group', { name: 'Categories' });
+		await shelves.getByRole('button', { name: 'Treasure' }).click();
+		await expect(page.getByRole('button', { name: 'Chair', exact: true })).toHaveCount(0);
+		await page.getByLabel('Search assets').fill('chest');
+		const tile = page.getByRole('button', { name: 'Chest', exact: true }).first();
+		await expect(tile).toBeVisible();
+		await tile.click();
+		await expect(tile).toHaveAttribute('aria-pressed', 'true');
+
+		if (isPhone(testInfo)) {
+			const sheet = page.getByRole('dialog', { name: 'Map panels' });
+			await sheet.getByRole('button', { name: 'Close' }).click();
+			await expect(sheet).toBeHidden();
+		}
+		await expectActiveTool(page, 'Stamp');
+
+		// Rotation from the KEYBOARD (WCAG 2.1.1: the slider is the pointer path, arrows are the
+		// equivalent one) and size typed into the paired number field.
+		const rotation = page.getByLabel('Rotation', { exact: true });
+		await rotation.focus();
+		await page.keyboard.press('ArrowRight');
+		await page.keyboard.press('ArrowRight');
+		await expect(page.getByLabel('Rotation value')).toHaveValue('30');
+		const size = page.getByLabel('Size value');
+		await size.fill('75');
+		await size.press('Enter');
+
+		const canvas = page.getByRole('application');
+		const b = (await canvas.boundingBox())!;
+		await page.mouse.click(b.x + b.width * 0.45, b.y + b.height * 0.55);
+
+		await expect.poll(async () => (await propFeatures(page, mapId)).length).toBe(1);
+		const [placed] = await propFeatures(page, mapId);
+		expect(placed!.style).toBe('prop:chest');
+		expect(placed!.rotation).toBe(30);
+		expect(placed!.scale).toBeCloseTo(0.75, 5);
+
+		// And it is an ordinary undoable edit.
+		await undoRedo(page, 'Control+z');
+		await expect.poll(async () => (await propFeatures(page, mapId)).length).toBe(0);
 	});
 });
 

@@ -574,7 +574,14 @@ export function EditorCanvas({
 		const raw = toMap(e.clientX, e.clientY);
 		if (tool === 'stamp') {
 			addFeatures(
-				[mkFeature('prop', [snap(raw)], options.stampAsset, { scale: 1 })],
+				// RC-MAP-3.1 — the Rotation/Size options ride along into `props`, where both the editor
+				// renderer and the player view read them. `scale` multiplies the catalogue default.
+				[
+					mkFeature('prop', [snap(raw)], options.stampAsset, {
+						scale: options.stampScale,
+						rotation: options.stampRotation,
+					}),
+				],
 				'Placed object.',
 			);
 		} else if (tool === 'light') {

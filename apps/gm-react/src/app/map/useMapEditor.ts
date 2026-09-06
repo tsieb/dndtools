@@ -73,6 +73,10 @@ export interface ToolOptions {
 	lightRadius: number;
 	// Object
 	stampAsset: string;
+	/** RC-MAP-3.1 — placement options for the next stamp: whole degrees, and a multiplier applied on
+	 *  top of the catalogue entry's own `defaultScale`. Both land in the feature's `props`. */
+	stampRotation: number;
+	stampScale: number;
 	scatterObject: string;
 	scatterDensity: number;
 	/**
@@ -100,6 +104,8 @@ const DEFAULT_TOOL_OPTIONS: ToolOptions = {
 	lightColor: '#ffd6aa',
 	lightRadius: 0.08,
 	stampAsset: 'prop:crate',
+	stampRotation: 0,
+	stampScale: 1,
 	scatterObject: 'trees',
 	scatterDensity: 0.5,
 	labelText: '',

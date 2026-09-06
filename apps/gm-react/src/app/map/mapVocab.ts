@@ -7,7 +7,12 @@
  * importing each other.
  */
 
-import type { MapLayerCategory, SceneVisibility } from '@dndtools/core';
+import type {
+	MapLayerCategory,
+	PropCatalogEntry,
+	PropCategoryId,
+	SceneVisibility,
+} from '@dndtools/core';
 import type { MessageKey } from '../../i18n';
 
 /** Core layer category → the DS `LayerTypeBadge` `type` (grayscale-safe glyph family). */
@@ -80,95 +85,74 @@ export function terrainColor(style: string | undefined): string | null {
 	return (style && TERRAIN_SWATCH[style]) || null;
 }
 
-/** The curated stamp/prop catalogue (the "assets" for the prototype — a fixed set, not a file browser). */
-export interface StampAsset {
-	id: string;
-	label: MessageKey;
-	tags: string[];
-	icon: string;
-}
-export const STAMP_ASSETS: readonly StampAsset[] = [
-	{
-		id: 'prop:tree',
-		label: 'mapVocab.prop.tree',
-		tags: ['nature', 'outdoor'],
-		icon: 'layer-terrain',
-	},
-	{ id: 'prop:rock', label: 'mapVocab.prop.rock', tags: ['nature', 'outdoor'], icon: 'layer-base' },
-	{
-		id: 'prop:bush',
-		label: 'mapVocab.prop.bush',
-		tags: ['nature', 'outdoor'],
-		icon: 'layer-terrain',
-	},
-	{
-		id: 'prop:crate',
-		label: 'mapVocab.prop.crate',
-		tags: ['dungeon', 'indoor'],
-		icon: 'tool-stamp',
-	},
-	{
-		id: 'prop:barrel',
-		label: 'mapVocab.prop.barrel',
-		tags: ['dungeon', 'indoor'],
-		icon: 'tool-stamp',
-	},
-	{
-		id: 'prop:chest',
-		label: 'mapVocab.prop.chest',
-		tags: ['dungeon', 'treasure'],
-		icon: 'tool-stamp',
-	},
-	{
-		id: 'prop:table',
-		label: 'mapVocab.prop.table',
-		tags: ['furniture', 'indoor'],
-		icon: 'tool-stamp',
-	},
-	{
-		id: 'prop:chair',
-		label: 'mapVocab.prop.chair',
-		tags: ['furniture', 'indoor'],
-		icon: 'tool-stamp',
-	},
-	{
-		id: 'prop:pillar',
-		label: 'mapVocab.prop.pillar',
-		tags: ['dungeon', 'structure'],
-		icon: 'tool-room',
-	},
-	{
-		id: 'prop:brazier',
-		label: 'mapVocab.prop.brazier',
-		tags: ['dungeon', 'light'],
-		icon: 'tool-light',
-	},
-	{
-		id: 'prop:statue',
-		label: 'mapVocab.prop.statue',
-		tags: ['dungeon', 'decor'],
-		icon: 'tool-stamp',
-	},
-	{
-		id: 'prop:campfire',
-		label: 'mapVocab.prop.campfire',
-		tags: ['outdoor', 'light'],
-		icon: 'tool-light',
-	},
-];
+/**
+ * RC-MAP-3.1 — the stamp/prop library.
+ *
+ * The catalogue itself (ids, categories, tags, vector glyphs, default scale) is CORE data
+ * (`PROP_CATALOG`), because the canvas renderer and the scatter generators read the same entries.
+ * What lives here is the part only the GUI can own: the message key each entry and each category is
+ * rendered with. A missing key is not a crash and not a placeholder — the panel falls back to the
+ * catalogue's own English `name`, so a prop added in the core is still stampable before it is
+ * translated (`mapVocab.test.ts` holds the two lists together).
+ */
+export const PROP_LABEL_KEYS: Readonly<Record<string, MessageKey>> = {
+	'prop:tree': 'mapVocab.prop.tree',
+	'prop:pine': 'mapVocab.prop.pine',
+	'prop:bush': 'mapVocab.prop.bush',
+	'prop:dead-tree': 'mapVocab.prop.deadTree',
+	'prop:mushroom': 'mapVocab.prop.mushroom',
+	'prop:grass': 'mapVocab.prop.grass',
+	'prop:rock': 'mapVocab.prop.rock',
+	'prop:rubble': 'mapVocab.prop.rubble',
+	'prop:bone': 'mapVocab.prop.bone',
+	'prop:stalagmite': 'mapVocab.prop.stalagmite',
+	'prop:grave': 'mapVocab.prop.grave',
+	'prop:table': 'mapVocab.prop.table',
+	'prop:chair': 'mapVocab.prop.chair',
+	'prop:bed': 'mapVocab.prop.bed',
+	'prop:bookshelf': 'mapVocab.prop.bookshelf',
+	'prop:crate': 'mapVocab.prop.crate',
+	'prop:barrel': 'mapVocab.prop.barrel',
+	'prop:altar': 'mapVocab.prop.altar',
+	'prop:chest': 'mapVocab.prop.chest',
+	'prop:coins': 'mapVocab.prop.coins',
+	'prop:gem': 'mapVocab.prop.gem',
+	'prop:urn': 'mapVocab.prop.urn',
+	'prop:door-frame': 'mapVocab.prop.doorFrame',
+	'prop:double-doors': 'mapVocab.prop.doubleDoors',
+	'prop:secret-panel': 'mapVocab.prop.secretPanel',
+	'prop:portcullis': 'mapVocab.prop.portcullis',
+	'prop:stairs-up': 'mapVocab.prop.stairsUp',
+	'prop:stairs-down': 'mapVocab.prop.stairsDown',
+	'prop:spiral-stairs': 'mapVocab.prop.spiralStairs',
+	'prop:ladder': 'mapVocab.prop.ladder',
+	'prop:brazier': 'mapVocab.prop.brazier',
+	'prop:campfire': 'mapVocab.prop.campfire',
+	'prop:torch': 'mapVocab.prop.torch',
+	'prop:chandelier': 'mapVocab.prop.chandelier',
+	'prop:pillar': 'mapVocab.prop.pillar',
+	'prop:statue': 'mapVocab.prop.statue',
+	'prop:well': 'mapVocab.prop.well',
+	'prop:fountain': 'mapVocab.prop.fountain',
+};
 
-/** The tag rail down the left of the Assets browser (multi-select). */
-export const STAMP_TAGS: ReadonlyArray<{ id: string; label: MessageKey }> = [
-	{ id: 'nature', label: 'mapVocab.tag.nature' },
-	{ id: 'outdoor', label: 'mapVocab.tag.outdoor' },
-	{ id: 'indoor', label: 'mapVocab.tag.indoor' },
-	{ id: 'dungeon', label: 'mapVocab.tag.dungeon' },
-	{ id: 'furniture', label: 'mapVocab.tag.furniture' },
-	{ id: 'treasure', label: 'mapVocab.tag.treasure' },
-	{ id: 'structure', label: 'mapVocab.tag.structure' },
-	{ id: 'light', label: 'mapVocab.tag.light' },
-	{ id: 'decor', label: 'mapVocab.tag.decor' },
-];
+/** The shelf headings in the Assets panel's category rail. */
+export const PROP_CATEGORY_LABEL_KEYS: Readonly<Record<PropCategoryId, MessageKey>> = {
+	furniture: 'mapVocab.propCategory.furniture',
+	foliage: 'mapVocab.propCategory.foliage',
+	rubble: 'mapVocab.propCategory.rubble',
+	treasure: 'mapVocab.propCategory.treasure',
+	doors: 'mapVocab.propCategory.doors',
+	stairs: 'mapVocab.propCategory.stairs',
+	light: 'mapVocab.propCategory.light',
+	structure: 'mapVocab.propCategory.structure',
+};
+
+/** The label for a catalogue entry: the localized name, or the catalogue's English name. */
+export function propLabel(entry: PropCatalogEntry, t: (key: MessageKey) => string): string {
+	const key = PROP_LABEL_KEYS[entry.id];
+	return key ? t(key) : entry.name;
+}
 
 /** Scatter uses a small set of natural object families. */
 export const SCATTER_SETS: ReadonlyArray<{ id: string; label: MessageKey }> = [

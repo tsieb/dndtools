@@ -5138,6 +5138,17 @@ export {
 	getGenerator,
 } from './generation/registry';
 
+// RC-MAP-3.1 — the prop/stamp catalogue. Data, not GUI: the Assets panel, the canvas renderer and the
+// scatter generators all read the same entries, so a stamped chest and a generated chest are one thing.
+export type { PropCatalogEntry, PropCategoryId } from './generation/props';
+export {
+	getProp,
+	PROP_CATALOG,
+	PROP_CATEGORIES,
+	propsInCategory,
+	searchProps,
+} from './generation/props';
+
 // MAP-021 — the geometry kit the generators are built from. Exported because the APP needs several of
 // these too: the renderer contours and simplifies for display, and the editor's snapping/hit-testing
 // reuses the same intersection math the generators use, so both sides agree on what "on the wall" means.
