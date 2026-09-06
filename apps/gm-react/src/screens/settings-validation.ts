@@ -1,4 +1,10 @@
 import { MIN_RECOVERY_PASSPHRASE_CHARS } from '@dndtools/core';
+import type { MessageKey } from '../i18n';
+
+/** A blocked export, as a catalog key plus the numbers the message interpolates. The rule is a
+ * pure function, so it names the message rather than rendering it — only a component knows the
+ * active locale. */
+export type PassphraseIssue = { key: MessageKey; values?: Record<string, number> };
 
 /**
  * Why the recovery-key export cannot proceed yet, in the user's words — or `null` when it can.
@@ -11,12 +17,17 @@ import { MIN_RECOVERY_PASSPHRASE_CHARS } from '@dndtools/core';
  * Returns `null` for a field the user has not filled in yet: "you have typed nothing" is a prompt,
  * not an error, and shouting at an empty form is its own defect.
  */
-export function recoveryPassphraseIssue(pass: string, confirm: string): string | null {
+export function recoveryPassphraseIssue(pass: string, confirm: string): PassphraseIssue | null {
 	if (pass.length > 0 && pass.length < MIN_RECOVERY_PASSPHRASE_CHARS) {
-		const short = MIN_RECOVERY_PASSPHRASE_CHARS - pass.length;
-		return `Use at least ${MIN_RECOVERY_PASSPHRASE_CHARS} characters — ${short} to go.`;
+		return {
+			key: 'settings.recovery.tooShort',
+			values: {
+				min: MIN_RECOVERY_PASSPHRASE_CHARS,
+				remaining: MIN_RECOVERY_PASSPHRASE_CHARS - pass.length,
+			},
+		};
 	}
-	if (confirm.length > 0 && pass !== confirm) return 'The two passphrases don’t match.';
+	if (confirm.length > 0 && pass !== confirm) return { key: 'settings.recovery.mismatch' };
 	return null;
 }
 

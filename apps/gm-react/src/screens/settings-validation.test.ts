@@ -21,18 +21,18 @@ describe('recovery-key passphrase validation', () => {
 
 	it('identifies a too-short passphrase and counts the remaining characters', () => {
 		const issue = recoveryPassphraseIssue('a'.repeat(MIN_RECOVERY_PASSPHRASE_CHARS - 3), '');
-		expect(issue).toContain(String(MIN_RECOVERY_PASSPHRASE_CHARS));
-		expect(issue).toContain('3 to go');
+		expect(issue?.key).toBe('settings.recovery.tooShort');
+		expect(issue?.values).toEqual({ min: MIN_RECOVERY_PASSPHRASE_CHARS, remaining: 3 });
 	});
 
 	it('identifies a mismatch — the failure the two password fields hide', () => {
-		expect(recoveryPassphraseIssue(long, `${long}x`)).toBe('The two passphrases don’t match.');
+		expect(recoveryPassphraseIssue(long, `${long}x`)?.key).toBe('settings.recovery.mismatch');
 	});
 
 	it('prefers the length complaint over the mismatch complaint', () => {
 		// Both are true here; reporting "too short" first is the actionable one, because fixing the
 		// length necessarily means retyping the confirmation anyway.
-		expect(recoveryPassphraseIssue('ab', 'zz')).toContain('at least');
+		expect(recoveryPassphraseIssue('ab', 'zz')?.key).toBe('settings.recovery.tooShort');
 	});
 
 	it('clears once the two match at full length', () => {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Badge, Button, Dialog, Icon, StatusDot, Switch, Toaster } from '../../ds';
 import { Panel, SetRow, T } from '../../app/screen-kit';
+import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useCloudSync } from '../../cloud/CloudSyncContext';
 import { downloadJsonFile, fileDateStamp } from '../../platform/download';
@@ -16,6 +17,11 @@ import { useEntitlements } from '../../cloud/entitlements';
 import { errMsg } from './shared';
 import { RecoveryKeyPanel, VaultPrivacyPanel } from './SyncPrivacy';
 /* ---- Backup activity: local operation history + optional encrypted off-device copy. -------------- */
+/* The two `humanize*` helpers below read a core command id ('scene.create') and spell it as English
+ * prose ('Scene created'). They are the one thing on this screen the catalog cannot reach: the words
+ * are derived from identifiers the core owns, not from copy this screen authors, so translating them
+ * needs a per-command label catalog next to those ids rather than 200 keys invented here.
+ * HANDOFF RC-UX-1.2 → packages/core command registry: a translatable label per command id. */
 function humanizeOp(opType: string): string {
 	const [scope = 'change', action = 'updated'] = opType.split('.', 2);
 	const [verb = 'updated', ...detail] = action.split(/[-_]/g);
@@ -50,6 +56,7 @@ function humanizeEntity(entityType: string): string {
 /** E2EE cloud-backup controls. This is an off-device copy for the current key-holding device, not a
  *  bidirectional multi-device sync surface; restore is explicit and destructive. */
 function CloudSyncPanel({ online, localChanges }: { online: boolean; localChanges: number }) {
+	const { t, formatTime } = useI18n();
 	const cloud = useCloudSync();
 	const ent = useEntitlements();
 	const [busy, setBusy] = useState(false);
@@ -57,20 +64,21 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 
 	if (!cloud.available) {
 		return (
-			<Panel title="Encrypted cloud backup">
+			<Panel title={t('settings.sync.cloudTitle')}>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
 					<StatusDot status={online ? 'live' : 'error'} pulse={online} />
 					<div style={{ flex: 1 }}>
 						<div style={{ font: `600 13.5px ${T.sans}` }}>
-							{online ? 'Online' : 'Offline'} · local-only
+							{t('settings.sync.localOnlyState', {
+								state: t(online ? 'settings.sync.online' : 'settings.sync.offline'),
+							})}
 						</div>
 						<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-							{localChanges} {localChanges === 1 ? 'change is' : 'changes are'} recorded locally ·
-							cloud backup is unavailable in this build.
+							{t('settings.sync.localOnlyCount', { count: localChanges })}
 						</div>
 					</div>
 					<Button variant="secondary" size="sm" icon="retry" disabled>
-						Back up now
+						{t('settings.sync.backUpNow')}
 					</Button>
 				</div>
 			</Panel>
@@ -80,16 +88,18 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 	const gate = cloud.gate;
 	const canEnable = cloud.includedInPlan && (gate?.canEnableOnThisDevice ?? false);
 	const es = cloud.engineStatus;
-	const lastSynced = es?.lastSyncedAt ? new Date(es.lastSyncedAt).toLocaleTimeString() : 'never';
+	const lastSynced = es?.lastSyncedAt
+		? formatTime(new Date(es.lastSyncedAt), { timeStyle: 'medium' })
+		: t('settings.sync.never');
 
 	const run = async (fn: () => Promise<unknown>, okMsg: string) => {
 		setBusy(true);
 		try {
 			const r = await fn();
-			if (r === 'no-snapshot') Toaster.info('No cloud backup found for this account yet.');
+			if (r === 'no-snapshot') Toaster.info(t('settings.sync.noSnapshot'));
 			else Toaster.success(okMsg);
 		} catch (e) {
-			Toaster.error(e instanceof Error ? e.message : 'Cloud backup failed.');
+			Toaster.error(e instanceof Error ? e.message : t('settings.sync.cloudFailed'));
 		} finally {
 			setBusy(false);
 		}
@@ -97,24 +107,26 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 
 	return (
 		<Panel
-			title="Encrypted cloud backup"
+			title={t('settings.sync.cloudTitle')}
 			action={
-				<Badge status={cloud.enabled ? 'success' : 'neutral'}>{cloud.enabled ? 'On' : 'Off'}</Badge>
+				<Badge status={cloud.enabled ? 'success' : 'neutral'}>
+					{t(cloud.enabled ? 'settings.sync.on' : 'settings.sync.off')}
+				</Badge>
 			}
 		>
 			<SetRow
-				label="End-to-end encrypted cloud backup"
-				help={
+				label={t('settings.sync.cloudRow')}
+				help={t(
 					!cloud.includedInPlan
 						? ent.canChangePlan
-							? 'Included in the Lantern and Beacon preview plans. You can change preview plans at no charge.'
-							: 'Not included in your current plan. Self-service plan changes are unavailable in this release.'
+							? 'settings.sync.helpNotInPlan'
+							: 'settings.sync.helpNotInPlanLocked'
 						: canEnable
-							? 'Campaign state is encrypted on this device before upload, so the online service stores only unreadable data. Device-local media bytes are not uploaded. Off by default. Export a recovery key below and keep it somewhere safe: without your devices or that exported file, the cloud copy cannot be opened.'
+							? 'settings.sync.help'
 							: gate?.custodyAvailable === false
-								? 'Unavailable on this device: encrypted cloud backup needs an OS credential store to protect your key (available in the desktop and Android apps).'
-								: 'Secure cloud backup is not available on this device.'
-				}
+								? 'settings.sync.helpNoCustody'
+								: 'settings.sync.helpUnavailable',
+				)}
 				control={
 					<Switch
 						checked={cloud.enabled}
@@ -123,11 +135,11 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 						// focus to `<body>` mid-toggle. The durable `!canEnable` gate stays native.
 						disabled={!canEnable}
 						aria-disabled={busy || undefined}
-						aria-label="End-to-end encrypted cloud backup"
+						aria-label={t('settings.sync.cloudRow')}
 						onChange={() =>
 							void run(
 								() => (cloud.enabled ? cloud.disable() : cloud.enable()),
-								cloud.enabled ? 'Cloud backup turned off.' : 'Cloud backup enabled.',
+								t(cloud.enabled ? 'settings.sync.turnedOff' : 'settings.sync.turnedOn'),
 							)
 						}
 					/>
@@ -152,16 +164,18 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 					/>
 					<div style={{ flex: 1, minWidth: 180 }}>
 						<div style={{ font: `600 13px ${T.sans}` }}>
-							{es?.busy || busy
-								? 'Backing up…'
-								: es?.lastError
-									? 'Backup error'
-									: es?.lastSyncedAt
-										? 'Backup up to date'
-										: 'Backup waiting to start'}
+							{t(
+								es?.busy || busy
+									? 'settings.sync.stateBusy'
+									: es?.lastError
+										? 'settings.sync.stateError'
+										: es?.lastSyncedAt
+											? 'settings.sync.stateUpToDate'
+											: 'settings.sync.stateWaiting',
+							)}
 						</div>
 						<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-							{es?.lastError ? es.lastError : `Last backed up: ${lastSynced}`}
+							{es?.lastError ? es.lastError : t('settings.sync.lastBackedUp', { when: lastSynced })}
 						</div>
 					</div>
 					<Button
@@ -169,9 +183,9 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 						size="sm"
 						icon="retry"
 						disabled={busy || es?.busy}
-						onClick={() => void run(cloud.syncNow, 'Backed up to the cloud.')}
+						onClick={() => void run(cloud.syncNow, t('settings.sync.backedUp'))}
 					>
-						Back up now
+						{t('settings.sync.backUpNow')}
 					</Button>
 					<Button
 						variant="ghost"
@@ -180,13 +194,13 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 						disabled={busy || es?.busy}
 						onClick={() => setRestoreOpen(true)}
 					>
-						Restore this device
+						{t('settings.sync.restoreDevice')}
 					</Button>
 					<Dialog
 						open={restoreOpen}
 						onClose={() => setRestoreOpen(false)}
-						title="Replace this device’s vault?"
-						description="Restore the latest encrypted cloud copy using this device’s existing key."
+						title={t('settings.sync.restoreTitle')}
+						description={t('settings.sync.restoreDescription')}
 						tone="danger"
 						size="sm"
 						dismissible={!busy}
@@ -202,7 +216,7 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 									disabled={busy}
 									onClick={() => setRestoreOpen(false)}
 								>
-									Cancel
+									{t('common.action.cancel')}
 								</Button>
 								<Button
 									variant="danger"
@@ -210,19 +224,16 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 									disabled={busy}
 									onClick={() => {
 										setRestoreOpen(false);
-										void run(cloud.restore, 'Restored from the cloud backup.');
+										void run(cloud.restore, t('settings.sync.restored'));
 									}}
 								>
-									Replace local vault
+									{t('settings.sync.replaceLocal')}
 								</Button>
 							</>
 						}
 					>
 						<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-							This overwrites the campaign data currently stored on this device. Export a local
-							backup first if you may need to return to it. The cloud copy can only be opened with
-							the key already held by this device. It does not contain media bytes; only matching
-							media already stored on this device remains available.
+							{t('settings.sync.restoreBody')}
 						</div>
 					</Dialog>
 				</div>
@@ -231,6 +242,7 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 	);
 }
 export function SettingsSync() {
+	const { t, formatDate } = useI18n();
 	const runtime = useRuntime();
 	const ops = runtime.state.sync.operations;
 	const [online, setOnline] = useState<boolean>(
@@ -257,14 +269,19 @@ export function SettingsSync() {
 			<LocalBackupPanel />
 			<VaultPrivacyPanel />
 			<RecoveryKeyPanel />
-			<Panel title="Recent changes" action={<Badge status="neutral">{ops.length}</Badge>}>
+			<Panel
+				title={t('settings.sync.recentChanges')}
+				action={<Badge status="neutral">{ops.length}</Badge>}
+			>
 				{recent.length === 0 ? (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No changes recorded yet.</div>
+					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						{t('settings.sync.noChanges')}
+					</div>
 				) : (
 					recent.map((q) => (
 						<div
 							key={q.id}
-							title={`${humanizeEntity(q.entityType)} change`}
+							title={t('settings.sync.changeTitle', { entity: humanizeEntity(q.entityType) })}
 							style={{
 								display: 'flex',
 								alignItems: 'center',
@@ -278,10 +295,11 @@ export function SettingsSync() {
 							<Icon name="connection" size={15} color={T.ter} />
 							<Badge status="info">{humanizeOp(q.opType)}</Badge>
 							<span style={{ flex: '1 1 150px', font: `11.5px ${T.sans}`, color: T.ter }}>
-								Saved{' '}
-								{new Date(q.issuedAt).toLocaleString(undefined, {
-									dateStyle: 'medium',
-									timeStyle: 'short',
+								{t('settings.sync.saved', {
+									when: formatDate(new Date(q.issuedAt), {
+										dateStyle: 'medium',
+										timeStyle: 'short',
+									}),
 								})}
 							</span>
 						</div>
@@ -296,6 +314,7 @@ export function SettingsSync() {
  * byte in one JSON file. Restore is authoritative and destructive — it replaces the current vault
  * (validated fail-closed first), then hard-reloads so every runtime rebuilds from the restored data. */
 function LocalBackupPanel() {
+	const { t, formatDate } = useI18n();
 	const runtime = useRuntime();
 	const [busy, setBusy] = useState(false);
 	const [pendingRestore, setPendingRestore] = useState<VaultBackup | null>(null);
@@ -306,15 +325,20 @@ function LocalBackupPanel() {
 			const result = await downloadJsonFile(
 				`dndtools-vault-backup-${fileDateStamp()}.json`,
 				data,
-				'Save Lamplight vault backup',
+				t('settings.backup.fileTitle'),
 			);
 			if (result.status === 'exported') {
 				Toaster.success(
-					`Backup ${result.method === 'download' ? 'downloaded' : 'exported'} — ${data.assets.length} media ${data.assets.length === 1 ? 'asset' : 'assets'} included.`,
+					t(
+						result.method === 'download'
+							? 'settings.backup.downloaded'
+							: 'settings.backup.exported',
+						{ count: data.assets.length },
+					),
 				);
 			}
 		} catch (e: unknown) {
-			Toaster.error(errMsg(e, 'Could not build or export the backup.'));
+			Toaster.error(errMsg(e, t('settings.backup.exportFailed')));
 		} finally {
 			setBusy(false);
 		}
@@ -327,7 +351,7 @@ function LocalBackupPanel() {
 			// BEFORE the confirm dialog ever offers to overwrite the current vault.
 			setPendingRestore(validateVaultBackup(JSON.parse(file.text)));
 		} catch (e: unknown) {
-			Toaster.error(errMsg(e, 'That file is not a valid vault backup.'));
+			Toaster.error(errMsg(e, t('settings.backup.invalidFile')));
 		}
 	};
 	const restore = () => {
@@ -342,25 +366,33 @@ function LocalBackupPanel() {
 			})
 			.then(() => window.location.reload())
 			.catch((e: unknown) => {
-				Toaster.error(
-					errMsg(e, 'Restore did not finish. Reload the app before making more changes.'),
-				);
+				Toaster.error(errMsg(e, t('settings.backup.restoreFailed')));
 				setBusy(false);
 			});
 	};
+	// The backup's timestamp is emphasised mid-sentence, so format the whole sentence and split it
+	// around that value rather than freezing English word order into two fragments.
+	const restoreStamp = pendingRestore
+		? formatDate(new Date(pendingRestore.createdAt), { dateStyle: 'medium', timeStyle: 'short' })
+		: null;
+	const restoreSentence = pendingRestore
+		? t('settings.backup.replaceBody', {
+				when: restoreStamp ?? '',
+				count: pendingRestore.assets.length,
+			})
+		: '';
+	const [restoreBefore, restoreAfter = ''] = restoreSentence.split(restoreStamp ?? '\u0000');
 	return (
-		<Panel title="Local backup">
+		<Panel title={t('settings.backup.title')}>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
 				<div style={{ flex: '1 1 260px' }}>
-					<div style={{ font: `600 13px ${T.sans}` }}>Back up or restore this device’s vault</div>
+					<div style={{ font: `600 13px ${T.sans}` }}>{t('settings.backup.heading')}</div>
 					<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
-						One JSON file with campaign data and stored media bytes. It does not include app
-						preferences, connected-folder permissions, account credentials, or AI provider keys.
-						Restoring replaces the current vault on this device.
+						{t('settings.backup.body')}
 					</div>
 				</div>
 				<Button variant="secondary" size="sm" icon="download" disabled={busy} onClick={backup}>
-					Download backup
+					{t('settings.backup.download')}
 				</Button>
 				<Button
 					variant="secondary"
@@ -369,14 +401,14 @@ function LocalBackupPanel() {
 					disabled={busy}
 					onClick={() => void pickBackup()}
 				>
-					Restore from backup…
+					{t('settings.backup.restore')}
 				</Button>
 			</div>
 			<Dialog
 				open={pendingRestore !== null}
 				onClose={() => setPendingRestore(null)}
-				title="Replace this vault?"
-				description="The backup replaces all campaign data and stored media in this vault."
+				title={t('settings.backup.replaceTitle')}
+				description={t('settings.backup.replaceDescription')}
 				icon="warning"
 				size="md"
 				dismissible={!busy}
@@ -392,25 +424,19 @@ function LocalBackupPanel() {
 							disabled={busy}
 							onClick={() => setPendingRestore(null)}
 						>
-							Cancel
+							{t('common.action.cancel')}
 						</Button>
 						<Button variant="danger" size="sm" icon="import" disabled={busy} onClick={restore}>
-							{busy ? 'Restoring…' : 'Replace vault & reload'}
+							{busy ? t('settings.backup.restoring') : t('settings.backup.replaceReload')}
 						</Button>
 					</>
 				}
 			>
-				{pendingRestore && (
+				{pendingRestore && restoreStamp && (
 					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-						Backup from{' '}
-						<strong style={{ color: T.ink }}>
-							{new Date(pendingRestore.createdAt).toLocaleString()}
-						</strong>{' '}
-						with {pendingRestore.assets.length} media{' '}
-						{pendingRestore.assets.length === 1 ? 'asset' : 'assets'}. The file is checked
-						completely before campaign data and media are replaced together; a failed restore leaves
-						this vault unchanged. Download a backup of the current vault first if you may need to
-						return to it.
+						{restoreBefore}
+						<strong style={{ color: T.ink }}>{restoreStamp}</strong>
+						{restoreAfter}
 					</div>
 				)}
 			</Dialog>

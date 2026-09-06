@@ -6,10 +6,12 @@ import {
 } from '@dndtools/core';
 import { Badge, Button, DataTable, Select, Toaster } from '../../ds';
 import { Panel, Seg, T } from '../../app/screen-kit';
+import { useI18n, type MessageKey } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { errMsg } from './shared';
 /* ---- Permissions (REAL — real grant list + grant/revoke commands; DM-authored, fail-closed in core) -- */
 export function SettingsPermissions() {
+	const { t, formatDate } = useI18n();
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
 	const actors = runtime.state.permissions.actors as Record<
@@ -25,29 +27,29 @@ export function SettingsPermissions() {
 
 	const roleCounts = { dm: 0, 'co-dm': 0, player: 0, observer: 0 } as Record<string, number>;
 	for (const a of Object.values(actors)) roleCounts[a.role] = (roleCounts[a.role] ?? 0) + 1;
-	const roleCards = [
+	const roleCards: { id: string; name: MessageKey; desc: MessageKey; tone: string }[] = [
 		{
 			id: 'dm',
-			name: 'Dungeon Master',
-			desc: 'Full authority — authors content, grants, and the live session.',
+			name: 'settings.permissions.role.dm',
+			desc: 'settings.permissions.role.dmDesc',
 			tone: 'accent',
 		},
 		{
 			id: 'co-dm',
-			name: 'Co-DM',
-			desc: 'Sees DM-only content and runs the table, but never manages roles, grants, invites, or the vault.',
+			name: 'settings.permissions.role.coDm',
+			desc: 'settings.permissions.role.coDmDesc',
 			tone: 'accent',
 		},
 		{
 			id: 'player',
-			name: 'Player',
-			desc: 'Owns their character; sees only what the DM shares.',
+			name: 'settings.permissions.role.player',
+			desc: 'settings.permissions.role.playerDesc',
 			tone: 'info',
 		},
 		{
 			id: 'observer',
-			name: 'Observer',
-			desc: 'Read-only; never holds character data.',
+			name: 'settings.permissions.role.observer',
+			desc: 'settings.permissions.role.observerDesc',
 			tone: 'neutral',
 		},
 	];
@@ -68,7 +70,7 @@ export function SettingsPermissions() {
 		type: g.entityType,
 		entity: (runtime.state.scenes.scenes as any)[g.entityId]?.name ?? g.entityId,
 		to: actors[g.playerActorId]?.displayName ?? g.playerActorId,
-		expires: g.expiresAt ? new Date(g.expiresAt).toLocaleDateString() : null,
+		expires: g.expiresAt ? formatDate(new Date(g.expiresAt)) : null,
 	}));
 
 	// Revoke is recoverable here (the grant's full shape is in hand), so the toast carries an Undo
@@ -82,9 +84,11 @@ export function SettingsPermissions() {
 					Toaster.error(res.rejection.message);
 					return;
 				}
-				const who = g ? (actors[g.playerActorId]?.displayName ?? g.playerActorId) : 'the player';
-				Toaster.success(`Access revoked for ${who}.`, {
-					action: g ? 'Undo' : undefined,
+				const who = g
+					? (actors[g.playerActorId]?.displayName ?? g.playerActorId)
+					: t('settings.permissions.thePlayer');
+				Toaster.success(t('settings.permissions.revoked', { name: who }), {
+					action: g ? t('common.action.undo') : undefined,
 					onAction: g
 						? () => {
 								void runtime
@@ -100,14 +104,15 @@ export function SettingsPermissions() {
 										},
 									})
 									.then((r2: CommandResult) => {
-										if (r2.status === 'accepted') Toaster.success(`Access re-granted to ${who}.`);
+										if (r2.status === 'accepted')
+											Toaster.success(t('settings.permissions.regranted', { name: who }));
 										else Toaster.error(r2.rejection.message);
 									});
 							}
 						: undefined,
 				});
 			})
-			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not revoke that grant.')));
+			.catch((e: unknown) => Toaster.error(errMsg(e, t('settings.permissions.revokeFailed'))));
 	};
 	// Granting is the safety-critical half of this pair, and it used to discard its CommandResult
 	// entirely: a REFUSED grant (role ceiling, missing scene, fail-closed core check) left the DM
@@ -129,15 +134,16 @@ export function SettingsPermissions() {
 				},
 			})
 			.then((res: CommandResult) => {
-				if (res.status === 'accepted') Toaster.success(`Access granted to ${who}.`);
+				if (res.status === 'accepted')
+					Toaster.success(t('settings.permissions.granted', { name: who }));
 				else Toaster.error(res.rejection.message);
 			})
-			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not grant that access.')));
+			.catch((e: unknown) => Toaster.error(errMsg(e, t('settings.permissions.grantFailed'))));
 	};
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-			<Panel title="Roles">
+			<Panel title={t('settings.permissions.roles')}>
 				<div
 					style={{
 						display: 'grid',
@@ -164,34 +170,37 @@ export function SettingsPermissions() {
 										color: r.tone === 'accent' ? T.acc : T.ink,
 									}}
 								>
-									{r.name}
+									{t(r.name)}
 								</span>
 								<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
 									×{roleCounts[r.id] ?? 0}
 								</span>
 							</div>
-							<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginTop: 4 }}>{r.desc}</div>
+							<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginTop: 4 }}>
+								{t(r.desc)}
+							</div>
 						</div>
 					))}
 				</div>
 			</Panel>
 
-			<Panel title="Grant scene access">
+			<Panel title={t('settings.permissions.grantTitle')}>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					Choose what a player can do in a specific scene. Their role still sets the maximum access
-					they can receive, and only the DM can change these grants.
+					{t('settings.permissions.grantIntro')}
 				</div>
 				{players.length === 0 || scenes.length === 0 ? (
 					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						{players.length === 0
-							? 'Add a player before granting scene access.'
-							: 'Create a scene before granting access.'}
+						{t(
+							players.length === 0
+								? 'settings.permissions.needPlayer'
+								: 'settings.permissions.needScene',
+						)}
 					</div>
 				) : (
 					<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
 						<span style={{ flex: 1, minWidth: 140 }}>
 							<Select
-								aria-label="Player"
+								aria-label={t('settings.permissions.player')}
 								value={selectedGrantPlayer}
 								onChange={(e: { target: { value: string } }) => setGrantPlayer(e.target.value)}
 								options={players.map((pl) => ({ value: pl.id, label: pl.displayName }))}
@@ -199,48 +208,56 @@ export function SettingsPermissions() {
 						</span>
 						<span style={{ flex: 1, minWidth: 140 }}>
 							<Select
-								aria-label="Scene"
+								aria-label={t('settings.permissions.scene')}
 								value={selectedGrantScene}
 								onChange={(e: { target: { value: string } }) => setGrantScene(e.target.value)}
 								options={scenes.map((sc) => ({ value: sc.id, label: sc.name }))}
 							/>
 						</span>
 						<Seg
-							ariaLabel="Capability set"
+							ariaLabel={t('settings.permissions.capabilitySet')}
 							value={grantSet}
 							onChange={setGrantSet}
 							options={sceneSets.map((s) => ({ value: s.capabilitySet, label: s.label }))}
 						/>
 						<Button variant="primary" size="sm" icon="check" onClick={grant}>
-							Grant
+							{t('settings.permissions.grant')}
 						</Button>
 					</div>
 				)}
 			</Panel>
 
-			<Panel title="Active grants" action={<Badge status="neutral">{grants.length}</Badge>}>
+			<Panel
+				title={t('settings.permissions.activeGrants')}
+				action={<Badge status="neutral">{grants.length}</Badge>}
+			>
 				<DataTable
-					ariaLabel="Active grants"
+					ariaLabel={t('settings.permissions.activeGrants')}
 					columns={[
-						{ key: 'set', header: 'Access', strong: true },
-						{ key: 'type', header: 'Type' },
-						{ key: 'entity', header: 'Entity' },
-						{ key: 'to', header: 'Granted to' },
-						{ key: 'expires', header: 'Expires', align: 'right', render: (v: any) => v || '—' },
+						{ key: 'set', header: t('settings.permissions.colAccess'), strong: true },
+						{ key: 'type', header: t('settings.permissions.colType') },
+						{ key: 'entity', header: t('settings.permissions.colEntity') },
+						{ key: 'to', header: t('settings.permissions.colGrantedTo') },
+						{
+							key: 'expires',
+							header: t('settings.permissions.colExpires'),
+							align: 'right',
+							render: (v: any) => v || '—',
+						},
 						{
 							key: 'grantId',
 							header: '',
 							align: 'right',
 							render: (id: any) => (
 								<Button variant="ghost" size="sm" icon="trash" onClick={() => revoke(id)}>
-									Revoke
+									{t('settings.permissions.revoke')}
 								</Button>
 							),
 						},
 					]}
 					rows={grantRows}
 					rowKey={(r: any) => r.grantId}
-					empty="No active grants. Use the form above to grant a player scene access."
+					empty={t('settings.permissions.noGrants')}
 				/>
 			</Panel>
 		</div>

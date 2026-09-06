@@ -1008,4 +1008,220 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.invites.emailLabel': 'Correo del destinatario',
 	'settings.invites.emailHelp':
 		'Deja el correo en blanco para obtener solo un enlace para compartir y un código QR. Si lo rellenas, también enviaremos la invitación por correo si esta aplicación tiene configurado el envío.',
+
+	/* Ajustes › Conexiones del baúl */
+	'settings.vault.title': 'Conexiones del baúl',
+	'settings.vault.manageInKnowledge': 'Gestionar en Conocimiento',
+	'settings.vault.loading': 'Cargando las conexiones del baúl',
+	'settings.vault.never': 'nunca',
+	'settings.vault.kindFolder': 'Carpeta local',
+	'settings.vault.kindDoc': 'Documento de Google',
+	'settings.vault.pulledPushed': 'traído {pulled} · enviado {pushed}',
+	'settings.vault.connected': 'conectado',
+	'settings.vault.disconnect': 'Desconectar',
+	'settings.vault.readFailedTitle': 'No se pudieron leer tus carpetas conectadas',
+	'settings.vault.readFailedBody':
+		'El registro de fuentes del baúl no respondió. Tus conexiones siguen guardadas: esto es solo el listado.',
+	'settings.vault.tryAgain': 'Reintentar',
+	'settings.vault.emptyTitle': 'No hay fuentes conectadas',
+	'settings.vault.emptyBody':
+		'Conecta una carpeta local de markdown desde Conocimiento → Fuentes; traer y enviar también se hacen allí.',
+	'settings.vault.emptyBodyWithDocs':
+		'Conecta una carpeta local de markdown o un documento de Google desde Conocimiento → Fuentes; traer y enviar también se hacen allí.',
+	'settings.vault.openSources': 'Abrir Conocimiento → Fuentes',
+	'settings.vault.disconnectTitle': '¿Desconectar esta carpeta?',
+	'settings.vault.disconnectDescription': 'La carpeta y todo lo ya importado quedan intactos.',
+	'settings.vault.disconnectBody':
+		'Al desconectar {name} esta aplicación pierde el permiso sobre la carpeta. No se borra nada del disco ni de tu baúl, pero volver a conectarla significa elegir la carpeta otra vez en Conocimiento → Fuentes.',
+	'settings.vault.folderDisconnected':
+		'«{name}» desconectada: vuelve a conectarla cuando quieras desde Conocimiento → Fuentes.',
+	'settings.vault.disconnectFailed': 'No se pudo desconectar esa carpeta.',
+	'settings.vault.docDisconnected': '«{name}» desconectado.',
+	'settings.vault.docReconnected': '«{name}» reconectado.',
+	'settings.vault.noFolderSupport':
+		'Este navegador no puede conectar una carpeta local. Usa la aplicación de escritorio o un navegador Chromium compatible.',
+	'settings.vault.noGoogleDocs':
+		'Las conexiones con Documentos de Google no están disponibles en esta edición.',
+
+	/* Ajustes › Copias e historial */
+	'settings.sync.cloudTitle': 'Copia cifrada en la nube',
+	'settings.sync.online': 'En línea',
+	'settings.sync.offline': 'Sin conexión',
+	'settings.sync.localOnlyState': '{state} · solo local',
+	'settings.sync.localOnlyCount':
+		'{count, plural, one {# cambio registrado localmente} other {# cambios registrados localmente}} · la copia en la nube no está disponible en esta versión.',
+	'settings.sync.on': 'Activada',
+	'settings.sync.off': 'Desactivada',
+	'settings.sync.cloudRow': 'Copia en la nube cifrada de extremo a extremo',
+	'settings.sync.helpNotInPlan':
+		'Incluida en los planes de vista previa Lantern y Beacon. Puedes cambiar de plan de vista previa sin coste.',
+	'settings.sync.helpNotInPlanLocked':
+		'No está incluida en tu plan actual. En esta versión no se pueden cambiar los planes por tu cuenta.',
+	'settings.sync.help':
+		'El estado de la campaña se cifra en este dispositivo antes de subirlo, así que el servicio en línea solo guarda datos ilegibles. Los archivos multimedia locales no se suben. Desactivada por defecto. Exporta abajo una clave de recuperación y guárdala en un lugar seguro: sin tus dispositivos ni ese archivo exportado, la copia en la nube no se puede abrir.',
+	'settings.sync.helpNoCustody':
+		'No disponible en este dispositivo: la copia cifrada en la nube necesita un almacén de credenciales del sistema para proteger tu clave (disponible en las aplicaciones de escritorio y Android).',
+	'settings.sync.helpUnavailable':
+		'La copia segura en la nube no está disponible en este dispositivo.',
+	'settings.sync.stateBusy': 'Copiando…',
+	'settings.sync.stateError': 'Error en la copia',
+	'settings.sync.stateUpToDate': 'Copia al día',
+	'settings.sync.stateWaiting': 'La copia está a la espera',
+	'settings.sync.never': 'nunca',
+	'settings.sync.lastBackedUp': 'Última copia: {when}',
+	'settings.sync.backUpNow': 'Copiar ahora',
+	'settings.sync.backedUp': 'Copia enviada a la nube.',
+	'settings.sync.turnedOn': 'Copia en la nube activada.',
+	'settings.sync.turnedOff': 'Copia en la nube desactivada.',
+	'settings.sync.noSnapshot': 'Todavía no hay ninguna copia en la nube para esta cuenta.',
+	'settings.sync.cloudFailed': 'La copia en la nube falló.',
+	'settings.sync.restoreDevice': 'Restaurar este dispositivo',
+	'settings.sync.restoreTitle': '¿Sustituir el baúl de este dispositivo?',
+	'settings.sync.restoreDescription':
+		'Restaura la última copia cifrada en la nube con la clave que ya tiene este dispositivo.',
+	'settings.sync.restoreBody':
+		'Esto sobrescribe los datos de campaña guardados ahora en este dispositivo. Exporta antes una copia local por si necesitas volver a ella. La copia en la nube solo se puede abrir con la clave que ya tiene este dispositivo. No contiene archivos multimedia; solo sigue disponible el material que ya esté guardado aquí.',
+	'settings.sync.replaceLocal': 'Sustituir el baúl local',
+	'settings.sync.restored': 'Restaurado desde la copia en la nube.',
+	'settings.sync.recentChanges': 'Cambios recientes',
+	'settings.sync.noChanges': 'Todavía no se ha registrado ningún cambio.',
+	'settings.sync.changeTitle': 'Cambio: {entity}',
+	'settings.sync.saved': 'Guardado el {when}',
+
+	/* Ajustes › Copias e historial › Copia local */
+	'settings.backup.title': 'Copia local',
+	'settings.backup.heading': 'Copiar o restaurar el baúl de este dispositivo',
+	'settings.backup.body':
+		'Un único archivo JSON con los datos de campaña y los archivos multimedia guardados. No incluye las preferencias de la aplicación, los permisos de carpetas conectadas, las credenciales de la cuenta ni las claves de proveedores de IA. Restaurar sustituye el baúl actual de este dispositivo.',
+	'settings.backup.download': 'Descargar copia',
+	'settings.backup.restore': 'Restaurar desde una copia…',
+	'settings.backup.fileTitle': 'Guardar la copia del baúl de Lamplight',
+	'settings.backup.downloaded':
+		'Copia descargada: {count, plural, one {# archivo multimedia incluido} other {# archivos multimedia incluidos}}.',
+	'settings.backup.exported':
+		'Copia exportada: {count, plural, one {# archivo multimedia incluido} other {# archivos multimedia incluidos}}.',
+	'settings.backup.exportFailed': 'No se pudo crear ni exportar la copia.',
+	'settings.backup.invalidFile': 'Ese archivo no es una copia válida del baúl.',
+	'settings.backup.replaceTitle': '¿Sustituir este baúl?',
+	'settings.backup.replaceDescription':
+		'La copia sustituye todos los datos de campaña y los archivos multimedia de este baúl.',
+	'settings.backup.replaceBody':
+		'Copia del {when} con {count, plural, one {# archivo multimedia} other {# archivos multimedia}}. El archivo se comprueba por completo antes de sustituir juntos los datos de campaña y el material; una restauración fallida deja este baúl sin cambios. Descarga antes una copia del baúl actual por si necesitas volver a ella.',
+	'settings.backup.restoring': 'Restaurando…',
+	'settings.backup.replaceReload': 'Sustituir el baúl y recargar',
+	'settings.backup.restoreFailed':
+		'La restauración no terminó. Recarga la aplicación antes de hacer más cambios.',
+
+	/* Ajustes › Copias e historial › Privacidad del baúl (ADR-026) */
+	'settings.privacy.title': 'Modo de privacidad del baúl',
+	'settings.privacy.badgePrivate': 'Privado (cifrado de extremo a extremo)',
+	'settings.privacy.badgeCloud': 'Mejorado por la nube',
+	'settings.privacy.rowPrivate': 'Baúl privado (cifrado de extremo a extremo)',
+	'settings.privacy.rowCloud': 'Baúl mejorado por la nube',
+	'settings.privacy.youChose': 'Elegiste',
+	'settings.privacy.thisVaultUses': 'Este baúl usa',
+	'settings.privacy.helpPrivate':
+		'{chose} el modelo Privado: todo se cifra en tus dispositivos antes de salir de ellos y solo tus dispositivos tienen las claves. Las funciones que dependen del servidor (IA de campaña, búsqueda en la nube, acceso desde el navegador sin tu clave) no están disponibles para este baúl.',
+	'settings.privacy.helpCloud':
+		'Diste tu consentimiento al modelo Mejorado por la nube: cifrado en tránsito y en reposo con claves gestionadas por el servicio, legible por el servicio para impulsar las próximas funciones (IA de campaña, búsqueda en la nube, acceso desde cualquier navegador). Hasta que esas funciones lleguen, tus datos siguen viajando por el canal cifrado de extremo a extremo.',
+	'settings.privacy.switchToCloud': 'Cambiar a Mejorado por la nube…',
+	'settings.privacy.switchToPrivate': 'Cambiar a Privado…',
+	'settings.privacy.dialogPrivateTitle': '¿Hacer privado este baúl?',
+	'settings.privacy.dialogCloudTitle': '¿Cambiar a Mejorado por la nube?',
+	'settings.privacy.dialogPrivateDescription':
+		'A partir de ahora solo tus dispositivos tendrán las claves.',
+	'settings.privacy.dialogCloudDescription':
+		'Estás consintiendo que este baúl se guarde de forma legible para el servicio.',
+	'settings.privacy.bodyToPrivate':
+		'El contenido que el servicio pudo leer mientras este baúl estuvo en modo Mejorado por la nube puede haberse leído ya: volver atrás no deshace eso. A partir de ahora, las copias en la nube solo se pueden abrir con claves de tus dispositivos; exporta una clave de recuperación y guárdala bien, porque el servicio no puede recuperar por ti un baúl privado.',
+	'settings.privacy.bodyToCloud':
+		'Cuando lleguen las funciones Mejoradas por la nube, el servicio podrá leer el contenido de este baúl para hacerlas posibles: ese es el sentido del modo y es una ampliación real de confianza. Cambiar de modo más adelante vuelve a subir tu baúl con el nuevo modelo. Nada es legible por el servidor hasta que esas funciones lleguen y se te avise.',
+	'settings.privacy.phrasePrivate': 'yo tengo las llaves',
+	'settings.privacy.phraseCloud': 'lee mi baúl',
+	'settings.privacy.ackPrompt': 'Escribe {phrase} para confirmar.',
+	'settings.privacy.ackFieldLabel': 'Escribe "{phrase}" para confirmar',
+	'settings.privacy.makePrivate': 'Hacerlo privado',
+	'settings.privacy.recordConsent': 'Registrar mi consentimiento',
+	'settings.privacy.nowPrivate':
+		'Este baúl ya es privado: cifrado de extremo a extremo solo con tus claves.',
+	'settings.privacy.consentRecorded':
+		'Consentimiento registrado: este baúl usará las funciones Mejoradas por la nube cuando lleguen.',
+
+	/* Ajustes › Copias e historial › Clave de recuperación */
+	'settings.recovery.title': 'Clave de recuperación',
+	'settings.recovery.custody': 'Custodia de la clave de copia',
+	'settings.recovery.helpSignedOut':
+		'Inicia sesión para exportar o importar la clave de recuperación de las copias cifradas en la nube de tu cuenta.',
+	'settings.recovery.help':
+		'La clave de recuperación es el llavero de cifrado de tu baúl sellado con una contraseña que eliges tú. Expórtala una vez y guárdala bien: es la única forma de abrir tu copia cifrada en la nube si pierdes todos los dispositivos con sesión iniciada. Impórtala en un dispositivo nuevo para recuperar el acceso.',
+	'settings.recovery.helpNoCustody':
+		'Las claves de recuperación necesitan el almacén de credenciales del sistema operativo (aplicaciones de escritorio y Android). Este dispositivo no puede guardar de forma duradera una clave del baúl.',
+	'settings.recovery.export': 'Exportar…',
+	'settings.recovery.import': 'Importar…',
+	'settings.recovery.exportTitle': 'Exportar la clave de recuperación',
+	'settings.recovery.importTitle': 'Importar una clave de recuperación',
+	'settings.recovery.exportDescription':
+		'Sella el llavero de tu baúl con una contraseña y guarda el archivo.',
+	'settings.recovery.importDescription':
+		'Abre un archivo de recuperación e instala sus claves en este dispositivo.',
+	'settings.recovery.exportBody':
+		'El archivo por sí solo no sirve de nada sin la contraseña, pero el par equivale a la clave de tu baúl, así que guárdalos por separado. Usa al menos {min} caracteres; una contraseña más fuerte es toda la defensa frente a quien robe el archivo.',
+	'settings.recovery.importBody':
+		'Escribe la contraseña que elegiste al exportar este archivo de recuperación y luego elige el archivo.',
+	'settings.recovery.passphrase': 'Contraseña de recuperación',
+	'settings.recovery.repeat': 'Repite la contraseña',
+	'settings.recovery.repeatLabel': 'Repite la contraseña de recuperación',
+	'settings.recovery.tooShort': 'Usa al menos {min} caracteres: faltan {remaining}.',
+	'settings.recovery.mismatch': 'Las dos contraseñas no coinciden.',
+	'settings.recovery.needPassphrase':
+		'Escribe dos veces una contraseña de al menos {min} caracteres.',
+	'settings.recovery.exportFile': 'Exportar el archivo',
+	'settings.recovery.chooseFile': 'Elegir archivo e importar',
+	'settings.recovery.fileTitle': 'Clave de recuperación de Lamplight',
+	'settings.recovery.downloaded':
+		'Clave de recuperación descargada: guarda el archivo y su contraseña por separado y a buen recaudo.',
+	'settings.recovery.exported':
+		'Clave de recuperación exportada: guarda el archivo y su contraseña por separado y a buen recaudo.',
+	'settings.recovery.exportFailed': 'Falló la exportación de la clave de recuperación.',
+	'settings.recovery.imported':
+		'Clave de recuperación importada: este dispositivo ya puede abrir tus copias cifradas en la nube.',
+	'settings.recovery.importFailed': 'Falló la importación de la clave de recuperación.',
+
+	/* Ajustes › Permisos */
+	'settings.permissions.roles': 'Roles',
+	'settings.permissions.role.dm': 'Director de juego',
+	'settings.permissions.role.dmDesc':
+		'Autoridad total: crea el contenido, los permisos y la sesión en vivo.',
+	'settings.permissions.role.coDm': 'Co-DM',
+	'settings.permissions.role.coDmDesc':
+		'Ve el contenido solo para el DM y dirige la mesa, pero nunca gestiona roles, permisos, invitaciones ni el baúl.',
+	'settings.permissions.role.player': 'Jugador',
+	'settings.permissions.role.playerDesc':
+		'Es dueño de su personaje; solo ve lo que el DM comparte.',
+	'settings.permissions.role.observer': 'Observador',
+	'settings.permissions.role.observerDesc': 'Solo lectura; nunca guarda datos de personaje.',
+	'settings.permissions.grantTitle': 'Conceder acceso a una escena',
+	'settings.permissions.grantIntro':
+		'Elige qué puede hacer un jugador en una escena concreta. Su rol sigue marcando el acceso máximo que puede recibir y solo el DM puede cambiar estos permisos.',
+	'settings.permissions.needPlayer': 'Añade un jugador antes de conceder acceso a una escena.',
+	'settings.permissions.needScene': 'Crea una escena antes de conceder acceso.',
+	'settings.permissions.player': 'Jugador',
+	'settings.permissions.scene': 'Escena',
+	'settings.permissions.capabilitySet': 'Conjunto de capacidades',
+	'settings.permissions.grant': 'Conceder',
+	'settings.permissions.activeGrants': 'Permisos activos',
+	'settings.permissions.colAccess': 'Acceso',
+	'settings.permissions.colType': 'Tipo',
+	'settings.permissions.colEntity': 'Entidad',
+	'settings.permissions.colGrantedTo': 'Concedido a',
+	'settings.permissions.colExpires': 'Caduca',
+	'settings.permissions.revoke': 'Revocar',
+	'settings.permissions.noGrants':
+		'No hay permisos activos. Usa el formulario de arriba para dar acceso a un jugador a una escena.',
+	'settings.permissions.thePlayer': 'el jugador',
+	'settings.permissions.granted': 'Acceso concedido a {name}.',
+	'settings.permissions.revoked': 'Acceso revocado a {name}.',
+	'settings.permissions.regranted': 'Acceso concedido de nuevo a {name}.',
+	'settings.permissions.grantFailed': 'No se pudo conceder ese acceso.',
+	'settings.permissions.revokeFailed': 'No se pudo revocar ese permiso.',
 };

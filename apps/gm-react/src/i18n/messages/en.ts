@@ -972,6 +972,218 @@ export const en = {
 	'settings.invites.emailLabel': 'Recipient email',
 	'settings.invites.emailHelp':
 		'Leave email blank to just get a shareable link + QR code. When set, we’ll also email the invite if this app has email delivery configured.',
+
+	/* Settings › Vault connections */
+	'settings.vault.title': 'Vault connections',
+	'settings.vault.manageInKnowledge': 'Manage in Knowledge',
+	'settings.vault.loading': 'Loading vault connections',
+	'settings.vault.never': 'never',
+	'settings.vault.kindFolder': 'Local folder',
+	'settings.vault.kindDoc': 'Google Doc',
+	'settings.vault.pulledPushed': 'pulled {pulled} · pushed {pushed}',
+	'settings.vault.connected': 'connected',
+	'settings.vault.disconnect': 'Disconnect',
+	'settings.vault.readFailedTitle': 'Could not read your connected folders',
+	'settings.vault.readFailedBody':
+		'The vault’s source registry did not answer. Your connections are still stored — this is only the listing.',
+	'settings.vault.tryAgain': 'Try again',
+	'settings.vault.emptyTitle': 'No sources connected',
+	'settings.vault.emptyBody':
+		'Connect a local markdown folder from Knowledge → Sources; pull and push live there too.',
+	'settings.vault.emptyBodyWithDocs':
+		'Connect a local markdown folder or a Google Doc from Knowledge → Sources; pull and push live there too.',
+	'settings.vault.openSources': 'Open Knowledge → Sources',
+	'settings.vault.disconnectTitle': 'Disconnect this folder?',
+	'settings.vault.disconnectDescription':
+		'The folder and everything already imported stay untouched.',
+	'settings.vault.disconnectBody':
+		'Disconnecting {name} drops this app’s permission to the folder. Nothing on disk or in your vault is deleted — but reconnecting means picking the folder again in Knowledge → Sources.',
+	'settings.vault.folderDisconnected':
+		'“{name}” disconnected — reconnect it any time from Knowledge → Sources.',
+	'settings.vault.disconnectFailed': 'Could not disconnect that folder.',
+	'settings.vault.docDisconnected': '“{name}” disconnected.',
+	'settings.vault.docReconnected': '“{name}” reconnected.',
+	'settings.vault.noFolderSupport':
+		'This browser cannot connect a local folder. Use the desktop app or a supported Chromium browser instead.',
+	'settings.vault.noGoogleDocs': 'Google Docs connections aren’t available in this edition.',
+
+	/* Settings › Backup & history */
+	'settings.sync.cloudTitle': 'Encrypted cloud backup',
+	'settings.sync.online': 'Online',
+	'settings.sync.offline': 'Offline',
+	'settings.sync.localOnlyState': '{state} · local-only',
+	'settings.sync.localOnlyCount':
+		'{count, plural, one {# change is} other {# changes are}} recorded locally · cloud backup is unavailable in this build.',
+	'settings.sync.on': 'On',
+	'settings.sync.off': 'Off',
+	'settings.sync.cloudRow': 'End-to-end encrypted cloud backup',
+	'settings.sync.helpNotInPlan':
+		'Included in the Lantern and Beacon preview plans. You can change preview plans at no charge.',
+	'settings.sync.helpNotInPlanLocked':
+		'Not included in your current plan. Self-service plan changes are unavailable in this release.',
+	'settings.sync.help':
+		'Campaign state is encrypted on this device before upload, so the online service stores only unreadable data. Device-local media bytes are not uploaded. Off by default. Export a recovery key below and keep it somewhere safe: without your devices or that exported file, the cloud copy cannot be opened.',
+	'settings.sync.helpNoCustody':
+		'Unavailable on this device: encrypted cloud backup needs an OS credential store to protect your key (available in the desktop and Android apps).',
+	'settings.sync.helpUnavailable': 'Secure cloud backup is not available on this device.',
+	'settings.sync.stateBusy': 'Backing up…',
+	'settings.sync.stateError': 'Backup error',
+	'settings.sync.stateUpToDate': 'Backup up to date',
+	'settings.sync.stateWaiting': 'Backup waiting to start',
+	'settings.sync.never': 'never',
+	'settings.sync.lastBackedUp': 'Last backed up: {when}',
+	'settings.sync.backUpNow': 'Back up now',
+	'settings.sync.backedUp': 'Backed up to the cloud.',
+	'settings.sync.turnedOn': 'Cloud backup enabled.',
+	'settings.sync.turnedOff': 'Cloud backup turned off.',
+	'settings.sync.noSnapshot': 'No cloud backup found for this account yet.',
+	'settings.sync.cloudFailed': 'Cloud backup failed.',
+	'settings.sync.restoreDevice': 'Restore this device',
+	'settings.sync.restoreTitle': 'Replace this device’s vault?',
+	'settings.sync.restoreDescription':
+		'Restore the latest encrypted cloud copy using this device’s existing key.',
+	'settings.sync.restoreBody':
+		'This overwrites the campaign data currently stored on this device. Export a local backup first if you may need to return to it. The cloud copy can only be opened with the key already held by this device. It does not contain media bytes; only matching media already stored on this device remains available.',
+	'settings.sync.replaceLocal': 'Replace local vault',
+	'settings.sync.restored': 'Restored from the cloud backup.',
+	'settings.sync.recentChanges': 'Recent changes',
+	'settings.sync.noChanges': 'No changes recorded yet.',
+	'settings.sync.changeTitle': '{entity} change',
+	'settings.sync.saved': 'Saved {when}',
+
+	/* Settings › Backup & history › Local backup */
+	'settings.backup.title': 'Local backup',
+	'settings.backup.heading': 'Back up or restore this device’s vault',
+	'settings.backup.body':
+		'One JSON file with campaign data and stored media bytes. It does not include app preferences, connected-folder permissions, account credentials, or AI provider keys. Restoring replaces the current vault on this device.',
+	'settings.backup.download': 'Download backup',
+	'settings.backup.restore': 'Restore from backup…',
+	'settings.backup.fileTitle': 'Save Lamplight vault backup',
+	'settings.backup.downloaded':
+		'Backup downloaded — {count, plural, one {# media asset} other {# media assets}} included.',
+	'settings.backup.exported':
+		'Backup exported — {count, plural, one {# media asset} other {# media assets}} included.',
+	'settings.backup.exportFailed': 'Could not build or export the backup.',
+	'settings.backup.invalidFile': 'That file is not a valid vault backup.',
+	'settings.backup.replaceTitle': 'Replace this vault?',
+	'settings.backup.replaceDescription':
+		'The backup replaces all campaign data and stored media in this vault.',
+	'settings.backup.replaceBody':
+		'Backup from {when} with {count, plural, one {# media asset} other {# media assets}}. The file is checked completely before campaign data and media are replaced together; a failed restore leaves this vault unchanged. Download a backup of the current vault first if you may need to return to it.',
+	'settings.backup.restoring': 'Restoring…',
+	'settings.backup.replaceReload': 'Replace vault & reload',
+	'settings.backup.restoreFailed':
+		'Restore did not finish. Reload the app before making more changes.',
+
+	/* Settings › Backup & history › Vault privacy (ADR-026) */
+	'settings.privacy.title': 'Vault privacy mode',
+	'settings.privacy.badgePrivate': 'Private (end-to-end encrypted)',
+	'settings.privacy.badgeCloud': 'Cloud-Enhanced',
+	'settings.privacy.rowPrivate': 'Private vault (end-to-end encrypted)',
+	'settings.privacy.rowCloud': 'Cloud-Enhanced vault',
+	'settings.privacy.youChose': 'You chose',
+	'settings.privacy.thisVaultUses': 'This vault uses',
+	'settings.privacy.helpPrivate':
+		'{chose} the Private model: everything is encrypted on your devices before it leaves them, and only your devices hold the keys. Server-powered features (campaign AI, cloud search, browser access without your key) stay unavailable to this vault.',
+	'settings.privacy.helpCloud':
+		'You consented to the Cloud-Enhanced model: encrypted in transit and at rest with service-managed keys, readable by the service to power upcoming features (campaign AI, cloud search, any-browser access). Until those features ship, your data still travels through the end-to-end-encrypted pipeline.',
+	'settings.privacy.switchToCloud': 'Switch to Cloud-Enhanced…',
+	'settings.privacy.switchToPrivate': 'Switch to Private…',
+	'settings.privacy.dialogPrivateTitle': 'Make this vault Private?',
+	'settings.privacy.dialogCloudTitle': 'Switch to Cloud-Enhanced?',
+	'settings.privacy.dialogPrivateDescription': 'Only your devices will hold the keys from here on.',
+	'settings.privacy.dialogCloudDescription':
+		'You are consenting to service-readable storage for this vault.',
+	'settings.privacy.bodyToPrivate':
+		'Content the service could read while this vault was Cloud-Enhanced may already have been read — switching back cannot undo that. Going forward, cloud copies can only be opened with keys on your devices; export a recovery key and keep it safe, because the service cannot recover a Private vault for you.',
+	'settings.privacy.bodyToCloud':
+		'When Cloud-Enhanced features ship, the service will be able to read this vault’s content to power them — that is the point of the mode, and it is a real widening of trust. Switching modes later re-uploads your vault under the new model. Nothing is server-readable until those features arrive and you are notified.',
+	'settings.privacy.phrasePrivate': 'i hold the keys',
+	'settings.privacy.phraseCloud': 'read my vault',
+	'settings.privacy.ackPrompt': 'Type {phrase} to confirm.',
+	'settings.privacy.ackFieldLabel': 'Type "{phrase}" to confirm',
+	'settings.privacy.makePrivate': 'Make it Private',
+	'settings.privacy.recordConsent': 'Record my consent',
+	'settings.privacy.nowPrivate':
+		'This vault is now Private — end-to-end encrypted with your keys only.',
+	'settings.privacy.consentRecorded':
+		'Consent recorded — this vault will use Cloud-Enhanced features when they arrive.',
+
+	/* Settings › Backup & history › Recovery key */
+	'settings.recovery.title': 'Recovery key',
+	'settings.recovery.custody': 'Backup key custody',
+	'settings.recovery.helpSignedOut':
+		'Sign in to export or import the recovery key for your account’s encrypted cloud backups.',
+	'settings.recovery.help':
+		'The recovery key is your vault’s encryption keyring sealed under a passphrase you choose. Export it once and keep it safe: it is the only way to open your encrypted cloud backup if every signed-in device is lost. Import it on a new device to restore access.',
+	'settings.recovery.helpNoCustody':
+		'Recovery keys need the operating-system credential store (desktop and Android apps). This device cannot durably hold a vault key.',
+	'settings.recovery.export': 'Export…',
+	'settings.recovery.import': 'Import…',
+	'settings.recovery.exportTitle': 'Export recovery key',
+	'settings.recovery.importTitle': 'Import recovery key',
+	'settings.recovery.exportDescription':
+		'Seal your vault keyring under a passphrase and save the file.',
+	'settings.recovery.importDescription':
+		'Unlock a recovery file and install its keys on this device.',
+	'settings.recovery.exportBody':
+		'The file alone is useless without the passphrase — but the pair is equivalent to your vault key, so store them separately. Use at least {min} characters; a stronger passphrase is the whole defense against someone who steals the file.',
+	'settings.recovery.importBody':
+		'Enter the passphrase you chose when this recovery file was exported, then pick the file.',
+	'settings.recovery.passphrase': 'Recovery passphrase',
+	'settings.recovery.repeat': 'Repeat passphrase',
+	'settings.recovery.repeatLabel': 'Repeat recovery passphrase',
+	'settings.recovery.tooShort': 'Use at least {min} characters — {remaining} to go.',
+	'settings.recovery.mismatch': 'The two passphrases don’t match.',
+	'settings.recovery.needPassphrase': 'Enter a passphrase of at least {min} characters, twice.',
+	'settings.recovery.exportFile': 'Export file',
+	'settings.recovery.chooseFile': 'Choose file & import',
+	'settings.recovery.fileTitle': 'Lamplight recovery key',
+	'settings.recovery.downloaded':
+		'Recovery key downloaded — store the file and its passphrase separately and safely.',
+	'settings.recovery.exported':
+		'Recovery key exported — store the file and its passphrase separately and safely.',
+	'settings.recovery.exportFailed': 'Recovery-key export failed.',
+	'settings.recovery.imported':
+		'Recovery key imported — this device can now open your encrypted cloud backups.',
+	'settings.recovery.importFailed': 'Recovery-key import failed.',
+
+	/* Settings › Permissions */
+	'settings.permissions.roles': 'Roles',
+	'settings.permissions.role.dm': 'Dungeon Master',
+	'settings.permissions.role.dmDesc':
+		'Full authority — authors content, grants, and the live session.',
+	'settings.permissions.role.coDm': 'Co-DM',
+	'settings.permissions.role.coDmDesc':
+		'Sees DM-only content and runs the table, but never manages roles, grants, invites, or the vault.',
+	'settings.permissions.role.player': 'Player',
+	'settings.permissions.role.playerDesc': 'Owns their character; sees only what the DM shares.',
+	'settings.permissions.role.observer': 'Observer',
+	'settings.permissions.role.observerDesc': 'Read-only; never holds character data.',
+	'settings.permissions.grantTitle': 'Grant scene access',
+	'settings.permissions.grantIntro':
+		'Choose what a player can do in a specific scene. Their role still sets the maximum access they can receive, and only the DM can change these grants.',
+	'settings.permissions.needPlayer': 'Add a player before granting scene access.',
+	'settings.permissions.needScene': 'Create a scene before granting access.',
+	'settings.permissions.player': 'Player',
+	'settings.permissions.scene': 'Scene',
+	'settings.permissions.capabilitySet': 'Capability set',
+	'settings.permissions.grant': 'Grant',
+	'settings.permissions.activeGrants': 'Active grants',
+	'settings.permissions.colAccess': 'Access',
+	'settings.permissions.colType': 'Type',
+	'settings.permissions.colEntity': 'Entity',
+	'settings.permissions.colGrantedTo': 'Granted to',
+	'settings.permissions.colExpires': 'Expires',
+	'settings.permissions.revoke': 'Revoke',
+	'settings.permissions.noGrants':
+		'No active grants. Use the form above to grant a player scene access.',
+	'settings.permissions.thePlayer': 'the player',
+	'settings.permissions.granted': 'Access granted to {name}.',
+	'settings.permissions.revoked': 'Access revoked for {name}.',
+	'settings.permissions.regranted': 'Access re-granted to {name}.',
+	'settings.permissions.grantFailed': 'Could not grant that access.',
+	'settings.permissions.revokeFailed': 'Could not revoke that grant.',
 } as const;
 
 /** Every string the app can render, addressed by key. */

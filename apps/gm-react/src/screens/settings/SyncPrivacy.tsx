@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { MIN_RECOVERY_PASSPHRASE_CHARS, type VaultPrivacyMode } from '@dndtools/core';
 import { Badge, Button, Dialog, Input, Toaster } from '../../ds';
 import { Panel, SetRow, T } from '../../app/screen-kit';
+import { useI18n } from '../../i18n';
 import { recoveryPassphraseIssue, recoveryPassphraseOk } from '../settings-validation';
 import { useCloudSync } from '../../cloud/CloudSyncContext';
 import { useAuth } from '../../cloud/AuthContext';
@@ -15,19 +16,21 @@ import { CLOUD_VAULT_ID } from '../../cloud/syncEngine';
 import { downloadJsonFile, fileDateStamp } from '../../platform/download';
 import { pickTextFile } from '../../platform/filePick';
 /* ---- Vault privacy + recovery key (ADR-026 — the consented switch and the sealed key export) ----- */
-/** ADR-026 — the typed phrases confirming a vault-privacy-mode switch (AccountDangerPanel pattern). */
-const TO_PRIVATE_PHRASE = 'i hold the keys';
-const TO_CLOUD_PHRASE = 'read my vault';
-
 /** ADR-026 — shows the recorded per-vault privacy mode and hosts the consented switch dialog. */
 export function VaultPrivacyPanel() {
+	const { t } = useI18n();
 	const [mode, setMode] = useState<VaultPrivacyMode>(() => vaultPrivacyMode());
 	const [explicit, setExplicit] = useState(() => storedVaultPrivacyMode() !== null);
 	const [switchOpen, setSwitchOpen] = useState(false);
 	const [phrase, setPhrase] = useState('');
 	const isPrivate = mode === 'private-e2ee';
 	const target: VaultPrivacyMode = isPrivate ? 'cloud-enhanced' : 'private-e2ee';
-	const targetPhrase = target === 'private-e2ee' ? TO_PRIVATE_PHRASE : TO_CLOUD_PHRASE;
+	// ADR-026 — the typed phrases confirming the switch are copy, not magic tokens (the
+	// AccountDangerPanel pattern): a reader confirms in the language the dialog is written in, and
+	// the comparison reads the same catalog entry.
+	const targetPhrase = t(
+		target === 'private-e2ee' ? 'settings.privacy.phrasePrivate' : 'settings.privacy.phraseCloud',
+	);
 	const phraseOk = phrase.trim().toLowerCase() === targetPhrase;
 
 	const applySwitch = () => {
@@ -37,31 +40,39 @@ export function VaultPrivacyPanel() {
 		setSwitchOpen(false);
 		setPhrase('');
 		Toaster.success(
-			target === 'private-e2ee'
-				? 'This vault is now Private — end-to-end encrypted with your keys only.'
-				: 'Consent recorded — this vault will use Cloud-Enhanced features when they arrive.',
+			t(
+				target === 'private-e2ee'
+					? 'settings.privacy.nowPrivate'
+					: 'settings.privacy.consentRecorded',
+			),
 		);
 	};
 
+	// The phrase is emphasised mid-sentence, so format the whole prompt and split it around that
+	// value rather than freezing English word order into two fragments.
+	const ackPrompt = t('settings.privacy.ackPrompt', { phrase: targetPhrase });
+	const [ackBefore, ackAfter = ''] = ackPrompt.split(targetPhrase);
 	return (
 		<Panel
-			title="Vault privacy mode"
+			title={t('settings.privacy.title')}
 			action={
 				<Badge status={isPrivate ? 'success' : 'info'}>
-					{isPrivate ? 'Private (end-to-end encrypted)' : 'Cloud-Enhanced'}
+					{t(isPrivate ? 'settings.privacy.badgePrivate' : 'settings.privacy.badgeCloud')}
 				</Badge>
 			}
 		>
 			<SetRow
-				label={isPrivate ? 'Private vault (end-to-end encrypted)' : 'Cloud-Enhanced vault'}
+				label={t(isPrivate ? 'settings.privacy.rowPrivate' : 'settings.privacy.rowCloud')}
 				help={
 					isPrivate
-						? `${explicit ? 'You chose' : 'This vault uses'} the Private model: everything is encrypted on your devices before it leaves them, and only your devices hold the keys. Server-powered features (campaign AI, cloud search, browser access without your key) stay unavailable to this vault.`
-						: 'You consented to the Cloud-Enhanced model: encrypted in transit and at rest with service-managed keys, readable by the service to power upcoming features (campaign AI, cloud search, any-browser access). Until those features ship, your data still travels through the end-to-end-encrypted pipeline.'
+						? t('settings.privacy.helpPrivate', {
+								chose: t(explicit ? 'settings.privacy.youChose' : 'settings.privacy.thisVaultUses'),
+							})
+						: t('settings.privacy.helpCloud')
 				}
 				control={
 					<Button variant="secondary" size="sm" onClick={() => setSwitchOpen(true)}>
-						{isPrivate ? 'Switch to Cloud-Enhanced…' : 'Switch to Private…'}
+						{t(isPrivate ? 'settings.privacy.switchToCloud' : 'settings.privacy.switchToPrivate')}
 					</Button>
 				}
 			/>
@@ -71,12 +82,16 @@ export function VaultPrivacyPanel() {
 					setSwitchOpen(false);
 					setPhrase('');
 				}}
-				title={target === 'private-e2ee' ? 'Make this vault Private?' : 'Switch to Cloud-Enhanced?'}
-				description={
+				title={t(
 					target === 'private-e2ee'
-						? 'Only your devices will hold the keys from here on.'
-						: 'You are consenting to service-readable storage for this vault.'
-				}
+						? 'settings.privacy.dialogPrivateTitle'
+						: 'settings.privacy.dialogCloudTitle',
+				)}
+				description={t(
+					target === 'private-e2ee'
+						? 'settings.privacy.dialogPrivateDescription'
+						: 'settings.privacy.dialogCloudDescription',
+				)}
 				tone="danger"
 				size="sm"
 				role="alertdialog"
@@ -92,37 +107,33 @@ export function VaultPrivacyPanel() {
 								setPhrase('');
 							}}
 						>
-							Cancel
+							{t('common.action.cancel')}
 						</Button>
 						<Button variant="danger" size="sm" disabled={!phraseOk} onClick={applySwitch}>
-							{target === 'private-e2ee' ? 'Make it Private' : 'Record my consent'}
+							{t(
+								target === 'private-e2ee'
+									? 'settings.privacy.makePrivate'
+									: 'settings.privacy.recordConsent',
+							)}
 						</Button>
 					</>
 				}
 			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 10 }}>
-					{target === 'private-e2ee' ? (
-						<>
-							Content the service could read while this vault was Cloud-Enhanced may already have
-							been read — switching back cannot undo that. Going forward, cloud copies can only be
-							opened with keys on your devices; export a recovery key and keep it safe, because the
-							service cannot recover a Private vault for you.
-						</>
-					) : (
-						<>
-							When Cloud-Enhanced features ship, the service will be able to read this vault’s
-							content to power them — that is the point of the mode, and it is a real widening of
-							trust. Switching modes later re-uploads your vault under the new model. Nothing is
-							server-readable until those features arrive and you are notified.
-						</>
+					{t(
+						target === 'private-e2ee'
+							? 'settings.privacy.bodyToPrivate'
+							: 'settings.privacy.bodyToCloud',
 					)}{' '}
-					Type <strong style={{ color: T.ink }}>{targetPhrase}</strong> to confirm.
+					{ackBefore}
+					<strong style={{ color: T.ink }}>{targetPhrase}</strong>
+					{ackAfter}
 				</div>
 				<Input
 					value={phrase}
 					onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhrase(e.target.value)}
 					placeholder={targetPhrase}
-					aria-label={`Type "${targetPhrase}" to confirm`}
+					aria-label={t('settings.privacy.ackFieldLabel', { phrase: targetPhrase })}
 					maxLength={targetPhrase.length}
 					style={{ width: '100%' }}
 				/>
@@ -133,6 +144,7 @@ export function VaultPrivacyPanel() {
 
 /** ADR-026 P0 #3 — passphrase-sealed recovery-key export/import for the E2EE backup keyring. */
 export function RecoveryKeyPanel() {
+	const { t } = useI18n();
 	const auth = useAuth();
 	const cloud = useCloudSync();
 	const accountId = auth.status === 'signed-in' && auth.user?.sub ? auth.user.sub : null;
@@ -147,6 +159,7 @@ export function RecoveryKeyPanel() {
 	// Export button. A mismatch is invisible by construction (both fields are `type="password"`),
 	// so nothing on screen told you which of the two you had mistyped.
 	const passIssue = recoveryPassphraseIssue(pass, passConfirm);
+	const passIssueText = passIssue ? t(passIssue.key, passIssue.values) : null;
 
 	const closeDialogs = () => {
 		setExportOpen(false);
@@ -163,14 +176,18 @@ export function RecoveryKeyPanel() {
 			const result = await downloadJsonFile(
 				`dndtools-recovery-key-${fileDateStamp()}.json`,
 				JSON.parse(text) as unknown,
-				'Lamplight recovery key',
+				t('settings.recovery.fileTitle'),
 			);
 			closeDialogs();
 			Toaster.success(
-				`Recovery key ${result.method === 'download' ? 'downloaded' : 'exported'} — store the file and its passphrase separately and safely.`,
+				t(
+					result.method === 'download'
+						? 'settings.recovery.downloaded'
+						: 'settings.recovery.exported',
+				),
 			);
 		} catch (e) {
-			Toaster.error(e instanceof Error ? e.message : 'Recovery-key export failed.');
+			Toaster.error(e instanceof Error ? e.message : t('settings.recovery.exportFailed'));
 		} finally {
 			setBusy(false);
 		}
@@ -185,27 +202,25 @@ export function RecoveryKeyPanel() {
 			await vaultKeyManager.importRecoveryFile(accountId, CLOUD_VAULT_ID, picked.text, pass);
 			closeDialogs();
 			await cloud.refresh().catch(() => undefined);
-			Toaster.success(
-				'Recovery key imported — this device can now open your encrypted cloud backups.',
-			);
+			Toaster.success(t('settings.recovery.imported'));
 		} catch (e) {
-			Toaster.error(e instanceof Error ? e.message : 'Recovery-key import failed.');
+			Toaster.error(e instanceof Error ? e.message : t('settings.recovery.importFailed'));
 		} finally {
 			setBusy(false);
 		}
 	};
 
 	return (
-		<Panel title="Recovery key">
+		<Panel title={t('settings.recovery.title')}>
 			<SetRow
-				label="Backup key custody"
-				help={
+				label={t('settings.recovery.custody')}
+				help={t(
 					!accountId
-						? 'Sign in to export or import the recovery key for your account’s encrypted cloud backups.'
+						? 'settings.recovery.helpSignedOut'
 						: custodyAvailable
-							? 'The recovery key is your vault’s encryption keyring sealed under a passphrase you choose. Export it once and keep it safe: it is the only way to open your encrypted cloud backup if every signed-in device is lost. Import it on a new device to restore access.'
-							: 'Recovery keys need the operating-system credential store (desktop and Android apps). This device cannot durably hold a vault key.'
-				}
+							? 'settings.recovery.help'
+							: 'settings.recovery.helpNoCustody',
+				)}
 				control={
 					<span style={{ display: 'inline-flex', gap: 8 }}>
 						<Button
@@ -215,7 +230,7 @@ export function RecoveryKeyPanel() {
 							disabled={!accountId || !custodyAvailable || busy}
 							onClick={() => setExportOpen(true)}
 						>
-							Export…
+							{t('settings.recovery.export')}
 						</Button>
 						<Button
 							variant="ghost"
@@ -224,7 +239,7 @@ export function RecoveryKeyPanel() {
 							disabled={!accountId || !custodyAvailable || busy}
 							onClick={() => setImportOpen(true)}
 						>
-							Import…
+							{t('settings.recovery.import')}
 						</Button>
 					</span>
 				}
@@ -232,19 +247,19 @@ export function RecoveryKeyPanel() {
 			<Dialog
 				open={exportOpen || importOpen}
 				onClose={closeDialogs}
-				title={exportOpen ? 'Export recovery key' : 'Import recovery key'}
-				description={
+				title={t(exportOpen ? 'settings.recovery.exportTitle' : 'settings.recovery.importTitle')}
+				description={t(
 					exportOpen
-						? 'Seal your vault keyring under a passphrase and save the file.'
-						: 'Unlock a recovery file and install its keys on this device.'
-				}
+						? 'settings.recovery.exportDescription'
+						: 'settings.recovery.importDescription',
+				)}
 				size="sm"
 				dismissible={!busy}
 				aria-busy={busy}
 				footer={
 					<>
 						<Button variant="secondary" size="sm" disabled={busy} onClick={closeDialogs}>
-							Cancel
+							{t('common.action.cancel')}
 						</Button>
 						{exportOpen ? (
 							<Button
@@ -255,12 +270,14 @@ export function RecoveryKeyPanel() {
 								title={
 									passOk
 										? undefined
-										: (passIssue ??
-											`Enter a passphrase of at least ${MIN_RECOVERY_PASSPHRASE_CHARS} characters, twice.`)
+										: (passIssueText ??
+											t('settings.recovery.needPassphrase', {
+												min: MIN_RECOVERY_PASSPHRASE_CHARS,
+											}))
 								}
 								onClick={() => void doExport()}
 							>
-								Export file
+								{t('settings.recovery.exportFile')}
 							</Button>
 						) : (
 							<Button
@@ -269,7 +286,7 @@ export function RecoveryKeyPanel() {
 								disabled={busy || pass.length === 0}
 								onClick={() => void doImport()}
 							>
-								Choose file & import
+								{t('settings.recovery.chooseFile')}
 							</Button>
 						)}
 					</>
@@ -278,15 +295,15 @@ export function RecoveryKeyPanel() {
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
 						{exportOpen
-							? `The file alone is useless without the passphrase — but the pair is equivalent to your vault key, so store them separately. Use at least ${MIN_RECOVERY_PASSPHRASE_CHARS} characters; a stronger passphrase is the whole defense against someone who steals the file.`
-							: 'Enter the passphrase you chose when this recovery file was exported, then pick the file.'}
+							? t('settings.recovery.exportBody', { min: MIN_RECOVERY_PASSPHRASE_CHARS })
+							: t('settings.recovery.importBody')}
 					</div>
 					<Input
 						type="password"
 						value={pass}
 						onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPass(e.target.value)}
-						placeholder="Recovery passphrase"
-						aria-label="Recovery passphrase"
+						placeholder={t('settings.recovery.passphrase')}
+						aria-label={t('settings.recovery.passphrase')}
 						style={{ width: '100%' }}
 					/>
 					{exportOpen && (
@@ -295,17 +312,17 @@ export function RecoveryKeyPanel() {
 							value={passConfirm}
 							invalid={passConfirm.length > 0 && pass !== passConfirm}
 							onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassConfirm(e.target.value)}
-							placeholder="Repeat passphrase"
-							aria-label="Repeat recovery passphrase"
+							placeholder={t('settings.recovery.repeat')}
+							aria-label={t('settings.recovery.repeatLabel')}
 							style={{ width: '100%' }}
 						/>
 					)}
-					{exportOpen && passIssue && (
+					{exportOpen && passIssueText && (
 						<div
 							role="alert"
 							style={{ font: `12px/1.5 ${T.sans}`, color: 'var(--color-status-error)' }}
 						>
-							{passIssue}
+							{passIssueText}
 						</div>
 					)}
 				</div>
