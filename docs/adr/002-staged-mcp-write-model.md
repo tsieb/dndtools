@@ -5,6 +5,10 @@
 - Deciders: Engineering
 - Consulted: Product, Security
 - Supersedes: N/A
+- Amended by: ADR-031 (2026-09-04) — the staged-write model is extended to a **widget package
+  draft** (`widget.package.propose`), an artifact that can carry executable code. Approving such a
+  proposal means "create this package", not "trust it": it installs unreviewed with every host
+  permission denied, and capabilities are granted only by a separate DM `widget.package.review`.
 
 ## Context
 

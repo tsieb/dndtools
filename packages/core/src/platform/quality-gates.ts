@@ -253,7 +253,13 @@ export type GateProblemKind =
 	// runner (a non-DM delivery surface started relying on GUI hiding; an external dependency became
 	// required for a core workflow; or a derived/remote/cache/widget store became the sole source of
 	// truth for core vault content).
-	| 'security-source-of-truth-violation';
+	| 'security-source-of-truth-violation'
+	// RC-STB-2.7 file-size gate: a component file crossed the 800-line hard limit without a
+	// recorded grandfather exception, or a grandfathered file grew past its recorded baseline.
+	| 'file-size-exceeded'
+	// RC-STB-2.7 file-size gate: an exception entry names a file that no longer exceeds the hard
+	// limit — the entry is dead weight and should be deleted so the list only ever shrinks.
+	| 'stale-file-size-exception';
 
 export interface GateProblem {
 	readonly gateId: string;
@@ -392,4 +398,150 @@ export function checkBudgets(
 		}
 	}
 	return problems;
+}
+
+/**
+ * RC-STB-2.7: the file-size gate. STB-2 decomposed the ten mega-files that made
+ * `apps/gm-react/src` unnavigable; this keeps it decomposed by failing when any `.tsx` file
+ * crosses a hard line-count ceiling, and warning (non-blocking) at a lower target so growth gets
+ * caught before it becomes a mega-file again.
+ */
+export const FILE_SIZE_HARD_LIMIT = 800;
+export const FILE_SIZE_WARN_TARGET = 500;
+
+/** One file's measured line count, repo-relative path with forward slashes. */
+export interface FileLineCount {
+	readonly path: string;
+	readonly lines: number;
+}
+
+/**
+ * A grandfathered pre-existing violation of {@link FILE_SIZE_HARD_LIMIT}, recorded at the line
+ * count it had when the gate was introduced (RC-STB-2.7). None of these were in STB-2's scope
+ * (`Owns`), so turning the gate on must not block unrelated changes — but the baseline is a
+ * ceiling, not a pass: growing past it still fails. New entries must never be added here; split
+ * the file instead. Sorted by baseline, largest first.
+ */
+export interface FileSizeException {
+	readonly path: string;
+	readonly baselineLines: number;
+	readonly reason: string;
+}
+
+export const FILE_SIZE_EXCEPTIONS: readonly FileSizeException[] = [
+	{
+		path: 'apps/gm-react/src/ds/components/ds-interaction-fixes.test.tsx',
+		baselineLines: 1766,
+		reason: 'Pre-existing test file, outside RC-STB-2 scope; not a screen/component split target.',
+	},
+	{
+		path: 'apps/gm-react/src/app/map/MapEditor.tsx',
+		baselineLines: 1140,
+		reason: 'Pre-existing, outside RC-STB-2 scope (map editor was not one of its ten files).',
+	},
+	{
+		path: 'apps/gm-react/src/app/map/canvas/EditorCanvas.tsx',
+		baselineLines: 1079,
+		reason: 'Pre-existing, outside RC-STB-2 scope.',
+	},
+	{
+		path: 'apps/gm-react/src/screens/Campaign.tsx',
+		baselineLines: 988,
+		reason: 'Pre-existing, outside RC-STB-2 scope.',
+	},
+	{
+		path: 'apps/gm-react/src/net/SessionPanel.tsx',
+		baselineLines: 953,
+		reason: 'Pre-existing, outside RC-STB-2 scope.',
+	},
+	{
+		path: 'apps/gm-react/src/app/ConnectedSources.tsx',
+		baselineLines: 885,
+		reason: 'Pre-existing, outside RC-STB-2 scope.',
+	},
+	{
+		path: 'apps/gm-react/src/screens/SceneCardsPanel.tsx',
+		baselineLines: 874,
+		reason: 'Pre-existing, outside RC-STB-2 scope.',
+	},
+	{
+		path: 'apps/gm-react/src/app/SceneBoardCanvas.tsx',
+		baselineLines: 863,
+		reason: 'Pre-existing, outside RC-STB-2 scope.',
+	},
+	{
+		path: 'apps/gm-react/src/app/map/dock/InspectorPanel.tsx',
+		baselineLines: 807,
+		reason: 'Pre-existing, outside RC-STB-2 scope.',
+	},
+];
+
+const FILE_SIZE_EXCEPTION_BY_PATH: ReadonlyMap<string, FileSizeException> = new Map(
+	FILE_SIZE_EXCEPTIONS.map((entry) => [entry.path, entry]),
+);
+
+/**
+ * RC-STB-2.7 hard gate: fail when a `.tsx` file exceeds {@link FILE_SIZE_HARD_LIMIT} and either
+ * has no recorded exception, or has grown past its exception's recorded baseline. Also fails
+ * closed when an exception entry has gone stale (its file no longer exceeds the limit), so the
+ * grandfather list can only shrink over time, never rot.
+ */
+export function auditFileSizes(
+	files: readonly FileLineCount[],
+	exceptions: ReadonlyMap<string, FileSizeException> = FILE_SIZE_EXCEPTION_BY_PATH,
+): GateProblem[] {
+	const problems: GateProblem[] = [];
+	const seenPaths = new Set<string>();
+
+	for (const file of files) {
+		seenPaths.add(file.path);
+		if (file.lines <= FILE_SIZE_HARD_LIMIT) continue;
+		const exception = exceptions.get(file.path);
+		if (exception === undefined) {
+			problems.push({
+				gateId: `file-size:${file.path}`,
+				kind: 'file-size-exceeded',
+				message: `"${file.path}" is ${file.lines} lines, over the ${FILE_SIZE_HARD_LIMIT}-line hard limit (RC-STB-2.7). Split it by responsibility, or record a grandfather exception if it predates this gate.`,
+			});
+		} else if (file.lines > exception.baselineLines) {
+			problems.push({
+				gateId: `file-size:${file.path}`,
+				kind: 'file-size-exceeded',
+				message: `"${file.path}" grew to ${file.lines} lines, past its grandfathered baseline of ${exception.baselineLines} (RC-STB-2.7). Grandfathering caps growth; it does not permit more.`,
+			});
+		}
+	}
+
+	for (const exception of exceptions.values()) {
+		if (seenPaths.has(exception.path)) continue;
+		problems.push({
+			gateId: `file-size:${exception.path}`,
+			kind: 'stale-file-size-exception',
+			message: `File-size exception "${exception.path}" no longer exists; remove it from FILE_SIZE_EXCEPTIONS.`,
+		});
+	}
+
+	return problems;
+}
+
+/** One non-blocking warn-target notice: a file between the warn target and the hard limit. */
+export interface FileSizeWarning {
+	readonly path: string;
+	readonly lines: number;
+	readonly message: string;
+}
+
+/**
+ * RC-STB-2.7 soft target: files between {@link FILE_SIZE_WARN_TARGET} and
+ * {@link FILE_SIZE_HARD_LIMIT} are reported but never fail the gate — an early signal before a
+ * file becomes a hard-limit split.
+ */
+export function fileSizeWarnings(files: readonly FileLineCount[]): FileSizeWarning[] {
+	return files
+		.filter((file) => file.lines > FILE_SIZE_WARN_TARGET && file.lines <= FILE_SIZE_HARD_LIMIT)
+		.map((file) => ({
+			path: file.path,
+			lines: file.lines,
+			message: `"${file.path}" is ${file.lines} lines, over the ${FILE_SIZE_WARN_TARGET}-line target (warn only, RC-STB-2.7).`,
+		}));
 }

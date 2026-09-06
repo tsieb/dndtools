@@ -15,7 +15,7 @@ grants, session control, command handlers, query read models).
 
 Meanwhile the shipping product advertises a **Co-DM seat** on paid plans
 (`apps/gm-react/src/cloud/entitlements.ts`: "Up to 6 players + 1 co-DM" / "Up to 12 players +
-3 co-DMs"), and `PlayerView.tsx` rendered a whole "Co-DM" tier of tools as *shown-locked* with the
+3 co-DMs"), and `PlayerView.tsx` rendered a whole "Co-DM" tier of tools as _shown-locked_ with the
 honest note that "the core has no role above player yet." Initiative I7 deferred the role; the
 release bar is now "every advertised feature functional." A trusted-elevated seat therefore had to
 become a real core role, not a marketing string.
@@ -23,7 +23,7 @@ become a real core role, not a marketing string.
 The design tension: a Co-DM must see and author DM-grade content (run the table), but must **not**
 inherit the campaign-owner's administrative powers (assigning roles, granting/revoking permissions,
 transferring ownership, minting invites, vault/account/sync settings, deleting the campaign). A flat
-"DM" concept cannot express that; the model needs to distinguish *authority* from *ownership*.
+"DM" concept cannot express that; the model needs to distinguish _authority_ from _ownership_.
 
 ## Decision
 
@@ -43,7 +43,7 @@ Introduce a fourth base role, **`co-dm`**, ranked between `dm` and `player`, and
 Both predicates fail closed on unknown input.
 
 Add the **first actor-role-mutation command**, `permission.assign-role`
-(`packages/core/src/commands/assign-role.ts`), because roles were previously only *seeded*, never
+(`packages/core/src/commands/assign-role.ts`), because roles were previously only _seeded_, never
 commanded. It is owner-only, refuses to touch the owner's own row or to assign `dm` (ownership moves
 only through the separate `transfer-ownership` command), and enforces the **Co-DM seat entitlement**:
 when promoting to `co-dm` it fails closed unless `countCoDmActors(state) < coDmSeatLimit`, where the
@@ -79,7 +79,7 @@ Co-DM-tagged invites, all seat-gated.
   latent authority bug. The distinction is documented at both function sites.
 - The Co-DM seat limit is a plan concept that core cannot know, so the limit is passed into the
   command payload (`coDmSeatLimit`). This couples the command's shape to a client-supplied entitlement
-  number; a client that lies can only *lower* its own ceiling (fail-closed), never raise it, but the
+  number; a client that lies can only _lower_ its own ceiling (fail-closed), never raise it, but the
   value is not independently verifiable server-side in the local-first path.
 - `permission.assign-role` mutates `permissions.actors` (full-state persisted) rather than being
   rebuilt from the op log; the appended op is a replication/audit signal, not the source of truth for
@@ -89,9 +89,9 @@ Co-DM-tagged invites, all seat-gated.
 ## Rejected Alternatives
 
 | Alternative                                                                 | Why Rejected                                                                                                                                                                                                             |
-| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Model Co-DM as a bundle of per-entity capability grants on a `player` actor | The existing grant machinery is additive per-entity; a campaign-wide "see and author everything except administration" is a role-level concept, not an entity grant. Faking it with grants would be unbounded and leaky. |
-| Give Co-DM full DM powers (single `hasDmAuthority`, no owner split)          | Violates the core requirement: a Co-DM must not grant roles/permissions, mint invites, or delete the campaign. Collapsing the two predicates would hand a trusted helper the keys to the account.                        |
+| Give Co-DM full DM powers (single `hasDmAuthority`, no owner split)         | Violates the core requirement: a Co-DM must not grant roles/permissions, mint invites, or delete the campaign. Collapsing the two predicates would hand a trusted helper the keys to the account.                        |
 | Enforce the seat limit only in the app UI                                   | Seat entitlement is a security/fairness boundary; UI-only gating is bypassable and untestable in core. The pure reducer enforces it so it is replayable and covered by unit tests.                                       |
 | A dedicated `permission.set-role` per-role command set                      | One parameterized `assign-role` with an allowlisted role enum is simpler, mirrors the existing single-command grant surface, and keeps ownership transfer on its own atomic command.                                     |
 
@@ -137,7 +137,9 @@ Co-DM-tagged invites, all seat-gated.
 - **Preview-as:** `packages/core/src/queries/preview-mode.ts` (`PreviewRole` incl. `co-dm`,
   `PREVIEW_CODM_ACTOR_ID`), `apps/gm-react/src/app/ViewAsControl.tsx`.
 - **Elevated view-model + PlayerView:** `apps/gm-react/src/net/viewModels.ts` (`ElevatedData`,
-  role preservation), `apps/gm-react/src/screens/PlayerView.tsx` (tier map + Atlas/Bestiary/Assist).
+  role preservation), `apps/gm-react/src/screens/play/shared.tsx` (tier map) +
+  `apps/gm-react/src/screens/play/Elevated.tsx` (Atlas/Bestiary/Assist) — RC-STB-2.2 split the
+  former `screens/PlayerView.tsx` into that folder.
 - **Seat entitlement:** `apps/gm-react/src/cloud/entitlements.ts` (`coDmSeatsForPlan`),
   Settings promote flow + invite role in `apps/gm-react/src/screens/Settings.tsx`.
 - **Tests:** `packages/core/tests/co-dm-role.test.ts` (19 cases),

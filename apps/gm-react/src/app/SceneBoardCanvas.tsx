@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../ds';
 import { isWidgetResizable, TIER_LABEL, visibilityChip, type BoardWidget } from './board-helpers';
-import { WidgetBody, type WidgetCommandHandler } from './widget-bodies';
+import { WidgetRenderSlot, type WidgetCommandHandler } from './widgets/WidgetRenderSlot';
 
 /**
  * SceneBoardCanvas — the ONE canvas engine the prototype's `scene-canvas.jsx` describes: the same
@@ -782,7 +782,7 @@ function WidgetFrame({
 					{w.typeLabel}
 				</div>
 				<div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-					<WidgetBody widget={w} onCommand={onCommand} />
+					<WidgetRenderSlot widget={w} onCommand={onCommand} />
 				</div>
 				{w.statusNote && (
 					<div

@@ -1,6 +1,13 @@
 # Initiative 13 — Information Architecture & Navigation System Overhaul
 
-## Status: COMPLETED
+## Status: SVELTE-ERA PLAN — React status tracked in RC_ROADMAP §16
+
+> **React evidence (2026-09-04):** This initiative's stories describe the retired Svelte
+> shell and are preserved as planning history, not a completion claim. The maintained
+> single source of navigation truth is `apps/gm-react/src/app/nav.ts`, rendered by
+> `apps/gm-react/src/app/shell/{Sidebar,TopBar,Footer,MoreSheet,RailNav}.tsx`. Known gaps
+> against this initiative's outcome (mobile primary-action collisions, tablet rail
+> layouts) are tracked as RC-UX-4.2/4.3 in `docs/planning/RC_ROADMAP.md` §16, not here.
 
 **Outcome:** Every user — from first-timer to veteran DM — can find what they need in
 under two seconds, understands where they are in the application at a glance, and never

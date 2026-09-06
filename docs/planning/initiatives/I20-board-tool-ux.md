@@ -1,6 +1,13 @@
 # Initiative 20 — Board Tool UX: Tile Interaction Design, Mobile Board & Map Integration
 
-## Status: COMPLETED
+## Status: SVELTE-ERA PLAN — React status tracked in RC_ROADMAP §7
+
+> **React evidence (2026-09-04):** This initiative's stories describe the retired Svelte app and
+> are preserved as planning history, not a completion claim. The maintained session board is
+> `apps/gm-react/src/screens/Board.tsx`, rendered via `apps/gm-react/src/app/SceneBoardCanvas.tsx`
+> and `app/board-helpers.ts`. Layout history/reversible destruction, tile identity depth, and the
+> mobile board layout remain open work, tracked as RC-CAN-1.x/2.x/5.x in
+> `docs/planning/RC_ROADMAP.md` §7.
 
 **Outcome:** The session board is a mission control surface that works equally well in
 prep mode at a desk and in active-session mode at the table. Individual tiles are

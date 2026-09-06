@@ -1,11 +1,11 @@
-# DND Tools — Design System
+# Lamplight — Design System
 
 A canvas-first **command platform for running tabletop RPG sessions live**, for the Game Master.
 The platform is **system-agnostic**: the rules of the game you're running come from a **System
 Package** (D&D 5e, a generic narrative ruleset, a community Pathfinder package, or one you build
 yourself), and the chrome renders whatever that package declares. D&D 5e ships as the default,
-reference package — but it is *one option*, not a baked-in assumption. The brand name stays
-"DND Tools" for now; the product underneath is any-system.
+reference package — but it is *one option*, not a baked-in assumption. The product is branded
+**Lamplight** (`lamplight.click`); the product underneath is any-system.
 
 The GM's home is a spatial **Command Center** — a board of live-play widgets (session status,
 combat, dice, maps, party vitals, audio, player-view controls), not a document list. Around it sit
@@ -114,8 +114,9 @@ explore them to build higher-fidelity work:
   `apps/gm-react/` for the full UX spec, the navigation registry, and component code. **Explore this
   repo to build better DND Tools designs.**
 
-Fonts (Inter, Cinzel, JetBrains Mono) are referenced by name in the app and loaded as webfonts; no
-binaries ship in the repo. See **Caveats**.
+Fonts (Inter, Cinzel, JetBrains Mono) are referenced by name and self-hosted in the app via the
+vendored `@fontsource/*` packages (`apps/gm-react/src/styles/tokens/fonts.css`) — no CDN request,
+so the desktop shell and offline web use render the real brand faces. See **Caveats**.
 
 ---
 

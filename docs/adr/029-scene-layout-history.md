@@ -1,0 +1,176 @@
+# ADR-029: Scene Layout History
+
+- Status: Accepted
+- Date: 2026-09-04
+- Deciders: Engineering
+- Consulted: Product, Design, QA
+- Supersedes: N/A
+- Amends: ADR-014 (Scene canvas layout was silent on undo/redo and on destructive-op recovery; this
+  ADR fills both gaps without changing ADR-014's processing/display boundary.)
+
+## Context
+
+The scene canvas (`apps/gm-react/src/screens/scenes` composing `widget.add` / `widget.move` /
+`widget.resize` / `widget.layer` / `widget.dock` / `widget.pin` / `widget.group-widgets` /
+`widget.move-group` / `widget.set-focus-order` / `widget.configure` / `widget.destroy-widget` —
+`packages/core/src/commands/widget.ts`) has no undo stack and no way to recover a destroyed widget.
+A DM who drags a widget off-canvas, fat-fingers a resize, or clicks "remove" on the wrong card has
+no path back except manually rebuilding it. `RC_ROADMAP.md` §1.1 already names this as a real gap
+("scene canvas has no undo/restore").
+
+`packages/core` solved the same problem for the map editor in ADR-024 §4: pure inverse builders
+(`buildMapInverse`) that the app keeps as a local, non-durable, app-side stack, dispatched back
+through the normal command path. That decision's reasoning — a co-DM must never undo another
+person's in-progress edit from across the table, and undo state must never enter the durable op log
+— applies to the scene canvas identically. Layout edits (move/resize/layer/dock/pin/group/focus)
+should reuse that exact model.
+
+Widget **destruction** is different in kind from a layout tweak. `widget.destroy-widget`
+(`handleDestroyWidget`, `packages/core/src/commands/widget.ts:581`) drops the `WidgetInstance` and
+its bindings entirely — there is nothing left in `stateBefore` for a later session, or a different
+device that wasn't open when it happened, to reconstruct from. A local undo stack does not help here
+because it lives only in the tab that issued the destroy and is gone on refresh; a DM who closes the
+confirm toast, or a co-DM syncing in five minutes later, has no recovery path at all. This needs a
+durable, synced answer, not a local one — but a durable answer that keeps every destroyed widget
+forever would grow the `scenes` slice without bound and contradicts the product's "destroy means
+destroy" intent for anything the DM doesn't undo promptly.
+
+## Decision
+
+Two mechanisms, matched to the two failure modes above.
+
+### 1. Local, non-durable undo/redo for layout edits (mirrors ADR-024 §4)
+
+`packages/core` exports a pure `buildWidgetInverse(command, stateBefore): UndoableWidgetCommand |
+null` in a new `packages/core/src/lifecycle/widget-undo.ts`, following the exact shape of
+`buildMapInverse` (`packages/core/src/lifecycle/map-undo.ts:132`): given an ACCEPTED command and the
+scene state it was dispatched against, it returns `{ command, label }` for the command that exactly
+undoes it, or `null` when the command is not undoable (an id-less create, or a command whose forward
+effect cannot be inverted without ambiguity).
+
+Covered commands: `widget.move`, `widget.resize`, `widget.layer`, `widget.dock`, `widget.pin`,
+`widget.set-focus-order`, `widget.configure`, `widget.group-widgets`, `widget.move-group`. Each
+inverse reads the widget's/group's prior layout fields out of `stateBefore` the same way
+`buildMapInverse` reads prior layer/POI/token fields, and returns the same command type with those
+prior values as payload (a `widget.move` inverts to a `widget.move` with the old `{x,y}`; a
+`widget.resize` inverts to a `widget.resize` with the old `{w,h}`; and so on). `widget.add` is
+**excluded** from this inverse builder — its undo is `scene.restore-widget` in reverse, i.e.
+requesting the same destroy the mechanism below already provides for a widget the DM decides to
+delete a moment after adding it, so the app's undo stack routes an `add` undo to the destroy command
+directly rather than duplicating a second removal path.
+
+The app (`apps/gm-react/src/screens/scenes`) keeps the undo/redo stack in a `useState`/`useRef` hook
+scoped to the canvas component, one stack per open scene tab, cleared on navigation away. Undo
+dispatches the inverse command through the normal `SceneRuntime.dispatch` path — it is an ordinary,
+authorized, durably-logged mutation, never a back-door state write — and pushes the original command
+onto the redo stack. The stack is never persisted (not to IndexedDB, not to the op log, not to
+cloud sync): a co-DM must never see "undo" reach across the table and revert your last drag, and a
+tab refresh legitimately clears it, matching every desktop editor's convention and ADR-024's
+established precedent. Keyboard: `Ctrl/Cmd+Z` undo, `Ctrl/Cmd+Shift+Z` (and `Ctrl+Y` on Windows)
+redo, both routed through the same dispatch as the toolbar buttons per guardrail 8 (WCAG 2.2 AA —
+identical command, keyboard-reachable).
+
+### 2. Durable, TTL'd tombstone for destroy (new: `scene.restore-widget`)
+
+`widget.destroy-widget` changes from a hard delete to a **soft delete**: the handler moves the
+`WidgetInstance` and its section membership into a new `scene.tombstones: WidgetTombstone[]` array
+on the `Scene` record instead of dropping it, stamping `destroyedAt` and `expiresAt = destroyedAt +
+7 days`. It is removed from `scene.widgets` and every `section.widgetInstanceIds` (so it renders and
+queries exactly as before — nothing reads live widgets differently) but its full state, including
+bindings, survives in the tombstone. The op log gets one new `opType`: `scene.destroy-widget` keeps
+recording the destroy as it does today (`packages/core/src/commands/widget.ts:625`); nothing about
+the forward-op shape changes, so replay and sync are unaffected.
+
+A new command, `scene.restore-widget { sceneId, widgetInstanceId }`, re-inserts the tombstoned
+widget back into `scene.widgets` and its original section(s) verbatim (same id, same layout, same
+bindings) and removes the tombstone entry. It durably logs as `scene.restore-widget` and is
+available to any actor with scene co-edit authority, exactly like destroy — restore is not
+history-scoped to the actor who destroyed it, because the whole point is that it survives past the
+destroying tab's local undo stack.
+
+**TTL, not forever.** A background sweep — `pruneExpiredTombstones`, called from the same lifecycle
+tick that already runs other durable maintenance (`packages/core/src/lifecycle/command-lifecycle.ts`)
+— drops tombstones whose `expiresAt` has passed. Seven days is chosen to comfortably outlive a
+single session's "wait, bring that back" moment and a DM's next session prep, without turning
+`scenes` into an unbounded audit log; it is a plain constant (`WIDGET_TOMBSTONE_TTL_DAYS = 7`) in
+`packages/core/src/state/scene-state.ts`, not user-configurable in this slice. The DM sees
+tombstoned widgets in a "Recently removed" list scoped to the scene (Scene inspector, not a new
+screen), each entry showing the widget's label and a relative "removed Nd ago" / "expires in Nd" —
+copy per guardrail 7, no engine jargon — with a **Restore** action per guardrail 8's keyboard
+parity.
+
+### Schema
+
+`Scene.schemaVersion` bumps from its current value to the next integer for the additive
+`tombstones: WidgetTombstone[]` field (defaults to `[]` on migration — existing scenes gain no
+tombstones, byte-identical otherwise) per guardrail 4 / `DATA_MODEL.md` §6. This is an additive
+field, not a reshape: the migration is a single default-fill, covered the same way ADR-024's
+additive `MapFeature.props` field was, except ADR-024 could stay at v1 because it added an optional
+field to an _existing_ array element; here a brand-new top-level array requires the version bump so
+older builds don't silently drop tombstones they don't know how to read.
+
+## Consequences
+
+### Positive
+
+- Closes the roadmap's named gap: the scene canvas gets real undo/redo and a real "I didn't mean
+  that" path for destroy, matching the map editor's already-shipped bar.
+- Reuses ADR-024's proven shape end to end (pure inverse builder, app-side stack, never durable,
+  never synced) — no new undo _architecture_, only a new inverse table for widget commands.
+- Destroy recovery is durable and synced (a co-DM or a second device can restore it too), which a
+  local undo stack could never provide, while the 7-day TTL keeps the durable slice bounded.
+- No behavior change for any code that only reads `scene.widgets` / `scene.sections` — a tombstoned
+  widget is invisible to every existing query, actor-scoped or not, without touching those queries.
+
+### Negative
+
+- A second removal-adjacent concept (local undo vs. durable tombstone) for engineers to keep
+  straight; mitigated by explicitly excluding `widget.add`/`destroy` from the local inverse table
+  above so there is exactly one path for each.
+- `Scene` records carry tombstone weight for up to 7 days after every destroy — bounded, but not
+  free; a DM who destroys dozens of widgets in one cleanup pass grows the record until the sweep
+  runs.
+- The sweep is lifecycle-tick-driven, not a hard deadline: a scene that stays untouched past
+  `expiresAt` keeps its tombstones until the next mutation touches it. Acceptable — it never
+  affects correctness, only how promptly storage is reclaimed.
+
+## Rejected Alternatives
+
+| Alternative                                                                  | Why Rejected                                                                                                                                                                                                    |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Route destroy through the same local, non-durable undo stack as layout edits | Loses the moment the tab closes or a second device is involved; the roadmap gap is explicitly about a destroy the DM can't get back, which a local-only stack cannot fix.                                       |
+| Durable undo/redo for layout edits too (sync the whole stack)                | Rejected for the identical reason ADR-024 §4 rejected it: a synced stack lets a co-DM "undo" someone else's in-progress drag, and pollutes the op log with reverted busywork instead of durable campaign state. |
+| Keep destroy permanent, add a confirm dialog only                            | Confirm dialogs are already standard UI hygiene and don't replace recovery from a genuine mis-click; doesn't close the named gap.                                                                               |
+| Tombstone with no TTL (keep forever, manual purge)                           | Turns `scenes` into an unbounded audit log the product never asked for and nobody prunes in practice; a bounded TTL gets the same recoverability with predictable storage.                                      |
+
+## Migration Impact
+
+- `Scene.schemaVersion` bump (see Schema above) with a migration test asserting: (a) a v(n-1) scene
+  loads with `tombstones: []`, (b) every other field is byte-identical, (c) round-trip
+  export/import preserves it.
+- New command family: `scene.restore-widget` (handler + zod input schema in
+  `packages/core/src/schemas/commands.ts`, appended per guardrail 10) and a new `WidgetTombstone`
+  type in `packages/core/src/state/scene-state.ts`.
+- `handleDestroyWidget` changes from delete to tombstone-and-hide; existing tests asserting the
+  widget is gone from `scene.widgets`/sections still pass unchanged (that part of the contract is
+  unchanged) and gain a new assertion that it is present in `scene.tombstones`.
+- New pure module `packages/core/src/lifecycle/widget-undo.ts` (`buildWidgetInverse`), unit-tested
+  per covered command the same way `map-undo.test.ts` covers `buildMapInverse`.
+- App-side: scene canvas gains an undo/redo stack hook and keyboard bindings, and the Scene
+  inspector gains a "Recently removed" list with a Restore action. Both are additive UI; no existing
+  screen contract changes.
+- `pruneExpiredTombstones` wired into the existing lifecycle maintenance tick
+  (`packages/core/src/lifecycle/command-lifecycle.ts`); unit-tested with a fake clock.
+
+## Rollback Plan
+
+- Trigger: the tombstone mechanism proves to desync devices (a restore racing a concurrent destroy)
+  or the TTL sweep misbehaves in a way that leaks widgets past their DM-visible expiry.
+- Technical rollback: revert `handleDestroyWidget` to the prior hard-delete behavior and stop
+  emitting `scene.restore-widget`; the schema field stays (additive fields are safe to leave unread)
+  but is no longer written. `buildWidgetInverse`/local undo for layout edits is independent and
+  needs no rollback — it never touches durable state.
+- Data recovery: any tombstone already written before rollback remains inert in the slice; no data
+  loss beyond "restore is no longer offered" for widgets destroyed after rollback.
+- Known rollback risk: a scene mid-TTL at rollback time keeps its existing tombstones until the next
+  edit touches it (same as the normal sweep timing) — cosmetic only, no correctness impact.

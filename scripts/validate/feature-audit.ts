@@ -1,21 +1,24 @@
-// Feature-gap drift audit (main-only, pragmatic).
+// Feature-inventory drift audit.
 //
-// `docs/requirements/FEATURE-GAPS.md` is a *layered, historical* ledger: its old
-// gap sections (§3–§7) were remediated by later dated update passes, so parsing
-// them naively would report already-fixed work as "missing". This tool instead:
+// `docs/requirements/FEATURE-GAPS.md` is a per-surface INVENTORY (RC-STB-3.3): one row per
+// reachable surface, and every "honest limit" in a row carries an evidence anchor
+// `` `path` › `string` `` — a literal string that must still exist in that file for the limit to
+// still be true. This tool:
 //
-//   1. Extracts the LATEST "Honest stubs remaining" list (the authoritative
-//      current known-incomplete surfaces — update passes are prepended newest-first).
-//   2. Probes live code for stub markers (TODO/placeholder/"not yet"/…) to catch
-//      stubs the ledger doesn't mention (drift the other way).
-//   3. Probes each React screen for a real core-dispatch wiring reference, flagging
-//      any screen with no wiring as "presentation-only — verify".
-//   4. Asserts ZERO imports of `runtime/mockCampaign` across apps/gm-react/src — the
-//      mock module is slated for deletion and any importer is a real regression.
+//   1. Parses the inventory tables (the rows between the `inventory:start`/`inventory:end`
+//      markers) and ASSERTS every anchor string is still present in its named file. A closed
+//      limit, a moved file, or a reworded in-app message fails the check instead of rotting in
+//      the ledger.
+//   2. Probes live code for stub markers (TODO/placeholder/"not yet"/…) to catch stubs the
+//      inventory doesn't mention (drift the other way).
+//   3. Probes each React screen for a real core-dispatch wiring reference, flagging any screen
+//      with no wiring as "presentation-only — verify".
+//   4. Asserts ZERO imports of `runtime/mockCampaign` across apps/gm-react/src — the mock module
+//      is deleted and any importer is a real regression.
 //
-// Output: a structured object (rendered into the HTML report) + a standalone
-// markdown/JSON pair under the log dir. Informational (warn at worst), EXCEPT the
-// mockCampaign probe: a surviving importer fails the check outright.
+// Output: a structured object (rendered into the HTML report) + a standalone markdown/JSON pair
+// under the log dir. Probes 2 and 3 are informational (warn at worst); the anchor assertion and
+// the mockCampaign probe FAIL the check outright.
 
 import { readdirSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
@@ -49,7 +52,8 @@ const WIRING_RE =
 // The demo/mock data module being eliminated: any `import … from '…runtime/mockCampaign'` under
 // apps/gm-react/src is a regression once the module is deleted. Matches static + dynamic imports.
 const MOCK_MODULE = 'runtime/mockCampaign';
-const MOCK_IMPORT_RE = /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"][^'"]*runtime\/mockCampaign['"]/;
+const MOCK_IMPORT_RE =
+	/(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"][^'"]*runtime\/mockCampaign['"]/;
 
 function walk(dir: string, out: string[] = []): string[] {
 	let entries;
@@ -70,29 +74,81 @@ function walk(dir: string, out: string[] = []): string[] {
 	return out;
 }
 
-function extractHonestStubs(gapsText: string): string[] {
-	// Update passes are prepended newest-first. Scope the search to ONLY the newest "## 0" section
-	// (up to the next "## " heading): an older pass's stub list must never resurrect stubs the
-	// newest pass declared closed. A newest section that lists no "Honest stubs remaining" ⇒ none.
-	const firstSection = gapsText.match(/##\s*0[^\n]*\n([\s\S]*?)(?=\n##\s)/);
-	const scope = firstSection ? firstSection[1] : gapsText;
-	const m = scope.match(/Honest stubs remaining[^:]*:\*\*\s*([\s\S]*?)(?:\n\n|\n\*\*|\n## )/i);
-	if (!m) return [];
-	return m[1]
-		.replace(/\n/g, ' ')
-		.split('·')
-		.map((s) =>
-			s
-				.replace(/\*\*/g, '')
-				.replace(/\([^)]*\)/g, '')
-				.replace(/[.\s]+$/, '')
-				.trim(),
-		)
-		.filter((s) => s.length > 1 && s.length < 120);
+/** One `` `path` › `anchor` `` pair lifted from an inventory row's honest-limits cell. */
+export interface LimitAnchor {
+	/** The surface (first cell of the row) the limit belongs to. */
+	surface: string;
+	/** Repo-relative path named by the anchor. */
+	file: string;
+	/** The literal string that must still exist in `file`. */
+	anchor: string;
+	/** Set once checked: the anchor string was found in the file. */
+	present?: boolean;
+	/** Why it failed: the file is unreadable, or the string is gone. */
+	reason?: 'file-missing' | 'anchor-missing';
+}
+
+const INVENTORY_START = '<!-- inventory:start -->';
+const INVENTORY_END = '<!-- inventory:end -->';
+
+// `` `docs/planning/RC_ROADMAP.md` › `Map combat is not on the map.` `` — the anchor grammar the
+// ledger documents under "How to read a row". The path half must look like a path (a slash and an
+// extension) so ordinary inline code in the prose is not mistaken for one.
+const ANCHOR_RE = /`([^`\n]*\/[^`\n]*\.[a-z]+)`\s*›\s*`([^`\n]+)`/g;
+
+/**
+ * Lift every limit anchor out of the inventory tables. Rows outside the markers (the prose, the
+ * "How to read a row" example) are ignored, so documentation about the grammar never asserts.
+ */
+export function extractLimitAnchors(gapsText: string): LimitAnchor[] {
+	const out: LimitAnchor[] = [];
+	let cursor = 0;
+	for (;;) {
+		const from = gapsText.indexOf(INVENTORY_START, cursor);
+		if (from < 0) break;
+		const to = gapsText.indexOf(INVENTORY_END, from);
+		if (to < 0) break;
+		const block = gapsText.slice(from + INVENTORY_START.length, to);
+		cursor = to + INVENTORY_END.length;
+		for (const line of block.split('\n')) {
+			const row = line.trim();
+			if (!row.startsWith('|')) continue;
+			if (/^\|[\s|:-]+\|$/.test(row)) continue; // separator
+			const cells = row.split('|').slice(1, -1);
+			const surface = (cells[0] ?? '').replace(/[`*]/g, '').trim();
+			if (!surface || /^surface$/i.test(surface) || /^layer$/i.test(surface)) continue;
+			ANCHOR_RE.lastIndex = 0;
+			let m: RegExpExecArray | null;
+			while ((m = ANCHOR_RE.exec(row))) out.push({ surface, file: m[1], anchor: m[2] });
+		}
+	}
+	return out;
+}
+
+/** Check each anchor against the tree; returns the same list with `present`/`reason` filled in. */
+export function checkAnchors(repoRoot: string, anchors: LimitAnchor[]): LimitAnchor[] {
+	const cache = new Map<string, string | null>();
+	return anchors.map((a) => {
+		if (!cache.has(a.file)) {
+			try {
+				cache.set(a.file, readFileSync(path.join(repoRoot, a.file), 'utf8'));
+			} catch {
+				cache.set(a.file, null);
+			}
+		}
+		const text = cache.get(a.file) ?? null;
+		if (text === null) return { ...a, present: false, reason: 'file-missing' as const };
+		if (!text.includes(a.anchor))
+			return { ...a, present: false, reason: 'anchor-missing' as const };
+		return { ...a, present: true };
+	});
 }
 
 export interface FeatureAuditResult {
-	knownStubs: string[];
+	/** Every honest-limit anchor in the inventory, checked against the tree. */
+	limitAnchors: LimitAnchor[];
+	/** Anchors whose string is gone (or whose file is) — a HARD failure. */
+	staleAnchors: LimitAnchor[];
 	stubMarkers: { file: string; line: number; key: string; text: string }[];
 	stubMarkerTotal: number;
 	screens: { file: string; wired: boolean }[];
@@ -100,7 +156,7 @@ export interface FeatureAuditResult {
 	/** Files still importing `runtime/mockCampaign` — must be EMPTY (the module is slated for deletion). */
 	mockCampaignImporters: string[];
 	generatedFrom: string;
-	/** The ledger could not be read. An empty `knownStubs` then means "unknown", not "none". */
+	/** The ledger could not be read. An empty `limitAnchors` then means "unknown", not "none". */
 	gapsMissing: boolean;
 }
 
@@ -116,7 +172,8 @@ export function auditFeatures(repoRoot: string): FeatureAuditResult {
 		gapsText = '';
 		gapsMissing = true;
 	}
-	const knownStubs = extractHonestStubs(gapsText);
+	const limitAnchors = checkAnchors(repoRoot, extractLimitAnchors(gapsText));
+	const staleAnchors = limitAnchors.filter((a) => !a.present);
 
 	const files = walk(path.join(repoRoot, SRC));
 	const stubMarkers: FeatureAuditResult['stubMarkers'] = [];
@@ -144,7 +201,9 @@ export function auditFeatures(repoRoot: string): FeatureAuditResult {
 	}
 	mockCampaignImporters.sort();
 
-	// Screen wiring probe: the route surfaces live in src/screens/*.tsx.
+	// Screen wiring probe. Since the STB-2 splits a route surface is EITHER `screens/Name.tsx` OR
+	// `screens/name/index.tsx`; both shapes are scanned so a split screen does not silently drop out
+	// of the probe. Test files that happen to sit beside a screen are not surfaces.
 	// Allowlist: surfaces that are core-free BY DESIGN. WikiReader is the chrome-less PUBLIC wiki
 	// reader — unauthenticated, no local vault/runtime, it only fetches published pages from the
 	// app-api. Flagging it as "unwired" is a false positive, so it is excluded from the probe.
@@ -154,8 +213,25 @@ export function auditFeatures(repoRoot: string): FeatureAuditResult {
 	try {
 		for (const name of readdirSync(appDir)) {
 			const full = path.join(appDir, name);
+			if (statSync(full).isDirectory()) {
+				const entry = path.join(full, 'index.tsx');
+				try {
+					if (!statSync(entry).isFile()) continue;
+				} catch {
+					continue; // a helper directory with no screen entry point
+				}
+				// A split screen's `index.tsx` is often a barrel that only re-exports; the dispatch
+				// lives in the sibling parts. The SURFACE is wired if any of its own files is, so the
+				// probe reads the whole directory rather than the entry file alone.
+				const parts = walk(full).filter((f) => !NOISE.test(f));
+				screens.push({
+					file: path.relative(repoRoot, entry),
+					wired: parts.some((f) => WIRING_RE.test(readFileSync(f, 'utf8'))),
+				});
+				continue;
+			}
 			if (!/\.tsx$/.test(name)) continue;
-			if (!statSync(full).isFile()) continue;
+			if (NOISE.test(name)) continue;
 			// Screen components are PascalCase; skip obvious non-screens.
 			if (!/^[A-Z]/.test(name)) continue;
 			if (NON_CORE_SCREENS.has(name)) continue;
@@ -165,9 +241,11 @@ export function auditFeatures(repoRoot: string): FeatureAuditResult {
 	} catch {
 		/* app dir shape may differ */
 	}
+	screens.sort((a, b) => a.file.localeCompare(b.file));
 
 	return {
-		knownStubs,
+		limitAnchors,
+		staleAnchors,
 		stubMarkers: stubMarkers.slice(0, 200),
 		stubMarkerTotal: stubMarkers.length,
 		screens,
@@ -179,17 +257,30 @@ export function auditFeatures(repoRoot: string): FeatureAuditResult {
 }
 
 function toMarkdown(r: FeatureAuditResult): string {
-	const lines: string[] = ['# Feature-gap drift audit', ''];
-	lines.push(`Source of truth: \`${r.generatedFrom}\` (latest pass) + live code probes.`, '');
+	const lines: string[] = ['# Feature-inventory drift audit', ''];
+	lines.push(
+		`Source of truth: \`${r.generatedFrom}\` (the surface inventory) + live code probes.`,
+		'',
+	);
 
-	lines.push('## Known remaining stubs (declared, no core backing)', '');
+	lines.push(`## Honest-limit anchors (${r.limitAnchors.length} declared)`, '');
 	if (r.gapsMissing) {
 		lines.push(
-			`⚠ **Ledger not found at \`${r.generatedFrom}\`.** The declared-stub list is UNKNOWN, ` +
+			`⚠ **Ledger not found at \`${r.generatedFrom}\`.** The declared-limit list is UNKNOWN, ` +
 				'not empty — fix the path before trusting this section.',
 		);
-	} else if (r.knownStubs.length) r.knownStubs.forEach((s) => lines.push(`- ${s}`));
-	else lines.push('_None declared in the latest FEATURE-GAPS pass._');
+	} else if (r.staleAnchors.length) {
+		lines.push('✗ **These limits no longer match the tree — update the inventory row:**');
+		for (const a of r.staleAnchors)
+			lines.push(
+				`- **${a.surface}** — \`${a.file}\` ` +
+					(a.reason === 'file-missing' ? 'is unreadable' : `no longer contains "${a.anchor}"`),
+			);
+	} else if (r.limitAnchors.length) {
+		lines.push('✓ Every declared honest limit is still evidenced by its named file.');
+	} else {
+		lines.push('_No honest limits declared — verify the inventory tables are still parseable._');
+	}
 	lines.push('');
 
 	lines.push(`## Stub markers in code (${r.stubMarkerTotal} total)`, '');
@@ -244,10 +335,19 @@ export async function runFeatureAudit(opts: {
 	const parts = [
 		r.gapsMissing
 			? `ledger MISSING at ${r.generatedFrom}`
-			: `${r.knownStubs.length} declared stubs`,
+			: `${r.limitAnchors.length} declared limits (${r.staleAnchors.length} stale)`,
 		`${r.stubMarkerTotal} code markers`,
 		`${r.unwiredScreens.length}/${r.screens.length} screens need wiring review`,
 	];
+	if (r.staleAnchors.length) {
+		// A limit that no longer matches the tree means the ledger is lying in one direction or the
+		// other: either the limit was closed and nobody updated the row, or the evidence moved.
+		parts.push(
+			`${r.staleAnchors.length} stale honest-limit anchor(s): ` +
+				r.staleAnchors.map((a) => `${a.surface} → ${a.file} :: "${a.anchor}"`).join('; '),
+		);
+		return { status: 'fail', summary: parts.join('; '), detail: r };
+	}
 	if (r.mockCampaignImporters.length) {
 		// The one HARD assertion: the failure message names EXACTLY which files still import it.
 		parts.push(
@@ -257,7 +357,7 @@ export async function runFeatureAudit(opts: {
 		return { status: 'fail', summary: parts.join('; '), detail: r };
 	}
 	// Informational: warn if there is anything worth a human glance, else pass.
-	const status = r.gapsMissing || r.unwiredScreens.length || r.knownStubs.length ? 'warn' : 'pass';
+	const status = r.gapsMissing || r.unwiredScreens.length ? 'warn' : 'pass';
 	return { status, summary: parts.join('; '), detail: r };
 }
 
@@ -269,7 +369,9 @@ if (invokedDirectly) {
 	const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 	const r = auditFeatures(repoRoot);
 	console.log(toMarkdown(r));
-	const declared = r.gapsMissing ? 'ledger MISSING' : `${r.knownStubs.length} declared stubs`;
+	const declared = r.gapsMissing
+		? 'ledger MISSING'
+		: `${r.limitAnchors.length} declared limits (${r.staleAnchors.length} stale)`;
 	console.log(
 		`\nSummary: ${declared} · ${r.stubMarkerTotal} code markers · ` +
 			`${r.unwiredScreens.length}/${r.screens.length} screens need wiring review`,
@@ -280,5 +382,14 @@ if (invokedDirectly) {
 				r.mockCampaignImporters.join(', '),
 		);
 	}
-	if (r.gapsMissing || r.mockCampaignImporters.length) process.exitCode = 1;
+	if (r.staleAnchors.length) {
+		console.error(
+			`\nFAIL: ${r.staleAnchors.length} honest-limit anchor(s) no longer match the tree:\n` +
+				r.staleAnchors
+					.map((a) => `  - ${a.surface}: ${a.file} :: "${a.anchor}" (${a.reason})`)
+					.join('\n'),
+		);
+	}
+	if (r.gapsMissing || r.mockCampaignImporters.length || r.staleAnchors.length)
+		process.exitCode = 1;
 }

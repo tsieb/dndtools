@@ -7,7 +7,7 @@ governs which surfaces and controls are shown.
 The tiers, gates, and visibility logic are declared data with a pure resolver in
 `packages/core/src/state/onboarding.ts` (`FeatureTier`, `FEATURE_GATES`,
 `visibleFeatures(tier)`, `isFeatureVisible(...)`). The React app reads them
-(e.g. `apps/gm-react/src/screens/Settings.tsx`, `apps/gm-react/src/app/Onboarding.tsx`).
+(e.g. `apps/gm-react/src/screens/settings/`, `apps/gm-react/src/app/Onboarding.tsx`).
 Design decision: ADR-012 (`docs/adr/012-progressive-disclosure-vault-maturity.md`).
 
 This registry documents intent; `FEATURE_GATES` is the source of truth. If they diverge,
@@ -18,8 +18,8 @@ the code wins — update this file.
 Visible on a fresh vault; never hidden.
 
 - Command Center (`/`)
-- Scenes (`/scenes/`)
-- Maps (`/maps/`)
+- Scenes (`/scene/:id`, built and staged from the Scenes sidebar group)
+- Maps (`/atlas`)
 - Navigation
 
 ## Intermediate

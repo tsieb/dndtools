@@ -1,0 +1,297 @@
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Badge, CONDITIONS, Icon } from '../../ds';
+import { T } from '../../app/screen-kit';
+import { useViewport } from '../../app/useViewport';
+import type { PlayerData } from '../../net/viewModels';
+
+/**
+ * Shared vocabulary for the standalone player companion app: the seat-tier table, the nav model, the
+ * label maps, the toast hook and the four layout primitives (`Panel`, `PvPage`, `SectionHead`,
+ * `LockedNote`) every section in this folder composes. Split out of the former 2,282-line
+ * `screens/PlayerView.tsx` unchanged.
+ */
+
+// The player's device identity. The runtime seeds `actor-player` (Demo Player) as a participant; the
+// DM-side ViewAs/Projection controls project the live table to exactly this actor.
+export const PLAYER_ACTOR_ID = 'actor-player';
+
+export const TIERS = ['observer', 'player', 'trusted', 'codm'] as const;
+export const TIER_META: Record<
+	string,
+	{ label: string; role: string; badge: any; icon: string; blurb: string }
+> = {
+	observer: {
+		label: 'Observer',
+		role: 'Read-only seat',
+		badge: 'neutral',
+		icon: 'reveal',
+		blurb: 'You can watch what the table sees and read shared handouts.',
+	},
+	player: {
+		label: 'Player',
+		role: 'Your own character',
+		badge: 'success',
+		icon: 'characters-person',
+		blurb: 'Run your sheet, roll your dice, and read what the DM shares with the table.',
+	},
+	trusted: {
+		label: 'Trusted player',
+		role: 'Shared editing granted',
+		badge: 'info',
+		icon: 'flag',
+		blurb: 'A player, plus shared-stash editing and recap posting.',
+	},
+	codm: {
+		label: 'Co-DM',
+		role: 'Elevated table tools',
+		badge: 'accent',
+		icon: 'session-bolt',
+		blurb: 'Granted GM tools — the revealed Atlas, the bestiary, and live combat assist.',
+	},
+};
+
+export const NAV = [
+	{ id: 'stage', label: 'Now playing', icon: 'home', min: 0 },
+	{ id: 'sheet', label: 'My character', icon: 'characters-person', min: 1 },
+	{ id: 'dice', label: 'Dice', icon: 'dice', min: 1 },
+	{ id: 'party', label: 'Party', icon: 'players', min: 0 },
+	{ id: 'handouts', label: 'Handouts', icon: 'knowledge-book', min: 0 },
+	{ id: 'journal', label: 'Journal', icon: 'note-edit', min: 1 },
+];
+export const NAV_ELEVATED = [
+	{ id: 'atlas', label: 'Maps', icon: 'atlas-map', min: 3 },
+	{ id: 'bestiary', label: 'Bestiary', icon: 'campaign-scroll', min: 3 },
+	{ id: 'assist', label: 'Combat assist', icon: 'session-bolt', min: 3 },
+];
+export const minTierLabel = (min: number) => TIER_META[TIERS[min]].label;
+
+export const ABIL_FULL: Record<string, string> = {
+	str: 'Strength',
+	dex: 'Dexterity',
+	con: 'Constitution',
+	int: 'Intelligence',
+	wis: 'Wisdom',
+	cha: 'Charisma',
+};
+const COND_ALIAS: Record<string, string> = {
+	concentrating: 'concentration',
+	prone: 'prone',
+	poisoned: 'poisoned',
+	stunned: 'stunned',
+	frightened: 'frightened',
+	restrained: 'restrained',
+	grappled: 'grappled',
+	invisible: 'invisible',
+	paralyzed: 'paralyzed',
+	unconscious: 'unconscious',
+	charmed: 'charmed',
+	blinded: 'blinded',
+	deafened: 'deafened',
+	petrified: 'petrified',
+	incapacitated: 'incapacitated',
+	exhaustion: 'exhaustion',
+};
+/**
+ * `Combatant['kind']` is a raw core enum (`character` | `npc` | `monster`) and both combat rosters
+ * rendered it straight into a Badge, so the table read a lowercase "npc" / "monster" beside properly
+ * cased names — and "NPC" lost its capitalisation as an initialism entirely.
+ */
+export function kindLabel(kind: string): string {
+	if (kind === 'npc') return 'NPC';
+	if (kind === 'character') return 'Character';
+	if (kind === 'monster') return 'Monster';
+	return kind;
+}
+
+export function condKey(s: string): string | null {
+	const C = (CONDITIONS as any) || {};
+	const k = String(s).toLowerCase();
+	return COND_ALIAS[k] || (C[k] ? k : null);
+}
+
+// --- local toasts (the standalone player app has no global toaster) -------------------------------
+export interface ToastItem {
+	id: string;
+	msg: string;
+	status: string;
+	icon?: string;
+}
+export function useToasts() {
+	const [toasts, setToasts] = useState<ToastItem[]>([]);
+	// Every toast armed a setTimeout that was never cleared, so unmounting the player app (or leaving
+	// /play) left them running and each one called setState on a dead component. Track them and clear
+	// on unmount.
+	const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+	useEffect(
+		() => () => {
+			for (const timer of timers.current) clearTimeout(timer);
+			timers.current = [];
+		},
+		[],
+	);
+	const toast = (msg: string, status = 'neutral', icon?: string) => {
+		const id = Math.random().toString(36).slice(2);
+		setToasts((t) => [...t, { id, msg, status, icon }]);
+		timers.current.push(setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2800));
+	};
+	return { toasts, toast };
+}
+export const TOAST_TONE: Record<string, { bd: string; bg: string; fg: string }> = {
+	success: {
+		bd: 'var(--color-status-success-border)',
+		bg: 'var(--color-status-success-subtle)',
+		fg: 'var(--color-status-success-text)',
+	},
+	error: {
+		bd: 'var(--color-status-error-border)',
+		bg: 'var(--color-status-error-subtle)',
+		fg: 'var(--color-status-error-text)',
+	},
+	info: {
+		bd: 'var(--color-status-info-border)',
+		bg: 'var(--color-status-info-subtle)',
+		fg: 'var(--color-status-info-text)',
+	},
+	// A bad roll is not a system failure. `error` here means role="alert" + aria-live="assertive"
+	// (see the viewport below) AND exclusion from the persistent polite region, so "Natural 1 —
+	// critical miss" interrupted a screen-reader mid-sentence in the app's red failure skin.
+	warning: {
+		bd: 'var(--color-status-warning-border)',
+		bg: 'var(--color-status-warning-subtle)',
+		fg: 'var(--color-status-warning-text)',
+	},
+	neutral: { bd: T.bdS, bg: T.surf, fg: T.ink },
+};
+
+// --- shared layout primitives (ported from player-view-app.jsx) -----------------------------------
+export function Panel({
+	title,
+	action,
+	pad = 16,
+	accent,
+	children,
+}: {
+	title?: ReactNode;
+	action?: ReactNode;
+	pad?: number;
+	accent?: boolean;
+	children?: ReactNode;
+}) {
+	return (
+		<div
+			style={{
+				minWidth: 0,
+				background: T.surf,
+				border: `1px solid ${accent ? T.accBd : T.bd}`,
+				borderRadius: 8,
+				boxShadow: accent ? T.smd : T.ssm,
+			}}
+		>
+			{title != null && (
+				<div
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						flexWrap: 'wrap',
+						gap: 10,
+						padding: '10px 14px',
+						borderBottom: `1px solid ${T.bd}`,
+					}}
+				>
+					<span style={{ font: `600 13px ${T.sans}`, flex: 1, color: T.ink }}>{title}</span>
+					{action}
+				</div>
+			)}
+			<div style={{ padding: pad }}>{children}</div>
+		</div>
+	);
+}
+export function PvPage({ children, max = 1140 }: { children?: ReactNode; max?: number }) {
+	const viewport = useViewport();
+	return (
+		<div
+			style={{
+				width: '100%',
+				minWidth: 0,
+				maxWidth: max,
+				margin: '0 auto',
+				padding: viewport === 'phone' ? '18px 14px 76px' : '26px 28px 60px',
+			}}
+		>
+			{children}
+		</div>
+	);
+}
+export function SectionHead({
+	title,
+	sub,
+	action,
+}: {
+	title: string;
+	sub?: ReactNode;
+	action?: ReactNode;
+}) {
+	return (
+		<div
+			style={{
+				display: 'flex',
+				alignItems: 'flex-end',
+				gap: 14,
+				marginBottom: 20,
+				flexWrap: 'wrap',
+			}}
+		>
+			<div style={{ flex: 1, minWidth: 0 }}>
+				<h1 style={{ margin: 0, font: `600 26px ${T.disp}`, color: T.ink }}>{title}</h1>
+				{sub && <div style={{ marginTop: 4, font: `13px ${T.sans}`, color: T.ter }}>{sub}</div>}
+			</div>
+			{action}
+		</div>
+	);
+}
+export function LockedNote({ what }: { what: string }) {
+	return (
+		<div
+			style={{
+				display: 'flex',
+				alignItems: 'center',
+				gap: 10,
+				padding: '11px 14px',
+				borderRadius: 10,
+				background: 'var(--color-dm-only-subtle)',
+				border: `1px solid var(--color-dm-only-badge)`,
+			}}
+		>
+			<Icon name="hidden" size={16} color="var(--color-dm-only-badge)" />
+			<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
+				{what} is a <strong style={{ color: T.ink }}>Co-DM</strong> tool. Your seat is not a Co-DM
+				seat — ask your DM to promote you to Co-DM (a plan with Co-DM seats is required) to unlock
+				it.
+			</span>
+		</div>
+	);
+}
+
+// The player view-model is now the shared `PlayerData` shape (see net/viewModels.ts): identical fields,
+// computed once by `buildPlayerData` so the LOCAL (DM preview / offline) path and the REMOTE (joined,
+// replicated over P2P) path can never diverge.
+export type LiveData = PlayerData;
+
+// ELEVATED fallback — reached only when a non-Co-DM seat somehow routes to an elevated section (the
+// nav is gated so this is defensive). A real Co-DM seat renders the live panels below instead.
+export function ElevatedLocked({ label }: { label: string }) {
+	return (
+		<PvPage max={900}>
+			<SectionHead
+				title={label}
+				sub="A Co-DM tool — available on a Co-DM seat"
+				action={
+					<Badge status="accent" icon="session-bolt">
+						Co-DM tool
+					</Badge>
+				}
+			/>
+			<LockedNote what={label} />
+		</PvPage>
+	);
+}

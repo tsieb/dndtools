@@ -16,7 +16,8 @@ import {
 import { T } from '../screen-kit';
 import { useViewport, useViewportHeight } from '../useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { ImportMapDialog, VIS_CHIP } from '../MapBuilder';
+import { ImportMapDialog } from './ImportMapDialog';
+import { VIS_CHIP } from './mapVisibility';
 import { useMapEditor, type FogMode, type MapEditorApi, type MapNoticeTone } from './useMapEditor';
 import type { ToolId } from './tools';
 import { TOOL_GROUPS, TOOLS_BY_ID } from './tools';

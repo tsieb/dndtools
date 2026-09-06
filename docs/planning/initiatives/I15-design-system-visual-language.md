@@ -1,6 +1,13 @@
 # Initiative 15 — Design System & Visual Language
 
-## Status: COMPLETED
+## Status: SVELTE-ERA PLAN — React status tracked in RC_ROADMAP §15
+
+> **React evidence (2026-09-04):** This initiative's stories describe the retired Svelte app and
+> are preserved as planning history, not a completion claim. The maintained token system lives
+> under `apps/gm-react/src/styles/tokens/` (consumed via `styles/index.css` and asserted by
+> `styles/token-references.test.ts`); the component library is `apps/gm-react/src/ds/components/`.
+> Token completeness/enforcement and a typed, documented component library remain open work,
+> tracked as RC-DSN-1.x/2.x in `docs/planning/RC_ROADMAP.md` §15.
 
 **Outcome:** Every UI element in the application is built from a coherent, documented
 design system. Visual consistency is enforced by component reuse, not by convention.

@@ -1,6 +1,13 @@
 # Initiative 17 — Learnability, Progressive Disclosure & Help Systems
 
-## Status: COMPLETED
+## Status: SVELTE-ERA PLAN — React status tracked in RC_ROADMAP §16
+
+> **React evidence (2026-09-04):** This initiative's stories describe the retired Svelte app and
+> are preserved as planning history, not a completion claim. The maintained onboarding flow is
+> `apps/gm-react/src/app/Onboarding.tsx` plus `apps/gm-react/src/app/onboarding/`; the shared
+> empty-state component is `apps/gm-react/src/ds/components/system/EmptyState.jsx`. Help-system
+> and progressive-disclosure depth (contextual help, power-user discovery) remain open work,
+> tracked as RC-UX-3.x in `docs/planning/RC_ROADMAP.md` §16.
 
 **Outcome:** A new user opens DND Tools for the first time and reaches genuine utility
 — a vault with meaningful content connected by working links — within their first 30

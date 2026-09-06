@@ -1,6 +1,12 @@
 # Initiative 18 — Accessibility & Inclusive Design
 
-## Status: COMPLETED
+## Status: SVELTE-ERA PLAN — React status tracked in RC_ROADMAP §16
+
+> **React evidence (2026-09-04):** This initiative's stories describe the retired Svelte app and
+> are preserved as planning history, not a completion claim. Automated a11y coverage lives in
+> `apps/gm-react/tests/a11y/` and `apps/gm-react/tests/e2e/a11y-axe-gate.spec.ts` (axe scans in
+> CI). Full WCAG 2.2 AA completion (focus management audit, reduced-motion/high-contrast sweep)
+> remains open work, tracked as RC-UX-2.x in `docs/planning/RC_ROADMAP.md` §16.
 
 ## Notated Changes (2026-03-10)
 

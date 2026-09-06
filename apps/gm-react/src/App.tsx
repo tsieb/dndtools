@@ -35,28 +35,26 @@ const ScenesCreator = lazy(() =>
 	import('./screens/ScenesCreator').then((m) => ({ default: m.ScenesCreator })),
 );
 const SceneEditor = lazy(() =>
-	import('./screens/SceneEditor').then((m) => ({ default: m.SceneEditor })),
+	import('./screens/sceneEditor').then((m) => ({ default: m.SceneEditor })),
 );
 const Board = lazy(() => import('./screens/Board').then((m) => ({ default: m.Board })));
-const Session = lazy(() => import('./screens/Session').then((m) => ({ default: m.Session })));
+const Session = lazy(() => import('./screens/session').then((m) => ({ default: m.Session })));
 const Characters = lazy(() =>
-	import('./screens/Characters').then((m) => ({ default: m.Characters })),
+	import('./screens/characters').then((m) => ({ default: m.Characters })),
 );
-const Atlas = lazy(() => import('./screens/Atlas').then((m) => ({ default: m.Atlas })));
+const Atlas = lazy(() => import('./screens/atlas').then((m) => ({ default: m.Atlas })));
 const Campaign = lazy(() => import('./screens/Campaign').then((m) => ({ default: m.Campaign })));
-const Knowledge = lazy(() => import('./screens/Knowledge').then((m) => ({ default: m.Knowledge })));
-const Settings = lazy(() => import('./screens/Settings').then((m) => ({ default: m.Settings })));
+const Knowledge = lazy(() => import('./screens/knowledge').then((m) => ({ default: m.Knowledge })));
+const Settings = lazy(() => import('./screens/settings').then((m) => ({ default: m.Settings })));
 const Graph = lazy(() => import('./screens/Graph').then((m) => ({ default: m.Graph })));
-const Audio = lazy(() => import('./screens/Audio').then((m) => ({ default: m.Audio })));
+const Audio = lazy(() => import('./screens/audio').then((m) => ({ default: m.Audio })));
 const Extensions = lazy(() =>
-	import('./screens/Extensions').then((m) => ({ default: m.Extensions })),
+	import('./screens/extensions').then((m) => ({ default: m.Extensions })),
 );
-const Community = lazy(() => import('./screens/Community').then((m) => ({ default: m.Community })));
-const Player = lazy(() => import('./screens/Player').then((m) => ({ default: m.Player })));
+const Community = lazy(() => import('./screens/community').then((m) => ({ default: m.Community })));
+const Player = lazy(() => import('./screens/player').then((m) => ({ default: m.Player })));
 const Upgrade = lazy(() => import('./screens/Upgrade').then((m) => ({ default: m.Upgrade })));
-const PlayerView = lazy(() =>
-	import('./screens/PlayerView').then((m) => ({ default: m.PlayerView })),
-);
+const PlayerView = lazy(() => import('./screens/play').then((m) => ({ default: m.PlayerView })));
 const Join = lazy(() => import('./screens/Join').then((m) => ({ default: m.Join })));
 const WikiReader = lazy(() =>
 	import('./screens/WikiReader').then((m) => ({ default: m.WikiReader })),

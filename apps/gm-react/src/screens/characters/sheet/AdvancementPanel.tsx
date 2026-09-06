@@ -1,0 +1,183 @@
+import { type ReactNode } from 'react';
+import { Button, Field, Input } from '../../../ds';
+import { xpForLevel, type AdvancementState, type AdvancementValidation } from '@dndtools/core';
+import { Panel, T, mono } from '../../../app/screen-kit';
+
+/** The staged level-up panel — XP, open/choices/commit/cancel. Extracted from Characters.tsx
+ * unchanged (RC-STB-2.6). */
+export function AdvancementPanel({
+	advancement,
+	draft,
+	xpEligible,
+	draftValidation,
+	hasAdvancementChoice,
+	xpInput,
+	setXpInput,
+	className,
+	setClassName,
+	hpGained,
+	setHpGained,
+	subclass,
+	setSubclass,
+	abilityOrFeat,
+	setAbilityOrFeat,
+	setXp,
+	openAdvancement,
+	saveChoices,
+	commitAdvancement,
+	cancelAdvancement,
+	fieldError,
+	isPhone,
+}: {
+	advancement: AdvancementState;
+	draft: AdvancementState['draft'];
+	xpEligible: { eligible: boolean; reason?: string } | null;
+	draftValidation: AdvancementValidation | null;
+	hasAdvancementChoice: boolean;
+	xpInput: string;
+	setXpInput: (next: string) => void;
+	className: string;
+	setClassName: (next: string) => void;
+	hpGained: string;
+	setHpGained: (next: string) => void;
+	subclass: string;
+	setSubclass: (next: string) => void;
+	abilityOrFeat: string;
+	setAbilityOrFeat: (next: string) => void;
+	setXp: () => Promise<void>;
+	openAdvancement: (mode: 'xp' | 'milestone') => Promise<void>;
+	saveChoices: () => Promise<void>;
+	commitAdvancement: () => Promise<void>;
+	cancelAdvancement: () => Promise<void>;
+	fieldError: (field: 'ac' | 'slots' | 'xp') => ReactNode;
+	isPhone: boolean;
+}) {
+	return (
+		<Panel title="Advancement">
+			<div
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					gap: 14,
+					flexWrap: 'wrap',
+					font: `13px ${T.sans}`,
+					color: T.sub,
+				}}
+			>
+				<span style={mono}>Level {advancement.level}</span>
+				<span style={mono}>XP {advancement.xp}</span>
+				{advancement.level < 20 && (
+					<span style={{ color: T.ter }}>
+						next at {xpForLevel(advancement.level + 1) ?? '—'} XP
+					</span>
+				)}
+			</div>
+			{draft ? (
+				<div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+					<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
+						Advancing to level {draft.toLevel} ({draft.mode}).
+					</div>
+					<div
+						style={{
+							display: 'grid',
+							gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1fr 1fr',
+							gap: 10,
+						}}
+					>
+						<Field label="Class gaining the level">
+							<Input value={className} onChange={(e: any) => setClassName(e.target.value)} />
+						</Field>
+						<Field label="Hit points gained">
+							<Input
+								type="number"
+								value={hpGained}
+								onChange={(e: any) => setHpGained(e.target.value)}
+							/>
+						</Field>
+						<Field label="Subclass (if required)">
+							<Input value={subclass} onChange={(e: any) => setSubclass(e.target.value)} />
+						</Field>
+						<Field label="Ability / feat (if required)">
+							<Input
+								value={abilityOrFeat}
+								onChange={(e: any) => setAbilityOrFeat(e.target.value)}
+							/>
+						</Field>
+					</div>
+					{draftValidation && draftValidation.issues.length > 0 ? (
+						<ul
+							style={{
+								margin: 0,
+								paddingLeft: 18,
+								font: `12.5px ${T.sans}`,
+								color: T.warn ?? T.sub,
+							}}
+						>
+							{draftValidation.issues.map((iss: any) => (
+								<li key={iss.field}>{iss.message}</li>
+							))}
+						</ul>
+					) : draftValidation?.complete ? (
+						<div style={{ font: `12.5px ${T.sans}`, color: T.acc }}>
+							All choices valid — ready to finalize.
+						</div>
+					) : null}
+					<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+						<Button
+							variant="secondary"
+							size="sm"
+							disabled={!hasAdvancementChoice}
+							onClick={saveChoices}
+						>
+							Save choices
+						</Button>
+						<Button
+							variant="primary"
+							size="sm"
+							disabled={!draftValidation?.complete}
+							onClick={commitAdvancement}
+						>
+							Finish level-up
+						</Button>
+						<Button variant="ghost" size="sm" onClick={cancelAdvancement}>
+							Cancel
+						</Button>
+					</div>
+				</div>
+			) : (
+				<div
+					style={{
+						marginTop: 12,
+						display: 'flex',
+						gap: 8,
+						alignItems: 'flex-end',
+						flexWrap: 'wrap',
+					}}
+				>
+					<Field label="Set XP" style={{ width: 120 }}>
+						<Input
+							type="number"
+							value={xpInput}
+							onChange={(e: any) => setXpInput(e.target.value)}
+						/>
+					</Field>
+					<Button variant="secondary" size="sm" onClick={setXp}>
+						Set XP
+					</Button>
+					<Button
+						variant="primary"
+						size="sm"
+						disabled={!xpEligible?.eligible}
+						onClick={() => openAdvancement('xp')}
+					>
+						Level up (XP)
+					</Button>
+					<Button variant="secondary" size="sm" onClick={() => openAdvancement('milestone')}>
+						Level up (milestone)
+					</Button>
+					{fieldError('xp')}
+				</div>
+			)}
+		</Panel>
+	);
+}

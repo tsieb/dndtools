@@ -30,7 +30,9 @@ function code(...segments: string[]): string {
 }
 
 describe('a repeated identical failure re-announces', () => {
-	for (const screen of ['Board.tsx', 'SceneEditor.tsx']) {
+	// RC-STB-2.6 split SceneEditor.tsx into screens/sceneEditor/; the dispatch helper lives in its
+	// index. Paths, not bare file names, so a later split re-points here rather than silently passing.
+	for (const screen of ['Board.tsx', 'sceneEditor/index.tsx']) {
 		it(`${screen}'s dispatch helper clears its alert before the attempt`, () => {
 			const source = code('screens', screen);
 			const helper = /async function dispatch\([\s\S]*?\n\t\}\n/.exec(source)?.[0];
@@ -47,7 +49,11 @@ describe('a repeated identical failure re-announces', () => {
 });
 
 describe('/play announces a bad roll politely', () => {
-	const source = code('screens', 'PlayerView.tsx');
+	// RC-STB-2.2 split PlayerView.tsx into screens/play/: the roll toasts are raised by the frame and
+	// the tone table lives in the folder's shared vocabulary. Paths, not bare file names, so a later
+	// split re-points here rather than silently passing.
+	const source = code('screens', 'play', 'Frame.tsx');
+	const shared = code('screens', 'play', 'shared.tsx');
 
 	it('does not raise a critical miss as an assertive error', () => {
 		const critMiss = /toast\('Natural 1[^)]*\)/.exec(source)?.[0];
@@ -59,7 +65,7 @@ describe('/play announces a bad roll politely', () => {
 	it('has a warning tone to raise it with', () => {
 		// `TOAST_TONE[status] || TOAST_TONE.neutral` degrades an unknown status to a plain grey card
 		// silently, so the tone table has to actually carry the key the caller asks for.
-		const table = /const TOAST_TONE[\s\S]*?\n\};/.exec(source)?.[0] ?? '';
+		const table = /const TOAST_TONE[\s\S]*?\n\};/.exec(shared)?.[0] ?? '';
 		expect(table).toMatch(/\bwarning: \{/);
 		expect(table).toMatch(/--color-status-warning-border/);
 	});

@@ -21,7 +21,7 @@ Two intents run in parallel and must both hold:
   mutations) dispatch through `@dndtools/core` and round-trip through IndexedDB, not mock writes.
 
 **Scope guidance (from the project owner):** build the **general framework** faithfully and
-**populate it with representative test data** — do *not* treat the example campaign content as
+**populate it with representative test data** — do _not_ treat the example campaign content as
 something to recreate as exact, bespoke components. Structural/visual fidelity of the framework is
 the bar; the mock campaign is stand-in test data for review.
 
@@ -31,7 +31,7 @@ the bar; the mock campaign is stand-in test data for review.
 
 ### Online source of truth (authoritative)
 
-- **Claude Design project:** `20316ed7-4fd5-4edd-8294-48f899b74252` — *"Dndtools design system prototype"*.
+- **Claude Design project:** `20316ed7-4fd5-4edd-8294-48f899b74252` — _"Dndtools design system prototype"_.
 - **Entry file:** `Lamplight.dc.html` (a second prototype, `Scene & Widget System.dc.html`, covers
   the standalone scene/widget builder surfaces).
 - **Access:** via the `claude_design` MCP connector (`DesignSync` tool). If it needs authorization,
@@ -40,14 +40,14 @@ the bar; the mock campaign is stand-in test data for review.
 
 **Refactored, fetchable structure** (the project was split so every file fits under the cap):
 
-| File | Role |
-|------|------|
-| `app.jsx` | App shell only — Sidebar, Topbar, CommandPalette, generic Modal + host, and the shared `Page` / `Panel` / `Seg` / `BackBar` primitives; mounts the active section + overlays. |
-| `app-shared.js` | Classic script (no JSX). Publishes everything on `window.DNDApp`: design tokens (`T`), helpers, the `useReducer` store (`initState` + `reducer`), context, static nav config, and the `SECTION_VIEWS` / `MODALS` / `WIDGETS` / `SETTINGS_PAGES` registries. Loaded **before** the JSX views. |
-| `views/*.jsx` | One module per section group. Each destructures from `window.DNDApp`, registers its views/widgets/modals back into the registries, calls `A.notify()`, and renders nothing itself (exports a no-op `ViewModule`). Files: `workspace` (home + session + widgets + scene-creator), `characters`, `atlas`, `map-builder`, `campaign-knowledge`, `settings`, `onboarding` (overlay + 8 settings subpages), `platform` (graph/audio/extensibility/community), `player`. |
-| `campaign-data.js` | The mock campaign globals (`DNDData`, `DNDHub`, `DNDEdit`, `DNDPages`, `DNDGaps`, `DNDGaps2`, `DNDExt`, `DNDPlayer`, `DNDCommunity`, `DNDAccount`). The fictional campaign is **"The Sunken Outpost"** (Brine Hand cult; the PC persona is **Mara Quill**, Cleric 5). |
-| `_ds/.../_ds_bundle.part1..5.js` | The full design-system component bundle, split into fetchable parts (~56 components: Button, Card, Icon, Badge, HPBar, InitiativeRow, DiceResult, AbilityScore, StatBlock, ConditionTracker, DataTable, SpellSlots, NpcCard, QuestCard, SessionTimeline, …). |
-| `_ds/.../tokens/*.css` + `styles.css` | The token layer — see Design Principles below. |
+| File                                  | Role                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `app.jsx`                             | App shell only — Sidebar, Topbar, CommandPalette, generic Modal + host, and the shared `Page` / `Panel` / `Seg` / `BackBar` primitives; mounts the active section + overlays.                                                                                                                                                                                                                                                                                      |
+| `app-shared.js`                       | Classic script (no JSX). Publishes everything on `window.DNDApp`: design tokens (`T`), helpers, the `useReducer` store (`initState` + `reducer`), context, static nav config, and the `SECTION_VIEWS` / `MODALS` / `WIDGETS` / `SETTINGS_PAGES` registries. Loaded **before** the JSX views.                                                                                                                                                                       |
+| `views/*.jsx`                         | One module per section group. Each destructures from `window.DNDApp`, registers its views/widgets/modals back into the registries, calls `A.notify()`, and renders nothing itself (exports a no-op `ViewModule`). Files: `workspace` (home + session + widgets + scene-creator), `characters`, `atlas`, `map-builder`, `campaign-knowledge`, `settings`, `onboarding` (overlay + 8 settings subpages), `platform` (graph/audio/extensibility/community), `player`. |
+| `campaign-data.js`                    | The mock campaign globals (`DNDData`, `DNDHub`, `DNDEdit`, `DNDPages`, `DNDGaps`, `DNDGaps2`, `DNDExt`, `DNDPlayer`, `DNDCommunity`, `DNDAccount`). The fictional campaign is **"The Sunken Outpost"** (Brine Hand cult; the PC persona is **Mara Quill**, Cleric 5).                                                                                                                                                                                              |
+| `_ds/.../_ds_bundle.part1..5.js`      | The full design-system component bundle, split into fetchable parts (~56 components: Button, Card, Icon, Badge, HPBar, InitiativeRow, DiceResult, AbilityScore, StatBlock, ConditionTracker, DataTable, SpellSlots, NpcCard, QuestCard, SessionTimeline, …).                                                                                                                                                                                                       |
+| `_ds/.../tokens/*.css` + `styles.css` | The token layer — see Design Principles below.                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 > History note: this structure replaced an earlier **monolithic `app.jsx`** that exceeded the
 > 256 KiB `get_file` cap (truncated ~line 3982). While capped, Player, Community Wiki/Publish, and a
@@ -68,9 +68,11 @@ project. The byte-identical token CSS lives here and was copied into the app.
 - **`src/app/screen-kit.tsx`** — the local mirror of the prototype's shared primitives: the `T` token
   shorthand object, `eb`/`mono` style consts, and `Page` / `Panel` / `Seg` / `SetRow` (1:1 with the
   online `app.jsx` versions, so section ports translate line-for-line).
-- **`src/app/AppShell.tsx` + `src/app/nav.ts`** — the shared chrome (sidebar + topbar) and section IA.
-- **`src/runtime/mockCampaign.ts`** — the test data: a copy of `campaign-data.js` (`@ts-nocheck`),
-  exporting all 11 `DND*` globals. This is what populates every section for review.
+- **`src/app/shell/` + `src/app/nav.ts`** — the shared chrome (sidebar + topbar) and section IA.
+- **`src/runtime/demo-seed.ts`** — the demo data: dispatches the same commands a DM would
+  (`character.quick-create`, `content.create-item`, `scene.create`, …) into a fresh vault so every
+  section has representative content for review. Replaced the earlier `mockCampaign.ts` global-data
+  shim.
 - **`src/screens/*.tsx`** — one file per section, each a faithful port of the matching `views/*.jsx`.
 
 ---
@@ -96,11 +98,11 @@ spatial, and player-safe by default. Concretely:
   `VisibilityChip` and the `--color-visibility-*` tokens. DM-only content is visually distinct and is
   stripped from anything player-facing (e.g. the published wiki preview, export defaults).
 - **Spatial, launcher-first IA.** The Command Center is a **navigation hub / launcher**, not a
-  live-play surface — combat, dice, initiative and the widget board live *inside a scene* (the
+  live-play surface — combat, dice, initiative and the widget board live _inside a scene_ (the
   Session), never on the home. The sidebar groups, in order:
   **Run the table** (Command Center, Session) · **Scenes** (a live scene library with status dots:
   live / ready / draft, 5 + overflow) · **Library** (Characters, Atlas, Campaign, Knowledge with
-  counts) · **More** (Platform: Graph, Audio, Extensions, Community — *collapsed by default*) ·
+  counts) · **More** (Platform: Graph, Audio, Extensions, Community — _collapsed by default_) ·
   **Pinned** · **Recent** · footer (Player view, Settings, DM account). The topbar carries the
   Cinzel title/subtitle, a `⌘K` search affordance, and the projection pill + Project/Stop.
 - **Progressive disclosure via complexity tiers.** A separate `complexity` axis
@@ -117,7 +119,8 @@ spatial, and player-safe by default. Concretely:
 1. Copy the JSX/inline-styles **verbatim**.
 2. `window.DNDToolsDesignSystem_8ae046.X` → `import { X } from '../ds'`.
 3. `A.Page` / `A.Panel` / `A.Seg` / `T` / `eb` / `mono` → `'../app/screen-kit'`.
-4. Data globals (`DNDPlayer`, `DNDCommunity`, …) → `'../runtime/mockCampaign'`.
+4. Data globals (`DNDPlayer`, `DNDCommunity`, …) → dispatched via `'../runtime/demo-seed'` commands,
+   not read as globals.
 5. Store reads/dispatch (`useApp()`, `dispatch`) → local component state; `toast` → no-op (there is
    no global Toaster in this visual port).
 6. `go(id)` / `nav/detail` → `react-router` `navigate(path)` or local detail state.

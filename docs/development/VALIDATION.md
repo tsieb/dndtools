@@ -19,7 +19,7 @@ pnpm validate:live       # + live AWS dev-stack validation (needs the `dndtools`
 pnpm validate --desktop  # + packaged Electron smoke (needs a display)
 pnpm validate:full       # everything (capability-gated: skips what it can't run)
 pnpm validate:list       # print the full check catalog
-pnpm feature-audit       # just the feature-gap drift report
+pnpm feature-audit       # just the feature-inventory drift report
 ```
 
 Selectors: `--layer=unit,static` · `--only=e2e,test:core` · `--skip=e2e` · `--jobs=N` · `--no-report`.
@@ -34,7 +34,7 @@ Selectors: `--layer=unit,static` · `--only=e2e,test:core` · `--skip=e2e` · `-
 | **browser** | React Playwright E2E (`apps/gm-react/tests/e2e/`, desktop + mobile Chromium), axe scan + gate report, React verify (routes / round-trip / canvas / UI-dispatch), P2P live WebRTC handshake | headless Chromium + managed `react-dev` server   |
 | **desktop** | Electron packaged smoke (secure `dndtools://app` origin, exact-origin CORS, CSP, IndexedDB persistence, renderer console errors, and startup privileged-IPC tripwires across restart)      | display + electron binary — _off by default_     |
 | **cloud**   | SSM config resolvable, CloudFront security headers, sync-API rejects anonymous, Cognito OIDC discovery, signaling e2e, TURN relay, E2EE backup round-trip + ciphertext-at-rest             | live AWS dev stacks — _off by default, `--live`_ |
-| **audit**   | feature-gap drift (FEATURE-GAPS.md ↔ live code)                                                                                                                                            | none                                             |
+| **audit**   | feature-inventory drift (FEATURE-GAPS.md ↔ live code)                                                                                                                                      | none                                             |
 
 Android native verification is deliberately outside the Node-based `pnpm validate` harness. Run it
 after the renderer checks, from the tracked project:
@@ -81,16 +81,23 @@ Written to `test-results/validation/`:
 Exit code is non-zero iff a **required** check failed (optional checks — prettier,
 the feature audit — downgrade to `warn`).
 
-## Feature-gap audit
+## Feature-inventory audit
 
-`FEATURE-GAPS.md` is a _layered, historical_ ledger: its old gap sections were
-remediated by later dated passes. So the audit keys off the **latest** "Honest
-stubs remaining" list and **probes live code** (stub markers + per-screen
-core-dispatch wiring) rather than echoing superseded gap tables. It surfaces:
+`FEATURE-GAPS.md` is a per-surface **inventory** (RC-STB-3.3): one row per reachable
+surface, and every honest limit in a row carries an evidence anchor
+`` `path` › `string` `` — a literal string that must still exist in that file for the
+limit to still be true. The audit parses the rows between the `inventory:start` /
+`inventory:end` markers and **fails** on any anchor whose string (or whose file) has
+gone: a limit that was quietly closed, or evidence that moved, breaks the build instead
+of rotting in the ledger. Alongside that it probes live code. It surfaces:
 
-- declared-but-unbuilt surfaces (the honest stub list),
+- stale honest-limit anchors (**fail** — fix the row or the code),
 - stub markers found in `apps/gm-react/src` (drift the ledger doesn't mention),
-- screens with no core-dispatch reference (presentation-only — verify).
+- screens with no core-dispatch reference (presentation-only — verify); a split screen
+  is probed across its whole `screens/<name>/` directory, not just its barrel `index.tsx`.
+
+The pre-RC dated update passes (§0★…§9) live at
+`docs/requirements/history/2026-06-to-07-gap-audit.md` and are not parsed.
 
 ## Live cloud validation
 
