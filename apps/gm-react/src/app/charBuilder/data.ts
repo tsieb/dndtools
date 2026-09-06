@@ -5,6 +5,7 @@
  * behaviour change.
  */
 import { DRAFT_BACKGROUND_OPTIONS, DRAFT_CLASS_OPTIONS, type CommandResult } from '@dndtools/core';
+import type { MessageKey } from '../../i18n';
 
 // ── Builder rules kit — inlined from the design prototype's `campaign-extras.js` (DNDX.builder).
 // Static 5e reference data (not campaign mock): races, classes, backgrounds, score methods, and the
@@ -31,8 +32,8 @@ export interface BuilderBackground {
 export type ScoreMethod = 'standard' | 'pointbuy' | 'manual';
 export interface BuilderMethod {
 	id: ScoreMethod;
-	label: string;
-	note: string;
+	label: MessageKey;
+	note: MessageKey;
 }
 export type AbilityKey = 'STR' | 'DEX' | 'CON' | 'INT' | 'WIS' | 'CHA';
 
@@ -178,11 +179,15 @@ export const BUILDER: {
 	methods: [
 		{
 			id: 'standard',
-			label: 'Standard array',
-			note: '15 · 14 · 13 · 12 · 10 · 8 — assign each once.',
+			label: 'charBuilder.method.standard',
+			note: 'charBuilder.method.standardNote',
 		},
-		{ id: 'pointbuy', label: 'Point buy', note: '27 points; scores 8–15 before racial bonuses.' },
-		{ id: 'manual', label: 'Manual', note: 'Type any scores — for rolled stats or imports.' },
+		{
+			id: 'pointbuy',
+			label: 'charBuilder.method.pointBuy',
+			note: 'charBuilder.method.pointBuyNote',
+		},
+		{ id: 'manual', label: 'charBuilder.method.manual', note: 'charBuilder.method.manualNote' },
 	],
 	standardArray: [15, 14, 13, 12, 10, 8],
 	// 5e point-buy cost: score → points (matches the core's CHAR-002 table).
@@ -190,17 +195,17 @@ export const BUILDER: {
 };
 
 export type CharKind = 'pc' | 'npc' | 'monster' | 'sidekick';
-export const KINDS: { id: CharKind; label: string; icon: string }[] = [
-	{ id: 'pc', label: 'PC', icon: 'characters-person' },
-	{ id: 'npc', label: 'NPC', icon: 'group' },
-	{ id: 'monster', label: 'Monster', icon: 'sword' },
-	{ id: 'sidekick', label: 'Sidekick', icon: 'heart' },
+export const KINDS: { id: CharKind; label: MessageKey; icon: string }[] = [
+	{ id: 'pc', label: 'characters.kind.pc', icon: 'characters-person' },
+	{ id: 'npc', label: 'characters.kind.npc', icon: 'group' },
+	{ id: 'monster', label: 'characters.kind.monster', icon: 'sword' },
+	{ id: 'sidekick', label: 'characters.kind.sidekick', icon: 'heart' },
 ];
-export const KIND_LABEL: Record<CharKind, string> = {
-	pc: 'PC',
-	npc: 'NPC',
-	monster: 'Monster',
-	sidekick: 'Sidekick',
+export const KIND_LABEL: Record<CharKind, MessageKey> = {
+	pc: 'characters.kind.pc',
+	npc: 'characters.kind.npc',
+	monster: 'characters.kind.monster',
+	sidekick: 'characters.kind.sidekick',
 };
 export const KIND_TONE: Record<CharKind, string> = {
 	pc: 'success',
@@ -245,13 +250,13 @@ export interface AttackRow {
 }
 
 export const STEPS = [
-	{ id: 'identity', title: 'Identity', icon: 'characters-person' },
-	{ id: 'class', title: 'Class & level', icon: 'shield' },
-	{ id: 'stats', title: 'Ability scores', icon: 'dice' },
-	{ id: 'kit', title: 'Attacks & kit', icon: 'sword' },
-	{ id: 'bio', title: 'Bio & notes', icon: 'note-edit' },
-	{ id: 'review', title: 'Review', icon: 'check' },
-] as const;
+	{ id: 'identity', title: 'charBuilder.step.identity', icon: 'characters-person' },
+	{ id: 'class', title: 'charBuilder.step.class', icon: 'shield' },
+	{ id: 'stats', title: 'charBuilder.step.stats', icon: 'dice' },
+	{ id: 'kit', title: 'charBuilder.step.kit', icon: 'sword' },
+	{ id: 'bio', title: 'charBuilder.step.bio', icon: 'note-edit' },
+	{ id: 'review', title: 'charBuilder.step.review', icon: 'check' },
+] as const satisfies readonly { id: string; title: MessageKey; icon: string }[];
 
 /** Pull a string field off the first emitted event of a given kind (mirrors demo-seed). */
 export function eventField(result: CommandResult, kind: string, field: string): string | null {

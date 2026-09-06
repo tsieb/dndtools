@@ -8,8 +8,10 @@ import { AbilityScore, Avatar, Badge, Icon, VisibilityChip } from '../../ds';
 import { T, eb, mono } from '../screen-kit';
 import { BUILDER, KIND_LABEL, KIND_TONE, modOf } from './data';
 import type { Wizard } from './wizard';
+import { useI18n } from '../../i18n';
 
 export function ReviewStep({ w }: { w: Wizard }) {
+	const { t } = useI18n();
 	const {
 		isPhone,
 		isPc,
@@ -44,7 +46,7 @@ export function ReviewStep({ w }: { w: Wizard }) {
 					<div style={{ minWidth: 0 }}>
 						<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
 							<span style={{ font: `700 20px ${T.disp}` }}>{name || 'Unnamed'}</span>
-							<Badge status={KIND_TONE[kind]}>{KIND_LABEL[kind]}</Badge>
+							<Badge status={KIND_TONE[kind]}>{t(KIND_LABEL[kind])}</Badge>
 							<VisibilityChip
 								level={isPc ? 'shared' : vis === 'players' ? 'players' : 'dm-only'}
 								compact
@@ -56,7 +58,9 @@ export function ReviewStep({ w }: { w: Wizard }) {
 						</div>
 						{isPc && (
 							<div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: 2 }}>
-								Owned by {players.find((p) => p.id === ownerId)?.displayName ?? '—'}
+								{t('charBuilder.ownedBy', {
+									name: players.find((p) => p.id === ownerId)?.displayName ?? '—',
+								})}
 							</div>
 						)}
 					</div>
@@ -119,7 +123,9 @@ export function ReviewStep({ w }: { w: Wizard }) {
 				</div>
 				<div style={{ borderTop: `1px solid ${T.bd}`, paddingTop: 10 }}>
 					<div style={{ ...eb, marginBottom: 6 }}>
-						Attacks ({attacks.filter((a) => a.name.trim()).length})
+						{t('charBuilder.attacksCount', {
+							count: attacks.filter((a) => a.name.trim()).length,
+						})}
 					</div>
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
 						{attacks
@@ -142,7 +148,9 @@ export function ReviewStep({ w }: { w: Wizard }) {
 								</div>
 							))}
 						{!attacks.filter((a) => a.name.trim()).length && (
-							<span style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No attacks added.</span>
+							<span style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+								{t('charBuilder.noAttacks')}
+							</span>
 						)}
 					</div>
 				</div>

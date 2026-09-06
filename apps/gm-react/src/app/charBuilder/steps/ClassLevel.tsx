@@ -8,8 +8,10 @@ import { Select } from '../../../ds';
 import { T } from '../../screen-kit';
 import { FieldLabel, NumStepper, Tile } from '../ui';
 import type { Wizard } from '../wizard';
+import { useI18n } from '../../../i18n';
 
 export function ClassLevelStep({ w }: { w: Wizard }) {
+	const { t } = useI18n();
 	const {
 		isPhone,
 		isPc,
@@ -30,9 +32,13 @@ export function ClassLevelStep({ w }: { w: Wizard }) {
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 			<div>
 				<FieldLabel
-					hint={`Hit die ${clsObj.hd} · primary ${clsObj.primary} · saves ${clsObj.saves}`}
+					hint={t('charBuilder.classHint', {
+						hd: clsObj.hd,
+						primary: clsObj.primary,
+						saves: clsObj.saves,
+					})}
 				>
-					Class
+					{t('charBuilder.class')}
 				</FieldLabel>
 				<div
 					style={{
@@ -57,7 +63,7 @@ export function ClassLevelStep({ w }: { w: Wizard }) {
 				</div>
 				{isPc && (
 					<div style={{ font: `11.5px ${T.sans}`, color: T.ter, marginTop: 8 }}>
-						The guided PC flow supports these classes today — more arrive with future rule packages.
+						{t('charBuilder.classesSupported')}
 					</div>
 				)}
 			</div>
@@ -71,25 +77,34 @@ export function ClassLevelStep({ w }: { w: Wizard }) {
 				}}
 			>
 				<div>
-					<FieldLabel hint="Optional at level 1">Subclass</FieldLabel>
+					<FieldLabel hint={t('charBuilder.subclassHint')}>{t('charBuilder.subclass')}</FieldLabel>
 					<Select
 						value={subclass}
 						onChange={(e: any) => setSubclass(e.target.value)}
 						options={[
-							{ value: '', label: '— none yet —' },
+							{ value: '', label: t('charBuilder.noneYet') },
 							...clsObj.sub.split(', ').map((s) => ({ value: s, label: s })),
 						]}
-						aria-label="Subclass"
+						aria-label={t('charBuilder.subclass')}
 						style={{ width: '100%' }}
 					/>
 				</div>
 				<div>
-					<FieldLabel>Level</FieldLabel>
-					<NumStepper value={level} min={1} max={20} onChange={setLevel} mono label="level" />
+					<FieldLabel>{t('charBuilder.level')}</FieldLabel>
+					<NumStepper
+						value={level}
+						min={1}
+						max={20}
+						onChange={setLevel}
+						mono
+						label={t('charBuilder.levelUnit')}
+					/>
 				</div>
 			</div>
 			<div>
-				<FieldLabel hint={`Grants ${bgObj.skills}`}>Background</FieldLabel>
+				<FieldLabel hint={t('charBuilder.backgroundHint', { skills: bgObj.skills })}>
+					{t('charBuilder.background')}
+				</FieldLabel>
 				<div
 					style={{
 						display: 'grid',

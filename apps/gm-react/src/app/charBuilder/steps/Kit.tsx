@@ -8,8 +8,10 @@ import { Icon, IconButton, Input } from '../../../ds';
 import { T } from '../../screen-kit';
 import { FieldLabel, NumStepper } from '../ui';
 import type { Wizard } from '../wizard';
+import { useI18n } from '../../../i18n';
 
 export function KitStep({ w }: { w: Wizard }) {
+	const { t } = useI18n();
 	const { isPhone, kind, ac, setAc, hp, setHp, speed, setSpeed, attacks, setAttacks } = w;
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -21,11 +23,18 @@ export function KitStep({ w }: { w: Wizard }) {
 				}}
 			>
 				<div>
-					<FieldLabel>Armor class</FieldLabel>
-					<NumStepper value={ac} min={1} max={30} onChange={setAc} mono label="armor class" />
+					<FieldLabel>{t('characters.armorClass')}</FieldLabel>
+					<NumStepper
+						value={ac}
+						min={1}
+						max={30}
+						onChange={setAc}
+						mono
+						label={t('charBuilder.armorClassUnit')}
+					/>
 				</div>
 				<div>
-					<FieldLabel>Hit points</FieldLabel>
+					<FieldLabel>{t('characters.hitPoints')}</FieldLabel>
 					<NumStepper
 						value={hp}
 						min={1}
@@ -33,11 +42,11 @@ export function KitStep({ w }: { w: Wizard }) {
 						step={kind === 'monster' ? 5 : 1}
 						onChange={setHp}
 						mono
-						label="hit points"
+						label={t('charBuilder.hitPointsUnit')}
 					/>
 				</div>
 				<div>
-					<FieldLabel>Speed (ft)</FieldLabel>
+					<FieldLabel>{t('charBuilder.speedFt')}</FieldLabel>
 					<NumStepper
 						value={speed}
 						min={0}
@@ -45,12 +54,14 @@ export function KitStep({ w }: { w: Wizard }) {
 						step={5}
 						onChange={setSpeed}
 						mono
-						label="speed"
+						label={t('charBuilder.speedUnit')}
 					/>
 				</div>
 			</div>
 			<div>
-				<FieldLabel hint="Attacks, cantrips, and signature moves">Attacks &amp; actions</FieldLabel>
+				<FieldLabel hint={t('charBuilder.attacksHint')}>
+					{t('charBuilder.attacksActions')}
+				</FieldLabel>
 				{/* All kinds carry custom attacks now: NPC/monster/sidekick via quick-create,
 									    a PC via the draft's kit step (finalize-draft carries kit attacks onto the PC). */}
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -71,57 +82,57 @@ export function KitStep({ w }: { w: Wizard }) {
 						>
 							<Input
 								value={at.name}
-								aria-label="Attack name"
+								aria-label={t('characters.attackName')}
 								onChange={(e: any) =>
 									setAttacks((a) =>
 										a.map((x, j) => (j === idx ? { ...x, name: e.target.value } : x)),
 									)
 								}
-								placeholder="Name"
+								placeholder={t('characters.name')}
 							/>
 							<Input
 								value={at.kind}
-								aria-label="Attack kind"
+								aria-label={t('charBuilder.attackKind')}
 								onChange={(e: any) =>
 									setAttacks((a) =>
 										a.map((x, j) => (j === idx ? { ...x, kind: e.target.value } : x)),
 									)
 								}
-								placeholder="Melee or Ranged"
+								placeholder={t('charBuilder.attackKindPlaceholder')}
 							/>
 							<Input
 								value={at.hit}
-								aria-label="Attack to-hit"
+								aria-label={t('charBuilder.attackToHit')}
 								onChange={(e: any) =>
 									setAttacks((a) =>
 										a.map((x, j) => (j === idx ? { ...x, hit: e.target.value } : x)),
 									)
 								}
-								placeholder="Hit"
+								placeholder={t('charBuilder.attackHitPlaceholder')}
 							/>
 							<Input
 								value={at.dmg}
-								aria-label="Attack damage"
+								aria-label={t('charBuilder.attackDamage')}
 								onChange={(e: any) =>
 									setAttacks((a) =>
 										a.map((x, j) => (j === idx ? { ...x, dmg: e.target.value } : x)),
 									)
 								}
-								placeholder="Damage"
+								placeholder={t('characters.damage')}
 							/>
 							<Input
 								value={at.type}
-								aria-label="Damage type"
+								aria-label={t('charBuilder.damageType')}
 								onChange={(e: any) =>
 									setAttacks((a) =>
 										a.map((x, j) => (j === idx ? { ...x, type: e.target.value } : x)),
 									)
 								}
-								placeholder="Slashing"
+								placeholder={t('charBuilder.damageTypePlaceholder')}
 							/>
 							<IconButton
 								icon="close"
-								label="Remove attack"
+								label={t('characters.removeAttack')}
 								variant="ghost"
 								size="sm"
 								onClick={() => setAttacks((a) => a.filter((_, j) => j !== idx))}
@@ -151,7 +162,7 @@ export function KitStep({ w }: { w: Wizard }) {
 						}}
 					>
 						<Icon name="add" size={14} />
-						Add attack
+						{t('characters.addAttack')}
 					</button>
 				</div>
 			</div>

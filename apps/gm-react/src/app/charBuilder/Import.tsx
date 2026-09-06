@@ -10,6 +10,7 @@ import { T, eb } from '../screen-kit';
 import { KIND_LABEL, KIND_TONE } from './data';
 import { Overlay } from './Overlay';
 import type { ImportPlan } from '../charImport/ddbJson';
+import { useI18n } from '../../i18n';
 
 export function ImportPhase({
 	isPhone,
@@ -32,8 +33,9 @@ export function ImportPhase({
 	onChooseFile: () => void;
 	onConfirm: () => void;
 }) {
+	const { t } = useI18n();
 	return (
-		<Overlay key="import" onClose={onClose} label="Import character file" phone={isPhone}>
+		<Overlay key="import" onClose={onClose} label={t('charBuilder.importTitle')} phone={isPhone}>
 			<div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1 }}>
 				<div
 					style={{
@@ -44,14 +46,19 @@ export function ImportPhase({
 					}}
 				>
 					<div>
-						<h2 style={{ margin: 0, font: `700 24px ${T.disp}` }}>Import character file</h2>
+						<h2 style={{ margin: 0, font: `700 24px ${T.disp}` }}>
+							{t('charBuilder.importTitle')}
+						</h2>
 						<p style={{ margin: '4px 0 0', font: `13px ${T.sans}`, color: T.ter }}>
-							{importPlan
-								? 'Review what will be imported. Nothing is created until you confirm.'
-								: 'The file couldn’t be read — check that it’s a character export and try again.'}
+							{t(importPlan ? 'charBuilder.importReview' : 'charBuilder.importUnreadable')}
 						</p>
 					</div>
-					<IconButton icon="close" label="Close" variant="ghost" onClick={onClose} />
+					<IconButton
+						icon="close"
+						label={t('common.action.close')}
+						variant="ghost"
+						onClick={onClose}
+					/>
 				</div>
 				<div
 					style={{
@@ -83,7 +90,7 @@ export function ImportPhase({
 									<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
 										<span style={{ font: `700 19px ${T.disp}` }}>{importPlan.name}</span>
 										<Badge status={KIND_TONE[importPlan.quickCreate.kind]}>
-											{KIND_LABEL[importPlan.quickCreate.kind]}
+											{t(KIND_LABEL[importPlan.quickCreate.kind])}
 										</Badge>
 										<VisibilityChip
 											level={
@@ -92,20 +99,30 @@ export function ImportPhase({
 											compact
 										/>
 										<Badge status="neutral">
-											{importPlan.source === 'dndbeyond' ? 'D&D Beyond export' : 'dndtools JSON'}
+											{t(
+												importPlan.source === 'dndbeyond'
+													? 'charBuilder.sourceDndBeyond'
+													: 'charBuilder.sourceDndtools',
+											)}
 										</Badge>
 									</div>
 									<div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: 3 }}>
 										{[
-											`${Object.keys(importPlan.quickCreate.abilityScores).length} ability scores`,
+											t('charBuilder.countAbilityScores', {
+												count: Object.keys(importPlan.quickCreate.abilityScores).length,
+											}),
 											importPlan.proficiencies?.skills
-												? `${Object.keys(importPlan.proficiencies.skills).length} skills`
+												? t('charBuilder.countSkills', {
+														count: Object.keys(importPlan.proficiencies.skills).length,
+													})
 												: null,
 											importPlan.proficiencies?.saves
-												? `${importPlan.proficiencies.saves.length} saves`
+												? t('charBuilder.countSaves', {
+														count: importPlan.proficiencies.saves.length,
+													})
 												: null,
-											`${importPlan.spells.length} spells`,
-											`${importPlan.attacks.length} attacks`,
+											t('charBuilder.countSpells', { count: importPlan.spells.length }),
+											t('charBuilder.countAttacks', { count: importPlan.attacks.length }),
 										]
 											.filter(Boolean)
 											.join(' · ')}
@@ -129,7 +146,7 @@ export function ImportPhase({
 									}}
 								>
 									<div style={{ ...eb, marginBottom: 8, color: T.ok }}>
-										Will import ({importPlan.mapped.length})
+										{t('charBuilder.willImport', { count: importPlan.mapped.length })}
 									</div>
 									<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
 										{importPlan.mapped.map((n, j) => (
@@ -159,11 +176,11 @@ export function ImportPhase({
 									}}
 								>
 									<div style={{ ...eb, marginBottom: 8, color: T.warn }}>
-										Couldn't map ({importPlan.unmapped.length})
+										{t('charBuilder.couldNotMap', { count: importPlan.unmapped.length })}
 									</div>
 									{importPlan.unmapped.length === 0 ? (
 										<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-											Every field in the file mapped cleanly.
+											{t('charBuilder.allMapped')}
 										</div>
 									) : (
 										<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -186,7 +203,7 @@ export function ImportPhase({
 										</div>
 									)}
 									<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter, marginTop: 10 }}>
-										These fields will NOT be imported — listed here so nothing is lost silently.
+										{t('charBuilder.unmappedNote')}
 									</div>
 								</div>
 							</div>
@@ -218,15 +235,15 @@ export function ImportPhase({
 					}}
 				>
 					<Button variant="ghost" icon="chevron-left" onClick={onBack}>
-						Back
+						{t('common.action.back')}
 					</Button>
 					<div style={{ flex: 1 }} />
 					<Button variant="secondary" onClick={onChooseFile}>
-						Choose another file
+						{t('charBuilder.chooseAnotherFile')}
 					</Button>
 					{importPlan && (
 						<Button variant="primary" icon="check" disabled={submitting} onClick={onConfirm}>
-							{submitting ? 'Importing…' : 'Import character'}
+							{submitting ? t('charBuilder.importing') : t('charBuilder.importCharacter')}
 						</Button>
 					)}
 				</div>

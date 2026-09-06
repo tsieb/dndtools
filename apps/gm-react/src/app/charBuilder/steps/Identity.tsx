@@ -9,8 +9,10 @@ import { T } from '../../screen-kit';
 import { ALIGNMENTS, BUILDER, KINDS, portraitGradient } from '../data';
 import { FieldLabel, HonestNote, Tile } from '../ui';
 import type { Wizard } from '../wizard';
+import { useI18n } from '../../../i18n';
 
 export function IdentityStep({ w }: { w: Wizard }) {
+	const { t } = useI18n();
 	const {
 		isPhone,
 		isPc,
@@ -31,7 +33,7 @@ export function IdentityStep({ w }: { w: Wizard }) {
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 			<div>
-				<FieldLabel>Kind</FieldLabel>
+				<FieldLabel>{t('charBuilder.kind')}</FieldLabel>
 				<div
 					style={{
 						display: 'grid',
@@ -44,7 +46,7 @@ export function IdentityStep({ w }: { w: Wizard }) {
 							key={k.id}
 							on={kind === k.id}
 							onClick={() => setKind(k.id)}
-							title={k.label}
+							title={t(k.label)}
 							compact
 							icon={k.icon}
 						/>
@@ -59,22 +61,22 @@ export function IdentityStep({ w }: { w: Wizard }) {
 				}}
 			>
 				<div>
-					<FieldLabel>Name</FieldLabel>
+					<FieldLabel>{t('charBuilder.name')}</FieldLabel>
 					<Input
 						value={name}
 						onChange={(e: any) => setName(e.target.value)}
-						placeholder="e.g. Sister Avelin"
-						aria-label="Name"
+						placeholder={t('charBuilder.namePlaceholder')}
+						aria-label={t('charBuilder.name')}
 						style={{ width: '100%' }}
 					/>
 				</div>
 				<div>
-					<FieldLabel>Alignment</FieldLabel>
+					<FieldLabel>{t('charBuilder.alignment')}</FieldLabel>
 					<Select
 						value={align}
 						onChange={(e: any) => setAlign(e.target.value)}
 						options={ALIGNMENTS.map((a) => ({ value: a, label: a }))}
-						aria-label="Alignment"
+						aria-label={t('charBuilder.alignment')}
 						style={{ width: '100%' }}
 					/>
 				</div>
@@ -90,25 +92,25 @@ export function IdentityStep({ w }: { w: Wizard }) {
 					<div>
 						{/* Core rule: a PC draft is owned by exactly ONE player (CHAR-013); the owner
 											    fills and finalizes the guided steps. */}
-						<FieldLabel hint="A PC belongs to a player — the guided draft is created in their name">
-							Owned by
+						<FieldLabel hint={t('charBuilder.ownerHint')}>
+							{t('charBuilder.ownedByLabel')}
 						</FieldLabel>
 						{players.length > 0 ? (
 							<Select
 								value={ownerId}
 								onChange={(e: any) => setOwner(e.target.value)}
 								options={players.map((p) => ({ value: p.id, label: p.displayName }))}
-								aria-label="Owned by"
+								aria-label={t('charBuilder.ownedByLabel')}
 								style={{ width: '100%' }}
 							/>
 						) : (
-							<HonestNote>Add a player in Settings before building a player character.</HonestNote>
+							<HonestNote>{t('charBuilder.needPlayer')}</HonestNote>
 						)}
 					</div>
 				</div>
 			)}
 			<div>
-				<FieldLabel hint="Sets racial traits & ability bonuses">Ancestry / race</FieldLabel>
+				<FieldLabel hint={t('charBuilder.ancestryHint')}>{t('charBuilder.ancestry')}</FieldLabel>
 				<div
 					style={{
 						display: 'grid',
@@ -129,7 +131,7 @@ export function IdentityStep({ w }: { w: Wizard }) {
 				</div>
 			</div>
 			<div>
-				<FieldLabel>Portrait tone</FieldLabel>
+				<FieldLabel>{t('charBuilder.portraitTone')}</FieldLabel>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
 					<span
 						style={{
@@ -159,7 +161,7 @@ export function IdentityStep({ w }: { w: Wizard }) {
 						max="359"
 						value={grad}
 						onChange={(e) => setGrad(Number(e.target.value))}
-						aria-label="Portrait tone"
+						aria-label={t('charBuilder.portraitTone')}
 						style={{ flex: 1, accentColor: 'var(--color-accent)' }}
 					/>
 					<span

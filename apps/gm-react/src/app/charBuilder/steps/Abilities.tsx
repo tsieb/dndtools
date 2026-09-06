@@ -8,8 +8,10 @@ import { Button, IconButton, Select, Toaster } from '../../../ds';
 import { Seg, T, eb } from '../../screen-kit';
 import { BUILDER, modOf, type ScoreMethod } from '../data';
 import type { Wizard } from '../wizard';
+import { useI18n } from '../../../i18n';
 
 export function AbilitiesStep({ w }: { w: Wizard }) {
+	const { t } = useI18n();
 	const {
 		isPhone,
 		isPc,
@@ -35,11 +37,13 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 				<Seg
 					value={method}
 					onChange={(v) => setMethod(v as ScoreMethod)}
-					options={BUILDER.methods.map((m) => ({ value: m.id, label: m.label }))}
-					ariaLabel="Ability score method"
+					options={BUILDER.methods.map((m) => ({ value: m.id, label: t(m.label) }))}
+					ariaLabel={t('charBuilder.scoreMethod')}
 				/>
 				<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
-					{BUILDER.methods.find((m) => m.id === method)?.note}
+					{t(
+						BUILDER.methods.find((m) => m.id === method)?.note ?? 'charBuilder.method.standardNote',
+					)}
 				</span>
 				{method === 'pointbuy' && (
 					<span
@@ -53,7 +57,7 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 							border: `1px solid ${T.accBd}`,
 						}}
 					>
-						{pointsLeft} points left
+						{t('charBuilder.pointsLeft', { points: pointsLeft })}
 					</span>
 				)}
 			</div>
@@ -150,12 +154,7 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 					role="alert"
 					style={{ margin: 0, paddingLeft: 18, font: `12.5px ${T.sans}`, color: T.warn }}
 				>
-					{standardIncomplete && (
-						<li>
-							Assign all six standard-array values before continuing (unassigned abilities would be
-							saved as 10).
-						</li>
-					)}
+					{standardIncomplete && <li>{t('charBuilder.standardIncomplete')}</li>}
 					{abilityValidation?.valid === false &&
 						abilityValidation.issues.map((iss, j) => (
 							<li key={`${iss.fieldId ?? 'step'}-${j}`}>{iss.message}</li>
@@ -164,7 +163,7 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 			)}
 			{isPc && method === 'manual' && (
 				<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-					A guided PC uses standard point buy — each score 8–15, 27 points total.
+					{t('charBuilder.pcUsesPointBuy')}
 				</div>
 			)}
 			<div
@@ -179,14 +178,18 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 					alignItems: 'center',
 				}}
 			>
-				<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>Derived suggestions</span>
-				<span style={{ font: `12px ${T.mono}`, color: T.ter }}>
-					Initiative {modOf(effScores.DEX)}
+				<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
+					{t('charBuilder.derivedSuggestions')}
 				</span>
 				<span style={{ font: `12px ${T.mono}`, color: T.ter }}>
-					Unarmored AC {10 + Math.floor((effScores.DEX - 10) / 2)}
+					{t('charBuilder.initiative', { value: modOf(effScores.DEX) })}
 				</span>
-				<span style={{ font: `12px ${T.mono}`, color: T.ter }}>CON mod {modOf(effScores.CON)}</span>
+				<span style={{ font: `12px ${T.mono}`, color: T.ter }}>
+					{t('charBuilder.unarmoredAc', { value: 10 + Math.floor((effScores.DEX - 10) / 2) })}
+				</span>
+				<span style={{ font: `12px ${T.mono}`, color: T.ter }}>
+					{t('charBuilder.conMod', { value: modOf(effScores.CON) })}
+				</span>
 				{/* Was a bare `padding: 0` text button ~15px tall with no hover or active state —
 									    under the 24px WCAG 2.5.8 floor for a control that rewrites the AC. */}
 				<Button
@@ -194,10 +197,10 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 					size="sm"
 					onClick={() => {
 						setAc(10 + Math.floor((effScores.DEX - 10) / 2));
-						Toaster.info('AC set from DEX');
+						Toaster.info(t('charBuilder.acFromDex'));
 					}}
 				>
-					Apply to kit →
+					{t('charBuilder.applyToKit')}
 				</Button>
 			</div>
 		</div>

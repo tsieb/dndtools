@@ -9,15 +9,17 @@ import { useEffect, useRef } from 'react';
 import { Button, Icon } from '../../ds';
 import { T } from '../screen-kit';
 import { registerBackHandler } from '../../platform/backNavigation';
+import { useI18n, type MessageKey } from '../../i18n';
 
 /* shared step-rail (mirrors onboarding) */
 export function StepRail({
 	steps,
 	i,
 }: {
-	steps: readonly { id: string; title: string; icon: string }[];
+	steps: readonly { id: string; title: MessageKey; icon: string }[];
 	i: number;
 }) {
+	const { t } = useI18n();
 	return (
 		<div
 			style={{
@@ -45,7 +47,9 @@ export function StepRail({
 				>
 					<Icon name="new-character" size="sm" />
 				</span>
-				<div style={{ font: `700 14px ${T.disp}`, letterSpacing: '.01em' }}>New character</div>
+				<div style={{ font: `700 14px ${T.disp}`, letterSpacing: '.01em' }}>
+					{t('charBuilder.newCharacter')}
+				</div>
 			</div>
 			<ol
 				style={{
@@ -91,7 +95,7 @@ export function StepRail({
 								{done ? <Icon name="check" size={13} /> : <Icon name={s.icon} size={14} />}
 							</span>
 							<span style={{ font: `${on ? 600 : 500} 13px ${T.sans}`, color: on ? T.ink : T.sub }}>
-								{s.title}
+								{t(s.title)}
 							</span>
 						</li>
 					);
@@ -106,7 +110,7 @@ export function StepRail({
 					color: T.ter,
 				}}
 			>
-				<Icon name="dm-only" size={13} /> Saved to your local vault
+				<Icon name="dm-only" size={13} /> {t('charBuilder.savedLocally')}
 			</div>
 		</div>
 	);
@@ -238,10 +242,11 @@ export function DiscardConfirm({
 	onKeep: () => void;
 	onDiscard: () => void;
 }) {
+	const { t } = useI18n();
 	return (
 		<div
 			role="alertdialog"
-			aria-label="Discard this character?"
+			aria-label={t('charBuilder.discardTitle')}
 			style={{
 				position: 'absolute',
 				inset: 0,
@@ -268,17 +273,16 @@ export function DiscardConfirm({
 					gap: 12,
 				}}
 			>
-				<div style={{ font: `700 16px ${T.disp}` }}>Discard this character?</div>
+				<div style={{ font: `700 16px ${T.disp}` }}>{t('charBuilder.discardTitle')}</div>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					The wizard hasn't created anything yet — closing now throws away everything entered so
-					far.
+					{t('charBuilder.discardBody')}
 				</div>
 				<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
 					<Button variant="ghost" size="sm" autoFocus onClick={onKeep}>
-						Keep editing
+						{t('charBuilder.keepEditing')}
 					</Button>
 					<Button variant="danger" size="sm" onClick={onDiscard}>
-						Discard character
+						{t('charBuilder.discardCharacter')}
 					</Button>
 				</div>
 			</div>

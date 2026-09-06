@@ -72,6 +72,7 @@ import { KitStep } from './steps/Kit';
 import { BioStep } from './steps/Bio';
 import { ReviewStep } from './Review';
 import type { Wizard } from './wizard';
+import { useI18n } from '../../i18n';
 
 export { portraitGradient } from './data';
 
@@ -90,6 +91,7 @@ export function CharBuilder({
 	initialAction?: 'import';
 }) {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const isPhone = useViewport() === 'phone';
 	const dmActorId = runtime.defaultActorId;
 	const players = runtime.actors.filter((a) => a.role === 'player');
@@ -246,8 +248,8 @@ export function CharBuilder({
 	const subLine = useMemo(() => {
 		if (kind === 'pc' || kind === 'sidekick')
 			return `${raceObj.name} · ${clsObj.name} ${level}${subclass ? ` (${subclass})` : ''}`;
-		return `${clsObj.name}-kin · ${KIND_LABEL[kind]}${subclass ? ` (${subclass})` : ''}`;
-	}, [kind, raceObj, clsObj, level, subclass]);
+		return `${clsObj.name}-kin · ${t(KIND_LABEL[kind])}${subclass ? ` (${subclass})` : ''}`;
+	}, [kind, raceObj, clsObj, level, subclass, t]);
 	// ── The real create paths ─────────────────────────────────────────────────────────────────────
 
 	const w: Wizard = {
@@ -413,14 +415,20 @@ export function CharBuilder({
 	const blockedReason =
 		step.id === 'identity' && !identityOk
 			? isPc && !ownerId
-				? 'Give the character a name and choose who plays it.'
-				: 'Give the character a name to continue.'
+				? t('charBuilder.needNameAndOwner')
+				: t('charBuilder.needName')
 			: step.id === 'stats' && !statsOk
-				? 'Finish the ability scores — every score needs a value and the totals must be legal.'
+				? t('charBuilder.needScores')
 				: null;
 
 	return (
-		<Overlay key="scratch" onClose={requestClose} wide label="New character wizard" phone={isPhone}>
+		<Overlay
+			key="scratch"
+			onClose={requestClose}
+			wide
+			label={t('charBuilder.wizard')}
+			phone={isPhone}
+		>
 			<div style={{ display: 'flex', height: '100%', flex: 1, position: 'relative' }}>
 				{/* The desktop rail would consume nearly all of a 320px dialog. Progress remains
 					    discoverable in the persistent footer on phone instead. */}
@@ -434,9 +442,9 @@ export function CharBuilder({
 							padding: isPhone ? '12px 16px 0' : '16px 28px 0',
 						}}
 					>
-						<div style={{ font: `700 19px ${T.disp}` }}>{step.title}</div>
+						<div style={{ font: `700 19px ${T.disp}` }}>{t(step.title)}</div>
 						<Button variant="ghost" size="sm" onClick={requestClose}>
-							Cancel
+							{t('common.action.cancel')}
 						</Button>
 					</div>
 					<div
@@ -464,11 +472,11 @@ export function CharBuilder({
 						}}
 					>
 						<Button variant="ghost" onClick={back} icon="chevron-left">
-							{i === 0 ? 'Back' : STEPS[i - 1].title}
+							{i === 0 ? t('common.action.back') : t(STEPS[i - 1].title)}
 						</Button>
 						<div style={{ flex: 1 }} />
 						<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-							Step {i + 1} of {STEPS.length}
+							{t('charBuilder.stepOf', { index: i + 1, total: STEPS.length })}
 						</span>
 						{i < STEPS.length - 1 ? (
 							<Button
@@ -478,7 +486,7 @@ export function CharBuilder({
 								title={blockedReason ?? undefined}
 								onClick={next}
 							>
-								Continue
+								{t('charBuilder.continue')}
 							</Button>
 						) : (
 							<Button
@@ -488,14 +496,14 @@ export function CharBuilder({
 								aria-disabled={!identityOk || !statsOk || undefined}
 								title={
 									!identityOk
-										? 'Give the character a name to continue.'
+										? t('charBuilder.needName')
 										: !statsOk
-											? 'Finish the ability scores before creating the character.'
+											? t('charBuilder.needScoresShort')
 											: undefined
 								}
 								onClick={create}
 							>
-								{submitting ? 'Creating…' : 'Create character'}
+								{submitting ? t('charBuilder.creating') : t('charBuilder.createCharacter')}
 							</Button>
 						)}
 					</div>

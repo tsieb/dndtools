@@ -8,6 +8,7 @@ import { IconButton } from '../../ds';
 import { T } from '../screen-kit';
 import { Overlay } from './Overlay';
 import { PathCard } from './ui';
+import { useI18n } from '../../i18n';
 
 export function ChoosePhase({
 	isPhone,
@@ -20,8 +21,9 @@ export function ChoosePhase({
 	onScratch: () => void;
 	onImport: () => void;
 }) {
+	const { t } = useI18n();
 	return (
-		<Overlay key="choose" onClose={onClose} label="Add a character" phone={isPhone}>
+		<Overlay key="choose" onClose={onClose} label={t('charBuilder.addCharacter')} phone={isPhone}>
 			<div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1 }}>
 				<div
 					style={{
@@ -32,12 +34,19 @@ export function ChoosePhase({
 					}}
 				>
 					<div>
-						<h2 style={{ margin: 0, font: `700 24px ${T.disp}` }}>Add a character</h2>
+						<h2 style={{ margin: 0, font: `700 24px ${T.disp}` }}>
+							{t('charBuilder.addCharacter')}
+						</h2>
 						<p style={{ margin: '4px 0 0', font: `13px ${T.sans}`, color: T.ter }}>
-							Build one from scratch with the guided 5e wizard.
+							{t('charBuilder.addCharacterHint')}
 						</p>
 					</div>
-					<IconButton icon="close" label="Close" variant="ghost" onClick={onClose} />
+					<IconButton
+						icon="close"
+						label={t('common.action.close')}
+						variant="ghost"
+						onClick={onClose}
+					/>
 				</div>
 				<div
 					style={{
@@ -51,17 +60,17 @@ export function ChoosePhase({
 				>
 					<PathCard
 						icon="new-character"
-						title="Build from scratch"
-						desc="A guided 5e wizard — identity, class, ability scores, kit, and notes. Standard array, point buy, or your own rolls."
-						cta="Start building"
+						title={t('charBuilder.fromScratch')}
+						desc={t('charBuilder.fromScratchDesc')}
+						cta={t('charBuilder.startBuilding')}
 						onClick={onScratch}
 						primary
 					/>
 					<PathCard
 						icon="import"
-						title="Import character file (JSON)"
-						desc="A D&D Beyond character export or a dndtools character JSON. You review exactly what maps — and what doesn't — before anything is created."
-						cta="Choose a file"
+						title={t('charBuilder.importFile')}
+						desc={t('charBuilder.importFileDesc')}
+						cta={t('charBuilder.chooseFile')}
 						onClick={onImport}
 					/>
 				</div>
