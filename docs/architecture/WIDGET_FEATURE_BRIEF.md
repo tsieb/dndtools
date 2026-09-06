@@ -13,33 +13,33 @@
 
 A DM running a live session is juggling initiative, HP, conditions, notes, maps, handouts,
 timers, and improvised lookups — usually across a stack of books, tabs, and apps. The cost
-isn't any single tool; it's the *context-switching* between them. Every navigation away from
+isn't any single tool; it's the _context-switching_ between them. Every navigation away from
 the current moment is a chance to lose the thread of play.
 
 ### 1.2 The user-facing goal
 
-> *"DND Tools is the best possible tool to have open at the table during a live game session.
-> Information is instant, action is one keystroke away, and the DM never loses the thread."*
+> _"DND Tools is the best possible tool to have open at the table during a live game session.
+> Information is instant, action is one keystroke away, and the DM never loses the thread."_
 > — `docs/planning/initiatives/I4-session-command-center.md`
 
 Widgets are the mechanism that delivers this. They turn the **session board** into a
-*configurable mission-control surface*:
+_configurable mission-control surface_:
 
-> *"Session boards are a true DM command center: configurable, content-rich, and responsive
-> to the shape of the current scene."* — I4
+> _"Session boards are a true DM command center: configurable, content-rich, and responsive
+> to the shape of the current scene."_ — I4
 
 The design target is scannability under pressure:
 
-> *"Every tile type is visually recognizable at a glance by its header accent, icon, and
+> _"Every tile type is visually recognizable at a glance by its header accent, icon, and
 > structural silhouette. A DM scanning the board identifies tile types in under one second
-> per tile without reading labels."* — `docs/planning/initiatives/I20-board-tool-ux.md`
+> per tile without reading labels."_ — `docs/planning/initiatives/I20-board-tool-ux.md`
 
 ### 1.3 Why "widgets" and not "panels"
 
 Widgets are deliberately a **platform primitive**, not a fixed set of screens. The same
 declarative widget model powers first-party tools today and is the seam through which
 community-authored, sandboxed extensions arrive tomorrow (see §6). This is why so much of the
-design weight sits in *binding*, *permissions*, and *sandboxing* rather than in any one widget.
+design weight sits in _binding_, _permissions_, and _sandboxing_ rather than in any one widget.
 
 ---
 
@@ -48,11 +48,11 @@ design weight sits in *binding*, *permissions*, and *sandboxing* rather than in 
 A **widget** is a typed, configurable, optionally data-bound tile placed on an editing
 surface. Three layers define it:
 
-| Layer | What it is | Lives in |
-|-------|------------|----------|
-| **Definition** | What a widget *can* do — its type, bindings, commands, config fields, render entrypoint, capabilities. A blueprint. | `packages/core` (system) or an installed package |
-| **Package** | A distributable bundle of one or more definitions, plus assets, migrations, and a trust review. | `WidgetPackageRecord` |
-| **Instance** | A concrete widget *placed on a scene* — carries layout (x/y/w/h/z), configuration, local state, and a binding. | `scene.widgets[]` |
+| Layer          | What it is                                                                                                          | Lives in                                         |
+| -------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| **Definition** | What a widget _can_ do — its type, bindings, commands, config fields, render entrypoint, capabilities. A blueprint. | `packages/core` (system) or an installed package |
+| **Package**    | A distributable bundle of one or more definitions, plus assets, migrations, and a trust review.                     | `WidgetPackageRecord`                            |
+| **Instance**   | A concrete widget _placed on a scene_ — carries layout (x/y/w/h/z), configuration, local state, and a binding.      | `scene.widgets[]`                                |
 
 **Definition vs. instance** is the key mental model: a definition describes capability; an
 instance is the placed, configured, bound thing the DM actually interacts with.
@@ -79,8 +79,8 @@ SESSION BOARD / SCENE CANVAS (the mission-control surface)
 ```
 
 Scenes provide **narrative context**; widgets provide **mechanical and reference context**.
-Switching scenes re-shapes which widgets are surfaced — *"information prevalence changes to
-surface what matters right now, not what matters during prep"* (I16).
+Switching scenes re-shapes which widgets are surfaced — _"information prevalence changes to
+surface what matters right now, not what matters during prep"_ (I16).
 
 ---
 
@@ -100,7 +100,7 @@ surface what matters right now, not what matters during prep"* (I16).
 - **Security** — `capabilitySets` (`manager | operator | viewer`), `hostPermissions`
 
 An **instance** (`WidgetInstance` in `scene-state.ts`) carries `layout`, `configuration`,
-`localState`, `binding`, and a `disabled` state (set, but *not destroyed*, when its package
+`localState`, `binding`, and a `disabled` state (set, but _not destroyed_, when its package
 is removed or a migration fails).
 
 ### 3.2 Binding — the heart of the system
@@ -109,27 +109,27 @@ A widget binds to an entity for **read** access via a declarative path:
 
 ```ts
 interface WidgetBinding {
-  source: { entityType: string; entityId: string; selector?: string }; // e.g. character / id / 'combat.hp'
-  mode: 'read' | 'operate' | 'manage' | 'observe';
-  requiredCapability: 'manager' | 'operator' | 'viewer';
+	source: { entityType: string; entityId: string; selector?: string }; // e.g. character / id / 'combat.hp'
+	mode: 'read' | 'operate' | 'manage' | 'observe';
+	requiredCapability: 'manager' | 'operator' | 'viewer';
 }
 ```
 
 Bindings are resolved against an **actor-scoped projection** of state
-(`WidgetDataEnvironment`), so the *same* binding resolves differently per viewer.
+(`WidgetDataEnvironment`), so the _same_ binding resolves differently per viewer.
 `resolveWidgetBinding()` (`packages/core/src/queries/binding.ts`) returns one of:
 
 `available` · `unbound` · `missing` · `hidden` · `conflicted` · `degraded`
 
 **Fail-closed visibility is the critical invariant:** a player binding to a DM-only NPC gets
-`hidden` — and never learns whether that entity is *also* missing or conflicted. Information
+`hidden` — and never learns whether that entity is _also_ missing or conflicted. Information
 leaks are prevented at the resolver, not at the renderer.
 
 ---
 
 ## 4. Security & Permissions
 
-The widget model assumes that *some* widgets will eventually be untrusted, so the boundaries
+The widget model assumes that _some_ widgets will eventually be untrusted, so the boundaries
 are strict by default.
 
 ### 4.1 Package trust lifecycle
@@ -142,7 +142,7 @@ install → [unreviewed, disabled, all host-permissions denied]
                   └─ remove  → soft-delete (removedAt), instances disabled
 ```
 
-System packages (`createSystemWidgetPackages()`) ship pre-trusted; *installed* packages start
+System packages (`createSystemWidgetPackages()`) ship pre-trusted; _installed_ packages start
 `unreviewed` with every host permission denied until a DM approves them.
 
 ### 4.2 Custom widget runtime (sandboxing)
@@ -152,7 +152,7 @@ an **iframe/worker sandbox** with:
 
 - **No raw access** to app state, storage, IPC, cloud client, auth tokens, or vault files.
 - **Permission-gated capabilities** (clipboard, network, filesystem…) — all default-denied.
-- **Forbidden capabilities** that are *never* grantable (`storage-adapter`, `ipc`,
+- **Forbidden capabilities** that are _never_ grantable (`storage-adapter`, `ipc`,
   `raw-vault-file`, `hidden-actor-data`, …).
 - **Exfiltration gate** (`evaluateWidgetOutboundRequest`, SEC-011): outbound requests are
   checked against approved destination classes and scanned for sensitive content
@@ -183,7 +183,7 @@ Grants are checked against `now`, so expired grants are inert.
 The scene canvas is a spatial, grid-based editing surface built on a `ViewportController`
 (pan/zoom/camera) under a `CanvasManipulationController` that owns selection, snap/grid,
 undo/redo, and live announcements. Every operation — pointer **or** keyboard — serializes to
-the *same* processing-core command (`scene.move-widget`, `scene.resize-widget`,
+the _same_ processing-core command (`scene.move-widget`, `scene.resize-widget`,
 `scene.configure-widget`, …). Geometry math (transform, alignment, z-order, selection) lives
 in pure, unit-tested modules.
 
@@ -195,15 +195,15 @@ resolves a renderer via `resolveWidgetRenderer()` → `template` | `builtin` | `
 
 **Built-in templates** (data-driven, reusable):
 
-| Template | Used for |
-|----------|----------|
-| `TemplateStatBlock` | Character widget — name/HP/AC/abilities from a binding |
-| `TemplateTracker` | Timer — live `M:SS` countdown + progress, operate commands |
-| `TemplateStatusList` | Initiative tracker / checklists — highlights the active row |
-| `TemplateDataTable` | Reference panels — filterable/sortable rows (notes, characters, maps) |
-| `TemplateChart` | Horizontal bar chart from a data query |
-| `TemplateFormPanel` | Note widget — heading + multiline body |
-| `TemplateSceneMessage` | Handout/message card to players |
+| Template               | Used for                                                              |
+| ---------------------- | --------------------------------------------------------------------- |
+| `TemplateStatBlock`    | Character widget — name/HP/AC/abilities from a binding                |
+| `TemplateTracker`      | Timer — live `M:SS` countdown + progress, operate commands            |
+| `TemplateStatusList`   | Initiative tracker / checklists — highlights the active row           |
+| `TemplateDataTable`    | Reference panels — filterable/sortable rows (notes, characters, maps) |
+| `TemplateChart`        | Horizontal bar chart from a data query                                |
+| `TemplateFormPanel`    | Note widget — heading + multiline body                                |
+| `TemplateSceneMessage` | Handout/message card to players                                       |
 
 Bespoke `builtin` renderers (Map, Audio, and the command-center suite: Combat, Notes, Atlas,
 Search, Session, Tools, Player Views, …) bypass templates when they need custom logic.
@@ -212,7 +212,7 @@ Search, Session, Tools, Player Views, …) bypass templates when they need custo
 
 Drag-or-keyboard parity for move, resize, rotate, z-order, align/distribute, and group;
 off-canvas snap-back; numeric `TransformPanel`; multi-select with a Figma-style
-"fully enclosed" marquee. Widget chrome shows a title (with a *safe* entity name that never
+"fully enclosed" marquee. Widget chrome shows a title (with a _safe_ entity name that never
 leaks hidden bindings), collapse toggle, a visibility badge (icon **and** label — never colour
 alone), and a binding-state chain-link indicator.
 
@@ -230,8 +230,8 @@ alone), and a binding-state chain-link indicator.
 
 - **WCAG 2.5.7 drag alternatives** — every pointer operation has a keyboard equivalent that
   dispatches the identical core command (single `DragController` adapter).
-- **Two keyboard modes** — *spatial* (nearest-neighbour arrow navigation, nudge, select) and
-  *action* (Enter to resize/rotate the focused widget).
+- **Two keyboard modes** — _spatial_ (nearest-neighbour arrow navigation, nudge, select) and
+  _action_ (Enter to resize/rotate the focused widget).
 - **Roving tabindex** for all composite controls; no positive `tabindex` anywhere.
 - **Live-region announcements** for selection, move, resize, align, and binding changes.
 - **Document order follows focus metadata** (z-order/group/dock/pin), not insertion order.
@@ -255,8 +255,8 @@ Widgets are built to become an **ecosystem**, not just a feature set:
 - **Campaign system modules (I8)** — hardcoded 5e assumptions factored into swappable system
   modules so widgets adapt to the active ruleset.
 - **Community content (I12)** — publishing and importing widget/board packages and templates.
-- **v2 core contracts (ADR-014)** — `@dndtools/v2-core` formalizes *"widget binding contracts
-  and command descriptors,"* making third-party widgets first-class and deterministically
+- **v2 core contracts (ADR-014)** — `@dndtools/v2-core` formalizes _"widget binding contracts
+  and command descriptors,"_ making third-party widgets first-class and deterministically
   permission-gated.
 
 These remain **deferred**; the shipped system already encodes the security and binding
@@ -267,7 +267,7 @@ that make safe extensibility possible.
 
 ## 7. Design Principles (Summary)
 
-1. **Information prevalence** — surface what matters *now*; scenes reshape the board.
+1. **Information prevalence** — surface what matters _now_; scenes reshape the board.
 2. **Sub-second scannability** — type identity via accent, icon, and silhouette.
 3. **One render path, one data path, one visibility boundary** — no second code path to drift.
 4. **Pointer is convenience over the same command** — keyboard/SR paths are primary.
@@ -279,15 +279,15 @@ that make safe extensibility possible.
 
 ## 8. Where to Look in Code
 
-| Concern | Location |
-|---------|----------|
-| Definitions, packages, system widgets | `packages/core/src/state/widget-package-state.ts` |
-| Instances, scene visibility | `packages/core/src/state/scene-state.ts` |
-| Binding resolution (actor-scoped, fail-closed) | `packages/core/src/queries/binding.ts` |
-| Library discovery | `packages/core/src/queries/widget-library.ts` |
-| Operator authority (operate vs configure) | `packages/core/src/permissions/widget-operator-authority.ts` |
-| Sandbox runtime, host API, exfiltration | `packages/core/src/security/{custom-widget-runtime,widget-host-api,widget-exfiltration}.ts` |
-| Canvas controller & geometry | `apps/gm/src/lib/gui/ux-canvas/` |
-| Unified renderer, templates, data resolver | `apps/gm/src/lib/gui/ux-canvas/widgets/` |
-| Scene route (focus order, responsive, preview) | `apps/gm/src/routes/scene/[id]/+page.svelte` |
-| Product intent | `docs/planning/initiatives/{I4,I16,I20}.md`; extensibility `{I8,I12}.md`; `docs/adr/014-*.md` |
+| Concern                                        | Location                                                                                      |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Definitions, packages, system widgets          | `packages/core/src/state/widget-package-state.ts`                                             |
+| Instances, scene visibility                    | `packages/core/src/state/scene-state.ts`                                                      |
+| Binding resolution (actor-scoped, fail-closed) | `packages/core/src/queries/binding.ts`                                                        |
+| Library discovery                              | `packages/core/src/queries/widget-library.ts`                                                 |
+| Operator authority (operate vs configure)      | `packages/core/src/permissions/widget-operator-authority.ts`                                  |
+| Sandbox runtime, host API, exfiltration        | `packages/core/src/security/{custom-widget-runtime,widget-host-api,widget-exfiltration}.ts`   |
+| Canvas controller & geometry                   | `apps/gm/src/lib/gui/ux-canvas/`                                                              |
+| Unified renderer, templates, data resolver     | `apps/gm/src/lib/gui/ux-canvas/widgets/`                                                      |
+| Scene route (focus order, responsive, preview) | `apps/gm/src/routes/scene/[id]/+page.svelte`                                                  |
+| Product intent                                 | `docs/planning/initiatives/{I4,I16,I20}.md`; extensibility `{I8,I12}.md`; `docs/adr/014-*.md` |
