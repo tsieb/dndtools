@@ -19,6 +19,7 @@ import { SettingsSync } from './Sync';
 import { SettingsPlugins, SettingsSystems, SettingsToolPreferences } from './Tools';
 import { SettingsAI } from './Ai';
 import { SettingsAccessibility } from './Accessibility';
+import { SettingsAbout } from './About';
 
 /**
  * Settings — the category-rail section. The subpages now split by how much of the app Core backs:
@@ -57,6 +58,7 @@ const SETTINGS_NAV: { id: string; label: MessageKey; icon: string }[] = [
 	{ id: 'plugins', label: 'settings.nav.plugins', icon: 'widget' },
 	{ id: 'systems', label: 'settings.nav.systems', icon: 'scroll' },
 	{ id: 'accessibility', label: 'settings.nav.accessibility', icon: 'accessibility' },
+	{ id: 'about', label: 'settings.nav.about', icon: 'info' },
 ];
 const SUBPAGES: Record<string, () => JSX.Element> = {
 	appearance: SettingsAppearance,
@@ -72,6 +74,7 @@ const SUBPAGES: Record<string, () => JSX.Element> = {
 	plugins: SettingsPlugins,
 	systems: SettingsSystems,
 	accessibility: SettingsAccessibility,
+	about: SettingsAbout,
 };
 
 /* ---- REAL progressive disclosure (ADR-012) ------------------------------------------------------

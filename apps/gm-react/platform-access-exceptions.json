@@ -82,6 +82,14 @@
 			"removalCriteria": "Route connectivity through a platform capability provider once one exists (same criteria as the Settings preferences entry)."
 		},
 		{
+			"id": "settings-about-diagnostics-navigator",
+			"path": "apps/gm-react/src/screens/settings/About.tsx",
+			"primitives": ["navigator"],
+			"owner": "ENG (observability)",
+			"rationale": "RC-ENG-6.1 — navigator.onLine is read once behind a typeof guard to stamp honest online/offline context onto the DiagnosticsContextInput passed to the core's getDmDiagnostics/exportSupportBundle queries. Same rationale as settings-sync-connectivity-navigator; the actual storage/perf primitive reads live in src/diagnostics (platform layer, out of the GUI boundary).",
+			"removalCriteria": "Route connectivity through a platform capability provider once one exists (same criteria as the Settings preferences/Sync entries)."
+		},
+		{
 			"id": "extensions-theme-preset-localstorage",
 			"path": "apps/gm-react/src/screens/extensions/ThemeStudio.tsx",
 			"primitives": ["localStorage"],
