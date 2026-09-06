@@ -50,9 +50,15 @@ const FOCUSABLE =
 export function WidgetBuilder({
 	/** An installed package to edit. Absent for a new widget. */
 	editPackage,
+	/**
+	 * RC-WID-3.2 — a package the assistant PROPOSED and the DM has not installed. The builder opens
+	 * on the Review step with every generated field editable; `editPackage` wins if both are given.
+	 */
+	generatedPackage,
 	onClose,
 }: {
 	editPackage?: WidgetPackageDefinition | null;
+	generatedPackage?: WidgetPackageDefinition | null;
 	onClose: () => void;
 }) {
 	const { t } = useI18n();
@@ -63,9 +69,16 @@ export function WidgetBuilder({
 	const canWrite = runtime.state.permissions.actors[dmId]?.role === 'dm' && !runtime.preview;
 
 	const [draft, setDraft] = useState<WidgetDraft>(() =>
-		editPackage ? readPackage(editPackage) : emptyDraft(),
+		editPackage
+			? readPackage(editPackage)
+			: generatedPackage
+				? readPackage(generatedPackage, 'proposed')
+				: emptyDraft(),
 	);
-	const [step, setStep] = useState<BuilderStepId>('identity');
+	// A generated draft starts where a DM reviews it, not where a DM would start typing.
+	const [step, setStep] = useState<BuilderStepId>(
+		!editPackage && generatedPackage ? 'review' : 'identity',
+	);
 	const [pane, setPane] = useState<'edit' | 'preview' | 'json'>('edit');
 	const [busy, setBusy] = useState(false);
 	const [rejection, setRejection] = useState<string | null>(null);

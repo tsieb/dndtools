@@ -7,6 +7,7 @@ import {
 	listWidgetLibrary,
 	resolveAddWidgetCommand,
 	type WidgetLibraryEntry,
+	type WidgetPackageDefinition,
 } from '@dndtools/core';
 import { Button, Card, Icon, IconButton, Switch, Toaster } from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -20,6 +21,8 @@ import { widgetProfileForRuntime } from '../../platform/capabilities';
 import { type Visibility } from './shared';
 import { SceneMetaPanel } from './SceneMetaPanel';
 import { AddWidgetPanel } from './AddWidgetPanel';
+import { GenerateDialog } from '../../app/widgetBuilder/GenerateDialog';
+import { WidgetBuilder } from '../extensions/WidgetBuilder';
 import { Inspector } from './Inspector';
 import { useI18n } from '../../i18n';
 
@@ -31,8 +34,8 @@ import { useI18n } from '../../i18n';
  * the single dispatch choke point: `scene.add-widget`, `scene.move-widget`, `scene.resize-widget`,
  * `scene.configure-widget`, `scene.destroy-widget`.
  *
- * Honest deferrals (mock-only in the prototype, no clean core command yet): the AI-generate dialog,
- * the custom-code widget builder, and local undo/redo (the core has no layout history command).
+ * "Generate widget" (RC-WID-3.2) opens the assistant's widget dialog: the run STAGES a proposal and
+ * the manual builder opens on it for review, so nothing is installed or placed without the DM.
  */
 export function SceneEditor() {
 	const { t } = useI18n();
@@ -46,6 +49,10 @@ export function SceneEditor() {
 	const [snap, setSnap] = useState(true);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [addOpen, setAddOpen] = useState(false);
+	// RC-WID-3.2 — the assistant's widget dialog, and the package it proposed while the builder
+	// reviews it. Neither is durable: closing either discards the draft.
+	const [generateOpen, setGenerateOpen] = useState(false);
+	const [generated, setGenerated] = useState<WidgetPackageDefinition | null>(null);
 	const [metaOpen, setMetaOpen] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -397,6 +404,18 @@ export function SceneEditor() {
 						>
 							{t('sceneEditor.add')}
 						</Button>
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="sparkle"
+							onClick={() => {
+								setGenerateOpen(true);
+								setAddOpen(false);
+								setMetaOpen(false);
+							}}
+						>
+							{t('widgetGen.title')}
+						</Button>
 					</>
 				)}
 				<Button
@@ -512,6 +531,17 @@ export function SceneEditor() {
 					/>
 				)}
 			</div>
+			<GenerateDialog
+				open={generateOpen}
+				onClose={() => setGenerateOpen(false)}
+				onGenerated={(pkg) => {
+					setGenerateOpen(false);
+					setGenerated(pkg);
+				}}
+			/>
+			{generated && (
+				<WidgetBuilder generatedPackage={generated} onClose={() => setGenerated(null)} />
+			)}
 		</div>
 	);
 }

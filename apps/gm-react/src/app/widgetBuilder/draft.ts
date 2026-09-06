@@ -133,6 +133,12 @@ export interface WidgetDraft {
 	/** RC-WID-2.7 — what changed in this version. Carried onto the generated migration; never
 	 * read back from an installed package, because each version bump writes its own note. */
 	changelog: string;
+	/**
+	 * RC-WID-3.2 — where the package came from, carried through the builder unchanged. Absent for a
+	 * hand-built draft (the builder stamps `user-authored` on build); present and preserved for a
+	 * draft the assistant proposed, so an installed generated widget still says so afterwards.
+	 */
+	authoring?: WidgetPackageDefinition['authoring'];
 }
 
 /** Slug rules for a package id and a widget type id: lowercase words, `-` or `.` separated. */
@@ -358,26 +364,53 @@ export function buildPackage(
 		migrations: migrations.filter((entry) => entry.toVersion === draft.version),
 		assets: draft.runtime === 'custom-html-js' ? customCodeAssets(draft.customCode) : [],
 		portabilityWarnings: [...draft.portabilityWarnings],
-		authoring: { source: 'user-authored', createdBy: 'widget-builder' },
+		// A draft that came from the assistant keeps its own provenance (RC-WID-3.2); anything else is
+		// this builder's own work. Provenance is never upgraded here — only carried.
+		authoring: draft.authoring ?? { source: 'user-authored', createdBy: 'widget-builder' },
 	};
 }
 
-/** Read an installed package back into a draft, so editing one is the same screen as building one. */
-export function readPackage(pkg: WidgetPackageDefinition): WidgetDraft {
+/**
+ * Read a package back into a draft, so editing one is the same screen as building one.
+ *
+ * `installed` (the default) is the edit case: the draft opens on the NEXT patch version, because
+ * saving over a live package's own version would leave two different definitions claiming it.
+ * `proposed` (RC-WID-3.2) is a package that is not installed yet — an assistant's staged proposal
+ * opened in the builder — so its version is kept exactly as proposed and there is no base version
+ * to migrate from.
+ */
+export function readPackage(
+	pkg: WidgetPackageDefinition,
+	origin: 'installed' | 'proposed' = 'installed',
+): WidgetDraft {
 	const base = emptyDraft();
+	const proposed = origin === 'proposed';
+	// Provenance is read back for BOTH origins: editing a generated widget must not quietly relabel
+	// it as hand-built.
+	const authoring = pkg.authoring ? { authoring: pkg.authoring } : {};
 	const widget = pkg.widgets[0];
-	if (!widget) return { ...base, packageId: pkg.id, name: pkg.displayName };
+	if (!widget)
+		return {
+			...base,
+			...authoring,
+			packageId: pkg.id,
+			name: pkg.displayName,
+			...(proposed ? { version: pkg.version } : {}),
+		};
 	const dock = widget.configFields?.find((field) => field.key === DOCK_PREFERENCE_KEY);
 	const dockValue = typeof dock?.default === 'string' ? (dock.default as DockPreference) : 'canvas';
 	return {
 		...base,
 		packageId: pkg.id,
-		typeId: widget.type,
+		// A PROPOSED package's widget type comes from a model naming the widget in prose, and the
+		// builder's identity rules are stricter than the core's — so it is normalised on the way in
+		// rather than opening the review on an error the DM has to fix by hand.
+		typeId: proposed ? slugify(widget.type) : widget.type,
 		name: widget.displayName,
 		description: widget.description ?? '',
 		category: widget.category ?? '',
 		icon: widget.icon ?? 'widget',
-		version: bumpPatch(pkg.version),
+		version: proposed ? pkg.version : bumpPatch(pkg.version),
 		surfaces: [...(widget.placement?.surfaces ?? base.surfaces)],
 		libraryListed: widget.placement?.libraryListed ?? true,
 		supportedProfiles: [...widget.supportedProfiles],
@@ -407,8 +440,9 @@ export function readPackage(pkg: WidgetPackageDefinition): WidgetDraft {
 		networkDestinations: [...(widget.networkDestinationClasses ?? [])],
 		hostPermissions: [...widget.hostPermissions],
 		portabilityWarnings: [...pkg.portabilityWarnings],
-		baseVersion: pkg.version,
-		baseConfigKeys: (widget.configFields ?? []).map((field) => field.key),
+		baseVersion: proposed ? null : pkg.version,
+		baseConfigKeys: proposed ? [] : (widget.configFields ?? []).map((field) => field.key),
+		...authoring,
 	};
 }
 

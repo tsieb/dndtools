@@ -4813,4 +4813,29 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapList.category.fog': 'Niebla',
 	'mapList.category.dmAnnotations': 'Notas del DM',
 	'mapList.category.playerOverlay': 'Capa de jugadores',
+	// RC-WID-3.2 — el diálogo "Generar un widget".
+	'widgetGen.title': 'Generar un widget',
+	'widgetGen.intro':
+		'Describe el widget que quieres. El asistente lo redacta y el constructor se abre en el paso de revisión para que edites cada campo antes de instalarlo.',
+	'widgetGen.promptField': '¿Qué debe hacer el widget?',
+	'widgetGen.promptHelp':
+		'Indica qué muestra y de dónde lee: el asistente no puede escribir código ni pedir permisos.',
+	'widgetGen.promptPlaceholder': 'Un registro de botín con el tesoro del grupo y su valor total',
+	'widgetGen.generate': 'Generar',
+	'widgetGen.cancel': 'Cancelar la ejecución',
+	'widgetGen.starting': 'Iniciando…',
+	'widgetGen.working': 'Redactando: paso {pass} de {total}',
+	'widgetGen.workingOnTool': 'Redactando: paso {pass} de {total} · {tool}',
+	'widgetGen.finishing': 'Terminando…',
+	'widgetGen.reviewNote': 'No se instala nada hasta que pulses Instalar en el constructor.',
+	'widgetGen.noWidget': 'El asistente no redactó un widget. Descríbelo con más detalle.',
+	'widgetGen.noWidgetDetail': 'El asistente no redactó un widget: {detail}',
+	'widgetGen.blockerNotDm': 'Solo el DM puede generar un widget.',
+	'widgetGen.blockerNoKey':
+		'Añade una clave de API del proveedor en Ajustes, IA y herramientas, para generar un widget.',
+	'widgetGen.blockerDisabled':
+		'Activa el acceso de agentes en Ajustes, IA y herramientas, para generar un widget.',
+	'widgetGen.blockerNoAgent':
+		'Permite la herramienta de widgets a un agente en Ajustes, IA y herramientas, para generar un widget.',
+	'extensions.plugins.generated': 'Generado',
 };

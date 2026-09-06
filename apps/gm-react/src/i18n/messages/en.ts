@@ -4663,6 +4663,32 @@ export const en = {
 	'mapList.category.fog': 'Fog',
 	'mapList.category.dmAnnotations': 'DM notes',
 	'mapList.category.playerOverlay': 'Player overlay',
+	// RC-WID-3.2 — the "Generate a widget" dialog (canvas + widget builder). The assistant drafts a
+	// widget package; the manual builder reviews it; only the DM installs it.
+	'widgetGen.title': 'Generate a widget',
+	'widgetGen.intro':
+		'Describe the widget you want. The assistant drafts it and the builder opens on the review step so you can edit every field before installing.',
+	'widgetGen.promptField': 'What should the widget do?',
+	'widgetGen.promptHelp':
+		'Name what it shows and where it reads from — the assistant cannot write code or ask for permissions.',
+	'widgetGen.promptPlaceholder': 'A loot ledger listing party treasure with a total value',
+	'widgetGen.generate': 'Generate',
+	'widgetGen.cancel': 'Cancel run',
+	'widgetGen.starting': 'Starting…',
+	'widgetGen.working': 'Drafting — step {pass} of {total}',
+	'widgetGen.workingOnTool': 'Drafting — step {pass} of {total} · {tool}',
+	'widgetGen.finishing': 'Finishing…',
+	'widgetGen.reviewNote': 'Nothing is installed until you press Install in the builder.',
+	'widgetGen.noWidget': 'The assistant did not draft a widget. Try describing it in more detail.',
+	'widgetGen.noWidgetDetail': 'The assistant did not draft a widget: {detail}',
+	'widgetGen.blockerNotDm': 'Only the DM can generate a widget.',
+	'widgetGen.blockerNoKey':
+		'Add a provider API key in Settings, AI and tools, to generate a widget.',
+	'widgetGen.blockerDisabled':
+		'Turn on agent access in Settings, AI and tools, to generate a widget.',
+	'widgetGen.blockerNoAgent':
+		'Allow the widget tool for an agent in Settings, AI and tools, to generate a widget.',
+	'extensions.plugins.generated': 'Generated',
 } as const;
 
 /** Every string the app can render, addressed by key. */

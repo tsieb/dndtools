@@ -13,6 +13,7 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import { downloadJsonFile, FileExportError } from '../../platform/download';
 /* ── RC-WID-2.1: the widget builder overlay is launched from this panel ─────────────────────── */
 import { WidgetBuilder } from './WidgetBuilder';
+import { GenerateDialog } from '../../app/widgetBuilder/GenerateDialog';
 /* ── RC-WID-1.5: the trust review sheet is opened from each installed package card ───────────── */
 import { TrustReviewSheet } from './TrustReviewSheet';
 import { useI18n, type MessageKey } from '../../i18n';
@@ -77,9 +78,14 @@ export function ExtPlugins() {
 	// bumped semver, a generated migration entry) instead of a blank draft; null means "Build a
 	// widget" (new).
 	const [builderEditId, setBuilderEditId] = useState<string | null>(null);
+	// RC-WID-3.2 — a package the assistant proposed, held here only until the builder opens on it.
+	// It is not installed and nothing durable has changed; closing the builder discards it.
+	const [generated, setGenerated] = useState<WidgetPackageDefinition | null>(null);
+	const [generateOpen, setGenerateOpen] = useState(false);
 	const closeBuilder = () => {
 		setBuilderOpen(false);
 		setBuilderEditId(null);
+		setGenerated(null);
 	};
 	// RC-WID-1.5 — the package currently open in the trust review sheet, by id.
 	const [reviewingId, setReviewingId] = useState<string | null>(null);
@@ -318,6 +324,11 @@ export function ExtPlugins() {
 												: rec.trust.state}
 										</Badge>
 										{isSystem && <Badge status="neutral">{t('extensions.objects.builtIn')}</Badge>}
+										{def.authoring?.source === 'generated' && (
+											<Badge status="info" icon="sparkle">
+												{t('extensions.plugins.generated')}
+											</Badge>
+										)}
 										{needsReview && (
 											<Badge status="warning" icon="warning">
 												{t('extensions.plugins.needsReview')}
@@ -535,7 +546,7 @@ export function ExtPlugins() {
 				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
 					{t('extensions.plugins.buildIntro')}
 				</div>
-				<div>
+				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
 					<Button
 						variant="primary"
 						size="sm"
@@ -543,10 +554,21 @@ export function ExtPlugins() {
 						disabled={!canWrite}
 						onClick={() => {
 							setBuilderEditId(null);
+							setGenerated(null);
 							setBuilderOpen(true);
 						}}
 					>
 						{t('extensions.plugins.buildTitle')}
+					</Button>
+					{/* RC-WID-3.2 — the assistant drafts it, the builder reviews it, the DM installs it. */}
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="sparkle"
+						disabled={!canWrite}
+						onClick={() => setGenerateOpen(true)}
+					>
+						{t('widgetGen.title')}
 					</Button>
 				</div>
 			</Panel>
@@ -586,9 +608,20 @@ export function ExtPlugins() {
 					editPackage={
 						builderEditId ? (runtime.state.widgets.packages[builderEditId]?.package ?? null) : null
 					}
+					generatedPackage={generated}
 					onClose={closeBuilder}
 				/>
 			)}
+			<GenerateDialog
+				open={generateOpen}
+				onClose={() => setGenerateOpen(false)}
+				onGenerated={(pkg) => {
+					setGenerateOpen(false);
+					setGenerated(pkg);
+					setBuilderEditId(null);
+					setBuilderOpen(true);
+				}}
+			/>
 			{reviewingId && (
 				<TrustReviewSheet packageId={reviewingId} onClose={() => setReviewingId(null)} />
 			)}

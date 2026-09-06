@@ -129,6 +129,31 @@ describe('RC-WID-2.1 widget builder draft', () => {
 		expect(back.baseVersion).toBe('1.0.0');
 	});
 
+	it('opens a PROPOSED package at its own version and keeps its provenance (RC-WID-3.2)', () => {
+		const proposed = {
+			...buildPackage(statusListDraft()),
+			authoring: {
+				source: 'generated' as const,
+				promptHash: 'sha256:abc',
+				createdBy: 'agent:prep',
+			},
+		};
+		const draft = readPackage(proposed, 'proposed');
+		// Not installed yet, so there is nothing to migrate FROM and no version to move past.
+		expect(draft.version).toBe('1.0.0');
+		expect(draft.baseVersion).toBeNull();
+		expect(draft.baseConfigKeys).toEqual([]);
+		// The DM may edit every field; what the package does NOT lose is where it came from.
+		expect(buildPackage({ ...draft, name: 'Party health' }).authoring).toEqual(proposed.authoring);
+	});
+
+	it('stamps a hand-built draft as user-authored', () => {
+		expect(buildPackage(statusListDraft()).authoring).toEqual({
+			source: 'user-authored',
+			createdBy: 'widget-builder',
+		});
+	});
+
 	it('generates no migration until the version moves', () => {
 		const draft = readPackage(buildPackage(statusListDraft()));
 		expect(generateMigration({ ...draft, version: '1.0.0' })).toBeNull();
