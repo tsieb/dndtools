@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { dispatchCommand, type CoreCommand, type CoreStateSlice } from '@dndtools/core';
+import {
+	dispatchCommand,
+	widgetQueryFormulaIdentifier,
+	type CoreCommand,
+	type CoreStateSlice,
+} from '@dndtools/core';
 import { DM_ACTOR, PLAYER_ACTOR, buildInitialState, makeEnvironment } from '@dndtools/core/testing';
 import {
 	DOCK_PREFERENCE_KEY,
@@ -235,5 +240,116 @@ describe('RC-WID-2.1 widget builder draft', () => {
 		const fields = validateDraft(draft).map((issue) => issue.field);
 		expect(fields).toContain('dataQueries');
 		expect(fields).toContain('configFields');
+	});
+
+	it('refuses a computed formula that names a query the draft does not declare', () => {
+		const base = statusListDraft();
+		const issues = validateDraft({
+			...base,
+			computedFields: [
+				{
+					id: 'total',
+					label: 'Total',
+					inputQueryIds: [base.dataQueries[0]!.id],
+					valueType: 'number',
+					formula: 'nothing_sum + 1',
+				},
+			],
+		});
+		expect(issues.map((issue) => issue.field)).toContain('computedFields');
+	});
+
+	it('accepts a computed formula over the columns of a declared query', () => {
+		const base = statusListDraft();
+		const draft: WidgetDraft = {
+			...base,
+			computedFields: [
+				{
+					id: 'total',
+					label: 'Total',
+					inputQueryIds: [base.dataQueries[0]!.id],
+					valueType: 'number',
+					formula: `round(${widgetQueryFormulaIdentifier(base.dataQueries[0]!.id, 'sum')} / 2)`,
+				},
+			],
+		};
+		expect(validateDraft(draft)).toEqual([]);
+		// And the core accepts what the builder built from it.
+		const box = campaign();
+		box.run({
+			type: 'widget.package.install',
+			actorId: DM_ACTOR.id,
+			payload: { package: buildPackage(draft) },
+		});
+		const installed = box.state.widgets.packages[draft.packageId]?.package.widgets[0];
+		expect(installed?.computedFields?.[0]?.formula).toBe(draft.computedFields[0]!.formula);
+	});
+
+	it('refuses a binding without an entity type, and a binding query that reaches for a missing one', () => {
+		const base = statusListDraft();
+		const issues = validateDraft({
+			...base,
+			requiredBindings: [
+				{
+					id: 'subject',
+					label: 'Subject',
+					entityTypes: [],
+					mode: 'read',
+					requiredCapability: 'viewer',
+				},
+			],
+			dataQueries: [
+				{
+					id: 'bound',
+					label: 'Bound',
+					source: 'binding',
+					bindingIds: ['gone'],
+					requiredCapability: 'viewer',
+					audience: 'shared',
+				},
+			],
+		});
+		const fields = issues.map((issue) => issue.field);
+		expect(fields).toContain('bindings');
+		expect(fields).toContain('dataQueries');
+	});
+
+	it('round-trips a binding and its formula through install and back into a draft', () => {
+		const base = statusListDraft();
+		const draft: WidgetDraft = {
+			...base,
+			requiredBindings: [
+				{
+					id: 'subject',
+					label: 'Subject',
+					entityTypes: ['character', 'npc'],
+					mode: 'operate',
+					requiredCapability: 'operator',
+				},
+			],
+			optionalBindings: [
+				{
+					id: 'backdrop',
+					label: 'Backdrop',
+					entityTypes: ['scene'],
+					mode: 'observe',
+					requiredCapability: 'viewer',
+				},
+			],
+			computedFields: [
+				{
+					id: 'total',
+					label: 'Total',
+					inputQueryIds: [base.dataQueries[0]!.id],
+					valueType: 'number',
+					formula: widgetQueryFormulaIdentifier(base.dataQueries[0]!.id, 'count'),
+				},
+			],
+		};
+		expect(validateDraft(draft)).toEqual([]);
+		const reread = readPackage(buildPackage(draft));
+		expect(reread.requiredBindings).toEqual(draft.requiredBindings);
+		expect(reread.optionalBindings).toEqual(draft.optionalBindings);
+		expect(reread.computedFields).toEqual(draft.computedFields);
 	});
 });

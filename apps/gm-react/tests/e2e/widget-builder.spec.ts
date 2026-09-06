@@ -24,6 +24,8 @@ interface PackageLite {
 			type: string;
 			renderEntrypoint?: { runtime: string; template?: string };
 			dataQueries?: Array<{ id: string; source: string; audience: string }>;
+			computedFields?: Array<{ id: string; formula?: string }>;
+			requiredBindings?: Array<{ id: string; entityTypes: string[]; mode: string }>;
 			placement?: { surfaces: string[]; libraryListed: boolean };
 			supportedProfiles: string[];
 		}>;
@@ -171,6 +173,62 @@ test.describe('widget builder: build, install, place', () => {
 	});
 });
 
+test.describe('widget builder: data step (RC-WID-2.2)', () => {
+	test('declares a binding and a computed formula, and hides a DM-only query when previewing as a player', async ({
+		page,
+	}) => {
+		const dialog = await openBuilder(page);
+		await dialog.getByLabel('Name', { exact: true }).fill('Party status');
+		await dialog.getByRole('button', { name: 'Data', exact: true }).click();
+
+		// ── A required binding: what a placed copy is pointed at, and what it asks to do with it.
+		await dialog.getByRole('button', { name: 'Add required binding' }).click();
+		await dialog.getByLabel('Entity types', { exact: true }).fill('character, npc');
+		await dialog.getByLabel('Mode', { exact: true }).selectOption({ label: 'Read and act on it' });
+
+		// ── A DM-only data query.
+		await dialog.getByRole('button', { name: 'Add data query' }).click();
+		await dialog.getByLabel('Audience', { exact: true }).selectOption({ label: 'DM only' });
+
+		// ── A computed field worked out with a formula over that query's columns.
+		await dialog.getByRole('button', { name: 'Add computed field' }).click();
+		await dialog.getByRole('checkbox', { name: 'Work it out with a formula' }).click();
+		const formula = dialog.getByLabel('Formula', { exact: true });
+		await expect(formula).toHaveValue('current_combatants_sum');
+		// A name no query declares is refused where it is typed, not on Review.
+		await formula.fill('nowhere_sum + 1');
+		await expect(dialog.getByText(/This formula cannot be read/)).toBeVisible();
+		await formula.fill('round(current_combatants_sum / max(current_combatants_count, 1))');
+		await expect(dialog.getByText(/This formula cannot be read/)).toHaveCount(0);
+
+		// ── The preview: as the DM it draws; as a player the DM-only query is withheld, and says so.
+		await showPane(page, 'Preview');
+		const audience = dialog.getByRole('radiogroup', { name: 'Preview audience' });
+		await expect(dialog.getByTestId('widget-builder-preview-withheld')).toHaveCount(0);
+		await audience.getByRole('radio', { name: 'Preview as player' }).click();
+		await expect(dialog.getByTestId('widget-builder-preview-withheld')).toContainText(
+			'DM only — not shown for this viewer.',
+		);
+		await audience.getByRole('radio', { name: 'Preview as DM' }).click();
+		await expect(dialog.getByTestId('widget-builder-preview-withheld')).toHaveCount(0);
+
+		// ── All three declarations reach the installed package.
+		await showPane(page, 'Edit');
+		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await dialog.getByRole('button', { name: 'Install widget' }).click();
+		await expect(dialog).toHaveCount(0);
+
+		const record = await installedPackage(page, PACKAGE_ID);
+		const definition = record!.package.widgets[0]!;
+		expect(definition.requiredBindings?.[0]?.entityTypes).toEqual(['character', 'npc']);
+		expect(definition.requiredBindings?.[0]?.mode).toBe('operate');
+		expect(definition.dataQueries?.[0]?.audience).toBe('dm');
+		expect(definition.computedFields?.[0]?.formula).toBe(
+			'round(current_combatants_sum / max(current_combatants_count, 1))',
+		);
+	});
+});
+
 // The builder is a durable authoring workspace but it is an OVERLAY, not a route, so the
 // route-driven axe gate (`a11y-axe-gate.spec.ts`) never reaches it. It gets the same treatment
 // here: the same tag set, the same blocking impacts, and no known-violation register to hide in.
@@ -181,7 +239,12 @@ test.describe('widget builder: accessibility', () => {
 		const dialog = await openBuilder(page);
 		await dialog.getByLabel('Name', { exact: true }).fill('Party status');
 		await dialog.getByRole('button', { name: 'Data', exact: true }).click();
+		// Every declaration the Data step can hold is on screen: a binding, a query and a computed
+		// field with its formula editor open (RC-WID-2.2).
+		await dialog.getByRole('button', { name: 'Add required binding' }).click();
 		await dialog.getByRole('button', { name: 'Add data query' }).click();
+		await dialog.getByRole('button', { name: 'Add computed field' }).click();
+		await dialog.getByRole('checkbox', { name: 'Work it out with a formula' }).click();
 
 		const results = await new AxeBuilder({ page })
 			.withTags(AXE_TAGS)

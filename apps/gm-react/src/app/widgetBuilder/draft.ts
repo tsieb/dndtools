@@ -16,6 +16,9 @@ import {
 	type WidgetStyleTokenDefinition,
 	type WidgetSurface,
 	type WidgetTemplateKind,
+	isValidFormula,
+	widgetFormulaIdentifiers,
+	widgetQueryFormulaIdentifier,
 } from '@dndtools/core';
 
 /**
@@ -404,17 +407,71 @@ export function validateDraft(draft: WidgetDraft): DraftIssue[] {
 			);
 	}
 
+	const bindingIds = new Set<string>();
+	for (const binding of [...draft.requiredBindings, ...draft.optionalBindings]) {
+		if (!binding.id) add('data', 'bindings', 'Every binding needs an id.');
+		else if (bindingIds.has(binding.id))
+			add('data', 'bindings', `Binding ${binding.id} is declared more than once.`);
+		else if (!SLUG_PATTERN.test(binding.id))
+			add(
+				'data',
+				'bindings',
+				`Binding id ${binding.id} must be lowercase words joined by hyphens.`,
+			);
+		bindingIds.add(binding.id);
+		if (binding.entityTypes.length === 0)
+			add(
+				'data',
+				'bindings',
+				`Binding ${binding.id || 'without an id'} needs at least one entity type.`,
+			);
+	}
+
 	const queryIds = new Set<string>();
+	// Two ids that differ only in punctuation fold to ONE formula identifier, so a formula naming it
+	// would silently read the wrong query. Caught here rather than surprising the author at render.
+	const identifierOwners = new Map<string, string>();
 	for (const query of draft.dataQueries) {
 		if (!query.id) add('data', 'dataQueries', 'Every data query needs an id.');
 		else if (queryIds.has(query.id))
 			add('data', 'dataQueries', `Data query ${query.id} is declared more than once.`);
 		queryIds.add(query.id);
+		if (query.source === 'binding') {
+			for (const id of query.bindingIds ?? []) {
+				if (!bindingIds.has(id))
+					add(
+						'data',
+						'dataQueries',
+						`Data query ${query.id} reads a binding that is not declared.`,
+					);
+			}
+		}
+		const identifier = widgetQueryFormulaIdentifier(query.id, 'count');
+		const owner = identifierOwners.get(identifier);
+		if (owner !== undefined && owner !== query.id)
+			add(
+				'data',
+				'dataQueries',
+				`Data queries ${owner} and ${query.id} would share one name in a formula. Make the ids differ by more than punctuation.`,
+			);
+		else identifierOwners.set(identifier, query.id);
 	}
+
+	const identifiers = widgetFormulaIdentifiers(draft.dataQueries);
 	for (const field of draft.computedFields) {
 		for (const inputId of field.inputQueryIds) {
 			if (!queryIds.has(inputId))
 				add('data', 'computedFields', `Computed field ${field.id} reads a query that is gone.`);
+		}
+		if (field.formula !== undefined && field.valueType === 'number') {
+			if (!field.formula.trim())
+				add('data', 'computedFields', `Computed field ${field.id} has an empty formula.`);
+			else if (!isValidFormula(field.formula, identifiers))
+				add(
+					'data',
+					'computedFields',
+					`Computed field ${field.id} has a formula that cannot be read. Use the names listed under the formula.`,
+				);
 		}
 	}
 
