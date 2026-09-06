@@ -1,6 +1,7 @@
 import { Icon } from '../../ds';
 import { T } from '../../app/screen-kit';
 import { ghostBtn } from './shared';
+import { useI18n } from '../../i18n';
 
 /** The Atlas notice banner — every async outcome on the screen lands here. Extracted from
  * Atlas.tsx unchanged (RC-STB-2.6). */
@@ -11,6 +12,7 @@ export function NoticeBar({
 	notice: { tone: 'info' | 'error'; text: string };
 	onDismiss: () => void;
 }) {
+	const { t } = useI18n();
 	return (
 		<div
 			// This one banner carries every async outcome on the screen — "Link copied", "Projected
@@ -42,8 +44,8 @@ export function NoticeBar({
 				type="button"
 				onClick={onDismiss}
 				style={ghostBtn}
-				title="Dismiss"
-				aria-label="Dismiss notice"
+				title={t('atlas.dismiss')}
+				aria-label={t('atlas.dismissNotice')}
 			>
 				<Icon name="close" size={14} color={T.ter} />
 			</button>

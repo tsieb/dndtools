@@ -3,6 +3,7 @@ import { type WidgetLibraryEntry } from '@dndtools/core';
 import { Card, IconButton } from '../../ds';
 import { WidgetGlyph } from '../../app/SceneBoardCanvas';
 import { PHONE_PANEL_OVERLAY } from './shared';
+import { useI18n } from '../../i18n';
 
 export function AddWidgetPanel({
 	library,
@@ -15,6 +16,7 @@ export function AddWidgetPanel({
 	onAdd: (entry: WidgetLibraryEntry) => void;
 	onClose: () => void;
 }) {
+	const { t } = useI18n();
 	return (
 		<Card
 			data-testid="scene-add-widget-panel"
@@ -45,15 +47,21 @@ export function AddWidgetPanel({
 						color: 'var(--color-text-primary)',
 					}}
 				>
-					Add widget
+					{t('sceneEditor.addWidget')}
 				</span>
-				<IconButton icon="close" label="Close" variant="ghost" size="sm" onClick={onClose} />
+				<IconButton
+					icon="close"
+					label={t('common.action.close')}
+					variant="ghost"
+					size="sm"
+					onClick={onClose}
+				/>
 			</div>
 			{library.length === 0 ? (
 				<div
 					style={{ font: 'var(--text-xs) var(--font-sans)', color: 'var(--color-text-tertiary)' }}
 				>
-					No widgets are available to add on this device.
+					{t('sceneEditor.noWidgetsAvailable')}
 				</div>
 			) : (
 				library.map((entry) => (

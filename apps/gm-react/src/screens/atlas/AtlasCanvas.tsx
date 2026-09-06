@@ -9,6 +9,7 @@ import { Button, IconButton, POIPopover, VisibilityChip } from '../../ds';
 import { T } from '../../app/screen-kit';
 import { POI_MARKER_CAT, VIS_CHIP, dsToVis, visToDs } from '../../app/map/mapVisibility';
 import { MapCanvas } from '../../app/map/canvas/MapCanvas';
+import { useI18n } from '../../i18n';
 
 /** The Atlas preview canvas — the real shared geometry renderer plus its overlay chrome (map
  * title, zoom cluster, fog/project actions, POI popover). Read-only; authoring gestures live in
@@ -58,6 +59,7 @@ export function AtlasCanvas({
 	onOpenFog: (mode: 'reveal' | 'conceal') => void;
 	onProjectToPlayers: () => void;
 }) {
+	const { t } = useI18n();
 	return (
 		<>
 			{/* canvas — the REAL shared geometry renderer (grid, layer features, fog mask composed from
@@ -147,21 +149,21 @@ export function AtlasCanvas({
 				<div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 6 }}>
 					<IconButton
 						icon="zoom-in"
-						label="Zoom in"
+						label={t('atlas.zoomIn')}
 						variant="outline"
 						size="sm"
 						onClick={() => onZoom(0.2)}
 					/>
 					<IconButton
 						icon="zoom-out"
-						label="Zoom out"
+						label={t('atlas.zoomOut')}
 						variant="outline"
 						size="sm"
 						onClick={() => onZoom(-0.2)}
 					/>
 					<IconButton
 						icon="zoom-fit"
-						label="Fit"
+						label={t('atlas.fit')}
 						variant="outline"
 						size="sm"
 						onClick={() => onZoom(undefined, true)}
@@ -196,7 +198,7 @@ export function AtlasCanvas({
 							pointerEvents: 'none',
 						}}
 					>
-						This map is unavailable to you.
+						{t('atlas.mapUnavailable')}
 					</div>
 				)}
 				<div
@@ -216,7 +218,7 @@ export function AtlasCanvas({
 							icon="layer-fog"
 							onClick={() => onOpenFog('reveal')}
 						>
-							Fog of war
+							{t('atlas.fogOfWar')}
 						</Button>
 					)}
 					{isDm && (
@@ -227,7 +229,7 @@ export function AtlasCanvas({
 							disabled={busy || !mapView}
 							onClick={onProjectToPlayers}
 						>
-							Project to players
+							{t('atlas.projectToPlayers')}
 						</Button>
 					)}
 				</div>

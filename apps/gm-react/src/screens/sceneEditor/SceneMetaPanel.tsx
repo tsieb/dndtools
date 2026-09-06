@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Button, Card, Field, IconButton, Input, Textarea } from '../../ds';
 import { parseTags } from '../../app/scene-helpers';
 import { PHONE_PANEL_OVERLAY } from './shared';
+import { useI18n } from '../../i18n';
 
 /**
  * SceneMetaPanel — rename / re-describe / re-tag the scene AFTER creation, round-tripped through
@@ -23,6 +24,7 @@ export function SceneMetaPanel({
 	onSave: (meta: { name: string; description: string; tags: string[] }) => void;
 	onClose: () => void;
 }) {
+	const { t } = useI18n();
 	const [draftName, setDraftName] = useState(name);
 	const [draftDescription, setDraftDescription] = useState(description);
 	const [draftTags, setDraftTags] = useState(tags.join(', '));
@@ -56,24 +58,24 @@ export function SceneMetaPanel({
 						color: 'var(--color-text-primary)',
 					}}
 				>
-					Scene details
+					{t('sceneEditor.sceneDetails')}
 				</span>
 				<IconButton
 					icon="close"
-					label="Close scene details"
+					label={t('sceneEditor.closeDetails')}
 					variant="ghost"
 					size="sm"
 					onClick={onClose}
 				/>
 			</div>
-			<Field label="Name" htmlFor="scene-meta-name" required>
+			<Field label={t('sceneEditor.name')} htmlFor="scene-meta-name" required>
 				<Input
 					id="scene-meta-name"
 					value={draftName}
 					onChange={(e: { target: { value: string } }) => setDraftName(e.target.value)}
 				/>
 			</Field>
-			<Field label="Description" htmlFor="scene-meta-description">
+			<Field label={t('sceneEditor.description')} htmlFor="scene-meta-description">
 				<Textarea
 					id="scene-meta-description"
 					rows={3}
@@ -81,12 +83,16 @@ export function SceneMetaPanel({
 					onChange={(e: { target: { value: string } }) => setDraftDescription(e.target.value)}
 				/>
 			</Field>
-			<Field label="Tags" htmlFor="scene-meta-tags" help="Comma-separated.">
+			<Field
+				label={t('sceneEditor.tags')}
+				htmlFor="scene-meta-tags"
+				help={t('sceneEditor.tagsHelp')}
+			>
 				<Input
 					id="scene-meta-tags"
 					value={draftTags}
 					onChange={(e: { target: { value: string } }) => setDraftTags(e.target.value)}
-					placeholder="dungeon, combat"
+					placeholder={t('sceneEditor.tagsPlaceholder')}
 				/>
 			</Field>
 			<Button
@@ -103,7 +109,7 @@ export function SceneMetaPanel({
 				}
 				style={{ alignSelf: 'flex-start' }}
 			>
-				Save details
+				{t('sceneEditor.saveDetails')}
 			</Button>
 		</Card>
 	);

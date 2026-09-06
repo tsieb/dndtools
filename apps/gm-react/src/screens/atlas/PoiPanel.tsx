@@ -3,6 +3,7 @@ import { Button, EmptyState, Icon, Skeleton, VisibilityChip } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { VIS_CHIP, VIS_LABEL } from '../../app/map/mapVisibility';
 import { ghostBtn } from './shared';
+import { useI18n } from '../../i18n';
 
 /** The Atlas points-of-interest rail — the actor-visible POIs of the open map, with the DM's
  * visibility toggle and delete. Extracted from Atlas.tsx unchanged (RC-STB-2.6). */
@@ -27,14 +28,17 @@ export function PoiPanel({
 	onTogglePoiVisibility: (poiId: string, visibility: SceneVisibility) => void;
 	onDeletePoi: (poiId: string) => void;
 }) {
+	const { t } = useI18n();
 	return (
 		<Panel
 			title={
 				<span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-					Points of interest
+					{t('atlas.pois')}
 					<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
 						{mapView?.pois.length ?? 0}
-						{isDm && mapView && mapView.hidden.pois > 0 ? ` · ${mapView.hidden.pois} hidden` : ''}
+						{isDm && mapView && mapView.hidden.pois > 0
+							? ` · ${t('atlas.hiddenCount', { count: mapView.hidden.pois })}`
+							: ''}
 					</span>
 				</span>
 			}
@@ -50,11 +54,9 @@ export function PoiPanel({
 					}}
 				>
 					<Button variant="secondary" size="sm" icon="poi" onClick={onAddPoi}>
-						Place point of interest
+						{t('atlas.placePoi')}
 					</Button>
-					<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
-						Opens the map editor — click the map to place it, or drag a marker to move it.
-					</div>
+					<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>{t('atlas.placePoiHint')}</div>
 				</div>
 			)}
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -65,8 +67,8 @@ export function PoiPanel({
 					>
 						<button
 							type="button"
-							title="Highlight on map"
-							aria-label={`Highlight ${poi.label} on the map`}
+							title={t('atlas.highlightOnMap')}
+							aria-label={t('atlas.highlightPoi', { name: poi.label })}
 							// The last colour-only selection state in this screen: the row's only
 							// cue was the label turning accent-coloured (WCAG 1.4.1/4.1.2). The map
 							// chips (aria-current) and Graph's nodes/facets (aria-pressed) already
@@ -101,8 +103,13 @@ export function PoiPanel({
 								{/* compact chip = the grayscale-safe status display; the button stays the toggle */}
 								<button
 									type="button"
-									title={`Visibility: ${VIS_LABEL[poi.visibility] ?? poi.visibility} — click to toggle DM only ↔ player visible`}
-									aria-label={`${poi.label} visibility: ${VIS_LABEL[poi.visibility] ?? poi.visibility} — toggle`}
+									title={t('atlas.visibilityToggleTitle', {
+										visibility: VIS_LABEL[poi.visibility] ?? poi.visibility,
+									})}
+									aria-label={t('atlas.visibilityToggleLabel', {
+										name: poi.label,
+										visibility: VIS_LABEL[poi.visibility] ?? poi.visibility,
+									})}
 									disabled={busy}
 									onClick={() => onTogglePoiVisibility(poi.id, poi.visibility)}
 									style={ghostBtn}
@@ -111,8 +118,8 @@ export function PoiPanel({
 								</button>
 								<button
 									type="button"
-									title="Delete point of interest"
-									aria-label={`Delete ${poi.label} (undo available)`}
+									title={t('atlas.deletePoi')}
+									aria-label={t('atlas.deletePoiLabel', { name: poi.label })}
 									disabled={busy}
 									onClick={() => onDeletePoi(poi.id)}
 									style={ghostBtn}
@@ -129,17 +136,15 @@ export function PoiPanel({
 					<EmptyState
 						inset
 						icon="poi"
-						title={isDm ? 'No points of interest yet' : 'No points of interest are visible to you'}
-						description={
-							isDm ? 'Use “Place point of interest” to mark a spot on the map.' : undefined
-						}
+						title={t(isDm ? 'atlas.noPoisDm' : 'atlas.noPoisPlayer')}
+						description={isDm ? t('atlas.noPoisHint') : undefined}
 					/>
 				)}
 				{!mapView &&
 					(loading ? (
 						<Skeleton height={44} />
 					) : (
-						<EmptyState inset icon="atlas-map" title="Open a map to see its points of interest" />
+						<EmptyState inset icon="atlas-map" title={t('atlas.openMapForPois')} />
 					))}
 			</div>
 		</Panel>

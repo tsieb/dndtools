@@ -4,6 +4,7 @@ import { WidgetGlyph } from '../../app/SceneBoardCanvas';
 import { isWidgetResizable, TIER_LABEL, type BoardWidget } from '../../app/board-helpers';
 import { PHONE_PANEL_OVERLAY, type Visibility } from './shared';
 import { FieldControl, Section } from './fields';
+import { useI18n } from '../../i18n';
 
 /**
  * Inspector — the right-docked editor for the selected widget, TIERED after the prototype's
@@ -36,6 +37,7 @@ export function Inspector({
 	onRemove: () => void;
 	onClose: () => void;
 }) {
+	const { t } = useI18n();
 	// `visibility` has its own dedicated control; never surface it twice if a widget also declares it.
 	const settingsFields = widget.configFields.filter((f) => f.key !== 'visibility');
 	const resizable = isWidgetResizable(widget);
@@ -85,7 +87,7 @@ export function Inspector({
 				</span>
 				<IconButton
 					icon="close"
-					label="Close inspector"
+					label={t('sceneEditor.closeInspector')}
 					variant="ghost"
 					size="sm"
 					onClick={onClose}
@@ -96,7 +98,7 @@ export function Inspector({
 			</Badge>
 
 			{(settingsFields.length > 0 || widget.requiresBinding) && (
-				<Section label="Settings">
+				<Section label={t('sceneEditor.settings')}>
 					{widget.requiresBinding && (
 						<div
 							style={{
@@ -111,8 +113,11 @@ export function Inspector({
 							}}
 						>
 							<Icon name="lock" size={12} />
-							This widget’s {widget.type === 'map' ? 'map' : 'data'} source is fixed and can’t be
-							changed here.
+							{t(
+								widget.type === 'map'
+									? 'sceneEditor.fixedMapSource'
+									: 'sceneEditor.fixedDataSource',
+							)}
 						</div>
 					)}
 					{settingsFields.map((field) => (
@@ -126,27 +131,27 @@ export function Inspector({
 				</Section>
 			)}
 
-			<Section label="Visibility">
+			<Section label={t('sceneEditor.visibility')}>
 				{/* `Section`'s label is an unassociated <span> and DS `Select` renders a bare <select>
 				    (only `Field` wires a label up), so the ONE control that decides whether a widget
 				    is DM-only or on the players' screen announced nothing but its current value —
 				    axe `select-name`, WCAG 4.1.2. `/scene/:id` is not in the axe gate's route list,
 				    so nothing was ever going to catch it. */}
 				<Select
-					aria-label="Widget visibility"
+					aria-label={t('sceneEditor.widgetVisibility')}
 					value={widget.visibility}
 					onChange={(e: { target: { value: string } }) =>
 						onVisibility(e.target.value as Visibility)
 					}
 					options={[
-						{ value: 'dm-only', label: 'DM only' },
-						{ value: 'shared', label: 'Shared' },
-						{ value: 'player-visible', label: 'Player visible' },
+						{ value: 'dm-only', label: t('common.visibility.dmOnly') },
+						{ value: 'shared', label: t('common.visibility.shared') },
+						{ value: 'player-visible', label: t('common.visibility.playerVisible') },
 					]}
 				/>
 			</Section>
 
-			<Section label="Size">
+			<Section label={t('sceneEditor.size')}>
 				{/* The canvas paints a padlock, renders no resize handle and swallows Shift+Arrow for
 				    every `system`-tier widget — which today is EVERY widget that ships. The three size
 				    buttons had no such gate and `widget.handleResizeWidget` has no tier check either,
@@ -174,7 +179,7 @@ export function Inspector({
 							color: 'var(--color-text-tertiary)',
 						}}
 					>
-						Locked — this widget's size is fixed by the scene layout.
+						{t('sceneEditor.sizeLocked')}
 					</div>
 				)}
 				<div
@@ -186,7 +191,7 @@ export function Inspector({
 
 			{/* CANVAS-016 — pin where this widget lands in the canvas's keyboard traversal
 			    (`scene.set-focus-order`); "Auto" clears back to the core's derived order. */}
-			<Section label="Keyboard order">
+			<Section label={t('sceneEditor.keyboardOrder')}>
 				<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
 					<Button
 						variant="secondary"
@@ -197,27 +202,29 @@ export function Inspector({
 						// DS Button swallows the click on a truthy `aria-disabled` and keeps the tab stop,
 						// which is also the only channel this control has for saying why it is unavailable.
 						aria-disabled={focusOrder === 0 || undefined}
-						title={focusOrder === 0 ? 'Already first in the focus order' : undefined}
+						title={focusOrder === 0 ? t('sceneEditor.alreadyFirst') : undefined}
 						onClick={() => {
 							if (focusOrder === 0) return;
 							onFocusOrder(Math.max(0, (focusOrder ?? 0) - 1));
 						}}
 					>
-						Earlier
+						{t('sceneEditor.earlier')}
 					</Button>
 					<Button variant="secondary" size="sm" onClick={() => onFocusOrder((focusOrder ?? 0) + 1)}>
-						Later
+						{t('sceneEditor.later')}
 					</Button>
 					{focusOrder !== null && (
 						<Button variant="ghost" size="sm" onClick={() => onFocusOrder(null)}>
-							Auto
+							{t('sceneEditor.auto')}
 						</Button>
 					)}
 				</div>
 				<div
 					style={{ font: 'var(--text-2xs) var(--font-mono)', color: 'var(--color-text-tertiary)' }}
 				>
-					{focusOrder === null ? 'Auto (layout order)' : `Position ${focusOrder + 1}`}
+					{focusOrder === null
+						? t('sceneEditor.autoLayoutOrder')
+						: t('sceneEditor.position', { index: focusOrder + 1 })}
 				</div>
 			</Section>
 
@@ -229,7 +236,7 @@ export function Inspector({
 					onClick={onRemove}
 					style={{ alignSelf: 'flex-start' }}
 				>
-					Remove widget
+					{t('sceneEditor.removeWidget')}
 				</Button>
 			</div>
 		</Card>

@@ -21,6 +21,7 @@ import { type Visibility } from './shared';
 import { SceneMetaPanel } from './SceneMetaPanel';
 import { AddWidgetPanel } from './AddWidgetPanel';
 import { Inspector } from './Inspector';
+import { useI18n } from '../../i18n';
 
 /**
  * SceneEditor (`/scene/:id`) — the prototype's scene canvas (`scene-shell.jsx` + `scene-canvas.jsx`)
@@ -34,6 +35,7 @@ import { Inspector } from './Inspector';
  * the custom-code widget builder, and local undo/redo (the core has no layout history command).
  */
 export function SceneEditor() {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const navigate = useNavigate();
 	const { id = '' } = useParams();
@@ -261,7 +263,7 @@ export function SceneEditor() {
 					>
 						<Icon name="error" size="sm" />
 						<span style={{ font: '700 var(--text-lg) var(--font-display)' }}>
-							Scene unavailable
+							{t('sceneEditor.unavailable')}
 						</span>
 					</div>
 					<div
@@ -271,8 +273,8 @@ export function SceneEditor() {
 						}}
 					>
 						{denied && 'kind' in summary
-							? `Cannot open this scene: ${summary.reason}.`
-							: 'This scene no longer exists.'}
+							? t('sceneEditor.cannotOpen', { reason: summary.reason })
+							: t('sceneEditor.noLongerExists')}
 					</div>
 					<Button
 						variant="secondary"
@@ -280,7 +282,7 @@ export function SceneEditor() {
 						onClick={() => navigate('/scenes')}
 						style={{ alignSelf: 'flex-start' }}
 					>
-						Back to scenes
+						{t('sceneEditor.backToScenes')}
 					</Button>
 				</Card>
 			</div>
@@ -324,7 +326,7 @@ export function SceneEditor() {
 			>
 				<IconButton
 					icon="arrow-left"
-					label="Back to scenes"
+					label={t('sceneEditor.backToScenes')}
 					variant="ghost"
 					onClick={() => navigate('/scenes')}
 				/>
@@ -349,12 +351,12 @@ export function SceneEditor() {
 							color: 'var(--color-text-tertiary)',
 						}}
 					>
-						{widgets.length} widget{widgets.length === 1 ? '' : 's'} · pan and zoom to explore
+						{t('sceneEditor.widgetSummary', { count: widgets.length })}
 					</div>
 				</div>
 				<IconButton
 					icon="edit"
-					label="Edit scene name, description & tags"
+					label={t('sceneEditor.editMeta')}
 					variant="ghost"
 					size="sm"
 					// Both of this toolbar's disclosures were silent about their own state, unlike the
@@ -379,7 +381,7 @@ export function SceneEditor() {
 										color: 'var(--color-text-secondary)',
 									}}
 								>
-									Snap
+									{t('sceneEditor.snap')}
 								</span>
 							}
 						/>
@@ -393,7 +395,7 @@ export function SceneEditor() {
 								setMetaOpen(false);
 							}}
 						>
-							Add
+							{t('sceneEditor.add')}
 						</Button>
 					</>
 				)}

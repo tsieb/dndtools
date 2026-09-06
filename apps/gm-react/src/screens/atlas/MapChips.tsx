@@ -3,6 +3,7 @@ import { Button, Icon, Skeleton, StatusDot } from '../../ds';
 import { T, srOnly } from '../../app/screen-kit';
 import { pickRasterAssetId } from '../../app/mapGeometry';
 import { useAssetObjectUrl } from '../../platform/assetUrl';
+import { useI18n } from '../../i18n';
 
 /** Map-switcher chip thumbnail: the map's real raster bytes when they exist on this device
  *  (content-addressed asset store), else the atlas glyph. Missing bytes degrade to the glyph —
@@ -44,6 +45,7 @@ export function MapChips({
 	onOpenEditor: () => void;
 	onToggleCreate: () => void;
 }) {
+	const { t } = useI18n();
 	return (
 		<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
 			{maps.map((mp) => {
@@ -99,12 +101,12 @@ export function MapChips({
 			)}
 			{maps.length === 0 && !loading && (
 				<span style={{ font: `13px ${T.sans}`, color: T.ter, padding: '7px 4px' }}>
-					{isDm ? 'No maps yet.' : 'No maps are visible to you.'}
+					{t(isDm ? 'atlas.noMapsDm' : 'atlas.noMapsPlayer')}
 				</span>
 			)}
 			<div style={{ flex: 1 }} />
 			<Button variant="ghost" size="sm" icon="edit" disabled={!selectedId} onClick={onOpenEditor}>
-				Open in map editor
+				{t('atlas.openInEditor')}
 			</Button>
 			{isDm && (
 				<Button
@@ -114,7 +116,7 @@ export function MapChips({
 					aria-expanded={creating}
 					onClick={onToggleCreate}
 				>
-					New map
+					{t('atlas.newMap')}
 				</Button>
 			)}
 		</div>

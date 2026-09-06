@@ -3,6 +3,7 @@ import { EmptyState, Icon, IconButton, Skeleton, Switch, VisibilityChip } from '
 import { Panel, T } from '../../app/screen-kit';
 import { CATEGORY_LABEL, CATEGORY_VAR, VIS_CHIP, VIS_LABEL } from '../../app/map/mapVisibility';
 import { ghostBtn } from './shared';
+import { useI18n } from '../../i18n';
 
 /** The Atlas layers rail — reorder, visibility and enabled state for the actor-visible layers of
  * the open map. Extracted from Atlas.tsx unchanged (RC-STB-2.6). */
@@ -29,14 +30,17 @@ export function LayersPanel({
 	onToggleLayerVisibility: (layerId: string, visibility: SceneVisibility) => void;
 	onToggleLayerEnabled: (layerId: string, enabled: boolean) => void;
 }) {
+	const { t } = useI18n();
 	return (
 		<Panel
 			title={
 				<span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-					Layers
+					{t('atlas.layers')}
 					<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
 						{layers.length}
-						{isDm && hiddenMatchCount > 0 ? ` · ${hiddenMatchCount} hidden` : ''}
+						{isDm && hiddenMatchCount > 0
+							? ` · ${t('atlas.hiddenCount', { count: hiddenMatchCount })}`
+							: ''}
 					</span>
 				</span>
 			}
@@ -44,7 +48,7 @@ export function LayersPanel({
 				isDm && selectedId ? (
 					<IconButton
 						icon="add"
-						label="Add layer"
+						label={t('atlas.addLayer')}
 						variant="ghost"
 						size="sm"
 						disabled={busy}
@@ -73,8 +77,8 @@ export function LayersPanel({
 							<span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
 								<button
 									type="button"
-									title="Move up"
-									aria-label={`Move ${l.name} up`}
+									title={t('atlas.moveUp')}
+									aria-label={t('atlas.moveLayerUp', { name: l.name })}
 									disabled={busy || i === 0}
 									onClick={() => onReorderLayer(l.layerId, i - 1)}
 									style={{ ...ghostBtn, opacity: i === 0 ? 0.3 : 1 }}
@@ -83,8 +87,8 @@ export function LayersPanel({
 								</button>
 								<button
 									type="button"
-									title="Move down"
-									aria-label={`Move ${l.name} down`}
+									title={t('atlas.moveDown')}
+									aria-label={t('atlas.moveLayerDown', { name: l.name })}
 									disabled={busy || i === layers.length - 1}
 									onClick={() => onReorderLayer(l.layerId, i + 1)}
 									style={{ ...ghostBtn, opacity: i === layers.length - 1 ? 0.3 : 1 }}
@@ -123,11 +127,11 @@ export function LayersPanel({
 							</div>
 							<div style={{ font: `10.5px ${T.mono}`, color: T.ter }}>
 								{CATEGORY_LABEL[l.category] ?? l.category} · {Math.round(l.opacity * 100)}% ·{' '}
-								{l.content.length} marks
+								{t('atlas.marks', { count: l.content.length })}
 								{/* `locked` was never rendered, so the only way to discover it was to
 											    act and be refused ("Layer … is locked — unlock it first").
 											    Text, not an icon: this line is already the row's status area. */}
-								{l.locked ? ' · locked' : ''}
+								{l.locked ? ` · ${t('atlas.locked')}` : ''}
 							</div>
 						</div>
 						{isDm ? (
@@ -135,8 +139,13 @@ export function LayersPanel({
 								{/* compact chip = the grayscale-safe status display; the button stays the toggle */}
 								<button
 									type="button"
-									title={`Visibility: ${VIS_LABEL[l.visibility] ?? l.visibility} — click to toggle DM only ↔ player visible`}
-									aria-label={`${l.name} visibility: ${VIS_LABEL[l.visibility] ?? l.visibility} — toggle`}
+									title={t('atlas.visibilityToggleTitle', {
+										visibility: VIS_LABEL[l.visibility] ?? l.visibility,
+									})}
+									aria-label={t('atlas.visibilityToggleLabel', {
+										name: l.name,
+										visibility: VIS_LABEL[l.visibility] ?? l.visibility,
+									})}
 									disabled={busy}
 									onClick={() => onToggleLayerVisibility(l.layerId, l.visibility)}
 									style={ghostBtn}
@@ -145,7 +154,7 @@ export function LayersPanel({
 								</button>
 								<Switch
 									checked={l.enabled}
-									aria-label={`Show ${l.name} on the map`}
+									aria-label={t('atlas.showLayer', { name: l.name })}
 									// The only control in the row that stayed live mid-dispatch, so a second
 									// click was swallowed by `run`'s busy guard with no feedback at all.
 									// SOFT, not native: `busy` flips synchronously inside this switch's own
@@ -167,8 +176,8 @@ export function LayersPanel({
 						<EmptyState
 							inset
 							icon="layers"
-							title="No layers are visible to you"
-							description={isDm && selectedId ? 'Add one with the + above.' : undefined}
+							title={t('atlas.noLayers')}
+							description={isDm && selectedId ? t('atlas.addLayerHint') : undefined}
 						/>
 					))}
 			</div>
