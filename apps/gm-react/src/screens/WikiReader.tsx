@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { Button, Icon, Input } from '../ds';
 import { AppApiError, getPublicWiki, type PublicWiki, type WikiPage } from '../cloud/appApi';
 import { useViewport } from '../app/useViewport';
+import { useI18n } from '../i18n';
 
 /**
  * WikiReader — the PUBLIC, account-less reader for a published campaign wiki
@@ -127,13 +128,13 @@ function boldify(s: string, resolve?: (target: string) => (() => void) | null): 
 }
 
 /** Minimal, XSS-safe markdown → React nodes (headings, quote, list, paragraph). No innerHTML. */
-function mdToNodes(md: string, resolve?: (target: string) => (() => void) | null): ReactNode {
+function mdToNodes(
+	md: string,
+	emptyText: string,
+	resolve?: (target: string) => (() => void) | null,
+): ReactNode {
 	if (!md.trim())
-		return (
-			<p style={{ color: 'var(--color-text-tertiary)', fontStyle: 'italic' }}>
-				This page is empty.
-			</p>
-		);
+		return <p style={{ color: 'var(--color-text-tertiary)', fontStyle: 'italic' }}>{emptyText}</p>;
 	// Bare <li> elements used to be returned straight into a <div> — invalid HTML, and a screen
 	// reader never announced "list, N items". Group each run of `- ` lines into one <ul>.
 	const lines = md.split('\n');
@@ -283,6 +284,7 @@ function Notice({ icon, title, children }: { icon: string; title: string; childr
 }
 
 export function WikiReader() {
+	const { t, formatDate } = useI18n();
 	const location = useLocation();
 	const isPhone = useViewport() === 'phone';
 	const wikiId = useMemo(
@@ -329,8 +331,7 @@ export function WikiReader() {
 							pw === undefined ? 0 : (prev.phase === 'password' ? prev.failedAttempts : 0) + 1,
 					}));
 				} else {
-					const message =
-						e instanceof AppApiError ? e.message : 'This wiki could not be loaded — try again.';
+					const message = e instanceof AppApiError ? e.message : t('wikiReader.loadFailed');
 					setState({ phase: 'invalid', message });
 				}
 			})
@@ -367,13 +368,13 @@ export function WikiReader() {
 	if (state.phase === 'loading') {
 		return (
 			<div data-theme="parchment" style={WRAP}>
-				<Notice icon="knowledge-book" title="Opening wiki…">
+				<Notice icon="knowledge-book" title={t('wikiReader.opening')}>
 					<div
 						style={{ font: '13px var(--font-sans)', color: 'var(--color-text-tertiary)' }}
 						role="status"
 						aria-live="polite"
 					>
-						Fetching the published pages…
+						{t('wikiReader.fetching')}
 					</div>
 				</Notice>
 			</div>
@@ -383,9 +384,9 @@ export function WikiReader() {
 	if (state.phase === 'missing') {
 		return (
 			<div data-theme="parchment" style={WRAP}>
-				<Notice icon="warning" title="No wiki link">
+				<Notice icon="warning" title={t('wikiReader.noLinkTitle')}>
 					<div style={{ font: '13px/1.6 var(--font-sans)', color: 'var(--color-text-secondary)' }}>
-						This link is incomplete. Ask whoever shared it to copy the full link again.
+						{t('wikiReader.noLinkBody')}
 					</div>
 				</Notice>
 			</div>
@@ -395,7 +396,7 @@ export function WikiReader() {
 	if (state.phase === 'invalid') {
 		return (
 			<div data-theme="parchment" style={WRAP}>
-				<Notice icon="warning" title="Wiki unavailable">
+				<Notice icon="warning" title={t('wikiReader.unavailableTitle')}>
 					{/* The loading phase announced itself in a polite live region, and this replaces that
 					    subtree — without a live region of its own the failure is silent to a screen
 					    reader, which is left on "Fetching the published pages…". */}
@@ -417,7 +418,7 @@ export function WikiReader() {
 							fetchWiki();
 						}}
 					>
-						Try again
+						{t('wikiReader.tryAgain')}
 					</Button>
 				</Notice>
 			</div>
@@ -427,9 +428,9 @@ export function WikiReader() {
 	if (state.phase === 'password') {
 		return (
 			<div data-theme="parchment" style={WRAP}>
-				<Notice icon="lock" title="This wiki is protected">
+				<Notice icon="lock" title={t('wikiReader.protectedTitle')}>
 					<div style={{ font: '13px/1.6 var(--font-sans)', color: 'var(--color-text-secondary)' }}>
-						Enter the password the wiki owner shared to read it.
+						{t('wikiReader.protectedBody')}
 					</div>
 					<Input
 						type="password"
@@ -438,8 +439,8 @@ export function WikiReader() {
 						onKeyDown={(e: React.KeyboardEvent) => {
 							if (e.key === 'Enter') submitPassword();
 						}}
-						placeholder="Password"
-						aria-label="Wiki password"
+						placeholder={t('wikiReader.password')}
+						aria-label={t('wikiReader.passwordLabel')}
 						invalid={state.failedAttempts > 0}
 						maxLength={100}
 					/>
@@ -453,8 +454,8 @@ export function WikiReader() {
 							style={{ font: '12px var(--font-sans)', color: 'var(--color-status-error)' }}
 						>
 							{state.failedAttempts === 1
-								? 'That password is not right — try again.'
-								: `Still not right after ${state.failedAttempts} attempts — check for typos, or ask the wiki owner for the current password.`}
+								? t('wikiReader.passwordWrong')
+								: t('wikiReader.passwordWrongAgain', { count: state.failedAttempts })}
 						</div>
 					)}
 					<Button
@@ -463,7 +464,7 @@ export function WikiReader() {
 						disabled={busy || !password.trim()}
 						onClick={submitPassword}
 					>
-						{busy ? 'Checking…' : 'Open wiki'}
+						{busy ? t('wikiReader.checking') : t('wikiReader.openWiki')}
 					</Button>
 				</Notice>
 			</div>
@@ -513,7 +514,7 @@ export function WikiReader() {
 					onFocus={(e) => (e.currentTarget.style.top = '8px')}
 					onBlur={(e) => (e.currentTarget.style.top = '-48px')}
 				>
-					Skip to page content
+					{t('wikiReader.skipToContent')}
 				</a>
 				<header style={{ padding: '28px 0 18px', borderBottom: '1px solid var(--color-border)' }}>
 					<div
@@ -527,7 +528,7 @@ export function WikiReader() {
 							color: 'var(--color-text-tertiary)',
 						}}
 					>
-						<Icon name="knowledge-book" size="sm" /> Campaign wiki
+						<Icon name="knowledge-book" size="sm" /> {t('wikiReader.campaignWiki')}
 					</div>
 					<h1
 						style={{
@@ -545,8 +546,10 @@ export function WikiReader() {
 							marginTop: 4,
 						}}
 					>
-						{wiki.pageCount} {wiki.pageCount === 1 ? 'page' : 'pages'} · updated{' '}
-						{new Date(wiki.updatedAt).toLocaleDateString()}
+						{t('wikiReader.pagesUpdated', {
+							count: wiki.pageCount,
+							date: formatDate(new Date(wiki.updatedAt)),
+						})}
 					</div>
 				</header>
 				{/* On phone widths the 200px nav floor would squeeze the article to ~120px, so the
@@ -561,7 +564,7 @@ export function WikiReader() {
 					}}
 				>
 					<nav
-						aria-label="Wiki pages"
+						aria-label={t('wikiReader.pagesNav')}
 						style={{
 							display: 'flex',
 							flexDirection: 'column',
@@ -607,7 +610,7 @@ export function WikiReader() {
 						})}
 						{wiki.pages.length === 0 && (
 							<div style={{ font: '13px var(--font-sans)', color: 'var(--color-text-tertiary)' }}>
-								This wiki has no pages yet.
+								{t('wikiReader.noPages')}
 							</div>
 						)}
 					</nav>
@@ -628,11 +631,11 @@ export function WikiReader() {
 								>
 									{page.title}
 								</h2>
-								<div>{mdToNodes(page.markdown, resolveLink)}</div>
+								<div>{mdToNodes(page.markdown, t('wikiReader.pageEmpty'), resolveLink)}</div>
 							</article>
 						) : (
 							<div style={{ font: '13.5px var(--font-sans)', color: 'var(--color-text-tertiary)' }}>
-								Nothing published on this wiki yet.
+								{t('wikiReader.nothingPublished')}
 							</div>
 						)}
 					</main>

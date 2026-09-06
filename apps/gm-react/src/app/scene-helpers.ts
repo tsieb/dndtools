@@ -1,4 +1,5 @@
 import type { CoreStateSlice, SceneListEntry } from '@dndtools/core';
+import type { MessageKey } from '../i18n';
 
 export type SceneStatus = 'live' | 'ready' | 'draft';
 
@@ -7,13 +8,22 @@ export type SceneStatus = 'live' | 'ready' | 'draft';
  * actor's active scene is "live", a DM-only scene is a "draft", anything else is "ready". The
  * design package's tri-state badge (Live / Ready / Draft) maps onto exactly these.
  */
-export function sceneStatus(scene: SceneListEntry, activeSceneId: string | null | undefined): SceneStatus {
+export function sceneStatus(
+	scene: SceneListEntry,
+	activeSceneId: string | null | undefined,
+): SceneStatus {
 	if (scene.id === activeSceneId) return 'live';
 	return scene.visibility === 'dm-only' ? 'draft' : 'ready';
 }
 
-export function statusLabel(status: SceneStatus): string {
-	return status === 'live' ? 'Live' : status === 'ready' ? 'Ready' : 'Draft';
+/** The badge's message key. RC-UX-1.2: the caller renders it with `t`, so a non-English locale
+ * shows a translated badge instead of the English source. */
+export function statusLabel(status: SceneStatus): MessageKey {
+	return status === 'live'
+		? 'scenes.status.live'
+		: status === 'ready'
+			? 'scenes.status.ready'
+			: 'scenes.status.draft';
 }
 
 /** Active scene id for the rendered actor view. */

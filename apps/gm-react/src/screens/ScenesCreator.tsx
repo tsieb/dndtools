@@ -17,6 +17,7 @@ import {
 import { useRuntime } from '../runtime/RuntimeContext';
 import { Page } from '../app/screen-kit';
 import { parseTags, sceneStatus, statusLabel } from '../app/scene-helpers';
+import { useI18n } from '../i18n';
 import { useViewport } from '../app/useViewport';
 import { SceneCardsPanel } from './SceneCardsPanel';
 
@@ -32,6 +33,7 @@ type Visibility = 'dm-only' | 'shared' | 'player-visible';
  */
 export function ScenesCreator() {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const navigate = useNavigate();
 	const isDesktop = useViewport() === 'desktop';
 
@@ -87,17 +89,17 @@ export function ScenesCreator() {
 				setDescription('');
 				setTagsRaw('');
 				setVisibility('dm-only');
-				setFeedback({ tone: 'success', text: `“${created}” was saved.` });
+				setFeedback({ tone: 'success', text: t('scenes.saved', { name: created }) });
 			} else {
 				setFeedback({
 					tone: 'failure',
-					text: result.rejection.message ?? 'Couldn’t save — try again',
+					text: result.rejection.message ?? t('scenes.saveFailed'),
 				});
 			}
 		} catch {
 			// `SceneRuntime.dispatchNow` RETHROWS after a failed durable persist, so without this the
 			// form reset never ran and the button un-busied with no explanation at all.
-			setFeedback({ tone: 'failure', text: 'Couldn’t save — try again' });
+			setFeedback({ tone: 'failure', text: t('scenes.saveFailed') });
 		} finally {
 			setSubmitting(false);
 		}
@@ -115,7 +117,7 @@ export function ScenesCreator() {
 			payload: { sceneId, name: meta.name, description: meta.description, tags: meta.tags },
 		});
 		if (result.status === 'rejected') {
-			return result.rejection.message ?? 'The scene details could not be saved.';
+			return result.rejection.message ?? t('scenes.metaSaveFailed');
 		}
 		setEditingId(null);
 		return null;
@@ -137,17 +139,17 @@ export function ScenesCreator() {
 			});
 			setDeleteTarget(null);
 			if (result.status !== 'accepted') {
-				Toaster.error(result.rejection.message ?? 'The scene could not be deleted.');
+				Toaster.error(result.rejection.message ?? t('scenes.deleteFailed'));
 				return;
 			}
-			Toaster.success(`“${name}” deleted`, {
-				action: 'Undo',
+			Toaster.success(t('scenes.deleted', { name }), {
+				action: t('common.action.undo'),
 				onAction: () => {
 					void runtime
 						.dispatch({ type: 'scene.restore', actorId, payload: { sceneId: id } })
 						.then((restored) => {
-							if (restored.status === 'accepted') Toaster.success(`“${name}” restored`);
-							else Toaster.error(restored.rejection.message ?? 'The scene could not be restored.');
+							if (restored.status === 'accepted') Toaster.success(t('scenes.restored', { name }));
+							else Toaster.error(restored.rejection.message ?? t('scenes.restoreFailed'));
 						});
 				},
 			});
@@ -183,7 +185,7 @@ export function ScenesCreator() {
 								color: 'var(--color-text-tertiary)',
 							}}
 						>
-							Create
+							{t('scenes.create')}
 						</div>
 						<div
 							style={{
@@ -191,7 +193,7 @@ export function ScenesCreator() {
 								color: 'var(--color-text-primary)',
 							}}
 						>
-							New scene
+							{t('scenes.newScene')}
 						</div>
 					</div>
 
@@ -199,7 +201,7 @@ export function ScenesCreator() {
 						onSubmit={submit}
 						style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
 					>
-						<Field label="Name" htmlFor="scene-name" required>
+						<Field label={t('scenes.name')} htmlFor="scene-name" required>
 							<Input
 								id="scene-name"
 								value={name}
@@ -209,18 +211,22 @@ export function ScenesCreator() {
 									setFeedback(null);
 									setName(e.target.value);
 								}}
-								placeholder="The Sunken Crypt"
+								placeholder={t('scenes.namePlaceholder')}
 							/>
 						</Field>
-						<Field label="Description" htmlFor="scene-description">
+						<Field label={t('scenes.description')} htmlFor="scene-description">
 							<Textarea
 								id="scene-description"
 								value={description}
 								onChange={(e: { target: { value: string } }) => setDescription(e.target.value)}
-								placeholder="A flooded antechamber beneath the old keep…"
+								placeholder={t('scenes.descriptionPlaceholder')}
 							/>
 						</Field>
-						<Field label="Visibility" htmlFor="scene-visibility" help="Who can see this scene.">
+						<Field
+							label={t('common.visibility.label')}
+							htmlFor="scene-visibility"
+							help={t('scenes.visibilityHelp')}
+						>
 							<Select
 								id="scene-visibility"
 								value={visibility}
@@ -228,18 +234,18 @@ export function ScenesCreator() {
 									setVisibility(e.target.value as Visibility)
 								}
 								options={[
-									{ value: 'dm-only', label: 'DM only' },
-									{ value: 'shared', label: 'Shared' },
-									{ value: 'player-visible', label: 'Player visible' },
+									{ value: 'dm-only', label: t('common.visibility.dmOnly') },
+									{ value: 'shared', label: t('common.visibility.shared') },
+									{ value: 'player-visible', label: t('common.visibility.playerVisible') },
 								]}
 							/>
 						</Field>
-						<Field label="Tags" htmlFor="scene-tags" help="Comma-separated.">
+						<Field label={t('scenes.tags')} htmlFor="scene-tags" help={t('scenes.tagsHelp')}>
 							<Input
 								id="scene-tags"
 								value={tagsRaw}
 								onChange={(e: { target: { value: string } }) => setTagsRaw(e.target.value)}
-								placeholder="dungeon, combat"
+								placeholder={t('scenes.tagsPlaceholder')}
 							/>
 						</Field>
 
@@ -250,7 +256,7 @@ export function ScenesCreator() {
 								icon="add"
 								disabled={submitting || !name.trim()}
 							>
-								{submitting ? 'Creating…' : 'Create scene'}
+								{submitting ? t('scenes.creating') : t('scenes.createScene')}
 							</Button>
 							{/* One persistent element rather than two conditional siblings: swapping which of
 							    two `{cond && …}` slots renders destroys the first node, and it is the only
@@ -291,7 +297,7 @@ export function ScenesCreator() {
 							marginBottom: 'var(--space-3)',
 						}}
 					>
-						Scenes · {scenes.length}
+						{t('scenes.count', { count: scenes.length })}
 					</div>
 					{scenes.length === 0 ? (
 						<Card elevation="flat" padding="lg">
@@ -301,7 +307,7 @@ export function ScenesCreator() {
 									color: 'var(--color-text-secondary)',
 								}}
 							>
-								No scenes yet. Create one to start setting your table’s stage.
+								{t('scenes.empty')}
 							</div>
 						</Card>
 					) : (
@@ -362,18 +368,18 @@ export function ScenesCreator() {
 															color: 'var(--color-text-tertiary)',
 														}}
 													>
-														{scene.tags?.[0] ?? 'Scene'}
+														{scene.tags?.[0] ?? t('scenes.tagFallback')}
 													</div>
 												</div>
 												<Badge
 													status={s === 'live' ? 'success' : s === 'ready' ? 'info' : 'neutral'}
 												>
-													{statusLabel(s)}
+													{t(statusLabel(s))}
 												</Badge>
 											</button>
 											<IconButton
 												icon="edit"
-												label={`Edit details of ${scene.name}`}
+												label={t('scenes.editDetailsOf', { name: scene.name })}
 												variant="ghost"
 												size="sm"
 												onClick={() => setEditingId(rowEditing ? null : scene.id)}
@@ -381,7 +387,7 @@ export function ScenesCreator() {
 											/>
 											<IconButton
 												icon="delete"
-												label={`Delete ${scene.name}`}
+												label={t('scenes.deleteNamed', { name: scene.name })}
 												variant="ghost"
 												size="sm"
 												onClick={() => setDeleteTarget({ id: scene.id, name: scene.name })}
@@ -408,8 +414,8 @@ export function ScenesCreator() {
 				<Dialog
 					open={!!deleteTarget}
 					onClose={() => setDeleteTarget(null)}
-					title={`Delete “${deleteTarget?.name ?? ''}”?`}
-					description="The scene leaves every list and board. You can undo right after — it stays recoverable."
+					title={t('scenes.deleteTitle', { name: deleteTarget?.name ?? '' })}
+					description={t('scenes.deleteDescription')}
 					icon="delete"
 					size="sm"
 					footer={
@@ -420,7 +426,7 @@ export function ScenesCreator() {
 								disabled={deleting}
 								onClick={() => setDeleteTarget(null)}
 							>
-								Cancel
+								{t('common.action.cancel')}
 							</Button>
 							<Button
 								variant="danger"
@@ -429,7 +435,7 @@ export function ScenesCreator() {
 								disabled={deleting}
 								onClick={() => void confirmDelete()}
 							>
-								{deleting ? 'Deleting…' : 'Delete scene'}
+								{deleting ? t('scenes.deleting') : t('scenes.deleteScene')}
 							</Button>
 						</>
 					}
@@ -441,8 +447,7 @@ export function ScenesCreator() {
 							lineHeight: 1.5,
 						}}
 					>
-						The live scene and the Command Center home scene can’t be deleted — if this is one of
-						those, the delete is refused and nothing changes.
+						{t('scenes.deleteRefused')}
 					</div>
 				</Dialog>
 			</div>
@@ -469,6 +474,7 @@ function SceneRowMetaEditor({
 	onSave: (meta: { name: string; description: string; tags: string[] }) => Promise<string | null>;
 	onClose: () => void;
 }) {
+	const { t } = useI18n();
 	const [draftName, setDraftName] = useState(name);
 	const [draftDescription, setDraftDescription] = useState(description);
 	const [draftTags, setDraftTags] = useState(tags.join(', '));
@@ -509,24 +515,24 @@ function SceneRowMetaEditor({
 				border: '1px solid var(--color-border)',
 			}}
 		>
-			<Field label="Name" required>
+			<Field label={t('scenes.name')} required>
 				<Input
 					value={draftName}
 					onChange={(e: { target: { value: string } }) => setDraftName(e.target.value)}
 				/>
 			</Field>
-			<Field label="Description">
+			<Field label={t('scenes.description')}>
 				<Textarea
 					rows={2}
 					value={draftDescription}
 					onChange={(e: { target: { value: string } }) => setDraftDescription(e.target.value)}
 				/>
 			</Field>
-			<Field label="Tags" help="Comma-separated.">
+			<Field label={t('scenes.tags')} help={t('scenes.tagsHelp')}>
 				<Input
 					value={draftTags}
 					onChange={(e: { target: { value: string } }) => setDraftTags(e.target.value)}
-					placeholder="dungeon, combat"
+					placeholder={t('scenes.tagsPlaceholder')}
 				/>
 			</Field>
 			{error && (
@@ -550,10 +556,10 @@ function SceneRowMetaEditor({
 					disabled={saving || !draftName.trim()}
 					onClick={save}
 				>
-					{saving ? 'Saving…' : 'Save details'}
+					{saving ? t('scenes.saving') : t('scenes.saveDetails')}
 				</Button>
 				<Button variant="ghost" size="sm" onClick={onClose}>
-					Cancel
+					{t('common.action.cancel')}
 				</Button>
 			</div>
 		</div>

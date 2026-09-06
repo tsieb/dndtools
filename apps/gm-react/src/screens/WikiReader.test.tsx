@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppApiError, type PublicWiki } from '../cloud/appApi';
+import { I18nProvider } from '../i18n';
 import { WikiReader } from './WikiReader';
 
 // The public wiki reader is CLOUD-gated, so the Playwright e2e server can only ever reach its
@@ -35,10 +36,14 @@ let container: HTMLDivElement;
 
 async function mount(search = '?id=w1') {
 	await act(async () => {
+		// RC-UX-1.2: the reader's copy comes out of the message catalog, so it has to mount inside
+		// the provider `main.tsx` gives it — `useI18n` throws otherwise.
 		root.render(
-			<MemoryRouter initialEntries={[`/wiki${search}`]}>
-				<WikiReader />
-			</MemoryRouter>,
+			<I18nProvider>
+				<MemoryRouter initialEntries={[`/wiki${search}`]}>
+					<WikiReader />
+				</MemoryRouter>
+			</I18nProvider>,
 		);
 	});
 }
