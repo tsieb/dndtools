@@ -1,0 +1,87 @@
+# RC-ENG-1.1 — performance measurement pipeline.
+#
+# Captures a sample for every budget the PERF-001 registry owns (scripts/perf/capture.ts) and grades
+# the run against both the declared targets and the recorded baseline (scripts/perf/compare.ts). A
+# breach, a regression beyond the tolerance, or a scenario that recorded nothing fails the job — an
+# unmeasured budget is never a pass.
+#
+# Path-filtered: perf numbers only move when the app, the core, the perf scripts, or the budgets
+# themselves change, and this job is far too slow to run on a docs-only edit.
+name: Performance
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/gm-react/**'
+      - 'packages/core/**'
+      - 'scripts/perf/**'
+      - 'tests/perf/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/perf.yml'
+  pull_request:
+    paths:
+      - 'apps/gm-react/**'
+      - 'packages/core/**'
+      - 'scripts/perf/**'
+      - 'tests/perf/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/perf.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: perf-${{ github.event.pull_request.base.ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    name: capture and compare budgets
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10.34.5
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: pnpm install --frozen-lockfile
+
+      # The capture drives the real app in Chromium and resolves Playwright from apps/gm-react.
+      - name: Install Chromium
+        run: pnpm --filter @dndtools/gm-react exec playwright install --with-deps chromium
+
+      - name: Capture performance samples
+        env:
+          PERF_RUNNER_LABEL: github-ubuntu-latest
+        run: pnpm perf:capture -- --out tests/perf/current.json
+
+      - name: Compare against targets and baseline
+        run: pnpm perf:compare -- --run tests/perf/current.json --markdown tmp/perf/report.md
+
+      - name: Upload the run and the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: perf-run
+          path: |
+            tests/perf/current.json
+            tmp/perf/report.md
+          if-no-files-found: warn
+          retention-days: 30

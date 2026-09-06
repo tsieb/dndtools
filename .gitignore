@@ -35,6 +35,8 @@ vite.config.ts.timestamp-*
 coverage
 playwright-report
 test-results
+# Per-run perf capture (RC-ENG-1.1). The BASELINE (tests/perf/baseline.json) is tracked; a run is not.
+tests/perf/current.json
 
 # IDE
 .idea

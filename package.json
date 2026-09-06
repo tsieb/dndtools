@@ -57,7 +57,10 @@
 		"validate:live": "tsx scripts/validate/index.ts --live",
 		"validate:full": "tsx scripts/validate/index.ts --full",
 		"validate:list": "tsx scripts/validate/index.ts --list",
-		"feature-audit": "tsx scripts/validate/feature-audit.ts"
+		"feature-audit": "tsx scripts/validate/feature-audit.ts",
+		"perf:capture": "tsx scripts/perf/capture.ts",
+		"perf:compare": "tsx scripts/perf/compare.ts",
+		"perf:baseline": "tsx scripts/perf/compare.ts --write-baseline"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

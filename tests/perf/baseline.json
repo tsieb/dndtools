@@ -1,0 +1,104 @@
+{
+	"schemaVersion": 1,
+	"recordedAt": "2026-09-06T02:12:13.644Z",
+	"host": {
+		"hostname": "Jaded",
+		"os": "Linux linux x64",
+		"cpuCount": 16,
+		"cpuModel": "AMD Ryzen 7 5700X 8-Core Processor",
+		"totalMemoryMb": 32005,
+		"ci": false,
+		"runnerLabel": "local"
+	},
+	"tolerance": 0.2,
+	"budgets": [
+		{
+			"budgetId": "smoke-ci",
+			"observedValue": 26913,
+			"unit": "ms",
+			"sampleCount": 1,
+			"fixture": "This runner, warm pnpm store",
+			"scenario": "Run `pnpm test:smoke` (boundary lint + typecheck) and time it end to end."
+		},
+		{
+			"budgetId": "app-startup",
+			"observedValue": 1006.1,
+			"unit": "ms",
+			"sampleCount": 3,
+			"fixture": "Fresh profile against the Vite DEV server (which pays a per-module transform a production build does not), warm module cache",
+			"scenario": "Cold context → navigate to the Command Center → runtime hydrated + shell landmark present."
+		},
+		{
+			"budgetId": "vault-open",
+			"observedValue": 676.7,
+			"unit": "ms",
+			"sampleCount": 3,
+			"fixture": "200 seeded notes + demo content (budget dataset: 1,000 notes / 100 objects / 20 maps)",
+			"scenario": "Reload a seeded vault → runtime hydrated + Command Center heading rendered."
+		},
+		{
+			"budgetId": "scene-first-render",
+			"observedValue": 1068.3,
+			"unit": "ms",
+			"sampleCount": 3,
+			"fixture": "Demo-seeded home scene, 7 painted widgets (budget dataset: 50 widgets / 10 active bindings)",
+			"scenario": "Cold context → /board → home scene widgets painted on the bounded GM Screen."
+		},
+		{
+			"budgetId": "widget-update",
+			"observedValue": 16.8,
+			"unit": "ms",
+			"sampleCount": 25,
+			"fixture": "Single accepted command on the demo home scene",
+			"scenario": "Dispatch scene.move-widget 25× and time command acceptance → repainted frame."
+		},
+		{
+			"budgetId": "map-pan-zoom-desktop",
+			"observedValue": 59.524,
+			"unit": "fps",
+			"sampleCount": 196,
+			"fixture": "4 layers / 100 POIs",
+			"scenario": "Drag-pan the full-screen map editor 8× across the canvas and wheel-zoom twice, sampling every animation frame."
+		},
+		{
+			"budgetId": "map-pan-zoom-slim",
+			"observedValue": 59.88,
+			"unit": "fps",
+			"sampleCount": 197,
+			"fixture": "4 layers / 100 POIs",
+			"scenario": "Drag-pan the full-screen map editor 8× across the canvas and wheel-zoom twice, sampling every animation frame."
+		},
+		{
+			"budgetId": "search",
+			"observedValue": 13,
+			"unit": "ms",
+			"sampleCount": 20,
+			"fixture": "200 seeded notes + demo content (budget dataset: 10,000 indexed records)",
+			"scenario": "Type 20 distinct queries into Graph & Search and time each until its result row appears."
+		},
+		{
+			"budgetId": "graph-indexing",
+			"observedValue": 248.4,
+			"unit": "ms",
+			"sampleCount": 5,
+			"fixture": "One changed note in a 200-note vault (budget dataset: one changed note in a 10,000-record vault)",
+			"scenario": "Add one linked note 5× and time until the graph rail shows the affected node."
+		},
+		{
+			"budgetId": "sync-reconciliation",
+			"observedValue": 710.7,
+			"unit": "ms",
+			"sampleCount": 5,
+			"fixture": "241 queued operations (200 seeded notes) (budget dataset: 1,000 queued operations)",
+			"scenario": "Reload → hydrate storage and replay the durable op log to a loaded runtime."
+		},
+		{
+			"budgetId": "live-session-delivery",
+			"observedValue": 16.8,
+			"unit": "ms",
+			"sampleCount": 15,
+			"fixture": "Local player-safe projection of the demo vault; the network hop is NOT included (budget dataset: near-real-time projected session ops)",
+			"scenario": "Project the DM state to a player view 15× and time until the projection is painted."
+		}
+	]
+}
