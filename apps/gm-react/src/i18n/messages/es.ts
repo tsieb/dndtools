@@ -3730,6 +3730,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'{count, plural, one { · # capa de ambiente} other { · # capas de ambiente}}',
 	'widgetBody.initiative.round': 'Ronda',
 	'widgetBody.initiative.turn': 'Turno',
+	'widgetBody.initiative.spotlight': 'Protagonismo',
 	'widgetBody.initiative.hp': 'PG',
 	'widgetBody.initiative.noneHpShown': 'No hay combate en curso · PG visibles',
 	'widgetBody.initiative.noneHpHidden': 'No hay combate en curso · PG ocultos',

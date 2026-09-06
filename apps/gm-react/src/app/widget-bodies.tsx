@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+	getActiveSystemForActor,
 	getCharacterForActor,
 	getCombatTrackerForActor,
 	getContentItemsForActor,
@@ -8,6 +9,7 @@ import {
 	getSessionAudioView,
 	getTimerCountdown,
 	parseDiceExpression,
+	resolveTurnModel,
 } from '@dndtools/core';
 import { Icon } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
@@ -502,6 +504,19 @@ function InitiativeBody({ widget }: { widget: BoardWidget }) {
 	const runtime = useRuntime();
 	const { t } = useI18n();
 	const showHp = cfg<boolean>(widget, 'showHp') ?? true;
+	// RC-SYS-2.7 — the active package's turn model decides whether the tracker counts rounds at all
+	// and whether the cursor means "whose turn" or "the spotlight" (RC-SYS-2.4's ResolvedTurnModel,
+	// same read `InitiativeRow` uses).
+	const activePackage = useMemo(
+		() =>
+			getActiveSystemForActor(
+				runtime.state.systems,
+				runtime.state.permissions,
+				runtime.defaultActorId,
+			).activePackage,
+		[runtime.state.systems, runtime.state.permissions, runtime.defaultActorId],
+	);
+	const turnModel = resolveTurnModel(activePackage);
 	// SES-002 — the ONE actor-filtered combat read model; hidden combatants are already redacted.
 	const tracker = getCombatTrackerForActor(
 		runtime.state.session.combat,
@@ -517,12 +532,18 @@ function InitiativeBody({ widget }: { widget: BoardWidget }) {
 	return (
 		<div style={bodyWrap}>
 			<div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+				{turnModel.rounds && (
+					<StatPill
+						label={t('widgetBody.initiative.round')}
+						value={running ? String(tracker.round) : '—'}
+					/>
+				)}
 				<StatPill
-					label={t('widgetBody.initiative.round')}
-					value={running ? String(tracker.round) : '—'}
-				/>
-				<StatPill
-					label={t('widgetBody.initiative.turn')}
+					label={
+						turnModel.spotlight
+							? t('widgetBody.initiative.spotlight')
+							: t('widgetBody.initiative.turn')
+					}
 					value={running ? (active?.name ?? `#${tracker.turn + 1}`) : '—'}
 				/>
 				{running && showHp && active?.resources && (
@@ -548,12 +569,27 @@ function InitiativeBody({ widget }: { widget: BoardWidget }) {
 	);
 }
 
-const ABILITY_ORDER = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
+/** The creature-schema field key a package declares to say "my characters have an armor class" —
+ * same convention `systemDeclaresChallenge` uses for challenge rating (RC-SYS-2.5). */
+const ARMOR_CLASS_FIELD_KEY = 'armorClass';
 
 function CharacterBody({ widget }: { widget: BoardWidget }) {
 	const runtime = useRuntime();
 	const { t } = useI18n();
 	const showAbilities = cfg<boolean>(widget, 'showAbilities') ?? true;
+	// RC-SYS-2.7 — the active package decides which sheet concepts exist: a package with no
+	// `attributes` (Generic) has no ability row to show, and armor class only appears when the
+	// package's creature schema declares it, so a Generic character shows hp+stress and nothing
+	// borrowed from 5e.
+	const activePackage = useMemo(
+		() =>
+			getActiveSystemForActor(
+				runtime.state.systems,
+				runtime.state.permissions,
+				runtime.defaultActorId,
+			).activePackage,
+		[runtime.state.systems, runtime.state.permissions, runtime.defaultActorId],
+	);
 	if (widget.requiresBinding && widget.status !== 'available') {
 		return <Muted>{t('widgetBody.character.noBinding')}</Muted>;
 	}
@@ -565,9 +601,15 @@ function CharacterBody({ widget }: { widget: BoardWidget }) {
 				runtime.state.permissions,
 				runtime.defaultActorId,
 				boundId,
+				activePackage,
 			)
 		: null;
-	const scores = (view?.abilityScores ?? {}) as Record<string, number | undefined>;
+	const hasAc = activePackage.creatureSchema.some((field) => field.key === ARMOR_CLASS_FIELD_KEY);
+	const attributes = activePackage.attributes;
+	// Simple counters the package declares beyond hit points — a Generic stress clock, a 5e
+	// inspiration point — rendered generically by the label/counts the package itself declares.
+	// Expendable pools (ki, spell slots, …) belong on the full character sheet, not this small body.
+	const extraResources = (view?.resources ?? []).filter((resource) => resource.kind === 'track');
 	return (
 		<div style={bodyWrap}>
 			{view && (
@@ -585,18 +627,31 @@ function CharacterBody({ widget }: { widget: BoardWidget }) {
 					label={t('widgetBody.initiative.hp')}
 					value={view ? `${view.combat.hp} / ${view.combat.maxHp}` : '— / —'}
 				/>
-				<StatPill
-					label={t('widgetBody.character.ac')}
-					value={view ? String(view.combat.ac) : '—'}
-				/>
+				{hasAc && (
+					<StatPill
+						label={t('widgetBody.character.ac')}
+						value={view ? String(view.combat.ac) : '—'}
+					/>
+				)}
 			</div>
-			{showAbilities && (
+			{showAbilities && attributes.length > 0 && (
 				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-					{ABILITY_ORDER.map((key) => {
-						const label = key.toUpperCase();
-						const score = scores[key];
-						return <Chip key={key}>{score !== undefined ? `${label} ${score}` : label}</Chip>;
+					{attributes.map((attribute) => {
+						const label = attribute.abbreviation || attribute.label;
+						const score = view?.attributes[attribute.key];
+						return (
+							<Chip key={attribute.key}>{score !== undefined ? `${label} ${score}` : label}</Chip>
+						);
 					})}
+				</div>
+			)}
+			{extraResources.length > 0 && (
+				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+					{extraResources.map((resource) => (
+						<Chip key={resource.key} tone="accent">
+							{resource.label} {resource.available}/{resource.max}
+						</Chip>
+					))}
 				</div>
 			)}
 		</div>

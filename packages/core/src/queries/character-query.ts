@@ -17,6 +17,8 @@ import { characterVisibleToActor } from './character-visibility';
 import type { SystemPackage } from '../state/system-package';
 import { evaluateFormula } from '../state/system-package';
 import { DND5E_SYSTEM_PACKAGE } from '../systems';
+import type { ResourceInstance } from '../state/character-resources';
+import { resourceInstances } from '../state/character-resources';
 
 /**
  * CHAR-001 / CHAR-002 — the ACTOR-FILTERED character read model. The data layer decides visibility
@@ -50,11 +52,22 @@ export interface CharacterView {
 	data: Record<string, unknown>;
 	/** Structured proficiency state, hydrated with safe defaults (skills/saves/bonus/hit dice). */
 	proficiencies: CharacterProficiencies;
+	/**
+	 * RC-SYS-2.7 — every resource the ACTIVE package declares, as it stands on this character
+	 * (`resourceInstances`), so a widget/sheet can show "Stress" under Generic exactly as it shows
+	 * "Ki" under 5e without knowing either name. A resource named in `dmOnlyFields` (`resources.<key>`,
+	 * the same convention `combat.`/`data.` already use) is stripped for non-DM actors.
+	 */
+	resources: ResourceInstance[];
 	updatedAt: string;
 	revision: number;
 }
 
-function redactCharacter(character: Character, isDm: boolean): CharacterView {
+function redactCharacter(
+	character: Character,
+	isDm: boolean,
+	pkg: SystemPackage = DND5E_SYSTEM_PACKAGE,
+): CharacterView {
 	const data = { ...character.data };
 	const combat = { ...character.combat, conditions: [...character.combat.conditions] };
 	if (!isDm) {
@@ -72,6 +85,17 @@ function redactCharacter(character: Character, isDm: boolean): CharacterView {
 			delete (data as Record<string, unknown>)[dataKey];
 		}
 	}
+	let resources = resourceInstances(character, pkg);
+	if (!isDm) {
+		const hiddenKeys = new Set(
+			character.dmOnlyFields
+				.filter((field) => field.startsWith('resources.'))
+				.map((field) => field.slice('resources.'.length)),
+		);
+		if (hiddenKeys.size > 0) {
+			resources = resources.filter((resource) => !hiddenKeys.has(resource.key));
+		}
+	}
 	return {
 		id: character.id,
 		kind: character.kind,
@@ -83,6 +107,7 @@ function redactCharacter(character: Character, isDm: boolean): CharacterView {
 		combat,
 		data,
 		proficiencies: proficienciesOf(character),
+		resources,
 		updatedAt: character.updatedAt,
 		revision: character.revision,
 	};
@@ -292,19 +317,25 @@ export function passivePerception(
 	return passiveSkillScore(character, pkg) ?? 10;
 }
 
-/** A single character for one actor, or `null` when the actor may not see it (fail closed). */
+/**
+ * A single character for one actor, or `null` when the actor may not see it (fail closed). `pkg`
+ * defaults to the built-in 5e package so a pre-RC-SYS-2.7 caller reads the same resources it always
+ * did; a caller that has the active system package (e.g. a widget body) passes it through so the
+ * resource list matches the campaign's actual system.
+ */
 export function getCharacterForActor(
 	state: CharacterState,
 	permissions: PermissionState,
 	actorId: string,
 	characterId: string,
+	pkg: SystemPackage = DND5E_SYSTEM_PACKAGE,
 ): CharacterView | null {
 	const actor = permissions.actors[actorId];
 	if (!actor) return null;
 	const character = state.characters[characterId];
 	if (!character) return null;
 	if (!characterVisibleToActor(character, actor, permissions)) return null;
-	return redactCharacter(character, hasDmAuthority(actor.role));
+	return redactCharacter(character, hasDmAuthority(actor.role), pkg);
 }
 
 /** Every character the actor may see, omitting hidden ones entirely, sorted by name. */
@@ -312,13 +343,14 @@ export function listCharactersForActor(
 	state: CharacterState,
 	permissions: PermissionState,
 	actorId: string,
+	pkg: SystemPackage = DND5E_SYSTEM_PACKAGE,
 ): CharacterView[] {
 	const actor = permissions.actors[actorId];
 	if (!actor) return [];
 	const isDm = hasDmAuthority(actor.role);
 	return Object.values(state.characters)
 		.filter((character) => characterVisibleToActor(character, actor, permissions))
-		.map((character) => redactCharacter(character, isDm))
+		.map((character) => redactCharacter(character, isDm, pkg))
 		.sort((a, b) => a.name.localeCompare(b.name));
 }
 

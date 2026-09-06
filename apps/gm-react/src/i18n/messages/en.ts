@@ -3611,6 +3611,7 @@ export const en = {
 		'{count, plural, one { · # ambience layer} other { · # ambience layers}}',
 	'widgetBody.initiative.round': 'Round',
 	'widgetBody.initiative.turn': 'Turn',
+	'widgetBody.initiative.spotlight': 'Spotlight',
 	'widgetBody.initiative.hp': 'HP',
 	'widgetBody.initiative.noneHpShown': 'No combat running · HP shown',
 	'widgetBody.initiative.noneHpHidden': 'No combat running · HP hidden',
