@@ -91,6 +91,11 @@ export function MapEditor({
 			: initialTool,
 	);
 	const runtime = useRuntime();
+	// RC-MAP-2.5 — the palette's "Mark party here" reads the LIVE viewport center, not the one
+	// baked into the palette-items memo (which does not depend on `editor.center` so it is not
+	// rebuilt on every pan/zoom).
+	const centerRef = useRef(editor.center);
+	centerRef.current = editor.center;
 	const viewport = useViewport();
 	const viewportHeight = useViewportHeight();
 	const isPhone = viewport === 'phone';
@@ -402,6 +407,18 @@ export function MapEditor({
 				run: () => setHelpOpen(true),
 			},
 		];
+		// RC-MAP-2.5 — the keyboard equivalent (WCAG 2.5.7 / guardrail #7) of the canvas's right-click
+		// "Mark party here": no pointer position to anchor to from the keyboard, so it marks the
+		// current viewport center — the same point the canvas is scrolled to look at.
+		if (editor.isDm) {
+			actions.push({
+				id: 'act-mark-party',
+				label: t('mapEditor.markPartyHere'),
+				group: t('mapEditor.palette.group.actions'),
+				icon: 'pin',
+				run: () => void editor.markPartyHere(centerRef.current),
+			});
+		}
 		return [...tools, ...layerCmds, ...genCmds, ...actions];
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [editor.layers, editor.canUndo, editor.canRedo, quickMapMode]);

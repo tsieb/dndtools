@@ -1083,3 +1083,102 @@ test.describe('map editor: the layer list only accepts its own drags', () => {
 		await expect.poll(async () => (await readMap(page, mapId))!.layerNames).not.toEqual(before);
 	});
 });
+
+// RC-MAP-2.5 — "Mark party here": a right-click (or the keyboard context-menu key, which fires the
+// same native `contextmenu` event) opens a menu anchored at the point; picking its one action
+// dispatches `session.mark-party` and the marker appears on the canvas. A touch long-press opens the
+// same action as a bottom sheet, since there is no right-click on touch. The command palette carries
+// the keyboard equivalent (marks the current viewport center) for a user with no pointer at all.
+test.describe('map editor: party marker', () => {
+	test('right-click "Mark party here" dispatches session.mark-party and renders the marker', async ({
+		page,
+	}) => {
+		await openAtlas(page);
+		const name = `Party Map ${Date.now()}`;
+		const mapId = await createMap(page, { name });
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		const canvas = page.getByRole('application');
+		const box = (await canvas.boundingBox())!;
+
+		await canvas.click({
+			button: 'right',
+			position: { x: box.width * 0.4, y: box.height * 0.3 },
+		});
+		const menuItem = page.getByRole('button', { name: 'Mark party here' });
+		await expect(menuItem).toBeVisible();
+		await menuItem.click();
+
+		await expect
+			.poll(() =>
+				page.evaluate(
+					() =>
+						(window as unknown as { __rt?: { state?: { session?: { partyLocation?: unknown } } } })
+							.__rt?.state?.session?.partyLocation,
+				),
+			)
+			.toMatchObject({ mapId });
+
+		await expect(page.getByRole('img', { name: 'Party is here' })).toBeVisible();
+	});
+
+	test('the command palette carries the keyboard equivalent, marking the viewport center', async ({
+		page,
+	}) => {
+		await openAtlas(page);
+		const name = `Party Palette Map ${Date.now()}`;
+		const mapId = await createMap(page, { name });
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		await page.keyboard.press('Control+k');
+		const palette = page.getByRole('dialog', { name: 'Command palette' });
+		await expect(palette).toBeVisible();
+		await palette.getByRole('combobox').fill('Mark party');
+		await palette.getByRole('option', { name: 'Mark party here' }).click();
+		await expect(palette).toBeHidden();
+
+		await expect
+			.poll(() =>
+				page.evaluate(
+					() =>
+						(window as unknown as { __rt?: { state?: { session?: { partyLocation?: unknown } } } })
+							.__rt?.state?.session?.partyLocation,
+				),
+			)
+			.toMatchObject({ mapId, x: 0.5, y: 0.5 });
+	});
+
+	test('a touch long-press opens the same action as a bottom sheet', async ({ page }, testInfo) => {
+		test.skip(testInfo.project.name !== 'mobile-chromium', 'touch-only interaction');
+		await openAtlas(page);
+		const name = `Party Touch Map ${Date.now()}`;
+		await createMap(page, { name });
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		const canvas = page.getByRole('application');
+		const box = (await canvas.boundingBox())!;
+		const x = box.x + box.width * 0.5;
+		const y = box.y + box.height * 0.5;
+
+		await canvas.dispatchEvent('pointerdown', {
+			pointerId: 1,
+			pointerType: 'touch',
+			clientX: x,
+			clientY: y,
+		});
+		await page.waitForTimeout(650);
+		await canvas.dispatchEvent('pointerup', {
+			pointerId: 1,
+			pointerType: 'touch',
+			clientX: x,
+			clientY: y,
+		});
+
+		const sheet = page.getByRole('dialog', { name: 'Map actions' });
+		await expect(sheet).toBeVisible();
+		await expect(sheet.getByRole('button', { name: 'Mark party here' })).toBeVisible();
+	});
+});

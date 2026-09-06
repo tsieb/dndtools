@@ -21,7 +21,12 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react';
-import type { CoreCommand, MapLayerCategory, SceneVisibility } from '@dndtools/core';
+import type {
+	CoreCommand,
+	MapLayerCategory,
+	SceneVisibility,
+	SessionPartyLocation,
+} from '@dndtools/core';
 import {
 	buildMapInverse,
 	deliveredMapIdsForActor,
@@ -166,6 +171,12 @@ export interface MapEditorApi {
 	/** Mint a stable, app-side id for a create command (so undo/redo can target it). */
 	nextId: (prefix?: string) => string;
 
+	// RC-MAP-2.5 — the party's atlas mark, scoped to this map (null when the party is elsewhere or
+	// has never been marked).
+	partyLocation: SessionPartyLocation | null;
+	/** Dispatch `session.mark-party` for this map at a normalized point (DM only). */
+	markPartyHere: (point: { x: number; y: number }) => Promise<boolean>;
+
 	// Undo / redo
 	history: readonly HistoryEntry[];
 	redoStack: readonly HistoryEntry[];
@@ -244,6 +255,16 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 		[runtime.state.maps, runtime.state.permissions, actorId, mapId],
 	);
 	const layers = layerResult.layers;
+
+	// RC-MAP-2.5 — the party's atlas mark (RC-MAP-1.4's `session.mark-party`/`partyLocation`),
+	// scoped to THIS map so the canvas only ever draws a marker for the map it belongs to.
+	const partyLocation = useMemo(
+		() =>
+			runtime.state.session.partyLocation?.mapId === mapId
+				? runtime.state.session.partyLocation
+				: null,
+		[runtime.state.session.partyLocation, mapId],
+	);
 
 	const setTool = useCallback(
 		(next: ToolId) => {
@@ -328,6 +349,18 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 			}
 		},
 		[runtime, writeHistory, writeRedo, setNotice],
+	);
+
+	// RC-MAP-2.5 — mark where the party stands on THIS map (RC-MAP-1.4's `session.mark-party`).
+	// Session-level, not a map edit, so it runs `undoable: false` — buildMapInverse has no map
+	// command to build an inverse for and would just no-op the undo push anyway.
+	const markPartyHere = useCallback(
+		(point: { x: number; y: number }) =>
+			run(
+				{ type: 'session.mark-party', actorId, payload: { mapId, x: point.x, y: point.y } },
+				{ undoable: false },
+			),
+		[run, actorId, mapId],
 	);
 
 	const undo = useCallback(async () => {
@@ -424,6 +457,8 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 		setNotice,
 		run,
 		nextId,
+		partyLocation,
+		markPartyHere,
 		history,
 		redoStack,
 		canUndo: history.length > 0,

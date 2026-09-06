@@ -5,14 +5,16 @@ import {
 	useMemo,
 	useRef,
 	useState,
+	type MouseEvent as ReactMouseEvent,
 	type PointerEvent as ReactPointerEvent,
 } from 'react';
 import type { MapFeature, MapFogRegion, MapLayer, SceneVisibility } from '@dndtools/core';
-import { IconButton, Minimap, POIPopover } from '../../../ds';
+import { Icon, IconButton, Minimap, POIPopover } from '../../../ds';
 import { T } from '../../screen-kit';
 import { CATEGORY_VAR, POI_MARKER_CAT, dsToVis, visToDs, type MapTool } from '../mapVisibility';
 import { FeatureShape } from './FeatureShape';
 import { MapCanvas } from './MapCanvas';
+import { MapContextMenu } from './MapContextMenu';
 import { clamp01 } from '../mapVocab';
 import { viewportForPinch } from '../quickMap';
 import { categoryForTool } from '../useMapEditor';
@@ -108,6 +110,22 @@ export function EditorCanvas({
 	// Remount MapCanvas when a second finger cancels one of its in-progress single-pointer gestures.
 	const [navigationEpoch, setNavigationEpoch] = useState(0);
 
+	// RC-MAP-2.5 — the canvas context menu (right-click on desktop, long-press on touch), and the
+	// timer that turns a held single touch into the touch equivalent since there is no contextmenu
+	// event for touch.
+	const [contextMenu, setContextMenu] = useState<{
+		touch: boolean;
+		anchorPx: Pt;
+		mapPt: Pt;
+	} | null>(null);
+	const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const longPressStart = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+	const cancelLongPress = () => {
+		if (longPressTimer.current !== null) clearTimeout(longPressTimer.current);
+		longPressTimer.current = null;
+		longPressStart.current = null;
+	};
+
 	const isDrawing = DRAWING_TOOLS.has(tool);
 
 	const localTouchPoint = (clientX: number, clientY: number): Pt => {
@@ -148,19 +166,47 @@ export function EditorCanvas({
 	// drawing tool armed the interaction overlay blocked MapCanvas's own pan too. The pinch path only
 	// writes viewport state (`setZoom`/`setCenter`), never a command, so there is nothing
 	// quick-mode-specific about it.
+	// RC-MAP-2.5 — a held single touch (no second finger, no drift) opens the context menu as a
+	// bottom sheet, the touch equivalent of a right-click. Armed here, disarmed by movement past the
+	// threshold, a second touch starting a pinch, or the touch ending before it fires.
+	const LONG_PRESS_MS = 500;
+	const LONG_PRESS_SLOP_PX = 10;
+	const armLongPress = (event: ReactPointerEvent<HTMLDivElement>) => {
+		cancelLongPress();
+		longPressStart.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+		const { clientX, clientY } = event;
+		longPressTimer.current = setTimeout(() => {
+			longPressTimer.current = null;
+			longPressStart.current = null;
+			const rect = containerRef.current?.getBoundingClientRect();
+			setContextMenu({
+				touch: true,
+				anchorPx: { x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) },
+				mapPt: toMap(clientX, clientY),
+			});
+		}, LONG_PRESS_MS);
+	};
 	const onTouchDownCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
 		if (event.pointerType !== 'touch') return;
 		touchPointers.current.set(event.pointerId, localTouchPoint(event.clientX, event.clientY));
 		if (touchPointers.current.size >= 2) {
+			cancelLongPress();
 			beginPinch(event.currentTarget);
 			event.preventDefault();
 			event.stopPropagation();
+		} else if (editor.isDm) {
+			armLongPress(event);
 		}
 	};
 	const onTouchMoveCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
 		if (event.pointerType !== 'touch') return;
 		if (touchPointers.current.has(event.pointerId)) {
 			touchPointers.current.set(event.pointerId, localTouchPoint(event.clientX, event.clientY));
+		}
+		const start = longPressStart.current;
+		if (start && start.pointerId === event.pointerId) {
+			const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+			if (moved > LONG_PRESS_SLOP_PX) cancelLongPress();
 		}
 		if (!touchNavigationBlocked.current) return;
 		const points = firstTwoTouches();
@@ -183,6 +229,7 @@ export function EditorCanvas({
 	};
 	const endTouchCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
 		if (event.pointerType !== 'touch') return;
+		if (longPressStart.current?.pointerId === event.pointerId) cancelLongPress();
 		const blocked = touchNavigationBlocked.current;
 		touchPointers.current.delete(event.pointerId);
 		if (touchPointers.current.size < 2) pinchRef.current = null;
@@ -218,6 +265,24 @@ export function EditorCanvas({
 			y: clamp01(((clientY - r.top) / r.height - 0.5) / z + c.y),
 		};
 	}, []);
+
+	// RC-MAP-2.5 — right-click opens the context menu at the pointer. `preventDefault` suppresses the
+	// browser's native menu; the same event fires for the keyboard context-menu key (Shift+F10 / the
+	// Menu key) at the focused element's position, so this is the pointer AND keyboard entry point.
+	const onContextMenu = useCallback(
+		(event: ReactMouseEvent<HTMLDivElement>) => {
+			event.preventDefault();
+			const rect = containerRef.current?.getBoundingClientRect();
+			setContextMenu({
+				touch: false,
+				anchorPx: { x: event.clientX - (rect?.left ?? 0), y: event.clientY - (rect?.top ?? 0) },
+				mapPt: toMap(event.clientX, event.clientY),
+			});
+		},
+		[toMap],
+	);
+
+	useEffect(() => cancelLongPress, []);
 
 	const snap = useCallback(
 		(p: Pt, angleFrom?: Pt): Pt => {
@@ -776,6 +841,7 @@ export function EditorCanvas({
 			onPointerMoveCapture={onTouchMoveCapture}
 			onPointerUpCapture={endTouchCapture}
 			onPointerCancelCapture={endTouchCapture}
+			onContextMenu={editor.isDm ? onContextMenu : undefined}
 			style={{
 				position: 'relative',
 				width: '100%',
@@ -1072,6 +1138,54 @@ export function EditorCanvas({
 				>
 					{editor.t('mapEditor.polygonHint')}
 				</div>
+			)}
+
+			{/* RC-MAP-2.5 — the party's atlas mark on this map. Read-only here (dragging it is a later
+			    story); `pointerEvents: 'none'` keeps it out of every tool's hit-testing. */}
+			{editor.partyLocation && (
+				<div style={{ ...scaledStyle, zIndex: 3 }}>
+					<div
+						role="img"
+						aria-label={editor.t('mapEditor.partyMarker')}
+						style={{
+							position: 'absolute',
+							left: `${editor.partyLocation.x * 100}%`,
+							top: `${editor.partyLocation.y * 100}%`,
+							transform: 'translate(-50%, -100%)',
+						}}
+					>
+						<div
+							style={{
+								display: 'inline-flex',
+								alignItems: 'center',
+								justifyContent: 'center',
+								width: 26,
+								height: 26,
+								borderRadius: '50% 50% 50% 0',
+								transform: 'rotate(-45deg)',
+								background: 'var(--color-accent)',
+								color: 'var(--color-text-inverse)',
+								border: '2px solid rgba(255,255,255,0.7)',
+								boxShadow: 'var(--shadow-md)',
+							}}
+						>
+							<span style={{ transform: 'rotate(45deg)', display: 'inline-flex' }}>
+								<Icon name="pin" size={13} />
+							</span>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* RC-MAP-2.5 — the canvas context menu: right-click on desktop, long-press sheet on touch. */}
+			{contextMenu && (
+				<MapContextMenu
+					open
+					touch={contextMenu.touch}
+					anchor={contextMenu.anchorPx}
+					onClose={() => setContextMenu(null)}
+					onMarkPartyHere={() => void editor.markPartyHere(contextMenu.mapPt)}
+				/>
 			)}
 		</div>
 	);
