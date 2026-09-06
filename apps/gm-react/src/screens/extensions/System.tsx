@@ -25,6 +25,8 @@ import { useViewport } from '../../app/useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useI18n } from '../../i18n';
 import { ExtSystemWidgetPackage } from './SystemWidgetSwitch';
+import { SystemBuilder } from './SystemBuilder';
+import { eventField } from './shared';
 
 /* ---- System package picker (RC-SYS-3.1 — the front door).
  *
@@ -35,8 +37,10 @@ import { ExtSystemWidgetPackage } from './SystemWidgetSwitch';
  * through the real `system.select` command, which fails closed when the switch would strand
  * character data unless the DM acknowledges it. "Build your own" dispatches the real `system.fork`:
  * a named copy in the `custom:` namespace, which is the only sanctioned way to base a homebrew on a
- * built-in. Editing that copy field-by-field is the system builder (RC-SYS-3.3); until it lands the
- * entry does the part it can actually do rather than opening a dead form.
+ * built-in. RC-SYS-3.3 finished the thought: a fork drops the DM straight into the SYSTEM BUILDER
+ * (`SystemBuilder.tsx`), and every DM-authored package in the gallery has an Edit entry back into
+ * it. The builder saves through `system.define`/`system.update` and never activates — switching is
+ * the dry-run above, the only path that can say what a switch would drop.
  */
 
 /* ---- the dry-run dialog ---------------------------------------------------------------------- */
@@ -349,10 +353,13 @@ export function ExtSystem() {
 	const [detailId, setDetailId] = useState<string | null>(null);
 	const [targetId, setTargetId] = useState<string | null>(null);
 	const [forkSourceId, setForkSourceId] = useState<string | null>(null);
+	// The DM-authored package open in the system builder (RC-SYS-3.3), by id.
+	const [builderId, setBuilderId] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 
 	const detail = detailId ? (systems.packages[detailId] ?? null) : null;
 	const forkSource = forkSourceId ? (systems.packages[forkSourceId] ?? null) : null;
+	const builderPackage = builderId ? (systems.packages[builderId] ?? null) : null;
 	// The PURE dry-run behind the command — recomputed from the same state the command validates.
 	const preview = targetId
 		? previewSystemPackageSelect(systems, runtime.state.characters, targetId)
@@ -395,6 +402,13 @@ export function ExtSystem() {
 				if (res.status === 'accepted') {
 					Toaster.success(t('extensions.system.fork.done', { name: displayName }));
 					setForkSourceId(null);
+					// A fork exists to be edited, so it opens where the editing happens rather than
+					// leaving the DM to find their new copy in the gallery.
+					const forkedId = eventField(res, 'system.changed', 'packageId');
+					if (forkedId) {
+						setDetailId(forkedId);
+						setBuilderId(forkedId);
+					}
 				} else {
 					Toaster.error(res.rejection.message);
 				}
@@ -579,10 +593,21 @@ export function ExtSystem() {
 						{t('extensions.system.previewSelect')}
 					</Button>
 				)}
+				{!isBuiltInSystemPackageId(detail.id) && (
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="edit"
+						disabled={!canWrite || busy}
+						onClick={() => setBuilderId(detail.id)}
+					>
+						{t('extensions.system.editAction')}
+					</Button>
+				)}
 				<Button
 					variant="ghost"
 					size="sm"
-					icon="edit"
+					icon="duplicate"
 					disabled={!canWrite || busy}
 					onClick={() => setForkSourceId(detail.id)}
 				>
@@ -665,6 +690,9 @@ export function ExtSystem() {
 					onApply={select}
 					onClose={() => setTargetId(null)}
 				/>
+			)}
+			{builderPackage && (
+				<SystemBuilder editPackage={builderPackage} onClose={() => setBuilderId(null)} />
 			)}
 			{forkSource && (
 				<SystemForkDialog

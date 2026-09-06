@@ -1,5 +1,6 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
 
 // SYSTEM PACKAGE PICKER (RC-SYS-3.1) — the Extensions › System tab is the front door to the rules
 // system a campaign plays. The gallery lists the packages actually installed in the `systems` slice
@@ -190,6 +191,174 @@ test.describe('system package picker', () => {
 			null,
 			{ timeout: 10_000 },
 		);
+		// RC-SYS-3.3 — the fork opens straight into the builder, so the gallery is behind it until
+		// the DM comes back out.
+		const builder = page.locator('[data-fullscreen-overlay="system-builder"]');
+		await expect(builder).toBeVisible();
+		await builder.getByRole('button', { name: 'Close the builder' }).click();
+		await expect(builder).toHaveCount(0);
+		await page.getByRole('button', { name: 'All systems' }).click();
 		await expect(page.getByRole('button', { name: /^Table rules/ })).toContainText('Forked');
+	});
+
+	// RC-SYS-3.3 — the system builder's acceptance path, end to end and through the real UI: fork
+	// 5e, rename the person running the table to "Keeper", declare a "Sanity" resource, save it
+	// through `system.update`, activate it through the picker's dry-run, and find Sanity on the
+	// player's own sheet. Nothing here hand-builds a package payload — the point of the story is
+	// that the SCREEN builds one the core accepts.
+	test('forks 5e, renames the DM to Keeper, adds Sanity, activates it, and the player sheet shows it', async ({
+		page,
+	}) => {
+		await page.getByRole('button', { name: /Build your own/ }).click();
+		const forkDialog = page.getByRole('dialog');
+		await forkDialog.getByRole('textbox').first().fill('Keeper rules');
+		await forkDialog.getByRole('button', { name: 'Create the fork' }).click();
+
+		// A fork exists to be edited, so it opens straight into the builder.
+		const builder = page.locator('[data-fullscreen-overlay="system-builder"]');
+		await expect(builder).toBeVisible();
+
+		// ── Identity & vocabulary: the word that renames the whole app.
+		await builder.getByLabel('The person running the game').fill('Keeper');
+
+		// ── Resources: a new declaration, with the formula the live preview evaluates.
+		await builder.getByRole('button', { name: 'Resources', exact: true }).click();
+		await builder.getByRole('button', { name: 'Add a resource' }).click();
+		await builder.getByLabel('Name', { exact: true }).last().fill('Sanity');
+		await builder.getByLabel('Key', { exact: true }).last().fill('sanity');
+		await builder.getByLabel('Maximum', { exact: true }).last().fill('5');
+		// The preview is the story's own acceptance detail: level 1/5/10/20, evaluated live.
+		await expect(builder.getByText('At levels 1, 5, 10 and 20').last()).toBeVisible();
+
+		// ── Review: the origin is read off the durable fork op, and the JSON is what will be saved.
+		await builder.getByRole('button', { name: 'Review', exact: true }).click();
+		await expect(builder.getByText('Forked from')).toBeVisible();
+		await expect(builder.getByText('D&D 5e', { exact: true })).toBeVisible();
+		await expect(builder.getByTestId('system-builder-json')).toContainText('"key": "sanity"');
+		await builder.getByRole('button', { name: 'Save the system' }).click();
+
+		// The save is a real `system.update`: the durable slice carries both edits.
+		await page.waitForFunction(
+			() =>
+				Object.values(
+					(
+						window.__rt!.state.systems as {
+							packages: Record<
+								string,
+								{ id: string; vocabulary: { gameMaster: string }; resources: { key: string }[] }
+							>;
+						}
+					).packages,
+				).some(
+					(pkg) =>
+						pkg.id.startsWith('custom:') &&
+						pkg.vocabulary.gameMaster === 'Keeper' &&
+						pkg.resources.some((resource) => resource.key === 'sanity'),
+				),
+			null,
+			{ timeout: 10_000 },
+		);
+		await expect(builder).toHaveCount(0);
+
+		const customId = await page.evaluate(() => {
+			const packages = (window.__rt!.state.systems as { packages: Record<string, { id: string }> })
+				.packages;
+			return Object.keys(packages).find((id) => id.startsWith('custom:'))!;
+		});
+
+		// ── Activate it through the picker's dry-run — the builder never switches the campaign.
+		await page.getByRole('button', { name: 'All systems' }).click();
+		await switchTo(page, 'Keeper rules', customId);
+
+		// The vocabulary reaches the chrome (the RC-SYS-2.6 contract, driven by a DM-authored package).
+		await gotoRoute(page, '/board');
+		await waitReady(page);
+		await expect(page.getByRole('heading', { level: 1, name: 'Keeper screen' })).toBeVisible();
+
+		// ── The player sheet shows Sanity. Adding it to a character is `character.add-system-resource`
+		// (RC-SYS-2.2), which has no screen of its own yet — so the setup is dispatched and the
+		// ASSERTION is on what the player's own sheet renders.
+		const characterIds = await page.evaluate(() => {
+			const characters = (
+				window.__rt!.state.characters as {
+					characters: Record<string, { id: string; kind: string }>;
+				}
+			).characters;
+			return Object.values(characters)
+				.filter((character) => character.kind === 'pc')
+				.map((character) => character.id);
+		});
+		expect(characterIds.length).toBeGreaterThan(0);
+		const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+		for (const characterId of characterIds) {
+			const added = await dispatch(page, {
+				type: 'character.add-system-resource',
+				actorId,
+				payload: { characterId, key: 'sanity' },
+			});
+			expect(added.status, added.rejection?.message ?? '').toBe('accepted');
+		}
+
+		await gotoRoute(page, '/player');
+		await waitReady(page);
+		await page.getByRole('tab', { name: 'Resources' }).click();
+		await expect(page.getByText('Sanity', { exact: true })).toBeVisible();
+	});
+});
+
+const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+
+// RC-SYS-3.3 — the builder is a durable authoring workspace, so it carries the same axe floor the
+// widget builder does, with every step's controls on screen rather than the empty first step.
+test.describe('system builder: accessibility', () => {
+	test('the open builder has no critical or serious axe violation', async ({ page }) => {
+		test.slow();
+		await markOnboarded(page);
+		await gotoRoute(page, '/extensions');
+		await seedFresh(page);
+		await waitReady(page);
+		await openSystemTab(page);
+		await page.getByRole('button', { name: /Build your own/ }).click();
+		const forkDialog = page.getByRole('dialog');
+		await forkDialog.getByRole('textbox').first().fill('Keeper rules');
+		await forkDialog.getByRole('button', { name: 'Create the fork' }).click();
+		const builder = page.locator('[data-fullscreen-overlay="system-builder"]');
+		await expect(builder).toBeVisible();
+
+		// Every step's controls, including the ones that only appear for a particular choice: a
+		// derived attribute's formula, a dice resource's notation, a rounds-limited condition's
+		// count, an enum creature field's choices, and the experience table.
+		await builder.getByRole('button', { name: 'Attributes', exact: true }).click();
+		await builder.getByRole('button', { name: 'Add an attribute' }).click();
+		await builder.getByRole('button', { name: 'Add a skill' }).click();
+		await builder.getByRole('button', { name: 'Resources', exact: true }).click();
+		await builder.getByRole('button', { name: 'Add a resource' }).click();
+		await builder.getByLabel('Shape', { exact: true }).last().selectOption({ value: 'dice' });
+		await builder.getByRole('button', { name: 'Conditions', exact: true }).click();
+		await builder.getByRole('button', { name: 'Add a condition' }).click();
+		await builder
+			.getByLabel('Lasts', { exact: true })
+			.last()
+			.selectOption({ label: 'A number of rounds' });
+		await builder.getByRole('button', { name: 'Dice and turns', exact: true }).click();
+		await builder.getByRole('button', { name: 'Creature schema', exact: true }).click();
+		await builder.getByRole('button', { name: 'Add a field' }).click();
+		await builder
+			.getByLabel('Holds', { exact: true })
+			.last()
+			.selectOption({ label: 'One of a list' });
+		await builder.getByRole('button', { name: 'Advancement', exact: true }).click();
+		await builder.getByRole('button', { name: 'Review', exact: true }).click();
+
+		const results = await new AxeBuilder({ page })
+			.withTags(AXE_TAGS)
+			.include('[data-fullscreen-overlay="system-builder"]')
+			.analyze();
+		const blocking = results.violations.filter(
+			(violation) => violation.impact === 'critical' || violation.impact === 'serious',
+		);
+		expect(
+			blocking.map((violation) => `${violation.id}: ${violation.nodes[0]?.target.join(' ')}`),
+		).toEqual([]);
 	});
 });
