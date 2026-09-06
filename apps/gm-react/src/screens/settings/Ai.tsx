@@ -8,6 +8,7 @@ import {
 } from '@dndtools/core';
 import { Badge, Button, Chip, Icon, Input, Select, Switch, Toaster } from '../../ds';
 import { Panel, Seg, SetRow, T } from '../../app/screen-kit';
+import { useI18n, type MessageKey } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { baselineAllowlistMembership, toggleBaselineToolAllowlist } from '../../ai/mcpBridge';
 import { AiProviderPanel } from './AiProvider';
@@ -20,14 +21,15 @@ import { errMsg } from './shared';
  * compatible chat client (src/ai/) whose tool calls route through the SAME fail-closed agent
  * pipeline — reads are actor-filtered, writes become the staged proposals reviewed below. Fail
  * closed twice over: MCP is OFF by default, and with no API key every AI surface stays off. -------- */
-const MCP_MODE_LABEL: Record<McpPolicyMode, string> = {
-	disabled: 'Disabled',
-	strict_review: 'Strict review',
-	balanced: 'Balanced',
-	trusted_direct: 'Trusted direct',
+const MCP_MODE_LABEL: Record<McpPolicyMode, MessageKey> = {
+	disabled: 'settings.ai.mode.disabled',
+	strict_review: 'settings.ai.mode.strictReview',
+	balanced: 'settings.ai.mode.balanced',
+	trusted_direct: 'settings.ai.mode.trustedDirect',
 };
 
 export function SettingsAI() {
+	const { t, formatDate } = useI18n();
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
 	const mcp = runtime.state.mcp;
@@ -64,7 +66,7 @@ export function SettingsAI() {
 				if (res.status === 'accepted') Toaster.success(okMsg);
 				else Toaster.error(res.rejection.message);
 			})
-			.catch((e: unknown) => Toaster.error(errMsg(e, 'The command failed.')))
+			.catch((e: unknown) => Toaster.error(errMsg(e, t('settings.ai.commandFailed'))))
 			.finally(() => setBusy(false));
 	};
 
@@ -78,9 +80,7 @@ export function SettingsAI() {
 	const registerAgent = () => {
 		const agentId = newAgentId.trim();
 		if (!agentId || !selectedNewActorId) {
-			Toaster.error(
-				'Give the agent connection an id and choose the campaign identity it should use.',
-			);
+			Toaster.error(t('settings.ai.needIdAndIdentity'));
 			return;
 		}
 		run(
@@ -89,7 +89,10 @@ export function SettingsAI() {
 				actorId,
 				payload: { agentId, actorId: selectedNewActorId, label: newLabel.trim() },
 			},
-			`Registered ${agentId} — it starts with the campaign default (${MCP_MODE_LABEL[mcp.vaultDefaultMode]}) until you set a policy.`,
+			t('settings.ai.registered', {
+				agent: agentId,
+				mode: t(MCP_MODE_LABEL[mcp.vaultDefaultMode]),
+			}),
 		);
 		setNewAgentId('');
 		setNewLabel('');
@@ -98,12 +101,10 @@ export function SettingsAI() {
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			{!canWrite && (
-				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-					Agent access is DM-only and cannot be changed while previewing as a player.
-				</div>
+				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{t('settings.ai.dmOnly')}</div>
 			)}
 			<Panel
-				title="AI & agent access"
+				title={t('settings.ai.title')}
 				action={
 					<Switch
 						checked={mcp.enabled}
@@ -113,24 +114,18 @@ export function SettingsAI() {
 						aria-disabled={busy || undefined}
 						// Without this the accessible name of the campaign-wide AI kill switch was just its
 						// own state word — a screen reader announced "Off, switch, off".
-						aria-label="AI and agent access"
-						label={mcp.enabled ? 'Enabled' : 'Off'}
+						aria-label={t('settings.ai.switchLabel')}
+						label={t(mcp.enabled ? 'settings.ai.enabled' : 'settings.ai.off')}
 						onChange={() =>
 							run(
 								{ type: 'mcp.set-enabled', actorId, payload: { enabled: !mcp.enabled } },
-								mcp.enabled
-									? 'Agent access turned off.'
-									: 'Agent access turned on — the policies below now apply.',
+								t(mcp.enabled ? 'settings.ai.turnedOff' : 'settings.ai.turnedOn'),
 							)
 						}
 					/>
 				}
 			>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					This switch controls every assistant connection for this campaign. Turning it off
-					immediately blocks all campaign tool access, regardless of the saved provider key or
-					individual agent policy.
-				</div>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>{t('settings.ai.intro')}</div>
 				<div
 					style={{
 						marginTop: 8,
@@ -142,27 +137,27 @@ export function SettingsAI() {
 						color: T.ter,
 					}}
 				>
-					The built-in assistant uses the provider configured below. Each agent also needs an
-					identity and policy, so you stay in control of what it can read and whether proposed
-					changes need review.
+					{t('settings.ai.providerNote')}
 				</div>
 				<SetRow
-					label="Default posture for new agents"
-					help="The starting policy for a new connection. New agents can be disabled or require review; they never start with direct write access."
+					label={t('settings.ai.defaultPosture')}
+					help={t('settings.ai.defaultPostureHelp')}
 					control={
 						<Seg
 							value={mcp.vaultDefaultMode}
-							ariaLabel="Vault default agent posture"
+							ariaLabel={t('settings.ai.defaultPostureAria')}
 							onChange={(v) => {
 								if (!canWrite || busy) return;
 								run(
 									{ type: 'mcp.set-vault-default', actorId, payload: { mode: v } },
-									`New agents now default to ${MCP_MODE_LABEL[v as McpPolicyMode]}.`,
+									t('settings.ai.defaultChanged', {
+										mode: t(MCP_MODE_LABEL[v as McpPolicyMode]),
+									}),
 								);
 							}}
 							options={[
-								{ value: 'strict_review', label: 'Strict review' },
-								{ value: 'disabled', label: 'Disabled' },
+								{ value: 'strict_review', label: t('settings.ai.mode.strictReview') },
+								{ value: 'disabled', label: t('settings.ai.mode.disabled') },
 							]}
 						/>
 					}
@@ -173,16 +168,16 @@ export function SettingsAI() {
 
 			<AiAssistantPanel canWrite={canWrite} />
 
-			<Panel title="Agent connections" action={<Badge status="neutral">{bindings.length}</Badge>}>
+			<Panel
+				title={t('settings.ai.connections')}
+				action={<Badge status="neutral">{bindings.length}</Badge>}
+			>
 				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
-					Each connection uses one campaign identity and gains no permissions of its own. It can
-					never see or do more than that identity, and its policy decides whether changes require
-					review.
+					{t('settings.ai.connectionsIntro')}
 				</div>
 				{bindings.length === 0 ? (
 					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						No agent connections registered yet — register one below to author its policy ahead of
-						time.
+						{t('settings.ai.noConnections')}
 					</div>
 				) : (
 					<div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -215,11 +210,13 @@ export function SettingsAI() {
 									    set a policy" — so an unconditional "Policy saved" contradicted the
 									    toast sitting beside it. */}
 									<Badge status={policy ? 'neutral' : 'warning'}>
-										{policy ? 'Policy saved' : 'Using campaign default'}
+										{t(policy ? 'settings.ai.policySaved' : 'settings.ai.usingDefault')}
 									</Badge>
 									<span style={{ flex: '0 0 150px' }}>
 										<Select
-											aria-label={`Policy mode for ${b.label || b.agentId}`}
+											aria-label={t('settings.ai.policyModeFor', {
+												agent: b.label || b.agentId,
+											})}
 											value={mode}
 											disabled={!canWrite || busy}
 											onChange={(e: { target: { value: string } }) =>
@@ -234,12 +231,15 @@ export function SettingsAI() {
 															auditVisible: policy?.auditVisible ?? true,
 														},
 													},
-													`${b.label || b.agentId} set to ${MCP_MODE_LABEL[e.target.value as McpPolicyMode]}.`,
+													t('settings.ai.policyChanged', {
+														agent: b.label || b.agentId,
+														mode: t(MCP_MODE_LABEL[e.target.value as McpPolicyMode]),
+													}),
 												)
 											}
 											options={MCP_POLICY_MODES.map((m) => ({
 												value: m,
-												label: MCP_MODE_LABEL[m],
+												label: t(MCP_MODE_LABEL[m]),
 											}))}
 										/>
 									</span>
@@ -250,8 +250,11 @@ export function SettingsAI() {
 										aria-disabled={busy || undefined}
 										label={
 											baselineMembership.some && !baselineMembership.all
-												? `Baseline tools (${baselineMembership.count}/${baselineMembership.total})`
-												: 'Baseline tools'
+												? t('settings.ai.baselineToolsSome', {
+														count: baselineMembership.count,
+														total: baselineMembership.total,
+													})
+												: t('settings.ai.baselineTools')
 										}
 										onChange={() =>
 											run(
@@ -265,9 +268,11 @@ export function SettingsAI() {
 														auditVisible: policy?.auditVisible ?? true,
 													},
 												},
-												baselineMembership.all
-													? 'Baseline tools removed; custom tool grants were preserved.'
-													: 'The complete current baseline was granted; custom tool grants were preserved.',
+												t(
+													baselineMembership.all
+														? 'settings.ai.baselineRemoved'
+														: 'settings.ai.baselineGranted',
+												),
 											)
 										}
 									/>
@@ -285,18 +290,20 @@ export function SettingsAI() {
 															actorId,
 															payload: { agentId: b.agentId },
 														},
-														`${b.label || b.agentId} removed — its pending proposals expire.`,
+														t('settings.ai.agentRemoved', {
+															agent: b.label || b.agentId,
+														}),
 													);
 												}}
 											>
-												Confirm remove
+												{t('settings.ai.confirmRemove')}
 											</Button>
 											<Button
 												variant="ghost"
 												size="sm"
 												onClick={() => setConfirmRemoveAgentId(null)}
 											>
-												Keep
+												{t('settings.ai.keep')}
 											</Button>
 										</>
 									) : (
@@ -307,7 +314,7 @@ export function SettingsAI() {
 											disabled={!canWrite || busy}
 											onClick={() => setConfirmRemoveAgentId(b.agentId)}
 										>
-											Remove
+											{t('common.action.remove')}
 										</Button>
 									)}
 								</div>
@@ -322,8 +329,8 @@ export function SettingsAI() {
 						<Input
 							value={newAgentId}
 							onChange={(e: { target: { value: string } }) => setNewAgentId(e.target.value)}
-							placeholder="Agent id (e.g. prep-assistant)"
-							aria-label="Agent connection id"
+							placeholder={t('settings.ai.agentIdPlaceholder')}
+							aria-label={t('settings.ai.agentIdLabel')}
 							maxLength={60}
 						/>
 					</span>
@@ -331,17 +338,20 @@ export function SettingsAI() {
 						<Input
 							value={newLabel}
 							onChange={(e: { target: { value: string } }) => setNewLabel(e.target.value)}
-							placeholder="Label (optional)"
-							aria-label="Agent label"
+							placeholder={t('settings.ai.agentLabelPlaceholder')}
+							aria-label={t('settings.ai.agentLabelLabel')}
 							maxLength={80}
 						/>
 					</span>
 					<span style={{ flex: '0 0 170px' }}>
 						<Select
-							aria-label="Campaign identity the agent uses"
+							aria-label={t('settings.ai.identityLabel')}
 							value={selectedNewActorId}
 							onChange={(e: { target: { value: string } }) => setNewActorId(e.target.value)}
-							options={actors.map((a) => ({ value: a.id, label: `${a.displayName} (${a.role})` }))}
+							options={actors.map((a) => ({
+								value: a.id,
+								label: t('settings.ai.actorOption', { name: a.displayName, role: a.role }),
+							}))}
 						/>
 					</span>
 					<Button
@@ -351,19 +361,18 @@ export function SettingsAI() {
 						disabled={!canWrite || busy}
 						onClick={registerAgent}
 					>
-						Register
+						{t('settings.ai.register')}
 					</Button>
 				</div>
 			</Panel>
 
 			<Panel
-				title="Staged writes awaiting review"
+				title={t('settings.ai.stagedTitle')}
 				action={<Badge status={pending.length ? 'warning' : 'success'}>{pending.length}</Badge>}
 			>
 				{pending.length === 0 ? (
 					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						Nothing staged. Under strict review, every agent write lands here as a proposal you
-						approve or reject — nothing an agent does commits without you.
+						{t('settings.ai.nothingStaged')}
 					</div>
 				) : (
 					pending.map((pr, i) => (
@@ -382,7 +391,12 @@ export function SettingsAI() {
 							<div style={{ flex: '1 1 200px', minWidth: 0 }}>
 								<div style={{ font: `600 13px ${T.sans}` }}>{pr.commandType}</div>
 								<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
-									{pr.agentId} as {actorName(pr.actorId)} · {pr.toolId} · {pr.writeRisk}
+									{t('settings.ai.proposalMeta', {
+										agent: pr.agentId,
+										actor: actorName(pr.actorId),
+										tool: pr.toolId,
+										risk: pr.writeRisk,
+									})}
 								</div>
 							</div>
 							<Button
@@ -393,11 +407,11 @@ export function SettingsAI() {
 								onClick={() =>
 									run(
 										{ type: 'mcp.approve-proposal', actorId, payload: { proposalId: pr.id } },
-										'Proposal approved and committed through the normal dispatch.',
+										t('settings.ai.proposalApproved'),
 									)
 								}
 							>
-								Approve
+								{t('settings.ai.approve')}
 							</Button>
 							<Button
 								variant="ghost"
@@ -407,26 +421,25 @@ export function SettingsAI() {
 								onClick={() =>
 									run(
 										{ type: 'mcp.reject-proposal', actorId, payload: { proposalId: pr.id } },
-										'Proposal rejected — nothing was written.',
+										t('settings.ai.proposalRejected'),
 									)
 								}
 							>
-								Reject
+								{t('settings.ai.reject')}
 							</Button>
 						</div>
 					))
 				)}
 			</Panel>
 
-			<Panel title="Tool registry (baseline)">
+			<Panel title={t('settings.ai.registryTitle')}>
 				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
-					The campaign tools an agent may be granted. Read results respect its chosen identity, and
-					changes wait for review unless you explicitly choose a more permissive policy.
+					{t('settings.ai.registryIntro')}
 				</div>
 				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-					{MCP_BASELINE_TOOL_IDS.map((t) => (
-						<Chip key={t} tone="neutral">
-							{t}
+					{MCP_BASELINE_TOOL_IDS.map((toolId) => (
+						<Chip key={toolId} tone="neutral">
+							{toolId}
 						</Chip>
 					))}
 				</div>
@@ -441,7 +454,7 @@ export function SettingsAI() {
 								marginBottom: 6,
 							}}
 						>
-							Recent agent activity
+							{t('settings.ai.recentActivity')}
 						</div>
 						{recentAudit.map((a) => (
 							<div
@@ -464,7 +477,10 @@ export function SettingsAI() {
 									{a.agentId} · {a.toolId}
 								</span>
 								<span style={{ marginLeft: 'auto', font: `11px ${T.sans}`, color: T.ter }}>
-									{new Date(a.recordedAt).toLocaleString()}
+									{formatDate(new Date(a.recordedAt), {
+										dateStyle: 'medium',
+										timeStyle: 'short',
+									})}
 								</span>
 							</div>
 						))}

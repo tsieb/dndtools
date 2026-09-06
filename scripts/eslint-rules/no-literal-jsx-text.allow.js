@@ -118,7 +118,4 @@ export const allow = {
 	'apps/gm-react/src/screens/sceneEditor/Inspector.tsx': 13,
 	'apps/gm-react/src/screens/sceneEditor/SceneMetaPanel.tsx': 7,
 	'apps/gm-react/src/screens/sceneEditor/index.tsx': 8,
-	'apps/gm-react/src/screens/settings/Ai.tsx': 26,
-	'apps/gm-react/src/screens/settings/AiAssistant.tsx': 9,
-	'apps/gm-react/src/screens/settings/AiProvider.tsx': 31,
 };

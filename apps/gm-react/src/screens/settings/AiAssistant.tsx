@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Badge, Button, Icon, Select, Skeleton, Switch, Textarea, Toaster } from '../../ds';
 import { Panel, T, srOnly } from '../../app/screen-kit';
+import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import {
 	platformNotifications,
@@ -22,13 +23,16 @@ const AI_TOOL_SPECS = buildAiToolSpecs();
 /** One rendered assistant-feed entry (the user ask, assistant text, or a tool-call outcome). */
 type AssistantFeedItem = { kind: 'user'; text: string } | ({ kind: 'event' } & AssistantEvent);
 
-const TOOL_OUTCOME_BADGE: Record<string, { status: string; label: string }> = {
-	read: { status: 'info', label: 'read' },
-	staged: { status: 'warning', label: 'staged' },
-	'direct-write': { status: 'success', label: 'committed' },
-	denied: { status: 'error', label: 'denied' },
-	error: { status: 'error', label: 'failed' },
+const TOOL_OUTCOME_BADGE: Record<string, { status: string; label: MessageKey }> = {
+	read: { status: 'info', label: 'settings.assistant.outcome.read' },
+	staged: { status: 'warning', label: 'settings.assistant.outcome.staged' },
+	'direct-write': { status: 'success', label: 'settings.assistant.outcome.committed' },
+	denied: { status: 'error', label: 'settings.assistant.outcome.denied' },
+	error: { status: 'error', label: 'settings.assistant.outcome.failed' },
 };
+
+/** Renders one catalog message — the panel's `t`, handed to the module-level helpers below. */
+type Translate = (key: MessageKey, values?: MessageValues) => string;
 
 // Device-local preference: also raise a desktop notification when a run finishes (opt-in; the browser
 // still gates it behind its own permission prompt). Carries no data — a boolean in localStorage.
@@ -57,25 +61,38 @@ function maybePlatformNotify(title: string, body: string): void {
 }
 
 /** The completion protocol: an in-app toast on every terminal state, plus the opt-in desktop ping. */
-function notifyRunComplete(status: AssistantRunStatus, events: AssistantEvent[]): void {
+function notifyRunComplete(
+	t: Translate,
+	status: AssistantRunStatus,
+	events: AssistantEvent[],
+): void {
 	const staged = events.filter((e) => e.type === 'tool' && e.outcome === 'staged').length;
-	const stagedNote =
-		staged > 0 ? ` — ${staged} change${staged === 1 ? '' : 's'} staged for your review below` : '';
+	// The staged count is a clause inside the sentence, not a sentence of its own, so each terminal
+	// message formats it as one plural argument rather than gluing two fragments together.
 	switch (status) {
 		case 'completed':
-			Toaster.success(`Assistant finished${stagedNote}.`);
-			maybePlatformNotify('Assistant finished', `Your request is done${stagedNote || '.'}`);
+			Toaster.success(t('settings.assistant.finished', { staged }));
+			maybePlatformNotify(
+				t('settings.assistant.finishedTitle'),
+				t('settings.assistant.finishedBody', { staged }),
+			);
 			break;
 		case 'budget-exhausted':
-			Toaster.info(`Assistant stopped at the step limit${stagedNote}.`);
-			maybePlatformNotify('Assistant stopped at the step limit', `Ask it to continue if needed.`);
+			Toaster.info(t('settings.assistant.stepLimit', { staged }));
+			maybePlatformNotify(
+				t('settings.assistant.stepLimitTitle'),
+				t('settings.assistant.stepLimitBody'),
+			);
 			break;
 		case 'cancelled':
-			Toaster.info('Assistant run cancelled.');
+			Toaster.info(t('settings.assistant.cancelled'));
 			break;
 		case 'failed':
-			Toaster.error('The assistant run stopped — see the transcript for the reason.');
-			maybePlatformNotify('Assistant run stopped', 'See the transcript for the reason.');
+			Toaster.error(t('settings.assistant.stopped'));
+			maybePlatformNotify(
+				t('settings.assistant.stoppedTitle'),
+				t('settings.assistant.stoppedBody'),
+			);
 			break;
 		default:
 			break;
@@ -89,6 +106,7 @@ function notifyRunComplete(status: AssistantRunStatus, events: AssistantEvent[])
  * provider key, MCP master switch, a registered binding, DM + not previewing.
  */
 export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
+	const { t } = useI18n();
 	const capabilities = usePlatformCapabilities();
 	const runtime = useRuntime();
 	const mcp = runtime.state.mcp;
@@ -139,15 +157,16 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 	}, [notify]);
 
 	const selectedAgent = mcp.bindings[agentId] ? agentId : (bindings[0]?.agentId ?? '');
-	const blocker = !configured
-		? 'Add a provider API key above to turn the assistant on.'
+	const blockerKey: MessageKey | null = !configured
+		? 'settings.assistant.blockerNoKey'
 		: !mcp.enabled
-			? 'Enable agent access above to let the assistant use campaign tools.'
+			? 'settings.assistant.blockerDisabled'
 			: bindings.length === 0
-				? 'Register an agent connection below and choose the campaign identity it should use.'
+				? 'settings.assistant.blockerNoAgent'
 				: !canWrite
-					? 'The assistant is DM-only and unavailable while previewing.'
+					? 'settings.assistant.blockerNotDm'
 					: null;
+	const blocker = blockerKey ? t(blockerKey) : null;
 
 	const ask = () => {
 		const text = input.trim();
@@ -186,7 +205,7 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 		})
 			.then((result) => {
 				setTurns(result.turns);
-				notifyRunComplete(result.status, result.events);
+				notifyRunComplete(t, result.status, result.events);
 			})
 			.finally(() => {
 				setAsking(false);
@@ -198,13 +217,15 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 	// The one-line phase readout shown while a run is in flight (the "keep the user informed" protocol).
 	const statusText =
 		runStatus === 'starting'
-			? 'Starting…'
+			? t('settings.assistant.starting')
 			: runStatus === 'working'
-				? progress.toolId
-					? `Working — step ${progress.pass} of ${progress.maxPasses} · ${progress.toolId}`
-					: `Working — step ${progress.pass} of ${progress.maxPasses}`
+				? t(progress.toolId ? 'settings.assistant.workingOnTool' : 'settings.assistant.working', {
+						pass: progress.pass,
+						total: progress.maxPasses,
+						tool: progress.toolId ?? '',
+					})
 				: asking
-					? 'Finishing…'
+					? t('settings.assistant.finishing')
 					: null;
 
 	const toggleNotify = async (on: boolean) => {
@@ -226,7 +247,7 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 		if (permission !== 'granted') {
 			setNotify(false);
 			persistAiNotifyEnabled(false);
-			Toaster.warning('Notifications were not enabled because permission was not granted.');
+			Toaster.warning(t('settings.assistant.notifyDenied'));
 			return;
 		}
 		setNotify(true);
@@ -235,13 +256,15 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 
 	return (
 		<Panel
-			title="Assistant"
-			action={asking ? <Badge status="info">{statusText ?? 'Working…'}</Badge> : undefined}
+			title={t('settings.assistant.title')}
+			action={
+				asking ? (
+					<Badge status="info">{statusText ?? t('settings.assistant.workingShort')}</Badge>
+				) : undefined
+			}
 		>
 			<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter }}>
-				Ask about the campaign. The assistant sees only what the identity you choose is allowed to
-				see, and it works autonomously — it may take several steps to finish. Any change it suggests
-				lands in the review panel below and waits for your approval.
+				{t('settings.assistant.intro')}
 			</div>
 			{blocker !== null ? (
 				<div
@@ -267,7 +290,7 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 							ref={transcriptRef}
 							tabIndex={0}
 							role="log"
-							aria-label="Assistant transcript"
+							aria-label={t('settings.assistant.transcript')}
 							style={{
 								display: 'flex',
 								flexDirection: 'column',
@@ -296,7 +319,7 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 										>
 											{/* Speaker was alignment + background colour only, so the whole
 											    exchange reached AT as one undifferentiated stream. */}
-											<span style={srOnly}>You said: </span>
+											<span style={srOnly}>{t('settings.assistant.youSaid')} </span>
 											{item.text}
 										</div>
 									);
@@ -317,7 +340,7 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 												whiteSpace: 'pre-wrap',
 											}}
 										>
-											<span style={srOnly}>Assistant said: </span>
+											<span style={srOnly}>{t('settings.assistant.assistantSaid')} </span>
 											{item.text}
 										</div>
 									);
@@ -336,7 +359,7 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 										>
 											<Icon name="sparkle" size={13} color={T.ter} />
 											<span style={{ font: `11.5px ${T.mono}` }}>{item.toolId}</span>
-											<Badge status={badge.status}>{badge.label}</Badge>
+											<Badge status={badge.status}>{t(badge.label)}</Badge>
 											<span
 												style={{
 													minWidth: 0,
@@ -380,7 +403,7 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 							}}
 						>
 							<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-								<Badge status="info">{statusText ?? 'Working…'}</Badge>
+								<Badge status="info">{statusText ?? t('settings.assistant.workingShort')}</Badge>
 								<div style={{ flex: 1 }} />
 								<Button
 									variant="ghost"
@@ -388,7 +411,7 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 									icon="close"
 									onClick={() => abortRef.current?.abort()}
 								>
-									Cancel
+									{t('common.action.cancel')}
 								</Button>
 							</div>
 							<Skeleton variant="text" lines={3} />
@@ -401,14 +424,14 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 						label={
 							!capabilities.notifications.available
 								? (capabilities.notifications.unavailableMessage ??
-									'Notifications are unavailable.')
-								: 'Notify me on this device when a run finishes.'
+									t('settings.assistant.notifyUnavailable'))
+								: t('settings.assistant.notifyLabel')
 						}
 					/>
 					<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
 						<span style={{ flex: '0 0 200px' }}>
 							<Select
-								aria-label="Agent connection the assistant speaks as"
+								aria-label={t('settings.assistant.agentSelect')}
 								value={selectedAgent}
 								disabled={asking}
 								onChange={(e: { target: { value: string } }) => setAgentId(e.target.value)}
@@ -419,8 +442,8 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 							<Textarea
 								value={input}
 								rows={2}
-								aria-label="Ask the assistant"
-								placeholder="e.g. What loose threads should tonight's session pick up?"
+								aria-label={t('settings.assistant.askLabel')}
+								placeholder={t('settings.assistant.askPlaceholder')}
 								disabled={asking}
 								onChange={(e: { target: { value: string } }) => setInput(e.target.value)}
 								onKeyDown={(e: { key: string; shiftKey: boolean; preventDefault: () => void }) => {
@@ -438,7 +461,7 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 							disabled={asking || input.trim() === ''}
 							onClick={ask}
 						>
-							{asking ? 'Asking…' : 'Ask'}
+							{asking ? t('settings.assistant.asking') : t('settings.assistant.ask')}
 						</Button>
 					</div>
 				</>

@@ -1224,4 +1224,212 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.permissions.regranted': 'Acceso concedido de nuevo a {name}.',
 	'settings.permissions.grantFailed': 'No se pudo conceder ese acceso.',
 	'settings.permissions.revokeFailed': 'No se pudo revocar ese permiso.',
+
+	/* Ajustes › IA y herramientas */
+	'settings.ai.title': 'IA y acceso de agentes',
+	'settings.ai.switchLabel': 'IA y acceso de agentes',
+	'settings.ai.enabled': 'Activado',
+	'settings.ai.off': 'Desactivado',
+	'settings.ai.dmOnly':
+		'El acceso de agentes es solo para el DM y no se puede cambiar mientras previsualizas como jugador.',
+	'settings.ai.intro':
+		'Este interruptor controla todas las conexiones de asistente de esta campaña. Al desactivarlo se bloquea de inmediato todo el acceso a las herramientas de la campaña, sin importar la clave del proveedor guardada ni la política de cada agente.',
+	'settings.ai.providerNote':
+		'El asistente integrado usa el proveedor configurado abajo. Cada agente necesita además una identidad y una política, así que tú controlas qué puede leer y si los cambios propuestos necesitan revisión.',
+	'settings.ai.turnedOn': 'Acceso de agentes activado: ya se aplican las políticas de abajo.',
+	'settings.ai.turnedOff': 'Acceso de agentes desactivado.',
+	'settings.ai.commandFailed': 'El comando falló.',
+	'settings.ai.mode.disabled': 'Desactivado',
+	'settings.ai.mode.strictReview': 'Revisión estricta',
+	'settings.ai.mode.balanced': 'Equilibrado',
+	'settings.ai.mode.trustedDirect': 'Escritura directa de confianza',
+	'settings.ai.defaultPosture': 'Postura por defecto de los agentes nuevos',
+	'settings.ai.defaultPostureHelp':
+		'La política inicial de una conexión nueva. Los agentes nuevos pueden estar desactivados o exigir revisión; nunca empiezan con acceso de escritura directa.',
+	'settings.ai.defaultPostureAria': 'Postura por defecto del baúl para los agentes',
+	'settings.ai.defaultChanged': 'Los agentes nuevos usarán ahora {mode} por defecto.',
+	'settings.ai.connections': 'Conexiones de agentes',
+	'settings.ai.connectionsIntro':
+		'Cada conexión usa una identidad de campaña y no gana permisos propios. Nunca puede ver ni hacer más que esa identidad, y su política decide si los cambios necesitan revisión.',
+	'settings.ai.noConnections':
+		'Todavía no hay conexiones de agente registradas: registra una abajo para definir su política de antemano.',
+	'settings.ai.policySaved': 'Política guardada',
+	'settings.ai.usingDefault': 'Usa el valor por defecto de la campaña',
+	'settings.ai.policyModeFor': 'Modo de política de {agent}',
+	'settings.ai.policyChanged': '{agent} pasa a {mode}.',
+	'settings.ai.baselineTools': 'Herramientas básicas',
+	'settings.ai.baselineToolsSome': 'Herramientas básicas ({count}/{total})',
+	'settings.ai.baselineGranted':
+		'Se concedió todo el conjunto básico actual; se conservaron las concesiones personalizadas.',
+	'settings.ai.baselineRemoved':
+		'Herramientas básicas retiradas; se conservaron las concesiones personalizadas.',
+	'settings.ai.confirmRemove': 'Confirmar la eliminación',
+	'settings.ai.keep': 'Conservar',
+	'settings.ai.agentRemoved': '{agent} eliminado: sus propuestas pendientes caducan.',
+	'settings.ai.agentIdPlaceholder': 'Id del agente (p. ej. prep-assistant)',
+	'settings.ai.agentIdLabel': 'Id de la conexión de agente',
+	'settings.ai.agentLabelPlaceholder': 'Etiqueta (opcional)',
+	'settings.ai.agentLabelLabel': 'Etiqueta del agente',
+	'settings.ai.identityLabel': 'Identidad de campaña que usa el agente',
+	'settings.ai.actorOption': '{name} ({role})',
+	'settings.ai.register': 'Registrar',
+	'settings.ai.needIdAndIdentity':
+		'Dale un id a la conexión de agente y elige la identidad de campaña que debe usar.',
+	'settings.ai.registered':
+		'{agent} registrado: empieza con el valor por defecto de la campaña ({mode}) hasta que definas una política.',
+	'settings.ai.stagedTitle': 'Escrituras preparadas a la espera de revisión',
+	'settings.ai.nothingStaged':
+		'No hay nada preparado. Con revisión estricta, cada escritura de un agente llega aquí como propuesta que apruebas o rechazas: nada de lo que hace un agente se confirma sin ti.',
+	'settings.ai.proposalMeta': '{agent} como {actor} · {tool} · {risk}',
+	'settings.ai.approve': 'Aprobar',
+	'settings.ai.reject': 'Rechazar',
+	'settings.ai.proposalApproved': 'Propuesta aprobada y confirmada por el envío normal.',
+	'settings.ai.proposalRejected': 'Propuesta rechazada: no se escribió nada.',
+	'settings.ai.registryTitle': 'Registro de herramientas (básico)',
+	'settings.ai.registryIntro':
+		'Las herramientas de campaña que se pueden conceder a un agente. Los resultados de lectura respetan la identidad elegida y los cambios esperan revisión salvo que elijas explícitamente una política más permisiva.',
+	'settings.ai.recentActivity': 'Actividad reciente de los agentes',
+
+	/* Ajustes › IA y herramientas › Asistente */
+	'settings.assistant.title': 'Asistente',
+	'settings.assistant.intro':
+		'Pregunta sobre la campaña. El asistente solo ve lo que la identidad que elijas puede ver y trabaja de forma autónoma: puede necesitar varios pasos para terminar. Cualquier cambio que proponga llega al panel de revisión de abajo y espera tu aprobación.',
+	'settings.assistant.transcript': 'Transcripción del asistente',
+	'settings.assistant.youSaid': 'Dijiste:',
+	'settings.assistant.assistantSaid': 'El asistente dijo:',
+	'settings.assistant.outcome.read': 'lectura',
+	'settings.assistant.outcome.staged': 'preparado',
+	'settings.assistant.outcome.committed': 'confirmado',
+	'settings.assistant.outcome.denied': 'denegado',
+	'settings.assistant.outcome.failed': 'fallido',
+	'settings.assistant.blockerNoKey':
+		'Añade arriba una clave de API del proveedor para activar el asistente.',
+	'settings.assistant.blockerDisabled':
+		'Activa arriba el acceso de agentes para que el asistente pueda usar las herramientas de la campaña.',
+	'settings.assistant.blockerNoAgent':
+		'Registra abajo una conexión de agente y elige la identidad de campaña que debe usar.',
+	'settings.assistant.blockerNotDm':
+		'El asistente es solo para el DM y no está disponible mientras previsualizas.',
+	'settings.assistant.starting': 'Empezando…',
+	'settings.assistant.working': 'Trabajando: paso {pass} de {total}',
+	'settings.assistant.workingOnTool': 'Trabajando: paso {pass} de {total} · {tool}',
+	'settings.assistant.workingShort': 'Trabajando…',
+	'settings.assistant.finishing': 'Terminando…',
+	'settings.assistant.asking': 'Preguntando…',
+	'settings.assistant.ask': 'Preguntar',
+	'settings.assistant.askLabel': 'Pregunta al asistente',
+	'settings.assistant.askPlaceholder':
+		'p. ej. ¿Qué hilos sueltos debería retomar la sesión de esta noche?',
+	'settings.assistant.agentSelect': 'Conexión de agente con la que habla el asistente',
+	'settings.assistant.notifyLabel': 'Avísame en este dispositivo cuando termine una ejecución.',
+	'settings.assistant.notifyUnavailable': 'Las notificaciones no están disponibles.',
+	'settings.assistant.notifyDenied':
+		'No se activaron las notificaciones porque no se concedió el permiso.',
+	'settings.assistant.finished':
+		'El asistente terminó{staged, plural, =0 {} one { — # cambio preparado para tu revisión abajo} other { — # cambios preparados para tu revisión abajo}}.',
+	'settings.assistant.finishedTitle': 'El asistente terminó',
+	'settings.assistant.finishedBody':
+		'Tu petición está lista{staged, plural, =0 {.} one { — # cambio preparado para tu revisión abajo.} other { — # cambios preparados para tu revisión abajo.}}',
+	'settings.assistant.stepLimit':
+		'El asistente se detuvo en el límite de pasos{staged, plural, =0 {} one { — # cambio preparado para tu revisión abajo} other { — # cambios preparados para tu revisión abajo}}.',
+	'settings.assistant.stepLimitTitle': 'El asistente se detuvo en el límite de pasos',
+	'settings.assistant.stepLimitBody': 'Pídele que continúe si hace falta.',
+	'settings.assistant.cancelled': 'Ejecución del asistente cancelada.',
+	'settings.assistant.stopped':
+		'La ejecución del asistente se detuvo: consulta la transcripción para ver el motivo.',
+	'settings.assistant.stoppedTitle': 'La ejecución del asistente se detuvo',
+	'settings.assistant.stoppedBody': 'Consulta la transcripción para ver el motivo.',
+
+	/* Ajustes › IA y herramientas › Proveedor */
+	'settings.provider.title': 'Proveedor de IA',
+	'settings.provider.configured': 'Configurado',
+	'settings.provider.notConfigured': 'Sin configurar',
+	'settings.provider.intro':
+		'Trae tu propia clave: Lamplight no incluye ninguna ni la envía por nuestros servidores. La clave se queda en este dispositivo (en memoria y en esta sesión del navegador; en almacenamiento cifrado del sistema en las aplicaciones nativas) y nunca se escribe en la campaña, su historial ni las copias en la nube. Hasta que se guarde una clave, el asistente sigue apagado.',
+	'settings.provider.connect': 'Conectar un proveedor',
+	'settings.provider.stepPasteAndSave': 'Elige esta tarjeta, pega la clave abajo y guarda.',
+	'settings.provider.stepAnthropicKey': 'Crea una clave en console.anthropic.com → API Keys.',
+	'settings.provider.stepOpenAiKey': 'Crea una clave en platform.openai.com → API keys.',
+	'settings.provider.stepGeminiKey': 'Crea una clave en aistudio.google.com → API keys.',
+	'settings.provider.stepOpenRouterKey': 'Crea una clave en openrouter.ai → Keys.',
+	'settings.provider.noteGemini': 'Usa el punto final compatible con OpenAI de Google.',
+	'settings.provider.noteOpenRouter':
+		'Una clave, muchos modelos: cambia el id del modelo para enrutar.',
+	'settings.provider.selected': 'seleccionado',
+	'settings.provider.desktopOnly': 'solo escritorio',
+	'settings.provider.ollamaDetected': 'detectado · {count}',
+	'settings.provider.ollamaDown': 'no está en marcha',
+	'settings.provider.ollamaPull': 'Ejecuta: ollama pull {model}',
+	'settings.provider.checking': 'Comprobando…',
+	'settings.provider.checkOllama': 'Buscar Ollama local',
+	'settings.provider.detectionNote':
+		'La detección contacta solo con http://localhost:11434 después de que elijas comprobarlo.',
+	'settings.provider.lockedPlatform':
+		'Los ejecutores de modelos locales necesitan la aplicación de escritorio: esta plataforma bloquea las peticiones al bucle local.',
+	'settings.provider.forgetBeforeSwitch': 'Olvida la clave actual antes de cambiar de proveedor.',
+	'settings.provider.forgetBeforeChange':
+		'Olvida la clave actual antes de cambiar su proveedor o su destino.',
+	'settings.provider.legacyFound':
+		'Se encontró una clave antigua sin destino verificado. Por seguridad no está activa y nunca se enviará automáticamente. Comprueba el destino de abajo y vuelve a introducir la clave si aún quieres usarla.',
+	'settings.provider.removeOlder': 'Eliminar la copia antigua',
+	'settings.provider.removing': 'Eliminando…',
+	'settings.provider.legacyTitle': '¿Eliminar la clave antigua sin asignar?',
+	'settings.provider.legacyDescription': 'Ya está inactiva y no se migrará automáticamente.',
+	'settings.provider.legacyBody':
+		'Esto elimina para siempre la clave sin asignar. Vuelve a introducirla arriba solo después de confirmar el proveedor y la dirección que la reciben.',
+	'settings.provider.legacyRemoved': 'Clave antigua sin asignar eliminada.',
+	'settings.provider.legacyRemoveFailed':
+		'No se pudo eliminar la clave antigua del almacenamiento cifrado del sistema. Inténtalo de nuevo.',
+	'settings.provider.providerRow': 'Proveedor',
+	'settings.provider.providerHelp':
+		'La API de Anthropic directamente o cualquier punto final compatible con OpenAI (ejecutor local, proxy, otro proveedor).',
+	'settings.provider.providerAria': 'Proveedor de IA',
+	'settings.provider.openAiCompatible': 'Compatible con OpenAI',
+	'settings.provider.openAiCompatibleProvider': 'el proveedor compatible con OpenAI',
+	'settings.provider.modelRow': 'Modelo',
+	'settings.provider.modelHelp': 'El id de modelo que espera el punto final.',
+	'settings.provider.modelHelpAnthropic': 'Por defecto usa {model}.',
+	'settings.provider.modelAria': 'Id del modelo',
+	'settings.provider.baseUrlRow': 'URL base',
+	'settings.provider.baseUrlHelp':
+		'La base de la API, p. ej. https://api.example.com/v1: se le añade /chat/completions.',
+	'settings.provider.baseUrlLocked': 'Olvida la clave actual antes de cambiar este destino.',
+	'settings.provider.baseUrlAria': 'URL base de la API',
+	'settings.provider.baseUrlPlaceholder': 'https://api.example.com/v1',
+	'settings.provider.destinationRow': 'Destino de la credencial',
+	'settings.provider.destinationHelp':
+		'Tu clave queda ligada a este proveedor y a este origen receptor. No se puede reutilizar tras cambiar el proveedor o el host.',
+	'settings.provider.destinationMissing': 'Escribe una URL base de API válida',
+	'settings.provider.keyRow': 'Clave de API',
+	'settings.provider.keyHelp': 'Pega la clave de API de tu proveedor para activar el asistente.',
+	'settings.provider.keyHelpStored':
+		'Hay una clave guardada en este dispositivo. Pega otra para sustituirla.',
+	'settings.provider.keyAria': 'Clave de API del proveedor',
+	'settings.provider.keyStoredPlaceholder': '••••••••  (guardada)',
+	'settings.provider.saveKey': 'Guardar la clave',
+	'settings.provider.saving': 'Guardando…',
+	'settings.provider.forgetKey': 'Olvidar la clave',
+	'settings.provider.forgetting': 'Olvidando…',
+	'settings.provider.keyTooLong':
+		'Esa clave de API es demasiado larga. El límite son {max} caracteres.',
+	'settings.provider.keySavedDurable':
+		'Clave de API guardada en el almacenamiento cifrado del sistema.',
+	'settings.provider.keySavedNoDurable':
+		'Guardada para esta sesión, pero el almacenamiento cifrado del sistema no está disponible.',
+	'settings.provider.keySavedSession': 'Clave de API guardada para esta sesión del navegador.',
+	'settings.provider.keyForgotten': 'Clave de API olvidada.',
+	'settings.provider.forgetDurableFailed':
+		'No se pudo eliminar la clave del almacenamiento cifrado del sistema. Sigue disponible en esta sesión.',
+	'settings.provider.forgetRaced': 'La clave cambió antes de poder olvidarla. Inténtalo de nuevo.',
+	'settings.provider.confirmTitle': 'Confirma el destino de la credencial',
+	'settings.provider.confirmDescription':
+		'Comprueba adónde se enviará esta clave del proveedor antes de guardarla.',
+	'settings.provider.confirmBody':
+		'Esta clave estará disponible solo para {provider} en {origin}. Las peticiones usan la base de API {base}.',
+	'settings.provider.confirmSave': 'Confirmar y guardar',
+	'settings.provider.forgetTitle': '¿Olvidar esta clave del proveedor?',
+	'settings.provider.forgetDescription':
+		'El asistente seguirá apagado hasta que confirmes un destino y vuelvas a introducir una clave.',
+	'settings.provider.forgetBody':
+		'Esto elimina la clave asociada a {origin} de esta sesión y, cuando esté disponible, del almacenamiento cifrado del sistema.',
 };

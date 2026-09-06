@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Badge, Button, Dialog, Input, Toaster } from '../../ds';
 import { Panel, Seg, SetRow, T } from '../../app/screen-kit';
+import { useI18n, type MessageKey } from '../../i18n';
 import { usePlatformCapabilities } from '../../platform/capabilities';
 import {
 	DEFAULT_ANTHROPIC_MODEL,
@@ -20,11 +21,14 @@ import {
 	type AiProviderSettings,
 } from '../../ai/providerConfig';
 import { LOCAL_OLLAMA } from '../../ai/localLlmGuidance';
-import { AI_PROVIDER_PRESETS, type AiProviderPreset } from './AiPresets';
+import { buildAiProviderPresets, type AiProviderPreset } from './AiPresets';
 /* ---- AI provider setup (ADR-021 — the BYO-key transport half of the AI & tools subpage) ---------- */
 /** Which preset the current settings match (for the "selected" chip). Anthropic matches by kind. */
-function matchingPresetId(settings: AiProviderSettings): string | null {
-	for (const preset of AI_PROVIDER_PRESETS) {
+function matchingPresetId(
+	presets: AiProviderPreset[],
+	settings: AiProviderSettings,
+): string | null {
+	for (const preset of presets) {
 		if (preset.provider === 'anthropic' && settings.provider === 'anthropic') return preset.id;
 		if (
 			preset.provider === 'openai-compatible' &&
@@ -44,6 +48,7 @@ type OllamaProbe =
 
 export /** Provider configuration — BYO key, device-local custody, fail-closed until complete. */
 function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => void }) {
+	const { t } = useI18n();
 	const capabilities = usePlatformCapabilities();
 	const [settings, setSettings] = useState(() => getAiProviderSettings());
 	const [keyDraft, setKeyDraft] = useState('');
@@ -56,7 +61,9 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 	const [ollama, setOllama] = useState<OllamaProbe>({ status: 'unknown' });
 	const [ollamaBusy, setOllamaBusy] = useState(false);
 	const configured = isAiProviderConfigured();
-	const activePresetId = matchingPresetId(settings);
+	// The connect cards carry copy, so they are built per locale rather than frozen at module load.
+	const presets = useMemo(() => buildAiProviderPresets(t), [t]);
+	const activePresetId = matchingPresetId(presets, settings);
 
 	// Best-effort local-runner detection is explicitly user-initiated: merely opening Settings must not
 	// probe a loopback service. A connection refusal is the normal "not running" state.
@@ -79,7 +86,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 
 	const applyPreset = (preset: AiProviderPreset) => {
 		if (hasKey) {
-			Toaster.warning('Forget the current key before switching providers.');
+			Toaster.warning(t('settings.provider.forgetBeforeSwitch'));
 			return;
 		}
 		patch({
@@ -90,7 +97,9 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 	};
 	const destination = resolveAiProviderDestination(settings);
 	const destinationProviderLabel =
-		destination?.provider === 'anthropic' ? 'Anthropic' : 'the OpenAI-compatible provider';
+		destination?.provider === 'anthropic'
+			? 'Anthropic'
+			: t('settings.provider.openAiCompatibleProvider');
 
 	const patch = (p: Partial<typeof settings>) => {
 		const next = { ...settings, ...p };
@@ -98,7 +107,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 			hasKey &&
 			resolveAiProviderDestination(next)?.scope !== resolveAiProviderDestination(settings)?.scope
 		) {
-			Toaster.warning('Forget the current key before changing its provider or destination.');
+			Toaster.warning(t('settings.provider.forgetBeforeChange'));
 			return;
 		}
 		setSettings(saveAiProviderSettings(p));
@@ -110,20 +119,18 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 		const result = await setAiProviderKey(keyDraft);
 		setKeyBusy(false);
 		if (!result.saved) {
-			Toaster.error(
-				`That API key is too long. The limit is ${MAX_API_KEY_CHARS.toLocaleString()} characters.`,
-			);
+			Toaster.error(t('settings.provider.keyTooLong', { max: MAX_API_KEY_CHARS }));
 			return;
 		}
 		setSaveConfirmOpen(false);
 		setKeyDraft('');
 		setHasKey(true);
 		if (result.storage === 'os-encrypted') {
-			Toaster.success('API key saved in OS-encrypted storage.');
+			Toaster.success(t('settings.provider.keySavedDurable'));
 		} else if (result.durableError) {
-			Toaster.warning('Saved for this session, but OS-encrypted storage is unavailable.');
+			Toaster.warning(t('settings.provider.keySavedNoDurable'));
 		} else {
-			Toaster.success('API key saved for this browser session.');
+			Toaster.success(t('settings.provider.keySavedSession'));
 		}
 		onConfiguredChange();
 	};
@@ -133,15 +140,17 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 		setKeyBusy(false);
 		if (!result.cleared) {
 			Toaster.error(
-				result.durableError
-					? 'Could not remove the key from OS-encrypted storage. It remains available in this session.'
-					: 'The key changed before it could be forgotten. Try again.',
+				t(
+					result.durableError
+						? 'settings.provider.forgetDurableFailed'
+						: 'settings.provider.forgetRaced',
+				),
 			);
 			return;
 		}
 		setForgetConfirmOpen(false);
 		setHasKey(false);
-		Toaster.success('API key forgotten.');
+		Toaster.success(t('settings.provider.keyForgotten'));
 		onConfiguredChange();
 	};
 	const forgetLegacyKey = async () => {
@@ -149,32 +158,43 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 		const result = await clearLegacyAiProviderKey();
 		setKeyBusy(false);
 		if (!result.cleared) {
-			Toaster.error('Could not remove the older key from OS-encrypted storage. Try again.');
+			Toaster.error(t('settings.provider.legacyRemoveFailed'));
 			return;
 		}
 		setLegacyConfirmOpen(false);
 		setHasLegacyKey(false);
-		Toaster.success('Older unassigned key removed.');
+		Toaster.success(t('settings.provider.legacyRemoved'));
 	};
 
+	// Both confirmations name the provider, the origin and the API base inside one sentence, so each
+	// formats the whole sentence and splits it around those values rather than freezing English word
+	// order into fragments.
+	const origin = destination?.origin ?? '';
+	const scopeSentence = t('settings.provider.confirmBody', {
+		provider: destinationProviderLabel,
+		origin,
+		base: destination?.baseUrl ?? '',
+	});
+	const [scopeBefore, scopeRest = ''] = scopeSentence.split(destinationProviderLabel);
+	const [scopeMiddle, scopeRest2 = ''] = scopeRest.split(origin || '\u0000');
+	const [scopeAfterOrigin, scopeEnd = ''] = scopeRest2.split(destination?.baseUrl || '\u0000');
+	const forgetSentence = t('settings.provider.forgetBody', { origin });
+	const [forgetBefore, forgetAfter = ''] = forgetSentence.split(origin || '\u0000');
 	return (
 		<Panel
-			title="AI provider"
+			title={t('settings.provider.title')}
 			action={
 				<Badge status={configured ? 'success' : 'neutral'}>
-					{configured ? 'Configured' : 'Not configured'}
+					{t(configured ? 'settings.provider.configured' : 'settings.provider.notConfigured')}
 				</Badge>
 			}
 		>
 			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-				Bring your own key — Lamplight does not include one or send it through our servers. The key
-				stays on this device (memory + this browser session; OS-encrypted storage in native apps)
-				and is never written to the campaign, its history, or cloud backups. Until a key is saved,
-				the assistant stays off.
+				{t('settings.provider.intro')}
 			</div>
 			<div style={{ marginTop: 14 }}>
 				<div style={{ font: `600 12px ${T.sans}`, color: T.ink, marginBottom: 8 }}>
-					Connect a provider
+					{t('settings.provider.connect')}
 				</div>
 				<div
 					style={{
@@ -183,7 +203,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 						gap: 10,
 					}}
 				>
-					{AI_PROVIDER_PRESETS.map((preset) => {
+					{presets.map((preset) => {
 						const selected = activePresetId === preset.id;
 						const isOllama = preset.id === 'ollama';
 						const platformUnsupported = isOllama && !capabilities.allowHttpLoopbackAi;
@@ -192,11 +212,12 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 						// unreachable dead code and the card just went grey for no stated reason. Soft-disable
 						// instead: still looks unavailable, but stays focusable and says why when pressed.
 						// (Same trade the DS Button makes for `aria-disabled`.)
-						const lockReason = platformUnsupported
-							? 'Local model runners need the desktop app — this platform blocks loopback requests.'
+						const lockReasonKey: MessageKey | null = platformUnsupported
+							? 'settings.provider.lockedPlatform'
 							: hasKey && !selected
-								? 'Forget the current key before switching providers.'
+								? 'settings.provider.forgetBeforeSwitch'
 								: null;
+						const lockReason = lockReasonKey ? t(lockReasonKey) : null;
 						const locked = lockReason !== null;
 						return (
 							<button
@@ -226,13 +247,17 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 							>
 								<div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
 									<span style={{ font: `600 12.5px ${T.sans}`, color: T.ink }}>{preset.label}</span>
-									{selected && <Badge status="success">selected</Badge>}
-									{platformUnsupported && <Badge status="neutral">desktop-only</Badge>}
+									{selected && <Badge status="success">{t('settings.provider.selected')}</Badge>}
+									{platformUnsupported && (
+										<Badge status="neutral">{t('settings.provider.desktopOnly')}</Badge>
+									)}
 									{isOllama && ollama.status !== 'unknown' && (
 										<Badge status={ollama.status === 'running' ? 'success' : 'neutral'}>
 											{ollama.status === 'running'
-												? `detected · ${ollama.models.length}`
-												: 'not running'}
+												? t('settings.provider.ollamaDetected', {
+														count: ollama.models.length,
+													})
+												: t('settings.provider.ollamaDown')}
 										</Badge>
 									)}
 								</div>
@@ -257,7 +282,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 									ollama.status === 'running' &&
 									!ollama.models.includes(preset.model) && (
 										<div style={{ font: `10.5px ${T.mono}`, color: T.warn }}>
-											Run: ollama pull {preset.model}
+											{t('settings.provider.ollamaPull', { model: preset.model })}
 										</div>
 									)}
 							</button>
@@ -272,10 +297,10 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 							disabled={ollamaBusy}
 							onClick={() => void detectOllama()}
 						>
-							{ollamaBusy ? 'Checking…' : 'Check for local Ollama'}
+							{ollamaBusy ? t('settings.provider.checking') : t('settings.provider.checkOllama')}
 						</Button>
 						<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
-							Detection contacts only http://localhost:11434 after you choose to check.
+							{t('settings.provider.detectionNote')}
 						</span>
 					</div>
 				)}
@@ -292,26 +317,24 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 						color: T.sub,
 					}}
 				>
-					An older key without a verified destination was found. For safety, it is not active and
-					will never be sent automatically. Check the destination below and re-enter the key if you
-					still want to use it.{' '}
+					{t('settings.provider.legacyFound')}{' '}
 					<Button
 						variant="ghost"
 						size="sm"
 						disabled={keyBusy}
 						onClick={() => setLegacyConfirmOpen(true)}
 					>
-						Remove older copy
+						{t('settings.provider.removeOlder')}
 					</Button>
 				</div>
 			)}
 			<SetRow
-				label="Provider"
-				help="Anthropic's API directly, or any OpenAI-compatible endpoint (local runner, proxy, other vendor)."
+				label={t('settings.provider.providerRow')}
+				help={t('settings.provider.providerHelp')}
 				control={
 					<Seg
 						value={settings.provider}
-						ariaLabel="AI provider"
+						ariaLabel={t('settings.provider.providerAria')}
 						onChange={(v) => {
 							const provider = v as AiProviderKind;
 							patch({
@@ -323,7 +346,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 							{ value: 'anthropic', label: 'Anthropic', disabled: hasKey },
 							{
 								value: 'openai-compatible',
-								label: 'OpenAI-compatible',
+								label: t('settings.provider.openAiCompatible'),
 								disabled: hasKey,
 							},
 						]}
@@ -331,18 +354,18 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 				}
 			/>
 			<SetRow
-				label="Model"
+				label={t('settings.provider.modelRow')}
 				help={
 					settings.provider === 'anthropic'
-						? `Defaults to ${DEFAULT_ANTHROPIC_MODEL}.`
-						: 'The model id the endpoint expects.'
+						? t('settings.provider.modelHelpAnthropic', { model: DEFAULT_ANTHROPIC_MODEL })
+						: t('settings.provider.modelHelp')
 				}
 				control={
 					<span style={{ flex: '0 0 240px' }}>
 						<Input
 							value={settings.model}
 							maxLength={MAX_MODEL_CHARS}
-							aria-label="Model id"
+							aria-label={t('settings.provider.modelAria')}
 							onChange={(e: { target: { value: string } }) => patch({ model: e.target.value })}
 						/>
 					</span>
@@ -350,20 +373,16 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 			/>
 			{settings.provider === 'openai-compatible' && (
 				<SetRow
-					label="Base URL"
-					help={
-						hasKey
-							? 'Forget the current key before changing this destination.'
-							: 'The API base, e.g. https://api.example.com/v1 — /chat/completions is appended.'
-					}
+					label={t('settings.provider.baseUrlRow')}
+					help={t(hasKey ? 'settings.provider.baseUrlLocked' : 'settings.provider.baseUrlHelp')}
 					control={
 						<span style={{ flex: '0 0 300px' }}>
 							<Input
 								value={settings.baseUrl}
 								maxLength={MAX_BASE_URL_CHARS}
 								disabled={hasKey}
-								aria-label="API base URL"
-								placeholder="https://api.example.com/v1"
+								aria-label={t('settings.provider.baseUrlAria')}
+								placeholder={t('settings.provider.baseUrlPlaceholder')}
 								onChange={(e: { target: { value: string } }) => patch({ baseUrl: e.target.value })}
 							/>
 						</span>
@@ -371,8 +390,8 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 				/>
 			)}
 			<SetRow
-				label="Credential destination"
-				help="Your key is bound to this provider and receiving origin. It cannot be reused after the provider or host changes."
+				label={t('settings.provider.destinationRow')}
+				help={t('settings.provider.destinationHelp')}
 				control={
 					<span
 						style={{
@@ -383,17 +402,13 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 							color: destination ? T.ink : T.err,
 						}}
 					>
-						{destination ? destination.baseUrl : 'Enter a valid API base URL'}
+						{destination ? destination.baseUrl : t('settings.provider.destinationMissing')}
 					</span>
 				}
 			/>
 			<SetRow
-				label="API key"
-				help={
-					hasKey
-						? 'A key is stored on this device. Paste a new one to replace it.'
-						: 'Paste your provider API key to turn the assistant on.'
-				}
+				label={t('settings.provider.keyRow')}
+				help={t(hasKey ? 'settings.provider.keyHelpStored' : 'settings.provider.keyHelp')}
 				control={
 					<span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
 						<span style={{ flex: '1 1 220px', minWidth: 180 }}>
@@ -401,8 +416,8 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 								type="password"
 								maxLength={MAX_API_KEY_CHARS}
 								value={keyDraft}
-								aria-label="Provider API key"
-								placeholder={hasKey ? '••••••••  (stored)' : 'sk-…'}
+								aria-label={t('settings.provider.keyAria')}
+								placeholder={hasKey ? t('settings.provider.keyStoredPlaceholder') : 'sk-…'}
 								onChange={(e: { target: { value: string } }) => setKeyDraft(e.target.value)}
 							/>
 						</span>
@@ -413,7 +428,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 							disabled={keyBusy || keyDraft.trim() === '' || !destination}
 							onClick={() => setSaveConfirmOpen(true)}
 						>
-							{keyBusy ? 'Saving…' : 'Save key'}
+							{keyBusy ? t('settings.provider.saving') : t('settings.provider.saveKey')}
 						</Button>
 						{hasKey && (
 							<Button
@@ -423,7 +438,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 								disabled={keyBusy}
 								onClick={() => setForgetConfirmOpen(true)}
 							>
-								Forget key
+								{t('settings.provider.forgetKey')}
 							</Button>
 						)}
 					</span>
@@ -432,8 +447,8 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 			<Dialog
 				open={saveConfirmOpen}
 				onClose={() => !keyBusy && setSaveConfirmOpen(false)}
-				title="Confirm credential destination"
-				description="Check where this provider key will be sent before saving it."
+				title={t('settings.provider.confirmTitle')}
+				description={t('settings.provider.confirmDescription')}
 				size="sm"
 				footer={
 					<>
@@ -443,7 +458,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 							disabled={keyBusy}
 							onClick={() => setSaveConfirmOpen(false)}
 						>
-							Cancel
+							{t('common.action.cancel')}
 						</Button>
 						<Button
 							variant="primary"
@@ -451,24 +466,26 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 							disabled={keyBusy || !destination}
 							onClick={() => void saveKey()}
 						>
-							{keyBusy ? 'Saving…' : 'Confirm and save'}
+							{keyBusy ? t('settings.provider.saving') : t('settings.provider.confirmSave')}
 						</Button>
 					</>
 				}
 			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					This key will be available only to{' '}
-					<strong style={{ color: T.ink }}>{destinationProviderLabel}</strong> at{' '}
-					<strong style={{ color: T.ink, wordBreak: 'break-word' }}>{destination?.origin}</strong>.
-					Requests use the API base{' '}
-					<span style={{ fontFamily: T.mono }}>{destination?.baseUrl}</span>.
+					{scopeBefore}
+					<strong style={{ color: T.ink }}>{destinationProviderLabel}</strong>
+					{scopeMiddle}
+					<strong style={{ color: T.ink, wordBreak: 'break-word' }}>{destination?.origin}</strong>
+					{scopeAfterOrigin}
+					<span style={{ fontFamily: T.mono }}>{destination?.baseUrl}</span>
+					{scopeEnd}
 				</div>
 			</Dialog>
 			<Dialog
 				open={forgetConfirmOpen}
 				onClose={() => !keyBusy && setForgetConfirmOpen(false)}
-				title="Forget this provider key?"
-				description="The assistant will stay off until you confirm a destination and enter a key again."
+				title={t('settings.provider.forgetTitle')}
+				description={t('settings.provider.forgetDescription')}
 				tone="danger"
 				size="sm"
 				footer={
@@ -479,25 +496,25 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 							disabled={keyBusy}
 							onClick={() => setForgetConfirmOpen(false)}
 						>
-							Cancel
+							{t('common.action.cancel')}
 						</Button>
 						<Button variant="danger" size="sm" disabled={keyBusy} onClick={() => void forgetKey()}>
-							{keyBusy ? 'Forgetting…' : 'Forget key'}
+							{keyBusy ? t('settings.provider.forgetting') : t('settings.provider.forgetKey')}
 						</Button>
 					</>
 				}
 			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					This removes the key scoped to{' '}
-					<strong style={{ color: T.ink }}>{destination?.origin}</strong> from this session and,
-					when available, OS-encrypted storage.
+					{forgetBefore}
+					<strong style={{ color: T.ink }}>{destination?.origin}</strong>
+					{forgetAfter}
 				</div>
 			</Dialog>
 			<Dialog
 				open={legacyConfirmOpen}
 				onClose={() => !keyBusy && setLegacyConfirmOpen(false)}
-				title="Remove the older unassigned key?"
-				description="It is already inactive and will not be migrated automatically."
+				title={t('settings.provider.legacyTitle')}
+				description={t('settings.provider.legacyDescription')}
 				tone="danger"
 				size="sm"
 				footer={
@@ -508,7 +525,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 							disabled={keyBusy}
 							onClick={() => setLegacyConfirmOpen(false)}
 						>
-							Cancel
+							{t('common.action.cancel')}
 						</Button>
 						<Button
 							variant="danger"
@@ -516,14 +533,13 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 							disabled={keyBusy}
 							onClick={() => void forgetLegacyKey()}
 						>
-							{keyBusy ? 'Removing…' : 'Remove older copy'}
+							{keyBusy ? t('settings.provider.removing') : t('settings.provider.removeOlder')}
 						</Button>
 					</>
 				}
 			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					This permanently removes the unassigned key. Re-enter it above only after confirming the
-					receiving provider and address.
+					{t('settings.provider.legacyBody')}
 				</div>
 			</Dialog>
 		</Panel>

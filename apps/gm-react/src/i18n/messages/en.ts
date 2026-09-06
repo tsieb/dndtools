@@ -1184,6 +1184,207 @@ export const en = {
 	'settings.permissions.regranted': 'Access re-granted to {name}.',
 	'settings.permissions.grantFailed': 'Could not grant that access.',
 	'settings.permissions.revokeFailed': 'Could not revoke that grant.',
+
+	/* Settings › AI & tools */
+	'settings.ai.title': 'AI & agent access',
+	'settings.ai.switchLabel': 'AI and agent access',
+	'settings.ai.enabled': 'Enabled',
+	'settings.ai.off': 'Off',
+	'settings.ai.dmOnly':
+		'Agent access is DM-only and cannot be changed while previewing as a player.',
+	'settings.ai.intro':
+		'This switch controls every assistant connection for this campaign. Turning it off immediately blocks all campaign tool access, regardless of the saved provider key or individual agent policy.',
+	'settings.ai.providerNote':
+		'The built-in assistant uses the provider configured below. Each agent also needs an identity and policy, so you stay in control of what it can read and whether proposed changes need review.',
+	'settings.ai.turnedOn': 'Agent access turned on — the policies below now apply.',
+	'settings.ai.turnedOff': 'Agent access turned off.',
+	'settings.ai.commandFailed': 'The command failed.',
+	'settings.ai.mode.disabled': 'Disabled',
+	'settings.ai.mode.strictReview': 'Strict review',
+	'settings.ai.mode.balanced': 'Balanced',
+	'settings.ai.mode.trustedDirect': 'Trusted direct',
+	'settings.ai.defaultPosture': 'Default posture for new agents',
+	'settings.ai.defaultPostureHelp':
+		'The starting policy for a new connection. New agents can be disabled or require review; they never start with direct write access.',
+	'settings.ai.defaultPostureAria': 'Vault default agent posture',
+	'settings.ai.defaultChanged': 'New agents now default to {mode}.',
+	'settings.ai.connections': 'Agent connections',
+	'settings.ai.connectionsIntro':
+		'Each connection uses one campaign identity and gains no permissions of its own. It can never see or do more than that identity, and its policy decides whether changes require review.',
+	'settings.ai.noConnections':
+		'No agent connections registered yet — register one below to author its policy ahead of time.',
+	'settings.ai.policySaved': 'Policy saved',
+	'settings.ai.usingDefault': 'Using campaign default',
+	'settings.ai.policyModeFor': 'Policy mode for {agent}',
+	'settings.ai.policyChanged': '{agent} set to {mode}.',
+	'settings.ai.baselineTools': 'Baseline tools',
+	'settings.ai.baselineToolsSome': 'Baseline tools ({count}/{total})',
+	'settings.ai.baselineGranted':
+		'The complete current baseline was granted; custom tool grants were preserved.',
+	'settings.ai.baselineRemoved': 'Baseline tools removed; custom tool grants were preserved.',
+	'settings.ai.confirmRemove': 'Confirm remove',
+	'settings.ai.keep': 'Keep',
+	'settings.ai.agentRemoved': '{agent} removed — its pending proposals expire.',
+	'settings.ai.agentIdPlaceholder': 'Agent id (e.g. prep-assistant)',
+	'settings.ai.agentIdLabel': 'Agent connection id',
+	'settings.ai.agentLabelPlaceholder': 'Label (optional)',
+	'settings.ai.agentLabelLabel': 'Agent label',
+	'settings.ai.identityLabel': 'Campaign identity the agent uses',
+	'settings.ai.actorOption': '{name} ({role})',
+	'settings.ai.register': 'Register',
+	'settings.ai.needIdAndIdentity':
+		'Give the agent connection an id and choose the campaign identity it should use.',
+	'settings.ai.registered':
+		'Registered {agent} — it starts with the campaign default ({mode}) until you set a policy.',
+	'settings.ai.stagedTitle': 'Staged writes awaiting review',
+	'settings.ai.nothingStaged':
+		'Nothing staged. Under strict review, every agent write lands here as a proposal you approve or reject — nothing an agent does commits without you.',
+	'settings.ai.proposalMeta': '{agent} as {actor} · {tool} · {risk}',
+	'settings.ai.approve': 'Approve',
+	'settings.ai.reject': 'Reject',
+	'settings.ai.proposalApproved': 'Proposal approved and committed through the normal dispatch.',
+	'settings.ai.proposalRejected': 'Proposal rejected — nothing was written.',
+	'settings.ai.registryTitle': 'Tool registry (baseline)',
+	'settings.ai.registryIntro':
+		'The campaign tools an agent may be granted. Read results respect its chosen identity, and changes wait for review unless you explicitly choose a more permissive policy.',
+	'settings.ai.recentActivity': 'Recent agent activity',
+
+	/* Settings › AI & tools › Assistant */
+	'settings.assistant.title': 'Assistant',
+	'settings.assistant.intro':
+		'Ask about the campaign. The assistant sees only what the identity you choose is allowed to see, and it works autonomously — it may take several steps to finish. Any change it suggests lands in the review panel below and waits for your approval.',
+	'settings.assistant.transcript': 'Assistant transcript',
+	'settings.assistant.youSaid': 'You said:',
+	'settings.assistant.assistantSaid': 'Assistant said:',
+	'settings.assistant.outcome.read': 'read',
+	'settings.assistant.outcome.staged': 'staged',
+	'settings.assistant.outcome.committed': 'committed',
+	'settings.assistant.outcome.denied': 'denied',
+	'settings.assistant.outcome.failed': 'failed',
+	'settings.assistant.blockerNoKey': 'Add a provider API key above to turn the assistant on.',
+	'settings.assistant.blockerDisabled':
+		'Enable agent access above to let the assistant use campaign tools.',
+	'settings.assistant.blockerNoAgent':
+		'Register an agent connection below and choose the campaign identity it should use.',
+	'settings.assistant.blockerNotDm': 'The assistant is DM-only and unavailable while previewing.',
+	'settings.assistant.starting': 'Starting…',
+	'settings.assistant.working': 'Working — step {pass} of {total}',
+	'settings.assistant.workingOnTool': 'Working — step {pass} of {total} · {tool}',
+	'settings.assistant.workingShort': 'Working…',
+	'settings.assistant.finishing': 'Finishing…',
+	'settings.assistant.asking': 'Asking…',
+	'settings.assistant.ask': 'Ask',
+	'settings.assistant.askLabel': 'Ask the assistant',
+	'settings.assistant.askPlaceholder': 'e.g. What loose threads should tonight’s session pick up?',
+	'settings.assistant.agentSelect': 'Agent connection the assistant speaks as',
+	'settings.assistant.notifyLabel': 'Notify me on this device when a run finishes.',
+	'settings.assistant.notifyUnavailable': 'Notifications are unavailable.',
+	'settings.assistant.notifyDenied':
+		'Notifications were not enabled because permission was not granted.',
+	'settings.assistant.finished':
+		'Assistant finished{staged, plural, =0 {} one { — # change staged for your review below} other { — # changes staged for your review below}}.',
+	'settings.assistant.finishedTitle': 'Assistant finished',
+	'settings.assistant.finishedBody':
+		'Your request is done{staged, plural, =0 {.} one { — # change staged for your review below.} other { — # changes staged for your review below.}}',
+	'settings.assistant.stepLimit':
+		'Assistant stopped at the step limit{staged, plural, =0 {} one { — # change staged for your review below} other { — # changes staged for your review below}}.',
+	'settings.assistant.stepLimitTitle': 'Assistant stopped at the step limit',
+	'settings.assistant.stepLimitBody': 'Ask it to continue if needed.',
+	'settings.assistant.cancelled': 'Assistant run cancelled.',
+	'settings.assistant.stopped': 'The assistant run stopped — see the transcript for the reason.',
+	'settings.assistant.stoppedTitle': 'Assistant run stopped',
+	'settings.assistant.stoppedBody': 'See the transcript for the reason.',
+
+	/* Settings › AI & tools › Provider */
+	'settings.provider.title': 'AI provider',
+	'settings.provider.configured': 'Configured',
+	'settings.provider.notConfigured': 'Not configured',
+	'settings.provider.intro':
+		'Bring your own key — Lamplight does not include one or send it through our servers. The key stays on this device (memory + this browser session; OS-encrypted storage in native apps) and is never written to the campaign, its history, or cloud backups. Until a key is saved, the assistant stays off.',
+	'settings.provider.connect': 'Connect a provider',
+	'settings.provider.stepPasteAndSave': 'Pick this card, paste the key below, and Save.',
+	'settings.provider.stepAnthropicKey': 'Create a key at console.anthropic.com → API Keys.',
+	'settings.provider.stepOpenAiKey': 'Create a key at platform.openai.com → API keys.',
+	'settings.provider.stepGeminiKey': 'Create a key at aistudio.google.com → API keys.',
+	'settings.provider.stepOpenRouterKey': 'Create a key at openrouter.ai → Keys.',
+	'settings.provider.noteGemini': 'Uses Google’s OpenAI-compatible endpoint.',
+	'settings.provider.noteOpenRouter': 'One key, many models — change the model id to route.',
+	'settings.provider.selected': 'selected',
+	'settings.provider.desktopOnly': 'desktop-only',
+	'settings.provider.ollamaDetected': 'detected · {count}',
+	'settings.provider.ollamaDown': 'not running',
+	'settings.provider.ollamaPull': 'Run: ollama pull {model}',
+	'settings.provider.checking': 'Checking…',
+	'settings.provider.checkOllama': 'Check for local Ollama',
+	'settings.provider.detectionNote':
+		'Detection contacts only http://localhost:11434 after you choose to check.',
+	'settings.provider.lockedPlatform':
+		'Local model runners need the desktop app — this platform blocks loopback requests.',
+	'settings.provider.forgetBeforeSwitch': 'Forget the current key before switching providers.',
+	'settings.provider.forgetBeforeChange':
+		'Forget the current key before changing its provider or destination.',
+	'settings.provider.legacyFound':
+		'An older key without a verified destination was found. For safety, it is not active and will never be sent automatically. Check the destination below and re-enter the key if you still want to use it.',
+	'settings.provider.removeOlder': 'Remove older copy',
+	'settings.provider.removing': 'Removing…',
+	'settings.provider.legacyTitle': 'Remove the older unassigned key?',
+	'settings.provider.legacyDescription':
+		'It is already inactive and will not be migrated automatically.',
+	'settings.provider.legacyBody':
+		'This permanently removes the unassigned key. Re-enter it above only after confirming the receiving provider and address.',
+	'settings.provider.legacyRemoved': 'Older unassigned key removed.',
+	'settings.provider.legacyRemoveFailed':
+		'Could not remove the older key from OS-encrypted storage. Try again.',
+	'settings.provider.providerRow': 'Provider',
+	'settings.provider.providerHelp':
+		'Anthropic’s API directly, or any OpenAI-compatible endpoint (local runner, proxy, other vendor).',
+	'settings.provider.providerAria': 'AI provider',
+	'settings.provider.openAiCompatible': 'OpenAI-compatible',
+	'settings.provider.openAiCompatibleProvider': 'the OpenAI-compatible provider',
+	'settings.provider.modelRow': 'Model',
+	'settings.provider.modelHelp': 'The model id the endpoint expects.',
+	'settings.provider.modelHelpAnthropic': 'Defaults to {model}.',
+	'settings.provider.modelAria': 'Model id',
+	'settings.provider.baseUrlRow': 'Base URL',
+	'settings.provider.baseUrlHelp':
+		'The API base, e.g. https://api.example.com/v1 — /chat/completions is appended.',
+	'settings.provider.baseUrlLocked': 'Forget the current key before changing this destination.',
+	'settings.provider.baseUrlAria': 'API base URL',
+	'settings.provider.baseUrlPlaceholder': 'https://api.example.com/v1',
+	'settings.provider.destinationRow': 'Credential destination',
+	'settings.provider.destinationHelp':
+		'Your key is bound to this provider and receiving origin. It cannot be reused after the provider or host changes.',
+	'settings.provider.destinationMissing': 'Enter a valid API base URL',
+	'settings.provider.keyRow': 'API key',
+	'settings.provider.keyHelp': 'Paste your provider API key to turn the assistant on.',
+	'settings.provider.keyHelpStored':
+		'A key is stored on this device. Paste a new one to replace it.',
+	'settings.provider.keyAria': 'Provider API key',
+	'settings.provider.keyStoredPlaceholder': '••••••••  (stored)',
+	'settings.provider.saveKey': 'Save key',
+	'settings.provider.saving': 'Saving…',
+	'settings.provider.forgetKey': 'Forget key',
+	'settings.provider.forgetting': 'Forgetting…',
+	'settings.provider.keyTooLong': 'That API key is too long. The limit is {max} characters.',
+	'settings.provider.keySavedDurable': 'API key saved in OS-encrypted storage.',
+	'settings.provider.keySavedNoDurable':
+		'Saved for this session, but OS-encrypted storage is unavailable.',
+	'settings.provider.keySavedSession': 'API key saved for this browser session.',
+	'settings.provider.keyForgotten': 'API key forgotten.',
+	'settings.provider.forgetDurableFailed':
+		'Could not remove the key from OS-encrypted storage. It remains available in this session.',
+	'settings.provider.forgetRaced': 'The key changed before it could be forgotten. Try again.',
+	'settings.provider.confirmTitle': 'Confirm credential destination',
+	'settings.provider.confirmDescription':
+		'Check where this provider key will be sent before saving it.',
+	'settings.provider.confirmBody':
+		'This key will be available only to {provider} at {origin}. Requests use the API base {base}.',
+	'settings.provider.confirmSave': 'Confirm and save',
+	'settings.provider.forgetTitle': 'Forget this provider key?',
+	'settings.provider.forgetDescription':
+		'The assistant will stay off until you confirm a destination and enter a key again.',
+	'settings.provider.forgetBody':
+		'This removes the key scoped to {origin} from this session and, when available, OS-encrypted storage.',
 } as const;
 
 /** Every string the app can render, addressed by key. */
