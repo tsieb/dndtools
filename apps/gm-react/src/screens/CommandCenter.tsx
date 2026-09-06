@@ -14,6 +14,7 @@ import { Page, T, eb } from '../app/screen-kit';
 import { LIBRARY } from '../app/nav';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useViewport } from '../app/useViewport';
+import { useI18n } from '../i18n';
 
 /**
  * CommandCenter — the navigational hub (port of app.jsx HomeSection), wired to the live
@@ -61,6 +62,7 @@ function SceneTile({
 	widgetCount: number;
 	onOpen: () => void;
 }) {
+	const { t } = useI18n();
 	const live = status === 'live';
 	const [h, setH] = useState(false);
 	return (
@@ -101,12 +103,12 @@ function SceneTile({
 				<div style={{ position: 'absolute', top: 9, right: 9 }}>
 					{live ? (
 						<Badge status="success" icon="visibility-players">
-							Live
+							{t('home.status.live')}
 						</Badge>
 					) : status === 'ready' ? (
-						<Badge status="info">Ready</Badge>
+						<Badge status="info">{t('home.status.ready')}</Badge>
 					) : (
-						<Badge status="neutral">Draft</Badge>
+						<Badge status="neutral">{t('home.status.draft')}</Badge>
 					)}
 				</div>
 				{status === 'draft' && (
@@ -121,7 +123,7 @@ function SceneTile({
 			<div style={{ padding: '10px 13px' }}>
 				<div style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>{scene.name}</div>
 				<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-					{scene.tags[0] ?? 'Scene'} · {widgetCount} {widgetCount === 1 ? 'widget' : 'widgets'}
+					{scene.tags[0] ?? t('home.scene.tag')} · {t('home.scene.widgets', { count: widgetCount })}
 				</div>
 			</div>
 		</button>
@@ -193,6 +195,7 @@ export function CommandCenter() {
 	const navigate = useNavigate();
 	const runtime = useRuntime();
 	const viewport = useViewport();
+	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
 
 	const data = useMemo(() => {
@@ -268,52 +271,65 @@ export function CommandCenter() {
 	const create = [
 		{
 			icon: 'scene',
-			label: 'New scene',
-			sub: 'A canvas for the table',
+			label: t('home.create.scene'),
+			sub: t('home.create.sceneSub'),
 			run: () => navigate('/scenes'),
 		},
 		{
 			icon: 'new-character',
-			label: 'New character',
-			sub: 'PC, NPC, or monster',
+			label: t('home.create.character'),
+			sub: t('home.create.characterSub'),
 			run: () => navigate('/characters', { state: { create: true } }),
 		},
 		{
 			icon: 'new-map',
-			label: 'New map',
-			sub: 'Battle map or region',
+			label: t('home.create.map'),
+			sub: t('home.create.mapSub'),
 			run: () => navigate('/atlas', { state: { create: true } }),
 		},
 		{
 			icon: 'widget',
-			label: 'New widget',
-			sub: 'A GM Screen tracker',
+			label: t('home.create.widget'),
+			sub: t('home.create.widgetSub'),
 			run: () => navigate('/board', { state: { addWidget: true } }),
 		},
 		{
 			icon: 'note-edit',
-			label: 'New note',
-			sub: 'Lore, quest, or handout',
+			label: t('home.create.note'),
+			sub: t('home.create.noteSub'),
 			run: () => navigate('/knowledge', { state: { create: true } }),
 		},
 	];
 
 	const manage = [
-		{ id: 'players', icon: 'characters-person', label: 'Players', meta: 'Roster & invites' },
-		{ id: 'permissions', icon: 'dm-only', label: 'Permissions', meta: 'Roles & capability grants' },
+		{
+			id: 'players',
+			icon: 'characters-person',
+			label: t('home.manage.players'),
+			meta: t('home.manage.playersMeta'),
+		},
+		{
+			id: 'permissions',
+			icon: 'dm-only',
+			label: t('home.manage.permissions'),
+			meta: t('home.manage.permissionsMeta'),
+		},
 		{
 			id: 'vault',
 			icon: 'settings-gear',
-			label: 'Vault connections',
-			meta: 'Connected note sources',
+			label: t('home.manage.vault'),
+			meta: t('home.manage.vaultMeta'),
 		},
 	];
 
 	const libraryCounts: Record<string, string> = {
-		characters: `${data.pcCount} PCs · ${data.npcCount} NPCs`,
-		atlas: `${data.maps.length} ${data.maps.length === 1 ? 'map' : 'maps'}`,
-		campaign: `${data.questCount} ${data.questCount === 1 ? 'thread' : 'threads'} · ${data.factionCount} ${data.factionCount === 1 ? 'faction' : 'factions'}`,
-		knowledge: `${data.notes.length} ${data.notes.length === 1 ? 'note' : 'notes'}`,
+		characters: t('home.count.characters', { pcs: data.pcCount, npcs: data.npcCount }),
+		atlas: t('home.count.maps', { count: data.maps.length }),
+		campaign: t('home.count.campaign', {
+			threads: data.questCount,
+			factions: data.factionCount,
+		}),
+		knowledge: t('home.count.notes', { count: data.notes.length }),
 	};
 
 	// UX-CMD-012 — a player/observer device gets ONLY its own player-safe view, never the DM hub.
@@ -336,15 +352,13 @@ export function CommandCenter() {
 								color: T.acc,
 							}}
 						>
-							{data.homeView.observerMode ? 'Observer mode' : 'Player view'}
+							{data.homeView.observerMode ? t('home.observerMode') : t('home.playerView')}
 						</div>
 						<div style={{ font: `700 22px/1.1 ${T.disp}`, marginTop: 2 }}>
 							{data.homeView.displayName}
 						</div>
 						<div style={{ font: `13px ${T.sans}`, color: T.sub, marginTop: 3 }}>
-							{data.homeView.readOnly
-								? 'Your read-only view of the live table.'
-								: 'Your live view of the table — what the DM is sharing right now.'}
+							{data.homeView.readOnly ? t('home.readOnlyView') : t('home.liveView')}
 						</div>
 					</div>
 				</Card>
@@ -377,7 +391,7 @@ export function CommandCenter() {
 							color: T.acc,
 						}}
 					>
-						{isLive ? 'Session live' : 'Command Center'}
+						{isLive ? t('home.sessionLive') : t('nav.commandCenter')}
 					</div>
 					{/* A real heading, not a styled div: AppShell already owns the route's <h1>, so the hub's
 					    own hero is an <h2> alongside the section labels. */}
@@ -385,13 +399,11 @@ export function CommandCenter() {
 						{/* `liveScene` falls back to `scenes[0]` so the "Enter scene" button always has a
 						    destination — but with no session running that made the hub's 23px display heading
 						    announce an arbitrary scene name, which a DM reads as the current scene. */}
-						{(isLive ? data.liveScene?.name : null) ?? 'Your campaign'}
+						{(isLive ? data.liveScene?.name : null) ?? t('home.yourCampaign')}
 					</h2>
 					<div style={{ font: `13px ${T.sans}`, color: T.sub, marginTop: 3 }}>
-						{isLive
-							? 'Combat, initiative & rolls run inside the scene'
-							: 'Resume or open a scene to run live play'}
-						{data.party.length ? ` · ${data.party.length} in the party` : ''}
+						{isLive ? t('home.liveSubtitle') : t('home.idleSubtitle')}
+						{data.party.length ? ` · ${t('home.partyCount', { count: data.party.length })}` : ''}
 					</div>
 				</div>
 				<div
@@ -440,7 +452,11 @@ export function CommandCenter() {
 							overflowWrap: 'anywhere',
 						}}
 					>
-						{data.liveSceneIsHome ? 'Enter GM Screen' : isLive ? 'Enter scene' : 'Open scene'}
+						{data.liveSceneIsHome
+							? t('home.enterGmScreen')
+							: isLive
+								? t('home.enterScene')
+								: t('home.openScene')}
 					</Button>
 				</div>
 			</Card>
@@ -457,15 +473,15 @@ export function CommandCenter() {
 					<HubLabel
 						action={
 							<Button variant="ghost" size="sm" icon="add" onClick={() => navigate('/scenes')}>
-								New scene
+								{t('home.newScene')}
 							</Button>
 						}
 					>
-						Scenes
+						{t('home.scenes')}
 					</HubLabel>
 					{data.scenes.length === 0 ? (
 						<Card elevation="flat" padding="lg" style={{ textAlign: 'center', color: T.ter }}>
-							<div style={{ font: `13px ${T.sans}` }}>No scenes yet.</div>
+							<div style={{ font: `13px ${T.sans}` }}>{t('home.noScenes')}</div>
 							<Button
 								variant="secondary"
 								size="sm"
@@ -473,7 +489,7 @@ export function CommandCenter() {
 								onClick={() => navigate('/scenes')}
 								style={{ marginTop: 10 }}
 							>
-								Create your first scene
+								{t('home.createFirstScene')}
 							</Button>
 						</Card>
 					) : (
@@ -499,7 +515,7 @@ export function CommandCenter() {
 				</div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
 					<div>
-						<HubLabel>Create</HubLabel>
+						<HubLabel>{t('home.create')}</HubLabel>
 						<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 11 }}>
 							{create.map((c) => (
 								<LaunchTile
@@ -513,7 +529,7 @@ export function CommandCenter() {
 						</div>
 					</div>
 					<div>
-						<HubLabel>Manage</HubLabel>
+						<HubLabel>{t('home.manage')}</HubLabel>
 						<Card
 							elevation="flat"
 							padding="sm"
@@ -555,7 +571,7 @@ export function CommandCenter() {
 			</div>
 
 			<div style={{ marginTop: 28 }}>
-				<HubLabel>Library</HubLabel>
+				<HubLabel>{t('home.library')}</HubLabel>
 				<div
 					style={{
 						display: 'grid',

@@ -12,6 +12,7 @@ import {
 	type SceneDisplayPayload,
 } from '../platform/sceneDisplayChannel';
 import { moodTheme } from '../app/sceneCardMood';
+import { useI18n } from '../i18n';
 import { isNativeDesktopRuntime } from '../platform/windowChrome';
 import { isNetworkDestinationAllowed, usePlatformCapabilities } from '../platform/capabilities';
 import '../styles/scene-display.css';
@@ -52,10 +53,11 @@ export function SceneDisplaySurface({
 	resolveVaultAssets?: boolean;
 }) {
 	const heroUrl = useHeroImageUrl(active, resolveVaultAssets);
+	const { t } = useI18n();
 
 	if (!active) {
 		return (
-			<div className="scene-display" role="img" aria-label="No scene on display">
+			<div className="scene-display" role="img" aria-label={t('sceneDisplay.noScene')}>
 				<div
 					style={{
 						position: 'absolute',
@@ -70,7 +72,7 @@ export function SceneDisplaySurface({
 						letterSpacing: '0.04em',
 					}}
 				>
-					No scene on display
+					{t('sceneDisplay.noScene')}
 				</div>
 			</div>
 		);

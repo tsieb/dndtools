@@ -226,7 +226,7 @@ export function SceneCardsPanel() {
 								id="card-title"
 								value={title}
 								onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
-								placeholder="The Gates of Barovia"
+								placeholder={t('sceneCards.titlePlaceholder')}
 							/>
 						</Field>
 						<Field label={t('sceneCards.mood')} htmlFor="card-mood">
@@ -249,7 +249,7 @@ export function SceneCardsPanel() {
 								value={flavor}
 								maxLength={500}
 								onChange={(e: { target: { value: string } }) => setFlavor(e.target.value)}
-								placeholder="Mist coils between iron spikes…"
+								placeholder={t('sceneCards.flavorPlaceholder')}
 							/>
 						</Field>
 						<Field
@@ -268,7 +268,7 @@ export function SceneCardsPanel() {
 								value={heroUrl}
 								disabled={nativeDesktop}
 								onChange={(e: { target: { value: string } }) => setHeroUrl(e.target.value)}
-								placeholder="https://…"
+								placeholder={t('sceneCards.urlPlaceholder')}
 							/>
 						</Field>
 						<Field
@@ -830,7 +830,7 @@ function SceneCardRow({
 							value={draftHero}
 							disabled={!allowRemoteHero}
 							onChange={(e: { target: { value: string } }) => setDraftHero(e.target.value)}
-							placeholder="https://…"
+							placeholder={t('sceneCards.urlPlaceholder')}
 						/>
 					</Field>
 					<div style={{ display: 'flex', gap: 'var(--space-2)' }}>

@@ -3237,6 +3237,81 @@ export const en = {
 		'Planned prices are in USD. This release has no billing or payment flow. No account is needed to keep playing locally.',
 	'upgrade.footer.preview':
 		'Planned prices are in USD. Preview access is free: there is no billing, payment method, or charge. No account is needed to keep playing locally.',
+	/* Scene display › the second-screen presentation window */
+	'sceneDisplay.noScene': 'No scene on display',
+
+	/* Scene cards › the author form's example placeholders */
+	'sceneCards.titlePlaceholder': 'The Gates of Barovia',
+	'sceneCards.flavorPlaceholder': 'Mist coils between iron spikes…',
+	'sceneCards.urlPlaceholder': 'https://…',
+
+	/* Command Center › the hub: resume, scenes, create, manage, library */
+	'home.status.live': 'Live',
+	'home.status.ready': 'Ready',
+	'home.status.draft': 'Draft',
+	'home.scene.tag': 'Scene',
+	'home.scene.widgets': '{count, plural, one {# widget} other {# widgets}}',
+	'home.observerMode': 'Observer mode',
+	'home.playerView': 'Player view',
+	'home.readOnlyView': 'Your read-only view of the live table.',
+	'home.liveView': 'Your live view of the table — what the DM is sharing right now.',
+	'home.sessionLive': 'Session live',
+	'home.yourCampaign': 'Your campaign',
+	'home.liveSubtitle': 'Combat, initiative & rolls run inside the scene',
+	'home.idleSubtitle': 'Resume or open a scene to run live play',
+	'home.partyCount': '{count, plural, one {# in the party} other {# in the party}}',
+	'home.enterGmScreen': 'Enter GM Screen',
+	'home.enterScene': 'Enter scene',
+	'home.openScene': 'Open scene',
+	'home.newScene': 'New scene',
+	'home.scenes': 'Scenes',
+	'home.noScenes': 'No scenes yet.',
+	'home.createFirstScene': 'Create your first scene',
+	'home.create': 'Create',
+	'home.manage': 'Manage',
+	'home.library': 'Library',
+	'home.create.scene': 'New scene',
+	'home.create.sceneSub': 'A canvas for the table',
+	'home.create.character': 'New character',
+	'home.create.characterSub': 'PC, NPC, or monster',
+	'home.create.map': 'New map',
+	'home.create.mapSub': 'Battle map or region',
+	'home.create.widget': 'New widget',
+	'home.create.widgetSub': 'A GM Screen tracker',
+	'home.create.note': 'New note',
+	'home.create.noteSub': 'Lore, quest, or handout',
+	'home.manage.players': 'Players',
+	'home.manage.playersMeta': 'Roster & invites',
+	'home.manage.permissions': 'Permissions',
+	'home.manage.permissionsMeta': 'Roles & capability grants',
+	'home.manage.vault': 'Vault connections',
+	'home.manage.vaultMeta': 'Connected note sources',
+	'home.count.characters': '{pcs} PCs · {npcs} NPCs',
+	'home.count.maps': '{count, plural, one {# map} other {# maps}}',
+	'home.count.campaign':
+		'{threads, plural, one {# thread} other {# threads}} · {factions, plural, one {# faction} other {# factions}}',
+	'home.count.notes': '{count, plural, one {# note} other {# notes}}',
+
+	/* Join › the emailed invite landing page */
+	'join.invite': 'Campaign invite',
+	'join.heading': 'You’re invited',
+	'join.checking': 'Checking your invite…',
+	'join.incomplete':
+		'This join link is incomplete. Ask your DM to copy the full link from Settings → Players and send it again.',
+	'join.checkFailed': 'This invite link could not be checked — try again.',
+	'join.invitedYouToJoin': 'invited you to join',
+	'join.asA': 'as a',
+	'join.coDm': 'Co-DM',
+	'join.coDmNote':
+		'A Co-DM seat sees the DM’s prep and helps run the table. Your DM finishes the promotion when you join their live session.',
+	'join.expires': 'Invite expires {date}.',
+	'join.signInPrompt':
+		'Sign in (or create a free account) first if your table plays over the internet.',
+	'join.openPlayerApp': 'Open the player app',
+	'join.playerAppHint':
+		'From there, join your DM’s table with the table name and PIN they share at game time.',
+	'join.tryAgain': 'Try again',
+	'join.goToApp': 'Go to the app',
 } as const;
 
 /** Every string the app can render, addressed by key. */

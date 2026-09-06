@@ -5,6 +5,7 @@ import { T } from '../app/screen-kit';
 import { useAuth } from '../cloud/AuthContext';
 import { isAuthConfigured } from '../cloud/config';
 import { AppApiError, resolveInvite, type ResolvedInvite } from '../cloud/appApi';
+import { useI18n } from '../i18n';
 
 /**
  * Join — the invite-redeem landing (`#/join?token=…`). Chrome-less like `/play`: the person
@@ -45,6 +46,7 @@ export function Join() {
 	const location = useLocation();
 	const navigate = useNavigate();
 	const auth = useAuth();
+	const { t, formatDate } = useI18n();
 	const token = useMemo(
 		() => new URLSearchParams(location.search).get('token') ?? '',
 		[location.search],
@@ -69,21 +71,21 @@ export function Join() {
 			})
 			.catch((e: unknown) => {
 				if (cancelled) return;
-				const message =
-					e instanceof AppApiError
-						? e.message
-						: 'This invite link could not be checked — try again.';
+				const message = e instanceof AppApiError ? e.message : t('join.checkFailed');
 				setState({ phase: 'invalid', message });
 			});
 		return () => {
 			cancelled = true;
 		};
+		// `t` is re-created whenever the locale changes; re-resolving the invite on a locale switch
+		// would be a pointless network round-trip, so the effect stays keyed on the token alone.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [token, retryNonce]);
 
 	const signedOut = isAuthConfigured && auth.status !== 'signed-in';
 	return (
 		<div style={WRAP}>
-			<div style={CARD} role="main" aria-label="Campaign invite">
+			<div style={CARD} role="main" aria-label={t('join.invite')}>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 					<span
 						style={{
@@ -100,19 +102,18 @@ export function Join() {
 						<Icon name="send" size="md" />
 					</span>
 					{/* A styled div left this standalone, emailed-link route with no heading at all. */}
-					<h1 style={{ margin: 0, font: `700 17px ${T.disp}`, color: T.ink }}>You’re invited</h1>
+					<h1 style={{ margin: 0, font: `700 17px ${T.disp}`, color: T.ink }}>
+						{t('join.heading')}
+					</h1>
 				</div>
 
 				{state.phase === 'loading' && (
 					<div style={{ font: `13px ${T.sans}`, color: T.ter }} role="status" aria-live="polite">
-						Checking your invite…
+						{t('join.checking')}
 					</div>
 				)}
 				{state.phase === 'missing' && (
-					<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub }}>
-						This join link is incomplete. Ask your DM to copy the full link from Settings → Players
-						and send it again.
-					</div>
+					<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub }}>{t('join.incomplete')}</div>
 				)}
 				{state.phase === 'invalid' && (
 					// The failure arrives asynchronously and the loading region unmounts, so without a
@@ -124,12 +125,13 @@ export function Join() {
 				{state.phase === 'ready' && (
 					<>
 						<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub }}>
-							<strong style={{ color: T.ink }}>{state.invite.invitedBy}</strong> invited you to join{' '}
+							<strong style={{ color: T.ink }}>{state.invite.invitedBy}</strong>{' '}
+							{t('join.invitedYouToJoin')}{' '}
 							<strong style={{ color: T.ink }}>{state.invite.campaignName}</strong>
 							{state.invite.role === 'co-dm' ? (
 								<>
 									{' '}
-									as a <strong style={{ color: T.acc }}>Co-DM</strong>
+									{t('join.asA')} <strong style={{ color: T.acc }}>{t('join.coDm')}</strong>
 								</>
 							) : null}
 							.{state.invite.note ? ` “${state.invite.note}”` : ''}
@@ -149,14 +151,11 @@ export function Join() {
 								}}
 							>
 								<Icon name="session-bolt" size="sm" />
-								<span>
-									A Co-DM seat sees the DM’s prep and helps run the table. Your DM finishes the
-									promotion when you join their live session.
-								</span>
+								<span>{t('join.coDmNote')}</span>
 							</div>
 						)}
 						<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-							Invite expires {new Date(state.invite.expiresAt * 1000).toLocaleDateString()}.
+							{t('join.expires', { date: formatDate(state.invite.expiresAt * 1000) })}
 						</div>
 						{signedOut && (
 							<div
@@ -173,19 +172,17 @@ export function Join() {
 								}}
 							>
 								<Icon name="UserCircle" size="sm" />
-								<span style={{ flex: 1 }}>
-									Sign in (or create a free account) first if your table plays over the internet.
-								</span>
+								<span style={{ flex: 1 }}>{t('join.signInPrompt')}</span>
 								<Button variant="secondary" size="sm" onClick={() => auth.openAuthModal()}>
-									Sign in
+									{t('settings.account.signIn')}
 								</Button>
 							</div>
 						)}
 						<Button variant="primary" icon="play" onClick={() => navigate('/play')}>
-							Open the player app
+							{t('join.openPlayerApp')}
 						</Button>
 						<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
-							From there, join your DM’s table with the table name and PIN they share at game time.
+							{t('join.playerAppHint')}
 						</div>
 					</>
 				)}
@@ -199,15 +196,15 @@ export function Join() {
 						variant="secondary"
 						icon="retry"
 						aria-disabled={state.phase === 'loading' || undefined}
-						title={state.phase === 'loading' ? 'Checking your invite…' : undefined}
+						title={state.phase === 'loading' ? t('join.checking') : undefined}
 						onClick={() => setRetryNonce((n) => n + 1)}
 					>
-						Try again
+						{t('join.tryAgain')}
 					</Button>
 				)}
 				{(state.phase === 'invalid' || state.phase === 'missing') && (
 					<Button variant="secondary" onClick={() => navigate('/')}>
-						Go to the app
+						{t('join.goToApp')}
 					</Button>
 				)}
 			</div>

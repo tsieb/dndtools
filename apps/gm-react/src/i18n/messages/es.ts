@@ -3345,4 +3345,80 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Los precios previstos están en USD. Esta versión no tiene facturación ni flujo de pago. No hace falta cuenta para seguir jugando en local.',
 	'upgrade.footer.preview':
 		'Los precios previstos están en USD. El acceso en vista previa es gratis: no hay facturación, método de pago ni cargo. No hace falta cuenta para seguir jugando en local.',
+
+	/* Pantalla de escena › la ventana de presentación en la segunda pantalla */
+	'sceneDisplay.noScene': 'No hay ninguna escena en pantalla',
+
+	/* Tarjetas de escena › los ejemplos del formulario de autoría */
+	'sceneCards.titlePlaceholder': 'Las puertas de Barovia',
+	'sceneCards.flavorPlaceholder': 'La niebla se enrosca entre las púas de hierro…',
+	'sceneCards.urlPlaceholder': 'https://…',
+
+	/* Centro de mando › el hub: retomar, escenas, crear, gestionar, biblioteca */
+	'home.status.live': 'En vivo',
+	'home.status.ready': 'Lista',
+	'home.status.draft': 'Borrador',
+	'home.scene.tag': 'Escena',
+	'home.scene.widgets': '{count, plural, one {# widget} other {# widgets}}',
+	'home.observerMode': 'Modo observador',
+	'home.playerView': 'Vista de jugador',
+	'home.readOnlyView': 'Tu vista de solo lectura de la mesa en vivo.',
+	'home.liveView': 'Tu vista en vivo de la mesa — lo que el DM comparte ahora mismo.',
+	'home.sessionLive': 'Sesión en vivo',
+	'home.yourCampaign': 'Tu campaña',
+	'home.liveSubtitle': 'El combate, la iniciativa y las tiradas ocurren dentro de la escena',
+	'home.idleSubtitle': 'Retoma o abre una escena para jugar en vivo',
+	'home.partyCount': '{count, plural, one {# en el grupo} other {# en el grupo}}',
+	'home.enterGmScreen': 'Entrar en la pantalla del DM',
+	'home.enterScene': 'Entrar en la escena',
+	'home.openScene': 'Abrir escena',
+	'home.newScene': 'Nueva escena',
+	'home.scenes': 'Escenas',
+	'home.noScenes': 'Todavía no hay escenas.',
+	'home.createFirstScene': 'Crear tu primera escena',
+	'home.create': 'Crear',
+	'home.manage': 'Gestionar',
+	'home.library': 'Biblioteca',
+	'home.create.scene': 'Nueva escena',
+	'home.create.sceneSub': 'Un lienzo para la mesa',
+	'home.create.character': 'Nuevo personaje',
+	'home.create.characterSub': 'PJ, PNJ o monstruo',
+	'home.create.map': 'Nuevo mapa',
+	'home.create.mapSub': 'Mapa de batalla o de región',
+	'home.create.widget': 'Nuevo widget',
+	'home.create.widgetSub': 'Un rastreador de la pantalla del DM',
+	'home.create.note': 'Nueva nota',
+	'home.create.noteSub': 'Trasfondo, misión o documento',
+	'home.manage.players': 'Jugadores',
+	'home.manage.playersMeta': 'Lista e invitaciones',
+	'home.manage.permissions': 'Permisos',
+	'home.manage.permissionsMeta': 'Roles y concesiones de capacidades',
+	'home.manage.vault': 'Conexiones de bóveda',
+	'home.manage.vaultMeta': 'Fuentes de notas conectadas',
+	'home.count.characters': '{pcs} PJ · {npcs} PNJ',
+	'home.count.maps': '{count, plural, one {# mapa} other {# mapas}}',
+	'home.count.campaign':
+		'{threads, plural, one {# hilo} other {# hilos}} · {factions, plural, one {# facción} other {# facciones}}',
+	'home.count.notes': '{count, plural, one {# nota} other {# notas}}',
+
+	/* Unirse › la página de aterrizaje de la invitación por correo */
+	'join.invite': 'Invitación de campaña',
+	'join.heading': 'Te han invitado',
+	'join.checking': 'Comprobando tu invitación…',
+	'join.incomplete':
+		'Este enlace para unirse está incompleto. Pide a tu DM que copie el enlace completo desde Ajustes → Jugadores y lo envíe de nuevo.',
+	'join.checkFailed': 'No se pudo comprobar este enlace de invitación — inténtalo de nuevo.',
+	'join.invitedYouToJoin': 'te invitó a unirte a',
+	'join.asA': 'como',
+	'join.coDm': 'Co-DM',
+	'join.coDmNote':
+		'Un puesto de Co-DM ve la preparación del DM y ayuda a llevar la mesa. Tu DM completa la promoción cuando te unes a su sesión en vivo.',
+	'join.expires': 'La invitación caduca el {date}.',
+	'join.signInPrompt':
+		'Inicia sesión (o crea una cuenta gratuita) primero si tu mesa juega por internet.',
+	'join.openPlayerApp': 'Abrir la app de jugador',
+	'join.playerAppHint':
+		'Desde allí, únete a la mesa de tu DM con el nombre de mesa y el PIN que comparta a la hora de jugar.',
+	'join.tryAgain': 'Intentar de nuevo',
+	'join.goToApp': 'Ir a la app',
 };
