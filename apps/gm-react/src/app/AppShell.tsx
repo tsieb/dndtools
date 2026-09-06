@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Toaster, ToastViewport } from '../ds';
+import { useI18n } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { CommandPalette } from './CommandPalette';
 import { useCompactTopBar, useViewport } from './useViewport';
@@ -28,6 +29,7 @@ import { Footer } from './shell/Footer';
  * plus a "More" sheet. The matchMedia hook lives in ./useViewport (shared with detail screens). */
 
 export function AppShell({ children }: { children: ReactNode }) {
+	const { t } = useI18n();
 	const [paletteOpen, setPaletteOpen] = useState(false);
 	// I11 S11.2.2 — the in-window fullscreen scene display (Ctrl+Shift+S toggles; Escape exits).
 	const [displayOpen, setDisplayOpen] = useState(false);
@@ -171,7 +173,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 						'calc(var(--native-titlebar-height) + var(--safe-area-top, 0px) - 48px)')
 				}
 			>
-				Skip to content
+				{t('shell.skipToContent')}
 			</a>
 			{viewport === 'desktop' && <Sidebar onOpenPalette={() => setPaletteOpen(true)} />}
 			{viewport === 'rail' && <RailNav onOpenPalette={() => setPaletteOpen(true)} />}

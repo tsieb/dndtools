@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Icon, IconButton, NavRail } from '../../ds';
+import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { activeSectionId } from '../nav';
 import { T } from '../screen-kit';
@@ -7,6 +8,7 @@ import { ALL_SECTIONS, SECTION_PATH } from './sections';
 
 /** Tablet: the DS NavRail — icon-only, labels move to the accessible name/tooltip. */
 export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
+	const { t } = useI18n();
 	const navigate = useNavigate();
 	const location = useLocation();
 	const runtime = useRuntime();
@@ -48,7 +50,7 @@ export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 			footer={
 				<IconButton
 					icon="search"
-					label="Search (⌘K)"
+					label={t('shell.searchShortcut')}
 					variant="ghost"
 					size="sm"
 					onClick={onOpenPalette}

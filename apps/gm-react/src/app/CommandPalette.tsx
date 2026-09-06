@@ -8,6 +8,7 @@ import {
 	type SearchHit,
 } from '@dndtools/core';
 import { CommandPalette as DSCommandPalette } from '../ds';
+import { useI18n, type MessageKey } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { RUN, LIBRARY, PLATFORM, PLAYER_SECTION, SETTINGS_SECTION } from './nav';
 
@@ -35,13 +36,38 @@ const SEARCH_HIT_LIMIT = 15;
  */
 const HIT_PRESENTATION: Record<
 	SearchHit['type'],
-	{ group: string; route: string; icon: string; kind: string }
+	{ group: MessageKey; route: string; icon: string; kind: MessageKey }
 > = {
-	note: { group: 'Notes', route: '/knowledge', icon: 'knowledge-book', kind: 'Note' },
-	object: { group: 'Notes', route: '/campaign', icon: 'knowledge-book', kind: 'Story entry' },
-	poi: { group: 'Map locations', route: '/atlas', icon: 'poi', kind: 'Point of interest' },
-	handout: { group: 'Session', route: '/session', icon: 'scroll', kind: 'Handout' },
-	'session-artifact': { group: 'Session', route: '/session', icon: 'dice', kind: 'Roll' },
+	note: {
+		group: 'palette.group.notes',
+		route: '/knowledge',
+		icon: 'knowledge-book',
+		kind: 'palette.kind.note',
+	},
+	object: {
+		group: 'palette.group.notes',
+		route: '/campaign',
+		icon: 'knowledge-book',
+		kind: 'palette.kind.storyEntry',
+	},
+	poi: {
+		group: 'palette.group.mapLocations',
+		route: '/atlas',
+		icon: 'poi',
+		kind: 'palette.kind.poi',
+	},
+	handout: {
+		group: 'palette.group.session',
+		route: '/session',
+		icon: 'scroll',
+		kind: 'palette.kind.handout',
+	},
+	'session-artifact': {
+		group: 'palette.group.session',
+		route: '/session',
+		icon: 'dice',
+		kind: 'palette.kind.roll',
+	},
 };
 
 /** A note hit deep-links the exact note; a POI hit deep-links its map and highlights the marker
@@ -73,6 +99,7 @@ function routeForHit(hit: SearchHit): string {
  * + snippet as keywords so the DS substring filter keeps body-only matches visible.
  */
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
+	const { t } = useI18n();
 	const navigate = useNavigate();
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
@@ -99,14 +126,16 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 		};
 		// Player view and Settings live outside the three nav groups but are still destinations —
 		// omitting them made "settings" / "player" return "No matches" in the jump-anywhere surface.
-		const sections = [...RUN, ...LIBRARY, ...PLATFORM, PLAYER_SECTION, SETTINGS_SECTION].map((s) => ({
-			id: `nav:${s.id}`,
-			label: s.label,
-			icon: s.icon,
-			group: 'Go to',
-			keywords: s.sub ?? '',
-			run: goTo(s.path),
-		}));
+		const sections = [...RUN, ...LIBRARY, ...PLATFORM, PLAYER_SECTION, SETTINGS_SECTION].map(
+			(s) => ({
+				id: `nav:${s.id}`,
+				label: s.label,
+				icon: s.icon,
+				group: t('palette.group.goTo'),
+				keywords: s.sub ?? '',
+				run: goTo(s.path),
+			}),
+		);
 		// The GM Screen's backing home scene is its own "Go to" destination — as a scene row it reads
 		// as a mystery scene named "Command Center".
 		const homeSceneId = runtime.state.commandCenter.homeSceneId;
@@ -116,9 +145,9 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 				id: `scene:${s.id}`,
 				label: s.name,
 				icon: 'scene',
-				group: 'Scenes',
+				group: t('palette.group.scenes'),
 				keywords: s.tags.join(' '),
-				description: s.visibility === 'dm-only' ? 'DM only' : 'Shared',
+				description: t(s.visibility === 'dm-only' ? 'common.visibility.dmOnly' : 'palette.shared'),
 				run: goTo(`/scene/${s.id}`),
 			}));
 		const characters = listCharactersForActor(
@@ -131,7 +160,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 				id: `char:${c.id}`,
 				label: c.name,
 				icon: 'characters-person',
-				group: 'Characters',
+				group: t('palette.group.characters'),
 				keywords: c.kind,
 				run: goTo(`/characters/${c.id}`),
 			}));
@@ -141,9 +170,9 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 				id: `map:${m.id}`,
 				label: m.name,
 				icon: 'atlas-map',
-				group: 'Maps',
+				group: t('palette.group.maps'),
 				keywords: m.description,
-				description: m.visibility === 'dm-only' ? 'DM only' : 'Shared',
+				description: t(m.visibility === 'dm-only' ? 'common.visibility.dmOnly' : 'palette.shared'),
 				// Deep-link the SPECIFIC map (`?map=…` — the Atlas deep-link contract), not the list.
 				run: goTo(`/atlas?map=${encodeURIComponent(m.id)}`),
 			}));
@@ -153,58 +182,58 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 		const creates: PaletteCommand[] = [
 			{
 				id: 'new:scene',
-				label: 'New scene',
+				label: t('palette.new.scene'),
 				icon: 'add',
-				group: 'Create',
-				keywords: 'canvas board battle stage',
+				group: t('palette.group.create'),
+				keywords: t('palette.new.sceneKeywords'),
 				run: goTo('/scenes'),
 			},
 			{
 				id: 'new:character',
-				label: 'New character',
+				label: t('palette.new.character'),
 				icon: 'new-character',
-				group: 'Create',
-				keywords: 'pc party player hero',
+				group: t('palette.group.create'),
+				keywords: t('palette.new.characterKeywords'),
 				run: goTo('/characters', { create: true }),
 			},
 			{
 				id: 'new:npc',
-				label: 'New NPC or monster',
+				label: t('palette.new.npc'),
 				icon: 'new-character',
-				group: 'Create',
-				keywords: 'npc monster villain creature bestiary sidekick',
+				group: t('palette.group.create'),
+				keywords: t('palette.new.npcKeywords'),
 				run: goTo('/characters', { create: true, kind: 'npc' }),
 			},
 			{
 				id: 'new:note',
-				label: 'New note',
+				label: t('palette.new.note'),
 				icon: 'note-edit',
-				group: 'Create',
-				keywords: 'quest thread lore location place handout journal wiki',
+				group: t('palette.group.create'),
+				keywords: t('palette.new.noteKeywords'),
 				run: goTo('/knowledge', { create: true }),
 			},
 			{
 				id: 'new:map',
-				label: 'New map',
+				label: t('palette.new.map'),
 				icon: 'new-map',
-				group: 'Create',
-				keywords: 'location place battlemap dungeon atlas poi',
+				group: t('palette.group.create'),
+				keywords: t('palette.new.mapKeywords'),
 				run: goTo('/atlas', { create: true }),
 			},
 			{
 				id: 'new:faction',
-				label: 'New faction',
+				label: t('palette.new.faction'),
 				icon: 'flag',
-				group: 'Create',
-				keywords: 'cult guild order organization dossier',
+				group: t('palette.group.create'),
+				keywords: t('palette.new.factionKeywords'),
 				run: goTo('/campaign', { createFaction: true }),
 			},
 			{
 				id: 'new:encounter',
-				label: 'Build encounter',
+				label: t('palette.new.encounter'),
 				icon: 'sword',
-				group: 'Create',
-				keywords: 'combat fight initiative monsters battle',
+				group: t('palette.group.create'),
+				keywords: t('palette.new.encounterKeywords'),
 				// The one Create entry that navigated without an intent — it dropped you on /session
 				// with nothing open while its siblings all open their editor on arrival.
 				run: goTo('/session', { createEncounter: true }),
@@ -230,19 +259,19 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 					id: `search:${hit.type}:${hit.mapId ?? ''}:${hit.id}`,
 					label: hit.title,
 					icon: p.icon,
-					group: p.group,
+					group: t(p.group),
 					// Carry the matched query + snippet + tags so the DS live substring filter keeps
 					// body-only matches (whose titles don't contain the query) in the list.
 					keywords: [needle, hit.tags.join(' '), hit.snippet?.text ?? ''].join(' '),
 					description: hit.snippet?.text,
-					meta: p.kind,
+					meta: t(p.kind),
 					run: goTo(routeForHit(hit)),
 				};
 			});
 		}
 
 		return [...creates, ...sections, ...scenes, ...characters, ...maps, ...searchHits];
-	}, [runtime.state, actorId, debouncedQuery, navigate, onClose]);
+	}, [runtime.state, actorId, debouncedQuery, navigate, onClose, t]);
 
 	return (
 		<div
@@ -257,16 +286,16 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 				onClose={onClose}
 				commands={commands}
 				groupOrder={[
-					'Create',
-					'Go to',
-					'Scenes',
-					'Characters',
-					'Maps',
-					'Notes',
-					'Map locations',
-					'Session',
+					t('palette.group.create'),
+					t('palette.group.goTo'),
+					t('palette.group.scenes'),
+					t('palette.group.characters'),
+					t('palette.group.maps'),
+					t('palette.group.notes'),
+					t('palette.group.mapLocations'),
+					t('palette.group.session'),
 				]}
-				placeholder="Search notes, maps, handouts, scenes, characters…"
+				placeholder={t('palette.placeholder')}
 			/>
 		</div>
 	);

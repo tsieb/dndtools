@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Icon, IconButton, Sheet } from '../../ds';
+import { useI18n } from '../../i18n';
 import { ViewAsControl } from '../ViewAsControl';
 import { ProjectionControl } from '../ProjectionControl';
 import { HostSessionButton, AccountButton } from '../../net/SessionPanel';
@@ -20,6 +21,7 @@ export function TopBar({
 	viewport: ReturnType<typeof useViewport>;
 	compactToolbar: boolean;
 }) {
+	const { t } = useI18n();
 	const location = useLocation();
 	const [controlsOpen, setControlsOpen] = useState(false);
 	const id = activeSectionId(location.pathname);
@@ -77,7 +79,7 @@ export function TopBar({
 				{compact ? (
 					<IconButton
 						icon="search"
-						label="Search"
+						label={t('shell.search')}
 						variant="outline"
 						size="lg"
 						onClick={onOpenPalette}
@@ -111,7 +113,7 @@ export function TopBar({
 								textOverflow: 'ellipsis',
 							}}
 						>
-							Search everything…
+							{t('shell.searchEverything')}
 						</span>
 						<span
 							style={{
@@ -129,7 +131,7 @@ export function TopBar({
 				{viewport === 'phone' ? (
 					<IconButton
 						icon="session-bolt"
-						label="Table controls"
+						label={t('shell.tableControls')}
 						variant="outline"
 						size="lg"
 						onClick={() => setControlsOpen(true)}
@@ -148,7 +150,7 @@ export function TopBar({
 					open={controlsOpen}
 					onClose={() => setControlsOpen(false)}
 					side="bottom"
-					title="Table controls"
+					title={t('shell.tableControls')}
 				>
 					<div
 						className="table-controls-sheet"

@@ -9,6 +9,7 @@ import {
 	type SceneListEntry,
 } from '@dndtools/core';
 import { Avatar, BrandLockup, Icon, IconButton, StatusDot } from '../../ds';
+import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import {
 	LIBRARY,
@@ -38,6 +39,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const activeSceneId = runtime.state.session.activeSceneId;
 	const dmActor = runtime.state.permissions.actors[actorId];
 	const presence = usePresenceStatus();
+	const { t } = useI18n();
 
 	const { scenes, counts, recent } = useMemo(() => {
 		// The GM Screen's backing home scene is reachable via its own nav row — listing it among the
@@ -80,13 +82,13 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 			scenes: ordered,
 			recent: recentScenes,
 			counts: {
-				characters: `${pcCount} PCs · ${npcCount} NPCs`,
-				atlas: `${maps.length} ${maps.length === 1 ? 'map' : 'maps'}`,
-				campaign: `${noteCount} ${noteCount === 1 ? 'thread' : 'threads'} · ${factionCount} ${factionCount === 1 ? 'faction' : 'factions'}`,
-				knowledge: `${noteCount} ${noteCount === 1 ? 'note' : 'notes'}`,
+				characters: t('shell.countCharacters', { pcs: pcCount, npcs: npcCount }),
+				atlas: t('shell.countMaps', { count: maps.length }),
+				campaign: t('shell.countStory', { threads: noteCount, factions: factionCount }),
+				knowledge: t('shell.countNotes', { count: noteCount }),
 			} as Record<string, string>,
 		};
-	}, [runtime.state, actorId, activeSceneId]);
+	}, [runtime.state, actorId, activeSceneId, t]);
 
 	const row = (s: NavSection, badge?: ReactNode) => (
 		<SideRow
@@ -136,7 +138,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 				<BrandLockup markSize={30} wordSize={15} gap={10} style={{ flex: 1, minWidth: 0 }} />
 				<IconButton
 					icon="search"
-					label="Search (⌘K)"
+					label={t('shell.searchShortcut')}
 					variant="ghost"
 					size="sm"
 					onClick={onOpenPalette}
@@ -164,10 +166,13 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 				<Icon name="campaign-scroll" size="sm" color={T.acc} />
 				<span style={{ flex: 1, minWidth: 0 }}>
 					<span style={{ display: 'block', font: `600 12.5px ${T.sans}`, color: T.ink }}>
-						Your campaign
+						{t('shell.yourCampaign')}
 					</span>
 					<span style={{ display: 'block', font: `10.5px ${T.sans}`, color: T.ter }}>
-						{scenes.length} {scenes.length === 1 ? 'scene' : 'scenes'} · {counts.characters}
+						{t('shell.campaignCounts', {
+							scenes: scenes.length,
+							characters: counts.characters,
+						})}
 					</span>
 				</span>
 				{/* chevron-right = "this navigates"; chevron-down here implied a dropdown that never opened */}
@@ -183,8 +188,8 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 					padding: '4px 12px 16px',
 				}}
 			>
-				<nav role="navigation" aria-label="Primary">
-					<SideGroup label="Run the table">
+				<nav role="navigation" aria-label={t('shell.navPrimary')}>
+					<SideGroup label={t('shell.groupRunTable')}>
 						{RUN.map((s) =>
 							row(
 								s,
@@ -199,7 +204,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 											borderRadius: 20,
 										}}
 									>
-										LIVE
+										{t('shell.live')}
 									</span>
 								) : null,
 							),
@@ -207,11 +212,11 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 					</SideGroup>
 
 					<SideGroup
-						label="Scenes"
+						label={t('shell.groupScenes')}
 						action={
 							<IconButton
 								icon="add"
-								label="New scene"
+								label={t('shell.newScene')}
 								variant="ghost"
 								size="sm"
 								onClick={() => navigate('/scenes')}
@@ -220,7 +225,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 					>
 						{visibleScenes.length === 0 && (
 							<div style={{ padding: '6px 10px', font: `11.5px ${T.sans}`, color: T.ter }}>
-								No scenes yet.
+								{t('shell.noScenes')}
 							</div>
 						)}
 						{visibleScenes.map((s) => {
@@ -258,12 +263,14 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 									size={14}
 									color={T.ter}
 								/>
-								{showAllScenes ? 'Show fewer' : `All scenes (${scenes.length})`}
+								{showAllScenes
+									? t('shell.showFewer')
+									: t('shell.allScenes', { count: scenes.length })}
 							</button>
 						)}
 					</SideGroup>
 
-					<SideGroup label="Library">{LIBRARY.map((s) => row(s))}</SideGroup>
+					<SideGroup label={t('shell.groupLibrary')}>{LIBRARY.map((s) => row(s))}</SideGroup>
 
 					{/* The whole header is the toggle — a label-plus-tiny-chevron where only the chevron
 					    worked made the group look empty and unclickable. */}
@@ -293,7 +300,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 									color: T.ter,
 								}}
 							>
-								More · audio, graph &amp; extensions
+								{t('shell.groupMore')}
 							</span>
 							<Icon name={moreExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={T.ter} />
 						</button>
@@ -306,8 +313,8 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 				</nav>
 
 				{showRecent && (
-					<nav aria-label="Shortcuts">
-						<SideGroup label="Recent scenes">
+					<nav aria-label={t('shell.navShortcuts')}>
+						<SideGroup label={t('shell.groupRecentScenes')}>
 							{recent.map((s) => (
 								<SideRow
 									key={s.id}
@@ -323,7 +330,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 
 			{/* footer: player view + settings + account */}
 			<div style={{ borderTop: `1px solid ${T.bd}`, padding: '10px 12px' }}>
-				<nav aria-label="Settings">
+				<nav aria-label={t('shell.navSettings')}>
 					<SideRow
 						icon={PLAYER_SECTION.icon}
 						label={PLAYER_SECTION.label}
@@ -352,7 +359,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 							}}
 							title={presence.label}
 						>
-							Dungeon Master · {presence.label}
+							{t('shell.dmPresence', { presence: presence.label })}
 						</div>
 					</div>
 					<StatusDot

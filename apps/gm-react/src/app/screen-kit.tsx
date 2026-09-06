@@ -2,6 +2,7 @@ import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } fr
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '../ds';
+import { useI18n } from '../i18n';
 import { useViewport } from './useViewport';
 
 /**
@@ -346,12 +347,13 @@ export function BackBar({
 	label: ReactNode;
 	onClick?: () => void;
 }) {
+	const { t } = useI18n();
 	const navigate = useNavigate();
 	const [hover, setHover] = useState(false);
 	return (
 		// The negative offsets keep the link optically flush with the content below it now that the
 		// button carries real padding — the visual position is unchanged, only the hit box grew.
-		<nav aria-label="Breadcrumb" style={{ margin: '0 0 8px -8px' }}>
+		<nav aria-label={t('shell.breadcrumb')} style={{ margin: '0 0 8px -8px' }}>
 			<button
 				type="button"
 				onClick={onClick ?? (() => navigate(to ?? '/'))}

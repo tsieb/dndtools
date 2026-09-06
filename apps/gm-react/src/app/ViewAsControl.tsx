@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { PreviewSelection } from '@dndtools/core';
 import { Icon, Toaster } from '../ds';
+import { useI18n } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { registerBackHandler } from '../platform/backNavigation';
 import { T } from './screen-kit';
@@ -12,6 +13,7 @@ import { T } from './screen-kit';
  * (the runtime rejects writes while previewing); "Back to DM" exits. DM-only, fail-closed.
  */
 export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const [open, setOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement>(null);
@@ -55,19 +57,19 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 	// next Tab restarted from the top of the top bar (WCAG 2.4.3).
 	function preview_(selection: PreviewSelection, label: string) {
 		runtime.enterPreview(selection);
-		Toaster.info(`Previewing as ${label} · changes are read-only`);
+		Toaster.info(t('viewAs.enteredToast', { label }));
 		close(true);
 	}
 	function exit() {
 		runtime.exitPreview();
-		Toaster.success('Back to your DM view');
+		Toaster.success(t('viewAs.exitedToast'));
 		close(true);
 	}
 
 	// Only the device-owner DM may preview; a non-DM owner shouldn't see the control.
 	if (!isDm && !preview) return null;
 
-	const label = preview ? preview.label : 'DM view';
+	const label = preview ? preview.label : t('viewAs.dmView');
 
 	return (
 		<div style={{ position: 'relative', flex: '0 0 auto' }}>
@@ -76,8 +78,8 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 				type="button"
 				aria-haspopup="menu"
 				aria-expanded={open}
-				aria-label={preview ? `Previewing as ${label}` : 'Preview as another role'}
-				title={preview ? `Previewing as ${label}` : 'Preview as another role'}
+				aria-label={preview ? t('viewAs.previewingAs', { label }) : t('viewAs.trigger')}
+				title={preview ? t('viewAs.previewingAs', { label }) : t('viewAs.trigger')}
 				onClick={() => setOpen((v) => !v)}
 				style={{
 					display: 'flex',
@@ -97,7 +99,7 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 				<Icon name="visibility-players" size="sm" />
 				{!compact && (
 					<span style={{ font: `12px ${T.sans}`, whiteSpace: 'nowrap' }}>
-						{preview ? `Preview: ${label}` : 'View as'}
+						{preview ? t('viewAs.previewChip', { label }) : t('viewAs.label')}
 					</span>
 				)}
 				{!compact && <Icon name="chevron-down" size={12} />}
@@ -175,26 +177,26 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 							gap: 1,
 						}}
 					>
-						<MenuItem icon="dm-only" label="DM view" active={!preview} onClick={exit} />
+						<MenuItem icon="dm-only" label={t('viewAs.dmView')} active={!preview} onClick={exit} />
 						<div role="separator" style={{ height: 1, background: T.bd, margin: '4px 0' }} />
-						<MenuLabel>Preview as</MenuLabel>
+						<MenuLabel>{t('viewAs.previewAs')}</MenuLabel>
 						<MenuItem
 							icon="visibility-players"
-							label="Any player"
+							label={t('viewAs.anyPlayer')}
 							active={!!preview && preview.role === 'player' && !preview.specific}
-							onClick={() => preview_({ role: 'player' }, 'Player')}
+							onClick={() => preview_({ role: 'player' }, t('viewAs.player'))}
 						/>
 						<MenuItem
 							icon="eye"
-							label="Observer"
+							label={t('viewAs.observer')}
 							active={!!preview && preview.role === 'observer'}
-							onClick={() => preview_({ role: 'observer' }, 'Observer')}
+							onClick={() => preview_({ role: 'observer' }, t('viewAs.observer'))}
 						/>
 						<MenuItem
 							icon="session-bolt"
-							label="Co-DM"
+							label={t('viewAs.coDm')}
 							active={!!preview && preview.role === 'co-dm' && !preview.specific}
-							onClick={() => preview_({ role: 'co-dm' }, 'Co-DM')}
+							onClick={() => preview_({ role: 'co-dm' }, t('viewAs.coDm'))}
 						/>
 						{coDms.map((c) => (
 							<MenuItem
@@ -205,7 +207,7 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 								onClick={() => preview_({ role: 'co-dm', playerActorId: c.id }, c.displayName)}
 							/>
 						))}
-						{players.length > 0 && <MenuLabel>Specific players</MenuLabel>}
+						{players.length > 0 && <MenuLabel>{t('viewAs.specificPlayers')}</MenuLabel>}
 						{players.map((p) => (
 							<MenuItem
 								key={p.id}

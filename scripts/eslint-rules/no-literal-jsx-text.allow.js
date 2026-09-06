@@ -10,12 +10,9 @@
  * the first literal they render fails the gate.
  */
 export const allow = {
-	'apps/gm-react/src/app/AppShell.tsx': 1,
-	'apps/gm-react/src/app/CommandPalette.tsx': 1,
 	'apps/gm-react/src/app/ConnectedSources.tsx': 31,
 	'apps/gm-react/src/app/EncounterBuilder.tsx': 21,
 	'apps/gm-react/src/app/SceneBoardCanvas.tsx': 3,
-	'apps/gm-react/src/app/ViewAsControl.tsx': 6,
 	'apps/gm-react/src/app/charBuilder/Choose.tsx': 6,
 	'apps/gm-react/src/app/charBuilder/Import.tsx': 9,
 	'apps/gm-react/src/app/charBuilder/Overlay.tsx': 7,
@@ -39,11 +36,6 @@ export const allow = {
 	'apps/gm-react/src/app/map/dock/InspectorPanel.tsx': 48,
 	'apps/gm-react/src/app/map/dock/LayersPanel.tsx': 20,
 	'apps/gm-react/src/app/map/generate/GeneratePanel.tsx': 19,
-	'apps/gm-react/src/app/screen-kit.tsx': 1,
-	'apps/gm-react/src/app/shell/MoreSheet.tsx': 1,
-	'apps/gm-react/src/app/shell/RailNav.tsx': 1,
-	'apps/gm-react/src/app/shell/Sidebar.tsx': 14,
-	'apps/gm-react/src/app/shell/TopBar.tsx': 4,
 	'apps/gm-react/src/app/widget-bodies.tsx': 15,
 	'apps/gm-react/src/app/widgetBuilder/AdvancedStep.tsx': 9,
 	'apps/gm-react/src/app/widgetBuilder/CommandsStep.tsx': 8,
