@@ -3818,6 +3818,82 @@ export const en = {
 	'toolOptions.terrainStyle': 'Terrain style',
 	'toolOptions.groupLabel': '{tool} options',
 	'toolOptions.tool': 'Tool',
+	/* Map import › the three-step import dialog */
+	'mapImport.title': 'Import map',
+	'mapImport.description':
+		'Attach an image or external scene to “{name}”. Review the preview before importing; cancel at any time to leave the map unchanged.',
+	'mapImport.step.source': 'Source',
+	'mapImport.step.preview': 'Preview',
+	'mapImport.step.result': 'Result',
+	'mapImport.sourceType': 'Source type',
+	'mapImport.source.native': 'Image / SVG',
+	'mapImport.source.external': 'External scene format',
+	'mapImport.pickedFile': '{name} · {kb} KB',
+	'mapImport.choose': 'Choose an image or SVG',
+	'mapImport.accepted': 'PNG · JPG · WebP · GIF · SVG — up to {mb} MB',
+	'mapImport.format': 'Import format',
+	'mapImport.formatHelp':
+		'Choose the format that created this file. Unsupported formats are left untouched.',
+	'mapImport.elements': 'Elements the file contains',
+	'mapImport.declareHint':
+		'Scene files are not parsed in this build — declare what the file contains and the adapter classifies each element. Unsupported elements are reported, never silently dropped.',
+	'mapImport.preview': 'Preview',
+	'mapImport.cannotImport': 'This file can’t be imported.',
+	'mapImport.meta.filename': 'Filename',
+	'mapImport.meta.mime': 'MIME type',
+	'mapImport.meta.unknown': 'unknown',
+	'mapImport.meta.dimensions': 'Dimensions',
+	'mapImport.meta.byteSize': 'Byte size',
+	'mapImport.meta.fingerprint': 'File fingerprint',
+	'mapImport.pixels': '{width} × {height} px',
+	'mapImport.kilobytes': '{kb} KB',
+	'mapImport.support.importable': 'Importable',
+	'mapImport.support.lossy': 'Lossy',
+	'mapImport.support.unsupported': 'Unsupported',
+	'mapImport.support.blocked': 'Blocked',
+	'mapImport.dropped':
+		'These elements will not be imported and will remain listed in the import report:',
+	'mapImport.storageNote':
+		'Lamplight saves the file and its details on this device. The image becomes this map’s background.',
+	'mapImport.back': 'Back',
+	'mapImport.importing': 'Importing…',
+	'mapImport.import': 'Import',
+	'mapImport.failed': 'The import couldn’t be completed — try again.',
+	'mapImport.committed': 'Import committed to “{name}”',
+	'mapImport.assetDeduped': 'Asset {id} (deduped — identical bytes already imported)',
+	'mapImport.assetRecorded': 'Asset {id} recorded',
+	'mapImport.sceneRecorded': 'Scene elements recorded',
+	'mapImport.droppedCount':
+		' · {count, plural, one {# unsupported element} other {# unsupported elements}} reported & dropped',
+	'mapImport.byteError':
+		'The map was imported, but the image itself couldn’t be stored on this device: {message} The map will show its shapes without the image — free up storage and import the file again to add it.',
+
+	/* Map generators › the Generate panel */
+	'mapGenerate.none': 'No generators are registered.',
+	'mapGenerate.generate': 'Generate',
+	'mapGenerate.category': 'Category',
+	'mapGenerate.bestFor': 'Best for:',
+	'mapGenerate.presets': 'Presets',
+	'mapGenerate.seed': 'Seed',
+	'mapGenerate.seedLabel': 'Generation seed',
+	'mapGenerate.reroll': 'Reroll',
+	'mapGenerate.rerollSeed': 'Reroll seed',
+	'mapGenerate.copySeed': 'Copy seed',
+	'mapGenerate.seedHint': 'Same seed + settings reproduce an identical map.',
+	'mapGenerate.advanced': 'Advanced ({count} settings)',
+	'mapGenerate.accept': 'Accept',
+	'mapGenerate.again': 'Again',
+	'mapGenerate.added': 'Added',
+	'mapGenerate.generatorFailed': 'The generator failed to run.',
+	'mapGenerate.noGenerator': 'No generator selected.',
+	'mapGenerate.derived': 'Derived walls, doors, and lights from the generated floors.',
+	'mapGenerate.fixSetting': 'Fix the highlighted setting to preview.',
+	'mapGenerate.ghostPreview':
+		'Ghost preview on the canvas · {count, plural, one {# feature} other {# features}}. Accept to add editable layers.',
+	'mapGenerate.seedHintFull':
+		'Same seed + settings reproduce an identical map. Reroll for a new one.',
+	'mapGenerate.addedWithSummary': 'Added — {summary}',
+	'mapGenerate.derive': 'Derive walls / doors / lights',
 } as const;
 
 /** Every string the app can render, addressed by key. */

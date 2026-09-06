@@ -10,6 +10,8 @@ import { T } from '../screen-kit';
 import { putAssetBytes } from '../../platform/storage/assetStore';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { IMPORT_ELEMENT_KINDS, PanelLabel, SUPPORT_PILL, type PickedFile } from './importShared';
+import { useI18n } from '../../i18n';
+import type { MessageKey } from '../../i18n';
 
 export function ImportMapDialog({
 	mapId,
@@ -21,6 +23,7 @@ export function ImportMapDialog({
 	onClose: () => void;
 }) {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
 	const [step, setStep] = useState(0);
 	const [source, setSource] = useState<'native' | 'external'>('native');
@@ -157,9 +160,7 @@ export function ImportMapDialog({
 			// `finally` alone only un-freezes the button. `runtime.dispatch` RETHROWS after a failed
 			// persist, so without this branch Import simply did nothing, forever, with no message —
 			// the wizard sat on the preview step looking as though the click had never registered.
-			setCommitError(
-				error instanceof Error ? error.message : 'The import couldn’t be completed — try again.',
-			);
+			setCommitError(error instanceof Error ? error.message : t('mapImport.failed'));
 		} finally {
 			setBusy(false);
 		}
@@ -167,15 +168,23 @@ export function ImportMapDialog({
 
 	const canPreview =
 		source === 'native' ? picked !== null : declared.length > 0 && formatId.length > 0;
-	const meta: Array<[string, string]> = picked
+	const meta: Array<[MessageKey, string]> = picked
 		? [
-				['Filename', picked.file.name],
-				['MIME type', picked.file.type || 'unknown'],
+				['mapImport.meta.filename', picked.file.name],
+				['mapImport.meta.mime', picked.file.type || t('mapImport.meta.unknown')],
 				[
-					'Dimensions',
-					picked.dimensions ? `${picked.dimensions.width} × ${picked.dimensions.height} px` : '—',
+					'mapImport.meta.dimensions',
+					picked.dimensions
+						? t('mapImport.pixels', {
+								width: picked.dimensions.width,
+								height: picked.dimensions.height,
+							})
+						: '—',
 				],
-				['Byte size', `${(picked.bytes.length / 1024).toFixed(1)} KB`],
+				[
+					'mapImport.meta.byteSize',
+					t('mapImport.kilobytes', { kb: (picked.bytes.length / 1024).toFixed(1) }),
+				],
 			]
 		: [];
 
@@ -183,24 +192,31 @@ export function ImportMapDialog({
 		<Dialog
 			open
 			onClose={onClose}
-			title="Import map"
-			description={`Attach an image or external scene to “${mapName}”. Review the preview before importing; cancel at any time to leave the map unchanged.`}
+			title={t('mapImport.title')}
+			description={t('mapImport.description', { name: mapName })}
 			icon="import"
 			size="md"
 		>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-				<Stepper steps={['Source', 'Preview', 'Result']} current={step} />
+				<Stepper
+					steps={[
+						t('mapImport.step.source'),
+						t('mapImport.step.preview'),
+						t('mapImport.step.result'),
+					]}
+					current={step}
+				/>
 
 				{step === 0 && (
 					<>
 						<SegmentedControl
 							fullWidth
-							ariaLabel="Source type"
+							ariaLabel={t('mapImport.sourceType')}
 							value={source}
 							onChange={(v: string) => setSource(v as 'native' | 'external')}
 							options={[
-								{ value: 'native', label: 'Image / SVG' },
-								{ value: 'external', label: 'External scene format' },
+								{ value: 'native', label: t('mapImport.source.native') },
+								{ value: 'external', label: t('mapImport.source.external') },
 							]}
 						/>
 						{source === 'native' ? (
@@ -230,16 +246,17 @@ export function ImportMapDialog({
 								{picked ? (
 									<span style={{ font: `13px ${T.sans}`, color: T.sub }}>
 										<strong style={{ color: T.ink }}>{picked.file.name}</strong> ·{' '}
-										{(picked.bytes.length / 1024).toFixed(1)} KB
+										{t('mapImport.kilobytes', { kb: (picked.bytes.length / 1024).toFixed(1) })}
 									</span>
 								) : (
 									<span style={{ font: `13px ${T.sans}`, color: T.sub }}>
-										Choose an image or SVG
+										{t('mapImport.choose')}
 									</span>
 								)}
 								<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
-									PNG · JPG · WebP · GIF · SVG — up to{' '}
-									{Math.round((8 * 1024 * 1024) / (1024 * 1024))} MB
+									{t('mapImport.accepted', {
+										mb: Math.round((8 * 1024 * 1024) / (1024 * 1024)),
+									})}
 								</span>
 								{readError && (
 									<span style={{ font: `12px ${T.sans}`, color: T.err }}>{readError}</span>
@@ -247,10 +264,7 @@ export function ImportMapDialog({
 							</label>
 						) : (
 							<>
-								<Field
-									label="Import format"
-									help="Choose the format that created this file. Unsupported formats are left untouched."
-								>
+								<Field label={t('mapImport.format')} help={t('mapImport.formatHelp')}>
 									<Select
 										value={formatId}
 										options={formats.map((f) => ({ value: f, label: f }))}
@@ -258,7 +272,7 @@ export function ImportMapDialog({
 									/>
 								</Field>
 								<div>
-									<PanelLabel>Elements the file contains</PanelLabel>
+									<PanelLabel>{t('mapImport.elements')}</PanelLabel>
 									<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
 										{IMPORT_ELEMENT_KINDS.map((k) => {
 											const on = declared.includes(k);
@@ -292,16 +306,14 @@ export function ImportMapDialog({
 										})}
 									</div>
 									<div style={{ marginTop: 8, font: `11px/1.5 ${T.sans}`, color: T.ter }}>
-										Scene files are not parsed in this build — declare what the file contains and
-										the adapter classifies each element. Unsupported elements are reported, never
-										silently dropped.
+										{t('mapImport.declareHint')}
 									</div>
 								</div>
 							</>
 						)}
 						<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
 							<Button variant="ghost" size="sm" onClick={onClose}>
-								Cancel
+								{t('common.action.cancel')}
 							</Button>
 							<Button
 								variant="primary"
@@ -310,7 +322,7 @@ export function ImportMapDialog({
 								disabled={!canPreview}
 								onClick={() => setStep(1)}
 							>
-								Preview
+								{t('mapImport.preview')}
 							</Button>
 						</div>
 					</>
@@ -331,7 +343,7 @@ export function ImportMapDialog({
 							>
 								<Icon name="error" size={16} color={T.err} />
 								<span style={{ font: `13px ${T.sans}`, color: 'var(--color-status-error-text)' }}>
-									{preview.message} This file can’t be imported.
+									{preview.message} {t('mapImport.cannotImport')}
 								</span>
 							</div>
 						) : (
@@ -346,22 +358,23 @@ export function ImportMapDialog({
 											font: `13px ${T.sans}`,
 										}}
 									>
-										{[...meta, ['File fingerprint', preview.asset.id] as [string, string]].map(
-											([k, v]) => (
-												<span key={k} style={{ display: 'contents' }}>
-													<span style={{ color: T.ter }}>{k}</span>
-													<span
-														style={{
-															color: T.ink,
-															fontFamily: k === 'File fingerprint' ? T.mono : undefined,
-															wordBreak: 'break-all',
-														}}
-													>
-														{v}
-													</span>
+										{[
+											...meta,
+											['mapImport.meta.fingerprint', preview.asset.id] as [MessageKey, string],
+										].map(([k, v]) => (
+											<span key={k} style={{ display: 'contents' }}>
+												<span style={{ color: T.ter }}>{t(k)}</span>
+												<span
+													style={{
+														color: T.ink,
+														fontFamily: k === 'mapImport.meta.fingerprint' ? T.mono : undefined,
+														wordBreak: 'break-all',
+													}}
+												>
+													{v}
 												</span>
-											),
-										)}
+											</span>
+										))}
 									</div>
 								)}
 								{preview.diagnostics.length > 0 && (
@@ -394,7 +407,7 @@ export function ImportMapDialog({
 															font: `600 10.5px ${T.sans}`,
 														}}
 													>
-														<Icon name={s.icon} size={12} /> {s.label}
+														<Icon name={s.icon} size={12} /> {t(s.label)}
 													</span>
 												</div>
 											);
@@ -403,7 +416,7 @@ export function ImportMapDialog({
 								)}
 								{preview.droppedElements.length > 0 && (
 									<div style={{ font: `12px ${T.sans}`, color: T.sub }}>
-										These elements will not be imported and will remain listed in the import report:{' '}
+										{t('mapImport.dropped')}{' '}
 										<strong style={{ color: T.ink }}>{preview.droppedElements.join(', ')}</strong>
 									</div>
 								)}
@@ -420,10 +433,7 @@ export function ImportMapDialog({
 									}}
 								>
 									<Icon name="info" size={15} color={T.info} />
-									<span>
-										Lamplight saves the file and its details on this device. The image becomes this
-										map’s background.
-									</span>
+									<span>{t('mapImport.storageNote')}</span>
 								</div>
 							</>
 						)}
@@ -432,11 +442,11 @@ export function ImportMapDialog({
 						)}
 						<div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
 							<Button variant="ghost" size="sm" icon="chevron-left" onClick={() => setStep(0)}>
-								Back
+								{t('mapImport.back')}
 							</Button>
 							<div style={{ display: 'flex', gap: 8 }}>
 								<Button variant="ghost" size="sm" onClick={onClose}>
-									Cancel
+									{t('common.action.cancel')}
 								</Button>
 								{preview.ok && (
 									<Button
@@ -446,7 +456,7 @@ export function ImportMapDialog({
 										disabled={busy}
 										onClick={() => void commit()}
 									>
-										{busy ? 'Importing…' : 'Import'}
+										{busy ? t('mapImport.importing') : t('mapImport.import')}
 									</Button>
 								)}
 							</div>
@@ -469,21 +479,16 @@ export function ImportMapDialog({
 						>
 							<Icon name="success" size={20} color={T.ok} />
 							<div style={{ font: `13px ${T.sans}` }}>
-								<div style={{ fontWeight: 600, color: T.ink }}>Import committed to “{mapName}”</div>
+								<div style={{ fontWeight: 600, color: T.ink }}>
+									{t('mapImport.committed', { name: mapName })}
+								</div>
 								<div style={{ font: `12px ${T.sans}`, color: T.sub }}>
-									{result.assetId ? (
-										<>
-											Asset <span style={{ fontFamily: T.mono }}>{result.assetId}</span>
-											{result.deduped
-												? ' (deduped — identical bytes already imported)'
-												: ' recorded'}
-										</>
-									) : (
-										'Scene elements recorded'
-									)}
-									{result.dropped > 0
-										? ` · ${result.dropped} unsupported element${result.dropped === 1 ? '' : 's'} reported & dropped`
-										: ''}
+									{result.assetId
+										? result.deduped
+											? t('mapImport.assetDeduped', { id: result.assetId })
+											: t('mapImport.assetRecorded', { id: result.assetId })
+										: t('mapImport.sceneRecorded')}
+									{result.dropped > 0 ? t('mapImport.droppedCount', { count: result.dropped }) : ''}
 								</div>
 							</div>
 						</div>
@@ -501,16 +506,12 @@ export function ImportMapDialog({
 								}}
 							>
 								<Icon name="warning" size={15} color={T.warn} />
-								<span>
-									The map was imported, but the image itself couldn’t be stored on this device:{' '}
-									{result.byteError} The map will show its shapes without the image — free up
-									storage and import the file again to add it.
-								</span>
+								<span>{t('mapImport.byteError', { message: result.byteError })}</span>
 							</div>
 						)}
 						<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
 							<Button variant="primary" size="sm" onClick={onClose}>
-								Done
+								{t('common.action.done')}
 							</Button>
 						</div>
 					</>

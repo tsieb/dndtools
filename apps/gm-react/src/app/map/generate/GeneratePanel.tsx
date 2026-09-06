@@ -15,6 +15,7 @@ import { Button, Chip, Icon, Input } from '../../../ds';
 import { T, eb } from '../../screen-kit';
 import type { MapEditorApi } from '../useMapEditor';
 import { ParamControls, defaultOf } from './ParamControls';
+import { useI18n } from '../../../i18n';
 
 /** The ghost the canvas paints while a generation is being tuned. */
 export interface GenPreview {
@@ -47,6 +48,9 @@ function runLocal(
 	params: Params,
 	idPrefix: string,
 	actorId: string,
+	/** The copy for a generator that throws. Passed in because this runs outside the component,
+	 * where `useI18n` is not available (RC-UX-1.2). */
+	failureText: string,
 ): { output: GeneratorOutput } | { error: string } {
 	const resolved = resolveParams(def, params);
 	if ('error' in resolved) return { error: `${resolved.error.message}` };
@@ -60,7 +64,7 @@ function runLocal(
 		});
 		return { output };
 	} catch (err) {
-		return { error: err instanceof Error ? err.message : 'The generator failed to run.' };
+		return { error: err instanceof Error ? err.message : failureText };
 	}
 }
 
@@ -81,6 +85,7 @@ export function GeneratePanel({
 	/** Android accepts a preset as one explicit edit, then returns to navigation. */
 	quickMapMode?: boolean;
 }) {
+	const { t } = useI18n();
 	const groupsWithGenerators = useMemo(
 		() => GENERATOR_GROUPS.filter((g) => generatorsByGroup(g.id).length > 0),
 		[],
@@ -129,7 +134,14 @@ export function GeneratePanel({
 			setPreview(null);
 			return;
 		}
-		const result = runLocal(definition, seed, params, 'preview', editor.actorId);
+		const result = runLocal(
+			definition,
+			seed,
+			params,
+			'preview',
+			editor.actorId,
+			t('mapGenerate.generatorFailed'),
+		);
 		if ('error' in result) {
 			setError(result.error);
 			setPreview(null);
@@ -137,7 +149,7 @@ export function GeneratePanel({
 		}
 		setError(null);
 		setPreview({ layers: result.output.layers });
-	}, [definition, seed, params, editor.actorId, setPreview]);
+	}, [definition, seed, params, editor.actorId, setPreview, t]);
 
 	// Clear the ghost when the panel unmounts (tool switched away).
 	useEffect(() => () => setPreview(null), [setPreview]);
@@ -145,15 +157,20 @@ export function GeneratePanel({
 	const localOutput = useMemo(
 		() =>
 			definition
-				? runLocal(definition, seed, params, `gen-${seed}`, editor.actorId)
-				: { error: 'No generator selected.' },
-		[definition, seed, params, editor.actorId],
+				? runLocal(
+						definition,
+						seed,
+						params,
+						`gen-${seed}`,
+						editor.actorId,
+						t('mapGenerate.generatorFailed'),
+					)
+				: { error: t('mapGenerate.noGenerator') },
+		[definition, seed, params, editor.actorId, t],
 	);
 
 	if (!definition) {
-		return (
-			<div style={{ font: `13px ${T.sans}`, color: T.sub }}>No generators are registered.</div>
-		);
+		return <div style={{ font: `13px ${T.sans}`, color: T.sub }}>{t('mapGenerate.none')}</div>;
 	}
 
 	const applyPreset = (id: string) => {
@@ -183,7 +200,14 @@ export function GeneratePanel({
 		const idPrefix = `gen-${seed}-${Date.now().toString(36)}`;
 		// Re-derive the layer ids under the REAL prefix so the Derive step can target them; the command
 		// re-runs the generator server-side and produces byte-identical layers under the same prefix.
-		const forReal = runLocal(definition, seed, params, idPrefix, editor.actorId);
+		const forReal = runLocal(
+			definition,
+			seed,
+			params,
+			idPrefix,
+			editor.actorId,
+			t('mapGenerate.generatorFailed'),
+		);
 		const layerIds = 'output' in forReal ? forReal.output.layers.map((l) => l.id) : [];
 		const ok = await editor.run({
 			type: 'map.generate',
@@ -228,7 +252,7 @@ export function GeneratePanel({
 				visibility: 'dm-only',
 			},
 		} as never);
-		if (ok) announce('Derived walls, doors, and lights from the generated floors.');
+		if (ok) announce(t('mapGenerate.derived'));
 	}
 
 	const previewCount =
@@ -240,15 +264,17 @@ export function GeneratePanel({
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 				<Icon name="tool-generate" size={16} color={T.acc} />
-				<span style={{ font: `700 14px ${T.disp}`, color: T.ink, flex: 1 }}>Generate</span>
+				<span style={{ font: `700 14px ${T.disp}`, color: T.ink, flex: 1 }}>
+					{t('mapGenerate.generate')}
+				</span>
 				<Button variant="ghost" size="sm" icon="close" onClick={onExit}>
-					Done
+					{t('common.action.done')}
 				</Button>
 			</div>
 
 			{/* group picker */}
 			<div>
-				<div style={{ ...eb, marginBottom: 6 }}>Category</div>
+				<div style={{ ...eb, marginBottom: 6 }}>{t('mapGenerate.category')}</div>
 				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
 					{groupsWithGenerators.map((g) => {
 						const on = g.id === group;
@@ -301,7 +327,7 @@ export function GeneratePanel({
 							</span>
 							<span style={{ font: `11.5px/1.4 ${T.sans}`, color: T.sub }}>{g.description}</span>
 							<span style={{ font: `11px/1.4 ${T.sans}`, color: T.ter }}>
-								Best for: {g.bestFor}
+								{t('mapGenerate.bestFor')} {g.bestFor}
 							</span>
 						</button>
 					);
@@ -311,7 +337,7 @@ export function GeneratePanel({
 			{/* preset chips — the primary interaction */}
 			{definition.presets.length > 0 && (
 				<div>
-					<div style={{ ...eb, marginBottom: 6 }}>Presets</div>
+					<div style={{ ...eb, marginBottom: 6 }}>{t('mapGenerate.presets')}</div>
 					<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
 						{definition.presets.map((p) => {
 							const on = p.id === presetId;
@@ -342,12 +368,12 @@ export function GeneratePanel({
 
 			{/* seed */}
 			<div>
-				<div style={{ ...eb, marginBottom: 6 }}>Seed</div>
+				<div style={{ ...eb, marginBottom: 6 }}>{t('mapGenerate.seed')}</div>
 				<div style={{ display: 'flex', gap: 6 }}>
 					<Input
 						ref={seedRef}
 						value={seed}
-						aria-label="Generation seed"
+						aria-label={t('mapGenerate.seedLabel')}
 						onChange={(e: { target: { value: string } }) => setSeed(e.target.value)}
 						// Enter used to REROLL, i.e. throw away the seed you had just finished typing — and
 						// typing a seed is the whole point of the field (a shared seed reproduces someone
@@ -363,20 +389,20 @@ export function GeneratePanel({
 						size="sm"
 						icon="dice"
 						onClick={reroll}
-						aria-label="Reroll seed"
+						aria-label={t('mapGenerate.rerollSeed')}
 					>
-						Reroll
+						{t('mapGenerate.reroll')}
 					</Button>
 					<Button
 						variant="ghost"
 						size="sm"
 						icon="duplicate"
-						aria-label="Copy seed"
+						aria-label={t('mapGenerate.copySeed')}
 						onClick={() => void navigator.clipboard?.writeText(seed).catch(() => {})}
 					/>
 				</div>
 				<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 4 }}>
-					Same seed + settings reproduce an identical map. Reroll for a new one.
+					{t('mapGenerate.seedHintFull')}
 				</div>
 			</div>
 
@@ -409,7 +435,9 @@ export function GeneratePanel({
 						}}
 					>
 						<Icon name={showAdvanced ? 'chevron-down' : 'chevron-right'} size={15} color={T.ter} />
-						Advanced ({definition.params.filter((p) => p.advanced).length} settings)
+						{t('mapGenerate.advanced', {
+							count: definition.params.filter((p) => p.advanced).length,
+						})}
 					</button>
 					{showAdvanced && (
 						<ParamControls
@@ -455,8 +483,8 @@ export function GeneratePanel({
 			>
 				<div style={{ font: `11.5px ${T.sans}`, color: T.sub }}>
 					{error
-						? 'Fix the highlighted setting to preview.'
-						: `Ghost preview on the canvas · ${previewCount} features. Accept to add editable layers.`}
+						? t('mapGenerate.fixSetting')
+						: t('mapGenerate.ghostPreview', { count: previewCount })}
 				</div>
 				<div style={{ display: 'flex', gap: 8 }}>
 					<Button
@@ -470,13 +498,13 @@ export function GeneratePanel({
 						onClick={() => void accept()}
 						style={{ flex: 1 }}
 					>
-						Accept
+						{t('mapGenerate.accept')}
 					</Button>
 					<Button variant="secondary" size="sm" icon="dice" disabled={editor.busy} onClick={reroll}>
-						Again
+						{t('mapGenerate.again')}
 					</Button>
 					<Button variant="ghost" size="sm" icon="close" onClick={onExit}>
-						Cancel
+						{t('common.action.cancel')}
 					</Button>
 				</div>
 			</div>
@@ -497,7 +525,9 @@ export function GeneratePanel({
 					<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 						<Icon name="success" size={16} color={T.ok} />
 						<span style={{ font: `600 13px ${T.sans}`, color: T.ink }}>
-							Added{accepted.summary ? ` — ${accepted.summary}` : ''}
+							{accepted.summary
+								? t('mapGenerate.addedWithSummary', { summary: accepted.summary })
+								: t('mapGenerate.added')}
 						</span>
 					</div>
 					<Button
@@ -507,7 +537,7 @@ export function GeneratePanel({
 						disabled={editor.busy || accepted.layerIds.length === 0}
 						onClick={() => void deriveFrom(accepted.layerIds, accepted.seed)}
 					>
-						Derive walls / doors / lights
+						{t('mapGenerate.derive')}
 					</Button>
 					{accepted.notes && accepted.notes.length > 0 && (
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
