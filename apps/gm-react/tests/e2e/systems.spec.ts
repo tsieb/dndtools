@@ -100,6 +100,27 @@ test.describe('system package picker', () => {
 		expect(await activeSystemId(page)).toBe(DND5E);
 	});
 
+	// RC-SYS-2.6 — the acceptance criterion for vocabulary everywhere. 5e calls the person running
+	// the table the DM; Generic calls them the GM. Neither word is written into a screen: the
+	// catalog carries `{gm}` and the ACTIVE package fills it, so the chrome renames itself.
+	test('the chrome takes its words from the active package', async ({ page }) => {
+		await gotoRoute(page, '/board');
+		await waitReady(page);
+		await expect(page.getByRole('heading', { level: 1, name: 'DM screen' })).toBeVisible();
+
+		await gotoRoute(page, '/extensions');
+		await waitReady(page);
+		await openSystemTab(page);
+		await switchTo(page, 'Generic', GENERIC);
+
+		await gotoRoute(page, '/board');
+		await waitReady(page);
+		await expect(page.getByRole('heading', { level: 1, name: 'GM screen' })).toBeVisible();
+		// Not just the top bar: the same word reaches the sidebar/rail destination and the safety
+		// vocabulary on the surfaces underneath it.
+		await expect(page.getByText('DM screen')).toHaveCount(0);
+	});
+
 	test('build your own forks the package into the gallery', async ({ page }) => {
 		await page.getByRole('button', { name: /Build your own/ }).click();
 		const dialog = page.getByRole('dialog');

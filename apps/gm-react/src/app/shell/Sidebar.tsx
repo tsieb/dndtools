@@ -94,8 +94,8 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 		<SideRow
 			key={s.id}
 			icon={s.icon}
-			label={s.label}
-			sub={counts[s.id] ?? s.sub}
+			label={t(s.labelKey)}
+			sub={counts[s.id] ?? (s.subKey ? t(s.subKey) : undefined)}
 			active={active === s.id}
 			onClick={() => go(s.id)}
 			badge={badge}
@@ -333,22 +333,28 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 				<nav aria-label={t('shell.navSettings')}>
 					<SideRow
 						icon={PLAYER_SECTION.icon}
-						label={PLAYER_SECTION.label}
-						sub={PLAYER_SECTION.sub}
+						label={t(PLAYER_SECTION.labelKey)}
+						sub={PLAYER_SECTION.subKey ? t(PLAYER_SECTION.subKey) : undefined}
 						active={active === 'player'}
 						onClick={() => go('player')}
 					/>
 					<SideRow
 						icon={SETTINGS_SECTION.icon}
-						label={SETTINGS_SECTION.label}
+						label={t(SETTINGS_SECTION.labelKey)}
 						active={active === 'settings'}
 						onClick={() => go('settings')}
 					/>
 				</nav>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px 4px' }}>
-					<Avatar name={dmActor?.displayName ?? 'DM'} size="sm" ring="active" />
+					<Avatar
+						name={dmActor?.displayName ?? t('session.roster.role.dm')}
+						size="sm"
+						ring="active"
+					/>
 					<div style={{ flex: 1, minWidth: 0 }}>
-						<div style={{ font: `600 12.5px ${T.sans}` }}>{dmActor?.displayName ?? 'DM'}</div>
+						<div style={{ font: `600 12.5px ${T.sans}` }}>
+							{dmActor?.displayName ?? t('session.roster.role.dm')}
+						</div>
 						<div
 							style={{
 								font: `10.5px ${T.sans}`,

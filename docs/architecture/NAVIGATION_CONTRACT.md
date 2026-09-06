@@ -18,8 +18,14 @@ Routes are HashRouter (`react-router-dom` v6) paths. The IA is grouped:
 - **Player view** `/player` and **Settings** `/settings` (rendered in the shell footer)
 
 `activeSectionId(pathname)` resolves the active section (longest matching path wins; `/`
-is Command Center). `sectionLabel` / `sectionSubtitle` read `SECTION_TITLES` for the top
-bar (see `TOPBAR_CHARTER.md`).
+is Command Center). `sectionLabelKey` / `sectionSubtitleKey` read `SECTION_TITLES` for the
+top bar (see `TOPBAR_CHARTER.md`).
+
+Every user-visible word in `nav.ts` is a message key — `NavSection.labelKey` / `subKey` and
+both halves of `SECTION_TITLES` — and each renderer (sidebar, rail, phone tab bar, More
+sheet, top bar, command palette, Command Center's library cards) calls `t` on it. A literal
+here would leak untranslated into all seven at once. Keys whose message carries a `{gm}` or
+`{player}` placeholder also follow the active System Package's vocabulary (RC-SYS-2.6).
 
 ## 2. Layer model
 

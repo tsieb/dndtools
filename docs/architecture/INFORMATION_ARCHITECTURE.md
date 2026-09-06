@@ -51,8 +51,8 @@ Each screen is implemented in `apps/gm-react/src/screens/*.tsx`.
 2. Every destination has exactly one home in exactly one group; a feature is not a first-class
    destination in two places.
 3. Cross-group references are contextual links, not duplicate global destinations.
-4. Per-destination top-bar title/subtitle come from `SECTION_TITLES` in `nav.ts` — see
-   [TOPBAR_CHARTER.md](TOPBAR_CHARTER.md).
+4. Per-destination top-bar title/subtitle come from `SECTION_TITLES` in `nav.ts`, as message
+   keys rendered with `t` — see [TOPBAR_CHARTER.md](TOPBAR_CHARTER.md).
 5. Section icons are mutually exclusive and drawn from the one icon vocabulary — see
    [NAVIGATION_ICONOGRAPHY.md](NAVIGATION_ICONOGRAPHY.md).
 

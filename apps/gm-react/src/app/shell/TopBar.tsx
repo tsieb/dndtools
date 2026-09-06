@@ -6,7 +6,7 @@ import { ViewAsControl } from '../ViewAsControl';
 import { ProjectionControl } from '../ProjectionControl';
 import { HostSessionButton, AccountButton } from '../../net/SessionPanel';
 import { useViewport } from '../useViewport';
-import { activeSectionId, sectionLabel, sectionSubtitle } from '../nav';
+import { activeSectionId, sectionLabelKey, sectionSubtitleKey } from '../nav';
 import { T } from '../screen-kit';
 
 /* The calm top bar — title / subtitle, ⌘K search, view-as + projection, and on compact widths the
@@ -25,8 +25,11 @@ export function TopBar({
 	const location = useLocation();
 	const [controlsOpen, setControlsOpen] = useState(false);
 	const id = activeSectionId(location.pathname);
-	const title = sectionLabel(id);
-	const sub = sectionSubtitle(id);
+	// Title and subtitle are message keys (RC-UX-1.2) whose text may carry the system package's
+	// vocabulary (RC-SYS-2.6) — "DM screen" under 5e, "GM screen" under Generic.
+	const title = t(sectionLabelKey(id));
+	const subtitleKey = sectionSubtitleKey(id);
+	const sub = subtitleKey ? t(subtitleKey) : '';
 	const compact = viewport !== 'desktop' || compactToolbar;
 	return (
 		<>

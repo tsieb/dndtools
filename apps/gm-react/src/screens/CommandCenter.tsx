@@ -604,9 +604,9 @@ export function CommandCenter() {
 								<Icon name={l.icon} size="md" />
 							</span>
 							<div style={{ flex: 1, minWidth: 0 }}>
-								<div style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>{l.label}</div>
+								<div style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>{t(l.labelKey)}</div>
 								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-									{libraryCounts[l.id] ?? l.sub}
+									{libraryCounts[l.id] ?? (l.subKey ? t(l.subKey) : '')}
 								</div>
 							</div>
 							<Icon name="chevron-right" size="sm" color={T.ter} />

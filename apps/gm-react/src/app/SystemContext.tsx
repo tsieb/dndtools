@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { getActiveSystemForActor } from '@dndtools/core';
 import { SystemProvider } from '../ds';
+import { VocabularyProvider, useI18n } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 
 /**
@@ -15,15 +16,27 @@ import { useRuntime } from '../runtime/RuntimeContext';
  *
  * Before the vault has loaded the runtime already holds the hydrated default package, so there is
  * no window where conditions are missing.
+ *
+ * RC-SYS-2.6 adds the package's VOCABULARY on the same read. Chrome, screens and copy call
+ * `t('…')` as before; the placeholders those messages carry (`{gm}`, `{spell}`, `{levelUp}`) are
+ * filled here, so switching the campaign to Generic renames the Game Master everywhere at once
+ * instead of screen by screen.
  */
 export function AppSystemProvider({ children }: { children: ReactNode }) {
 	const runtime = useRuntime();
 	const state = runtime.state;
-	const conditions = useMemo(
+	const { locale } = useI18n();
+	const activePackage = useMemo(
 		() =>
-			getActiveSystemForActor(state.systems, state.permissions, runtime.activeActorId).activePackage
-				.conditions,
+			getActiveSystemForActor(state.systems, state.permissions, runtime.activeActorId)
+				.activePackage,
 		[state.systems, state.permissions, runtime.activeActorId],
 	);
-	return <SystemProvider conditions={conditions}>{children}</SystemProvider>;
+	return (
+		<SystemProvider conditions={activePackage.conditions}>
+			<VocabularyProvider vocabulary={activePackage.vocabulary} locale={locale}>
+				{children}
+			</VocabularyProvider>
+		</SystemProvider>
+	);
 }

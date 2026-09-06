@@ -28,8 +28,8 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
 					<SideRow
 						key={s.id}
 						icon={s.icon}
-						label={s.label}
-						sub={s.sub}
+						label={t(s.labelKey)}
+						sub={s.subKey ? t(s.subKey) : undefined}
 						active={active === s.id}
 						onClick={() => {
 							onClose();

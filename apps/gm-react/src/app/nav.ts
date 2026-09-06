@@ -1,31 +1,46 @@
 // The single navigation source of truth for the React app — the prototype's grouped IA
 // (Run the table / Library / Platform + Player view + Settings), mapped to real react-router routes.
+//
+// Every user-visible word here is a MESSAGE KEY, never English text (RC-UX-1.2): navigation is the
+// one place the whole app reads its own names from, so a literal here would leak untranslated into
+// the sidebar, the rail, the phone tab bar, the More sheet and the top bar at once. The keys whose
+// message carries a `{gm}`/`{player}` placeholder additionally follow the active system package's
+// vocabulary (RC-SYS-2.6) — the board section is the "DM screen" under 5e and the "GM screen" under
+// Generic without this file knowing either word.
+
+import type { MessageKey } from '../i18n';
 
 export interface NavSection {
 	id: string;
-	label: string;
+	labelKey: MessageKey;
 	icon: string;
 	path: string;
 	/** Optional secondary line shown under the label in the sidebar. */
-	sub?: string;
+	subKey?: MessageKey;
 }
 
 /** Run the table — the live-play destinations. */
 export const RUN: NavSection[] = [
-	{ id: 'home', label: 'Command Center', icon: 'home', path: '/', sub: 'Campaign home' },
+	{
+		id: 'home',
+		labelKey: 'nav.commandCenter',
+		icon: 'home',
+		path: '/',
+		subKey: 'nav.sub.home',
+	},
 	{
 		id: 'board',
-		label: 'GM Screen',
+		labelKey: 'nav.gmScreen',
 		icon: 'widget',
 		path: '/board',
-		sub: 'Dice, initiative & trackers',
+		subKey: 'nav.sub.board',
 	},
 	{
 		id: 'session',
-		label: 'Session',
+		labelKey: 'nav.session',
 		icon: 'session-bolt',
 		path: '/session',
-		sub: 'Live play & combat',
+		subKey: 'nav.sub.session',
 	},
 ];
 
@@ -34,95 +49,109 @@ export const RUN: NavSection[] = [
 export const LIBRARY: NavSection[] = [
 	{
 		id: 'characters',
-		label: 'Characters',
+		labelKey: 'nav.characters',
 		icon: 'characters-person',
 		path: '/characters',
-		sub: 'PCs, NPCs & bestiary',
+		subKey: 'nav.sub.characters',
 	},
-	{ id: 'atlas', label: 'Maps', icon: 'atlas-map', path: '/atlas', sub: 'Maps & locations' },
+	{
+		id: 'atlas',
+		labelKey: 'nav.maps',
+		icon: 'atlas-map',
+		path: '/atlas',
+		subKey: 'nav.sub.atlas',
+	},
 	{
 		id: 'campaign',
-		label: 'Story',
+		labelKey: 'nav.story',
 		icon: 'campaign-scroll',
 		path: '/campaign',
-		sub: 'Quests, factions & timeline',
+		subKey: 'nav.sub.campaign',
 	},
 	{
 		id: 'knowledge',
-		label: 'Notes',
+		labelKey: 'nav.notes',
 		icon: 'knowledge-book',
 		path: '/knowledge',
-		sub: 'Notes & handouts',
+		subKey: 'nav.sub.knowledge',
 	},
 ];
 
 /** Platform surfaces — graph, audio, extensions, community, plans & cloud. */
 export const PLATFORM: NavSection[] = [
-	{ id: 'graph', label: 'Graph & Search', icon: 'group', path: '/graph', sub: 'Relationships' },
-	{ id: 'audio', label: 'Audio', icon: 'audio', path: '/audio', sub: 'Soundboard · ambience' },
+	{
+		id: 'graph',
+		labelKey: 'nav.graph',
+		icon: 'group',
+		path: '/graph',
+		subKey: 'nav.sub.graph',
+	},
+	{
+		id: 'audio',
+		labelKey: 'nav.audio',
+		icon: 'audio',
+		path: '/audio',
+		subKey: 'nav.sub.audio',
+	},
 	{
 		id: 'extensibility',
-		label: 'Extensions',
+		labelKey: 'nav.extensions',
 		icon: 'widget',
 		path: '/extensions',
-		sub: 'Plugins · systems',
+		subKey: 'nav.sub.extensibility',
 	},
 	{
 		id: 'community',
-		label: 'Community',
+		labelKey: 'nav.community',
 		icon: 'globe',
 		path: '/community',
-		sub: 'Browse · publish',
+		subKey: 'nav.sub.community',
 	},
 	{
 		id: 'pricing',
-		label: 'Plans & cloud',
+		labelKey: 'nav.pricing',
 		icon: 'CreditCard',
 		path: '/upgrade',
-		sub: 'Compare · preview',
+		subKey: 'nav.sub.pricing',
 	},
 ];
 
 export const PLAYER_SECTION: NavSection = {
 	id: 'player',
-	label: 'Player view',
+	labelKey: 'nav.playerView',
 	icon: 'UserCircle',
 	path: '/player',
-	sub: 'Your character at the table',
+	subKey: 'nav.sub.player',
 };
 
 export const SETTINGS_SECTION: NavSection = {
 	id: 'settings',
-	label: 'Settings',
+	labelKey: 'nav.settings',
 	icon: 'settings-gear',
 	path: '/settings',
 };
 
 const ALL = [...RUN, ...LIBRARY, ...PLATFORM, PLAYER_SECTION, SETTINGS_SECTION];
 
-/** Per-section [title, subtitle] for the top bar — mirrors the prototype's SECTION_TITLES. */
-export const SECTION_TITLES: Record<string, [string, string]> = {
-	home: ['Command Center', 'Your campaign hub — resume the live scene or jump anywhere'],
-	board: ['GM Screen', 'Your table dashboard — dice, initiative, timers, and trackers'],
-	session: ['Session', 'The live scene: combat, dice, maps, and what players see'],
-	characters: ['Characters', 'The party, your NPCs, and the bestiary'],
-	atlas: ['Maps', 'Maps, locations, fog, and projection'],
-	campaign: ['Story', 'Threads, factions, NPCs, and the timeline'],
-	knowledge: ['Notes', 'Notes, handouts, and read-aloud text'],
-	scenes: ['Scenes', 'The canvases your table plays on — build, edit, and stage them'],
-	graph: ['Graph & Search', 'Every entity and connection visible to your current role'],
-	audio: ['Audio & Atmosphere', 'Soundboard cues, layered ambience, and scene bindings'],
-	extensibility: [
-		'Extensions & Systems',
-		'Plugins, the compendium, custom objects, and the rules module',
-	],
-	community: ['Community', 'Browse modules, export your work, and publish the campaign wiki'],
-	pricing: [
-		'Plans & cloud',
-		'Local play stays free. Optional hosted plans are in a no-charge preview',
-	],
-	player: ['Player', 'The second persona: your own sheet, resources, and journal'],
-	settings: ['Settings', 'Appearance, players, permissions, and systems'],
+/** Per-section [title key, subtitle key] for the top bar — mirrors the prototype's SECTION_TITLES.
+ * Keys, not text: the top bar renders them with `t`, so both the locale and the system package's
+ * vocabulary reach the largest words on the screen. */
+export const SECTION_TITLES: Record<string, [MessageKey, MessageKey]> = {
+	home: ['nav.commandCenter', 'section.sub.home'],
+	board: ['nav.gmScreen', 'section.sub.board'],
+	session: ['nav.session', 'section.sub.session'],
+	characters: ['nav.characters', 'section.sub.characters'],
+	atlas: ['nav.maps', 'section.sub.atlas'],
+	campaign: ['nav.story', 'section.sub.campaign'],
+	knowledge: ['nav.notes', 'section.sub.knowledge'],
+	scenes: ['nav.scenes', 'section.sub.scenes'],
+	graph: ['nav.graph', 'section.sub.graph'],
+	audio: ['section.audio', 'section.sub.audio'],
+	extensibility: ['section.extensibility', 'section.sub.extensibility'],
+	community: ['nav.community', 'section.sub.community'],
+	pricing: ['nav.pricing', 'section.sub.pricing'],
+	player: ['section.player', 'section.sub.player'],
+	settings: ['nav.settings', 'section.sub.settings'],
 };
 
 /** Resolve the active section id for a pathname (longest matching path wins; `/` is home). */
@@ -144,10 +173,12 @@ export function activeSectionId(pathname: string): string {
 	return best?.id ?? 'home';
 }
 
-export function sectionLabel(id: string): string {
-	return SECTION_TITLES[id]?.[0] ?? ALL.find((s) => s.id === id)?.label ?? 'Command Center';
+/** The top bar's title, as a message key the caller renders with `t`. */
+export function sectionLabelKey(id: string): MessageKey {
+	return SECTION_TITLES[id]?.[0] ?? ALL.find((s) => s.id === id)?.labelKey ?? 'nav.commandCenter';
 }
 
-export function sectionSubtitle(id: string): string {
-	return SECTION_TITLES[id]?.[1] ?? '';
+/** The top bar's subtitle key, or null for a section that has no second line. */
+export function sectionSubtitleKey(id: string): MessageKey | null {
+	return SECTION_TITLES[id]?.[1] ?? null;
 }

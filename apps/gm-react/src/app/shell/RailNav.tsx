@@ -25,7 +25,7 @@ export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 			items={ALL_SECTIONS.map((s) => ({
 				key: s.id,
 				icon: s.icon,
-				label: s.label,
+				label: t(s.labelKey),
 				badge: s.id === 'session' && liveDot ? '•' : undefined,
 			}))}
 			active={active}

@@ -129,10 +129,10 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 		const sections = [...RUN, ...LIBRARY, ...PLATFORM, PLAYER_SECTION, SETTINGS_SECTION].map(
 			(s) => ({
 				id: `nav:${s.id}`,
-				label: s.label,
+				label: t(s.labelKey),
 				icon: s.icon,
 				group: t('palette.group.goTo'),
-				keywords: s.sub ?? '',
+				keywords: s.subKey ? t(s.subKey) : '',
 				run: goTo(s.path),
 			}),
 		);

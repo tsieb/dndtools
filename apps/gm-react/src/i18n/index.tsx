@@ -13,8 +13,17 @@ import {
 	type UnitSystem,
 } from './format';
 import { en, type MessageKey } from './messages/en';
+// RC-SYS-2.6 — the active system package's words reach `t` from here.
+import { useVocabulary, withVocabulary } from './vocabulary';
 
 export type { MessageCatalog, MessageKey, MessageValues, UnitSystem };
+export {
+	DEFAULT_VOCABULARY,
+	VocabularyProvider,
+	useVocabulary,
+	vocabularyValues,
+	type VocabularyValues,
+} from './vocabulary';
 
 /** The persisted preference is deliberately app-owned, rather than a browser setting: a GM can
  * share a device and needs the chosen language to survive relaunches and native shells. It is not
@@ -144,8 +153,18 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 	return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 
+/**
+ * The app's translator. `t` is wrapped rather than returned raw so that every call site — all of
+ * them, without a single edit — resolves the rules system's vocabulary placeholders (`{gm}`,
+ * `{spell}`, `{levelUp}`) from the ACTIVE system package (RC-SYS-2.6). A caller that passes its
+ * own value for one of those names still wins.
+ */
 export function useI18n(): I18nContextValue {
 	const context = useContext(I18nContext);
 	if (!context) throw new Error('useI18n must be used inside I18nProvider.');
-	return context;
+	const vocabulary = useVocabulary();
+	return useMemo(
+		() => ({ ...context, t: (key, values) => context.t(key, withVocabulary(vocabulary, values)) }),
+		[context, vocabulary],
+	);
 }

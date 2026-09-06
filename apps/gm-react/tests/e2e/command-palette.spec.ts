@@ -86,9 +86,10 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 	test('searching a section destination and selecting it navigates there', async ({ page }) => {
 		await openViaKeyboard(page, 'Meta+k');
 
-		// "Go to" launchers are static section destinations. GM Screen is distinctive (→ /board).
-		await page.getByRole('combobox').fill('GM Screen');
-		const option = page.getByRole('option', { name: 'GM Screen' });
+		// "Go to" launchers are static section destinations. The GM Screen is distinctive (→ /board); its
+		// name follows the system package's vocabulary, so under 5e it reads "DM screen" (RC-SYS-2.6).
+		await page.getByRole('combobox').fill('DM screen');
+		const option = page.getByRole('option', { name: 'DM screen' });
 		await expect(option).toBeVisible();
 		await option.click();
 

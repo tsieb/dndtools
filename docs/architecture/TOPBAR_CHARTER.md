@@ -10,8 +10,13 @@ utilities. It does **not** host content actions.
 ## Source Of Truth
 
 - Renderer: the `TopBar` component in `apps/gm-react/src/app/AppShell.tsx`.
+- Renderer: `apps/gm-react/src/app/shell/TopBar.tsx`.
 - Title/subtitle data: `SECTION_TITLES` in `apps/gm-react/src/app/nav.ts`, resolved via
-  `sectionLabel(id)` / `sectionSubtitle(id)` keyed off `activeSectionId(pathname)`.
+  `sectionLabelKey(id)` / `sectionSubtitleKey(id)` keyed off `activeSectionId(pathname)`.
+  Both return a **message key**, never English text: the top bar renders it with `t`, so the
+  title follows the locale and — where the message carries a `{gm}` placeholder — the active
+  System Package's vocabulary (RC-SYS-2.6, ADR-032 §4). The board section is the "DM screen"
+  under 5e and the "GM screen" under Generic without this file naming either.
 
 ## Included Responsibilities
 
@@ -36,7 +41,7 @@ The top bar must not host:
 ## Guardrails
 
 1. The utility cluster stays right-aligned and compact.
-2. Section title/subtitle come only from `SECTION_TITLES`; add a section's copy there, not
-   inline in the component.
+2. Section title/subtitle come only from `SECTION_TITLES`; add a section's copy there as a
+   message key in `i18n/messages/en.ts` (and `es.ts`), not as inline text in the component.
 3. Any new top-bar control must justify cross-route utility relevance and preserve the
    global/local/contextual separation defined in `NAVIGATION_CONTRACT.md`.

@@ -28,8 +28,8 @@ test.describe('UX audit harness: populated and keyboard states', () => {
 		await expect(dialog).toBeVisible();
 		const search = dialog.getByRole('combobox');
 		await expectFocusedInputVisible(search, 'command palette search');
-		await search.fill('GM Screen');
-		await expect(dialog.getByRole('option', { name: 'GM Screen' })).toBeVisible();
+		await search.fill('DM screen');
+		await expect(dialog.getByRole('option', { name: 'DM screen' })).toBeVisible();
 		await expectInteractiveControlsReachable(page, dialog, 'command palette');
 	});
 
