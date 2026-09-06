@@ -13,31 +13,7 @@ import type { MapEditorApi } from '../useMapEditor';
 import { VIS_TEXT, bulkResultMessage } from '../mapVocab';
 import { useI18n } from '../../../i18n';
 import type { MessageKey } from '../../../i18n';
-
-const VIS_CHIP: Record<string, string> = {
-	'dm-only': 'dm-only',
-	'player-visible': 'players',
-	shared: 'players',
-};
-const POI_CATEGORIES = [
-	'settlement',
-	'landmark',
-	'dungeon',
-	'quest',
-	'hazard',
-	'shop',
-	'npc',
-	'note',
-	'other',
-] as const;
-
-/** The three visibility levels as the Select renders them — the same copy `VIS_TEXT` carries, but
- * addressed by key so a translated build shows a translated option. */
-const VIS_OPTION_KEYS: { value: SceneVisibility; label: MessageKey }[] = [
-	{ value: 'dm-only', label: 'common.visibility.dmOnly' },
-	{ value: 'player-visible', label: 'common.visibility.playerVisible' },
-	{ value: 'shared', label: 'common.visibility.shared' },
-];
+import { POI_CATEGORIES, VIS_CHIP, VIS_OPTION_KEYS } from './inspectorVocab';
 
 /**
  * A Slider whose DURABLE write happens once per gesture instead of once per step.

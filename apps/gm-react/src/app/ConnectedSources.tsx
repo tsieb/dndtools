@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { getContentItemsForActor, parseMarkdownNote, type ContentItemView } from '@dndtools/core';
+import { getContentItemsForActor, parseMarkdownNote } from '@dndtools/core';
 import { Badge, Button, Dialog, Icon, Input, Select, Toaster, VisibilityChip } from '../ds';
 import { Panel, T } from './screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useI18n } from '../i18n';
-import type { MessageKey } from '../i18n';
+import { PULL_POLICIES, errText, slugStem, viewToPlanNote, when } from './connectedSourcesVocab';
 import {
 	WALK_MAX_FILES,
 	connectFolderSource,
@@ -18,7 +18,6 @@ import {
 	writeBack,
 	type FolderSourceRecord,
 	type PushPlan,
-	type PushPlanNote,
 } from '../platform/fsSource';
 import {
 	addGdocConnection,
@@ -48,48 +47,6 @@ import {
  * lossy push is confirmed up front with the plan's union loss summary; each item still carries its
  * own acknowledgment token, so the core re-checks per item.
  */
-
-const PULL_POLICIES: { value: string; label: MessageKey }[] = [
-	{ value: 'skip', label: 'sources.policy.skip' },
-	{ value: 'overwrite', label: 'sources.policy.overwrite' },
-	{ value: 'keep-both', label: 'sources.policy.keepBoth' },
-];
-
-/** The last-synced stamp, in the reader's locale — the caller passes the i18n date formatter and
- * the word for "no sync yet", since this is a plain function outside the component. */
-function when(
-	iso: string | null,
-	formatDate: (value: Date | number, options?: Intl.DateTimeFormatOptions) => string,
-	never: string,
-): string {
-	if (!iso) return never;
-	const d = new Date(iso);
-	if (Number.isNaN(d.getTime())) return never;
-	return formatDate(d, { month: 'short', day: 'numeric' });
-}
-
-function slugStem(title: string, fallback: string): string {
-	const stem = title
-		.trim()
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, '-')
-		.replace(/^-+|-+$/g, '');
-	return stem === '' ? fallback : stem;
-}
-
-function viewToPlanNote(note: ContentItemView): PushPlanNote {
-	return {
-		id: note.id,
-		title: note.title,
-		body: note.body,
-		fields: note.fields,
-		visibility: note.visibility,
-	};
-}
-
-function errText(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
 
 interface PendingPush {
 	kind: 'folder' | 'gdoc';

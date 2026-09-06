@@ -29,10 +29,19 @@ import {
 } from '../ds';
 import { Page, Panel, T, eb } from '../app/screen-kit';
 import { useI18n } from '../i18n';
-import type { MessageKey } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
-
-type Translate = (key: MessageKey, values?: Record<string, string | number>) => string;
+import {
+	FACTION_KIND_OPTIONS,
+	KIND_LABEL,
+	QUEST_CARD_STATUS,
+	QUEST_STATUS_OPTIONS,
+	STANCE_OPTIONS,
+	STANCE_TONE,
+	VIS_CHIP,
+	VIS_OPTIONS,
+	optionLabel,
+	options,
+} from './campaignVocab';
 
 /**
  * Campaign — the structured-entity / world-model lens, wired to the live Processing Core.
@@ -48,82 +57,6 @@ type Translate = (key: MessageKey, values?: Record<string, string | number>) => 
  * core's CONTENT-013 AC3 projection, not client-side filtering). Campaign-date AUTHORING lives on
  * the Session surface (not here), so this screen never invents an out-of-surface write control.
  */
-
-const STANCE_TONE: Record<string, string> = {
-	hostile: 'error',
-	neutral: 'neutral',
-	friendly: 'success',
-	allied: 'accent',
-};
-
-// Every option table below carries a message KEY, not a label: the caller renders it with `t` so a
-// non-English locale gets the translated option instead of the English source (RC-UX-1.2).
-const STANCE_OPTIONS: { value: string; label: MessageKey }[] = [
-	{ value: 'hostile', label: 'campaign.stance.hostile' },
-	{ value: 'neutral', label: 'campaign.stance.neutral' },
-	{ value: 'friendly', label: 'campaign.stance.friendly' },
-	{ value: 'allied', label: 'campaign.stance.allied' },
-];
-
-// The `quest` subtype's declared status vocabulary (schemas: active | completed | failed | paused).
-const QUEST_STATUS_OPTIONS: { value: string; label: MessageKey }[] = [
-	{ value: 'active', label: 'campaign.questStatus.active' },
-	{ value: 'completed', label: 'campaign.questStatus.completed' },
-	{ value: 'failed', label: 'campaign.questStatus.failed' },
-	{ value: 'paused', label: 'campaign.questStatus.paused' },
-];
-
-// Core quest status → the DS QuestCard status key (the card calls the paused state "onhold").
-const QUEST_CARD_STATUS: Record<string, string> = {
-	active: 'active',
-	completed: 'completed',
-	failed: 'failed',
-	paused: 'onhold',
-};
-
-const FACTION_KIND_OPTIONS: { value: string; label: MessageKey }[] = [
-	{ value: 'cult', label: 'campaign.factionKind.cult' },
-	{ value: 'militia', label: 'campaign.factionKind.militia' },
-	{ value: 'guild', label: 'campaign.factionKind.guild' },
-	{ value: 'party', label: 'campaign.factionKind.party' },
-	{ value: 'order', label: 'campaign.factionKind.order' },
-	{ value: 'other', label: 'campaign.factionKind.other' },
-];
-
-// Core visibility → the safety-critical VisibilityChip level (same map as Knowledge).
-const VIS_CHIP: Record<string, string> = {
-	'dm-only': 'dm-only',
-	'player-visible': 'players',
-	shared: 'players',
-};
-const VIS_OPTIONS: { value: string; label: MessageKey }[] = [
-	{ value: 'dm-only', label: 'common.visibility.dmOnly' },
-	{ value: 'player-visible', label: 'campaign.vis.players' },
-	{ value: 'shared', label: 'common.visibility.shared' },
-];
-
-const KIND_LABEL: Record<string, MessageKey> = {
-	pc: 'characters.kind.pc',
-	npc: 'characters.kind.npc',
-	monster: 'characters.kind.monster',
-	sidekick: 'characters.kind.sidekick',
-};
-
-/** A key-carrying option table rendered for the DS `Select`, which wants plain labels. */
-const options = (table: { value: string; label: MessageKey }[], t: Translate) =>
-	table.map((option) => ({ value: option.value, label: t(option.label) }));
-
-/** One option's label — or the stored value itself, should the subtype's vocabulary ever widen
- * past what this screen declares. Falling back to the raw value keeps a widened schema readable
- * instead of silently relabelling it as something else. */
-const optionLabel = (
-	table: { value: string; label: MessageKey }[],
-	value: string,
-	t: Translate,
-) => {
-	const key = table.find((option) => option.value === value)?.label;
-	return key ? t(key) : value;
-};
 
 /** First non-heading body line, marker-stripped — the one-line summary for list cards. */
 function bodySummary(body: string, fallback: string): string {
