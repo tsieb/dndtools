@@ -16,6 +16,10 @@ export const allow = {
 	'apps/gm-react/src/app/map/ImportMapDialog.tsx': 20,
 	'apps/gm-react/src/app/map/MapEditor.tsx': 22,
 	'apps/gm-react/src/app/map/ToolOptionsBar.tsx': 22,
+	// Blocked on RC-STB-2.7, not on the migration: this file is a grandfathered file-size
+	// exception sitting exactly at its 1079-line baseline, and the `useI18n` import plus the
+	// hook call cost two lines the gate will not allow. It migrates once the file is split.
+	'apps/gm-react/src/app/map/canvas/EditorCanvas.tsx': 4,
 	'apps/gm-react/src/app/map/dock/AssetsPanel.tsx': 7,
 	'apps/gm-react/src/app/map/dock/HistoryPanel.tsx': 7,
 	'apps/gm-react/src/app/map/dock/InspectorPanel.tsx': 48,
