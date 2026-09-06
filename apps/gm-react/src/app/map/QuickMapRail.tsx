@@ -2,6 +2,7 @@ import { Icon } from '../../ds';
 import { T } from '../screen-kit';
 import { QUICK_MAP_TOOL_IDS } from './quickMap';
 import { TOOLS_BY_ID, type ToolId } from './tools';
+import { useI18n } from '../../i18n';
 
 export function QuickMapRail({
 	activeTool,
@@ -20,10 +21,11 @@ export function QuickMapRail({
 	onRedo: () => void;
 	onPanels: () => void;
 }) {
+	const { t } = useI18n();
 	return (
 		<div
 			role="toolbar"
-			aria-label="Quick map actions"
+			aria-label={t('mapEditor.quickActions')}
 			style={{
 				display: 'flex',
 				alignItems: 'stretch',
@@ -75,9 +77,9 @@ export function QuickMapRail({
 				aria-hidden
 				style={{ width: 1, margin: '5px 2px', background: T.bd, flex: '0 0 auto' }}
 			/>
-			<QuickAction icon="undo" label="Undo" disabled={!canUndo} onClick={onUndo} />
-			<QuickAction icon="redo" label="Redo" disabled={!canRedo} onClick={onRedo} />
-			<QuickAction icon="layers" label="Panels" onClick={onPanels} />
+			<QuickAction icon="undo" label={t('mapEditor.undo')} disabled={!canUndo} onClick={onUndo} />
+			<QuickAction icon="redo" label={t('mapEditor.redo')} disabled={!canRedo} onClick={onRedo} />
+			<QuickAction icon="layers" label={t('mapEditor.panels')} onClick={onPanels} />
 		</div>
 	);
 }

@@ -18,6 +18,7 @@ import { viewportForPinch } from '../quickMap';
 import { TOOLS_BY_ID } from '../tools';
 import { categoryForTool } from '../useMapEditor';
 import type { MapEditorApi } from '../useMapEditor';
+import { useI18n } from '../../../i18n';
 
 const MemoMapCanvas = memo(MapCanvas);
 
@@ -78,6 +79,7 @@ export function EditorCanvas({
 	onCursor: (p: Pt | null) => void;
 	quickMapMode?: boolean;
 }) {
+	const { t } = useI18n();
 	const { tool, options, zoom, center, layers } = editor;
 	const containerRef = useRef<HTMLDivElement>(null);
 	const zoomRef = useRef(zoom);
@@ -988,21 +990,21 @@ export function EditorCanvas({
 			>
 				<IconButton
 					icon="zoom-in"
-					label="Zoom in"
+					label={t('atlas.zoomIn')}
 					variant="outline"
 					size="sm"
 					onClick={() => editor.setZoom(Math.min(6, +(zoom + 0.2).toFixed(2)))}
 				/>
 				<IconButton
 					icon="zoom-out"
-					label="Zoom out"
+					label={t('atlas.zoomOut')}
 					variant="outline"
 					size="sm"
 					onClick={() => editor.setZoom(Math.max(0.4, +(zoom - 0.2).toFixed(2)))}
 				/>
 				<IconButton
 					icon="zoom-fit"
-					label="Fit"
+					label={t('atlas.fit')}
 					variant="outline"
 					size="sm"
 					onClick={() => {
@@ -1071,7 +1073,7 @@ export function EditorCanvas({
 						color: T.sub,
 					}}
 				>
-					Click to add points · Enter or double-click finishes · Esc cancels
+					{t('mapEditor.polygonHint')}
 				</div>
 			)}
 		</div>

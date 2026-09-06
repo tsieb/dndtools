@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button, DefinitionList, Field, Input, Select, Switch, Textarea } from '../../../ds';
+import { useI18n } from '../../../i18n';
 import {
 	ComputedFields,
 	TemplateNote,
@@ -27,6 +28,7 @@ import {
  * becomes an op.
  */
 export function FormPanelTemplate({ widget, definition, data, onCommand }: WidgetTemplateProps) {
+	const { t } = useI18n();
 	const fields = (definition?.configFields ?? widget.configFields).filter(
 		(field) => (field.group ?? 'content') === 'content',
 	);
@@ -43,7 +45,7 @@ export function FormPanelTemplate({ widget, definition, data, onCommand }: Widge
 	if (fields.length === 0) {
 		return (
 			<TemplateShell testId="widget-template-form-panel">
-				<TemplateNote>This form has no fields yet.</TemplateNote>
+				<TemplateNote>{t('widgetTemplate.noFields')}</TemplateNote>
 				<ComputedFields data={data} />
 			</TemplateShell>
 		);
@@ -52,7 +54,7 @@ export function FormPanelTemplate({ widget, definition, data, onCommand }: Widge
 	if (!command) {
 		return (
 			<TemplateShell testId="widget-template-form-panel">
-				<TemplateNote>This form has no action yet, so it shows its current settings.</TemplateNote>
+				<TemplateNote>{t('widgetTemplate.noAction')}</TemplateNote>
 				<DefinitionList
 					layout="stacked"
 					items={fields.map((field) => ({

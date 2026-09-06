@@ -1,5 +1,6 @@
 import { DefinitionList, ProgressMeter, Stat } from '../../../ds';
 import { TemplateEmpty, TemplateNote, TemplateShell, type WidgetTemplateProps } from './shared';
+import { useI18n } from '../../../i18n';
 
 /**
  * `stat-block` — ONE subject in detail (RC-WID-1.2): the bound character, the active combatant, the
@@ -13,6 +14,7 @@ import { TemplateEmpty, TemplateNote, TemplateShell, type WidgetTemplateProps } 
  * multi-row query is not silently truncated to one.
  */
 export function StatBlockTemplate({ data }: WidgetTemplateProps) {
+	const { t } = useI18n();
 	const query = data.primary;
 	const rows = query?.rows ?? [];
 	const subject = rows.find((row) => row.active) ?? rows[0] ?? null;
@@ -50,7 +52,9 @@ export function StatBlockTemplate({ data }: WidgetTemplateProps) {
 				/>
 			)}
 			{items.length > 0 ? <DefinitionList layout="stacked" items={items} /> : null}
-			{rows.length > 1 ? <TemplateNote>{rows.length - 1} more in this source</TemplateNote> : null}
+			{rows.length > 1 ? (
+				<TemplateNote>{t('widgetTemplate.moreInSource', { count: rows.length - 1 })}</TemplateNote>
+			) : null}
 		</TemplateShell>
 	);
 }

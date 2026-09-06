@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from 'react';
 import { Icon } from '../../ds';
 import { T } from '../screen-kit';
 import { GROUP_OF_TOOL, TOOL_GROUPS, TOOLS_BY_ID, type ToolId } from './tools';
+import { useI18n } from '../../i18n';
 
 /**
  * MAP-021 — the Foundry-style tool rail. The rail is a column of LAYER GROUPS; selecting a group
@@ -18,6 +19,7 @@ export function ToolRail({
 	onSelect: (tool: ToolId) => void;
 	orientation?: 'vertical' | 'horizontal';
 }) {
+	const { t } = useI18n();
 	const activeGroup = GROUP_OF_TOOL.get(activeTool)?.id ?? TOOL_GROUPS[0]!.id;
 	const [openGroup, setOpenGroup] = useState<string>(activeGroup);
 	// In vertical (desktop/tablet) orientation the flyout is ABSOLUTELY POSITIONED over the canvas
@@ -37,7 +39,7 @@ export function ToolRail({
 	return (
 		<div
 			role="toolbar"
-			aria-label="Map tools"
+			aria-label={t('mapEditor.tools')}
 			aria-orientation={orientation}
 			style={{
 				display: 'flex',

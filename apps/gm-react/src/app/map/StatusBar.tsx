@@ -2,6 +2,7 @@ import { Icon } from '../../ds';
 import { T } from '../screen-kit';
 import type { MapEditorApi } from './useMapEditor';
 import { TOOLS_BY_ID } from './tools';
+import { useI18n } from '../../i18n';
 
 /**
  * MAP-021 — the editor status bar: active tool · active layer · zoom% · cursor x,y · N selected · a
@@ -16,6 +17,7 @@ export function StatusBar({
 	cursor: { x: number; y: number } | null;
 	activeLayerName: string | null;
 }) {
+	const { t } = useI18n();
 	const def = TOOLS_BY_ID.get(editor.tool);
 	return (
 		<div
@@ -36,13 +38,15 @@ export function StatusBar({
 				<Icon name={def?.icon ?? 'tool-select'} size={12} color={T.ter} />
 				{def?.label ?? editor.tool}
 			</span>
-			<span>Layer: {activeLayerName ?? '—'}</span>
+			<span>{t('mapEditor.layerName', { name: activeLayerName ?? '—' })}</span>
 			<span>{Math.round(editor.zoom * 100)}%</span>
 			<span>
 				x {cursor ? cursor.x.toFixed(3) : '—'} · y {cursor ? cursor.y.toFixed(3) : '—'}
 			</span>
 			{editor.selection.length > 0 && (
-				<span style={{ color: T.acc }}>{editor.selection.length} selected</span>
+				<span style={{ color: T.acc }}>
+					{t('mapEditor.selectedCount', { count: editor.selection.length })}
+				</span>
 			)}
 			<div style={{ flex: 1 }} />
 			<span

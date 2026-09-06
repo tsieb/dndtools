@@ -26,6 +26,7 @@ import { StatBlockTemplate } from './StatBlock';
 import { StatusListTemplate } from './StatusList';
 import { TrackerTemplate } from './Tracker';
 import type { WidgetTemplateProps } from './shared';
+import { I18nProvider } from '../../../i18n';
 
 /**
  * RC-WID-1.2 — every template kind renders from a real INSTALLED package.
@@ -219,14 +220,18 @@ function renderTemplate(
 	const actorId = options.actorId ?? DM_ACTOR.id;
 	const widget = boardWidget(definition, options.widget);
 	const data = resolveWidgetTemplateData(state, actorId, definition, widget);
+	// The templates draw their empty states through `t()`, so they mount inside the app's real
+	// provider here rather than being special-cased for tests.
 	act(() =>
 		root.render(
-			<Template
-				widget={widget}
-				definition={definition}
-				data={data}
-				onCommand={options.onCommand}
-			/>,
+			<I18nProvider>
+				<Template
+					widget={widget}
+					definition={definition}
+					data={data}
+					onCommand={options.onCommand}
+				/>
+			</I18nProvider>,
 		),
 	);
 	return container.textContent ?? '';

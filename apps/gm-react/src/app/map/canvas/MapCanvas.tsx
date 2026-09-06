@@ -31,6 +31,7 @@ import { type FogShape, type MapTool } from '../mapVisibility';
 import { type DragState, type Point } from './geometry';
 import { MapSvgLayers } from './MapSvgLayers';
 import { MapMarkers } from './MapMarkers';
+import { useI18n } from '../../../i18n';
 
 /**
  * MapCanvas — the engine-free SVG/absolute-div geometry renderer shared by the Atlas preview and
@@ -115,6 +116,7 @@ export function MapCanvas({
 	children,
 	style,
 }: MapCanvasProps) {
+	const { t } = useI18n();
 	const wellRef = useRef<HTMLDivElement>(null);
 	const dragRef = useRef<DragState | null>(null);
 	const [drag, setDragState] = useState<DragState | null>(null);
@@ -451,7 +453,7 @@ export function MapCanvas({
 					}}
 				>
 					<Icon name="warning" size={13} color={T.warn} />
-					This map’s image isn’t on this device — showing shapes only
+					{t('mapEditor.imageMissing')}
 				</div>
 			)}
 

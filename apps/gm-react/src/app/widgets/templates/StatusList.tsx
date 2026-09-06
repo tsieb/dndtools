@@ -1,4 +1,5 @@
 import { Badge, StatusDot } from '../../../ds';
+import { useI18n } from '../../../i18n';
 import {
 	ComputedFields,
 	TemplateEmpty,
@@ -14,6 +15,7 @@ import {
  * its own icon.
  */
 export function StatusListTemplate({ data }: WidgetTemplateProps) {
+	const { t } = useI18n();
 	const query = data.primary;
 	const rows = query?.rows ?? [];
 
@@ -62,7 +64,7 @@ export function StatusListTemplate({ data }: WidgetTemplateProps) {
 									<span style={{ color: 'var(--color-text-tertiary)' }}> · {row.secondary}</span>
 								) : null}
 							</span>
-							{row.active ? <Badge status="success">Now</Badge> : null}
+							{row.active ? <Badge status="success">{t('widgetTemplate.now')}</Badge> : null}
 							{row.meta ? <Badge status="neutral">{row.meta}</Badge> : null}
 						</li>
 					))}

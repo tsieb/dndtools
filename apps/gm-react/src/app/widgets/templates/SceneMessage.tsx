@@ -1,4 +1,5 @@
 import { Icon } from '../../../ds';
+import { useI18n } from '../../../i18n';
 import {
 	ComputedFields,
 	TemplateEmpty,
@@ -17,6 +18,7 @@ import {
  * sticky note.
  */
 export function SceneMessageTemplate({ widget, data }: WidgetTemplateProps) {
+	const { t } = useI18n();
 	const message = cfgText(widget, 'message', 'body', 'text', 'content');
 	const query = data.primary;
 	const rows = query?.rows ?? [];
@@ -61,7 +63,7 @@ export function SceneMessageTemplate({ widget, data }: WidgetTemplateProps) {
 						color: 'var(--color-text-tertiary)',
 					}}
 				>
-					Add a message in this widget&rsquo;s settings.
+					{t('widgetTemplate.addMessage')}
 				</span>
 			)}
 			<ComputedFields data={data} />

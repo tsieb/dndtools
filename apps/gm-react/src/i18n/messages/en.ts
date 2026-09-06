@@ -3077,6 +3077,25 @@ export const en = {
 	'charBuilder.playersCanSee': 'Players can see',
 	'charBuilder.playersCanSeeSub': 'On the party roster and shared scenes',
 	'charBuilder.dmOnlySub': 'Hidden until you reveal them',
+	/* Widget templates › the honest empty states the eight built-in templates draw */
+	'widgetTemplate.noActions': 'This widget declares no actions yet.',
+	'widgetTemplate.finishEditing': 'Finish editing the layout to use this.',
+	'widgetTemplate.noFields': 'This form has no fields yet.',
+	'widgetTemplate.noAction': 'This form has no action yet, so it shows its current settings.',
+	'widgetTemplate.addMessage': 'Add a message in this widget’s settings.',
+	'widgetTemplate.moreInSource': '{count} more in this source',
+	'widgetTemplate.now': 'Now',
+
+	/* Map editor › the canvas chrome, the status bar and the quick rail */
+	'mapEditor.tools': 'Map tools',
+	'mapEditor.quickActions': 'Quick map actions',
+	'mapEditor.undo': 'Undo',
+	'mapEditor.redo': 'Redo',
+	'mapEditor.panels': 'Panels',
+	'mapEditor.polygonHint': 'Click to add points · Enter or double-click finishes · Esc cancels',
+	'mapEditor.imageMissing': 'This map’s image isn’t on this device — showing shapes only',
+	'mapEditor.layerName': 'Layer: {name}',
+	'mapEditor.selectedCount': '{count, plural, one {# selected} other {# selected}}',
 } as const;
 
 /** Every string the app can render, addressed by key. */

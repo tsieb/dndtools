@@ -1,4 +1,5 @@
 import { Button } from '../../../ds';
+import { useI18n } from '../../../i18n';
 import {
 	ComputedFields,
 	TemplateEmpty,
@@ -23,6 +24,7 @@ import {
  * Buttons are real `<button>`s, so pointer and keyboard dispatch the identical command (WCAG 2.2 AA).
  */
 export function ActionPanelTemplate({ widget, definition, data, onCommand }: WidgetTemplateProps) {
+	const { t } = useI18n();
 	const query = data.primary;
 	// Only commands the definition declares AND the instance carries — the same test the builtin
 	// operate affordances make before dispatching.
@@ -45,7 +47,7 @@ export function ActionPanelTemplate({ widget, definition, data, onCommand }: Wid
 				<TemplateEmpty query={query} />
 			)}
 			{actions.length === 0 ? (
-				<TemplateNote>This widget declares no actions yet.</TemplateNote>
+				<TemplateNote>{t('widgetTemplate.noActions')}</TemplateNote>
 			) : (
 				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
 					{actions.map((command) => (
@@ -54,7 +56,7 @@ export function ActionPanelTemplate({ widget, definition, data, onCommand }: Wid
 							size="sm"
 							variant="secondary"
 							aria-disabled={onCommand ? undefined : true}
-							title={onCommand ? undefined : 'Finish editing the layout to use this.'}
+							title={onCommand ? undefined : t('widgetTemplate.finishEditing')}
 							onClick={onCommand ? () => onCommand(command.type, {}) : undefined}
 						>
 							{command.displayName}

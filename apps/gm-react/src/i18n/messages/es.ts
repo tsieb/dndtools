@@ -3177,4 +3177,25 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'charBuilder.playersCanSee': 'Los jugadores pueden verlo',
 	'charBuilder.playersCanSeeSub': 'En la lista del grupo y en las escenas compartidas',
 	'charBuilder.dmOnlySub': 'Oculto hasta que lo reveles',
+	/* Plantillas de widget › los estados vacíos honestos que dibujan las ocho plantillas */
+	'widgetTemplate.noActions': 'Este widget todavía no declara ninguna acción.',
+	'widgetTemplate.finishEditing': 'Termina de editar la disposición para usar esto.',
+	'widgetTemplate.noFields': 'Este formulario todavía no tiene campos.',
+	'widgetTemplate.noAction':
+		'Este formulario todavía no tiene acción, así que muestra sus ajustes actuales.',
+	'widgetTemplate.addMessage': 'Añade un mensaje en los ajustes de este widget.',
+	'widgetTemplate.moreInSource': '{count} más en esta fuente',
+	'widgetTemplate.now': 'Ahora',
+
+	/* Editor de mapas › el lienzo, la barra de estado y la barra rápida */
+	'mapEditor.tools': 'Herramientas de mapa',
+	'mapEditor.quickActions': 'Acciones rápidas del mapa',
+	'mapEditor.undo': 'Deshacer',
+	'mapEditor.redo': 'Rehacer',
+	'mapEditor.panels': 'Paneles',
+	'mapEditor.polygonHint': 'Pulsa para añadir puntos · Intro o doble clic termina · Esc cancela',
+	'mapEditor.imageMissing':
+		'La imagen de este mapa no está en este dispositivo — solo se muestran las formas',
+	'mapEditor.layerName': 'Capa: {name}',
+	'mapEditor.selectedCount': '{count, plural, one {# seleccionado} other {# seleccionados}}',
 };
