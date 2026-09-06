@@ -85,7 +85,10 @@ import {
 	handleAdvanceCombatTurn,
 	handleApplyCombatResource,
 	handleEndCombat,
+	handleMoveCombatToken,
+	handlePlaceCombatToken,
 	handlePreviousCombatTurn,
+	handleRemoveCombatToken,
 	handleRemoveCombatant,
 	handleReorderCombatant,
 	handleSetCombatantVisibility,
@@ -413,6 +416,14 @@ export function dispatchCommand(
 			return handleReorderCombatant(state, env, command.actorId, command.payload);
 		case 'combat.set-combatant-visibility':
 			return handleSetCombatantVisibility(state, env, command.actorId, command.payload);
+		// RC-MAP-1.1 — session combat tokens (place/remove are DM-only; move also accepts the
+		// combatant's authorized combat-participant).
+		case 'combat.place-token':
+			return handlePlaceCombatToken(state, env, command.actorId, command.payload);
+		case 'combat.move-token':
+			return handleMoveCombatToken(state, env, command.actorId, command.payload);
+		case 'combat.remove-token':
+			return handleRemoveCombatToken(state, env, command.actorId, command.payload);
 		case 'encounter.build':
 			return handleBuildEncounter(state, env, command.actorId, command.payload);
 		case 'encounter.update':

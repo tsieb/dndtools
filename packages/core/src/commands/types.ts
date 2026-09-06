@@ -215,6 +215,14 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	// RC-MAP-1.1: session combat TOKENS — where each combatant is standing while combat runs.
+	// Placing and removing a token is DM-only; MOVING one also accepts the combatant's authorized
+	// combat-participant (the same authority that may edit its resources), so a player can move their
+	// own character without being able to reposition the DM's monsters. Active-session + running-combat
+	// gated, like every other mid-combat command.
+	| { type: 'combat.place-token'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'combat.move-token'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'combat.remove-token'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// SES-006: build / update a durable encounter (DM-only) — combatant selection, challenge guidance,
 	// terrain notes, legendary/lair actions, loot, and generated session-log links (by reference).
 	| { type: 'encounter.build'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -1132,6 +1140,32 @@ export type CoreEvent =
 			hidden: boolean;
 			revision: number;
 	  }
+	// RC-MAP-1.1 — combat token events. The event carries the map and the normalized position so a
+	// listener can animate the move without re-reading state; it never carries the combatant's NAME,
+	// because an event bus reaches surfaces that have not applied the actor-scoped visibility filter.
+	| {
+			kind: 'combat.token-placed';
+			actorId: ActorId;
+			combatantId: string;
+			mapId: string;
+			position: { x: number; y: number };
+			revision: number;
+	  }
+	| {
+			kind: 'combat.token-moved';
+			actorId: ActorId;
+			combatantId: string;
+			mapId: string;
+			position: { x: number; y: number };
+			revision: number;
+	  }
+	| {
+			kind: 'combat.token-removed';
+			actorId: ActorId;
+			combatantId: string;
+			mapId: string;
+			revision: number;
+	  }
 	// SES-006 — encounter build/update events. Carry the computed challenge guidance for the GUI.
 	| {
 			kind: 'encounter.built';
@@ -1888,6 +1922,10 @@ export type RejectionCode =
 	| 'encounter-not-found'
 	// SES-002 — a combatant referenced by an apply-resource command is not in the current combat.
 	| 'combatant-not-found'
+	// RC-MAP-1.1 — a move/remove named a combatant who has no token on any map. Distinct from
+	// `combatant-not-found` so the interface can offer "place on the map" rather than an error about a
+	// combatant that is plainly in the initiative order.
+	| 'combat-token-not-placed'
 	// SES-003 — a dice expression failed the pure deterministic parser (malformed; never evaluated).
 	| 'invalid-dice-expression'
 	// SES-003 — a macro reference resolved to no defined macro (fail closed; no roll produced).

@@ -15,6 +15,13 @@ import type {
 import { cloneFogRegion } from '../state/map-annotations';
 import type { MapOverlaySettings, MapOverlayMode } from '../state/map-overlay-modes';
 import { measureRoute, type RouteMeasurement, type TravelSpeed } from '../state/map-travel';
+import type {
+	Combatant,
+	CombatantKind,
+	CombatToken,
+	SessionCombatState,
+} from '../state/combat-tracker';
+import { actorCanSeeCombatant, actorMayMoveCombatantToken } from './combat-tracker-view';
 
 /**
  * MAP-018 — THE single actor-filtered map query model. This is the KEYSTONE of the epic's non-leak
@@ -94,6 +101,35 @@ export interface MapTokenView {
 	canMove: boolean;
 }
 
+/**
+ * RC-MAP-1.1 — a COMBAT TOKEN as projected to an actor: where a combatant in the running combat is
+ * standing on this map. It is a JOIN, not a second source of truth — the placement comes from the
+ * session's combat slice and the visibility comes from the SAME rule the combat tracker applies, so a
+ * combatant the tracker withholds can never appear here.
+ *
+ * A hidden foe is ABSENT from a player's list entirely. There is deliberately no redacted variant:
+ * the tracker can show a placeholder ROW because a row only reveals that someone is in the initiative
+ * order, but a placeholder TOKEN would reveal that something unknown is standing at (x, y) — which is
+ * most of what the DM was hiding.
+ */
+export interface MapCombatTokenView {
+	/** The combatant this token stands for; the join key back to the combat tracker view. */
+	combatantId: string;
+	name: string;
+	kind: CombatantKind;
+	/** The character entity behind this combatant, or null for an inline NPC/monster. */
+	characterId: string | null;
+	position: { x: number; y: number };
+	/** Footprint in grid cells (1 = Medium). */
+	size: number;
+	/** Facing in degrees clockwise from north, or null when the combatant has no facing. */
+	facing: number | null;
+	/** True when it is this combatant's turn — the active-turn ring the canvas draws. */
+	isActive: boolean;
+	/** Whether the VIEWING actor may move this token (DM, or the combatant's combat-participant). */
+	canMove: boolean;
+}
+
 /** A visible layer in the actor-filtered map view (render order). */
 export interface MapLayerView {
 	id: string;
@@ -112,6 +148,8 @@ export interface MapHiddenCounts {
 	routes: number;
 	fog: number;
 	tokens: number;
+	/** RC-MAP-1.1 — combat tokens on this map belonging to combatants hidden from players. */
+	combatTokens: number;
 }
 
 /** The actor-filtered view of one map. Every list is already visibility-filtered. */
@@ -129,6 +167,12 @@ export interface MapView {
 	routes: MapRouteView[];
 	fog: MapFogView[];
 	tokens: MapTokenView[];
+	/**
+	 * RC-MAP-1.1 — the running combat's tokens standing on THIS map, already filtered to the
+	 * combatants this actor may see. Empty when no combat is running or none of its combatants are
+	 * on this map.
+	 */
+	combatTokens: MapCombatTokenView[];
 	/** DM-only hidden counts (all zero for a non-DM). */
 	hidden: MapHiddenCounts;
 }
@@ -142,6 +186,16 @@ export interface MapQueryOptions {
 	deliveredMapIds?: ReadonlySet<string> | string[];
 	/** Optional travel speed used to derive route travel time (MAP-013). */
 	travelSpeed?: TravelSpeed | null;
+	/**
+	 * RC-MAP-1.1 — the session's combat slice, so the running combat's tokens are joined into the
+	 * view. Omitted ⇒ no combat tokens (a caller that does not pass combat cannot leak one).
+	 */
+	combat?: SessionCombatState;
+	/**
+	 * The current time (`env.clock()`), used when evaluating an actor's combat-participant grant so an
+	 * EXPIRED grant is inert. Omitted ⇒ expiry is not evaluated (PERM-004 fail-closed convention).
+	 */
+	now?: string;
 }
 
 function isDelivered(mapId: string, options: MapQueryOptions | undefined): boolean {
@@ -185,7 +239,10 @@ export function deliveredMapIdsForActor(
  * `player-visible` survives, `dm-only`/`shared` are hidden, hidden-ancestor-wins via the layer).
  * DM-only authoring aid; never reaches a non-DM caller.
  */
-function countHiddenFromPlayers(map: MapEntity): MapHiddenCounts {
+function countHiddenFromPlayers(
+	map: MapEntity,
+	combat: SessionCombatState | undefined,
+): MapHiddenCounts {
 	const playerVisibleLayerIds = new Set(
 		map.layers.filter((layer) => layer.visibility === 'player-visible').map((layer) => layer.id),
 	);
@@ -197,7 +254,32 @@ function countHiddenFromPlayers(map: MapEntity): MapHiddenCounts {
 		routes: map.routes.filter((route) => surfaceHidden(route.layerId, route.visibility)).length,
 		fog: map.fog.filter((op) => surfaceHidden(op.layerId, op.visibility)).length,
 		tokens: map.tokens.filter((token) => surfaceHidden(token.layerId, token.visibility)).length,
+		// RC-MAP-1.1 — combat tokens on this map whose combatant is hidden from players. The DM needs to
+		// know the ambushers are placed even though no player view will draw them.
+		combatTokens: liveCombatTokenEntries(combat, map.id).filter(([, combatant]) => combatant.hidden)
+			.length,
 	};
+}
+
+/**
+ * RC-MAP-1.1 — the running combat's placed tokens on one map, in INITIATIVE order, paired with their
+ * combatant. Returns nothing unless combat is actually `running`: an ended combat keeps its placements
+ * for the archive, but a finished fight must not keep drawing tokens over a live map. Pure.
+ */
+function liveCombatTokenEntries(
+	combat: SessionCombatState | undefined,
+	mapId: string,
+): Array<[CombatToken, Combatant]> {
+	if (!combat || combat.status !== 'running') return [];
+	const entries: Array<[CombatToken, Combatant]> = [];
+	for (const combatantId of combat.order) {
+		const token = combat.tokens[combatantId];
+		if (!token || token.mapId !== mapId) continue;
+		const combatant = combat.combatants[combatantId];
+		if (!combatant) continue;
+		entries.push([token, combatant]);
+	}
+	return entries;
 }
 
 /**
@@ -308,14 +390,36 @@ export function getMapViewForActor(
 		});
 	}
 
+	// RC-MAP-1.1 — join the running combat's tokens. Visibility is NOT re-decided here: it is the SAME
+	// `actorCanSeeCombatant` rule the combat tracker applies, so a combatant the tracker withholds from
+	// this actor cannot appear on the map either. A combatant the viewer can only see as a PLACEHOLDER
+	// row fails this check, so a hidden foe is ABSENT — never "unknown at (x, y)".
+	const combatTokens: MapCombatTokenView[] = [];
+	const combat = options?.combat;
+	const activeCombatantId = combat ? (combat.order[combat.turn] ?? null) : null;
+	for (const [token, combatant] of liveCombatTokenEntries(combat, map.id)) {
+		if (!actorCanSeeCombatant(permissions, actor, combatant, options?.now)) continue;
+		combatTokens.push({
+			combatantId: combatant.id,
+			name: combatant.name,
+			kind: combatant.kind,
+			characterId: combatant.characterId,
+			position: { x: token.x, y: token.y },
+			size: token.size,
+			facing: token.facing ?? null,
+			isActive: combatant.id === activeCombatantId,
+			canMove: actorMayMoveCombatantToken(permissions, actor, combatant, options?.now),
+		});
+	}
+
 	// DM-only hidden-count aggregates: how many layers/POIs/routes/fog/tokens are hidden FROM PLAYERS
 	// (the general player view, before per-actor `shared` delivery). This is the authoring aid that
 	// lets the DM UI show "2 POIs (1 hidden from players)" WITHOUT the non-DM result ever carrying the
 	// hidden items. A non-DM receives all zeros — the count itself could leak existence. Mirrors the
 	// layer query's `hiddenMatchCount`.
 	const hidden: MapHiddenCounts = isDm
-		? countHiddenFromPlayers(map)
-		: { layers: 0, pois: 0, routes: 0, fog: 0, tokens: 0 };
+		? countHiddenFromPlayers(map, combat)
+		: { layers: 0, pois: 0, routes: 0, fog: 0, tokens: 0, combatTokens: 0 };
 
 	return {
 		kind: 'available',
@@ -330,6 +434,7 @@ export function getMapViewForActor(
 		routes,
 		fog,
 		tokens,
+		combatTokens,
 		hidden,
 	};
 }
@@ -370,12 +475,24 @@ export function searchMapsForActor(
 		}
 		for (const route of view.routes) {
 			if (route.label.toLowerCase().includes(needle)) {
-				hits.push({ kind: 'route', mapId, id: route.id, label: route.label, layerId: route.layerId });
+				hits.push({
+					kind: 'route',
+					mapId,
+					id: route.id,
+					label: route.label,
+					layerId: route.layerId,
+				});
 			}
 		}
 		for (const token of view.tokens) {
 			if (token.label.toLowerCase().includes(needle)) {
-				hits.push({ kind: 'token', mapId, id: token.id, label: token.label, layerId: token.layerId });
+				hits.push({
+					kind: 'token',
+					mapId,
+					id: token.id,
+					label: token.label,
+					layerId: token.layerId,
+				});
 			}
 		}
 	}

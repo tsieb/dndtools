@@ -152,6 +152,11 @@ export interface CombatLogEntry {
 		| 'combatant-visibility'
 		// UX-SES-005 — the DM resolved the at-0-HP confirmation ("Yes — defeated" / "No — keep at 0").
 		| 'defeated-set'
+		// RC-MAP-1.1 — a combatant's token was placed on / taken off the active map. A token MOVE is
+		// deliberately NOT logged: dragging happens many times a turn and would bury the encounter log.
+		// Every move still writes a durable sync op with before/after, so the move stays replayable.
+		| 'token-placed'
+		| 'token-removed'
 		| 'combat-ended'
 		/**
 		 * SES-002 AC5 — a dice roll made DURING active combat, visibility-carrying so the read layer
@@ -192,6 +197,113 @@ export interface CombatLogEntry {
 /** The combat lifecycle status. `idle` before initiative is rolled; `ended` once combat is over. */
 export type CombatStatus = 'idle' | 'running' | 'ended';
 
+// ── RC-MAP-1.1 — where a combatant STANDS while combat runs ──────────────────────────────────────
+
+/**
+ * RC-MAP-1.1 — a combatant's TOKEN: where that combatant is standing on a map while combat runs.
+ *
+ * The position is a NORMALIZED point (0..1 on each axis), the same vector model every other map
+ * annotation uses (`MapToken.position`, ADR-014/024) — no pixels, so a token means the same thing at
+ * any zoom, on any display, and after any re-export of the map image. `size` is the footprint in GRID
+ * CELLS (1 = Medium), matching `MapToken.size`, so one grid model serves both annotation tokens and
+ * combat tokens.
+ *
+ * A token belongs to the COMBAT, not to the map: it lives in the session's combat slice keyed by
+ * combatant id, so it inherits the combatant's visibility for free and disappears with the combat
+ * rather than leaving orphaned markers on a map a player may later be shown.
+ */
+export interface CombatToken {
+	/** The map this combatant is standing on. */
+	mapId: string;
+	/** Normalized x (0..1). */
+	x: number;
+	/** Normalized y (0..1). */
+	y: number;
+	/** Footprint in grid cells (1 = Medium). Positive, bounded by {@link MAX_COMBAT_TOKEN_SIZE}. */
+	size: number;
+	/**
+	 * Optional facing in DEGREES clockwise from north (0 ≤ facing < 360). Absent when the combatant
+	 * has no meaningful facing — most creatures do not, so it stays optional rather than defaulting to
+	 * a fake "north".
+	 */
+	facing?: number;
+}
+
+/** The default footprint for an auto-placed token (1 grid cell = Medium). */
+export const DEFAULT_COMBAT_TOKEN_SIZE = 1;
+
+/** The largest footprint a token may declare, in grid cells (Gargantuan and then some). */
+export const MAX_COMBAT_TOKEN_SIZE = 20;
+
+/** Deep-clone a combat token (so callers never mutate shared frozen state). Pure. */
+export function cloneCombatToken(token: CombatToken): CombatToken {
+	return {
+		mapId: token.mapId,
+		x: token.x,
+		y: token.y,
+		size: token.size,
+		...(token.facing === undefined ? {} : { facing: token.facing }),
+	};
+}
+
+/**
+ * Whether a token placement is well-formed: a non-empty map id, a normalized position, a positive
+ * bounded footprint, and — when present — a facing inside one full turn. Pure; the command layer
+ * turns a `false` into a rejection rather than silently clamping a bad placement into range.
+ */
+export function isCombatTokenPlacement(token: CombatToken): boolean {
+	if (token.mapId.trim() === '') return false;
+	if (!Number.isFinite(token.x) || token.x < 0 || token.x > 1) return false;
+	if (!Number.isFinite(token.y) || token.y < 0 || token.y > 1) return false;
+	if (!Number.isFinite(token.size) || token.size <= 0 || token.size > MAX_COMBAT_TOKEN_SIZE) {
+		return false;
+	}
+	if (token.facing !== undefined) {
+		if (!Number.isFinite(token.facing) || token.facing < 0 || token.facing >= 360) return false;
+	}
+	return true;
+}
+
+/**
+ * The fraction of each axis the auto-placement grid spans, centred on the map. Tokens land in the
+ * middle band rather than the extreme edges so the DM sees the whole starting formation at once and
+ * has room to drag combatants outward.
+ */
+const AUTO_PLACE_SPAN = 0.6;
+
+/**
+ * RC-MAP-1.1 — lay the combatants out on `mapId` in a deterministic starting formation, in initiative
+ * order. The layout is a square-ish row-major grid centred on the map: with `n` combatants there are
+ * `ceil(sqrt(n))` columns, and cell centres are spread across the middle {@link AUTO_PLACE_SPAN} of
+ * each axis. One combatant lands dead centre. No two combatants share a cell, every position is
+ * in-bounds, and the result is a pure function of the id list — so a replay on another device
+ * reproduces the identical formation without shipping coordinates for every combatant.
+ */
+export function autoPlaceCombatTokens(
+	combatantIds: readonly string[],
+	mapId: string,
+): Record<string, CombatToken> {
+	const tokens: Record<string, CombatToken> = {};
+	const count = combatantIds.length;
+	if (count === 0) return tokens;
+	const columns = Math.ceil(Math.sqrt(count));
+	const rows = Math.ceil(count / columns);
+	const origin = (1 - AUTO_PLACE_SPAN) / 2;
+	for (let index = 0; index < count; index += 1) {
+		const id = combatantIds[index];
+		if (id === undefined) continue;
+		const column = index % columns;
+		const row = Math.floor(index / columns);
+		tokens[id] = {
+			mapId,
+			x: origin + (AUTO_PLACE_SPAN * (column + 0.5)) / columns,
+			y: origin + (AUTO_PLACE_SPAN * (row + 0.5)) / rows,
+			size: DEFAULT_COMBAT_TOKEN_SIZE,
+		};
+	}
+	return tokens;
+}
+
 /**
  * The durable session COMBAT state (SES-002). Replaces the earlier minimal combat placeholder: it now
  * carries the full combatant list, the initiative ORDER (combatant ids in turn order), the round/turn
@@ -216,6 +328,13 @@ export interface SessionCombatState {
 	combatants: Record<string, Combatant>;
 	/** The initiative ORDER — combatant ids in turn order. Stable; recomputed only by reorder. */
 	order: string[];
+	/**
+	 * RC-MAP-1.1 — where each combatant is standing, keyed by COMBATANT id. Additive: a combat
+	 * persisted before tokens existed hydrates to `{}`, so no schema bump is needed. A combatant with
+	 * no entry here is simply not on a map — the tracker still runs it. Combat tokens are only joined
+	 * into the map read while `status` is `running`.
+	 */
+	tokens: Record<string, CombatToken>;
 	/** The durable ENCOUNTER LOG, oldest first. */
 	log: CombatLogEntry[];
 	revision: number;
@@ -230,6 +349,7 @@ export const EMPTY_SESSION_COMBAT_STATE: SessionCombatState = Object.freeze({
 	turn: 0,
 	combatants: {},
 	order: [],
+	tokens: {},
 	log: [],
 	revision: 0,
 	schemaVersion: COMBAT_TRACKER_SCHEMA_VERSION,
@@ -290,6 +410,12 @@ export function ensureSessionCombatState(
 	for (const [id, combatant] of Object.entries(state?.combatants ?? {})) {
 		combatants[id] = cloneCombatant(combatant);
 	}
+	// RC-MAP-1.1 — tokens are additive: a combat persisted before they existed hydrates to `{}`. Only
+	// well-formed placements survive hydration, so a corrupted coordinate can never reach a renderer.
+	const tokens: Record<string, CombatToken> = {};
+	for (const [id, token] of Object.entries(state?.tokens ?? {})) {
+		if (isCombatTokenPlacement(token)) tokens[id] = cloneCombatToken(token);
+	}
 	return {
 		status: state?.status ?? 'idle',
 		encounterId: state?.encounterId ?? null,
@@ -298,6 +424,7 @@ export function ensureSessionCombatState(
 		turn: state?.turn ?? 0,
 		combatants,
 		order: state?.order ? [...state.order] : [],
+		tokens,
 		log: state?.log ? state.log.map((entry) => ({ ...entry })) : [],
 		revision: state?.revision ?? 0,
 		schemaVersion: COMBAT_TRACKER_SCHEMA_VERSION,

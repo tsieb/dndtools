@@ -437,6 +437,7 @@ export {
 // one surface while blocked on another. POIs/routes/fog/tokens/overlay come back already filtered for
 // the actor (omitted, not redacted); the DM additionally gets hidden-count aggregates.
 export type {
+	MapCombatTokenView,
 	MapFogView,
 	MapGraphEdge,
 	MapHiddenCounts,
@@ -3851,20 +3852,27 @@ export type {
 	CombatAdvance,
 	CombatLogEntry,
 	CombatStatus,
+	CombatToken,
 	SessionCombatState,
 } from './state/combat-tracker';
 export {
 	COMBATANT_KINDS,
 	COMBAT_ENTITY_TYPE,
 	COMBAT_TRACKER_SCHEMA_VERSION,
+	// RC-MAP-1.1 — session combat tokens: the placement bounds and the deterministic auto-formation.
+	DEFAULT_COMBAT_TOKEN_SIZE,
+	MAX_COMBAT_TOKEN_SIZE,
 	EMPTY_COMBATANT_RESOURCES,
 	EMPTY_SESSION_COMBAT_STATE,
 	activeCombatant,
 	advanceTurn,
+	autoPlaceCombatTokens,
+	cloneCombatToken,
 	cloneCombatant,
 	cloneResources,
 	ensureSessionCombatState,
 	initiativeInsertionIndex,
+	isCombatTokenPlacement,
 	orderInitiative,
 	previousTurn,
 } from './state/combat-tracker';
@@ -3878,7 +3886,13 @@ export type {
 	CombatLogEntryView,
 	CombatTrackerView,
 } from './queries/combat-tracker-view';
-export { getCombatTrackerForActor } from './queries/combat-tracker-view';
+export {
+	// RC-MAP-1.1 — the two combatant-visibility/authority predicates the map read shares with the
+	// tracker, so "who can see this combatant" and "who can move it" are decided in exactly one place.
+	actorCanSeeCombatant,
+	actorMayMoveCombatantToken,
+	getCombatTrackerForActor,
+} from './queries/combat-tracker-view';
 
 // UX-SES-002 — the session RECOVERY read model: full-restore confirmation vs. the modal partial-
 // restore prompt naming exactly which items could not be restored. DM-gated, fail closed.

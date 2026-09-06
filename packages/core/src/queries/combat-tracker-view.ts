@@ -8,8 +8,10 @@ import type {
 	CombatantResources,
 	CombatLogEntry,
 	CombatStatus,
+	CombatToken,
 	SessionCombatState,
 } from '../state/combat-tracker';
+import { cloneCombatToken } from '../state/combat-tracker';
 
 /**
  * SES-002 — THE single actor-filtered COMBAT TRACKER read model.
@@ -88,6 +90,14 @@ export interface CombatantView {
 	 * redacted/hidden combatants whose resources are withheld.
 	 */
 	isDying: boolean;
+	/**
+	 * RC-MAP-1.1 — where this combatant is standing while combat runs, or null when they are not on a
+	 * map. ALWAYS null for a redacted placeholder row: a placeholder exists so the initiative order
+	 * does not show a moving gap, and coordinates would turn it into "something unknown at (x, y)",
+	 * which is exactly the leak the placeholder is meant to avoid. Also null once combat has ended —
+	 * the stored placement survives for the archive, but nothing on screen is live any more.
+	 */
+	token: CombatToken | null;
 }
 
 /** A read-only encounter-log entry view. */
@@ -129,7 +139,7 @@ export interface CombatTrackerView {
  * `now` (from `env.clock()`) MUST be passed so an EXPIRED combat-participant grant is inert — omitting
  * it lets a stale grant keep revealing a hidden combatant's identity/stats (PERM-004 fail closed).
  */
-function actorCanSeeCombatant(
+export function actorCanSeeCombatant(
 	permissions: PermissionState,
 	actor: Actor,
 	combatant: Combatant,
@@ -149,6 +159,37 @@ function actorCanSeeCombatant(
 		);
 	}
 	return false;
+}
+
+/**
+ * RC-MAP-1.1 — whether the actor may MOVE this combatant's token. The DM always may; a player may
+ * move a CHARACTER combatant's token when they hold `combat-participant` on that character — exactly
+ * the authority `combat.apply-resource` already requires to edit that combatant's resources, so
+ * "can change their HP" and "can move their token" never drift apart. Observers never may. Pass `now`
+ * (from `env.clock()`) so an EXPIRED grant is inert (PERM-004 fail closed).
+ *
+ * This lives in the query layer because BOTH the command reducer and the map read need the identical
+ * answer: the command enforces it, and `getMapViewForActor` reports it as `canMove` so the interface
+ * never offers a drag it would then be refused.
+ */
+export function actorMayMoveCombatantToken(
+	permissions: PermissionState,
+	actor: Actor,
+	combatant: Combatant,
+	now?: string,
+): boolean {
+	if (hasDmAuthority(actor.role)) return true;
+	// Observers watch; they never drive. Mirrors `actorMayEditCombatant` in `commands/combat.ts`.
+	if (actor.role === 'observer') return false;
+	if (combatant.kind !== 'character' || !combatant.characterId) return false;
+	return hasGrantedCapability(
+		permissions,
+		actor,
+		CHARACTER_ENTITY_TYPE,
+		combatant.characterId,
+		'combat-participant',
+		now,
+	);
 }
 
 function resourcesView(resources: CombatantResources): CombatantResourcesView {
@@ -175,6 +216,10 @@ export function getCombatTrackerForActor(
 	const actor = getActor(permissions, actorId);
 	const isDm = hasDmAuthority(actor?.role);
 	const activeId = combat.order[combat.turn] ?? null;
+	// RC-MAP-1.1 — a stored placement is only LIVE while combat is running; an ended combat keeps its
+	// tokens for the archive but reports none, so nothing stale is drawn over a map after the fight.
+	const tokenFor = (id: string): CombatToken | null =>
+		combat.status === 'running' && combat.tokens[id] ? cloneCombatToken(combat.tokens[id]!) : null;
 
 	const combatants: CombatantView[] = [];
 	// DM-only metric: how many combatants are hidden from players (counted regardless of the DM's own
@@ -220,6 +265,7 @@ export function getCombatTrackerForActor(
 				isDefeated: res.hp <= 0 && !combatant.resources.notDefeated,
 				// UX-SES-007 AC3 — at 0 HP and explicitly NOT defeated: the death-save track renders.
 				isDying: res.hp <= 0 && combatant.resources.notDefeated === true,
+				token: tokenFor(combatant.id),
 			});
 			continue;
 		}
@@ -241,6 +287,7 @@ export function getCombatTrackerForActor(
 				isConcentrating: false, // stat data withheld; no derived status exposed
 				isDefeated: false, // stat data withheld; no derived status exposed
 				isDying: false, // stat data withheld; no derived status exposed
+				token: null, // RC-MAP-1.1 — never "something unknown at (x, y)"
 			});
 		}
 		// Otherwise: omitted entirely (no row, no leak).
@@ -258,10 +305,7 @@ export function getCombatTrackerForActor(
 				if (vis === 'dm-only') return false;
 				if (vis === 'shared') {
 					// The rolling actor always sees their own entry; listed shared participants see it.
-					return (
-						entry.actorActorId === actorId ||
-						(entry.rollSharedWith ?? []).includes(actorId)
-					);
+					return entry.actorActorId === actorId || (entry.rollSharedWith ?? []).includes(actorId);
 				}
 				// session-visible: all participants see it.
 				return true;

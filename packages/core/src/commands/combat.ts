@@ -4,7 +4,10 @@ import {
 	advanceCombatTurnInputSchema,
 	applyCombatResourceInputSchema,
 	endCombatInputSchema,
+	moveCombatTokenInputSchema,
+	placeCombatTokenInputSchema,
 	previousCombatTurnInputSchema,
+	removeCombatTokenInputSchema,
 	removeCombatantInputSchema,
 	reorderCombatantInputSchema,
 	setCombatantVisibilityInputSchema,
@@ -14,15 +17,19 @@ import {
 	COMBAT_ENTITY_TYPE,
 	activeCombatant,
 	advanceTurn,
+	autoPlaceCombatTokens,
+	cloneCombatToken,
 	cloneCombatant,
 	cloneResources,
 	initiativeInsertionIndex,
+	isCombatTokenPlacement,
 	orderInitiative,
 	previousTurn,
 	resolveCondition,
 	type Combatant,
 	type CombatantResources,
 	type CombatLogEntry,
+	type CombatToken,
 	type SessionCombatState,
 } from '../state/combat-tracker';
 import { rollExpression } from '../state/dice';
@@ -35,6 +42,7 @@ import { CHARACTER_ENTITY_TYPE } from '../state/character-state';
 import { activeSystemPackageFor } from './character';
 import { encounterById } from '../state/encounter';
 import { hasGrantedCapability } from '../permissions/grants';
+import { actorMayMoveCombatantToken } from '../queries/combat-tracker-view';
 import type { Actor } from '../state/permission-state';
 import type {
 	CommandRejection,
@@ -248,6 +256,14 @@ export function handleStartCombat(
 	const combatantMap: Record<string, Combatant> = {};
 	for (const combatant of ordered.combatants) combatantMap[combatant.id] = combatant;
 
+	// RC-MAP-1.1 — when the session has an ACTIVE MAP, put every combatant on it in a deterministic
+	// starting formation, so combat begins with tokens already on the board instead of the DM placing
+	// a dozen of them by hand while the table waits. With no active map, combat runs without tokens
+	// and the DM can place them later. The placement is a pure function of the initiative order, so a
+	// replay reproduces it exactly.
+	const tokenMapId = state.session.activeMap?.mapId ?? null;
+	const tokens = tokenMapId ? autoPlaceCombatTokens(ordered.order, tokenMapId) : {};
+
 	const operationId = env.ids();
 	let nextCombat: SessionCombatState = {
 		status: 'running',
@@ -258,6 +274,7 @@ export function handleStartCombat(
 		turn: 0,
 		combatants: combatantMap,
 		order: ordered.order,
+		tokens,
 		log: [],
 		revision: state.session.combat.revision + 1,
 		schemaVersion: state.session.combat.schemaVersion,
@@ -283,6 +300,9 @@ export function handleStartCombat(
 			encounterId,
 			order: ordered.order,
 			combatantCount: ordered.order.length,
+			// RC-MAP-1.1 — record WHICH map the auto-placement used. The formation itself is derived
+			// from `order`, so a replay reproduces it without shipping a coordinate per combatant.
+			tokenMapId,
 		},
 		beforeRevision: state.session.combat.revision,
 		afterRevision: nextCombat.revision,
@@ -885,6 +905,10 @@ export function handleRemoveCombatant(
 	const order = combat.order.filter((id) => id !== existing.id);
 	const combatants = { ...combat.combatants };
 	delete combatants[existing.id];
+	// RC-MAP-1.1 — a combatant leaving combat takes their token with them; an orphaned placement would
+	// keep drawing a creature that is no longer in the fight.
+	const tokens = { ...combat.tokens };
+	delete tokens[existing.id];
 
 	// Keep the turn cursor on the same active combatant (or its successor when it was removed).
 	let round = combat.round;
@@ -903,6 +927,7 @@ export function handleRemoveCombatant(
 		...combat,
 		combatants,
 		order,
+		tokens,
 		round,
 		turn,
 		revision: combat.revision + 1,
@@ -1119,6 +1144,295 @@ export function handleSetCombatantVisibility(
 }
 
 // --- SES-002 — end combat (persist the encounter log) --------------------------------------------
+
+// ── RC-MAP-1.1 — session combat TOKENS (place / move / remove) ──────────────────────────────────
+//
+// A token records where a combatant is STANDING while combat runs. It lives in the combat slice keyed
+// by combatant id, not on the map, so it inherits the combatant's visibility for free and vanishes
+// with the combat instead of leaving an orphan marker on a map a player may later be shown.
+//
+// Authority: placing and removing are DM-only (that is board setup). MOVING also accepts the
+// combatant's authorized combat-participant — the same authority that may already edit that
+// combatant's HP — so a player can walk their own character without being able to reposition the DM's
+// monsters. Every one of the three writes a durable op carrying BEFORE and AFTER, so a move is both
+// replayable on another device and invertible for undo. Only place and remove touch the encounter
+// log: a drag happens many times a turn and would bury everything else in it.
+
+/** Look up a combatant in the RUNNING combat, or the rejection explaining why we cannot. */
+function requireCombatant(
+	state: CoreStateSlice,
+	combatantId: string,
+): { combatant: Combatant } | { rejection: CommandRejection } {
+	const combatant = state.session.combat.combatants[combatantId];
+	if (!combatant) {
+		return {
+			rejection: {
+				code: 'combatant-not-found',
+				message: `Combatant ${combatantId} is not in combat.`,
+			},
+		};
+	}
+	return { combatant };
+}
+
+/** Replace one combatant's token (or drop it when `token` is null), bumping the revision. */
+function withToken(
+	combat: SessionCombatState,
+	combatantId: string,
+	token: CombatToken | null,
+): SessionCombatState {
+	const tokens = { ...combat.tokens };
+	if (token) tokens[combatantId] = token;
+	else delete tokens[combatantId];
+	return { ...combat, tokens, revision: combat.revision + 1 };
+}
+
+/**
+ * RC-MAP-1.1 — PLACE a combatant's token on a map (DM-only). Placing again on a different map is how
+ * a combatant moves between maps; a plain reposition on the same map is `combat.move-token`.
+ */
+export function handlePlaceCombatToken(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const gate = requireRunningCombatAsDm(state, actorId);
+	if ('rejection' in gate) return reject(gate.rejection, state);
+	const actor = gate.actor;
+
+	const parsed = parseInput(placeCombatTokenInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const found = requireCombatant(state, parsed.data.combatantId);
+	if ('rejection' in found) return reject(found.rejection, state);
+	const combatant = found.combatant;
+
+	const map = state.maps.maps[parsed.data.mapId];
+	if (!map) {
+		return reject(
+			{ code: 'map-not-found', message: `Map ${parsed.data.mapId} does not exist.` },
+			state,
+		);
+	}
+
+	const after: CombatToken = {
+		mapId: parsed.data.mapId,
+		x: parsed.data.x,
+		y: parsed.data.y,
+		size: parsed.data.size,
+		...(parsed.data.facing === undefined ? {} : { facing: parsed.data.facing }),
+	};
+	if (!isCombatTokenPlacement(after)) {
+		return reject(
+			{ code: 'invalid-payload', message: 'That token placement is outside the map.' },
+			state,
+		);
+	}
+
+	const combat = state.session.combat;
+	const before = combat.tokens[parsed.data.combatantId] ?? null;
+	const operationId = env.ids();
+	let nextCombat = withToken(combat, combatant.id, after);
+	const logEntry = combatLogEntry(
+		env,
+		actor,
+		operationId,
+		nextCombat,
+		'token-placed',
+		`${combatant.name} placed on ${map.name}.`,
+		combatant.id,
+		null,
+	);
+	nextCombat = { ...nextCombat, log: [...nextCombat.log, logEntry] };
+
+	const draft = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: COMBAT_ENTITY_TYPE,
+		entityId: SESSION_ENTITY_ID,
+		opType: 'combat.place-token',
+		path: `combat/tokens/${combatant.id}`,
+		value: { before: before ? cloneCombatToken(before) : null, after: cloneCombatToken(after) },
+		beforeRevision: combat.revision,
+		afterRevision: nextCombat.revision,
+		dependencies: [`map:${map.id}`],
+	});
+
+	return {
+		status: 'accepted',
+		nextState: withCombat({ ...state, sync: draft.log }, nextCombat),
+		events: [
+			{
+				kind: 'combat.token-placed',
+				actorId: actor.id,
+				combatantId: combatant.id,
+				mapId: after.mapId,
+				position: { x: after.x, y: after.y },
+				revision: nextCombat.revision,
+			},
+		],
+		operationIds: [draft.op.id],
+	};
+}
+
+/**
+ * RC-MAP-1.1 — MOVE a placed token to a new position on the map it is already on (DM, or the
+ * combatant's authorized combat-participant). `facing: null` clears a facing; an omitted `facing` or
+ * `size` keeps the current one. A combatant with no token yet is rejected — moving something that was
+ * never placed would silently invent a position.
+ */
+export function handleMoveCombatToken(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const sessionGuard = requireActiveSession(state);
+	if (sessionGuard) return reject(sessionGuard, state);
+	if (state.session.combat.status !== 'running') {
+		return reject({ code: 'invalid-state', message: 'No combat is currently running.' }, state);
+	}
+
+	const parsed = parseInput(moveCombatTokenInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const found = requireCombatant(state, parsed.data.combatantId);
+	if ('rejection' in found) return reject(found.rejection, state);
+	const combatant = found.combatant;
+
+	if (!actorMayMoveCombatantToken(state.permissions, actor, combatant, env.clock())) {
+		return reject(
+			{ code: 'actor-not-authorized', message: 'You cannot move that combatant on the map.' },
+			state,
+		);
+	}
+
+	const combat = state.session.combat;
+	const before = combat.tokens[combatant.id];
+	if (!before) {
+		return reject(
+			{ code: 'combat-token-not-placed', message: `${combatant.name} is not on a map.` },
+			state,
+		);
+	}
+
+	const facing =
+		parsed.data.facing === undefined
+			? before.facing
+			: parsed.data.facing === null
+				? undefined
+				: parsed.data.facing;
+	const after: CombatToken = {
+		mapId: before.mapId,
+		x: parsed.data.x,
+		y: parsed.data.y,
+		size: parsed.data.size ?? before.size,
+		...(facing === undefined ? {} : { facing }),
+	};
+	if (!isCombatTokenPlacement(after)) {
+		return reject(
+			{ code: 'invalid-payload', message: 'That token position is outside the map.' },
+			state,
+		);
+	}
+
+	const nextCombat = withToken(combat, combatant.id, after);
+
+	const draft = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: COMBAT_ENTITY_TYPE,
+		entityId: SESSION_ENTITY_ID,
+		opType: 'combat.move-token',
+		path: `combat/tokens/${combatant.id}`,
+		value: { before: cloneCombatToken(before), after: cloneCombatToken(after) },
+		beforeRevision: combat.revision,
+		afterRevision: nextCombat.revision,
+		dependencies: [`map:${after.mapId}`],
+	});
+
+	return {
+		status: 'accepted',
+		nextState: withCombat({ ...state, sync: draft.log }, nextCombat),
+		events: [
+			{
+				kind: 'combat.token-moved',
+				actorId: actor.id,
+				combatantId: combatant.id,
+				mapId: after.mapId,
+				position: { x: after.x, y: after.y },
+				revision: nextCombat.revision,
+			},
+		],
+		operationIds: [draft.op.id],
+	};
+}
+
+/** RC-MAP-1.1 — take a combatant's token OFF the map (DM-only). The combatant stays in the order. */
+export function handleRemoveCombatToken(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const gate = requireRunningCombatAsDm(state, actorId);
+	if ('rejection' in gate) return reject(gate.rejection, state);
+	const actor = gate.actor;
+
+	const parsed = parseInput(removeCombatTokenInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const found = requireCombatant(state, parsed.data.combatantId);
+	if ('rejection' in found) return reject(found.rejection, state);
+	const combatant = found.combatant;
+
+	const combat = state.session.combat;
+	const before = combat.tokens[combatant.id];
+	if (!before) {
+		return reject(
+			{ code: 'combat-token-not-placed', message: `${combatant.name} is not on a map.` },
+			state,
+		);
+	}
+
+	const operationId = env.ids();
+	let nextCombat = withToken(combat, combatant.id, null);
+	const logEntry = combatLogEntry(
+		env,
+		actor,
+		operationId,
+		nextCombat,
+		'token-removed',
+		`${combatant.name} taken off the map.`,
+		combatant.id,
+		null,
+	);
+	nextCombat = { ...nextCombat, log: [...nextCombat.log, logEntry] };
+
+	const draft = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: COMBAT_ENTITY_TYPE,
+		entityId: SESSION_ENTITY_ID,
+		opType: 'combat.remove-token',
+		path: `combat/tokens/${combatant.id}`,
+		value: { before: cloneCombatToken(before), after: null },
+		beforeRevision: combat.revision,
+		afterRevision: nextCombat.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: withCombat({ ...state, sync: draft.log }, nextCombat),
+		events: [
+			{
+				kind: 'combat.token-removed',
+				actorId: actor.id,
+				combatantId: combatant.id,
+				mapId: before.mapId,
+				revision: nextCombat.revision,
+			},
+		],
+		operationIds: [draft.op.id],
+	};
+}
 
 export function handleEndCombat(
 	state: CoreStateSlice,

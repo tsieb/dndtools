@@ -2573,6 +2573,41 @@ export const setCombatantVisibilityInputSchema = z
 	})
 	.strict();
 
+// ── RC-MAP-1.1 — session combat TOKENS (place / move / remove) ──────────────────────────────────
+// A token says where a combatant is standing while combat runs. Positions are NORMALIZED (0..1 on
+// each axis), the same vector model every other map annotation uses — never pixels. `size` is the
+// footprint in grid cells (1 = Medium). `facing` is degrees clockwise from north, and is optional
+// because most creatures have no meaningful facing.
+const normalizedAxisSchema = z.number().min(0).max(1);
+const combatTokenSizeSchema = z.number().positive().max(20);
+const combatTokenFacingSchema = z.number().min(0).lt(360);
+
+export const placeCombatTokenInputSchema = z
+	.object({
+		combatantId: idSchema,
+		mapId: idSchema,
+		x: normalizedAxisSchema,
+		y: normalizedAxisSchema,
+		size: combatTokenSizeSchema.default(1),
+		facing: combatTokenFacingSchema.optional(),
+	})
+	.strict();
+
+// A MOVE only changes where the combatant stands (and optionally which way they face / how big their
+// footprint is); the map is fixed by the placement. Moving a combatant to a different map is a
+// re-placement, not a move, so `mapId` is deliberately absent here.
+export const moveCombatTokenInputSchema = z
+	.object({
+		combatantId: idSchema,
+		x: normalizedAxisSchema,
+		y: normalizedAxisSchema,
+		size: combatTokenSizeSchema.optional(),
+		facing: z.union([z.literal(null), combatTokenFacingSchema]).optional(),
+	})
+	.strict();
+
+export const removeCombatTokenInputSchema = z.object({ combatantId: idSchema }).strict();
+
 // SES-002 — end combat, persisting the durable encounter log. Optional closing note.
 export const endCombatInputSchema = z
 	.object({
