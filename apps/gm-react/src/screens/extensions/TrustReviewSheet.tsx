@@ -7,6 +7,7 @@ import {
 import { Badge, Button, Checkbox, SegmentedControl, Sheet, Toaster } from '../../ds';
 import { T } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
+import { useI18n, type MessageKey } from '../../i18n';
 
 /**
  * RC-WID-1.5 — the TRUST REVIEW sheet. An installed package can reach nothing until the DM sits
@@ -20,29 +21,29 @@ import { useRuntime } from '../../runtime/RuntimeContext';
  * gate rather than a warning the DM can click past.
  */
 
-const HOST_PERM_LABEL: Record<string, string> = {
-	filesystem: 'Filesystem',
-	clipboard: 'Clipboard',
-	network: 'Network',
-	'source-adapter': 'Source adapter',
-	asset: 'Assets',
-	'external-link': 'External links',
+const HOST_PERM_LABEL: Record<string, MessageKey> = {
+	filesystem: 'extensions.trust.perm.filesystem',
+	clipboard: 'extensions.trust.perm.clipboard',
+	network: 'extensions.trust.perm.network',
+	'source-adapter': 'extensions.trust.perm.sourceAdapter',
+	asset: 'extensions.trust.perm.asset',
+	'external-link': 'extensions.trust.perm.externalLink',
 };
 
 // What granting the permission actually lets the widget do, in the DM's terms.
-const HOST_PERM_MEANING: Record<string, string> = {
-	filesystem: 'Read and write files you choose on this device.',
-	clipboard: 'Read from and write to your clipboard.',
-	network: 'Send requests to the destinations listed below.',
-	'source-adapter': 'Read your configured content sources.',
-	asset: 'Read images and audio from your campaign assets.',
-	'external-link': 'Open links outside Lamplight.',
+const HOST_PERM_MEANING: Record<string, MessageKey> = {
+	filesystem: 'extensions.trust.meaning.filesystem',
+	clipboard: 'extensions.trust.meaning.clipboard',
+	network: 'extensions.trust.meaning.network',
+	'source-adapter': 'extensions.trust.meaning.sourceAdapter',
+	asset: 'extensions.trust.meaning.asset',
+	'external-link': 'extensions.trust.meaning.externalLink',
 };
 
-const RECOMMENDATION_LABEL: Record<string, string> = {
-	'trusted-after-review': 'Safe to trust after review',
-	'requires-review': 'Requires review',
-	'deny-until-fixed': 'Deny until fixed',
+const RECOMMENDATION_LABEL: Record<string, MessageKey> = {
+	'trusted-after-review': 'extensions.trust.recommend.trusted',
+	'requires-review': 'extensions.trust.recommend.review',
+	'deny-until-fixed': 'extensions.trust.recommend.deny',
 };
 const RECOMMENDATION_TONE: Record<string, 'success' | 'warning' | 'error'> = {
 	'trusted-after-review': 'success',
@@ -66,6 +67,7 @@ export function TrustReviewSheet({
 	packageId: string;
 	onClose: () => void;
 }) {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const dmId = runtime.defaultActorId;
 	const previewing = !!runtime.preview;
@@ -132,8 +134,8 @@ export function TrustReviewSheet({
 				finish(
 					result,
 					trustState === 'trusted'
-						? `Trusted ${record.package.displayName} with the permissions you allowed.`
-						: `Denied ${record.package.displayName} — it is disabled and its placed widgets are paused.`,
+						? t('extensions.trust.trusted', { name: record.package.displayName })
+						: t('extensions.trust.denied', { name: record.package.displayName }),
 				),
 			)
 			.catch((error: unknown) =>
@@ -147,12 +149,12 @@ export function TrustReviewSheet({
 			open
 			side="right"
 			onClose={onClose}
-			title={`Review ${record.package.displayName}`}
-			description="Decide what this package may reach. Everything is denied until you allow it."
+			title={t('extensions.trust.title', { name: record.package.displayName })}
+			description={t('extensions.trust.description')}
 			footer={
 				<div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
 					<Button variant="ghost" size="sm" onClick={onClose}>
-						Cancel
+						{t('common.action.cancel')}
 					</Button>
 					<Button
 						variant="danger"
@@ -160,7 +162,7 @@ export function TrustReviewSheet({
 						disabled={!canWrite || busy}
 						onClick={() => decide('denied')}
 					>
-						Deny package
+						{t('extensions.trust.denyPackage')}
 					</Button>
 					<Button
 						variant="primary"
@@ -168,7 +170,7 @@ export function TrustReviewSheet({
 						disabled={!canWrite || busy || (denyUntilFixed && !acknowledged)}
 						onClick={() => decide('trusted')}
 					>
-						Trust package
+						{t('extensions.trust.trustPackage')}
 					</Button>
 				</div>
 			}
@@ -176,7 +178,7 @@ export function TrustReviewSheet({
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 				{!canWrite && (
 					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-						Reviewing a package is DM only and read-only while previewing.
+						{t('extensions.trust.readOnly')}
 					</div>
 				)}
 				<div
@@ -191,16 +193,22 @@ export function TrustReviewSheet({
 					}}
 				>
 					<Badge status={RECOMMENDATION_TONE[summary.trustRecommendation] ?? 'warning'}>
-						{RECOMMENDATION_LABEL[summary.trustRecommendation] ?? summary.trustRecommendation}
+						{RECOMMENDATION_LABEL[summary.trustRecommendation]
+							? t(RECOMMENDATION_LABEL[summary.trustRecommendation])
+							: summary.trustRecommendation}
 					</Badge>
 					<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>
-						v{record.package.version} ·{' '}
-						{summary.customCodeWidgets.length > 0
-							? 'Runs its own code in a sandbox.'
-							: 'Uses built-in widget templates only.'}{' '}
-						{summary.playerVisibleOutputs.length > 0
-							? 'It can write content your players see.'
-							: 'It writes nothing your players see.'}
+						{t('extensions.trust.version', { version: record.package.version })} ·{' '}
+						{t(
+							summary.customCodeWidgets.length > 0
+								? 'extensions.trust.codeCustom'
+								: 'extensions.trust.codeTemplates',
+						)}{' '}
+						{t(
+							summary.playerVisibleOutputs.length > 0
+								? 'extensions.trust.writesPlayerVisible'
+								: 'extensions.trust.writesNothing',
+						)}
 					</div>
 					{summary.runtimeIssues.length > 0 && (
 						<ul style={{ margin: 0, paddingLeft: 18, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
@@ -211,10 +219,10 @@ export function TrustReviewSheet({
 					)}
 				</div>
 
-				<Section title="Permissions it asks for">
+				<Section title={t('extensions.trust.permsTitle')}>
 					{summary.requestedHostPermissions.length === 0 ? (
 						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-							This package asks for no host permissions.
+							{t('extensions.trust.noPerms')}
 						</div>
 					) : (
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -233,23 +241,30 @@ export function TrustReviewSheet({
 								>
 									<div style={{ flex: 1, minWidth: 0 }}>
 										<div style={{ font: `600 12.5px ${T.sans}` }}>
-											{HOST_PERM_LABEL[permission] ?? permission}
+											{HOST_PERM_LABEL[permission] ? t(HOST_PERM_LABEL[permission]) : permission}
 										</div>
 										<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
-											{HOST_PERM_MEANING[permission] ?? 'Reaches a host capability.'}
+											{t(HOST_PERM_MEANING[permission] ?? 'extensions.trust.meaning.other')}
 										</div>
 										<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
-											Asked for by{' '}
-											{(requestedBy.get(permission) ?? []).join(', ') || 'this package'}.
+											{t('extensions.trust.askedFor', {
+												who:
+													(requestedBy.get(permission) ?? []).join(', ') ||
+													t('extensions.trust.thisPackage'),
+											})}
 										</div>
 									</div>
 									<SegmentedControl
 										size="sm"
-										ariaLabel={`${HOST_PERM_LABEL[permission] ?? permission} permission`}
+										ariaLabel={t('extensions.trust.permissionControl', {
+											permission: HOST_PERM_LABEL[permission]
+												? t(HOST_PERM_LABEL[permission])
+												: permission,
+										})}
 										value={decisions[permission] === 'approved' ? 'approved' : 'denied'}
 										options={[
-											{ value: 'denied', label: 'Deny' },
-											{ value: 'approved', label: 'Allow' },
+											{ value: 'denied', label: t('extensions.trust.deny') },
+											{ value: 'approved', label: t('extensions.trust.allow') },
 										]}
 										onChange={(value: string) =>
 											setDecisions((current) => ({
@@ -265,7 +280,7 @@ export function TrustReviewSheet({
 				</Section>
 
 				{summary.requestedNetworkDestinations.length > 0 && (
-					<Section title="Where it would connect">
+					<Section title={t('extensions.trust.connectTitle')}>
 						<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
 							{summary.requestedNetworkDestinations.map((destination: string) => (
 								<Badge key={destination} status="warning">
@@ -277,11 +292,14 @@ export function TrustReviewSheet({
 				)}
 
 				{summary.playerVisibleOutputs.length > 0 && (
-					<Section title="What it can write">
+					<Section title={t('extensions.trust.writeTitle')}>
 						<ul style={{ margin: 0, paddingLeft: 18, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
 							{summary.playerVisibleOutputs.map((output, index) => (
 								<li key={`${output.widgetType}-${output.destinationClass}-${index}`}>
-									{output.widgetType} writes to {output.destinationClass.replace(/-/g, ' ')}.
+									{t('extensions.trust.writesTo', {
+										widget: output.widgetType,
+										destination: output.destinationClass.replace(/-/g, ' '),
+									})}
 								</li>
 							))}
 						</ul>
@@ -289,7 +307,7 @@ export function TrustReviewSheet({
 				)}
 
 				{summary.requestedBindings.length > 0 && (
-					<Section title="What it can read">
+					<Section title={t('extensions.trust.readTitle')}>
 						<ul style={{ margin: 0, paddingLeft: 18, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
 							{summary.requestedBindings.map((binding, index) => (
 								<li key={`${binding.widgetType}-${binding.bindingId}-${index}`}>
@@ -313,14 +331,13 @@ export function TrustReviewSheet({
 						}}
 					>
 						<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>
-							The review recommends denying this package until it is fixed. Trusting it anyway needs
-							your acknowledgement.
+							{t('extensions.trust.ackBody')}
 						</div>
 						<Checkbox
 							checked={acknowledged}
 							disabled={!canWrite}
 							onChange={() => setAcknowledged((value) => !value)}
-							label="I understand the recommendation and want to trust it anyway"
+							label={t('extensions.trust.ackLabel')}
 						/>
 					</div>
 				)}

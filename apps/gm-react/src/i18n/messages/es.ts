@@ -26,6 +26,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'common.field.title': 'Título',
 	'common.visibility.label': 'Visibilidad',
 	'common.visibility.dmOnly': 'Solo DJ',
+	'common.visibility.shared': 'Compartido',
 	'common.visibility.playerVisible': 'Visible para jugadores',
 	'vault.loading': 'Cargando tu bóveda…',
 	'vault.saveFailed': 'Algo no se guardó; inténtalo de nuevo.',
@@ -1646,4 +1647,149 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'player.levelUp.choose': 'Elegir',
 	'player.levelUp.finish': 'Terminar — pasar a nivel {level}',
 	'player.levelUp.incomplete': 'Toma todas las decisiones para terminar',
+	/* Extensiones › estructura, tipos de objeto, estudio de tema, constructor, revisión, sistema */
+	'extensions.sections': 'Secciones de extensiones',
+	'extensions.tab.plugins': 'Complementos',
+	'extensions.tab.compendium': 'Compendio',
+	'extensions.tab.objects': 'Tipos de objeto',
+	'extensions.tab.system': 'Sistema',
+	'extensions.tab.theme': 'Estudio de tema',
+
+	'extensions.objects.title': 'Tipos de objeto',
+	'extensions.objects.builtInCount': '{count, plural, one {# integrado} other {# integrados}}',
+	'extensions.objects.intro':
+		'Estas definiciones controlan los campos y las columnas que se muestran allí donde aparece cada tipo de objeto. Los recuentos reflejan los elementos de la campaña visibles para ti ahora.',
+	'extensions.objects.builtIn': 'Integrado',
+	'extensions.objects.dmOnlyFields':
+		'{count, plural, one {# campo solo DM} other {# campos solo DM}}',
+	'extensions.objects.schemaMeta':
+		'· por defecto {visibility} · {required, plural, one {# campo obligatorio} other {# campos obligatorios}}',
+	'extensions.objects.inVault': '{count} en la bóveda',
+
+	'extensions.theme.presetTitle': 'Preajuste de tema',
+	'extensions.theme.active': 'activo: {theme}',
+	'extensions.theme.tavernDesc': 'Oscuro a la luz de las velas (predeterminado)',
+	'extensions.theme.parchmentDesc': 'Vitela cálida y clara',
+	'extensions.theme.highContrastDesc': 'El mínimo de accesibilidad',
+	'extensions.theme.presetHelp':
+		'La elección del preajuste es real y persiste (el mismo ajuste que Configuración → Apariencia). Los preajustes son la arquitectura de temas — no se admiten anulaciones por token, así que las filas de abajo son los valores en vivo, de solo lectura, del preajuste activo.',
+	'extensions.theme.groupSurfaces': 'Superficies',
+	'extensions.theme.groupText': 'Texto',
+	'extensions.theme.groupAccent': 'Acento y estado',
+	'extensions.theme.previewTitle': 'Vista previa en vivo',
+	'extensions.theme.sampleSurface': 'Superficie de ejemplo',
+	'extensions.theme.sampleName': 'Mara Quill',
+	'extensions.theme.sampleSaved': 'Guardado',
+	'extensions.theme.sampleStale': 'Desactualizado',
+	'extensions.theme.sampleConflict': 'Conflicto',
+	'extensions.theme.sampleBodyBefore':
+		'El cuerpo del texto se muestra con el token de texto secundario. Los números como',
+	'extensions.theme.sampleBodyAfter': 'usan la fuente monoespaciada.',
+
+	'extensions.builder.steps': 'Pasos del constructor',
+	'extensions.builder.needsAttention': 'Necesita atención',
+	'extensions.builder.definition': 'Definición',
+	'extensions.builder.definitionField': 'Definición del paquete de widgets',
+	'extensions.builder.definitionHelp':
+		'Solo lectura. Selecciónala para copiar el paquete a otro sitio.',
+	'extensions.builder.selectAll': 'Seleccionar todo',
+	'extensions.builder.back': 'Volver a Extensiones',
+	'extensions.builder.newWidget': 'Widget nuevo',
+	'extensions.builder.newVersion': 'Versión nueva',
+	'extensions.builder.stepOf': 'Paso {index} de {total} · {label}',
+	'extensions.builder.pane': 'Panel del constructor',
+	'extensions.builder.paneEdit': 'Editar',
+	'extensions.builder.panePreview': 'Vista previa',
+	'extensions.builder.savedUpgrade':
+		'Se guardó {name} versión {version} y se actualizó cada copia colocada.',
+	'extensions.builder.installed':
+		'Se instaló {name}. Queda desactivado hasta que lo actives en Paquetes instalados.',
+
+	'extensions.trust.title': 'Revisar {name}',
+	'extensions.trust.description':
+		'Decide a qué puede llegar este paquete. Todo está denegado hasta que lo permitas.',
+	'extensions.trust.denyPackage': 'Denegar paquete',
+	'extensions.trust.trustPackage': 'Confiar en el paquete',
+	'extensions.trust.readOnly':
+		'Revisar un paquete es solo para el DM y es de solo lectura durante la vista previa.',
+	'extensions.trust.trusted': 'Se confía en {name} con los permisos que permitiste.',
+	'extensions.trust.denied':
+		'Se denegó {name} — queda desactivado y sus widgets colocados están en pausa.',
+	'extensions.trust.recommend.trusted': 'Seguro para confiar tras la revisión',
+	'extensions.trust.recommend.review': 'Requiere revisión',
+	'extensions.trust.recommend.deny': 'Denegar hasta que se corrija',
+	'extensions.trust.version': 'v{version}',
+	'extensions.trust.codeCustom': 'Ejecuta su propio código en un espacio aislado.',
+	'extensions.trust.codeTemplates': 'Solo usa plantillas de widgets integradas.',
+	'extensions.trust.writesPlayerVisible': 'Puede escribir contenido que tus jugadores ven.',
+	'extensions.trust.writesNothing': 'No escribe nada que tus jugadores vean.',
+	'extensions.trust.permsTitle': 'Permisos que solicita',
+	'extensions.trust.noPerms': 'Este paquete no solicita ningún permiso del anfitrión.',
+	'extensions.trust.perm.filesystem': 'Sistema de archivos',
+	'extensions.trust.perm.clipboard': 'Portapapeles',
+	'extensions.trust.perm.network': 'Red',
+	'extensions.trust.perm.sourceAdapter': 'Adaptador de fuentes',
+	'extensions.trust.perm.asset': 'Recursos',
+	'extensions.trust.perm.externalLink': 'Enlaces externos',
+	'extensions.trust.meaning.filesystem':
+		'Leer y escribir los archivos que elijas en este dispositivo.',
+	'extensions.trust.meaning.clipboard': 'Leer y escribir en tu portapapeles.',
+	'extensions.trust.meaning.network': 'Enviar solicitudes a los destinos indicados abajo.',
+	'extensions.trust.meaning.sourceAdapter': 'Leer tus fuentes de contenido configuradas.',
+	'extensions.trust.meaning.asset': 'Leer imágenes y audio de los recursos de tu campaña.',
+	'extensions.trust.meaning.externalLink': 'Abrir enlaces fuera de Lamplight.',
+	'extensions.trust.meaning.other': 'Llega a una capacidad del anfitrión.',
+	'extensions.trust.askedFor': 'Solicitado por {who}.',
+	'extensions.trust.thisPackage': 'este paquete',
+	'extensions.trust.permissionControl': 'Permiso de {permission}',
+	'extensions.trust.deny': 'Denegar',
+	'extensions.trust.allow': 'Permitir',
+	'extensions.trust.connectTitle': 'Adónde se conectaría',
+	'extensions.trust.writeTitle': 'Qué puede escribir',
+	'extensions.trust.writesTo': '{widget} escribe en {destination}.',
+	'extensions.trust.readTitle': 'Qué puede leer',
+	'extensions.trust.ackBody':
+		'La revisión recomienda denegar este paquete hasta que se corrija. Confiar en él de todos modos necesita tu confirmación.',
+	'extensions.trust.ackLabel': 'Entiendo la recomendación y quiero confiar en él de todos modos',
+
+	'extensions.system.title': 'Sistema de la campaña',
+	'extensions.system.intro':
+		'El sistema de la campaña controla qué tipos de widget están disponibles en toda la aplicación. Antes de cambiar, Lamplight revisa la campaña sin modificarla. Los cambios inseguros se bloquean, y cualquier cambio que quitaría widgets en uso requiere tu confirmación explícita.',
+	'extensions.system.noActive':
+		'Todavía no hay ningún paquete de sistema explícito; los widgets de escena integrados actúan como predeterminados hasta que cambies.',
+	'extensions.system.readOnly':
+		'Cambiar es solo para el DM y es de solo lectura durante la vista previa.',
+	'extensions.system.active': 'Activo',
+	'extensions.system.disabled': 'desactivado',
+	'extensions.system.declares':
+		'{count, plural, one {# tipo de widget declarado.} other {# tipos de widget declarados.}}',
+	'extensions.system.current': 'Sistema actual',
+	'extensions.system.previewSwitch': 'Ver el cambio',
+	'extensions.system.notListed':
+		'¿Quieres un sistema que no está en la lista? Instala su paquete de widgets en la pestaña Complementos (biblioteca inicial o JSON del paquete) — cualquier paquete instalado y activado puede verse como sistema activo.',
+	'extensions.system.switchTo': 'Cambiar a {name}',
+	'extensions.system.switchPreview':
+		'Vista previa del cambio a {id} — nada cambia hasta que lo apliques',
+	'extensions.system.switching': 'Cambiando…',
+	'extensions.system.applySwitch': 'Aplicar el cambio',
+	'extensions.system.unavailable': '{reason} No se cambió nada.',
+	'extensions.system.reason.notFound': 'Ese paquete no está instalado.',
+	'extensions.system.reason.removed': 'Ese paquete se ha quitado — vuelve a instalarlo primero.',
+	'extensions.system.reason.disabled':
+		'Ese paquete está desactivado — actívalo primero en la pestaña Complementos.',
+	'extensions.system.reason.alreadyActive': 'Ese paquete ya es el sistema activo.',
+	'extensions.system.reason.other': 'El cambio no está disponible.',
+	'extensions.system.blocked':
+		'Esta campaña no se puede migrar de forma segura, así que el cambio está bloqueado.',
+	'extensions.system.safetyPassed': 'La campaña superó su comprobación de seguridad de migración.',
+	'extensions.system.noChanges':
+		'Sin cambios en el vocabulario de widgets — el sistema actual no declara ningún tipo que le falte al destino.',
+	'extensions.system.finding.keep': 'Conservado',
+	'extensions.system.finding.remap': 'Reasignado',
+	'extensions.system.finding.drop': 'Descartado',
+	'extensions.system.destructiveBody':
+		'Los tipos descartados de arriba tienen widgets en uso en tus escenas — quedarían desactivados (se recuperan volviendo a cambiar). El comando falla de forma cerrada a menos que lo confirmes.',
+	'extensions.system.understand': 'Lo entiendo',
+	'extensions.system.clean': 'No se pierde nada — el cambio se aplica limpiamente.',
+	'extensions.system.switched': 'El sistema activo cambió a {name}.',
 };

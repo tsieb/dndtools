@@ -2,21 +2,36 @@ import { useMemo, useState } from 'react';
 import { Badge, HPBar, Icon, SegmentedControl, VisibilityChip } from '../../ds';
 import { Panel, T, eb, mono } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
+import { useI18n, type MessageKey } from '../../i18n';
 
 /* ---- Theme studio (REAL — persisted preset choice + the LIVE token values of the active preset) --- */
 // Mirrors Settings → Appearance: the same localStorage key index.html restores pre-paint, and the
 // same dark-theme set so the native color-scheme (scrollbars, form controls) stays in sync.
 const THEME_STORE_KEY = 'dndtools:react:theme';
 const DARK_PRESETS = new Set(['tavern', 'high-contrast']);
-const THEME_PRESETS = [
-	{ id: 'tavern', label: 'Tavern', desc: 'Candle-lit dark (default)' },
-	{ id: 'parchment', label: 'Parchment', desc: 'Warm vellum light' },
-	{ id: 'high-contrast', label: 'High contrast', desc: 'The accessibility floor' },
+// The preset names are the same ones Settings → Appearance shows, so they reuse those keys rather
+// than spelling the three theme names a second time per locale.
+const THEME_PRESETS: { id: string; label: MessageKey; desc: MessageKey }[] = [
+	{
+		id: 'tavern',
+		label: 'settings.appearance.themeTavern',
+		desc: 'extensions.theme.tavernDesc',
+	},
+	{
+		id: 'parchment',
+		label: 'settings.appearance.themeParchment',
+		desc: 'extensions.theme.parchmentDesc',
+	},
+	{
+		id: 'high-contrast',
+		label: 'settings.appearance.themeHighContrast',
+		desc: 'extensions.theme.highContrastDesc',
+	},
 ];
 // The semantic tokens the design system actually drives — read LIVE off the document, never authored.
-const TOKEN_GROUPS: { label: string; tokens: string[] }[] = [
+const TOKEN_GROUPS: { label: MessageKey; tokens: string[] }[] = [
 	{
-		label: 'Surfaces',
+		label: 'extensions.theme.groupSurfaces',
 		tokens: [
 			'--color-bg',
 			'--color-surface',
@@ -26,11 +41,11 @@ const TOKEN_GROUPS: { label: string; tokens: string[] }[] = [
 		],
 	},
 	{
-		label: 'Text',
+		label: 'extensions.theme.groupText',
 		tokens: ['--color-text-primary', '--color-text-secondary', '--color-text-tertiary'],
 	},
 	{
-		label: 'Accent & status',
+		label: 'extensions.theme.groupAccent',
 		tokens: [
 			'--color-accent',
 			'--color-accent-subtle',
@@ -42,6 +57,7 @@ const TOKEN_GROUPS: { label: string; tokens: string[] }[] = [
 ];
 
 export function ExtTheme() {
+	const { t } = useI18n();
 	const isPhone = useViewport() === 'phone';
 	const [theme, setTheme] = useState<string>(
 		document.documentElement.getAttribute('data-theme') || 'tavern',
@@ -79,26 +95,27 @@ export function ExtTheme() {
 				alignItems: 'start',
 			}}
 		>
-			<Panel title="Theme preset" action={<Badge status="neutral">active: {theme}</Badge>}>
+			<Panel
+				title={t('extensions.theme.presetTitle')}
+				action={<Badge status="neutral">{t('extensions.theme.active', { theme })}</Badge>}
+			>
 				<div style={{ marginBottom: 14 }}>
 					<SegmentedControl
-						ariaLabel="Theme preset"
+						ariaLabel={t('extensions.theme.presetTitle')}
 						value={theme}
 						onChange={applyTheme}
-						options={THEME_PRESETS.map((p) => ({ value: p.id, label: p.label }))}
+						options={THEME_PRESETS.map((p) => ({ value: p.id, label: t(p.label) }))}
 					/>
 					<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 6 }}>
-						{THEME_PRESETS.find((p) => p.id === theme)?.desc}
+						{t(THEME_PRESETS.find((p) => p.id === theme)?.desc ?? 'extensions.theme.tavernDesc')}
 					</div>
 				</div>
 				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, marginBottom: 12 }}>
-					The preset choice is real and persists (the same setting as Settings → Appearance).
-					Presets are the theming architecture — per-token overrides aren't supported, so the rows
-					below are the live, read-only token values of the active preset.
+					{t('extensions.theme.presetHelp')}
 				</div>
 				{TOKEN_GROUPS.map((g) => (
 					<div key={g.label} style={{ marginBottom: 14 }}>
-						<div style={{ ...eb, marginBottom: 8 }}>{g.label}</div>
+						<div style={{ ...eb, marginBottom: 8 }}>{t(g.label)}</div>
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
 							{g.tokens.map((name) => (
 								<div key={name} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
@@ -131,7 +148,7 @@ export function ExtTheme() {
 					</div>
 				))}
 			</Panel>
-			<Panel title="Live preview">
+			<Panel title={t('extensions.theme.previewTitle')}>
 				<div
 					style={{
 						display: 'flex',
@@ -158,24 +175,26 @@ export function ExtTheme() {
 						>
 							<Icon name="dice" size="sm" />
 						</span>
-						<span style={{ font: `700 15px ${T.disp}` }}>Sample surface</span>
+						<span style={{ font: `700 15px ${T.disp}` }}>
+							{t('extensions.theme.sampleSurface')}
+						</span>
 					</div>
-					<HPBar current={27} max={38} label="Mara Quill" />
+					<HPBar current={27} max={38} label={t('extensions.theme.sampleName')} />
 					<div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
 						<Badge status="success" icon="check">
-							Saved
+							{t('extensions.theme.sampleSaved')}
 						</Badge>
 						<Badge status="warning" icon="warning">
-							Stale
+							{t('extensions.theme.sampleStale')}
 						</Badge>
 						<Badge status="error" icon="close">
-							Conflict
+							{t('extensions.theme.sampleConflict')}
 						</Badge>
 						<VisibilityChip level="dm-only" compact />
 					</div>
 					<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>
-						Body copy renders in the secondary text token. Numbers like{' '}
-						<span style={mono}>1d20+7</span> use the mono face.
+						{t('extensions.theme.sampleBodyBefore')} <span style={mono}>1d20+7</span>{' '}
+						{t('extensions.theme.sampleBodyAfter')}
 					</div>
 				</div>
 			</Panel>

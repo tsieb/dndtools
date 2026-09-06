@@ -1,11 +1,13 @@
 import type { CommandResult } from '@dndtools/core';
+import type { MessageKey } from '../../i18n';
 
 /* ---- Shared across the Extensions panels -------------------------------------------------------- */
 
-export const VISIBILITY_WORD: Record<string, string> = {
-	'dm-only': 'DM only',
-	shared: 'Shared',
-	'player-visible': 'Player visible',
+/** The three visibility words, as catalog keys — the panels render them through `t()`. */
+export const VISIBILITY_WORD: Record<string, MessageKey> = {
+	'dm-only': 'common.visibility.dmOnly',
+	shared: 'common.visibility.shared',
+	'player-visible': 'common.visibility.playerVisible',
 };
 
 /** Pull a string field off the first emitted event of a given kind (mirrors CharBuilder/demo-seed). */

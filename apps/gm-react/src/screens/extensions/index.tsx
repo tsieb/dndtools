@@ -6,6 +6,7 @@ import { ExtCompendium } from './Compendium';
 import { ExtObjects } from './ObjectTypes';
 import { ExtSystem } from './System';
 import { ExtTheme } from './ThemeStudio';
+import { useI18n } from '../../i18n';
 
 /**
  * Extensions & Systems — plugins, compendium import, custom object types, the rules-system switch, and
@@ -49,13 +50,14 @@ import { ExtTheme } from './ThemeStudio';
  */
 
 export function Extensions() {
+	const { t } = useI18n();
 	const [tab, setTab] = useState('plugins');
 	const tabs = [
-		{ id: 'plugins', label: 'Plugins', icon: 'widget' },
-		{ id: 'compendium', label: 'Compendium', icon: 'search' },
-		{ id: 'objects', label: 'Object types', icon: 'tag' },
-		{ id: 'system', label: 'System', icon: 'retry' },
-		{ id: 'theme', label: 'Theme studio', icon: 'theme' },
+		{ id: 'plugins', label: t('extensions.tab.plugins'), icon: 'widget' },
+		{ id: 'compendium', label: t('extensions.tab.compendium'), icon: 'search' },
+		{ id: 'objects', label: t('extensions.tab.objects'), icon: 'tag' },
+		{ id: 'system', label: t('extensions.tab.system'), icon: 'retry' },
+		{ id: 'theme', label: t('extensions.tab.theme'), icon: 'theme' },
 	];
 	return (
 		<Page max={1180}>
@@ -65,7 +67,7 @@ export function Extensions() {
 					onChange={setTab}
 					tabs={tabs}
 					idBase="extensions"
-					aria-label="Extensions sections"
+					aria-label={t('extensions.sections')}
 				/>
 			</div>
 			<div {...tabPanelProps('extensions', tab)}>

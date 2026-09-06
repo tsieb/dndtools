@@ -8,6 +8,7 @@ import { Panel, T, mono } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { CustomObjectTypes } from './CustomTypes';
 import { VISIBILITY_WORD } from './shared';
+import { useI18n } from '../../i18n';
 
 /* ---- Object types (REAL — the Core's declared vault-object schema registry + live counts) ------- */
 const SUBTYPE_ICON: Record<string, string> = {
@@ -22,6 +23,7 @@ const SUBTYPE_ICON: Record<string, string> = {
 };
 
 export function ExtObjects() {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
 	const schemas = listVaultObjectSchemas();
@@ -35,12 +37,15 @@ export function ExtObjects() {
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<Panel
-				title="Object types"
-				action={<Badge status="neutral">{schemas.length} built-in</Badge>}
+				title={t('extensions.objects.title')}
+				action={
+					<Badge status="neutral">
+						{t('extensions.objects.builtInCount', { count: schemas.length })}
+					</Badge>
+				}
 			>
 				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
-					These definitions control the fields and columns shown wherever each object type appears.
-					Counts reflect the campaign items visible to you now.
+					{t('extensions.objects.intro')}
 				</div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 					{schemas.map((s) => {
@@ -76,23 +81,25 @@ export function ExtObjects() {
 								<div style={{ flex: 1, minWidth: 0 }}>
 									<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
 										<span style={{ font: `600 13.5px ${T.sans}` }}>{s.displayName}</span>
-										<Badge status="neutral">Built-in</Badge>
+										<Badge status="neutral">{t('extensions.objects.builtIn')}</Badge>
 										{s.dmOnlyFields.length > 0 && (
 											<Badge status="accent">
-												{s.dmOnlyFields.length} DM-only{' '}
-												{s.dmOnlyFields.length === 1 ? 'field' : 'fields'}
+												{t('extensions.objects.dmOnlyFields', { count: s.dmOnlyFields.length })}
 											</Badge>
 										)}
 									</div>
 									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-										<span style={mono}>{s.subtype}</span> · defaults to{' '}
-										{VISIBILITY_WORD[s.defaultVisibility] ?? s.defaultVisibility} ·{' '}
-										{s.requiredFields.length} required{' '}
-										{s.requiredFields.length === 1 ? 'field' : 'fields'}
+										<span style={mono}>{s.subtype}</span>{' '}
+										{t('extensions.objects.schemaMeta', {
+											visibility: VISIBILITY_WORD[s.defaultVisibility]
+												? t(VISIBILITY_WORD[s.defaultVisibility])
+												: s.defaultVisibility,
+											required: s.requiredFields.length,
+										})}
 									</div>
 								</div>
 								<span style={{ font: `12px ${T.mono}`, color: count ? T.ink : T.ter }}>
-									{count} in vault
+									{t('extensions.objects.inVault', { count })}
 								</span>
 							</div>
 						);

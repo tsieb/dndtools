@@ -7,23 +7,24 @@ import {
 import { Badge, Button, Checkbox, Dialog, Icon, Toaster } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
+import { useI18n, type MessageKey } from '../../i18n';
 
 /* ---- System (REAL — `previewSystemSwitch` dry-run gating the `widget.package.switch-system` command) */
-const SWITCH_UNAVAILABLE_COPY: Record<string, string> = {
-	'package-not-found': 'That package is not installed.',
-	'package-removed': 'That package has been removed — reinstall it first.',
-	'package-disabled': 'That package is disabled — enable it on the Plugins tab first.',
-	'already-active': 'That package is already the active system.',
+const SWITCH_UNAVAILABLE_COPY: Record<string, MessageKey> = {
+	'package-not-found': 'extensions.system.reason.notFound',
+	'package-removed': 'extensions.system.reason.removed',
+	'package-disabled': 'extensions.system.reason.disabled',
+	'already-active': 'extensions.system.reason.alreadyActive',
 };
 const FINDING_TONE: Record<string, 'success' | 'warning' | 'error'> = {
 	keep: 'success',
 	remap: 'warning',
 	drop: 'error',
 };
-const FINDING_LABEL: Record<string, string> = {
-	keep: 'Kept',
-	remap: 'Remapped',
-	drop: 'Dropped',
+const FINDING_LABEL: Record<string, MessageKey> = {
+	keep: 'extensions.system.finding.keep',
+	remap: 'extensions.system.finding.remap',
+	drop: 'extensions.system.finding.drop',
 };
 
 function SystemSwitchDialog({
@@ -43,6 +44,7 @@ function SystemSwitchDialog({
 	onApply: (acknowledgeLoss: boolean) => void;
 	onClose: () => void;
 }) {
+	const { t } = useI18n();
 	const [ack, setAck] = useState(false);
 	const available = preview.kind === 'available';
 	const blocked = available && !preview.vault.canMigrate;
@@ -52,14 +54,14 @@ function SystemSwitchDialog({
 		<Dialog
 			open
 			onClose={onClose}
-			title={`Switch to ${targetName}`}
-			description={`Preview of switching to ${targetId} — nothing changes until you apply`}
+			title={t('extensions.system.switchTo', { name: targetName })}
+			description={t('extensions.system.switchPreview', { id: targetId })}
 			tone={destructive ? 'danger' : undefined}
 			size="md"
 			footer={
 				<>
 					<Button variant="secondary" size="sm" disabled={busy} onClick={onClose}>
-						Cancel
+						{t('common.action.cancel')}
 					</Button>
 					<Button
 						variant={destructive ? 'danger' : 'primary'}
@@ -68,7 +70,7 @@ function SystemSwitchDialog({
 						disabled={!canApply}
 						onClick={() => onApply(destructive && ack)}
 					>
-						{busy ? 'Switching…' : 'Apply switch'}
+						{busy ? t('extensions.system.switching') : t('extensions.system.applySwitch')}
 					</Button>
 				</>
 			}
@@ -77,8 +79,9 @@ function SystemSwitchDialog({
 				// The verdict of an async preview, and the one sentence that says the vault was NOT
 				// touched — it has to be announced, not just painted (WCAG 4.1.3).
 				<div role="status" style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					{SWITCH_UNAVAILABLE_COPY[preview.reason] ?? 'The switch is unavailable.'} Nothing was
-					changed.
+					{t('extensions.system.unavailable', {
+						reason: t(SWITCH_UNAVAILABLE_COPY[preview.reason] ?? 'extensions.system.reason.other'),
+					})}
 				</div>
 			)}
 			{available && (
@@ -93,9 +96,7 @@ function SystemSwitchDialog({
 						}}
 					>
 						<Icon name={blocked ? 'error' : 'success'} size={16} color={blocked ? T.err : T.ok} />
-						{blocked
-							? 'This campaign cannot be migrated safely, so the switch is blocked.'
-							: 'The campaign passed its migration safety check.'}
+						{blocked ? t('extensions.system.blocked') : t('extensions.system.safetyPassed')}
 					</div>
 					{blocked && (
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -108,7 +109,7 @@ function SystemSwitchDialog({
 					)}
 					{preview.findings.length === 0 ? (
 						<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
-							No widget-vocabulary changes — the current system declares no types the target lacks.
+							{t('extensions.system.noChanges')}
 						</div>
 					) : (
 						<div
@@ -141,7 +142,7 @@ function SystemSwitchDialog({
 										{f.widgetType}
 									</span>
 									<Badge status={FINDING_TONE[f.effect] ?? 'neutral'}>
-										{FINDING_LABEL[f.effect] ?? f.effect}
+										{FINDING_LABEL[f.effect] ? t(FINDING_LABEL[f.effect]) : f.effect}
 									</Badge>
 									<span
 										style={{ font: `11.5px ${T.mono}`, color: T.ter, width: 60, flex: '0 0 auto' }}
@@ -175,16 +176,18 @@ function SystemSwitchDialog({
 							}}
 						>
 							<div style={{ flex: 1, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
-								Dropped types above have live widgets on your scenes — they would be disabled
-								(recoverable by switching back). The command fails closed unless you acknowledge
-								this.
+								{t('extensions.system.destructiveBody')}
 							</div>
-							<Checkbox checked={ack} onChange={(v: boolean) => setAck(v)} label="I understand" />
+							<Checkbox
+								checked={ack}
+								onChange={(v: boolean) => setAck(v)}
+								label={t('extensions.system.understand')}
+							/>
 						</div>
 					)}
 					{preview.clean && (
 						<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ok }}>
-							Nothing is lost — the switch applies cleanly.
+							{t('extensions.system.clean')}
 						</div>
 					)}
 				</div>
@@ -194,6 +197,7 @@ function SystemSwitchDialog({
 }
 
 export function ExtSystem() {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const dmId = runtime.defaultActorId;
 	const previewing = !!runtime.preview;
@@ -226,7 +230,7 @@ export function ExtSystem() {
 			})
 			.then((res: CommandResult) => {
 				if (res.status === 'accepted') {
-					Toaster.success(`Active system switched to ${targetName}.`);
+					Toaster.success(t('extensions.system.switched', { name: targetName }));
 					setTargetId(null);
 				} else {
 					Toaster.error(res.rejection.message);
@@ -240,17 +244,14 @@ export function ExtSystem() {
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-			<Panel title="Campaign system" accent>
+			<Panel title={t('extensions.system.title')} accent>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					The campaign system controls which widget types are available throughout the app. Before
-					switching, Lamplight checks the campaign without changing it. Unsafe switches are blocked,
-					and any switch that would remove live widgets requires your explicit confirmation.
-					{activeId === null &&
-						' No explicit system package is set yet; the built-in scene widgets act as the default until you switch.'}
+					{t('extensions.system.intro')}
+					{activeId === null && ` ${t('extensions.system.noActive')}`}
 				</div>
 				{!canWrite && (
 					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-						Switching is DM-only and read-only while previewing.
+						{t('extensions.system.readOnly')}
 					</div>
 				)}
 			</Panel>
@@ -291,22 +292,21 @@ export function ExtSystem() {
 								</span>
 								{active ? (
 									<Badge status="accent" icon="check">
-										Active
+										{t('extensions.system.active')}
 									</Badge>
 								) : rec.enabled ? (
 									<Badge status="neutral">v{def.version}</Badge>
 								) : (
-									<Badge status="warning">disabled</Badge>
+									<Badge status="warning">{t('extensions.system.disabled')}</Badge>
 								)}
 							</div>
 							<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{def.id}</div>
 							<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub, flex: 1 }}>
-								{def.widgets.length} {def.widgets.length === 1 ? 'widget type' : 'widget types'}{' '}
-								declared.
+								{t('extensions.system.declares', { count: def.widgets.length })}
 							</div>
 							{active ? (
 								<Button variant="secondary" size="sm" disabled>
-									Current system
+									{t('extensions.system.current')}
 								</Button>
 							) : (
 								<Button
@@ -316,7 +316,7 @@ export function ExtSystem() {
 									disabled={busy}
 									onClick={() => setTargetId(def.id)}
 								>
-									Preview switch
+									{t('extensions.system.previewSwitch')}
 								</Button>
 							)}
 						</div>
@@ -324,9 +324,7 @@ export function ExtSystem() {
 				})}
 			</div>
 			<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
-				Want a system that isn't listed? Install its widget package on the Plugins tab (starter
-				library or package JSON) — every installed, enabled package can be previewed as the active
-				system.
+				{t('extensions.system.notListed')}
 			</div>
 			{targetId && preview && (
 				<SystemSwitchDialog

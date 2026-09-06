@@ -26,6 +26,7 @@ import { CommandsStep } from '../../app/widgetBuilder/CommandsStep';
 import { StyleStep } from '../../app/widgetBuilder/StyleStep';
 import { AdvancedStep } from '../../app/widgetBuilder/AdvancedStep';
 import { ReviewStep } from '../../app/widgetBuilder/ReviewStep';
+import { useI18n } from '../../i18n';
 
 /**
  * The widget builder (RC-WID-2.1) — a full-screen overlay on the same contract as the map editor:
@@ -54,6 +55,7 @@ export function WidgetBuilder({
 	editPackage?: WidgetPackageDefinition | null;
 	onClose: () => void;
 }) {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const viewport = useViewport();
 	const narrow = viewport !== 'desktop';
@@ -172,8 +174,11 @@ export function WidgetBuilder({
 				if (result.status === 'accepted') {
 					Toaster.success(
 						mode === 'upgrade'
-							? `Saved ${draft.name} version ${draft.version} and updated every placed copy.`
-							: `Installed ${draft.name}. It is disabled until you enable it in Installed packages.`,
+							? t('extensions.builder.savedUpgrade', {
+									name: draft.name,
+									version: draft.version,
+								})
+							: t('extensions.builder.installed', { name: draft.name }),
 					);
 					onCloseRef.current();
 					return;
@@ -219,7 +224,7 @@ export function WidgetBuilder({
 		);
 
 	const stepRail = (
-		<nav aria-label="Builder steps" data-testid="widget-builder-steps">
+		<nav aria-label={t('extensions.builder.steps')} data-testid="widget-builder-steps">
 			<ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 4 }}>
 				{STEP_IDS.map((id, index) => {
 					const current = id === step;
@@ -265,7 +270,9 @@ export function WidgetBuilder({
 									{index + 1}
 								</span>
 								<span style={{ flex: 1, minWidth: 0 }}>{STEP_LABEL[id]}</span>
-								{blocked && <Badge status="warning">Needs attention</Badge>}
+								{blocked && (
+									<Badge status="warning">{t('extensions.builder.needsAttention')}</Badge>
+								)}
 							</button>
 						</li>
 					);
@@ -277,7 +284,9 @@ export function WidgetBuilder({
 	const jsonPane = (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-				<span style={{ flex: 1, font: `600 12px ${T.sans}`, color: T.sub }}>Definition</span>
+				<span style={{ flex: 1, font: `600 12px ${T.sans}`, color: T.sub }}>
+					{t('extensions.builder.definition')}
+				</span>
 				<Button
 					variant="ghost"
 					size="sm"
@@ -287,7 +296,7 @@ export function WidgetBuilder({
 						jsonRef.current?.select();
 					}}
 				>
-					Select all
+					{t('extensions.builder.selectAll')}
 				</Button>
 			</div>
 			<Textarea
@@ -295,12 +304,12 @@ export function WidgetBuilder({
 				value={json}
 				readOnly
 				rows={narrow ? 14 : 26}
-				aria-label="Widget package definition"
+				aria-label={t('extensions.builder.definitionField')}
 				data-testid="widget-builder-json"
 				style={{ fontFamily: T.mono, fontSize: 11.5, flex: 1, minHeight: 0 }}
 			/>
 			<span style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
-				Read-only. Select it to copy the package elsewhere.
+				{t('extensions.builder.definitionHelp')}
 			</span>
 		</div>
 	);
@@ -354,7 +363,7 @@ export function WidgetBuilder({
 			>
 				<IconButton
 					icon="arrow-left"
-					label="Back to Extensions"
+					label={t('extensions.builder.back')}
 					variant="ghost"
 					size="sm"
 					onClick={onClose}
@@ -370,14 +379,20 @@ export function WidgetBuilder({
 							textOverflow: 'ellipsis',
 						}}
 					>
-						{draft.name || 'New widget'}
+						{draft.name || t('extensions.builder.newWidget')}
 					</h1>
 					<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-						Step {stepIndex + 1} of {STEP_IDS.length} · {STEP_LABEL[step]}
+						{t('extensions.builder.stepOf', {
+							index: stepIndex + 1,
+							total: STEP_IDS.length,
+							label: STEP_LABEL[step],
+						})}
 					</span>
 				</div>
 				<Badge status={mode === 'upgrade' ? 'warning' : 'neutral'}>
-					{mode === 'upgrade' ? 'New version' : 'New widget'}
+					{mode === 'upgrade'
+						? t('extensions.builder.newVersion')
+						: t('extensions.builder.newWidget')}
 				</Badge>
 			</header>
 
@@ -391,13 +406,13 @@ export function WidgetBuilder({
 					}}
 				>
 					<Seg
-						ariaLabel="Builder pane"
+						ariaLabel={t('extensions.builder.pane')}
 						value={pane}
 						onChange={(next: string) => setPane(next as typeof pane)}
 						options={[
-							{ value: 'edit', label: 'Edit' },
-							{ value: 'preview', label: 'Preview' },
-							{ value: 'json', label: 'Definition' },
+							{ value: 'edit', label: t('extensions.builder.paneEdit') },
+							{ value: 'preview', label: t('extensions.builder.panePreview') },
+							{ value: 'json', label: t('extensions.builder.definition') },
 						]}
 					/>
 				</div>
@@ -426,7 +441,7 @@ export function WidgetBuilder({
 									disabled={stepIndex === 0}
 									onClick={() => goToStep(STEP_IDS[Math.max(0, stepIndex - 1)]!)}
 								>
-									Back
+									{t('common.action.back')}
 								</Button>
 								<Button
 									variant="secondary"
@@ -434,7 +449,7 @@ export function WidgetBuilder({
 									disabled={stepIndex === STEP_IDS.length - 1}
 									onClick={() => goToStep(STEP_IDS[Math.min(STEP_IDS.length - 1, stepIndex + 1)]!)}
 								>
-									Next
+									{t('common.action.next')}
 								</Button>
 							</div>
 						</div>,
@@ -444,7 +459,9 @@ export function WidgetBuilder({
 				{(!narrow || pane === 'preview') &&
 					column(
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-							<span style={{ font: `600 12px ${T.sans}`, color: T.sub }}>Preview</span>
+							<span style={{ font: `600 12px ${T.sans}`, color: T.sub }}>
+								{t('extensions.builder.panePreview')}
+							</span>
 							<BuilderPreview draft={draft} />
 						</div>,
 					)}
