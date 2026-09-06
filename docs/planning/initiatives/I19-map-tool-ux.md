@@ -410,6 +410,16 @@ interest in {L} layers."` updated when POI count changes via `aria-live="polite"
     users who cannot interact with the canvas at all (WCAG 4.1.2 compliance for the canvas
     content).
 
+  _Implemented (RC-MAP-4.1) — `apps/gm-react/src/app/map/ListView.tsx`, toggled from the map
+  editor header (bottom tool bar on a plain phone) in `MapEditor.tsx`._ Three deviations, all
+  deliberate: (1) the inventory covers tokens, routes and layers as well as POIs, because a
+  screen-reader user who cannot reach the canvas cannot reach any of them; (2) there is no
+  additional `sr-only <ul>` — one inventory is better than two readings of the same content, and
+  the table already carries the counts and the per-row "Navigate to"; (3) POI and token labels are
+  editable IN the row (`map.update-poi` / `map.update-token`), so an inventory pass never has to
+  cross to the Inspector. The counts inside the canvas's own `role="application"` label are still
+  outstanding — that label is built in `canvas/EditorCanvas.tsx`, which RC-MAP-4.3 owns.
+
 - **S19.5.3 — Mobile touch gesture model**
   On Compact layout (I14 S14.1.1), the map viewer is optimised for touch:
   - **Single-finger pan**: immediate, no friction. Inertia: the canvas continues to drift

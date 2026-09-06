@@ -1182,3 +1182,133 @@ test.describe('map editor: party marker', () => {
 		await expect(sheet.getByRole('button', { name: 'Mark party here' })).toBeVisible();
 	});
 });
+
+// ── 13 · RC-MAP-4.1 · the list view (screen-reader inventory) ────────────────────────────────────
+//
+// The canvas is `role="application"`: correct for a pointer-driven drawing surface, and the reason a
+// screen reader stops describing what is ON the map. The list view is the equivalent non-visual path,
+// so these specs drive it the way its users do — by Tab and by typing, never by clicking a row.
+
+/**
+ * Walk focus forward with Tab until the focused element's accessible name matches, and fail loudly if
+ * it never does. This is the assertion that matters for RC-MAP-4.1: not "the control exists" but "the
+ * control is REACHABLE from the keyboard without touching the canvas".
+ */
+async function tabTo(page: Page, name: string, max = 80): Promise<void> {
+	for (let i = 0; i < max; i += 1) {
+		const current = await page.evaluate(() => {
+			const el = document.activeElement;
+			if (!el) return '';
+			return (el.getAttribute('aria-label') ?? el.textContent ?? '').trim();
+		});
+		if (current === name) return;
+		await page.keyboard.press('Tab');
+	}
+	throw new Error(`Tab never reached a control named "${name}" within ${max} stops`);
+}
+
+interface SeededPoi {
+	name: string;
+	mapId: string;
+	label: string;
+}
+
+/** A map carrying one POI, ready to be opened in the editor. */
+async function seedMapWithPoi(page: Page, prefix: string): Promise<SeededPoi> {
+	const stamp = Date.now();
+	const name = `${prefix} ${stamp}`;
+	const label = `Old Well ${stamp}`;
+	const mapId = await createMap(page, { name });
+	const baseLayerId = (await readMap(page, mapId))!.layers[0]!.id;
+	expect(
+		(
+			await dispatch(page, {
+				type: 'map.create-poi',
+				actorId: DM,
+				payload: {
+					mapId,
+					id: `list-poi-${stamp}`,
+					layerId: baseLayerId,
+					label,
+					category: 'other',
+					position: { x: 0.25, y: 0.75 },
+					visibility: 'dm-only',
+				},
+			})
+		).status,
+	).toBe('accepted');
+	return { name, mapId, label };
+}
+
+test.describe('map editor: list view', () => {
+	test('a keyboard-only pass reaches the list and renames a POI through it', async ({ page }) => {
+		await openAtlas(page);
+		const poi = await seedMapWithPoi(page, 'Inventory Hold');
+		await openEditor(page, poi.name);
+
+		// Reach the toggle with Tab alone, and activate it with the keyboard.
+		await focusEditor(page);
+		await tabTo(page, 'Show list');
+		await page.keyboard.press('Enter');
+
+		// The canvas is GONE (a swap, not an overlay) and the inventory names its own counts.
+		await expect(page.getByRole('application')).toHaveCount(0);
+		const inventory = page.getByRole('region', { name: /^Map inventory — / });
+		await expect(inventory).toBeVisible();
+		await expect(inventory).toHaveAttribute(
+			'aria-label',
+			/1 point of interest, 0 tokens, 0 routes, 1 layer\.$/,
+		);
+		await expect(page.getByRole('group', { name: 'Points of interest, 1 row' })).toBeVisible();
+
+		// Rename the POI from the row itself: Tab to the field, select all, type, Enter.
+		const renamed = `Sealed Well ${Date.now()}`;
+		await tabTo(page, `Label for point of interest ${poi.label}`);
+		await page.keyboard.press('ControlOrMeta+a');
+		await page.keyboard.type(renamed);
+		await page.keyboard.press('Enter');
+
+		// The DURABLE core state changed — not just the field.
+		await expect
+			.poll(async () => (await readMap(page, poi.mapId))!.pois[0]!.label, { timeout: 5000 })
+			.toBe(renamed);
+		// …and the live region said so, which is the whole point of the inventory.
+		await expect(page.getByText(`Renamed to ${renamed}.`)).toHaveCount(1);
+	});
+
+	test('"Navigate to" selects the object and puts the canvas back in front', async ({ page }) => {
+		await openAtlas(page);
+		const poi = await seedMapWithPoi(page, 'Navigate Hold');
+		await openEditor(page, poi.name);
+
+		await page.getByRole('button', { name: 'Show list' }).click();
+		await expect(page.getByRole('region', { name: /^Map inventory — / })).toBeVisible();
+
+		await page.getByRole('button', { name: `Navigate to ${poi.label}` }).click();
+
+		// Back on the canvas, with the POI selected — so the Inspector opens on it.
+		await expect(page.getByRole('application')).toBeVisible();
+		await expect(page.getByRole('region', { name: /^Map inventory — / })).toHaveCount(0);
+		await expect(page.getByText(`Moved to ${poi.label}.`)).toHaveCount(1);
+	});
+
+	test('the list view passes the axe critical/serious gate', async ({ page }) => {
+		await openAtlas(page);
+		const poi = await seedMapWithPoi(page, 'Axe List Hold');
+		await openEditor(page, poi.name);
+		await page.getByRole('button', { name: 'Show list' }).click();
+		await expect(page.getByRole('region', { name: /^Map inventory — / })).toBeVisible();
+
+		const results = await new AxeBuilder({ page })
+			.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
+			.analyze();
+		const blocking = results.violations
+			.filter((v) => v.impact === 'critical' || v.impact === 'serious')
+			.map(
+				(v) =>
+					`[${v.impact}] ${v.id}\n` +
+					v.nodes.map((n) => `    ${n.target.join(' ')}\n    ${n.failureSummary}`).join('\n'),
+			);
+		expect(blocking, `List view axe violations:\n${blocking.join('\n')}`).toEqual([]);
+	});
+});

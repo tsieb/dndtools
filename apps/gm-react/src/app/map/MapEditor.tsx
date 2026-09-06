@@ -42,6 +42,7 @@ import { pickRasterAssetId } from '../mapGeometry';
 import { usePlatformCapabilities } from '../../platform/capabilities';
 import { registerBackHandler } from '../../platform/backNavigation';
 import { QuickMapRail } from './QuickMapRail';
+import { ListView } from './ListView';
 import { isQuickMapTool, normalizeQuickMapTool } from './quickMap';
 import { exportFile, FileExportError } from '../../platform/download';
 import { isolateModalSiblings } from '../../platform/modalIsolation';
@@ -108,6 +109,10 @@ export function MapEditor({
 	const [exportOpen, setExportOpen] = useState(false);
 	const exportTriggerRef = useRef<HTMLSpanElement>(null);
 	const [mobileDock, setMobileDock] = useState(false);
+	// RC-MAP-4.1 — the canvas well shows either the drawing surface or the accessible inventory. It is
+	// a swap, not an overlay: two views of the same map are two `role="application"`/table readings of
+	// the same content, and leaving both mounted would make a screen reader walk the map twice.
+	const [listView, setListView] = useState(false);
 	// `projectToPlayers` does not go through `editor.run`, so `editor.busy` never latched for it and
 	// the button's own `disabled` was decorative — a double-click projected twice.
 	const [projecting, setProjecting] = useState(false);
@@ -470,6 +475,58 @@ export function MapEditor({
 		sheetResizeRef.current = null;
 	};
 
+	// RC-MAP-4.1 — the inventory toggle. A TEXT button, not an icon: the registry has no list glyph
+	// (docs/reference/ICON_VOCABULARY.md) and inventing an unnamed shape for the app's only non-visual
+	// route into a map is the wrong trade. On a plain phone it does NOT go in the header — that header
+	// already has six children with hard minimums and a seventh takes its width straight out of the
+	// map name (measured: the <h1> fell from 90px to 38px on a 393px handset). It rides the bottom
+	// tool bar there instead, beside the Panels toggle it behaves like.
+	const phoneBar = isPhone && !quickMapMode;
+	const listToggle = (
+		<Button
+			variant="secondary"
+			size="sm"
+			// The accessible name stays the full verb phrase everywhere; only the printed text shortens.
+			aria-label={listView ? t('mapEditor.showMap') : t('mapEditor.showList')}
+			onClick={() => {
+				const next = !listView;
+				setListView(next);
+				announce(next ? t('mapEditor.listShown') : t('mapEditor.mapShown'));
+			}}
+		>
+			{isPhone || quickMapMode
+				? listView
+					? t('mapEditor.showMapShort')
+					: t('mapEditor.showListShort')
+				: listView
+					? t('mapEditor.showMap')
+					: t('mapEditor.showList')}
+		</Button>
+	);
+
+	// RC-MAP-4.1 — what fills the canvas well: the pointer-driven drawing surface, or the accessible
+	// inventory of the same map. `listView` is honoured on every profile, because the profile that
+	// most needs a non-canvas path is whichever one the reader is on.
+	const well = (quick: boolean) =>
+		listView ? (
+			<ListView
+				editor={editor}
+				announce={announce}
+				// No announcement here: the live region holds one message at a time and ListView has
+				// already spoken the useful one ("Moved to <name>."). Speaking again would erase it.
+				onNavigate={() => setListView(false)}
+			/>
+		) : (
+			<EditorCanvas
+				editor={editor}
+				previewLayers={preview?.layers ?? null}
+				announce={announce}
+				rasterAssetId={rasterAssetId}
+				onCursor={setCursor}
+				quickMapMode={quick}
+			/>
+		);
+
 	const dockBody = generating ? (
 		<GeneratePanel
 			editor={editor}
@@ -541,7 +598,7 @@ export function MapEditor({
 				outline: 'none',
 			}}
 		>
-			<div aria-live="polite" style={srOnly}>
+			<div aria-live="polite" aria-atomic="true" style={srOnly}>
 				{announcement}
 			</div>
 
@@ -679,6 +736,7 @@ export function MapEditor({
 						</div>
 					</>
 				)}
+				{!phoneBar && listToggle}
 				<div style={{ position: 'relative' }}>
 					{/* display:contents adds no box of its own — it exists only to give the Popover a handle
 					    on its own trigger, so an outside-pointerdown close cannot race the button's click. */}
@@ -805,16 +863,7 @@ export function MapEditor({
 			{quickMapMode ? (
 				<>
 					<QuickToolStrip editor={editor} />
-					<div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-						<EditorCanvas
-							editor={editor}
-							previewLayers={preview?.layers ?? null}
-							announce={announce}
-							rasterAssetId={rasterAssetId}
-							onCursor={setCursor}
-							quickMapMode
-						/>
-					</div>
+					<div style={{ flex: 1, minHeight: 0, position: 'relative' }}>{well(true)}</div>
 					<QuickMapRail
 						activeTool={editor.tool}
 						onSelect={editor.setTool}
@@ -887,15 +936,7 @@ export function MapEditor({
 			) : isPhone ? (
 				<>
 					<ToolOptionsBar editor={editor} />
-					<div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-						<EditorCanvas
-							editor={editor}
-							previewLayers={preview?.layers ?? null}
-							announce={announce}
-							rasterAssetId={rasterAssetId}
-							onCursor={setCursor}
-						/>
-					</div>
+					<div style={{ flex: 1, minHeight: 0, position: 'relative' }}>{well(false)}</div>
 					<div
 						style={{
 							display: 'flex',
@@ -912,6 +953,7 @@ export function MapEditor({
 								orientation="horizontal"
 							/>
 						</div>
+						{listToggle}
 						<IconButton
 							icon="layers"
 							label={t('mapEditor.panels')}
@@ -960,15 +1002,7 @@ export function MapEditor({
 					</div>
 					<div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 						<ToolOptionsBar editor={editor} />
-						<div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-							<EditorCanvas
-								editor={editor}
-								previewLayers={preview?.layers ?? null}
-								announce={announce}
-								rasterAssetId={rasterAssetId}
-								onCursor={setCursor}
-							/>
-						</div>
+						<div style={{ flex: 1, minHeight: 0, position: 'relative' }}>{well(false)}</div>
 					</div>
 					<div
 						style={{
