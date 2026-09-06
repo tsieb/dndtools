@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Button, Card, Dialog, Icon, Select, Textarea } from '../../ds';
 import { T } from '../../app/screen-kit';
 import { pickTextFiles } from '../../platform/filePick';
-import { IMPORT_POLICIES } from './shared';
+import { importPolicies } from './shared';
+import { useI18n } from '../../i18n';
 
 /** Turn picked files into paste-box archive text. A `.json` export bundle (the shape Community's
  * Export downloads) expands into its member files; anything else imports as one markdown note. */
@@ -45,6 +46,7 @@ export function ImportPanel({
 	message: string | null;
 	failed: boolean;
 }) {
+	const { t } = useI18n();
 	const [text, setText] = useState('');
 	const [policy, setPolicy] = useState('skip');
 	// "Overwrite existing" is the one import outcome with no inverse: `content-import` replaces the
@@ -76,7 +78,7 @@ export function ImportPanel({
 		>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 				<div style={{ flex: 1, font: `600 13px ${T.sans}`, color: T.ink }}>
-					Import a markdown vault
+					{t('knowledge.importTitle')}
 				</div>
 				<Button
 					variant="secondary"
@@ -85,23 +87,24 @@ export function ImportPanel({
 					disabled={busy}
 					onClick={() => void pickFiles()}
 				>
-					Import files…
+					{t('knowledge.importFiles')}
 				</Button>
 			</div>
 			<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-				Paste markdown or pick <code style={{ fontFamily: T.mono }}>.md</code> / exported{' '}
-				<code style={{ fontFamily: T.mono }}>.json</code> bundles — files land in the box below for
-				review. Separate multiple notes with{' '}
-				<code style={{ fontFamily: T.mono }}>===== path.md =====</code> headers.
+				{t('knowledge.importIntroA')} <code style={{ fontFamily: T.mono }}>.md</code>{' '}
+				{t('knowledge.importIntroB')} <code style={{ fontFamily: T.mono }}>.json</code>{' '}
+				{t('knowledge.importIntroC')}{' '}
+				<code style={{ fontFamily: T.mono }}>===== path.md =====</code>{' '}
+				{t('knowledge.importIntroD')}
 			</div>
 			<Textarea
 				// The only unlabeled field in this file — a screen reader announced "edit, multiline,
 				// blank" with no hint that this is the import buffer (WCAG 4.1.2).
-				aria-label="Markdown or JSON to import"
+				aria-label={t('knowledge.importField')}
 				value={text}
 				onChange={(e: { target: { value: string } }) => setText(e.target.value)}
 				rows={8}
-				placeholder={'===== Lore/The Pier.md =====\nBrackish water laps at rotting planks…'}
+				placeholder={t('knowledge.importPlaceholder')}
 				style={{ fontFamily: T.mono, fontSize: 12.5 }}
 			/>
 			{/* flexWrap because this row carries a Select, a status message and two buttons — on a
@@ -109,8 +112,8 @@ export function ImportPanel({
 			    `.app-main`. The sibling rows in this file already wrap. */}
 			<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
 				<Select
-					aria-label="Import collision policy"
-					options={IMPORT_POLICIES}
+					aria-label={t('knowledge.importPolicy')}
+					options={importPolicies(t)}
 					value={policy}
 					onChange={(e: { target: { value: string } }) => setPolicy(e.target.value)}
 				/>
@@ -141,10 +144,10 @@ export function ImportPanel({
 						else onImport(text, policy);
 					}}
 				>
-					Import
+					{t('knowledge.import')}
 				</Button>
 				<Button variant="ghost" size="sm" disabled={busy} onClick={onCancel}>
-					Close
+					{t('common.action.close')}
 				</Button>
 			</div>
 			<Dialog
@@ -153,12 +156,12 @@ export function ImportPanel({
 				tone="danger"
 				icon="warning"
 				size="sm"
-				title="Overwrite existing notes?"
-				description="Every note this archive collides with has its body replaced, and its player visibility reset to whatever the file says — anything you are currently sharing may be hidden again. This can’t be undone. Choose “Skip collisions” to import only the new notes."
+				title={t('knowledge.overwriteTitle')}
+				description={t('knowledge.overwriteBody')}
 				footer={
 					<>
 						<Button variant="secondary" size="sm" onClick={() => setConfirmOverwrite(false)}>
-							Cancel
+							{t('common.action.cancel')}
 						</Button>
 						<Button
 							variant="danger"
@@ -168,7 +171,7 @@ export function ImportPanel({
 								onImport(text, policy);
 							}}
 						>
-							Overwrite
+							{t('knowledge.overwrite')}
 						</Button>
 					</>
 				}

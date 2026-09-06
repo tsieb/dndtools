@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button, Card, Input } from '../../ds';
+import { useI18n } from '../../i18n';
 
 export function Composer({
 	onCreate,
@@ -10,6 +11,7 @@ export function Composer({
 	onCancel: () => void;
 	busy: boolean;
 }) {
+	const { t } = useI18n();
 	const [title, setTitle] = useState('');
 	return (
 		<Card
@@ -20,9 +22,9 @@ export function Composer({
 			<Input
 				value={title}
 				autoFocus
-				aria-label="New note title"
+				aria-label={t('knowledge.newNoteTitle')}
 				onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
-				placeholder="New note title…"
+				placeholder={t('knowledge.newNoteTitlePlaceholder')}
 				style={{ flex: 1 }}
 				onKeyDown={(e: { key: string }) => {
 					// The Create button is gated on `busy`; Enter was not, so holding it (or a fast
@@ -37,10 +39,10 @@ export function Composer({
 				disabled={busy || !title.trim()}
 				onClick={() => onCreate(title.trim())}
 			>
-				Create
+				{t('common.action.create')}
 			</Button>
 			<Button variant="ghost" size="sm" disabled={busy} onClick={onCancel}>
-				Cancel
+				{t('common.action.cancel')}
 			</Button>
 		</Card>
 	);

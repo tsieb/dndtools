@@ -17,7 +17,8 @@ import {
 import { BackBar, Page, Panel, Seg, T } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { VIS_CHIP, VIS_OPTIONS } from './shared';
+import { VIS_CHIP, visibilityOptions } from './shared';
+import { useI18n } from '../../i18n';
 import { formatStamp, mdToNodes, parseWikilink } from './markdown';
 
 function RelRow({
@@ -83,6 +84,7 @@ export function NoteViewer({
 	onBack: () => void;
 	onOpen: (id: string) => void;
 }) {
+	const { t, formatDate } = useI18n();
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
 	const isPhone = useViewport() === 'phone';
@@ -133,7 +135,7 @@ export function NoteViewer({
 		// whole note body, out of sight.
 		setErr(null);
 		if (!title.trim()) {
-			setErr('A note needs a title.');
+			setErr(t('knowledge.needsTitle'));
 			return;
 		}
 		setBusy(true);
@@ -152,7 +154,7 @@ export function NoteViewer({
 			if (result.status === 'accepted') setEditing(false);
 			else setErr(result.rejection.message);
 		} catch (error) {
-			setErr(error instanceof Error ? error.message : 'The note couldn’t be saved — try again.');
+			setErr(error instanceof Error ? error.message : t('knowledge.saveFailed'));
 		} finally {
 			setBusy(false);
 		}
@@ -186,12 +188,12 @@ export function NoteViewer({
 			// permanent polite live region, so this is the one announcement that reliably lands.
 			else
 				Toaster.success(
-					visibility === 'dm-only'
-						? `“${note.title}” is hidden from players again`
-						: `“${note.title}” is now visible to players`,
+					t(visibility === 'dm-only' ? 'knowledge.nowHidden' : 'knowledge.nowVisible', {
+						title: note.title,
+					}),
 				);
 		} catch (error) {
-			setErr(error instanceof Error ? error.message : 'The change couldn’t be saved — try again.');
+			setErr(error instanceof Error ? error.message : t('knowledge.changeFailed'));
 		} finally {
 			setBusy(false);
 		}
@@ -212,24 +214,22 @@ export function NoteViewer({
 			if (result.status === 'accepted') {
 				const itemId = note.id;
 				const title = note.title;
-				Toaster.success(`“${title}” deleted`, {
-					action: 'Undo',
+				Toaster.success(t('knowledge.deleted', { title }), {
+					action: t('common.action.undo'),
 					onAction: () => {
 						void runtime
 							.dispatch({ type: 'content.restore-item', actorId, payload: { itemId } })
 							.then((restored) => {
-								if (restored.status === 'accepted') Toaster.success(`“${title}” restored`);
-								else
-									Toaster.error(
-										restored.rejection.message ?? 'The note couldn’t be restored — try again.',
-									);
+								if (restored.status === 'accepted')
+									Toaster.success(t('knowledge.restored', { title }));
+								else Toaster.error(restored.rejection.message ?? t('knowledge.restoreFailed'));
 							});
 					},
 				});
 				onBack();
 			} else setErr(result.rejection.message);
 		} catch (error) {
-			setErr(error instanceof Error ? error.message : 'The note couldn’t be deleted — try again.');
+			setErr(error instanceof Error ? error.message : t('knowledge.deleteFailed'));
 		} finally {
 			setBusy(false);
 		}
@@ -237,7 +237,7 @@ export function NoteViewer({
 
 	return (
 		<Page max={1080}>
-			<BackBar label="Notes" onClick={onBack} />
+			<BackBar label={t('knowledge.notes')} onClick={onBack} />
 			<div
 				style={{
 					display: 'grid',
@@ -250,14 +250,16 @@ export function NoteViewer({
 					<div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
 						<VisibilityChip level={VIS_CHIP[note.visibility] || 'dm-only'} />
 						<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
-							Note · updated {formatStamp(note.updatedAt)}
+							{t('knowledge.noteUpdated', {
+								when: formatStamp(note.updatedAt, formatDate),
+							})}
 						</span>
 						<div style={{ flex: 1 }} />
 						{canAuthor && !editing && (
 							<>
 								<IconButton
 									icon="note-edit"
-									label="Edit"
+									label={t('common.action.edit')}
 									variant="ghost"
 									size="sm"
 									onClick={startEdit}
@@ -265,7 +267,7 @@ export function NoteViewer({
 								{note.visibility !== 'player-visible' && (
 									<IconButton
 										icon="send"
-										label="Push to players"
+										label={t('knowledge.push')}
 										variant="ghost"
 										size="sm"
 										onClick={() => setVisibility('player-visible')}
@@ -279,20 +281,20 @@ export function NoteViewer({
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 							<Input
 								value={title}
-								aria-label="Note title"
+								aria-label={t('knowledge.noteTitle')}
 								onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
-								placeholder="Note title"
+								placeholder={t('knowledge.noteTitle')}
 							/>
 							<Textarea
 								value={body}
-								aria-label="Note body"
+								aria-label={t('knowledge.noteBody')}
 								onChange={(e: { target: { value: string } }) => setBody(e.target.value)}
 								rows={18}
-								placeholder="Write your note…"
+								placeholder={t('knowledge.notePlaceholder')}
 								style={{ fontFamily: T.mono, fontSize: 13, lineHeight: 1.6 }}
 							/>
 							<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
-								Markdown supported — ## headings, &gt; read-aloud, - lists, [[wikilinks]].
+								{t('knowledge.markdownHint')}
 							</div>
 							{err && (
 								<span role="alert" style={{ font: `12px ${T.sans}`, color: T.err }}>
@@ -301,7 +303,7 @@ export function NoteViewer({
 							)}
 							<div style={{ display: 'flex', gap: 8 }}>
 								<Button variant="primary" size="sm" icon="check" disabled={busy} onClick={save}>
-									Save note
+									{t('knowledge.saveNote')}
 								</Button>
 								{/* Clearing `err` is not cosmetic: view mode renders the SAME state in its own
 								    role=alert above the body, so cancelling out of a failed save left a
@@ -315,14 +317,14 @@ export function NoteViewer({
 										setEditing(false);
 									}}
 								>
-									Cancel
+									{t('common.action.cancel')}
 								</Button>
 								<div style={{ flex: 1 }} />
 								{canAuthor && (
 									// A ghost button in the same row as Cancel: the destructive action looked
 									// identical to the harmless one. (Soft delete with Undo, so no confirm.)
 									<Button variant="danger" size="sm" icon="delete" disabled={busy} onClick={remove}>
-										Delete
+										{t('common.action.delete')}
 									</Button>
 								)}
 							</div>
@@ -342,24 +344,28 @@ export function NoteViewer({
 									{err}
 								</div>
 							)}
-							<div>{mdToNodes(note.body, resolveLink)}</div>
+							<div>{mdToNodes(note.body, t, resolveLink)}</div>
 						</>
 					)}
 				</Panel>
 
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-					<Panel title="Sharing">
+					<Panel title={t('knowledge.sharing')}>
 						<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 							<VisibilityChip level={VIS_CHIP[note.visibility] || 'dm-only'} />
 							<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-								{note.visibility === 'dm-only' ? 'Only you can see this.' : 'Visible to players.'}
+								{t(
+									note.visibility === 'dm-only'
+										? 'knowledge.onlyYou'
+										: 'knowledge.visibleToPlayers',
+								)}
 							</span>
 						</div>
 						{canAuthor ? (
 							<>
 								<Seg
-									ariaLabel="Note visibility"
-									options={VIS_OPTIONS}
+									ariaLabel={t('knowledge.noteVisibility')}
+									options={visibilityOptions(t)}
 									value={note.visibility}
 									onChange={setVisibility}
 								/>
@@ -372,13 +378,13 @@ export function NoteViewer({
 										onClick={() => setVisibility('player-visible')}
 										style={{ width: '100%' }}
 									>
-										Push to players
+										{t('knowledge.push')}
 									</Button>
 								)}
 							</>
 						) : (
 							<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-								Shared with you by the DM.
+								{t('knowledge.sharedByDm')}
 							</span>
 						)}
 						{/* no core command — real-time multi-user editing PRESENCE (the prototype's live-collab
@@ -386,32 +392,36 @@ export function NoteViewer({
 						    backed visibility/sharing controls instead of a faked presence list. */}
 					</Panel>
 
-					<Panel title="Backlinks">
+					<Panel title={t('knowledge.backlinks')}>
 						{rel.backlinks.length === 0 ? (
-							<span style={{ font: `12px ${T.sans}`, color: T.ter }}>No notes link here yet.</span>
+							<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+								{t('knowledge.noBacklinks')}
+							</span>
 						) : (
 							rel.backlinks.map((b) => (
 								<RelRow
 									key={b.sourceId}
 									icon="link"
 									title={b.sourceTitle}
-									kind="Note"
+									kind={t('knowledge.note')}
 									onClick={() => onOpen(b.sourceId)}
 								/>
 							))
 						)}
 					</Panel>
 
-					<Panel title="Related">
+					<Panel title={t('knowledge.related')}>
 						{rel.related.length === 0 ? (
-							<span style={{ font: `12px ${T.sans}`, color: T.ter }}>No linked notes yet.</span>
+							<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+								{t('knowledge.noRelated')}
+							</span>
 						) : (
 							rel.related.map((r) => (
 								<RelRow
 									key={r.relatedId}
 									icon="knowledge-book"
 									title={r.relatedTitle}
-									kind="Note"
+									kind={t('knowledge.note')}
 									onClick={() => onOpen(r.relatedId)}
 								/>
 							))
@@ -423,8 +433,8 @@ export function NoteViewer({
 			<Dialog
 				open={!!pendingReveal}
 				onClose={() => setPendingReveal(null)}
-				title={`Show “${note.title}” to players?`}
-				description="Players can read this note from the moment you share it. Hiding it again later does not un-read what they have already seen."
+				title={t('knowledge.revealTitle', { title: note.title })}
+				description={t('knowledge.revealBody')}
 				icon="send"
 				size="sm"
 				footer={
@@ -435,7 +445,7 @@ export function NoteViewer({
 							disabled={busy}
 							onClick={() => setPendingReveal(null)}
 						>
-							Keep DM only
+							{t('knowledge.keepDmOnly')}
 						</Button>
 						<Button
 							variant="primary"
@@ -448,7 +458,7 @@ export function NoteViewer({
 								if (next) void applyVisibility(next);
 							}}
 						>
-							{pendingReveal === 'shared' ? 'Share' : 'Push to players'}
+							{t(pendingReveal === 'shared' ? 'knowledge.share' : 'knowledge.push')}
 						</Button>
 					</>
 				}

@@ -1,22 +1,31 @@
 import { type ReactNode } from 'react';
 import { T } from '../../app/screen-kit';
+import type { MessageKey, MessageValues } from '../../i18n';
+
+/** The catalog lookup the callers thread in, so this module holds no English of its own. */
+type Translate = (key: MessageKey, values?: MessageValues) => string;
 
 /* Knowledge's tiny markdown + wikilink renderer and the note-list formatters. Extracted from
  * Knowledge.tsx unchanged (RC-STB-2.6). */
 
-export function formatStamp(iso: string): string {
+/** `format` is `useI18n().formatDate`, so a stamp follows the language the reader chose rather
+ * than whatever the OS is set to. */
+export function formatStamp(
+	iso: string,
+	format: (value: Date, options?: Intl.DateTimeFormatOptions) => string,
+): string {
 	const d = new Date(iso);
 	if (Number.isNaN(d.getTime())) return '';
-	return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+	return format(d, { month: 'short', day: 'numeric' });
 }
 
 /** A one-line, marker-stripped preview of a note body for the list cards. */
-export function snippetOf(body: string): string {
+export function snippetOf(body: string, t: Translate): string {
 	const line = body
 		.split('\n')
 		.map((l) => l.trim())
 		.find((l) => l && !l.startsWith('#'));
-	if (!line) return 'Empty note';
+	if (!line) return t('knowledge.emptyNote');
 	return line
 		.replace(/^[>\-*]\s+/, '')
 		.replace(/\*\*([^*]+)\*\*/g, '$1')
@@ -65,7 +74,11 @@ export function parseWikilink(raw: string): { target: string; section?: string; 
  * and did nothing. An unresolvable one is drawn as a visibly broken link, which is the honest
  * signal: the core's resolver is actor-filtered, so "unresolved" can also mean "not yours to see".
  */
-function boldify(s: string, resolve?: (raw: string) => (() => void) | null): ReactNode {
+function boldify(
+	s: string,
+	t: Translate,
+	resolve?: (raw: string) => (() => void) | null,
+): ReactNode {
 	const parts = s.split(/(\*\*[^*]+\*\*|\[\[[^\]]+\]\])/g);
 	return parts.map((p, i) => {
 		if (p.startsWith('**'))
@@ -81,7 +94,7 @@ function boldify(s: string, resolve?: (raw: string) => (() => void) | null): Rea
 				return (
 					<span
 						key={i}
-						title="This link does not point at a note you can open"
+						title={t('knowledge.brokenLink')}
 						style={{ color: T.ter, textDecoration: 'underline dotted', textDecorationColor: T.bdS }}
 					>
 						{label}
@@ -110,11 +123,15 @@ function boldify(s: string, resolve?: (raw: string) => (() => void) | null): Rea
 	});
 }
 
-export function mdToNodes(md: string, resolve?: (raw: string) => (() => void) | null): ReactNode {
+export function mdToNodes(
+	md: string,
+	t: Translate,
+	resolve?: (raw: string) => (() => void) | null,
+): ReactNode {
 	if (!md.trim())
 		return (
 			<p style={{ font: `13.5px/1.7 ${T.sans}`, color: T.ter, fontStyle: 'italic' }}>
-				This note is empty.
+				{t('knowledge.noteEmpty')}
 			</p>
 		);
 	// Bare <li>s used to be returned straight into a <div> — invalid HTML, and a screen reader never
@@ -126,7 +143,7 @@ export function mdToNodes(md: string, resolve?: (raw: string) => (() => void) | 
 			const items: ReactNode[] = [];
 			const start = i;
 			while (i < lines.length && lines[i]!.startsWith('- ')) {
-				items.push(renderLine(lines[i]!, i, resolve));
+				items.push(renderLine(lines[i]!, i, t, resolve));
 				i += 1;
 			}
 			i -= 1;
@@ -140,7 +157,7 @@ export function mdToNodes(md: string, resolve?: (raw: string) => (() => void) | 
 			);
 			continue;
 		}
-		out.push(renderLine(lines[i]!, i, resolve));
+		out.push(renderLine(lines[i]!, i, t, resolve));
 	}
 	return out;
 }
@@ -148,6 +165,7 @@ export function mdToNodes(md: string, resolve?: (raw: string) => (() => void) | 
 function renderLine(
 	ln: string,
 	i: number,
+	t: Translate,
 	resolve?: (raw: string) => (() => void) | null,
 ): ReactNode {
 	{
@@ -187,19 +205,19 @@ function renderLine(
 				>
 					{/* Read-aloud text is the most-read content in the app; it was the one branch that
 					    skipped boldify, so **emphasis** rendered as literal asterisks. */}
-					{boldify(ln.slice(2), resolve)}
+					{boldify(ln.slice(2), t, resolve)}
 				</blockquote>
 			);
 		if (ln.startsWith('- '))
 			return (
 				<li key={i} style={{ font: `13.5px/1.6 ${T.sans}`, color: T.sub, marginLeft: 18 }}>
-					{boldify(ln.slice(2), resolve)}
+					{boldify(ln.slice(2), t, resolve)}
 				</li>
 			);
 		if (!ln.trim()) return <div key={i} style={{ height: 6 }} />;
 		return (
 			<p key={i} style={{ font: `13.5px/1.7 ${T.sans}`, color: T.sub, margin: '0 0 6px' }}>
-				{boldify(ln, resolve)}
+				{boldify(ln, t, resolve)}
 			</p>
 		);
 	}

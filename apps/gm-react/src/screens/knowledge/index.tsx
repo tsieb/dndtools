@@ -7,6 +7,7 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import { ConnectedSourcesPanel } from '../../app/ConnectedSources';
 import { VIS_CHIP } from './shared';
 import { formatStamp, parseArchive, snippetOf } from './markdown';
+import { useI18n } from '../../i18n';
 import { NoteViewer } from './NoteViewer';
 import { Composer } from './Composer';
 import { ImportPanel } from './ImportPanel';
@@ -25,6 +26,7 @@ export { parseWikilink } from './markdown';
  */
 
 export function Knowledge() {
+	const { t, formatDate } = useI18n();
 	const runtime = useRuntime();
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -99,9 +101,7 @@ export function Knowledge() {
 			}
 		} catch (error) {
 			// A thrown persist failure otherwise froze Create AND Cancel with the typed title inside.
-			Toaster.error(
-				error instanceof Error ? error.message : 'The note couldn’t be created — try again.',
-			);
+			Toaster.error(error instanceof Error ? error.message : t('knowledge.createFailed'));
 		} finally {
 			setBusy(false);
 		}
@@ -130,7 +130,11 @@ export function Knowledge() {
 				const created = ev?.createdItemIds?.length ?? 0;
 				const over = ev?.overwrittenItemIds?.length ?? 0;
 				setImportFailed(false);
-				setImportMsg(`Imported ${created} new${over ? `, ${over} overwritten` : ''}.`);
+				setImportMsg(
+					over > 0
+						? t('knowledge.importedWithOverwrites', { created, overwritten: over })
+						: t('knowledge.imported', { created }),
+				);
 			} else {
 				setImportFailed(true);
 				setImportMsg(result.rejection.message);
@@ -139,9 +143,7 @@ export function Knowledge() {
 			// Without this, a thrown persist failure froze Import AND Close with the pasted archive
 			// still in the box and no message at all.
 			setImportFailed(true);
-			setImportMsg(
-				error instanceof Error ? error.message : 'The import couldn’t be completed — try again.',
-			);
+			setImportMsg(error instanceof Error ? error.message : t('knowledge.importFailed'));
 		} finally {
 			setBusy(false);
 		}
@@ -174,7 +176,7 @@ export function Knowledge() {
 								setImporting(false);
 							}}
 						>
-							Sources
+							{t('knowledge.sources')}
 						</Button>
 						<Button
 							variant={importing ? 'secondary' : 'ghost'}
@@ -187,7 +189,7 @@ export function Knowledge() {
 								setShowSources(false);
 							}}
 						>
-							Import vault
+							{t('knowledge.importVault')}
 						</Button>
 						<Button
 							variant="primary"
@@ -200,7 +202,7 @@ export function Knowledge() {
 								setShowSources(false);
 							}}
 						>
-							New note
+							{t('knowledge.newNote')}
 						</Button>
 					</>
 				)}
@@ -231,12 +233,8 @@ export function Knowledge() {
 					// A non-author sees this screen through the actor filter, so "Nothing written down"
 					// is simply false for them — the DM has written plenty, none of it shared yet. It is
 					// also the surface a DM checks with "view as player". Atlas already branches this way.
-					title={canAuthor ? 'Nothing written down' : 'Nothing shared with you yet'}
-					description={
-						canAuthor
-							? 'Notes, handouts and read-aloud text live here. Backlinks connect them automatically.'
-							: 'Notes and handouts your DM shares with the table will appear here.'
-					}
+					title={t(canAuthor ? 'knowledge.emptyDm' : 'knowledge.emptyPlayer')}
+					description={t(canAuthor ? 'knowledge.emptyDmBody' : 'knowledge.emptyPlayerBody')}
 					action={
 						canAuthor ? (
 							<Button
@@ -252,7 +250,7 @@ export function Knowledge() {
 									setShowSources(false);
 								}}
 							>
-								New note
+								{t('knowledge.newNote')}
 							</Button>
 						) : undefined
 					}
@@ -285,7 +283,9 @@ export function Knowledge() {
 							>
 								<span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
 									<Icon name="knowledge-book" size={15} color={T.acc} />
-									<span style={{ font: `11px ${T.sans}`, color: T.ter }}>Note</span>
+									<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
+										{t('knowledge.note')}
+									</span>
 								</span>
 								<VisibilityChip level={VIS_CHIP[n.visibility] || 'dm-only'} compact />
 							</div>
@@ -300,10 +300,10 @@ export function Knowledge() {
 									overflow: 'hidden',
 								}}
 							>
-								{snippetOf(n.body)}
+								{snippetOf(n.body, t)}
 							</div>
 							<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 9 }}>
-								updated {formatStamp(n.updatedAt)}
+								{t('knowledge.updated', { when: formatStamp(n.updatedAt, formatDate) })}
 							</div>
 						</Card>
 					))}
