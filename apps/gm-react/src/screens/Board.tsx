@@ -7,10 +7,11 @@ import {
 	resolveAddWidgetCommand,
 	type WidgetLibraryEntry,
 } from '@dndtools/core';
-import { Button, Card, Icon, IconButton, Input, Popover, Switch, Toaster } from '../ds';
+import { Button, Card, Icon, IconButton, Popover, Switch, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { widgetRejectionMessage } from '../app/widget-rejection';
 import { SceneBoardCanvas, WidgetGlyph } from '../app/SceneBoardCanvas';
+import { BoardLayoutsPanel } from './BoardLayoutsPanel';
 import {
 	boardLayoutIssues,
 	boardWidgetsOf,
@@ -772,110 +773,18 @@ export function Board() {
 				)}
 
 				{editing && layoutsOpen && (
-					<Card
-						elevation="overlay"
-						padding="md"
-						data-testid="board-layouts-panel"
-						onKeyDown={(e: React.KeyboardEvent) => {
-							if (e.key === 'Escape') {
-								e.stopPropagation();
-								setLayoutsOpen(false);
-							}
-						}}
-						style={{
-							width: viewport === 'phone' ? 'min(280px, 100%)' : 260,
-							flex: '0 0 auto',
-							display: 'flex',
-							flexDirection: 'column',
-							gap: 'var(--space-3)',
-							maxHeight: '100%',
-							overflow: 'auto',
-							...(viewport === 'phone'
-								? { position: 'absolute', right: 0, top: 0, bottom: 0, zIndex: 4 }
-								: {}),
-						}}
-					>
-						<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-							<span
-								style={{
-									flex: 1,
-									font: '700 var(--text-md) var(--font-display)',
-									color: 'var(--color-text-primary)',
-								}}
-							>
-								{t('board.layouts')}
-							</span>
-							<IconButton
-								icon="close"
-								label={t('board.closeLayouts')}
-								variant="ghost"
-								size="sm"
-								onClick={() => setLayoutsOpen(false)}
-							/>
-						</div>
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-							<span
-								style={{
-									font: '600 var(--text-xs) var(--font-sans)',
-									color: 'var(--color-text-secondary)',
-								}}
-							>
-								{t('board.saveCurrentLayout')}
-							</span>
-							<div style={{ display: 'flex', gap: 6 }}>
-								<Input
-									value={presetName}
-									aria-label={t('board.layoutName')}
-									onChange={(e: { target: { value: string } }) => setPresetName(e.target.value)}
-									placeholder={t('board.layoutNamePlaceholder')}
-								/>
-								<Button
-									variant="secondary"
-									size="sm"
-									icon="check"
-									disabled={!presetName.trim()}
-									onClick={savePreset}
-								>
-									{t('common.action.save')}
-								</Button>
-							</div>
-						</div>
-						{presets.length > 0 && (
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-								<span
-									style={{
-										font: '600 var(--text-xs) var(--font-sans)',
-										color: 'var(--color-text-secondary)',
-									}}
-								>
-									{t('board.applySavedLayout')}
-								</span>
-								{presets.map((preset) => (
-									<Button
-										key={preset.id}
-										variant="ghost"
-										size="sm"
-										icon="scene"
-										onClick={() => applyPreset(preset.id, preset.name)}
-										style={{ justifyContent: 'flex-start' }}
-									>
-										{preset.name}
-									</Button>
-								))}
-							</div>
-						)}
-						{runtime.state.commandCenter.autoSave && (
-							<Button
-								variant="ghost"
-								size="sm"
-								icon="retry"
-								onClick={restoreSafePoint}
-								style={{ alignSelf: 'flex-start' }}
-							>
-								{t('board.restorePrevious')}
-							</Button>
-						)}
-					</Card>
+					<BoardLayoutsPanel
+						t={t}
+						viewport={viewport}
+						onClose={() => setLayoutsOpen(false)}
+						presetName={presetName}
+						onPresetNameChange={setPresetName}
+						onSave={savePreset}
+						presets={presets}
+						onApplyPreset={applyPreset}
+						autoSaveEnabled={!!runtime.state.commandCenter.autoSave}
+						onRestoreSafePoint={restoreSafePoint}
+					/>
 				)}
 			</div>
 		</div>
