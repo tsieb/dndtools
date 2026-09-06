@@ -3664,4 +3664,89 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'encounter.difficulty.medium': 'medio',
 	'encounter.difficulty.hard': 'difícil',
 	'encounter.difficulty.deadly': 'mortal',
+
+	/* Fuentes conectadas › carpetas locales y Google Docs en el panel de bóveda de Ajustes */
+	'sources.title': 'Fuentes conectadas',
+	'sources.policyLabel': 'Política de colisiones al importar',
+	'sources.policy.skip': 'Importar: omitir las colisiones',
+	'sources.policy.overwrite': 'Importar: sobrescribir lo existente',
+	'sources.policy.keepBoth': 'Importar: conservar ambos',
+	'sources.never': 'nunca',
+	'sources.connectFolder': 'Conectar una carpeta…',
+	'sources.intro':
+		'Importar trae Markdown a tu campaña. Enviar escribe las notas seleccionadas de vuelta a su fuente y pide confirmación antes de que un cambio de formato pueda dejar fuera detalles estructurados.',
+	'sources.folderConnected':
+		'Conectada. Importar recorre sus archivos .md hacia la bóveda; Enviar devuelve las notas.',
+	'sources.readDenied':
+		'Se denegó o se revocó el acceso a la carpeta. Desconecta y vuelve a conectar la carpeta para concederlo de nuevo.',
+	'sources.writeDenied':
+		'Se denegó o se revocó el acceso de escritura. Desconecta y vuelve a conectar la carpeta para concederlo de nuevo.',
+	'sources.noMarkdown': 'No se encontraron archivos markdown (.md) en esta carpeta.',
+	'sources.imported': 'Se importaron {created} nuevas.',
+	'sources.importedOverwrites': 'Se importaron {created} nuevas y se sobrescribieron {over}.',
+	'sources.importedPartial':
+		'Se importaron {created} nuevas — se paró en {max} archivos (importación parcial).',
+	'sources.importedOverwritesPartial':
+		'Se importaron {created} nuevas y se sobrescribieron {over} — se paró en {max} archivos (importación parcial).',
+	'sources.importedFromDoc': 'Se importaron {created} nuevas desde el Doc.',
+	'sources.importedFromDocOverwrites':
+		'Se importaron {created} nuevas y se sobrescribieron {over} desde el Doc.',
+	'sources.noNotesToPush': 'Todavía no hay notas que enviar.',
+	'sources.pushEntryError': '«{title}»: {message}',
+	'sources.pushed':
+		'Se enviaron {written} de {total, plural, one {# nota} other {# notas}} a «{label}».',
+	'sources.pushedWithProblem':
+		'Se enviaron {written} de {total, plural, one {# nota} other {# notas}} a «{label}» — primer problema: {problem}',
+	'sources.googleSignedIn': 'Sesión iniciada. Crea un Doc abajo y luego envíale una nota.',
+	'sources.googleSignInFailed': 'No se pudo iniciar sesión con Google.',
+	'sources.googleNoDocId': 'Google no devolvió ningún id de documento.',
+	'sources.docCreated': 'Se creó «{title}». Envíale una nota desde abajo.',
+	'sources.docEmpty': 'El Doc está vacío — no hay nada que importar.',
+	'sources.pickNote': 'Elige primero qué nota enviar a este Doc.',
+	'sources.signInExpired': 'La sesión de Google caducó — inicia sesión otra vez para enviar.',
+	'sources.disconnected': 'Se desconectó «{name}»',
+	'sources.chooseNote': 'Elige una nota…',
+	'sources.pushLossyTitle':
+		'Enviar a «{label}» pierde algo de formato en {lossy} de {total, plural, one {# nota} other {# notas}}',
+	'sources.pushDmOnlyTitle': '¿Enviar una nota solo para el DM a «{label}»?',
+	'sources.acknowledgePush': 'Aceptar la pérdida y enviar',
+	'sources.pushAnyway': 'Enviar de todos modos',
+	'sources.dmOnlyWarning':
+		'Esta nota es solo para el DM. Al enviarla se copia a un Google Doc externo — cualquiera con quien se comparta ese documento podrá leerla allí.',
+	'sources.dropped': 'Se descartó (no se puede representar): {features}.',
+	'sources.downgraded': 'Se simplificó: {features}.',
+	'sources.vaultUntouched': 'Tus notas de la bóveda no se tocan en ningún caso.',
+	'sources.disconnectTitle': '¿Desconectar «{name}»?',
+	'sources.disconnectFolderDesc':
+		'Esto no se puede deshacer — volver a conectar implica elegir la carpeta y conceder el acceso otra vez.',
+	'sources.disconnectDocDesc': 'El Doc en sí y tus notas de la bóveda no se tocan.',
+	'sources.disconnectFolderBody':
+		'Al desconectar se olvida la conexión guardada con la carpeta y su permiso de acceso. Las notas que ya están en la bóveda y los archivos de la carpeta se quedan exactamente igual.',
+	'sources.disconnectDocBody':
+		'Esto solo quita la conexión guardada — puedes reconectar el Doc más adelante pegando su URL o su id.',
+	'sources.disconnect': 'Desconectar',
+	'sources.noFsSupport':
+		'Este navegador no puede conectar una carpeta local. Usa la app de escritorio o un navegador Chromium compatible.',
+	'sources.folderMeta': 'Carpeta local · importada {pulled} · enviada {pushed}',
+	'sources.docMeta': 'Google Doc · importado {pulled} · enviado {pushed}',
+	'sources.connected': 'conectada',
+	'sources.needsSignIn': 'falta iniciar sesión',
+	'sources.pullNotes': 'Importar notas',
+	'sources.pushNotes': 'Enviar notas',
+	'sources.noFolders':
+		'Todavía no hay carpetas conectadas. Conecta una bóveda de Obsidian o cualquier carpeta con markdown.',
+	'sources.googleDocs': 'Google Docs',
+	'sources.signOut': 'Cerrar sesión',
+	'sources.signInGoogle': 'Iniciar sesión con Google',
+	'sources.googleUnavailable':
+		'Las conexiones con Google Docs no están disponibles en esta versión. Las carpetas y archivos locales siguen disponibles arriba.',
+	'sources.googleWebOnly':
+		'Las conexiones con Google Docs están disponibles por ahora en la app web. La autorización de escritorio llegará en una versión futura.',
+	'sources.scopeBefore': 'Inicia sesión para conectar Docs. El acceso usa el ámbito por archivo',
+	'sources.scopeAfter': '— solo se puede llegar a los Docs creados aquí.',
+	'sources.newDocTitle': 'Título de un Google Doc nuevo',
+	'sources.createDoc': 'Crear un Doc nuevo',
+	'sources.existingDocsNote':
+		'Los Docs existentes no se pueden conectar en esta versión porque el ámbito limitado de Google requiere una concesión del Picker. Lamplight no pide un acceso más amplio a Drive.',
+	'sources.noteToPushTo': 'Nota que enviar a {title}',
 };

@@ -3,6 +3,8 @@ import { getContentItemsForActor, parseMarkdownNote, type ContentItemView } from
 import { Badge, Button, Dialog, Icon, Input, Select, Toaster, VisibilityChip } from '../ds';
 import { Panel, T } from './screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { useI18n } from '../i18n';
+import type { MessageKey } from '../i18n';
 import {
 	WALK_MAX_FILES,
 	connectFolderSource,
@@ -47,17 +49,23 @@ import {
  * own acknowledgment token, so the core re-checks per item.
  */
 
-const PULL_POLICIES = [
-	{ value: 'skip', label: 'Pull: skip collisions' },
-	{ value: 'overwrite', label: 'Pull: overwrite existing' },
-	{ value: 'keep-both', label: 'Pull: keep both' },
+const PULL_POLICIES: { value: string; label: MessageKey }[] = [
+	{ value: 'skip', label: 'sources.policy.skip' },
+	{ value: 'overwrite', label: 'sources.policy.overwrite' },
+	{ value: 'keep-both', label: 'sources.policy.keepBoth' },
 ];
 
-function when(iso: string | null): string {
-	if (!iso) return 'never';
+/** The last-synced stamp, in the reader's locale — the caller passes the i18n date formatter and
+ * the word for "no sync yet", since this is a plain function outside the component. */
+function when(
+	iso: string | null,
+	formatDate: (value: Date | number, options?: Intl.DateTimeFormatOptions) => string,
+	never: string,
+): string {
+	if (!iso) return never;
 	const d = new Date(iso);
-	if (Number.isNaN(d.getTime())) return 'never';
-	return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+	if (Number.isNaN(d.getTime())) return never;
+	return formatDate(d, { month: 'short', day: 'numeric' });
 }
 
 function slugStem(title: string, fallback: string): string {
@@ -155,6 +163,8 @@ function SourceRow({
 
 export function ConnectedSourcesPanel() {
 	const runtime = useRuntime();
+	const { t, formatDate } = useI18n();
+	const whenStamp = (iso: string | null) => when(iso, formatDate, t('sources.never'));
 	const actorId = runtime.defaultActorId;
 	const notes = useMemo(
 		() =>
@@ -228,10 +238,7 @@ export function ConnectedSourcesPanel() {
 			const record = await connectFolderSource();
 			if (!record) return; // user cancelled the picker
 			await refresh();
-			setStatusFor(
-				record.id,
-				'Connected. Pull walks its .md files into the vault; Push writes notes back.',
-			);
+			setStatusFor(record.id, t('sources.folderConnected'));
 		} catch (error) {
 			setStatusFor('connect-folder', errText(error));
 		}
@@ -243,15 +250,12 @@ export function ConnectedSourcesPanel() {
 		try {
 			const ok = await ensureFolderPermission(record.handle, 'read');
 			if (!ok) {
-				setStatusFor(
-					record.id,
-					'Folder access was denied or revoked. Disconnect and reconnect the folder to grant it again.',
-				);
+				setStatusFor(record.id, t('sources.readDenied'));
 				return;
 			}
 			const walked = await importFromFolder(record.handle);
 			if (walked.fileCount === 0) {
-				setStatusFor(record.id, 'No markdown (.md) files found in this folder.');
+				setStatusFor(record.id, t('sources.noMarkdown'));
 				return;
 			}
 			const result = await runtime.dispatch({
@@ -273,7 +277,13 @@ export function ConnectedSourcesPanel() {
 				await touchFolderSource(record.id, { lastImportAt: new Date().toISOString() });
 				setStatusFor(
 					record.id,
-					`Imported ${created} new${over ? `, ${over} overwritten` : ''}${walked.truncated ? ` — stopped at ${WALK_MAX_FILES} files (partial import)` : ''}.`,
+					walked.truncated
+						? over
+							? t('sources.importedOverwritesPartial', { created, over, max: WALK_MAX_FILES })
+							: t('sources.importedPartial', { created, max: WALK_MAX_FILES })
+						: over
+							? t('sources.importedOverwrites', { created, over })
+							: t('sources.imported', { created }),
 				);
 			} else {
 				setStatusFor(record.id, result.rejection.message);
@@ -289,17 +299,14 @@ export function ConnectedSourcesPanel() {
 	async function startFolderPush(record: FolderSourceRecord) {
 		clearStatusFor(record.id);
 		if (notes.length === 0) {
-			setStatusFor(record.id, 'No notes to push yet.');
+			setStatusFor(record.id, t('sources.noNotesToPush'));
 			return;
 		}
 		setBusy(record.id);
 		const ok = await ensureFolderPermission(record.handle, 'readwrite');
 		setBusy(null);
 		if (!ok) {
-			setStatusFor(
-				record.id,
-				'Write access was denied or revoked. Disconnect and reconnect the folder to grant it again.',
-			);
+			setStatusFor(record.id, t('sources.writeDenied'));
 			return;
 		}
 		const plan = planNotesPush(notes.map(viewToPlanNote), 'local-markdown');
@@ -358,7 +365,10 @@ export function ConnectedSourcesPanel() {
 					}
 					written += 1;
 				} catch (error) {
-					firstError ??= `“${entry.title}”: ${errText(error)}`;
+					firstError ??= t('sources.pushEntryError', {
+						title: entry.title,
+						message: errText(error),
+					});
 				}
 			}
 			const stamp = new Date().toISOString();
@@ -369,7 +379,18 @@ export function ConnectedSourcesPanel() {
 			}
 			setStatusFor(
 				pending.sourceKey,
-				`Pushed ${written} of ${pending.plan.entries.length} ${pending.plan.entries.length === 1 ? 'note' : 'notes'} to “${pending.label}”${firstError ? ` — first problem: ${firstError}` : '.'}`,
+				firstError
+					? t('sources.pushedWithProblem', {
+							written,
+							total: pending.plan.entries.length,
+							label: pending.label,
+							problem: firstError,
+						})
+					: t('sources.pushed', {
+							written,
+							total: pending.plan.entries.length,
+							label: pending.label,
+						}),
 			);
 		} catch (error) {
 			// `runtime.dispatch` THROWS on a persist failure, so without this the loop escaped before
@@ -395,13 +416,13 @@ export function ConnectedSourcesPanel() {
 			const outcome = await connectGoogleAccount();
 			if (outcome.status === 'signed-in') {
 				setGoogleSignedIn(true);
-				setStatusFor('google', 'Signed in. Create a Doc below, then push a note into it.');
+				setStatusFor('google', t('sources.googleSignedIn'));
 			} else if (outcome.status === 'failed') {
 				setStatusFor('google', outcome.message);
 			}
 			// 'redirecting' — the page is navigating away; nothing to render.
 		} catch (e) {
-			setStatusFor('google', e instanceof Error ? e.message : 'Google sign-in failed.');
+			setStatusFor('google', e instanceof Error ? e.message : t('sources.googleSignInFailed'));
 		} finally {
 			setBusy(null);
 		}
@@ -413,10 +434,10 @@ export function ConnectedSourcesPanel() {
 		clearStatusFor('google');
 		try {
 			const doc = await createGoogleDoc(title);
-			if (!doc.documentId) throw new Error('Google returned no document id.');
+			if (!doc.documentId) throw new Error(t('sources.googleNoDocId'));
 			addGdocConnection(doc.documentId, doc.title ?? title);
 			setDocInput('');
-			setStatusFor('google', `Created “${doc.title ?? title}”. Push a note into it below.`);
+			setStatusFor('google', t('sources.docCreated', { title: doc.title ?? title }));
 			await refresh();
 		} catch (error) {
 			setStatusFor('google', errText(error));
@@ -432,7 +453,7 @@ export function ConnectedSourcesPanel() {
 			const doc = await fetchGoogleDoc(conn.docId);
 			const markdown = docToMarkdown(doc);
 			if (!markdown.trim()) {
-				setStatusFor(conn.docId, 'The Doc is empty — nothing to import.');
+				setStatusFor(conn.docId, t('sources.docEmpty'));
 				return;
 			}
 			const title = doc.title ?? conn.title;
@@ -455,7 +476,9 @@ export function ConnectedSourcesPanel() {
 				touchGdocConnection(conn.docId, { title, lastPullAt: new Date().toISOString() });
 				setStatusFor(
 					conn.docId,
-					`Imported ${created} new${over ? `, ${over} overwritten` : ''} from the Doc.`,
+					over
+						? t('sources.importedFromDocOverwrites', { created, over })
+						: t('sources.importedFromDoc', { created }),
 				);
 			} else {
 				setStatusFor(conn.docId, result.rejection.message);
@@ -471,12 +494,12 @@ export function ConnectedSourcesPanel() {
 	function startGdocPush(conn: GdocConnection) {
 		const note = notes.find((n) => n.id === pushNoteBySource[conn.docId]);
 		if (!note) {
-			setStatusFor(conn.docId, 'Pick which note to push into this Doc first.');
+			setStatusFor(conn.docId, t('sources.pickNote'));
 			return;
 		}
 		if (!isGoogleSignedIn()) {
 			setGoogleSignedIn(false);
-			setStatusFor(conn.docId, 'Google sign-in expired — sign in again to push.');
+			setStatusFor(conn.docId, t('sources.signInExpired'));
 			return;
 		}
 		const plan = planNotesPush([viewToPlanNote(note)], 'google-docs');
@@ -505,7 +528,7 @@ export function ConnectedSourcesPanel() {
 			if (kind === 'folder') await disconnectFolderSource(id);
 			else removeGdocConnection(id);
 			await refresh();
-			Toaster.success(`Disconnected “${name}”`);
+			Toaster.success(t('sources.disconnected', { name }));
 		} catch (error) {
 			Toaster.error(errText(error));
 		}
@@ -515,18 +538,21 @@ export function ConnectedSourcesPanel() {
 
 	const fsSupported = isFsSourceSupported();
 	const noteOptions = [
-		{ value: '', label: 'Choose a note…' },
+		{ value: '', label: t('sources.chooseNote') },
 		...notes.map((n) => ({ value: n.id, label: n.title })),
 	];
 
 	return (
 		<Panel
-			title="Connected sources"
+			title={t('sources.title')}
 			action={
 				<div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
 					<Select
-						aria-label="Import collision policy"
-					options={PULL_POLICIES}
+						aria-label={t('sources.policyLabel')}
+						options={PULL_POLICIES.map((option) => ({
+							value: option.value,
+							label: t(option.label),
+						}))}
 						value={policy}
 						onChange={(e: { target: { value: string } }) => setPolicy(e.target.value)}
 					/>
@@ -538,17 +564,14 @@ export function ConnectedSourcesPanel() {
 							disabled={busy !== null}
 							onClick={() => void connectFolder()}
 						>
-							Connect folder…
+							{t('sources.connectFolder')}
 						</Button>
 					)}
 				</div>
 			}
 			style={{ marginBottom: 14 }}
 		>
-			<div style={{ font: `11.5px/1.6 ${T.sans}`, color: T.ter }}>
-				Pull imports Markdown into your campaign. Push writes selected notes back to their source,
-				and asks for confirmation before a format change could leave out structured details.
-			</div>
+			<div style={{ font: `11.5px/1.6 ${T.sans}`, color: T.ter }}>{t('sources.intro')}</div>
 
 			{/* Push confirm — a data-writing gate, so it gets the DS Dialog's modal contract (focus-in,
 			    Tab trap, Escape, focus return) instead of an inline card that can scroll off-screen.
@@ -561,13 +584,17 @@ export function ConnectedSourcesPanel() {
 					size="sm"
 					title={
 						pendingPush.plan.requiresAcknowledgment
-							? `Pushing to “${pendingPush.label}” loses some formatting on ${pendingPush.plan.lossyEntries.length} of ${pendingPush.plan.entries.length} ${pendingPush.plan.entries.length === 1 ? 'note' : 'notes'}`
-							: `Push a DM-only note to “${pendingPush.label}”?`
+							? t('sources.pushLossyTitle', {
+									label: pendingPush.label,
+									lossy: pendingPush.plan.lossyEntries.length,
+									total: pendingPush.plan.entries.length,
+								})
+							: t('sources.pushDmOnlyTitle', { label: pendingPush.label })
 					}
 					footer={
 						<>
 							<Button variant="ghost" size="sm" onClick={() => setPendingPush(null)}>
-								Cancel
+								{t('common.action.cancel')}
 							</Button>
 							<Button
 								variant="primary"
@@ -577,8 +604,8 @@ export function ConnectedSourcesPanel() {
 								onClick={() => void executePush(pendingPush)}
 							>
 								{pendingPush.plan.requiresAcknowledgment
-									? 'Acknowledge loss & push'
-									: 'Push anyway'}
+									? t('sources.acknowledgePush')
+									: t('sources.pushAnyway')}
 							</Button>
 						</>
 					}
@@ -590,22 +617,26 @@ export function ConnectedSourcesPanel() {
 								<span
 									style={{ font: `12px/1.6 ${T.sans}`, color: 'var(--color-status-warning-text)' }}
 								>
-									This note is DM-only. Pushing copies it into an external Google Doc — anyone that
-									document is shared with can read it there.
+									{t('sources.dmOnlyWarning')}
 								</span>
 							</div>
 						)}
 						<div style={{ font: `12px/1.6 ${T.sans}`, color: T.sub }}>
 							{pendingPush.plan.droppedFeatures.length > 0 && (
 								<>
-									Dropped (cannot be represented): {pendingPush.plan.droppedFeatures.join(', ')}
-									.{' '}
+									{t('sources.dropped', {
+										features: pendingPush.plan.droppedFeatures.join(', '),
+									})}{' '}
 								</>
 							)}
 							{pendingPush.plan.lossyFeatures.length > 0 && (
-								<>Downgraded: {pendingPush.plan.lossyFeatures.join(', ')}. </>
+								<>
+									{t('sources.downgraded', {
+										features: pendingPush.plan.lossyFeatures.join(', '),
+									})}{' '}
+								</>
 							)}
-							Your notes in the vault are untouched either way.
+							{t('sources.vaultUntouched')}
 						</div>
 					</div>
 				</Dialog>
@@ -620,16 +651,16 @@ export function ConnectedSourcesPanel() {
 					onClose={() => setDisconnectTarget(null)}
 					tone="danger"
 					size="sm"
-					title={`Disconnect “${disconnectTarget.name}”?`}
+					title={t('sources.disconnectTitle', { name: disconnectTarget.name })}
 					description={
 						disconnectTarget.kind === 'folder'
-							? 'This can’t be undone — reconnecting means picking the folder and granting access again.'
-							: 'The Doc itself and your vault notes are untouched.'
+							? t('sources.disconnectFolderDesc')
+							: t('sources.disconnectDocDesc')
 					}
 					footer={
 						<>
 							<Button variant="ghost" size="sm" onClick={() => setDisconnectTarget(null)}>
-								Cancel
+								{t('common.action.cancel')}
 							</Button>
 							<Button
 								variant="danger"
@@ -637,25 +668,22 @@ export function ConnectedSourcesPanel() {
 								icon="trash"
 								onClick={() => void confirmDisconnect()}
 							>
-								Disconnect
+								{t('sources.disconnect')}
 							</Button>
 						</>
 					}
 				>
 					<div style={{ font: `12px/1.6 ${T.sans}`, color: T.sub }}>
 						{disconnectTarget.kind === 'folder'
-							? 'Disconnecting forgets the saved folder connection and its access permission. Notes already in the vault and the files in the folder stay exactly as they are.'
-							: 'This removes only the saved connection — you can reconnect the Doc later by pasting its URL or id.'}
+							? t('sources.disconnectFolderBody')
+							: t('sources.disconnectDocBody')}
 					</div>
 				</Dialog>
 			)}
 
 			{/* Local folders (File System Access API — Chromium only; hidden as an affordance elsewhere) */}
 			{!fsSupported && (
-				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-					This browser cannot connect a local folder. Use the desktop app or a supported Chromium
-					browser instead.
-				</div>
+				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{t('sources.noFsSupport')}</div>
 			)}
 			{statusBySource['connect-folder'] && (
 				// The only status block in this file without a live region.
@@ -668,8 +696,11 @@ export function ConnectedSourcesPanel() {
 					<SourceRow
 						icon="vault"
 						name={record.name}
-						meta={`Local folder · pulled ${when(record.lastImportAt)} · pushed ${when(record.lastWriteAt)}`}
-						badge={<Badge status="success">connected</Badge>}
+						meta={t('sources.folderMeta', {
+							pulled: whenStamp(record.lastImportAt),
+							pushed: whenStamp(record.lastWriteAt),
+						})}
+						badge={<Badge status="success">{t('sources.connected')}</Badge>}
 						first={i === 0}
 					>
 						<Button
@@ -679,7 +710,7 @@ export function ConnectedSourcesPanel() {
 							disabled={busy !== null}
 							onClick={() => void pullFolder(record)}
 						>
-							Pull notes
+							{t('sources.pullNotes')}
 						</Button>
 						<Button
 							variant="secondary"
@@ -688,7 +719,7 @@ export function ConnectedSourcesPanel() {
 							disabled={busy !== null}
 							onClick={() => void startFolderPush(record)}
 						>
-							Push notes
+							{t('sources.pushNotes')}
 						</Button>
 						<Button
 							variant="ghost"
@@ -699,7 +730,7 @@ export function ConnectedSourcesPanel() {
 								setDisconnectTarget({ kind: 'folder', id: record.id, name: record.name })
 							}
 						>
-							Disconnect
+							{t('sources.disconnect')}
 						</Button>
 					</SourceRow>
 					{statusBySource[record.id] && (
@@ -716,9 +747,7 @@ export function ConnectedSourcesPanel() {
 				</div>
 			))}
 			{fsSupported && folders.length === 0 && (
-				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-					No folders connected yet. Connect an Obsidian vault or any markdown folder.
-				</div>
+				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{t('sources.noFolders')}</div>
 			)}
 
 			{/* Google Docs is enabled only when this build and runtime can complete GIS authorization. */}
@@ -732,7 +761,9 @@ export function ConnectedSourcesPanel() {
 				}}
 			>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-					<div style={{ font: `600 12.5px ${T.sans}`, color: T.ink, flex: 1 }}>Google Docs</div>
+					<div style={{ font: `600 12.5px ${T.sans}`, color: T.ink, flex: 1 }}>
+						{t('sources.googleDocs')}
+					</div>
 					{isGoogleDocsConfigured &&
 						googleRuntimeSupported &&
 						(googleSignedIn ? (
@@ -744,7 +775,7 @@ export function ConnectedSourcesPanel() {
 									setGoogleSignedIn(false);
 								}}
 							>
-								Sign out
+								{t('sources.signOut')}
 							</Button>
 						) : (
 							<Button
@@ -753,35 +784,32 @@ export function ConnectedSourcesPanel() {
 								disabled={busy !== null}
 								onClick={() => void signInGoogle()}
 							>
-								Sign in with Google
+								{t('sources.signInGoogle')}
 							</Button>
 						))}
 				</div>
 				{!isGoogleDocsConfigured ? (
 					<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter }}>
-						Google Docs connections are not available in this release. Local folders and files
-						remain available above.
+						{t('sources.googleUnavailable')}
 					</div>
 				) : !googleRuntimeSupported ? (
 					<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter }}>
-						Google Docs connections are currently available in the web app. Desktop authorization
-						will arrive in a future release.
+						{t('sources.googleWebOnly')}
 					</div>
 				) : (
 					<>
 						{!googleSignedIn && (
 							<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-								Sign in to connect Docs. Access uses the per-file{' '}
-								<code style={{ fontFamily: T.mono }}>drive.file</code> scope — only Docs created
-								here are reachable.
+								{t('sources.scopeBefore')} <code style={{ fontFamily: T.mono }}>drive.file</code>{' '}
+								{t('sources.scopeAfter')}
 							</div>
 						)}
 						<div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
 							<Input
-								aria-label="Title for a new Google Doc"
+								aria-label={t('sources.newDocTitle')}
 								value={docInput}
 								onChange={(e: { target: { value: string } }) => setDocInput(e.target.value)}
-								placeholder="Title for a new Google Doc"
+								placeholder={t('sources.newDocTitle')}
 								style={{ flex: 1, minWidth: 220 }}
 							/>
 							<Button
@@ -791,15 +819,18 @@ export function ConnectedSourcesPanel() {
 								disabled={busy !== null || !googleSignedIn}
 								onClick={() => void createNewDoc()}
 							>
-								Create new Doc
+								{t('sources.createDoc')}
 							</Button>
 						</div>
 						<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
-							Existing Docs cannot be connected in this release because the limited Google scope
-							requires a Picker grant. Lamplight does not request broader Drive access.
+							{t('sources.existingDocsNote')}
 						</div>
 						{statusBySource['google'] && (
-							<div role="status" aria-live="polite" style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+							<div
+								role="status"
+								aria-live="polite"
+								style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}
+							>
 								{statusBySource['google']}
 							</div>
 						)}
@@ -810,18 +841,21 @@ export function ConnectedSourcesPanel() {
 									<SourceRow
 										icon="knowledge-book"
 										name={conn.title}
-										meta={`Google Doc · pulled ${when(conn.lastPullAt)} · pushed ${when(conn.lastPushAt)}`}
+										meta={t('sources.docMeta', {
+											pulled: whenStamp(conn.lastPullAt),
+											pushed: whenStamp(conn.lastPushAt),
+										})}
 										badge={
 											<Badge status={googleSignedIn ? 'success' : 'warning'}>
-												{googleSignedIn ? 'connected' : 'needs sign-in'}
+												{googleSignedIn ? t('sources.connected') : t('sources.needsSignIn')}
 											</Badge>
 										}
 										first={i === 0}
 									>
 										<Select
 											// One picker per connected doc — unnamed, they were indistinguishable.
-										aria-label={`Note to push to ${conn.title}`}
-										options={noteOptions}
+											aria-label={t('sources.noteToPushTo', { title: conn.title })}
+											options={noteOptions}
 											value={pushNoteBySource[conn.docId] ?? ''}
 											onChange={(e: { target: { value: string } }) =>
 												setPushNoteBySource((prev) => ({ ...prev, [conn.docId]: e.target.value }))
@@ -842,7 +876,7 @@ export function ConnectedSourcesPanel() {
 											disabled={busy !== null}
 											onClick={() => void pullGdoc(conn)}
 										>
-											Pull notes
+											{t('sources.pullNotes')}
 										</Button>
 										<Button
 											variant="secondary"
@@ -851,7 +885,7 @@ export function ConnectedSourcesPanel() {
 											disabled={busy !== null}
 											onClick={() => startGdocPush(conn)}
 										>
-											Push notes
+											{t('sources.pushNotes')}
 										</Button>
 										<Button
 											variant="ghost"
@@ -862,7 +896,7 @@ export function ConnectedSourcesPanel() {
 												setDisconnectTarget({ kind: 'gdoc', id: conn.docId, name: conn.title })
 											}
 										>
-											Disconnect
+											{t('sources.disconnect')}
 										</Button>
 									</SourceRow>
 									{statusBySource[conn.docId] && (

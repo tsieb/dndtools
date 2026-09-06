@@ -10,7 +10,6 @@
  * the first literal they render fails the gate.
  */
 export const allow = {
-	'apps/gm-react/src/app/ConnectedSources.tsx': 31,
 	'apps/gm-react/src/app/map/ImportMapDialog.tsx': 20,
 	'apps/gm-react/src/app/map/MapEditor.tsx': 22,
 	'apps/gm-react/src/app/map/ToolOptionsBar.tsx': 22,

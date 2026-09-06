@@ -3544,6 +3544,88 @@ export const en = {
 	'encounter.difficulty.medium': 'medium',
 	'encounter.difficulty.hard': 'hard',
 	'encounter.difficulty.deadly': 'deadly',
+	/* Connected sources › local folders and Google Docs on the Settings vault pane */
+	'sources.title': 'Connected sources',
+	'sources.policyLabel': 'Import collision policy',
+	'sources.policy.skip': 'Pull: skip collisions',
+	'sources.policy.overwrite': 'Pull: overwrite existing',
+	'sources.policy.keepBoth': 'Pull: keep both',
+	'sources.never': 'never',
+	'sources.connectFolder': 'Connect folder…',
+	'sources.intro':
+		'Pull imports Markdown into your campaign. Push writes selected notes back to their source, and asks for confirmation before a format change could leave out structured details.',
+	'sources.folderConnected':
+		'Connected. Pull walks its .md files into the vault; Push writes notes back.',
+	'sources.readDenied':
+		'Folder access was denied or revoked. Disconnect and reconnect the folder to grant it again.',
+	'sources.writeDenied':
+		'Write access was denied or revoked. Disconnect and reconnect the folder to grant it again.',
+	'sources.noMarkdown': 'No markdown (.md) files found in this folder.',
+	'sources.imported': 'Imported {created} new.',
+	'sources.importedOverwrites': 'Imported {created} new, {over} overwritten.',
+	'sources.importedPartial': 'Imported {created} new — stopped at {max} files (partial import).',
+	'sources.importedOverwritesPartial':
+		'Imported {created} new, {over} overwritten — stopped at {max} files (partial import).',
+	'sources.importedFromDoc': 'Imported {created} new from the Doc.',
+	'sources.importedFromDocOverwrites': 'Imported {created} new, {over} overwritten from the Doc.',
+	'sources.noNotesToPush': 'No notes to push yet.',
+	'sources.pushEntryError': '“{title}”: {message}',
+	'sources.pushed':
+		'Pushed {written} of {total, plural, one {# note} other {# notes}} to “{label}”.',
+	'sources.pushedWithProblem':
+		'Pushed {written} of {total, plural, one {# note} other {# notes}} to “{label}” — first problem: {problem}',
+	'sources.googleSignedIn': 'Signed in. Create a Doc below, then push a note into it.',
+	'sources.googleSignInFailed': 'Google sign-in failed.',
+	'sources.googleNoDocId': 'Google returned no document id.',
+	'sources.docCreated': 'Created “{title}”. Push a note into it below.',
+	'sources.docEmpty': 'The Doc is empty — nothing to import.',
+	'sources.pickNote': 'Pick which note to push into this Doc first.',
+	'sources.signInExpired': 'Google sign-in expired — sign in again to push.',
+	'sources.disconnected': 'Disconnected “{name}”',
+	'sources.chooseNote': 'Choose a note…',
+	'sources.pushLossyTitle':
+		'Pushing to “{label}” loses some formatting on {lossy} of {total, plural, one {# note} other {# notes}}',
+	'sources.pushDmOnlyTitle': 'Push a DM-only note to “{label}”?',
+	'sources.acknowledgePush': 'Acknowledge loss & push',
+	'sources.pushAnyway': 'Push anyway',
+	'sources.dmOnlyWarning':
+		'This note is DM-only. Pushing copies it into an external Google Doc — anyone that document is shared with can read it there.',
+	'sources.dropped': 'Dropped (cannot be represented): {features}.',
+	'sources.downgraded': 'Downgraded: {features}.',
+	'sources.vaultUntouched': 'Your notes in the vault are untouched either way.',
+	'sources.disconnectTitle': 'Disconnect “{name}”?',
+	'sources.disconnectFolderDesc':
+		'This can’t be undone — reconnecting means picking the folder and granting access again.',
+	'sources.disconnectDocDesc': 'The Doc itself and your vault notes are untouched.',
+	'sources.disconnectFolderBody':
+		'Disconnecting forgets the saved folder connection and its access permission. Notes already in the vault and the files in the folder stay exactly as they are.',
+	'sources.disconnectDocBody':
+		'This removes only the saved connection — you can reconnect the Doc later by pasting its URL or id.',
+	'sources.disconnect': 'Disconnect',
+	'sources.noFsSupport':
+		'This browser cannot connect a local folder. Use the desktop app or a supported Chromium browser instead.',
+	'sources.folderMeta': 'Local folder · pulled {pulled} · pushed {pushed}',
+	'sources.docMeta': 'Google Doc · pulled {pulled} · pushed {pushed}',
+	'sources.connected': 'connected',
+	'sources.needsSignIn': 'needs sign-in',
+	'sources.pullNotes': 'Pull notes',
+	'sources.pushNotes': 'Push notes',
+	'sources.noFolders':
+		'No folders connected yet. Connect an Obsidian vault or any markdown folder.',
+	'sources.googleDocs': 'Google Docs',
+	'sources.signOut': 'Sign out',
+	'sources.signInGoogle': 'Sign in with Google',
+	'sources.googleUnavailable':
+		'Google Docs connections are not available in this release. Local folders and files remain available above.',
+	'sources.googleWebOnly':
+		'Google Docs connections are currently available in the web app. Desktop authorization will arrive in a future release.',
+	'sources.scopeBefore': 'Sign in to connect Docs. Access uses the per-file',
+	'sources.scopeAfter': 'scope — only Docs created here are reachable.',
+	'sources.newDocTitle': 'Title for a new Google Doc',
+	'sources.createDoc': 'Create new Doc',
+	'sources.existingDocsNote':
+		'Existing Docs cannot be connected in this release because the limited Google scope requires a Picker grant. Lamplight does not request broader Drive access.',
+	'sources.noteToPushTo': 'Note to push to {title}',
 } as const;
 
 /** Every string the app can render, addressed by key. */
