@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { getContentItemsForActor, listScenesForActor } from '@dndtools/core';
 import { Icon, Switch } from '../../ds';
+import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, SetRow, T } from '../../app/screen-kit';
 import { nextHighContrastTheme } from '../settings-validation';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -8,19 +9,19 @@ import { PREV_THEME_KEY, readLocal, setDocAttr, writeLocal } from './shared';
 /* ---- Accessibility (REAL persisted prefs — write the SAME doc attrs Appearance owns) ------------- */
 /** The shortcuts this build actually implements (AppShell ⌘K, SceneBoardCanvas keyboard nav, the
  * skip link) — an authored list, but of REAL behavior, replacing the prototype's mock table. */
-const REAL_SHORTCUTS: { keys: string; action: string }[] = [
-	{ keys: '⌘K / Ctrl+K', action: 'Open the command palette — search the whole vault' },
-	{ keys: 'Tab', action: 'Move focus; first press reveals “Skip to content”' },
-	{
-		keys: '← ↑ ↓ →',
-		action: 'Move between canvas widgets; move the selected widget while editing',
-	},
-	{ keys: 'Enter / Space', action: 'Select the focused widget (opens the inspector in edit mode)' },
-	{ keys: 'Shift + Arrows', action: 'Resize the selected widget (canvas edit mode)' },
-	{ keys: 'Delete', action: 'Remove the selected widget (canvas edit mode)' },
-	{ keys: 'Esc', action: 'Close dialog / deselect widget / exit preview' },
+/* The `keys` column is the legend printed on the physical key, not prose — it stays as typed in
+ * every locale. Only `action` carries language, so only `action` comes from the catalog. */
+const REAL_SHORTCUTS: { keys: string; action: MessageKey }[] = [
+	{ keys: '⌘K / Ctrl+K', action: 'settings.a11y.shortcutPalette' },
+	{ keys: 'Tab', action: 'settings.a11y.shortcutTab' },
+	{ keys: '← ↑ ↓ →', action: 'settings.a11y.shortcutArrows' },
+	{ keys: 'Enter / Space', action: 'settings.a11y.shortcutEnter' },
+	{ keys: 'Shift + Arrows', action: 'settings.a11y.shortcutShiftArrows' },
+	{ keys: 'Delete', action: 'settings.a11y.shortcutDelete' },
+	{ keys: 'Esc', action: 'settings.a11y.shortcutEsc' },
 ];
 export function SettingsAccessibility() {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	// Single source of truth = the live <html> attribute (the same one Appearance + index.html restore).
 	const [theme, setTheme] = useState<string>(
@@ -61,38 +62,37 @@ export function SettingsAccessibility() {
 			state: players.length === 0 ? 'unknown' : sceneLeaks === 0 ? 'ok' : 'fail',
 			label:
 				players.length === 0
-					? 'DM-only scenes: add a player to run this check'
-					: `DM-only scenes are hidden from all ${players.length} players`,
+					? t('settings.a11y.checkScenesUnknown')
+					: t('settings.a11y.checkScenesOk', { count: players.length }),
 		});
 		checks.push({
 			id: 'content',
 			state: players.length === 0 ? 'unknown' : contentLeaks === 0 ? 'ok' : 'fail',
 			label:
 				players.length === 0
-					? 'DM-only notes and handouts: add a player to run this check'
-					: 'DM-only notes and handouts are hidden from every player view',
+					? t('settings.a11y.checkContentUnknown')
+					: t('settings.a11y.checkContentOk'),
 		});
 		checks.push({
 			id: 'preview',
 			state: 'ok',
-			label: 'Player preview is read-only, so campaign changes are blocked',
+			label: t('settings.a11y.checkPreview'),
 		});
 		return checks;
 	})();
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-			<Panel title="Display & motion">
+			<Panel title={t('settings.a11y.displayMotion')}>
 				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
-					These mirror your Appearance settings, take effect immediately, and stay selected next
-					time.
+					{t('settings.a11y.intro')}
 				</div>
 				<SetRow
-					label="Reduce motion"
-					help="Turns off interface animation while keeping every action available."
+					label={t('settings.a11y.reduceMotion')}
+					help={t('settings.a11y.reduceMotionHelp')}
 					control={
 						<Switch
 							checked={reduceMotion}
-							aria-label="Reduce motion"
+							aria-label={t('settings.a11y.reduceMotion')}
 							onChange={() => {
 								const v = reduceMotion ? 'full' : 'reduced';
 								setMotion(v);
@@ -102,12 +102,12 @@ export function SettingsAccessibility() {
 					}
 				/>
 				<SetRow
-					label="High-contrast theme"
-					help="Switches to the accessibility-floor theme; turning it off restores the theme you were using."
+					label={t('settings.a11y.highContrast')}
+					help={t('settings.a11y.highContrastHelp')}
 					control={
 						<Switch
 							checked={highContrast}
-							aria-label="High-contrast theme"
+							aria-label={t('settings.a11y.highContrast')}
 							onChange={() => {
 								// Remember what we are leaving, so turning the switch back off restores it.
 								// It used to hard-code 'tavern' on the way back, silently destroying a
@@ -121,7 +121,7 @@ export function SettingsAccessibility() {
 					}
 				/>
 			</Panel>
-			<Panel title="Keyboard shortcuts">
+			<Panel title={t('settings.a11y.shortcuts')}>
 				<div
 					style={{
 						display: 'grid',
@@ -155,16 +155,15 @@ export function SettingsAccessibility() {
 									overflowWrap: 'anywhere',
 								}}
 							>
-								{s.action}
+								{t(s.action)}
 							</span>
 						</div>
 					))}
 				</div>
 			</Panel>
-			<Panel title="Player-safety checks">
+			<Panel title={t('settings.a11y.safetyChecks')}>
 				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
-					These checks use the same views your players receive and confirm DM-only content stays
-					hidden.
+					{t('settings.a11y.safetyIntro')}
 				</div>
 				{leakChecks.map((c) => (
 					<div

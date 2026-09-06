@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useI18n } from '../../i18n';
 import { Panel, Seg, SetRow, T } from '../../app/screen-kit';
 import { PREV_THEME_KEY, setDocAttr, writeLocal } from './shared';
 import { ExperienceComplexity } from './Experience';
 /* ---- Appearance (PERSISTED DISPLAY PREFS — theme/density/motion `data-*` attrs) ----------------- */
 export function SettingsAppearance() {
+	const { t } = useI18n();
 	const [theme, setTheme] = useState<string>(
 		document.documentElement.getAttribute('data-theme') || 'tavern',
 	);
@@ -15,17 +17,17 @@ export function SettingsAppearance() {
 	);
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-			<Panel title="Appearance" style={{ gap: 0 }}>
+			<Panel title={t('settings.appearance.title')} style={{ gap: 0 }}>
 				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 8 }}>
-					Changes apply immediately and stay with this device.
+					{t('settings.appearance.intro')}
 				</div>
 				<SetRow
-					label="Theme"
-					help="Candle-lit dark, warm vellum, or the accessibility floor."
+					label={t('settings.appearance.theme')}
+					help={t('settings.appearance.themeHelp')}
 					control={
 						<Seg
 							value={theme}
-							ariaLabel="Theme"
+							ariaLabel={t('settings.appearance.theme')}
 							onChange={(v) => {
 								// Remember where we came from, exactly as the Accessibility switch does.
 								// Without this, reaching high contrast through THIS control left no
@@ -37,46 +39,46 @@ export function SettingsAppearance() {
 								setDocAttr('data-theme', 'dndtools:react:theme', v);
 							}}
 							options={[
-								{ value: 'tavern', label: 'Tavern' },
-								{ value: 'parchment', label: 'Parchment' },
-								{ value: 'high-contrast', label: 'High contrast' },
+								{ value: 'tavern', label: t('settings.appearance.themeTavern') },
+								{ value: 'parchment', label: t('settings.appearance.themeParchment') },
+								{ value: 'high-contrast', label: t('settings.appearance.themeHighContrast') },
 							]}
 						/>
 					}
 				/>
 				<SetRow
-					label="Density"
-					help="Comfortable enlarges controls for play at the table; Compact tightens them."
+					label={t('settings.appearance.density')}
+					help={t('settings.appearance.densityHelp')}
 					control={
 						<Seg
 							value={density}
-							ariaLabel="Interface density"
+							ariaLabel={t('settings.appearance.densityLabel')}
 							onChange={(v) => {
 								setDensity(v);
 								setDocAttr('data-density', 'dndtools:react:density', v);
 							}}
 							options={[
-								{ value: 'standard', label: 'Standard' },
-								{ value: 'comfortable', label: 'Comfortable' },
-								{ value: 'compact', label: 'Compact' },
+								{ value: 'standard', label: t('settings.appearance.densityStandard') },
+								{ value: 'comfortable', label: t('settings.appearance.densityComfortable') },
+								{ value: 'compact', label: t('settings.appearance.densityCompact') },
 							]}
 						/>
 					}
 				/>
 				<SetRow
-					label="Motion"
-					help="Reduce collapses transitions and stops looping animations."
+					label={t('settings.appearance.motion')}
+					help={t('settings.appearance.motionHelp')}
 					control={
 						<Seg
 							value={motion}
-							ariaLabel="Motion"
+							ariaLabel={t('settings.appearance.motion')}
 							onChange={(v) => {
 								setMotion(v);
 								setDocAttr('data-motion', 'dndtools:react:motion', v);
 							}}
 							options={[
-								{ value: 'full', label: 'Full' },
-								{ value: 'reduced', label: 'Reduced' },
+								{ value: 'full', label: t('settings.appearance.motionFull') },
+								{ value: 'reduced', label: t('settings.appearance.motionReduced') },
 							]}
 						/>
 					}

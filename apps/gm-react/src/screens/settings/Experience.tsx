@@ -1,50 +1,54 @@
 import { useState } from 'react';
 import { visibleFeatures, type FeatureTier } from '@dndtools/core';
 import { Badge, Icon } from '../../ds';
+import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, T, radioGroupKeyDown } from '../../app/screen-kit';
 import { TIER_ATTR, TIER_KEY, readTier, setDocAttr } from './shared';
 /** The three authored complexity levels — each maps 1:1 onto a real Core `FeatureTier`. */
 export const COMPLEXITY_LEVELS: {
 	id: string;
-	name: string;
+	name: MessageKey;
 	icon: string;
 	tier: FeatureTier;
 	rec?: boolean;
-	blurb: string;
+	blurb: MessageKey;
 }[] = [
 	{
 		id: 'beginner',
-		name: 'Beginner',
+		name: 'settings.experience.beginner',
 		icon: 'Sprout',
 		tier: 'core',
-		blurb: 'The essentials only. Advanced panels stay hidden until you ask for them.',
+		blurb: 'settings.experience.beginnerBlurb',
 	},
 	{
 		id: 'standard',
-		name: 'Standard',
+		name: 'settings.experience.standard',
 		icon: 'SlidersHorizontal',
 		tier: 'intermediate',
 		rec: true,
-		blurb: 'The full table toolkit with sensible defaults. Most DMs live here.',
+		blurb: 'settings.experience.standardBlurb',
 	},
 	{
 		id: 'expert',
-		name: 'Expert',
+		name: 'settings.experience.expert',
 		icon: 'Wrench',
 		tier: 'advanced',
-		blurb: 'Everything on, nothing hidden — permission grants, plugins, systems, diagnostics.',
+		blurb: 'settings.experience.expertBlurb',
 	},
 ];
 
 /** The experience-complexity card: the real feature-tier control Appearance hosts. */
 export function ExperienceComplexity() {
+	const { t } = useI18n();
 	const [tier, setTier] = useState<FeatureTier>(() => readTier());
 	const activeLvl = COMPLEXITY_LEVELS.find((l) => l.tier === tier) ?? COMPLEXITY_LEVELS[1];
 	return (
-		<Panel title="Experience complexity" action={<Badge status="neutral">{activeLvl.name}</Badge>}>
+		<Panel
+			title={t('settings.experience.title')}
+			action={<Badge status="neutral">{t(activeLvl.name)}</Badge>}
+		>
 			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 4 }}>
-				Choose how much of the toolkit you want to see. This is separate from interface density, and
-				you can change it at any time.
+				{t('settings.experience.intro')}
 			</div>
 			<div
 				// This was the last hand-rolled picker in the file with visual-only selection: three
@@ -52,7 +56,7 @@ export function ExperienceComplexity() {
 				// stop, with nothing announcing which was active. The declared-radiogroup shape used by
 				// "Tool preferences" below (and by Onboarding's choice cards) is the house pattern.
 				role="radiogroup"
-				aria-label="Experience complexity"
+				aria-label={t('settings.experience.title')}
 				onKeyDown={radioGroupKeyDown}
 				style={{
 					display: 'grid',
@@ -115,16 +119,16 @@ export function ExperienceComplexity() {
 									<Icon name={l.icon} size="sm" />
 								</span>
 								<span style={{ font: `700 14px ${T.disp}`, color: on ? T.acc : T.ink }}>
-									{l.name}
+									{t(l.name)}
 								</span>
-								{l.rec && !on && <Badge status="neutral">Recommended</Badge>}
+								{l.rec && !on && <Badge status="neutral">{t('common.badge.recommended')}</Badge>}
 								{on && (
 									<span style={{ marginLeft: 'auto' }}>
 										<Icon name="check" size={16} color={T.acc} />
 									</span>
 								)}
 							</div>
-							<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.sub }}>{l.blurb}</div>
+							<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.sub }}>{t(l.blurb)}</div>
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 2 }}>
 								{reveals.map((r) => (
 									<span

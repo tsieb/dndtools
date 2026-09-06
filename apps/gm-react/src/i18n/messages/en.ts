@@ -470,6 +470,130 @@ export const en = {
 	'session.endCombat.keep': 'Keep running',
 	'session.endSession.body':
 		"Returning to standby clears the active scene and map, the whole initiative order with every combatant's HP and conditions, delivered handouts, timers and the dice log. Nothing is archived — choose Recap instead if you want to keep a record.",
+	'settings.nav.label': 'Settings navigation',
+	'settings.nav.section': 'Settings section',
+	'settings.nav.appearance': 'Appearance',
+	'settings.nav.language': 'Language & region',
+	'settings.nav.account': 'Account',
+	'settings.nav.subscription': 'Subscription',
+	'settings.nav.players': 'Players',
+	'settings.nav.permissions': 'Permissions',
+	'settings.nav.vault': 'Vault connections',
+	'settings.nav.sync': 'Backup & history',
+	'settings.nav.tools': 'Tool preferences',
+	'settings.nav.ai': 'AI & tools',
+	'settings.nav.plugins': 'Plugins',
+	'settings.nav.systems': 'Extensions & systems',
+	'settings.nav.accessibility': 'Accessibility',
+	'settings.gated.title': 'Hidden at your experience level',
+	'settings.gated.thisPanel': 'This panel',
+	'settings.gated.body':
+		'{panel} is part of the {level} toolkit, and your experience complexity is set to {active}. Nothing is locked — reveal it here or from Appearance.',
+	'settings.gated.switchTo': 'Switch to {level}',
+	'settings.appearance.title': 'Appearance',
+	'settings.appearance.intro': 'Changes apply immediately and stay with this device.',
+	'settings.appearance.theme': 'Theme',
+	'settings.appearance.themeHelp': 'Candle-lit dark, warm vellum, or the accessibility floor.',
+	'settings.appearance.themeTavern': 'Tavern',
+	'settings.appearance.themeParchment': 'Parchment',
+	'settings.appearance.themeHighContrast': 'High contrast',
+	'settings.appearance.density': 'Density',
+	'settings.appearance.densityHelp':
+		'Comfortable enlarges controls for play at the table; Compact tightens them.',
+	'settings.appearance.densityLabel': 'Interface density',
+	'settings.appearance.densityStandard': 'Standard',
+	'settings.appearance.densityComfortable': 'Comfortable',
+	'settings.appearance.densityCompact': 'Compact',
+	'settings.appearance.motion': 'Motion',
+	'settings.appearance.motionHelp': 'Reduce collapses transitions and stops looping animations.',
+	'settings.appearance.motionFull': 'Full',
+	'settings.appearance.motionReduced': 'Reduced',
+	'settings.experience.title': 'Experience complexity',
+	'settings.experience.intro':
+		'Choose how much of the toolkit you want to see. This is separate from interface density, and you can change it at any time.',
+	'settings.experience.beginner': 'Beginner',
+	'settings.experience.beginnerBlurb':
+		'The essentials only. Advanced panels stay hidden until you ask for them.',
+	'settings.experience.standard': 'Standard',
+	'settings.experience.standardBlurb':
+		'The full table toolkit with sensible defaults. Most DMs live here.',
+	'settings.experience.expert': 'Expert',
+	'settings.experience.expertBlurb':
+		'Everything on, nothing hidden — permission grants, plugins, systems, diagnostics.',
+	'settings.a11y.displayMotion': 'Display & motion',
+	'settings.a11y.intro':
+		'These mirror your Appearance settings, take effect immediately, and stay selected next time.',
+	'settings.a11y.reduceMotion': 'Reduce motion',
+	'settings.a11y.reduceMotionHelp':
+		'Turns off interface animation while keeping every action available.',
+	'settings.a11y.highContrast': 'High-contrast theme',
+	'settings.a11y.highContrastHelp':
+		'Switches to the accessibility-floor theme; turning it off restores the theme you were using.',
+	'settings.a11y.shortcuts': 'Keyboard shortcuts',
+	'settings.a11y.shortcutPalette': 'Open the command palette — search the whole vault',
+	'settings.a11y.shortcutTab': 'Move focus; first press reveals “Skip to content”',
+	'settings.a11y.shortcutArrows':
+		'Move between canvas widgets; move the selected widget while editing',
+	'settings.a11y.shortcutEnter': 'Select the focused widget (opens the inspector in edit mode)',
+	'settings.a11y.shortcutShiftArrows': 'Resize the selected widget (canvas edit mode)',
+	'settings.a11y.shortcutDelete': 'Remove the selected widget (canvas edit mode)',
+	'settings.a11y.shortcutEsc': 'Close dialog / deselect widget / exit preview',
+	'settings.a11y.safetyChecks': 'Player-safety checks',
+	'settings.a11y.safetyIntro':
+		'These checks use the same views your players receive and confirm DM-only content stays hidden.',
+	'settings.a11y.checkScenesUnknown': 'DM-only scenes: add a player to run this check',
+	'settings.a11y.checkScenesOk': 'DM-only scenes are hidden from all {count} players',
+	'settings.a11y.checkContentUnknown': 'DM-only notes and handouts: add a player to run this check',
+	'settings.a11y.checkContentOk': 'DM-only notes and handouts are hidden from every player view',
+	'settings.a11y.checkPreview': 'Player preview is read-only, so campaign changes are blocked',
+	'settings.players.title': 'Players',
+	'settings.players.invite': 'Invite player',
+	'settings.players.inviteUnavailable':
+		'Online invite links are unavailable here — share a live-table code directly.',
+	'settings.players.count':
+		'{count, plural, one {# person} other {# people}} in this campaign. Each person sees only the scenes and tools their role allows.',
+	'settings.players.coDmSeatsUsed': '{used} of {total}',
+	'settings.players.coDmSeats':
+		'Co-DM seats: {seats} used. A Co-DM sees your DM-only content and can run the table, but never manages roles, grants, invites, or the vault.',
+	'settings.players.noCoDmSeats': 'Your plan has no Co-DM seats.',
+	'settings.players.tryPlanPreview':
+		'You can try the Lantern or Beacon preview at no charge to promote a trusted player.',
+	'settings.players.planChangesUnavailable': 'Plan changes are unavailable in this release.',
+	'settings.players.role.dm': 'Dungeon Master',
+	'settings.players.role.coDm': 'Co-DM',
+	'settings.players.role.player': 'Player',
+	'settings.players.role.observer': 'Observer',
+	'settings.players.roleChanged': '{name} is now {role}.',
+	'settings.players.roleChangeFailed': 'Could not change that role.',
+	'settings.players.roleFor': 'Role for {name}',
+	'settings.players.coDmOption': 'Co-DM ({used}/{total})',
+	'settings.players.coDmNoSeats': 'Co-DM (no seats)',
+	'settings.tools.title': 'Tool preferences',
+	'settings.tools.intro':
+		'Control optional tools for this device. Anything except “Assistant and generators” immediately hides the assistant and its setup, and blocks model requests even if a key remains stored.',
+	'settings.tools.groupLabel': 'Optional tool preference',
+	'settings.tools.completeTitle': 'Assistant and generators',
+	'settings.tools.completeDesc':
+		'Use the optional campaign assistant and its setup, plus built-in generators.',
+	'settings.tools.generatorsTitle': 'Generators only',
+	'settings.tools.generatorsDesc':
+		'Keep built-in offline generators. Assistant and model controls stay hidden.',
+	'settings.tools.noneTitle': 'None',
+	'settings.tools.noneDesc':
+		'Hide and block all optional AI tools. Only this Settings control can re-enable them.',
+	'settings.tools.completeToast': 'Assistant enabled. AI & tools is now available in Settings.',
+	'settings.tools.generatorsToast':
+		'Random generation stays available. AI tools are hidden and blocked.',
+	'settings.tools.noneToast': 'AI tools are hidden and blocked.',
+	'settings.plugins.title': 'Plugins',
+	'settings.plugins.body':
+		'Installed widget packages — their capabilities, host-permission review, and enable/disable — are managed in {extensions}, backed by the live widget registry.',
+	'settings.plugins.extensions': 'Extensions',
+	'settings.openExtensions': 'Open Extensions',
+	'settings.systems.title': 'Extensions & systems',
+	'settings.systems.body':
+		'Switching the campaign rules system — including the non-destructive migration dry-run that has to come back clean first — lives in {location}, backed by the live extension registry and the same safe migration check used throughout the app.',
+	'settings.systems.location': 'Extensions → System',
 } as const;
 
 /** Every string the app can render, addressed by key. */

@@ -484,4 +484,140 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.endCombat.keep': 'Seguir con el combate',
 	'session.endSession.body':
 		'Volver a En espera borra la escena y el mapa activos, todo el orden de iniciativa con los PG y estados de cada combatiente, los documentos entregados, los temporizadores y el registro de dados. No se archiva nada — elige Resumen si quieres conservar un registro.',
+	'settings.nav.label': 'Navegación de ajustes',
+	'settings.nav.section': 'Sección de ajustes',
+	'settings.nav.appearance': 'Apariencia',
+	'settings.nav.language': 'Idioma y región',
+	'settings.nav.account': 'Cuenta',
+	'settings.nav.subscription': 'Suscripción',
+	'settings.nav.players': 'Jugadores',
+	'settings.nav.permissions': 'Permisos',
+	'settings.nav.vault': 'Conexiones del baúl',
+	'settings.nav.sync': 'Copias e historial',
+	'settings.nav.tools': 'Preferencias de herramientas',
+	'settings.nav.ai': 'IA y herramientas',
+	'settings.nav.plugins': 'Complementos',
+	'settings.nav.systems': 'Extensiones y sistemas',
+	'settings.nav.accessibility': 'Accesibilidad',
+	'settings.gated.title': 'Oculto en tu nivel de experiencia',
+	'settings.gated.thisPanel': 'Este panel',
+	'settings.gated.body':
+		'{panel} forma parte del kit {level}, y tu complejidad de experiencia está en {active}. Nada está bloqueado — muéstralo aquí o desde Apariencia.',
+	'settings.gated.switchTo': 'Cambiar a {level}',
+	'settings.appearance.title': 'Apariencia',
+	'settings.appearance.intro': 'Los cambios se aplican al momento y se quedan en este dispositivo.',
+	'settings.appearance.theme': 'Tema',
+	'settings.appearance.themeHelp':
+		'Oscuro a la luz de las velas, vitela cálida o el mínimo de accesibilidad.',
+	'settings.appearance.themeTavern': 'Taberna',
+	'settings.appearance.themeParchment': 'Pergamino',
+	'settings.appearance.themeHighContrast': 'Alto contraste',
+	'settings.appearance.density': 'Densidad',
+	'settings.appearance.densityHelp':
+		'Cómoda agranda los controles para jugar en la mesa; Compacta los ajusta.',
+	'settings.appearance.densityLabel': 'Densidad de la interfaz',
+	'settings.appearance.densityStandard': 'Estándar',
+	'settings.appearance.densityComfortable': 'Cómoda',
+	'settings.appearance.densityCompact': 'Compacta',
+	'settings.appearance.motion': 'Movimiento',
+	'settings.appearance.motionHelp':
+		'Reducido acorta las transiciones y detiene las animaciones en bucle.',
+	'settings.appearance.motionFull': 'Completo',
+	'settings.appearance.motionReduced': 'Reducido',
+	'settings.experience.title': 'Complejidad de la experiencia',
+	'settings.experience.intro':
+		'Elige cuánto del kit quieres ver. Es independiente de la densidad de la interfaz y puedes cambiarlo cuando quieras.',
+	'settings.experience.beginner': 'Principiante',
+	'settings.experience.beginnerBlurb':
+		'Solo lo esencial. Los paneles avanzados siguen ocultos hasta que los pidas.',
+	'settings.experience.standard': 'Estándar',
+	'settings.experience.standardBlurb':
+		'El equipo completo de mesa con valores sensatos. Aquí vive la mayoría de DM.',
+	'settings.experience.expert': 'Experto',
+	'settings.experience.expertBlurb':
+		'Todo activo, nada oculto — concesiones de permisos, complementos, sistemas y diagnósticos.',
+	'settings.a11y.displayMotion': 'Pantalla y movimiento',
+	'settings.a11y.intro':
+		'Reflejan tus ajustes de Apariencia, se aplican al momento y se mantienen la próxima vez.',
+	'settings.a11y.reduceMotion': 'Reducir el movimiento',
+	'settings.a11y.reduceMotionHelp':
+		'Desactiva la animación de la interfaz sin quitar ninguna acción.',
+	'settings.a11y.highContrast': 'Tema de alto contraste',
+	'settings.a11y.highContrastHelp':
+		'Cambia al tema del mínimo de accesibilidad; al desactivarlo se restaura el tema que usabas.',
+	'settings.a11y.shortcuts': 'Atajos de teclado',
+	'settings.a11y.shortcutPalette': 'Abrir la paleta de comandos — busca en todo el baúl',
+	'settings.a11y.shortcutTab': 'Mover el foco; la primera pulsación revela “Saltar al contenido”',
+	'settings.a11y.shortcutArrows':
+		'Moverse entre los widgets del lienzo; mover el widget seleccionado durante la edición',
+	'settings.a11y.shortcutEnter':
+		'Seleccionar el widget enfocado (abre el inspector en modo edición)',
+	'settings.a11y.shortcutShiftArrows':
+		'Redimensionar el widget seleccionado (modo edición del lienzo)',
+	'settings.a11y.shortcutDelete': 'Quitar el widget seleccionado (modo edición del lienzo)',
+	'settings.a11y.shortcutEsc':
+		'Cerrar el diálogo / deseleccionar el widget / salir de la vista previa',
+	'settings.a11y.safetyChecks': 'Comprobaciones de seguridad para jugadores',
+	'settings.a11y.safetyIntro':
+		'Estas comprobaciones usan las mismas vistas que reciben tus jugadores y confirman que el contenido solo para el DM sigue oculto.',
+	'settings.a11y.checkScenesUnknown':
+		'Escenas solo para el DM: añade un jugador para ejecutar esta comprobación',
+	'settings.a11y.checkScenesOk':
+		'Las escenas solo para el DM están ocultas para los {count} jugadores',
+	'settings.a11y.checkContentUnknown':
+		'Notas y documentos solo para el DM: añade un jugador para ejecutar esta comprobación',
+	'settings.a11y.checkContentOk':
+		'Las notas y documentos solo para el DM están ocultos en todas las vistas de jugador',
+	'settings.a11y.checkPreview':
+		'La vista previa de jugador es de solo lectura, así que se bloquean los cambios en la campaña',
+	'settings.players.title': 'Jugadores',
+	'settings.players.invite': 'Invitar a un jugador',
+	'settings.players.inviteUnavailable':
+		'Aquí no hay enlaces de invitación en línea — comparte directamente un código de mesa en vivo.',
+	'settings.players.count':
+		'{count, plural, one {# persona} other {# personas}} en esta campaña. Cada persona solo ve las escenas y herramientas que permite su rol.',
+	'settings.players.coDmSeatsUsed': '{used} de {total}',
+	'settings.players.coDmSeats':
+		'Plazas de Co-DM: {seats} en uso. Un Co-DM ve tu contenido solo para el DM y puede dirigir la mesa, pero nunca gestiona roles, concesiones, invitaciones ni el baúl.',
+	'settings.players.noCoDmSeats': 'Tu plan no tiene plazas de Co-DM.',
+	'settings.players.tryPlanPreview':
+		'Puedes probar la vista previa de Lantern o Beacon sin coste para ascender a un jugador de confianza.',
+	'settings.players.planChangesUnavailable':
+		'Los cambios de plan no están disponibles en esta versión.',
+	'settings.players.role.dm': 'Director de juego',
+	'settings.players.role.coDm': 'Co-DM',
+	'settings.players.role.player': 'Jugador',
+	'settings.players.role.observer': 'Observador',
+	'settings.players.roleChanged': '{name} ahora es {role}.',
+	'settings.players.roleChangeFailed': 'No se pudo cambiar ese rol.',
+	'settings.players.roleFor': 'Rol de {name}',
+	'settings.players.coDmOption': 'Co-DM ({used}/{total})',
+	'settings.players.coDmNoSeats': 'Co-DM (sin plazas)',
+	'settings.tools.title': 'Preferencias de herramientas',
+	'settings.tools.intro':
+		'Controla las herramientas opcionales de este dispositivo. Cualquier opción distinta de “Asistente y generadores” oculta al momento el asistente y su configuración, y bloquea las peticiones al modelo aunque siga guardada una clave.',
+	'settings.tools.groupLabel': 'Preferencia de herramientas opcionales',
+	'settings.tools.completeTitle': 'Asistente y generadores',
+	'settings.tools.completeDesc':
+		'Usa el asistente de campaña opcional y su configuración, además de los generadores integrados.',
+	'settings.tools.generatorsTitle': 'Solo generadores',
+	'settings.tools.generatorsDesc':
+		'Conserva los generadores integrados sin conexión. El asistente y los controles de modelo quedan ocultos.',
+	'settings.tools.noneTitle': 'Ninguna',
+	'settings.tools.noneDesc':
+		'Oculta y bloquea todas las herramientas de IA opcionales. Solo este control de Ajustes puede volver a activarlas.',
+	'settings.tools.completeToast':
+		'Asistente activado. IA y herramientas ya está disponible en Ajustes.',
+	'settings.tools.generatorsToast':
+		'La generación aleatoria sigue disponible. Las herramientas de IA quedan ocultas y bloqueadas.',
+	'settings.tools.noneToast': 'Las herramientas de IA quedan ocultas y bloqueadas.',
+	'settings.plugins.title': 'Complementos',
+	'settings.plugins.body':
+		'Los paquetes de widgets instalados — sus capacidades, la revisión de permisos del anfitrión y su activación — se gestionan en {extensions}, respaldados por el registro de widgets en vivo.',
+	'settings.plugins.extensions': 'Extensiones',
+	'settings.openExtensions': 'Abrir Extensiones',
+	'settings.systems.title': 'Extensiones y sistemas',
+	'settings.systems.body':
+		'Cambiar el sistema de reglas de la campaña — incluida la simulación de migración no destructiva que antes debe salir limpia — está en {location}, respaldado por el registro de extensiones en vivo y la misma comprobación de migración segura que usa toda la app.',
+	'settings.systems.location': 'Extensiones → Sistema',
 };

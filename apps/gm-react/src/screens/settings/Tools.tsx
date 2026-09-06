@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Toaster } from '../../ds';
+import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, T, radioGroupKeyDown } from '../../app/screen-kit';
 import {
 	getAiUsagePreference,
@@ -11,28 +12,27 @@ import {
 /** The one durable consent control. It remains reachable when AI is hidden, but the AI setup and
  * assistant panels themselves never render until the user explicitly picks Complete use. */
 export function SettingsToolPreferences() {
+	const { t } = useI18n();
 	const [preference, setPreference] = useState<AiUsagePreference>(getAiUsagePreference);
 	const choose = (next: AiUsagePreference) => {
 		saveAiUsagePreference(next);
 		setPreference(next);
 		Toaster.success(
-			next === 'complete'
-				? 'Assistant enabled. AI & tools is now available in Settings.'
-				: next === 'generation-only'
-					? 'Random generation stays available. AI tools are hidden and blocked.'
-					: 'AI tools are hidden and blocked.',
+			t(
+				next === 'complete'
+					? 'settings.tools.completeToast'
+					: next === 'generation-only'
+						? 'settings.tools.generatorsToast'
+						: 'settings.tools.noneToast',
+			),
 		);
 	};
 	return (
-		<Panel title="Tool preferences">
-			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-				Control optional tools for this device. Anything except “Assistant and generators”
-				immediately hides the assistant and its setup, and blocks model requests even if a key
-				remains stored.
-			</div>
+		<Panel title={t('settings.tools.title')}>
+			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>{t('settings.tools.intro')}</div>
 			<div
 				role="radiogroup"
-				aria-label="Optional tool preference"
+				aria-label={t('settings.tools.groupLabel')}
 				// This declared radiogroup had no arrow keys and every card was its own tab stop — the
 				// same gap already closed for Seg/SegmentedControl and for Onboarding's choice cards.
 				onKeyDown={radioGroupKeyDown}
@@ -46,20 +46,20 @@ export function SettingsToolPreferences() {
 					[
 						{
 							id: 'complete' as const,
-							title: 'Assistant and generators',
-							desc: 'Use the optional campaign assistant and its setup, plus built-in generators.',
+							title: 'settings.tools.completeTitle',
+							desc: 'settings.tools.completeDesc',
 						},
 						{
 							id: 'generation-only' as const,
-							title: 'Generators only',
-							desc: 'Keep built-in offline generators. Assistant and model controls stay hidden.',
+							title: 'settings.tools.generatorsTitle',
+							desc: 'settings.tools.generatorsDesc',
 						},
 						{
 							id: 'none' as const,
-							title: 'None',
-							desc: 'Hide and block all optional AI tools. Only this Settings control can re-enable them.',
+							title: 'settings.tools.noneTitle',
+							desc: 'settings.tools.noneDesc',
 						},
-					] satisfies Array<{ id: AiUsagePreference; title: string; desc: string }>
+					] satisfies Array<{ id: AiUsagePreference; title: MessageKey; desc: MessageKey }>
 				).map((option) => {
 					const selected = preference === option.id;
 					return (
@@ -80,10 +80,10 @@ export function SettingsToolPreferences() {
 							}}
 						>
 							<div style={{ font: `600 13px ${T.sans}`, color: selected ? T.acc : T.ink }}>
-								{option.title}
+								{t(option.title)}
 							</div>
 							<div style={{ marginTop: 4, font: `12px/1.5 ${T.sans}`, color: T.ter }}>
-								{option.desc}
+								{t(option.desc)}
 							</div>
 						</button>
 					);
@@ -99,13 +99,17 @@ export function SettingsToolPreferences() {
  * local-only toggles, contradicting the live surface — so it now points at the real one instead of
  * duplicating it with fake data. */
 export function SettingsPlugins() {
+	const { t } = useI18n();
 	const navigate = useNavigate();
+	const extensions = t('settings.plugins.extensions');
+	const body = t('settings.plugins.body', { extensions });
+	const [bodyBefore, bodyAfter = ''] = body.split(extensions);
 	return (
-		<Panel title="Plugins">
+		<Panel title={t('settings.plugins.title')}>
 			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-				Installed widget packages — their capabilities, host-permission review, and enable/disable —
-				are managed in <strong style={{ color: T.ink }}>Extensions</strong>, backed by the live
-				widget registry.
+				{bodyBefore}
+				<strong style={{ color: T.ink }}>{extensions}</strong>
+				{bodyAfter}
 			</div>
 			<Button
 				variant="secondary"
@@ -114,7 +118,7 @@ export function SettingsPlugins() {
 				onClick={() => navigate('/extensions')}
 				style={{ alignSelf: 'flex-start' }}
 			>
-				Open Extensions
+				{t('settings.openExtensions')}
 			</Button>
 		</Panel>
 	);
@@ -123,14 +127,17 @@ export function SettingsPlugins() {
 /* ---- Systems (pointer — the REAL rules-system switch, with its `previewSystemSwitch` dry-run and
  * the `widget.package.switch-system` command, lives on the Extensions screen's System tab) ---------- */
 export function SettingsSystems() {
+	const { t } = useI18n();
 	const navigate = useNavigate();
+	const location = t('settings.systems.location');
+	const body = t('settings.systems.body', { location });
+	const [bodyBefore, bodyAfter = ''] = body.split(location);
 	return (
-		<Panel title="Extensions & systems">
+		<Panel title={t('settings.systems.title')}>
 			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-				Switching the campaign rules system — including the non-destructive migration dry-run that
-				has to come back clean first — lives in{' '}
-				<strong style={{ color: T.ink }}>Extensions → System</strong>, backed by the live extension
-				registry and the same safe migration check used throughout the app.
+				{bodyBefore}
+				<strong style={{ color: T.ink }}>{location}</strong>
+				{bodyAfter}
 			</div>
 			<Button
 				variant="secondary"
@@ -139,7 +146,7 @@ export function SettingsSystems() {
 				onClick={() => navigate('/extensions')}
 				style={{ alignSelf: 'flex-start' }}
 			>
-				Open Extensions
+				{t('settings.openExtensions')}
 			</Button>
 		</Panel>
 	);

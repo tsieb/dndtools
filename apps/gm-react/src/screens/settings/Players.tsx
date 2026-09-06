@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { countCoDmActors, type CommandResult } from '@dndtools/core';
 import { Avatar, Badge, Button, Select, Toaster } from '../../ds';
+import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, T } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useAuth } from '../../cloud/AuthContext';
@@ -9,17 +10,18 @@ import { coDmSeatsForPlan, useEntitlements } from '../../cloud/entitlements';
 import { errMsg } from './shared';
 import { InvitesPanel } from './PlayerInvites';
 /* ---- Players (REAL — the live actor roster the Core enforces visibility against) ---------------- */
-const ROLE_LABEL: Record<string, string> = {
-	dm: 'Dungeon Master',
-	'co-dm': 'Co-DM',
-	player: 'Player',
-	observer: 'Observer',
+const ROLE_LABEL: Record<string, MessageKey> = {
+	dm: 'settings.players.role.dm',
+	'co-dm': 'settings.players.role.coDm',
+	player: 'settings.players.role.player',
+	observer: 'settings.players.role.observer',
 };
 /** Badge tone per role — the Co-DM shares the DM's accent (elevated), players `info`, observers neutral. */
 const roleBadgeTone = (role: string): 'accent' | 'info' | 'neutral' =>
 	role === 'dm' || role === 'co-dm' ? 'accent' : role === 'observer' ? 'neutral' : 'info';
 
 export function SettingsPlayers() {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const auth = useAuth();
 	const ent = useEntitlements();
@@ -39,6 +41,11 @@ export function SettingsPlayers() {
 	const coDmSeats = coDmSeatsForPlan(ent.plan);
 	const coDmInUse = countCoDmActors(runtime.state.permissions);
 	const dmActorId = runtime.defaultActorId;
+	// The seat count is emphasised mid-sentence, so format the whole sentence and split it around
+	// that value rather than freezing English word order into two fragments.
+	const seatsUsed = t('settings.players.coDmSeatsUsed', { used: coDmInUse, total: coDmSeats });
+	const seatsSentence = t('settings.players.coDmSeats', { seats: seatsUsed });
+	const [seatsBefore, seatsAfter = ''] = seatsSentence.split(seatsUsed);
 
 	const assignRole = (
 		targetActorId: string,
@@ -56,15 +63,17 @@ export function SettingsPlayers() {
 					Toaster.error(res.rejection.message);
 					return;
 				}
-				Toaster.success(`${displayName} is now ${ROLE_LABEL[role]}.`);
+				Toaster.success(
+					t('settings.players.roleChanged', { name: displayName, role: t(ROLE_LABEL[role]) }),
+				);
 			})
-			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not change that role.')));
+			.catch((e: unknown) => Toaster.error(errMsg(e, t('settings.players.roleChangeFailed'))));
 	};
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<Panel
-				title="Players"
+				title={t('settings.players.title')}
 				action={
 					<Button
 						variant="primary"
@@ -73,36 +82,31 @@ export function SettingsPlayers() {
 						onClick={() => {
 							if (cloudReady) setInviteOpen(true);
 							else if (isAccountApiConfigured) auth.openAuthModal();
-							else
-								Toaster.info(
-									'Online invite links are unavailable here — share a live-table code directly.',
-								);
+							else Toaster.info(t('settings.players.inviteUnavailable'));
 						}}
 					>
-						Invite player
+						{t('settings.players.invite')}
 					</Button>
 				}
 			>
 				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
-					{sorted.length} {sorted.length === 1 ? 'person' : 'people'} in this campaign. Each person
-					sees only the scenes and tools their role allows.
+					{t('settings.players.count', { count: sorted.length })}
 				</div>
 				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 8 }}>
 					{coDmSeats > 0 ? (
 						<>
-							Co-DM seats:{' '}
-							<strong style={{ color: T.ink }}>
-								{coDmInUse} of {coDmSeats}
-							</strong>{' '}
-							used. A Co-DM sees your DM-only content and can run the table, but never manages
-							roles, grants, invites, or the vault.
+							{seatsBefore}
+							<strong style={{ color: T.ink }}>{seatsUsed}</strong>
+							{seatsAfter}
 						</>
 					) : (
 						<>
-							Your plan has no Co-DM seats.{' '}
-							{ent.canChangePlan
-								? 'You can try the Lantern or Beacon preview at no charge to promote a trusted player.'
-								: 'Plan changes are unavailable in this release.'}
+							{t('settings.players.noCoDmSeats')}{' '}
+							{t(
+								ent.canChangePlan
+									? 'settings.players.tryPlanPreview'
+									: 'settings.players.planChangesUnavailable',
+							)}
 						</>
 					)}
 				</div>
@@ -110,11 +114,14 @@ export function SettingsPlayers() {
 					{sorted.map((a, i) => {
 						const promotable = a.role !== 'dm';
 						const roleOptions = [
-							{ value: 'player', label: 'Player' },
-							{ value: 'observer', label: 'Observer' },
+							{ value: 'player', label: t('settings.players.role.player') },
+							{ value: 'observer', label: t('settings.players.role.observer') },
 							{
 								value: 'co-dm',
-								label: coDmSeats > 0 ? `Co-DM (${coDmInUse}/${coDmSeats})` : 'Co-DM (no seats)',
+								label:
+									coDmSeats > 0
+										? t('settings.players.coDmOption', { used: coDmInUse, total: coDmSeats })
+										: t('settings.players.coDmNoSeats'),
 							},
 						];
 						return (
@@ -142,7 +149,7 @@ export function SettingsPlayers() {
 								{promotable ? (
 									<span style={{ minWidth: 150 }}>
 										<Select
-											aria-label={`Role for ${a.displayName}`}
+											aria-label={t('settings.players.roleFor', { name: a.displayName })}
 											value={a.role}
 											onChange={(e: { target: { value: string } }) => {
 												const next = e.target.value as 'co-dm' | 'player' | 'observer';
@@ -152,7 +159,9 @@ export function SettingsPlayers() {
 										/>
 									</span>
 								) : (
-									<Badge status={roleBadgeTone(a.role)}>{ROLE_LABEL[a.role] ?? a.role}</Badge>
+									<Badge status={roleBadgeTone(a.role)}>
+										{ROLE_LABEL[a.role] ? t(ROLE_LABEL[a.role]) : a.role}
+									</Badge>
 								)}
 							</div>
 						);

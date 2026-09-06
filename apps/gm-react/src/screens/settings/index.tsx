@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FEATURE_GATES, isFeatureVisible, type FeatureTier } from '@dndtools/core';
 import { Button, Icon, Select } from '../../ds';
+import { useI18n, type MessageKey } from '../../i18n';
 import { Page, Panel, T } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { AI_USAGE_PREFERENCE_EVENT, isAiAssistantEnabled } from '../../ai/usagePreference';
@@ -42,20 +43,20 @@ import { SettingsAccessibility } from './Accessibility';
  * `SUBPAGES` map — so `App.tsx` still lazy-imports one module for the whole section.
  */
 
-const SETTINGS_NAV = [
-	{ id: 'appearance', label: 'Appearance', icon: 'theme' },
-	{ id: 'language', label: 'Language & region', icon: 'globe' },
-	{ id: 'account', label: 'Account', icon: 'UserCircle' },
-	{ id: 'subscription', label: 'Subscription', icon: 'CreditCard' },
-	{ id: 'players', label: 'Players', icon: 'players' },
-	{ id: 'permissions', label: 'Permissions', icon: 'permissions' },
-	{ id: 'vault', label: 'Vault connections', icon: 'vault' },
-	{ id: 'sync', label: 'Backup & history', icon: 'connection' },
-	{ id: 'tools', label: 'Tool preferences', icon: 'sliders' },
-	{ id: 'ai', label: 'AI & tools', icon: 'sparkle' },
-	{ id: 'plugins', label: 'Plugins', icon: 'widget' },
-	{ id: 'systems', label: 'Extensions & systems', icon: 'scroll' },
-	{ id: 'accessibility', label: 'Accessibility', icon: 'accessibility' },
+const SETTINGS_NAV: { id: string; label: MessageKey; icon: string }[] = [
+	{ id: 'appearance', label: 'settings.nav.appearance', icon: 'theme' },
+	{ id: 'language', label: 'settings.nav.language', icon: 'globe' },
+	{ id: 'account', label: 'settings.nav.account', icon: 'UserCircle' },
+	{ id: 'subscription', label: 'settings.nav.subscription', icon: 'CreditCard' },
+	{ id: 'players', label: 'settings.nav.players', icon: 'players' },
+	{ id: 'permissions', label: 'settings.nav.permissions', icon: 'permissions' },
+	{ id: 'vault', label: 'settings.nav.vault', icon: 'vault' },
+	{ id: 'sync', label: 'settings.nav.sync', icon: 'connection' },
+	{ id: 'tools', label: 'settings.nav.tools', icon: 'sliders' },
+	{ id: 'ai', label: 'settings.nav.ai', icon: 'sparkle' },
+	{ id: 'plugins', label: 'settings.nav.plugins', icon: 'widget' },
+	{ id: 'systems', label: 'settings.nav.systems', icon: 'scroll' },
+	{ id: 'accessibility', label: 'settings.nav.accessibility', icon: 'accessibility' },
 ];
 const SUBPAGES: Record<string, () => JSX.Element> = {
 	appearance: SettingsAppearance,
@@ -87,16 +88,27 @@ const TAB_GATE: Record<string, string> = {
 /** Deep-linking into a gated-off tab shows this honest gate instead of the panel (and offers the
  * real unlock: raising the persisted feature tier, the same write the Appearance cards do). */
 function GatedTab({ gateId, tier }: { gateId: string; tier: FeatureTier }) {
+	const { t } = useI18n();
 	const gate = FEATURE_GATES.find((g) => g.id === gateId);
 	const neededTier = gate?.minTier ?? 'advanced';
 	const level = COMPLEXITY_LEVELS.find((l) => l.tier === neededTier);
 	const activeLevel = COMPLEXITY_LEVELS.find((l) => l.tier === tier);
+	// `gate.label` comes from the core feature registry, which is not translated yet
+	// (HANDOFF: packages/core FEATURE_GATES labels).
+	const panel = gate?.label ?? t('settings.gated.thisPanel');
+	const levelName = level ? t(level.name) : t('settings.experience.expert');
+	const body = t('settings.gated.body', {
+		panel,
+		level: levelName,
+		active: activeLevel ? t(activeLevel.name) : tier,
+	});
+	const [bodyBefore, bodyAfter = ''] = body.split(panel);
 	return (
-		<Panel title="Hidden at your experience level">
+		<Panel title={t('settings.gated.title')}>
 			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-				<strong style={{ color: T.ink }}>{gate?.label ?? 'This panel'}</strong> is part of the{' '}
-				{level?.name ?? 'Expert'} toolkit, and your experience complexity is set to{' '}
-				{activeLevel?.name ?? tier}. Nothing is locked — reveal it here or from Appearance.
+				{bodyBefore}
+				<strong style={{ color: T.ink }}>{panel}</strong>
+				{bodyAfter}
 			</div>
 			<Button
 				variant="primary"
@@ -105,13 +117,14 @@ function GatedTab({ gateId, tier }: { gateId: string; tier: FeatureTier }) {
 				style={{ alignSelf: 'flex-start' }}
 				onClick={() => setDocAttr(TIER_ATTR, TIER_KEY, neededTier)}
 			>
-				Switch to {level?.name ?? 'Expert'}
+				{t('settings.gated.switchTo', { level: levelName })}
 			</Button>
 		</Panel>
 	);
 }
 
 export function Settings() {
+	const { t } = useI18n();
 	// `#/settings?tab=players` deep-links a specific subpage so "manage" affordances elsewhere
 	// (Command Center rows, empty-state CTAs) land on the right panel, not the section root.
 	const location = useLocation();
@@ -164,7 +177,7 @@ export function Settings() {
 			}}
 		>
 			<nav
-				aria-label="Settings navigation"
+				aria-label={t('settings.nav.label')}
 				style={{
 					position: viewport === 'phone' ? 'static' : 'sticky',
 					top: 0,
@@ -175,10 +188,10 @@ export function Settings() {
 			>
 				{viewport === 'phone' && (
 					<Select
-						aria-label="Settings section"
+						aria-label={t('settings.nav.section')}
 						value={tab}
 						onChange={(e: { target: { value: string } }) => setTab(e.target.value)}
-						options={navItems.map((s) => ({ value: s.id, label: s.label }))}
+						options={navItems.map((s) => ({ value: s.id, label: t(s.label) }))}
 					/>
 				)}
 				{viewport !== 'phone' &&
@@ -228,7 +241,7 @@ export function Settings() {
 								<span
 									style={{ font: `${on ? 600 : 500} 13px ${T.sans}`, color: on ? T.acc : T.ink }}
 								>
-									{s.label}
+									{t(s.label)}
 								</span>
 							</button>
 						);
