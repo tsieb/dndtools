@@ -5,13 +5,13 @@ import { SUPPORTED_LOCALES, useI18n } from '../../i18n';
 export function SettingsLanguage() {
 	const { locale, setLocale, t } = useI18n();
 	return (
-		<Panel title={t('Language & region')}>
+		<Panel title={t('settings.language.title')}>
 			<div style={{ display: 'grid', gap: 12, maxWidth: 520 }}>
 				<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>
-					{t('Choose the language used throughout Lamplight. Your choice is saved on this device.')}
+					{t('settings.language.help')}
 				</div>
 				<Select
-					aria-label={t('Language')}
+					aria-label={t('settings.language.label')}
 					value={locale}
 					onChange={(event: { target: { value: string } }) =>
 						setLocale(event.target.value as typeof locale)
@@ -22,9 +22,7 @@ export function SettingsLanguage() {
 					}))}
 				/>
 				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
-					{t(
-						'Language changes apply immediately, including menus, dialogs, tooltips, and screen-reader labels.',
-					)}
+					{t('settings.language.appliesImmediately')}
 				</div>
 			</div>
 		</Panel>

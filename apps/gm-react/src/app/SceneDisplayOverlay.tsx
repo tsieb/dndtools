@@ -139,18 +139,10 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 		}
 	}
 	async function advance() {
-		await dispatchDisplay(
-			'scene-card.advance',
-			{},
-			t('The next card couldn’t be shown — try again.'),
-		);
+		await dispatchDisplay('scene-card.advance', {}, t('sceneDisplay.nextFailed'));
 	}
 	async function clear() {
-		await dispatchDisplay(
-			'scene-card.activate',
-			{ cardId: null },
-			t('The display couldn’t be cleared — try again.'),
-		);
+		await dispatchDisplay('scene-card.activate', { cardId: null }, t('sceneDisplay.clearFailed'));
 	}
 
 	return (
@@ -160,7 +152,7 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 			data-scene-display-overlay="true"
 			role="dialog"
 			aria-modal="true"
-			aria-label={t('Scene display')}
+			aria-label={t('sceneDisplay.title')}
 			tabIndex={-1}
 			style={{ position: 'fixed', inset: 0, zIndex: 120, background: '#05070c' }}
 		>
@@ -202,27 +194,27 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 					// keeps the tab stop, keeps the name, and explains itself. The handler has to guard
 					// too: DS `Button` only swallows `aria-disabled={true}`.
 					aria-disabled={display.queuedCount === 0 || undefined}
-					title={display.queuedCount === 0 ? t('Queue a scene card first') : undefined}
+					title={display.queuedCount === 0 ? t('sceneDisplay.queueFirst') : undefined}
 					onClick={() => {
 						if (display.queuedCount === 0) return;
 						void advance();
 					}}
 				>
 					{display.queuedCount > 0
-						? t('Next card ({count} queued)', { count: display.queuedCount })
-						: t('Next card')}
+						? t('sceneDisplay.nextCardQueued', { count: display.queuedCount })
+						: t('sceneDisplay.nextCard')}
 				</Button>
 				<Button
 					variant="ghost"
 					size="sm"
 					aria-disabled={!display.active || undefined}
-					title={display.active ? undefined : t('Nothing is on the display')}
+					title={display.active ? undefined : t('sceneDisplay.empty')}
 					onClick={() => {
 						if (!display.active) return;
 						void clear();
 					}}
 				>
-					{t('Clear display')}
+					{t('sceneDisplay.clear')}
 				</Button>
 				<Button
 					variant="ghost"
@@ -235,24 +227,21 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 					title={capabilities.secondScreen.unavailableMessage ?? undefined}
 					aria-label={
 						capabilities.secondScreen.available
-							? t('Open on a second screen')
+							? t('sceneDisplay.secondScreenOpen')
 							: (capabilities.secondScreen.unavailableMessage ??
-								t('Second screen is not available on this device'))
+								t('sceneDisplay.secondScreenUnavailable'))
 					}
 					onClick={() => {
 						// window.open returns null when the browser blocks the popup — pressing the button
 						// then did nothing at all, with no explanation anywhere.
-						if (!openSecondScreen())
-							Toaster.error(
-								t('Your browser blocked the display window — allow pop-ups for this site.'),
-							);
+						if (!openSecondScreen()) Toaster.error(t('sceneDisplay.popupBlocked'));
 					}}
 				>
-					{t('Second screen')}
+					{t('sceneDisplay.secondScreen')}
 				</Button>
 				<IconButton
 					icon="close"
-					label={t('Exit scene display')}
+					label={t('sceneDisplay.exit')}
 					variant="ghost"
 					size="sm"
 					onClick={onClose}

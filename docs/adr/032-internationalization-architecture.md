@@ -259,6 +259,34 @@ strings is additive per command and lands with the workstream that owns each com
 - **Risk:** the two mechanisms coexisting is the state this ADR exists to end; a rollback must carry
   a dated re-migration plan or it becomes permanent.
 
+## Implementation Status
+
+**UX-1.1 landed (2026-09-05).** `messages/en.ts` (161 keys, `as const`, exporting `MessageKey`),
+`messages/es.ts` (146 keys, `Partial<Record<MessageKey, string>>`, 90.7% coverage), and `format.ts`
+(memoized `Intl.NumberFormat`/`DateTimeFormat`/`RelativeTimeFormat`/`ListFormat`/`PluralRules`, the
+ICU subset, `formatDistance`) are in. `useRenderedLocalization` and its two `WeakMap`s are deleted.
+The Spanish catalog builds as its own 8.11 kB chunk, loaded by `loadCatalog()` on first use, so §1's
+lazy-locale requirement is met and verified in `pnpm build` output. The two hand-written plural
+entries are collapsed into `projection.pushed`.
+
+Two deviations from the decision above, both deliberate:
+
+- **A missing key renders the key, it does not throw.** §1 said dev and test should throw. The
+  `MessageKey` union already makes an unknown key a compile error, so a runtime throw can only fire
+  behind a cast — and a thrown error in the dev server or an e2e run would take a whole screen down
+  to report a typo the compiler already caught. `index.test.ts` asserts the fallback chain instead
+  (locale → English source → key), and asserts no Spanish key is an orphan.
+- **`formatDistance(locale, feet, system)` takes the unit system as an argument.** §4 has it read
+  the active System Package's speed model. That model is SYS lane work and does not exist yet, so
+  the parameter defaults to `'imperial'` and the call sites pass it once SYS-2.6 lands. The
+  invariant §4 actually cares about holds: the locale never decides the unit.
+
+UX-1.1 also re-keyed the 116 existing `t()` call sites, because a typed `t()` cannot coexist with
+source-string arguments. Those five screen files render byte-identical English — every `en` value is
+the old source string verbatim. The rest of the app is unmigrated and shows English under `es`,
+which is §2's accepted trade; `es.ts` keeps translations for keys whose call sites UX-1.2 has yet to
+reach, so that migration is a re-pointing rather than a re-translation.
+
 ## Verification and Evidence
 
 - Catalogs and API: `apps/gm-react/src/i18n/messages/en.ts`, `messages/es.ts`,

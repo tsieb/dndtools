@@ -5,21 +5,21 @@ import {
 } from '@dndtools/core';
 import { useState } from 'react';
 import { Button, Dialog, StatusDot, Toaster } from '../ds';
-import { useI18n } from '../i18n';
+import { useI18n, type MessageKey } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { T } from './screen-kit';
 
 // Every core workflow state gets a spoken label so the status pill never shows a raw enum value.
 // Exported so `/session` names the state the same way this control does — it used to call every
 // non-live workflow "Standby", including Recap, which is the one state you cannot go live from.
-export const WORKFLOW_LABEL: Record<SessionWorkflowState, string> = {
-	idle: 'Standby',
-	prep: 'Prep',
-	active: 'Live',
-	paused: 'Paused',
-	ending: 'Wrapping up',
-	recap: 'Recap',
-	archived: 'Archived',
+export const WORKFLOW_LABEL: Record<SessionWorkflowState, MessageKey> = {
+	idle: 'session.state.standby',
+	prep: 'session.state.prep',
+	active: 'session.state.live',
+	paused: 'session.state.paused',
+	ending: 'session.state.wrappingUp',
+	recap: 'session.state.recap',
+	archived: 'session.state.archived',
 };
 
 /**
@@ -63,7 +63,7 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 		if (target === 'active') {
 			const sceneId = resolveActiveScene();
 			if (!sceneId) {
-				Toaster.warning(t('Create a scene first — a live session needs an active scene.'));
+				Toaster.warning(t('session.goLive.needsScene'));
 				return;
 			}
 			payload.activeSceneId = sceneId;
@@ -80,9 +80,7 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 			if (result.status === 'accepted') Toaster.success(okMessage);
 			else Toaster.error(result.rejection.message);
 		} catch (err) {
-			Toaster.error(
-				err instanceof Error ? err.message : t('The session couldn’t be updated — try again.'),
-			);
+			Toaster.error(err instanceof Error ? err.message : t('session.updateFailed'));
 		}
 	}
 
@@ -101,9 +99,9 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 						flex: '0 0 auto',
 					}}
 				>
-					<StatusDot status={live ? 'live' : 'idle'} pulse={live} label={t('Session')} />
+					<StatusDot status={live ? 'live' : 'idle'} pulse={live} label={t('nav.session')} />
 					<span style={{ font: `12px ${T.sans}`, color: T.sub, whiteSpace: 'nowrap' }}>
-						{t(WORKFLOW_LABEL[workflow as SessionWorkflowState] ?? 'Standby')}
+						{t(WORKFLOW_LABEL[workflow as SessionWorkflowState] ?? 'session.state.standby')}
 					</span>
 				</div>
 			)}
@@ -123,14 +121,16 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 				// previewing as a player left a dead control whose tooltip still read plain "Go live".
 				title={
 					previewing
-						? t('Exit player preview before going live')
+						? t('session.goLive.exitPreview')
 						: !live && !canGoLive
-							? t('Finish {state} and return to Standby before going live', {
-									state: t(WORKFLOW_LABEL[workflow as SessionWorkflowState] ?? 'Standby'),
+							? t('session.goLive.finishState', {
+									state: t(
+										WORKFLOW_LABEL[workflow as SessionWorkflowState] ?? 'session.state.standby',
+									),
 								})
 							: live
-								? t('End live session')
-								: t('Go live')
+								? t('session.end.liveLabel')
+								: t('session.goLive.label')
 				}
 				// On a phone the `!compact` pill above — the StatusDot and the WORKFLOW_LABEL — is not
 				// rendered at all, and the button's own text is dropped too, so the app's most
@@ -139,40 +139,37 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 				// existing strings stay a prefix, and `getByRole` name matching is substring.)
 				aria-label={
 					(previewing
-						? t('Go live (unavailable — exit player preview first)')
+						? t('session.goLive.blockedPreview')
 						: !live && !canGoLive
-							? t('Go live (unavailable — return to Standby first)')
+							? t('session.goLive.blockedState')
 							: live
-								? t('End live session')
-								: t('Go live')) +
-					(compact ? ` — ${t(WORKFLOW_LABEL[workflow as SessionWorkflowState] ?? 'Standby')}` : '')
+								? t('session.end.liveLabel')
+								: t('session.goLive.label')) +
+					(compact
+						? ` — ${t(WORKFLOW_LABEL[workflow as SessionWorkflowState] ?? 'session.state.standby')}`
+						: '')
 				}
 				style={compact ? { width: 48, minHeight: 48, padding: 0, flex: '0 0 auto' } : undefined}
 				onClick={() =>
 					live
 						? setEndConfirmOpen(true)
-						: void setWorkflow(
-								'active',
-								t('You are live — combat, dice, and maps now reach players'),
-							)
+						: void setWorkflow('active', t('session.goLive.announcement'))
 				}
 			>
-				{compact ? null : live ? t('End') : t('Go live')}
+				{compact ? null : live ? t('session.end.label') : t('session.goLive.label')}
 			</Button>
 			<Dialog
 				open={endConfirmOpen}
 				onClose={() => setEndConfirmOpen(false)}
-				title={t('End the live session?')}
-				description={t(
-					'Returning to standby clears the active scene and map, the whole initiative order with every combatant’s HP and conditions, delivered handouts, timers and the dice log. Nothing is archived — use Recap on the Session screen if you want to keep a record.',
-				)}
+				title={t('session.end.confirmTitle')}
+				description={t('session.end.confirmBody')}
 				icon="warning"
 				tone="danger"
 				size="sm"
 				footer={
 					<>
 						<Button variant="secondary" size="sm" onClick={() => setEndConfirmOpen(false)}>
-							{t('Stay live')}
+							{t('session.end.stay')}
 						</Button>
 						<Button
 							variant="danger"
@@ -180,10 +177,10 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 							icon="close"
 							onClick={() => {
 								setEndConfirmOpen(false);
-								void setWorkflow('idle', t('Session ended — players returned to standby'));
+								void setWorkflow('idle', t('session.end.announcement'));
 							}}
 						>
-							{t('End session')}
+							{t('session.end.confirmAction')}
 						</Button>
 					</>
 				}

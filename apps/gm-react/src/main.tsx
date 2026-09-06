@@ -19,7 +19,7 @@ window.addEventListener('unhandledrejection', () => {
 		window.localStorage.getItem(LOCALE_STORAGE_KEY),
 		navigator.languages,
 	);
-	Toaster.error(translate(locale, 'Something didn’t save — please try that again.'));
+	Toaster.error(translate(locale, 'vault.saveFailed'));
 });
 
 // Demo build (`VITE_DEMO_MODE=1`): open straight into the populated sample campaign instead of the

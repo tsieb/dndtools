@@ -2,6 +2,7 @@ import { allowedTransitionsFrom, type SessionWorkflowState } from '@dndtools/cor
 import { Button, Card, Dialog, Icon, StatusDot } from '../../ds';
 import { Seg, T, eb } from '../../app/screen-kit';
 import { WORKFLOW_LABEL } from '../../app/ProjectionControl';
+import { useI18n, type MessageKey } from '../../i18n';
 
 export function SessionHeader({
 	workflow,
@@ -16,6 +17,7 @@ export function SessionHeader({
 	isDm: boolean;
 	onSetWorkflow: (w: 'idle' | 'prep' | 'active' | 'recap') => void;
 }) {
+	const { t } = useI18n();
 	const phase =
 		workflow === 'active'
 			? 'active'
@@ -84,7 +86,7 @@ export function SessionHeader({
 				) : (
 					// Was a hard-coded "Standby" for all six non-live states, sitting right beside a
 					// Seg that showed a different phase — the header and the control disagreed.
-					<>{WORKFLOW_LABEL[workflow as SessionWorkflowState] ?? 'Standby'}</>
+					<>{t(WORKFLOW_LABEL[workflow as SessionWorkflowState] ?? 'session.state.standby')}</>
 				)}
 			</span>
 		</div>
@@ -108,7 +110,7 @@ export function StandbyCard({
 	previewing: boolean;
 	isDm: boolean;
 	onGoLive: () => void;
-	t: (key: string, vars?: Record<string, string | number>) => string;
+	t: (key: MessageKey, vars?: Record<string, string | number>) => string;
 }) {
 	return (
 		<Card
@@ -130,13 +132,15 @@ export function StandbyCard({
 					{/* This used to read "Session is on standby" for EVERY non-live workflow, so
 					    the one state you cannot go live from — Recap — described itself as the
 					    one state you can. Name the real state, as ProjectionControl does. */}
-					{t('Session is in {state}', { state: t(WORKFLOW_LABEL[workflow] ?? 'Standby') })}
+					{t('session.state.current', {
+						state: t(WORKFLOW_LABEL[workflow] ?? 'session.state.standby'),
+					})}
 				</div>
 				<div style={{ font: `12px ${T.sans}`, color: T.sub }}>
 					{canGoLive
-						? t('Go live to open combat, dice, handouts, and what players see.')
-						: t('Return to Standby first — you cannot go live from {state}.', {
-								state: t(WORKFLOW_LABEL[workflow] ?? 'Standby'),
+						? t('session.goLive.hint')
+						: t('session.goLive.returnToStandby', {
+								state: t(WORKFLOW_LABEL[workflow] ?? 'session.state.standby'),
 							})}
 				</div>
 			</div>
@@ -151,16 +155,16 @@ export function StandbyCard({
 				aria-disabled={previewing || !isDm || !canGoLive || undefined}
 				title={
 					previewing
-						? t('Exit player preview before going live')
+						? t('session.goLive.exitPreview')
 						: !canGoLive
-							? t('Finish {state} and return to Standby before going live', {
-									state: t(WORKFLOW_LABEL[workflow] ?? 'Standby'),
+							? t('session.goLive.finishState', {
+									state: t(WORKFLOW_LABEL[workflow] ?? 'session.state.standby'),
 								})
-							: t('Go live')
+							: t('session.goLive.label')
 				}
 				onClick={onGoLive}
 			>
-				{t('Go live')}
+				{t('session.goLive.label')}
 			</Button>
 		</Card>
 	);

@@ -227,9 +227,9 @@ export function Session() {
 	// ProjectionControl toasts. The phase Seg alone changed durable lifecycle state and said nothing,
 	// so a screen-reader DM got only a silently re-checked radio.
 	function workflowAnnounce(target: 'prep' | 'recap' | 'idle'): string {
-		if (target === 'prep') return t('Session moved to Prep');
-		if (target === 'recap') return t('Session archived into Recap');
-		return t('Session ended — back on standby');
+		if (target === 'prep') return t('session.movedToPrep');
+		if (target === 'recap') return t('session.archivedIntoRecap');
+		return t('session.end.toast');
 	}
 
 	async function goLive(): Promise<void> {
@@ -240,7 +240,7 @@ export function Session() {
 				(s) => !s.isTemplate,
 			)[0]?.id;
 		if (!sceneId) {
-			Toaster.warning(t('Create a scene first — a live session needs an active scene.'));
+			Toaster.warning(t('session.goLive.needsScene'));
 			return;
 		}
 		await dispatch(
@@ -249,7 +249,7 @@ export function Session() {
 				actorId,
 				payload: { workflow: 'active', activeSceneId: sceneId },
 			},
-			t('You are live — combat, dice, and maps now reach players'),
+			t('session.goLive.announcement'),
 		);
 	}
 
@@ -257,11 +257,11 @@ export function Session() {
 		const title = handoutTitle.trim();
 		if (!title) return;
 		if (!activeSceneId) {
-			Toaster.warning(t('Go live with a scene first.'));
+			Toaster.warning(t('session.goLive.needsSceneShort'));
 			return;
 		}
 		if (players.length === 0) {
-			Toaster.warning(t('No players yet — add players in Settings → Players first.'));
+			Toaster.warning(t('projection.noPlayers'));
 			return;
 		}
 		const ok = await dispatch(
@@ -277,9 +277,7 @@ export function Session() {
 					recipientActorIds: players.map((p) => p.id),
 				},
 			},
-			players.length === 1
-				? t('Pushed “{title}” to 1 player', { title })
-				: t('Pushed “{title}” to {count} players', { title, count: players.length }),
+			t('projection.pushed', { title, count: players.length }),
 		);
 		if (ok) {
 			setHandoutTitle('');
@@ -441,7 +439,7 @@ export function Session() {
 						}
 						onProject={() => {
 							if (players.length === 0) {
-								Toaster.warning(t('No players yet — add players in Settings → Players first.'));
+								Toaster.warning(t('projection.noPlayers'));
 								return;
 							}
 							void dispatch(
@@ -450,7 +448,7 @@ export function Session() {
 									actorId,
 									payload: { playerActorIds: players.map((p) => p.id) },
 								},
-								t('Map projected to players'),
+								t('projection.mapProjected'),
 							);
 						}}
 					/>
