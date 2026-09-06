@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	createDemoMapState,
 	dispatchCommand,
 	getPrepRecapDigest,
 	type Actor,
@@ -55,7 +56,12 @@ const HARPTOS_PAYLOAD = {
 	],
 	epochLabel: 'DR',
 };
-const dateOf = (month: number, day: number, year = 1372) => ({ calendarId: 'cal-harptos', year, month, day });
+const dateOf = (month: number, day: number, year = 1372) => ({
+	calendarId: 'cal-harptos',
+	year,
+	month,
+	day,
+});
 
 function digestFor(
 	state: CoreStateSlice,
@@ -90,7 +96,9 @@ function richSession(env: CoreEnvironment): {
 	const sceneId = state.commandCenter.homeSceneId!;
 
 	// CONTENT-011 calendar + an open-thread note + a future dated event (calendar context).
-	state = accepted(dispatchCommand(state, env, cmd('content.define-calendar', HARPTOS_PAYLOAD))).nextState;
+	state = accepted(
+		dispatchCommand(state, env, cmd('content.define-calendar', HARPTOS_PAYLOAD)),
+	).nextState;
 	const threadNote = accepted(
 		dispatchCommand(
 			state,
@@ -105,14 +113,21 @@ function richSession(env: CoreEnvironment): {
 	);
 	state = threadNote.nextState;
 	const threadEvent = threadNote.events.find((e) => e.kind === 'content.item-changed');
-	const threadItemId = threadEvent && threadEvent.kind === 'content.item-changed' ? threadEvent.itemId : '';
+	const threadItemId =
+		threadEvent && threadEvent.kind === 'content.item-changed' ? threadEvent.itemId : '';
 
-	state = accepted(dispatchCommand(state, env, cmd('session.set-campaign-date', { date: dateOf(1, 10) }))).nextState;
+	state = accepted(
+		dispatchCommand(state, env, cmd('session.set-campaign-date', { date: dateOf(1, 10) })),
+	).nextState;
 	state = accepted(
 		dispatchCommand(
 			state,
 			env,
-			cmd('session.link-calendar-date', { kind: 'event', label: 'The duke’s funeral', date: dateOf(1, 20) }),
+			cmd('session.link-calendar-date', {
+				kind: 'event',
+				label: 'The duke’s funeral',
+				date: dateOf(1, 20),
+			}),
 		),
 	).nextState;
 
@@ -121,13 +136,21 @@ function richSession(env: CoreEnvironment): {
 		dispatchCommand(
 			state,
 			env,
-			cmd('session.pin-quick-reference', { kind: 'open-thread', label: 'Poison mystery', targetId: threadItemId }),
+			cmd('session.pin-quick-reference', {
+				kind: 'open-thread',
+				label: 'Poison mystery',
+				targetId: threadItemId,
+			}),
 		),
 	).nextState;
 
 	// Activate the session (combat/handout writes are active-session-gated).
 	state = accepted(
-		dispatchCommand(state, env, cmd('session.set-workflow', { workflow: 'active', activeSceneId: sceneId })),
+		dispatchCommand(
+			state,
+			env,
+			cmd('session.set-workflow', { workflow: 'active', activeSceneId: sceneId }),
+		),
 	).nextState;
 
 	// SES-002 — start a combat with two combatants (creates an encounter log).
@@ -160,7 +183,8 @@ function richSession(env: CoreEnvironment): {
 	);
 	state = delivered.nextState;
 	const handoutEvent = delivered.events.find((e) => e.kind === 'session.handout-delivered');
-	const handoutId = handoutEvent && handoutEvent.kind === 'session.handout-delivered' ? handoutEvent.handoutId : '';
+	const handoutId =
+		handoutEvent && handoutEvent.kind === 'session.handout-delivered' ? handoutEvent.handoutId : '';
 
 	return { state, sceneId, threadItemId, handoutId };
 }
@@ -278,7 +302,9 @@ describe('SES-009: recap derives outcomes from the just-ended session archive (A
 		expect(digest.handoutOutcomes).toHaveLength(1);
 		expect(digest.handoutOutcomes[0]!.handoutTitle).toBe('The cryptic letter');
 		// A recap-mode combat prompt is synthesized without AI.
-		expect(digest.continuityPrompts.some((p) => p.source === 'combat' && /Recap combat/.test(p.text))).toBe(true);
+		expect(
+			digest.continuityPrompts.some((p) => p.source === 'combat' && /Recap combat/.test(p.text)),
+		).toBe(true);
 		// Calendar context (campaign-level) survives into recap.
 		expect(digest.calendarContext.currentDate?.isoLike).toBe('1372-01-10');
 	});
@@ -306,11 +332,51 @@ describe('SES-009: a dangling open thread degrades without leaking (resilience)'
 		).nextState;
 		const digest = digestFor(deleted, DM_ACTOR.id, 'prep');
 		expect(digest.unresolvedThreads).toHaveLength(1);
-		expect(digest.unresolvedThreads[0]).toMatchObject({ available: false, title: null, label: 'Poison mystery' });
+		expect(digest.unresolvedThreads[0]).toMatchObject({
+			available: false,
+			title: null,
+			label: 'Poison mystery',
+		});
 		expect(
 			digest.continuityPrompts.some((p) => p.source === 'thread' && /Re-anchor/.test(p.text)),
 		).toBe(true);
 		// The deleted note's title never leaks through the prompt either.
 		expect(JSON.stringify(digest.continuityPrompts)).not.toContain('Who poisoned the duke?');
+	});
+});
+
+describe('RC-MAP-1.4: the digest includes the party location', () => {
+	it('carries the party location + atlas breadcrumb for the DM, and null before any mark', () => {
+		const env = makeEnvironment();
+		let state = { ...base(), maps: createDemoMapState() };
+
+		expect(digestFor(state, DM_ACTOR.id, 'prep').partyLocation).toBeNull();
+
+		state = accepted(
+			dispatchCommand(
+				state,
+				env,
+				cmd('session.mark-party', { mapId: 'map-western-reaches', x: 0.3, y: 0.4 }),
+			),
+		).nextState;
+
+		const digest = digestFor(state, DM_ACTOR.id, 'prep');
+		expect(digest.partyLocation).toMatchObject({ mapId: 'map-western-reaches', x: 0.3, y: 0.4 });
+		expect(digest.partyLocation?.breadcrumb).toEqual([
+			{ mapId: 'map-western-reaches', name: 'Western Reaches' },
+		]);
+	});
+
+	it('never leaks the party location to a non-DM (fail closed)', () => {
+		const env = makeEnvironment();
+		let state = { ...base(), maps: createDemoMapState() };
+		state = accepted(
+			dispatchCommand(
+				state,
+				env,
+				cmd('session.mark-party', { mapId: 'map-western-reaches', x: 0.1, y: 0.1 }),
+			),
+		).nextState;
+		expect(digestFor(state, PLAYER_ACTOR.id, 'prep').partyLocation).toBeNull();
 	});
 });

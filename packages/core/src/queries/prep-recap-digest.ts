@@ -10,6 +10,7 @@ import { getQuickReferencePanelsForActor } from './quick-reference-query';
 import { getHandoutDeliveryHistory } from './handout-query';
 import { getCombatTrackerForActor } from './combat-tracker-view';
 import { getCalendarContextForActor, type CalendarContextView } from './calendar-continuity-query';
+import { getMapBreadcrumbForActor, type MapBreadcrumbCrumb } from './map-query';
 
 /**
  * SES-009 — THE pre-session PREP and post-session RECAP digest, as a PURE DERIVATION over the existing
@@ -101,6 +102,17 @@ export interface DigestAuthoredRecap {
 	revision: number;
 }
 
+/**
+ * RC-MAP-1.4 — where the party currently stands (`session.mark-party`), with its atlas breadcrumb
+ * (root-first) so the digest reads as a place, not a bare map id. Null when never marked.
+ */
+export interface DigestPartyLocation {
+	mapId: string;
+	x: number;
+	y: number;
+	breadcrumb: MapBreadcrumbCrumb[];
+}
+
 /** The computed prep/recap digest (DM-facing; empty for a non-DM). */
 export interface PrepRecapDigest {
 	mode: DigestMode;
@@ -114,6 +126,8 @@ export interface PrepRecapDigest {
 	continuityPrompts: DigestContinuityPrompt[];
 	/** The DM-authored recap on the digest's archive (`recapArchiveId`), or null when none/absent. */
 	authoredRecap: DigestAuthoredRecap | null;
+	/** RC-MAP-1.4 — where the party currently stands, or null when never marked. */
+	partyLocation: DigestPartyLocation | null;
 }
 
 /** How many recent changes / log-tail lines the digest surfaces by default (deterministic, bounded). */
@@ -137,6 +151,7 @@ function emptyDigest(mode: DigestMode): PrepRecapDigest {
 		calendarContext: EMPTY_CALENDAR_CONTEXT,
 		continuityPrompts: [],
 		authoredRecap: null,
+		partyLocation: null,
 	};
 }
 
@@ -253,6 +268,25 @@ export function getPrepRecapDigest(
 				}
 			: null;
 
+	// PARTY LOCATION ← RC-MAP-1.4 the last `session.mark-party` mark, with its atlas breadcrumb. This is
+	// campaign-level (not archived per session), so it reads the LIVE session regardless of `mode`.
+	const partyLocation: DigestPartyLocation | null = session.partyLocation
+		? {
+				mapId: session.partyLocation.mapId,
+				x: session.partyLocation.x,
+				y: session.partyLocation.y,
+				breadcrumb: (() => {
+					const breadcrumb = getMapBreadcrumbForActor(
+						maps,
+						permissions,
+						actorId,
+						session.partyLocation.mapId,
+					);
+					return breadcrumb.kind === 'available' ? breadcrumb.crumbs : [];
+				})(),
+			}
+		: null;
+
 	// CALENDAR CONTEXT ← SES-012 campaign date + linked past/upcoming events (CONTENT-011 formatting).
 	const calendarContext = getCalendarContextForActor(
 		session,
@@ -286,6 +320,7 @@ export function getPrepRecapDigest(
 		continuityPrompts,
 		// SES-009 — the DM-authored recap on the current recap archive (`session.author-recap`).
 		authoredRecap: authoredRecapOf(session),
+		partyLocation,
 	};
 }
 

@@ -99,6 +99,7 @@ function emptySlice(): CoreStateSlice {
 			sceneCards: { ...EMPTY_SESSION_STATE.sceneCards },
 			recapArchiveId: null,
 			archives: {},
+			partyLocation: EMPTY_SESSION_STATE.partyLocation,
 			schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
 		},
 		widgets: createSystemWidgetPackages(),
@@ -415,6 +416,7 @@ export class SceneRuntime {
 			),
 			recapArchiveId: withDefaultWidgets.session.recapArchiveId ?? null,
 			archives: withDefaultWidgets.session.archives ?? {},
+			partyLocation: withDefaultWidgets.session.partyLocation ?? null,
 		};
 		return {
 			...withDefaultWidgets,

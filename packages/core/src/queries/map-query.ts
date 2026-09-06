@@ -603,4 +603,77 @@ export function listMapsForActor(
 	return result;
 }
 
+/**
+ * RC-MAP-1.4 — one visible crumb in an atlas breadcrumb trail (root-first).
+ */
+export interface MapBreadcrumbCrumb {
+	mapId: string;
+	name: string;
+}
+
+/**
+ * RC-MAP-1.4 — the atlas breadcrumb trail for one map, root-first ending at the map itself. `available`
+ * only when the target map is visible to the actor; a hidden/missing map collapses to `unavailable`
+ * (indistinguishable from missing, matching {@link getMapViewForActor}).
+ */
+export type MapBreadcrumbResult =
+	| { kind: 'available'; mapId: string; crumbs: MapBreadcrumbCrumb[] }
+	| { kind: 'unavailable'; mapId: string };
+
+/**
+ * Find the map that embeds `childMapId`, using the SAME nesting graph `state/map-nesting.ts` walks
+ * (a parent's `embeds` list references its children by id; a child stores no back-reference). A map
+ * may in principle be embedded by more than one parent; the lowest map id wins so the walk is
+ * deterministic. Returns null for a root map (nothing embeds it).
+ */
+function findParentMap(maps: MapState, childMapId: string): MapEntity | null {
+	let found: MapEntity | null = null;
+	for (const candidate of Object.values(maps.maps)) {
+		if (!candidate.embeds.some((embed) => embed.childMapId === childMapId)) continue;
+		if (!found || candidate.id < found.id) found = candidate;
+	}
+	return found;
+}
+
+/**
+ * RC-MAP-1.4 — build the actor-filtered atlas BREADCRUMB for one map: the chain of nesting ancestors
+ * from the outermost visible root down to the map itself (MAP-008/MAP-017 nesting graph). Used by the
+ * atlas surface and the prep/recap digest's party-location reading so "where is the party" reads as
+ * "World Atlas > Western Reaches > Ruined Keep", not a bare map id.
+ *
+ * Fail-closed, matching {@link getMapViewForActor}: a map hidden from (or missing to) the actor
+ * collapses to `unavailable`. Climbing the chain STOPS at the first ancestor hidden from the actor
+ * (a `dm-only` parent never lends its name to a player's trail) rather than skipping over it and
+ * continuing to a visible grandparent, which would misrepresent how deep the map actually sits.
+ */
+export function getMapBreadcrumbForActor(
+	maps: MapState,
+	permissions: PermissionState,
+	actorId: ActorId,
+	mapId: string,
+	options?: MapQueryOptions,
+): MapBreadcrumbResult {
+	const actor = permissions.actors[actorId];
+	if (!actor) return { kind: 'unavailable', mapId };
+	const map = maps.maps[mapId];
+	if (!map) return { kind: 'unavailable', mapId };
+	if (!mapVisibleToActor(map, actor, isDelivered(map.id, options))) {
+		return { kind: 'unavailable', mapId };
+	}
+
+	const crumbs: MapBreadcrumbCrumb[] = [{ mapId: map.id, name: map.name }];
+	const seen = new Set<string>([map.id]);
+	let current = map;
+	for (;;) {
+		const parent = findParentMap(maps, current.id);
+		if (!parent || seen.has(parent.id)) break;
+		if (!mapVisibleToActor(parent, actor, isDelivered(parent.id, options))) break;
+		seen.add(parent.id);
+		crumbs.unshift({ mapId: parent.id, name: parent.name });
+		current = parent;
+	}
+
+	return { kind: 'available', mapId: map.id, crumbs };
+}
+
 export type { MapOverlayMode };

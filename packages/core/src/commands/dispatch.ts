@@ -74,6 +74,7 @@ import { handleGrantCapabilitySet, handleRevokeGrant, handleTransferOwnership } 
 import { handleAssignRole } from './assign-role';
 import {
 	handleAuthorRecap,
+	handleMarkParty,
 	handleProjectActiveMap,
 	handleRecordSessionDice,
 	handleRecoverSession,
@@ -335,6 +336,9 @@ export function dispatchCommand(
 		// --- RC-CAN-1.2 — RESTORE A DESTROYED WIDGET (append-only) ----------------------------------
 		case 'scene.restore-widget':
 			return handleRestoreWidget(state, env, command.actorId, command.payload);
+		// --- RC-MAP-1.4 — MARK THE PARTY'S ATLAS LOCATION (append-only) -----------------------------
+		case 'session.mark-party':
+			return handleMarkParty(state, env, command.actorId, command.payload);
 		case 'scene.configure-widget':
 			return handleConfigureWidget(state, env, command.actorId, command.payload);
 		case 'widget.package.install':

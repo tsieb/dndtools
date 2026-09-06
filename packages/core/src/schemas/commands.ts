@@ -3280,3 +3280,15 @@ export const restoreWidgetInputSchema = z
 		widgetInstanceId: idSchema,
 	})
 	.strict();
+
+// --- RC-MAP-1.4 — MARK THE PARTY'S ATLAS LOCATION (append-only block) ---------------------------
+
+// Set where the party currently stands: one map + a normalized (0..1) position on it, matching the
+// combat-token placement convention (`placeCombatTokenInputSchema`).
+export const markPartyInputSchema = z
+	.object({
+		mapId: idSchema,
+		x: z.number().min(0).max(1),
+		y: z.number().min(0).max(1),
+	})
+	.strict();

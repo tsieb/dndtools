@@ -508,6 +508,7 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		sceneCards: { ...EMPTY_SESSION_STATE.sceneCards },
 		recapArchiveId: null,
 		archives: {},
+		partyLocation: EMPTY_SESSION_STATE.partyLocation,
 		schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
 	};
 	session.workflow ??= EMPTY_SESSION_STATE.workflow;
@@ -539,6 +540,8 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	session.sceneCards = ensureSceneCardState(session.sceneCards);
 	session.recapArchiveId ??= null;
 	session.archives ??= {};
+	// RC-MAP-1.4 — a session document persisted before the party location field restores with no mark.
+	session.partyLocation ??= null;
 	const widgets = mergeSystemWidgetPackages(
 		trustedPersistedDocument<WidgetPackageState>(widgetPackageDoc, 'widgets') ?? {
 			packages: {},

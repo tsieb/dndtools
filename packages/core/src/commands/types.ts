@@ -849,7 +849,11 @@ export type CoreCommand =
 	// Re-insert a destroyed widget instance from its scene tombstone, with its id, layout,
 	// configuration and binding intact. The durable inverse of `scene.destroy-widget`; fails closed
 	// once the tombstone has expired (30 days) — an expired destroy is not silently re-added.
-	| { type: 'scene.restore-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'scene.restore-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// --- RC-MAP-1.4 — MARK THE PARTY'S ATLAS LOCATION (append-only block) -------------------------
+	// Set where the party currently stands: one map + a normalized position. DM-only; campaign-level
+	// (not reset by a session workflow transition).
+	| { type: 'session.mark-party'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -1813,6 +1817,14 @@ export type CoreEvent =
 			sceneId: SceneId;
 			widgetInstanceId: string;
 			actorId: ActorId;
+	  }
+	// RC-MAP-1.4 — the DM marked where the party currently stands on the atlas.
+	| {
+			kind: 'session.party-location-set';
+			actorId: ActorId;
+			mapId: string;
+			x: number;
+			y: number;
 	  };
 
 export type RejectionCode =

@@ -13,7 +13,12 @@ import {
 	type MapState,
 	type SessionState,
 } from '../src';
-import { DM_ACTOR, OBSERVER_ACTOR, PLAYER_ACTOR, buildPermissionState } from '../src/testing/fixtures';
+import {
+	DM_ACTOR,
+	OBSERVER_ACTOR,
+	PLAYER_ACTOR,
+	buildPermissionState,
+} from '../src/testing/fixtures';
 
 /**
  * MAP-018 — THE actor-filtered map query keystone. Every surface (render/search/graph/widget/MCP/
@@ -55,7 +60,8 @@ describe('MAP-011/MAP-018 a DM-only POI never leaks to a non-DM through the unif
 	it('the DM hidden-count reports the player-hidden POI; the player sees zero counts', () => {
 		const dmView = getMapViewForActor(demo(), PERMISSIONS, DM_ACTOR.id, WESTERN);
 		const playerView = getMapViewForActor(demo(), PERMISSIONS, PLAYER_ACTOR.id, WESTERN);
-		if (dmView.kind !== 'available' || playerView.kind !== 'available') throw new Error('unavailable');
+		if (dmView.kind !== 'available' || playerView.kind !== 'available')
+			throw new Error('unavailable');
 		expect(dmView.hidden.pois).toBe(1);
 		expect(playerView.hidden.pois).toBe(0);
 	});
@@ -86,9 +92,9 @@ describe('MAP-018 AC1 hidden POIs/routes/tokens are absent from search and graph
 		expect(dmHits.map((h) => h.id)).toContain('poi-smugglers-cache');
 		expect(playerHits).toHaveLength(0);
 		// Even searching by the exact hidden label yields nothing for the player.
-		expect(searchMapsForActor(demo(), PERMISSIONS, PLAYER_ACTOR.id, "Smugglers' Cache")).toHaveLength(
-			0,
-		);
+		expect(
+			searchMapsForActor(demo(), PERMISSIONS, PLAYER_ACTOR.id, "Smugglers' Cache"),
+		).toHaveLength(0);
 	});
 
 	it('search returns visible POIs/routes for the player', () => {
@@ -248,7 +254,9 @@ describe('CON-001 / MAP-018 listMapsForActor — actor-filtered map list, GUI mu
 			expect(typeof entry.name).toBe('string');
 			expect(typeof entry.description).toBe('string');
 			expect(entry.visibility).toMatch(/^(dm-only|player-visible|shared)$/);
-			expect(entry.defaultRegionId === null || typeof entry.defaultRegionId === 'string').toBe(true);
+			expect(entry.defaultRegionId === null || typeof entry.defaultRegionId === 'string').toBe(
+				true,
+			);
 		}
 	});
 
@@ -281,6 +289,7 @@ function EMPTY_SESSION(): SessionState {
 		sceneCards: EMPTY_SCENE_CARD_STATE,
 		recapArchiveId: null,
 		archives: {},
+		partyLocation: null,
 		schemaVersion: 1,
 	};
 }

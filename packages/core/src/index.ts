@@ -60,6 +60,7 @@ export type {
 	SessionArchiveSnapshot,
 	SessionDiceRoll,
 	SessionHandout,
+	SessionPartyLocation,
 	SessionPlayerViewAssignment,
 	SessionState,
 	SessionTimer,
@@ -437,6 +438,8 @@ export {
 // one surface while blocked on another. POIs/routes/fog/tokens/overlay come back already filtered for
 // the actor (omitted, not redacted); the DM additionally gets hidden-count aggregates.
 export type {
+	MapBreadcrumbCrumb,
+	MapBreadcrumbResult,
 	MapCombatTokenView,
 	MapFogView,
 	MapGraphEdge,
@@ -461,6 +464,7 @@ export {
 } from './queries/map-visibility';
 export {
 	deliveredMapIdsForActor,
+	getMapBreadcrumbForActor,
 	getMapViewForActor,
 	listMapsForActor,
 	mapGraphEdgesForActor,
@@ -1044,6 +1048,8 @@ export {
 	createMapRegionInputSchema,
 	updateMapRegionInputSchema,
 	deleteMapRegionInputSchema,
+	// RC-MAP-1.4 — mark the party's atlas location.
+	markPartyInputSchema,
 } from './schemas/commands';
 
 export { sceneSchema, sceneStateSchema } from './schemas/scene';
@@ -1687,6 +1693,7 @@ export type {
 	DigestContinuityPrompt,
 	DigestHandoutOutcome,
 	DigestMode,
+	DigestPartyLocation,
 	DigestRecentChange,
 	DigestThread,
 	PrepRecapDigest,

@@ -1,5 +1,6 @@
 import {
 	authorRecapInputSchema,
+	markPartyInputSchema,
 	projectActiveMapInputSchema,
 	recordSessionDiceInputSchema,
 	recoverSessionInputSchema,
@@ -13,6 +14,7 @@ import {
 	type ActiveMapDeliveryStatus,
 	type SessionArchiveSnapshot,
 	type SessionHandout,
+	type SessionPartyLocation,
 	type SessionState,
 	type SessionWorkflowState,
 } from '../state/session-state';
@@ -21,10 +23,7 @@ import {
 	auditMapProjectionConsistency,
 	mapProjectionInput,
 } from '../permissions/map-projection-consistency';
-import {
-	EMPTY_SESSION_COMBAT_STATE,
-	ensureSessionCombatState,
-} from '../state/combat-tracker';
+import { EMPTY_SESSION_COMBAT_STATE, ensureSessionCombatState } from '../state/combat-tracker';
 import {
 	EMPTY_SESSION_AUDIO_STATE,
 	cloneSessionAudioState,
@@ -873,5 +872,70 @@ export function handleProjectActiveMap(
 		},
 		events,
 		operationIds,
+	};
+}
+
+/**
+ * RC-MAP-1.4 — mark where the PARTY currently stands on the atlas (one map + a normalized position).
+ * DM-only. Campaign-level: unlike `activeMap`, this is never reset by a workflow transition, so the
+ * prep/recap digest and the atlas breadcrumb can always show the party's last-marked location even
+ * between sessions. Fails closed against an unknown map (the same non-leaking `map-not-found` code
+ * `session.set-active-map` uses).
+ */
+export function handleMarkParty(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(markPartyInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const map = requireMap(state, parsed.data.mapId);
+	if (!map) {
+		return reject(
+			{ code: 'map-not-found', message: `Map ${parsed.data.mapId} does not exist.` },
+			state,
+		);
+	}
+
+	const previous = state.session.partyLocation;
+	const nextLocation: SessionPartyLocation = {
+		mapId: map.id,
+		x: parsed.data.x,
+		y: parsed.data.y,
+		revision: (previous?.revision ?? 0) + 1,
+	};
+	const nextSession: SessionState = { ...state.session, partyLocation: nextLocation };
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'session',
+		entityId: SESSION_ENTITY_ID,
+		opType: 'session.mark-party',
+		path: 'partyLocation',
+		value: nextLocation,
+		beforeRevision: previous?.revision ?? 0,
+		afterRevision: nextLocation.revision,
+		dependencies: [`map:${map.id}@${map.revision}`],
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, session: nextSession, sync: nextLog },
+		events: [
+			{
+				kind: 'session.party-location-set',
+				actorId: actor.id,
+				mapId: map.id,
+				x: nextLocation.x,
+				y: nextLocation.y,
+			},
+		],
+		operationIds: [op.id],
 	};
 }

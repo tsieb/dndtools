@@ -4,6 +4,7 @@ import {
 	createDemoMapState,
 	dispatchCommand,
 	getActiveMapViewForActor,
+	getMapBreadcrumbForActor,
 	getSessionParticipantStatus,
 	getSessionWidgetMode,
 	type CommandResult,
@@ -354,5 +355,120 @@ describe('CMD-006 session workflow control', () => {
 			mode: 'draft',
 			canMutateActiveSession: false,
 		});
+	});
+});
+
+describe('RC-MAP-1.4 party location', () => {
+	it('marks the party location and bumps its revision on each mark', () => {
+		const env = makeEnvironment();
+		const first = accept(
+			dispatch(withMaps(), env, {
+				type: 'session.mark-party',
+				actorId: DM_ACTOR.id,
+				payload: { mapId: 'map-western-reaches', x: 0.3, y: 0.4 },
+			}),
+		);
+		expect(first.nextState.session.partyLocation).toMatchObject({
+			mapId: 'map-western-reaches',
+			x: 0.3,
+			y: 0.4,
+			revision: 1,
+		});
+		expect(first.events[0]).toMatchObject({
+			kind: 'session.party-location-set',
+			mapId: 'map-western-reaches',
+		});
+
+		const second = accept(
+			dispatch(first.nextState, env, {
+				type: 'session.mark-party',
+				actorId: DM_ACTOR.id,
+				payload: { mapId: 'map-hidden-outpost', x: 0.5, y: 0.5 },
+			}),
+		);
+		expect(second.nextState.session.partyLocation).toMatchObject({
+			mapId: 'map-hidden-outpost',
+			revision: 2,
+		});
+		expect(second.nextState.sync.operations.map((operation) => operation.opType)).toContain(
+			'session.mark-party',
+		);
+	});
+
+	it('survives a session workflow reset (campaign-level, not live-session state)', () => {
+		const env = makeEnvironment();
+		const { state, homeSceneId } = ensureHome(withMaps(), env);
+		const marked = accept(
+			dispatch(state, env, {
+				type: 'session.mark-party',
+				actorId: DM_ACTOR.id,
+				payload: { mapId: 'map-western-reaches', x: 0.2, y: 0.2 },
+			}),
+		).nextState;
+		const active = startActive(marked, env, homeSceneId);
+		const archived = accept(
+			dispatch(active, env, {
+				type: 'session.set-workflow',
+				actorId: DM_ACTOR.id,
+				payload: { workflow: 'recap' },
+			}),
+		).nextState;
+		expect(archived.session.partyLocation).toMatchObject({ mapId: 'map-western-reaches' });
+	});
+
+	it('rejects a mark for a non-DM actor and for an unknown map', () => {
+		const env = makeEnvironment();
+		const state = withMaps();
+		const nonDm = dispatch(state, env, {
+			type: 'session.mark-party',
+			actorId: PLAYER_ACTOR.id,
+			payload: { mapId: 'map-western-reaches', x: 0.1, y: 0.1 },
+		});
+		expect(nonDm.status).toBe('rejected');
+		if (nonDm.status === 'rejected') expect(nonDm.rejection.code).toBe('actor-not-authorized');
+
+		const unknownMap = dispatch(state, env, {
+			type: 'session.mark-party',
+			actorId: DM_ACTOR.id,
+			payload: { mapId: 'map-does-not-exist', x: 0.1, y: 0.1 },
+		});
+		expect(unknownMap.status).toBe('rejected');
+		if (unknownMap.status === 'rejected') expect(unknownMap.rejection.code).toBe('map-not-found');
+	});
+
+	it('reads the atlas breadcrumb via nesting: root map, and a hidden child stops at the root for a player', () => {
+		const maps = createDemoMapState();
+		const state = { ...buildInitialState(DM_ACTOR, PLAYER_ACTOR), maps };
+
+		const dmTrail = getMapBreadcrumbForActor(
+			state.maps,
+			state.permissions,
+			DM_ACTOR.id,
+			'map-hidden-outpost',
+		);
+		if (dmTrail.kind !== 'available') throw new Error('expected an available DM trail');
+		expect(dmTrail.crumbs.map((crumb) => crumb.mapId)).toEqual([
+			'map-western-reaches',
+			'map-hidden-outpost',
+		]);
+
+		const playerTrail = getMapBreadcrumbForActor(
+			state.maps,
+			state.permissions,
+			PLAYER_ACTOR.id,
+			'map-hidden-outpost',
+		);
+		expect(playerTrail).toEqual({ kind: 'unavailable', mapId: 'map-hidden-outpost' });
+
+		const playerRootTrail = getMapBreadcrumbForActor(
+			state.maps,
+			state.permissions,
+			PLAYER_ACTOR.id,
+			'map-western-reaches',
+		);
+		if (playerRootTrail.kind !== 'available') throw new Error('expected an available root trail');
+		expect(playerRootTrail.crumbs).toEqual([
+			{ mapId: 'map-western-reaches', name: 'Western Reaches' },
+		]);
 	});
 });

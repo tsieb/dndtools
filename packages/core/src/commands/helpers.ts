@@ -5,7 +5,11 @@ import { hasDmAuthority, isCampaignOwnerRole } from '../state/permission-state';
 import type { Scene, SceneState, WidgetInstance } from '../state/scene-state';
 import type { ActorId } from '../state/ids';
 import { appendOperation, type OperationLog, type SyncOperation } from '../sync/operation-log';
-import { SCENE_STATE_SCHEMA_VERSION, SCENE_SCHEMA_VERSION, isLiveScene } from '../state/scene-state';
+import {
+	SCENE_STATE_SCHEMA_VERSION,
+	SCENE_SCHEMA_VERSION,
+	isLiveScene,
+} from '../state/scene-state';
 import { SYNC_OPERATION_SCHEMA_VERSION } from '../sync/operation-log';
 import type { WidgetDataSchema, WidgetPackageState } from '../state/widget-package-state';
 import type { SessionHandout, SessionState } from '../state/session-state';
@@ -288,6 +292,9 @@ export function ensureSessionState(state: SessionState | undefined): SessionStat
 		sceneCards: ensureSceneCardState(state?.sceneCards),
 		recapArchiveId: state?.recapArchiveId ?? null,
 		archives: state?.archives ?? {},
+		// RC-MAP-1.4 — hydrate the party's atlas location fail-closed: a session document persisted before
+		// this field existed restores with no mark (never undefined).
+		partyLocation: state?.partyLocation ?? null,
 		schemaVersion: SESSION_STATE_SCHEMA_VERSION,
 	};
 }

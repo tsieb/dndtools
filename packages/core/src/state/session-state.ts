@@ -10,10 +10,7 @@ import {
 	type CalendarContinuityState,
 } from './calendar-continuity';
 import type { PlayerGroup } from './player-group';
-import {
-	EMPTY_SESSION_AUDIO_STATE,
-	type SessionAudioState,
-} from './session-audio';
+import { EMPTY_SESSION_AUDIO_STATE, type SessionAudioState } from './session-audio';
 import { EMPTY_SCENE_CARD_STATE, type SceneCardState } from './scene-card';
 
 // COLLAB-012 — durable PLAYER GROUPS (DM-authored delivery/projection target sets) live on the session
@@ -173,6 +170,20 @@ export interface SessionDiceRoll {
 	appendedToItemId?: string;
 	/** The op id this roll record corresponds to, for traceability against the sync log. */
 	operationId?: string;
+}
+
+/**
+ * RC-MAP-1.4 — where the PARTY currently stands on the atlas: one map + a normalized (0..1) position
+ * on it. Campaign-level, like {@link CalendarContinuityState}: it is NOT reset by a session workflow
+ * transition (unlike `activeMap`/`combat`), so the prep/recap digest can always show "the party is
+ * here" even between sessions. `revision` is a plain per-mark counter so `session.mark-party` carries
+ * a meaningful before/after revision in the op log; it is not itself player-facing.
+ */
+export interface SessionPartyLocation {
+	mapId: string;
+	x: number;
+	y: number;
+	revision: number;
 }
 
 export interface SessionActiveMapSelection {
@@ -437,6 +448,11 @@ export interface SessionState {
 	sceneCards: SceneCardState;
 	recapArchiveId: string | null;
 	archives: Record<string, SessionArchiveSnapshot>;
+	/**
+	 * RC-MAP-1.4 — the party's current atlas location (campaign-level; additive; null before the DM
+	 * first marks it). See {@link SessionPartyLocation}.
+	 */
+	partyLocation: SessionPartyLocation | null;
 	schemaVersion: typeof SESSION_STATE_SCHEMA_VERSION;
 }
 
@@ -458,5 +474,6 @@ export const EMPTY_SESSION_STATE: SessionState = Object.freeze({
 	sceneCards: EMPTY_SCENE_CARD_STATE,
 	recapArchiveId: null,
 	archives: {},
+	partyLocation: null,
 	schemaVersion: SESSION_STATE_SCHEMA_VERSION,
 });
