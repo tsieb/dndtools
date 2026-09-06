@@ -20,6 +20,8 @@ import {
 	handlePinWidget,
 	handleResizeWidget,
 	handleSetWidgetFocusOrder,
+	// RC-CAN-1.2 (append-only)
+	handleRestoreWidget,
 } from './widget';
 import { handleDispatchWidgetCommand } from './widget-command';
 // RC-SYS-1.3 — the DM-authored rules SYSTEM commands (append-only block in the switch below).
@@ -327,6 +329,9 @@ export function dispatchCommand(
 			return handleSetWidgetFocusOrder(state, env, command.actorId, command.payload);
 		case 'scene.destroy-widget':
 			return handleDestroyWidget(state, env, command.actorId, command.payload);
+		// --- RC-CAN-1.2 — RESTORE A DESTROYED WIDGET (append-only) ----------------------------------
+		case 'scene.restore-widget':
+			return handleRestoreWidget(state, env, command.actorId, command.payload);
 		case 'scene.configure-widget':
 			return handleConfigureWidget(state, env, command.actorId, command.payload);
 		case 'widget.package.install':

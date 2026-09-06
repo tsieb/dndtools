@@ -46,6 +46,9 @@ export interface CommandLifecycleState {
 export const UNDOABLE_COMMAND_TYPES: Partial<Record<CoreCommand['type'], CoreCommand['type']>> = {
 	// Adding a widget is undone by destroying that widget instance.
 	'scene.add-widget': 'scene.destroy-widget',
+	// RC-CAN-1.2: destroying a widget is undone by restoring it from its scene tombstone — same id,
+	// same layout, same configuration and binding. Valid inside the 30-day retention window.
+	'scene.destroy-widget': 'scene.restore-widget',
 	// Projecting a player view is undone by revoking it.
 	'session.project-player-view': 'session.revoke-player-view',
 	// Installing a widget package is undone by removing it.

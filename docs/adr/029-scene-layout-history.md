@@ -174,3 +174,33 @@ older builds don't silently drop tombstones they don't know how to read.
   loss beyond "restore is no longer offered" for widgets destroyed after rollback.
 - Known rollback risk: a scene mid-TTL at rollback time keeps its existing tombstones until the next
   edit touches it (same as the normal sweep timing) — cosmetic only, no correctness impact.
+
+## Amendment — RC-CAN-1.2 as built (2026-09-05)
+
+The tombstone half of §2 shipped with three deliberate departures from the decision above. The
+decision itself — destroy is a durable soft delete, `scene.restore-widget` puts the same instance
+back, retention is bounded — is unchanged.
+
+1. **Retention is 30 days, not 7.** `WIDGET_TOMBSTONE_RETENTION_DAYS = 30` in
+   `packages/core/src/state/scene-state.ts`, matching the plan of record
+   (`docs/planning/RC_ROADMAP.md`, RC-CAN-1.2) rather than this ADR's earlier 7. A scene's bin is
+   small (one record per destroyed widget) and a month comfortably covers "we cleaned up before the
+   break and want that back"; the storage argument for 7 days was never load-bearing.
+2. **No `Scene.schemaVersion` bump.** `tombstones` is an OPTIONAL field, so a scene persisted before
+   it existed hydrates as a scene with an empty bin with no migration at all, and a scene whose bin
+   is empty drops the field entirely (`withTombstones`). That is guardrail 3's "prefer additive
+   fields" taken to its conclusion: there is no shape a reader can encounter that it cannot read, so
+   there is nothing for a version bump to protect. Older builds ignore the field rather than
+   silently dropping it, because nothing in the persistence path filters unknown keys.
+3. **Expiry is evaluated on read and pruned on the next tombstone mutation**, not swept from a
+   lifecycle tick. An expired tombstone is never restorable (`isRestorableTombstone` gates the
+   restore handler), and the destroy/restore handlers drop expired records as they pass. This keeps
+   the core free of a background clock, so replaying the same op log against the same environment
+   produces byte-identical state — the §2 "sweep timing is cosmetic" note, made structural.
+
+Also as built: a tombstone stores the widget's `index` in `Scene.widgets` alongside its section, so
+destroy → restore of a middle widget is byte-identical rather than moving it to the end; and a widget
+whose package was removed or disabled while it sat in the bin comes back as the same disabled
+placeholder those commands leave on live instances, so the undo always succeeds without pretending
+the widget works. `buildWidgetInverse` now inverts `scene.destroy-widget` to `scene.restore-widget`
+(it was refused in RC-CAN-1.1 pending this command), and `UNDOABLE_COMMAND_TYPES` maps the pair.

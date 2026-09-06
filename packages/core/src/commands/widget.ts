@@ -11,6 +11,8 @@ import {
 	pinWidgetInputSchema,
 	resizeWidgetInputSchema,
 	setWidgetFocusOrderInputSchema,
+	// RC-CAN-1.2 (append-only)
+	restoreWidgetInputSchema,
 } from '../schemas/commands';
 import { actorCanCoEditScene, hasGrantedCapability } from '../permissions/grants';
 import { evaluateSceneVisibility } from '../permissions/visibility';
@@ -21,6 +23,15 @@ import type {
 	Scene,
 	SectionLayoutRegion,
 	WidgetBinding,
+	WidgetTombstone,
+	WidgetDisabledState,
+} from '../state/scene-state';
+// RC-CAN-1.2 — tombstone helpers (retention window, hydrator-safe read, pruning).
+import {
+	isRestorableTombstone,
+	pruneExpiredTombstones,
+	sceneTombstones,
+	withTombstones,
 } from '../state/scene-state';
 import {
 	findPackageRecordForWidgetType,
@@ -611,12 +622,29 @@ export function handleDestroyWidget(
 		widgetInstanceIds: section.widgetInstanceIds.filter((id) => id !== widget.id),
 	}));
 
+	// RC-CAN-1.2: the destroy is REVERSIBLE. Keep the whole instance plus the section it sat in, so
+	// `scene.restore-widget` can put back the same widget rather than mint a replacement. Expired
+	// tombstones are pruned here — this mutation IS the "next mutation" the 30-day expiry waits for.
+	const destroyedAt = env.clock();
+	const tombstone: WidgetTombstone = {
+		widget,
+		sectionId: scene.sections.find((s) => s.widgetInstanceIds.includes(widget.id))?.id ?? null,
+		index: scene.widgets.findIndex((w) => w.id === widget.id),
+		destroyedAt,
+		destroyedByActorId: actor.id,
+	};
 	const nextScene = bumpRevision(
-		{
-			...scene,
-			widgets: scene.widgets.filter((w) => w.id !== widget.id),
-			sections: newSections,
-		},
+		withTombstones(
+			{
+				...scene,
+				widgets: scene.widgets.filter((w) => w.id !== widget.id),
+				sections: newSections,
+			},
+			[
+				...pruneExpiredTombstones(scene, destroyedAt).filter((t) => t.widget.id !== widget.id),
+				tombstone,
+			],
+		),
 		env,
 	);
 	const nextSceneState = withScene(state.scenes, scene.id, () => nextScene);
@@ -737,6 +765,147 @@ export function handleConfigureWidget(
 				kind: 'scene.widget-configured',
 				sceneId: scene.id,
 				widgetInstanceId: widget.id,
+				actorId: actor.id,
+			},
+		],
+		operationIds: [op.id],
+	};
+}
+
+// --- RC-CAN-1.2 — RESTORE A DESTROYED WIDGET (append-only block) --------------------------------
+
+/**
+ * The placeholder state a restored widget wakes up in when the package that declares its type went
+ * away, or was disabled, while the widget sat in the bin. Restoring is an UNDO, so it must succeed —
+ * but it must not pretend the widget works. This mirrors the placeholder `widget.package.remove` /
+ * `widget.package.disable` leave on live instances.
+ */
+function restoredDisabledState(
+	state: CoreStateSlice,
+	widget: WidgetInstance,
+	now: string,
+): WidgetDisabledState | null {
+	if (widget.disabled) return widget.disabled;
+	const packageRecord = findPackageRecordForWidgetType(state.widgets, widget.type);
+	if (!packageRecord || packageRecord.removedAt) {
+		return {
+			reason: 'package-removed',
+			packageId: packageRecord?.package.id ?? null,
+			diagnosticId: null,
+			message: 'Package was removed while the widget was removed; the instance is a placeholder.',
+			previousVersion: widget.version,
+			disabledAt: now,
+		};
+	}
+	if (!packageRecord.enabled || !findWidgetDefinition(state.widgets, widget.type)) {
+		return {
+			reason: 'package-disabled',
+			packageId: packageRecord.package.id,
+			diagnosticId: null,
+			message: 'Package is turned off; the restored widget is a placeholder until it is enabled.',
+			previousVersion: widget.version,
+			disabledAt: now,
+		};
+	}
+	return null;
+}
+
+/**
+ * RC-CAN-1.2 — put a destroyed widget back on its scene from its tombstone, with the same instance
+ * id, layout, configuration, binding and section. The durable inverse of `scene.destroy-widget`.
+ *
+ * Fails closed: no live tombstone (never destroyed, already restored, or past the 30-day retention
+ * window) is `widget-not-restorable`, and the binding is re-checked against the RESTORING actor's
+ * capabilities so a restore can never hand someone a binding they could not create today.
+ */
+export function handleRestoreWidget(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+
+	const parsed = parseInput(restoreWidgetInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const scene = requireScene(state, parsed.data.sceneId);
+	if ('code' in scene) return reject(scene, state);
+	const sceneEditCheck = requireSceneCoEditor(state, actor, scene);
+	if (sceneEditCheck) return reject(sceneEditCheck, state);
+
+	const now = env.clock();
+	const tombstone = sceneTombstones(scene).find(
+		(candidate) =>
+			candidate.widget.id === parsed.data.widgetInstanceId && isRestorableTombstone(candidate, now),
+	);
+	if (!tombstone) {
+		return reject(
+			{
+				code: 'widget-not-restorable',
+				message: `Widget ${parsed.data.widgetInstanceId} can no longer be restored on Scene ${scene.id}.`,
+			},
+			state,
+		);
+	}
+	if (findWidget(scene, tombstone.widget.id)) {
+		return reject(
+			{
+				code: 'invalid-state',
+				message: `Widget ${tombstone.widget.id} is already on Scene ${scene.id}.`,
+			},
+			state,
+		);
+	}
+
+	const bindingCheck = requireBindingCapability(state, actor, tombstone.widget.binding, now);
+	if (bindingCheck) return reject(bindingCheck, state);
+
+	const restored: WidgetInstance = {
+		...tombstone.widget,
+		disabled: restoredDisabledState(state, tombstone.widget, now),
+	};
+
+	// Put it back in its section when that section still exists; a section deleted meanwhile leaves the
+	// widget loose on the canvas rather than failing the undo.
+	const nextSections: SectionLayoutRegion[] = scene.sections.map((section) =>
+		section.id === tombstone.sectionId && !section.widgetInstanceIds.includes(restored.id)
+			? { ...section, widgetInstanceIds: [...section.widgetInstanceIds, restored.id] }
+			: section,
+	);
+
+	// Back at the index it held, so undoing the destroy of a middle widget leaves the scene exactly as
+	// it was rather than shuffling it to the end.
+	const nextWidgets = [...scene.widgets];
+	nextWidgets.splice(Math.min(Math.max(tombstone.index, 0), nextWidgets.length), 0, restored);
+
+	const nextScene = bumpRevision(
+		withTombstones(
+			{ ...scene, widgets: nextWidgets, sections: nextSections },
+			pruneExpiredTombstones(scene, now).filter((t) => t.widget.id !== restored.id),
+		),
+		env,
+	);
+	const nextSceneState = withScene(state.scenes, scene.id, () => nextScene);
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'scene',
+		entityId: scene.id,
+		opType: 'scene.restore-widget',
+		path: `widgets/${restored.id}`,
+		value: restored,
+		beforeRevision: scene.ownership.revision,
+		afterRevision: nextScene.ownership.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, scenes: nextSceneState, sync: nextLog },
+		events: [
+			{
+				kind: 'scene.widget-restored',
+				sceneId: scene.id,
+				widgetInstanceId: restored.id,
 				actorId: actor.id,
 			},
 		],

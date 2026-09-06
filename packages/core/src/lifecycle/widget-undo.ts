@@ -9,6 +9,8 @@ import {
 	pinWidgetInputSchema,
 	resizeWidgetInputSchema,
 	setWidgetFocusOrderInputSchema,
+	// RC-CAN-1.2 — destroy is now invertible through the durable restore command.
+	destroyWidgetInputSchema,
 } from '../schemas/commands';
 import type { Scene, WidgetInstance } from '../state/scene-state';
 
@@ -38,10 +40,11 @@ import type { Scene, WidgetInstance } from '../state/scene-state';
  *   - `scene.add-widget` — the instance id is minted by the handler. Per ADR-029 §1 the app routes
  *     an add-undo to `scene.destroy-widget` using the id off the `scene.widget-added` event it
  *     already received, rather than duplicating a second removal path here.
- *   - `scene.destroy-widget` — nothing in `stateBefore` can be put back by an existing command;
- *     `scene.add-widget` would mint a NEW id and drop z/dock/pin/focus order. Its inverse is the
- *     durable `scene.restore-widget` command that ADR-029 §2 introduces (RC-CAN-1.2); until that
- *     lands, destroy is honestly not undoable.
+ *   - `scene.group-widgets` and `scene.add-widget` stay refused for the reasons above.
+ *
+ * RC-CAN-1.2 closed the destroy case: `scene.destroy-widget` now leaves a tombstone carrying the
+ * whole instance, so its inverse is `scene.restore-widget` addressed by the SAME instance id — which
+ * IS present in `stateBefore`, keeping the builder pure.
  *   - `scene.group-widgets` — the handler mints a fresh `groupId`, and the command set has no
  *     ungroup: no command can put a widget's prior `groupId` back. Guessing one would silently
  *     corrupt existing groups, so this reports `null`.
@@ -257,9 +260,28 @@ export function buildWidgetInverse(
 			);
 		}
 
+		// RC-CAN-1.2 — a destroy is undone by restoring the tombstoned instance, not by re-adding it:
+		// the restore keeps the id, layout, configuration and binding the destroy filed away.
+		case 'scene.destroy-widget': {
+			const payload = parse(destroyWidgetInputSchema, command.payload);
+			if (!payload) return null;
+			const widget = widgetOf(stateBefore, payload.sceneId, payload.widgetInstanceId);
+			if (!widget) return null;
+			return undoable(
+				{
+					type: 'scene.restore-widget',
+					actorId,
+					payload: {
+						sceneId: payload.sceneId,
+						widgetInstanceId: payload.widgetInstanceId,
+					},
+				},
+				'Removed widget',
+			);
+		}
+
 		// Not undoable — see the module header for why each one is refused rather than guessed at.
 		case 'scene.add-widget':
-		case 'scene.destroy-widget':
 		case 'scene.group-widgets':
 			return null;
 

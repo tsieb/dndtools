@@ -5329,3 +5329,16 @@ export {
 // only answers "what command exactly undoes this one".
 export type { UndoableWidgetCommand } from './lifecycle/widget-undo';
 export { buildWidgetInverse } from './lifecycle/widget-undo';
+
+// RC-CAN-1.2 — reversible widget destruction. `scene.destroy-widget` leaves a tombstone carrying the
+// whole instance; `scene.restore-widget` puts it back with its id, layout, configuration and binding.
+// Tombstones expire 30 days after the destroy and are pruned on the next tombstone mutation.
+export type { WidgetTombstone } from './state/scene-state';
+export {
+	WIDGET_TOMBSTONE_RETENTION_DAYS,
+	isRestorableTombstone,
+	listRestorableWidgets,
+	pruneExpiredTombstones,
+	sceneTombstones,
+	withTombstones,
+} from './state/scene-state';

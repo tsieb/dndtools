@@ -3233,3 +3233,15 @@ export const reviewWidgetPackageInputSchema = z
 		note: z.string().max(500).optional(),
 	})
 	.strict();
+
+// --- RC-CAN-1.2 — RESTORE A DESTROYED WIDGET (append-only block) --------------------------------
+
+// Put a destroyed widget instance back on its scene from its tombstone. Addressed by the instance id
+// the destroy left behind, so an undo restores the SAME widget (identity, layout, config, binding),
+// never a fresh copy.
+export const restoreWidgetInputSchema = z
+	.object({
+		sceneId: idSchema,
+		widgetInstanceId: idSchema,
+	})
+	.strict();

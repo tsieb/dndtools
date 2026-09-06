@@ -233,7 +233,7 @@ describe('RC-CAN-1.1: buildWidgetInverse round-trips every covered scene layout 
 });
 
 describe('RC-CAN-1.1: buildWidgetInverse refuses rather than guessing', () => {
-	it('reports add, destroy and group-widgets as not undoable', () => {
+	it('reports add and group-widgets as not undoable', () => {
 		const { state, sceneId, widgetIds } = setup();
 		const notUndoable: CoreCommand[] = [
 			{
@@ -249,11 +249,6 @@ describe('RC-CAN-1.1: buildWidgetInverse refuses rather than guessing', () => {
 						binding: null,
 					},
 				},
-			},
-			{
-				type: 'scene.destroy-widget',
-				actorId: DM_ACTOR.id,
-				payload: { sceneId, widgetInstanceId: widgetIds[0]! },
 			},
 			{
 				type: 'scene.group-widgets',

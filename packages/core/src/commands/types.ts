@@ -836,7 +836,12 @@ export type CoreCommand =
 	// commits through the EXISTING authorized dispatch (a grant revoked since staging blocks the commit);
 	// a proposal never auto-commits and can never be committed twice (fail closed). DM-only.
 	| { type: 'mcp.approve-proposal'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'mcp.reject-proposal'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'mcp.reject-proposal'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// --- RC-CAN-1.2 — RESTORE A DESTROYED WIDGET (append-only block) ------------------------------
+	// Re-insert a destroyed widget instance from its scene tombstone, with its id, layout,
+	// configuration and binding intact. The durable inverse of `scene.destroy-widget`; fails closed
+	// once the tombstone has expired (30 days) — an expired destroy is not silently re-added.
+	| { type: 'scene.restore-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -1766,6 +1771,14 @@ export type CoreEvent =
 			agentId: string;
 			reason: 'rejected' | 'expired';
 			actorId: ActorId;
+	  }
+	// RC-CAN-1.2 — a destroyed widget instance was put back from its tombstone. Carries the SAME
+	// instance id the destroy reported, so a listener can pair the two.
+	| {
+			kind: 'scene.widget-restored';
+			sceneId: SceneId;
+			widgetInstanceId: string;
+			actorId: ActorId;
 	  };
 
 export type RejectionCode =
@@ -1989,7 +2002,11 @@ export type RejectionCode =
 	// `widget.package.review` tried to TRUST a package whose review summary recommends
 	// `deny-until-fixed` without the DM acknowledging that recommendation. Fail closed: a package the
 	// analysis says is broken or over-reaching is never trusted by accident.
-	| 'review-recommendation-unacknowledged';
+	| 'review-recommendation-unacknowledged'
+	// RC-CAN-1.2 — `scene.restore-widget` found no live tombstone for the instance: it was never
+	// destroyed, was already restored, or its 30-day retention window has passed. Fail closed and
+	// honest — the app says the widget can no longer be brought back instead of adding a new one.
+	| 'widget-not-restorable';
 
 export interface CommandRejection {
 	code: RejectionCode;
