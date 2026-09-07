@@ -6,6 +6,42 @@ v1 document-editor have been removed; that application's last state is preserved
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-09-07
+
+- Fixed the sidebar account block: the presence label no longer squeezes the name column, the DM
+  seat reads "Dungeon Master" until named, and clicking it opens Settings › Players. A DM (or any
+  actor, for their own seat) can now set their display name from the roster; the rename is a durable
+  `permission.rename-actor` command that replicates to a connected table.
+- Fixed the Electron shell's permanent window scrollbar (the title-strip inset collapsed through the
+  body), themed the scrollbars, and removed the sidebar's own overflow at short window heights.
+- Map editor: token layer, stamp/prop library, lighting and line-of-sight, room-graph view and
+  stocking editor, travel routes with distance and pace, party marker, fog brush ergonomics and
+  polygon lasso, list view and screen-reader inventory, arrow-key POI navigation, and a touch gesture
+  model (pinch, momentum, double-tap zoom, long-press menu). Dense static fills bake to a canvas.
+- Session: start/end session flows, a session quick panel on every route, one-handed HP keypad with
+  a five-second undo, tracker keyboard model, roll labels and per-die breakdown with an exportable
+  roll log, inline `[[roll:…]]` in notes and handouts, end-of-session capture, and combat map
+  persistence and archive. Damage prompts the concentration check and the tracker shows who is dying.
+- Characters: class resources render from the active system package, a rest workflow that spends hit
+  dice, a guided level-up wizard, and a live party panel over remote play.
+- Systems and widgets: the System tab is a system package picker; a DM can fork a rules system and
+  edit it field by field; a Pathfinder 2e sample installs from the picker; dice, turn model, chrome
+  vocabulary and widget bodies read the active package; the starter library ships seven real widgets;
+  the builder's Advanced step writes custom HTML and JavaScript; an assistant can propose, generate
+  and iterate on a widget with a diffed re-run.
+- Knowledge: one sanitized markdown renderer with callouts, tables, figures and wikilinks, and a note
+  editor with a toolbar, `[[` autocomplete, `/` insert menu, preview and autosave. Scene packages
+  play, show and push in one click over a Web Audio engine.
+- AI: semantic diff preview and three-way conflict review for staged proposals, an audit browser
+  with export, batch review, a model router with per-task backend choice, local embeddings with
+  hybrid search ranking, and Ollama model management.
+- UX and platform: one keyboard shortcut registry behind the handlers, the `?` overlay and Settings;
+  a Help menu; maturity-signal badges; typed device preferences and a platform capability layer; RTL
+  readiness; a community translation workflow; the axe gate extended to every durable workspace; a
+  Settings › About › Diagnostics screen with redacted export.
+- Engineering: file-size and coverage quality gates, typed `any` seams, SEC-008 regression gates,
+  stage-scoped observability and cost guardrails (ADR-028), and dependency updates.
+
 ## [0.3.1] - 2026-07-28
 
 - Fixed the incremental formatting baseline failures on `main` by formatting the dashboard and
