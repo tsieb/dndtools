@@ -108,6 +108,14 @@ export function CombatPanel({
 	const [undo, setUndo] = useState<HpUndo | null>(null);
 	// One pointer at a time, so one timer is enough for the whole list.
 	const press = useRef<{ timer: number | null; fired: boolean }>({ timer: null, fired: false });
+	// RC-SES-3.4 — the selected combatant's detail panel (conditions/reorder/hide/remove), so `Enter`
+	// can move focus INTO it rather than merely selecting the row a second time.
+	const detailRef = useRef<HTMLDivElement | null>(null);
+	// RC-SES-3.4 — reordering has no `ok` toast (it is not a dispatch helper call site the announcer
+	// hooks into) and the earlier/later buttons themselves say nothing when pressed. `n`/`p`/arrows
+	// move the CURSOR silently, same as any list; a reorder actually changes durable state and needs
+	// its own live announcement.
+	const [reorderAnnouncement, setReorderAnnouncement] = useState('');
 
 	const hpSheetTarget = hpSheet
 		? (tracker.combatants.find((c) => c.id === hpSheet.id) ?? null)
@@ -121,27 +129,104 @@ export function CombatPanel({
 		return () => window.clearTimeout(timer);
 	}, [undo]);
 
-	// `d` damage, `h` heal — on the SELECTED combatant, falling back to whoever's turn it is. Bare
-	// letters, so they are refused while a text field or another dialog owns the keyboard.
+	// RC-SES-3.4 — THE TRACKER KEYBOARD MODEL. Bare letters/arrows, refused while a text field or a
+	// dialog owns the keyboard, so this never fights typing in the label/HP-keypad/condition inputs:
+	//   `n` / `p`      — next / previous turn (same command as the Next/Previous turn buttons).
+	//   `d` / `h`      — open the HP keypad for the selected combatant (falls back to whoever's turn
+	//                    it is), pre-set to Damage / Heal.
+	//   ArrowUp/Down   — move the row cursor (selection) up/down the initiative order.
+	//   Enter          — opens the selected row's detail panel by moving focus into it (the panel
+	//                    itself is already rendered on selection; RC-SES-3.3 is what will put a
+	//                    bound stat block inside it — this wires the keyboard entry point to whatever
+	//                    the panel holds today).
+	//   Alt+ArrowUp/Down — DM-only: reorder the selected combatant earlier/later (mirrors the
+	//                    chevron buttons below), announced since a reorder has no dispatch toast.
 	useEffect(() => {
 		if (!running || previewing) return undefined;
 		function onKey(e: KeyboardEvent) {
-			if (e.metaKey || e.ctrlKey || e.altKey) return;
-			const key = e.key.toLowerCase();
-			if (key !== 'd' && key !== 'h') return;
 			const el = e.target as HTMLElement | null;
 			if (el && (el.isContentEditable || /^(input|textarea|select)$/i.test(el.tagName))) return;
 			if (document.querySelector('[role="dialog"]')) return;
-			const target =
-				tracker.combatants.find((c) => c.id === selectedId && c.resources) ??
-				tracker.combatants.find((c) => c.id === tracker.activeCombatantId && c.resources);
-			if (!target) return;
-			e.preventDefault();
-			setHpSheet({ id: target.id, intent: key === 'd' ? 'damage' : 'heal' });
+			// A focused BUTTON (the row's own name toggle, the reorder chevrons, …) handles its own
+			// Enter/Space activation natively — this model is for when the cursor is NOT on one of
+			// those (arrow-key selection moves a React state cursor, not DOM focus), so Enter here
+			// never fights a real button's native keypress.
+			const onButton = el?.tagName === 'BUTTON';
+
+			if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+				if (!isDm || !selectedId) return;
+				const idx = tracker.combatants.findIndex((c) => c.id === selectedId);
+				if (idx === -1) return;
+				const earlier = e.key === 'ArrowUp';
+				if (earlier && idx <= 0) return;
+				if (!earlier && idx >= tracker.combatants.length - 1) return;
+				e.preventDefault();
+				const name = tracker.combatants[idx].name;
+				onReorder(selectedId, earlier ? 'earlier' : 'later');
+				setReorderAnnouncement(
+					t(
+						earlier
+							? 'session.combat.movedEarlierAnnouncement'
+							: 'session.combat.movedLaterAnnouncement',
+						{
+							name,
+						},
+					),
+				);
+				return;
+			}
+			if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+			if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+				if (tracker.combatants.length === 0) return;
+				e.preventDefault();
+				const idx = tracker.combatants.findIndex((c) => c.id === selectedId);
+				const delta = e.key === 'ArrowDown' ? 1 : -1;
+				const next =
+					idx === -1 ? 0 : Math.min(tracker.combatants.length - 1, Math.max(0, idx + delta));
+				onSelect(tracker.combatants[next].id);
+				return;
+			}
+			if (e.key === 'Enter') {
+				if (!selectedId || onButton) return;
+				e.preventDefault();
+				detailRef.current?.querySelector<HTMLElement>('button, [href], input, [tabindex]')?.focus();
+				return;
+			}
+			const key = e.key.toLowerCase();
+			if (key === 'n') {
+				e.preventDefault();
+				onAdvance();
+				return;
+			}
+			if (key === 'p') {
+				e.preventDefault();
+				onPrevious();
+				return;
+			}
+			if (key === 'd' || key === 'h') {
+				const target =
+					tracker.combatants.find((c) => c.id === selectedId && c.resources) ??
+					tracker.combatants.find((c) => c.id === tracker.activeCombatantId && c.resources);
+				if (!target) return;
+				e.preventDefault();
+				setHpSheet({ id: target.id, intent: key === 'd' ? 'damage' : 'heal' });
+			}
 		}
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
-	}, [running, previewing, selectedId, tracker]);
+	}, [
+		running,
+		previewing,
+		selectedId,
+		tracker,
+		isDm,
+		onAdvance,
+		onPrevious,
+		onSelect,
+		onReorder,
+		t,
+	]);
 
 	function openHpSheet(id: string, intent: HpIntent) {
 		if (previewing) return;
@@ -277,6 +362,12 @@ export function CombatPanel({
 								: ''
 						}`
 					: ''}
+			</div>
+			{/* RC-SES-3.4 — announces an Alt+Arrow keyboard reorder; the click path (the chevron buttons
+			    below) has no announcement either, but a mouse DM sees the row move, where a keyboard/
+			    screen-reader DM would otherwise have no confirmation the write landed. */}
+			<div className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+				{reorderAnnouncement}
 			</div>
 			{!running ? (
 				<EmptyState
@@ -543,6 +634,7 @@ export function CombatPanel({
 
 					{selected && (
 						<div
+							ref={detailRef}
 							style={{
 								borderTop: `1px solid ${T.bd}`,
 								paddingTop: 12,

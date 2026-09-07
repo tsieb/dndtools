@@ -475,6 +475,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.combat.allConditionsApplied': 'Ya se han aplicado todos los estados.',
 	'session.combat.moveEarlier': 'Mover a {name} antes en la iniciativa',
 	'session.combat.moveLater': 'Mover a {name} después en la iniciativa',
+	'session.combat.movedEarlierAnnouncement': '{name} se movió antes en la iniciativa.',
+	'session.combat.movedLaterAnnouncement': '{name} se movió después en la iniciativa.',
 	'session.combat.reveal': 'Revelar',
 	'session.combat.hide': 'Ocultar',
 	'session.combat.hiddenNote': 'Los jugadores ven esta fila como “Criatura desconocida”.',

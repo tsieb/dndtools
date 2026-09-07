@@ -810,3 +810,66 @@ test.describe('one-handed HP sheet and undo', () => {
 		await expect(page.getByRole('button', { name: /^Undo / })).toHaveCount(0);
 	});
 });
+
+// RC-SES-3.4 — the tracker keyboard model: `n`/`p` advance/retreat the turn, arrow keys move the
+// row cursor, Enter opens the selected row's detail panel, and Alt+Arrow reorders with an
+// announcement (the earlier/later buttons have none of their own).
+test.describe('tracker keyboard model', () => {
+	function turnCursor(page: Page): Promise<string> {
+		return page.evaluate(() => {
+			const combat = (window.__rt!.state.session as { combat: { round: number; turn: number } })
+				.combat;
+			return `${combat.round}:${combat.turn}`;
+		});
+	}
+
+	function order(page: Page): Promise<string> {
+		return page.evaluate(
+			() =>
+				(window.__rt!.state.session as { combat: { order: string[] } }).combat.order?.join(',') ??
+				'',
+		);
+	}
+
+	test('n advances the turn, p retreats it', async ({ page }) => {
+		const before = await turnCursor(page);
+		await page.keyboard.press('n');
+		await expect.poll(() => turnCursor(page)).not.toBe(before);
+		await page.keyboard.press('p');
+		await expect.poll(() => turnCursor(page)).toBe(before);
+	});
+
+	test('arrow keys move the row cursor down and up the initiative order', async ({ page }) => {
+		await expect(page.getByText(/^Selected · /)).toHaveCount(0);
+		await page.keyboard.press('ArrowDown');
+		await expect(page.getByText('Selected · Bog Lurker')).toBeVisible();
+		await page.keyboard.press('ArrowDown');
+		await expect(page.getByText('Selected · Reed Stalker')).toBeVisible();
+		await page.keyboard.press('ArrowUp');
+		await expect(page.getByText('Selected · Bog Lurker')).toBeVisible();
+	});
+
+	test('Enter opens the selected row detail by moving focus into it', async ({ page }) => {
+		await page.keyboard.press('ArrowDown');
+		await expect(page.getByText('Selected · Bog Lurker')).toBeVisible();
+		await page.keyboard.press('Enter');
+		const focused = await page.evaluate(() => document.activeElement?.tagName);
+		expect(focused).toBe('BUTTON');
+		// The row's own name toggle is a BUTTON too — Enter must have moved focus somewhere inside the
+		// detail panel below the list, not left it on the row.
+		await expect(page.locator(':focus')).not.toHaveText('Bog Lurker');
+	});
+
+	test('Alt+ArrowDown reorders the selected combatant later, and announces it', async ({
+		page,
+	}) => {
+		const before = await order(page);
+		await page.keyboard.press('ArrowDown'); // selects the first combatant in the order
+		await page.keyboard.press('Alt+ArrowDown');
+
+		await expect.poll(() => order(page)).not.toBe(before);
+		await expect(
+			page.getByRole('status').filter({ hasText: /moved later in initiative/ }),
+		).toBeVisible();
+	});
+});
