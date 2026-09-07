@@ -3086,6 +3086,23 @@ export const authorRecapInputSchema = z
 	.object({
 		archiveId: idSchema.optional(),
 		markdown: z.string().max(100_000),
+		// RC-SES-4.1 — the structured end-of-session capture the markdown was composed from. Every field
+		// is OPTIONAL: the markdown-only recap editor keeps dispatching exactly what it always did, and
+		// an omitted field is left off the stored recap rather than stored empty.
+		happened: z.string().max(20_000).optional(),
+		changes: z
+			.array(
+				z
+					.object({
+						entityType: z.string().min(1).max(64),
+						entityId: idSchema,
+						label: z.string().min(1).max(200),
+					})
+					.strict(),
+			)
+			.max(100)
+			.optional(),
+		followUps: z.array(z.string().min(1).max(1_000)).max(100).optional(),
 	})
 	.strict();
 

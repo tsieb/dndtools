@@ -480,6 +480,28 @@ export const en = {
 	'session.party.title': 'Party',
 	'session.party.empty': 'No player characters yet.',
 	'session.party.noHitPoints': 'No hit points recorded',
+	'session.capture.title': 'End-of-session capture',
+	'session.capture.noArchives':
+		'No archived sessions yet. Ending a live session into Recap creates one to capture.',
+	'session.capture.archivedSession': 'Archived session',
+	'session.capture.noteTitle': 'Session log title',
+	'session.capture.defaultTitle': 'Session log — {name}',
+	'session.capture.happened': 'What happened',
+	'session.capture.happenedPlaceholder':
+		'The party bargained with the harbour master and burned the manifest…',
+	'session.capture.changed': 'What changed',
+	'session.capture.nothingToMark': 'Nothing in the campaign to mark yet.',
+	'session.capture.filter': 'Filter',
+	'session.capture.followUps': 'Follow-ups',
+	'session.capture.followUpsPlaceholder': 'Send the guild’s reply\nName the harbour master',
+	'session.capture.followUpsHelp': 'One follow-up per line.',
+	'session.capture.willDate': 'Saves a DM-only session log note, dated on the campaign timeline.',
+	'session.capture.noCampaignDate':
+		'Saves a DM-only session log note. Set the campaign date to place it on the timeline.',
+	'session.capture.save': 'Save session log',
+	'session.capture.saved': 'Session log saved',
+	'session.capture.noteFailed':
+		'The recap was saved, but the session log note couldn’t be created.',
 	'session.prep.title': 'Prep & recap',
 	'session.prep.whatHappened': 'What happened',
 	'session.prep.carryInto': 'Carry into the session',

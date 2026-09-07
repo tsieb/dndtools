@@ -5,6 +5,7 @@ import {
 	allowedTransitionsFrom,
 	getCalendarContinuityForActor,
 	getCombatTrackerForActor,
+	getContentItemsForActor,
 	getDiceHistoryForActor,
 	getHandoutsForActor,
 	getHandoutStatusForDm,
@@ -16,6 +17,8 @@ import {
 	listMapsForActor,
 	listScenesForActor,
 	projectSessionPresence,
+	SESSION_LOG_SUBTYPE,
+	VAULT_OBJECT_SUBTYPE_KEY,
 	type CalendarDefinition,
 	type SessionWorkflowState,
 } from '@dndtools/core';
@@ -40,6 +43,7 @@ import {
 	type SessionStartChoice,
 } from './Lifecycle';
 import { AudioPanel } from './NowPlaying';
+import { CapturePanel, type CaptureCandidate, type CaptureSubmission } from './Capture';
 import { RecapPanel } from './PrepRecap';
 import { PartyPanel, RosterPanel } from './Roster';
 import { SchedulePanel } from './Schedule';
@@ -100,6 +104,8 @@ export function Session() {
 		digest,
 		archives,
 		recapArchiveId,
+		captureCandidates,
+		campaignDateValue,
 	} = useMemo(() => {
 		const session = runtime.state.session;
 		const perms = runtime.state.permissions;
@@ -156,6 +162,24 @@ export function Session() {
 		const archives = Object.values(session.archives).sort((a, b) =>
 			b.archivedAt.localeCompare(a.archivedAt),
 		);
+		// RC-SES-4.1 — what the end-of-session capture can mark as CHANGED: the roster and the visible
+		// vault items, as REFERENCES (type + id + the label captured), never copies. Both lists are
+		// actor-filtered reads, so previewing as a player offers a player's view of the campaign.
+		const captureCandidates: CaptureCandidate[] = [
+			...characters.map((c) => ({
+				entityType: 'character',
+				entityId: c.id,
+				label: c.name,
+			})),
+			...getContentItemsForActor(runtime.state.content, perms, actorId).map((item) => ({
+				entityType: 'content-item',
+				entityId: item.id,
+				label: item.title,
+			})),
+		];
+		// The RAW campaign date (the formatted one is for display): dating the session-log note with it
+		// is what puts the note on the Campaign timeline, which reads dated items in the same calendar.
+		const campaignDateValue = session.calendarContinuity.currentDate ?? null;
 		return {
 			tracker,
 			dice,
@@ -178,6 +202,8 @@ export function Session() {
 			digest,
 			archives,
 			recapArchiveId: session.recapArchiveId,
+			captureCandidates,
+			campaignDateValue,
 		};
 	}, [runtime.state, actorId]);
 
@@ -234,6 +260,59 @@ export function Session() {
 		}
 		Toaster.error(result.rejection.message);
 		return false;
+	}
+
+	/**
+	 * RC-SES-4.1 — one capture writes TWO durable records through EXISTING commands: the structured
+	 * recap onto the session archive, then the `session-log` note in the vault. The note is created
+	 * ONLY after the recap is accepted, so a rejected capture never leaves an orphan note behind, and
+	 * a failure at either step says which half did not land rather than reporting a false success.
+	 */
+	async function captureSession(submission: CaptureSubmission): Promise<boolean> {
+		const { archiveId, title, markdown, capture } = submission;
+		const recap = await runtime.dispatch({
+			type: 'session.author-recap',
+			actorId,
+			payload: {
+				archiveId,
+				markdown,
+				happened: capture.happened,
+				changes: capture.changes,
+				followUps: capture.followUps,
+			},
+		});
+		if (recap.status !== 'accepted') {
+			Toaster.error(recap.rejection.message);
+			return false;
+		}
+		const note = await runtime.dispatch({
+			type: 'content.create-item',
+			actorId,
+			payload: {
+				kind: 'note',
+				title,
+				body: markdown,
+				visibility: 'dm-only',
+				fields: {
+					[VAULT_OBJECT_SUBTYPE_KEY]: SESSION_LOG_SUBTYPE,
+					title,
+					sessionArchiveId: archiveId,
+					happened: capture.happened,
+					changes: capture.changes,
+					followUps: capture.followUps,
+				},
+				// Dating the note at the campaign current date is what places it on the Campaign
+				// timeline. With no date set there is nothing truthful to date it with, so it is left
+				// undated (the panel says so) rather than stamped with a made-up day.
+				...(campaignDateValue ? { dateFields: { occurred: campaignDateValue } } : {}),
+			},
+		});
+		if (note.status !== 'accepted') {
+			Toaster.error(t('session.capture.noteFailed'));
+			return false;
+		}
+		Toaster.success(t('session.capture.saved'));
+		return true;
 	}
 
 	// Every other lifecycle control on this screen confirms what it did — `goLive` toasts, the top-bar
@@ -503,6 +582,16 @@ export function Session() {
 									'Recap saved',
 								)
 							}
+						/>
+					)}
+					{isDm && (
+						<CapturePanel
+							archives={archives}
+							defaultArchiveId={recapArchiveId}
+							candidates={captureCandidates}
+							hasCampaignDate={!!campaignDateValue}
+							previewing={previewing}
+							onCapture={captureSession}
 						/>
 					)}
 					<RosterPanel

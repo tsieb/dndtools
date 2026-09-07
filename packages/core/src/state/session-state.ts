@@ -391,6 +391,27 @@ export interface SessionArchiveRecap {
 	authoredBy: ActorId;
 	authoredAt: string;
 	revision: number;
+	/**
+	 * RC-SES-4.1 — the STRUCTURED end-of-session capture behind the markdown: what happened in the
+	 * DM's own words, what changed as entity references, and the follow-ups to carry forward. All
+	 * three are additive and optional: a recap authored as plain markdown (every recap written before
+	 * this field existed, and the markdown-only editor that still exists) round-trips unchanged, and
+	 * an absent field means "not captured", never "empty".
+	 */
+	happened?: string;
+	changes?: SessionRecapEntityRef[];
+	followUps?: string[];
+}
+
+/**
+ * RC-SES-4.1 — one entity the session changed, as captured on the recap: a REFERENCE (type + id) plus
+ * the label it was captured under, so the capture still reads correctly if the entity is later renamed
+ * or removed. Never a copy of the entity.
+ */
+export interface SessionRecapEntityRef {
+	entityType: string;
+	entityId: string;
+	label: string;
 }
 
 export interface SessionArchiveSnapshot {

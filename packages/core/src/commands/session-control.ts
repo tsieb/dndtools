@@ -442,6 +442,11 @@ export function handleSetSessionWorkflow(
  * optional: absent targets the session's current `recapArchiveId` (the most recent archive). Fail
  * closed when no archive resolves — a recap can never be authored against nothing. The authored
  * recap is surfaced by the prep/recap digest (`queries/prep-recap-digest.ts`).
+ *
+ * RC-SES-4.1 — the end-of-session CAPTURE may additionally carry the STRUCTURED fields the markdown was
+ * composed from (`happened`, `changes` as entity references, `followUps`). They are optional and stored
+ * additively, so the markdown-only recap editor is unaffected and an archive whose recap was written
+ * before the capture existed keeps its exact shape.
  */
 export function handleAuthorRecap(
 	state: CoreStateSlice,
@@ -481,6 +486,11 @@ export function handleAuthorRecap(
 			authoredBy: actor.id,
 			authoredAt: now,
 			revision,
+			// RC-SES-4.1 — the structured capture, spread in ONLY when it was supplied, so a markdown-only
+			// recap stores exactly the shape it always did (an omitted field is "not captured").
+			...(parsed.data.happened !== undefined ? { happened: parsed.data.happened } : {}),
+			...(parsed.data.changes !== undefined ? { changes: parsed.data.changes } : {}),
+			...(parsed.data.followUps !== undefined ? { followUps: parsed.data.followUps } : {}),
 		},
 	};
 	const nextSession: SessionState = {
@@ -493,7 +503,16 @@ export function handleAuthorRecap(
 		entityId: SESSION_ENTITY_ID,
 		opType: 'session.author-recap',
 		path: `archives/${archiveId}/recap`,
-		value: { archiveId, markdown: parsed.data.markdown },
+		value: {
+			archiveId,
+			markdown: parsed.data.markdown,
+			// The op carries the capture COUNTS, not the captured prose: the recap body is already in
+			// `markdown`, and the op-log value is a summary line, never a second copy of the content.
+			...(parsed.data.changes !== undefined ? { changeCount: parsed.data.changes.length } : {}),
+			...(parsed.data.followUps !== undefined
+				? { followUpCount: parsed.data.followUps.length }
+				: {}),
+		},
 		beforeRevision: archive.recap?.revision ?? 0,
 		afterRevision: revision,
 		dependencies: [`session-archive:${archiveId}`],

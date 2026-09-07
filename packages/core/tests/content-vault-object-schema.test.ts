@@ -16,7 +16,7 @@ import {
 
 /**
  * CONTENT-013 — the core VAULT OBJECT SUBTYPE SCHEMA REGISTRY. The catalog covers the ten required initial
- * subtypes (plus the later-added `faction`, `quest`, and `spell`), REFERENCES the already-built character/map/calendar models (it never re-models them), enforces
+ * subtypes (plus the later-added `faction`, `quest`, `spell`, and `session-log`), REFERENCES the already-built character/map/calendar models (it never re-models them), enforces
  * subtype schema + visibility defaults + revealing-field omission, and keeps SCENE in SceneState (never a
  * note-backed object subtype — Contract 4 / AC4).
  */
@@ -35,17 +35,18 @@ const EXPECTED_SUBTYPES: VaultObjectSubtype[] = [
 	'faction',
 	'quest',
 	'spell',
+	'session-log',
 ];
 
 describe('CONTENT-013 — Vault Object subtype registry (AC1: subtype schema set)', () => {
-	it('covers exactly the ten initial v2 subtypes plus faction, quest, and spell', () => {
+	it('covers exactly the ten initial v2 subtypes plus faction, quest, spell, and session-log', () => {
 		expect([...VAULT_OBJECT_SUBTYPES].sort()).toEqual([...EXPECTED_SUBTYPES].sort());
-		expect(VAULT_OBJECT_SUBTYPES).toHaveLength(13);
+		expect(VAULT_OBJECT_SUBTYPES).toHaveLength(14);
 	});
 
 	it('lists a catalog summary row per subtype with a fail-closed dm-only visibility default', () => {
 		const rows = listVaultObjectSchemas();
-		expect(rows).toHaveLength(13);
+		expect(rows).toHaveLength(14);
 		for (const row of rows) {
 			// Every new object FAILS CLOSED to dm-only (AC1 visibility defaults).
 			expect(row.defaultVisibility).toBe('dm-only');

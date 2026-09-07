@@ -67,7 +67,10 @@ content item has `kind: 'note' | 'object'` (`CONTENT_ITEM_KINDS`). An object ite
 a vault-object subtype declared in `packages/core/src/state/vault-object-schema.ts`
 (`VAULT_OBJECT_SUBTYPES`): `note`, `character`, `map`, `handout`, `calendar-event`,
 `timeline-event`, `dice-table`, `encounter`, `audio-preset`, `widget-package-ref`,
-`faction`. Subtype field schemas live in `VAULT_OBJECT_SCHEMAS` in the same file.
+`faction`, `quest`, `spell`, `session-log`. Subtype field schemas live in
+`VAULT_OBJECT_SCHEMAS` in the same file. A subtype may also ride on a `note` item (in
+`fields[VAULT_OBJECT_SUBTYPE_KEY]`) when the item is prose the DM reads in Knowledge — the
+RC-SES-4.1 `session-log` capture is written that way.
 
 ## 4. Persistence (Dexie / IndexedDB)
 

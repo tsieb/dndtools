@@ -492,6 +492,30 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.party.empty': 'Todavía no hay personajes jugadores.',
 	'session.party.noHitPoints': 'Sin puntos de golpe registrados',
 	'session.prep.title': 'Preparación y resumen',
+	'session.capture.title': 'Captura de fin de sesión',
+	'session.capture.noArchives':
+		'Aún no hay sesiones archivadas. Terminar una sesión en vivo con Resumen crea una para capturar.',
+	'session.capture.archivedSession': 'Sesión archivada',
+	'session.capture.noteTitle': 'Título del registro de sesión',
+	'session.capture.defaultTitle': 'Registro de sesión — {name}',
+	'session.capture.happened': 'Qué pasó',
+	'session.capture.happenedPlaceholder':
+		'El grupo negoció con el capitán del puerto y quemó el manifiesto…',
+	'session.capture.changed': 'Qué cambió',
+	'session.capture.nothingToMark': 'Todavía no hay nada en la campaña que marcar.',
+	'session.capture.filter': 'Filtrar',
+	'session.capture.followUps': 'Pendientes',
+	'session.capture.followUpsPlaceholder':
+		'Enviar la respuesta del gremio\nDar nombre al capitán del puerto',
+	'session.capture.followUpsHelp': 'Un pendiente por línea.',
+	'session.capture.willDate':
+		'Guarda una nota de registro de sesión solo para el DM, fechada en la cronología de la campaña.',
+	'session.capture.noCampaignDate':
+		'Guarda una nota de registro de sesión solo para el DM. Fija la fecha de campaña para situarla en la cronología.',
+	'session.capture.save': 'Guardar el registro',
+	'session.capture.saved': 'Registro de sesión guardado',
+	'session.capture.noteFailed':
+		'El resumen se guardó, pero no se pudo crear la nota del registro de sesión.',
 	'session.prep.whatHappened': 'Qué pasó',
 	'session.prep.carryInto': 'Llevar a la sesión',
 	'session.prep.nothingToCarry': 'Todavía no hay nada que arrastrar.',

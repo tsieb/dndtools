@@ -2,6 +2,7 @@ import { CHARACTER_STATE_SCHEMA_VERSION } from './character-state';
 import { MAP_STATE_SCHEMA_VERSION } from './map-state';
 import { CALENDAR_SCHEMA_VERSION } from './calendar';
 import { SCENE_STATE_SCHEMA_VERSION } from './scene-state';
+import { SESSION_STATE_SCHEMA_VERSION } from './session-state';
 import type { VisibilityLevel } from '../permissions/visibility-filter';
 
 /**
@@ -55,7 +56,9 @@ export type VaultObjectSubtype =
 	| 'widget-package-ref'
 	| 'faction'
 	| 'quest'
-	| 'spell';
+	| 'spell'
+	// RC-SES-4.1 — the end-of-session capture note: the DM's structured record of one played session.
+	| 'session-log';
 
 export const VAULT_OBJECT_SUBTYPES: readonly VaultObjectSubtype[] = [
 	'note',
@@ -71,6 +74,7 @@ export const VAULT_OBJECT_SUBTYPES: readonly VaultObjectSubtype[] = [
 	'faction',
 	'quest',
 	'spell',
+	'session-log',
 ] as const;
 
 /**
@@ -257,7 +261,12 @@ export const VAULT_OBJECT_SCHEMAS: Readonly<Record<VaultObjectSubtype, VaultObje
 				field('title', 'string', true, 'The timeline event title.'),
 				field('calendarId', 'string', true, 'The campaign calendar this event is dated in.'),
 				field('occursOn', 'string', true, 'The in-world date (YYYY-MM-DD in the calendar).'),
-				dmOnlyField('relatedEntityId', 'string', false, 'A DM-only relationship pointer; omitted from players.'),
+				dmOnlyField(
+					'relatedEntityId',
+					'string',
+					false,
+					'A DM-only relationship pointer; omitted from players.',
+				),
 			],
 			defaultVisibility: 'dm-only',
 			modelReference: {
@@ -273,8 +282,18 @@ export const VAULT_OBJECT_SCHEMAS: Readonly<Record<VaultObjectSubtype, VaultObje
 			displayName: 'Handout',
 			fields: [
 				field('title', 'string', true, 'The handout title.'),
-				field('format', 'string', true, 'letter | image | map-fragment | cipher | rumor | document.'),
-				dmOnlyField('cipher', 'string', false, 'A DM-only cipher/solution; omitted from player projections.'),
+				field(
+					'format',
+					'string',
+					true,
+					'letter | image | map-fragment | cipher | rumor | document.',
+				),
+				dmOnlyField(
+					'cipher',
+					'string',
+					false,
+					'A DM-only cipher/solution; omitted from player projections.',
+				),
 			],
 			defaultVisibility: 'dm-only',
 			modelReference: null,
@@ -298,7 +317,12 @@ export const VAULT_OBJECT_SCHEMAS: Readonly<Record<VaultObjectSubtype, VaultObje
 			fields: [
 				field('title', 'string', true, 'The encounter title.'),
 				field('difficulty', 'string', false, 'trivial | easy | medium | hard | deadly.'),
-				dmOnlyField('participantIds', 'string-array', false, 'DM-only participant pointers; omitted from players.'),
+				dmOnlyField(
+					'participantIds',
+					'string-array',
+					false,
+					'DM-only participant pointers; omitted from players.',
+				),
 			],
 			defaultVisibility: 'dm-only',
 			modelReference: null,
@@ -344,7 +368,12 @@ export const VAULT_OBJECT_SCHEMAS: Readonly<Record<VaultObjectSubtype, VaultObje
 				field('stance', 'string', false, 'hostile | neutral | friendly | allied.'),
 				field('leader', 'string', false, 'The faction leader or figurehead.'),
 				field('goals', 'string-array', false, 'The faction goals, in priority order.'),
-				dmOnlyField('secret', 'string', false, 'A DM-only secret; omitted from player projections.'),
+				dmOnlyField(
+					'secret',
+					'string',
+					false,
+					'A DM-only secret; omitted from player projections.',
+				),
 			],
 			defaultVisibility: 'dm-only',
 			modelReference: null,
@@ -386,6 +415,37 @@ export const VAULT_OBJECT_SCHEMAS: Readonly<Record<VaultObjectSubtype, VaultObje
 			],
 			defaultVisibility: 'dm-only',
 			modelReference: null,
+			modelImplemented: true,
+		},
+		'session-log': {
+			subtype: 'session-log',
+			displayName: 'Session log',
+			// RC-SES-4.1 — the end-of-session capture. The prose the DM will re-read lives in the markdown
+			// body; these fields are the structured capture the recap on the archive carries too, so the
+			// note and the archive tell the same story.
+			fields: [
+				field('title', 'string', true, 'The session log title.'),
+				field(
+					'sessionArchiveId',
+					'string',
+					false,
+					'The session archive this log was captured from.',
+				),
+				field('happened', 'string', false, "What happened, in the DM's own words."),
+				field(
+					'changes',
+					'object-array',
+					false,
+					'What changed, each `{entityType, entityId, label}`, in the order captured.',
+				),
+				field('followUps', 'string-array', false, 'The follow-ups to carry into the next session.'),
+			],
+			defaultVisibility: 'dm-only',
+			modelReference: {
+				entityType: 'session',
+				schemaVersion: SESSION_STATE_SCHEMA_VERSION,
+				module: 'state/session-state.ts',
+			},
 			modelImplemented: true,
 		},
 	});
@@ -439,9 +499,7 @@ export function vaultObjectSchema(
 
 /** The DM-only field keys of a subtype (the fields omitted from a non-DM projection). Pure. */
 export function dmOnlyFieldKeys(subtype: VaultObjectSubtype): string[] {
-	return VAULT_OBJECT_SCHEMAS[subtype].fields
-		.filter((f) => f.dmOnly === true)
-		.map((f) => f.key);
+	return VAULT_OBJECT_SCHEMAS[subtype].fields.filter((f) => f.dmOnly === true).map((f) => f.key);
 }
 
 /** A read-only catalog row for the GUI/registry inspector. */

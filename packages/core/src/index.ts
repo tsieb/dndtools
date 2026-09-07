@@ -57,6 +57,7 @@ export type {
 	SessionActiveMapProjection,
 	SessionActiveMapSelection,
 	SessionArchiveRecap,
+	SessionRecapEntityRef,
 	SessionArchiveSnapshot,
 	SessionDiceRoll,
 	SessionHandout,
@@ -5614,3 +5615,15 @@ export {
 	readStocking,
 	withStocking,
 } from './generation/room-graph';
+
+// --- RC-SES-4.1 — the end-of-session capture -------------------------------------------------------
+// The capture is written by the EXISTING commands (`session.author-recap` with its structured fields,
+// `content.create-item` of subtype `session-log`); this module owns only the pure composition of the
+// markdown body the archive recap and the session-log note share.
+export type { SessionLogCapture, SessionLogLabels } from './state/session-log';
+export {
+	SESSION_LOG_SUBTYPE,
+	composeSessionLogMarkdown,
+	isEmptySessionLogCapture,
+	normalizeSessionLogCapture,
+} from './state/session-log';
