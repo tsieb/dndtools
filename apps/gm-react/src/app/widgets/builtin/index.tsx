@@ -103,7 +103,8 @@ export function WidgetBody({
 		case 'audio':
 			return <AudioBody />;
 		case 'initiative-tracker':
-			return <InitiativeBody widget={widget} />;
+			// RC-CAN-5.3 — the phone variant writes HP, so it needs to know view mode from edit mode.
+			return <InitiativeBody widget={widget} onCommand={onCommand} />;
 		case 'character':
 			return <CharacterBody widget={widget} />;
 		case 'map':

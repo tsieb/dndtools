@@ -4358,6 +4358,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'widgetBody.initiative.hp': 'PG',
 	'widgetBody.initiative.noneHpShown': 'No hay combate en curso · PG visibles',
 	'widgetBody.initiative.noneHpHidden': 'No hay combate en curso · PG ocultos',
+	'widgetBody.initiative.compactHeading': 'Ronda {round} · orden de iniciativa',
+	'widgetBody.initiative.compactMore': 'Más acciones: {name}',
+	'widgetBody.initiative.compactActions': 'Acciones rápidas: {name}',
+	'widgetBody.initiative.compactCloseActions': 'Cerrar acciones rápidas: {name}',
+	'widgetBody.initiative.compactHide': 'Ocultar a {name} de los jugadores',
+	'widgetBody.initiative.compactReveal': 'Mostrar a {name} a los jugadores',
+	'widgetBody.initiative.compactSwipeHint':
+		'Desliza una fila a la izquierda para ver acciones rápidas.',
 	'widgetBody.character.noBinding':
 		'No hay ningún personaje vinculado — elige uno para mostrar su bloque de estadísticas.',
 	'widgetBody.character.ac': 'CA',
