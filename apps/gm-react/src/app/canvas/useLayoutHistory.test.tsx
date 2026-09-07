@@ -56,8 +56,12 @@ function campaign(): { state: CoreStateSlice; sceneId: string; widgetId: string 
 	return { state, sceneId, widgetId };
 }
 
-/** A stand-in for the screen: a mutable Core state, a guarded dispatch, and the hook on top. */
-function harness() {
+/**
+ * A stand-in for the screen: a mutable Core state, a guarded dispatch, and the hook on top. The
+ * real guarded dispatch resolves only after the vault persist, while the core state changes at
+ * once — `persist` lets a test hold that gap open.
+ */
+function harness(options: { persist?: () => Promise<void> } = {}) {
 	const env = makeEnvironment();
 	const start = campaign();
 	const holder = { state: start.state };
@@ -71,6 +75,7 @@ function harness() {
 				const result = dispatchCommand(holder.state, env, command);
 				if (result.status !== 'accepted') return false;
 				holder.state = result.nextState;
+				await options.persist?.();
 				return true;
 			},
 		});
@@ -171,6 +176,46 @@ describe('useLayoutHistory', () => {
 		// Identical text: the sequence number is what makes the live region speak a second time.
 		expect(t.history.announcement?.text).toBe('Undone: moved Timer');
 		expect(t.history.announcement?.seq).toBeGreaterThan(first!.seq);
+	});
+
+	it('an undo issued before the move has settled still reverses it', async () => {
+		// A DM who nudges a widget with an arrow key and presses Ctrl+Z straight away used to find an
+		// empty stack: the entry was only recorded once the dispatch had persisted AND the hook had
+		// re-rendered, so the undo silently did nothing while the toolbar button, pressed a moment
+		// later, worked. Undo now waits for the in-flight run and reads the stack it wrote.
+		let release!: () => void;
+		const persisted = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const t = harness({ persist: () => persisted });
+		const startX = t.layout().x;
+		let undone: Promise<boolean> = Promise.resolve(false);
+		await act(async () => {
+			const ran = t.history.run(
+				{
+					type: 'scene.move-widget',
+					actorId: DM_ACTOR.id,
+					payload: {
+						sceneId: t.sceneId,
+						widgetInstanceId: t.widgetId,
+						x: startX + 20,
+						y: t.layout().y,
+					},
+				},
+				'Moved Timer',
+			);
+			// The core already holds the moved widget; the persist has not resolved yet.
+			expect(t.layout().x).toBe(startX + 20);
+			undone = t.history.undo();
+			release();
+			await ran;
+			await undone;
+		});
+		expect(await undone).toBe(true);
+		expect(t.layout().x).toBe(startX);
+		expect(t.history.announcement?.text).toBe('Undone: moved Timer');
+		expect(t.history.canUndo).toBe(false);
+		expect(t.history.canRedo).toBe(true);
 	});
 
 	it('keeps at most 50 steps, dropping the oldest', async () => {

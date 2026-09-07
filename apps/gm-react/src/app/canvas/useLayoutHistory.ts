@@ -68,20 +68,30 @@ export function useLayoutHistory(options: {
 	const [past, setPast] = useState<LayoutHistoryEntry[]>([]);
 	const [future, setFuture] = useState<LayoutHistoryEntry[]>([]);
 	const [announcement, setAnnouncement] = useState<LayoutAnnouncement | null>(null);
-	// Undo/redo read the stack inside an async callback, so they must not close over a stale render's
-	// array — the map editor learned this the same way.
-	const pastRef = useRef(past);
-	const futureRef = useRef(future);
+	// The stacks live in refs as the source of truth and mirror into state for rendering. Undo/redo
+	// read them inside async callbacks, so they must not close over a stale render's array (the map
+	// editor learned that the same way) — and `run` writes them the moment the core accepts, BEFORE
+	// the re-render, so a Ctrl+Z that lands right behind an arrow-key nudge still finds the entry
+	// instead of silently doing nothing. Undo/redo also wait for a `run` still in flight.
+	const pastRef = useRef<LayoutHistoryEntry[]>([]);
+	const futureRef = useRef<LayoutHistoryEntry[]>([]);
+	const inflightRef = useRef<Promise<boolean> | null>(null);
 	const busyRef = useRef(false);
 	const seqRef = useRef(0);
-	pastRef.current = past;
-	futureRef.current = future;
+	const commitPast = useCallback((next: LayoutHistoryEntry[]) => {
+		pastRef.current = next;
+		setPast(next);
+	}, []);
+	const commitFuture = useCallback((next: LayoutHistoryEntry[]) => {
+		futureRef.current = next;
+		setFuture(next);
+	}, []);
 
 	useEffect(() => {
-		setPast([]);
-		setFuture([]);
+		commitPast([]);
+		commitFuture([]);
 		setAnnouncement(null);
-	}, [sceneId]);
+	}, [sceneId, commitPast, commitFuture]);
 
 	const announce = useCallback((text: string) => {
 		seqRef.current += 1;
@@ -93,40 +103,51 @@ export function useLayoutHistory(options: {
 			// Read the state BEFORE dispatching: every layout command overwrites its field outright, so
 			// the value to restore only exists in the state the command was dispatched against.
 			const stateBefore = runtime.state;
-			const ok = await dispatch(command);
-			if (!ok) return false;
-			if (!sceneId) return true;
-			const inverse = buildWidgetInverse(command, stateBefore);
-			// Honestly not undoable (the core refuses `scene.add-widget` / `scene.group-widgets`, whose
-			// handlers mint ids): leave the stack alone rather than pushing a wrong inverse.
-			if (!inverse) return true;
-			setPast((prev) =>
-				[...prev, { forward: command, inverse: inverse.command, label }].slice(-MAX_LAYOUT_HISTORY),
-			);
-			// Any new action invalidates the redo branch — redoing onto a diverged layout would be a
-			// different edit than the one the user reversed.
-			setFuture([]);
-			return true;
+			const task = (async (): Promise<boolean> => {
+				const ok = await dispatch(command);
+				if (!ok) return false;
+				if (!sceneId) return true;
+				const inverse = buildWidgetInverse(command, stateBefore);
+				// Honestly not undoable (the core refuses `scene.add-widget` / `scene.group-widgets`,
+				// whose handlers mint ids): leave the stack alone rather than pushing a wrong inverse.
+				if (!inverse) return true;
+				commitPast(
+					[...pastRef.current, { forward: command, inverse: inverse.command, label }].slice(
+						-MAX_LAYOUT_HISTORY,
+					),
+				);
+				// Any new action invalidates the redo branch — redoing onto a diverged layout would be
+				// a different edit than the one the user reversed.
+				commitFuture([]);
+				return true;
+			})();
+			inflightRef.current = task;
+			try {
+				return await task;
+			} finally {
+				if (inflightRef.current === task) inflightRef.current = null;
+			}
 		},
-		[dispatch, runtime, sceneId],
+		[commitFuture, commitPast, dispatch, runtime, sceneId],
 	);
 
 	const undo = useCallback(async (): Promise<boolean> => {
 		if (busyRef.current) return false;
-		const entry = pastRef.current[pastRef.current.length - 1];
-		if (!entry) return false;
 		busyRef.current = true;
 		try {
+			await inflightRef.current;
+			const entry = pastRef.current[pastRef.current.length - 1];
+			if (!entry) return false;
 			const stateBefore = runtime.state;
 			const ok = await dispatch(entry.inverse);
 			if (!ok) return false;
 			// Re-derive the forward command's inverse against the state the UNDO ran on, so a redo of it
 			// can itself be undone exactly (revisions and neighbouring widgets have moved on).
 			const redone = buildWidgetInverse(entry.inverse, stateBefore);
-			setPast((prev) => prev.slice(0, -1));
-			setFuture((prev) =>
+			commitPast(pastRef.current.slice(0, -1));
+			commitFuture(
 				[
-					...prev,
+					...futureRef.current,
 					{ forward: redone?.command ?? entry.forward, inverse: entry.inverse, label: entry.label },
 				].slice(-MAX_LAYOUT_HISTORY),
 			);
@@ -135,22 +156,23 @@ export function useLayoutHistory(options: {
 		} finally {
 			busyRef.current = false;
 		}
-	}, [announce, dispatch, runtime]);
+	}, [announce, commitFuture, commitPast, dispatch, runtime]);
 
 	const redo = useCallback(async (): Promise<boolean> => {
 		if (busyRef.current) return false;
-		const entry = futureRef.current[futureRef.current.length - 1];
-		if (!entry) return false;
 		busyRef.current = true;
 		try {
+			await inflightRef.current;
+			const entry = futureRef.current[futureRef.current.length - 1];
+			if (!entry) return false;
 			const stateBefore = runtime.state;
 			const ok = await dispatch(entry.forward);
 			if (!ok) return false;
 			const inverse = buildWidgetInverse(entry.forward, stateBefore);
-			setFuture((prev) => prev.slice(0, -1));
-			setPast((prev) =>
+			commitFuture(futureRef.current.slice(0, -1));
+			commitPast(
 				[
-					...prev,
+					...pastRef.current,
 					{
 						forward: entry.forward,
 						inverse: inverse?.command ?? entry.inverse,
@@ -163,7 +185,7 @@ export function useLayoutHistory(options: {
 		} finally {
 			busyRef.current = false;
 		}
-	}, [announce, dispatch, runtime]);
+	}, [announce, commitFuture, commitPast, dispatch, runtime]);
 
 	return {
 		run,

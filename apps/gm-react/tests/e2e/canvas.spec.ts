@@ -719,7 +719,9 @@ test.describe('canvas: session-only widget operations explain themselves', () =>
 
 		expect(await page.evaluate(() => window.__rt!.state.session.workflow)).not.toBe('active');
 
-		const roll = page.getByRole('button', { name: /^Roll / });
+		// Scoped to the widget: once live, the session quick panel (RC-SES-1.2) puts its own
+		// "Roll 1dN" quick dice on every route, and they are not the GM Screen's chip.
+		const roll = page.locator('[data-testid^="widget-"]').getByRole('button', { name: /^Roll / });
 		await expect(roll).toHaveCount(1);
 		// Soft-disabled: it keeps its place in the tab order and carries its own explanation, rather
 		// than being natively `disabled` (unreachable) or silently live (rejected on press).
@@ -1012,13 +1014,15 @@ test.describe('canvas: the GM Screen dice widget announces its result', () => {
 
 		await goLive(page);
 
-		const roll = page.getByRole('button', { name: /^Roll / });
+		// Scoped to the widget: once live, the session quick panel (RC-SES-1.2) puts its own
+		// "Roll 1dN" quick dice on every route, and they are not the GM Screen's chip.
+		const widget = page
+			.locator('[data-testid^="widget-"]')
+			.filter({ has: page.getByRole('button', { name: /^Roll / }) });
+		const roll = widget.getByRole('button', { name: /^Roll / });
 		await expect(roll).toHaveCount(1);
 		// A live region inserted TOGETHER with its text is routinely dropped, so it must pre-exist.
-		const readout = page
-			.locator('[data-testid^="widget-"]')
-			.filter({ has: roll })
-			.getByRole('status');
+		const readout = widget.getByRole('status');
 		await expect(readout).toHaveCount(1);
 		await expect(readout).toHaveText('');
 
@@ -1153,7 +1157,9 @@ test.describe('canvas: board operation chips survive the bounded fit scale', () 
 		expect(scale).toBeGreaterThan(0);
 		expect(scale, 'the phone board should be fitted, not 1:1').toBeLessThan(0.8);
 
-		const roll = page.getByRole('button', { name: /^Roll / });
+		// Scoped to the widget: once live, the session quick panel (RC-SES-1.2) puts its own
+		// "Roll 1dN" quick dice on every route, and they are not the GM Screen's chip.
+		const roll = page.locator('[data-testid^="widget-"]').getByRole('button', { name: /^Roll / });
 		await expect(roll).toHaveCount(1);
 		const box = (await roll.boundingBox())!;
 		// boundingBox() is the TRANSFORMED rect, i.e. what the finger actually gets. 2rem/scale declared

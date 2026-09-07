@@ -84,6 +84,20 @@ function campaignWithSpellcastingPc(): { state: CoreStateSlice; characterId: str
 	run({ type: 'character.finalize-draft', actorId: PLAYER_ACTOR.id, payload: { draftId } });
 
 	const characterId = Object.values(state.characters.characters).find((c) => c.kind === 'pc')!.id;
+	// A finalized draft without a kit step has no hit points; the vitals panel reads `maxHp`.
+	run({
+		type: 'character.set-combat',
+		actorId: DM_ACTOR.id,
+		payload: { characterId, hp: 8, maxHp: 8, ac: 12 },
+	});
+	// Combat-resource writes (an expended slot, a concentration) require an ACTIVE session, the same
+	// gate the live tracker runs behind.
+	run({ type: 'command-center.ensure-home', actorId: DM_ACTOR.id, payload: {} });
+	run({
+		type: 'session.set-workflow',
+		actorId: DM_ACTOR.id,
+		payload: { workflow: 'active', activeSceneId: state.commandCenter.homeSceneId! },
+	});
 	run({
 		type: 'character.set-spell-slots',
 		actorId: DM_ACTOR.id,
