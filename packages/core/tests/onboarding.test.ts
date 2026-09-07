@@ -5,10 +5,14 @@ import {
 	FEATURE_TIERS,
 	isFeatureVisible,
 	isFreshVault,
+	isMaturitySignalReached,
+	MATURITY_SIGNALS,
+	resolveMaturitySignals,
 	resolveOnboarding,
 	tierMeets,
 	visibleFeatures,
 	dispatchCommand,
+	type CoreStateSlice,
 } from '../src';
 import {
 	DM_ACTOR,
@@ -112,5 +116,80 @@ describe('PLAT-013 fresh-vault onboarding (AC1)', () => {
 		expect(view.steps.find((s) => s.id === 'command-center')?.done).toBe(true);
 		// Command Center exists but no Scene has been authored yet → in-progress, not complete.
 		expect(view.status).toBe('in-progress');
+	});
+});
+
+/** Create `count` linked notes so the vault's total `[[wikilink]]` count reaches `count`. */
+function withLinkedNotes(
+	state: CoreStateSlice,
+	env: ReturnType<typeof makeEnvironment>,
+	count: number,
+): CoreStateSlice {
+	let next = state;
+	for (let i = 0; i < count; i++) {
+		const result = dispatchCommand(next, env, {
+			type: 'content.create-item',
+			actorId: DM_ACTOR.id,
+			payload: { kind: 'note', title: `Note ${i}`, body: `See [[Target ${i}]].` },
+		});
+		expect(result.status).toBe('accepted');
+		if (result.status === 'accepted') next = result.nextState;
+	}
+	return next;
+}
+
+describe('RC-UX-3.5 maturity-signal disclosure', () => {
+	it('declares the graph signal at a threshold of 3 links', () => {
+		const graph = MATURITY_SIGNALS.find((s) => s.id === 'graph');
+		expect(graph).toMatchObject({ metric: 'links', threshold: 3, surface: '/graph' });
+	});
+
+	it('a fresh vault has not reached the graph signal', () => {
+		const state = buildInitialState(DM_ACTOR);
+		expect(isMaturitySignalReached('graph', state)).toBe(false);
+		const statuses = resolveMaturitySignals(state);
+		const graph = statuses.find((s) => s.signal.id === 'graph');
+		expect(graph).toMatchObject({ count: 0, reached: false });
+	});
+
+	it('reaches the graph signal at exactly 3 links, not before', () => {
+		const env = makeEnvironment();
+		const state = buildInitialState(DM_ACTOR);
+
+		const twoLinks = withLinkedNotes(state, env, 2);
+		expect(isMaturitySignalReached('graph', twoLinks)).toBe(false);
+
+		const threeLinks = withLinkedNotes(twoLinks, env, 1);
+		expect(isMaturitySignalReached('graph', threeLinks)).toBe(true);
+		const graph = resolveMaturitySignals(threeLinks).find((s) => s.signal.id === 'graph');
+		expect(graph).toMatchObject({ count: 3, reached: true });
+	});
+
+	it("a soft-deleted note's links no longer count toward the signal", () => {
+		const env = makeEnvironment();
+		const state = buildInitialState(DM_ACTOR);
+		const withNotes = withLinkedNotes(state, env, 3);
+		expect(isMaturitySignalReached('graph', withNotes)).toBe(true);
+
+		const [itemId] = Object.keys(withNotes.content.items);
+		const removed = dispatchCommand(withNotes, env, {
+			type: 'content.remove-item',
+			actorId: DM_ACTOR.id,
+			payload: { itemId },
+		});
+		expect(removed.status).toBe('accepted');
+		if (removed.status !== 'accepted') return;
+		expect(isMaturitySignalReached('graph', removed.nextState)).toBe(false);
+	});
+
+	it('resolveOnboarding surfaces the same signal statuses the view reads', () => {
+		const env = makeEnvironment();
+		const state = withLinkedNotes(buildInitialState(DM_ACTOR), env, 3);
+		const view = resolveOnboarding(state, DM_ACTOR.id);
+		expect(view.maturitySignals.find((s) => s.signal.id === 'graph')?.reached).toBe(true);
+	});
+
+	it('isMaturitySignalReached fails closed for an unknown signal id', () => {
+		expect(isMaturitySignalReached('not-a-signal', buildInitialState(DM_ACTOR))).toBe(false);
 	});
 });

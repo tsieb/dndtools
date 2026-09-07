@@ -1,5 +1,6 @@
 import type { CoreStateSlice } from '../commands/types';
 import type { ActorId } from './ids';
+import { parseMarkdownNote } from './markdown';
 
 /**
  * PLAT-013: fresh-vault onboarding, feature-tier visibility, maturity gates, help surfaces, and
@@ -145,6 +146,94 @@ export interface OnboardingView {
 	readonly helpSurfaces: readonly HelpSurface[];
 	/** True only when the active actor is the DM (onboarding/setup is DM-only — PLAT-013 compat). */
 	readonly canSetup: boolean;
+	/** RC-UX-3.5 — usage-driven disclosure, independent of the manually-chosen tier above. */
+	readonly maturitySignals: readonly MaturitySignalStatus[];
+}
+
+/* ---- RC-UX-3.5 — maturity-signal disclosure -----------------------------------------------------
+ * A second, usage-driven disclosure track alongside the manually-chosen `FeatureTier` above: a
+ * capability can also reveal itself once the DM has demonstrably grown into it (three linked notes
+ * imply the relationship graph is worth surfacing), with no tier switch required. Thresholds are
+ * declared DATA (`MATURITY_SIGNALS`) so the table is one place to read and one place a test can
+ * assert against, never a magic number buried in a screen.
+ */
+
+/** The vault-usage metrics a maturity signal can key off. Every metric is a DM-authored total over
+ * the DM's own vault (not actor-filtered — this drives the DM's own nav/settings disclosure, never
+ * a player-facing read). */
+export type MaturitySignalMetric = 'notes' | 'links' | 'tags' | 'sessions' | 'maps' | 'objects';
+
+/** A capability gated by vault usage rather than the manually-chosen tier. */
+export interface MaturitySignal {
+	readonly id: string;
+	readonly label: string;
+	readonly metric: MaturitySignalMetric;
+	readonly threshold: number;
+	/** The route this signal reveals (nav badge target / help deep link). */
+	readonly surface: string;
+}
+
+/** The declared maturity-signal registry. Extend this table, not the resolver, to add a signal. */
+export const MATURITY_SIGNALS: readonly MaturitySignal[] = [
+	{ id: 'graph', label: 'Relationship graph', metric: 'links', threshold: 3, surface: '/graph' },
+];
+
+/** A signal's live usage count against its declared threshold. */
+export interface MaturitySignalStatus {
+	readonly signal: MaturitySignal;
+	readonly count: number;
+	readonly reached: boolean;
+}
+
+/** Count one usage metric directly over durable state. Pure, deterministic, no query-layer
+ * dependency (onboarding stays Core-only): counts skip soft-deleted content items (CONTENT-001). */
+function countMaturityMetric(state: CoreStateSlice, metric: MaturitySignalMetric): number {
+	const liveItems = Object.values(state.content.items).filter((item) => item.deletedAt === null);
+	switch (metric) {
+		case 'notes':
+			return liveItems.filter((item) => item.kind === 'note').length;
+		case 'objects':
+			return liveItems.filter((item) => item.kind !== 'note').length;
+		case 'links':
+			return liveItems.reduce(
+				(total, item) => total + parseMarkdownNote(item.body).wikilinks.length,
+				0,
+			);
+		case 'tags': {
+			const seen = new Set<string>();
+			for (const item of liveItems) {
+				for (const tag of parseMarkdownNote(item.body).tags) seen.add(tag);
+			}
+			return seen.size;
+		}
+		case 'sessions':
+			return Object.keys(state.session.archives).length;
+		case 'maps':
+			return Object.keys(state.maps.maps).length;
+	}
+}
+
+/** Resolve every declared maturity signal's live count against `state` (PLAT-013/RC-UX-3.5). */
+export function resolveMaturitySignals(
+	state: CoreStateSlice,
+	signals: readonly MaturitySignal[] = MATURITY_SIGNALS,
+): MaturitySignalStatus[] {
+	return signals.map((signal) => {
+		const count = countMaturityMetric(state, signal.metric);
+		return { signal, count, reached: count >= signal.threshold };
+	});
+}
+
+/** Whether the surface a specific maturity signal reveals has been earned (nav/route gate). Fails
+ * closed: an unknown signal id is never reported as reached. */
+export function isMaturitySignalReached(
+	signalId: string,
+	state: CoreStateSlice,
+	signals: readonly MaturitySignal[] = MATURITY_SIGNALS,
+): boolean {
+	const signal = signals.find((entry) => entry.id === signalId);
+	if (!signal) return false;
+	return countMaturityMetric(state, signal.metric) >= signal.threshold;
 }
 
 /**
@@ -187,5 +276,6 @@ export function resolveOnboarding(
 		visibleFeatures: visibleFeatures(tier),
 		helpSurfaces: HELP_SURFACES,
 		canSetup,
+		maturitySignals: resolveMaturitySignals(state),
 	};
 }
