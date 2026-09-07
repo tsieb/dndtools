@@ -3865,6 +3865,7 @@ export {
 	checkAdvancementEligibility,
 	clearAdvancementDraft,
 	commitAdvancement,
+	defaultAdvancementMode,
 	mergeAdvancementChoices,
 	validateAdvancement,
 	writeAdvancementDraft,
@@ -3873,8 +3874,10 @@ export {
 
 export {
 	addJournalEntryInputSchema,
+	awardXpInputSchema,
 	cancelAdvancementInputSchema,
 	commitAdvancementInputSchema,
+	levelPartyInputSchema,
 	commitContentImportInputSchema,
 	createCharacterDraftInputSchema,
 	createContentItemInputSchema,

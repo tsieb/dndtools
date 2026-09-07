@@ -1950,6 +1950,23 @@ export const cancelAdvancementInputSchema = z
 	})
 	.strict();
 
+// RC-CHR-1.4 — bulk-award a flat XP amount to several party characters at once (DM-only), e.g. from
+// the session encounter log's defeated-monster total. A missing character id is skipped, not rejected.
+export const awardXpInputSchema = z
+	.object({
+		characterIds: z.array(idSchema).min(1),
+		amount: z.number().int().positive(),
+	})
+	.strict();
+
+// RC-CHR-1.4 — bulk-open a MILESTONE advancement draft for every eligible listed character at once
+// (DM-only, "Level the party"). A character already mid-advancement or at max level is skipped.
+export const levelPartyInputSchema = z
+	.object({
+		characterIds: z.array(idSchema).min(1),
+	})
+	.strict();
+
 // --- CHAR-011 — party records (marching order + party inventory) --------------------------------
 
 const journalEntryKindSchema = z.enum([

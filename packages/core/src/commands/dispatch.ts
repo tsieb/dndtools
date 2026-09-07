@@ -185,8 +185,10 @@ import {
 	handleUpdateCharacterAttacks,
 } from './character-sheet';
 import {
+	handleAwardXp,
 	handleCancelAdvancement,
 	handleCommitAdvancement,
+	handleLevelParty,
 	handleOpenAdvancement,
 	handleSetAdvancementChoices,
 	handleSetCharacterXp,
@@ -661,6 +663,10 @@ export function dispatchCommand(
 			return handleCommitAdvancement(state, env, command.actorId, command.payload);
 		case 'character.cancel-advancement':
 			return handleCancelAdvancement(state, env, command.actorId, command.payload);
+		case 'character.award-xp':
+			return handleAwardXp(state, env, command.actorId, command.payload);
+		case 'character.level-party':
+			return handleLevelParty(state, env, command.actorId, command.payload);
 		case 'character.set-marching-order':
 			return handleSetMarchingOrder(state, env, command.actorId, command.payload);
 		case 'character.upsert-party-inventory-item':

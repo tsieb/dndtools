@@ -558,6 +558,9 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	// RC-CHR-1.4: bulk party actions ("Award XP", "Level the party") — DM-only.
+	| { type: 'character.award-xp'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'character.level-party'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// CHAR-011: party-record authoring (marching order + party inventory) — DM-only.
 	| {
 			type: 'character.set-marching-order';

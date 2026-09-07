@@ -1,7 +1,9 @@
 import { hasDmAuthority } from '../state/permission-state';
 import {
+	awardXpInputSchema,
 	cancelAdvancementInputSchema,
 	commitAdvancementInputSchema,
+	levelPartyInputSchema,
 	openAdvancementInputSchema,
 	setAdvancementChoicesInputSchema,
 	setCharacterXpInputSchema,
@@ -11,6 +13,7 @@ import { CHARACTER_ENTITY_TYPE, upsertCharacter } from '../state/character-state
 import {
 	advancementDraftOf,
 	buildAdvancementDraft,
+	characterXp,
 	checkAdvancementEligibility,
 	clearAdvancementDraft,
 	commitAdvancement,
@@ -353,4 +356,144 @@ export function handleCancelAdvancement(
 		'character.cancel-advancement',
 		{},
 	);
+}
+
+// --- RC-CHR-1.4 — bulk party actions (DM-only) ---------------------------------------------------
+//
+// "Award XP" (from the session encounter log) and "Level the party" (milestone) both act on several
+// characters in one dispatch. Neither is owner-authored (a player never awards XP to themself or the
+// table), so both are DM-authority only, unlike the per-character commands above. Both are FAIL-OPEN
+// per character — a missing/ineligible id is skipped rather than failing the whole batch — and reject
+// only when the batch produced NO change at all, so a partial party (e.g. one PC already mid-level-up)
+// still gets its due.
+
+/** DM-authority guard shared by the two bulk party commands. Fail closed for anyone but the DM. */
+function requireDm(
+	state: CoreStateSlice,
+	actorId: string,
+): { actor: Actor } | { rejection: CommandResult } {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return { rejection: reject(actor, state) };
+	if (!hasDmAuthority(actor.role)) {
+		return {
+			rejection: reject(
+				{ code: 'actor-not-authorized', message: 'Only the DM may act on the whole party.' },
+				state,
+			),
+		};
+	}
+	return { actor };
+}
+
+/**
+ * Award a flat XP amount to several party characters at once (RC-CHR-1.4 "Award XP", e.g. from the
+ * session encounter log's defeated-monster total). DM-only. A character id that does not exist is
+ * skipped; the command is rejected only when NOT ONE of the listed characters received the award.
+ */
+export function handleAwardXp(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const parsed = parseInput(awardXpInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const guard = requireDm(state, actorId);
+	if ('rejection' in guard) return guard.rejection;
+
+	const now = env.clock();
+	let characters = ensureCharacterStateSlice(state.characters);
+	const awarded: string[] = [];
+	for (const characterId of parsed.data.characterIds) {
+		const existing = characters.characters[characterId];
+		if (!existing) continue;
+		const updated: Character = {
+			...existing,
+			data: { ...existing.data, xp: characterXp(existing) + parsed.data.amount },
+			updatedAt: now,
+			revision: existing.revision + 1,
+		};
+		characters = upsertCharacter(characters, updated);
+		awarded.push(characterId);
+	}
+	if (awarded.length === 0) {
+		return reject(
+			{ code: 'invalid-state', message: 'None of the listed characters exist to award XP to.' },
+			state,
+		);
+	}
+	const draft = appendOperationDraft(env, state.sync, guard.actor.id, {
+		entityType: CHARACTER_ENTITY_TYPE,
+		entityId: awarded[0]!,
+		opType: 'character.award-xp',
+		path: 'characters/party/xp',
+		value: { amount: parsed.data.amount, characterIds: awarded },
+	});
+	return {
+		status: 'accepted',
+		nextState: { ...charactersWith(state, characters), sync: draft.log },
+		events: awarded.map((characterId) => ({
+			kind: 'character.advancement-changed' as const,
+			characterId,
+			revision: characters.characters[characterId]!.revision,
+			actorId: guard.actor.id,
+		})),
+		operationIds: [draft.op.id],
+	};
+}
+
+/**
+ * Open a MILESTONE advancement draft for every eligible party character at once (RC-CHR-1.4 "Level
+ * the party"). DM-only. A character already mid-advancement or at max level is skipped, not
+ * rejected; the command fails only when NONE of the listed characters were eligible to open one.
+ */
+export function handleLevelParty(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const parsed = parseInput(levelPartyInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const guard = requireDm(state, actorId);
+	if ('rejection' in guard) return guard.rejection;
+
+	const now = env.clock();
+	let characters = ensureCharacterStateSlice(state.characters);
+	const opened: string[] = [];
+	for (const characterId of parsed.data.characterIds) {
+		const existing = characters.characters[characterId];
+		if (!existing) continue;
+		if (!checkAdvancementEligibility(existing, 'milestone').eligible) continue;
+		const advancementDraft = buildAdvancementDraft(existing, 'milestone', guard.actor.id, now);
+		characters = upsertCharacter(
+			characters,
+			writeAdvancementDraft(existing, advancementDraft, now),
+		);
+		opened.push(characterId);
+	}
+	if (opened.length === 0) {
+		return reject(
+			{ code: 'invalid-state', message: 'No listed party member is eligible to level up.' },
+			state,
+		);
+	}
+	const draft = appendOperationDraft(env, state.sync, guard.actor.id, {
+		entityType: CHARACTER_ENTITY_TYPE,
+		entityId: opened[0]!,
+		opType: 'character.level-party',
+		path: 'characters/party/advancement',
+		value: { characterIds: opened },
+	});
+	return {
+		status: 'accepted',
+		nextState: { ...charactersWith(state, characters), sync: draft.log },
+		events: opened.map((characterId) => ({
+			kind: 'character.advancement-changed' as const,
+			characterId,
+			revision: characters.characters[characterId]!.revision,
+			actorId: guard.actor.id,
+		})),
+		operationIds: [draft.op.id],
+	};
 }
