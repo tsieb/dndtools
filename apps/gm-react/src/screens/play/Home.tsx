@@ -6,6 +6,7 @@ import { moodTheme } from '../../app/sceneCardMood';
 import { useAssetObjectUrl } from '../../platform/assetUrl';
 import { useViewport } from '../../app/useViewport';
 import { isNetworkDestinationAllowed, usePlatformCapabilities } from '../../platform/capabilities';
+import { PartyBoardTiles } from '../../app/character/PartyPanel';
 import { Panel, PvPage, SectionHead, type LiveData } from './shared';
 import { useI18n } from '../../i18n';
 
@@ -504,6 +505,14 @@ export function StageSection({
 							</div>
 						)}
 					</Panel>
+					{/* RC-CHR-3.1 — the party's live vitals as a board tile row, right beside the turn order,
+					    so a player reads who is hurt without leaving the stage. Same shape the Party
+					    section paints; absent (not empty) when no party member is visible. */}
+					{data.partyVitals.length > 0 && (
+						<Panel title={t('play.party.vitals')}>
+							<PartyBoardTiles members={data.partyVitals} />
+						</Panel>
+					)}
 					<Panel title={t('play.stage.sharedHandouts')}>
 						{data.handouts.length === 0 ? (
 							<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>

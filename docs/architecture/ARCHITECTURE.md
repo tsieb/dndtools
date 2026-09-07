@@ -78,6 +78,11 @@ defines the shared-renderer decision and platform boundaries.
   `SceneRuntime` and replicates **player-safe view-models** (`viewModels.ts`) built from the
   actor-filtered query layer. Players (`SessionClient.ts`) are non-authoritative and send back only
   intents (dice rolls, edits to their own character).
+- The replicated snapshot carries the LIVE PARTY VITALS (`PlayerData.partyVitals`) the party panel
+  paints in all three densities (`app/character/PartyPanel.tsx`: board tile, quick panel, sheet). Its
+  member set is whatever the actor-filtered party overview admitted; the two summaries that query does
+  not carry (concentration, per-level spell slots) honour the character's declared `dmOnlyFields` by
+  omission, so a player device never receives a withheld field or a marker that one exists.
 - Automatic LAN discovery uses the Electron mDNS bridge (`discovery.ts`). Manual and cloud session
   codes remain available on Android and the web; unsupported discovery controls show capability copy.
   Pairing/QR lives in `qr.ts`; message contracts live in `messages.ts`.

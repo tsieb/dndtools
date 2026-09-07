@@ -1,5 +1,14 @@
 import { expect, test } from '@playwright/test';
-import { dispatch, enterPreview, exitPreview, gotoRoute, markOnboarded, seedFresh } from './_helpers';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import {
+	dispatch,
+	enterPreview,
+	exitPreview,
+	gotoRoute,
+	markOnboarded,
+	seedFresh,
+} from './_helpers';
 
 // COLLAB — DM vs player/observer view. The DM's shell re-renders through the SAME actor-filtered
 // Core queries a real participant session uses (via `enterPreview`), so a `dm-only` scene is absent
@@ -64,5 +73,97 @@ test.describe('collab: actor-filtered player/observer views', () => {
 			Object.values(window.__rt!.state.scenes.scenes).some((s) => s.name === 'Should Not Persist'),
 		);
 		expect(leaked).toBe(false);
+	});
+});
+
+// RC-CHR-3.1 — the LIVE PARTY PANEL. The panel paints `PlayerData.partyVitals`, which the DM device
+// computes through the actor-filtered query layer and replicates verbatim to a joined player. This
+// asserts the delivery half of the contract on the real `/play` surface: a DM-side HP change must
+// reach the player's party panel within the declared `live-session-delivery` p95 budget.
+//
+// The budget number is READ FROM THE PERF REGISTRY SOURCE rather than repeated here — `budget-registry.ts`
+// owns it (see its migration note), and a registry that no longer declares the id throws instead of
+// letting this test pass against a number nobody maintains. It is read from the file rather than
+// imported because a Playwright spec runs as plain ESM, where `@dndtools/core`'s JSON system packages
+// need import attributes the transpiled app build supplies and Node does not.
+const DELIVERY_BUDGET_MS = (() => {
+	const registry = readFileSync(
+		fileURLToPath(
+			new URL('../../../../packages/core/src/perf/budget-registry.ts', import.meta.url),
+		),
+		'utf8',
+	);
+	const entry = registry.slice(registry.indexOf("id: 'live-session-delivery'"));
+	const target = /kind: 'latency-ms-p95'[^}]*?target: (\d+)/.exec(entry.slice(0, 600));
+	if (!target) throw new Error('the live-session-delivery latency budget is not declared');
+	return Number(target[1]);
+})();
+
+test.describe('collab: live party panel', () => {
+	test('a DM HP change reaches the player party panel within the delivery budget', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/session');
+		await seedFresh(page);
+
+		// Take the table live — the Core gates combat-resource updates on an active Session workflow,
+		// which is exactly the state this panel is for.
+		const live = await page.evaluate(async () => {
+			const rt = window.__rt!;
+			const state = rt.state as unknown as {
+				session: { activeSceneId: string | null };
+				commandCenter: { homeSceneId: string | null };
+				scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+			};
+			const activeSceneId =
+				state.session.activeSceneId ??
+				state.commandCenter.homeSceneId ??
+				Object.values(state.scenes.scenes).find((s) => !s.isTemplate)?.id;
+			return rt.dispatch({
+				type: 'session.set-workflow',
+				actorId: rt.defaultActorId,
+				payload: { workflow: 'active', activeSceneId },
+			});
+		});
+		expect(live.status, JSON.stringify(live.rejection ?? {})).toBe('accepted');
+
+		// The PC the DM will damage, straight from the seeded vault.
+		const pc = await page.evaluate(() => {
+			const characters = (
+				window.__rt!.state as unknown as {
+					characters: {
+						characters: Record<string, { id: string; kind: string; combat: { hp: number } }>;
+					};
+				}
+			).characters.characters;
+			const found = Object.values(characters).find((c) => c.kind === 'pc' && c.combat.hp > 1);
+			return found ? { id: found.id, hp: found.combat.hp } : null;
+		});
+		expect(pc, 'the seeded vault must carry a PC with hit points').toBeTruthy();
+
+		// `/play` renders as the PLAYER actor (`actor-player`) without preview mode, so the panel is a
+		// real actor-filtered read AND the DM can still dispatch (preview mode rejects every mutation).
+		await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
+		await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
+			timeout: 20_000,
+		});
+		await page.getByRole('button', { name: 'Party', exact: true }).click();
+
+		const row = page.getByTestId(`party-row-${pc!.id}`);
+		await expect(row).toBeVisible({ timeout: 20_000 });
+		await expect(row).toContainText(`${pc!.hp}/`);
+
+		// The DM applies damage through the real command path. `partyVitals` is recomputed from the
+		// actor-filtered overview on the next runtime state push, so the panel must follow.
+		const started = Date.now();
+		const damaged = await dispatch(page, {
+			type: 'character.update-combat-resource',
+			actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+			payload: { characterId: pc!.id, kind: 'hp', delta: -1 },
+		});
+		expect(damaged.status, JSON.stringify(damaged.rejection ?? {})).toBe('accepted');
+		await expect(row).toContainText(`${pc!.hp - 1}/`, { timeout: DELIVERY_BUDGET_MS });
+		expect(Date.now() - started).toBeLessThanOrEqual(DELIVERY_BUDGET_MS);
 	});
 });

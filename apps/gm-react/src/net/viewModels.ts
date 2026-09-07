@@ -13,10 +13,12 @@ import {
 	listScenesForActor,
 	hasDmAuthority,
 	resourcesOf,
+	availableSlots,
 	type ActorId,
 	type CoreStateSlice,
 	type CommandCenterHomeView,
 	type PartyOverview,
+	type PartyMemberSummary,
 	type CharacterView,
 	type CombatTrackerView,
 	type DiceRollView,
@@ -44,6 +46,47 @@ import { resolveProjectedMapForViewer, type ProjectedMapInfo } from '../app/proj
  *
  * Pure + deterministic over `(state, viewer)`. No DOM/storage/network.
  */
+/**
+ * RC-CHR-3.1 — one party member's LIVE VITALS as replicated to a player device. A strict superset of
+ * the fields the party panel paints, so the panel never reaches back into core state: HP (for the
+ * gradient bar), conditions, concentration, and the per-level spellcaster slot summary the panel keeps
+ * collapsed.
+ *
+ * Derived ONLY for characters {@link getPartyOverviewForActor} already admitted for this viewer, so the
+ * visibility decision stays in the Processing Core. The two fields the overview does not carry
+ * (concentration, per-level slots) honour the character's declared `dmOnlyFields` the same way
+ * `CharacterView` does — redaction by OMISSION (`null` / `[]`), never a placeholder that announces
+ * something was withheld.
+ */
+export interface PartyMemberVitals {
+	characterId: string;
+	name: string;
+	/** True for the viewer's own PC — the panel marks it rather than sorting it to the top. */
+	isSelf: boolean;
+	hp: number;
+	maxHp: number;
+	tempHp: number;
+	ac: number;
+	conditions: string[];
+	/** The concentrated-on effect, or null when not concentrating (or when the DM declared it DM-only). */
+	concentration: string | null;
+	/** Ascending spell levels the character actually has slots for; empty for a non-caster. */
+	spellSlots: PartySpellSlotLevel[];
+	/** Total available slots across levels — the collapsed one-line summary. */
+	availableSpellSlots: number;
+	/** Total available class-resource units across resources. */
+	availableClassResources: number;
+	/** 1-based marching-order position, or null when unplaced. */
+	marchingPosition: number | null;
+}
+
+/** One spell level in a member's collapsed slot summary. */
+export interface PartySpellSlotLevel {
+	level: number;
+	available: number;
+	max: number;
+}
+
 export interface PlayerData {
 	home: CommandCenterHomeView;
 	live: boolean;
@@ -65,6 +108,12 @@ export interface PlayerData {
 	level: number | null;
 	resources: ReturnType<typeof resourcesOf> | null;
 	party: PartyOverview;
+	/**
+	 * RC-CHR-3.1 — the live party vitals the party panel renders (PC members only; the panel's
+	 * subject). Actor-filtered by construction: built from `party.members`, which is already the
+	 * viewer's visible set.
+	 */
+	partyVitals: PartyMemberVitals[];
 	journal: JournalEntryView[];
 	handouts: ContentItemView[];
 	/** The actor-filtered SHARED session roll log (own + session-visible rolls), oldest-first. */
@@ -108,6 +157,64 @@ export interface ElevatedData {
 	combat: CombatTrackerView;
 	/** The DM's creature/NPC roster the co-DM may see (non-PC characters) — the Bestiary panel. */
 	bestiary: CharacterView[];
+}
+
+/**
+ * RC-CHR-3.1 — derive the party vitals for `viewer` from the ALREADY-FILTERED overview members.
+ *
+ * The visibility decision is NOT made here: `members` is whatever {@link getPartyOverviewForActor}
+ * returned, so a character the viewer may not see cannot enter this list. What is added is the two
+ * summaries the overview does not carry — concentration and the per-level slot breakdown — read off
+ * the character record the overview already admitted. Both honour the character's declared
+ * `dmOnlyFields` (`resources.concentration` / `resources.spellSlots`, the prefix convention
+ * `CharacterView` redaction already uses) for a non-DM viewer, by omission.
+ */
+function buildPartyVitals(
+	state: CoreStateSlice,
+	members: PartyMemberSummary[],
+	selfId: string | null,
+	isDm: boolean,
+): PartyMemberVitals[] {
+	return members
+		.filter((member) => member.kind === 'pc')
+		.map((member) => {
+			const record = state.characters.characters[member.characterId];
+			const hiddenFields = isDm ? new Set<string>() : new Set(record?.dmOnlyFields ?? []);
+			const resources = record ? resourcesOf(record) : null;
+
+			const concentration =
+				resources && !hiddenFields.has('resources.concentration')
+					? (resources.concentration.effect ?? null)
+					: null;
+
+			const spellSlots: PartySpellSlotLevel[] =
+				resources && !hiddenFields.has('resources.spellSlots')
+					? Object.entries(resources.spellSlots)
+							.map(([level, slot]) => ({
+								level: Number(level),
+								available: availableSlots(slot),
+								max: slot.max,
+							}))
+							.filter((entry) => Number.isFinite(entry.level) && entry.max > 0)
+							.sort((a, b) => a.level - b.level)
+					: [];
+
+			return {
+				characterId: member.characterId,
+				name: member.name,
+				isSelf: member.characterId === selfId,
+				hp: member.hp,
+				maxHp: member.maxHp,
+				tempHp: member.tempHp,
+				ac: member.ac,
+				conditions: [...member.conditions],
+				concentration,
+				spellSlots,
+				availableSpellSlots: member.availableSpellSlots,
+				availableClassResources: member.availableClassResources,
+				marchingPosition: member.marchingPosition,
+			};
+		});
 }
 
 /**
@@ -182,6 +289,12 @@ export function buildPlayerData(state: CoreStateSlice, viewer: ActorId): PlayerD
 		level: record ? advancementStateOf(record).level : null,
 		resources,
 		party,
+		partyVitals: buildPartyVitals(
+			state,
+			party.members,
+			chosen?.id ?? null,
+			hasDmAuthority(actor?.role),
+		),
 		journal,
 		handouts,
 		diceRolls: dice.rolls,
