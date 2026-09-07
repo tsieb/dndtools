@@ -139,13 +139,20 @@ export function capabilitiesForRuntime(
 }
 
 const startupSignals = readRuntimeSignals();
+// Deterministic e2e can force a runtime kind that the test browser has no real bridge for — Android
+// (`android-quick-map.spec.ts`, `responsive.spec.ts`) and, as of RC-AI-3.3, Electron, so a desktop-
+// only surface (Settings › AI › Local models) can be exercised without a real Electron host.
+const TEST_RUNTIME_OVERRIDES: readonly RuntimeKind[] = ['android', 'electron'];
 const devRuntimeOverride: RuntimeKind | null =
 	// `import.meta.env` is injected by Vite. Optional so this module also loads under a plain Node
 	// runner (`scripts/ai-agent-smoke.ts` imports the AI bridge, which reaches here transitively).
 	import.meta.env?.DEV &&
-	(globalThis as typeof globalThis & { __DNDTOOLS_TEST_RUNTIME_KIND__?: unknown })
-		.__DNDTOOLS_TEST_RUNTIME_KIND__ === 'android'
-		? 'android'
+	TEST_RUNTIME_OVERRIDES.includes(
+		(globalThis as typeof globalThis & { __DNDTOOLS_TEST_RUNTIME_KIND__?: unknown })
+			.__DNDTOOLS_TEST_RUNTIME_KIND__ as RuntimeKind,
+	)
+		? ((globalThis as typeof globalThis & { __DNDTOOLS_TEST_RUNTIME_KIND__?: unknown })
+				.__DNDTOOLS_TEST_RUNTIME_KIND__ as RuntimeKind)
 		: null;
 
 export const platformCapabilities = capabilitiesForRuntime(

@@ -1643,6 +1643,34 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.router.routeSavedOff': 'Motor del asistente desactivado.',
 	'settings.router.localModelSaved': 'Modelo local fijado en {model}.',
 
+	/* Ajustes › IA y herramientas › Modelos locales */
+	'settings.localModels.title': 'Modelos locales',
+	'settings.localModels.intro':
+		'Modelos descargados al servicio Ollama de este dispositivo. Descargar y eliminar se hace aquí; el modelo que usan de verdad el asistente y la búsqueda se fija arriba.',
+	'settings.localModels.refresh': 'Actualizar',
+	'settings.localModels.refreshing': 'Actualizando…',
+	'settings.localModels.refreshHint': 'Comprueba qué está descargado y cuánto disco usa.',
+	'settings.localModels.listFailed':
+		'No se pudieron listar los modelos locales: comprueba que `ollama serve` esté en marcha.',
+	'settings.localModels.empty': 'Todavía no hay modelos descargados.',
+	'settings.localModels.diskTotal': '{size} en disco',
+	'settings.localModels.pullPlaceholder': 'Nombre del modelo, por ejemplo {model}',
+	'settings.localModels.pullAria': 'Nombre del modelo a descargar',
+	'settings.localModels.pull': 'Descargar',
+	'settings.localModels.pulling': 'Descargando…',
+	'settings.localModels.pullStarting': 'Empezando…',
+	'settings.localModels.pullProgress': '{status} · {percent}%',
+	'settings.localModels.pulled': 'Descargado {model}.',
+	'settings.localModels.pullFailed': 'No se pudo descargar {model}.',
+	'settings.localModels.deleteTitle': '¿Eliminar este modelo?',
+	'settings.localModels.deleteDescription':
+		'Esto libera el espacio de disco que usa en este dispositivo.',
+	'settings.localModels.deleteBody':
+		'{model} se eliminará de este dispositivo. Puedes volver a descargarlo cuando quieras.',
+	'settings.localModels.deleting': 'Eliminando…',
+	'settings.localModels.deleted': 'Eliminado {model}.',
+	'settings.localModels.deleteFailed': 'No se pudo eliminar {model}.',
+
 	'settings.provider.title': 'Proveedor de IA',
 	'settings.provider.configured': 'Configurado',
 	'settings.provider.notConfigured': 'Sin configurar',

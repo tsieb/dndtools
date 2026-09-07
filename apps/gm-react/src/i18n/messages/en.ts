@@ -1595,6 +1595,33 @@ export const en = {
 	'settings.router.routeSavedOff': 'Assistant backend turned off.',
 	'settings.router.localModelSaved': 'Local model set to {model}.',
 
+	/* Settings › AI & tools › Local models */
+	'settings.localModels.title': 'Local models',
+	'settings.localModels.intro':
+		'Models pulled onto the Ollama daemon on this device. Pulling and deleting happen here; the model the assistant and search actually use is set above.',
+	'settings.localModels.refresh': 'Refresh',
+	'settings.localModels.refreshing': 'Refreshing…',
+	'settings.localModels.refreshHint': 'Check what is pulled and how much disk it uses.',
+	'settings.localModels.listFailed':
+		'Could not list local models — check that `ollama serve` is running.',
+	'settings.localModels.empty': 'No models pulled yet.',
+	'settings.localModels.diskTotal': '{size} on disk',
+	'settings.localModels.pullPlaceholder': 'Model name, for example {model}',
+	'settings.localModels.pullAria': 'Model name to pull',
+	'settings.localModels.pull': 'Pull',
+	'settings.localModels.pulling': 'Pulling…',
+	'settings.localModels.pullStarting': 'Starting…',
+	'settings.localModels.pullProgress': '{status} · {percent}%',
+	'settings.localModels.pulled': 'Pulled {model}.',
+	'settings.localModels.pullFailed': 'Could not pull {model}.',
+	'settings.localModels.deleteTitle': 'Delete this model?',
+	'settings.localModels.deleteDescription': 'This frees the disk space it uses on this device.',
+	'settings.localModels.deleteBody':
+		'{model} will be removed from this device. Pull it again any time.',
+	'settings.localModels.deleting': 'Deleting…',
+	'settings.localModels.deleted': 'Deleted {model}.',
+	'settings.localModels.deleteFailed': 'Could not delete {model}.',
+
 	/* Settings › AI & tools › Provider */
 	'settings.provider.title': 'AI provider',
 	'settings.provider.configured': 'Configured',

@@ -13,6 +13,7 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import { baselineAllowlistMembership, toggleBaselineToolAllowlist } from '../../ai/mcpBridge';
 import { AiProviderPanel } from './AiProvider';
 import { AiRouterPanel } from './AiStatus';
+import { AiLocalModelsPanel } from './AiLocalModels';
 import { AiAssistantPanel } from './AiAssistant';
 import { AiBatchReviewPanel } from './AiBatchReview';
 import { AiAuditBrowser } from './AiAuditBrowser';
@@ -169,6 +170,8 @@ export function SettingsAI() {
 			<AiProviderPanel onConfiguredChange={() => bumpAiConfig((v) => v + 1)} />
 
 			<AiRouterPanel onRoutingChange={() => bumpAiConfig((v) => v + 1)} />
+
+			<AiLocalModelsPanel />
 
 			<AiAssistantPanel canWrite={canWrite} />
 
