@@ -11,6 +11,7 @@ import type { SceneState } from '../state/scene-state';
 import type {
 	DiceRollSourceKind,
 	DiceRollVisibility,
+	QuickReferenceTargetKind,
 	SessionWorkflowState,
 	SessionState,
 } from '../state/session-state';
@@ -1042,7 +1043,9 @@ export type CoreEvent =
 	| {
 			kind: 'session.quick-reference-pinned';
 			panelId: string;
-			kind_: 'note' | 'stat-block' | 'rules-snippet' | 'open-thread' | 'session-context';
+			// RC-SES-2.3 — the named union rather than a second copy of it, so a new panel kind cannot
+			// widen the state without widening the event.
+			kind_: QuickReferenceTargetKind;
 			targetId: string | null;
 			actorId: ActorId;
 	  }

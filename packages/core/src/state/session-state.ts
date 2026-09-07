@@ -360,7 +360,10 @@ export type QuickReferenceTargetKind =
 	| 'stat-block'
 	| 'rules-snippet'
 	| 'open-thread'
-	| 'session-context';
+	| 'session-context'
+	// RC-SES-2.3 — a rollable `dice-table` Vault Object pinned from the session tables tab. Additive
+	// union member: every previously written panel still parses, so no persisted shape changed.
+	| 'dice-table';
 
 /** A durable PINNED quick-reference panel (SES-007). References its content by id — never a content copy. */
 export interface QuickReferencePanel {

@@ -605,6 +605,8 @@ const quickReferenceKindSchema = z.enum([
 	'rules-snippet',
 	'open-thread',
 	'session-context',
+	// RC-SES-2.3 — a rollable `dice-table` Vault Object (appended; existing members keep their order).
+	'dice-table',
 ]);
 
 export const pinQuickReferenceInputSchema = z

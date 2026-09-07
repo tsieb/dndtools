@@ -18,7 +18,7 @@ expression is rejected before any draw. See `readDiceTable` in
 
 ## 2. Drawing a table
 
-Drawing is the `session.roll-table` command (`handleRollTable`,
+Drawing is the `dice.roll-table` command (`handleRollTable`,
 `packages/core/src/commands/dice.ts`; input contract `rollTableInputSchema` in
 `packages/core/src/schemas/commands.ts`, keyed by `tableItemId`).
 
@@ -36,6 +36,23 @@ Resolution is `resolveTableDraw(dice, entries, seed)` in
 A rollable table is a DM session asset. Only the DM — or a player holding a
 write-capable grant on the table item — may draw it (`actorMayUseTable`,
 `packages/core/src/commands/dice.ts`). This is enforced in core, not the UI.
+
+## 4. Where a DM draws one (RC-SES-2.3)
+
+`/session` carries a **Rollable tables** panel
+(`apps/gm-react/src/screens/session/Tables.tsx`). It lists every visible `dice-table`
+object from the actor-scoped content read, draws with `dice.roll-table` (so the result
+lands in the session roll log with `source: 'table'` beside every other roll), shows the
+row the draw selected, and pins a table to quick reference as a `dice-table`
+`QuickReferencePanel` (`packages/core/src/queries/quick-reference-query.ts`). A table
+whose declared `dice`/`entries` are missing or malformed is not listed at all rather than
+offered with a Roll the core would refuse.
+
+Because §2's mapping is CLAMPED, rows are weighted only by how a table is authored —
+repeat a row and it comes up more often — and an expression that can roll past the last
+row funnels every higher total into it. The panel states that per table rather than
+letting the results skew silently. Genuine per-row weight ranges would need a new
+optional field on the table object plus a change to `resolveTableDraw`; neither exists.
 
 ---
 

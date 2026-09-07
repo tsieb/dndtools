@@ -405,6 +405,21 @@ export const en = {
 	'session.dice.nat1': 'Nat 1',
 	'session.dice.breakdown.toggle': 'Per-die breakdown',
 	'session.dice.breakdown.dropped': '{value} (dropped)',
+	// RC-SES-2.3 — the rollable tables tab.
+	'session.tables.title': 'Rollable tables',
+	'session.tables.goLive': 'Table draws record to the live session — go live to draw.',
+	'session.tables.roll': 'Roll',
+	'session.tables.rowCount': '{count} rows',
+	'session.tables.pin': 'Pin {title} to quick reference',
+	'session.tables.unpin': 'Unpin {title} from quick reference',
+	'session.tables.pinned': 'Pinned to quick reference',
+	'session.tables.unpinned': 'Removed from quick reference',
+	'session.tables.drewRow': 'Row {row} (rolled {total})',
+	'session.tables.overshoot':
+		'This table rolls up to {max} but has {count} rows, so every higher total lands on the last row.',
+	'session.tables.empty.title': 'No rollable tables yet.',
+	'session.tables.empty.description':
+		'A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.',
 	'session.audio.title': 'Now playing',
 	'session.audio.empty': 'Nothing playing. Start ambience from the Audio library.',
 	'session.audio.source': 'session audio',

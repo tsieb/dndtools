@@ -414,6 +414,22 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.dice.nat1': 'Nat 1',
 	'session.dice.breakdown.toggle': 'Desglose por dado',
 	'session.dice.breakdown.dropped': '{value} (descartado)',
+	// RC-SES-2.3 — la pestaña de tablas aleatorias.
+	'session.tables.title': 'Tablas aleatorias',
+	'session.tables.goLive':
+		'Las tiradas de tabla se registran en la sesión en vivo: inicia la sesión para tirar.',
+	'session.tables.roll': 'Tirar',
+	'session.tables.rowCount': '{count} filas',
+	'session.tables.pin': 'Fijar {title} en la referencia rápida',
+	'session.tables.unpin': 'Quitar {title} de la referencia rápida',
+	'session.tables.pinned': 'Fijada en la referencia rápida',
+	'session.tables.unpinned': 'Quitada de la referencia rápida',
+	'session.tables.drewRow': 'Fila {row} (tirada {total})',
+	'session.tables.overshoot':
+		'Esta tabla llega hasta {max} pero tiene {count} filas, así que todo total mayor cae en la última fila.',
+	'session.tables.empty.title': 'Todavía no hay tablas aleatorias.',
+	'session.tables.empty.description':
+		'Una tabla es un objeto de la bóveda con una expresión de dados y filas de resultado. Crea una en la bóveda y tírala aquí.',
 	'session.audio.title': 'Sonando ahora',
 	'session.audio.empty': 'No suena nada. Inicia el ambiente desde la biblioteca de audio.',
 	'session.audio.source': 'audio de la sesión',

@@ -1,11 +1,16 @@
 import { hasDmAuthority } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
-import type { QuickReferencePanel, QuickReferenceTargetKind, SessionState } from '../state/session-state';
+import type {
+	QuickReferencePanel,
+	QuickReferenceTargetKind,
+	SessionState,
+} from '../state/session-state';
 import type { VaultContentState } from '../state/content';
 import type { CharacterState } from '../state/character-state';
 import { getContentItemDetailForActor } from './content-query';
 import { getPartyOverviewForActor } from './party-overview';
 import { getSessionWidgetMode } from './session-control';
+import { VAULT_OBJECT_SUBTYPE_KEY } from '../state/vault-object';
 
 /**
  * SES-007 — THE single actor-filtered QUICK-REFERENCE read model. The DM pins panels that reference
@@ -38,6 +43,13 @@ export interface QuickReferencePanelView {
 	id: string;
 	kind: QuickReferenceTargetKind;
 	label: string;
+	/**
+	 * RC-SES-2.3 — the id the pin REFERENCES (null for `session-context`). Safe to expose here: this
+	 * whole read is DM-only, so an id never reaches a player, and the DM authored the reference. A
+	 * surface that lists pinnable things (the session tables tab) needs it to tell a pinned row from
+	 * an unpinned one; it is echoed for BOTH statuses, so it leaks nothing about the target's state.
+	 */
+	targetId: string | null;
 	order: number;
 	/** `available` ⇒ the target resolved and is visible; `unavailable` ⇒ hidden/deleted/missing (no leak). */
 	status: 'available' | 'unavailable';
@@ -49,6 +61,7 @@ const UNAVAILABLE = (panel: QuickReferencePanel): QuickReferencePanelView => ({
 	id: panel.id,
 	kind: panel.kind,
 	label: panel.label,
+	targetId: panel.targetId,
 	order: panel.order,
 	status: 'unavailable',
 	content: null,
@@ -61,6 +74,7 @@ const AVAILABLE = (
 	id: panel.id,
 	kind: panel.kind,
 	label: panel.label,
+	targetId: panel.targetId,
 	order: panel.order,
 	status: 'available',
 	content,
@@ -112,6 +126,41 @@ function resolveStatBlock(
 	return resolveContentItem(panel, inputs);
 }
 
+/**
+ * RC-SES-2.3 — resolve a pinned ROLLABLE TABLE panel. The pin references a `dice-table` Vault Object by
+ * id; this read resolves it through the same actor-filtered content detail every other panel uses, so a
+ * table the viewer may not see degrades to `unavailable` exactly like a hidden note. The snippet carries
+ * the table's dice expression and row COUNT — what a DM needs to decide whether to draw it — never the
+ * rows themselves, so a pinned panel cannot spoil the table's contents at a glance.
+ *
+ * A content item that is visible but is NOT a `dice-table` (the subtype was changed, or the pin was
+ * hand-authored against a note) resolves to `unavailable` rather than rendering a table panel over a
+ * non-table: the panel promises a drawable table, so it fails closed when it cannot keep that promise.
+ */
+function resolveDiceTable(
+	panel: QuickReferencePanel,
+	inputs: ResolveInputs,
+): QuickReferencePanelView {
+	if (!panel.targetId) return UNAVAILABLE(panel);
+	const detail = getContentItemDetailForActor(
+		inputs.content,
+		inputs.permissions,
+		inputs.actorId,
+		panel.targetId,
+	);
+	if (!('visible' in detail) || detail.visible !== true) return UNAVAILABLE(panel);
+	const fields = detail.visibleFields;
+	if (fields[VAULT_OBJECT_SUBTYPE_KEY] !== 'dice-table') return UNAVAILABLE(panel);
+	const dice = fields['dice'];
+	const entries = fields['entries'];
+	if (typeof dice !== 'string' || dice.trim() === '') return UNAVAILABLE(panel);
+	if (!Array.isArray(entries) || entries.length === 0) return UNAVAILABLE(panel);
+	return AVAILABLE(panel, {
+		title: detail.title,
+		snippet: `${dice.trim()} · ${entries.length} rows`,
+	});
+}
+
 /** Resolve a session-context panel: live session workflow context (no referenced entity). */
 function resolveSessionContext(
 	panel: QuickReferencePanel,
@@ -138,6 +187,8 @@ export function resolveQuickReferencePanelForActor(
 			return resolveStatBlock(panel, inputs);
 		case 'session-context':
 			return resolveSessionContext(panel, inputs);
+		case 'dice-table':
+			return resolveDiceTable(panel, inputs);
 	}
 }
 

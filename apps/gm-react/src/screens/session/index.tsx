@@ -10,6 +10,7 @@ import {
 	getHandoutsForActor,
 	getHandoutStatusForDm,
 	getPrepRecapDigest,
+	getQuickReferencePanelsForActor,
 	getSessionAudioView,
 	listAudioAssetsForActor,
 	listAudioSourceClassificationsForActor,
@@ -53,6 +54,7 @@ import { CapturePanel, type CaptureCandidate, type CaptureSubmission } from './C
 import { RecapPanel } from './PrepRecap';
 import { PartyPanel, RosterPanel } from './Roster';
 import { SchedulePanel } from './Schedule';
+import { TablesPanel, latestDrawsByTable, tablesFromContent, type TableView } from './Tables';
 
 /**
  * Session — the live-play console, wired to the real Processing Core (was a local-reducer mock).
@@ -113,6 +115,9 @@ export function Session() {
 		captureCandidates,
 		campaignDateValue,
 		restLog,
+		tables,
+		tableDraws,
+		quickPins,
 	} = useMemo(() => {
 		const session = runtime.state.session;
 		const perms = runtime.state.permissions;
@@ -172,18 +177,31 @@ export function Session() {
 		// RC-SES-4.1 — what the end-of-session capture can mark as CHANGED: the roster and the visible
 		// vault items, as REFERENCES (type + id + the label captured), never copies. Both lists are
 		// actor-filtered reads, so previewing as a player offers a player's view of the campaign.
+		const contentItems = getContentItemsForActor(runtime.state.content, perms, actorId);
 		const captureCandidates: CaptureCandidate[] = [
 			...characters.map((c) => ({
 				entityType: 'character',
 				entityId: c.id,
 				label: c.name,
 			})),
-			...getContentItemsForActor(runtime.state.content, perms, actorId).map((item) => ({
+			...contentItems.map((item) => ({
 				entityType: 'content-item',
 				entityId: item.id,
 				label: item.title,
 			})),
 		];
+		// RC-SES-2.3 — the drawable `dice-table` objects, their latest draw out of the roll history, and
+		// the quick-reference pins that point at them. All three are the same actor-scoped reads the
+		// rest of this screen uses, so previewing as a player projects that player's tables.
+		const tables = tablesFromContent(contentItems);
+		const tableDraws = latestDrawsByTable(dice);
+		const quickPins = getQuickReferencePanelsForActor(
+			session,
+			runtime.state.content,
+			runtime.state.characters,
+			perms,
+			actorId,
+		);
 		// RC-CHR-1.2 — the rests taken so far, read back from each character's durable expenditure
 		// history. The records are pulled only for characters the ACTOR-SCOPED roster already returned,
 		// so the panel can never surface a rest for a character this viewer may not see.
@@ -231,6 +249,9 @@ export function Session() {
 			captureCandidates,
 			campaignDateValue,
 			restLog,
+			tables,
+			tableDraws,
+			quickPins,
 		};
 	}, [runtime.state, actorId]);
 
@@ -562,6 +583,37 @@ export function Session() {
 								actorId,
 								payload: { expression, ...(label ? { label } : {}) },
 							})
+						}
+					/>
+					<TablesPanel
+						tables={tables}
+						draws={tableDraws}
+						pins={quickPins}
+						isDm={isDm}
+						isLive={isLive}
+						previewing={previewing}
+						onRoll={(table: TableView) =>
+							void dispatch({
+								type: 'dice.roll-table',
+								actorId,
+								payload: { tableItemId: table.id, label: table.title },
+							})
+						}
+						onPin={(table: TableView) =>
+							void dispatch(
+								{
+									type: 'session.pin-quick-reference',
+									actorId,
+									payload: { kind: 'dice-table', label: table.title, targetId: table.id },
+								},
+								t('session.tables.pinned'),
+							)
+						}
+						onUnpin={(panelId: string) =>
+							void dispatch(
+								{ type: 'session.unpin-quick-reference', actorId, payload: { panelId } },
+								t('session.tables.unpinned'),
+							)
 						}
 					/>
 					<HandoutsPanel
