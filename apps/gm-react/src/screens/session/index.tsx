@@ -449,6 +449,15 @@ export function Session() {
 							payload: { combatantId, kind: 'hp', delta },
 						})
 					}
+					// RC-SES-3.2 — the HP sheet's Temp action. `temp-hp` sets a VALUE (the core keeps the
+					// higher of the two), unlike `hp` which takes a delta.
+					onTempHp={(combatantId, value) =>
+						dispatch({
+							type: 'combat.apply-resource',
+							actorId,
+							payload: { combatantId, kind: 'temp-hp', value },
+						})
+					}
 					onCondition={(combatantId, condition, present) =>
 						dispatch({
 							type: 'combat.apply-resource',

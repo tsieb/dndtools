@@ -702,3 +702,111 @@ test.describe('session quick panel', () => {
 		await expect.poll(rolls).toBeGreaterThan(before);
 	});
 });
+
+// RC-SES-3.2 — the one-handed HP sheet. The row's ±1 steps are fine for chip damage; a real hit
+// lands for 14, and the only way to enter 14 used to be fourteen taps. Tap-and-hold the HP bar (or
+// press `d`/`h`) for a keypad, and every write it makes is reversible for five seconds.
+test.describe('one-handed HP sheet and undo', () => {
+	/** Read a combatant's live HP out of the core rather than off the bar's rendered width. */
+	function hpOf(page: Page, name: string): Promise<number | undefined> {
+		return page.evaluate((n) => {
+			const combat = (
+				window.__rt!.state.session as {
+					combat?: {
+						combatants?: Record<
+							string,
+							{ name: string; resources?: { hp: number; tempHp: number } }
+						>;
+					};
+				}
+			).combat;
+			return Object.values(combat?.combatants ?? {}).find((c) => c.name === n)?.resources?.hp;
+		}, name);
+	}
+
+	function tempHpOf(page: Page, name: string): Promise<number | undefined> {
+		return page.evaluate((n) => {
+			const combat = (
+				window.__rt!.state.session as {
+					combat?: {
+						combatants?: Record<
+							string,
+							{ name: string; resources?: { hp: number; tempHp: number } }
+						>;
+					};
+				}
+			).combat;
+			return Object.values(combat?.combatants ?? {}).find((c) => c.name === n)?.resources?.tempHp;
+		}, name);
+	}
+
+	test('the HP bar opens a keypad that applies a whole hit, then undoes it exactly', async ({
+		page,
+	}) => {
+		expect(await hpOf(page, 'Bog Lurker')).toBe(22);
+		await page.getByRole('button', { name: 'Adjust hit points — Bog Lurker' }).click();
+
+		const sheet = page.getByRole('dialog').filter({ hasText: 'Hit points — Bog Lurker' });
+		await expect(sheet).toBeVisible();
+		await sheet.getByRole('button', { name: 'Digit 1' }).click();
+		await sheet.getByRole('button', { name: 'Digit 4' }).click();
+		await sheet.getByRole('button', { name: 'Damage', exact: true }).click();
+
+		await expect.poll(() => hpOf(page, 'Bog Lurker')).toBe(8);
+		await expect(sheet).toHaveCount(0);
+
+		// The undo chip names what it will reverse — with six combatants "Undo" alone is a guess.
+		const undo = page.getByRole('button', { name: 'Undo Damage 14 · Bog Lurker' });
+		await expect(undo).toBeVisible();
+		await undo.click();
+		await expect.poll(() => hpOf(page, 'Bog Lurker')).toBe(22);
+		await expect(undo).toHaveCount(0);
+	});
+
+	test('d damages and h heals the selected combatant from the keyboard', async ({ page }) => {
+		await page.getByRole('button', { name: 'Reed Stalker', exact: true }).click();
+		await expect(page.getByText('Selected · Reed Stalker')).toBeVisible();
+
+		await page.keyboard.press('d');
+		const damageSheet = page.getByRole('dialog').filter({ hasText: 'Hit points — Reed Stalker' });
+		await expect(damageSheet).toBeVisible();
+		// Typed, not tapped: Enter applies the intent the sheet was opened with.
+		await page.keyboard.type('5');
+		await page.keyboard.press('Enter');
+		await expect.poll(() => hpOf(page, 'Reed Stalker')).toBe(9);
+
+		await page.keyboard.press('h');
+		const healSheet = page.getByRole('dialog').filter({ hasText: 'Hit points — Reed Stalker' });
+		await expect(healSheet).toBeVisible();
+		await page.keyboard.type('3');
+		await page.keyboard.press('Enter');
+		await expect.poll(() => hpOf(page, 'Reed Stalker')).toBe(12);
+	});
+
+	test('a press-and-hold on the HP bar opens the same sheet', async ({ page }) => {
+		const bar = page.getByRole('button', { name: 'Adjust hit points — Reed Stalker' });
+		const box = await bar.boundingBox();
+		expect(box).not.toBeNull();
+		await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+		await page.mouse.down();
+		await page.waitForTimeout(700);
+		await page.mouse.up();
+
+		const sheet = page.getByRole('dialog').filter({ hasText: 'Hit points — Reed Stalker' });
+		await expect(sheet).toBeVisible();
+		// The trailing click of the hold must not re-open or double-fire anything.
+		await expect(page.getByRole('dialog')).toHaveCount(1);
+	});
+
+	test('temporary hit points say plainly that they cannot be undone', async ({ page }) => {
+		await page.getByRole('button', { name: 'Adjust hit points — Bog Lurker' }).click();
+		const sheet = page.getByRole('dialog').filter({ hasText: 'Hit points — Bog Lurker' });
+		await sheet.getByRole('button', { name: 'Digit 6' }).click();
+		await sheet.getByRole('button', { name: 'Temp', exact: true }).click();
+
+		await expect.poll(() => tempHpOf(page, 'Bog Lurker')).toBe(6);
+		// No dead undo control: the core keeps the higher temp HP and has no command to lower it.
+		await expect(page.getByText('Temporary hit points keep the higher value')).toBeVisible();
+		await expect(page.getByRole('button', { name: /^Undo / })).toHaveCount(0);
+	});
+});

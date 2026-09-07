@@ -1,21 +1,44 @@
 import type { CombatTrackerView } from '@dndtools/core';
+import { useEffect, useRef, useState } from 'react';
 import {
 	Avatar,
 	Badge,
 	Button,
+	Chip,
 	ConditionBadge,
 	Dialog,
 	EmptyState,
 	HPBar,
 	IconButton,
+	Sheet,
 	StatPill,
 	VisibilityChip,
 	useConditionCatalog,
 } from '../../ds';
 import { useI18n } from '../../i18n';
+import { useViewport } from '../../app/useViewport';
 import { Panel, T, eb } from '../../app/screen-kit';
 
 type CombatantRow = CombatTrackerView['combatants'][number];
+
+/** RC-SES-3.2 — what the HP sheet is about to write. */
+type HpIntent = 'damage' | 'heal' | 'temp';
+
+/**
+ * RC-SES-3.2 — enough of the combatant's resources to put them back exactly as they were. The
+ * amounts are read again from the CURRENT tracker at undo time (the core clamps at 0 and at maxHp,
+ * and damage eats temporary HP first, so "the inverse delta" is not what was typed).
+ */
+type HpUndo = {
+	id: string;
+	name: string;
+	intent: HpIntent;
+	amount: number;
+	hpBefore: number;
+	tempBefore: number;
+};
+
+const UNDO_WINDOW_MS = 5_000;
 
 // ── Combat tracker ────────────────────────────────────────────────────────────────────────────────
 
@@ -33,6 +56,7 @@ export function CombatPanel({
 	onPrevious,
 	onEnd,
 	onHp,
+	onTempHp,
 	onCondition,
 	onPickCondition,
 	onRemove,
@@ -52,6 +76,7 @@ export function CombatPanel({
 	onPrevious: () => void;
 	onEnd: () => void;
 	onHp: (id: string, delta: number) => void;
+	onTempHp: (id: string, value: number) => void;
 	onCondition: (id: string, condition: string, present: boolean) => void;
 	onPickCondition: (id: string) => void;
 	onRemove: (id: string, name: string) => void;
@@ -77,6 +102,106 @@ export function CombatPanel({
 			null,
 		);
 	const selectedIndex = selected ? tracker.combatants.findIndex((c) => c.id === selected.id) : -1;
+	const viewport = useViewport();
+
+	// RC-SES-3.2 — the one-handed HP sheet. `±1` on the row stays (it is the fastest thing on the
+	// screen for chip damage), but a real hit lands for 14, and tapping "Damage 1 HP" fourteen times
+	// is not a tracker. Tap-and-hold the HP bar — or press `d`/`h` — and a keypad comes up.
+	const [hpSheet, setHpSheet] = useState<{ id: string; intent: HpIntent } | null>(null);
+	const [undo, setUndo] = useState<HpUndo | null>(null);
+	// One pointer at a time, so one timer is enough for the whole list.
+	const press = useRef<{ timer: number | null; fired: boolean }>({ timer: null, fired: false });
+
+	const hpSheetTarget = hpSheet
+		? (tracker.combatants.find((c) => c.id === hpSheet.id) ?? null)
+		: null;
+
+	// The undo chip is a PROMISE with a deadline: five seconds, then it goes. Clearing on unmount
+	// matters because the tracker unmounts the moment combat ends.
+	useEffect(() => {
+		if (!undo) return undefined;
+		const timer = window.setTimeout(() => setUndo(null), UNDO_WINDOW_MS);
+		return () => window.clearTimeout(timer);
+	}, [undo]);
+
+	// `d` damage, `h` heal — on the SELECTED combatant, falling back to whoever's turn it is. Bare
+	// letters, so they are refused while a text field or another dialog owns the keyboard.
+	useEffect(() => {
+		if (!running || previewing) return undefined;
+		function onKey(e: KeyboardEvent) {
+			if (e.metaKey || e.ctrlKey || e.altKey) return;
+			const key = e.key.toLowerCase();
+			if (key !== 'd' && key !== 'h') return;
+			const el = e.target as HTMLElement | null;
+			if (el && (el.isContentEditable || /^(input|textarea|select)$/i.test(el.tagName))) return;
+			if (document.querySelector('[role="dialog"]')) return;
+			const target =
+				tracker.combatants.find((c) => c.id === selectedId && c.resources) ??
+				tracker.combatants.find((c) => c.id === tracker.activeCombatantId && c.resources);
+			if (!target) return;
+			e.preventDefault();
+			setHpSheet({ id: target.id, intent: key === 'd' ? 'damage' : 'heal' });
+		}
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	}, [running, previewing, selectedId, tracker]);
+
+	function openHpSheet(id: string, intent: HpIntent) {
+		if (previewing) return;
+		setHpSheet({ id, intent });
+	}
+
+	function startPress(id: string) {
+		endPress();
+		press.current.fired = false;
+		press.current.timer = window.setTimeout(() => {
+			press.current.fired = true;
+			press.current.timer = null;
+			openHpSheet(id, 'damage');
+		}, 450);
+	}
+
+	function endPress() {
+		if (press.current.timer !== null) {
+			window.clearTimeout(press.current.timer);
+			press.current.timer = null;
+		}
+	}
+
+	function applyHp(id: string, intent: HpIntent, amount: number) {
+		const row = tracker.combatants.find((c) => c.id === id);
+		const res = row?.resources;
+		if (!row || !res || amount <= 0) return;
+		if (intent === 'temp') onTempHp(id, amount);
+		else onHp(id, intent === 'damage' ? -amount : amount);
+		setHpSheet(null);
+		setUndo({
+			id,
+			name: row.name,
+			intent,
+			amount,
+			hpBefore: res.hp,
+			tempBefore: res.tempHp,
+		});
+	}
+
+	// Restoring the numbers, not replaying an inverse command. Damage spends temporary HP before real
+	// HP, so putting HP back means zeroing whatever temp is there now (one negative delta the core
+	// absorbs in the same order) and then setting temp back to what it was — `temp-hp` keeps the
+	// HIGHER value, so raising it always lands. Known limit: healing a dying combatant above 0 clears
+	// their death saves in the core, and no command can write those back.
+	function undoHp() {
+		const entry = undo;
+		setUndo(null);
+		if (!entry) return;
+		const res = tracker.combatants.find((c) => c.id === entry.id)?.resources;
+		if (!res) return;
+		const over = res.hp - entry.hpBefore;
+		if (over > 0) onHp(entry.id, -(over + res.tempHp));
+		else if (over < 0) onHp(entry.id, -over);
+		const tempNow = over > 0 ? 0 : res.tempHp;
+		if (tempNow < entry.tempBefore) onTempHp(entry.id, entry.tempBefore);
+	}
 
 	return (
 		<Panel
@@ -198,6 +323,36 @@ export function CombatPanel({
 						</Button>
 					</div>
 
+					{/* RC-SES-3.2 — the five-second undo. It sits above the order rather than floating over
+					    it, so it never covers the row the DM is about to touch, and it is a live region so
+					    the write is announced (the HP commands pass no toast text). */}
+					{undo && (
+						<div
+							role="status"
+							aria-live="polite"
+							style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
+						>
+							<Chip icon="heart" tone={undo.intent === 'damage' ? 'danger' : 'accent'}>
+								{undoLabel(undo)}
+							</Chip>
+							{undo.intent === 'temp' ? (
+								<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+									{t('session.combat.hp.tempNoUndo')}
+								</span>
+							) : (
+								<Button
+									variant="ghost"
+									size="sm"
+									icon="undo"
+									aria-label={t('session.combat.hp.undo', { change: undoLabel(undo) })}
+									onClick={undoHp}
+								>
+									{t('common.action.undo')}
+								</Button>
+							)}
+						</div>
+					)}
+
 					{/* The initiative order IS a list, and announcing "list, 4 items" is how a screen-reader
 					    DM gets the shape of the turn order without walking every row. */}
 					<ul
@@ -300,9 +455,42 @@ export function CombatPanel({
 										</div>
 										{res && (
 											<div style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 8 }}>
-												<div style={{ flex: 1, minWidth: 0 }}>
+												{/* RC-SES-3.2 — the HP bar IS the affordance: tap-and-hold (or click, or Enter)
+												    opens the keypad sheet. A hold fires early and the release still produces a
+												    click, so the press is marked and that trailing click is swallowed. The press
+												    is allowed to bubble to the row so the combatant is selected as well, which
+												    is what makes the following `d`/`h` land on the creature just touched. */}
+												<button
+													type="button"
+													aria-label={t('session.combat.hp.adjust', { name: c.name })}
+													title={t('session.combat.hp.adjust', { name: c.name })}
+													disabled={previewing}
+													onPointerDown={() => startPress(c.id)}
+													onPointerUp={endPress}
+													onPointerLeave={endPress}
+													onPointerCancel={endPress}
+													onClick={() => {
+														if (press.current.fired) {
+															press.current.fired = false;
+															return;
+														}
+														openHpSheet(c.id, 'damage');
+													}}
+													style={{
+														flex: 1,
+														minWidth: 0,
+														display: 'block',
+														textAlign: 'left',
+														background: 'none',
+														border: 'none',
+														padding: 0,
+														cursor: previewing ? 'default' : 'pointer',
+														touchAction: 'manipulation',
+														userSelect: 'none',
+													}}
+												>
 													<HPBar current={res.hp} max={res.maxHp} size="sm" />
-												</div>
+												</button>
 												<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
 													{t('session.combat.armorClass', { value: c.statBlock.ac ?? '—' })}
 												</span>
@@ -453,9 +641,195 @@ export function CombatPanel({
 							)}
 						</div>
 					)}
+
+					<HpSheet
+						key={hpSheet ? `${hpSheet.id}:${hpSheet.intent}` : 'closed'}
+						target={hpSheetTarget}
+						intent={hpSheet?.intent ?? 'damage'}
+						side={viewport === 'phone' ? 'bottom' : 'right'}
+						onClose={() => setHpSheet(null)}
+						onApply={applyHp}
+					/>
 				</div>
 			)}
 		</Panel>
+	);
+
+	function undoLabel(entry: HpUndo): string {
+		const key =
+			entry.intent === 'damage'
+				? 'session.combat.hp.appliedDamage'
+				: entry.intent === 'heal'
+					? 'session.combat.hp.appliedHeal'
+					: 'session.combat.hp.appliedTemp';
+		return t(key, { amount: entry.amount, name: entry.name });
+	}
+}
+
+// ── One-handed HP sheet (RC-SES-3.2) ─────────────────────────────────────────────────────────────
+
+const KEYPAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+/**
+ * The keypad sheet behind tap-and-hold on a combatant's HP bar. A bottom slab on a phone (thumb
+ * reach) and a right drawer everywhere else. Three verbs, one amount: Damage, Heal, Temp — the
+ * core owns what each one does to temporary HP, this only says which.
+ */
+function HpSheet({
+	target,
+	intent,
+	side,
+	onClose,
+	onApply,
+}: {
+	target: CombatantRow | null;
+	intent: HpIntent;
+	side: 'bottom' | 'right';
+	onClose: () => void;
+	onApply: (id: string, intent: HpIntent, amount: number) => void;
+}) {
+	const { t } = useI18n();
+	const [digits, setDigits] = useState('');
+	const amount = Number(digits || '0');
+	const res = target?.resources ?? null;
+	// The sheet is remounted per opening (see the `key` on the call site), so the amount always
+	// starts empty rather than carrying the previous combatant's number onto this one.
+
+	function push(d: string) {
+		setDigits((prev) => (prev === '0' ? d : (prev + d).slice(0, 4)));
+	}
+
+	function apply(which: HpIntent) {
+		if (!target || amount <= 0) return;
+		onApply(target.id, which, amount);
+	}
+
+	// Typing is the desktop path: the digit row, Backspace and Enter work without ever touching the
+	// on-screen pad. The listener is on the DOCUMENT, not on a wrapper node, because focus while the
+	// sheet is up can legitimately sit on the footer actions, on the panel itself, or (for the first
+	// frame after it opens) still on the control that opened it — a wrapper handler silently dropped
+	// the keys in all three cases. The sheet is modal, so nothing else is listening.
+	useEffect(() => {
+		if (!target) return undefined;
+		function onKey(e: KeyboardEvent) {
+			if (e.metaKey || e.ctrlKey || e.altKey) return;
+			const el = e.target as HTMLElement | null;
+			if (el && (el.isContentEditable || /^(input|textarea|select)$/i.test(el.tagName))) return;
+			if (/^[0-9]$/.test(e.key)) {
+				e.preventDefault();
+				push(e.key);
+			} else if (e.key === 'Backspace') {
+				e.preventDefault();
+				setDigits((prev) => prev.slice(0, -1));
+			} else if (e.key === 'Enter') {
+				e.preventDefault();
+				apply(intent);
+			}
+		}
+		document.addEventListener('keydown', onKey);
+		return () => document.removeEventListener('keydown', onKey);
+	});
+
+	const actions: { key: HpIntent; label: string }[] = [
+		{ key: 'damage', label: t('session.combat.hp.damage') },
+		{ key: 'heal', label: t('session.combat.hp.heal') },
+		{ key: 'temp', label: t('session.combat.hp.temp') },
+	];
+
+	return (
+		<Sheet
+			open={!!target}
+			onClose={onClose}
+			side={side}
+			size={side === 'bottom' ? 'min(560px, 88vh)' : 380}
+			title={target ? t('session.combat.hp.sheetTitle', { name: target.name }) : undefined}
+			description={t('session.combat.hp.sheetHelp')}
+			footer={
+				<div style={{ display: 'flex', gap: 8, flex: 1, flexWrap: 'wrap' }}>
+					{actions.map((a) => (
+						<Button
+							key={a.key}
+							variant={a.key === intent ? 'primary' : 'secondary'}
+							size="md"
+							style={{ flex: 1 }}
+							// Soft-disabled: an amount of nothing has nothing to apply, and a hard-disabled
+							// button drops out of the tab order taking its explanation with it.
+							aria-disabled={amount <= 0 || undefined}
+							title={amount <= 0 ? t('session.combat.hp.needAmount') : undefined}
+							onClick={() => apply(a.key)}
+						>
+							{a.label}
+						</Button>
+					))}
+				</div>
+			}
+		>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+				{res && (
+					<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
+						{res.tempHp > 0
+							? t('session.combat.hp.currentWithTemp', {
+									hp: res.hp,
+									max: res.maxHp,
+									temp: res.tempHp,
+								})
+							: t('session.combat.hp.current', { hp: res.hp, max: res.maxHp })}
+					</div>
+				)}
+				<div
+					role="status"
+					aria-live="polite"
+					aria-label={t('session.combat.hp.amount')}
+					style={{
+						font: `700 34px ${T.mono}`,
+						color: T.ink,
+						textAlign: 'center',
+						padding: '10px 0',
+						borderRadius: 10,
+						border: `1px solid ${T.bd}`,
+						background: T.surf,
+					}}
+				>
+					{digits || '0'}
+				</div>
+				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+					{KEYPAD.map((d) => (
+						<Button
+							key={d}
+							variant="secondary"
+							size="lg"
+							aria-label={t('session.combat.hp.digit', { digit: d })}
+							onClick={() => push(d)}
+						>
+							{d}
+						</Button>
+					))}
+					<Button
+						variant="ghost"
+						size="lg"
+						aria-label={t('session.combat.hp.clear')}
+						onClick={() => setDigits('')}
+					>
+						{t('session.combat.hp.clear')}
+					</Button>
+					<Button
+						variant="secondary"
+						size="lg"
+						aria-label={t('session.combat.hp.digit', { digit: '0' })}
+						onClick={() => push('0')}
+					>
+						0
+					</Button>
+					<Button
+						variant="ghost"
+						size="lg"
+						icon="chevron-left"
+						aria-label={t('session.combat.hp.backspace')}
+						onClick={() => setDigits((prev) => prev.slice(0, -1))}
+					/>
+				</div>
+			</div>
+		</Sheet>
 	);
 }
 

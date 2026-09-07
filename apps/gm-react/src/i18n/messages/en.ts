@@ -429,6 +429,27 @@ export const en = {
 	'session.combat.heal': 'Heal 1 HP — {name}',
 	'session.combat.damage': 'Damage 1 HP — {name}',
 	'session.combat.selected': 'Selected · {name}',
+	// RC-SES-3.2 — the one-handed HP sheet.
+	'session.combat.hp.adjust': 'Adjust hit points — {name}',
+	'session.combat.hp.sheetTitle': 'Hit points — {name}',
+	'session.combat.hp.sheetHelp':
+		'Enter an amount, then choose damage, heal or temporary hit points. Press d or h on the tracker to open this.',
+	'session.combat.hp.current': '{hp} of {max} HP',
+	'session.combat.hp.currentWithTemp': '{hp} of {max} HP · {temp} temporary',
+	'session.combat.hp.amount': 'Amount',
+	'session.combat.hp.digit': 'Digit {digit}',
+	'session.combat.hp.backspace': 'Delete last digit',
+	'session.combat.hp.clear': 'Clear amount',
+	'session.combat.hp.damage': 'Damage',
+	'session.combat.hp.heal': 'Heal',
+	'session.combat.hp.temp': 'Temp',
+	'session.combat.hp.needAmount': 'Enter an amount first.',
+	'session.combat.hp.appliedDamage': 'Damage {amount} · {name}',
+	'session.combat.hp.appliedHeal': 'Heal {amount} · {name}',
+	'session.combat.hp.appliedTemp': 'Temp HP {amount} · {name}',
+	'session.combat.hp.undo': 'Undo {change}',
+	'session.combat.hp.tempNoUndo':
+		'Temporary hit points keep the higher value, so this has no undo.',
 	'session.combat.addCondition': 'Add condition',
 	'session.combat.addConditionFor': 'Add condition — {name}',
 	'session.combat.addConditionHelp':
