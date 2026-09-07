@@ -44,3 +44,9 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 4
+    ignore:
+      # Gradle 9.6+ removed the internal Problems API that AGP 8.x still uses, so a wrapper bump
+      # past 9.5 breaks every Android build (release v0.3.4 died on 9.7.1). Lift this together
+      # with an AGP 9 upgrade, never on its own.
+      - dependency-name: 'gradle'
+        versions: ['>=9.6']

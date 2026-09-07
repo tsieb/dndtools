@@ -6,6 +6,13 @@ v1 document-editor have been removed; that application's last state is preserved
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-09-07
+
+- Fixed the Android release build: the Gradle wrapper is pinned back to 8.14.3, since Gradle 9.6+
+  drops an internal API the Android Gradle Plugin 8.x still uses. Dependabot now ignores wrapper
+  bumps past 9.5 until AGP itself moves to 9. Same application code as 0.3.4.
+- The core movement-range frame budget is judged only outside coverage-instrumented runs.
+
 ## [0.3.4] - 2026-09-07
 
 - Fixed the sidebar account block: the presence label no longer squeezes the name column, the DM
