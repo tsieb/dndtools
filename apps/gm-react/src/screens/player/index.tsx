@@ -4,6 +4,7 @@ import {
 	checkAdvancementEligibility,
 	computeEncumbrance,
 	effectiveProficiencyBonus,
+	getActiveSystemForActor,
 	getCharacterForActor,
 	getCharacterJournalForActor,
 	getPartyOverviewForActor,
@@ -88,12 +89,23 @@ export function Player() {
 	const data = useMemo<PlayerData>(() => {
 		// The player's PCs: every player-visible PC the actor may see (finalized PCs are `shared`
 		// with their owning player actor, so a player sees their own; the DM sees the whole roster).
-		const pcs = listCharactersForActor(state.characters, state.permissions, actorId).filter(
-			(c) => c.kind === 'pc',
-		);
+		// RC-CHR-1.1 — the reads are package-scoped: `CharacterView.resources` is every resource the
+		// ACTIVE package declares for this character, so a campaign on Generic reads a stress clock
+		// where a 5e one reads ki, without either name appearing on this screen.
+		const activePackage = getActiveSystemForActor(
+			state.systems,
+			state.permissions,
+			actorId,
+		).activePackage;
+		const pcs = listCharactersForActor(
+			state.characters,
+			state.permissions,
+			actorId,
+			activePackage,
+		).filter((c) => c.kind === 'pc');
 		const chosen = pcs.find((c) => c.id === pcChoice) ?? pcs[0] ?? null;
 		const view = chosen
-			? getCharacterForActor(state.characters, state.permissions, actorId, chosen.id)
+			? getCharacterForActor(state.characters, state.permissions, actorId, chosen.id, activePackage)
 			: null;
 		const record = chosen ? state.characters.characters[chosen.id] : undefined;
 		const resources = record ? resourcesOf(record) : null;
@@ -127,6 +139,9 @@ export function Player() {
 			inventory: record ? inventoryOf(record) : null,
 			encumbrance: record ? computeEncumbrance(record) : null,
 			canManageInventory: isDm || isOwner,
+			// RC-CHR-1.1 — the package's own resource rules fused with this sheet's counters.
+			resourceInstances: view?.resources ?? [],
+			canManageResources: isDm || isOwner,
 			party,
 			advancement: record ? advancementStateOf(record) : null,
 			xpEligible: record ? checkAdvancementEligibility(record, 'xp') : null,
@@ -434,6 +449,8 @@ export function Player() {
 							key={charId}
 							charId={charId}
 							resources={data.resources}
+							resourceInstances={data.resourceInstances}
+							canManageResources={data.canManageResources}
 							actorId={actorId}
 							compact={viewport === 'phone'}
 							dispatch={dispatch}

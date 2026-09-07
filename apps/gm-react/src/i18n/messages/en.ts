@@ -1720,14 +1720,6 @@ export const en = {
 	'player.vitals.spellSlots': '{spell} slots',
 	'player.vitals.noSlotsTitle': 'No {spellLower} slots',
 	'player.vitals.noSlotsBody': 'No {spellLower} slots are tracked for this character yet.',
-	'player.vitals.classResources': 'Class resources',
-	'player.vitals.noResourcesTitle': 'No class resources',
-	'player.vitals.noResourcesBody':
-		'Resources like Rage or Ki appear here once the sheet tracks them.',
-	'player.vitals.recoversShort': 'Recovers on a short rest',
-	'player.vitals.recoversLong': 'Recovers on a long rest',
-	'player.vitals.useAvailable': '{name} use {index} available',
-	'player.vitals.useExpended': '{name} use {index} expended',
 	'player.vitals.deathSaves': 'Death saves',
 	'player.vitals.stable': 'Stable',
 	'player.vitals.conscious': 'Conscious',
@@ -4883,6 +4875,34 @@ export const en = {
 	'help.whatsNewNone': 'No release notes yet.',
 	'help.keyboardShortcuts': 'Keyboard shortcuts',
 	'help.keyboardShortcutsBody': 'See every shortcut for the shell and the canvas.',
+	// RC-CHR-1.1 — the class-resource economy (`app/character/Resources.tsx`), shared by the Player
+	// screen and the player view. Every label the panel frames is package-driven; these are the
+	// words around them.
+	'character.resources.title': 'Class resources',
+	'character.resources.add': 'Add a resource',
+	'character.resources.emptyTitle': 'No class resources',
+	'character.resources.emptyBody':
+		'This character carries no resources from the active system yet. Add one the system offers, or write your own.',
+	'character.resources.recoversShort': 'Recovers on a short rest',
+	'character.resources.recoversLong': 'Recovers on a long rest',
+	'character.resources.recoversScene': 'Clears at the end of a scene',
+	'character.resources.recoversNever': 'Never recovers on its own',
+	'character.resources.fromSystem': 'From the active system',
+	'character.resources.choose': 'Choose a resource',
+	'character.resources.addFromSystem': 'Add',
+	'character.resources.customName': 'Name',
+	'character.resources.customNamePlaceholder': 'Luck points',
+	'character.resources.customMax': 'Maximum',
+	'character.resources.customRecovery': 'Recovers on',
+	'character.resources.addCustom': 'Add your own',
+	'character.resources.customHelp':
+		'A resource you write yourself lives on this character only. One the system offers keeps its maximum up to date as the character levels.',
+	'character.resources.pipAvailable': '{name} use {index} available',
+	'character.resources.pipExpended': '{name} use {index} expended',
+	'character.resources.pipMarked': '{name} step {index} marked',
+	'character.resources.pipClear': '{name} step {index} clear',
+	'character.resources.spendOne': 'Spend one {name}',
+	'character.resources.recoverOne': 'Recover one {name}',
 } as const;
 
 /** Every string the app can render, addressed by key. */

@@ -8,6 +8,7 @@ import type {
 	EncumbranceState,
 	JournalEntryView,
 	PartyOverview,
+	ResourceInstance,
 } from '@dndtools/core';
 import { CONDITIONS } from '../../ds';
 import type { MessageKey } from '../../i18n';
@@ -88,6 +89,10 @@ export interface PlayerData {
 	encumbrance: EncumbranceState | null;
 	/** Owner-or-DM: whether the active actor may mutate this character's equipment/currency. */
 	canManageInventory: boolean;
+	/** RC-CHR-1.1 — every resource the ACTIVE system package declares for this character. */
+	resourceInstances: ResourceInstance[];
+	/** Owner-or-DM: the authority `character.set-class-resource` re-checks on every write. */
+	canManageResources: boolean;
 	party: PartyOverview;
 	/** Real advancement standing from the CHAR-009 model (level, xp, staged draft). */
 	advancement: AdvancementState | null;

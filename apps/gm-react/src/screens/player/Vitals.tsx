@@ -1,18 +1,24 @@
-import { availableSlots, type CharacterResources } from '@dndtools/core';
+import { availableSlots, type CharacterResources, type ResourceInstance } from '@dndtools/core';
 import { Badge, Button, EmptyState, Icon, SpellSlots } from '../../ds';
 import { Panel, T, eb } from '../../app/screen-kit';
+import { CharacterResourcesPanel } from '../../app/character/Resources';
 import { useI18n } from '../../i18n';
 import type { Dispatch } from './shared';
 
 export function PlayerResources({
 	charId,
 	resources,
+	resourceInstances,
+	canManageResources,
 	actorId,
 	compact,
 	dispatch,
 }: {
 	charId: string;
 	resources: CharacterResources | null;
+	/** RC-CHR-1.1 — every resource the active system package declares for this character. */
+	resourceInstances: ResourceInstance[];
+	canManageResources: boolean;
 	actorId: string;
 	compact: boolean;
 	dispatch: Dispatch;
@@ -20,7 +26,6 @@ export function PlayerResources({
 	const { t } = useI18n();
 	const r = resources;
 	const slots = r ? Object.values(r.spellSlots).sort((a, b) => a.level - b.level) : [];
-	const classResources = r ? Object.values(r.classResources) : [];
 	const spells = r?.spells ?? [];
 	const con = r?.concentration?.effect ? r.concentration : null;
 	const death = r?.deathSaves ?? { successes: 0, failures: 0, stable: false };
@@ -34,24 +39,6 @@ export function PlayerResources({
 			type: 'character.set-spell-slots',
 			actorId,
 			payload: { characterId: charId, level, max, expended: nextExpended },
-		});
-	};
-	// Real class-resource toggle: set `expended` directly.
-	const toggleResource = (res: CharacterResources['classResources'][string], idx: number) => {
-		const cur = res.max - res.expended;
-		const isFilled = idx < cur;
-		const nextExpended = isFilled ? res.expended + 1 : Math.max(0, res.expended - 1);
-		return dispatch({
-			type: 'character.set-class-resource',
-			actorId,
-			payload: {
-				characterId: charId,
-				id: res.id,
-				name: res.name,
-				max: res.max,
-				recharge: res.recharge,
-				expended: nextExpended,
-			},
 		});
 	};
 	// Real prepared toggle: `character.set-spell` upserts the spell with the flipped flag (CHAR-008).
@@ -136,88 +123,17 @@ export function PlayerResources({
 						/>
 					)}
 				</Panel>
-				<Panel title={t('player.vitals.classResources')}>
-					{classResources.length === 0 ? (
-						<EmptyState
-							inset
-							icon="sparkle"
-							title={t('player.vitals.noResourcesTitle')}
-							description={t('player.vitals.noResourcesBody')}
-						/>
-					) : (
-						// Named resources keep round pips (the DS SpellSlots row is hard-labeled "Lvl N", which
-						// misreads for a named resource) — but each pip mirrors SpellSlots' a11y contract.
-						classResources.map((res, i) => {
-							const cur = res.max - res.expended;
-							return (
-								<div
-									key={res.id}
-									style={{
-										display: 'flex',
-										alignItems: 'center',
-										gap: 11,
-										padding: '9px 0',
-										borderTop: i ? `1px solid ${T.bd}` : 'none',
-									}}
-								>
-									<Icon name="sparkle" size={17} color={T.acc} />
-									<div style={{ flex: 1 }}>
-										<div style={{ font: `600 12.5px ${T.sans}` }}>{res.name}</div>
-										<div style={{ font: `10.5px ${T.sans}`, color: T.ter }}>
-											{t(
-												res.recharge === 'short'
-													? 'player.vitals.recoversShort'
-													: 'player.vitals.recoversLong',
-											)}
-										</div>
-									</div>
-									{/* 13px pips failed WCAG 2.5.8 (24px minimum). Growing them is only safe together
-									    with wrapping: `setClassResourceInput.max` is unbounded, the phone budget is
-									    ~253px for name + pips, and 24N + 5(N−1) passes that at N=6. These are
-									    contentless <button>s, so their min-content width was ~3px and they silently
-									    SHRANK INTO SLIVERS instead of overflowing — which is why the responsive
-									    clipped-control audit never flagged them. */}
-									<div
-										style={{
-											display: 'flex',
-											gap: 5,
-											flexWrap: 'wrap',
-											justifyContent: 'flex-end',
-										}}
-									>
-										{Array.from({ length: res.max }).map((_, j) => (
-											<button
-												key={j}
-												type="button"
-												aria-label={t(
-													j < cur ? 'player.vitals.useAvailable' : 'player.vitals.useExpended',
-													{ name: res.name, index: j + 1 },
-												)}
-												aria-pressed={j < cur}
-												onClick={() => toggleResource(res, j)}
-												style={{
-													width: 24,
-													height: 24,
-													flex: '0 0 auto',
-													padding: 0,
-													borderRadius: '50%',
-													cursor: 'pointer',
-													background: j < cur ? T.acc : 'transparent',
-													border: `1.5px solid ${j < cur ? T.acc : T.bdS}`,
-												}}
-											/>
-										))}
-									</div>
-									<span
-										style={{ font: `12px ${T.mono}`, color: T.ter, width: 30, textAlign: 'right' }}
-									>
-										{cur}/{res.max}
-									</span>
-								</div>
-							);
-						})
-					)}
-				</Panel>
+				{/* RC-CHR-1.1 — the class-resource economy moved to `app/character/Resources.tsx`, driven
+				    by the ACTIVE system package rather than by whatever was copied onto the sheet: a monk's
+				    ki and a Generic stress clock are the same rows here, and a level-up moves the maxima. */}
+				<CharacterResourcesPanel
+					characterId={charId}
+					actorId={actorId}
+					resources={resourceInstances}
+					canManage={canManageResources}
+					compact={compact}
+					dispatch={dispatch}
+				/>
 			</div>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 				<Panel
