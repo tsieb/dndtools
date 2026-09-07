@@ -33,7 +33,8 @@ import { useSession } from '../../net/SessionContext';
 import { useViewport } from '../../app/useViewport';
 import { StagePanel } from './ActiveMap';
 import { CampaignDatePanel } from './CampaignDate';
-import { CombatPanel, ConditionPickerDialog } from './CombatTracker';
+import { CombatPanel } from './CombatTracker';
+import { ConditionPickerDialog } from './ConditionPickerDialog';
 import { DicePanel } from './DiceTray';
 import { HandoutsPanel } from './Handouts';
 import {

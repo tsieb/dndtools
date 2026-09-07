@@ -15,17 +15,9 @@ import { CATEGORY_VAR, POI_MARKER_CAT, dsToVis, visToDs, type MapTool } from '..
 import { FeatureShape } from './FeatureShape';
 import { MapCanvas } from './MapCanvas';
 import { EditorCanvasHud } from './EditorCanvasHud';
+import { FogBrushHandle } from './FogBrushHandle';
+import { useTouchNavigation } from './useTouchNavigation';
 import { clamp01 } from '../mapVocab';
-import {
-	DOUBLE_TAP_MS,
-	DOUBLE_TAP_SLOP_PX,
-	inertialPanStep,
-	nextDoubleTapZoom,
-	panVelocityFromSamples,
-	viewportForAnchoredZoom,
-	viewportForPinch,
-	type TouchSample,
-} from '../quickMap';
 import { ROUTE_DEFAULT_NAME } from '../tools';
 import { categoryForTool } from '../useMapEditor';
 import { useI18n } from '../../../i18n';
@@ -112,22 +104,6 @@ export function EditorCanvas({
 	const [polyVertexCount, setPolyVertexCount] = useState(0);
 	const [spacePan, setSpacePan] = useState(false);
 	const ctrlRef = useRef(false);
-	const touchPointers = useRef(new Map<number, Pt>());
-	const touchNavigationBlocked = useRef(false);
-	const pinchRef = useRef<{
-		startZoom: number;
-		startCenter: Pt;
-		startCentroid: Pt;
-		startDistance: number;
-	} | null>(null);
-	const [pinching, setPinching] = useState(false);
-	// RC-MAP-4.3 — momentum: the trailing samples of the navigation point (the finger, or the
-	// two-finger centroid) and the frame handle of the glide they hand off to.
-	const panSamples = useRef<TouchSample[]>([]);
-	const inertiaFrame = useRef<number | null>(null);
-	const lastTap = useRef<{ x: number; y: number; t: number } | null>(null);
-	// Remount MapCanvas when a second finger cancels one of its in-progress single-pointer gestures.
-	const [navigationEpoch, setNavigationEpoch] = useState(0);
 
 	// RC-MAP-2.5 — the canvas context menu (right-click on desktop, long-press on touch), and the
 	// timer that turns a held single touch into the touch equivalent since there is no contextmenu
@@ -137,243 +113,8 @@ export function EditorCanvas({
 		anchorPx: Pt;
 		mapPt: Pt;
 	} | null>(null);
-	const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const longPressStart = useRef<{ pointerId: number; x: number; y: number } | null>(null);
-	const cancelLongPress = () => {
-		if (longPressTimer.current !== null) clearTimeout(longPressTimer.current);
-		longPressTimer.current = null;
-		longPressStart.current = null;
-	};
 
 	const isDrawing = DRAWING_TOOLS.has(tool);
-
-	const localTouchPoint = (clientX: number, clientY: number): Pt => {
-		const rect = containerRef.current?.getBoundingClientRect();
-		return { x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) };
-	};
-	const firstTwoTouches = (): [Pt, Pt] | null => {
-		const points = [...touchPointers.current.values()];
-		return points.length >= 2 ? [points[0]!, points[1]!] : null;
-	};
-	/** The point touch navigation tracks: the two-finger centroid, else the single finger. */
-	const navigationPoint = (): Pt | null => {
-		const points = [...touchPointers.current.values()];
-		if (points.length >= 2) {
-			const [a, b] = points as [Pt, Pt];
-			return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-		}
-		return points[0] ?? null;
-	};
-	const sampleNavigation = () => {
-		const point = navigationPoint();
-		if (!point) return;
-		const now = performance.now();
-		panSamples.current.push({ x: point.x, y: point.y, t: now });
-		while (panSamples.current.length > 8) panSamples.current.shift();
-	};
-	const stopInertia = () => {
-		if (inertiaFrame.current !== null) cancelAnimationFrame(inertiaFrame.current);
-		inertiaFrame.current = null;
-	};
-	// RC-MAP-4.3 — a released touch pan keeps travelling and decays, the way every map on a phone
-	// behaves. Viewport state only (`setCenter`), never a command, so nothing here is undoable and
-	// nothing here can be seen by a player.
-	const startInertia = () => {
-		const rect = containerRef.current?.getBoundingClientRect();
-		const samples = panSamples.current;
-		panSamples.current = [];
-		if (!rect) return;
-		let velocity = panVelocityFromSamples(samples, {
-			zoom: zoomRef.current,
-			width: rect.width,
-			height: rect.height,
-		});
-		if (velocity.x === 0 && velocity.y === 0) return;
-		let last = performance.now();
-		const frame = (now: number) => {
-			const step = inertialPanStep({
-				center: centerRef.current,
-				velocity,
-				dtMs: now - last,
-			});
-			last = now;
-			velocity = step.velocity;
-			editor.setCenter(step.center);
-			inertiaFrame.current = step.done ? null : requestAnimationFrame(frame);
-		};
-		inertiaFrame.current = requestAnimationFrame(frame);
-	};
-	const beginPinch = (target: HTMLDivElement) => {
-		const points = firstTwoTouches();
-		if (!points) return;
-		for (const pointerId of touchPointers.current.keys()) {
-			try {
-				target.setPointerCapture(pointerId);
-			} catch {
-				// A browser may have already retired one pointer between events; the remaining pair still works.
-			}
-		}
-		const [a, b] = points;
-		pinchRef.current = {
-			startZoom: zoomRef.current,
-			startCenter: centerRef.current,
-			startCentroid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
-			startDistance: Math.hypot(b.x - a.x, b.y - a.y),
-		};
-		touchNavigationBlocked.current = true;
-		panSamples.current = [];
-		setPinching(true);
-		setG(null);
-		setPath([]);
-		setNavigationEpoch((value) => value + 1);
-	};
-	// These three capture handlers are the ONLY pinch-to-zoom in the editor, and the container sets
-	// `touch-action: none`, so the browser's native pinch is suppressed as well. They used to also
-	// require `quickMapMode`, which `platform/capabilities.ts` grants on Android only — meaning on
-	// iOS, an iPad, or any other touch device the map canvas could not be zoomed at all, and with a
-	// drawing tool armed the interaction overlay blocked MapCanvas's own pan too. The pinch path only
-	// writes viewport state (`setZoom`/`setCenter`), never a command, so there is nothing
-	// quick-mode-specific about it.
-	// RC-MAP-2.5 — a held single touch (no second finger, no drift) opens the context menu as a
-	// bottom sheet, the touch equivalent of a right-click. Armed here, disarmed by movement past the
-	// threshold, a second touch starting a pinch, or the touch ending before it fires.
-	const LONG_PRESS_MS = 300;
-	const LONG_PRESS_SLOP_PX = 10;
-	const armLongPress = (event: ReactPointerEvent<HTMLDivElement>) => {
-		cancelLongPress();
-		longPressStart.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
-		const { clientX, clientY } = event;
-		longPressTimer.current = setTimeout(() => {
-			longPressTimer.current = null;
-			longPressStart.current = null;
-			const rect = containerRef.current?.getBoundingClientRect();
-			setContextMenu({
-				touch: true,
-				anchorPx: { x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) },
-				mapPt: toMap(clientX, clientY),
-			});
-		}, LONG_PRESS_MS);
-	};
-	// RC-MAP-4.3 — a second tap in the same spot inside DOUBLE_TAP_MS is one zoom step anchored under
-	// the finger. Only while navigating: with a path tool armed a double tap already means "finish the
-	// path", and with fog armed it would paint twice. The zoom buttons in the HUD are the keyboard
-	// equivalent of this gesture.
-	const consumeDoubleTap = (event: ReactPointerEvent<HTMLDivElement>): boolean => {
-		if (tool !== 'pan') {
-			lastTap.current = null;
-			return false;
-		}
-		const now = performance.now();
-		const previous = lastTap.current;
-		lastTap.current = { x: event.clientX, y: event.clientY, t: now };
-		if (
-			!previous ||
-			now - previous.t > DOUBLE_TAP_MS ||
-			Math.hypot(event.clientX - previous.x, event.clientY - previous.y) > DOUBLE_TAP_SLOP_PX
-		) {
-			return false;
-		}
-		lastTap.current = null;
-		const rect = containerRef.current?.getBoundingClientRect();
-		if (!rect) return false;
-		const zoom = nextDoubleTapZoom(zoomRef.current);
-		const next = viewportForAnchoredZoom({
-			zoom: zoomRef.current,
-			center: centerRef.current,
-			factor: zoom / zoomRef.current,
-			anchor: localTouchPoint(event.clientX, event.clientY),
-			width: rect.width,
-			height: rect.height,
-		});
-		editor.setZoom(next.zoom);
-		editor.setCenter(next.center);
-		announce(t('mapEditor.zoomedTo', { percent: Math.round(next.zoom * 100) }));
-		return true;
-	};
-	const onTouchDownCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
-		if (event.pointerType !== 'touch') return;
-		stopInertia();
-		touchPointers.current.set(event.pointerId, localTouchPoint(event.clientX, event.clientY));
-		panSamples.current = [];
-		if (touchPointers.current.size >= 2) {
-			cancelLongPress();
-			beginPinch(event.currentTarget);
-			event.preventDefault();
-			event.stopPropagation();
-			return;
-		}
-		if (consumeDoubleTap(event)) {
-			cancelLongPress();
-			event.preventDefault();
-			event.stopPropagation();
-			return;
-		}
-		if (editor.isDm) armLongPress(event);
-	};
-	const onTouchMoveCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
-		// RC-MAP-3.9 — the fog brush's own gesture lives entirely inside MapCanvas (its pointer capture
-		// owns the drag), so this overlay never sees a move while armed. But the CAPTURE phase still
-		// fires on every ancestor regardless of who ends up handling the event, mouse or touch alike —
-		// so it is the only place left to read a live cursor position for the size-preview ring.
-		if (tool === 'fog' && options.fogShape === 'stroke') {
-			setHoverPt(toMap(event.clientX, event.clientY));
-		}
-		if (event.pointerType !== 'touch') return;
-		if (touchPointers.current.has(event.pointerId)) {
-			touchPointers.current.set(event.pointerId, localTouchPoint(event.clientX, event.clientY));
-			// Sampled for the momentum glide only while the gesture really is navigation: the
-			// two-finger centroid, or one finger with the navigate tool armed (MapCanvas owns that
-			// drag, this only reads it). A marker drag under Select must never fling the map.
-			if (touchNavigationBlocked.current || tool === 'pan') sampleNavigation();
-		}
-		const start = longPressStart.current;
-		if (start && start.pointerId === event.pointerId) {
-			const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
-			if (moved > LONG_PRESS_SLOP_PX) cancelLongPress();
-		}
-		if (!touchNavigationBlocked.current) return;
-		const points = firstTwoTouches();
-		const pinch = pinchRef.current;
-		const rect = containerRef.current?.getBoundingClientRect();
-		if (points && pinch && rect) {
-			const [a, b] = points;
-			const next = viewportForPinch({
-				...pinch,
-				centroid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
-				distance: Math.hypot(b.x - a.x, b.y - a.y),
-				width: rect.width,
-				height: rect.height,
-			});
-			editor.setZoom(next.zoom);
-			editor.setCenter(next.center);
-		}
-		event.preventDefault();
-		event.stopPropagation();
-	};
-	const endTouchCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
-		if (event.pointerType !== 'touch') return;
-		if (longPressStart.current?.pointerId === event.pointerId) cancelLongPress();
-		const blocked = touchNavigationBlocked.current;
-		const before = touchPointers.current.size;
-		touchPointers.current.delete(event.pointerId);
-		if (touchPointers.current.size < 2) pinchRef.current = null;
-		if (touchPointers.current.size === 0) {
-			touchNavigationBlocked.current = false;
-			setPinching(false);
-		}
-		// The glide starts the moment the gesture stops being a navigation: the pinch losing its
-		// second finger, or the single navigating finger lifting. The trailing finger of a released
-		// pinch moves nothing, so its samples are dropped rather than flung.
-		if ((before >= 2 && touchPointers.current.size < 2) || (before === 1 && tool === 'pan')) {
-			startInertia();
-		} else {
-			panSamples.current = [];
-		}
-		if (blocked) {
-			event.preventDefault();
-			event.stopPropagation();
-		}
-	};
 
 	// Active layer new content lands on: the explicit active layer, else one in the tool's category, else
 	// the first layer.
@@ -398,6 +139,30 @@ export function EditorCanvas({
 		};
 	}, []);
 
+	const {
+		pinching,
+		navigationEpoch,
+		stopInertia,
+		onTouchDownCapture,
+		onTouchMoveCapture,
+		endTouchCapture,
+	} = useTouchNavigation({
+		containerRef,
+		zoomRef,
+		centerRef,
+		editor,
+		tool,
+		trackHover: tool === 'fog' && options.fogShape === 'stroke',
+		toMap,
+		announce,
+		onHover: setHoverPt,
+		onPinchStart: () => {
+			setG(null);
+			setPath([]);
+		},
+		onLongPress: setContextMenu,
+	});
+
 	// RC-MAP-2.5 — right-click opens the context menu at the pointer. `preventDefault` suppresses the
 	// browser's native menu; the same event fires for the keyboard context-menu key (Shift+F10 / the
 	// Menu key) at the focused element's position, so this is the pointer AND keyboard entry point.
@@ -413,14 +178,6 @@ export function EditorCanvas({
 		},
 		[toMap],
 	);
-
-	useEffect(() => {
-		return () => {
-			cancelLongPress();
-			stopInertia();
-		};
-		// cancelLongPress and stopInertia only touch refs; they never go stale.
-	}, []);
 
 	const snap = useCallback(
 		(p: Pt, angleFrom?: Pt): Pt => {
@@ -1254,96 +1011,6 @@ export function EditorCanvas({
 				contextMenu={contextMenu}
 				onCloseContextMenu={() => setContextMenu(null)}
 			/>
-		</div>
-	);
-}
-
-const BRUSH_MIN = 5;
-const BRUSH_MAX = 200;
-const BRUSH_STEP = 5;
-/** Pixels of drag per unit of brush size — a full-height drag covers the whole range on a phone. */
-const BRUSH_PX_PER_UNIT = 2.4;
-
-/**
- * RC-MAP-4.3 — the fog brush's size, as a thing you drag. Vertical because the fog tool's own
- * gesture is horizontal-ish and a phone has more height than width to spare. It is a real
- * `role="slider"`, so the arrow keys, Home and End reach the identical values without a pointer.
- */
-function FogBrushHandle({
-	size,
-	label,
-	onChange,
-}: {
-	size: number;
-	label: string;
-	onChange: (value: number) => void;
-}) {
-	const drag = useRef<{ pointerId: number; y: number; size: number } | null>(null);
-	const set = (value: number) =>
-		onChange(Math.round(Math.min(BRUSH_MAX, Math.max(BRUSH_MIN, value))));
-	return (
-		<div
-			role="slider"
-			tabIndex={0}
-			aria-label={label}
-			aria-valuemin={BRUSH_MIN}
-			aria-valuemax={BRUSH_MAX}
-			aria-valuenow={size}
-			aria-orientation="vertical"
-			onPointerDown={(event) => {
-				event.currentTarget.setPointerCapture(event.pointerId);
-				drag.current = { pointerId: event.pointerId, y: event.clientY, size };
-				event.stopPropagation();
-			}}
-			onPointerMove={(event) => {
-				const active = drag.current;
-				if (!active || active.pointerId !== event.pointerId) return;
-				// Up is bigger: the handle grows towards the ring it is sizing.
-				set(active.size + (active.y - event.clientY) / BRUSH_PX_PER_UNIT);
-				event.stopPropagation();
-			}}
-			onPointerUp={(event) => {
-				drag.current = null;
-				event.stopPropagation();
-			}}
-			onPointerCancel={() => {
-				drag.current = null;
-			}}
-			onKeyDown={(event) => {
-				const step =
-					event.key === 'ArrowUp' || event.key === 'ArrowRight'
-						? BRUSH_STEP
-						: event.key === 'ArrowDown' || event.key === 'ArrowLeft'
-							? -BRUSH_STEP
-							: 0;
-				if (step !== 0) {
-					event.preventDefault();
-					set(size + step);
-				} else if (event.key === 'Home') {
-					event.preventDefault();
-					set(BRUSH_MIN);
-				} else if (event.key === 'End') {
-					event.preventDefault();
-					set(BRUSH_MAX);
-				}
-			}}
-			style={{
-				pointerEvents: 'auto',
-				display: 'inline-flex',
-				alignItems: 'center',
-				justifyContent: 'center',
-				width: 48,
-				height: 48,
-				borderRadius: 24,
-				border: `1px solid ${T.accBd}`,
-				background: T.surf,
-				color: T.acc,
-				font: `700 12px ${T.sans}`,
-				touchAction: 'none',
-				cursor: 'ns-resize',
-			}}
-		>
-			{size}
 		</div>
 	);
 }

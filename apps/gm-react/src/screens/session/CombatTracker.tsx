@@ -6,7 +6,6 @@ import {
 	Button,
 	Chip,
 	ConditionBadge,
-	Dialog,
 	EmptyState,
 	HPBar,
 	IconButton,
@@ -20,6 +19,7 @@ import { Panel, T, eb } from '../../app/screen-kit';
 // RC-CAN-5.3 lifted the keypad into `app/combat/` so the board's touch-first combat tile uses the
 // same sheet as this tracker; `CombatantRow` and `HpIntent` moved with it.
 import { HpKeypadSheet, type CombatantRow, type HpIntent } from '../../app/combat/HpKeypadSheet';
+import { useCombatKeyboard } from './useCombatKeyboard';
 
 /**
  * RC-SES-3.2 — enough of the combatant's resources to put them back exactly as they were. The
@@ -134,104 +134,20 @@ export function CombatPanel({
 		return () => window.clearTimeout(timer);
 	}, [undo]);
 
-	// RC-SES-3.4 — THE TRACKER KEYBOARD MODEL. Bare letters/arrows, refused while a text field or a
-	// dialog owns the keyboard, so this never fights typing in the label/HP-keypad/condition inputs:
-	//   `n` / `p`      — next / previous turn (same command as the Next/Previous turn buttons).
-	//   `d` / `h`      — open the HP keypad for the selected combatant (falls back to whoever's turn
-	//                    it is), pre-set to Damage / Heal.
-	//   ArrowUp/Down   — move the row cursor (selection) up/down the initiative order.
-	//   Enter          — opens the selected row's detail panel by moving focus into it (the panel
-	//                    itself is already rendered on selection; RC-SES-3.3 is what will put a
-	//                    bound stat block inside it — this wires the keyboard entry point to whatever
-	//                    the panel holds today).
-	//   Alt+ArrowUp/Down — DM-only: reorder the selected combatant earlier/later (mirrors the
-	//                    chevron buttons below), announced since a reorder has no dispatch toast.
-	useEffect(() => {
-		if (!running || previewing) return undefined;
-		function onKey(e: KeyboardEvent) {
-			const el = e.target as HTMLElement | null;
-			if (el && (el.isContentEditable || /^(input|textarea|select)$/i.test(el.tagName))) return;
-			if (document.querySelector('[role="dialog"]')) return;
-			// A focused BUTTON (the row's own name toggle, the reorder chevrons, …) handles its own
-			// Enter/Space activation natively — this model is for when the cursor is NOT on one of
-			// those (arrow-key selection moves a React state cursor, not DOM focus), so Enter here
-			// never fights a real button's native keypress.
-			const onButton = el?.tagName === 'BUTTON';
-
-			if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-				if (!isDm || !selectedId) return;
-				const idx = tracker.combatants.findIndex((c) => c.id === selectedId);
-				if (idx === -1) return;
-				const earlier = e.key === 'ArrowUp';
-				if (earlier && idx <= 0) return;
-				if (!earlier && idx >= tracker.combatants.length - 1) return;
-				e.preventDefault();
-				const name = tracker.combatants[idx].name;
-				onReorder(selectedId, earlier ? 'earlier' : 'later');
-				setReorderAnnouncement(
-					t(
-						earlier
-							? 'session.combat.movedEarlierAnnouncement'
-							: 'session.combat.movedLaterAnnouncement',
-						{
-							name,
-						},
-					),
-				);
-				return;
-			}
-			if (e.metaKey || e.ctrlKey || e.altKey) return;
-
-			if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-				if (tracker.combatants.length === 0) return;
-				e.preventDefault();
-				const idx = tracker.combatants.findIndex((c) => c.id === selectedId);
-				const delta = e.key === 'ArrowDown' ? 1 : -1;
-				const next =
-					idx === -1 ? 0 : Math.min(tracker.combatants.length - 1, Math.max(0, idx + delta));
-				onSelect(tracker.combatants[next].id);
-				return;
-			}
-			if (e.key === 'Enter') {
-				if (!selectedId || onButton) return;
-				e.preventDefault();
-				detailRef.current?.querySelector<HTMLElement>('button, [href], input, [tabindex]')?.focus();
-				return;
-			}
-			const key = e.key.toLowerCase();
-			if (key === 'n') {
-				e.preventDefault();
-				onAdvance();
-				return;
-			}
-			if (key === 'p') {
-				e.preventDefault();
-				onPrevious();
-				return;
-			}
-			if (key === 'd' || key === 'h') {
-				const target =
-					tracker.combatants.find((c) => c.id === selectedId && c.resources) ??
-					tracker.combatants.find((c) => c.id === tracker.activeCombatantId && c.resources);
-				if (!target) return;
-				e.preventDefault();
-				setHpSheet({ id: target.id, intent: key === 'd' ? 'damage' : 'heal' });
-			}
-		}
-		window.addEventListener('keydown', onKey);
-		return () => window.removeEventListener('keydown', onKey);
-	}, [
+	useCombatKeyboard({
 		running,
 		previewing,
-		selectedId,
 		tracker,
+		selectedId,
 		isDm,
+		detailRef,
 		onAdvance,
 		onPrevious,
 		onSelect,
 		onReorder,
-		t,
-	]);
+		onOpenHpSheet: (id, intent) => setHpSheet({ id, intent }),
+		onReorderAnnouncement: setReorderAnnouncement,
+	});
 
 	function openHpSheet(id: string, intent: HpIntent) {
 		if (previewing) return;
@@ -850,61 +766,4 @@ export function CombatPanel({
 					: 'session.combat.hp.appliedTemp';
 		return t(key, { amount: entry.amount, name: entry.name });
 	}
-}
-
-// ── Condition picker (design-b condPick modal, wired to combat.apply-resource) ────────────────────
-
-export function ConditionPickerDialog({
-	target,
-	onClose,
-	onPick,
-}: {
-	target: CombatantRow | null;
-	onClose: () => void;
-	onPick: (combatantId: string, condition: string) => void;
-}) {
-	const { t } = useI18n();
-	// RC-SYS-2.3 — the ACTIVE system package decides what can be applied, in the order it authored.
-	const { conditions } = useConditionCatalog();
-	const present = new Set(target?.resources?.conditions ?? []);
-	const keys = conditions.map((c) => c.key).filter((k) => !present.has(k));
-	return (
-		<Dialog
-			open={!!target}
-			onClose={onClose}
-			title={
-				target
-					? t('session.combat.addConditionFor', { name: target.name })
-					: t('session.combat.addCondition')
-			}
-			description={t('session.combat.addConditionHelp')}
-			icon="cond-poisoned"
-			size="md"
-		>
-			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 9 }}>
-				{keys.map((k) => (
-					<button
-						key={k}
-						type="button"
-						aria-label={t('session.combat.addNamedCondition', {
-							condition: conditions.find((c) => c.key === k)?.label ?? k,
-						})}
-						onClick={() => target && onPick(target.id, k)}
-						style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
-					>
-						<ConditionBadge condition={k} />
-					</button>
-				))}
-				{keys.length === 0 && (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						{t(
-							conditions.length === 0
-								? 'session.combat.noSystemConditions'
-								: 'session.combat.allConditionsApplied',
-						)}
-					</div>
-				)}
-			</div>
-		</Dialog>
-	);
 }
