@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import { getCombatTrackerForActor } from '@dndtools/core';
 import { Icon, IconButton } from '../../ds';
 import { useI18n } from '../../i18n';
-import { useRuntime } from '../../runtime/RuntimeContext';
+import { SessionQuickPanel } from '../session/QuickPanel';
 import { T } from '../screen-kit';
 import { useSessionPosture } from './session-posture';
 
@@ -12,18 +11,16 @@ import { useSessionPosture } from './session-posture';
  * not have to find a panel at the exact moment the table starts. Collapsing it is a deliberate act
  * the rail then remembers for the rest of that session, and going live again re-opens it.
  *
- * What it shows today is the posture the shell already knows: how long the session has been live and
- * whose turn it is, both read through actor-scoped Core queries. RC-SES-1.2 replaces this body with
- * the full quick panel (dice bar, Next turn, timer, now-playing, handout push) — the rail, its
- * auto-open behaviour and its collapse control are the part that belongs to this story, so nothing
- * here is a placeholder control: every line is real state or it is absent.
+ * Its body is RC-SES-1.2's `SessionQuickPanel` (timer, current combatant + Next turn, dice bar,
+ * now-playing, handout push) — the same component the narrower tiers open in a sheet, so the two
+ * surfaces cannot drift. The rail itself, its auto-open behaviour and its collapse control are what
+ * belongs to RC-SES-1.1.
  */
 
 const RAIL_WIDTH = 272;
 
 export function SessionRail() {
 	const { t } = useI18n();
-	const runtime = useRuntime();
 	const posture = useSessionPosture();
 	const [collapsed, setCollapsed] = useState(false);
 	// Re-open on each new live session (the instant changes), never on every render.
@@ -56,18 +53,6 @@ export function SessionRail() {
 		);
 	}
 
-	// SES-002 — the actor-filtered tracker: the rail never re-derives who is visible, and a DM
-	// previewing as a player sees exactly what that player would.
-	const tracker = getCombatTrackerForActor(
-		runtime.state.session.combat,
-		runtime.state.permissions,
-		runtime.defaultActorId,
-	);
-	const activeCombatant =
-		tracker.status === 'running'
-			? (tracker.combatants.find((c) => c.id === tracker.activeCombatantId) ?? null)
-			: null;
-
 	return (
 		<aside
 			data-testid="session-rail"
@@ -98,29 +83,7 @@ export function SessionRail() {
 				/>
 			</div>
 
-			{posture.elapsed && (
-				<div>
-					<div style={{ font: `11px ${T.sans}`, color: T.ter }}>{t('shell.sessionElapsed')}</div>
-					<div
-						data-testid="session-rail-elapsed"
-						style={{ font: `600 22px ${T.mono}`, color: T.ink, letterSpacing: '.02em' }}
-					>
-						{posture.elapsed}
-					</div>
-				</div>
-			)}
-
-			<div>
-				<div style={{ font: `11px ${T.sans}`, color: T.ter }}>{t('shell.sessionTurn')}</div>
-				<div style={{ font: `600 13.5px ${T.sans}`, color: activeCombatant ? T.ink : T.ter }}>
-					{activeCombatant ? activeCombatant.name : t('shell.sessionNoTurn')}
-				</div>
-				{activeCombatant && (
-					<div style={{ font: `11.5px ${T.sans}`, color: T.ter, marginTop: 2 }}>
-						{t('shell.sessionRound', { round: tracker.round })}
-					</div>
-				)}
-			</div>
+			<SessionQuickPanel />
 		</aside>
 	);
 }

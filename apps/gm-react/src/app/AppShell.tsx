@@ -12,6 +12,7 @@ import { RailNav } from './shell/RailNav';
 import { TopBar } from './shell/TopBar';
 import { Footer } from './shell/Footer';
 import { SessionRail } from './shell/SessionRail';
+import { SessionQuickSheet } from './session/QuickPanel';
 import { ShortcutsDialog } from './help/ShortcutsDialog';
 import { matchesShortcut } from './shortcuts/registry';
 
@@ -229,6 +230,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 			    the Core's session workflow is `active`, and the narrower tiers keep their own posture
 			    signals (the rail dot, the phone status strip) rather than losing width to a panel. */}
 			{viewport === 'desktop' && <SessionRail />}
+			{/* RC-SES-1.2 — the tiers with no room for a rail reach the SAME quick panel through a
+			    trigger above the navigation: the dice bar, the turn and the handout push follow the DM
+			    onto every route, which is the whole point of the panel. The offset clears the phone tab
+			    bar (52px + padding + border) and, on the rail tier, the window edge. */}
+			{viewport !== 'desktop' && (
+				<SessionQuickSheet bottomOffset={viewport === 'phone' ? 92 : 16} />
+			)}
 			<CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 			<SceneDisplayOverlay open={displayOpen} onClose={() => setDisplayOpen(false)} />
 			{shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}

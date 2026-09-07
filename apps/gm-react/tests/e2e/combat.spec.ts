@@ -251,8 +251,10 @@ test('the tracker announces whose turn it is, and the HP controls name their com
 	await expect(readout).toContainText('Bog Lurker');
 	await expect(order.getByRole('status')).toHaveCount(0);
 
-	// Advancing the turn changes the region's CONTENTS, which is what makes it announce.
-	await page.getByRole('button', { name: 'Next turn' }).click();
+	// Advancing the turn changes the region's CONTENTS, which is what makes it announce. Scoped to
+	// the console: RC-SES-1.2's quick panel carries its own "Next turn" in the desktop right rail,
+	// which is a sibling landmark, not a second copy of this one.
+	await page.locator('#main-content').getByRole('button', { name: 'Next turn' }).click();
 	await expect(readout).toContainText('Reed Stalker');
 
 	// With six combatants, six buttons all named "Heal 1" gave a screen-reader DM no way to tell
@@ -651,5 +653,52 @@ test.describe('/session controls do not disable themselves under the user’s fo
 				),
 			).toBe(before);
 		}
+	});
+});
+
+// RC-SES-1.2 — the session quick panel. The point of the panel is that it is NOT on /session: the
+// DM can look something up in the knowledge base and still run the turn order, so the acceptance
+// case advances a turn from /knowledge on both profiles.
+test.describe('session quick panel', () => {
+	/** Open the panel for this viewport: desktop has the rail already, narrower tiers use the trigger. */
+	async function openQuickPanel(page: Page): Promise<void> {
+		const trigger = page.getByTestId('session-quick-trigger');
+		if (await trigger.isVisible()) await trigger.click();
+	}
+
+	/** `combat.turn` is the index into the initiative order — advancing a turn must move it. */
+	function turnCursor(page: Page): Promise<string> {
+		return page.evaluate(() => {
+			const combat = (window.__rt!.state.session as { combat: { round: number; turn: number } })
+				.combat;
+			return `${combat.round}:${combat.turn}`;
+		});
+	}
+
+	test('advances a turn from /knowledge', async ({ page }) => {
+		await gotoRoute(page, '/knowledge');
+		await openQuickPanel(page);
+
+		const before = await turnCursor(page);
+		const next = page.getByTestId('quick-next-turn');
+		await expect(next).toBeVisible();
+		await next.click();
+
+		await expect.poll(() => turnCursor(page)).not.toBe(before);
+		// Still off /session — the whole point of the panel.
+		expect(page.url()).toContain('/knowledge');
+	});
+
+	test('rolls a die from the quick dice bar while off /session', async ({ page }) => {
+		await gotoRoute(page, '/knowledge');
+		await openQuickPanel(page);
+
+		const rolls = () =>
+			page.evaluate(
+				() => (window.__rt!.state.session as { diceHistory?: unknown[] }).diceHistory?.length ?? 0,
+			);
+		const before = await rolls();
+		await page.getByTestId('quick-die-d20').click();
+		await expect.poll(rolls).toBeGreaterThan(before);
 	});
 });
