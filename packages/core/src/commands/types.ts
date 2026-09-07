@@ -1,6 +1,7 @@
 import type { ActorId, OperationId, SceneId } from '../state/ids';
 import type { Clock, IdGenerator } from '../state/ids';
 import type { CharacterState } from '../state/character-state';
+import type { RestOutcome } from '../state/character-resources';
 import type { CommandCenterState } from '../state/command-center-state';
 import type { MapState } from '../state/map-state';
 import type { MapLayerMutationKind } from '../state/map-layers';
@@ -1483,6 +1484,12 @@ export type CoreEvent =
 			characterId: string;
 			revision: number;
 			rest: 'short' | 'long';
+			/**
+			 * RC-CHR-1.2 — what the rest actually did (hit dice spent and what they rolled, hit points
+			 * regained, hit dice handed back, exhaustion before/after, and the seed the dice were drawn
+			 * from). Optional so a listener written before this slice keeps compiling.
+			 */
+			outcome?: RestOutcome;
 			actorId: ActorId;
 	  }
 	// RC-SYS-2.2 — a scene ended and the package's scene-recovered resources came back.

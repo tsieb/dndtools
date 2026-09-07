@@ -5061,6 +5061,41 @@ export const en = {
 	'markdown.showSecret': 'Show',
 	'markdown.hideSecret': 'Hide',
 	'markdown.secretWithheld': 'Part of this note is DM only.',
+	// RC-CHR-1.2 — the rest workflow: the per-character rest dialog and the DM's party-wide call.
+	'character.rest.title': 'Rest — {name}',
+	'character.rest.description': 'Choose the rest, and how many hit dice to spend on it.',
+	'character.rest.kindLabel': 'Rest',
+	'character.rest.short': 'Short rest',
+	'character.rest.long': 'Long rest',
+	'character.rest.hitDiceLabel': 'Hit dice to spend',
+	'character.rest.hitDiceHelp': '{available} {die} left to spend.',
+	'character.rest.spendNone': 'None',
+	'character.rest.spendCount': '{count} {die}',
+	'character.rest.modeLabel': 'How each die is resolved',
+	'character.rest.average': 'Take the average',
+	'character.rest.roll': 'Roll each die',
+	'character.rest.noHitDice':
+		'No hit dice are recorded for this character, so a short rest recovers short-rest resources only.',
+	'character.rest.shortSummaryNoDice': 'Recovers short-rest resources. No hit points are regained.',
+	'character.rest.shortSummaryAverage': 'Spends {dice} hit dice and regains {hp} hit points.',
+	'character.rest.shortSummaryRoll':
+		'Rolls {dice} {die} and adds the constitution modifier to each, at least 0 per die.',
+	'character.rest.longSummary':
+		'Regains {hp} hit points, returns {dice} hit dice, and leaves exhaustion at {exhaustion}.',
+	'character.rest.takeShort': 'Take a short rest',
+	'character.rest.takeLong': 'Take a long rest',
+	'character.rest.cancel': 'Cancel',
+	'session.rest.call': 'Call a rest',
+	'session.rest.title': 'Call a rest',
+	'session.rest.description':
+		'Every player character takes this rest. Players spend their own hit dice from the character sheet.',
+	'session.rest.applies': 'Applies to {count} player characters.',
+	'session.rest.noParty': 'No player characters are in the roster yet, so there is nobody to rest.',
+	'session.rest.confirm': 'Call the rest',
+	'session.rest.cancel': 'Cancel',
+	'session.rest.called': 'Rest called for {count} characters',
+	'session.rest.timeline': 'Rests this session',
+	'session.rest.timelineHelp': 'Every rest the party has taken, newest first.',
 } as const;
 
 /** Every string the app can render, addressed by key. */

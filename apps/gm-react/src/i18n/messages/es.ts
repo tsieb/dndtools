@@ -5207,4 +5207,43 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'markdown.showSecret': 'Mostrar',
 	'markdown.hideSecret': 'Ocultar',
 	'markdown.secretWithheld': 'Parte de esta nota es solo para el DM.',
+	// RC-CHR-1.2 — el flujo de descanso: el diálogo por personaje y la llamada del DM a todo el grupo.
+	'character.rest.title': 'Descanso — {name}',
+	'character.rest.description': 'Elige el descanso y cuántos dados de golpe gastar en él.',
+	'character.rest.kindLabel': 'Descanso',
+	'character.rest.short': 'Descanso corto',
+	'character.rest.long': 'Descanso largo',
+	'character.rest.hitDiceLabel': 'Dados de golpe a gastar',
+	'character.rest.hitDiceHelp': 'Quedan {available} {die} por gastar.',
+	'character.rest.spendNone': 'Ninguno',
+	'character.rest.spendCount': '{count} {die}',
+	'character.rest.modeLabel': 'Cómo se resuelve cada dado',
+	'character.rest.average': 'Usar el promedio',
+	'character.rest.roll': 'Tirar cada dado',
+	'character.rest.noHitDice':
+		'Este personaje no tiene dados de golpe registrados, así que un descanso corto solo recupera los recursos de descanso corto.',
+	'character.rest.shortSummaryNoDice':
+		'Recupera los recursos de descanso corto. No se recuperan puntos de golpe.',
+	'character.rest.shortSummaryAverage':
+		'Gasta {dice} dados de golpe y recupera {hp} puntos de golpe.',
+	'character.rest.shortSummaryRoll':
+		'Tira {dice} {die} y suma el modificador de constitución a cada uno, con un mínimo de 0 por dado.',
+	'character.rest.longSummary':
+		'Recupera {hp} puntos de golpe, devuelve {dice} dados de golpe y deja el agotamiento en {exhaustion}.',
+	'character.rest.takeShort': 'Tomar un descanso corto',
+	'character.rest.takeLong': 'Tomar un descanso largo',
+	'character.rest.cancel': 'Cancelar',
+	'session.rest.call': 'Convocar un descanso',
+	'session.rest.title': 'Convocar un descanso',
+	'session.rest.description':
+		'Todos los personajes jugadores toman este descanso. Cada jugador gasta sus dados de golpe desde su hoja.',
+	'session.rest.applies': 'Se aplica a {count} personajes jugadores.',
+	'session.rest.noParty':
+		'Aún no hay personajes jugadores en la lista, así que no hay a quién descansar.',
+	'session.rest.confirm': 'Convocar el descanso',
+	'session.rest.cancel': 'Cancelar',
+	'session.rest.called': 'Descanso convocado para {count} personajes',
+	'session.rest.timeline': 'Descansos de esta sesión',
+	'session.rest.timelineHelp':
+		'Todos los descansos que ha tomado el grupo, del más reciente al más antiguo.',
 };

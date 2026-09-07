@@ -1718,6 +1718,15 @@ export const updateCombatResourceInputSchema = z.discriminatedUnion('kind', [
 			amount: z.number().int().positive(),
 		})
 		.strict(),
+	// RC-CHR-1.2 — set the EXHAUSTION level outright (0…6). Applied at the table for reasons the core
+	// cannot infer, so it carries the level rather than a delta; only a long rest changes it on its own.
+	z
+		.object({
+			characterId: idSchema,
+			kind: z.literal('exhaustion'),
+			level: z.number().int().min(0).max(6),
+		})
+		.strict(),
 ]);
 
 // --- CHAR-008 — owner-managed spell/resource structure + rest recovery ---------------------------
@@ -1819,6 +1828,22 @@ export const restCharacterInputSchema = z
 	.object({
 		characterId: idSchema,
 		rest: restKindSchema,
+		/**
+		 * RC-CHR-1.2 — hit dice to spend on a SHORT rest, each either rolled or taken at its average.
+		 * Absent ⇒ rest without spending any. Spending on a long rest is rejected (it heals in full).
+		 */
+		hitDice: z
+			.object({
+				spend: z.number().int().min(0).max(20),
+				mode: z.enum(['roll', 'average']),
+			})
+			.strict()
+			.optional(),
+		/**
+		 * An explicit seed for the hit-dice rolls. Omitted ⇒ the command's own operation id seeds them,
+		 * so the outcome is computed once, recorded, and reproducible (the dice roller's rule).
+		 */
+		seed: z.union([z.number(), z.string().min(1)]).optional(),
 	})
 	.strict();
 

@@ -453,6 +453,22 @@ export function Player() {
 							canManageResources={data.canManageResources}
 							actorId={actorId}
 							compact={viewport === 'phone'}
+							// RC-CHR-1.2 — what the rest dialog needs, all from the actor-scoped view: the
+							// hit dice on the sheet, the hit-point pool a rest heals, the CON modifier the
+							// core adds to each spent die, and the exhaustion a long rest steps down.
+							restSubject={
+								C
+									? {
+											id: charId,
+											name: C.name,
+											hp: C.combat.hp,
+											maxHp: C.combat.maxHp,
+											hitDice: C.proficiencies.hitDice,
+											conMod: Math.floor(((C.abilityScores.con ?? 10) - 10) / 2),
+											exhaustion: data.resources?.exhaustion ?? 0,
+										}
+									: null
+							}
 							dispatch={dispatch}
 						/>
 					)}

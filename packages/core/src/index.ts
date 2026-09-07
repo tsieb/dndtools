@@ -5661,3 +5661,14 @@ export {
 	travelPacesForSystem,
 	travelSpeedForPace,
 } from './queries/map-travel-query';
+
+// RC-CHR-1.2 — the REST workflow: hit dice spent on a short rest (rolled from a recorded seed or
+// taken at their average), half the hit dice handed back by a long rest, and one level of exhaustion
+// removed by it. `RestOutcome` is what the rest actually did, carried on the op and the event.
+export type {
+	HitDiceSpendMode,
+	RestHitDiceSpend,
+	RestOutcome,
+	RestResult,
+} from './state/character-resources';
+export { EXHAUSTION_MAX, restKindOfLedgerEntry, setExhaustion } from './state/character-resources';

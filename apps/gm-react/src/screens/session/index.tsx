@@ -17,6 +17,8 @@ import {
 	listMapsForActor,
 	listScenesForActor,
 	projectSessionPresence,
+	resourcesOf,
+	restKindOfLedgerEntry,
 	SESSION_LOG_SUBTYPE,
 	VAULT_OBJECT_SUBTYPE_KEY,
 	type CalendarDefinition,
@@ -37,9 +39,12 @@ import { HandoutsPanel } from './Handouts';
 import {
 	EndCombatDialog,
 	EndSessionDialog,
+	CallRestDialog,
+	RestTimelinePanel,
 	SessionHeader,
 	StandbyCard,
 	StartSessionDialog,
+	type RestTimelineEntry,
 	type SessionStartChoice,
 } from './Lifecycle';
 import { AudioPanel } from './NowPlaying';
@@ -106,6 +111,7 @@ export function Session() {
 		recapArchiveId,
 		captureCandidates,
 		campaignDateValue,
+		restLog,
 	} = useMemo(() => {
 		const session = runtime.state.session;
 		const perms = runtime.state.permissions;
@@ -177,6 +183,25 @@ export function Session() {
 				label: item.title,
 			})),
 		];
+		// RC-CHR-1.2 — the rests taken so far, read back from each character's durable expenditure
+		// history. The records are pulled only for characters the ACTOR-SCOPED roster already returned,
+		// so the panel can never surface a rest for a character this viewer may not see.
+		const restLog: RestTimelineEntry[] = characters
+			.flatMap((character) => {
+				const record = runtime.state.characters.characters[character.id];
+				if (!record) return [];
+				return resourcesOf(record)
+					.ledger.filter((entry) => entry.kind === 'rest')
+					.map((entry) => ({
+						id: entry.id,
+						characterName: character.name,
+						label: entry.label,
+						at: entry.at,
+						rest: restKindOfLedgerEntry(entry) ?? ('short' as const),
+					}));
+			})
+			.sort((a, b) => b.at.localeCompare(a.at))
+			.slice(0, 12);
 		// The RAW campaign date (the formatted one is for display): dating the session-log note with it
 		// is what puts the note on the Campaign timeline, which reads dated items in the same calendar.
 		const campaignDateValue = session.calendarContinuity.currentDate ?? null;
@@ -204,6 +229,7 @@ export function Session() {
 			recapArchiveId: session.recapArchiveId,
 			captureCandidates,
 			campaignDateValue,
+			restLog,
 		};
 	}, [runtime.state, actorId]);
 
@@ -236,6 +262,8 @@ export function Session() {
 	const [standbyConfirmOpen, setStandbyConfirmOpen] = useState(false);
 	// RC-SES-1.3 — the start flow's dialog (continue the current scene, or a new session with a name).
 	const [startOpen, setStartOpen] = useState(false);
+	// RC-CHR-1.2 — the DM's party-wide "Call a rest" dialog.
+	const [restOpen, setRestOpen] = useState(false);
 
 	// Create-intent handoff from the "Build encounter" launchers (⌘K palette, the shell's Create
 	// menu). They used to perform a bare navigation to /session and leave the DM to hunt for the
@@ -408,6 +436,7 @@ export function Session() {
 				isDm={isDm}
 				onSetWorkflow={(w) => setWorkflow(w)}
 				onEnd={() => setStandbyConfirmOpen(true)}
+				onCallRest={() => setRestOpen(true)}
 			/>
 
 			{!isLive && (
@@ -616,6 +645,7 @@ export function Session() {
 						presence={presenceByActor}
 					/>
 					<PartyPanel party={party} />
+					<RestTimelinePanel entries={restLog} />
 					{isDm && <SchedulePanel />}
 				</div>
 			</div>
@@ -665,6 +695,15 @@ export function Session() {
 					void goLive(choice);
 				}}
 			/>
+			<CallRestDialog
+				open={restOpen}
+				partyCount={party.length}
+				onClose={() => setRestOpen(false)}
+				onConfirm={(rest) => {
+					setRestOpen(false);
+					void callRest(rest);
+				}}
+			/>
 			<ConditionPickerDialog
 				target={condPickTarget}
 				onClose={() => setCondPickFor(null)}
@@ -679,6 +718,25 @@ export function Session() {
 			/>
 		</Page>
 	);
+
+	/**
+	 * RC-CHR-1.2 — call the rest for the whole party: one `character.rest` per player character,
+	 * dispatched in order so each op is stamped and recorded separately. A character the core refuses
+	 * (an expired grant, a character that vanished mid-call) is counted out of the summary rather than
+	 * reported as rested, so the toast never claims more than actually happened.
+	 */
+	async function callRest(rest: 'short' | 'long') {
+		let rested = 0;
+		for (const character of party) {
+			const ok = await dispatch({
+				type: 'character.rest',
+				actorId,
+				payload: { characterId: character.id, rest },
+			});
+			if (ok) rested += 1;
+		}
+		if (rested > 0) Toaster.success(t('session.rest.called', { count: rested }));
+	}
 
 	function setWorkflow(target: 'prep' | 'active' | 'recap' | 'idle') {
 		// The phase Seg was the ONLY control on /session with no `previewing`/`isDm` gate (every other

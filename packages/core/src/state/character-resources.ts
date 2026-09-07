@@ -1,6 +1,8 @@
 import type { ActorId } from './ids';
 import type { ActorRole } from './permission-state';
 import type { Character } from './character-state';
+import { ensureCharacterProficiencies } from './character-state';
+import { createRng, normalizeSeed } from './prng';
 import type { FormulaScope, SystemPackage, SystemRecovery, SystemResource } from './system-package';
 import { evaluateFormula } from './system-package';
 
@@ -21,7 +23,16 @@ import { evaluateFormula } from './system-package';
  * command intents and renders the computed model.
  */
 
-export const CHARACTER_RESOURCES_SCHEMA_VERSION = 1 as const;
+/**
+ * Bumped to 2 by RC-CHR-1.2, which added the durable {@link CharacterResources.exhaustion} level.
+ * The bump is ADDITIVE: {@link ensureCharacterResources} is the migration — a version-1 block
+ * hydrates with `exhaustion: 0` and is stamped at 2, so no persisted document needs rewriting and
+ * every older field round-trips unchanged.
+ */
+export const CHARACTER_RESOURCES_SCHEMA_VERSION = 2 as const;
+
+/** The rule bound on exhaustion: 6 levels, where the sixth is fatal. A long rest removes one. */
+export const EXHAUSTION_MAX = 6 as const;
 
 /** Death-save success/failure tally during a session (3 each is the rule bound). */
 export interface DeathSaveState {
@@ -110,6 +121,8 @@ export interface ResourceLedgerEntry {
 		| 'death-save'
 		| 'concentration'
 		| 'rest'
+		// RC-CHR-1.2 — an exhaustion level was set, or removed by a long rest.
+		| 'exhaustion'
 		| 'scene';
 	/** A short human label (e.g. "Cast level 1 slot", "Short rest"). */
 	label: string;
@@ -136,6 +149,11 @@ export interface CharacterResources {
 	spells: PreparedSpell[];
 	/** Class/short-rest resources (CHAR-008), each declaring its recharge rest. */
 	classResources: Record<string, ClassResource>;
+	/**
+	 * RC-CHR-1.2 — the character's EXHAUSTION level, 0 (none) through {@link EXHAUSTION_MAX}. A long
+	 * rest removes one level. Additive: a block persisted before this slice hydrates at 0.
+	 */
+	exhaustion: number;
 	/** Append-only expenditure/recovery history, oldest first (CHAR-008). */
 	ledger: ResourceLedgerEntry[];
 	schemaVersion: typeof CHARACTER_RESOURCES_SCHEMA_VERSION;
@@ -147,9 +165,16 @@ export const EMPTY_CHARACTER_RESOURCES: CharacterResources = Object.freeze({
 	spellSlots: {},
 	spells: [],
 	classResources: {},
+	exhaustion: 0,
 	ledger: [],
 	schemaVersion: CHARACTER_RESOURCES_SCHEMA_VERSION,
 });
+
+/** Clamp any persisted/incoming exhaustion value into 0…{@link EXHAUSTION_MAX}. Pure. */
+function clampExhaustion(value: number | undefined): number {
+	if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
+	return Math.max(0, Math.min(EXHAUSTION_MAX, Math.trunc(value)));
+}
 
 /** Tolerantly hydrate a possibly-absent/partial resources block (safe empty default). */
 export function ensureCharacterResources(
@@ -163,6 +188,9 @@ export function ensureCharacterResources(
 		spellSlots: resources?.spellSlots ? { ...resources.spellSlots } : {},
 		spells: resources?.spells ? resources.spells.map((s) => ({ ...s })) : [],
 		classResources: resources?.classResources ? { ...resources.classResources } : {},
+		// RC-CHR-1.2 migration (schema 1 ⇒ 2): absent, non-finite or out-of-range exhaustion clamps
+		// into 0…EXHAUSTION_MAX rather than propagating a value the rules cannot express.
+		exhaustion: clampExhaustion(resources?.exhaustion),
 		ledger: resources?.ledger ? resources.ledger.map((e) => ({ ...e })) : [],
 		schemaVersion: CHARACTER_RESOURCES_SCHEMA_VERSION,
 	};
@@ -192,6 +220,8 @@ function clamp(value: number, min: number, max: number): number {
 
 export type ResourceUpdateError =
 	| 'invalid-amount'
+	// RC-CHR-1.2 — more hit dice were spent on a short rest than the character has left.
+	| 'insufficient-hit-dice'
 	| 'no-such-slot-level'
 	| 'no-such-class-resource'
 	| 'insufficient-slots'
@@ -417,6 +447,37 @@ export function setConcentration(
 		null,
 	);
 	return { ok: true, resources: appendLedger({ ...resources, concentration: next }, entry), entry };
+}
+
+/**
+ * RC-CHR-1.2 — set the EXHAUSTION level outright (0…{@link EXHAUSTION_MAX}). Exhaustion is applied by
+ * the table for all sorts of reasons the core cannot infer, so the command carries the level rather
+ * than a delta; a long rest is the one place the core changes it on its own (see {@link applyRest}).
+ * A level outside the rule bound is rejected rather than silently clamped, so a mis-typed 9 never
+ * reads back as a 6 the table never chose. Pure.
+ */
+export function setExhaustion(
+	resources: CharacterResources,
+	level: number,
+	meta: ResourceUpdateMeta,
+):
+	| { ok: true; resources: CharacterResources; entry: ResourceLedgerEntry }
+	| { ok: false; error: ResourceUpdateError; message: string } {
+	if (!Number.isInteger(level) || level < 0 || level > EXHAUSTION_MAX) {
+		return {
+			ok: false,
+			error: 'invalid-amount',
+			message: `Exhaustion runs from 0 to ${EXHAUSTION_MAX}.`,
+		};
+	}
+	const delta = level - resources.exhaustion;
+	const entry = ledgerEntry(
+		meta,
+		'exhaustion',
+		level === 0 ? 'Exhaustion cleared' : `Exhaustion ${level}`,
+		delta,
+	);
+	return { ok: true, resources: appendLedger({ ...resources, exhaustion: level }, entry), entry };
 }
 
 // --- Spell slots + class resources (CHAR-007 expend, CHAR-008 manage) ---------------------------
@@ -715,13 +776,71 @@ export function recomputeResourceMaxima(
  *
  * One ledger entry records the rest. Pure: no ambient clock/entropy.
  */
+/** How a spent hit die is turned into hit points: rolled from a recorded seed, or taken as average. */
+export type HitDiceSpendMode = 'roll' | 'average';
+
+/** RC-CHR-1.2 — the hit dice a SHORT rest spends, and how each die is resolved. */
+export interface RestHitDiceSpend {
+	/** How many hit dice to spend. 0 (or an absent request) rests without spending any. */
+	spend: number;
+	mode: HitDiceSpendMode;
+	/**
+	 * The seed the rolls are drawn from in `roll` mode. The command supplies its operation id, so the
+	 * outcome is computed ONCE, recorded, and reproducible on every device — the same rule the dice
+	 * roller follows (`commands/dice.ts`). Ignored in `average` mode, which draws nothing.
+	 */
+	seed?: number | string;
+}
+
+/** RC-CHR-1.2 — what a rest actually did, for the ledger, the op value, and the screen that asked. */
+export interface RestOutcome {
+	rest: RestKind;
+	/** Hit dice spent on a short rest (always 0 on a long rest). */
+	hitDiceSpent: number;
+	/** The hit points each spent die produced, in spend order (die value + the CON modifier, min 0). */
+	hitDiceRolls: number[];
+	/** Hit points actually regained, after the maximum-HP cap. */
+	hpRestored: number;
+	/** Hit dice a long rest handed back (half the total, rounded down, at least one). */
+	hitDiceRecovered: number;
+	exhaustionBefore: number;
+	exhaustionAfter: number;
+	/** The normalized seed the dice were drawn from, or null when nothing was rolled. */
+	seed: number | null;
+}
+
+export type RestResult =
+	| {
+			ok: true;
+			character: Character;
+			resources: CharacterResources;
+			entry: ResourceLedgerEntry;
+			outcome: RestOutcome;
+	  }
+	| { ok: false; error: ResourceUpdateError; message: string };
+
+/** The number of faces on a hit die string (`d8`, `D10`, `8`), or null when it is not a die. */
+function hitDieFaces(die: string): number | null {
+	const match = /^d?(\d+)$/i.exec(die.trim());
+	if (!match) return null;
+	const faces = Number(match[1]);
+	return Number.isInteger(faces) && faces >= 2 && faces <= 100 ? faces : null;
+}
+
+/** The 5e ability modifier for a raw score; an absent score is treated as 10 (modifier 0). */
+function abilityMod(score: number | undefined): number {
+	const value = typeof score === 'number' && Number.isFinite(score) ? score : 10;
+	return Math.floor((value - 10) / 2);
+}
+
 export function applyRest(
 	character: Character,
 	resources: CharacterResources,
 	rest: RestKind,
 	meta: ResourceUpdateMeta,
 	pkg?: SystemPackage,
-): ResourceUpdateResult {
+	hitDice?: RestHitDiceSpend,
+): RestResult {
 	const classResources: Record<string, ClassResource> = {};
 	for (const [id, resource] of Object.entries(resources.classResources)) {
 		const recovery = effectiveRecovery(pkg, id, resource.recharge);
@@ -737,21 +856,111 @@ export function applyRest(
 		spellSlots[key] = recoversOnRest(recovery, rest) ? { ...slot, expended: 0 } : { ...slot };
 	}
 
+	// --- RC-CHR-1.2 — hit dice ------------------------------------------------------------------
+	//
+	// Spending hit dice is a SHORT-rest move: a long rest already restores hit points in full, so
+	// spending dice into it would burn a resource for nothing. Asking for that is rejected with the
+	// reason rather than quietly ignored (no fake success).
+	const proficiencies = ensureCharacterProficiencies(character.proficiencies);
+	const requested = Math.max(0, Math.trunc(hitDice?.spend ?? 0));
+	if (requested > 0 && rest === 'long') {
+		return {
+			ok: false,
+			error: 'invalid-amount',
+			message: 'A long rest restores hit points in full. Hit dice are spent on a short rest.',
+		};
+	}
+	const faces = hitDieFaces(proficiencies.hitDice.die);
+	const availableDice = Math.max(0, proficiencies.hitDice.total - proficiencies.hitDice.spent);
+	if (requested > 0 && (faces === null || availableDice < requested)) {
+		return {
+			ok: false,
+			error: 'insufficient-hit-dice',
+			message:
+				faces === null
+					? `${proficiencies.hitDice.die} is not a hit die this character can spend.`
+					: `Only ${availableDice} hit dice are left to spend.`,
+		};
+	}
+
+	const conMod = abilityMod(character.abilityScores.con);
+	const hitDiceRolls: number[] = [];
+	let seed: number | null = null;
+	if (requested > 0 && faces !== null) {
+		if (hitDice?.mode === 'roll') {
+			seed = normalizeSeed(hitDice.seed ?? meta.operationId);
+			const rng = createRng(seed);
+			for (let i = 0; i < requested; i += 1) {
+				hitDiceRolls.push(Math.max(0, rng.nextInt(1, faces) + conMod));
+			}
+		} else {
+			// The 5e average for a die: half its faces, rounded up. Same value for every die spent.
+			const average = Math.floor(faces / 2) + 1;
+			for (let i = 0; i < requested; i += 1) hitDiceRolls.push(Math.max(0, average + conMod));
+		}
+	}
+	const rolledHp = hitDiceRolls.reduce((sum, value) => sum + value, 0);
+
 	const hpRecovers = recoversOnRest(hitPointRecovery(pkg), rest);
-	const nextCombat = hpRecovers
-		? { ...character.combat, hp: character.combat.maxHp, tempHp: 0 }
-		: character.combat;
+	// A long rest (or any package that recovers hit points on this rest) fills the pool; otherwise the
+	// hit dice spent above are the only healing, capped at the maximum.
+	const hpBefore = character.combat.hp;
+	const hpAfter = hpRecovers
+		? character.combat.maxHp
+		: Math.min(character.combat.maxHp, hpBefore + rolledHp);
+	const nextCombat =
+		hpRecovers || hpAfter !== hpBefore
+			? { ...character.combat, hp: hpAfter, ...(hpRecovers ? { tempHp: 0 } : {}) }
+			: character.combat;
+
+	// A long rest hands back half the character's hit dice, rounded down, at least one — and never
+	// more than are actually spent.
+	const hitDiceRecovered =
+		rest === 'long' && proficiencies.hitDice.total > 0
+			? Math.min(
+					proficiencies.hitDice.spent,
+					Math.max(1, Math.floor(proficiencies.hitDice.total / 2)),
+				)
+			: 0;
+	const nextSpent = proficiencies.hitDice.spent + requested - hitDiceRecovered;
+	const nextProficiencies =
+		requested > 0 || hitDiceRecovered > 0
+			? { ...proficiencies, hitDice: { ...proficiencies.hitDice, spent: nextSpent } }
+			: character.proficiencies;
+
 	// Death saves and concentration end with a long rest regardless of the hit-point band.
 	const deathSaves = rest === 'long' ? { ...EMPTY_DEATH_SAVES } : resources.deathSaves;
 	const concentration = rest === 'long' ? { ...EMPTY_CONCENTRATION } : resources.concentration;
+	// A long rest removes ONE level of exhaustion (RC-CHR-1.2). A short rest never does.
+	const exhaustionBefore = clampExhaustion(resources.exhaustion);
+	const exhaustionAfter = rest === 'long' ? Math.max(0, exhaustionBefore - 1) : exhaustionBefore;
+
+	const outcome: RestOutcome = {
+		rest,
+		hitDiceSpent: requested,
+		hitDiceRolls,
+		hpRestored: hpAfter - hpBefore,
+		hitDiceRecovered,
+		exhaustionBefore,
+		exhaustionAfter,
+		seed,
+	};
 
 	const nextResources: CharacterResources = appendLedger(
-		{ ...resources, classResources, spellSlots, deathSaves, concentration },
-		ledgerEntry(meta, 'rest', rest === 'long' ? 'Long rest' : 'Short rest', null),
+		{
+			...resources,
+			classResources,
+			spellSlots,
+			deathSaves,
+			concentration,
+			exhaustion: exhaustionAfter,
+		},
+		ledgerEntry(meta, 'rest', restLabel(outcome), outcome.hpRestored || null),
 	);
 	const nextCharacter: Character = {
 		...character,
 		combat: nextCombat,
+		...(nextProficiencies ? { proficiencies: nextProficiencies } : {}),
 		resources: nextResources,
 		updatedAt: meta.now,
 		revision: character.revision + 1,
@@ -761,7 +970,38 @@ export function applyRest(
 		character: nextCharacter,
 		resources: nextResources,
 		entry: nextResources.ledger[nextResources.ledger.length - 1]!,
+		outcome,
 	};
+}
+
+/** The label every rest entry opens with. Owned here so nothing else has to parse for it. */
+const REST_LABEL_PREFIX: Record<RestKind, string> = { short: 'Short rest', long: 'Long rest' };
+
+/**
+ * Which rest a `rest` history entry records, or null for any other entry. The label format is this
+ * module's business, so a screen that wants to mark long rests differently asks rather than guesses.
+ */
+export function restKindOfLedgerEntry(entry: ResourceLedgerEntry): RestKind | null {
+	if (entry.kind !== 'rest') return null;
+	return entry.label.startsWith(REST_LABEL_PREFIX.long) ? 'long' : 'short';
+}
+
+/** A one-line human label for the expenditure history: what the rest cost and what it gave back. */
+function restLabel(outcome: RestOutcome): string {
+	const parts: string[] = [REST_LABEL_PREFIX[outcome.rest]];
+	if (outcome.hitDiceSpent > 0) {
+		parts.push(`spent ${outcome.hitDiceSpent} hit ${outcome.hitDiceSpent === 1 ? 'die' : 'dice'}`);
+	}
+	if (outcome.hpRestored > 0) parts.push(`regained ${outcome.hpRestored} HP`);
+	if (outcome.hitDiceRecovered > 0) {
+		parts.push(
+			`recovered ${outcome.hitDiceRecovered} hit ${outcome.hitDiceRecovered === 1 ? 'die' : 'dice'}`,
+		);
+	}
+	if (outcome.exhaustionAfter < outcome.exhaustionBefore) {
+		parts.push(`exhaustion down to ${outcome.exhaustionAfter}`);
+	}
+	return parts.length === 1 ? parts[0]! : `${parts[0]!} — ${parts.slice(1).join(', ')}`;
 }
 
 /** The recovery band the package puts hit points in; `long` when it declares no hit-point pool. */

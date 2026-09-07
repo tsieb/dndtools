@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { availableSlots, type CharacterResources, type ResourceInstance } from '@dndtools/core';
 import { Badge, Button, EmptyState, Icon, SpellSlots } from '../../ds';
 import { Panel, T, eb } from '../../app/screen-kit';
 import { CharacterResourcesPanel } from '../../app/character/Resources';
+import { RestDialog, type RestSubject } from '../../app/character/RestDialog';
 import { useI18n } from '../../i18n';
 import type { Dispatch } from './shared';
 
@@ -12,6 +14,7 @@ export function PlayerResources({
 	canManageResources,
 	actorId,
 	compact,
+	restSubject,
 	dispatch,
 }: {
 	charId: string;
@@ -21,9 +24,17 @@ export function PlayerResources({
 	canManageResources: boolean;
 	actorId: string;
 	compact: boolean;
+	/**
+	 * RC-CHR-1.2 — what the rest dialog needs about this character (hit dice, hit points, exhaustion).
+	 * Null while no character is resolved, which is also when the rest controls are not offered.
+	 */
+	restSubject: RestSubject | null;
 	dispatch: Dispatch;
 }) {
 	const { t } = useI18n();
+	// RC-CHR-1.2 — resting used to be two buttons that fired immediately and said nothing. The rest
+	// they open now asks how many hit dice to spend and states what the answer will do first.
+	const [restKind, setRestKind] = useState<'short' | 'long' | null>(null);
 	const r = resources;
 	const slots = r ? Object.values(r.spellSlots).sort((a, b) => a.level - b.level) : [];
 	const spells = r?.spells ?? [];
@@ -54,8 +65,15 @@ export function PlayerResources({
 				prepared: !s.prepared,
 			},
 		});
-	const rest = (kind: 'short' | 'long') =>
-		dispatch({ type: 'character.rest', actorId, payload: { characterId: charId, rest: kind } });
+	const rest = (choice: {
+		rest: 'short' | 'long';
+		hitDice?: { spend: number; mode: 'roll' | 'average' };
+	}) =>
+		dispatch({
+			type: 'character.rest',
+			actorId,
+			payload: { characterId: charId, ...choice },
+		});
 	const dropConcentration = () =>
 		dispatch({
 			type: 'character.update-combat-resource',
@@ -194,10 +212,22 @@ export function PlayerResources({
 					title={t('player.vitals.rest')}
 					action={
 						<div style={{ display: 'flex', gap: 7 }}>
-							<Button variant="secondary" size="sm" icon="recent" onClick={() => rest('short')}>
+							<Button
+								variant="secondary"
+								size="sm"
+								icon="recent"
+								disabled={!restSubject}
+								onClick={() => setRestKind('short')}
+							>
 								{t('player.vitals.shortRest')}
 							</Button>
-							<Button variant="primary" size="sm" icon="theme" onClick={() => rest('long')}>
+							<Button
+								variant="primary"
+								size="sm"
+								icon="theme"
+								disabled={!restSubject}
+								onClick={() => setRestKind('long')}
+							>
 								{t('player.vitals.longRest')}
 							</Button>
 						</div>
@@ -295,6 +325,16 @@ export function PlayerResources({
 					)}
 				</Panel>
 			</div>
+			<RestDialog
+				open={restKind !== null}
+				subject={restSubject}
+				defaultRest={restKind ?? 'short'}
+				onClose={() => setRestKind(null)}
+				onConfirm={(choice) => {
+					setRestKind(null);
+					void rest(choice);
+				}}
+			/>
 		</div>
 	);
 }

@@ -22,6 +22,7 @@ import {
 	setClassResource,
 	setCondition,
 	setConcentration,
+	setExhaustion,
 	setSpell,
 	setSpellSlots,
 	setTempHp,
@@ -264,6 +265,18 @@ export function handleUpdateCombatResource(
 			if (!result.ok) return reject({ code: 'invalid-state', message: result.message }, state);
 			updated = { ...result.character, resources: result.resources };
 			entry = result.entry;
+			break;
+		}
+		case 'exhaustion': {
+			const result = setExhaustion(resources, payload.level, meta);
+			if (!result.ok) return reject({ code: 'invalid-payload', message: result.message }, state);
+			entry = result.entry;
+			updated = {
+				...existing,
+				resources: result.resources,
+				updatedAt: meta.now,
+				revision: existing.revision + 1,
+			};
 			break;
 		}
 		case 'class-resource': {
@@ -513,14 +526,27 @@ export function handleRestCharacter(
 
 	const operationId = env.ids();
 	const meta = makeResourceMeta(env, guard.actor, operationId, now);
+	// RC-CHR-1.2 — the hit dice this rest spends. The seed defaults to the operation id, so the roll is
+	// computed ONCE here and recorded; replaying the op reproduces it rather than re-rolling.
 	const result = applyRest(
 		guard.existing,
 		resourcesOf(guard.existing),
 		parsed.data.rest,
 		meta,
 		activeSystemPackageFor(state),
+		parsed.data.hitDice
+			? {
+					spend: parsed.data.hitDice.spend,
+					mode: parsed.data.hitDice.mode,
+					seed: parsed.data.seed ?? operationId,
+				}
+			: undefined,
 	);
-	if (!result.ok) return reject({ code: 'invalid-state', message: result.message }, state);
+	if (!result.ok) {
+		// An impossible amount is a bad payload; anything else is a state the rest cannot be taken from.
+		const code = result.error === 'invalid-amount' ? 'invalid-payload' : 'invalid-state';
+		return reject({ code, message: result.message }, state);
+	}
 
 	const updated: Character = { ...result.character, resources: result.resources };
 	const characters = ensureCharacterStateSlice(state.characters);
@@ -530,7 +556,9 @@ export function handleRestCharacter(
 		entityId: updated.id,
 		opType: `character.rest.${parsed.data.rest}`,
 		path: `characters/${updated.id}/resources`,
-		value: { rest: parsed.data.rest },
+		// The op records the OUTCOME, not the request: the dice were resolved here from a recorded
+		// seed, so every replica applies the same hit points rather than rolling again.
+		value: { rest: parsed.data.rest, outcome: result.outcome },
 		beforeRevision: guard.existing.revision,
 		afterRevision: updated.revision,
 	});
@@ -544,6 +572,7 @@ export function handleRestCharacter(
 				characterId: updated.id,
 				revision: updated.revision,
 				rest: parsed.data.rest,
+				outcome: result.outcome,
 				actorId: guard.actor.id,
 			},
 		],
