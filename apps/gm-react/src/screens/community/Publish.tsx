@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { exportWidgetPackage, type WidgetPackageDefinition } from '@dndtools/core';
+import {
+	buildContentModuleBundle,
+	exportWidgetPackage,
+	type ContentExport,
+	type CoreEvent,
+	type WidgetPackageDefinition,
+} from '@dndtools/core';
 import { Button, Dialog, EmptyState, Icon, Input, Skeleton, Textarea, Toaster } from '../../ds';
 import { LoadingRegion, Panel, T } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
@@ -7,7 +13,7 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import { useAuth } from '../../cloud/AuthContext';
 import { isAccountApiConfigured } from '../../cloud/config';
 import { deleteModule, listModules, publishModule, type ModuleListing } from '../../cloud/appApi';
-import { MarketplaceGate, errText } from './shared';
+import { MarketplaceGate, errText, slugify } from './shared';
 import { useI18n } from '../../i18n';
 
 export function CommPublish() {
@@ -15,13 +21,18 @@ export function CommPublish() {
 	const isPhone = useViewport() === 'phone';
 	const runtime = useRuntime();
 	const auth = useAuth();
+	const dmId = runtime.defaultActorId;
 	const cloudReady = isAccountApiConfigured && auth.status === 'signed-in';
 	const [mine, setMine] = useState<ModuleListing[] | null>(null);
 	// Failure is its own state — `mine === null` means LOADING, so folding errors into it would
 	// leave a permanent fake "Loading…" after a failed fetch.
 	const [mineFailed, setMineFailed] = useState(false);
 	const [busy, setBusy] = useState(false);
+	// RC-CLD-4.1 — a draft publishes as one of the marketplace's listing KINDS. A widget package
+	// still ships as its bare definition (what every existing listing is); a content module ships as
+	// a `.dndmodule` bundle whose payload is the `content.export` result verbatim.
 	const [draft, setDraft] = useState<{
+		kind: 'widget-package' | 'content-module';
 		packageId: string;
 		name: string;
 		summary: string;
@@ -53,11 +64,53 @@ export function CommPublish() {
 
 	const openDraft = (def: WidgetPackageDefinition) =>
 		setDraft({
+			kind: 'widget-package',
 			packageId: def.id,
 			name: def.displayName ?? def.id,
 			summary: '',
 			version: def.version,
 		});
+
+	// A content module is built from the vault's PORTABLE export — the same visibility-filtered,
+	// secret-scrubbed projection the Export tab downloads. DM-only content is never in it.
+	const openContentDraft = () =>
+		setDraft({
+			kind: 'content-module',
+			packageId: '',
+			name: '',
+			summary: '',
+			version: '1.0.0',
+		});
+
+	/** Build the `.dndmodule` payload for the draft, or report why it cannot be built. */
+	const buildContentModule = async (
+		current: NonNullable<typeof draft>,
+	): Promise<{ ok: true; payload: unknown } | { ok: false; message: string }> => {
+		const res = await runtime.dispatch({
+			type: 'content.export',
+			actorId: dmId,
+			payload: { mode: 'portable' },
+		});
+		if (res.status !== 'accepted') return { ok: false, message: res.rejection.message };
+		const event = res.events.find(
+			(e): e is Extract<CoreEvent, { kind: 'content.exported' }> => e.kind === 'content.exported',
+		);
+		if (!event) return { ok: false, message: t('community.publish.contentEmpty') };
+		const exported: ContentExport = event.export;
+		if (exported.files.length === 0)
+			return { ok: false, message: t('community.publish.contentEmpty') };
+		const bundle = buildContentModuleBundle({
+			manifest: {
+				id: slugify(current.name) || 'content-module',
+				name: current.name.trim(),
+				summary: current.summary.trim(),
+				version: current.version.trim(),
+			},
+			export: exported,
+		});
+		if (!bundle.ok) return { ok: false, message: bundle.reason };
+		return { ok: true, payload: bundle.bundle };
+	};
 
 	const publish = () => {
 		if (!draft) return;
@@ -65,34 +118,51 @@ export function CommPublish() {
 			Toaster.error(t('community.publish.allRequired'));
 			return;
 		}
-		const exported = exportWidgetPackage(
-			runtime.state.widgets,
-			{ ids: () => runtime.newId() },
-			draft.packageId,
-		);
-		if ('kind' in exported) {
-			Toaster.error(
-				t('extensions.plugins.exportFailed', {
-					id: draft.packageId,
-					reason: exported.reason,
-				}),
-			);
-			return;
-		}
+		const current = draft;
 		setBusy(true);
-		publishModule({
-			name: draft.name.trim(),
-			summary: draft.summary.trim(),
-			version: draft.version.trim(),
-			package: exported.package,
-		})
-			.then(() => {
-				Toaster.success(t('community.publish.published', { name: draft.name.trim() }));
+		void (async () => {
+			try {
+				let payload: unknown;
+				if (current.kind === 'content-module') {
+					const built = await buildContentModule(current);
+					if (!built.ok) {
+						Toaster.error(built.message);
+						return;
+					}
+					payload = built.payload;
+				} else {
+					const exported = exportWidgetPackage(
+						runtime.state.widgets,
+						{ ids: () => runtime.newId() },
+						current.packageId,
+					);
+					if ('kind' in exported) {
+						Toaster.error(
+							t('extensions.plugins.exportFailed', {
+								id: current.packageId,
+								reason: exported.reason,
+							}),
+						);
+						return;
+					}
+					payload = exported.package;
+				}
+				await publishModule({
+					name: current.name.trim(),
+					summary: current.summary.trim(),
+					version: current.version.trim(),
+					kind: current.kind,
+					package: payload,
+				});
+				Toaster.success(t('community.publish.published', { name: current.name.trim() }));
 				setDraft(null);
 				loadMine();
-			})
-			.catch((e: unknown) => Toaster.error(errText(e, t('community.error'))))
-			.finally(() => setBusy(false));
+			} catch (e) {
+				Toaster.error(errText(e, t('community.error')));
+			} finally {
+				setBusy(false);
+			}
+		})();
 	};
 
 	const unpublish = (listing: ModuleListing) => {
@@ -174,6 +244,50 @@ export function CommPublish() {
 						))}
 					</div>
 				)}
+				{/* RC-CLD-4.1 — the other thing a DM can publish: their campaign content, as a
+				    `.dndmodule` built from the PORTABLE export (no DM-only content ever leaves). */}
+				<div
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: 12,
+						padding: '11px 0',
+						borderTop: `1px solid ${T.bd}`,
+					}}
+				>
+					<span
+						style={{
+							width: 34,
+							height: 34,
+							borderRadius: 8,
+							flex: '0 0 auto',
+							display: 'inline-flex',
+							alignItems: 'center',
+							justifyContent: 'center',
+							background: T.alt,
+							color: T.acc,
+						}}
+					>
+						<Icon name="book" size="sm" />
+					</span>
+					<div style={{ flex: 1, minWidth: 0 }}>
+						<div style={{ font: `600 13px ${T.sans}` }}>
+							{t('community.publish.contentModuleTitle')}
+						</div>
+						<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
+							{t('community.publish.contentModuleNote')}
+						</div>
+					</div>
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="upload"
+						disabled={busy}
+						onClick={openContentDraft}
+					>
+						{t('community.publish.action')}
+					</Button>
+				</div>
 			</Panel>
 			<Panel accent title={t('community.publish.yourListings')}>
 				{mineFailed ? (

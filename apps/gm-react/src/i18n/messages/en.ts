@@ -2757,6 +2757,26 @@ export const en = {
 	'community.publish.versionPlaceholder': 'Version (e.g. 1.0.0)',
 	'community.publish.allRequired': 'Name, summary and version are all required.',
 	'community.publish.published': 'Published {name} to the marketplace.',
+	'community.discover.kindWidget': 'Widget package',
+	'community.discover.kindSystem': 'System package',
+	'community.discover.kindScene': 'Scene package',
+	'community.discover.kindContent': 'Content module',
+	'community.discover.sceneUnsupported':
+		'Scene packages can be published and browsed, but this release has no scene installer yet.',
+	'community.discover.contentFileCount': '{count, plural, one {# note} other {# notes}}',
+	'community.discover.moreFiles': 'and {count} more',
+	'community.discover.contentInstallNote':
+		'Notes are added to your vault as DM only. Anything whose title already exists is skipped, never overwritten.',
+	'community.discover.systemPackageNote': 'One game system',
+	'community.discover.systemInstallNote':
+		'The system is added to your library. Selecting it for a campaign stays a separate, explicit step.',
+	'community.discover.installedModule':
+		'Installed {name} — {count, plural, one {# item} other {# items}} added.',
+	'community.publish.contentModuleTitle': 'Your campaign content',
+	'community.publish.contentModuleNote':
+		'Publishes player-visible notes only. DM only content is left out, and secrets are scrubbed.',
+	'community.publish.contentEmpty':
+		'There is no player-visible content to publish yet. Share some notes first.',
 
 	'community.wiki.settingsTitle': 'Publish settings',
 	'community.wiki.defaultTitle': 'My campaign wiki',

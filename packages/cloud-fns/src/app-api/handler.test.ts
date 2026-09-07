@@ -351,6 +351,49 @@ const GOOD_MODULE = {
 	package: { id: 'starter.table-roller', version: '1.0.0', widgets: [] },
 };
 
+// RC-CLD-4.1 — a `.dndmodule` bundle body per listing kind. The bundle is the wire format the
+// core's `parseModuleBundle` validates; these fixtures are what a real publish sends.
+function bundlePayload(kind: 'content-module' | 'scene-package') {
+	const manifest = {
+		kind,
+		id: `sunken-crypt-${kind}`,
+		name: 'The Sunken Crypt',
+		summary: 'A three-session delve under a drowned chapel.',
+		version: '1.0.0',
+	};
+	const payload =
+		kind === 'content-module'
+			? {
+					format: 'dndtools-content-export',
+					version: 1,
+					mode: 'portable',
+					files: [{ path: 'notes/crypt.md', markdown: '# The crypt' }],
+				}
+			: {
+					format: 'dndtools-scene-package',
+					version: 1,
+					scenes: [{ id: 'scene-1', name: 'Flooded nave', document: { layers: [] } }],
+				};
+	return {
+		format: 'dndmodule',
+		schemaVersion: 1,
+		manifest,
+		payload,
+		assets: [{ path: 'maps/crypt.png', mediaType: 'image/png', dataBase64: 'AAAA' }],
+	};
+}
+
+function bundleBody(kind: 'content-module' | 'scene-package') {
+	return {
+		name: 'The Sunken Crypt',
+		summary: 'A three-session delve under a drowned chapel.',
+		version: '1.0.0',
+		package: bundlePayload(kind) as Record<string, unknown>,
+	};
+}
+
+const CONTENT_MODULE = bundleBody('content-module');
+
 beforeEach(() => {
 	store.items.clear();
 	// The normal successful-deletion fixture represents a completed sync-api purge.
@@ -435,7 +478,13 @@ describe('marketplace', () => {
 
 		const list = await call(event('GET /marketplace/modules'));
 		const found = list.body.modules.find((m: { moduleId: string }) => m.moduleId === moduleId);
-		expect(found).toMatchObject({ name: GOOD_MODULE.name, version: '1.0.0', owned: true });
+		expect(found).toMatchObject({
+			name: GOOD_MODULE.name,
+			version: '1.0.0',
+			owned: true,
+			// RC-CLD-4.1 — a bare payload is the legacy widget package, and says so.
+			kind: 'widget-package',
+		});
 		expect(found.ownerSub).toBeUndefined(); // owner identity is a boolean, never a sub
 
 		const one = await call(event('GET /marketplace/modules/{moduleId}', { params: { moduleId } }));
@@ -506,11 +555,87 @@ describe('marketplace', () => {
 	it('rejects an oversized module package (400, size cap)', async () => {
 		const res = await call(
 			event('POST /marketplace/modules', {
-				body: { ...GOOD_MODULE, package: { blob: 'x'.repeat(256 * 1024) } },
+				body: { ...GOOD_MODULE, package: { blob: 'x'.repeat(512 * 1024) } },
 			}),
 		);
 		expect(res.status).toBe(400);
 		expect(res.body.error).toMatch(/too large/i);
+	});
+
+	// RC-CLD-4.1 — listing KINDS and the `.dndmodule` bundle format. The kind on a row is derived
+	// from the payload the server validated, so a listing can never claim to be something its
+	// contents are not.
+	it('publishes a content module as a .dndmodule bundle and lists it under its kind', async () => {
+		const pub = await call(event('POST /marketplace/modules', { body: CONTENT_MODULE }));
+		expect(pub.status).toBe(200);
+		const moduleId = pub.body.moduleId as string;
+
+		const list = await call(event('GET /marketplace/modules'));
+		const found = list.body.modules.find((m: { moduleId: string }) => m.moduleId === moduleId);
+		expect(found).toMatchObject({ kind: 'content-module', name: CONTENT_MODULE.name });
+
+		// The install side gets the bundle back verbatim — manifest, payload and assets.
+		const one = await call(event('GET /marketplace/modules/{moduleId}', { params: { moduleId } }));
+		expect(one.status).toBe(200);
+		expect(one.body.kind).toBe('content-module');
+		expect(one.body.package).toEqual(CONTENT_MODULE.package);
+	});
+
+	it('accepts every listing kind that arrives as a valid bundle', async () => {
+		const kinds = ['content-module', 'scene-package'] as const;
+		for (const kind of kinds) {
+			const res = await call(
+				event('POST /marketplace/modules', { body: bundleBody(kind), sub: `pub-${kind}` }),
+			);
+			expect(res.status).toBe(200);
+			const one = await call(
+				event('GET /marketplace/modules/{moduleId}', {
+					params: { moduleId: res.body.moduleId as string },
+				}),
+			);
+			expect(one.body.kind).toBe(kind);
+		}
+	});
+
+	it('rejects a bundle whose payload does not match its manifest kind (400)', async () => {
+		const lying = bundleBody('content-module');
+		(lying.package as { manifest: { kind: string } }).manifest.kind = 'widget-package';
+		const res = await call(event('POST /marketplace/modules', { body: lying }));
+		expect(res.status).toBe(400);
+		expect(res.body.error).toMatch(/widget-package/);
+	});
+
+	it('rejects a declared kind that disagrees with the bundle, and an unknown kind (400)', async () => {
+		const mismatch = await call(
+			event('POST /marketplace/modules', {
+				body: { ...bundleBody('content-module'), kind: 'system-package' },
+			}),
+		);
+		expect(mismatch.status).toBe(400);
+		expect(mismatch.body.error).toMatch(/manifest/i);
+
+		const unknown = await call(
+			event('POST /marketplace/modules', { body: { ...GOOD_MODULE, kind: 'adventure' } }),
+		);
+		expect(unknown.status).toBe(400);
+		expect(unknown.body.error).toMatch(/kind must be one of/);
+	});
+
+	it('refuses to publish a non-widget kind as a bare, unbundled payload (400)', async () => {
+		const res = await call(
+			event('POST /marketplace/modules', { body: { ...GOOD_MODULE, kind: 'content-module' } }),
+		);
+		expect(res.status).toBe(400);
+		expect(res.body.error).toMatch(/\.dndmodule/);
+	});
+
+	it('rejects a malformed .dndmodule envelope with a field-level reason (400)', async () => {
+		const broken = bundleBody('content-module');
+		delete (broken.package as { assets?: unknown }).assets;
+		(broken.package as { manifest: { version: string } }).manifest.version = 'latest';
+		const res = await call(event('POST /marketplace/modules', { body: broken }));
+		expect(res.status).toBe(400);
+		expect(res.body.error).toMatch(/semver/i);
 	});
 
 	it('rejects a non-semver version and missing fields (400)', async () => {

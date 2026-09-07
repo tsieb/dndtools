@@ -46,6 +46,9 @@ import {
 	deleteObject,
 	deleteObjectVersion,
 } from '../lib/s3.ts';
+// RC-CLD-4.1 — the marketplace's listing kinds and the `.dndmodule` bundle format are defined ONCE,
+// in the core, so the server validates a publish against the exact schema the client installs from.
+import { MODULE_KINDS, parseModuleBundle, type ModuleKind } from '@dndtools/core';
 
 const APP_TABLE = process.env.APP_TABLE!;
 const SYNC_OPS_TABLE = process.env.SYNC_OPS_TABLE!;
@@ -59,7 +62,9 @@ const nowIso = () => new Date().toISOString();
 const nowSec = () => Math.floor(Date.now() / 1000);
 
 // --- bounds (cost/DoS caps + honest field limits; mirror the client's form limits) -----
-const MAX_MODULE_PACKAGE_BYTES = 256 * 1024; // marketplace payloads are widget-package JSON, small by design
+const MAX_MODULE_PACKAGE_BYTES = 512 * 1024; // a .dndmodule is manifest + payload + inline assets
+// A listing published before RC-CLD-4.1 carries no `kind` and is always a bare widget package.
+const LEGACY_LISTING_KIND: ModuleKind = 'widget-package';
 const MAX_NAME_CHARS = 80;
 const MAX_SUMMARY_CHARS = 400;
 const MAX_DISPLAY_NAME_CHARS = 60;
@@ -518,7 +523,10 @@ async function setEntitlements(caller: Caller, body: string | undefined) {
 	return json(200, entitlementResponse(plan as PlanId));
 }
 
-// --- Marketplace: plaintext widget-package payloads in S3, listing rows in Dynamo. ------
+// --- Marketplace: plaintext `.dndmodule` payloads in S3, listing rows in Dynamo. --------
+// --- RC-CLD-4.1: a listing declares its KIND (widget-package | system-package | ---------
+// --- scene-package | content-module); the server derives it from the bundle it ----------
+// --- validated, so a row's kind is never an unchecked client claim. ---------------------
 // --- A listing lives in TWO rows: module#<id>|listing (direct get) and the shared -------
 // --- modules|listing#<id> browse partition (scan-free list). ----------------------------
 type ListingRow = Record<string, string>;
@@ -526,6 +534,9 @@ type ListingRow = Record<string, string>;
 function listingResponse(row: ListingRow, callerSub: string) {
 	return {
 		moduleId: row.moduleId,
+		// RC-CLD-4.1 — what this listing IS. Rows written before the kind existed are widget
+		// packages, which is what the marketplace could publish at the time.
+		kind: isModuleKind(row.kind) ? row.kind : LEGACY_LISTING_KIND,
 		name: row.name,
 		summary: row.summary,
 		version: row.version,
@@ -537,6 +548,43 @@ function listingResponse(row: ListingRow, callerSub: string) {
 	};
 }
 
+function isModuleKind(value: unknown): value is ModuleKind {
+	return typeof value === 'string' && (MODULE_KINDS as readonly string[]).includes(value);
+}
+
+/**
+ * RC-CLD-4.1 — a publish carries EITHER a `.dndmodule` bundle (any of the four kinds) or, for
+ * backwards compatibility, a bare widget-package definition. Either way the server decides the
+ * listing's kind from the payload it actually validated, never from an unchecked client claim: a
+ * `kind` field that disagrees with the bundle's manifest is a rejection.
+ */
+function resolveListingKind(payload: unknown, declaredKind: unknown): ModuleKind {
+	if (declaredKind !== undefined && !isModuleKind(declaredKind))
+		throw new BadRequest(`kind must be one of: ${MODULE_KINDS.join(', ')}`);
+	const isEnvelope =
+		typeof payload === 'object' &&
+		payload !== null &&
+		(payload as { format?: unknown }).format === 'dndmodule';
+	if (!isEnvelope) {
+		// A bare payload can only be the legacy widget package; anything else must arrive bundled so
+		// the server can validate it against its kind's schema.
+		if (declaredKind !== undefined && declaredKind !== LEGACY_LISTING_KIND)
+			throw new BadRequest(`a ${String(declaredKind)} must be published as a .dndmodule bundle`);
+		return LEGACY_LISTING_KIND;
+	}
+	const parsed = parseModuleBundle(payload);
+	if (!parsed.ok) {
+		const detail = parsed.issues
+			.slice(0, 3)
+			.map((issue) => `${issue.path}: ${issue.message}`)
+			.join('; ');
+		throw new BadRequest(detail ? `${parsed.reason} (${detail})` : parsed.reason);
+	}
+	if (declaredKind !== undefined && declaredKind !== parsed.bundle.manifest.kind)
+		throw new BadRequest("kind does not match the bundle's manifest");
+	return parsed.bundle.manifest.kind;
+}
+
 async function publishModule(caller: Caller, body: string | undefined) {
 	const parsed = parseBody(body);
 	const name = requireString(parsed.name, 'name', MAX_NAME_CHARS);
@@ -545,10 +593,11 @@ async function publishModule(caller: Caller, body: string | undefined) {
 	if (!VERSION_RE.test(version)) throw new BadRequest('version must be semver (e.g. 1.2.0)');
 	if (parsed.package === undefined || parsed.package === null)
 		throw new BadRequest('package is required');
+	const kind = resolveListingKind(parsed.package, parsed.kind);
 	const payloadJson = JSON.stringify(parsed.package);
 	const size = Buffer.byteLength(payloadJson, 'utf8');
 	if (size > MAX_MODULE_PACKAGE_BYTES)
-		throw new BadRequest('module package too large (256 KiB max)');
+		throw new BadRequest('module package too large (512 KiB max)');
 	const activeRows = await queryPartition(
 		APP_TABLE,
 		{ name: 'pk', value: accountPk(caller.sub) },
@@ -568,6 +617,7 @@ async function publishModule(caller: Caller, body: string | undefined) {
 	const contentHash = createHash('sha256').update(payloadJson).digest('hex');
 	const listing = {
 		moduleId,
+		kind,
 		ownerSub: caller.sub,
 		name,
 		summary,

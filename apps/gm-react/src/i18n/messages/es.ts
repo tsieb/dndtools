@@ -2824,6 +2824,26 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.publish.versionPlaceholder': 'Versión (p. ej. 1.0.0)',
 	'community.publish.allRequired': 'El nombre, el resumen y la versión son obligatorios.',
 	'community.publish.published': 'Se publicó {name} en el mercado.',
+	'community.discover.kindWidget': 'Paquete de widgets',
+	'community.discover.kindSystem': 'Paquete de sistema',
+	'community.discover.kindScene': 'Paquete de escenas',
+	'community.discover.kindContent': 'Módulo de contenido',
+	'community.discover.sceneUnsupported':
+		'Los paquetes de escenas se pueden publicar y explorar, pero esta versión aún no tiene un instalador de escenas.',
+	'community.discover.contentFileCount': '{count, plural, one {# nota} other {# notas}}',
+	'community.discover.moreFiles': 'y {count} más',
+	'community.discover.contentInstallNote':
+		'Las notas se añaden a tu bóveda como Solo DM. Lo que ya exista con el mismo título se omite, nunca se sobrescribe.',
+	'community.discover.systemPackageNote': 'Un sistema de juego',
+	'community.discover.systemInstallNote':
+		'El sistema se añade a tu biblioteca. Elegirlo para una campaña sigue siendo un paso aparte y explícito.',
+	'community.discover.installedModule':
+		'Se instaló {name}: {count, plural, one {# elemento añadido} other {# elementos añadidos}}.',
+	'community.publish.contentModuleTitle': 'El contenido de tu campaña',
+	'community.publish.contentModuleNote':
+		'Publica solo las notas visibles para jugadores. El contenido Solo DM se excluye y los secretos se depuran.',
+	'community.publish.contentEmpty':
+		'Todavía no hay contenido visible para jugadores que publicar. Comparte algunas notas primero.',
 
 	'community.wiki.settingsTitle': 'Ajustes de publicación',
 	'community.wiki.defaultTitle': 'Mi wiki de campaña',

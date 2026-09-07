@@ -5748,3 +5748,37 @@ export {
 	raiseConcentrationCheck,
 	resolveConcentrationCheck,
 } from './state/character-resources';
+
+// RC-CLD-4.1 — MARKETPLACE MODULE BUNDLES. A `.dndmodule` is `manifest + payload + assets`, and the
+// manifest's `kind` (widget-package | system-package | scene-package | content-module) decides which
+// schema the payload is validated against and which review flow an install runs. The `content-module`
+// payload EXTENDS `content.export`: it is the `dndtools-content-export` bundle verbatim, so installing
+// one is the existing transactional `content.commit-import` review, not a second content path.
+export type {
+	ContentModulePayload,
+	ModuleAsset,
+	ModuleBundle,
+	ModuleBundleIssue,
+	ModuleBundleParseResult,
+	ModuleKind,
+	ModuleManifest,
+} from './state/module-bundle';
+export {
+	CONTENT_MODULE_PAYLOAD_FORMAT,
+	MAX_MODULE_ASSETS,
+	MAX_MODULE_ASSET_BYTES,
+	MAX_MODULE_ASSETS_TOTAL_BYTES,
+	MODULE_ASSET_MEDIA_TYPES,
+	MODULE_BUNDLE_FORMAT,
+	MODULE_BUNDLE_SCHEMA_VERSION,
+	MODULE_KINDS,
+	SCENE_PACKAGE_PAYLOAD_FORMAT,
+	buildContentModuleBundle,
+	buildModuleBundle,
+	contentExportToModulePayload,
+	contentModuleImportFiles,
+	decodedByteLength,
+	moduleBundleFileName,
+	moduleBundleItemCount,
+	parseModuleBundle,
+} from './state/module-bundle';

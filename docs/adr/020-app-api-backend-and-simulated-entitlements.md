@@ -1,6 +1,6 @@
 # ADR-020: App-API Backend for Marketplace, Invites, Account, and Simulated Entitlements
 
-- Status: Accepted (amended by [ADR-026](./026-opt-in-vault-privacy-modes.md); amended by [ADR-027](./027-stripe-web-billing-and-entitlement-write-path.md), Proposed)
+- Status: Accepted (amended by [ADR-026](./026-opt-in-vault-privacy-modes.md); amended by [ADR-027](./027-stripe-web-billing-and-entitlement-write-path.md), Proposed; amended by [ADR-034](./034-marketplace-listing-kinds-and-module-bundle-format.md))
 - Date: 2026-07-09
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA
@@ -12,6 +12,10 @@
 - Amended by: ADR-027 (2026-07-23, Proposed) — will replace the simulated-checkout entitlement
   write path with a Stripe-webhook-authoritative one when real billing activates; the entitlement
   read contract and plan-gate logic are unchanged.
+- Amended by: ADR-034 (2026-09-07) — a marketplace listing gains a **kind** (widget-package |
+  system-package | scene-package | content-module) and its payload gains the `.dndmodule` envelope,
+  replacing this ADR's "a listing is a bare widget-package definition" framing. The trust posture
+  (owner sub never echoed, plaintext payloads in S3, the core owns the install review) is unchanged.
 
 ## Context
 
@@ -50,7 +54,8 @@ the shared Cognito JWT authorizer:
 - **Marketplace** — `POST/GET /marketplace/modules`, `GET/DELETE /marketplace/modules/{moduleId}`.
   Listings in DynamoDB, package payloads in `ModulesBucket` (S3), owner = Cognito sub (never echoed;
   the API returns an `owned` boolean). Installing runs the existing fail-closed
-  `widget.package.install` review flow in core — the server adds no trust.
+  `widget.package.install` review flow in core — the server adds no trust. (ADR-034: a listing now
+  also declares its KIND and its payload is a `.dndmodule` bundle; each kind runs its own review.)
 - **Invites** — `POST/GET /invites`, `DELETE /invites/{inviteId}`, plus the **only public route**
   `GET /invites/resolve/{token}` (invitees have no account yet). Server-minted tokens with a 14-day
   DynamoDB TTL; redeemed at the chrome-less `#/join?token=…` screen (`apps/gm-react/src/screens/Join.tsx`),

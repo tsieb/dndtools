@@ -4,6 +4,7 @@
 // when the backend isn't in this build — callers render their labeled local state instead.
 // Server 400s carry safe messages (the handler never leaks internals); anything else is
 // normalized to a generic, user-presentable message.
+import type { ModuleKind } from '@dndtools/core';
 import { cloudConfig, isAccountApiConfigured, isSyncConfigured } from './config';
 import { getIdToken } from './auth';
 
@@ -35,6 +36,8 @@ export interface Entitlements {
 
 export interface ModuleListing {
 	moduleId: string;
+	/** RC-CLD-4.1 — what the listing is. The server derives it from the bundle it validated. */
+	kind: ModuleKind;
 	name: string;
 	summary: string;
 	version: string;
@@ -238,6 +241,8 @@ export async function publishModule(input: {
 	name: string;
 	summary: string;
 	version: string;
+	/** Omit for a bare widget-package payload; a bundle's manifest kind must match if given. */
+	kind?: ModuleKind;
 	package: unknown;
 }): Promise<string> {
 	const res = await authedFetch<{ moduleId: string }>('/marketplace/modules', post(input));

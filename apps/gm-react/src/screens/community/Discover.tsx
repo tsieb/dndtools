@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { type WidgetPackageDefinition } from '@dndtools/core';
 import { Badge, Button, Dialog, EmptyState, Skeleton, Toaster } from '../../ds';
 import { LoadingRegion, Panel, T } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
@@ -8,7 +7,16 @@ import { useAuth } from '../../cloud/AuthContext';
 import { isAccountApiConfigured } from '../../cloud/config';
 import { deleteModule, getModule, listModules, type ModuleListing } from '../../cloud/appApi';
 import { MarketplaceGate, errText, kb } from './shared';
-import { useI18n } from '../../i18n';
+import { installPlanItemCount, planModuleInstall, type InstallPlan } from './moduleInstall';
+import { useI18n, type MessageKey } from '../../i18n';
+
+/** RC-CLD-4.1 — the listing kinds, in the DM's words. */
+const KIND_LABEL: Record<string, MessageKey> = {
+	'widget-package': 'community.discover.kindWidget',
+	'system-package': 'community.discover.kindSystem',
+	'scene-package': 'community.discover.kindScene',
+	'content-module': 'community.discover.kindContent',
+};
 
 export function CommDiscover() {
 	const { t, formatDate } = useI18n();
@@ -21,9 +29,13 @@ export function CommDiscover() {
 	const [failed, setFailed] = useState(false);
 	const [selId, setSelId] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
+	// RC-CLD-4.1 — the review a module runs before anything enters the vault. The PLAN says which
+	// flow that is: a widget package goes to the package install/upgrade, a content module to the
+	// transactional `content.commit-import`, a system package to `system.define`.
 	const [review, setReview] = useState<{
 		listing: ModuleListing;
-		definition: WidgetPackageDefinition;
+		// A plan that could not be understood never reaches the review: it is reported and dropped.
+		plan: Exclude<InstallPlan, { kind: 'not-a-module' }>;
 		isUpgrade: boolean;
 	} | null>(null);
 	// Removing a listing deletes it server-side for everyone (no undo exists), so it confirms first.
@@ -43,25 +55,28 @@ export function CommDiscover() {
 
 	const sel = modules?.find((m) => m.moduleId === selId) ?? modules?.[0] ?? null;
 
-	// Fetch the payload, sanity-check the definition shape, then hand off to the review dialog. The
-	// core install command re-validates the full definition fail-closed — this check is only so the
-	// dialog can show honest facts (id/widget count) before the user commits.
+	// Fetch the payload, resolve it to an install plan, then hand off to the review dialog. Every
+	// core command re-validates fail-closed — this pass is only so the dialog can show honest facts
+	// (kind, id, how many things would land) before the DM commits.
 	const startInstall = (listing: ModuleListing) => {
 		setBusy(true);
 		getModule(listing.moduleId)
 			.then((full) => {
-				const def = full.package as WidgetPackageDefinition;
-				if (!def || typeof def !== 'object' || typeof def.id !== 'string' || !def.id) {
-					Toaster.error(t('community.discover.notAPackage'));
+				const plan = planModuleInstall(full.package, t('community.discover.notAPackage'));
+				if (plan.kind === 'not-a-module') {
+					Toaster.error(plan.reason);
 					return;
 				}
-				const existing = runtime.state.widgets.packages[def.id];
-				const isUpgrade = !!existing && !existing.removedAt;
-				if (isUpgrade && def.id.startsWith('system.')) {
-					Toaster.error(t('community.discover.clashesWithSystem'));
-					return;
+				let isUpgrade = false;
+				if (plan.kind === 'widget-package') {
+					const existing = runtime.state.widgets.packages[plan.definition.id];
+					isUpgrade = !!existing && !existing.removedAt;
+					if (isUpgrade && plan.definition.id.startsWith('system.')) {
+						Toaster.error(t('community.discover.clashesWithSystem'));
+						return;
+					}
 				}
-				setReview({ listing, definition: def, isUpgrade });
+				setReview({ listing, plan, isUpgrade });
 			})
 			.catch((e: unknown) => Toaster.error(errText(e, t('community.error'))))
 			.finally(() => setBusy(false));
@@ -69,18 +84,44 @@ export function CommDiscover() {
 
 	const confirmInstall = async () => {
 		if (!review) return;
+		const { plan } = review;
+		if (plan.kind === 'unsupported') return;
 		setBusy(true);
 		try {
+			const command =
+				plan.kind === 'widget-package'
+					? {
+							type: review.isUpgrade ? 'widget.package.upgrade' : 'widget.package.install',
+							payload: { package: plan.definition },
+						}
+					: plan.kind === 'system-package'
+						? { type: 'system.define', payload: { package: plan.systemPackage } }
+						: {
+								// The SAME transactional, resumable import the Knowledge screen runs. `skip` is the
+								// non-destructive policy: an installed module never overwrites a DM's own note.
+								type: 'content.commit-import',
+								payload: {
+									sourceKind: 'markdown-archive',
+									policy: 'skip',
+									files: plan.files,
+									appliedEntryIds: [],
+								},
+							};
 			const result = await runtime.dispatch({
-				type: review.isUpgrade ? 'widget.package.upgrade' : 'widget.package.install',
+				type: command.type as 'widget.package.install',
 				actorId: dmId,
-				payload: { package: review.definition },
+				payload: command.payload,
 			});
 			if (result.status === 'accepted') {
 				Toaster.success(
-					review.isUpgrade
-						? t('community.discover.upgraded', { id: review.definition.id })
-						: t('community.discover.installed', { id: review.definition.id }),
+					plan.kind === 'widget-package'
+						? review.isUpgrade
+							? t('community.discover.upgraded', { id: plan.definition.id })
+							: t('community.discover.installed', { id: plan.definition.id })
+						: t('community.discover.installedModule', {
+								name: review.listing.name,
+								count: installPlanItemCount(plan),
+							}),
 				);
 				setReview(null);
 			} else {
@@ -183,7 +224,8 @@ export function CommDiscover() {
 									{m.owned && <Badge status="accent">{t('community.discover.yours')}</Badge>}
 								</div>
 								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-									v{m.version} · {kb(m.size)} · {formatDate(new Date(m.publishedAt))}
+									{t(KIND_LABEL[m.kind] ?? 'community.discover.kindWidget')} · v{m.version} ·{' '}
+									{kb(m.size)} · {formatDate(new Date(m.publishedAt))}
 								</div>
 								<div style={{ font: `12px/1.45 ${T.sans}`, color: T.sub, flex: 1 }}>
 									{m.summary}
@@ -194,8 +236,17 @@ export function CommDiscover() {
 				)}
 			</div>
 			{sel && (
-				<Panel accent title={sel.name} action={<Badge status="neutral">v{sel.version}</Badge>}>
+				<Panel
+					accent
+					title={sel.name}
+					action={
+						<Badge status="neutral">
+							{t(KIND_LABEL[sel.kind] ?? 'community.discover.kindWidget')}
+						</Badge>
+					}
+				>
 					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+						v{sel.version} ·{' '}
 						{t('community.discover.listingMeta', {
 							date: formatDate(new Date(sel.publishedAt)),
 							size: kb(sel.size),
@@ -206,15 +257,23 @@ export function CommDiscover() {
 					<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
 						{t('community.discover.installNote')}
 					</div>
-					<Button
-						variant="primary"
-						size="md"
-						icon="import"
-						disabled={busy}
-						onClick={() => startInstall(sel)}
-					>
-						{t('community.discover.installToVault')}
-					</Button>
+					{/* Fail closed: a scene package has no installer in this release, so the screen says so
+					    rather than offering a button that could only fail. */}
+					{sel.kind === 'scene-package' ? (
+						<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
+							{t('community.discover.sceneUnsupported')}
+						</div>
+					) : (
+						<Button
+							variant="primary"
+							size="md"
+							icon="import"
+							disabled={busy}
+							onClick={() => startInstall(sel)}
+						>
+							{t('community.discover.installToVault')}
+						</Button>
+					)}
 					{sel.owned && (
 						<Button
 							variant="ghost"
@@ -276,21 +335,23 @@ export function CommDiscover() {
 						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setReview(null)}>
 							{t('common.action.cancel')}
 						</Button>
-						<Button
-							variant="primary"
-							size="sm"
-							icon="import"
-							disabled={busy}
-							onClick={() => void confirmInstall()}
-						>
-							{busy
-								? t('community.discover.working')
-								: t(
-										review?.isUpgrade
-											? 'community.discover.upgradePackage'
-											: 'community.discover.installPackage',
-									)}
-						</Button>
+						{review?.plan.kind !== 'unsupported' && (
+							<Button
+								variant="primary"
+								size="sm"
+								icon="import"
+								disabled={busy}
+								onClick={() => void confirmInstall()}
+							>
+								{busy
+									? t('community.discover.working')
+									: t(
+											review?.isUpgrade
+												? 'community.discover.upgradePackage'
+												: 'community.discover.installPackage',
+										)}
+							</Button>
+						)}
 					</>
 				}
 			>
@@ -304,28 +365,69 @@ export function CommDiscover() {
 							color: T.sub,
 						}}
 					>
-						<div>
-							<strong style={{ color: T.ink }}>
-								{review.definition.displayName ?? review.definition.id}
-							</strong>{' '}
-							· v{review.definition.version}
-						</div>
-						<div>
-							{t('community.discover.widgetCount', {
-								count: Array.isArray(review.definition.widgets)
-									? review.definition.widgets.length
-									: 0,
-							})}{' '}
-							· {t('community.discover.packageId')}{' '}
-							<code style={{ font: `11.5px ${T.mono}` }}>{review.definition.id}</code>
-						</div>
-						<div style={{ color: T.ter, font: `11.5px/1.5 ${T.sans}` }}>
-							{t(
-								review.isUpgrade
-									? 'community.discover.upgradeNote'
-									: 'community.discover.installDisabledNote',
-							)}
-						</div>
+						{review.plan.kind === 'widget-package' ? (
+							<>
+								<div>
+									<strong style={{ color: T.ink }}>
+										{review.plan.definition.displayName ?? review.plan.definition.id}
+									</strong>{' '}
+									· v{review.plan.definition.version}
+								</div>
+								<div>
+									{t('community.discover.widgetCount', { count: review.plan.itemCount })} ·{' '}
+									{t('community.discover.packageId')}{' '}
+									<code style={{ font: `11.5px ${T.mono}` }}>{review.plan.definition.id}</code>
+								</div>
+								<div style={{ color: T.ter, font: `11.5px/1.5 ${T.sans}` }}>
+									{t(
+										review.isUpgrade
+											? 'community.discover.upgradeNote'
+											: 'community.discover.installDisabledNote',
+									)}
+								</div>
+							</>
+						) : review.plan.kind === 'unsupported' ? (
+							<div>{t('community.discover.sceneUnsupported')}</div>
+						) : (
+							<>
+								<div>
+									<strong style={{ color: T.ink }}>{review.plan.bundle.manifest.name}</strong> · v
+									{review.plan.bundle.manifest.version} ·{' '}
+									{t(KIND_LABEL[review.plan.bundle.manifest.kind])}
+								</div>
+								<div>
+									{review.plan.kind === 'content-module'
+										? t('community.discover.contentFileCount', { count: review.plan.files.length })
+										: t('community.discover.systemPackageNote')}{' '}
+									· {t('community.discover.packageId')}{' '}
+									<code style={{ font: `11.5px ${T.mono}` }}>{review.plan.bundle.manifest.id}</code>
+								</div>
+								{/* What lands, named, before anything is written. The DM reviews, then disposes. */}
+								{review.plan.kind === 'content-module' && (
+									<ul style={{ margin: 0, paddingInlineStart: 18, color: T.ter }}>
+										{review.plan.files.slice(0, 8).map((file) => (
+											<li key={file.path} style={{ font: `11.5px/1.6 ${T.mono}` }}>
+												{file.path}
+											</li>
+										))}
+										{review.plan.files.length > 8 && (
+											<li style={{ font: `11.5px/1.6 ${T.sans}` }}>
+												{t('community.discover.moreFiles', {
+													count: review.plan.files.length - 8,
+												})}
+											</li>
+										)}
+									</ul>
+								)}
+								<div style={{ color: T.ter, font: `11.5px/1.5 ${T.sans}` }}>
+									{t(
+										review.plan.kind === 'content-module'
+											? 'community.discover.contentInstallNote'
+											: 'community.discover.systemInstallNote',
+									)}
+								</div>
+							</>
+						)}
 					</div>
 				)}
 			</Dialog>
