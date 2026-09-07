@@ -115,8 +115,11 @@ html[data-electron='true'] {
 	--app-viewport-height: calc(100dvh - var(--native-titlebar-height));
 }
 
-html[data-electron='true'] #root {
-	margin-top: var(--native-titlebar-height);
+/* The strip is reserved with body PADDING, not a #root margin: `html, body, #root { height: 100% }`
+   let a top margin on #root collapse straight through body, so the document became 36px taller than
+   the window and the whole desktop app grew a permanent window-level scrollbar. */
+html[data-electron='true'] body {
+	padding-top: var(--native-titlebar-height);
 }
 
 html[data-electron='true'] .electron-titlebar {
@@ -235,6 +238,39 @@ html[data-electron='true'] .app-fixed-viewport {
 		min-width: 0 !important;
 		max-width: none !important;
 	}
+}
+
+/* Scrollbars follow the theme. Chromium (and so the Electron shell on Linux/Windows) otherwise paints
+   the OS's 15px light-grey classic bars on every scrolling pane — the sidebar, the main column, every
+   panel — which read as broken chrome on a candle-lit surface. Thin + tinted keeps them discoverable
+   without shouting; `scrollbar-color` covers Firefox and newer Chromium, the pseudo-elements the rest. */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--color-border-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+	background: var(--color-border-strong);
+	border: 3px solid transparent;
+	background-clip: padding-box;
+	border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+	background-color: var(--color-text-tertiary);
+}
+
+*::-webkit-scrollbar-corner {
+	background: transparent;
 }
 
 .visually-hidden {

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { countCoDmActors, type CommandResult } from '@dndtools/core';
-import { Avatar, Badge, Button, Select, Toaster } from '../../ds';
+import { Avatar, Badge, Button, IconButton, Input, Select, Toaster } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, T } from '../../app/screen-kit';
-import { useRuntime } from '../../runtime/RuntimeContext';
+import { isPlaceholderActorName, useRuntime } from '../../runtime/RuntimeContext';
 import { useAuth } from '../../cloud/AuthContext';
 import { isAccountApiConfigured } from '../../cloud/config';
 import { coDmSeatsForPlan, useEntitlements } from '../../cloud/entitlements';
@@ -27,6 +27,7 @@ export function SettingsPlayers() {
 	const ent = useEntitlements();
 	const cloudReady = isAccountApiConfigured && auth.status === 'signed-in';
 	const [inviteOpen, setInviteOpen] = useState(false);
+	const [renaming, setRenaming] = useState<{ id: string; draft: string } | null>(null);
 	const actors = Object.values(runtime.state.permissions.actors) as {
 		id: string;
 		role: string;
@@ -46,6 +47,29 @@ export function SettingsPlayers() {
 	const seatsUsed = t('settings.players.coDmSeatsUsed', { used: coDmInUse, total: coDmSeats });
 	const seatsSentence = t('settings.players.coDmSeats', { seats: seatsUsed });
 	const [seatsBefore, seatsAfter = ''] = seatsSentence.split(seatsUsed);
+
+	const commitRename = () => {
+		if (!renaming) return;
+		const { id, draft } = renaming;
+		const displayName = draft.trim();
+		const before = runtime.state.permissions.actors[id]?.displayName;
+		setRenaming(null);
+		if (!displayName || displayName === before) return;
+		void runtime
+			.dispatch({
+				type: 'permission.rename-actor',
+				actorId: dmActorId,
+				payload: { targetActorId: id, displayName },
+			})
+			.then((res: CommandResult) => {
+				if (res.status !== 'accepted') {
+					Toaster.error(res.rejection.message);
+					return;
+				}
+				Toaster.success(t('settings.players.renamed', { name: displayName }));
+			})
+			.catch((e: unknown) => Toaster.error(errMsg(e, t('settings.players.renameFailed'))));
+	};
 
 	const assignRole = (
 		targetActorId: string,
@@ -141,8 +165,58 @@ export function SettingsPlayers() {
 									ring={a.role === 'dm' || a.role === 'co-dm' ? 'active' : undefined}
 								/>
 								<div style={{ flex: 1, minWidth: 0 }}>
-									<div style={{ font: `600 13px ${T.sans}` }}>{a.displayName}</div>
-									<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{a.id}</div>
+									{renaming?.id === a.id ? (
+										<Input
+											autoFocus
+											value={renaming.draft}
+											maxLength={60}
+											aria-label={t('settings.players.renameFor', { name: a.displayName })}
+											onChange={(e: { target: { value: string } }) =>
+												setRenaming({ id: a.id, draft: e.target.value })
+											}
+											onBlur={commitRename}
+											onKeyDown={(e: { key: string; preventDefault(): void }) => {
+												if (e.key === 'Enter') {
+													e.preventDefault();
+													commitRename();
+												} else if (e.key === 'Escape') {
+													e.preventDefault();
+													setRenaming(null);
+												}
+											}}
+											style={{ maxWidth: 320 }}
+										/>
+									) : (
+										<div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+											<span
+												style={{
+													font: `600 13px ${T.sans}`,
+													whiteSpace: 'nowrap',
+													overflow: 'hidden',
+													textOverflow: 'ellipsis',
+												}}
+											>
+												{a.displayName}
+											</span>
+											<IconButton
+												icon="edit"
+												size="sm"
+												variant="ghost"
+												label={t('settings.players.rename', { name: a.displayName })}
+												onClick={() =>
+													setRenaming({
+														id: a.id,
+														draft: isPlaceholderActorName(a.displayName) ? '' : a.displayName,
+													})
+												}
+											/>
+										</div>
+									)}
+									<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
+										{a.id === dmActorId && isPlaceholderActorName(a.displayName)
+											? t('settings.players.yourNameHint')
+											: a.id}
+									</div>
 								</div>
 								{/* No presence dot here: this roster has no live session/connection state to derive one
 								    from, and a role-derived "live" would be a fake claim. The role badge carries the row. */}

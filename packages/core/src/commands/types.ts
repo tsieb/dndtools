@@ -367,6 +367,7 @@ export type CoreCommand =
 			idempotencyKey?: string;
 	  }
 	| { type: 'permission.assign-role'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'permission.rename-actor'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'map.create-layer'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'map.rename-layer'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'map.reorder-layer'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -1300,6 +1301,14 @@ export type CoreEvent =
 			role: ActorRole;
 			previousRole: ActorRole;
 			/** The owner (DM) who made the assignment. */
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'permission.actor-renamed';
+			targetActorId: ActorId;
+			displayName: string;
+			previousDisplayName: string;
+			/** Who renamed them — the actor themselves, or the owner DM. */
 			actorId: ActorId;
 	  }
 	| {
