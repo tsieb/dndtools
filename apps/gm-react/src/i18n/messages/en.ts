@@ -5067,6 +5067,12 @@ export const en = {
 	'markdown.showSecret': 'Show',
 	'markdown.hideSecret': 'Hide',
 	'markdown.secretWithheld': 'Part of this note is DM only.',
+	'markdown.rollTitle': 'Roll {expression}',
+	'markdown.rollAria': 'Roll {expression}',
+	'markdown.rollInvalid': 'That is not a dice expression.',
+	'markdown.rollRecorded': 'Recorded in the session log.',
+	'markdown.rollNotRecorded': 'Not recorded — no session is running.',
+	'markdown.rollLocal': 'not recorded',
 	// RC-CHR-1.2 — the rest workflow: the per-character rest dialog and the DM's party-wide call.
 	'character.rest.title': 'Rest — {name}',
 	'character.rest.description': 'Choose the rest, and how many hit dice to spend on it.',

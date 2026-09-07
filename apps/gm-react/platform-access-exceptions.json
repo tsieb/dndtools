@@ -18,6 +18,14 @@
 			"removalCriteria": "Remove if command dispatch grows a shared idempotency-key helper on the runtime/dispatch seam that GUI code calls instead of crypto.randomUUID() directly. Out of scope for RC-UX-4.1, which owns the device-preferences/capability layer (localStorage, matchMedia, navigator), not identifier minting."
 		},
 		{
+			"id": "inline-roll-seed-crypto",
+			"path": "apps/gm-react/src/app/markdown/RollButton.tsx",
+			"primitives": ["crypto"],
+			"owner": "SESSION (inline rolls, RC-SES-2.2)",
+			"rationale": "Draws a one-shot 32-bit seed for a single inline roll. The seed must be drawn BEFORE dispatch because the same value is handed to `dice.roll` AND used locally, so the chip the presser sees and the session log everyone else sees land on the same total by the core's determinism contract. No key material and no durable state is touched; the roll itself is still computed in the Processing Core.",
+			"removalCriteria": "Remove if the runtime/dispatch seam grows a shared seed/idempotency-key helper that GUI code calls instead of crypto.getRandomValues(), or if `dice.roll` learns to return the recorded roll synchronously so the control never needs its own seed."
+		},
+		{
 			"id": "wikireader-test-jsdom-matchmedia-polyfill",
 			"path": "apps/gm-react/src/screens/WikiReader.test.tsx",
 			"primitives": ["viewport-sniff"],

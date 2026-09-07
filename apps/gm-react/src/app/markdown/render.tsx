@@ -4,6 +4,7 @@ import { Icon } from '../../ds';
 import { T, srOnly } from '../screen-kit';
 import type { MessageKey, MessageValues } from '../../i18n';
 import { parseBlocks, type ImageSource, type InlineToken, type MdBlock } from './plugins';
+import { RollButton, type InlineRollLogger } from './RollButton';
 
 /**
  * RC-KNW-1.1 — THE markdown renderer. Every prose surface (Knowledge, the public wiki reader,
@@ -42,6 +43,12 @@ export interface MarkdownRenderOptions {
 	 * simply pass nothing and get the honest unavailable state.
 	 */
 	renderAssetImage?: (assetId: string, alt: string) => ReactNode;
+	/**
+	 * RC-SES-2.2 — record an inline `[[roll:...]]` press in the session log with `source: 'inline'`.
+	 * Surfaces that cannot write (the public wiki reader) pass nothing: the control still rolls and
+	 * says the result was not recorded, which is the truth, rather than going dead.
+	 */
+	logInlineRoll?: InlineRollLogger;
 	/** True when the reader holds DM authority. Governs the `[!Secret]` affordance only. */
 	isDm?: boolean;
 	/** Message key for the "nothing here" line when the body is blank. */
@@ -166,6 +173,16 @@ function renderInline(tokens: InlineToken[], options: MarkdownRenderOptions): Re
 						<Icon name="link" size="sm" style={{ marginLeft: 3, verticalAlign: '-2px' }} />
 						<span style={srOnly}> {options.t('markdown.opensExternally')}</span>
 					</a>
+				);
+			case 'roll':
+				return (
+					<RollButton
+						key={index}
+						expression={token.expression}
+						{...(token.label ? { label: token.label } : {})}
+						t={options.t}
+						{...(options.logInlineRoll ? { log: options.logInlineRoll } : {})}
+					/>
 				);
 			case 'wikilink': {
 				const go = options.resolveWikilink?.(token.raw) ?? null;

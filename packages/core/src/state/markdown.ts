@@ -222,11 +222,16 @@ export function headingAnchors(body: string): HeadingAnchor[] {
 	return anchors;
 }
 
-/** Extract Obsidian `[[wikilinks]]` from a body, in document order (duplicates preserved). */
+/**
+ * Extract Obsidian `[[wikilinks]]` from a body, in document order (duplicates preserved). An inline
+ * roll (`[[roll:1d20+5]]`, RC-SES-2.2) shares the bracket syntax but is a die, not a note reference:
+ * it is SKIPPED here so it never appears as a backlink or as a broken link to a note named "roll:…".
+ */
 export function extractWikilinks(body: string): ParsedWikilink[] {
 	const links: ParsedWikilink[] = [];
 	for (const match of body.matchAll(WIKILINK_PATTERN)) {
 		const raw = match[0]!;
+		if (parseInlineRoll(raw)) continue;
 		const inner = match[1]!;
 		const [targetAndSection, alias] = splitOnce(inner, '|');
 		const [target, section] = splitOnce(targetAndSection, '#');
@@ -415,4 +420,56 @@ export function stripSecretCallouts(body: string): string {
 		.replace(/\n{3,}/g, '\n\n')
 		.replace(/^\n+/, '')
 		.replace(/\s+$/, '');
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * RC-SES-2.2 — INLINE ROLLS. `[[roll:1d20+5]]`, optionally `[[roll:1d20+5|Stealth check]]`, written
+ * straight into a note or a handout body. Parsed HERE, in the core, for the same reason callouts are:
+ * the DM's prose and the player's projection of that prose must agree on which `[[...]]` is a note
+ * link and which is a die, or a player would see a broken wikilink where the DM sees a button.
+ *
+ * This layer decides only WHAT the text says. It does not roll: the roll itself is `dice.roll` with
+ * `inline: true`, dispatched by whichever surface the reader pressed the control on, so the outcome is
+ * still computed exactly once in the Processing Core from a recorded seed. Pure: no clock, no RNG.
+ * ---------------------------------------------------------------------------------------------- */
+
+/** The marker that makes a `[[...]]` a die rather than a note link. Case-insensitive on parse. */
+export const INLINE_ROLL_PREFIX = 'roll:';
+
+/** One parsed inline roll: the dice expression to roll and the optional label to record with it. */
+export interface ParsedInlineRoll {
+	/** The dice expression as authored, trimmed (e.g. `1d20+5`). Never empty. */
+	expression: string;
+	/** The `|label` shown on the control and recorded on the roll, when the author gave one. */
+	label?: string;
+	/** The exact original `[[roll:...]]` text. */
+	raw: string;
+}
+
+/**
+ * Recognize an inline roll in a single `[[...]]` run. Returns `null` for an ordinary wikilink, for an
+ * unknown prefix, and for `[[roll:]]` with nothing after the marker — an empty expression is not a
+ * roll, and degrading it to a plain wikilink keeps the text visible instead of silently vanishing.
+ * Pure and total.
+ */
+export function parseInlineRoll(raw: string): ParsedInlineRoll | null {
+	if (!raw.startsWith('[[') || !raw.endsWith(']]')) return null;
+	const inner = raw.slice(2, -2);
+	if (!inner.trimStart().toLowerCase().startsWith(INLINE_ROLL_PREFIX)) return null;
+	const afterPrefix = inner.trimStart().slice(INLINE_ROLL_PREFIX.length);
+	const [expressionPart, labelPart] = splitOnce(afterPrefix, '|');
+	const expression = expressionPart.trim();
+	if (expression === '') return null;
+	const label = labelPart?.trim();
+	return { expression, ...(label ? { label } : {}), raw };
+}
+
+/** Extract every inline roll from a note body, in document order (duplicates preserved). Pure. */
+export function extractInlineRolls(body: string): ParsedInlineRoll[] {
+	const rolls: ParsedInlineRoll[] = [];
+	for (const match of body.matchAll(WIKILINK_PATTERN)) {
+		const parsed = parseInlineRoll(match[0]!);
+		if (parsed) rolls.push(parsed);
+	}
+	return rolls;
 }

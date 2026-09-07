@@ -113,6 +113,31 @@ export function PlayerView() {
 		else if (crit === 'fail') toast('Natural 1 — critical miss', 'warning', 'close');
 		return recorded;
 	};
+	/**
+	 * RC-SES-2.2 — a pressed `[[roll:...]]` inside a handout body, recorded as this player's own
+	 * inline roll. Rolled from the SEED the control already drew, so the chip the presser sees and
+	 * the shared log carry the same number. Returns whether it was recorded; on standby the Core
+	 * refuses (no live session) and the chip says so rather than claiming the table saw it.
+	 */
+	const logInlineRoll = async (roll: {
+		expression: string;
+		seed: number;
+		label?: string;
+	}): Promise<boolean> => {
+		const payload = {
+			expression: roll.expression,
+			inline: true,
+			seed: roll.seed,
+			...(roll.label ? { label: roll.label } : {}),
+		};
+		if (joined) {
+			const ack = await session.requestCommand({ type: 'dice.roll', payload });
+			return ack.ok;
+		}
+		const result = await runtime.dispatch({ type: 'dice.roll', actorId: viewer, payload });
+		return result.status === 'accepted';
+	};
+
 	// Resolve a roller's display name. Joined devices have no full roster, so map self → "You" and fall
 	// back to the presence roster / the roll's own attribution; solo reads the local actor roster.
 	const actorName = (id: string): string => {
@@ -237,7 +262,8 @@ export function PlayerView() {
 			/>
 		);
 	else if (current === 'party') body = <PartySection data={data} />;
-	else if (current === 'handouts') body = <HandoutsSection data={data} />;
+	else if (current === 'handouts')
+		body = <HandoutsSection data={data} onInlineRoll={logInlineRoll} />;
 	else if (current === 'journal') body = <JournalSection data={data} />;
 	// ELEVATED (Co-DM tier) — real DM-grade panels, fed by `data.elevated` (present only for a co-DM).
 	else if (current === 'atlas') body = <AtlasSection data={data} />;

@@ -4,6 +4,7 @@ import { T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import { Panel, PvPage, SectionHead, type LiveData } from './shared';
 import { renderMarkdown } from '../../app/markdown/render';
+import type { InlineRollLogger } from '../../app/markdown/RollButton';
 
 // 5 · HANDOUTS — everything the DM has shared with this player (visible notes). Read-only.
 const HANDOUT_ICON: Record<string, string> = {
@@ -11,7 +12,14 @@ const HANDOUT_ICON: Record<string, string> = {
 	scene: 'atlas-map',
 	recap: 'campaign-scroll',
 };
-export function HandoutsSection({ data }: { data: LiveData }) {
+export function HandoutsSection({
+	data,
+	onInlineRoll,
+}: {
+	data: LiveData;
+	/** RC-SES-2.2 — record a pressed `[[roll:...]]` in a handout as this player's own inline roll. */
+	onInlineRoll?: InlineRollLogger;
+}) {
 	const { t } = useI18n();
 	const shared = data.handouts;
 	// undefined means "pick the first available item"; null is an explicit user collapse.
@@ -115,7 +123,10 @@ export function HandoutsSection({ data }: { data: LiveData }) {
 											    instead of arriving as raw `|` and `**`. No DM authority here: a
 											    `[!Secret]` renders as withheld, and the core already stripped it
 											    from this projection. */}
-											{renderMarkdown(n.body, { t })}
+											{renderMarkdown(n.body, {
+												t,
+												...(onInlineRoll ? { logInlineRoll: onInlineRoll } : {}),
+											})}
 										</div>
 									</div>
 								)}

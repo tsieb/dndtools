@@ -5672,3 +5672,8 @@ export type {
 	RestResult,
 } from './state/character-resources';
 export { EXHAUSTION_MAX, restKindOfLedgerEntry, setExhaustion } from './state/character-resources';
+// RC-SES-2.2 — INLINE ROLLS. `[[roll:1d20+5|Stealth check]]` written into a note or handout body.
+// The grammar lives in the core so the DM's renderer and the player's projection agree on which
+// `[[...]]` is a die and which is a note link. Rolling stays `dice.roll` with `inline: true`.
+export type { ParsedInlineRoll } from './state/markdown';
+export { INLINE_ROLL_PREFIX, extractInlineRolls, parseInlineRoll } from './state/markdown';

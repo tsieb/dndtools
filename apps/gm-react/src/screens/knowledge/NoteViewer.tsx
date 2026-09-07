@@ -110,6 +110,31 @@ export function NoteViewer({
 		return () => onOpen(res.targetId);
 	};
 
+	/**
+	 * RC-SES-2.2 — a pressed inline `[[roll:...]]` is recorded in the session log with
+	 * `source: 'inline'`, rolled from the SEED the control already drew so the chip and the log show
+	 * the same number. Outside a live session the core refuses the command (`requireActiveSession`);
+	 * that is a normal way to read a note, so it returns false silently and the chip says the result
+	 * was not recorded rather than raising an error at a reader who did nothing wrong.
+	 */
+	const logInlineRoll = async (roll: {
+		expression: string;
+		seed: number;
+		label?: string;
+	}): Promise<boolean> => {
+		const result = await runtime.dispatch({
+			type: 'dice.roll',
+			actorId,
+			payload: {
+				expression: roll.expression,
+				inline: true,
+				seed: roll.seed,
+				...(roll.label ? { label: roll.label } : {}),
+			},
+		});
+		return result.status === 'accepted';
+	};
+
 	const rel = useMemo(
 		() =>
 			getNoteRelationshipsForActor(
@@ -347,7 +372,7 @@ export function NoteViewer({
 							{/* `canAuthor` is DM authority (RC-KNW-1.1): it governs the `[!Secret]` blur-until-shown
 							    affordance only. A player's copy of the body never carries the secret — the core
 							    strips it before the projection reaches this screen. */}
-							<div>{mdToNodes(note.body, t, resolveLink, canAuthor)}</div>
+							<div>{mdToNodes(note.body, t, resolveLink, canAuthor, logInlineRoll)}</div>
 						</>
 					)}
 				</Panel>

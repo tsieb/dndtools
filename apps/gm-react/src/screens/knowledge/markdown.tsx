@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import { T } from '../../app/screen-kit';
 import { renderMarkdown } from '../../app/markdown/render';
+import type { InlineRollLogger } from '../../app/markdown/RollButton';
 import { parseWikilinkToken } from '../../app/markdown/plugins';
 import { useAssetObjectUrl } from '../../platform/assetUrl';
 import type { MessageKey, MessageValues } from '../../i18n';
@@ -76,18 +77,23 @@ export function parseWikilink(raw: string): { target: string; section?: string; 
  *
  * `isDm` governs the `[!Secret]` affordance ONLY. A player never receives a secret's bytes at all:
  * the core strips them in `stripSecretCallouts` before the projection reaches any screen.
+ *
+ * RC-SES-2.2: `logInlineRoll` is how a pressed `[[roll:...]]` reaches the session log. Omit it and
+ * the control still rolls — it just says so, instead of pretending the table saw the number.
  */
 export function mdToNodes(
 	md: string,
 	t: Translate,
 	resolve?: (raw: string) => (() => void) | null,
 	isDm = false,
+	logInlineRoll?: InlineRollLogger,
 ): ReactNode {
 	return renderMarkdown(md, {
 		t,
 		emptyKey: 'knowledge.noteEmpty',
 		isDm,
 		...(resolve ? { resolveWikilink: resolve } : {}),
+		...(logInlineRoll ? { logInlineRoll } : {}),
 		renderAssetImage: (assetId, alt) => <NoteAssetImage assetId={assetId} alt={alt} />,
 	});
 }

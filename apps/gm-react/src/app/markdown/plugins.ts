@@ -1,4 +1,9 @@
-import { parseCalloutMarker, slugifyHeading, type CalloutKind } from '@dndtools/core';
+import {
+	parseCalloutMarker,
+	parseInlineRoll,
+	slugifyHeading,
+	type CalloutKind,
+} from '@dndtools/core';
 
 /**
  * RC-KNW-1.1 — THE markdown tokenizer. One pipeline for every prose surface in the app (Knowledge,
@@ -89,6 +94,12 @@ export type InlineToken =
 	| { type: 'code'; text: string }
 	/** An Obsidian `[[target#section|label]]`. Resolution is the caller's job (it is actor-scoped). */
 	| { type: 'wikilink'; raw: string; target: string; section?: string; label: string }
+	/**
+	 * RC-SES-2.2 — an inline `[[roll:1d20+5|Stealth check]]`. Shares the bracket syntax with a
+	 * wikilink, so the CORE's `parseInlineRoll` decides which of the two a run is; whether the roll
+	 * reaches the session log or stays a local chip is the host surface's call, not the tokenizer's.
+	 */
+	| { type: 'roll'; raw: string; expression: string; label?: string }
 	/** A `[label](href)` whose href passed {@link safeHref}. */
 	| { type: 'link'; href: string; label: string }
 	/** An inline `![alt](src)` whose src passed {@link safeImageSrc}. */
@@ -143,6 +154,17 @@ export function tokenizeInline(line: string): InlineToken[] {
 			continue;
 		}
 		if (part.startsWith('[[')) {
+			// A `[[roll:...]]` is a die, not a note link — the core owns that distinction.
+			const roll = parseInlineRoll(part);
+			if (roll) {
+				out.push({
+					type: 'roll',
+					raw: part,
+					expression: roll.expression,
+					...(roll.label ? { label: roll.label } : {}),
+				});
+				continue;
+			}
 			out.push({ type: 'wikilink', raw: part, ...parseWikilinkToken(part) });
 			continue;
 		}

@@ -76,6 +76,22 @@ Two things changed from the original decision, both narrowing:
   non-DM projection (`stripSecretCallouts`), so a player never receives the bytes. The renderer's
   blur is a second layer for the DM's own (often screen-shared) display, not the security boundary.
 
+## Amendment — 2026-09-07 (RC-SES-2.2, inline rolls)
+
+The pipeline now recognizes one construct that is not prose: `[[roll:1d20+5|Stealth check]]`. It
+shares the `[[...]]` bracket syntax with a wikilink, so the CORE decides which of the two a run is
+(`parseInlineRoll` in `state/markdown.ts`) rather than each renderer guessing — otherwise a player
+would see a broken note link where the DM sees a die. Rolls are also excluded from
+`extractWikilinks`, so an inline roll never becomes a backlink to a note named `roll:…`.
+
+The renderer does not own the randomness either. `RollButton` draws a 32-bit seed, evaluates the
+expression with the core's own `rollExpression`, and hands the SAME seed to the host's logger, which
+dispatches `dice.roll` with `inline: true`. The Processing Core re-evaluates from that seed and, by
+the determinism contract, lands on the same total — so the chip the presser sees and the session log
+everyone else sees can never disagree. With no live session the core refuses the command and the
+chip says the result was not recorded, rather than the control going dead or claiming a log entry
+that does not exist.
+
 ## Verification and Evidence
 
 - `apps/gm-react/src/app/markdown/plugins.ts` — the tokenizer and the URL allow-list
@@ -84,4 +100,8 @@ Two things changed from the original decision, both narrowing:
 - `apps/gm-react/src/app/markdown/render.test.tsx` — DOM XSS corpus, structure snapshot, `[!Secret]`
 - `packages/core/src/state/markdown.ts` — the shared callout grammar + `stripSecretCallouts`
 - `packages/core/tests/markdown-callouts.test.ts` — "a player projection never contains a secret"
+- `packages/core/src/state/markdown.ts` — `parseInlineRoll` / `extractInlineRolls` (RC-SES-2.2)
+- `packages/core/tests/markdown-inline-roll.test.ts` — the inline-roll grammar, rolls ≠ wikilinks
+- `apps/gm-react/src/app/markdown/RollButton.tsx` — the control, the seed hand-off, the honest chip
+- `apps/gm-react/tests/e2e/inline-roll.spec.ts` — a pressed roll lands in the durable history
 - `docs/architecture/SECURITY.md`

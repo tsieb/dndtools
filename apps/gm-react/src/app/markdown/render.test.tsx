@@ -217,3 +217,67 @@ describe('RC-KNW-1.1 renderer — [!Secret] callouts', () => {
 		expect(body.textContent).toContain('Legend');
 	});
 });
+
+/**
+ * RC-SES-2.2 — an inline `[[roll:1d20+5]]` renders a real control, and the control is honest about
+ * where the number went: into the session log, or nowhere.
+ */
+describe('RC-SES-2.2 renderer — inline rolls', () => {
+	const NOTE = 'Squeeze through: [[roll:1d20+5|Acrobatics]].';
+
+	it('renders a pressable control labelled with the author’s label', () => {
+		const body = render(NOTE);
+		const button = body.querySelector('button') as HTMLButtonElement;
+		expect(button).not.toBeNull();
+		expect(button.textContent).toContain('Acrobatics');
+		// The bracket syntax itself never reaches the reader.
+		expect(body.textContent).not.toContain('[[roll:');
+	});
+
+	it('falls back to the expression when the author gave no label', () => {
+		const body = render('Roll [[roll:2d6]].');
+		expect((body.querySelector('button') as HTMLButtonElement).textContent).toContain('2d6');
+	});
+
+	it('shows a result and says it was recorded when a session took the roll', async () => {
+		const seen: { expression: string; seed: number; label?: string }[] = [];
+		const body = render(NOTE, {
+			logInlineRoll: (roll) => {
+				seen.push(roll);
+				return true;
+			},
+		});
+		await act(async () => {
+			(body.querySelector('button') as HTMLButtonElement).click();
+		});
+		expect(seen).toHaveLength(1);
+		expect(seen[0]?.expression).toBe('1d20+5');
+		expect(seen[0]?.label).toBe('Acrobatics');
+		// The seed is drawn by the control and handed to the log, so both land on the same total.
+		expect(Number.isInteger(seen[0]?.seed)).toBe(true);
+		const chip = body.querySelector('[role="status"]') as HTMLElement;
+		const total = Number.parseInt(chip.textContent ?? '', 10);
+		expect(total).toBeGreaterThanOrEqual(6);
+		expect(total).toBeLessThanOrEqual(25);
+		expect(chip.textContent).toContain('Recorded in the session log.');
+	});
+
+	it('still rolls with no session, and says the result was not recorded', async () => {
+		const body = render(NOTE);
+		await act(async () => {
+			(body.querySelector('button') as HTMLButtonElement).click();
+		});
+		const chip = body.querySelector('[role="status"]') as HTMLElement;
+		expect(chip).not.toBeNull();
+		expect(chip.textContent).toContain('not recorded');
+	});
+
+	it('refuses a malformed expression with an honest message instead of a number', async () => {
+		const body = render('Roll [[roll:not-dice]].');
+		await act(async () => {
+			(body.querySelector('button') as HTMLButtonElement).click();
+		});
+		const chip = body.querySelector('[role="status"]') as HTMLElement;
+		expect(chip.textContent).toContain('not a dice expression');
+	});
+});
