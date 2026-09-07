@@ -709,6 +709,14 @@ export type CoreCommand =
 	// validation + sanitization (render) + visibility pipeline as hand-typed content — a snippet cannot
 	// skip validation, smuggle unsanitized markdown, or widen the note's visibility (all fail-closed).
 	| { type: 'content.insert-snippet'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// --- RC-KNW-1.3 (templates and snippets UI) -----------------------------------------------------
+	// SAVE / DELETE a DM-authored CONTENT TEMPLATE. The authored draft is validated at dispatch (fail
+	// closed: reserved `user:` id namespace, every written placeholder declared, visibility fails closed
+	// to dm-only), so a stored template can never render an unvalidated shape into a real note. Creating
+	// from one reuses `content.create-from-template` unchanged.
+	| { type: 'content.save-template'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'content.delete-template'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// --- end RC-KNW-1.3 -----------------------------------------------------------------------------
 	// CONTENT-009: author SECTION- / FIELD-level visibility on a note/object (authorized editor). The
 	// entity-level default already exists; these add the narrower granularities. Read-time precedence
 	// (field > section > entity, hidden-ancestor-wins) is the REUSED PERM visibility-filter engine.
@@ -1641,6 +1649,16 @@ export type CoreEvent =
 			mutation: 'define' | 'update' | 'delete';
 			actorId: ActorId;
 	  }
+	// --- RC-KNW-1.3 (templates and snippets UI) -----------------------------------------------------
+	// A DM-authored content template was saved or deleted. Carries the template id + the mutation so the
+	// authoring surfaces re-read the template catalog. DM-only authoring metadata; never player-delivered.
+	| {
+			kind: 'content.template-changed';
+			templateId: string;
+			mutation: 'save' | 'update' | 'delete';
+			actorId: ActorId;
+	  }
+	// --- end RC-KNW-1.3 -----------------------------------------------------------------------------
 	// CONTENT-006 — a wikilink target was renamed: the target note's title changed AND the rename propagated to
 	// referring links. Carries the renamed item, old/new titles, and the ids of the notes whose bodies were
 	// rewritten + total links rewritten, so the audit records exactly what propagated (deterministic).
@@ -1999,6 +2017,15 @@ export type RejectionCode =
 	// generated content failed the EXISTING markdown/object validation. Fail closed: nothing is written.
 	// The per-issue findings ride the `issues` list for the authoring UI.
 	| 'template-render-invalid'
+	// --- RC-KNW-1.3 (templates and snippets UI) ---
+	// A DM-authored template draft failed validation (bad id namespace, missing name/title/body, a bad or
+	// duplicated variable, or a `{{placeholder}}` the draft never declares). Fail closed: nothing is stored.
+	| 'content-template-invalid'
+	// A delete named a built-in starter preset. A preset is code, not data — there is nothing to remove.
+	| 'content-template-not-deletable'
+	// A delete/create named a template id that is not stored.
+	| 'content-template-not-found'
+	// --- end RC-KNW-1.3 ---
 	// CONTENT-004 — the named snippet does not exist.
 	| 'snippet-not-found'
 	// CONTENT-004 — inserting the snippet would make the note invalid (the resulting text failed the SAME

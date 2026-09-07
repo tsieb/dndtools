@@ -2568,6 +2568,43 @@ export const insertSnippetInputSchema = z
 	})
 	.strict();
 
+// --- RC-KNW-1.3 — SAVE / DELETE a DM-authored content template ------------------------------------
+
+// One declared `{{variable}}` a saved template interpolates. `required` blocks creation until filled;
+// `defaultValue` only ever applies to an OPTIONAL variable (the render transform decides, not this schema).
+const userContentTemplateVariableSchema = z
+	.object({
+		name: z.string().min(1, 'A variable name is required').max(48),
+		label: z.string().min(1, 'A variable label is required').max(80),
+		required: z.boolean().default(false),
+		defaultValue: z.string().max(200).optional(),
+	})
+	.strict();
+
+// RC-KNW-1.3 — save (create or replace) a DM-authored note template. The draft is structurally validated
+// before any durable write: the id must sit in the reserved `user:` namespace so it can never shadow a
+// built-in starter preset, and every `{{placeholder}}` the title/body writes must be declared here.
+// `defaultVisibility` is optional and fails closed to `dm-only` — a template can never widen visibility.
+export const saveContentTemplateInputSchema = z
+	.object({
+		id: z.string().min(1, 'A template id is required'),
+		name: z.string().min(1, 'A template name is required'),
+		description: z.string().max(240).default(''),
+		variables: z.array(userContentTemplateVariableSchema).default([]),
+		titleTemplate: z.string().min(1, 'A template title is required'),
+		bodyTemplate: z.string().min(1, 'A template body is required'),
+		defaultVisibility: contentVisibilitySchema.optional(),
+	})
+	.strict();
+
+// RC-KNW-1.3 — delete a DM-authored template by id. Only the `user:` namespace is deletable; a built-in
+// starter preset is code, not data, and is refused.
+export const deleteContentTemplateInputSchema = z
+	.object({
+		templateId: z.string().min(1, 'A template id is required'),
+	})
+	.strict();
+
 // --- SES-002 — RUN COMBAT (initiative / rounds / turns / per-combatant resources / encounter log) ---
 
 const combatantKindSchema = z.enum(['character', 'npc', 'monster']);

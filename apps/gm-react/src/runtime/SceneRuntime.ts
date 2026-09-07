@@ -124,6 +124,7 @@ function emptySlice(): CoreStateSlice {
 			items: { ...EMPTY_VAULT_CONTENT_STATE.items },
 			savedSearches: { ...EMPTY_VAULT_CONTENT_STATE.savedSearches },
 			customObjectTypes: { ...EMPTY_VAULT_CONTENT_STATE.customObjectTypes },
+			userTemplates: { ...EMPTY_VAULT_CONTENT_STATE.userTemplates },
 			schemaVersion: EMPTY_VAULT_CONTENT_STATE.schemaVersion,
 		},
 		encounters: {
@@ -394,7 +395,9 @@ export class SceneRuntime {
 		const actors = withDefaultWidgets.permissions.actors;
 		const nextActors: CoreStateSlice['permissions']['actors'] = {
 			...actors,
-			...(actors[id] ? {} : { [id]: { id, role: 'dm' as const, displayName: PLACEHOLDER_DM_NAME } }),
+			...(actors[id]
+				? {}
+				: { [id]: { id, role: 'dm' as const, displayName: PLACEHOLDER_DM_NAME } }),
 		};
 		if (includeDemoFixtures) {
 			for (const participant of DEFAULT_DEMO_PARTICIPANTS) {

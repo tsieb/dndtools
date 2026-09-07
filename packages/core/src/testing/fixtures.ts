@@ -134,6 +134,7 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 			items: { ...EMPTY_VAULT_CONTENT_STATE.items },
 			savedSearches: { ...EMPTY_VAULT_CONTENT_STATE.savedSearches },
 			customObjectTypes: { ...EMPTY_VAULT_CONTENT_STATE.customObjectTypes },
+			userTemplates: { ...EMPTY_VAULT_CONTENT_STATE.userTemplates },
 			schemaVersion: EMPTY_VAULT_CONTENT_STATE.schemaVersion,
 		},
 		encounters: {

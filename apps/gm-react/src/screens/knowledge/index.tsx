@@ -11,6 +11,7 @@ import { useI18n } from '../../i18n';
 import { NoteViewer } from './NoteViewer';
 import { Composer } from './Composer';
 import { ImportPanel } from './ImportPanel';
+import { TemplatesPanel } from './Templates';
 
 export { parseWikilink } from './markdown';
 
@@ -45,6 +46,8 @@ export function Knowledge() {
 	);
 
 	const [composing, setComposing] = useState(false);
+	// RC-KNW-1.3 — the templates/snippets disclosure, mutually exclusive with the other three.
+	const [templating, setTemplating] = useState(false);
 	const [importing, setImporting] = useState(false);
 	const [showSources, setShowSources] = useState(false);
 	const [busy, setBusy] = useState(false);
@@ -174,6 +177,7 @@ export function Knowledge() {
 								setShowSources((v) => !v);
 								setComposing(false);
 								setImporting(false);
+								setTemplating(false);
 							}}
 						>
 							{t('knowledge.sources')}
@@ -187,9 +191,26 @@ export function Knowledge() {
 								setImporting((v) => !v);
 								setComposing(false);
 								setShowSources(false);
+								setTemplating(false);
 							}}
 						>
 							{t('knowledge.importVault')}
+						</Button>
+						{/* RC-KNW-1.3 — start a note from a template, keep your own, insert a snippet. */}
+						<Button
+							variant={templating ? 'secondary' : 'ghost'}
+							size="sm"
+							icon="duplicate"
+							aria-expanded={templating}
+							data-testid="knowledge-templates-toggle"
+							onClick={() => {
+								setTemplating((v) => !v);
+								setComposing(false);
+								setImporting(false);
+								setShowSources(false);
+							}}
+						>
+							{t('knowledge.templates')}
 						</Button>
 						<Button
 							variant="primary"
@@ -200,6 +221,7 @@ export function Knowledge() {
 								setComposing((v) => !v);
 								setImporting(false);
 								setShowSources(false);
+								setTemplating(false);
 							}}
 						>
 							{t('knowledge.newNote')}
@@ -210,6 +232,9 @@ export function Knowledge() {
 
 			{canAuthor && composing && (
 				<Composer busy={busy} onCreate={createNote} onCancel={() => setComposing(false)} />
+			)}
+			{canAuthor && templating && (
+				<TemplatesPanel onCreated={(id) => navigate(`/knowledge/${id}`)} />
 			)}
 			{canAuthor && importing && (
 				<ImportPanel
@@ -248,6 +273,7 @@ export function Knowledge() {
 									setComposing(true);
 									setImporting(false);
 									setShowSources(false);
+									setTemplating(false);
 								}}
 							>
 								{t('knowledge.newNote')}

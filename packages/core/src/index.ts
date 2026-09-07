@@ -2548,6 +2548,32 @@ export {
 	snippetCanInsertIntoVisibility,
 } from './state/content-snippets';
 
+// --- RC-KNW-1.3 (templates and snippets UI) — the DURABLE store of DM-authored templates. Same
+// ContentTemplate shape, same pure render + existing validation pipeline as a built-in preset; this
+// only adds durability, a reserved `user:` id namespace and a fail-closed draft validator.
+export type {
+	ContentTemplateSummary,
+	UserContentTemplateDefinition,
+	UserContentTemplateDraft,
+	UserContentTemplateIssue,
+	UserContentTemplateMap,
+	UserContentTemplateValidationResult,
+} from './state/content-template-store';
+export {
+	USER_CONTENT_TEMPLATE_ENTITY_TYPE,
+	USER_CONTENT_TEMPLATE_ID_PATTERN,
+	USER_CONTENT_TEMPLATE_ID_PREFIX,
+	USER_CONTENT_TEMPLATE_SCHEMA_VERSION,
+	buildUserContentTemplate,
+	ensureUserContentTemplateMap,
+	isUserContentTemplateId,
+	listContentTemplates,
+	resolveContentTemplate,
+	summarizeUserContentTemplate,
+	validateUserContentTemplate,
+} from './state/content-template-store';
+// --- end RC-KNW-1.3 ---
+
 // CONTENT-011: THE single actor-filtered CONTENT read model. Per-item visibility decided BEFORE any
 // content is returned to ANY surface (note/graph/search/recap), with STABLE formatted dates. A hidden
 // dated item is OMITTED ENTIRELY from calendar/timeline views (AC2). Deterministic ordering by date.
@@ -3884,6 +3910,8 @@ export {
 	createContentItemInputSchema,
 	createFromTemplateInputSchema,
 	defineCalendarInputSchema,
+	deleteContentTemplateInputSchema,
+	saveContentTemplateInputSchema,
 	exportContentInputSchema,
 	insertSnippetInputSchema,
 	editCharacterFieldInputSchema,

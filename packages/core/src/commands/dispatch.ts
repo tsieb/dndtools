@@ -235,7 +235,12 @@ import {
 	handleDeleteCustomObjectType,
 	handleUpdateCustomObjectType,
 } from './custom-object-type';
-import { handleCreateFromTemplate, handleInsertSnippet } from './content-templates';
+import {
+	handleCreateFromTemplate,
+	handleDeleteContentTemplate,
+	handleInsertSnippet,
+	handleSaveContentTemplate,
+} from './content-templates';
 import {
 	handleAddContentEmbed,
 	handleRemoveContentEmbed,
@@ -727,6 +732,12 @@ export function dispatchCommand(
 			return handleCreateFromTemplate(state, env, command.actorId, command.payload);
 		case 'content.insert-snippet':
 			return handleInsertSnippet(state, env, command.actorId, command.payload);
+		// --- RC-KNW-1.3 (templates and snippets UI) ---
+		case 'content.save-template':
+			return handleSaveContentTemplate(state, env, command.actorId, command.payload);
+		case 'content.delete-template':
+			return handleDeleteContentTemplate(state, env, command.actorId, command.payload);
+		// --- end RC-KNW-1.3 ---
 		case 'content.set-section-visibility':
 			return handleSetContentSectionVisibility(state, env, command.actorId, command.payload);
 		case 'content.set-field-visibility':
