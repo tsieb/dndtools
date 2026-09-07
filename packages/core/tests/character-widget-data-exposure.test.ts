@@ -217,16 +217,26 @@ describe('CHAR-006 — every field group resolves through the exposure API (DM)'
 			available: number;
 		}>;
 		expect(classResources).toEqual([
-			{ id: 'bardic', name: 'Bardic Inspiration', max: 3, expended: 0, available: 3, recharge: 'short' },
+			{
+				id: 'bardic',
+				name: 'Bardic Inspiration',
+				max: 3,
+				expended: 0,
+				available: 3,
+				recharge: 'short',
+			},
 		]);
 		expect(value('resources.deathSaves')['resources.deathSaves']).toEqual({
 			successes: 0,
 			failures: 0,
 			stable: false,
 		});
+		// RC-CHR-1.3 added the (additive, null-by-default) `spellId` link and the outstanding-check prompt.
 		expect(value('resources.concentration')['resources.concentration']).toEqual({
 			effect: null,
 			since: null,
+			spellId: null,
+			check: null,
 		});
 		// Abilities
 		expect(value('abilities')['abilities']).toEqual({
@@ -327,7 +337,11 @@ describe('CHAR-006 — actor-filtered non-leak (fail closed)', () => {
 		}
 
 		// The DM still sees it.
-		const dmResolved = resolveCharacterExposure(binding(characterId, 'combat.hp'), DM_ACTOR, dataEnv);
+		const dmResolved = resolveCharacterExposure(
+			binding(characterId, 'combat.hp'),
+			DM_ACTOR,
+			dataEnv,
+		);
 		expect(dmResolved.state).toBe('available');
 		if (dmResolved.state === 'available') expect(dmResolved.value?.['combat.hp']).toBe(99);
 	});
@@ -402,7 +416,11 @@ describe('CHAR-006 — conflicted + missing states', () => {
 		const env = makeEnvironment();
 		const { state } = setupRichCharacter(env);
 		const dataEnv = buildCharacterDataEnvironment(state.characters);
-		const resolved = resolveCharacterExposure(binding('character-gone', 'combat.hp'), DM_ACTOR, dataEnv);
+		const resolved = resolveCharacterExposure(
+			binding('character-gone', 'combat.hp'),
+			DM_ACTOR,
+			dataEnv,
+		);
 		expect(resolved.state).toBe('missing');
 	});
 });
@@ -442,7 +460,11 @@ describe('CHAR-006 — unknown / unsupported path fails closed', () => {
 		const env = makeEnvironment();
 		const { state, characterId } = setupRichCharacter(env);
 		const dataEnv = buildCharacterDataEnvironment(state.characters);
-		const viaExposure = resolveCharacterExposure(binding(characterId, 'combat.hp'), DM_ACTOR, dataEnv);
+		const viaExposure = resolveCharacterExposure(
+			binding(characterId, 'combat.hp'),
+			DM_ACTOR,
+			dataEnv,
+		);
 		const viaResolver = resolveWidgetBinding(binding(characterId, 'combat.hp'), DM_ACTOR, dataEnv);
 		expect(viaExposure).toEqual(viaResolver);
 	});

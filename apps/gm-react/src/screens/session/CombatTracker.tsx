@@ -56,6 +56,8 @@ export function CombatPanel({
 	onTempHp,
 	onCondition,
 	onPickCondition,
+	onDeathSave,
+	onConcentrationCheck,
 	onRemove,
 	onReorder,
 	onVisibility,
@@ -76,6 +78,9 @@ export function CombatPanel({
 	onTempHp: (id: string, value: number) => void;
 	onCondition: (id: string, condition: string, present: boolean) => void;
 	onPickCondition: (id: string) => void;
+	// RC-CHR-1.3 — the dying combatant's death-save track, and the concentration check damage raised.
+	onDeathSave: (id: string, outcome: 'success' | 'failure') => void;
+	onConcentrationCheck: (id: string, name: string, outcome: 'kept' | 'lost') => void;
 	onRemove: (id: string, name: string) => void;
 	onReorder: (id: string, direction: 'earlier' | 'later') => void;
 	onVisibility: (id: string, hidden: boolean) => void;
@@ -540,6 +545,19 @@ export function CombatPanel({
 												<Badge status="warning">{t('session.combat.bloodied')}</Badge>
 											)}
 											{c.isDefeated && <Badge status="error">{t('session.combat.down')}</Badge>}
+											{/* RC-CHR-1.3 — the tracker view already derived these two; nothing painted
+											    them, so a concentrating caster and a dying creature looked like any
+											    other row. Both badges carry TEXT, not just a tint (A11Y-011 AC2). */}
+											{c.isConcentrating && (
+												<Badge status="info">
+													{res?.concentration.effect
+														? t('session.combat.concentratingOn', {
+																effect: res.concentration.effect,
+															})
+														: t('session.combat.concentrating')}
+												</Badge>
+											)}
+											{c.isDying && <Badge status="warning">{t('session.combat.dying')}</Badge>}
 										</div>
 										{res && (
 											<div style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -597,6 +615,85 @@ export function CombatPanel({
 														onRemove={previewing ? undefined : () => onCondition(c.id, cond, false)}
 													/>
 												))}
+											</div>
+										)}
+										{/* RC-CHR-1.3 / UX-SES-007 AC3 — at 0 HP and explicitly not defeated, the death
+										    saves ARE the row: the tally reads as text and the two buttons record one.
+										    Both are ordinary buttons, so the keyboard reaches them the same way. */}
+										{res && c.isDying && (
+											<div
+												style={{
+													display: 'flex',
+													alignItems: 'center',
+													flexWrap: 'wrap',
+													gap: 7,
+													marginTop: 6,
+												}}
+												onClick={(e) => e.stopPropagation()}
+											>
+												<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
+													{t('session.combat.deathSaves', {
+														successes: res.deathSaves.successes,
+														failures: res.deathSaves.failures,
+													})}
+												</span>
+												<IconButton
+													icon="check"
+													label={t('session.combat.deathSaveSuccess', { name: c.name })}
+													variant="ghost"
+													size="sm"
+													disabled={previewing}
+													onClick={() => onDeathSave(c.id, 'success')}
+												/>
+												<IconButton
+													icon="close"
+													label={t('session.combat.deathSaveFailure', { name: c.name })}
+													variant="ghost"
+													size="sm"
+													disabled={previewing}
+													onClick={() => onDeathSave(c.id, 'failure')}
+												/>
+											</div>
+										)}
+										{/* RC-CHR-1.3 — the check damage raised. The core states the DC and stops there:
+										    the table rolls, and one of these two buttons says what happened. Nothing
+										    here decides the effect dropped on its own. */}
+										{res && res.concentration.checkDc !== null && (
+											<div
+												style={{
+													marginTop: 7,
+													padding: '8px 10px',
+													borderRadius: 10,
+													background: T.accSub,
+													border: `1px solid ${T.accBd}`,
+													display: 'flex',
+													alignItems: 'center',
+													flexWrap: 'wrap',
+													gap: 8,
+												}}
+												onClick={(e) => e.stopPropagation()}
+											>
+												<span style={{ font: `600 12px ${T.sans}`, color: T.ink, flex: 1 }}>
+													{t('session.combat.concCheck', { dc: res.concentration.checkDc })}
+												</span>
+												<Button
+													variant="secondary"
+													size="sm"
+													disabled={previewing}
+													aria-label={t('session.combat.concKeptFor', { name: c.name })}
+													onClick={() => onConcentrationCheck(c.id, c.name, 'kept')}
+												>
+													{t('session.combat.concKept')}
+												</Button>
+												<Button
+													variant="ghost"
+													size="sm"
+													disabled={previewing}
+													aria-label={t('session.combat.concLostFor', { name: c.name })}
+													onClick={() => onConcentrationCheck(c.id, c.name, 'lost')}
+												>
+													{t('session.combat.concLost')}
+												</Button>
 											</div>
 										)}
 									</div>

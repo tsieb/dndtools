@@ -873,3 +873,104 @@ test.describe('tracker keyboard model', () => {
 		).toBeVisible();
 	});
 });
+
+// RC-CHR-1.3 — CONCENTRATION AND DEATH SAVES on the tracker. The tracker view has derived
+// `isConcentrating`/`isDying` since SES-002 and painted neither, and damage taken by a concentrating
+// caster asked for nothing at all. Both are now on the row, and the check is a real prompt: the app
+// states the DC, the table rolls, and one of two buttons records what happened.
+test.describe('concentration and death saves on the tracker', () => {
+	/** Put the first combatant on a concentration effect through the Core. */
+	async function concentrateOnBlur(page: Page): Promise<void> {
+		const result = await page.evaluate(async () => {
+			const rt = window.__rt!;
+			const combat = (rt.state.session as { combat: { order: string[] } }).combat;
+			return rt.dispatch({
+				type: 'combat.apply-resource',
+				actorId: rt.defaultActorId,
+				payload: { combatantId: combat.order[0], kind: 'concentration', effect: 'Blur' },
+			});
+		});
+		expect(result.status).toBe('accepted');
+	}
+
+	test('a concentrating combatant says so, and damage asks for the check with its DC', async ({
+		page,
+	}) => {
+		await concentrateOnBlur(page);
+		await expect(page.getByText('Concentrating on Blur')).toBeVisible();
+		// Nothing is owed yet — the prompt only appears once damage lands.
+		await expect(page.getByText(/Concentration check, DC/)).toHaveCount(0);
+
+		await page.getByRole('button', { name: /^Damage 1 HP.*Bog Lurker/ }).click();
+		await expect(page.getByText('Concentration check, DC 10')).toBeVisible();
+		// The effect is still running: the app asked a question, it did not decide the answer.
+		await expect(page.getByText('Concentrating on Blur')).toBeVisible();
+	});
+
+	test('Kept it clears the prompt and leaves the effect running', async ({ page }) => {
+		await concentrateOnBlur(page);
+		await page.getByRole('button', { name: /^Damage 1 HP.*Bog Lurker/ }).click();
+		await expect(page.getByText('Concentration check, DC 10')).toBeVisible();
+
+		await page.getByRole('button', { name: 'Keep concentration for Bog Lurker' }).click();
+		await expect(page.getByText(/Concentration check, DC/)).toHaveCount(0);
+		await expect(page.getByText('Concentrating on Blur')).toBeVisible();
+	});
+
+	test('Lost it ends the concentration, and the durable state agrees', async ({ page }) => {
+		await concentrateOnBlur(page);
+		await page.getByRole('button', { name: /^Damage 1 HP.*Bog Lurker/ }).click();
+		await page.getByRole('button', { name: 'Drop concentration for Bog Lurker' }).click();
+
+		await expect(page.getByText(/Concentration check, DC/)).toHaveCount(0);
+		await expect(page.getByText('Concentrating on Blur')).toHaveCount(0);
+		await expect
+			.poll(() =>
+				page.evaluate(() => {
+					const combat = (
+						window.__rt!.state.session as {
+							combat: {
+								order: string[];
+								combatants: Record<
+									string,
+									{ resources: { concentration: { effect: string | null } } }
+								>;
+							};
+						}
+					).combat;
+					return combat.combatants[combat.order[0]!]!.resources.concentration.effect;
+				}),
+			)
+			.toBe(null);
+	});
+
+	test('a combatant kept at 0 HP reads as dying and its death saves are recordable', async ({
+		page,
+	}) => {
+		const down = await page.evaluate(async () => {
+			const rt = window.__rt!;
+			const combat = (rt.state.session as { combat: { order: string[] } }).combat;
+			const combatantId = combat.order[0];
+			const damaged = await rt.dispatch({
+				type: 'combat.apply-resource',
+				actorId: rt.defaultActorId,
+				payload: { combatantId, kind: 'hp', delta: -99 },
+			});
+			if (damaged.status !== 'accepted') return damaged;
+			return rt.dispatch({
+				type: 'combat.apply-resource',
+				actorId: rt.defaultActorId,
+				payload: { combatantId, kind: 'defeated', value: false },
+			});
+		});
+		expect(down.status).toBe('accepted');
+
+		await expect(page.getByText('Dying')).toBeVisible();
+		await expect(page.getByText('Death saves 0 of 3 kept, 0 of 3 failed')).toBeVisible();
+
+		await page.getByRole('button', { name: 'Record a death save success for Bog Lurker' }).click();
+		await expect(page.getByText('Death saves 1 of 3 kept, 0 of 3 failed')).toBeVisible();
+		await page.getByRole('button', { name: 'Record a death save failure for Bog Lurker' }).click();
+		await expect(page.getByText('Death saves 1 of 3 kept, 1 of 3 failed')).toBeVisible();
+	});
+});

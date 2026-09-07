@@ -80,6 +80,15 @@ export function PlayerResources({
 			actorId,
 			payload: { characterId: charId, kind: 'concentration', effect: null },
 		});
+	// RC-CHR-1.3 — damage taken while concentrating raises a check. The core states the DC; the
+	// player rolls it at the table and reports which way it went. Nothing here rolls or decides.
+	const concentrationCheck = con?.check ?? null;
+	const resolveCheck = (outcome: 'kept' | 'lost') =>
+		dispatch({
+			type: 'character.update-combat-resource',
+			actorId,
+			payload: { characterId: charId, kind: 'concentration-check', outcome },
+		});
 
 	return (
 		<div
@@ -114,6 +123,35 @@ export function PlayerResources({
 						</div>
 						<Button variant="ghost" size="sm" onClick={dropConcentration}>
 							{t('player.vitals.drop')}
+						</Button>
+					</div>
+				)}
+				{concentrationCheck && (
+					<div
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							flexWrap: 'wrap',
+							gap: 12,
+							padding: '13px 16px',
+							borderRadius: 12,
+							background: T.accSub,
+							border: `1px solid ${T.accBd}`,
+						}}
+					>
+						<div style={{ flex: 1, minWidth: 160 }}>
+							<div style={{ font: `700 14px ${T.disp}` }}>
+								{t('player.vitals.concCheck', { dc: concentrationCheck.dc })}
+							</div>
+							<div style={{ font: `12px ${T.sans}`, color: T.sub }}>
+								{t('player.vitals.concCheckHelp', { damage: concentrationCheck.damage })}
+							</div>
+						</div>
+						<Button variant="secondary" size="sm" onClick={() => void resolveCheck('kept')}>
+							{t('player.vitals.concKept')}
+						</Button>
+						<Button variant="ghost" size="sm" onClick={() => void resolveCheck('lost')}>
+							{t('player.vitals.concLost')}
 						</Button>
 					</div>
 				)}

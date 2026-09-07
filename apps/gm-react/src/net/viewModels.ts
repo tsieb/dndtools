@@ -70,6 +70,16 @@ export interface PartyMemberVitals {
 	conditions: string[];
 	/** The concentrated-on effect, or null when not concentrating (or when the DM declared it DM-only). */
 	concentration: string | null;
+	/**
+	 * RC-CHR-1.3 — the OUTSTANDING concentration check's DC, or null when none is owed. Broadcast so
+	 * the DM's party panel shows who still owes a save without asking around the table.
+	 */
+	concentrationCheckDc: number | null;
+	/**
+	 * RC-CHR-1.3 — the death-save tally, so a dying member reads as dying on the party panel rather
+	 * than as an empty HP bar. Redacted with `resources.deathSaves` like the other resource fields.
+	 */
+	deathSaves: { successes: number; failures: number; stable: boolean } | null;
 	/** Ascending spell levels the character actually has slots for; empty for a non-caster. */
 	spellSlots: PartySpellSlotLevel[];
 	/** Total available slots across levels — the collapsed one-line summary. */
@@ -182,10 +192,13 @@ function buildPartyVitals(
 			const hiddenFields = isDm ? new Set<string>() : new Set(record?.dmOnlyFields ?? []);
 			const resources = record ? resourcesOf(record) : null;
 
-			const concentration =
-				resources && !hiddenFields.has('resources.concentration')
-					? (resources.concentration.effect ?? null)
-					: null;
+			const concentrationVisible = !!resources && !hiddenFields.has('resources.concentration');
+			const concentration = concentrationVisible ? (resources?.concentration.effect ?? null) : null;
+			const concentrationCheckDc = concentrationVisible
+				? (resources?.concentration.check?.dc ?? null)
+				: null;
+			const deathSaves =
+				resources && !hiddenFields.has('resources.deathSaves') ? { ...resources.deathSaves } : null;
 
 			const spellSlots: PartySpellSlotLevel[] =
 				resources && !hiddenFields.has('resources.spellSlots')
@@ -209,6 +222,8 @@ function buildPartyVitals(
 				ac: member.ac,
 				conditions: [...member.conditions],
 				concentration,
+				concentrationCheckDc,
+				deathSaves,
 				spellSlots,
 				availableSpellSlots: member.availableSpellSlots,
 				availableClassResources: member.availableClassResources,

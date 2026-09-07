@@ -43,6 +43,8 @@ import {
 	DEATH_SAVE_MAX,
 	EMPTY_CONCENTRATION,
 	EMPTY_DEATH_SAVES,
+	applyConcentrationCheckOutcome,
+	raiseConcentrationCheck,
 } from '../state/character-resources';
 import { CHARACTER_ENTITY_TYPE } from '../state/character-state';
 import { activeSystemPackageFor } from './character';
@@ -587,6 +589,16 @@ export function handleApplyCombatResource(
 				resources.deathSaves = { ...EMPTY_DEATH_SAVES };
 				resources.notDefeated = false;
 			}
+			// RC-CHR-1.3 — damage taken while concentrating owes a concentration check. The core raises
+			// the PROMPT (DC 10 or half the damage, whichever is higher) and stops: it does not roll,
+			// and it never decides on its own that the effect dropped.
+			if (payload.delta < 0) {
+				resources.concentration = raiseConcentrationCheck(
+					resources.concentration,
+					-payload.delta,
+					now,
+				);
+			}
 			logKind = 'hp-changed';
 			label = `${existing.name}: ${payload.delta >= 0 ? `heal ${payload.delta}` : `damage ${-payload.delta}`}`;
 			delta = payload.delta;
@@ -658,15 +670,39 @@ export function handleApplyCombatResource(
 			break;
 		}
 		case 'concentration': {
+			// RC-CHR-1.3 — setting or dropping concentration clears any check owed for the old effect.
 			resources.concentration =
 				payload.effect === null
 					? { ...EMPTY_CONCENTRATION }
-					: { effect: payload.effect, since: env.clock() };
+					: { effect: payload.effect, since: now, spellId: null, check: null };
 			logKind = 'concentration';
 			label =
 				payload.effect === null
 					? `${existing.name}: drop concentration`
 					: `${existing.name}: concentrate on ${payload.effect}`;
+			break;
+		}
+		// RC-CHR-1.3 — report what happened to the outstanding concentration check. `kept` clears the
+		// prompt; `lost` ends concentration. Refused when nothing is owed, so the encounter log never
+		// records a check this combatant never had to make.
+		case 'concentration-check': {
+			const check = resources.concentration.check;
+			if (!check) {
+				return reject(
+					{ code: 'invalid-state', message: 'No concentration check is outstanding.' },
+					state,
+				);
+			}
+			const effect = resources.concentration.effect;
+			resources.concentration = applyConcentrationCheckOutcome(
+				resources.concentration,
+				payload.outcome,
+			);
+			logKind = 'concentration';
+			label =
+				payload.outcome === 'kept'
+					? `${existing.name}: kept concentration on ${effect} (DC ${check.dc})`
+					: `${existing.name}: lost concentration on ${effect} (DC ${check.dc})`;
 			break;
 		}
 		case 'defeated': {

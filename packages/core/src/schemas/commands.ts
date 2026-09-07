@@ -1724,6 +1724,17 @@ export const updateCombatResourceInputSchema = z.discriminatedUnion('kind', [
 			characterId: idSchema,
 			kind: z.literal('concentration'),
 			effect: z.union([z.literal(null), z.string().min(1)]),
+			// RC-CHR-1.3 — the prepared spell the concentration came from, when it came from one.
+			spellId: z.union([z.literal(null), idSchema]).optional(),
+		})
+		.strict(),
+	// RC-CHR-1.3 — report what happened to an outstanding concentration check raised by damage.
+	// `kept` clears the prompt; `lost` ends concentration. The core never rolls it.
+	z
+		.object({
+			characterId: idSchema,
+			kind: z.literal('concentration-check'),
+			outcome: z.enum(['kept', 'lost']),
 		})
 		.strict(),
 	z
@@ -2578,6 +2589,15 @@ export const applyCombatResourceInputSchema = z.discriminatedUnion('kind', [
 	// UX-SES-005 — resolve the at-0-HP confirmation: `value: true` ⇒ "Yes — defeated" (the defeated
 	// treatment applies while HP ≤ 0); `value: false` ⇒ "No — keep at 0" (dying, death saves active).
 	z.object({ combatantId: idSchema, kind: z.literal('defeated'), value: z.boolean() }).strict(),
+	// RC-CHR-1.3 — report what happened to the concentration check damage raised on this combatant.
+	// `kept` clears the prompt and the effect runs on; `lost` ends concentration.
+	z
+		.object({
+			combatantId: idSchema,
+			kind: z.literal('concentration-check'),
+			outcome: z.enum(['kept', 'lost']),
+		})
+		.strict(),
 ]);
 
 // UX-SES-008 — add combatant(s) to RUNNING combat (DM-only). `quantity` > 1 is a MASS add: the rows

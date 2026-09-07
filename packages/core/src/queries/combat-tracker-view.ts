@@ -47,7 +47,11 @@ export interface CombatantResourcesView {
 	tempHp: number;
 	conditions: string[];
 	deathSaves: { successes: number; failures: number; stable: boolean };
-	concentration: { effect: string | null };
+	/**
+	 * RC-CHR-1.3 — the concentrated-on effect and, when damage raised one, the OUTSTANDING check's
+	 * DC. `checkDc` is null when nothing is owed; the row renders the prompt only when it is set.
+	 */
+	concentration: { effect: string | null; checkDc: number | null };
 }
 
 /** A read-only combatant in the actor-filtered tracker view. */
@@ -199,7 +203,10 @@ function resourcesView(resources: CombatantResources): CombatantResourcesView {
 		tempHp: resources.tempHp,
 		conditions: [...resources.conditions],
 		deathSaves: { ...resources.deathSaves },
-		concentration: { effect: resources.concentration.effect },
+		concentration: {
+			effect: resources.concentration.effect,
+			checkDc: resources.concentration.check?.dc ?? null,
+		},
 	};
 }
 

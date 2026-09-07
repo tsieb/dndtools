@@ -5682,3 +5682,14 @@ export { EXHAUSTION_MAX, restKindOfLedgerEntry, setExhaustion } from './state/ch
 // `[[...]]` is a die and which is a note link. Rolling stays `dice.roll` with `inline: true`.
 export type { ParsedInlineRoll } from './state/markdown';
 export { INLINE_ROLL_PREFIX, extractInlineRolls, parseInlineRoll } from './state/markdown';
+
+// RC-CHR-1.3 — CONCENTRATION CHECKS and death saves. Damage taken while concentrating raises a
+// PROMPT carrying the DC (10, or half the damage); the core never rolls it and never decides the
+// effect dropped. `concentration-check` (`kept` / `lost`) is how the table reports what happened.
+export type { ConcentrationCheck } from './state/character-resources';
+export {
+	applyConcentrationCheckOutcome,
+	concentrationCheckDc,
+	raiseConcentrationCheck,
+	resolveConcentrationCheck,
+} from './state/character-resources';

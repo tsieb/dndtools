@@ -79,6 +79,34 @@ function Concentration({ effect }: { effect: string | null }) {
 	);
 }
 
+/**
+ * RC-CHR-1.3 — the concentration check this member still owes, and the death-save tally when they
+ * are down. Both are text, not a tint, and both are absent entirely when there is nothing to say.
+ */
+function ConcentrationCheck({ dc }: { dc: number | null }) {
+	const { t } = useI18n();
+	if (dc === null) return null;
+	return (
+		<span style={{ font: `600 11px ${T.sans}`, color: T.acc }}>
+			{t('play.party.concCheck', { dc })}
+		</span>
+	);
+}
+
+function DeathSaves({ m }: { m: PartyMemberVitals }) {
+	const { t } = useI18n();
+	const d = m.deathSaves;
+	// Only while actually down: a full-health character's stale tally is noise, not information.
+	if (!d || m.hp > 0 || d.successes + d.failures === 0) return null;
+	return (
+		<span style={{ font: `11px ${T.mono}`, color: d.stable ? T.ok : T.err }}>
+			{d.stable
+				? t('play.party.stable')
+				: t('play.party.deathSaves', { successes: d.successes, failures: d.failures })}
+		</span>
+	);
+}
+
 /** The collapsed one-line spellcaster summary. Absent for a member with no slots at all. */
 function SlotSummary({ m }: { m: PartyMemberVitals }) {
 	const { t } = useI18n();
@@ -204,6 +232,8 @@ function MemberRow({ m, detail }: { m: PartyMemberVitals; detail?: ReactNode }) 
 						}}
 					>
 						<Concentration effect={m.concentration} />
+						<ConcentrationCheck dc={m.concentrationCheckDc} />
+						<DeathSaves m={m} />
 						<SlotSummary m={m} />
 					</div>
 				</div>

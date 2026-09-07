@@ -461,6 +461,23 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.combat.active': 'Activo',
 	'session.combat.bloodied': 'Malherido',
 	'session.combat.down': 'Caído',
+	// RC-CHR-1.3 — concentración y salvaciones de muerte en la fila del rastreador.
+	'session.combat.concentrating': 'Concentrado',
+	'session.combat.concentratingOn': 'Concentrado en {effect}',
+	'session.combat.dying': 'Agonizando',
+	'session.combat.deathSaves':
+		'Salvaciones de muerte: {successes} de 3 superadas, {failures} de 3 falladas',
+	'session.combat.deathSaveSuccess': 'Registrar una salvación de muerte superada de {name}',
+	'session.combat.deathSaveFailure': 'Registrar una salvación de muerte fallada de {name}',
+	'session.combat.concCheck': 'Prueba de concentración, CD {dc}',
+	'session.combat.concCheckHelp':
+		'{name} recibió {damage} de daño mientras se concentraba en {effect}.',
+	'session.combat.concKept': 'La mantiene',
+	'session.combat.concLost': 'La pierde',
+	'session.combat.concKeptFor': 'Mantener la concentración de {name}',
+	'session.combat.concLostFor': 'Soltar la concentración de {name}',
+	'session.combat.concKeptToast': '{name} mantiene la concentración',
+	'session.combat.concLostToast': '{name} pierde la concentración',
 	'session.combat.armorClass': 'CA {value}',
 	'session.combat.heal': 'Curar 1 PG — {name}',
 	'session.combat.damage': 'Dañar 1 PG — {name}',
@@ -1009,6 +1026,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.party.tempHp': '+{value} temp',
 	'play.party.conditionCount': '{count, plural, one {# estado} other {# estados}}',
 	'play.party.concentrating': 'Concentrado en {effect}',
+	// RC-CHR-1.3 — las líneas de prueba de concentración y salvaciones de muerte del panel de grupo.
+	'play.party.concCheck': 'Prueba de concentración, CD {dc}',
+	'play.party.deathSaves': 'Salvaciones de muerte: {successes}/3 superadas, {failures}/3 falladas',
+	'play.party.stable': 'Estable',
 	'play.party.slotsSummary': '{available} de {max} espacios de conjuro',
 	'play.party.slotsShow': 'Mostrar los espacios de conjuro de {name}',
 	'play.party.slotsHide': 'Ocultar los espacios de conjuro de {name}',
@@ -1876,6 +1897,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'player.vitals.concentrating': 'Concentrándose · {effect}',
 	'player.vitals.maintainedEffect': 'Efecto mantenido',
 	'player.vitals.drop': 'Soltar',
+	// RC-CHR-1.3 — la prueba de concentración que provocó el daño, resuelta por el jugador.
+	'player.vitals.concCheck': 'Prueba de concentración, CD {dc}',
+	'player.vitals.concCheckHelp': 'Recibiste {damage} de daño. Tira una salvación de Constitución.',
+	'player.vitals.concKept': 'La mantengo',
+	'player.vitals.concLost': 'La pierdo',
 	'player.vitals.spellSlots': 'Espacios de {spell}',
 	'player.vitals.noSlotsTitle': 'Sin espacios de {spellLower}',
 	'player.vitals.noSlotsBody':

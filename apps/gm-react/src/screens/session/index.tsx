@@ -496,6 +496,31 @@ export function Session() {
 						})
 					}
 					onPickCondition={(combatantId) => setCondPickFor(combatantId)}
+					// RC-CHR-1.3 — the dying combatant's death-save track.
+					onDeathSave={(combatantId, outcome) =>
+						dispatch({
+							type: 'combat.apply-resource',
+							actorId,
+							payload: { combatantId, kind: 'death-save', outcome },
+						})
+					}
+					// RC-CHR-1.3 — report the concentration check damage raised. The toast says which of
+					// the two answers landed, because both are one press apart and both are durable.
+					onConcentrationCheck={(combatantId, name, outcome) =>
+						dispatch(
+							{
+								type: 'combat.apply-resource',
+								actorId,
+								payload: { combatantId, kind: 'concentration-check', outcome },
+							},
+							t(
+								outcome === 'kept'
+									? 'session.combat.concKeptToast'
+									: 'session.combat.concLostToast',
+								{ name },
+							),
+						)
+					}
 					onRemove={(combatantId, name) =>
 						dispatch(
 							{ type: 'combat.remove-combatant', actorId, payload: { combatantId } },

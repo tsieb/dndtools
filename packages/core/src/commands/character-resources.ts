@@ -18,6 +18,7 @@ import {
 	expendClassResource,
 	expendSpellSlot,
 	recordDeathSave,
+	resolveConcentrationCheck,
 	resourcesOf,
 	setClassResource,
 	setCondition,
@@ -249,8 +250,22 @@ export function handleUpdateCombatResource(
 			break;
 		}
 		case 'concentration': {
-			const result = setConcentration(resources, payload.effect, meta);
+			const result = setConcentration(resources, payload.effect, meta, payload.spellId ?? null);
 			if (!result.ok) return reject({ code: 'invalid-payload', message: result.message }, state);
+			entry = result.entry;
+			updated = {
+				...existing,
+				resources: result.resources,
+				updatedAt: meta.now,
+				revision: existing.revision + 1,
+			};
+			break;
+		}
+		// RC-CHR-1.3 — resolve the concentration check damage raised. Refused when none is outstanding,
+		// so the ledger never records a check the character was never owed.
+		case 'concentration-check': {
+			const result = resolveConcentrationCheck(resources, payload.outcome, meta);
+			if (!result.ok) return reject({ code: 'invalid-state', message: result.message }, state);
 			entry = result.entry;
 			updated = {
 				...existing,

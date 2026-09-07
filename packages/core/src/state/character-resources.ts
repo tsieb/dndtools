@@ -51,18 +51,85 @@ export const EMPTY_DEATH_SAVES: DeathSaveState = Object.freeze({
 /** The rule bound for death saves: 3 successes ⇒ stable, 3 failures ⇒ dead. */
 export const DEATH_SAVE_MAX = 3 as const;
 
+/**
+ * RC-CHR-1.3 — a concentration check the creature owes because it took damage while concentrating.
+ * It is a PROMPT, not a result: the core never rolls it and never decides the outcome. It records
+ * the DC and the damage that raised it, and it stays until somebody reports what happened
+ * (`concentration-check` with `kept` / `lost`) or concentration is set or dropped outright.
+ */
+export interface ConcentrationCheck {
+	/** The save DC the rules give for this hit. See {@link concentrationCheckDc}. */
+	dc: number;
+	/** The damage that raised the check, for the prompt's own wording. */
+	damage: number;
+	/** When the check was raised (op clock). */
+	at: string;
+}
+
 /** Concentration on a single effect (e.g. a spell) the creature is maintaining. */
 export interface ConcentrationState {
 	/** The concentrated-on effect name, or null when not concentrating. */
 	effect: string | null;
 	/** When concentration began (op clock); null when not concentrating. */
 	since: string | null;
+	/**
+	 * RC-CHR-1.3 — the prepared/known spell this concentration came from, when it came from one.
+	 * Optional and absent on concentration set from a free-text effect name, so a block persisted
+	 * before this slice round-trips unchanged and no schema bump is needed.
+	 */
+	spellId?: string | null;
+	/**
+	 * RC-CHR-1.3 — the OUTSTANDING concentration check raised by damage, or null/absent when none is
+	 * owed. Additive and optional for the same round-trip reason as {@link ConcentrationState.spellId}.
+	 */
+	check?: ConcentrationCheck | null;
 }
 
 export const EMPTY_CONCENTRATION: ConcentrationState = Object.freeze({
 	effect: null,
 	since: null,
+	spellId: null,
+	check: null,
 });
+
+/**
+ * RC-CHR-1.3 — the concentration-check DC for a hit: 10, or half the damage taken, whichever is
+ * higher. Pure; `damage` is the POSITIVE amount of hit points actually lost (temp HP absorbed
+ * counts, since the creature still took the hit).
+ */
+export function concentrationCheckDc(damage: number): number {
+	if (!Number.isFinite(damage) || damage <= 0) return 0;
+	return Math.max(10, Math.floor(Math.trunc(damage) / 2));
+}
+
+/**
+ * RC-CHR-1.3 — raise a concentration check on `concentration` for `damage`, if one is owed. Returns
+ * the state unchanged when the creature is not concentrating or took no damage, so callers can pipe
+ * every HP change through it. A second hit REPLACES an outstanding check: the newer, usually harder
+ * DC is the one still to beat, and two prompts for one creature would be two prompts too many.
+ */
+export function raiseConcentrationCheck(
+	concentration: ConcentrationState,
+	damage: number,
+	at: string,
+): ConcentrationState {
+	if (!concentration.effect) return concentration;
+	const dc = concentrationCheckDc(damage);
+	if (dc === 0) return concentration;
+	return { ...concentration, check: { dc, damage: Math.trunc(damage), at } };
+}
+
+/**
+ * RC-CHR-1.3 — resolve an outstanding concentration check on a concentration block. `kept` clears
+ * the prompt and leaves the effect running; `lost` ends concentration entirely. Pure.
+ */
+export function applyConcentrationCheckOutcome(
+	concentration: ConcentrationState,
+	outcome: 'kept' | 'lost',
+): ConcentrationState {
+	if (outcome === 'lost') return { ...EMPTY_CONCENTRATION };
+	return { ...concentration, check: null };
+}
 
 /**
  * Spell slots for ONE spell level. `max` is the level's capacity; `expended` is how many are spent.
@@ -309,7 +376,21 @@ export function applyHpDelta(
 		revision: character.revision + 1,
 	};
 	const entry = ledgerEntry(meta, 'hp', delta >= 0 ? `Heal ${delta}` : `Damage ${-delta}`, delta);
-	return { ok: true, character: nextCharacter, resources: appendLedger(resources, entry), entry };
+	// RC-CHR-1.3 — damage taken while concentrating owes a concentration check. The core raises the
+	// PROMPT and stops there: it does not roll, and it does not decide that concentration broke.
+	const nextResources =
+		delta < 0
+			? {
+					...resources,
+					concentration: raiseConcentrationCheck(resources.concentration, -delta, meta.now),
+				}
+			: resources;
+	return {
+		ok: true,
+		character: nextCharacter,
+		resources: appendLedger(nextResources, entry),
+		entry,
+	};
 }
 
 /** Set temporary HP (CHAR-007). Temp HP does not stack — the higher value wins, per the rule. */
@@ -428,6 +509,7 @@ export function setConcentration(
 	resources: CharacterResources,
 	effect: string | null,
 	meta: ResourceUpdateMeta,
+	spellId?: string | null,
 ):
 	| { ok: true; resources: CharacterResources; entry: ResourceLedgerEntry }
 	| { ok: false; error: ResourceUpdateError; message: string } {
@@ -438,12 +520,48 @@ export function setConcentration(
 			message: 'A concentration effect name is required.',
 		};
 	}
+	// RC-CHR-1.3 — setting or dropping concentration always clears an outstanding check: the effect
+	// it was owed for is no longer the effect being maintained.
 	const next: ConcentrationState =
-		effect === null ? { ...EMPTY_CONCENTRATION } : { effect: effect.trim(), since: meta.now };
+		effect === null
+			? { ...EMPTY_CONCENTRATION }
+			: { effect: effect.trim(), since: meta.now, spellId: spellId ?? null, check: null };
 	const entry = ledgerEntry(
 		meta,
 		'concentration',
 		effect === null ? 'Drop concentration' : `Concentrate on ${effect.trim()}`,
+		null,
+	);
+	return { ok: true, resources: appendLedger({ ...resources, concentration: next }, entry), entry };
+}
+
+/**
+ * RC-CHR-1.3 — report what happened to the OUTSTANDING concentration check and record it on the
+ * ledger, so the expenditure history shows the DC the table actually played against. Refused when no
+ * check is owed: a check the character never had is not something the history should claim happened.
+ */
+export function resolveConcentrationCheck(
+	resources: CharacterResources,
+	outcome: 'kept' | 'lost',
+	meta: ResourceUpdateMeta,
+):
+	| { ok: true; resources: CharacterResources; entry: ResourceLedgerEntry }
+	| { ok: false; error: ResourceUpdateError; message: string } {
+	const check = resources.concentration.check;
+	if (!check) {
+		return {
+			ok: false,
+			error: 'not-concentrating',
+			message: 'No concentration check is outstanding.',
+		};
+	}
+	const next = applyConcentrationCheckOutcome(resources.concentration, outcome);
+	const entry = ledgerEntry(
+		meta,
+		'concentration',
+		outcome === 'kept'
+			? `Kept concentration (DC ${check.dc})`
+			: `Lost concentration (DC ${check.dc})`,
 		null,
 	);
 	return { ok: true, resources: appendLedger({ ...resources, concentration: next }, entry), entry };
