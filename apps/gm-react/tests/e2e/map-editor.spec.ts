@@ -1590,7 +1590,9 @@ test.describe('map editor: POI keyboard navigation (RC-MAP-4.2)', () => {
 // the canvas before the first drag, and a fog session's dozens of hand-drawn ops have an honest,
 // confirmed way back to a blank slate.
 test.describe('map editor: fog brush ergonomics and polygon lasso (RC-MAP-3.9)', () => {
-	test('the fog brush shows a live size-preview ring that follows the pointer', async ({ page }) => {
+	test('the fog brush shows a live size-preview ring that follows the pointer', async ({
+		page,
+	}) => {
 		await openAtlas(page);
 		const name = `Fog Ring Map ${Date.now()}`;
 		await createMap(page, { name });
@@ -1600,7 +1602,9 @@ test.describe('map editor: fog brush ergonomics and polygon lasso (RC-MAP-3.9)',
 		const canvas = page.getByRole('application');
 		const hasRing = () =>
 			canvas.evaluate((el) =>
-				[...el.querySelectorAll('div')].some((node) => getComputedStyle(node).borderRadius === '50%'),
+				[...el.querySelectorAll('div')].some(
+					(node) => getComputedStyle(node).borderRadius === '50%',
+				),
 			);
 
 		// Rect is the fog tool's default shape and has no brush radius, so no ring is drawn for it.
@@ -1659,9 +1663,7 @@ test.describe('map editor: fog brush ergonomics and polygon lasso (RC-MAP-3.9)',
 		await expectActiveTool(page, 'Fog');
 
 		await page.getByRole('button', { name: 'Clear all fog' }).click();
-		await expect(
-			page.getByRole('dialog', { name: 'Clear all fog on this map?' }),
-		).toBeVisible();
+		await expect(page.getByRole('dialog', { name: 'Clear all fog on this map?' })).toBeVisible();
 		await page.getByRole('button', { name: 'Clear all fog', exact: true }).last().click();
 
 		await expect(page.getByText('Fog cleared.')).toHaveCount(1);
