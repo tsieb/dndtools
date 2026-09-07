@@ -1504,6 +1504,19 @@ export const assignRoleInputSchema = z
 	})
 	.strict();
 
+// Rename a participant's display name (self, or any participant when the caller is the owner DM).
+// Trimmed and bounded so a roster row / sidebar account block can never be blanked or flooded.
+export const renameActorInputSchema = z
+	.object({
+		targetActorId: idSchema,
+		displayName: z
+			.string()
+			.trim()
+			.min(1, 'A display name is required.')
+			.max(60, 'Display names are at most 60 characters.'),
+	})
+	.strict();
+
 // --- CHAR-001 / CHAR-002 / CHAR-013 — character command input schemas ---------------------------
 
 const characterVisibilitySchema = z.enum(['dm-only', 'player-visible', 'shared']);

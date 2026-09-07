@@ -6,12 +6,16 @@ import {
 	useSyncExternalStore,
 	type ReactNode,
 } from 'react';
-import { SceneRuntime } from './SceneRuntime';
+import { PLACEHOLDER_DM_NAME, SceneRuntime } from './SceneRuntime';
 import { defaultEnvironment } from './environment';
 
 // The device owner. The app seeds a DM actor with this id (plus demo participants) on first load;
 // the "view as" control switches which actor's filtered view is rendered.
 export const DEFAULT_DM_ACTOR_ID = 'dm-1';
+export { PLACEHOLDER_DM_NAME };
+export function isPlaceholderActorName(name: string | undefined): boolean {
+	return !name || name.trim() === PLACEHOLDER_DM_NAME;
+}
 
 const RuntimeCtx = createContext<SceneRuntime | null>(null);
 

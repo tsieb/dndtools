@@ -10,7 +10,7 @@ import {
 } from '@dndtools/core';
 import { Avatar, BrandLockup, Icon, IconButton, StatusDot } from '../../ds';
 import { useI18n } from '../../i18n';
-import { useRuntime } from '../../runtime/RuntimeContext';
+import { isPlaceholderActorName, useRuntime } from '../../runtime/RuntimeContext';
 import {
 	LIBRARY,
 	PLATFORM,
@@ -40,6 +40,10 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const dmActor = runtime.state.permissions.actors[actorId];
 	const presence = usePresenceStatus();
 	const { t } = useI18n();
+	const dmName =
+		dmActor && !isPlaceholderActorName(dmActor.displayName)
+			? dmActor.displayName
+			: t('settings.players.role.dm');
 
 	const { scenes, counts, recent } = useMemo(() => {
 		// The GM Screen's backing home scene is reachable via its own nav row — listing it among the
@@ -185,7 +189,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 					minHeight: 0,
 					overflowY: 'auto',
 					overflowX: 'hidden',
-					padding: '4px 12px 16px',
+					padding: '4px 12px 8px',
 				}}
 			>
 				<nav role="navigation" aria-label={t('shell.navPrimary')}>
@@ -345,35 +349,67 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 						onClick={() => go('settings')}
 					/>
 				</nav>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px 4px' }}>
-					<Avatar
-						name={dmActor?.displayName ?? t('session.roster.role.dm')}
-						size="sm"
-						ring="active"
-					/>
-					<div style={{ flex: 1, minWidth: 0 }}>
-						<div style={{ font: `600 12.5px ${T.sans}` }}>
-							{dmActor?.displayName ?? t('session.roster.role.dm')}
-						</div>
-						<div
+				{/* account block — the DM's own seat. One button (→ Settings › Players, where the name is
+				    edited); the presence dot sits INSIDE the caption so the name column keeps its width.
+				    A never-renamed seat shows the role rather than the seeded "Default DM" placeholder. */}
+				<button
+					type="button"
+					onClick={() => navigate('/settings?tab=players')}
+					title={t('shell.accountOpen')}
+					aria-label={t('shell.accountLabel', { name: dmName, presence: presence.label })}
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: 10,
+						width: '100%',
+						marginTop: 4,
+						padding: '8px 10px',
+						border: 'none',
+						borderRadius: 8,
+						background: 'transparent',
+						color: T.ink,
+						cursor: 'pointer',
+						textAlign: 'left',
+					}}
+					onMouseEnter={(e) => (e.currentTarget.style.background = T.hover)}
+					onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+				>
+					<Avatar name={dmName} size="sm" ring="active" />
+					<span style={{ flex: 1, minWidth: 0 }}>
+						<span
 							style={{
-								font: `10.5px ${T.sans}`,
-								color: T.ter,
+								display: 'block',
+								font: `600 12.5px ${T.sans}`,
+								color: T.ink,
 								whiteSpace: 'nowrap',
 								overflow: 'hidden',
 								textOverflow: 'ellipsis',
 							}}
-							title={presence.label}
 						>
-							{t('shell.dmPresence', { presence: presence.label })}
-						</div>
-					</div>
-					<StatusDot
-						status={presence.dot}
-						label={presence.label}
-						pulse={presence.dot === 'pending'}
-					/>
-				</div>
+							{dmName}
+						</span>
+						<span
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 6,
+								marginTop: 2,
+								font: `11px ${T.sans}`,
+								color: T.ter,
+								minWidth: 0,
+							}}
+						>
+							<StatusDot status={presence.dot} pulse={presence.dot === 'pending'} />
+							<span
+								style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+								title={presence.label}
+							>
+								{presence.label}
+							</span>
+						</span>
+					</span>
+					<Icon name="chevron-right" size={13} color={T.ter} />
+				</button>
 			</div>
 		</aside>
 	);

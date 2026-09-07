@@ -47,6 +47,10 @@ import { loadCoreState, persistFullState } from '../platform/storage/coreStore';
 import { MAP_IMPORT_ADAPTERS } from './environment';
 import { seedDemoContent } from './demo-seed';
 
+/** Seat name minted for a vault whose DM never introduced themselves; surfaces that mean "you"
+ * (the sidebar account block, the Players roster hint) treat it as unnamed. */
+export const PLACEHOLDER_DM_NAME = 'Default DM';
+
 export interface RuntimeOptions {
 	env: CoreEnvironment;
 	defaultActorId: ActorId;
@@ -389,7 +393,7 @@ export class SceneRuntime {
 		const actors = withDefaultWidgets.permissions.actors;
 		const nextActors: CoreStateSlice['permissions']['actors'] = {
 			...actors,
-			...(actors[id] ? {} : { [id]: { id, role: 'dm' as const, displayName: 'Default DM' } }),
+			...(actors[id] ? {} : { [id]: { id, role: 'dm' as const, displayName: PLACEHOLDER_DM_NAME } }),
 		};
 		if (includeDemoFixtures) {
 			for (const participant of DEFAULT_DEMO_PARTICIPANTS) {

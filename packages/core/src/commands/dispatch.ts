@@ -72,6 +72,7 @@ import {
 } from './calendar-continuity';
 import { handleGrantCapabilitySet, handleRevokeGrant, handleTransferOwnership } from './grant';
 import { handleAssignRole } from './assign-role';
+import { handleRenameActor } from './rename-actor';
 import {
 	handleAuthorRecap,
 	handleMarkParty,
@@ -498,6 +499,8 @@ export function dispatchCommand(
 			return handleTransferOwnership(state, env, command.actorId, command.payload);
 		case 'permission.assign-role':
 			return handleAssignRole(state, env, command.actorId, command.payload);
+		case 'permission.rename-actor':
+			return handleRenameActor(state, env, command.actorId, command.payload);
 		case 'map.create-layer':
 			return handleCreateMapLayer(state, env, command.actorId, command.payload);
 		case 'map.rename-layer':
