@@ -12,37 +12,49 @@ import {
 	planSessionTrack,
 	type AudioByteResolution,
 } from './audio-plan';
+import {
+	createAudioEngine,
+	MAX_MIX_CHANNELS,
+	TRACK_CHANNEL_ID,
+	type AudioChannelReason,
+	type AudioChannelState,
+	type AudioEngine,
+	type AudioEngineMode,
+	type AudioEngineOptions,
+} from './audio-engine';
 import { getPlatformCapabilities, isNetworkDestinationAllowed } from '../platform/capabilities';
 
 /**
- * audio-playback — the DEVICE-LOCAL audible output driver for the session's authoritative audio state
- * (AUDIO-002/003). The core owns WHAT is playing (`session.audioPlayback`: track/ambience layers/
- * output device); this module is the impure output layer that makes that durable state AUDIBLE on this
- * device. It renders nothing and dispatches nothing — the transport UI mutates the core, the core
- * state changes, and this driver follows. The WHAT/HOW split is deliberate: `audio-plan.ts` computes
- * (pure, tested) what should sound; this file owns the DOM half — elements, object URLs, autoplay
- * gestures, `setSinkId`.
+ * audio-playback — the RECONCILER between the session's authoritative audio state (AUDIO-002/003)
+ * and this device's audio output. The core owns WHAT is playing (`session.audioPlayback`: track /
+ * ambience layers / output device); `audio-plan.ts` turns that into a pure, testable plan; and
+ * `audio-engine.ts` (RC-AUD-1.1) owns HOW sound is produced — the Web Audio graph, its gain nodes,
+ * crossfades, seamless loop points and output routing, with an honest element/silent fallback.
  *
- * What it drives:
- *   - The PRIMARY track on a single looped `HTMLAudioElement`. A web-stream source plays its URL; a
- *     local/bundled track resolves its content-addressed ASSET BYTES from the device asset-byte store
- *     (`getAssetBytes` → Blob → object URL, revoked when stale). Missing bytes degrade to the honest
- *     `no-stream` state — never a crash, never a substituted track (AUDIO-010).
- *   - One looped element PER AMBIENCE LAYER (`session.audioPlayback.ambienceLayers`), reconciled by
- *     layerId: created on set, volume/mute applied per layer, torn down (and its object URL revoked)
- *     on remove. Each layer's honest sounding/silent state is reported in the snapshot.
- *   - The DM-selected OUTPUT DEVICE (`session.audioPlayback.outputDevice`) via `el.setSinkId` on every
- *     element, feature-detected. Routing is resolved through the core degradation model
- *     (`resolveAudioOutputRouting`, AUDIO-012): unsupported platforms or a failed `setSinkId` report
- *     `unavailable` and FALL BACK to the platform default output — routing never fails session audio.
+ * This file renders nothing and dispatches nothing. The transport UI mutates the core, the core
+ * state changes, and this reconciler follows by pushing one CHANNEL COMMAND per plan into the
+ * engine on every runtime emit. It stays responsible for the parts that are neither pure planning
+ * nor sound synthesis:
  *
- *   - Autoplay policy is handled fail-closed and deterministically: NO load/play is attempted until
- *     the user's first gesture (pointer/key) — that satisfies browser autoplay rules AND keeps
- *     automated route sweeps from spraying network errors for unreachable demo URLs.
- *   - `loop` is always on: the session track and ambience layers are loop-until-stopped beds; a finite
- *     file loops rather than silently ending while the durable status still says `playing`.
+ *   - ASSET BYTES. A local/bundled track names a content-addressed asset; its bytes are read from
+ *     the device asset-byte store (`getAssetBytes` → Blob → object URL, revoked when no plan uses
+ *     it). Missing bytes degrade to the honest `no-stream` state — never a crash, never a
+ *     substituted track (AUDIO-010).
+ *   - AUTOPLAY POLICY. Nothing is loaded or played until the user's first gesture, which both
+ *     satisfies browser autoplay rules and keeps automated route sweeps from spraying network
+ *     errors at unreachable demo URLs. The first gesture also resumes a suspended `AudioContext`.
+ *   - OUTPUT ROUTING (AUDIO-012). The DM's device selection is resolved through the core
+ *     degradation model and handed to the engine once per change. An unsupported platform or a
+ *     rejected switch reports `unavailable` and FALLS BACK to the platform default output —
+ *     routing never fails session audio.
+ *   - The LAYER CAP. The engine mixes up to `MAX_MIX_CHANNELS` ambience layers; layers past the cap
+ *     report why they are silent instead of quietly disappearing.
  *
- * One driver per runtime (WeakMap), started idempotently from Audio.tsx via `ensureAudioPlayback` and
+ * Crossfade policy: the PRIMARY track honours the core's authoritative `track.crossfadeSeconds`
+ * verbatim (0 ⇒ an immediate cut, exactly as `session-audio.ts` documents it). Ambience layers
+ * carry no crossfade metadata, so they use the engine's 3 s default.
+ *
+ * One driver per runtime (WeakMap), started idempotently from App.tsx via `ensureAudioPlayback` and
  * kept for the app's lifetime (session audio must keep sounding after navigating away from /audio).
  */
 
@@ -51,7 +63,7 @@ export type AudioPlaybackStatus = 'idle' | 'playing' | 'paused' | 'blocked' | 'n
 /** One ambience layer's honest device-output state. */
 export interface AmbienceLayerPlayback {
 	layerId: string;
-	/** True only when the layer's element is actually sounding on this device. */
+	/** True only when the layer is actually sounding on this device. */
 	sounding: boolean;
 	/** The honest reason the layer is silent (muted / missing bytes / blocked / error); null while sounding. */
 	detail: string | null;
@@ -67,6 +79,10 @@ export interface AudioPlaybackSnapshot {
 	routingDetail: string | null;
 	/** Per-ambience-layer device-output state, in stable layer-id order. */
 	ambience: AmbienceLayerPlayback[];
+	/** RC-AUD-1.1 — which output backend is actually running (`silent` ⇒ nothing sounds here). */
+	engine: AudioEngineMode;
+	/** The honest reason the engine is degraded; null while running on Web Audio. */
+	engineDetail: string | null;
 }
 
 export interface AudioPlaybackHandle {
@@ -74,6 +90,16 @@ export interface AudioPlaybackHandle {
 	subscribe(listener: () => void): () => void;
 	/** The current snapshot — a stable object identity until the content actually changes. */
 	getSnapshot(): AudioPlaybackSnapshot;
+	/**
+	 * Fire a one-shot sound effect on the engine's dedicated SFX strip. It never loops and never
+	 * disturbs the beds. Ignored in `silent` mode (fail closed rather than pretend).
+	 */
+	playSfx(url: string, volume?: number): void;
+	/**
+	 * Set the DEVICE-LOCAL master volume every channel is mixed under (0..1). This is a device
+	 * output control, NOT session state: it never mutates the DM's authoritative session volume.
+	 */
+	setMasterVolume(volume: number): void;
 }
 
 const drivers = new WeakMap<SceneRuntime, AudioPlaybackHandle>();
@@ -82,7 +108,7 @@ const drivers = new WeakMap<SceneRuntime, AudioPlaybackHandle>();
 export function ensureAudioPlayback(runtime: SceneRuntime): AudioPlaybackHandle {
 	let driver = drivers.get(runtime);
 	if (!driver) {
-		driver = createDriver(runtime);
+		driver = createAudioPlaybackDriver(runtime);
 		drivers.set(runtime, driver);
 	}
 	return driver;
@@ -95,45 +121,66 @@ type AssetUrlEntry =
 	| { kind: 'pending' }
 	| { kind: 'missing'; atEmit: number };
 
-interface AmbienceEntry {
-	el: HTMLAudioElement;
-	/** The URL currently assigned to the element (element.src normalizes, so track it ourselves). */
-	currentUrl: string | null;
-	/** Monotonic guard so a stale play() promise is ignored after pause/teardown/src change. */
-	seq: number;
-	sounding: boolean;
-	detail: string | null;
-	/** The URL whose load errored (cleared when the src changes) — honest, no retry loop. */
-	erroredUrl: string | null;
+/** The engine's reason codes mapped onto the driver's honest playback status. Total by construction. */
+const STATUS_BY_REASON: Record<AudioChannelReason, AudioPlaybackStatus> = {
+	sounding: 'playing',
+	paused: 'paused',
+	// A channel that is still fetching/decoding has nothing to output YET — the honest state is the
+	// same "no stream on this device" the byte store reports, with the engine's own wording.
+	loading: 'no-stream',
+	blocked: 'blocked',
+	error: 'error',
+	unsupported: 'no-stream',
+	idle: 'idle',
+};
+
+/** The channel id one ambience layer occupies. Namespaced so it can never collide with a reserved id. */
+function layerChannelId(layerId: string): string {
+	return `layer:${layerId}`;
 }
 
-function createDriver(runtime: SceneRuntime): AudioPlaybackHandle {
-	const el = document.createElement('audio');
-	el.preload = 'none';
-	el.loop = true; // see module docstring — session audio is loop-until-stopped ambience
+/** Seams for the unit suite: the engine (and therefore every platform API) is injectable. */
+export interface AudioPlaybackDriverOptions {
+	createEngine?: (options: AudioEngineOptions) => AudioEngine;
+}
 
+/**
+ * Build a reconciler for `runtime`. Exported for the unit suite; app code uses `ensureAudioPlayback`
+ * so exactly one driver exists per runtime.
+ */
+export function createAudioPlaybackDriver(
+	runtime: SceneRuntime,
+	options: AudioPlaybackDriverOptions = {},
+): AudioPlaybackHandle {
 	const listeners = new Set<() => void>();
-	const pool = new Map<string, AmbienceEntry>();
 	const assetUrls = new Map<string, AssetUrlEntry>();
-	/** Per-element applied sink id ('' = platform default) so setSinkId is only called on change. */
-	const appliedSinks = new WeakMap<HTMLAudioElement, string>();
 
-	/** Main-track element state (mirrors the old single-element driver). */
 	let mainStatus: AudioPlaybackStatus = 'idle';
 	let mainDetail: string | null = null;
-	let currentUrl: string | null = null;
-	let playSeq = 0;
-	let hadGesture = false;
+	let ambience: AmbienceLayerPlayback[] = [];
+	/**
+	 * Autoplay policy is a browser-WINDOW concept. Without one (the unit suite, a non-DOM host) there
+	 * is no gesture to wait for, so the driver does not fail closed on a gate that cannot exist.
+	 */
+	let hadGesture = typeof window === 'undefined';
 	let gestureArmed = false;
 	/** Counts runtime emits — the retry key for `missing` byte lookups and failed sink switches. */
 	let emitSeq = 0;
-	/** The sink id whose setSinkId REJECTED (don't hot-loop retrying it every sync). */
+	/** Re-entrancy guard: an engine callback that lands mid-sync re-runs the sync afterwards. */
+	let syncing = false;
+	let syncAgain = false;
+
+	/** The sink id currently handed to the engine ('' = platform default), and the one that failed. */
+	let appliedSinkId: string | null = null;
 	let failedSinkId: string | null = null;
 	let failedSinkAtEmit = -1;
 	let sinkFailureDetail: string | null = null;
 
-	const supportsSinkSelection =
-		typeof (el as HTMLAudioElement & { setSinkId?: unknown }).setSinkId === 'function';
+	const engine = (options.createEngine ?? createAudioEngine)({
+		onChange: () => {
+			sync();
+		},
+	});
 
 	let snapshot: AudioPlaybackSnapshot = {
 		status: 'idle',
@@ -141,6 +188,8 @@ function createDriver(runtime: SceneRuntime): AudioPlaybackHandle {
 		routing: 'default',
 		routingDetail: null,
 		ambience: [],
+		engine: engine.mode,
+		engineDetail: engine.modeDetail,
 	};
 
 	const snapshotsEqual = (a: AudioPlaybackSnapshot, b: AudioPlaybackSnapshot): boolean =>
@@ -148,6 +197,8 @@ function createDriver(runtime: SceneRuntime): AudioPlaybackHandle {
 		a.detail === b.detail &&
 		a.routing === b.routing &&
 		a.routingDetail === b.routingDetail &&
+		a.engine === b.engine &&
+		a.engineDetail === b.engineDetail &&
 		a.ambience.length === b.ambience.length &&
 		a.ambience.every(
 			(layer, i) =>
@@ -163,31 +214,27 @@ function createDriver(runtime: SceneRuntime): AudioPlaybackHandle {
 			detail: mainDetail,
 			routing,
 			routingDetail,
-			ambience: [...pool.entries()]
-				.sort(([a], [b]) => a.localeCompare(b))
-				.map(([layerId, entry]) => ({ layerId, sounding: entry.sounding, detail: entry.detail })),
+			ambience,
+			engine: engine.mode,
+			engineDetail: engine.modeDetail,
 		};
 		if (snapshotsEqual(snapshot, next)) return;
 		snapshot = next;
 		for (const listener of listeners) listener();
 	};
 
-	/** The routing computed by the LAST sync (so async play/sink callbacks can publish coherently). */
-	let lastRouting: AudioOutputRouting = 'default';
-	let lastRoutingDetail: string | null = null;
-	const republish = (): void => publish(lastRouting, lastRoutingDetail);
-
-	// First-gesture retry: capture-phase one-shot listeners so the play() attempt runs INSIDE the user
-	// activation (that is what clears an autoplay block). Re-armed if a later attempt is blocked again.
+	// First-gesture retry: capture-phase one-shot listeners so the play attempt runs INSIDE the user
+	// activation (that is what clears an autoplay block and resumes a suspended context).
 	const onGesture = (): void => {
 		gestureArmed = false;
 		window.removeEventListener('pointerdown', onGesture, true);
 		window.removeEventListener('keydown', onGesture, true);
 		hadGesture = true;
+		engine.noteUserGesture();
 		sync();
 	};
 	const armGestureRetry = (): void => {
-		if (gestureArmed) return;
+		if (gestureArmed || typeof window === 'undefined') return;
 		gestureArmed = true;
 		window.addEventListener('pointerdown', onGesture, true);
 		window.addEventListener('keydown', onGesture, true);
@@ -257,26 +304,25 @@ function createDriver(runtime: SceneRuntime): AudioPlaybackHandle {
 		return { kind: 'silent', detail: resolution.silentReason ?? 'Nothing to output.' };
 	};
 
-	/** Apply the DM-selected output device to one element (feature-detected, fail-open to default). */
-	const applySink = (element: HTMLAudioElement, sinkId: string): void => {
-		if (!supportsSinkSelection) return;
-		if (failedSinkId === sinkId && failedSinkAtEmit === emitSeq) return; // don't hot-loop a failing sink
-		if ((appliedSinks.get(element) ?? '') === sinkId) return;
-		const sinkCapable = element as HTMLAudioElement & { setSinkId(id: string): Promise<void> };
-		sinkCapable.setSinkId(sinkId).then(
+	/** Hand the DM-selected output device to the engine, once per change; honest on rejection. */
+	const applySink = (sinkTarget: string): void => {
+		if (!engine.supportsOutputRouting) return;
+		if (failedSinkId === sinkTarget && failedSinkAtEmit === emitSeq) return; // no hot retry loop
+		if (appliedSinkId === sinkTarget) return;
+		appliedSinkId = sinkTarget;
+		void engine.setSinkId(sinkTarget).then(
 			() => {
-				appliedSinks.set(element, sinkId);
-				if (failedSinkId === sinkId) {
-					failedSinkId = null;
-					sinkFailureDetail = null;
-				}
+				if (failedSinkId !== sinkTarget) return;
+				failedSinkId = null;
+				sinkFailureDetail = null;
 				sync();
 			},
 			(error: unknown) => {
 				// Honest degradation (AUDIO-012 AC1): report, fall back to the default output, never
 				// fail session audio. Retried on the next state emit (e.g. the DM picks another device).
-				failedSinkId = sinkId;
+				failedSinkId = sinkTarget;
 				failedSinkAtEmit = emitSeq;
+				appliedSinkId = null;
 				sinkFailureDetail = `The selected output device could not be used (${
 					error instanceof Error ? error.message : 'device unavailable'
 				}) — falling back to the platform default output.`;
@@ -285,93 +331,43 @@ function createDriver(runtime: SceneRuntime): AudioPlaybackHandle {
 		);
 	};
 
-	/** Stop the main element's output and detach its stream (idle / no-stream states). */
-	const silenceMain = (): void => {
-		playSeq += 1;
-		if (!el.paused) el.pause();
-		if (currentUrl !== null) {
-			currentUrl = null;
-			el.removeAttribute('src');
-			el.load();
+	/** Map an engine channel state onto the driver's status, re-arming the gesture on a block. */
+	const statusOf = (state: AudioChannelState): AudioPlaybackStatus => {
+		if (state.reason === 'blocked') armGestureRetry();
+		return STATUS_BY_REASON[state.reason];
+	};
+
+	/** Reconcile every channel with the authoritative session state. Cheap; runs on each runtime emit. */
+	function sync(): void {
+		if (syncing) {
+			syncAgain = true;
+			return;
 		}
-	};
+		syncing = true;
+		try {
+			reconcile();
+		} finally {
+			syncing = false;
+		}
+		if (syncAgain) {
+			syncAgain = false;
+			sync();
+		}
+	}
 
-	const attemptMainPlay = (): void => {
-		const seq = ++playSeq;
-		el.play().then(
-			() => {
-				if (seq !== playSeq) return;
-				mainStatus = 'playing';
-				mainDetail = null;
-				republish();
-			},
-			(error: unknown) => {
-				if (seq !== playSeq) return; // superseded by a newer pause/stop/play — not ours to report
-				const name = error instanceof Error ? error.name : '';
-				if (name === 'NotAllowedError') {
-					mainStatus = 'blocked';
-					mainDetail = 'The browser blocked autoplay — click or press any key to start sound.';
-					armGestureRetry();
-				} else if (name !== 'AbortError') {
-					mainStatus = 'error';
-					mainDetail = 'The stream could not be played (unreachable URL or unsupported format).';
-				}
-				republish();
-			},
-		);
-	};
-
-	const attemptLayerPlay = (entry: AmbienceEntry): void => {
-		const seq = ++entry.seq;
-		entry.el.play().then(
-			() => {
-				if (seq !== entry.seq) return;
-				entry.sounding = true;
-				entry.detail = null;
-				republish();
-			},
-			(error: unknown) => {
-				if (seq !== entry.seq) return;
-				const name = error instanceof Error ? error.name : '';
-				if (name === 'NotAllowedError') {
-					entry.sounding = false;
-					entry.detail = 'Autoplay blocked — click or press any key to start sound.';
-					armGestureRetry();
-				} else if (name !== 'AbortError') {
-					entry.sounding = false;
-					entry.detail = 'This layer could not be played (unreachable URL or unsupported format).';
-				}
-				republish();
-			},
-		);
-	};
-
-	const pauseLayer = (entry: AmbienceEntry, detail: string | null): void => {
-		entry.seq += 1;
-		if (!entry.el.paused) entry.el.pause();
-		entry.sounding = false;
-		entry.detail = detail;
-	};
-
-	const teardownLayer = (entry: AmbienceEntry): void => {
-		entry.seq += 1;
-		if (!entry.el.paused) entry.el.pause();
-		entry.el.removeAttribute('src');
-		entry.el.load();
-	};
-
-	/** Reconcile every element with the authoritative session state. Cheap; runs on each runtime emit. */
-	const sync = (): void => {
+	function reconcile(): void {
 		const state = runtime.state;
-		const trackPlan = planSessionTrack(state.session.audioPlayback, state.audio);
-		const layerPlans = planAmbienceLayers(state.session.audioPlayback, state.audio);
+		const session = state.session.audioPlayback;
+		const trackPlan = planSessionTrack(session, state.audio);
+		const layerPlans = planAmbienceLayers(session, state.audio);
+		const silentMode = engine.mode === 'silent';
 
-		// ── Output routing (AUDIO-012): resolve through the core degradation model, apply per element.
-		const desiredSinkId = state.session.audioPlayback.outputDevice?.deviceId ?? null;
+		// ── Output routing (AUDIO-012): resolve through the core degradation model, apply once.
+		const desiredSinkId = session.outputDevice?.deviceId ?? null;
 		let routing = resolveAudioOutputRouting(
 			normalizeAudioPlatformCapability({
-				canRouteOutput: supportsSinkSelection,
-				canPlayAudio: true,
+				canRouteOutput: engine.supportsOutputRouting,
+				canPlayAudio: !silentMode,
 			}),
 			normalizeAudioParticipantPreferences({ outputRouteId: desiredSinkId }),
 		);
@@ -380,119 +376,118 @@ function createDriver(runtime: SceneRuntime): AudioPlaybackHandle {
 				? 'This browser cannot route audio to a specific output device — the platform default output is used.'
 				: null;
 		const sinkTarget = desiredSinkId ?? '';
+		applySink(sinkTarget);
 		if (routing === 'routed' && failedSinkId === sinkTarget) {
 			routing = 'unavailable';
 			routingDetail = sinkFailureDetail;
 		}
 
-		// ── Primary track.
+		// ── Primary track. The core's crossfade is authoritative: 0 means an immediate cut.
+		const crossfadeSeconds = session.track?.crossfadeSeconds ?? 0;
 		if (!trackPlan.active) {
-			silenceMain();
+			engine.setChannel(TRACK_CHANNEL_ID, { url: null, volume: 1, crossfadeSeconds: 0 });
 			mainStatus = 'idle';
 			mainDetail = null;
+		} else if (silentMode) {
+			mainStatus = 'no-stream';
+			mainDetail = engine.modeDetail;
 		} else {
 			const media = materialize(trackPlan.resolution);
 			if (media.kind !== 'url') {
 				// Honest silent state: the transport still drives the durable session state, but this
 				// device has nothing it can output (no stream URL / bytes absent / bytes still loading).
-				silenceMain();
+				engine.setChannel(TRACK_CHANNEL_ID, {
+					url: null,
+					volume: trackPlan.volume,
+					crossfadeSeconds: 0,
+				});
 				mainStatus = 'no-stream';
 				mainDetail =
 					media.kind === 'loading'
 						? 'Loading the track’s audio bytes from this device…'
 						: media.detail;
+			} else if (!hadGesture) {
+				// Fail closed until the first gesture: playing before any user activation is
+				// guaranteed-blocked by autoplay policy AND would start a fetch nobody can hear.
+				engine.setChannel(TRACK_CHANNEL_ID, {
+					url: null,
+					volume: trackPlan.volume,
+					crossfadeSeconds: 0,
+				});
+				mainStatus = 'blocked';
+				mainDetail = 'Sound starts after your first click or key press (browser autoplay rules).';
+				armGestureRetry();
 			} else {
-				el.volume = trackPlan.volume;
-				applySink(el, sinkTarget);
-				if (trackPlan.paused) {
-					playSeq += 1;
-					if (!el.paused) el.pause();
-					mainStatus = 'paused';
-					mainDetail = null;
-				} else if (!hadGesture) {
-					// Fail closed until the first gesture: play() before any user interaction is
-					// guaranteed-blocked by autoplay policy AND would start a fetch nobody can hear.
-					mainStatus = 'blocked';
-					mainDetail = 'Sound starts after your first click or key press (browser autoplay rules).';
-					armGestureRetry();
-				} else {
-					if (currentUrl !== media.url) {
-						currentUrl = media.url;
-						el.src = media.url;
-					}
-					if (el.paused) attemptMainPlay();
-					else {
-						mainStatus = 'playing';
-						mainDetail = null;
-					}
-				}
+				const channel = engine.setChannel(TRACK_CHANNEL_ID, {
+					url: media.url,
+					volume: trackPlan.volume,
+					paused: trackPlan.paused,
+					crossfadeSeconds,
+				});
+				mainStatus = statusOf(channel);
+				mainDetail = channel.detail;
 			}
 		}
 
-		// ── Ambience layer pool, reconciled by layerId.
-		const seen = new Set<string>();
+		// ── Ambience layers, one engine channel each, capped at MAX_MIX_CHANNELS.
+		const next: AmbienceLayerPlayback[] = [];
+		const kept = new Set<string>();
+		let mixed = 0;
 		for (const plan of layerPlans) {
-			seen.add(plan.layerId);
-			let entry = pool.get(plan.layerId);
-			if (!entry) {
-				const layerEl = document.createElement('audio');
-				layerEl.preload = 'none';
-				layerEl.loop = true;
-				entry = {
-					el: layerEl,
-					currentUrl: null,
-					seq: 0,
+			const channelId = layerChannelId(plan.layerId);
+			if (mixed >= MAX_MIX_CHANNELS) {
+				// Over the cap: released rather than left sounding at a stale volume, and said out loud.
+				engine.releaseChannel(channelId);
+				next.push({
+					layerId: plan.layerId,
 					sounding: false,
-					detail: null,
-					erroredUrl: null,
-				};
-				const created = entry;
-				layerEl.addEventListener('error', () => {
-					if (created.currentUrl === null) return;
-					created.erroredUrl = created.currentUrl;
-					created.sounding = false;
-					created.detail =
-						'This layer failed to load — check its source (no retry, no substitution).';
-					republish();
+					detail: `This device mixes up to ${MAX_MIX_CHANNELS} ambience layers — remove a layer to hear this one.`,
 				});
-				pool.set(plan.layerId, entry);
-			}
-			entry.el.volume = plan.volume;
-			applySink(entry.el, sinkTarget);
-			const media = materialize(plan.resolution);
-			if (media.kind !== 'url') {
-				pauseLayer(entry, media.kind === 'loading' ? 'Loading audio bytes…' : media.detail);
 				continue;
 			}
-			if (plan.muted) {
-				pauseLayer(entry, 'Muted.');
+			mixed += 1;
+			kept.add(channelId);
+			if (silentMode) {
+				next.push({ layerId: plan.layerId, sounding: false, detail: engine.modeDetail });
+				continue;
+			}
+			const media = materialize(plan.resolution);
+			if (media.kind !== 'url') {
+				engine.setChannel(channelId, { url: null, volume: plan.volume, crossfadeSeconds: 0 });
+				next.push({
+					layerId: plan.layerId,
+					sounding: false,
+					detail: media.kind === 'loading' ? 'Loading audio bytes…' : media.detail,
+				});
 				continue;
 			}
 			if (!hadGesture) {
-				pauseLayer(
-					entry,
-					'Sound starts after your first click or key press (browser autoplay rules).',
-				);
+				engine.setChannel(channelId, { url: null, volume: plan.volume, crossfadeSeconds: 0 });
 				armGestureRetry();
+				next.push({
+					layerId: plan.layerId,
+					sounding: false,
+					detail: 'Sound starts after your first click or key press (browser autoplay rules).',
+				});
 				continue;
 			}
-			if (entry.currentUrl !== media.url) {
-				entry.currentUrl = media.url;
-				entry.erroredUrl = null;
-				entry.el.src = media.url;
-			}
-			if (entry.erroredUrl === media.url) continue; // honest error already reported; no retry loop
-			if (entry.el.paused) attemptLayerPlay(entry);
-			else {
-				entry.sounding = true;
-				entry.detail = null;
-			}
+			// A muted layer keeps its voice at zero gain rather than stopping: unmuting is instant and
+			// the beds stay aligned with each other. It is reported as honestly silent either way.
+			const channel = engine.setChannel(channelId, {
+				url: media.url,
+				volume: plan.muted ? 0 : plan.volume,
+			});
+			if (channel.reason === 'blocked') armGestureRetry();
+			next.push({
+				layerId: plan.layerId,
+				sounding: plan.muted ? false : channel.sounding,
+				detail: plan.muted ? 'Muted.' : channel.detail,
+			});
 		}
-		for (const [layerId, entry] of pool) {
-			if (seen.has(layerId)) continue;
-			teardownLayer(entry);
-			pool.delete(layerId);
+		for (const channelId of engine.channelIds()) {
+			if (!kept.has(channelId)) engine.releaseChannel(channelId);
 		}
+		ambience = next;
 
 		// ── Release object URLs no plan uses anymore (a removed layer / stopped local track).
 		const inUse = assetIdsInUse(trackPlan, layerPlans);
@@ -503,19 +498,8 @@ function createDriver(runtime: SceneRuntime): AudioPlaybackHandle {
 			}
 		}
 
-		lastRouting = routing;
-		lastRoutingDetail = routingDetail;
 		publish(routing, routingDetail);
-	};
-
-	el.addEventListener('error', () => {
-		// A media/network failure on the CURRENT stream (ignored when we already detached the src). Honest
-		// report, no retry loop and no track substitution (AUDIO-010) — the core state stays authoritative.
-		if (currentUrl === null) return;
-		mainStatus = 'error';
-		mainDetail = 'The stream failed to load — check the source URL (no retry, no substitution).';
-		republish();
-	});
+	}
 
 	// App-lifetime subscription (deliberately never unsubscribed): session audio keeps following the
 	// core state after the Audio screen unmounts. The emit counter keys the byte-miss/sink retries.
@@ -531,5 +515,7 @@ function createDriver(runtime: SceneRuntime): AudioPlaybackHandle {
 			return () => listeners.delete(listener);
 		},
 		getSnapshot: () => snapshot,
+		playSfx: (url, volume) => engine.playSfx(url, volume),
+		setMasterVolume: (volume) => engine.setMasterVolume(volume),
 	};
 }
