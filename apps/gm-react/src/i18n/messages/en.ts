@@ -591,6 +591,8 @@ export const en = {
 	'settings.experience.expert': 'Expert',
 	'settings.experience.expertBlurb':
 		'Everything on, nothing hidden — permission grants, plugins, systems, diagnostics.',
+	// RC-UX-3.5 — read-only progress toward usage-earned surfaces (e.g. Graph at 3 links).
+	'settings.experience.growingInto': 'Growing into it',
 	'settings.a11y.displayMotion': 'Display & motion',
 	'settings.a11y.intro':
 		'These mirror your Appearance settings, take effect immediately, and stay selected next time.',
@@ -737,6 +739,8 @@ export const en = {
 	'shell.groupLibrary': 'Library',
 	'shell.groupMore': 'More · audio, graph & extensions',
 	'shell.groupRecentScenes': 'Recent scenes',
+	// RC-UX-3.5 — the nav badge on a surface a usage signal just revealed (e.g. Graph at 3 links).
+	'shell.navSurfaceNew': 'New',
 	'shell.live': 'LIVE',
 	'shell.sessionLive': 'Session live',
 	'shell.sessionLiveElapsed': 'Session live · {elapsed}',

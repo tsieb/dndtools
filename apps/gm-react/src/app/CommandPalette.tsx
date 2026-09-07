@@ -10,7 +10,14 @@ import {
 import { CommandPalette as DSCommandPalette } from '../ds';
 import { useI18n, type MessageKey } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
-import { RUN, LIBRARY, PLATFORM, PLAYER_SECTION, SETTINGS_SECTION } from './nav';
+import {
+	RUN,
+	LIBRARY,
+	PLATFORM,
+	PLAYER_SECTION,
+	SETTINGS_SECTION,
+	isNavSectionVisible,
+} from './nav';
 
 interface PaletteCommand {
 	id: string;
@@ -126,16 +133,18 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 		};
 		// Player view and Settings live outside the three nav groups but are still destinations —
 		// omitting them made "settings" / "player" return "No matches" in the jump-anywhere surface.
-		const sections = [...RUN, ...LIBRARY, ...PLATFORM, PLAYER_SECTION, SETTINGS_SECTION].map(
-			(s) => ({
+		// RC-UX-3.5 — jump-anywhere must not leak a surface the sidebar itself keeps hidden pending
+		// its usage signal (Graph before 3 links).
+		const sections = [...RUN, ...LIBRARY, ...PLATFORM, PLAYER_SECTION, SETTINGS_SECTION]
+			.filter((s) => isNavSectionVisible(s.id, runtime.state))
+			.map((s) => ({
 				id: `nav:${s.id}`,
 				label: t(s.labelKey),
 				icon: s.icon,
 				group: t('palette.group.goTo'),
 				keywords: s.subKey ? t(s.subKey) : '',
 				run: goTo(s.path),
-			}),
-		);
+			}));
 		// The GM Screen's backing home scene is its own "Go to" destination — as a scene row it reads
 		// as a mystery scene named "Command Center".
 		const homeSceneId = runtime.state.commandCenter.homeSceneId;

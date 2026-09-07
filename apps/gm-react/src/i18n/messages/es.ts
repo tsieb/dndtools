@@ -606,6 +606,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.experience.expert': 'Experto',
 	'settings.experience.expertBlurb':
 		'Todo activo, nada oculto — concesiones de permisos, complementos, sistemas y diagnósticos.',
+	'settings.experience.growingInto': 'Creciendo hacia esto',
 	'settings.a11y.displayMotion': 'Pantalla y movimiento',
 	'settings.a11y.intro':
 		'Reflejan tus ajustes de Apariencia, se aplican al momento y se mantienen la próxima vez.',
@@ -761,6 +762,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'shell.groupLibrary': 'Biblioteca',
 	'shell.groupMore': 'Más · audio, grafo y extensiones',
 	'shell.groupRecentScenes': 'Escenas recientes',
+	'shell.navSurfaceNew': 'Nuevo',
 	'shell.live': 'EN VIVO',
 	'shell.sessionLive': 'Sesión en vivo',
 	'shell.sessionLiveElapsed': 'Sesión en vivo · {elapsed}',

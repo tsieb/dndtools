@@ -1,7 +1,8 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Sheet } from '../../ds';
 import { useI18n } from '../../i18n';
-import { activeSectionId } from '../nav';
+import { useRuntime } from '../../runtime/RuntimeContext';
+import { activeSectionId, isNavSectionVisible } from '../nav';
 import { ALL_SECTIONS, PHONE_TABS, SECTION_PATH } from './sections';
 import { SideRow } from './rows';
 
@@ -11,9 +12,14 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
 	const { t } = useI18n();
 	const navigate = useNavigate();
 	const location = useLocation();
+	const runtime = useRuntime();
 	const active = activeSectionId(location.pathname);
 	const hotIds = new Set(PHONE_TABS.map((s) => s.id));
-	const rest = ALL_SECTIONS.filter((s) => !hotIds.has(s.id));
+	// RC-UX-3.5 — the phone sheet must not leak a usage-gated surface the desktop sidebar keeps
+	// hidden pending its signal (Graph before 3 links).
+	const rest = ALL_SECTIONS.filter(
+		(s) => !hotIds.has(s.id) && isNavSectionVisible(s.id, runtime.state),
+	);
 	return (
 		<Sheet open={open} onClose={onClose} side="bottom" title={t('shell.allSections')}>
 			<div

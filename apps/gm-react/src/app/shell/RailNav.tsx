@@ -1,7 +1,8 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Icon, IconButton, NavRail } from '../../ds';
 import { useI18n } from '../../i18n';
-import { activeSectionId } from '../nav';
+import { useRuntime } from '../../runtime/RuntimeContext';
+import { activeSectionId, isNavSectionVisible } from '../nav';
 import { T } from '../screen-kit';
 import { ALL_SECTIONS, SECTION_PATH } from './sections';
 import { useSessionPosture } from './session-posture';
@@ -11,9 +12,12 @@ export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const { t } = useI18n();
 	const navigate = useNavigate();
 	const location = useLocation();
+	const runtime = useRuntime();
 	const active = activeSectionId(location.pathname);
 	// RC-SES-1.1 — one source for "live" across all three navigations: the session workflow.
 	const live = useSessionPosture().live;
+	// RC-UX-3.5 — the tablet rail must not leak a usage-gated surface either (Graph before 3 links).
+	const visibleSections = ALL_SECTIONS.filter((s) => isNavSectionVisible(s.id, runtime.state));
 	return (
 		<NavRail
 			width={64}
@@ -22,7 +26,7 @@ export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 				padding:
 					'calc(var(--space-2) + var(--safe-area-top, 0px)) var(--space-2) calc(var(--space-2) + var(--safe-area-bottom, 0px)) calc(var(--space-2) + var(--safe-area-left, 0px))',
 			}}
-			items={ALL_SECTIONS.map((s) => ({
+			items={visibleSections.map((s) => ({
 				key: s.id,
 				icon: s.icon,
 				label: t(s.labelKey),

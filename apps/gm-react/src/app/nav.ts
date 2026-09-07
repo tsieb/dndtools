@@ -8,6 +8,7 @@
 // vocabulary (RC-SYS-2.6) — the board section is the "DM screen" under 5e and the "GM screen" under
 // Generic without this file knowing either word.
 
+import { isMaturitySignalReached, MATURITY_SIGNALS, type CoreStateSlice } from '@dndtools/core';
 import type { MessageKey } from '../i18n';
 
 export interface NavSection {
@@ -189,4 +190,16 @@ export function sectionLabelKey(id: string): MessageKey {
 /** The top bar's subtitle key, or null for a section that has no second line. */
 export function sectionSubtitleKey(id: string): MessageKey | null {
 	return SECTION_TITLES[id]?.[1] ?? null;
+}
+
+/**
+ * RC-UX-3.5 — maturity-signal disclosure. A nav section id that names a declared
+ * `MaturitySignal` (currently only `graph`) stays hidden from every nav surface until the DM's own
+ * usage earns it (three linked notes reveal the graph); a section with no matching signal is always
+ * visible — this never hides an unrelated destination by accident. The route itself is never
+ * blocked: a bookmark still opens it, so this is progressive disclosure, not a dead end.
+ */
+export function isNavSectionVisible(id: string, state: CoreStateSlice): boolean {
+	const isGatedSection = MATURITY_SIGNALS.some((signal) => signal.id === id);
+	return !isGatedSection || isMaturitySignalReached(id, state);
 }

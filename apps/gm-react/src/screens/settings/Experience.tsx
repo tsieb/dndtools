@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { visibleFeatures, type FeatureTier } from '@dndtools/core';
+import { resolveMaturitySignals, visibleFeatures, type FeatureTier } from '@dndtools/core';
 import { Badge, Icon } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, T, radioGroupKeyDown } from '../../app/screen-kit';
+import { useRuntime } from '../../runtime/RuntimeContext';
 import { TIER_ATTR, TIER_KEY, readTier, setDocAttr } from './shared';
 /** The three authored complexity levels — each maps 1:1 onto a real Core `FeatureTier`. */
 export const COMPLEXITY_LEVELS: {
@@ -40,7 +41,12 @@ export const COMPLEXITY_LEVELS: {
 /** The experience-complexity card: the real feature-tier control Appearance hosts. */
 export function ExperienceComplexity() {
 	const { t } = useI18n();
+	const runtime = useRuntime();
 	const [tier, setTier] = useState<FeatureTier>(() => readTier());
+	// RC-UX-3.5 — usage-driven disclosure alongside the manually-chosen tier above: real counts
+	// against the declared thresholds (`MATURITY_SIGNALS`), read-only (a signal reveals itself by
+	// vault usage, never a switch a DM flips — a toggle here would be a fake control, ADR-002/025).
+	const maturitySignals = resolveMaturitySignals(runtime.state);
 	const activeLvl = COMPLEXITY_LEVELS.find((l) => l.tier === tier) ?? COMPLEXITY_LEVELS[1];
 	return (
 		<Panel
@@ -152,6 +158,36 @@ export function ExperienceComplexity() {
 					);
 				})}
 			</div>
+			{maturitySignals.length > 0 && (
+				<div
+					style={{
+						marginTop: 14,
+						paddingTop: 14,
+						borderTop: `1px solid ${T.bd}`,
+						display: 'flex',
+						flexDirection: 'column',
+						gap: 8,
+					}}
+				>
+					<div style={{ font: `600 11.5px ${T.sans}`, color: T.ter }}>
+						{t('settings.experience.growingInto')}
+					</div>
+					{maturitySignals.map(({ signal, count, reached }) => (
+						<div
+							key={signal.id}
+							style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}
+						>
+							<Icon name={reached ? 'check' : 'lock'} size={13} color={reached ? T.acc : T.ter} />
+							<span style={{ font: `12px ${T.sans}`, color: T.sub, overflowWrap: 'anywhere' }}>
+								{signal.label}
+							</span>
+							<span style={{ marginLeft: 'auto', font: `11px ${T.sans}`, color: T.ter }}>
+								{Math.min(count, signal.threshold)}/{signal.threshold}
+							</span>
+						</div>
+					))}
+				</div>
+			)}
 		</Panel>
 	);
 }

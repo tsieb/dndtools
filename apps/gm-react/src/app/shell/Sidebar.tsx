@@ -8,7 +8,7 @@ import {
 	VAULT_OBJECT_SUBTYPE_KEY,
 	type SceneListEntry,
 } from '@dndtools/core';
-import { Avatar, BrandLockup, Icon, IconButton, StatusDot } from '../../ds';
+import { Avatar, Badge, BrandLockup, Icon, IconButton, StatusDot } from '../../ds';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import {
@@ -18,6 +18,7 @@ import {
 	RUN,
 	SETTINGS_SECTION,
 	activeSectionId,
+	isNavSectionVisible,
 	type NavSection,
 } from '../nav';
 import { T } from '../screen-kit';
@@ -119,13 +120,19 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 		);
 	};
 
+	// RC-UX-3.5 — a section named by a declared maturity signal (currently only Graph) stays out of
+	// the More group until the DM's own usage earns it (e.g. three linked notes).
+	const visiblePlatform = useMemo(
+		() => PLATFORM.filter((s) => isNavSectionVisible(s.id, runtime.state)),
+		[runtime.state],
+	);
 	const [showAllScenes, setShowAllScenes] = useState(false);
 	const [moreOpen, setMoreOpen] = useState(false);
 	const visibleScenes = showAllScenes ? scenes : scenes.slice(0, 5);
 	// Never hide the row you're ON: arriving at a platform section OPENS the group. It stays a real
 	// disclosure though — OR-ing `platformActive` into the expanded flag made the toggle a no-op on
 	// every platform route and pinned aria-expanded to true.
-	const platformActive = PLATFORM.some((s) => s.id === active);
+	const platformActive = visiblePlatform.some((s) => s.id === active);
 	useEffect(() => {
 		if (platformActive) setMoreOpen(true);
 	}, [platformActive]);
@@ -323,7 +330,16 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 						</button>
 						{moreExpanded && (
 							<div id="nav-more-panel" style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-								{PLATFORM.map((s) => row(s))}
+								{visiblePlatform.map((s) =>
+									row(
+										s,
+										// RC-UX-3.5 — Graph just earned its spot via usage, not a manual tier
+										// switch: flag it so the DM notices the newly-revealed surface.
+										s.id === 'graph' ? (
+											<Badge status="accent">{t('shell.navSurfaceNew')}</Badge>
+										) : undefined,
+									),
+								)}
 							</div>
 						)}
 					</div>
