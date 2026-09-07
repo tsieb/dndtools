@@ -3,6 +3,7 @@ import type { Actor, PermissionState } from '../state/permission-state';
 import type {
 	CharacterJournal,
 	CharacterJournalEntry,
+	DowntimeDetails,
 	JournalEntryKind,
 } from '../state/character-journal';
 import { journalForCharacter } from '../state/character-journal';
@@ -44,6 +45,8 @@ export interface JournalEntryView {
 	title: string;
 	body: string;
 	visibility: CharacterJournalEntry['visibility'];
+	/** RC-CHR-2.2 — present only when `kind: 'downtime'`. */
+	downtime?: DowntimeDetails;
 	authorActorId: string;
 	updatedAt: string;
 	revision: number;
@@ -58,11 +61,7 @@ export interface CharacterJournalView {
 }
 
 /** Whether an actor is the character's OWNER (holds the `owner` capability) — or the DM. */
-function actorIsOwner(
-	permissions: PermissionState,
-	actor: Actor,
-	characterId: string,
-): boolean {
+function actorIsOwner(permissions: PermissionState, actor: Actor, characterId: string): boolean {
 	if (hasDmAuthority(actor.role)) return true;
 	return hasGrantedCapability(permissions, actor, 'character', characterId, 'owner');
 }
@@ -99,6 +98,7 @@ function projectEntry(entry: CharacterJournalEntry): JournalEntryView {
 		title: entry.title,
 		body: entry.body,
 		visibility: entry.visibility,
+		...(entry.downtime !== undefined ? { downtime: entry.downtime } : {}),
 		authorActorId: entry.authorActorId,
 		updatedAt: entry.updatedAt,
 		revision: entry.revision,

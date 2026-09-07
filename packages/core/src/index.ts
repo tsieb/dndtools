@@ -2353,6 +2353,7 @@ export type {
 	CharacterJournal,
 	CharacterJournalEntry,
 	CharacterJournalState,
+	DowntimeDetails,
 	JournalEntryKind,
 	JournalEntryMeta,
 	UpdateJournalEntryPatch,

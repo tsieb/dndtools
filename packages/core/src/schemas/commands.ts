@@ -1975,7 +1975,22 @@ const journalEntryKindSchema = z.enum([
 	'personal-quest',
 	'session-highlight',
 	'note',
+	'downtime',
 ]);
+
+// RC-CHR-2.2 — the structured fields a `downtime` journal entry carries in addition to title/body:
+// the activity type, days spent, an optional cost, an optional outcome, and an optional link to
+// another journal entry (e.g. the `note` the downtime activity produced). Additive; only meaningful
+// when `kind: 'downtime'`.
+const downtimeDetailsSchema = z
+	.object({
+		activityType: z.string().min(1, 'A downtime activity type is required').max(80),
+		days: z.number().int().positive(),
+		cost: z.number().int().nonnegative().optional(),
+		outcome: z.string().max(500).optional(),
+		linkedNoteId: idSchema.optional(),
+	})
+	.strict();
 
 // CHAR-011 — set the party marching order (an ordered list of character ids). DM-only authoring.
 export const setMarchingOrderInputSchema = z
@@ -2113,8 +2128,15 @@ export const addJournalEntryInputSchema = z
 		body: z.string().default(''),
 		visibility: characterVisibilitySchema.optional(),
 		sharedWith: z.array(idSchema).default([]),
+		// RC-CHR-2.2 — required exactly when `kind: 'downtime'` (the DM's "Award downtime days" and the
+		// player's downtime panel both go through this same command).
+		downtime: downtimeDetailsSchema.optional(),
 	})
-	.strict();
+	.strict()
+	.refine((value) => value.kind !== 'downtime' || value.downtime !== undefined, {
+		message: 'A downtime entry requires its activity type and days.',
+		path: ['downtime'],
+	});
 
 // CHAR-012 — update a journal entry's content (owner or DM). Visibility is changed separately.
 export const updateJournalEntryInputSchema = z
