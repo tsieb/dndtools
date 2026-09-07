@@ -1,45 +1,44 @@
 import { useEffect, useState } from 'react';
+import {
+	matchesMedia,
+	readViewportHeight,
+	subscribeMedia,
+	subscribeViewportSize,
+} from '../platform/preferences';
 
 /* Responsive breakpoints (UX nav-profiles), shared across the shell and any screen that needs to
  * collapse a fixed main+sidebar layout: ≥1025px `desktop`, 641–1024px `rail`, ≤640px `phone`.
- * One matchMedia-driven hook — no resize listeners, no layout thrash. */
+ * One media-query-driven hook — no resize listeners, no layout thrash. The raw `matchMedia` probe
+ * lives in the platform layer (`platform/preferences.ts`, RC-UX-4.1); this is where the app resolves
+ * it into a profile, and every screen branches on the profile rather than on pixels. */
+const PHONE_QUERY = '(max-width: 640px)';
+const RAIL_QUERY = '(max-width: 1024px)';
+const COMPACT_TOP_BAR_QUERY = '(max-width: 1279px)';
 export type Viewport = 'desktop' | 'rail' | 'phone';
 
 export function computeViewport(): Viewport {
-	if (typeof window === 'undefined') return 'desktop';
-	if (window.matchMedia('(max-width: 640px)').matches) return 'phone';
-	if (window.matchMedia('(max-width: 1024px)').matches) return 'rail';
+	if (matchesMedia(PHONE_QUERY)) return 'phone';
+	if (matchesMedia(RAIL_QUERY)) return 'rail';
 	return 'desktop';
 }
 
 export function useViewport(): Viewport {
 	const [vp, setVp] = useState<Viewport>(() => computeViewport());
-	useEffect(() => {
-		const queries = [
-			window.matchMedia('(max-width: 640px)'),
-			window.matchMedia('(max-width: 1024px)'),
-		];
-		const onChange = () => setVp(computeViewport());
-		for (const q of queries) q.addEventListener('change', onChange);
-		return () => {
-			for (const q of queries) q.removeEventListener('change', onChange);
-		};
-	}, []);
+	useEffect(() => subscribeMedia([PHONE_QUERY, RAIL_QUERY], () => setVp(computeViewport())), []);
 	return vp;
 }
 
 /** Full sidebar + full-label table actions need more room than the navigation breakpoint alone.
  * Keep the toolbar compact in ordinary split-screen desktop windows, then expand it at 1280px. */
 export function useCompactTopBar(): boolean {
-	const [compact, setCompact] = useState(() =>
-		typeof window === 'undefined' ? false : window.matchMedia('(max-width: 1279px)').matches,
+	const [compact, setCompact] = useState(() => matchesMedia(COMPACT_TOP_BAR_QUERY));
+	useEffect(
+		() =>
+			subscribeMedia([COMPACT_TOP_BAR_QUERY], () =>
+				setCompact(matchesMedia(COMPACT_TOP_BAR_QUERY)),
+			),
+		[],
 	);
-	useEffect(() => {
-		const query = window.matchMedia('(max-width: 1279px)');
-		const onChange = () => setCompact(query.matches);
-		query.addEventListener('change', onChange);
-		return () => query.removeEventListener('change', onChange);
-	}, []);
 	return compact;
 }
 
@@ -70,19 +69,7 @@ export function useDirection(): Direction {
  * this centralized responsive signal instead of adding their own global resize/keyboard probes.
  */
 export function useViewportHeight(): number {
-	const readHeight = () => {
-		if (typeof window === 'undefined') return 640;
-		return Math.max(1, Math.round(window.visualViewport?.height ?? window.innerHeight));
-	};
-	const [height, setHeight] = useState(readHeight);
-	useEffect(() => {
-		const update = () => setHeight(readHeight());
-		window.addEventListener('resize', update);
-		window.visualViewport?.addEventListener('resize', update);
-		return () => {
-			window.removeEventListener('resize', update);
-			window.visualViewport?.removeEventListener('resize', update);
-		};
-	}, []);
+	const [height, setHeight] = useState(readViewportHeight);
+	useEffect(() => subscribeViewportSize(() => setHeight(readViewportHeight())), []);
 	return height;
 }

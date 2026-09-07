@@ -1,14 +1,21 @@
 import { DEFAULT_FEATURE_TIER, type FeatureTier } from '@dndtools/core';
 import type { MessageKey } from '../../i18n';
+import {
+	PREFERENCE_KEYS,
+	readPreference,
+	removePreference,
+	writePreference,
+	type PreferenceKey,
+} from '../../platform/preferences';
 
 /* The onboarding wizard's device-local storage keys, the tier/complexity tables and the step
  * definition. Extracted from Onboarding.tsx unchanged (RC-STB-2.6). */
 
-export const ONBOARDED_KEY = 'dndtools:react:onboarded';
-export const VAULT_CHOICE_KEY = 'dndtools:react:vault-choice';
+export const ONBOARDED_KEY = PREFERENCE_KEYS.onboarded;
+export const VAULT_CHOICE_KEY = PREFERENCE_KEYS.vaultChoice;
 export const REPLAY_EVENT = 'dndtools:onboarding-replay';
-export const INVITES_KEY = 'dndtools:react:invites';
-export const TIER_KEY = 'dndtools:react:tier';
+export const INVITES_KEY = PREFERENCE_KEYS.partyNotes;
+export const TIER_KEY = PREFERENCE_KEYS.tier;
 export const TIER_ATTR = 'data-feature-tier';
 export const MAX_PARTY_NOTES = 20;
 export const MAX_PARTY_NOTE_CHARS = 120;
@@ -52,29 +59,11 @@ export const COMPLEXITY_LEVELS = [
 	blurb: MessageKey;
 }>;
 
-export function readStorage(key: string): string | null {
-	try {
-		return window.localStorage.getItem(key);
-	} catch {
-		return null;
-	}
-}
-
-export function writeStorage(key: string, value: string) {
-	try {
-		window.localStorage.setItem(key, value);
-	} catch {
-		/* private mode — the overlay just re-appears next boot */
-	}
-}
-
-export function removeStorage(key: string) {
-	try {
-		window.localStorage.removeItem(key);
-	} catch {
-		/* private mode — nothing was persisted anyway */
-	}
-}
+/* The wizard's device-local state goes through the platform preferences layer (RC-UX-4.1); these
+ * three names are kept so every step keeps importing storage from one place. */
+export const readStorage = (key: PreferenceKey) => readPreference(key);
+export const writeStorage = (key: PreferenceKey, value: string) => writePreference(key, value);
+export const removeStorage = (key: PreferenceKey) => removePreference(key);
 
 /** Reload after a vault reset while preserving a HashRouter destination under both http(s) and file. */
 export function reloadAtRoute(route?: string) {

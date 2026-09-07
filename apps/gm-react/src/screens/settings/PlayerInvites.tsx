@@ -22,6 +22,7 @@ import {
 } from '../../cloud/appApi';
 import { qrDataUrl } from '../../net/qr';
 import { publicAppBaseUrl, publicAppHashUrl } from '../../platform/publicAppUrl';
+import { copyToClipboard } from '../../platform/preferences';
 import { coDmSeatsForPlan, useEntitlements } from '../../cloud/entitlements';
 import { errMsg } from './shared';
 /* ---- Player invites (REAL app-api when configured + signed in — server-minted join links) -------- */
@@ -29,12 +30,8 @@ import { errMsg } from './shared';
 const inviteJoinUrl = (token: string) => publicAppHashUrl('/join', { token });
 
 const copyText = async (text: string, okMessage: string, failMessage: string) => {
-	try {
-		await navigator.clipboard.writeText(text);
-		Toaster.success(okMessage);
-	} catch {
-		Toaster.error(failMessage);
-	}
+	if (await copyToClipboard(text)) Toaster.success(okMessage);
+	else Toaster.error(failMessage);
 };
 
 /** Pending invites — REAL server-minted join links (app-api) when configured + signed in. */

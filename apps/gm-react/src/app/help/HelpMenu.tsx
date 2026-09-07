@@ -6,27 +6,21 @@ import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { readTier } from '../../screens/settings/shared';
 import { T } from '../screen-kit';
+import { PREFERENCE_KEYS, readPreference, writePreference } from '../../platform/preferences';
 import { latestRelease, parseChangelog } from './changelog';
 import { ShortcutsDialog } from './ShortcutsDialog';
 
 /** Device-local: the last "What's new" version the DM has opened. A display preference, not a
  * durable vault fact (Contract 1) — mirrors the onboarding tier's own localStorage flag. */
-const SEEN_VERSION_KEY = 'dndtools:react:whatsNewSeen';
+const SEEN_VERSION_KEY = PREFERENCE_KEYS.whatsNewSeen;
 
 export function readSeenWhatsNewVersion(): string | null {
-	try {
-		return window.localStorage.getItem(SEEN_VERSION_KEY);
-	} catch {
-		return null;
-	}
+	return readPreference(SEEN_VERSION_KEY);
 }
 
 function markWhatsNewSeen(version: string): void {
-	try {
-		window.localStorage.setItem(SEEN_VERSION_KEY, version);
-	} catch {
-		/* best-effort — a re-shown badge next launch is not worth failing the dialog open over */
-	}
+	// Best-effort — a re-shown badge next launch is not worth failing the dialog open over.
+	writePreference(SEEN_VERSION_KEY, version);
 }
 
 /** True while the most recent shipped release has not yet been opened from this menu — drives the

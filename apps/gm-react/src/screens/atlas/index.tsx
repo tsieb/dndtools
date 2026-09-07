@@ -20,6 +20,7 @@ import { AtlasCanvas } from './AtlasCanvas';
 import { LayersPanel } from './LayersPanel';
 import { PoiPanel } from './PoiPanel';
 import { FogPanel } from './FogPanel';
+import { copyToClipboard } from '../../platform/preferences';
 
 /**
  * Atlas — the map library, wired to the live Processing Core. The map switcher reads the
@@ -379,10 +380,9 @@ export function Atlas() {
 		if (!selectedId) return;
 		// `window.location` explicitly — the react-router `location` above shadows the global here.
 		const url = `${window.location.origin}${window.location.pathname}${window.location.search}#/atlas?map=${encodeURIComponent(selectedId)}&poi=${encodeURIComponent(poiId)}`;
-		try {
-			await navigator.clipboard.writeText(url);
+		if (await copyToClipboard(url)) {
 			say('Link copied — opening it highlights this point of interest on the map.');
-		} catch {
+		} else {
 			fail(`The link couldn’t be copied — copy it manually: ${url}`);
 		}
 	}

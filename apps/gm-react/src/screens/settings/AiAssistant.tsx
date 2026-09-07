@@ -8,6 +8,7 @@ import {
 	usePlatformCapabilities,
 	type PlatformNotificationPermission,
 } from '../../platform/capabilities';
+import { PREFERENCE_KEYS, readPreference, writePreference } from '../../platform/preferences';
 import { isAiProviderConfigured, resolveAiProviderConfig } from '../../ai/providerConfig';
 import { sendAiChat, type AiTurn } from '../../ai/transport';
 import {
@@ -36,22 +37,14 @@ type Translate = (key: MessageKey, values?: MessageValues) => string;
 
 // Device-local preference: also raise a desktop notification when a run finishes (opt-in; the browser
 // still gates it behind its own permission prompt). Carries no data — a boolean in localStorage.
-const AI_NOTIFY_KEY = 'dndtools.ai.notify-on-complete';
+const AI_NOTIFY_KEY = PREFERENCE_KEYS.aiNotify;
 
 function aiNotifyEnabled(): boolean {
-	try {
-		return localStorage.getItem(AI_NOTIFY_KEY) === '1';
-	} catch {
-		return false;
-	}
+	return readPreference(AI_NOTIFY_KEY) === '1';
 }
 
 function persistAiNotifyEnabled(enabled: boolean): void {
-	try {
-		localStorage.setItem(AI_NOTIFY_KEY, enabled ? '1' : '0');
-	} catch {
-		/* preference is best-effort */
-	}
+	writePreference(AI_NOTIFY_KEY, enabled ? '1' : '0');
 }
 
 /** Best-effort platform notification; permission was granted during explicit opt-in. */

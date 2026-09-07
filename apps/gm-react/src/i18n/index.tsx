@@ -13,6 +13,7 @@ import {
 	type UnitSystem,
 } from './format';
 import { en, type MessageKey } from './messages/en';
+import { PREFERENCE_KEYS, readPreference, writePreference } from '../platform/preferences';
 // RC-SYS-2.6 — the active system package's words reach `t` from here.
 import { useVocabulary, withVocabulary } from './vocabulary';
 
@@ -29,7 +30,7 @@ export {
  * share a device and needs the chosen language to survive relaunches and native shells. It is not
  * vault state — language belongs to the person holding the device, so two people sharing a synced
  * vault can read it in different languages (ADR-032 §6). */
-export const LOCALE_STORAGE_KEY = 'dndtools:locale';
+export const LOCALE_STORAGE_KEY = PREFERENCE_KEYS.locale;
 
 export const SUPPORTED_LOCALES = [
 	{ code: 'en', label: 'English', nativeLabel: 'English' },
@@ -107,11 +108,7 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
 	const [locale, setLocaleState] = useState<SupportedLocale>(() => {
-		try {
-			return initialLocale(window.localStorage.getItem(LOCALE_STORAGE_KEY), navigator.languages);
-		} catch {
-			return initialLocale(null, navigator.languages);
-		}
+		return initialLocale(readPreference(LOCALE_STORAGE_KEY), navigator.languages);
 	});
 	// Bumped once the chosen locale's chunk is in, which is what re-renders the tree in the new
 	// language. Until then every key renders its English source (ADR-032 §1).
@@ -127,11 +124,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 	}, [locale]);
 	useEffect(() => {
 		document.documentElement.lang = locale;
-		try {
-			window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
-		} catch {
-			// Private browsing may reject storage; the live preference still works for this session.
-		}
+		// Private browsing may reject storage; the live preference still works for this session.
+		writePreference(LOCALE_STORAGE_KEY, locale);
 	}, [locale]);
 	const value = useMemo<I18nContextValue>(
 		() => ({

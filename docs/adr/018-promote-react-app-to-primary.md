@@ -41,17 +41,18 @@ and `@dndtools/gm-react` package name (not renamed to `apps/gm`) so history and 
 ### Negative
 
 - The React app started as a design-package port and carries `any` in some runtime/view-model seams
-  (tracked as DEBT-2026-002) and lacks a typed platform-preferences layer (DEBT-2026-001).
+  (tracked as DEBT-2026-002) and lacked a typed platform-preferences layer (DEBT-2026-001, since
+  resolved by RC-UX-4.1's `apps/gm-react/src/platform/preferences.ts`).
 - The Svelte app's ~88 Playwright specs do not all port at once; the critical-path specs (collab,
   sync, canvas, permissions) plus the axe gate are ported now, the rest is tracked as DEBT-2026-003.
 
 ## Rejected Alternatives
 
-| Alternative | Why Rejected |
-| ----------- | ------------ |
-| Keep both apps maintained | Doubles the cost of every core change; the Svelte app's large e2e corpus would gate work indefinitely for a surface no longer shipped. |
-| Rename `apps/gm-react` → `apps/gm` | Churns hundreds of references and imports for a cosmetic name; the `-react` suffix is harmless once Svelte is archived. |
-| Delete the Svelte app outright | Its e2e specs are a valuable behavioral reference while the React test corpus is built up; archiving keeps them readable without gating cost. |
+| Alternative                        | Why Rejected                                                                                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Keep both apps maintained          | Doubles the cost of every core change; the Svelte app's large e2e corpus would gate work indefinitely for a surface no longer shipped.        |
+| Rename `apps/gm-react` → `apps/gm` | Churns hundreds of references and imports for a cosmetic name; the `-react` suffix is harmless once Svelte is archived.                       |
+| Delete the Svelte app outright     | Its e2e specs are a valuable behavioral reference while the React test corpus is built up; archiving keeps them readable without gating cost. |
 
 ## Migration Impact
 

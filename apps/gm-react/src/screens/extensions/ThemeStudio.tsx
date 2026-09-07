@@ -2,12 +2,13 @@ import { useMemo, useState } from 'react';
 import { Badge, HPBar, Icon, SegmentedControl, VisibilityChip } from '../../ds';
 import { Panel, T, eb, mono } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
+import { PREFERENCE_KEYS, writePreference } from '../../platform/preferences';
 import { useI18n, type MessageKey } from '../../i18n';
 
 /* ---- Theme studio (REAL — persisted preset choice + the LIVE token values of the active preset) --- */
 // Mirrors Settings → Appearance: the same localStorage key index.html restores pre-paint, and the
 // same dark-theme set so the native color-scheme (scrollbars, form controls) stays in sync.
-const THEME_STORE_KEY = 'dndtools:react:theme';
+const THEME_STORE_KEY = PREFERENCE_KEYS.theme;
 const DARK_PRESETS = new Set(['tavern', 'high-contrast']);
 // The preset names are the same ones Settings → Appearance shows, so they reuse those keys rather
 // than spelling the three theme names a second time per locale.
@@ -68,11 +69,7 @@ export function ExtTheme() {
 		setTheme(v);
 		document.documentElement.setAttribute('data-theme', v);
 		document.documentElement.style.colorScheme = DARK_PRESETS.has(v) ? 'dark' : 'light';
-		try {
-			window.localStorage.setItem(THEME_STORE_KEY, v);
-		} catch {
-			/* ignore */
-		}
+		writePreference(THEME_STORE_KEY, v);
 	};
 	// The LIVE computed value of each token under the active preset (recomputed on theme change —
 	// the `theme` read below is the dependency that forces the re-read after the attr flips).

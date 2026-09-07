@@ -21,17 +21,24 @@ Each debt item must include:
 ### DEBT-2026-001 — React app lacks a platform-preferences / capability layer
 
 - `Severity`: medium
-- `Impact`: The React GM app's GUI surface reads platform primitives (`localStorage`,
-  `matchMedia`, `navigator.onLine`, `crypto.randomUUID`) directly instead of routing them through
+- `Impact`: The React GM app's GUI surface read platform primitives (`localStorage`,
+  `matchMedia`, `navigator.onLine`, `navigator.clipboard`) directly instead of routing them through
   a typed platform layer (the analogue of the retired Svelte app's `src/lib/platform`). Each site
-  is allow-listed in `apps/gm-react/platform-access-exceptions.json` (PLAT-006/012), so the
-  boundary is explicit and owned, but the accesses remain scattered across GUI files.
+  was allow-listed in `apps/gm-react/platform-access-exceptions.json` (PLAT-006/012), so the
+  boundary was explicit and owned, but the accesses stayed scattered across GUI files.
 - `Owner`: platform
 - `Resolution Window`: 2026 Q3
-- `Targets`: `apps/gm-react/src/app/AppShell.tsx` (matchMedia), `apps/gm-react/src/app/Onboarding.tsx`,
-  `apps/gm-react/src/screens/{Settings,Upgrade}.tsx` (localStorage + navigator),
-  `apps/gm-react/src/screens/{Board,SceneEditor}.tsx` (crypto.randomUUID idempotency keys).
-- `Status`: open
+- `Targets`: `apps/gm-react/src/platform/preferences.ts` (the layer), and the eighteen former
+  allow-listed GUI sites that now import it.
+- `Status`: resolved — RC-UX-4.1 landed `apps/gm-react/src/platform/preferences.ts`: one typed
+  home for the device-preference keys (`readPreference`/`writePreference`/`removePreference`), the
+  media-query probes (`matchesMedia`/`subscribeMedia`, plus the viewport-height pair `useViewport`
+  consumes) and the `navigator` capabilities (`isOnline`, `copyToClipboard`). `src/platform/` sits
+  outside the GUI boundary `scripts/boundary-lint.ts` enforces, so the primitives are legitimate
+  there and a violation anywhere else. The exception manifest went from 21 entries to 3:
+  two `crypto.randomUUID()` idempotency-key sites (identifier minting, not preferences — they wait
+  on a dispatch-seam helper) and one test-only `matchMedia` stub that deliberately drives the
+  resolved profile per case.
 
 ### DEBT-2026-002 — React app carries `any` in runtime/view-model seams
 

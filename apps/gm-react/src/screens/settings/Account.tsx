@@ -14,6 +14,7 @@ import {
 	type Profile,
 } from '../../cloud/appApi';
 import { downloadJsonFile, fileDateStamp } from '../../platform/download';
+import { removePreference } from '../../platform/preferences';
 import { ONBOARDED_KEY, REPLAY_EVENT } from '../../app/Onboarding';
 import { errMsg } from './shared';
 import { AccountDevicesPanel } from './AccountDevices';
@@ -356,11 +357,7 @@ export function SettingsAccount() {
 						icon="sparkle"
 						onClick={() => {
 							// REAL: clears the first-run flag and re-opens the live overlay (it listens for this event).
-							try {
-								window.localStorage.removeItem(ONBOARDED_KEY);
-							} catch {
-								/* ignore */
-							}
+							removePreference(ONBOARDED_KEY);
 							window.dispatchEvent(new Event(REPLAY_EVENT));
 						}}
 					>

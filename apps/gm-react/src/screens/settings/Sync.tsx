@@ -6,6 +6,7 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import { useCloudSync } from '../../cloud/CloudSyncContext';
 import { downloadJsonFile, fileDateStamp } from '../../platform/download';
 import { pickTextFile } from '../../platform/filePick';
+import { isOnline } from '../../platform/preferences';
 import {
 	MAX_VAULT_BACKUP_FILE_BYTES,
 	exportFullVault,
@@ -245,9 +246,7 @@ export function SettingsSync() {
 	const { t, formatDate } = useI18n();
 	const runtime = useRuntime();
 	const ops = runtime.state.sync.operations;
-	const [online, setOnline] = useState<boolean>(
-		typeof navigator !== 'undefined' ? navigator.onLine : true,
-	);
+	const [online, setOnline] = useState<boolean>(isOnline);
 	useEffect(() => {
 		const on = () => setOnline(true);
 		const off = () => setOnline(false);

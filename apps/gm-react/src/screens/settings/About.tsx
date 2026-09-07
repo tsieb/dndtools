@@ -12,6 +12,7 @@ import { useI18n, type MessageKey } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { downloadJsonFile, fileDateStamp } from '../../platform/download';
 import { widgetProfileForRuntime } from '../../platform/capabilities';
+import { isOnline } from '../../platform/preferences';
 import { getErrorLog, installErrorLogListeners } from '../../diagnostics/errorLog';
 import { collectStorageUsage } from '../../diagnostics/storageUsage';
 import { collectPerfMarks } from '../../diagnostics/perfMarks';
@@ -84,7 +85,7 @@ export function SettingsAbout() {
 		appVersion: pkg.version,
 		platformProfileId: widgetProfileForRuntime(),
 		generatedAt,
-		online: typeof navigator !== 'undefined' ? navigator.onLine : true,
+		online: isOnline(),
 		syncSources: [
 			{
 				sourceId: 'local-vault',

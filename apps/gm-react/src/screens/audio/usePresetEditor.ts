@@ -6,6 +6,7 @@ import {
 	type CoreCommand,
 } from '@dndtools/core';
 import { Toaster } from '../../ds';
+import { isOnline } from '../../platform/preferences';
 import { type AmbienceLayerEntry, type AudioTrackView } from './types';
 
 /**
@@ -44,7 +45,7 @@ export function usePresetEditor({
 			actorId: dmId,
 			payload: {
 				presetId: preset.id,
-				online: typeof navigator === 'undefined' ? true : navigator.onLine !== false,
+				online: isOnline(),
 			},
 		});
 		if (problem) Toaster.error(problem);

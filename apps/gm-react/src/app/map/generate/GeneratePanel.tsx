@@ -16,6 +16,7 @@ import { T, eb } from '../../screen-kit';
 import type { MapEditorApi } from '../useMapEditor';
 import { ParamControls, defaultOf } from './ParamControls';
 import { useI18n } from '../../../i18n';
+import { copyToClipboard } from '../../../platform/preferences';
 
 /** The ghost the canvas paints while a generation is being tuned. */
 export interface GenPreview {
@@ -398,7 +399,7 @@ export function GeneratePanel({
 						size="sm"
 						icon="duplicate"
 						aria-label={t('mapGenerate.copySeed')}
-						onClick={() => void navigator.clipboard?.writeText(seed).catch(() => {})}
+						onClick={() => void copyToClipboard(seed)}
 					/>
 				</div>
 				<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 4 }}>

@@ -11,6 +11,7 @@ import {
 	type CoreCommand,
 } from '@dndtools/core';
 import { Toaster } from '../../ds';
+import { isOnline } from '../../platform/preferences';
 import { type BytesPresence } from './shared';
 
 /**
@@ -60,7 +61,7 @@ export function useAutomationEditor({
 			const resolution = resolveAudioAutomationForActor(audioState, permissions, dmId, {
 				kind: rule.trigger,
 				scopeId: rule.triggerScopeId,
-				online: typeof navigator === 'undefined' ? true : navigator.onLine !== false,
+				online: isOnline(),
 				assetLocallyAvailable: bytesReady,
 				assetCached: bytesReady,
 				cacheEvicted: false,
@@ -189,7 +190,7 @@ export function useAutomationEditor({
 							crossfadeSeconds: outcome.request.action === 'crossfade' ? 2 : 0,
 							assetLocallyAvailable: bytesReady,
 							assetCached: bytesReady,
-							online: typeof navigator === 'undefined' ? true : navigator.onLine !== false,
+							online: isOnline(),
 						},
 					},
 		);

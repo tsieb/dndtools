@@ -32,6 +32,7 @@ import { PlaybackRight } from './panels/PlaybackRight';
 import { PresetsTab } from './PresetsTab';
 import { AutomationTab } from './AutomationTab';
 import { useI18n } from '../../i18n';
+import { isOnline } from '../../platform/preferences';
 
 /**
  * Audio — soundboard + session-audio transport, wired to the live Processing Core. The now-playing
@@ -236,7 +237,7 @@ export function Audio() {
 					// file is not on this device is rejected with a reason instead of "playing" silently.
 					assetLocallyAvailable: bytesReady,
 					assetCached: bytesReady,
-					online: typeof navigator === 'undefined' ? true : navigator.onLine !== false,
+					online: isOnline(),
 				},
 			}),
 		);

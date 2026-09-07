@@ -16,6 +16,7 @@ import {
 	type WikiStatus,
 } from '../../cloud/appApi';
 import { publicAppBaseUrl } from '../../platform/publicAppUrl';
+import { copyToClipboard } from '../../platform/preferences';
 import { WIKI_ACCESS_MODES, buildWikiPages, errText, kb, wikiPublicUrl } from './shared';
 import { useI18n } from '../../i18n';
 
@@ -126,12 +127,8 @@ export function CommWiki() {
 	};
 
 	const copyLink = async (url: string) => {
-		try {
-			await navigator.clipboard.writeText(url);
-			Toaster.success(t('community.wiki.linkCopied'));
-		} catch {
-			Toaster.error(t('community.wiki.copyFailed'));
-		}
+		if (await copyToClipboard(url)) Toaster.success(t('community.wiki.linkCopied'));
+		else Toaster.error(t('community.wiki.copyFailed'));
 	};
 
 	// The settings/publish column adapts to the tier; the reading preview is always shown.
