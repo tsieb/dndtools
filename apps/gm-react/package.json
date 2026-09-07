@@ -53,20 +53,20 @@
 		"zod": "^4.5.4"
 	},
 	"devDependencies": {
-		"@axe-core/playwright": "^4.12.1",
-		"@capacitor/cli": "8.4.2",
-		"@playwright/test": "^1.61.1",
+		"@axe-core/playwright": "^4.13.0",
+		"@capacitor/cli": "8.5.0",
+		"@playwright/test": "^1.62.1",
 		"@types/qrcode": "^1.5.6",
 		"@types/react": "^18.3.12",
 		"@types/react-dom": "^18.3.1",
 		"@vitejs/plugin-react": "^4.7.0",
-		"concurrently": "^10.0.3",
+		"concurrently": "^10.0.5",
 		"cross-env": "^10.1.0",
 		"electron": "^43.1.0",
 		"electron-builder": "^26.15.3",
-		"esbuild": "^0.28.1",
+		"esbuild": "^0.28.2",
 		"typescript": "^6.0.3",
 		"vite": "^7.3.6",
-		"wait-on": "^9.0.10"
+		"wait-on": "^9.1.0"
 	}
 }
