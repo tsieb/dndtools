@@ -4252,6 +4252,8 @@ export {
 export type {
 	SceneCard,
 	SceneCardHeroImage,
+	// RC-AUD-2.1 — the lighting half of a scene package.
+	SceneCardLightingHint,
 	SceneCardMood,
 	SceneCardPushRecord,
 	SceneCardState,
@@ -4263,13 +4265,16 @@ export {
 	SCENE_CARD_DISPLAY_ENTITY_ID,
 	SCENE_CARD_ENTITY_TYPE,
 	SCENE_CARD_FLAVOR_MAX_LENGTH,
+	SCENE_CARD_LIGHTING_HINTS,
 	SCENE_CARD_MOODS,
 	SCENE_CARD_SCHEMA_VERSION,
 	SCENE_CARD_TRANSITION_STYLES,
 	SCENE_CARD_VISIBILITIES,
 	ensureSceneCardState,
 	isLiveSceneCard,
+	isSceneCardLightingHint,
 	isSceneCardMood,
+	isSceneCardPackage,
 	isSceneCardTransitionStyle,
 	isSceneCardVisibility,
 } from './state/scene-card';

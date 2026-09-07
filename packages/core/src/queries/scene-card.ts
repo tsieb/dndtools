@@ -4,6 +4,7 @@ import {
 	isLiveSceneCard,
 	type SceneCard,
 	type SceneCardHeroImage,
+	type SceneCardLightingHint,
 	type SceneCardMood,
 	type SceneCardTransitionStyle,
 	type SceneCardVisibility,
@@ -20,6 +21,8 @@ import {
  *     player/observer whose target card is `dm-only` or tombstoned — indistinguishable from a card that
  *     does not exist (no title/flavor/mood leak).
  *   - The DM sees every LIVE card (tombstoned cards are omitted from every read).
+ *   - RC-AUD-2.1: a package's `audioPresetId` is DM-ONLY (audio configuration), even on a card a player
+ *     may see; the `lightingHint` is atmosphere and travels with the card.
  *   - The push history a player reviews resolves each row against the LIVE card through the SAME
  *     actor-filtered read, so a card later narrowed to `dm-only` (or deleted) drops out of the players'
  *     scene history with no residual content.
@@ -35,6 +38,13 @@ export interface SceneCardView {
 	heroImage: SceneCardHeroImage | null;
 	flavorText: string;
 	audioAssociationId: string | null;
+	/**
+	 * RC-AUD-2.1 — the package's audio preset id, or null. DM-ONLY: audio configuration is DM config, so a
+	 * player/observer always reads null here even on a card they may otherwise see.
+	 */
+	audioPresetId: string | null;
+	/** RC-AUD-2.1 — the package's lighting stage direction, or null. Atmosphere; visible to every actor. */
+	lightingHint: SceneCardLightingHint | null;
 	visibility: SceneCardVisibility;
 	createdAt: string;
 	updatedAt: string;
@@ -56,7 +66,7 @@ export interface SceneDisplayView {
 	queuedCount: number;
 }
 
-function toView(card: SceneCard): SceneCardView {
+function toView(card: SceneCard, isDm: boolean): SceneCardView {
 	return {
 		id: card.id,
 		title: card.title,
@@ -64,6 +74,8 @@ function toView(card: SceneCard): SceneCardView {
 		heroImage: card.heroImage,
 		flavorText: card.flavorText,
 		audioAssociationId: card.audioAssociationId,
+		audioPresetId: isDm ? card.audioPresetId : null,
+		lightingHint: card.lightingHint,
 		visibility: card.visibility,
 		createdAt: card.createdAt,
 		updatedAt: card.updatedAt,
@@ -86,7 +98,7 @@ export function getSceneCardForActor(
 	const card = session.sceneCards.cards[cardId];
 	if (!isLiveSceneCard(card)) return null;
 	if (actor.role !== 'dm' && card.visibility !== 'player-visible') return null;
-	return toView(card);
+	return toView(card, actor.role === 'dm');
 }
 
 /**
@@ -103,8 +115,12 @@ export function listSceneCardsForActor(
 	return Object.values(session.sceneCards.cards)
 		.filter(isLiveSceneCard)
 		.filter((card) => actor.role === 'dm' || card.visibility === 'player-visible')
-		.sort((a, b) => (a.createdAt === b.createdAt ? a.id.localeCompare(b.id) : a.createdAt.localeCompare(b.createdAt)))
-		.map(toView);
+		.sort((a, b) =>
+			a.createdAt === b.createdAt
+				? a.id.localeCompare(b.id)
+				: a.createdAt.localeCompare(b.createdAt),
+		)
+		.map((card) => toView(card, actor.role === 'dm'));
 }
 
 /**
@@ -136,7 +152,7 @@ export function getSceneCardQueueForActor(
 	const views: SceneCardView[] = [];
 	for (const cardId of session.sceneCards.queue) {
 		const card = session.sceneCards.cards[cardId];
-		if (isLiveSceneCard(card)) views.push(toView(card));
+		if (isLiveSceneCard(card)) views.push(toView(card, true));
 	}
 	return views;
 }

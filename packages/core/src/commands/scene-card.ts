@@ -5,6 +5,7 @@ import {
 	dequeueSceneCardInputSchema,
 	deleteSceneCardInputSchema,
 	enqueueSceneCardInputSchema,
+	playScenePackageInputSchema,
 	reorderSceneCardQueueInputSchema,
 	restoreSceneCardInputSchema,
 	setSceneCardTransitionInputSchema,
@@ -21,6 +22,7 @@ import {
 } from '../state/scene-card';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import { appendOperationDraft, parseInput, reject, requireActor, requireDm } from './helpers';
+import { handleApplyAudioPreset } from './audio-preset';
 
 /**
  * I11 S11.2.1–S11.2.4 — SCENE CARD (atmosphere) command handlers.
@@ -69,6 +71,8 @@ export function handleCreateSceneCard(
 		heroImage: input.heroImage,
 		flavorText: input.flavorText,
 		audioAssociationId: input.audioAssociationId,
+		audioPresetId: input.audioPresetId,
+		lightingHint: input.lightingHint,
 		visibility: input.visibility,
 		createdBy: previous?.createdBy ?? actor.id,
 		createdAt: previous?.createdAt ?? now,
@@ -132,6 +136,8 @@ export function handleUpdateSceneCard(
 			input.audioAssociationId !== undefined
 				? input.audioAssociationId
 				: previous.audioAssociationId,
+		audioPresetId: input.audioPresetId !== undefined ? input.audioPresetId : previous.audioPresetId,
+		lightingHint: input.lightingHint !== undefined ? input.lightingHint : previous.lightingHint,
 		updatedAt: env.clock(),
 		revision: previous.revision + 1,
 	};
@@ -340,7 +346,7 @@ function activateOnto(
 	actor: { id: string },
 	cardId: string | null,
 	nextQueue: string[],
-	queueMutation: 'activate' | 'advance',
+	queueMutation: 'activate' | 'advance' | 'play-package',
 ): CommandResult {
 	const slice = state.session.sceneCards;
 
@@ -384,9 +390,7 @@ function activateOnto(
 		value: { cardId, pushed, pushRecordId: pushRecord?.id ?? null, via: queueMutation },
 	});
 
-	const events: CoreEvent[] = [
-		{ kind: 'scene-card.activated', cardId, pushed, actorId: actor.id },
-	];
+	const events: CoreEvent[] = [{ kind: 'scene-card.activated', cardId, pushed, actorId: actor.id }];
 	if (pushRecord) {
 		events.push({
 			kind: 'scene-card.pushed',
@@ -562,10 +566,7 @@ export function handleDequeueSceneCard(
 
 	const slice = state.session.sceneCards;
 	if (!slice.queue.includes(cardId)) {
-		return reject(
-			{ code: 'invalid-state', message: `Scene card ${cardId} is not queued.` },
-			state,
-		);
+		return reject({ code: 'invalid-state', message: `Scene card ${cardId} is not queued.` }, state);
 	}
 
 	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
@@ -631,5 +632,101 @@ export function handleReorderSceneCardQueue(
 			{ kind: 'scene-card.queue-changed', mutation: 'reorder', cardId: null, actorId: actor.id },
 		],
 		operationIds: [op.id],
+	};
+}
+
+/**
+ * RC-AUD-2.1 — PLAY a scene PACKAGE in ONE action (DM-only): apply the card's audio preset, put the card
+ * on the display, and push it to players when it is player-visible. A "package" is not a second entity —
+ * it is the card plus its two reference fields (`audioPresetId`, `lightingHint`), so this composes the
+ * EXISTING commands rather than adding a parallel path:
+ *
+ *   - The audio half runs through {@link handleApplyAudioPreset} unchanged, so every AUDIO-004/009/010
+ *     gate still decides what becomes audible. It is BEST-EFFORT and HONEST: when the preset cannot play
+ *     (missing, no ready layer, offline) the card is STILL shown and the emitted
+ *     `scene-card.package-played` carries `audioApplied: false` plus the reason, so the surface reports a
+ *     partial result. Failing the whole action would make a card with a stale preset unshowable from its
+ *     own button — a dead control — while a silent success would be a lie.
+ *   - The card half is the SAME `activateOnto` the plain activate and the queue advance use, so the push
+ *     record, the `scene-card.pushed` event and the fail-closed visibility rule are identical.
+ *   - The lighting hint is a stage direction carried on the event; the app drives no lamps.
+ */
+export function handlePlayScenePackage(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(playScenePackageInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const input = parsed.data;
+
+	const card = state.session.sceneCards.cards[input.cardId];
+	if (!isLiveSceneCard(card)) {
+		return reject(
+			{ code: 'scene-card-not-found', message: `Scene card ${input.cardId} does not exist.` },
+			state,
+		);
+	}
+
+	let working = state;
+	const audioEvents: CoreEvent[] = [];
+	const audioOperationIds: string[] = [];
+	let audioApplied = false;
+	let audioSkippedReason: string | null = null;
+
+	if (card.audioPresetId) {
+		const applied = handleApplyAudioPreset(working, env, actor.id, {
+			presetId: card.audioPresetId,
+			assetLocallyAvailable: input.assetLocallyAvailable,
+			assetCached: input.assetCached,
+			cacheEvicted: input.cacheEvicted,
+			online: input.online,
+		});
+		if (applied.status === 'accepted') {
+			working = applied.nextState;
+			audioEvents.push(...applied.events);
+			audioOperationIds.push(...applied.operationIds);
+			audioApplied = true;
+		} else {
+			audioSkippedReason = applied.rejection.message;
+		}
+	}
+
+	const shown = activateOnto(
+		working,
+		env,
+		actor,
+		card.id,
+		working.session.sceneCards.queue,
+		'play-package',
+	);
+	// Showing the card cannot fail here (the card was just proven live), but if it ever did we must not
+	// leave the audio half applied on its own — reject from the ORIGINAL state.
+	if (shown.status !== 'accepted') return reject(shown.rejection, state);
+
+	const pushed = card.visibility === 'player-visible';
+	return {
+		status: 'accepted',
+		nextState: shown.nextState,
+		events: [
+			...audioEvents,
+			...shown.events,
+			{
+				kind: 'scene-card.package-played',
+				cardId: card.id,
+				pushed,
+				audioApplied,
+				audioSkippedReason,
+				lightingHint: card.lightingHint,
+				actorId: actor.id,
+			},
+		],
+		operationIds: [...audioOperationIds, ...shown.operationIds],
 	};
 }

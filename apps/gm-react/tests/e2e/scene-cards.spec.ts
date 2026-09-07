@@ -537,4 +537,71 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		await expect(page.getByRole('button', { name: `Move ${titles[2]} up` })).toBeDisabled();
 		await expect(page.getByRole('button', { name: `Move ${titles[2]} down` })).toBeFocused();
 	});
+	// RC-AUD-2.1 — a scene PACKAGE is the card plus an audio preset and a lighting hint, played in ONE
+	// click. The audio half is best-effort and honest: a built-in preset whose layers are not bound to a
+	// configured source cannot start, and the DM is told that while the card still reaches the display.
+	test('one click plays a scene package, and says so when its audio cannot start', async ({
+		page,
+	}) => {
+		const stamp = Date.now();
+		const plain = `Quiet Road ${stamp}`;
+		const lit = `Hearth Room ${stamp}`;
+		const scored = `Storm Deck ${stamp}`;
+
+		// A card with neither package half offers no package button — nothing extra to play.
+		await createCardViaCore(page, { title: plain, visibility: 'dm-only' });
+		await expect(page.getByRole('button', { name: 'Play package' })).toHaveCount(0);
+
+		// Real UI: author a card carrying only a lighting hint.
+		await page.getByLabel('Title', { exact: true }).fill(lit);
+		await page.locator('#card-lighting').selectOption('firelit');
+		await page.getByRole('button', { name: 'Create scene card' }).click();
+		await expect(page.getByLabel('Title', { exact: true })).toHaveValue('', { timeout: 10_000 });
+		await expect(page.getByText('Firelit', { exact: true })).not.toHaveCount(0);
+
+		// One click shows it (and the lighting hint travels on the card).
+		const litId = (await findCard(page, lit))!.id;
+		await page.getByRole('button', { name: 'Play package' }).click();
+		await page.waitForFunction(
+			(id) =>
+				(window.__rt!.state.session as { sceneCards: { activeCardId: string | null } }).sceneCards
+					.activeCardId === id,
+			litId,
+			{ timeout: 10_000 },
+		);
+		await expect(
+			page.getByRole('status').filter({ hasText: /is playing and on the display/i }),
+		).not.toHaveCount(0);
+
+		// Now a card whose package names a built-in audio preset. Nothing in a fresh vault is bound to a
+		// configured source, so the preset cannot play — the card is still shown and the toast says why.
+		await page.getByLabel('Title', { exact: true }).fill(scored);
+		const presetValue = await page
+			.locator('#card-preset option')
+			.nth(1)
+			.evaluate((option) => (option as HTMLOptionElement).value);
+		await page.locator('#card-preset').selectOption(presetValue);
+		await page.getByRole('button', { name: 'Create scene card' }).click();
+		await expect(page.getByLabel('Title', { exact: true })).toHaveValue('', { timeout: 10_000 });
+
+		const scoredId = (await findCard(page, scored))!.id;
+		await page.getByRole('button', { name: 'Play package' }).last().click();
+		await page.waitForFunction(
+			(id) =>
+				(window.__rt!.state.session as { sceneCards: { activeCardId: string | null } }).sceneCards
+					.activeCardId === id,
+			scoredId,
+			{ timeout: 10_000 },
+		);
+		await expect(
+			page.getByRole('status').filter({ hasText: /The audio preset did not start/i }),
+		).not.toHaveCount(0);
+		// Honest, not fake: no track was started.
+		expect(
+			await page.evaluate(
+				() =>
+					(window.__rt!.state.session as { audioPlayback: { track: unknown } }).audioPlayback.track,
+			),
+		).toBeNull();
+	});
 });

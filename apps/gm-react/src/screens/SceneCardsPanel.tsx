@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
 	getSceneDisplayForActor,
 	getSceneCardQueueForActor,
+	listBuiltinAudioPresets,
 	listSceneCardsForActor,
+	listUserAudioPresets,
+	type SceneCardLightingHint,
 	type SceneCardMood,
 	type SceneCardTransitionStyle,
 	type SceneCardVisibility,
@@ -14,6 +17,7 @@ import { useRuntime } from '../runtime/RuntimeContext';
 import { moodTheme, SCENE_MOOD_THEME } from '../app/sceneCardMood';
 import { useViewport } from '../app/useViewport';
 import { openSecondScreen } from '../platform/sceneDisplayChannel';
+import { isOnline } from '../platform/preferences';
 import { isNativeDesktopRuntime } from '../platform/windowChrome';
 import { isNetworkDestinationAllowed, usePlatformCapabilities } from '../platform/capabilities';
 
@@ -31,6 +35,10 @@ const MOOD_OPTIONS = (Object.keys(SCENE_MOOD_THEME) as SceneCardMood[]).map((m) 
 	label: SCENE_MOOD_THEME[m].label,
 }));
 
+// RC-AUD-2.1 — the lighting half of a scene package: a stage direction shown with the card, not a device
+// command. The app drives no lamps; the DM reads it and the display tints its wash.
+const LIGHTING_HINTS: SceneCardLightingHint[] = ['bright', 'dim', 'dark', 'firelit', 'moonlit'];
+
 const TRANSITION_OPTIONS: { value: SceneCardTransitionStyle; label: string }[] = [
 	{ value: 'crossfade', label: 'Crossfade' },
 	{ value: 'slide', label: 'Slide' },
@@ -45,7 +53,7 @@ export function SceneCardsPanel() {
 	const android = capabilities.runtimeKind === 'android';
 	const actorId = runtime.defaultActorId;
 	const nativeDesktop = isNativeDesktopRuntime();
-	const { session, permissions } = runtime.state;
+	const { session, permissions, audio } = runtime.state;
 
 	const cards = listSceneCardsForActor(session, permissions, actorId);
 	const queue = getSceneCardQueueForActor(session, permissions, actorId);
@@ -57,8 +65,28 @@ export function SceneCardsPanel() {
 	const [flavor, setFlavor] = useState('');
 	const [heroUrl, setHeroUrl] = useState('');
 	const [visibility, setVisibility] = useState<SceneCardVisibility>('dm-only');
+	const [audioPresetId, setAudioPresetId] = useState('');
+	const [lightingHint, setLightingHint] = useState('');
 	const [submitting, setSubmitting] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
+
+	// The package's audio half is picked from the SAME catalog the Audio screen applies (built-ins first,
+	// then the DM's saved packages), so playing a card runs the ordinary preset path with its gates.
+	const presetOptions = useMemo(
+		() => [
+			{ value: '', label: t('sceneCards.audioPresetNone') },
+			...listBuiltinAudioPresets().map((preset) => ({ value: preset.id, label: preset.name })),
+			...listUserAudioPresets(audio).map((preset) => ({ value: preset.id, label: preset.name })),
+		],
+		[audio, t],
+	);
+	const lightingOptions = useMemo(
+		() => [
+			{ value: '', label: t('sceneCards.lightingNone') },
+			...LIGHTING_HINTS.map((hint) => ({ value: hint, label: t(`sceneCards.lighting.${hint}`) })),
+		],
+		[t],
+	);
 
 	async function createCard(event: FormEvent) {
 		event.preventDefault();
@@ -83,6 +111,8 @@ export function SceneCardsPanel() {
 					flavorText: flavor.trim(),
 					visibility,
 					heroImage: !nativeDesktop && requestedHero ? { kind: 'url', ref: requestedHero } : null,
+					audioPresetId: audioPresetId || null,
+					lightingHint: (lightingHint || null) as SceneCardLightingHint | null,
 				},
 			});
 			if (result.status === 'accepted') {
@@ -91,6 +121,8 @@ export function SceneCardsPanel() {
 				setHeroUrl('');
 				setMood('exploration');
 				setVisibility('dm-only');
+				setAudioPresetId('');
+				setLightingHint('');
 			} else {
 				Toaster.error(result.rejection.message ?? t('sceneCards.createFailed'));
 			}
@@ -118,6 +150,33 @@ export function SceneCardsPanel() {
 			Toaster.error(failMsg);
 			return { status: 'rejected' as const, rejection: { message: failMsg } };
 		}
+	}
+
+	// RC-AUD-2.1 — ONE click: apply the card's audio preset, show the card, push it when it is shared. The
+	// core applies the audio best-effort and reports honestly, so a package whose preset cannot start still
+	// shows the card and says why instead of claiming success.
+	async function playPackage(card: SceneCardView) {
+		const result = await run(
+			'scene-card.play-package',
+			{ cardId: card.id, online: isOnline() },
+			t('sceneCards.playPackageFailed'),
+		);
+		if (result.status !== 'accepted') return;
+		const summary = result.events?.find((event) => event.kind === 'scene-card.package-played');
+		if (
+			summary?.kind === 'scene-card.package-played' &&
+			!summary.audioApplied &&
+			card.audioPresetId
+		) {
+			Toaster.warning(
+				t('sceneCards.packageShownNoAudio', {
+					title: card.title,
+					reason: summary.audioSkippedReason ?? '',
+				}),
+			);
+			return;
+		}
+		Toaster.success(t('sceneCards.packagePlayed', { title: card.title }));
 	}
 
 	async function deleteCard(card: SceneCardView) {
@@ -272,6 +331,26 @@ export function SceneCardsPanel() {
 							/>
 						</Field>
 						<Field
+							label={t('sceneCards.audioPreset')}
+							htmlFor="card-preset"
+							help={t('sceneCards.packageHelp')}
+						>
+							<Select
+								id="card-preset"
+								value={audioPresetId}
+								onChange={(e: { target: { value: string } }) => setAudioPresetId(e.target.value)}
+								options={presetOptions}
+							/>
+						</Field>
+						<Field label={t('sceneCards.lightingHint')} htmlFor="card-lighting">
+							<Select
+								id="card-lighting"
+								value={lightingHint}
+								onChange={(e: { target: { value: string } }) => setLightingHint(e.target.value)}
+								options={lightingOptions}
+							/>
+						</Field>
+						<Field
 							label={t('common.visibility.label')}
 							htmlFor="card-visibility"
 							help={t('sceneCards.visibilityHelp')}
@@ -359,6 +438,9 @@ export function SceneCardsPanel() {
 										editing={editingId === card.id}
 										allowRemoteHero={!nativeDesktop}
 										requireHttpsHero={android}
+										presetOptions={presetOptions}
+										lightingOptions={lightingOptions}
+										onPlayPackage={() => void playPackage(card)}
 										onEditToggle={() => setEditingId((prev) => (prev === card.id ? null : card.id))}
 										onActivate={() =>
 											void run(
@@ -602,8 +684,11 @@ function SceneCardRow({
 	editing,
 	allowRemoteHero,
 	requireHttpsHero,
+	presetOptions,
+	lightingOptions,
 	onEditToggle,
 	onActivate,
+	onPlayPackage,
 	onEnqueue,
 	onToggleVisibility,
 	onDelete,
@@ -616,8 +701,11 @@ function SceneCardRow({
 	editing: boolean;
 	allowRemoteHero: boolean;
 	requireHttpsHero: boolean;
+	presetOptions: { value: string; label: string }[];
+	lightingOptions: { value: string; label: string }[];
 	onEditToggle: () => void;
 	onActivate: () => void;
+	onPlayPackage: () => void;
 	onEnqueue: () => void;
 	onToggleVisibility: () => void;
 	onDelete: () => void;
@@ -626,23 +714,38 @@ function SceneCardRow({
 		mood: SceneCardMood;
 		flavorText: string;
 		heroImage: { kind: 'url'; ref: string } | null;
+		audioPresetId: string | null;
+		lightingHint: SceneCardLightingHint | null;
 	}) => void;
 }) {
 	const { t } = useI18n();
 	const theme = moodTheme(card.mood);
+	const isPackage = card.audioPresetId !== null || card.lightingHint !== null;
 	const [draftTitle, setDraftTitle] = useState(card.title);
 	const [draftMood, setDraftMood] = useState<SceneCardMood>(card.mood);
 	const [draftFlavor, setDraftFlavor] = useState(card.flavorText);
 	const [draftHero, setDraftHero] = useState(
 		card.heroImage?.kind === 'url' ? card.heroImage.ref : '',
 	);
+	const [draftPreset, setDraftPreset] = useState(card.audioPresetId ?? '');
+	const [draftLighting, setDraftLighting] = useState<string>(card.lightingHint ?? '');
 	useEffect(() => {
 		if (editing) return;
 		setDraftTitle(card.title);
 		setDraftMood(card.mood);
 		setDraftFlavor(card.flavorText);
 		setDraftHero(card.heroImage?.kind === 'url' ? card.heroImage.ref : '');
-	}, [editing, card.title, card.mood, card.flavorText, card.heroImage]);
+		setDraftPreset(card.audioPresetId ?? '');
+		setDraftLighting(card.lightingHint ?? '');
+	}, [
+		editing,
+		card.title,
+		card.mood,
+		card.flavorText,
+		card.heroImage,
+		card.audioPresetId,
+		card.lightingHint,
+	]);
 	const legacyHeroBlocked =
 		requireHttpsHero &&
 		!!draftHero.trim() &&
@@ -658,6 +761,8 @@ function SceneCardRow({
 			flavorText: draftFlavor.trim(),
 			heroImage:
 				allowRemoteHero && draftHero.trim() ? { kind: 'url', ref: draftHero.trim() } : null,
+			audioPresetId: draftPreset || null,
+			lightingHint: (draftLighting || null) as SceneCardLightingHint | null,
 		});
 	};
 
@@ -719,8 +824,18 @@ function SceneCardRow({
 				</Badge>
 				{legacyHeroBlocked && <Badge status="warning">{t('sceneCards.secureImageRequired')}</Badge>}
 				{active && <Badge status="success">{t('sceneDisplay.onDisplay')}</Badge>}
+				{card.lightingHint && (
+					<Badge status="neutral">{t(`sceneCards.lighting.${card.lightingHint}`)}</Badge>
+				)}
+				{/* RC-AUD-2.1 — only a card that actually carries a package half gets this button; a card
+				    with neither an audio preset nor a lighting hint would have nothing extra to play. */}
+				{isPackage && (
+					<Button variant="primary" size="sm" icon="play" onClick={onPlayPackage}>
+						{t('sceneCards.playPackage')}
+					</Button>
+				)}
 				<Button
-					variant={active ? 'secondary' : 'primary'}
+					variant={active || isPackage ? 'secondary' : 'primary'}
 					size="sm"
 					icon="play"
 					onClick={onActivate}
@@ -812,6 +927,20 @@ function SceneCardRow({
 							value={draftFlavor}
 							maxLength={500}
 							onChange={(e: { target: { value: string } }) => setDraftFlavor(e.target.value)}
+						/>
+					</Field>
+					<Field label={t('sceneCards.audioPreset')} help={t('sceneCards.packageHelp')}>
+						<Select
+							value={draftPreset}
+							onChange={(e: { target: { value: string } }) => setDraftPreset(e.target.value)}
+							options={presetOptions}
+						/>
+					</Field>
+					<Field label={t('sceneCards.lightingHint')}>
+						<Select
+							value={draftLighting}
+							onChange={(e: { target: { value: string } }) => setDraftLighting(e.target.value)}
+							options={lightingOptions}
 						/>
 					</Field>
 					<Field

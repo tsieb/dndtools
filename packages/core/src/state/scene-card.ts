@@ -27,7 +27,7 @@
  * Pure data. No GUI, no storage, no clock — ids/clock are supplied by the command env.
  */
 
-export const SCENE_CARD_SCHEMA_VERSION = 1 as const;
+export const SCENE_CARD_SCHEMA_VERSION = 2 as const;
 
 /** The entity type a scene card is addressed by in ops/events. */
 export const SCENE_CARD_ENTITY_TYPE = 'scene-card' as const;
@@ -93,8 +93,29 @@ export const SCENE_CARD_TRANSITION_STYLES: readonly SceneCardTransitionStyle[] =
 
 export function isSceneCardTransitionStyle(value: unknown): value is SceneCardTransitionStyle {
 	return (
-		typeof value === 'string' &&
-		(SCENE_CARD_TRANSITION_STYLES as readonly string[]).includes(value)
+		typeof value === 'string' && (SCENE_CARD_TRANSITION_STYLES as readonly string[]).includes(value)
+	);
+}
+
+/**
+ * RC-AUD-2.1 — the LIGHTING HINT half of a scene PACKAGE: how the room should be lit while the card is
+ * on the display. A HINT, not a device command — the app drives no lamps; the display surface tints its
+ * wash and the DM reads it as a stage direction. A CLOSED enum so an unknown value fails closed to null
+ * (no hint) rather than rendering an arbitrary string.
+ */
+export type SceneCardLightingHint = 'bright' | 'dim' | 'dark' | 'firelit' | 'moonlit';
+
+export const SCENE_CARD_LIGHTING_HINTS: readonly SceneCardLightingHint[] = Object.freeze([
+	'bright',
+	'dim',
+	'dark',
+	'firelit',
+	'moonlit',
+]);
+
+export function isSceneCardLightingHint(value: unknown): value is SceneCardLightingHint {
+	return (
+		typeof value === 'string' && (SCENE_CARD_LIGHTING_HINTS as readonly string[]).includes(value)
 	);
 }
 
@@ -109,6 +130,14 @@ export interface SceneCard {
 	flavorText: string;
 	/** The AUDIO-001 association this card cues on activation, by id — or null (silent card). */
 	audioAssociationId: string | null;
+	/**
+	 * RC-AUD-2.1 — the AUDIO-014 preset this card applies when the package is played, by id (a built-in
+	 * library preset or a user preset). A REFERENCE, resolved live at play time through the existing
+	 * preset gates; null ⇒ the card carries no audio half.
+	 */
+	audioPresetId: string | null;
+	/** RC-AUD-2.1 — the lighting stage direction shown with the card, or null (no hint). */
+	lightingHint: SceneCardLightingHint | null;
 	visibility: SceneCardVisibility;
 	createdBy: string;
 	createdAt: string;
@@ -116,6 +145,14 @@ export interface SceneCard {
 	revision: number;
 	/** Soft-delete tombstone (mirrors `scene.deletedAt`); null ⇒ live. */
 	deletedAt: string | null;
+}
+
+/**
+ * RC-AUD-2.1 — true when the card is a PACKAGE: it carries at least one of the two package halves (an
+ * audio preset or a lighting hint) beyond the presentation content, so playing it does more than show it.
+ */
+export function isSceneCardPackage(card: SceneCard): boolean {
+	return card.audioPresetId !== null || card.lightingHint !== null;
 }
 
 /** True when the card exists and is not tombstoned. */
@@ -163,6 +200,8 @@ export const EMPTY_SCENE_CARD_STATE: SceneCardState = Object.freeze({
  * Tolerantly hydrate a possibly-undefined/partial persisted scene-card slice, FAIL CLOSED:
  *
  *   - An unknown visibility collapses to `dm-only` (never widened to players by a corrupt record).
+ *   - An unknown lighting hint collapses to null (no hint); a blank audio preset id to null. Schema v1
+ *     records simply have neither package half — the v1 → v2 migration is this default.
  *   - An unknown mood collapses to `exploration`; an unknown transition to `crossfade`.
  *   - Flavor text is re-truncated to the bound.
  *   - The queue is deduped and reduced to LIVE cards; a dangling/tombstoned `activeCardId` clears.
@@ -190,6 +229,13 @@ export function ensureSceneCardState(state: Partial<SceneCardState> | undefined)
 				typeof card.audioAssociationId === 'string' && card.audioAssociationId.length > 0
 					? card.audioAssociationId
 					: null,
+			// Schema v1 → v2 (RC-AUD-2.1): the two package halves are ADDITIVE, so a v1 card simply
+			// hydrates with no package (null/null) — an old card keeps behaving exactly as it did.
+			audioPresetId:
+				typeof card.audioPresetId === 'string' && card.audioPresetId.length > 0
+					? card.audioPresetId
+					: null,
+			lightingHint: isSceneCardLightingHint(card.lightingHint) ? card.lightingHint : null,
 			visibility: isSceneCardVisibility(card.visibility) ? card.visibility : 'dm-only',
 			createdBy: card.createdBy ?? '',
 			createdAt: card.createdAt ?? '',

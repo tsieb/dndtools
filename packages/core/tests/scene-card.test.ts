@@ -13,6 +13,7 @@ import {
 	type CommandResult,
 	type CoreCommand,
 	type CoreStateSlice,
+	type SceneCardState,
 } from '../src';
 import {
 	DM_ACTOR,
@@ -417,6 +418,7 @@ describe('S11.2.1 — MCP create_scene_card is staged + fails closed to dm-only'
 
 describe('S11.2 — hydrator fails closed on a corrupt persisted slice', () => {
 	it('drops dangling queue/active refs and collapses unknown enums', () => {
+		// A schema-v1 persisted slice: no `audioPresetId` / `lightingHint` on the card at all.
 		const hydrated = ensureSceneCardState({
 			cards: {
 				live: {
@@ -439,7 +441,7 @@ describe('S11.2 — hydrator fails closed on a corrupt persisted slice', () => {
 			transitionStyle: 'zoom' as never,
 			pushHistory: [{ id: 'p1', cardId: 'ghost', pushedBy: 'actor-dm', pushedAt: 't' }],
 			schemaVersion: 1,
-		});
+		} as unknown as Partial<SceneCardState>);
 		expect(hydrated.cards.live?.mood).toBe('exploration');
 		expect(hydrated.cards.live?.visibility).toBe('dm-only');
 		expect(hydrated.cards.live?.flavorText.length).toBe(500);
@@ -447,5 +449,271 @@ describe('S11.2 — hydrator fails closed on a corrupt persisted slice', () => {
 		expect(hydrated.activeCardId).toBeNull();
 		expect(hydrated.transitionStyle).toBe('crossfade');
 		expect(hydrated.pushHistory).toHaveLength(0);
+	});
+
+	// RC-AUD-2.1 — schema v1 → v2 migration: the two package halves are additive, so a v1 card hydrates
+	// with no package and an unknown lighting hint collapses to null rather than reaching a surface.
+	it('migrates a schema-v1 card to v2 with no package, and fails a bad hint closed', () => {
+		const hydrated = ensureSceneCardState({
+			cards: {
+				old: {
+					id: 'old',
+					title: 'Old',
+					mood: 'rest',
+					heroImage: null,
+					flavorText: '',
+					audioAssociationId: null,
+					visibility: 'player-visible',
+					createdBy: 'actor-dm',
+					createdAt: 't',
+					updatedAt: 't',
+					revision: 1,
+					deletedAt: null,
+				},
+				bad: {
+					id: 'bad',
+					title: 'Bad',
+					mood: 'rest',
+					heroImage: null,
+					flavorText: '',
+					audioAssociationId: null,
+					audioPresetId: '',
+					lightingHint: 'strobe',
+					visibility: 'dm-only',
+					createdBy: 'actor-dm',
+					createdAt: 't',
+					updatedAt: 't',
+					revision: 1,
+					deletedAt: null,
+				},
+			},
+			schemaVersion: 1,
+		} as unknown as Partial<SceneCardState>);
+		expect(hydrated.schemaVersion).toBe(2);
+		expect(hydrated.cards.old?.audioPresetId).toBeNull();
+		expect(hydrated.cards.old?.lightingHint).toBeNull();
+		expect(hydrated.cards.bad?.audioPresetId).toBeNull();
+		expect(hydrated.cards.bad?.lightingHint).toBeNull();
+	});
+});
+
+/**
+ * RC-AUD-2.1 — SCENE PACKAGES. A package is a card plus its two reference halves (an AUDIO-014 preset and
+ * a lighting hint); `scene-card.play-package` is the one click that applies the audio, shows the card, and
+ * pushes it to players when it is shared — honest about the audio half when the preset cannot play.
+ */
+
+/** An active session with one playback-ready local source carrying a license-cleared asset. */
+function sessionWithReadyAudio(env: CoreEnvironment): CoreStateSlice {
+	const base = buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR);
+	let state = accept(
+		dispatch(base, env, {
+			type: 'audio.configure-source',
+			actorId: DM_ACTOR.id,
+			payload: {
+				sourceId: 's-main',
+				type: 'local-file',
+				displayName: 's-main',
+				cacheBehavior: 'local',
+			},
+		}),
+	).nextState;
+	state = accept(
+		dispatch(state, env, {
+			type: 'audio.import-asset',
+			actorId: DM_ACTOR.id,
+			payload: {
+				sourceId: 's-main',
+				bytes: [1, 2, 3, 4],
+				mimeType: 'audio/mpeg',
+				fileName: 's-main.mp3',
+				title: 's-main',
+				license: { kind: 'owned' },
+			},
+		}),
+	).nextState;
+	const assetId = Object.values(state.audio.assets).find((a) => a.source.sourceId === 's-main')!.id;
+	state = accept(
+		dispatch(state, env, {
+			type: 'session.audio.play',
+			actorId: DM_ACTOR.id,
+			payload: { sourceId: 's-main', assetId, volume: 0.7 },
+		}),
+	).nextState;
+	return state;
+}
+
+/** Capture the live audio as a user preset, then stop, so applying the package is observable. */
+function savedPreset(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+): { state: CoreStateSlice; presetId: string } {
+	const saved = accept(
+		dispatch(state, env, {
+			type: 'audio.save-preset',
+			actorId: DM_ACTOR.id,
+			payload: { name: 'Tavern night', category: 'urban' },
+		}),
+	).nextState;
+	const presetId = Object.keys(saved.audio.presets)[0]!;
+	const stopped = accept(
+		dispatch(saved, env, { type: 'session.audio.stop', actorId: DM_ACTOR.id, payload: {} }),
+	).nextState;
+	return { state: stopped, presetId };
+}
+
+describe('RC-AUD-2.1 — scene packages', () => {
+	it('carries the audio preset + lighting hint on the card, and updates/clears them', () => {
+		const env = makeEnvironment();
+		const base = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
+		const { state, cardId } = createCard(base, env, {
+			title: 'The Sunken Tavern',
+			mood: 'social',
+			audioPresetId: 'preset-tavern',
+			lightingHint: 'firelit',
+		});
+		expect(state.session.sceneCards.cards[cardId]?.audioPresetId).toBe('preset-tavern');
+		expect(state.session.sceneCards.cards[cardId]?.lightingHint).toBe('firelit');
+
+		// Omitted fields leave the package unchanged; an explicit null clears a half.
+		const renamed = accept(
+			dispatch(state, env, {
+				type: 'scene-card.update',
+				actorId: DM_ACTOR.id,
+				payload: { cardId, title: 'The Drowned Tavern' },
+			}),
+		).nextState;
+		expect(renamed.session.sceneCards.cards[cardId]?.audioPresetId).toBe('preset-tavern');
+		expect(renamed.session.sceneCards.cards[cardId]?.lightingHint).toBe('firelit');
+
+		const cleared = accept(
+			dispatch(renamed, env, {
+				type: 'scene-card.update',
+				actorId: DM_ACTOR.id,
+				payload: { cardId, audioPresetId: null, lightingHint: null },
+			}),
+		).nextState;
+		expect(cleared.session.sceneCards.cards[cardId]?.audioPresetId).toBeNull();
+		expect(cleared.session.sceneCards.cards[cardId]?.lightingHint).toBeNull();
+
+		// An undeclared lighting hint is rejected at the schema, never stored.
+		const bad = dispatch(cleared, env, {
+			type: 'scene-card.update',
+			actorId: DM_ACTOR.id,
+			payload: { cardId, lightingHint: 'strobe' },
+		});
+		expect(bad.status).toBe('rejected');
+	});
+
+	it('one click applies the preset, shows the card and pushes it to players', () => {
+		const env = makeEnvironment();
+		const ready = savedPreset(sessionWithReadyAudio(env), env);
+		const { state, cardId } = createCard(ready.state, env, {
+			title: 'The Sunken Tavern',
+			mood: 'social',
+			visibility: 'player-visible',
+			audioPresetId: ready.presetId,
+			lightingHint: 'firelit',
+		});
+		expect(state.session.audioPlayback.track).toBeNull();
+
+		const played = accept(
+			dispatch(state, env, {
+				type: 'scene-card.play-package',
+				actorId: DM_ACTOR.id,
+				payload: { cardId },
+			}),
+		);
+		// Plays…
+		expect(played.nextState.session.audioPlayback.track?.sourceId).toBe('s-main');
+		expect(played.nextState.session.audioPlayback.track?.status).toBe('playing');
+		// …shows…
+		expect(played.nextState.session.sceneCards.activeCardId).toBe(cardId);
+		// …and pushes.
+		expect(played.nextState.session.sceneCards.pushHistory).toHaveLength(1);
+		const summary = played.events.find((e) => e.kind === 'scene-card.package-played');
+		if (summary?.kind !== 'scene-card.package-played') throw new Error('no package-played event');
+		expect(summary.audioApplied).toBe(true);
+		expect(summary.audioSkippedReason).toBeNull();
+		expect(summary.pushed).toBe(true);
+		expect(summary.lightingHint).toBe('firelit');
+		// The audio op and the card op both land, so the whole action replays in order.
+		expect(played.operationIds.length).toBe(2);
+	});
+
+	it('still shows the card when the preset cannot play, and says why', () => {
+		const env = makeEnvironment();
+		const base = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
+		const { state, cardId } = createCard(base, env, {
+			title: 'Ruined Chapel',
+			mood: 'mystery',
+			audioPresetId: 'preset-that-does-not-exist',
+		});
+
+		const played = accept(
+			dispatch(state, env, {
+				type: 'scene-card.play-package',
+				actorId: DM_ACTOR.id,
+				payload: { cardId },
+			}),
+		);
+		expect(played.nextState.session.sceneCards.activeCardId).toBe(cardId);
+		expect(played.nextState.session.audioPlayback.track).toBeNull();
+		const summary = played.events.find((e) => e.kind === 'scene-card.package-played');
+		if (summary?.kind !== 'scene-card.package-played') throw new Error('no package-played event');
+		expect(summary.audioApplied).toBe(false);
+		expect(summary.audioSkippedReason).toContain('does not exist');
+		// A dm-only package is shown but never pushed.
+		expect(summary.pushed).toBe(false);
+		expect(played.nextState.session.sceneCards.pushHistory).toHaveLength(0);
+	});
+
+	it('is DM-only and fails closed on a missing card', () => {
+		const env = makeEnvironment();
+		const base = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
+		const { state, cardId } = createCard(base, env, { title: 'Crypt', mood: 'mystery' });
+
+		const asPlayer = dispatch(state, env, {
+			type: 'scene-card.play-package',
+			actorId: PLAYER_ACTOR.id,
+			payload: { cardId },
+		});
+		expect(asPlayer.status).toBe('rejected');
+		if (asPlayer.status === 'rejected') {
+			expect(asPlayer.rejection.code).toBe('actor-not-authorized');
+		}
+
+		const missing = dispatch(state, env, {
+			type: 'scene-card.play-package',
+			actorId: DM_ACTOR.id,
+			payload: { cardId: 'card-nope' },
+		});
+		expect(missing.status).toBe('rejected');
+		if (missing.status === 'rejected') {
+			expect(missing.rejection.code).toBe('scene-card-not-found');
+		}
+	});
+
+	it('never leaks the package audio preset id to a player', () => {
+		const env = makeEnvironment();
+		const base = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
+		const { state, cardId } = createCard(base, env, {
+			title: 'The Sunken Tavern',
+			mood: 'social',
+			visibility: 'player-visible',
+			audioPresetId: 'preset-tavern',
+			lightingHint: 'dim',
+		});
+		const asDm = getSceneCardForActor(state.session, state.permissions, DM_ACTOR.id, cardId);
+		expect(asDm?.audioPresetId).toBe('preset-tavern');
+		const asPlayer = getSceneCardForActor(
+			state.session,
+			state.permissions,
+			PLAYER_ACTOR.id,
+			cardId,
+		);
+		expect(asPlayer?.audioPresetId).toBeNull();
+		// The lighting hint is atmosphere and travels with the card.
+		expect(asPlayer?.lightingHint).toBe('dim');
 	});
 });

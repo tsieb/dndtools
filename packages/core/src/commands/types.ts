@@ -14,7 +14,11 @@ import type {
 	SessionWorkflowState,
 	SessionState,
 } from '../state/session-state';
-import type { SceneCardTransitionStyle, SceneCardVisibility } from '../state/scene-card';
+import type {
+	SceneCardLightingHint,
+	SceneCardTransitionStyle,
+	SceneCardVisibility,
+} from '../state/scene-card';
 import type { WidgetPackageState } from '../state/widget-package-state';
 import type { SystemsState } from '../state/system-package';
 import type { VaultContentState } from '../state/content';
@@ -335,6 +339,13 @@ export type CoreCommand =
 			idempotencyKey?: string;
 	  }
 	| { type: 'scene-card.advance'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// RC-AUD-2.1 — play a scene PACKAGE: apply its audio preset, show the card, push it when shared.
+	| {
+			type: 'scene-card.play-package';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| { type: 'session.set-active-map'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| {
 			type: 'session.project-active-map';
@@ -986,6 +997,18 @@ export type CoreEvent =
 	| { kind: 'scene-card.activated'; cardId: string | null; pushed: boolean; actorId: ActorId }
 	// S11.2.4 — a player-visible card was pushed to player devices (on the session event timeline).
 	| { kind: 'scene-card.pushed'; cardId: string; pushRecordId: string; actorId: ActorId }
+	// RC-AUD-2.1 — a scene PACKAGE was played. The card is always shown (and pushed when shared); the
+	// audio half is best-effort and HONEST: `audioApplied` false carries the reason the preset could not
+	// play, so the surface reports a partial result instead of a fake success.
+	| {
+			kind: 'scene-card.package-played';
+			cardId: string;
+			pushed: boolean;
+			audioApplied: boolean;
+			audioSkippedReason: string | null;
+			lightingHint: SceneCardLightingHint | null;
+			actorId: ActorId;
+	  }
 	// S11.2.3 — the scene queue changed (a card enqueued/dequeued, the order reordered, or advanced).
 	| {
 			kind: 'scene-card.queue-changed';

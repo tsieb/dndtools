@@ -58,6 +58,7 @@ import {
 	handleDequeueSceneCard,
 	handleDeleteSceneCard,
 	handleEnqueueSceneCard,
+	handlePlayScenePackage,
 	handleReorderSceneCardQueue,
 	handleRestoreSceneCard,
 	handleSetSceneCardTransition,
@@ -477,6 +478,9 @@ export function dispatchCommand(
 			return handleReorderSceneCardQueue(state, env, command.actorId, command.payload);
 		case 'scene-card.advance':
 			return handleAdvanceSceneCardQueue(state, env, command.actorId, command.payload);
+		// RC-AUD-2.1 — one click: apply the card's audio preset, show it, push it when shared.
+		case 'scene-card.play-package':
+			return handlePlayScenePackage(state, env, command.actorId, command.payload);
 		case 'session.pin-quick-reference':
 			return handlePinQuickReference(state, env, command.actorId, command.payload);
 		case 'session.unpin-quick-reference':

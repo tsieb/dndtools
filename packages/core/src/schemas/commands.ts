@@ -350,6 +350,10 @@ const sceneCardHeroImageSchema = z
 		}
 	});
 const sceneCardFlavorSchema = z.string().max(SCENE_CARD_FLAVOR_MAX_LENGTH);
+// RC-AUD-2.1 — the two PACKAGE halves a card may carry beyond its presentation content: an AUDIO-014
+// preset reference and a lighting stage direction. Both closed/optional; a card without them is exactly
+// the schema-v1 card.
+const sceneCardLightingHintSchema = z.enum(['bright', 'dim', 'dark', 'firelit', 'moonlit']);
 
 export const createSceneCardInputSchema = z
 	.object({
@@ -360,6 +364,8 @@ export const createSceneCardInputSchema = z
 		heroImage: z.union([z.null(), sceneCardHeroImageSchema]).default(null),
 		flavorText: sceneCardFlavorSchema.default(''),
 		audioAssociationId: z.union([z.null(), idSchema]).default(null),
+		audioPresetId: z.union([z.null(), idSchema]).default(null),
+		lightingHint: z.union([z.null(), sceneCardLightingHintSchema]).default(null),
 		visibility: sceneCardVisibilitySchema.default('dm-only'),
 	})
 	.strict();
@@ -374,6 +380,23 @@ export const updateSceneCardInputSchema = z
 		flavorText: sceneCardFlavorSchema.optional(),
 		/** Provide `null` to clear the audio cue; omit to leave unchanged. */
 		audioAssociationId: z.union([z.null(), idSchema]).optional(),
+		/** Provide `null` to clear the package's audio preset; omit to leave unchanged. */
+		audioPresetId: z.union([z.null(), idSchema]).optional(),
+		/** Provide `null` to clear the lighting hint; omit to leave unchanged. */
+		lightingHint: z.union([z.null(), sceneCardLightingHintSchema]).optional(),
+	})
+	.strict();
+
+// RC-AUD-2.1 — PLAY a scene PACKAGE in one action: apply the card's audio preset, put the card on the
+// display, and push it to players when it is player-visible. The optional device inputs are handed to the
+// SAME AUDIO-010 availability gate `session.audio.apply-preset` uses (default online + locally available).
+export const playScenePackageInputSchema = z
+	.object({
+		cardId: idSchema,
+		assetLocallyAvailable: z.boolean().optional(),
+		assetCached: z.boolean().optional(),
+		cacheEvicted: z.boolean().optional(),
+		online: z.boolean().optional(),
 	})
 	.strict();
 
