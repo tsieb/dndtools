@@ -30,6 +30,7 @@ import { clamp01 } from '../mapVocab';
 import { type FogShape, type MapTool } from '../mapVisibility';
 import { type DragState, type Point } from './geometry';
 import { BakeLayer, planBake } from './BakeLayer';
+import { LightLayer, planLighting } from './LightLayer';
 import { MapSvgLayers } from './MapSvgLayers';
 import { MapMarkers } from './MapMarkers';
 import { useI18n } from '../../../i18n';
@@ -251,6 +252,22 @@ export function MapCanvas({
 	// `visibleFeatures` itself, so a small map renders through the identical path as before.
 	const bakePlan = useMemo(() => planBake(visibleFeatures), [visibleFeatures]);
 
+	// RC-MAP-3.6 — lighting + line of sight. Cast from the UNCULLED feature set: a wall just off the
+	// viewport still throws a shadow into it, so the viewport cull that `visibleFeatures` applies
+	// would make lights leak through walls as you pan. The vision preview follows the token the DM has
+	// already selected — no second selection model, and no new control to leave dangling.
+	const lightingFeatures = useMemo(() => contentLayers.flatMap((l) => l.content), [contentLayers]);
+	const selectedTokenPosition = useMemo(() => {
+		if (!selectedTokenId || !view) return null;
+		// Only placed map tokens are selectable here (`MapMarkers.tsx` renders the selection ring for
+		// `view.tokens`); a combat token has no selection of its own to preview from.
+		return view.tokens.find((tk) => tk.id === selectedTokenId)?.position ?? null;
+	}, [selectedTokenId, view]);
+	const lightingPlan = useMemo(
+		() => planLighting(lightingFeatures, { visionOrigin: selectedTokenPosition }),
+		[lightingFeatures, selectedTokenPosition],
+	);
+
 	// ── Well-level gestures (fog rect/brush draw · polygon vertices · pan · click-to-place) ────
 	const onWellPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
 		pressRef.current = null; // a well press is never a marker press (markers stop propagation)
@@ -436,6 +453,9 @@ export function MapCanvas({
 						fogOpacity={fogOpacity}
 					/>
 				)}
+				{/* RC-MAP-3.6 — the lighting/LOS wash, above the features so it reads as light falling on
+				    the map. Decoration only (aria-hidden, no pointer events). */}
+				{view && <LightLayer plan={lightingPlan} />}
 			</div>
 
 			{/* honest missing-bytes state: asset metadata names a raster, but the bytes are not in this

@@ -76,7 +76,10 @@ describe('deriveWalls — the union IS the wall set', () => {
 		expect(onFloor(insideOverlap, walls)).toBe(true);
 
 		// Two rooms far apart, by contrast, stay two boundaries.
-		const disjoint = deriveWalls([room('a', 0.1, 0.1, 0.2, 0.2), room('b', 0.6, 0.6, 0.2, 0.2)], OPTS);
+		const disjoint = deriveWalls(
+			[room('a', 0.1, 0.1, 0.2, 0.2), room('b', 0.6, 0.6, 0.2, 0.2)],
+			OPTS,
+		);
 		expect(disjoint).toHaveLength(2);
 	});
 
@@ -108,12 +111,17 @@ describe('deriveWalls — the union IS the wall set', () => {
 	});
 
 	it('emits closed wall polylines with every coordinate in [0,1]', () => {
-		const walls = deriveWalls([polygon('p', [
-			{ x: 0.2, y: 0.2 },
-			{ x: 0.7, y: 0.25 },
-			{ x: 0.6, y: 0.7 },
-			{ x: 0.25, y: 0.6 },
-		])], OPTS);
+		const walls = deriveWalls(
+			[
+				polygon('p', [
+					{ x: 0.2, y: 0.2 },
+					{ x: 0.7, y: 0.25 },
+					{ x: 0.6, y: 0.7 },
+					{ x: 0.25, y: 0.6 },
+				]),
+			],
+			OPTS,
+		);
 		expect(walls.length).toBeGreaterThan(0);
 		for (const wall of walls) {
 			const first = wall.points[0]!;
@@ -129,7 +137,13 @@ describe('deriveWalls — the union IS the wall set', () => {
 	});
 
 	it('is deterministic and pure — the same floors always give the same walls', () => {
-		const floors = [room('a', 0.2, 0.2, 0.3, 0.3), corridor('c', [{ x: 0.5, y: 0.35 }, { x: 0.8, y: 0.35 }])];
+		const floors = [
+			room('a', 0.2, 0.2, 0.3, 0.3),
+			corridor('c', [
+				{ x: 0.5, y: 0.35 },
+				{ x: 0.8, y: 0.35 },
+			]),
+		];
 		const before = JSON.stringify(floors);
 		expect(deriveWalls(floors, OPTS)).toEqual(deriveWalls(floors, OPTS));
 		expect(JSON.stringify(floors)).toBe(before);
@@ -138,10 +152,12 @@ describe('deriveWalls — the union IS the wall set', () => {
 
 describe('deriveDoors — a corridor meeting a room IS a doorway', () => {
 	const rooms = [room('r1', 0.15, 0.3, 0.2, 0.2), room('r2', 0.65, 0.3, 0.2, 0.2)];
-	const corridors = [corridor('c1', [
-		{ x: 0.25, y: 0.4 },
-		{ x: 0.75, y: 0.4 },
-	])];
+	const corridors = [
+		corridor('c1', [
+			{ x: 0.25, y: 0.4 },
+			{ x: 0.75, y: 0.4 },
+		]),
+	];
 	const floors = [...rooms, ...corridors];
 
 	it('lands every door ON a wall segment', () => {
@@ -171,7 +187,12 @@ describe('deriveDoors — a corridor meeting a room IS a doorway', () => {
 		expect(xs[1]!).toBeCloseTo(0.65, 2);
 
 		// A corridor that never touches a room produces no doors at all.
-		const strays = [corridor('c2', [{ x: 0.1, y: 0.9 }, { x: 0.9, y: 0.9 }])];
+		const strays = [
+			corridor('c2', [
+				{ x: 0.1, y: 0.9 },
+				{ x: 0.9, y: 0.9 },
+			]),
+		];
 		expect(deriveDoors(walls, strays, rooms, createRng('doors'), OPTS)).toHaveLength(0);
 	});
 
@@ -223,15 +244,21 @@ describe('deriveDoors — a corridor meeting a room IS a doorway', () => {
 
 	it('emits nothing when placeDoors is false', () => {
 		const walls = deriveWalls(floors, OPTS);
-		expect(deriveDoors(walls, corridors, rooms, createRng('x'), { ...OPTS, placeDoors: false })).toEqual(
-			[],
-		);
+		expect(
+			deriveDoors(walls, corridors, rooms, createRng('x'), { ...OPTS, placeDoors: false }),
+		).toEqual([]);
 	});
 });
 
 describe('deriveLights — torches belong in sconces', () => {
 	const rooms = [room('r1', 0.2, 0.2, 0.35, 0.35), room('r2', 0.6, 0.55, 0.25, 0.25)];
-	const floors = [...rooms, corridor('c1', [{ x: 0.5, y: 0.4 }, { x: 0.7, y: 0.6 }])];
+	const floors = [
+		...rooms,
+		corridor('c1', [
+			{ x: 0.5, y: 0.4 },
+			{ x: 0.7, y: 0.6 },
+		]),
+	];
 
 	it('snaps torches to walls and keeps every light on the floor', () => {
 		const walls = deriveWalls(floors, OPTS);
@@ -279,14 +306,21 @@ describe('deriveLights — torches belong in sconces', () => {
 		expect(deriveLights(floors, rooms, createRng('s'), OPTS)).toEqual(
 			deriveLights(floors, rooms, createRng('s'), OPTS),
 		);
-		expect(deriveLights(floors, rooms, createRng('s'), { ...OPTS, placeLights: false })).toEqual([]);
+		expect(deriveLights(floors, rooms, createRng('s'), { ...OPTS, placeLights: false })).toEqual(
+			[],
+		);
 	});
 });
 
 describe('deriveAll', () => {
 	it('derives the irreducible triple in one pass', () => {
 		const rooms = [room('r1', 0.15, 0.3, 0.2, 0.2), room('r2', 0.65, 0.3, 0.2, 0.2)];
-		const corridors = [corridor('c1', [{ x: 0.25, y: 0.4 }, { x: 0.75, y: 0.4 }])];
+		const corridors = [
+			corridor('c1', [
+				{ x: 0.25, y: 0.4 },
+				{ x: 0.75, y: 0.4 },
+			]),
+		];
 		const input = { floors: [...rooms, ...corridors], corridors, rooms };
 
 		const first = deriveAll(input, createRng('all'), OPTS);
@@ -340,9 +374,7 @@ describe('computeVisibility / isVisible', () => {
 	});
 
 	it('respects blocksSight: false', () => {
-		const window: MapFeature[] = [
-			{ ...walls[1]!, id: 'w-window', props: { blocksSight: false } },
-		];
+		const window: MapFeature[] = [{ ...walls[1]!, id: 'w-window', props: { blocksSight: false } }];
 		expect(isVisible(observer, { x: 0.75, y: 0.7 }, window)).toBe(true);
 	});
 
@@ -365,6 +397,83 @@ describe('computeVisibility / isVisible', () => {
 		expect(isVisible(from, to, doorway('open'))).toBe(true);
 		expect(isVisible(from, to, doorway('closed'))).toBe(false);
 		expect(isVisible(from, to, doorway('locked'))).toBe(false);
+	});
+
+	it("reads a door's state alone when no blocksSight override is present", () => {
+		// The generator emits doors WITHOUT `blocksSight`; the state is the whole rule (map-los.ts
+		// `blocksSight`), and an archway is emitted `open`. Fail-closed: an unstated state blocks.
+		const doorway = (props: Record<string, string | number | boolean>): MapFeature[] => [
+			{
+				id: 'd',
+				kind: 'door',
+				points: [
+					{ x: 0.5, y: 0.6 },
+					{ x: 0.5, y: 0.8 },
+				],
+				style: 'door:door',
+				props,
+			},
+		];
+		const from = { x: 0.3, y: 0.7 };
+		const to = { x: 0.7, y: 0.7 };
+
+		expect(isVisible(from, to, doorway({ portal: 'door', state: 'open' }))).toBe(true);
+		expect(isVisible(from, to, doorway({ portal: 'archway', state: 'open' }))).toBe(true);
+		expect(isVisible(from, to, doorway({ portal: 'secret', state: 'closed' }))).toBe(false);
+		expect(isVisible(from, to, doorway({ portal: 'portcullis' }))).toBe(false);
+	});
+
+	it('spills the visibility polygon through an open door and stops it at a closed one', () => {
+		// The divider now has a two-unit gap at y 0.6..0.8 with a door standing in it, so the far side
+		// of the room is reachable ONLY through that door.
+		const divided: MapFeature[] = [
+			walls[0]!,
+			{
+				...walls[1]!,
+				id: 'w-upper',
+				points: [
+					{ x: 0.5, y: 0.3 },
+					{ x: 0.5, y: 0.6 },
+				],
+			},
+			{
+				...walls[1]!,
+				id: 'w-lower',
+				points: [
+					{ x: 0.5, y: 0.8 },
+					{ x: 0.5, y: 0.9 },
+				],
+			},
+		];
+		const door = (state: string): MapFeature => ({
+			id: 'd',
+			kind: 'door',
+			points: [
+				{ x: 0.5, y: 0.6 },
+				{ x: 0.5, y: 0.8 },
+			],
+			style: 'door:door',
+			props: { portal: 'door', state },
+		});
+		const beyond = { x: 0.7, y: 0.7 };
+
+		const open = computeVisibility(observer, [...divided, door('open')], { radius: 1, rays: 128 });
+		const closed = computeVisibility(observer, [...divided, door('closed')], {
+			radius: 1,
+			rays: 128,
+		});
+
+		expect(pointInRing(open, beyond)).toBe(true);
+		expect(pointInRing(closed, beyond)).toBe(false);
+		// Opening the door can only ADD visible area, never remove it.
+		expect(Math.abs(ringArea(open))).toBeGreaterThan(Math.abs(ringArea(closed)));
+		// Both stay inside the outer wall.
+		for (const ring of [open, closed]) {
+			for (const p of ring) {
+				expect(p.x).toBeGreaterThanOrEqual(0.1 - 1e-6);
+				expect(p.x).toBeLessThanOrEqual(0.9 + 1e-6);
+			}
+		}
 	});
 
 	it('casts a visibility polygon that excludes the shadowed half of the room', () => {
