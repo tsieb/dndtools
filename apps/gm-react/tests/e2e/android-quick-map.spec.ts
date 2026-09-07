@@ -445,3 +445,112 @@ test.describe('Android quick map', () => {
 		);
 	});
 });
+
+/**
+ * RC-MAP-4.3 — the translation the map surface is currently rendered at, in screen pixels. The
+ * scaled map space inside the canvas is the only observable for the viewport centre on quick map,
+ * which has no minimap and no coordinate readout.
+ */
+async function mapTranslateX(page: Page): Promise<number> {
+	return page.getByRole('application').evaluate((element) => {
+		const scaled = element.querySelector('div[style*="scale("]');
+		if (!scaled) return Number.NaN;
+		return new DOMMatrixReadOnly(getComputedStyle(scaled).transform).e;
+	});
+}
+
+test.describe('RC-MAP-4.3 touch gesture model', () => {
+	test('double-taps to zoom, glides after a fling, long-presses for actions, and sizes the fog brush', async ({
+		page,
+	}) => {
+		await openQuickMap(page, 'gestures');
+		const editor = page.getByRole('dialog', { name: /^Map editor/ });
+		const canvas = page.getByRole('application');
+		const box = await canvas.boundingBox();
+		expect(box).not.toBeNull();
+		const cx = box!.x + box!.width * 0.5;
+		const cy = box!.y + box!.height * 0.5;
+		const cdp = await page.context().newCDPSession(page);
+		const finger = (x: number, y: number) => [{ id: 1, x, y, radiusX: 4, radiusY: 4, force: 1 }];
+		const tap = async (x: number, y: number) => {
+			await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: finger(x, y) });
+			await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+		};
+		const zoomPercent = async () =>
+			Number(
+				(
+					await editor
+						.getByText(/^\d+%$/)
+						.first()
+						.textContent()
+				)?.replace('%', '') ?? 0,
+			);
+
+		// ── one double tap is one zoom step, anchored under the finger ──
+		expect(await zoomPercent()).toBe(100);
+		await tap(cx, cy);
+		await tap(cx, cy);
+		await expect.poll(zoomPercent).toBe(200);
+		// Two taps too far apart in space are two taps, not a double tap.
+		await tap(cx - 90, cy);
+		await tap(cx + 90, cy);
+		expect(await zoomPercent()).toBe(200);
+
+		// ── a flick keeps travelling after the finger lifts ──
+		const travelPx = 60;
+		const before = await mapTranslateX(page);
+		expect(Number.isNaN(before)).toBe(false);
+		await cdp.send('Input.dispatchTouchEvent', {
+			type: 'touchStart',
+			touchPoints: finger(cx + travelPx, cy),
+		});
+		for (let step = 1; step <= 4; step += 1) {
+			await cdp.send('Input.dispatchTouchEvent', {
+				type: 'touchMove',
+				touchPoints: finger(cx + travelPx - (travelPx / 4) * step, cy),
+			});
+		}
+		await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+		// The finger dragged 60px; momentum must carry the map meaningfully further than that.
+		await expect
+			.poll(async () => Math.abs((await mapTranslateX(page)) - before))
+			.toBeGreaterThan(travelPx + 30);
+
+		// ── the fog brush and its drag handle ──
+		await page.getByRole('button', { name: 'Fog', exact: true }).click();
+		const brushToggle = page.getByRole('button', { name: 'Fog brush' });
+		await expect(brushToggle).toHaveAttribute('aria-pressed', 'false');
+		await brushToggle.click();
+		await expect(brushToggle).toHaveAttribute('aria-pressed', 'true');
+		const handle = page.getByRole('slider', { name: 'Fog brush size' });
+		await expect(handle).toHaveAttribute('aria-valuenow', '24');
+		// Keyboard equivalent of the drag.
+		await handle.press('ArrowUp');
+		await expect(handle).toHaveAttribute('aria-valuenow', '29');
+		await handle.press('Home');
+		await expect(handle).toHaveAttribute('aria-valuenow', '5');
+		// And the drag itself: up is bigger.
+		const handleBox = await handle.boundingBox();
+		expect(handleBox).not.toBeNull();
+		const hx = handleBox!.x + handleBox!.width / 2;
+		const hy = handleBox!.y + handleBox!.height / 2;
+		await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: finger(hx, hy) });
+		await cdp.send('Input.dispatchTouchEvent', {
+			type: 'touchMove',
+			touchPoints: finger(hx, hy - 120),
+		});
+		await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+		await expect
+			.poll(async () => Number(await handle.getAttribute('aria-valuenow')))
+			.toBeGreaterThan(40);
+
+		// ── a held finger opens the map actions sheet, the touch equivalent of a right-click ──
+		await page.getByRole('button', { name: 'Navigate map' }).click();
+		await cdp.send('Input.dispatchTouchEvent', {
+			type: 'touchStart',
+			touchPoints: finger(cx, cy + 40),
+		});
+		await expect(page.getByRole('dialog', { name: 'Map actions' })).toBeVisible();
+		await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+	});
+});
