@@ -22,6 +22,7 @@ import {
 } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { ACTION_LABELS, TRIGGER_LABELS } from './shared';
+import { SfxEventsPanel } from './SfxEventsPanel';
 import { useI18n } from '../../i18n';
 import { type SceneListRow } from './types';
 
@@ -195,6 +196,9 @@ export function AutomationTab({
 										<Badge status="success">{t('audio.automation.ready')}</Badge>
 									) : outcome?.status === 'blocked' ? (
 										<Badge status="warning">{t('audio.automation.blocked')}</Badge>
+									) : outcome?.status === 'muted' ? (
+										// RC-AUD-3.2 — armed and matched, but its SFX event is switched off.
+										<Badge status="neutral">{t('audio.sfx.off')}</Badge>
 									) : null}
 									<Switch
 										checked={rule.enabled}
@@ -373,6 +377,9 @@ export function AutomationTab({
 					</div>
 				)}
 			</Panel>
+
+			{/* RC-AUD-3.2 — the per-event sound-effect switches, next to the rules they silence. */}
+			<SfxEventsPanel canEdit={canEdit} />
 		</div>
 	);
 }

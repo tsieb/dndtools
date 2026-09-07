@@ -3098,7 +3098,18 @@ export const configureAudioAutomationInputSchema = z
 		ruleId: idSchema.optional(),
 		label: z.string().optional(),
 		enabled: z.boolean().optional(),
-		trigger: z.enum(['combat-start', 'map-reveal', 'scene-activation', 'handout-delivery']),
+		// RC-AUD-3.2 appended the four table-moment SFX triggers; order matches
+		// `state/audio-automation.ts`'s `AUDIO_AUTOMATION_TRIGGER_KINDS`.
+		trigger: z.enum([
+			'combat-start',
+			'map-reveal',
+			'scene-activation',
+			'handout-delivery',
+			'roll-critical-success',
+			'roll-critical-failure',
+			'death-save-success',
+			'death-save-failure',
+		]),
 		triggerScopeId: z.union([z.literal(null), z.string().min(1)]).optional(),
 		action: z.enum(['play', 'crossfade', 'stop']),
 		sourceId: idSchema,
@@ -3110,6 +3121,22 @@ export const configureAudioAutomationInputSchema = z
 export const deleteAudioAutomationInputSchema = z
 	.object({
 		ruleId: idSchema,
+	})
+	.strict();
+
+// RC-AUD-3.2 — SET one per-event SFX toggle (DM-only). A CLOSED enum of the declared SFX events; the
+// toggle is a MUTE, so rules on the event stay armed and resume the moment it is switched back on.
+export const setAudioSfxEventInputSchema = z
+	.object({
+		event: z.enum([
+			'roll-critical-success',
+			'roll-critical-failure',
+			'death-save-success',
+			'death-save-failure',
+			'map-reveal',
+			'handout-delivery',
+		]),
+		enabled: z.boolean(),
 	})
 	.strict();
 

@@ -20,6 +20,7 @@ import { EntitlementsProvider } from './cloud/entitlements';
 import { CloudSyncProvider } from './cloud/CloudSyncContext';
 import { SessionProvider } from './net/SessionContext';
 import { ensureAudioPlayback } from './runtime/audio-playback';
+import { ensureSfxEvents } from './runtime/sfx-events';
 import { AppShell } from './app/AppShell';
 import { AppSystemProvider } from './app/SystemContext';
 import { Onboarding } from './app/Onboarding';
@@ -410,8 +411,10 @@ function Shell() {
 	// The app-lifetime audio driver (idempotent per runtime): session `audioPlayback` state makes
 	// sound no matter which screen is mounted — Session's now-playing and the Audio screen both
 	// write the same core state this driver reconciles against a single <audio> element.
+	// RC-AUD-3.2 — and the SFX event driver alongside it, so a natural 20 rolled on /session sounds
+	// its cue whether or not the Audio screen is mounted.
 	useEffect(() => {
-		if (runtime.loaded) ensureAudioPlayback(runtime);
+		if (runtime.loaded) ensureSfxEvents(runtime, ensureAudioPlayback(runtime));
 	}, [runtime, runtime.loaded]);
 	if (runtime.hasLoadError) {
 		return <VaultLoadFailure runtime={runtime} />;

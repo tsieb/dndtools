@@ -49,19 +49,96 @@ export const AUDIO_AUTOMATION_ENTITY_TYPE = 'audio-automation-rule' as const;
  *   - `map-reveal`          — a map layer / fog reveal (`map.layer-changed` / `map.fog-changed`).
  *   - `scene-activation`    — a Scene became the active session scene (`session.workflow-changed`).
  *   - `handout-delivery`    — a handout was delivered to recipients (`session.handout-delivered`).
+ *
+ * RC-AUD-3.2 adds the TABLE-MOMENT triggers — the short, one-shot events a sound effect punctuates
+ * rather than a music bed. They are read off the SAME durable records the table already sees, so a
+ * cue can never disagree with what is on screen:
+ *
+ *   - `roll-critical-success` — a recorded roll came up a natural high (a nat 20 under 5e's rules).
+ *   - `roll-critical-failure` — a recorded roll came up a natural low (a nat 1).
+ *   - `death-save-success`    — a combatant's death save was recorded as a success.
+ *   - `death-save-failure`    — a combatant's death save was recorded as a failure.
  */
 export type AudioAutomationTriggerKind =
 	| 'combat-start'
 	| 'map-reveal'
 	| 'scene-activation'
-	| 'handout-delivery';
+	| 'handout-delivery'
+	| 'roll-critical-success'
+	| 'roll-critical-failure'
+	| 'death-save-success'
+	| 'death-save-failure';
 
 export const AUDIO_AUTOMATION_TRIGGER_KINDS: readonly AudioAutomationTriggerKind[] = Object.freeze([
 	'combat-start',
 	'map-reveal',
 	'scene-activation',
 	'handout-delivery',
+	'roll-critical-success',
+	'roll-critical-failure',
+	'death-save-success',
+	'death-save-failure',
 ]);
+
+/**
+ * RC-AUD-3.2 — the SFX EVENTS: the trigger kinds that punctuate a table moment with a one-shot sound
+ * and that the DM can switch off individually (the per-event toggles in Audio › Automation). A
+ * `combat-start` / `scene-activation` rule is a MUSIC bed and is deliberately NOT in this set — those
+ * are governed by their own rule's `enabled` flag alone.
+ *
+ * The toggle is a MUTE, not a delete: switching an event off leaves every rule on it intact and
+ * resolves each one to a `muted` no-op, so switching the event back on restores exactly what was
+ * armed before.
+ */
+export type AudioSfxEventKind = Extract<
+	AudioAutomationTriggerKind,
+	| 'roll-critical-success'
+	| 'roll-critical-failure'
+	| 'death-save-success'
+	| 'death-save-failure'
+	| 'map-reveal'
+	| 'handout-delivery'
+>;
+
+export const AUDIO_SFX_EVENT_KINDS: readonly AudioSfxEventKind[] = Object.freeze([
+	'roll-critical-success',
+	'roll-critical-failure',
+	'death-save-success',
+	'death-save-failure',
+	'map-reveal',
+	'handout-delivery',
+]);
+
+/** True when `value` is a declared SFX event kind (an event that carries a per-event toggle). */
+export function isAudioSfxEventKind(value: unknown): value is AudioSfxEventKind {
+	return typeof value === 'string' && (AUDIO_SFX_EVENT_KINDS as readonly string[]).includes(value);
+}
+
+/**
+ * RC-AUD-3.2 — the DM's per-event SFX toggles. A PARTIAL map: an event absent from it has never been
+ * touched and is ON, so a vault written before this field existed keeps behaving exactly as it did
+ * (an armed rule still fires). Only an explicit `false` mutes an event.
+ */
+export type AudioSfxEventToggles = Partial<Record<AudioSfxEventKind, boolean>>;
+
+/** True when the SFX event is currently allowed to fire. Unknown/absent ⇒ on (see the type above). */
+export function isSfxEventEnabled(
+	toggles: AudioSfxEventToggles | undefined,
+	trigger: AudioAutomationTriggerKind,
+): boolean {
+	if (!isAudioSfxEventKind(trigger)) return true;
+	return toggles?.[trigger] !== false;
+}
+
+/** Hydrate a persisted toggle map fail-safe: keep only declared events with a real boolean value. */
+export function ensureAudioSfxEventToggles(raw: unknown): AudioSfxEventToggles {
+	const toggles: AudioSfxEventToggles = {};
+	if (!raw || typeof raw !== 'object') return toggles;
+	for (const [event, value] of Object.entries(raw as Record<string, unknown>)) {
+		if (isAudioSfxEventKind(event) && typeof value === 'boolean') toggles[event] = value;
+	}
+	return toggles;
+}
 
 /** True when `value` is a declared trigger kind. Unknown values fail closed (the rule is not built). */
 export function isAudioAutomationTriggerKind(value: unknown): value is AudioAutomationTriggerKind {
@@ -161,7 +238,10 @@ export interface BuildAudioAutomationRuleInput {
 }
 
 /** Default human label for a rule when the DM did not author one. */
-function defaultRuleLabel(trigger: AudioAutomationTriggerKind, action: AudioAutomationAction): string {
+function defaultRuleLabel(
+	trigger: AudioAutomationTriggerKind,
+	action: AudioAutomationAction,
+): string {
 	return `${action} on ${trigger}`;
 }
 
@@ -282,8 +362,19 @@ export type AudioAutomationBlockReason =
 	// The offline/availability gate resolved the track unplayable on this device (AUDIO-010, no retry).
 	| 'unavailable';
 
-/** A rule's resolved automation OUTCOME: either a requested command, or a flagged blocked no-op. */
+/**
+ * A rule's resolved automation OUTCOME: a requested command, a flagged BLOCKED no-op, or (RC-AUD-3.2)
+ * a MUTED no-op. `muted` is deliberately not `blocked`: the DM turning an SFX event off is a choice,
+ * not a failure, so it carries no diagnostic and never counts toward `blockedCount`.
+ */
 export type AudioAutomationOutcome =
+	| {
+			ruleId: string;
+			status: 'muted';
+			/** The SFX event whose per-event toggle is off. */
+			event: AudioSfxEventKind;
+			message: string;
+	  }
 	| {
 			ruleId: string;
 			status: 'requested';
@@ -354,6 +445,7 @@ function blockOutcomeForAvailability(
  * AUDIO-005 — evaluate ONE rule against a fired trigger, fail-closed. Returns the resolved outcome:
  *
  *   - A disabled rule, or a rule whose trigger kind/scope does not match, returns `null` (not fired).
+ *   - A rule on an SFX event the DM switched off resolves `muted` — armed, matched, deliberately silent.
  *   - A matching rule that BEGINS PLAYBACK is validated through the full gate: source supported
  *     (AUDIO-009) → license cleared (AUDIO-004) → offline availability `available` (AUDIO-010). Any failure
  *     is a `blocked` no-op with a diagnostic; only a fully-cleared rule is `requested`.
@@ -369,6 +461,17 @@ export function evaluateAudioAutomationRule(
 	if (rule.trigger !== trigger.kind) return null;
 	// A scoped rule fires only for its exact scope; an unscoped rule fires for any occurrence.
 	if (rule.triggerScopeId !== null && rule.triggerScopeId !== trigger.scopeId) return null;
+
+	// RC-AUD-3.2 — the DM's per-event switch, checked before any gate: a muted event issues nothing
+	// and reports why, so the automation list says "turned off" rather than going quiet unexplained.
+	if (isAudioSfxEventKind(rule.trigger) && !isSfxEventEnabled(library.sfxEvents, rule.trigger)) {
+		return {
+			ruleId: rule.id,
+			status: 'muted',
+			event: rule.trigger,
+			message: `Automation "${rule.label}" is off: this sound effect is turned off.`,
+		};
+	}
 
 	const request: AudioAutomationCommandRequest = {
 		action: rule.action,
@@ -442,6 +545,8 @@ export interface AudioAutomationResolution {
 	requests: AudioAutomationCommandRequest[];
 	/** Count of blocked rules (AUDIO-005 AC2 — fail-closed diagnostics, never a silent bypass). */
 	blockedCount: number;
+	/** RC-AUD-3.2 — count of rules that matched but are muted by their per-event toggle. */
+	mutedCount: number;
 }
 
 /**
@@ -462,8 +567,19 @@ export function resolveAudioAutomation(
 		if (outcome) outcomes.push(outcome);
 	}
 	const requests = outcomes
-		.filter((o): o is Extract<AudioAutomationOutcome, { status: 'requested' }> => o.status === 'requested')
+		.filter(
+			(o): o is Extract<AudioAutomationOutcome, { status: 'requested' }> =>
+				o.status === 'requested',
+		)
 		.map((o) => o.request);
 	const blockedCount = outcomes.filter((o) => o.status === 'blocked').length;
-	return { trigger: trigger.kind, scopeId: trigger.scopeId, outcomes, requests, blockedCount };
+	const mutedCount = outcomes.filter((o) => o.status === 'muted').length;
+	return {
+		trigger: trigger.kind,
+		scopeId: trigger.scopeId,
+		outcomes,
+		requests,
+		blockedCount,
+		mutedCount,
+	};
 }

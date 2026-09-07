@@ -137,6 +137,7 @@ function emptySlice(): CoreStateSlice {
 			automationRules: { ...EMPTY_AUDIO_STATE.automationRules },
 			associations: { ...EMPTY_AUDIO_STATE.associations },
 			presets: { ...EMPTY_AUDIO_STATE.presets },
+			sfxEvents: { ...EMPTY_AUDIO_STATE.sfxEvents },
 			schemaVersion: EMPTY_AUDIO_STATE.schemaVersion,
 		},
 		mcp: {

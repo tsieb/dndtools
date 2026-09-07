@@ -14,10 +14,13 @@ import {
 	type AudioSourceClassification,
 } from '../state/audio-source';
 import {
+	AUDIO_SFX_EVENT_KINDS,
+	isSfxEventEnabled,
 	resolveAudioAutomation,
 	type AudioAutomationResolution,
 	type AudioAutomationRule,
 	type AudioAutomationTrigger,
+	type AudioSfxEventKind,
 } from '../state/audio-automation';
 import type { AudioState } from '../state/audio-state';
 
@@ -190,4 +193,24 @@ export function resolveAudioAutomationForActor(
 	const actor = getActor(permissions, actorId);
 	if (!hasDmAuthority(actor?.role)) return null;
 	return resolveAudioAutomation(trigger, state.automationRules, state);
+}
+
+/**
+ * RC-AUD-3.2 — read the DM's per-event SFX toggles. Returns a COMPLETE map (every declared SFX event,
+ * defaulting to on) so the settings list can render every row without inventing a default of its own.
+ * A non-DM actor gets `null`: the toggles are DM-only config, and a player must not learn which cues
+ * the DM has armed.
+ */
+export function audioSfxEventSettingsForActor(
+	state: AudioState,
+	permissions: PermissionState,
+	actorId: string,
+): Record<AudioSfxEventKind, boolean> | null {
+	const actor = getActor(permissions, actorId);
+	if (!hasDmAuthority(actor?.role)) return null;
+	const settings = {} as Record<AudioSfxEventKind, boolean>;
+	for (const event of AUDIO_SFX_EVENT_KINDS) {
+		settings[event] = isSfxEventEnabled(state.sfxEvents, event);
+	}
+	return settings;
 }

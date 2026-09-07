@@ -259,7 +259,11 @@ import {
 	handleUpdateAudioAssetMetadata,
 	handleValidateAudioPackage,
 } from './audio';
-import { handleConfigureAudioAutomation, handleDeleteAudioAutomation } from './audio-automation';
+import {
+	handleConfigureAudioAutomation,
+	handleDeleteAudioAutomation,
+	handleSetAudioSfxEvent,
+} from './audio-automation';
 import { handleAssociateSceneAudio, handleDisassociateSceneAudio } from './audio-association';
 import {
 	handlePauseSessionAudio,
@@ -766,6 +770,9 @@ export function dispatchCommand(
 			return handleConfigureAudioAutomation(state, env, command.actorId, command.payload);
 		case 'audio.delete-automation':
 			return handleDeleteAudioAutomation(state, env, command.actorId, command.payload);
+		// RC-AUD-3.2 — the per-event SFX toggle (a mute; rules stay armed).
+		case 'audio.set-sfx-event':
+			return handleSetAudioSfxEvent(state, env, command.actorId, command.payload);
 		case 'audio.associate-scene':
 			return handleAssociateSceneAudio(state, env, command.actorId, command.payload);
 		case 'audio.disassociate-scene':

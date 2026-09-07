@@ -22,6 +22,7 @@ import type {
 import type { WidgetPackageState } from '../state/widget-package-state';
 import type { SystemsState } from '../state/system-package';
 import type { VaultContentState } from '../state/content';
+import type { AudioSfxEventKind } from '../state/audio-automation';
 import type { AudioState } from '../state/audio-state';
 import type { AudioPackageValidationReport } from '../state/audio-package';
 import type { EncounterState } from '../state/encounter';
@@ -789,6 +790,8 @@ export type CoreCommand =
 			idempotencyKey?: string;
 	  }
 	| { type: 'audio.delete-automation'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// RC-AUD-3.2 — switch one SFX event on/off (DM-only).
+	| { type: 'audio.set-sfx-event'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// AUDIO-001: associate (create/update) / disassociate a SCENE / MAP / MAP-LAYER audio cue (DM-only). A
 	// Scene "has an audio preset" via a durable association; on activation the core resolves which cues are
 	// available to the audio widget, composing the existing source/license/offline gates (fail closed).
@@ -1766,6 +1769,13 @@ export type CoreEvent =
 	  }
 	// AUDIO-005 — an atmosphere automation rule was deleted.
 	| { kind: 'audio.automation-deleted'; ruleId: string; actorId: ActorId }
+	// RC-AUD-3.2 — one SFX event was switched on/off. Rules on it stay armed either way.
+	| {
+			kind: 'audio.sfx-event-changed';
+			event: AudioSfxEventKind;
+			enabled: boolean;
+			actorId: ActorId;
+	  }
 	// AUDIO-001 — a scene/map/layer audio association was created/updated. Carries the association id + the
 	// target binding (kind/id/layer) + the cue refs (the audit), never player-facing content. The association
 	// is a dormant definition until the target is activated; creating it creates NO playback state.

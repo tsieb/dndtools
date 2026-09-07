@@ -1036,6 +1036,8 @@ export {
 	validateAudioPackageInputSchema,
 	configureAudioAutomationInputSchema,
 	deleteAudioAutomationInputSchema,
+	// RC-AUD-3.2 — the per-event SFX toggle.
+	setAudioSfxEventInputSchema,
 	playSessionAudioInputSchema,
 	setSessionAudioVolumeInputSchema,
 	projectSessionAudioInputSchema,
@@ -4734,6 +4736,8 @@ export type {
 	AudioAutomationRuleResult,
 	AudioAutomationTrigger,
 	AudioAutomationTriggerKind,
+	AudioSfxEventKind,
+	AudioSfxEventToggles,
 	BuildAudioAutomationRuleInput,
 } from './state/audio-automation';
 export {
@@ -4741,14 +4745,32 @@ export {
 	AUDIO_AUTOMATION_ENTITY_TYPE,
 	AUDIO_AUTOMATION_SCHEMA_VERSION,
 	AUDIO_AUTOMATION_TRIGGER_KINDS,
+	AUDIO_SFX_EVENT_KINDS,
 	actionStartsPlayback,
 	buildAudioAutomationRule,
 	cloneAudioAutomationRule,
+	ensureAudioSfxEventToggles,
 	evaluateAudioAutomationRule,
 	isAudioAutomationAction,
 	isAudioAutomationTriggerKind,
+	isAudioSfxEventKind,
+	isSfxEventEnabled,
 	resolveAudioAutomation,
 } from './state/audio-automation';
+
+// RC-AUD-3.2 — the built-in SFX CUE library (the starter pack's sound-effect half): named one-shot
+// recipes for the table moments a sound punctuates. Shipped code data with bundled clip keys and NO
+// audio bytes, exactly like the atmosphere preset library; the DM binds a cue to a real asset/stream.
+export type { AudioSfxCue } from './state/audio-sfx-library';
+export {
+	BUILTIN_SFX_CUES,
+	BUILTIN_SFX_CUE_COUNT,
+	builtinSfxCueById,
+	builtinSfxCueId,
+	isBuiltinSfxCueId,
+	listBuiltinSfxCues,
+	listBuiltinSfxCuesForEvent,
+} from './state/audio-sfx-library';
 
 // AUDIO-011 — FAIL-CLOSED validation of a Scene AUDIO PACKAGE before import/export commit. Reports missing
 // assets, missing licensing metadata (reusing the AUDIO-004 review gate), unsupported streams (the
@@ -4777,6 +4799,7 @@ export {
 // non-DM gets EMPTY lists (audio config is DM-only — fail closed, no leak).
 export type { AudioAssetView } from './queries/audio-library-query';
 export {
+	audioSfxEventSettingsForActor,
 	listAudioAssetsForActor,
 	listAudioAssetsNeedingReview,
 	listAudioAutomationRulesForActor,

@@ -20,6 +20,11 @@ export const TRIGGER_LABELS: Record<AudioAutomationTriggerKind, MessageKey> = {
 	'map-reveal': 'audio.trigger.mapReveal',
 	'scene-activation': 'audio.trigger.sceneActivation',
 	'handout-delivery': 'audio.trigger.handoutDelivery',
+	// RC-AUD-3.2 — the table-moment SFX events.
+	'roll-critical-success': 'audio.trigger.rollCriticalSuccess',
+	'roll-critical-failure': 'audio.trigger.rollCriticalFailure',
+	'death-save-success': 'audio.trigger.deathSaveSuccess',
+	'death-save-failure': 'audio.trigger.deathSaveFailure',
 };
 export const ACTION_LABELS: Record<AudioAutomationAction, MessageKey> = {
 	play: 'audio.action.play',
