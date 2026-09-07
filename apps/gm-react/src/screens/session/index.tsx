@@ -221,6 +221,7 @@ export function Session() {
 
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [diceExpr, setDiceExpr] = useState('1d20+7');
+	const [diceLabel, setDiceLabel] = useState('');
 	const [handoutTitle, setHandoutTitle] = useState('');
 	const [handoutBody, setHandoutBody] = useState('');
 	// The encounter-composition dialog: 'start' builds `encounter.build` → `combat.start`;
@@ -498,8 +499,14 @@ export function Session() {
 						previewing={previewing}
 						expr={diceExpr}
 						onExpr={setDiceExpr}
-						onRoll={(expression) =>
-							dispatch({ type: 'dice.roll', actorId, payload: { expression } })
+						label={diceLabel}
+						onLabel={setDiceLabel}
+						onRoll={(expression, label) =>
+							dispatch({
+								type: 'dice.roll',
+								actorId,
+								payload: { expression, ...(label ? { label } : {}) },
+							})
 						}
 					/>
 					<HandoutsPanel
