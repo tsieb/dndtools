@@ -1,25 +1,23 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
+	buildQuickSwitcher,
 	getNoteRelationshipsForActor,
 	resolveWikilinkForActor,
 	type ContentItemView,
 } from '@dndtools/core';
-import {
-	Button,
-	Dialog,
-	Icon,
-	IconButton,
-	Input,
-	Textarea,
-	Toaster,
-	VisibilityChip,
-} from '../../ds';
+import { Button, Dialog, Icon, IconButton, Toaster, VisibilityChip } from '../../ds';
 import { BackBar, Page, Panel, Seg, T } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
+import { NoteEditor, type NoteSaveOutcome } from '../../app/editor/NoteEditor';
+import type { WikilinkSuggestion } from '../../app/editor/Autocomplete';
+import { widgetProfileForRuntime } from '../../platform/capabilities';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { VIS_CHIP, visibilityOptions } from './shared';
 import { useI18n } from '../../i18n';
 import { formatStamp, mdToNodes, parseWikilink } from './markdown';
+
+/** How many switcher hits are examined before the resolvable ones are kept (RC-KNW-1.2). */
+const WIKILINK_CANDIDATE_LIMIT = 40;
 
 function RelRow({
 	icon,
@@ -89,8 +87,6 @@ export function NoteViewer({
 	const actorId = runtime.defaultActorId;
 	const isPhone = useViewport() === 'phone';
 	const [editing, setEditing] = useState(false);
-	const [title, setTitle] = useState(note.title);
-	const [body, setBody] = useState(note.body);
 	const [busy, setBusy] = useState(false);
 	const [err, setErr] = useState<string | null>(null);
 	// Widening DM-only content to players is the one visibility move you cannot take back — players
@@ -147,43 +143,91 @@ export function NoteViewer({
 	);
 
 	function startEdit() {
-		setTitle(note.title);
-		setBody(note.body);
 		setErr(null);
 		setEditing(true);
 	}
 
-	async function save() {
-		// Clear the previous attempt's message FIRST. Without this a successful save carried the old
-		// rejection into view mode, where the note then read as "failed" even though it had been
-		// written — the message only looked harmless before because view mode rendered it below the
-		// whole note body, out of sight.
-		setErr(null);
-		if (!title.trim()) {
-			setErr(t('knowledge.needsTitle'));
-			return;
-		}
-		setBusy(true);
-		// try/finally, not a bare pair of setBusy calls: SceneRuntime.dispatchNow RETHROWS after a
-		// failed persist, so a throw here left `busy` true forever — and Save, Cancel AND Delete are
-		// all `disabled={busy}`, so the editor became an unrecoverable dead end still holding the
-		// DM's typed draft. Same shape as Atlas's `run()`.
-		try {
-			// content.update-item — the authorized-editor write. Strict payload: itemId/title/body only
-			// (visibility is a SEPARATE command; baseRevision omitted exactly as NotesWorkbench does).
-			const result = await runtime.dispatch({
-				type: 'content.update-item',
+	/**
+	 * RC-KNW-1.2 — `[[` candidates. The ranking comes from the core's quick switcher
+	 * (`quick-switcher-query`), which is already ACTOR-FILTERED; every hit is then put back through
+	 * `resolveWikilinkForActor`, so the menu offers only titles that will genuinely resolve when the
+	 * link is written. A note the actor may not see never reaches either step, and a suggestion can
+	 * never insert a dead link.
+	 */
+	const suggestWikilinks = useCallback(
+		(query: string): WikilinkSuggestion[] => {
+			const entries = buildQuickSwitcher(
+				runtime.state,
 				actorId,
-				payload: { itemId: note.id, title, body },
-			});
-			if (result.status === 'accepted') setEditing(false);
-			else setErr(result.rejection.message);
-		} catch (error) {
-			setErr(error instanceof Error ? error.message : t('knowledge.saveFailed'));
-		} finally {
-			setBusy(false);
-		}
-	}
+				{ profileId: widgetProfileForRuntime() },
+				query,
+				{ navigationLimit: WIKILINK_CANDIDATE_LIMIT },
+			);
+			const seen = new Set<string>();
+			const out: WikilinkSuggestion[] = [];
+			for (const entry of entries) {
+				if (entry.kind !== 'navigation') continue;
+				if (seen.has(entry.title)) continue;
+				const resolution = resolveWikilinkForActor(
+					runtime.state.content,
+					runtime.state.permissions,
+					actorId,
+					{ target: entry.title },
+				);
+				if (resolution.status !== 'resolved') continue;
+				seen.add(entry.title);
+				out.push({ id: entry.id, title: entry.title, kind: t('knowledge.note') });
+			}
+			return out;
+		},
+		[runtime.state, actorId, t],
+	);
+
+	/**
+	 * The editor's single write. RC-KNW-1.2 sends the draft's `baseRevision`, so a note that changed
+	 * elsewhere since this draft began records a `content.item-conflicted` operation and is left
+	 * UNCHANGED — the editor reports the conflict instead of a save that never happened.
+	 */
+	const saveDraft = useCallback(
+		async (draft: {
+			title: string;
+			body: string;
+			baseRevision: number;
+		}): Promise<NoteSaveOutcome> => {
+			setErr(null);
+			setBusy(true);
+			// try/finally, not a bare pair of setBusy calls: SceneRuntime.dispatchNow RETHROWS after a
+			// failed persist, so a throw here left `busy` true forever — and Save, Cancel AND Delete are
+			// all `disabled={busy}`, so the editor became an unrecoverable dead end still holding the
+			// DM's typed draft. Same shape as Atlas's `run()`.
+			try {
+				// content.update-item — the authorized-editor write. Strict payload: itemId/title/body
+				// plus the conflict-detection base (visibility is a SEPARATE command).
+				const result = await runtime.dispatch({
+					type: 'content.update-item',
+					actorId,
+					payload: {
+						itemId: note.id,
+						title: draft.title,
+						body: draft.body,
+						baseRevision: draft.baseRevision,
+					},
+				});
+				if (result.status !== 'accepted')
+					return { status: 'rejected', message: result.rejection.message };
+				// An ACCEPTED command that emitted `content.item-conflicted` wrote nothing: the core
+				// preserved the other author's text and logged the divergence. Reporting this as a save
+				// would be the exact fake success guardrail 8 forbids.
+				const conflicted = result.events.some(
+					(e) => (e as { kind?: string }).kind === 'content.item-conflicted',
+				);
+				return conflicted ? { status: 'conflict' } : { status: 'saved' };
+			} finally {
+				setBusy(false);
+			}
+		},
+		[runtime, actorId, note.id],
+	);
 
 	async function setVisibility(visibility: string) {
 		// All three entry points (the send IconButton, the "Push to players" Button and the visibility
@@ -303,57 +347,26 @@ export function NoteViewer({
 					</div>
 
 					{editing ? (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-							<Input
-								value={title}
-								aria-label={t('knowledge.noteTitle')}
-								onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
-								placeholder={t('knowledge.noteTitle')}
-							/>
-							<Textarea
-								value={body}
-								aria-label={t('knowledge.noteBody')}
-								onChange={(e: { target: { value: string } }) => setBody(e.target.value)}
-								rows={18}
-								placeholder={t('knowledge.notePlaceholder')}
-								style={{ fontFamily: T.mono, fontSize: 13, lineHeight: 1.6 }}
-							/>
-							<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
-								{t('knowledge.markdownHint')}
-							</div>
-							{err && (
-								<span role="alert" style={{ font: `12px ${T.sans}`, color: T.err }}>
-									{err}
-								</span>
-							)}
-							<div style={{ display: 'flex', gap: 8 }}>
-								<Button variant="primary" size="sm" icon="check" disabled={busy} onClick={save}>
-									{t('knowledge.saveNote')}
-								</Button>
-								{/* Clearing `err` is not cosmetic: view mode renders the SAME state in its own
-								    role=alert above the body, so cancelling out of a failed save left a
-								    note that plainly has a title announced as "A note needs a title." */}
-								<Button
-									variant="ghost"
-									size="sm"
-									disabled={busy}
-									onClick={() => {
-										setErr(null);
-										setEditing(false);
-									}}
-								>
-									{t('common.action.cancel')}
-								</Button>
-								<div style={{ flex: 1 }} />
-								{canAuthor && (
-									// A ghost button in the same row as Cancel: the destructive action looked
-									// identical to the harmless one. (Soft delete with Undo, so no confirm.)
-									<Button variant="danger" size="sm" icon="delete" disabled={busy} onClick={remove}>
-										{t('common.action.delete')}
-									</Button>
-								)}
-							</div>
-						</div>
+						<NoteEditor
+							title={note.title}
+							body={note.body}
+							revision={note.revision}
+							busy={busy}
+							suggest={suggestWikilinks}
+							// The preview is the SAME renderer the reader below gets (RC-KNW-1.1), given the
+							// same actor-scoped resolver — so a `[[link]]` that will be broken for readers
+							// already reads as broken while it is being written.
+							renderPreview={(draft) => mdToNodes(draft, t, resolveLink, canAuthor)}
+							onSave={saveDraft}
+							onCancel={() => {
+								// Clearing `err` is not cosmetic: view mode renders the SAME state in its own
+								// role=alert above the body, so cancelling out of a failed save left a note
+								// that plainly has a title announced as "A note needs a title."
+								setErr(null);
+								setEditing(false);
+							}}
+							{...(canAuthor ? { onDelete: remove } : {})}
+						/>
 					) : (
 						<>
 							<h2 style={{ font: `700 22px ${T.disp}`, margin: '0 0 12px' }}>{note.title}</h2>

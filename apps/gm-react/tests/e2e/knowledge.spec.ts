@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import {
 	dispatch,
@@ -526,5 +527,176 @@ test.describe('knowledge: notes workbench', () => {
 		// No source rows exist, so no Pull/Push transport affordances leak into the panel.
 		await expect(page.getByRole('button', { name: 'Pull', exact: true })).toHaveCount(0);
 		await expect(page.getByRole('button', { name: 'Push', exact: true })).toHaveCount(0);
+	});
+	/* ------------------------------------------------------------------------------------------ */
+	/* RC-KNW-1.2 — editor v2: toolbar, [[ autocomplete, / insert menu, live preview, autosave.     */
+	/* ------------------------------------------------------------------------------------------ */
+
+	/** Open the note's editor and return its single body textarea. */
+	async function openEditor(page: Page, noteId: string) {
+		await gotoRoute(page, `/knowledge/${noteId}`);
+		await page.getByRole('button', { name: 'Edit', exact: true }).click();
+		const area = page.locator('textarea');
+		await expect(area).toHaveCount(1);
+		return area;
+	}
+
+	/** The preview is a pane beside the writer on desktop and a tab on the phone. */
+	async function showPreview(page: Page) {
+		const tab = page.getByRole('radio', { name: 'Preview', exact: true });
+		if ((await tab.count()) > 0) await tab.click();
+		return page.locator('[aria-label="Preview"]');
+	}
+
+	test('the toolbar and the keyboard make the identical formatting edit', async ({ page }) => {
+		const noteId = await createNoteViaCore(page, `Bell Tower ${Date.now()}`, 'ring it', 'dm-only');
+		const area = await openEditor(page, noteId);
+
+		// Pointer path: select the body and press Bold.
+		await area.click();
+		await page.keyboard.press('ControlOrMeta+a');
+		await page.getByRole('button', { name: 'Bold', exact: true }).click();
+		await expect(area).toHaveValue('**ring it**');
+
+		// Keyboard path: Ctrl+B over the same selection is the SAME toggle, not a second wrap
+		// (WCAG 2.2 AA — every pointer operation has a keyboard equivalent dispatching the same edit).
+		await area.click();
+		await page.keyboard.press('ControlOrMeta+a');
+		await page.keyboard.press('ControlOrMeta+b');
+		await expect(area).toHaveValue('ring it');
+	});
+
+	test('[[ autocompletes over the actor-visible vault and only offers links that resolve', async ({
+		page,
+	}) => {
+		const stamp = Date.now();
+		const targetTitle = `Lantern Wharf ${stamp}`;
+		await createNoteViaCore(page, targetTitle, 'Where the boats tie up.', 'dm-only');
+		const sourceId = await createNoteViaCore(page, `Dock Notes ${stamp}`, '', 'dm-only');
+
+		const area = await openEditor(page, sourceId);
+		// Keyboard-only authoring: type the trigger, arrow if needed, press Enter. No pointer at all.
+		await area.click();
+		await area.pressSequentially('Go to [[Lantern');
+		const options = page.getByRole('option');
+		await expect(options.first()).toBeVisible();
+		await expect(options.filter({ hasText: targetTitle })).toHaveCount(1);
+		await page.keyboard.press('Enter');
+		await expect(area).toHaveValue(`Go to [[${targetTitle}]]`);
+
+		// The completed link is live in the preview, which proves it resolves through the core's
+		// actor-scoped resolver rather than merely looking like a link.
+		const preview = await showPreview(page);
+		await expect(preview.getByRole('button', { name: targetTitle, exact: true })).toHaveCount(1);
+	});
+
+	test('the / menu inserts real core blocks, and the preview renders them', async ({ page }) => {
+		const noteId = await createNoteViaCore(page, `Crypt Plan ${Date.now()}`, '', 'dm-only');
+		const area = await openEditor(page, noteId);
+
+		await area.click();
+		await area.pressSequentially('/secret');
+		await expect(page.getByRole('option', { name: /Secret callout/ })).toBeVisible();
+		await page.keyboard.press('Enter');
+		await area.pressSequentially('The lever is behind the sconce.');
+		expect(await area.inputValue()).toContain('> [!Secret] ');
+
+		// The preview is the SHARED RC-KNW-1.1 renderer, so the DM-only affordance is already there
+		// while the note is being written.
+		const preview = await showPreview(page);
+		await expect(preview.getByText('DM only')).not.toHaveCount(0);
+
+		// A snippet row comes from the core's own library, not from a copy kept in the app.
+		if ((await page.getByRole('radio', { name: 'Write', exact: true }).count()) > 0) {
+			await page.getByRole('radio', { name: 'Write', exact: true }).click();
+		}
+		await area.click();
+		await page.keyboard.press('ControlOrMeta+a');
+		await area.pressSequentially('/read');
+		await expect(page.getByRole('option', { name: /Read-aloud box/ })).toBeVisible();
+		await page.keyboard.press('Enter');
+		expect(await area.inputValue()).toContain('[!read-aloud]');
+	});
+
+	test('the editor autosaves the draft and says when it last wrote', async ({ page }) => {
+		const stamp = Date.now();
+		const noteId = await createNoteViaCore(page, `Tide Table ${stamp}`, 'first', 'dm-only');
+		const area = await openEditor(page, noteId);
+
+		await area.fill('The tide turns at moonrise.');
+		await expect(page.getByRole('status')).toHaveText(/Unsaved changes|Saving|Saved/);
+
+		// Nothing is pressed: the debounce writes it through content.update-item.
+		await page.waitForFunction(
+			(arg) => {
+				const items = (
+					window.__rt!.state.content as { items: Record<string, { title: string; body: string }> }
+				).items;
+				return Object.values(items).some(
+					(i) => i.title === arg.title && i.body === 'The tide turns at moonrise.',
+				);
+			},
+			{ title: `Tide Table ${stamp}` },
+			{ timeout: 10_000 },
+		);
+		await expect(page.getByRole('status')).toHaveText(/^Saved /);
+		// An autosave does NOT close the editor — the DM keeps writing.
+		await expect(page.getByRole('button', { name: 'Save note' })).toBeVisible();
+	});
+
+	test('a note changed elsewhere conflicts instead of overwriting the other author', async ({
+		page,
+	}) => {
+		const stamp = Date.now();
+		const title = `Ferry Log ${stamp}`;
+		const noteId = await createNoteViaCore(page, title, 'mine', 'dm-only');
+		const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+		const area = await openEditor(page, noteId);
+
+		// Blanking the title disarms autosave (a blank title is not writable), so the draft can be
+		// made stale deterministically rather than racing the debounce.
+		await page.getByPlaceholder('Note title').fill('');
+		await area.fill('my unsaved paragraph');
+
+		// Another author writes the same note. No baseRevision, so it applies and bumps the revision.
+		const other = await dispatch(page, {
+			type: 'content.update-item',
+			actorId,
+			payload: { itemId: noteId, title, body: 'their paragraph' },
+		});
+		expect(other.status).toBe('accepted');
+
+		await page.getByPlaceholder('Note title').fill(title);
+		await page.getByRole('button', { name: 'Save note' }).click();
+
+		// The core recorded the divergence and wrote NOTHING: the other author's text stands, the
+		// draft is still on screen, and the editor says so instead of reporting a save.
+		await expect(page.getByText(/changed somewhere else while you were writing/)).toBeVisible();
+		expect((await findItem(page, title))?.body).toBe('their paragraph');
+		await expect(area).toHaveValue('my unsaved paragraph');
+		await expect(page.getByRole('status')).toHaveText(/changed elsewhere/);
+
+		// Taking the other version replaces the draft — an explicit choice, never an automatic one.
+		await page.getByRole('button', { name: 'Use the other version' }).click();
+		await expect(area).toHaveValue('their paragraph');
+	});
+	test('the open editor carries no critical or serious accessibility violation', async ({
+		page,
+	}) => {
+		const noteId = await createNoteViaCore(page, `Axe Ledger ${Date.now()}`, '', 'dm-only');
+		const area = await openEditor(page, noteId);
+		// With a menu OPEN, so the combobox/listbox wiring is what axe actually inspects.
+		await area.click();
+		await area.pressSequentially('/table');
+		await expect(page.getByRole('option').first()).toBeVisible();
+
+		const results = await new AxeBuilder({ page })
+			.include('#main-content')
+			.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+			.analyze();
+		const blocking = results.violations.filter(
+			(v) => v.impact === 'critical' || v.impact === 'serious',
+		);
+		expect(blocking.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
 	});
 });
