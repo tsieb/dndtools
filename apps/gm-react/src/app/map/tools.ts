@@ -15,7 +15,7 @@
  * palette shows each shortcut so novices learn the keymap passively.
  */
 
-import type { MapLayerCategory } from '@dndtools/core';
+import type { MapLayerCategory, TravelPaceKey } from '@dndtools/core';
 import type { MessageKey } from '../../i18n';
 
 /** A concrete tool the user can activate. Ids are stable — they key persisted per-tool options. */
@@ -322,6 +322,29 @@ export const TOOL_GROUPS: readonly ToolGroupDef[] = Object.freeze([
  */
 export const STAMP_ROTATION = Object.freeze({ min: 0, max: 345, step: 15 });
 export const STAMP_SIZE_PERCENT = Object.freeze({ min: 25, max: 300, step: 25 });
+
+/**
+ * RC-MAP-3.7 — the Route tool's options.
+ *
+ * A route is named BEFORE it is drawn rather than renamed afterwards, because the DM already knows
+ * what the line is ("The Coast Road") at the moment they start clicking, and a route that arrives
+ * pre-named is one the list view and the status bar can identify without a second trip through the
+ * Inspector. An empty box still draws — it falls back to {@link ROUTE_DEFAULT_NAME}, so naming is an
+ * affordance and never a gate.
+ *
+ * The PACE is not stored on the route: distance is geometry, and how fast the party walks it is a
+ * question the DM re-asks per journey ("what if we push?"). It is a read-side lens over the same
+ * line, so it lives in the tool options and drives the status-bar readout through the core's pace
+ * table (`travelPacesForSystem`), not a durable field.
+ */
+export const ROUTE_DEFAULT_NAME = 'Route';
+
+/** The reader-facing label for each pace the core's table can return. */
+export const ROUTE_PACE_LABELS: Readonly<Record<TravelPaceKey, MessageKey>> = Object.freeze({
+	fast: 'toolOptions.pace.fast',
+	normal: 'toolOptions.pace.normal',
+	slow: 'toolOptions.pace.slow',
+});
 
 /** Flat lookup for a tool by id. */
 export const TOOLS_BY_ID: ReadonlyMap<ToolId, ToolDef> = new Map(

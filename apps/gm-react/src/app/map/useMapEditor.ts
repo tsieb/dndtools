@@ -26,12 +26,17 @@ import type {
 	MapLayerCategory,
 	SceneVisibility,
 	SessionPartyLocation,
+	TravelPace,
+	TravelPaceKey,
 } from '@dndtools/core';
 import {
+	DEFAULT_TRAVEL_PACE,
 	buildMapInverse,
 	deliveredMapIdsForActor,
+	getActiveSystemForActor,
 	getMapViewForActor,
 	queryMapLayers,
+	travelPacesForSystem,
 } from '@dndtools/core';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import type { ToolId } from './tools';
@@ -85,6 +90,11 @@ export interface ToolOptions {
 	 * the label). They are separate tools and now own separate option keys.
 	 */
 	labelText: string;
+	// Route (RC-MAP-3.7)
+	/** The name the next drawn route is created with; empty falls back to `ROUTE_DEFAULT_NAME`. */
+	routeName: string;
+	/** The pace the status bar's travel readout measures a route at. A read-side lens, never stored. */
+	travelPace: TravelPaceKey;
 	// Snapping (Ctrl momentarily overrides — handled in the canvas)
 	snapGrid: boolean;
 	snapAngle: boolean;
@@ -109,6 +119,8 @@ const DEFAULT_TOOL_OPTIONS: ToolOptions = {
 	scatterObject: 'trees',
 	scatterDensity: 0.5,
 	labelText: '',
+	routeName: '',
+	travelPace: DEFAULT_TRAVEL_PACE,
 	snapGrid: true,
 	snapAngle: false,
 	snapObject: true,
@@ -158,6 +170,8 @@ export interface MapEditorApi {
 	// Per-tool options
 	options: ToolOptions;
 	setOption: <K extends keyof ToolOptions>(key: K, value: ToolOptions[K]) => void;
+	/** RC-MAP-3.7 — the travel paces the ACTIVE system package offers, fast to slow. */
+	travelPaces: readonly TravelPace[];
 
 	// Dock
 	dock: DockPanel;
@@ -270,6 +284,17 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 				? runtime.state.session.partyLocation
 				: null,
 		[runtime.state.session.partyLocation, mapId],
+	);
+
+	// RC-MAP-3.7 — which paces the travel readout offers is RULES content, so it comes from the
+	// active system package on the same actor-scoped read every other rules lookup uses.
+	const travelPaces = useMemo(
+		() =>
+			travelPacesForSystem(
+				getActiveSystemForActor(runtime.state.systems, runtime.state.permissions, actorId)
+					.activePackage.id,
+			),
+		[runtime.state.systems, runtime.state.permissions, actorId],
 	);
 
 	const setTool = useCallback(
@@ -455,6 +480,7 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 		setCenter,
 		options,
 		setOption,
+		travelPaces,
 		dock,
 		setDock,
 		busy,

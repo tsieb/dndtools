@@ -5639,3 +5639,25 @@ export {
 	parseCalloutMarker,
 	stripSecretCallouts,
 } from './state/markdown';
+
+// RC-MAP-3.7 — TRAVEL TIME BY PACE. `state/map-travel.ts` derives a route's distance from geometry
+// and scale; this is the rules half — the 5e overland pace table and the actor-scoped read that
+// measures a route the actor is actually allowed to see. A map scaled in feet gets a distance and
+// NO estimate rather than a miles-per-day division nobody asked for.
+export type {
+	RouteTravelEstimate,
+	TravelDuration,
+	TravelPace,
+	TravelPaceKey,
+	TravelUnavailableReason,
+} from './queries/map-travel-query';
+export {
+	DEFAULT_TRAVEL_PACE,
+	DND5E_TRAVEL_PACES,
+	estimateRouteTravel,
+	findTravelPace,
+	quantizeTravelDays,
+	routeTravelForActor,
+	travelPacesForSystem,
+	travelSpeedForPace,
+} from './queries/map-travel-query';

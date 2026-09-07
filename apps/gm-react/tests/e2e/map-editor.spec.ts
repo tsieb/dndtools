@@ -70,7 +70,12 @@ interface MapSnapshot {
 	poiCount: number;
 	routeCount: number;
 	pois: Array<{ id: string; label: string; x: number; y: number; visibility: string }>;
-	routes: Array<{ id: string; label: string; waypointCount: number }>;
+	routes: Array<{
+		id: string;
+		label: string;
+		waypointCount: number;
+		waypoints: Array<{ x: number; y: number }>;
+	}>;
 }
 
 /** Read the actor-filtered raw map entity back through the runtime (DM sees the full record). */
@@ -92,7 +97,11 @@ function readMap(page: Page, mapId: string): Promise<MapSnapshot | null> {
 						position: { x: number; y: number };
 						visibility: string;
 					}>;
-					routes: Array<{ id: string; label: string; waypoints: unknown[] }>;
+					routes: Array<{
+						id: string;
+						label: string;
+						waypoints: Array<{ position: { x: number; y: number } }>;
+					}>;
 			  }
 			| undefined;
 		if (!m) return null;
@@ -113,6 +122,7 @@ function readMap(page: Page, mapId: string): Promise<MapSnapshot | null> {
 				id: r.id,
 				label: r.label,
 				waypointCount: (r.waypoints ?? []).length,
+				waypoints: (r.waypoints ?? []).map((w) => ({ x: w.position.x, y: w.position.y })),
 			})),
 			pois: m.pois.map((p) => ({
 				id: p.id,
@@ -416,6 +426,101 @@ test.describe('map editor', () => {
 		// It is a normal undoable map command like every other drawing tool.
 		await undoRedo(page, 'Control+z');
 		await expect.poll(async () => (await readMap(page, mapId))!.routeCount).toBe(0);
+	});
+
+	// RC-MAP-3.7 — the number is the whole point of drawing the line. A route the DM has just drawn
+	// reads its length in the map's own scale units and how long the party is on it at the chosen
+	// pace, in the status bar, without opening anything. The map is scaled AFTER the draw so the
+	// assertion is exact on both viewport profiles: whatever line the clicks produced is declared to
+	// be 48 miles long, which is two days at 5e's normal overland pace of 24 miles a day.
+	test('a drawn route reads its distance and its travel time at the chosen pace', async ({
+		page,
+	}) => {
+		await openAtlas(page);
+		const name = `Travel Map ${Date.now()}`;
+		const mapId = await createMap(page, { name });
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		await page.keyboard.press('o');
+		await expectActiveTool(page, 'Route');
+		await page.getByLabel('Route name', { exact: true }).fill('Coast road');
+
+		const canvas = page.getByRole('application');
+		const box = await canvas.boundingBox();
+		expect(box).not.toBeNull();
+		const b = box!;
+		await page.mouse.click(b.x + b.width * 0.25, b.y + b.height * 0.3);
+		await page.mouse.click(b.x + b.width * 0.5, b.y + b.height * 0.45);
+		await page.mouse.click(b.x + b.width * 0.7, b.y + b.height * 0.6);
+		await focusEditor(page);
+		await page.keyboard.press('Enter');
+
+		await expect.poll(async () => (await readMap(page, mapId))!.routeCount).toBe(1);
+		const route = (await readMap(page, mapId))!.routes[0]!;
+		// The name typed into the tool options reaches the durable route, not a generic "Route".
+		expect(route.label).toBe('Coast road');
+
+		let normalized = 0;
+		for (let i = 1; i < route.waypoints.length; i += 1) {
+			normalized += Math.hypot(
+				route.waypoints[i]!.x - route.waypoints[i - 1]!.x,
+				route.waypoints[i]!.y - route.waypoints[i - 1]!.y,
+			);
+		}
+		expect(normalized).toBeGreaterThan(0);
+		const scaled = await dispatch(page, {
+			type: 'map.set-scale',
+			actorId: DM,
+			payload: { mapId, scale: { unitsPerMap: 48 / normalized, unit: 'miles' } },
+		});
+		expect(scaled.status).toBe('accepted');
+
+		const readout = page.getByLabel('Route travel');
+		await expect(readout).toContainText('48 miles');
+		await expect(readout).toContainText('2 days at normal pace');
+
+		// The pace is a LENS over the drawn line, never a stored property: changing it re-reads the
+		// same route and leaves the durable record untouched.
+		await page.getByLabel('Travel pace').selectOption('fast');
+		await expect(readout).toContainText('1.5 days at fast pace');
+		expect((await readMap(page, mapId))!.routes[0]!.label).toBe('Coast road');
+		expect((await readMap(page, mapId))!.routes[0]!.waypoints).toEqual(route.waypoints);
+	});
+
+	// A dungeon map is scaled in FEET, and 5e states its overland paces in miles a day. Dividing one
+	// by the other would put a confident "0.1 days" under a 60-foot corridor, so the readout says
+	// what it needs instead of inventing an answer.
+	test('a route on a map scaled in feet reads its distance and no invented travel time', async ({
+		page,
+	}) => {
+		await openAtlas(page);
+		const name = `Dungeon Travel ${Date.now()}`;
+		const mapId = await createMap(page, { name });
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		await page.keyboard.press('o');
+		await expectActiveTool(page, 'Route');
+		const canvas = page.getByRole('application');
+		const b = (await canvas.boundingBox())!;
+		await page.mouse.click(b.x + b.width * 0.25, b.y + b.height * 0.3);
+		await page.mouse.click(b.x + b.width * 0.5, b.y + b.height * 0.45);
+		await page.mouse.click(b.x + b.width * 0.7, b.y + b.height * 0.6);
+		await focusEditor(page);
+		await page.keyboard.press('Enter');
+		await expect.poll(async () => (await readMap(page, mapId))!.routeCount).toBe(1);
+
+		await dispatch(page, {
+			type: 'map.set-scale',
+			actorId: DM,
+			payload: { mapId, scale: { unitsPerMap: 200, unit: 'feet' } },
+		});
+
+		const readout = page.getByLabel('Route travel');
+		await expect(readout).toContainText('feet');
+		await expect(readout).toContainText('Travel time needs a map scaled in miles');
+		await expect(readout).not.toContainText('days');
 	});
 
 	// The "Water type" segmented control was a pure visual no-op: `finishPath` wrote the bare style

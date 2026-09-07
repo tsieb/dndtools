@@ -3837,6 +3837,15 @@ export const en = {
 	'mapEditor.polygonHint': 'Click to add points · Enter or double-click finishes · Esc cancels',
 	'mapEditor.imageMissing': 'This map’s image isn’t on this device — showing shapes only',
 	'mapEditor.layerName': 'Layer: {name}',
+	// RC-MAP-3.7 — the status bar's travel readout for the selected route. The unit is the DM's own
+	// scale label, so it is interpolated rather than translated.
+	'mapEditor.travelDistance': '{distance} {unit}',
+	'mapEditor.travelDays': '{value, plural, one {# day} other {# days}}',
+	'mapEditor.travelHours': '{value, plural, one {# hour} other {# hours}}',
+	'mapEditor.travelAtPace': '{time} at {pace} pace',
+	'mapEditor.travelNoScale': 'Set a map scale to read travel time',
+	'mapEditor.travelUnitMismatch': 'Travel time needs a map scaled in {unit}',
+	'mapEditor.travelReadout': 'Route travel',
 	'mapEditor.selectedCount': '{count, plural, one {# selected} other {# selected}}',
 	/* Campaign › quests, NPCs, faction dossiers and the timeline */
 	'campaign.title': 'Campaign',
@@ -4654,6 +4663,17 @@ export const en = {
 	'toolOptions.labelPlaceholder': 'Type the label, then click the map',
 	'toolOptions.labelText': 'Label text',
 	'toolOptions.terrain': 'Terrain',
+	// RC-MAP-3.7 — the Route tool's options: the name the next route is drawn with, and the pace the
+	// status bar measures it at.
+	'toolOptions.name': 'Name',
+	'toolOptions.routeName': 'Route name',
+	'toolOptions.routeNamePlaceholder': 'Coast road',
+	'toolOptions.pace': 'Pace',
+	'toolOptions.travelPace': 'Travel pace',
+	'toolOptions.paceOption': '{pace} — {distance} {unit} a day',
+	'toolOptions.pace.fast': 'Fast',
+	'toolOptions.pace.normal': 'Normal',
+	'toolOptions.pace.slow': 'Slow',
 	'toolOptions.terrainStyle': 'Terrain style',
 	'toolOptions.groupLabel': '{tool} options',
 	'toolOptions.tool': 'Tool',

@@ -16,6 +16,7 @@ import { MapCanvas } from './MapCanvas';
 import { EditorCanvasHud } from './EditorCanvasHud';
 import { clamp01 } from '../mapVocab';
 import { viewportForPinch } from '../quickMap';
+import { ROUTE_DEFAULT_NAME } from '../tools';
 import { categoryForTool } from '../useMapEditor';
 import type { MapEditorApi } from '../useMapEditor';
 
@@ -459,21 +460,27 @@ export function EditorCanvas({
 				`${options.waterKind === 'river' ? 'River' : 'Lake'} added.`,
 			);
 		} else if (tool === 'route') {
+			// RC-MAP-3.7: the route carries the name the DM typed into the tool options (blank falls
+			// back), and the finished line becomes the SELECTION so the status bar's distance and
+			// travel-time readout is about the route they just drew, not about nothing.
+			const routeId = editor.nextId('route');
 			void editor
 				.run({
 					type: 'map.create-route',
 					actorId: editor.actorId,
 					payload: {
 						mapId: editor.mapId,
-						id: editor.nextId('route'),
+						id: routeId,
 						layerId: activeId,
-						label: 'Route',
+						label: options.routeName.trim() || ROUTE_DEFAULT_NAME,
 						visibility: options.newVisibility,
 						waypoints: pts.map((p) => ({ id: editor.nextId('wp'), position: { x: p.x, y: p.y } })),
 					},
 				} as never)
 				.then((accepted) => {
-					if (accepted) announce('Route added.');
+					if (!accepted) return;
+					editor.setSelection([routeId]);
+					announce('Route added.');
 				});
 		}
 	}

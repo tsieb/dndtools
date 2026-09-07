@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Icon, Input, Popover, SegmentedControl, Select, Slider, Switch } from '../../ds';
 import { T } from '../screen-kit';
 import type { MapEditorApi } from './useMapEditor';
-import { STAMP_ROTATION, STAMP_SIZE_PERCENT, TOOLS_BY_ID } from './tools';
+import { ROUTE_PACE_LABELS, STAMP_ROTATION, STAMP_SIZE_PERCENT, TOOLS_BY_ID } from './tools';
 import { DOOR_KINDS, propLabel, SCATTER_SETS, TERRAIN_STYLES, VIS_TEXT_KEY } from './mapVocab';
 import { PropGlyph } from './dock/AssetsPanel';
 import { useI18n } from '../../i18n';
@@ -484,8 +484,48 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 			controls = visControl;
 			break;
 		case 'token':
-		case 'route':
 			controls = visControl;
+			break;
+		// RC-MAP-3.7 — name the route before drawing it, and pick the pace the status bar measures it
+		// at. Pace is a lens on the drawn line, not a property of it, so it applies to the SELECTED
+		// route immediately as well as to the next one.
+		case 'route':
+			controls = (
+				<>
+					<label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+						<span style={{ font: `12px ${T.sans}`, color: T.sub }}>{t('toolOptions.name')}</span>
+						<Input
+							value={options.routeName}
+							placeholder={t('toolOptions.routeNamePlaceholder')}
+							aria-label={t('toolOptions.routeName')}
+							onChange={(e: { target: { value: string } }) =>
+								setOption('routeName', e.target.value)
+							}
+							style={{ width: 200 }}
+						/>
+					</label>
+					<label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+						<span style={{ font: `12px ${T.sans}`, color: T.sub }}>{t('toolOptions.pace')}</span>
+						<Select
+							value={options.travelPace}
+							aria-label={t('toolOptions.travelPace')}
+							options={editor.travelPaces.map((pace) => ({
+								value: pace.key,
+								label: t('toolOptions.paceOption', {
+									pace: t(ROUTE_PACE_LABELS[pace.key]),
+									distance: pace.distancePerDay,
+									unit: pace.unit,
+								}),
+							}))}
+							onChange={(e: { target: { value: string } }) =>
+								setOption('travelPace', e.target.value as typeof options.travelPace)
+							}
+							style={{ minWidth: 190 }}
+						/>
+					</label>
+					{visControl}
+				</>
+			);
 			break;
 		default:
 			controls = null;
