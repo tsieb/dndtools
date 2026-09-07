@@ -3956,6 +3956,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapEditor.redo': 'Rehacer',
 	'mapEditor.panels': 'Paneles',
 	'mapEditor.polygonHint': 'Pulsa para añadir puntos · Intro o doble clic termina · Esc cancela',
+	'mapEditor.polygonVertexCount': '{count, plural, one {# punto} other {# puntos}}',
 	'mapEditor.imageMissing':
 		'La imagen de este mapa no está en este dispositivo — solo se muestran las formas',
 	'mapEditor.layerName': 'Capa: {name}',
@@ -4810,6 +4811,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'toolOptions.fogShape.polygon': 'Polígono',
 	'toolOptions.fogShape.stroke': 'Pincel',
 	'toolOptions.feather': 'Difuminado',
+	'toolOptions.clearFog': 'Borrar toda la niebla',
+	'toolOptions.clearFogConfirmTitle': '¿Borrar toda la niebla de este mapa?',
+	'toolOptions.clearFogConfirmBody':
+		'Se elimina toda zona revelada y oculta. Los jugadores ven el mapa entero hasta que vuelvas a cubrirlo de niebla.',
+	'toolOptions.fogCleared': 'Niebla borrada.',
 	'toolOptions.label': 'Etiqueta',
 	'toolOptions.labelPlaceholder': 'Escribe la etiqueta y luego pulsa el mapa',
 	'toolOptions.labelText': 'Texto de la etiqueta',

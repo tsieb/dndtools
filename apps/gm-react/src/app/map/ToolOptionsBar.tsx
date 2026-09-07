@@ -1,5 +1,16 @@
 import { useRef, useState } from 'react';
-import { Icon, Input, Popover, SegmentedControl, Select, Slider, Switch } from '../../ds';
+import {
+	Button,
+	Dialog,
+	Icon,
+	IconButton,
+	Input,
+	Popover,
+	SegmentedControl,
+	Select,
+	Slider,
+	Switch,
+} from '../../ds';
 import { T } from '../screen-kit';
 import type { MapEditorApi } from './useMapEditor';
 import { ROUTE_PACE_LABELS, STAMP_ROTATION, STAMP_SIZE_PERCENT, TOOLS_BY_ID } from './tools';
@@ -206,7 +217,96 @@ function SnapMenu({ editor }: { editor: MapEditorApi }) {
 	);
 }
 
-export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
+/**
+ * RC-MAP-3.9 — a fog session can run to dozens of hand-drawn reveal/conceal ops with no way back
+ * short of undoing every one in order. This is the honest reset: a confirm (fog affects what
+ * players see, so an accidental click must not be silent) then one `map.remove-fog` per existing
+ * op, oldest first — the exact shape `deleteSelection` (`keyboard.ts`) already uses for a bulk
+ * removal, because `editor.run` is single-flight and cannot take a second op before the first
+ * resolves.
+ */
+function ClearFogButton({
+	editor,
+	announce,
+}: {
+	editor: MapEditorApi;
+	announce?: (message: string) => void;
+}) {
+	const { t } = useI18n();
+	const [confirmOpen, setConfirmOpen] = useState(false);
+	const [clearing, setClearing] = useState(false);
+	const fogCount = editor.map?.fog.length ?? 0;
+	return (
+		<>
+			{/* Icon-only (not a labelled button): the fog case already runs mode + shape + a conditional
+			    size control + feather, and a labelled button here was the one control wide enough to
+			    push the bar onto a second row — which the sub-tool flyout above it is not laid out to
+			    make room for. */}
+			<IconButton
+				icon="delete"
+				label={t('toolOptions.clearFog')}
+				variant="outline"
+				size="sm"
+				disabled={fogCount === 0}
+				onClick={() => setConfirmOpen(true)}
+			/>
+			{confirmOpen && (
+				<Dialog
+					open
+					onClose={() => setConfirmOpen(false)}
+					title={t('toolOptions.clearFogConfirmTitle')}
+					description={t('toolOptions.clearFogConfirmBody')}
+					tone="danger"
+					icon="delete"
+					size="sm"
+					footer={
+						<>
+							<Button variant="ghost" size="sm" onClick={() => setConfirmOpen(false)}>
+								{t('common.action.cancel')}
+							</Button>
+							<Button
+								variant="danger"
+								size="sm"
+								icon="delete"
+								disabled={clearing}
+								onClick={() => {
+									setClearing(true);
+									void clearAllFogOps(editor).then(() => {
+										setClearing(false);
+										setConfirmOpen(false);
+										announce?.(t('toolOptions.fogCleared'));
+									});
+								}}
+							>
+								{t('toolOptions.clearFog')}
+							</Button>
+						</>
+					}
+				/>
+			)}
+		</>
+	);
+}
+
+async function clearAllFogOps(editor: MapEditorApi) {
+	const ids = (editor.map?.fog ?? []).map((op) => op.id);
+	for (const fogId of ids) {
+		await editor.run({
+			type: 'map.remove-fog',
+			actorId: editor.actorId,
+			payload: { mapId: editor.mapId, fogId },
+		} as never);
+	}
+}
+
+export function ToolOptionsBar({
+	editor,
+	announce,
+}: {
+	editor: MapEditorApi;
+	/** Live-region announcer for the bar's own destructive action (RC-MAP-3.9's "Clear all fog"). */
+	announce?: (message: string) => void;
+}) {
 	const { t } = useI18n();
 	const { tool, options, setOption } = editor;
 	const def = TOOLS_BY_ID.get(tool);
@@ -463,6 +563,7 @@ export function ToolOptionsBar({ editor }: { editor: MapEditorApi }) {
 						unit="%"
 						onChange={(v) => setOption('fogFeather', v / 100)}
 					/>
+					<ClearFogButton editor={editor} announce={announce} />
 				</>
 			);
 			break;

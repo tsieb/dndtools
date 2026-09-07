@@ -96,6 +96,8 @@ export function EditorCanvas({
 	const pathRef = useRef<Pt[]>([]);
 	pathRef.current = path;
 	const [hoverPt, setHoverPt] = useState<Pt | null>(null);
+	/** RC-MAP-3.9 — mirrors MapCanvas's in-progress fog-polygon vertex count for the HUD readout. */
+	const [polyVertexCount, setPolyVertexCount] = useState(0);
 	const [spacePan, setSpacePan] = useState(false);
 	const ctrlRef = useRef(false);
 	const touchPointers = useRef(new Map<number, Pt>());
@@ -199,6 +201,13 @@ export function EditorCanvas({
 		}
 	};
 	const onTouchMoveCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
+		// RC-MAP-3.9 — the fog brush's own gesture lives entirely inside MapCanvas (its pointer capture
+		// owns the drag), so this overlay never sees a move while armed. But the CAPTURE phase still
+		// fires on every ancestor regardless of who ends up handling the event, mouse or touch alike —
+		// so it is the only place left to read a live cursor position for the size-preview ring.
+		if (tool === 'fog' && options.fogShape === 'stroke') {
+			setHoverPt(toMap(event.clientX, event.clientY));
+		}
 		if (event.pointerType !== 'touch') return;
 		if (touchPointers.current.has(event.pointerId)) {
 			touchPointers.current.set(event.pointerId, localTouchPoint(event.clientX, event.clientY));
@@ -885,6 +894,7 @@ export function EditorCanvas({
 				onSelectToken={handleSelectToken}
 				onPlace={handlePlace}
 				onFogRegion={handleFog}
+				onPolygonVertexCount={setPolyVertexCount}
 				onMovePoi={handleMovePoi}
 				onMoveToken={handleMoveToken}
 				onPan={editor.setCenter}
@@ -989,24 +999,28 @@ export function EditorCanvas({
 				)}
 			</svg>
 
-			{/* brush cursor ring */}
-			{(tool === 'brush' || tool === 'erase') && hoverPt && (
-				<div style={{ ...scaledStyle, zIndex: 3 }}>
-					<div
-						style={{
-							position: 'absolute',
-							left: `${hoverPt.x * 100}%`,
-							top: `${hoverPt.y * 100}%`,
-							width: `${(options.brushSize / 1000) * 200}%`,
-							height: `${(options.brushSize / 1000) * 200}%`,
-							transform: 'translate(-50%,-50%)',
-							borderRadius: '50%',
-							border: `1px solid var(--color-accent)`,
-							background: 'color-mix(in oklab, var(--color-accent) 10%, transparent)',
-						}}
-					/>
-				</div>
-			)}
+			{/* brush cursor ring — also armed for the fog tool's brush sub-tool (RC-MAP-3.9), where it
+			    reads the identical radius MapCanvas paints the drag preview at (`fogBrushRadius` below). */}
+			{(tool === 'brush' ||
+				tool === 'erase' ||
+				(tool === 'fog' && options.fogShape === 'stroke')) &&
+				hoverPt && (
+					<div style={{ ...scaledStyle, zIndex: 3 }}>
+						<div
+							style={{
+								position: 'absolute',
+								left: `${hoverPt.x * 100}%`,
+								top: `${hoverPt.y * 100}%`,
+								width: `${(options.brushSize / 1000) * 200}%`,
+								height: `${(options.brushSize / 1000) * 200}%`,
+								transform: 'translate(-50%,-50%)',
+								borderRadius: '50%',
+								border: `1px solid var(--color-accent)`,
+								background: 'color-mix(in oklab, var(--color-accent) 10%, transparent)',
+							}}
+						/>
+					</div>
+				)}
 
 			{/* interaction overlay for the drawing tools */}
 			{isDrawing && tool !== 'generate' && (
@@ -1055,6 +1069,7 @@ export function EditorCanvas({
 				center={center}
 				measureText={measureText}
 				showPathHint={PATH_TOOLS.has(tool)}
+				polygonVertexCount={tool === 'fog' && options.fogShape === 'polygon' ? polyVertexCount : 0}
 				scaledStyle={scaledStyle}
 				contextMenu={contextMenu}
 				onCloseContextMenu={() => setContextMenu(null)}

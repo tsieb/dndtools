@@ -167,20 +167,33 @@ export function MapSvgLayers({
 			)}
 			{polyPoints.length > 0 && (
 				<g>
-					<polyline
-						points={polyPoints.map((p) => `${p.x * 100},${p.y * 100}`).join(' ')}
-						fill={
-							polyPoints.length >= 3
-								? fogMode === 'reveal'
+					{/* RC-MAP-3.9 — once there are enough vertices for Enter to close the shape (`polyline`
+					    never draws the segment back to the first point), the outline switches to `polygon`,
+					    which auto-closes it — so the dashed line to where the click would land is visible
+					    before the click, not just the fill that appears after. */}
+					{polyPoints.length >= 3 ? (
+						<polygon
+							points={polyPoints.map((p) => `${p.x * 100},${p.y * 100}`).join(' ')}
+							fill={
+								fogMode === 'reveal'
 									? 'color-mix(in oklab, var(--color-accent) 14%, transparent)'
 									: 'color-mix(in oklab, var(--map-fog-fill) 35%, transparent)'
-								: 'none'
-						}
-						stroke={fogMode === 'reveal' ? 'var(--color-accent)' : 'var(--map-fog-fill)'}
-						strokeWidth={1.4}
-						strokeDasharray="4 3"
-						vectorEffect="non-scaling-stroke"
-					/>
+							}
+							stroke={fogMode === 'reveal' ? 'var(--color-accent)' : 'var(--map-fog-fill)'}
+							strokeWidth={1.4}
+							strokeDasharray="4 3"
+							vectorEffect="non-scaling-stroke"
+						/>
+					) : (
+						<polyline
+							points={polyPoints.map((p) => `${p.x * 100},${p.y * 100}`).join(' ')}
+							fill="none"
+							stroke={fogMode === 'reveal' ? 'var(--color-accent)' : 'var(--map-fog-fill)'}
+							strokeWidth={1.4}
+							strokeDasharray="4 3"
+							vectorEffect="non-scaling-stroke"
+						/>
+					)}
 					{polyPoints.map((p, i) => (
 						<circle
 							key={i}

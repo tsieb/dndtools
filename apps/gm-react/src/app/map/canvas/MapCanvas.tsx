@@ -77,6 +77,8 @@ export interface MapCanvasProps {
 	onPlace?: (position: Point) => void;
 	/** A completed fog gesture (rect drag, closed polygon, or brush sweep) → the shaped region. */
 	onFogRegion?: (region: MapFogRegion) => void;
+	/** Live vertex count of the in-progress fog polygon (0 when none is being drawn). */
+	onPolygonVertexCount?: (count: number) => void;
 	onMovePoi?: (poiId: string, position: Point) => void;
 	onMoveToken?: (tokenId: string, position: Point) => void;
 	onPan?: (center: Point) => void;
@@ -111,6 +113,7 @@ export function MapCanvas({
 	onSelectToken,
 	onPlace,
 	onFogRegion,
+	onPolygonVertexCount,
 	onMovePoi,
 	onMoveToken,
 	onPan,
@@ -148,6 +151,14 @@ export function MapCanvas({
 	useEffect(() => {
 		setPolyPoints([]);
 	}, [tool, fogShape, fogMode]);
+
+	// RC-MAP-3.9 — the vertex count is the one piece of the in-progress polygon a DM cannot see by
+	// eye once vertices overlap at this zoom, so the editor's status readout needs it live. The
+	// polygon itself stays MapCanvas's own state (the gesture is player-view-safe geometry, same as
+	// every other fog draw); this only mirrors its length outward.
+	useEffect(() => {
+		onPolygonVertexCount?.(polyPoints.length);
+	}, [polyPoints, onPolygonVertexCount]);
 
 	// Polygon keyboard contract while vertices exist: Enter closes (≥3 vertices), Escape cancels.
 	// Registered in the CAPTURE phase so the builder overlay's own document-level Escape handler

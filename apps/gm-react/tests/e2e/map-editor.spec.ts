@@ -1586,3 +1586,85 @@ test.describe('map editor: POI keyboard navigation (RC-MAP-4.2)', () => {
 	});
 });
 
+// RC-MAP-3.9 — fog brush ergonomics and polygon lasso polish: the brush's size is now visible on
+// the canvas before the first drag, and a fog session's dozens of hand-drawn ops have an honest,
+// confirmed way back to a blank slate.
+test.describe('map editor: fog brush ergonomics and polygon lasso (RC-MAP-3.9)', () => {
+	test('the fog brush shows a live size-preview ring that follows the pointer', async ({ page }) => {
+		await openAtlas(page);
+		const name = `Fog Ring Map ${Date.now()}`;
+		await createMap(page, { name });
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		const canvas = page.getByRole('application');
+		const hasRing = () =>
+			canvas.evaluate((el) =>
+				[...el.querySelectorAll('div')].some((node) => getComputedStyle(node).borderRadius === '50%'),
+			);
+
+		// Rect is the fog tool's default shape and has no brush radius, so no ring is drawn for it.
+		await page.keyboard.press('f');
+		await expectActiveTool(page, 'Fog');
+		const box = (await canvas.boundingBox())!;
+		await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.4);
+		expect(await hasRing()).toBe(false);
+
+		// Arming the Brush sub-tool and moving the pointer over the canvas — with no click, no
+		// drag — is enough: the ring reads the hover position MapCanvas otherwise never surfaces
+		// while its own gesture (not this overlay's) owns the fog tool's pointer capture.
+		await page.getByRole('radio', { name: 'Brush', exact: true }).click();
+		await page.mouse.move(box.x + box.width * 0.45, box.y + box.height * 0.45);
+		await expect.poll(hasRing).toBe(true);
+	});
+
+	test('"Clear all fog" asks for confirmation, then removes every fog op on the map', async ({
+		page,
+	}) => {
+		await openAtlas(page);
+		const name = `Fog Clear Map ${Date.now()}`;
+		const stamp = Date.now();
+		const fogLayerId = `fog-layer-${stamp}`;
+		const mapId = await createMap(page, { name });
+		expect(
+			(
+				await dispatch(page, {
+					type: 'map.create-layer',
+					actorId: DM,
+					payload: { mapId, id: fogLayerId, name: 'Fog', category: 'fog', visibility: 'dm-only' },
+				})
+			).status,
+		).toBe('accepted');
+		for (let i = 0; i < 2; i += 1) {
+			expect(
+				(
+					await dispatch(page, {
+						type: 'map.append-fog',
+						actorId: DM,
+						payload: {
+							mapId,
+							id: `fog-op-${stamp}-${i}`,
+							layerId: fogLayerId,
+							kind: 'reveal',
+							region: { shape: 'rect', x: 0.1 * i, y: 0.1, w: 0.15, h: 0.15 },
+						},
+					})
+				).status,
+			).toBe('accepted');
+		}
+
+		await openEditor(page, name);
+		await focusEditor(page);
+		await page.keyboard.press('f');
+		await expectActiveTool(page, 'Fog');
+
+		await page.getByRole('button', { name: 'Clear all fog' }).click();
+		await expect(
+			page.getByRole('dialog', { name: 'Clear all fog on this map?' }),
+		).toBeVisible();
+		await page.getByRole('button', { name: 'Clear all fog', exact: true }).last().click();
+
+		await expect(page.getByText('Fog cleared.')).toHaveCount(1);
+		await expect(page.getByRole('dialog', { name: 'Clear all fog on this map?' })).toHaveCount(0);
+	});
+});

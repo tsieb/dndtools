@@ -942,7 +942,7 @@ export function MapEditor({
 				</>
 			) : isPhone ? (
 				<>
-					<ToolOptionsBar editor={editor} />
+					<ToolOptionsBar editor={editor} announce={announce} />
 					<div style={{ flex: 1, minHeight: 0, position: 'relative' }}>{well(false)}</div>
 					<div
 						style={{
@@ -1008,7 +1008,7 @@ export function MapEditor({
 						<ToolRail activeTool={editor.tool} onSelect={editor.setTool} />
 					</div>
 					<div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-						<ToolOptionsBar editor={editor} />
+						<ToolOptionsBar editor={editor} announce={announce} />
 						<div style={{ flex: 1, minHeight: 0, position: 'relative' }}>{well(false)}</div>
 					</div>
 					<div

@@ -21,6 +21,7 @@ export function EditorCanvasHud({
 	center,
 	measureText,
 	showPathHint,
+	polygonVertexCount,
 	scaledStyle,
 	contextMenu,
 	onCloseContextMenu,
@@ -31,6 +32,8 @@ export function EditorCanvasHud({
 	center: Pt;
 	measureText: string | null;
 	showPathHint: boolean;
+	/** RC-MAP-3.9 — vertex count of the in-progress fog polygon; 0 hides the readout. */
+	polygonVertexCount: number;
 	scaledStyle: CSSProperties;
 	contextMenu: { touch: boolean; anchorPx: Pt; mapPt: Pt } | null;
 	onCloseContextMenu: () => void;
@@ -139,6 +142,25 @@ export function EditorCanvasHud({
 					}}
 				>
 					{editor.t('mapEditor.polygonHint')}
+				</div>
+			)}
+			{polygonVertexCount > 0 && (
+				<div
+					style={{
+						position: 'absolute',
+						left: 14,
+						bottom: 16,
+						zIndex: 6,
+						padding: '5px 11px',
+						borderRadius: 8,
+						background: 'color-mix(in oklab, var(--map-canvas-bg) 82%, transparent)',
+						border: `1px solid ${T.bd}`,
+						font: `11.5px ${T.sans}`,
+						color: T.sub,
+					}}
+				>
+					{editor.t('mapEditor.polygonVertexCount', { count: polygonVertexCount })}
+					{polygonVertexCount >= 3 ? ` · ${editor.t('mapEditor.polygonHint')}` : ''}
 				</div>
 			)}
 

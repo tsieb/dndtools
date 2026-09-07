@@ -3844,6 +3844,7 @@ export const en = {
 	'mapEditor.redo': 'Redo',
 	'mapEditor.panels': 'Panels',
 	'mapEditor.polygonHint': 'Click to add points · Enter or double-click finishes · Esc cancels',
+	'mapEditor.polygonVertexCount': '{count, plural, one {# point} other {# points}}',
 	'mapEditor.imageMissing': 'This map’s image isn’t on this device — showing shapes only',
 	'mapEditor.layerName': 'Layer: {name}',
 	// RC-MAP-3.7 — the status bar's travel readout for the selected route. The unit is the DM's own
@@ -4668,6 +4669,11 @@ export const en = {
 	'toolOptions.fogShape.polygon': 'Polygon',
 	'toolOptions.fogShape.stroke': 'Brush',
 	'toolOptions.feather': 'Feather',
+	'toolOptions.clearFog': 'Clear all fog',
+	'toolOptions.clearFogConfirmTitle': 'Clear all fog on this map?',
+	'toolOptions.clearFogConfirmBody':
+		'Every revealed and concealed area is removed. Players see the whole map until you fog it again.',
+	'toolOptions.fogCleared': 'Fog cleared.',
 	'toolOptions.label': 'Label',
 	'toolOptions.labelPlaceholder': 'Type the label, then click the map',
 	'toolOptions.labelText': 'Label text',
