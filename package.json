@@ -24,7 +24,7 @@
 		"test:cloud": "vitest run --config vitest.cloud.config.ts",
 		"test:app": "vitest run --config vitest.app.config.ts",
 		"test:critical": "pnpm --filter @dndtools/core test",
-		"test:coverage:core": "pnpm --filter @dndtools/core exec vitest run --coverage",
+		"test:coverage:core": "DNDTOOLS_COVERAGE=1 pnpm --filter @dndtools/core exec vitest run --coverage",
 		"test:smoke": "pnpm lint:boundary && pnpm typecheck && pnpm --filter @dndtools/core test:smoke",
 		"e2e": "pnpm --filter @dndtools/gm-react e2e",
 		"lint": "eslint . --cache --cache-strategy content --cache-location node_modules/.cache/eslint/ && pnpm lint:boundary && pnpm a11y:contrast",
