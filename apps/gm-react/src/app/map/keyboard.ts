@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { MapEditorApi } from './useMapEditor';
 import { SHORTCUT_TO_TOOL, type ToolId } from './tools';
 import { bulkResultMessage } from './mapVocab';
@@ -8,8 +8,56 @@ import { bulkResultMessage } from './mapVocab';
  * `[`/`]` brush size, Ctrl/Cmd+Z undo · Ctrl/Cmd+Shift+Z redo, `+`/`−`/`0` zoom, Delete, Esc
  * (cancel → deselect → exit tool → close), `?` shortcut overlay, and Cmd/Ctrl+K for the command
  * palette. Arrow keys NUDGE the selected POI/token — the WCAG 2.5.7 non-drag alternative to dragging a
- * marker. Everything is ignored while a text field is focused, so typing a label never fires a tool.
+ * marker — or, with nothing selected, jump to the nearest POI in that cardinal direction (RC-MAP-4.2).
+ * Everything is ignored while a text field is focused, so typing a label never fires a tool.
  */
+
+export type CardinalDirection = 'up' | 'down' | 'left' | 'right';
+
+const ARROW_KEY_DIRECTION: Record<string, CardinalDirection> = {
+	ArrowUp: 'up',
+	ArrowDown: 'down',
+	ArrowLeft: 'left',
+	ArrowRight: 'right',
+};
+
+const DIRECTION_VECTOR: Record<CardinalDirection, { x: number; y: number }> = {
+	up: { x: 0, y: -1 },
+	down: { x: 0, y: 1 },
+	left: { x: -1, y: 0 },
+	right: { x: 1, y: 0 },
+};
+
+/**
+ * RC-MAP-4.2 — the nearest POI strictly ahead of `from` in `direction`. Distance along the axis and
+ * drift off it both count, but drift counts double: a POI two steps north beats one one step away
+ * but forty-five degrees off, the same "nearest in this direction" heuristic CSS spatial navigation
+ * and game-pad focus movement use. A POI behind `from` on that axis (`along <= 0`, which also excludes
+ * one sitting exactly on `from`) is never a candidate, so pressing the same key twice never oscillates
+ * between two POIs a hair's-breadth apart.
+ */
+export function nearestPoiInDirection<T extends { position: { x: number; y: number } }>(
+	pois: readonly T[],
+	from: { x: number; y: number },
+	direction: CardinalDirection,
+): T | null {
+	const dir = DIRECTION_VECTOR[direction];
+	let best: T | null = null;
+	let bestScore = Infinity;
+	for (const poi of pois) {
+		const dx = poi.position.x - from.x;
+		const dy = poi.position.y - from.y;
+		const along = dx * dir.x + dy * dir.y;
+		if (along <= 0) continue;
+		const across = Math.abs(dx * dir.y - dy * dir.x);
+		const score = along + across * 2;
+		if (score < bestScore) {
+			bestScore = score;
+			best = poi;
+		}
+	}
+	return best;
+}
 export function useMapKeyboard(
 	editor: MapEditorApi,
 	handlers: {
@@ -30,6 +78,9 @@ export function useMapKeyboard(
 	},
 ) {
 	const suspended = handlers.suspended ?? false;
+	// RC-MAP-4.2 — where the last cardinal jump landed, so pressing Escape then an arrow again
+	// continues browsing from there instead of snapping back to the viewport centre every time.
+	const lastPoiOriginRef = useRef<{ x: number; y: number } | null>(null);
 	useEffect(() => {
 		if (suspended) return;
 		const onKey = (e: KeyboardEvent) => {
@@ -130,6 +181,24 @@ export function useMapKeyboard(
 				if (dx === 0 && dy === 0) return;
 				nudge(editor, dx, dy);
 				e.preventDefault();
+				return;
+			}
+
+			// RC-MAP-4.2 — nothing selected: arrows browse the map's POIs instead of doing nothing,
+			// jumping to the nearest one in that direction from wherever the last jump landed.
+			if (e.key.startsWith('Arrow') && editor.selection.length === 0) {
+				const direction = ARROW_KEY_DIRECTION[e.key];
+				const pois = editor.map?.pois ?? [];
+				if (direction && pois.length > 0) {
+					const from = lastPoiOriginRef.current ?? editor.center;
+					const target = nearestPoiInDirection(pois, from, direction);
+					if (target) {
+						e.preventDefault();
+						lastPoiOriginRef.current = target.position;
+						editor.setSelection([target.id]);
+						handlers.announce(`Selected “${target.label}”.`);
+					}
+				}
 				return;
 			}
 

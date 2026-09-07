@@ -1499,3 +1499,90 @@ test.describe('map editor: list view', () => {
 		expect(blocking, `List view axe violations:\n${blocking.join('\n')}`).toEqual([]);
 	});
 });
+
+// RC-MAP-4.2 — with nothing selected, arrow keys used to do nothing at all: no way to reach a POI
+// without a mouse unless it happened to already be selected. Now they jump to the nearest one in
+// that cardinal direction, chaining from wherever the last jump landed.
+test.describe('map editor: POI keyboard navigation (RC-MAP-4.2)', () => {
+	test('with nothing selected, an arrow key selects the nearest POI in that direction', async ({
+		page,
+	}) => {
+		await openAtlas(page);
+		const name = `Cardinal Nav Map ${Date.now()}`;
+		const mapId = await createMap(page, { name });
+		const baseLayerId = (await readMap(page, mapId))!.layers[0]!.id;
+		const stamp = Date.now();
+		const north = `North Tower ${stamp}`;
+		const south = `South Gate ${stamp}`;
+		for (const [id, label, position] of [
+			['poi-north', north, { x: 0.5, y: 0.2 }],
+			['poi-south', south, { x: 0.5, y: 0.8 }],
+		] as const) {
+			expect(
+				(
+					await dispatch(page, {
+						type: 'map.create-poi',
+						actorId: DM,
+						payload: {
+							mapId,
+							id: `${id}-${stamp}`,
+							layerId: baseLayerId,
+							label,
+							category: 'other',
+							position,
+							visibility: 'dm-only',
+						},
+					})
+				).status,
+			).toBe('accepted');
+		}
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		// Nothing is selected on open — ArrowUp jumps to the POI to the north, not the south one.
+		await page.keyboard.press('ArrowUp');
+		await expect(page.getByText(`Selected “${north}”.`)).toHaveCount(1);
+
+		// The durable selection really changed, not just the announcement: selecting a POI opens
+		// its popover (the same one a mouse click on the marker opens), named after the POI itself.
+		await expect(page.getByRole('dialog', { name: north })).toBeVisible();
+	});
+
+	test('picks the other POI when the direction points the other way', async ({ page }) => {
+		await openAtlas(page);
+		const name = `Cardinal Nav Map 2 ${Date.now()}`;
+		const mapId = await createMap(page, { name });
+		const baseLayerId = (await readMap(page, mapId))!.layers[0]!.id;
+		const stamp = Date.now();
+		const east = `Eastern Watch ${stamp}`;
+		const west = `Western Shrine ${stamp}`;
+		for (const [id, label, position] of [
+			['poi-east', east, { x: 0.8, y: 0.5 }],
+			['poi-west', west, { x: 0.2, y: 0.5 }],
+		] as const) {
+			expect(
+				(
+					await dispatch(page, {
+						type: 'map.create-poi',
+						actorId: DM,
+						payload: {
+							mapId,
+							id: `${id}-${stamp}`,
+							layerId: baseLayerId,
+							label,
+							category: 'other',
+							position,
+							visibility: 'dm-only',
+						},
+					})
+				).status,
+			).toBe('accepted');
+		}
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		await page.keyboard.press('ArrowLeft');
+		await expect(page.getByText(`Selected “${west}”.`)).toHaveCount(1);
+	});
+});
+
