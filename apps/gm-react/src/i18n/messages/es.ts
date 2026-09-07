@@ -5160,4 +5160,18 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'character.resources.pipClear': '{name} paso {index} libre',
 	'character.resources.spendOne': 'Gastar un {name}',
 	'character.resources.recoverOne': 'Recuperar un {name}',
+	// RC-KNW-1.1 — el renderizador de markdown compartido.
+	'markdown.empty': 'Aún no hay nada escrito aquí.',
+	'markdown.brokenLink': 'Este enlace no apunta a una nota que puedas abrir',
+	'markdown.opensExternally': 'Se abre en una pestaña nueva',
+	'markdown.tableLabel': 'Tabla',
+	'markdown.imageUnavailable': 'Imagen no disponible',
+	'markdown.calloutLore': 'Trasfondo',
+	'markdown.calloutWarning': 'Advertencia',
+	'markdown.calloutTip': 'Consejo',
+	'markdown.calloutSecret': 'Secreto',
+	'markdown.dmOnly': 'Solo DM',
+	'markdown.showSecret': 'Mostrar',
+	'markdown.hideSecret': 'Ocultar',
+	'markdown.secretWithheld': 'Parte de esta nota es solo para el DM.',
 };

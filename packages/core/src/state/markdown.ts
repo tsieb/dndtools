@@ -299,3 +299,120 @@ export function serializeMarkdownNote(
 	if (body === '') return frontmatter;
 	return `${frontmatter}\n${body}${body.endsWith('\n') ? '' : '\n'}`;
 }
+
+/* ------------------------------------------------------------------------------------------------
+ * KNW-1.1 — CALLOUTS. `> [!Lore]`, `> [!Warning]`, `> [!Tip]`, `> [!Secret]` blockquote callouts, in
+ * the Obsidian syntax the vaults are already authored in. Parsed HERE, in the core, for one reason:
+ * a `[!Secret]` callout is DM-only prose sitting inside an otherwise player-visible note, and the
+ * core — never CSS, never the GUI — is what decides a player never receives it. The GUI renderer
+ * consumes the same functions so the DM's blurred-secret affordance and the player's projection can
+ * never disagree about where a callout starts and ends. Pure: no clock, no locale, no ambient state.
+ * ---------------------------------------------------------------------------------------------- */
+
+/** The callout flavours the renderer styles. Anything else degrades to a plain blockquote. */
+export const CALLOUT_KINDS = ['lore', 'warning', 'tip', 'secret'] as const;
+
+/** One recognized callout flavour. `secret` is DM-only and stripped from player projections. */
+export type CalloutKind = (typeof CALLOUT_KINDS)[number];
+
+/** The `> [!Kind] Title` marker that opens a callout block. */
+export interface CalloutMarker {
+	kind: CalloutKind;
+	/** The optional title after the marker, as authored. Empty when the author gave none. */
+	title: string;
+}
+
+/** One parsed callout block, with the exact line span it occupies in the body. */
+export interface CalloutBlock extends CalloutMarker {
+	/** The callout's own content, with the `> ` quote markers removed, in document order. */
+	body: string;
+	/** Zero-based index of the `> [!Kind]` line. */
+	startLine: number;
+	/** Zero-based index of the LAST line belonging to the block (inclusive). */
+	endLine: number;
+}
+
+// `> [!Kind]`, optionally `> [!Kind]+`/`-` (Obsidian's fold hint), optionally followed by a title.
+const CALLOUT_MARKER_PATTERN = /^>\s*\[!([A-Za-z]+)\][+-]?\s*(.*)$/;
+
+function asCalloutKind(raw: string): CalloutKind | null {
+	const lowered = raw.toLowerCase();
+	return (CALLOUT_KINDS as readonly string[]).includes(lowered) ? (lowered as CalloutKind) : null;
+}
+
+/**
+ * Recognize a callout OPENING line. Returns `null` for a plain `> quote` line or an unknown flavour,
+ * so an unrecognized `[!Todo]` degrades to an ordinary blockquote rather than silently vanishing.
+ * Case-insensitive: `[!secret]` and `[!Secret]` are the same callout.
+ */
+export function parseCalloutMarker(line: string): CalloutMarker | null {
+	const match = CALLOUT_MARKER_PATTERN.exec(line.trimEnd());
+	if (!match) return null;
+	const kind = asCalloutKind(match[1]!);
+	if (kind === null) return null;
+	return { kind, title: match[2]!.trim() };
+}
+
+/** Strip the leading `>` quote marker (and one following space) from a callout continuation line. */
+function stripQuoteMarker(line: string): string {
+	return line.replace(/^>\s?/, '');
+}
+
+/**
+ * Extract every recognized callout block from a note body, in document order. A block runs from its
+ * `> [!Kind]` line through the last CONSECUTIVE `>`-prefixed line; the first non-quote line ends it.
+ * Fenced code blocks are skipped so a callout written inside a ``` fence is quoted example text, not
+ * a real callout. Pure and total — never throws, whatever the input.
+ */
+export function extractCallouts(body: string): CalloutBlock[] {
+	const lines = body.split(/\r?\n/);
+	const blocks: CalloutBlock[] = [];
+	let inFence = false;
+	for (let i = 0; i < lines.length; i += 1) {
+		const line = lines[i]!;
+		if (/^\s*(```|~~~)/.test(line)) {
+			inFence = !inFence;
+			continue;
+		}
+		if (inFence) continue;
+		const marker = parseCalloutMarker(line);
+		if (!marker) continue;
+		const content: string[] = [];
+		let end = i;
+		for (let j = i + 1; j < lines.length; j += 1) {
+			if (!/^>/.test(lines[j]!)) break;
+			content.push(stripQuoteMarker(lines[j]!));
+			end = j;
+		}
+		blocks.push({ ...marker, body: content.join('\n'), startLine: i, endLine: end });
+		i = end;
+	}
+	return blocks;
+}
+
+/**
+ * Remove every `[!Secret]` callout block from a note body — marker line, title and all continuation
+ * lines. This is the function the actor-scoped content projections call for a NON-DM actor, so a
+ * player's copy of an otherwise player-visible note never carries the DM's secret prose in any form:
+ * not hidden behind a blur, not present-but-unstyled, simply absent from the bytes the player holds.
+ *
+ * Other callout flavours are left untouched. Collapses the blank-line run a removed block leaves
+ * behind so the remaining prose has no tell-tale gap where the secret used to be. Pure.
+ */
+export function stripSecretCallouts(body: string): string {
+	const secrets = extractCallouts(body).filter((block) => block.kind === 'secret');
+	if (secrets.length === 0) return body;
+	const removed = new Set<number>();
+	for (const block of secrets) {
+		for (let i = block.startLine; i <= block.endLine; i += 1) removed.add(i);
+	}
+	const kept = body
+		.split(/\r?\n/)
+		.filter((_line, index) => !removed.has(index))
+		.join('\n');
+	// A removed block between two paragraphs leaves `\n\n\n`; normalize so the gap is not a tell.
+	return kept
+		.replace(/\n{3,}/g, '\n\n')
+		.replace(/^\n+/, '')
+		.replace(/\s+$/, '');
+}

@@ -1,20 +1,19 @@
 import { hasDmAuthority } from '../state/permission-state';
 import type { Actor, PermissionState } from '../state/permission-state';
 import type { ContentItem, TimelineReference, VaultContentState } from '../state/content';
-import { CONTENT_ITEM_ENTITY_TYPE, contentItemVisibilityMetadata, isLiveContentItem } from '../state/content';
-import type {
-	CalendarDateFormat,
-	CalendarDefinition,
-	CustomDate,
-} from '../state/calendar';
 import {
-	absoluteDayIndex,
-	compareCustomDates,
-	formatCustomDate,
-} from '../state/calendar';
+	CONTENT_ITEM_ENTITY_TYPE,
+	contentItemVisibilityMetadata,
+	isLiveContentItem,
+} from '../state/content';
+import type { CalendarDateFormat, CalendarDefinition, CustomDate } from '../state/calendar';
+import { absoluteDayIndex, compareCustomDates, formatCustomDate } from '../state/calendar';
 import { hasGrantedCapability } from '../permissions/grants';
 import { filterEntityForActor } from '../permissions/visibility-filter';
 import { auditAccessAttempt, type AccessDenialAuditRecord } from '../permissions/access-audit';
+// RC-KNW-1.1 — `[!Secret]` callouts are DM-only prose inside an otherwise visible note body. The
+// core removes them from every non-DM projection so a player never holds the bytes at all.
+import { stripSecretCallouts } from '../state/markdown';
 
 /**
  * CONTENT-011 — THE single actor-filtered CONTENT read model. The data layer decides per-item
@@ -83,7 +82,8 @@ function itemVisibleToActor(
 	if (!isLiveContentItem(item)) return false;
 	if (hasDmAuthority(actor.role)) return true;
 	if (item.visibility === 'dm-only') return false;
-	if (item.visibility === 'player-visible') return actor.role === 'player' || actor.role === 'observer';
+	if (item.visibility === 'player-visible')
+		return actor.role === 'player' || actor.role === 'observer';
 	// `shared`: delivered only through an explicit channel — `sharedWith` membership OR a viewer grant
 	// on the content-item entity (mirrors the PERM visibility filter's `shared` rule).
 	if (item.sharedWith.includes(actor.id)) return true;
@@ -99,7 +99,12 @@ function formatDate(
 	const calendar: CalendarDefinition | undefined = content.calendars[date.calendarId];
 	if (!calendar) {
 		// A date whose calendar is unknown renders a stable sentinel rather than guessing Gregorian.
-		return { value: date, isoLike: 'Unknown calendar', display: 'Unknown calendar', absoluteDayIndex: null };
+		return {
+			value: date,
+			isoLike: 'Unknown calendar',
+			display: 'Unknown calendar',
+			absoluteDayIndex: null,
+		};
 	}
 	return {
 		value: date,
@@ -109,11 +114,22 @@ function formatDate(
 	};
 }
 
+/**
+ * RC-KNW-1.1 — the body an actor is allowed to hold. The DM gets the authored body; everyone else
+ * gets it with every `[!Secret]` callout REMOVED. This is deliberately not a GUI concern: a blur or a
+ * `display:none` still ships the secret to the player's machine, where the DOM, a copy-paste, an
+ * export or a devtools glance recovers it. Fail closed — an unknown role is treated as non-DM.
+ */
+function bodyForActor(body: string, isDm: boolean): string {
+	return isDm ? body : stripSecretCallouts(body);
+}
+
 function projectItem(
 	content: VaultContentState,
 	item: ContentItem,
 	format: CalendarDateFormat,
 	visibleIds: ReadonlySet<string>,
+	isDm: boolean,
 ): ContentItemView {
 	const dateFields: Record<string, FormattedDateView> = {};
 	for (const [name, date] of Object.entries(item.dateFields)) {
@@ -131,7 +147,7 @@ function projectItem(
 		id: item.id,
 		kind: item.kind,
 		title: item.title,
-		body: item.body,
+		body: bodyForActor(item.body, isDm),
 		fields: { ...item.fields },
 		dateFields,
 		timelineRefs,
@@ -159,7 +175,8 @@ export function getContentItemsForActor(
 		.filter((item) => itemVisibleToActor(item, actor, permissions))
 		.sort((a, b) => a.id.localeCompare(b.id));
 	const visibleIds = new Set(visible.map((item) => item.id));
-	return visible.map((item) => projectItem(content, item, format, visibleIds));
+	const isDm = hasDmAuthority(actor.role);
+	return visible.map((item) => projectItem(content, item, format, visibleIds, isDm));
 }
 
 /** A single dated-event row for a calendar/timeline view, derived from a visible item's earliest date. */
@@ -247,7 +264,11 @@ export function getDeletedContentItemsForActor(
 	if (!actor || !hasDmAuthority(actor.role)) return [];
 	return Object.values(content.items)
 		.filter((item): item is ContentItem & { deletedAt: string } => item.deletedAt !== null)
-		.sort((a, b) => (a.deletedAt === b.deletedAt ? a.id.localeCompare(b.id) : a.deletedAt.localeCompare(b.deletedAt)))
+		.sort((a, b) =>
+			a.deletedAt === b.deletedAt
+				? a.id.localeCompare(b.id)
+				: a.deletedAt.localeCompare(b.deletedAt),
+		)
 		.map((item) => ({
 			id: item.id,
 			kind: item.kind,
@@ -315,7 +336,13 @@ export function getContentItemDetailForActor(
 	actorId: string,
 	itemId: string,
 	declaredSectionIds: string[] = [],
-): ContentItemDetailView | { visible: false; reason: 'not-found' | 'hidden'; accessDenialAudit?: AccessDenialAuditRecord } {
+):
+	| ContentItemDetailView
+	| {
+			visible: false;
+			reason: 'not-found' | 'hidden';
+			accessDenialAudit?: AccessDenialAuditRecord;
+	  } {
 	const actor = permissions.actors[actorId];
 	if (!actor) return { visible: false, reason: 'hidden' };
 	const item = content.items[itemId];
@@ -367,7 +394,7 @@ export function getContentItemDetailForActor(
 		id: item.id,
 		kind: item.kind,
 		title: item.title,
-		body: item.body,
+		body: bodyForActor(item.body, hasDmAuthority(actor.role)),
 		visibility: item.visibility,
 		visible: true,
 		visibleSectionIds: filtered.visibleSectionIds,
@@ -375,8 +402,9 @@ export function getContentItemDetailForActor(
 		// The DM sees no redaction (the filter returns everything); a non-DM sees the redacted keys for
 		// authoring affordances ONLY when it is the DM — for a non-DM these stay empty so nothing leaks.
 		redactedSectionIds: hasDmAuthority(actor.role) ? filtered.redactedSectionIds : [],
-		redactedFieldKeys:
-			hasDmAuthority(actor.role) ? filtered.redactedFieldPaths.map(fieldKeyFromPath) : [],
+		redactedFieldKeys: hasDmAuthority(actor.role)
+			? filtered.redactedFieldPaths.map(fieldKeyFromPath)
+			: [],
 		revision: item.revision,
 	};
 }

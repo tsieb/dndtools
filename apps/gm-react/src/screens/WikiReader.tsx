@@ -4,6 +4,8 @@ import { Button, Icon, Input } from '../ds';
 import { AppApiError, getPublicWiki, type PublicWiki, type WikiPage } from '../cloud/appApi';
 import { useViewport } from '../app/useViewport';
 import { useI18n } from '../i18n';
+import { renderMarkdown } from '../app/markdown/render';
+import { parseWikilinkToken } from '../app/markdown/plugins';
 
 /**
  * WikiReader — the PUBLIC, account-less reader for a published campaign wiki
@@ -12,8 +14,9 @@ import { useI18n } from '../i18n';
  * the UNAUTHENTICATED app-api read route (no account needed, matching the server contract); a
  * password-protected wiki prompts once and re-fetches with the password header.
  *
- * XSS STANCE: hosted markdown is rendered to React NODES (`mdToNodes`), never via innerHTML /
- * dangerouslySetInnerHTML — the same approach Knowledge uses. Markdown text becomes React text
+ * XSS STANCE: hosted markdown is rendered by the app's ONE sanitized pipeline
+ * (`app/markdown/render.tsx`) to React NODES, never via innerHTML / dangerouslySetInnerHTML.
+ * Markdown text becomes React text
  * children, which React escapes, so a malicious page author cannot script a reader. The server also
  * validates content to strict text-only shapes on publish (defense in depth).
  *
@@ -59,199 +62,13 @@ const CARD: CSSProperties = {
 };
 
 /**
- * Split `[[Target#Section|Label]]` into its parts. Obsidian's own syntax, which is what the DM
- * authored the vault in; the section anchor is not addressable in the reader yet, so it only ever
- * affects the label we fall back to.
+ * Split `[[Target#Section|Label]]` into its parts. RC-KNW-1.1 folded this into the shared markdown
+ * pipeline's tokenizer, so the reader and the DM's vault can no longer disagree about what a link
+ * says; this re-export keeps the reader's own name for it (and its test).
  */
 export function parseWikilink(raw: string): { target: string; label: string } {
-	const inner = raw.slice(2, -2);
-	const [addr, alias] = inner.split('|');
-	const target = (addr ?? '').split('#')[0]?.trim() ?? '';
-	const label = (alias ?? inner).trim();
-	return { target, label: label || target };
-}
-
-/**
- * Inline emphasis: **bold** and [[wikilink]] rendered as React nodes (text, never HTML).
- *
- * `resolve` turns a wikilink target into a navigation callback. A link that resolves becomes a real
- * button (keyboard-reachable, announced as a link); one that does not stays plain text with a
- * tooltip saying so, instead of the old accent-coloured span that LOOKED clickable and was inert.
- */
-function boldify(s: string, resolve?: (target: string) => (() => void) | null): ReactNode {
-	const parts = s.split(/(\*\*[^*]+\*\*|\[\[[^\]]+\]\])/g);
-	return parts.map((p, i) => {
-		if (p.startsWith('**'))
-			return (
-				<strong key={i} style={{ color: 'var(--color-text-primary)' }}>
-					{p.slice(2, -2)}
-				</strong>
-			);
-		if (p.startsWith('[[')) {
-			const { target, label } = parseWikilink(p);
-			const go = resolve ? resolve(target) : null;
-			if (!go)
-				return (
-					<span
-						key={i}
-						title={`No page named “${target}” on this wiki`}
-						style={{
-							color: 'var(--color-text-tertiary)',
-							textDecoration: 'underline dotted',
-							textDecorationColor: 'var(--color-border-strong)',
-						}}
-					>
-						{label}
-					</span>
-				);
-			return (
-				<button
-					key={i}
-					type="button"
-					onClick={go}
-					style={{
-						font: 'inherit',
-						padding: 0,
-						border: 'none',
-						background: 'none',
-						color: 'var(--color-accent)',
-						textDecoration: 'underline',
-						cursor: 'pointer',
-					}}
-				>
-					{label}
-				</button>
-			);
-		}
-		return p;
-	});
-}
-
-/** Minimal, XSS-safe markdown → React nodes (headings, quote, list, paragraph). No innerHTML. */
-function mdToNodes(
-	md: string,
-	emptyText: string,
-	resolve?: (target: string) => (() => void) | null,
-): ReactNode {
-	if (!md.trim())
-		return <p style={{ color: 'var(--color-text-tertiary)', fontStyle: 'italic' }}>{emptyText}</p>;
-	// Bare <li> elements used to be returned straight into a <div> — invalid HTML, and a screen
-	// reader never announced "list, N items". Group each run of `- ` lines into one <ul>.
-	const lines = md.split('\n');
-	const out: ReactNode[] = [];
-	for (let i = 0; i < lines.length; i += 1) {
-		if (lines[i]!.startsWith('- ')) {
-			const items: ReactNode[] = [];
-			const start = i;
-			while (i < lines.length && lines[i]!.startsWith('- ')) {
-				items.push(renderLine(lines[i]!, i, resolve));
-				i += 1;
-			}
-			i -= 1;
-			out.push(
-				<ul
-					key={`ul-${start}`}
-					style={{ margin: '4px 0', paddingLeft: 0, listStylePosition: 'inside' }}
-				>
-					{items}
-				</ul>,
-			);
-			continue;
-		}
-		out.push(renderLine(lines[i]!, i, resolve));
-	}
-	return out;
-}
-
-function renderLine(
-	ln: string,
-	i: number,
-	resolve?: (target: string) => (() => void) | null,
-): ReactNode {
-	{
-		if (ln.startsWith('### '))
-			return (
-				<h4
-					key={i}
-					style={{
-						font: '700 15px var(--font-display)',
-						margin: '16px 0 4px',
-						color: 'var(--color-text-primary)',
-					}}
-				>
-					{ln.slice(4)}
-				</h4>
-			);
-		if (ln.startsWith('## '))
-			return (
-				<h3
-					key={i}
-					style={{
-						font: '700 19px var(--font-display)',
-						margin: '18px 0 6px',
-						color: 'var(--color-text-primary)',
-					}}
-				>
-					{ln.slice(3)}
-				</h3>
-			);
-		if (ln.startsWith('# '))
-			return (
-				<h2
-					key={i}
-					style={{
-						font: '700 23px var(--font-display)',
-						margin: '20px 0 8px',
-						color: 'var(--color-text-primary)',
-					}}
-				>
-					{ln.slice(2)}
-				</h2>
-			);
-		if (ln.startsWith('> '))
-			return (
-				<blockquote
-					key={i}
-					style={{
-						margin: '10px 0',
-						padding: '10px 14px',
-						borderLeft: '3px solid var(--color-accent)',
-						background: 'var(--color-surface-sunken, var(--color-surface))',
-						borderRadius: '0 8px 8px 0',
-						font: 'italic 14px/1.6 var(--font-sans)',
-						color: 'var(--color-text-secondary)',
-					}}
-				>
-					{boldify(ln.slice(2), resolve)}
-				</blockquote>
-			);
-		if (ln.startsWith('- '))
-			return (
-				<li
-					key={i}
-					style={{
-						font: '14px/1.7 var(--font-sans)',
-						color: 'var(--color-text-secondary)',
-						marginLeft: 20,
-					}}
-				>
-					{boldify(ln.slice(2), resolve)}
-				</li>
-			);
-		if (!ln.trim()) return <div key={i} style={{ height: 8 }} />;
-		return (
-			<p
-				key={i}
-				style={{
-					font: '14.5px/1.75 var(--font-sans)',
-					color: 'var(--color-text-secondary)',
-					margin: '0 0 8px',
-				}}
-			>
-				{boldify(ln, resolve)}
-			</p>
-		);
-	}
+	const { target, label } = parseWikilinkToken(raw);
+	return { target, label };
 }
 
 function Notice({ icon, title, children }: { icon: string; title: string; children?: ReactNode }) {
@@ -476,8 +293,8 @@ export function WikiReader() {
 	const page: WikiPage | undefined = wiki.pages.find((p) => p.slug === openSlug) ?? wiki.pages[0];
 	// Wikilink resolution needs no API call: `wiki.pages` is already the full published set, so a
 	// [[Target]] resolves against page titles (and slugs, for links authored slug-style).
-	const resolveLink = (target: string): (() => void) | null => {
-		const key = target.trim().toLowerCase();
+	const resolveLink = (raw: string): (() => void) | null => {
+		const key = parseWikilinkToken(raw).target.toLowerCase();
 		if (!key) return null;
 		const hit = wiki.pages.find(
 			(p) => p.title.trim().toLowerCase() === key || p.slug.toLowerCase() === key,
@@ -631,7 +448,16 @@ export function WikiReader() {
 								>
 									{page.title}
 								</h2>
-								<div>{mdToNodes(page.markdown, t('wikiReader.pageEmpty'), resolveLink)}</div>
+								<div>
+									{/* RC-KNW-1.1 — the SHARED pipeline, the same one Knowledge renders with, so a
+									    published table or callout looks the same to a reader as it did to the DM.
+									    No DM authority here by construction: a `[!Secret]` never renders its body. */}
+									{renderMarkdown(page.markdown, {
+										t,
+										emptyKey: 'wikiReader.pageEmpty',
+										resolveWikilink: resolveLink,
+									})}
+								</div>
 							</article>
 						) : (
 							<div style={{ font: '13.5px var(--font-sans)', color: 'var(--color-text-tertiary)' }}>

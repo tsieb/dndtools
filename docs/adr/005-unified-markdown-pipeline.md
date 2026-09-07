@@ -5,6 +5,9 @@
 - Deciders: Engineering
 - Consulted: Security, UX
 - Supersedes: N/A
+- Amended: 2026-09-06 (RC-KNW-1.1) — the pipeline was re-implemented for the React app after the
+  Svelte GM app was archived (ADR-018). The decision is unchanged; only the module paths and the
+  parser strategy moved. See "Amendment" below.
 
 ## Context
 
@@ -54,12 +57,31 @@ Use one unified markdown rendering pipeline:
 - Data safety: content data remains unchanged; rollback affects rendering behavior only.
 - Risk: temporary feature degradation in embeds/callouts while restoring safe rendering baseline.
 
+## Amendment — 2026-09-06 (RC-KNW-1.1)
+
+The original `src/lib/markdown/*` modules belonged to the Svelte GM app, which is now archived
+(ADR-018). Two divergent hand-written renderers had grown in its place, one inside Knowledge and one
+inside the public wiki reader; neither could render a table, a callout or an image, and they had
+already drifted apart. RC-KNW-1.1 restores the single pipeline in the React app.
+
+Two things changed from the original decision, both narrowing:
+
+- **No remark/rehype, no HTML intermediate.** The pipeline is a hand-written tokenizer that emits a
+  token tree consumed directly as React nodes. There is no HTML string anywhere in it, so there is
+  nothing a sanitizer could fail to strip and no `dangerouslySetInnerHTML` to misuse. Sanitization is
+  therefore structural rather than a configurable schema: author text can only become a React text
+  child (which React escapes) and URLs pass a scheme allow-list (`http`, `https`, `mailto`, plus the
+  app's own `asset:` references).
+- **`[!Secret]` callouts are a CORE concern, not a rendering one.** The core removes them from every
+  non-DM projection (`stripSecretCallouts`), so a player never receives the bytes. The renderer's
+  blur is a second layer for the DM's own (often screen-shared) display, not the security boundary.
+
 ## Verification and Evidence
 
-- `src/lib/markdown/pipeline.ts`
-- `src/lib/markdown/index.ts`
-- `src/lib/markdown/plugins/remark-wikilinks.ts`
-- `src/lib/markdown/plugins/rehype-callouts.ts`
-- `src/lib/markdown/plugins/rehype-object-embeds.ts`
-- `src/lib/markdown/pipeline.test.ts`
+- `apps/gm-react/src/app/markdown/plugins.ts` — the tokenizer and the URL allow-list
+- `apps/gm-react/src/app/markdown/render.tsx` — the single React render surface
+- `apps/gm-react/src/app/markdown/plugins.test.ts` — allow-list XSS corpus, block/inline grammar
+- `apps/gm-react/src/app/markdown/render.test.tsx` — DOM XSS corpus, structure snapshot, `[!Secret]`
+- `packages/core/src/state/markdown.ts` — the shared callout grammar + `stripSecretCallouts`
+- `packages/core/tests/markdown-callouts.test.ts` — "a player projection never contains a secret"
 - `docs/architecture/SECURITY.md`

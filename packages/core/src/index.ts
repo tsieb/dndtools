@@ -5627,3 +5627,15 @@ export {
 	isEmptySessionLogCapture,
 	normalizeSessionLogCapture,
 } from './state/session-log';
+
+// RC-KNW-1.1 — MARKDOWN CALLOUTS. `[!Lore]/[!Warning]/[!Tip]/[!Secret]` blockquote callouts. The
+// GUI renderer and the actor-scoped content projections share these pure functions so "where does
+// the secret end" has exactly one answer; `stripSecretCallouts` is what keeps a `[!Secret]` body out
+// of a player's projection entirely (not blurred, not hidden — absent).
+export type { CalloutBlock, CalloutKind, CalloutMarker } from './state/markdown';
+export {
+	CALLOUT_KINDS,
+	extractCallouts,
+	parseCalloutMarker,
+	stripSecretCallouts,
+} from './state/markdown';

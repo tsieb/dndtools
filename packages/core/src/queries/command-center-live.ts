@@ -5,6 +5,7 @@ import type { SessionState, SessionWorkflowState } from '../state/session-state'
 import type { VaultContentState } from '../state/content';
 import { isTransitionAllowed } from '../lifecycle/session-workflow';
 import { getContentItemsForActor } from './content-query';
+import { stripSecretCallouts } from '../state/markdown';
 
 /**
  * UX-CMD-006 / UX-CMD-007 / UX-CMD-010 — the Command Center LIVE-CONTROL read models.
@@ -226,10 +227,22 @@ export function listPushableContent(
 ): PushableContentItem[] {
 	const actor = state.permissions.actors[actorId];
 	if (!actor || !hasDmAuthority(actor.role)) return [];
-	return getContentItemsForActor(state.content, state.permissions, actorId)
-		.filter((item) => item.visibility === 'player-visible')
-		.map((item) => ({ id: item.id, title: item.title, kind: item.kind, body: item.body }))
-		.sort((a, b) => a.title.localeCompare(b.title));
+	return (
+		getContentItemsForActor(state.content, state.permissions, actorId)
+			.filter((item) => item.visibility === 'player-visible')
+			// RC-KNW-1.1 — the push body is destined for players, so it is stripped of `[!Secret]` callouts
+			// HERE, at the point the DM's copy becomes a player's copy. `getContentItemsForActor` returned
+			// the DM's own (unstripped) projection because the caller is the DM; a player-visible note can
+			// still carry a secret callout the DM never meant to hand over. The selector preview therefore
+			// shows exactly the bytes the player will receive.
+			.map((item) => ({
+				id: item.id,
+				title: item.title,
+				kind: item.kind,
+				body: stripSecretCallouts(item.body),
+			}))
+			.sort((a, b) => a.title.localeCompare(b.title))
+	);
 }
 
 /** The dispatch-ready push command (sans actorId/idempotencyKey, like ResolvedCommandAction). */

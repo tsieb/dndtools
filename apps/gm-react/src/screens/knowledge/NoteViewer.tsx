@@ -344,7 +344,10 @@ export function NoteViewer({
 									{err}
 								</div>
 							)}
-							<div>{mdToNodes(note.body, t, resolveLink)}</div>
+							{/* `canAuthor` is DM authority (RC-KNW-1.1): it governs the `[!Secret]` blur-until-shown
+							    affordance only. A player's copy of the body never carries the secret — the core
+							    strips it before the projection reaches this screen. */}
+							<div>{mdToNodes(note.body, t, resolveLink, canAuthor)}</div>
 						</>
 					)}
 				</Panel>

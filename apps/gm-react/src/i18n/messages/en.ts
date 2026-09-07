@@ -5011,6 +5011,20 @@ export const en = {
 	'character.resources.pipClear': '{name} step {index} clear',
 	'character.resources.spendOne': 'Spend one {name}',
 	'character.resources.recoverOne': 'Recover one {name}',
+	// RC-KNW-1.1 — the shared markdown renderer (callouts, tables, figures, links).
+	'markdown.empty': 'Nothing written here yet.',
+	'markdown.brokenLink': 'This link does not point at a note you can open',
+	'markdown.opensExternally': 'Opens in a new tab',
+	'markdown.tableLabel': 'Table',
+	'markdown.imageUnavailable': 'Image not available',
+	'markdown.calloutLore': 'Lore',
+	'markdown.calloutWarning': 'Warning',
+	'markdown.calloutTip': 'Tip',
+	'markdown.calloutSecret': 'Secret',
+	'markdown.dmOnly': 'DM only',
+	'markdown.showSecret': 'Show',
+	'markdown.hideSecret': 'Hide',
+	'markdown.secretWithheld': 'Part of this note is DM only.',
 } as const;
 
 /** Every string the app can render, addressed by key. */

@@ -3,6 +3,7 @@ import { Badge, Icon } from '../../ds';
 import { T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import { Panel, PvPage, SectionHead, type LiveData } from './shared';
+import { renderMarkdown } from '../../app/markdown/render';
 
 // 5 · HANDOUTS — everything the DM has shared with this player (visible notes). Read-only.
 const HANDOUT_ICON: Record<string, string> = {
@@ -106,11 +107,15 @@ export function HandoutsSection({ data }: { data: LiveData }) {
 												borderLeft: `3px solid ${T.acc}`,
 												font: `13.5px/1.6 ${T.sans}`,
 												color: T.sub,
-												whiteSpace: 'pre-wrap',
 												overflowWrap: 'anywhere',
 											}}
 										>
-											{n.body}
+											{/* RC-KNW-1.1 — the player reads the SAME markdown pipeline the DM
+											    authored in, so a shared table or callout survives the handoff
+											    instead of arriving as raw `|` and `**`. No DM authority here: a
+											    `[!Secret]` renders as withheld, and the core already stripped it
+											    from this projection. */}
+											{renderMarkdown(n.body, { t })}
 										</div>
 									</div>
 								)}
