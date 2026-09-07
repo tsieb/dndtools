@@ -21,3 +21,23 @@ use `pnpm ai:smoke`.
 
 Set `OLLAMA_MODEL` to test another installed model, or `OLLAMA_BASE_URL` for a different local
 Ollama host. The test runner must be able to reach that address.
+
+## Local embeddings for semantic search
+
+Semantic search runs on the same local daemon, through Ollama's native `POST /api/embeddings`. It
+is a separate task from the assistant: route it in Settings → AI & tools, and pull an embedding
+model alongside the tool-calling one.
+
+```sh
+ollama pull nomic-embed-text
+```
+
+`nomic-embed-text` is the default because it is the model the retrieval measurement in
+[COPILOT_RAG_DERISK.md](COPILOT_RAG_DERISK.md) was run against. Any Ollama embedding model works —
+name it in Settings — but switching models re-embeds the vault, because a vector is cached against
+the model that produced it and vectors from two models are not comparable.
+
+Embedding happens once per note revision and the vectors are cached device-local, so search itself
+needs no daemon: `apps/gm-react/src/ai/semanticSearch.test.ts` proves the ranking runs to the same
+hit@3 with the network unplugged. With no daemon at all, a freshly typed query cannot be embedded,
+and search reports `lexical-only` and returns its deterministic results rather than failing.

@@ -68,3 +68,30 @@ tokens), and brute-force cosine over 10k×768 floats is milliseconds in a Lambda
    than hallucinate — the behavior a DM-facing assistant must have.
 5. Remains blocked on ADR-026 phase 2 (`approved: true` requires the security-review sign-off) —
    this measurement de-risks the build, it does not authorize server-side vault reads.
+
+## What shipped from this measurement (RC-AI-3.2, 2026-09-06)
+
+Conclusions 2 and 3 are now code, on the local/offline path rather than the managed one:
+
+- **Hybrid retrieval** — `packages/core/src/queries/search-hybrid.ts` runs a BM25-family TF-IDF
+  retriever and a cosine retriever over embeddings and fuses them by weighted reciprocal rank, which
+  is what "take the union of both retrievers" means in practice. All scoring is pure core code; the
+  vectors are the shell's (`apps/gm-react/src/ai/embeddings.ts`, Ollama `POST /api/embeddings`).
+- **Structured sheets contribute their fields** — a faction's `secret`, `goals` and `leader` are
+  retrievable text, not just its body. That alone moved hit@3 on the demo vault from 9/12 to 11/12:
+  three of the twelve questions are answered by a field, and the prototype only found them because
+  its ad-hoc chunker happened to flatten fields too.
+
+Measured by `apps/gm-react/src/ai/semanticSearch.test.ts` on the same seeded Saltreach vault and the
+same twelve questions, with a deterministic hashed-bag-of-words stand-in for the embedding backend so
+the suite stays offline: **hit@3 = 11/11 (100%) over the questions whose answer lives in a searchable
+domain**, and 11/12 counting the one question the search domains cannot reach at all.
+
+That last question ("Who is Sera Duskwhisper?") is answered by a CHARACTER SHEET. The prototype's
+corpus was "every text-bearing object in state"; the shipped corpus is the ACTOR-VISIBLE SEARCH
+corpus, which is the point — a retriever that could reach something the actor may not see would be a
+leak — and characters are not one of the SRCH-001 search domains. Adding them is a search-domain
+change, not a ranking change.
+
+The stand-in embedder is a floor, not a ceiling: `nomic-embed-text` is strictly stronger than hashed
+words, so a real local daemon can only do better than the figure above.

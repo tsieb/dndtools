@@ -170,12 +170,20 @@ export async function assetUsage(): Promise<AssetUsage> {
 	};
 }
 
-/** Full enumeration for whole-vault backup export. Bytes are copies, safe to transfer. */
+/**
+ * Full enumeration for whole-vault backup export. Bytes are copies, safe to transfer.
+ *
+ * EMBEDDING records are excluded: they are a derived, rebuildable cache keyed to this device's
+ * embedding model, so shipping them in a backup would bloat the archive with bytes the restoring
+ * device would rather recompute than trust.
+ */
 export async function listAssetBytes(): Promise<
 	Array<{ id: string; mime: string; bytes: ArrayBuffer }>
 > {
 	const records = await assetBlobsTable().toArray();
-	return records.map((r) => ({ id: r.id, mime: r.mime, bytes: r.bytes }));
+	return records
+		.filter((r) => !isEmbeddingRecordId(r.id))
+		.map((r) => ({ id: r.id, mime: r.mime, bytes: r.bytes }));
 }
 
 export interface GarbageCollectionResult {
@@ -191,11 +199,142 @@ export interface GarbageCollectionResult {
 export async function collectGarbage(referencedIds: Set<string>): Promise<GarbageCollectionResult> {
 	const table = assetBlobsTable();
 	const records = await table.toArray();
-	const orphans = records.filter((r) => !referencedIds.has(r.id));
+	// EMBEDDING records are never referenced by asset METADATA — they are addressed by content
+	// revision, not by a `maps.assets`/`audio.assets` entry — so this sweep would delete every one of
+	// them on sight. They have their own revision-driven sweep in `pruneEmbeddingVectors`.
+	const orphans = records.filter((r) => !isEmbeddingRecordId(r.id) && !referencedIds.has(r.id));
 	if (orphans.length === 0) return { removed: 0, freedBytes: 0 };
 	await table.bulkDelete(orphans.map((r) => r.id));
 	return {
 		removed: orphans.length,
 		freedBytes: orphans.reduce((sum, r) => sum + r.byteLength, 0),
+	};
+}
+
+// ---------------------------------------------------------------------------------------------------
+// RC-AI-3.2 — EMBEDDING VECTOR CACHE. Appended block; nothing above is reordered.
+// ---------------------------------------------------------------------------------------------------
+
+/**
+ * The float32 embedding cache lives in the SAME content-addressed blob table as image/audio bytes, but
+ * it is addressed differently and on purpose: an image's id is the hash of its BYTES, while an
+ * embedding's id is the hash of the thing it DESCRIBES — the corpus document's key (type, id and
+ * REVISION) plus the model that produced it. That is what makes the cache correct: edit a note and its
+ * key changes, so the stale vector is simply never looked up again; switch embedding models and the two
+ * models' vectors coexist instead of overwriting each other.
+ *
+ * The `embedding:` prefix keeps these records out of the two sweeps that assume "a blob is referenced
+ * by asset metadata": backup enumeration and `collectGarbage`.
+ */
+const EMBEDDING_ID_PREFIX = 'embedding:';
+
+/** The MIME recorded for a cached vector: little-endian float32, this device's byte order. */
+export const EMBEDDING_VECTOR_MIME = 'application/vnd.lamplight.embedding+f32';
+
+function isEmbeddingRecordId(id: string): boolean {
+	return id.startsWith(EMBEDDING_ID_PREFIX);
+}
+
+/**
+ * The content address of one cached vector. `cacheKey` is the core corpus document key
+ * (`buildSearchCorpusForActor` → `SearchCorpusDocument.key`) and `model` the embedding model id, so
+ * the same note at the same revision embedded by the same model always resolves to the same record.
+ */
+export function embeddingRecordId(cacheKey: string, model: string): string {
+	const material = new TextEncoder().encode(`${model}\u0000${cacheKey}`);
+	return `${EMBEDDING_ID_PREFIX}${assetId(hashAssetBytes(material))}`;
+}
+
+/** Store one document's embedding. Re-storing the same key/model overwrites in place. */
+export async function putEmbeddingVector(
+	cacheKey: string,
+	model: string,
+	vector: Float32Array,
+): Promise<string> {
+	if (vector.length === 0) {
+		throw new AssetByteLimitError(0, MAX_ASSET_BLOB_BYTES, 'An embedding vector cannot be empty.');
+	}
+	const byteLength = vector.byteLength;
+	if (byteLength > MAX_ASSET_BLOB_BYTES) {
+		throw new AssetByteLimitError(
+			byteLength,
+			MAX_ASSET_BLOB_BYTES,
+			`Embedding of ${byteLength} bytes exceeds the ${MAX_ASSET_BLOB_BYTES} byte store limit.`,
+		);
+	}
+	const id = embeddingRecordId(cacheKey, model);
+	boundaryCheck('storage.putAssetBytes', { id, mime: EMBEDDING_VECTOR_MIME, byteLength });
+	// Copy into a standalone buffer so a caller-retained view can never alias the stored record.
+	const record: AssetBlobRecord = {
+		id,
+		bytes: vector.slice().buffer,
+		mime: EMBEDDING_VECTOR_MIME,
+		byteLength,
+		createdAt: new Date().toISOString(),
+	};
+	await assetBlobsTable().put(record);
+	return id;
+}
+
+/** Read one cached vector back, or null when it was never embedded (or the note has since changed). */
+export async function getEmbeddingVector(
+	cacheKey: string,
+	model: string,
+): Promise<Float32Array | null> {
+	const id = embeddingRecordId(cacheKey, model);
+	boundaryCheck('storage.getAssetBytes', { id });
+	const record = await assetBlobsTable().get(id);
+	if (!record || record.mime !== EMBEDDING_VECTOR_MIME) return null;
+	return new Float32Array(record.bytes);
+}
+
+/**
+ * Load every cached vector for a set of corpus keys in one pass. Missing keys are simply absent from
+ * the returned map — the ranker scores those documents on their lexical half alone.
+ */
+export async function loadEmbeddingVectors(
+	cacheKeys: readonly string[],
+	model: string,
+): Promise<Map<string, Float32Array>> {
+	const ids = cacheKeys.map((key) => embeddingRecordId(key, model));
+	const records = await assetBlobsTable().bulkGet(ids);
+	const vectors = new Map<string, Float32Array>();
+	records.forEach((record, index) => {
+		if (!record || record.mime !== EMBEDDING_VECTOR_MIME) return;
+		const key = cacheKeys[index];
+		if (key === undefined) return;
+		vectors.set(key, new Float32Array(record.bytes));
+	});
+	return vectors;
+}
+
+/**
+ * Drop cached vectors that no longer describe anything: everything whose id is not the address of one
+ * of `liveCacheKeys` under `model`. Editing a note therefore reclaims its previous revision's vector
+ * on the next sweep, and vectors from a model no longer in use are reclaimed wholesale.
+ */
+export async function pruneEmbeddingVectors(
+	liveCacheKeys: readonly string[],
+	model: string,
+): Promise<GarbageCollectionResult> {
+	const keep = new Set(liveCacheKeys.map((key) => embeddingRecordId(key, model)));
+	const table = assetBlobsTable();
+	const records = await table.toArray();
+	const stale = records.filter((r) => isEmbeddingRecordId(r.id) && !keep.has(r.id));
+	if (stale.length === 0) return { removed: 0, freedBytes: 0 };
+	await table.bulkDelete(stale.map((r) => r.id));
+	return {
+		removed: stale.length,
+		freedBytes: stale.reduce((sum, r) => sum + r.byteLength, 0),
+	};
+}
+
+/** How much of the blob store the embedding cache is using (for the Settings storage readout). */
+export async function embeddingCacheUsage(): Promise<AssetUsage> {
+	const records = await assetBlobsTable().toArray();
+	const embeddings = records.filter((r) => isEmbeddingRecordId(r.id));
+	return {
+		count: embeddings.length,
+		totalBytes: embeddings.reduce((sum, r) => sum + r.byteLength, 0),
 	};
 }

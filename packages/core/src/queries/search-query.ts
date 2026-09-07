@@ -2,11 +2,7 @@ import type { PermissionState } from '../state/permission-state';
 import type { VaultContentState } from '../state/content';
 import type { MapState } from '../state/map-state';
 import type { SessionState } from '../state/session-state';
-import type {
-	CalendarDateFormat,
-	CalendarDefinition,
-	CustomDate,
-} from '../state/calendar';
+import type { CalendarDateFormat, CalendarDefinition, CustomDate } from '../state/calendar';
 import { absoluteDayIndex, compareCustomDates } from '../state/calendar';
 import { parseMarkdownNote, slugifyHeading } from '../state/markdown';
 import {
@@ -22,6 +18,11 @@ import { getContentItemsForActor, type ContentItemView } from './content-query';
 import { getMapViewForActor, deliveredMapIdsForActor, type MapPoiView } from './map-query';
 import { getHandoutsForActor, type HandoutView } from './handout-query';
 import { getDiceHistoryForActor, type DiceRollView } from './dice-history';
+import {
+	rankHybridSearch,
+	type HybridSearchInput,
+	type SearchCorpusDocument,
+} from './search-hybrid';
 
 /**
  * SRCH-001 / SRCH-003 — THE single actor-filtered FULL-TEXT FACETED SEARCH read. The user performs full-text
@@ -545,7 +546,10 @@ function buildVisibleBacklinks(visibleItems: ContentItemView[]): Map<string, str
 	}
 	const result = new Map<string, string[]>();
 	for (const [id, titles] of backlinksById) {
-		result.set(id, [...titles].sort((a, b) => a.localeCompare(b)));
+		result.set(
+			id,
+			[...titles].sort((a, b) => a.localeCompare(b)),
+		);
 	}
 	return result;
 }
@@ -656,7 +660,8 @@ export function searchVaultForActor(
 	options: SearchOptions | CalendarDateFormat = {},
 ): SearchResult {
 	// Back-compat: callers may still pass a bare `dateFormat` string (the prior 7th positional arg).
-	const resolvedOptions: SearchOptions = typeof options === 'string' ? { dateFormat: options } : options;
+	const resolvedOptions: SearchOptions =
+		typeof options === 'string' ? { dateFormat: options } : options;
 	const dateFormat: CalendarDateFormat = resolvedOptions.dateFormat ?? 'medium';
 	const actor = permissions.actors[actorId];
 	const activeFilters = describeActiveFilters(filter);
@@ -751,7 +756,8 @@ export function searchVaultForActor(
 		// SRCH-007 AC2 — when the match is in the body (not title-only), find the heading above the match
 		// position so the search-opened note can navigate to that section. Pure: a function of body + needle.
 		const bodyMatchOffset = match.bodyMatch ? body.toLowerCase().indexOf(needle) : -1;
-		const headingAnchor = bodyMatchOffset >= 0 ? headingAnchorForOffset(body, bodyMatchOffset) : null;
+		const headingAnchor =
+			bodyMatchOffset >= 0 ? headingAnchorForOffset(body, bodyMatchOffset) : null;
 		hits.push({
 			id: item.id,
 			type,
@@ -865,7 +871,9 @@ export function searchVaultForActor(
 		const artifactSource: SearchSourceId = 'local-markdown';
 		noteSource(artifactSource);
 		if (!sourceSet || sourceSet.has(artifactSource)) {
-			for (const roll of session ? getDiceHistoryForActor(session, permissions, actorId).rolls : []) {
+			for (const roll of session
+				? getDiceHistoryForActor(session, permissions, actorId).rolls
+				: []) {
 				if (filter.folder) continue;
 				if (filter.tags && filter.tags.length > 0) continue;
 				if (filter.dateRange) continue;
@@ -1024,4 +1032,66 @@ function compareHits(a: SearchHit, b: SearchHit): number {
 	if (a.score !== b.score) return b.score - a.score;
 	if (a.type !== b.type) return TYPE_ORDER[a.type] - TYPE_ORDER[b.type];
 	return a.id.localeCompare(b.id);
+}
+
+// ---------------------------------------------------------------------------------------------------
+// RC-AI-3.2 — HYBRID (TF-IDF + cosine) semantic assist. Appended block; nothing above is reordered.
+// ---------------------------------------------------------------------------------------------------
+
+/**
+ * RC-AI-3.2 — build a {@link SemanticAssist} backed by the hybrid TF-IDF + cosine ranker in
+ * `./search-hybrid`, ready to hand to {@link searchVaultForActor} as `options.semantic`.
+ *
+ * The SRCH-011 contract is unchanged and still enforced by {@link applySemanticAssist}: this re-ranker
+ * returns a PERMUTATION of the hits the deterministic search already produced. It can lift a hit the
+ * words matched only weakly, and it can never add a hit, a title, a snippet or an id — an embedding is
+ * an opinion about ORDER, never about visibility.
+ *
+ * The vectors are the SHELL's: `apps/gm-react/src/ai/embeddings.ts` embeds the corpus from
+ * {@link import('./search-hybrid').buildSearchCorpusForActor} and passes the cached float32 vectors
+ * back in. With no query vector, an empty cache, or vectors from another model, the ranker degrades to
+ * its lexical half; this seam then reports `available: false` so the GUI shows the deterministic result
+ * unlabelled rather than claiming a semantic contribution that did not happen (AC1, AC3).
+ *
+ * @param docs the actor-visible corpus the vectors were embedded from (same actor, same state).
+ */
+export function createHybridSemanticAssist(
+	docs: readonly SearchCorpusDocument[],
+	input: HybridSearchInput,
+): SemanticAssist {
+	// Address the corpus by hit identity: a POI's id is only unique within its map, exactly as in `hits`.
+	const keyByHit = new Map<string, string>();
+	for (const doc of docs) keyByHit.set(`${doc.type}:${doc.mapId ?? ''}:${doc.id}`, doc.key);
+	const outcome = rankHybridSearch(docs, input);
+	if (outcome.mode !== 'hybrid') {
+		return { enabled: true, available: false };
+	}
+	const positionByKey = new Map<string, number>();
+	outcome.hits.forEach((hit, position) => positionByKey.set(hit.key, position));
+	return {
+		enabled: true,
+		available: true,
+		rerank: (hits) =>
+			hits
+				.map((hit, deterministicPosition) => ({ hit, deterministicPosition }))
+				.sort((a, b) => {
+					const rankA = hybridPosition(keyByHit, positionByKey, a.hit);
+					const rankB = hybridPosition(keyByHit, positionByKey, b.hit);
+					if (rankA !== rankB) return rankA - rankB;
+					// A hit the hybrid ranker never scored keeps its deterministic order relative to its peers.
+					return a.deterministicPosition - b.deterministicPosition;
+				})
+				.map(({ hit }) => hit.id),
+	};
+}
+
+/** The hybrid ranking position of a deterministic hit; unranked hits sort after every ranked one. */
+function hybridPosition(
+	keyByHit: ReadonlyMap<string, string>,
+	positionByKey: ReadonlyMap<string, number>,
+	hit: SearchHit,
+): number {
+	const key = keyByHit.get(`${hit.type}:${hit.mapId ?? ''}:${hit.id}`);
+	if (key === undefined) return Number.MAX_SAFE_INTEGER;
+	return positionByKey.get(key) ?? Number.MAX_SAFE_INTEGER;
 }

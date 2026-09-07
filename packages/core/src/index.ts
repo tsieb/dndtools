@@ -2626,6 +2626,36 @@ export type {
 } from './queries/search-query';
 export { searchVaultForActor } from './queries/search-query';
 
+// RC-AI-3.2: HYBRID (lexical + semantic) SEARCH RANKING. The core owns ALL SCORING and stays pure — a
+// BM25-family TF-IDF retriever over the ACTOR-VISIBLE corpus, a cosine retriever over vectors the SHELL
+// supplies, and a weighted reciprocal-rank fusion of the two. `buildSearchCorpusForActor` composes exactly
+// the same actor-filtered reads as search, so a hidden note/POI/handout section/secret roll is never
+// embedded, scored or returned. The corpus key carries the artifact REVISION, so the shell's vector cache
+// is content-addressed per revision and a stale vector can never be served for an edited note. Fail soft:
+// no query vector, an empty cache, or vectors from another model degrade to the deterministic lexical half
+// and SAY so (`mode: 'lexical-only'`), never a faked semantic contribution. `createHybridSemanticAssist`
+// binds the ranker onto the SRCH-011 seam, where it can only re-order already-visible hits.
+export type {
+	HybridRankingWeights,
+	HybridSearchHit,
+	HybridSearchInput,
+	HybridSearchOutcome,
+	HybridSemanticSkip,
+	SearchCorpusDocument,
+	TfIdfIndex,
+} from './queries/search-hybrid';
+export {
+	DEFAULT_HYBRID_WEIGHTS,
+	buildSearchCorpusForActor,
+	buildTfIdfIndex,
+	cosineSimilarity,
+	measureHitAtK,
+	rankHybridSearch,
+	scoreTfIdfQuery,
+	tokenizeSearchText,
+} from './queries/search-hybrid';
+export { createHybridSemanticAssist } from './queries/search-query';
+
 // SRCH-009 / SRCH-001: the LOCAL SEARCH INDEX FRESHNESS model — the FOUNDATION the SRCH query surfaces
 // build on. It holds no content (rebuildable, device-local cache); it tracks per-DOMAIN index cursors so
 // the engine can PUBLISH freshness, the source cursor, and partial-result status WITHOUT blocking cached
