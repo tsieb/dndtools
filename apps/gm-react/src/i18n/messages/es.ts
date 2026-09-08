@@ -4791,6 +4791,20 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'widgetBody.map.missingDm':
 		'El mapa vinculado no está o se eliminó. Elige otro mapa en el modo de edición.',
 	'widgetBody.map.missingPlayer': 'El mapa vinculado no está disponible para ti.',
+	// RC-CAN-4.5
+	'widgetBody.map.viewRegion':
+		'Vista del mapa — {name}. Las flechas desplazan, más y menos amplían, cero reencuadra.',
+	'widgetBody.map.changeMap': 'Cambiar de mapa',
+	'widgetBody.map.chooseMap': 'Elige un mapa…',
+	'widgetBody.map.mapChanged': 'Mapa cambiado',
+	'widgetBody.map.overlayOn': 'Mostrar la capa de combate',
+	'widgetBody.map.overlayOff': 'Ocultar la capa de combate',
+	'widgetBody.map.overlayShown': 'Capa de combate mostrada',
+	'widgetBody.map.overlayHidden': 'Capa de combate oculta',
+	'widgetBody.map.openInEditor': 'Abrir en el editor',
+	'widgetBody.map.pois': '{count, plural, one {# lugar} other {# lugares}}',
+	'widgetBody.map.inFight': '{count, plural, one {# en el combate} other {# en el combate}}',
+	'widgetBody.map.following': 'Siguiendo al grupo',
 	'widgetBody.list.notesEmpty':
 		'Todavía no hay notas visibles — las notas de preparación aparecen aquí a medida que las escribes.',
 	'widgetBody.list.objectsEmpty':

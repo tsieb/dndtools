@@ -732,6 +732,14 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 			renderEntrypoint: builtinEntrypoint('map'),
 			requiredBindings: [readBinding('map', 'Map', 'map')],
 			dataQueries: [dataQuery('map', 'Bound map', 'binding')],
+			// RC-CAN-4.5 — the map tile draws the real, pannable map, so it needs the three knobs a
+			// canvas tile has that a full-screen editor does not: how close it starts, whether the
+			// running fight is drawn on it, and whether the view chases the party as they move.
+			configFields: [
+				numberField('initialZoom', 'Initial zoom', 1, { min: 1, max: 4, step: 0.25 }, 'display'),
+				toggleField('combatOverlay', 'Combat overlay', true),
+				toggleField('followParty', 'Follow the party', false),
+			],
 		}),
 		systemWidget({
 			type: 'character',

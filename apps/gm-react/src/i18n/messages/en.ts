@@ -4737,6 +4737,21 @@ export const en = {
 	'widgetBody.map.missingDm':
 		'The linked map is missing or was removed. Choose another map in edit mode.',
 	'widgetBody.map.missingPlayer': 'The linked map isn’t available to you.',
+	// RC-CAN-4.5 — the map tile: the real map with pan/zoom, the running fight on it, and the DM
+	// actions that used to mean leaving the board.
+	'widgetBody.map.viewRegion':
+		'Map view — {name}. Arrow keys pan, plus and minus zoom, zero refits.',
+	'widgetBody.map.changeMap': 'Change map',
+	'widgetBody.map.chooseMap': 'Choose a map…',
+	'widgetBody.map.mapChanged': 'Map changed',
+	'widgetBody.map.overlayOn': 'Show combat overlay',
+	'widgetBody.map.overlayOff': 'Hide combat overlay',
+	'widgetBody.map.overlayShown': 'Combat overlay shown',
+	'widgetBody.map.overlayHidden': 'Combat overlay hidden',
+	'widgetBody.map.openInEditor': 'Open in editor',
+	'widgetBody.map.pois': '{count, plural, one {# place} other {# places}}',
+	'widgetBody.map.inFight': '{count, plural, one {# in the fight} other {# in the fight}}',
+	'widgetBody.map.following': 'Following the party',
 	'widgetBody.list.notesEmpty': 'No notes visible yet — prep notes appear here as you write them.',
 	'widgetBody.list.objectsEmpty':
 		'No reference objects visible yet — imported spells and objects appear here.',

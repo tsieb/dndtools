@@ -77,8 +77,17 @@ the combatant in the editor's initiative list (`InspectorPanel.tsx`'s `CombatRos
 and clicking a row rings the token. Nothing about it is dispatched, persisted, or synced — a
 co-DM's highlight must not move anyone else's cursor.
 
-Still UI-pending: the read-only overlay everywhere else the map is shown (Atlas, session
-stage, the map tile) is RC-MAP-2.3, and the session tracker widget
+RC-MAP-2.3 landed the read-only overlay (`canvas/CombatOverlay.tsx`) on the other surfaces
+that draw a map: it is `MapCanvas`'s own layer, fed by `MapView.combatTokens`, so a surface
+opts in simply by asking `getMapViewForActor` for `{ combat }`. The session stage preview
+(`screens/session/ActiveMap.tsx`) and, since RC-CAN-4.5, the scene canvas's map tile
+(`app/widgets/builtin/Map.tsx`) both do. The tile switches the overlay off by asking WITHOUT
+`{ combat }` rather than by not drawing what it was given.
+
+Still UI-pending: the AoE templates of §4 are drawn on no surface at all, because
+`getMapViewForActor` does not carry them — an actor-scoped read (`MapView.combatTemplates`,
+`queries/map-query.ts`) has to land before any surface can draw one without deciding
+visibility for itself. The session tracker widget
 (`app/widgets/builtin/InitiativeTracker.tsx`) does not yet join the shared selection.
 
 ## 4. AoE templates — durable, not ephemeral (a real departure from ADR-030 §2)
