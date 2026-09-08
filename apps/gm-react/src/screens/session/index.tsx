@@ -25,7 +25,7 @@ import {
 	type CalendarDefinition,
 	type SessionWorkflowState,
 } from '@dndtools/core';
-import { Toaster } from '../../ds';
+import { Toaster, useConditionCatalog } from '../../ds';
 import { EncounterDialog } from '../../app/EncounterBuilder';
 import { Page } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
@@ -91,6 +91,8 @@ export function Session() {
 	const canGoLive = allowedTransitionsFrom(workflow as SessionWorkflowState).includes('active');
 	const previewing = !!runtime.preview;
 	const isDm = runtime.state.permissions.actors[actorId]?.role === 'dm';
+	// RC-SES-3.1 — names an expired condition key for the round-tick toast, from the ACTIVE package.
+	const conditionCatalog = useConditionCatalog();
 
 	const {
 		tracker,
@@ -300,6 +302,34 @@ export function Session() {
 		}
 	}, [location.state, location.pathname, navigate]);
 
+	/**
+	 * RC-SES-3.1 — advance the turn, and SAY what the round tick took off. A condition badge that
+	 * silently disappears between rounds is indistinguishable from a bug, so the core's
+	 * `combat.condition-expired` events become a toast naming the condition and whose it was. One
+	 * expiry names it; several are counted, because a wall of toasts at the top of a round is worse
+	 * than a number the encounter log can expand on.
+	 */
+	async function advanceTurn(): Promise<void> {
+		const result = await runtime.dispatch({ type: 'combat.advance-turn', actorId, payload: {} });
+		if (result.status !== 'accepted') {
+			Toaster.error(result.rejection.message);
+			return;
+		}
+		const expired = result.events.filter((e) => e.kind === 'combat.condition-expired');
+		if (expired.length === 0) return;
+		if (expired.length === 1) {
+			const only = expired[0]!;
+			Toaster.info(
+				t('session.combat.conditionExpired', {
+					condition: conditionCatalog.registry[only.condition]?.label ?? only.condition,
+					name: tracker.combatants.find((c) => c.id === only.combatantId)?.name ?? '',
+				}),
+			);
+			return;
+		}
+		Toaster.info(t('session.combat.conditionExpiredMany', { count: expired.length }));
+	}
+
 	async function dispatch(
 		command: Parameters<typeof runtime.dispatch>[0],
 		ok?: string,
@@ -491,7 +521,7 @@ export function Session() {
 					onStart={() => setBuilderMode('start')}
 					onAdd={() => setBuilderMode('reinforce')}
 					onSelect={setSelectedId}
-					onAdvance={() => dispatch({ type: 'combat.advance-turn', actorId, payload: {} })}
+					onAdvance={() => void advanceTurn()}
 					onPrevious={() => dispatch({ type: 'combat.previous-turn', actorId, payload: {} })}
 					onEnd={() => setEndConfirmOpen(true)}
 					onHp={(combatantId, delta) =>

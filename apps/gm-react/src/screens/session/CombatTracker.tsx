@@ -523,14 +523,28 @@ export function CombatPanel({
 												style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}
 												onClick={(e) => e.stopPropagation()}
 											>
-												{res.conditions.map((cond) => (
-													<ConditionBadge
-														key={cond}
-														condition={cond}
-														compact
-														onRemove={previewing ? undefined : () => onCondition(c.id, cond, false)}
-													/>
-												))}
+												{/* RC-SES-3.1 — a timed condition wears its countdown, so the DM can see that
+												    Poisoned has two rounds left without opening anything. A condition with no
+												    timer shows no number: it lasts until someone clears it. */}
+												{res.conditions.map((cond) => {
+													const roundsLeft = res.conditionRounds?.[cond];
+													return (
+														<ConditionBadge
+															key={cond}
+															condition={cond}
+															compact
+															duration={roundsLeft}
+															durationLabel={
+																roundsLeft === undefined
+																	? undefined
+																	: t('session.combat.conditionRounds', { count: roundsLeft })
+															}
+															onRemove={
+																previewing ? undefined : () => onCondition(c.id, cond, false)
+															}
+														/>
+													);
+												})}
 											</div>
 										)}
 										{/* RC-CHR-1.3 / UX-SES-007 AC3 — at 0 HP and explicitly not defeated, the death

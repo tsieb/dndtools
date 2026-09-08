@@ -495,6 +495,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.combat.concKeptToast': '{name} mantiene la concentración',
 	'session.combat.concLostToast': '{name} pierde la concentración',
 	'session.combat.armorClass': 'CA {value}',
+	// RC-SES-3.1 — cuentas atrás de estados y lo que dice la pista cuando uno se acaba.
+	'session.combat.conditionRounds':
+		'{count, plural, one {# ronda restante} other {# rondas restantes}}',
+	'session.combat.conditionExpired': '{condition} se le pasó a {name}',
+	'session.combat.conditionExpiredMany': 'Se pasaron {count} estados',
 	'session.combat.heal': 'Curar 1 PG — {name}',
 	'session.combat.damage': 'Dañar 1 PG — {name}',
 	'session.combat.selected': 'Seleccionado · {name}',

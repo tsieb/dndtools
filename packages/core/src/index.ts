@@ -5537,6 +5537,18 @@ export {
 	systemConditionCatalog,
 } from './state/combat-tracker';
 
+// ── RC-SES-3.1 — condition DURATIONS and the round tick ──────────────────────────────────────────
+// A condition is `{ key, rounds? }`: the key lives in `resources.conditions`, the optional countdown
+// in `resources.conditionRounds`. `combat.advance-turn` runs the tick at the start of each round.
+export type { ExpiredCondition } from './state/combat-tracker';
+export {
+	MAX_CONDITION_ROUNDS,
+	sanitizeConditionRounds,
+	tickCombatConditions,
+	tickConditionRounds,
+} from './state/combat-tracker';
+// ── end RC-SES-3.1 ───────────────────────────────────────────────────────────────────────────────
+
 // RC-CAN-1.1 — pure inverse builders for the scene canvas layout commands (ADR-029 §1). The undo
 // STACK stays app-side, local and never synced, exactly as `buildMapInverse` established; the core
 // only answers "what command exactly undoes this one".

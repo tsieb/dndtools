@@ -1248,6 +1248,21 @@ export type CoreEvent =
 			mapId: string;
 			revision: number;
 	  }
+	// ── RC-SES-3.1 — a timed condition ran out on the round tick ──────────────────────────────────
+	// Emitted by `combat.advance-turn`, once per condition that reached zero rounds, alongside the
+	// `combat.turn-advanced` event. Nobody pressed anything: the interface uses this to tell the DM
+	// what came off, because a badge quietly vanishing between rounds is indistinguishable from a bug.
+	| {
+			kind: 'combat.condition-expired';
+			actorId: ActorId;
+			combatantId: string;
+			/** The condition KEY that expired; resolve it against the active package to name it. */
+			condition: string;
+			/** The round that just began — the one the condition did not survive into. */
+			round: number;
+			revision: number;
+	  }
+	// ── end RC-SES-3.1 ────────────────────────────────────────────────────────────────────────────
 	// SES-006 — encounter build/update events. Carry the computed challenge guidance for the GUI.
 	| {
 			kind: 'encounter.built';

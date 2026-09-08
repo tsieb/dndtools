@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
 	advanceTurn,
 	dispatchCommand,
+	ensureSessionCombatState,
 	getCombatTrackerForActor,
 	orderInitiative,
 	previousTurn,
+	resolveCondition,
+	sanitizeConditionRounds,
+	tickConditionRounds,
 	type Actor,
 	type Combatant,
 	type CommandResult,
@@ -39,7 +43,11 @@ function rejected(result: CommandResult): Extract<CommandResult, { status: 'reje
 	return result;
 }
 
-function dispatch(state: CoreStateSlice, env: CoreEnvironment, command: CoreCommand): CommandResult {
+function dispatch(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	command: CoreCommand,
+): CommandResult {
 	return dispatchCommand(state, env, command);
 }
 
@@ -421,9 +429,7 @@ describe('SES-002 run combat (commands)', () => {
 				type: 'combat.start',
 				actorId: DM_ACTOR.id,
 				payload: {
-					combatants: [
-						{ kind: 'character', name: 'Hero', characterId, initiative: 16, maxHp: 10 },
-					],
+					combatants: [{ kind: 'character', name: 'Hero', characterId, initiative: 16, maxHp: 10 }],
 				},
 			}),
 		).nextState;
@@ -564,7 +570,12 @@ describe('SES-002 AC5: visible dice rolls persisted into the combat encounter lo
 			dispatch(state, env, {
 				type: 'dice.roll',
 				actorId: DM_ACTOR.id,
-				payload: { expression: '1d20', visibility: 'dm-only', label: 'Ambush check', seed: 'sec-1' },
+				payload: {
+					expression: '1d20',
+					visibility: 'dm-only',
+					label: 'Ambush check',
+					seed: 'sec-1',
+				},
 			}),
 		).nextState;
 
@@ -642,9 +653,11 @@ describe('SES-002 AC5: visible dice rolls persisted into the combat encounter lo
 
 describe('A11Y-007 AC2: getCombatTrackerForActor exposes isBloodied for non-color status indicators', () => {
 	/** Start an active session and begin combat with one combatant at a given HP. */
-	function startWithHp(
-		maxHp: number,
-	): { state: CoreStateSlice; env: CoreEnvironment; combatantId: string } {
+	function startWithHp(maxHp: number): {
+		state: CoreStateSlice;
+		env: CoreEnvironment;
+		combatantId: string;
+	} {
 		const { state, env } = activeSession();
 		const started = accept(
 			dispatch(state, env, {
@@ -747,7 +760,11 @@ describe('A11Y-007 AC2: getCombatTrackerForActor exposes isBloodied for non-colo
 		const damaged = applyDamage(started, env, bossId, 80);
 
 		// DM sees full data → isBloodied should be true (80 of 100 HP gone = 20 HP left).
-		const dmView = getCombatTrackerForActor(damaged.session.combat, damaged.permissions, DM_ACTOR.id);
+		const dmView = getCombatTrackerForActor(
+			damaged.session.combat,
+			damaged.permissions,
+			DM_ACTOR.id,
+		);
 		const dmRow = dmView.combatants.find((c) => c.name === 'Secret Boss')!;
 		expect(dmRow.isBloodied).toBe(true);
 
@@ -879,7 +896,11 @@ describe('A11Y-011 AC2: getCombatTrackerForActor exposes isConcentrating for non
 		).nextState;
 
 		// DM sees isConcentrating = true.
-		const dmView = getCombatTrackerForActor(withConc.session.combat, withConc.permissions, DM_ACTOR.id);
+		const dmView = getCombatTrackerForActor(
+			withConc.session.combat,
+			withConc.permissions,
+			DM_ACTOR.id,
+		);
 		const dmRow = dmView.combatants.find((c) => c.name === 'Secret Caster')!;
 		expect(dmRow.isConcentrating).toBe(true);
 
@@ -897,9 +918,11 @@ describe('A11Y-011 AC2: getCombatTrackerForActor exposes isConcentrating for non
 });
 
 describe('A11Y-011 AC2: getCombatTrackerForActor exposes isDefeated for non-color status indicators', () => {
-	function startWithHpSingle(
-		maxHp: number,
-	): { state: CoreStateSlice; env: CoreEnvironment; combatantId: string } {
+	function startWithHpSingle(maxHp: number): {
+		state: CoreStateSlice;
+		env: CoreEnvironment;
+		combatantId: string;
+	} {
 		const { state, env } = activeSession();
 		const started = accept(
 			dispatch(state, env, {
@@ -912,7 +935,12 @@ describe('A11Y-011 AC2: getCombatTrackerForActor exposes isDefeated for non-colo
 		return { state: started, env, combatantId };
 	}
 
-	function applyDmg(state: CoreStateSlice, env: CoreEnvironment, id: string, dmg: number): CoreStateSlice {
+	function applyDmg(
+		state: CoreStateSlice,
+		env: CoreEnvironment,
+		id: string,
+		dmg: number,
+	): CoreStateSlice {
 		return accept(
 			dispatch(state, env, {
 				type: 'combat.apply-resource',
@@ -1219,7 +1247,14 @@ describe('UX-SES-008 add / remove / reorder / visibility (mid-combat combatant m
 				actorId: DM_ACTOR.id,
 				payload: {
 					combatants: [
-						{ kind: 'monster', name: 'Goblin Minion', initiative: 15, maxHp: 7, ac: 13, quantity: 5 },
+						{
+							kind: 'monster',
+							name: 'Goblin Minion',
+							initiative: 15,
+							maxHp: 7,
+							ac: 13,
+							quantity: 5,
+						},
 					],
 				},
 			}),
@@ -1463,5 +1498,229 @@ describe('UX-SES-008 add / remove / reorder / visibility (mid-combat combatant m
 				}),
 			).rejection.code,
 		).toBe('invalid-payload');
+	});
+});
+
+// ── RC-SES-3.1 — condition durations and the round tick ──────────────────────────────────────────
+
+describe('RC-SES-3.1 condition durations and round ticks', () => {
+	it('stores a condition as {key, rounds}, decrements only at round start, and expires it', () => {
+		const { state, env } = runningCombat();
+		const goblinId = state.session.combat.order[0]!;
+		const ogreId = state.session.combat.order[1]!;
+
+		// A condition given two rounds, and one given none (it lasts until someone clears it).
+		let s = accept(
+			dispatch(state, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: {
+					combatantId: goblinId,
+					kind: 'condition',
+					condition: 'poisoned',
+					present: true,
+					rounds: 2,
+				},
+			}),
+		).nextState;
+		s = accept(
+			dispatch(s, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: ogreId, kind: 'condition', condition: 'prone', present: true },
+			}),
+		).nextState;
+		expect(s.session.combat.combatants[goblinId]!.resources.conditionRounds).toEqual({
+			poisoned: 2,
+		});
+		expect(s.session.combat.combatants[ogreId]!.resources.conditionRounds).toEqual({});
+
+		// Goblin → ogre is a turn WITHIN round 1: nothing ticks.
+		s = accept(
+			dispatch(s, env, { type: 'combat.advance-turn', actorId: DM_ACTOR.id, payload: {} }),
+		).nextState;
+		expect(s.session.combat.round).toBe(1);
+		expect(s.session.combat.combatants[goblinId]!.resources.conditionRounds).toEqual({
+			poisoned: 2,
+		});
+
+		// Wrapping into round 2 ticks it down to one round left; the untimed condition is untouched.
+		s = accept(
+			dispatch(s, env, { type: 'combat.advance-turn', actorId: DM_ACTOR.id, payload: {} }),
+		).nextState;
+		expect(s.session.combat.round).toBe(2);
+		expect(s.session.combat.combatants[goblinId]!.resources.conditionRounds).toEqual({
+			poisoned: 1,
+		});
+		expect(s.session.combat.combatants[ogreId]!.resources.conditions).toEqual(['prone']);
+
+		// Round 3 runs it out: the condition comes OFF, an event is emitted, and the log says so.
+		s = accept(
+			dispatch(s, env, { type: 'combat.advance-turn', actorId: DM_ACTOR.id, payload: {} }),
+		).nextState;
+		const wrap = accept(
+			dispatch(s, env, { type: 'combat.advance-turn', actorId: DM_ACTOR.id, payload: {} }),
+		);
+		s = wrap.nextState;
+		expect(s.session.combat.round).toBe(3);
+		expect(s.session.combat.combatants[goblinId]!.resources.conditions).toEqual([]);
+		expect(s.session.combat.combatants[goblinId]!.resources.conditionRounds).toEqual({});
+		const expiredEvents = wrap.events.filter((e) => e.kind === 'combat.condition-expired');
+		expect(expiredEvents).toHaveLength(1);
+		expect(expiredEvents[0]).toMatchObject({
+			combatantId: goblinId,
+			condition: 'poisoned',
+			round: 3,
+		});
+		const expiryLog = s.session.combat.log.filter((e) => e.kind === 'condition-expired');
+		expect(expiryLog).toHaveLength(1);
+		expect(expiryLog[0]!.label).toContain('wore off');
+		expect(expiryLog[0]!.combatantId).toBe(goblinId);
+		// The untimed condition survives every tick.
+		expect(s.session.combat.combatants[ogreId]!.resources.conditions).toEqual(['prone']);
+	});
+
+	it('removing a condition takes its countdown with it, and the view reports the timers', () => {
+		const { state, env } = runningCombat();
+		const goblinId = state.session.combat.order[0]!;
+		let s = accept(
+			dispatch(state, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: {
+					combatantId: goblinId,
+					kind: 'condition',
+					condition: 'poisoned',
+					present: true,
+					rounds: 3,
+				},
+			}),
+		).nextState;
+		const view = getCombatTrackerForActor(s.session.combat, s.permissions, DM_ACTOR.id);
+		expect(view.combatants.find((c) => c.id === goblinId)!.resources!.conditionRounds).toEqual({
+			poisoned: 3,
+		});
+
+		s = accept(
+			dispatch(s, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: {
+					combatantId: goblinId,
+					kind: 'condition',
+					condition: 'poisoned',
+					present: false,
+				},
+			}),
+		).nextState;
+		expect(s.session.combat.combatants[goblinId]!.resources.conditionRounds).toEqual({});
+		// Re-applying with no duration starts it fresh with NO stale timer inherited.
+		s = accept(
+			dispatch(s, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: goblinId, kind: 'condition', condition: 'poisoned', present: true },
+			}),
+		).nextState;
+		expect(s.session.combat.combatants[goblinId]!.resources.conditionRounds).toEqual({});
+	});
+
+	it('rejects a duration of zero or a fractional round (schema bound)', () => {
+		const { state, env } = runningCombat();
+		const goblinId = state.session.combat.order[0]!;
+		for (const rounds of [0, -1, 2.5, 1000]) {
+			expect(
+				rejected(
+					dispatch(state, env, {
+						type: 'combat.apply-resource',
+						actorId: DM_ACTOR.id,
+						payload: {
+							combatantId: goblinId,
+							kind: 'condition',
+							condition: 'poisoned',
+							present: true,
+							rounds,
+						},
+					}),
+				).rejection.code,
+			).toBe('invalid-payload');
+		}
+	});
+
+	it('tickConditionRounds is pure and sanitizeConditionRounds drops orphan and malformed timers', () => {
+		const resources = {
+			hp: 5,
+			maxHp: 5,
+			tempHp: 0,
+			conditions: ['poisoned', 'prone'],
+			deathSaves: { successes: 0, failures: 0, stable: false },
+			concentration: { effect: null, since: null, spellId: null, check: null },
+			// `blinded` is not on the combatant, `prone` carries a nonsense value.
+			conditionRounds: { poisoned: 1, prone: 0, blinded: 4 },
+		};
+		expect(sanitizeConditionRounds(resources.conditions, resources.conditionRounds)).toEqual({
+			poisoned: 1,
+		});
+		const ticked = tickConditionRounds(resources);
+		expect(ticked.expired).toEqual(['poisoned']);
+		expect(ticked.resources.conditions).toEqual(['prone']);
+		expect(ticked.resources.conditionRounds).toEqual({});
+		// The input is untouched.
+		expect(resources.conditions).toEqual(['poisoned', 'prone']);
+	});
+
+	it('a combat persisted before durations existed hydrates with no timers', () => {
+		const hydrated = ensureSessionCombatState({
+			status: 'running',
+			round: 1,
+			turn: 0,
+			order: ['c1'],
+			combatants: {
+				c1: {
+					id: 'c1',
+					kind: 'monster',
+					name: 'Goblin',
+					characterId: null,
+					statBlock: { ac: 12, initiative: 10, notes: '' },
+					resources: {
+						hp: 7,
+						maxHp: 7,
+						tempHp: 0,
+						conditions: ['poisoned'],
+						deathSaves: { successes: 0, failures: 0, stable: false },
+						concentration: { effect: null, since: null, spellId: null, check: null },
+					},
+					hidden: false,
+					placeholder: null,
+					tieBreak: 0,
+				},
+			},
+		} as never);
+		expect(hydrated.combatants.c1!.resources.conditions).toEqual(['poisoned']);
+		expect(hydrated.combatants.c1!.resources.conditionRounds).toEqual({});
+		expect(hydrated.schemaVersion).toBe(1);
+	});
+
+	it('resolveCondition carries the package default round count through', () => {
+		const pkg = {
+			conditions: [
+				{
+					key: 'dazzled',
+					label: 'Dazzled',
+					icon: 'cond-dazzled',
+					severity: 'minor',
+					defaultDuration: 'rounds',
+					defaultRounds: 1,
+					maxStacks: null,
+				},
+			],
+		} as never;
+		expect(resolveCondition(pkg, 'dazzled')).toMatchObject({
+			defaultDuration: 'rounds',
+			defaultRounds: 1,
+			known: true,
+		});
+		// An unknown key resolves honestly, with no invented countdown.
+		expect(resolveCondition(pkg, 'nonsense')).toMatchObject({ defaultRounds: null, known: false });
 	});
 });

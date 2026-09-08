@@ -480,6 +480,10 @@ export const en = {
 	'session.combat.concKeptToast': '{name} kept concentration',
 	'session.combat.concLostToast': '{name} lost concentration',
 	'session.combat.armorClass': 'AC {value}',
+	// RC-SES-3.1 — condition countdowns and what the tracker says when one runs out.
+	'session.combat.conditionRounds': '{count, plural, one {# round left} other {# rounds left}}',
+	'session.combat.conditionExpired': '{condition} wore off {name}',
+	'session.combat.conditionExpiredMany': '{count} conditions wore off',
 	'session.combat.heal': 'Heal 1 HP — {name}',
 	'session.combat.damage': 'Damage 1 HP — {name}',
 	'session.combat.selected': 'Selected · {name}',

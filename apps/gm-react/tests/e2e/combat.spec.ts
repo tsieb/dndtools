@@ -974,3 +974,51 @@ test.describe('concentration and death saves on the tracker', () => {
 		await expect(page.getByText('Death saves 1 of 3 kept, 1 of 3 failed')).toBeVisible();
 	});
 });
+
+// RC-SES-3.1 — a condition with a duration wears its countdown on the badge, and when the round tick
+// runs it out the tracker SAYS so. A badge quietly vanishing between rounds is indistinguishable
+// from a bug, and the DM has no other place to find out why the poison stopped applying.
+test('a timed condition counts down on its badge and announces when it wears off', async ({
+	page,
+}) => {
+	const combatantId = await page.evaluate(
+		() => (window.__rt!.state.session as { combat: { order: string[] } }).combat.order[0]!,
+	);
+	const applied = await dispatch(page, {
+		type: 'combat.apply-resource',
+		actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+		payload: { combatantId, kind: 'condition', condition: 'poisoned', present: true, rounds: 2 },
+	});
+	expect(applied.status, JSON.stringify(applied.rejection ?? {})).toBe('accepted');
+
+	const row = page
+		.getByRole('list')
+		.filter({ hasText: 'Bog Lurker' })
+		.first()
+		.getByRole('listitem')
+		.filter({ hasText: 'Bog Lurker' });
+	// The countdown is on the badge, and it is named for a screen reader rather than left a bare "2".
+	await expect(row.getByLabel('2 rounds left')).toBeVisible();
+
+	const nextTurn = page.locator('#main-content').getByRole('button', { name: 'Next turn' });
+	// Two presses wrap round 1 into round 2 — one tick, one round left.
+	await nextTurn.click();
+	await nextTurn.click();
+	await expect(row.getByLabel('1 round left')).toBeVisible();
+
+	// Two more presses run it out. The badge goes, and a toast names what wore off and whose it was.
+	await nextTurn.click();
+	await nextTurn.click();
+	await expect(page.getByText('Poisoned wore off Bog Lurker')).toBeVisible();
+	await expect(row.getByLabel(/rounds? left/)).toHaveCount(0);
+	const remaining = await page.evaluate(
+		(id) =>
+			(
+				window.__rt!.state.session as {
+					combat: { combatants: Record<string, { resources: { conditions: string[] } }> };
+				}
+			).combat.combatants[id]!.resources.conditions,
+		combatantId,
+	);
+	expect(remaining).toEqual([]);
+});

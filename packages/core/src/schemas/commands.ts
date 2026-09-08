@@ -2661,6 +2661,10 @@ export const applyCombatResourceInputSchema = z.discriminatedUnion('kind', [
 			kind: z.literal('condition'),
 			condition: z.string().min(1),
 			present: z.boolean(),
+			// RC-SES-3.1 — how many ROUNDS this condition lasts. Optional and additive: omitted, the
+			// tracker falls back to what the active system package says the condition lasts, and a
+			// condition with no duration at all simply runs until someone clears it.
+			rounds: z.number().int().min(1).max(999).optional(),
 		})
 		.strict(),
 	z
