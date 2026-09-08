@@ -63,6 +63,7 @@ function record(
 		sectionAnchors: [],
 		body: '',
 		snippetable: true,
+		relations: [],
 		...overrides,
 	};
 }
@@ -133,7 +134,11 @@ describe('GRAPH-002 — pure engine: backlinks', () => {
 describe('GRAPH-002 — pure engine: cross-section links', () => {
 	it('resolves a [[Target#Section]] backlink to the target heading anchor', () => {
 		const records: NoteRelationshipRecord[] = [
-			record({ id: 'n-target', title: 'Highmoor', sectionAnchors: noteSectionAnchors('# History\n## Defenses') }),
+			record({
+				id: 'n-target',
+				title: 'Highmoor',
+				sectionAnchors: noteSectionAnchors('# History\n## Defenses'),
+			}),
 			record({ id: 'n-a', title: 'Lore', body: 'See [[Highmoor#Defenses]].' }),
 		];
 		const result = computeNoteRelationships('n-target', records);
@@ -150,7 +155,10 @@ describe('GRAPH-002 — pure engine: cross-section links', () => {
 			record({ id: 'n-a', title: 'Lore', body: 'See [[Highmoor#Vaults]].' }),
 		];
 		const result = computeNoteRelationships('n-target', records);
-		expect(result.backlinks[0]!.crossSection).toEqual({ status: 'section-missing', label: 'Vaults' });
+		expect(result.backlinks[0]!.crossSection).toEqual({
+			status: 'section-missing',
+			label: 'Vaults',
+		});
 	});
 });
 
@@ -178,7 +186,9 @@ describe('GRAPH-002 — pure engine: related-note jumps', () => {
 	});
 
 	it('a target absent from the visible set yields no relationships (defensive fail closed)', () => {
-		const records: NoteRelationshipRecord[] = [record({ id: 'n-a', title: 'A', body: '[[Missing]]' })];
+		const records: NoteRelationshipRecord[] = [
+			record({ id: 'n-a', title: 'A', body: '[[Missing]]' }),
+		];
 		expect(computeNoteRelationships('n-missing', records)).toEqual({
 			targetId: 'n-missing',
 			backlinks: [],
@@ -202,7 +212,12 @@ describe('GRAPH-002 — actor-filtered backlinks (AC1: visible backlinks + snipp
 			body: 'The heroes set out for [[Highmoor]] at first light.',
 		}).state;
 
-		const rel = getNoteRelationshipsForActor(state.content, state.permissions, PLAYER_ACTOR.id, target.id);
+		const rel = getNoteRelationshipsForActor(
+			state.content,
+			state.permissions,
+			PLAYER_ACTOR.id,
+			target.id,
+		);
 		expect(rel.backlinks).toHaveLength(1);
 		expect(rel.backlinks[0]!.sourceTitle).toBe('Quest Log');
 		expect(rel.backlinks[0]!.snippet).toContain('set out for');
@@ -219,7 +234,12 @@ describe('GRAPH-002 — actor-filtered backlinks (AC1: visible backlinks + snipp
 				body: `${title} mentions [[Highmoor]] in passing.`,
 			}).state;
 		}
-		const rel = getNoteRelationshipsForActor(state.content, state.permissions, PLAYER_ACTOR.id, target.id);
+		const rel = getNoteRelationshipsForActor(
+			state.content,
+			state.permissions,
+			PLAYER_ACTOR.id,
+			target.id,
+		);
 		expect(rel.backlinks.map((b) => b.sourceTitle)).toEqual(['Alpha', 'Beta', 'Gamma']);
 		expect(rel.backlinks.every((b) => b.snippet !== null)).toBe(true);
 	});
@@ -243,11 +263,21 @@ describe('GRAPH-002 — actor-filtered backlinks (AC2: a hidden backlink source 
 			body: 'News from [[Highmoor]] reaches the square.',
 		}).state;
 
-		const playerRel = getNoteRelationshipsForActor(state.content, state.permissions, PLAYER_ACTOR.id, target.id);
+		const playerRel = getNoteRelationshipsForActor(
+			state.content,
+			state.permissions,
+			PLAYER_ACTOR.id,
+			target.id,
+		);
 		// Only the player-visible source appears — the dm-only source is OMITTED, not redacted (no leak).
 		expect(playerRel.backlinks.map((b) => b.sourceTitle)).toEqual(['Town Crier']);
 
-		const dmRel = getNoteRelationshipsForActor(state.content, state.permissions, DM_ACTOR.id, target.id);
+		const dmRel = getNoteRelationshipsForActor(
+			state.content,
+			state.permissions,
+			DM_ACTOR.id,
+			target.id,
+		);
 		expect(dmRel.backlinks.map((b) => b.sourceTitle)).toEqual(['Secret Plot', 'Town Crier']);
 	});
 
@@ -262,7 +292,12 @@ describe('GRAPH-002 — actor-filtered backlinks (AC2: a hidden backlink source 
 		state = hub.state;
 		state = createNote(state, env, { title: 'Town', visibility: 'player-visible' }).state;
 
-		const playerRel = getNoteRelationshipsForActor(state.content, state.permissions, PLAYER_ACTOR.id, hub.id);
+		const playerRel = getNoteRelationshipsForActor(
+			state.content,
+			state.permissions,
+			PLAYER_ACTOR.id,
+			hub.id,
+		);
 		// The dm-only [[Vault]] forward edge is dropped for the player; only the visible [[Town]] jump remains.
 		expect(playerRel.related.map((r) => r.relatedTitle)).toEqual(['Town']);
 	});
@@ -281,10 +316,20 @@ describe('GRAPH-002 — fail closed at the TARGET (no probe of a hidden note)', 
 			body: 'A rumor of [[Hidden Lair]].',
 		}).state;
 
-		const playerRel = getNoteRelationshipsForActor(state.content, state.permissions, PLAYER_ACTOR.id, target.id);
+		const playerRel = getNoteRelationshipsForActor(
+			state.content,
+			state.permissions,
+			PLAYER_ACTOR.id,
+			target.id,
+		);
 		expect(playerRel).toEqual({ targetId: target.id, backlinks: [], related: [] });
 		// The DM can inspect the same target and DOES see the backlink — proving the player result is filtered.
-		const dmRel = getNoteRelationshipsForActor(state.content, state.permissions, DM_ACTOR.id, target.id);
+		const dmRel = getNoteRelationshipsForActor(
+			state.content,
+			state.permissions,
+			DM_ACTOR.id,
+			target.id,
+		);
 		expect(dmRel.backlinks.map((b) => b.sourceTitle)).toEqual(['Linker']);
 	});
 
@@ -292,7 +337,12 @@ describe('GRAPH-002 — fail closed at the TARGET (no probe of a hidden note)', 
 		let state = base();
 		const target = createNote(state, env, { title: 'Highmoor', visibility: 'player-visible' });
 		state = target.state;
-		const rel = getNoteRelationshipsForActor(state.content, state.permissions, 'ghost-actor', target.id);
+		const rel = getNoteRelationshipsForActor(
+			state.content,
+			state.permissions,
+			'ghost-actor',
+			target.id,
+		);
 		expect(rel).toEqual({ targetId: target.id, backlinks: [], related: [] });
 	});
 
@@ -310,7 +360,12 @@ describe('GRAPH-002 — fail closed at the TARGET (no probe of a hidden note)', 
 			dispatchCommand(state, env, cmd('content.remove-item', { itemId: target.id })),
 		).nextState;
 
-		const dmRel = getNoteRelationshipsForActor(state.content, state.permissions, DM_ACTOR.id, target.id);
+		const dmRel = getNoteRelationshipsForActor(
+			state.content,
+			state.permissions,
+			DM_ACTOR.id,
+			target.id,
+		);
 		expect(dmRel).toEqual({ targetId: target.id, backlinks: [], related: [] });
 	});
 });
@@ -341,13 +396,23 @@ describe('GRAPH-002 — snippet redaction by SECTION visibility (never quote a h
 			),
 		).nextState;
 
-		const playerRel = getNoteRelationshipsForActor(state.content, state.permissions, PLAYER_ACTOR.id, target.id);
+		const playerRel = getNoteRelationshipsForActor(
+			state.content,
+			state.permissions,
+			PLAYER_ACTOR.id,
+			target.id,
+		);
 		// The visible backlink still appears (AC1) — but its snippet is suppressed so no hidden section leaks.
 		expect(playerRel.backlinks.map((b) => b.sourceTitle)).toEqual(['Field Report']);
 		expect(playerRel.backlinks[0]!.snippet).toBeNull();
 
 		// The DM sees the same backlink WITH its snippet (no redaction applies to the DM).
-		const dmRel = getNoteRelationshipsForActor(state.content, state.permissions, DM_ACTOR.id, target.id);
+		const dmRel = getNoteRelationshipsForActor(
+			state.content,
+			state.permissions,
+			DM_ACTOR.id,
+			target.id,
+		);
 		expect(dmRel.backlinks[0]!.snippet).toContain('[[Highmoor]]');
 	});
 });

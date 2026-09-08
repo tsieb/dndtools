@@ -52,6 +52,10 @@ const Campaign = lazy(() => import('./screens/Campaign').then((m) => ({ default:
 const CampaignCalendar = lazy(() =>
 	import('./screens/campaign/Calendar').then((m) => ({ default: m.Calendar })),
 );
+// RC-KNW-3.3 — likewise the relationship editor.
+const CampaignRelationships = lazy(() =>
+	import('./screens/campaign/Relationships').then((m) => ({ default: m.Relationships })),
+);
 const Knowledge = lazy(() => import('./screens/knowledge').then((m) => ({ default: m.Knowledge })));
 const Settings = lazy(() => import('./screens/settings').then((m) => ({ default: m.Settings })));
 const Graph = lazy(() => import('./screens/Graph').then((m) => ({ default: m.Graph })));
@@ -401,6 +405,7 @@ function ShelledRoutes() {
 					<Route path="/atlas" element={<Atlas />} />
 					<Route path="/campaign" element={<Campaign />} />
 					<Route path="/campaign/calendar" element={<CampaignCalendar />} />
+					<Route path="/campaign/relationships" element={<CampaignRelationships />} />
 					<Route path="/knowledge/:id?" element={<Knowledge />} />
 					<Route path="/graph" element={<Graph />} />
 					<Route path="/graph/repair" element={<GraphRepair />} />

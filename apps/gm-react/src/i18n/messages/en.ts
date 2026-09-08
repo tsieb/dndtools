@@ -4294,6 +4294,23 @@ export const en = {
 	'campaign.timeline.emptyTitle': 'No dated events yet',
 	'campaign.timeline.emptyDesc':
 		'Notes with calendar dates build the campaign timeline. Add a date to a note to see it here.',
+	'campaign.relationships.entry': 'Relationships',
+	'campaign.relationships.back': 'Story',
+	'campaign.relationships.title': 'Relationships',
+	'campaign.relationships.intro':
+		'Typed connections between notes — who leads a faction, who lives where.',
+	'campaign.relationships.empty': 'No relationships declared yet.',
+	'campaign.relationships.addTitle': 'Add a relationship',
+	'campaign.relationships.source': 'From',
+	'campaign.relationships.verb': 'Relationship',
+	'campaign.relationships.verbPlaceholder': 'e.g. leads, located-in',
+	'campaign.relationships.target': 'To',
+	'campaign.relationships.choose': 'Choose a note…',
+	'campaign.relationships.add': 'Add',
+	'campaign.relationships.added': 'Relationship added.',
+	'campaign.relationships.removed': 'Relationship removed.',
+	'campaign.relationships.remove': 'Remove: {source} → {target}',
+	'campaign.relationships.saveFailed': "Couldn't save this relationship.",
 
 	/* Upgrade › plans and cloud */
 	'upgrade.included': 'Included',

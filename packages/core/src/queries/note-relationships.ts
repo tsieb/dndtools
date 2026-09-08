@@ -2,14 +2,17 @@ import { hasDmAuthority } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
 import type { ContentItem, VaultContentState } from '../state/content';
 import { contentItemVisibilityMetadata } from '../state/content';
-import { parseMarkdownNote } from '../state/markdown';
+import { asList, parseMarkdownNote } from '../state/markdown';
 import { filterEntityForActor } from '../permissions/visibility-filter';
 import { getContentItemsForActor, contentFieldPath, type ContentItemView } from './content-query';
 import {
 	computeNoteRelationships,
+	computeTypedRelationshipEdges,
 	noteSectionAnchors,
+	parseRelationDeclarations,
 	type NoteRelationshipRecord,
 	type NoteRelationships,
+	type TypedRelationEdge,
 } from '../state/note-relationships';
 
 /**
@@ -111,6 +114,7 @@ function buildRelationshipRecords(
 			sectionAnchors: noteSectionAnchors(parsed.body),
 			body: parsed.body,
 			snippetable,
+			relations: parseRelationDeclarations(asList(parsed.properties['relations'])),
 		};
 	});
 }
@@ -132,4 +136,20 @@ export function getNoteRelationshipsForActor(
 	// The target must be one of the actor's VISIBLE notes; otherwise fail closed (no leak, graceful degrade).
 	if (!records.some((record) => record.id === targetId)) return hiddenResult(targetId);
 	return computeNoteRelationships(targetId, records);
+}
+
+/**
+ * RC-KNW-3.3 — the ACTOR-FILTERED TYPED-RELATIONSHIP graph: every declared `relations:` edge (faction↔NPC,
+ * NPC↔location, or any other authored pair) whose source AND target are both notes the actor may see.
+ * Built on the SAME visible-record set {@link getNoteRelationshipsForActor} uses — an unknown actor, or one
+ * with no visible notes, gets an empty graph (fail closed; no leak). Pure + deterministic.
+ */
+export function getTypedRelationshipEdgesForActor(
+	content: VaultContentState,
+	permissions: PermissionState,
+	actorId: string,
+): TypedRelationEdge[] {
+	if (!permissions.actors[actorId]) return [];
+	const records = buildRelationshipRecords(content, permissions, actorId);
+	return computeTypedRelationshipEdges(records);
 }

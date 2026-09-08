@@ -62,6 +62,14 @@ export interface NoteRelationshipRecord {
 	 * suppressed (fail closed).
 	 */
 	snippetable: boolean;
+	/**
+	 * RC-KNW-3.3 — the note's declared TYPED relationships (`relations:` front matter), each an explicit
+	 * verb naming how this note relates to a target note by title/alias (e.g. a faction note declaring
+	 * `leads :: Marrow Vane`, an NPC note declaring `located-in :: The Sunken Crypt`). Declared on the
+	 * actor-visible note itself, so a hidden note never contributes a declaration; the target still has to
+	 * resolve to a VISIBLE note (see {@link computeTypedRelationshipEdges}) before it becomes an edge.
+	 */
+	relations: RelationDeclaration[];
 }
 
 /** Normalize a target/alias name for case-insensitive, trimmed matching. Deterministic. */
@@ -222,7 +230,8 @@ export function computeNoteRelationships(
 		relatedTitle,
 	}));
 	related.sort(
-		(a, b) => a.relatedTitle.localeCompare(b.relatedTitle) || a.relatedId.localeCompare(b.relatedId),
+		(a, b) =>
+			a.relatedTitle.localeCompare(b.relatedTitle) || a.relatedId.localeCompare(b.relatedId),
 	);
 
 	return { targetId, backlinks, related };
@@ -235,4 +244,107 @@ export function computeNoteRelationships(
  */
 export function noteSectionAnchors(body: string): string[] {
 	return headingAnchors(body).map((heading) => heading.anchor);
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * RC-KNW-3.3 — the RELATIONSHIP EDITOR: TYPED edges between notes (faction↔NPC, NPC↔location, or any
+ * other pair), declared as explicit `relations:` front matter rather than inferred from prose links.
+ * A typed edge is authored data, not a parsed one — it is NOT a second wikilink engine: the note
+ * substrate (front matter list + `content.update-item`), the actor-visibility choke-point, and the
+ * name-resolution rules are all the SAME ones GRAPH-002's backlinks/related jumps already use.
+ * ---------------------------------------------------------------------------------------------- */
+
+/** The `relations:` front-matter list item grammar: `<verb> :: <target title or alias>`. */
+const RELATION_DECLARATION_SEPARATOR = ' :: ';
+
+/** ONE declared typed relationship, as authored on a note (before the target is resolved). */
+export interface RelationDeclaration {
+	/** The relationship verb, as authored (e.g. `leads`, `located-in`, `allied-with`). Free text. */
+	verb: string;
+	/** The target note's title or alias, as authored — resolved against the visible note set. */
+	targetName: string;
+}
+
+/**
+ * RC-KNW-3.3 — parse a note's raw `relations:` front-matter list into {@link RelationDeclaration}s. Each
+ * line must match `<verb> :: <target>`; a line that doesn't (missing separator, empty verb, or empty
+ * target) is SKIPPED rather than crashing the read — a malformed declaration degrades to "not an edge",
+ * never a thrown error. Pure.
+ */
+export function parseRelationDeclarations(raw: readonly string[]): RelationDeclaration[] {
+	const declarations: RelationDeclaration[] = [];
+	for (const line of raw) {
+		const index = line.indexOf(RELATION_DECLARATION_SEPARATOR);
+		if (index === -1) continue;
+		const verb = line.slice(0, index).trim().toLowerCase();
+		const targetName = line.slice(index + RELATION_DECLARATION_SEPARATOR.length).trim();
+		if (verb === '' || targetName === '') continue;
+		declarations.push({ verb, targetName });
+	}
+	return declarations;
+}
+
+/** Serialize one {@link RelationDeclaration} back to its `relations:` front-matter line grammar. Pure. */
+export function serializeRelationDeclaration(declaration: RelationDeclaration): string {
+	return `${declaration.verb}${RELATION_DECLARATION_SEPARATOR}${declaration.targetName}`;
+}
+
+/** ONE resolved TYPED edge: a source note's declared relationship to a VISIBLE target note. */
+export interface TypedRelationEdge {
+	sourceId: string;
+	sourceTitle: string;
+	/** The relationship verb, as authored (lowercased). */
+	verb: string;
+	targetId: string;
+	targetTitle: string;
+}
+
+/**
+ * RC-KNW-3.3 — compute the TYPED RELATIONSHIP EDGES over a set of actor-VISIBLE note records: every
+ * declared `relations:` line whose target name resolves to a VISIBLE note (title or alias) becomes one
+ * edge. A declaration that resolves to nothing visible (a typo, a hidden note, a deleted note) yields NO
+ * edge — the same fail-closed degrade GRAPH-002's related-note jumps use, so a typed edge can never name
+ * a note the actor cannot see. Self-edges (a note declaring a relationship to itself) are dropped.
+ * Deduped per (source, verb, target) triple and sorted deterministically (source title → verb → target
+ * title → ids), so the graph the GUI renders is reproducible. Pure + deterministic.
+ */
+export function computeTypedRelationshipEdges(
+	records: readonly NoteRelationshipRecord[],
+): TypedRelationEdge[] {
+	const idByName = new Map<string, string>();
+	for (const record of records) {
+		idByName.set(normalizeName(record.title), record.id);
+		for (const alias of record.aliases) idByName.set(normalizeName(alias), record.id);
+	}
+	idByName.delete('');
+
+	const seen = new Set<string>();
+	const edges: TypedRelationEdge[] = [];
+	for (const source of records) {
+		for (const declaration of source.relations) {
+			const targetId = idByName.get(normalizeName(declaration.targetName));
+			if (targetId === undefined || targetId === source.id) continue;
+			const target = records.find((record) => record.id === targetId);
+			if (!target) continue;
+			const key = `${source.id} ${declaration.verb} ${targetId}`;
+			if (seen.has(key)) continue;
+			seen.add(key);
+			edges.push({
+				sourceId: source.id,
+				sourceTitle: source.title,
+				verb: declaration.verb,
+				targetId,
+				targetTitle: target.title,
+			});
+		}
+	}
+	edges.sort(
+		(a, b) =>
+			a.sourceTitle.localeCompare(b.sourceTitle) ||
+			a.verb.localeCompare(b.verb) ||
+			a.targetTitle.localeCompare(b.targetTitle) ||
+			a.sourceId.localeCompare(b.sourceId) ||
+			a.targetId.localeCompare(b.targetId),
+	);
+	return edges;
 }

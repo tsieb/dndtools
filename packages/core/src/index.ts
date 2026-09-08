@@ -3459,6 +3459,18 @@ export {
 // indistinguishable from "no relationships" — a stale link to a now-hidden target degrades gracefully).
 export { getNoteRelationshipsForActor } from './queries/note-relationships';
 
+// RC-KNW-3.3: the RELATIONSHIP EDITOR — TYPED edges between notes (faction↔NPC, NPC↔location, or any
+// other authored pair), declared as `relations:` front matter and resolved against the SAME
+// actor-visible note set GRAPH-002 already builds (no second relationship source, no new command: a
+// declaration is written through the existing `content.update-item` front matter round-trip).
+export type { RelationDeclaration, TypedRelationEdge } from './state/note-relationships';
+export {
+	computeTypedRelationshipEdges,
+	parseRelationDeclarations,
+	serializeRelationDeclaration,
+} from './state/note-relationships';
+export { getTypedRelationshipEdgesForActor } from './queries/note-relationships';
+
 // GRAPH-003: the PURE DETERMINISTIC GRAPH-QUALITY engine — UNRESOLVED links (+ deterministic repair
 // candidates), ALIAS / DUPLICATE-TITLE disambiguation, ORPHAN + HUB notes, and RELATIONSHIP-QUALITY scores
 // (each carrying deterministic inputs + a versioned threshold + source references, no AI). Built on the SAME

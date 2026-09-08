@@ -4336,6 +4336,23 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'campaign.timeline.emptyTitle': 'Todavía no hay eventos con fecha',
 	'campaign.timeline.emptyDesc':
 		'Las notas con fechas de calendario forman la línea temporal. Añade una fecha a una nota para verla aquí.',
+	'campaign.relationships.entry': 'Relaciones',
+	'campaign.relationships.back': 'Historia',
+	'campaign.relationships.title': 'Relaciones',
+	'campaign.relationships.intro':
+		'Conexiones tipificadas entre notas — quién lidera una facción, quién vive dónde.',
+	'campaign.relationships.empty': 'Todavía no hay relaciones declaradas.',
+	'campaign.relationships.addTitle': 'Añadir una relación',
+	'campaign.relationships.source': 'Desde',
+	'campaign.relationships.verb': 'Relación',
+	'campaign.relationships.verbPlaceholder': 'p. ej. leads, located-in',
+	'campaign.relationships.target': 'Hasta',
+	'campaign.relationships.choose': 'Elige una nota…',
+	'campaign.relationships.add': 'Añadir',
+	'campaign.relationships.added': 'Relación añadida.',
+	'campaign.relationships.removed': 'Relación eliminada.',
+	'campaign.relationships.remove': 'Eliminar: {source} → {target}',
+	'campaign.relationships.saveFailed': 'No se pudo guardar esta relación.',
 
 	/* Mejora › planes y nube */
 	'upgrade.included': 'Incluido',
