@@ -58,7 +58,10 @@ export type VaultObjectSubtype =
 	| 'quest'
 	| 'spell'
 	// RC-SES-4.1 — the end-of-session capture note: the DM's structured record of one played session.
-	| 'session-log';
+	| 'session-log'
+	// RC-CHR-4.2 — the compiled `session-highlight` journal entries, gathered across the party into one
+	// shared note.
+	| 'session-highlights';
 
 export const VAULT_OBJECT_SUBTYPES: readonly VaultObjectSubtype[] = [
 	'note',
@@ -75,6 +78,7 @@ export const VAULT_OBJECT_SUBTYPES: readonly VaultObjectSubtype[] = [
 	'quest',
 	'spell',
 	'session-log',
+	'session-highlights',
 ] as const;
 
 /**
@@ -446,6 +450,34 @@ export const VAULT_OBJECT_SCHEMAS: Readonly<Record<VaultObjectSubtype, VaultObje
 				schemaVersion: SESSION_STATE_SCHEMA_VERSION,
 				module: 'state/session-state.ts',
 			},
+			modelImplemented: true,
+		},
+		'session-highlights': {
+			subtype: 'session-highlights',
+			displayName: 'Session highlights',
+			// RC-CHR-4.2 — the compiled note. The prose (one `##` section per contributing character) lives
+			// in the markdown body; these fields are traceability for where it was compiled from and who
+			// contributed, not a second copy of the highlight text.
+			fields: [
+				field('title', 'string', true, 'The compiled highlights note title.'),
+				field(
+					'sessionArchiveId',
+					'string',
+					false,
+					'The session archive this compile ran against, when authored from a specific session.',
+				),
+				field(
+					'characterIds',
+					'string-array',
+					false,
+					'The characters whose highlights were compiled.',
+				),
+				field('highlightCount', 'number', false, 'The number of journal entries compiled.'),
+			],
+			// A compiled highlights note is authored explicitly to hand the party — the compile command
+			// sets `player-visible` itself (an explicit DM act), never relying on this catalog default.
+			defaultVisibility: 'dm-only',
+			modelReference: null,
 			modelImplemented: true,
 		},
 	});

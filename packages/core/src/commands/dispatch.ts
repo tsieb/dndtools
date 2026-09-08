@@ -74,6 +74,7 @@ import {
 import { handleGrantCapabilitySet, handleRevokeGrant, handleTransferOwnership } from './grant';
 import { handleAssignRole } from './assign-role';
 import { handleRenameActor } from './rename-actor';
+import { handleCompileSessionHighlights } from './session-highlights';
 import {
 	handleAuthorRecap,
 	handleMarkParty,
@@ -803,6 +804,8 @@ export function dispatchCommand(
 			return handleDeleteAudioPreset(state, env, command.actorId, command.payload);
 		case 'session.author-recap':
 			return handleAuthorRecap(state, env, command.actorId, command.payload);
+		case 'session.compile-highlights':
+			return handleCompileSessionHighlights(state, env, command.actorId, command.payload);
 		case 'session.set-presence':
 			return handleSetPresence(state, env, command.actorId, command.payload);
 		case 'mcp.set-enabled':

@@ -854,6 +854,14 @@ export type CoreCommand =
 	| { type: 'audio.delete-preset'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// SES-009 — AUTHOR a recap (markdown) onto a session archive. DM-only; fails closed with no archive.
 	| { type: 'session.author-recap'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// RC-CHR-4.2 — compile the party's `session-highlight` journal entries into one shared
+	// "Session highlights" note. DM-only.
+	| {
+			type: 'session.compile-highlights';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	// COLLAB-004 — set/clear ephemeral session PRESENCE. Actor-scoped (a player sets only their own;
 	// the DM may clear another's). NEVER op-logged: presence is ephemeral, non-durable state.
 	| { type: 'session.set-presence'; actorId: ActorId; payload: unknown; idempotencyKey?: string }

@@ -5704,6 +5704,17 @@ export {
 	normalizeSessionLogCapture,
 } from './state/session-log';
 
+// --- RC-CHR-4.2 — highlight compilation -------------------------------------------------------------
+// `session.compile-highlights` (DM-only) gathers every character's `session-highlight` journal entries
+// into one shared "Session highlights" note; this module owns the pure markdown composition it shares
+// with the command handler.
+export type { CharacterHighlights } from './state/session-highlights';
+export {
+	SESSION_HIGHLIGHTS_SUBTYPE,
+	composeSessionHighlightsMarkdown,
+	isEmptyHighlightsCompile,
+} from './state/session-highlights';
+
 // RC-KNW-1.1 — MARKDOWN CALLOUTS. `[!Lore]/[!Warning]/[!Tip]/[!Secret]` blockquote callouts. The
 // GUI renderer and the actor-scoped content projections share these pure functions so "where does
 // the secret end" has exactly one answer; `stripSecretCallouts` is what keeps a `[!Secret]` body out

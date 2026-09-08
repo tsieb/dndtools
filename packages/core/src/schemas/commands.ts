@@ -3302,6 +3302,20 @@ export const authorRecapInputSchema = z
 	})
 	.strict();
 
+// RC-CHR-4.2 — compile the `session-highlight` journal entries across the party into one shared
+// "Session highlights" note (DM-only). `characterIds` optionally narrows which characters are
+// compiled; absent = every character with at least one highlight. `occurred`, when supplied, dates
+// the note on the campaign calendar — the same `dateFields` mechanism RC-SES-4.1's session-log note
+// uses to place itself on the Campaign timeline (DM pin-to-timeline).
+export const compileSessionHighlightsInputSchema = z
+	.object({
+		title: z.string().min(1).max(200).optional(),
+		characterIds: z.array(idSchema).max(200).optional(),
+		sessionArchiveId: idSchema.optional(),
+		occurred: customDateSchema.optional(),
+	})
+	.strict();
+
 // Set (or clear) THIS actor's ephemeral session PRESENCE (COLLAB-004). A player may set ONLY their
 // own presence; the DM may additionally CLEAR another participant's stale entry by naming
 // `targetActorId` with `status: 'offline'`. Presence is EPHEMERAL: the handler never appends a
