@@ -78,6 +78,34 @@ test.describe('graph: relationship graph & search', () => {
 		expect(Math.abs(after.y - before.y)).toBeLessThan(8);
 	});
 
+	// RC-KNW-4.1 — clusters and momentum.
+	test('linked notes are wrapped in cluster hulls that can be switched off', async ({ page }) => {
+		const hulls = page.locator('svg g[aria-hidden="true"] polygon, svg g[aria-hidden="true"] line');
+		// The seeded vault's [[wikilinks]] form real communities, so at least one arc gets a hull.
+		await expect.poll(async () => hulls.count()).toBeGreaterThan(0);
+
+		const toggle = page.getByTestId('graph-clusters-toggle');
+		await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+		await toggle.click();
+		await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+		await expect(hulls).toHaveCount(0);
+
+		// And back — the hulls are a toggle, not a one-way door.
+		await toggle.click();
+		await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+		await expect.poll(async () => hulls.count()).toBeGreaterThan(0);
+	});
+
+	test('dormant arcs report honestly on a vault that was just seeded', async ({ page }) => {
+		await expect(page.getByText('Dormant arcs')).not.toHaveCount(0);
+		// Every seeded note was written moments ago, so nothing is dormant — and the panel says so
+		// rather than rendering an empty list with no explanation.
+		await expect(page.getByText('Every arc has moved recently.')).not.toHaveCount(0);
+		await expect(page.getByTestId('graph-dormant-arc')).toHaveCount(0);
+		// The active-arc count is real intelligence, not decoration: a freshly seeded vault has arcs.
+		await expect(page.getByText(/\d+ active arcs?/)).not.toHaveCount(0);
+	});
+
 	test('the player viewpoint drops dm-only nodes and generalizes health', async ({ page }) => {
 		// DM viewpoint: the dm-only note is a node.
 		await expect(page.getByRole('button', { name: DM_ONLY_NOTE })).not.toHaveCount(0);

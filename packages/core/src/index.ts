@@ -3501,6 +3501,19 @@ export {
 // report and the DM's differ only by which notes are visible). Unknown actor ⇒ empty report (fail closed).
 export { getGraphQualityForActor } from './queries/graph-quality-query';
 
+// --- RC-KNW-4.1: CLUSTERS AND MOMENTUM (additive block — do not reorder neighbours) ---
+// Deterministic label-propagation communities over the actor-visible resolved-link graph, each arc
+// carrying MOMENTUM (recent mutations ÷ cluster size) and a DORMANT flag. Pure: `now` is passed in, never
+// read from a clock. Hidden notes are excluded upstream, so no arc can reveal content the actor can't see.
+export type { ClusterInputNode, GraphCluster, GraphClusterReport } from './state/graph-clusters';
+export {
+	CLUSTER_THRESHOLDS,
+	GRAPH_CLUSTER_SCHEMA_VERSION,
+	GRAPH_CLUSTER_THRESHOLD_VERSION,
+	computeGraphClusters,
+} from './state/graph-clusters';
+export { getGraphClustersForActor } from './queries/graph-quality-query';
+
 // GRAPH-007: the PURE DETERMINISTIC GRAPH HEALTH + COVERAGE engine — STALE notes, MISSING links, CONTENT
 // gaps, OPEN threads, and a 0–100 coverage grade, computed from the visible-graph quality report + staleness
 // signals. Optional narrative AI explanation is a thin labelled layer over the deterministic findings (the
