@@ -1062,6 +1062,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.stage.dismissBanner': 'Descartar el aviso de escena',
 	'play.stage.whatTheTableSees': 'Lo que ve la mesa',
 	'play.stage.map': 'Mapa: {name}',
+	'play.stage.mapOverlay':
+		'{name}: {fog} zonas ocultas, {markers} marcadores, {tokens} fichas, tal como lo proyecta tu DM',
 	'play.stage.projectedByDm': 'Proyectado a tu vista por el DM',
 	'play.stage.nothingShown': 'Todavía no se muestra nada.',
 	'play.stage.watching': 'Observando la mesa',

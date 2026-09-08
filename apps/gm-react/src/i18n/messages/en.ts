@@ -1035,6 +1035,8 @@ export const en = {
 	'play.stage.dismissBanner': 'Dismiss scene banner',
 	'play.stage.whatTheTableSees': 'What the table sees',
 	'play.stage.map': 'Map: {name}',
+	'play.stage.mapOverlay':
+		'{name} — {fog} hidden areas, {markers} markers, {tokens} tokens, as your DM projected it',
 	'play.stage.projectedByDm': 'Projected to your view by the DM',
 	'play.stage.nothingShown': 'Nothing is being shown yet.',
 	'play.stage.watching': 'Watching the table',

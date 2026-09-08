@@ -8,6 +8,7 @@ import { useViewport } from '../../app/useViewport';
 import { isNetworkDestinationAllowed, usePlatformCapabilities } from '../../platform/capabilities';
 import { PartyBoardTiles } from '../../app/character/PartyPanel';
 import { Panel, PvPage, SectionHead, type LiveData } from './shared';
+import { StageMap } from './StageMap';
 import { useI18n } from '../../i18n';
 
 /**
@@ -277,20 +278,11 @@ export function StageSection({
 							backgroundSize: sceneName ? '38px 38px, 38px 38px, auto, auto' : 'auto',
 						}}
 					>
-						{/* projected map raster — bytes resolve only because the projection gate admitted the id */}
-						{projectedRasterUrl && (
-							<img
-								src={projectedRasterUrl}
-								alt={projected ? `Map: ${projected.name}` : 'Projected map'}
-								style={{
-									position: 'absolute',
-									inset: 0,
-									width: '100%',
-									height: '100%',
-									objectFit: 'cover',
-								}}
-							/>
-						)}
+						{/* RC-CLD-3.2 — the projected map with the DM's projection choices on it: the raster
+						    (bytes resolve only because the projection gate admitted the id) PLUS the
+						    actor-filtered fog, markers and tokens. It used to be the raster alone, so the
+						    player's own device showed an unfogged picture of a map the table saw fogged. */}
+						{projected && <StageMap projected={projected} rasterUrl={projectedRasterUrl} />}
 						<div style={{ position: 'absolute', top: 14, left: 16 }}>
 							<span style={{ ...eb, color: 'color-mix(in srgb, var(--color-accent) 80%, #fff)' }}>
 								{t('play.stage.whatTheTableSees')}
