@@ -153,12 +153,13 @@ Resources:
   # can never decrypt, so its SSE-S3 key is irrelevant to server-readable content. This CMK is
   # the SEPARATE key any future Cloud-Enhanced (server-readable) content path must encrypt
   # under, scoped ONE PER STAGE so a dev key compromise can never expose prod content. Its
-  # policy names SyncFn's own execution role explicitly (no wildcard/service principal), so
-  # only the sync-api Lambda — not "any Lambda in the account" — may decrypt. Every Decrypt/
-  # GenerateDataKey call it makes is already captured by the stage's CloudTrail trail
+  # policy grants cryptographic use only to SyncFn's own execution role. Account IAM delegation
+  # is limited to key administration; administrators remain trusted to change the key policy.
+  # No wildcard/service principal or grant-creation permission is allowed. The stage's
+  # CloudTrail template configures capture of every Decrypt/GenerateDataKey call
   # (`AuditTrail`, foundation template — `IncludeManagementEvents: true`, `ReadWriteType: All`
   # covers KMS management events with no separate data-event config needed), which satisfies
-  # the checklist's "CloudTrail on decrypt" clause once this key is in use.
+  # the configuration requirement; delivered events still need verification after deployment.
   #
   # No plaintext content path exists yet (see the threat-model doc's phase-2 checklist) — this
   # key ships ahead of it so the checklist's key-management clause is verifiable in infra code
@@ -179,17 +180,41 @@ Resources:
         Statement:
           - Sid: AccountAdmin
             Effect: Allow
-            Principal: { AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root' }
-            Action: 'kms:*'
+            Principal: { AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root' }
+            # An account principal delegates these actions through IAM. kms:* would let
+            # any IAM-authorized role decrypt, bypassing the explicit SyncFn principal below.
+            # Keep policy/alias/rotation management, without crypto or CreateGrant delegation.
+            Action:
+              - 'kms:CancelKeyDeletion'
+              - 'kms:CreateAlias'
+              - 'kms:DeleteAlias'
+              - 'kms:DescribeKey'
+              - 'kms:DisableKey'
+              - 'kms:DisableKeyRotation'
+              - 'kms:EnableKey'
+              - 'kms:EnableKeyRotation'
+              - 'kms:GetKeyPolicy'
+              - 'kms:GetKeyRotationStatus'
+              - 'kms:ListGrants'
+              - 'kms:ListKeyPolicies'
+              - 'kms:ListKeyRotations'
+              - 'kms:ListResourceTags'
+              - 'kms:PutKeyPolicy'
+              - 'kms:RevokeGrant'
+              - 'kms:RotateKeyOnDemand'
+              - 'kms:ScheduleKeyDeletion'
+              - 'kms:TagResource'
+              - 'kms:UntagResource'
+              - 'kms:UpdateAlias'
+              - 'kms:UpdateKeyDescription'
             Resource: '*'
-          # Scoped to SyncFn's own SAM-generated execution role, not a service principal or
-          # wildcard — no other function in the account may use this key.
+          # Only this stack's SAM-generated role receives cryptographic permissions.
           - Sid: AllowSyncFnDecrypt
             Effect: Allow
             Principal: { AWS: !GetAtt SyncFnRole.Arn }
             Action:
               - 'kms:Decrypt'
-              - 'kms:GenerateDataKey*'
+              - 'kms:GenerateDataKey'
               - 'kms:DescribeKey'
             Resource: '*'
 
