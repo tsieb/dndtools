@@ -18,6 +18,13 @@ import {
  * one that used to sit in `widget-bodies.tsx`.
  */
 
+/**
+ * How much time the tile's Add control gives back. One minute is the unit a DM asks for out loud
+ * ("give them another minute"); a configurable step would need a configure command the timer
+ * definition does not declare.
+ */
+const ADVANCE_SECONDS = 60;
+
 const URGENCY_COLOR: Record<string, string> = {
 	danger: 'var(--color-status-error-text)',
 	warning: 'var(--color-status-warning-text)',
@@ -117,6 +124,19 @@ export function TimerBody({
 						label={t('widgetBody.timer.reset')}
 						unavailableReason={sessionOnly}
 						onPress={op('timer.reset')}
+					/>
+				)}
+				{/* RC-WID-4.2 — `timer.advance` was a DECLARED operate command with no control anywhere on
+				    the tile, so the only way to give the table another minute was to reset and restart.
+				    The core adds `deltaSeconds` to the remaining duration whatever the status, so this is
+				    offered in every state, not only while running. */}
+				{declares('timer.advance') && (
+					<OpChip
+						icon="add"
+						label={t('widgetBody.timer.advance')}
+						ariaLabel={t('widgetBody.timer.advanceAria', { seconds: ADVANCE_SECONDS })}
+						unavailableReason={sessionOnly}
+						onPress={op('timer.advance', { deltaSeconds: ADVANCE_SECONDS })}
 					/>
 				)}
 			</div>

@@ -27,9 +27,15 @@ import { I18nProvider } from '../../../i18n';
  * exercised against core-derived data, only the React plumbing that owns persistence is replaced.
  */
 
-const runtimeRef: { state: CoreStateSlice; defaultActorId: string } = {
+const dispatchSpy = vi.fn(async () => ({ status: 'accepted' as const }));
+const runtimeRef: {
+	state: CoreStateSlice;
+	defaultActorId: string;
+	dispatch: typeof dispatchSpy;
+} = {
 	state: buildInitialState(DM_ACTOR, PLAYER_ACTOR),
 	defaultActorId: DM_ACTOR.id,
+	dispatch: dispatchSpy,
 };
 
 vi.mock('../../../runtime/RuntimeContext', () => ({
@@ -238,5 +244,93 @@ describe('Command Center bodies stay actor-scoped', () => {
 	it('shows a player no prepared encounter on the combat body', () => {
 		expect(renderBody(byType('combat'), DM_ACTOR.id)).toContain('Mill ambush');
 		expect(renderBody(byType('combat'), PLAYER_ACTOR.id)).not.toContain('Mill ambush');
+	});
+});
+
+/**
+ * RC-WID-4.2 — a DECLARED operate command with no control is a feature the DM cannot reach. These
+ * render the bodies in VIEW mode (`onCommand` present) and check the tile itself carries the
+ * button, keyboard-operable because it is a real `<button>`, dispatching the declared command.
+ */
+describe('declared operate commands are visible controls on the tile', () => {
+	const byType = (type: string): WidgetDefinition => {
+		const found = SYSTEM_DEFINITIONS.find((d) => d.type === type);
+		if (!found) throw new Error(`no system widget definition for ${type}`);
+		return found;
+	};
+
+	function renderOperable(definition: WidgetDefinition): {
+		onCommand: ReturnType<typeof vi.fn>;
+		buttons: HTMLButtonElement[];
+	} {
+		runtimeRef.state = campaign();
+		runtimeRef.defaultActorId = DM_ACTOR.id;
+		const onCommand = vi.fn();
+		act(() =>
+			root.render(
+				<I18nProvider>
+					<WidgetBody widget={boardWidget(definition)} onCommand={onCommand} />
+				</I18nProvider>,
+			),
+		);
+		return { onCommand, buttons: Array.from(container.querySelectorAll('button')) };
+	}
+
+	const nameOf = (button: HTMLButtonElement) =>
+		button.getAttribute('aria-label') ?? button.textContent ?? '';
+
+	it('offers the timer transport and the advance control, each with an accessible name', () => {
+		const { buttons } = renderOperable(byType('timer'));
+		const names = buttons.map(nameOf);
+		expect(names).toContain('Start 60-second timer');
+		expect(names).toContain('Add 60 seconds to the timer');
+		expect(names.every((name) => name.trim() !== '')).toBe(true);
+	});
+
+	it('dispatches timer.advance with the declared payload when the advance control is pressed', () => {
+		const { onCommand, buttons } = renderOperable(byType('timer'));
+		const advance = buttons.find((b) => nameOf(b) === 'Add 60 seconds to the timer');
+		act(() => advance?.click());
+		expect(onCommand).toHaveBeenCalledWith('timer.advance', { deltaSeconds: 60 });
+	});
+
+	it('offers dice roll on the dice tile', () => {
+		const { onCommand, buttons } = renderOperable(byType('dice'));
+		const roll = buttons.find((b) => (nameOf(b) ?? '').startsWith('Roll '));
+		expect(roll).toBeTruthy();
+		act(() => roll?.click());
+		expect(onCommand).toHaveBeenCalledWith('dice.roll', { expression: 'd20' });
+	});
+
+	it('advances the turn from the initiative tile through the same core command /session uses', async () => {
+		dispatchSpy.mockClear();
+		const { buttons } = renderOperable(byType('initiative-tracker'));
+		const next = buttons.find((b) => nameOf(b) === 'Next turn');
+		expect(next).toBeTruthy();
+		expect(next?.getAttribute('aria-disabled')).toBeNull();
+		await act(async () => next?.click());
+		expect(dispatchSpy).toHaveBeenCalledWith(
+			expect.objectContaining({ type: 'combat.advance-turn', actorId: DM_ACTOR.id }),
+		);
+	});
+
+	it('soft-disables the turn control with a reason while no combat is running', () => {
+		runtimeRef.state = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
+		runtimeRef.defaultActorId = DM_ACTOR.id;
+		dispatchSpy.mockClear();
+		act(() =>
+			root.render(
+				<I18nProvider>
+					<WidgetBody widget={boardWidget(byType('initiative-tracker'))} onCommand={vi.fn()} />
+				</I18nProvider>,
+			),
+		);
+		const next = Array.from(container.querySelectorAll('button')).find((b) =>
+			(b.getAttribute('aria-label') ?? '').startsWith('Next turn'),
+		);
+		expect(next?.getAttribute('aria-disabled')).toBe('true');
+		expect(next?.getAttribute('aria-label')).toContain('Start combat in Session first');
+		act(() => next?.click());
+		expect(dispatchSpy).not.toHaveBeenCalled();
 	});
 });

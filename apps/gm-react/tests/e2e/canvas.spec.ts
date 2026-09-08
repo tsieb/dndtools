@@ -1083,6 +1083,55 @@ test.describe('canvas: the timer transport survives its own press', () => {
 		await expect(resume).toHaveCount(1);
 		await expect(resume).toBeFocused();
 	});
+
+	// RC-WID-4.2 — `timer.advance` was a DECLARED operate command of the timer widget with no control
+	// anywhere on the tile: the only way to give the table another minute was to reset and restart.
+	test('adds a minute to a running timer from the keyboard', async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+
+		await goLive(page);
+
+		// Scoped to the timer TILE by its own test id, resolved ONCE: once live, the session quick
+		// panel offers its own timer transport, and a `filter({ has: Start })` tile would stop matching
+		// the moment the transport turned into Pause.
+		const start = page.getByRole('button', { name: /^Start \d+-second timer$/ });
+		await expect(start).toHaveCount(1);
+		const tileId = await start.evaluate(
+			(el) => el.closest('[data-testid^="widget-"]')?.getAttribute('data-testid') ?? '',
+		);
+		expect(tileId).not.toBe('');
+		const tile = page.getByTestId(tileId);
+		await start.focus();
+		await start.press('Enter');
+		await expect(tile.getByRole('button', { name: 'Pause', exact: true })).toHaveCount(1);
+
+		const readout = () =>
+			tile
+				.locator('div')
+				.filter({ hasText: /^\d+:\d\d$/ })
+				.last()
+				.innerText();
+		const before = await readout();
+		const seconds = (mmss: string) => {
+			const [m, s] = mmss.trim().split(':').map(Number);
+			return m * 60 + s;
+		};
+
+		const advance = tile.getByRole('button', { name: 'Add 60 seconds to the timer' });
+		await expect(advance).toHaveCount(1);
+		await advance.focus();
+		await expect(advance).toBeFocused();
+		await advance.press('Enter');
+
+		// The countdown is a pure function of the durable timer, so the minute has to show up in it.
+		await expect
+			.poll(async () => seconds(await readout()) - seconds(before))
+			.toBeGreaterThanOrEqual(55);
+	});
 });
 
 // `/board`'s confirmation channel is a single `role="status"` host beside the toolbar. It was

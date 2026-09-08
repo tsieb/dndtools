@@ -10,6 +10,7 @@ import { useI18n } from '../../../i18n';
 import { Muted, StatPill, bodyWrap, cfg, type WidgetCommandHandler } from '../../widget-body-kit';
 import { useViewport } from '../../useViewport';
 import { InitiativeTrackerCompact } from './InitiativeTracker';
+import { NextTurnControl } from './NextTurnControl';
 
 /**
  * Moved from `app/widget-bodies.tsx` by RC-WID-4.1 — the file grew past what one module should
@@ -82,6 +83,10 @@ export function InitiativeBody({
 						value={`${active.resources.hp} / ${active.resources.maxHp}`}
 					/>
 				)}
+			</div>
+			{/* RC-WID-4.2 — the tile's own operate control; see `NextTurnControl.tsx`. */}
+			<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+				<NextTurnControl running={running} interactive={!!onCommand} />
 			</div>
 			{running && orderNames.length > 0 ? (
 				<Muted>

@@ -4732,6 +4732,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'widgetBody.timer.start': 'Iniciar',
 	'widgetBody.timer.startAria': 'Iniciar un temporizador de {seconds} segundos',
 	'widgetBody.timer.reset': 'Reiniciar',
+	'widgetBody.timer.advance': 'Añadir un minuto',
+	'widgetBody.timer.advanceAria': 'Añadir {seconds} segundos al temporizador',
 	'widgetBody.audio.empty':
 		'No suena nada — pon una pista desde los controles de audio de la sesión.',
 	'widgetBody.audio.sessionAudio': 'Audio de la sesión',
@@ -4740,6 +4742,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'widgetBody.audio.ambience':
 		'{count, plural, one { · # capa de ambiente} other { · # capas de ambiente}}',
 	'widgetBody.initiative.round': 'Ronda',
+	'widgetBody.initiative.nextTurn': 'Turno siguiente',
+	'widgetBody.initiative.nextTurnUnavailable':
+		'Inicia el combate en Sesión primero: no hay turno que avanzar.',
 	'widgetBody.initiative.turn': 'Turno',
 	'widgetBody.initiative.spotlight': 'Protagonismo',
 	'widgetBody.initiative.hp': 'PG',

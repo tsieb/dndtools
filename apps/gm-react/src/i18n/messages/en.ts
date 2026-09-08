@@ -4677,6 +4677,8 @@ export const en = {
 	'widgetBody.timer.start': 'Start',
 	'widgetBody.timer.startAria': 'Start {seconds}-second timer',
 	'widgetBody.timer.reset': 'Reset',
+	'widgetBody.timer.advance': 'Add a minute',
+	'widgetBody.timer.advanceAria': 'Add {seconds} seconds to the timer',
 	'widgetBody.audio.empty': 'Nothing playing — cue a track from the session audio controls.',
 	'widgetBody.audio.sessionAudio': 'Session audio',
 	'widgetBody.audio.playing': 'Playing · vol {percent}%',
@@ -4684,6 +4686,9 @@ export const en = {
 	'widgetBody.audio.ambience':
 		'{count, plural, one { · # ambience layer} other { · # ambience layers}}',
 	'widgetBody.initiative.round': 'Round',
+	'widgetBody.initiative.nextTurn': 'Next turn',
+	'widgetBody.initiative.nextTurnUnavailable':
+		'Start combat in Session first — there is no turn to advance.',
 	'widgetBody.initiative.turn': 'Turn',
 	'widgetBody.initiative.spotlight': 'Spotlight',
 	'widgetBody.initiative.hp': 'HP',
