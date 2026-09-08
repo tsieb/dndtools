@@ -16,7 +16,9 @@ import { useI18n } from '../../i18n';
  *     host permission denied (fail-closed), enabled later in Extensions → Plugins. Fail-closed gate
  *     when the cloud backend isn't configured or the user is signed out.
  *   - Export: dispatches the real `content.export` (mode + item-type scope are REAL core params) and
- *     DOWNLOADS the result — one markdown file exports as .md, multiple as a .json bundle.
+ *     DOWNLOADS the result — one markdown file exports as .md, multiple as a .json bundle. Module
+ *     files save/install a `.dndmodule` bundle (ADR-034) with no account: the same format and the
+ *     same per-kind install review Discover runs, so a module can be shared by hand.
  *   - Campaign wiki: publishes the player-visible notes as a hosted, account-less-readable wiki via
  *     the app-api (publish/unpublish + a stable public link). Eligibility counts and the page bundle
  *     come from the live actor-filtered content read; DM-only notes are never included. Publishing is

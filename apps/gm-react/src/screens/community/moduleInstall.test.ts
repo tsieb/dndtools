@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { installPlanItemCount, installPlanKind, planModuleInstall } from './moduleInstall';
+import {
+	installPlanCommand,
+	installPlanItemCount,
+	installPlanKind,
+	planModuleInstall,
+} from './moduleInstall';
 
 /**
  * RC-CLD-4.1 — the marketplace install ROUTER. A listing's payload decides which review flow runs;
@@ -82,5 +87,37 @@ describe('planModuleInstall', () => {
 		expect(broken.kind).toBe('not-a-module');
 		if (broken.kind === 'not-a-module') expect(broken.reason).toMatch(/system-package/);
 		expect(installPlanKind(broken)).toBeNull();
+	});
+});
+
+describe('installPlanCommand', () => {
+	it('sends a content module through the non-destructive transactional import', () => {
+		const command = installPlanCommand(planModuleInstall(contentBundle, NOT_A_PACKAGE));
+		expect(command).toEqual({
+			type: 'content.commit-import',
+			payload: {
+				sourceKind: 'markdown-archive',
+				policy: 'skip',
+				files: [
+					{ path: 'notes/crypt.md', text: '# The crypt' },
+					{ path: 'notes/chapel.md', text: '# The chapel' },
+				],
+				appliedEntryIds: [],
+			},
+		});
+	});
+
+	it('installs or upgrades a widget package, as the caller found it', () => {
+		const plan = planModuleInstall(
+			{ id: 'starter.table-roller', version: '1.0.0', widgets: [] },
+			NOT_A_PACKAGE,
+		);
+		expect(installPlanCommand(plan)?.type).toBe('widget.package.install');
+		expect(installPlanCommand(plan, { isUpgrade: true })?.type).toBe('widget.package.upgrade');
+	});
+
+	it('has no command for a kind this release cannot install', () => {
+		expect(installPlanCommand(planModuleInstall(sceneBundle, NOT_A_PACKAGE))).toBeNull();
+		expect(installPlanCommand(planModuleInstall(null, NOT_A_PACKAGE))).toBeNull();
 	});
 });

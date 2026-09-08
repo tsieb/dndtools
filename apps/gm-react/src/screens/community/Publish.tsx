@@ -26,7 +26,7 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import { useAuth } from '../../cloud/AuthContext';
 import { isAccountApiConfigured } from '../../cloud/config';
 import { deleteModule, listModules, publishModule, type ModuleListing } from '../../cloud/appApi';
-import { MarketplaceGate, errText, slugify } from './shared';
+import { MarketplaceGate, errText, representativePlayerActorId, slugify } from './shared';
 import { useI18n, type MessageKey } from '../../i18n';
 
 // RC-CLD-4.3 — the checklist item id → its label key. camelCase (not the item's own kebab id) because
@@ -45,6 +45,12 @@ export function CommPublish() {
 	const runtime = useRuntime();
 	const auth = useAuth();
 	const dmId = runtime.defaultActorId;
+	// A PORTABLE export must name a real player actor or core fails closed to an empty bundle, which
+	// made every content-module publish report "nothing to publish" on a vault that had plenty.
+	const portableViewerActorId = useMemo(
+		() => representativePlayerActorId(runtime.state.permissions),
+		[runtime.state.permissions],
+	);
 	const cloudReady = isAccountApiConfigured && auth.status === 'signed-in';
 	const [mine, setMine] = useState<ModuleListing[] | null>(null);
 	// Failure is its own state — `mine === null` means LOADING, so folding errors into it would
@@ -142,7 +148,11 @@ export function CommPublish() {
 		// assets WHILE the DM is still writing the listing, not only after they hit Publish. Guarded by
 		// `kind === 'content-module'` so a fast dialog-switch never overwrites a different draft.
 		void runtime
-			.dispatch({ type: 'content.export', actorId: dmId, payload: { mode: 'portable' } })
+			.dispatch({
+				type: 'content.export',
+				actorId: dmId,
+				payload: { mode: 'portable', portableViewerActorId },
+			})
 			.then((res) => {
 				if (res.status !== 'accepted') return;
 				const event = res.events.find(
@@ -163,7 +173,7 @@ export function CommPublish() {
 		const res = await runtime.dispatch({
 			type: 'content.export',
 			actorId: dmId,
-			payload: { mode: 'portable' },
+			payload: { mode: 'portable', portableViewerActorId },
 		});
 		if (res.status !== 'accepted') return { ok: false, message: res.rejection.message };
 		const event = res.events.find(

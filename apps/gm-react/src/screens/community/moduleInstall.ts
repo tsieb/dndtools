@@ -92,3 +92,48 @@ export function installPlanKind(plan: InstallPlan): ModuleKind | null {
 			? 'scene-package'
 			: plan.kind;
 }
+
+/** The core command an install plan dispatches, and the payload it carries. */
+export interface InstallCommand {
+	type:
+		| 'widget.package.install'
+		| 'widget.package.upgrade'
+		| 'system.define'
+		| 'content.commit-import';
+	payload: Record<string, unknown>;
+}
+
+/**
+ * The command a plan installs through — one place, so the marketplace install and the local
+ * `.dndmodule` file install can never drift into two different review flows. Null when the plan has
+ * no installer in this release (fail closed: the screen says why instead of dispatching a guess).
+ */
+export function installPlanCommand(
+	plan: InstallPlan,
+	options: { isUpgrade?: boolean } = {},
+): InstallCommand | null {
+	switch (plan.kind) {
+		case 'widget-package':
+			return {
+				type: options.isUpgrade ? 'widget.package.upgrade' : 'widget.package.install',
+				payload: { package: plan.definition },
+			};
+		case 'system-package':
+			return { type: 'system.define', payload: { package: plan.systemPackage } };
+		case 'content-module':
+			// The SAME transactional, resumable import the Knowledge screen runs. `skip` is the
+			// non-destructive policy: an installed module never overwrites a DM's own note.
+			return {
+				type: 'content.commit-import',
+				payload: {
+					sourceKind: 'markdown-archive',
+					policy: 'skip',
+					files: plan.files,
+					appliedEntryIds: [],
+				},
+			};
+		case 'unsupported':
+		case 'not-a-module':
+			return null;
+	}
+}

@@ -3000,6 +3000,32 @@ export const en = {
 		'The system is added to your library. Selecting it for a campaign stays a separate, explicit step.',
 	'community.discover.installedModule':
 		'Installed {name} — {count, plural, one {# item} other {# items}} added.',
+	// RC-CLD-4.1 — the `.dndmodule` bundle as a file: save one, install one, no account needed.
+	'community.moduleFile.title': 'Module files',
+	'community.moduleFile.hint':
+		'Save your player-visible content as a .dndmodule file to share by hand, or install a module file someone sent you. Every install is reviewed first.',
+	'community.moduleFile.name': 'Module name',
+	'community.moduleFile.namePlaceholder': 'Module name',
+	'community.moduleFile.summary': 'Module summary',
+	'community.moduleFile.summaryPlaceholder': 'What is in this module',
+	'community.moduleFile.version': 'Module version',
+	'community.moduleFile.saveAction': 'Save .dndmodule',
+	'community.moduleFile.saveTitle': 'Save content module',
+	'community.moduleFile.saved': 'Saved {file}.',
+	'community.moduleFile.saveError': 'Could not save the module file.',
+	'community.moduleFile.installAction': 'Install .dndmodule…',
+	'community.moduleFile.invalidJson': 'That file is not valid JSON.',
+	'community.moduleFile.notAModule': 'That file is not a valid module.',
+	'community.moduleFile.openError': 'Could not read that module file.',
+	'community.moduleFile.reviewTitle': 'Install this module?',
+	'community.moduleFile.reviewDescription':
+		'Review what the module would add before anything enters your vault.',
+	'community.moduleFile.installConfirm': 'Install module',
+	'community.moduleFile.fromFile': 'from',
+	'community.moduleFile.itemCount': '{count, plural, one {# item} other {# items}}',
+	'community.moduleFile.installed':
+		'Installed {name} — {count, plural, one {# item} other {# items}} added.',
+	'community.moduleFile.installFailed': 'Could not install that module.',
 	'community.publish.contentModuleTitle': 'Your campaign content',
 	'community.publish.contentModuleNote':
 		'Publishes player-visible notes only. DM only content is left out, and secrets are scrubbed.',

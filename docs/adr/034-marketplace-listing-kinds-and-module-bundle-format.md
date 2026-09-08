@@ -55,6 +55,14 @@ the id, the count, and for a content module the note paths — before dispatchin
 installer in this release (`scene-package`) resolves to `unsupported` and the screen says why instead
 of offering a button that could only fail.
 
+**A module is also a file.** The bundle is the marketplace's unit, but the marketplace needs a cloud
+account, and a local-only build has none. Community → Export therefore saves a content module as a
+`.dndmodule` file and installs one back (`apps/gm-react/src/screens/community/ModuleFile.tsx`),
+through the _same_ format, the same install plan and the same review dialog — the command a plan
+dispatches lives in one place (`installPlanCommand`) so the two entry points cannot drift into two
+different review flows. This is also what makes the publish/install round trip testable end to end:
+the e2e server blanks every cloud coordinate by design, so the cloud path is unreachable from a spec.
+
 **Backwards compatibility is by omission.** Listings published before this ADR have no `kind` column
 and are read as `widget-package`, which is what they are; a bare (unbundled) widget-package payload
 is still accepted on publish. The module payload cap rises from 256 KiB to 512 KiB to fit a manifest
@@ -68,6 +76,8 @@ and inline assets.
 - `scene-package` is publishable and browsable before it is installable. That is deliberate and
   stated in-UI; the scene importer is a separate story.
 - Content modules inherit the export path's privacy guarantees rather than restating them.
+- A module can be shared by hand, with no account, and the file path is where the round trip is
+  exercised in e2e (`apps/gm-react/tests/e2e/module-file.spec.ts`).
 
 ## Rejected Alternatives
 
@@ -85,4 +95,5 @@ and inline assets.
 - Amends ADR-020 (app-api backend); composes ADR-002 (a publisher proposes, the DM disposes).
 - Tests: `packages/core/tests/module-bundle.test.ts`,
   `packages/cloud-fns/src/app-api/handler.test.ts` (`marketplace`),
-  `apps/gm-react/src/screens/community/moduleInstall.test.ts`.
+  `apps/gm-react/src/screens/community/moduleInstall.test.ts`,
+  `apps/gm-react/tests/e2e/module-file.spec.ts` (publish/install of a content module).

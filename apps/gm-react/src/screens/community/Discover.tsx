@@ -7,7 +7,12 @@ import { useAuth } from '../../cloud/AuthContext';
 import { isAccountApiConfigured } from '../../cloud/config';
 import { deleteModule, getModule, listModules, type ModuleListing } from '../../cloud/appApi';
 import { MarketplaceGate, errText, kb } from './shared';
-import { installPlanItemCount, planModuleInstall, type InstallPlan } from './moduleInstall';
+import {
+	installPlanCommand,
+	installPlanItemCount,
+	planModuleInstall,
+	type InstallPlan,
+} from './moduleInstall';
 import { useI18n, type MessageKey } from '../../i18n';
 
 /** RC-CLD-4.1 — the listing kinds, in the DM's words. */
@@ -88,25 +93,8 @@ export function CommDiscover() {
 		if (plan.kind === 'unsupported') return;
 		setBusy(true);
 		try {
-			const command =
-				plan.kind === 'widget-package'
-					? {
-							type: review.isUpgrade ? 'widget.package.upgrade' : 'widget.package.install',
-							payload: { package: plan.definition },
-						}
-					: plan.kind === 'system-package'
-						? { type: 'system.define', payload: { package: plan.systemPackage } }
-						: {
-								// The SAME transactional, resumable import the Knowledge screen runs. `skip` is the
-								// non-destructive policy: an installed module never overwrites a DM's own note.
-								type: 'content.commit-import',
-								payload: {
-									sourceKind: 'markdown-archive',
-									policy: 'skip',
-									files: plan.files,
-									appliedEntryIds: [],
-								},
-							};
+			const command = installPlanCommand(plan, { isUpgrade: review.isUpgrade });
+			if (!command) return;
 			const result = await runtime.dispatch({
 				type: command.type as 'widget.package.install',
 				actorId: dmId,

@@ -17,7 +17,8 @@ import {
 	validateScenePackage,
 	VaultBackupValidationError,
 } from '../../platform/backup';
-import { errText, slugify } from './shared';
+import { errText, representativePlayerActorId, slugify } from './shared';
+import { ModuleFilePanel } from './ModuleFile';
 import { useI18n } from '../../i18n';
 
 const MAX_SCENE_PACKAGE_FILE_BYTES = 16 * 1024 * 1024;
@@ -47,10 +48,7 @@ export function CommExport() {
 	// empty bundle for a DM/unknown viewer, so a portable export MUST name a real player actor or it
 	// silently exports nothing). Pick any player; absent one, '' keeps the fail-closed empty result.
 	const portableViewerId = useMemo(
-		() =>
-			(Object.values(runtime.state.permissions.actors) as { id: string; role: string }[]).find(
-				(a) => a.role === 'player',
-			)?.id ?? '',
+		() => representativePlayerActorId(runtime.state.permissions),
 		[runtime.state.permissions],
 	);
 	const dmOnlyCount = items.filter((i) => i.visibility === 'dm-only').length;
@@ -420,6 +418,7 @@ export function CommExport() {
 					</Button>
 				</div>
 			</Panel>
+			<ModuleFilePanel />
 		</>
 	);
 }

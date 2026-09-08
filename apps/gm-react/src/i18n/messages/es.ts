@@ -3066,6 +3066,31 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'El sistema se añade a tu biblioteca. Elegirlo para una campaña sigue siendo un paso aparte y explícito.',
 	'community.discover.installedModule':
 		'Se instaló {name}: {count, plural, one {# elemento añadido} other {# elementos añadidos}}.',
+	'community.moduleFile.title': 'Archivos de módulo',
+	'community.moduleFile.hint':
+		'Guarda tu contenido visible para jugadores como archivo .dndmodule para compartirlo a mano, o instala un archivo de módulo que te hayan enviado. Cada instalación se revisa antes.',
+	'community.moduleFile.name': 'Nombre del módulo',
+	'community.moduleFile.namePlaceholder': 'Nombre del módulo',
+	'community.moduleFile.summary': 'Resumen del módulo',
+	'community.moduleFile.summaryPlaceholder': 'Qué incluye este módulo',
+	'community.moduleFile.version': 'Versión del módulo',
+	'community.moduleFile.saveAction': 'Guardar .dndmodule',
+	'community.moduleFile.saveTitle': 'Guardar módulo de contenido',
+	'community.moduleFile.saved': 'Se guardó {file}.',
+	'community.moduleFile.saveError': 'No se pudo guardar el archivo del módulo.',
+	'community.moduleFile.installAction': 'Instalar .dndmodule…',
+	'community.moduleFile.invalidJson': 'Ese archivo no es JSON válido.',
+	'community.moduleFile.notAModule': 'Ese archivo no es un módulo válido.',
+	'community.moduleFile.openError': 'No se pudo leer ese archivo de módulo.',
+	'community.moduleFile.reviewTitle': '¿Instalar este módulo?',
+	'community.moduleFile.reviewDescription':
+		'Revisa qué añadiría el módulo antes de que algo entre en tu bóveda.',
+	'community.moduleFile.installConfirm': 'Instalar módulo',
+	'community.moduleFile.fromFile': 'desde',
+	'community.moduleFile.itemCount': '{count, plural, one {# elemento} other {# elementos}}',
+	'community.moduleFile.installed':
+		'Se instaló {name}: {count, plural, one {# elemento añadido} other {# elementos añadidos}}.',
+	'community.moduleFile.installFailed': 'No se pudo instalar ese módulo.',
 	'community.publish.contentModuleTitle': 'El contenido de tu campaña',
 	'community.publish.contentModuleNote':
 		'Publica solo las notas visibles para jugadores. El contenido Solo DM se excluye y los secretos se depuran.',
