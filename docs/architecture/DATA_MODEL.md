@@ -74,9 +74,10 @@ RC-SES-4.1 `session-log` capture is written that way.
 
 ## 4. Persistence (Dexie / IndexedDB)
 
-Renderer persistence is implemented once, in
-`apps/gm-react/src/platform/storage/coreStore.ts`. It is the only module that touches
-IndexedDB; its exported `storagePort` conforms to the type-only `StoragePort` contract.
+Renderer persistence for VAULT state is implemented once, in
+`apps/gm-react/src/platform/storage/coreStore.ts`; its exported `storagePort` conforms to the
+type-only `StoragePort` contract. Together with the player-private store in §4.1, these are the only
+modules that touch IndexedDB.
 
 Database (`Dexie`): name `dndtools-v2`, version `3`, four object stores:
 
@@ -101,6 +102,28 @@ storage or uninstalling removes it. Android system backup is not the portable va
 Keystore-backed secret preferences are explicitly excluded because their key cannot move between
 installations. Users export a full local vault to storage outside the app before alpha upgrades; see
 [`../runbooks/android-alpha.md`](../runbooks/android-alpha.md).
+
+### 4.1 The player-private store (ADR-035)
+
+Player-private records — private notes, annotated bookmarks, NPC impressions — are NOT vault state
+and are deliberately not in `dndtools-v2`. They live in a second family of databases,
+`dndtools-private-<characterId>` (version `1`, stores `notes`, `bookmarks`, `impressions`), owned by
+`apps/gm-react/src/platform/storage/privateStore.ts`.
+
+| Property             | `dndtools-v2`                        | `dndtools-private-<characterId>` |
+| -------------------- | ------------------------------------ | -------------------------------- |
+| Scope                | one per device                       | one per character                |
+| In `CoreStateSlice`  | yes                                  | never                            |
+| In the op log / sync | yes                                  | never                            |
+| In a cloud backup    | yes                                  | never                            |
+| Readable by MCP      | yes (derived from core state)        | never                            |
+| Written by           | commands, through `persistFullState` | the Journal screen, directly     |
+
+The one path from private to shared is the player explicitly sharing a single NPC impression, which
+travels as an ordinary `character.add-journal-entry` command request. `privateStore.test.ts` holds
+the leak test that keeps this true: the persisted core slice and the replicated `buildPlayerData`
+snapshot both contain none of the private text, and an import allowlist proves no module on the
+replication, cloud or MCP path imports the store at all.
 
 Write path (`persistFullState(previous, next)`):
 
