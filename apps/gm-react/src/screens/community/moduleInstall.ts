@@ -1,10 +1,13 @@
 import {
 	MODULE_BUNDLE_FORMAT,
 	contentModuleImportFiles,
+	importSystemPackageFromBundle,
 	moduleBundleItemCount,
 	parseModuleBundle,
 	type ModuleBundle,
 	type ModuleKind,
+	type SystemPackage,
+	type SystemsState,
 	type WidgetPackageDefinition,
 } from '@dndtools/core';
 
@@ -27,7 +30,15 @@ export type InstallPlan =
 			itemCount: number;
 	  }
 	| { kind: 'content-module'; bundle: ModuleBundle; files: Array<{ path: string; text: string }> }
-	| { kind: 'system-package'; bundle: ModuleBundle; systemPackage: unknown }
+	| {
+			kind: 'system-package';
+			bundle: ModuleBundle;
+			/** The package as it would be DEFINED — re-homed into `custom:` under a free id. */
+			systemPackage: SystemPackage;
+			/** The id the file carried, when the install id differs from it. */
+			sourcePackageId: string;
+			rehomed: boolean;
+	  }
 	| { kind: 'unsupported'; bundle: ModuleBundle }
 	| { kind: 'not-a-module'; reason: string };
 
@@ -51,7 +62,17 @@ function widgetPlan(definition: unknown, bundle: ModuleBundle | null, reason: st
 	};
 }
 
-export function planModuleInstall(payload: unknown, notAPackageReason: string): InstallPlan {
+/**
+ * RC-SYS-3.4 — a system package is planned against the campaign's INSTALLED systems, because the
+ * import re-homes it: a built-in id, or an id the vault already has, would be refused by
+ * `system.define` (authoring is confined to `custom:`, and an install adds a system rather than
+ * overwriting one). The dialog then shows the id it will really land under.
+ */
+export function planModuleInstall(
+	payload: unknown,
+	notAPackageReason: string,
+	systems: Pick<SystemsState, 'packages'> = { packages: {} },
+): InstallPlan {
 	if (!isBundleEnvelope(payload)) return widgetPlan(payload, null, notAPackageReason);
 	const parsed = parseModuleBundle(payload);
 	if (!parsed.ok) return { kind: 'not-a-module', reason: parsed.reason };
@@ -61,8 +82,17 @@ export function planModuleInstall(payload: unknown, notAPackageReason: string): 
 			return widgetPlan(bundle.payload, bundle, notAPackageReason);
 		case 'content-module':
 			return { kind: 'content-module', bundle, files: contentModuleImportFiles(bundle) };
-		case 'system-package':
-			return { kind: 'system-package', bundle, systemPackage: bundle.payload };
+		case 'system-package': {
+			const imported = importSystemPackageFromBundle(bundle, systems);
+			if (!imported.ok) return { kind: 'not-a-module', reason: imported.reason };
+			return {
+				kind: 'system-package',
+				bundle,
+				systemPackage: imported.import.package,
+				sourcePackageId: imported.import.sourcePackageId,
+				rehomed: imported.import.rehomed,
+			};
+		}
 		case 'scene-package':
 			return { kind: 'unsupported', bundle };
 	}

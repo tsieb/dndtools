@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+	DND5E_SYSTEM_PACKAGE,
+	GENERIC_SYSTEM_PACKAGE,
+	exportSystemPackageBundle,
+} from '@dndtools/core';
+import {
 	installPlanCommand,
 	installPlanItemCount,
 	installPlanKind,
@@ -45,7 +50,51 @@ const sceneBundle = {
 	},
 };
 
+/** RC-SYS-3.4 — a real system-package bundle, built the way the Export panel builds one. */
+function systemBundle(): unknown {
+	const systems = {
+		packages: { [DND5E_SYSTEM_PACKAGE.id]: DND5E_SYSTEM_PACKAGE },
+		activePackageId: DND5E_SYSTEM_PACKAGE.id,
+		activeWidgetPackageId: null,
+		schemaVersion: 1 as const,
+	};
+	const built = exportSystemPackageBundle(systems, DND5E_SYSTEM_PACKAGE.id);
+	if (!built.ok) throw new Error(built.reason);
+	return JSON.parse(JSON.stringify(built.bundle));
+}
+
 describe('planModuleInstall', () => {
+	it('routes a system package to system.define, re-homed into the custom namespace', () => {
+		const plan = planModuleInstall(systemBundle(), NOT_A_PACKAGE, {
+			packages: { [DND5E_SYSTEM_PACKAGE.id]: DND5E_SYSTEM_PACKAGE },
+		});
+		expect(plan.kind).toBe('system-package');
+		if (plan.kind !== 'system-package') return;
+		// The bundle carried a built-in id; installing it under that id would be reverted by the next
+		// hydrate, so the plan says what it will really define.
+		expect(plan.sourcePackageId).toBe(DND5E_SYSTEM_PACKAGE.id);
+		expect(plan.rehomed).toBe(true);
+		expect(plan.systemPackage.id).toBe('custom:dnd5e');
+		expect(installPlanItemCount(plan)).toBe(1);
+		expect(installPlanKind(plan)).toBe('system-package');
+		expect(installPlanCommand(plan)).toEqual({
+			type: 'system.define',
+			payload: { package: plan.systemPackage },
+		});
+	});
+
+	it('gives an imported system a free id when the vault already holds that one', () => {
+		const plan = planModuleInstall(systemBundle(), NOT_A_PACKAGE, {
+			packages: {
+				[DND5E_SYSTEM_PACKAGE.id]: DND5E_SYSTEM_PACKAGE,
+				'custom:dnd5e': { ...GENERIC_SYSTEM_PACKAGE, id: 'custom:dnd5e' },
+			},
+		});
+		expect(plan.kind).toBe('system-package');
+		if (plan.kind !== 'system-package') return;
+		expect(plan.systemPackage.id).toBe('custom:dnd5e-2');
+	});
+
 	it('routes a content module to the transactional import, as {path,text} files', () => {
 		const plan = planModuleInstall(contentBundle, NOT_A_PACKAGE);
 		expect(plan.kind).toBe('content-module');

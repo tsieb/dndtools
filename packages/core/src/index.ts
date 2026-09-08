@@ -5928,3 +5928,20 @@ export {
 	planCrossDeviceMerge,
 	summarizeMergePlan,
 } from './sync/conflict-lifecycle';
+
+// RC-SYS-3.4 — SYSTEM PACKAGE export/import. A system package is data (vocabulary, attributes,
+// resources, conditions, formulas): it runs no code and needs no host permission, so it travels as
+// an ordinary `.dndmodule` bundle of kind `system-package` and installs through the same
+// `system.define` review a DM-authored system already goes through. The import always re-homes the
+// package into the `custom:` namespace under a free id, because built-in ids are re-seeded from the
+// build on every load and an install must add a system rather than overwrite one.
+export type {
+	SystemPackageExportOverrides,
+	SystemPackageImport,
+	SystemPackageImportResult,
+} from './commands/system-package';
+export {
+	exportSystemPackageBundle,
+	importSystemPackageFromBundle,
+	systemPackageModuleId,
+} from './commands/system-package';

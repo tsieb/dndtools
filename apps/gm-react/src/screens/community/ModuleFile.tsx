@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import {
 	buildContentModuleBundle,
+	exportSystemPackageBundle,
 	moduleBundleFileName,
 	type ContentExport,
 	type CoreEvent,
 } from '@dndtools/core';
-import { Button, Dialog, Input, Toaster } from '../../ds';
+import { Button, Dialog, Input, Select, Toaster } from '../../ds';
 import { Panel, T, eb } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -49,6 +50,9 @@ export function ModuleFilePanel() {
 		() => representativePlayerActorId(runtime.state.permissions),
 		[runtime.state.permissions],
 	);
+	// RC-SYS-3.4 — which installed system the "save a system" half would write out. Defaults to the
+	// one the campaign is playing, which is what a DM sharing a system almost always means.
+	const [systemId, setSystemId] = useState(runtime.state.systems.activePackageId);
 	const [name, setName] = useState('');
 	const [summary, setSummary] = useState('');
 	const [version, setVersion] = useState('1.0.0');
@@ -114,6 +118,35 @@ export function ModuleFilePanel() {
 		}
 	};
 
+	/**
+	 * RC-SYS-3.4 — write an installed system out as a `.dndmodule`. The manifest comes from the
+	 * package itself (its display name, summary and version), so sharing a system needs no form: a
+	 * system package is data, and everything a listing must say about it is already in it.
+	 */
+	const saveSystemPackage = async () => {
+		if (busy) return;
+		setBusy(true);
+		try {
+			const built = exportSystemPackageBundle(runtime.state.systems, systemId);
+			if (!built.ok) {
+				Toaster.error(built.reason);
+				return;
+			}
+			const fileName = moduleBundleFileName(built.bundle.manifest);
+			const saved = await downloadJsonFile(
+				fileName,
+				built.bundle,
+				t('community.moduleFile.systemSaveTitle'),
+			);
+			if (saved.status === 'cancelled') return;
+			Toaster.success(t('community.moduleFile.saved', { file: fileName }));
+		} catch (error) {
+			Toaster.error(errText(error, t('community.moduleFile.systemSaveError')));
+		} finally {
+			setBusy(false);
+		}
+	};
+
 	const openModuleFile = async () => {
 		if (busy) return;
 		setBusy(true);
@@ -127,7 +160,11 @@ export function ModuleFilePanel() {
 				Toaster.error(t('community.moduleFile.invalidJson'));
 				return;
 			}
-			const plan = planModuleInstall(parsed, t('community.moduleFile.notAModule'));
+			const plan = planModuleInstall(
+				parsed,
+				t('community.moduleFile.notAModule'),
+				runtime.state.systems,
+			);
 			if (plan.kind === 'not-a-module') {
 				Toaster.error(plan.reason);
 				return;
@@ -224,6 +261,39 @@ export function ModuleFilePanel() {
 					onClick={() => void openModuleFile()}
 				>
 					{t('community.moduleFile.installAction')}
+				</Button>
+			</div>
+			{/* RC-SYS-3.4 — the other thing worth sharing by hand: the rules system itself. */}
+			<div style={{ ...eb }}>{t('community.moduleFile.systemHint')}</div>
+			<div
+				style={{
+					display: 'flex',
+					flexWrap: 'wrap',
+					alignItems: 'center',
+					gap: 10,
+				}}
+			>
+				<label htmlFor="module-file-system" style={{ font: `600 12px ${T.sans}`, color: T.sub }}>
+					{t('community.moduleFile.systemLabel')}
+				</label>
+				<Select
+					id="module-file-system"
+					value={systemId}
+					onChange={(e: { target: { value: string } }) => setSystemId(e.target.value)}
+					style={{ maxWidth: 280 }}
+					options={Object.values(runtime.state.systems.packages).map((pkg) => ({
+						value: pkg.id,
+						label: pkg.displayName,
+					}))}
+				/>
+				<Button
+					variant="secondary"
+					size="md"
+					icon="download"
+					disabled={busy}
+					onClick={() => void saveSystemPackage()}
+				>
+					{t('community.moduleFile.systemSaveAction')}
 				</Button>
 			</div>
 			<Dialog

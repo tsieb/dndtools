@@ -3064,6 +3064,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.discover.systemPackageNote': 'Un sistema de juego',
 	'community.discover.systemInstallNote':
 		'El sistema se añade a tu biblioteca. Elegirlo para una campaña sigue siendo un paso aparte y explícito.',
+	// RC-SYS-3.4 — the listing-kind filter, and what an imported system package really installs as.
+	'community.discover.filterKind': 'Tipo',
+	'community.discover.kindAll': 'Todos los tipos',
+	'community.discover.emptyKindTitle': 'Todavía no hay nada de ese tipo',
+	'community.discover.emptyKindBody':
+		'Ninguna publicación coincide con este filtro. Elige otro tipo para ver el resto.',
+	'community.discover.systemRehomed':
+		'Se instala como {id}, así que los sistemas que ya tienes no se tocan.',
 	'community.discover.installedModule':
 		'Se instaló {name}: {count, plural, one {# elemento añadido} other {# elementos añadidos}}.',
 	'community.moduleFile.title': 'Archivos de módulo',
@@ -3090,6 +3098,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.moduleFile.itemCount': '{count, plural, one {# elemento} other {# elementos}}',
 	'community.moduleFile.installed':
 		'Se instaló {name}: {count, plural, one {# elemento añadido} other {# elementos añadidos}}.',
+	// RC-SYS-3.4 — saving an installed game system as a shareable module file.
+	'community.moduleFile.systemHint':
+		'Guarda uno de tus sistemas de juego como archivo .dndmodule. Un sistema son datos, así que instalarlo no pide permisos.',
+	'community.moduleFile.systemLabel': 'Sistema para guardar',
+	'community.moduleFile.systemSaveAction': 'Guardar paquete de sistema',
+	'community.moduleFile.systemSaveTitle': 'Guardar paquete de sistema',
+	'community.moduleFile.systemSaveError': 'No se pudo guardar ese paquete de sistema.',
 	'community.moduleFile.installFailed': 'No se pudo instalar ese módulo.',
 	'community.publish.contentModuleTitle': 'El contenido de tu campaña',
 	'community.publish.contentModuleNote':

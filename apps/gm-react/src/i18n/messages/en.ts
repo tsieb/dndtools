@@ -2998,6 +2998,14 @@ export const en = {
 	'community.discover.systemPackageNote': 'One game system',
 	'community.discover.systemInstallNote':
 		'The system is added to your library. Selecting it for a campaign stays a separate, explicit step.',
+	// RC-SYS-3.4 — the listing-kind filter, and what an imported system package really installs as.
+	'community.discover.filterKind': 'Kind',
+	'community.discover.kindAll': 'All kinds',
+	'community.discover.emptyKindTitle': 'Nothing of that kind yet',
+	'community.discover.emptyKindBody':
+		'No listing matches this filter. Choose another kind to see the rest.',
+	'community.discover.systemRehomed':
+		'It installs as {id}, so the systems you already have are untouched.',
 	'community.discover.installedModule':
 		'Installed {name} — {count, plural, one {# item} other {# items}} added.',
 	// RC-CLD-4.1 — the `.dndmodule` bundle as a file: save one, install one, no account needed.
@@ -3025,6 +3033,13 @@ export const en = {
 	'community.moduleFile.itemCount': '{count, plural, one {# item} other {# items}}',
 	'community.moduleFile.installed':
 		'Installed {name} — {count, plural, one {# item} other {# items}} added.',
+	// RC-SYS-3.4 — saving an installed game system as a shareable module file.
+	'community.moduleFile.systemHint':
+		'Save one of your game systems as a .dndmodule file. A system is data, so installing one asks for no permissions.',
+	'community.moduleFile.systemLabel': 'System to save',
+	'community.moduleFile.systemSaveAction': 'Save system package',
+	'community.moduleFile.systemSaveTitle': 'Save system package',
+	'community.moduleFile.systemSaveError': 'Could not save that system package.',
 	'community.moduleFile.installFailed': 'Could not install that module.',
 	'community.publish.contentModuleTitle': 'Your campaign content',
 	'community.publish.contentModuleNote':

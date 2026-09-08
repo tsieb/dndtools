@@ -29,7 +29,11 @@ import {
 	selectSystemPackageInputSchema,
 	updateSystemPackageInputSchema,
 } from '../schemas/commands';
+import { systemPackageSchema } from '../schemas/system-package';
 import { previewSystemPackageSelect } from '../queries/system-switch-query';
+import { isValidSemver } from '../queries/publish-checklist';
+import { buildModuleBundle } from '../state/module-bundle';
+import type { ModuleBundle, ModuleBundleParseResult } from '../state/module-bundle';
 import type { SystemPackage, SystemsState } from '../state/system-package';
 import { cloneSystemPackage } from '../state/system-package';
 import type { CharacterState } from '../state/character-state';
@@ -406,4 +410,154 @@ export function handleForkSystemPackage(
 		{ ...state.systems, packages: { ...state.systems.packages, [forkId]: fork } },
 		{ packageId: forkId, sourcePackageId: source.id, displayName: fork.displayName },
 	);
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * RC-SYS-3.4 — EXPORT / IMPORT a system package as a `.dndmodule` bundle.
+ *
+ * A system package is DATA: a vocabulary, some attributes, resources, conditions and formulas. It
+ * runs no code and asks for no host permission, so sharing one needs no sandbox and no permission
+ * grant — only the SAME bundle format, the SAME trust review and the SAME install command
+ * (`system.define`) a widget package goes through (RC-CLD-4.1, ADR-002: a publisher proposes, the DM
+ * disposes). These two helpers are the pure ends of that round trip; the screens compose them.
+ * ---------------------------------------------------------------------------------------------- */
+
+/** The manifest version an export falls back to when the package's own is not semver. */
+const SYSTEM_PACKAGE_FALLBACK_VERSION = '1.0.0';
+
+/** Bundle-manifest fields a DM may override when exporting; everything else comes from the package. */
+export interface SystemPackageExportOverrides {
+	id?: string;
+	name?: string;
+	summary?: string;
+	version?: string;
+	license?: string;
+	changelog?: string;
+	authoredAt?: string;
+}
+
+/**
+ * The module id for a system package: its package id folded to the manifest's alphabet
+ * (`^[a-z0-9][a-z0-9._-]*$`), which has no colon, so `custom:my-system` ships as `custom-my-system`.
+ */
+export function systemPackageModuleId(packageId: string): string {
+	const slug = packageId
+		.toLowerCase()
+		.replace(/[^a-z0-9._-]+/g, '-')
+		.replace(/^[^a-z0-9]+|[-._]+$/g, '')
+		.slice(0, 120);
+	return slug.length > 0 ? slug : 'system-package';
+}
+
+/**
+ * `exportSystemPackageBundle` — project an installed system package into a `.dndmodule` bundle.
+ *
+ * Built-in packages are exportable too: a package is data, and a DM who wants to hand 5e's shape to
+ * a friend as a starting point should not have to fork it first. What it CANNOT do is produce a
+ * bundle that would not parse — it builds through `buildModuleBundle`, so a package that could not
+ * survive its own schema never reaches a file.
+ */
+export function exportSystemPackageBundle(
+	systems: SystemsState,
+	packageId: string,
+	overrides: SystemPackageExportOverrides = {},
+): ModuleBundleParseResult {
+	const pkg = systems.packages[packageId];
+	if (!pkg) {
+		return {
+			ok: false,
+			reason: `System ${packageId} is not installed.`,
+			issues: [{ path: 'packageId', message: `${packageId} is not in this campaign's systems.` }],
+		};
+	}
+	// A package version is free text (`systemPackageSchema`), a manifest version is semver. Carry the
+	// package's own when it already is one rather than inventing a number the DM did not choose.
+	const version =
+		overrides.version ??
+		(isValidSemver(pkg.version) ? pkg.version : SYSTEM_PACKAGE_FALLBACK_VERSION);
+	return buildModuleBundle({
+		manifest: {
+			kind: 'system-package',
+			id: overrides.id ?? systemPackageModuleId(pkg.id),
+			name: overrides.name ?? pkg.displayName,
+			summary: overrides.summary ?? pkg.summary,
+			version,
+			...(overrides.license ? { license: overrides.license } : {}),
+			...(overrides.changelog ? { changelog: overrides.changelog } : {}),
+			...(overrides.authoredAt ? { authoredAt: overrides.authoredAt } : {}),
+			systems: [pkg.id],
+		},
+		payload: cloneSystemPackage(pkg),
+	});
+}
+
+/** What an importable bundle would install, and under which id. */
+export interface SystemPackageImport {
+	/** The package as it would be defined — ready for `system.define` verbatim. */
+	package: SystemPackage;
+	/** The id the bundle carried, which may not be the id it installs under. */
+	sourcePackageId: string;
+	/** True when the install id differs from the bundle's (built-in namespace, or a collision). */
+	rehomed: boolean;
+}
+
+export type SystemPackageImportResult =
+	| { ok: true; import: SystemPackageImport }
+	| { ok: false; reason: string };
+
+/**
+ * `importSystemPackageFromBundle` — read a parsed `.dndmodule` back into a definable package.
+ *
+ * The re-id is the whole reason this is not just `bundle.payload`. Authoring is confined to the
+ * `custom:` namespace, and the built-in packages are re-seeded from the BUILD on every load, so an
+ * import that kept `dnd5e` would either be rejected by `system.define` or silently reverted at the
+ * next hydrate. An imported package therefore always lands in `custom:`, under a free id — an
+ * install adds a system, it never overwrites one the DM already has.
+ */
+export function importSystemPackageFromBundle(
+	bundle: ModuleBundle,
+	systems: Pick<SystemsState, 'packages'>,
+): SystemPackageImportResult {
+	if (bundle.manifest.kind !== 'system-package') {
+		return { ok: false, reason: 'This module does not carry a system package.' };
+	}
+	const parsed = systemPackageSchema.safeParse(bundle.payload);
+	if (!parsed.success) {
+		return {
+			ok: false,
+			reason: 'This module says it is a system package, but its contents are not one.',
+		};
+	}
+	const source = cloneSystemPackage(parsed.data as SystemPackage);
+	const installId = freeCustomSystemPackageId(source.id, systems.packages);
+	return {
+		ok: true,
+		import: {
+			package: installId === source.id ? source : { ...source, id: installId },
+			sourcePackageId: source.id,
+			rehomed: installId !== source.id,
+		},
+	};
+}
+
+/**
+ * A free id in the `custom:` namespace derived from `packageId`. Already-custom and free is kept
+ * as-is (so a package round-trips to itself); otherwise the base is suffixed `-2`, `-3`, … until it
+ * is free, which is bounded because each candidate is checked against a finite installed set.
+ */
+function freeCustomSystemPackageId(
+	packageId: string,
+	packages: Readonly<Record<string, unknown>>,
+): string {
+	const base = CUSTOM_SYSTEM_PACKAGE_ID_PATTERN.test(packageId)
+		? packageId
+		: mintForkId(packageId.replace(/^[a-z0-9]+:/i, ''));
+	if (!packages[base]) return base;
+	// Trailing hyphens are trimmed before the suffix: the namespace pattern allows single hyphens
+	// only, so a truncated `custom:foo-` + `-2` would not be a legal id.
+	const stem = base.slice(0, 48 - 4).replace(/-+$/, '');
+	for (let suffix = 2; ; suffix += 1) {
+		const candidate = `${stem}-${suffix}`;
+		if (!packages[candidate]) return candidate;
+	}
 }

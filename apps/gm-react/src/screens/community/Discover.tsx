@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Badge, Button, Dialog, EmptyState, Skeleton, Toaster } from '../../ds';
+import { Badge, Button, Dialog, EmptyState, Select, Skeleton, Toaster } from '../../ds';
 import { LoadingRegion, Panel, T } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useAuth } from '../../cloud/AuthContext';
 import { isAccountApiConfigured } from '../../cloud/config';
+import { MODULE_KINDS, type ModuleKind } from '@dndtools/core';
 import { deleteModule, getModule, listModules, type ModuleListing } from '../../cloud/appApi';
 import { MarketplaceGate, errText, kb } from './shared';
 import {
@@ -23,6 +24,9 @@ const KIND_LABEL: Record<string, MessageKey> = {
 	'content-module': 'community.discover.kindContent',
 };
 
+/** RC-SYS-3.4 — the kind filter's options: every listing kind, plus "all". */
+const KIND_FILTERS: Array<'all' | ModuleKind> = ['all', ...MODULE_KINDS];
+
 export function CommDiscover() {
 	const { t, formatDate } = useI18n();
 	const isPhone = useViewport() === 'phone';
@@ -33,6 +37,10 @@ export function CommDiscover() {
 	const [modules, setModules] = useState<ModuleListing[] | null>(null);
 	const [failed, setFailed] = useState(false);
 	const [selId, setSelId] = useState<string | null>(null);
+	// RC-SYS-3.4 — a listing declares its kind, so the shelf can be narrowed to one. System packages
+	// are the reason it exists: they are the only kind a DM browses for on purpose ("what else can I
+	// play?"), and they were previously buried among widget packages and note bundles.
+	const [kindFilter, setKindFilter] = useState<'all' | ModuleKind>('all');
 	const [busy, setBusy] = useState(false);
 	// RC-CLD-4.1 — the review a module runs before anything enters the vault. The PLAN says which
 	// flow that is: a widget package goes to the package install/upgrade, a content module to the
@@ -58,7 +66,11 @@ export function CommDiscover() {
 
 	if (!cloudReady) return <MarketplaceGate signInPrompt="community.market.signInBrowse" />;
 
-	const sel = modules?.find((m) => m.moduleId === selId) ?? modules?.[0] ?? null;
+	const visible =
+		modules === null ? null : modules.filter((m) => kindFilter === 'all' || m.kind === kindFilter);
+	// The filter can hide the selected listing; the detail panel then follows the filter rather than
+	// describing something no longer on the shelf.
+	const sel = visible?.find((m) => m.moduleId === selId) ?? visible?.[0] ?? null;
 
 	// Fetch the payload, resolve it to an install plan, then hand off to the review dialog. Every
 	// core command re-validates fail-closed — this pass is only so the dialog can show honest facts
@@ -67,7 +79,11 @@ export function CommDiscover() {
 		setBusy(true);
 		getModule(listing.moduleId)
 			.then((full) => {
-				const plan = planModuleInstall(full.package, t('community.discover.notAPackage'));
+				const plan = planModuleInstall(
+					full.package,
+					t('community.discover.notAPackage'),
+					runtime.state.systems,
+				);
 				if (plan.kind === 'not-a-module') {
 					Toaster.error(plan.reason);
 					return;
@@ -137,6 +153,26 @@ export function CommDiscover() {
 			.finally(() => setBusy(false));
 	};
 
+	const kindFilterControl = (
+		<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+			<label htmlFor="community-kind-filter" style={{ font: `600 12px ${T.sans}`, color: T.sub }}>
+				{t('community.discover.filterKind')}
+			</label>
+			<Select
+				id="community-kind-filter"
+				value={kindFilter}
+				onChange={(e: { target: { value: string } }) =>
+					setKindFilter(e.target.value as 'all' | ModuleKind)
+				}
+				style={{ maxWidth: 240 }}
+				options={KIND_FILTERS.map((kind) => ({
+					value: kind,
+					label: kind === 'all' ? t('community.discover.kindAll') : t(KIND_LABEL[kind]),
+				}))}
+			/>
+		</div>
+	);
+
 	return (
 		<div
 			style={{
@@ -177,50 +213,64 @@ export function CommDiscover() {
 						title={t('community.discover.emptyTitle')}
 						description={t('community.discover.emptyBody')}
 					/>
+				) : visible!.length === 0 ? (
+					<>
+						{kindFilterControl}
+						<EmptyState
+							icon="globe"
+							title={t('community.discover.emptyKindTitle')}
+							description={t('community.discover.emptyKindBody')}
+						/>
+					</>
 				) : (
-					<div
-						style={{
-							display: 'grid',
-							gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 250px),1fr))',
-							gap: 14,
-						}}
-					>
-						{modules.map((m) => (
-							<button
-								key={m.moduleId}
-								type="button"
-								// Selection was border+shadow only, so a screen-reader user pressing these cards
-								// got no confirmation that anything changed (the detail panel is elsewhere in
-								// the DOM). `aria-pressed` makes the toggle state part of the button's name.
-								aria-pressed={sel?.moduleId === m.moduleId}
-								onClick={() => setSelId(m.moduleId)}
-								style={{
-									display: 'flex',
-									flexDirection: 'column',
-									gap: 8,
-									padding: 14,
-									borderRadius: 12,
-									cursor: 'pointer',
-									textAlign: 'left',
-									border: `1px solid ${sel?.moduleId === m.moduleId ? T.accBd : T.bd}`,
-									background: T.surf,
-									boxShadow: sel?.moduleId === m.moduleId ? T.smd : 'none',
-								}}
-							>
-								<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-									<span style={{ font: `700 14px ${T.disp}`, flex: 1, minWidth: 0 }}>{m.name}</span>
-									{m.owned && <Badge status="accent">{t('community.discover.yours')}</Badge>}
-								</div>
-								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-									{t(KIND_LABEL[m.kind] ?? 'community.discover.kindWidget')} · v{m.version} ·{' '}
-									{kb(m.size)} · {formatDate(new Date(m.publishedAt))}
-								</div>
-								<div style={{ font: `12px/1.45 ${T.sans}`, color: T.sub, flex: 1 }}>
-									{m.summary}
-								</div>
-							</button>
-						))}
-					</div>
+					<>
+						{kindFilterControl}
+						<div
+							style={{
+								display: 'grid',
+								gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 250px),1fr))',
+								gap: 14,
+							}}
+						>
+							{visible!.map((m) => (
+								<button
+									key={m.moduleId}
+									type="button"
+									// Selection was border+shadow only, so a screen-reader user pressing these cards
+									// got no confirmation that anything changed (the detail panel is elsewhere in
+									// the DOM). `aria-pressed` makes the toggle state part of the button's name.
+									aria-pressed={sel?.moduleId === m.moduleId}
+									onClick={() => setSelId(m.moduleId)}
+									style={{
+										display: 'flex',
+										flexDirection: 'column',
+										gap: 8,
+										padding: 14,
+										borderRadius: 12,
+										cursor: 'pointer',
+										textAlign: 'left',
+										border: `1px solid ${sel?.moduleId === m.moduleId ? T.accBd : T.bd}`,
+										background: T.surf,
+										boxShadow: sel?.moduleId === m.moduleId ? T.smd : 'none',
+									}}
+								>
+									<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+										<span style={{ font: `700 14px ${T.disp}`, flex: 1, minWidth: 0 }}>
+											{m.name}
+										</span>
+										{m.owned && <Badge status="accent">{t('community.discover.yours')}</Badge>}
+									</div>
+									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+										{t(KIND_LABEL[m.kind] ?? 'community.discover.kindWidget')} · v{m.version} ·{' '}
+										{kb(m.size)} · {formatDate(new Date(m.publishedAt))}
+									</div>
+									<div style={{ font: `12px/1.45 ${T.sans}`, color: T.sub, flex: 1 }}>
+										{m.summary}
+									</div>
+								</button>
+							))}
+						</div>
+					</>
 				)}
 			</div>
 			{sel && (
@@ -406,6 +456,13 @@ export function CommDiscover() {
 											</li>
 										)}
 									</ul>
+								)}
+								{review.plan.kind === 'system-package' && review.plan.rehomed && (
+									<div>
+										{t('community.discover.systemRehomed', {
+											id: review.plan.systemPackage.id,
+										})}
+									</div>
 								)}
 								<div style={{ color: T.ter, font: `11.5px/1.5 ${T.sans}` }}>
 									{t(

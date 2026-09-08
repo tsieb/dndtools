@@ -5,6 +5,8 @@
 - Deciders: Engineering
 - Consulted: Product, Security
 - Supersedes: N/A
+- Amended by: its own RC-SYS-3.4 section below (2026-09-08) — "a system package travels as a module,
+  and an imported one is re-homed into the `custom:` namespace".
 - Amends: ADR-020 — ADR-020 shipped a marketplace whose only publishable thing was a bare
   widget-package definition, so a listing could not say what it was and an install had exactly one
   destination (`widget.package.install`). This ADR gives a listing a **kind** and gives the payload
@@ -68,6 +70,35 @@ and are read as `widget-package`, which is what they are; a bare (unbundled) wid
 is still accepted on publish. The module payload cap rises from 256 KiB to 512 KiB to fit a manifest
 and inline assets.
 
+### Amendment (RC-SYS-3.4, 2026-09-08) — system packages travel, and land under a new id
+
+The `system-package` kind was declared and validated here but had no producer and no consumer: a
+listing of that kind could be published, but nothing in the app could write one out, and an install
+would have handed `system.define` an id it must refuse. Two pure core helpers close the trip
+(`packages/core/src/commands/system-package.ts`): `exportSystemPackageBundle` projects an installed
+package into a bundle whose manifest is the package's own facts (display name, summary, version — a
+system needs no publishing form, unlike a content module), and `importSystemPackageFromBundle` reads
+one back.
+
+**An imported system package is always re-homed into the `custom:` namespace, under a free id.** It
+is not a preference: authoring is confined to `custom:` (ADR-023's rule applied to systems), and the
+built-in packages ship with the **build** and are re-seeded from code on every load, so an install
+that kept `builtin:dnd5e` would either be refused by `system.define` or silently reverted at the next
+hydrate. An id the vault already holds is suffixed rather than replaced, so installing a system
+**adds** one and never overwrites the DM's own. The install review names the id the package will
+really land under before anything is written.
+
+No trust review is added, because a system package is **data**: a vocabulary, attributes, resources,
+conditions and formulas, evaluated by the core's own bounded formula evaluator. It carries no code
+and requests no host permission, so the widget-package permission model has nothing to grant. It
+installs through the same `installPlanCommand` router, the same review dialog, and — like a fork — it
+does **not** become the campaign's active system; selecting stays the separate, dry-run-gated
+decision RC-SYS-1.3 defines.
+
+Discovery gained the listing-kind filter this ADR's first consequence promised (Community › Discover,
+"Kind"), so a DM can narrow the shelf to System packages instead of reading past widget packages and
+note bundles.
+
 ## Consequences
 
 - Discovery can filter on kind (RC-CLD-4.2) without reading payloads out of S3.
@@ -78,6 +109,8 @@ and inline assets.
 - Content modules inherit the export path's privacy guarantees rather than restating them.
 - A module can be shared by hand, with no account, and the file path is where the round trip is
   exercised in e2e (`apps/gm-react/tests/e2e/module-file.spec.ts`).
+- RC-SYS-3.4: a game system is shareable as a file, and an imported one can never shadow a built-in
+  or overwrite a DM's own — the cost is that its id changes on import, which the review states.
 
 ## Rejected Alternatives
 

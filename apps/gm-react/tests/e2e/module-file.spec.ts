@@ -137,3 +137,74 @@ test.describe('community: .dndmodule content module round trip', () => {
 		await fs.rm(modulePath, { force: true });
 	});
 });
+
+/**
+ * RC-SYS-3.4 — the same file round trip for a SYSTEM PACKAGE. A system is data (vocabulary,
+ * attributes, resources, conditions, formulas): it runs no code and asks for no host permission, so
+ * it ships in the same `.dndmodule` envelope and installs through the same review, straight into
+ * `system.define`. What the import must not do is keep the id it arrived with — built-in packages are
+ * re-seeded from the build on every load, so an install lands in the `custom:` namespace instead.
+ */
+test.describe('community: .dndmodule system package round trip', () => {
+	test.beforeEach(async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/community');
+		await seedFresh(page);
+		await page.goto('/#/community', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.locator('#main-content').waitFor({ state: 'attached' });
+		await page.getByRole('tab', { name: 'Export' }).click();
+		await expect(page.getByText('Module files')).not.toHaveCount(0);
+	});
+
+	test('saves the active game system as a module and installs it back as a custom system', async ({
+		page,
+	}) => {
+		const downloadPromise = page.waitForEvent('download');
+		await page.getByRole('button', { name: 'Save system package' }).click();
+		const download = await downloadPromise;
+
+		// The manifest is the package's own facts — no form to fill in for a system.
+		expect(download.suggestedFilename()).toBe('builtin-dnd5e-1.1.0.dndmodule');
+		const bundlePath = (await download.path())!;
+		const bundle = JSON.parse(await fs.readFile(bundlePath, 'utf8')) as ModuleBundleFile & {
+			payload: { id: string; displayName: string };
+		};
+		expect(bundle.manifest.kind).toBe('system-package');
+		expect(bundle.payload.id).toBe('builtin:dnd5e');
+
+		// Install the very file that was just written, through the review every module goes through.
+		const modulePath = join(tmpdir(), `dndtools-system-${Date.now()}.dndmodule`);
+		await fs.writeFile(modulePath, JSON.stringify(bundle), 'utf8');
+		const chooserPromise = page.waitForEvent('filechooser');
+		await page.getByRole('button', { name: 'Install .dndmodule…' }).click();
+		(await chooserPromise).setFiles(modulePath);
+
+		const review = page.getByRole('dialog', { name: 'Install this module?' });
+		await expect(review).toBeVisible();
+		await expect(review.getByText('System package')).not.toHaveCount(0);
+		await review.getByRole('button', { name: 'Install module' }).click();
+
+		// It landed through the real `system.define`, re-homed into the custom namespace, and the
+		// campaign is still playing the system it was playing before (selecting stays separate).
+		await expect
+			.poll(
+				() =>
+					page.evaluate(() => {
+						const systems = window.__rt!.state.systems as {
+							packages: Record<string, { displayName: string }>;
+							activePackageId: string;
+						};
+						return {
+							imported: Object.keys(systems.packages).filter((id) => id.startsWith('custom:')),
+							active: systems.activePackageId,
+						};
+					}),
+				{ timeout: 10_000 },
+			)
+			.toEqual({ imported: ['custom:dnd5e'], active: 'builtin:dnd5e' });
+		await expect(review).toBeHidden();
+
+		await fs.rm(modulePath, { force: true });
+	});
+});
