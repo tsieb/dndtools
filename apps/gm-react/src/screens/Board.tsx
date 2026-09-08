@@ -49,8 +49,11 @@ import { widgetProfileForRuntime } from '../platform/capabilities';
  * (`0`/`1`/`2`, cycled with `+`/`-`), so a DM can name where they are instead of hunting for a
  * percentage. Fit scales the authored layout into the pane but stops at 0.5 — below that the widget
  * titles are unreadable, so the surface SCROLLS (both axes) rather than shrinking further, and
- * Comfortable/Detail deliberately overflow a narrow window for the same reason. The board still
- * never pans freely: scrolling, not dragging, is how you reach the rest of it.
+ * Comfortable/Detail deliberately overflow a narrow window for the same reason. RC-CAN-3.2 made
+ * reaching that scroll range "scroll-natural": wheel, Shift+wheel, trackpad two-finger and a single
+ * touch-finger all scroll it natively, and a middle-mouse drag pans it directly (SceneBoardCanvas's
+ * `scroll-pan`) for the one gesture a real scroll container doesn't grant for free. There is still no
+ * free zoom slider and no pinch-zoom — only the three named steps above.
  */
 // `SceneRuntime.dispatchNow` RETHROWS after a failed `persistFullState`, and every caller here is
 // fire-and-forget (`void onMove(...)`, `onClick={savePreset}`), so an IndexedDB quota or

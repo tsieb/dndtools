@@ -13,8 +13,9 @@ import type { LayoutHistory } from './canvas/useLayoutHistory';
 /**
  * SceneBoardCanvas — the ONE canvas engine the prototype's `scene-canvas.jsx` describes: the same
  * widget frames + edit interactions under two overflow POLICIES.
- *   • 'bounded' (Command Center / `/board`): top-anchored, scrolls vertically, glanceable. No pan.
- *   • 'canvas'  (custom scenes / `/scene/:id`): free pan + zoom.
+ *   • 'bounded' (Command Center / `/board`): top-anchored, glanceable, a REAL `overflow:auto`
+ *     scroll region rather than a transform view. No free zoom.
+ *   • 'canvas'  (custom scenes / `/scene/:id`): free pan + zoom over a transform `view`.
  *
  * ZOOM (RC-CAN-3.1). Both policies share three NAMED presets — Fit, Comfortable, Detail — reachable
  * with the `0`/`1`/`2` keys and cycled with `+`/`-` while focus is inside the canvas. Fit scales the
@@ -22,6 +23,16 @@ import type { LayoutHistory } from './canvas/useLayoutHistory';
  * readable, so the surface scrolls instead of shrinking further. The bounded board is exactly those
  * three steps (its host screen renders the control); the free canvas keeps its continuous wheel and
  * button zoom and treats the presets as anchors it can be returned to.
+ *
+ * PAN (RC-CAN-3.2). Both policies read the same "scroll-natural" gesture set: a plain wheel/trackpad
+ * scrolls, Shift+wheel goes horizontal (re-routing `deltaY` when a plain mouse wheel never reports a
+ * `deltaX` of its own), a middle-mouse-button drag or a two-finger trackpad pan works from anywhere in
+ * the canvas, and a single touch-finger scrolls. The board gets all of this from native
+ * `overflow:auto` + `touch-action` for everything except the middle-button drag, which has no native
+ * ancestor to piggyback on and scrolls the wrap element's real `scrollLeft`/`scrollTop` directly
+ * (`scroll-pan` in the `Drag` union below) instead of the free canvas's transform `view`. Pinch-zoom
+ * is never offered on the board: its `touch-action` only ever grants `pan-x`/`pan-y`, never
+ * `pinch-zoom`.
  *
  * It is wired to the REAL Processing Core, not the prototype's local state: every move/resize is
  * committed through the parent's dispatch on pointer-UP only (one `scene.move-widget` /
@@ -123,7 +134,11 @@ const ARROW_DELTA: Record<string, readonly [number, number]> = {
 type Drag =
 	| { mode: 'move'; id: string; sx: number; sy: number; ox: number; oy: number }
 	| { mode: 'resize'; id: string; sx: number; sy: number; ow: number; oh: number }
-	| { mode: 'pan'; sx: number; sy: number; tx: number; ty: number };
+	| { mode: 'pan'; sx: number; sy: number; tx: number; ty: number }
+	// RC-CAN-3.2 — middle-button drag on the BOUNDED board. It has no transform view to move (the
+	// board is a real `overflow:auto` element), so the gesture scrolls the wrap directly instead of
+	// updating `view`.
+	| { mode: 'scroll-pan'; sx: number; sy: number; sl: number; st: number };
 
 interface View {
 	tx: number;
@@ -357,6 +372,29 @@ export function SceneBoardCanvas({
 		document.body.style.userSelect = 'none';
 	};
 	const onBgDown = (e: React.PointerEvent) => {
+		// RC-CAN-3.2 — middle-button drag pans EITHER policy, from anywhere in the canvas (including
+		// over widget content): it is the mouse-equivalent of a two-finger trackpad pan and a
+		// dedicated non-primary button, so it never fights text selection or a widget's own drag
+		// handles the way a left-press does. The board scrolls its real overflow region; the free
+		// canvas keeps moving its transform `view` exactly like a background left-drag.
+		if (e.button === 1) {
+			e.preventDefault();
+			capture(e);
+			if (policy === 'bounded') {
+				const el = wrapRef.current;
+				dragRef.current = {
+					mode: 'scroll-pan',
+					sx: e.clientX,
+					sy: e.clientY,
+					sl: el?.scrollLeft ?? 0,
+					st: el?.scrollTop ?? 0,
+				};
+			} else {
+				dragRef.current = { mode: 'pan', sx: e.clientX, sy: e.clientY, tx: view.tx, ty: view.ty };
+			}
+			document.body.style.userSelect = 'none';
+			return;
+		}
 		onSelect(null);
 		if (policy !== 'canvas') return;
 		// The drag overlay that swallows pointerdown only exists in EDIT mode, so in VIEW mode this
@@ -375,6 +413,14 @@ export function SceneBoardCanvas({
 			if (!d) return;
 			if (d.mode === 'pan') {
 				setView((v) => ({ ...v, tx: d.tx + (e.clientX - d.sx), ty: d.ty + (e.clientY - d.sy) }));
+				return;
+			}
+			if (d.mode === 'scroll-pan') {
+				const el = wrapRef.current;
+				if (el) {
+					el.scrollLeft = d.sl - (e.clientX - d.sx);
+					el.scrollTop = d.st - (e.clientY - d.sy);
+				}
 				return;
 			}
 			const dx = (e.clientX - d.sx) / scale;
@@ -420,7 +466,7 @@ export function SceneBoardCanvas({
 			const d = dragRef.current;
 			dragRef.current = null;
 			document.body.style.userSelect = '';
-			if (!d || d.mode === 'pan') return;
+			if (!d || d.mode === 'pan' || d.mode === 'scroll-pan') return;
 			if (d.mode === 'move') setPosDraft((prev) => omitKey(prev, d.id));
 			else setSizeDraft((prev) => omitKey(prev, d.id));
 		};
@@ -449,7 +495,14 @@ export function SceneBoardCanvas({
 					return { tx: cx - wx * s1, ty: cy - wy * s1, scale: s1 };
 				});
 			} else {
-				setView((v) => ({ ...v, tx: v.tx - e.deltaX, ty: v.ty - e.deltaY }));
+				// RC-CAN-3.2 — Shift+wheel scrolls horizontally. A trackpad already reports a
+				// horizontal `deltaX` from its own two-finger gesture; a plain mouse wheel only ever
+				// reports `deltaY`, so Shift re-routes that single axis onto `tx` instead of leaving the
+				// modifier a no-op.
+				const horizontal = e.shiftKey && e.deltaX === 0;
+				const dx = horizontal ? e.deltaY : e.deltaX;
+				const dy = horizontal ? 0 : e.deltaY;
+				setView((v) => ({ ...v, tx: v.tx - dx, ty: v.ty - dy }));
 			}
 		},
 		[policy],

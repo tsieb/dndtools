@@ -284,6 +284,35 @@ for (const viewport of [
 	});
 }
 
+// RC-CAN-3.2 — the "scroll-natural" pan model (wheel/Shift+wheel/trackpad/touch scroll it, a
+// middle-mouse drag pans it) still has to leave every control reachable at the narrowest phone width
+// the app supports. 320px is narrower than the `minimum-width phone` fixture the general sweep above
+// uses, and is scoped to `/board` alone rather than folded into that sweep: it is the one route whose
+// reachability now depends on a real internal scroll region rather than layout reflow.
+test('the board keeps every control reachable at 320x640', async ({ page }) => {
+	await page.setViewportSize({ width: 320, height: 640 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/board');
+	await seedFresh(page);
+	await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+	await page.locator('h1').first().waitFor({ state: 'attached', timeout: 20_000 });
+	await page.waitForFunction(
+		() => {
+			const rt = window.__rt!;
+			const id = rt.state.commandCenter.homeSceneId;
+			return !!id && rt.state.scenes.scenes[id]?.widgets.length > 0;
+		},
+		null,
+		{ timeout: 10_000 },
+	);
+	await page.waitForTimeout(100);
+
+	// The pane itself must never widen — the board reaches its own content through its internal
+	// scroll region, never by pushing the shell wider than the viewport.
+	await expectNoHorizontalOverflow(page, '320px board', '#main-content', true);
+	expect(await clippedControls(page), '320px board has an unreachable control').toEqual([]);
+});
+
 // The character SHEET (/characters/:id) needs a seeded id, so the static ROUTES sweep above could
 // never reach it — and it shipped with no phone branch at all: a hard two-column sheet whose
 // ability (6-track) and skills (2-track) grids then overflowed their ~180px columns.
