@@ -25,9 +25,7 @@ interface DevRuntime {
 		commandCenter: { homeSceneId: string | null };
 		[key: string]: unknown;
 	};
-	dispatch: (
-		command: unknown,
-	) => Promise<{
+	dispatch: (command: unknown) => Promise<{
 		status: string;
 		rejection?: { message?: string };
 		events?: Array<Record<string, unknown>>;
