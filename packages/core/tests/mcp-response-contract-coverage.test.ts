@@ -136,6 +136,11 @@ const VALID_INPUT: Record<string, unknown> = {
 		template: 'data-table',
 		dataQueries: [{ id: 'loot', label: 'Loot items', source: 'content-objects' }],
 	},
+	// RC-AUD-3.4 — the assistant atmosphere tools. `scene.activate-package` addresses the seeded card
+	// (sentinel swapped in `run`); the seeded card need not carry a lighting hint/audio preset to be a
+	// valid PLAY target (`scene-card.play-package` only requires the card to exist and be live).
+	'scene.list-packages': {},
+	'scene.activate-package': { cardId: SEEDED_CARD },
 };
 
 /** An invalid input per tool (mirrors the MCP-005 coverage manifest's rejected inputs). */
@@ -172,6 +177,8 @@ const INVALID_INPUT: Record<string, unknown> = {
 		prompt: 'Make me a timeline.',
 		template: 'timeline',
 	},
+	'scene.list-packages': { extra: true }, // strict schema rejects any field
+	'scene.activate-package': {}, // missing required cardId
 };
 
 function run(toolId: string, input: unknown, actorId: string): McpToolResult {

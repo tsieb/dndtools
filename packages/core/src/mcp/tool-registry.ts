@@ -141,6 +141,12 @@ export const MCP_BASELINE_TOOL_IDS = [
 	// installed package starts UNREVIEWED, DISABLED, with every host permission denied — so even an
 	// approved proposal only puts a widget in front of the DM's trust review, never on a scene.
 	'widget.package.propose',
+	// RC-AUD-3.4 — the assistant atmosphere surface. `scene.list-packages` reads the actor-filtered
+	// scene-card list (no new visibility path); `scene.activate-package` stages the SAME
+	// `scene-card.play-package` command the GUI's one-click play button dispatches, so an agent can
+	// only play a package the DM already built and only through the existing fail-closed command.
+	'scene.list-packages',
+	'scene.activate-package',
 ] as const;
 
 export type McpBaselineToolId = (typeof MCP_BASELINE_TOOL_IDS)[number];
@@ -514,6 +520,22 @@ export const mcpNoteAppendInputSchema = z
 		heading: z.string().max(200).optional(),
 	})
 	.strict();
+
+/**
+ * RC-AUD-3.4 — the `scene.activate-package` WRITE tool input. Plays an EXISTING scene package (a card
+ * carrying an audio preset and/or a lighting hint, `isSceneCardPackage`): applies its audio preset,
+ * puts it on the display, and pushes it when the card is already `player-visible` — the exact same
+ * `scene-card.play-package` command the GUI's one-click play button dispatches. No device-availability
+ * flags are accepted (an agent cannot assert what is or is not cached/online on the DM's machine), so
+ * the command falls back to its own defaults exactly as an untouched GUI call would.
+ */
+export const mcpSceneActivatePackageInputSchema = z.object({ cardId: nonEmpty }).strict();
+
+/**
+ * RC-AUD-3.4 — the `scene.list-packages` READ tool input. No arguments: it lists every LIVE scene
+ * package the bound actor may see (the same actor-filtered scene-card list the GUI reads).
+ */
+export const mcpSceneListPackagesInputSchema = mcpEmptyInputSchema;
 
 /**
  * RC-WID-3.1 — the `widget.package.propose` WRITE tool input: a STRUCTURED widget draft the model has
@@ -970,6 +992,31 @@ export function createBaselineMcpToolRegistry(): McpToolRegistry {
 			inputSchema: mcpWidgetPackageProposeInputSchema,
 			title: 'Propose a widget (staged)',
 			description: WIDGET_PACKAGE_PROPOSE_DESCRIPTION,
+		},
+		// RC-AUD-3.4 — assistant atmosphere tools. `scene.list-packages` is a plain read; the prep digest
+		// (`bundle.session-prep` / `session.prep`) already surfaces a suggested package, so the model can
+		// call this to see the full list before choosing one to activate.
+		{
+			id: 'scene.list-packages',
+			kind: 'read',
+			queryId: 'scene-card.packages',
+			inputSchema: mcpSceneListPackagesInputSchema,
+			title: 'List scene packages',
+			description:
+				'List the live scene packages (cards with an audio preset and/or a lighting hint) you may ' +
+				'see, with their id, title, mood, and lighting hint. Use scene.activate-package to play one.',
+		},
+		{
+			id: 'scene.activate-package',
+			kind: 'write',
+			commandType: 'scene-card.play-package',
+			writeRisk: 'durable',
+			inputSchema: mcpSceneActivatePackageInputSchema,
+			title: 'Activate a scene package (staged)',
+			description:
+				'Play an existing scene package by cardId: applies its audio preset, shows it on the scene ' +
+				'display, and pushes it to players if the card is already player-visible. Find the cardId ' +
+				'with scene.list-packages first. Staged for DM approval; never applied immediately.',
 		},
 	]);
 }

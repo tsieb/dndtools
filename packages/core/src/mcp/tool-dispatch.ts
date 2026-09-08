@@ -5,6 +5,7 @@ import type { McpToolDefinition, McpToolRegistry } from './tool-registry';
 import { getContentItemsForActor, getContentItemDetailForActor } from '../queries/content-query';
 import { getMapViewForActor } from '../queries/map-query';
 import { listCharactersForActor } from '../queries/character-query';
+import { listSceneCardsForActor } from '../queries/scene-card';
 import { searchVaultForActor } from '../queries/search-query';
 import { getGraphRelationships } from '../queries/graph-api';
 import { getPrepRecapDigest } from '../queries/prep-recap-digest';
@@ -258,6 +259,16 @@ function runReadTool(
 				{ referenceInstant, ...(itemBudget !== undefined ? { itemBudget } : {}) },
 			);
 		}
+		case 'scene-card.packages': {
+			// RC-AUD-3.4 — scene.list-packages: the SAME actor-filtered scene-card list the GUI reads,
+			// narrowed to PACKAGES (a card carrying an audio preset and/or a lighting hint). A non-DM agent
+			// only ever sees `player-visible` cards (the query's own filter), and `audioPresetId` is
+			// already redacted to null for a non-DM by the query, so a package's DM-only audio config never
+			// crosses to a player-scoped agent.
+			return listSceneCardsForActor(state.session, state.permissions, actorId).filter(
+				(card) => card.audioPresetId !== null || card.lightingHint !== null,
+			);
+		}
 		default:
 			// Defensive: a registered read tool whose queryId is unrouted reads NOTHING (fail closed).
 			// Unreachable for the baseline registry; guards a future tool added without a route.
@@ -475,6 +486,14 @@ export function writeCommandPayload(
 					...(flavorText !== undefined ? { flavorText } : {}),
 				},
 			};
+		}
+		case 'scene-card.play-package': {
+			// RC-AUD-3.4 — scene.activate-package: forward ONLY the cardId. The device-availability flags
+			// (`assetLocallyAvailable`/`assetCached`/`cacheEvicted`/`online`) are left undefined so the
+			// command falls back to its own defaults — an agent cannot assert facts about the DM's local
+			// machine it has no way to know. The bound command re-checks the card exists and is live.
+			const { cardId } = input as { cardId: string };
+			return { ok: true, payload: { cardId } };
 		}
 		case 'encounter.build': {
 			const { title, combatants, party, terrainNotes, specialActions, loot } = input as {

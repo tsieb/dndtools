@@ -380,3 +380,117 @@ describe('RC-MAP-1.4: the digest includes the party location', () => {
 		expect(digestFor(state, PLAYER_ACTOR.id, 'prep').partyLocation).toBeNull();
 	});
 });
+
+describe('RC-AUD-3.4: the prep digest suggests a scene package', () => {
+	it('is null with no live packages', () => {
+		const state = base();
+		expect(digestFor(state, DM_ACTOR.id, 'prep').suggestedPackage).toBeNull();
+	});
+
+	it('suggests the first live package when no combat is running', () => {
+		const env = makeEnvironment();
+		let state = base();
+		state = accepted(
+			dispatchCommand(
+				state,
+				env,
+				cmd('scene-card.create', { title: 'The sunken tavern', mood: 'social' }),
+			),
+		).nextState;
+		const cardId = Object.keys(state.session.sceneCards.cards)[0]!;
+		state = accepted(
+			dispatchCommand(state, env, cmd('scene-card.update', { cardId, lightingHint: 'firelit' })),
+		).nextState;
+
+		expect(digestFor(state, DM_ACTOR.id, 'prep').suggestedPackage).toEqual({
+			cardId,
+			title: 'The sunken tavern',
+			mood: 'social',
+			reason: 'available',
+		});
+	});
+
+	it('prefers a combat-mood package while combat is running', () => {
+		const env = makeEnvironment();
+		let state = base();
+		state = accepted(
+			dispatchCommand(
+				state,
+				env,
+				cmd('scene-card.create', { title: 'The sunken tavern', mood: 'social' }),
+			),
+		).nextState;
+		const socialCardId = Object.keys(state.session.sceneCards.cards)[0]!;
+		state = accepted(
+			dispatchCommand(
+				state,
+				env,
+				cmd('scene-card.update', { cardId: socialCardId, lightingHint: 'firelit' }),
+			),
+		).nextState;
+
+		const combatCard = accepted(
+			dispatchCommand(
+				state,
+				env,
+				cmd('scene-card.create', { title: 'Ambush at the bridge', mood: 'combat' }),
+			),
+		);
+		state = combatCard.nextState;
+		const combatEvent = combatCard.events.find((e) => e.kind === 'scene-card.created');
+		if (!combatEvent || combatEvent.kind !== 'scene-card.created') throw new Error('no card id');
+		state = accepted(
+			dispatchCommand(
+				state,
+				env,
+				cmd('scene-card.update', { cardId: combatEvent.cardId, lightingHint: 'dark' }),
+			),
+		).nextState;
+
+		state = accepted(dispatchCommand(state, env, cmd('command-center.ensure-home', {}))).nextState;
+		state = accepted(
+			dispatchCommand(
+				state,
+				env,
+				cmd('session.set-workflow', {
+					workflow: 'active',
+					activeSceneId: state.commandCenter.homeSceneId,
+				}),
+			),
+		).nextState;
+		state = accepted(
+			dispatchCommand(
+				state,
+				env,
+				cmd('combat.start', {
+					combatants: [{ name: 'Goblin', kind: 'monster', initiative: 12, maxHp: 7, ac: 13 }],
+				}),
+			),
+		).nextState;
+
+		const suggestion = digestFor(state, DM_ACTOR.id, 'prep').suggestedPackage;
+		expect(suggestion).toEqual({
+			cardId: combatEvent.cardId,
+			title: 'Ambush at the bridge',
+			mood: 'combat',
+			reason: 'combat-running',
+		});
+	});
+
+	it('never suggests a package in recap mode', () => {
+		const env = makeEnvironment();
+		let state = base();
+		state = accepted(
+			dispatchCommand(
+				state,
+				env,
+				cmd('scene-card.create', { title: 'The sunken tavern', mood: 'social' }),
+			),
+		).nextState;
+		const cardId = Object.keys(state.session.sceneCards.cards)[0]!;
+		state = accepted(
+			dispatchCommand(state, env, cmd('scene-card.update', { cardId, lightingHint: 'firelit' })),
+		).nextState;
+		expect(digestFor(state, DM_ACTOR.id, 'recap').suggestedPackage).toBeNull();
+	});
+});

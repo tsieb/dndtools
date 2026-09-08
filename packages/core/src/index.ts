@@ -1704,6 +1704,7 @@ export type {
 	DigestMode,
 	DigestPartyLocation,
 	DigestRecentChange,
+	DigestSuggestedPackage,
 	DigestThread,
 	PrepRecapDigest,
 } from './queries/prep-recap-digest';
@@ -4352,6 +4353,7 @@ export {
 	dequeueSceneCardInputSchema,
 	deleteSceneCardInputSchema,
 	enqueueSceneCardInputSchema,
+	playScenePackageInputSchema,
 	reorderSceneCardQueueInputSchema,
 	restoreSceneCardInputSchema,
 	setSceneCardTransitionInputSchema,

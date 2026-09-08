@@ -87,6 +87,9 @@ describe('MCP-002 — the baseline tool set includes dice.roll and session.prep'
 				'note.append',
 				// RC-WID-3.1 — the widget-authoring staged write tool.
 				'widget.package.propose',
+				// RC-AUD-3.4 — the assistant atmosphere tools.
+				'scene.list-packages',
+				'scene.activate-package',
 			].sort(),
 		);
 	});

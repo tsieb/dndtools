@@ -396,6 +396,47 @@ const MCP_TOOL_COVERAGE: McpToolCoverageRow[] = [
 		},
 	},
 	{
+		// RC-AUD-3.4 — the actor-filtered scene-card list narrowed to PACKAGES (audio preset and/or
+		// lighting hint). No arguments accepted.
+		toolId: 'scene.list-packages',
+		kind: 'read',
+		behaviors: ['schema-validation', 'actor-policy', 'visibility-filtering', 'failure-handling'],
+		invalidInput: { extra: true }, // strict schema rejects any field
+		validInput: {},
+	},
+	{
+		// RC-AUD-3.4 — routes through `scene-card.play-package` on an existing PACKAGE; no device flags
+		// accepted (an agent cannot assert facts about the DM's machine).
+		toolId: 'scene.activate-package',
+		kind: 'write',
+		behaviors: [
+			'schema-validation',
+			'actor-policy',
+			'visibility-filtering',
+			'idempotency',
+			'staged-preview',
+			'direct-mode',
+			'failure-handling',
+		],
+		invalidInput: {}, // missing required cardId
+		validInput: { cardId: 'card-1' },
+		setup: (state) => {
+			const created = seedCommand(state, {
+				type: 'scene-card.create',
+				actorId: DM_ACTOR.id,
+				payload: { title: 'The Sunken Tavern', mood: 'social' },
+			});
+			const event = created.events.find((e) => e.kind === 'scene-card.created');
+			if (!event || event.kind !== 'scene-card.created') throw new Error('no scene card id');
+			const lit = seedCommand(created.nextState, {
+				type: 'scene-card.update',
+				actorId: DM_ACTOR.id,
+				payload: { cardId: event.cardId, lightingHint: 'firelit' },
+			});
+			return { state: lit.nextState, validInput: { cardId: event.cardId } };
+		},
+	},
+	{
 		// Routes through `content.update-item` with the body read from the ACTOR-FILTERED note detail.
 		toolId: 'note.append',
 		kind: 'write',
