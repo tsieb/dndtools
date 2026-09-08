@@ -283,6 +283,7 @@ import {
 	handleSaveAudioPreset,
 } from './audio-preset';
 import { handleSetPresence } from './presence';
+import { handleQuickTimerCommand } from './session-quick-timer';
 import { handleResolveVaultConflict } from './conflict-resolution';
 import {
 	handleApproveMcpProposal,
@@ -808,6 +809,12 @@ export function dispatchCommand(
 			return handleCompileSessionHighlights(state, env, command.actorId, command.payload);
 		case 'session.set-presence':
 			return handleSetPresence(state, env, command.actorId, command.payload);
+		case 'session.quick-timer.start':
+		case 'session.quick-timer.pause':
+		case 'session.quick-timer.resume':
+		case 'session.quick-timer.reset':
+		case 'session.quick-timer.lap':
+			return handleQuickTimerCommand(state, env, command.actorId, command.type, command.payload);
 		case 'mcp.set-enabled':
 			return handleSetMcpEnabled(state, env, command.actorId, command.payload);
 		case 'mcp.set-agent-binding':

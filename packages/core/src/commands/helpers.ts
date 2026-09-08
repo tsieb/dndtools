@@ -298,6 +298,9 @@ export function ensureSessionState(state: SessionState | undefined): SessionStat
 		// RC-SES-1.3 — hydrate the session name fail-closed: a session document persisted before this
 		// field existed (or one carrying a non-string) restores unnamed, never undefined.
 		title: typeof state?.title === 'string' ? state.title : null,
+		// RC-SES-4.4 — hydrate the quick-panel timer fail-closed: a session document persisted before
+		// this field existed restores with no timer running (never undefined).
+		quickTimer: state?.quickTimer ?? null,
 		schemaVersion: SESSION_STATE_SCHEMA_VERSION,
 	};
 }

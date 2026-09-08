@@ -104,6 +104,31 @@ export interface SessionTimer {
 	revision: number;
 }
 
+/** RC-SES-4.4 — a quick-panel timer runs either as a plain COUNTDOWN (DM-only tool) or as a BREAK,
+ * which additionally projects a "Back in M:SS" card to players (`queries/session-quick-timer.ts`). */
+export type QuickTimerKind = 'countdown' | 'break';
+
+/**
+ * RC-SES-4.4 — the session-level QUICK PANEL timer the DM runs from `SessionQuickPanel`: session
+ * elapsed is derived separately (`app/shell/session-posture.ts` reads the op log; SES-1.1 decided a
+ * core field is not owed just for a derivable clock), but a countdown/break timer with lap marks is
+ * genuine durable state a DM steps away from and returns to, so it lives here. Distinct from the
+ * per-widget {@link SessionTimer} a scene's Timer widget drives (RC-SES-4.4 does not own a scene or a
+ * widget instance). `laps` records the ISO instant of each lap mark taken while running, oldest first.
+ * Live session state: reset when the session workflow resets (`commands/session-control.ts`).
+ */
+export interface SessionQuickTimer {
+	id: string;
+	kind: QuickTimerKind;
+	/** A short DM-given label ("Back from the tavern", "Round timer"), or null for an unlabeled timer. */
+	label: string | null;
+	status: 'idle' | 'running' | 'paused';
+	durationSeconds: number;
+	startedAt: string | null;
+	laps: string[];
+	revision: number;
+}
+
 /**
  * The VISIBILITY of a recorded roll (SES-003 AC3/AC4). `session-visible` is the v2 player-visible
  * default for a roll made in session; `dm-only` is a secret/DM-only roll never exposed to players;
@@ -491,6 +516,12 @@ export interface SessionState {
 	 * first marks it). See {@link SessionPartyLocation}.
 	 */
 	partyLocation: SessionPartyLocation | null;
+	/**
+	 * RC-SES-4.4 — the live quick-panel timer (countdown or break), or null when none is running. See
+	 * {@link SessionQuickTimer}. Additive/nullable: a session document persisted before this field
+	 * existed hydrates with no timer, never undefined.
+	 */
+	quickTimer: SessionQuickTimer | null;
 	schemaVersion: typeof SESSION_STATE_SCHEMA_VERSION;
 }
 
@@ -514,5 +545,6 @@ export const EMPTY_SESSION_STATE: SessionState = Object.freeze({
 	recapArchiveId: null,
 	archives: {},
 	partyLocation: null,
+	quickTimer: null,
 	schemaVersion: SESSION_STATE_SCHEMA_VERSION,
 });

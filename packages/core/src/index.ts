@@ -54,6 +54,7 @@ export type {
 	PlayerViewProjectionTarget,
 	QuickReferencePanel,
 	QuickReferenceTargetKind,
+	QuickTimerKind,
 	SessionActiveMapProjection,
 	SessionActiveMapSelection,
 	SessionArchiveRecap,
@@ -63,6 +64,7 @@ export type {
 	SessionHandout,
 	SessionPartyLocation,
 	SessionPlayerViewAssignment,
+	SessionQuickTimer,
 	SessionState,
 	SessionTimer,
 	SessionWorkflowState,
@@ -4137,6 +4139,11 @@ export {
 	TIMER_WARNING_FRACTION,
 	getTimerCountdown,
 } from './queries/timer-countdown';
+
+// RC-SES-4.4 — the actor-scoped quick-panel timer view: full control for a DM, a "Back in M:SS"
+// break card for a player, and nothing for a player while a countdown (not a break) is running.
+export type { QuickTimerView } from './queries/session-quick-timer';
+export { getQuickTimerForActor } from './queries/session-quick-timer';
 
 // SES-003 / SES-008 — THE single actor-filtered session ROLL HISTORY read model. A secret/DM-only roll
 // is omitted from a player's history; a shared roll reaches only the listed participants; the DM sees all.

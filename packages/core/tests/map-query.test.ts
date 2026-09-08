@@ -291,6 +291,7 @@ function EMPTY_SESSION(): SessionState {
 		recapArchiveId: null,
 		archives: {},
 		partyLocation: null,
+		quickTimer: null,
 		schemaVersion: 1,
 	};
 }

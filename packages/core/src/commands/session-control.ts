@@ -104,6 +104,9 @@ function resetLiveSessionFields(session: CoreStateSlice['session']): CoreStateSl
 		// AUDIO-002 / AUDIO-003 — the currently-playing audio is LIVE session state; resetting the session
 		// stops it (a new session starts silent). It is preserved in the archive snapshot below for recap.
 		audioPlayback: EMPTY_SESSION_AUDIO_STATE,
+		// RC-SES-4.4 — the quick-panel timer is LIVE session state too: a countdown/break left running
+		// from the last session has no meaning for the next one, so a reset clears it.
+		quickTimer: null,
 	};
 }
 

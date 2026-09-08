@@ -709,6 +709,11 @@ describe('SES regression: active-gated commands still work after formalization',
 			'session.reveal-handout-section',
 			'session.project-active-map',
 			'character.update-combat-resource',
+			'session.quick-timer.start',
+			'session.quick-timer.pause',
+			'session.quick-timer.resume',
+			'session.quick-timer.reset',
+			'session.quick-timer.lap',
 		];
 		const live = Object.entries(SESSION_COMMAND_AVAILABILITY)
 			.filter(([, availability]) => availability === 'live-session')

@@ -3584,3 +3584,19 @@ export const resolveMcpProposalConflictInputSchema = z
 		resolution: z.enum(['keep-ai', 'keep-mine', 'merge']),
 	})
 	.strict();
+
+// --- RC-SES-4.4 — QUICK-PANEL TIMER (countdown / break) (append-only block) ---------------------
+
+// START a fresh countdown or break: a positive duration, an optional short label. Starting always
+// replaces whatever quick timer was running before (a DM restarting the clock is not an error).
+export const startQuickTimerInputSchema = z
+	.object({
+		kind: z.enum(['countdown', 'break']),
+		durationSeconds: z.number().positive(),
+		label: z.string().trim().min(1).max(80).nullish(),
+	})
+	.strict();
+
+// PAUSE / RESUME / RESET / LAP all operate on the one live quick timer and carry no payload of
+// their own.
+export const operateQuickTimerInputSchema = z.object({}).strict();

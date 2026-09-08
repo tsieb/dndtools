@@ -906,6 +906,39 @@ export type CoreCommand =
 			actorId: ActorId;
 			payload: unknown;
 			idempotencyKey?: string;
+	  }
+	// --- RC-SES-4.4 — QUICK-PANEL TIMER (append-only block) ----------------------------------------
+	// Start/operate the session-level quick-panel countdown or break timer (independent of any scene
+	// widget). DM-only; requires an active session workflow.
+	| {
+			type: 'session.quick-timer.start';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'session.quick-timer.pause';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'session.quick-timer.resume';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'session.quick-timer.reset';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'session.quick-timer.lap';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
 	  };
 
 export type CoreEvent =
@@ -1959,6 +1992,12 @@ export type CoreEvent =
 			mapId: string;
 			x: number;
 			y: number;
+	  }
+	// RC-SES-4.4 — the quick-panel timer started/paused/resumed/reset, or took a lap mark.
+	| {
+			kind: 'session.quick-timer-changed';
+			operation: 'started' | 'paused' | 'resumed' | 'reset' | 'lap';
+			actorId: ActorId;
 	  };
 
 export type RejectionCode =
