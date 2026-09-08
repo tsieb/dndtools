@@ -3600,3 +3600,38 @@ export const startQuickTimerInputSchema = z
 // PAUSE / RESUME / RESET / LAP all operate on the one live quick timer and carry no payload of
 // their own.
 export const operateQuickTimerInputSchema = z.object({}).strict();
+
+// --- RC-CLD-2.4 — RECORD A CROSS-DEVICE MERGE (append-only block) -------------------------------
+
+// One operation as another device recorded it, decrypted from the cloud op-log. The shape mirrors
+// `sync/operation-log.ts`'s `SyncOperation`; it is validated here because these values arrive from
+// outside this device and must never reach the conflict lifecycle unchecked. `value` stays `unknown`
+// for the same reason `selectedValue` does: an operation carries any entity's payload.
+export const remoteSyncOperationSchema = z
+	.object({
+		id: idSchema,
+		vaultId: z.string().min(1),
+		sourceId: z.string().min(1),
+		actorId: idSchema,
+		entityType: z.string().min(1),
+		entityId: idSchema,
+		opType: z.string().min(1),
+		path: z.string().optional(),
+		value: z.unknown().optional(),
+		beforeRevision: z.number().int().nonnegative().optional(),
+		afterRevision: z.number().int().nonnegative().optional(),
+		dependencies: z.array(idSchema).default([]),
+		issuedAt: z.string().min(1),
+		schemaVersion: z.literal(1),
+	})
+	.strict();
+
+// The DM merges what another device pushed. The command carries the cloud's operation tail and the
+// revision both logs are already known to agree on; the CORE compares the two logs and decides what
+// the comparison means, so no client can hand the vault a pre-cooked verdict.
+export const mergeRemoteOperationsInputSchema = z
+	.object({
+		remoteOperations: z.array(remoteSyncOperationSchema).max(5000),
+		baseRevision: z.number().int().min(-1).default(-1),
+	})
+	.strict();

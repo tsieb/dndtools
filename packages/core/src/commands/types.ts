@@ -939,6 +939,17 @@ export type CoreCommand =
 			actorId: ActorId;
 			payload: unknown;
 			idempotencyKey?: string;
+	  }
+	// --- RC-CLD-2.4 — CROSS-DEVICE MERGE (append-only block) --------------------------------------
+	// The transport pulled this vault's encrypted op-log from the cloud and decrypted it; the CORE
+	// compares it against this device's log and records a durable conflict for every entity both
+	// devices changed. Nothing is applied: an operation is a record, not a re-executable command.
+	// DM-only, like every other conflict decision.
+	| {
+			type: 'sync.merge-remote';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
 	  };
 
 export type CoreEvent =
@@ -1998,6 +2009,18 @@ export type CoreEvent =
 			kind: 'session.quick-timer-changed';
 			operation: 'started' | 'paused' | 'resumed' | 'reset' | 'lap';
 			actorId: ActorId;
+	  }
+	// RC-CLD-2.4 — a cross-device merge comparison finished. Carries COUNTS and the outcome only,
+	// never an entity id or a conflicting value, so a status surface can report it to anyone.
+	| {
+			kind: 'sync.merge-recorded';
+			actorId: ActorId;
+			outcome: 'up-to-date' | 'fast-forward' | 'push-only' | 'diverged';
+			agreedRevision: number;
+			incomingCount: number;
+			outgoingCount: number;
+			conflictCount: number;
+			recordedConflictCount: number;
 	  };
 
 export type RejectionCode =

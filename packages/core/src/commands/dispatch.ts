@@ -285,6 +285,7 @@ import {
 import { handleSetPresence } from './presence';
 import { handleQuickTimerCommand } from './session-quick-timer';
 import { handleResolveVaultConflict } from './conflict-resolution';
+import { handleMergeRemoteOperations } from './sync-merge';
 import {
 	handleApproveMcpProposal,
 	handleRejectMcpProposal,
@@ -832,6 +833,9 @@ export function dispatchCommand(
 		// --- RC-AI-2.2 — three-way conflict resolution for a staged write (append-only) -------------
 		case 'mcp.resolve-proposal-conflict':
 			return handleResolveMcpProposalConflict(state, env, command.actorId, command.payload);
+		// --- RC-CLD-2.4 — record what a cross-device merge found (append-only) --------------------
+		case 'sync.merge-remote':
+			return handleMergeRemoteOperations(state, env, command.actorId, command.payload);
 	}
 }
 

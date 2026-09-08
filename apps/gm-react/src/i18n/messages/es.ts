@@ -1465,6 +1465,33 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.sync.changeTitle': 'Cambio: {entity}',
 	'settings.sync.saved': 'Guardado el {when}',
 
+	/* Ajustes › Copias e historial › Sincronización entre dispositivos (RC-CLD-2.4) */
+	'settings.sync.syncNow': 'Sincronizar ahora',
+	'settings.sync.compared': 'Comparado con la copia en la nube',
+	'settings.sync.lastCompared': 'Última comparación: {when}',
+	'settings.sync.upToDate': 'Este dispositivo coincide con la copia en la nube.',
+	'settings.sync.fastForward':
+		'Este dispositivo se actualizó con {count, plural, one {# cambio} other {# cambios}} de otro dispositivo.',
+	'settings.sync.pushOnly':
+		'{count, plural, one {# cambio} other {# cambios}} de este dispositivo aún no están en la copia en la nube.',
+	'settings.sync.diverged':
+		'Otro dispositivo también cambió esta campaña. Elige una versión para {count, plural, one {# elemento} other {# elementos}} antes de hacer la copia.',
+	'settings.sync.divergedNoOverlap':
+		'Otro dispositivo también cambió esta campaña, en otros elementos. Restaura este dispositivo desde la copia en la nube, o haz primero la copia de ese dispositivo.',
+	'settings.sync.conflictsTitle': 'Conflictos de sincronización',
+	'settings.sync.conflictsBody':
+		'Dos dispositivos cambiaron el mismo elemento después de coincidir por última vez. Elige la versión que quieres conservar. Solo DM.',
+	'settings.sync.conflictEntity': '{entity} · {path}',
+	'settings.sync.conflictWhole': '{entity}',
+	'settings.sync.conflictFound': 'Detectado el {when}',
+	'settings.sync.conflictSideThis': 'Este dispositivo',
+	'settings.sync.conflictSideOther': 'Otro dispositivo',
+	'settings.sync.keepThisDevice': 'Conservar la versión de este dispositivo',
+	'settings.sync.keepOtherDevice': 'Conservar la versión del otro dispositivo',
+	'settings.sync.conflictResolved': 'Versión elegida.',
+	'settings.sync.conflictFailed': 'No se pudo elegir la versión.',
+	'settings.sync.noConflicts': 'Sin conflictos de sincronización.',
+
 	/* Ajustes › Copias e historial › Copia local */
 	'settings.backup.title': 'Copia local',
 	'settings.backup.heading': 'Copiar o restaurar el baúl de este dispositivo',

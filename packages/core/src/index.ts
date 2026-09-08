@@ -5880,3 +5880,28 @@ export {
 	telemetryConsentAllows,
 	toAnalyticsAppVersion,
 } from './diagnostics/product-analytics';
+
+// --- RC-CLD-2.4 — CROSS-DEVICE MERGE SYNC (append-only block) -----------------------------------
+// The comparison half of the conflict lifecycle: this device's op-log against the same vault's op-log
+// as another device left it in the cloud. Pure — no crypto, no transport. It classifies the pair as
+// up-to-date / fast-forward / push-only / diverged and, when diverged, names every entity both devices
+// changed with each side's newest operation. The transport records those through `sync.merge-remote`,
+// which turns them into ordinary durable conflict records the existing DM `conflict.resolve` closes.
+export type {
+	CrossDeviceMergeInput,
+	CrossDeviceMergeOutcome,
+	CrossDeviceMergePlan,
+	MergeDivergence,
+	MergeDivergenceSide,
+} from './sync/conflict-lifecycle';
+export {
+	CROSS_DEVICE_MERGE_SCHEMA_VERSION,
+	MERGE_CONFLICT_ID_PREFIX,
+	MERGE_CONFLICT_OP_SUFFIX,
+	isMergeConflictId,
+	isMergeConflictOpType,
+	mergeConflictId,
+	mergeConflictOpValue,
+	planCrossDeviceMerge,
+	summarizeMergePlan,
+} from './sync/conflict-lifecycle';

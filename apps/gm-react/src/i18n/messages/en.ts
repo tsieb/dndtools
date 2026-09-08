@@ -1428,6 +1428,33 @@ export const en = {
 	'settings.sync.changeTitle': '{entity} change',
 	'settings.sync.saved': 'Saved {when}',
 
+	/* Settings › Backup & history › Cross-device sync (RC-CLD-2.4) */
+	'settings.sync.syncNow': 'Sync now',
+	'settings.sync.compared': 'Compared with the cloud copy',
+	'settings.sync.lastCompared': 'Last compared: {when}',
+	'settings.sync.upToDate': 'This device matches the cloud copy.',
+	'settings.sync.fastForward':
+		'Brought this device up to date with {count, plural, one {# change} other {# changes}} from another device.',
+	'settings.sync.pushOnly':
+		'{count, plural, one {# change} other {# changes}} on this device are not in the cloud copy yet.',
+	'settings.sync.diverged':
+		'Another device changed this campaign too. Choose a version for {count, plural, one {# item} other {# items}} before backing up.',
+	'settings.sync.divergedNoOverlap':
+		'Another device changed this campaign too, on different items. Restore this device from the cloud copy, or back that device up first.',
+	'settings.sync.conflictsTitle': 'Sync conflicts',
+	'settings.sync.conflictsBody':
+		'Two devices changed the same item after they last matched. Pick the version to keep. DM only.',
+	'settings.sync.conflictEntity': '{entity} · {path}',
+	'settings.sync.conflictWhole': '{entity}',
+	'settings.sync.conflictFound': 'Found {when}',
+	'settings.sync.conflictSideThis': 'This device',
+	'settings.sync.conflictSideOther': 'Other device',
+	'settings.sync.keepThisDevice': 'Keep this device’s version',
+	'settings.sync.keepOtherDevice': 'Keep the other device’s version',
+	'settings.sync.conflictResolved': 'Version chosen.',
+	'settings.sync.conflictFailed': 'The version could not be chosen.',
+	'settings.sync.noConflicts': 'No sync conflicts.',
+
 	/* Settings › Backup & history › Local backup */
 	'settings.backup.title': 'Local backup',
 	'settings.backup.heading': 'Back up or restore this device’s vault',

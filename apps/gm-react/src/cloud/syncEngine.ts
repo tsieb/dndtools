@@ -10,16 +10,35 @@
 // Local-first is preserved: scheduled backups never block a dispatch and record/swallow network errors.
 // Explicit syncNow() calls reject so the initiating UI can report failure. Restore only works where the
 // same client-held vault key is already present; this engine does not distribute keys to fresh devices.
+//
+// RC-CLD-2.4 adds the PULL half, which turns the backup into cross-device sync. Before pushing, the
+// engine fetches the vault's ciphertext op-log from the sync-api, decrypts it, and hands it to the core
+// (`sync.merge-remote`), which compares the two logs and decides what the comparison means. That
+// comparison is not optional: the sync-api stores operations FIRST-WRITE-WINS per revision and rejects
+// a snapshot below the stored revision, so a second device that pushed blindly had its work silently
+// dropped. Now:
+//   - `fast-forward` (the cloud strictly contains this device's history) adopts the cloud snapshot, so
+//     opening the tablet after editing on the laptop brings the tablet up to date;
+//   - `diverged` (both devices moved) applies NOTHING and BLOCKS the push. The core has recorded a
+//     durable conflict per entity both devices changed, and the DM resolves them with the same
+//     `conflict.resolve` command every other conflict in the vault uses.
 
 import {
 	opServerVisibleFields,
 	assertServerSeesOnlyAllowedMetadata,
 	DNDTOOLS_CLOUD_SECURITY_DECISION_RECORD,
-	validateEncryptedEnvelope,
 	type CloudOpRecord,
 	type CloudSnapshotRecord,
 	type CoreStateSlice,
+	type CrossDeviceMergeOutcome,
 } from '@dndtools/core';
+import {
+	MAX_CLOUD_OPERATION_REVISION,
+	b64urlBytes,
+	parseOperationsResponse,
+	parseSnapshotResponse,
+	type PulledOperation,
+} from './syncWire';
 import type { SceneRuntime } from '../runtime/SceneRuntime';
 import { restoreCoreState, validateRestoredCoreState } from '../platform/storage/coreStore';
 import { vaultKeyManager } from './vaultKey';
@@ -32,9 +51,10 @@ const PUSH_DEBOUNCE_MS = 1500;
 const MAX_OPS_PER_PUSH = 200;
 /** Server-side per-record ceiling; enforce before upload so a large command fails locally and clearly. */
 const MAX_OPERATION_CIPHERTEXT_BYTES = 64 * 1024;
-const MAX_CLOUD_OPERATION_REVISION = 250_000;
 const MAX_CLOUD_OPERATION_COUNT = MAX_CLOUD_OPERATION_REVISION + 1;
 const CLOUD_PARTICIPANT_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+/** The sync-api returns at most 500 operations per pull; page until it says there is no more. */
+const MAX_PULL_PAGES = 600;
 /** Conservative ceiling below Lambda/API Gateway synchronous payload limits, including JSON/base64. */
 const MAX_SYNC_REQUEST_BYTES = 4 * 1024 * 1024;
 // Scope the high-water by the ACCOUNT too: localStorage is per-origin and shared across Cognito
@@ -45,11 +65,12 @@ const pushedRevKey = (accountId: string, vaultId: string) =>
 	// v2 deliberately does not reuse v1's high-water: every legacy unbound operation must be pushed
 	// once as a context-bound envelope. The server conditionally upgrades matching revisions in place.
 	`dndtools:react:cloud-pushed-rev-v2:${accountId}:${vaultId}`;
-
-/** Byte length of a base64url string (no padding): 4 chars → 3 bytes. */
-function b64urlBytes(s: string): number {
-	return Math.floor((s.length * 3) / 4);
-}
+// The revision this device and the cloud are PROVEN to agree on: every operation up to it matched by
+// id in both logs. It is deliberately separate from the pushed high-water — a push that landed says
+// nothing about agreement, because the server keeps the FIRST writer of a revision and drops the rest.
+// Scoped by account for the same reason the pushed high-water is.
+const agreedRevKey = (accountId: string, vaultId: string) =>
+	`dndtools:react:cloud-agreed-rev-v1:${accountId}:${vaultId}`;
 
 /** A snapshot serializes the whole slice; the sync slice's Set isn't JSON-safe, so carry only its ops. */
 function normalizeSliceForSnapshot(slice: CoreStateSlice): unknown {
@@ -75,48 +96,19 @@ function jsonBytes(value: string): number {
 	return new TextEncoder().encode(value).byteLength;
 }
 
-function plainRecord(value: unknown): value is Record<string, unknown> {
-	return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function parseSnapshotResponse(value: unknown): CloudSnapshotRecord {
-	if (
-		!plainRecord(value) ||
-		JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(['envelope', 'meta']) ||
-		!plainRecord(value.meta) ||
-		JSON.stringify(Object.keys(value.meta).sort()) !==
-			JSON.stringify(['contentHash', 'issuedAt', 'revision', 'size'])
-	) {
-		throw new Error('Cloud restore returned an invalid snapshot record.');
-	}
-	const { revision, size, contentHash, issuedAt } = value.meta;
-	if (
-		!Number.isSafeInteger(revision) ||
-		Number(revision) < 0 ||
-		!Number.isSafeInteger(size) ||
-		Number(size) < 0 ||
-		typeof contentHash !== 'string' ||
-		typeof issuedAt !== 'string' ||
-		!Number.isFinite(Date.parse(issuedAt))
-	) {
-		throw new Error('Cloud restore returned invalid snapshot metadata.');
-	}
-	validateEncryptedEnvelope(value.envelope);
-	if (
-		value.envelope.contentHash !== contentHash ||
-		b64urlBytes(value.envelope.ct) !== Number(size)
-	) {
-		throw new Error('Cloud restore snapshot metadata does not match its ciphertext.');
-	}
-	return {
-		meta: {
-			revision: Number(revision),
-			size: Number(size),
-			contentHash,
-			issuedAt,
-		},
-		envelope: value.envelope,
-	};
+/** What a cross-device comparison found. Counts only — no campaign content ever reaches this. */
+export interface MergeSummary {
+	outcome: CrossDeviceMergeOutcome;
+	/** The revision both logs are now proven to agree on. */
+	agreedRevision: number;
+	/** Operations the cloud holds and this device does not. */
+	incomingCount: number;
+	/** Operations this device holds and the cloud does not. */
+	outgoingCount: number;
+	/** Entities both devices changed — each is a durable conflict for the DM. */
+	conflictCount: number;
+	/** Whether the cloud copy was adopted (only ever on a fast-forward). */
+	adopted: boolean;
 }
 
 export interface SyncEngineStatus {
@@ -124,13 +116,23 @@ export interface SyncEngineStatus {
 	lastPushedRevision: number;
 	lastSyncedAt: string | null;
 	lastError: string | null;
+	/** When this device last compared its history with the cloud. */
+	lastMergedAt: string | null;
+	/** The last comparison's result. Null until one has run. */
+	merge: MergeSummary | null;
 }
 
 export interface CloudSyncEngine {
 	start(): void;
 	stop(): void;
-	/** Force a snapshot + op-tail push now. Rejects on network, auth, or crypto failure. */
+	/**
+	 * Force a snapshot + op-tail push now. Rejects on network, auth, or crypto failure, and refuses
+	 * outright while the last comparison says this device has diverged — the server keeps the FIRST
+	 * writer of each revision, so pushing then would drop this device's work without saying so.
+	 */
 	syncNow(): Promise<void>;
+	/** Compare this device's history with the cloud. Run this BEFORE a push, and on launch. */
+	mergeNow(): Promise<MergeSummary>;
 	/** Manual same-key restore from the latest cloud snapshot. */
 	restoreFromCloud(): Promise<'restored' | 'no-snapshot'>;
 	getStatus(): SyncEngineStatus;
@@ -168,14 +170,34 @@ export function createSyncEngine(opts: SyncEngineOptions): CloudSyncEngine {
 		lastPushedRevision: readPushedRev(),
 		lastSyncedAt: null,
 		lastError: null,
+		lastMergedAt: null,
+		merge: null,
 	};
 
-	function readPushedRev(): number {
+	function readRev(key: string): number {
 		try {
-			const raw = window.localStorage.getItem(pushedRevKey(accountId, vaultId));
-			return raw ? Number(raw) : -1;
+			const raw = window.localStorage.getItem(key);
+			if (!raw) return -1;
+			const parsed = Number(raw);
+			return Number.isSafeInteger(parsed) && parsed >= -1 ? parsed : -1;
 		} catch {
 			return -1;
+		}
+	}
+
+	function readPushedRev(): number {
+		return readRev(pushedRevKey(accountId, vaultId));
+	}
+
+	function readAgreedRev(): number {
+		return readRev(agreedRevKey(accountId, vaultId));
+	}
+
+	function writeAgreedRev(rev: number): void {
+		try {
+			window.localStorage.setItem(agreedRevKey(accountId, vaultId), String(rev));
+		} catch {
+			/* localStorage unavailable — the next comparison simply starts from the beginning again */
 		}
 	}
 	function writePushedRev(rev: number): void {
@@ -188,6 +210,20 @@ export function createSyncEngine(opts: SyncEngineOptions): CloudSyncEngine {
 	}
 	function emit(): void {
 		onStatus?.({ ...status });
+	}
+
+	// A merge can nest a restore inside a sync, and each of those reports progress. Count the nesting
+	// so an inner step finishing does not tell the UI the whole run is over.
+	let busyDepth = 0;
+	function enterBusy(): void {
+		busyDepth += 1;
+		status.busy = true;
+		emit();
+	}
+	function exitBusy(): void {
+		busyDepth = Math.max(0, busyDepth - 1);
+		status.busy = busyDepth > 0;
+		emit();
 	}
 
 	async function authHeaders(): Promise<Record<string, string>> {
@@ -341,11 +377,18 @@ export function createSyncEngine(opts: SyncEngineOptions): CloudSyncEngine {
 	}
 
 	async function doSync(propagateErrors: boolean): Promise<void> {
-		status.busy = true;
+		enterBusy();
 		status.lastError = null;
-		emit();
 		try {
 			const headers = await authHeaders();
+			// Fail closed on a known divergence: the server keeps the FIRST writer of each revision, so
+			// pushing over another device's history would drop this device's work without saying so. The
+			// DM resolves the recorded conflicts first; the next comparison then clears this.
+			if (status.merge?.outcome === 'diverged') {
+				throw new Error(
+					'Another device changed this campaign too. Resolve the sync conflicts before backing up.',
+				);
+			}
 			const slice = runtime.authoritativeState;
 			// Snapshot FIRST: manual same-key restore is snapshot-only (no op replay), so it must
 			// reflect the full current state before we advance the op high-water. If the op-tail push then
@@ -360,8 +403,7 @@ export function createSyncEngine(opts: SyncEngineOptions): CloudSyncEngine {
 			status.lastError = err instanceof Error ? err.message : String(err);
 			if (propagateErrors) throw err;
 		} finally {
-			status.busy = false;
-			emit();
+			exitBusy();
 		}
 	}
 
@@ -375,18 +417,148 @@ export function createSyncEngine(opts: SyncEngineOptions): CloudSyncEngine {
 		return `${fallback} (${response.status}).`;
 	}
 
-	// Serialize every backup through a single chain: a debounce-fired run, a syncNow(), and a dispatch
-	// arriving mid-sync must not run two doSync() concurrently (they'd read the same high-water, rebuild
-	// the same op-tail, and race writePushedRev — duplicate pushes that only the server's idempotency
-	// masks). Queue instead of overlap. A prior manual rejection is handled before the next queued run.
-	function runSync(propagateErrors: boolean): Promise<void> {
-		const prior = inFlight ? inFlight.catch(() => undefined) : Promise.resolve();
-		const next = prior.then(() => doSync(propagateErrors));
-		const tracked = next.finally(() => {
-			if (inFlight === tracked) inFlight = null;
-		});
+	// Serialize every cloud run through a single chain: a debounce-fired push, a syncNow(), a launch
+	// comparison, and a dispatch arriving mid-sync must not overlap (they'd read the same high-water,
+	// rebuild the same op-tail, and race writePushedRev — duplicate pushes that only the server's
+	// idempotency masks). Queue instead. The tracked tail never rejects, so one run's failure does not
+	// reject the next queued one; each caller still sees its own rejection.
+	function chain<T>(operation: () => Promise<T>): Promise<T> {
+		const prior = inFlight ?? Promise.resolve();
+		const next = prior.then(operation);
+		const tracked: Promise<void> = next
+			.then(
+				() => undefined,
+				() => undefined,
+			)
+			.finally(() => {
+				if (inFlight === tracked) inFlight = null;
+			});
 		inFlight = tracked;
-		return tracked;
+		return next;
+	}
+
+	function runSync(propagateErrors: boolean): Promise<void> {
+		return chain(() => doSync(propagateErrors));
+	}
+
+	/**
+	 * Fetch and decrypt the vault's cloud operations after `since` (exclusive). Every record is
+	 * integrity-checked against its server metadata before decryption, and decryption is bound to the
+	 * same account/vault/revision context the push used — a record moved to a different revision or a
+	 * different account's vault fails to open rather than merging into this campaign.
+	 */
+	async function pullRemoteOperations(
+		headers: Record<string, string>,
+		since: number,
+	): Promise<PulledOperation[]> {
+		const pulled: PulledOperation[] = [];
+		let cursor = since;
+		for (let page = 0; page < MAX_PULL_PAGES; page += 1) {
+			const res = await fetch(
+				`${base}/vaults/${vaultId}/operations?since=${encodeURIComponent(String(cursor))}`,
+				{ headers },
+			);
+			if (!res.ok) throw new Error(await responseError(res, 'Reading cloud changes failed'));
+			const body = parseOperationsResponse(await res.json());
+			for (const record of body.ops) {
+				const operation = await vaultKeyManager.decrypt(
+					{ accountId, vaultId, kind: 'operation', revision: record.meta.revision },
+					record.envelope,
+				);
+				pulled.push({ revision: record.meta.revision, operation });
+			}
+			if (!body.hasMore) return pulled;
+			if (body.highWater <= cursor) {
+				// The server says there is more but did not advance; stop rather than loop forever.
+				throw new Error('Reading cloud changes stalled. Try syncing again.');
+			}
+			cursor = body.highWater;
+		}
+		throw new Error(
+			'This campaign’s cloud history is too long to compare in one pass. Restore this device from the cloud copy instead.',
+		);
+	}
+
+	/**
+	 * Compare this device's history with the cloud's and act on the answer. The CORE does the
+	 * comparing and the conflict recording (`sync.merge-remote`); this function only supplies the
+	 * decrypted cloud tail and carries out the one outcome that has a transport consequence —
+	 * adopting the cloud snapshot when the cloud strictly contains this device's history.
+	 */
+	async function doMerge(headers: Record<string, string>): Promise<MergeSummary> {
+		const since = readAgreedRev();
+		const pulled = await pullRemoteOperations(headers, since);
+		// The cloud stores each operation at the revision its author assigned, and the local log is
+		// indexed the same way, so a gap means the cloud history is not the contiguous run this
+		// comparison assumes. Fail closed rather than comparing misaligned positions.
+		pulled.forEach((entry, offset) => {
+			if (entry.revision !== since + 1 + offset) {
+				throw new Error(
+					'The cloud change history has a gap. Restore this device from the cloud copy instead.',
+				);
+			}
+		});
+		const result = await runtime.dispatch({
+			type: 'sync.merge-remote',
+			actorId: runtime.defaultActorId,
+			payload: {
+				remoteOperations: pulled.map((entry) => entry.operation),
+				baseRevision: since,
+			},
+		});
+		if (result.status !== 'accepted') {
+			throw new Error(result.rejection?.message ?? 'Comparing this device with the cloud failed.');
+		}
+		const event = result.events?.find((entry) => entry.kind === 'sync.merge-recorded') as
+			| {
+					outcome: CrossDeviceMergeOutcome;
+					agreedRevision: number;
+					incomingCount: number;
+					outgoingCount: number;
+					conflictCount: number;
+			  }
+			| undefined;
+		if (!event) throw new Error('Comparing this device with the cloud returned no result.');
+		writeAgreedRev(event.agreedRevision);
+
+		let adopted = false;
+		if (event.outcome === 'fast-forward') {
+			// Nothing on this device is missing from the cloud, so taking the cloud copy loses nothing
+			// and is exactly the merge the user asked for. Divergence never reaches here.
+			adopted = (await restoreFromCloud()) === 'restored';
+		}
+		const summary: MergeSummary = {
+			outcome: event.outcome,
+			agreedRevision: event.agreedRevision,
+			incomingCount: event.incomingCount,
+			outgoingCount: event.outgoingCount,
+			conflictCount: event.conflictCount,
+			adopted,
+		};
+		status.merge = summary;
+		status.lastMergedAt = new Date().toISOString();
+		return summary;
+	}
+
+	/**
+	 * Run a comparison on the same single chain the pushes use, so a merge and a push can never read
+	 * the same high-water at once. Always rejects on failure — a comparison that did not finish knows
+	 * nothing, and reporting it as "up to date" would be exactly the fake success this engine avoids.
+	 * The launch comparison swallows the rejection at its call site; the error stays in status.
+	 */
+	function runMerge(): Promise<MergeSummary> {
+		return chain(async () => {
+			enterBusy();
+			status.lastError = null;
+			try {
+				return await doMerge(await authHeaders());
+			} catch (err) {
+				status.lastError = err instanceof Error ? err.message : String(err);
+				throw err;
+			} finally {
+				exitBusy();
+			}
+		});
 	}
 
 	function scheduleSync(): void {
@@ -397,10 +569,65 @@ export function createSyncEngine(opts: SyncEngineOptions): CloudSyncEngine {
 		}, PUSH_DEBOUNCE_MS);
 	}
 
+	async function restoreFromCloud(): Promise<'restored' | 'no-snapshot'> {
+		enterBusy();
+		status.lastError = null;
+		try {
+			const headers = await authHeaders();
+			const res = await fetch(`${base}/vaults/${vaultId}/snapshot/latest`, { headers });
+			if (res.status === 404) return 'no-snapshot';
+			if (!res.ok) throw new Error(await responseError(res, 'Cloud restore failed'));
+			const body = parseSnapshotResponse(await res.json());
+			const context = {
+				accountId,
+				vaultId,
+				kind: 'snapshot' as const,
+				revision: body.meta.revision,
+			};
+			const decrypted = await vaultKeyManager.decrypt(context, body.envelope);
+			const slice = validateRestoredCoreState(decrypted);
+			if (slice.sync.operations.length !== body.meta.revision) {
+				throw new Error(
+					'Cloud restore snapshot revision does not match its operation history; the local campaign was not changed.',
+				);
+			}
+			return await runtime.runExclusiveMaintenance(async () => {
+				const previous = normalizeSliceForSnapshot(runtime.authoritativeState);
+				await restoreCoreState(slice);
+				try {
+					await runtime.reloadFromStorage();
+				} catch (error) {
+					// Storage replacement is atomic, and a post-write runtime failure rolls the prior valid
+					// slice back before the error is surfaced. A bad restore never strands the user empty.
+					await restoreCoreState(previous);
+					await runtime.reloadFromStorage();
+					throw error;
+				}
+				writePushedRev(slice.sync.operations.length - 1); // already present in the cloud
+				// This device now holds exactly the cloud's history, so the two agree all the way to its
+				// end and the next comparison can start there instead of re-reading the whole log.
+				writeAgreedRev(slice.sync.operations.length - 1);
+				lastSnapshotRev = slice.sync.operations.length;
+				status.lastSyncedAt = new Date().toISOString();
+				return 'restored' as const;
+			});
+		} catch (error) {
+			status.lastError = error instanceof Error ? error.message : String(error);
+			throw error;
+		} finally {
+			exitBusy();
+		}
+	}
+
 	return {
 		start() {
 			if (unsubscribe) return;
 			unsubscribe = runtime.onDispatched(() => scheduleSync());
+			// Background comparison on launch: whatever the other device did while this one was closed
+			// is picked up without the user asking. It runs before the first push is due, so a diverged
+			// device is caught before it can overwrite. A failure here stays in status — local work is
+			// never blocked by the cloud being unreachable.
+			void runMerge().catch(() => undefined);
 			scheduleSync(); // capture the current state on enable (first snapshot)
 		},
 		stop() {
@@ -416,54 +643,10 @@ export function createSyncEngine(opts: SyncEngineOptions): CloudSyncEngine {
 			}
 			await runSync(true);
 		},
-		async restoreFromCloud() {
-			status.busy = true;
-			status.lastError = null;
-			emit();
-			try {
-				const headers = await authHeaders();
-				const res = await fetch(`${base}/vaults/${vaultId}/snapshot/latest`, { headers });
-				if (res.status === 404) return 'no-snapshot';
-				if (!res.ok) throw new Error(await responseError(res, 'Cloud restore failed'));
-				const body = parseSnapshotResponse(await res.json());
-				const context = {
-					accountId,
-					vaultId,
-					kind: 'snapshot' as const,
-					revision: body.meta.revision,
-				};
-				const decrypted = await vaultKeyManager.decrypt(context, body.envelope);
-				const slice = validateRestoredCoreState(decrypted);
-				if (slice.sync.operations.length !== body.meta.revision) {
-					throw new Error(
-						'Cloud restore snapshot revision does not match its operation history; the local campaign was not changed.',
-					);
-				}
-				return await runtime.runExclusiveMaintenance(async () => {
-					const previous = normalizeSliceForSnapshot(runtime.authoritativeState);
-					await restoreCoreState(slice);
-					try {
-						await runtime.reloadFromStorage();
-					} catch (error) {
-						// Storage replacement is atomic, and a post-write runtime failure rolls the prior valid
-						// slice back before the error is surfaced. A bad restore never strands the user empty.
-						await restoreCoreState(previous);
-						await runtime.reloadFromStorage();
-						throw error;
-					}
-					writePushedRev(slice.sync.operations.length - 1); // already present in the cloud
-					lastSnapshotRev = slice.sync.operations.length;
-					status.lastSyncedAt = new Date().toISOString();
-					return 'restored' as const;
-				});
-			} catch (error) {
-				status.lastError = error instanceof Error ? error.message : String(error);
-				throw error;
-			} finally {
-				status.busy = false;
-				emit();
-			}
+		mergeNow() {
+			return runMerge();
 		},
+		restoreFromCloud,
 		getStatus() {
 			return { ...status };
 		},
