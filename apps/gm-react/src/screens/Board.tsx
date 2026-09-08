@@ -30,8 +30,10 @@ import {
 import { useViewport } from '../app/useViewport';
 import { usePanelFocusReturn } from '../app/usePanelFocusReturn';
 import { useLayoutHistory } from '../app/canvas/useLayoutHistory';
-import { Page, srOnly } from '../app/screen-kit';
+import { srOnly } from '../app/screen-kit';
 import { useI18n } from '../i18n';
+import { BoardPlayerNotice } from './board/BoardPlayerNotice';
+import { useBoardLayouts } from './board/useBoardLayouts';
 import { widgetProfileForRuntime } from '../platform/capabilities';
 
 /**
@@ -82,7 +84,6 @@ export function Board() {
 	// covered all but ~97px of the board and could not be dismissed without leaving edit mode.
 	// It is now a peer of the Add panel: a toolbar toggle, a Close button and Escape.
 	const [layoutsOpen, setLayoutsOpen] = useState(false);
-	const [presetName, setPresetName] = useState('');
 	const [status, setStatus] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	// RC-CAN-3.4 — the layout quality indicator's own popover, separate from Add/Layouts so opening
@@ -191,6 +192,15 @@ export function Board() {
 		setStatus(null);
 		return true;
 	}
+
+	const {
+		presetName,
+		setPresetName,
+		savePreset,
+		snapshotSafePoint,
+		applyPreset,
+		restoreSafePoint,
+	} = useBoardLayouts({ runtime, actorId, dispatch, setStatus });
 
 	const history = useLayoutHistory({ sceneId: homeSceneId ?? null, runtime, dispatch });
 	// A stable callback for the Undo toast: the toast store lives outside React, so the closure it
@@ -318,79 +328,8 @@ export function Board() {
 			if (!editing) setEditing(true);
 		}
 	}
-	async function savePreset() {
-		if (!presetName.trim()) return;
-		const ok = await dispatch({
-			type: 'command-center.save-preset',
-			actorId,
-			payload: { name: presetName.trim() },
-		});
-		if (ok) {
-			setStatus(t('board.layoutSaved', { name: presetName.trim() }));
-			setPresetName('');
-		}
-	}
-	// Capture the current layout as the auto-save safe point (CMD-008). Best-effort and silent — it is
-	// an automatic checkpoint, not a user action, so a rejection (e.g. before the home Scene exists)
-	// must not surface as a status message. Taken when an edit session begins and before a preset is
-	// applied, so "Restore previous layout" can always revert the last destructive change.
-	async function snapshotSafePoint() {
-		// `SceneRuntime.dispatchNow` RETHROWS on a persist failure, and this is awaited FIRST inside
-		// `applyPreset` — so a failed checkpoint used to throw straight out of the function before
-		// the user's own guarded dispatch ever ran: "Apply a saved layout" did nothing, said
-		// nothing, and left an unhandled rejection. A best-effort checkpoint must never veto the
-		// action it precedes.
-		try {
-			await runtime.dispatch({ type: 'command-center.snapshot-auto-save', actorId, payload: {} });
-		} catch {
-			/* silent by design — see above */
-		}
-	}
-	async function applyPreset(presetId: string, name: string) {
-		await snapshotSafePoint();
-		const ok = await dispatch({
-			type: 'command-center.apply-preset',
-			actorId,
-			payload: { presetId },
-		});
-		if (ok) setStatus(t('board.layoutApplied', { name }));
-	}
-	async function restoreSafePoint() {
-		const ok = await dispatch({ type: 'command-center.restore-auto-save', actorId, payload: {} });
-		if (ok) setStatus(t('board.layoutRestored'));
-	}
 
-	if (!isDm) {
-		return (
-			// `<Page>` rather than a bare max-width div: the raw div has no padding, so on a phone this
-			// explainer Card sat flush against both screen edges — every other screen's non-DM/empty
-			// state goes through Page and gets the profile's gutters.
-			<Page max={640}>
-				<Card
-					elevation="raised"
-					padding="lg"
-					style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
-				>
-					<span
-						style={{
-							font: '700 var(--text-lg) var(--font-display)',
-							color: 'var(--color-text-primary)',
-						}}
-					>
-						{t('board.playerTitle')}
-					</span>
-					<span
-						style={{
-							font: 'var(--text-sm) var(--font-sans)',
-							color: 'var(--color-text-secondary)',
-						}}
-					>
-						{t('board.playerBody')}
-					</span>
-				</Card>
-			</Page>
-		);
-	}
+	if (!isDm) return <BoardPlayerNotice />;
 
 	return (
 		<div
