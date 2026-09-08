@@ -1,7 +1,11 @@
 # Widget Feature — Design & Goal Brief
 
 > **Status:** Reference brief synthesizing the shipped widget system (initiatives I4, I16, I20)
-> and its planned extensibility trajectory (I8, I12, ADR-014).
+> and its planned extensibility trajectory (I8, I12, ADR-014). Realized in `apps/gm-react`
+> (React), not the retired `apps/gm` Svelte app — code paths below updated 2026-09-08
+> (RC-DOC-1.2). The extensibility trajectory §6 named speculatively here has since shipped in
+> part: see `docs/architecture/WIDGET_RUNTIME.md` (custom-widget sandbox host, ADR-031) and
+> `docs/architecture/SYSTEM_PACKAGES.md` (swappable rules system, ADR-028).
 > **Audience:** Engineers, designers, and PMs who need a single, accurate picture of what
 > widgets are, why they exist, and how they are built.
 
@@ -189,9 +193,11 @@ in pure, unit-tested modules.
 
 ### 5.2 Rendering
 
-`WidgetView.svelte` is the **single render path** for every widget on every surface. It
-resolves a renderer via `resolveWidgetRenderer()` → `template` | `builtin` | `custom` |
+`WidgetRenderSlot.tsx` (`apps/gm-react/src/app/widgets/WidgetRenderSlot.tsx`) is the **single
+render path** for every widget on every surface. It resolves a renderer via `resolveRenderer()`
+(`apps/gm-react/src/app/widgets/resolveRenderer.ts`) → `template` | `builtin` | `custom` |
 `placeholder` (never crashes), merges config defaults, and applies `--widget-*` style tokens.
+The `custom` case is the sandboxed runtime documented in `docs/architecture/WIDGET_RUNTIME.md`.
 
 **Built-in templates** (data-driven, reusable):
 
@@ -218,13 +224,16 @@ alone), and a binding-state chain-link indicator.
 
 ### 5.4 Discovery & configuration
 
-- **Widget Library** (`WidgetLibrary.svelte`) — categorized, searchable, profile-aware
-  add-picker; unsupported-on-profile entries are dimmed with a reason. Only `scene` +
-  `libraryListed` widgets appear, and only for actors who can author scenes.
-- **Binding Inspector** (`BindingInspector.svelte`) — discrete, keyboard-operable surface to
-  search DM-scoped entities and pick a binding type (the WCAG 2.5.7 alternative to drag).
-- **Customize Panel** (`WidgetCustomizePanel.svelte`) — renders declarative `configFields`
-  grouped into Content / Display / Style.
+- **Widget Library** (`AddWidgetPanel.tsx`, `apps/gm-react/src/screens/sceneEditor/`) —
+  categorized, searchable, profile-aware add-picker; unsupported-on-profile entries are dimmed
+  with a reason. Only `scene` + `libraryListed` widgets appear, and only for actors who can
+  author scenes.
+- **Binding Inspector** (`Inspector.tsx`, `apps/gm-react/src/screens/sceneEditor/`) —
+  discrete, keyboard-operable surface to search DM-scoped entities and pick a binding type
+  (the WCAG 2.5.7 alternative to drag), reading `resolveWidgetBinding()`.
+- **Customize Panel** — declarative `configFields` grouped into Content / Display / Style,
+  rendered by the same `Inspector.tsx` alongside binding controls (not a separate component
+  in the React port).
 
 ### 5.5 Accessibility (first-class, not bolted on)
 
@@ -279,15 +288,17 @@ that make safe extensibility possible.
 
 ## 8. Where to Look in Code
 
-| Concern                                        | Location                                                                                      |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Definitions, packages, system widgets          | `packages/core/src/state/widget-package-state.ts`                                             |
-| Instances, scene visibility                    | `packages/core/src/state/scene-state.ts`                                                      |
-| Binding resolution (actor-scoped, fail-closed) | `packages/core/src/queries/binding.ts`                                                        |
-| Library discovery                              | `packages/core/src/queries/widget-library.ts`                                                 |
-| Operator authority (operate vs configure)      | `packages/core/src/permissions/widget-operator-authority.ts`                                  |
-| Sandbox runtime, host API, exfiltration        | `packages/core/src/security/{custom-widget-runtime,widget-host-api,widget-exfiltration}.ts`   |
-| Canvas controller & geometry                   | `apps/gm/src/lib/gui/ux-canvas/`                                                              |
-| Unified renderer, templates, data resolver     | `apps/gm/src/lib/gui/ux-canvas/widgets/`                                                      |
-| Scene route (focus order, responsive, preview) | `apps/gm/src/routes/scene/[id]/+page.svelte`                                                  |
-| Product intent                                 | `docs/planning/initiatives/{I4,I16,I20}.md`; extensibility `{I8,I12}.md`; `docs/adr/014-*.md` |
+| Concern                                        | Location                                                                                                          |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Definitions, packages, system widgets          | `packages/core/src/state/widget-package-state.ts`                                                                 |
+| Instances, scene visibility                    | `packages/core/src/state/scene-state.ts`                                                                          |
+| Binding resolution (actor-scoped, fail-closed) | `packages/core/src/queries/binding.ts`                                                                            |
+| Library discovery                              | `packages/core/src/queries/widget-library.ts`                                                                     |
+| Operator authority (operate vs configure)      | `packages/core/src/permissions/widget-operator-authority.ts`                                                      |
+| Sandbox runtime, host API, exfiltration        | `packages/core/src/security/{custom-widget-runtime,widget-host-api,widget-exfiltration}.ts`                       |
+| Canvas controller & geometry                   | `apps/gm-react/src/app/SceneBoardCanvas.tsx`, `apps/gm-react/src/app/canvas/`                                     |
+| Unified renderer, templates, data resolver     | `apps/gm-react/src/app/widgets/` (`WidgetRenderSlot.tsx`, `resolveRenderer.ts`, `templates/`)                     |
+| Scene route (focus order, responsive, preview) | `apps/gm-react/src/screens/sceneEditor/index.tsx`                                                                 |
+| Layout undo/redo (RC-CAN-1.x)                  | `apps/gm-react/src/app/canvas/useLayoutHistory.ts`; see `docs/architecture/SCENE_HISTORY.md`                      |
+| Custom-widget sandbox host (RC-WID-1.x)        | `apps/gm-react/src/app/widgets/{SandboxHost,WorkerHost,hostBridge}.ts`; see `docs/architecture/WIDGET_RUNTIME.md` |
+| Product intent                                 | `docs/planning/initiatives/{I4,I16,I20}.md`; extensibility `{I8,I12}.md`; `docs/adr/014-*.md`                     |

@@ -43,6 +43,25 @@ derivations are declared as formulas in a tiny expression grammar and evaluated 
 `SystemsState.activeWidgetPackageId` — the two are different id namespaces, so they are never
 conflated.)
 
+(RC-CAN-1.2/ADR-029 added `Scene.tombstones?: WidgetTombstone[]` — a soft-delete bin a destroyed
+widget's full instance moves into instead of being dropped, so `scene.restore-widget` can put it
+back verbatim. It is OPTIONAL, not a `SCENE_STATE_SCHEMA_VERSION` bump: a scene persisted before
+the field existed hydrates with an empty bin (`sceneTombstones`, `packages/core/src/state/scene-
+state.ts:145`). Each entry expires `WIDGET_TOMBSTONE_RETENTION_DAYS` (30) after `destroyedAt`;
+expiry is checked on read (`isRestorableTombstone`) and pruned on the next tombstone mutation, not
+by a background sweep, so replaying the same op log stays deterministic. See `docs/architecture/
+SCENE_HISTORY.md`.)
+
+(RC-SES lane/ADR-030 added `SessionCombatState.tokens: Record<string, CombatToken>` — combat
+token placement keyed by `combatantId`, not by map — so a token survives a map switch and an
+NPC/monster combatant with no `linkedActorId` still gets one. Additive on the already-durable
+`session` slice; no `SESSION_STATE_SCHEMA_VERSION` bump. ADR-030 §"Migration Impact" calls for
+`MapState.tokens`/`MapToken` (`packages/core/src/state/map-annotations.ts:185`) to be removed in a
+follow-on `MAP_STATE_SCHEMA_VERSION` bump once map-screen rendering repoints to the new
+`tokensOnMapForActor` query; as of this writing `MapState.tokens` still exists alongside the new
+slice (`map-state.ts:256`) — the old array has not yet been deleted. See `docs/architecture/
+COMBAT_ON_MAP.md`.)
+
 (That same expression grammar is the only arithmetic a WIDGET package may declare. A widget's
 `computedFields` reduce its `dataQueries` to one value; a field may carry an optional `formula`
 evaluated by the same `evaluateFormula`, over the four aggregate columns each query exposes
