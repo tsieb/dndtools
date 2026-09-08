@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => ({
 		start: vi.fn(),
 		stop: vi.fn(),
 		syncNow: vi.fn(),
+		// `syncNow` compares before it pushes (RC-CLD-2.4), so the double owes a merge summary.
+		mergeNow: vi.fn(),
 		restoreFromCloud: vi.fn(),
 		getStatus: vi.fn(() => ({
 			busy: false,
@@ -96,6 +98,14 @@ beforeEach(() => {
 	mocks.engine.start.mockReset();
 	mocks.engine.stop.mockReset();
 	mocks.engine.syncNow.mockReset();
+	mocks.engine.mergeNow.mockReset().mockResolvedValue({
+		outcome: 'up-to-date',
+		agreedRevision: 0,
+		incomingCount: 0,
+		outgoingCount: 0,
+		conflictCount: 0,
+		adopted: false,
+	});
 	mocks.engine.restoreFromCloud.mockReset();
 	mocks.engine.getStatus.mockClear();
 	mocks.createSyncEngine.mockReset().mockReturnValue(mocks.engine);
