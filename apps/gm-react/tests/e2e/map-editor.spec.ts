@@ -1894,3 +1894,168 @@ test.describe('map editor: POI note creation (RC-MAP-3.10)', () => {
 		await expect(page).toHaveURL(new RegExp(`/knowledge/${itemId}$`));
 	});
 });
+
+// ── RC-MAP-2.1 · combat tokens on the editor canvas ──────────────────────────────────────────────
+//
+// A combat token is not an annotation token: it is a combatant in the RUNNING fight, owned by the
+// session slice, and it exists on the map only while that fight runs. These specs drive the real
+// layer — the core places the tokens through `combat.place-token`, the editor reads them back through
+// `getMapViewForActor(..., { combat })`, and every assertion about a move reads the COMMITTED core
+// position rather than a pixel.
+
+interface CombatFixture {
+	mapId: string;
+	mapName: string;
+	combatantIds: string[];
+}
+
+/** Take the session live, start a two-combatant fight, and stand both on a fresh map. */
+async function seedCombatMap(page: Page): Promise<CombatFixture> {
+	const mapName = `Lurker Bog ${Date.now()}`;
+	const mapId = await createMap(page, { name: mapName });
+
+	const live = await page.evaluate(() => {
+		const rt = window.__rt!;
+		const state = rt.state as unknown as {
+			session: { activeSceneId: string | null };
+			commandCenter: { homeSceneId: string | null };
+			scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+		};
+		const sceneId =
+			state.session.activeSceneId ??
+			state.commandCenter.homeSceneId ??
+			Object.values(state.scenes.scenes).find((s) => !s.isTemplate)?.id;
+		return rt.dispatch({
+			type: 'session.set-workflow',
+			actorId: rt.defaultActorId,
+			payload: { workflow: 'active', activeSceneId: sceneId },
+		});
+	});
+	expect(live.status, `go live: ${JSON.stringify(live.rejection ?? {})}`).toBe('accepted');
+
+	const started = await dispatch(page, {
+		type: 'combat.start',
+		actorId: DM,
+		payload: {
+			combatants: [
+				{ kind: 'monster', name: 'Bog Lurker', ac: 13, initiative: 18, maxHp: 22 },
+				{ kind: 'monster', name: 'Reed Stalker', ac: 12, initiative: 9, maxHp: 14 },
+			],
+		},
+	});
+	expect(started.status, JSON.stringify(started.rejection ?? {})).toBe('accepted');
+
+	const combatantIds = await page.evaluate(
+		() => (window.__rt!.state.session as { combat: { order: string[] } }).combat.order,
+	);
+	const spots = [
+		{ x: 0.3, y: 0.3 },
+		{ x: 0.7, y: 0.6 },
+	];
+	for (const [index, combatantId] of combatantIds.entries()) {
+		const placed = await dispatch(page, {
+			type: 'combat.place-token',
+			actorId: DM,
+			payload: { combatantId, mapId, ...spots[index]! },
+		});
+		expect(placed.status, JSON.stringify(placed.rejection ?? {})).toBe('accepted');
+	}
+	return { mapId, mapName, combatantIds };
+}
+
+/** The committed core position of one combatant's token. */
+function tokenPosition(page: Page, combatantId: string): Promise<{ x: number; y: number } | null> {
+	return page.evaluate((id) => {
+		const combat = (
+			window.__rt!.state.session as {
+				combat: { tokens: Record<string, { x: number; y: number }> };
+			}
+		).combat;
+		const token = combat.tokens[id];
+		return token ? { x: token.x, y: token.y } : null;
+	}, combatantId);
+}
+
+test.describe('map editor — combat tokens', () => {
+	test('draws the running combat: initials, hit points, conditions and the active-turn ring', async ({
+		page,
+	}) => {
+		await openAtlas(page);
+		const fixture = await seedCombatMap(page);
+		// A condition on the first combatant so the mini-badges have something to show.
+		const applied = await dispatch(page, {
+			type: 'combat.apply-resource',
+			actorId: DM,
+			payload: {
+				combatantId: fixture.combatantIds[0]!,
+				kind: 'condition',
+				condition: 'poisoned',
+				present: true,
+			},
+		});
+		expect(applied.status, JSON.stringify(applied.rejection ?? {})).toBe('accepted');
+
+		await openEditor(page, fixture.mapName);
+		const layer = page.getByRole('group', { name: 'Combat tokens' });
+		await expect(layer).toBeVisible();
+
+		// The active combatant's label carries the turn AND the hit points — colour is never the only
+		// signal (the ring is decorative; the accessible name is the truth).
+		await expect(
+			layer.getByRole('button', { name: /Bog Lurker\. Active turn · 22 of 22 hit points/ }),
+		).toBeVisible();
+		await expect(
+			layer.getByRole('button', { name: /Reed Stalker\. 14 of 14 hit points/ }),
+		).toBeVisible();
+		// The condition mini-badge is icon-only, so its accessible name is the condition itself.
+		await expect(layer.getByLabel('Poisoned')).toBeVisible();
+	});
+
+	test('dragging a token dispatches combat.move-token, snapped to the grid', async ({ page }) => {
+		await openAtlas(page);
+		const fixture = await seedCombatMap(page);
+		await openEditor(page, fixture.mapName);
+
+		const before = await tokenPosition(page, fixture.combatantIds[0]!);
+		expect(before).toEqual({ x: 0.3, y: 0.3 });
+
+		const token = page
+			.getByRole('group', { name: 'Combat tokens' })
+			.getByRole('button', { name: /^Bog Lurker\./ });
+		const box = await token.boundingBox();
+		expect(box, 'the combat token is laid out').toBeTruthy();
+		const from = { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 };
+		await page.mouse.move(from.x, from.y);
+		await page.mouse.down();
+		await page.mouse.move(from.x + 90, from.y + 60, { steps: 8 });
+		await page.mouse.up();
+
+		await expect
+			.poll(async () => (await tokenPosition(page, fixture.combatantIds[0]!))?.x)
+			.toBeGreaterThan(0.3);
+		const after = await tokenPosition(page, fixture.combatantIds[0]!);
+		expect(after!.y).toBeGreaterThan(0.3);
+		// The other combatant did not move: a drag targets exactly one token.
+		expect(await tokenPosition(page, fixture.combatantIds[1]!)).toEqual({ x: 0.7, y: 0.6 });
+	});
+
+	test('arrow keys move the focused token — the keyboard equivalent of the drag', async ({
+		page,
+	}) => {
+		await openAtlas(page);
+		const fixture = await seedCombatMap(page);
+		await openEditor(page, fixture.mapName);
+
+		const token = page
+			.getByRole('group', { name: 'Combat tokens' })
+			.getByRole('button', { name: /^Reed Stalker\./ });
+		await token.focus();
+		await page.keyboard.press('ArrowRight');
+
+		await expect
+			.poll(async () => (await tokenPosition(page, fixture.combatantIds[1]!))?.x)
+			.toBeGreaterThan(0.7);
+		// Only the x moved: one axis per keypress.
+		expect((await tokenPosition(page, fixture.combatantIds[1]!))?.y).toBe(0.6);
+	});
+});

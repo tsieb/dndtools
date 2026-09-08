@@ -346,6 +346,25 @@ export const ROUTE_PACE_LABELS: Readonly<Record<TravelPaceKey, MessageKey>> = Ob
 	slow: 'toolOptions.pace.slow',
 });
 
+/**
+ * RC-MAP-2.1 — the tools during which a COMBAT token is INTERACTIVE.
+ *
+ * The Token tool authors annotation tokens (`map.create-token`); a combat token is a different noun
+ * entirely — it is a combatant in the running fight, owned by the session, and it appears on the map
+ * only while that fight runs. Rather than add a tool for it, the two tools a DM already reaches for
+ * when they mean "touch a thing on the map" become COMBATANT-AWARE: under Select and Token a combat
+ * token can be clicked to select the combatant and dragged to move them. Under every other tool it
+ * still renders — the DM must see who is standing where while they paint — but it ignores the pointer
+ * so it can never swallow a brush stroke.
+ */
+export const COMBAT_TOKEN_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>(['select', 'token']);
+
+/** RC-MAP-2.1 — the Token tool says something different once a combat is running, because what a
+ *  click does there changes: it selects a combatant instead of placing an annotation token. */
+export function tokenToolHint(combatRunning: boolean): MessageKey {
+	return combatRunning ? 'mapTool.token.hint.combat' : 'mapTool.token.hint';
+}
+
 /** Flat lookup for a tool by id. */
 export const TOOLS_BY_ID: ReadonlyMap<ToolId, ToolDef> = new Map(
 	TOOL_GROUPS.flatMap((group) => group.tools.map((tool) => [tool.id, tool] as const)),

@@ -49,9 +49,37 @@ that view (guardrail 2/3). Combat tokens are only joined in while `combat.status
 'running'`. A second, narrower join exists for the combat tracker's own read side:
 `combat-tracker-view.ts:236` resolves one combatant's token by id for the tracker UI.
 
-**No app-side rendering yet.** Nothing under `apps/gm-react/src/app/map` or `screens/session`
-consumes `MapCombatTokenView` — the map canvas does not draw combat tokens today. This is
-core-complete, UI-pending; a CAN/MAP-lane story still has to wire the read into the canvas.
+## 3.1 The token layer UI (RC-MAP-2.1)
+
+The map editor draws the running fight. `useCombatTokens`
+(`apps/gm-react/src/app/map/canvas/useCombatTokens.ts`) is the app's single read: it calls
+`getMapViewForActor(..., { combat })` for the tokens on the edited map and
+`getCombatTrackerForActor` for what that view deliberately does not carry (hit points,
+conditions, defeated/bloodied), and joins the two on `combatantId`. Visibility is never
+re-decided app-side — a combatant the core withholds is simply absent from `combatTokens`, so
+a hidden foe cannot be drawn.
+
+`CombatTokenLayer.tsx` renders each token as an initials `Avatar`, a DS `HPBar`, condition
+mini-badges resolved through the active system package (`ConditionBadge` →
+`useConditionDef`), and an active-turn ring. There is no portrait yet: the core carries no
+portrait or image field on characters or combatants, so `Avatar`'s `src` seam is the join
+point once one exists. Dragging dispatches `combat.move-token` snapped to
+`MapOverlaySettings.gridSize`, offered only where `MapCombatTokenView.canMove` is true; the
+arrow keys on a focused token are the keyboard equivalent and dispatch the identical command
+one cell at a time. A move runs through `editor.run(..., { undoable: false })` — moving a
+creature mid-fight is session state, not a map edit, and must never land on the editor's local
+map undo stack.
+
+Selection is shared, not per-surface: `app/session/SessionSelection.tsx` holds one ephemeral
+`selectedCombatantId` outside React (read through `useSyncExternalStore`, with an app-wide
+default store so no provider has to be threaded through the root). Clicking a token selects
+the combatant in the editor's initiative list (`InspectorPanel.tsx`'s `CombatRosterSection`)
+and clicking a row rings the token. Nothing about it is dispatched, persisted, or synced — a
+co-DM's highlight must not move anyone else's cursor.
+
+Still UI-pending: the read-only overlay everywhere else the map is shown (Atlas, session
+stage, the map tile) is RC-MAP-2.3, and the session tracker widget
+(`app/widgets/builtin/InitiativeTracker.tsx`) does not yet join the shared selection.
 
 ## 4. AoE templates — durable, not ephemeral (a real departure from ADR-030 §2)
 

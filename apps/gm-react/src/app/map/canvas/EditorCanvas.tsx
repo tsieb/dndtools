@@ -16,10 +16,12 @@ import { EditorPoiPopover, usePoiPopoverDismissal } from './EditorPoiPopover';
 import { FeatureShape } from './FeatureShape';
 import { MapCanvas } from './MapCanvas';
 import { EditorCanvasHud } from './EditorCanvasHud';
+import { CombatTokenLayer } from './CombatTokenLayer';
+import { useCombatTokens } from './useCombatTokens';
 import { FogBrushHandle } from './FogBrushHandle';
 import { useTouchNavigation } from './useTouchNavigation';
 import { clamp01 } from '../mapVocab';
-import { ROUTE_DEFAULT_NAME } from '../tools';
+import { COMBAT_TOKEN_TOOLS, ROUTE_DEFAULT_NAME } from '../tools';
 import { categoryForTool } from '../useMapEditor';
 import { useI18n } from '../../../i18n';
 import type { MapEditorApi } from '../useMapEditor';
@@ -694,6 +696,34 @@ export function EditorCanvas({
 		},
 		[fogLayerId, editor, options.fogMode, options.fogFeather, announce, quickMapMode],
 	);
+	// RC-MAP-2.1 — the running combat's tokens. `undoable: false`: moving a creature mid-fight is a
+	// live-play act in the SESSION slice, not a map edit, and it must never land on the editor's local
+	// map undo stack where Ctrl+Z would teleport a combatant back mid-turn.
+	const combat = useCombatTokens(editor.mapId, editor.actorId);
+	const moveCombatToken = useCallback(
+		(combatantId: string, position: Pt) =>
+			editor.run(
+				{
+					type: 'combat.move-token',
+					actorId: editor.actorId,
+					payload: { combatantId, x: position.x, y: position.y },
+				} as never,
+				{ undoable: false },
+			),
+		[editor],
+	);
+
+	// Selecting a combatant hands the Inspector over to it, so the map's own object selection steps
+	// aside — two selections showing at once is how a DM edits the wrong noun.
+	const onSelectCombatant = useCallback(
+		(combatantId: string | null) => {
+			if (!combatantId) return;
+			editor.setSelection([]);
+			editor.setDock('inspector');
+		},
+		[editor],
+	);
+
 	const handleMovePoi = useCallback(
 		(poiId: string, position: Pt) =>
 			void editor.run({
@@ -797,6 +827,18 @@ export function EditorCanvas({
 								/>
 							)
 				}
+			/>
+
+			<CombatTokenLayer
+				combat={combat}
+				zoom={zoom}
+				center={center}
+				interactive={COMBAT_TOKEN_TOOLS.has(tool) && !spacePan && !pinching}
+				gridSize={editor.map?.overlay?.gridSize ?? 0}
+				snapGrid={options.snapGrid}
+				onMove={moveCombatToken}
+				onSelect={onSelectCombatant}
+				announce={announce}
 			/>
 
 			{/* generation ghost preview + in-progress gesture geometry */}

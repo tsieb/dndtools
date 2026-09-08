@@ -6,7 +6,17 @@ import {
 	type MapTokenView,
 	type SceneVisibility,
 } from '@dndtools/core';
-import { Button, Field, Input, Select, Slider, Textarea, VisibilityChip } from '../../../ds';
+import {
+	Button,
+	ConditionBadge,
+	Field,
+	HPBar,
+	Input,
+	Select,
+	Slider,
+	Textarea,
+	VisibilityChip,
+} from '../../../ds';
 import { T, eb } from '../../screen-kit';
 import { useRuntime } from '../../../runtime/RuntimeContext';
 import { exportFile, FileExportError } from '../../../platform/download';
@@ -15,6 +25,9 @@ import { VIS_TEXT, bulkResultMessage } from '../mapVocab';
 import { useI18n } from '../../../i18n';
 import type { MessageKey } from '../../../i18n';
 import { POI_CATEGORIES, VIS_CHIP, VIS_OPTION_KEYS } from './inspectorVocab';
+import { tokenToolHint } from '../tools';
+import { useCombatTokens, type CombatRosterEntry } from '../canvas/useCombatTokens';
+import { useSessionSelection } from '../../session/SessionSelection';
 import { PoiLinkSection } from './PoiNoteSection';
 
 /**
@@ -85,6 +98,11 @@ export function InspectorPanel({
 	const selected = editor.selection;
 	const pois = editor.map?.pois ?? [];
 	const tokens = editor.map?.tokens ?? [];
+	// RC-MAP-2.1 — the shared combatant selection. Both hooks run unconditionally (rules of hooks); a
+	// combatant only takes the panel when NO map object is selected, so selecting a POI never yanks the
+	// Inspector away from the object the DM is editing.
+	const combat = useCombatTokens(editor.mapId, editor.actorId);
+	const { selectedCombatantId, selectCombatant } = useSessionSelection();
 
 	if (selected.length === 1) {
 		const poi = pois.find((p) => p.id === selected[0]);
@@ -95,7 +113,30 @@ export function InspectorPanel({
 	if (selected.length > 1) {
 		return <MultiInspector editor={editor} announce={announce} />;
 	}
-	return <MapInspector editor={editor} announce={announce} />;
+	if (selected.length === 0 && combat.running && selectedCombatantId) {
+		const row = combat.roster.find((entry) => entry.combatantId === selectedCombatantId);
+		// A stale id (combat ended, the combatant was removed) degrades to "nothing selected" rather
+		// than to a panel about a creature that is no longer there.
+		if (row) {
+			const token = combat.tokens.find((entry) => entry.combatantId === selectedCombatantId);
+			return (
+				<CombatantInspector
+					row={row}
+					position={token?.position ?? null}
+					onClear={() => selectCombatant(null)}
+				/>
+			);
+		}
+	}
+	return (
+		<MapInspector
+			editor={editor}
+			announce={announce}
+			combatRoster={combat.running ? combat : null}
+			selectedCombatantId={selectedCombatantId}
+			onSelectCombatant={selectCombatant}
+		/>
+	);
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -111,9 +152,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function MapInspector({
 	editor,
 	announce,
+	combatRoster,
+	selectedCombatantId,
+	onSelectCombatant,
 }: {
 	editor: MapEditorApi;
 	announce: (m: string) => void;
+	/** RC-MAP-2.1 — the running combat, or null when none is running. */
+	combatRoster: { round: number; turn: number; roster: readonly CombatRosterEntry[] } | null;
+	selectedCombatantId: string | null;
+	onSelectCombatant: (combatantId: string | null) => void;
 }) {
 	const runtime = useRuntime();
 	const { t } = useI18n();
@@ -438,6 +486,14 @@ function MapInspector({
 						{t('mapInspector.derive')}
 					</Button>
 				</Section>
+			)}
+
+			{combatRoster && (
+				<CombatRosterSection
+					combat={combatRoster}
+					selectedCombatantId={selectedCombatantId}
+					onSelect={onSelectCombatant}
+				/>
 			)}
 
 			<div
@@ -785,6 +841,150 @@ function MultiInspector({
 				</div>
 				<Button variant="danger" size="sm" icon="delete" onClick={deleteAll}>
 					{t('mapInspector.deleteSelection')}
+				</Button>
+			</Section>
+		</div>
+	);
+}
+
+// ── RC-MAP-2.1 — the running combat ─────────────────────────────────────────────────────────────
+//
+// The map editor gets its own initiative list rather than borrowing the session tracker widget,
+// because the question a DM asks HERE is spatial ("who is on this map, and where"), not procedural
+// ("whose turn is it"). It is the other half of the token layer's selection: clicking a token selects
+// the row, clicking a row selects the token, both through the shared `SessionSelection` store.
+
+function CombatRosterSection({
+	combat,
+	selectedCombatantId,
+	onSelect,
+}: {
+	combat: { round: number; turn: number; roster: readonly CombatRosterEntry[] };
+	selectedCombatantId: string | null;
+	onSelect: (combatantId: string | null) => void;
+}) {
+	const { t } = useI18n();
+	return (
+		<Section title={t('mapInspector.combat')}>
+			<div style={{ font: `12px ${T.sans}`, color: T.sub }}>
+				{t('mapInspector.combatRound', {
+					round: combat.round,
+					turn: combat.turn + 1,
+					count: combat.roster.length,
+				})}
+			</div>
+			<div style={{ font: `12px ${T.sans}`, color: T.sub }}>{t(tokenToolHint(true))}</div>
+			<ul
+				aria-label={t('mapInspector.combat')}
+				style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 4 }}
+			>
+				{combat.roster.map((row) => {
+					const on = row.combatantId === selectedCombatantId;
+					return (
+						<li key={row.combatantId}>
+							<button
+								type="button"
+								aria-pressed={on}
+								onClick={() => onSelect(on ? null : row.combatantId)}
+								style={{
+									width: '100%',
+									display: 'flex',
+									alignItems: 'center',
+									gap: 8,
+									minHeight: 44,
+									padding: '6px 8px',
+									textAlign: 'left',
+									borderRadius: 8,
+									border: `1px solid ${on ? T.accBd : T.bd}`,
+									background: on ? T.accSub : T.surf,
+									color: T.ink,
+									font: `13px ${T.sans}`,
+									cursor: 'pointer',
+									opacity: row.isDefeated ? 0.7 : 1,
+								}}
+							>
+								<span
+									style={{
+										flex: '0 0 auto',
+										width: 6,
+										height: 6,
+										borderRadius: '50%',
+										background: row.isActive ? T.acc : 'transparent',
+									}}
+								/>
+								<span
+									style={{
+										flex: 1,
+										minWidth: 0,
+										overflow: 'hidden',
+										textOverflow: 'ellipsis',
+										whiteSpace: 'nowrap',
+									}}
+								>
+									{row.name}
+									{row.isActive && (
+										<span style={{ color: T.sub, font: `11px ${T.sans}` }}>
+											{' · '}
+											{t('mapInspector.combatActive')}
+										</span>
+									)}
+								</span>
+								{row.hp !== null && row.maxHp !== null && (
+									<span style={{ flex: '0 0 64px' }}>
+										<HPBar current={row.hp} max={row.maxHp} size="sm" showText={false} />
+									</span>
+								)}
+								<span style={{ flex: '0 0 auto', font: `11px ${T.sans}`, color: T.sub }}>
+									{row.onThisMap ? '' : t('mapInspector.combatOffMap')}
+								</span>
+							</button>
+						</li>
+					);
+				})}
+			</ul>
+		</Section>
+	);
+}
+
+function CombatantInspector({
+	row,
+	position,
+	onClear,
+}: {
+	row: CombatRosterEntry;
+	position: { x: number; y: number } | null;
+	onClear: () => void;
+}) {
+	const { t } = useI18n();
+	return (
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+			<Section title={t('mapInspector.combatant')}>
+				<div style={{ font: `600 15px ${T.sans}`, color: T.ink }}>{row.name}</div>
+				{row.isActive && (
+					<div style={{ font: `12px ${T.sans}`, color: T.acc }}>
+						{t('mapInspector.combatActive')}
+					</div>
+				)}
+				{row.hp !== null && row.maxHp !== null && (
+					<HPBar current={row.hp} max={row.maxHp} label={t('mapInspector.combatantHp')} />
+				)}
+				{row.conditions.length > 0 && (
+					<div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+						{row.conditions.map((condition) => (
+							<ConditionBadge key={condition} condition={condition} />
+						))}
+					</div>
+				)}
+				<div style={{ font: `12px ${T.sans}`, color: T.sub }}>
+					{position
+						? t('mapInspector.combatantAt', {
+								x: Math.round(position.x * 100),
+								y: Math.round(position.y * 100),
+							})
+						: t('mapInspector.combatantNoToken')}
+				</div>
+				<Button variant="ghost" onClick={onClear}>
+					{t('mapInspector.combatClear')}
 				</Button>
 			</Section>
 		</div>

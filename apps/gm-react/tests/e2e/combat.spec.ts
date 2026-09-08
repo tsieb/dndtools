@@ -1026,3 +1026,101 @@ test('a timed condition counts down on its badge and announces when it wears off
 	);
 	expect(remaining).toEqual([]);
 });
+
+// ── RC-MAP-2.1 · tracker ↔ map token selection ───────────────────────────────────────────────────
+//
+// "Which combatant am I looking at" is one question asked in two places: the map's token layer and the
+// editor's initiative list. Before RC-MAP-2.1 they were unrelated, so finding a creature on the map
+// told the tracker nothing and the DM re-found it by eye every time. This is the sync case: the two
+// surfaces share one selection through `SessionSelection`, in both directions.
+
+test('a combatant selected on the map is the combatant selected in the initiative list, and back', async ({
+	page,
+}, testInfo) => {
+	const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+	const mapName = `Sync Bog ${Date.now()}`;
+	const created = await dispatch(page, {
+		type: 'map.create',
+		actorId,
+		payload: {
+			name: mapName,
+			visibility: 'dm-only',
+			projection: { kind: 'flat', rotationDegrees: 0 },
+			initialLayers: [{ name: 'Base', category: 'base', visibility: 'dm-only' }],
+		},
+	});
+	expect(created.status, JSON.stringify(created.rejection ?? {})).toBe('accepted');
+	const mapId = (created.events ?? []).find((e) => e.kind === 'map.created')?.mapId as string;
+	expect(mapId).toBeTruthy();
+
+	const combatantIds = await page.evaluate(
+		() => (window.__rt!.state.session as { combat: { order: string[] } }).combat.order,
+	);
+	const spots = [
+		{ x: 0.35, y: 0.35 },
+		{ x: 0.65, y: 0.65 },
+	];
+	for (const [index, combatantId] of combatantIds.entries()) {
+		const placed = await dispatch(page, {
+			type: 'combat.place-token',
+			actorId,
+			payload: { combatantId, mapId, ...spots[index]! },
+		});
+		expect(placed.status, JSON.stringify(placed.rejection ?? {})).toBe('accepted');
+	}
+
+	// Reach the editor by moving the HashRouter fragment: a full navigation would reload the app and
+	// re-hydrate, and this spec is about the LIVE session's combat.
+	await page.evaluate(() => {
+		window.location.hash = '#/atlas';
+	});
+	await expect(page.getByRole('button', { name: mapName, exact: true })).toBeVisible();
+	await page.getByRole('button', { name: mapName, exact: true }).click();
+	await page.getByRole('button', { name: 'Open in map editor' }).click();
+	await expect(page.getByRole('dialog', { name: `Map editor — ${mapName}` })).toBeVisible();
+
+	const layer = page.getByRole('group', { name: 'Combat tokens' });
+	const lurker = layer.getByRole('button', { name: /^Bog Lurker\./ });
+	const stalker = layer.getByRole('button', { name: /^Reed Stalker\./ });
+
+	// On the phone the dock lives behind a MODAL bottom sheet, which hides the canvas from the
+	// accessibility tree while it is open — so the two halves of the sync are asserted with the sheet
+	// closed, exactly as a DM on a phone sees them.
+	const phone = testInfo.project.name === 'mobile-chromium';
+	const panels = page.getByRole('button', { name: 'Panels' });
+	const openDock = async () => {
+		if (!phone) return;
+		await panels.click();
+		await expect(page.getByRole('dialog', { name: 'Map panels' })).toBeVisible();
+	};
+	const closeDock = async () => {
+		if (!phone) return;
+		// The sheet is modal, so the Panels toggle behind it is out of the accessibility tree: the
+		// sheet's own Close is the way out, exactly as it is for the DM.
+		await page
+			.getByRole('dialog', { name: 'Map panels' })
+			.getByRole('button', { name: 'Close' })
+			.click();
+		await expect(page.getByRole('dialog', { name: 'Map panels' })).toBeHidden();
+	};
+
+	// Map → tracker: activating a token hands the Inspector to that combatant.
+	await lurker.click();
+	await openDock();
+	await expect(page.getByText('Combatant', { exact: true })).toBeVisible();
+	await closeDock();
+	await expect(lurker).toHaveAttribute('aria-pressed', 'true');
+	await expect(stalker).toHaveAttribute('aria-pressed', 'false');
+
+	// Tracker → map: clearing returns the initiative list, and picking the other row moves the ring on
+	// the canvas without the DM touching the canvas at all.
+	await openDock();
+	await page.getByRole('button', { name: 'Clear combatant selection' }).click();
+	await page
+		.getByRole('list', { name: 'Combat' })
+		.getByRole('button', { name: /Reed Stalker/ })
+		.click();
+	await closeDock();
+	await expect(stalker).toHaveAttribute('aria-pressed', 'true');
+	await expect(lurker).toHaveAttribute('aria-pressed', 'false');
+});
