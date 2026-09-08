@@ -34,6 +34,7 @@ and the [ADRs](adr/README.md) for the repository layout.
 | Understand testing + validation | [development/TESTING.md](development/TESTING.md)                         |
 | Prepare a release or promotion  | [development/RELEASING.md](development/RELEASING.md)                     |
 | Ship a desktop auto-update      | [development/DESKTOP-AUTO-UPDATE.md](development/DESKTOP-AUTO-UPDATE.md) |
+| Work on the installable web app | [development/PWA.md](development/PWA.md)                                 |
 | Build/test/install Android      | [runbooks/android-alpha.md](runbooks/android-alpha.md)                   |
 | Look up a workspace script      | [development/SCRIPTS.md](development/SCRIPTS.md)                         |
 | Understand the security model   | [security/README.md](security/README.md)                                 |

@@ -5887,6 +5887,9 @@ export const en = {
 	'share.import.working': 'Importing…',
 	'share.import.done': 'Imported {count} items from {name}.',
 	'share.import.failed': 'The shared file could not be imported. Try sharing it again.',
+	/* RC-PLT-2.1 — installed web app */
+	'pwa.update.ready': 'A new version of Lamplight is ready.',
+	'pwa.update.reload': 'Reload',
 	'liveSession.notification.title': 'Session is live',
 	'liveSession.notification.body': 'Tap to return to the table.',
 } as const;

@@ -5964,6 +5964,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'share.import.working': 'Importando…',
 	'share.import.failed': 'No se pudo importar el archivo compartido. Vuelve a compartirlo.',
 	'share.import.done': 'Se importaron {count} elementos de {name}.',
+	'pwa.update.ready': 'Hay una versión nueva de Lamplight lista.',
+	'pwa.update.reload': 'Recargar',
 	'liveSession.notification.title': 'La sesión está en directo',
 	'liveSession.notification.body': 'Toca para volver a la mesa.',
 };
