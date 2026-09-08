@@ -1,6 +1,7 @@
 import {
 	NATIVE_AUDIO_MIME_TYPES,
 	isNativeAudioMimeType,
+	type AudioLicense,
 	type AudioState,
 	type CommandResult,
 	type CoreCommand,
@@ -129,6 +130,15 @@ export interface AudioImportFile {
 	name: string;
 	mime: string;
 	bytes: Uint8Array;
+	/** Display title override. Defaults to the file name with its extension stripped. */
+	title?: string;
+	/**
+	 * A licence the CALLER can vouch for — the bundled starter pack's manifest (RC-AUD-1.3) is the
+	 * only current source. A hand-picked local file passes nothing here and stays `unknown`, flagged
+	 * for review: a licence is never inferred from a file.
+	 */
+	license?: AudioLicense;
+	tags?: string[];
 }
 
 export type AudioImportOutcome =
@@ -189,7 +199,7 @@ export async function importAudioFile(
 			message: `“${file.mime || 'unknown type'}” is not a supported audio format. Supported: ${Object.keys(NATIVE_AUDIO_MIME_TYPES).join(', ')}.`,
 		};
 	}
-	const title = audioTitleFromFileName(file.name);
+	const title = file.title?.trim() || audioTitleFromFileName(file.name);
 
 	// (2) Bytes first — the store computes the same content hash the core will, and enforces the
 	// size/quota bounds fail-closed with an actionable message.
@@ -237,6 +247,8 @@ export async function importAudioFile(
 			mimeType: file.mime,
 			fileName: file.name,
 			title,
+			...(file.license ? { license: file.license } : {}),
+			...(file.tags && file.tags.length > 0 ? { tags: file.tags } : {}),
 		},
 	});
 	if (imported.status !== 'accepted') {

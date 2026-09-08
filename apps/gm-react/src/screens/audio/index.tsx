@@ -25,6 +25,7 @@ import {
 	type SourceKind,
 } from './shared';
 import { usePresetEditor } from './usePresetEditor';
+import { useStarterPack } from './useStarterPack';
 import { useAutomationEditor } from './useAutomationEditor';
 import { NowPlaying } from './NowPlaying';
 import { PlaybackLeft } from './panels/PlaybackLeft';
@@ -150,6 +151,9 @@ export function Audio() {
 	// Local file import (audio.import-asset + the device asset-byte store).
 	const [importBusy, setImportBusy] = useState(false);
 	const [importError, setImportError] = useState<string | null>(null);
+
+	// RC-AUD-1.3 — the bundled CC0 starter pack, installed on demand into the same asset store.
+	const { starterBusy, starterError, installStarter } = useStarterPack(runtime, dmId, canEdit);
 
 	// Six write paths (play/pause/resume/stop, scene binding, automation enable, output choice) went
 	// through here, and it threw the CommandResult away: on a rejection the Switch visibly snapped
@@ -514,6 +518,9 @@ export function Audio() {
 						setAddedName={setAddedName}
 						importBusy={importBusy}
 						importError={importError}
+						starterBusy={starterBusy}
+						starterError={starterError}
+						installStarter={installStarter}
 						importAudio={importAudio}
 						playAsset={playAsset}
 						addTrack={addTrack}

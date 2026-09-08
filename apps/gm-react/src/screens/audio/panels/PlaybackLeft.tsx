@@ -36,6 +36,9 @@ export function PlaybackLeft({
 	importBusy,
 	importError,
 	importAudio,
+	starterBusy,
+	starterError,
+	installStarter,
 	playAsset,
 	addTrack,
 	playSource,
@@ -66,6 +69,9 @@ export function PlaybackLeft({
 	importBusy: boolean;
 	importError: string | null;
 	importAudio: () => Promise<void>;
+	starterBusy: boolean;
+	starterError: string | null;
+	installStarter: () => Promise<void>;
 	playAsset: (asset: AudioAssetView) => Promise<void>;
 	addTrack: (event: FormEvent) => Promise<void>;
 	playSource: (source: AudioSourceClassification) => void;
@@ -81,6 +87,16 @@ export function PlaybackLeft({
 						<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
 							{t('audio.soundboard.assets', { count: assets.length })}
 						</span>
+						<Button
+							variant="ghost"
+							size="sm"
+							icon="audio"
+							disabled={!canEdit || starterBusy}
+							onClick={() => void installStarter()}
+							title={t('audio.starter.hint')}
+						>
+							{starterBusy ? t('audio.starter.installing') : t('audio.starter.install')}
+						</Button>
 						<Button
 							variant="secondary"
 							size="sm"
@@ -101,6 +117,14 @@ export function PlaybackLeft({
 						{importError}
 					</div>
 				)}
+				{starterError && (
+					<div
+						role="alert"
+						style={{ font: `11.5px/1.5 ${T.sans}`, color: 'var(--color-status-error-text)' }}
+					>
+						{starterError}
+					</div>
+				)}
 				{assets.length === 0 ? (
 					<EmptyState
 						inset
@@ -109,15 +133,28 @@ export function PlaybackLeft({
 						description={t('audio.soundboard.emptyBody')}
 						action={
 							canEdit ? (
-								<Button
-									variant="secondary"
-									size="sm"
-									icon="import"
-									disabled={importBusy}
-									onClick={() => void importAudio()}
+								<div
+									style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}
 								>
-									{importBusy ? t('audio.soundboard.importing') : t('audio.soundboard.import')}
-								</Button>
+									<Button
+										variant="secondary"
+										size="sm"
+										icon="import"
+										disabled={importBusy}
+										onClick={() => void importAudio()}
+									>
+										{importBusy ? t('audio.soundboard.importing') : t('audio.soundboard.import')}
+									</Button>
+									<Button
+										variant="ghost"
+										size="sm"
+										icon="audio"
+										disabled={starterBusy}
+										onClick={() => void installStarter()}
+									>
+										{starterBusy ? t('audio.starter.installing') : t('audio.starter.install')}
+									</Button>
+								</div>
 							) : undefined
 						}
 					/>

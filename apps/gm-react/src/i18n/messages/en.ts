@@ -3640,6 +3640,17 @@ export const en = {
 	'audio.soundboard.bytesMissing': 'File bytes missing on this device — re-import to restore',
 	'audio.soundboard.reviewLicense': 'Review license',
 
+	// RC-AUD-1.3 — the bundled CC0 starter pack, installed on demand (never on first run).
+	'audio.starter.install': 'Add starter pack',
+	'audio.starter.installing': 'Adding…',
+	'audio.starter.hint': 'Add three CC0 ambience loops that ship with the app.',
+	'audio.starter.installed':
+		'{count, plural, one {# starter track} other {# starter tracks}} added to the soundboard.',
+	'audio.starter.alreadyPresent': 'The starter pack is already in this library.',
+	'audio.starter.partial':
+		'{count, plural, one {# starter track} other {# starter tracks}} could not be added. {reason}',
+	'audio.starter.failed': 'The starter pack could not be added.',
+
 	'audio.tracks.title': 'Tracks & sources',
 	'audio.tracks.count': '{count, plural, one {# source} other {# sources}}',
 	'audio.tracks.name': 'Track name',

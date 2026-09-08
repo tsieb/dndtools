@@ -3657,6 +3657,17 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Faltan los bytes del archivo en este dispositivo — vuelve a importarlo para recuperarlo',
 	'audio.soundboard.reviewLicense': 'Revisar la licencia',
 
+	// RC-AUD-1.3 — el paquete inicial CC0 incluido, instalado bajo demanda.
+	'audio.starter.install': 'Añadir paquete inicial',
+	'audio.starter.installing': 'Añadiendo…',
+	'audio.starter.hint': 'Añade tres bucles de ambiente CC0 incluidos con la aplicación.',
+	'audio.starter.installed':
+		'{count, plural, one {# pista inicial añadida} other {# pistas iniciales añadidas}} al tablero de sonidos.',
+	'audio.starter.alreadyPresent': 'El paquete inicial ya está en esta biblioteca.',
+	'audio.starter.partial':
+		'{count, plural, one {# pista inicial no se pudo añadir} other {# pistas iniciales no se pudieron añadir}}. {reason}',
+	'audio.starter.failed': 'No se pudo añadir el paquete inicial.',
+
 	'audio.tracks.title': 'Pistas y fuentes',
 	'audio.tracks.count': '{count, plural, one {# fuente} other {# fuentes}}',
 	'audio.tracks.name': 'Nombre de la pista',
