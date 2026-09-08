@@ -61,10 +61,11 @@ defines the shared-renderer decision and platform boundaries.
 
 ### 2.4 Platform capabilities (`src/platform/`)
 
-- `capabilities.ts` defines `RuntimeKind = 'web' | 'electron' | 'android'`, detects the runtime once,
+- `capabilities.ts` defines `RuntimeKind = 'web' | 'electron' | 'android' | 'ios'`, detects the runtime once,
   and resolves the centralized `PlatformCapabilities` contract. Components consume capabilities for
   secure storage, file export/share, discovery, notifications, window management, external links, and
-  Quick Map mode rather than probing native globals.
+  Quick Map mode rather than probing native globals. `ios` is WebKit on iPhone/iPad — there is no
+  iOS shell (ADR-038); the kind exists so capability copy and the widget profile match the device.
 - `PlatformLifecycle.tsx` and `backNavigation.ts` adapt Android lifecycle and Back events to overlays,
   fullscreen editors, router history, and root minimization. Browser and Electron receive no-op native
   lifecycle adapters.

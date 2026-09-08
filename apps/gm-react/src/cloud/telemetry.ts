@@ -102,7 +102,8 @@ export function setTelemetryConsent(consent: TelemetryConsent): void {
 }
 
 function platform(): TelemetryPlatform {
-	return platformCapabilities.runtimeKind === 'web' ? 'web' : 'desktop';
+	// Two cohorts only: Electron is 'desktop', every WebKit/browser runtime (web, android, ios) is 'web'.
+	return platformCapabilities.runtimeKind === 'electron' ? 'desktop' : 'web';
 }
 
 /** Everything currently queued, for tests and for the Settings panel's "what would be sent" list. */

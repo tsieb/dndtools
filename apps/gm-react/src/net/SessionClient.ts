@@ -276,7 +276,7 @@ export class SessionClient {
 function detectDeviceKind(): 'desktop' | 'web' | 'unknown' {
 	const runtimeKind = getPlatformCapabilities().runtimeKind;
 	if (runtimeKind === 'electron') return 'desktop';
-	if (runtimeKind === 'web' || runtimeKind === 'android') return 'web';
+	if (runtimeKind === 'web' || runtimeKind === 'android' || runtimeKind === 'ios') return 'web';
 	return 'unknown';
 }
 

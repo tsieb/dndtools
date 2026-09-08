@@ -47,7 +47,7 @@ export function useProductAnalytics(): void {
 
 	useEffect(() => {
 		recordTelemetryEvent('app.launched', {
-			platform: platformCapabilities.runtimeKind === 'web' ? 'web' : 'desktop',
+			platform: platformCapabilities.runtimeKind === 'electron' ? 'desktop' : 'web',
 		});
 		recordTelemetryEvent('experience.tier', { tier: readTier() });
 		const onHide = () => {

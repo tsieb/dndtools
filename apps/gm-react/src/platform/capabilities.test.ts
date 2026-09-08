@@ -3,12 +3,14 @@ import {
 	bindAppIntents,
 	capabilitiesForRuntime,
 	createPlatformNotificationAdapter,
+	detectIosWebKit,
 	detectRuntimeKind,
 	isNetworkDestinationAllowed,
 	LIVE_SESSION_NOTIFICATION_ID,
 	PLATFORM_NOTIFICATION_CHANNELS,
 	sharedImportFor,
 	shortcutRouteFor,
+	widgetProfileForRuntime,
 	type NativeAppIntent,
 	type RuntimeSignals,
 } from './capabilities';
@@ -20,6 +22,7 @@ const WEB_SIGNALS: RuntimeSignals = {
 	electronWindow: false,
 	electronDiscovery: false,
 	notifications: false,
+	iosWebKit: false,
 };
 
 afterEach(() => vi.unstubAllGlobals());
@@ -77,6 +80,49 @@ describe('runtime detection and capability gates', () => {
 		expect(capabilities.secureStorage.available).toBe(false);
 		expect(capabilities.secureStorage.unavailableMessage).toMatch(/session/i);
 		expect(capabilities.fileExport.nativeShareSheet).toBe(false);
+	});
+
+	it('reports iPhone and iPad WebKit as its own runtime kind with Home Screen notification copy', () => {
+		const signals = { ...WEB_SIGNALS, iosWebKit: true };
+		expect(detectRuntimeKind(signals)).toBe('ios');
+		const capabilities = capabilitiesForRuntime('ios', signals);
+		expect(capabilities).toMatchObject({
+			runtimeKind: 'ios',
+			nativeBridgeAvailable: false,
+			quickMapMode: false,
+			secureStorage: { available: false },
+			fileExport: { available: true, nativeShareSheet: false },
+			localDiscovery: { available: false },
+			windowManagement: { available: false },
+			secondScreen: { available: true },
+		});
+		expect(capabilities.notifications.unavailableMessage).toMatch(/Home Screen/);
+		expect(widgetProfileForRuntime('ios')).toBe('mobile');
+	});
+
+	it('lets a real bridge outrank the iOS agent test in either direction', () => {
+		// A future Capacitor iOS shell (ADR-038) reports its own kind rather than falling to web.
+		expect(
+			detectRuntimeKind({ ...WEB_SIGNALS, capacitorNative: true, capacitorPlatform: 'ios' }),
+		).toBe('ios');
+		// Electron on macOS must never be mistaken for an iPad.
+		expect(detectRuntimeKind({ ...WEB_SIGNALS, iosWebKit: true, electronWindow: true })).toBe(
+			'electron',
+		);
+	});
+
+	it('recognizes iPhone agents and touch-capable iPadOS desktop agents, not real Macs', () => {
+		const agents: [string, number, boolean][] = [
+			['Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15', 0, true],
+			['Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15', 5, true],
+			['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15', 5, true],
+			['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15', 0, false],
+			['Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36', 0, false],
+		];
+		for (const [userAgent, maxTouchPoints, expected] of agents) {
+			vi.stubGlobal('navigator', { userAgent, maxTouchPoints });
+			expect(detectIosWebKit(), userAgent).toBe(expected);
+		}
 	});
 
 	it('admits only encrypted application destinations on Android', () => {
