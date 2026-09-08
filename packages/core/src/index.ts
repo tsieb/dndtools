@@ -466,6 +466,7 @@ export type {
 	MapFogView,
 	MapGraphEdge,
 	MapHiddenCounts,
+	MapHierarchyNode,
 	MapLayerView,
 	MapListEntry,
 	MapPoiView,
@@ -487,6 +488,7 @@ export {
 export {
 	deliveredMapIdsForActor,
 	getMapBreadcrumbForActor,
+	getMapHierarchyForActor,
 	getMapViewForActor,
 	listMapsForActor,
 	mapGraphEdgesForActor,
@@ -5335,6 +5337,7 @@ export {
 	generatorsByGroup,
 	generatorsByScale,
 	getGenerator,
+	isImmediateParamChange,
 } from './generation/registry';
 
 // RC-MAP-3.1 — the prop/stamp catalogue. Data, not GUI: the Assets panel, the canvas renderer and the
