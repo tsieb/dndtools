@@ -959,6 +959,10 @@ export const en = {
 	'palette.group.objects': 'Story entries',
 	'palette.group.handouts': 'Handouts',
 	'palette.group.rolls': 'Rolls',
+	// RC-KNW-2.1 — saved searches in the palette (`>search saved`).
+	'palette.group.savedSearches': 'Saved searches',
+	'palette.savedSearch.keywords': 'search saved searches filter facets vault',
+	'palette.savedSearch.matches': '{count, plural, one {# match} other {# matches}}',
 	'palette.action.advanceCard': 'Show the next scene card',
 	'palette.action.advanceCardKeywords': 'queue card next advance show players',
 	'palette.action.advanceCardBlocked': 'Queue a scene card first.',

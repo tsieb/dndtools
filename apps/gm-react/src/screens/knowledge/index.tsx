@@ -53,6 +53,11 @@ export function Knowledge() {
 	// author-gated: a player can search what they can see and run a saved search shared with them.
 	const [filtering, setFiltering] = useState(false);
 	const [filterSeed, setFilterSeed] = useState('');
+	// RC-KNW-2.1 — the palette's `>search saved` handoff names a stored saved search to restore into
+	// the filter editor. The nonce remounts the panel even when the same saved search is picked
+	// twice, so re-running it from the palette always puts its criteria back.
+	const [filterSavedId, setFilterSavedId] = useState('');
+	const [filterNonce, setFilterNonce] = useState(0);
 	const [importing, setImporting] = useState(false);
 	const [showSources, setShowSources] = useState(false);
 	const [busy, setBusy] = useState(false);
@@ -62,15 +67,31 @@ export function Knowledge() {
 	// Create-intent handoff from "New note" launchers elsewhere (home hub, ⌘K): open the composer
 	// immediately instead of landing the user on the list with nothing happening.
 	useEffect(() => {
-		const intent = (location.state ?? null) as { create?: boolean; search?: string } | null;
+		const intent = (location.state ?? null) as {
+			create?: boolean;
+			search?: string;
+			savedSearchId?: string;
+		} | null;
 		if (intent?.create) {
 			setComposing(true);
+			setImporting(false);
+			navigate(location.pathname, { replace: true, state: null });
+		} else if (typeof intent?.savedSearchId === 'string' && intent.savedSearchId !== '') {
+			// ⌘K `>search saved` picked a stored search: open the panel with its criteria restored,
+			// not with the note list and a name the DM then has to find again.
+			setFilterSeed('');
+			setFilterSavedId(intent.savedSearchId);
+			setFilterNonce((n) => n + 1);
+			setFiltering(true);
+			setComposing(false);
 			setImporting(false);
 			navigate(location.pathname, { replace: true, state: null });
 		} else if (typeof intent?.search === 'string') {
 			// The Graph hands its typed query over to the vault search rather than dropping the user
 			// on the note list with the words they just typed thrown away.
 			setFilterSeed(intent.search);
+			setFilterSavedId('');
+			setFilterNonce((n) => n + 1);
 			setFiltering(true);
 			navigate(location.pathname, { replace: true, state: null });
 		}
@@ -263,7 +284,13 @@ export function Knowledge() {
 				)}
 			</div>
 
-			{filtering && <FiltersPanel key={filterSeed} initialQuery={filterSeed} />}
+			{filtering && (
+				<FiltersPanel
+					key={`${filterNonce}:${filterSavedId}:${filterSeed}`}
+					initialQuery={filterSeed}
+					initialSavedSearchId={filterSavedId}
+				/>
+			)}
 			{canAuthor && composing && (
 				<Composer busy={busy} onCreate={createNote} onCancel={() => setComposing(false)} />
 			)}

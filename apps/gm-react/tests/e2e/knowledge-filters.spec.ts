@@ -123,6 +123,52 @@ test.describe('knowledge: filters and saved searches', () => {
 		await expect(page.getByTestId('filters-save')).toHaveCount(0);
 	});
 
+	// RC-KNW-2.1 — the palette half of the story: a saved search is reachable from ⌘K behind the
+	// `>` action sigil, and running it restores the STORED CRITERIA into the filter editor rather
+	// than just carrying its name over.
+	test('the command palette runs a saved search from `>search saved`', async ({ page }) => {
+		await openFilters(page);
+		await page.getByTestId('filters-query').fill('Hollow King');
+		await page.getByTestId('filters-save-name').fill('Hollow King threads');
+		await page.getByTestId('filters-save').click();
+		await expect.poll(async () => (await savedSearches(page)).length).toBe(1);
+
+		// Clear the editor so the restore below can only have come from the stored filter.
+		await page.getByTestId('filters-clear').click();
+		await expect(page.getByTestId('filters-query')).toHaveValue('');
+
+		await page.keyboard.press('Control+k');
+		const dialog = page.getByRole('dialog', { name: 'Command palette' });
+		await expect(dialog).toBeVisible();
+		// Scoped to the overlay: the filter editor behind it has comboboxes of its own.
+		await dialog.getByRole('combobox').fill('>search saved');
+
+		const row = page.getByRole('option', { name: 'Hollow King threads' });
+		await expect(row).toBeVisible();
+		await row.click();
+
+		await expect(dialog).toHaveCount(0);
+		await expect(page.getByTestId('filters-panel')).toBeVisible();
+		await expect(page.getByTestId('filters-query')).toHaveValue('Hollow King');
+		await expect(page.getByTestId('filters-results')).toContainText('Hollow King');
+	});
+
+	test('a player is offered no dm-only saved search in the palette', async ({ page }) => {
+		await openFilters(page);
+		await page.getByTestId('filters-query').fill('Ashen Hand');
+		await page.getByTestId('filters-save-name').fill('Cult watch');
+		await page.getByTestId('filters-save').click();
+		await expect.poll(async () => (await savedSearches(page)).length).toBe(1);
+
+		await enterPreview(page, 'player');
+		await page.keyboard.press('Control+k');
+		const dialog = page.getByRole('dialog', { name: 'Command palette' });
+		await expect(dialog).toBeVisible();
+		await dialog.getByRole('combobox').fill('>search saved');
+		// Absent, not blanked: the dm-only saved search is never a candidate for this actor.
+		await expect(page.getByRole('option', { name: 'Cult watch' })).toHaveCount(0);
+	});
+
 	test('the graph hands its typed query to the vault search', async ({ page }) => {
 		await gotoRoute(page, '/graph');
 		await page.locator('#main-content').waitFor({ state: 'attached' });

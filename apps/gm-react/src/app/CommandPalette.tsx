@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+	getSavedSearchesForActor,
 	getSceneDisplayForActor,
 	listCommandActions,
 	listScenesForActor,
@@ -57,6 +58,8 @@ const SEARCH_HIT_LIMIT = 15;
 const ACTION_LIMIT = 12;
 /** How many just-run rows the empty palette offers back. */
 const RECENT_LIMIT = 5;
+/** Cap on saved-search rows, so a long shelf of named searches never buries the actions. */
+const SAVED_SEARCH_LIMIT = 8;
 
 /**
  * How each core search-hit kind is presented: which palette group it lands in, the route the app
@@ -415,9 +418,40 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 			),
 		].filter((row): row is PaletteCommand => row !== null);
 
+		// ── Saved searches ───────────────────────────────────────────────────────────────────────
+		// RC-KNW-2.1 — `>search saved` reaches the DM's own named searches from the palette instead
+		// of making them walk to Knowledge and open the disclosure first. The candidates come from
+		// `getSavedSearchesForActor`, so a dm-only saved search is not a row for a player at all
+		// (SRCH-004 AC2), and the count on each row is that actor's LIVE re-run of the stored
+		// filter — a saved search stores the query, never a result. Running one hands its id to
+		// Knowledge, which restores the whole filter into the editor rather than just its name.
+		const savedWords = t('palette.savedSearch.keywords');
+		const savedSearches: PaletteCommand[] = getSavedSearchesForActor(
+			runtime.state.content,
+			runtime.state.maps,
+			runtime.state.permissions,
+			runtime.state.session,
+			actorId,
+		)
+			// Pinned first: those are the ones the DM put on the Command Center.
+			.sort((a, b) => Number(b.pinned) - Number(a.pinned))
+			.filter((entry) => matchesNeedle(entry.name, savedWords))
+			.slice(0, SAVED_SEARCH_LIMIT)
+			.map((entry) => ({
+				id: `saved-search:${entry.id}`,
+				kind: 'action' as const,
+				label: entry.name,
+				icon: 'search',
+				group: t('palette.group.savedSearches'),
+				keywords: commandMode ? withQuery(savedWords) : savedWords,
+				description: t('palette.savedSearch.matches', { count: entry.result.totalCount }),
+				run: goTo(`saved-search:${entry.id}`, '/knowledge', { savedSearchId: entry.id }),
+			}));
+
 		// `>` lists ACTIONS only: no section, no entity, no search hit can appear behind the sigil
-		// (SRCH-005 AC3), so the DM who typed `>` is never handed a place instead of a verb.
-		if (commandMode) return [...actions, ...creates];
+		// (SRCH-005 AC3), so the DM who typed `>` is never handed a place instead of a verb. A saved
+		// search qualifies — it RUNS a stored query rather than naming a place.
+		if (commandMode) return [...actions, ...creates, ...savedSearches];
 
 		// ── Destinations ─────────────────────────────────────────────────────────────────────────
 		// Player view and Settings live outside the three nav groups but are still destinations —
@@ -523,7 +557,16 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 			});
 		}
 
-		return [...actions, ...creates, ...sections, ...scenes, ...characters, ...maps, ...searchHits];
+		return [
+			...actions,
+			...creates,
+			...savedSearches,
+			...sections,
+			...scenes,
+			...characters,
+			...maps,
+			...searchHits,
+		];
 	}, [
 		runtime,
 		runtime.state,
@@ -555,6 +598,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 					t('palette.group.here'),
 					t('palette.group.create'),
 					t('palette.group.actions'),
+					t('palette.group.savedSearches'),
 					t('palette.group.goTo'),
 					t('palette.group.scenes'),
 					t('palette.group.characters'),

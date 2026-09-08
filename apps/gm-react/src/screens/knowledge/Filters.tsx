@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
 	getContentItemsForActor,
+	getSavedSearchesForActor,
 	searchVaultForActor,
 	SEARCH_CONTENT_TYPES,
 	type SearchContentType,
@@ -196,15 +197,36 @@ function DateBound({
 	);
 }
 
-export function FiltersPanel({ initialQuery = '' }: { initialQuery?: string }) {
+export function FiltersPanel({
+	initialQuery = '',
+	initialSavedSearchId = '',
+}: {
+	initialQuery?: string;
+	initialSavedSearchId?: string;
+}) {
 	const { t } = useI18n();
 	const runtime = useRuntime();
 	const navigate = useNavigate();
 	const actorId = runtime.defaultActorId;
 
-	// `initialQuery` seeds the text facet once (the Graph's "search the vault" handoff). It is a
-	// starting value, not a controlled prop: the DM edits freely from there.
-	const [draft, setDraft] = useState<FilterDraft>({ ...EMPTY_DRAFT, query: initialQuery });
+	// `initialQuery` seeds the text facet once (the Graph's "search the vault" handoff);
+	// `initialSavedSearchId` seeds the WHOLE draft from a stored saved search (the palette's
+	// `>search saved` handoff). Both are starting values, not controlled props: the DM edits freely
+	// from there. The saved search is resolved through the actor-filtered read, so a palette row
+	// that named something this actor may not see restores nothing rather than leaking criteria.
+	const [draft, setDraft] = useState<FilterDraft>(() => {
+		if (initialSavedSearchId !== '') {
+			const seeded = getSavedSearchesForActor(
+				runtime.state.content,
+				runtime.state.maps,
+				runtime.state.permissions,
+				runtime.state.session,
+				actorId,
+			).find((entry) => entry.id === initialSavedSearchId);
+			if (seeded) return filterToDraft(seeded.filter);
+		}
+		return { ...EMPTY_DRAFT, query: initialQuery };
+	});
 
 	const filter = useMemo(() => draftToFilter(draft), [draft]);
 
