@@ -116,6 +116,8 @@ export const moduleManifestSchema = z
 		version: semverSchema,
 		/** SPDX-ish free text; the publish checklist (RC-CLD-4.3) is what enforces a real licence. */
 		license: z.string().min(1).max(80).optional(),
+		/** RC-CLD-4.3 — what changed in this version. The publish checklist requires one before shipping. */
+		changelog: z.string().min(1).max(2000).optional(),
 		authoredAt: z.string().min(1).max(40).optional(),
 		/** Systems the module targets, for discovery filters (RC-CLD-4.2). */
 		systems: z.array(z.string().min(1).max(80)).max(16).optional(),

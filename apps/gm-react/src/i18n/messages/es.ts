@@ -3070,6 +3070,16 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Publica solo las notas visibles para jugadores. El contenido Solo DM se excluye y los secretos se depuran.',
 	'community.publish.contentEmpty':
 		'Todavía no hay contenido visible para jugadores que publicar. Comparte algunas notas primero.',
+	'community.publish.license': 'Licencia',
+	'community.publish.licensePlaceholder': 'p. ej. CC-BY-4.0, OGL-1.0a (obligatorio)',
+	'community.publish.changelog': 'Qué cambió en esta versión',
+	'community.publish.changelogPlaceholder': 'Describe qué cambió para quien ya lo tiene',
+	'community.publish.checklistTitle': 'Antes de publicar',
+	'community.publish.checklistSemver': 'Versión',
+	'community.publish.checklistLicense': 'Licencia',
+	'community.publish.checklistChangelog': 'Registro de cambios',
+	'community.publish.checklistBrokenLinks': 'Enlaces',
+	'community.publish.checklistMissingAssets': 'Recursos',
 
 	'community.wiki.settingsTitle': 'Ajustes de publicación',
 	'community.wiki.defaultTitle': 'Mi wiki de campaña',

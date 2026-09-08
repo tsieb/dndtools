@@ -45,6 +45,8 @@ export interface ModuleManifest {
 	summary: string;
 	version: string;
 	license?: string;
+	/** RC-CLD-4.3 — what changed in this version. The publish checklist requires one before shipping. */
+	changelog?: string;
 	authoredAt?: string;
 	systems?: string[];
 }

@@ -3000,6 +3000,17 @@ export const en = {
 		'Publishes player-visible notes only. DM only content is left out, and secrets are scrubbed.',
 	'community.publish.contentEmpty':
 		'There is no player-visible content to publish yet. Share some notes first.',
+	// RC-CLD-4.3 — creator tooling: license + changelog fields, and the pre-publish checklist.
+	'community.publish.license': 'License',
+	'community.publish.licensePlaceholder': 'e.g. CC-BY-4.0, OGL-1.0a (required)',
+	'community.publish.changelog': 'What changed in this version',
+	'community.publish.changelogPlaceholder': 'Describe what changed for people who already have it',
+	'community.publish.checklistTitle': 'Before you publish',
+	'community.publish.checklistSemver': 'Version',
+	'community.publish.checklistLicense': 'License',
+	'community.publish.checklistChangelog': 'Changelog',
+	'community.publish.checklistBrokenLinks': 'Links',
+	'community.publish.checklistMissingAssets': 'Assets',
 
 	'community.wiki.settingsTitle': 'Publish settings',
 	'community.wiki.defaultTitle': 'My campaign wiki',

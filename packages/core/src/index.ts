@@ -5862,6 +5862,18 @@ export {
 	parseModuleBundle,
 } from './state/module-bundle';
 
+// RC-CLD-4.3 — CREATOR TOOLING: the publish CHECKLIST Community › Publish runs over a draft before
+// letting a DM ship it (missing license/changelog block; a broken link or an asset the bundle cannot
+// carry yet warns). Pure pre-flight over the draft, ahead of `moduleManifestSchema`'s wire-boundary
+// validation (semver + `.strict()` shape).
+export type {
+	PublishChecklistInput,
+	PublishChecklistItem,
+	PublishChecklistResult,
+	PublishChecklistSeverity,
+} from './queries/publish-checklist';
+export { buildPublishChecklist, isValidSemver } from './queries/publish-checklist';
+
 /* ---- RC-CLD-1.4 — opt-in, content-free product analytics ----------------------------------------
  * The taxonomy is a CLOSED set of event names and enum-only properties, and the envelope carries no
  * identity at all. Both ends of the wire validate with the same builder, so an event the client
