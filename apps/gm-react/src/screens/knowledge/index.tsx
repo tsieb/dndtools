@@ -12,6 +12,7 @@ import { NoteViewer } from './NoteViewer';
 import { Composer } from './Composer';
 import { ImportPanel } from './ImportPanel';
 import { TemplatesPanel } from './Templates';
+import { FiltersPanel } from './Filters';
 
 export { parseWikilink } from './markdown';
 
@@ -48,6 +49,10 @@ export function Knowledge() {
 	const [composing, setComposing] = useState(false);
 	// RC-KNW-1.3 — the templates/snippets disclosure, mutually exclusive with the other three.
 	const [templating, setTemplating] = useState(false);
+	// RC-KNW-2.1 — the filters + saved-searches disclosure. Unlike the other four this one is NOT
+	// author-gated: a player can search what they can see and run a saved search shared with them.
+	const [filtering, setFiltering] = useState(false);
+	const [filterSeed, setFilterSeed] = useState('');
 	const [importing, setImporting] = useState(false);
 	const [showSources, setShowSources] = useState(false);
 	const [busy, setBusy] = useState(false);
@@ -57,10 +62,16 @@ export function Knowledge() {
 	// Create-intent handoff from "New note" launchers elsewhere (home hub, ⌘K): open the composer
 	// immediately instead of landing the user on the list with nothing happening.
 	useEffect(() => {
-		const intent = (location.state ?? null) as { create?: boolean } | null;
+		const intent = (location.state ?? null) as { create?: boolean; search?: string } | null;
 		if (intent?.create) {
 			setComposing(true);
 			setImporting(false);
+			navigate(location.pathname, { replace: true, state: null });
+		} else if (typeof intent?.search === 'string') {
+			// The Graph hands its typed query over to the vault search rather than dropping the user
+			// on the note list with the words they just typed thrown away.
+			setFilterSeed(intent.search);
+			setFiltering(true);
 			navigate(location.pathname, { replace: true, state: null });
 		}
 	}, [location.state, location.pathname, navigate]);
@@ -164,6 +175,24 @@ export function Knowledge() {
 					marginBottom: 18,
 				}}
 			>
+				{/* RC-KNW-2.1 — faceted search + saved searches. Available to every actor: the read is
+				    actor-filtered, so a player searches only what they can already see. */}
+				<Button
+					variant={filtering ? 'secondary' : 'ghost'}
+					size="sm"
+					icon="search"
+					aria-expanded={filtering}
+					data-testid="knowledge-filters-toggle"
+					onClick={() => {
+						setFiltering((v) => !v);
+						setComposing(false);
+						setImporting(false);
+						setShowSources(false);
+						setTemplating(false);
+					}}
+				>
+					{t('knowledge.filters.open')}
+				</Button>
 				{canAuthor && (
 					<>
 						{/* These three are disclosure toggles that mutually collapse each other, so each
@@ -178,6 +207,7 @@ export function Knowledge() {
 								setComposing(false);
 								setImporting(false);
 								setTemplating(false);
+								setFiltering(false);
 							}}
 						>
 							{t('knowledge.sources')}
@@ -192,6 +222,7 @@ export function Knowledge() {
 								setComposing(false);
 								setShowSources(false);
 								setTemplating(false);
+								setFiltering(false);
 							}}
 						>
 							{t('knowledge.importVault')}
@@ -208,6 +239,7 @@ export function Knowledge() {
 								setComposing(false);
 								setImporting(false);
 								setShowSources(false);
+								setFiltering(false);
 							}}
 						>
 							{t('knowledge.templates')}
@@ -222,6 +254,7 @@ export function Knowledge() {
 								setImporting(false);
 								setShowSources(false);
 								setTemplating(false);
+								setFiltering(false);
 							}}
 						>
 							{t('knowledge.newNote')}
@@ -230,6 +263,7 @@ export function Knowledge() {
 				)}
 			</div>
 
+			{filtering && <FiltersPanel key={filterSeed} initialQuery={filterSeed} />}
 			{canAuthor && composing && (
 				<Composer busy={busy} onCreate={createNote} onCancel={() => setComposing(false)} />
 			)}
@@ -274,6 +308,7 @@ export function Knowledge() {
 									setImporting(false);
 									setShowSources(false);
 									setTemplating(false);
+									setFiltering(false);
 								}}
 							>
 								{t('knowledge.newNote')}

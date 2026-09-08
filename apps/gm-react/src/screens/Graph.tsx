@@ -543,6 +543,22 @@ export function Graph() {
 								</div>
 							)}
 						</div>
+						{/* RC-KNW-2.1 — the graph search matches NODE LABELS only. Full-text over bodies,
+						    handouts, POIs and rolls lives on the Knowledge filters panel, so hand the typed
+						    words over rather than leaving the DM to retype them there. It sits BELOW the
+						    result list: above it, the rows fell off a 320px viewport. */}
+						<div style={{ marginTop: 10 }}>
+							<Button
+								variant="ghost"
+								size="sm"
+								icon="search"
+								disabled={query.trim() === ''}
+								data-testid="graph-search-vault"
+								onClick={() => navigate('/knowledge', { state: { search: query.trim() } })}
+							>
+								{t('graph.searchVault')}
+							</Button>
+						</div>
 					</Panel>
 
 					{selNode ? (
