@@ -90,6 +90,8 @@ describe('MCP-002 — the baseline tool set includes dice.roll and session.prep'
 				// RC-AUD-3.4 — the assistant atmosphere tools.
 				'scene.list-packages',
 				'scene.activate-package',
+				// RC-AI-1.4 — the agentic level-up (atomic open + choices + commit on approval).
+				'character.level-up',
 			].sort(),
 		);
 	});

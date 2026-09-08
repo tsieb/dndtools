@@ -38,12 +38,21 @@ const SEEDED_NOTE = '__seeded_note__';
 /** Placeholder in VALID_INPUT['scene.card.update'] swapped for the real seeded card id inside `run`. */
 const SEEDED_CARD = '__seeded_card__';
 
+/** Placeholder in VALID_INPUT['character.level-up'] swapped for the real seeded character id. */
+const SEEDED_CHARACTER = '__seeded_character__';
+
 /**
  * Build a fresh DM/player state pre-seeded with the targets the state-resolved write tools need: one
- * note (`note.update`, `note.append`), the demo maps (`map.poi.create`), and one scene card
- * (`scene.card.update`). Returns the state plus the real ids the sentinels are swapped for.
+ * note (`note.update`, `note.append`), the demo maps (`map.poi.create`), one scene card
+ * (`scene.card.update`), and one level-1 character (`character.level-up`). Returns the state plus the
+ * real ids the sentinels are swapped for.
  */
-function stateWithSeededTargets(): { state: CoreStateSlice; noteId: string; cardId: string } {
+function stateWithSeededTargets(): {
+	state: CoreStateSlice;
+	noteId: string;
+	cardId: string;
+	characterId: string;
+} {
 	const created = dispatchCommand(
 		{ ...buildInitialState(DM_ACTOR, PLAYER_ACTOR), maps: createDemoMapState() },
 		env,
@@ -66,7 +75,21 @@ function stateWithSeededTargets(): { state: CoreStateSlice; noteId: string; card
 	const cardEvent = card.events.find((e) => e.kind === 'scene-card.created');
 	if (!cardEvent || cardEvent.kind !== 'scene-card.created') throw new Error('no seeded card id');
 
-	return { state: card.nextState, noteId: changed.itemId, cardId: cardEvent.cardId };
+	const character = dispatchCommand(card.nextState, env, {
+		type: 'character.quick-create',
+		actorId: DM_ACTOR.id,
+		payload: { kind: 'sidekick', name: 'Pip', combat: { hp: 8, maxHp: 8, ac: 12 } },
+	});
+	if (character.status !== 'accepted') throw new Error('failed to seed a character for coverage');
+	const characterId = Object.keys(character.nextState.characters.characters)[0];
+	if (!characterId) throw new Error('no seeded character id');
+
+	return {
+		state: character.nextState,
+		noteId: changed.itemId,
+		cardId: cardEvent.cardId,
+		characterId,
+	};
 }
 
 /** A valid input per tool (mirrors the MCP-005 coverage manifest's accepted inputs). */
@@ -141,6 +164,14 @@ const VALID_INPUT: Record<string, unknown> = {
 	// valid PLAY target (`scene-card.play-package` only requires the card to exist and be live).
 	'scene.list-packages': {},
 	'scene.activate-package': { cardId: SEEDED_CARD },
+	// RC-AI-1.4 — the atomic level-up on the seeded level-1 character (sentinel swapped in `run`).
+	// `milestone` skips the XP gate, so the whole open→choices→commit runs and the write is accepted.
+	'character.level-up': {
+		characterId: SEEDED_CHARACTER,
+		mode: 'milestone',
+		className: 'Fighter',
+		hitPointsGained: 6,
+	},
 };
 
 /** An invalid input per tool (mirrors the MCP-005 coverage manifest's rejected inputs). */
@@ -179,17 +210,21 @@ const INVALID_INPUT: Record<string, unknown> = {
 	},
 	'scene.list-packages': { extra: true }, // strict schema rejects any field
 	'scene.activate-package': {}, // missing required cardId
+	// Missing the required hit points gained.
+	'character.level-up': { characterId: 'char-1', mode: 'milestone', className: 'Fighter' },
 };
 
 function run(toolId: string, input: unknown, actorId: string): McpToolResult {
 	// Seed the note/map/card targets so the state-resolved coverage cases address something real; the
 	// sentinel ids are swapped for the ids the seeding actually minted.
-	const { state, noteId, cardId } = stateWithSeededTargets();
+	const { state, noteId, cardId, characterId } = stateWithSeededTargets();
 	let resolvedInput = input;
 	if (input && typeof input === 'object') {
-		const record = input as { itemId?: unknown; cardId?: unknown };
+		const record = input as { itemId?: unknown; cardId?: unknown; characterId?: unknown };
 		if (record.itemId === SEEDED_NOTE) resolvedInput = { ...(input as object), itemId: noteId };
 		else if (record.cardId === SEEDED_CARD) resolvedInput = { ...(input as object), cardId };
+		else if (record.characterId === SEEDED_CHARACTER)
+			resolvedInput = { ...(input as object), characterId };
 	}
 	return invokeMcpTool(state, env, registry, {
 		toolId,

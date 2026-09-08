@@ -468,6 +468,46 @@ const MCP_TOOL_COVERAGE: McpToolCoverageRow[] = [
 		},
 	},
 	{
+		// RC-AI-1.4 — the whole level-up in one call. Needs a seeded character: the payload names a
+		// characterId, and the bound command is owner/DM authority only.
+		toolId: 'character.level-up',
+		kind: 'write',
+		behaviors: [
+			'schema-validation',
+			'actor-policy',
+			'visibility-filtering',
+			'idempotency',
+			'staged-preview',
+			'direct-mode',
+			'failure-handling',
+		],
+		invalidInput: { characterId: 'char-1', mode: 'milestone', className: 'Fighter' }, // no hit points
+		validInput: {
+			characterId: 'char-1',
+			mode: 'milestone',
+			className: 'Fighter',
+			hitPointsGained: 6,
+		},
+		setup: (state) => {
+			const created = seedCommand(state, {
+				type: 'character.quick-create',
+				actorId: DM_ACTOR.id,
+				payload: { kind: 'sidekick', name: 'Pip', combat: { hp: 8, maxHp: 8, ac: 12 } },
+			});
+			const characterId = Object.keys(created.nextState.characters.characters)[0];
+			if (!characterId) throw new Error('no seeded character');
+			return {
+				state: created.nextState,
+				validInput: {
+					characterId,
+					mode: 'milestone',
+					className: 'Fighter',
+					hitPointsGained: 6,
+				},
+			};
+		},
+	},
+	{
 		// RC-WID-3.1 — the structured widget draft. Needs no seed: the package is built entirely from
 		// the tool input, and `widget.package.install` is DM-only, so the player row proves the gate.
 		toolId: 'widget.package.propose',

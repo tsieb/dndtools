@@ -1969,6 +1969,25 @@ export const levelPartyInputSchema = z
 	})
 	.strict();
 
+// --- RC-AI-1.4 — atomic advancement (one dispatch: open + choices + commit) ---------------------
+
+// The whole level-up as ONE payload. The staged-then-commit commands above exist because a HUMAN
+// works through the wizard over several steps; an agent has no wizard and cannot hold a half-open
+// draft across a DM's approval, so an agent-proposed level-up carries the FULL choice set and the
+// handler runs open→set-choices→commit atomically. `className` and `hitPointsGained` are always
+// required (every level needs them); `subclass` and `abilityOrFeat` are optional here because only
+// certain target levels require them — `validateAdvancement` decides, and rejects fail-closed.
+export const applyAdvancementInputSchema = z
+	.object({
+		characterId: idSchema,
+		mode: advancementModeSchema,
+		className: z.string().min(1),
+		hitPointsGained: z.number().int().positive(),
+		subclass: z.string().min(1).optional(),
+		abilityOrFeat: z.string().min(1).optional(),
+	})
+	.strict();
+
 // --- CHAR-011 — party records (marching order + party inventory) --------------------------------
 
 const journalEntryKindSchema = z.enum([

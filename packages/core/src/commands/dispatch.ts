@@ -188,6 +188,7 @@ import {
 import {
 	handleAwardXp,
 	handleCancelAdvancement,
+	handleApplyAdvancement,
 	handleCommitAdvancement,
 	handleLevelParty,
 	handleOpenAdvancement,
@@ -673,6 +674,9 @@ export function dispatchCommand(
 			return handleSetAdvancementChoices(state, env, command.actorId, command.payload);
 		case 'character.commit-advancement':
 			return handleCommitAdvancement(state, env, command.actorId, command.payload);
+		// RC-AI-1.4 — the whole level-up atomically (what an approved agent proposal dispatches).
+		case 'character.apply-advancement':
+			return handleApplyAdvancement(state, env, command.actorId, command.payload);
 		case 'character.cancel-advancement':
 			return handleCancelAdvancement(state, env, command.actorId, command.payload);
 		case 'character.award-xp':

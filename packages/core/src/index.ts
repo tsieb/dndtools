@@ -3947,6 +3947,8 @@ export {
 
 export {
 	addJournalEntryInputSchema,
+	// RC-AI-1.4 — the whole level-up as one payload (open + choices + commit, atomically).
+	applyAdvancementInputSchema,
 	awardXpInputSchema,
 	cancelAdvancementInputSchema,
 	commitAdvancementInputSchema,

@@ -10,6 +10,8 @@ import { searchVaultForActor } from '../queries/search-query';
 import { getGraphRelationships } from '../queries/graph-api';
 import { getPrepRecapDigest } from '../queries/prep-recap-digest';
 import { rollExpression } from '../state/dice';
+import { defaultAdvancementMode } from '../state/character-advancement';
+import { activeSystemPackageFor } from '../commands/character';
 import { VAULT_OBJECT_SUBTYPE_KEY } from '../state/vault-object';
 import { buildSemanticBundle, type SemanticBundleKind } from './semantic-bundles';
 import {
@@ -547,6 +549,48 @@ export function writeCommandPayload(
 					category,
 					position,
 					notes,
+				},
+			};
+		}
+		case 'character.apply-advancement': {
+			const {
+				characterId,
+				mode,
+				className,
+				class: classAlias,
+				hitPointsGained,
+				subclass,
+				abilityOrFeat,
+			} = input as {
+				characterId: string;
+				mode?: 'xp' | 'milestone';
+				className?: string;
+				class?: string;
+				hitPointsGained: number;
+				subclass?: string;
+				abilityOrFeat?: string;
+			};
+			// RC-AI-1.4 — the choice set crosses over and NOTHING else. No level, no XP total and no HP
+			// maximum: the target level is always the character's next one and the core recomputes the
+			// maxima, so an agent cannot assert a character is further along than it is. The mapping
+			// deliberately does NOT read the character — an agent that cannot see it is refused by the
+			// command's own owner/DM authority check at dispatch, the same gate the wizard passes.
+			//
+			// An omitted `mode` is resolved from the ACTIVE SYSTEM PACKAGE (RC-CHR-1.4): whether a
+			// campaign levels on XP or on story milestones is the vault's fact, not the agent's. The
+			// fallback is the XP-GATED mode, so a package that declares neither can never let an
+			// unstated mode skip the XP threshold.
+			const resolvedMode = mode ?? defaultAdvancementMode(activeSystemPackageFor(state)) ?? 'xp';
+			return {
+				ok: true,
+				payload: {
+					characterId,
+					mode: resolvedMode,
+					// The schema guarantees one of the two is present; `className` wins when both are.
+					className: className ?? classAlias,
+					hitPointsGained,
+					...(subclass !== undefined ? { subclass } : {}),
+					...(abilityOrFeat !== undefined ? { abilityOrFeat } : {}),
 				},
 			};
 		}

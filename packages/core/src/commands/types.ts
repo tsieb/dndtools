@@ -560,6 +560,14 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	// RC-AI-1.4: the WHOLE level-up in one dispatch (open + choices + commit, atomic). Owner-only,
+	// same authority as the staged commands above; it is what an agent-proposed level-up approves as.
+	| {
+			type: 'character.apply-advancement';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	// RC-CHR-1.4: bulk party actions ("Award XP", "Level the party") — DM-only.
 	| { type: 'character.award-xp'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'character.level-party'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
