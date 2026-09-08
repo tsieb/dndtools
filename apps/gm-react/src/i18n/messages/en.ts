@@ -5330,6 +5330,58 @@ export const en = {
 	'mapImport.byteError':
 		'The map was imported, but the image itself couldn’t be stored on this device: {message} The map will show its shapes without the image — free up storage and import the file again to add it.',
 
+	/* Map import › RC-MAP-3.2 raster wizard v2: align the grid, name the scale, trace the walls */
+	'mapImport.step.align': 'Align grid',
+	'mapImport.step.scale': 'Scale',
+	'mapImport.step.walls': 'Walls',
+	'mapImport.next': 'Next',
+	'mapImport.sizeNote':
+		'Files up to {mb} MB are accepted. The image is stored on this device, so a very large map uses that much space in this browser.',
+	'mapImport.align.help':
+		'Drag a box around one grid square on the image, or type the cell size in pixels. Both set the same measurement.',
+	'mapImport.align.shape': 'Grid shape',
+	'mapImport.align.square': 'Square',
+	'mapImport.align.hex': 'Hex',
+	'mapImport.align.cellWidth': 'Cell width (px)',
+	'mapImport.align.cellHeight': 'Cell height (px)',
+	'mapImport.align.result': 'Grid',
+	'mapImport.align.cells': '{across} across · {down} down',
+	'mapImport.align.hexNote':
+		'Hex measurements are saved, and the map draws a square grid over them for now. Hex rendering arrives with the combat overlay work.',
+	'mapImport.scale.help':
+		'Tell Lamplight what one square measures. Distances, travel time, and range all read this.',
+	'mapImport.scale.perCell': '1 square =',
+	'mapImport.scale.unit': 'Unit',
+	'mapImport.scale.unit.feet': 'feet',
+	'mapImport.scale.unit.meters': 'meters',
+	'mapImport.scale.unit.miles': 'miles',
+	'mapImport.scale.unit.kilometers': 'kilometers',
+	'mapImport.scale.acrossLabel': 'Squares across',
+	'mapImport.scale.cellCount': '{count, plural, one {# square} other {# squares}}',
+	'mapImport.scale.widthLabel': 'Map width',
+	'mapImport.scale.width': '{amount} {unit}',
+	'mapImport.walls.enable': 'Trace walls from the image',
+	'mapImport.walls.enableHelp':
+		'Reads the dark ink on the image as walls. Works on printed dungeon maps; painted or photographic maps trace poorly. Preview the result before importing.',
+	'mapImport.walls.threshold': 'Ink threshold',
+	'mapImport.walls.trace': 'Preview trace',
+	'mapImport.walls.tracing': 'Tracing…',
+	'mapImport.walls.unavailable':
+		'This image could not be read for tracing on this device. Import it without traced walls and draw them by hand.',
+	'mapImport.walls.found': 'Traced',
+	'mapImport.walls.foundCount':
+		'{walls, plural, one {# wall} other {# walls}} · {points, plural, one {# point} other {# points}}',
+	'mapImport.walls.previewLabel': 'Preview of {count} traced wall outlines',
+	'mapImport.walls.previewNote':
+		'Nothing is saved yet. Importing adds these to a DM only layer called Traced walls, where you can edit or delete them.',
+	'mapImport.walls.layerName': 'Traced walls',
+	'mapImport.result.grid': 'Grid set to {count} squares across, {units} {unit} per square.',
+	'mapImport.result.scale': 'Scale set to {amount} {unit} across the map.',
+	'mapImport.result.walls':
+		'{count, plural, one {# traced wall} other {# traced walls}} added to the Traced walls layer.',
+	'mapImport.result.followUpFailed':
+		'The image imported, but part of the setup was refused. Fix these on the map itself:',
+
 	/* Map generators › the Generate panel */
 	'mapGenerate.none': 'No generators are registered.',
 	'mapGenerate.generate': 'Generate',

@@ -1,6 +1,8 @@
 import type { MapAsset } from './map-assets';
 import { buildMapAsset, nativeAssetKind, type AssetValidationError } from './map-assets';
-import type { MapEntity, MapLayer, MapState } from './map-state';
+import { contourGrid } from '../geometry/marching';
+import { createGrid } from '../geometry/grid';
+import type { MapEntity, MapFeature, MapLayer, MapScale, MapState } from './map-state';
 import { normalizeMapEntity, normalizeMapLayer } from './map-state';
 
 /**
@@ -461,4 +463,198 @@ export function stageMapImport(state: MapState, input: StageMapImportInput): Sta
 		assetDeduped,
 		droppedElements: [...preview.droppedElements],
 	};
+}
+
+// ── RC-MAP-3.2 — raster import wizard v2: calibration, scale, and wall tracing ──────────────────
+//
+// The v1 wizard imported bytes and stopped. A battle map is useless until the app knows how big a
+// grid cell is and what a cell means in feet, and hand-tracing walls off a raster is the slowest job
+// in map prep. All three are PURE POLICY, so they live here rather than in the dialog:
+//
+//   - `deriveGridCalibration` turns two dragged corners of ONE grid cell into the cell count across
+//     the map, which is exactly what `MapOverlaySettings.gridSize` stores.
+//   - `deriveImportScale` turns that cell count plus "1 square = 5 ft" into the `MapScale` the
+//     distance/travel-time queries already read.
+//   - `traceWallsFromLuminance` runs the existing marching-squares pipeline over a luminance mask so
+//     the ink of a printed dungeon becomes `wall` features the DM can preview BEFORE committing.
+//
+// Nothing here writes: the wizard previews the result, then dispatches the existing durable commands
+// (`map.configure-overlay`, `map.set-scale`, `map.add-features`). Fail closed everywhere — a
+// degenerate drag or an empty mask returns a typed error/empty list, never a guessed grid.
+
+/**
+ * The maximum imported asset size the wizard offers. Deliberately larger than
+ * `DEFAULT_MAX_ASSET_BYTES` (8 MB): a modern battle-map export at print resolution routinely runs
+ * 20–40 MB, and rejecting those made the importer useless for the files DMs actually buy. The cap
+ * stays finite because the bytes land in this device's IndexedDB, and the dialog states that plainly
+ * rather than letting a 300 MB drop fail deep in storage.
+ */
+export const MAP_IMPORT_MAX_ASSET_BYTES = 50 * 1024 * 1024;
+
+/** The grid shapes the alignment step can calibrate. Matches `TemplateGridKind` in the geometry kit. */
+export type MapGridShape = 'square' | 'hex';
+
+/** A point in NORMALIZED image space (0..1 of the image's own width/height). */
+export interface MapImportPoint {
+	x: number;
+	y: number;
+}
+
+export interface GridCalibrationInput {
+	/** Opposite corners of ONE grid cell, in normalized image space. Order does not matter. */
+	corners: readonly [MapImportPoint, MapImportPoint];
+	/** Intrinsic pixel dimensions of the image being calibrated. */
+	imageWidth: number;
+	imageHeight: number;
+	shape: MapGridShape;
+}
+
+export interface MapGridCalibration {
+	shape: MapGridShape;
+	/** Cell width in image pixels — for a hex, the across-flats width. */
+	cellWidthPx: number;
+	/** Cell height in image pixels. */
+	cellHeightPx: number;
+	/** Whole cells across the image width. This is what `MapOverlaySettings.gridSize` stores. */
+	cellsAcross: number;
+	/** Whole cell rows down the image height (row pitch is 3/4 of the cell height on a hex). */
+	cellsDown: number;
+}
+
+export type GridCalibrationError =
+	| { kind: 'degenerate-drag'; message: string }
+	| { kind: 'unknown-dimensions'; message: string };
+
+/**
+ * RC-MAP-3.2 — derive a grid calibration from two dragged corners of a single cell.
+ *
+ * Fail closed: a drag under one pixel in either axis, or an image with no known pixel dimensions,
+ * returns an error instead of a grid the DM would then have to un-guess. A cell wider than the image
+ * is likewise rejected by the `cellsAcross >= 1` floor implied by the degenerate check.
+ *
+ * A pointy-top hex tiles horizontally at its across-flats width — the same pitch as a square — so
+ * `cellsAcross` is computed identically for both shapes. Only the ROW pitch differs: hex rows
+ * interlock at 3/4 of the cell height, which is why `cellsDown` branches on the shape.
+ */
+export function deriveGridCalibration(
+	input: GridCalibrationInput,
+): MapGridCalibration | { error: GridCalibrationError } {
+	const { imageWidth, imageHeight } = input;
+	if (
+		!Number.isFinite(imageWidth) ||
+		!Number.isFinite(imageHeight) ||
+		imageWidth <= 0 ||
+		imageHeight <= 0
+	) {
+		return {
+			error: {
+				kind: 'unknown-dimensions',
+				message: 'The image has no readable pixel size, so a grid cannot be measured from it.',
+			},
+		};
+	}
+	const [a, b] = input.corners;
+	const cellWidthPx = Math.abs(b.x - a.x) * imageWidth;
+	const cellHeightPx = Math.abs(b.y - a.y) * imageHeight;
+	if (cellWidthPx < 1 || cellHeightPx < 1) {
+		return {
+			error: {
+				kind: 'degenerate-drag',
+				message: 'Drag across one whole grid cell — the current box is smaller than a pixel.',
+			},
+		};
+	}
+	// Row pitch: squares stack at their full height, pointy-top hexes interlock at three quarters.
+	const rowPitchPx = input.shape === 'hex' ? cellHeightPx * 0.75 : cellHeightPx;
+	return {
+		shape: input.shape,
+		cellWidthPx,
+		cellHeightPx,
+		cellsAcross: Math.max(1, Math.round(imageWidth / cellWidthPx)),
+		cellsDown: Math.max(1, Math.round(imageHeight / rowPitchPx)),
+	};
+}
+
+/**
+ * RC-MAP-3.2 — turn a calibration plus "1 square = N units" into the map's physical scale.
+ *
+ * `MapScale.unitsPerMap` is the real-world distance spanned by the FULL normalized width, so it is
+ * simply the cell count across times the units per cell. Fail closed on a non-positive or non-finite
+ * units-per-cell, and on an empty unit label, rather than persisting a scale that reads as zero feet.
+ */
+export function deriveImportScale(
+	calibration: MapGridCalibration,
+	unitsPerCell: number,
+	unit: string,
+): MapScale | { error: { kind: 'invalid-scale'; message: string } } {
+	if (!Number.isFinite(unitsPerCell) || unitsPerCell <= 0) {
+		return {
+			error: { kind: 'invalid-scale', message: 'A square must measure more than zero units.' },
+		};
+	}
+	const label = unit.trim();
+	if (label.length === 0) {
+		return { error: { kind: 'invalid-scale', message: 'Name the unit a square measures in.' } };
+	}
+	return { unitsPerMap: calibration.cellsAcross * unitsPerCell, unit: label };
+}
+
+export interface WallTraceInput {
+	/**
+	 * Row-major luminance samples, 0..255, one per sample cell. The GUI produces these by drawing the
+	 * imported image into an offscreen canvas at `width` × `height`; the core never touches a canvas.
+	 */
+	luminance: ArrayLike<number>;
+	width: number;
+	height: number;
+	/** 0..255. A sample at or below this is treated as ink, i.e. wall. */
+	threshold: number;
+	/** Prefix for the generated feature ids, so a re-trace never collides with an earlier one. */
+	idPrefix: string;
+	/** Style token for the traced features. Defaults to the ink token the paint tools use. */
+	style?: string;
+	/** Drop rings smaller than this many sample cells — kills speckle from JPEG noise. Default 12. */
+	minRingArea?: number;
+}
+
+/**
+ * RC-MAP-3.2 — trace wall outlines out of a raster by luminance thresholding + marching squares.
+ *
+ * The pipeline is the kit's existing one (`contourGrid`), so traced walls are vectors in the same
+ * normalized 0..1 space every other feature uses and are editable by the ordinary paint tools the
+ * moment they land. `smoothIterations: 0` is deliberate: printed dungeon walls are architecture, and
+ * Chaikin rounding would bow every straight corridor.
+ *
+ * The result is a PROPOSAL. It is returned, previewed, and only written if the DM commits — the
+ * threshold that reads a dungeon perfectly reads a watercolour world map as noise, and a tracer that
+ * silently filled a map with garbage walls would be worse than no tracer.
+ */
+export function traceWallsFromLuminance(input: WallTraceInput): MapFeature[] {
+	const width = Math.floor(input.width);
+	const height = Math.floor(input.height);
+	if (width <= 0 || height <= 0) return [];
+	if (input.luminance.length < width * height) return [];
+
+	const grid = createGrid(width, height);
+	for (let i = 0; i < width * height; i += 1) {
+		// Dark ink is solid. `<=` so a pure-black threshold of 0 still catches pure-black pixels.
+		grid.cells[i] = (input.luminance[i] as number) <= input.threshold ? 1 : 0;
+	}
+
+	const rings = contourGrid(grid, {
+		simplifyEpsilon: 1,
+		smoothIterations: 0,
+		minRingArea: input.minRingArea ?? 12,
+	});
+
+	const style = input.style ?? 'ink:black';
+	return rings.map((ring, index) => ({
+		id: `${input.idPrefix}-${index}`,
+		kind: 'wall' as const,
+		points: ring.map((point) => ({ x: point.x, y: point.y })),
+		style,
+		// Traced walls are architecture: they stop sight and movement, which is what the
+		// line-of-sight query and the token movement rules read.
+		props: { blocksSight: true, blocksMovement: true, traced: true },
+	}));
 }

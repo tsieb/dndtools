@@ -226,6 +226,25 @@ export {
 	summarizeAdapterCapabilities,
 } from './state/map-import';
 
+// RC-MAP-3.2 — raster import wizard v2 policy. Pure: two dragged corners of one cell become the map's
+// grid cell count, "1 square = 5 ft" becomes the MapScale the distance queries read, and a luminance
+// mask becomes traced `wall` features through the existing marching-squares pipeline. Nothing writes —
+// the wizard previews these and then dispatches map.configure-overlay / map.set-scale / map.add-features.
+export type {
+	GridCalibrationError,
+	GridCalibrationInput,
+	MapGridCalibration,
+	MapGridShape,
+	MapImportPoint,
+	WallTraceInput,
+} from './state/map-import';
+export {
+	MAP_IMPORT_MAX_ASSET_BYTES,
+	deriveGridCalibration,
+	deriveImportScale,
+	traceWallsFromLuminance,
+} from './state/map-import';
+
 // MAP-004: deterministic, seeded PRNG. The determinism anchor for procedural generation — no
 // Math.random/Date.now/ambient entropy, so the same seed yields the same stream on every device.
 export type { SeededRng } from './state/prng';

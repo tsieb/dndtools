@@ -5392,6 +5392,58 @@ export const es: Partial<Record<MessageKey, string>> = {
 		' · {count, plural, one {# elemento no admitido} other {# elementos no admitidos}} informados y descartados',
 	'mapImport.byteError':
 		'El mapa se importó, pero la imagen en sí no se pudo guardar en este dispositivo: {message} El mapa mostrará sus formas sin la imagen — libera espacio e importa el archivo otra vez para añadirla.',
+	/* Map import › RC-MAP-3.2 asistente de importación de mapas de imagen v2 */
+	'mapImport.step.align': 'Alinear la cuadrícula',
+	'mapImport.step.scale': 'Escala',
+	'mapImport.step.walls': 'Muros',
+	'mapImport.next': 'Siguiente',
+	'mapImport.sizeNote':
+		'Se aceptan archivos de hasta {mb} MB. La imagen se guarda en este dispositivo, así que un mapa muy grande ocupa ese espacio en este navegador.',
+	'mapImport.align.help':
+		'Arrastra un recuadro sobre una casilla de la imagen, o escribe el tamaño de la casilla en píxeles. Ambos definen la misma medida.',
+	'mapImport.align.shape': 'Forma de la cuadrícula',
+	'mapImport.align.square': 'Cuadrada',
+	'mapImport.align.hex': 'Hexagonal',
+	'mapImport.align.cellWidth': 'Ancho de casilla (px)',
+	'mapImport.align.cellHeight': 'Alto de casilla (px)',
+	'mapImport.align.result': 'Cuadrícula',
+	'mapImport.align.cells': '{across} de ancho · {down} de alto',
+	'mapImport.align.hexNote':
+		'Las medidas hexagonales se guardan, y por ahora el mapa dibuja una cuadrícula cuadrada sobre ellas. El dibujo hexagonal llegará con el trabajo de superposición de combate.',
+	'mapImport.scale.help':
+		'Indica cuánto mide una casilla. Las distancias, el tiempo de viaje y el alcance leen este valor.',
+	'mapImport.scale.perCell': '1 casilla =',
+	'mapImport.scale.unit': 'Unidad',
+	'mapImport.scale.unit.feet': 'pies',
+	'mapImport.scale.unit.meters': 'metros',
+	'mapImport.scale.unit.miles': 'millas',
+	'mapImport.scale.unit.kilometers': 'kilómetros',
+	'mapImport.scale.acrossLabel': 'Casillas de ancho',
+	'mapImport.scale.cellCount': '{count, plural, one {# casilla} other {# casillas}}',
+	'mapImport.scale.widthLabel': 'Ancho del mapa',
+	'mapImport.scale.width': '{amount} {unit}',
+	'mapImport.walls.enable': 'Trazar los muros desde la imagen',
+	'mapImport.walls.enableHelp':
+		'Lee la tinta oscura de la imagen como muros. Funciona en mapas de mazmorra impresos; los mapas pintados o fotográficos se trazan mal. Revisa el resultado antes de importar.',
+	'mapImport.walls.threshold': 'Umbral de tinta',
+	'mapImport.walls.trace': 'Ver el trazado',
+	'mapImport.walls.tracing': 'Trazando…',
+	'mapImport.walls.unavailable':
+		'No se pudo leer esta imagen para trazarla en este dispositivo. Impórtala sin muros trazados y dibújalos a mano.',
+	'mapImport.walls.found': 'Trazado',
+	'mapImport.walls.foundCount':
+		'{walls, plural, one {# muro} other {# muros}} · {points, plural, one {# punto} other {# puntos}}',
+	'mapImport.walls.previewLabel': 'Vista previa de {count} contornos de muro trazados',
+	'mapImport.walls.previewNote':
+		'Todavía no se ha guardado nada. Al importar se añaden a una capa solo para DM llamada Muros trazados, donde puedes editarlos o borrarlos.',
+	'mapImport.walls.layerName': 'Muros trazados',
+	'mapImport.result.grid':
+		'Cuadrícula ajustada a {count} casillas de ancho, {units} {unit} por casilla.',
+	'mapImport.result.scale': 'Escala ajustada a {amount} {unit} de ancho del mapa.',
+	'mapImport.result.walls':
+		'{count, plural, one {# muro trazado} other {# muros trazados}} añadidos a la capa Muros trazados.',
+	'mapImport.result.followUpFailed':
+		'La imagen se importó, pero parte de la configuración fue rechazada. Corrígelo en el propio mapa:',
 
 	/* Generadores de mapas › el panel Generar */
 	'mapGenerate.none': 'No hay generadores registrados.',
