@@ -42,10 +42,9 @@ export function useCombatKeyboard({
 	//   `d` / `h`      — open the HP keypad for the selected combatant (falls back to whoever's turn
 	//                    it is), pre-set to Damage / Heal.
 	//   ArrowUp/Down   — move the row cursor (selection) up/down the initiative order.
-	//   Enter          — opens the selected row's detail panel by moving focus into it (the panel
-	//                    itself is already rendered on selection; RC-SES-3.3 is what will put a
-	//                    bound stat block inside it — this wires the keyboard entry point to whatever
-	//                    the panel holds today).
+	//   Enter          — opens the selected row's detail panel by moving focus into it. RC-SES-3.3
+	//                    made "Quick reference" the FIRST control in that panel, so Enter now lands
+	//                    on the stat block the story asked it to open.
 	//   Alt+ArrowUp/Down — DM-only: reorder the selected combatant earlier/later (mirrors the
 	//                    chevron buttons below), announced since a reorder has no dispatch toast.
 	useEffect(() => {

@@ -508,6 +508,16 @@ export const en = {
 	'session.combat.hp.undo': 'Undo {change}',
 	'session.combat.hp.tempNoUndo':
 		'Temporary hit points keep the higher value, so this has no undo.',
+	// RC-SES-3.3 — the stat-block quick reference behind a tracker row.
+	'session.combat.quickRef.open': 'Quick reference — {name}',
+	'session.combat.quickRef.action': 'Quick reference',
+	'session.combat.quickRef.title': 'Quick reference — {name}',
+	'session.combat.quickRef.help':
+		'The bound character\u2019s stat block, with live hit points from this combat.',
+	'session.combat.quickRef.fromCharacter': 'From the character sheet for {name}.',
+	'session.combat.quickRef.fromEncounter':
+		'From this encounter row. No character is bound, so only what was entered here is shown.',
+	'session.combat.quickRef.actions': 'Actions ({count})',
 	'session.combat.addCondition': 'Add condition',
 	'session.combat.addConditionFor': 'Add condition — {name}',
 	'session.combat.addConditionHelp':

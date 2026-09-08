@@ -19,6 +19,8 @@ import { Panel, T, eb } from '../../app/screen-kit';
 // RC-CAN-5.3 lifted the keypad into `app/combat/` so the board's touch-first combat tile uses the
 // same sheet as this tracker; `CombatantRow` and `HpIntent` moved with it.
 import { HpKeypadSheet, type CombatantRow, type HpIntent } from '../../app/combat/HpKeypadSheet';
+// RC-SES-3.3 — the stat-block quick reference behind the row's "Quick reference" action.
+import { StatBlockSheet } from '../../app/combat/StatBlockSheet';
 import { useCombatKeyboard } from './useCombatKeyboard';
 
 /**
@@ -121,9 +123,15 @@ export function CombatPanel({
 	// move the CURSOR silently, same as any list; a reorder actually changes durable state and needs
 	// its own live announcement.
 	const [reorderAnnouncement, setReorderAnnouncement] = useState('');
+	// RC-SES-3.3 — which combatant's stat block is open in the quick-reference sheet. Held by id, not
+	// by row, so the card follows the live tracker as HP and conditions change underneath it.
+	const [quickRefId, setQuickRefId] = useState<string | null>(null);
 
 	const hpSheetTarget = hpSheet
 		? (tracker.combatants.find((c) => c.id === hpSheet.id) ?? null)
+		: null;
+	const quickRefTarget = quickRefId
+		? (tracker.combatants.find((c) => c.id === quickRefId) ?? null)
 		: null;
 
 	// The undo chip is a PROMISE with a deadline: five seconds, then it goes. Clearing on unmount
@@ -636,6 +644,15 @@ export function CombatPanel({
 											    reader otherwise hears six identical "Heal 1" buttons that each
 											    write durable HP to a different creature. "Heal 1"/"Damage 1"
 											    stay as the PREFIX so combat.spec's substring match still hits. */}
+											{/* RC-SES-3.3 — the quick reference. Reading a creature's numbers changes
+											    nothing, so this is offered while previewing too, unlike the HP steps. */}
+											<IconButton
+												icon="knowledge-book"
+												label={t('session.combat.quickRef.open', { name: c.name })}
+												variant="ghost"
+												size="sm"
+												onClick={() => setQuickRefId(c.id)}
+											/>
 											<IconButton
 												icon="add"
 												label={t('session.combat.heal', { name: c.name })}
@@ -672,6 +689,17 @@ export function CombatPanel({
 						>
 							<div style={{ ...eb }}>{t('session.combat.selected', { name: selected.name })}</div>
 							<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+								{/* RC-SES-3.3 — first control in the panel on purpose: RC-SES-3.4's `Enter` moves
+								    focus to whatever leads this row of actions, and the quick reference is what a
+								    DM wants from a selected combatant far more often than a condition. */}
+								<Button
+									variant="secondary"
+									size="sm"
+									icon="knowledge-book"
+									onClick={() => setQuickRefId(selected.id)}
+								>
+									{t('session.combat.quickRef.action')}
+								</Button>
 								{/* RC-SYS-2.3 — no conditions in the active system means no picker to open. Say so
 								    rather than leaving a control that can only ever show an empty dialog. */}
 								{selected.resources &&
@@ -757,6 +785,13 @@ export function CombatPanel({
 							)}
 						</div>
 					)}
+
+					<StatBlockSheet
+						key={quickRefId ? `ref:${quickRefId}` : 'ref:closed'}
+						target={quickRefTarget}
+						side={viewport === 'phone' ? 'bottom' : 'right'}
+						onClose={() => setQuickRefId(null)}
+					/>
 
 					<HpKeypadSheet
 						key={hpSheet ? `${hpSheet.id}:${hpSheet.intent}` : 'closed'}

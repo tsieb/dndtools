@@ -785,6 +785,10 @@ test.describe('one-handed HP sheet and undo', () => {
 
 	test('a press-and-hold on the HP bar opens the same sheet', async ({ page }) => {
 		const bar = page.getByRole('button', { name: 'Adjust hit points — Reed Stalker' });
+		// Synthesised mouse coordinates are VIEWPORT coordinates, so the bar has to be on screen
+		// before its box is read. On a phone the second row sits below the fold as soon as the rows
+		// grow (RC-SES-3.3 added a third row action), and the press then landed on nothing.
+		await bar.scrollIntoViewIfNeeded();
 		const box = await bar.boundingBox();
 		expect(box).not.toBeNull();
 		await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);

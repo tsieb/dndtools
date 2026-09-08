@@ -523,6 +523,16 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.combat.hp.undo': 'Deshacer {change}',
 	'session.combat.hp.tempNoUndo':
 		'Los puntos de golpe temporales conservan el valor más alto, así que esto no se puede deshacer.',
+	// RC-SES-3.3 — la referencia rápida del bloque de estadísticas de una fila del rastreador.
+	'session.combat.quickRef.open': 'Referencia rápida — {name}',
+	'session.combat.quickRef.action': 'Referencia rápida',
+	'session.combat.quickRef.title': 'Referencia rápida — {name}',
+	'session.combat.quickRef.help':
+		'El bloque de estadísticas del personaje vinculado, con los puntos de golpe en vivo de este combate.',
+	'session.combat.quickRef.fromCharacter': 'De la hoja de personaje de {name}.',
+	'session.combat.quickRef.fromEncounter':
+		'De esta fila del encuentro. No hay personaje vinculado, así que solo se muestra lo que se introdujo aquí.',
+	'session.combat.quickRef.actions': 'Acciones ({count})',
 	'session.combat.addCondition': 'Añadir estado',
 	'session.combat.addConditionFor': 'Añadir estado — {name}',
 	'session.combat.addConditionHelp': 'Cada estado tiene su propio icono, así se lee de un vistazo.',
