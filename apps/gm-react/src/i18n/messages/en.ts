@@ -1908,6 +1908,7 @@ export const en = {
 	'player.stat.init': 'Init',
 	'player.inspiration.on': 'Inspiration',
 	'player.inspiration.off': 'No inspiration',
+	'player.blockedPreview': 'Preview mode is read-only — exit preview to make changes',
 
 	/* Player › Sheet */
 	'player.sheet.identity': 'Identity',

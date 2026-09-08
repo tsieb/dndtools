@@ -306,3 +306,63 @@ test.describe('co-dm: elevated role', () => {
 		await expect(page.getByText('1 of 3')).not.toHaveCount(0);
 	});
 });
+
+test.describe('preview-mode edges (RC-CHR-4.3 / DEBT-2026-005)', () => {
+	test('the /play companion honors an active co-DM preview instead of the plain player seat', async ({
+		page,
+	}) => {
+		await bootShell(page, '/knowledge');
+		await bootPlay(page);
+
+		const maps = page.getByRole('button', { name: 'Maps' });
+		const bestiary = page.getByRole('button', { name: 'Bestiary' });
+		const assist = page.getByRole('button', { name: 'Combat assist' });
+
+		// Before the fix this route ALWAYS rendered as the plain seeded player, so a co-DM preview
+		// entered on the AppShell never carried over here — the elevated tier stayed locked.
+		await expect(maps).toBeDisabled();
+		await expect(bestiary).toBeDisabled();
+		await expect(assist).toBeDisabled();
+
+		await enterPreviewRole(page, 'co-dm');
+		await expect(maps).toBeEnabled();
+		await expect(bestiary).toBeEnabled();
+		await expect(assist).toBeEnabled();
+
+		await exitPreview(page);
+		await expect(maps).toBeDisabled();
+	});
+
+	test('the character screen hides its manage controls once a preview starts, even for the previewed owner', async ({
+		page,
+	}) => {
+		await bootShell(page, '/player');
+
+		// As the owning DM, the HP stepper reads as a real, live control.
+		const damageOn = page.getByRole('button', { name: 'Damage 1' });
+		await expect(damageOn).toBeVisible();
+		await expect(damageOn).toHaveAttribute('aria-disabled', 'false');
+
+		// Preview as the SPECIFIC player who owns this PC (`actor-player` owns the seeded Sera
+		// Duskwhisper) — authority (`isOwner`) would otherwise be TRUE, which is exactly the case that
+		// used to leave a dead control behind: every write is rejected read-only while previewing,
+		// regardless of the previewed actor's authority.
+		await page.evaluate(() =>
+			window.__rt!.enterPreview({ role: 'player', playerActorId: 'actor-player' }),
+		);
+		await page.waitForFunction(() => window.__rt?.preview?.actorId === 'actor-player', null, {
+			timeout: 5_000,
+		});
+
+		// The control is now honestly disabled — a NEW accessible name explaining why, not a live
+		// button that quietly rejects on click. Both HP-stepper buttons (damage/heal) swap the same way.
+		const blocked = page.getByRole('button', {
+			name: 'Preview mode is read-only — exit preview to make changes',
+		});
+		await expect(blocked).toHaveCount(2);
+		for (const button of await blocked.all()) {
+			await expect(button).toBeVisible();
+			await expect(button).toHaveAttribute('aria-disabled', 'true');
+		}
+	});
+});

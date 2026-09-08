@@ -104,6 +104,8 @@ export interface PlayerData {
 	/** DM, or a granted character `owner` — the CHAR-009 command authority (re-checked by the core). */
 	canAdvance: boolean;
 	isDm: boolean;
+	/** RC-CHR-4.3 — true while the DM is previewing (any role): every write is rejected read-only. */
+	readOnlyPreview: boolean;
 }
 
 export type Dispatch = (command: CoreCommand) => Promise<boolean>;

@@ -267,6 +267,17 @@ export class SceneRuntime {
 		return this.previewState;
 	}
 
+	/**
+	 * RC-CHR-4.3 — whether the rendered view is currently READ-ONLY: every `dispatch` while previewing
+	 * is rejected before it reaches the reducer (see `dispatch` below), so a screen that shows a write
+	 * control without checking this ends up with a control that always fails — a dead control (guardrail
+	 * #8). Screens with manage affordances (HP stepper, journal/inventory/advancement writes, …) gate on
+	 * this rather than re-deriving it from `preview` themselves.
+	 */
+	get readOnly(): boolean {
+		return this.previewState !== null;
+	}
+
 	/** Actors available to "view as", DM-first then by name. */
 	get actors(): Actor[] {
 		return Object.values(this.innerState.permissions.actors).sort((a, b) => {

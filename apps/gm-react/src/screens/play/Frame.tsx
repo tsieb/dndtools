@@ -56,6 +56,13 @@ import { AssistSection, AtlasSection, BestiarySection } from './Elevated';
  * The Co-DM tier is a REAL core role (`co-dm`): a co-DM seat unlocks the elevated nav (Maps, Bestiary,
  * Combat assist), fed by the `elevated` payload on the actor-filtered snapshot. A player/observer seat
  * still shows those entries locked (they carry no elevated payload). The Trusted tier remains aspirational.
+ *
+ * RC-CHR-4.3 (DEBT-2026-005) — on a SOLO/preview device (not joined), the viewer honors an active
+ * `ViewAsControl` CO-DM preview instead of always rendering as the seeded demo player, so "View as →
+ * Co-DM" on the AppShell and then opening `/play` shows the SAME previewed co-DM seat here, elevated
+ * nav included (a plain player/observer preview keeps the seeded demo player, which is what the rest
+ * of this route's local fixtures target). Every write while previewing is already rejected read-only
+ * by `SceneRuntime.dispatch` regardless of the previewed role's authority.
  */
 
 export function PlayerView() {
@@ -72,7 +79,18 @@ export function PlayerView() {
 	//    actor-filtered Core, exactly as before.
 	const joined = session.role === 'joined' && session.client?.data != null;
 	const remoteData = session.client?.data ?? null;
-	const viewer = joined ? (session.client?.identity?.actorId ?? PLAYER_ACTOR_ID) : PLAYER_ACTOR_ID;
+	// RC-CHR-4.3 (DEBT-2026-005) — when NOT joined, this route ran as the reserved generic player actor
+	// UNCONDITIONALLY, so a DM who set "View as → Co-DM" on the AppShell and then opened `/play` on the
+	// same device still saw a plain, locked player nav instead of the elevated tier they were previewing.
+	// Honor an ACTIVE co-DM preview (generic or a specific promoted seat) as the viewer. Plain player/
+	// observer previews are left alone: `PLAYER_ACTOR_ID` is the seeded demo participant the rest of this
+	// route's fixtures (scene projection, journal, party) already target, and the reserved GENERIC preview
+	// actors carry none of that seeded data — switching to them here would blank the stage, not narrow it.
+	const viewer = joined
+		? (session.client?.identity?.actorId ?? PLAYER_ACTOR_ID)
+		: runtime.preview?.role === 'co-dm'
+			? runtime.activeActorId
+			: PLAYER_ACTOR_ID;
 
 	const state = runtime.state;
 	const localData = useMemo<LiveData>(() => buildPlayerData(state, viewer), [state, viewer]);

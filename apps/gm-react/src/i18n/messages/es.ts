@@ -1962,6 +1962,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'player.stat.init': 'Inic.',
 	'player.inspiration.on': 'Con inspiración',
 	'player.inspiration.off': 'Sin inspiración',
+	'player.blockedPreview':
+		'El modo de vista previa es de solo lectura: sal de la vista previa para hacer cambios',
 
 	/* Jugador › Hoja */
 	'player.sheet.identity': 'Identidad',
