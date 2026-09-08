@@ -12,11 +12,26 @@ interface DevRuntime {
 	// well-known slices (sync.operations, scenes.scenes, permissions, commandCenter) off it.
 	state: {
 		sync: { operations: unknown[] };
-		scenes: { scenes: Record<string, { id: string; name: string; widgets: Array<{ id: string; layout: { x: number; y: number } }> }> };
+		scenes: {
+			scenes: Record<
+				string,
+				{
+					id: string;
+					name: string;
+					widgets: Array<{ id: string; layout: { x: number; y: number } }>;
+				}
+			>;
+		};
 		commandCenter: { homeSceneId: string | null };
 		[key: string]: unknown;
 	};
-	dispatch: (command: unknown) => Promise<{ status: string; rejection?: { message?: string }; events?: Array<Record<string, unknown>> }>;
+	dispatch: (
+		command: unknown,
+	) => Promise<{
+		status: string;
+		rejection?: { message?: string };
+		events?: Array<Record<string, unknown>>;
+	}>;
 	/** The runtime's id factory — specs that dispatch a payload carrying an explicit id must use
 	 *  this rather than inventing one (PLAT-006). */
 	newId: () => string;
@@ -50,12 +65,25 @@ export async function markOnboarded(page: Page): Promise<void> {
 	});
 }
 
+/**
+ * Op-log length recorded the first time a page reached a ready app boot (RC-ENG-2.2). Playwright
+ * gives every test its own browser context, so that first boot starts from an empty IndexedDB and
+ * therefore already IS a freshly seeded vault. While the count is unchanged nothing durable has
+ * been written — every durable mutation is a core command that appends to `sync.operations` — so
+ * `seedFresh` can skip its wipe-and-reload and save the suite a second full boot per test.
+ */
+const pristineOps = new WeakMap<Page, number>();
+
 /** Resolve once the runtime has loaded and the shell's main landmark is present. */
 export async function waitReady(page: Page): Promise<void> {
 	await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
 		timeout: 20_000,
 	});
 	await page.locator('#main-content').waitFor({ state: 'attached', timeout: 20_000 });
+	if (!pristineOps.has(page)) {
+		const count = await ops(page);
+		if (count >= 0) pristineOps.set(page, count);
+	}
 }
 
 /**
@@ -74,8 +102,17 @@ export async function gotoRoute(page: Page, path: string): Promise<void> {
 /**
  * Wipe the IndexedDB and reload for a deterministic, freshly-seeded vault. The page must already
  * be on the app (call `gotoRoute` first). Waits for the runtime to be ready afterwards.
+ *
+ * When the op-log proves the vault has not been touched since it was seeded at boot, the wipe is
+ * skipped: deleting a pristine vault and re-seeding it lands on the same state, and the reload it
+ * avoids is one of the suite's most expensive operations (RC-ENG-2.2).
  */
 export async function seedFresh(page: Page): Promise<void> {
+	const pristine = pristineOps.get(page);
+	if (pristine !== undefined) {
+		const current = await ops(page);
+		if (current >= 0 && current === pristine) return;
+	}
 	await page.evaluate(
 		(db) =>
 			new Promise<void>((resolve) => {
@@ -87,6 +124,8 @@ export async function seedFresh(page: Page): Promise<void> {
 	);
 	await page.reload({ waitUntil: 'domcontentloaded' });
 	await waitReady(page);
+	const reseeded = await ops(page);
+	if (reseeded >= 0) pristineOps.set(page, reseeded);
 }
 
 /** Current length of the durable op-log (`__rt.state.sync.operations`), or -1 if unavailable. */
@@ -107,6 +146,13 @@ export async function exitPreview(page: Page): Promise<void> {
 }
 
 /** Dispatch a Core command through the runtime's single write choke point. */
-export function dispatch(page: Page, command: Record<string, unknown>): Promise<{ status: string; rejection?: { message?: string }; events?: Array<Record<string, unknown>> }> {
+export function dispatch(
+	page: Page,
+	command: Record<string, unknown>,
+): Promise<{
+	status: string;
+	rejection?: { message?: string };
+	events?: Array<Record<string, unknown>>;
+}> {
 	return page.evaluate((cmd) => window.__rt!.dispatch(cmd), command);
 }
