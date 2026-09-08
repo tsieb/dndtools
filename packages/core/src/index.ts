@@ -3146,6 +3146,7 @@ export type {
 	CloudSecurityRecordProblemKind,
 	EncryptionResponsibility,
 	KeyCustodian,
+	RegisteredVaultPrivacyMode,
 	ServerVisibilityViolation,
 	ServerVisibilityViolationReason,
 	ServerVisibleField,
@@ -3154,11 +3155,13 @@ export {
 	ALLOWED_SERVER_METADATA_CLASSES,
 	CLOUD_SECURITY_MODEL_SCHEMA_VERSION,
 	UNDECLARED_CLOUD_SECURITY_DECISION_RECORD,
+	assertPlaintextUploadPermitted,
 	assertServerSeesOnlyAllowedMetadata,
 	assertServerVisibilityForRecord,
 	canReleaseCloud,
 	evaluateCloudReleaseGate,
 	findServerVisibilityViolations,
+	isPlaintextUploadPermitted,
 	validateCloudSecurityRecord,
 } from './security/cloud-security-model';
 

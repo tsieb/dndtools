@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
 	ALLOWED_SERVER_METADATA_CLASSES,
 	UNDECLARED_CLOUD_SECURITY_DECISION_RECORD,
+	assertPlaintextUploadPermitted,
 	assertServerSeesOnlyAllowedMetadata,
 	canReleaseCloud,
 	evaluateCloudReleaseGate,
 	findServerVisibilityViolations,
+	isPlaintextUploadPermitted,
 	validateCloudSecurityRecord,
 	type CloudSecurityDecisionRecord,
 	type CloudSyncSecurityModel,
@@ -77,7 +79,10 @@ describe('SEC-009 AC3 — release is blocked without an approved, complete decis
 
 describe('SEC-009 — decision-record internal consistency', () => {
 	it('an E2EE claim with provider-held keys is rejected (the server could read plaintext)', () => {
-		const record: CloudSecurityDecisionRecord = { ...COMPLETE_RECORD, keyCustodian: 'provider-held' };
+		const record: CloudSecurityDecisionRecord = {
+			...COMPLETE_RECORD,
+			keyCustodian: 'provider-held',
+		};
 		const problems = validateCloudSecurityRecord(record);
 		expect(problems.some((p) => p.kind === 'e2ee-requires-client-held-keys')).toBe(true);
 	});
@@ -112,7 +117,11 @@ describe('SEC-009 AC4 — under an E2EE claim the server sees ONLY allowed metad
 
 	it('an allowed metadata class smuggling a token in its value is a violation', () => {
 		const fields: ServerVisibleField[] = [
-			{ field: 'participantId', metadataClass: 'participant-id', value: 'Bearer sk-live-abc123def456' },
+			{
+				field: 'participantId',
+				metadataClass: 'participant-id',
+				value: 'Bearer sk-live-abc123def456',
+			},
 		];
 		const violations = findServerVisibilityViolations(COMPLETE_RECORD, fields);
 		expect(violations[0]?.reason).toBe('plaintext-content');
@@ -126,5 +135,48 @@ describe('SEC-009 AC4 — under an E2EE claim the server sees ONLY allowed metad
 		}));
 		expect(findServerVisibilityViolations(COMPLETE_RECORD, fields)).toEqual([]);
 		expect(() => assertServerSeesOnlyAllowedMetadata(COMPLETE_RECORD, fields)).not.toThrow();
+	});
+});
+
+describe('ADR-026 phase 2 — plaintext upload requires a SERVER-side cloud-enhanced registration + an approved record', () => {
+	const APPROVED_CLOUD_ENHANCED_RECORD: CloudSecurityDecisionRecord = {
+		schemaVersion: 1,
+		approved: true,
+		encryption: 'server-side-encrypted',
+		keyCustodian: 'provider-held',
+		credentialRotationDeclared: true,
+		recovery: 'supported',
+		allowedServerMetadata: [],
+		decisionRecordRef: 'docs/adr/026-opt-in-vault-privacy-modes.md',
+	};
+
+	it('an unregistered vault (no row) is refused even under an approved record — fail closed', () => {
+		expect(isPlaintextUploadPermitted(undefined, APPROVED_CLOUD_ENHANCED_RECORD)).toBe(false);
+		expect(() =>
+			assertPlaintextUploadPermitted(undefined, APPROVED_CLOUD_ENHANCED_RECORD),
+		).toThrow();
+	});
+
+	it('a vault registered private-e2ee is refused even under an approved cloud-enhanced record', () => {
+		expect(isPlaintextUploadPermitted('private-e2ee', APPROVED_CLOUD_ENHANCED_RECORD)).toBe(false);
+	});
+
+	it('a vault registered cloud-enhanced is refused while the decision record is unapproved (phase-1 posture)', () => {
+		const unapproved: CloudSecurityDecisionRecord = {
+			...APPROVED_CLOUD_ENHANCED_RECORD,
+			approved: false,
+		};
+		expect(isPlaintextUploadPermitted('cloud-enhanced', unapproved)).toBe(false);
+	});
+
+	it('a vault registered cloud-enhanced is refused under an E2EE-claimed record (wrong record shape)', () => {
+		expect(isPlaintextUploadPermitted('cloud-enhanced', COMPLETE_RECORD)).toBe(false);
+	});
+
+	it('permits only registered cloud-enhanced vaults under a complete, approved server-readable record', () => {
+		expect(isPlaintextUploadPermitted('cloud-enhanced', APPROVED_CLOUD_ENHANCED_RECORD)).toBe(true);
+		expect(() =>
+			assertPlaintextUploadPermitted('cloud-enhanced', APPROVED_CLOUD_ENHANCED_RECORD),
+		).not.toThrow();
 	});
 });

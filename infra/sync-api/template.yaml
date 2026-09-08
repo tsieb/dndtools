@@ -148,6 +148,64 @@ Resources:
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
 
+  # --- Cloud-Enhanced content key (ADR-026 phase 2, ADR-026 phase-2 checklist item 1) ------
+  # NOT the ciphertext bucket's key above — CiphertextBucket stores E2EE envelopes the server
+  # can never decrypt, so its SSE-S3 key is irrelevant to server-readable content. This CMK is
+  # the SEPARATE key any future Cloud-Enhanced (server-readable) content path must encrypt
+  # under, scoped ONE PER STAGE so a dev key compromise can never expose prod content. Its
+  # policy names SyncFn's own execution role explicitly (no wildcard/service principal), so
+  # only the sync-api Lambda — not "any Lambda in the account" — may decrypt. Every Decrypt/
+  # GenerateDataKey call it makes is already captured by the stage's CloudTrail trail
+  # (`AuditTrail`, foundation template — `IncludeManagementEvents: true`, `ReadWriteType: All`
+  # covers KMS management events with no separate data-event config needed), which satisfies
+  # the checklist's "CloudTrail on decrypt" clause once this key is in use.
+  #
+  # No plaintext content path exists yet (see the threat-model doc's phase-2 checklist) — this
+  # key ships ahead of it so the checklist's key-management clause is verifiable in infra code
+  # today, not deferred to whichever story adds the first plaintext route. That route MUST
+  # encrypt under this key and MUST gate acceptance through
+  # `assertPlaintextUploadPermitted`/`isPlaintextUploadPermitted` (@dndtools/core) before it
+  # ever accepts a byte of plaintext.
+  CloudEnhancedContentKey:
+    Type: AWS::KMS::Key
+    # A future plaintext route's ciphertext is only recoverable while this key exists.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: !Sub 'Encrypts Cloud-Enhanced (server-readable) vault content for ${ProjectName}-${Stage}.'
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AccountAdmin
+            Effect: Allow
+            Principal: { AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root' }
+            Action: 'kms:*'
+            Resource: '*'
+          # Scoped to SyncFn's own SAM-generated execution role, not a service principal or
+          # wildcard — no other function in the account may use this key.
+          - Sid: AllowSyncFnDecrypt
+            Effect: Allow
+            Principal: { AWS: !GetAtt SyncFnRole.Arn }
+            Action:
+              - 'kms:Decrypt'
+              - 'kms:GenerateDataKey*'
+              - 'kms:DescribeKey'
+            Resource: '*'
+
+  CloudEnhancedContentKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub 'alias/${ProjectName}-${Stage}-cloud-enhanced-content'
+      TargetKeyId: !Ref CloudEnhancedContentKey
+
+  ParamCloudEnhancedContentKeyArn:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/sync/cloud-enhanced-content-key-arn'
+      Type: String
+      Value: !GetAtt CloudEnhancedContentKey.Arn
+
   SyncFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -378,3 +436,5 @@ Outputs:
     Value: !Ref SyncOpsTable
   ApiId:
     Value: !Ref SyncHttpApi
+  CloudEnhancedContentKeyArn:
+    Value: !GetAtt CloudEnhancedContentKey.Arn

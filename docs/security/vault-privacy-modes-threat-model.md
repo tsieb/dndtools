@@ -50,20 +50,51 @@ that residual exposure is precisely what the user consents to, and the consent c
 
 Phase-2 obligations (review checklist — all must hold before `approved: true`):
 
-- [ ] Dedicated KMS key per stage with key policy scoped to the sync-api role; CloudTrail on
-      decrypt; no wildcard principals.
-- [ ] Plaintext path accepts uploads **only** for vaults whose server-side mode registration says
+- [x] Dedicated KMS key per stage with key policy scoped to the sync-api role; CloudTrail on
+      decrypt; no wildcard principals. `CloudEnhancedContentKey` in `infra/sync-api/template.yaml`
+      — one CMK per stage (`dev`/`prod` each get their own, deployed independently), key policy
+      names only `SyncFnRole` (the sync-api Lambda's own execution role) for
+      `Decrypt`/`GenerateDataKey*`/`DescribeKey`, no service or wildcard principal beyond the
+      account-root admin statement. Decrypt calls land in the stage's existing `AuditTrail`
+      (`infra/foundation/template.yaml`), which already logs all management events including KMS —
+      no separate trail or data-event config needed.
+- [x] Plaintext path accepts uploads **only** for vaults whose server-side mode registration says
       `cloud-enhanced`; an E2EE vault's envelope is never readable regardless of a client bug
-      (server-side mode check, not client honor system).
-- [ ] Tenant isolation identical to the E2EE path (Cognito sub scoping on every row/object key).
+      (server-side mode check, not client honor system). `isPlaintextUploadPermitted` /
+      `assertPlaintextUploadPermitted` in `packages/core/src/security/cloud-security-model.ts`:
+      fail-closed on an absent registration (`undefined`), a `private-e2ee` registration, or an
+      unapproved/wrong-shaped decision record — see
+      `packages/core/tests/security-cloud-security-model.test.ts` ("ADR-026 phase 2 — plaintext
+      upload requires a SERVER-side cloud-enhanced registration"). **Not yet wired to a route**: no
+      plaintext upload path exists in `packages/cloud-fns` today (sync-api stores only ciphertext
+      operations), so this is the sanctioned gate a future route must call, not evidence one
+      already calls it correctly.
+- [ ] Tenant isolation identical to the E2EE path (Cognito sub scoping on every row/object key). No
+      plaintext store exists yet to isolate — nothing to verify against.
 - [ ] Server-side feature code (RAG indexer, search) runs with read-only scoped access and never
-      writes derived plaintext into a broader-scoped store.
+      writes derived plaintext into a broader-scoped store. No RAG indexer/search feature exists in
+      this codebase yet (tracked separately; not owned by RC-CLD-2.2).
 - [ ] Mode switch = re-upload migration; the old-mode artifacts are deleted after the new-mode copy
       verifies. Cloud-Enhanced → Private switch copy states that previously-server-readable content
-      was readable while the mode was active.
-- [ ] Deletion (account or vault) purges plaintext artifacts and derived indexes/embeddings.
-- [ ] The `assertServerVisibilityForRecord` relaxation is reachable only via
+      was readable while the mode was active. No migration path exists yet — there is nothing to
+      migrate between while no plaintext store exists.
+- [ ] Deletion (account or vault) purges plaintext artifacts and derived indexes/embeddings. No
+      plaintext artifacts or derived indexes exist yet to purge.
+- [x] The `assertServerVisibilityForRecord` relaxation is reachable only via
       `securityDecisionRecordForVaultMode('cloud-enhanced')` and only once the record is approved.
+      Verified by reading `securityDecisionRecordForVaultMode` (`cloud-security-decision.ts`): it is
+      the only exported mapping from mode to record, and `assertServerVisibilityForRecord`'s
+      server-readable branch re-runs `validateCloudSecurityRecord` itself rather than trusting its
+      caller, so even a hand-built record cannot skip the approval check.
+
+**RC-CLD-2.2 review status (2026-09-08): 3 of 7 items hold; `approved` stays `false`.** The three
+checked items are real, verified, present in this PR (KMS key infra, the plaintext-upload gate
+primitive + its tests, the record-routing invariant). The remaining four all depend on a plaintext
+content path — RAG indexer, search, migration, purge — that does not exist anywhere in this
+codebase yet; there is nothing concrete to review for them, and no future story can inherit a
+`approved: true` flip that was never checked against a real implementation (rule: fail closed, no
+fake success). Flipping `approved` is deferred to the PR that lands the first plaintext feature and
+can honestly check the remaining four boxes against real code.
 
 ## Consent integrity (both modes, phase 1)
 
