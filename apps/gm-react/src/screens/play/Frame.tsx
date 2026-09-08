@@ -55,7 +55,10 @@ import { AssistSection, AtlasSection, BestiarySection } from './Elevated';
  * solo/preview device the toggles stay honestly device-local and the copy says so.
  * The Co-DM tier is a REAL core role (`co-dm`): a co-DM seat unlocks the elevated nav (Maps, Bestiary,
  * Combat assist), fed by the `elevated` payload on the actor-filtered snapshot. A player/observer seat
- * still shows those entries locked (they carry no elevated payload). The Trusted tier remains aspirational.
+ * still shows those entries locked (they carry no elevated payload). RC-CHR-4.4 removed the former
+ * fourth "Trusted player" tier, which had a label/badge/blurb but no core role and no NAV entry that
+ * ever gated on it (see the comment on `TIERS` in `shared.tsx`) — the only seat above `player` this
+ * app models is `co-dm`.
  *
  * RC-CHR-4.3 (DEBT-2026-005) — on a SOLO/preview device (not joined), the viewer honors an active
  * `ViewAsControl` CO-DM preview instead of always rendering as the seeded demo player, so "View as →
@@ -97,9 +100,9 @@ export function PlayerView() {
 	const data: LiveData = joined && remoteData ? remoteData : localData;
 
 	const role = data.role;
-	// Tier index: observer 0, player 1, co-DM 3 (the elevated seat — unlocks NAV_ELEVATED). The
+	// Tier index: observer 0, player 1, co-DM 2 (the elevated seat — unlocks NAV_ELEVATED). The
 	// `co-dm` core role maps to the `codm` tier metadata key.
-	const r = role === 'observer' ? 0 : role === 'co-dm' ? 3 : 1;
+	const r = role === 'observer' ? 0 : role === 'co-dm' ? 2 : 1;
 	const meta = TIER_META[role === 'co-dm' ? 'codm' : role];
 
 	// Dice write. JOINED → send a command REQUEST to the host (which stamps our authenticated identity,
@@ -188,7 +191,7 @@ export function PlayerView() {
 		locked: boolean,
 	) => (
 		<button
-			className={`player-view-nav-row${n.min >= 3 ? ' player-view-nav-elevated' : ''}`}
+			className={`player-view-nav-row${n.min >= 2 ? ' player-view-nav-elevated' : ''}`}
 			key={n.id}
 			type="button"
 			aria-label={

@@ -964,9 +964,6 @@ export const en = {
 	'play.tier.playerRole': 'Your own character',
 	'play.tier.playerBlurb':
 		'Run your sheet, roll your dice, and read what the DM shares with the table.',
-	'play.tier.trusted': 'Trusted player',
-	'play.tier.trustedRole': 'Shared editing granted',
-	'play.tier.trustedBlurb': 'A player, plus shared-stash editing and recap posting.',
 	'play.tier.codm': 'Co-DM',
 	'play.tier.codmRole': 'Elevated table tools',
 	'play.tier.codmBlurb':

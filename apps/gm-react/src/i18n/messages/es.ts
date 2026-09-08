@@ -992,10 +992,6 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.tier.player': 'Jugador',
 	'play.tier.playerRole': 'Tu propio personaje',
 	'play.tier.playerBlurb': 'Lleva tu hoja, tira tus dados y lee lo que el DM comparte con la mesa.',
-	'play.tier.trusted': 'Jugador de confianza',
-	'play.tier.trustedRole': 'Edición compartida concedida',
-	'play.tier.trustedBlurb':
-		'Un jugador, más la edición del alijo compartido y la publicación de resúmenes.',
 	'play.tier.codm': 'Co-DM',
 	'play.tier.codmRole': 'Herramientas elevadas de mesa',
 	'play.tier.codmBlurb':
