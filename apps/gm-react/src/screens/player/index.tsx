@@ -38,6 +38,8 @@ import { PlayerResources } from './Vitals';
 import { PlayerParty } from './Party';
 import { PlayerLevelUp } from './Advancement';
 import { PlayerJournal } from './Journal';
+import { CharacterHistoryTimeline } from '../../app/character/History';
+import { PartyStash } from '../../app/character/PartyStash';
 
 /**
  * Player — the second-persona character surface, fully core-backed (the last `DNDPlayer` mock
@@ -123,11 +125,17 @@ export function Player() {
 			hasGrantedCapability(state.permissions, actor, CHARACTER_ENTITY_TYPE, chosen.id, 'owner')
 		);
 		const party = getPartyOverviewForActor(state.characters, state.permissions, actorId);
+		// RC-CHR-3.2 — the party's aggregate STR (defaulting each member to 10), for the stash's
+		// encumbrance BASELINE (`encumbranceLevelFor(stashWeight, partyStrength)`). `pcs` is the exact
+		// same actor-filtered visible-PC set `party.members` derives from, so this never over-counts a
+		// member the DM can see but the viewer cannot.
+		const partyStrength = pcs.reduce((sum, c) => sum + (c.abilityScores.str ?? 10), 0) || 10;
 		return {
 			characterId: chosen?.id ?? null,
 			view,
 			resources,
 			pcs: pcs.map((c) => ({ id: c.id, name: c.name })),
+			partyStrength,
 			// Pure derived queries, computed AFTER the actor-filtered gate passed (same pattern as
 			// `resourcesOf` above) — they read only abilityScores / proficiencies / data.level.
 			passive: record ? passivePerception(record) : null,
@@ -201,6 +209,9 @@ export function Player() {
 		// authorize (DM / granted owner), so it is never a dead surface.
 		...(data.canAdvance ? [{ id: 'levelup', label: t('player.tab.levelUp'), icon: 'flag' }] : []),
 		{ id: 'journal', label: t('player.tab.journal'), icon: 'note-edit' },
+		// RC-CHR-2.3 — the history timeline reads the SAME actor-filtered journal already fetched
+		// above for the journal tab; no extra query.
+		{ id: 'history', label: t('player.tab.history'), icon: 'recent' },
 	];
 	const activeTab = tabs.some((t) => t.id === tab) ? tab : 'sheet';
 
@@ -473,14 +484,30 @@ export function Player() {
 						/>
 					)}
 					{activeTab === 'party' && (
-						<PlayerParty
-							party={data.party}
-							selfId={charId}
-							isDm={data.isDm}
-							actorId={actorId}
-							compact={viewport === 'phone'}
-							dispatch={dispatch}
-						/>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+							<PlayerParty
+								party={data.party}
+								selfId={charId}
+								isDm={data.isDm}
+								actorId={actorId}
+								compact={viewport === 'phone'}
+								dispatch={dispatch}
+							/>
+							{/* RC-CHR-3.2 — party stash v2 supersedes the name/detail-only stash that used to
+							    be embedded in PlayerParty (quantity/weight, claim-to-PC, deposit, baseline). */}
+							<PartyStash
+								key={charId}
+								party={data.party}
+								partyStrength={data.partyStrength}
+								selfId={charId}
+								selfName={name}
+								selfInventory={data.inventory}
+								isDm={data.isDm}
+								canClaim={data.canManageInventory}
+								actorId={actorId}
+								dispatch={dispatch}
+							/>
+						</div>
 					)}
 					{activeTab === 'levelup' && data.canAdvance && (
 						<PlayerLevelUp
@@ -503,6 +530,9 @@ export function Player() {
 							compact={viewport === 'phone'}
 							dispatch={dispatch}
 						/>
+					)}
+					{activeTab === 'history' && (
+						<CharacterHistoryTimeline key={charId} characterName={name} entries={data.journal} />
 					)}
 				</div>
 			</Page>

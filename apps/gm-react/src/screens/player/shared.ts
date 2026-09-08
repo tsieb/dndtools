@@ -70,6 +70,7 @@ export const JOURNAL_KINDS: { value: string; label: MessageKey }[] = [
 	{ value: 'npc-impression', label: 'player.journal.kind.npcImpression' },
 	{ value: 'personal-quest', label: 'player.journal.kind.personalQuest' },
 	{ value: 'session-highlight', label: 'player.journal.kind.sessionHighlight' },
+	{ value: 'downtime', label: 'player.journal.kind.downtime' },
 ];
 
 /** Core data resolved for the active actor, plus the chosen PC id used by every write below. */
@@ -94,6 +95,8 @@ export interface PlayerData {
 	/** Owner-or-DM: the authority `character.set-class-resource` re-checks on every write. */
 	canManageResources: boolean;
 	party: PartyOverview;
+	/** RC-CHR-3.2 — the visible party's aggregate STR, for the stash encumbrance baseline. */
+	partyStrength: number;
 	/** Real advancement standing from the CHAR-009 model (level, xp, staged draft). */
 	advancement: AdvancementState | null;
 	xpEligible: EligibilityResult | null;

@@ -39,9 +39,19 @@ export function PlayerJournal({
 	const [editId, setEditId] = useState<string | null>(null);
 	const [editTitle, setEditTitle] = useState('');
 	const [editBody, setEditBody] = useState('');
+	// RC-CHR-2.2 — the downtime entry's structured fields, required only while `kind === 'downtime'`
+	// (the core's `addJournalEntryInputSchema` refine rejects the entry without them).
+	const [dtActivity, setDtActivity] = useState('');
+	const [dtDays, setDtDays] = useState('1');
+	const [dtCost, setDtCost] = useState('');
+	const [dtOutcome, setDtOutcome] = useState('');
 
+	const isDowntime = kind === 'downtime';
 	const add = async () => {
 		if (!title.trim()) return;
+		if (isDowntime && !dtActivity.trim()) return;
+		const days = Math.max(1, Math.trunc(Number(dtDays)) || 1);
+		const cost = dtCost.trim() === '' ? undefined : Math.max(0, Math.trunc(Number(dtCost)) || 0);
 		const ok = await dispatch({
 			type: 'character.add-journal-entry',
 			actorId,
@@ -51,11 +61,25 @@ export function PlayerJournal({
 				title: title.trim(),
 				body: body.trim(),
 				visibility: 'dm-only',
+				...(isDowntime
+					? {
+							downtime: {
+								activityType: dtActivity.trim(),
+								days,
+								...(cost !== undefined ? { cost } : {}),
+								...(dtOutcome.trim() ? { outcome: dtOutcome.trim() } : {}),
+							},
+						}
+					: {}),
 			},
 		});
 		if (ok) {
 			setTitle('');
 			setBody('');
+			setDtActivity('');
+			setDtDays('1');
+			setDtCost('');
+			setDtOutcome('');
 		}
 	};
 	// Real visibility toggle: flip between owner-private (`dm-only`) and shared-with-players.
@@ -120,6 +144,7 @@ export function PlayerJournal({
 	// their own side panels; the main list carries every entry (the editable source of truth).
 	const quests = entries.filter((e) => e.kind === 'personal-quest');
 	const highlights = entries.filter((e) => e.kind === 'session-highlight');
+	const downtimeEntries = entries.filter((e) => e.kind === 'downtime');
 	// The kind picker and the per-entry badge read the same catalogued labels, so a kind is spelled
 	// once per locale rather than showing the core's enum value on the badge.
 	const kindOptions = JOURNAL_KINDS.map((k) => ({ value: k.value, label: t(k.label) }));
@@ -310,6 +335,42 @@ export function PlayerJournal({
 										style={{ width: 170 }}
 									/>
 								</div>
+								{/* RC-CHR-2.2 — the downtime activity's structured fields; only rendered (and
+								    only required) while the picked kind is `downtime`. */}
+								{isDowntime && (
+									<div style={{ display: 'flex', gap: 8 }}>
+										<Input
+											value={dtActivity}
+											aria-label={t('player.journal.downtime.activity')}
+											onChange={(e: DSChangeEvent) => setDtActivity(e.target.value)}
+											placeholder={t('player.journal.downtime.activityPlaceholder')}
+											style={{ flex: 2 }}
+										/>
+										<Input
+											type="number"
+											value={dtDays}
+											aria-label={t('player.journal.downtime.days')}
+											onChange={(e: DSChangeEvent) => setDtDays(e.target.value)}
+											style={{ flex: 1 }}
+										/>
+										<Input
+											type="number"
+											value={dtCost}
+											aria-label={t('player.journal.downtime.cost')}
+											onChange={(e: DSChangeEvent) => setDtCost(e.target.value)}
+											placeholder={t('player.journal.downtime.costPlaceholder')}
+											style={{ flex: 1 }}
+										/>
+									</div>
+								)}
+								{isDowntime && (
+									<Input
+										value={dtOutcome}
+										aria-label={t('player.journal.downtime.outcome')}
+										onChange={(e: DSChangeEvent) => setDtOutcome(e.target.value)}
+										placeholder={t('player.journal.downtime.outcomePlaceholder')}
+									/>
+								)}
 								<Textarea
 									value={body}
 									aria-label={t('player.journal.entryBody')}
@@ -389,6 +450,42 @@ export function PlayerJournal({
 									<div style={{ font: `600 12.5px ${T.sans}` }}>{h.title}</div>
 									{h.body && (
 										<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.sub }}>{h.body}</div>
+									)}
+								</div>
+							))
+						)}
+					</Panel>
+					{/* RC-CHR-2.2 — the `downtime` entry kind's structured activity/days/cost/outcome fields. */}
+					<Panel title={t('player.journal.downtime.section', { count: downtimeEntries.length })}>
+						{downtimeEntries.length === 0 ? (
+							<EmptyState
+								inset
+								icon="session-bolt"
+								title={t('player.journal.downtime.noEntriesTitle')}
+								description={t('player.journal.downtime.noEntriesBody')}
+							/>
+						) : (
+							downtimeEntries.map((d, i) => (
+								<div
+									key={d.id}
+									style={{ padding: '9px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}
+								>
+									<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+										<Badge status="neutral">{d.downtime?.activityType ?? '—'}</Badge>
+										<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
+											{t('player.journal.downtime.daysValue', { days: d.downtime?.days ?? 0 })}
+										</span>
+										{d.downtime?.cost !== undefined && (
+											<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
+												{t('player.journal.downtime.costValue', { cost: d.downtime.cost })}
+											</span>
+										)}
+									</div>
+									<div style={{ font: `600 12.5px ${T.sans}` }}>{d.title}</div>
+									{d.downtime?.outcome && (
+										<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+											{d.downtime.outcome}
+										</div>
 									)}
 								</div>
 							))

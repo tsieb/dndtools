@@ -58,6 +58,11 @@ export interface PartyInventoryView {
 	id: string;
 	name: string;
 	detail: string;
+	/** RC-CHR-3.2 — how many are in the stash and the per-unit weight (already durable on the item,
+	 * I10 S10.4.2); projected here so the stash UI can total weight for the encumbrance baseline
+	 * without a second read path. */
+	quantity: number;
+	weight: number;
 	visibility: PartyInventoryItem['visibility'];
 }
 
@@ -173,7 +178,14 @@ export function getPartyOverviewForActor(
 
 	const inventory: PartyInventoryView[] = party.inventory
 		.filter((item) => inventoryVisibleToActor(item, actor))
-		.map((item) => ({ id: item.id, name: item.name, detail: item.detail, visibility: item.visibility }));
+		.map((item) => ({
+			id: item.id,
+			name: item.name,
+			detail: item.detail,
+			quantity: item.quantity,
+			weight: item.weight,
+			visibility: item.visibility,
+		}));
 
 	// Hidden-from-PLAYERS counts (the general player view, before per-actor `shared` delivery): a
 	// character is hidden from players when it is not `player-visible`; an item likewise. This mirrors
