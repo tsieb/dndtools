@@ -510,6 +510,7 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		recapArchiveId: null,
 		archives: {},
 		partyLocation: EMPTY_SESSION_STATE.partyLocation,
+		quickTimer: EMPTY_SESSION_STATE.quickTimer,
 		schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
 	};
 	session.workflow ??= EMPTY_SESSION_STATE.workflow;
@@ -545,6 +546,8 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	session.partyLocation ??= null;
 	// RC-SES-1.3 — a session document persisted before the session name restores unnamed.
 	session.title ??= null;
+	// RC-SES-4.4 — a session document persisted before the quick-panel timer restores with none running.
+	session.quickTimer ??= null;
 	const widgets = mergeSystemWidgetPackages(
 		trustedPersistedDocument<WidgetPackageState>(widgetPackageDoc, 'widgets') ?? {
 			packages: {},
