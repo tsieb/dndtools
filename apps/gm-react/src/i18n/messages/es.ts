@@ -4558,6 +4558,21 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'graph.nodeTitle': '{title} · {kind} · {count, plural, one {# conexión} other {# conexiones}}',
 	'graph.nodeLabel': '{title}, {kind}, {count, plural, one {# conexión} other {# conexiones}}',
 	'graph.coverage': 'Cobertura',
+	'graph.repair.entry': 'Reparar enlaces rotos',
+	'graph.repair.back': 'Grafo',
+	'graph.repair.title': 'Reparación de enlaces',
+	'graph.repair.intro':
+		'Enlaces wiki rotos en tu contenido, con una corrección sugerida para cada uno.',
+	'graph.repair.empty': 'No se encontraron enlaces rotos.',
+	'graph.repair.broken': 'Enlace roto: «{target}»',
+	'graph.repair.blockedBadge': 'Bloqueado',
+	'graph.repair.unsupportedSource':
+		'Los enlaces en notas de {source} no se pueden reescribir aquí.',
+	'graph.repair.noCandidate': 'No se encontró ninguna nota coincidente para corregirlo.',
+	'graph.repair.fixTo': 'Corregir a «{title}»',
+	'graph.repair.ambiguous': 'Coinciden varias notas — elige una:',
+	'graph.repair.fixed': 'Se corrigió el enlace en «{title}».',
+	'graph.repair.fixFailed': 'No se pudo corregir el enlace en «{title}».',
 
 	/* Escenas › el formulario de creación, la lista y la confirmación de borrado */
 	'scenes.create': 'Crear',

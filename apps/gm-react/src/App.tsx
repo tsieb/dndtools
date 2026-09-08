@@ -55,6 +55,9 @@ const CampaignCalendar = lazy(() =>
 const Knowledge = lazy(() => import('./screens/knowledge').then((m) => ({ default: m.Knowledge })));
 const Settings = lazy(() => import('./screens/settings').then((m) => ({ default: m.Settings })));
 const Graph = lazy(() => import('./screens/Graph').then((m) => ({ default: m.Graph })));
+const GraphRepair = lazy(() =>
+	import('./screens/graph/Repair').then((m) => ({ default: m.Repair })),
+);
 const Audio = lazy(() => import('./screens/audio').then((m) => ({ default: m.Audio })));
 const Extensions = lazy(() =>
 	import('./screens/extensions').then((m) => ({ default: m.Extensions })),
@@ -400,6 +403,7 @@ function ShelledRoutes() {
 					<Route path="/campaign/calendar" element={<CampaignCalendar />} />
 					<Route path="/knowledge/:id?" element={<Knowledge />} />
 					<Route path="/graph" element={<Graph />} />
+					<Route path="/graph/repair" element={<GraphRepair />} />
 					<Route path="/audio" element={<Audio />} />
 					<Route path="/extensions" element={<Extensions />} />
 					<Route path="/community" element={<Community />} />

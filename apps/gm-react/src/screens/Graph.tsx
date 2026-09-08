@@ -712,6 +712,19 @@ export function Graph() {
 									count={health.report.openThreads.length}
 								/>
 							</div>
+							{/* RC-KNW-4.2 — one-click repair of broken wikilinks lives on its own screen (the
+							    preview + fix flow needs room a health-row count can't give it); this is just
+							    the entry point, DM-only since repairing is an authoring action. */}
+							<div style={{ marginTop: 10 }}>
+								<Button
+									variant="ghost"
+									size="sm"
+									icon="chevron-right"
+									onClick={() => navigate('/graph/repair')}
+								>
+									{t('graph.repair.entry')}
+								</Button>
+							</div>
 						</Panel>
 					) : (
 						<Panel title={t('graph.health')} action={<VisibilityChip level="players" compact />}>
