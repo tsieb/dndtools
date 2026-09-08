@@ -2,10 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
 	computeEncounterChallenge,
 	getActiveSystemForActor,
-	listCharactersForActor,
 	listEncountersForActor,
 	systemDeclaresChallenge,
-	type CommandResult,
 } from '@dndtools/core';
 import {
 	Badge,
@@ -13,7 +11,6 @@ import {
 	Dialog,
 	Field,
 	Icon,
-	IconButton,
 	Input,
 	ProgressMeter,
 	SegmentedControl,
@@ -22,9 +19,22 @@ import {
 	Toaster,
 } from '../ds';
 import { T, eb } from './screen-kit';
+import { DraftRoster, QuickAddFoe } from './EncounterDraftRoster';
+import {
+	AMBUSH_BOTTOM,
+	AMBUSH_TOP,
+	DIFFICULTY_BADGE,
+	DIFFICULTY_LABEL,
+	KIND_GROUPS,
+	dexModOf,
+	extractId,
+	rowFromCharacter,
+	type AmbushMode,
+	type DraftRow,
+	type RosterCharacter,
+} from './EncounterDraft';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useI18n } from '../i18n';
-import type { MessageKey } from '../i18n';
 
 /**
  * EncounterBuilder — the Session screen's encounter-composition dialog (SES-006 → SES-002), split
@@ -40,95 +50,6 @@ import type { MessageKey } from '../i18n';
  * MAP toggle for the session's active map, and AMBUSH/SURPRISE seeding that reads the party's
  * MARCHING ORDER to decide who acts first and which foes start hidden.
  */
-
-export type RosterCharacter = ReturnType<typeof listCharactersForActor>[number];
-
-function extractId(result: CommandResult, key: string): string | null {
-	if (result.status !== 'accepted') return null;
-	for (const event of result.events) {
-		const value = (event as Record<string, unknown>)[key];
-		if (typeof value === 'string') return value;
-	}
-	return null;
-}
-
-let draftKeySeq = 0;
-
-interface DraftRow {
-	key: string;
-	/** The tracker combatant kind — vault PCs stay `character` (live sheet mirroring); foes are instances. */
-	kind: 'character' | 'npc' | 'monster';
-	name: string;
-	characterId: string | null;
-	maxHp: number;
-	ac: number;
-	/** Kept as text so blank can mean "auto-roll" (locally at start; core 1d20 on mid-combat add). */
-	initiative: string;
-	cr: number;
-	quantity: number;
-	hidden: boolean;
-	dexMod: number;
-}
-
-function dexModOf(c: RosterCharacter): number {
-	const dex = typeof c.abilityScores?.dex === 'number' ? c.abilityScores.dex : 10;
-	return Math.floor((dex - 10) / 2);
-}
-
-function rowFromCharacter(c: RosterCharacter): DraftRow {
-	// Vault PCs join as `character` combatants (the core mirrors their live sheet HP). NPC/monster
-	// sheets seed per-encounter instances instead — three goblins must not share one sheet.
-	const kind = c.kind === 'pc' ? 'character' : c.kind === 'monster' ? 'monster' : 'npc';
-	const data = c.data as Record<string, unknown>;
-	return {
-		key: `char-${c.id}`,
-		kind,
-		name: c.name,
-		characterId: c.id,
-		maxHp: c.combat?.maxHp ?? 0,
-		ac: c.combat?.ac ?? 10,
-		initiative: '',
-		cr: typeof data.cr === 'number' ? (data.cr as number) : 1,
-		quantity: 1,
-		hidden: false,
-		dexMod: dexModOf(c),
-	};
-}
-
-const DIFFICULTY_BADGE: Record<string, 'neutral' | 'success' | 'info' | 'warning' | 'error'> = {
-	trivial: 'neutral',
-	easy: 'success',
-	medium: 'info',
-	hard: 'warning',
-	deadly: 'error',
-};
-
-const KIND_GROUPS: { label: MessageKey; match: (c: RosterCharacter) => boolean }[] = [
-	{ label: 'encounter.group.party', match: (c) => c.kind === 'pc' },
-	{ label: 'encounter.group.npcs', match: (c) => c.kind === 'npc' || c.kind === 'sidekick' },
-	{ label: 'encounter.group.monsters', match: (c) => c.kind === 'monster' },
-];
-
-/** The core's difficulty token rendered in the reader's language. */
-const DIFFICULTY_LABEL: Record<string, MessageKey> = {
-	trivial: 'encounter.difficulty.trivial',
-	easy: 'encounter.difficulty.easy',
-	medium: 'encounter.difficulty.medium',
-	hard: 'encounter.difficulty.hard',
-	deadly: 'encounter.difficulty.deadly',
-};
-
-/**
- * RC-SES-3.5 — how the encounter opens. `none` leaves initiative to the table (blank ⇒ auto-roll);
- * the other two seed the initiative block and hidden flags FROM THE MARCHING ORDER, so the front
- * rank acts first within the surprise round. Applying a mode writes real values into the visible
- * initiative fields — nothing is applied invisibly at submit time.
- */
-type AmbushMode = 'none' | 'party-ambushes' | 'party-surprised';
-
-/** The initiative a seeded side starts at; the other side starts below it. Deterministic. */
-const AMBUSH_TOP = 30;
-const AMBUSH_BOTTOM = 10;
 
 export function EncounterDialog({
 	mode,
@@ -161,9 +82,6 @@ export function EncounterDialog({
 	// re-clamps, so the draft only ever has to survive being mid-edit.
 	const [partySize, setPartySize] = useState('4');
 	const [partyLevel, setPartyLevel] = useState('3');
-	const [qName, setQName] = useState('');
-	const [qHp, setQHp] = useState('7');
-	const [qAc, setQAc] = useState('13');
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 	// RC-SES-3.5 — how the fight opens, and whether starting it puts tokens on the active map.
@@ -172,6 +90,10 @@ export function EncounterDialog({
 	// The saved encounter picked in the reuse row, and whether a save is in flight.
 	const [loadId, setLoadId] = useState('');
 	const [saving, setSaving] = useState(false);
+	// Bumped on every open/mode change so the quick-add and draft-roster sections remount with fresh
+	// local state. They own the typed DRAFTS (quick-add name/HP/AC, the per-row count and CR text)
+	// that this dialog used to reset by hand when it held them itself.
+	const [draftGen, setDraftGen] = useState(0);
 	// Initiative/hidden as they stood before an ambush mode was applied, keyed by row. Restored when
 	// the DM goes back to "none", so seeding an ambush and undoing it does not eat hand-typed
 	// initiative or a foe the DM had already marked hidden.
@@ -200,14 +122,10 @@ export function EncounterDialog({
 					: 3,
 			),
 		);
-		setQName('');
-		setQHp('7');
-		setQAc('13');
 		// CR is another typed draft, but it only commits on blur/Enter — and React fires no blur on
 		// unmount. Escaping the dialog mid-edit therefore left the draft behind, so on reopen the CR
 		// field showed the abandoned text while the difficulty meter still read the committed `r.cr`.
-		setCrDrafts({});
-		setQtyDrafts({});
+		setDraftGen((n) => n + 1);
 		setError(null);
 		// RC-SES-3.5 — a fresh open is an ordinary fight on a fresh draft: no ambush seed, no saved
 		// encounter selected, and tokens placed if there is a map to place them on.
@@ -344,8 +262,7 @@ export function EncounterDialog({
 		setTitle(saved.title);
 		setPartySize(String(saved.party.size));
 		setPartyLevel(String(saved.party.averageLevel));
-		setCrDrafts({});
-		setQtyDrafts({});
+		setDraftGen((n) => n + 1);
 		setAmbush('none');
 		preAmbushRef.current = {};
 		setRows(
@@ -429,25 +346,6 @@ export function EncounterDialog({
 	// input snapped back and swallowed the decimal point before "0.25"/"0.5" could be entered.
 	// Same story for the per-row count: `Math.trunc(Number(v) || 1)` on every keystroke snapped the
 	// field back to 1 the moment it was cleared, so "12" could not be retyped over "3".
-	const [qtyDrafts, setQtyDrafts] = useState<Record<string, string>>({});
-	function commitQty(key: string) {
-		const draft = qtyDrafts[key];
-		setQtyDrafts(({ [key]: _dropped, ...rest }) => rest);
-		if (draft === undefined || draft.trim() === '') return;
-		const parsed = Number(draft);
-		if (Number.isFinite(parsed))
-			patchRow(key, { quantity: Math.min(20, Math.max(1, Math.trunc(parsed))) });
-	}
-
-	const [crDrafts, setCrDrafts] = useState<Record<string, string>>({});
-	function commitCr(key: string) {
-		const draft = crDrafts[key];
-		setCrDrafts(({ [key]: _dropped, ...rest }) => rest);
-		if (draft === undefined || draft.trim() === '') return;
-		const parsed = Number(draft);
-		if (Number.isFinite(parsed)) patchRow(key, { cr: Math.max(0, parsed) });
-	}
-
 	function toggleCharacter(c: RosterCharacter) {
 		const key = `char-${c.id}`;
 		setRows((prev) =>
@@ -455,36 +353,6 @@ export function EncounterDialog({
 				? prev.filter((r) => r.key !== key)
 				: [...prev, rowFromCharacter(c)],
 		);
-	}
-
-	function quickAdd() {
-		const name = qName.trim();
-		if (!name) return;
-		draftKeySeq += 1;
-		setRows((prev) => [
-			...prev,
-			{
-				key: `quick-${draftKeySeq}`,
-				kind: 'monster',
-				name,
-				characterId: null,
-				// `Number('') || 0` is 0, so clearing the HP field quick-added a monster that was
-				// already Down — while the very next line sensibly falls back to AC 10.
-				maxHp: Math.max(1, Math.trunc(Number(qHp)) || 1),
-				ac: Math.max(0, Math.trunc(Number(qAc)) || 10),
-				initiative: '',
-				cr: 1,
-				quantity: 1,
-				hidden: false,
-				dexMod: 0,
-			},
-		]);
-		setQName('');
-	}
-
-	function rollInitiative(row: DraftRow) {
-		// A plain table-side d20 + DEX mod pre-fill — the DM can still type over it.
-		patchRow(row.key, { initiative: String(1 + Math.floor(Math.random() * 20) + row.dexMod) });
 	}
 
 	async function launch(): Promise<void> {
@@ -760,229 +628,16 @@ export function EncounterDialog({
 					})}
 				</div>
 
-				{/* Ad-hoc quick add — a monster that is not in the vault yet. */}
-				<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-					<Field label={t('encounter.quickAdd')} style={{ flex: '2 1 160px' }}>
-						<Input
-							value={qName}
-							placeholder={t('encounter.quickAddPlaceholder')}
-							onChange={(e: { target: { value: string } }) => setQName(e.target.value)}
-							onKeyDown={(e: { key: string }) => {
-								if (e.key === 'Enter') quickAdd();
-							}}
-						/>
-					</Field>
-					<Field label={t('encounter.hp')} style={{ width: 72 }}>
-						<Input
-							type="number"
-							// `quickAdd` floors at 1, so min={0} let the browser's own validation and the
-							// spinner offer a value the code silently overrode.
-							min={1}
-							value={qHp}
-							onChange={(e: { target: { value: string } }) => setQHp(e.target.value)}
-						/>
-					</Field>
-					<Field label={t('encounter.ac')} style={{ width: 72 }}>
-						<Input
-							type="number"
-							min={0}
-							value={qAc}
-							onChange={(e: { target: { value: string } }) => setQAc(e.target.value)}
-						/>
-					</Field>
-					<Button
-						variant="secondary"
-						size="sm"
-						icon="add"
-						disabled={!qName.trim()}
-						onClick={quickAdd}
-					>
-						{t('encounter.add')}
-					</Button>
-				</div>
+				<QuickAddFoe key={`quick-${draftGen}`} onAdd={(row) => setRows((prev) => [...prev, row])} />
 
-				{/* The draft roster — per-combatant initiative (typed or rolled), count, CR, visibility. */}
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-					<div style={eb}>{t('encounter.combatants', { count: rows.length })}</div>
-					{rows.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-							{t('encounter.nonePicked')}
-						</div>
-					) : (
-						rows.map((r) => (
-							<div
-								key={r.key}
-								style={{
-									display: 'flex',
-									alignItems: 'center',
-									gap: 8,
-									padding: '6px 10px',
-									borderRadius: 8,
-									border: `1px solid ${T.bd}`,
-									background: T.surf,
-									flexWrap: 'wrap',
-								}}
-							>
-								<span
-									style={{
-										flex: '1 1 120px',
-										minWidth: 0,
-										font: `600 13px ${T.sans}`,
-										color: T.ink,
-										whiteSpace: 'nowrap',
-										overflow: 'hidden',
-										textOverflow: 'ellipsis',
-									}}
-								>
-									{r.name}
-								</span>
-								<label
-									style={{
-										display: 'inline-flex',
-										alignItems: 'center',
-										gap: 5,
-										font: `11px ${T.sans}`,
-										color: T.ter,
-									}}
-								>
-									{t('encounter.init')}
-									<Input
-										value={r.initiative}
-										placeholder={t('encounter.initPlaceholder')}
-										aria-label={t('encounter.initOf', { name: r.name })}
-										style={{ width: 58, textAlign: 'center', fontFamily: T.mono }}
-										onChange={(e: { target: { value: string } }) =>
-											patchRow(r.key, { initiative: e.target.value.replace(/[^-\d]/g, '') })
-										}
-									/>
-								</label>
-								<IconButton
-									icon="dice"
-									label={t('encounter.rollInitiativeFor', { name: r.name })}
-									variant="ghost"
-									size="sm"
-									onClick={() => rollInitiative(r)}
-								/>
-								{r.kind !== 'character' && (
-									<>
-										{/* RC-SES-3.5 — count steppers. "Six goblins" is the single most common edit in
-										    the builder and typing it into a number field on a phone is the worst
-										    way to make it; −/+ are the pointer AND keyboard path (they are real
-										    buttons), with the field still there for a jump to 12. */}
-										<IconButton
-											icon="remove"
-											label={t('encounter.decreaseCount', { name: r.name })}
-											variant="ghost"
-											size="sm"
-											aria-disabled={r.quantity <= 1 || undefined}
-											onClick={() => {
-												if (r.quantity <= 1) return;
-												setQtyDrafts(({ [r.key]: _dropped, ...rest }) => rest);
-												patchRow(r.key, { quantity: r.quantity - 1 });
-											}}
-										/>
-										<label
-											style={{
-												display: 'inline-flex',
-												alignItems: 'center',
-												gap: 5,
-												font: `11px ${T.sans}`,
-												color: T.ter,
-											}}
-										>
-											×
-											<Input
-												type="number"
-												min={1}
-												max={20}
-												value={qtyDrafts[r.key] ?? r.quantity}
-												aria-label={t('encounter.quantityOf', { name: r.name })}
-												style={{ width: 56, textAlign: 'center', fontFamily: T.mono }}
-												onChange={(e: { target: { value: string } }) =>
-													setQtyDrafts((d) => ({ ...d, [r.key]: e.target.value }))
-												}
-												onBlur={() => commitQty(r.key)}
-												onKeyDown={(e: { key: string; preventDefault: () => void }) => {
-													if (e.key === 'Enter') {
-														e.preventDefault();
-														commitQty(r.key);
-													}
-												}}
-											/>
-										</label>
-										<IconButton
-											icon="add"
-											label={t('encounter.increaseCount', { name: r.name })}
-											variant="ghost"
-											size="sm"
-											aria-disabled={r.quantity >= 20 || undefined}
-											onClick={() => {
-												if (r.quantity >= 20) return;
-												setQtyDrafts(({ [r.key]: _dropped, ...rest }) => rest);
-												patchRow(r.key, { quantity: r.quantity + 1 });
-											}}
-										/>
-										{mode === 'start' && declaresChallenge && (
-											<label
-												style={{
-													display: 'inline-flex',
-													alignItems: 'center',
-													gap: 5,
-													font: `11px ${T.sans}`,
-													color: T.ter,
-												}}
-											>
-												{t('encounter.cr')}
-												<Input
-													type="number"
-													min={0}
-													step={0.25}
-													value={crDrafts[r.key] ?? r.cr}
-													aria-label={t('encounter.crOf', { name: r.name })}
-													style={{ width: 62, textAlign: 'center', fontFamily: T.mono }}
-													onChange={(e: { target: { value: string } }) =>
-														setCrDrafts((d) => ({ ...d, [r.key]: e.target.value }))
-													}
-													onBlur={() => commitCr(r.key)}
-													onKeyDown={(e: { key: string; preventDefault: () => void }) => {
-														if (e.key === 'Enter') {
-															e.preventDefault();
-															commitCr(r.key);
-														}
-													}}
-												/>
-											</label>
-										)}
-										<IconButton
-											icon={r.hidden ? 'visibility-hidden' : 'visibility-players'}
-											label={
-												r.hidden
-													? t('encounter.startsHidden', { name: r.name })
-													: t('encounter.startsVisible', { name: r.name })
-											}
-											variant="ghost"
-											size="sm"
-											aria-pressed={r.hidden}
-											onClick={() => patchRow(r.key, { hidden: !r.hidden })}
-										/>
-									</>
-								)}
-								<IconButton
-									icon="close"
-									label={t('encounter.removeFromDraft', { name: r.name })}
-									variant="ghost"
-									size="sm"
-									onClick={() => setRows((prev) => prev.filter((x) => x.key !== r.key))}
-								/>
-							</div>
-						))
-					)}
-					<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-						{mode === 'start'
-							? t('encounter.initiativeNoteStart')
-							: t('encounter.initiativeNoteReinforce')}
-					</div>
-				</div>
+				<DraftRoster
+					key={`roster-${draftGen}`}
+					rows={rows}
+					mode={mode}
+					declaresChallenge={declaresChallenge}
+					patchRow={patchRow}
+					onRemove={(key) => setRows((prev) => prev.filter((x) => x.key !== key))}
+				/>
 
 				{/* RC-SES-3.5 — how the fight opens: the ambush seed (read from the party's marching
 				    order) and whether starting it puts tokens on the session's active map. */}

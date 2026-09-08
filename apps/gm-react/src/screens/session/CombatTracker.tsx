@@ -1,5 +1,5 @@
 import type { CombatTrackerView } from '@dndtools/core';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
 	Avatar,
 	Badge,
@@ -22,22 +22,7 @@ import { HpKeypadSheet, type CombatantRow, type HpIntent } from '../../app/comba
 // RC-SES-3.3 — the stat-block quick reference behind the row's "Quick reference" action.
 import { StatBlockSheet } from '../../app/combat/StatBlockSheet';
 import { useCombatKeyboard } from './useCombatKeyboard';
-
-/**
- * RC-SES-3.2 — enough of the combatant's resources to put them back exactly as they were. The
- * amounts are read again from the CURRENT tracker at undo time (the core clamps at 0 and at maxHp,
- * and damage eats temporary HP first, so "the inverse delta" is not what was typed).
- */
-type HpUndo = {
-	id: string;
-	name: string;
-	intent: HpIntent;
-	amount: number;
-	hpBefore: number;
-	tempBefore: number;
-};
-
-const UNDO_WINDOW_MS = 5_000;
+import { useHpUndo, type HpUndo } from './useHpUndo';
 
 // ── Combat tracker ────────────────────────────────────────────────────────────────────────────────
 
@@ -112,7 +97,7 @@ export function CombatPanel({
 	// screen for chip damage), but a real hit lands for 14, and tapping "Damage 1 HP" fourteen times
 	// is not a tracker. Tap-and-hold the HP bar — or press `d`/`h` — and a keypad comes up.
 	const [hpSheet, setHpSheet] = useState<{ id: string; intent: HpIntent } | null>(null);
-	const [undo, setUndo] = useState<HpUndo | null>(null);
+	const { undo, remember: rememberHpUndo, undoHp } = useHpUndo({ tracker, onHp, onTempHp });
 	// One pointer at a time, so one timer is enough for the whole list.
 	const press = useRef<{ timer: number | null; fired: boolean }>({ timer: null, fired: false });
 	// RC-SES-3.4 — the selected combatant's detail panel (conditions/reorder/hide/remove), so `Enter`
@@ -133,14 +118,6 @@ export function CombatPanel({
 	const quickRefTarget = quickRefId
 		? (tracker.combatants.find((c) => c.id === quickRefId) ?? null)
 		: null;
-
-	// The undo chip is a PROMISE with a deadline: five seconds, then it goes. Clearing on unmount
-	// matters because the tracker unmounts the moment combat ends.
-	useEffect(() => {
-		if (!undo) return undefined;
-		const timer = window.setTimeout(() => setUndo(null), UNDO_WINDOW_MS);
-		return () => window.clearTimeout(timer);
-	}, [undo]);
 
 	useCombatKeyboard({
 		running,
@@ -186,7 +163,7 @@ export function CombatPanel({
 		if (intent === 'temp') onTempHp(id, amount);
 		else onHp(id, intent === 'damage' ? -amount : amount);
 		setHpSheet(null);
-		setUndo({
+		rememberHpUndo({
 			id,
 			name: row.name,
 			intent,
@@ -194,24 +171,6 @@ export function CombatPanel({
 			hpBefore: res.hp,
 			tempBefore: res.tempHp,
 		});
-	}
-
-	// Restoring the numbers, not replaying an inverse command. Damage spends temporary HP before real
-	// HP, so putting HP back means zeroing whatever temp is there now (one negative delta the core
-	// absorbs in the same order) and then setting temp back to what it was — `temp-hp` keeps the
-	// HIGHER value, so raising it always lands. Known limit: healing a dying combatant above 0 clears
-	// their death saves in the core, and no command can write those back.
-	function undoHp() {
-		const entry = undo;
-		setUndo(null);
-		if (!entry) return;
-		const res = tracker.combatants.find((c) => c.id === entry.id)?.resources;
-		if (!res) return;
-		const over = res.hp - entry.hpBefore;
-		if (over > 0) onHp(entry.id, -(over + res.tempHp));
-		else if (over < 0) onHp(entry.id, -over);
-		const tempNow = over > 0 ? 0 : res.tempHp;
-		if (tempNow < entry.tempBefore) onTempHp(entry.id, entry.tempBefore);
 	}
 
 	return (
