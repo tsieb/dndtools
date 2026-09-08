@@ -1,6 +1,6 @@
 import type { ActorId } from './ids';
 import type { CalendarDefinition, CustomDate } from './calendar';
-import { CALENDAR_SCHEMA_VERSION } from './calendar';
+import { CALENDAR_SCHEMA_VERSION, migrateCalendarDefinition } from './calendar';
 import type {
 	EntityVisibilityMetadata,
 	VisibilityLevel,
@@ -201,6 +201,22 @@ export const EMPTY_VAULT_CONTENT_STATE: VaultContentState = Object.freeze({
 	schemaVersion: VAULT_CONTENT_SCHEMA_VERSION,
 });
 
+/**
+ * RC-KNW-3.1 — hydrate the calendar registry through the definition migration, so a document written
+ * against `CALENDAR_SCHEMA_VERSION` 1 restores with the v2 shape. Pure.
+ */
+function migrateCalendars(
+	raw: Record<string, CalendarDefinition> | undefined,
+): Record<string, CalendarDefinition> {
+	if (!raw) return {};
+	const next: Record<string, CalendarDefinition> = {};
+	for (const [id, value] of Object.entries(raw)) {
+		const migrated = migrateCalendarDefinition(value);
+		if (migrated) next[id] = migrated;
+	}
+	return next;
+}
+
 /** Tolerantly hydrate a possibly-undefined/partial persisted content slice (safe defaults). */
 export function ensureVaultContentState(state: VaultContentState | undefined): VaultContentState {
 	const items: Record<string, ContentItem> = {};
@@ -218,7 +234,9 @@ export function ensureVaultContentState(state: VaultContentState | undefined): V
 		};
 	}
 	return {
-		calendars: state?.calendars ?? {},
+		// RC-KNW-3.1 — migrate every persisted calendar definition forward (v1 had no moons/holidays).
+		// A definition that cannot be interpreted at all is dropped rather than carried as a broken shape.
+		calendars: migrateCalendars(state?.calendars),
 		items,
 		// SRCH-004 — hydrate saved searches fail-closed: a content document persisted before this slice
 		// existed restores with no saved searches (never undefined); a record with missing visibility

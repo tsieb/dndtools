@@ -72,6 +72,23 @@ a vault-object subtype declared in `packages/core/src/state/vault-object-schema.
 `fields[VAULT_OBJECT_SUBTYPE_KEY]`) when the item is prose the DM reads in Knowledge — the
 RC-SES-4.1 `session-log` capture is written that way.
 
+### 3.1 The campaign calendar registry (RC-KNW-3.1)
+
+The same `content` slice holds a registry of `CalendarDefinition`s
+(`packages/core/src/state/calendar.ts`), keyed by id, which every dated surface interprets dates
+against. A definition carries ordered `months` (each with its own day count), optional `weekdays`,
+an optional `epochLabel` (the era printed after the year), optional `moons` (a cycle length plus an
+offset) and optional `holidays` (an annually recurring ordinal month/day).
+
+Moon phase and holiday matching are DERIVED, never stored: `moonPhasesOn` and `holidaysOn` are pure
+functions of (definition, date) over the same absolute day index the rest of the calendar arithmetic
+uses, so they read no clock and no locale and every surface computes the same answer.
+
+`CALENDAR_SCHEMA_VERSION` is `2`. Version 1 had no `moons`/`holidays`; the upgrade is additive, and
+`migrateCalendarDefinition` re-normalizes a persisted definition on hydration
+(`ensureVaultContentState`), dropping one whose months cannot be interpreted rather than carrying a
+shape the arithmetic cannot read.
+
 ## 4. Persistence (Dexie / IndexedDB)
 
 Renderer persistence for VAULT state is implemented once, in

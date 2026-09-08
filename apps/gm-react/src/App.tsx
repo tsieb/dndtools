@@ -47,6 +47,10 @@ const Characters = lazy(() =>
 );
 const Atlas = lazy(() => import('./screens/atlas').then((m) => ({ default: m.Atlas })));
 const Campaign = lazy(() => import('./screens/Campaign').then((m) => ({ default: m.Campaign })));
+// RC-KNW-3.1 — the calendar editor is a sub-route of Story, not a nav section of its own.
+const CampaignCalendar = lazy(() =>
+	import('./screens/campaign/Calendar').then((m) => ({ default: m.Calendar })),
+);
 const Knowledge = lazy(() => import('./screens/knowledge').then((m) => ({ default: m.Knowledge })));
 const Settings = lazy(() => import('./screens/settings').then((m) => ({ default: m.Settings })));
 const Graph = lazy(() => import('./screens/Graph').then((m) => ({ default: m.Graph })));
@@ -392,6 +396,7 @@ function ShelledRoutes() {
 					<Route path="/characters/:id?" element={<Characters />} />
 					<Route path="/atlas" element={<Atlas />} />
 					<Route path="/campaign" element={<Campaign />} />
+					<Route path="/campaign/calendar" element={<CampaignCalendar />} />
 					<Route path="/knowledge/:id?" element={<Knowledge />} />
 					<Route path="/graph" element={<Graph />} />
 					<Route path="/audio" element={<Audio />} />

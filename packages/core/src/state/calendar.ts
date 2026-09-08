@@ -23,7 +23,7 @@
  * without changing this value shape.
  */
 
-export const CALENDAR_SCHEMA_VERSION = 1 as const;
+export const CALENDAR_SCHEMA_VERSION = 2 as const;
 
 /** One named month in a custom calendar, with its own fixed day count (≥ 1). */
 export interface CalendarMonth {
@@ -38,6 +38,56 @@ export interface CalendarMonth {
  * A campaign calendar DEFINITION: the complete, self-contained description from which every date is
  * computed and formatted. No part of date math reads anything outside this object + the date value.
  */
+/**
+ * RC-KNW-3.1 — one MOON in a custom calendar. A moon is a pure cycle over the same absolute day index
+ * the rest of this module uses: `cycleDays` is the full period, `offsetDays` shifts where the cycle sits
+ * relative to the epoch. Phase is therefore derived, never stored, and identical on every device.
+ */
+export interface CalendarMoon {
+	/** Stable, definition-local moon id (a rename never re-points anything). */
+	id: string;
+	name: string;
+	/** Days in a full cycle (≥ 1). */
+	cycleDays: number;
+	/** Days the cycle is shifted relative to the epoch day (any integer; normalized into the cycle). */
+	offsetDays: number;
+}
+
+/**
+ * RC-KNW-3.1 — one annually recurring HOLIDAY: a name anchored to an ordinal month + day, so it lands on
+ * the same calendar day in every year. Stored by ordinal (not by month id) to match {@link CustomDate}.
+ */
+export interface CalendarHoliday {
+	id: string;
+	name: string;
+	/** 1-based ordinal month the holiday falls in. */
+	month: number;
+	/** 1-based day within that month. */
+	day: number;
+}
+
+/** The eight named phase buckets a moon cycle is reported in. Derived, stable, locale-free. */
+export type MoonPhaseName =
+	| 'new'
+	| 'waxingCrescent'
+	| 'firstQuarter'
+	| 'waxingGibbous'
+	| 'full'
+	| 'waningGibbous'
+	| 'lastQuarter'
+	| 'waningCrescent';
+
+/** A moon's derived state on a given date: its position in the cycle and the named phase bucket. */
+export interface MoonPhase {
+	moonId: string;
+	name: string;
+	/** Day within the cycle, 0-based, always in `[0, cycleDays)`. */
+	dayInCycle: number;
+	/** Fraction through the cycle in `[0, 1)`. */
+	fraction: number;
+	phase: MoonPhaseName;
+}
+
 export interface CalendarDefinition {
 	id: string;
 	name: string;
@@ -50,6 +100,10 @@ export interface CalendarDefinition {
 	weekdays?: string[];
 	/** The label printed for the era/epoch (e.g. "AR", "PD"). Absent ⇒ no era suffix. */
 	epochLabel?: string;
+	/** RC-KNW-3.1 — moons whose phases are DERIVED from the absolute day index. Absent ⇒ no moons. */
+	moons?: CalendarMoon[];
+	/** RC-KNW-3.1 — annually recurring holidays by ordinal month/day. Absent ⇒ no holidays. */
+	holidays?: CalendarHoliday[];
 	schemaVersion: typeof CALENDAR_SCHEMA_VERSION;
 }
 
@@ -84,6 +138,8 @@ export function createCalendarDefinition(input: {
 	months: Array<{ id: string; name: string; days: number }>;
 	weekdays?: string[];
 	epochLabel?: string;
+	moons?: Array<{ id: string; name: string; cycleDays: number; offsetDays?: number }>;
+	holidays?: Array<{ id: string; name: string; month: number; day: number }>;
 }): CalendarDefinition {
 	if (input.months.length === 0) {
 		throw new Error('A calendar definition requires at least one month.');
@@ -93,12 +149,35 @@ export function createCalendarDefinition(input: {
 		name: m.name,
 		days: Math.max(1, Math.trunc(m.days)),
 	}));
+	// RC-KNW-3.1 — moons/holidays normalize the same way months do: whole numbers, clamped into range,
+	// so a definition can never carry a cycle of zero days or a holiday on a day the month does not have.
+	const moons: CalendarMoon[] = (input.moons ?? []).map((m) => ({
+		id: m.id,
+		name: m.name,
+		cycleDays: Math.max(1, Math.trunc(m.cycleDays)),
+		offsetDays: Math.trunc(m.offsetDays ?? 0),
+	}));
+	const holidays: CalendarHoliday[] = (input.holidays ?? []).flatMap((h) => {
+		const month = Math.trunc(h.month);
+		const entry = months[month - 1];
+		if (!entry) return [];
+		return [
+			{
+				id: h.id,
+				name: h.name,
+				month,
+				day: Math.min(Math.max(1, Math.trunc(h.day)), entry.days),
+			},
+		];
+	});
 	return {
 		id: input.id,
 		name: input.name,
 		months,
 		...(input.weekdays && input.weekdays.length > 0 ? { weekdays: [...input.weekdays] } : {}),
 		...(input.epochLabel !== undefined ? { epochLabel: input.epochLabel } : {}),
+		...(moons.length > 0 ? { moons } : {}),
+		...(holidays.length > 0 ? { holidays } : {}),
 		schemaVersion: CALENDAR_SCHEMA_VERSION,
 	};
 }
@@ -301,4 +380,104 @@ export function formatCustomDate(
 		default:
 			return `${pad(date.year, 4)}-${pad(date.month, 2)}-${pad(date.day, 2)}`;
 	}
+}
+
+// --- RC-KNW-3.1 — moons, holidays, and the v1 → v2 definition migration -------------------------
+
+/** The eight phase buckets in cycle order; index = floor(fraction * 8). */
+const MOON_PHASE_NAMES: readonly MoonPhaseName[] = Object.freeze([
+	'new',
+	'waxingCrescent',
+	'firstQuarter',
+	'waxingGibbous',
+	'full',
+	'waningGibbous',
+	'lastQuarter',
+	'waningCrescent',
+]);
+
+/**
+ * Every moon's DERIVED phase on a date. Pure: the cycle position is `(absoluteDayIndex + offsetDays)`
+ * modulo `cycleDays`, kept non-negative for pre-epoch dates, so a phase never depends on a real clock.
+ * Returns an empty list when the calendar declares no moons or the date is invalid (fail closed).
+ */
+export function moonPhasesOn(calendar: CalendarDefinition, date: CustomDate): MoonPhase[] {
+	if (!calendar.moons || calendar.moons.length === 0) return [];
+	const index = absoluteDayIndex(calendar, date);
+	if (index === null) return [];
+	return calendar.moons.map((moon) => {
+		const cycle = Math.max(1, moon.cycleDays);
+		const dayInCycle = (((index + moon.offsetDays) % cycle) + cycle) % cycle;
+		const fraction = dayInCycle / cycle;
+		const bucket = Math.min(
+			MOON_PHASE_NAMES.length - 1,
+			Math.floor(fraction * MOON_PHASE_NAMES.length),
+		);
+		return {
+			moonId: moon.id,
+			name: moon.name,
+			dayInCycle,
+			fraction,
+			phase: MOON_PHASE_NAMES[bucket] ?? 'new',
+		};
+	});
+}
+
+/**
+ * The holidays that fall on a date (annually recurring by ordinal month/day). Pure; empty for an
+ * invalid date or a calendar with no holidays.
+ */
+export function holidaysOn(calendar: CalendarDefinition, date: CustomDate): CalendarHoliday[] {
+	if (!calendar.holidays || calendar.holidays.length === 0) return [];
+	if (!isValidCustomDate(calendar, date)) return [];
+	return calendar.holidays.filter((h) => h.month === date.month && h.day === date.day);
+}
+
+/**
+ * Migrate a persisted calendar definition forward to {@link CALENDAR_SCHEMA_VERSION}. v1 definitions
+ * had no moons/holidays, so the upgrade is purely additive: the definition is re-normalized through
+ * {@link createCalendarDefinition} (dropping malformed months/moons/holidays) and re-stamped. Fail
+ * closed: a definition with no usable months is rejected by returning `null` rather than persisting a
+ * shape the arithmetic cannot interpret.
+ */
+export function migrateCalendarDefinition(raw: unknown): CalendarDefinition | null {
+	if (!raw || typeof raw !== 'object') return null;
+	const value = raw as Partial<CalendarDefinition>;
+	if (typeof value.id !== 'string' || value.id.length === 0) return null;
+	if (typeof value.name !== 'string' || value.name.length === 0) return null;
+	const months = Array.isArray(value.months)
+		? value.months.filter(
+				(m): m is CalendarMonth =>
+					!!m && typeof m.id === 'string' && typeof m.name === 'string' && Number.isFinite(m.days),
+			)
+		: [];
+	if (months.length === 0) return null;
+	const moons = Array.isArray(value.moons)
+		? value.moons.filter(
+				(m): m is CalendarMoon =>
+					!!m &&
+					typeof m.id === 'string' &&
+					typeof m.name === 'string' &&
+					Number.isFinite(m.cycleDays),
+			)
+		: [];
+	const holidays = Array.isArray(value.holidays)
+		? value.holidays.filter(
+				(h): h is CalendarHoliday =>
+					!!h &&
+					typeof h.id === 'string' &&
+					typeof h.name === 'string' &&
+					Number.isFinite(h.month) &&
+					Number.isFinite(h.day),
+			)
+		: [];
+	return createCalendarDefinition({
+		id: value.id,
+		name: value.name,
+		months,
+		...(Array.isArray(value.weekdays) ? { weekdays: value.weekdays.filter((w) => !!w) } : {}),
+		...(typeof value.epochLabel === 'string' ? { epochLabel: value.epochLabel } : {}),
+		...(moons.length > 0 ? { moons } : {}),
+		...(holidays.length > 0 ? { holidays } : {}),
+	});
 }

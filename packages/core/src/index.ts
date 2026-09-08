@@ -2402,8 +2402,12 @@ export type {
 	CalendarDateFormat,
 	CalendarDateValidation,
 	CalendarDefinition,
+	CalendarHoliday,
 	CalendarMonth,
+	CalendarMoon,
 	CustomDate,
+	MoonPhase,
+	MoonPhaseName,
 } from './state/calendar';
 export {
 	CALENDAR_SCHEMA_VERSION,
@@ -2416,7 +2420,10 @@ export {
 	daysInYear,
 	formatCustomDate,
 	fromAbsoluteDayIndex,
+	holidaysOn,
 	isValidCustomDate,
+	migrateCalendarDefinition,
+	moonPhasesOn,
 	validateCustomDate,
 	weekdayName,
 } from './state/calendar';

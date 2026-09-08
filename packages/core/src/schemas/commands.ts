@@ -2208,7 +2208,28 @@ const timelineReferenceInputSchema = z
 	})
 	.strict();
 
+// RC-KNW-3.1 — a MOON: a pure cycle over the absolute day index (phase is derived, never stored).
+const calendarMoonSchema = z
+	.object({
+		id: idSchema,
+		name: z.string().min(1, 'A moon name is required'),
+		cycleDays: z.number().int().min(1, 'A moon cycle must be at least one day'),
+		offsetDays: z.number().int().optional(),
+	})
+	.strict();
+
+// RC-KNW-3.1 — an annually recurring HOLIDAY anchored to an ordinal month/day.
+const calendarHolidaySchema = z
+	.object({
+		id: idSchema,
+		name: z.string().min(1, 'A holiday name is required'),
+		month: z.number().int().min(1),
+		day: z.number().int().min(1),
+	})
+	.strict();
+
 // CONTENT-011 — define (or replace) a campaign calendar definition (authorized editor only).
+// RC-KNW-3.1 additively surfaces moons and holidays alongside the months/weekdays/era label.
 export const defineCalendarInputSchema = z
 	.object({
 		id: idSchema,
@@ -2216,6 +2237,8 @@ export const defineCalendarInputSchema = z
 		months: z.array(calendarMonthSchema).min(1, 'A calendar requires at least one month'),
 		weekdays: z.array(z.string().min(1)).optional(),
 		epochLabel: z.string().optional(),
+		moons: z.array(calendarMoonSchema).optional(),
+		holidays: z.array(calendarHolidaySchema).optional(),
 	})
 	.strict();
 
