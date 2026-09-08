@@ -7,17 +7,20 @@ import { parseCopilotSnapshot, type CopilotScope, type CopilotSnapshot } from '.
 
 /** Trusted server adapters. Implementations must enforce these scope and atomicity contracts. */
 export interface CopilotIndexerPorts {
-	/** Resolve membership and registration from server storage, not caller-supplied mode/role. */
+	/** Resolve current membership and registration from server storage on every call; no cached grant. */
 	authorize(scope: CopilotScope): Promise<{
 		role: 'dm' | 'player' | null;
 		registeredMode: RegisteredVaultPrivacyMode | undefined;
 	}>;
-	/** Use actor-scoped core queries. Never decrypt or inspect an E2EE envelope. */
+	/** Enforce current access at the read boundary and use actor-scoped core queries.
+	 * Never decrypt or inspect an E2EE envelope. */
 	readSnapshotForActor(scope: CopilotScope): Promise<unknown>;
-	/** One bounded batch; a provider/model change must rebuild the entire index. */
-	embed(texts: string[]): Promise<number[][]>;
-	/** Atomically replace this account/vault/actor index only if the source revision is still current.
-	 * Empty snapshots clear old chunks. Reject stale revisions; never append deleted source chunks. */
+	/** Enforce current access for this scope before disclosing one bounded batch to the provider.
+	 * A provider/model change must rebuild the entire index. */
+	embed(scope: CopilotScope, texts: string[]): Promise<number[][]>;
+	/** Atomically require current DM membership, Cloud-Enhanced registration and source revision
+	 * when replacing this account/vault/actor index. Reject access revocation and stale revisions;
+	 * never resurrect a revoked index. Empty snapshots clear old chunks, never append deleted ones. */
 	replaceIfCurrent(
 		scope: CopilotScope,
 		snapshot: CopilotSnapshot,
@@ -25,22 +28,42 @@ export interface CopilotIndexerPorts {
 	): Promise<boolean>;
 }
 
-/** No content reads, embedding calls, or writes before both security gates pass. */
-export async function indexCopilotSnapshot(scope: CopilotScope, ports: CopilotIndexerPorts) {
+function requireReleaseApproval() {
 	const record = DNDTOOLS_CLOUD_ENHANCED_SECURITY_DECISION_RECORD;
 	if (!isPlaintextUploadPermitted('cloud-enhanced', record)) {
 		throw new Error('Copilot is waiting for the Cloud-Enhanced security review.');
 	}
+	return record;
+}
+
+async function requireCurrentAccess(scope: CopilotScope, ports: CopilotIndexerPorts) {
+	requireReleaseApproval();
 	const access = await ports.authorize(scope);
+	const record = requireReleaseApproval();
 	if (access.role !== 'dm' || !isPlaintextUploadPermitted(access.registeredMode, record)) {
 		throw new Error('Copilot access is unavailable.');
 	}
+}
+
+/** Recheck access before each disclosure/write; adapters must also enforce it at their I/O boundary. */
+export async function indexCopilotSnapshot(inputScope: CopilotScope, ports: CopilotIndexerPorts) {
+	// Bind every asynchronous stage to the same server-resolved identity, even if the caller changes it.
+	const scope = Object.freeze({
+		accountId: inputScope.accountId,
+		vaultId: inputScope.vaultId,
+		actorId: inputScope.actorId,
+	});
+	await requireCurrentAccess(scope, ports);
 	const snapshot = parseCopilotSnapshot(await ports.readSnapshotForActor(scope));
 	const vectors: number[][] = [];
 	let dimensions: number | undefined;
 	for (let start = 0; start < snapshot.chunks.length; start += 32) {
 		const batch = snapshot.chunks.slice(start, start + 32);
-		const embedded = await ports.embed(batch.map((chunk) => chunk.text));
+		await requireCurrentAccess(scope, ports);
+		const embedded = await ports.embed(
+			scope,
+			batch.map((chunk) => chunk.text),
+		);
 		if (!Array.isArray(embedded) || embedded.length !== batch.length) {
 			throw new Error('Invalid Copilot embeddings.');
 		}
@@ -58,6 +81,7 @@ export async function indexCopilotSnapshot(scope: CopilotScope, ports: CopilotIn
 			vectors.push([...vector]);
 		}
 	}
+	await requireCurrentAccess(scope, ports);
 	if (!(await ports.replaceIfCurrent(scope, snapshot, vectors))) {
 		throw new Error('Copilot index changed. Try again.');
 	}
