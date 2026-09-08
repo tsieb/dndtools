@@ -5875,4 +5875,24 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.analytics.event.experience.tier': 'El nivel de complejidad de la interfaz',
 	'settings.analytics.event.cloud.capability': 'Se activó o desactivó una función de nube',
 	'settings.analytics.event.error.observed': 'Se detectó una categoría de error',
+	// --- RC-PLT-2.2 — objetivo de compartir en Android. ---
+	'share.import.title': 'Importar archivo compartido',
+	'share.import.description':
+		'Se compartió un archivo con Lamplight. No se añade nada a tu mundo hasta que lo importes.',
+	'share.import.notJson': 'Ese archivo no es JSON, así que no hay nada que importar.',
+	'share.import.notAPackage': 'Ese archivo no es un módulo de Lamplight.',
+	'share.import.kindWidget': 'Paquete de widgets',
+	'share.import.kindContent': 'Módulo de contenido',
+	'share.import.kindSystem': 'Paquete de sistema',
+	'share.import.kindUnsupported': 'Módulo que esta versión no puede instalar',
+	'share.import.kindUnknown': 'No es un módulo',
+	'share.import.unsupportedBody':
+		'Abre Comunidad para instalar este tipo de módulo desde el mercado.',
+	'share.import.willAdd': 'Añade {count} elementos. No se sobrescribe nada que ya tengas.',
+	'share.import.action': 'Importar',
+	'share.import.working': 'Importando…',
+	'share.import.failed': 'No se pudo importar el archivo compartido. Vuelve a compartirlo.',
+	'share.import.done': 'Se importaron {count} elementos de {name}.',
+	'liveSession.notification.title': 'La sesión está en directo',
+	'liveSession.notification.body': 'Toca para volver a la mesa.',
 };

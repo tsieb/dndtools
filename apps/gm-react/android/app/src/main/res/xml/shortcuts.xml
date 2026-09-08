@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    RC-PLT-2.2 — home-screen shortcuts. Both target MainActivity explicitly and carry the route as
+    an extra; the renderer re-checks that route against SHORTCUT_ROUTES in `platform/capabilities.ts`
+    before navigating, so this file names destinations but never decides them.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="session"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_session"
+        android:shortcutShortLabel="@string/shortcut_session_short"
+        android:shortcutLongLabel="@string/shortcut_session_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.dndtools.gm"
+            android:targetClass="com.dndtools.gm.MainActivity">
+            <extra android:name="dndtools_route" android:value="/session" />
+        </intent>
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="play"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_play"
+        android:shortcutShortLabel="@string/shortcut_play_short"
+        android:shortcutLongLabel="@string/shortcut_play_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.dndtools.gm"
+            android:targetClass="com.dndtools.gm.MainActivity">
+            <extra android:name="dndtools_route" android:value="/play" />
+        </intent>
+    </shortcut>
+</shortcuts>

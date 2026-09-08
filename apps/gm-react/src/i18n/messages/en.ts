@@ -5796,6 +5796,26 @@ export const en = {
 	'settings.analytics.event.experience.tier': 'The interface complexity level',
 	'settings.analytics.event.cloud.capability': 'A cloud feature was turned on or off',
 	'settings.analytics.event.error.observed': 'An error category was seen',
+	// --- RC-PLT-2.2 — Android share target: reviewing a file shared into Lamplight. ---
+	'share.import.title': 'Import shared file',
+	'share.import.description':
+		'A file was shared with Lamplight. Nothing is added to your world until you import it.',
+	'share.import.notJson': 'That file is not JSON, so there is nothing to import from it.',
+	'share.import.notAPackage': 'That file is not a Lamplight module.',
+	'share.import.kindWidget': 'Widget package',
+	'share.import.kindContent': 'Content module',
+	'share.import.kindSystem': 'System package',
+	'share.import.kindUnsupported': 'Module this release cannot install',
+	'share.import.kindUnknown': 'Not a module',
+	'share.import.unsupportedBody':
+		'Open Community to install this kind of module from the marketplace.',
+	'share.import.willAdd': 'Adds {count} items. Nothing you already have is overwritten.',
+	'share.import.action': 'Import',
+	'share.import.working': 'Importing…',
+	'share.import.done': 'Imported {count} items from {name}.',
+	'share.import.failed': 'The shared file could not be imported. Try sharing it again.',
+	'liveSession.notification.title': 'Session is live',
+	'liveSession.notification.body': 'Tap to return to the table.',
 } as const;
 
 /** Every string the app can render, addressed by key. */

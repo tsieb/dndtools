@@ -12,6 +12,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
+import com.dndtools.gm.plugins.DndtoolsAppIntentPlugin;
 import com.dndtools.gm.plugins.DndtoolsFileExportPlugin;
 import com.dndtools.gm.plugins.DndtoolsSecureStorePlugin;
 import com.getcapacitor.BridgeActivity;
@@ -36,6 +37,10 @@ public class MainActivity extends BridgeActivity {
         );
         registerPlugin(DndtoolsSecureStorePlugin.class);
         registerPlugin(DndtoolsFileExportPlugin.class);
+        registerPlugin(DndtoolsAppIntentPlugin.class);
+        // RC-PLT-2.2 — channels exist before anything is ever posted, so the DM can tune them in
+        // Android settings from first launch rather than after the first interruption.
+        NotificationChannels.ensure(getApplicationContext());
         super.onCreate(savedInstanceState);
 
         if (getBridge() == null || getBridge().getWebView() == null) {

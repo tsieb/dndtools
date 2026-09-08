@@ -4,4 +4,14 @@
     <string name="title_activity_main">Lamplight GM</string>
     <string name="package_name">com.dndtools.gm</string>
     <string name="custom_url_scheme">com.dndtools.gm</string>
+    <!-- RC-PLT-2.2 — home-screen shortcuts and the share target, as the launcher shows them. -->
+    <string name="shortcut_session_short">Session</string>
+    <string name="shortcut_session_long">Open the live session</string>
+    <string name="shortcut_play_short">Play</string>
+    <string name="shortcut_play_long">Open the player view</string>
+    <string name="share_target_label">Import into Lamplight</string>
+    <string name="notification_channel_live_session">Live session</string>
+    <string name="notification_channel_live_session_description">Shows while a session is live.</string>
+    <string name="notification_channel_updates">Updates</string>
+    <string name="notification_channel_updates_description">Finished assistant runs and table alerts.</string>
 </resources>

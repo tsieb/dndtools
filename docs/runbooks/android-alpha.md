@@ -193,6 +193,18 @@ supported portable backup.
   player projection remains available.
 - Local Ollama/cleartext HTTP providers are desktop-only. Android allows hosted HTTPS AI providers
   with user-supplied credentials and never prompts for notification permission until the user opts in.
+- Files shared into Lamplight (`application/json`, `application/octet-stream`) open an import review
+  rather than being applied: the review names the file, says what it is, and runs the same core
+  commands as a marketplace install. A file that is not a Lamplight module says so and offers no
+  import. The import ceiling is 8 MiB.
+- Two home-screen shortcuts are published from the manifest: Session and Play. The route travels as
+  an intent extra and is re-checked against `SHORTCUT_ROUTES` in `apps/gm-react/src/platform/
+capabilities.ts`, so a shortcut can only open a destination that allow-list names.
+- Two notification channels are created at first launch, so they can be tuned or silenced in Android
+  settings before anything is posted: **Live session** (`lamplight-live-session`, low importance,
+  silent, ongoing while a session is live) and **Updates** (`lamplight-updates`, everything
+  one-shot). Posting still requires the Android 13+ permission, which is only ever requested from
+  the explicit opt-in control.
 - Native Android share/save exports are limited to 32 MiB for this alpha. Larger vaults must have
   device-local media reduced or be exported from the desktop app.
 - When trusted production cloud coordinates are absent, account, cloud-backup, and internet relay
@@ -212,6 +224,9 @@ Before publishing, test the signed release APK on a clean API 36 emulator and re
   the root;
 - secure sign-in persistence, explicit notification opt-in, native share/export, file import, and
   external HTTPS links;
+- both home-screen shortcuts, an undeclared shortcut route being dropped, both notification channels
+  existing, and a shared file opening the import review (`scripts/android-emulator-acceptance.sh`
+  covers all four);
 - Quick Map pan and centroid pinch zoom, zoom/reset/fit, selection, token/POI placement and movement,
   fog reveal/conceal, projection, layer visibility, properties/history/generation sheet,
   generator preview/accept, undo/redo, import/export, and byte-preservation of unsupported precision

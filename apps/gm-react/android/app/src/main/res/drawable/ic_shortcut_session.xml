@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Home-screen shortcut icon for the live session (RC-PLT-2.2). Launchers draw shortcut icons on
+    the wallpaper rather than on an adaptive mask, so the glyph carries its own brand-ground disc.
+    The bolt is the app's `session-bolt` navigation glyph on the design system's 24 grid.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#0E0A06"
+        android:pathData="M24,0 a24,24 0 1,0 0,48 a24,24 0 1,0 0,-48 Z" />
+    <group android:translateX="12" android:translateY="12">
+        <path
+            android:pathData="M13,2 L3,14 L12,14 L11,22 L21,10 L12,10 Z"
+            android:strokeColor="#E0B06F"
+            android:strokeWidth="2"
+            android:strokeLineJoin="round"
+            android:strokeLineCap="round" />
+    </group>
+</vector>
