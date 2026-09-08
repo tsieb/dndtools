@@ -2821,6 +2821,20 @@ export const en = {
 	'community.export.hint':
 		'One note exports as markdown; more become a JSON bundle you can re-import in Knowledge.',
 
+	'community.scenePackage.title': 'Scene packages',
+	'community.scenePackage.hint':
+		'Share one scene card — its mood, flavor, and audio/lighting cues — as a .dndscene file for another table, or bring one in.',
+	'community.scenePackage.empty': 'Create a scene card in Scenes first.',
+	'community.scenePackage.selectLabel': 'Scene card to export',
+	'community.scenePackage.saveTitle': 'Export scene package',
+	'community.scenePackage.exportAction': 'Export .dndscene',
+	'community.scenePackage.importAction': 'Import .dndscene',
+	'community.scenePackage.exportDone': 'Downloaded “{title}” as a scene package.',
+	'community.scenePackage.exportError': 'Could not export the scene package.',
+	'community.scenePackage.importDone': 'Imported “{title}” as a new DM-only scene card.',
+	'community.scenePackage.importError': 'Could not import the scene package.',
+	'community.scenePackage.importInvalidJson': 'That file is not valid JSON.',
+
 	'community.discover.modules': 'Modules',
 	'community.discover.loadFailed': 'Couldn’t load the marketplace',
 	'community.discover.loadFailedBody': 'Check your connection and try again.',

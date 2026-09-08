@@ -6,7 +6,10 @@ import {
 	base64ToBytes,
 	bytesToBase64,
 	exportFullVault,
+	exportScenePackage,
 	importFullVault,
+	materializeScenePackage,
+	validateScenePackage,
 	validateVaultBackup,
 } from './backup';
 import { DND5E_SYSTEM_PACKAGE_ID } from '@dndtools/core';
@@ -136,5 +139,83 @@ describe('authoritative asset replacement', () => {
 
 		expect(await getAssetBytes(restoredId)).not.toBeNull();
 		expect(await getAssetBytes(priorOnlyId)).toBeNull();
+	});
+});
+
+describe('RC-AUD-2.3: .dndscene scene package round trip', () => {
+	it('bundles a vault-asset hero image, round-trips through JSON, and materializes new asset bytes', async () => {
+		const heroId = await putAssetBytes(bytesOf('a-moody-tavern-hero'), 'image/png');
+		const pkg = await exportScenePackage({
+			title: 'The Sunken Crypt',
+			mood: 'mystery',
+			flavorText: 'Cold air rises from the shattered floor.',
+			lightingHint: 'dark',
+			audioPresetId: 'preset-crypt-drips',
+			audioAssociationId: 'assoc-crypt-ambience',
+			heroImage: { kind: 'vault-asset', ref: heroId },
+		});
+		expect(pkg.format).toBe('dndtools-scene-package');
+		expect(pkg.card.heroImage).toEqual({ kind: 'bundled', ref: heroId });
+		expect(pkg.heroAsset?.id).toBe(heroId);
+
+		// Cross the file boundary (JSON.stringify/parse) exactly like a real export → download → import.
+		const validated = validateScenePackage(JSON.parse(JSON.stringify(pkg)));
+		expect(validated.card.title).toBe('The Sunken Crypt');
+		expect(validated.card.audioPresetId).toBe('preset-crypt-drips');
+		expect(validated.card.audioAssociationId).toBe('assoc-crypt-ambience');
+
+		const materialized = await materializeScenePackage(validated);
+		expect(materialized.title).toBe('The Sunken Crypt');
+		expect(materialized.lightingHint).toBe('dark');
+		expect(materialized.heroImage?.kind).toBe('vault-asset');
+		// Content-addressed: the re-stored bytes get the SAME id as the original (no duplication).
+		expect(materialized.heroImage?.ref).toBe(heroId);
+		const blob = await getAssetBytes(materialized.heroImage!.ref);
+		expect(new TextDecoder().decode(await blob!.arrayBuffer())).toBe('a-moody-tavern-hero');
+	});
+
+	it('keeps a url hero image as-is with no bundled bytes, and degrades a dangling vault-asset to none', async () => {
+		const urlPkg = await exportScenePackage({
+			title: 'Market Square',
+			mood: 'social',
+			flavorText: '',
+			lightingHint: null,
+			audioPresetId: null,
+			audioAssociationId: null,
+			heroImage: { kind: 'url', ref: 'https://example.com/market.jpg' },
+		});
+		expect(urlPkg.heroAsset).toBeNull();
+		expect(urlPkg.card.heroImage).toEqual({ kind: 'url', ref: 'https://example.com/market.jpg' });
+
+		const missingPkg = await exportScenePackage({
+			title: 'Ghost Reference',
+			mood: 'exploration',
+			flavorText: '',
+			lightingHint: null,
+			audioPresetId: null,
+			audioAssociationId: null,
+			heroImage: { kind: 'vault-asset', ref: 'asset-does-not-exist' },
+		});
+		expect(missingPkg.card.heroImage).toBeNull();
+		expect(missingPkg.heroAsset).toBeNull();
+	});
+
+	it('fails closed on a malformed or wrong-format file', () => {
+		expect(() => validateScenePackage(null)).toThrow(VaultBackupValidationError);
+		expect(() => validateScenePackage({ format: 'something-else' })).toThrow(
+			VaultBackupValidationError,
+		);
+		expect(() =>
+			validateScenePackage({
+				format: 'dndtools-scene-package',
+				version: 1,
+				createdAt: new Date().toISOString(),
+				card: {
+					title: 'Bad Bundle',
+					heroImage: { kind: 'bundled', ref: 'missing-asset' },
+				},
+				heroAsset: null,
+			}),
+		).toThrow(/hero image bytes/);
 	});
 });

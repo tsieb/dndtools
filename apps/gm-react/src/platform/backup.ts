@@ -1,9 +1,15 @@
 import {
 	MAX_ASSET_BLOB_BYTES,
+	SCENE_CARD_FLAVOR_MAX_LENGTH,
 	assetId,
 	hasAsciiControlCharacter,
 	hashAssetBytes,
+	isSceneCardLightingHint,
+	isSceneCardMood,
 	type CoreStateSlice,
+	type SceneCardHeroImage,
+	type SceneCardLightingHint,
+	type SceneCardMood,
 	type SyncOperation,
 } from '@dndtools/core';
 import {
@@ -12,7 +18,7 @@ import {
 	validateRestoredCoreState,
 	type AssetBlobRecord,
 } from './storage/coreStore';
-import { listAssetBytes } from './storage/assetStore';
+import { getAssetBytes, listAssetBytes, putAssetBytes } from './storage/assetStore';
 
 /**
  * Whole-vault backup: the full durable core state slice PLUS the asset bytes the cloud
@@ -297,4 +303,230 @@ export async function importFullVault(backup: VaultBackup): Promise<VaultRestore
 	const prepared = prepareVaultBackup(backup);
 	await restoreFullVaultState(prepared.backup.slice, prepared.assetRecords);
 	return { restoredAssets: prepared.assetRecords.length, skippedAssets: 0 };
+}
+
+/**
+ * RC-AUD-2.3 — `.dndscene` SCENE PACKAGE export/import: ONE scene card (title, mood, flavor,
+ * lighting hint, and the audio preset/sound-cue REFERENCES that make it a package — I11 S11.2.1,
+ * RC-AUD-2.1) carried as small standalone JSON, so a DM can hand a single scene to another table
+ * or archive it outside the whole-vault backup. Distinct from {@link exportFullVault}: this is a
+ * ONE-CARD, additive, non-destructive shape (Community → Export and the Scene cards panel), never a
+ * vault replacement.
+ *
+ * Portability rules, deliberately narrow:
+ *
+ *   - The hero image travels as `url` (kept as-is — nothing to bundle) or `bundled` (its bytes ride
+ *     along base64-encoded, content-address-verified on import exactly like a vault-backup asset).
+ *     A `vault-asset` hero whose bytes no longer resolve locally degrades to no hero image on
+ *     export rather than producing a package with a dangling reference — the same graceful-degrade
+ *     the display surface already applies to a missing asset.
+ *   - `audioPresetId` / `audioAssociationId` travel as bare REFERENCE ids, exactly as the live card
+ *     already treats them (`isSceneCardPackage`'s doc comment): resolved live at play time through
+ *     the destination vault's own preset/sound-board gates, so an id that doesn't exist there simply
+ *     fails to resolve — never a hard import error.
+ *   - Every package is plain JSON — "web-only packages as small JSON" per the roadmap: unlike the
+ *     whole-vault backup format there is no separate large-archive path, so a package with no
+ *     bundled hero image is always a few hundred bytes of text.
+ *   - Visibility is NOT carried: an imported card is always created `dm-only` (the command's own
+ *     fail-closed default), regardless of the visibility it had at the source table.
+ */
+
+export const SCENE_PACKAGE_FORMAT = 'dndtools-scene-package';
+export const SCENE_PACKAGE_VERSION = 1;
+
+/** The hero image half of a package: `url` (kept as-is) or `bundled` (bytes ride in `heroAsset`). */
+export interface ScenePackageHeroImage {
+	kind: 'url' | 'bundled';
+	ref: string;
+}
+
+export interface ScenePackageCard {
+	title: string;
+	mood: SceneCardMood;
+	flavorText: string;
+	lightingHint: SceneCardLightingHint | null;
+	audioPresetId: string | null;
+	audioAssociationId: string | null;
+	heroImage: ScenePackageHeroImage | null;
+}
+
+export interface ScenePackage {
+	format: typeof SCENE_PACKAGE_FORMAT;
+	version: number;
+	createdAt: string;
+	card: ScenePackageCard;
+	/** The bundled hero image bytes, present iff `card.heroImage.kind === 'bundled'`. */
+	heroAsset: VaultBackupAsset | null;
+}
+
+/** The minimal card shape an export needs — satisfied by both {@link SceneCard} and `SceneCardView`. */
+export interface ScenePackageSourceCard {
+	title: string;
+	mood: SceneCardMood;
+	flavorText: string;
+	lightingHint: SceneCardLightingHint | null;
+	audioPresetId: string | null;
+	audioAssociationId: string | null;
+	heroImage: SceneCardHeroImage | null;
+}
+
+/** Build a `.dndscene` package from one live card. Bundles hero bytes when they still resolve locally. */
+export async function exportScenePackage(card: ScenePackageSourceCard): Promise<ScenePackage> {
+	let heroImage: ScenePackageHeroImage | null = null;
+	let heroAsset: VaultBackupAsset | null = null;
+	if (card.heroImage?.kind === 'url') {
+		heroImage = { kind: 'url', ref: card.heroImage.ref };
+	} else if (card.heroImage?.kind === 'vault-asset') {
+		const blob = await getAssetBytes(card.heroImage.ref);
+		if (blob) {
+			const bytes = new Uint8Array(await blob.arrayBuffer());
+			heroImage = { kind: 'bundled', ref: card.heroImage.ref };
+			heroAsset = {
+				id: card.heroImage.ref,
+				mime: blob.type || 'application/octet-stream',
+				base64: bytesToBase64(bytes),
+			};
+		}
+		// else: the referenced asset no longer resolves locally — degrade to no hero image, honestly.
+	}
+	return {
+		format: SCENE_PACKAGE_FORMAT,
+		version: SCENE_PACKAGE_VERSION,
+		createdAt: new Date().toISOString(),
+		card: {
+			title: card.title,
+			mood: card.mood,
+			flavorText: card.flavorText.slice(0, SCENE_CARD_FLAVOR_MAX_LENGTH),
+			lightingHint: card.lightingHint,
+			audioPresetId: card.audioPresetId,
+			audioAssociationId: card.audioAssociationId,
+			heroImage,
+		},
+		heroAsset,
+	};
+}
+
+/** Validate an untrusted parsed `.dndscene` file completely (no bytes written, nothing dispatched). */
+export function validateScenePackage(value: unknown): ScenePackage {
+	if (!plainRecord(value)) throw new VaultBackupValidationError('Not a scene package file.');
+	if (value.format !== SCENE_PACKAGE_FORMAT) {
+		throw new VaultBackupValidationError('Not a dndtools scene package (missing format marker).');
+	}
+	if (value.version !== SCENE_PACKAGE_VERSION) {
+		throw new VaultBackupValidationError(
+			`Scene package version ${String(value.version)} is not supported by this app.`,
+		);
+	}
+	if (typeof value.createdAt !== 'string' || !Number.isFinite(Date.parse(value.createdAt))) {
+		throw new VaultBackupValidationError('Scene package creation time is invalid.');
+	}
+	const rawCard = value.card;
+	if (!plainRecord(rawCard) || typeof rawCard.title !== 'string' || rawCard.title.length < 1) {
+		throw new VaultBackupValidationError('Scene package is missing a card title.');
+	}
+	const audioPresetId =
+		typeof rawCard.audioPresetId === 'string' && rawCard.audioPresetId.length > 0
+			? rawCard.audioPresetId
+			: null;
+	const audioAssociationId =
+		typeof rawCard.audioAssociationId === 'string' && rawCard.audioAssociationId.length > 0
+			? rawCard.audioAssociationId
+			: null;
+
+	let heroImage: ScenePackageHeroImage | null = null;
+	let heroAsset: VaultBackupAsset | null = null;
+	const rawHero = rawCard.heroImage;
+	if (
+		plainRecord(rawHero) &&
+		(rawHero.kind === 'url' || rawHero.kind === 'bundled') &&
+		typeof rawHero.ref === 'string' &&
+		rawHero.ref.length > 0
+	) {
+		if (rawHero.kind === 'url') {
+			heroImage = { kind: 'url', ref: rawHero.ref };
+		} else {
+			// A bundled reference with no matching/valid bytes is a malformed file, not a graceful-degrade
+			// case — unlike a live vault asset going missing after the fact, this package was never valid.
+			const rawAsset = value.heroAsset;
+			if (
+				!plainRecord(rawAsset) ||
+				typeof rawAsset.id !== 'string' ||
+				rawAsset.id !== rawHero.ref ||
+				typeof rawAsset.mime !== 'string' ||
+				rawAsset.mime.length < 1 ||
+				rawAsset.mime.length > 255 ||
+				hasAsciiControlCharacter(rawAsset.mime) ||
+				typeof rawAsset.base64 !== 'string'
+			) {
+				throw new VaultBackupValidationError(
+					'Scene package hero image bytes are missing or malformed.',
+				);
+			}
+			const bytes = base64ToBytes(rawAsset.base64);
+			if (
+				bytes.byteLength < 1 ||
+				bytes.byteLength > MAX_ASSET_BLOB_BYTES ||
+				assetId(hashAssetBytes(bytes)) !== rawAsset.id
+			) {
+				throw new VaultBackupValidationError(
+					'Scene package hero image content does not match its declared asset id.',
+				);
+			}
+			heroImage = { kind: 'bundled', ref: rawHero.ref };
+			heroAsset = { id: rawAsset.id, mime: rawAsset.mime, base64: rawAsset.base64 };
+		}
+	}
+
+	return {
+		format: SCENE_PACKAGE_FORMAT,
+		version: SCENE_PACKAGE_VERSION,
+		createdAt: value.createdAt,
+		card: {
+			title: rawCard.title,
+			mood: isSceneCardMood(rawCard.mood) ? rawCard.mood : 'exploration',
+			flavorText:
+				typeof rawCard.flavorText === 'string'
+					? rawCard.flavorText.slice(0, SCENE_CARD_FLAVOR_MAX_LENGTH)
+					: '',
+			lightingHint: isSceneCardLightingHint(rawCard.lightingHint) ? rawCard.lightingHint : null,
+			audioPresetId,
+			audioAssociationId,
+			heroImage,
+		},
+		heroAsset,
+	};
+}
+
+/**
+ * Materialize a validated package into `scene-card.create` input: bundled hero bytes (if any) are
+ * written into the local asset store (content-addressed, so a re-import of the same bytes is a
+ * no-op) and resolved to a `vault-asset` reference. The caller still dispatches `scene-card.create`
+ * through the runtime — this helper never mutates durable core state itself.
+ */
+export async function materializeScenePackage(pkg: ScenePackage): Promise<{
+	title: string;
+	mood: SceneCardMood;
+	flavorText: string;
+	lightingHint: SceneCardLightingHint | null;
+	audioPresetId: string | null;
+	audioAssociationId: string | null;
+	heroImage: SceneCardHeroImage | null;
+}> {
+	let heroImage: SceneCardHeroImage | null = null;
+	if (pkg.card.heroImage?.kind === 'url') {
+		heroImage = { kind: 'url', ref: pkg.card.heroImage.ref };
+	} else if (pkg.card.heroImage?.kind === 'bundled' && pkg.heroAsset) {
+		const bytes = base64ToBytes(pkg.heroAsset.base64);
+		const id = await putAssetBytes(bytes, pkg.heroAsset.mime);
+		heroImage = { kind: 'vault-asset', ref: id };
+	}
+	return {
+		title: pkg.card.title,
+		mood: pkg.card.mood,
+		flavorText: pkg.card.flavorText,
+		lightingHint: pkg.card.lightingHint,
+		audioPresetId: pkg.card.audioPresetId,
+		audioAssociationId: pkg.card.audioAssociationId,
+		heroImage,
+	};
 }

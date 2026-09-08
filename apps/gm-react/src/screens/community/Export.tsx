@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { getContentItemsForActor, type CoreEvent } from '@dndtools/core';
-import { Button, Icon, Switch, Toaster, VisibilityChip } from '../../ds';
+import { getContentItemsForActor, listSceneCardsForActor, type CoreEvent } from '@dndtools/core';
+import { Button, Icon, Select, Switch, Toaster, VisibilityChip } from '../../ds';
 import { Panel, T, eb } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -10,8 +10,17 @@ import {
 	fileDateStamp,
 	type ExportResult,
 } from '../../platform/download';
-import { errText } from './shared';
+import { pickTextFile } from '../../platform/filePick';
+import {
+	exportScenePackage,
+	materializeScenePackage,
+	validateScenePackage,
+	VaultBackupValidationError,
+} from '../../platform/backup';
+import { errText, slugify } from './shared';
 import { useI18n } from '../../i18n';
+
+const MAX_SCENE_PACKAGE_FILE_BYTES = 16 * 1024 * 1024;
 
 export function CommExport() {
 	const { t } = useI18n();
@@ -46,6 +55,64 @@ export function CommExport() {
 	);
 	const dmOnlyCount = items.filter((i) => i.visibility === 'dm-only').length;
 	const playerCount = items.length - dmOnlyCount;
+
+	// RC-AUD-2.3 — scene packages (`.dndscene`): a ONE-CARD export/import, distinct from the bulk
+	// content export above. The actor-filtered read (the DM sees every live card, package half
+	// included) is the only source — never the raw session slice.
+	const sceneCards = useMemo(
+		() => listSceneCardsForActor(runtime.state.session, runtime.state.permissions, dmId),
+		[runtime.state.session, runtime.state.permissions, dmId],
+	);
+	const [sceneCardId, setSceneCardId] = useState('');
+	const selectedSceneCard = sceneCards.find((c) => c.id === sceneCardId) ?? sceneCards[0] ?? null;
+	const [scenePackageBusy, setScenePackageBusy] = useState(false);
+
+	const runScenePackageExport = async () => {
+		if (scenePackageBusy || !selectedSceneCard) return;
+		setScenePackageBusy(true);
+		try {
+			const pkg = await exportScenePackage(selectedSceneCard);
+			const fileName = `${slugify(selectedSceneCard.title)}.dndscene`;
+			const result = await downloadJsonFile(fileName, pkg, t('community.scenePackage.saveTitle'));
+			if (result.status === 'cancelled') return;
+			Toaster.success(t('community.scenePackage.exportDone', { title: selectedSceneCard.title }));
+		} catch (error) {
+			Toaster.error(errText(error, t('community.scenePackage.exportError')));
+		} finally {
+			setScenePackageBusy(false);
+		}
+	};
+
+	const runScenePackageImport = async () => {
+		if (scenePackageBusy) return;
+		setScenePackageBusy(true);
+		try {
+			const picked = await pickTextFile('.dndscene,application/json', MAX_SCENE_PACKAGE_FILE_BYTES);
+			if (!picked) return;
+			let parsed: unknown;
+			try {
+				parsed = JSON.parse(picked.text);
+			} catch {
+				throw new VaultBackupValidationError(t('community.scenePackage.importInvalidJson'));
+			}
+			const pkg = validateScenePackage(parsed);
+			const materialized = await materializeScenePackage(pkg);
+			const res = await runtime.dispatch({
+				type: 'scene-card.create',
+				actorId: dmId,
+				payload: materialized,
+			});
+			if (res.status !== 'accepted') {
+				Toaster.error(res.rejection.message);
+				return;
+			}
+			Toaster.success(t('community.scenePackage.importDone', { title: materialized.title }));
+		} catch (error) {
+			Toaster.error(errText(error, t('community.scenePackage.importError')));
+		} finally {
+			setScenePackageBusy(false);
+		}
+	};
 
 	// REAL type scope: distinct item kinds with live counts; the selection feeds core's `itemTypes`
 	// export parameter (scoping can only NARROW the visibility-filtered export, never widen it).
@@ -133,180 +200,226 @@ export function CommExport() {
 	};
 
 	return (
-		<div
-			style={{
-				display: 'grid',
-				gridTemplateColumns: isPhone ? '1fr' : '1fr 1fr',
-				gap: 18,
-				alignItems: 'start',
-			}}
-		>
-			<Panel title={t('community.export.whatTitle')}>
-				<div style={{ ...eb }}>
-					{t('community.export.contentTypes')}{' '}
-					<span style={{ color: T.ter, font: `11px ${T.sans}` }}>
-						{t('community.export.counts')}
-					</span>
-				</div>
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-					{kinds.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-							{t('community.export.empty')}
-						</div>
-					) : (
-						kinds.map(([kind, count]) => (
-							<label
-								key={kind}
+		<>
+			<div
+				style={{
+					display: 'grid',
+					gridTemplateColumns: isPhone ? '1fr' : '1fr 1fr',
+					gap: 18,
+					alignItems: 'start',
+				}}
+			>
+				<Panel title={t('community.export.whatTitle')}>
+					<div style={{ ...eb }}>
+						{t('community.export.contentTypes')}{' '}
+						<span style={{ color: T.ter, font: `11px ${T.sans}` }}>
+							{t('community.export.counts')}
+						</span>
+					</div>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+						{kinds.length === 0 ? (
+							<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+								{t('community.export.empty')}
+							</div>
+						) : (
+							kinds.map(([kind, count]) => (
+								<label
+									key={kind}
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: 11,
+										padding: '9px 11px',
+										border: `1px solid ${T.bd}`,
+										borderRadius: 9,
+										cursor: 'pointer',
+									}}
+								>
+									<Switch
+										checked={!offKinds[kind]}
+										aria-label={t('community.export.includeKind', { kind })}
+										onChange={() => setOffKinds((s) => ({ ...s, [kind]: !s[kind] }))}
+									/>
+									<span style={{ flex: 1, font: `12.5px ${T.sans}`, textTransform: 'capitalize' }}>
+										{kind}
+									</span>
+									<span style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{count}</span>
+								</label>
+							))
+						)}
+					</div>
+					<label
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: 11,
+							padding: '10px 11px',
+							borderRadius: 9,
+							background: priv ? 'var(--color-dm-only-subtle)' : T.alt,
+							border: `1px solid ${priv ? 'var(--color-dm-only-badge)' : T.bd}`,
+							cursor: 'pointer',
+							marginTop: 4,
+						}}
+					>
+						<Switch
+							checked={priv}
+							aria-label={t('community.export.includeDmOnly')}
+							onChange={() => setPriv((p: boolean) => !p)}
+						/>
+						<span style={{ flex: 1 }}>
+							<span
 								style={{
 									display: 'flex',
 									alignItems: 'center',
-									gap: 11,
-									padding: '9px 11px',
-									border: `1px solid ${T.bd}`,
-									borderRadius: 9,
-									cursor: 'pointer',
+									gap: 6,
+									font: `600 12.5px ${T.sans}`,
 								}}
 							>
-								<Switch
-									checked={!offKinds[kind]}
-									aria-label={t('community.export.includeKind', { kind })}
-									onChange={() => setOffKinds((s) => ({ ...s, [kind]: !s[kind] }))}
-								/>
-								<span style={{ flex: 1, font: `12.5px ${T.sans}`, textTransform: 'capitalize' }}>
-									{kind}
-								</span>
-								<span style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{count}</span>
-							</label>
-						))
-					)}
-				</div>
-				<label
-					style={{
-						display: 'flex',
-						alignItems: 'center',
-						gap: 11,
-						padding: '10px 11px',
-						borderRadius: 9,
-						background: priv ? 'var(--color-dm-only-subtle)' : T.alt,
-						border: `1px solid ${priv ? 'var(--color-dm-only-badge)' : T.bd}`,
-						cursor: 'pointer',
-						marginTop: 4,
-					}}
-				>
-					<Switch
-						checked={priv}
-						aria-label={t('community.export.includeDmOnly')}
-						onChange={() => setPriv((p: boolean) => !p)}
-					/>
-					<span style={{ flex: 1 }}>
-						<span
-							style={{
-								display: 'flex',
-								alignItems: 'center',
-								gap: 6,
-								font: `600 12.5px ${T.sans}`,
-							}}
-						>
-							{t('community.export.includeDmOnly')} <VisibilityChip level="dm-only" compact />
+								{t('community.export.includeDmOnly')} <VisibilityChip level="dm-only" compact />
+							</span>
+							<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
+								{t('community.export.includeDmOnlyHelp')}
+							</span>
 						</span>
-						<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
-							{t('community.export.includeDmOnlyHelp')}
-						</span>
-					</span>
-				</label>
-			</Panel>
-			<Panel accent title={t('community.export.title')}>
-				<div
-					style={{
-						display: 'flex',
-						alignItems: 'center',
-						gap: 10,
-						font: `12.5px ${T.sans}`,
-						color: T.sub,
-					}}
-				>
-					<Icon name="check" size={16} color={T.ok} />
-					<span>
-						{t('community.export.tally', {
-							total: items.length,
-							player: playerCount,
-							dmOnly: dmOnlyCount,
-						})}
-					</span>
-				</div>
-				<div
-					style={{
-						display: 'flex',
-						alignItems: 'center',
-						gap: 8,
-						padding: '10px 12px',
-						borderRadius: 9,
-						background: T.sunken,
-						border: `1px solid ${T.bd}`,
-						marginTop: 6,
-					}}
-				>
-					<Icon name="download" size={16} color={T.acc} />
-					<span
+					</label>
+				</Panel>
+				<Panel accent title={t('community.export.title')}>
+					<div
 						style={{
-							flex: 1,
-							font: `12px ${T.mono}`,
+							display: 'flex',
+							alignItems: 'center',
+							gap: 10,
+							font: `12.5px ${T.sans}`,
 							color: T.sub,
-							whiteSpace: 'nowrap',
-							overflow: 'hidden',
-							textOverflow: 'ellipsis',
 						}}
 					>
-						{t(priv ? 'community.export.modeBackup' : 'community.export.modePortable')} ·{' '}
-						{allSelected
-							? t('community.export.allTypes')
-							: t('community.export.someTypes', {
-									selected: selectedKinds.length,
-									total: kinds.length,
-								})}{' '}
-						· {t('community.export.downloads')}
-					</span>
-				</div>
-				<Button
-					variant="primary"
-					size="md"
-					icon="download"
-					disabled={items.length === 0 || selectedKinds.length === 0 || exporting}
-					onClick={() => void runExport()}
-				>
-					{exporting ? t('community.export.exporting') : t('community.export.action')}
-				</Button>
-				{/* An export writes a file and reports what it omitted for visibility — the one thing a DM
+						<Icon name="check" size={16} color={T.ok} />
+						<span>
+							{t('community.export.tally', {
+								total: items.length,
+								player: playerCount,
+								dmOnly: dmOnlyCount,
+							})}
+						</span>
+					</div>
+					<div
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: 8,
+							padding: '10px 12px',
+							borderRadius: 9,
+							background: T.sunken,
+							border: `1px solid ${T.bd}`,
+							marginTop: 6,
+						}}
+					>
+						<Icon name="download" size={16} color={T.acc} />
+						<span
+							style={{
+								flex: 1,
+								font: `12px ${T.mono}`,
+								color: T.sub,
+								whiteSpace: 'nowrap',
+								overflow: 'hidden',
+								textOverflow: 'ellipsis',
+							}}
+						>
+							{t(priv ? 'community.export.modeBackup' : 'community.export.modePortable')} ·{' '}
+							{allSelected
+								? t('community.export.allTypes')
+								: t('community.export.someTypes', {
+										selected: selectedKinds.length,
+										total: kinds.length,
+									})}{' '}
+							· {t('community.export.downloads')}
+						</span>
+					</div>
+					<Button
+						variant="primary"
+						size="md"
+						icon="download"
+						disabled={items.length === 0 || selectedKinds.length === 0 || exporting}
+						onClick={() => void runExport()}
+					>
+						{exporting ? t('community.export.exporting') : t('community.export.action')}
+					</Button>
+					{/* An export writes a file and reports what it omitted for visibility — the one thing a DM
 				    must hear. The region is mounted unconditionally (and the idle hint kept OUTSIDE it)
 				    so the result is announced when it arrives, rather than the region appearing with its
 				    content already in place, which assistive tech announces unreliably. */}
+					<div
+						role="status"
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: 8,
+							font: `12px ${T.sans}`,
+							color: T.sub,
+						}}
+					>
+						{result ? (
+							<>
+								<Icon name="check" size={15} color={T.ok} />
+								<span>
+									{t('community.export.doneBefore')}{' '}
+									<code style={{ font: `11.5px ${T.mono}` }}>{result.file}</code>{' '}
+									{t('community.export.doneMiddle', { count: result.exported })}{' '}
+									<strong>{result.mode}</strong>{' '}
+									{t('community.export.doneAfter', { omitted: result.omitted })}
+								</span>
+							</>
+						) : null}
+					</div>
+					{result ? null : (
+						<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+							{t('community.export.hint')}
+						</div>
+					)}
+				</Panel>
+			</div>
+			<Panel title={t('community.scenePackage.title')} style={{ marginTop: 18 }}>
+				<div style={{ ...eb }}>{t('community.scenePackage.hint')}</div>
 				<div
-					role="status"
 					style={{
 						display: 'flex',
+						flexWrap: 'wrap',
 						alignItems: 'center',
-						gap: 8,
-						font: `12px ${T.sans}`,
-						color: T.sub,
+						gap: 10,
 					}}
 				>
-					{result ? (
-						<>
-							<Icon name="check" size={15} color={T.ok} />
-							<span>
-								{t('community.export.doneBefore')}{' '}
-								<code style={{ font: `11.5px ${T.mono}` }}>{result.file}</code>{' '}
-								{t('community.export.doneMiddle', { count: result.exported })}{' '}
-								<strong>{result.mode}</strong>{' '}
-								{t('community.export.doneAfter', { omitted: result.omitted })}
-							</span>
-						</>
-					) : null}
+					{sceneCards.length === 0 ? (
+						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+							{t('community.scenePackage.empty')}
+						</div>
+					) : (
+						<Select
+							aria-label={t('community.scenePackage.selectLabel')}
+							value={selectedSceneCard?.id ?? ''}
+							onChange={(e: { target: { value: string } }) => setSceneCardId(e.target.value)}
+							options={sceneCards.map((c) => ({ value: c.id, label: c.title }))}
+						/>
+					)}
+					<Button
+						variant="secondary"
+						size="md"
+						icon="download"
+						disabled={!selectedSceneCard || scenePackageBusy}
+						onClick={() => void runScenePackageExport()}
+					>
+						{t('community.scenePackage.exportAction')}
+					</Button>
+					<Button
+						variant="secondary"
+						size="md"
+						icon="upload"
+						disabled={scenePackageBusy}
+						onClick={() => void runScenePackageImport()}
+					>
+						{t('community.scenePackage.importAction')}
+					</Button>
 				</div>
-				{result ? null : (
-					<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{t('community.export.hint')}</div>
-				)}
 			</Panel>
-		</div>
+		</>
 	);
 }

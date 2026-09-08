@@ -2891,6 +2891,21 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.export.hint':
 		'Una sola nota se exporta como markdown; varias se convierten en un paquete JSON que puedes volver a importar en Conocimiento.',
 
+	'community.scenePackage.title': 'Paquetes de escena',
+	'community.scenePackage.hint':
+		'Comparte una carta de escena (su ambiente, texto y señales de audio/iluminación) como un archivo .dndscene para otra mesa, o importa una.',
+	'community.scenePackage.empty': 'Crea primero una carta de escena en Escenas.',
+	'community.scenePackage.selectLabel': 'Carta de escena a exportar',
+	'community.scenePackage.saveTitle': 'Exportar paquete de escena',
+	'community.scenePackage.exportAction': 'Exportar .dndscene',
+	'community.scenePackage.importAction': 'Importar .dndscene',
+	'community.scenePackage.exportDone': 'Se descargó “{title}” como paquete de escena.',
+	'community.scenePackage.exportError': 'No se pudo exportar el paquete de escena.',
+	'community.scenePackage.importDone':
+		'Se importó “{title}” como nueva carta de escena solo del DJ.',
+	'community.scenePackage.importError': 'No se pudo importar el paquete de escena.',
+	'community.scenePackage.importInvalidJson': 'Ese archivo no es JSON válido.',
+
 	'community.discover.modules': 'Módulos',
 	'community.discover.loadFailed': 'No se pudo cargar el mercado',
 	'community.discover.loadFailedBody': 'Revisa tu conexión e inténtalo de nuevo.',
