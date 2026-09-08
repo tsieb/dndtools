@@ -53,6 +53,10 @@ export interface AudioAssetView {
 	licenseNote: string;
 	attribution: string;
 	tags: string[];
+	/** RC-AUD-1.2 — decoded track length in seconds, or null when unmeasured. */
+	durationSeconds: number | null;
+	/** RC-AUD-1.2 — waveform thumbnail peaks (`0..1`), empty when unmeasured. */
+	waveform: number[];
 	sourceId: string;
 	/** AUDIO-004 AC2 — true when the asset is flagged for license review (undeclared/restricted/no-attribution). */
 	needsLicenseReview: boolean;
@@ -73,6 +77,8 @@ function toAssetView(asset: AudioAsset): AudioAssetView {
 		licenseNote: asset.license.licenseNote,
 		attribution: asset.license.attribution,
 		tags: [...asset.tags],
+		durationSeconds: asset.durationSeconds,
+		waveform: [...asset.waveform],
 		sourceId: asset.source.sourceId,
 		needsLicenseReview: assetNeedsLicenseReview(asset),
 		reviewReason: licenseReviewReason(asset),

@@ -2,7 +2,7 @@ import { type FormEvent } from 'react';
 import { type AudioAssetView, type AudioSourceClassification } from '@dndtools/core';
 import { Badge, Button, EmptyState, Field, Icon, Input, Select } from '../../../ds';
 import { Panel, T } from '../../../app/screen-kit';
-import { SOURCE_KINDS, type BytesPresence, type SourceKind } from '../shared';
+import { SOURCE_KINDS, formatAudioDuration, type BytesPresence, type SourceKind } from '../shared';
 import { useI18n } from '../../../i18n';
 import { type AudioTrackView } from '../types';
 
@@ -179,13 +179,18 @@ export function PlaybackLeft({
 											{a.title || a.fileName}
 										</span>
 										<span style={{ display: 'block', font: `10.5px ${T.sans}`, color: T.ter }}>
-											{bytes === 'unknown'
-												? t('audio.soundboard.checkingDevice')
-												: bytes === 'present'
-													? a.tags.length
-														? a.tags.join(' · ')
-														: a.mimeType
-													: t('audio.soundboard.bytesMissing')}
+											{(() => {
+												const duration = formatAudioDuration(a.durationSeconds);
+												const detail =
+													bytes === 'unknown'
+														? t('audio.soundboard.checkingDevice')
+														: bytes === 'present'
+															? a.tags.length
+																? a.tags.join(' · ')
+																: a.mimeType
+															: t('audio.soundboard.bytesMissing');
+												return duration ? `${duration} · ${detail}` : detail;
+											})()}
 										</span>
 									</span>
 									{a.needsLicenseReview && (

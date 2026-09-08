@@ -74,6 +74,8 @@ const CLEARED_ASSET = {
 	checksum: 'abc',
 	license: { kind: 'owned' as const, licenseNote: '', attribution: '' },
 	tags: [],
+	durationSeconds: null,
+	waveform: [],
 	source: { sourceId: 's-local', importedAt: 't', importedBy: 'd' },
 	schemaVersion: 1 as const,
 };

@@ -32,6 +32,20 @@ export const ACTION_LABELS: Record<AudioAutomationAction, MessageKey> = {
 	stop: 'audio.action.stop',
 };
 
+/** RC-AUD-1.2 — format a measured duration as `m:ss` (`h:mm:ss` past an hour). Null/negative ⇒ `null`
+ *  (the caller renders no duration rather than a fabricated `0:00`). */
+export function formatAudioDuration(durationSeconds: number | null): string | null {
+	if (durationSeconds === null || !Number.isFinite(durationSeconds) || durationSeconds < 0)
+		return null;
+	const totalSeconds = Math.round(durationSeconds);
+	const hours = Math.floor(totalSeconds / 3600);
+	const minutes = Math.floor((totalSeconds % 3600) / 60);
+	const seconds = totalSeconds % 60;
+	const paddedSeconds = String(seconds).padStart(2, '0');
+	if (hours > 0) return `${hours}:${String(minutes).padStart(2, '0')}:${paddedSeconds}`;
+	return `${minutes}:${paddedSeconds}`;
+}
+
 /** Whether this browser can switch `<audio>` output devices at all (Firefox can't, e.g.). */
 export const SUPPORTS_SINK_SELECTION =
 	typeof HTMLMediaElement !== 'undefined' && 'setSinkId' in HTMLMediaElement.prototype;

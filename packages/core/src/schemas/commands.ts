@@ -3044,6 +3044,9 @@ export const importAudioAssetInputSchema = z
 		title: z.string().optional(),
 		license: audioLicenseSchema.optional(),
 		tags: z.array(z.string()).optional(),
+		// RC-AUD-1.2 — measured client-side at import time (duration/waveform decode has no core equivalent).
+		durationSeconds: z.number().nonnegative().optional(),
+		waveform: z.array(z.number()).max(4096).optional(),
 		maxBytes: z.number().int().positive().optional(),
 	})
 	.strict();
@@ -3056,6 +3059,9 @@ export const updateAudioAssetMetadataInputSchema = z
 		title: z.string().optional(),
 		license: audioLicenseSchema.optional(),
 		tags: z.array(z.string()).optional(),
+		// RC-AUD-1.2 — a later measurement (e.g. after decode finishes) can attach duration/waveform.
+		durationSeconds: z.number().nonnegative().optional(),
+		waveform: z.array(z.number()).max(4096).optional(),
 	})
 	.strict();
 

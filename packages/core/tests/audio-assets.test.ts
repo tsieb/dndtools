@@ -37,7 +37,11 @@ function rejected(result: CommandResult): Extract<CommandResult, { status: 'reje
 	return result;
 }
 
-function dispatch(state: CoreStateSlice, env: CoreEnvironment, command: CoreCommand): CommandResult {
+function dispatch(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	command: CoreCommand,
+): CommandResult {
 	return dispatchCommand(state, env, command);
 }
 
@@ -76,7 +80,11 @@ describe('AUDIO-004 — pure asset model + licensing review', () => {
 		// Tags are normalized (trim/lowercase/dedupe/sort).
 		expect(built.tags).toEqual(['ambience', 'tavern']);
 		// License note + source reference recorded.
-		expect(built.license).toEqual({ kind: 'owned', licenseNote: 'My own recording', attribution: '' });
+		expect(built.license).toEqual({
+			kind: 'owned',
+			licenseNote: 'My own recording',
+			attribution: '',
+		});
 		expect(built.source.sourceId).toBe('src-local');
 		expect(built.source.importedBy).toBe(DM_ACTOR.id);
 	});
@@ -98,14 +106,17 @@ describe('AUDIO-004 — pure asset model + licensing review', () => {
 	});
 
 	it('rejects empty, oversized, and non-native MIME imports fail-closed (before any write)', () => {
-		expect('error' in buildAudioAsset({
-			bytes: Uint8Array.from([]),
-			mimeType: 'audio/mpeg',
-			fileName: 'x.mp3',
-			sourceId: 's',
-			importedBy: 'd',
-			importedAt: 't',
-		})).toBe(true);
+		expect(
+			'error' in
+				buildAudioAsset({
+					bytes: Uint8Array.from([]),
+					mimeType: 'audio/mpeg',
+					fileName: 'x.mp3',
+					sourceId: 's',
+					importedBy: 'd',
+					importedAt: 't',
+				}),
+		).toBe(true);
 		const tooLarge = buildAudioAsset({
 			bytes: Uint8Array.from([1, 2, 3, 4]),
 			mimeType: 'audio/mpeg',
@@ -217,12 +228,19 @@ describe('AUDIO-004 — import command + actor-filtered library read', () => {
 			dispatch(
 				state,
 				env,
-				importAssetCommand({ tags: ['battle'], license: { kind: 'royalty-free', licenseNote: 'pack-42' } }),
+				importAssetCommand({
+					tags: ['battle'],
+					license: { kind: 'royalty-free', licenseNote: 'pack-42' },
+				}),
 			),
 		);
 		expect(result.operationIds).toHaveLength(1);
 		expect(result.events[0]).toMatchObject({ kind: 'audio.asset-imported', deduped: false });
-		const assets = listAudioAssetsForActor(result.nextState.audio, result.nextState.permissions, DM_ACTOR.id);
+		const assets = listAudioAssetsForActor(
+			result.nextState.audio,
+			result.nextState.permissions,
+			DM_ACTOR.id,
+		);
 		expect(assets).toHaveLength(1);
 		expect(assets[0]).toMatchObject({
 			fileName: 'tavern.mp3',
@@ -240,11 +258,13 @@ describe('AUDIO-004 — import command + actor-filtered library read', () => {
 		let state = buildInitialState(DM_ACTOR);
 		const env = makeEnvironment();
 		state = accept(dispatch(state, env, importAssetCommand())).nextState; // undeclared
-		const second = accept(
-			dispatch(state, env, importAssetCommand({ license: { kind: 'owned' } })),
-		);
+		const second = accept(dispatch(state, env, importAssetCommand({ license: { kind: 'owned' } })));
 		expect(second.events[0]).toMatchObject({ kind: 'audio.asset-imported', deduped: true });
-		const assets = listAudioAssetsForActor(second.nextState.audio, second.nextState.permissions, DM_ACTOR.id);
+		const assets = listAudioAssetsForActor(
+			second.nextState.audio,
+			second.nextState.permissions,
+			DM_ACTOR.id,
+		);
 		expect(assets).toHaveLength(1);
 		expect(assets[0]?.licenseKind).toBe('owned');
 	});
@@ -275,14 +295,20 @@ describe('AUDIO-004 — import command + actor-filtered library read', () => {
 		let state = buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR);
 		const env = makeEnvironment();
 		state = accept(dispatch(state, env, importAssetCommand())).nextState;
-		expect(listAudioAssetsForActor(state.audio, state.permissions, PLAYER_ACTOR.id)).toHaveLength(0);
-		expect(listAudioAssetsForActor(state.audio, state.permissions, OBSERVER_ACTOR.id)).toHaveLength(0);
+		expect(listAudioAssetsForActor(state.audio, state.permissions, PLAYER_ACTOR.id)).toHaveLength(
+			0,
+		);
+		expect(listAudioAssetsForActor(state.audio, state.permissions, OBSERVER_ACTOR.id)).toHaveLength(
+			0,
+		);
 	});
 
 	it('AC2: review list surfaces only the assets flagged for licensing review', () => {
 		let state = buildInitialState(DM_ACTOR);
 		const env = makeEnvironment();
-		state = accept(dispatch(state, env, importAssetCommand({ bytes: [1], license: { kind: 'owned' } }))).nextState;
+		state = accept(
+			dispatch(state, env, importAssetCommand({ bytes: [1], license: { kind: 'owned' } })),
+		).nextState;
 		state = accept(dispatch(state, env, importAssetCommand({ bytes: [2] }))).nextState; // undeclared ⇒ flagged
 		const needsReview = listAudioAssetsNeedingReview(state.audio, state.permissions, DM_ACTOR.id);
 		expect(needsReview).toHaveLength(1);
@@ -294,7 +320,8 @@ describe('AUDIO-004 — import command + actor-filtered library read', () => {
 		const env = makeEnvironment();
 		const imported = accept(dispatch(state, env, importAssetCommand()));
 		state = imported.nextState;
-		const assetId = imported.events[0] && 'assetId' in imported.events[0] ? imported.events[0].assetId : '';
+		const assetId =
+			imported.events[0] && 'assetId' in imported.events[0] ? imported.events[0].assetId : '';
 		const updated = accept(
 			dispatch(state, env, {
 				type: 'audio.update-asset-metadata',
@@ -302,9 +329,20 @@ describe('AUDIO-004 — import command + actor-filtered library read', () => {
 				payload: { assetId, license: { kind: 'cc-by', attribution: 'Composer X' }, tags: ['epic'] },
 			}),
 		);
-		expect(updated.events[0]).toMatchObject({ kind: 'audio.asset-metadata-updated', needsLicenseReview: false });
-		const view = listAudioAssetsForActor(updated.nextState.audio, updated.nextState.permissions, DM_ACTOR.id);
-		expect(view[0]).toMatchObject({ licenseKind: 'cc-by', attribution: 'Composer X', tags: ['epic'] });
+		expect(updated.events[0]).toMatchObject({
+			kind: 'audio.asset-metadata-updated',
+			needsLicenseReview: false,
+		});
+		const view = listAudioAssetsForActor(
+			updated.nextState.audio,
+			updated.nextState.permissions,
+			DM_ACTOR.id,
+		);
+		expect(view[0]).toMatchObject({
+			licenseKind: 'cc-by',
+			attribution: 'Composer X',
+			tags: ['epic'],
+		});
 	});
 
 	it('rejects updating a missing asset fail-closed', () => {
@@ -318,5 +356,76 @@ describe('AUDIO-004 — import command + actor-filtered library read', () => {
 			}),
 		);
 		expect(result.rejection.code).toBe('audio-asset-not-found');
+	});
+
+	// RC-AUD-1.2 — additive asset metadata: duration + a waveform thumbnail.
+	it('RC-AUD-1.2: import records a measured duration and waveform, and the library view shows the duration', () => {
+		let state = buildInitialState(DM_ACTOR);
+		const env = makeEnvironment();
+		state = accept(
+			dispatch(
+				state,
+				env,
+				importAssetCommand({ durationSeconds: 183.4, waveform: [0.1, 0.9, 0.4] }),
+			),
+		).nextState;
+		const view = listAudioAssetsForActor(state.audio, state.permissions, DM_ACTOR.id);
+		expect(view[0]).toMatchObject({ durationSeconds: 183.4, waveform: [0.1, 0.9, 0.4] });
+	});
+
+	it('RC-AUD-1.2: an import with no measurement leaves duration null and waveform empty', () => {
+		let state = buildInitialState(DM_ACTOR);
+		const env = makeEnvironment();
+		state = accept(dispatch(state, env, importAssetCommand())).nextState;
+		const view = listAudioAssetsForActor(state.audio, state.permissions, DM_ACTOR.id);
+		expect(view[0]).toMatchObject({ durationSeconds: null, waveform: [] });
+	});
+
+	it('RC-AUD-1.2: a re-import that measures a duration does not wipe one recorded earlier', () => {
+		let state = buildInitialState(DM_ACTOR);
+		const env = makeEnvironment();
+		state = accept(dispatch(state, env, importAssetCommand({ durationSeconds: 42 }))).nextState;
+		// Re-importing identical bytes with NO measurement this time must not erase the recorded duration.
+		state = accept(dispatch(state, env, importAssetCommand())).nextState;
+		const view = listAudioAssetsForActor(state.audio, state.permissions, DM_ACTOR.id);
+		expect(view[0]?.durationSeconds).toBe(42);
+	});
+
+	it('RC-AUD-1.2: update-asset-metadata can attach a duration/waveform measured after import', () => {
+		let state = buildInitialState(DM_ACTOR);
+		const env = makeEnvironment();
+		const imported = accept(dispatch(state, env, importAssetCommand()));
+		state = imported.nextState;
+		const assetId =
+			imported.events[0] && 'assetId' in imported.events[0] ? imported.events[0].assetId : '';
+		const updated = accept(
+			dispatch(state, env, {
+				type: 'audio.update-asset-metadata',
+				actorId: DM_ACTOR.id,
+				payload: { assetId, durationSeconds: 61.2, waveform: [0.2, 0.8] },
+			}),
+		);
+		const view = listAudioAssetsForActor(
+			updated.nextState.audio,
+			updated.nextState.permissions,
+			DM_ACTOR.id,
+		);
+		expect(view[0]).toMatchObject({ durationSeconds: 61.2, waveform: [0.2, 0.8] });
+	});
+
+	it('RC-AUD-1.2: waveform peaks clamp to [0,1] and a caller cannot fabricate a negative duration', () => {
+		const built = buildAudioAsset({
+			bytes: Uint8Array.from(SAMPLE_BYTES),
+			mimeType: 'audio/mpeg',
+			fileName: 'tavern.mp3',
+			sourceId: 'src-local',
+			importedBy: DM_ACTOR.id,
+			importedAt: '2026-06-05T00:00:00.000Z',
+			durationSeconds: -5,
+			waveform: [-1, 0.5, 2],
+		});
+		if ('error' in built) throw new Error('expected a built asset');
+		expect(built.durationSeconds).toBeNull();
+		expect(built.waveform).toEqual([0, 0.5, 1]);
 	});
 });

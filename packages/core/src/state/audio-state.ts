@@ -1,4 +1,9 @@
-import { cloneAudioAsset, isAudioLicenseKind, type AudioAsset } from './audio-asset';
+import {
+	cloneAudioAsset,
+	isAudioLicenseKind,
+	normalizeWaveform,
+	type AudioAsset,
+} from './audio-asset';
 import {
 	cloneAudioAssociation,
 	isAudioAssociationTargetKind,
@@ -76,6 +81,15 @@ function ensureAudioAsset(asset: AudioAsset): AudioAsset {
 	if (!isAudioLicenseKind(cloned.license?.kind)) {
 		cloned.license = { kind: 'unknown', licenseNote: '', attribution: '' };
 	}
+	// RC-AUD-1.2 — additive fields: a vault persisted before they existed hydrates to the honest "unmeasured"
+	// defaults (null duration, no waveform) rather than fabricating a value.
+	cloned.durationSeconds =
+		typeof cloned.durationSeconds === 'number' &&
+		Number.isFinite(cloned.durationSeconds) &&
+		cloned.durationSeconds >= 0
+			? cloned.durationSeconds
+			: null;
+	cloned.waveform = normalizeWaveform(Array.isArray(cloned.waveform) ? cloned.waveform : undefined);
 	return cloned;
 }
 

@@ -121,6 +121,16 @@ export interface AudioAsset {
 	license: AudioLicense;
 	/** DM-authored tags for organizing the audio library (normalized: trimmed, lowercased, deduped). */
 	tags: string[];
+	/**
+	 * RC-AUD-1.2 — the decoded track length in seconds, or `null` when it has not been measured yet (e.g. a
+	 * platform with no decoder available). Measured client-side at import time and never fabricated.
+	 */
+	durationSeconds: number | null;
+	/**
+	 * RC-AUD-1.2 — a waveform THUMBNAIL: normalized amplitude peaks (`0..1`, at most
+	 * {@link AUDIO_WAVEFORM_PEAK_COUNT} of them) for the library row preview. Empty when unmeasured.
+	 */
+	waveform: number[];
 	/** Provenance: which DECLARED audio source this asset came from + when. Never a filesystem path. */
 	source: {
 		/** The id of the declared audio source (see `state/audio-source.ts`) this asset belongs to. */
@@ -144,6 +154,38 @@ export function normalizeAudioTags(tags: readonly string[] | undefined): string[
 		if (tag.length > 0) seen.add(tag);
 	}
 	return [...seen].sort();
+}
+
+/** RC-AUD-1.2 — the library's waveform thumbnail is capped at this many peaks (a preview, not a scope). */
+export const AUDIO_WAVEFORM_PEAK_COUNT = 48;
+
+/**
+ * RC-AUD-1.2 — normalize a caller-supplied waveform peak array fail-closed: every peak clamps to `[0, 1]`
+ * and non-finite values drop to `0` (never `NaN`/`Infinity` reaching a persisted record). Longer arrays are
+ * evenly downsampled to {@link AUDIO_WAVEFORM_PEAK_COUNT} peaks (max amplitude per bucket, so the thumbnail
+ * never loses a transient); shorter/empty arrays pass through as-is — a short clip just draws fewer bars.
+ * Pure.
+ */
+export function normalizeWaveform(peaks: readonly number[] | undefined): number[] {
+	const clamped = (peaks ?? []).map((value) =>
+		Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0,
+	);
+	if (clamped.length <= AUDIO_WAVEFORM_PEAK_COUNT) return clamped;
+	const bucketSize = clamped.length / AUDIO_WAVEFORM_PEAK_COUNT;
+	const downsampled: number[] = [];
+	for (let i = 0; i < AUDIO_WAVEFORM_PEAK_COUNT; i++) {
+		const start = Math.floor(i * bucketSize);
+		const end = Math.max(start + 1, Math.floor((i + 1) * bucketSize));
+		let peak = 0;
+		for (let j = start; j < end && j < clamped.length; j++) peak = Math.max(peak, clamped[j] ?? 0);
+		downsampled.push(peak);
+	}
+	return downsampled;
+}
+
+/** A non-negative finite duration, or `null` when the caller supplied none/an invalid value. Pure. */
+function normalizeDurationSeconds(value: number | undefined): number | null {
+	return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
 /**
@@ -175,6 +217,10 @@ export interface BuildAudioAssetInput {
 	title?: string;
 	license?: { kind?: unknown; licenseNote?: string; attribution?: string };
 	tags?: readonly string[];
+	/** RC-AUD-1.2 — decoded track length in seconds, measured client-side. Absent/invalid ⇒ `null`. */
+	durationSeconds?: number;
+	/** RC-AUD-1.2 — waveform thumbnail peaks (`0..1`), measured client-side. Absent ⇒ `[]`. */
+	waveform?: readonly number[];
 	sourceId: string;
 	importedBy: string;
 	importedAt: string;
@@ -231,6 +277,8 @@ export function buildAudioAsset(
 		checksum,
 		license: buildAudioLicense(input.license ?? {}),
 		tags: normalizeAudioTags(input.tags),
+		durationSeconds: normalizeDurationSeconds(input.durationSeconds),
+		waveform: normalizeWaveform(input.waveform ? [...input.waveform] : undefined),
 		source: {
 			sourceId: input.sourceId,
 			importedAt: input.importedAt,
@@ -274,6 +322,7 @@ export function cloneAudioAsset(asset: AudioAsset): AudioAsset {
 		...asset,
 		license: { ...asset.license },
 		tags: [...asset.tags],
+		waveform: [...asset.waveform],
 		source: { ...asset.source },
 	};
 }

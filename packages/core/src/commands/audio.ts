@@ -11,6 +11,7 @@ import {
 	buildAudioLicense,
 	cloneAudioAsset,
 	normalizeAudioTags,
+	normalizeWaveform,
 	type AudioAsset,
 } from '../state/audio-asset';
 import {
@@ -75,6 +76,8 @@ export function handleImportAudioAsset(
 		title: input.title,
 		license: input.license,
 		tags: input.tags,
+		durationSeconds: input.durationSeconds,
+		waveform: input.waveform,
 		sourceId: input.sourceId,
 		importedBy: actor.id,
 		importedAt: env.clock(),
@@ -86,11 +89,20 @@ export function handleImportAudioAsset(
 
 	// Content-addressed dedupe: identical bytes ⇒ identical id ⇒ a single record. On a re-import the
 	// authored metadata (license/tags/title) is REFRESHED onto the existing record so a corrected license
-	// is not lost, but the bytes/hash are unchanged.
+	// is not lost, but the bytes/hash are unchanged. A newly measured duration/waveform (RC-AUD-1.2) replaces
+	// the existing one only when THIS import actually measured one — an import with no decoder available
+	// never wipes a measurement a prior import already recorded.
 	const existing = state.audio.assets[built.id];
 	const deduped = existing !== undefined;
 	const asset: AudioAsset = deduped
-		? { ...existing, title: built.title, license: built.license, tags: built.tags }
+		? {
+				...existing,
+				title: built.title,
+				license: built.license,
+				tags: built.tags,
+				durationSeconds: built.durationSeconds ?? existing.durationSeconds,
+				waveform: built.waveform.length > 0 ? built.waveform : existing.waveform,
+			}
 		: built;
 
 	const needsReview = assetNeedsLicenseReview(asset);
@@ -161,6 +173,8 @@ export function handleUpdateAudioAssetMetadata(
 		asset.license = buildAudioLicense(input.license);
 	}
 	if (input.tags !== undefined) asset.tags = normalizeAudioTags(input.tags);
+	if (input.durationSeconds !== undefined) asset.durationSeconds = input.durationSeconds;
+	if (input.waveform !== undefined) asset.waveform = normalizeWaveform(input.waveform);
 
 	const needsReview = assetNeedsLicenseReview(asset);
 	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
@@ -223,7 +237,9 @@ export function handleConfigureAudioSource(
 		// AUDIO-009 AC2 — an unsupported provider is rejected fail-closed: NO source record is written, so
 		// NO playback state exists. Other config errors (missing URL, disallowed cache behavior) reject too.
 		const code =
-			result.reason === 'unsupported-source-type' ? 'unsupported-audio-source' : 'invalid-audio-source';
+			result.reason === 'unsupported-source-type'
+				? 'unsupported-audio-source'
+				: 'invalid-audio-source';
 		return reject({ code, message: result.message }, state);
 	}
 

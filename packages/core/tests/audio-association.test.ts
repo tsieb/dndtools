@@ -47,7 +47,11 @@ function rejected(result: CommandResult): Extract<CommandResult, { status: 'reje
 	return result;
 }
 
-function dispatch(state: CoreStateSlice, env: CoreEnvironment, command: CoreCommand): CommandResult {
+function dispatch(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	command: CoreCommand,
+): CommandResult {
 	return dispatchCommand(state, env, command);
 }
 
@@ -68,6 +72,8 @@ const CLEARED_ASSET = {
 	checksum: 'abc',
 	license: { kind: 'owned' as const, licenseNote: '', attribution: '' },
 	tags: [],
+	durationSeconds: null,
+	waveform: [],
 	source: { sourceId: 's-local', importedAt: 't', importedBy: 'd' },
 	schemaVersion: 1 as const,
 };
@@ -417,11 +423,7 @@ describe('AUDIO-001 resolveAudioAssociations (AC1/AC2, gate composition)', () =>
 describe('AUDIO-001 actor-filtered read model (DM-only, fail closed)', () => {
 	it('lists associations for the DM and an empty list for a player', () => {
 		const lib = library({ 'assoc-1': association() });
-		const dmList = listAudioAssociationsForActor(
-			lib,
-			buildPermissions(),
-			DM_ACTOR.id,
-		);
+		const dmList = listAudioAssociationsForActor(lib, buildPermissions(), DM_ACTOR.id);
 		expect(dmList).toHaveLength(1);
 		const playerList = listAudioAssociationsForActor(lib, buildPermissions(), PLAYER_ACTOR.id);
 		expect(playerList).toEqual([]);

@@ -34,6 +34,8 @@ const CLEARED_ASSET: AudioAsset = {
 	checksum: 'abc',
 	license: { kind: 'owned', licenseNote: '', attribution: '' },
 	tags: [],
+	durationSeconds: null,
+	waveform: [],
 	source: { sourceId: 's-local', importedAt: 't', importedBy: 'd' },
 	schemaVersion: 1,
 };
