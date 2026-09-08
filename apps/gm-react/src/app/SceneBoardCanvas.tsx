@@ -1,14 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../ds';
 import { isWidgetResizable, type BoardWidget } from './board-helpers';
-import { HistoryBtn, WidgetFrame, ZoomBtn } from './canvas/WidgetFrame';
+import { HistoryBtn, WidgetFrame } from './canvas/WidgetFrame';
+import { ZoomCluster } from './canvas/ZoomCluster';
+import {
+	ARROW_DELTA,
+	clamp,
+	FIT_FLOOR,
+	FIXED_PRESET_SCALE,
+	GRID,
+	omitKey,
+	snapTo,
+	ZOOM_KEY,
+	ZOOM_PRESETS,
+	ZOOM_PRESET_KEY,
+	type Drag,
+	type SceneBoardCanvasProps,
+	type View,
+	type ZoomPreset,
+} from './SceneBoardModel';
+export { ZOOM_PRESETS, ZOOM_PRESET_KEY, type ZoomPreset } from './SceneBoardModel';
 
 // `WidgetGlyph` lives with the frame that renders it; re-exported here so Board, the scene-editor
 // Inspector and AddWidgetPanel keep importing it from the path they always have.
 export { WidgetGlyph } from './canvas/WidgetFrame';
 import { srOnly } from './screen-kit';
-import { useI18n, type MessageKey } from '../i18n';
-import type { LayoutHistory } from './canvas/useLayoutHistory';
+import { useI18n } from '../i18n';
 
 /**
  * SceneBoardCanvas — the ONE canvas engine the prototype's `scene-canvas.jsx` describes: the same
@@ -49,102 +66,6 @@ import type { LayoutHistory } from './canvas/useLayoutHistory';
  * `onResize`, and Delete removes via `onRemove` — each key press is ONE discrete core op, exactly
  * like a pointer gesture's pointer-up. The pointer paths are untouched.
  */
-
-const GRID = 20;
-const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
-const snapTo = (n: number, snap: boolean) => (snap ? Math.round(n / GRID) * GRID : Math.round(n));
-/** Drop one widget's in-flight drag draft, so it falls back to its durable position/size. */
-function omitKey<T>(map: Record<string, T>, id: string): Record<string, T> {
-	if (!(id in map)) return map;
-	const next = { ...map };
-	delete next[id];
-	return next;
-}
-
-/** RC-CAN-3.1 — the three named zoom steps both policies share, coarse to fine. */
-export type ZoomPreset = 'fit' | 'comfortable' | 'detail';
-export const ZOOM_PRESETS = ['fit', 'comfortable', 'detail'] as const;
-/** Fit is computed from the pane; the other two are fixed, so a board reads the same on every
- *  window. Comfortable is 1:1 with the authored layout, Detail is the "lean in and read it" step. */
-const FIXED_PRESET_SCALE: Record<Exclude<ZoomPreset, 'fit'>, number> = {
-	comfortable: 1,
-	detail: 1.5,
-};
-/** Fit never goes below this. Below ~0.5 the widget titles paint under 7px on a handset, so the
- *  surface scrolls rather than scaling every widget out of legibility. */
-const FIT_FLOOR = 0.5;
-/** `0`/`1`/`2` jump straight to a step, coarse to fine. */
-const ZOOM_KEY: Record<string, ZoomPreset | undefined> = {
-	'0': 'fit',
-	'1': 'comfortable',
-	'2': 'detail',
-};
-/** Both hosts label the presets from the same catalog keys. */
-export const ZOOM_PRESET_KEY: Record<ZoomPreset, MessageKey> = {
-	fit: 'boardCanvas.zoomFit',
-	comfortable: 'boardCanvas.zoomComfortable',
-	detail: 'boardCanvas.zoomDetail',
-};
-
-export interface SceneBoardCanvasProps {
-	widgets: BoardWidget[];
-	policy: 'bounded' | 'canvas';
-	editing: boolean;
-	snap: boolean;
-	selectedId: string | null;
-	onSelect: (id: string | null) => void;
-	onMove: (id: string, x: number, y: number) => void | Promise<unknown>;
-	onResize: (id: string, w: number, h: number) => void | Promise<unknown>;
-	/** System widgets are move-only (never resizable), mirroring the prototype. */
-	canResize?: (widget: BoardWidget) => boolean;
-	/** Keyboard traversal order (widget instance ids) — pass `SceneSummary.focusOrder` ids. Widgets
-	 *  missing from it are appended in render order so nothing becomes unreachable. */
-	focusOrder?: string[];
-	/** Remove the focused widget (Delete key, edit mode). Omit to disable keyboard removal. */
-	onRemove?: (id: string) => void;
-	/** VIEW-mode widget operation: dispatch a widget-declared durable command
-	 *  (`widget.dispatch-command`). Bodies render inert chips when omitted. */
-	onWidgetCommand?: (
-		widgetInstanceId: string,
-		commandType: string,
-		payload: Record<string, unknown>,
-	) => void;
-	emptyHint?: string;
-	/** Overrides the empty-state headline — the caller uses it to say "loading" instead of "empty". */
-	emptyTitle?: string;
-	/** RC-CAN-3.1: the active zoom preset. Supplying it makes the preset CONTROLLED — the host owns
-	 *  the state and renders the control itself (the bounded board puts it in its toolbar, where it
-	 *  cannot scroll away with the canvas), and this canvas renders no zoom cluster of its own. */
-	zoomPreset?: ZoomPreset;
-	/** Called for every preset change the canvas originates (the `0`/`1`/`2` and `+`/`-` keys). */
-	onZoomPresetChange?: (preset: ZoomPreset) => void;
-	/** RC-CAN-1.3: the screen's local layout undo stack. Supplying it renders the Undo/Redo cluster,
-	 *  binds `Ctrl+Z` / `Ctrl+Shift+Z` inside this canvas and announces each reversal. */
-	history?: LayoutHistory;
-}
-
-/** Arrow-key vector: [dx, dy] in grid steps. */
-const ARROW_DELTA: Record<string, readonly [number, number]> = {
-	ArrowLeft: [-1, 0],
-	ArrowRight: [1, 0],
-	ArrowUp: [0, -1],
-	ArrowDown: [0, 1],
-};
-
-type Drag =
-	| { mode: 'move'; id: string; sx: number; sy: number; ox: number; oy: number }
-	| { mode: 'resize'; id: string; sx: number; sy: number; ow: number; oh: number }
-	| { mode: 'pan'; sx: number; sy: number; tx: number; ty: number }
-	// RC-CAN-3.2 — middle-button drag on the BOUNDED board. It has no transform view to move (the
-	// board is a real `overflow:auto` element), so the gesture scrolls the wrap directly instead of
-	// updating `view`.
-	| { mode: 'scroll-pan'; sx: number; sy: number; sl: number; st: number };
-
-interface View {
-	tx: number;
-	ty: number;
-	scale: number;
-}
 
 export function SceneBoardCanvas({
 	widgets,
@@ -818,48 +739,12 @@ export function SceneBoardCanvas({
 			</div>
 
 			{policy === 'canvas' && zoomPreset === undefined && (
-				<div
-					data-testid="canvas-zoom-presets"
-					role="group"
-					aria-label={t('boardCanvas.zoomGroup')}
-					style={{
-						position: 'absolute',
-						right: 16,
-						bottom: 16,
-						display: 'flex',
-						alignItems: 'center',
-						gap: 2,
-						padding: 4,
-						borderRadius: 'var(--radius-md)',
-						background: 'var(--color-surface-overlay)',
-						border: '1px solid var(--color-border-strong)',
-						boxShadow: 'var(--shadow-lg)',
-					}}
-				>
-					<ZoomBtn icon="zoom-out" label={t('boardCanvas.zoomOut')} onClick={() => zoom(1 / 1.2)} />
-					<span
-						style={{
-							font: 'var(--text-2xs) var(--font-mono)',
-							color: 'var(--color-text-secondary)',
-							minWidth: 38,
-							textAlign: 'center',
-						}}
-					>
-						{Math.round(scale * 100)}%
-					</span>
-					<ZoomBtn icon="zoom-in" label={t('boardCanvas.zoomIn')} onClick={() => zoom(1.2)} />
-					{/* The free canvas keeps its continuous zoom above; the three presets are the
-					    anchors it can always be brought back to, and are the same three the bounded
-					    board is limited to. */}
-					{ZOOM_PRESETS.map((p) => (
-						<PresetBtn
-							key={p}
-							label={t(ZOOM_PRESET_KEY[p])}
-							active={activePreset === p}
-							onClick={() => applyPreset(p)}
-						/>
-					))}
-				</div>
+				<ZoomCluster
+					scale={scale}
+					activePreset={activePreset}
+					onZoom={zoom}
+					onPreset={applyPreset}
+				/>
 			)}
 
 			{widgets.length === 0 && (
@@ -901,38 +786,5 @@ export function SceneBoardCanvas({
 				</div>
 			)}
 		</div>
-	);
-}
-
-/** A named zoom step in the free canvas's cluster. Text, not an icon: "Comfortable" has no glyph,
- *  and the whole point of RC-CAN-3.1 is that the steps are named rather than numeric. */
-function PresetBtn({
-	label,
-	active,
-	onClick,
-}: {
-	label: string;
-	active: boolean;
-	onClick: () => void;
-}) {
-	return (
-		<button
-			type="button"
-			aria-pressed={active}
-			onClick={onClick}
-			onPointerDown={(e) => e.stopPropagation()}
-			style={{
-				height: 28,
-				padding: '0 var(--space-2)',
-				border: 'none',
-				borderRadius: 'var(--radius-sm)',
-				font: 'var(--text-2xs) var(--font-sans)',
-				background: active ? 'var(--color-accent)' : 'transparent',
-				color: active ? 'var(--color-accent-foreground)' : 'var(--color-text-secondary)',
-				cursor: 'pointer',
-			}}
-		>
-			{label}
-		</button>
 	);
 }
