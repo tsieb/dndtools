@@ -44,6 +44,8 @@ export const PREFERENCE_KEYS = {
 	whatsNewSeen: 'dndtools:react:whatsNewSeen',
 	/** Chosen UI language. A property of the person holding the device, never of the vault (ADR-032). */
 	locale: 'dndtools:locale',
+	/** RC-KNW-2.3 — the command palette's just-run rows, newest first. UI history, not vault state. */
+	paletteRecents: 'dndtools:react:palette-recents',
 } as const;
 
 export type PreferenceKey = (typeof PREFERENCE_KEYS)[keyof typeof PREFERENCE_KEYS];
