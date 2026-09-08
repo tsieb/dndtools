@@ -39,16 +39,16 @@ require a deliberate user migration or pool replacement, not an in-place stack u
 
 ## Stacks (deploy order)
 
-| Order | Stack         | Purpose                                                                                                                         | Always-on cost                       |
-| ----- | ------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| 0     | `edge-cert`   | **us-east-1** ACM cert for the custom domain (apex + wildcard). Shared by all stages; deploy once                               | none                                 |
-| 1     | `foundation`  | Budget + cost anomaly alerts, GitHub OIDC deploy role, SSM namespace, alerts topic (+ its KMS key in prod), the stage dashboard | ~$1/mo (prod only)                   |
-| 2     | `identity`    | Cognito user pool + app client (gates everything) + the SES configuration set all mail is sent through                          | none                                 |
-| 3     | `turn`        | coturn on EC2 `t4g.nano` + Elastic IP + cred Lambda                                                                             | ~$7.70/mo (prod only; dev torn down) |
-| 4     | `app-api`     | API GW HTTP + Lambda + DynamoDB (accounts/entitlements/invites/listings, TTL) + S3 (marketplace payloads)                       | none                                 |
-| 5     | `signaling`   | API GW WebSocket + Lambdas + DynamoDB (rooms/conns, TTL)                                                                        | none                                 |
-| 6     | `sync-api`    | API GW HTTP + Lambdas + DynamoDB (op index) + S3 (ciphertext)                                                                   | none                                 |
-| 7     | `web-hosting` | S3 (private) + CloudFront (OAC) + CSP header                                                                                    | none                                 |
+| Order | Stack         | Purpose                                                                                                                                           | Always-on cost                       |
+| ----- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 0     | `edge-cert`   | **us-east-1** ACM cert for the custom domain (apex + wildcard). Shared by all stages; deploy once                                                 | none                                 |
+| 1     | `foundation`  | Budget + cost anomaly alerts, GitHub OIDC deploy role, SSM namespace, alerts topic (+ its KMS key in prod), the stage dashboard                   | ~$1/mo (prod only)                   |
+| 2     | `identity`    | Cognito user pool + app client (gates everything) + the SES configuration set all mail is sent through                                            | none                                 |
+| 3     | `turn`        | coturn on EC2 `t4g.nano` + Elastic IP + cred Lambda                                                                                               | ~$7.70/mo (prod only; dev torn down) |
+| 4     | `app-api`     | API GW HTTP + Lambda + DynamoDB (accounts/entitlements/invites/listings, TTL) + S3 (marketplace payloads) + the opt-in analytics ingestion Lambda | none                                 |
+| 5     | `signaling`   | API GW WebSocket + Lambdas + DynamoDB (rooms/conns, TTL)                                                                                          | none                                 |
+| 6     | `sync-api`    | API GW HTTP + Lambdas + DynamoDB (op index) + S3 (ciphertext)                                                                                     | none                                 |
+| 7     | `web-hosting` | S3 (private) + CloudFront (OAC) + CSP header                                                                                                      | none                                 |
 
 > `app-api` publishes the authoritative entitlement table name in SSM; both `signaling` and
 > `sync-api` resolve it at deploy time. Deploy **`app-api` before both dependent stacks**.
@@ -258,6 +258,12 @@ prefix that all of them share. That buys three things worth keeping:
 
 The cost of that choice: a widget is empty both when the stage is idle and when it is broken.
 **Alarms, not this dashboard, are what tell you something is wrong.**
+
+The one non-`SEARCH`-prefixed widget is "Opt-in product analytics events" (ADR-036), which searches
+the `dndtools/Analytics` namespace the `app-api` stack's `TelemetryFn` emits as EMF, dimensioned
+`{Stage, Event}`. Six custom metrics per stage, about $1.80/month, and only once somebody has
+consented — an empty widget there means nobody opted in, which is the expected steady state.
+See `docs/development/PRODUCT_ANALYTICS.md`.
 
 ### The dev/prod split
 

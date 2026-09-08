@@ -186,3 +186,40 @@ test.describe('settings: the section picker names the section actually shown', (
 		await expect(nav).not.toContainText('Permissions');
 	});
 });
+
+// RC-CLD-1.4 — the product-analytics consent panel. The point of the panel is that the answer is
+// "off" before anyone touches it, and that a build with nowhere to send says so instead of offering
+// a switch that would do nothing.
+test.describe('settings: product analytics consent is off by default', () => {
+	test.beforeEach(async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/settings');
+		await seedFresh(page);
+		await page.goto('/#/settings?tab=sync', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.locator('#main-content').waitFor({ state: 'attached' });
+	});
+
+	test('shows the panel with the switch off and records no consent', async ({ page }) => {
+		await expect(page.getByText('Product analytics', { exact: true })).toBeVisible();
+
+		const consent = page.getByRole('switch', { name: 'Share anonymous usage counts' });
+		await expect(consent).toBeVisible();
+		await expect(consent).toHaveAttribute('aria-checked', 'false');
+
+		// Nothing has been recorded, so the effective consent is denied by absence, not by a
+		// stored 'denied' — the fail-closed default, not a default that happened to be written.
+		expect(
+			await page.evaluate(() => window.localStorage.getItem('dndtools:react:telemetry-consent')),
+		).toBeNull();
+	});
+
+	test('names what is sent and what never is, from the core taxonomy', async ({ page }) => {
+		await expect(page.getByText('What is never sent')).toBeVisible();
+		await expect(page.getByText(/No names, notes, characters/)).toBeVisible();
+		// The event list is rendered from the taxonomy, so these lines prove the panel is showing
+		// the real closed set rather than a hand-written summary of it.
+		await expect(page.getByText('A screen was opened')).toBeVisible();
+		await expect(page.getByText('An error category was seen')).toBeVisible();
+	});
+});

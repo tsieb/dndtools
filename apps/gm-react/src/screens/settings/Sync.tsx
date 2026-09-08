@@ -17,6 +17,7 @@ import {
 import { useEntitlements } from '../../cloud/entitlements';
 import { errMsg } from './shared';
 import { RecoveryKeyPanel, VaultPrivacyPanel } from './SyncPrivacy';
+import { ProductAnalyticsPanel } from './Analytics';
 /* ---- Backup activity: local operation history + optional encrypted off-device copy. -------------- */
 /* The two `humanize*` helpers below read a core command id ('scene.create') and spell it as English
  * prose ('Scene created'). They are the one thing on this screen the catalog cannot reach: the words
@@ -268,6 +269,7 @@ export function SettingsSync() {
 			<LocalBackupPanel />
 			<VaultPrivacyPanel />
 			<RecoveryKeyPanel />
+			<ProductAnalyticsPanel />
 			<Panel
 				title={t('settings.sync.recentChanges')}
 				action={<Badge status="neutral">{ops.length}</Badge>}

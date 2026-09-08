@@ -5630,6 +5630,33 @@ export const en = {
 	'session.date.defineCalendar': 'Define a calendar',
 	'session.date.editCalendar': 'Edit calendar',
 	'session.date.moonRow': '{name} {phase}',
+	/* RC-CLD-1.4 — opt-in product analytics consent (Settings › Sync & privacy). */
+	'settings.analytics.title': 'Product analytics',
+	'settings.analytics.badgeOn': 'Sharing usage counts',
+	'settings.analytics.badgeOff': 'Sharing nothing',
+	'settings.analytics.badgeUnavailable': 'Not available in this build',
+	'settings.analytics.row': 'Share anonymous usage counts',
+	'settings.analytics.help':
+		'Off until you turn it on. Nothing leaves this device while it is off — not on launch, not on close.',
+	'settings.analytics.helpOn':
+		'Counts of the screens and features below are sent. Turn it off to stop at once.',
+	'settings.analytics.helpUnavailable':
+		'This build has no cloud address to send to, so there is nothing to turn on.',
+	'settings.analytics.whatTitle': 'What is sent',
+	'settings.analytics.whatBody':
+		'A count for each event below, plus the app version and whether you run the web or desktop app.',
+	'settings.analytics.neverTitle': 'What is never sent',
+	'settings.analytics.neverBody':
+		'No names, notes, characters, maps, searches, file paths or account details. No identifier ties two events together, so nothing here can be traced back to you or your table.',
+	'settings.analytics.eventsTitle': 'Events',
+	'settings.analytics.enabled': 'Usage counts are on. Thank you.',
+	'settings.analytics.disabled': 'Usage counts are off. Nothing more is sent.',
+	'settings.analytics.event.app.launched': 'The app started',
+	'settings.analytics.event.screen.viewed': 'A screen was opened',
+	'settings.analytics.event.feature.used': 'A feature was used',
+	'settings.analytics.event.experience.tier': 'The interface complexity level',
+	'settings.analytics.event.cloud.capability': 'A cloud feature was turned on or off',
+	'settings.analytics.event.error.observed': 'An error category was seen',
 } as const;
 
 /** Every string the app can render, addressed by key. */

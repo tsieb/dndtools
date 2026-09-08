@@ -5709,4 +5709,31 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.date.defineCalendar': 'Definir un calendario',
 	'session.date.editCalendar': 'Editar calendario',
 	'session.date.moonRow': '{name} {phase}',
+	/* RC-CLD-1.4 */
+	'settings.analytics.title': 'Analítica del producto',
+	'settings.analytics.badgeOn': 'Compartiendo recuentos de uso',
+	'settings.analytics.badgeOff': 'Sin compartir nada',
+	'settings.analytics.badgeUnavailable': 'No disponible en esta versión',
+	'settings.analytics.row': 'Compartir recuentos de uso anónimos',
+	'settings.analytics.help':
+		'Desactivado hasta que lo actives. Mientras esté desactivado no sale nada de este dispositivo: ni al abrir ni al cerrar.',
+	'settings.analytics.helpOn':
+		'Se envían recuentos de las pantallas y funciones de abajo. Desactívalo para detenerlo al instante.',
+	'settings.analytics.helpUnavailable':
+		'Esta versión no tiene dirección de nube a la que enviar, así que no hay nada que activar.',
+	'settings.analytics.whatTitle': 'Qué se envía',
+	'settings.analytics.whatBody':
+		'Un recuento por cada evento de abajo, la versión de la aplicación y si usas la versión web o de escritorio.',
+	'settings.analytics.neverTitle': 'Qué nunca se envía',
+	'settings.analytics.neverBody':
+		'Ni nombres, notas, personajes, mapas, búsquedas, rutas de archivo o datos de cuenta. Ningún identificador une dos eventos, así que nada de esto puede rastrearse hasta ti ni hasta tu mesa.',
+	'settings.analytics.eventsTitle': 'Eventos',
+	'settings.analytics.enabled': 'Los recuentos de uso están activados. Gracias.',
+	'settings.analytics.disabled': 'Los recuentos de uso están desactivados. No se envía nada más.',
+	'settings.analytics.event.app.launched': 'La aplicación se inició',
+	'settings.analytics.event.screen.viewed': 'Se abrió una pantalla',
+	'settings.analytics.event.feature.used': 'Se usó una función',
+	'settings.analytics.event.experience.tier': 'El nivel de complejidad de la interfaz',
+	'settings.analytics.event.cloud.capability': 'Se activó o desactivó una función de nube',
+	'settings.analytics.event.error.observed': 'Se detectó una categoría de error',
 };

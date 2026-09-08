@@ -5821,3 +5821,28 @@ export {
 	moduleBundleItemCount,
 	parseModuleBundle,
 } from './state/module-bundle';
+
+/* ---- RC-CLD-1.4 — opt-in, content-free product analytics ----------------------------------------
+ * The taxonomy is a CLOSED set of event names and enum-only properties, and the envelope carries no
+ * identity at all. Both ends of the wire validate with the same builder, so an event the client
+ * cannot construct is an event the ingestion Lambda will not count. Consent lives here too: an
+ * absent record means `denied`. See docs/development/PRODUCT_ANALYTICS.md. */
+export type {
+	ProductAnalyticsEvent,
+	ProductAnalyticsEventName,
+	ProductAnalyticsPayload,
+	ProductAnalyticsProps,
+	TelemetryConsent,
+	TelemetryPlatform,
+} from './diagnostics/product-analytics';
+export {
+	PRODUCT_ANALYTICS_EVENTS,
+	PRODUCT_ANALYTICS_EVENT_NAMES,
+	PRODUCT_ANALYTICS_MAX_EVENTS,
+	PRODUCT_ANALYTICS_PAYLOAD_VERSION,
+	buildProductAnalyticsEvent,
+	isTelemetryConsent,
+	parseProductAnalyticsPayload,
+	telemetryConsentAllows,
+	toAnalyticsAppVersion,
+} from './diagnostics/product-analytics';

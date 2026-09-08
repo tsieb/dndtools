@@ -13,6 +13,7 @@ import {
 // in every runtime; the only web-visible difference is a cosmetic `#` in the URL.
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { RuntimeProvider, useRuntime } from './runtime/RuntimeContext';
+import { useProductAnalytics } from './cloud/useAnalytics';
 import type { SceneRuntime } from './runtime/SceneRuntime';
 import type { VaultBackup } from './platform/backup';
 import { AuthProvider } from './cloud/AuthContext';
@@ -414,6 +415,8 @@ function ShelledRoutes() {
 
 function Shell() {
 	const runtime = useRuntime();
+	// RC-CLD-1.4 — opt-in product analytics. Does nothing at all without recorded consent.
+	useProductAnalytics();
 	// The app-lifetime audio driver (idempotent per runtime): session `audioPlayback` state makes
 	// sound no matter which screen is mounted — Session's now-playing and the Audio screen both
 	// write the same core state this driver reconciles against a single <audio> element.
