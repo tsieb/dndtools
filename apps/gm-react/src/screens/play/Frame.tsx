@@ -25,6 +25,7 @@ import { critOf, DiceSection } from './Dice';
 import { PartySection } from './Presence';
 import { HandoutsSection } from './Handouts';
 import { JournalSection } from './Journal';
+import { InboxSection } from './Inbox';
 import { AssistSection, AtlasSection, BestiarySection } from './Elevated';
 
 /**
@@ -286,6 +287,7 @@ export function PlayerView() {
 	else if (current === 'handouts')
 		body = <HandoutsSection data={data} onInlineRoll={logInlineRoll} />;
 	else if (current === 'journal') body = <JournalSection data={data} />;
+	else if (current === 'inbox') body = <InboxSection data={data} />;
 	// ELEVATED (Co-DM tier) — real DM-grade panels, fed by `data.elevated` (present only for a co-DM).
 	else if (current === 'atlas') body = <AtlasSection data={data} />;
 	else if (current === 'bestiary') body = <BestiarySection data={data} />;

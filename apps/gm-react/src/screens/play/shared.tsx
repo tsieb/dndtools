@@ -58,6 +58,9 @@ export const NAV: PlayNavItem[] = [
 	{ id: 'party', label: 'play.nav.party', icon: 'players', min: 0 },
 	{ id: 'handouts', label: 'play.nav.handouts', icon: 'knowledge-book', min: 0 },
 	{ id: 'journal', label: 'play.nav.journal', icon: 'note-edit', min: 1 },
+	// RC-CLD-3.3 — the between-session inbox: the wiki recap feed. Open to observers too (min: 0), same
+	// as Party/Handouts, since a recap is table-level continuity, not a per-seat permission.
+	{ id: 'inbox', label: 'play.nav.inbox', icon: 'campaign-scroll', min: 0 },
 ];
 export const NAV_ELEVATED: PlayNavItem[] = [
 	{ id: 'atlas', label: 'play.nav.atlas', icon: 'atlas-map', min: 2 },

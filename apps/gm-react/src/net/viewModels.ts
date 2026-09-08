@@ -9,6 +9,7 @@ import {
 	getDiceHistoryForActor,
 	getActiveSceneCardForActor,
 	getSceneCardPushHistoryForActor,
+	getSessionRecapFeedForActor,
 	listCharactersForActor,
 	listScenesForActor,
 	hasDmAuthority,
@@ -27,6 +28,7 @@ import {
 	type SceneCardView,
 	type SceneCardPushView,
 	type SceneListEntry,
+	type SessionRecapFeedEntry,
 } from '@dndtools/core';
 import { resolveProjectedMapForViewer, type ProjectedMapInfo } from '../app/projectedMap';
 
@@ -150,6 +152,8 @@ export interface PlayerData {
 	activeSceneCard: SceneCardView | null;
 	/** I11 S11.2.4 — the viewer's reviewable SCENE HISTORY (player-visible pushes), oldest-first. */
 	sceneHistory: SceneCardPushView[];
+	/** RC-CLD-3.3 — the between-session inbox's wiki recap feed: every DM-authored recap, newest first. */
+	recapFeed: SessionRecapFeedEntry[];
 	/**
 	 * Present ONLY for a `co-dm` viewer (the elevated seat): DM-grade read models that a player/observer
 	 * snapshot never carries. Built through the SAME actor-filtered queries, so it is still safe BY
@@ -319,6 +323,7 @@ export function buildPlayerData(state: CoreStateSlice, viewer: ActorId): PlayerD
 		role,
 		activeSceneCard: getActiveSceneCardForActor(state.session, state.permissions, viewer),
 		sceneHistory: getSceneCardPushHistoryForActor(state.session, state.permissions, viewer),
+		recapFeed: getSessionRecapFeedForActor(state.session, state.permissions, viewer),
 		elevated,
 	};
 }

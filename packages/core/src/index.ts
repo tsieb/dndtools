@@ -1712,6 +1712,12 @@ export type {
 } from './queries/prep-recap-digest';
 export { DEFAULT_RECENT_CHANGE_LIMIT, getPrepRecapDigest } from './queries/prep-recap-digest';
 
+// RC-CLD-3.3 — THE single actor-filtered SESSION-RECAP-FEED read model: the between-session inbox's
+// wiki recap feed (every DM-authored recap, newest first). Observer ceiling applies (PERM-011); a
+// non-authored archive contributes nothing (there is no separate publish step for a recap).
+export type { SessionRecapFeedEntry } from './queries/session-recap-feed';
+export { getSessionRecapFeedForActor } from './queries/session-recap-feed';
+
 // The PURE campaign-SYSTEM-SWITCH dry-run behind `widget.package.switch-system`: it WRAPS the
 // PLAT-008 vault-migration dry-run (a blocked vault blocks the switch) and classifies every
 // current-system widget type against the target package (keep / remap / drop). A `drop` with live
