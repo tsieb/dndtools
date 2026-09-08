@@ -676,4 +676,64 @@ export function getMapBreadcrumbForActor(
 	return { kind: 'available', mapId: map.id, crumbs };
 }
 
+/**
+ * RC-MAP-3.8 — one node in the actor-filtered atlas map HIERARCHY tree (root-first). `children` holds
+ * only maps this map embeds that are themselves visible to the actor — the same "stop at the first
+ * hidden ancestor" rule the breadcrumb applies, just walked downward instead of up.
+ */
+export interface MapHierarchyNode {
+	mapId: string;
+	name: string;
+	children: MapHierarchyNode[];
+}
+
+/**
+ * RC-MAP-3.8 — the actor-filtered atlas map hierarchy: one tree per root (a map no other visible map
+ * embeds), each node's children built from `embeds` (MAP-008/MAP-017 nesting graph). Backs the atlas
+ * local nav's `role="tree"` and the map editor's breadcrumb drill-down. Cycle-safe (a map already on
+ * the current branch is never re-descended into) and fail-closed: an unknown actor sees no maps, a
+ * map hidden from the actor is omitted from the tree entirely (never listed with redacted content).
+ * Sorted alphabetically by name at every level, matching {@link listMapsForActor}.
+ */
+export function getMapHierarchyForActor(
+	maps: MapState,
+	permissions: PermissionState,
+	actorId: ActorId,
+	options?: MapQueryOptions,
+): MapHierarchyNode[] {
+	const actor = permissions.actors[actorId];
+	if (!actor) return [];
+	const visible = (map: MapEntity): boolean =>
+		mapVisibleToActor(map, actor, isDelivered(map.id, options));
+
+	const childIds = new Set<string>();
+	for (const candidate of Object.values(maps.maps)) {
+		if (!visible(candidate)) continue;
+		for (const embed of candidate.embeds) childIds.add(embed.childMapId);
+	}
+
+	const buildNode = (map: MapEntity, ancestry: ReadonlySet<string>): MapHierarchyNode => {
+		const nextAncestry = new Set(ancestry);
+		nextAncestry.add(map.id);
+		const children: MapHierarchyNode[] = [];
+		for (const embed of map.embeds) {
+			if (nextAncestry.has(embed.childMapId)) continue; // cycle guard
+			const child = maps.maps[embed.childMapId];
+			if (!child || !visible(child)) continue;
+			children.push(buildNode(child, nextAncestry));
+		}
+		children.sort((a, b) => a.name.localeCompare(b.name));
+		return { mapId: map.id, name: map.name, children };
+	};
+
+	const roots: MapHierarchyNode[] = [];
+	for (const map of Object.values(maps.maps)) {
+		if (!visible(map)) continue;
+		if (childIds.has(map.id)) continue; // has a visible parent — reached via that parent's node
+		roots.push(buildNode(map, new Set()));
+	}
+	roots.sort((a, b) => a.name.localeCompare(b.name));
+	return roots;
+}
+
 export type { MapOverlayMode };

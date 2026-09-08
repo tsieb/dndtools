@@ -1,5 +1,9 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type TestInfo } from '@playwright/test';
 import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+
+function isPhone(testInfo: TestInfo): boolean {
+	return testInfo.project.name === 'mobile-chromium';
+}
 
 // ATLAS — /atlas. This file covers the screen's single notice banner, which is a genuinely mixed
 // channel: "Link copied" and "Projected to N players" share it with every command rejection.
@@ -380,5 +384,72 @@ test.describe('atlas: the raster import wizard calibrates the map it imports', (
 		// Fail closed: traced walls are DM only until the DM reveals them.
 		expect(landed.tracedVisibility).toBe('dm-only');
 		expect(landed.tracedWalls).toBeGreaterThan(0);
+	});
+});
+
+// RC-MAP-3.8 — the atlas local nav's map hierarchy tree, and the map editor's breadcrumb
+// drill-down over the same nesting graph (Western Reaches embeds the Hidden Outpost).
+test.describe('atlas: map hierarchy tree and breadcrumb drill-down (RC-MAP-3.8)', () => {
+	test.beforeEach(async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/atlas');
+		await seedFresh(page);
+		await page.goto('/#/atlas', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.locator(MAIN).waitFor({ state: 'attached' });
+	});
+
+	test('expanding a tree node reveals its embedded child, and selecting it opens that map', async ({
+		page,
+	}) => {
+		const tree = page.getByRole('tree', { name: 'Map hierarchy' });
+		await expect(tree).toBeVisible();
+		const parentRow = tree.getByRole('treeitem', { name: 'Western Reaches' });
+		await expect(parentRow).toBeVisible();
+		await expect(parentRow).toHaveAttribute('aria-expanded', 'false');
+
+		await parentRow.focus();
+		await page.keyboard.press('ArrowRight');
+		await expect(parentRow).toHaveAttribute('aria-expanded', 'true');
+
+		const childRow = tree.getByRole('treeitem', { name: 'Hidden Outpost' });
+		await expect(childRow).toBeVisible();
+		await childRow.click();
+
+		// Selecting the child in the tree is the SAME map-switch `MapChips` drives — its chip picks up
+		// aria-current, the same live proof `atlas.spec.ts` uses elsewhere in this file.
+		await expect(page.getByRole('button', { name: /Hidden Outpost/ })).toHaveAttribute(
+			'aria-current',
+			'true',
+		);
+	});
+
+	test('the map editor breadcrumb drills back up to the parent without closing the editor', async ({
+		page,
+	}, testInfo) => {
+		// The phone header has no width budget for the ancestor trail (only the current map's title
+		// fits — see the `clippedControls()` note in MapEditor.tsx); it is desktop-only there too.
+		test.skip(
+			isPhone(testInfo),
+			'the phone header shows only the current map title, not the trail',
+		);
+		const tree = page.getByRole('tree', { name: 'Map hierarchy' });
+		const parentRow = tree.getByRole('treeitem', { name: 'Western Reaches' });
+		await parentRow.focus();
+		await page.keyboard.press('ArrowRight');
+		await tree.getByRole('treeitem', { name: 'Hidden Outpost' }).click();
+
+		await page.getByRole('button', { name: 'Open in map editor' }).click();
+		const editor = page.getByRole('application');
+		await expect(editor).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1, name: 'Hidden Outpost' })).toBeVisible();
+
+		const ancestorCrumb = page.getByRole('button', { name: 'Go to Western Reaches' });
+		await expect(ancestorCrumb).toBeVisible();
+		await ancestorCrumb.click();
+
+		// Drilling up swaps the editor's own map WITHOUT closing the overlay.
+		await expect(editor).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1, name: 'Western Reaches' })).toBeVisible();
 	});
 });

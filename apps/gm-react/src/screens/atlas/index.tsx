@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
 	deliveredMapIdsForActor,
+	getMapHierarchyForActor,
 	getMapViewForActor,
 	listMapsForActor,
 	queryMapLayers,
@@ -15,6 +16,7 @@ import { dsToVis, type MapTool } from '../../app/map/mapVisibility';
 import { MapEditor } from '../../app/map/MapEditor';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { MapChips } from './MapChips';
+import { MapHierarchyTree } from './MapHierarchyTree';
 import { NoticeBar } from './NoticeBar';
 import { AtlasCanvas } from './AtlasCanvas';
 import { LayersPanel } from './LayersPanel';
@@ -117,6 +119,12 @@ export function Atlas() {
 				deliveredMapIds: delivered,
 			}),
 		[runtime.state.maps, runtime.state.permissions, actorId, delivered],
+	);
+	// RC-MAP-3.8 — the actor-filtered map NESTING tree (root maps embedding their visible children),
+	// for the local nav's drill-down `role="tree"`. Same actor-scoped read path as `maps` above.
+	const mapHierarchy = useMemo(
+		() => getMapHierarchyForActor(runtime.state.maps, runtime.state.permissions, actorId),
+		[runtime.state.maps, runtime.state.permissions, actorId],
 	);
 
 	// POI deep links — `#/atlas?map=…&poi=…`, the exact URL MapBuilder's "copy link" writes and the
@@ -529,6 +537,8 @@ export function Atlas() {
 
 				{/* side rails — all real, actor-filtered Core data */}
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+					<MapHierarchyTree tree={mapHierarchy} selectedId={selectedId} onSelect={selectMap} />
+
 					<LayersPanel
 						layers={layers}
 						hiddenMatchCount={layerResult.hiddenMatchCount}
@@ -565,10 +575,15 @@ export function Atlas() {
 
 			{builder && selectedId && (
 				<MapEditor
+					// RC-MAP-3.8 — keyed by mapId so drilling to a different map (breadcrumb ancestor or a
+					// `map-link` POI) remounts with a clean tool/zoom/dock/undo-history state rather than
+					// carrying the previous map's editor state onto the new one.
+					key={selectedId}
 					mapId={selectedId}
 					initialTool={builder.tool}
 					initialFogMode={builder.fogMode ?? 'reveal'}
 					onClose={() => setBuilder(null)}
+					onNavigateToMap={selectMap}
 				/>
 			)}
 		</Page>
