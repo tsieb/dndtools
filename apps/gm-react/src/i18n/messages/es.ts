@@ -3676,6 +3676,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Las emisiones de audio en Android deben usar una URL HTTPS válida. Importa el archivo o usa un servidor cifrado.',
 	'audio.unbound': 'Se desvinculó el audio de «{name}».',
 	'audio.layerRemoved': 'Se quitó la capa de ambiente «{name}».',
+	'audio.embed.addHint':
+		'Detectado {provider}: se reproduce en un marco aislado y nunca se guarda en caché.',
+	'audio.embed.detected': 'Contenido incrustado de {provider}',
+	'audio.embed.online': 'En línea',
+	'audio.embed.offline': 'Sin conexión: se reproducen las capas de ambiente locales.',
+	'audio.embed.frameTitle': 'Reproductor de {provider}',
+	'audio.embed.badUrl': 'Este enlace no se pudo convertir en contenido incrustado reproducible.',
+	'audio.embed.failover': 'Sin red: se reproducen las capas de ambiente locales.',
 
 	'audio.sourceKind.webStream': 'Emisión web (URL)',
 	'audio.sourceKind.bundledPreset': 'Preajuste incluido',

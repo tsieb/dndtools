@@ -3,7 +3,15 @@ import { type CoreCommand } from '@dndtools/core';
 import { T, eb } from '../../app/screen-kit';
 import { CommitSlider } from './shared';
 import { useI18n } from '../../i18n';
+import { AUDIO_EMBED_PROVIDER_LABEL, type AudioEmbedProvider } from '../../runtime/audio-embed';
 import { type AudioPlaybackSnapshot, type AudioTrackView } from './types';
+
+/** RC-AUD-3.3 — a detected web-embed track, resolved from the source URL by the caller. */
+export interface AudioEmbedInfo {
+	provider: AudioEmbedProvider;
+	/** The sandboxed player src, or null when the URL could not be resolved to a playable embed. */
+	src: string | null;
+}
 
 /** The now-playing strip — the durable SESSION-OWNED track, its transport and the authoritative
  * master fader. Extracted from Audio.tsx unchanged (RC-STB-2.6). */
@@ -16,6 +24,8 @@ export function NowPlaying({
 	trackLabel,
 	masterPct,
 	dispatch,
+	embed,
+	online,
 }: {
 	dmId: string;
 	canEdit: boolean;
@@ -25,6 +35,10 @@ export function NowPlaying({
 	trackLabel: string;
 	masterPct: number;
 	dispatch: (command: CoreCommand) => void;
+	/** RC-AUD-3.3 — set when the current track's source resolves to a YouTube/SoundCloud URL. */
+	embed?: AudioEmbedInfo | null;
+	/** RC-AUD-3.3 — this device's network reachability, for the embed's honest online/offline cue. */
+	online?: boolean;
 }) {
 	const { t } = useI18n();
 	return (
@@ -167,6 +181,58 @@ export function NowPlaying({
 							{playbackState.detail}
 						</div>
 					)}
+				{/* RC-AUD-3.3 — the web embed. Rendered ONLY while this device has network reachability
+				    (`online`): offline, the sandboxed frame could not load anyway, so we say so plainly
+				    and let the local ambience layers — already sounding independently — carry the table
+				    instead of showing a dead frame. */}
+				{track && embed && playbackState.status === 'embed' && (
+					<div style={{ flexBasis: '100%', display: 'flex', flexDirection: 'column', gap: 6 }}>
+						<div
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 6,
+								font: `11.5px/1.5 ${T.sans}`,
+								color: T.sub,
+							}}
+						>
+							<Icon name="globe" size={13} color={T.sub} />
+							<span>
+								{t('audio.embed.detected', {
+									provider: AUDIO_EMBED_PROVIDER_LABEL[embed.provider],
+								})}
+							</span>
+							<StatusDot status={online ? 'live' : 'warning'} />
+							<span>{t(online ? 'audio.embed.online' : 'audio.embed.offline')}</span>
+						</div>
+						{online && embed.src ? (
+							<iframe
+								data-testid="audio-embed-frame"
+								title={t('audio.embed.frameTitle', {
+									provider: AUDIO_EMBED_PROVIDER_LABEL[embed.provider],
+								})}
+								src={embed.src}
+								// RC-AUD-3.3 — allow-scripts + allow-same-origin so the provider's own player
+								// (YouTube/SoundCloud, fixed hosts we construct the src for — never a DM-authored
+								// URL passed through verbatim as markup) can run; no allow-forms/allow-popups/
+								// allow-top-navigation, so the frame can neither navigate nor pop this window.
+								sandbox="allow-scripts allow-same-origin allow-presentation"
+								allow="autoplay; encrypted-media; picture-in-picture"
+								referrerPolicy="strict-origin-when-cross-origin"
+								style={{
+									width: '100%',
+									height: 80,
+									border: `1px solid ${T.bd}`,
+									borderRadius: 8,
+								}}
+							/>
+						) : (
+							<div role="status" style={{ font: `11.5px/1.5 ${T.sans}`, color: T.sub }}>
+								{online ? t('audio.embed.badUrl') : t('audio.embed.failover')}
+							</div>
+						)}
+					</div>
+				)}
 			</div>
 		</>
 	);

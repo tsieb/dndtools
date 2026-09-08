@@ -3659,6 +3659,14 @@ export const en = {
 		'Android audio streams must use a valid HTTPS URL. Import the file or use an encrypted host.',
 	'audio.unbound': 'Audio unbound from “{name}”.',
 	'audio.layerRemoved': '“{name}” ambience layer removed.',
+	// RC-AUD-3.3 — the opt-in web-embed (YouTube/SoundCloud) source.
+	'audio.embed.addHint': 'Detected {provider} — plays in a sandboxed frame and is never cached.',
+	'audio.embed.detected': '{provider} embed',
+	'audio.embed.online': 'Online',
+	'audio.embed.offline': 'Offline — playing local ambience layers instead.',
+	'audio.embed.frameTitle': '{provider} player',
+	'audio.embed.badUrl': 'This link could not be resolved to a playable embed.',
+	'audio.embed.failover': 'No network — playing local ambience layers instead.',
 
 	'audio.sourceKind.webStream': 'Web stream (URL)',
 	'audio.sourceKind.bundledPreset': 'Bundled preset',

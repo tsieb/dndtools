@@ -146,7 +146,8 @@ Resources:
               script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline';
               img-src 'self' data: blob: https:; media-src 'self' data: blob: https:;
               font-src 'self' data:; worker-src 'self' blob:;
-              frame-src https://accounts.google.com;
+              frame-src https://accounts.google.com https://www.youtube-nocookie.com
+              https://w.soundcloud.com;
               connect-src 'self' https://cognito-idp.${AWS::Region}.amazonaws.com
               https://{{resolve:ssm:/${ProjectName}/${Stage}/sync/api-id}}.execute-api.${AWS::Region}.amazonaws.com
               https://{{resolve:ssm:/${ProjectName}/${Stage}/app-api/api-id}}.execute-api.${AWS::Region}.amazonaws.com

@@ -23,6 +23,7 @@ import {
 	type AudioEngineOptions,
 } from './audio-engine';
 import { getPlatformCapabilities, isNetworkDestinationAllowed } from '../platform/capabilities';
+import { detectAudioEmbedProvider } from './audio-embed';
 
 /**
  * audio-playback — the RECONCILER between the session's authoritative audio state (AUDIO-002/003)
@@ -49,6 +50,11 @@ import { getPlatformCapabilities, isNetworkDestinationAllowed } from '../platfor
  *     routing never fails session audio.
  *   - The LAYER CAP. The engine mixes up to `MAX_MIX_CHANNELS` ambience layers; layers past the cap
  *     report why they are silent instead of quietly disappearing.
+ *   - WEB EMBEDS (RC-AUD-3.3). A primary-track URL recognized as YouTube/SoundCloud
+ *     (`detectAudioEmbedProvider`) never reaches the engine at all — the Audio screen renders the
+ *     provider's own sandboxed iframe player, and the local ambience layers (unaffected by this
+ *     branch) keep sounding underneath it exactly as they would for any other track, so losing the
+ *     embed (offline, blocked) never leaves the table in silence.
  *
  * Crossfade policy: the PRIMARY track honours the core's authoritative `track.crossfadeSeconds`
  * verbatim (0 ⇒ an immediate cut, exactly as `session-audio.ts` documents it). Ambience layers
@@ -58,7 +64,17 @@ import { getPlatformCapabilities, isNetworkDestinationAllowed } from '../platfor
  * kept for the app's lifetime (session audio must keep sounding after navigating away from /audio).
  */
 
-export type AudioPlaybackStatus = 'idle' | 'playing' | 'paused' | 'blocked' | 'no-stream' | 'error';
+export type AudioPlaybackStatus =
+	| 'idle'
+	| 'playing'
+	| 'paused'
+	| 'blocked'
+	| 'no-stream'
+	| 'error'
+	// RC-AUD-3.3 — the primary track is a YouTube/SoundCloud URL; it plays through the sandboxed
+	// embed the Audio screen renders, not this device's `<audio>` element (there is nothing to report
+	// as a failure — this status exists so the UI does not also show a "silent" warning next to it).
+	| 'embed';
 
 /** One ambience layer's honest device-output state. */
 export interface AmbienceLayerPlayback {
@@ -274,6 +290,7 @@ export function createAudioPlaybackDriver(
 	/** How a plan's resolution materializes on THIS device right now. */
 	type Materialized =
 		| { kind: 'url'; url: string }
+		| { kind: 'embed' }
 		| { kind: 'loading' }
 		| { kind: 'silent'; detail: string };
 
@@ -285,6 +302,12 @@ export function createAudioPlaybackDriver(
 					kind: 'silent',
 					detail: 'Android blocks cleartext audio streams. Use HTTPS or import the audio file.',
 				};
+			}
+			// RC-AUD-3.3 — a YouTube/SoundCloud URL never plays through this device's `<audio>` element
+			// (it is a page, not a media file); the Audio screen renders the real player in a sandboxed
+			// iframe instead, so the engine leaves this channel silent rather than reporting a media error.
+			if (detectAudioEmbedProvider(resolution.url)) {
+				return { kind: 'embed' };
 			}
 			return { kind: 'url', url: resolution.url };
 		}
@@ -393,7 +416,17 @@ export function createAudioPlaybackDriver(
 			mainDetail = engine.modeDetail;
 		} else {
 			const media = materialize(trackPlan.resolution);
-			if (media.kind !== 'url') {
+			if (media.kind === 'embed') {
+				// The Audio screen renders the actual player; this engine has nothing to do with the
+				// channel at all (not even a silent placeholder — there is no failure here to report).
+				engine.setChannel(TRACK_CHANNEL_ID, {
+					url: null,
+					volume: trackPlan.volume,
+					crossfadeSeconds: 0,
+				});
+				mainStatus = 'embed';
+				mainDetail = null;
+			} else if (media.kind !== 'url') {
 				// Honest silent state: the transport still drives the durable session state, but this
 				// device has nothing it can output (no stream URL / bytes absent / bytes still loading).
 				engine.setChannel(TRACK_CHANNEL_ID, {
@@ -452,6 +485,17 @@ export function createAudioPlaybackDriver(
 				continue;
 			}
 			const media = materialize(plan.resolution);
+			if (media.kind === 'embed') {
+				// RC-AUD-3.3 — a web embed plays only as the PRIMARY track (one visible player, not one
+				// per ambience layer); an ambience layer bound to the same source stays silent and says why.
+				engine.setChannel(channelId, { url: null, volume: plan.volume, crossfadeSeconds: 0 });
+				next.push({
+					layerId: plan.layerId,
+					sounding: false,
+					detail: 'A web embed plays only as the primary track, not as an ambience layer.',
+				});
+				continue;
+			}
 			if (media.kind !== 'url') {
 				engine.setChannel(channelId, { url: null, volume: plan.volume, crossfadeSeconds: 0 });
 				next.push({

@@ -28,6 +28,7 @@ import { usePresetEditor } from './usePresetEditor';
 import { useStarterPack } from './useStarterPack';
 import { useAutomationEditor } from './useAutomationEditor';
 import { NowPlaying } from './NowPlaying';
+import { audioEmbedSrc, detectAudioEmbedProvider } from '../../runtime/audio-embed';
 import { PlaybackLeft } from './panels/PlaybackLeft';
 import { PlaybackRight } from './panels/PlaybackRight';
 import { PresetsTab } from './PresetsTab';
@@ -121,6 +122,15 @@ export function Audio() {
 			track.assetId ??
 			track.sourceId)
 		: t('audio.nothingPlaying');
+	// RC-AUD-3.3 — the current track's source URL, classified for a YouTube/SoundCloud embed. Derived
+	// straight from durable state (no extra flag to store): any `web-stream` whose URL resolves to a
+	// recognized provider IS an embed, on every device that reads the same session state.
+	const trackSourceUrl = track ? (state.audio.sources[track.sourceId]?.url ?? null) : null;
+	const trackEmbedProvider = trackSourceUrl ? detectAudioEmbedProvider(trackSourceUrl) : null;
+	const trackEmbed = trackEmbedProvider
+		? { provider: trackEmbedProvider, src: audioEmbedSrc(trackSourceUrl!, trackEmbedProvider) }
+		: null;
+	const online = isOnline();
 	const streamIsAllowed = (source: AudioSourceClassification): boolean => {
 		if (source.type !== 'web-stream') return true;
 		if (nativeDesktop) return false;
@@ -273,6 +283,11 @@ export function Audio() {
 		// submit button while the next track was being typed, and survived a tab switch and back.
 		setAddedName(null);
 		try {
+			// RC-AUD-3.3 — a recognized YouTube/SoundCloud URL is declared `none` (never cached): the
+			// provider serves it, and this device never stores a byte of it. Any other web-stream URL
+			// keeps the existing `cache-required` behavior (a DM-pinned copy CAN be cached for offline).
+			const isEmbed =
+				trackKind === 'web-stream' && detectAudioEmbedProvider(trackUrl.trim()) !== null;
 			const problem = await failure({
 				type: 'audio.configure-source',
 				actorId: dmId,
@@ -280,7 +295,8 @@ export function Audio() {
 					type: trackKind,
 					displayName: trackName.trim(),
 					url: trackKind === 'web-stream' ? trackUrl.trim() : null,
-					cacheBehavior: trackKind === 'web-stream' ? 'cache-required' : 'local',
+					cacheBehavior:
+						trackKind === 'web-stream' ? (isEmbed ? 'none' : 'cache-required') : 'local',
 				},
 			});
 			if (!problem) {
@@ -467,6 +483,8 @@ export function Audio() {
 				trackLabel={trackLabel}
 				masterPct={masterPct}
 				dispatch={dispatch}
+				embed={trackEmbed}
+				online={online}
 			/>
 
 			<Tabs

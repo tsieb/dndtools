@@ -4,6 +4,7 @@ import { Badge, Button, EmptyState, Field, Icon, Input, Select } from '../../../
 import { Panel, T } from '../../../app/screen-kit';
 import { SOURCE_KINDS, formatAudioDuration, type BytesPresence, type SourceKind } from '../shared';
 import { useI18n } from '../../../i18n';
+import { AUDIO_EMBED_PROVIDER_LABEL, detectAudioEmbedProvider } from '../../../runtime/audio-embed';
 import { type AudioTrackView } from '../types';
 
 /** The Playback tab's left column — the soundboard of real library assets and the tracks & sources
@@ -313,6 +314,30 @@ export function PlaybackLeft({
 								/>
 							</Field>
 						)}
+						{/* RC-AUD-3.3 — a recognized YouTube/SoundCloud URL plays as a sandboxed embed, never
+						    cached, instead of the local audio element. Detected from the URL alone; no extra
+						    form field, so a plain audio file URL still works exactly as before. */}
+						{trackKind === 'web-stream' &&
+							!nativeDesktop &&
+							(() => {
+								const provider = detectAudioEmbedProvider(trackUrl.trim());
+								if (!provider) return null;
+								return (
+									<div
+										data-testid="audio-embed-add-hint"
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: 6,
+											font: `11px/1.5 ${T.sans}`,
+											color: T.ter,
+										}}
+									>
+										<Icon name="globe" size={12} color={T.ter} />
+										{t('audio.embed.addHint', { provider: AUDIO_EMBED_PROVIDER_LABEL[provider] })}
+									</div>
+								);
+							})()}
 						{nativeDesktop && (
 							<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
 								{t('audio.tracks.desktopBlocksRemote')}
