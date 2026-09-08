@@ -6,8 +6,17 @@ import { useAuth } from '../cloud/AuthContext';
 import { useSession } from './SessionContext';
 import { qrDataUrl } from './qr';
 import type { HostInvitation } from './SessionHost';
+import type { ClientStatus } from './SessionClient';
 import { MAX_CONNECTION_CODE_CHARS } from './signaling';
-import { MAX_ONLINE_JOIN_CODE_CHARS } from './cloudCrypto';
+import { MAX_ONLINE_JOIN_CODE_CHARS, decodeJoinCode, encodeJoinCode } from './cloudCrypto';
+import {
+	connectionState,
+	hostConnectionSummary,
+	peerPresence,
+	rosterPresence,
+	type PresenceReading,
+	type StatusTone,
+} from './sessionStatus';
 import { registerBackHandler } from '../platform/backNavigation';
 import { usePlatformCapabilities } from '../platform/capabilities';
 
@@ -187,6 +196,109 @@ function CopyField({ label, value }: { label: string; value: string }) {
 	);
 }
 
+// --- status presentation ---------------------------------------------------------------------------
+
+/** Semantic status families for the readings in `sessionStatus.ts`. `muted` is the quiet, no-news tone. */
+const TONE: Record<StatusTone, { text: string; border: string; subtle: string }> = {
+	ok: {
+		text: 'var(--color-status-success-text)',
+		border: 'var(--color-status-success-border)',
+		subtle: 'var(--color-status-success-subtle)',
+	},
+	info: {
+		text: 'var(--color-status-info-text)',
+		border: 'var(--color-status-info-border)',
+		subtle: 'var(--color-status-info-subtle)',
+	},
+	warn: {
+		text: 'var(--color-status-warning-text)',
+		border: 'var(--color-status-warning-border)',
+		subtle: 'var(--color-status-warning-subtle)',
+	},
+	error: {
+		text: 'var(--color-status-error-text)',
+		border: 'var(--color-status-error-border)',
+		subtle: 'var(--color-status-error-subtle)',
+	},
+	muted: { text: T.ter, border: T.bd, subtle: T.alt },
+};
+
+/** The player's live connection reading. Announced politely so a drop is not a silent visual change. */
+function ConnectionBanner({ status }: { status: ClientStatus }) {
+	const state = connectionState(status);
+	const tone = TONE[state.tone];
+	return (
+		<div
+			role="status"
+			aria-live="polite"
+			data-testid="session-connection"
+			style={{
+				display: 'flex',
+				alignItems: 'flex-start',
+				gap: 10,
+				marginBottom: 14,
+				padding: '10px 12px',
+				borderRadius: 10,
+				border: `1px solid ${tone.border}`,
+				background: tone.subtle,
+			}}
+		>
+			<Icon name={state.icon} size={16} color={tone.text} />
+			<div style={{ flex: 1 }}>
+				<div style={{ font: `600 12.5px ${T.sans}`, color: tone.text }}>{state.label}</div>
+				<div style={{ marginTop: 2, font: `11.5px/1.5 ${T.sans}`, color: T.sub }}>
+					{state.detail}
+				</div>
+			</div>
+		</div>
+	);
+}
+
+/** One participant's presence: the spoken label plus any coarse hints, never colour alone. */
+function PresenceTag({ reading }: { reading: PresenceReading }) {
+	const tone = TONE[reading.tone];
+	return (
+		<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+			<span style={{ font: `11px ${T.sans}`, color: tone.text }}>{reading.label}</span>
+			{reading.badges.map((badge) => (
+				<span
+					key={badge}
+					style={{
+						font: `600 10.5px ${T.sans}`,
+						color: T.acc,
+						border: `1px solid ${T.accBd}`,
+						background: T.accSub,
+						borderRadius: 999,
+						padding: '1px 7px',
+					}}
+				>
+					{badge}
+				</span>
+			))}
+		</span>
+	);
+}
+
+/** A read-aloud field: the DM dictates these when a player cannot paste the whole join code. */
+function DictateField({ label, value }: { label: string; value: string }) {
+	return (
+		<div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
+			<span style={{ font: `600 11px ${T.sans}`, color: T.ter, minWidth: 46 }}>{label}</span>
+			<code
+				style={{
+					flex: 1,
+					font: `12px ${T.mono}`,
+					color: T.ink,
+					wordBreak: 'break-all',
+					userSelect: 'all',
+				}}
+			>
+				{value}
+			</code>
+		</div>
+	);
+}
+
 // --- Account control (topbar) ----------------------------------------------------------------------
 
 export function AccountButton({ compact = false }: { compact?: boolean } = {}) {
@@ -228,6 +340,87 @@ export function AccountButton({ compact = false }: { compact?: boolean } = {}) {
 			<Icon name="players" size={15} />
 			{!compact && label}
 		</button>
+	);
+}
+
+/** The join code's two halves, or null when it cannot be read — never throws into a render. */
+function splitJoinCode(code: string): { sessionId: string; pin: string } | null {
+	try {
+		return decodeJoinCode(code);
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * The DM's share block for an online (cloud) table: the one-string join code, the same code as a QR
+ * for a phone at the table, and the room + PIN read out separately for a player who cannot paste.
+ * The PIN is the admission credential (`cloudCrypto.ts`) and never reaches the signaling service.
+ */
+function OnlineJoinShare({ code }: { code: string }) {
+	const [qr, setQr] = useState<string | null>(null);
+	useEffect(() => {
+		let cancelled = false;
+		void qrDataUrl(code).then((url) => {
+			if (!cancelled) setQr(url);
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [code]);
+
+	// Both halves are already inside the code; splitting them out is a dictation aid, and it lets the
+	// two sides confirm out loud that they are on the same room before anyone is approved.
+	const parts = splitJoinCode(code);
+
+	return (
+		<>
+			<CopyField label="Online join code — send privately" value={code} />
+			{qr && (
+				<img
+					src={qr}
+					alt="Online join code QR code"
+					style={{
+						display: 'block',
+						margin: '12px auto 4px',
+						width: 160,
+						height: 160,
+						imageRendering: 'pixelated',
+						background: '#fff',
+						borderRadius: 8,
+						padding: 6,
+					}}
+				/>
+			)}
+			{parts && (
+				<div
+					style={{
+						marginTop: 10,
+						padding: '10px 12px',
+						borderRadius: 10,
+						border: `1px solid ${T.bd}`,
+						background: T.alt,
+					}}
+				>
+					<span
+						style={{
+							font: `600 11px ${T.sans}`,
+							color: T.ter,
+							textTransform: 'uppercase',
+							letterSpacing: '.04em',
+						}}
+					>
+						Or read these out
+					</span>
+					<DictateField label="Room" value={parts.sessionId} />
+					<DictateField label="PIN" value={parts.pin} />
+				</div>
+			)}
+			<div style={{ marginTop: 8, font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
+				The PIN is what opens the table, and it is never sent to the signaling service. A device
+				that has it still waits for your approval below.
+			</div>
+		</>
 	);
 }
 
@@ -397,18 +590,7 @@ function HostModal({ onClose }: { onClose: () => void }) {
 										<Icon name="check" size={14} />
 										Joinable online — players can connect over the internet
 									</span>
-									{session.onlineJoinCode && (
-										<>
-											<CopyField
-												label="Online join code — send privately"
-												value={session.onlineJoinCode}
-											/>
-											<div style={{ marginTop: 6, font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
-												This code contains a private session credential that is never sent to the
-												signaling service. A device still needs your approval below.
-											</div>
-										</>
-									)}
+									{session.onlineJoinCode && <OnlineJoinShare code={session.onlineJoinCode} />}
 								</>
 							) : (
 								<button type="button" style={btn()} onClick={() => void hostOnline()}>
@@ -578,56 +760,58 @@ function HostModal({ onClose }: { onClose: () => void }) {
 
 					<div style={{ marginTop: 16 }}>
 						<div style={{ font: `600 12px ${T.sans}`, color: T.ink, marginBottom: 8 }}>
-							Connected players ({session.peers.filter((p) => p.connected).length})
+							{hostConnectionSummary(session.peers)}
 						</div>
 						{session.peers.length === 0 ? (
-							<div style={{ font: `12px ${T.sans}`, color: T.ter }}>No one has joined yet.</div>
+							<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+								No one has joined yet. Create an invite above, or share the online join code.
+							</div>
 						) : (
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-								{session.peers.map((p) => (
-									<div
-										key={p.peerId}
-										style={{
-											display: 'flex',
-											alignItems: 'center',
-											gap: 10,
-											padding: '8px 11px',
-											borderRadius: 9,
-											border: `1px solid ${T.bd}`,
-											background: T.surf,
-										}}
-									>
-										<span
+								{session.peers.map((p) => {
+									const reading = peerPresence(p);
+									return (
+										<div
+											key={p.peerId}
+											data-testid="session-peer"
 											style={{
-												width: 8,
-												height: 8,
-												borderRadius: '50%',
-												background: p.connected ? 'var(--color-status-success-text)' : T.ter,
+												display: 'flex',
+												alignItems: 'center',
+												gap: 10,
+												padding: '8px 11px',
+												borderRadius: 9,
+												border: `1px solid ${T.bd}`,
+												background: T.surf,
+												flexWrap: 'wrap',
 											}}
-										/>
-										<span style={{ flex: 1, font: `12.5px ${T.sans}`, color: T.ink }}>
-											{p.displayName}
-											<span style={{ color: T.ter }}> · {ROLE_LABEL[p.role] ?? p.role}</span>
-											{p.hand && (
-												<span style={{ color: T.acc }}>
-													{' '}
-													· <Icon name="flag" size={11} label="Hand raised" />
-												</span>
-											)}
-										</span>
-										<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
-											{p.connected ? 'Connected' : 'Invited'}
-										</span>
-										<button
-											type="button"
-											onClick={() => session.revoke(p.peerId)}
-											style={{ ...btn(), padding: '5px 9px' }}
 										>
-											<Icon name="hidden" size={12} />
-											Revoke
-										</button>
-									</div>
-								))}
+											<span
+												style={{
+													width: 8,
+													height: 8,
+													borderRadius: '50%',
+													background: TONE[reading.tone].text,
+												}}
+											/>
+											<span
+												style={{ flex: 1, minWidth: 130, font: `12.5px ${T.sans}`, color: T.ink }}
+											>
+												{p.displayName}
+												<span style={{ color: T.ter }}> · {ROLE_LABEL[p.role] ?? p.role}</span>
+											</span>
+											<PresenceTag reading={reading} />
+											<button
+												type="button"
+												onClick={() => session.revoke(p.peerId)}
+												aria-label={`Revoke access for ${p.displayName}`}
+												style={{ ...btn(), padding: '5px 9px' }}
+											>
+												<Icon name="hidden" size={12} />
+												Revoke
+											</button>
+										</div>
+									);
+								})}
 							</div>
 						)}
 					</div>
@@ -662,7 +846,13 @@ function HostModal({ onClose }: { onClose: () => void }) {
 export function JoinSessionButton() {
 	const [open, setOpen] = useState(false);
 	const session = useSession();
-	const joined = session.role === 'joined' && session.client?.status === 'live';
+	const status = session.client?.status ?? 'idle';
+	const joined = session.role === 'joined' && status === 'live';
+	// The control carries the link's real state, so a player who has been dropped or is riding out a
+	// wobble learns it from the closed panel rather than from silence.
+	const unsteady = session.role === 'joined' && (status === 'reconnecting' || status === 'closed');
+	const label = joined ? 'Connected' : unsteady ? connectionState(status).label : 'Join a table';
+	const tone = joined ? TONE.ok : unsteady ? TONE[connectionState(status).tone] : null;
 	return (
 		<>
 			<button
@@ -676,13 +866,13 @@ export function JoinSessionButton() {
 					borderRadius: 9,
 					cursor: 'pointer',
 					font: `600 12.5px ${T.sans}`,
-					border: `1px solid ${joined ? 'var(--color-status-success-border)' : T.accBd}`,
-					background: joined ? 'var(--color-status-success-subtle)' : T.accSub,
-					color: joined ? 'var(--color-status-success-text)' : T.acc,
+					border: `1px solid ${tone ? tone.border : T.accBd}`,
+					background: tone ? tone.subtle : T.accSub,
+					color: tone ? tone.text : T.acc,
 				}}
 			>
-				<Icon name={joined ? 'check' : 'players'} size={15} />
-				{joined ? 'Connected' : 'Join a table'}
+				<Icon name={joined ? 'check' : unsteady ? 'warning' : 'players'} size={15} />
+				{label}
 			</button>
 			{open && <JoinModal onClose={() => setOpen(false)} />}
 		</>
@@ -698,19 +888,36 @@ function JoinModal({ onClose }: { onClose: () => void }) {
 	const [error, setError] = useState<string | null>(null);
 	const [connectingOnline, setConnectingOnline] = useState(false);
 	const [connectingNearby, setConnectingNearby] = useState(false);
+	const [dictated, setDictated] = useState(false);
+	const [room, setRoom] = useState('');
+	const [pin, setPin] = useState('');
 	const status = session.client?.status ?? 'idle';
 	const visibleError = error ?? session.client?.error;
+	const roster = session.client?.presence ?? [];
 
-	const connectOnlineNow = async () => {
+	const connectOnline = async (joinCode: string) => {
 		setError(null);
 		setConnectingOnline(true);
 		try {
-			await session.connectOnlineByCode(onlineCode.trim());
+			await session.connectOnlineByCode(joinCode);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Could not connect with that join code.');
 		} finally {
 			setConnectingOnline(false);
 		}
+	};
+	const connectOnlineNow = () => connectOnline(onlineCode.trim());
+	// The dictated path rebuilds the SAME one-string join code from the two halves the DM read out,
+	// so it goes through exactly one join route. A mistyped half fails here rather than on the wire.
+	const connectDictated = async () => {
+		let joinCode: string;
+		try {
+			joinCode = encodeJoinCode(room.trim(), pin.trim());
+		} catch {
+			setError('That room or PIN is not in the right shape — check both with your DM.');
+			return;
+		}
+		await connectOnline(joinCode);
 	};
 
 	// Electron LAN auto-discovery: browse for tables while the modal is open.
@@ -746,24 +953,61 @@ function JoinModal({ onClose }: { onClose: () => void }) {
 
 	return (
 		<Modal title="Join a table" onClose={onClose}>
+			<ConnectionBanner status={status} />
 			{status === 'live' ? (
 				<div>
-					<div
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: 10,
-							padding: '11px 14px',
-							borderRadius: 10,
-							background: 'var(--color-status-success-subtle)',
-							border: `1px solid var(--color-status-success-border)`,
-						}}
-					>
-						<Icon name="check" size={16} color="var(--color-status-success-text)" />
-						<span style={{ font: `12.5px ${T.sans}`, color: 'var(--color-status-success-text)' }}>
-							Connected as {session.client?.identity?.displayName ?? 'player'} — the table’s live
-							view is below.
+					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+						You are at the table as{' '}
+						<strong style={{ color: T.ink }}>
+							{session.client?.identity?.displayName ?? 'a player'}
+						</strong>
+						. The table’s live view is below.
+					</div>
+					<div style={{ marginTop: 14 }}>
+						<span
+							style={{
+								font: `600 11px ${T.sans}`,
+								color: T.ter,
+								textTransform: 'uppercase',
+								letterSpacing: '.04em',
+							}}
+						>
+							Who else is here
 						</span>
+						{roster.length === 0 ? (
+							<div style={{ marginTop: 6, font: `12px ${T.sans}`, color: T.ter }}>
+								The DM has not shared a roster for this table.
+							</div>
+						) : (
+							<div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
+								{roster.map((entry) => {
+									const reading = rosterPresence(entry);
+									return (
+										<div
+											key={entry.actorId}
+											data-testid="session-roster-entry"
+											style={{
+												display: 'flex',
+												alignItems: 'center',
+												gap: 10,
+												flexWrap: 'wrap',
+												padding: '7px 11px',
+												borderRadius: 9,
+												border: `1px solid ${T.bd}`,
+												background: T.surf,
+											}}
+										>
+											<span
+												style={{ flex: 1, minWidth: 120, font: `12.5px ${T.sans}`, color: T.ink }}
+											>
+												{entry.displayName}
+											</span>
+											<PresenceTag reading={reading} />
+										</div>
+									);
+								})}
+							</div>
+						)}
 					</div>
 					<div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end' }}>
 						<button
@@ -817,6 +1061,57 @@ function JoinModal({ onClose }: { onClose: () => void }) {
 								<Icon name="players" size={14} />
 								{connectingOnline ? 'Connecting…' : 'Join online'}
 							</button>
+							<div style={{ marginTop: 10 }}>
+								<button
+									type="button"
+									aria-expanded={dictated}
+									onClick={() => setDictated((open) => !open)}
+									style={{
+										border: 'none',
+										background: 'transparent',
+										padding: 0,
+										cursor: 'pointer',
+										font: `600 11.5px ${T.sans}`,
+										color: T.acc,
+									}}
+								>
+									Type the room and PIN instead
+								</button>
+								{dictated && (
+									<div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+										<label style={{ display: 'block' }}>
+											<span style={{ display: 'block', font: `600 11px ${T.sans}`, color: T.ter }}>
+												Room
+											</span>
+											<input
+												value={room}
+												onChange={(e) => setRoom(e.target.value)}
+												placeholder="sess-…"
+												style={{ ...fieldStyle, marginTop: 4 }}
+											/>
+										</label>
+										<label style={{ display: 'block' }}>
+											<span style={{ display: 'block', font: `600 11px ${T.sans}`, color: T.ter }}>
+												PIN
+											</span>
+											<input
+												value={pin}
+												onChange={(e) => setPin(e.target.value)}
+												style={{ ...fieldStyle, marginTop: 4 }}
+											/>
+										</label>
+										<button
+											type="button"
+											style={{ ...btn(), alignSelf: 'flex-start' }}
+											onClick={() => void connectDictated()}
+											disabled={!room.trim() || !pin.trim() || connectingOnline}
+										>
+											<Icon name="players" size={14} />
+											Join with room and PIN
+										</button>
+									</div>
+								)}
+							</div>
 							<div style={{ marginTop: 12, height: 1, background: T.bd }} />
 						</div>
 					)}

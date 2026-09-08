@@ -87,3 +87,47 @@ test.describe('join: the invite-redeem landing (cloud fail-closed)', () => {
 		await page.locator('#main-content').waitFor({ state: 'attached', timeout: 20_000 });
 	});
 });
+
+// RC-CLD-3.1 — the PLAYER-SIDE session panel on `/play`. In e2e there is no account backend and no
+// mDNS bridge, so the only working path is the LAN invite code — and the panel has to say where the
+// link actually stands rather than showing a bare form. These assert the honest reading, the live
+// region on a refusal, and that nothing in the panel claims a connection that does not exist.
+
+test.describe('join: the player-side session panel', () => {
+	test.beforeEach(async ({ page }) => {
+		await markOnboarded(page);
+		await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
+	});
+
+	test('it opens on an honest connection reading, with the LAN invite path live', async ({
+		page,
+	}) => {
+		await page.getByRole('button', { name: 'Join a table' }).click();
+		const dialog = page.getByRole('dialog', { name: 'Join a table' });
+		await expect(dialog).toBeVisible();
+
+		// The reading is a live region so a later drop is announced, not just repainted.
+		const reading = dialog.getByTestId('session-connection');
+		await expect(reading).toContainText('Not connected');
+		await expect(reading).toHaveAttribute('aria-live', 'polite');
+
+		// No dead controls: Join stays disabled until there is a code to try.
+		await expect(dialog.getByLabel('Invite code from your DM')).toBeVisible();
+		await expect(dialog.getByRole('button', { name: 'Join', exact: true })).toBeDisabled();
+	});
+
+	test('an unreadable invite code is refused out loud, and nothing claims a connection', async ({
+		page,
+	}) => {
+		await page.getByRole('button', { name: 'Join a table' }).click();
+		const dialog = page.getByRole('dialog', { name: 'Join a table' });
+
+		await dialog.getByLabel('Invite code from your DM').fill('not-a-real-invite-code');
+		await dialog.getByRole('button', { name: 'Join', exact: true }).click();
+
+		await expect(dialog.getByRole('alert')).toContainText(/invalid connection code/i);
+		await expect(dialog.getByTestId('session-connection')).toContainText('Not connected');
+		// The roster only exists once a table is actually live.
+		await expect(dialog.getByTestId('session-roster-entry')).toHaveCount(0);
+	});
+});

@@ -167,3 +167,29 @@ test.describe('collab: live party panel', () => {
 		expect(Date.now() - started).toBeLessThanOrEqual(DELIVERY_BUDGET_MS);
 	});
 });
+
+// RC-CLD-3.1 — the DM's HOST panel. Hosting on the local network needs no account, so this runs for
+// real in e2e: the panel must report the table's state plainly (nobody has joined) rather than
+// implying players are present, and the way to stop must be a live control.
+test.describe('collab: the DM host panel', () => {
+	test('hosting a local table reports an empty roster honestly and can be stopped', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/');
+
+		// On a phone the top-bar control cluster collapses into the "Table controls" sheet (`TopBar.tsx`),
+		// so the host control only exists once that is open.
+		const opener = page.getByRole('button', { name: 'Table controls' });
+		if ((await opener.count()) > 0) await opener.click();
+		await page.getByRole('button', { name: /Host a live table/ }).click();
+		const dialog = page.getByRole('dialog', { name: 'Host a live table' });
+		await expect(dialog).toBeVisible();
+
+		await dialog.getByRole('button', { name: 'Host on local network' }).click();
+
+		await expect(dialog.getByText('No players yet')).toBeVisible();
+		await expect(dialog.getByTestId('session-peer')).toHaveCount(0);
+		await expect(dialog.getByRole('button', { name: 'Stop hosting' })).toBeEnabled();
+	});
+});
