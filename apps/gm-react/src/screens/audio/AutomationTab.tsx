@@ -1,7 +1,6 @@
 import { type FormEvent } from 'react';
 import {
 	AUDIO_AUTOMATION_ACTIONS,
-	AUDIO_AUTOMATION_TRIGGER_KINDS,
 	type AudioAssetView,
 	type AudioAutomationAction,
 	type AudioAutomationOutcome,
@@ -21,7 +20,7 @@ import {
 	tabPanelProps,
 } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
-import { ACTION_LABELS, TRIGGER_LABELS } from './shared';
+import { ACTION_LABELS, RULE_EDITOR_TRIGGER_KINDS, TRIGGER_LABELS } from './shared';
 import { SfxEventsPanel } from './SfxEventsPanel';
 import { useI18n } from '../../i18n';
 import { type SceneListRow } from './types';
@@ -274,7 +273,7 @@ export function AutomationTab({
 										setRuleTrigger(e.target.value as AudioAutomationTriggerKind);
 										setRuleScopeId('');
 									}}
-									options={AUDIO_AUTOMATION_TRIGGER_KINDS.map((kind) => ({
+									options={RULE_EDITOR_TRIGGER_KINDS.map((kind) => ({
 										value: kind,
 										label: t(TRIGGER_LABELS[kind]),
 									}))}

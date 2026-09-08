@@ -4756,6 +4756,10 @@ export {
 	isAudioSfxEventKind,
 	isSfxEventEnabled,
 	resolveAudioAutomation,
+	// RC-AUD-2.2 — the `map.poi.party-enter` trigger's pure proximity test (POI position vs. the party's
+	// newly-marked point), so the app can decide when a POI-linked scene package should auto-activate.
+	POI_PARTY_ENTER_RADIUS,
+	poiPartyEnterMatches,
 } from './state/audio-automation';
 
 // RC-AUD-3.2 — the built-in SFX CUE library (the starter pack's sound-effect half): named one-shot

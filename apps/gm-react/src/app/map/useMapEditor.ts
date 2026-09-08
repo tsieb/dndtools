@@ -35,6 +35,7 @@ import {
 	deliveredMapIdsForActor,
 	getActiveSystemForActor,
 	getMapViewForActor,
+	poiPartyEnterMatches,
 	queryMapLayers,
 	travelPacesForSystem,
 } from '@dndtools/core';
@@ -43,6 +44,10 @@ import type { ToolId } from './tools';
 import { GROUP_OF_TOOL, TOOLS_BY_ID } from './tools';
 import { useI18n } from '../../i18n';
 import type { MessageKey, MessageValues } from '../../i18n';
+import { isOnline } from '../../platform/preferences';
+
+/** RC-AUD-2.2 — a POI linked to a scene package (AUD-2.1's card) via the POI's generic entity link. */
+const POI_SCENE_PACKAGE_LINK_TYPE = 'scene-card';
 
 export type FogMode = 'reveal' | 'conceal';
 export type FogShape = 'rect' | 'polygon' | 'stroke';
@@ -385,13 +390,39 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 	// RC-MAP-2.5 — mark where the party stands on THIS map (RC-MAP-1.4's `session.mark-party`).
 	// Session-level, not a map edit, so it runs `undoable: false` — buildMapInverse has no map
 	// command to build an inverse for and would just no-op the undo push anyway.
+	//
+	// RC-AUD-2.2 — POI-linked scene packages auto-activate here: after the mark lands, a POI within
+	// `poiPartyEnterMatches` of the new point whose generic link (the same `mapInspector.link` fields the
+	// inspector already edits) points at a scene card plays that card's package. Best-effort and silent on
+	// failure — a stale/broken link must never turn a successful party mark into a visible error; the DM
+	// still sees the mark succeed and can fix the link from the inspector.
 	const markPartyHere = useCallback(
-		(point: { x: number; y: number }) =>
-			run(
+		async (point: { x: number; y: number }) => {
+			const accepted = await run(
 				{ type: 'session.mark-party', actorId, payload: { mapId, x: point.x, y: point.y } },
 				{ undoable: false },
-			),
-		[run, actorId, mapId],
+			);
+			if (accepted) {
+				const entered = map?.pois.find(
+					(poi) =>
+						poi.linkedEntityType === POI_SCENE_PACKAGE_LINK_TYPE &&
+						poi.linkedEntityId &&
+						poiPartyEnterMatches(poi.position, point),
+				);
+				if (entered?.linkedEntityId) {
+					void run(
+						{
+							type: 'scene-card.play-package',
+							actorId,
+							payload: { cardId: entered.linkedEntityId, online: isOnline() },
+						},
+						{ undoable: false },
+					);
+				}
+			}
+			return accepted;
+		},
+		[run, actorId, mapId, map],
 	);
 
 	const undo = useCallback(async () => {

@@ -3561,6 +3561,8 @@ export const en = {
 	'audio.trigger.rollCriticalFailure': 'Natural 1',
 	'audio.trigger.deathSaveSuccess': 'Death save succeeds',
 	'audio.trigger.deathSaveFailure': 'Death save fails',
+	// RC-AUD-2.2 — a POI-linked scene package auto-activating as the party's marker enters it.
+	'audio.trigger.poiPartyEnter': 'Party enters a linked POI',
 	'audio.sfx.heading': 'Sound effects',
 	'audio.sfx.intro':
 		'Choose which table moments play a sound. Turning an event off keeps its rules, so turning it back on plays them again. DM only.',
@@ -4775,6 +4777,11 @@ export const en = {
 	'mapInspector.entityId': 'Entity id',
 	'mapInspector.entityIdPlaceholder': 'id',
 	'mapInspector.saveLink': 'Save link',
+	// RC-AUD-2.2 — link this POI to a scene package; it auto-plays when the party marker enters here.
+	'mapInspector.scenePackage': 'Scene package',
+	'mapInspector.scenePackageHelp':
+		'When the party marker enters this POI, the linked scene package plays automatically.',
+	'mapInspector.scenePackageNone': 'None',
 	'mapInspector.deletePoi': 'Delete POI',
 	'mapInspector.poiDeleted': 'POI “{label}” deleted.',
 	'mapInspector.token': 'Token',

@@ -58,6 +58,11 @@ export const AUDIO_AUTOMATION_ENTITY_TYPE = 'audio-automation-rule' as const;
  *   - `roll-critical-failure` — a recorded roll came up a natural low (a nat 1).
  *   - `death-save-success`    — a combatant's death save was recorded as a success.
  *   - `death-save-failure`    — a combatant's death save was recorded as a failure.
+ *
+ * RC-AUD-2.2 adds the POI trigger — a scene package auto-activating as the party moves on the atlas:
+ *
+ *   - `map.poi.party-enter`  — the party's marked position (`session.mark-party`) landed within
+ *     {@link POI_PARTY_ENTER_RADIUS} of a POI. `scopeId` is the entered POI's id.
  */
 export type AudioAutomationTriggerKind =
 	| 'combat-start'
@@ -67,7 +72,8 @@ export type AudioAutomationTriggerKind =
 	| 'roll-critical-success'
 	| 'roll-critical-failure'
 	| 'death-save-success'
-	| 'death-save-failure';
+	| 'death-save-failure'
+	| 'map.poi.party-enter';
 
 export const AUDIO_AUTOMATION_TRIGGER_KINDS: readonly AudioAutomationTriggerKind[] = Object.freeze([
 	'combat-start',
@@ -78,7 +84,31 @@ export const AUDIO_AUTOMATION_TRIGGER_KINDS: readonly AudioAutomationTriggerKind
 	'roll-critical-failure',
 	'death-save-success',
 	'death-save-failure',
+	'map.poi.party-enter',
 ]);
+
+/**
+ * RC-AUD-2.2 — the proximity radius, in the SAME normalized (0..1) map space POIs and the party marker
+ * are stored in, within which the party is considered to have "entered" a POI. ~3% of the map's shorter
+ * dimension — close enough that adjacent POIs cannot both claim the same mark, far enough that a marker
+ * dropped by hand still lands inside its intended POI.
+ */
+export const POI_PARTY_ENTER_RADIUS = 0.03;
+
+/**
+ * RC-AUD-2.2 — true when the party's newly-marked point is within `radius` of a POI's position (both in
+ * normalized 0..1 map space). Pure Euclidean proximity test; carries no knowledge of WHAT the POI links
+ * to — the caller decides what "entering" should do (e.g. auto-play its linked scene package).
+ */
+export function poiPartyEnterMatches(
+	poiPosition: { x: number; y: number },
+	partyPosition: { x: number; y: number },
+	radius: number = POI_PARTY_ENTER_RADIUS,
+): boolean {
+	const dx = poiPosition.x - partyPosition.x;
+	const dy = poiPosition.y - partyPosition.y;
+	return Math.sqrt(dx * dx + dy * dy) <= radius;
+}
 
 /**
  * RC-AUD-3.2 — the SFX EVENTS: the trigger kinds that punctuate a table moment with a one-shot sound

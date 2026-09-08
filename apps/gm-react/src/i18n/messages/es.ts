@@ -3577,6 +3577,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'audio.trigger.rollCriticalFailure': 'Natural 1',
 	'audio.trigger.deathSaveSuccess': 'Tirada de muerte con éxito',
 	'audio.trigger.deathSaveFailure': 'Tirada de muerte fallida',
+	// RC-AUD-2.2 — un paquete de escena vinculado a un POI se activa cuando el grupo entra en él.
+	'audio.trigger.poiPartyEnter': 'El grupo entra en un POI vinculado',
 	'audio.sfx.heading': 'Efectos de sonido',
 	'audio.sfx.intro':
 		'Elige qué momentos de la mesa suenan. Apagar un evento conserva sus reglas, así que al volver a encenderlo suenan de nuevo. Solo DM.',
@@ -4844,6 +4846,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapInspector.entityId': 'Id de entidad',
 	'mapInspector.entityIdPlaceholder': 'id',
 	'mapInspector.saveLink': 'Guardar el enlace',
+	// RC-AUD-2.2 — vincular este PDI a un paquete de escena; se activa al entrar el grupo aquí.
+	'mapInspector.scenePackage': 'Paquete de escena',
+	'mapInspector.scenePackageHelp':
+		'Cuando el marcador del grupo entra en este PDI, el paquete de escena vinculado se reproduce automáticamente.',
+	'mapInspector.scenePackageNone': 'Ninguno',
 	'mapInspector.deletePoi': 'Eliminar el PDI',
 	'mapInspector.poiDeleted': 'Se eliminó el PDI «{label}».',
 	'mapInspector.token': 'Ficha',

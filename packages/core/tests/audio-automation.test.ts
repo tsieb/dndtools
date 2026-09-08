@@ -3,6 +3,7 @@ import {
 	AUDIO_SFX_EVENT_KINDS,
 	BUILTIN_SFX_CUES,
 	BUILTIN_SFX_CUE_COUNT,
+	POI_PARTY_ENTER_RADIUS,
 	audioSfxEventSettingsForActor,
 	buildAudioAutomationRule,
 	builtinSfxCueById,
@@ -10,11 +11,13 @@ import {
 	dispatchCommand,
 	ensureAudioState,
 	evaluateAudioAutomationRule,
+	isAudioAutomationTriggerKind,
 	isBuiltinSfxCueId,
 	isSfxEventEnabled,
 	listAudioAutomationRulesForActor,
 	listBuiltinSfxCues,
 	listBuiltinSfxCuesForEvent,
+	poiPartyEnterMatches,
 	resolveAudioAutomation,
 	resolveAudioAutomationForActor,
 	type AudioAutomationRule,
@@ -956,5 +959,28 @@ describe('RC-AUD-3.2 — the built-in SFX cue library', () => {
 		expect(Object.isFrozen(BUILTIN_SFX_CUES)).toBe(true);
 		expect(listBuiltinSfxCues().map((c) => c.id)).toEqual(BUILTIN_SFX_CUES.map((c) => c.id));
 		expect(builtinSfxCueById('builtin-sfx-nope-nope')).toBeUndefined();
+	});
+});
+
+describe('RC-AUD-2.2 — the map.poi.party-enter trigger + proximity test', () => {
+	it('is a declared trigger kind', () => {
+		expect(isAudioAutomationTriggerKind('map.poi.party-enter')).toBe(true);
+	});
+
+	it('matches when the party lands exactly on the POI, and just inside the radius', () => {
+		const poi = { x: 0.5, y: 0.5 };
+		expect(poiPartyEnterMatches(poi, { x: 0.5, y: 0.5 })).toBe(true);
+		expect(poiPartyEnterMatches(poi, { x: 0.5 + POI_PARTY_ENTER_RADIUS * 0.5, y: 0.5 })).toBe(true);
+	});
+
+	it('does not match once the party is outside the radius', () => {
+		const poi = { x: 0.5, y: 0.5 };
+		expect(poiPartyEnterMatches(poi, { x: 0.5 + POI_PARTY_ENTER_RADIUS * 2, y: 0.5 })).toBe(false);
+	});
+
+	it('honours a caller-supplied radius override', () => {
+		const poi = { x: 0.1, y: 0.1 };
+		expect(poiPartyEnterMatches(poi, { x: 0.2, y: 0.1 }, 0.2)).toBe(true);
+		expect(poiPartyEnterMatches(poi, { x: 0.2, y: 0.1 }, 0.05)).toBe(false);
 	});
 });

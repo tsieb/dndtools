@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { type AudioAutomationAction, type AudioAutomationTriggerKind } from '@dndtools/core';
+import {
+	AUDIO_AUTOMATION_TRIGGER_KINDS,
+	type AudioAutomationAction,
+	type AudioAutomationTriggerKind,
+} from '@dndtools/core';
 import { Slider } from '../../ds';
 import { hasAssetBytes } from '../../platform/storage/assetStore';
 import { useI18n, type MessageKey } from '../../i18n';
@@ -25,7 +29,18 @@ export const TRIGGER_LABELS: Record<AudioAutomationTriggerKind, MessageKey> = {
 	'roll-critical-failure': 'audio.trigger.rollCriticalFailure',
 	'death-save-success': 'audio.trigger.deathSaveSuccess',
 	'death-save-failure': 'audio.trigger.deathSaveFailure',
+	// RC-AUD-2.2 — the POI trigger. Its scope id is a POI id (set from the map POI inspector, not here).
+	'map.poi.party-enter': 'audio.trigger.poiPartyEnter',
 };
+
+/**
+ * RC-AUD-2.2 — the trigger kinds the RULE EDITOR offers. `map.poi.party-enter` is deliberately EXCLUDED:
+ * unlike the other triggers, it never reaches `resolveAudioAutomationForActor` (the POI inspector's own
+ * link IS the rule — see `useMapEditor.markPartyHere`), so a rule authored on it here could never fire. A
+ * dead option in this picker would be exactly the "dead control" the architecture rules out.
+ */
+export const RULE_EDITOR_TRIGGER_KINDS: readonly AudioAutomationTriggerKind[] =
+	AUDIO_AUTOMATION_TRIGGER_KINDS.filter((kind) => kind !== 'map.poi.party-enter');
 export const ACTION_LABELS: Record<AudioAutomationAction, MessageKey> = {
 	play: 'audio.action.play',
 	crossfade: 'audio.action.crossfade',

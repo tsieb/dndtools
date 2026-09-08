@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
 	exportUvttJson,
+	listSceneCardsForActor,
 	type MapPoiView,
 	type MapTokenView,
 	type SceneVisibility,
@@ -477,6 +478,7 @@ function PoiInspector({
 	announce: (m: string) => void;
 }) {
 	const { t } = useI18n();
+	const runtime = useRuntime();
 	const [label, setLabel] = useState(poi.label);
 	const [notes, setNotes] = useState(poi.notes);
 	const [linkType, setLinkType] = useState(poi.linkedEntityType ?? '');
@@ -565,6 +567,29 @@ function PoiInspector({
 				>
 					{t('mapInspector.saveLink')}
 				</Button>
+			</Section>
+
+			<Section title={t('mapInspector.scenePackage')}>
+				<Field label={t('mapInspector.scenePackage')} help={t('mapInspector.scenePackageHelp')}>
+					<Select
+						value={poi.linkedEntityType === 'scene-card' ? (poi.linkedEntityId ?? '') : ''}
+						options={[
+							{ value: '', label: t('mapInspector.scenePackageNone') },
+							...listSceneCardsForActor(
+								runtime.state.session,
+								runtime.state.permissions,
+								editor.actorId,
+							).map((card) => ({ value: card.id, label: card.title })),
+						]}
+						onChange={(e: { target: { value: string } }) => {
+							const cardId = e.target.value || null;
+							patch({
+								linkedEntityType: cardId ? 'scene-card' : null,
+								linkedEntityId: cardId,
+							});
+						}}
+					/>
+				</Field>
 			</Section>
 
 			<Button

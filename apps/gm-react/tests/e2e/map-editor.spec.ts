@@ -1368,6 +1368,89 @@ test.describe('map editor: party marker', () => {
 		await expect(sheet).toBeVisible();
 		await expect(sheet.getByRole('button', { name: 'Mark party here' })).toBeVisible();
 	});
+
+	// RC-AUD-2.2 — a POI linked to a scene package (the POI inspector's "Scene package" field, which
+	// writes the SAME generic `linkedEntityType`/`linkedEntityId` this spec sets directly) auto-plays
+	// that package the moment the party marker lands inside it.
+	test('marking the party inside a POI linked to a scene package auto-plays it', async ({
+		page,
+	}) => {
+		await openAtlas(page);
+		const name = `Party POI Map ${Date.now()}`;
+		const mapId = await createMap(page, { name });
+		const baseLayerId = (await readMap(page, mapId))!.layers[0]!.id;
+		const stamp = Date.now();
+
+		const cardResult = await dispatch(page, {
+			type: 'scene-card.create',
+			actorId: DM,
+			payload: { title: `Tavern Package ${stamp}` },
+		});
+		expect(cardResult.status).toBe('accepted');
+		const cardId = (
+			(cardResult.events ?? []).find(
+				(e) => (e as { kind?: string }).kind === 'scene-card.created',
+			) as { cardId?: string } | undefined
+		)?.cardId;
+		expect(
+			cardId,
+			'scene-card.create emitted a scene-card.created event with a cardId',
+		).toBeTruthy();
+
+		const poiResult = await dispatch(page, {
+			type: 'map.create-poi',
+			actorId: DM,
+			payload: {
+				mapId,
+				id: `poi-package-${stamp}`,
+				layerId: baseLayerId,
+				label: 'Linked POI',
+				category: 'other',
+				position: { x: 0.4, y: 0.3 },
+				visibility: 'dm-only',
+			},
+		});
+		expect(poiResult.status).toBe('accepted');
+		expect(
+			(
+				await dispatch(page, {
+					type: 'map.update-poi',
+					actorId: DM,
+					payload: {
+						mapId,
+						poiId: `poi-package-${stamp}`,
+						linkedEntityType: 'scene-card',
+						linkedEntityId: cardId,
+					},
+				})
+			).status,
+		).toBe('accepted');
+
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		const canvas = page.getByRole('application');
+		const box = (await canvas.boundingBox())!;
+		// Well within POI_PARTY_ENTER_RADIUS (0.03) of the POI's (0.4, 0.3) position.
+		await canvas.click({
+			button: 'right',
+			position: { x: box.width * 0.4, y: box.height * 0.3 },
+		});
+		await page.getByRole('button', { name: 'Mark party here' }).click();
+
+		await expect
+			.poll(() =>
+				page.evaluate(
+					() =>
+						(
+							window as unknown as {
+								__rt?: { state?: { session?: { sceneCards?: { activeCardId?: string | null } } } };
+							}
+						).__rt?.state?.session?.sceneCards?.activeCardId,
+				),
+			)
+			.toBe(cardId);
+	});
 });
 
 // ── 13 · RC-MAP-4.1 · the list view (screen-reader inventory) ────────────────────────────────────
