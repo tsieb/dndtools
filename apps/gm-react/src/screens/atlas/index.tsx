@@ -150,14 +150,21 @@ export function Atlas() {
 	const selectedId = mapId && maps.some((mp) => mp.id === mapId) ? mapId : (maps[0]?.id ?? null);
 	const selectedEntry = maps.find((mp) => mp.id === selectedId) ?? null;
 
+	// RC-MAP-2.3 — asking for the view WITH the running combat is what puts the fight's tokens on the
+	// Atlas preview. The core does the filtering (`getMapViewForActor` applies the combat tracker's own
+	// visibility rule), so a player browsing the Atlas sees the combatants they are allowed to see and
+	// a hidden foe is absent rather than redacted. The preview stays read-only: moving a combatant is
+	// the editor's job.
+	const combat = runtime.state.session.combat;
 	const view = useMemo(
 		() =>
 			selectedId
 				? getMapViewForActor(runtime.state.maps, runtime.state.permissions, actorId, selectedId, {
 						deliveredMapIds: delivered,
+						combat,
 					})
 				: null,
-		[runtime.state.maps, runtime.state.permissions, actorId, selectedId, delivered],
+		[runtime.state.maps, runtime.state.permissions, actorId, selectedId, delivered, combat],
 	);
 	const mapView = view && view.kind === 'available' ? view : null;
 

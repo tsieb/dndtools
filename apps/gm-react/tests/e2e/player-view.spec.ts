@@ -361,4 +361,112 @@ test.describe("player view: the projected map carries the DM's fog and tokens", 
 			new RegExp(`${(setup as { mapName: string }).mapName}`),
 		);
 	});
+
+	// RC-MAP-2.3 — the acceptance case for the shared combat overlay. The DM starts a fight with one
+	// ordinary monster and one HIDDEN one; both get auto-placed on the staged map. The DM's own read of
+	// that map carries two combat tokens, the player's projected map carries exactly one, and it is the
+	// visible monster. The filtering is the core's (`getMapViewForActor` applies the combat tracker's
+	// visibility rule); this proves the overlay never widens it on the way to the player device.
+	test('draws only the combat tokens the player may see, never the hidden one', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/session');
+		await seedFresh(page);
+
+		const setup = await page.evaluate(async () => {
+			const rt = window.__rt!;
+			const dm = rt.defaultActorId;
+			const state = rt.state as unknown as {
+				permissions: { actors: Record<string, { id: string; role: string }> };
+			};
+			const playerActorIds = Object.values(state.permissions.actors)
+				.filter((a) => a.role === 'player')
+				.map((a) => a.id);
+			if (playerActorIds.length === 0) return { ok: false, step: 'no player actor' };
+
+			const mapName = `Combat Overlay Map ${Date.now()}`;
+			const created = await rt.dispatch({
+				type: 'map.create',
+				actorId: dm,
+				payload: { name: mapName, description: '', visibility: 'player-visible' },
+			});
+			if (created.status !== 'accepted') return { ok: false, step: 'create map', ...created };
+			const maps = rt.state.maps.maps as Record<string, { id: string; name: string }>;
+			const map = Object.values(maps).find((m) => m.name === mapName);
+			if (!map) return { ok: false, step: 'find map' };
+
+			const scenes = rt.state.scenes.scenes as Record<string, { id: string; isTemplate?: boolean }>;
+			const sceneId =
+				rt.state.session.activeSceneId ?? Object.values(scenes).find((sc) => !sc.isTemplate)?.id;
+			const live = await rt.dispatch({
+				type: 'session.set-workflow',
+				actorId: dm,
+				payload: { workflow: 'active', activeSceneId: sceneId },
+			});
+			if (live.status !== 'accepted') return { ok: false, step: 'go live', ...live };
+			const home = await rt.dispatch({
+				type: 'command-center.ensure-home',
+				actorId: dm,
+				payload: {},
+			});
+			if (home.status !== 'accepted') return { ok: false, step: 'ensure home', ...home };
+			const active = await rt.dispatch({
+				type: 'session.set-active-map',
+				actorId: dm,
+				payload: { mapId: map.id },
+			});
+			if (active.status !== 'accepted') return { ok: false, step: 'set active map', ...active };
+
+			// Combat starts AFTER the map is staged, so `combat.start` auto-places both combatants on it.
+			const combat = await rt.dispatch({
+				type: 'combat.start',
+				actorId: dm,
+				payload: {
+					combatants: [
+						{ kind: 'monster', name: 'Watchful Gargoyle', ac: 15, initiative: 18, maxHp: 30 },
+						{
+							kind: 'monster',
+							name: 'Lurker In Ambush',
+							ac: 13,
+							initiative: 9,
+							maxHp: 20,
+							hidden: true,
+							placeholder: 'Something waits',
+						},
+					],
+				},
+			});
+			if (combat.status !== 'accepted') return { ok: false, step: 'start combat', ...combat };
+
+			const projected = await rt.dispatch({
+				type: 'session.project-active-map',
+				actorId: dm,
+				payload: { playerActorIds },
+			});
+			if (projected.status !== 'accepted')
+				return { ok: false, step: 'project active map', ...projected };
+
+			// The DM's own actor-scoped read of the same map — the baseline the player result is
+			// compared against, so a "1 token" assertion cannot pass because nothing was placed at all.
+			const dmTokens = Object.values(
+				(rt.state.session as unknown as { combat: { tokens: Record<string, { mapId: string }> } })
+					.combat.tokens,
+			).filter((tk) => tk.mapId === map.id).length;
+			return { ok: true, mapName, dmTokens };
+		});
+		expect(setup.ok, JSON.stringify(setup)).toBe(true);
+		expect((setup as { dmTokens: number }).dmTokens).toBe(2);
+
+		await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
+		await waitRuntime(page);
+		await enterPreview(page, 'player');
+		await page.getByRole('main').first().waitFor({ timeout: 20_000 });
+
+		const stageMap = page.getByTestId('player-stage-map');
+		await expect(stageMap).toBeVisible();
+		// Two combatants stand on the staged map; the player device draws exactly one — the hidden one
+		// is ABSENT, not redacted, so its position never reaches the player's screen.
+		await expect(stageMap).toHaveAttribute('data-tokens', '1');
+	});
 });

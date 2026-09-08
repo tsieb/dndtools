@@ -789,6 +789,9 @@ export function EditorCanvas({
 			<MemoMapCanvas
 				key={navigationEpoch}
 				view={editor.map}
+				// RC-MAP-2.3 — the editor draws the INTERACTIVE `CombatTokenLayer` below; MapCanvas's own
+				// read-only overlay would be a second, inert copy of the same tokens.
+				hideCombatOverlay
 				layers={layers}
 				isDm={editor.isDm}
 				zoom={zoom}

@@ -33,6 +33,7 @@ import { BakeLayer, planBake } from './BakeLayer';
 import { LightLayer, planLighting } from './LightLayer';
 import { MapSvgLayers } from './MapSvgLayers';
 import { MapMarkers } from './MapMarkers';
+import { CombatOverlay } from './CombatOverlay';
 import { useI18n } from '../../../i18n';
 
 /**
@@ -88,6 +89,13 @@ export interface MapCanvasProps {
 		anchor: { x: string; y: string },
 		placement: 'top' | 'bottom',
 	) => ReactNode;
+	/**
+	 * RC-MAP-2.3 — suppress the read-only combat overlay. The map editor sets this: it draws its own
+	 * INTERACTIVE combat layer over the canvas and must not have a second, inert copy underneath.
+	 */
+	hideCombatOverlay?: boolean;
+	/** Small surfaces (the session stage preview) draw combat tokens without their name plates. */
+	compactCombat?: boolean;
 	/** HUD overlays (title card, zoom cluster, minimap…) — pointer events are isolated from the map. */
 	children?: ReactNode;
 	style?: CSSProperties;
@@ -118,6 +126,8 @@ export function MapCanvas({
 	onMoveToken,
 	onPan,
 	renderPoiPopover,
+	hideCombatOverlay = false,
+	compactCombat = false,
 	children,
 	style,
 }: MapCanvasProps) {
@@ -514,6 +524,13 @@ export function MapCanvas({
 				markersInteractive={markersInteractive}
 				selectedPoi={selectedPoi}
 			/>
+
+			{/* RC-MAP-2.3 — the running fight, read-only, on every surface that shows a map. The list is
+			    empty unless the consumer asked `getMapViewForActor` for `{ combat }`, so the editor (which
+			    draws its own INTERACTIVE token layer) never double-draws. */}
+			{!hideCombatOverlay && view && (
+				<CombatOverlay tokens={view.combatTokens} toVisual={toVisual} compact={compactCombat} />
+			)}
 
 			{/* HUD overlays — clicks never fall through to the map */}
 			<div
