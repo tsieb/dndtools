@@ -3654,6 +3654,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'audio.sourceKind.bundledPreset': 'Preajuste incluido',
 	'audio.sourceKind.localFile': 'Biblioteca de archivos locales',
 	'audio.trigger.combatStart': 'Empieza el combate',
+	'audio.trigger.combatEnd': 'Termina el combate',
 	'audio.trigger.mapReveal': 'Se revela un mapa',
 	'audio.trigger.sceneActivation': 'Se activa una escena',
 	'audio.trigger.handoutDelivery': 'Se entrega un documento',

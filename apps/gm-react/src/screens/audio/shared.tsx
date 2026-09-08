@@ -21,6 +21,8 @@ export type SourceKind = (typeof SOURCE_KINDS)[number]['value'];
 
 export const TRIGGER_LABELS: Record<AudioAutomationTriggerKind, MessageKey> = {
 	'combat-start': 'audio.trigger.combatStart',
+	// RC-AUD-3.1
+	'combat-end': 'audio.trigger.combatEnd',
 	'map-reveal': 'audio.trigger.mapReveal',
 	'scene-activation': 'audio.trigger.sceneActivation',
 	'handout-delivery': 'audio.trigger.handoutDelivery',

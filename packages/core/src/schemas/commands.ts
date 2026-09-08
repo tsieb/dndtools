@@ -3110,10 +3110,11 @@ export const configureAudioAutomationInputSchema = z
 		ruleId: idSchema.optional(),
 		label: z.string().optional(),
 		enabled: z.boolean().optional(),
-		// RC-AUD-3.2 appended the four table-moment SFX triggers; order matches
-		// `state/audio-automation.ts`'s `AUDIO_AUTOMATION_TRIGGER_KINDS`.
+		// RC-AUD-3.2 appended the four table-moment SFX triggers; RC-AUD-3.1 appended `combat-end`.
+		// Order matches `state/audio-automation.ts`'s `AUDIO_AUTOMATION_TRIGGER_KINDS`.
 		trigger: z.enum([
 			'combat-start',
+			'combat-end',
 			'map-reveal',
 			'scene-activation',
 			'handout-delivery',

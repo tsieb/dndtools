@@ -321,6 +321,23 @@ describe('AUDIO-005 AC1 — a configured combat-start trigger requests the decla
 		}
 	});
 
+	it('RC-AUD-3.1: a combat-end rule requests its declared action when combat ends', () => {
+		const rule = buildRule({ id: 'rule-combat-end', trigger: 'combat-end', action: 'crossfade' });
+		const outcome = evaluateAudioAutomationRule(
+			rule,
+			trigger('combat-end'),
+			library({ [rule.id]: rule }),
+		);
+		expect(outcome).toMatchObject({ status: 'requested', request: { action: 'crossfade' } });
+	});
+
+	it('RC-AUD-3.1: combat-start and combat-end are independent triggers — a combat-end rule does not fire on combat-start', () => {
+		const rule = buildRule({ id: 'rule-combat-end-only', trigger: 'combat-end', action: 'play' });
+		const lib = library({ [rule.id]: rule });
+		expect(evaluateAudioAutomationRule(rule, trigger('combat-start'), lib)).toBeNull();
+		expect(evaluateAudioAutomationRule(rule, trigger('combat-end'), lib)?.status).toBe('requested');
+	});
+
 	it('a stop action requests without needing an asset/license/offline gate', () => {
 		const lib = library();
 		const rule = buildRule({
@@ -534,6 +551,38 @@ describe('AUDIO-005 — DM-only command + visibility (no leak of triggers/cues)'
 			trigger('combat-start'),
 		);
 		expect(resolution?.requests).toEqual([{ action: 'play', sourceId: 's-local', assetId }]);
+	});
+
+	it('RC-AUD-3.1: the DM configures a combat-end rule through the real command; it resolves to a request', () => {
+		const env = makeEnvironment();
+		let state = seedSourceAndAsset(buildInitialState(DM_ACTOR), env);
+		const result = accept(
+			dispatch(
+				state,
+				env,
+				configureCommand({
+					trigger: 'combat-end',
+					action: 'stop',
+					sourceId: 's-local',
+					assetId: null,
+				}),
+			),
+		);
+		expect(result.events[0]).toMatchObject({
+			kind: 'audio.automation-configured',
+			trigger: 'combat-end',
+			action: 'stop',
+			enabled: true,
+		});
+		state = result.nextState;
+
+		const resolution = resolveAudioAutomationForActor(
+			state.audio,
+			state.permissions,
+			DM_ACTOR.id,
+			trigger('combat-end'),
+		);
+		expect(resolution?.requests).toEqual([{ action: 'stop', sourceId: 's-local', assetId: null }]);
 	});
 
 	it('rejects a non-DM configuring a rule (fail closed)', () => {

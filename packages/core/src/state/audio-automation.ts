@@ -46,6 +46,9 @@ export const AUDIO_AUTOMATION_ENTITY_TYPE = 'audio-automation-rule' as const;
  * the existing core events, so a rule can never be armed on an undeclared/unsupported event (fail closed):
  *
  *   - `combat-start`        — combat began (the `combat.started` event). The AUDIO-005 AC1 trigger.
+ *   - `combat-end`          — combat ended (the `combat.ended` event). RC-AUD-3.1 — lets the DM arm a
+ *     "stop"/"crossfade back to exploration" rule that fires the instant a fight resolves, without a
+ *     manual click.
  *   - `map-reveal`          — a map layer / fog reveal (`map.layer-changed` / `map.fog-changed`).
  *   - `scene-activation`    — a Scene became the active session scene (`session.workflow-changed`).
  *   - `handout-delivery`    — a handout was delivered to recipients (`session.handout-delivered`).
@@ -66,6 +69,7 @@ export const AUDIO_AUTOMATION_ENTITY_TYPE = 'audio-automation-rule' as const;
  */
 export type AudioAutomationTriggerKind =
 	| 'combat-start'
+	| 'combat-end'
 	| 'map-reveal'
 	| 'scene-activation'
 	| 'handout-delivery'
@@ -77,6 +81,7 @@ export type AudioAutomationTriggerKind =
 
 export const AUDIO_AUTOMATION_TRIGGER_KINDS: readonly AudioAutomationTriggerKind[] = Object.freeze([
 	'combat-start',
+	'combat-end',
 	'map-reveal',
 	'scene-activation',
 	'handout-delivery',

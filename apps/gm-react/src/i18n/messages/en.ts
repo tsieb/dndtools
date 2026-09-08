@@ -3636,6 +3636,7 @@ export const en = {
 	'audio.sourceKind.bundledPreset': 'Bundled preset',
 	'audio.sourceKind.localFile': 'Local file library',
 	'audio.trigger.combatStart': 'Combat starts',
+	'audio.trigger.combatEnd': 'Combat ends',
 	'audio.trigger.mapReveal': 'Map reveal',
 	'audio.trigger.sceneActivation': 'Scene activation',
 	'audio.trigger.handoutDelivery': 'Handout delivery',

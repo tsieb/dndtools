@@ -21,6 +21,7 @@ import { CloudSyncProvider } from './cloud/CloudSyncContext';
 import { SessionProvider } from './net/SessionContext';
 import { ensureAudioPlayback } from './runtime/audio-playback';
 import { ensureSfxEvents } from './runtime/sfx-events';
+import { ensureCombatAudioAutomation } from './runtime/combat-audio-automation';
 import { AppShell } from './app/AppShell';
 import { AppSystemProvider } from './app/SystemContext';
 import { Onboarding } from './app/Onboarding';
@@ -413,8 +414,12 @@ function Shell() {
 	// write the same core state this driver reconciles against a single <audio> element.
 	// RC-AUD-3.2 — and the SFX event driver alongside it, so a natural 20 rolled on /session sounds
 	// its cue whether or not the Audio screen is mounted.
+	// RC-AUD-3.1 — and the combat-music driver, so a `combat-start`/`combat-end` automation rule fires
+	// the moment combat actually starts/ends, from any screen.
 	useEffect(() => {
-		if (runtime.loaded) ensureSfxEvents(runtime, ensureAudioPlayback(runtime));
+		if (!runtime.loaded) return;
+		ensureSfxEvents(runtime, ensureAudioPlayback(runtime));
+		ensureCombatAudioAutomation(runtime);
 	}, [runtime, runtime.loaded]);
 	if (runtime.hasLoadError) {
 		return <VaultLoadFailure runtime={runtime} />;
