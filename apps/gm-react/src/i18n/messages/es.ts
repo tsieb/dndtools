@@ -4720,6 +4720,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'boardCanvas.zoomOut': 'Alejar',
 	'boardCanvas.zoomIn': 'Acercar',
 	'boardCanvas.resetView': 'Restablecer la vista',
+	'boardCanvas.zoomGroup': 'Zoom',
+	'boardCanvas.zoomFit': 'Ajustar',
+	'boardCanvas.zoomComfortable': 'Cómodo',
+	'boardCanvas.zoomDetail': 'Detalle',
+	'boardCanvas.zoomAnnouncement': 'Zoom {preset}, {percent} %.',
 
 	/* Cuerpos de widget › el contenido dibujado a mano de los widgets integrados */
 	'widgetBody.sessionOnly':

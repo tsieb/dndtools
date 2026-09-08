@@ -4666,6 +4666,11 @@ export const en = {
 	'boardCanvas.zoomOut': 'Zoom out',
 	'boardCanvas.zoomIn': 'Zoom in',
 	'boardCanvas.resetView': 'Reset view',
+	'boardCanvas.zoomGroup': 'Zoom',
+	'boardCanvas.zoomFit': 'Fit',
+	'boardCanvas.zoomComfortable': 'Comfortable',
+	'boardCanvas.zoomDetail': 'Detail',
+	'boardCanvas.zoomAnnouncement': 'Zoom {preset}, {percent}%.',
 
 	/* Widget bodies › the hand-drawn built-in widget contents on the GM Screen */
 	'widgetBody.sessionOnly': 'Go live in Session first — this reaches the table only during play.',

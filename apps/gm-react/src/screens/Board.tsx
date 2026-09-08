@@ -10,7 +10,13 @@ import {
 import { Button, Card, Icon, IconButton, Popover, Switch, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { widgetRejectionMessage } from '../app/widget-rejection';
-import { SceneBoardCanvas, WidgetGlyph } from '../app/SceneBoardCanvas';
+import {
+	SceneBoardCanvas,
+	WidgetGlyph,
+	ZOOM_PRESETS,
+	ZOOM_PRESET_KEY,
+	type ZoomPreset,
+} from '../app/SceneBoardCanvas';
 import { BoardLayoutsPanel } from './BoardLayoutsPanel';
 import {
 	boardLayoutIssues,
@@ -38,7 +44,13 @@ import { widgetProfileForRuntime } from '../platform/capabilities';
  * core's preset + auto-save safe-point commands (CMD-008).
  *
  * It uses the BOUNDED canvas policy (glanceable, scrolls, keyboard-first) — the accessibility answer
- * the prototype's `scene-canvas.jsx` describes for the home surface.
+ * the prototype's `scene-canvas.jsx` describes for the home surface. RC-CAN-3.1 fixed what "bounded"
+ * means: the board has no free zoom slider, only the three named steps Fit, Comfortable and Detail
+ * (`0`/`1`/`2`, cycled with `+`/`-`), so a DM can name where they are instead of hunting for a
+ * percentage. Fit scales the authored layout into the pane but stops at 0.5 — below that the widget
+ * titles are unreadable, so the surface SCROLLS (both axes) rather than shrinking further, and
+ * Comfortable/Detail deliberately overflow a narrow window for the same reason. The board still
+ * never pans freely: scrolling, not dragging, is how you reach the rest of it.
  */
 // `SceneRuntime.dispatchNow` RETHROWS after a failed `persistFullState`, and every caller here is
 // fire-and-forget (`void onMove(...)`, `onClick={savePreset}`), so an IndexedDB quota or
@@ -58,6 +70,10 @@ export function Board() {
 	const [snap, setSnap] = useState(true);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [addOpen, setAddOpen] = useState(false);
+	// RC-CAN-3.1: the board's zoom lives here, not in the canvas, so the control can sit in the
+	// toolbar. The bounded canvas IS its own scroll container, so an in-canvas control would scroll
+	// away from the widgets it applies to and sit on top of the top-left widget while it did.
+	const [zoom, setZoom] = useState<ZoomPreset>('fit');
 	// The Layouts panel used to render unconditionally whenever edit mode was on, with no close
 	// control and no Escape handler — so on a phone (where it is a 280px absolute overlay) it
 	// covered all but ~97px of the board and could not be dismissed without leaving edit mode.
@@ -488,6 +504,28 @@ export function Board() {
 						</Button>
 					</>
 				)}
+				{/* The three named zoom steps. Always available: reading the board at Detail is as much
+				    a viewing act as an editing one. */}
+				<div
+					role="group"
+					aria-label={t('boardCanvas.zoomGroup')}
+					data-testid="board-zoom-presets"
+					// Wraps INSIDE the group: at 200% text "Comfortable" alone is a third of a 360px
+					// phone, and a group that could only wrap as a unit widened `#main-content`.
+					style={{ display: 'flex', flexWrap: 'wrap', gap: 2, flex: '0 1 auto', minWidth: 0 }}
+				>
+					{ZOOM_PRESETS.map((preset) => (
+						<Button
+							key={preset}
+							variant={zoom === preset ? 'primary' : 'ghost'}
+							size="sm"
+							aria-pressed={zoom === preset}
+							onClick={() => setZoom(preset)}
+						>
+							{t(ZOOM_PRESET_KEY[preset])}
+						</Button>
+					))}
+				</div>
 				<Button
 					variant={editing ? 'primary' : 'secondary'}
 					size="sm"
@@ -675,6 +713,8 @@ export function Board() {
 					// surface that is deliberately not a scene.
 					emptyTitle={ready ? t('board.emptyTitle') : t('board.preparingTitle')}
 					history={history}
+					zoomPreset={zoom}
+					onZoomPresetChange={setZoom}
 				/>
 
 				{addOpen && (
