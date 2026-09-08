@@ -1753,3 +1753,144 @@ test.describe('map editor: fog brush ergonomics and polygon lasso (RC-MAP-3.9)',
 		await expect(page.getByRole('dialog', { name: 'Clear all fog on this map?' })).toHaveCount(0);
 	});
 });
+
+// RC-MAP-3.10 — a POI is a pin until it points at something the DM wrote. "Create note here" is the
+// short path: one dialog, one type card, and the note exists AND the POI links to it. Both halves are
+// real core commands, so the assertion reads the durable vault + map state back, never the DOM.
+test.describe('map editor: POI note creation (RC-MAP-3.10)', () => {
+	/** Every vault object this actor holds, with the frontmatter the subtype schema validated. */
+	function readObjects(
+		page: Page,
+	): Promise<Array<{ id: string; title: string; body: string; fields: Record<string, unknown> }>> {
+		return page.evaluate(() => {
+			const items = (window.__rt?.state?.content?.items ?? {}) as Record<
+				string,
+				{ id: string; title: string; body: string; kind: string; fields: Record<string, unknown> }
+			>;
+			return Object.values(items)
+				.filter((i) => i.kind === 'object')
+				.map((i) => ({ id: i.id, title: i.title, body: i.body, fields: i.fields }));
+		});
+	}
+
+	/** The POI's durable link fields, straight off the map entity. */
+	function readPoiLink(
+		page: Page,
+		mapId: string,
+	): Promise<{ type: string | null; id: string | null } | null> {
+		return page.evaluate((mid) => {
+			const m = window.__rt?.state?.maps?.maps?.[mid] as
+				| { pois: Array<{ linkedEntityType: string | null; linkedEntityId: string | null }> }
+				| undefined;
+			const poi = m?.pois[0];
+			return poi ? { type: poi.linkedEntityType, id: poi.linkedEntityId } : null;
+		}, mapId);
+	}
+
+	test('"Create note here" creates an NPC object and links the POI to it', async ({
+		page,
+	}, testInfo) => {
+		await openAtlas(page);
+		const poi = await seedMapWithPoi(page, 'Note Link Hold');
+		await openEditor(page, poi.name);
+
+		// Select the POI on the canvas and take its popover's Edit action into the Inspector — the
+		// dock opens on Layers, so the Inspector has to be genuinely reached, not assumed.
+		await page.getByRole('button', { name: `POI: ${poi.label}` }).click();
+		await page
+			.getByRole('dialog', { name: poi.label })
+			.getByRole('button', { name: 'Edit' })
+			.click();
+		await revealDock(page, testInfo);
+
+		const create = page.getByRole('button', { name: 'Create note here' });
+		await expect(create).toBeEnabled();
+		await create.click();
+
+		const dialog = page.getByRole('dialog', { name: 'Create a note here' });
+		await expect(dialog).toBeVisible();
+		// The title defaults to the POI's own label — the DM renames it here, once.
+		const title = `Well Keeper ${Date.now()}`;
+		const titleField = dialog.getByLabel('Title', { exact: true });
+		await titleField.fill(title);
+
+		// Pick the NPC card from the KEYBOARD: arrows move an ARIA radiogroup's selection.
+		await dialog.getByRole('radio', { name: /^Location/ }).focus();
+		await page.keyboard.press('ArrowRight');
+		await expect(dialog.getByRole('radio', { name: /^NPC/ })).toHaveAttribute(
+			'aria-checked',
+			'true',
+		);
+
+		await dialog.getByRole('button', { name: 'Create and link' }).click();
+		await expect(dialog).toHaveCount(0);
+
+		// The vault holds a real `character` object, authored DM-only with the NPC template stub.
+		await expect
+			.poll(async () => (await readObjects(page)).find((o) => o.title === title)?.fields, {
+				timeout: 5000,
+			})
+			.toMatchObject({ name: title, characterKind: 'npc' });
+		const created = (await readObjects(page)).find((o) => o.title === title)!;
+		expect(created.body).toContain('## What they want');
+
+		// …and the POI durably points at THAT item, not at a name.
+		await expect
+			.poll(() => readPoiLink(page, poi.mapId), { timeout: 5000 })
+			.toEqual({
+				type: 'content-item',
+				id: created.id,
+			});
+	});
+
+	test('the POI popover previews the linked note and offers "Read note"', async ({ page }) => {
+		await openAtlas(page);
+		const poi = await seedMapWithPoi(page, 'Preview Hold');
+		const stamp = Date.now();
+		const noteTitle = `Keeper Dossier ${stamp}`;
+		const res = await dispatch(page, {
+			type: 'content.create-object',
+			actorId: DM,
+			payload: {
+				subtype: 'note',
+				title: noteTitle,
+				fields: {},
+				body: 'First preview line\nSecond preview line\nThird preview line\nFourth line',
+				visibility: 'dm-only',
+			},
+		});
+		expect(res.status).toBe('accepted');
+		const itemId = ((res.events ?? []).find(
+			(e) => (e as { kind?: string }).kind === 'content.object-changed',
+		) as { itemId?: string } | undefined)!.itemId!;
+		const poiId = (await readMap(page, poi.mapId))!.pois[0]!.id;
+		expect(
+			(
+				await dispatch(page, {
+					type: 'map.update-poi',
+					actorId: DM,
+					payload: {
+						mapId: poi.mapId,
+						poiId,
+						linkedEntityType: 'content-item',
+						linkedEntityId: itemId,
+					},
+				})
+			).status,
+		).toBe('accepted');
+
+		await openEditor(page, poi.name);
+		// No dock here: the popover lives on the canvas, and the compact profile's panel sheet covers it.
+		// Open it the way a DM does — activate the marker.
+		await page.getByRole('button', { name: `POI: ${poi.label}` }).click();
+
+		// Three lines of the note, and no more — the fourth stays in the note.
+		const popover = page.getByRole('dialog', { name: poi.label });
+		await expect(popover.getByText('First preview line')).toBeVisible();
+		await expect(popover.getByText('Fourth line')).toHaveCount(0);
+
+		// "Read note" is a real navigation, not a label: it lands on the note's own screen.
+		await popover.getByRole('button', { name: `Read note ${noteTitle}` }).click();
+		await expect(page).toHaveURL(new RegExp(`/knowledge/${itemId}$`));
+	});
+});

@@ -15,6 +15,7 @@ import { VIS_TEXT, bulkResultMessage } from '../mapVocab';
 import { useI18n } from '../../../i18n';
 import type { MessageKey } from '../../../i18n';
 import { POI_CATEGORIES, VIS_CHIP, VIS_OPTION_KEYS } from './inspectorVocab';
+import { PoiLinkSection } from './PoiNoteSection';
 
 /**
  * A Slider whose DURABLE write happens once per gesture instead of once per step.
@@ -481,14 +482,10 @@ function PoiInspector({
 	const runtime = useRuntime();
 	const [label, setLabel] = useState(poi.label);
 	const [notes, setNotes] = useState(poi.notes);
-	const [linkType, setLinkType] = useState(poi.linkedEntityType ?? '');
-	const [linkId, setLinkId] = useState(poi.linkedEntityId ?? '');
 	useEffect(() => {
 		setLabel(poi.label);
 		setNotes(poi.notes);
-		setLinkType(poi.linkedEntityType ?? '');
-		setLinkId(poi.linkedEntityId ?? '');
-	}, [poi.id, poi.label, poi.notes, poi.linkedEntityType, poi.linkedEntityId]);
+	}, [poi.id, poi.label, poi.notes]);
 	const { run, actorId, mapId } = editor;
 	const patch = (payload: Record<string, unknown>) =>
 		void run({
@@ -536,38 +533,8 @@ function PoiInspector({
 				</Field>
 			</Section>
 
-			<Section title={t('mapInspector.link')}>
-				<div style={{ display: 'flex', gap: 8 }}>
-					<Field label={t('mapInspector.entityType')} style={{ flex: 1 }}>
-						<Input
-							value={linkType}
-							placeholder={t('mapInspector.entityTypePlaceholder')}
-							onChange={(e: { target: { value: string } }) => setLinkType(e.target.value)}
-						/>
-					</Field>
-					<Field label={t('mapInspector.entityId')} style={{ flex: 1 }}>
-						<Input
-							value={linkId}
-							placeholder={t('mapInspector.entityIdPlaceholder')}
-							onChange={(e: { target: { value: string } }) => setLinkId(e.target.value)}
-						/>
-					</Field>
-				</div>
-				<Button
-					variant="secondary"
-					size="sm"
-					icon="link"
-					disabled={editor.busy}
-					onClick={() =>
-						patch({
-							linkedEntityType: linkType.trim() || null,
-							linkedEntityId: linkType.trim() && linkId.trim() ? linkId.trim() : null,
-						})
-					}
-				>
-					{t('mapInspector.saveLink')}
-				</Button>
-			</Section>
+			{/* RC-MAP-3.10 — the link section (existing link + "Create note here") lives next door. */}
+			<PoiLinkSection editor={editor} poi={poi} />
 
 			<Section title={t('mapInspector.scenePackage')}>
 				<Field label={t('mapInspector.scenePackage')} help={t('mapInspector.scenePackageHelp')}>

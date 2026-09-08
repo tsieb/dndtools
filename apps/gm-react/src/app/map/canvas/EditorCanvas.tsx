@@ -8,10 +8,11 @@ import {
 	type MouseEvent as ReactMouseEvent,
 	type PointerEvent as ReactPointerEvent,
 } from 'react';
-import type { MapFeature, MapFogRegion, MapLayer, SceneVisibility } from '@dndtools/core';
-import { Icon, POIPopover } from '../../../ds';
+import type { MapFeature, MapFogRegion, MapLayer } from '@dndtools/core';
+import { Icon } from '../../../ds';
 import { T } from '../../screen-kit';
-import { CATEGORY_VAR, POI_MARKER_CAT, dsToVis, visToDs, type MapTool } from '../mapVisibility';
+import { CATEGORY_VAR, type MapTool } from '../mapVisibility';
+import { EditorPoiPopover, usePoiPopoverDismissal } from './EditorPoiPopover';
 import { FeatureShape } from './FeatureShape';
 import { MapCanvas } from './MapCanvas';
 import { EditorCanvasHud } from './EditorCanvasHud';
@@ -711,15 +712,11 @@ export function EditorCanvas({
 			} as never),
 		[editor],
 	);
-	const handleUpdatePoiVis = useCallback(
-		(poiId: string, v: string) =>
-			void editor.run({
-				type: 'map.update-poi',
-				actorId: editor.actorId,
-				payload: { mapId: editor.mapId, poiId, visibility: dsToVis(v) as SceneVisibility },
-			} as never),
-		[editor],
-	);
+	// RC-MAP-3.10 — the notes POIs link to, read ACTOR-SCOPED: the popover previews only what the core
+	// already decided this actor may see, so a player can never be handed a hidden note's opening lines.
+	// RC-MAP-3.10 — the POI popover's dismissal state (see `EditorPoiPopover.tsx` for why a pointer
+	// dismissal must not deselect).
+	const poiPopover = usePoiPopoverDismissal(selPoiId);
 
 	// measurement readout in real units
 	const measureText = (() => {
@@ -785,23 +782,21 @@ export function EditorCanvas({
 				onMovePoi={handleMovePoi}
 				onMoveToken={handleMoveToken}
 				onPan={editor.setCenter}
-				renderPoiPopover={(poi, anchor, placement) => (
-					<POIPopover
-						poi={{
-							name: poi.label,
-							category: POI_MARKER_CAT[poi.category] ?? 'location',
-							categoryLabel: poi.category,
-							visibility: visToDs(poi.visibility),
-						}}
-						anchor={anchor}
-						placement={placement}
-						readOnly={!editor.isDm}
-						onClose={() => editor.clearSelection()}
-						onVisibilityChange={(v: string) => handleUpdatePoiVis(poi.id, v)}
-						onEdit={() => editor.setDock('inspector')}
-						onFocus={() => editor.setDock('inspector')}
-					/>
-				)}
+				// Dismissed ⇒ the prop goes away entirely: `MapMarkers` lays a full-canvas
+				// pointer-catching layer under the popover whenever the callback is present.
+				renderPoiPopover={
+					poiPopover.dismissed
+						? undefined
+						: (poi, anchor, placement) => (
+								<EditorPoiPopover
+									editor={editor}
+									poi={poi}
+									anchor={anchor}
+									placement={placement}
+									dismissal={poiPopover}
+								/>
+							)
+				}
 			/>
 
 			{/* generation ghost preview + in-progress gesture geometry */}
