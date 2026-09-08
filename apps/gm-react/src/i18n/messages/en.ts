@@ -4680,6 +4680,30 @@ export const en = {
 	'encounter.difficulty.medium': 'medium',
 	'encounter.difficulty.hard': 'hard',
 	'encounter.difficulty.deadly': 'deadly',
+	/* RC-SES-3.5 — encounter builder v2: counts, save/reuse, map placement, ambush seeding */
+	'encounter.decreaseCount': 'One fewer {name}',
+	'encounter.increaseCount': 'One more {name}',
+	'encounter.save': 'Save encounter',
+	'encounter.saved': 'Encounter saved for reuse',
+	'encounter.loaded': 'Loaded {title}',
+	'encounter.load': 'Load',
+	'encounter.savedEncounters': 'Saved encounters',
+	'encounter.savedPlaceholder': 'Pick a saved encounter',
+	'encounter.opening': 'How the fight opens',
+	'encounter.ambush.none': 'Straight fight',
+	'encounter.ambush.partyAmbushes': 'Party ambushes',
+	'encounter.ambush.partySurprised': 'Party surprised',
+	'encounter.ambushNote.none':
+		'Initiative is rolled at the table. Blank fields auto-roll a d20 + DEX modifier.',
+	'encounter.ambushNote.seeded':
+		'Initiative is seeded from the marching order — the front rank acts first. Edit any field to override it.',
+	'encounter.ambushNote.noOrder':
+		'The party has no marching order yet, so everyone is seeded in roster order. Set the order on the Party screen.',
+	'encounter.placeOnMap': 'Place tokens on the map',
+	'encounter.placeOnMapNote':
+		'Starting the fight puts a token for every combatant on the active map. Turn this off to run it without tokens.',
+	'encounter.placeOnMapNoMap':
+		'No active map in this session, so there is nowhere to place tokens yet.',
 	/* Connected sources › local folders and Google Docs on the Settings vault pane */
 	'sources.title': 'Connected sources',
 	'sources.policyLabel': 'Import collision policy',

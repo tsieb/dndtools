@@ -9,6 +9,7 @@ import {
 	getDiceHistoryForActor,
 	getHandoutsForActor,
 	getHandoutStatusForDm,
+	getPartyOverviewForActor,
 	getPrepRecapDigest,
 	getQuickReferencePanelsForActor,
 	getSessionAudioView,
@@ -108,6 +109,7 @@ export function Session() {
 		audioLabel,
 		maps,
 		activeMapId,
+		marchingOrder,
 		players,
 		calendar,
 		campaignDate,
@@ -242,6 +244,9 @@ export function Session() {
 			audioLabel,
 			maps: listMapsForActor(runtime.state.maps, perms, actorId),
 			activeMapId: session.activeMap?.mapId ?? null,
+			// RC-SES-3.5 — the encounter builder seeds ambush initiative from the marching order.
+			marchingOrder: getPartyOverviewForActor(runtime.state.characters, perms, actorId)
+				.marchingOrder,
 			players: Object.values(perms.actors).filter((a) => a.role === 'player'),
 			calendar,
 			campaignDate,
@@ -764,6 +769,8 @@ export function Session() {
 				characters={characters}
 				party={party}
 				defaultTitle={activeSceneName ? `${activeSceneName} — encounter` : 'Encounter'}
+				activeMapId={activeMapId}
+				marchingOrder={marchingOrder}
 			/>
 			<EndCombatDialog
 				open={endConfirmOpen}

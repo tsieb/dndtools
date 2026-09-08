@@ -3,6 +3,7 @@ import {
 	computeEncounterChallenge,
 	getActiveSystemForActor,
 	listCharactersForActor,
+	listEncountersForActor,
 	systemDeclaresChallenge,
 	type CommandResult,
 } from '@dndtools/core';
@@ -15,6 +16,9 @@ import {
 	IconButton,
 	Input,
 	ProgressMeter,
+	SegmentedControl,
+	Select,
+	Switch,
 	Toaster,
 } from '../ds';
 import { T, eb } from './screen-kit';
@@ -29,6 +33,12 @@ import type { MessageKey } from '../i18n';
  * budget (`computeEncounterChallenge`), then dispatches `encounter.build` → `combat.start`.
  * `reinforce` mode feeds the same roster picker into RUNNING combat via `combat.add-combatants`
  * (blank initiative auto-rolls in the core).
+ *
+ * RC-SES-3.5 (builder v2) adds four things on top of that: −/+ COUNT STEPPERS beside each foe's
+ * quantity, SAVE/LOAD of the durable `encounter` object so prep survives the session (save is
+ * `encounter.build` on its own; load rehydrates the draft from `listEncountersForActor`), a PLACE ON
+ * MAP toggle for the session's active map, and AMBUSH/SURPRISE seeding that reads the party's
+ * MARCHING ORDER to decide who acts first and which foes start hidden.
  */
 
 export type RosterCharacter = ReturnType<typeof listCharactersForActor>[number];
@@ -108,18 +118,36 @@ const DIFFICULTY_LABEL: Record<string, MessageKey> = {
 	deadly: 'encounter.difficulty.deadly',
 };
 
+/**
+ * RC-SES-3.5 — how the encounter opens. `none` leaves initiative to the table (blank ⇒ auto-roll);
+ * the other two seed the initiative block and hidden flags FROM THE MARCHING ORDER, so the front
+ * rank acts first within the surprise round. Applying a mode writes real values into the visible
+ * initiative fields — nothing is applied invisibly at submit time.
+ */
+type AmbushMode = 'none' | 'party-ambushes' | 'party-surprised';
+
+/** The initiative a seeded side starts at; the other side starts below it. Deterministic. */
+const AMBUSH_TOP = 30;
+const AMBUSH_BOTTOM = 10;
+
 export function EncounterDialog({
 	mode,
 	onClose,
 	characters,
 	party,
 	defaultTitle,
+	activeMapId = null,
+	marchingOrder = [],
 }: {
 	mode: 'start' | 'reinforce' | null;
 	onClose: () => void;
 	characters: RosterCharacter[];
 	party: RosterCharacter[];
 	defaultTitle: string;
+	/** The session's active map, or null. Token auto-placement only exists when there is one. */
+	activeMapId?: string | null;
+	/** CHAR-011 party marching order (visible character ids, front first) — the ambush seed. */
+	marchingOrder?: string[];
 }) {
 	const runtime = useRuntime();
 	const { t } = useI18n();
@@ -138,6 +166,16 @@ export function EncounterDialog({
 	const [qAc, setQAc] = useState('13');
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
+	// RC-SES-3.5 — how the fight opens, and whether starting it puts tokens on the active map.
+	const [ambush, setAmbush] = useState<AmbushMode>('none');
+	const [placeOnMap, setPlaceOnMap] = useState(true);
+	// The saved encounter picked in the reuse row, and whether a save is in flight.
+	const [loadId, setLoadId] = useState('');
+	const [saving, setSaving] = useState(false);
+	// Initiative/hidden as they stood before an ambush mode was applied, keyed by row. Restored when
+	// the DM goes back to "none", so seeding an ambush and undoing it does not eat hand-typed
+	// initiative or a foe the DM had already marked hidden.
+	const preAmbushRef = useRef<Record<string, { initiative: string; hidden: boolean }>>({});
 	// The durable encounter a previous Start attempt already committed, held so a retry after a
 	// rejected `combat.start` reuses it instead of minting another. Cleared whenever the roster or
 	// title changes (the held encounter no longer describes what is on screen) and on close.
@@ -171,6 +209,12 @@ export function EncounterDialog({
 		setCrDrafts({});
 		setQtyDrafts({});
 		setError(null);
+		// RC-SES-3.5 — a fresh open is an ordinary fight on a fresh draft: no ambush seed, no saved
+		// encounter selected, and tokens placed if there is a map to place them on.
+		setAmbush('none');
+		preAmbushRef.current = {};
+		setLoadId('');
+		setPlaceOnMap(true);
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/mode change
 	}, [open, mode]);
 
@@ -217,6 +261,167 @@ export function EncounterDialog({
 
 	function patchRow(key: string, patch: Partial<DraftRow>) {
 		setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+	}
+
+	// RC-SES-3.5 — the DM's saved encounters, newest first. Actor-scoped: `listEncountersForActor`
+	// returns an EMPTY list to anyone without DM authority, so a player preview never sees prep.
+	const savedEncounters = useMemo(
+		() =>
+			listEncountersForActor(
+				runtime.state.encounters,
+				runtime.state.permissions,
+				actorId,
+				runtime.state.systems,
+			)
+				.slice()
+				.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+		[runtime.state.encounters, runtime.state.permissions, runtime.state.systems, actorId],
+	);
+
+	/** The build payload the durable `encounter.build` command takes — shared by Save and Start. */
+	function buildPayload() {
+		return {
+			title: title.trim() || defaultTitle,
+			combatants: rows.map((r) => ({
+				kind: r.kind,
+				name: r.name,
+				characterId: r.characterId,
+				challengeRating: r.kind === 'character' ? 0 : r.cr,
+				quantity: r.kind === 'character' ? 1 : Math.max(1, r.quantity),
+				maxHp: r.maxHp,
+				ac: r.ac,
+				// Blank ⇒ roll here (d20 + DEX mod) so the DM never starts a fight of all-0 initiative.
+				initiative:
+					r.initiative.trim() === ''
+						? 1 + Math.floor(Math.random() * 20) + r.dexMod
+						: Math.trunc(Number(r.initiative)) || 0,
+				hidden: r.hidden,
+			})),
+			party: {
+				size: Math.max(1, Math.trunc(Number(partySize)) || 1),
+				averageLevel: Math.min(20, Math.max(1, Math.trunc(Number(partyLevel)) || 1)),
+			},
+		};
+	}
+
+	/**
+	 * RC-SES-3.5 — SAVE the composed roster as a durable `encounter` object WITHOUT starting a fight,
+	 * so a DM can prep a week ahead. The dialog stays open (prep is often several encounters in a
+	 * row) and the saved encounter appears in the reuse picker immediately.
+	 */
+	async function save(): Promise<void> {
+		if (rows.length === 0) {
+			setError(t('encounter.pickOne'));
+			return;
+		}
+		setError(null);
+		setSaving(true);
+		try {
+			const built = await runtime.dispatch({
+				type: 'encounter.build',
+				actorId,
+				payload: buildPayload(),
+			});
+			if (built.status === 'rejected') {
+				setError(built.rejection.message);
+				return;
+			}
+			const encounterId = extractId(built, 'encounterId') ?? extractId(built, 'id');
+			// A saved encounter is exactly the thing a subsequent Start would build, so hold it: the
+			// next Start reuses it instead of committing a near-duplicate.
+			builtIdRef.current = encounterId;
+			if (encounterId) setLoadId(encounterId);
+			Toaster.success(t('encounter.saved'));
+		} finally {
+			setSaving(false);
+		}
+	}
+
+	/** RC-SES-3.5 — rehydrate the draft from a saved encounter (its roster, party context, title). */
+	function loadSaved(encounterId: string) {
+		const saved = savedEncounters.find((e) => e.id === encounterId);
+		if (!saved) return;
+		setTitle(saved.title);
+		setPartySize(String(saved.party.size));
+		setPartyLevel(String(saved.party.averageLevel));
+		setCrDrafts({});
+		setQtyDrafts({});
+		setAmbush('none');
+		preAmbushRef.current = {};
+		setRows(
+			saved.combatants.map((c) => {
+				// A selection that still points at a live vault character re-adopts that character's DEX
+				// so a blank initiative rolls the same way it would from the roster picker.
+				const character = c.characterId
+					? characters.find((r) => r.id === c.characterId)
+					: undefined;
+				return {
+					key: c.characterId ? `char-${c.characterId}` : `saved-${c.id}`,
+					kind: c.kind === 'character' || c.kind === 'monster' ? c.kind : 'npc',
+					name: c.name,
+					characterId: c.characterId,
+					maxHp: c.maxHp,
+					ac: c.ac,
+					initiative: '',
+					cr: c.challengeRating,
+					quantity: Math.max(1, c.quantity),
+					hidden: c.hidden,
+					dexMod: character ? dexModOf(character) : 0,
+				};
+			}),
+		);
+		setError(null);
+		Toaster.success(t('encounter.loaded', { title: saved.title }));
+	}
+
+	/**
+	 * RC-SES-3.5 — seed initiative and hidden flags from the party's MARCHING ORDER.
+	 *
+	 * The marching order already says who is in front, so it is the honest answer to "who reacts
+	 * first" when a fight opens badly. `party-ambushes` puts the party on top of the order in
+	 * marching-order sequence; `party-surprised` puts the foes on top AND starts them hidden (players
+	 * see the tracker's "Unknown creature" placeholder until the DM reveals them). `none` restores
+	 * whatever the fields held before a mode was applied.
+	 */
+	function applyAmbush(next: AmbushMode) {
+		setAmbush(next);
+		setRows((prev) => {
+			if (next === 'none') {
+				const before = preAmbushRef.current;
+				preAmbushRef.current = {};
+				return prev.map((r) => (before[r.key] ? { ...r, ...before[r.key]! } : r));
+			}
+			// Snapshot once, on the first application, so mode→mode switching still restores the
+			// ORIGINAL values rather than the previous mode's seed.
+			if (Object.keys(preAmbushRef.current).length === 0) {
+				preAmbushRef.current = Object.fromEntries(
+					prev.map((r) => [r.key, { initiative: r.initiative, hidden: r.hidden }]),
+				);
+			}
+			const partyTop = next === 'party-ambushes';
+			const rank = (r: DraftRow) => {
+				const index = r.characterId ? marchingOrder.indexOf(r.characterId) : -1;
+				// Unplaced party members fall in behind everyone the marching order does place.
+				return index >= 0 ? index : marchingOrder.length;
+			};
+			let foeIndex = 0;
+			return prev.map((r) => {
+				if (r.kind === 'character') {
+					return {
+						...r,
+						initiative: String((partyTop ? AMBUSH_TOP : AMBUSH_BOTTOM) - rank(r)),
+					};
+				}
+				const seat = foeIndex;
+				foeIndex += 1;
+				return {
+					...r,
+					initiative: String((partyTop ? AMBUSH_BOTTOM : AMBUSH_TOP) - seat),
+					// Only the foes' ambush hides them; a party ambush leaves visibility alone.
+					hidden: partyTop ? r.hidden : true,
+				};
+			});
+		});
 	}
 
 	// Raw text for the CR fields while they are being edited. Coercing on every keystroke made the
@@ -328,28 +533,7 @@ export function EncounterDialog({
 			const built = await runtime.dispatch({
 				type: 'encounter.build',
 				actorId,
-				payload: {
-					title: title.trim() || defaultTitle,
-					combatants: rows.map((r) => ({
-						kind: r.kind,
-						name: r.name,
-						characterId: r.characterId,
-						challengeRating: r.kind === 'character' ? 0 : r.cr,
-						quantity: r.kind === 'character' ? 1 : Math.max(1, r.quantity),
-						maxHp: r.maxHp,
-						ac: r.ac,
-						// Blank ⇒ roll here (d20 + DEX mod) so the DM never starts a fight of all-0 initiative.
-						initiative:
-							r.initiative.trim() === ''
-								? 1 + Math.floor(Math.random() * 20) + r.dexMod
-								: Math.trunc(Number(r.initiative)) || 0,
-						hidden: r.hidden,
-					})),
-					party: {
-						size: Math.max(1, Math.trunc(Number(partySize)) || 1),
-						averageLevel: Math.min(20, Math.max(1, Math.trunc(Number(partyLevel)) || 1)),
-					},
-				},
+				payload: buildPayload(),
 			});
 			if (built.status === 'rejected') {
 				setError(built.rejection.message);
@@ -377,6 +561,19 @@ export function EncounterDialog({
 			setError(started.rejection.message);
 			return;
 		}
+		// RC-SES-3.5 — "Place on map". The core auto-places a token per combatant whenever the session
+		// has an active map (deterministic formation, `combat.start`), which is what most fights want.
+		// When the DM turns the toggle off — a theatre-of-the-mind fight, or a board they want to set
+		// by hand — take those tokens straight back off, so the board matches the choice that was made.
+		if (activeMapId && !placeOnMap) {
+			for (const combatantId of started.nextState.session.combat.order) {
+				await runtime.dispatch({
+					type: 'combat.remove-token',
+					actorId,
+					payload: { combatantId },
+				});
+			}
+		}
 		builtIdRef.current = null;
 		Toaster.success(t('encounter.started'));
 		onClose();
@@ -399,6 +596,21 @@ export function EncounterDialog({
 					<Button variant="ghost" size="sm" onClick={onClose}>
 						{t('common.action.cancel')}
 					</Button>
+					{/* RC-SES-3.5 — saving is prep, not play: it commits the durable encounter and leaves
+					    the dialog open, so a DM can build next week's fights without starting one. */}
+					{mode === 'start' && (
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="folder"
+							disabled={saving || submitting}
+							aria-disabled={rows.length === 0 || undefined}
+							title={rows.length === 0 ? t('encounter.needOne') : undefined}
+							onClick={() => void save()}
+						>
+							{saving ? t('encounter.working') : t('encounter.save')}
+						</Button>
+					)}
 					<Button
 						variant="primary"
 						size="sm"
@@ -434,6 +646,43 @@ export function EncounterDialog({
 							placeholder={t('encounter.titlePlaceholder')}
 						/>
 					</Field>
+				)}
+
+				{/* RC-SES-3.5 — reuse: load a previously saved encounter back into the draft. Hidden
+				    entirely when nothing has been saved yet, rather than showing an empty picker. */}
+				{mode === 'start' && savedEncounters.length > 0 && (
+					<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+						<Field label={t('encounter.savedEncounters')} style={{ flex: '1 1 200px' }}>
+							<Select
+								value={loadId}
+								onChange={(e: { target: { value: string } }) => setLoadId(e.target.value)}
+								options={[
+									{ value: '', label: t('encounter.savedPlaceholder') },
+									...savedEncounters.map((enc) => {
+										// The band is only appended when the ACTIVE package still declares one —
+										// a saved 5e encounter reopened under Generic is just its title.
+										const band = enc.challenge && DIFFICULTY_LABEL[enc.challenge.difficulty];
+										return {
+											value: enc.id,
+											label: band ? `${enc.title} — ${t(band)}` : enc.title,
+										};
+									}),
+								]}
+							/>
+						</Field>
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="retry"
+							aria-disabled={loadId === '' || undefined}
+							title={loadId === '' ? t('encounter.savedPlaceholder') : undefined}
+							onClick={() => {
+								if (loadId !== '') loadSaved(loadId);
+							}}
+						>
+							{t('encounter.load')}
+						</Button>
+					</div>
 				)}
 
 				{/* Roster picker — the real character roster across kinds (actor-filtered core read). */}
@@ -616,6 +865,22 @@ export function EncounterDialog({
 								/>
 								{r.kind !== 'character' && (
 									<>
+										{/* RC-SES-3.5 — count steppers. "Six goblins" is the single most common edit in
+										    the builder and typing it into a number field on a phone is the worst
+										    way to make it; −/+ are the pointer AND keyboard path (they are real
+										    buttons), with the field still there for a jump to 12. */}
+										<IconButton
+											icon="remove"
+											label={t('encounter.decreaseCount', { name: r.name })}
+											variant="ghost"
+											size="sm"
+											aria-disabled={r.quantity <= 1 || undefined}
+											onClick={() => {
+												if (r.quantity <= 1) return;
+												setQtyDrafts(({ [r.key]: _dropped, ...rest }) => rest);
+												patchRow(r.key, { quantity: r.quantity - 1 });
+											}}
+										/>
 										<label
 											style={{
 												display: 'inline-flex',
@@ -645,6 +910,18 @@ export function EncounterDialog({
 												}}
 											/>
 										</label>
+										<IconButton
+											icon="add"
+											label={t('encounter.increaseCount', { name: r.name })}
+											variant="ghost"
+											size="sm"
+											aria-disabled={r.quantity >= 20 || undefined}
+											onClick={() => {
+												if (r.quantity >= 20) return;
+												setQtyDrafts(({ [r.key]: _dropped, ...rest }) => rest);
+												patchRow(r.key, { quantity: r.quantity + 1 });
+											}}
+										/>
 										{mode === 'start' && declaresChallenge && (
 											<label
 												style={{
@@ -706,6 +983,54 @@ export function EncounterDialog({
 							: t('encounter.initiativeNoteReinforce')}
 					</div>
 				</div>
+
+				{/* RC-SES-3.5 — how the fight opens: the ambush seed (read from the party's marching
+				    order) and whether starting it puts tokens on the session's active map. */}
+				{mode === 'start' && (
+					<div
+						style={{
+							display: 'flex',
+							flexDirection: 'column',
+							gap: 8,
+							borderTop: `1px solid ${T.bd}`,
+							paddingTop: 12,
+						}}
+					>
+						<div style={eb}>{t('encounter.opening')}</div>
+						<SegmentedControl
+							ariaLabel={t('encounter.opening')}
+							size="sm"
+							value={ambush}
+							onChange={(next: AmbushMode) => applyAmbush(next)}
+							options={[
+								{ value: 'none', label: t('encounter.ambush.none') },
+								{ value: 'party-ambushes', label: t('encounter.ambush.partyAmbushes') },
+								{ value: 'party-surprised', label: t('encounter.ambush.partySurprised') },
+							]}
+						/>
+						<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+							{ambush === 'none'
+								? t('encounter.ambushNote.none')
+								: marchingOrder.length === 0
+									? t('encounter.ambushNote.noOrder')
+									: t('encounter.ambushNote.seeded')}
+						</div>
+						<Switch
+							checked={placeOnMap && activeMapId !== null}
+							aria-disabled={activeMapId === null || undefined}
+							label={t('encounter.placeOnMap')}
+							onChange={(next: boolean) => {
+								if (activeMapId === null) return;
+								setPlaceOnMap(next);
+							}}
+						/>
+						<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+							{activeMapId === null
+								? t('encounter.placeOnMapNoMap')
+								: t('encounter.placeOnMapNote')}
+						</div>
+					</div>
+				)}
 
 				{/* Challenge budget — the deterministic core guidance (the template's XP-budget meter). */}
 				{mode === 'start' && challenge && (

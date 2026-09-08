@@ -4743,6 +4743,30 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'encounter.difficulty.medium': 'medio',
 	'encounter.difficulty.hard': 'difícil',
 	'encounter.difficulty.deadly': 'mortal',
+	/* RC-SES-3.5 — constructor de encuentros v2: cantidades, guardar/reutilizar, mapa, emboscada */
+	'encounter.decreaseCount': 'Un {name} menos',
+	'encounter.increaseCount': 'Un {name} más',
+	'encounter.save': 'Guardar el encuentro',
+	'encounter.saved': 'Encuentro guardado para reutilizarlo',
+	'encounter.loaded': 'Se cargó {title}',
+	'encounter.load': 'Cargar',
+	'encounter.savedEncounters': 'Encuentros guardados',
+	'encounter.savedPlaceholder': 'Elige un encuentro guardado',
+	'encounter.opening': 'Cómo empieza el combate',
+	'encounter.ambush.none': 'Combate directo',
+	'encounter.ambush.partyAmbushes': 'El grupo embosca',
+	'encounter.ambush.partySurprised': 'Sorprenden al grupo',
+	'encounter.ambushNote.none':
+		'La iniciativa se tira en la mesa. Los campos en blanco tiran un d20 + el modificador de DES.',
+	'encounter.ambushNote.seeded':
+		'La iniciativa se toma del orden de marcha: la primera fila actúa antes. Edita cualquier campo para cambiarla.',
+	'encounter.ambushNote.noOrder':
+		'El grupo todavía no tiene orden de marcha, así que se usa el orden de la lista. Defínelo en la pantalla de Grupo.',
+	'encounter.placeOnMap': 'Colocar fichas en el mapa',
+	'encounter.placeOnMapNote':
+		'Al empezar el combate se coloca una ficha por combatiente en el mapa activo. Desactívalo para jugar sin fichas.',
+	'encounter.placeOnMapNoMap':
+		'No hay mapa activo en esta sesión, así que todavía no hay dónde colocar fichas.',
 
 	/* Fuentes conectadas › carpetas locales y Google Docs en el panel de bóveda de Ajustes */
 	'sources.title': 'Fuentes conectadas',
