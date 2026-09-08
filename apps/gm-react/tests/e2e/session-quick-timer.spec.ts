@@ -84,9 +84,7 @@ test.describe('quick-panel timer', () => {
 		await page.getByRole('button', { name: 'Reset' }).click();
 		await expect(page.getByTestId('quick-timer-display')).toHaveCount(0);
 		expect(
-			await page.evaluate(
-				() => (window.__rt!.state.session as { quickTimer: unknown }).quickTimer,
-			),
+			await page.evaluate(() => (window.__rt!.state.session as { quickTimer: unknown }).quickTimer),
 		).toBeNull();
 	});
 
@@ -127,9 +125,7 @@ test.describe('quick-panel timer', () => {
 		await expect(page.getByTestId('quick-timer-display')).toBeVisible();
 	});
 
-	test('a player cannot start a timer even with the core dispatched directly', async ({
-		page,
-	}) => {
+	test('a player cannot start a timer even with the core dispatched directly', async ({ page }) => {
 		await enterPreview(page, 'player');
 		const result = await dispatch(page, {
 			type: 'session.quick-timer.start',
