@@ -593,6 +593,12 @@ export const en = {
 	'session.capture.saved': 'Session log saved',
 	'session.capture.noteFailed':
 		'The recap was saved, but the session log note couldn’t be created.',
+	'session.capture.continuityTitle':
+		'{count, plural, one {# name mentioned without notes} other {# names mentioned without notes}}',
+	'session.capture.continuityName': '{name} — create?',
+	'session.capture.continuityCreate': 'Create',
+	'session.capture.continuityDismiss': 'Not now',
+	'session.capture.continuityCreated': '{name} created',
 	'session.prep.title': 'Prep & recap',
 	'session.prep.whatHappened': 'What happened',
 	'session.prep.carryInto': 'Carry into the session',

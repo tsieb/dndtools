@@ -611,6 +611,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.capture.saved': 'Registro de sesión guardado',
 	'session.capture.noteFailed':
 		'El resumen se guardó, pero no se pudo crear la nota del registro de sesión.',
+	'session.capture.continuityTitle':
+		'{count, plural, one {# nombre mencionado sin notas} other {# nombres mencionados sin notas}}',
+	'session.capture.continuityName': '{name} — ¿crear?',
+	'session.capture.continuityCreate': 'Crear',
+	'session.capture.continuityDismiss': 'Ahora no',
+	'session.capture.continuityCreated': '{name} creado',
 	'session.prep.whatHappened': 'Qué pasó',
 	'session.prep.carryInto': 'Llevar a la sesión',
 	'session.prep.nothingToCarry': 'Todavía no hay nada que arrastrar.',

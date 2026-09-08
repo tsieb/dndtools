@@ -5711,6 +5711,11 @@ export {
 	normalizeSessionLogCapture,
 } from './state/session-log';
 
+// --- RC-SES-4.2 — continuity check after capture ----------------------------------------------------
+// A deterministic scan of the capture's own prose for names with no existing record — no AI, bounded.
+export type { ContinuityMentionCandidate } from './state/session-log';
+export { detectContinuityMentions } from './state/session-log';
+
 // --- RC-CHR-4.2 — highlight compilation -------------------------------------------------------------
 // `session.compile-highlights` (DM-only) gathers every character's `session-highlight` journal entries
 // into one shared "Session highlights" note; this module owns the pure markdown composition it shares

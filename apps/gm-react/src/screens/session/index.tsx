@@ -401,6 +401,17 @@ export function Session() {
 		return true;
 	}
 
+	/**
+	 * RC-SES-4.2 — the continuity check's "Create" button: a DM-only quick-create NPC (CHAR-001),
+	 * dm-only by the command's own visibility default, named exactly as the capture's prose named it.
+	 */
+	async function quickCreateContinuityNpc(name: string): Promise<boolean> {
+		return dispatch(
+			{ type: 'character.quick-create', actorId, payload: { kind: 'npc', name } },
+			t('session.capture.continuityCreated', { name }),
+		);
+	}
+
 	// Every other lifecycle control on this screen confirms what it did — `goLive` toasts, the top-bar
 	// ProjectionControl toasts. The phase Seg alone changed durable lifecycle state and said nothing,
 	// so a screen-reader DM got only a silently re-checked radio.
@@ -750,6 +761,7 @@ export function Session() {
 							hasCampaignDate={!!campaignDateValue}
 							previewing={previewing}
 							onCapture={captureSession}
+							onQuickCreateNpc={quickCreateContinuityNpc}
 						/>
 					)}
 					<RosterPanel
