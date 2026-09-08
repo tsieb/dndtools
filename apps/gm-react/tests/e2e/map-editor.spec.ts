@@ -2059,3 +2059,95 @@ test.describe('map editor — combat tokens', () => {
 		expect((await tokenPosition(page, fixture.combatantIds[1]!))?.y).toBe(0.6);
 	});
 });
+
+// ── RC-MAP-2.2 · range/path overlay and the area-of-effect tool ───────────────────────────────────
+//
+// The Combat tool group turns the editor into a live-play surface: Move highlights where the
+// selected combatant can walk, and the four area tools drop a template whose covered cells and
+// caught combatants are derived from the core's own geometry. The status bar is the readout — the
+// question a DM asks when they place a cone is "who is in it", so that answer is always on screen.
+
+/** The templates the running combat holds, straight from committed core state. */
+function combatTemplates(
+	page: Page,
+): Promise<Array<{ id: string; kind: string; mapId: string; label: string }>> {
+	return page.evaluate(
+		() =>
+			(
+				window.__rt!.state.session as {
+					combat: {
+						templates: Array<{ id: string; kind: string; mapId: string; label: string }>;
+					};
+				}
+			).combat.templates,
+	);
+}
+
+test.describe('map editor — combat range and areas', () => {
+	test('places a cone and the status bar lists the combatants it affects', async ({ page }) => {
+		await openAtlas(page);
+		const fixture = await seedCombatMap(page);
+		await openEditor(page, fixture.mapName);
+		await focusEditor(page);
+
+		// Arm the Cone tool from the rail's keymap and aim it west, at the Bog Lurker standing on 0.3,0.3.
+		await page.keyboard.press('y');
+		await expectActiveTool(page, 'Cone');
+		const heading = page.getByRole('spinbutton', { name: 'Heading value' });
+		await heading.fill('270');
+		await heading.press('Enter');
+
+		const canvas = page.getByRole('application');
+		const box = await canvas.boundingBox();
+		expect(box).not.toBeNull();
+		const b = box!;
+		// The apex sits three cells east of the token, so the cone has opened to 7.5 feet across by the
+		// time it reaches it — the token is inside, and the far combatant is behind the apex entirely.
+		// Clicking well clear of the left edge also keeps the shot off the rail's sub-tool flyout,
+		// which overlaps the canvas and would swallow the click as a tool change.
+		await page.mouse.click(b.x + b.width * 0.45, b.y + b.height * 0.25);
+
+		await expect.poll(async () => (await combatTemplates(page)).length).toBe(1);
+		const placed = (await combatTemplates(page))[0]!;
+		expect(placed.kind).toBe('cone');
+		expect(placed.mapId).toBe(fixture.mapId);
+
+		// The acceptance criterion: the status bar names the shape and WHO IS IN IT.
+		const readout = page.getByLabel('Area of effect');
+		await expect(readout).toContainText('Cone');
+		await expect(readout).toContainText('Bog Lurker');
+		// The other combatant stands well clear of a 20-foot cone pointed at the first one.
+		await expect(readout).not.toContainText('Reed Stalker');
+	});
+
+	test('the Move tool walks the selected combatant with the arrow keys and Enter', async ({
+		page,
+	}) => {
+		await openAtlas(page);
+		const fixture = await seedCombatMap(page);
+		await openEditor(page, fixture.mapName);
+		await focusEditor(page);
+
+		// Select the combatant on the map, then arm Move.
+		await page
+			.getByRole('group', { name: 'Combat tokens' })
+			.getByRole('button', { name: /^Bog Lurker\./ })
+			.click();
+		await focusEditor(page);
+		await page.keyboard.press('w');
+		await expectActiveTool(page, 'Move');
+
+		const surface = page.getByRole('button', { name: /^Move Bog Lurker\./ });
+		await surface.focus();
+		await page.keyboard.press('ArrowRight');
+		await page.keyboard.press('ArrowDown');
+		await page.keyboard.press('Enter');
+
+		await expect
+			.poll(async () => (await tokenPosition(page, fixture.combatantIds[0]!))?.x)
+			.toBeGreaterThan(0.3);
+		expect((await tokenPosition(page, fixture.combatantIds[0]!))!.y).toBeGreaterThan(0.3);
+		// The fight's other combatant is untouched: one keypress commits one combatant's move.
+		expect(await tokenPosition(page, fixture.combatantIds[1]!)).toEqual({ x: 0.7, y: 0.6 });
+	});
+});

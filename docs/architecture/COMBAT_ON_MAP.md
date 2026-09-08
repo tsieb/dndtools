@@ -104,8 +104,31 @@ read, so a later grid change never leaves a template holding stale cells.
 Commands: `combat.place-template` / `combat.remove-template`
 (`commands/types.ts:237-238`; handler `handlePlaceCombatTemplate`, `commands/combat.ts:1583`),
 DM-only both ways (`commands/combat.ts:1560`). `templatesOnMap(state, mapId)`
-(`combat-tracker.ts:381`) is the pure per-map read. No app-side placement UI exists yet
-(`PrepRecap.tsx`'s hit for "template" is an unrelated encounter-prep template, not this type).
+(`combat-tracker.ts:381`) is the pure per-map read. (`PrepRecap.tsx`'s hit for "template" is an
+unrelated encounter-prep template, not this type.)
+
+### 4.1 The placement UI (RC-MAP-2.2)
+
+The map editor's tool rail carries a **Combat** group (`app/map/tools.ts`): Move, four area tools —
+Sphere, Cone, Line, Cube — and Measure, which moved here out of Annotate because a distance is
+something a DM reads mid-fight. `AOE_TOOL_KIND` is the only place tool ids and `TemplateKind` meet.
+Size and heading are armed in the options bar (`ToolOptionsBar.tsx`, `ToolOptions.templateSize` /
+`templateRotation`), and "Clear all areas" takes them back off, so placing one is never a one-way
+door.
+
+`useCombatTemplates` (`app/map/canvas/useCombatTemplates.ts`) joins `templatesOnMap` against the
+already actor-filtered combat tokens from `useCombatTokens` using the core's own
+`templateCoversPoint`, and returns the affected combatants per template. It returns **nothing at all**
+without DM authority: a template is DM-authored tactical scaffolding, so a viewer who may not have
+it gets an empty list rather than a filtered one. The status bar (`StatusBar.tsx`) reports the
+newest template's shape, cell count and the combatants inside it — the question the DM asked when
+they placed it.
+
+`CombatToolLayer` (`app/map/canvas/CombatToolLayer.tsx`) paints the reachable cells, the path
+preview and the covered cells, and owns one focusable surface where **pointer and keyboard dispatch
+the identical command**: click a cell, or arrow-key a pending cell and press Enter (Escape drops
+it). Neither `combat.move-token` nor `combat.place-template` goes on the editor's map undo stack —
+they are session acts, and Ctrl+Z on a map edit must not rewind a fight.
 
 ## 5. Movement and range derive from the System Package + map scale
 
@@ -139,5 +162,8 @@ indistinguishable in the log from a DM manual reveal (ADR-030 §4, unchanged as 
 | Map-scoped combat-token read                     | `packages/core/src/queries/map-query.ts:115,175,224,269,290`                                                            |
 | Tracker-scoped single-token read                 | `packages/core/src/queries/combat-tracker-view.ts:236`                                                                  |
 | Movement/range derivation                        | `packages/core/src/queries/map-movement.ts:589,654`                                                                     |
+| Combat tool group + AoE tool ids                 | `apps/gm-react/src/app/map/tools.ts`                                                                                    |
+| Template coverage + affected combatants          | `apps/gm-react/src/app/map/canvas/useCombatTemplates.ts`                                                                |
+| Range/path/AoE canvas layer                      | `apps/gm-react/src/app/map/canvas/CombatToolLayer.tsx`                                                                  |
 | Old (not yet removed) per-map token array        | `packages/core/src/state/map-annotations.ts:185`, `map-state.ts:256`                                                    |
 | Decision record                                  | `docs/adr/030-combat-on-the-map.md`                                                                                     |

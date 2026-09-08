@@ -15,7 +15,7 @@
  * palette shows each shortcut so novices learn the keymap passively.
  */
 
-import type { MapLayerCategory, TravelPaceKey } from '@dndtools/core';
+import type { MapLayerCategory, TemplateKind, TravelPaceKey } from '@dndtools/core';
 import type { MessageKey } from '../../i18n';
 
 /** A concrete tool the user can activate. Ids are stable — they key persisted per-tool options. */
@@ -42,6 +42,12 @@ export type ToolId =
 	| 'fog'
 	// Token group
 	| 'token'
+	// Combat group (RC-MAP-2.2)
+	| 'combat-move'
+	| 'aoe-sphere'
+	| 'aoe-cone'
+	| 'aoe-line'
+	| 'aoe-cube'
 	// Annotation group
 	| 'poi'
 	| 'route'
@@ -255,6 +261,62 @@ export const TOOL_GROUPS: readonly ToolGroupDef[] = Object.freeze([
 		],
 	},
 	{
+		id: 'combat',
+		label: 'mapTool.group.combat',
+		icon: 'sword',
+		category: 'player-overlay',
+		tools: [
+			{
+				id: 'combat-move',
+				label: 'mapTool.combatMove.label',
+				icon: 'move',
+				shortcut: 'w',
+				kind: 'radio',
+				hint: 'mapTool.combatMove.hint',
+			},
+			{
+				id: 'aoe-sphere',
+				label: 'mapTool.aoeSphere.label',
+				icon: 'tool-token',
+				shortcut: 'c',
+				kind: 'radio',
+				hint: 'mapTool.aoeSphere.hint',
+			},
+			{
+				id: 'aoe-cone',
+				label: 'mapTool.aoeCone.label',
+				icon: 'tool-aoe',
+				shortcut: 'y',
+				kind: 'radio',
+				hint: 'mapTool.aoeCone.hint',
+			},
+			{
+				id: 'aoe-line',
+				label: 'mapTool.aoeLine.label',
+				icon: 'tool-wall',
+				shortcut: 'i',
+				kind: 'radio',
+				hint: 'mapTool.aoeLine.hint',
+			},
+			{
+				id: 'aoe-cube',
+				label: 'mapTool.aoeCube.label',
+				icon: 'tool-room',
+				shortcut: 'z',
+				kind: 'radio',
+				hint: 'mapTool.aoeCube.hint',
+			},
+			{
+				id: 'measure',
+				label: 'mapTool.measure.label',
+				icon: 'tool-measure',
+				shortcut: 'u',
+				kind: 'radio',
+				hint: 'mapTool.measure.hint',
+			},
+		],
+	},
+	{
 		id: 'annotate',
 		label: 'mapTool.group.annotate',
 		icon: 'poi',
@@ -283,14 +345,6 @@ export const TOOL_GROUPS: readonly ToolGroupDef[] = Object.freeze([
 				shortcut: 'x',
 				kind: 'radio',
 				hint: 'mapTool.text.hint',
-			},
-			{
-				id: 'measure',
-				label: 'mapTool.measure.label',
-				icon: 'tool-measure',
-				shortcut: 'u',
-				kind: 'radio',
-				hint: 'mapTool.measure.hint',
 			},
 		],
 	},
@@ -357,7 +411,56 @@ export const ROUTE_PACE_LABELS: Readonly<Record<TravelPaceKey, MessageKey>> = Ob
  * still renders — the DM must see who is standing where while they paint — but it ignores the pointer
  * so it can never swallow a brush stroke.
  */
-export const COMBAT_TOKEN_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>(['select', 'token']);
+export const COMBAT_TOKEN_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>([
+	'select',
+	'token',
+	'combat-move',
+]);
+
+/**
+ * RC-MAP-2.2 — the AREA-OF-EFFECT tools, and the shape each one places.
+ *
+ * Four sibling tools rather than one tool with a shape dropdown, for the same reason the seven wall
+ * types are siblings: the shape a DM is about to drop is the whole decision, and a rail that shows it
+ * is one keystroke away instead of two clicks deep. The map from tool to `TemplateKind` is the only
+ * place the two vocabularies meet — the canvas and the options bar both read it rather than
+ * re-deriving the shape from the tool id's spelling.
+ */
+export const AOE_TOOL_KIND: ReadonlyMap<ToolId, TemplateKind> = new Map<ToolId, TemplateKind>([
+	['aoe-sphere', 'sphere'],
+	['aoe-cone', 'cone'],
+	['aoe-line', 'line'],
+	['aoe-cube', 'cube'],
+]);
+
+/** RC-MAP-2.2 — every tool in the Combat group: the ones the combat overlay is armed under. */
+export const COMBAT_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>([
+	'combat-move',
+	...AOE_TOOL_KIND.keys(),
+]);
+
+/**
+ * RC-MAP-2.2 — a template's size, in TABLE UNITS (feet), stepped by one 5-foot cell because every
+ * area a rulebook states is a multiple of a cell ("20-foot radius", "60-foot cone"). The ceiling is
+ * generous rather than exact: a 120-foot line is the longest thing a level-20 party casts.
+ */
+export const TEMPLATE_SIZE = Object.freeze({ min: 5, max: 120, step: 5 });
+
+/** Rotation in whole degrees, stepped by 15 — twenty-four headings, not a continuous dial. */
+export const TEMPLATE_ROTATION = Object.freeze({ min: 0, max: 345, step: 15 });
+
+/** A sphere points nowhere, so its rotation control is not shown rather than shown and inert. */
+export function templateKindTurns(kind: TemplateKind): boolean {
+	return kind !== 'sphere';
+}
+
+/** The reader-facing name of each shape — the label a placed template is stored under. */
+export const TEMPLATE_KIND_LABELS: Readonly<Record<TemplateKind, MessageKey>> = Object.freeze({
+	sphere: 'mapTool.aoeSphere.label',
+	cone: 'mapTool.aoeCone.label',
+	line: 'mapTool.aoeLine.label',
+	cube: 'mapTool.aoeCube.label',
+});
 
 /** RC-MAP-2.1 — the Token tool says something different once a combat is running, because what a
  *  click does there changes: it selects a combatant instead of placing an annotation token. */

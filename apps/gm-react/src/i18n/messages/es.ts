@@ -5263,6 +5263,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'toolOptions.fogShape.polygon': 'Polígono',
 	'toolOptions.fogShape.stroke': 'Pincel',
 	'toolOptions.feather': 'Difuminado',
+	'toolOptions.areaSize': 'Tamaño',
+	'toolOptions.areaRotation': 'Rumbo',
+	'toolOptions.clearAreas': 'Borrar todas las áreas',
+	'toolOptions.areasCleared': 'Se borraron {count} áreas.',
 	'toolOptions.clearFog': 'Borrar toda la niebla',
 	'toolOptions.clearFogConfirmTitle': '¿Borrar toda la niebla de este mapa?',
 	'toolOptions.clearFogConfirmBody':
@@ -5425,6 +5429,17 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapCombat.cannotMove': 'No puedes mover a {name}.',
 	'mapCombat.moreConditions': '+{count}',
 	'mapCombat.overlay': 'Fichas de combate: {names}',
+	// RC-MAP-2.2 — la capa de alcance/ruta y la herramienta de área de efecto.
+	'mapCombat.moveSurface':
+		'Mover a {name}. Haz clic en una casilla resaltada, o usa las flechas y Enter.',
+	'mapCombat.moveSurfaceNoOne': 'Selecciona un combatiente para moverlo.',
+	'mapCombat.areaSurface': 'Colocar un {shape}. Haz clic en el mapa, o usa las flechas y Enter.',
+	'mapCombat.areaPlaced': 'Colocaste un {label}.',
+	'mapCombat.outOfRange': '{name} no puede llegar a esa casilla.',
+	'mapCombat.areaReadout': 'Área de efecto',
+	'mapCombat.areaCells': '{label} · {count} casillas',
+	'mapCombat.areaAffects': 'Afecta a {names}',
+	'mapCombat.areaAffectsNobody': 'No afecta a nadie',
 	'mapInspector.combat': 'Combate',
 	'mapInspector.combatRound': 'Ronda {round} · turno {turn} de {count}',
 	'mapInspector.combatActive': 'Turno activo',
@@ -5441,6 +5456,23 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapTool.route.hint': 'Pulsa puntos de paso para dibujar una ruta de viaje. Intro termina.',
 	'mapTool.text.label': 'Etiqueta',
 	'mapTool.text.hint': 'Coloca una etiqueta de mapa. Escribe y luego pulsa fuera para fijarla.',
+	// RC-MAP-2.2 — el grupo Combate: mover a un combatiente, colocar un área de efecto, medir.
+	'mapTool.group.combat': 'Combate',
+	'mapTool.combatMove.label': 'Mover',
+	'mapTool.combatMove.hint':
+		'Selecciona un combatiente y haz clic en una casilla resaltada, o usa las flechas y Enter.',
+	'mapTool.aoeSphere.label': 'Esfera',
+	'mapTool.aoeSphere.hint':
+		'Haz clic para centrar una esfera. Ajusta su radio en la barra de opciones.',
+	'mapTool.aoeCone.label': 'Cono',
+	'mapTool.aoeCone.hint':
+		'Haz clic para colocar un cono. Ajusta su longitud y rumbo en la barra de opciones.',
+	'mapTool.aoeLine.label': 'Línea',
+	'mapTool.aoeLine.hint':
+		'Haz clic para iniciar una línea. Ajusta su longitud y rumbo en la barra de opciones.',
+	'mapTool.aoeCube.label': 'Cubo',
+	'mapTool.aoeCube.hint':
+		'Haz clic para colocar un cubo. Ajusta su lado y rumbo en la barra de opciones.',
 	'mapTool.measure.label': 'Medir',
 	'mapTool.measure.hint':
 		'Arrastra para medir una distancia con la escala del mapa. No se guarda nada.',

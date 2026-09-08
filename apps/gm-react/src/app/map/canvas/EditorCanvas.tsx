@@ -17,7 +17,8 @@ import { FeatureShape } from './FeatureShape';
 import { MapCanvas } from './MapCanvas';
 import { EditorCanvasHud } from './EditorCanvasHud';
 import { CombatTokenLayer } from './CombatTokenLayer';
-import { useCombatTokens } from './useCombatTokens';
+import { CombatToolLayer } from './CombatToolLayer';
+import { useCombatTemplates } from './useCombatTemplates';
 import { FogBrushHandle } from './FogBrushHandle';
 import { useTouchNavigation } from './useTouchNavigation';
 import { clamp01 } from '../mapVocab';
@@ -699,7 +700,10 @@ export function EditorCanvas({
 	// RC-MAP-2.1 — the running combat's tokens. `undoable: false`: moving a creature mid-fight is a
 	// live-play act in the SESSION slice, not a map edit, and it must never land on the editor's local
 	// map undo stack where Ctrl+Z would teleport a combatant back mid-turn.
-	const combat = useCombatTokens(editor.mapId, editor.actorId);
+	// RC-MAP-2.2 — one read serves both combat layers: the tokens AND the areas of effect standing on
+	// this map, so the token layer and the range/AoE layer never run the actor-scoped queries twice.
+	const combatModel = useCombatTemplates(editor.mapId, editor.actorId);
+	const combat = combatModel.combat;
 	const moveCombatToken = useCallback(
 		(combatantId: string, position: Pt) =>
 			editor.run(
@@ -841,6 +845,17 @@ export function EditorCanvas({
 				snapGrid={options.snapGrid}
 				onMove={moveCombatToken}
 				onSelect={onSelectCombatant}
+				announce={announce}
+			/>
+
+			{/* RC-MAP-2.2 — reachable cells, the path preview and the placed areas of effect. */}
+			<CombatToolLayer
+				editor={editor}
+				model={combatModel}
+				tool={tool}
+				zoom={zoom}
+				center={center}
+				toMap={toMap}
 				announce={announce}
 			/>
 

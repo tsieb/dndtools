@@ -95,6 +95,12 @@ export interface ToolOptions {
 	 * the label). They are separate tools and now own separate option keys.
 	 */
 	labelText: string;
+	// Combat areas of effect (RC-MAP-2.2)
+	/** The next template's defining size in TABLE UNITS — a sphere's radius, a cone/line's length,
+	 *  a cube's side. Stepped by one cell so it always lands on a rulebook number. */
+	templateSize: number;
+	/** Which way the next template points, in whole degrees clockwise from north. A sphere ignores it. */
+	templateRotation: number;
 	// Route (RC-MAP-3.7)
 	/** The name the next drawn route is created with; empty falls back to `ROUTE_DEFAULT_NAME`. */
 	routeName: string;
@@ -124,6 +130,8 @@ const DEFAULT_TOOL_OPTIONS: ToolOptions = {
 	scatterObject: 'trees',
 	scatterDensity: 0.5,
 	labelText: '',
+	templateSize: 20,
+	templateRotation: 0,
 	routeName: '',
 	travelPace: DEFAULT_TRAVEL_PACE,
 	snapGrid: true,
