@@ -204,11 +204,16 @@ describe('RC-AUD-3.2 — the SFX event driver', () => {
 		const rule = ruleOn('map-reveal');
 		const { emit, played } = harness();
 		const state = stateWith([rule]);
-		emit({ opType: 'map.fog.append' }, state);
+		// Appending a CONCEAL hides ground — nothing is uncovered, so nothing sounds.
+		emit({ opType: 'map.fog.append', value: { mutation: 'conceal' } }, state);
 		await Promise.resolve();
 		expect(played).toEqual([]);
-		emit({ opType: 'map.fog.remove' }, state);
+		// RC-MAP-2.4 — appending a REVEAL is the fog tool's reveal mode, and uncovers ground.
+		emit({ opType: 'map.fog.append', value: { mutation: 'reveal' } }, state);
 		await vi.waitFor(() => expect(played).toEqual([STREAM_URL]));
+		// So does taking a conceal op back off the stack.
+		emit({ opType: 'map.fog.remove' }, state);
+		await vi.waitFor(() => expect(played).toEqual([STREAM_URL, STREAM_URL]));
 	});
 
 	it('a delivered handout sounds its cue', async () => {

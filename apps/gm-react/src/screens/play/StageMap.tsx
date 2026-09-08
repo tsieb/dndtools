@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import type { ProjectedMapInfo } from '../../app/projectedMap';
-import { FogRegionShape } from '../../app/fogRegions';
+import { FogRegionShape, FogRevealFlash, useFogRevealFlash } from '../../app/fogRegions';
 import { useI18n } from '../../i18n';
 
 /**
@@ -30,6 +30,10 @@ export function StageMap({
 }) {
 	const { t } = useI18n();
 	const fogMaskId = useId();
+	// RC-MAP-2.4 — the reveal the DM just made, diffed against the previous snapshot of this same
+	// projected map. Keyed on the map id so re-projecting a different map re-baselines instead of
+	// replaying its whole fog history at the player.
+	const flashing = useFogRevealFlash(projected.fog, projected.mapId);
 	const concealed = projected.fog.filter((op) => op.kind === 'conceal').length;
 	const markers = projected.pois.length;
 	const tokens = projected.tokens.length + projected.combatTokens.length;
@@ -84,6 +88,14 @@ export function StageMap({
 					/>
 				</>
 			)}
+			{/* RC-MAP-2.4 — ground the DM just uncovered: the same wash, painted back over only that
+			    region and faded out over 0.8s, so a player watching their own screen sees it open rather
+			    than finding it already open. Static under reduced motion. */}
+			<FogRevealFlash
+				ops={projected.fog}
+				flashing={flashing}
+				opacity="var(--map-fog-opacity-player)"
+			/>
 			{/* POIs the DM made player-visible. A dot, not the DS pin: the pin is a button, and a control
 			    that cannot do anything on a read-only companion would be a dead control. */}
 			{projected.pois.map((poi) => (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dispatchCommand, type CoreStateSlice } from '@dndtools/core';
+import { dispatchCommand, type CoreStateSlice, type MapFogView } from '@dndtools/core';
 import {
 	DM_ACTOR,
 	OBSERVER_ACTOR,
@@ -7,7 +7,7 @@ import {
 	buildInitialState,
 	makeEnvironment,
 } from '@dndtools/core/testing';
-import { buildPlayerData } from './viewModels';
+import { buildPlayerData, fogRevealDelta } from './viewModels';
 
 // Build a campaign with a DM-only scene, then promote the player to co-dm so the snapshot must carry
 // the elevated payload (and a joined player/observer must NOT).
@@ -150,5 +150,45 @@ describe('buildPlayerData: RC-CHR-3.1 party vitals', () => {
 	it('an observer receives no party vitals at all (CHAR-015 ceiling)', () => {
 		const { state } = campaignWithSpellcastingPc();
 		expect(buildPlayerData(state, OBSERVER_ACTOR.id).partyVitals).toEqual([]);
+	});
+});
+
+// RC-MAP-2.4 — the fog delta the player device animates from. Pure over two successive snapshots of
+// the projected map's fog list, so it can be asserted without a runtime or a DOM.
+describe('fogRevealDelta', () => {
+	const op = (id: string, kind: 'reveal' | 'conceal'): MapFogView => ({
+		id,
+		layerId: 'layer-1',
+		kind,
+		region: { shape: 'rect', x: 0.1, y: 0.1, w: 0.2, h: 0.2 },
+		visibility: 'player-visible',
+		sequence: Number(id.replace(/\D/g, '')) || 0,
+	});
+
+	it('reports the reveal ops that were not in the previous snapshot', () => {
+		const before = [op('f1', 'conceal')];
+		const after = [op('f1', 'conceal'), op('f2', 'reveal'), op('f3', 'reveal')];
+		expect(fogRevealDelta(before, after)).toEqual(['f2', 'f3']);
+	});
+
+	it('ignores a newly appended CONCEAL — hiding ground uncovers nothing', () => {
+		expect(fogRevealDelta([op('f1', 'reveal')], [op('f1', 'reveal'), op('f2', 'conceal')])).toEqual(
+			[],
+		);
+	});
+
+	it('reports nothing when the fog list is unchanged', () => {
+		const snapshot = [op('f1', 'conceal'), op('f2', 'reveal')];
+		expect(fogRevealDelta(snapshot, snapshot)).toEqual([]);
+	});
+
+	it('reports nothing without a baseline, so a fresh join never replays the session', () => {
+		expect(fogRevealDelta(null, [op('f1', 'reveal'), op('f2', 'reveal')])).toEqual([]);
+	});
+
+	it('reports nothing when ops are only REMOVED (the fog moved backwards, not forwards)', () => {
+		expect(fogRevealDelta([op('f1', 'reveal'), op('f2', 'reveal')], [op('f1', 'reveal')])).toEqual(
+			[],
+		);
 	});
 });

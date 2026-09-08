@@ -24,6 +24,7 @@ import {
 	type CombatTrackerView,
 	type DiceRollView,
 	type JournalEntryView,
+	type MapFogView,
 	type ContentItemView,
 	type SceneCardView,
 	type SceneCardPushView,
@@ -326,4 +327,30 @@ export function buildPlayerData(state: CoreStateSlice, viewer: ActorId): PlayerD
 		recapFeed: getSessionRecapFeedForActor(state.session, state.permissions, viewer),
 		elevated,
 	};
+}
+
+/**
+ * RC-MAP-2.4 — the FOG DELTA between two successive player view-models: the ids of the fog ops that
+ * are present in `next` and were not in `previous`, restricted to REVEALS (a conceal hides and is
+ * deliberately silent — nothing is uncovered, so there is nothing to fade away).
+ *
+ * The delta is DERIVED, never transmitted. `PlayerData` is a full snapshot recomputed from the
+ * authoritative state on every push ({@link buildPlayerData}), so the receiving device already holds
+ * the previous snapshot and can diff it; putting a "what changed" field on the wire would be a
+ * second source of truth that could disagree with the fog list rendered beside it, and would still
+ * be a view-model field the core did not vouch for.
+ *
+ * `previous === null` means there is no baseline (first snapshot, or the viewer just switched maps)
+ * and yields an EMPTY delta: everything already on screen when a player joins is old news, so a
+ * fresh join must not replay every reveal of the session as an animation.
+ *
+ * Pure; result order follows `next`.
+ */
+export function fogRevealDelta(
+	previous: readonly MapFogView[] | null,
+	next: readonly MapFogView[],
+): string[] {
+	if (!previous) return [];
+	const before = new Set(previous.map((op) => op.id));
+	return next.filter((op) => op.kind === 'reveal' && !before.has(op.id)).map((op) => op.id);
 }

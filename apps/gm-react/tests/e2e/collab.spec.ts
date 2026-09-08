@@ -193,3 +193,157 @@ test.describe('collab: the DM host panel', () => {
 		await expect(dialog.getByRole('button', { name: 'Stop hosting' })).toBeEnabled();
 	});
 });
+
+// RC-MAP-2.4 — LIVE FOG REVEAL. The acceptance case: the DM uncovers ground mid-session and the
+// change has to land on the player's own device — the fog list they render, and the 0.8s fade that
+// tells them it just happened rather than leaving them to notice the map is different.
+//
+// `/play` renders as the real player actor (`actor-player`) with no preview mode, so the stage map is
+// an actor-filtered read AND the DM can still dispatch. The flash is transient by design, so it is
+// caught with a MutationObserver armed BEFORE the reveal — polling for an 800ms element would be a
+// race, and a test that can miss its own subject proves nothing.
+test.describe('collab: live fog reveal', () => {
+	test('a fog reveal reaches the player stage and fades in', async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/session');
+		await seedFresh(page);
+
+		const setup = await page.evaluate(async () => {
+			const rt = window.__rt!;
+			const dm = rt.defaultActorId;
+			const state = rt.state as unknown as {
+				permissions: { actors: Record<string, { id: string; role: string }> };
+				session: { activeSceneId: string | null };
+				scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+			};
+			const playerActorIds = Object.values(state.permissions.actors)
+				.filter((a) => a.role === 'player')
+				.map((a) => a.id);
+			if (playerActorIds.length === 0) return { ok: false, step: 'no player actor' };
+
+			const mapName = `Fog Reveal Map ${Date.now()}`;
+			const created = await rt.dispatch({
+				type: 'map.create',
+				actorId: dm,
+				payload: { name: mapName, description: '', visibility: 'player-visible' },
+			});
+			if (created.status !== 'accepted') return { ok: false, step: 'create map', ...created };
+			const maps = rt.state.maps.maps as Record<string, { id: string; name: string }>;
+			const map = Object.values(maps).find((m) => m.name === mapName);
+			if (!map) return { ok: false, step: 'find map' };
+
+			const layer = await rt.dispatch({
+				type: 'map.create-layer',
+				actorId: dm,
+				payload: { mapId: map.id, name: 'Fog', category: 'terrain', visibility: 'player-visible' },
+			});
+			if (layer.status !== 'accepted') return { ok: false, step: 'create layer', ...layer };
+			const layerId = (
+				rt.state.maps.maps[map.id] as unknown as { layers: { id: string; name: string }[] }
+			).layers.find((l) => l.name === 'Fog')?.id;
+			if (!layerId) return { ok: false, step: 'find layer' };
+
+			// The whole map starts concealed — the state a player joins into.
+			const conceal = await rt.dispatch({
+				type: 'map.append-fog',
+				actorId: dm,
+				payload: {
+					mapId: map.id,
+					layerId,
+					kind: 'conceal',
+					region: { shape: 'rect', x: 0, y: 0, w: 1, h: 1 },
+					visibility: 'player-visible',
+				},
+			});
+			if (conceal.status !== 'accepted') return { ok: false, step: 'conceal', ...conceal };
+
+			const sceneId =
+				state.session.activeSceneId ??
+				Object.values(state.scenes.scenes).find((sc) => !sc.isTemplate)?.id;
+			const live = await rt.dispatch({
+				type: 'session.set-workflow',
+				actorId: dm,
+				payload: { workflow: 'active', activeSceneId: sceneId },
+			});
+			if (live.status !== 'accepted') return { ok: false, step: 'go live', ...live };
+			const home = await rt.dispatch({
+				type: 'command-center.ensure-home',
+				actorId: dm,
+				payload: {},
+			});
+			if (home.status !== 'accepted') return { ok: false, step: 'ensure home', ...home };
+			const active = await rt.dispatch({
+				type: 'session.set-active-map',
+				actorId: dm,
+				payload: { mapId: map.id },
+			});
+			if (active.status !== 'accepted') return { ok: false, step: 'set active map', ...active };
+			const projected = await rt.dispatch({
+				type: 'session.project-active-map',
+				actorId: dm,
+				payload: { playerActorIds },
+			});
+			if (projected.status !== 'accepted') return { ok: false, step: 'project', ...projected };
+			return { ok: true, mapId: map.id, layerId };
+		});
+		expect(setup.ok, JSON.stringify(setup)).toBe(true);
+
+		await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
+		await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
+			timeout: 20_000,
+		});
+
+		const stageMap = page.getByTestId('player-stage-map');
+		await expect(stageMap).toBeVisible({ timeout: 20_000 });
+		// The map the player joined into: concealed, and NOT flashing — arriving mid-session must not
+		// replay the reveals that happened before this device was looking.
+		await expect(stageMap).toHaveAttribute('data-fog-ops', '1');
+		await expect(page.getByTestId('fog-reveal-flash')).toHaveCount(0);
+
+		// Arm the observer before the DM touches anything: the fade lasts 800ms and then removes
+		// itself, so "did it ever appear" has to be recorded, not sampled.
+		await page.evaluate(() => {
+			const w = window as unknown as { __fogFlash?: { seen: boolean; animation: string | null } };
+			w.__fogFlash = { seen: false, animation: null };
+			new MutationObserver(() => {
+				const node = document.querySelector('[data-testid="fog-reveal-flash"] .dnd-fog-reveal');
+				if (!node || w.__fogFlash!.seen) return;
+				w.__fogFlash!.seen = true;
+				w.__fogFlash!.animation = getComputedStyle(node).animation || null;
+			}).observe(document.body, { childList: true, subtree: true });
+		});
+
+		const revealed = await dispatch(page, {
+			type: 'map.append-fog',
+			actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+			payload: {
+				mapId: (setup as { mapId: string }).mapId,
+				layerId: (setup as { layerId: string }).layerId,
+				kind: 'reveal',
+				region: { shape: 'rect', x: 0.2, y: 0.2, w: 0.3, h: 0.3 },
+				visibility: 'player-visible',
+			},
+		});
+		expect(revealed.status, JSON.stringify(revealed.rejection ?? {})).toBe('accepted');
+
+		// The reveal reached the player device's own fog list…
+		await expect(stageMap).toHaveAttribute('data-fog-ops', '2', { timeout: DELIVERY_BUDGET_MS });
+		// …and it arrived as a fade, not as a map that had silently changed.
+		await page.waitForFunction(
+			() => (window as unknown as { __fogFlash?: { seen: boolean } }).__fogFlash?.seen === true,
+			null,
+			{ timeout: DELIVERY_BUDGET_MS },
+		);
+		const animation = await page.evaluate(
+			() =>
+				(window as unknown as { __fogFlash?: { animation: string | null } }).__fogFlash
+					?.animation ?? '',
+		);
+		// The named fade is what ran. Its 0.8s ease-out timing and its reduced-motion collapse are
+		// pinned by the unit motion test (src/app/fogRegions.test.tsx) rather than by a computed
+		// duration here, which the browser's own motion preference is allowed to rewrite.
+		expect(animation, 'the revealed region must be running the reveal fade').toContain(
+			'dnd-fog-reveal',
+		);
+	});
+});

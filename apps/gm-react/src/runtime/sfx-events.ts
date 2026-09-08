@@ -138,9 +138,17 @@ function eventForOperation(op: SyncOperation, state: CoreStateSlice): DetectedEv
 			if (delta === -1) return { event: 'death-save-failure', scopeId: op.entityId };
 			return null;
 		}
-		// Revealing a map area is REMOVING fog; adding fog hides and is deliberately silent.
+		// Two shapes of the same table moment. Taking a conceal op back off the stack uncovers ground,
+		// and so does appending a `reveal` op over it (RC-MAP-2.4 — the way the fog tool's reveal mode
+		// actually works). Appending a CONCEAL hides and is deliberately silent.
 		case 'map.fog.remove':
 			return { event: 'map-reveal', scopeId: op.entityId };
+		case 'map.fog.append': {
+			// The append op records the sub-kind under `mutation` (packages/core/src/commands/
+			// map-annotations.ts:469), the same field name the remove op uses for its own verb.
+			const mutation = (op.value as { mutation?: unknown } | undefined)?.mutation;
+			return mutation === 'reveal' ? { event: 'map-reveal', scopeId: op.entityId } : null;
+		}
 		case 'session.deliver-handout':
 			return { event: 'handout-delivery', scopeId: op.entityId };
 		default:
