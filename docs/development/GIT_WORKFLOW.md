@@ -76,6 +76,29 @@ flowchart LR
 
 ## 2. Workflow
 
+### Autonomous integration coverage (RC-ENG-2.3)
+
+Every push to `loop/rc` starts full CI, including all browser E2E specs on desktop and mobile
+across three shards. This runs even for changes outside the runtime path filter. Each integration
+run has its own concurrency group so subsequent pushes cannot cancel its browser coverage.
+Browser tests use Vite directly and do not wait for the separate build gate. Failures retain
+Playwright reports, screenshots and retry traces as `browser-e2e-*` artifacts on that commit's run.
+This detects cross-story regressions automatically on the integration branch, before promotion;
+it does not prevent the initial push to `loop/rc`. The existing full-suite promotion gate remains
+required before advancing `main`.
+
+With `gates.e2e_named_specs` enabled, story claims include specs named by stories with overlapping
+owned paths, then specs visiting the same top-level routes. The map editor, quick map and board map
+tile also share a surface group because they reuse map controls across routes. Expansion is one
+hop to avoid navigation smoke tests pulling every route into each story gate. Missing named specs
+fail the wrapper gate. Helper-only or dynamic navigation can escape this heuristic, which is why
+the independent full-suite CI run is required. Update specs when adding a route or shared surface.
+
+The local regression checks are `python3 -m unittest tools/loop/tests/test_rcloop.py` and
+`pnpm exec vitest run tests/unit/loop-integration-gate.test.ts`. The latter injects a failure into
+an unnamed fixture spec and verifies the CI shard command fails while the story's spec stays green.
+It tests the gate locally; the hosted run becomes active when this workflow lands on `loop/rc`.
+
 ### 2.1 Epic Work
 
 ```bash

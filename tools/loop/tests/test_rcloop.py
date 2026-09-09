@@ -44,6 +44,36 @@ class Parse(unittest.TestCase):
                 self.assertFalse(re.match(r"^[A-Za-z]*[A-Z]\w*$", o), (s["id"], o))  # no CamelCase identifiers
 
 
+class RelatedSpecs(unittest.TestCase):
+    def test_real_map_surfaces_include_other_stories(self):
+        specs = r.related_e2e_specs(["map-editor.spec.ts"], HERE.parent.parent.parent)
+        self.assertTrue({"map-editor.spec.ts", "android-quick-map.spec.ts", "atlas.spec.ts",
+                         "map-tile.spec.ts", "canvas.spec.ts"} <= set(specs))
+
+    def test_routes_ownership_and_missing_seeds(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            specs = repo / "apps/gm-react/tests/e2e"
+            specs.mkdir(parents=True)
+            for name, source in {
+                "named": "gotoRoute(page, '/settings?tab=ai')",
+                "peer": "page.goto('/#/settings?tab=general')",
+                "bridge": "gotoRoute(page, '/settings'); gotoRoute(page, '/board')",
+                "unrelated": "gotoRoute(page, '/board')",
+                "owned": "gotoRoute(page, `/character/${id}`)",
+                "character": "gotoRoute(page, '/character/new')",
+            }.items():
+                (specs / f"{name}.spec.ts").write_text(source)
+            selected = r.related_e2e_specs(["named.spec.ts", "missing.spec.ts"], repo)
+            self.assertEqual(selected, ["bridge.spec.ts", "missing.spec.ts", "named.spec.ts", "peer.spec.ts"])
+            story = {"specs": ["named.spec.ts"], "owns": ["screens/Settings"]}
+            peer = {"specs": ["owned.spec.ts", "future.spec.ts"], "owns": ["screens/Settings/Ai.tsx"]}
+            selected = r.story_e2e_specs([story], {"a": story, "b": peer}, repo)
+            self.assertIn("character.spec.ts", selected)
+            self.assertNotIn("future.spec.ts", selected)
+            self.assertEqual(r.related_e2e_specs([], repo), [])
+
+
 class Dispatch(unittest.TestCase):
     def setUp(self):
         self.S = r.parse_roadmap(TEXT)["stories"]

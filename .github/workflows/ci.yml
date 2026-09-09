@@ -4,11 +4,13 @@ on:
   push:
     branches:
       - main
+      - loop/rc
   pull_request:
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.base.ref || github.ref }}
+  # Every integration push gets a complete run, even while other slots keep landing work.
+  group: ci-${{ github.workflow }}-${{ github.ref == 'refs/heads/loop/rc' && github.run_id || github.event.pull_request.base.ref || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -140,8 +142,9 @@ jobs:
 
   browser-e2e:
     name: browser E2E (${{ matrix.name }})
-    needs: [changes, build-and-test]
-    if: needs.changes.outputs.tier == 'full' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true')
+    # Vite serves these tests directly: a separate build failure must not hide browser failures.
+    needs: [changes]
+    if: needs.changes.outputs.tier == 'full' && (github.ref == 'refs/heads/loop/rc' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true')
     runs-on: ubuntu-latest
     # RC-ENG-2.2: the shard budget is 12 minutes; 20 leaves room for a retry without letting a
     # silent slowdown ride for half an hour.

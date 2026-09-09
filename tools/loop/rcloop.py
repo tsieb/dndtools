@@ -816,6 +816,41 @@ def candidates(stories: dict, items: dict, cfg: dict, slot_cfg: dict | None = No
     return out
 
 
+def related_e2e_specs(named: list[str], repo: Path) -> list[str]:
+    """Expand seeds by directly shared routes, plus map surfaces shared across routes.
+
+    This is deliberately one hop: a broad navigation spec must not transitively pull
+    every route into a story gate. Dynamic/helper-only navigation still needs full CI.
+    Keep missing seeds so the wrapper fails instead of silently dropping coverage.
+    """
+    selected = set(named)
+    spec_dir = repo / "apps/gm-react/tests/e2e"
+    routes = {}
+    for path in spec_dir.glob("*.spec.ts"):
+        # Both gotoRoute(page, '/atlas') and page.goto('/#/atlas'), including templates.
+        routes[path.name] = set(re.findall(
+            r"(?:gotoRoute\(\s*\w+\s*,|\.goto\()\s*['\"`]/(?:#/)?([\w-]+)",
+            path.read_text(),
+        ))
+    maps = {name for name in routes if name.startswith(("map-", "android-quick-map")) or name == "atlas.spec.ts"}
+    if selected & maps:
+        selected |= maps
+    touched = {route for name in selected for route in routes.get(name, set())}
+    selected.update(name for name, seen in routes.items() if seen & touched)
+    return sorted(selected)
+
+
+def story_e2e_specs(picked: list[dict], stories: dict, repo: Path) -> list[str]:
+    owns = [path for story in picked for path in story["owns"]]
+    peers = [story for story in stories.values() if _paths_overlap(owns, story["owns"])]
+    named = {sp for story in picked for sp in story["specs"]}
+    # Future roadmap stories may name tests they have not created yet. Only the
+    # claimed story promises to supply missing seeds during this run.
+    named.update(sp for story in peers for sp in story["specs"]
+                 if (repo / "apps/gm-react/tests/e2e" / sp).is_file())
+    return related_e2e_specs(sorted(named), repo)
+
+
 def cmd_claim(a) -> int:
     # Serialize a pickup with model toggles: once a toggle returns, no later pickup
     # may use the previous model policy. Both paths lock config before claim state.
@@ -902,7 +937,7 @@ def _cmd_claim(a) -> int:
         "id": primary["id"], "ids": [p["id"] for p in picked], "title": primary["title"] if len(picked) == 1 else " + ".join(p["id"] for p in picked),
         "lane": primary["lane"], "size": size, "phase": primary["phase"], **selected,
         "attempts": primary.get("attempts", 0), "continued": bool(primary.get("continued")),
-        "specs": sorted({sp for p in picked for sp in p["specs"]}), "owns": sorted({o for p in picked for o in p["owns"]}),
+        "specs": story_e2e_specs(picked, stories, repo or MAIN), "owns": sorted({o for p in picked for o in p["owns"]}),
         "stories": [{k: p[k] for k in ("id", "title", "size", "phase", "deps", "owns_text", "acceptance", "body", "section", "lines", "line", "docs_only")} for p in picked],
         "attempt_timeout_s": cfg["attempt_timeout_s"].get(size, 7200), "max_fix_rounds": cfg["max_fix_rounds"].get(size, 1),
         "others": [{"id": k, "slot": (v.get("claim") or {}).get("slot"), "title": stories[k]["title"], "owns": stories[k]["owns_text"][:200]}
@@ -981,7 +1016,7 @@ def cmd_set(a) -> int:
 GATES_TEXT = """- `pnpm typecheck` and `pnpm lint` (both include the core boundary lint) — on the FINAL tree, no edits after.
 - `pnpm format:fix:changed` before committing (formats only the files you touched; never add a repo-wide `format:check` to CI).
 - Unit tests for what you changed: `pnpm test:critical` (packages/core), `pnpm test:app` (apps/gm-react app layer), `pnpm test:cloud`, `pnpm test:tooling`.
-- `pnpm e2e -- <spec>` on both profiles when a screen changed: `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/<name>.spec.ts --project=desktop-chromium --project=mobile-chromium` (the port is already set for you via `DNDTOOLS_E2E_PORT`). Named specs only — never the whole suite or a whole project; the promotion gate runs those.
+- `pnpm e2e -- <spec>` on both profiles when a screen changed: `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/<name>.spec.ts --project=desktop-chromium --project=mobile-chromium` (the port is already set for you via `DNDTOOLS_E2E_PORT`). Run the expanded named set, including other stories on the same route/surface. Full-suite CI runs on every `loop/rc` push; the promotion gate also runs the full suite.
 - Worker counts are preset (`DNDTOOLS_TEST_WORKERS`, `DNDTOOLS_PW_WORKERS`): never pass a larger `--workers` / `--maxWorkers`. Unit tests: the package you changed, not all four suites.
 - `pnpm build` when you touched app or core code with a `M`/`L` story.
 - `pnpm feature-audit` when you touched `docs/requirements/` or screens (drift must stay at zero)."""
