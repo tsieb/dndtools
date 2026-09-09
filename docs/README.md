@@ -36,6 +36,7 @@ and the [ADRs](adr/README.md) for the repository layout.
 | Ship a desktop auto-update      | [development/DESKTOP-AUTO-UPDATE.md](development/DESKTOP-AUTO-UPDATE.md) |
 | Work on the installable web app | [development/PWA.md](development/PWA.md)                                 |
 | Build/test/install Android      | [runbooks/android-alpha.md](runbooks/android-alpha.md)                   |
+| Unblock production email (SES)  | [runbooks/ses-production-access.md](runbooks/ses-production-access.md)   |
 | Look up a workspace script      | [development/SCRIPTS.md](development/SCRIPTS.md)                         |
 | Understand the security model   | [security/README.md](security/README.md)                                 |
 | Review architecture decisions   | [adr/README.md](adr/README.md)                                           |

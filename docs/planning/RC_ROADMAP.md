@@ -1322,10 +1322,25 @@ community marketplace discovers and curates, and the wiki is a product.
 ### Epic CLD-1 — Production launch (P2→P4; mostly operator actions)
 
 - **RC-CLD-1.1 — SES production access + verified invite sender.** `S` · P2 · Owner: operator.
-  Reply to case `178562576600649` with the monitoring evidence, apply foundation + identity in prod.
   Acceptance: a public user completes registration on `lamplight.click`.
-- **RC-CLD-1.2 — Prod promotion run.** `S` · P4 · Deps: 1.1, ENG-7 · Owner: operator + CI. Run
+  **Status 2026-09-09 — one step left, and it is a console action.** Both prod applies are DONE and
+  verified live in account `649320110863` / `ca-central-1`: `dndtools-prod-foundation` and
+  `dndtools-prod-identity` both last updated 2026-09-04, configuration set `dndtools-prod-email`
+  exists with an enabled CloudWatch event destination over SEND/DELIVERY/BOUNCE/COMPLAINT/REJECT/
+  RENDERING_FAILURE/DELIVERY_DELAY, `EmailBounceRateAlarm` and `EmailComplaintRateAlarm` are both
+  `OK`, the `dndtools-prod-operational-alerts` topic has a CONFIRMED subscription, and account-level
+  suppression covers BOUNCE + COMPLAINT. `ProductionAccessEnabled` is still **false** (200/day,
+  1/sec), so every non-verified sign-up still strands `UNCONFIRMED`. Remaining: reply to case
+  `178562576600649` in the Support console — the Support API needs a paid plan, so this cannot be
+  scripted. Draft at `docs/runbooks/ses-production-access.md`.
+- **RC-CLD-1.2 — Prod promotion run.** `S` · P4 · Deps: ENG-7 · Owner: operator + CI. Run
   `promote-production.yml` from the RC tag; probes green; `cloud-drift` green in both accounts.
+  **Done 2026-09-09 on `v0.3.7`** — the first Promote Production run ever to complete its deploy
+  job: drift gate, all six stacks in order (identity → TURN → app API → signaling → sync API → web
+  hosting), identity callbacks and API CORS refreshed against the deployed origin, prod web app
+  published, CloudFront invalidated, post-deploy probes green. Note the dependency on 1.1 was
+  dropped: promotion does not need SES out of the sandbox, it only means public sign-up stays
+  blocked on the promoted build. Repeat per RC tag.
 - **RC-CLD-1.3 — TURN production hardening.** `M` · P2 · Owns: `infra/turn/*`. `turns:` with ACM/
   Let's Encrypt on a DNS name, secret rotation runbook + test, second host or documented failover.
   Acceptance: `validate:live` TURN check over TLS.
@@ -1599,17 +1614,71 @@ measurement.ts` grading, `tests/perf/baseline.json`, `.github/workflows/perf.yml
   compare vs baseline, budget breach fails). Acceptance: samples for all 11 budgets on CI hardware.
 - **RC-ENG-1.2 — Bundle budget enforcement + route-level analysis.** `S` · P1 · Owns:
   `scripts/check-prod-bundle.mjs`, `perf/bundle-budget.ts`. Acceptance: CI fails on regression.
+- **RC-ENG-1.3 — Perf measurement that survives a shared runner.** `M` · P2 · Deps: 1.1 · Owns:
+  `.github/workflows/perf.yml`, `scripts/perf/{capture,compare}.ts`, `tests/perf/baseline.ci.json`.
+  The pipeline grades CI runs against a baseline recorded on a 16-core Ryzen desktop, so every run
+  prints `11 without a baseline` and drift is never compared — only the absolute target is. On
+  2026-09-09 two runs of the SAME `main` commit twenty minutes apart returned `scene-first-render`
+  **1125.3ms PASS** (run 34383000996) and **1621.2ms BREACH** (run 34384893583) against a 1500ms
+  target: a 44% swing on unchanged code at `n=3`. A budget that flips verdict without a code change
+  teaches everyone to ignore the gate. Work: record and commit a CI-hardware baseline
+  (`pnpm perf:baseline` on the runner, or a scheduled job that refreshes it), raise the sample count
+  and reject outliers (median of ≥ 7, or repeat-until-the-median-stabilizes), and either pin the job
+  to a larger runner or grade CI against the CI baseline rather than the desktop one. Acceptance:
+  five consecutive runs on one unchanged commit agree on every budget's verdict, and the drift
+  column is populated on CI instead of `not compared (other hardware)`.
 - **RC-ENG-2.1 — Tiered branch model + smoke gate.** `S` · P1 · Owns: `GIT_WORKFLOW.md`, `ci.yml`
   (initiative branches get smoke; `main` gets full), `test:smoke` expanded to the critical unit
   subset under 60 s. Acceptance: two green runs each tier.
 - **RC-ENG-2.2 — Test suite performance.** `M` · P2 · Owns: vitest configs (sharding, isolate
   strategy), Playwright shards (already 3?), fixture reuse. Target: core suite < 90 s, e2e < 12 min
   per profile. Acceptance: CI timing table in `TESTING.md`.
+- **RC-ENG-2.3 — A merge gate the autonomous loop cannot pass blind.** `M` · P2 · Owns:
+  `tools/loop/rcloop.py` (`gates.e2e_named_specs`), `.github/workflows/ci.yml`, `GIT_WORKFLOW.md`.
+  Each loop story runs only the specs it names, so anything a story breaks in ANOTHER story's spec
+  integrates green and is found later on the merged tree. Both promotions hit this; the 09-09 batch
+  shipped four real regressions into `loop/rc` — a selected POI's popover wrapper spanned the whole
+  canvas with `pointerEvents:'auto'` (nothing on the map was draggable), quick map re-asserted
+  `setMobileDock(true)` on every render with a selection so the sheet sprang back and its scrim ate
+  the next canvas press, the import wizard offered SVG but `createImageBitmap` cannot decode one so
+  the calibration step's Next could never enable, and a board-scale-compensated 88px chip landed in
+  a compact tile whose whole body is ~43px. Work: run the full suite on `loop/rc` on a cadence (or
+  before every promotion) rather than only at the promotion gate, and widen a story's named set to
+  the specs that touch the same route/surface. Acceptance: an injected cross-spec regression is
+  caught on `loop/rc` without a human running the suite by hand.
+- **RC-ENG-2.4 — One composite action for browser/e2e setup.** `S` · P2 · Owns:
+  `.github/actions/setup-e2e/action.yml`, the six workflows that install Playwright (`ci.yml` ×2,
+  `perf.yml`, `release.yml`, `promote-production.yml`, `validate.yml`). The install line is copied
+  six times, so on 2026-09-09 a single upstream apt fault took out every Playwright job at once —
+  three CI e2e shards, a11y, the release gates and the promotion preflight — and the fix had to be
+  applied six times, wrongly the first time. `playwright install --with-deps` runs `apt-get update`,
+  which fails the whole command if ANY configured source is inconsistent; the current mitigation
+  strips the Chrome source by content (ubuntu-24.04 writes deb822 `.sources`, so matching by
+  filename silently matches nothing). Acceptance: one action, six callers, and a deliberate broken
+  source proves the guard.
+- **RC-ENG-2.5 — Make the Android build provable before CI.** `S` · P2 · Owns:
+  `scripts/check-android.mjs` (new), `package.json` (`check:android`), `docs/development/
+DEVELOPMENT.md`. This box has no usable JDK 21 (`/usr/lib/jvm/java-21-openjdk` is an empty
+  directory), so the Android job is the first thing that ever compiles the app — twice in one week
+  that meant a red tag. `android/app/src/main/res/values/colors.xml` carried `--color-bg` inside an
+  XML comment (`--` is illegal in XML), broken since the 07-31 rebrand `729be436`, so NO Android
+  build had succeeded for six weeks; and a `catch (IOException | SecurityException |
+  RuntimeException)` multi-catch is a compile error because javac rejects alternatives related by
+  subclassing. Work: a cheap static preflight in `pnpm check` (parse every `android/**/*.xml`,
+  assert `build.gradle`'s `^\d+\.\d+\.\d+$` version contract against the root `package.json`),
+  plus a documented JDK 21 install so a real `assembleDebug` is possible locally. Acceptance: both
+  historical failures are caught by `pnpm check:android` on the commit that introduced them.
 - **RC-ENG-3.1 — Promote budgets from provisional to measured.** `S` · P4 · Deps: 1.1 · Owns:
   `budget-registry.ts`. Acceptance: no `provisional` entries; `PERFORMANCE.md` rewritten.
-- **RC-ENG-3.2 — Runtime performance recovery.** `M` · P3 · Deps: 1.1 · Owns: hot paths that
+- **RC-ENG-3.2 — Runtime performance recovery.** `M` · P3 · Deps: 1.1, 1.3 · Owns: hot paths that
   breach (expected: scene first render with many tiles, map with world output, graph with 2k
   notes, search index). Acceptance: all budgets green.
+  **Known signal (2026-09-09).** `scene-first-render` is the only budget at the line: 1068.3ms on the
+  desktop baseline, 1125–1621ms on CI, target 1500ms. Treat 1.3 as the prerequisite — until the
+  measurement is stable there is no way to tell a real regression from runner noise, and the honest
+  fix is a ~20% render win on 50 widgets / 10 active bindings, never a loosened budget.
+  `widget-update` also drifted 16.8ms → 27ms (+60.7%) across the 09-09 batch; it is still well inside
+  its 100ms target, but it moved in the same area and is worth a look in the same pass.
 - **RC-ENG-4.1 — `any` elimination in app seams.** `M` · P2 · Owns: `runtime/*`, `net/*`,
   `screens/settings/*`, `Upgrade.tsx`. Acceptance: ≤ 20 warnings (DEBT-2026-002 resolved).
 - **RC-ENG-4.2 — Core coverage floors raised for new domains.** `S` · P2 · Owns: `vitest`
@@ -1758,7 +1827,7 @@ Wiki reader · Command palette · App shell (sidebar/rail/tabs/top bar).
 
 ## 23. Story index
 
-_243 stories. By size: S=92 · L=20 · M=131. By phase: P0=18 · P1=26 · P2=153 · P3=37 · P4=8 · rolling=1. Status column starts empty; RC-DOC-2.1 keeps it current._
+_247 stories. By size: S=94 · L=20 · M=133. By phase: P0=18 · P1=26 · P2=157 · P3=37 · P4=8 · rolling=1. Status column starts empty; RC-DOC-2.1 keeps it current._
 
 | Id          | Lane        | Story                                                                        | Size | Phase   | Deps                                                                                                                                         | Status                       |
 | ----------- | ----------- | ---------------------------------------------------------------------------- | ---- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
@@ -1932,8 +2001,8 @@ _243 stories. By size: S=92 · L=20 · M=131. By phase: P0=18 · P1=26 · P2=153
 | RC-AI-3.2   | AI          | Local embeddings for semantic search                                         | L    | P2      | 3.1                                                                                                                                          | done (22a44a3)               |
 | RC-AI-3.3   | AI          | Ollama model management                                                      | S    | P2      | —                                                                                                                                            | done (781ede3)               |
 | RC-AI-4.1   | AI          | Copilot client + indexer contract (behind the phase-2 gate)                  | M    | P2      | CLD-2.2                                                                                                                                      |                              |
-| RC-CLD-1.1  | Cloud       | SES production access + verified invite sender                               | S    | P2      | (external)                                                                                                                                   |                              |
-| RC-CLD-1.2  | Cloud       | Prod promotion run                                                           | S    | P4      | 1.1, ENG-7 (external)                                                                                                                        |                              |
+| RC-CLD-1.1  | Cloud       | SES production access + verified invite sender                               | S    | P2      | (external)                                                                                                                                   | infra done; case reply left  |
+| RC-CLD-1.2  | Cloud       | Prod promotion run                                                           | S    | P4      | ENG-7                                                                                                                                        | done (v0.3.7)                |
 | RC-CLD-1.3  | Cloud       | TURN production hardening                                                    | M    | P2      | —                                                                                                                                            |                              |
 | RC-CLD-1.4  | Cloud       | Privacy-respecting product analytics (opt-in)                                | M    | P2      | —                                                                                                                                            | done (7bd6872)               |
 | RC-CLD-2.1  | Cloud       | Stripe billing (ADR-027 → Accepted)                                          | L    | P2      | (external)                                                                                                                                   |                              |
@@ -1989,10 +2058,14 @@ _243 stories. By size: S=92 · L=20 · M=131. By phase: P0=18 · P1=26 · P2=153
 | RC-PLT-3.1  | Platform    | iOS decision and scaffold                                                    | M    | P2      | —                                                                                                                                            | done (fa3590e)               |
 | RC-ENG-1.1  | Engineering | Perf measurement pipeline                                                    | M    | P1      | —                                                                                                                                            | done (c237742)               |
 | RC-ENG-1.2  | Engineering | Bundle budget enforcement + route-level analysis                             | S    | P1      | —                                                                                                                                            | done (ed4b5a4)               |
+| RC-ENG-1.3  | Engineering | Perf measurement that survives a shared runner                               | M    | P2      | 1.1                                                                                                                                          |                              |
 | RC-ENG-2.1  | Engineering | Tiered branch model + smoke gate                                             | S    | P1      | —                                                                                                                                            | done (ed4b5a4)               |
 | RC-ENG-2.2  | Engineering | Test suite performance                                                       | M    | P2      | —                                                                                                                                            | done (0a59cfc)               |
+| RC-ENG-2.3  | Engineering | A merge gate the autonomous loop cannot pass blind                           | M    | P2      | —                                                                                                                                            |                              |
+| RC-ENG-2.4  | Engineering | One composite action for browser/e2e setup                                   | S    | P2      | —                                                                                                                                            |                              |
+| RC-ENG-2.5  | Engineering | Make the Android build provable before CI                                    | S    | P2      | —                                                                                                                                            |                              |
 | RC-ENG-3.1  | Engineering | Promote budgets from provisional to measured                                 | S    | P4      | 1.1                                                                                                                                          |                              |
-| RC-ENG-3.2  | Engineering | Runtime performance recovery                                                 | M    | P3      | 1.1                                                                                                                                          |                              |
+| RC-ENG-3.2  | Engineering | Runtime performance recovery                                                 | M    | P3      | 1.1, 1.3                                                                                                                                     |                              |
 | RC-ENG-4.1  | Engineering | `any` elimination in app seams                                               | M    | P2      | —                                                                                                                                            | done (7b9ae09)               |
 | RC-ENG-4.2  | Engineering | Core coverage floors raised for new domains                                  | S    | P2      | —                                                                                                                                            | done (8644e74)               |
 | RC-ENG-4.3  | Engineering | Dependency hygiene                                                           | S    | P0      | —                                                                                                                                            | done (2775646)               |
