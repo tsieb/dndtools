@@ -38,7 +38,6 @@ describe('native resume refresh registry', () => {
 	});
 });
 
-
 describe('home-screen shortcut navigation (RC-PLT-2.2)', () => {
 	it('leaves the root directly beneath the shortcut, so one Back reaches it', () => {
 		const navigate = vi.fn();
