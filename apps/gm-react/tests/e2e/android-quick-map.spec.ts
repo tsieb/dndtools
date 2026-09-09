@@ -78,6 +78,7 @@ test.describe('Android quick map', () => {
 			'aria-pressed',
 			'true',
 		);
+		await expect(page.getByRole('dialog')).toHaveCount(1);
 		for (const hidden of ['Terrain', 'Structure', 'Lighting', 'Marquee', 'Room', 'Wall']) {
 			await expect(editor.getByRole('button', { name: hidden, exact: true })).toHaveCount(0);
 		}
@@ -195,6 +196,12 @@ test.describe('Android quick map', () => {
 		await expect.poll(async () => (await rawMap(page, mapId)).pois.length).toBe(1);
 		await selectedSheet.getByRole('button', { name: 'Close' }).click();
 		await expect(selectedSheet).toBeHidden();
+		// The sheet is a SCRIMMED layer above the editor (z-sheet 500 over the dialog's 300), and the
+		// scrim outlives the labelled panel by a frame or two. Reading the marker's pressed state
+		// while it is still up loses the Escape below AND, worse, hands the scrim the pointerdown that
+		// was meant to start the drag further down — which is exactly how this test failed
+		// intermittently. Wait for the editor to be the only dialog on screen before going on.
+		await expect(page.getByRole('dialog')).toHaveCount(1);
 		const placedPoiMarker = canvas.getByRole('button', { name: 'POI: New POI' });
 		if ((await placedPoiMarker.getAttribute('aria-pressed')) === 'true') {
 			await page.keyboard.press('Escape');
@@ -208,9 +215,13 @@ test.describe('Android quick map', () => {
 		await page.getByRole('button', { name: 'Select & move' }).click();
 
 		const tokenMarker = canvas.getByRole('button', { name: 'Token: Token 1' });
+		// `hover()` rather than a raw `mouse.move` to the measured centre: it runs Playwright's
+		// actionability checks, so the press waits until the marker genuinely RECEIVES pointer events.
+		// A raw move skips them, and any layer still settling over the canvas — a closing sheet's
+		// scrim, the POI popover — silently takes the pointerdown, leaving no drag to finish.
+		await tokenMarker.hover();
 		const tokenBox = await tokenMarker.boundingBox();
 		expect(tokenBox).not.toBeNull();
-		await page.mouse.move(tokenBox!.x + tokenBox!.width / 2, tokenBox!.y + tokenBox!.height / 2);
 		await page.mouse.down();
 		await page.mouse.move(
 			tokenBox!.x + tokenBox!.width / 2 + 34,
@@ -231,9 +242,9 @@ test.describe('Android quick map', () => {
 			.toBeGreaterThan(0.02);
 
 		const poiMarker = canvas.getByRole('button', { name: 'POI: New POI' });
+		await poiMarker.hover();
 		const poiBox = await poiMarker.boundingBox();
 		expect(poiBox).not.toBeNull();
-		await page.mouse.move(poiBox!.x + poiBox!.width / 2, poiBox!.y + poiBox!.height / 2);
 		await page.mouse.down();
 		await page.mouse.move(poiBox!.x + poiBox!.width / 2 - 28, poiBox!.y + poiBox!.height / 2 + 32, {
 			steps: 5,
@@ -382,13 +393,26 @@ test.describe('Android quick map', () => {
 			name: 'quick-map-alpha.svg',
 			mimeType: 'image/svg+xml',
 			buffer: Buffer.from(
-				'<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8"><rect width="12" height="8" fill="#123456"/></svg>',
+				'<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" fill="#123456"/></svg>',
 			),
 		});
 		await expect(importDialog.getByText('quick-map-alpha.svg')).toBeVisible();
-		await importDialog.getByRole('button', { name: 'Preview' }).click();
+		// RC-MAP-3.2 turned the one-shot preview into a wizard: file → align grid → scale → wall
+		// tracer → preview → result. This test does not exercise the calibration steps (atlas.spec.ts
+		// owns them); it walks them on their defaults, because what it is asserting is the OTHER half
+		// of the story — that committing an import adds exactly one asset and leaves the precision
+		// geometry on the base layer untouched.
+		await importDialog.getByRole('button', { name: 'Next' }).click();
+		await expect(importDialog.getByText('Align grid')).toBeVisible();
+		await importDialog.getByLabel('Cell width (px)').fill('12');
+		await importDialog.getByLabel('Cell height (px)').fill('12');
+		await importDialog.getByRole('button', { name: 'Next' }).click();
+		await expect(importDialog.getByText('1 square =')).toBeVisible();
+		await importDialog.getByRole('button', { name: 'Next' }).click();
+		await expect(importDialog.getByText('Trace walls from the image')).toBeVisible();
+		await importDialog.getByRole('button', { name: 'Next' }).click();
 		await expect(importDialog.getByText('File fingerprint')).toBeVisible();
-		await importDialog.getByRole('button', { name: 'Import' }).click();
+		await importDialog.getByRole('button', { name: 'Import', exact: true }).click();
 		await expect(importDialog.getByText(`Import committed to “${name}”`)).toBeVisible();
 		await expect
 			.poll(async () => (await rawMap(page, mapId)).assetIds.length)

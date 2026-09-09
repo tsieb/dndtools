@@ -21,9 +21,12 @@ import { OpChip, SR_ONLY } from '../../widget-body-kit';
 export function NextTurnControl({
 	running,
 	interactive,
+	dense = false,
 }: {
 	running: boolean;
 	interactive: boolean;
+	/** Inside a compact tile's own body, where the board-scale touch target does not fit. */
+	dense?: boolean;
 }) {
 	const runtime = useRuntime();
 	const { t } = useI18n();
@@ -41,6 +44,7 @@ export function NextTurnControl({
 	return (
 		<>
 			<OpChip
+				dense={dense}
 				icon="skip"
 				label={t('widgetBody.initiative.nextTurn')}
 				unavailableReason={running ? undefined : t('widgetBody.initiative.nextTurnUnavailable')}

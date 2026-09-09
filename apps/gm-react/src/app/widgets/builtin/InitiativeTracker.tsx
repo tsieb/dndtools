@@ -163,7 +163,11 @@ export function InitiativeTrackerCompact({
 			<div
 				style={{
 					display: 'flex',
-					alignItems: 'baseline',
+					// CENTRE, not baseline. The Next-turn chip is a touch target sized against the
+					// board's scale, so it is several times the height of this 11px caption; aligning
+					// the two on a shared baseline hung most of the chip BELOW the header, on top of the
+					// first combatant rows, where it intercepted the presses meant for their hit points.
+					alignItems: 'center',
 					gap: 8,
 					font: `600 11px ${T.sans}`,
 					color: T.sub,
@@ -174,8 +178,13 @@ export function InitiativeTrackerCompact({
 				<span>{t('widgetBody.initiative.compactHeading', { round: tracker.round })}</span>
 				{/* RC-WID-4.2 — advancing the order is the phone tile's most-wanted action, so it sits in
 				    the header rather than behind a trip to /session. */}
+				{/* `dense`: the chip's board-scale touch-target compensation is deliberately off here. On
+				    a phone this tile's body is ~43px tall, and a control sized to PAINT at 48dp asks for
+				    roughly twice that in layout — it filled the body on its own and clipped every
+				    combatant row out of the tile, so the widget drew a Next-turn button and no combat.
+				    It now matches the row controls beside it. */}
 				<span style={{ marginLeft: 'auto' }}>
-					<NextTurnControl running interactive={interactive} />
+					<NextTurnControl dense running interactive={interactive} />
 				</span>
 			</div>
 			<ul

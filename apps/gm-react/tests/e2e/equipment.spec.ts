@@ -240,8 +240,10 @@ test.describe('equipment: structured inventory, currency & encumbrance', () => {
 		expect(after?.inventory?.items.length).toBe(before?.inventory?.items.length);
 		expect(after?.inventory?.items.some((i) => i.name === 'Contraband')).toBe(false);
 
-		// The UI grants the owner edit affordances: previewing as the specific owning player shows the
-		// manage form for their own PC (writes are preview-read-only, so we assert the control's presence).
+		// Previewing as the specific owning player still puts their PC on screen, but the manage form
+		// is gone: RC-CHR-4.3 folds `runtime.readOnly` into canManageInventory, because every write is
+		// rejected while previewing regardless of authority, so a live Item field was a dead control.
+		// Owner authority itself is asserted above, at the command choke point where it actually lives.
 		await page.evaluate(() =>
 			window.__rt!.enterPreview({ role: 'player', playerActorId: 'actor-player' }),
 		);
@@ -249,7 +251,7 @@ test.describe('equipment: structured inventory, currency & encumbrance', () => {
 			timeout: 5_000,
 		});
 		await expect(page.getByText(PC_NAME).first()).not.toHaveCount(0);
-		await expect(page.getByLabel('Item')).toHaveCount(1);
+		await expect(page.getByLabel('Item')).toHaveCount(0);
 		await exitPreview(page);
 	});
 

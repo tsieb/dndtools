@@ -181,30 +181,36 @@ export function MapMarkers({
 					);
 				})}
 
-			{/* POI popover, anchored at the marker's visual position (consumer supplies the actions) */}
+			{/* POI popover, anchored at the marker's visual position (consumer supplies the actions).
+
+			    The wrapper is a POSITIONING context, not a hit area: it spans the whole canvas so the
+			    popover can place itself at a percentage anchor, and it must stay `pointerEvents: none`
+			    for exactly that reason. Giving it `auto` laid a full-canvas pointer trap over every
+			    marker for as long as any POI was selected — a token could no longer be dragged, and
+			    the press landed on this div instead of the marker. The popover itself opts back in
+			    below, which is the same `none` wrapper / `auto` child pattern the markers use. */}
 			{selectedPoi && renderPoiPopover && annotationVisible(selectedPoi.layerId) && (
 				<div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-					<div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-						{(() => {
-							const v = toVisual(selectedPoi.position);
-							const placement = v.y < 0.42 ? 'bottom' : 'top';
-							return (
-								<div
-									style={{ position: 'absolute', inset: 0, pointerEvents: 'auto' }}
-									onClick={(e) => e.stopPropagation()}
-								>
-									{renderPoiPopover(
-										selectedPoi,
-										{
-											x: `${v.x * 100}%`,
-											y: `${(placement === 'top' ? v.y - 0.045 : v.y + 0.01) * 100}%`,
-										},
-										placement,
-									)}
-								</div>
-							);
-						})()}
-					</div>
+					{(() => {
+						const v = toVisual(selectedPoi.position);
+						const placement = v.y < 0.42 ? 'bottom' : 'top';
+						return (
+							<div
+								style={{ display: 'contents' }}
+								onClick={(e) => e.stopPropagation()}
+								onPointerDown={(e) => e.stopPropagation()}
+							>
+								{renderPoiPopover(
+									selectedPoi,
+									{
+										x: `${v.x * 100}%`,
+										y: `${(placement === 'top' ? v.y - 0.045 : v.y + 0.01) * 100}%`,
+									},
+									placement,
+								)}
+							</div>
+						);
+					})()}
 				</div>
 			)}
 		</div>

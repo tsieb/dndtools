@@ -66,6 +66,37 @@ const DEFAULT_CELL_BOX: CellBox = { a: { x: 0.4, y: 0.4 }, b: { x: 0.5, y: 0.5 }
 /** Default luminance cut. Printed dungeon ink sits well under this; parchment sits well over it. */
 const DEFAULT_TRACE_THRESHOLD = 96;
 
+/**
+ * An SVG's pixel size, from `width`/`height` when they carry one and otherwise from the `viewBox`.
+ * Percentage and unitless-but-relative values are not a pixel size, so they read as unknown rather
+ * than as a wrong number the DM would then calibrate a whole map against.
+ */
+function readSvgDimensions(markup: string): { width: number; height: number } | null {
+	const attribute = (name: string): number | null => {
+		const raw = new RegExp(`<svg[^>]*\\s${name}\\s*=\\s*["']([^"']+)["']`, 'i').exec(markup)?.[1];
+		if (!raw) return null;
+		const value = Number.parseFloat(raw);
+		return Number.isFinite(value) && value > 0 && !/%$/.test(raw.trim()) ? value : null;
+	};
+	const width = attribute('width');
+	const height = attribute('height');
+	if (width !== null && height !== null) return { width, height };
+	const viewBox = /<svg[^>]*\sviewBox\s*=\s*["']([^"']+)["']/i
+		.exec(markup)?.[1]
+		?.trim()
+		.split(/[\s,]+/)
+		.map(Number);
+	if (
+		viewBox?.length === 4 &&
+		viewBox.every(Number.isFinite) &&
+		viewBox[2]! > 0 &&
+		viewBox[3]! > 0
+	) {
+		return { width: viewBox[2]!, height: viewBox[3]! };
+	}
+	return null;
+}
+
 export function ImportMapDialog({
 	mapId,
 	mapName,
@@ -131,7 +162,13 @@ export function ImportMapDialog({
 		try {
 			const bytes = new Uint8Array(await file.arrayBuffer());
 			let dimensions: { width: number; height: number } | null = null;
-			if (file.type !== 'image/svg+xml') {
+			if (file.type === 'image/svg+xml') {
+				// `createImageBitmap` will not decode an SVG, so its size is read out of the markup.
+				// Without this an SVG had NO dimensions, and the calibration step's Next — gated on a
+				// calibration derived from them — could never enable: the drop zone advertised SVG and
+				// the wizard then refused to let go of it.
+				dimensions = readSvgDimensions(new TextDecoder().decode(bytes));
+			} else {
 				try {
 					const bmp = await createImageBitmap(file);
 					dimensions = { width: bmp.width, height: bmp.height };

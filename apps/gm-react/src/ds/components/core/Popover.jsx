@@ -141,6 +141,9 @@ export function Popover({
 	const positioned = anchor
 		? {
 				position: 'absolute',
+				// An anchored popover is routinely mounted inside a `pointerEvents: none` overlay
+				// (the map canvas's marker layer), which its controls would otherwise inherit.
+				pointerEvents: 'auto',
 				left: anchor.x,
 				top: anchor.y,
 				marginLeft: shiftX,

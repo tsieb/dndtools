@@ -180,12 +180,19 @@ export function MapEditor({
 		...(quickMapMode ? { isToolAllowed: isQuickMapTool, navigationTool: 'pan' as const } : {}),
 	});
 
+	// Quick map has no side dock, so a selection (or arming Generate) raises the bottom sheet that
+	// stands in for it — on the TRANSITION only. Re-asserting it on every render where a selection
+	// merely exists put the sheet back up the moment the DM changed tool with a marker still
+	// selected: the sheet they had just closed sprang back, and its scrim — a modal layer above the
+	// editor — swallowed the next press on the canvas, so the marker could not be dragged at all.
+	const dockTrigger = useRef({ selected: false, generating: false });
 	useEffect(() => {
 		if (!quickMapMode) return;
 		if (!isQuickMapTool(editor.tool)) editor.setTool('pan');
-		if (editor.tool === 'generate' || editor.selection.length > 0) {
-			setMobileDock(true);
-		}
+		const now = { selected: editor.selection.length > 0, generating: editor.tool === 'generate' };
+		const was = dockTrigger.current;
+		if ((now.selected && !was.selected) || (now.generating && !was.generating)) setMobileDock(true);
+		dockTrigger.current = now;
 	}, [quickMapMode, editor.tool, editor.selection.length, editor.setTool]);
 
 	useEffect(() => {

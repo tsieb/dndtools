@@ -91,6 +91,7 @@ export function OpChip({
 	onPress,
 	ariaLabel,
 	unavailableReason,
+	dense = false,
 }: {
 	icon: string;
 	label: string;
@@ -98,6 +99,13 @@ export function OpChip({
 	ariaLabel?: string;
 	/** Present when the command exists but the core would refuse it right now — see below. */
 	unavailableReason?: string;
+	/**
+	 * Drop the board-scale touch-target compensation for a chip that lives INSIDE a tile's own
+	 * content rather than on the board surface. The compensated box is sized to paint at the density
+	 * target after the board's transform, which on a phone is roughly twice the height of a compact
+	 * tile's entire body — it pushes the tile's real content out of the clipped area entirely.
+	 */
+	dense?: boolean;
 }) {
 	if (!onPress) {
 		return (
@@ -113,7 +121,7 @@ export function OpChip({
 	const unavailable = !!unavailableReason;
 	return (
 		<button
-			className="scene-board-operation"
+			className={dense ? undefined : 'scene-board-operation'}
 			type="button"
 			aria-label={
 				unavailable ? `${ariaLabel ?? label} — ${unavailableReason}` : (ariaLabel ?? label)
@@ -124,8 +132,12 @@ export function OpChip({
 			onPointerDown={(e) => e.stopPropagation()}
 			style={{
 				...opChipStyle,
-				minWidth: 'var(--operation-touch-target, var(--density-touch-target, auto))',
-				minHeight: 'var(--operation-touch-target, var(--density-touch-target, auto))',
+				minWidth: dense
+					? undefined
+					: 'var(--operation-touch-target, var(--density-touch-target, auto))',
+				minHeight: dense
+					? undefined
+					: 'var(--operation-touch-target, var(--density-touch-target, auto))',
 				border: '1px solid var(--color-border)',
 				background: unavailable ? 'var(--color-surface-sunken)' : 'var(--color-accent-subtle)',
 				color: unavailable ? 'var(--color-text-tertiary)' : 'var(--color-accent)',

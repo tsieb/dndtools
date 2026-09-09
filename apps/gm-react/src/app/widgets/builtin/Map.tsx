@@ -268,6 +268,15 @@ export function MapTile({
 				{choices.length > 0 && (
 					<div style={{ flex: '1 1 120px', minWidth: 100 }}>
 						<Select
+							// The board scales its tiles down, so a control sized in plain density units
+							// lands well under the 48dp Android floor once painted. `scene-board-operation`
+							// divides the density target by the layer's own scale — the same compensation
+							// the tile's other operations already get; the inline `minHeight` is needed
+							// because `Select` sets one of its own, which a class cannot outrank.
+							className="scene-board-operation"
+							style={{
+								minHeight: 'var(--operation-touch-target, var(--density-input-height, 2.25rem))',
+							}}
 							aria-label={t('widgetBody.map.changeMap')}
 							value={view?.mapId ?? ''}
 							options={[
@@ -279,6 +288,7 @@ export function MapTile({
 					</div>
 				)}
 				<IconButton
+					className="scene-board-operation"
 					icon={overlayOn ? 'visibility-players' : 'visibility-hidden'}
 					label={overlayOn ? t('widgetBody.map.overlayOff') : t('widgetBody.map.overlayOn')}
 					variant="outline"
@@ -286,6 +296,7 @@ export function MapTile({
 					onClick={toggleOverlay}
 				/>
 				<IconButton
+					className="scene-board-operation"
 					icon="edit"
 					label={t('widgetBody.map.openInEditor')}
 					variant="outline"
@@ -294,6 +305,7 @@ export function MapTile({
 					onClick={openInEditor}
 				/>
 				<IconButton
+					className="scene-board-operation"
 					icon="visibility-shared"
 					label={t('projection.toPlayers')}
 					variant="outline"
