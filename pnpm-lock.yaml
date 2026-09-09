@@ -70,6 +70,9 @@ importers:
       prettier:
         specifier: ^3.8.3
         version: 3.8.3
+      saxes:
+        specifier: ^6.0.0
+        version: 6.0.0
       tsx:
         specifier: ^4.23.1
         version: 4.23.1
@@ -6838,7 +6841,6 @@ snapshots:
   saxes@6.0.0:
     dependencies:
       xmlchars: 2.2.0
-    optional: true
 
   scheduler@0.23.2:
     dependencies:
@@ -7263,8 +7265,7 @@ snapshots:
 
   xmlbuilder@15.1.1: {}
 
-  xmlchars@2.2.0:
-    optional: true
+  xmlchars@2.2.0: {}
 
   y18n@4.0.3: {}
 

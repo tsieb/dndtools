@@ -11,6 +11,62 @@ This document defines the engineering rules that apply to every code change in t
   8.14.3 wrapper and Android Gradle Plugin 8.13. See
   [`../runbooks/android-alpha.md`](../runbooks/android-alpha.md).
 
+### Android preflight and local compilation
+
+`pnpm check:android` needs only the installed Node dependencies, so it runs first in `pnpm check`
+without Java or an Android SDK. It parses every XML file under `apps/gm-react/android` (excluding
+`build`, `.gradle`, and `node_modules` output), checks the Gradle `major.minor.patch` contract against
+both root and GM package versions, and requires those versions to agree. It also rejects related
+standard Java exception types in multi-catches, including `SecurityException | RuntimeException`.
+The Java guard covers the standard hierarchy listed in `scripts/check-android.mjs`; it does not
+resolve arbitrary imported or application-defined exception hierarchies or prove Java compilation.
+
+Install a **JDK 21** with both `java` and `javac`. An empty `/usr/lib/jvm/java-21-openjdk` directory
+or a working JRE is insufficient. For Linux, configure the signed repository using the
+[official Adoptium package instructions](https://adoptium.net/installation/linux/), then install:
+
+```bash
+# Debian/Ubuntu, after configuring the Adoptium repository:
+sudo apt update
+sudo apt install temurin-21-jdk
+# RPM distributions, after configuring the Adoptium repository:
+sudo dnf install temurin-21-jdk
+```
+
+Use the command for your distribution. Set `JAVA_HOME` to the installed JDK directory (find it with
+`dpkg -L temurin-21-jdk` or `rpm -ql temurin-21-jdk`, looking for `bin/javac`), then verify:
+
+```bash
+export JAVA_HOME=/absolute/path/to/installed/jdk-21
+export PATH="$JAVA_HOME/bin:$PATH"
+test -x "$JAVA_HOME/bin/java" && test -x "$JAVA_HOME/bin/javac"
+java -version
+javac -version
+```
+
+Both versions must report 21. Install the SDK/API 36 and build-tools 36.0.0 using the
+[Android runbook](../runbooks/android-alpha.md#local-prerequisites), set `ANDROID_HOME`, and run
+from the repository root:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm check:android
+pnpm --filter @dndtools/gm-react android:sync
+cd apps/gm-react/android
+./gradlew --stop
+./gradlew --version
+./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+```
+
+Confirm Gradle reports JDK 21; check any `org.gradle.java.home` override if it does not.
+The debug APK is `apps/gm-react/android/app/build/outputs/apk/debug/app-debug.apk`.
+A passing static preflight is only an early guard; record a successful Gradle run before claiming
+that the native build compiles. Emulator and release-signing acceptance remain in the runbook.
+
+For historical regression verification, export an old tree to a temporary directory and run
+`pnpm check:android /absolute/path/to/exported-tree` from the current checkout. This uses the new
+checker against the old Android sources and package versions without changing branches.
+
 ## 2. Script Surface
 
 Canonical references:
@@ -21,7 +77,7 @@ Canonical references:
 
 High-signal commands:
 
-- `pnpm check` - `gates` + boundary lint + typecheck + full test suite (pre-handoff gate)
+- `pnpm check` - Android static preflight + `gates` + boundary lint + typecheck + full test suite (pre-handoff gate)
 - `pnpm validate` - whole-application validation harness (see VALIDATION.md)
 - `pnpm test` - core unit + cloud/net + app + repo tooling tests
 - `pnpm e2e` - Playwright (desktop + mobile Chromium) against `apps/gm-react`
