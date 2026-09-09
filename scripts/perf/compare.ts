@@ -1,38 +1,11 @@
-/**
- * RC-ENG-1.1 — PERF COMPARE. Grades a run file written by `capture.ts` against BOTH the declared
- * budget targets (PERF-001 registry) and the recorded baseline (`tests/perf/baseline.json`), then
- * prints a report and exits non-zero when the run is not clean.
- *
- * All grading arithmetic lives in `@dndtools/core`'s `perf/measurement` — `measureBudget` for the
- * target verdict, `compareSuiteToBaseline` for the drift verdict. This script only reads files,
- * formats, and decides the exit code, so CI and the app can never disagree about what "breach" means.
- *
- * FAIL CLOSED. The run is NOT clean when any of these hold:
- *   - a budget BREACHED its declared target;
- *   - a budget REGRESSED more than the tolerance against its baseline;
- *   - a budget in the registry is MISSING from the run, or recorded no samples (a scenario that
- *     silently stopped running must not read as green — it grades `unknown`, never `pass`).
- * A budget with no baseline entry yet does not block: its value is reported and recorded so the next
- * run has something to compare against.
- *
- * Usage:
- *   tsx scripts/perf/compare.ts [--run tests/perf/current.json] [--baseline tests/perf/baseline.json]
- *                              [--tolerance 0.2] [--markdown tmp/perf/report.md] [--write-baseline]
- *
- * `--write-baseline` rewrites the baseline file from the run instead of comparing — used deliberately
- * when a baseline is first recorded or re-measured on new hardware, never as a way to silence a
- * regression in the same PR that caused it.
- *
- * DRIFT IS ONLY GRADED ON LIKE HARDWARE. A baseline recorded on a workstation says nothing about a
- * shared CI runner: the difference between the two machines would show up as a 100% "regression" on
- * every run and teach everyone to ignore the gate. When the run's CPU differs from the baseline's,
- * targets are still graded and the observed values are still reported, but drift is not — the report
- * says so in as many words. `--compare-across-hardware` overrides that for a deliberate comparison.
+/** Grade median-of-seven scenario batches; retain the core's tail statistic inside each batch.
+ * CI requires a compatible measured baseline and gates drift. Absolute reference-device targets
+ * remain diagnostics in CI; local comparisons continue to gate both targets and drift.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
 	DEFAULT_BASELINE_TOLERANCE,
 	PERFORMANCE_BUDGETS,
@@ -50,6 +23,7 @@ const REPO_ROOT = resolve(HERE, '../..');
 interface CapturedBudget {
 	budgetId: string;
 	samples: number[];
+	repetitions?: number[][];
 	scenario: string;
 	fixture: string;
 	profile: string;
@@ -59,6 +33,8 @@ interface CapturedBudget {
 interface PerfRunFile {
 	schemaVersion: number;
 	capturedAt: string;
+	commit?: string;
+	aggregation?: string;
 	host: {
 		hostname: string;
 		os: string;
@@ -75,6 +51,8 @@ interface PerfRunFile {
 export interface PerfBaselineFile {
 	schemaVersion: number;
 	recordedAt: string;
+	commit?: string;
+	aggregation?: string;
 	/** The hardware the baseline was measured on — a baseline is only meaningful against like hardware. */
 	host: PerfRunFile['host'];
 	/** The regression tolerance the baseline is compared with, as a fraction of the baseline value. */
@@ -96,6 +74,8 @@ interface Options {
 	markdown: string | null;
 	writeBaseline: boolean;
 	compareAcrossHardware: boolean;
+	ci: boolean;
+	json: string | null;
 }
 
 function parseOptions(argv: readonly string[]): Options {
@@ -118,6 +98,8 @@ function parseOptions(argv: readonly string[]): Options {
 		markdown: flags.get('markdown') ?? null,
 		writeBaseline: bare.has('write-baseline'),
 		compareAcrossHardware: bare.has('compare-across-hardware'),
+		ci: bare.has('ci'),
+		json: flags.get('json') ?? null,
 	};
 }
 
@@ -142,6 +124,33 @@ const VERDICT_LABEL: Record<string, string> = {
 	error: 'ERROR',
 };
 
+/** A missing/invalid batch invalidates the entire observation, never silently shrinks n. */
+export function measureCapture(
+	budgetId: string,
+	capture?: Pick<CapturedBudget, 'samples' | 'repetitions'>,
+): BudgetMeasurement {
+	if (!capture?.repetitions) return measureBudget(budgetId, capture?.samples ?? []);
+	const batches = capture.repetitions;
+	const values = batches.map((samples) => measureBudget(budgetId, samples));
+	if (
+		batches.length < 7 ||
+		values.some(
+			(value, i) => value.observedValue === null || value.sampleCount !== batches[i].length,
+		)
+	) {
+		return measureBudget(budgetId, []);
+	}
+	const sorted = values.map((value) => value.observedValue!).sort((a, b) => a - b);
+	const middle = Math.floor(sorted.length / 2);
+	const median = sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+	const measured = measureBudget(budgetId, [median]);
+	return {
+		...measured,
+		sampleCount: batches.length,
+		message: `Median of ${batches.length} batch statistics: ${measured.message}`,
+	};
+}
+
 function main(): void {
 	const options = parseOptions(process.argv.slice(2));
 	if (!existsSync(options.run)) {
@@ -149,19 +158,38 @@ function main(): void {
 		process.exitCode = 1;
 		return;
 	}
+	if (!Number.isFinite(options.tolerance) || options.tolerance < 0 || options.tolerance > 1) {
+		throw new Error('Tolerance must be a finite fraction between 0 and 1.');
+	}
 	const run = readJson<PerfRunFile>(options.run);
 	const capturedById = new Map(run.budgets.map((entry) => [entry.budgetId, entry]));
 
 	// Grade EVERY registry budget, not just the ones the run happened to contain: a budget whose
 	// scenario silently disappeared must show up as unmeasured, not vanish from the report.
 	const measurements: BudgetMeasurement[] = PERFORMANCE_BUDGETS.map((budget) =>
-		measureBudget(budget.id, capturedById.get(budget.id)?.samples ?? []),
+		measureCapture(budget.id, capturedById.get(budget.id)),
 	);
 
+	if (
+		options.ci &&
+		(!run.host.ci ||
+			run.aggregation !== 'median-of-batches-v1' ||
+			!/^[a-f0-9]{40}$/.test(run.commit ?? '') ||
+			run.budgets.some((entry) => !entry.repetitions))
+	) {
+		throw new Error(
+			'CI requires a runner capture with commit provenance and seven independent batches.',
+		);
+	}
 	if (options.writeBaseline) {
+		if (measurements.some((measurement) => measurement.observedValue === null)) {
+			throw new Error('Refusing to write an incomplete baseline.');
+		}
 		const baseline: PerfBaselineFile = {
 			schemaVersion: 1,
 			recordedAt: run.capturedAt,
+			commit: run.commit,
+			aggregation: run.aggregation,
 			host: run.host,
 			tolerance: options.tolerance,
 			budgets: measurements.map((measurement) => {
@@ -189,12 +217,22 @@ function main(): void {
 	// its values are reported but not graded (see the header note).
 	const hardwareMatches =
 		baselineFile !== null &&
-		(options.compareAcrossHardware || baselineFile.host.cpuModel === run.host.cpuModel);
+		(options.ci
+			? baselineFile.host.ci &&
+				baselineFile.host.runnerLabel === run.host.runnerLabel &&
+				baselineFile.host.cpuModel === run.host.cpuModel &&
+				baselineFile.host.cpuCount === run.host.cpuCount &&
+				baselineFile.host.os === run.host.os &&
+				baselineFile.aggregation === run.aggregation
+			: options.compareAcrossHardware || baselineFile.host.cpuModel === run.host.cpuModel);
 	const baselineEntries: BudgetBaselineEntry[] = (
 		hardwareMatches ? (baselineFile?.budgets ?? []) : []
 	)
 		.filter(
-			(entry): entry is typeof entry & { observedValue: number } => entry.observedValue !== null,
+			(entry): entry is typeof entry & { observedValue: number } =>
+				entry.observedValue !== null &&
+				Number.isFinite(entry.observedValue) &&
+				entry.observedValue > 0,
 		)
 		.map((entry) => ({ budgetId: entry.budgetId, observedValue: entry.observedValue }));
 	const suite = compareSuiteToBaseline(measurements, baselineEntries, options.tolerance);
@@ -203,6 +241,17 @@ function main(): void {
 	const recordedById = new Map(
 		(baselineFile?.budgets ?? []).map((entry) => [entry.budgetId, entry.observedValue]),
 	);
+	const baselineInvalid =
+		options.ci &&
+		(!hardwareMatches ||
+			suite.missingBaselineCount > 0 ||
+			!/^[a-f0-9]{40}$/.test(baselineFile?.commit ?? '') ||
+			baselineFile?.budgets.some(
+				(entry) =>
+					!Number.isInteger(entry.sampleCount) ||
+					entry.sampleCount < 7 ||
+					entry.fixture !== capturedById.get(entry.budgetId)?.fixture,
+			));
 	const rows = measurements.map((measurement) => {
 		const captured = capturedById.get(measurement.budgetId);
 		const comparison = comparisonById.get(measurement.budgetId)!;
@@ -212,6 +261,12 @@ function main(): void {
 			workflow: measurement.budget?.workflow ?? measurement.budgetId,
 			owner: measurement.budget?.owner ?? '—',
 			verdict: VERDICT_LABEL[measurement.result] ?? measurement.result,
+			gateVerdict:
+				baselineInvalid || measurement.observedValue === null
+					? 'invalid'
+					: comparison.verdict === 'regressed'
+						? 'breach'
+						: 'pass',
 			observed: formatValue(measurement.observedValue, unit),
 			target: formatValue(measurement.target, unit),
 			baseline: formatValue(
@@ -227,6 +282,7 @@ function main(): void {
 	});
 
 	const breaches = measurements.filter((m) => m.result === 'breach');
+
 	const unmeasured = measurements.filter((m) => m.result === 'unknown' || m.result === 'error');
 	const regressions = suite.comparisons.filter((c) => c.verdict === 'regressed');
 
@@ -245,16 +301,23 @@ function main(): void {
 	} else {
 		console.log(`No baseline at ${options.baseline}; targets are graded, drift is not.`);
 	}
+	console.log(
+		run.aggregation === 'median-of-batches-v1'
+			? 'Observed: median of independent batch statistics; n counts batches, raw samples retained in capture.'
+			: 'Observed: legacy pooled samples.',
+	);
+	if (options.ci)
+		console.log('CI gate uses baseline drift; target verdicts are reference-device diagnostics.');
 	console.log('');
 	for (const row of rows) {
 		console.log(
-			`  ${row.verdict.padEnd(13)} ${row.budgetId.padEnd(22)} ${row.observed.padStart(10)} / ${row.target.padEnd(10)} baseline ${row.baseline.padStart(10)} (${row.drift}, ${row.driftVerdict})  n=${row.samples}`,
+			`  ${(options.ci ? row.gateVerdict.toUpperCase() : row.verdict).padEnd(13)} ${row.budgetId.padEnd(22)} ${row.observed.padStart(10)} / ${row.target.padEnd(10)} baseline ${row.baseline.padStart(10)} (${row.drift}, ${row.driftVerdict})  n=${row.samples}`,
 		);
 		if (row.note) console.log(`      ${row.note}`);
 	}
 	console.log('');
 	console.log(
-		`${measurements.length} budgets · ${breaches.length} breach · ${regressions.length} regressed · ${unmeasured.length} not measured · ${suite.missingBaselineCount} without a baseline`,
+		`${measurements.length} budgets · ${breaches.length} target breach${options.ci ? ' (diagnostic)' : ''} · ${regressions.length} regressed · ${unmeasured.length} not measured · ${suite.missingBaselineCount} without a baseline`,
 	);
 
 	if (options.markdown) {
@@ -268,14 +331,14 @@ function main(): void {
 					? `Compared against the baseline recorded ${baselineFile.recordedAt} on \`${baselineFile.host.runnerLabel}\`, tolerance ${(options.tolerance * 100).toFixed(0)}%.`
 					: `The baseline was recorded on \`${baselineFile.host.runnerLabel}\` (${baselineFile.host.cpuModel}), which is not this runner. Targets are graded; drift is not.`,
 			'',
-			'| Budget | Owner | Verdict | Observed | Target | Baseline | Drift | Samples | Fixture |',
-			'| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+			'| Budget | Owner | Gate verdict | Target verdict (diagnostic in CI) | Observed | Target | Baseline | Drift | Batches / legacy samples | Fixture |',
+			'| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
 			...rows.map(
 				(row) =>
-					`| ${row.workflow} (\`${row.budgetId}\`) | ${row.owner} | ${row.verdict}${row.driftVerdict === 'regressed' ? ' · REGRESSED' : ''} | ${row.observed} | ${row.target} | ${row.baseline} | ${row.drift} | ${row.samples} | ${row.fixture} |`,
+					`| ${row.workflow} (\`${row.budgetId}\`) | ${row.owner} | ${options.ci ? row.gateVerdict.toUpperCase() : row.verdict} | ${row.verdict} | ${row.observed} | ${row.target} | ${row.baseline} | ${row.drift} | ${row.samples} | ${row.fixture} |`,
 			),
 			'',
-			`${breaches.length} breach · ${regressions.length} regressed · ${unmeasured.length} not measured.`,
+			`${breaches.length} target breach${options.ci ? ' (diagnostic)' : ''} · ${regressions.length} regressed · ${unmeasured.length} not measured.`,
 			'',
 		];
 		mkdirSync(dirname(options.markdown), { recursive: true });
@@ -283,16 +346,55 @@ function main(): void {
 		console.log(`Wrote ${options.markdown}.`);
 	}
 
-	const clean = breaches.length === 0 && regressions.length === 0 && unmeasured.length === 0;
+	const clean =
+		(options.ci || breaches.length === 0) &&
+		regressions.length === 0 &&
+		unmeasured.length === 0 &&
+		!baselineInvalid;
+	if (options.json) {
+		mkdirSync(dirname(options.json), { recursive: true });
+		writeFileSync(
+			options.json,
+			JSON.stringify(
+				{
+					commit: run.commit,
+					baselineCommit: baselineFile?.commit,
+					ci: options.ci,
+					clean,
+					budgets: rows.map((row) => ({
+						budgetId: row.budgetId,
+						verdict: options.ci ? row.gateVerdict : row.verdict,
+						drift: row.drift,
+						targetVerdict: row.verdict,
+					})),
+				},
+				null,
+				2,
+			),
+		);
+	}
+	if (options.ci)
+		console.log(
+			'CI gates baseline drift; absolute target verdicts above are reference-device diagnostics.',
+		);
 	if (!clean) {
 		console.error('\nPerf gate FAILED:');
-		for (const measurement of breaches) console.error(`  · ${measurement.message}`);
+		if (baselineInvalid)
+			console.error(
+				'CI requires a complete, compatible baseline with at least seven batches per budget.',
+			);
+		if (!options.ci)
+			for (const measurement of breaches) console.error(`  · ${measurement.message}`);
 		for (const comparison of regressions) console.error(`  · ${comparison.message}`);
 		for (const measurement of unmeasured) console.error(`  · ${measurement.message}`);
 		process.exitCode = 1;
 		return;
 	}
-	console.log('Perf gate PASSED: every budget met its target and no budget regressed.');
+	console.log(
+		options.ci
+			? 'Perf gate PASSED: every budget measured and no CI baseline regression.'
+			: 'Perf gate PASSED: every budget met its target and no budget regressed.',
+	);
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) main();

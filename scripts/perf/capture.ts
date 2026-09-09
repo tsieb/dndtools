@@ -119,6 +119,8 @@ export interface CapturedBudget {
 	readonly budgetId: string;
 	/** Raw observed samples in the budget's unit (ms for durations/latencies, fps for frame rates). */
 	readonly samples: readonly number[];
+	/** Independent scenario batches; raw tails are retained within each batch. */
+	readonly repetitions?: readonly (readonly number[])[];
 	/** What the scenario did, in one line, so a reader knows what the number means. */
 	readonly scenario: string;
 	/** The fixture ACTUALLY used, named plainly when it is smaller than the budget's declared dataset. */
@@ -132,6 +134,8 @@ export interface CapturedBudget {
 export interface PerfRunFile {
 	readonly schemaVersion: 1;
 	readonly capturedAt: string;
+	readonly commit: string;
+	readonly aggregation: 'median-of-batches-v1';
 	readonly host: {
 		readonly hostname: string;
 		readonly os: string;
@@ -1124,7 +1128,7 @@ function hostDescription(): PerfRunFile['host'] {
 		cpuModel: cores[0]?.model ?? 'unknown',
 		totalMemoryMb: Math.round(totalmem() / (1024 * 1024)),
 		ci: !!process.env.CI,
-		runnerLabel: process.env.RUNNER_NAME ?? process.env.PERF_RUNNER_LABEL ?? 'local',
+		runnerLabel: process.env.PERF_RUNNER_LABEL ?? process.env.RUNNER_NAME ?? 'local',
 	};
 }
 
@@ -1161,7 +1165,17 @@ async function main(): Promise<void> {
 			process.stdout.write(`· ${label} … `);
 			const started = Date.now();
 			try {
-				const capture = await scenario.run({ browser: browser as Browser, options });
+				const batches: Omit<CapturedBudget, 'budgetId'>[] = [];
+				for (let repeat = 0; repeat < 7; repeat += 1) {
+					const batch = await scenario.run({ browser: browser as Browser, options });
+					if (batch.samples.length === 0) throw new Error(batch.unavailableReason ?? 'empty batch');
+					batches.push(batch);
+				}
+				const capture = {
+					...batches[0],
+					samples: batches.flatMap((batch) => [...batch.samples]),
+					repetitions: batches.map((batch) => batch.samples),
+				};
 				captured.push({ budgetId: label, ...capture });
 				console.log(
 					capture.samples.length === 0
@@ -1191,6 +1205,11 @@ async function main(): Promise<void> {
 	const run: PerfRunFile = {
 		schemaVersion: 1,
 		capturedAt: new Date().toISOString(),
+		commit: spawnSync('git', ['rev-parse', 'HEAD'], {
+			cwd: REPO_ROOT,
+			encoding: 'utf8',
+		}).stdout.trim(),
+		aggregation: 'median-of-batches-v1',
 		host: hostDescription(),
 		budgets: captured,
 	};
