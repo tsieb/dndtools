@@ -1,10 +1,25 @@
-import { createFromTemplateInputSchema, insertSnippetInputSchema } from '../schemas/commands';
 import {
-	contentTemplatePreset,
+	createFromTemplateInputSchema,
+	deleteContentTemplateInputSchema,
+	insertSnippetInputSchema,
+	saveContentTemplateInputSchema,
+} from '../schemas/commands';
+import {
 	renderTemplate,
 	type ContentTemplate,
 	type TemplateRenderResult,
 } from '../state/content-templates';
+import {
+	USER_CONTENT_TEMPLATE_ENTITY_TYPE,
+	buildUserContentTemplate,
+	dropUserContentTemplate,
+	isUserContentTemplateId,
+	putUserContentTemplate,
+	resolveContentTemplate,
+	validateUserContentTemplate,
+	type UserContentTemplateDraft,
+	type UserContentTemplateValidationResult,
+} from '../state/content-template-store';
 import {
 	contentSnippet,
 	inheritedSnippetVisibility,
@@ -12,17 +27,23 @@ import {
 	snippetCanInsertIntoVisibility,
 	type ContentSnippet,
 } from '../state/content-snippets';
-import {
-	contentItemById,
-	isLiveContentItem,
-	type ContentItem,
-} from '../state/content';
+import { contentItemById, isLiveContentItem, type ContentItem } from '../state/content';
 import type { CommandRejection, CommandResult, CoreEnvironment, CoreStateSlice } from './types';
-import { ensureContentStateSlice, parseInput, reject, requireActor } from './helpers';
+import {
+	appendOperationDraft,
+	ensureContentStateSlice,
+	parseInput,
+	reject,
+	requireActor,
+} from './helpers';
 import { handleCreateContentItem, handleUpdateContentItem } from './content';
 import { handleCreateVaultObject, handleUpdateVaultObject } from './vault-object';
 import { actorMayEditItem } from './content-edit-authority';
-import { VAULT_OBJECT_SUBTYPE_KEY, readObjectSubtype, syncNoteToObject } from '../state/vault-object';
+import {
+	VAULT_OBJECT_SUBTYPE_KEY,
+	readObjectSubtype,
+	syncNoteToObject,
+} from '../state/vault-object';
 
 /**
  * CONTENT-003 / CONTENT-004 — TEMPLATES and SNIPPETS, composed ENTIRELY over the EXISTING content path.
@@ -70,10 +91,20 @@ export function handleCreateFromTemplate(
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
 
-	const template: ContentTemplate | null = contentTemplatePreset(parsed.data.presetId);
+	// RC-KNW-1.3 — the id resolves against the built-in starter presets FIRST and then the DM's own
+	// saved templates. The reserved `user:` namespace keeps the two sets disjoint, so a saved template
+	// can never shadow a preset. Everything downstream (render → validate → existing create command) is
+	// unchanged: a saved template is not a second write path.
+	const template: ContentTemplate | null = resolveContentTemplate(
+		ensureContentStateSlice(state.content).userTemplates,
+		parsed.data.presetId,
+	);
 	if (!template) {
 		return reject(
-			{ code: 'template-not-found', message: `Template preset "${parsed.data.presetId}" does not exist.` },
+			{
+				code: 'template-not-found',
+				message: `Template preset "${parsed.data.presetId}" does not exist.`,
+			},
 			state,
 		);
 	}
@@ -132,7 +163,10 @@ export function handleInsertSnippet(
 	const existing: ContentItem | undefined = contentItemById(content, parsed.data.itemId);
 	if (!existing) {
 		return reject(
-			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },
+			{
+				code: 'content-item-not-found',
+				message: `Content item ${parsed.data.itemId} does not exist.`,
+			},
 			state,
 		);
 	}
@@ -162,7 +196,12 @@ export function handleInsertSnippet(
 	// the explicit, fail-closed invariant (the resulting visibility must be ≤ the host's breadth).
 	// The second argument is inheritedSnippetVisibility (the host's own normalized visibility) because a
 	// snippet carries no visibility of its own — the result is always the host's visibility unchanged.
-	if (!snippetCanInsertIntoVisibility(existing.visibility, inheritedSnippetVisibility(existing.visibility))) {
+	if (
+		!snippetCanInsertIntoVisibility(
+			existing.visibility,
+			inheritedSnippetVisibility(existing.visibility),
+		)
+	) {
 		return reject(
 			{ code: 'snippet-widens-visibility', message: 'A snippet cannot widen the note visibility.' },
 			state,
@@ -207,4 +246,159 @@ export function handleInsertSnippet(
 		itemId: parsed.data.itemId,
 		body: insertion.text,
 	});
+}
+
+// --- RC-KNW-1.3 — SAVE / DELETE a DM-authored template (validated before any durable write) --------
+
+/** Vault-level authoring (save/delete a template): DM only. Mirrors `commands/custom-object-type.ts`. */
+function actorMayAuthorTemplates(actor: { role: string }): boolean {
+	return actor.role === 'dm';
+}
+
+/** Turn a draft validation result into a non-leaking rejection (names fields/expectations, not values). */
+function templateDraftInvalidRejection(
+	result: UserContentTemplateValidationResult,
+): CommandRejection {
+	return {
+		code: 'content-template-invalid',
+		message: 'The template could not be saved because it failed validation.',
+		issues: result.issues.map((issue) => ({ path: issue.field, message: issue.message })),
+	};
+}
+
+export function handleSaveContentTemplate(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const parsed = parseInput(saveContentTemplateInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	if (!actorMayAuthorTemplates(actor)) {
+		return reject(
+			{ code: 'actor-not-authorized', message: 'Only the DM may save content templates.' },
+			state,
+		);
+	}
+
+	const draft: UserContentTemplateDraft = {
+		id: parsed.data.id,
+		name: parsed.data.name,
+		description: parsed.data.description,
+		variables: parsed.data.variables,
+		titleTemplate: parsed.data.titleTemplate,
+		bodyTemplate: parsed.data.bodyTemplate,
+		defaultVisibility: parsed.data.defaultVisibility,
+	};
+	const validation = validateUserContentTemplate(draft);
+	if (!validation.valid) return reject(templateDraftInvalidRejection(validation), state);
+
+	const content = ensureContentStateSlice(state.content);
+	const existing = content.userTemplates[draft.id];
+	const now = env.clock();
+	const def = buildUserContentTemplate(draft, {
+		authorActorId: actor.id,
+		now,
+		revision: (existing?.revision ?? 0) + 1,
+		createdAt: existing?.createdAt,
+	});
+	const nextContent = {
+		...content,
+		userTemplates: putUserContentTemplate(content.userTemplates, def),
+	};
+
+	const draftOp = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: USER_CONTENT_TEMPLATE_ENTITY_TYPE,
+		entityId: def.id,
+		opType: 'content.save-template',
+		path: `content/userTemplates/${def.id}`,
+		value: { id: def.id, name: def.name, variableCount: def.variables.length },
+		beforeRevision: existing?.revision ?? 0,
+		afterRevision: def.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, content: nextContent, sync: draftOp.log },
+		events: [
+			{
+				kind: 'content.template-changed',
+				templateId: def.id,
+				mutation: existing ? 'update' : 'save',
+				actorId: actor.id,
+			},
+		],
+		operationIds: [draftOp.op.id],
+	};
+}
+
+export function handleDeleteContentTemplate(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const parsed = parseInput(deleteContentTemplateInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	if (!actorMayAuthorTemplates(actor)) {
+		return reject(
+			{ code: 'actor-not-authorized', message: 'Only the DM may delete content templates.' },
+			state,
+		);
+	}
+
+	const templateId = parsed.data.templateId;
+	// A starter preset is CODE, not data: there is no durable record to remove and pretending to delete
+	// one would be a control that reports a success it did not perform.
+	if (!isUserContentTemplateId(templateId)) {
+		return reject(
+			{
+				code: 'content-template-not-deletable',
+				message: 'Built-in templates cannot be deleted; only your own templates can.',
+			},
+			state,
+		);
+	}
+
+	const content = ensureContentStateSlice(state.content);
+	const existing = content.userTemplates[templateId];
+	if (!existing) {
+		return reject(
+			{ code: 'content-template-not-found', message: `Template "${templateId}" does not exist.` },
+			state,
+		);
+	}
+
+	const nextContent = {
+		...content,
+		userTemplates: dropUserContentTemplate(content.userTemplates, templateId),
+	};
+
+	const draftOp = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: USER_CONTENT_TEMPLATE_ENTITY_TYPE,
+		entityId: templateId,
+		opType: 'content.delete-template',
+		path: `content/userTemplates/${templateId}`,
+		value: { id: templateId },
+		beforeRevision: existing.revision,
+		afterRevision: existing.revision + 1,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, content: nextContent, sync: draftOp.log },
+		events: [
+			{
+				kind: 'content.template-changed',
+				templateId,
+				mutation: 'delete',
+				actorId: actor.id,
+			},
+		],
+		operationIds: [draftOp.op.id],
+	};
 }

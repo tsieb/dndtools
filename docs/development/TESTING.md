@@ -19,6 +19,44 @@ short pointer plus the non-negotiable testing rules.
 | Android acceptance | API 36 signed-APK checklist                                | install, lifecycle, persistence, share/import, upgrade, Back, and Quick Map       |
 | Whole application  | `pnpm validate`                                            | staged, capability-gated harness — see [VALIDATION.md](VALIDATION.md)             |
 
+## CI timing budgets (RC-ENG-2.2)
+
+Every number below is wall-clock. The "before" column is GitHub Actions run `34137676927` (`main`,
+2026-09-07, all jobs green); the local columns are this repo's core suite on a 16-core box with
+`DNDTOOLS_TEST_WORKERS=3`. Budgets are what CI is expected to hold; a job that drifts past its
+budget is a regression to investigate, not a number to raise.
+
+| Leg                                       | Before   | Now      | Budget |
+| ----------------------------------------- | -------- | -------- | ------ |
+| Core unit (`pnpm test:critical`, local)   | 62.6 s   | 20.0 s   | 90 s   |
+| Core coverage (`pnpm test:coverage:core`) | —        | 57.4 s   | 120 s  |
+| CI `build-and-test` job (whole job)       | 7 min    | —        | 10 min |
+| CI `browser-e2e`, one shard               | 20.5 min | ~6 min\* | 12 min |
+| CI `accessibility` job                    | 2 min    | —        | 5 min  |
+
+`*` projected, not yet measured: the browser-E2E shard changed on three axes at once — two workers
+per shard instead of one, three shards instead of two, and the `seedFresh` fixture no longer
+reloading a vault that was never written to. The fixture change alone was measured locally at
+`combat.spec.ts` + `knowledge.spec.ts`, both profiles, two workers: **6.5 min → 4.4 min**, same 108
+tests, all passing. Replace the projection with the real number from the first `main` run that
+carries this change.
+
+Where the time went, and what changed:
+
+- **Core unit.** Vitest's default forks one process per test file, so 267 files each re-imported the
+  whole core module graph — 124 s of import against 32 s of tests. The core is framework-free and
+  node-environment, so `isolate: false` (`packages/core/vitest.config.ts`) lets one worker serve
+  many files. Verified identical under `--sequence.shuffle`. The app, cloud, and tooling suites keep
+  isolation: the app suite shares a jsdom DOM and one global `fake-indexeddb`, and measurement
+  showed no meaningful win for the two small ones.
+- **Browser E2E.** CI ran strictly serially, leaving three of a runner's four vCPUs idle; it now runs
+  two Playwright workers per shard across three shards. `DNDTOOLS_PW_WORKERS` still overrides the
+  worker count everywhere, including CI.
+- **Fixtures.** Playwright gives every test a fresh browser context, so the first app boot already
+  starts from an empty IndexedDB and seeds a clean vault. `seedFresh` used to delete that vault and
+  reload anyway — a second full boot in 138 of its 139 call sites. It now skips the wipe when the
+  durable op-log proves nothing has been written since boot, and wipes exactly as before otherwise.
+
 Fast smoke: `pnpm test:smoke` (boundary lint + typecheck). Pre-handoff gate: `pnpm check` (gates +
 boundary lint + typecheck + `pnpm test`). CI also builds the production app, runs full lint, and uses
 path-filtered jobs for sharded browser E2E, axe, and Electron smoke coverage. `validate` remains the

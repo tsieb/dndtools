@@ -74,6 +74,7 @@ import {
 import { handleGrantCapabilitySet, handleRevokeGrant, handleTransferOwnership } from './grant';
 import { handleAssignRole } from './assign-role';
 import { handleRenameActor } from './rename-actor';
+import { handleCompileSessionHighlights } from './session-highlights';
 import {
 	handleAuthorRecap,
 	handleMarkParty,
@@ -185,8 +186,11 @@ import {
 	handleUpdateCharacterAttacks,
 } from './character-sheet';
 import {
+	handleAwardXp,
 	handleCancelAdvancement,
+	handleApplyAdvancement,
 	handleCommitAdvancement,
+	handleLevelParty,
 	handleOpenAdvancement,
 	handleSetAdvancementChoices,
 	handleSetCharacterXp,
@@ -233,7 +237,12 @@ import {
 	handleDeleteCustomObjectType,
 	handleUpdateCustomObjectType,
 } from './custom-object-type';
-import { handleCreateFromTemplate, handleInsertSnippet } from './content-templates';
+import {
+	handleCreateFromTemplate,
+	handleDeleteContentTemplate,
+	handleInsertSnippet,
+	handleSaveContentTemplate,
+} from './content-templates';
 import {
 	handleAddContentEmbed,
 	handleRemoveContentEmbed,
@@ -252,7 +261,11 @@ import {
 	handleUpdateAudioAssetMetadata,
 	handleValidateAudioPackage,
 } from './audio';
-import { handleConfigureAudioAutomation, handleDeleteAudioAutomation } from './audio-automation';
+import {
+	handleConfigureAudioAutomation,
+	handleDeleteAudioAutomation,
+	handleSetAudioSfxEvent,
+} from './audio-automation';
 import { handleAssociateSceneAudio, handleDisassociateSceneAudio } from './audio-association';
 import {
 	handlePauseSessionAudio,
@@ -271,7 +284,9 @@ import {
 	handleSaveAudioPreset,
 } from './audio-preset';
 import { handleSetPresence } from './presence';
+import { handleQuickTimerCommand } from './session-quick-timer';
 import { handleResolveVaultConflict } from './conflict-resolution';
+import { handleMergeRemoteOperations } from './sync-merge';
 import {
 	handleApproveMcpProposal,
 	handleRejectMcpProposal,
@@ -659,8 +674,15 @@ export function dispatchCommand(
 			return handleSetAdvancementChoices(state, env, command.actorId, command.payload);
 		case 'character.commit-advancement':
 			return handleCommitAdvancement(state, env, command.actorId, command.payload);
+		// RC-AI-1.4 — the whole level-up atomically (what an approved agent proposal dispatches).
+		case 'character.apply-advancement':
+			return handleApplyAdvancement(state, env, command.actorId, command.payload);
 		case 'character.cancel-advancement':
 			return handleCancelAdvancement(state, env, command.actorId, command.payload);
+		case 'character.award-xp':
+			return handleAwardXp(state, env, command.actorId, command.payload);
+		case 'character.level-party':
+			return handleLevelParty(state, env, command.actorId, command.payload);
 		case 'character.set-marching-order':
 			return handleSetMarchingOrder(state, env, command.actorId, command.payload);
 		case 'character.upsert-party-inventory-item':
@@ -721,6 +743,12 @@ export function dispatchCommand(
 			return handleCreateFromTemplate(state, env, command.actorId, command.payload);
 		case 'content.insert-snippet':
 			return handleInsertSnippet(state, env, command.actorId, command.payload);
+		// --- RC-KNW-1.3 (templates and snippets UI) ---
+		case 'content.save-template':
+			return handleSaveContentTemplate(state, env, command.actorId, command.payload);
+		case 'content.delete-template':
+			return handleDeleteContentTemplate(state, env, command.actorId, command.payload);
+		// --- end RC-KNW-1.3 ---
 		case 'content.set-section-visibility':
 			return handleSetContentSectionVisibility(state, env, command.actorId, command.payload);
 		case 'content.set-field-visibility':
@@ -749,6 +777,9 @@ export function dispatchCommand(
 			return handleConfigureAudioAutomation(state, env, command.actorId, command.payload);
 		case 'audio.delete-automation':
 			return handleDeleteAudioAutomation(state, env, command.actorId, command.payload);
+		// RC-AUD-3.2 — the per-event SFX toggle (a mute; rules stay armed).
+		case 'audio.set-sfx-event':
+			return handleSetAudioSfxEvent(state, env, command.actorId, command.payload);
 		case 'audio.associate-scene':
 			return handleAssociateSceneAudio(state, env, command.actorId, command.payload);
 		case 'audio.disassociate-scene':
@@ -779,8 +810,16 @@ export function dispatchCommand(
 			return handleDeleteAudioPreset(state, env, command.actorId, command.payload);
 		case 'session.author-recap':
 			return handleAuthorRecap(state, env, command.actorId, command.payload);
+		case 'session.compile-highlights':
+			return handleCompileSessionHighlights(state, env, command.actorId, command.payload);
 		case 'session.set-presence':
 			return handleSetPresence(state, env, command.actorId, command.payload);
+		case 'session.quick-timer.start':
+		case 'session.quick-timer.pause':
+		case 'session.quick-timer.resume':
+		case 'session.quick-timer.reset':
+		case 'session.quick-timer.lap':
+			return handleQuickTimerCommand(state, env, command.actorId, command.type, command.payload);
 		case 'mcp.set-enabled':
 			return handleSetMcpEnabled(state, env, command.actorId, command.payload);
 		case 'mcp.set-agent-binding':
@@ -798,6 +837,9 @@ export function dispatchCommand(
 		// --- RC-AI-2.2 — three-way conflict resolution for a staged write (append-only) -------------
 		case 'mcp.resolve-proposal-conflict':
 			return handleResolveMcpProposalConflict(state, env, command.actorId, command.payload);
+		// --- RC-CLD-2.4 — record what a cross-device merge found (append-only) --------------------
+		case 'sync.merge-remote':
+			return handleMergeRemoteOperations(state, env, command.actorId, command.payload);
 	}
 }
 

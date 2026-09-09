@@ -1,5 +1,9 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type TestInfo } from '@playwright/test';
 import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+
+function isPhone(testInfo: TestInfo): boolean {
+	return testInfo.project.name === 'mobile-chromium';
+}
 
 // ATLAS — /atlas. This file covers the screen's single notice banner, which is a genuinely mixed
 // channel: "Link copied" and "Projected to N players" share it with every command rejection.
@@ -267,5 +271,185 @@ test.describe('atlas: the DM can see which map is on the players’ screens', ()
 		const dismiss = page.getByRole('button', { name: 'Dismiss notice' });
 		if ((await dismiss.count()) > 0) await dismiss.click();
 		await expect(page.getByRole('button', { name: /Live to players/ })).toHaveCount(1);
+	});
+});
+
+// RC-MAP-3.2 — the raster import wizard. v1 imported bytes and stopped, so a DM who dropped in a
+// bought battle map got a picture the app could not measure: no cell size, no "1 square = 5 ft", and
+// every wall to be traced by hand. v2 puts three steps between the file and the commit, and each one
+// ends in a real core command — `map.configure-overlay`, `map.set-scale`, `map.add-features` — so
+// what the wizard promises is what the durable state actually holds afterwards.
+test.describe('atlas: the raster import wizard calibrates the map it imports', () => {
+	const FIXTURE = 'tests/e2e/fixtures/import-map.png';
+
+	test.beforeEach(async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/atlas');
+		await seedFresh(page);
+		await page.goto('/#/atlas', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.locator(MAIN).waitFor({ state: 'attached' });
+	});
+
+	test('an imported image lands with its grid, its scale, and its traced walls', async ({
+		page,
+	}) => {
+		const mapId = await page.evaluate(() => {
+			const maps = window.__rt!.state.maps.maps as Record<string, { id: string; name: string }>;
+			return Object.values(maps).find((m) => m.name === 'Hidden Outpost')!.id;
+		});
+
+		await page.getByRole('button', { name: 'Open in map editor' }).first().click();
+		await page
+			.getByRole('button', { name: /^(Export|More actions)$/ })
+			.first()
+			.click();
+		await page.getByRole('button', { name: 'Import map…' }).click();
+
+		// Step 1 — the file. The cap is stated honestly on the drop zone (50 MB, not the old 8).
+		const dialog = page.getByRole('dialog', { name: 'Import map' });
+		await expect(dialog).toBeVisible();
+		await expect(dialog.getByText('PNG · JPG · WebP · GIF · SVG — up to 50 MB')).toBeVisible();
+		await dialog.locator('input[type="file"]').setInputFiles(FIXTURE);
+		await expect(dialog.getByText('import-map.png')).toBeVisible();
+		await dialog.getByRole('button', { name: 'Next' }).click();
+
+		// Step 2 — align the grid. The pointer drag has a keyboard equivalent that writes the same
+		// measurement (WCAG 2.2 AA, 2.1.1): the fixture is 96 px across on a 12 px cell, so eight
+		// squares across. Typing it must derive exactly what dragging it would.
+		await expect(dialog.getByText('Align grid')).toBeVisible();
+		await dialog.getByLabel('Cell width (px)').fill('12');
+		await dialog.getByLabel('Cell height (px)').fill('12');
+		await expect(dialog.getByText('8 across · 8 down')).toBeVisible();
+		await dialog.getByRole('button', { name: 'Next' }).click();
+
+		// Step 3 — the scale. Eight squares at 5 feet is 40 feet across the map.
+		await expect(dialog.getByText('1 square =')).toBeVisible();
+		await expect(dialog.getByText('40 feet')).toBeVisible();
+		await dialog.getByRole('button', { name: 'Next' }).click();
+
+		// Step 4 — the wall tracer. It PROPOSES: nothing is written until the DM previews and commits.
+		await dialog.getByRole('switch', { name: 'Trace walls from the image' }).click();
+		await dialog.getByRole('button', { name: 'Preview trace' }).click();
+		await expect(dialog.getByRole('img', { name: /traced wall outlines/ })).toBeVisible({
+			timeout: 10_000,
+		});
+		const wallsBefore = await page.evaluate((id) => {
+			const maps = window.__rt!.state.maps.maps as Record<
+				string,
+				{ layers: Array<{ name: string }> }
+			>;
+			return maps[id]!.layers.filter((l) => l.name === 'Traced walls').length;
+		}, mapId);
+		expect(wallsBefore).toBe(0);
+		await dialog.getByRole('button', { name: 'Next' }).click();
+
+		// Step 5 — the existing preview, then commit.
+		await dialog.getByRole('button', { name: 'Import', exact: true }).click();
+
+		// Step 6 — the result names every follow-up that landed, one line each.
+		await expect(dialog.getByText(/Grid set to 8 squares across, 5 feet per square\./)).toBeVisible(
+			{ timeout: 15_000 },
+		);
+		await expect(dialog.getByText(/Scale set to 40 feet across the map\./)).toBeVisible();
+		await expect(dialog.getByText(/traced walls? added to the Traced walls layer\./)).toBeVisible();
+
+		// And the durable state agrees with every one of those claims.
+		const landed = await page.evaluate((id) => {
+			const map = (
+				window.__rt!.state.maps.maps as Record<
+					string,
+					{
+						assetIds: string[];
+						scale: { unitsPerMap: number; unit: string } | null;
+						overlay: { gridVisible: boolean; gridSize: number; unitsPerCell: number };
+						layers: Array<{ name: string; visibility: string; content: Array<{ kind: string }> }>;
+					}
+				>
+			)[id]!;
+			const traced = map.layers.find((l) => l.name === 'Traced walls');
+			return {
+				assets: map.assetIds.length,
+				scale: map.scale,
+				overlay: map.overlay,
+				tracedVisibility: traced?.visibility ?? null,
+				tracedWalls: traced?.content.filter((f) => f.kind === 'wall').length ?? 0,
+			};
+		}, mapId);
+		expect(landed.assets).toBeGreaterThan(0);
+		expect(landed.scale).toEqual({ unitsPerMap: 40, unit: 'feet' });
+		expect(landed.overlay.gridVisible).toBe(true);
+		expect(landed.overlay.gridSize).toBe(8);
+		expect(landed.overlay.unitsPerCell).toBe(5);
+		// Fail closed: traced walls are DM only until the DM reveals them.
+		expect(landed.tracedVisibility).toBe('dm-only');
+		expect(landed.tracedWalls).toBeGreaterThan(0);
+	});
+});
+
+// RC-MAP-3.8 — the atlas local nav's map hierarchy tree, and the map editor's breadcrumb
+// drill-down over the same nesting graph (Western Reaches embeds the Hidden Outpost).
+test.describe('atlas: map hierarchy tree and breadcrumb drill-down (RC-MAP-3.8)', () => {
+	test.beforeEach(async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/atlas');
+		await seedFresh(page);
+		await page.goto('/#/atlas', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.locator(MAIN).waitFor({ state: 'attached' });
+	});
+
+	test('expanding a tree node reveals its embedded child, and selecting it opens that map', async ({
+		page,
+	}) => {
+		const tree = page.getByRole('tree', { name: 'Map hierarchy' });
+		await expect(tree).toBeVisible();
+		const parentRow = tree.getByRole('treeitem', { name: 'Western Reaches' });
+		await expect(parentRow).toBeVisible();
+		await expect(parentRow).toHaveAttribute('aria-expanded', 'false');
+
+		await parentRow.focus();
+		await page.keyboard.press('ArrowRight');
+		await expect(parentRow).toHaveAttribute('aria-expanded', 'true');
+
+		const childRow = tree.getByRole('treeitem', { name: 'Hidden Outpost' });
+		await expect(childRow).toBeVisible();
+		await childRow.click();
+
+		// Selecting the child in the tree is the SAME map-switch `MapChips` drives — its chip picks up
+		// aria-current, the same live proof `atlas.spec.ts` uses elsewhere in this file.
+		await expect(page.getByRole('button', { name: /Hidden Outpost/ })).toHaveAttribute(
+			'aria-current',
+			'true',
+		);
+	});
+
+	test('the map editor breadcrumb drills back up to the parent without closing the editor', async ({
+		page,
+	}, testInfo) => {
+		// The phone header has no width budget for the ancestor trail (only the current map's title
+		// fits — see the `clippedControls()` note in MapEditor.tsx); it is desktop-only there too.
+		test.skip(
+			isPhone(testInfo),
+			'the phone header shows only the current map title, not the trail',
+		);
+		const tree = page.getByRole('tree', { name: 'Map hierarchy' });
+		const parentRow = tree.getByRole('treeitem', { name: 'Western Reaches' });
+		await parentRow.focus();
+		await page.keyboard.press('ArrowRight');
+		await tree.getByRole('treeitem', { name: 'Hidden Outpost' }).click();
+
+		await page.getByRole('button', { name: 'Open in map editor' }).click();
+		const editor = page.getByRole('application');
+		await expect(editor).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1, name: 'Hidden Outpost' })).toBeVisible();
+
+		const ancestorCrumb = page.getByRole('button', { name: 'Go to Western Reaches' });
+		await expect(ancestorCrumb).toBeVisible();
+		await ancestorCrumb.click();
+
+		// Drilling up swaps the editor's own map WITHOUT closing the overlay.
+		await expect(editor).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1, name: 'Western Reaches' })).toBeVisible();
 	});
 });

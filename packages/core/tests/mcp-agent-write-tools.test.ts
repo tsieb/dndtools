@@ -15,6 +15,7 @@ import {
 	createDemoMapState,
 	dispatchCommand,
 	invokeMcpToolAsAgent,
+	playScenePackageInputSchema,
 	quickCreateCharacterInputSchema,
 	updateContentItemInputSchema,
 	updateSceneCardInputSchema,
@@ -593,5 +594,88 @@ describe('note.append — adds to a note instead of replacing it', () => {
 		});
 		expect(hidden.reason).toBe(missing.reason);
 		expect(hidden.message).toBe(missing.message);
+	});
+});
+
+// --- RC-AUD-3.4 — the assistant atmosphere tools ----------------------------------------------------
+
+/** Create a scene card, optionally upgrading it to a PACKAGE (a lighting hint beyond presentation). */
+function seedSceneCard(
+	state: CoreStateSlice,
+	title: string,
+	mood: string,
+	lightingHint?: 'bright' | 'dim' | 'dark' | 'firelit' | 'moonlit',
+): { state: CoreStateSlice; cardId: string } {
+	const created = accepted(
+		dispatchCommand(state, env, {
+			type: 'scene-card.create',
+			actorId: DM_ACTOR.id,
+			payload: { title, mood },
+		}),
+	);
+	const event = created.events.find((e) => e.kind === 'scene-card.created');
+	if (!event || event.kind !== 'scene-card.created') throw new Error('no card id');
+	if (lightingHint === undefined) return { state: created.nextState, cardId: event.cardId };
+	const updated = accepted(
+		dispatchCommand(created.nextState, env, {
+			type: 'scene-card.update',
+			actorId: DM_ACTOR.id,
+			payload: { cardId: event.cardId, lightingHint },
+		}),
+	);
+	return { state: updated.nextState, cardId: event.cardId };
+}
+
+describe('scene.list-packages — reads only live packages', () => {
+	it('lists a package card and omits a presentation-only card', () => {
+		let state = seedAgent();
+		const plain = seedSceneCard(state, 'Plain intro', 'exploration');
+		const pkg = seedSceneCard(plain.state, 'The sunken tavern', 'social', 'firelit');
+		state = pkg.state;
+
+		const { result, nextState } = invokeMcpToolAsAgent(
+			state,
+			env,
+			createBaselineMcpToolRegistry(),
+			{
+				agentId: 'agent-dm',
+				toolId: 'scene.list-packages',
+				input: {},
+			},
+		);
+		expect(nextState).toBe(state); // a read never mutates state
+		expect(result.status, JSON.stringify(result)).toBe('read-ok');
+		if (result.status !== 'read-ok') throw new Error('expected read-ok');
+		const data = result.data as Array<{ id: string; title: string }>;
+		expect(data.map((c) => c.id)).toContain(pkg.cardId);
+		expect(data.map((c) => c.id)).not.toContain(plain.cardId);
+	});
+});
+
+describe('scene.activate-package — staged play of an existing package', () => {
+	it('stages the mapped {cardId} payload and approval plays the package', () => {
+		const seeded = seedAgent();
+		const pkg = seedSceneCard(seeded, 'The sunken tavern', 'social', 'firelit');
+		const staged = stage(pkg.state, 'scene.activate-package', { cardId: pkg.cardId });
+		const proposal = staged.state.mcp.proposals[staged.proposalId]!;
+		expect(proposal.commandType).toBe('scene-card.play-package');
+		expect(playScenePackageInputSchema.safeParse(proposal.payload).success).toBe(true);
+		expect(proposal.payload).toEqual({ cardId: pkg.cardId });
+
+		const after = approve(staged.state, staged.proposalId);
+		expect(after.session.sceneCards.activeCardId).toBe(pkg.cardId);
+	});
+
+	it('stages an unknown cardId (schema-valid) but approval rejects it fail-closed', () => {
+		// scene.activate-package forwards only {cardId} — it does NOT resolve the card at staging time
+		// (unlike map.poi.create/note.append), so a bad id stages fine and the bound command's own
+		// existence check is what fails it, exactly as a direct GUI call with a stale id would.
+		const staged = stage(seedAgent(), 'scene.activate-package', { cardId: 'card-does-not-exist' });
+		const result = dispatchCommand(staged.state, env, {
+			type: 'mcp.approve-proposal',
+			actorId: DM_ACTOR.id,
+			payload: { proposalId: staged.proposalId },
+		});
+		expect(result.status).toBe('rejected');
 	});
 });

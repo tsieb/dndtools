@@ -11,7 +11,7 @@ import type {
 	CombatToken,
 	SessionCombatState,
 } from '../state/combat-tracker';
-import { cloneCombatToken } from '../state/combat-tracker';
+import { cloneCombatToken, sanitizeConditionRounds } from '../state/combat-tracker';
 
 /**
  * SES-002 — THE single actor-filtered COMBAT TRACKER read model.
@@ -46,6 +46,12 @@ export interface CombatantResourcesView {
 	maxHp: number;
 	tempHp: number;
 	conditions: string[];
+	/**
+	 * RC-SES-3.1 — remaining ROUNDS per condition key, for the keys that carry a countdown. A key
+	 * absent here has no timer and lasts until it is cleared. Always present (possibly empty) so a
+	 * renderer never has to guard on it.
+	 */
+	conditionRounds: Record<string, number>;
 	deathSaves: { successes: number; failures: number; stable: boolean };
 	/**
 	 * RC-CHR-1.3 — the concentrated-on effect and, when damage raised one, the OUTSTANDING check's
@@ -202,6 +208,8 @@ function resourcesView(resources: CombatantResources): CombatantResourcesView {
 		maxHp: resources.maxHp,
 		tempHp: resources.tempHp,
 		conditions: [...resources.conditions],
+		// RC-SES-3.1 — only timers for conditions actually on the combatant reach a renderer.
+		conditionRounds: sanitizeConditionRounds(resources.conditions, resources.conditionRounds),
 		deathSaves: { ...resources.deathSaves },
 		concentration: {
 			effect: resources.concentration.effect,

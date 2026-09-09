@@ -1,8 +1,8 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
-  dndtools TURN stack — coturn relay on a single t4g.nano (the ONLY always-on
-  cost, ~$3-4/mo). Runs the official coturn container with use-auth-secret; the
-  shared secret is generated in Secrets Manager and read at boot. WebRTC uses
+  dndtools TURN stack — coturn relay on a single t4g.nano with optional
+  Let's Encrypt TLS and staged shared-secret rotation. Runs the official coturn
+  container with use-auth-secret; the secret is generated in Secrets Manager. WebRTC uses
   free public STUN for most peers and falls back to this TURN relay only for
   symmetric-NAT / CGNAT / UDP-blocked networks. Short-lived TURN credentials are
   minted by the signaling stack (which is already Cognito-authenticated) using
@@ -34,7 +34,8 @@ Parameters:
   Realm:
     Type: String
     Default: dndtools
-    Description: coturn realm (used in the REST-API credential HMAC).
+    AllowedPattern: '^[a-zA-Z0-9.-]{1,127}$'
+    Description: coturn authentication realm.
   RelayMinPort:
     Type: Number
     Default: 49152
@@ -44,6 +45,36 @@ Parameters:
   ListeningPort:
     Type: Number
     Default: 3478
+  TurnDomainName:
+    Type: String
+    Default: ''
+    MaxLength: 253
+    AllowedPattern: '^$|^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$'
+    Description: >-
+      Optional public DNS name with an A record pointing at TurnEip (no proxy or
+      AAAA record). Set with AcmeEmail to enable Let's Encrypt TLS. See README.md.
+  AcmeEmail:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$'
+    Description: ACME account contact. Setting this accepts the Let's Encrypt terms.
+  TlsListeningPort:
+    Type: Number
+    Default: 5349
+    MinValue: 1
+    MaxValue: 65535
+  PublishTlsUri:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: >-
+      Switch the existing /turn/uri contract to turns:. Enable only after the
+      credential minter and live verifier handoffs in README.md are deployed.
+  CertbotImage:
+    Type: String
+    Default: 'certbot/certbot@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20'
+    AllowedPattern: '^certbot/certbot@sha256:[a-f0-9]{64}$'
+    Description: Immutable Certbot 5.8.0 multi-architecture manifest (includes linux/arm64).
   CoturnImage:
     Type: String
     Default: 'coturn/coturn@sha256:867607152c6ed9504a0b59a2546a9bd2872dcf74313b3bc6cf9b69cc81be6fb3'
@@ -69,8 +100,34 @@ Parameters:
       notified nobody. Turn them on in dev only alongside a confirmed subscription on
       the dev alerts topic, otherwise the same silence returns.
 
+Rules:
+  TlsIdentity:
+    Assertions:
+      - Assert: !Or
+          - !And
+            - !Equals [!Ref TurnDomainName, '']
+            - !Equals [!Ref AcmeEmail, '']
+          - !And
+            - !Not [!Equals [!Ref TurnDomainName, '']]
+            - !Not [!Equals [!Ref AcmeEmail, '']]
+        AssertDescription: TurnDomainName and AcmeEmail must both be set or both be empty.
+      - Assert: !Or
+          - !Equals [!Ref PublishTlsUri, 'false']
+          - !Not [!Equals [!Ref TurnDomainName, '']]
+        AssertDescription: Publishing turns requires a DNS name and ACME contact.
+      - Assert: !And
+          - !Not [!Equals [!Ref TlsListeningPort, !Ref ListeningPort]]
+          - !Not [!Equals [!Ref TlsListeningPort, '80']]
+        AssertDescription: TLS must use a separate port from plaintext TURN and HTTP-01.
+      - Assert: !Or
+          - !Equals [!Ref TurnDomainName, '']
+          - !Not [!Equals [!Ref ListeningPort, '80']]
+        AssertDescription: Plaintext TURN must leave port 80 free for HTTP-01 when TLS is enabled.
+
 Conditions:
   ShouldCreateAlarms: !Equals [!Ref CreateAlarms, 'true']
+  HasTls: !Not [!Equals [!Ref TurnDomainName, '']]
+  ShouldPublishTls: !Equals [!Ref PublishTlsUri, 'true']
 
 Resources:
   # Auto-generated shared secret for coturn use-auth-secret (TURN REST API).
@@ -115,6 +172,28 @@ Resources:
       Tags:
         - { Key: project, Value: !Ref ProjectName }
         - { Key: stage, Value: !Ref Stage }
+
+  TurnTlsIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: HasTls
+    Properties:
+      GroupId: !Ref TurnSecurityGroup
+      Description: TURN over TLS
+      IpProtocol: tcp
+      FromPort: !Ref TlsListeningPort
+      ToPort: !Ref TlsListeningPort
+      CidrIp: 0.0.0.0/0
+
+  TurnAcmeIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: HasTls
+    Properties:
+      GroupId: !Ref TurnSecurityGroup
+      Description: Let's Encrypt HTTP-01 issuance and renewal only
+      IpProtocol: tcp
+      FromPort: 80
+      ToPort: 80
+      CidrIp: 0.0.0.0/0
 
   TurnInstanceRole:
     Type: AWS::IAM::Role
@@ -196,17 +275,9 @@ Resources:
           echo "[turn-bootstrap] start"
 
           # --- Docker (AWS CLI v2 + python3 are preinstalled on AL2023) ---
-          dnf install -y docker
+          dnf install -y docker openssl
           systemctl enable --now docker
           echo "[turn-bootstrap] docker up"
-
-          # --- Fetch coturn shared secret from Secrets Manager ---
-          SECRET_JSON=$(aws secretsmanager get-secret-value \
-            --secret-id "${TurnSharedSecret}" \
-            --region "${AWS::Region}" \
-            --query SecretString --output text)
-          TURN_SECRET=$(printf '%s' "$SECRET_JSON" | python3 -c "import sys,json;print(json.load(sys.stdin)['secret'])")
-          echo "[turn-bootstrap] secret fetched"
 
           # --- Write coturn config to a root-only file (mode 600) instead of passing
           #     the secret on the command line, so it never appears in `ps aux`,
@@ -214,16 +285,18 @@ Resources:
           #     read-only into the container. ---
           mkdir -p /etc/coturn
           umask 077
-          cat > /etc/coturn/turnserver.conf <<CONF
+          cat > /etc/coturn/turnserver.base.conf <<CONF
           realm=${Realm}
           use-auth-secret
-          static-auth-secret=$TURN_SECRET
           listening-port=${ListeningPort}
           min-port=${RelayMinPort}
           max-port=${RelayMaxPort}
           external-ip=${TurnEip}
-          no-tls
           no-dtls
+          no-cli
+          no-tcp-relay
+          pidfile=/tmp/turnserver.pid
+          userdb=/tmp/turndb
           no-multicast-peers
           fingerprint
           simple-log
@@ -256,7 +329,141 @@ Resources:
           user-quota=6
           max-bps=2000000
           CONF
-          echo "[turn-bootstrap] config written"
+          if [ -n '${TurnDomainName}' ]; then
+            cat >> /etc/coturn/turnserver.base.conf <<CONF
+          tls-listening-port=${TlsListeningPort}
+          cert=/etc/letsencrypt/live/${TurnDomainName}/fullchain.pem
+          pkey=/etc/letsencrypt/live/${TurnDomainName}/privkey.pem
+          CONF
+          else
+            echo no-tls >> /etc/coturn/turnserver.base.conf
+          fi
+
+          # Explicit stage selection prevents a retired AWSPREVIOUS key from being
+          # re-enabled by a timer. Config survives reboot. See the rotation runbook.
+          cat > /usr/local/bin/dndtools-turn-refresh-secret <<'PYTHON'
+          #!/usr/bin/python3
+          import fcntl, json, os, pathlib, re, subprocess, sys, tempfile
+          def refresh():
+              extra = sys.argv[1:]
+              if extra not in ([], ['AWSPENDING'], ['AWSPREVIOUS']):
+                  raise ValueError('invalid stage')
+              directory = pathlib.Path('/etc/coturn')
+              with (directory / 'secret.lock').open('w') as lock:
+                  fcntl.flock(lock, fcntl.LOCK_EX)
+                  values = set()
+                  for stage in ['AWSCURRENT'] + extra:
+                      raw = subprocess.check_output([
+                          'aws', 'secretsmanager', 'get-secret-value',
+                          '--secret-id', '${TurnSharedSecret}', '--region', '${AWS::Region}',
+                          '--version-stage', stage, '--query', 'SecretString', '--output', 'text',
+                          '--cli-connect-timeout', '10', '--cli-read-timeout', '20',
+                      ], stderr=subprocess.PIPE, timeout=45, text=True)
+                      value = json.loads(raw)['secret']
+                      if not isinstance(value, str) or not re.fullmatch(r'[A-Za-z0-9]{48,128}', value):
+                          raise ValueError('invalid secret')
+                      values.add(value)
+                  config = (directory / 'turnserver.base.conf').read_text()
+                  config += ''.join('static-auth-secret=' + value + '\n' for value in sorted(values))
+                  target = directory / 'turnserver.conf'
+                  if target.exists() and target.read_text() == config:
+                      print('TURN secret configuration unchanged; verify the running relay.')
+                      return
+                  fd, temporary = tempfile.mkstemp(dir=directory, prefix='.secret-')
+                  try:
+                      with os.fdopen(fd, 'w') as output:
+                          output.write(config)
+                          output.flush()
+                          os.fsync(output.fileno())
+                      os.replace(temporary, target)
+                  finally:
+                      if os.path.exists(temporary):
+                          os.unlink(temporary)
+                  print('TURN secret configuration updated; restart coturn and verify the relay.')
+          try:
+              os.umask(0o077)
+              refresh()
+          except Exception:
+              sys.exit('TURN secret refresh failed; configuration was not confirmed. No secret values logged.')
+          PYTHON
+          chmod 0755 /usr/local/bin/dndtools-turn-refresh-secret
+          /usr/local/bin/dndtools-turn-refresh-secret
+
+          # Standalone HTTP-01 needs the public A record and EIP association first.
+          # A failed first issuance leaves coturn stopped; rerun bootstrap after DNS
+          # is ready. Renewal restarts only when a different certificate is installed.
+          mkdir -p /etc/letsencrypt /var/lib/letsencrypt /var/log/letsencrypt
+          cat > /usr/local/bin/dndtools-turn-certificate <<'SCRIPT'
+          #!/bin/bash
+          set -euo pipefail
+          umask 077
+          [ -n '${TurnDomainName}' ] || exit 0
+          [ "$#" -le 1 ] || exit 2
+          MODE=renew
+          if [ "$#" -eq 1 ]; then MODE="$1"; fi
+          case "$MODE" in issue|renew|record) ;; *) exit 2 ;; esac
+          exec 9>/run/dndtools-turn-certificate.lock
+          flock -n 9 || exit 1
+          if [ "$MODE" != record ]; then
+            docker run --rm --name dndtools-turn-certbot --network host \
+              --platform linux/arm64 \
+              -v /etc/letsencrypt:/etc/letsencrypt \
+              -v /var/lib/letsencrypt:/var/lib/letsencrypt \
+              -v /var/log/letsencrypt:/var/log/letsencrypt \
+              ${CertbotImage} certonly --standalone --preferred-challenges http \
+              --non-interactive --agree-tos --email '${AcmeEmail}' \
+              --cert-name '${TurnDomainName}' --domain '${TurnDomainName}' --keep-until-expiring
+          fi
+          CERT='/etc/letsencrypt/live/${TurnDomainName}/fullchain.pem'
+          openssl x509 -in "$CERT" -checkend 0 -noout
+          # Bootstrap must not restart/check a legacy container with the old mounts.
+          [ "$MODE" != issue ] || exit 0
+          FINGERPRINT=$(sha256sum "$CERT" | cut -d ' ' -f 1)
+          APPLIED=$(cat /etc/coturn/certificate.applied 2>/dev/null || true)
+          if [ "$FINGERPRINT" != "$APPLIED" ] || [ "$MODE" = record ]; then
+            docker inspect coturn >/dev/null 2>&1
+            if [ "$MODE" = renew ]; then docker restart --time 10 coturn >/dev/null; fi
+            for ATTEMPT in {1..10}; do
+              if timeout 3 openssl s_client -connect '127.0.0.1:${TlsListeningPort}' \
+                -servername '${TurnDomainName}' -verify_hostname '${TurnDomainName}' \
+                -verify_return_error </dev/null >/dev/null 2>&1; then
+                printf '%s\n' "$FINGERPRINT" > /etc/coturn/certificate.applied
+                exit 0
+              fi
+              sleep 1
+            done
+            exit 1
+          fi
+          SCRIPT
+          chmod 0755 /usr/local/bin/dndtools-turn-certificate
+
+          cat > /etc/systemd/system/dndtools-turn-certificate.service <<'UNIT'
+          [Unit]
+          Description=Issue or renew the Lamplight TURN TLS certificate
+          After=docker.service network-online.target
+          Requires=docker.service
+
+          [Service]
+          Type=oneshot
+          TimeoutStartSec=5min
+          ExecStart=/usr/local/bin/dndtools-turn-certificate
+          UNIT
+          cat > /etc/systemd/system/dndtools-turn-certificate.timer <<'UNIT'
+          [Unit]
+          Description=Check the TURN certificate twice daily
+
+          [Timer]
+          OnCalendar=*-*-* 00,12:00:00
+          RandomizedDelaySec=1h
+          Persistent=true
+
+          [Install]
+          WantedBy=timers.target
+          UNIT
+          systemctl daemon-reload
+          if [ -n '${TurnDomainName}' ]; then
+            timeout 300 /usr/local/bin/dndtools-turn-certificate issue
+          fi
 
           # --- Run coturn (arm64-native multi-arch image; host networking;
           #     restart-always survives reboot). NOTE: --platform linux/arm64 is
@@ -266,10 +473,16 @@ Resources:
           docker rm -f coturn 2>/dev/null || true
           docker run -d --name coturn --restart always --network host \
             --log-driver json-file --log-opt max-size=10m --log-opt max-file=5 \
+            --user 0:0 --cap-drop ALL --cap-add NET_BIND_SERVICE --security-opt no-new-privileges \
             --platform linux/arm64 \
-            -v /etc/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro \
+            -v /etc/coturn:/etc/coturn:ro \
+            -v /etc/letsencrypt:/etc/letsencrypt:ro \
             ${CoturnImage} \
             -c /etc/coturn/turnserver.conf
+          if [ -n '${TurnDomainName}' ]; then
+            /usr/local/bin/dndtools-turn-certificate record
+            systemctl enable --now dndtools-turn-certificate.timer
+          fi
 
           # Publish an application-level heartbeat. EC2 status checks only prove the VM is alive;
           # this also proves the container is running and both UDP/TCP listeners exist. The timer
@@ -282,6 +495,17 @@ Resources:
             && ss -H -lun | awk '$4 ~ /:${ListeningPort}$/ { found=1 } END { exit !found }' \
             && ss -H -ltn | awk '$4 ~ /:${ListeningPort}$/ { found=1 } END { exit !found }'; then
             HEALTHY=1
+          fi
+          if [ -n '${TurnDomainName}' ]; then
+            if ! openssl x509 -in '/etc/letsencrypt/live/${TurnDomainName}/fullchain.pem' \
+              -checkend 604800 -noout >/dev/null 2>&1 \
+              || [ "$(sha256sum '/etc/letsencrypt/live/${TurnDomainName}/fullchain.pem' 2>/dev/null | cut -d ' ' -f 1)" \
+                != "$(cat /etc/coturn/certificate.applied 2>/dev/null || true)" ] \
+              || ! timeout 10 openssl s_client -connect '127.0.0.1:${TlsListeningPort}' \
+                -servername '${TurnDomainName}' -verify_hostname '${TurnDomainName}' \
+                -verify_return_error </dev/null >/dev/null 2>&1; then
+              HEALTHY=0
+            fi
           fi
           aws cloudwatch put-metric-data \
             --region '${AWS::Region}' \
@@ -346,7 +570,7 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Condition: ShouldCreateAlarms
     Properties:
-      AlarmDescription: TURN container or UDP/TCP listener is unavailable.
+      AlarmDescription: TURN container/listener unavailable, TLS invalid, or certificate expires within seven days.
       Namespace: !Sub '${ProjectName}/TURN'
       MetricName: Healthy
       Dimensions:
@@ -368,7 +592,17 @@ Resources:
     Properties:
       Name: !Sub '/${ProjectName}/${Stage}/turn/uri'
       Type: String
-      Value: !Sub 'turn:${TurnEip}:${ListeningPort}'
+      Value: !If
+        - ShouldPublishTls
+        - !Sub 'turns:${TurnDomainName}:${TlsListeningPort}'
+        - !Sub 'turn:${TurnEip}:${ListeningPort}'
+  ParamTurnTlsUri:
+    Type: AWS::SSM::Parameter
+    Condition: HasTls
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/turn/tls-uri'
+      Type: String
+      Value: !Sub 'turns:${TurnDomainName}:${TlsListeningPort}?transport=tcp'
   ParamTurnSecretArn:
     Type: AWS::SSM::Parameter
     Properties:
@@ -393,8 +627,18 @@ Outputs:
     Description: Elastic IP of the coturn relay.
     Value: !Ref TurnEip
   TurnUri:
-    Description: STUN/TURN URI clients use.
-    Value: !Sub 'turn:${TurnEip}:${ListeningPort}'
+    Description: TURN base URI published to the signaling credential minter.
+    Value: !If
+      - ShouldPublishTls
+      - !Sub 'turns:${TurnDomainName}:${TlsListeningPort}'
+      - !Sub 'turn:${TurnEip}:${ListeningPort}'
+  TurnTlsUri:
+    Condition: HasTls
+    Description: TLS probe endpoint; publication alone does not prove the host is ready.
+    Value: !Sub 'turns:${TurnDomainName}:${TlsListeningPort}?transport=tcp'
+  TurnEipAllocationId:
+    Description: Preserve this allocation when replacing a failed host in the same region.
+    Value: !GetAtt TurnEip.AllocationId
   TurnSecretArn:
     Value: !Ref TurnSharedSecret
     Export:

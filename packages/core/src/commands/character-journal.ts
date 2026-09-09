@@ -52,10 +52,7 @@ function charactersWith(state: CoreStateSlice, characters: CharacterState): Core
 	return { ...state, characters };
 }
 
-function withJournals(
-	characters: CharacterState,
-	journals: CharacterJournalState,
-): CharacterState {
+function withJournals(characters: CharacterState, journals: CharacterJournalState): CharacterState {
 	return { ...characters, journals };
 }
 
@@ -64,7 +61,11 @@ function withJournals(
  * `shared` delivery target for new entries (CHAR-016 AC1) and to compute invalidation audiences.
  */
 function characterOwnerActorId(state: CoreStateSlice, characterId: string): string | null {
-	const owners = singularGrantsOnEntity(state.permissions.grants, CHARACTER_ENTITY_TYPE, characterId);
+	const owners = singularGrantsOnEntity(
+		state.permissions.grants,
+		CHARACTER_ENTITY_TYPE,
+		characterId,
+	);
 	return owners[0]?.playerActorId ?? null;
 }
 
@@ -72,7 +73,13 @@ function characterOwnerActorId(state: CoreStateSlice, characterId: string): stri
 function actorMayAuthorJournal(state: CoreStateSlice, actor: Actor, characterId: string): boolean {
 	if (hasDmAuthority(actor.role)) return true;
 	if (actor.role === 'observer') return false;
-	return hasGrantedCapability(state.permissions, actor, CHARACTER_ENTITY_TYPE, characterId, 'owner');
+	return hasGrantedCapability(
+		state.permissions,
+		actor,
+		CHARACTER_ENTITY_TYPE,
+		characterId,
+		'owner',
+	);
 }
 
 interface JournalGuard {
@@ -102,7 +109,10 @@ function journalGuard(
 	if (!actorMayAuthorJournal(state, actor, characterId)) {
 		return {
 			rejection: reject(
-				{ code: 'actor-not-authorized', message: 'Only the character owner may author this journal.' },
+				{
+					code: 'actor-not-authorized',
+					message: 'Only the character owner may author this journal.',
+				},
 				state,
 			),
 		};
@@ -163,11 +173,16 @@ export function handleAddJournalEntry(
 			body: parsed.data.body,
 			...(parsed.data.visibility !== undefined ? { visibility: parsed.data.visibility } : {}),
 			sharedWith: parsed.data.sharedWith,
+			...(parsed.data.downtime !== undefined ? { downtime: parsed.data.downtime } : {}),
 		},
 		{ id: env.ids(), ownerActorId, authorActorId: guard.actor.id, now: env.clock() },
 	);
 
-	const nextJournals = addJournalEntry(journalsOf(guard.characters), parsed.data.characterId, entry);
+	const nextJournals = addJournalEntry(
+		journalsOf(guard.characters),
+		parsed.data.characterId,
+		entry,
+	);
 	const nextCharacters = withJournals(guard.characters, nextJournals);
 	const draft = appendOperationDraft(env, state.sync, guard.actor.id, {
 		entityType: CHARACTER_JOURNAL_ENTITY_TYPE,

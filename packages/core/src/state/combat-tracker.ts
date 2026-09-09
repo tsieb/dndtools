@@ -72,6 +72,14 @@ export interface CombatantResources {
 	 * persisted combat states hydrate unchanged (absent ⇒ false ⇒ the pre-existing hp≤0 semantics).
 	 */
 	notDefeated?: boolean;
+	/**
+	 * RC-SES-3.1 — the REMAINING ROUNDS for a condition, keyed by condition key. A condition is
+	 * therefore `{ key, rounds? }`: the key lives in {@link conditions}, the optional countdown here.
+	 * A key with no entry has NO timer and runs until someone clears it, which is what most conditions
+	 * do. Additive and optional, so a combat persisted before durations existed hydrates unchanged —
+	 * no `schemaVersion` bump, and every old condition simply has no clock on it.
+	 */
+	conditionRounds?: Record<string, number>;
 }
 
 export const EMPTY_COMBATANT_RESOURCES: CombatantResources = Object.freeze({
@@ -145,6 +153,10 @@ export interface CombatLogEntry {
 		| 'hp-changed'
 		| 'temp-hp-set'
 		| 'condition-changed'
+		// RC-SES-3.1 — a condition's countdown ran out at the start of a round and it came off the
+		// combatant on its own. Recorded distinctly from `condition-changed` because nobody pressed
+		// anything: the encounter log has to show that the tracker did it, and when.
+		| 'condition-expired'
 		| 'death-save'
 		| 'concentration'
 		| 'combatant-added'
@@ -460,6 +472,9 @@ export function cloneResources(resources: CombatantResources): CombatantResource
 		concentration: { ...resources.concentration },
 		// UX-SES-005 — preserve the explicit "keep at 0, not defeated" choice across clones.
 		notDefeated: resources.notDefeated ?? false,
+		// RC-SES-3.1 — carry the per-condition countdowns; only timers for conditions actually on the
+		// combatant survive, so removing a condition can never leave an orphan clock behind.
+		conditionRounds: sanitizeConditionRounds(resources.conditions, resources.conditionRounds),
 	};
 }
 
@@ -610,6 +625,11 @@ export interface ResolvedCondition {
 	icon: string;
 	severity: SystemConditionSeverity;
 	defaultDuration: SystemConditionDuration;
+	/**
+	 * RC-SES-3.1 — rounds the package says this condition runs for when {@link defaultDuration} is
+	 * `rounds`; null otherwise. The tracker starts a countdown from this unless the DM names their own.
+	 */
+	defaultRounds: number | null;
 	maxStacks: number | null;
 	/** False when the ACTIVE package does not declare this key (a leftover from another system). */
 	known: boolean;
@@ -640,6 +660,7 @@ export function resolveCondition(pkg: SystemPackage, key: string): ResolvedCondi
 			icon: 'info',
 			severity: 'minor',
 			defaultDuration: 'until-removed',
+			defaultRounds: null,
 			maxStacks: null,
 			known: false,
 		};
@@ -650,6 +671,7 @@ export function resolveCondition(pkg: SystemPackage, key: string): ResolvedCondi
 		icon: found.icon,
 		severity: found.severity,
 		defaultDuration: found.defaultDuration,
+		defaultRounds: found.defaultRounds,
 		maxStacks: found.maxStacks,
 		known: true,
 	};
@@ -661,6 +683,100 @@ export function resolveCombatantConditions(
 	resources: CombatantResources,
 ): readonly ResolvedCondition[] {
 	return resources.conditions.map((key) => resolveCondition(pkg, key));
+}
+
+// ── RC-SES-3.1 — condition DURATIONS and the round tick ──────────────────────────────────────────
+
+/** The largest countdown a condition may carry, in rounds. Longer than any fight anyone runs. */
+export const MAX_CONDITION_ROUNDS = 999;
+
+/**
+ * RC-SES-3.1 — a condition that ran out on the round tick: whose it was, and which key expired.
+ */
+export interface ExpiredCondition {
+	combatantId: string;
+	key: string;
+}
+
+/**
+ * Keep only the countdowns that belong to conditions actually present, and only well-formed ones
+ * (a positive whole number of rounds within {@link MAX_CONDITION_ROUNDS}). Pure.
+ *
+ * This is the single place a timer can enter durable state, so a removed condition never leaves an
+ * orphan clock, and a corrupted or hostile persisted value can never reach the round tick or a badge.
+ */
+export function sanitizeConditionRounds(
+	conditions: readonly string[],
+	rounds: Record<string, number> | undefined,
+): Record<string, number> {
+	const next: Record<string, number> = {};
+	if (!rounds) return next;
+	for (const key of conditions) {
+		const value = rounds[key];
+		if (value === undefined) continue;
+		if (!Number.isInteger(value) || value < 1 || value > MAX_CONDITION_ROUNDS) continue;
+		next[key] = value;
+	}
+	return next;
+}
+
+/**
+ * Tick ONE combatant's condition countdowns down by a round. Every timer loses a round; a timer that
+ * reaches zero takes its condition OFF the combatant and is reported as expired. Conditions with no
+ * timer are untouched — they last until someone clears them. Pure: no clock, no ids, no mutation of
+ * the input.
+ */
+export function tickConditionRounds(resources: CombatantResources): {
+	resources: CombatantResources;
+	expired: string[];
+} {
+	const timers = sanitizeConditionRounds(resources.conditions, resources.conditionRounds);
+	if (Object.keys(timers).length === 0) return { resources, expired: [] };
+	const expired: string[] = [];
+	const nextTimers: Record<string, number> = {};
+	// Walk the conditions in STORED order so the expiry report reads in the order the badges do.
+	for (const key of resources.conditions) {
+		const remaining = timers[key];
+		if (remaining === undefined) continue;
+		if (remaining <= 1) expired.push(key);
+		else nextTimers[key] = remaining - 1;
+	}
+	if (expired.length === 0) {
+		return { resources: { ...cloneResources(resources), conditionRounds: nextTimers }, expired };
+	}
+	const gone = new Set(expired);
+	return {
+		resources: {
+			...cloneResources(resources),
+			conditions: resources.conditions.filter((key) => !gone.has(key)),
+			conditionRounds: nextTimers,
+		},
+		expired,
+	};
+}
+
+/**
+ * Tick EVERY combatant's condition countdowns at the start of a round (RC-SES-3.1). Returns the
+ * next combatant map and what expired, in initiative order, so the caller can log one entry and
+ * emit one event per expiry. Pure — the caller owns the log ids and the clock.
+ */
+export function tickCombatConditions(
+	combatants: Record<string, Combatant>,
+	order: readonly string[],
+): { combatants: Record<string, Combatant>; expired: ExpiredCondition[] } {
+	const expired: ExpiredCondition[] = [];
+	let changed = false;
+	const next: Record<string, Combatant> = { ...combatants };
+	for (const id of order) {
+		const combatant = combatants[id];
+		if (!combatant) continue;
+		const tick = tickConditionRounds(combatant.resources);
+		if (tick.resources === combatant.resources) continue;
+		changed = true;
+		next[id] = { ...cloneCombatant(combatant), resources: tick.resources };
+		for (const key of tick.expired) expired.push({ combatantId: id, key });
+	}
+	return { combatants: changed ? next : combatants, expired };
 }
 
 // ── RC-SYS-2.4 — the TURN MODEL comes from the active system package ─────────────────────────────

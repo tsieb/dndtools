@@ -141,6 +141,16 @@ export const MCP_BASELINE_TOOL_IDS = [
 	// installed package starts UNREVIEWED, DISABLED, with every host permission denied — so even an
 	// approved proposal only puts a widget in front of the DM's trust review, never on a scene.
 	'widget.package.propose',
+	// RC-AUD-3.4 — the assistant atmosphere surface. `scene.list-packages` reads the actor-filtered
+	// scene-card list (no new visibility path); `scene.activate-package` stages the SAME
+	// `scene-card.play-package` command the GUI's one-click play button dispatches, so an agent can
+	// only play a package the DM already built and only through the existing fail-closed command.
+	'scene.list-packages',
+	'scene.activate-package',
+	// RC-AI-1.4 — the agentic level-up. It binds `character.apply-advancement`, the ONE command that
+	// runs open→set-choices→commit atomically, so an approved proposal either finalizes the whole
+	// level-up or changes nothing — an agent can never leave a character in a half-open advancement.
+	'character.level-up',
 ] as const;
 
 export type McpBaselineToolId = (typeof MCP_BASELINE_TOOL_IDS)[number];
@@ -514,6 +524,63 @@ export const mcpNoteAppendInputSchema = z
 		heading: z.string().max(200).optional(),
 	})
 	.strict();
+
+/**
+ * RC-AUD-3.4 — the `scene.activate-package` WRITE tool input. Plays an EXISTING scene package (a card
+ * carrying an audio preset and/or a lighting hint, `isSceneCardPackage`): applies its audio preset,
+ * puts it on the display, and pushes it when the card is already `player-visible` — the exact same
+ * `scene-card.play-package` command the GUI's one-click play button dispatches. No device-availability
+ * flags are accepted (an agent cannot assert what is or is not cached/online on the DM's machine), so
+ * the command falls back to its own defaults exactly as an untouched GUI call would.
+ */
+export const mcpSceneActivatePackageInputSchema = z.object({ cardId: nonEmpty }).strict();
+
+/**
+ * RC-AI-1.4 — the `character.level-up` WRITE tool input: the FULL staged choice set for one level,
+ * in one call. The staged-then-commit wizard a human uses cannot be driven by an agent (there is
+ * nowhere to keep a half-open draft while the DM decides), so the tool asks for everything the level
+ * needs and the bound command runs open→set-choices→commit atomically on approval.
+ *
+ * Three fields are deliberately looser than the core command's:
+ *   - The class gaining the level may be named `className` (the command's own field) or `class`
+ *     (the field the finished character carries, and what a local model reaches for first — the
+ *     smoke harness found this). Exactly one is required; `writeCommandPayload` maps either onto
+ *     `className`. This is the only alias on the surface, and it widens nothing: both spell the
+ *     same choice, which the core validates either way.
+ *   - `mode` is OPTIONAL. Whether a campaign levels on earned XP or on story milestones is a fact
+ *     about the VAULT (the active system package declares it — RC-CHR-1.4 `defaultAdvancementMode`),
+ *     not something an agent should assert, so an omitted mode is resolved from the package and
+ *     falls back to the XP-GATED mode, never to the ungated one.
+ *   - `subclass` and `abilityOrFeat` are optional because only certain target levels require them;
+ *     the core's own validation decides and rejects fail-closed, so omitting a required one costs
+ *     the proposal, never a half-applied character.
+ *
+ * The tool accepts no level, no XP and no HP total: the target level is always the character's next
+ * one, and the core recomputes the maxima itself.
+ */
+export const mcpCharacterLevelUpInputSchema = z
+	.object({
+		characterId: nonEmpty,
+		/** `xp` gates on the XP threshold for the next level; `milestone` is DM/owner declared. */
+		mode: z.enum(['xp', 'milestone']).optional(),
+		className: nonEmpty.max(120).optional(),
+		/** Accepted alias for `className` — see the doc above. `className` wins when both are given. */
+		class: nonEmpty.max(120).optional(),
+		hitPointsGained: z.number().int().positive().max(200),
+		subclass: nonEmpty.max(120).optional(),
+		abilityOrFeat: nonEmpty.max(200).optional(),
+	})
+	.strict()
+	.refine((value) => value.className !== undefined || value.class !== undefined, {
+		message: 'Name the class gaining the level as `className`.',
+		path: ['className'],
+	});
+
+/**
+ * RC-AUD-3.4 — the `scene.list-packages` READ tool input. No arguments: it lists every LIVE scene
+ * package the bound actor may see (the same actor-filtered scene-card list the GUI reads).
+ */
+export const mcpSceneListPackagesInputSchema = mcpEmptyInputSchema;
 
 /**
  * RC-WID-3.1 — the `widget.package.propose` WRITE tool input: a STRUCTURED widget draft the model has
@@ -970,6 +1037,51 @@ export function createBaselineMcpToolRegistry(): McpToolRegistry {
 			inputSchema: mcpWidgetPackageProposeInputSchema,
 			title: 'Propose a widget (staged)',
 			description: WIDGET_PACKAGE_PROPOSE_DESCRIPTION,
+		},
+		// RC-AUD-3.4 — assistant atmosphere tools. `scene.list-packages` is a plain read; the prep digest
+		// (`bundle.session-prep` / `session.prep`) already surfaces a suggested package, so the model can
+		// call this to see the full list before choosing one to activate.
+		{
+			id: 'scene.list-packages',
+			kind: 'read',
+			queryId: 'scene-card.packages',
+			inputSchema: mcpSceneListPackagesInputSchema,
+			title: 'List scene packages',
+			description:
+				'List the live scene packages (cards with an audio preset and/or a lighting hint) you may ' +
+				'see, with their id, title, mood, and lighting hint. Use scene.activate-package to play one.',
+		},
+		// RC-AI-1.4 — the agentic level-up. The description tells the model to READ the character first,
+		// because the target level (and therefore whether a subclass or an ASI is required) comes from
+		// the character's current level, not from anything the model may assert.
+		{
+			id: 'character.level-up',
+			kind: 'write',
+			commandType: 'character.apply-advancement',
+			writeRisk: 'durable',
+			inputSchema: mcpCharacterLevelUpInputSchema,
+			title: 'Level up a character (staged)',
+			description:
+				'Level up a character: advance them ONE level. Call it exactly like this: {"characterId": "id-0004", ' +
+				'"className": "Fighter", "hitPointsGained": 6, "mode": "milestone"}. Use those four key ' +
+				'names and no others. `characterId` comes from character.query. `mode` is "milestone" ' +
+				'when the DM levels the party by story and "xp" when the character earned it; leave it ' +
+				'out to use the campaign\'s own advancement model. Add "subclass" only when the new ' +
+				'level is 3, and "abilityOrFeat" only when it is 4, 8, 12, 16 or 19. There is no level ' +
+				'or XP argument — it always advances one level from where the character is now. ' +
+				'Approving applies the whole level-up at once; a misnamed argument stages nothing.',
+		},
+		{
+			id: 'scene.activate-package',
+			kind: 'write',
+			commandType: 'scene-card.play-package',
+			writeRisk: 'durable',
+			inputSchema: mcpSceneActivatePackageInputSchema,
+			title: 'Activate a scene package (staged)',
+			description:
+				'Play an existing scene package by cardId: applies its audio preset, shows it on the scene ' +
+				'display, and pushes it to players if the card is already player-visible. Find the cardId ' +
+				'with scene.list-packages first. Staged for DM approval; never applied immediately.',
 		},
 	]);
 }

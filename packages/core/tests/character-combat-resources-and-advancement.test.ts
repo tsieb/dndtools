@@ -8,6 +8,7 @@ import {
 } from '../src/testing/fixtures';
 import {
 	advancementStateOf,
+	defaultAdvancementMode,
 	dispatchCommand,
 	resourcesOf,
 	type Actor,
@@ -139,7 +140,9 @@ describe('CHAR-007 — combat-resource updates during a session', () => {
 				payload: { characterId, kind: 'condition', condition: 'prone', present: true },
 			}),
 		);
-		expect(result.nextState.characters.characters[characterId]!.combat.conditions).toContain('prone');
+		expect(result.nextState.characters.characters[characterId]!.combat.conditions).toContain(
+			'prone',
+		);
 	});
 
 	it('AC2: the same player may NOT change the character name (combat-participant is not a sheet edit)', () => {
@@ -372,7 +375,10 @@ describe('CHAR-008 — spells, slots, class resources, rest recovery, history', 
 				payload: { characterId, rest: 'long' },
 			}),
 		);
-		expect(resourcesOf(restedAgain.nextState.characters.characters[characterId]!).spellSlots['1']!.expended).toBe(0);
+		expect(
+			resourcesOf(restedAgain.nextState.characters.characters[characterId]!).spellSlots['1']!
+				.expended,
+		).toBe(0);
 	});
 
 	it('AC2: a SHORT rest restores short-rest resources but NOT spell slots or long-rest resources', () => {
@@ -443,7 +449,13 @@ describe('CHAR-008 — spells, slots, class resources, rest recovery, history', 
 			dispatchCommand(state, env, {
 				type: 'character.set-spell',
 				actorId: PLAYER_ACTOR.id,
-				payload: { characterId, id: 'magic-missile', name: 'Magic Missile', level: 1, prepared: true },
+				payload: {
+					characterId,
+					id: 'magic-missile',
+					name: 'Magic Missile',
+					level: 1,
+					prepared: true,
+				},
 			}),
 		).nextState;
 		const spells = resourcesOf(state.characters.characters[characterId]!).spells;
@@ -544,7 +556,9 @@ describe('CHAR-009 — level-up / advancement', () => {
 		expect(advancementStateOf(character).level).toBe(2);
 		expect(character.combat.maxHp).toBe(18); // 8 + 10
 		// The emitted event is attributed to the DM actor (CHAR-009 AC2: "attributed").
-		const finalizedEvent = committed.events.find((e) => e.kind === 'character.advancement-finalized') as
+		const finalizedEvent = committed.events.find(
+			(e) => e.kind === 'character.advancement-finalized',
+		) as
 			| Extract<(typeof committed.events)[number], { kind: 'character.advancement-finalized' }>
 			| undefined;
 		expect(finalizedEvent).toBeDefined();
@@ -604,7 +618,9 @@ describe('CHAR-009 — level-up / advancement', () => {
 			}),
 		);
 		expect(tooEarly.rejection.code).toBe('invalid-state');
-		expect(advancementStateOf(tooEarly.nextState.characters.characters[characterId]!).draft).toBeNull();
+		expect(
+			advancementStateOf(tooEarly.nextState.characters.characters[characterId]!).draft,
+		).toBeNull();
 
 		// Reach the threshold, then opening is eligible.
 		state = accepted(
@@ -621,7 +637,9 @@ describe('CHAR-009 — level-up / advancement', () => {
 				payload: { characterId, mode: 'xp' },
 			}),
 		);
-		expect(advancementStateOf(opened.nextState.characters.characters[characterId]!).draft).not.toBeNull();
+		expect(
+			advancementStateOf(opened.nextState.characters.characters[characterId]!).draft,
+		).not.toBeNull();
 	});
 
 	it('AC3: a staged advancement persists with its validation state across a serialize/restore round-trip', () => {
@@ -744,7 +762,9 @@ describe('CHAR-009 — level-up / advancement', () => {
 				payload: { characterId },
 			}),
 		);
-		expect(advancementStateOf(finalized.nextState.characters.characters[characterId]!).level).toBe(3);
+		expect(advancementStateOf(finalized.nextState.characters.characters[characterId]!).level).toBe(
+			3,
+		);
 	});
 
 	it('cancel discards the staged draft without changing level or XP', () => {
@@ -794,7 +814,13 @@ describe('PERM-004 hardening — expired CHARACTER grants are inert at authority
 			dispatchCommand(state, env, {
 				type: 'permission.grant-capability-set',
 				actorId: DM_ACTOR.id,
-				payload: { entityType: 'character', entityId: characterId, playerActorId, capabilitySet, expiresAt },
+				payload: {
+					entityType: 'character',
+					entityId: characterId,
+					playerActorId,
+					capabilitySet,
+					expiresAt,
+				},
 			}),
 		).nextState;
 	}
@@ -803,22 +829,36 @@ describe('PERM-004 hardening — expired CHARACTER grants are inert at authority
 		// Setup clock at 12:00 so the grant expiry (13:00) is in the future at grant time.
 		const setupEnv = makeEnvironment({ clock: () => '2026-06-04T12:00:00.000Z' });
 		const { state: base, characterId } = setupCharacter(setupEnv);
-		const withGrant = grantWithFutureExpiry(base, setupEnv, characterId, 'owner', '2026-06-04T13:00:00.000Z');
+		const withGrant = grantWithFutureExpiry(
+			base,
+			setupEnv,
+			characterId,
+			'owner',
+			'2026-06-04T13:00:00.000Z',
+		);
 
 		// Before expiry (12:30): owner grant is active; advancement is accepted.
-		const beforeExpiry = dispatchCommand(withGrant, { ...setupEnv, clock: () => '2026-06-04T12:30:00.000Z' }, {
-			type: 'character.open-advancement',
-			actorId: PLAYER_ACTOR.id,
-			payload: { characterId, mode: 'milestone' },
-		});
+		const beforeExpiry = dispatchCommand(
+			withGrant,
+			{ ...setupEnv, clock: () => '2026-06-04T12:30:00.000Z' },
+			{
+				type: 'character.open-advancement',
+				actorId: PLAYER_ACTOR.id,
+				payload: { characterId, mode: 'milestone' },
+			},
+		);
 		expect(beforeExpiry.status).toBe('accepted');
 
 		// After expiry (14:00): owner grant is inert; advancement is rejected fail-closed (PERM-004 AC2).
-		const afterExpiry = dispatchCommand(withGrant, { ...setupEnv, clock: () => '2026-06-04T14:00:00.000Z' }, {
-			type: 'character.open-advancement',
-			actorId: PLAYER_ACTOR.id,
-			payload: { characterId, mode: 'milestone' },
-		});
+		const afterExpiry = dispatchCommand(
+			withGrant,
+			{ ...setupEnv, clock: () => '2026-06-04T14:00:00.000Z' },
+			{
+				type: 'character.open-advancement',
+				actorId: PLAYER_ACTOR.id,
+				payload: { characterId, mode: 'milestone' },
+			},
+		);
 		expect(afterExpiry.status).toBe('rejected');
 		if (afterExpiry.status !== 'rejected') return;
 		expect(afterExpiry.rejection.code).toBe('actor-not-authorized');
@@ -827,25 +867,39 @@ describe('PERM-004 hardening — expired CHARACTER grants are inert at authority
 	it('actorMayUpdateCombatResources: expired combat-participant grant is inert — HP update rejected after expiry', () => {
 		const setupEnv = makeEnvironment({ clock: () => '2026-06-04T12:00:00.000Z' });
 		const { state: base, characterId } = setupCharacter(setupEnv, { hp: 10, maxHp: 10, ac: 12 });
-		let state = grantWithFutureExpiry(base, setupEnv, characterId, 'combat-participant', '2026-06-04T13:00:00.000Z');
+		let state = grantWithFutureExpiry(
+			base,
+			setupEnv,
+			characterId,
+			'combat-participant',
+			'2026-06-04T13:00:00.000Z',
+		);
 		state = startActiveSession(state, setupEnv);
 
 		// Before expiry (12:30): grant is active; HP update is accepted.
-		const beforeExpiry = dispatchCommand(state, { ...setupEnv, clock: () => '2026-06-04T12:30:00.000Z' }, {
-			type: 'character.update-combat-resource',
-			actorId: PLAYER_ACTOR.id,
-			payload: { characterId, kind: 'hp', delta: -3 },
-		});
+		const beforeExpiry = dispatchCommand(
+			state,
+			{ ...setupEnv, clock: () => '2026-06-04T12:30:00.000Z' },
+			{
+				type: 'character.update-combat-resource',
+				actorId: PLAYER_ACTOR.id,
+				payload: { characterId, kind: 'hp', delta: -3 },
+			},
+		);
 		expect(beforeExpiry.status).toBe('accepted');
 		if (beforeExpiry.status !== 'accepted') return;
 		expect(beforeExpiry.nextState.characters.characters[characterId]!.combat.hp).toBe(7);
 
 		// After expiry (14:00): grant is inert; HP update is rejected fail-closed (PERM-004 AC2).
-		const afterExpiry = dispatchCommand(state, { ...setupEnv, clock: () => '2026-06-04T14:00:00.000Z' }, {
-			type: 'character.update-combat-resource',
-			actorId: PLAYER_ACTOR.id,
-			payload: { characterId, kind: 'hp', delta: -3 },
-		});
+		const afterExpiry = dispatchCommand(
+			state,
+			{ ...setupEnv, clock: () => '2026-06-04T14:00:00.000Z' },
+			{
+				type: 'character.update-combat-resource',
+				actorId: PLAYER_ACTOR.id,
+				payload: { characterId, kind: 'hp', delta: -3 },
+			},
+		);
 		expect(afterExpiry.status).toBe('rejected');
 		if (afterExpiry.status !== 'rejected') return;
 		expect(afterExpiry.rejection.code).toBe('actor-not-authorized');
@@ -856,24 +910,257 @@ describe('PERM-004 hardening — expired CHARACTER grants are inert at authority
 	it('actorMayManageResources: expired owner grant is inert — spell-slot management rejected after expiry', () => {
 		const setupEnv = makeEnvironment({ clock: () => '2026-06-04T12:00:00.000Z' });
 		const { state: base, characterId } = setupCharacter(setupEnv);
-		const state = grantWithFutureExpiry(base, setupEnv, characterId, 'owner', '2026-06-04T13:00:00.000Z');
+		const state = grantWithFutureExpiry(
+			base,
+			setupEnv,
+			characterId,
+			'owner',
+			'2026-06-04T13:00:00.000Z',
+		);
 
 		// Before expiry (12:30): owner grant is active; set-spell-slots is accepted.
-		const beforeExpiry = dispatchCommand(state, { ...setupEnv, clock: () => '2026-06-04T12:30:00.000Z' }, {
-			type: 'character.set-spell-slots',
-			actorId: PLAYER_ACTOR.id,
-			payload: { characterId, level: 1, max: 2 },
-		});
+		const beforeExpiry = dispatchCommand(
+			state,
+			{ ...setupEnv, clock: () => '2026-06-04T12:30:00.000Z' },
+			{
+				type: 'character.set-spell-slots',
+				actorId: PLAYER_ACTOR.id,
+				payload: { characterId, level: 1, max: 2 },
+			},
+		);
 		expect(beforeExpiry.status).toBe('accepted');
 
 		// After expiry (14:00): owner grant is inert; set-spell-slots is rejected fail-closed (PERM-004 AC2).
-		const afterExpiry = dispatchCommand(state, { ...setupEnv, clock: () => '2026-06-04T14:00:00.000Z' }, {
-			type: 'character.set-spell-slots',
-			actorId: PLAYER_ACTOR.id,
-			payload: { characterId, level: 1, max: 2 },
-		});
+		const afterExpiry = dispatchCommand(
+			state,
+			{ ...setupEnv, clock: () => '2026-06-04T14:00:00.000Z' },
+			{
+				type: 'character.set-spell-slots',
+				actorId: PLAYER_ACTOR.id,
+				payload: { characterId, level: 1, max: 2 },
+			},
+		);
 		expect(afterExpiry.status).toBe('rejected');
 		if (afterExpiry.status !== 'rejected') return;
 		expect(afterExpiry.rejection.code).toBe('actor-not-authorized');
+	});
+});
+
+// ================================================================================================
+// RC-CHR-1.4 — package-driven default mode + bulk party actions (Award XP / Level the party)
+// ================================================================================================
+
+describe('RC-CHR-1.4 — advancement mode from the package, with a DM override', () => {
+	it('defaults to xp for an xp-table package, milestone for a milestone package, null for none/absent', () => {
+		expect(
+			defaultAdvancementMode({
+				advancement: { model: 'xp-table', levelCap: 20, xpThresholds: [] },
+			}),
+		).toBe('xp');
+		expect(
+			defaultAdvancementMode({
+				advancement: { model: 'milestone', levelCap: null, xpThresholds: [] },
+			}),
+		).toBe('milestone');
+		expect(
+			defaultAdvancementMode({ advancement: { model: 'none', levelCap: null, xpThresholds: [] } }),
+		).toBeNull();
+		expect(defaultAdvancementMode(undefined)).toBeNull();
+	});
+
+	it('a DM override always wins over the package default', () => {
+		expect(
+			defaultAdvancementMode(
+				{ advancement: { model: 'xp-table', levelCap: 20, xpThresholds: [] } },
+				'milestone',
+			),
+		).toBe('milestone');
+		expect(defaultAdvancementMode(undefined, 'xp')).toBe('xp');
+	});
+});
+
+describe('RC-CHR-1.4 — "Award XP" bulk-awards the party from the session encounter log', () => {
+	function setupTwoOwnedL1(env: CoreEnvironment): { state: CoreStateSlice; a: string; b: string } {
+		const first = setupCharacter(env, { hp: 8, maxHp: 8, ac: 12 });
+		let state = grant(first.state, env, first.characterId, 'owner');
+		const second = accepted(
+			dispatchCommand(state, env, {
+				type: 'character.quick-create',
+				actorId: DM_ACTOR.id,
+				payload: {
+					kind: 'sidekick',
+					name: 'Squeak',
+					visibility: 'player-visible',
+					combat: { hp: 8, maxHp: 8, ac: 12 },
+				},
+			}),
+		);
+		state = second.nextState;
+		const b = Object.keys(state.characters.characters).find((id) => id !== first.characterId)!;
+		state = grant(state, env, b, 'owner', PLAYER_B.id);
+		return { state, a: first.characterId, b };
+	}
+
+	it('adds the flat amount to every listed character, DM-only', () => {
+		const env = makeEnvironment();
+		const { state, a, b } = setupTwoOwnedL1(env);
+		const result = accepted(
+			dispatchCommand(state, env, {
+				type: 'character.award-xp',
+				actorId: DM_ACTOR.id,
+				payload: { characterIds: [a, b], amount: 150 },
+			}),
+		);
+		expect(advancementStateOf(result.nextState.characters.characters[a]!).xp).toBe(150);
+		expect(advancementStateOf(result.nextState.characters.characters[b]!).xp).toBe(150);
+		expect(result.events).toHaveLength(2);
+	});
+
+	it('skips a missing character id instead of failing the whole batch', () => {
+		const env = makeEnvironment();
+		const { state, a } = setupTwoOwnedL1(env);
+		const result = accepted(
+			dispatchCommand(state, env, {
+				type: 'character.award-xp',
+				actorId: DM_ACTOR.id,
+				payload: { characterIds: [a, 'no-such-character'], amount: 50 },
+			}),
+		);
+		expect(advancementStateOf(result.nextState.characters.characters[a]!).xp).toBe(50);
+		expect(result.events).toHaveLength(1);
+	});
+
+	it('rejects when NONE of the listed characters exist', () => {
+		const env = makeEnvironment();
+		const { state } = setupTwoOwnedL1(env);
+		const result = rejected(
+			dispatchCommand(state, env, {
+				type: 'character.award-xp',
+				actorId: DM_ACTOR.id,
+				payload: { characterIds: ['no-such-character'], amount: 50 },
+			}),
+		);
+		expect(result.rejection.code).toBe('invalid-state');
+	});
+
+	it('is DM-only: a character owner may not award XP to the party', () => {
+		const env = makeEnvironment();
+		const { state, a } = setupTwoOwnedL1(env);
+		const result = rejected(
+			dispatchCommand(state, env, {
+				type: 'character.award-xp',
+				actorId: PLAYER_ACTOR.id,
+				payload: { characterIds: [a], amount: 50 },
+			}),
+		);
+		expect(result.rejection.code).toBe('actor-not-authorized');
+	});
+});
+
+describe('RC-CHR-1.4 — "Level the party" bulk-opens a milestone draft for every eligible member', () => {
+	function setupTwoOwnedL1(env: CoreEnvironment): { state: CoreStateSlice; a: string; b: string } {
+		const first = setupCharacter(env, { hp: 8, maxHp: 8, ac: 12 });
+		let state = grant(first.state, env, first.characterId, 'owner');
+		const second = accepted(
+			dispatchCommand(state, env, {
+				type: 'character.quick-create',
+				actorId: DM_ACTOR.id,
+				payload: {
+					kind: 'sidekick',
+					name: 'Squeak',
+					visibility: 'player-visible',
+					combat: { hp: 8, maxHp: 8, ac: 12 },
+				},
+			}),
+		);
+		state = second.nextState;
+		const b = Object.keys(state.characters.characters).find((id) => id !== first.characterId)!;
+		state = grant(state, env, b, 'owner', PLAYER_B.id);
+		return { state, a: first.characterId, b };
+	}
+
+	it('opens a milestone draft for every eligible listed character at once', () => {
+		const env = makeEnvironment();
+		const { state, a, b } = setupTwoOwnedL1(env);
+		const result = accepted(
+			dispatchCommand(state, env, {
+				type: 'character.level-party',
+				actorId: DM_ACTOR.id,
+				payload: { characterIds: [a, b] },
+			}),
+		);
+		expect(advancementStateOf(result.nextState.characters.characters[a]!).draft?.mode).toBe(
+			'milestone',
+		);
+		expect(advancementStateOf(result.nextState.characters.characters[b]!).draft?.mode).toBe(
+			'milestone',
+		);
+	});
+
+	it('skips a character already mid-advancement instead of failing the batch', () => {
+		const env = makeEnvironment();
+		const { state, a, b } = setupTwoOwnedL1(env);
+		const alreadyOpen = accepted(
+			dispatchCommand(state, env, {
+				type: 'character.open-advancement',
+				actorId: DM_ACTOR.id,
+				payload: { characterId: a, mode: 'milestone' },
+			}),
+		).nextState;
+		// Stage a choice on `a`'s draft; "Level the party" must not reopen/reset it.
+		const withChoice = accepted(
+			dispatchCommand(alreadyOpen, env, {
+				type: 'character.set-advancement-choices',
+				actorId: DM_ACTOR.id,
+				payload: { characterId: a, className: 'Rogue' },
+			}),
+		).nextState;
+		const result = accepted(
+			dispatchCommand(withChoice, env, {
+				type: 'character.level-party',
+				actorId: DM_ACTOR.id,
+				payload: { characterIds: [a, b] },
+			}),
+		);
+		// `a` keeps its already-open draft's staged choice untouched; `b` gets a fresh milestone draft.
+		expect(
+			advancementStateOf(result.nextState.characters.characters[a]!).draft?.choices.className,
+		).toBe('Rogue');
+		expect(advancementStateOf(result.nextState.characters.characters[b]!).draft?.mode).toBe(
+			'milestone',
+		);
+	});
+
+	it('rejects when no listed character is eligible', () => {
+		const env = makeEnvironment();
+		const { state, a } = setupTwoOwnedL1(env);
+		const opened = accepted(
+			dispatchCommand(state, env, {
+				type: 'character.open-advancement',
+				actorId: DM_ACTOR.id,
+				payload: { characterId: a, mode: 'milestone' },
+			}),
+		).nextState;
+		const result = rejected(
+			dispatchCommand(opened, env, {
+				type: 'character.level-party',
+				actorId: DM_ACTOR.id,
+				payload: { characterIds: [a] },
+			}),
+		);
+		expect(result.rejection.code).toBe('invalid-state');
+	});
+
+	it('is DM-only', () => {
+		const env = makeEnvironment();
+		const { state, a } = setupTwoOwnedL1(env);
+		const result = rejected(
+			dispatchCommand(state, env, {
+				type: 'character.level-party',
+				actorId: PLAYER_ACTOR.id,
+				payload: { characterIds: [a] },
+			}),
+		);
+		expect(result.rejection.code).toBe('actor-not-authorized');
 	});
 });

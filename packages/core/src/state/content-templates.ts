@@ -254,7 +254,8 @@ export function renderTemplate(
 		issues.push({
 			code: 'generated-content-invalid',
 			field: '(content)',
-			message: 'The generated markdown is invalid; fix the template or variables before creating it.',
+			message:
+				'The generated markdown is invalid; fix the template or variables before creating it.',
 		});
 	}
 	if (objectValidation && !objectValidation.valid) {
@@ -319,6 +320,36 @@ export const CONTENT_TEMPLATE_PRESETS: readonly ContentTemplate[] = Object.freez
 		titleTemplate: '{{name}}',
 		bodyTemplate:
 			'---\ndndtools.objectSubtype: handout\ntitle: {{name}}\nformat: {{format}}\n---\n\nNotes about {{name}}.',
+		defaultVisibility: 'dm-only',
+	}),
+	Object.freeze({
+		id: 'faction-brief',
+		name: 'Faction brief',
+		description: 'A DM-only brief for a faction: its goal, its methods and who leads it.',
+		kind: 'note',
+		variables: [
+			{ name: 'faction', label: 'Faction name', required: true },
+			{ name: 'goal', label: 'What it wants', required: true },
+			{ name: 'leader', label: 'Who leads it', required: false, defaultValue: 'Unknown' },
+		],
+		titleTemplate: '{{faction}}',
+		bodyTemplate:
+			'# {{faction}}\n\n**Goal.** {{goal}}\n\n**Led by.** {{leader}}\n\n## Methods\n\n- \n\n## Allies and rivals\n\n- \n',
+		defaultVisibility: 'dm-only',
+	}),
+	Object.freeze({
+		id: 'quest-outline',
+		name: 'Quest outline',
+		description: 'A DM-only outline for a quest: the hook, the stakes and how it can end.',
+		kind: 'note',
+		variables: [
+			{ name: 'quest', label: 'Quest name', required: true },
+			{ name: 'hook', label: 'The hook', required: true },
+			{ name: 'reward', label: 'Reward', required: false, defaultValue: 'To be decided' },
+		],
+		titleTemplate: '{{quest}}',
+		bodyTemplate:
+			'# {{quest}}\n\n**Hook.** {{hook}}\n\n**Reward.** {{reward}}\n\n## Steps\n\n- \n\n## If it goes wrong\n\n- \n',
 		defaultVisibility: 'dm-only',
 	}),
 	Object.freeze({

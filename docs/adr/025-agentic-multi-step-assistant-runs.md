@@ -134,3 +134,41 @@ the same conflict posture as `note.update`.
 does not have. They are covered by dedicated core tests instead
 (`packages/core/tests/mcp-agent-write-tools.test.ts`); the three creation tools that work from an
 empty vault gained smoke scenarios.
+
+## Amendment — RC-AI-1.4 as built (2026-09-08)
+
+`character.level-up` is the first write tool bound to a command that did not already exist, and the
+first whose approval has to do more than one thing.
+
+**Why a new command instead of a multi-command approval.** A level-up is three commands
+(`character.open-advancement` → `character.set-advancement-choices` → `character.commit-advancement`)
+because a HUMAN works through the wizard over several steps and needs the half-finished draft to
+survive a restart (CHAR-009 AC3). An agent has neither a wizard nor anywhere to keep a half-open
+draft while the DM decides whether to approve. Teaching `mcp.approve-proposal` to dispatch a sequence
+would have broken the registry's load-bearing invariant — a write tool names exactly ONE command — and
+put partial-failure handling in the approval path. Instead the core gained
+`character.apply-advancement`, which composes the SAME pure reducers in one dispatch: eligibility, the
+draft, the choices, the commit. It is a composition, not a second set of rules, so an agent cannot
+finalize anything the wizard would refuse, and it inherits the no-partial-commit guarantee — an
+ineligible character or an incomplete choice set rejects with nothing written and no half-open draft
+left for the DM to clean up. It refuses outright when a human already has an advancement open.
+
+**Two deliberate looseness decisions in the tool's input schema** (`writeCommandPayload` maps both):
+
+- `mode` is OPTIONAL. Whether a campaign levels on earned XP or on story milestones is a fact about
+  the vault — the active system package declares it (RC-CHR-1.4 `defaultAdvancementMode`) — not
+  something an agent should assert. An omitted mode resolves from the package and falls back to the
+  XP-GATED mode, so an unstated mode can never skip the XP threshold.
+- The class gaining the level may be named `className` or `class`. The live 7B smoke found the model
+  reaching for `class` (the field the finished character carries) more often than for the command's
+  `className`. Exactly one is required; both spell the same choice, which the core validates either
+  way, so the alias widens nothing.
+
+**Not covered by the live-model smoke harness.** `character.level-up` was tried there with a seeded
+level-1 PC and did not hold up: qwen2.5:7b picks it out of the thirty tools on offer only sometimes
+and, when it does, invents the class argument's name about as often as it reads it — roughly one pass
+in four across ~16 runs, on a harness that scored 3/6 on its pre-existing scenarios that day. A
+scenario that flaky is not evidence, so the tool's contract — staging, the atomic
+open→choices→commit approval, and the fail-closed rejections — is proven by
+`packages/core/tests/mcp-agent-level-up.test.ts` instead, and the harness gained a substring argument
+so one scenario can be re-run cheaply against a larger model later.

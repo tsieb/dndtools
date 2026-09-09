@@ -70,7 +70,7 @@ for (const step of steps) {
 		cwd: repoRoot,
 		stdio: 'inherit',
 		env: step.ci
-			? // CI=1 makes Playwright behave as it does on GitHub: no dev-server reuse, retries, one worker.
+			? // CI=1 makes Playwright behave as it does on GitHub: no dev-server reuse, retries, two workers.
 				{ ...process.env, CI: '1', DNDTOOLS_E2E_PORT: process.env.DNDTOOLS_E2E_PORT ?? '5291' }
 			: process.env,
 	});

@@ -159,6 +159,36 @@ test.describe('end-of-session capture', () => {
 		await expect(page.getByText(TITLE).first()).toBeVisible();
 	});
 
+	test('RC-SES-4.2 — the continuity check offers to quick-create a name the capture mentions', async ({
+		page,
+	}) => {
+		await arrangeArchivedSession(page);
+		await gotoRoute(page, '/session');
+
+		await page
+			.getByLabel('What happened', { exact: true })
+			.fill('The party met a stranger named Thornwick at the docks.');
+		await page.getByRole('button', { name: 'Save session log' }).click();
+		await expect.poll(async () => (await sessionLogs(page)).length).toBe(1);
+
+		// The continuity check names the unnoted mention and offers to create it.
+		const check = page.getByRole('group', { name: '1 name mentioned without notes' });
+		await expect(check).toBeVisible();
+		await expect(check.getByText('Thornwick — create?')).toBeVisible();
+
+		await check.getByRole('button', { name: 'Create' }).click();
+
+		// The check clears once its only candidate is created, and the NPC is a real roster record.
+		await expect(page.getByText('Thornwick — create?')).toHaveCount(0);
+		const npc = await page.evaluate(() => {
+			const chars = window.__rt!.state.characters as unknown as {
+				characters: Record<string, { name: string; kind: string }>;
+			};
+			return Object.values(chars.characters).find((c) => c.name === 'Thornwick') ?? null;
+		});
+		expect(npc?.kind).toBe('npc');
+	});
+
 	test('saving nothing is not offered, and a capture clears the form', async ({ page }) => {
 		await arrangeArchivedSession(page);
 		await gotoRoute(page, '/session');

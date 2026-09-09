@@ -13,9 +13,19 @@ import {
 } from '../../ds';
 import { T } from '../screen-kit';
 import type { MapEditorApi } from './useMapEditor';
-import { ROUTE_PACE_LABELS, STAMP_ROTATION, STAMP_SIZE_PERCENT, TOOLS_BY_ID } from './tools';
+import {
+	AOE_TOOL_KIND,
+	ROUTE_PACE_LABELS,
+	STAMP_ROTATION,
+	STAMP_SIZE_PERCENT,
+	TEMPLATE_ROTATION,
+	TEMPLATE_SIZE,
+	TOOLS_BY_ID,
+	templateKindTurns,
+} from './tools';
 import { DOOR_KINDS, propLabel, SCATTER_SETS, TERRAIN_STYLES, VIS_TEXT_KEY } from './mapVocab';
 import { PropGlyph } from './dock/AssetsPanel';
+import { useCombatTemplates } from './canvas/useCombatTemplates';
 import { useI18n } from '../../i18n';
 import type { MessageKey } from '../../i18n';
 import { getProp, type SceneVisibility } from '@dndtools/core';
@@ -285,6 +295,53 @@ function ClearFogButton({
 				/>
 			)}
 		</>
+	);
+}
+
+/**
+ * RC-MAP-2.2 — take every area of effect back off this map. Icon-only for the same reason the fog
+ * one is: the area tools already run a size and a rotation control, and a labelled button pushes the
+ * bar onto a second row the sub-tool flyout is not laid out to make room for.
+ *
+ * No confirmation dialog, unlike clearing fog: a template is scaffolding for the fight in progress
+ * and re-placing one is two clicks, where cleared fog is authored map state that took real work.
+ */
+function ClearAreasButton({
+	editor,
+	announce,
+}: {
+	editor: MapEditorApi;
+	announce?: (message: string) => void;
+}) {
+	const { t } = useI18n();
+	const [clearing, setClearing] = useState(false);
+	const { templates } = useCombatTemplates(editor.mapId, editor.actorId);
+	return (
+		<IconButton
+			icon="delete"
+			label={t('toolOptions.clearAreas')}
+			variant="outline"
+			size="sm"
+			disabled={clearing || templates.length === 0}
+			onClick={() => {
+				setClearing(true);
+				const ids = templates.map((entry) => entry.template.id);
+				void (async () => {
+					for (const templateId of ids) {
+						await editor.run(
+							{
+								type: 'combat.remove-template',
+								actorId: editor.actorId,
+								payload: { templateId },
+							} as never,
+							{ undoable: false },
+						);
+					}
+					setClearing(false);
+					announce?.(t('toolOptions.areasCleared', { count: ids.length }));
+				})();
+			}}
+		/>
 	);
 }
 
@@ -625,6 +682,44 @@ export function ToolOptionsBar({
 						/>
 					</label>
 					{visControl}
+				</>
+			);
+			break;
+		// RC-MAP-2.2 — the Combat group. Move carries only snapping (where the token lands is the
+		// question, and the grid answers it); the four area tools carry the two numbers a DM reads off
+		// the spell — how big, and which way it points — plus a way to take the areas back off the
+		// board, so placing one is never a one-way door.
+		case 'combat-move':
+			controls = <SnapMenu editor={editor} />;
+			break;
+		case 'aoe-sphere':
+		case 'aoe-cone':
+		case 'aoe-line':
+		case 'aoe-cube':
+			controls = (
+				<>
+					<NumberControl
+						label={t('toolOptions.areaSize')}
+						value={options.templateSize}
+						min={TEMPLATE_SIZE.min}
+						max={TEMPLATE_SIZE.max}
+						step={TEMPLATE_SIZE.step}
+						unit={editor.map?.scale?.unit ?? undefined}
+						onChange={(v) => setOption('templateSize', v)}
+					/>
+					{templateKindTurns(AOE_TOOL_KIND.get(tool) ?? 'sphere') && (
+						<NumberControl
+							label={t('toolOptions.areaRotation')}
+							value={options.templateRotation}
+							min={TEMPLATE_ROTATION.min}
+							max={TEMPLATE_ROTATION.max}
+							step={TEMPLATE_ROTATION.step}
+							unit="°"
+							width={120}
+							onChange={(v) => setOption('templateRotation', v)}
+						/>
+					)}
+					<ClearAreasButton editor={editor} announce={announce} />
 				</>
 			);
 			break;

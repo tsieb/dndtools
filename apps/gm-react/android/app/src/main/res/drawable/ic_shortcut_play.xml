@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Home-screen shortcut icon for the player view (RC-PLT-2.2). Same brand-ground disc as the
+    session shortcut; the glyph is the design system's `play` triangle on the 24 grid.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#0E0A06"
+        android:pathData="M24,0 a24,24 0 1,0 0,48 a24,24 0 1,0 0,-48 Z" />
+    <group android:translateX="12" android:translateY="12">
+        <path
+            android:pathData="M6,3 L20,12 L6,21 Z"
+            android:strokeColor="#E0B06F"
+            android:strokeWidth="2"
+            android:strokeLineJoin="round"
+            android:strokeLineCap="round" />
+    </group>
+</vector>

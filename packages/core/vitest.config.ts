@@ -7,6 +7,15 @@ export default defineConfig({
 		environment: 'node',
 		globals: false,
 		maxWorkers: testWorkers(),
+		// RC-ENG-2.2. Vitest's default forks one worker PROCESS PER TEST FILE and tears it down
+		// afterwards, so all 267 files re-import the whole core module graph from scratch: 124s of
+		// import time against 32s of actual test time. The core is framework-free, node-environment,
+		// pure TypeScript with no global mutable state and no DOM to reset, so a worker can safely
+		// serve many files in sequence. Turning isolation off takes the suite from 62.6s to 16.1s
+		// with identical results (4,693 tests), including under `--sequence.shuffle`, which is what
+		// proves no file depends on another's fresh module registry. A test that needs a clean
+		// module graph must ask for it locally (`vi.resetModules()` in its own `beforeEach`).
+		isolate: false,
 		coverage: {
 			provider: 'v8',
 			reporter: ['text', 'json-summary', 'html'],

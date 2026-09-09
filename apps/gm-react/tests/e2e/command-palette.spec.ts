@@ -221,6 +221,72 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 		await page.waitForURL((url) => url.hash === '#/player', { timeout: 10_000 });
 		await expect(page.getByRole('dialog', PALETTE)).toHaveCount(0);
 	});
+	// ── RC-KNW-2.3 — command palette v2 ──────────────────────────────────────────────────────────
+	// The `>` sigil (the core's own SRCH-005 quick-switcher prefix) narrows the palette to ACTIONS:
+	// a DM who typed a verb must never be handed a place instead.
+	test('the > prefix lists actions only, never destinations', async ({ page }) => {
+		await openViaKeyboard(page, 'Meta+k');
+
+		// Without the sigil, section destinations are offered.
+		await expect(page.getByRole('group', { name: 'Go to' })).toBeVisible();
+
+		await page.getByRole('combobox').fill('>');
+		// Actions survive: the Create launchers and the core action catalog.
+		await expect(page.getByRole('option', { name: 'New note' })).toBeVisible();
+		await expect(page.getByRole('group', { name: 'Actions' })).not.toHaveCount(0);
+		// Destinations are gone entirely — no "Go to", no scene/character/map rows.
+		await expect(page.getByRole('group', { name: 'Go to' })).toHaveCount(0);
+		await expect(page.getByRole('group', { name: 'Scenes' })).toHaveCount(0);
+		await expect(page.getByRole('group', { name: 'Maps' })).toHaveCount(0);
+
+		// The residual text after the sigil still filters the actions.
+		await page.getByRole('combobox').fill('>new note');
+		await expect(page.getByRole('option', { name: 'New note' })).toBeVisible();
+		await expect(page.getByRole('option', { name: 'New map' })).toHaveCount(0);
+	});
+
+	// Contextual actions (RC-CAN-4.3): the actions that belong to the screen the DM is on are
+	// promoted to the top of the palette and offered with no query at all. On the hub — which owns
+	// no action group — the section is absent rather than empty.
+	test('the palette leads with the actions for the current screen', async ({ page }) => {
+		await openViaKeyboard(page, 'Meta+k');
+		await expect(page.getByRole('group', { name: 'On this screen' })).toHaveCount(0);
+		await page.keyboard.press('Escape');
+
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await openViaKeyboard(page, 'Meta+k');
+		const here = page.getByRole('group', { name: 'On this screen' });
+		await expect(here).toBeVisible();
+		// It is the FIRST group in the list, before Create and Go to.
+		await expect(page.getByRole('group').first()).toHaveAttribute('aria-label', 'On this screen');
+		expect(await here.getByRole('option').count()).toBeGreaterThan(0);
+	});
+
+	// A row that fires the same thing a documented key chord fires prints that chord, straight from
+	// app/shortcuts/registry.ts — the palette teaches the keyboard instead of hiding it.
+	test('an action row prints the keyboard shortcut that also fires it', async ({ page }) => {
+		await openViaKeyboard(page, 'Meta+k');
+		await page.getByRole('combobox').fill('scene card');
+		const row = page.getByRole('option', { name: /Show the next scene card/ });
+		await expect(row).toBeVisible();
+		await expect(row.getByText('Ctrl/⌘+→')).toBeVisible();
+	});
+
+	// Recent on empty: the palette opens on what the DM keeps reaching for, so the second use of a
+	// command is one keystroke rather than a re-typed query.
+	test('a command that was just run comes back under Recent', async ({ page }) => {
+		await openViaKeyboard(page, 'Meta+k');
+		await page.getByRole('combobox').fill('New scene');
+		await page.getByRole('option', { name: 'New scene' }).click();
+		await page.waitForURL((url) => url.hash === '#/scenes', { timeout: 10_000 });
+
+		await openViaKeyboard(page, 'Meta+k');
+		const recent = page.getByRole('group', { name: 'Recent' });
+		await expect(recent).toBeVisible();
+		await expect(recent.getByRole('option', { name: 'New scene' })).toBeVisible();
+	});
+
 	// The DM's landing surface contained NO heading of any level: the 23px hero was a styled <div>
 	// and the four section labels (Scenes / Create / Manage / Library) were styled <span>s, so a
 	// screen-reader user could not navigate `/` by heading or rotor and the groupings were conveyed

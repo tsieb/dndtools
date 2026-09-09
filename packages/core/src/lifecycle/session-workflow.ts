@@ -49,10 +49,7 @@ export const SESSION_WORKFLOW_TRANSITIONS: Readonly<
 });
 
 /** Whether `to` is an allowed transition from `from` (fail-closed: unknown pairs are not allowed). */
-export function isTransitionAllowed(
-	from: SessionWorkflowState,
-	to: SessionWorkflowState,
-): boolean {
+export function isTransitionAllowed(from: SessionWorkflowState, to: SessionWorkflowState): boolean {
 	return SESSION_WORKFLOW_TRANSITIONS[from].includes(to);
 }
 
@@ -143,6 +140,13 @@ export const SESSION_COMMAND_AVAILABILITY: Partial<
 	'session.reveal-handout-section': 'live-session',
 	'session.project-active-map': 'live-session',
 	'character.update-combat-resource': 'live-session',
+	// RC-SES-4.4 — the quick-panel timer is live-session state: it is cleared on every session reset,
+	// so operating it outside `active` has no session for it to belong to.
+	'session.quick-timer.start': 'live-session',
+	'session.quick-timer.pause': 'live-session',
+	'session.quick-timer.resume': 'live-session',
+	'session.quick-timer.reset': 'live-session',
+	'session.quick-timer.lap': 'live-session',
 	// DM admin session commands: available in any non-idle workflow.
 	'session.project-player-view': 'dm-admin',
 	'session.revoke-player-view': 'dm-admin',
@@ -181,9 +185,7 @@ export function isSessionCommandAvailable(
 }
 
 /** The governed session command types available in the given workflow state, sorted for stability. */
-export function availableSessionCommands(
-	workflow: SessionWorkflowState,
-): CoreCommand['type'][] {
+export function availableSessionCommands(workflow: SessionWorkflowState): CoreCommand['type'][] {
 	return (Object.keys(SESSION_COMMAND_AVAILABILITY) as CoreCommand['type'][])
 		.filter((type) => isSessionCommandAvailable(type, workflow))
 		.sort();

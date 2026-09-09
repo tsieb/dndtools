@@ -3,6 +3,7 @@ import {
 	SESSION_LOG_SUBTYPE,
 	VAULT_OBJECT_SUBTYPE_KEY,
 	composeSessionLogMarkdown,
+	detectContinuityMentions,
 	dispatchCommand,
 	getCalendarTimelineForActor,
 	getContentItemsForActor,
@@ -123,6 +124,77 @@ describe('RC-SES-4.1 — composing the capture (pure)', () => {
 		expect(once).toEqual({ happened: '', changes: [], followUps: [] });
 		expect(normalizeSessionLogCapture(once)).toEqual(once);
 		expect(isEmptySessionLogCapture(raw)).toBe(true);
+	});
+});
+
+describe('RC-SES-4.2 — continuity check: detecting unnoted names (pure)', () => {
+	it('flags a name mentioned mid-sentence that matches no known record', () => {
+		const candidates = detectContinuityMentions(
+			{ happened: 'The party met Thorne at the docks.', changes: [], followUps: [] },
+			[],
+		);
+		expect(candidates).toEqual([{ id: 'mention:thorne', name: 'Thorne' }]);
+	});
+
+	it('does not flag a name already on the roster or vault (case-insensitive)', () => {
+		const candidates = detectContinuityMentions(
+			{ happened: 'The party met thorne at the docks.', changes: [], followUps: [] },
+			['Thorne'],
+		);
+		expect(candidates).toEqual([]);
+	});
+
+	it('does not flag a name already marked as changed in this capture', () => {
+		const candidates = detectContinuityMentions(
+			{
+				happened: 'The party met Vex at the docks.',
+				changes: [{ entityType: 'character', entityId: 'c1', label: 'Vex' }],
+				followUps: [],
+			},
+			[],
+		);
+		expect(candidates).toEqual([]);
+	});
+
+	it('drops an ordinary sentence-initial capitalized word but keeps a multi-word name there', () => {
+		const candidates = detectContinuityMentions(
+			{
+				happened: 'The guard nodded. Lady Vex arrived soon after.',
+				changes: [],
+				followUps: [],
+			},
+			[],
+		);
+		expect(candidates).toEqual([{ id: 'mention:lady-vex', name: 'Lady Vex' }]);
+	});
+
+	it('dedupes repeats and bounds the result to the limit, in first-appearance order', () => {
+		const candidates = detectContinuityMentions(
+			{
+				happened: 'The party met Thorne. Thorne left. They met Vex, Bram and Orla too.',
+				changes: [],
+				followUps: [],
+			},
+			[],
+			3,
+		);
+		expect(candidates).toEqual([
+			{ id: 'mention:thorne', name: 'Thorne' },
+			{ id: 'mention:vex', name: 'Vex' },
+			{ id: 'mention:bram', name: 'Bram' },
+		]);
+	});
+
+	it('scans the follow-ups too', () => {
+		const candidates = detectContinuityMentions(
+			{
+				happened: '',
+				changes: [],
+				followUps: ['Name the harbour master', 'Circle back with Kessa for help'],
+			},
+			[],
+		);
+		expect(candidates).toEqual([{ id: 'mention:kessa', name: 'Kessa' }]);
 	});
 });
 

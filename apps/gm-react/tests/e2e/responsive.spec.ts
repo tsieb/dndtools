@@ -284,6 +284,35 @@ for (const viewport of [
 	});
 }
 
+// RC-CAN-3.2 — the "scroll-natural" pan model (wheel/Shift+wheel/trackpad/touch scroll it, a
+// middle-mouse drag pans it) still has to leave every control reachable at the narrowest phone width
+// the app supports. 320px is narrower than the `minimum-width phone` fixture the general sweep above
+// uses, and is scoped to `/board` alone rather than folded into that sweep: it is the one route whose
+// reachability now depends on a real internal scroll region rather than layout reflow.
+test('the board keeps every control reachable at 320x640', async ({ page }) => {
+	await page.setViewportSize({ width: 320, height: 640 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/board');
+	await seedFresh(page);
+	await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+	await page.locator('h1').first().waitFor({ state: 'attached', timeout: 20_000 });
+	await page.waitForFunction(
+		() => {
+			const rt = window.__rt!;
+			const id = rt.state.commandCenter.homeSceneId;
+			return !!id && rt.state.scenes.scenes[id]?.widgets.length > 0;
+		},
+		null,
+		{ timeout: 10_000 },
+	);
+	await page.waitForTimeout(100);
+
+	// The pane itself must never widen — the board reaches its own content through its internal
+	// scroll region, never by pushing the shell wider than the viewport.
+	await expectNoHorizontalOverflow(page, '320px board', '#main-content', true);
+	expect(await clippedControls(page), '320px board has an unreachable control').toEqual([]);
+});
+
 // The character SHEET (/characters/:id) needs a seeded id, so the static ROUTES sweep above could
 // never reach it — and it shipped with no phone branch at all: a hard two-column sheet whose
 // ability (6-track) and skills (2-track) grids then overflowed their ~180px columns.
@@ -792,9 +821,24 @@ test('Android routes consume native safe areas and keep 48dp controls keyboard-v
 					}
 					const name =
 						control.getAttribute('aria-label') || control.textContent?.trim() || control.tagName;
+					// RC-CAN-3.1: a control inside a surface that scrolls SIDEWAYS (the GM Screen at the
+					// Fit floor, or at Comfortable/Detail) can sit under the cutout at scroll 0 and be
+					// brought into safe space by the same scroll that reaches it at all — the same
+					// reason this check already ignores controls below the fold. The 48dp and
+					// system-bar rules still apply to them.
+					let scroller: HTMLElement | null = control.parentElement;
+					let scrollsSideways = false;
+					while (scroller && !scrollsSideways) {
+						if (scroller.scrollWidth > scroller.clientWidth + 1) {
+							const overflowX = getComputedStyle(scroller).overflowX;
+							scrollsSideways = overflowX === 'auto' || overflowX === 'scroll';
+						}
+						scroller = scroller.parentElement;
+					}
 					const reasons: string[] = [];
 					if (rect.width < 47.5 || rect.height < 47.5) reasons.push('under 48dp');
-					if (rect.left < 15.5 || rect.right > innerWidth - 17.5) reasons.push('inside cutout');
+					if (!scrollsSideways && (rect.left < 15.5 || rect.right > innerWidth - 17.5))
+						reasons.push('inside cutout');
 					const systemChrome = control.closest('header, nav[aria-label="Primary"]');
 					if (systemChrome && (rect.top < 23.5 || rect.bottom > innerHeight - 29.5)) {
 						reasons.push('inside system bar');

@@ -1,10 +1,11 @@
 # ADR-006: Multi-Platform Approach (Web + Electron + Capacitor Android)
 
-- Status: Accepted (amended 2026-07-15)
+- Status: Accepted (amended 2026-07-15, ADR-038)
 - Date: 2026-03-01
 - Deciders: Engineering
 - Consulted: Product, UX, Security, QA
 - Amends: ADR-004 implementation details; incorporates the React-primary decision in ADR-018
+- Amended by: ADR-038 (adds an `ios` runtime kind for WebKit on iPhone/iPad; still three shells)
 
 ## Context
 
@@ -29,7 +30,8 @@ Ship three runtime kinds from the shared React renderer:
 - `android`: the same renderer in the tracked Capacitor 8 project at `apps/gm-react/android`.
 
 `apps/gm-react/src/platform/capabilities.ts` is the single runtime and capability decision point. It
-defines `RuntimeKind = 'web' | 'electron' | 'android'` and `PlatformCapabilities` for secure storage,
+defines `RuntimeKind = 'web' | 'electron' | 'android' | 'ios'` (ADR-038 adds `ios` as a capability
+kind for WebKit on iPhone/iPad, not a fourth shell) and `PlatformCapabilities` for secure storage,
 file export/share, local discovery, notifications, window management, external links, and Android
 Quick Map mode. Feature code consumes this contract instead of probing Electron or Capacitor globals.
 

@@ -12,6 +12,11 @@ import { Button } from '../core/Button.jsx';
  * POI visibility is its OWN axis, independent of layer/map visibility (MAP-011) — the visibility
  * control here never changes the layer. Authoring controls (visibility, Edit, Delete) are DM-only;
  * pass `readOnly` for the player view, which shows just the name, category, and linked note.
+ *
+ * RC-MAP-3.10 — when the POI links a note, `poi.notePreview` renders the note's opening THREE lines
+ * (clamped, never the whole body) with a "Read note" action. The preview is whatever the caller's
+ * actor-scoped read returned: the popover never reaches for content itself, so a player can only
+ * ever be handed a preview of a note the core already decided they may see.
  */
 const CAT = {
 	location: { icon: 'poi', color: 'var(--layer-poi)' },
@@ -40,6 +45,7 @@ export function POIPopover({
 		category = 'location',
 		categoryLabel,
 		linkedNote,
+		notePreview,
 		visibility = 'dm-only',
 	} = poi;
 	const c = CAT[category] || CAT.location;
@@ -110,36 +116,49 @@ export function POIPopover({
 		>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
 				{linkedNote && (
-					<div
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: 'var(--space-2)',
-							fontFamily: 'var(--font-sans)',
-							fontSize: 'var(--text-sm)',
-						}}
-					>
-						<span style={{ color: 'var(--color-text-tertiary)' }}>Linked note</span>
-						<button
-							type="button"
-							onClick={onOpenNote}
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)' }}>
+						<div
 							style={{
-								display: 'inline-flex',
+								display: 'flex',
 								alignItems: 'center',
-								gap: 4,
-								background: 'transparent',
-								border: 'none',
-								padding: 0,
-								color: 'var(--color-text-link)',
-								cursor: 'pointer',
-								fontFamily: 'inherit',
-								fontSize: 'inherit',
-								textDecoration: 'underline',
-								textUnderlineOffset: 2,
+								gap: 'var(--space-2)',
+								fontFamily: 'var(--font-sans)',
+								fontSize: 'var(--text-sm)',
 							}}
 						>
-							<Icon name="link" size={13} /> {linkedNote}
-						</button>
+							<Icon name="link" size={13} />
+							<span style={{ color: 'var(--color-text-tertiary)' }}>Linked note</span>
+							<span style={{ color: 'var(--color-text-primary)' }}>{linkedNote}</span>
+						</div>
+						{notePreview && (
+							<p
+								style={{
+									margin: 0,
+									fontFamily: 'var(--font-sans)',
+									fontSize: 'var(--text-xs)',
+									lineHeight: 1.5,
+									color: 'var(--color-text-secondary)',
+									display: '-webkit-box',
+									WebkitBoxOrient: 'vertical',
+									WebkitLineClamp: 3,
+									overflow: 'hidden',
+									whiteSpace: 'pre-line',
+								}}
+							>
+								{notePreview}
+							</p>
+						)}
+						{onOpenNote && (
+							<Button
+								size="sm"
+								variant="secondary"
+								icon="knowledge-book"
+								onClick={onOpenNote}
+								aria-label={`Read note ${linkedNote}`}
+							>
+								Read note
+							</Button>
+						)}
 					</div>
 				)}
 				{!readOnly && (

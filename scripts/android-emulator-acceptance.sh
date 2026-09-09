@@ -354,6 +354,54 @@ adb shell input keyevent KEYCODE_BACK
 wait_until_foreground || fail 'Back minimized the app instead of closing the More sheet'
 wait_for_ui_text_absent 'All sections' || fail 'Back did not dismiss the More sheet'
 
+# RC-PLT-2.2 — home-screen shortcuts, the share target and notification channels. Each is an entry
+# point Android owns: the launcher, another app's share sheet, and the system notification settings.
+# The assertions below check the DECLARED contract (shortcut ids, channel ids) and then drive each
+# entry point for real, because a declared shortcut that opens the wrong screen still passes a
+# manifest check.
+step 'home-screen shortcuts'
+SHORTCUT_DUMP=$(adb shell dumpsys shortcut 2>/dev/null | tr -d '\r')
+grep -q "$PACKAGE_ID" <<<"$SHORTCUT_DUMP" || fail 'the launcher published no shortcuts for the app'
+grep -Eq 'id=session|"session"' <<<"$SHORTCUT_DUMP" || fail 'the Session shortcut was not published'
+grep -Eq 'id=play|"play"' <<<"$SHORTCUT_DUMP" || fail 'the Play shortcut was not published'
+
+SHORTCUT_OUTPUT=$(adb shell am start -W -a android.intent.action.VIEW -n "$COMPONENT" \
+	--es dndtools_route /session | tr -d '\r')
+grep -q 'Status: ok' <<<"$SHORTCUT_OUTPUT" || fail 'the Session shortcut intent did not reach MainActivity'
+wait_for_ui_text 'LIVE SESSION' || fail 'the Session shortcut did not open the session destination'
+
+SHORTCUT_OUTPUT=$(adb shell am start -W -a android.intent.action.VIEW -n "$COMPONENT" \
+	--es dndtools_route /play | tr -d '\r')
+grep -q 'Status: ok' <<<"$SHORTCUT_OUTPUT" || fail 'the Play shortcut intent did not reach MainActivity'
+wait_for_ui_text 'Now playing' || fail 'the Play shortcut did not open the player view'
+
+# A route the shortcuts never declare must be dropped, not navigated to.
+adb shell am start -W -a android.intent.action.VIEW -n "$COMPONENT" --es dndtools_route /settings \
+	>/dev/null || fail 'an undeclared route intent could not be delivered'
+sleep 1
+wait_for_ui_text_absent 'Settings section' || fail 'an undeclared shortcut route navigated the app'
+adb shell input keyevent KEYCODE_BACK
+wait_until_foreground || fail 'Back minimized the app instead of leaving the player view'
+wait_for_root_destination || fail 'Back did not return to the root destination after the shortcuts'
+
+step 'notification channels'
+CHANNEL_DUMP=$(adb shell dumpsys notification --noredact 2>/dev/null | tr -d '\r')
+grep -q 'lamplight-live-session' <<<"$CHANNEL_DUMP" \
+	|| fail 'the live-session notification channel was not created at launch'
+grep -q 'lamplight-updates' <<<"$CHANNEL_DUMP" \
+	|| fail 'the updates notification channel was not created at launch'
+
+step 'share-target import review'
+SHARE_OUTPUT=$(adb shell am start -W -a android.intent.action.SEND -t application/json \
+	-n "$COMPONENT" --es android.intent.extra.TEXT "'{\"not\":\"a module\"}'" | tr -d '\r')
+grep -q 'Status: ok' <<<"$SHARE_OUTPUT" || fail 'the share intent did not reach MainActivity'
+wait_for_ui_text 'Import shared file' || fail 'a shared file did not open the import review'
+# Fail closed and honest: a file that is not a module says so and offers nothing to import.
+ui_contains_text 'Not a module' || fail 'the import review did not report an unrecognized file'
+tap_ui_button 'Close' || fail 'the import review could not be dismissed'
+wait_for_ui_text_absent 'Import shared file' || fail 'Close did not dismiss the import review'
+wait_for_root_destination || fail 'dismissing the import review lost the root destination'
+
 # The renderer opens the canonical Dexie vault during boot. Assert that the WebView created its
 # IndexedDB directory, then keep an independent app-private marker to prove lifecycle and upgrade
 # operations do not clear the application sandbox.

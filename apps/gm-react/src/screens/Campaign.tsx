@@ -732,7 +732,16 @@ export function Campaign() {
 
 	return (
 		<Page>
-			<div style={{ marginBottom: 18 }}>
+			<div
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'space-between',
+					gap: 12,
+					flexWrap: 'wrap',
+					marginBottom: 18,
+				}}
+			>
 				<Tabs
 					value={tab}
 					onChange={setTab}
@@ -740,6 +749,16 @@ export function Campaign() {
 					idBase="campaign"
 					aria-label={t('campaign.sections')}
 				/>
+				{/* RC-KNW-3.3 — the relationship editor is a sub-route of Story, same pattern as the
+				    calendar editor: no nav.ts entry, reached from a button on the surface it complements. */}
+				<Button
+					variant="ghost"
+					size="sm"
+					icon="group"
+					onClick={() => navigate('/campaign/relationships')}
+				>
+					{t('campaign.relationships.entry')}
+				</Button>
 			</div>
 			<h2 className="visually-hidden">
 				{tabs.find((item) => item.id === tab)?.label ?? t('campaign.title')}

@@ -333,3 +333,55 @@ export function assertServerVisibilityForRecord(
 			'(fail closed).',
 	);
 }
+
+// --- Plaintext-upload gate: server-side mode registration (ADR-026 phase 2) --------------------
+
+/**
+ * ADR-026 phase 2 — the vault's privacy mode as the SERVER authoritatively recorded it at consent
+ * time, never the client-local flag (`vaultMode.ts` in apps/gm-react is UX state only — see
+ * threat-model T6: "the device-local flag is UX state, not the authority"). `undefined` means no
+ * registration row exists for the vault, which MUST resolve the same as an explicit
+ * `'private-e2ee'` registration (fail closed: an unregistered vault can never be treated as opted
+ * in).
+ */
+export type RegisteredVaultPrivacyMode = 'private-e2ee' | 'cloud-enhanced';
+
+/**
+ * SEC-009 / ADR-026 phase-2 checklist — "Plaintext path accepts uploads only for vaults whose
+ * server-side mode registration says cloud-enhanced; an E2EE vault's envelope is never readable
+ * regardless of a client bug." THE gate a plaintext-content upload route (none exists yet) must
+ * call before accepting a plaintext payload for a vault, fail closed on every axis:
+ *
+ *   1. the vault's SERVER-recorded registration must be exactly `'cloud-enhanced'` — a client
+ *      request header/body claiming the mode is never sufficient, only a prior server-side write, and
+ *   2. the Cloud-Enhanced decision record must itself be complete and approved
+ *      ({@link validateCloudSecurityRecord}), so an unapproved record keeps every vault's plaintext
+ *      path closed regardless of that vault's own registration.
+ *
+ * Pure: a function of the two inputs, no I/O. The route owns looking up the registration row and
+ * the release-approved record before calling this.
+ */
+export function isPlaintextUploadPermitted(
+	registeredMode: RegisteredVaultPrivacyMode | undefined,
+	record: CloudSecurityDecisionRecord,
+): boolean {
+	if (registeredMode !== 'cloud-enhanced') return false;
+	if (record.encryption !== 'server-side-encrypted') return false;
+	return validateCloudSecurityRecord(record).length === 0;
+}
+
+/**
+ * Throwing counterpart of {@link isPlaintextUploadPermitted} for a plaintext-upload route to call
+ * fail-closed, naming neither the vault nor any content in the message (generic, non-leaking).
+ */
+export function assertPlaintextUploadPermitted(
+	registeredMode: RegisteredVaultPrivacyMode | undefined,
+	record: CloudSecurityDecisionRecord,
+): void {
+	if (!isPlaintextUploadPermitted(registeredMode, record)) {
+		throw new Error(
+			'Plaintext upload refused: the vault is not server-side registered for cloud-enhanced mode ' +
+				'under a complete, approved decision record (fail closed).',
+		);
+	}
+}

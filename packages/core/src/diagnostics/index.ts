@@ -55,3 +55,24 @@ export type {
 	ParticipantSyncState,
 } from './participant-status';
 export { getParticipantStatus, toParticipantSafeSummary } from './participant-status';
+
+/* ---- RC-CLD-1.4 — opt-in product analytics taxonomy (content-free) ---------------------------- */
+export type {
+	ProductAnalyticsEvent,
+	ProductAnalyticsEventName,
+	ProductAnalyticsPayload,
+	ProductAnalyticsProps,
+	TelemetryConsent,
+	TelemetryPlatform,
+} from './product-analytics';
+export {
+	PRODUCT_ANALYTICS_EVENTS,
+	PRODUCT_ANALYTICS_EVENT_NAMES,
+	PRODUCT_ANALYTICS_MAX_EVENTS,
+	PRODUCT_ANALYTICS_PAYLOAD_VERSION,
+	buildProductAnalyticsEvent,
+	isTelemetryConsent,
+	parseProductAnalyticsPayload,
+	telemetryConsentAllows,
+	toAnalyticsAppVersion,
+} from './product-analytics';

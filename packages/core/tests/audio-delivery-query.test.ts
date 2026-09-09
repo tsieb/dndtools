@@ -34,6 +34,8 @@ const CLEARED_ASSET: AudioAsset = {
 	checksum: 'abc',
 	license: { kind: 'owned', licenseNote: '', attribution: '' },
 	tags: [],
+	durationSeconds: null,
+	waveform: [],
 	source: { sourceId: 's-local', importedAt: 't', importedBy: 'd' },
 	schemaVersion: 1,
 };
@@ -64,6 +66,7 @@ function library(): AudioState {
 		sources: { [source.id]: source },
 		automationRules: {},
 		associations: {},
+		sfxEvents: {},
 		presets: {},
 		schemaVersion: 1,
 	};
@@ -72,14 +75,22 @@ function library(): AudioState {
 const TRACK: AudioActiveTrack = { sourceId: 's-local', assetId: 'asset-cleared' };
 
 /** A granted, capable device input for a given actor. */
-function capableDevice(actorId: string, overrides: Partial<AudioParticipantDeviceInput> = {}): AudioParticipantDeviceInput {
+function capableDevice(
+	actorId: string,
+	overrides: Partial<AudioParticipantDeviceInput> = {},
+): AudioParticipantDeviceInput {
 	return {
 		actorId,
 		assetLocallyAvailable: true,
 		assetCached: false,
 		cacheEvicted: false,
 		online: true,
-		capability: { canAutoplay: true, canPlayInBackground: true, canRouteOutput: true, canPlayAudio: true },
+		capability: {
+			canAutoplay: true,
+			canPlayInBackground: true,
+			canRouteOutput: true,
+			canPlayAudio: true,
+		},
 		preferences: { consent: 'granted', muted: false, localVolume: 1, outputRouteId: null },
 		safety: { consecutiveFailures: 0, resourceExceeded: false },
 		backgrounded: false,
@@ -93,7 +104,9 @@ describe('AUDIO-006 AC2 — the DM sees every participant delivery state without
 		const devices = [
 			capableDevice('actor-zed'),
 			// A participant who DECLINED audio (cannot play) is visible to the DM.
-			capableDevice('actor-amy', { preferences: { consent: 'declined', muted: false, localVolume: 1, outputRouteId: null } }),
+			capableDevice('actor-amy', {
+				preferences: { consent: 'declined', muted: false, localVolume: 1, outputRouteId: null },
+			}),
 		];
 		const roster = listAudioDeliveryForDm(library(), permissions, DM_ACTOR.id, TRACK, devices);
 		expect(roster.map((r) => r.actorId)).toEqual(['actor-amy', 'actor-zed']);
@@ -101,7 +114,13 @@ describe('AUDIO-006 AC2 — the DM sees every participant delivery state without
 		expect(amy.disposition).toBe('consent-blocked');
 		expect(amy.sounding).toBe(false);
 		// No device secret leaks: the snapshot carries only the disposition / routing / message / sounding.
-		expect(Object.keys(amy).sort()).toEqual(['actorId', 'disposition', 'message', 'routing', 'sounding']);
+		expect(Object.keys(amy).sort()).toEqual([
+			'actorId',
+			'disposition',
+			'message',
+			'routing',
+			'sounding',
+		]);
 		expect(amy).not.toHaveProperty('capability');
 		expect(amy).not.toHaveProperty('preferences');
 	});
@@ -111,31 +130,51 @@ describe('AUDIO-006 AC2 — the DM sees every participant delivery state without
 		const devices = [
 			capableDevice('actor-bg', {
 				backgrounded: true,
-				capability: { canAutoplay: true, canPlayInBackground: false, canRouteOutput: true, canPlayAudio: true },
+				capability: {
+					canAutoplay: true,
+					canPlayInBackground: false,
+					canRouteOutput: true,
+					canPlayAudio: true,
+				},
 			}),
 			capableDevice('actor-locked', {
-				capability: { canAutoplay: false, canPlayInBackground: false, canRouteOutput: false, canPlayAudio: false },
+				capability: {
+					canAutoplay: false,
+					canPlayInBackground: false,
+					canRouteOutput: false,
+					canPlayAudio: false,
+				},
 			}),
 		];
 		const roster = listAudioDeliveryForDm(library(), permissions, DM_ACTOR.id, TRACK, devices);
 		expect(roster.find((r) => r.actorId === 'actor-bg')!.disposition).toBe('background-blocked');
-		expect(roster.find((r) => r.actorId === 'actor-locked')!.disposition).toBe('platform-unsupported');
+		expect(roster.find((r) => r.actorId === 'actor-locked')!.disposition).toBe(
+			'platform-unsupported',
+		);
 	});
 
 	it('a non-DM actor gets an EMPTY roster (the session-status surface is DM-only — no leak)', () => {
 		const permissions = buildPermissionState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR);
 		const devices = [capableDevice('actor-zed')];
-		expect(listAudioDeliveryForDm(library(), permissions, PLAYER_ACTOR.id, TRACK, devices)).toEqual([]);
-		expect(listAudioDeliveryForDm(library(), permissions, OBSERVER_ACTOR.id, TRACK, devices)).toEqual([]);
+		expect(listAudioDeliveryForDm(library(), permissions, PLAYER_ACTOR.id, TRACK, devices)).toEqual(
+			[],
+		);
+		expect(
+			listAudioDeliveryForDm(library(), permissions, OBSERVER_ACTOR.id, TRACK, devices),
+		).toEqual([]);
 		// An unknown actor fails closed to empty.
 		expect(listAudioDeliveryForDm(library(), permissions, 'ghost', TRACK, devices)).toEqual([]);
 	});
 
 	it('a participant whose track source no longer resolves is omitted (fail closed)', () => {
 		const permissions = buildPermissionState(DM_ACTOR);
-		const roster = listAudioDeliveryForDm(library(), permissions, DM_ACTOR.id, { sourceId: 's-missing', assetId: null }, [
-			capableDevice('actor-zed'),
-		]);
+		const roster = listAudioDeliveryForDm(
+			library(),
+			permissions,
+			DM_ACTOR.id,
+			{ sourceId: 's-missing', assetId: null },
+			[capableDevice('actor-zed')],
+		);
 		expect(roster).toEqual([]);
 	});
 
@@ -161,7 +200,12 @@ describe('AUDIO-007 / AUDIO-012 — a participant resolves only their OWN decisi
 			assetCached: false,
 			cacheEvicted: false,
 			online: true,
-			capability: { canAutoplay: true, canPlayInBackground: true, canRouteOutput: true, canPlayAudio: true },
+			capability: {
+				canAutoplay: true,
+				canPlayInBackground: true,
+				canRouteOutput: true,
+				canPlayAudio: true,
+			},
 			preferences: { consent: 'granted', muted: false, localVolume: 0.3, outputRouteId: null },
 		});
 		expect(decision?.disposition).toBe('playing');
@@ -179,7 +223,12 @@ describe('AUDIO-007 / AUDIO-012 — a participant resolves only their OWN decisi
 			assetCached: false,
 			cacheEvicted: false,
 			online: true,
-			capability: { canAutoplay: true, canPlayInBackground: true, canRouteOutput: true, canPlayAudio: true },
+			capability: {
+				canAutoplay: true,
+				canPlayInBackground: true,
+				canRouteOutput: true,
+				canPlayAudio: true,
+			},
 			preferences: { consent: 'granted', muted: false, localVolume: 0.1, outputRouteId: 'spk-2' },
 		});
 		// The participant's route choice IS honored as device-local — routing reflects their preference.
@@ -190,14 +239,25 @@ describe('AUDIO-007 / AUDIO-012 — a participant resolves only their OWN decisi
 
 	it('an observer (any authenticated participant) may resolve their own delivery decision', () => {
 		const permissions = buildPermissionState(DM_ACTOR, OBSERVER_ACTOR);
-		const decision = resolveAudioDeliveryForActor(library(), permissions, OBSERVER_ACTOR.id, TRACK, {
-			assetLocallyAvailable: true,
-			assetCached: false,
-			cacheEvicted: false,
-			online: true,
-			capability: { canAutoplay: true, canPlayInBackground: true, canRouteOutput: true, canPlayAudio: true },
-			preferences: { consent: 'declined', muted: false, localVolume: 1, outputRouteId: null },
-		});
+		const decision = resolveAudioDeliveryForActor(
+			library(),
+			permissions,
+			OBSERVER_ACTOR.id,
+			TRACK,
+			{
+				assetLocallyAvailable: true,
+				assetCached: false,
+				cacheEvicted: false,
+				online: true,
+				capability: {
+					canAutoplay: true,
+					canPlayInBackground: true,
+					canRouteOutput: true,
+					canPlayAudio: true,
+				},
+				preferences: { consent: 'declined', muted: false, localVolume: 1, outputRouteId: null },
+			},
+		);
 		expect(decision?.disposition).toBe('consent-blocked');
 	});
 
@@ -208,7 +268,12 @@ describe('AUDIO-007 / AUDIO-012 — a participant resolves only their OWN decisi
 			assetCached: false,
 			cacheEvicted: false,
 			online: true,
-			capability: { canAutoplay: true, canPlayInBackground: true, canRouteOutput: true, canPlayAudio: true },
+			capability: {
+				canAutoplay: true,
+				canPlayInBackground: true,
+				canRouteOutput: true,
+				canPlayAudio: true,
+			},
 			preferences: { consent: 'granted', muted: false, localVolume: 1, outputRouteId: null },
 		});
 		expect(decision).toBeNull();

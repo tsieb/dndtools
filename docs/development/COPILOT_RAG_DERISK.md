@@ -95,3 +95,45 @@ change, not a ranking change.
 
 The stand-in embedder is a floor, not a ceiling: `nomic-embed-text` is strictly stronger than hashed
 words, so a real local daemon can only do better than the figure above.
+
+## Managed contract preparation (RC-AI-4.1, partial)
+
+`packages/cloud-fns/src/copilot/contract.ts` defines wire version 1. A question carries only
+`vaultId`, `revision`, and a bounded question; it cannot supply actor identity, privacy mode,
+commands, or vault content. Answers carry the same revision and at most three source/chunk
+citations. An answered response requires citations; `not-found` carries none. These checks validate
+shape, not factual grounding: the future query adapter must constrain citations to retrieved,
+actor-visible chunks and use grounded-only prompting with hybrid lexical/cosine top-3 retrieval.
+
+`apps/gm-react/src/cloud/copilot.ts` supplies the client and presentation states: Private vault,
+pending security review, or missing transport. It reuses the core record selector and plaintext
+gate before invoking any transport, validates responses, forwards cancellation, and discards
+answers after a privacy-mode revocation. No endpoint or provider is configured by default.
+
+`packages/cloud-fns/src/copilot/indexer.ts` specifies trusted server adapter ports. The shipped
+unapproved record prevents even authorization I/O. After approval, server membership must identify
+a DM and server registration must say Cloud-Enhanced before actor-scoped snapshot reads occur.
+Snapshots contain unique, bounded chunks (structured fields should be separate chunks); embeddings
+run in batches of 32 with finite, nonzero, consistent dimensions. Atomic replacement is scoped by
+account, vault and actor and must reject stale source revisions. Empty snapshots remove old content.
+No adapter, server-readable storage, model provider, or cloud route ships in this preparation.
+
+The indexer binds all work to an immutable copy of the server-resolved scope. It rechecks the
+release record and current server authorization before each embedding batch and before replacement,
+including empty snapshots. Revocation or authorization lookup failure stops subsequent work; a
+release-gate denial prevents even another authorization lookup. The embedding port receives the
+scope alongside text so its future adapter can check access before disclosing content to a provider.
+Every adapter must enforce current access at its own I/O boundary: orchestration rechecks cannot
+eliminate a revocation race inside an adapter. In particular, replacement must atomically require
+current DM membership, Cloud-Enhanced registration **and** the current source revision, and reject
+rather than resurrect an index removed by revocation. Already-disclosed text cannot be recalled by
+these checks; deleting previously stored indexes remains the revocation adapter's responsibility.
+
+The existing ADR-026 phase-2 decision remains authoritative and unmodified. Contract tests cover
+the production denial path and use test-only approval to exercise future adapter behavior, including
+access changes during reads and embeddings, failed authorization refreshes, stable account/vault/actor
+scope, and rejected atomic writes.
+Remaining integration: Settings › AI must render `copilotAvailability()` and its reason before any
+managed action; authenticated server adapters must enforce current membership, consent/revocation,
+source revision and citation provenance. They must never accept identity or mode from request bodies.
+The indexer ports are contracts, not evidence that an implemented storage adapter enforces them.

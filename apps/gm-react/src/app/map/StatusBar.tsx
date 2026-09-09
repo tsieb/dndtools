@@ -3,6 +3,7 @@ import { estimateRouteTravel, findTravelPace } from '@dndtools/core';
 import { Icon } from '../../ds';
 import { T } from '../screen-kit';
 import type { MapEditorApi } from './useMapEditor';
+import { useCombatTemplates } from './canvas/useCombatTemplates';
 import { ROUTE_PACE_LABELS, TOOLS_BY_ID } from './tools';
 import { useI18n } from '../../i18n';
 import type { MessageKey, MessageValues } from '../../i18n';
@@ -10,6 +11,11 @@ import type { MessageKey, MessageValues } from '../../i18n';
 /**
  * MAP-021 — the editor status bar: active tool · active layer · zoom% · cursor x,y · N selected · a
  * one-line hint. A calm, always-present readout so the DM never has to guess what a click will do.
+ *
+ * RC-MAP-2.2 adds the AREA readout: once an area of effect is on the board, the bar names the shape,
+ * how many cells it covers, and WHO IS IN IT — the question the DM asked when they placed it. The
+ * names come from `useCombatTemplates`, which joins the core's already actor-filtered combat tokens
+ * against the core's own coverage geometry, so a combatant the DM cannot see is never listed.
  *
  * RC-MAP-3.7 adds the TRAVEL readout: when the selection is a route, the bar states how far it runs
  * in the map's own scale units and how long the party is on it at the chosen pace. It sits here
@@ -27,6 +33,7 @@ export function StatusBar({
 }) {
 	const { t, locale } = useI18n();
 	const def = TOOLS_BY_ID.get(editor.tool);
+	const { latest } = useCombatTemplates(editor.mapId, editor.actorId);
 	const travel = useMemo(() => {
 		const route = editor.map?.routes.find((candidate) => editor.selection.includes(candidate.id));
 		if (!route) return null;
@@ -75,6 +82,24 @@ export function StatusBar({
 			{editor.selection.length > 0 && (
 				<span style={{ color: T.acc }}>
 					{t('mapEditor.selectedCount', { count: editor.selection.length })}
+				</span>
+			)}
+			{latest && (
+				<span
+					aria-label={t('mapCombat.areaReadout')}
+					style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: T.ink }}
+				>
+					<Icon name="tool-aoe" size={12} color={T.ter} />
+					{t('mapCombat.areaCells', {
+						label: latest.template.label,
+						count: latest.cells.length,
+					})}
+					<span aria-hidden>·</span>
+					{latest.affected.length > 0
+						? t('mapCombat.areaAffects', {
+								names: latest.affected.map((entry) => entry.name).join(', '),
+							})
+						: t('mapCombat.areaAffectsNobody')}
 				</span>
 			)}
 			{travel && (

@@ -1368,6 +1368,89 @@ test.describe('map editor: party marker', () => {
 		await expect(sheet).toBeVisible();
 		await expect(sheet.getByRole('button', { name: 'Mark party here' })).toBeVisible();
 	});
+
+	// RC-AUD-2.2 — a POI linked to a scene package (the POI inspector's "Scene package" field, which
+	// writes the SAME generic `linkedEntityType`/`linkedEntityId` this spec sets directly) auto-plays
+	// that package the moment the party marker lands inside it.
+	test('marking the party inside a POI linked to a scene package auto-plays it', async ({
+		page,
+	}) => {
+		await openAtlas(page);
+		const name = `Party POI Map ${Date.now()}`;
+		const mapId = await createMap(page, { name });
+		const baseLayerId = (await readMap(page, mapId))!.layers[0]!.id;
+		const stamp = Date.now();
+
+		const cardResult = await dispatch(page, {
+			type: 'scene-card.create',
+			actorId: DM,
+			payload: { title: `Tavern Package ${stamp}` },
+		});
+		expect(cardResult.status).toBe('accepted');
+		const cardId = (
+			(cardResult.events ?? []).find(
+				(e) => (e as { kind?: string }).kind === 'scene-card.created',
+			) as { cardId?: string } | undefined
+		)?.cardId;
+		expect(
+			cardId,
+			'scene-card.create emitted a scene-card.created event with a cardId',
+		).toBeTruthy();
+
+		const poiResult = await dispatch(page, {
+			type: 'map.create-poi',
+			actorId: DM,
+			payload: {
+				mapId,
+				id: `poi-package-${stamp}`,
+				layerId: baseLayerId,
+				label: 'Linked POI',
+				category: 'other',
+				position: { x: 0.4, y: 0.3 },
+				visibility: 'dm-only',
+			},
+		});
+		expect(poiResult.status).toBe('accepted');
+		expect(
+			(
+				await dispatch(page, {
+					type: 'map.update-poi',
+					actorId: DM,
+					payload: {
+						mapId,
+						poiId: `poi-package-${stamp}`,
+						linkedEntityType: 'scene-card',
+						linkedEntityId: cardId,
+					},
+				})
+			).status,
+		).toBe('accepted');
+
+		await openEditor(page, name);
+		await focusEditor(page);
+
+		const canvas = page.getByRole('application');
+		const box = (await canvas.boundingBox())!;
+		// Well within POI_PARTY_ENTER_RADIUS (0.03) of the POI's (0.4, 0.3) position.
+		await canvas.click({
+			button: 'right',
+			position: { x: box.width * 0.4, y: box.height * 0.3 },
+		});
+		await page.getByRole('button', { name: 'Mark party here' }).click();
+
+		await expect
+			.poll(() =>
+				page.evaluate(
+					() =>
+						(
+							window as unknown as {
+								__rt?: { state?: { session?: { sceneCards?: { activeCardId?: string | null } } } };
+							}
+						).__rt?.state?.session?.sceneCards?.activeCardId,
+				),
+			)
+			.toBe(cardId);
+	});
 });
 
 // ── 13 · RC-MAP-4.1 · the list view (screen-reader inventory) ────────────────────────────────────
@@ -1668,5 +1751,403 @@ test.describe('map editor: fog brush ergonomics and polygon lasso (RC-MAP-3.9)',
 
 		await expect(page.getByText('Fog cleared.')).toHaveCount(1);
 		await expect(page.getByRole('dialog', { name: 'Clear all fog on this map?' })).toHaveCount(0);
+	});
+});
+
+// RC-MAP-3.10 — a POI is a pin until it points at something the DM wrote. "Create note here" is the
+// short path: one dialog, one type card, and the note exists AND the POI links to it. Both halves are
+// real core commands, so the assertion reads the durable vault + map state back, never the DOM.
+test.describe('map editor: POI note creation (RC-MAP-3.10)', () => {
+	/** Every vault object this actor holds, with the frontmatter the subtype schema validated. */
+	function readObjects(
+		page: Page,
+	): Promise<Array<{ id: string; title: string; body: string; fields: Record<string, unknown> }>> {
+		return page.evaluate(() => {
+			const items = (window.__rt?.state?.content?.items ?? {}) as Record<
+				string,
+				{ id: string; title: string; body: string; kind: string; fields: Record<string, unknown> }
+			>;
+			return Object.values(items)
+				.filter((i) => i.kind === 'object')
+				.map((i) => ({ id: i.id, title: i.title, body: i.body, fields: i.fields }));
+		});
+	}
+
+	/** The POI's durable link fields, straight off the map entity. */
+	function readPoiLink(
+		page: Page,
+		mapId: string,
+	): Promise<{ type: string | null; id: string | null } | null> {
+		return page.evaluate((mid) => {
+			const m = window.__rt?.state?.maps?.maps?.[mid] as
+				| { pois: Array<{ linkedEntityType: string | null; linkedEntityId: string | null }> }
+				| undefined;
+			const poi = m?.pois[0];
+			return poi ? { type: poi.linkedEntityType, id: poi.linkedEntityId } : null;
+		}, mapId);
+	}
+
+	test('"Create note here" creates an NPC object and links the POI to it', async ({
+		page,
+	}, testInfo) => {
+		await openAtlas(page);
+		const poi = await seedMapWithPoi(page, 'Note Link Hold');
+		await openEditor(page, poi.name);
+
+		// Select the POI on the canvas and take its popover's Edit action into the Inspector — the
+		// dock opens on Layers, so the Inspector has to be genuinely reached, not assumed.
+		await page.getByRole('button', { name: `POI: ${poi.label}` }).click();
+		await page
+			.getByRole('dialog', { name: poi.label })
+			.getByRole('button', { name: 'Edit' })
+			.click();
+		await revealDock(page, testInfo);
+
+		const create = page.getByRole('button', { name: 'Create note here' });
+		await expect(create).toBeEnabled();
+		await create.click();
+
+		const dialog = page.getByRole('dialog', { name: 'Create a note here' });
+		await expect(dialog).toBeVisible();
+		// The title defaults to the POI's own label — the DM renames it here, once.
+		const title = `Well Keeper ${Date.now()}`;
+		const titleField = dialog.getByLabel('Title', { exact: true });
+		await titleField.fill(title);
+
+		// Pick the NPC card from the KEYBOARD: arrows move an ARIA radiogroup's selection.
+		await dialog.getByRole('radio', { name: /^Location/ }).focus();
+		await page.keyboard.press('ArrowRight');
+		await expect(dialog.getByRole('radio', { name: /^NPC/ })).toHaveAttribute(
+			'aria-checked',
+			'true',
+		);
+
+		await dialog.getByRole('button', { name: 'Create and link' }).click();
+		await expect(dialog).toHaveCount(0);
+
+		// The vault holds a real `character` object, authored DM-only with the NPC template stub.
+		await expect
+			.poll(async () => (await readObjects(page)).find((o) => o.title === title)?.fields, {
+				timeout: 5000,
+			})
+			.toMatchObject({ name: title, characterKind: 'npc' });
+		const created = (await readObjects(page)).find((o) => o.title === title)!;
+		expect(created.body).toContain('## What they want');
+
+		// …and the POI durably points at THAT item, not at a name.
+		await expect
+			.poll(() => readPoiLink(page, poi.mapId), { timeout: 5000 })
+			.toEqual({
+				type: 'content-item',
+				id: created.id,
+			});
+	});
+
+	test('the POI popover previews the linked note and offers "Read note"', async ({ page }) => {
+		await openAtlas(page);
+		const poi = await seedMapWithPoi(page, 'Preview Hold');
+		const stamp = Date.now();
+		const noteTitle = `Keeper Dossier ${stamp}`;
+		const res = await dispatch(page, {
+			type: 'content.create-object',
+			actorId: DM,
+			payload: {
+				subtype: 'note',
+				title: noteTitle,
+				fields: {},
+				body: 'First preview line\nSecond preview line\nThird preview line\nFourth line',
+				visibility: 'dm-only',
+			},
+		});
+		expect(res.status).toBe('accepted');
+		const itemId = ((res.events ?? []).find(
+			(e) => (e as { kind?: string }).kind === 'content.object-changed',
+		) as { itemId?: string } | undefined)!.itemId!;
+		const poiId = (await readMap(page, poi.mapId))!.pois[0]!.id;
+		expect(
+			(
+				await dispatch(page, {
+					type: 'map.update-poi',
+					actorId: DM,
+					payload: {
+						mapId: poi.mapId,
+						poiId,
+						linkedEntityType: 'content-item',
+						linkedEntityId: itemId,
+					},
+				})
+			).status,
+		).toBe('accepted');
+
+		await openEditor(page, poi.name);
+		// No dock here: the popover lives on the canvas, and the compact profile's panel sheet covers it.
+		// Open it the way a DM does — activate the marker.
+		await page.getByRole('button', { name: `POI: ${poi.label}` }).click();
+
+		// Three lines of the note, and no more — the fourth stays in the note.
+		const popover = page.getByRole('dialog', { name: poi.label });
+		await expect(popover.getByText('First preview line')).toBeVisible();
+		await expect(popover.getByText('Fourth line')).toHaveCount(0);
+
+		// "Read note" is a real navigation, not a label: it lands on the note's own screen.
+		await popover.getByRole('button', { name: `Read note ${noteTitle}` }).click();
+		await expect(page).toHaveURL(new RegExp(`/knowledge/${itemId}$`));
+	});
+});
+
+// ── RC-MAP-2.1 · combat tokens on the editor canvas ──────────────────────────────────────────────
+//
+// A combat token is not an annotation token: it is a combatant in the RUNNING fight, owned by the
+// session slice, and it exists on the map only while that fight runs. These specs drive the real
+// layer — the core places the tokens through `combat.place-token`, the editor reads them back through
+// `getMapViewForActor(..., { combat })`, and every assertion about a move reads the COMMITTED core
+// position rather than a pixel.
+
+interface CombatFixture {
+	mapId: string;
+	mapName: string;
+	combatantIds: string[];
+}
+
+/** Take the session live, start a two-combatant fight, and stand both on a fresh map. */
+async function seedCombatMap(page: Page): Promise<CombatFixture> {
+	const mapName = `Lurker Bog ${Date.now()}`;
+	const mapId = await createMap(page, { name: mapName });
+
+	const live = await page.evaluate(() => {
+		const rt = window.__rt!;
+		const state = rt.state as unknown as {
+			session: { activeSceneId: string | null };
+			commandCenter: { homeSceneId: string | null };
+			scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+		};
+		const sceneId =
+			state.session.activeSceneId ??
+			state.commandCenter.homeSceneId ??
+			Object.values(state.scenes.scenes).find((s) => !s.isTemplate)?.id;
+		return rt.dispatch({
+			type: 'session.set-workflow',
+			actorId: rt.defaultActorId,
+			payload: { workflow: 'active', activeSceneId: sceneId },
+		});
+	});
+	expect(live.status, `go live: ${JSON.stringify(live.rejection ?? {})}`).toBe('accepted');
+
+	const started = await dispatch(page, {
+		type: 'combat.start',
+		actorId: DM,
+		payload: {
+			combatants: [
+				{ kind: 'monster', name: 'Bog Lurker', ac: 13, initiative: 18, maxHp: 22 },
+				{ kind: 'monster', name: 'Reed Stalker', ac: 12, initiative: 9, maxHp: 14 },
+			],
+		},
+	});
+	expect(started.status, JSON.stringify(started.rejection ?? {})).toBe('accepted');
+
+	const combatantIds = await page.evaluate(
+		() => (window.__rt!.state.session as { combat: { order: string[] } }).combat.order,
+	);
+	const spots = [
+		{ x: 0.3, y: 0.3 },
+		{ x: 0.7, y: 0.6 },
+	];
+	for (const [index, combatantId] of combatantIds.entries()) {
+		const placed = await dispatch(page, {
+			type: 'combat.place-token',
+			actorId: DM,
+			payload: { combatantId, mapId, ...spots[index]! },
+		});
+		expect(placed.status, JSON.stringify(placed.rejection ?? {})).toBe('accepted');
+	}
+	return { mapId, mapName, combatantIds };
+}
+
+/** The committed core position of one combatant's token. */
+function tokenPosition(page: Page, combatantId: string): Promise<{ x: number; y: number } | null> {
+	return page.evaluate((id) => {
+		const combat = (
+			window.__rt!.state.session as {
+				combat: { tokens: Record<string, { x: number; y: number }> };
+			}
+		).combat;
+		const token = combat.tokens[id];
+		return token ? { x: token.x, y: token.y } : null;
+	}, combatantId);
+}
+
+test.describe('map editor — combat tokens', () => {
+	test('draws the running combat: initials, hit points, conditions and the active-turn ring', async ({
+		page,
+	}) => {
+		await openAtlas(page);
+		const fixture = await seedCombatMap(page);
+		// A condition on the first combatant so the mini-badges have something to show.
+		const applied = await dispatch(page, {
+			type: 'combat.apply-resource',
+			actorId: DM,
+			payload: {
+				combatantId: fixture.combatantIds[0]!,
+				kind: 'condition',
+				condition: 'poisoned',
+				present: true,
+			},
+		});
+		expect(applied.status, JSON.stringify(applied.rejection ?? {})).toBe('accepted');
+
+		await openEditor(page, fixture.mapName);
+		const layer = page.getByRole('group', { name: 'Combat tokens' });
+		await expect(layer).toBeVisible();
+
+		// The active combatant's label carries the turn AND the hit points — colour is never the only
+		// signal (the ring is decorative; the accessible name is the truth).
+		await expect(
+			layer.getByRole('button', { name: /Bog Lurker\. Active turn · 22 of 22 hit points/ }),
+		).toBeVisible();
+		await expect(
+			layer.getByRole('button', { name: /Reed Stalker\. 14 of 14 hit points/ }),
+		).toBeVisible();
+		// The condition mini-badge is icon-only, so its accessible name is the condition itself.
+		await expect(layer.getByLabel('Poisoned')).toBeVisible();
+	});
+
+	test('dragging a token dispatches combat.move-token, snapped to the grid', async ({ page }) => {
+		await openAtlas(page);
+		const fixture = await seedCombatMap(page);
+		await openEditor(page, fixture.mapName);
+
+		const before = await tokenPosition(page, fixture.combatantIds[0]!);
+		expect(before).toEqual({ x: 0.3, y: 0.3 });
+
+		const token = page
+			.getByRole('group', { name: 'Combat tokens' })
+			.getByRole('button', { name: /^Bog Lurker\./ });
+		const box = await token.boundingBox();
+		expect(box, 'the combat token is laid out').toBeTruthy();
+		const from = { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 };
+		await page.mouse.move(from.x, from.y);
+		await page.mouse.down();
+		await page.mouse.move(from.x + 90, from.y + 60, { steps: 8 });
+		await page.mouse.up();
+
+		await expect
+			.poll(async () => (await tokenPosition(page, fixture.combatantIds[0]!))?.x)
+			.toBeGreaterThan(0.3);
+		const after = await tokenPosition(page, fixture.combatantIds[0]!);
+		expect(after!.y).toBeGreaterThan(0.3);
+		// The other combatant did not move: a drag targets exactly one token.
+		expect(await tokenPosition(page, fixture.combatantIds[1]!)).toEqual({ x: 0.7, y: 0.6 });
+	});
+
+	test('arrow keys move the focused token — the keyboard equivalent of the drag', async ({
+		page,
+	}) => {
+		await openAtlas(page);
+		const fixture = await seedCombatMap(page);
+		await openEditor(page, fixture.mapName);
+
+		const token = page
+			.getByRole('group', { name: 'Combat tokens' })
+			.getByRole('button', { name: /^Reed Stalker\./ });
+		await token.focus();
+		await page.keyboard.press('ArrowRight');
+
+		await expect
+			.poll(async () => (await tokenPosition(page, fixture.combatantIds[1]!))?.x)
+			.toBeGreaterThan(0.7);
+		// Only the x moved: one axis per keypress.
+		expect((await tokenPosition(page, fixture.combatantIds[1]!))?.y).toBe(0.6);
+	});
+});
+
+// ── RC-MAP-2.2 · range/path overlay and the area-of-effect tool ───────────────────────────────────
+//
+// The Combat tool group turns the editor into a live-play surface: Move highlights where the
+// selected combatant can walk, and the four area tools drop a template whose covered cells and
+// caught combatants are derived from the core's own geometry. The status bar is the readout — the
+// question a DM asks when they place a cone is "who is in it", so that answer is always on screen.
+
+/** The templates the running combat holds, straight from committed core state. */
+function combatTemplates(
+	page: Page,
+): Promise<Array<{ id: string; kind: string; mapId: string; label: string }>> {
+	return page.evaluate(
+		() =>
+			(
+				window.__rt!.state.session as {
+					combat: {
+						templates: Array<{ id: string; kind: string; mapId: string; label: string }>;
+					};
+				}
+			).combat.templates,
+	);
+}
+
+test.describe('map editor — combat range and areas', () => {
+	test('places a cone and the status bar lists the combatants it affects', async ({ page }) => {
+		await openAtlas(page);
+		const fixture = await seedCombatMap(page);
+		await openEditor(page, fixture.mapName);
+		await focusEditor(page);
+
+		// Arm the Cone tool from the rail's keymap and aim it west, at the Bog Lurker standing on 0.3,0.3.
+		await page.keyboard.press('y');
+		await expectActiveTool(page, 'Cone');
+		const heading = page.getByRole('spinbutton', { name: 'Heading value' });
+		await heading.fill('270');
+		await heading.press('Enter');
+
+		const canvas = page.getByRole('application');
+		const box = await canvas.boundingBox();
+		expect(box).not.toBeNull();
+		const b = box!;
+		// The apex sits three cells east of the token, so the cone has opened to 7.5 feet across by the
+		// time it reaches it — the token is inside, and the far combatant is behind the apex entirely.
+		// Clicking well clear of the left edge also keeps the shot off the rail's sub-tool flyout,
+		// which overlaps the canvas and would swallow the click as a tool change.
+		await page.mouse.click(b.x + b.width * 0.45, b.y + b.height * 0.25);
+
+		await expect.poll(async () => (await combatTemplates(page)).length).toBe(1);
+		const placed = (await combatTemplates(page))[0]!;
+		expect(placed.kind).toBe('cone');
+		expect(placed.mapId).toBe(fixture.mapId);
+
+		// The acceptance criterion: the status bar names the shape and WHO IS IN IT.
+		const readout = page.getByLabel('Area of effect');
+		await expect(readout).toContainText('Cone');
+		await expect(readout).toContainText('Bog Lurker');
+		// The other combatant stands well clear of a 20-foot cone pointed at the first one.
+		await expect(readout).not.toContainText('Reed Stalker');
+	});
+
+	test('the Move tool walks the selected combatant with the arrow keys and Enter', async ({
+		page,
+	}) => {
+		await openAtlas(page);
+		const fixture = await seedCombatMap(page);
+		await openEditor(page, fixture.mapName);
+		await focusEditor(page);
+
+		// Select the combatant on the map, then arm Move.
+		await page
+			.getByRole('group', { name: 'Combat tokens' })
+			.getByRole('button', { name: /^Bog Lurker\./ })
+			.click();
+		await focusEditor(page);
+		await page.keyboard.press('w');
+		await expectActiveTool(page, 'Move');
+
+		const surface = page.getByRole('button', { name: /^Move Bog Lurker\./ });
+		await surface.focus();
+		await page.keyboard.press('ArrowRight');
+		await page.keyboard.press('ArrowDown');
+		await page.keyboard.press('Enter');
+
+		await expect
+			.poll(async () => (await tokenPosition(page, fixture.combatantIds[0]!))?.x)
+			.toBeGreaterThan(0.3);
+		expect((await tokenPosition(page, fixture.combatantIds[0]!))!.y).toBeGreaterThan(0.3);
+		// The fight's other combatant is untouched: one keypress commits one combatant's move.
+		expect(await tokenPosition(page, fixture.combatantIds[1]!)).toEqual({ x: 0.7, y: 0.6 });
 	});
 });

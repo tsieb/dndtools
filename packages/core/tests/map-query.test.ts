@@ -6,6 +6,7 @@ import {
 	EMPTY_SESSION_COMBAT_STATE,
 	createDemoMapState,
 	deliveredMapIdsForActor,
+	getMapHierarchyForActor,
 	getMapViewForActor,
 	listMapsForActor,
 	mapGraphEdgesForActor,
@@ -204,6 +205,30 @@ describe('MAP-018 a hidden map is a generic unavailable for a non-DM', () => {
 	});
 });
 
+describe('RC-MAP-3.8 getMapHierarchyForActor — actor-filtered atlas hierarchy tree', () => {
+	it('the DM sees Western Reaches embedding the hidden outpost as a child', () => {
+		const tree = getMapHierarchyForActor(demo(), PERMISSIONS, DM_ACTOR.id);
+		const western = tree.find((n) => n.mapId === WESTERN);
+		expect(western).toBeDefined();
+		expect(western?.children.map((c) => c.mapId)).toContain('map-hidden-outpost');
+		// The embedded child is reached through its parent's node, not ALSO listed as a root.
+		expect(tree.some((n) => n.mapId === 'map-hidden-outpost')).toBe(false);
+	});
+
+	it('a player never sees the dm-only embedded child, as a child OR as an orphan root', () => {
+		const tree = getMapHierarchyForActor(demo(), PERMISSIONS, PLAYER_ACTOR.id);
+		const serialized = JSON.stringify(tree);
+		expect(serialized).not.toContain('map-hidden-outpost');
+		const western = tree.find((n) => n.mapId === WESTERN);
+		expect(western).toBeDefined();
+		expect(western?.children).toEqual([]);
+	});
+
+	it('fails closed to an empty forest for an unknown actor', () => {
+		expect(getMapHierarchyForActor(demo(), PERMISSIONS, 'ghost')).toEqual([]);
+	});
+});
+
 describe('CON-001 / MAP-018 listMapsForActor — actor-filtered map list, GUI must never filter raw maps itself', () => {
 	it('AC1: a player only sees player-visible maps in the list (dm-only maps are ABSENT, not hidden)', () => {
 		const list = listMapsForActor(demo(), PERMISSIONS, PLAYER_ACTOR.id);
@@ -291,6 +316,7 @@ function EMPTY_SESSION(): SessionState {
 		recapArchiveId: null,
 		archives: {},
 		partyLocation: null,
+		quickTimer: null,
 		schemaVersion: 1,
 	};
 }

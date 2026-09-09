@@ -116,6 +116,7 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 			archives: { ...EMPTY_SESSION_STATE.archives },
 			partyLocation: EMPTY_SESSION_STATE.partyLocation,
 			title: EMPTY_SESSION_STATE.title,
+			quickTimer: EMPTY_SESSION_STATE.quickTimer,
 			schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
 		},
 		widgets: createSystemWidgetPackages(),
@@ -134,6 +135,7 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 			items: { ...EMPTY_VAULT_CONTENT_STATE.items },
 			savedSearches: { ...EMPTY_VAULT_CONTENT_STATE.savedSearches },
 			customObjectTypes: { ...EMPTY_VAULT_CONTENT_STATE.customObjectTypes },
+			userTemplates: { ...EMPTY_VAULT_CONTENT_STATE.userTemplates },
 			schemaVersion: EMPTY_VAULT_CONTENT_STATE.schemaVersion,
 		},
 		encounters: {
@@ -146,6 +148,7 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 			automationRules: { ...EMPTY_AUDIO_STATE.automationRules },
 			associations: { ...EMPTY_AUDIO_STATE.associations },
 			presets: { ...EMPTY_AUDIO_STATE.presets },
+			sfxEvents: { ...EMPTY_AUDIO_STATE.sfxEvents },
 			schemaVersion: EMPTY_AUDIO_STATE.schemaVersion,
 		},
 		mcp: {

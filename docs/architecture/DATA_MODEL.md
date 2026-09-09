@@ -43,6 +43,25 @@ derivations are declared as formulas in a tiny expression grammar and evaluated 
 `SystemsState.activeWidgetPackageId` — the two are different id namespaces, so they are never
 conflated.)
 
+(RC-CAN-1.2/ADR-029 added `Scene.tombstones?: WidgetTombstone[]` — a soft-delete bin a destroyed
+widget's full instance moves into instead of being dropped, so `scene.restore-widget` can put it
+back verbatim. It is OPTIONAL, not a `SCENE_STATE_SCHEMA_VERSION` bump: a scene persisted before
+the field existed hydrates with an empty bin (`sceneTombstones`, `packages/core/src/state/scene-
+state.ts:145`). Each entry expires `WIDGET_TOMBSTONE_RETENTION_DAYS` (30) after `destroyedAt`;
+expiry is checked on read (`isRestorableTombstone`) and pruned on the next tombstone mutation, not
+by a background sweep, so replaying the same op log stays deterministic. See `docs/architecture/
+SCENE_HISTORY.md`.)
+
+(RC-SES lane/ADR-030 added `SessionCombatState.tokens: Record<string, CombatToken>` — combat
+token placement keyed by `combatantId`, not by map — so a token survives a map switch and an
+NPC/monster combatant with no `linkedActorId` still gets one. Additive on the already-durable
+`session` slice; no `SESSION_STATE_SCHEMA_VERSION` bump. ADR-030 §"Migration Impact" calls for
+`MapState.tokens`/`MapToken` (`packages/core/src/state/map-annotations.ts:185`) to be removed in a
+follow-on `MAP_STATE_SCHEMA_VERSION` bump once map-screen rendering repoints to the new
+`tokensOnMapForActor` query; as of this writing `MapState.tokens` still exists alongside the new
+slice (`map-state.ts:256`) — the old array has not yet been deleted. See `docs/architecture/
+COMBAT_ON_MAP.md`.)
+
 (That same expression grammar is the only arithmetic a WIDGET package may declare. A widget's
 `computedFields` reduce its `dataQueries` to one value; a field may carry an optional `formula`
 evaluated by the same `evaluateFormula`, over the four aggregate columns each query exposes
@@ -72,11 +91,29 @@ a vault-object subtype declared in `packages/core/src/state/vault-object-schema.
 `fields[VAULT_OBJECT_SUBTYPE_KEY]`) when the item is prose the DM reads in Knowledge — the
 RC-SES-4.1 `session-log` capture is written that way.
 
+### 3.1 The campaign calendar registry (RC-KNW-3.1)
+
+The same `content` slice holds a registry of `CalendarDefinition`s
+(`packages/core/src/state/calendar.ts`), keyed by id, which every dated surface interprets dates
+against. A definition carries ordered `months` (each with its own day count), optional `weekdays`,
+an optional `epochLabel` (the era printed after the year), optional `moons` (a cycle length plus an
+offset) and optional `holidays` (an annually recurring ordinal month/day).
+
+Moon phase and holiday matching are DERIVED, never stored: `moonPhasesOn` and `holidaysOn` are pure
+functions of (definition, date) over the same absolute day index the rest of the calendar arithmetic
+uses, so they read no clock and no locale and every surface computes the same answer.
+
+`CALENDAR_SCHEMA_VERSION` is `2`. Version 1 had no `moons`/`holidays`; the upgrade is additive, and
+`migrateCalendarDefinition` re-normalizes a persisted definition on hydration
+(`ensureVaultContentState`), dropping one whose months cannot be interpreted rather than carrying a
+shape the arithmetic cannot read.
+
 ## 4. Persistence (Dexie / IndexedDB)
 
-Renderer persistence is implemented once, in
-`apps/gm-react/src/platform/storage/coreStore.ts`. It is the only module that touches
-IndexedDB; its exported `storagePort` conforms to the type-only `StoragePort` contract.
+Renderer persistence for VAULT state is implemented once, in
+`apps/gm-react/src/platform/storage/coreStore.ts`; its exported `storagePort` conforms to the
+type-only `StoragePort` contract. Together with the player-private store in §4.1, these are the only
+modules that touch IndexedDB.
 
 Database (`Dexie`): name `dndtools-v2`, version `3`, four object stores:
 
@@ -101,6 +138,28 @@ storage or uninstalling removes it. Android system backup is not the portable va
 Keystore-backed secret preferences are explicitly excluded because their key cannot move between
 installations. Users export a full local vault to storage outside the app before alpha upgrades; see
 [`../runbooks/android-alpha.md`](../runbooks/android-alpha.md).
+
+### 4.1 The player-private store (ADR-035)
+
+Player-private records — private notes, annotated bookmarks, NPC impressions — are NOT vault state
+and are deliberately not in `dndtools-v2`. They live in a second family of databases,
+`dndtools-private-<characterId>` (version `1`, stores `notes`, `bookmarks`, `impressions`), owned by
+`apps/gm-react/src/platform/storage/privateStore.ts`.
+
+| Property             | `dndtools-v2`                        | `dndtools-private-<characterId>` |
+| -------------------- | ------------------------------------ | -------------------------------- |
+| Scope                | one per device                       | one per character                |
+| In `CoreStateSlice`  | yes                                  | never                            |
+| In the op log / sync | yes                                  | never                            |
+| In a cloud backup    | yes                                  | never                            |
+| Readable by MCP      | yes (derived from core state)        | never                            |
+| Written by           | commands, through `persistFullState` | the Journal screen, directly     |
+
+The one path from private to shared is the player explicitly sharing a single NPC impression, which
+travels as an ordinary `character.add-journal-entry` command request. `privateStore.test.ts` holds
+the leak test that keeps this true: the persisted core slice and the replicated `buildPlayerData`
+snapshot both contain none of the private text, and an import allowlist proves no module on the
+replication, cloud or MCP path imports the store at all.
 
 Write path (`persistFullState(previous, next)`):
 

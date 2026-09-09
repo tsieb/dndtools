@@ -46,3 +46,9 @@ export function readTier(): FeatureTier {
 }
 export const errMsg = (e: unknown, fallback: string) =>
 	e instanceof Error && e.message ? e.message : fallback;
+
+/** Spell a core entity type ('scene', 'content.note') as a readable noun for a status surface. */
+export function humanizeEntity(entityType: string): string {
+	const readable = entityType.replace(/[._-]+/g, ' ').trim();
+	return readable ? readable.charAt(0).toUpperCase() + readable.slice(1) : 'Campaign item';
+}

@@ -3,11 +3,16 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { handlePlatformBack } from './backNavigation';
 import {
+	bindAppIntents,
 	bindPlatformLifecycle,
 	getPlatformCapabilities,
 	minimizeAndroidApp,
 	openExternalUrl,
+	platformNotifications,
 } from './capabilities';
+import { ShareImportDialog } from './ShareImportDialog';
+import { offerSharedImport } from './shareTarget';
+import { useI18n } from '../i18n';
 
 type RefreshHandler = () => void | Promise<void>;
 const refreshHandlers = new Set<RefreshHandler>();
@@ -43,6 +48,7 @@ export function resetPlatformStateRefreshHandlersForTest(): void {
  */
 export function PlatformLifecycle() {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const navigate = useNavigate();
 	const location = useLocation();
 	const pathnameRef = useRef(location.pathname);
@@ -112,6 +118,48 @@ export function PlatformLifecycle() {
 		};
 	}, []);
 
+	// RC-PLT-2.2 — home-screen shortcuts and the share target. Both arrive as native intents, so
+	// both are bound here rather than in a screen: either can land while any destination is open.
+	useEffect(() => {
+		let disposed = false;
+		let removeListeners: (() => Promise<void>) | undefined;
+		void bindAppIntents({
+			onShortcut: (route) => {
+				navigateRef.current(route);
+			},
+			onShare: (share) => {
+				offerSharedImport(share);
+			},
+		})
+			.then((remove) => {
+				if (disposed) void remove();
+				else removeListeners = remove;
+			})
+			.catch(() => undefined);
+		return () => {
+			disposed = true;
+			if (removeListeners) void removeListeners();
+		};
+	}, []);
+
+	// RC-PLT-2.2 — the ongoing live-session status. It follows the core's own workflow state, so it
+	// cannot claim a session is live when it is not, and it clears the moment the session stands
+	// down or the app unmounts.
+	const workflow = runtime.state.session.workflow;
+	useEffect(() => {
+		if (getPlatformCapabilities().runtimeKind !== 'android') return undefined;
+		void platformNotifications
+			.setLiveSession(
+				workflow === 'active'
+					? { title: t('liveSession.notification.title'), body: t('liveSession.notification.body') }
+					: null,
+			)
+			.catch(() => false);
+		return () => {
+			void platformNotifications.setLiveSession(null).catch(() => false);
+		};
+	}, [workflow, t]);
+
 	useEffect(() => {
 		if (getPlatformCapabilities().runtimeKind !== 'android') return undefined;
 		const onClick = (event: MouseEvent) => {
@@ -132,5 +180,5 @@ export function PlatformLifecycle() {
 		return () => document.removeEventListener('click', onClick, true);
 	}, []);
 
-	return null;
+	return <ShareImportDialog />;
 }

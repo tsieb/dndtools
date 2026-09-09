@@ -141,7 +141,11 @@ describe('CHAR-011 — party overview (filtered)', () => {
 		).nextState;
 
 		// A player sees only the visible character; the dm-only one is absent (not gapped).
-		const playerView = getPartyOverviewForActor(state.characters, state.permissions, PLAYER_ACTOR.id);
+		const playerView = getPartyOverviewForActor(
+			state.characters,
+			state.permissions,
+			PLAYER_ACTOR.id,
+		);
 		expect(playerView.members.map((m) => m.characterId)).toEqual([visible.id]);
 		expect(playerView.marchingOrder).toEqual([visible.id]);
 		expect(playerView.members.find((m) => m.characterId === hidden.id)).toBeUndefined();
@@ -175,7 +179,11 @@ describe('CHAR-011 — party overview (filtered)', () => {
 			}),
 		).nextState;
 
-		const playerView = getPartyOverviewForActor(state.characters, state.permissions, PLAYER_ACTOR.id);
+		const playerView = getPartyOverviewForActor(
+			state.characters,
+			state.permissions,
+			PLAYER_ACTOR.id,
+		);
 		expect(playerView.inventory.map((i) => i.name)).toEqual(['Rope']);
 		expect(JSON.stringify(playerView)).not.toContain('Cursed Idol');
 
@@ -235,9 +243,19 @@ describe('CHAR-012 — character journal (owner-scoped)', () => {
 			}),
 		).nextState;
 
-		const ownerView = getCharacterJournalForActor(after.characters, after.permissions, PLAYER_ACTOR.id, id);
+		const ownerView = getCharacterJournalForActor(
+			after.characters,
+			after.permissions,
+			PLAYER_ACTOR.id,
+			id,
+		);
 		expect(ownerView.entries.map((e) => e.title)).toEqual(['Met the Oracle']);
-		const dmView = getCharacterJournalForActor(after.characters, after.permissions, DM_ACTOR.id, id);
+		const dmView = getCharacterJournalForActor(
+			after.characters,
+			after.permissions,
+			DM_ACTOR.id,
+			id,
+		);
 		expect(dmView.entries.map((e) => e.title)).toEqual(['Met the Oracle']);
 	});
 
@@ -252,10 +270,19 @@ describe('CHAR-012 — character journal (owner-scoped)', () => {
 		).nextState;
 
 		// Owner + DM see it.
-		expect(getCharacterJournalForActor(after.characters, after.permissions, PLAYER_ACTOR.id, id).entries).toHaveLength(1);
-		expect(getCharacterJournalForActor(after.characters, after.permissions, DM_ACTOR.id, id).entries).toHaveLength(1);
+		expect(
+			getCharacterJournalForActor(after.characters, after.permissions, PLAYER_ACTOR.id, id).entries,
+		).toHaveLength(1);
+		expect(
+			getCharacterJournalForActor(after.characters, after.permissions, DM_ACTOR.id, id).entries,
+		).toHaveLength(1);
 		// Another player does NOT (the default is shared-to-owner, not player-visible).
-		const otherView = getCharacterJournalForActor(after.characters, after.permissions, PLAYER_B.id, id);
+		const otherView = getCharacterJournalForActor(
+			after.characters,
+			after.permissions,
+			PLAYER_B.id,
+			id,
+		);
 		expect(otherView.entries).toHaveLength(0);
 		expect(JSON.stringify(otherView)).not.toContain('Private thought');
 	});
@@ -290,7 +317,10 @@ describe('CHAR-012 — character journal (owner-scoped)', () => {
 				payload: { characterId: id, entryId, title: 'Final' },
 			}),
 		).nextState;
-		expect(getCharacterJournalForActor(s.characters, s.permissions, PLAYER_ACTOR.id, id).entries[0]!.title).toBe('Final');
+		expect(
+			getCharacterJournalForActor(s.characters, s.permissions, PLAYER_ACTOR.id, id).entries[0]!
+				.title,
+		).toBe('Final');
 
 		s = accepted(
 			dispatchCommand(s, env, {
@@ -299,7 +329,9 @@ describe('CHAR-012 — character journal (owner-scoped)', () => {
 				payload: { characterId: id, entryId },
 			}),
 		).nextState;
-		expect(getCharacterJournalForActor(s.characters, s.permissions, PLAYER_ACTOR.id, id).entries).toHaveLength(0);
+		expect(
+			getCharacterJournalForActor(s.characters, s.permissions, PLAYER_ACTOR.id, id).entries,
+		).toHaveLength(0);
 	});
 });
 
@@ -311,7 +343,11 @@ describe('CHAR-015 — observer denied by default on every surface', () => {
 	function richState(): { state: CoreStateSlice; env: CoreEnvironment; id: string } {
 		const env = makeEnvironment();
 		let state = base();
-		const created = createCharacter(state, env, 'Hero', 'player-visible', { hp: 7, maxHp: 10, ac: 15 });
+		const created = createCharacter(state, env, 'Hero', 'player-visible', {
+			hp: 7,
+			maxHp: 10,
+			ac: 15,
+		});
 		state = created.state;
 		state = grantOwner(state, env, created.id, PLAYER_ACTOR.id);
 		// Owner journal entry + a player-visible party item + marching order.
@@ -354,7 +390,12 @@ describe('CHAR-015 — observer denied by default on every surface', () => {
 
 	it('journal is EMPTY for an observer (no entries, no count, no ids)', () => {
 		const { state, id } = richState();
-		const view = getCharacterJournalForActor(state.characters, state.permissions, OBSERVER_ACTOR.id, id);
+		const view = getCharacterJournalForActor(
+			state.characters,
+			state.permissions,
+			OBSERVER_ACTOR.id,
+			id,
+		);
 		expect(view.entries).toHaveLength(0);
 		expect(view.hiddenFromPlayers).toBe(0);
 		expect(JSON.stringify(view)).not.toContain('Secret plan');
@@ -380,7 +421,12 @@ describe('CHAR-015 — observer denied by default on every surface', () => {
 			expect(grantResult.rejection.code).toBe('invalid-payload');
 		}
 		// State is unchanged; the observer still receives no character/journal data (observer ceiling).
-		const view = getCharacterJournalForActor(state.characters, state.permissions, OBSERVER_ACTOR.id, id);
+		const view = getCharacterJournalForActor(
+			state.characters,
+			state.permissions,
+			OBSERVER_ACTOR.id,
+			id,
+		);
 		expect(view.entries).toHaveLength(0);
 		const party = getPartyOverviewForActor(state.characters, state.permissions, OBSERVER_ACTOR.id);
 		expect(party.members).toHaveLength(0);
@@ -399,14 +445,29 @@ describe('CHAR-015 — observer denied by default on every surface', () => {
 			dispatchCommand(state, env, {
 				type: 'character.add-journal-entry',
 				actorId: PLAYER_ACTOR.id,
-				payload: { characterId: created.id, kind: 'note', title: 'Public log', visibility: 'player-visible' },
+				payload: {
+					characterId: created.id,
+					kind: 'note',
+					title: 'Public log',
+					visibility: 'player-visible',
+				},
 			}),
 		).nextState;
 
 		// A regular player sees the player-visible entry.
-		expect(getCharacterJournalForActor(state.characters, state.permissions, PLAYER_B.id, created.id).entries).toHaveLength(1);
+		expect(
+			getCharacterJournalForActor(state.characters, state.permissions, PLAYER_B.id, created.id)
+				.entries,
+		).toHaveLength(1);
 		// The observer still sees nothing (character data is denied wholesale).
-		expect(getCharacterJournalForActor(state.characters, state.permissions, OBSERVER_ACTOR.id, created.id).entries).toHaveLength(0);
+		expect(
+			getCharacterJournalForActor(
+				state.characters,
+				state.permissions,
+				OBSERVER_ACTOR.id,
+				created.id,
+			).entries,
+		).toHaveLength(0);
 	});
 });
 
@@ -428,7 +489,13 @@ describe('CHAR-016 — per-entry journal visibility (data-layer enforced)', () =
 			dispatchCommand(state, env, {
 				type: 'character.add-journal-entry',
 				actorId: PLAYER_ACTOR.id,
-				payload: { characterId: created.id, kind: 'npc-impression', title: 'The Baron is lying', visibility, sharedWith },
+				payload: {
+					characterId: created.id,
+					kind: 'npc-impression',
+					title: 'The Baron is lying',
+					visibility,
+					sharedWith,
+				},
 			}),
 		).nextState;
 		const entryId = state.characters.journals!.journals[created.id]!.entries[0]!.id;
@@ -438,8 +505,12 @@ describe('CHAR-016 — per-entry journal visibility (data-layer enforced)', () =
 	it('a shared entry delivered to Player A reaches A but NOT Player B (other-player filtering)', () => {
 		const { state, id } = ownedWithEntry('shared', [PLAYER_B.id]);
 		// Owner (A) sees it; explicitly-shared Player B sees it; an unrelated player does not.
-		expect(getCharacterJournalForActor(state.characters, state.permissions, PLAYER_ACTOR.id, id).entries).toHaveLength(1);
-		expect(getCharacterJournalForActor(state.characters, state.permissions, PLAYER_B.id, id).entries).toHaveLength(1);
+		expect(
+			getCharacterJournalForActor(state.characters, state.permissions, PLAYER_ACTOR.id, id).entries,
+		).toHaveLength(1);
+		expect(
+			getCharacterJournalForActor(state.characters, state.permissions, PLAYER_B.id, id).entries,
+		).toHaveLength(1);
 
 		const cael: Actor = { id: 'actor-cael', role: 'player', displayName: 'Cael' };
 		const withCael = buildInitialState(DM_ACTOR, PLAYER_ACTOR, PLAYER_B, OBSERVER_ACTOR, cael);
@@ -453,7 +524,13 @@ describe('CHAR-016 — per-entry journal visibility (data-layer enforced)', () =
 			dispatchCommand(s, env, {
 				type: 'character.add-journal-entry',
 				actorId: PLAYER_ACTOR.id,
-				payload: { characterId: created.id, kind: 'note', title: 'Shared only with B', visibility: 'shared', sharedWith: [PLAYER_B.id] },
+				payload: {
+					characterId: created.id,
+					kind: 'note',
+					title: 'Shared only with B',
+					visibility: 'shared',
+					sharedWith: [PLAYER_B.id],
+				},
 			}),
 		).nextState;
 		const caelView = getCharacterJournalForActor(s.characters, s.permissions, cael.id, created.id);
@@ -463,20 +540,31 @@ describe('CHAR-016 — per-entry journal visibility (data-layer enforced)', () =
 
 	it('an owner-only (dm-only) entry leaks nothing to another player: no title/snippet/id/count', () => {
 		const { state, id } = ownedWithEntry('dm-only');
-		const otherView = getCharacterJournalForActor(state.characters, state.permissions, PLAYER_B.id, id);
+		const otherView = getCharacterJournalForActor(
+			state.characters,
+			state.permissions,
+			PLAYER_B.id,
+			id,
+		);
 		expect(otherView.entries).toHaveLength(0);
 		expect(otherView.hiddenFromPlayers).toBe(0); // non-DM never receives the count
 		const serialized = JSON.stringify(otherView);
 		expect(serialized).not.toContain('The Baron is lying');
 		// The DM still sees it (DM authority) and the owner sees it (owner access).
-		expect(getCharacterJournalForActor(state.characters, state.permissions, DM_ACTOR.id, id).entries).toHaveLength(1);
-		expect(getCharacterJournalForActor(state.characters, state.permissions, PLAYER_ACTOR.id, id).entries).toHaveLength(1);
+		expect(
+			getCharacterJournalForActor(state.characters, state.permissions, DM_ACTOR.id, id).entries,
+		).toHaveLength(1);
+		expect(
+			getCharacterJournalForActor(state.characters, state.permissions, PLAYER_ACTOR.id, id).entries,
+		).toHaveLength(1);
 	});
 
 	it('a visibility change is the data-layer cross-surface invalidation trigger', () => {
 		const { state, env, id, entryId } = ownedWithEntry('player-visible');
 		// Player B sees the player-visible entry before the change.
-		expect(getCharacterJournalForActor(state.characters, state.permissions, PLAYER_B.id, id).entries).toHaveLength(1);
+		expect(
+			getCharacterJournalForActor(state.characters, state.permissions, PLAYER_B.id, id).entries,
+		).toHaveLength(1);
 
 		// Owner narrows it to dm-only. The accepted result reports the invalidation audience (the actors
 		// whose cached views must be re-evaluated). Player B (formerly in the player-visible audience)
@@ -500,12 +588,16 @@ describe('CHAR-016 — per-entry journal visibility (data-layer enforced)', () =
 		// And the data-layer read now hides it from Player B (a stale cache is never served because the
 		// entry's content is gone from the filtered result, not merely flagged).
 		const after = result.nextState;
-		expect(getCharacterJournalForActor(after.characters, after.permissions, PLAYER_B.id, id).entries).toHaveLength(0);
+		expect(
+			getCharacterJournalForActor(after.characters, after.permissions, PLAYER_B.id, id).entries,
+		).toHaveLength(0);
 	});
 
 	it('narrowing a shared entry invalidates the actor who LOST access (previous audience)', () => {
 		const { state, env, id, entryId } = ownedWithEntry('shared', [PLAYER_B.id]);
-		expect(getCharacterJournalForActor(state.characters, state.permissions, PLAYER_B.id, id).entries).toHaveLength(1);
+		expect(
+			getCharacterJournalForActor(state.characters, state.permissions, PLAYER_B.id, id).entries,
+		).toHaveLength(1);
 
 		// Re-share with nobody (just the owner). Player B loses access and must be invalidated.
 		const result = accepted(
@@ -521,9 +613,13 @@ describe('CHAR-016 — per-entry journal visibility (data-layer enforced)', () =
 			expect(event.invalidatedActorIds).toContain(PLAYER_B.id);
 		}
 		const after = result.nextState;
-		expect(getCharacterJournalForActor(after.characters, after.permissions, PLAYER_B.id, id).entries).toHaveLength(0);
+		expect(
+			getCharacterJournalForActor(after.characters, after.permissions, PLAYER_B.id, id).entries,
+		).toHaveLength(0);
 		// The owner still sees it.
-		expect(getCharacterJournalForActor(after.characters, after.permissions, PLAYER_ACTOR.id, id).entries).toHaveLength(1);
+		expect(
+			getCharacterJournalForActor(after.characters, after.permissions, PLAYER_ACTOR.id, id).entries,
+		).toHaveLength(1);
 	});
 
 	it('every accepted journal mutation appends a durable op (data-layer write, not GUI)', () => {
@@ -541,5 +637,109 @@ describe('CHAR-016 — per-entry journal visibility (data-layer enforced)', () =
 		const op = result.nextState.sync.operations.at(-1)!;
 		expect(op.entityType).toBe('character-journal');
 		expect(op.opType).toBe('character.journal.add');
+	});
+});
+
+// =================================================================================================
+// RC-CHR-2.2 — downtime tracker (a journal entry kind)
+// =================================================================================================
+
+describe('RC-CHR-2.2 — downtime journal entries', () => {
+	function setupOwnedCharacter(): { state: CoreStateSlice; env: CoreEnvironment; id: string } {
+		const env = makeEnvironment();
+		let state = base();
+		const created = createCharacter(state, env, 'Mira', 'player-visible');
+		state = created.state;
+		state = grantOwner(state, env, created.id, PLAYER_ACTOR.id);
+		return { state, env, id: created.id };
+	}
+
+	it('the owner records a downtime activity with its structured fields', () => {
+		const { state, env, id } = setupOwnedCharacter();
+		const after = accepted(
+			dispatchCommand(state, env, {
+				type: 'character.add-journal-entry',
+				actorId: PLAYER_ACTOR.id,
+				payload: {
+					characterId: id,
+					kind: 'downtime',
+					title: 'Ten days at the smithy',
+					downtime: {
+						activityType: 'Crafting',
+						days: 10,
+						cost: 50,
+						outcome: 'Finished a longsword',
+					},
+				},
+			}),
+		).nextState;
+		const view = getCharacterJournalForActor(
+			after.characters,
+			after.permissions,
+			PLAYER_ACTOR.id,
+			id,
+		);
+		expect(view.entries).toHaveLength(1);
+		expect(view.entries[0]!.kind).toBe('downtime');
+		expect(view.entries[0]!.downtime).toEqual({
+			activityType: 'Crafting',
+			days: 10,
+			cost: 50,
+			outcome: 'Finished a longsword',
+		});
+	});
+
+	it('the DM can award downtime days to a character (DM authors on their behalf)', () => {
+		const { state, env, id } = setupOwnedCharacter();
+		const after = accepted(
+			dispatchCommand(state, env, {
+				type: 'character.add-journal-entry',
+				actorId: DM_ACTOR.id,
+				payload: {
+					characterId: id,
+					kind: 'downtime',
+					title: 'Awarded downtime',
+					downtime: { activityType: 'Awarded', days: 7 },
+				},
+			}),
+		).nextState;
+		const view = getCharacterJournalForActor(
+			after.characters,
+			after.permissions,
+			PLAYER_ACTOR.id,
+			id,
+		);
+		expect(view.entries[0]!.downtime?.days).toBe(7);
+		expect(view.entries[0]!.authorActorId).toBe(DM_ACTOR.id);
+	});
+
+	it('rejects a downtime entry with no downtime details', () => {
+		const { state, env, id } = setupOwnedCharacter();
+		const rej = rejected(
+			dispatchCommand(state, env, {
+				type: 'character.add-journal-entry',
+				actorId: PLAYER_ACTOR.id,
+				payload: { characterId: id, kind: 'downtime', title: 'Missing details' },
+			}),
+		);
+		expect(rej.rejection.code).toBe('invalid-payload');
+	});
+
+	it('a non-downtime entry never carries a downtime field', () => {
+		const { state, env, id } = setupOwnedCharacter();
+		const after = accepted(
+			dispatchCommand(state, env, {
+				type: 'character.add-journal-entry',
+				actorId: PLAYER_ACTOR.id,
+				payload: { characterId: id, kind: 'bookmark', title: 'Not downtime' },
+			}),
+		).nextState;
+		const view = getCharacterJournalForActor(
+			after.characters,
+			after.permissions,
+			PLAYER_ACTOR.id,
+			id,
+		);
+		expect(view.entries[0]!.downtime).toBeUndefined();
 	});
 });

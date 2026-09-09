@@ -9,6 +9,14 @@ import {
 	type GraphQualityReport,
 	type QualityNode,
 } from '../state/graph-quality';
+import {
+	CLUSTER_THRESHOLDS,
+	computeGraphClusters,
+	GRAPH_CLUSTER_SCHEMA_VERSION,
+	GRAPH_CLUSTER_THRESHOLD_VERSION,
+	type ClusterInputNode,
+	type GraphClusterReport,
+} from '../state/graph-clusters';
 import { buildWikilinkCandidatesForActor } from './wikilink-graph';
 import { getContentItemsForActor } from './content-query';
 
@@ -98,4 +106,52 @@ export function getGraphQualityForActor(
 	const nodes = buildQualityNodesForActor(content, permissions, actorId);
 	const candidates = buildWikilinkCandidatesForActor(content, permissions, actorId);
 	return computeGraphQuality(nodes, candidates);
+}
+
+/**
+ * RC-KNW-4.1 — the ACTOR-FILTERED CLUSTER + MOMENTUM report: which notes form an arc, and how much of
+ * each arc moved recently.
+ *
+ * Built on exactly the same two actor-filtered reads as {@link getGraphQualityForActor} — the visible
+ * note set from {@link getContentItemsForActor} and the visible candidate index from
+ * {@link buildWikilinkCandidatesForActor} — plus each visible note's own `updatedAt` as the mutation
+ * timestamp. A `dm-only` / undelivered / tombstoned note is therefore not a cluster member, does not move
+ * a momentum figure, and cannot make an arc look dormant, so a player's report can never betray that
+ * hidden content exists (fail closed). An unknown actor gets the empty report.
+ *
+ * `now` is passed in, never read from a clock, so the same content + actor + instant always produce the
+ * same report — the momentum figures are reproducible, not wall-clock-dependent.
+ */
+export function getGraphClustersForActor(
+	content: VaultContentState,
+	permissions: PermissionState,
+	actorId: string,
+	now: string,
+	recentWindowDays?: number,
+): GraphClusterReport {
+	if (!permissions.actors[actorId]) {
+		return {
+			schemaVersion: GRAPH_CLUSTER_SCHEMA_VERSION,
+			thresholdVersion: GRAPH_CLUSTER_THRESHOLD_VERSION,
+			recentWindowDays: recentWindowDays ?? CLUSTER_THRESHOLDS.recentWindowDays,
+			clusters: [],
+			dormantArcs: [],
+		};
+	}
+	const nodes: ClusterInputNode[] = getContentItemsForActor(content, permissions, actorId)
+		.filter((view) => view.kind === 'note')
+		.map((view) => {
+			const parsed = parseMarkdownNote(view.body);
+			return {
+				...buildQualityNode({
+					id: view.id,
+					title: view.title,
+					aliases: parsed.aliases,
+					body: parsed.body,
+				}),
+				updatedAt: view.updatedAt,
+			};
+		});
+	const candidates = buildWikilinkCandidatesForActor(content, permissions, actorId);
+	return computeGraphClusters(nodes, candidates, { now, recentWindowDays });
 }

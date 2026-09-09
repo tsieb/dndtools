@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
 	getCombatTrackerForActor,
+	getQuickTimerForActor,
 	getSessionAudioView,
 	listAudioAssetsForActor,
 	listAudioSourceClassificationsForActor,
 } from '@dndtools/core';
-import { Button, Icon, IconButton, Input, Sheet, Toaster } from '../../ds';
+import { Button, Icon, IconButton, Input, SegmentedControl, Sheet, Toaster } from '../../ds';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { T } from '../screen-kit';
@@ -48,6 +49,13 @@ const DIE_SHAPE: Record<number, string> = {
 	12: 'polygon(50% 2%, 93% 27%, 93% 73%, 50% 98%, 7% 73%, 7% 27%)',
 	20: 'polygon(50% 2%, 93% 27%, 93% 73%, 50% 98%, 7% 73%, 7% 27%)',
 	100: 'polygon(50% 2%, 93% 27%, 93% 73%, 50% 98%, 7% 73%, 7% 27%)',
+};
+
+/** RC-SES-4.4 — the quick-panel timer's urgency-band numeral color (mirrors `TimerBody`'s widget). */
+const URGENCY_COLOR: Record<string, string> = {
+	danger: T.err,
+	warning: T.warn,
+	normal: T.ink,
 };
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
@@ -106,12 +114,26 @@ export function SessionQuickPanel({ onNavigated }: { onNavigated?: () => void } 
 	const [customOpen, setCustomOpen] = useState(false);
 	const [customExpr, setCustomExpr] = useState('1d20+5');
 	const [handoutTitle, setHandoutTitle] = useState('');
+	const [timerMode, setTimerMode] = useState<'countdown' | 'break'>('countdown');
+	const [timerMinutes, setTimerMinutes] = useState('5');
+	const [timerLabel, setTimerLabel] = useState('');
+	const [nowIso, setNowIso] = useState(() => new Date().toISOString());
 
 	const actorId = runtime.defaultActorId;
 	const previewing = !!runtime.preview;
 	const state = runtime.state;
 	const perms = state.permissions;
 	const isDm = perms.actors[actorId]?.role === 'dm';
+
+	// RC-SES-4.4 — the quick-panel timer ticks only while it is actually running (an idle/paused
+	// panel schedules no timer), mirroring the Timer widget body's own tick discipline.
+	const timerTicking = state.session.quickTimer?.status === 'running';
+	useEffect(() => {
+		if (!timerTicking) return;
+		setNowIso(new Date().toISOString());
+		const id = window.setInterval(() => setNowIso(new Date().toISOString()), 500);
+		return () => window.clearInterval(id);
+	}, [timerTicking]);
 
 	if (!posture.live) return null;
 
@@ -136,6 +158,9 @@ export function SessionQuickPanel({ onNavigated }: { onNavigated?: () => void } 
 		: null;
 	const activeSceneId = state.session.activeSceneId;
 	const players = Object.values(perms.actors).filter((a) => a.role === 'player');
+	// SES-002 — actor-scoped: a countdown is DM-only tooling, a break additionally projects a "Back
+	// in M:SS" card to a player (`queries/session-quick-timer.ts` decides which, never this component).
+	const quickTimerView = getQuickTimerForActor(state.session.quickTimer, perms, actorId, nowIso);
 
 	async function dispatch(
 		command: Parameters<typeof runtime.dispatch>[0],
@@ -179,6 +204,31 @@ export function SessionQuickPanel({ onNavigated }: { onNavigated?: () => void } 
 	const writesBlocked = previewing || !isDm;
 	const handoutBlocked = writesBlocked || !activeSceneId || players.length === 0;
 
+	function startTimer(): void {
+		const minutes = Number(timerMinutes);
+		if (!Number.isFinite(minutes) || minutes <= 0) return;
+		void dispatch({
+			type: 'session.quick-timer.start',
+			actorId,
+			payload: {
+				kind: timerMode,
+				durationSeconds: Math.round(minutes * 60),
+				...(timerLabel.trim() ? { label: timerLabel.trim() } : {}),
+			},
+		});
+		setTimerLabel('');
+	}
+
+	function operateTimer(
+		type:
+			| 'session.quick-timer.pause'
+			| 'session.quick-timer.resume'
+			| 'session.quick-timer.reset'
+			| 'session.quick-timer.lap',
+	): void {
+		void dispatch({ type, actorId, payload: {} });
+	}
+
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 			{posture.elapsed && (
@@ -189,6 +239,143 @@ export function SessionQuickPanel({ onNavigated }: { onNavigated?: () => void } 
 					>
 						{posture.elapsed}
 					</div>
+				</Section>
+			)}
+
+			{/* RC-SES-4.4 — a DM sees the full control surface (either kind); a player/preview sees only
+			    the "Back in M:SS" break card, never a countdown (a countdown is DM-only pacing). */}
+			{(quickTimerView.control || quickTimerView.breakCard || (isDm && !writesBlocked)) && (
+				<Section label={t('session.quick.timer')}>
+					{quickTimerView.control ? (
+						<>
+							<div
+								data-testid="quick-timer-display"
+								style={{
+									font: `700 22px ${T.mono}`,
+									color: URGENCY_COLOR[quickTimerView.control.countdown.urgency] ?? T.ink,
+									letterSpacing: '.02em',
+								}}
+							>
+								{quickTimerView.control.countdown.display}
+							</div>
+							<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+								{quickTimerView.control.timer.label ??
+									t(
+										quickTimerView.control.timer.kind === 'break'
+											? 'session.quick.timerModeBreak'
+											: 'session.quick.timerModeCountdown',
+									)}
+							</div>
+							<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+								<Button
+									variant="secondary"
+									size="sm"
+									icon={quickTimerView.control.countdown.status === 'running' ? 'pause' : 'play'}
+									disabled={writesBlocked}
+									onClick={() =>
+										operateTimer(
+											quickTimerView.control!.countdown.status === 'running'
+												? 'session.quick-timer.pause'
+												: 'session.quick-timer.resume',
+										)
+									}
+								>
+									{t(
+										quickTimerView.control.countdown.status === 'running'
+											? 'session.quick.timerPause'
+											: 'session.quick.timerResume',
+									)}
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									icon="retry"
+									disabled={writesBlocked}
+									onClick={() => operateTimer('session.quick-timer.reset')}
+								>
+									{t('session.quick.timerReset')}
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									data-testid="quick-timer-lap"
+									disabled={writesBlocked || quickTimerView.control.countdown.status !== 'running'}
+									onClick={() => operateTimer('session.quick-timer.lap')}
+								>
+									{t('session.quick.timerLap')}
+								</Button>
+							</div>
+							{quickTimerView.control.timer.laps.length > 0 && (
+								<div
+									data-testid="quick-timer-laps"
+									style={{ font: `11.5px ${T.sans}`, color: T.ter }}
+								>
+									{t('session.quick.timerLapCount', {
+										count: quickTimerView.control.timer.laps.length,
+									})}
+								</div>
+							)}
+						</>
+					) : quickTimerView.breakCard ? (
+						<div
+							data-testid="quick-timer-break-card"
+							style={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+						>
+							<div style={{ font: `600 16px ${T.mono}`, color: T.ink }}>
+								{t('session.quick.timerBackIn', { display: quickTimerView.breakCard.display })}
+							</div>
+							{quickTimerView.breakCard.label && (
+								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+									{quickTimerView.breakCard.label}
+								</div>
+							)}
+						</div>
+					) : (
+						<form
+							style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+							onSubmit={(e) => {
+								e.preventDefault();
+								startTimer();
+							}}
+						>
+							<SegmentedControl
+								size="sm"
+								ariaLabel={t('session.quick.timerModeLabel')}
+								value={timerMode}
+								onChange={(v: 'countdown' | 'break') => setTimerMode(v)}
+								options={[
+									{ value: 'countdown', label: t('session.quick.timerModeCountdown') },
+									{ value: 'break', label: t('session.quick.timerModeBreak') },
+								]}
+							/>
+							<div style={{ display: 'flex', gap: 6 }}>
+								<Input
+									type="number"
+									min={1}
+									value={timerMinutes}
+									onChange={(e: { target: { value: string } }) => setTimerMinutes(e.target.value)}
+									aria-label={t('session.quick.timerMinutes')}
+									style={{ width: 64 }}
+								/>
+								<Input
+									value={timerLabel}
+									onChange={(e: { target: { value: string } }) => setTimerLabel(e.target.value)}
+									placeholder={t('session.quick.timerLabelPlaceholder')}
+									aria-label={t('session.quick.timerLabelPlaceholder')}
+									style={{ flex: 1, minWidth: 0 }}
+								/>
+							</div>
+							<Button
+								type="submit"
+								variant="secondary"
+								size="sm"
+								data-testid="quick-timer-start"
+								disabled={!Number(timerMinutes)}
+							>
+								{t('session.quick.timerStart')}
+							</Button>
+						</form>
+					)}
 				</Section>
 			)}
 

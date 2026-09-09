@@ -6,7 +6,7 @@ import { TimerBody } from './TimerBody';
 import { AudioBody } from './AudioBody';
 import { InitiativeBody } from './InitiativeBody';
 import { CharacterBody } from './CharacterBody';
-import { MapBody } from './MapBody';
+import { MapTile } from './Map';
 import { ListBody } from './ListBody';
 import { AtlasBody } from './AtlasBody';
 import { CharactersBody } from './CharactersBody';
@@ -108,7 +108,8 @@ export function WidgetBody({
 		case 'character':
 			return <CharacterBody widget={widget} />;
 		case 'map':
-			return <MapBody widget={widget} />;
+			// RC-CAN-4.5 — the real map, pannable and zoomable, with the running fight drawn on it.
+			return <MapTile widget={widget} onCommand={onCommand} />;
 		case 'quick-reference':
 			return <ListBody widget={widget} kind="object" unit="widgetBody.list.unitObjects" />;
 		case 'prep':

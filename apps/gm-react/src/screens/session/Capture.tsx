@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import {
 	composeSessionLogMarkdown,
+	detectContinuityMentions,
 	isEmptySessionLogCapture,
 	normalizeSessionLogCapture,
+	type ContinuityMentionCandidate,
 	type SessionArchiveSnapshot,
 	type SessionLogCapture,
 	type SessionRecapEntityRef,
@@ -50,6 +52,7 @@ export function CapturePanel({
 	hasCampaignDate,
 	previewing,
 	onCapture,
+	onQuickCreateNpc,
 }: {
 	archives: SessionArchiveSnapshot[];
 	defaultArchiveId: string | null;
@@ -57,6 +60,8 @@ export function CapturePanel({
 	hasCampaignDate: boolean;
 	previewing: boolean;
 	onCapture: (submission: CaptureSubmission) => Promise<boolean>;
+	/** RC-SES-4.2 — quick-create an NPC the continuity check names; returns whether it landed. */
+	onQuickCreateNpc: (name: string) => Promise<boolean>;
 }) {
 	const { t } = useI18n();
 	const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -66,6 +71,11 @@ export function CapturePanel({
 	const [changedIds, setChangedIds] = useState<string[]>([]);
 	const [filter, setFilter] = useState('');
 	const [busy, setBusy] = useState(false);
+	// RC-SES-4.2 — the continuity check raised by the capture just saved: names its own prose mentions
+	// with no existing record. `null` when there is nothing to show (no capture saved yet, or none
+	// found). Cleared entirely once every candidate is created or dismissed.
+	const [continuityCheck, setContinuityCheck] = useState<ContinuityMentionCandidate[] | null>(null);
+	const [creatingId, setCreatingId] = useState<string | null>(null);
 
 	const target =
 		archives.find((a) => a.id === (selectedId ?? defaultArchiveId)) ?? archives[0] ?? null;
@@ -128,6 +138,15 @@ export function CapturePanel({
 			});
 			// Only clear on success: a rejected capture keeps every word so the DM can act and retry.
 			if (saved) {
+				// RC-SES-4.2 — the continuity check runs over the CAPTURE JUST SAVED (before its fields
+				// are cleared below): names its own prose mentions that match no roster/vault label and
+				// were not themselves marked as changed. `candidates` doubles as the "already has a
+				// record" set — a note counts as covered, not just a character.
+				const mentions = detectContinuityMentions(
+					capture,
+					candidates.map((c) => c.label),
+				);
+				setContinuityCheck(mentions.length > 0 ? mentions : null);
 				setTitle('');
 				setHappened('');
 				setFollowUps('');
@@ -139,8 +158,76 @@ export function CapturePanel({
 		}
 	}
 
+	async function createFromMention(mention: ContinuityMentionCandidate): Promise<void> {
+		if (creatingId) return;
+		setCreatingId(mention.id);
+		try {
+			const created = await onQuickCreateNpc(mention.name);
+			if (created) {
+				setContinuityCheck((prev) => {
+					const next = (prev ?? []).filter((m) => m.id !== mention.id);
+					return next.length > 0 ? next : null;
+				});
+			}
+		} finally {
+			setCreatingId(null);
+		}
+	}
+
+	function dismissMention(id: string): void {
+		setContinuityCheck((prev) => {
+			const next = (prev ?? []).filter((m) => m.id !== id);
+			return next.length > 0 ? next : null;
+		});
+	}
+
 	return (
 		<Panel title={t('session.capture.title')} action={<VisibilityChip level="dm-only" compact />}>
+			{continuityCheck && (
+				<div
+					role="group"
+					aria-label={t('session.capture.continuityTitle', { count: continuityCheck.length })}
+					style={{
+						display: 'flex',
+						flexDirection: 'column',
+						gap: 8,
+						paddingBottom: 10,
+						marginBottom: 10,
+						borderBottom: `1px solid ${T.bd}`,
+					}}
+				>
+					<div style={eb}>
+						{t('session.capture.continuityTitle', { count: continuityCheck.length })}
+					</div>
+					{continuityCheck.map((mention) => (
+						<div
+							key={mention.id}
+							style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
+						>
+							<span style={{ font: `12.5px ${T.sans}`, color: T.sub, minWidth: 0, flex: 1 }}>
+								{t('session.capture.continuityName', { name: mention.name })}
+							</span>
+							<Button
+								variant="secondary"
+								size="sm"
+								icon="add"
+								disabled={creatingId !== null}
+								onClick={() => void createFromMention(mention)}
+							>
+								{t('session.capture.continuityCreate')}
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								disabled={creatingId !== null}
+								onClick={() => dismissMention(mention.id)}
+							>
+								{t('session.capture.continuityDismiss')}
+							</Button>
+						</div>
+					))}
+				</div>
+			)}
 			{archives.length === 0 ? (
 				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
 					{t('session.capture.noArchives')}

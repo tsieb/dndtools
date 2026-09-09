@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { type AudioAutomationAction, type AudioAutomationTriggerKind } from '@dndtools/core';
+import {
+	AUDIO_AUTOMATION_TRIGGER_KINDS,
+	type AudioAutomationAction,
+	type AudioAutomationTriggerKind,
+} from '@dndtools/core';
 import { Slider } from '../../ds';
 import { hasAssetBytes } from '../../platform/storage/assetStore';
 import { useI18n, type MessageKey } from '../../i18n';
@@ -17,15 +21,47 @@ export type SourceKind = (typeof SOURCE_KINDS)[number]['value'];
 
 export const TRIGGER_LABELS: Record<AudioAutomationTriggerKind, MessageKey> = {
 	'combat-start': 'audio.trigger.combatStart',
+	// RC-AUD-3.1
+	'combat-end': 'audio.trigger.combatEnd',
 	'map-reveal': 'audio.trigger.mapReveal',
 	'scene-activation': 'audio.trigger.sceneActivation',
 	'handout-delivery': 'audio.trigger.handoutDelivery',
+	// RC-AUD-3.2 — the table-moment SFX events.
+	'roll-critical-success': 'audio.trigger.rollCriticalSuccess',
+	'roll-critical-failure': 'audio.trigger.rollCriticalFailure',
+	'death-save-success': 'audio.trigger.deathSaveSuccess',
+	'death-save-failure': 'audio.trigger.deathSaveFailure',
+	// RC-AUD-2.2 — the POI trigger. Its scope id is a POI id (set from the map POI inspector, not here).
+	'map.poi.party-enter': 'audio.trigger.poiPartyEnter',
 };
+
+/**
+ * RC-AUD-2.2 — the trigger kinds the RULE EDITOR offers. `map.poi.party-enter` is deliberately EXCLUDED:
+ * unlike the other triggers, it never reaches `resolveAudioAutomationForActor` (the POI inspector's own
+ * link IS the rule — see `useMapEditor.markPartyHere`), so a rule authored on it here could never fire. A
+ * dead option in this picker would be exactly the "dead control" the architecture rules out.
+ */
+export const RULE_EDITOR_TRIGGER_KINDS: readonly AudioAutomationTriggerKind[] =
+	AUDIO_AUTOMATION_TRIGGER_KINDS.filter((kind) => kind !== 'map.poi.party-enter');
 export const ACTION_LABELS: Record<AudioAutomationAction, MessageKey> = {
 	play: 'audio.action.play',
 	crossfade: 'audio.action.crossfade',
 	stop: 'audio.action.stop',
 };
+
+/** RC-AUD-1.2 — format a measured duration as `m:ss` (`h:mm:ss` past an hour). Null/negative ⇒ `null`
+ *  (the caller renders no duration rather than a fabricated `0:00`). */
+export function formatAudioDuration(durationSeconds: number | null): string | null {
+	if (durationSeconds === null || !Number.isFinite(durationSeconds) || durationSeconds < 0)
+		return null;
+	const totalSeconds = Math.round(durationSeconds);
+	const hours = Math.floor(totalSeconds / 3600);
+	const minutes = Math.floor((totalSeconds % 3600) / 60);
+	const seconds = totalSeconds % 60;
+	const paddedSeconds = String(seconds).padStart(2, '0');
+	if (hours > 0) return `${hours}:${String(minutes).padStart(2, '0')}:${paddedSeconds}`;
+	return `${minutes}:${paddedSeconds}`;
+}
 
 /** Whether this browser can switch `<audio>` output devices at all (Firefox can't, e.g.). */
 export const SUPPORTS_SINK_SELECTION =

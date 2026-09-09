@@ -5,6 +5,9 @@
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA
 - Supersedes: N/A
+- Amended by: [ADR-037](./037-cross-device-merge-by-op-log-comparison.md) — the three-way conflict
+  resolution described here now also has a CROSS-DEVICE producer: two devices' op-logs are compared
+  by operation id before a push, and every entity both changed becomes one of these conflict records.
 
 ## Context
 

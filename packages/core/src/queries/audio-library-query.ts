@@ -14,10 +14,13 @@ import {
 	type AudioSourceClassification,
 } from '../state/audio-source';
 import {
+	AUDIO_SFX_EVENT_KINDS,
+	isSfxEventEnabled,
 	resolveAudioAutomation,
 	type AudioAutomationResolution,
 	type AudioAutomationRule,
 	type AudioAutomationTrigger,
+	type AudioSfxEventKind,
 } from '../state/audio-automation';
 import type { AudioState } from '../state/audio-state';
 
@@ -50,6 +53,10 @@ export interface AudioAssetView {
 	licenseNote: string;
 	attribution: string;
 	tags: string[];
+	/** RC-AUD-1.2 — decoded track length in seconds, or null when unmeasured. */
+	durationSeconds: number | null;
+	/** RC-AUD-1.2 — waveform thumbnail peaks (`0..1`), empty when unmeasured. */
+	waveform: number[];
 	sourceId: string;
 	/** AUDIO-004 AC2 — true when the asset is flagged for license review (undeclared/restricted/no-attribution). */
 	needsLicenseReview: boolean;
@@ -70,6 +77,8 @@ function toAssetView(asset: AudioAsset): AudioAssetView {
 		licenseNote: asset.license.licenseNote,
 		attribution: asset.license.attribution,
 		tags: [...asset.tags],
+		durationSeconds: asset.durationSeconds,
+		waveform: [...asset.waveform],
 		sourceId: asset.source.sourceId,
 		needsLicenseReview: assetNeedsLicenseReview(asset),
 		reviewReason: licenseReviewReason(asset),
@@ -190,4 +199,24 @@ export function resolveAudioAutomationForActor(
 	const actor = getActor(permissions, actorId);
 	if (!hasDmAuthority(actor?.role)) return null;
 	return resolveAudioAutomation(trigger, state.automationRules, state);
+}
+
+/**
+ * RC-AUD-3.2 — read the DM's per-event SFX toggles. Returns a COMPLETE map (every declared SFX event,
+ * defaulting to on) so the settings list can render every row without inventing a default of its own.
+ * A non-DM actor gets `null`: the toggles are DM-only config, and a player must not learn which cues
+ * the DM has armed.
+ */
+export function audioSfxEventSettingsForActor(
+	state: AudioState,
+	permissions: PermissionState,
+	actorId: string,
+): Record<AudioSfxEventKind, boolean> | null {
+	const actor = getActor(permissions, actorId);
+	if (!hasDmAuthority(actor?.role)) return null;
+	const settings = {} as Record<AudioSfxEventKind, boolean>;
+	for (const event of AUDIO_SFX_EVENT_KINDS) {
+		settings[event] = isSfxEventEnabled(state.sfxEvents, event);
+	}
+	return settings;
 }

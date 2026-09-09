@@ -3,6 +3,10 @@ import {
 	getMapViewForActor,
 	type ActorId,
 	type CoreStateSlice,
+	type MapCombatTokenView,
+	type MapFogView,
+	type MapPoiView,
+	type MapTokenView,
 } from '@dndtools/core';
 import { pickRasterAssetId } from './mapGeometry';
 
@@ -26,6 +30,16 @@ export interface ProjectedMapInfo {
 	name: string;
 	/** Content-addressed raster asset id, or null when the projected map has no raster base layer. */
 	rasterAssetId: string | null;
+	/**
+	 * RC-CLD-3.2 — the projected map's ACTOR-FILTERED overlay, so the player companion draws the same
+	 * map the DM projected rather than a bare picture: the fog ops, POIs, tokens and combat tokens the
+	 * core already decided this viewer may see. Taken verbatim from the SAME `getMapViewForActor` call
+	 * the gate below already makes — no second visibility decision is taken here or in the UI.
+	 */
+	fog: MapFogView[];
+	pois: MapPoiView[];
+	tokens: MapTokenView[];
+	combatTokens: MapCombatTokenView[];
 }
 
 export function resolveProjectedMapForViewer(
@@ -40,8 +54,11 @@ export function resolveProjectedMapForViewer(
 
 	// Gate 2 — the map itself must be visible to the viewer through the actor-filtered query (a
 	// projection to a map the viewer may not see collapses to unavailable — nothing leaks).
+	// `combat` is passed so a combatant standing on the projected map appears for the player exactly as
+	// the combat tracker already allows — the core filters it; a hidden foe is absent, never redacted.
 	const view = getMapViewForActor(state.maps, state.permissions, viewer, mapId, {
 		deliveredMapIds: delivered,
+		combat: state.session.combat,
 	});
 	if (view.kind !== 'available') return null;
 
@@ -50,5 +67,9 @@ export function resolveProjectedMapForViewer(
 		mapId,
 		name: view.name,
 		rasterAssetId: entity ? pickRasterAssetId(entity.assetIds, state.maps.assets) : null,
+		fog: view.fog,
+		pois: view.pois,
+		tokens: view.tokens,
+		combatTokens: view.combatTokens,
 	};
 }

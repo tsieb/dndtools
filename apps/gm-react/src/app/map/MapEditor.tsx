@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { GENERATORS, exportUvttJson } from '@dndtools/core';
+import { GENERATORS, exportUvttJson, getMapBreadcrumbForActor } from '@dndtools/core';
 import {
 	Button,
 	CommandPalette,
@@ -75,11 +75,16 @@ export function MapEditor({
 	initialTool = 'select',
 	initialFogMode = 'reveal',
 	onClose,
+	onNavigateToMap,
 }: {
 	mapId: string;
 	initialTool?: ToolId;
 	initialFogMode?: FogMode;
 	onClose: () => void;
+	/** RC-MAP-3.8 — drill to a different map (a breadcrumb ancestor, or a `map-link` POI) without
+	 * leaving the editor. Optional: a caller that only ever opens one map at a time can omit it, and
+	 * the breadcrumb then shows the current map's name alone, same as before this story. */
+	onNavigateToMap?: (mapId: string) => void;
 }) {
 	const { t } = useI18n();
 	const capabilities = usePlatformCapabilities();
@@ -246,6 +251,21 @@ export function MapEditor({
 		const id = editor.activeLayerId;
 		return editor.layers.find((l) => l.layerId === id)?.name ?? editor.layers[0]?.name ?? null;
 	}, [editor.activeLayerId, editor.layers]);
+
+	// RC-MAP-3.8 — the full nesting ancestry for the breadcrumb (root-first). Falls back to just this
+	// map's name when the map is unavailable (should not happen while the editor has it open) so the
+	// header never renders an empty trail.
+	const breadcrumb = useMemo(() => {
+		const result = getMapBreadcrumbForActor(
+			runtime.state.maps,
+			runtime.state.permissions,
+			editor.actorId,
+			mapId,
+		);
+		return result.kind === 'available'
+			? result.crumbs
+			: [{ mapId, name: editor.map?.name ?? mapId }];
+	}, [runtime.state.maps, runtime.state.permissions, editor.actorId, mapId, editor.map?.name]);
 
 	async function exportUvtt() {
 		const entity = runtime.state.maps.maps[mapId];
@@ -635,18 +655,78 @@ export function MapEditor({
 				/>
 				<nav
 					aria-label={t('mapEditor.breadcrumb')}
+					// RC-MAP-3.8 — Escape/Backspace, while focus is anywhere in the trail, climbs one level:
+					// to the immediate parent map if the breadcrumb has ancestors, else all the way out to
+					// Atlas. Only fires from a plain key press (no modifier), so it never eats a text-field
+					// Backspace or a browser shortcut.
+					onKeyDown={(event) => {
+						if (event.key !== 'Escape' && event.key !== 'Backspace') return;
+						if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+						event.preventDefault();
+						const parent = breadcrumb[breadcrumb.length - 2];
+						if (parent) onNavigateToMap?.(parent.mapId);
+						else onClose();
+					}}
 					style={{
 						display: 'flex',
 						alignItems: 'center',
 						gap: 7,
 						minWidth: 0,
 						flex: isPhone ? 1 : undefined,
+						overflow: 'hidden',
 					}}
 				>
 					{!isPhone && (
-						<span style={{ font: `12px ${T.sans}`, color: T.ter }}>{t('mapEditor.atlas')}</span>
+						<>
+							<button
+								type="button"
+								onClick={onClose}
+								style={{
+									border: 'none',
+									background: 'transparent',
+									cursor: 'pointer',
+									padding: 0,
+									font: `12px ${T.sans}`,
+									color: T.ter,
+								}}
+							>
+								{t('mapEditor.atlas')}
+							</button>
+							<Icon name="chevron-right" size={13} color={T.ter} />
+						</>
 					)}
-					{!isPhone && <Icon name="chevron-right" size={13} color={T.ter} />}
+					{/* Ancestor crumbs (root-first, excluding the current map) — a live drill-down trail,
+					    not just a static "Atlas > name". Hidden on phone: there is no width budget for it
+					    there and the flat back button already reaches the parent. */}
+					{!isPhone &&
+						breadcrumb.slice(0, -1).map((crumb) => (
+							<span
+								key={crumb.mapId}
+								style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}
+							>
+								<button
+									type="button"
+									aria-label={t('mapEditor.goToMap', { name: crumb.name })}
+									onClick={() => onNavigateToMap?.(crumb.mapId)}
+									disabled={!onNavigateToMap}
+									style={{
+										border: 'none',
+										background: 'transparent',
+										cursor: onNavigateToMap ? 'pointer' : 'default',
+										padding: 0,
+										font: `12px ${T.sans}`,
+										color: T.ter,
+										whiteSpace: 'nowrap',
+										overflow: 'hidden',
+										textOverflow: 'ellipsis',
+										maxWidth: 140,
+									}}
+								>
+									{crumb.name}
+								</button>
+								<Icon name="chevron-right" size={13} color={T.ter} />
+							</span>
+						))}
 					<h1
 						style={{
 							margin: 0,

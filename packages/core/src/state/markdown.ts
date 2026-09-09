@@ -130,7 +130,8 @@ function parseFrontmatterBlock(block: string): Record<string, string | string[]>
 	return properties;
 }
 
-function asList(value: string | string[] | undefined): string[] {
+/** Normalize a front-matter scalar-or-list property value to a list (absent/blank scalar ⇒ empty). */
+export function asList(value: string | string[] | undefined): string[] {
 	if (value === undefined) return [];
 	return Array.isArray(value) ? [...value] : value.trim() === '' ? [] : [value];
 }

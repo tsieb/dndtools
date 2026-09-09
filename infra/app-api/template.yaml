@@ -429,6 +429,57 @@ Resources:
             Auth:
               Authorizer: NONE
 
+  # --- RC-CLD-1.4: opt-in product analytics ingestion ---------------------------
+  # Anonymous, consent-gated usage counters. Deliberately its OWN function rather than another
+  # route on AppFn: this is the only unauthenticated WRITE surface in the stack, and giving it a
+  # separate role means the open endpoint holds no DynamoDB, S3, SES or Cognito permission at all.
+  # Its role is the bare execution role — it can write logs and nothing else, so the worst a flood
+  # of junk can do is produce junk log lines.
+  #
+  # It stores nothing. The handler turns a validated batch into CloudWatch EMF counters and drops
+  # the payload, which is why an unauthenticated endpoint is not a tracker: there is no row to
+  # correlate later. Scale-to-zero, $0 idle — no queue, no table, no always-on collector.
+  TelemetryFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/${ProjectName}/${Stage}/lambda/telemetry'
+      # Shorter than the stack default on purpose: the EMF metrics are the durable artefact and the
+      # log lines are only there for a Logs Insights breakdown by property. Keeping raw event lines
+      # longer than that would slowly rebuild the dataset this design exists to avoid.
+      RetentionInDays: 14
+
+  TelemetryFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../packages/cloud-fns/build/telemetry-handler
+      Handler: index.handler
+      MemorySize: 128
+      Timeout: 5
+      ReservedConcurrentExecutions: !If [ShouldReserveConcurrency, 5, !Ref 'AWS::NoValue']
+      LoggingConfig:
+        # TEXT, not JSON: EMF requires the metric document to be the whole log line. Lambda's JSON
+        # log format wraps every line in its own envelope, which CloudWatch does not parse as EMF
+        # and the metrics silently never appear.
+        LogFormat: Text
+        LogGroup: !Ref TelemetryFunctionLogGroup
+      Environment:
+        Variables:
+          STAGE: !Ref Stage
+          METRIC_NAMESPACE: !Sub '${ProjectName}/Analytics'
+      Events:
+        PostTelemetry:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: POST
+            Path: /telemetry
+            # Unauthenticated BY DESIGN. Requiring a token would attach every event to an account,
+            # which is the opposite of an anonymous counter. The client sends a CORS-simple
+            # text/plain body with credentials omitted, so no cookie or Authorization header can
+            # reach it even by accident.
+            Auth:
+              Authorizer: NONE
+
   AppFunctionErrorsAlarm:
     Type: AWS::CloudWatch::Alarm
     Condition: ShouldCreateAlarms

@@ -105,6 +105,7 @@ function emptySlice(): CoreStateSlice {
 			recapArchiveId: null,
 			archives: {},
 			partyLocation: EMPTY_SESSION_STATE.partyLocation,
+			quickTimer: EMPTY_SESSION_STATE.quickTimer,
 			schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
 		},
 		widgets: createSystemWidgetPackages(),
@@ -124,6 +125,7 @@ function emptySlice(): CoreStateSlice {
 			items: { ...EMPTY_VAULT_CONTENT_STATE.items },
 			savedSearches: { ...EMPTY_VAULT_CONTENT_STATE.savedSearches },
 			customObjectTypes: { ...EMPTY_VAULT_CONTENT_STATE.customObjectTypes },
+			userTemplates: { ...EMPTY_VAULT_CONTENT_STATE.userTemplates },
 			schemaVersion: EMPTY_VAULT_CONTENT_STATE.schemaVersion,
 		},
 		encounters: {
@@ -136,6 +138,7 @@ function emptySlice(): CoreStateSlice {
 			automationRules: { ...EMPTY_AUDIO_STATE.automationRules },
 			associations: { ...EMPTY_AUDIO_STATE.associations },
 			presets: { ...EMPTY_AUDIO_STATE.presets },
+			sfxEvents: { ...EMPTY_AUDIO_STATE.sfxEvents },
 			schemaVersion: EMPTY_AUDIO_STATE.schemaVersion,
 		},
 		mcp: {
@@ -263,6 +266,17 @@ export class SceneRuntime {
 
 	get preview(): ResolvedPreview | null {
 		return this.previewState;
+	}
+
+	/**
+	 * RC-CHR-4.3 — whether the rendered view is currently READ-ONLY: every `dispatch` while previewing
+	 * is rejected before it reaches the reducer (see `dispatch` below), so a screen that shows a write
+	 * control without checking this ends up with a control that always fails — a dead control (guardrail
+	 * #8). Screens with manage affordances (HP stepper, journal/inventory/advancement writes, …) gate on
+	 * this rather than re-deriving it from `preview` themselves.
+	 */
+	get readOnly(): boolean {
+		return this.previewState !== null;
 	}
 
 	/** Actors available to "view as", DM-first then by name. */
@@ -394,7 +408,9 @@ export class SceneRuntime {
 		const actors = withDefaultWidgets.permissions.actors;
 		const nextActors: CoreStateSlice['permissions']['actors'] = {
 			...actors,
-			...(actors[id] ? {} : { [id]: { id, role: 'dm' as const, displayName: PLACEHOLDER_DM_NAME } }),
+			...(actors[id]
+				? {}
+				: { [id]: { id, role: 'dm' as const, displayName: PLACEHOLDER_DM_NAME } }),
 		};
 		if (includeDemoFixtures) {
 			for (const participant of DEFAULT_DEMO_PARTICIPANTS) {
@@ -422,6 +438,7 @@ export class SceneRuntime {
 			recapArchiveId: withDefaultWidgets.session.recapArchiveId ?? null,
 			archives: withDefaultWidgets.session.archives ?? {},
 			partyLocation: withDefaultWidgets.session.partyLocation ?? null,
+			quickTimer: withDefaultWidgets.session.quickTimer ?? null,
 		};
 		return {
 			...withDefaultWidgets,

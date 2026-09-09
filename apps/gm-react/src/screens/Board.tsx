@@ -10,7 +10,13 @@ import {
 import { Button, Card, Icon, IconButton, Popover, Switch, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { widgetRejectionMessage } from '../app/widget-rejection';
-import { SceneBoardCanvas, WidgetGlyph } from '../app/SceneBoardCanvas';
+import {
+	SceneBoardCanvas,
+	WidgetGlyph,
+	ZOOM_PRESETS,
+	ZOOM_PRESET_KEY,
+	type ZoomPreset,
+} from '../app/SceneBoardCanvas';
 import { BoardLayoutsPanel } from './BoardLayoutsPanel';
 import {
 	boardLayoutIssues,
@@ -24,8 +30,10 @@ import {
 import { useViewport } from '../app/useViewport';
 import { usePanelFocusReturn } from '../app/usePanelFocusReturn';
 import { useLayoutHistory } from '../app/canvas/useLayoutHistory';
-import { Page, srOnly } from '../app/screen-kit';
+import { srOnly } from '../app/screen-kit';
 import { useI18n } from '../i18n';
+import { BoardPlayerNotice } from './board/BoardPlayerNotice';
+import { useBoardLayouts } from './board/useBoardLayouts';
 import { widgetProfileForRuntime } from '../platform/capabilities';
 
 /**
@@ -38,7 +46,16 @@ import { widgetProfileForRuntime } from '../platform/capabilities';
  * core's preset + auto-save safe-point commands (CMD-008).
  *
  * It uses the BOUNDED canvas policy (glanceable, scrolls, keyboard-first) — the accessibility answer
- * the prototype's `scene-canvas.jsx` describes for the home surface.
+ * the prototype's `scene-canvas.jsx` describes for the home surface. RC-CAN-3.1 fixed what "bounded"
+ * means: the board has no free zoom slider, only the three named steps Fit, Comfortable and Detail
+ * (`0`/`1`/`2`, cycled with `+`/`-`), so a DM can name where they are instead of hunting for a
+ * percentage. Fit scales the authored layout into the pane but stops at 0.5 — below that the widget
+ * titles are unreadable, so the surface SCROLLS (both axes) rather than shrinking further, and
+ * Comfortable/Detail deliberately overflow a narrow window for the same reason. RC-CAN-3.2 made
+ * reaching that scroll range "scroll-natural": wheel, Shift+wheel, trackpad two-finger and a single
+ * touch-finger all scroll it natively, and a middle-mouse drag pans it directly (SceneBoardCanvas's
+ * `scroll-pan`) for the one gesture a real scroll container doesn't grant for free. There is still no
+ * free zoom slider and no pinch-zoom — only the three named steps above.
  */
 // `SceneRuntime.dispatchNow` RETHROWS after a failed `persistFullState`, and every caller here is
 // fire-and-forget (`void onMove(...)`, `onClick={savePreset}`), so an IndexedDB quota or
@@ -58,12 +75,15 @@ export function Board() {
 	const [snap, setSnap] = useState(true);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [addOpen, setAddOpen] = useState(false);
+	// RC-CAN-3.1: the board's zoom lives here, not in the canvas, so the control can sit in the
+	// toolbar. The bounded canvas IS its own scroll container, so an in-canvas control would scroll
+	// away from the widgets it applies to and sit on top of the top-left widget while it did.
+	const [zoom, setZoom] = useState<ZoomPreset>('fit');
 	// The Layouts panel used to render unconditionally whenever edit mode was on, with no close
 	// control and no Escape handler — so on a phone (where it is a 280px absolute overlay) it
 	// covered all but ~97px of the board and could not be dismissed without leaving edit mode.
 	// It is now a peer of the Add panel: a toolbar toggle, a Close button and Escape.
 	const [layoutsOpen, setLayoutsOpen] = useState(false);
-	const [presetName, setPresetName] = useState('');
 	const [status, setStatus] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	// RC-CAN-3.4 — the layout quality indicator's own popover, separate from Add/Layouts so opening
@@ -172,6 +192,15 @@ export function Board() {
 		setStatus(null);
 		return true;
 	}
+
+	const {
+		presetName,
+		setPresetName,
+		savePreset,
+		snapshotSafePoint,
+		applyPreset,
+		restoreSafePoint,
+	} = useBoardLayouts({ runtime, actorId, dispatch, setStatus });
 
 	const history = useLayoutHistory({ sceneId: homeSceneId ?? null, runtime, dispatch });
 	// A stable callback for the Undo toast: the toast store lives outside React, so the closure it
@@ -299,79 +328,8 @@ export function Board() {
 			if (!editing) setEditing(true);
 		}
 	}
-	async function savePreset() {
-		if (!presetName.trim()) return;
-		const ok = await dispatch({
-			type: 'command-center.save-preset',
-			actorId,
-			payload: { name: presetName.trim() },
-		});
-		if (ok) {
-			setStatus(t('board.layoutSaved', { name: presetName.trim() }));
-			setPresetName('');
-		}
-	}
-	// Capture the current layout as the auto-save safe point (CMD-008). Best-effort and silent — it is
-	// an automatic checkpoint, not a user action, so a rejection (e.g. before the home Scene exists)
-	// must not surface as a status message. Taken when an edit session begins and before a preset is
-	// applied, so "Restore previous layout" can always revert the last destructive change.
-	async function snapshotSafePoint() {
-		// `SceneRuntime.dispatchNow` RETHROWS on a persist failure, and this is awaited FIRST inside
-		// `applyPreset` — so a failed checkpoint used to throw straight out of the function before
-		// the user's own guarded dispatch ever ran: "Apply a saved layout" did nothing, said
-		// nothing, and left an unhandled rejection. A best-effort checkpoint must never veto the
-		// action it precedes.
-		try {
-			await runtime.dispatch({ type: 'command-center.snapshot-auto-save', actorId, payload: {} });
-		} catch {
-			/* silent by design — see above */
-		}
-	}
-	async function applyPreset(presetId: string, name: string) {
-		await snapshotSafePoint();
-		const ok = await dispatch({
-			type: 'command-center.apply-preset',
-			actorId,
-			payload: { presetId },
-		});
-		if (ok) setStatus(t('board.layoutApplied', { name }));
-	}
-	async function restoreSafePoint() {
-		const ok = await dispatch({ type: 'command-center.restore-auto-save', actorId, payload: {} });
-		if (ok) setStatus(t('board.layoutRestored'));
-	}
 
-	if (!isDm) {
-		return (
-			// `<Page>` rather than a bare max-width div: the raw div has no padding, so on a phone this
-			// explainer Card sat flush against both screen edges — every other screen's non-DM/empty
-			// state goes through Page and gets the profile's gutters.
-			<Page max={640}>
-				<Card
-					elevation="raised"
-					padding="lg"
-					style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
-				>
-					<span
-						style={{
-							font: '700 var(--text-lg) var(--font-display)',
-							color: 'var(--color-text-primary)',
-						}}
-					>
-						{t('board.playerTitle')}
-					</span>
-					<span
-						style={{
-							font: 'var(--text-sm) var(--font-sans)',
-							color: 'var(--color-text-secondary)',
-						}}
-					>
-						{t('board.playerBody')}
-					</span>
-				</Card>
-			</Page>
-		);
-	}
+	if (!isDm) return <BoardPlayerNotice />;
 
 	return (
 		<div
@@ -488,6 +446,28 @@ export function Board() {
 						</Button>
 					</>
 				)}
+				{/* The three named zoom steps. Always available: reading the board at Detail is as much
+				    a viewing act as an editing one. */}
+				<div
+					role="group"
+					aria-label={t('boardCanvas.zoomGroup')}
+					data-testid="board-zoom-presets"
+					// Wraps INSIDE the group: at 200% text "Comfortable" alone is a third of a 360px
+					// phone, and a group that could only wrap as a unit widened `#main-content`.
+					style={{ display: 'flex', flexWrap: 'wrap', gap: 2, flex: '0 1 auto', minWidth: 0 }}
+				>
+					{ZOOM_PRESETS.map((preset) => (
+						<Button
+							key={preset}
+							variant={zoom === preset ? 'primary' : 'ghost'}
+							size="sm"
+							aria-pressed={zoom === preset}
+							onClick={() => setZoom(preset)}
+						>
+							{t(ZOOM_PRESET_KEY[preset])}
+						</Button>
+					))}
+				</div>
 				<Button
 					variant={editing ? 'primary' : 'secondary'}
 					size="sm"
@@ -675,6 +655,8 @@ export function Board() {
 					// surface that is deliberately not a scene.
 					emptyTitle={ready ? t('board.emptyTitle') : t('board.preparingTitle')}
 					history={history}
+					zoomPreset={zoom}
+					onZoomPresetChange={setZoom}
 				/>
 
 				{addOpen && (

@@ -14,6 +14,13 @@ import { Page, Panel, Seg, T, eb } from '../app/screen-kit';
 import { useViewport } from '../app/useViewport';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useI18n } from '../i18n';
+import {
+	ClusterHulls,
+	ClusterToggle,
+	DormantArcsPanel,
+	useClusterHulls,
+	useGraphClusters,
+} from './graph/clusters';
 import type { MessageKey } from '../i18n';
 
 /**
@@ -158,8 +165,11 @@ export function Graph() {
 				};
 	}, [runtime.state, view, dmId, playerId]);
 
+	const clusters = useGraphClusters(runtime.state, viewActorId);
+
 	const nodes = useMemo(() => positioned(viz.nodes), [viz.nodes]);
 	const nodeById = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes]);
+	const { hulls, hullsOn, toggleHulls } = useClusterHulls(clusters.clusters, nodeById);
 	const selNode = sel && nodeById[sel] ? nodeById[sel] : null;
 	const selEdges = selNode ? viz.edges.filter((e) => e.fromId === sel || e.toId === sel) : [];
 	// The kinds the actor COULD filter by, straight from the live facets (never reveals hidden content).
@@ -323,6 +333,8 @@ export function Graph() {
 						preserveAspectRatio="none"
 						style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
 					>
+						{/* RC-KNW-4.1 — cluster hulls, drawn FIRST so they sit behind every edge and node. */}
+						<ClusterHulls hulls={hulls} />
 						{viz.edges.map((e, i) => {
 							const a = nodeById[e.fromId];
 							const b = nodeById[e.toId];
@@ -409,6 +421,7 @@ export function Graph() {
 							</button>
 						);
 					})}
+					<ClusterToggle on={hullsOn} onToggle={toggleHulls} />
 				</div>
 
 				{/* search + inspector + health. Search comes FIRST on purpose: the "Selected" panel used to
@@ -543,6 +556,22 @@ export function Graph() {
 								</div>
 							)}
 						</div>
+						{/* RC-KNW-2.1 — the graph search matches NODE LABELS only. Full-text over bodies,
+						    handouts, POIs and rolls lives on the Knowledge filters panel, so hand the typed
+						    words over rather than leaving the DM to retype them there. It sits BELOW the
+						    result list: above it, the rows fell off a 320px viewport. */}
+						<div style={{ marginTop: 10 }}>
+							<Button
+								variant="ghost"
+								size="sm"
+								icon="search"
+								disabled={query.trim() === ''}
+								data-testid="graph-search-vault"
+								onClick={() => navigate('/knowledge', { state: { search: query.trim() } })}
+							>
+								{t('graph.searchVault')}
+							</Button>
+						</div>
 					</Panel>
 
 					{selNode ? (
@@ -671,6 +700,8 @@ export function Graph() {
 						</Panel>
 					) : null}
 
+					<DormantArcsPanel report={clusters} selectedId={sel} onSelect={setSel} />
+
 					{/* GRAPH-007 — DM sees the full health report; a player sees only the generalized coarse bands. */}
 					{health.kind === 'dm' ? (
 						<Panel
@@ -695,6 +726,19 @@ export function Graph() {
 									label={t('graph.openThreads')}
 									count={health.report.openThreads.length}
 								/>
+							</div>
+							{/* RC-KNW-4.2 — one-click repair of broken wikilinks lives on its own screen (the
+							    preview + fix flow needs room a health-row count can't give it); this is just
+							    the entry point, DM-only since repairing is an authoring action. */}
+							<div style={{ marginTop: 10 }}>
+								<Button
+									variant="ghost"
+									size="sm"
+									icon="chevron-right"
+									onClick={() => navigate('/graph/repair')}
+								>
+									{t('graph.repair.entry')}
+								</Button>
 							</div>
 						</Panel>
 					) : (

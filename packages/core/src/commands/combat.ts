@@ -31,6 +31,9 @@ import {
 	orderInitiative,
 	previousTurn,
 	resolveCondition,
+	// RC-SES-3.1 — condition countdowns and the round tick that runs them out.
+	sanitizeConditionRounds,
+	tickCombatConditions,
 	type Combatant,
 	type CombatantResources,
 	type CombatLogEntry,
@@ -360,10 +363,16 @@ export function handleAdvanceCombatTurn(
 
 	const advance = advanceTurn(combat.round, combat.turn, combat.order.length);
 	const operationId = env.ids();
+	// RC-SES-3.1 — condition countdowns run on ROUNDS, so they only tick when the turn wraps into a
+	// new round. Every timed condition loses a round; one that hits zero comes off the combatant here.
+	const tick = advance.wrappedRound
+		? tickCombatConditions(combat.combatants, combat.order)
+		: { combatants: combat.combatants, expired: [] };
 	let nextCombat: SessionCombatState = {
 		...combat,
 		round: advance.round,
 		turn: advance.turn,
+		combatants: tick.combatants,
 		revision: combat.revision + 1,
 	};
 	const nextActiveId = nextCombat.order[nextCombat.turn] ?? null;
@@ -380,14 +389,42 @@ export function handleAdvanceCombatTurn(
 		nextActiveId,
 		null,
 	);
-	nextCombat = { ...nextCombat, log: [...nextCombat.log, turnEntry] };
+	// RC-SES-3.1 — one log line per expiry, after the round line, in initiative order. The expiry is
+	// named plainly ("Goblin: Poisoned wore off") because the DM reads the log to answer "why is that
+	// gone?" and the answer has to be there without decoding anything.
+	const expiryEntries = tick.expired.map((entry) =>
+		combatLogEntry(
+			env,
+			actor,
+			operationId,
+			nextCombat,
+			'condition-expired',
+			`${combat.combatants[entry.combatantId]?.name ?? 'Combatant'}: ${
+				resolveCondition(activeSystemPackageFor(state), entry.key).label
+			} wore off`,
+			entry.combatantId,
+			null,
+		),
+	);
+	nextCombat = { ...nextCombat, log: [...nextCombat.log, turnEntry, ...expiryEntries] };
 
 	const draft = appendOperationDraft(env, state.sync, actor.id, {
 		entityType: COMBAT_ENTITY_TYPE,
 		entityId: SESSION_ENTITY_ID,
 		opType: 'combat.advance-turn',
 		path: 'combat/turn',
-		value: { round: advance.round, turn: advance.turn, wrappedRound: advance.wrappedRound },
+		value: {
+			round: advance.round,
+			turn: advance.turn,
+			wrappedRound: advance.wrappedRound,
+			// RC-SES-3.1 — the op records WHICH conditions ran out on this tick, so a replay on another
+			// device drops the same conditions instead of re-deriving them from a package it may not
+			// have. The tick is otherwise a pure function of the combat state.
+			expiredConditions: tick.expired.map((entry) => ({
+				combatantId: entry.combatantId,
+				condition: entry.key,
+			})),
+		},
 		beforeRevision: combat.revision,
 		afterRevision: nextCombat.revision,
 	});
@@ -405,6 +442,16 @@ export function handleAdvanceCombatTurn(
 				activeCombatantId: nextActiveId,
 				revision: nextCombat.revision,
 			},
+			// RC-SES-3.1 — one event per expiry so the interface can say what wore off and on whom,
+			// rather than diffing two tracker views and guessing.
+			...tick.expired.map((entry) => ({
+				kind: 'combat.condition-expired' as const,
+				actorId: actor.id,
+				combatantId: entry.combatantId,
+				condition: entry.key,
+				round: advance.round,
+				revision: nextCombat.revision,
+			})),
 		],
 		operationIds: [draft.op.id],
 	};
@@ -633,8 +680,32 @@ export function handleApplyCombatResource(
 					? resources.conditions
 					: [...resources.conditions, payload.condition]
 				: resources.conditions.filter((c) => c !== payload.condition);
+			// RC-SES-3.1 — a condition is `{ key, rounds? }`. The DM's explicit `rounds` wins; with none
+			// given, a condition the package says lasts a number of ROUNDS starts on the package's own
+			// count. Anything else gets no clock and runs until it is cleared. Removing a condition
+			// takes its countdown with it, so a re-applied condition never inherits a stale timer.
+			const timers = sanitizeConditionRounds(resources.conditions, resources.conditionRounds);
+			let startedRounds: number | null = null;
+			if (payload.present) {
+				const fallback =
+					resolved.defaultDuration === 'rounds' && resolved.defaultRounds !== null
+						? resolved.defaultRounds
+						: null;
+				const rounds = payload.rounds ?? (has ? (timers[payload.condition] ?? null) : fallback);
+				if (rounds !== null && rounds !== undefined) {
+					timers[payload.condition] = rounds;
+					startedRounds = rounds;
+				}
+			} else {
+				delete timers[payload.condition];
+			}
+			resources.conditionRounds = timers;
 			logKind = 'condition-changed';
-			label = `${existing.name}: ${payload.present ? 'add' : 'remove'} ${resolved.label}`;
+			label = `${existing.name}: ${payload.present ? 'add' : 'remove'} ${resolved.label}${
+				payload.present && startedRounds !== null
+					? ` for ${startedRounds} ${startedRounds === 1 ? 'round' : 'rounds'}`
+					: ''
+			}`;
 			break;
 		}
 		case 'death-save': {

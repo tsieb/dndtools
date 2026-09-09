@@ -1,6 +1,7 @@
 import {
 	configureAudioAutomationInputSchema,
 	deleteAudioAutomationInputSchema,
+	setAudioSfxEventInputSchema,
 } from '../schemas/commands';
 import {
 	AUDIO_AUTOMATION_ENTITY_TYPE,
@@ -165,6 +166,50 @@ export function handleDeleteAudioAutomation(
 			{ ...state.audio, automationRules: nextRules },
 		),
 		events: [{ kind: 'audio.automation-deleted', ruleId: input.ruleId, actorId: actor.id }],
+		operationIds: [op.id],
+	};
+}
+
+// --- RC-AUD-3.2 — the per-event SFX toggles ------------------------------------------------------
+
+/** The entity type the per-event SFX toggles are addressed by in ops (one durable DM-only setting). */
+const AUDIO_SFX_EVENTS_ENTITY_ID = 'audio-sfx-events';
+
+/**
+ * RC-AUD-3.2 — SWITCH one SFX event on or off (DM-only). This is a MUTE, not a delete: every automation
+ * rule on the event stays durable and armed, and resolves to a `muted` no-op while the event is off, so
+ * switching it back on restores exactly what was armed before. The command writes only the toggle — it
+ * never touches a rule, never starts or stops playback, and never fires a cue itself.
+ */
+export function handleSetAudioSfxEvent(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(setAudioSfxEventInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const { event, enabled } = parsed.data;
+
+	const sfxEvents = { ...state.audio.sfxEvents, [event]: enabled };
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: AUDIO_AUTOMATION_ENTITY_TYPE,
+		entityId: AUDIO_SFX_EVENTS_ENTITY_ID,
+		opType: 'audio.sfx-event.set',
+		path: `audio/sfx-events/${event}`,
+		value: { event, enabled },
+		beforeRevision: 0,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: withAudio({ ...state, sync: nextLog }, { ...state.audio, sfxEvents }),
+		events: [{ kind: 'audio.sfx-event-changed', event, enabled, actorId: actor.id }],
 		operationIds: [op.id],
 	};
 }

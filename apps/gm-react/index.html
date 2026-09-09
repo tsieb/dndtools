@@ -11,6 +11,19 @@
 			content="A local-first campaign workspace for preparing and running tabletop RPG sessions."
 		/>
 		<link rel="icon" type="image/svg+xml" href="/icon.svg" />
+		<!--
+			RC-PLT-2.1 — installable web app. The manifest and its icons are ordinary public assets,
+			so Vite rewrites these origin-absolute hrefs to the relative `base` at build time and the
+			same document still opens from Electron's `dndtools://app` and the Android WebView, where
+			the manifest is simply ignored. Registration of the service worker is feature-detected in
+			src/platform/serviceWorker.ts; nothing here assumes a browser that supports it.
+		-->
+		<link rel="manifest" href="/manifest.webmanifest" />
+		<link rel="apple-touch-icon" href="/icon-192.png" />
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="Lamplight" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 		<title>Lamplight — Command Center</title>
 		<!--
 			Resolve theme / motion / density before first paint, at the document boot,

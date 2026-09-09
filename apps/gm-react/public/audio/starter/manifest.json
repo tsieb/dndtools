@@ -1,0 +1,68 @@
+{
+	"schemaVersion": 1,
+	"name": "Lamplight starter pack",
+	"description": "Three seamless ambience loops to play with before you import your own audio.",
+	"generator": "apps/gm-react/scripts/generate-starter-audio.mjs",
+	"tracks": [
+		{
+			"id": "starter-wind-over-stone",
+			"file": "wind-over-stone.wav",
+			"title": "Wind over stone",
+			"mimeType": "audio/wav",
+			"byteLength": 264644,
+			"sha256": "51245ba2198f9acf95ff4b5c67a82d7a1606e49ea6450d9b47b8d02206c2e149",
+			"durationSeconds": 6,
+			"tags": [
+				"ambience",
+				"outdoors",
+				"wind",
+				"starter"
+			],
+			"license": {
+				"kind": "cc0",
+				"licenseNote": "CC0 1.0 Universal — synthesised for this project by scripts/generate-starter-audio.mjs",
+				"attribution": ""
+			}
+		},
+		{
+			"id": "starter-hearth-and-embers",
+			"file": "hearth-and-embers.wav",
+			"title": "Hearth and embers",
+			"mimeType": "audio/wav",
+			"byteLength": 264644,
+			"sha256": "fa54df69b4635bf43df33a2da6bc2c6893d7ca0fa755c94f724282d454556fbb",
+			"durationSeconds": 6,
+			"tags": [
+				"ambience",
+				"tavern",
+				"fire",
+				"starter"
+			],
+			"license": {
+				"kind": "cc0",
+				"licenseNote": "CC0 1.0 Universal — synthesised for this project by scripts/generate-starter-audio.mjs",
+				"attribution": ""
+			}
+		},
+		{
+			"id": "starter-cavern-drone",
+			"file": "cavern-drone.wav",
+			"title": "Cavern drone",
+			"mimeType": "audio/wav",
+			"byteLength": 264644,
+			"sha256": "5551d0ba333d0f0b31660c33b1dc3fb3628f8079e100386e174b3e1157313de6",
+			"durationSeconds": 6,
+			"tags": [
+				"ambience",
+				"dungeon",
+				"drone",
+				"starter"
+			],
+			"license": {
+				"kind": "cc0",
+				"licenseNote": "CC0 1.0 Universal — synthesised for this project by scripts/generate-starter-audio.mjs",
+				"attribution": ""
+			}
+		}
+	]
+}

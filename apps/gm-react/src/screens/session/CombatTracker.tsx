@@ -1,5 +1,5 @@
 import type { CombatTrackerView } from '@dndtools/core';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
 	Avatar,
 	Badge,
@@ -19,23 +19,10 @@ import { Panel, T, eb } from '../../app/screen-kit';
 // RC-CAN-5.3 lifted the keypad into `app/combat/` so the board's touch-first combat tile uses the
 // same sheet as this tracker; `CombatantRow` and `HpIntent` moved with it.
 import { HpKeypadSheet, type CombatantRow, type HpIntent } from '../../app/combat/HpKeypadSheet';
+// RC-SES-3.3 — the stat-block quick reference behind the row's "Quick reference" action.
+import { StatBlockSheet } from '../../app/combat/StatBlockSheet';
 import { useCombatKeyboard } from './useCombatKeyboard';
-
-/**
- * RC-SES-3.2 — enough of the combatant's resources to put them back exactly as they were. The
- * amounts are read again from the CURRENT tracker at undo time (the core clamps at 0 and at maxHp,
- * and damage eats temporary HP first, so "the inverse delta" is not what was typed).
- */
-type HpUndo = {
-	id: string;
-	name: string;
-	intent: HpIntent;
-	amount: number;
-	hpBefore: number;
-	tempBefore: number;
-};
-
-const UNDO_WINDOW_MS = 5_000;
+import { useHpUndo, type HpUndo } from './useHpUndo';
 
 // ── Combat tracker ────────────────────────────────────────────────────────────────────────────────
 
@@ -110,7 +97,7 @@ export function CombatPanel({
 	// screen for chip damage), but a real hit lands for 14, and tapping "Damage 1 HP" fourteen times
 	// is not a tracker. Tap-and-hold the HP bar — or press `d`/`h` — and a keypad comes up.
 	const [hpSheet, setHpSheet] = useState<{ id: string; intent: HpIntent } | null>(null);
-	const [undo, setUndo] = useState<HpUndo | null>(null);
+	const { undo, remember: rememberHpUndo, undoHp } = useHpUndo({ tracker, onHp, onTempHp });
 	// One pointer at a time, so one timer is enough for the whole list.
 	const press = useRef<{ timer: number | null; fired: boolean }>({ timer: null, fired: false });
 	// RC-SES-3.4 — the selected combatant's detail panel (conditions/reorder/hide/remove), so `Enter`
@@ -121,18 +108,16 @@ export function CombatPanel({
 	// move the CURSOR silently, same as any list; a reorder actually changes durable state and needs
 	// its own live announcement.
 	const [reorderAnnouncement, setReorderAnnouncement] = useState('');
+	// RC-SES-3.3 — which combatant's stat block is open in the quick-reference sheet. Held by id, not
+	// by row, so the card follows the live tracker as HP and conditions change underneath it.
+	const [quickRefId, setQuickRefId] = useState<string | null>(null);
 
 	const hpSheetTarget = hpSheet
 		? (tracker.combatants.find((c) => c.id === hpSheet.id) ?? null)
 		: null;
-
-	// The undo chip is a PROMISE with a deadline: five seconds, then it goes. Clearing on unmount
-	// matters because the tracker unmounts the moment combat ends.
-	useEffect(() => {
-		if (!undo) return undefined;
-		const timer = window.setTimeout(() => setUndo(null), UNDO_WINDOW_MS);
-		return () => window.clearTimeout(timer);
-	}, [undo]);
+	const quickRefTarget = quickRefId
+		? (tracker.combatants.find((c) => c.id === quickRefId) ?? null)
+		: null;
 
 	useCombatKeyboard({
 		running,
@@ -178,7 +163,7 @@ export function CombatPanel({
 		if (intent === 'temp') onTempHp(id, amount);
 		else onHp(id, intent === 'damage' ? -amount : amount);
 		setHpSheet(null);
-		setUndo({
+		rememberHpUndo({
 			id,
 			name: row.name,
 			intent,
@@ -186,24 +171,6 @@ export function CombatPanel({
 			hpBefore: res.hp,
 			tempBefore: res.tempHp,
 		});
-	}
-
-	// Restoring the numbers, not replaying an inverse command. Damage spends temporary HP before real
-	// HP, so putting HP back means zeroing whatever temp is there now (one negative delta the core
-	// absorbs in the same order) and then setting temp back to what it was — `temp-hp` keeps the
-	// HIGHER value, so raising it always lands. Known limit: healing a dying combatant above 0 clears
-	// their death saves in the core, and no command can write those back.
-	function undoHp() {
-		const entry = undo;
-		setUndo(null);
-		if (!entry) return;
-		const res = tracker.combatants.find((c) => c.id === entry.id)?.resources;
-		if (!res) return;
-		const over = res.hp - entry.hpBefore;
-		if (over > 0) onHp(entry.id, -(over + res.tempHp));
-		else if (over < 0) onHp(entry.id, -over);
-		const tempNow = over > 0 ? 0 : res.tempHp;
-		if (tempNow < entry.tempBefore) onTempHp(entry.id, entry.tempBefore);
 	}
 
 	return (
@@ -523,14 +490,28 @@ export function CombatPanel({
 												style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}
 												onClick={(e) => e.stopPropagation()}
 											>
-												{res.conditions.map((cond) => (
-													<ConditionBadge
-														key={cond}
-														condition={cond}
-														compact
-														onRemove={previewing ? undefined : () => onCondition(c.id, cond, false)}
-													/>
-												))}
+												{/* RC-SES-3.1 — a timed condition wears its countdown, so the DM can see that
+												    Poisoned has two rounds left without opening anything. A condition with no
+												    timer shows no number: it lasts until someone clears it. */}
+												{res.conditions.map((cond) => {
+													const roundsLeft = res.conditionRounds?.[cond];
+													return (
+														<ConditionBadge
+															key={cond}
+															condition={cond}
+															compact
+															duration={roundsLeft}
+															durationLabel={
+																roundsLeft === undefined
+																	? undefined
+																	: t('session.combat.conditionRounds', { count: roundsLeft })
+															}
+															onRemove={
+																previewing ? undefined : () => onCondition(c.id, cond, false)
+															}
+														/>
+													);
+												})}
 											</div>
 										)}
 										{/* RC-CHR-1.3 / UX-SES-007 AC3 — at 0 HP and explicitly not defeated, the death
@@ -622,6 +603,15 @@ export function CombatPanel({
 											    reader otherwise hears six identical "Heal 1" buttons that each
 											    write durable HP to a different creature. "Heal 1"/"Damage 1"
 											    stay as the PREFIX so combat.spec's substring match still hits. */}
+											{/* RC-SES-3.3 — the quick reference. Reading a creature's numbers changes
+											    nothing, so this is offered while previewing too, unlike the HP steps. */}
+											<IconButton
+												icon="knowledge-book"
+												label={t('session.combat.quickRef.open', { name: c.name })}
+												variant="ghost"
+												size="sm"
+												onClick={() => setQuickRefId(c.id)}
+											/>
 											<IconButton
 												icon="add"
 												label={t('session.combat.heal', { name: c.name })}
@@ -658,6 +648,17 @@ export function CombatPanel({
 						>
 							<div style={{ ...eb }}>{t('session.combat.selected', { name: selected.name })}</div>
 							<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+								{/* RC-SES-3.3 — first control in the panel on purpose: RC-SES-3.4's `Enter` moves
+								    focus to whatever leads this row of actions, and the quick reference is what a
+								    DM wants from a selected combatant far more often than a condition. */}
+								<Button
+									variant="secondary"
+									size="sm"
+									icon="knowledge-book"
+									onClick={() => setQuickRefId(selected.id)}
+								>
+									{t('session.combat.quickRef.action')}
+								</Button>
 								{/* RC-SYS-2.3 — no conditions in the active system means no picker to open. Say so
 								    rather than leaving a control that can only ever show an empty dialog. */}
 								{selected.resources &&
@@ -743,6 +744,13 @@ export function CombatPanel({
 							)}
 						</div>
 					)}
+
+					<StatBlockSheet
+						key={quickRefId ? `ref:${quickRefId}` : 'ref:closed'}
+						target={quickRefTarget}
+						side={viewport === 'phone' ? 'bottom' : 'right'}
+						onClose={() => setQuickRefId(null)}
+					/>
 
 					<HpKeypadSheet
 						key={hpSheet ? `${hpSheet.id}:${hpSheet.intent}` : 'closed'}

@@ -82,7 +82,12 @@ test.describe('canvas: board + scene mount and round-trip', () => {
 			.toBe(true);
 		// The board owns a vertical scroll range for its tall widget canvas. Its touch-action must
 		// preserve a direct-touch route to that range rather than requiring a desktop scrollbar.
-		await expect(board).toHaveCSS('touch-action', 'pan-y');
+		// RC-CAN-3.1: the Fit preset stops at 0.5, so at 375px the board also owns a HORIZONTAL
+		// scroll range and adds `pan-x`. What this test locks is the vertical route, not the exact
+		// declaration — a board that scrolls both ways must stay touch-scrollable both ways.
+		await expect
+			.poll(() => board.evaluate((element) => getComputedStyle(element).touchAction))
+			.toMatch(/pan-y/);
 		const dimensions = await board.evaluate((element) => ({
 			clientHeight: element.clientHeight,
 			scrollHeight: element.scrollHeight,
@@ -1083,6 +1088,55 @@ test.describe('canvas: the timer transport survives its own press', () => {
 		await expect(resume).toHaveCount(1);
 		await expect(resume).toBeFocused();
 	});
+
+	// RC-WID-4.2 — `timer.advance` was a DECLARED operate command of the timer widget with no control
+	// anywhere on the tile: the only way to give the table another minute was to reset and restart.
+	test('adds a minute to a running timer from the keyboard', async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+
+		await goLive(page);
+
+		// Scoped to the timer TILE by its own test id, resolved ONCE: once live, the session quick
+		// panel offers its own timer transport, and a `filter({ has: Start })` tile would stop matching
+		// the moment the transport turned into Pause.
+		const start = page.getByRole('button', { name: /^Start \d+-second timer$/ });
+		await expect(start).toHaveCount(1);
+		const tileId = await start.evaluate(
+			(el) => el.closest('[data-testid^="widget-"]')?.getAttribute('data-testid') ?? '',
+		);
+		expect(tileId).not.toBe('');
+		const tile = page.getByTestId(tileId);
+		await start.focus();
+		await start.press('Enter');
+		await expect(tile.getByRole('button', { name: 'Pause', exact: true })).toHaveCount(1);
+
+		const readout = () =>
+			tile
+				.locator('div')
+				.filter({ hasText: /^\d+:\d\d$/ })
+				.last()
+				.innerText();
+		const before = await readout();
+		const seconds = (mmss: string) => {
+			const [m, s] = mmss.trim().split(':').map(Number);
+			return m * 60 + s;
+		};
+
+		const advance = tile.getByRole('button', { name: 'Add 60 seconds to the timer' });
+		await expect(advance).toHaveCount(1);
+		await advance.focus();
+		await expect(advance).toBeFocused();
+		await advance.press('Enter');
+
+		// The countdown is a pure function of the durable timer, so the minute has to show up in it.
+		await expect
+			.poll(async () => seconds(await readout()) - seconds(before))
+			.toBeGreaterThanOrEqual(55);
+	});
 });
 
 // `/board`'s confirmation channel is a single `role="status"` host beside the toolbar. It was
@@ -1228,5 +1282,104 @@ test.describe('scenes: the create form only claims its own saves', () => {
 		// Starting the next draft retires it — the tick can never sit above a form it does not describe.
 		await page.getByLabel('Name', { exact: true }).first().fill('A');
 		await expect(feedback).toHaveText('');
+	});
+});
+
+// RC-CAN-3.1 — the board's zoom is three NAMED steps, not a free scale: Fit (the authored layout
+// scaled into the pane, never below 0.5 — below that it scrolls instead), Comfortable (1:1) and
+// Detail. The `0`/`1`/`2` keys jump to a step and `+`/`-` walk them, so the whole control is
+// reachable without a pointer.
+test.describe('canvas: named zoom presets on the bounded board', () => {
+	const layerScale = (page: Page) =>
+		page.getByTestId('scene-board-bounded').evaluate((el) => {
+			const layer = el.querySelector('[style*="--scene-board-scale"]') as HTMLElement | null;
+			return Number(layer?.style.getPropertyValue('--scene-board-scale') ?? '1');
+		});
+
+	async function openBoard(page: Page): Promise<void> {
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.waitForFunction(
+			() => {
+				const rt = window.__rt!;
+				const id = rt.state.commandCenter.homeSceneId;
+				return !!id && rt.state.scenes.scenes[id]?.widgets.length > 0;
+			},
+			null,
+			{ timeout: 10_000 },
+		);
+	}
+
+	test('the toolbar offers Fit, Comfortable and Detail, and each one changes the board scale', async ({
+		page,
+	}) => {
+		await openBoard(page);
+		const group = page.getByTestId('board-zoom-presets');
+		await expect(group).toBeVisible();
+		const fit = group.getByRole('button', { name: 'Fit' });
+		const comfortable = group.getByRole('button', { name: 'Comfortable' });
+		const detail = group.getByRole('button', { name: 'Detail' });
+
+		// The board opens fitted: that is the glanceable default, and the step says so.
+		await expect(fit).toHaveAttribute('aria-pressed', 'true');
+		// Fit is a real fit — it never shrinks the layout past the 0.5 floor.
+		expect(await layerScale(page)).toBeGreaterThanOrEqual(0.5);
+		expect(await layerScale(page)).toBeLessThanOrEqual(1);
+
+		await detail.click();
+		await expect(detail).toHaveAttribute('aria-pressed', 'true');
+		await expect(fit).toHaveAttribute('aria-pressed', 'false');
+		await expect.poll(() => layerScale(page)).toBeCloseTo(1.5, 2);
+
+		await comfortable.click();
+		await expect.poll(() => layerScale(page)).toBeCloseTo(1, 2);
+
+		await fit.click();
+		await expect.poll(() => layerScale(page)).toBeLessThanOrEqual(1);
+	});
+
+	test('the 0/1/2 keys and +/- reach every step from the canvas, and announce it', async ({
+		page,
+	}) => {
+		await openBoard(page);
+		const board = page.getByTestId('scene-board-bounded');
+		// Focus a widget frame, exactly as a keyboard user arriving on the board would.
+		await board.evaluate((el) => {
+			(el.querySelector('[data-testid^="widget-"]') as HTMLElement | null)?.focus();
+		});
+
+		await page.keyboard.press('2');
+		await expect.poll(() => layerScale(page)).toBeCloseTo(1.5, 2);
+		await expect(
+			page.getByTestId('board-zoom-presets').getByRole('button', { name: 'Detail' }),
+		).toHaveAttribute('aria-pressed', 'true');
+		// A zoom change has no other observable for a screen-reader user.
+		await expect(board.getByText(/Zoom Detail, 150%/)).toBeAttached();
+
+		// `-` walks back one step rather than jumping to the end.
+		await page.keyboard.press('-');
+		await expect.poll(() => layerScale(page)).toBeCloseTo(1, 2);
+
+		await page.keyboard.press('0');
+		await expect.poll(() => layerScale(page)).toBeLessThanOrEqual(1);
+		await page.keyboard.press('+');
+		await expect.poll(() => layerScale(page)).toBeCloseTo(1, 2);
+	});
+
+	test('a board zoomed past its pane scrolls sideways instead of shrinking further', async ({
+		page,
+	}) => {
+		await openBoard(page);
+		await page.getByTestId('board-zoom-presets').getByRole('button', { name: 'Detail' }).click();
+		const board = page.getByTestId('scene-board-bounded');
+		await expect.poll(() => board.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+		await expect.poll(() => board.evaluate((el) => getComputedStyle(el).overflowX)).toBe('auto');
+		await board.evaluate((el) => {
+			el.scrollLeft = el.scrollWidth;
+		});
+		await expect.poll(() => board.evaluate((el) => el.scrollLeft > 0)).toBe(true);
 	});
 });

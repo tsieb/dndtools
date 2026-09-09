@@ -13,6 +13,7 @@ import {
 // in every runtime; the only web-visible difference is a cosmetic `#` in the URL.
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { RuntimeProvider, useRuntime } from './runtime/RuntimeContext';
+import { useProductAnalytics } from './cloud/useAnalytics';
 import type { SceneRuntime } from './runtime/SceneRuntime';
 import type { VaultBackup } from './platform/backup';
 import { AuthProvider } from './cloud/AuthContext';
@@ -20,6 +21,8 @@ import { EntitlementsProvider } from './cloud/entitlements';
 import { CloudSyncProvider } from './cloud/CloudSyncContext';
 import { SessionProvider } from './net/SessionContext';
 import { ensureAudioPlayback } from './runtime/audio-playback';
+import { ensureSfxEvents } from './runtime/sfx-events';
+import { ensureCombatAudioAutomation } from './runtime/combat-audio-automation';
 import { AppShell } from './app/AppShell';
 import { AppSystemProvider } from './app/SystemContext';
 import { Onboarding } from './app/Onboarding';
@@ -45,9 +48,20 @@ const Characters = lazy(() =>
 );
 const Atlas = lazy(() => import('./screens/atlas').then((m) => ({ default: m.Atlas })));
 const Campaign = lazy(() => import('./screens/Campaign').then((m) => ({ default: m.Campaign })));
+// RC-KNW-3.1 — the calendar editor is a sub-route of Story, not a nav section of its own.
+const CampaignCalendar = lazy(() =>
+	import('./screens/campaign/Calendar').then((m) => ({ default: m.Calendar })),
+);
+// RC-KNW-3.3 — likewise the relationship editor.
+const CampaignRelationships = lazy(() =>
+	import('./screens/campaign/Relationships').then((m) => ({ default: m.Relationships })),
+);
 const Knowledge = lazy(() => import('./screens/knowledge').then((m) => ({ default: m.Knowledge })));
 const Settings = lazy(() => import('./screens/settings').then((m) => ({ default: m.Settings })));
 const Graph = lazy(() => import('./screens/Graph').then((m) => ({ default: m.Graph })));
+const GraphRepair = lazy(() =>
+	import('./screens/graph/Repair').then((m) => ({ default: m.Repair })),
+);
 const Audio = lazy(() => import('./screens/audio').then((m) => ({ default: m.Audio })));
 const Extensions = lazy(() =>
 	import('./screens/extensions').then((m) => ({ default: m.Extensions })),
@@ -390,8 +404,11 @@ function ShelledRoutes() {
 					<Route path="/characters/:id?" element={<Characters />} />
 					<Route path="/atlas" element={<Atlas />} />
 					<Route path="/campaign" element={<Campaign />} />
+					<Route path="/campaign/calendar" element={<CampaignCalendar />} />
+					<Route path="/campaign/relationships" element={<CampaignRelationships />} />
 					<Route path="/knowledge/:id?" element={<Knowledge />} />
 					<Route path="/graph" element={<Graph />} />
+					<Route path="/graph/repair" element={<GraphRepair />} />
 					<Route path="/audio" element={<Audio />} />
 					<Route path="/extensions" element={<Extensions />} />
 					<Route path="/community" element={<Community />} />
@@ -407,11 +424,19 @@ function ShelledRoutes() {
 
 function Shell() {
 	const runtime = useRuntime();
+	// RC-CLD-1.4 — opt-in product analytics. Does nothing at all without recorded consent.
+	useProductAnalytics();
 	// The app-lifetime audio driver (idempotent per runtime): session `audioPlayback` state makes
 	// sound no matter which screen is mounted — Session's now-playing and the Audio screen both
 	// write the same core state this driver reconciles against a single <audio> element.
+	// RC-AUD-3.2 — and the SFX event driver alongside it, so a natural 20 rolled on /session sounds
+	// its cue whether or not the Audio screen is mounted.
+	// RC-AUD-3.1 — and the combat-music driver, so a `combat-start`/`combat-end` automation rule fires
+	// the moment combat actually starts/ends, from any screen.
 	useEffect(() => {
-		if (runtime.loaded) ensureAudioPlayback(runtime);
+		if (!runtime.loaded) return;
+		ensureSfxEvents(runtime, ensureAudioPlayback(runtime));
+		ensureCombatAudioAutomation(runtime);
 	}, [runtime, runtime.loaded]);
 	if (runtime.hasLoadError) {
 		return <VaultLoadFailure runtime={runtime} />;

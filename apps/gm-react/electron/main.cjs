@@ -53,6 +53,26 @@ function loadDiscovery() {
 }
 const discoveryModule = loadDiscovery();
 
+/**
+ * Load the auto-update module (RC-PLT-1.2). Same bundled-first rule as discovery: the packaged app
+ * ships no node_modules, so `electron-updater` is inlined into `updater.bundled.cjs` at build time.
+ * If neither variant loads, the shell simply reports updates as unsupported — it never pretends.
+ */
+function loadUpdater() {
+	for (const rel of ['./updater.bundled.cjs', './updater.cjs']) {
+		try {
+			return require(rel);
+		} catch {
+			/* try next */
+		}
+	}
+	return null;
+}
+const updaterModule = loadUpdater();
+
+/** @type {ReturnType<import('./updater.cjs').createUpdater> | null} */
+let updater = null;
+
 /** @type {import('electron').BrowserWindow | null} */
 let mainWindow = null;
 let mainWindowReady = false;
@@ -927,6 +947,51 @@ function setupSecureStoreIpc() {
 	});
 }
 
+/* ---- Auto-update (RC-PLT-1.2) ------------------------------------------------------------ */
+
+/**
+ * Explicit, primary-window-only update channels. The renderer can ask three things — check,
+ * download, restart — and read one serializable state; it can never name a feed, a file or a
+ * version. Every reply is the full current state so the About screen has nothing to infer.
+ */
+function setupUpdaterIpc() {
+	const fallback = () => ({
+		status: 'unsupported',
+		currentVersion: app.getVersion(),
+		availableVersion: null,
+		releaseNotes: null,
+		releaseDate: null,
+		percent: 0,
+		message: 'Automatic updates are unavailable in this build.',
+		checkedAt: null,
+	});
+
+	if (updaterModule) {
+		try {
+			updater = updaterModule.createUpdater({
+				app,
+				onState: (state) => sendToPrimary('updates:state', state),
+			});
+		} catch (error) {
+			console.error('Auto-update setup failed:', error);
+			updater = null;
+		}
+	}
+
+	ipcMain.handle('updates:state', (event) =>
+		isPrimarySender(event) ? (updater?.getState() ?? fallback()) : fallback(),
+	);
+	ipcMain.handle('updates:check', async (event) =>
+		isPrimarySender(event) && updater ? await updater.check() : fallback(),
+	);
+	ipcMain.handle('updates:download', async (event) =>
+		isPrimarySender(event) && updater ? await updater.download() : fallback(),
+	);
+	ipcMain.handle('updates:install', (event) =>
+		isPrimarySender(event) && updater ? updater.install() : fallback(),
+	);
+}
+
 if (hasSingleInstanceLock) {
 	app.whenReady().then(async () => {
 		if (!DEV_SERVER_URL) installAppProtocol(protocol, net, RENDERER_ROOT);
@@ -965,6 +1030,7 @@ if (hasSingleInstanceLock) {
 		setupWindowIpc();
 		setupDiscoveryIpc();
 		setupSecureStoreIpc();
+		setupUpdaterIpc();
 		primaryWindowCreationEnabled = true;
 		createWindow();
 

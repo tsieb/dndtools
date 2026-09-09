@@ -5,6 +5,9 @@
 - Deciders: Engineering
 - Consulted: Platform, Security
 - Supersedes: N/A
+- Amended by: ADR-036 (the stage overview dashboard gains an opt-in product-analytics widget, and the
+  account gains one custom-metric namespace, `dndtools/Analytics`, dimensioned to keep it at six
+  metrics per stage)
 
 ## Context
 

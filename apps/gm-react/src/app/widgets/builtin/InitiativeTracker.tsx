@@ -6,6 +6,7 @@ import { useI18n } from '../../../i18n';
 import { T } from '../../screen-kit';
 import { SR_ONLY, bodyWrap } from '../../widget-body-kit';
 import { HpKeypadSheet, type CombatantRow, type HpIntent } from '../../combat/HpKeypadSheet';
+import { NextTurnControl } from './NextTurnControl';
 
 /**
  * RC-CAN-5.3 — the touch-first combat tile: what the `initiative-tracker` widget draws on a phone.
@@ -171,6 +172,11 @@ export function InitiativeTrackerCompact({
 				}}
 			>
 				<span>{t('widgetBody.initiative.compactHeading', { round: tracker.round })}</span>
+				{/* RC-WID-4.2 — advancing the order is the phone tile's most-wanted action, so it sits in
+				    the header rather than behind a trip to /session. */}
+				<span style={{ marginLeft: 'auto' }}>
+					<NextTurnControl running interactive={interactive} />
+				</span>
 			</div>
 			<ul
 				style={{

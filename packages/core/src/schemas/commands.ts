@@ -605,6 +605,8 @@ const quickReferenceKindSchema = z.enum([
 	'rules-snippet',
 	'open-thread',
 	'session-context',
+	// RC-SES-2.3 — a rollable `dice-table` Vault Object (appended; existing members keep their order).
+	'dice-table',
 ]);
 
 export const pinQuickReferenceInputSchema = z
@@ -1950,6 +1952,42 @@ export const cancelAdvancementInputSchema = z
 	})
 	.strict();
 
+// RC-CHR-1.4 — bulk-award a flat XP amount to several party characters at once (DM-only), e.g. from
+// the session encounter log's defeated-monster total. A missing character id is skipped, not rejected.
+export const awardXpInputSchema = z
+	.object({
+		characterIds: z.array(idSchema).min(1),
+		amount: z.number().int().positive(),
+	})
+	.strict();
+
+// RC-CHR-1.4 — bulk-open a MILESTONE advancement draft for every eligible listed character at once
+// (DM-only, "Level the party"). A character already mid-advancement or at max level is skipped.
+export const levelPartyInputSchema = z
+	.object({
+		characterIds: z.array(idSchema).min(1),
+	})
+	.strict();
+
+// --- RC-AI-1.4 — atomic advancement (one dispatch: open + choices + commit) ---------------------
+
+// The whole level-up as ONE payload. The staged-then-commit commands above exist because a HUMAN
+// works through the wizard over several steps; an agent has no wizard and cannot hold a half-open
+// draft across a DM's approval, so an agent-proposed level-up carries the FULL choice set and the
+// handler runs open→set-choices→commit atomically. `className` and `hitPointsGained` are always
+// required (every level needs them); `subclass` and `abilityOrFeat` are optional here because only
+// certain target levels require them — `validateAdvancement` decides, and rejects fail-closed.
+export const applyAdvancementInputSchema = z
+	.object({
+		characterId: idSchema,
+		mode: advancementModeSchema,
+		className: z.string().min(1),
+		hitPointsGained: z.number().int().positive(),
+		subclass: z.string().min(1).optional(),
+		abilityOrFeat: z.string().min(1).optional(),
+	})
+	.strict();
+
 // --- CHAR-011 — party records (marching order + party inventory) --------------------------------
 
 const journalEntryKindSchema = z.enum([
@@ -1958,7 +1996,22 @@ const journalEntryKindSchema = z.enum([
 	'personal-quest',
 	'session-highlight',
 	'note',
+	'downtime',
 ]);
+
+// RC-CHR-2.2 — the structured fields a `downtime` journal entry carries in addition to title/body:
+// the activity type, days spent, an optional cost, an optional outcome, and an optional link to
+// another journal entry (e.g. the `note` the downtime activity produced). Additive; only meaningful
+// when `kind: 'downtime'`.
+const downtimeDetailsSchema = z
+	.object({
+		activityType: z.string().min(1, 'A downtime activity type is required').max(80),
+		days: z.number().int().positive(),
+		cost: z.number().int().nonnegative().optional(),
+		outcome: z.string().max(500).optional(),
+		linkedNoteId: idSchema.optional(),
+	})
+	.strict();
 
 // CHAR-011 — set the party marching order (an ordered list of character ids). DM-only authoring.
 export const setMarchingOrderInputSchema = z
@@ -2096,8 +2149,15 @@ export const addJournalEntryInputSchema = z
 		body: z.string().default(''),
 		visibility: characterVisibilitySchema.optional(),
 		sharedWith: z.array(idSchema).default([]),
+		// RC-CHR-2.2 — required exactly when `kind: 'downtime'` (the DM's "Award downtime days" and the
+		// player's downtime panel both go through this same command).
+		downtime: downtimeDetailsSchema.optional(),
 	})
-	.strict();
+	.strict()
+	.refine((value) => value.kind !== 'downtime' || value.downtime !== undefined, {
+		message: 'A downtime entry requires its activity type and days.',
+		path: ['downtime'],
+	});
 
 // CHAR-012 — update a journal entry's content (owner or DM). Visibility is changed separately.
 export const updateJournalEntryInputSchema = z
@@ -2167,7 +2227,28 @@ const timelineReferenceInputSchema = z
 	})
 	.strict();
 
+// RC-KNW-3.1 — a MOON: a pure cycle over the absolute day index (phase is derived, never stored).
+const calendarMoonSchema = z
+	.object({
+		id: idSchema,
+		name: z.string().min(1, 'A moon name is required'),
+		cycleDays: z.number().int().min(1, 'A moon cycle must be at least one day'),
+		offsetDays: z.number().int().optional(),
+	})
+	.strict();
+
+// RC-KNW-3.1 — an annually recurring HOLIDAY anchored to an ordinal month/day.
+const calendarHolidaySchema = z
+	.object({
+		id: idSchema,
+		name: z.string().min(1, 'A holiday name is required'),
+		month: z.number().int().min(1),
+		day: z.number().int().min(1),
+	})
+	.strict();
+
 // CONTENT-011 — define (or replace) a campaign calendar definition (authorized editor only).
+// RC-KNW-3.1 additively surfaces moons and holidays alongside the months/weekdays/era label.
 export const defineCalendarInputSchema = z
 	.object({
 		id: idSchema,
@@ -2175,6 +2256,8 @@ export const defineCalendarInputSchema = z
 		months: z.array(calendarMonthSchema).min(1, 'A calendar requires at least one month'),
 		weekdays: z.array(z.string().min(1)).optional(),
 		epochLabel: z.string().optional(),
+		moons: z.array(calendarMoonSchema).optional(),
+		holidays: z.array(calendarHolidaySchema).optional(),
 	})
 	.strict();
 
@@ -2529,6 +2612,43 @@ export const insertSnippetInputSchema = z
 	})
 	.strict();
 
+// --- RC-KNW-1.3 — SAVE / DELETE a DM-authored content template ------------------------------------
+
+// One declared `{{variable}}` a saved template interpolates. `required` blocks creation until filled;
+// `defaultValue` only ever applies to an OPTIONAL variable (the render transform decides, not this schema).
+const userContentTemplateVariableSchema = z
+	.object({
+		name: z.string().min(1, 'A variable name is required').max(48),
+		label: z.string().min(1, 'A variable label is required').max(80),
+		required: z.boolean().default(false),
+		defaultValue: z.string().max(200).optional(),
+	})
+	.strict();
+
+// RC-KNW-1.3 — save (create or replace) a DM-authored note template. The draft is structurally validated
+// before any durable write: the id must sit in the reserved `user:` namespace so it can never shadow a
+// built-in starter preset, and every `{{placeholder}}` the title/body writes must be declared here.
+// `defaultVisibility` is optional and fails closed to `dm-only` — a template can never widen visibility.
+export const saveContentTemplateInputSchema = z
+	.object({
+		id: z.string().min(1, 'A template id is required'),
+		name: z.string().min(1, 'A template name is required'),
+		description: z.string().max(240).default(''),
+		variables: z.array(userContentTemplateVariableSchema).default([]),
+		titleTemplate: z.string().min(1, 'A template title is required'),
+		bodyTemplate: z.string().min(1, 'A template body is required'),
+		defaultVisibility: contentVisibilitySchema.optional(),
+	})
+	.strict();
+
+// RC-KNW-1.3 — delete a DM-authored template by id. Only the `user:` namespace is deletable; a built-in
+// starter preset is code, not data, and is refused.
+export const deleteContentTemplateInputSchema = z
+	.object({
+		templateId: z.string().min(1, 'A template id is required'),
+	})
+	.strict();
+
 // --- SES-002 — RUN COMBAT (initiative / rounds / turns / per-combatant resources / encounter log) ---
 
 const combatantKindSchema = z.enum(['character', 'npc', 'monster']);
@@ -2583,6 +2703,10 @@ export const applyCombatResourceInputSchema = z.discriminatedUnion('kind', [
 			kind: z.literal('condition'),
 			condition: z.string().min(1),
 			present: z.boolean(),
+			// RC-SES-3.1 — how many ROUNDS this condition lasts. Optional and additive: omitted, the
+			// tracker falls back to what the active system package says the condition lasts, and a
+			// condition with no duration at all simply runs until someone clears it.
+			rounds: z.number().int().min(1).max(999).optional(),
 		})
 		.strict(),
 	z
@@ -2962,6 +3086,9 @@ export const importAudioAssetInputSchema = z
 		title: z.string().optional(),
 		license: audioLicenseSchema.optional(),
 		tags: z.array(z.string()).optional(),
+		// RC-AUD-1.2 — measured client-side at import time (duration/waveform decode has no core equivalent).
+		durationSeconds: z.number().nonnegative().optional(),
+		waveform: z.array(z.number()).max(4096).optional(),
 		maxBytes: z.number().int().positive().optional(),
 	})
 	.strict();
@@ -2974,6 +3101,9 @@ export const updateAudioAssetMetadataInputSchema = z
 		title: z.string().optional(),
 		license: audioLicenseSchema.optional(),
 		tags: z.array(z.string()).optional(),
+		// RC-AUD-1.2 — a later measurement (e.g. after decode finishes) can attach duration/waveform.
+		durationSeconds: z.number().nonnegative().optional(),
+		waveform: z.array(z.number()).max(4096).optional(),
 	})
 	.strict();
 
@@ -3022,7 +3152,19 @@ export const configureAudioAutomationInputSchema = z
 		ruleId: idSchema.optional(),
 		label: z.string().optional(),
 		enabled: z.boolean().optional(),
-		trigger: z.enum(['combat-start', 'map-reveal', 'scene-activation', 'handout-delivery']),
+		// RC-AUD-3.2 appended the four table-moment SFX triggers; RC-AUD-3.1 appended `combat-end`.
+		// Order matches `state/audio-automation.ts`'s `AUDIO_AUTOMATION_TRIGGER_KINDS`.
+		trigger: z.enum([
+			'combat-start',
+			'combat-end',
+			'map-reveal',
+			'scene-activation',
+			'handout-delivery',
+			'roll-critical-success',
+			'roll-critical-failure',
+			'death-save-success',
+			'death-save-failure',
+		]),
 		triggerScopeId: z.union([z.literal(null), z.string().min(1)]).optional(),
 		action: z.enum(['play', 'crossfade', 'stop']),
 		sourceId: idSchema,
@@ -3034,6 +3176,22 @@ export const configureAudioAutomationInputSchema = z
 export const deleteAudioAutomationInputSchema = z
 	.object({
 		ruleId: idSchema,
+	})
+	.strict();
+
+// RC-AUD-3.2 — SET one per-event SFX toggle (DM-only). A CLOSED enum of the declared SFX events; the
+// toggle is a MUTE, so rules on the event stay armed and resume the moment it is switched back on.
+export const setAudioSfxEventInputSchema = z
+	.object({
+		event: z.enum([
+			'roll-critical-success',
+			'roll-critical-failure',
+			'death-save-success',
+			'death-save-failure',
+			'map-reveal',
+			'handout-delivery',
+		]),
+		enabled: z.boolean(),
 	})
 	.strict();
 
@@ -3184,6 +3342,20 @@ export const authorRecapInputSchema = z
 			.max(100)
 			.optional(),
 		followUps: z.array(z.string().min(1).max(1_000)).max(100).optional(),
+	})
+	.strict();
+
+// RC-CHR-4.2 — compile the `session-highlight` journal entries across the party into one shared
+// "Session highlights" note (DM-only). `characterIds` optionally narrows which characters are
+// compiled; absent = every character with at least one highlight. `occurred`, when supplied, dates
+// the note on the campaign calendar — the same `dateFields` mechanism RC-SES-4.1's session-log note
+// uses to place itself on the Campaign timeline (DM pin-to-timeline).
+export const compileSessionHighlightsInputSchema = z
+	.object({
+		title: z.string().min(1).max(200).optional(),
+		characterIds: z.array(idSchema).max(200).optional(),
+		sessionArchiveId: idSchema.optional(),
+		occurred: customDateSchema.optional(),
 	})
 	.strict();
 
@@ -3429,5 +3601,56 @@ export const resolveMcpProposalConflictInputSchema = z
 	.object({
 		proposalId: idSchema,
 		resolution: z.enum(['keep-ai', 'keep-mine', 'merge']),
+	})
+	.strict();
+
+// --- RC-SES-4.4 — QUICK-PANEL TIMER (countdown / break) (append-only block) ---------------------
+
+// START a fresh countdown or break: a positive duration, an optional short label. Starting always
+// replaces whatever quick timer was running before (a DM restarting the clock is not an error).
+export const startQuickTimerInputSchema = z
+	.object({
+		kind: z.enum(['countdown', 'break']),
+		durationSeconds: z.number().positive(),
+		label: z.string().trim().min(1).max(80).nullish(),
+	})
+	.strict();
+
+// PAUSE / RESUME / RESET / LAP all operate on the one live quick timer and carry no payload of
+// their own.
+export const operateQuickTimerInputSchema = z.object({}).strict();
+
+// --- RC-CLD-2.4 — RECORD A CROSS-DEVICE MERGE (append-only block) -------------------------------
+
+// One operation as another device recorded it, decrypted from the cloud op-log. The shape mirrors
+// `sync/operation-log.ts`'s `SyncOperation`; it is validated here because these values arrive from
+// outside this device and must never reach the conflict lifecycle unchecked. `value` stays `unknown`
+// for the same reason `selectedValue` does: an operation carries any entity's payload.
+export const remoteSyncOperationSchema = z
+	.object({
+		id: idSchema,
+		vaultId: z.string().min(1),
+		sourceId: z.string().min(1),
+		actorId: idSchema,
+		entityType: z.string().min(1),
+		entityId: idSchema,
+		opType: z.string().min(1),
+		path: z.string().optional(),
+		value: z.unknown().optional(),
+		beforeRevision: z.number().int().nonnegative().optional(),
+		afterRevision: z.number().int().nonnegative().optional(),
+		dependencies: z.array(idSchema).default([]),
+		issuedAt: z.string().min(1),
+		schemaVersion: z.literal(1),
+	})
+	.strict();
+
+// The DM merges what another device pushed. The command carries the cloud's operation tail and the
+// revision both logs are already known to agree on; the CORE compares the two logs and decides what
+// the comparison means, so no client can hand the vault a pre-cooked verdict.
+export const mergeRemoteOperationsInputSchema = z
+	.object({
+		remoteOperations: z.array(remoteSyncOperationSchema).max(5000),
+		baseRevision: z.number().int().min(-1).default(-1),
 	})
 	.strict();

@@ -54,6 +54,7 @@ export type {
 	PlayerViewProjectionTarget,
 	QuickReferencePanel,
 	QuickReferenceTargetKind,
+	QuickTimerKind,
 	SessionActiveMapProjection,
 	SessionActiveMapSelection,
 	SessionArchiveRecap,
@@ -63,6 +64,7 @@ export type {
 	SessionHandout,
 	SessionPartyLocation,
 	SessionPlayerViewAssignment,
+	SessionQuickTimer,
 	SessionState,
 	SessionTimer,
 	SessionWorkflowState,
@@ -222,6 +224,25 @@ export {
 	previewMapImport,
 	stageMapImport,
 	summarizeAdapterCapabilities,
+} from './state/map-import';
+
+// RC-MAP-3.2 — raster import wizard v2 policy. Pure: two dragged corners of one cell become the map's
+// grid cell count, "1 square = 5 ft" becomes the MapScale the distance queries read, and a luminance
+// mask becomes traced `wall` features through the existing marching-squares pipeline. Nothing writes —
+// the wizard previews these and then dispatches map.configure-overlay / map.set-scale / map.add-features.
+export type {
+	GridCalibrationError,
+	GridCalibrationInput,
+	MapGridCalibration,
+	MapGridShape,
+	MapImportPoint,
+	WallTraceInput,
+} from './state/map-import';
+export {
+	MAP_IMPORT_MAX_ASSET_BYTES,
+	deriveGridCalibration,
+	deriveImportScale,
+	traceWallsFromLuminance,
 } from './state/map-import';
 
 // MAP-004: deterministic, seeded PRNG. The determinism anchor for procedural generation — no
@@ -445,6 +466,7 @@ export type {
 	MapFogView,
 	MapGraphEdge,
 	MapHiddenCounts,
+	MapHierarchyNode,
 	MapLayerView,
 	MapListEntry,
 	MapPoiView,
@@ -466,6 +488,7 @@ export {
 export {
 	deliveredMapIdsForActor,
 	getMapBreadcrumbForActor,
+	getMapHierarchyForActor,
 	getMapViewForActor,
 	listMapsForActor,
 	mapGraphEdgesForActor,
@@ -1036,6 +1059,8 @@ export {
 	validateAudioPackageInputSchema,
 	configureAudioAutomationInputSchema,
 	deleteAudioAutomationInputSchema,
+	// RC-AUD-3.2 — the per-event SFX toggle.
+	setAudioSfxEventInputSchema,
 	playSessionAudioInputSchema,
 	setSessionAudioVolumeInputSchema,
 	projectSessionAudioInputSchema,
@@ -1702,10 +1727,17 @@ export type {
 	DigestMode,
 	DigestPartyLocation,
 	DigestRecentChange,
+	DigestSuggestedPackage,
 	DigestThread,
 	PrepRecapDigest,
 } from './queries/prep-recap-digest';
 export { DEFAULT_RECENT_CHANGE_LIMIT, getPrepRecapDigest } from './queries/prep-recap-digest';
+
+// RC-CLD-3.3 — THE single actor-filtered SESSION-RECAP-FEED read model: the between-session inbox's
+// wiki recap feed (every DM-authored recap, newest first). Observer ceiling applies (PERM-011); a
+// non-authored archive contributes nothing (there is no separate publish step for a recap).
+export type { SessionRecapFeedEntry } from './queries/session-recap-feed';
+export { getSessionRecapFeedForActor } from './queries/session-recap-feed';
 
 // The PURE campaign-SYSTEM-SWITCH dry-run behind `widget.package.switch-system`: it WRAPS the
 // PLAT-008 vault-migration dry-run (a blocked vault blocks the switch) and classifies every
@@ -2353,6 +2385,7 @@ export type {
 	CharacterJournal,
 	CharacterJournalEntry,
 	CharacterJournalState,
+	DowntimeDetails,
 	JournalEntryKind,
 	JournalEntryMeta,
 	UpdateJournalEntryPatch,
@@ -2399,8 +2432,12 @@ export type {
 	CalendarDateFormat,
 	CalendarDateValidation,
 	CalendarDefinition,
+	CalendarHoliday,
 	CalendarMonth,
+	CalendarMoon,
 	CustomDate,
+	MoonPhase,
+	MoonPhaseName,
 } from './state/calendar';
 export {
 	CALENDAR_SCHEMA_VERSION,
@@ -2413,7 +2450,10 @@ export {
 	daysInYear,
 	formatCustomDate,
 	fromAbsoluteDayIndex,
+	holidaysOn,
 	isValidCustomDate,
+	migrateCalendarDefinition,
+	moonPhasesOn,
 	validateCustomDate,
 	weekdayName,
 } from './state/calendar';
@@ -2546,6 +2586,32 @@ export {
 	previewInsertedSnippet,
 	snippetCanInsertIntoVisibility,
 } from './state/content-snippets';
+
+// --- RC-KNW-1.3 (templates and snippets UI) — the DURABLE store of DM-authored templates. Same
+// ContentTemplate shape, same pure render + existing validation pipeline as a built-in preset; this
+// only adds durability, a reserved `user:` id namespace and a fail-closed draft validator.
+export type {
+	ContentTemplateSummary,
+	UserContentTemplateDefinition,
+	UserContentTemplateDraft,
+	UserContentTemplateIssue,
+	UserContentTemplateMap,
+	UserContentTemplateValidationResult,
+} from './state/content-template-store';
+export {
+	USER_CONTENT_TEMPLATE_ENTITY_TYPE,
+	USER_CONTENT_TEMPLATE_ID_PATTERN,
+	USER_CONTENT_TEMPLATE_ID_PREFIX,
+	USER_CONTENT_TEMPLATE_SCHEMA_VERSION,
+	buildUserContentTemplate,
+	ensureUserContentTemplateMap,
+	isUserContentTemplateId,
+	listContentTemplates,
+	resolveContentTemplate,
+	summarizeUserContentTemplate,
+	validateUserContentTemplate,
+} from './state/content-template-store';
+// --- end RC-KNW-1.3 ---
 
 // CONTENT-011: THE single actor-filtered CONTENT read model. Per-item visibility decided BEFORE any
 // content is returned to ANY surface (note/graph/search/recap), with STABLE formatted dates. A hidden
@@ -3101,6 +3167,7 @@ export type {
 	CloudSecurityRecordProblemKind,
 	EncryptionResponsibility,
 	KeyCustodian,
+	RegisteredVaultPrivacyMode,
 	ServerVisibilityViolation,
 	ServerVisibilityViolationReason,
 	ServerVisibleField,
@@ -3109,11 +3176,13 @@ export {
 	ALLOWED_SERVER_METADATA_CLASSES,
 	CLOUD_SECURITY_MODEL_SCHEMA_VERSION,
 	UNDECLARED_CLOUD_SECURITY_DECISION_RECORD,
+	assertPlaintextUploadPermitted,
 	assertServerSeesOnlyAllowedMetadata,
 	assertServerVisibilityForRecord,
 	canReleaseCloud,
 	evaluateCloudReleaseGate,
 	findServerVisibilityViolations,
+	isPlaintextUploadPermitted,
 	validateCloudSecurityRecord,
 } from './security/cloud-security-model';
 
@@ -3423,6 +3492,18 @@ export {
 // indistinguishable from "no relationships" — a stale link to a now-hidden target degrades gracefully).
 export { getNoteRelationshipsForActor } from './queries/note-relationships';
 
+// RC-KNW-3.3: the RELATIONSHIP EDITOR — TYPED edges between notes (faction↔NPC, NPC↔location, or any
+// other authored pair), declared as `relations:` front matter and resolved against the SAME
+// actor-visible note set GRAPH-002 already builds (no second relationship source, no new command: a
+// declaration is written through the existing `content.update-item` front matter round-trip).
+export type { RelationDeclaration, TypedRelationEdge } from './state/note-relationships';
+export {
+	computeTypedRelationshipEdges,
+	parseRelationDeclarations,
+	serializeRelationDeclaration,
+} from './state/note-relationships';
+export { getTypedRelationshipEdgesForActor } from './queries/note-relationships';
+
 // GRAPH-003: the PURE DETERMINISTIC GRAPH-QUALITY engine — UNRESOLVED links (+ deterministic repair
 // candidates), ALIAS / DUPLICATE-TITLE disambiguation, ORPHAN + HUB notes, and RELATIONSHIP-QUALITY scores
 // (each carrying deterministic inputs + a versioned threshold + source references, no AI). Built on the SAME
@@ -3449,6 +3530,19 @@ export {
 // the actor-filtered wikilink candidate index, so hidden notes are never analyzed nor revealed (a player's
 // report and the DM's differ only by which notes are visible). Unknown actor ⇒ empty report (fail closed).
 export { getGraphQualityForActor } from './queries/graph-quality-query';
+
+// --- RC-KNW-4.1: CLUSTERS AND MOMENTUM (additive block — do not reorder neighbours) ---
+// Deterministic label-propagation communities over the actor-visible resolved-link graph, each arc
+// carrying MOMENTUM (recent mutations ÷ cluster size) and a DORMANT flag. Pure: `now` is passed in, never
+// read from a clock. Hidden notes are excluded upstream, so no arc can reveal content the actor can't see.
+export type { ClusterInputNode, GraphCluster, GraphClusterReport } from './state/graph-clusters';
+export {
+	CLUSTER_THRESHOLDS,
+	GRAPH_CLUSTER_SCHEMA_VERSION,
+	GRAPH_CLUSTER_THRESHOLD_VERSION,
+	computeGraphClusters,
+} from './state/graph-clusters';
+export { getGraphClustersForActor } from './queries/graph-quality-query';
 
 // GRAPH-007: the PURE DETERMINISTIC GRAPH HEALTH + COVERAGE engine — STALE notes, MISSING links, CONTENT
 // gaps, OPEN threads, and a 0–100 coverage grade, computed from the visible-graph quality report + staleness
@@ -3865,6 +3959,7 @@ export {
 	checkAdvancementEligibility,
 	clearAdvancementDraft,
 	commitAdvancement,
+	defaultAdvancementMode,
 	mergeAdvancementChoices,
 	validateAdvancement,
 	writeAdvancementDraft,
@@ -3873,13 +3968,19 @@ export {
 
 export {
 	addJournalEntryInputSchema,
+	// RC-AI-1.4 — the whole level-up as one payload (open + choices + commit, atomically).
+	applyAdvancementInputSchema,
+	awardXpInputSchema,
 	cancelAdvancementInputSchema,
 	commitAdvancementInputSchema,
+	levelPartyInputSchema,
 	commitContentImportInputSchema,
 	createCharacterDraftInputSchema,
 	createContentItemInputSchema,
 	createFromTemplateInputSchema,
 	defineCalendarInputSchema,
+	deleteContentTemplateInputSchema,
+	saveContentTemplateInputSchema,
 	exportContentInputSchema,
 	insertSnippetInputSchema,
 	editCharacterFieldInputSchema,
@@ -4083,6 +4184,11 @@ export {
 	TIMER_WARNING_FRACTION,
 	getTimerCountdown,
 } from './queries/timer-countdown';
+
+// RC-SES-4.4 — the actor-scoped quick-panel timer view: full control for a DM, a "Back in M:SS"
+// break card for a player, and nothing for a player while a countdown (not a break) is running.
+export type { QuickTimerView } from './queries/session-quick-timer';
+export { getQuickTimerForActor } from './queries/session-quick-timer';
 
 // SES-003 / SES-008 — THE single actor-filtered session ROLL HISTORY read model. A secret/DM-only roll
 // is omitted from a player's history; a shared roll reaches only the listed participants; the DM sees all.
@@ -4299,6 +4405,7 @@ export {
 	dequeueSceneCardInputSchema,
 	deleteSceneCardInputSchema,
 	enqueueSceneCardInputSchema,
+	playScenePackageInputSchema,
 	reorderSceneCardQueueInputSchema,
 	restoreSceneCardInputSchema,
 	setSceneCardTransitionInputSchema,
@@ -4702,6 +4809,8 @@ export type {
 	AudioAutomationRuleResult,
 	AudioAutomationTrigger,
 	AudioAutomationTriggerKind,
+	AudioSfxEventKind,
+	AudioSfxEventToggles,
 	BuildAudioAutomationRuleInput,
 } from './state/audio-automation';
 export {
@@ -4709,14 +4818,36 @@ export {
 	AUDIO_AUTOMATION_ENTITY_TYPE,
 	AUDIO_AUTOMATION_SCHEMA_VERSION,
 	AUDIO_AUTOMATION_TRIGGER_KINDS,
+	AUDIO_SFX_EVENT_KINDS,
 	actionStartsPlayback,
 	buildAudioAutomationRule,
 	cloneAudioAutomationRule,
+	ensureAudioSfxEventToggles,
 	evaluateAudioAutomationRule,
 	isAudioAutomationAction,
 	isAudioAutomationTriggerKind,
+	isAudioSfxEventKind,
+	isSfxEventEnabled,
 	resolveAudioAutomation,
+	// RC-AUD-2.2 — the `map.poi.party-enter` trigger's pure proximity test (POI position vs. the party's
+	// newly-marked point), so the app can decide when a POI-linked scene package should auto-activate.
+	POI_PARTY_ENTER_RADIUS,
+	poiPartyEnterMatches,
 } from './state/audio-automation';
+
+// RC-AUD-3.2 — the built-in SFX CUE library (the starter pack's sound-effect half): named one-shot
+// recipes for the table moments a sound punctuates. Shipped code data with bundled clip keys and NO
+// audio bytes, exactly like the atmosphere preset library; the DM binds a cue to a real asset/stream.
+export type { AudioSfxCue } from './state/audio-sfx-library';
+export {
+	BUILTIN_SFX_CUES,
+	BUILTIN_SFX_CUE_COUNT,
+	builtinSfxCueById,
+	builtinSfxCueId,
+	isBuiltinSfxCueId,
+	listBuiltinSfxCues,
+	listBuiltinSfxCuesForEvent,
+} from './state/audio-sfx-library';
 
 // AUDIO-011 — FAIL-CLOSED validation of a Scene AUDIO PACKAGE before import/export commit. Reports missing
 // assets, missing licensing metadata (reusing the AUDIO-004 review gate), unsupported streams (the
@@ -4745,6 +4876,7 @@ export {
 // non-DM gets EMPTY lists (audio config is DM-only — fail closed, no leak).
 export type { AudioAssetView } from './queries/audio-library-query';
 export {
+	audioSfxEventSettingsForActor,
 	listAudioAssetsForActor,
 	listAudioAssetsNeedingReview,
 	listAudioAutomationRulesForActor,
@@ -5205,6 +5337,7 @@ export {
 	generatorsByGroup,
 	generatorsByScale,
 	getGenerator,
+	isImmediateParamChange,
 } from './generation/registry';
 
 // RC-MAP-3.1 — the prop/stamp catalogue. Data, not GUI: the Assets panel, the canvas renderer and the
@@ -5482,6 +5615,18 @@ export {
 	systemConditionCatalog,
 } from './state/combat-tracker';
 
+// ── RC-SES-3.1 — condition DURATIONS and the round tick ──────────────────────────────────────────
+// A condition is `{ key, rounds? }`: the key lives in `resources.conditions`, the optional countdown
+// in `resources.conditionRounds`. `combat.advance-turn` runs the tick at the start of each round.
+export type { ExpiredCondition } from './state/combat-tracker';
+export {
+	MAX_CONDITION_ROUNDS,
+	sanitizeConditionRounds,
+	tickCombatConditions,
+	tickConditionRounds,
+} from './state/combat-tracker';
+// ── end RC-SES-3.1 ───────────────────────────────────────────────────────────────────────────────
+
 // RC-CAN-1.1 — pure inverse builders for the scene canvas layout commands (ADR-029 §1). The undo
 // STACK stays app-side, local and never synced, exactly as `buildMapInverse` established; the core
 // only answers "what command exactly undoes this one".
@@ -5633,6 +5778,22 @@ export {
 	normalizeSessionLogCapture,
 } from './state/session-log';
 
+// --- RC-SES-4.2 — continuity check after capture ----------------------------------------------------
+// A deterministic scan of the capture's own prose for names with no existing record — no AI, bounded.
+export type { ContinuityMentionCandidate } from './state/session-log';
+export { detectContinuityMentions } from './state/session-log';
+
+// --- RC-CHR-4.2 — highlight compilation -------------------------------------------------------------
+// `session.compile-highlights` (DM-only) gathers every character's `session-highlight` journal entries
+// into one shared "Session highlights" note; this module owns the pure markdown composition it shares
+// with the command handler.
+export type { CharacterHighlights } from './state/session-highlights';
+export {
+	SESSION_HIGHLIGHTS_SUBTYPE,
+	composeSessionHighlightsMarkdown,
+	isEmptyHighlightsCompile,
+} from './state/session-highlights';
+
 // RC-KNW-1.1 — MARKDOWN CALLOUTS. `[!Lore]/[!Warning]/[!Tip]/[!Secret]` blockquote callouts. The
 // GUI renderer and the actor-scoped content projections share these pure functions so "where does
 // the secret end" has exactly one answer; `stripSecretCallouts` is what keeps a `[!Secret]` body out
@@ -5693,3 +5854,116 @@ export {
 	raiseConcentrationCheck,
 	resolveConcentrationCheck,
 } from './state/character-resources';
+
+// RC-CLD-4.1 — MARKETPLACE MODULE BUNDLES. A `.dndmodule` is `manifest + payload + assets`, and the
+// manifest's `kind` (widget-package | system-package | scene-package | content-module) decides which
+// schema the payload is validated against and which review flow an install runs. The `content-module`
+// payload EXTENDS `content.export`: it is the `dndtools-content-export` bundle verbatim, so installing
+// one is the existing transactional `content.commit-import` review, not a second content path.
+export type {
+	ContentModulePayload,
+	ModuleAsset,
+	ModuleBundle,
+	ModuleBundleIssue,
+	ModuleBundleParseResult,
+	ModuleKind,
+	ModuleManifest,
+} from './state/module-bundle';
+export {
+	CONTENT_MODULE_PAYLOAD_FORMAT,
+	MAX_MODULE_ASSETS,
+	MAX_MODULE_ASSET_BYTES,
+	MAX_MODULE_ASSETS_TOTAL_BYTES,
+	MODULE_ASSET_MEDIA_TYPES,
+	MODULE_BUNDLE_FORMAT,
+	MODULE_BUNDLE_SCHEMA_VERSION,
+	MODULE_KINDS,
+	SCENE_PACKAGE_PAYLOAD_FORMAT,
+	buildContentModuleBundle,
+	buildModuleBundle,
+	contentExportToModulePayload,
+	contentModuleImportFiles,
+	decodedByteLength,
+	moduleBundleFileName,
+	moduleBundleItemCount,
+	parseModuleBundle,
+} from './state/module-bundle';
+
+// RC-CLD-4.3 — CREATOR TOOLING: the publish CHECKLIST Community › Publish runs over a draft before
+// letting a DM ship it (missing license/changelog block; a broken link or an asset the bundle cannot
+// carry yet warns). Pure pre-flight over the draft, ahead of `moduleManifestSchema`'s wire-boundary
+// validation (semver + `.strict()` shape).
+export type {
+	PublishChecklistInput,
+	PublishChecklistItem,
+	PublishChecklistResult,
+	PublishChecklistSeverity,
+} from './queries/publish-checklist';
+export { buildPublishChecklist, isValidSemver } from './queries/publish-checklist';
+
+/* ---- RC-CLD-1.4 — opt-in, content-free product analytics ----------------------------------------
+ * The taxonomy is a CLOSED set of event names and enum-only properties, and the envelope carries no
+ * identity at all. Both ends of the wire validate with the same builder, so an event the client
+ * cannot construct is an event the ingestion Lambda will not count. Consent lives here too: an
+ * absent record means `denied`. See docs/development/PRODUCT_ANALYTICS.md. */
+export type {
+	ProductAnalyticsEvent,
+	ProductAnalyticsEventName,
+	ProductAnalyticsPayload,
+	ProductAnalyticsProps,
+	TelemetryConsent,
+	TelemetryPlatform,
+} from './diagnostics/product-analytics';
+export {
+	PRODUCT_ANALYTICS_EVENTS,
+	PRODUCT_ANALYTICS_EVENT_NAMES,
+	PRODUCT_ANALYTICS_MAX_EVENTS,
+	PRODUCT_ANALYTICS_PAYLOAD_VERSION,
+	buildProductAnalyticsEvent,
+	isTelemetryConsent,
+	parseProductAnalyticsPayload,
+	telemetryConsentAllows,
+	toAnalyticsAppVersion,
+} from './diagnostics/product-analytics';
+
+// --- RC-CLD-2.4 — CROSS-DEVICE MERGE SYNC (append-only block) -----------------------------------
+// The comparison half of the conflict lifecycle: this device's op-log against the same vault's op-log
+// as another device left it in the cloud. Pure — no crypto, no transport. It classifies the pair as
+// up-to-date / fast-forward / push-only / diverged and, when diverged, names every entity both devices
+// changed with each side's newest operation. The transport records those through `sync.merge-remote`,
+// which turns them into ordinary durable conflict records the existing DM `conflict.resolve` closes.
+export type {
+	CrossDeviceMergeInput,
+	CrossDeviceMergeOutcome,
+	CrossDeviceMergePlan,
+	MergeDivergence,
+	MergeDivergenceSide,
+} from './sync/conflict-lifecycle';
+export {
+	CROSS_DEVICE_MERGE_SCHEMA_VERSION,
+	MERGE_CONFLICT_ID_PREFIX,
+	MERGE_CONFLICT_OP_SUFFIX,
+	isMergeConflictId,
+	isMergeConflictOpType,
+	mergeConflictId,
+	mergeConflictOpValue,
+	planCrossDeviceMerge,
+	summarizeMergePlan,
+} from './sync/conflict-lifecycle';
+
+// RC-SYS-3.4 — SYSTEM PACKAGE export/import. A system package is data (vocabulary, attributes,
+// resources, conditions, formulas): it runs no code and needs no host permission, so it travels as
+// an ordinary `.dndmodule` bundle of kind `system-package` and installs through the same
+// `system.define` review a DM-authored system already goes through. The import always re-homes the
+// package into the `custom:` namespace under a free id, because built-in ids are re-seeded from the
+// build on every load and an install must add a system rather than overwrite one.
+export type {
+	SystemPackageExportOverrides,
+	SystemPackageImport,
+	SystemPackageImportResult,
+} from './commands/system-package';
+export {
+	exportSystemPackageBundle,
+	importSystemPackageFromBundle,
+	systemPackageModuleId,
+} from './commands/system-package';

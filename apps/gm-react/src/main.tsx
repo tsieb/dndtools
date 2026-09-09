@@ -5,11 +5,16 @@ import { Toaster } from './ds';
 import { App } from './App';
 import { hydrateAiProviderKey } from './ai/providerConfig';
 import { bindWindowChromeTheme } from './platform/windowChrome';
+import { registerServiceWorker } from './platform/serviceWorker';
 import { StandaloneSceneDisplay } from './screens/SceneDisplay';
 import { I18nProvider, translate, initialLocale, LOCALE_STORAGE_KEY } from './i18n';
 
 // Synchronize the browser/native title surface before React paints, then follow live theme changes.
 bindWindowChromeTheme();
+
+// RC-PLT-2.1: install the offline shell in browser runtimes. Feature-detected and self-silencing —
+// Electron and the Android WebView are skipped, and a refusal leaves the app online-only, not broken.
+void registerServiceWorker();
 
 // Safety net for a durable-write failure: `SceneRuntime.dispatch` rolls back and RE-THROWS on a persist
 // failure (PLAT-018), so a caller that only inspects `result.status` would let it escape as an unhandled

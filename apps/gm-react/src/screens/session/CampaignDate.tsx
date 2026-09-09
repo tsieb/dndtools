@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
 	addDays,
 	daysInMonth,
+	holidaysOn,
+	moonPhasesOn,
 	getCalendarContinuityForActor,
 	type CalendarDefinition,
 	type CustomDate,
@@ -26,6 +29,7 @@ export function CampaignDatePanel({
 	onSet: (date: CustomDate, ok: string) => void;
 }) {
 	const { t } = useI18n();
+	const navigate = useNavigate();
 	const [year, setYear] = useState(1);
 	const [month, setMonth] = useState(1);
 	const [day, setDay] = useState(1);
@@ -51,11 +55,27 @@ export function CampaignDatePanel({
 		return (
 			<Panel title={t('session.date.title')}>
 				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('session.date.noCalendar')}</div>
+				{/* RC-KNW-3.1 — the empty state used to be terminal; it now points at the editor that
+				    fixes it, so "no calendar" is a step in a flow rather than a wall. */}
+				<div>
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="add"
+						onClick={() => navigate('/campaign/calendar')}
+					>
+						{t('session.date.defineCalendar')}
+					</Button>
+				</div>
 			</Panel>
 		);
 	}
 
 	const maxDay = daysInMonth(calendar, month) ?? 1;
+	// RC-KNW-3.1 — derived, never stored: the moons and holidays of the CURRENT campaign date come
+	// straight from the definition, so what the DM reads here is what every other surface derives.
+	const moons = current ? moonPhasesOn(calendar, current.value) : [];
+	const holidays = current ? holidaysOn(calendar, current.value) : [];
 
 	// An empty or unparseable draft falls back to the last committed value rather than to a magic 1.
 	function parsedDay(): number {
@@ -128,6 +148,48 @@ export function CampaignDatePanel({
 					{t('session.date.advance')}
 				</Button>
 			</div>
+			{(holidays.length > 0 || moons.length > 0) && (
+				<div
+					data-testid="session-date-derived"
+					style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+				>
+					{holidays.length > 0 && (
+						<div
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 6,
+								font: `12px ${T.sans}`,
+								color: T.acc,
+							}}
+						>
+							<Icon name="flag" size="sm" color={T.acc} />
+							{holidays.map((h) => h.name).join(' · ')}
+						</div>
+					)}
+					{moons.length > 0 && (
+						<div
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 6,
+								font: `12px ${T.sans}`,
+								color: T.ter,
+							}}
+						>
+							<Icon name="sparkle" size="sm" color={T.ter} />
+							{moons
+								.map((m) =>
+									t('session.date.moonRow', {
+										name: m.name,
+										phase: t(`calendar.phase.${m.phase}` as const),
+									}),
+								)
+								.join(' · ')}
+						</div>
+					)}
+				</div>
+			)}
 			<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
 				<Field label={t('session.date.month')} style={{ flex: '1 1 120px' }}>
 					<Select
@@ -166,6 +228,16 @@ export function CampaignDatePanel({
 				</Field>
 				<Button variant="primary" size="sm" icon="check" disabled={previewing} onClick={setDate}>
 					{t('session.date.set')}
+				</Button>
+			</div>
+			<div>
+				<Button
+					variant="ghost"
+					size="sm"
+					icon="note-edit"
+					onClick={() => navigate('/campaign/calendar')}
+				>
+					{t('session.date.editCalendar')}
 				</Button>
 			</div>
 		</Panel>

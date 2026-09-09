@@ -11,6 +11,7 @@ import type { SceneState } from '../state/scene-state';
 import type {
 	DiceRollSourceKind,
 	DiceRollVisibility,
+	QuickReferenceTargetKind,
 	SessionWorkflowState,
 	SessionState,
 } from '../state/session-state';
@@ -22,6 +23,7 @@ import type {
 import type { WidgetPackageState } from '../state/widget-package-state';
 import type { SystemsState } from '../state/system-package';
 import type { VaultContentState } from '../state/content';
+import type { AudioSfxEventKind } from '../state/audio-automation';
 import type { AudioState } from '../state/audio-state';
 import type { AudioPackageValidationReport } from '../state/audio-package';
 import type { EncounterState } from '../state/encounter';
@@ -558,6 +560,17 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	// RC-AI-1.4: the WHOLE level-up in one dispatch (open + choices + commit, atomic). Owner-only,
+	// same authority as the staged commands above; it is what an agent-proposed level-up approves as.
+	| {
+			type: 'character.apply-advancement';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	// RC-CHR-1.4: bulk party actions ("Award XP", "Level the party") — DM-only.
+	| { type: 'character.award-xp'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'character.level-party'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// CHAR-011: party-record authoring (marching order + party inventory) — DM-only.
 	| {
 			type: 'character.set-marching-order';
@@ -706,6 +719,14 @@ export type CoreCommand =
 	// validation + sanitization (render) + visibility pipeline as hand-typed content — a snippet cannot
 	// skip validation, smuggle unsanitized markdown, or widen the note's visibility (all fail-closed).
 	| { type: 'content.insert-snippet'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// --- RC-KNW-1.3 (templates and snippets UI) -----------------------------------------------------
+	// SAVE / DELETE a DM-authored CONTENT TEMPLATE. The authored draft is validated at dispatch (fail
+	// closed: reserved `user:` id namespace, every written placeholder declared, visibility fails closed
+	// to dm-only), so a stored template can never render an unvalidated shape into a real note. Creating
+	// from one reuses `content.create-from-template` unchanged.
+	| { type: 'content.save-template'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'content.delete-template'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// --- end RC-KNW-1.3 -----------------------------------------------------------------------------
 	// CONTENT-009: author SECTION- / FIELD-level visibility on a note/object (authorized editor). The
 	// entity-level default already exists; these add the narrower granularities. Read-time precedence
 	// (field > section > entity, hidden-ancestor-wins) is the REUSED PERM visibility-filter engine.
@@ -778,6 +799,8 @@ export type CoreCommand =
 			idempotencyKey?: string;
 	  }
 	| { type: 'audio.delete-automation'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// RC-AUD-3.2 — switch one SFX event on/off (DM-only).
+	| { type: 'audio.set-sfx-event'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// AUDIO-001: associate (create/update) / disassociate a SCENE / MAP / MAP-LAYER audio cue (DM-only). A
 	// Scene "has an audio preset" via a durable association; on activation the core resolves which cues are
 	// available to the audio widget, composing the existing source/license/offline gates (fail closed).
@@ -839,6 +862,14 @@ export type CoreCommand =
 	| { type: 'audio.delete-preset'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// SES-009 — AUTHOR a recap (markdown) onto a session archive. DM-only; fails closed with no archive.
 	| { type: 'session.author-recap'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// RC-CHR-4.2 — compile the party's `session-highlight` journal entries into one shared
+	// "Session highlights" note. DM-only.
+	| {
+			type: 'session.compile-highlights';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	// COLLAB-004 — set/clear ephemeral session PRESENCE. Actor-scoped (a player sets only their own;
 	// the DM may clear another's). NEVER op-logged: presence is ephemeral, non-durable state.
 	| { type: 'session.set-presence'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -880,6 +911,50 @@ export type CoreCommand =
 	// note as it stands, or take the clean three-way merge — as ONE validated command. DM-only.
 	| {
 			type: 'mcp.resolve-proposal-conflict';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	// --- RC-SES-4.4 — QUICK-PANEL TIMER (append-only block) ----------------------------------------
+	// Start/operate the session-level quick-panel countdown or break timer (independent of any scene
+	// widget). DM-only; requires an active session workflow.
+	| {
+			type: 'session.quick-timer.start';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'session.quick-timer.pause';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'session.quick-timer.resume';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'session.quick-timer.reset';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'session.quick-timer.lap';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	// --- RC-CLD-2.4 — CROSS-DEVICE MERGE (append-only block) --------------------------------------
+	// The transport pulled this vault's encrypted op-log from the cloud and decrypted it; the CORE
+	// compares it against this device's log and records a durable conflict for every entity both
+	// devices changed. Nothing is applied: an operation is a record, not a re-executable command.
+	// DM-only, like every other conflict decision.
+	| {
+			type: 'sync.merge-remote';
 			actorId: ActorId;
 			payload: unknown;
 			idempotencyKey?: string;
@@ -1028,7 +1103,9 @@ export type CoreEvent =
 	| {
 			kind: 'session.quick-reference-pinned';
 			panelId: string;
-			kind_: 'note' | 'stat-block' | 'rules-snippet' | 'open-thread' | 'session-context';
+			// RC-SES-2.3 — the named union rather than a second copy of it, so a new panel kind cannot
+			// widen the state without widening the event.
+			kind_: QuickReferenceTargetKind;
 			targetId: string | null;
 			actorId: ActorId;
 	  }
@@ -1231,6 +1308,21 @@ export type CoreEvent =
 			mapId: string;
 			revision: number;
 	  }
+	// ── RC-SES-3.1 — a timed condition ran out on the round tick ──────────────────────────────────
+	// Emitted by `combat.advance-turn`, once per condition that reached zero rounds, alongside the
+	// `combat.turn-advanced` event. Nobody pressed anything: the interface uses this to tell the DM
+	// what came off, because a badge quietly vanishing between rounds is indistinguishable from a bug.
+	| {
+			kind: 'combat.condition-expired';
+			actorId: ActorId;
+			combatantId: string;
+			/** The condition KEY that expired; resolve it against the active package to name it. */
+			condition: string;
+			/** The round that just began — the one the condition did not survive into. */
+			round: number;
+			revision: number;
+	  }
+	// ── end RC-SES-3.1 ────────────────────────────────────────────────────────────────────────────
 	// SES-006 — encounter build/update events. Carry the computed challenge guidance for the GUI.
 	| {
 			kind: 'encounter.built';
@@ -1638,6 +1730,16 @@ export type CoreEvent =
 			mutation: 'define' | 'update' | 'delete';
 			actorId: ActorId;
 	  }
+	// --- RC-KNW-1.3 (templates and snippets UI) -----------------------------------------------------
+	// A DM-authored content template was saved or deleted. Carries the template id + the mutation so the
+	// authoring surfaces re-read the template catalog. DM-only authoring metadata; never player-delivered.
+	| {
+			kind: 'content.template-changed';
+			templateId: string;
+			mutation: 'save' | 'update' | 'delete';
+			actorId: ActorId;
+	  }
+	// --- end RC-KNW-1.3 -----------------------------------------------------------------------------
 	// CONTENT-006 — a wikilink target was renamed: the target note's title changed AND the rename propagated to
 	// referring links. Carries the renamed item, old/new titles, and the ids of the notes whose bodies were
 	// rewritten + total links rewritten, so the audit records exactly what propagated (deterministic).
@@ -1745,6 +1847,13 @@ export type CoreEvent =
 	  }
 	// AUDIO-005 — an atmosphere automation rule was deleted.
 	| { kind: 'audio.automation-deleted'; ruleId: string; actorId: ActorId }
+	// RC-AUD-3.2 — one SFX event was switched on/off. Rules on it stay armed either way.
+	| {
+			kind: 'audio.sfx-event-changed';
+			event: AudioSfxEventKind;
+			enabled: boolean;
+			actorId: ActorId;
+	  }
 	// AUDIO-001 — a scene/map/layer audio association was created/updated. Carries the association id + the
 	// target binding (kind/id/layer) + the cue refs (the audit), never player-facing content. The association
 	// is a dormant definition until the target is activated; creating it creates NO playback state.
@@ -1902,6 +2011,24 @@ export type CoreEvent =
 			mapId: string;
 			x: number;
 			y: number;
+	  }
+	// RC-SES-4.4 — the quick-panel timer started/paused/resumed/reset, or took a lap mark.
+	| {
+			kind: 'session.quick-timer-changed';
+			operation: 'started' | 'paused' | 'resumed' | 'reset' | 'lap';
+			actorId: ActorId;
+	  }
+	// RC-CLD-2.4 — a cross-device merge comparison finished. Carries COUNTS and the outcome only,
+	// never an entity id or a conflicting value, so a status surface can report it to anyone.
+	| {
+			kind: 'sync.merge-recorded';
+			actorId: ActorId;
+			outcome: 'up-to-date' | 'fast-forward' | 'push-only' | 'diverged';
+			agreedRevision: number;
+			incomingCount: number;
+			outgoingCount: number;
+			conflictCount: number;
+			recordedConflictCount: number;
 	  };
 
 export type RejectionCode =
@@ -1996,6 +2123,15 @@ export type RejectionCode =
 	// generated content failed the EXISTING markdown/object validation. Fail closed: nothing is written.
 	// The per-issue findings ride the `issues` list for the authoring UI.
 	| 'template-render-invalid'
+	// --- RC-KNW-1.3 (templates and snippets UI) ---
+	// A DM-authored template draft failed validation (bad id namespace, missing name/title/body, a bad or
+	// duplicated variable, or a `{{placeholder}}` the draft never declares). Fail closed: nothing is stored.
+	| 'content-template-invalid'
+	// A delete named a built-in starter preset. A preset is code, not data — there is nothing to remove.
+	| 'content-template-not-deletable'
+	// A delete/create named a template id that is not stored.
+	| 'content-template-not-found'
+	// --- end RC-KNW-1.3 ---
 	// CONTENT-004 — the named snippet does not exist.
 	| 'snippet-not-found'
 	// CONTENT-004 — inserting the snippet would make the note invalid (the resulting text failed the SAME

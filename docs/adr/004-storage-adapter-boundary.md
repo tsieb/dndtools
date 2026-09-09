@@ -5,6 +5,9 @@
 - Deciders: Engineering
 - Consulted: Product
 - Supersedes: N/A
+- Amended by: [ADR-035](./035-player-private-device-local-store.md) — the adapter boundary now covers a
+  second, per-character database (`dndtools-private-<characterId>`) that is deliberately outside the
+  sync, backup and MCP surfaces.
 
 ## Context
 

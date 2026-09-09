@@ -50,20 +50,80 @@ that residual exposure is precisely what the user consents to, and the consent c
 
 Phase-2 obligations (review checklist — all must hold before `approved: true`):
 
-- [ ] Dedicated KMS key per stage with key policy scoped to the sync-api role; CloudTrail on
-      decrypt; no wildcard principals.
+- [x] Dedicated KMS key **configuration** per stage with key policy scoped to the sync-api role;
+      CloudTrail configured for decrypt; no wildcard principals. `CloudEnhancedContentKey` in
+      `infra/sync-api/template.yaml` is unconditional for `dev` and `prod`, with a stage-specific
+      alias and SSM discovery path, rotation enabled, and retention on deletion/replacement.
+      Only this stack's `SyncFnRole` receives `Decrypt`/`GenerateDataKey`/`DescribeKey` use. The
+      account principal delegates an explicit list of management operations; it cannot delegate
+      cryptographic use or `CreateGrant` through IAM under this policy. Administrators can still
+      change the policy and remain inside the consented operator trust boundary.
+      `AuditTrail` in `infra/foundation/template.yaml` includes all management reads/writes with
+      no KMS exclusion. `tests/unit/cloud-enhanced-kms.test.ts` guards these template properties.
+      **Deployment evidence remains outstanding:** no stage apply, deployed policy inspection,
+      access probe, or delivered CloudTrail decrypt event was verified by this review.
 - [ ] Plaintext path accepts uploads **only** for vaults whose server-side mode registration says
-      `cloud-enhanced`; an E2EE vault's envelope is never readable regardless of a client bug
-      (server-side mode check, not client honor system).
+      `cloud-enhanced`; an E2EE vault's envelope is never readable regardless of a client bug.
+      `isPlaintextUploadPermitted` / `assertPlaintextUploadPermitted` in
+      `packages/core/src/security/cloud-security-model.ts` reject absent/private registrations and
+      unapproved records, but take their mode from the caller. The core tests supply that string
+      directly; they cannot prove its provenance. No server registration store or plaintext route
+      calls this helper in `packages/cloud-fns/src/sync/handler.ts`. A future route must load the
+      authenticated owner's registration, reject failed/missing reads and client-supplied mode
+      overrides, and enforce the gate before storing content. Race tests must show a concurrent
+      mode change cannot authorize a stale plaintext write.
 - [ ] Tenant isolation identical to the E2EE path (Cognito sub scoping on every row/object key).
+      The sync handler namespaces ciphertext rows/objects with the authenticated Cognito sub;
+      `packages/cloud-fns/src/sync/handler.test.ts` tests cross-user operation reads. This is
+      evidence for the existing E2EE path only. Plaintext registration, reads, writes, indexes,
+      and deletion need their own cross-tenant tests once implemented.
 - [ ] Server-side feature code (RAG indexer, search) runs with read-only scoped access and never
-      writes derived plaintext into a broader-scoped store.
+      writes derived plaintext into a broader-scoped store. No private-vault server RAG/search
+      implementation exists to review. Public marketplace/wiki publication is a separate consent
+      boundary and does not satisfy this item. Review each feature's role and every derived store
+      with the first plaintext feature.
 - [ ] Mode switch = re-upload migration; the old-mode artifacts are deleted after the new-mode copy
       verifies. Cloud-Enhanced → Private switch copy states that previously-server-readable content
-      was readable while the mode was active.
+      was readable while the mode was active. `apps/gm-react/src/screens/settings/SyncPrivacy.tsx`
+      currently calls the localStorage-backed `cloud/vaultMode.ts` setter only. No server mode
+      transition, verified re-upload, write fencing, or old-mode cleanup exists. Failed/interrupted
+      migration must preserve the prior usable copy without claiming the privacy switch completed.
 - [ ] Deletion (account or vault) purges plaintext artifacts and derived indexes/embeddings.
+      `packages/cloud-fns/src/sync/handler.ts` purges ciphertext object versions and sync rows;
+      `packages/cloud-fns/src/app-api/handler.ts` checks that purge marker before account deletion.
+      Neither path covers a Cloud-Enhanced content store or derived indexes. Wire every new store
+      into the purge protocol and prove partial failures cannot produce a completed deletion marker.
 - [ ] The `assertServerVisibilityForRecord` relaxation is reachable only via
       `securityDecisionRecordForVaultMode('cloud-enhanced')` and only once the record is approved.
+      The selector and record-validation helper exist and the shipped unapproved record fails
+      closed (`packages/core/tests/security-vault-privacy-modes.test.ts`). The helper also accepts
+      caller-constructed approved records: it does not enforce selector use or server registration.
+      There is no production plaintext call site to review. Verify all such call sites use the
+      server-loaded mode and the shipped decision record when that path is implemented.
+
+### RC-CLD-2.2 review disposition — 2026-09-08
+
+**Changes required; phase-2 approval withheld.** One of seven checklist items has static
+configuration evidence; six require the missing server implementation. The configured KMS item
+also requires deployed-stage evidence before release sign-off. The decision record in
+`packages/core/src/security/cloud-security-decision.ts` remains `approved: false`.
+
+The preceding partial review checked off the unwired upload helper and the routing invariant.
+Those checks are withdrawn: a caller-supplied string and a record validator do not establish an
+HTTP authorization boundary. This review also removes the KMS account principal's `kms:*`
+delegation, which previously allowed an IAM-authorized role to use the key despite the separate
+sync-role grant. AWS documents the [account principal's IAM delegation semantics](https://docs.aws.amazon.com/kms/latest/developerguide/key-policy-default.html)
+and [grant-based key access](https://docs.aws.amazon.com/kms/latest/developerguide/grants.html).
+The replacement policy preserves management access, including policy updates, aliases, and
+rotation, while granting cryptographic use only to the sync role. The
+[CloudTrail KMS documentation](https://docs.aws.amazon.com/kms/latest/developerguide/logging-using-cloudtrail.html)
+supports the static audit-trail configuration check; it is not evidence of delivered stage events.
+
+Reviewed by **gpt-6-astra (dndtools RC loop, slot 3)** on **2026-09-08**. This signature records a
+source/configuration review with unresolved findings, **not approval to release Cloud-Enhanced**.
+The PR that implements the server plaintext path must resolve the six open items, attach dev/prod
+key-policy and decrypt-audit evidence, and sign the complete checklist before flipping the record
+to `approved: true`. No future feature inherits an approval from this partial review.
 
 ## Consent integrity (both modes, phase 1)
 

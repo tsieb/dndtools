@@ -17,13 +17,19 @@ const port = Number(process.env.DNDTOOLS_E2E_PORT ?? 5273);
 // box — and several concurrent runs (the RC loop's slots, the promotion gate, an interactive run)
 // multiply that until the machine saturates and every test crawls. A quarter of the CPUs is the
 // default here; `DNDTOOLS_PW_WORKERS` sets an explicit budget (the loop gives each slot one) and
-// the CLI's `--workers` still overrides both. CI keeps its serial run.
+// the CLI's `--workers` still overrides both.
+//
+// RC-ENG-2.2: CI used to run strictly serially, which left three of a GitHub runner's four vCPUs
+// idle while one Chromium waited on the Vite dev server. Two workers is the CI default now — the
+// dev server plus two browsers still fits four cores — and `DNDTOOLS_PW_WORKERS` overrides it
+// there too, so a flaky-looking run can be pinned back to one worker without editing this file.
 const workersFromEnv = Number(process.env.DNDTOOLS_PW_WORKERS);
-const workers = process.env.CI
-	? 1
-	: Number.isFinite(workersFromEnv) && workersFromEnv >= 1
+const workers =
+	Number.isFinite(workersFromEnv) && workersFromEnv >= 1
 		? Math.floor(workersFromEnv)
-		: Math.max(1, Math.min(4, Math.floor(availableParallelism() / 4)));
+		: process.env.CI
+			? 2
+			: Math.max(1, Math.min(4, Math.floor(availableParallelism() / 4)));
 
 // Video is the single most expensive artifact: `retain-on-failure` still screencasts EVERY test
 // through an ffmpeg process per browser and only discards the file afterwards. Failures already

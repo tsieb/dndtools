@@ -1,20 +1,55 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../ds';
 import { isWidgetResizable, type BoardWidget } from './board-helpers';
-import { HistoryBtn, WidgetFrame, ZoomBtn } from './canvas/WidgetFrame';
+import { HistoryBtn, WidgetFrame } from './canvas/WidgetFrame';
+import { ZoomCluster } from './canvas/ZoomCluster';
+import {
+	ARROW_DELTA,
+	clamp,
+	FIT_FLOOR,
+	FIXED_PRESET_SCALE,
+	GRID,
+	omitKey,
+	snapTo,
+	ZOOM_KEY,
+	ZOOM_PRESETS,
+	ZOOM_PRESET_KEY,
+	type Drag,
+	type SceneBoardCanvasProps,
+	type View,
+	type ZoomPreset,
+} from './SceneBoardModel';
+export { ZOOM_PRESETS, ZOOM_PRESET_KEY, type ZoomPreset } from './SceneBoardModel';
 
 // `WidgetGlyph` lives with the frame that renders it; re-exported here so Board, the scene-editor
 // Inspector and AddWidgetPanel keep importing it from the path they always have.
 export { WidgetGlyph } from './canvas/WidgetFrame';
 import { srOnly } from './screen-kit';
 import { useI18n } from '../i18n';
-import type { LayoutHistory } from './canvas/useLayoutHistory';
 
 /**
  * SceneBoardCanvas — the ONE canvas engine the prototype's `scene-canvas.jsx` describes: the same
  * widget frames + edit interactions under two overflow POLICIES.
- *   • 'bounded' (Command Center / `/board`): top-anchored, scrolls vertically, glanceable. No pan.
- *   • 'canvas'  (custom scenes / `/scene/:id`): free pan + zoom.
+ *   • 'bounded' (Command Center / `/board`): top-anchored, glanceable, a REAL `overflow:auto`
+ *     scroll region rather than a transform view. No free zoom.
+ *   • 'canvas'  (custom scenes / `/scene/:id`): free pan + zoom over a transform `view`.
+ *
+ * ZOOM (RC-CAN-3.1). Both policies share three NAMED presets — Fit, Comfortable, Detail — reachable
+ * with the `0`/`1`/`2` keys and cycled with `+`/`-` while focus is inside the canvas. Fit scales the
+ * authored extent to the pane but never below `FIT_FLOOR`: past that point widget labels stop being
+ * readable, so the surface scrolls instead of shrinking further. The bounded board is exactly those
+ * three steps (its host screen renders the control); the free canvas keeps its continuous wheel and
+ * button zoom and treats the presets as anchors it can be returned to.
+ *
+ * PAN (RC-CAN-3.2). Both policies read the same "scroll-natural" gesture set: a plain wheel/trackpad
+ * scrolls, Shift+wheel goes horizontal (re-routing `deltaY` when a plain mouse wheel never reports a
+ * `deltaX` of its own), a middle-mouse-button drag or a two-finger trackpad pan works from anywhere in
+ * the canvas, and a single touch-finger scrolls. The board gets all of this from native
+ * `overflow:auto` + `touch-action` for everything except the middle-button drag, which has no native
+ * ancestor to piggyback on and scrolls the wrap element's real `scrollLeft`/`scrollTop` directly
+ * (`scroll-pan` in the `Drag` union below) instead of the free canvas's transform `view`. Pinch-zoom
+ * is never offered on the board: its `touch-action` only ever grants `pan-x`/`pan-y`, never
+ * `pinch-zoom`.
  *
  * It is wired to the REAL Processing Core, not the prototype's local state: every move/resize is
  * committed through the parent's dispatch on pointer-UP only (one `scene.move-widget` /
@@ -32,67 +67,6 @@ import type { LayoutHistory } from './canvas/useLayoutHistory';
  * like a pointer gesture's pointer-up. The pointer paths are untouched.
  */
 
-const GRID = 20;
-const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
-const snapTo = (n: number, snap: boolean) => (snap ? Math.round(n / GRID) * GRID : Math.round(n));
-/** Drop one widget's in-flight drag draft, so it falls back to its durable position/size. */
-function omitKey<T>(map: Record<string, T>, id: string): Record<string, T> {
-	if (!(id in map)) return map;
-	const next = { ...map };
-	delete next[id];
-	return next;
-}
-
-export interface SceneBoardCanvasProps {
-	widgets: BoardWidget[];
-	policy: 'bounded' | 'canvas';
-	editing: boolean;
-	snap: boolean;
-	selectedId: string | null;
-	onSelect: (id: string | null) => void;
-	onMove: (id: string, x: number, y: number) => void | Promise<unknown>;
-	onResize: (id: string, w: number, h: number) => void | Promise<unknown>;
-	/** System widgets are move-only (never resizable), mirroring the prototype. */
-	canResize?: (widget: BoardWidget) => boolean;
-	/** Keyboard traversal order (widget instance ids) — pass `SceneSummary.focusOrder` ids. Widgets
-	 *  missing from it are appended in render order so nothing becomes unreachable. */
-	focusOrder?: string[];
-	/** Remove the focused widget (Delete key, edit mode). Omit to disable keyboard removal. */
-	onRemove?: (id: string) => void;
-	/** VIEW-mode widget operation: dispatch a widget-declared durable command
-	 *  (`widget.dispatch-command`). Bodies render inert chips when omitted. */
-	onWidgetCommand?: (
-		widgetInstanceId: string,
-		commandType: string,
-		payload: Record<string, unknown>,
-	) => void;
-	emptyHint?: string;
-	/** Overrides the empty-state headline — the caller uses it to say "loading" instead of "empty". */
-	emptyTitle?: string;
-	/** RC-CAN-1.3: the screen's local layout undo stack. Supplying it renders the Undo/Redo cluster,
-	 *  binds `Ctrl+Z` / `Ctrl+Shift+Z` inside this canvas and announces each reversal. */
-	history?: LayoutHistory;
-}
-
-/** Arrow-key vector: [dx, dy] in grid steps. */
-const ARROW_DELTA: Record<string, readonly [number, number]> = {
-	ArrowLeft: [-1, 0],
-	ArrowRight: [1, 0],
-	ArrowUp: [0, -1],
-	ArrowDown: [0, 1],
-};
-
-type Drag =
-	| { mode: 'move'; id: string; sx: number; sy: number; ox: number; oy: number }
-	| { mode: 'resize'; id: string; sx: number; sy: number; ow: number; oh: number }
-	| { mode: 'pan'; sx: number; sy: number; tx: number; ty: number };
-
-interface View {
-	tx: number;
-	ty: number;
-	scale: number;
-}
-
 export function SceneBoardCanvas({
 	widgets,
 	policy,
@@ -109,6 +83,8 @@ export function SceneBoardCanvas({
 	emptyHint,
 	emptyTitle,
 	history,
+	zoomPreset,
+	onZoomPresetChange,
 }: SceneBoardCanvasProps) {
 	const wrapRef = useRef<HTMLDivElement | null>(null);
 	const [wrapWidth, setWrapWidth] = useState(0);
@@ -118,6 +94,16 @@ export function SceneBoardCanvas({
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const { t } = useI18n();
 	const [view, setView] = useState<View>({ tx: 32, ty: 32, scale: 1 });
+	// RC-CAN-3.1: the board opens fitted (it is a glanceable dashboard); a free scene opens 1:1.
+	const [localPreset, setLocalPreset] = useState<ZoomPreset>(
+		policy === 'bounded' ? 'fit' : 'comfortable',
+	);
+	const [zoomNotice, setZoomNotice] = useState<{
+		seq: number;
+		preset: ZoomPreset;
+		percent: number;
+	} | null>(null);
+	const zoomSeq = useRef(0);
 	// Optimistic per-gesture overrides (x/y for moves, w/h for resizes).
 	const [posDraft, setPosDraft] = useState<Record<string, { x: number; y: number }>>({});
 	const [sizeDraft, setSizeDraft] = useState<Record<string, { w: number; h: number }>>({});
@@ -167,9 +153,9 @@ export function SceneBoardCanvas({
 	}, []);
 
 	// The bounded GM Screen is a composed dashboard, not a free-panning canvas. At narrow window
-	// sizes fit the authored board width into view so controls on right-hand widgets remain reachable.
-	// Canvas-mode scenes keep their explicit user-controlled zoom unchanged.
-	const boundedExtent = useMemo(() => {
+	// sizes the Fit preset scales the authored board width into view so controls on right-hand
+	// widgets remain reachable. Canvas-mode scenes keep their continuous user-controlled zoom.
+	const contentExtent = useMemo(() => {
 		let right = 0;
 		let bottom = 0;
 		for (const widget of widgets) {
@@ -180,13 +166,86 @@ export function SceneBoardCanvas({
 		}
 		return { width: Math.max(1, right), height: Math.max(1, bottom) };
 	}, [widgets, posDraft, sizeDraft]);
-	const boundedScale =
-		policy === 'bounded' && wrapWidth > 0
-			? clamp((wrapWidth - 16) / boundedExtent.width, 0.4, 1)
-			: 1;
+
+	// RC-CAN-3.1 — the three named presets. Fit is derived from the pane and the authored extent and
+	// is FLOORED: a board that would have to paint at 0.35 to fit scrolls at 0.5 instead. The other
+	// two are fixed so "Comfortable" means the same thing on a laptop and on a handset.
+	const fitScale = wrapWidth > 0 ? clamp((wrapWidth - 16) / contentExtent.width, FIT_FLOOR, 1) : 1;
+	const scaleForPreset = useCallback(
+		(p: ZoomPreset) => (p === 'fit' ? fitScale : FIXED_PRESET_SCALE[p]),
+		[fitScale],
+	);
+	// Controlled when the host passes `zoomPreset` (the bounded board), local otherwise.
+	const preset = zoomPreset ?? localPreset;
+
+	const boundedScale = policy === 'bounded' ? scaleForPreset(preset) : 1;
 	const scale = policy === 'canvas' ? view.scale : boundedScale;
 	const tx = policy === 'canvas' ? view.tx : boundedScale < 1 ? 8 : 0;
 	const ty = policy === 'canvas' ? view.ty : boundedScale < 1 ? 8 : 0;
+	// Fit at the floor, or either fixed step, can paint wider than the pane. The bounded board then
+	// SCROLLS horizontally rather than shrinking every widget further.
+	const overflowsHorizontally = policy === 'bounded' && scale * contentExtent.width > wrapWidth;
+
+	/** Move to a named step. The bounded board reads its scale straight off the preset; the free
+	 *  canvas has a translate to keep honest as well, so it re-frames or re-centres. */
+	const applyPreset = useCallback(
+		(next: ZoomPreset) => {
+			setLocalPreset(next);
+			onZoomPresetChange?.(next);
+			const s1 = scaleForPreset(next);
+			if (policy === 'canvas') {
+				// Fit re-frames the whole scene; the other two zoom about the pane centre so the
+				// widget the DM is looking at stays put.
+				if (next === 'fit') setView({ tx: 32, ty: 32, scale: s1 });
+				else
+					setView((v) => {
+						const r = wrapRef.current?.getBoundingClientRect();
+						const cx = (r?.width ?? 800) / 2;
+						const cy = (r?.height ?? 600) / 2;
+						return {
+							tx: cx - ((cx - v.tx) / v.scale) * s1,
+							ty: cy - ((cy - v.ty) / v.scale) * s1,
+							scale: s1,
+						};
+					});
+			}
+		},
+		[onZoomPresetChange, policy, scaleForPreset],
+	);
+
+	// Announce every step change, wherever it came from — the canvas keys OR the host's own control
+	// (the board's toolbar owns the state, so the change arrives as a prop).
+	const announcedRef = useRef<ZoomPreset | null>(null);
+	useEffect(() => {
+		if (announcedRef.current === null || announcedRef.current === preset) {
+			announcedRef.current = preset;
+			return;
+		}
+		announcedRef.current = preset;
+		zoomSeq.current += 1;
+		setZoomNotice({
+			seq: zoomSeq.current,
+			preset,
+			percent: Math.round(scaleForPreset(preset) * 100),
+		});
+	}, [preset, scaleForPreset]);
+
+	/** `+`/`-` step through the presets from whichever one the current scale sits nearest, and stop
+	 *  at the ends: wrapping Detail back round to Fit reads as the control losing its place. */
+	const cyclePreset = useCallback(
+		(direction: 1 | -1) => {
+			const nearest = ZOOM_PRESETS.reduce((best, p) =>
+				Math.abs(scaleForPreset(p) - scale) < Math.abs(scaleForPreset(best) - scale) ? p : best,
+			);
+			const next = ZOOM_PRESETS[clamp(ZOOM_PRESETS.indexOf(nearest) + direction, 0, 2)];
+			applyPreset(next);
+		},
+		[applyPreset, scale, scaleForPreset],
+	);
+	/** Which step the current scale IS — the free canvas can sit between two of them after a wheel
+	 *  zoom, and then no preset is pressed. */
+	const activePreset =
+		ZOOM_PRESETS.find((p) => Math.abs(scaleForPreset(p) - scale) < 0.005) ?? null;
 
 	// Capturing the pointer keeps the gesture bound to the element it started on, so releasing outside
 	// the browser window (or over another frame) still delivers `pointerup`/`pointercancel` to us.
@@ -234,6 +293,29 @@ export function SceneBoardCanvas({
 		document.body.style.userSelect = 'none';
 	};
 	const onBgDown = (e: React.PointerEvent) => {
+		// RC-CAN-3.2 — middle-button drag pans EITHER policy, from anywhere in the canvas (including
+		// over widget content): it is the mouse-equivalent of a two-finger trackpad pan and a
+		// dedicated non-primary button, so it never fights text selection or a widget's own drag
+		// handles the way a left-press does. The board scrolls its real overflow region; the free
+		// canvas keeps moving its transform `view` exactly like a background left-drag.
+		if (e.button === 1) {
+			e.preventDefault();
+			capture(e);
+			if (policy === 'bounded') {
+				const el = wrapRef.current;
+				dragRef.current = {
+					mode: 'scroll-pan',
+					sx: e.clientX,
+					sy: e.clientY,
+					sl: el?.scrollLeft ?? 0,
+					st: el?.scrollTop ?? 0,
+				};
+			} else {
+				dragRef.current = { mode: 'pan', sx: e.clientX, sy: e.clientY, tx: view.tx, ty: view.ty };
+			}
+			document.body.style.userSelect = 'none';
+			return;
+		}
 		onSelect(null);
 		if (policy !== 'canvas') return;
 		// The drag overlay that swallows pointerdown only exists in EDIT mode, so in VIEW mode this
@@ -252,6 +334,14 @@ export function SceneBoardCanvas({
 			if (!d) return;
 			if (d.mode === 'pan') {
 				setView((v) => ({ ...v, tx: d.tx + (e.clientX - d.sx), ty: d.ty + (e.clientY - d.sy) }));
+				return;
+			}
+			if (d.mode === 'scroll-pan') {
+				const el = wrapRef.current;
+				if (el) {
+					el.scrollLeft = d.sl - (e.clientX - d.sx);
+					el.scrollTop = d.st - (e.clientY - d.sy);
+				}
 				return;
 			}
 			const dx = (e.clientX - d.sx) / scale;
@@ -297,7 +387,7 @@ export function SceneBoardCanvas({
 			const d = dragRef.current;
 			dragRef.current = null;
 			document.body.style.userSelect = '';
-			if (!d || d.mode === 'pan') return;
+			if (!d || d.mode === 'pan' || d.mode === 'scroll-pan') return;
 			if (d.mode === 'move') setPosDraft((prev) => omitKey(prev, d.id));
 			else setSizeDraft((prev) => omitKey(prev, d.id));
 		};
@@ -326,7 +416,14 @@ export function SceneBoardCanvas({
 					return { tx: cx - wx * s1, ty: cy - wy * s1, scale: s1 };
 				});
 			} else {
-				setView((v) => ({ ...v, tx: v.tx - e.deltaX, ty: v.ty - e.deltaY }));
+				// RC-CAN-3.2 — Shift+wheel scrolls horizontally. A trackpad already reports a
+				// horizontal `deltaX` from its own two-finger gesture; a plain mouse wheel only ever
+				// reports `deltaY`, so Shift re-routes that single axis onto `tx` instead of leaving the
+				// modifier a no-op.
+				const horizontal = e.shiftKey && e.deltaX === 0;
+				const dx = horizontal ? e.deltaY : e.deltaX;
+				const dy = horizontal ? 0 : e.deltaY;
+				setView((v) => ({ ...v, tx: v.tx - dx, ty: v.ty - dy }));
 			}
 		},
 		[policy],
@@ -420,11 +517,31 @@ export function SceneBoardCanvas({
 	 * a widget move nobody could see.
 	 */
 	const canvasKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-		if (!history) return;
-		if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
-		// A widget body can hold a real text field, where Ctrl+Z is the browser's own text undo.
+		// A widget body can hold a real text field, where these keys type characters and Ctrl+Z is
+		// the browser's own text undo.
 		const target = e.target as HTMLElement | null;
 		if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+		// RC-CAN-3.1 — the named zoom steps. Unmodified so `Ctrl+0` stays the browser's page zoom.
+		if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+			const direct = ZOOM_KEY[e.key];
+			if (direct) {
+				e.preventDefault();
+				applyPreset(direct);
+				return;
+			}
+			if (e.key === '+' || e.key === '=') {
+				e.preventDefault();
+				cyclePreset(1);
+				return;
+			}
+			if (e.key === '-' || e.key === '_') {
+				e.preventDefault();
+				cyclePreset(-1);
+				return;
+			}
+		}
+		if (!history) return;
+		if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
 		const key = e.key.toLowerCase();
 		if (key === 'z' && !e.shiftKey) {
 			e.preventDefault();
@@ -494,13 +611,17 @@ export function SceneBoardCanvas({
 				flex: 1,
 				minHeight: 0,
 				background: 'var(--color-bg)',
-				overflowX: 'hidden',
+				// RC-CAN-3.1: Fit stops at `FIT_FLOOR`, and Comfortable/Detail are deliberately bigger
+				// than the pane on a narrow window — so the bounded board scrolls sideways to the rest
+				// of the layout instead of scaling it away.
+				overflowX: overflowsHorizontally ? 'auto' : 'hidden',
 				overflowY: policy === 'bounded' ? 'auto' : 'hidden',
 				cursor: policy === 'canvas' ? 'grab' : 'default',
 				// The bounded board deliberately overflows vertically. Let a finger pan that scroll
 				// region; `none` turns a mobile GM Screen into a desktop-only scrollbar workflow.
 				// Free-canvas scenes retain their gesture ownership for drag/pan/zoom interactions.
-				touchAction: policy === 'bounded' ? 'pan-y' : 'none',
+				touchAction:
+					policy === 'bounded' ? (overflowsHorizontally ? 'pan-x pan-y' : 'pan-y') : 'none',
 				borderRadius: 'var(--radius-lg)',
 				border: '1px solid var(--color-border)',
 			}}
@@ -528,8 +649,8 @@ export function SceneBoardCanvas({
 						// touch target by it: the chips are painted inside this transform, so their
 						// on-screen size is (declared size x scale).
 						'--scene-board-scale': String(scale),
-						minWidth: policy === 'bounded' ? boundedExtent.width : '100%',
-						height: policy === 'bounded' ? boundedExtent.height : undefined,
+						minWidth: policy === 'bounded' ? contentExtent.width : '100%',
+						height: policy === 'bounded' ? contentExtent.height : undefined,
 					} as CSSProperties
 				}
 			>
@@ -601,40 +722,29 @@ export function SceneBoardCanvas({
 				</div>
 			)}
 
-			{policy === 'canvas' && (
-				<div
-					style={{
-						position: 'absolute',
-						right: 16,
-						bottom: 16,
-						display: 'flex',
-						alignItems: 'center',
-						gap: 2,
-						padding: 4,
-						borderRadius: 'var(--radius-md)',
-						background: 'var(--color-surface-overlay)',
-						border: '1px solid var(--color-border-strong)',
-						boxShadow: 'var(--shadow-lg)',
-					}}
-				>
-					<ZoomBtn icon="zoom-out" label={t('boardCanvas.zoomOut')} onClick={() => zoom(1 / 1.2)} />
-					<span
-						style={{
-							font: 'var(--text-2xs) var(--font-mono)',
-							color: 'var(--color-text-secondary)',
-							minWidth: 38,
-							textAlign: 'center',
-						}}
-					>
-						{Math.round(scale * 100)}%
+			{/* RC-CAN-3.1: a zoom change is otherwise silent, so every step announces itself. The host
+			    is permanent for the same reason the history region above is. It is a bare `aria-live`
+			    region rather than a second `role="status"`: two status roles on one canvas is one
+			    ambiguous landmark for a screen-reader user (and an ambiguous locator for the history
+			    tests), and the undo region is the one that speaks for the surface. */}
+			<div aria-live="polite" aria-atomic="true" style={srOnly}>
+				{zoomNotice && (
+					<span key={zoomNotice.seq}>
+						{t('boardCanvas.zoomAnnouncement', {
+							preset: t(ZOOM_PRESET_KEY[zoomNotice.preset]),
+							percent: zoomNotice.percent,
+						})}
 					</span>
-					<ZoomBtn icon="zoom-in" label={t('boardCanvas.zoomIn')} onClick={() => zoom(1.2)} />
-					<ZoomBtn
-						icon="zoom-fit"
-						label={t('boardCanvas.resetView')}
-						onClick={() => setView({ tx: 32, ty: 32, scale: 1 })}
-					/>
-				</div>
+				)}
+			</div>
+
+			{policy === 'canvas' && zoomPreset === undefined && (
+				<ZoomCluster
+					scale={scale}
+					activePreset={activePreset}
+					onZoom={zoom}
+					onPreset={applyPreset}
+				/>
 			)}
 
 			{widgets.length === 0 && (

@@ -3,8 +3,16 @@ import { Browser } from '@capacitor/browser';
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 
-/** The renderer runtime. Layout and features branch on this value, never on native globals. */
-export type RuntimeKind = 'web' | 'electron' | 'android';
+/**
+ * The renderer runtime. Layout and features branch on this value, never on native globals.
+ *
+ * `ios` means iPhone or iPad. Per ADR-038 there is no Capacitor iOS shell: iOS reach is the
+ * installable web app, so this kind is always WebKit today and carries no native plugins. It is
+ * still its own kind because iOS constrains the renderer in ways a generic browser does not
+ * (notifications only once installed to the Home Screen, no Keystore-equivalent secret store),
+ * and because a future shell must map onto an existing kind rather than a new branch everywhere.
+ */
+export type RuntimeKind = 'web' | 'electron' | 'android' | 'ios';
 
 export interface CapabilityAvailability {
 	available: boolean;
@@ -36,6 +44,23 @@ export interface RuntimeSignals {
 	electronWindow: boolean;
 	electronDiscovery: boolean;
 	notifications: boolean;
+	/** iPhone/iPad WebKit, detected once at startup; see `detectIosWebKit`. */
+	iosWebKit: boolean;
+}
+
+/**
+ * The one user-agent test in the app. There is no feature probe for "this is iOS", and the
+ * capability differences that matter here (Home-Screen-gated notifications, no durable secret
+ * store) are platform facts rather than testable APIs. iPadOS 13+ reports a desktop Mac agent, so
+ * a touch-capable "Macintosh" is an iPad; Electron on macOS reports no touch points and stays
+ * `electron` regardless, because bridge detection wins.
+ */
+export function detectIosWebKit(): boolean {
+	const nav = (globalThis as typeof globalThis & { navigator?: Navigator }).navigator;
+	if (!nav) return false;
+	const agent = nav.userAgent ?? '';
+	const iPadOnDesktopAgent = agent.includes('Macintosh') && (nav.maxTouchPoints ?? 0) > 1;
+	return /iPhone|iPad|iPod/.test(agent) || iPadOnDesktopAgent;
 }
 
 function readRuntimeSignals(): RuntimeSignals {
@@ -51,6 +76,7 @@ function readRuntimeSignals(): RuntimeSignals {
 		electronWindow: bridges.dndtoolsWindow !== undefined,
 		electronDiscovery: bridges.dndtoolsDiscovery !== undefined,
 		notifications: typeof globalThis.Notification !== 'undefined',
+		iosWebKit: detectIosWebKit(),
 	};
 }
 
@@ -65,7 +91,7 @@ export type WidgetPlatformProfileId = 'desktop' | 'tablet' | 'mobile' | 'web';
 export function widgetProfileForRuntime(
 	runtimeKind: RuntimeKind = platformCapabilities.runtimeKind,
 ): WidgetPlatformProfileId {
-	if (runtimeKind === 'android') return 'mobile';
+	if (runtimeKind === 'android' || runtimeKind === 'ios') return 'mobile';
 	if (runtimeKind === 'electron') return 'desktop';
 	return 'web';
 }
@@ -73,9 +99,13 @@ export function widgetProfileForRuntime(
 /** Pure runtime detection seam used by startup and deterministic tests. */
 export function detectRuntimeKind(signals: RuntimeSignals = readRuntimeSignals()): RuntimeKind {
 	if (signals.capacitorNative && signals.capacitorPlatform === 'android') return 'android';
+	// No iOS shell ships today (ADR-038); this arm exists so one would report its own kind rather
+	// than falling through to `web` the day it does.
+	if (signals.capacitorNative && signals.capacitorPlatform === 'ios') return 'ios';
 	if (signals.electronSecureStore || signals.electronWindow || signals.electronDiscovery) {
 		return 'electron';
 	}
+	if (signals.iosWebKit) return 'ios';
 	return 'web';
 }
 
@@ -85,6 +115,7 @@ export function capabilitiesForRuntime(
 	signals: RuntimeSignals = readRuntimeSignals(),
 ): PlatformCapabilities {
 	const android = runtimeKind === 'android';
+	const ios = runtimeKind === 'ios';
 	const nativeAndroid =
 		android && signals.capacitorNative && signals.capacitorPlatform === 'android';
 	const electron = runtimeKind === 'electron';
@@ -118,7 +149,9 @@ export function capabilitiesForRuntime(
 			available: notificationsAvailable,
 			unavailableMessage: notificationsAvailable
 				? null
-				: 'Notifications are unavailable in this browser.',
+				: ios
+					? 'Notifications on iPhone and iPad need Lamplight added to the Home Screen.'
+					: 'Notifications are unavailable in this browser.',
 		},
 		windowManagement: {
 			available: windowManagementAvailable,
@@ -224,6 +257,32 @@ export interface NativeFileExportPlugin {
 	}): Promise<{ status: 'exported' | 'cancelled' }>;
 }
 
+/**
+ * RC-PLT-2.2 — the Android SHARE TARGET and home-screen SHORTCUTS arrive as one native intent.
+ * A share carries a single text file the DM sent to Lamplight from another app; a shortcut carries
+ * a route from `res/xml/shortcuts.xml`. Both are UNTRUSTED: the renderer re-validates the route
+ * against an allow-list and the payload against the core's own parsers before anything is applied.
+ */
+export interface SharedImportPayload {
+	filename: string;
+	mimeType: string;
+	text: string;
+}
+
+export interface NativeAppIntent {
+	share: SharedImportPayload | null;
+	route: string | null;
+}
+
+interface NativeAppIntentPlugin {
+	/** Returns the intent that launched or resumed the app, exactly once. */
+	consumePendingIntent(): Promise<NativeAppIntent>;
+	addListener(
+		eventName: 'appIntent',
+		listener: (intent: NativeAppIntent) => void,
+	): Promise<PluginListenerHandle>;
+}
+
 interface NativeSystemBarsPlugin {
 	setStyle(input: { style: 'LIGHT' | 'DARK' }): Promise<void>;
 }
@@ -232,6 +291,71 @@ interface NativeSystemBarsPlugin {
 export const DndtoolsSecureStore = registerPlugin<NativeSecureStorePlugin>('DndtoolsSecureStore');
 export const DndtoolsFileExport = registerPlugin<NativeFileExportPlugin>('DndtoolsFileExport');
 const SystemBars = registerPlugin<NativeSystemBarsPlugin>('SystemBars');
+export const DndtoolsAppIntent = registerPlugin<NativeAppIntentPlugin>('DndtoolsAppIntent');
+
+/**
+ * The only routes a home-screen shortcut may open. `res/xml/shortcuts.xml` declares the same two;
+ * this allow-list is what actually decides, so a malformed or hostile intent extra can never
+ * navigate the app somewhere the shortcut contract does not name.
+ */
+export const SHORTCUT_ROUTES = ['/session', '/play'] as const;
+export type ShortcutRoute = (typeof SHORTCUT_ROUTES)[number];
+
+export function shortcutRouteFor(value: string | null | undefined): ShortcutRoute | null {
+	if (typeof value !== 'string') return null;
+	const route = value.trim();
+	return (SHORTCUT_ROUTES as readonly string[]).includes(route) ? (route as ShortcutRoute) : null;
+}
+
+/** A shared payload is only usable if it actually carries text under the import size ceiling. */
+export const MAX_SHARED_IMPORT_BYTES = 8 * 1024 * 1024;
+
+export function sharedImportFor(share: unknown): SharedImportPayload | null {
+	if (typeof share !== 'object' || share === null) return null;
+	const { filename, mimeType, text } = share as Record<string, unknown>;
+	if (typeof text !== 'string' || text.trim() === '') return null;
+	if (text.length > MAX_SHARED_IMPORT_BYTES) return null;
+	return {
+		filename:
+			typeof filename === 'string' && filename.trim() !== '' ? filename.trim() : 'Shared file',
+		mimeType: typeof mimeType === 'string' ? mimeType : '',
+		text,
+	};
+}
+
+export interface AppIntentHandlers {
+	onShare(share: SharedImportPayload): void | Promise<void>;
+	onShortcut(route: ShortcutRoute): void | Promise<void>;
+}
+
+/**
+ * Bind the native share/shortcut intent stream once. Inert off Android, so the caller never has to
+ * branch. The launch intent is consumed only AFTER the listener is attached, so an intent that
+ * arrives during binding is delivered exactly once rather than lost or applied twice.
+ */
+export async function bindAppIntents(
+	handlers: AppIntentHandlers,
+	plugin: NativeAppIntentPlugin = DndtoolsAppIntent,
+	capabilities: Pick<PlatformCapabilities, 'nativeBridgeAvailable'> = platformCapabilities,
+): Promise<() => Promise<void>> {
+	if (!capabilities.nativeBridgeAvailable) return async () => {};
+	const deliver = (intent: NativeAppIntent) => {
+		const route = shortcutRouteFor(intent.route);
+		if (route) void Promise.resolve(handlers.onShortcut(route)).catch(() => undefined);
+		const share = sharedImportFor(intent.share);
+		if (share) void Promise.resolve(handlers.onShare(share)).catch(() => undefined);
+	};
+	let listener: PluginListenerHandle | null = null;
+	try {
+		listener = await plugin.addListener('appIntent', deliver);
+		deliver(await plugin.consumePendingIntent());
+	} catch {
+		// A build without the native plugin simply has no intents to deliver.
+	}
+	return async () => {
+		await listener?.remove();
+	};
+}
 
 export async function setAndroidSystemBarStyle(style: 'LIGHT' | 'DARK'): Promise<boolean> {
 	if (!platformCapabilities.nativeBridgeAvailable) return false;
@@ -245,12 +369,35 @@ export async function setAndroidSystemBarStyle(style: 'LIGHT' | 'DARK'): Promise
 
 export type PlatformNotificationPermission = 'granted' | 'denied' | 'prompt';
 
+/**
+ * RC-PLT-2.2 — Android notification CHANNELS. The ids are created natively at first launch
+ * (`NotificationChannels.java`) so the DM can tune or silence each kind from Android settings
+ * before Lamplight has ever posted anything. `liveSession` is the ongoing "a session is live"
+ * status; `updates` is everything one-shot, including finished assistant runs.
+ */
+export const PLATFORM_NOTIFICATION_CHANNELS = {
+	liveSession: 'lamplight-live-session',
+	updates: 'lamplight-updates',
+} as const;
+export type PlatformNotificationChannel = keyof typeof PLATFORM_NOTIFICATION_CHANNELS;
+
+/** One stable id, so going live twice replaces the status rather than stacking notifications. */
+export const LIVE_SESSION_NOTIFICATION_ID = 1;
+
 interface PlatformNotificationNativeAdapter {
 	checkPermissions(): Promise<{ display: string }>;
 	requestPermissions(): Promise<{ display: string }>;
 	schedule(input: {
-		notifications: Array<{ id: number; title: string; body: string }>;
+		notifications: Array<{
+			id: number;
+			title: string;
+			body: string;
+			channelId?: string;
+			ongoing?: boolean;
+			autoCancel?: boolean;
+		}>;
 	}): Promise<unknown>;
+	cancel(input: { notifications: Array<{ id: number }> }): Promise<unknown>;
 }
 
 interface PlatformNotificationWebAdapter {
@@ -275,7 +422,13 @@ export interface PlatformNotificationAdapter {
 	available(): boolean;
 	permission(): Promise<PlatformNotificationPermission>;
 	requestPermission(): Promise<PlatformNotificationPermission>;
-	notify(title: string, body: string): Promise<boolean>;
+	notify(title: string, body: string, channel?: PlatformNotificationChannel): Promise<boolean>;
+	/**
+	 * Post or clear the ongoing live-session status. Android only — a browser has no ongoing
+	 * notification — and it never prompts: a DM who has not granted notifications simply gets
+	 * `false` rather than a permission dialog in the middle of going live.
+	 */
+	setLiveSession(status: { title: string; body: string } | null): Promise<boolean>;
 }
 
 /** Injectable adapter proves that only explicit opt-in calls the permission prompt. */
@@ -315,16 +468,54 @@ export function createPlatformNotificationAdapter(
 			const result = await web.requestPermission();
 			return result === 'default' ? 'prompt' : result;
 		},
-		async notify(title: string, body: string): Promise<boolean> {
+		async notify(
+			title: string,
+			body: string,
+			channel: PlatformNotificationChannel = 'updates',
+		): Promise<boolean> {
 			if ((await permission()) !== 'granted') return false;
 			if (capabilities.runtimeKind === 'android' && capabilities.nativeBridgeAvailable) {
 				await native.schedule({
-					notifications: [{ id: Date.now() & 0x7fffffff, title, body }],
+					notifications: [
+						{
+							id: Date.now() & 0x7fffffff,
+							title,
+							body,
+							channelId: PLATFORM_NOTIFICATION_CHANNELS[channel],
+						},
+					],
 				});
 				return true;
 			}
 			try {
 				web.notify(title, body);
+				return true;
+			} catch {
+				return false;
+			}
+		},
+		async setLiveSession(status): Promise<boolean> {
+			if (capabilities.runtimeKind !== 'android' || !capabilities.nativeBridgeAvailable) {
+				return false;
+			}
+			try {
+				if (status === null) {
+					await native.cancel({ notifications: [{ id: LIVE_SESSION_NOTIFICATION_ID }] });
+					return true;
+				}
+				if ((await permission()) !== 'granted') return false;
+				await native.schedule({
+					notifications: [
+						{
+							id: LIVE_SESSION_NOTIFICATION_ID,
+							title: status.title,
+							body: status.body,
+							channelId: PLATFORM_NOTIFICATION_CHANNELS.liveSession,
+							ongoing: true,
+							autoCancel: false,
+						},
+					],
+				});
 				return true;
 			} catch {
 				return false;

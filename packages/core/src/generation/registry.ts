@@ -1,4 +1,4 @@
-import type { GeneratorDefinition, GeneratorGroup, GeneratorScale } from './types';
+import type { GeneratorDefinition, GeneratorGroup, GeneratorScale, ParamValue } from './types';
 import { DUNGEON_GENERATORS } from './dungeon';
 import { CAVE_GENERATORS } from './cave';
 import { SCATTER_GENERATORS } from './scatter';
@@ -42,6 +42,32 @@ export function getGenerator(id: string): GeneratorDefinition | undefined {
 
 export function generatorsByGroup(group: GeneratorGroup): readonly GeneratorDefinition[] {
 	return GENERATORS.filter((definition) => definition.group === group);
+}
+
+/**
+ * RC-MAP-3.5 — true whether every param that differs between `prev` and `next` is declared
+ * `applies: 'immediate'` on `definition`. The live-preview caller uses this to tell a knob that only
+ * re-thresholds the current output (sea level, size variation) from one that reseeds it (density,
+ * object kind): a run triggered by an immediate-only diff may be coalesced to the display's frame
+ * budget (`widget-update`, <= 100ms p95) without dropping a regenerate-required edit on the floor.
+ * An unknown/removed param id is treated as NOT immediate — fail closed to the safe (always re-run)
+ * path rather than silently skip a full regenerate.
+ */
+export function isImmediateParamChange(
+	definition: GeneratorDefinition,
+	prev: Readonly<Record<string, ParamValue>>,
+	next: Readonly<Record<string, ParamValue>>,
+): boolean {
+	const specById = new Map(definition.params.map((spec) => [spec.id, spec]));
+	const ids = new Set([...Object.keys(prev), ...Object.keys(next)]);
+	let changed = false;
+	for (const id of ids) {
+		if (Object.is(prev[id], next[id])) continue;
+		changed = true;
+		const spec = specById.get(id);
+		if (!spec || spec.applies !== 'immediate') return false;
+	}
+	return changed;
 }
 
 export function generatorsByScale(scale: GeneratorScale): readonly GeneratorDefinition[] {

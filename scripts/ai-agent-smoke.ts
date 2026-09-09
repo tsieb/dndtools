@@ -10,12 +10,19 @@
  * It asserts that, from a plain-English ask, the model works through the tools and lands a STAGED,
  * schema-valid proposal — proving the write tools (table.create, character.create, the RC-AI-1.2
  * encounter/quest/faction creators, and the RC-WID-3.1 widget author) are usable by a real model end
- * to end. The tools that need an existing target (map.poi.create, scene.card.update, note.append)
- * are not scenarios here: this harness runs an EMPTY headless vault, so they are covered by
- * dedicated core tests instead. Skips cleanly (exit 0) when Ollama is not running, so CI without a
+ * to end. The tools that need an existing target (map.poi.create, scene.card.update, note.append,
+ * and RC-AI-1.4's character.level-up) are not scenarios here: this harness runs an EMPTY headless
+ * vault, so they are covered by dedicated core tests instead. RC-AI-1.4 did try `character.level-up`
+ * here, seeding a level-1 PC and naming its id in the ask, and it did not hold up: qwen2.5:7b picks
+ * that tool out of the thirty on offer only sometimes and, when it does, invents the class
+ * argument's name about as often as it reads it — the scenario passed roughly one run in four. A
+ * scenario that flaky is not evidence, so the tool's contract (staging, the atomic
+ * open→choices→commit approval, and the fail-closed rejections) is proven by
+ * `packages/core/tests/mcp-agent-level-up.test.ts` instead. Worth re-trying here on a larger model. Skips cleanly (exit 0) when Ollama is not running, so CI without a
  * local model is unaffected.
  *
  * Run:  pnpm tsx scripts/ai-agent-smoke.ts   (or: OLLAMA_MODEL=llama3.1:8b pnpm tsx scripts/ai-agent-smoke.ts)
+ * Pass a substring to run ONE scenario:  pnpm tsx scripts/ai-agent-smoke.ts quest.create
  */
 import { z } from 'zod';
 import {
@@ -341,9 +348,23 @@ async function main(): Promise<void> {
 		process.exit(REQUIRE_LIVE ? 1 : 0);
 	}
 
+	// An optional substring argument narrows the run to one scenario (matched against its name or its
+	// tool id), so a single tool can be re-verified without paying for the whole set. No argument runs
+	// everything, which is what `ai:smoke` and `ai:verify:local` do.
+	const only = process.argv.slice(2).find((arg) => !arg.startsWith('-'));
+	const selected = only
+		? SCENARIOS.filter(
+				(scenario) => scenario.name.includes(only) || (scenario.toolId ?? '').includes(only),
+			)
+		: SCENARIOS;
+	if (selected.length === 0) {
+		console.log(`✗ FAIL — no scenario matches "${only}".`);
+		process.exit(1);
+	}
+
 	console.log(`Running MCP agent smoke test against ${MODEL} (policy: ${STAGING_MODE})`);
 	const results: boolean[] = [];
-	for (const scenario of SCENARIOS) {
+	for (const scenario of selected) {
 		try {
 			results.push(await runScenario(scenario));
 		} catch (error) {

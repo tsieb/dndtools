@@ -150,7 +150,7 @@ output): a PR into an `initiative/*` branch gets the fast smoke tier; a push to 
 
 - `build-and-test` — credentials scan, quality gates, lint, typecheck, production build, the
   production bundle budget (RC-ENG-1.2), and all unit suites
-- `browser-e2e` — path-filtered, two-shard Playwright suite with failure diagnostics
+- `browser-e2e` — path-filtered, three-shard Playwright suite with failure diagnostics
 - `accessibility` — path-filtered desktop/mobile axe scan and merged report
 - `desktop-smoke` — path-filtered Electron boot, CSP, and persistence smoke on Linux
 - `android-checks` — path-filtered JDK 21/API 36 renderer sync, Gradle unit/lint, and debug package

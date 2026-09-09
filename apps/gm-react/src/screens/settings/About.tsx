@@ -17,6 +17,7 @@ import { getErrorLog, installErrorLogListeners } from '../../diagnostics/errorLo
 import { collectStorageUsage } from '../../diagnostics/storageUsage';
 import { collectPerfMarks } from '../../diagnostics/perfMarks';
 import pkg from '../../../package.json';
+import { AppUpdatesPanel } from './AppUpdates';
 import { errMsg } from './shared';
 
 /* ---- About / Diagnostics (RC-ENG-6.1 — REAL core diagnostics view, wired to the DM/admin
@@ -115,6 +116,9 @@ export function SettingsAbout() {
 						{t('settings.about.denied')}
 					</div>
 				</Panel>
+				{/* Keeping the app current is not a DM-only concern — a player on this desktop install
+				    still needs to be able to update it. */}
+				<AppUpdatesPanel />
 			</div>
 		);
 	}
@@ -152,6 +156,8 @@ export function SettingsAbout() {
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+			<AppUpdatesPanel />
+
 			<Panel
 				title={t('settings.about.title')}
 				action={

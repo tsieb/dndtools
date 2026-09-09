@@ -35,8 +35,8 @@ const TONES = {
 /**
  * ConditionBadge — a status effect pill carrying COLOR + a distinct icon shape + the label, so the
  * effect reads at a glance and in grayscale. Pass a known condition key (auto label/icon/tone) or a
- * custom `label`. Optional `duration` (rounds left) sets a mono countdown; `level={n}` shows an
- * exhaustion-style stack. `onRemove` adds a clear affordance for the combat tracker.
+ * custom `label`. Optional `duration` (rounds left) sets a mono countdown, named for screen readers
+ * by `durationLabel`; `level={n}` shows an exhaustion-style stack. `onRemove` adds a clear affordance for the combat tracker.
  *
  * The key is looked up in the ACTIVE system package first (RC-SYS-2.3), then the default table.
  */
@@ -46,6 +46,10 @@ export function ConditionBadge({
 	tone,
 	icon,
 	duration,
+	// RC-SES-3.1 — what a screen reader should call the countdown (e.g. "3 rounds left"). The number
+	// alone reads as a bare digit next to the condition name, which says nothing. The caller supplies
+	// it because the translation lives with the app, not with the design system.
+	durationLabel,
 	level,
 	compact = false,
 	onRemove,
@@ -83,6 +87,7 @@ export function ConditionBadge({
 			) : null}
 			{duration != null && (
 				<span
+					aria-label={durationLabel || undefined}
 					style={{
 						display: 'inline-flex',
 						alignItems: 'center',

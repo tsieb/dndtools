@@ -11,6 +11,8 @@ import { getHandoutDeliveryHistory } from './handout-query';
 import { getCombatTrackerForActor } from './combat-tracker-view';
 import { getCalendarContextForActor, type CalendarContextView } from './calendar-continuity-query';
 import { getMapBreadcrumbForActor, type MapBreadcrumbCrumb } from './map-query';
+import { listSceneCardsForActor } from './scene-card';
+import type { SceneCardMood } from '../state/scene-card';
 
 /**
  * SES-009 — THE pre-session PREP and post-session RECAP digest, as a PURE DERIVATION over the existing
@@ -113,6 +115,21 @@ export interface DigestPartyLocation {
 	breadcrumb: MapBreadcrumbCrumb[];
 }
 
+/**
+ * RC-AUD-3.4 — a deterministically SUGGESTED scene package (a card with an audio preset and/or a
+ * lighting hint) for the DM to consider activating: the card matching the CURRENT combat state's mood
+ * (`combat` while combat is running) when one exists, else the first live package by the same
+ * deterministic order the scene-card list uses. No AI: the rule reads only already-actor-filtered digest
+ * inputs, exactly like a continuity prompt.
+ */
+export interface DigestSuggestedPackage {
+	cardId: string;
+	title: string;
+	mood: SceneCardMood;
+	/** Why this package was picked: it matches the live combat mood, or it is simply the first available. */
+	reason: 'combat-running' | 'available';
+}
+
 /** The computed prep/recap digest (DM-facing; empty for a non-DM). */
 export interface PrepRecapDigest {
 	mode: DigestMode;
@@ -128,6 +145,8 @@ export interface PrepRecapDigest {
 	authoredRecap: DigestAuthoredRecap | null;
 	/** RC-MAP-1.4 — where the party currently stands, or null when never marked. */
 	partyLocation: DigestPartyLocation | null;
+	/** RC-AUD-3.4 — a suggested scene package to activate (prep only; null in recap or with none live). */
+	suggestedPackage: DigestSuggestedPackage | null;
 }
 
 /** How many recent changes / log-tail lines the digest surfaces by default (deterministic, bounded). */
@@ -152,7 +171,39 @@ function emptyDigest(mode: DigestMode): PrepRecapDigest {
 		continuityPrompts: [],
 		authoredRecap: null,
 		partyLocation: null,
+		suggestedPackage: null,
 	};
+}
+
+/**
+ * RC-AUD-3.4 — pick the suggested package: the first LIVE package whose mood is `combat` while combat
+ * is running, else the first live package in the same deterministic (createdAt, then id) order the
+ * scene-card list already uses. Returns null when no package is live. Prep only (recap looks back, not
+ * forward to what to play next).
+ */
+function suggestPackage(
+	session: SessionState,
+	permissions: PermissionState,
+	actorId: string,
+	combatSummary: DigestCombatSummary | null,
+): DigestSuggestedPackage | null {
+	const packages = listSceneCardsForActor(session, permissions, actorId).filter(
+		(card) => card.audioPresetId !== null || card.lightingHint !== null,
+	);
+	if (packages.length === 0) return null;
+	if (combatSummary?.status === 'running') {
+		const combatPackage = packages.find((card) => card.mood === 'combat');
+		if (combatPackage) {
+			return {
+				cardId: combatPackage.id,
+				title: combatPackage.title,
+				mood: combatPackage.mood,
+				reason: 'combat-running',
+			};
+		}
+	}
+	const first = packages[0]!;
+	return { cardId: first.id, title: first.title, mood: first.mood, reason: 'available' };
 }
 
 /** Read the DM-authored recap off the session's current recap archive, or null. Pure. */
@@ -321,6 +372,8 @@ export function getPrepRecapDigest(
 		// SES-009 — the DM-authored recap on the current recap archive (`session.author-recap`).
 		authoredRecap: authoredRecapOf(session),
 		partyLocation,
+		suggestedPackage:
+			mode === 'prep' ? suggestPackage(session, permissions, actorId, combatSummary) : null,
 	};
 }
 

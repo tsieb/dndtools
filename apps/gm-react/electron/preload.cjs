@@ -80,3 +80,17 @@ contextBridge.exposeInMainWorld('dndtoolsNetworkPolicy', {
 		return ipcRenderer.invoke('network-policy:allow-ai-origin', origin);
 	},
 });
+
+// Auto-update (RC-PLT-1.2). Three verbs and one state — the renderer can never name a feed, a
+// file, or a version. Absent on the web build, where the browser owns updates.
+contextBridge.exposeInMainWorld('dndtoolsUpdates', {
+	state: () => ipcRenderer.invoke('updates:state'),
+	check: () => ipcRenderer.invoke('updates:check'),
+	download: () => ipcRenderer.invoke('updates:download'),
+	install: () => ipcRenderer.invoke('updates:install'),
+	onState: (cb) => {
+		const h = (_e, state) => cb(state);
+		ipcRenderer.on('updates:state', h);
+		return () => ipcRenderer.removeListener('updates:state', h);
+	},
+});

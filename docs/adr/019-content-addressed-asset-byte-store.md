@@ -5,6 +5,9 @@
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA
 - Supersedes: N/A
+- Amended by: [ADR-035](./035-player-private-device-local-store.md) — `dndtools-v2` is no longer the
+  only device-local database; player-private records live in their own per-character database with
+  the opposite replication posture (referenced by nothing, in no backup, in no MCP read).
 - Amends: ADR-014 — lifts two of its explicit deferrals while keeping its storage boundary intact:
   (1) "OPFS and SQLite/WASM are deferred until large assets, map storage … justify them" — the
   justification has now arrived (local audio playback, map raster rendering, file-based media

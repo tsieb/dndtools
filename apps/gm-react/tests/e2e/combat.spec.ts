@@ -785,6 +785,10 @@ test.describe('one-handed HP sheet and undo', () => {
 
 	test('a press-and-hold on the HP bar opens the same sheet', async ({ page }) => {
 		const bar = page.getByRole('button', { name: 'Adjust hit points — Reed Stalker' });
+		// Synthesised mouse coordinates are VIEWPORT coordinates, so the bar has to be on screen
+		// before its box is read. On a phone the second row sits below the fold as soon as the rows
+		// grow (RC-SES-3.3 added a third row action), and the press then landed on nothing.
+		await bar.scrollIntoViewIfNeeded();
 		const box = await bar.boundingBox();
 		expect(box).not.toBeNull();
 		await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
@@ -973,4 +977,150 @@ test.describe('concentration and death saves on the tracker', () => {
 		await page.getByRole('button', { name: 'Record a death save failure for Bog Lurker' }).click();
 		await expect(page.getByText('Death saves 1 of 3 kept, 1 of 3 failed')).toBeVisible();
 	});
+});
+
+// RC-SES-3.1 — a condition with a duration wears its countdown on the badge, and when the round tick
+// runs it out the tracker SAYS so. A badge quietly vanishing between rounds is indistinguishable
+// from a bug, and the DM has no other place to find out why the poison stopped applying.
+test('a timed condition counts down on its badge and announces when it wears off', async ({
+	page,
+}) => {
+	const combatantId = await page.evaluate(
+		() => (window.__rt!.state.session as { combat: { order: string[] } }).combat.order[0]!,
+	);
+	const applied = await dispatch(page, {
+		type: 'combat.apply-resource',
+		actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+		payload: { combatantId, kind: 'condition', condition: 'poisoned', present: true, rounds: 2 },
+	});
+	expect(applied.status, JSON.stringify(applied.rejection ?? {})).toBe('accepted');
+
+	const row = page
+		.getByRole('list')
+		.filter({ hasText: 'Bog Lurker' })
+		.first()
+		.getByRole('listitem')
+		.filter({ hasText: 'Bog Lurker' });
+	// The countdown is on the badge, and it is named for a screen reader rather than left a bare "2".
+	await expect(row.getByLabel('2 rounds left')).toBeVisible();
+
+	const nextTurn = page.locator('#main-content').getByRole('button', { name: 'Next turn' });
+	// Two presses wrap round 1 into round 2 — one tick, one round left.
+	await nextTurn.click();
+	await nextTurn.click();
+	await expect(row.getByLabel('1 round left')).toBeVisible();
+
+	// Two more presses run it out. The badge goes, and a toast names what wore off and whose it was.
+	await nextTurn.click();
+	await nextTurn.click();
+	await expect(page.getByText('Poisoned wore off Bog Lurker')).toBeVisible();
+	await expect(row.getByLabel(/rounds? left/)).toHaveCount(0);
+	const remaining = await page.evaluate(
+		(id) =>
+			(
+				window.__rt!.state.session as {
+					combat: { combatants: Record<string, { resources: { conditions: string[] } }> };
+				}
+			).combat.combatants[id]!.resources.conditions,
+		combatantId,
+	);
+	expect(remaining).toEqual([]);
+});
+
+// ── RC-MAP-2.1 · tracker ↔ map token selection ───────────────────────────────────────────────────
+//
+// "Which combatant am I looking at" is one question asked in two places: the map's token layer and the
+// editor's initiative list. Before RC-MAP-2.1 they were unrelated, so finding a creature on the map
+// told the tracker nothing and the DM re-found it by eye every time. This is the sync case: the two
+// surfaces share one selection through `SessionSelection`, in both directions.
+
+test('a combatant selected on the map is the combatant selected in the initiative list, and back', async ({
+	page,
+}, testInfo) => {
+	const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+	const mapName = `Sync Bog ${Date.now()}`;
+	const created = await dispatch(page, {
+		type: 'map.create',
+		actorId,
+		payload: {
+			name: mapName,
+			visibility: 'dm-only',
+			projection: { kind: 'flat', rotationDegrees: 0 },
+			initialLayers: [{ name: 'Base', category: 'base', visibility: 'dm-only' }],
+		},
+	});
+	expect(created.status, JSON.stringify(created.rejection ?? {})).toBe('accepted');
+	const mapId = (created.events ?? []).find((e) => e.kind === 'map.created')?.mapId as string;
+	expect(mapId).toBeTruthy();
+
+	const combatantIds = await page.evaluate(
+		() => (window.__rt!.state.session as { combat: { order: string[] } }).combat.order,
+	);
+	const spots = [
+		{ x: 0.35, y: 0.35 },
+		{ x: 0.65, y: 0.65 },
+	];
+	for (const [index, combatantId] of combatantIds.entries()) {
+		const placed = await dispatch(page, {
+			type: 'combat.place-token',
+			actorId,
+			payload: { combatantId, mapId, ...spots[index]! },
+		});
+		expect(placed.status, JSON.stringify(placed.rejection ?? {})).toBe('accepted');
+	}
+
+	// Reach the editor by moving the HashRouter fragment: a full navigation would reload the app and
+	// re-hydrate, and this spec is about the LIVE session's combat.
+	await page.evaluate(() => {
+		window.location.hash = '#/atlas';
+	});
+	await expect(page.getByRole('button', { name: mapName, exact: true })).toBeVisible();
+	await page.getByRole('button', { name: mapName, exact: true }).click();
+	await page.getByRole('button', { name: 'Open in map editor' }).click();
+	await expect(page.getByRole('dialog', { name: `Map editor — ${mapName}` })).toBeVisible();
+
+	const layer = page.getByRole('group', { name: 'Combat tokens' });
+	const lurker = layer.getByRole('button', { name: /^Bog Lurker\./ });
+	const stalker = layer.getByRole('button', { name: /^Reed Stalker\./ });
+
+	// On the phone the dock lives behind a MODAL bottom sheet, which hides the canvas from the
+	// accessibility tree while it is open — so the two halves of the sync are asserted with the sheet
+	// closed, exactly as a DM on a phone sees them.
+	const phone = testInfo.project.name === 'mobile-chromium';
+	const panels = page.getByRole('button', { name: 'Panels' });
+	const openDock = async () => {
+		if (!phone) return;
+		await panels.click();
+		await expect(page.getByRole('dialog', { name: 'Map panels' })).toBeVisible();
+	};
+	const closeDock = async () => {
+		if (!phone) return;
+		// The sheet is modal, so the Panels toggle behind it is out of the accessibility tree: the
+		// sheet's own Close is the way out, exactly as it is for the DM.
+		await page
+			.getByRole('dialog', { name: 'Map panels' })
+			.getByRole('button', { name: 'Close' })
+			.click();
+		await expect(page.getByRole('dialog', { name: 'Map panels' })).toBeHidden();
+	};
+
+	// Map → tracker: activating a token hands the Inspector to that combatant.
+	await lurker.click();
+	await openDock();
+	await expect(page.getByText('Combatant', { exact: true })).toBeVisible();
+	await closeDock();
+	await expect(lurker).toHaveAttribute('aria-pressed', 'true');
+	await expect(stalker).toHaveAttribute('aria-pressed', 'false');
+
+	// Tracker → map: clearing returns the initiative list, and picking the other row moves the ring on
+	// the canvas without the DM touching the canvas at all.
+	await openDock();
+	await page.getByRole('button', { name: 'Clear combatant selection' }).click();
+	await page
+		.getByRole('list', { name: 'Combat' })
+		.getByRole('button', { name: /Reed Stalker/ })
+		.click();
+	await closeDock();
+	await expect(stalker).toHaveAttribute('aria-pressed', 'true');
+	await expect(lurker).toHaveAttribute('aria-pressed', 'false');
 });

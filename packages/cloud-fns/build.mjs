@@ -18,6 +18,9 @@ const ENTRYPOINTS = [
 	{ name: 'signaling-handler', entry: 'src/signaling/handler.ts' },
 	{ name: 'sync-handler', entry: 'src/sync/handler.ts' },
 	{ name: 'app-api-handler', entry: 'src/app-api/handler.ts' },
+	// RC-CLD-1.4 — opt-in analytics ingestion; its own tiny bundle so the open, unauthenticated
+	// route shares no code path (and no IAM role) with the account-scoped app-api handler.
+	{ name: 'telemetry-handler', entry: 'src/app-api/telemetry.ts' },
 ];
 
 rmSync(out, { recursive: true, force: true });

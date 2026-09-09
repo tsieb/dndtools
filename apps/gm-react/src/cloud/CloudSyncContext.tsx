@@ -27,7 +27,12 @@ import {
 	setCloudSyncEnabled,
 	type CloudSyncStatus,
 } from './cloudSync';
-import { createSyncEngine, type CloudSyncEngine, type SyncEngineStatus } from './syncEngine';
+import {
+	createSyncEngine,
+	type CloudSyncEngine,
+	type MergeSummary,
+	type SyncEngineStatus,
+} from './syncEngine';
 
 interface CloudSyncContextValue {
 	/** Whether the encrypted-backup backend is configured in this build at all. */
@@ -44,8 +49,14 @@ interface CloudSyncContextValue {
 	enable(): Promise<void>;
 	/** Opt out: stops the engine (local data untouched; cloud copy remains until overwritten/expired). */
 	disable(): Promise<void>;
-	/** Force an encrypted snapshot + op-tail backup now; rejects when the backup fails. */
-	syncNow(): Promise<void>;
+	/**
+	 * Compare with the cloud and then back up. The comparison runs first, so a second device that
+	 * changed the same campaign is found before this device can overwrite it. Rejects when either
+	 * half fails; a divergence is returned, not thrown.
+	 */
+	syncNow(): Promise<MergeSummary>;
+	/** Compare this device's history with the cloud without backing anything up. */
+	mergeNow(): Promise<MergeSummary>;
 	/** Manually restore using the latest cloud snapshot and the same device-held vault key. */
 	restore(): Promise<'restored' | 'no-snapshot'>;
 	/** Re-read the core gate + custody status (e.g. after sign-in). */
@@ -185,10 +196,22 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
 			setGateState({ accountId: targetAccountId, gate: nextGate });
 	}, []);
 
+	// Compare BEFORE pushing. The engine refuses a push while it knows this device has diverged, but
+	// it only knows that once a comparison has run — so the user-facing "Sync now" always runs one
+	// first. A divergence is returned, not thrown: the conflicts are recorded and the push is held.
 	const syncNow = useCallback(async () => {
 		if (!accountId || !engineRef.current || engineAccountRef.current !== accountId)
 			throw new Error('Encrypted cloud backup is not active for this account.');
-		await engineRef.current.syncNow();
+		const engine = engineRef.current;
+		const merged = await engine.mergeNow();
+		if (merged.outcome !== 'diverged') await engine.syncNow();
+		return merged;
+	}, [accountId]);
+
+	const mergeNow = useCallback(async () => {
+		if (!accountId || !engineRef.current || engineAccountRef.current !== accountId)
+			throw new Error('Encrypted cloud backup is not active for this account.');
+		return engineRef.current.mergeNow();
 	}, [accountId]);
 
 	const restore = useCallback(async () => {
@@ -207,10 +230,22 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
 			enable,
 			disable,
 			syncNow,
+			mergeNow,
 			restore,
 			refresh,
 		}),
-		[includedInPlan, gate, enabled, engineStatus, enable, disable, syncNow, restore, refresh],
+		[
+			includedInPlan,
+			gate,
+			enabled,
+			engineStatus,
+			enable,
+			disable,
+			syncNow,
+			mergeNow,
+			restore,
+			refresh,
+		],
 	);
 
 	return <CloudSyncCtx.Provider value={value}>{children}</CloudSyncCtx.Provider>;

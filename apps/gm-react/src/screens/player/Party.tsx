@@ -1,18 +1,5 @@
-import { useState } from 'react';
 import type { PartyOverview } from '@dndtools/core';
-import {
-	Avatar,
-	Badge,
-	Button,
-	Chip,
-	ConditionBadge,
-	HPBar,
-	Icon,
-	IconButton,
-	Input,
-	Toaster,
-} from '../../ds';
-import type { DSChangeEvent } from '../../ds';
+import { Avatar, Badge, Button, Chip, ConditionBadge, HPBar, IconButton, Toaster } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import { condKey, type Dispatch } from './shared';
@@ -36,8 +23,6 @@ export function PlayerParty({
 	const { t } = useI18n();
 	// Real party overview — members are the visible PCs only (DM-only NPCs never reach this list).
 	const members = party.members.filter((m) => m.kind === 'pc');
-	const [itemName, setItemName] = useState('');
-	const [itemDetail, setItemDetail] = useState('');
 
 	const setOrder = (order: string[]) =>
 		dispatch({ type: 'character.set-marching-order', actorId, payload: { order } });
@@ -72,53 +57,6 @@ export function PlayerParty({
 			},
 		});
 	};
-	const addItem = async () => {
-		if (!itemName.trim()) return;
-		// Authored on the player surface, so it's shared with the party (not the dm-only default).
-		const ok = await dispatch({
-			type: 'character.upsert-party-inventory-item',
-			actorId,
-			payload: {
-				name: itemName.trim(),
-				detail: itemDetail.trim(),
-				visibility: 'player-visible',
-				sharedWith: [],
-			},
-		});
-		if (ok) {
-			setItemName('');
-			setItemDetail('');
-		}
-	};
-	// Removal is instant with an UNDO toast — the undo re-creates the item through the same upsert
-	// command, preserving its id via the schema's optional `id` (same pattern as scene delete).
-	const removeItem = async (item: PartyOverview['inventory'][number]) => {
-		const ok = await dispatch({
-			type: 'character.remove-party-inventory-item',
-			actorId,
-			payload: { itemId: item.id },
-		});
-		if (!ok) return;
-		Toaster.success(t('player.party.itemRemoved', { name: item.name }), {
-			action: t('common.action.undo'),
-			onAction: () => {
-				void dispatch({
-					type: 'character.upsert-party-inventory-item',
-					actorId,
-					payload: {
-						id: item.id,
-						name: item.name,
-						detail: item.detail,
-						visibility: item.visibility,
-						sharedWith: [],
-					},
-				}).then((restored) => {
-					if (restored) Toaster.success(t('player.party.itemRestored', { name: item.name }));
-				});
-			},
-		});
-	};
-
 	return (
 		<div
 			style={{
@@ -300,84 +238,6 @@ export function PlayerParty({
 									</div>
 								);
 							})}
-						</div>
-					)}
-				</Panel>
-				<Panel title={t('player.party.stash')}>
-					{party.inventory.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-							{t('player.party.stashEmpty')}
-						</div>
-					) : (
-						party.inventory.map((s, i) => (
-							<div
-								key={s.id}
-								style={{
-									display: 'flex',
-									alignItems: 'center',
-									gap: 10,
-									padding: '7px 0',
-									borderTop: i ? `1px solid ${T.bd}` : 'none',
-								}}
-							>
-								<Icon name="tag" size={14} color={T.ter} />
-								<span style={{ flex: 1, font: `12.5px ${T.sans}` }}>{s.name}</span>
-								<span style={{ font: `11px ${T.sans}`, color: T.ter }}>{s.detail}</span>
-								{isDm && s.visibility === 'dm-only' && (
-									<Badge status="neutral" icon="hidden">
-										{t('common.visibility.dmOnly')}
-									</Badge>
-								)}
-								{isDm && (
-									<IconButton
-										icon="close"
-										label={t('player.party.removeItem', { name: s.name })}
-										variant="ghost"
-										size="sm"
-										onClick={() => void removeItem(s)}
-									/>
-								)}
-							</div>
-						))
-					)}
-					{isDm && (
-						<div
-							style={{
-								display: 'flex',
-								flexDirection: 'column',
-								gap: 8,
-								marginTop: 10,
-								paddingTop: 12,
-								borderTop: `1px solid ${T.bd}`,
-							}}
-						>
-							<div style={{ display: 'flex', gap: 8 }}>
-								<Input
-									value={itemName}
-									aria-label={t('player.party.itemName')}
-									onChange={(e: DSChangeEvent) => setItemName(e.target.value)}
-									placeholder={t('player.party.itemNamePlaceholder')}
-									style={{ flex: 1 }}
-								/>
-								<Input
-									value={itemDetail}
-									aria-label={t('player.party.itemDetail')}
-									onChange={(e: DSChangeEvent) => setItemDetail(e.target.value)}
-									placeholder={t('player.party.itemDetailPlaceholder')}
-									style={{ flex: 1 }}
-								/>
-							</div>
-							<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-								<Button
-									variant="secondary"
-									size="sm"
-									icon="add"
-									disabled={!itemName.trim()}
-									onClick={addItem}
-								>
-									{t('player.party.addToStash')}
-								</Button>
-							</div>
 						</div>
 					)}
 				</Panel>

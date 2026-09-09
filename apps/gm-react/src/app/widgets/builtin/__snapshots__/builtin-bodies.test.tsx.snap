@@ -18,7 +18,7 @@ exports[`every system widget type has a body > getting-started renders a body th
 
 exports[`every system widget type has a body > handout renders a body the DM can read 1`] = `"Empty note — select the widget to add text."`;
 
-exports[`every system widget type has a body > initiative-tracker renders a body the DM can read 1`] = `"Round1TurnBrannorHP24 / 24Brannor"`;
+exports[`every system widget type has a body > initiative-tracker renders a body the DM can read 1`] = `"Round1TurnBrannorHP24 / 24 Next turnBrannor"`;
 
 exports[`every system widget type has a body > map renders a body the DM can read 1`] = `"The linked map is missing or was removed. Choose another map in edit mode."`;
 

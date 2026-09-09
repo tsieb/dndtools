@@ -5,10 +5,13 @@ import type { McpToolDefinition, McpToolRegistry } from './tool-registry';
 import { getContentItemsForActor, getContentItemDetailForActor } from '../queries/content-query';
 import { getMapViewForActor } from '../queries/map-query';
 import { listCharactersForActor } from '../queries/character-query';
+import { listSceneCardsForActor } from '../queries/scene-card';
 import { searchVaultForActor } from '../queries/search-query';
 import { getGraphRelationships } from '../queries/graph-api';
 import { getPrepRecapDigest } from '../queries/prep-recap-digest';
 import { rollExpression } from '../state/dice';
+import { defaultAdvancementMode } from '../state/character-advancement';
+import { activeSystemPackageFor } from '../commands/character';
 import { VAULT_OBJECT_SUBTYPE_KEY } from '../state/vault-object';
 import { buildSemanticBundle, type SemanticBundleKind } from './semantic-bundles';
 import {
@@ -258,6 +261,16 @@ function runReadTool(
 				{ referenceInstant, ...(itemBudget !== undefined ? { itemBudget } : {}) },
 			);
 		}
+		case 'scene-card.packages': {
+			// RC-AUD-3.4 — scene.list-packages: the SAME actor-filtered scene-card list the GUI reads,
+			// narrowed to PACKAGES (a card carrying an audio preset and/or a lighting hint). A non-DM agent
+			// only ever sees `player-visible` cards (the query's own filter), and `audioPresetId` is
+			// already redacted to null for a non-DM by the query, so a package's DM-only audio config never
+			// crosses to a player-scoped agent.
+			return listSceneCardsForActor(state.session, state.permissions, actorId).filter(
+				(card) => card.audioPresetId !== null || card.lightingHint !== null,
+			);
+		}
 		default:
 			// Defensive: a registered read tool whose queryId is unrouted reads NOTHING (fail closed).
 			// Unreachable for the baseline registry; guards a future tool added without a route.
@@ -476,6 +489,14 @@ export function writeCommandPayload(
 				},
 			};
 		}
+		case 'scene-card.play-package': {
+			// RC-AUD-3.4 — scene.activate-package: forward ONLY the cardId. The device-availability flags
+			// (`assetLocallyAvailable`/`assetCached`/`cacheEvicted`/`online`) are left undefined so the
+			// command falls back to its own defaults — an agent cannot assert facts about the DM's local
+			// machine it has no way to know. The bound command re-checks the card exists and is live.
+			const { cardId } = input as { cardId: string };
+			return { ok: true, payload: { cardId } };
+		}
 		case 'encounter.build': {
 			const { title, combatants, party, terrainNotes, specialActions, loot } = input as {
 				title: string;
@@ -528,6 +549,48 @@ export function writeCommandPayload(
 					category,
 					position,
 					notes,
+				},
+			};
+		}
+		case 'character.apply-advancement': {
+			const {
+				characterId,
+				mode,
+				className,
+				class: classAlias,
+				hitPointsGained,
+				subclass,
+				abilityOrFeat,
+			} = input as {
+				characterId: string;
+				mode?: 'xp' | 'milestone';
+				className?: string;
+				class?: string;
+				hitPointsGained: number;
+				subclass?: string;
+				abilityOrFeat?: string;
+			};
+			// RC-AI-1.4 — the choice set crosses over and NOTHING else. No level, no XP total and no HP
+			// maximum: the target level is always the character's next one and the core recomputes the
+			// maxima, so an agent cannot assert a character is further along than it is. The mapping
+			// deliberately does NOT read the character — an agent that cannot see it is refused by the
+			// command's own owner/DM authority check at dispatch, the same gate the wizard passes.
+			//
+			// An omitted `mode` is resolved from the ACTIVE SYSTEM PACKAGE (RC-CHR-1.4): whether a
+			// campaign levels on XP or on story milestones is the vault's fact, not the agent's. The
+			// fallback is the XP-GATED mode, so a package that declares neither can never let an
+			// unstated mode skip the XP threshold.
+			const resolvedMode = mode ?? defaultAdvancementMode(activeSystemPackageFor(state)) ?? 'xp';
+			return {
+				ok: true,
+				payload: {
+					characterId,
+					mode: resolvedMode,
+					// The schema guarantees one of the two is present; `className` wins when both are.
+					className: className ?? classAlias,
+					hitPointsGained,
+					...(subclass !== undefined ? { subclass } : {}),
+					...(abilityOrFeat !== undefined ? { abilityOrFeat } : {}),
 				},
 			};
 		}

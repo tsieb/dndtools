@@ -29,7 +29,13 @@ export const CHARACTER_JOURNAL_SCHEMA_VERSION = 1 as const;
 export const CHARACTER_JOURNAL_ENTITY_TYPE = 'character-journal' as const;
 
 /** The categories a journal entry can be. A free `note` covers session highlights/anything else. */
-export type JournalEntryKind = 'bookmark' | 'npc-impression' | 'personal-quest' | 'session-highlight' | 'note';
+export type JournalEntryKind =
+	| 'bookmark'
+	| 'npc-impression'
+	| 'personal-quest'
+	| 'session-highlight'
+	| 'note'
+	| 'downtime';
 
 export const JOURNAL_ENTRY_KINDS: readonly JournalEntryKind[] = [
 	'bookmark',
@@ -37,7 +43,21 @@ export const JOURNAL_ENTRY_KINDS: readonly JournalEntryKind[] = [
 	'personal-quest',
 	'session-highlight',
 	'note',
+	'downtime',
 ] as const;
+
+/**
+ * RC-CHR-2.2 — the structured fields a `downtime` entry carries on top of the common title/body:
+ * the activity (e.g. "Crafting", "Carousing"), days spent, an optional cost, an optional outcome
+ * narrative, and an optional link to another entry (typically a `note`) the activity produced.
+ */
+export interface DowntimeDetails {
+	activityType: string;
+	days: number;
+	cost?: number;
+	outcome?: string;
+	linkedNoteId?: string;
+}
 
 /**
  * One durable journal entry. `visibility` + `sharedWith` are the canonical per-entry visibility
@@ -54,6 +74,8 @@ export interface CharacterJournalEntry {
 	visibility: VisibilityLevel;
 	/** Actor ids a `shared` entry is explicitly delivered to (e.g. the owner, or a viewer-grantee). */
 	sharedWith: ActorId[];
+	/** RC-CHR-2.2 — present only when `kind: 'downtime'`; the structured downtime fields. */
+	downtime?: DowntimeDetails;
 	/** The actor that authored the entry (the character owner; or the DM acting administratively). */
 	authorActorId: ActorId;
 	createdAt: string;
@@ -124,6 +146,8 @@ export interface AddJournalEntryInput {
 	visibility?: VisibilityLevel;
 	/** Optional explicit extra delivery targets for a `shared` entry. The owner is always included. */
 	sharedWith?: ActorId[];
+	/** RC-CHR-2.2 — required by the command layer when `kind: 'downtime'`. */
+	downtime?: DowntimeDetails;
 }
 
 export interface JournalEntryMeta {
@@ -150,9 +174,7 @@ export function buildJournalEntry(
 	// The owner can always read their own entries: for a `shared` entry the owner is a delivery
 	// target. For `dm-only`/`player-visible` the `sharedWith` list is irrelevant (kept empty).
 	const sharedWith =
-		visibility === 'shared'
-			? [...new Set([meta.ownerActorId, ...(input.sharedWith ?? [])])]
-			: [];
+		visibility === 'shared' ? [...new Set([meta.ownerActorId, ...(input.sharedWith ?? [])])] : [];
 	return {
 		id: meta.id,
 		kind: input.kind,
@@ -160,6 +182,7 @@ export function buildJournalEntry(
 		body: input.body ?? '',
 		visibility,
 		sharedWith,
+		...(input.kind === 'downtime' && input.downtime ? { downtime: input.downtime } : {}),
 		authorActorId: meta.authorActorId,
 		createdAt: meta.now,
 		updatedAt: meta.now,
@@ -236,9 +259,7 @@ export function setJournalEntryVisibility(
 	if (!journal || !existing) return null;
 	const level = normalizeVisibilityLevel(visibility);
 	const nextShared =
-		level === 'shared'
-			? [...new Set([ownerActorId, ...(sharedWith ?? existing.sharedWith)])]
-			: [];
+		level === 'shared' ? [...new Set([ownerActorId, ...(sharedWith ?? existing.sharedWith)])] : [];
 	const next: CharacterJournalEntry = {
 		...existing,
 		visibility: level,

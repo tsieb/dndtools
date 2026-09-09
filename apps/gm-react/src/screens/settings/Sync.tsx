@@ -15,8 +15,10 @@ import {
 	type VaultBackup,
 } from '../../platform/backup';
 import { useEntitlements } from '../../cloud/entitlements';
-import { errMsg } from './shared';
+import { errMsg, humanizeEntity } from './shared';
 import { RecoveryKeyPanel, VaultPrivacyPanel } from './SyncPrivacy';
+import { SyncConflictsPanel } from './SyncConflicts';
+import { ProductAnalyticsPanel } from './Analytics';
 /* ---- Backup activity: local operation history + optional encrypted off-device copy. -------------- */
 /* The two `humanize*` helpers below read a core command id ('scene.create') and spell it as English
  * prose ('Scene created'). They are the one thing on this screen the catalog cannot reach: the words
@@ -49,13 +51,9 @@ function humanizeOp(opType: string): string {
 	return `${readableSubject} ${pastTense[verb] ?? verb}`;
 }
 
-function humanizeEntity(entityType: string): string {
-	const readable = entityType.replace(/[._-]+/g, ' ').trim();
-	return readable ? readable.charAt(0).toUpperCase() + readable.slice(1) : 'Campaign item';
-}
-
-/** E2EE cloud-backup controls. This is an off-device copy for the current key-holding device, not a
- *  bidirectional multi-device sync surface; restore is explicit and destructive. */
+/** E2EE cloud sync controls. "Sync now" COMPARES this device's history with the cloud copy before it
+ *  pushes anything (RC-CLD-2.4): a second device that changed the same campaign is found first, so a
+ *  push can never quietly overwrite it. Whole-vault restore stays explicit and destructive. */
 function CloudSyncPanel({ online, localChanges }: { online: boolean; localChanges: number }) {
 	const { t, formatTime } = useI18n();
 	const cloud = useCloudSync();
@@ -79,7 +77,7 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 						</div>
 					</div>
 					<Button variant="secondary" size="sm" icon="retry" disabled>
-						{t('settings.sync.backUpNow')}
+						{t('settings.sync.syncNow')}
 					</Button>
 				</div>
 			</Panel>
@@ -92,6 +90,31 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 	const lastSynced = es?.lastSyncedAt
 		? formatTime(new Date(es.lastSyncedAt), { timeStyle: 'medium' })
 		: t('settings.sync.never');
+
+	// "Sync now" is a comparison followed by a push, and each answer gets its own honest sentence: a
+	// divergence is not an error and is not reported as success — nothing was pushed and the DM has
+	// versions to choose. `syncNow` only rejects when the comparison or the push actually failed.
+	const syncNow = async () => {
+		setBusy(true);
+		try {
+			const merged = await cloud.syncNow();
+			if (merged.outcome === 'diverged') {
+				Toaster.info(
+					merged.conflictCount > 0
+						? t('settings.sync.diverged', { count: merged.conflictCount })
+						: t('settings.sync.divergedNoOverlap'),
+				);
+			} else if (merged.outcome === 'fast-forward') {
+				Toaster.success(t('settings.sync.fastForward', { count: merged.incomingCount }));
+			} else {
+				Toaster.success(t('settings.sync.backedUp'));
+			}
+		} catch (e) {
+			Toaster.error(e instanceof Error ? e.message : t('settings.sync.cloudFailed'));
+		} finally {
+			setBusy(false);
+		}
+	};
 
 	const run = async (fn: () => Promise<unknown>, okMsg: string) => {
 		setBusy(true);
@@ -178,15 +201,28 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 						<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
 							{es?.lastError ? es.lastError : t('settings.sync.lastBackedUp', { when: lastSynced })}
 						</div>
+						{es?.merge && !es.lastError ? (
+							<div style={{ font: `12px ${T.sans}`, color: T.ter }} data-testid="sync-merge-state">
+								{es.merge.outcome === 'diverged'
+									? es.merge.conflictCount > 0
+										? t('settings.sync.diverged', { count: es.merge.conflictCount })
+										: t('settings.sync.divergedNoOverlap')
+									: es.merge.outcome === 'fast-forward'
+										? t('settings.sync.fastForward', { count: es.merge.incomingCount })
+										: es.merge.outcome === 'push-only'
+											? t('settings.sync.pushOnly', { count: es.merge.outgoingCount })
+											: t('settings.sync.upToDate')}
+							</div>
+						) : null}
 					</div>
 					<Button
 						variant="secondary"
 						size="sm"
 						icon="retry"
 						disabled={busy || es?.busy}
-						onClick={() => void run(cloud.syncNow, t('settings.sync.backedUp'))}
+						onClick={() => void syncNow()}
 					>
-						{t('settings.sync.backUpNow')}
+						{t('settings.sync.syncNow')}
 					</Button>
 					<Button
 						variant="ghost"
@@ -265,9 +301,11 @@ export function SettingsSync() {
 			    backup button's tap target under the fixed navigation. The ADR-026 consent and
 			    recovery panels are set-once controls and read fine below it. */}
 			<CloudSyncPanel online={online} localChanges={ops.length} />
+			<SyncConflictsPanel />
 			<LocalBackupPanel />
 			<VaultPrivacyPanel />
 			<RecoveryKeyPanel />
+			<ProductAnalyticsPanel />
 			<Panel
 				title={t('settings.sync.recentChanges')}
 				action={<Badge status="neutral">{ops.length}</Badge>}

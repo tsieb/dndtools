@@ -1,19 +1,28 @@
 import { useEffect, useState } from 'react';
 import {
 	exportUvttJson,
+	listSceneCardsForActor,
 	type MapPoiView,
 	type MapTokenView,
 	type SceneVisibility,
 } from '@dndtools/core';
 import { Button, Field, Input, Select, Slider, Textarea, VisibilityChip } from '../../../ds';
-import { T, eb } from '../../screen-kit';
+import { T } from '../../screen-kit';
 import { useRuntime } from '../../../runtime/RuntimeContext';
 import { exportFile, FileExportError } from '../../../platform/download';
 import type { MapEditorApi } from '../useMapEditor';
-import { VIS_TEXT, bulkResultMessage } from '../mapVocab';
 import { useI18n } from '../../../i18n';
 import type { MessageKey } from '../../../i18n';
 import { POI_CATEGORIES, VIS_CHIP, VIS_OPTION_KEYS } from './inspectorVocab';
+import { useCombatTokens, type CombatRosterEntry } from '../canvas/useCombatTokens';
+import { useSessionSelection } from '../../session/SessionSelection';
+import { PoiLinkSection } from './PoiNoteSection';
+import {
+	CombatantInspector,
+	CombatRosterSection,
+	MultiInspector,
+	Section,
+} from './InspectorSections';
 
 /**
  * A Slider whose DURABLE write happens once per gesture instead of once per step.
@@ -83,6 +92,11 @@ export function InspectorPanel({
 	const selected = editor.selection;
 	const pois = editor.map?.pois ?? [];
 	const tokens = editor.map?.tokens ?? [];
+	// RC-MAP-2.1 — the shared combatant selection. Both hooks run unconditionally (rules of hooks); a
+	// combatant only takes the panel when NO map object is selected, so selecting a POI never yanks the
+	// Inspector away from the object the DM is editing.
+	const combat = useCombatTokens(editor.mapId, editor.actorId);
+	const { selectedCombatantId, selectCombatant } = useSessionSelection();
 
 	if (selected.length === 1) {
 		const poi = pois.find((p) => p.id === selected[0]);
@@ -93,15 +107,29 @@ export function InspectorPanel({
 	if (selected.length > 1) {
 		return <MultiInspector editor={editor} announce={announce} />;
 	}
-	return <MapInspector editor={editor} announce={announce} />;
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+	if (selected.length === 0 && combat.running && selectedCombatantId) {
+		const row = combat.roster.find((entry) => entry.combatantId === selectedCombatantId);
+		// A stale id (combat ended, the combatant was removed) degrades to "nothing selected" rather
+		// than to a panel about a creature that is no longer there.
+		if (row) {
+			const token = combat.tokens.find((entry) => entry.combatantId === selectedCombatantId);
+			return (
+				<CombatantInspector
+					row={row}
+					position={token?.position ?? null}
+					onClear={() => selectCombatant(null)}
+				/>
+			);
+		}
+	}
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-			<div style={eb}>{title}</div>
-			{children}
-		</div>
+		<MapInspector
+			editor={editor}
+			announce={announce}
+			combatRoster={combat.running ? combat : null}
+			selectedCombatantId={selectedCombatantId}
+			onSelectCombatant={selectCombatant}
+		/>
 	);
 }
 
@@ -109,9 +137,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function MapInspector({
 	editor,
 	announce,
+	combatRoster,
+	selectedCombatantId,
+	onSelectCombatant,
 }: {
 	editor: MapEditorApi;
 	announce: (m: string) => void;
+	/** RC-MAP-2.1 — the running combat, or null when none is running. */
+	combatRoster: { round: number; turn: number; roster: readonly CombatRosterEntry[] } | null;
+	selectedCombatantId: string | null;
+	onSelectCombatant: (combatantId: string | null) => void;
 }) {
 	const runtime = useRuntime();
 	const { t } = useI18n();
@@ -438,6 +473,14 @@ function MapInspector({
 				</Section>
 			)}
 
+			{combatRoster && (
+				<CombatRosterSection
+					combat={combatRoster}
+					selectedCombatantId={selectedCombatantId}
+					onSelect={onSelectCombatant}
+				/>
+			)}
+
 			<div
 				style={{
 					display: 'flex',
@@ -477,16 +520,13 @@ function PoiInspector({
 	announce: (m: string) => void;
 }) {
 	const { t } = useI18n();
+	const runtime = useRuntime();
 	const [label, setLabel] = useState(poi.label);
 	const [notes, setNotes] = useState(poi.notes);
-	const [linkType, setLinkType] = useState(poi.linkedEntityType ?? '');
-	const [linkId, setLinkId] = useState(poi.linkedEntityId ?? '');
 	useEffect(() => {
 		setLabel(poi.label);
 		setNotes(poi.notes);
-		setLinkType(poi.linkedEntityType ?? '');
-		setLinkId(poi.linkedEntityId ?? '');
-	}, [poi.id, poi.label, poi.notes, poi.linkedEntityType, poi.linkedEntityId]);
+	}, [poi.id, poi.label, poi.notes]);
 	const { run, actorId, mapId } = editor;
 	const patch = (payload: Record<string, unknown>) =>
 		void run({
@@ -534,37 +574,30 @@ function PoiInspector({
 				</Field>
 			</Section>
 
-			<Section title={t('mapInspector.link')}>
-				<div style={{ display: 'flex', gap: 8 }}>
-					<Field label={t('mapInspector.entityType')} style={{ flex: 1 }}>
-						<Input
-							value={linkType}
-							placeholder={t('mapInspector.entityTypePlaceholder')}
-							onChange={(e: { target: { value: string } }) => setLinkType(e.target.value)}
-						/>
-					</Field>
-					<Field label={t('mapInspector.entityId')} style={{ flex: 1 }}>
-						<Input
-							value={linkId}
-							placeholder={t('mapInspector.entityIdPlaceholder')}
-							onChange={(e: { target: { value: string } }) => setLinkId(e.target.value)}
-						/>
-					</Field>
-				</div>
-				<Button
-					variant="secondary"
-					size="sm"
-					icon="link"
-					disabled={editor.busy}
-					onClick={() =>
-						patch({
-							linkedEntityType: linkType.trim() || null,
-							linkedEntityId: linkType.trim() && linkId.trim() ? linkId.trim() : null,
-						})
-					}
-				>
-					{t('mapInspector.saveLink')}
-				</Button>
+			{/* RC-MAP-3.10 — the link section (existing link + "Create note here") lives next door. */}
+			<PoiLinkSection editor={editor} poi={poi} />
+
+			<Section title={t('mapInspector.scenePackage')}>
+				<Field label={t('mapInspector.scenePackage')} help={t('mapInspector.scenePackageHelp')}>
+					<Select
+						value={poi.linkedEntityType === 'scene-card' ? (poi.linkedEntityId ?? '') : ''}
+						options={[
+							{ value: '', label: t('mapInspector.scenePackageNone') },
+							...listSceneCardsForActor(
+								runtime.state.session,
+								runtime.state.permissions,
+								editor.actorId,
+							).map((card) => ({ value: card.id, label: card.title })),
+						]}
+						onChange={(e: { target: { value: string } }) => {
+							const cardId = e.target.value || null;
+							patch({
+								linkedEntityType: cardId ? 'scene-card' : null,
+								linkedEntityId: cardId,
+							});
+						}}
+					/>
+				</Field>
 			</Section>
 
 			<Button
@@ -670,131 +703,6 @@ function TokenInspector({
 			>
 				{t('mapInspector.deleteToken')}
 			</Button>
-		</div>
-	);
-}
-
-// ── Multi-select ────────────────────────────────────────────────────────────────────────────────
-function MultiInspector({
-	editor,
-	announce,
-}: {
-	editor: MapEditorApi;
-	announce: (m: string) => void;
-}) {
-	const { t } = useI18n();
-	const { run, actorId, mapId } = editor;
-	const pois = editor.map?.pois ?? [];
-	const tokens = editor.map?.tokens ?? [];
-	const selectedPois = pois.filter((p) => editor.selection.includes(p.id));
-	const selectedTokens = tokens.filter((t) => editor.selection.includes(t.id));
-
-	// `run` executes one command at a time and rejects re-entrant calls, so these loops MUST await.
-	// Firing them synchronously applied only the first object while announcing the whole selection
-	// had changed — and then cleared the selection, hiding the failure entirely.
-	const setVisibility = async (visibility: SceneVisibility) => {
-		let changed = 0;
-		for (const p of selectedPois) {
-			if (
-				await run({
-					type: 'map.update-poi',
-					actorId,
-					payload: { mapId, poiId: p.id, visibility },
-				} as never)
-			)
-				changed += 1;
-			else break;
-		}
-		for (const t of selectedTokens) {
-			if (
-				await run({
-					type: 'map.update-token',
-					actorId,
-					payload: { mapId, tokenId: t.id, visibility },
-				} as never)
-			)
-				changed += 1;
-			else break;
-		}
-		announce(
-			bulkResultMessage({
-				done: changed,
-				attempted: selectedPois.length + selectedTokens.length,
-				template: `Set {objects} to ${VIS_TEXT[visibility]}.`,
-				refusedVerb: 'changed',
-			}),
-		);
-	};
-	const deleteAll = async () => {
-		const attempted = selectedPois.length + selectedTokens.length;
-		const removed = new Set<string>();
-		let deleted = 0;
-		for (const p of selectedPois) {
-			if (
-				await run({ type: 'map.delete-poi', actorId, payload: { mapId, poiId: p.id } } as never)
-			) {
-				deleted += 1;
-				removed.add(p.id);
-			} else break;
-		}
-		for (const t of selectedTokens) {
-			if (
-				await run({ type: 'map.delete-token', actorId, payload: { mapId, tokenId: t.id } } as never)
-			) {
-				deleted += 1;
-				removed.add(t.id);
-			} else break;
-		}
-		// Clearing the selection on a REFUSAL destroyed the only state the DM could retry from after
-		// unlocking the layer — and "Deleted 0 objects." claimed the work had happened. Same defect
-		// run #21 fixed in `keyboard.ts`'s `deleteSelection`; this is its sibling call site.
-		//
-		// A PARTIAL refusal has the same shape and `deleted > 0` did not cover it: the loops stop on
-		// the first refusal, so the survivors stayed on the map with their selection wiped, under a
-		// message that (correctly) said the rest were refused but left nothing to retry with. Retire
-		// only the ids that really went.
-		if (deleted > 0) editor.setSelection(editor.selection.filter((id) => !removed.has(id)));
-		announce(
-			bulkResultMessage({
-				done: deleted,
-				attempted,
-				template: 'Deleted {objects}.',
-				refusedVerb: 'deleted',
-			}),
-		);
-	};
-
-	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-			<Section title={t('mapInspector.selectedCount', { count: editor.selection.length })}>
-				<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
-					{t('mapInspector.selectionBreakdown', {
-						pois: selectedPois.length,
-						tokens: selectedTokens.length,
-					})}
-				</div>
-				<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-					<Button
-						variant="secondary"
-						size="sm"
-						icon="dm-only"
-						onClick={() => setVisibility('dm-only')}
-					>
-						{t('common.visibility.dmOnly')}
-					</Button>
-					<Button
-						variant="secondary"
-						size="sm"
-						icon="visibility-players"
-						onClick={() => setVisibility('player-visible')}
-					>
-						{t('common.visibility.playerVisible')}
-					</Button>
-				</div>
-				<Button variant="danger" size="sm" icon="delete" onClick={deleteAll}>
-					{t('mapInspector.deleteSelection')}
-				</Button>
-			</Section>
 		</div>
 	);
 }

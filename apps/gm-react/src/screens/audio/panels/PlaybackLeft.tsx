@@ -2,8 +2,9 @@ import { type FormEvent } from 'react';
 import { type AudioAssetView, type AudioSourceClassification } from '@dndtools/core';
 import { Badge, Button, EmptyState, Field, Icon, Input, Select } from '../../../ds';
 import { Panel, T } from '../../../app/screen-kit';
-import { SOURCE_KINDS, type BytesPresence, type SourceKind } from '../shared';
+import { SOURCE_KINDS, formatAudioDuration, type BytesPresence, type SourceKind } from '../shared';
 import { useI18n } from '../../../i18n';
+import { AUDIO_EMBED_PROVIDER_LABEL, detectAudioEmbedProvider } from '../../../runtime/audio-embed';
 import { type AudioTrackView } from '../types';
 
 /** The Playback tab's left column — the soundboard of real library assets and the tracks & sources
@@ -36,6 +37,9 @@ export function PlaybackLeft({
 	importBusy,
 	importError,
 	importAudio,
+	starterBusy,
+	starterError,
+	installStarter,
 	playAsset,
 	addTrack,
 	playSource,
@@ -66,6 +70,9 @@ export function PlaybackLeft({
 	importBusy: boolean;
 	importError: string | null;
 	importAudio: () => Promise<void>;
+	starterBusy: boolean;
+	starterError: string | null;
+	installStarter: () => Promise<void>;
 	playAsset: (asset: AudioAssetView) => Promise<void>;
 	addTrack: (event: FormEvent) => Promise<void>;
 	playSource: (source: AudioSourceClassification) => void;
@@ -81,6 +88,16 @@ export function PlaybackLeft({
 						<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
 							{t('audio.soundboard.assets', { count: assets.length })}
 						</span>
+						<Button
+							variant="ghost"
+							size="sm"
+							icon="audio"
+							disabled={!canEdit || starterBusy}
+							onClick={() => void installStarter()}
+							title={t('audio.starter.hint')}
+						>
+							{starterBusy ? t('audio.starter.installing') : t('audio.starter.install')}
+						</Button>
 						<Button
 							variant="secondary"
 							size="sm"
@@ -101,6 +118,14 @@ export function PlaybackLeft({
 						{importError}
 					</div>
 				)}
+				{starterError && (
+					<div
+						role="alert"
+						style={{ font: `11.5px/1.5 ${T.sans}`, color: 'var(--color-status-error-text)' }}
+					>
+						{starterError}
+					</div>
+				)}
 				{assets.length === 0 ? (
 					<EmptyState
 						inset
@@ -109,15 +134,28 @@ export function PlaybackLeft({
 						description={t('audio.soundboard.emptyBody')}
 						action={
 							canEdit ? (
-								<Button
-									variant="secondary"
-									size="sm"
-									icon="import"
-									disabled={importBusy}
-									onClick={() => void importAudio()}
+								<div
+									style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}
 								>
-									{importBusy ? t('audio.soundboard.importing') : t('audio.soundboard.import')}
-								</Button>
+									<Button
+										variant="secondary"
+										size="sm"
+										icon="import"
+										disabled={importBusy}
+										onClick={() => void importAudio()}
+									>
+										{importBusy ? t('audio.soundboard.importing') : t('audio.soundboard.import')}
+									</Button>
+									<Button
+										variant="ghost"
+										size="sm"
+										icon="audio"
+										disabled={starterBusy}
+										onClick={() => void installStarter()}
+									>
+										{starterBusy ? t('audio.starter.installing') : t('audio.starter.install')}
+									</Button>
+								</div>
 							) : undefined
 						}
 					/>
@@ -179,13 +217,18 @@ export function PlaybackLeft({
 											{a.title || a.fileName}
 										</span>
 										<span style={{ display: 'block', font: `10.5px ${T.sans}`, color: T.ter }}>
-											{bytes === 'unknown'
-												? t('audio.soundboard.checkingDevice')
-												: bytes === 'present'
-													? a.tags.length
-														? a.tags.join(' · ')
-														: a.mimeType
-													: t('audio.soundboard.bytesMissing')}
+											{(() => {
+												const duration = formatAudioDuration(a.durationSeconds);
+												const detail =
+													bytes === 'unknown'
+														? t('audio.soundboard.checkingDevice')
+														: bytes === 'present'
+															? a.tags.length
+																? a.tags.join(' · ')
+																: a.mimeType
+															: t('audio.soundboard.bytesMissing');
+												return duration ? `${duration} · ${detail}` : detail;
+											})()}
 										</span>
 									</span>
 									{a.needsLicenseReview && (
@@ -271,6 +314,30 @@ export function PlaybackLeft({
 								/>
 							</Field>
 						)}
+						{/* RC-AUD-3.3 — a recognized YouTube/SoundCloud URL plays as a sandboxed embed, never
+						    cached, instead of the local audio element. Detected from the URL alone; no extra
+						    form field, so a plain audio file URL still works exactly as before. */}
+						{trackKind === 'web-stream' &&
+							!nativeDesktop &&
+							(() => {
+								const provider = detectAudioEmbedProvider(trackUrl.trim());
+								if (!provider) return null;
+								return (
+									<div
+										data-testid="audio-embed-add-hint"
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: 6,
+											font: `11px/1.5 ${T.sans}`,
+											color: T.ter,
+										}}
+									>
+										<Icon name="globe" size={12} color={T.ter} />
+										{t('audio.embed.addHint', { provider: AUDIO_EMBED_PROVIDER_LABEL[provider] })}
+									</div>
+								);
+							})()}
 						{nativeDesktop && (
 							<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
 								{t('audio.tracks.desktopBlocksRemote')}

@@ -1,8 +1,17 @@
-import { listMapsForActor } from '@dndtools/core';
+import { useMemo } from 'react';
+import {
+	deliveredMapIdsForActor,
+	getMapViewForActor,
+	listMapsForActor,
+	queryMapLayers,
+} from '@dndtools/core';
 import { Button, Select } from '../../ds';
 import { useI18n } from '../../i18n';
 import { Panel, SetRow, T } from '../../app/screen-kit';
 import { PlayerViewAssignments } from '../../app/ProjectionControl';
+import { MapCanvas } from '../../app/map/canvas/MapCanvas';
+import { pickRasterAssetId } from '../../app/mapGeometry';
+import { useRuntime } from '../../runtime/RuntimeContext';
 
 type MapEntry = ReturnType<typeof listMapsForActor>[number];
 
@@ -65,9 +74,64 @@ export function StagePanel({
 					</Button>
 				</>
 			)}
+			{/* RC-MAP-2.3 — the staged map itself, not just its name. The DM picking what the table looks
+			    at could not see it from here, so "is the fight on the right board" meant leaving the
+			    session screen. Read-only: the same shared renderer the Atlas and the editor use, with the
+			    running combat's tokens drawn over it. */}
+			<StagePreview mapId={activeMapId} />
 			{/* RC-CAN-6.2: broadcasting the active map to every player is the row above; this lets the
 			    DM send a DIFFERENT scene to each one instead. */}
 			<PlayerViewAssignments isLive={isLive} previewing={previewing} />
 		</Panel>
+	);
+}
+
+/**
+ * RC-MAP-2.3 — the read-only preview of the staged map. Every read is actor-scoped
+ * (`getMapViewForActor` with the running combat), so the preview shows exactly what this actor may
+ * see and the overlay carries no visibility decision of its own. No gesture is offered: authoring
+ * lives in the map editor, and a control here that could not dispatch would be a dead control.
+ */
+function StagePreview({ mapId }: { mapId: string | null }) {
+	const runtime = useRuntime();
+	const { t } = useI18n();
+	const actorId = runtime.defaultActorId;
+	const { maps, permissions, session } = runtime.state;
+	const view = useMemo(() => {
+		if (!mapId) return null;
+		const result = getMapViewForActor(maps, permissions, actorId, mapId, {
+			deliveredMapIds: deliveredMapIdsForActor(session, actorId),
+			combat: session.combat,
+		});
+		return result.kind === 'available' ? result : null;
+	}, [maps, permissions, actorId, mapId, session]);
+	const layers = useMemo(
+		() => (mapId ? queryMapLayers(maps, permissions, actorId, { mapId }).layers : []),
+		[maps, permissions, actorId, mapId],
+	);
+	const rasterAssetId = useMemo(
+		() => (view ? pickRasterAssetId(maps.maps[view.mapId]?.assetIds ?? [], maps.assets) : null),
+		[view, maps],
+	);
+	if (!mapId) return null;
+	if (!view) {
+		return (
+			<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('session.stage.previewGone')}</div>
+		);
+	}
+	return (
+		<div
+			style={{ borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: `1px solid ${T.bd}` }}
+		>
+			<MapCanvas
+				view={view}
+				layers={layers}
+				isDm
+				height={200}
+				rasterAssetId={rasterAssetId}
+				compactCombat
+				style={{ borderRadius: 0, border: 'none' }}
+			/>
+		</div>
 	);
 }

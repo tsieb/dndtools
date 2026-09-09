@@ -29,8 +29,20 @@ import {
 	type CustomDate,
 } from '../state/calendar';
 import type { Actor } from '../state/permission-state';
-import type { CommandRejection, CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
-import { appendOperationDraft, ensureContentStateSlice, parseInput, reject, requireActor } from './helpers';
+import type {
+	CommandRejection,
+	CommandResult,
+	CoreEnvironment,
+	CoreEvent,
+	CoreStateSlice,
+} from './types';
+import {
+	appendOperationDraft,
+	ensureContentStateSlice,
+	parseInput,
+	reject,
+	requireActor,
+} from './helpers';
 import { actorMayEditItem } from './content-edit-authority';
 
 /**
@@ -84,7 +96,14 @@ function itemChangedEvent(
 	invalidatedActorIds: string[],
 	actorId: string,
 ): CoreEvent {
-	return { kind: 'content.item-changed', itemId, mutation, visibility, invalidatedActorIds, actorId };
+	return {
+		kind: 'content.item-changed',
+		itemId,
+		mutation,
+		visibility,
+		invalidatedActorIds,
+		actorId,
+	};
 }
 
 /**
@@ -147,6 +166,8 @@ export function handleDefineCalendar(
 			months: parsed.data.months,
 			...(parsed.data.weekdays ? { weekdays: parsed.data.weekdays } : {}),
 			...(parsed.data.epochLabel !== undefined ? { epochLabel: parsed.data.epochLabel } : {}),
+			...(parsed.data.moons ? { moons: parsed.data.moons } : {}),
+			...(parsed.data.holidays ? { holidays: parsed.data.holidays } : {}),
 		});
 	} catch (error) {
 		return reject(
@@ -262,7 +283,10 @@ export function handleUpdateContentItem(
 	const existing: ContentItem | undefined = contentItemById(content, parsed.data.itemId);
 	if (!existing) {
 		return reject(
-			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },
+			{
+				code: 'content-item-not-found',
+				message: `Content item ${parsed.data.itemId} does not exist.`,
+			},
 			state,
 		);
 	}
@@ -323,7 +347,14 @@ export function handleUpdateContentItem(
 		return {
 			status: 'accepted',
 			nextState: { ...contentWith(state, content), sync: draft.log },
-			events: [{ kind: 'content.item-conflicted', itemId: parsed.data.itemId, conflictId, actorId: actor.id }],
+			events: [
+				{
+					kind: 'content.item-conflicted',
+					itemId: parsed.data.itemId,
+					conflictId,
+					actorId: actor.id,
+				},
+			],
 			operationIds: [draft.op.id],
 		};
 	}
@@ -351,7 +382,10 @@ export function handleUpdateContentItem(
 	);
 	if (!nextContent) {
 		return reject(
-			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },
+			{
+				code: 'content-item-not-found',
+				message: `Content item ${parsed.data.itemId} does not exist.`,
+			},
 			state,
 		);
 	}
@@ -400,7 +434,10 @@ export function handleSetContentItemVisibility(
 	const before: ContentItem | undefined = contentItemById(content, parsed.data.itemId);
 	if (!before) {
 		return reject(
-			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },
+			{
+				code: 'content-item-not-found',
+				message: `Content item ${parsed.data.itemId} does not exist.`,
+			},
 			state,
 		);
 	}
@@ -412,7 +449,10 @@ export function handleSetContentItemVisibility(
 	}
 	if (!isLiveContentItem(before)) {
 		return reject(
-			{ code: 'content-item-deleted', message: 'Restore this item before changing its visibility.' },
+			{
+				code: 'content-item-deleted',
+				message: 'Restore this item before changing its visibility.',
+			},
 			state,
 		);
 	}
@@ -426,7 +466,10 @@ export function handleSetContentItemVisibility(
 	);
 	if (!nextContent) {
 		return reject(
-			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },
+			{
+				code: 'content-item-not-found',
+				message: `Content item ${parsed.data.itemId} does not exist.`,
+			},
 			state,
 		);
 	}
@@ -454,7 +497,9 @@ export function handleSetContentItemVisibility(
 	return {
 		status: 'accepted',
 		nextState: { ...contentWith(state, nextContent), sync: draft.log },
-		events: [itemChangedEvent(updated.id, 'set-visibility', updated.visibility, invalidated, actor.id)],
+		events: [
+			itemChangedEvent(updated.id, 'set-visibility', updated.visibility, invalidated, actor.id),
+		],
 		operationIds: [draft.op.id],
 	};
 }
@@ -477,7 +522,10 @@ export function handleRemoveContentItem(
 	const before: ContentItem | undefined = contentItemById(content, parsed.data.itemId);
 	if (!before) {
 		return reject(
-			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },
+			{
+				code: 'content-item-not-found',
+				message: `Content item ${parsed.data.itemId} does not exist.`,
+			},
 			state,
 		);
 	}
@@ -489,7 +537,10 @@ export function handleRemoveContentItem(
 	}
 	if (!isLiveContentItem(before)) {
 		return reject(
-			{ code: 'content-item-deleted', message: `Content item ${parsed.data.itemId} is already deleted.` },
+			{
+				code: 'content-item-deleted',
+				message: `Content item ${parsed.data.itemId} is already deleted.`,
+			},
 			state,
 		);
 	}
@@ -499,7 +550,10 @@ export function handleRemoveContentItem(
 	const nextContent = softDeleteContentItem(content, parsed.data.itemId, now);
 	if (!nextContent) {
 		return reject(
-			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },
+			{
+				code: 'content-item-not-found',
+				message: `Content item ${parsed.data.itemId} does not exist.`,
+			},
 			state,
 		);
 	}
@@ -548,7 +602,10 @@ export function handleRestoreContentItem(
 	const before: ContentItem | undefined = contentItemById(content, parsed.data.itemId);
 	if (!before) {
 		return reject(
-			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },
+			{
+				code: 'content-item-not-found',
+				message: `Content item ${parsed.data.itemId} does not exist.`,
+			},
 			state,
 		);
 	}
@@ -560,7 +617,10 @@ export function handleRestoreContentItem(
 	}
 	if (isLiveContentItem(before)) {
 		return reject(
-			{ code: 'content-item-not-deleted', message: `Content item ${parsed.data.itemId} is not deleted.` },
+			{
+				code: 'content-item-not-deleted',
+				message: `Content item ${parsed.data.itemId} is not deleted.`,
+			},
 			state,
 		);
 	}
@@ -568,7 +628,10 @@ export function handleRestoreContentItem(
 	const nextContent = restoreContentItem(content, parsed.data.itemId, now);
 	if (!nextContent) {
 		return reject(
-			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },
+			{
+				code: 'content-item-not-found',
+				message: `Content item ${parsed.data.itemId} does not exist.`,
+			},
 			state,
 		);
 	}

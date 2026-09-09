@@ -15,6 +15,7 @@ const electronBin = require('electron'); // in a plain-node context this resolve
 const here = path.dirname(new URL(import.meta.url).pathname);
 const smoke = path.join(here, 'smoke-desktop.cjs');
 const migrationSmoke = path.join(here, 'smoke-storage-origin-migration.cjs');
+const updaterSmoke = path.join(here, 'smoke-updater.cjs');
 const dist = path.join(here, '..', 'dist', 'index.html');
 
 if (!existsSync(dist)) {
@@ -58,14 +59,35 @@ function runMigration() {
 	return result;
 }
 
+// Auto-update (RC-PLT-1.2): the real electron-updater path against a staged loopback feed —
+// offered / up-to-date / unreachable / tampered-package.
+function runUpdater() {
+	const res = spawnSync(electronBin, ['--no-sandbox', updaterSmoke], {
+		env: process.env,
+		encoding: 'utf8',
+		cwd: path.join(here, '..'),
+	});
+	const line = (res.stdout || '')
+		.split('\n')
+		.find((entry) => entry.startsWith('UPDATER_SMOKE_RESULT '));
+	if (!line) {
+		console.error(`✗ auto-update: no result. stderr:\n${(res.stderr || '').slice(-1200)}`);
+		return { ok: false };
+	}
+	const result = JSON.parse(line.slice('UPDATER_SMOKE_RESULT '.length));
+	console.log(`${result.ok ? '✓' : '✗'} auto-update: ${JSON.stringify(result)}`);
+	return result;
+}
+
 try {
 	const w = run('write');
 	const v = w.ok ? run('verify') : { ok: false };
 	const migration = w.ok && v.ok ? runMigration() : { ok: false };
-	const ok = w.ok && v.ok && migration.ok;
+	const updater = w.ok && v.ok ? runUpdater() : { ok: false };
+	const ok = w.ok && v.ok && migration.ok && updater.ok;
 	console.log(
 		ok
-			? '\n✓ desktop smoke PASS (secure app origin, CORS, persistence, and crash-safe file-origin upgrade)'
+			? '\n✓ desktop smoke PASS (secure app origin, CORS, persistence, crash-safe file-origin upgrade, verified auto-update)'
 			: '\n✗ desktop smoke FAIL',
 	);
 	process.exit(ok ? 0 : 1);

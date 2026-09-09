@@ -38,12 +38,20 @@ import { PlayerResources } from './Vitals';
 import { PlayerParty } from './Party';
 import { PlayerLevelUp } from './Advancement';
 import { PlayerJournal } from './Journal';
+import { CharacterHistoryTimeline } from '../../app/character/History';
+import { PartyStash } from '../../app/character/PartyStash';
 
 /**
  * Player — the second-persona character surface, fully core-backed (the last `DNDPlayer` mock
  * remnants are gone). The active actor is `runtime.defaultActorId` (the device owner / view-as
  * actor, exactly like CommandCenter): when that is the DM (or a granted character owner) the writes
  * below succeed; if the DM is previewing as a player, the Core faithfully rejects them read-only.
+ *
+ * RC-CHR-4.3 (DEBT-2026-005) — `runtime.readOnly` is ANDed into every `canAuthor…`/`canManage…` flag
+ * (and the inline HP stepper / inspiration toggle) so the manage controls are HIDDEN or disabled the
+ * moment a preview starts, rather than shown live and rejected on click: a preview blocks every write
+ * regardless of the previewed role's authority, so leaving a control clickable there is always a dead
+ * control (guardrail #8).
  *
  * REAL (actor-filtered) reads: the player's PC via {@link getCharacterForActor} (name, HP, AC,
  * conditions, ability scores, attacks, `data.*` sheet fields), its resource block via
@@ -122,34 +130,46 @@ export function Player() {
 			!isDm &&
 			hasGrantedCapability(state.permissions, actor, CHARACTER_ENTITY_TYPE, chosen.id, 'owner')
 		);
+		// RC-CHR-4.3 (DEBT-2026-005) — while the DM is previewing (any role), EVERY write is rejected
+		// read-only by the runtime regardless of who would otherwise be authorized, so an authority check
+		// alone leaves a dead control behind. Fold `runtime.readOnly` into every manage-capability flag so
+		// the DM never sees a "canAuthor…" affordance the click can't actually honor.
+		const readOnlyPreview = runtime.readOnly;
 		const party = getPartyOverviewForActor(state.characters, state.permissions, actorId);
+		// RC-CHR-3.2 — the party's aggregate STR (defaulting each member to 10), for the stash's
+		// encumbrance BASELINE (`encumbranceLevelFor(stashWeight, partyStrength)`). `pcs` is the exact
+		// same actor-filtered visible-PC set `party.members` derives from, so this never over-counts a
+		// member the DM can see but the viewer cannot.
+		const partyStrength = pcs.reduce((sum, c) => sum + (c.abilityScores.str ?? 10), 0) || 10;
 		return {
 			characterId: chosen?.id ?? null,
 			view,
 			resources,
 			pcs: pcs.map((c) => ({ id: c.id, name: c.name })),
+			partyStrength,
 			// Pure derived queries, computed AFTER the actor-filtered gate passed (same pattern as
 			// `resourcesOf` above) — they read only abilityScores / proficiencies / data.level.
 			passive: record ? passivePerception(record) : null,
 			profBonus: record ? effectiveProficiencyBonus(record) : null,
 			journal: journalView?.entries ?? [],
-			canAuthorJournal: isDm || isOwner,
+			canAuthorJournal: (isDm || isOwner) && !readOnlyPreview,
 			// Structured inventory + encumbrance from the durable record (same post-gate pattern as
 			// `resourcesOf`); encumbrance is derived on read so it can never drift from items/coins/STR.
 			inventory: record ? inventoryOf(record) : null,
 			encumbrance: record ? computeEncumbrance(record) : null,
-			canManageInventory: isDm || isOwner,
+			canManageInventory: (isDm || isOwner) && !readOnlyPreview,
 			// RC-CHR-1.1 — the package's own resource rules fused with this sheet's counters.
 			resourceInstances: view?.resources ?? [],
-			canManageResources: isDm || isOwner,
+			canManageResources: (isDm || isOwner) && !readOnlyPreview,
 			party,
 			advancement: record ? advancementStateOf(record) : null,
 			xpEligible: record ? checkAdvancementEligibility(record, 'xp') : null,
 			milestoneEligible: record ? checkAdvancementEligibility(record, 'milestone') : null,
-			canAdvance: isDm || isOwner,
+			canAdvance: (isDm || isOwner) && !readOnlyPreview,
 			isDm,
+			readOnlyPreview,
 		};
-	}, [state, actorId, pcChoice]);
+	}, [state, actorId, pcChoice, runtime.readOnly]);
 
 	const C = data.view;
 	const [tab, setTab] = useState('sheet');
@@ -201,6 +221,9 @@ export function Player() {
 		// authorize (DM / granted owner), so it is never a dead surface.
 		...(data.canAdvance ? [{ id: 'levelup', label: t('player.tab.levelUp'), icon: 'flag' }] : []),
 		{ id: 'journal', label: t('player.tab.journal'), icon: 'note-edit' },
+		// RC-CHR-2.3 — the history timeline reads the SAME actor-filtered journal already fetched
+		// above for the journal tab; no extra query.
+		{ id: 'history', label: t('player.tab.history'), icon: 'recent' },
 	];
 	const activeTab = tabs.some((t) => t.id === tab) ? tab : 'sheet';
 
@@ -298,9 +321,14 @@ export function Player() {
 				>
 					<IconButton
 						icon="chevron-down"
-						label={t('player.hp.damageBy', { amount: hpStep() })}
+						label={
+							data.readOnlyPreview
+								? t('player.blockedPreview')
+								: t('player.hp.damageBy', { amount: hpStep() })
+						}
 						variant="ghost"
 						size="sm"
+						aria-disabled={data.readOnlyPreview}
 						onClick={() => void stepHp(-1)}
 					/>
 					<div style={{ textAlign: 'center', minWidth: 74 }}>
@@ -320,9 +348,14 @@ export function Player() {
 					</div>
 					<IconButton
 						icon="chevron-up"
-						label={t('player.hp.healBy', { amount: hpStep() })}
+						label={
+							data.readOnlyPreview
+								? t('player.blockedPreview')
+								: t('player.hp.healBy', { amount: hpStep() })
+						}
 						variant="ghost"
 						size="sm"
+						aria-disabled={data.readOnlyPreview}
 						onClick={() => void stepHp(1)}
 					/>
 					<input
@@ -367,7 +400,9 @@ export function Player() {
 				<button
 					type="button"
 					aria-pressed={insp}
-					onClick={toggleInspiration}
+					aria-disabled={data.readOnlyPreview || undefined}
+					title={data.readOnlyPreview ? t('player.blockedPreview') : undefined}
+					onClick={data.readOnlyPreview ? undefined : toggleInspiration}
 					style={{
 						marginLeft: 'auto',
 						display: 'inline-flex',
@@ -375,7 +410,8 @@ export function Player() {
 						gap: 7,
 						padding: '7px 12px',
 						borderRadius: 20,
-						cursor: 'pointer',
+						cursor: data.readOnlyPreview ? 'not-allowed' : 'pointer',
+						opacity: data.readOnlyPreview ? 0.6 : 1,
 						border: `1px solid ${insp ? T.accBd : T.bd}`,
 						background: insp ? T.accSub : T.surf,
 						color: insp ? T.acc : T.ter,
@@ -473,14 +509,30 @@ export function Player() {
 						/>
 					)}
 					{activeTab === 'party' && (
-						<PlayerParty
-							party={data.party}
-							selfId={charId}
-							isDm={data.isDm}
-							actorId={actorId}
-							compact={viewport === 'phone'}
-							dispatch={dispatch}
-						/>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+							<PlayerParty
+								party={data.party}
+								selfId={charId}
+								isDm={data.isDm}
+								actorId={actorId}
+								compact={viewport === 'phone'}
+								dispatch={dispatch}
+							/>
+							{/* RC-CHR-3.2 — party stash v2 supersedes the name/detail-only stash that used to
+							    be embedded in PlayerParty (quantity/weight, claim-to-PC, deposit, baseline). */}
+							<PartyStash
+								key={charId}
+								party={data.party}
+								partyStrength={data.partyStrength}
+								selfId={charId}
+								selfName={name}
+								selfInventory={data.inventory}
+								isDm={data.isDm}
+								canClaim={data.canManageInventory}
+								actorId={actorId}
+								dispatch={dispatch}
+							/>
+						</div>
 					)}
 					{activeTab === 'levelup' && data.canAdvance && (
 						<PlayerLevelUp
@@ -503,6 +555,9 @@ export function Player() {
 							compact={viewport === 'phone'}
 							dispatch={dispatch}
 						/>
+					)}
+					{activeTab === 'history' && (
+						<CharacterHistoryTimeline key={charId} characterName={name} entries={data.journal} />
 					)}
 				</div>
 			</Page>

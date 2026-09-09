@@ -1,3 +1,4 @@
+import type { PermissionState } from '@dndtools/core';
 import { Badge, Button } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { type WikiAccess, type WikiPage } from '../../cloud/appApi';
@@ -101,6 +102,22 @@ export function MarketplaceGate({ signInPrompt }: { signInPrompt: MessageKey }) 
 				</Button>
 			</div>
 		</Panel>
+	);
+}
+
+/**
+ * RC-CLD-4.1 — the actor a PORTABLE `content.export` is evaluated against.
+ *
+ * Core fails closed: a portable export whose viewer is the DM (or an unknown actor) contains
+ * NOTHING, because a DM viewer would pull dm-only items through an actor-filtered read under a
+ * "portable" label. So every portable export must name a real player actor; absent one, '' keeps
+ * the fail-closed empty result rather than leaking.
+ */
+export function representativePlayerActorId(permissions: PermissionState): string {
+	return (
+		(Object.values(permissions.actors) as Array<{ id: string; role: string }>).find(
+			(actor) => actor.role === 'player',
+		)?.id ?? ''
 	);
 }
 

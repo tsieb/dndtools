@@ -17,7 +17,12 @@ import type { PlayerData } from '../../net/viewModels';
 // DM-side ViewAs/Projection controls project the live table to exactly this actor.
 export const PLAYER_ACTOR_ID = 'actor-player';
 
-export const TIERS = ['observer', 'player', 'trusted', 'codm'] as const;
+// RC-CHR-4.4 — a fourth "Trusted player" tier (index 2, between `player` and `codm`) used to sit
+// here as a label/badge/blurb with no core role behind it: no NAV entry ever gated on it, so it
+// was reachable from nowhere and granted nothing. ADR-022 built the one seat above `player` the
+// core actually models — `co-dm` — and left the rest aspirational. Removed rather than built: a
+// real trusted-editing role needs a new core role + commands (ADR-022-sized work), not a docs fix.
+export const TIERS = ['observer', 'player', 'codm'] as const;
 export const TIER_META: Record<
 	string,
 	{ label: MessageKey; role: MessageKey; badge: DSBadgeStatus; icon: string; blurb: MessageKey }
@@ -36,13 +41,6 @@ export const TIER_META: Record<
 		icon: 'characters-person',
 		blurb: 'play.tier.playerBlurb',
 	},
-	trusted: {
-		label: 'play.tier.trusted',
-		role: 'play.tier.trustedRole',
-		badge: 'info',
-		icon: 'flag',
-		blurb: 'play.tier.trustedBlurb',
-	},
 	codm: {
 		label: 'play.tier.codm',
 		role: 'play.tier.codmRole',
@@ -60,11 +58,14 @@ export const NAV: PlayNavItem[] = [
 	{ id: 'party', label: 'play.nav.party', icon: 'players', min: 0 },
 	{ id: 'handouts', label: 'play.nav.handouts', icon: 'knowledge-book', min: 0 },
 	{ id: 'journal', label: 'play.nav.journal', icon: 'note-edit', min: 1 },
+	// RC-CLD-3.3 — the between-session inbox: the wiki recap feed. Open to observers too (min: 0), same
+	// as Party/Handouts, since a recap is table-level continuity, not a per-seat permission.
+	{ id: 'inbox', label: 'play.nav.inbox', icon: 'campaign-scroll', min: 0 },
 ];
 export const NAV_ELEVATED: PlayNavItem[] = [
-	{ id: 'atlas', label: 'play.nav.atlas', icon: 'atlas-map', min: 3 },
-	{ id: 'bestiary', label: 'play.nav.bestiary', icon: 'campaign-scroll', min: 3 },
-	{ id: 'assist', label: 'play.nav.assist', icon: 'session-bolt', min: 3 },
+	{ id: 'atlas', label: 'play.nav.atlas', icon: 'atlas-map', min: 2 },
+	{ id: 'bestiary', label: 'play.nav.bestiary', icon: 'campaign-scroll', min: 2 },
+	{ id: 'assist', label: 'play.nav.assist', icon: 'session-bolt', min: 2 },
 ];
 /** The seat a section needs, as a message key — the caller renders it. */
 export const minTierLabel = (min: number): MessageKey => TIER_META[TIERS[min]].label;

@@ -1,4 +1,9 @@
-import { cloneAudioAsset, isAudioLicenseKind, type AudioAsset } from './audio-asset';
+import {
+	cloneAudioAsset,
+	isAudioLicenseKind,
+	normalizeWaveform,
+	type AudioAsset,
+} from './audio-asset';
 import {
 	cloneAudioAssociation,
 	isAudioAssociationTargetKind,
@@ -7,9 +12,11 @@ import {
 } from './audio-association';
 import {
 	cloneAudioAutomationRule,
+	ensureAudioSfxEventToggles,
 	isAudioAutomationAction,
 	isAudioAutomationTriggerKind,
 	type AudioAutomationRule,
+	type AudioSfxEventToggles,
 } from './audio-automation';
 import { ensureAudioPreset, type AudioPreset } from './audio-preset';
 import type { AudioCacheBehavior, AudioSource } from './audio-source';
@@ -46,6 +53,13 @@ export interface AudioState {
 	 * config. Optional so a vault persisted before this field existed hydrates safely (absent ⇒ no presets).
 	 */
 	presets: Record<string, AudioPreset>;
+	/**
+	 * RC-AUD-3.2 — the DM's per-event SFX toggles (nat 20 / nat 1 / death save / map reveal / handout).
+	 * PARTIAL by design: an event the DM never touched is absent and stays ON, so a vault written before
+	 * this field existed keeps firing exactly the rules it already fired. Only an explicit `false` mutes.
+	 * DM-only config; it carries no player-facing content.
+	 */
+	sfxEvents: AudioSfxEventToggles;
 	schemaVersion: typeof AUDIO_STATE_SCHEMA_VERSION;
 }
 
@@ -55,6 +69,7 @@ export const EMPTY_AUDIO_STATE: AudioState = Object.freeze({
 	automationRules: {},
 	associations: {},
 	presets: {},
+	sfxEvents: {},
 	schemaVersion: AUDIO_STATE_SCHEMA_VERSION,
 });
 
@@ -66,6 +81,15 @@ function ensureAudioAsset(asset: AudioAsset): AudioAsset {
 	if (!isAudioLicenseKind(cloned.license?.kind)) {
 		cloned.license = { kind: 'unknown', licenseNote: '', attribution: '' };
 	}
+	// RC-AUD-1.2 — additive fields: a vault persisted before they existed hydrates to the honest "unmeasured"
+	// defaults (null duration, no waveform) rather than fabricating a value.
+	cloned.durationSeconds =
+		typeof cloned.durationSeconds === 'number' &&
+		Number.isFinite(cloned.durationSeconds) &&
+		cloned.durationSeconds >= 0
+			? cloned.durationSeconds
+			: null;
+	cloned.waveform = normalizeWaveform(Array.isArray(cloned.waveform) ? cloned.waveform : undefined);
 	return cloned;
 }
 
@@ -178,6 +202,8 @@ export function ensureAudioState(state: PersistedAudioState | undefined): AudioS
 		automationRules,
 		associations,
 		presets,
+		// RC-AUD-3.2 — keep only declared events with a real boolean; anything else drops back to "on".
+		sfxEvents: ensureAudioSfxEventToggles(state?.sfxEvents),
 		schemaVersion: AUDIO_STATE_SCHEMA_VERSION,
 	};
 }

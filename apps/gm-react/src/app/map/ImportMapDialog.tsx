@@ -1,17 +1,70 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+	MAP_IMPORT_MAX_ASSET_BYTES,
 	NATIVE_ASSET_MIME_TYPES,
+	deriveGridCalibration,
+	deriveImportScale,
 	previewMapImport,
+	type MapGridCalibration,
+	type MapGridShape,
 	type MapImportElementKind,
 	type MapImportPreview,
+	type MapScale,
 } from '@dndtools/core';
-import { Button, Dialog, Field, Icon, SegmentedControl, Select, Stepper } from '../../ds';
-import { T } from '../screen-kit';
+import { Dialog, Stepper } from '../../ds';
 import { putAssetBytes } from '../../platform/storage/assetStore';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { IMPORT_ELEMENT_KINDS, PanelLabel, SUPPORT_PILL, type PickedFile } from './importShared';
+import { type PickedFile } from './importShared';
+import {
+	ImportAlignPanel,
+	ImportScalePanel,
+	ImportWallsPanel,
+	WizardNav,
+	type CellBox,
+} from './ImportMapPanels';
+import {
+	ImportPreviewPanel,
+	ImportResultPanel,
+	ImportSourcePanel,
+	type ImportResultSummary,
+} from './ImportMapSteps';
+import { sampleLuminance, traceWalls, type TracedWallPreview } from './importWizard';
 import { useI18n } from '../../i18n';
 import type { MessageKey } from '../../i18n';
+
+/**
+ * RC-MAP-3.2 — the raster import wizard.
+ *
+ * v1 imported bytes and stopped, which left the DM with a picture and no way to tell the app how big
+ * a square was. v2 adds three steps between the file and the commit — align the grid, name the scale,
+ * optionally trace the walls — and then dispatches the EXISTING durable commands in order:
+ *
+ *   map.import-asset → map.configure-overlay → map.set-scale → map.create-layer + map.add-features
+ *
+ * Every one of those is a core command, so the whole wizard writes nothing itself. The follow-up
+ * dispatches are reported individually on the result step: the asset can land while the scale is
+ * refused, and saying so is the honest outcome (guardrail 9) rather than a blanket "Imported".
+ */
+
+/** The step sequence, by source. The external path has no raster to calibrate. */
+const NATIVE_STEPS = ['source', 'align', 'scale', 'walls', 'preview', 'result'] as const;
+const EXTERNAL_STEPS = ['source', 'preview', 'result'] as const;
+type StepId = (typeof NATIVE_STEPS)[number];
+
+const STEP_LABEL: Record<StepId, MessageKey> = {
+	source: 'mapImport.step.source',
+	align: 'mapImport.step.align',
+	scale: 'mapImport.step.scale',
+	walls: 'mapImport.step.walls',
+	preview: 'mapImport.step.preview',
+	result: 'mapImport.step.result',
+};
+
+/** The default calibration box: a tenth of the image, which is a plausible battle-map cell. */
+const DEFAULT_CELL_BOX: CellBox = { a: { x: 0.4, y: 0.4 }, b: { x: 0.5, y: 0.5 } };
+
+/** Default luminance cut. Printed dungeon ink sits well under this; parchment sits well over it. */
+const DEFAULT_TRACE_THRESHOLD = 96;
 
 export function ImportMapDialog({
 	mapId,
@@ -38,14 +91,38 @@ export function ImportMapDialog({
 	]);
 	const [busy, setBusy] = useState(false);
 	const [commitError, setCommitError] = useState<string | null>(null);
-	const [result, setResult] = useState<{
-		assetId: string | null;
-		deduped: boolean;
-		dropped: number;
-		byteError: string | null;
-	} | null>(null);
+	// `ImportResultSummary` also carries the RC-MAP-3.2 follow-up outcomes: a refused scale must not
+	// read as a clean import, so each is reported separately on the result step.
+	const [result, setResult] = useState<ImportResultSummary | null>(null);
+
+	// RC-MAP-3.2 — calibration / scale / trace state. All of it is preview-only until `commit()`.
+	const [shape, setShape] = useState<MapGridShape>('square');
+	const [cellBox, setCellBox] = useState<CellBox>(DEFAULT_CELL_BOX);
+	const [unitsPerCell, setUnitsPerCell] = useState(5);
+	const [unit, setUnit] = useState('feet');
+	const [traceEnabled, setTraceEnabled] = useState(false);
+	const [threshold, setThreshold] = useState(DEFAULT_TRACE_THRESHOLD);
+	const [traced, setTraced] = useState<TracedWallPreview | null>(null);
+	const [traceError, setTraceError] = useState<string | null>(null);
+	const [tracing, setTracing] = useState(false);
+	const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+	const steps = source === 'native' ? NATIVE_STEPS : EXTERNAL_STEPS;
+	const stepId: StepId = steps[Math.min(step, steps.length - 1)] as StepId;
 
 	const nativeMimes = Object.keys(NATIVE_ASSET_MIME_TYPES);
+
+	// A blob URL for the alignment preview. Revoked on change/unmount so a 50 MB raster is not pinned
+	// in memory after the dialog closes.
+	useEffect(() => {
+		if (!picked) {
+			setImageUrl(null);
+			return;
+		}
+		const url = URL.createObjectURL(picked.file);
+		setImageUrl(url);
+		return () => URL.revokeObjectURL(url);
+	}, [picked]);
 
 	async function pickFile(file: File | undefined) {
 		setReadError(null);
@@ -64,6 +141,10 @@ export function ImportMapDialog({
 				}
 			}
 			setPicked({ file, bytes, dimensions });
+			// A new file invalidates every calibration made against the previous one.
+			setCellBox(DEFAULT_CELL_BOX);
+			setTraced(null);
+			setTraceError(null);
 		} catch (err) {
 			setReadError(err instanceof Error ? err.message : String(err));
 		}
@@ -72,7 +153,7 @@ export function ImportMapDialog({
 	// Read-only, pure preview against the SAME registry + validation the commit handler re-runs
 	// (MAP-002/MAP-020): nothing is written until the explicit commit in step 2.
 	const preview: MapImportPreview | null = useMemo(() => {
-		if (step !== 1) return null;
+		if (stepId !== 'preview') return null;
 		const now = new Date().toISOString();
 		if (source === 'native') {
 			if (!picked) return null;
@@ -83,6 +164,7 @@ export function ImportMapDialog({
 					mimeType: picked.file.type,
 					fileName: picked.file.name,
 					dimensions: picked.dimensions,
+					maxBytes: MAP_IMPORT_MAX_ASSET_BYTES,
 				},
 				declaredElements: [],
 				importedBy: actorId,
@@ -96,7 +178,63 @@ export function ImportMapDialog({
 			importedBy: actorId,
 			importedAt: now,
 		});
-	}, [step, source, picked, formatId, declared, actorId, runtime.mapImportAdapters]);
+	}, [stepId, source, picked, formatId, declared, actorId, runtime.mapImportAdapters]);
+
+	// RC-MAP-3.2 — the calibration + scale the align/scale steps derive. Pure, recomputed on every
+	// change, and never written until commit.
+	const calibrationResult = useMemo(
+		() =>
+			deriveGridCalibration({
+				corners: [cellBox.a, cellBox.b],
+				imageWidth: picked?.dimensions?.width ?? 0,
+				imageHeight: picked?.dimensions?.height ?? 0,
+				shape,
+			}),
+		[cellBox, picked, shape],
+	);
+	const calibration: MapGridCalibration | null =
+		'error' in calibrationResult ? null : calibrationResult;
+	const calibrationError = 'error' in calibrationResult ? calibrationResult.error.message : null;
+
+	const scaleResult = useMemo(
+		() => (calibration ? deriveImportScale(calibration, unitsPerCell, unit) : null),
+		[calibration, unitsPerCell, unit],
+	);
+	const mapScale: MapScale | null =
+		scaleResult && !('error' in scaleResult) ? (scaleResult as MapScale) : null;
+	const scaleError = scaleResult && 'error' in scaleResult ? scaleResult.error.message : null;
+
+	async function runTrace() {
+		if (!picked || tracing) return;
+		setTracing(true);
+		setTraceError(null);
+		try {
+			const sample = await sampleLuminance(picked.file);
+			if (!sample) {
+				setTraced(null);
+				setTraceError(t('mapImport.walls.unavailable'));
+				return;
+			}
+			setTraced(traceWalls(sample, threshold, runtime.newId()));
+		} catch (error) {
+			setTraced(null);
+			setTraceError(error instanceof Error ? error.message : t('mapImport.walls.unavailable'));
+		} finally {
+			setTracing(false);
+		}
+	}
+
+	/** Dispatch one follow-up command, collecting a refusal instead of aborting the whole import. */
+	async function runFollowUp(errors: string[], command: unknown): Promise<boolean> {
+		try {
+			const res = await runtime.dispatch(command as never);
+			if (res.status === 'accepted') return true;
+			errors.push(res.rejection.message);
+		} catch (error) {
+			errors.push(error instanceof Error ? error.message : t('mapImport.failed'));
+		}
+		return false;
+	}
 
 	async function commit() {
 		if (busy) return;
@@ -115,6 +253,9 @@ export function ImportMapDialog({
 									mimeType: picked?.file.type ?? '',
 									fileName: picked?.file.name ?? '',
 									dimensions: picked?.dimensions ?? null,
+									// The handler re-validates size itself; without the same cap the preview used,
+									// a 20 MB map would preview clean and then be refused at 8 MB on commit.
+									maxBytes: MAP_IMPORT_MAX_ASSET_BYTES,
 								},
 							},
 						}
@@ -146,13 +287,69 @@ export function ImportMapDialog({
 						byteError = err instanceof Error ? err.message : String(err);
 					}
 				}
+				// RC-MAP-3.2 — the calibration follow-ups. Each is its own durable core command, dispatched
+				// only after the asset itself landed, and each refusal is collected rather than thrown
+				// away: an accepted image with a refused scale must not read as a clean import.
+				const followUpErrors: string[] = [];
+				let gridApplied = false;
+				let scaleApplied = false;
+				let wallsApplied = 0;
+				if (source === 'native') {
+					const targetMapId = (ev as { mapId?: string } | undefined)?.mapId ?? mapId;
+					if (calibration) {
+						const applied = await runFollowUp(followUpErrors, {
+							type: 'map.configure-overlay',
+							actorId,
+							payload: {
+								mapId: targetMapId,
+								gridVisible: true,
+								gridSize: calibration.cellsAcross,
+								unitsPerCell,
+							},
+						});
+						gridApplied = applied;
+					}
+					if (mapScale) {
+						scaleApplied = await runFollowUp(followUpErrors, {
+							type: 'map.set-scale',
+							actorId,
+							payload: { mapId: targetMapId, scale: mapScale },
+						});
+					}
+					if (traceEnabled && traced && traced.features.length > 0) {
+						const layerId = runtime.newId();
+						const layerMade = await runFollowUp(followUpErrors, {
+							type: 'map.create-layer',
+							actorId,
+							payload: {
+								mapId: targetMapId,
+								id: layerId,
+								name: t('mapImport.walls.layerName'),
+								category: 'terrain',
+								visibility: 'dm-only',
+							},
+						});
+						if (layerMade) {
+							const added = await runFollowUp(followUpErrors, {
+								type: 'map.add-features',
+								actorId,
+								payload: { mapId: targetMapId, layerId, features: traced.features },
+							});
+							if (added) wallsApplied = traced.features.length;
+						}
+					}
+				}
 				setResult({
 					assetId: ev?.assetId ?? null,
 					deduped: ev?.assetDeduped ?? false,
 					dropped: ev?.droppedElementCount ?? 0,
 					byteError,
+					followUpErrors,
+					gridApplied,
+					scaleApplied,
+					wallsApplied,
 				});
-				setStep(2);
+				setStep(steps.length - 1);
 			} else {
 				setCommitError(res.rejection.message);
 			}
@@ -198,323 +395,116 @@ export function ImportMapDialog({
 			size="md"
 		>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-				<Stepper
-					steps={[
-						t('mapImport.step.source'),
-						t('mapImport.step.preview'),
-						t('mapImport.step.result'),
-					]}
-					current={step}
-				/>
+				<Stepper steps={steps.map((id) => t(STEP_LABEL[id]))} current={step} />
 
-				{step === 0 && (
+				{stepId === 'source' && (
+					<ImportSourcePanel
+						source={source}
+						onSourceChange={(next) => {
+							setSource(next);
+							setStep(0);
+						}}
+						nativeMimes={nativeMimes}
+						picked={picked}
+						onPickFile={(file) => void pickFile(file)}
+						readError={readError}
+						formats={formats}
+						formatId={formatId}
+						onFormatIdChange={setFormatId}
+						declared={declared}
+						onDeclaredChange={setDeclared}
+						canAdvance={canPreview}
+						onCancel={onClose}
+						onNext={() => setStep(1)}
+					/>
+				)}
+
+				{stepId === 'align' && (
 					<>
-						<SegmentedControl
-							fullWidth
-							ariaLabel={t('mapImport.sourceType')}
-							value={source}
-							onChange={(v: string) => setSource(v as 'native' | 'external')}
-							options={[
-								{ value: 'native', label: t('mapImport.source.native') },
-								{ value: 'external', label: t('mapImport.source.external') },
-							]}
+						<ImportAlignPanel
+							imageUrl={imageUrl}
+							imageWidth={picked?.dimensions?.width ?? 0}
+							imageHeight={picked?.dimensions?.height ?? 0}
+							shape={shape}
+							onShapeChange={setShape}
+							box={cellBox}
+							onBoxChange={setCellBox}
+							calibration={calibration}
+							calibrationError={calibrationError}
 						/>
-						{source === 'native' ? (
-							<label
-								style={{
-									display: 'flex',
-									flexDirection: 'column',
-									alignItems: 'center',
-									gap: 8,
-									padding: '26px 16px',
-									border: `1.5px dashed ${T.bdS}`,
-									borderRadius: 11,
-									background: T.sunken,
-									cursor: 'pointer',
-									textAlign: 'center',
-								}}
-							>
-								<input
-									type="file"
-									accept={nativeMimes.join(',')}
-									style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
-									onChange={(e: { target: { files: FileList | null } }) =>
-										void pickFile(e.target.files?.[0])
-									}
-								/>
-								<Icon name="upload" size={26} color={T.ter} />
-								{picked ? (
-									<span style={{ font: `13px ${T.sans}`, color: T.sub }}>
-										<strong style={{ color: T.ink }}>{picked.file.name}</strong> ·{' '}
-										{t('mapImport.kilobytes', { kb: (picked.bytes.length / 1024).toFixed(1) })}
-									</span>
-								) : (
-									<span style={{ font: `13px ${T.sans}`, color: T.sub }}>
-										{t('mapImport.choose')}
-									</span>
-								)}
-								<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
-									{t('mapImport.accepted', {
-										mb: Math.round((8 * 1024 * 1024) / (1024 * 1024)),
-									})}
-								</span>
-								{readError && (
-									<span style={{ font: `12px ${T.sans}`, color: T.err }}>{readError}</span>
-								)}
-							</label>
-						) : (
-							<>
-								<Field label={t('mapImport.format')} help={t('mapImport.formatHelp')}>
-									<Select
-										value={formatId}
-										options={formats.map((f) => ({ value: f, label: f }))}
-										onChange={(e: { target: { value: string } }) => setFormatId(e.target.value)}
-									/>
-								</Field>
-								<div>
-									<PanelLabel>{t('mapImport.elements')}</PanelLabel>
-									<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
-										{IMPORT_ELEMENT_KINDS.map((k) => {
-											const on = declared.includes(k);
-											return (
-												<label
-													key={k}
-													style={{
-														display: 'flex',
-														alignItems: 'center',
-														gap: 8,
-														padding: '6px 8px',
-														borderRadius: 8,
-														border: `1px solid ${on ? T.accBd : T.bd}`,
-														background: on ? T.accSub : 'transparent',
-														cursor: 'pointer',
-														font: `12px ${T.sans}`,
-														color: on ? T.acc : T.sub,
-													}}
-												>
-													<input
-														type="checkbox"
-														checked={on}
-														onChange={() =>
-															setDeclared((d) => (on ? d.filter((x) => x !== k) : [...d, k]))
-														}
-														style={{ accentColor: 'var(--color-accent)' }}
-													/>
-													{k}
-												</label>
-											);
-										})}
-									</div>
-									<div style={{ marginTop: 8, font: `11px/1.5 ${T.sans}`, color: T.ter }}>
-										{t('mapImport.declareHint')}
-									</div>
-								</div>
-							</>
-						)}
-						<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-							<Button variant="ghost" size="sm" onClick={onClose}>
-								{t('common.action.cancel')}
-							</Button>
-							<Button
-								variant="primary"
-								size="sm"
-								icon="preview"
-								disabled={!canPreview}
-								onClick={() => setStep(1)}
-							>
-								{t('mapImport.preview')}
-							</Button>
-						</div>
+						<WizardNav
+							onBack={() => setStep(0)}
+							onCancel={onClose}
+							onNext={() => setStep(2)}
+							nextDisabled={calibration === null}
+						/>
 					</>
 				)}
 
-				{step === 1 && preview && (
+				{stepId === 'scale' && (
 					<>
-						{!preview.ok ? (
-							<div
-								style={{
-									display: 'flex',
-									gap: 8,
-									padding: 12,
-									borderRadius: 9,
-									background: 'var(--color-status-error-subtle)',
-									border: `1px solid ${T.err}`,
-								}}
-							>
-								<Icon name="error" size={16} color={T.err} />
-								<span style={{ font: `13px ${T.sans}`, color: 'var(--color-status-error-text)' }}>
-									{preview.message} {t('mapImport.cannotImport')}
-								</span>
-							</div>
-						) : (
-							<>
-								{source === 'native' && preview.asset && (
-									<div
-										style={{
-											display: 'grid',
-											gridTemplateColumns: 'auto 1fr',
-											rowGap: 6,
-											columnGap: 14,
-											font: `13px ${T.sans}`,
-										}}
-									>
-										{[
-											...meta,
-											['mapImport.meta.fingerprint', preview.asset.id] as [MessageKey, string],
-										].map(([k, v]) => (
-											<span key={k} style={{ display: 'contents' }}>
-												<span style={{ color: T.ter }}>{t(k)}</span>
-												<span
-													style={{
-														color: T.ink,
-														fontFamily: k === 'mapImport.meta.fingerprint' ? T.mono : undefined,
-														wordBreak: 'break-all',
-													}}
-												>
-													{v}
-												</span>
-											</span>
-										))}
-									</div>
-								)}
-								{preview.diagnostics.length > 0 && (
-									<div style={{ border: `1px solid ${T.bd}`, borderRadius: 9, overflow: 'hidden' }}>
-										{preview.diagnostics.map((d, i) => {
-											const s = SUPPORT_PILL[d.support] ?? SUPPORT_PILL.unsupported!;
-											return (
-												<div
-													key={d.kind}
-													style={{
-														display: 'flex',
-														alignItems: 'center',
-														justifyContent: 'space-between',
-														gap: 8,
-														padding: '7px 11px',
-														background: i % 2 ? T.alt : 'transparent',
-													}}
-												>
-													<span style={{ font: `13px ${T.sans}`, color: T.ink }}>{d.kind}</span>
-													<span
-														style={{
-															display: 'inline-flex',
-															alignItems: 'center',
-															gap: 4,
-															padding: '2px 8px',
-															borderRadius: 999,
-															background: s.bg,
-															color: s.tone,
-															border: `1px solid ${s.tone}`,
-															font: `600 10.5px ${T.sans}`,
-														}}
-													>
-														<Icon name={s.icon} size={12} /> {t(s.label)}
-													</span>
-												</div>
-											);
-										})}
-									</div>
-								)}
-								{preview.droppedElements.length > 0 && (
-									<div style={{ font: `12px ${T.sans}`, color: T.sub }}>
-										{t('mapImport.dropped')}{' '}
-										<strong style={{ color: T.ink }}>{preview.droppedElements.join(', ')}</strong>
-									</div>
-								)}
-								<div
-									style={{
-										display: 'flex',
-										gap: 8,
-										padding: '9px 12px',
-										borderRadius: 9,
-										background: T.alt,
-										border: `1px solid ${T.bd}`,
-										font: `12px/1.5 ${T.sans}`,
-										color: T.sub,
-									}}
-								>
-									<Icon name="info" size={15} color={T.info} />
-									<span>{t('mapImport.storageNote')}</span>
-								</div>
-							</>
-						)}
-						{commitError && (
-							<div style={{ font: `12.5px ${T.sans}`, color: T.err }}>{commitError}</div>
-						)}
-						<div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-							<Button variant="ghost" size="sm" icon="chevron-left" onClick={() => setStep(0)}>
-								{t('mapImport.back')}
-							</Button>
-							<div style={{ display: 'flex', gap: 8 }}>
-								<Button variant="ghost" size="sm" onClick={onClose}>
-									{t('common.action.cancel')}
-								</Button>
-								{preview.ok && (
-									<Button
-										variant="primary"
-										size="sm"
-										icon="check"
-										disabled={busy}
-										onClick={() => void commit()}
-									>
-										{busy ? t('mapImport.importing') : t('mapImport.import')}
-									</Button>
-								)}
-							</div>
-						</div>
+						<ImportScalePanel
+							unitsPerCell={unitsPerCell}
+							onUnitsPerCellChange={setUnitsPerCell}
+							unit={unit}
+							onUnitChange={setUnit}
+							calibration={calibration}
+							scaleError={scaleError}
+							unitsPerMap={mapScale?.unitsPerMap ?? null}
+						/>
+						<WizardNav
+							onBack={() => setStep(1)}
+							onCancel={onClose}
+							onNext={() => setStep(3)}
+							nextDisabled={mapScale === null}
+						/>
 					</>
 				)}
 
-				{step === 2 && result && (
+				{stepId === 'walls' && (
 					<>
-						<div
-							style={{
-								display: 'flex',
-								alignItems: 'center',
-								gap: 10,
-								padding: 12,
-								borderRadius: 9,
-								background: 'var(--color-status-success-subtle)',
-								border: `1px solid ${T.ok}`,
-							}}
-						>
-							<Icon name="success" size={20} color={T.ok} />
-							<div style={{ font: `13px ${T.sans}` }}>
-								<div style={{ fontWeight: 600, color: T.ink }}>
-									{t('mapImport.committed', { name: mapName })}
-								</div>
-								<div style={{ font: `12px ${T.sans}`, color: T.sub }}>
-									{result.assetId
-										? result.deduped
-											? t('mapImport.assetDeduped', { id: result.assetId })
-											: t('mapImport.assetRecorded', { id: result.assetId })
-										: t('mapImport.sceneRecorded')}
-									{result.dropped > 0 ? t('mapImport.droppedCount', { count: result.dropped }) : ''}
-								</div>
-							</div>
-						</div>
-						{result.byteError && (
-							<div
-								style={{
-									display: 'flex',
-									gap: 8,
-									padding: '9px 12px',
-									borderRadius: 9,
-									background: 'var(--color-status-warning-subtle)',
-									border: `1px solid ${T.warn}`,
-									font: `12px/1.5 ${T.sans}`,
-									color: T.sub,
-								}}
-							>
-								<Icon name="warning" size={15} color={T.warn} />
-								<span>{t('mapImport.byteError', { message: result.byteError })}</span>
-							</div>
-						)}
-						<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-							<Button variant="primary" size="sm" onClick={onClose}>
-								{t('common.action.done')}
-							</Button>
-						</div>
+						<ImportWallsPanel
+							enabled={traceEnabled}
+							onEnabledChange={setTraceEnabled}
+							threshold={threshold}
+							onThresholdChange={setThreshold}
+							traced={traced}
+							traceError={traceError}
+							tracing={tracing}
+							onTrace={() => void runTrace()}
+						/>
+						<WizardNav
+							onBack={() => setStep(2)}
+							onCancel={onClose}
+							onNext={() => setStep(4)}
+							nextDisabled={false}
+						/>
 					</>
+				)}
+
+				{stepId === 'preview' && preview && (
+					<ImportPreviewPanel
+						preview={preview}
+						source={source}
+						meta={meta}
+						commitError={commitError}
+						busy={busy}
+						onBack={() => setStep((current) => Math.max(0, current - 1))}
+						onCancel={onClose}
+						onCommit={() => void commit()}
+					/>
+				)}
+
+				{stepId === 'result' && result && (
+					<ImportResultPanel
+						mapName={mapName}
+						result={result}
+						cellsAcross={calibration?.cellsAcross ?? 0}
+						unitsPerCell={unitsPerCell}
+						unit={unit}
+						mapScale={mapScale}
+						onClose={onClose}
+					/>
 				)}
 			</div>
 		</Dialog>

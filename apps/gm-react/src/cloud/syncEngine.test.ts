@@ -40,13 +40,75 @@ function tokenFor(sub: string): string {
 	return `e30.${payload}.signature`;
 }
 
-function runtimeStub(operations: unknown[] = []): SceneRuntime {
+function runtimeStub(
+	operations: unknown[] = [],
+	dispatch: unknown = mergeDispatchStub(),
+): SceneRuntime {
 	return {
 		authoritativeState: { sync: { operations } },
+		defaultActorId: 'actor-dm',
+		dispatch,
 		onDispatched: vi.fn(() => vi.fn()),
 		reloadFromStorage: vi.fn(),
 		runExclusiveMaintenance: vi.fn(async (operation: () => Promise<unknown>) => operation()),
 	} as unknown as SceneRuntime;
+}
+
+/** The core's answer to `sync.merge-remote`, as the runtime would return it. */
+function mergeDispatchStub(
+	event: Partial<{
+		outcome: string;
+		agreedRevision: number;
+		incomingCount: number;
+		outgoingCount: number;
+		conflictCount: number;
+	}> = {},
+) {
+	return vi.fn(async () => ({
+		status: 'accepted' as const,
+		events: [
+			{
+				kind: 'sync.merge-recorded',
+				outcome: 'up-to-date',
+				agreedRevision: -1,
+				incomingCount: 0,
+				outgoingCount: 0,
+				conflictCount: 0,
+				...event,
+			},
+		],
+		operationIds: [],
+	}));
+}
+
+/** A `GET /operations` page. */
+function pullResponse(ops: unknown[] = [], highWater = -1, hasMore = false) {
+	return new Response(JSON.stringify({ ops, highWater, hasMore }), {
+		status: 200,
+		headers: { 'content-type': 'application/json' },
+	});
+}
+
+/** One encrypted operation as the sync-api returns it. */
+function pulledOp(revision: number) {
+	return {
+		meta: {
+			participantId: 'actor-dm',
+			revision,
+			size: 18,
+			contentHash: 'c'.repeat(43),
+			issuedAt: '2026-01-01T00:00:00.000Z',
+		},
+		envelope: {
+			v: 2 as const,
+			alg: 'AES-GCM' as const,
+			epoch: 1,
+			iv: 'a'.repeat(16),
+			ct: 'b'.repeat(24),
+			contentHash: 'c'.repeat(43),
+			ctx: 'c'.repeat(43),
+		},
+	};
 }
 
 function snapshotResponse(revision = 0) {
@@ -130,7 +192,8 @@ describe('backup failure behavior', () => {
 
 	it('records but swallows a scheduled background failure', async () => {
 		vi.useFakeTimers();
-		fetchMock.mockRejectedValueOnce(new TypeError('background offline'));
+		// Launch runs the cross-device comparison first, then the debounced push; both are offline.
+		fetchMock.mockRejectedValue(new TypeError('background offline'));
 		let latest: SyncEngineStatus | null = null;
 		const backup = engine((status) => {
 			latest = status;
@@ -140,7 +203,7 @@ describe('backup failure behavior', () => {
 		await vi.advanceTimersByTimeAsync(1_500);
 		await Promise.resolve();
 
-		expect(fetchMock).toHaveBeenCalledOnce();
+		expect(String(fetchMock.mock.calls[0]?.[0])).toMatch(/\/operations\?since=-1$/);
 		expect(latest).toMatchObject({ busy: false, lastError: 'background offline' });
 		backup.stop();
 	});
@@ -493,5 +556,144 @@ describe('wire-size limits', () => {
 			/actor or timestamp/i,
 		);
 		expect(fetchMock).toHaveBeenCalledOnce();
+	});
+});
+
+// RC-CLD-2.4 — the PULL half. The engine fetches and decrypts the cloud op-log, hands it to the core
+// to compare, and carries out the one outcome with a transport consequence (adopting the cloud copy
+// on a fast-forward). It never decides on its own that a conflict exists.
+describe('cross-device merge', () => {
+	it('pulls from the start on a first comparison and decrypts each operation in its own context', async () => {
+		mocks.decrypt.mockResolvedValue({ id: 'remote-op-0' });
+		fetchMock.mockResolvedValueOnce(pullResponse([pulledOp(0)], 0, false));
+		const dispatch = mergeDispatchStub({
+			outcome: 'push-only',
+			agreedRevision: -1,
+			outgoingCount: 2,
+		});
+		const backup = engine(undefined, runtimeStub([], dispatch));
+
+		const merged = await backup.mergeNow();
+
+		expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+			'https://sync.example.com/dev/vaults/primary/operations?since=-1',
+		);
+		expect(mocks.decrypt).toHaveBeenCalledWith(
+			{ accountId: 'account-a', vaultId: 'primary', kind: 'operation', revision: 0 },
+			expect.objectContaining({ v: 2 }),
+		);
+		// The CORE compares; the engine only supplies the decrypted tail and the agreed revision.
+		expect(dispatch).toHaveBeenCalledWith({
+			type: 'sync.merge-remote',
+			actorId: 'actor-dm',
+			payload: { remoteOperations: [{ id: 'remote-op-0' }], baseRevision: -1 },
+		});
+		expect(merged).toMatchObject({ outcome: 'push-only', outgoingCount: 2, adopted: false });
+		expect(backup.getStatus().merge?.outcome).toBe('push-only');
+	});
+
+	it('pages until the server says there is no more', async () => {
+		mocks.decrypt.mockResolvedValue({ id: 'remote-op' });
+		fetchMock
+			.mockResolvedValueOnce(pullResponse([pulledOp(0)], 0, true))
+			.mockResolvedValueOnce(pullResponse([pulledOp(1)], 1, false));
+
+		await engine(undefined, runtimeStub()).mergeNow();
+
+		expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
+			'https://sync.example.com/dev/vaults/primary/operations?since=-1',
+			'https://sync.example.com/dev/vaults/primary/operations?since=0',
+		]);
+	});
+
+	it('adopts the cloud copy on a fast-forward and remembers the two now agree', async () => {
+		const restored = restoredSlice(2);
+		mocks.decrypt.mockResolvedValue(restored);
+		mocks.validate.mockReturnValue(restored);
+		fetchMock
+			.mockResolvedValueOnce(pullResponse([pulledOp(0), pulledOp(1)], 1, false))
+			.mockResolvedValueOnce(
+				new Response(JSON.stringify(snapshotResponse(2)), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				}),
+			);
+		const dispatch = mergeDispatchStub({
+			outcome: 'fast-forward',
+			agreedRevision: -1,
+			incomingCount: 2,
+		});
+		const backup = engine(undefined, runtimeStub([], dispatch));
+
+		const merged = await backup.mergeNow();
+
+		expect(merged).toMatchObject({ outcome: 'fast-forward', incomingCount: 2, adopted: true });
+		expect(mocks.restore).toHaveBeenCalled();
+		expect(
+			window.localStorage.getItem('dndtools:react:cloud-agreed-rev-v1:account-a:primary'),
+		).toBe('1');
+	});
+
+	it('applies nothing on a divergence and blocks the next push', async () => {
+		mocks.decrypt.mockResolvedValue({ id: 'remote-op-0' });
+		fetchMock.mockResolvedValueOnce(pullResponse([pulledOp(0)], 0, false));
+		const dispatch = mergeDispatchStub({
+			outcome: 'diverged',
+			agreedRevision: -1,
+			incomingCount: 1,
+			outgoingCount: 1,
+			conflictCount: 1,
+		});
+		const backup = engine(undefined, runtimeStub([], dispatch));
+
+		const merged = await backup.mergeNow();
+		expect(merged).toMatchObject({ outcome: 'diverged', conflictCount: 1, adopted: false });
+		expect(mocks.restore).not.toHaveBeenCalled();
+
+		// Fail closed: the server keeps the first writer of a revision, so a push now would be dropped.
+		await expect(backup.syncNow()).rejects.toThrow(/resolve the sync conflicts/i);
+		expect(fetchMock).toHaveBeenCalledOnce();
+	});
+
+	it('rejects a change whose metadata does not match its ciphertext', async () => {
+		const tampered = pulledOp(0);
+		tampered.meta.contentHash = 'z'.repeat(43);
+		fetchMock.mockResolvedValueOnce(pullResponse([tampered], 0, false));
+
+		await expect(engine(undefined, runtimeStub()).mergeNow()).rejects.toThrow(
+			/does not match its ciphertext/i,
+		);
+		expect(mocks.decrypt).not.toHaveBeenCalled();
+	});
+
+	it('fails closed on a gap in the cloud history rather than comparing misaligned positions', async () => {
+		mocks.decrypt.mockResolvedValue({ id: 'remote-op-1' });
+		fetchMock.mockResolvedValueOnce(pullResponse([pulledOp(1)], 1, false));
+
+		await expect(engine(undefined, runtimeStub()).mergeNow()).rejects.toThrow(/has a gap/i);
+	});
+
+	it('surfaces a core rejection instead of claiming the devices agree', async () => {
+		mocks.decrypt.mockResolvedValue({ id: 'remote-op-0' });
+		fetchMock.mockResolvedValueOnce(pullResponse([pulledOp(0)], 0, false));
+		const dispatch = vi.fn(async () => ({
+			status: 'rejected' as const,
+			rejection: { code: 'actor-not-authorized', message: 'Only the DM may perform this action.' },
+		}));
+		const backup = engine(undefined, runtimeStub([], dispatch));
+
+		await expect(backup.mergeNow()).rejects.toThrow(/only the dm/i);
+		expect(backup.getStatus().merge).toBeNull();
+	});
+
+	it('resumes from the agreed revision on the next comparison', async () => {
+		window.localStorage.setItem('dndtools:react:cloud-agreed-rev-v1:account-a:primary', '4');
+		fetchMock.mockResolvedValueOnce(pullResponse([], 4, false));
+
+		await engine(undefined, runtimeStub()).mergeNow();
+
+		expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+			'https://sync.example.com/dev/vaults/primary/operations?since=4',
+		);
 	});
 });

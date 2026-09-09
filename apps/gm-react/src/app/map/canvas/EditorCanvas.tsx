@@ -8,17 +8,21 @@ import {
 	type MouseEvent as ReactMouseEvent,
 	type PointerEvent as ReactPointerEvent,
 } from 'react';
-import type { MapFeature, MapFogRegion, MapLayer, SceneVisibility } from '@dndtools/core';
-import { Icon, POIPopover } from '../../../ds';
+import type { MapFeature, MapFogRegion, MapLayer } from '@dndtools/core';
+import { Icon } from '../../../ds';
 import { T } from '../../screen-kit';
-import { CATEGORY_VAR, POI_MARKER_CAT, dsToVis, visToDs, type MapTool } from '../mapVisibility';
+import { CATEGORY_VAR, type MapTool } from '../mapVisibility';
+import { EditorPoiPopover, usePoiPopoverDismissal } from './EditorPoiPopover';
 import { FeatureShape } from './FeatureShape';
 import { MapCanvas } from './MapCanvas';
 import { EditorCanvasHud } from './EditorCanvasHud';
+import { CombatTokenLayer } from './CombatTokenLayer';
+import { CombatToolLayer } from './CombatToolLayer';
+import { useCombatTemplates } from './useCombatTemplates';
 import { FogBrushHandle } from './FogBrushHandle';
 import { useTouchNavigation } from './useTouchNavigation';
 import { clamp01 } from '../mapVocab';
-import { ROUTE_DEFAULT_NAME } from '../tools';
+import { COMBAT_TOKEN_TOOLS, ROUTE_DEFAULT_NAME } from '../tools';
 import { categoryForTool } from '../useMapEditor';
 import { useI18n } from '../../../i18n';
 import type { MapEditorApi } from '../useMapEditor';
@@ -693,6 +697,37 @@ export function EditorCanvas({
 		},
 		[fogLayerId, editor, options.fogMode, options.fogFeather, announce, quickMapMode],
 	);
+	// RC-MAP-2.1 — the running combat's tokens. `undoable: false`: moving a creature mid-fight is a
+	// live-play act in the SESSION slice, not a map edit, and it must never land on the editor's local
+	// map undo stack where Ctrl+Z would teleport a combatant back mid-turn.
+	// RC-MAP-2.2 — one read serves both combat layers: the tokens AND the areas of effect standing on
+	// this map, so the token layer and the range/AoE layer never run the actor-scoped queries twice.
+	const combatModel = useCombatTemplates(editor.mapId, editor.actorId);
+	const combat = combatModel.combat;
+	const moveCombatToken = useCallback(
+		(combatantId: string, position: Pt) =>
+			editor.run(
+				{
+					type: 'combat.move-token',
+					actorId: editor.actorId,
+					payload: { combatantId, x: position.x, y: position.y },
+				} as never,
+				{ undoable: false },
+			),
+		[editor],
+	);
+
+	// Selecting a combatant hands the Inspector over to it, so the map's own object selection steps
+	// aside — two selections showing at once is how a DM edits the wrong noun.
+	const onSelectCombatant = useCallback(
+		(combatantId: string | null) => {
+			if (!combatantId) return;
+			editor.setSelection([]);
+			editor.setDock('inspector');
+		},
+		[editor],
+	);
+
 	const handleMovePoi = useCallback(
 		(poiId: string, position: Pt) =>
 			void editor.run({
@@ -711,15 +746,11 @@ export function EditorCanvas({
 			} as never),
 		[editor],
 	);
-	const handleUpdatePoiVis = useCallback(
-		(poiId: string, v: string) =>
-			void editor.run({
-				type: 'map.update-poi',
-				actorId: editor.actorId,
-				payload: { mapId: editor.mapId, poiId, visibility: dsToVis(v) as SceneVisibility },
-			} as never),
-		[editor],
-	);
+	// RC-MAP-3.10 — the notes POIs link to, read ACTOR-SCOPED: the popover previews only what the core
+	// already decided this actor may see, so a player can never be handed a hidden note's opening lines.
+	// RC-MAP-3.10 — the POI popover's dismissal state (see `EditorPoiPopover.tsx` for why a pointer
+	// dismissal must not deselect).
+	const poiPopover = usePoiPopoverDismissal(selPoiId);
 
 	// measurement readout in real units
 	const measureText = (() => {
@@ -762,6 +793,9 @@ export function EditorCanvas({
 			<MemoMapCanvas
 				key={navigationEpoch}
 				view={editor.map}
+				// RC-MAP-2.3 — the editor draws the INTERACTIVE `CombatTokenLayer` below; MapCanvas's own
+				// read-only overlay would be a second, inert copy of the same tokens.
+				hideCombatOverlay
 				layers={layers}
 				isDm={editor.isDm}
 				zoom={zoom}
@@ -785,23 +819,44 @@ export function EditorCanvas({
 				onMovePoi={handleMovePoi}
 				onMoveToken={handleMoveToken}
 				onPan={editor.setCenter}
-				renderPoiPopover={(poi, anchor, placement) => (
-					<POIPopover
-						poi={{
-							name: poi.label,
-							category: POI_MARKER_CAT[poi.category] ?? 'location',
-							categoryLabel: poi.category,
-							visibility: visToDs(poi.visibility),
-						}}
-						anchor={anchor}
-						placement={placement}
-						readOnly={!editor.isDm}
-						onClose={() => editor.clearSelection()}
-						onVisibilityChange={(v: string) => handleUpdatePoiVis(poi.id, v)}
-						onEdit={() => editor.setDock('inspector')}
-						onFocus={() => editor.setDock('inspector')}
-					/>
-				)}
+				// Dismissed ⇒ the prop goes away entirely: `MapMarkers` lays a full-canvas
+				// pointer-catching layer under the popover whenever the callback is present.
+				renderPoiPopover={
+					poiPopover.dismissed
+						? undefined
+						: (poi, anchor, placement) => (
+								<EditorPoiPopover
+									editor={editor}
+									poi={poi}
+									anchor={anchor}
+									placement={placement}
+									dismissal={poiPopover}
+								/>
+							)
+				}
+			/>
+
+			<CombatTokenLayer
+				combat={combat}
+				zoom={zoom}
+				center={center}
+				interactive={COMBAT_TOKEN_TOOLS.has(tool) && !spacePan && !pinching}
+				gridSize={editor.map?.overlay?.gridSize ?? 0}
+				snapGrid={options.snapGrid}
+				onMove={moveCombatToken}
+				onSelect={onSelectCombatant}
+				announce={announce}
+			/>
+
+			{/* RC-MAP-2.2 — reachable cells, the path preview and the placed areas of effect. */}
+			<CombatToolLayer
+				editor={editor}
+				model={combatModel}
+				tool={tool}
+				zoom={zoom}
+				center={center}
+				toMap={toMap}
+				announce={announce}
 			/>
 
 			{/* generation ghost preview + in-progress gesture geometry */}

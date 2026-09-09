@@ -1,7 +1,11 @@
 import type { ActorId } from './ids';
 import type { CalendarDefinition, CustomDate } from './calendar';
-import { CALENDAR_SCHEMA_VERSION } from './calendar';
-import type { EntityVisibilityMetadata, VisibilityLevel, VisibilityRule } from '../permissions/visibility-filter';
+import { CALENDAR_SCHEMA_VERSION, migrateCalendarDefinition } from './calendar';
+import type {
+	EntityVisibilityMetadata,
+	VisibilityLevel,
+	VisibilityRule,
+} from '../permissions/visibility-filter';
 import { normalizeVisibilityLevel } from '../permissions/visibility-filter';
 import { ensureSavedSearches, type SavedSearchMap } from './saved-search';
 import {
@@ -9,6 +13,10 @@ import {
 	type CustomObjectTypeDefinition,
 	type CustomObjectTypeMap,
 } from './custom-object-type';
+import {
+	ensureUserContentTemplateMap,
+	type UserContentTemplateMap,
+} from './content-template-store';
 import { VAULT_OBJECT_SUBTYPE_KEY } from './vault-object';
 
 /**
@@ -174,6 +182,13 @@ export interface VaultContentState {
 	 * subtype. Hydrated fail-closed (a malformed record is dropped, never poisons the registry).
 	 */
 	customObjectTypes: CustomObjectTypeMap;
+	/**
+	 * RC-KNW-1.3 — durable DM-authored CONTENT TEMPLATES keyed by their `user:<slug>` id. Each renders
+	 * through the SAME pure transform + existing validation pipeline a built-in starter preset does
+	 * (`state/content-templates.ts`); this map only adds durability. Hydrated fail-closed (a malformed
+	 * record is dropped, never rendered into a real note).
+	 */
+	userTemplates: UserContentTemplateMap;
 	schemaVersion: typeof VAULT_CONTENT_SCHEMA_VERSION;
 }
 
@@ -182,13 +197,28 @@ export const EMPTY_VAULT_CONTENT_STATE: VaultContentState = Object.freeze({
 	items: {},
 	savedSearches: {},
 	customObjectTypes: {},
+	userTemplates: {},
 	schemaVersion: VAULT_CONTENT_SCHEMA_VERSION,
 });
 
+/**
+ * RC-KNW-3.1 — hydrate the calendar registry through the definition migration, so a document written
+ * against `CALENDAR_SCHEMA_VERSION` 1 restores with the v2 shape. Pure.
+ */
+function migrateCalendars(
+	raw: Record<string, CalendarDefinition> | undefined,
+): Record<string, CalendarDefinition> {
+	if (!raw) return {};
+	const next: Record<string, CalendarDefinition> = {};
+	for (const [id, value] of Object.entries(raw)) {
+		const migrated = migrateCalendarDefinition(value);
+		if (migrated) next[id] = migrated;
+	}
+	return next;
+}
+
 /** Tolerantly hydrate a possibly-undefined/partial persisted content slice (safe defaults). */
-export function ensureVaultContentState(
-	state: VaultContentState | undefined,
-): VaultContentState {
+export function ensureVaultContentState(state: VaultContentState | undefined): VaultContentState {
 	const items: Record<string, ContentItem> = {};
 	for (const [id, item] of Object.entries(state?.items ?? {})) {
 		// Backfill fields added by later CONTENT slices on records persisted before they existed, so a
@@ -204,7 +234,9 @@ export function ensureVaultContentState(
 		};
 	}
 	return {
-		calendars: state?.calendars ?? {},
+		// RC-KNW-3.1 — migrate every persisted calendar definition forward (v1 had no moons/holidays).
+		// A definition that cannot be interpreted at all is dropped rather than carried as a broken shape.
+		calendars: migrateCalendars(state?.calendars),
 		items,
 		// SRCH-004 — hydrate saved searches fail-closed: a content document persisted before this slice
 		// existed restores with no saved searches (never undefined); a record with missing visibility
@@ -214,6 +246,10 @@ export function ensureVaultContentState(
 		// document persisted before this slice existed restores with no custom types (never undefined); a
 		// malformed/hostile record is dropped so it can never widen what the resolver trusts.
 		customObjectTypes: ensureCustomObjectTypeMap(state?.customObjectTypes),
+		// RC-KNW-1.3 — hydrate the DM's own templates fail-closed: a content document persisted before
+		// this field existed restores with no user templates (never undefined); a malformed record is
+		// dropped so it can never render an unvalidated shape into a note.
+		userTemplates: ensureUserContentTemplateMap(state?.userTemplates),
 		schemaVersion: VAULT_CONTENT_SCHEMA_VERSION,
 	};
 }
@@ -268,7 +304,10 @@ export function defineCustomObjectType(
 }
 
 /** Remove a user-defined object-type definition by id. Pure: returns a new state (no-op when absent). */
-export function removeCustomObjectType(state: VaultContentState, typeId: string): VaultContentState {
+export function removeCustomObjectType(
+	state: VaultContentState,
+	typeId: string,
+): VaultContentState {
 	if (!(typeId in state.customObjectTypes)) return state;
 	const next = { ...state.customObjectTypes };
 	delete next[typeId];
@@ -336,7 +375,10 @@ export interface ContentItemMeta {
  * `meta`. Date-field and timeline-reference VALIDATION against the calendar is the command layer's job
  * (it has the calendar definition); this builder only assembles the value.
  */
-export function buildContentItem(input: CreateContentItemInput, meta: ContentItemMeta): ContentItem {
+export function buildContentItem(
+	input: CreateContentItemInput,
+	meta: ContentItemMeta,
+): ContentItem {
 	const visibility = normalizeVisibilityLevel(input.visibility ?? 'dm-only');
 	const sharedWith = visibility === 'shared' ? [...new Set(input.sharedWith ?? [])] : [];
 	return {
@@ -426,8 +468,7 @@ export function setContentItemVisibility(
 	const existing = state.items[itemId];
 	if (!existing) return null;
 	const level = normalizeVisibilityLevel(visibility);
-	const nextShared =
-		level === 'shared' ? [...new Set(sharedWith ?? existing.sharedWith)] : [];
+	const nextShared = level === 'shared' ? [...new Set(sharedWith ?? existing.sharedWith)] : [];
 	const next: ContentItem = {
 		...existing,
 		visibility: level,

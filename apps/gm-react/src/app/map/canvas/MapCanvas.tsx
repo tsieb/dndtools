@@ -15,6 +15,7 @@ import {
 	type MapPoiView,
 	type MapView,
 } from '@dndtools/core';
+import { FogRevealFlash, useFogRevealFlash } from '../../fogRegions';
 import {
 	appendPolygonVertex,
 	appendStrokePoint,
@@ -33,6 +34,7 @@ import { BakeLayer, planBake } from './BakeLayer';
 import { LightLayer, planLighting } from './LightLayer';
 import { MapSvgLayers } from './MapSvgLayers';
 import { MapMarkers } from './MapMarkers';
+import { CombatOverlay } from './CombatOverlay';
 import { useI18n } from '../../../i18n';
 
 /**
@@ -88,6 +90,13 @@ export interface MapCanvasProps {
 		anchor: { x: string; y: string },
 		placement: 'top' | 'bottom',
 	) => ReactNode;
+	/**
+	 * RC-MAP-2.3 — suppress the read-only combat overlay. The map editor sets this: it draws its own
+	 * INTERACTIVE combat layer over the canvas and must not have a second, inert copy underneath.
+	 */
+	hideCombatOverlay?: boolean;
+	/** Small surfaces (the session stage preview) draw combat tokens without their name plates. */
+	compactCombat?: boolean;
 	/** HUD overlays (title card, zoom cluster, minimap…) — pointer events are isolated from the map. */
 	children?: ReactNode;
 	style?: CSSProperties;
@@ -118,6 +127,8 @@ export function MapCanvas({
 	onMoveToken,
 	onPan,
 	renderPoiPopover,
+	hideCombatOverlay = false,
+	compactCombat = false,
 	children,
 	style,
 }: MapCanvasProps) {
@@ -385,6 +396,11 @@ export function MapCanvas({
 		fn();
 	};
 
+	// RC-MAP-2.4 — which reveals just landed. Diffed against the RAW `view.fog` (not `fogOps`) so
+	// toggling a layer's display back on is not mistaken for the DM revealing that ground; the flash
+	// then renders only the ops `fogOps` actually shows. Keyed on the map so switching maps re-baselines.
+	const flashing = useFogRevealFlash(view?.fog, view?.mapId ?? null);
+
 	const fogOpacity = isDm ? 'var(--map-fog-opacity-dm)' : 'var(--map-fog-opacity-player)';
 	const markersInteractive = tool === 'select';
 	const selectedPoi = view?.pois.find((p) => p.id === selectedPoiId) ?? null;
@@ -467,6 +483,24 @@ export function MapCanvas({
 				{/* RC-MAP-3.6 — the lighting/LOS wash, above the features so it reads as light falling on
 				    the map. Decoration only (aria-hidden, no pointer events). */}
 				{view && <LightLayer plan={lightingPlan} />}
+				{/* RC-MAP-2.4 — the wash dissolving off ground the DM just revealed. Its own overlay `<svg>`
+				    in the same 0..100 space as the fog mask it echoes, so nothing about the mask changes. */}
+				{view && (
+					<svg
+						viewBox="0 0 100 100"
+						preserveAspectRatio="none"
+						aria-hidden="true"
+						style={{
+							position: 'absolute',
+							inset: 0,
+							width: '100%',
+							height: '100%',
+							pointerEvents: 'none',
+						}}
+					>
+						<FogRevealFlash ops={fogOps} flashing={flashing} opacity={fogOpacity} />
+					</svg>
+				)}
 			</div>
 
 			{/* honest missing-bytes state: asset metadata names a raster, but the bytes are not in this
@@ -514,6 +548,13 @@ export function MapCanvas({
 				markersInteractive={markersInteractive}
 				selectedPoi={selectedPoi}
 			/>
+
+			{/* RC-MAP-2.3 — the running fight, read-only, on every surface that shows a map. The list is
+			    empty unless the consumer asked `getMapViewForActor` for `{ combat }`, so the editor (which
+			    draws its own INTERACTIVE token layer) never double-draws. */}
+			{!hideCombatOverlay && view && (
+				<CombatOverlay tokens={view.combatTokens} toVisual={toVisual} compact={compactCombat} />
+			)}
 
 			{/* HUD overlays — clicks never fall through to the map */}
 			<div

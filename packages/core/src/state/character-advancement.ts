@@ -376,3 +376,26 @@ export function mergeAdvancementChoices(
 ): AdvancementDraft {
 	return { ...draft, choices: { ...draft.choices, ...choices }, updatedAt: now };
 }
+
+// --- RC-CHR-1.4 — package-driven default mode, with a DM override -------------------------------
+
+/**
+ * The advancement mode a fresh level-up should default to (RC-CHR-1.4): the ACTIVE system package's
+ * declared model decides ('xp-table' → 'xp', 'milestone' → 'milestone'), and an explicit `dmOverride`
+ * always wins over the package. Returns `null` when there is nothing to default to — no package, or a
+ * package that declares `'none'` — so the caller falls back to letting the DM pick explicitly. Pure.
+ */
+export function defaultAdvancementMode(
+	pkg: Pick<SystemPackage, 'advancement'> | undefined,
+	dmOverride?: AdvancementMode,
+): AdvancementMode | null {
+	if (dmOverride) return dmOverride;
+	switch (pkg?.advancement.model) {
+		case 'xp-table':
+			return 'xp';
+		case 'milestone':
+			return 'milestone';
+		default:
+			return null;
+	}
+}

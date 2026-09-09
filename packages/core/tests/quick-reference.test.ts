@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	dispatchCommand,
 	getQuickReferencePanelsForActor,
+	VAULT_OBJECT_SUBTYPE_KEY,
 	type CommandResult,
 	type CoreCommand,
 	type CoreStateSlice,
@@ -27,7 +28,11 @@ function accept(result: CommandResult): Extract<CommandResult, { status: 'accept
 	return result;
 }
 
-function dispatch(state: CoreStateSlice, env: CoreEnvironment, command: CoreCommand): CommandResult {
+function dispatch(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	command: CoreCommand,
+): CommandResult {
 	return dispatchCommand(state, env, command);
 }
 
@@ -49,6 +54,34 @@ function createNote(
 	return { state: result.nextState, itemId: event.itemId };
 }
 
+/** RC-SES-2.3 — create a rollable `dice-table` Vault Object and return the item id. */
+function createTable(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	title: string,
+	entries: string[],
+): { state: CoreStateSlice; itemId: string } {
+	const result = accept(
+		dispatch(state, env, {
+			type: 'content.create-item',
+			actorId: DM_ACTOR.id,
+			payload: {
+				kind: 'object',
+				title,
+				body: '',
+				fields: {
+					[VAULT_OBJECT_SUBTYPE_KEY]: 'dice-table',
+					dice: `1d${entries.length}`,
+					entries,
+				},
+			},
+		}),
+	);
+	const event = result.events.find((e) => e.kind === 'content.item-changed');
+	if (!event || event.kind !== 'content.item-changed') throw new Error('missing item event');
+	return { state: result.nextState, itemId: event.itemId };
+}
+
 function pin(
 	state: CoreStateSlice,
 	env: CoreEnvironment,
@@ -58,7 +91,8 @@ function pin(
 		dispatch(state, env, { type: 'session.pin-quick-reference', actorId: DM_ACTOR.id, payload }),
 	);
 	const event = result.events.find((e) => e.kind === 'session.quick-reference-pinned');
-	if (!event || event.kind !== 'session.quick-reference-pinned') throw new Error('missing pin event');
+	if (!event || event.kind !== 'session.quick-reference-pinned')
+		throw new Error('missing pin event');
 	return { state: result.nextState, panelId: event.panelId };
 }
 
@@ -175,15 +209,24 @@ describe('SES-007 quick-reference panels', () => {
 			payload: { kind: 'note', label: 'x', targetId: note.itemId },
 		});
 		expect(byPlayer.status).toBe('rejected');
-		if (byPlayer.status === 'rejected') expect(byPlayer.rejection.code).toBe('actor-not-authorized');
+		if (byPlayer.status === 'rejected')
+			expect(byPlayer.rejection.code).toBe('actor-not-authorized');
 	});
 
 	it('unpins a panel (removing the durable pin) and preserves pin order across pins', () => {
 		const env = makeEnvironment();
 		const first = createNote(buildInitialState(DM_ACTOR, PLAYER_ACTOR), env, 'First');
 		const second = createNote(first.state, env, 'Second');
-		const pin1 = pin(second.state, env, { kind: 'note', label: 'First pin', targetId: first.itemId });
-		const pin2 = pin(pin1.state, env, { kind: 'note', label: 'Second pin', targetId: second.itemId });
+		const pin1 = pin(second.state, env, {
+			kind: 'note',
+			label: 'First pin',
+			targetId: first.itemId,
+		});
+		const pin2 = pin(pin1.state, env, {
+			kind: 'note',
+			label: 'Second pin',
+			targetId: second.itemId,
+		});
 
 		let panels = getQuickReferencePanelsForActor(
 			pin2.state.session,
@@ -209,5 +252,52 @@ describe('SES-007 quick-reference panels', () => {
 			DM_ACTOR.id,
 		);
 		expect(panels.map((p) => p.label)).toEqual(['Second pin']);
+	});
+
+	// RC-SES-2.3 — the session tables tab pins a rollable table to the quick panel.
+	it('pins a rollable table and resolves its dice expression and row count, never its rows', () => {
+		const env = makeEnvironment();
+		const table = createTable(buildInitialState(DM_ACTOR, PLAYER_ACTOR), env, 'Wilderness omens', [
+			'A raven follows the party.',
+			'The road is washed out.',
+		]);
+		const pinned = pin(table.state, env, {
+			kind: 'dice-table',
+			label: 'Omens',
+			targetId: table.itemId,
+		});
+
+		const panels = getQuickReferencePanelsForActor(
+			pinned.state.session,
+			pinned.state.content,
+			pinned.state.characters,
+			pinned.state.permissions,
+			DM_ACTOR.id,
+		);
+		expect(panels).toHaveLength(1);
+		expect(panels[0]).toMatchObject({ kind: 'dice-table', status: 'available', label: 'Omens' });
+		expect(panels[0]!.content?.title).toBe('Wilderness omens');
+		expect(panels[0]!.content?.snippet).toBe('1d2 · 2 rows');
+		// The rows themselves never ride along on the pinned panel.
+		expect(panels[0]!.content?.snippet).not.toContain('raven');
+	});
+
+	it('degrades a `dice-table` pin whose target is not a dice-table object to unavailable', () => {
+		const env = makeEnvironment();
+		const note = createNote(buildInitialState(DM_ACTOR, PLAYER_ACTOR), env, 'Just a note');
+		const pinned = pin(note.state, env, {
+			kind: 'dice-table',
+			label: 'Not a table',
+			targetId: note.itemId,
+		});
+
+		const panels = getQuickReferencePanelsForActor(
+			pinned.state.session,
+			pinned.state.content,
+			pinned.state.characters,
+			pinned.state.permissions,
+			DM_ACTOR.id,
+		);
+		expect(panels[0]).toMatchObject({ status: 'unavailable', content: null });
 	});
 });

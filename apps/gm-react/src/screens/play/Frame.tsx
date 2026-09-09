@@ -25,6 +25,7 @@ import { critOf, DiceSection } from './Dice';
 import { PartySection } from './Presence';
 import { HandoutsSection } from './Handouts';
 import { JournalSection } from './Journal';
+import { InboxSection } from './Inbox';
 import { AssistSection, AtlasSection, BestiarySection } from './Elevated';
 
 /**
@@ -55,7 +56,17 @@ import { AssistSection, AtlasSection, BestiarySection } from './Elevated';
  * solo/preview device the toggles stay honestly device-local and the copy says so.
  * The Co-DM tier is a REAL core role (`co-dm`): a co-DM seat unlocks the elevated nav (Maps, Bestiary,
  * Combat assist), fed by the `elevated` payload on the actor-filtered snapshot. A player/observer seat
- * still shows those entries locked (they carry no elevated payload). The Trusted tier remains aspirational.
+ * still shows those entries locked (they carry no elevated payload). RC-CHR-4.4 removed the former
+ * fourth "Trusted player" tier, which had a label/badge/blurb but no core role and no NAV entry that
+ * ever gated on it (see the comment on `TIERS` in `shared.tsx`) — the only seat above `player` this
+ * app models is `co-dm`.
+ *
+ * RC-CHR-4.3 (DEBT-2026-005) — on a SOLO/preview device (not joined), the viewer honors an active
+ * `ViewAsControl` CO-DM preview instead of always rendering as the seeded demo player, so "View as →
+ * Co-DM" on the AppShell and then opening `/play` shows the SAME previewed co-DM seat here, elevated
+ * nav included (a plain player/observer preview keeps the seeded demo player, which is what the rest
+ * of this route's local fixtures target). Every write while previewing is already rejected read-only
+ * by `SceneRuntime.dispatch` regardless of the previewed role's authority.
  */
 
 export function PlayerView() {
@@ -72,16 +83,27 @@ export function PlayerView() {
 	//    actor-filtered Core, exactly as before.
 	const joined = session.role === 'joined' && session.client?.data != null;
 	const remoteData = session.client?.data ?? null;
-	const viewer = joined ? (session.client?.identity?.actorId ?? PLAYER_ACTOR_ID) : PLAYER_ACTOR_ID;
+	// RC-CHR-4.3 (DEBT-2026-005) — when NOT joined, this route ran as the reserved generic player actor
+	// UNCONDITIONALLY, so a DM who set "View as → Co-DM" on the AppShell and then opened `/play` on the
+	// same device still saw a plain, locked player nav instead of the elevated tier they were previewing.
+	// Honor an ACTIVE co-DM preview (generic or a specific promoted seat) as the viewer. Plain player/
+	// observer previews are left alone: `PLAYER_ACTOR_ID` is the seeded demo participant the rest of this
+	// route's fixtures (scene projection, journal, party) already target, and the reserved GENERIC preview
+	// actors carry none of that seeded data — switching to them here would blank the stage, not narrow it.
+	const viewer = joined
+		? (session.client?.identity?.actorId ?? PLAYER_ACTOR_ID)
+		: runtime.preview?.role === 'co-dm'
+			? runtime.activeActorId
+			: PLAYER_ACTOR_ID;
 
 	const state = runtime.state;
 	const localData = useMemo<LiveData>(() => buildPlayerData(state, viewer), [state, viewer]);
 	const data: LiveData = joined && remoteData ? remoteData : localData;
 
 	const role = data.role;
-	// Tier index: observer 0, player 1, co-DM 3 (the elevated seat — unlocks NAV_ELEVATED). The
+	// Tier index: observer 0, player 1, co-DM 2 (the elevated seat — unlocks NAV_ELEVATED). The
 	// `co-dm` core role maps to the `codm` tier metadata key.
-	const r = role === 'observer' ? 0 : role === 'co-dm' ? 3 : 1;
+	const r = role === 'observer' ? 0 : role === 'co-dm' ? 2 : 1;
 	const meta = TIER_META[role === 'co-dm' ? 'codm' : role];
 
 	// Dice write. JOINED → send a command REQUEST to the host (which stamps our authenticated identity,
@@ -170,7 +192,7 @@ export function PlayerView() {
 		locked: boolean,
 	) => (
 		<button
-			className={`player-view-nav-row${n.min >= 3 ? ' player-view-nav-elevated' : ''}`}
+			className={`player-view-nav-row${n.min >= 2 ? ' player-view-nav-elevated' : ''}`}
 			key={n.id}
 			type="button"
 			aria-label={
@@ -265,6 +287,7 @@ export function PlayerView() {
 	else if (current === 'handouts')
 		body = <HandoutsSection data={data} onInlineRoll={logInlineRoll} />;
 	else if (current === 'journal') body = <JournalSection data={data} />;
+	else if (current === 'inbox') body = <InboxSection data={data} />;
 	// ELEVATED (Co-DM tier) — real DM-grade panels, fed by `data.elevated` (present only for a co-DM).
 	else if (current === 'atlas') body = <AtlasSection data={data} />;
 	else if (current === 'bestiary') body = <BestiarySection data={data} />;
