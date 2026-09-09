@@ -130,7 +130,7 @@ export const allow = {
 	'apps/gm-react/src/app/widgets/templates/SceneMessage.tsx': 1,
 	'apps/gm-react/src/app/widgets/templates/shared.tsx': 3,
 	'apps/gm-react/src/app/widgets/templates/StatusList.tsx': 2,
-	'apps/gm-react/src/app/widgets/WidgetPlaceholder.tsx': 2,
+	'apps/gm-react/src/app/widgets/WidgetPlaceholder.tsx': 0,
 	'apps/gm-react/src/screens/atlas/AtlasCanvas.tsx': 7,
 	'apps/gm-react/src/screens/atlas/FogPanel.tsx': 4,
 	'apps/gm-react/src/screens/atlas/index.tsx': 5,
@@ -265,4 +265,4 @@ export const allow = {
 	'apps/gm-react/src/screens/WikiReader.tsx': 13,
 };
 
-// Total current findings: 2132
+// Total current findings: 2130
