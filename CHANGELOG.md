@@ -6,6 +6,19 @@ v1 document-editor have been removed; that application's last state is preserved
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-09-09
+
+Same application code as 0.3.6, plus the three Android fixes below. 0.3.6's release build never
+completed — its Android job could not compile — so it produced no installers and is superseded.
+
+- Fixed the Android build: a shared-file reader caught `IOException | SecurityException |
+RuntimeException`, and `SecurityException` extends `RuntimeException`, which javac rejects in a
+  multi-catch. No Android package could be built from 0.3.6.
+- A home-screen shortcut now leaves the app root directly beneath it: one Back from Session or Play
+  returns home from any depth. Shortcuts previously stacked on the history, so Back landed on
+  whichever shortcut was tapped before and home was only reached after as many Backs as shortcuts
+  used that session.
+
 ## [0.3.6] - 2026-09-09
 
 The RC loop's second integration batch: 75 stories across maps, audio, knowledge, session play,
