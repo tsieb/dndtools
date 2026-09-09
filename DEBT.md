@@ -94,7 +94,7 @@ Each debt item must include:
 - `Targets`: `apps/gm-react/src/screens/player/`, `apps/gm-react/src/screens/play/` (the viewer is
   pinned in `play/shared.tsx`), `apps/gm-react/src/runtime/SceneRuntime.ts` (preview write-gate +
   control disabling).
-- `Status`: partial (DEBT-2026-004(a),(d) resolved in this pass; (b),(c) remain deferred)
+- `Status`: open
 
 ### DEBT-2026-004 — Design-system P2 polish deferred from the completion-pass UX review
 
@@ -111,7 +111,7 @@ Each debt item must include:
 - `Resolution Window`: 2026 Q4
 - `Targets`: `apps/gm-react/src/app/screen-kit.tsx`, `apps/gm-react/src/app/MapBuilder.tsx`,
   `apps/gm-react/src/screens/Atlas.tsx`, `apps/gm-react/src/app/widget-bodies.tsx`.
-- `Status`: open
+- `Status`: partial (a),(d) resolved in this pass; (b),(c) remain deferred
 
 ## Usage Notes
 
