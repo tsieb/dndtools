@@ -32,7 +32,9 @@ function hasVar(raw) {
 }
 
 function hasRawColor(raw) {
-	return /rgba?\s*\(/i.test(raw) || /#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})\b/i.test(raw);
+	return (
+		/rgba?\s*\(/i.test(raw) || /#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})\b/i.test(raw)
+	);
 }
 
 function rawSpacingFromNode(node) {
@@ -54,7 +56,9 @@ function isPureNumericValue(raw) {
 	if (!raw) return false;
 	const noUnits = raw.replace(/\s+/g, '');
 	if (noUnits === '0' || noUnits === '0px' || noUnits === '0rem' || noUnits === '0em') return true;
-	if (!/^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em|%|vh|vw|vmin|vmax|ch|cm|mm|in|pt|pc|q)?$/.test(noUnits))
+	if (
+		!/^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em|%|vh|vw|vmin|vmax|ch|cm|mm|in|pt|pc|q)?$/.test(noUnits)
+	)
 		return false;
 	return true;
 }
@@ -99,13 +103,16 @@ const rule = {
 					.split('\\')
 					.join('/')
 			: filename.split('\\').join('/');
-		const allowance = Object.prototype.hasOwnProperty.call(allow, relative) ? allow[relative] : null;
+		const allowance = Object.prototype.hasOwnProperty.call(allow, relative)
+			? allow[relative]
+			: null;
 
 		const styleBuckets = new Map();
-	const findings = [];
+		const findings = [];
 
 		function addFinding(node, data) {
-			findings.push({ node, ...data });
+			const { messageId, ...details } = data;
+			findings.push({ node, messageId, data: details });
 		}
 
 		const recommendation = {
@@ -180,7 +187,7 @@ const rule = {
 				}
 				if (findings.length < allowance) {
 					context.report({
-						node: context.getSourceCode().ast,
+						node: context.sourceCode.ast,
 						messageId: 'staleAllowance',
 						data: {
 							file: relative,
