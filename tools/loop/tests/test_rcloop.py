@@ -1,5 +1,8 @@
 """Parser + dispatcher tests on the real roadmap: `python3 -m unittest tools/loop/tests/test_rcloop.py`."""
 import json, os, re, sys, tempfile, unittest
+import contextlib, copy, io, types
+import subprocess
+from unittest.mock import patch
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -102,6 +105,186 @@ class Result(unittest.TestCase):
         self.assertTrue(x["limit"])
         p.write_text("I told my subagents: You've hit your session limit is what they saw\n" + '{"type":"result","is_error":false,"result":"ok"}\n')
         self.assertFalse(r.parse_result(p, "claude")["limit"])  # prose never trips the detector once a result exists
+
+
+class ModelPickup(unittest.TestCase):
+    def setUp(self):
+        self.cfg = copy.deepcopy(r.DEFAULT_CONFIG)
+        self.cfg["usage"]["pace"] = False
+        self.slot = copy.deepcopy(self.cfg["slots"][0])
+        self.story = dict(id="RC-DOC-1.1", title="Document shortcuts", size="S", phase="P0", lane="DOC",
+                          owns=["docs/shortcuts.md"], owns_text="`docs/shortcuts.md`", docs_only=True,
+                          specs=[], attempts=0, operator=False, acceptance="List supported shortcuts", body="Small bounded guide",
+                          deps=[], unlocks=0, num=(1,1), status="open", section="Shortcuts", lines=[1,2], line=1)
+        self.usage = {"at":r.now(), "claude":{"ok":True,"session":{"pct":1},"weekly":{"pct":1},"scoped":{}},
+                      "codex":{"ok":True,"limits":{
+                          "codex:":[{"pct":5,"window_min":10080,"resets_at":r.now()+86400}],
+                          "codex_bengalfox:Spark":[{"pct":99,"window_min":10080,"resets_at":r.now()+86400},
+                                                  {"pct":20,"window_min":300,"resets_at":r.now()+3600}]}}}
+
+    def routes(self, **changes):
+        return r.pickup_routes(self.cfg,self.usage,{**self.story,**changes},self.slot)
+
+    def test_astra_reasoning_and_explicit_pins(self):
+        self.slot.update(backend="codex",model=r.ASTRA)
+        for size,effort in [("S","medium"),("M","high"),("L","xhigh"),("XL","xhigh")]:
+            self.assertEqual(self.routes(size=size,docs_only=False)[0]["effort"],effort)
+        self.assertEqual(self.routes()[0]["effort"],"low")
+        self.assertEqual(self.routes(attempts=1)[0]["effort"],"max")
+        self.slot["effort"]="high"
+        self.assertEqual(self.routes()[0]["effort"],"high")
+
+    def test_separate_pools_and_final_weekly_percentage(self):
+        self.assertEqual(self.routes()[0]["model"],r.SPARK)
+        self.usage["codex"]["limits"]["codex:"][0]["pct"]=100
+        self.assertEqual(self.routes()[0]["model"],r.SPARK)
+        self.usage["codex"]["limits"]["codex_bengalfox:Spark"][0]["pct"]=100
+        self.assertNotIn(r.SPARK,[x["model"] for x in self.routes()])
+        self.usage["codex"]["limits"]["codex:"][0]["pct"]=5
+        self.slot.update(backend="codex")
+        self.assertEqual(self.routes()[0]["model"],r.ASTRA)
+
+    def test_missing_empty_and_expired_quota_fail_closed(self):
+        self.slot.update(backend="codex")
+        for snapshot in ({"ok":False},{"ok":True,"limits":{}}):
+            self.usage["codex"]=snapshot
+            self.assertEqual(self.routes(),[])
+        self.usage["codex"]={"ok":True,"limits":{"codex:":[{"pct":0,"window_min":10080,"resets_at":r.now()-10}]}}
+        self.assertEqual(self.routes(),[])
+
+    def test_missing_spark_weekly_never_uses_general_quota(self):
+        self.usage["codex"]["limits"].pop("codex_bengalfox:Spark")
+        self.assertNotIn(r.SPARK,[x["model"] for x in self.routes()])
+
+    def test_disabled_models_pins_and_fallbacks(self):
+        self.cfg["models"]={m:False for m in self.cfg["models"]}
+        self.assertEqual(self.routes(),[])
+        self.cfg["models"][r.ASTRA]=True
+        self.assertEqual([x["model"] for x in self.routes()],[r.ASTRA])
+        self.slot["model"]=r.SPARK
+        self.assertEqual(self.routes(),[])
+
+    def test_spark_capability_boundaries(self):
+        for changes in ({"size":"M"},{"attempts":1},{"title":"Security policy"},{"acceptance":"Review screenshots"},
+                        {"operator":True},{"owns":[]},{"body":"x"*17000},{"title":"Architecture migration"}):
+            with self.subTest(changes=changes):
+                self.assertNotIn(r.SPARK,[x["model"] for x in self.routes(**changes)])
+        self.cfg["spark"]["specialties"]=["tests"]
+        self.assertNotIn(r.SPARK,[x["model"] for x in self.routes()])
+        self.assertEqual(self.routes(docs_only=False,owns=["tests/parser.test.ts"])[0]["model"],r.SPARK)
+
+    def test_spark_catch_up_capacity_and_batch_counting(self):
+        self.usage["codex"]["limits"]["codex_bengalfox:Spark"][0]["pct"]=10
+        items={"a":{"status":"claimed","claim":{"slot":2,"pool":"spark","pid":os.getpid()}},
+               "b":{"status":"claimed","claim":{"slot":2,"pool":"spark","pid":os.getpid()}}}
+        self.assertTrue(r.spark_budget(self.cfg,self.usage)["catch_up"])
+        routes=r.pickup_routes(self.cfg,self.usage,self.story,self.slot,1,items)
+        self.assertEqual(routes[0]["model"],r.SPARK)
+        items["c"]={"status":"claimed","claim":{"slot":3,"pool":"spark","pid":os.getpid()}}
+        self.assertNotIn(r.SPARK,[x["model"] for x in r.pickup_routes(self.cfg,self.usage,self.story,self.slot,1,items)])
+
+    def test_claude_soft_limit_is_not_absolute_slot_number(self):
+        self.cfg["models"][r.SPARK]=False
+        self.slot["backend"]="claude"
+        self.usage["claude"]["session"]["pct"]=75
+        self.assertTrue(r.pickup_routes(self.cfg,self.usage,self.story,self.slot,5,{}))
+        items={"a":{"status":"claimed","claim":{"slot":2,"pool":"claude","pid":os.getpid()}}}
+        self.assertEqual(r.pickup_routes(self.cfg,self.usage,self.story,self.slot,5,items),[])
+
+    def test_normalization_preserves_null_named_pools_and_legacy(self):
+        win={"usedPercent":50,"windowDurationMins":10080,"resetsAt":r.now()+1000}
+        u=r.normalize_codex_usage({"rateLimitsByLimitId":{"codex":{"limitName":None,"primary":win},
+                                                       "codex_bengalfox":{"limitName":"Spark","secondary":win}}})
+        self.assertEqual(len(u["limits"]),2)
+        self.assertEqual(len(r.codex_windows({"codex":u},True)),1)
+        u=r.normalize_codex_usage({"rateLimits":{"primary":win}})
+        self.assertEqual(len(r.codex_windows({"codex":u})),1)
+
+    def test_invalid_policy_rejected_without_changing_saved_config(self):
+        with tempfile.TemporaryDirectory() as folder,patch.object(r,"CTL",Path(folder)):
+            r.save_config(self.cfg)
+            before=(Path(folder)/"config.json").read_text()
+            for bad in ({"models":{r.ASTRA:"yes"}},{"spark":{"effort":"max"}},
+                        {"spark":{"weekly_target_pct":101}},{"codex":{"effort":"none"}},
+                        {"spark":{"specialties":["security"]}}):
+                with self.assertRaises(ValueError):
+                    r.save_config(r.deep_merge(self.cfg,bad))
+                self.assertEqual((Path(folder)/"config.json").read_text(),before)
+
+    def test_backend_forwards_model_reasoning_and_resume_thread(self):
+        with tempfile.TemporaryDirectory() as folder:
+            cli=Path(folder)/"codex"
+            cli.write_text(f"#!{sys.executable}\nimport json,sys\nprint(json.dumps(sys.argv[1:]))\n")
+            cli.chmod(0o755)
+            prompt=Path(folder)/"prompt.md"
+            prompt.write_text("Fixture only")
+            env={**os.environ,"PATH":folder+os.pathsep+os.environ["PATH"],"LOOP_MODEL":r.ASTRA,"LOOP_EFFORT":"xhigh"}
+            for verb in ("start","resume"):
+                result=subprocess.run(["bash",str(HERE.parent/"lib/backend-codex.sh"),verb,"fixture-thread",str(prompt)],env=env,capture_output=True,text=True,check=True)
+                args=json.loads(result.stdout)
+                self.assertEqual(args[args.index("-m")+1],r.ASTRA)
+                self.assertIn('model_reasoning_effort="xhigh"',args)
+                if verb=="resume":
+                    self.assertEqual(args[:3],["exec","resume","fixture-thread"])
+
+    def test_quota_probe_waits_for_initialize_and_keeps_stdin_open(self):
+        popen=subprocess.Popen
+        script='''import json,sys
+first=json.loads(sys.stdin.readline())
+assert first['method']=='initialize'
+print(json.dumps({'id':1,'result':{}}),flush=True)
+assert json.loads(sys.stdin.readline())['method']=='initialized'
+request=json.loads(sys.stdin.readline())
+assert request['method']=='account/rateLimits/read'
+print(json.dumps({'id':2,'result':{'rateLimits':{'primary':{'usedPercent':12,'windowDurationMins':10080,'resetsAt':9999999999}}}}),flush=True)
+sys.stdin.read()
+'''
+        with patch.object(r.subprocess,"Popen",side_effect=lambda _args,**kwargs:popen([sys.executable,"-c",script],**kwargs)):
+            snapshot=r.fetch_codex_usage()
+        self.assertTrue(snapshot["ok"])
+        self.assertEqual(r.codex_windows({"codex":snapshot})[0]["pct"],12)
+
+    def test_enabling_codex_invalidates_no_slot_usage_cache(self):
+        cached={"at":r.now(),"claude":{"ok":True},"codex":{"ok":False,"error":"no codex slot"}}
+        with tempfile.TemporaryDirectory() as folder,patch.object(r,"USAGE",Path(folder)/"usage.json"), \
+             patch.object(r,"fetch_claude_usage",return_value=self.usage["claude"]), \
+             patch.object(r,"fetch_codex_usage",return_value=self.usage["codex"]) as probe:
+            r.write_json(r.USAGE,cached)
+            self.assertTrue(r.get_usage(self.cfg)["codex"]["ok"])
+            probe.assert_called_once()
+
+    def test_codex_metrics_do_not_report_missing_cost_as_free(self):
+        result=r.metrics([{"model":r.ASTRA,"backend":"codex","outcome":"landed","size":"S","tokens_total":50}],self.cfg)
+        self.assertIsNone(result["all"]["cost_per_fp"])
+
+    def claim(self, items=None):
+        buf=io.StringIO()
+        with patch.object(r,"load_config",return_value=self.cfg),patch.object(r,"get_usage",return_value=self.usage), \
+             patch.object(r,"load_roadmap",return_value={"stories":{self.story["id"]:self.story},"hash":"test"}), \
+             patch.object(r,"load_items",return_value=items or {}),patch.object(r,"save_items"),contextlib.redirect_stdout(buf):
+            rc=r.cmd_claim(types.SimpleNamespace(slot="1",run="001",repo=None))
+        return rc,json.loads(buf.getvalue()) if buf.getvalue() else None
+
+    def test_actual_claim_selects_spark_and_emits_codex_backend(self):
+        rc,it=self.claim()
+        self.assertEqual(rc,0)
+        self.assertEqual((it["model"],it["backend"],it["pool"]),(r.SPARK,"codex","spark"))
+        self.assertEqual(it["size"],"S")
+
+    def test_crashed_spark_claim_reassigns_retry_to_general_model(self):
+        items={self.story["id"]:{"status":"claimed","attempts":1,"claim":{"slot":1,"model":r.SPARK}}}
+        rc,it=self.claim(items)
+        self.assertEqual(rc,0)
+        self.assertNotEqual(it["model"],r.SPARK)
+
+    def test_disabled_pin_cannot_reclaim_crashed_work(self):
+        self.cfg["slots"][0]["model"]=r.SPARK
+        self.cfg["models"][r.SPARK]=False
+        items={self.story["id"]:{"status":"claimed","attempts":1,"claim":{"slot":1,"model":r.SPARK}}}
+        rc,it=self.claim(items)
+        self.assertEqual(rc,3)
+        self.assertIsNone(it)
+        self.assertEqual(items[self.story["id"]]["status"],"open")
 
 
 class Resources(unittest.TestCase):

@@ -10,9 +10,14 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 common=(--settings "$HERE/claude-settings.json" --permission-mode bypassPermissions --output-format stream-json --verbose
         --model "${LOOP_MODEL:-opus}" --effort "${LOOP_EFFORT:-medium}")
 if [ "${LOOP_MCP:-none}" = none ]; then common+=(--strict-mcp-config --mcp-config '{"mcpServers":{}}'); fi
+native=()
+if [ -n "${DISPATCH_PROJECT:-}" ] && [ "${DISPATCH_DISABLED:-0}" != 1 ]; then
+  native=(python3 "$DISPATCH_HOME/dispatch.py" agent --backend claude --)
+fi
+
 case "${1:-}" in
-  start)  exec claude -p "$(cat "$3")" --session-id "$2" "${common[@]}" ;;
-  resume) exec claude -p "$(cat "$3")" --resume "$2" "${common[@]}" ;;
+  start)  exec "${native[@]}" claude -p "$(cat "$3")" --session-id "$2" "${common[@]}" ;;
+  resume) exec "${native[@]}" claude -p "$(cat "$3")" --resume "$2" "${common[@]}" ;;
   new-sid) uuidgen ;;
   *) echo "usage: $0 start|resume|new-sid" >&2; exit 2 ;;
 esac

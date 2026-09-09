@@ -21,12 +21,15 @@ serves the local dashboard + supervisor. Never edits the repository except `road
 from __future__ import annotations
 
 import argparse
+import copy
 import datetime as dt
 import fcntl
 import hashlib
 import json
+import math
 import os
 import re
+import selectors
 import signal
 import subprocess
 import sys
@@ -34,6 +37,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import parse_qs, urlparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -46,6 +50,16 @@ LANES = ["STB", "SYS", "WID", "CAN", "MAP", "ENG", "UX", "AI", "SES", "CHR", "KN
 FP = {"S": 1.0, "M": 3.0, "L": 6.0, "XL": 10.0}  # "function points" per story size, for tokens/FP
 
 _CPUS = os.cpu_count() or 4
+ASTRA = "gpt-6-astra"
+SPARK = "gpt-5.3-codex-spark"
+MODEL_CATALOG = {
+    "sonnet": {"label": "Sonnet", "backend": "claude", "efforts": ["low", "medium", "high", "max"]},
+    "opus": {"label": "Opus", "backend": "claude", "efforts": ["low", "medium", "high", "max"]},
+    "fable": {"label": "Fable", "backend": "claude", "efforts": ["low", "medium", "high", "max"]},
+    "haiku": {"label": "Haiku", "backend": "claude", "efforts": ["low", "medium", "high"]},
+    ASTRA: {"label": "Astra", "backend": "codex", "efforts": ["low", "medium", "high", "xhigh", "max"]},
+    SPARK: {"label": "Spark", "backend": "codex", "efforts": ["low", "medium", "high", "xhigh"]},
+}
 
 DEFAULT_CONFIG = {
     "branch": "loop/rc",
@@ -53,8 +67,8 @@ DEFAULT_CONFIG = {
     "promote_interval_s": 12 * 3600,
     "promote_gate": "e2e",  # none | build | e2e  (wrapper-side, costs no model tokens)
     "slots": [
-        {"backend": "claude", "enabled": True, "model": "auto", "effort": "auto", "sizes": ["S", "M", "L"], "lanes": []},
-        {"backend": "claude", "enabled": True, "model": "auto", "effort": "auto", "sizes": ["S", "M", "L"], "lanes": []},
+        {"backend": "auto", "enabled": True, "model": "auto", "effort": "auto", "sizes": ["S", "M", "L"], "lanes": []},
+        {"backend": "auto", "enabled": True, "model": "auto", "effort": "auto", "sizes": ["S", "M", "L"], "lanes": []},
     ],
     # Model routing by story size. `auto` on a slot means "use this table"; a slot may pin a model.
     "routing": {
@@ -64,7 +78,13 @@ DEFAULT_CONFIG = {
         "XL": {"model": "opus", "effort": "high"},
         "docs": {"model": "sonnet", "effort": "medium"},  # docs/ADR-only stories, any size
     },
-    "codex": {"model": "gpt-5.6-sol", "effort": "medium"},
+    "models": {m: m not in ("fable", "haiku") for m in MODEL_CATALOG},
+    "codex": {"model": ASTRA, "effort": "auto", "reasoning": {
+        "docs": "low", "S": "medium", "M": "high", "L": "xhigh", "XL": "xhigh", "retry": "max",
+    }},
+    "spark": {"effort": "high", "specialties": ["docs", "tests", "code"],
+              "max_owns": 4, "max_prompt_chars": 16000, "max_slots": 2,
+              "weekly_target_pct": 100, "session_max_pct": 100},
     "phase": {"max": "P4", "mode": "gated", "unlock_pct": 100},  # gated: P(n+1) opens when P(n) is unlock_pct done/skipped
     "lane_priority": LANES,
     "lanes_disabled": [],
@@ -140,12 +160,52 @@ def deep_merge(base, patch):
 
 
 def load_config() -> dict:
-    cfg = deep_merge(DEFAULT_CONFIG, read_json(CTL / "config.json", {}))
+    cfg = deep_merge(copy.deepcopy(DEFAULT_CONFIG), read_json(CTL / "config.json", {}))
+    if cfg["codex"]["model"] == "gpt-5.6-sol":
+        cfg["codex"].update(model=ASTRA, effort="auto")
     return cfg
 
 
 def save_config(cfg: dict) -> None:
+    validate_model_config(cfg)
     write_json(CTL / "config.json", cfg)
+
+
+def validate_model_config(cfg: dict) -> None:
+    """Reject invalid pickup policies before persisting them, including raw JSON edits."""
+    if not isinstance(cfg.get("models"), dict) or set(cfg["models"]) != set(MODEL_CATALOG):
+        raise ValueError("models must contain exactly the supported model IDs")
+    if any(type(v) is not bool for v in cfg["models"].values()):
+        raise ValueError("model availability must be true or false")
+    if cfg["codex"]["model"] != ASTRA:
+        raise ValueError(f"the general Codex model must be {ASTRA}")
+    if cfg["codex"]["effort"] not in ["auto", *MODEL_CATALOG[ASTRA]["efforts"]]:
+        raise ValueError("unsupported Astra reasoning effort")
+    for effort in cfg["codex"]["reasoning"].values():
+        if effort not in MODEL_CATALOG[ASTRA]["efforts"]:
+            raise ValueError("unsupported Astra reasoning effort")
+    if cfg["spark"]["effort"] not in MODEL_CATALOG[SPARK]["efforts"]:
+        raise ValueError("unsupported Spark reasoning effort")
+    if not isinstance(cfg["spark"]["specialties"], list) or any(x not in ("docs", "tests", "code") for x in cfg["spark"]["specialties"]):
+        raise ValueError("Spark specialties must be docs, tests or code")
+    for key, lo, hi in (("weekly_target_pct", 1, 100), ("session_max_pct", 1, 100), ("max_slots", 1, 12), ("max_owns", 1, 8), ("max_prompt_chars", 1000, 32000)):
+        v = cfg["spark"][key]
+        if type(v) not in (int, float) or not math.isfinite(v) or not lo <= v <= hi:
+            raise ValueError(f"spark.{key} must be between {lo} and {hi}")
+    for route in cfg["routing"].values():
+        if route["model"] not in MODEL_CATALOG or MODEL_CATALOG[route["model"]]["backend"] != "claude":
+            raise ValueError("Claude routing must use a Claude model")
+        if route["effort"] not in MODEL_CATALOG[route["model"]]["efforts"]:
+            raise ValueError("unsupported Claude reasoning effort")
+    for s in cfg["slots"]:
+        backend, model, effort = s.get("backend", "auto"), s.get("model", "auto"), s.get("effort", "auto")
+        if backend not in ("auto", "claude", "codex", "fake"):
+            raise ValueError("backend must be auto, claude, codex or fake")
+        if model != "auto" and (model not in MODEL_CATALOG or backend not in ("auto", "fake", MODEL_CATALOG[model]["backend"])):
+            raise ValueError("model pin does not match backend")
+        efforts = MODEL_CATALOG[model]["efforts"] if model in MODEL_CATALOG else ["low", "medium", "high", "xhigh", "max"]
+        if effort != "auto" and effort not in efforts:
+            raise ValueError("unsupported slot reasoning effort")
 
 
 class Lock:
@@ -430,57 +490,139 @@ def fetch_claude_usage() -> dict:
 
 def fetch_codex_usage() -> dict:
     """Codex app-server's read-only rate-limit snapshot (same call the Codex clients make)."""
-    msgs = [
-        {"id": 1, "method": "initialize", "params": {"clientInfo": {"name": "dndtools-rcloop", "title": "RC loop allowance probe", "version": "1.0.0"}, "capabilities": None}},
-        {"method": "initialized"},
-        {"id": 2, "method": "account/rateLimits/read", "params": None},
-    ]
+    p = None
     try:
-        p = subprocess.run(["codex", "app-server", "--stdio"], input="".join(json.dumps(m) + "\n" for m in msgs), capture_output=True, text=True, timeout=25)
+        env = dict(os.environ)
+        # Match the runner's fnm support: systemd has no interactive shell's Node/Codex PATH.
+        node_bin = Path.home() / ".local/share/fnm/aliases/default/bin"
+        if node_bin.is_dir():
+            env["PATH"] = str(node_bin) + os.pathsep + env.get("PATH", "")
+        p = subprocess.Popen(["codex", "app-server", "--stdio"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=env)
+        def send(msg):
+            p.stdin.write((json.dumps(msg) + "\n").encode())
+            p.stdin.flush()
+        send({"id": 1, "method": "initialize", "params": {"clientInfo": {"name": "dndtools-rcloop", "title": "RC loop allowance probe", "version": "1.0.0"}, "capabilities": None}})
+        # Keep stdin open, and wait for initialization before requesting account state.
+        # Sending the entire transcript then EOF lets current app-server exit before replying.
+        deadline, buffer, result = time.monotonic() + 25, b"", None
+        with selectors.DefaultSelector() as selector:
+            selector.register(p.stdout, selectors.EVENT_READ)
+            while time.monotonic() < deadline and result is None:
+                if not selector.select(timeout=max(0, deadline-time.monotonic())):
+                    break
+                chunk = os.read(p.stdout.fileno(), 65536)
+                if not chunk:
+                    break
+                buffer += chunk
+                while b"\n" in buffer:
+                    line, buffer = buffer.split(b"\n", 1)
+                    try:
+                        msg = json.loads(line)
+                    except ValueError:
+                        continue
+                    if msg.get("id") == 1:
+                        if "error" in msg:
+                            return {"ok": False, "error": "Codex initialization rejected"}
+                        send({"method": "initialized"})
+                        send({"id": 2, "method": "account/rateLimits/read", "params": None})
+                    if msg.get("id") == 2:
+                        result = msg.get("result")
+                        if not isinstance(result, dict):
+                            return {"ok": False, "error": "Codex allowance request rejected; check client login"}
+        if result is None:
+            return {"ok": False, "error": "Codex allowance probe returned no snapshot"}
+        return normalize_codex_usage(result)
     except (OSError, subprocess.SubprocessError) as e:
         return {"ok": False, "error": str(e)}
-    for line in p.stdout.splitlines():
-        try:
-            m = json.loads(line)
-        except ValueError:
+    finally:
+        if p is not None:
+            p.stdin.close()
+            if p.poll() is None:
+                p.terminate()
+            try:
+                p.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                p.kill()
+                p.wait()
+            p.stdout.close()
+
+
+def normalize_codex_usage(res: dict) -> dict:
+    limits = res.get("rateLimitsByLimitId") or {}
+    if not limits and isinstance(res.get("rateLimits"), dict):
+        v = res["rateLimits"]
+        limits = {v.get("limitId") or "codex": v}
+    out = {"ok": True, "limits": {}}
+    for limit_id, v in limits.items():
+        if not isinstance(v, dict):
             continue
-        if m.get("id") == 2 and isinstance(m.get("result"), dict):
-            res = m["result"]
-            limits = res.get("rateLimitsByLimitId") or {}
-            out = {"ok": True, "limits": {}}
-            for v in limits.values():
-                if not isinstance(v, dict):
-                    continue
-                wins = [w for w in (v.get("primary"), v.get("secondary")) if isinstance(w, dict) and isinstance(w.get("usedPercent"), (int, float))]
-                out["limits"][v.get("limitName", "?")] = [
-                    {"pct": float(w["usedPercent"]), "window_min": w.get("windowDurationMins"), "resets_at": w.get("resetsAt")} for w in wins
-                ]
-            return out
-    return {"ok": False, "error": (p.stderr.strip().splitlines() or ["no snapshot"])[-1][:200]}
+        wins = [w for w in (v.get("primary"), v.get("secondary")) if isinstance(w, dict) and isinstance(w.get("usedPercent"), (int, float))]
+        out["limits"][str(limit_id) + ":" + str(v.get("limitName") or "")] = [
+            {"pct": float(w["usedPercent"]), "window_min": w.get("windowDurationMins"), "resets_at": w.get("resetsAt")} for w in wins
+        ]
+    return out
 
 
 def get_usage(cfg: dict, fresh: bool = False, want_codex: bool | None = None) -> dict:
     with Lock("usage.lock"):
         cached = read_json(USAGE, {})
-        if not fresh and cached and now() - cached.get("at", 0) < cfg["usage"]["poll_s"]:
-            return cached
         if want_codex is None:
-            want_codex = any(s.get("backend") == "codex" and s.get("enabled", True) for s in cfg["slots"])
+            want_codex = any(s.get("backend") in ("auto", "codex") and s.get("enabled", True) for s in cfg["slots"])
+        missing_pool = want_codex and (cached.get("codex") or {}).get("error") == "no codex slot"
+        if not fresh and not missing_pool and cached and now() - cached.get("at", 0) < cfg["usage"]["poll_s"]:
+            return cached
         u = {"at": now(), "claude": fetch_claude_usage(), "codex": fetch_codex_usage() if want_codex else {"ok": False, "error": "no codex slot"}}
         write_json(USAGE, u)
         return u
 
 
+def codex_windows(usage: dict, spark=False) -> list[dict]:
+    """Separate Spark's independent allowance from the general Codex pool. Unknown fails closed."""
+    c = usage.get("codex") or {}
+    if not c.get("ok"):
+        return []
+    windows = []
+    for name, ws in c.get("limits", {}).items():
+        name = name.lower()
+        if ("spark" in name) if spark else ("codex" in name and "spark" not in name):
+            windows.extend(w for w in ws if isinstance(w.get("pct"), (int, float)) and math.isfinite(w["pct"]))
+    return windows
+
+
+def spark_budget(cfg: dict, usage: dict) -> dict:
+    ws = codex_windows(usage, spark=True)
+    weekly = next((w for w in ws if (w.get("window_min") or 0) >= 10000), None)
+    if not weekly:
+        return {"known": False, "reason": "Spark weekly allowance unavailable"}
+    remaining = max(0, cfg["spark"]["weekly_target_pct"] - weekly["pct"])
+    seconds = max(0, (weekly.get("resets_at") or now()) - now())
+    days = seconds / 86400
+    expected = max(0, min(100, (1 - days / 7) * 100))
+    return {"known": True, "used_pct": weekly["pct"], "remaining_pct": remaining,
+            "resets_at": weekly.get("resets_at"), "days_left": round(days, 2),
+            "required_daily_pct": round(remaining / max(days, 1/24), 1),
+            "catch_up": weekly["pct"] < expected or days < 1,
+            "target_pct": cfg["spark"]["weekly_target_pct"]}
+
+
 def usage_verdict(cfg: dict, usage: dict, backend: str) -> dict:
     """{allowed_slots, reason, wait_until}: how many slots may START a run right now."""
     ucfg = cfg["usage"]
-    if backend == "codex":
+    if backend in ("codex", "spark"):
         c = usage.get("codex") or {}
-        if not c.get("ok"):
-            return {"allowed_slots": 0, "reason": f"codex usage unknown: {c.get('error')}", "wait_until": now() + 900}
-        worst = max((w["pct"] for ws in c["limits"].values() for w in ws), default=0)
-        if worst >= ucfg["codex_max_pct"]:
-            return {"allowed_slots": 0, "reason": f"codex allowance {worst:.0f}%", "wait_until": now() + 1800}
+        ws = codex_windows(usage, spark=backend == "spark")
+        if not ws or (backend == "spark" and not spark_budget(cfg, usage)["known"]):
+            return {"allowed_slots": 0, "reason": f"{backend} usage unknown: {c.get('error') or 'no scoped snapshot'}", "wait_until": now() + 120}
+        # An expired snapshot cannot authorize a fresh week of pickups before a successful refresh.
+        if any(w.get("resets_at") and w["resets_at"] <= now() for w in ws):
+            return {"allowed_slots": 0, "reason": f"{backend} reset pending fresh allowance", "wait_until": now() + 120}
+        def ceiling(w):
+            if backend != "spark":
+                return ucfg["codex_max_pct"]
+            return cfg["spark"]["weekly_target_pct"] if (w.get("window_min") or 0) >= 10000 else cfg["spark"]["session_max_pct"]
+        blocked = [w for w in ws if w["pct"] >= ceiling(w)]
+        if blocked:
+            return {"allowed_slots": 0, "reason": f"{backend} allowance at configured ceiling", "wait_until": max(w.get("resets_at") or now() + 120 for w in blocked)}
         return {"allowed_slots": 99, "reason": "", "wait_until": None}
     c = usage.get("claude") or {}
     if not c.get("ok"):
@@ -508,7 +650,14 @@ def usage_verdict(cfg: dict, usage: dict, backend: str) -> dict:
 def route_model(cfg: dict, usage: dict, story: dict, slot: dict) -> tuple[str, str]:
     """(model, effort) for a story on a slot, honouring pins, docs routing and scoped weekly limits."""
     if slot.get("backend") == "codex":
-        return cfg["codex"]["model"], cfg["codex"]["effort"]
+        model = slot.get("model") if slot.get("model") not in (None, "", "auto") else cfg["codex"]["model"]
+        key = "retry" if story.get("attempts", 0) else "docs" if story.get("docs_only") else story["size"]
+        effort = cfg["spark"]["effort"] if model == SPARK else cfg["codex"]["effort"]
+        if effort == "auto":
+            effort = cfg["codex"]["reasoning"][key]
+        if slot.get("effort") not in (None, "", "auto"):
+            effort = slot["effort"]
+        return model, effort
     key = "docs" if story.get("docs_only") and "docs" in cfg["routing"] else story["size"]
     r = cfg["routing"].get(key) or cfg["routing"].get(story["size"]) or {"model": "opus", "effort": "medium"}
     model = slot.get("model") if slot.get("model") not in (None, "", "auto") else r["model"]
@@ -521,6 +670,78 @@ def route_model(cfg: dict, usage: dict, story: dict, slot: dict) -> tuple[str, s
 
 
 # ----------------------------------------------------------------------------- dispatch
+
+
+def spark_specialty(story: dict, cfg: dict) -> str | None:
+    """Spark gets bounded, text-verifiable first attempts; hard/visual work stays general."""
+    text = " ".join(str(story.get(k, "")) for k in ("title", "acceptance", "body", "owns_text"))
+    if story["size"] != "S" or story.get("operator") or story.get("attempts", 0):
+        return None
+    if not story.get("owns") or len(story["owns"]) > cfg["spark"]["max_owns"] or len(text) > cfg["spark"]["max_prompt_chars"]:
+        return None
+    if re.search(r"\b(security|auth\w*|encrypt\w*|cryptograph\w*|migrat\w*|architect\w*|billing|payment|deploy\w*|audit|review|screenshot\w*|visual|redesign|threat|concurren\w*|race condition)\b", text, re.I):
+        return None
+    if story.get("docs_only"):
+        kind = "docs"
+    elif all(re.search(r"(test|spec|fixture)", p, re.I) for p in story["owns"]):
+        kind = "tests"
+    elif story.get("specs") or re.search(r"\b(unit test|vitest|assert|test:)\b", story.get("acceptance", ""), re.I):
+        kind = "code"
+    else:
+        return None
+    return kind if kind in cfg["spark"]["specialties"] else None
+
+
+def pickup_routes(cfg: dict, usage: dict, story: dict, slot: dict, slot_i=1, items=None) -> list[dict]:
+    """Every route (pins, fallbacks, retries) passes the same availability and capability gates."""
+    items = items or {}
+    pin = slot.get("model", "auto")
+    backend = slot.get("backend", "auto")
+    preferred = ["claude", "codex"] if slot_i % 2 else ["codex", "claude"]
+    models = [SPARK]
+    for b in preferred:
+        if b == "codex":
+            models.append(ASTRA)
+        else:
+            routed, _ = route_model(cfg, usage, story, {**slot, "backend": "claude", "model": "auto"})
+            models.extend([routed, "opus", "sonnet", "fable", "haiku"])
+    if pin != "auto":
+        models = [pin]
+    routes = []
+    for model in dict.fromkeys(models):
+        meta = MODEL_CATALOG.get(model)
+        if not meta or not cfg["models"].get(model):
+            continue
+        b = meta["backend"]
+        if backend not in ("auto", "fake", b):
+            continue
+        if model == SPARK and not spark_specialty(story, cfg):
+            continue
+        pool = "spark" if model == SPARK else b
+        verdict = usage_verdict(cfg, usage, pool)
+        active = len({(st.get("claim") or {}).get("slot") for st in items.values() if st.get("status") == "claimed"
+                     and (st.get("claim") or {}).get("slot") != slot_i
+                     and (st.get("claim") or {}).get("pool", "claude") == pool
+                     and _pid_alive((st.get("claim") or {}).get("pid"))})
+        cap = verdict["allowed_slots"]
+        if model == SPARK:
+            cap = min(cap, cfg["spark"]["max_slots"] if spark_budget(cfg, usage).get("catch_up") else 1)
+        if active >= cap:
+            continue
+        if b == "claude":
+            scoped = ((usage.get("claude") or {}).get("scoped") or {}).get(model, {})
+            if scoped.get("pct", 0) >= cfg["usage"]["weekly_max_pct"]:
+                continue
+            key = "docs" if story.get("docs_only") else story["size"]
+            effort = slot.get("effort", "auto")
+            if effort == "auto":
+                effort = cfg["routing"][key]["effort"]
+        else:
+            _, effort = route_model(cfg, usage, story, {**slot, "backend": b, "model": model})
+        if effort not in meta["efforts"]:
+            continue
+        routes.append({"model": model, "effort": effort, "backend": "fake" if backend == "fake" else b, "pool": pool})
+    return routes
 
 
 def _phase_rank(p: str) -> int:
@@ -596,9 +817,16 @@ def candidates(stories: dict, items: dict, cfg: dict, slot_cfg: dict | None = No
 
 
 def cmd_claim(a) -> int:
+    # Serialize a pickup with model toggles: once a toggle returns, no later pickup
+    # may use the previous model policy. Both paths lock config before claim state.
+    with Lock("config.lock"):
+        return _cmd_claim(a)
+
+
+def _cmd_claim(a) -> int:
     cfg = load_config()
     slot_i = int(a.slot)
-    slot_cfg = cfg["slots"][slot_i - 1] if slot_i - 1 < len(cfg["slots"]) else {"backend": "claude"}
+    slot_cfg = cfg["slots"][slot_i - 1] if 0 < slot_i <= len(cfg["slots"]) else {"enabled": False}
     repo = Path(a.repo) if a.repo else None
     rm = load_roadmap(repo, cfg)
     stories = rm["stories"]
@@ -609,50 +837,70 @@ def cmd_claim(a) -> int:
         print(json.dumps({"idle": reason, "wait_until": wait_until}), file=sys.stderr)
         return 3
 
+    try:
+        validate_model_config(cfg)
+    except (ValueError, TypeError, KeyError) as e:
+        return idle(f"invalid model policy: {e}", now() + 120)
     if not slot_cfg.get("enabled", True):
         return idle("slot disabled")
     usage = get_usage(cfg)
-    verdict = usage_verdict(cfg, usage, slot_cfg.get("backend", "claude"))
-    if slot_i > verdict["allowed_slots"]:
-        return idle(verdict["reason"] or "throttled by usage", verdict.get("wait_until"))
     with Lock():
         items = load_items()
         # continue a story this slot already holds (a crashed runner)
         for sid, st in items.items():
             claim = st.get("claim") or {}
             if st.get("status") == "claimed" and claim.get("slot") == slot_i and sid in stories:
-                st["claim"] = {**claim, "run": a.run, "since": now(), "pid": os.getppid()}
+                story = dict(stories[sid], attempts=st.get("attempts", 0))
+                routes = pickup_routes(cfg, usage, story, slot_cfg, slot_i, items)
+                if (slot_cfg.get("sizes") and story["size"] not in slot_cfg["sizes"]) or (slot_cfg.get("lanes") and story["lane"] not in slot_cfg["lanes"]):
+                    routes = []
+                if not routes:
+                    # A changed pool/filter must not strand a crashed runner's old claim.
+                    st.update(status="open", claim=None)
+                    save_items(items)
+                    continue
+                selected = routes[0]
+                st["claim"] = {**claim, **selected, "run": a.run, "since": now(), "pid": os.getppid()}
                 save_items(items)
                 picked = [dict(stories[sid], attempts=st.get("attempts", 0), continued=True)]
                 break
         else:
             cands = candidates(stories, items, cfg, slot_cfg)
+            routed = [(c, pickup_routes(cfg, usage, c, slot_cfg, slot_i, items)) for c in cands]
+            routed = [(c, rs) for c, rs in routed if rs]
+            # Reserve available short work for Spark, including the final weekly percentage.
+            # Pins keep dispatcher priority; capability and allowance gates still apply.
+            routed.sort(key=lambda pair: (pair[0]["score"][0], 0 if pair[1][0]["model"] == SPARK else 1))
+            cands = [c for c, _ in routed]
             if not cands:
                 (idle_file.parent).mkdir(parents=True, exist_ok=True)
                 limit = open_phase_limit(stories, items, cfg)
-                return idle(f"nothing claimable (phase gate at P{limit}, {len(stories)} stories)")
+                return idle(f"no eligible work/model allowance (phase P{limit}; check model controls and usage)", now() + 120)
+            selected = routed[0][1][0]
             picked = [cands[0]]
             # batch a couple of small stories from the same lane with disjoint owns (amortise context)
-            if picked[0]["size"] == "S" and cfg["batch_small"] > 1:
+            if selected["model"] != SPARK and picked[0]["size"] == "S" and cfg["batch_small"] > 1:
                 for c in cands[1:]:
                     if len(picked) >= cfg["batch_small"]:
                         break
-                    if c["size"] == "S" and c["lane"] == picked[0]["lane"] and not any(_paths_overlap(c["owns"], p["owns"]) for p in picked) \
+                    compatible = pickup_routes(cfg, usage, c, {**slot_cfg, "model": selected["model"]}, slot_i, items)
+                    if compatible and c["size"] == "S" and c["lane"] == picked[0]["lane"] and not any(_paths_overlap(c["owns"], p["owns"]) for p in picked) \
                        and not any(d in {p["id"] for p in picked} for d in c["deps"]):
                         picked.append(c)
             for p in picked:
                 st = item(items, p["id"])
                 st["status"] = "claimed"
                 st["attempts"] = st.get("attempts", 0) + 1
-                st["claim"] = {"slot": slot_i, "run": a.run, "since": now(), "pid": os.getppid()}
+                st["claim"] = {**selected, "slot": slot_i, "run": a.run, "since": now(), "pid": os.getppid()}
             save_items(items)
     idle_file.unlink(missing_ok=True)
     primary = picked[0]
-    model, effort = route_model(cfg, usage, primary, slot_cfg)
     size = primary["size"] if len(picked) == 1 else "M"
+    if len(picked) > 1 and selected["backend"] == "codex":
+        _, selected["effort"] = route_model(cfg, usage, {**primary, "size": size, "docs_only": all(p["docs_only"] for p in picked)}, {**slot_cfg, "backend": "codex", "model": selected["model"]})
     out = {
         "id": primary["id"], "ids": [p["id"] for p in picked], "title": primary["title"] if len(picked) == 1 else " + ".join(p["id"] for p in picked),
-        "lane": primary["lane"], "size": size, "phase": primary["phase"], "backend": slot_cfg.get("backend", "claude"), "model": model, "effort": effort,
+        "lane": primary["lane"], "size": size, "phase": primary["phase"], **selected,
         "attempts": primary.get("attempts", 0), "continued": bool(primary.get("continued")),
         "specs": sorted({sp for p in picked for sp in p["specs"]}), "owns": sorted({o for p in picked for o in p["owns"]}),
         "stories": [{k: p[k] for k in ("id", "title", "size", "phase", "deps", "owns_text", "acceptance", "body", "section", "lines", "line", "docs_only")} for p in picked],
@@ -762,6 +1010,10 @@ def cmd_render(a) -> int:
     out = tpl
     for k, v in subs.items():
         out = out.replace(k, v)
+    if it.get("model") == SPARK:
+        out += "\n## Spark scope\n\nComplete this one bounded task. Verify it with the named tests; run the checks explicitly. " \
+               "You are text-only: do not attempt screenshot or visual review. If solving it requires architecture, " \
+               "security, a migration, or broader investigation, record PARTIAL/HANDOFF and leave that work for a general model.\n"
     Path(a.out).write_text(out)
     return 0
 
@@ -858,6 +1110,11 @@ def cmd_result(a) -> int:
                 for sc in (c.get("scoped") or {}).values():
                     if sc and sc.get("pct", 0) >= 99 and sc.get("resets_at"):
                         target = sc["resets_at"]
+        elif a.backend == "codex":
+            blocked = [w for w in codex_windows(u, spark=getattr(a, "model", "") == SPARK)
+                       if w["pct"] >= 99 and (w.get("resets_at") or 0) > now()]
+            if blocked:
+                target = max(w["resets_at"] for w in blocked)
         if target is None:
             target = reset_epoch_from_message(r["limit_message"])
         r["reset_at"] = target
@@ -966,7 +1223,7 @@ def tail_activity(log: Path, backend: str) -> dict:
             d = json.loads(ln)
         except ValueError:
             continue
-        if backend == "claude" and d.get("type") == "assistant":
+        if backend in ("auto", "claude", "fake") and d.get("type") == "assistant":
             turns += 1
             msg = d.get("message") or {}
             tokens_out += (msg.get("usage") or {}).get("output_tokens", 0)
@@ -977,7 +1234,7 @@ def tail_activity(log: Path, backend: str) -> dict:
                     tools += 1
                     inp = c.get("input") or {}
                     last_tool = f"{c.get('name')}: {str(inp.get('command') or inp.get('file_path') or inp.get('pattern') or inp.get('description') or '')[:120]}"
-        elif backend == "codex" and d.get("type") in ("item.completed", "item.started"):
+        elif backend in ("auto", "codex") and d.get("type") in ("item.completed", "item.started"):
             it = d.get("item") or {}
             if it.get("type") == "agent_message":
                 last_text = str(it.get("text", ""))[-300:]
@@ -1007,11 +1264,13 @@ def metrics(runs: list[dict], cfg: dict) -> dict:
     agg: dict[str, dict] = {}
 
     def bump(key, r):
-        a = agg.setdefault(key, {"runs": 0, "landed": 0, "fp": 0.0, "tokens": 0, "out_tokens": 0, "cost": 0.0, "seconds": 0})
+        a = agg.setdefault(key, {"runs": 0, "landed": 0, "fp": 0.0, "tokens": 0, "out_tokens": 0, "cost": 0.0, "seconds": 0, "cost_known": True})
         a["runs"] += 1
         a["tokens"] += int(r.get("tokens_total") or 0)
         a["out_tokens"] += int(r.get("tokens_out") or 0)
         a["cost"] += float(r.get("cost_usd") or 0)
+        if r.get("backend") == "codex" or str(r.get("model", "")).startswith("gpt-"):
+            a["cost_known"] = False  # Codex CLI supplies tokens, not a dollar cost.
         a["seconds"] += int(r.get("seconds") or 0)
         if r.get("outcome") == "landed":
             a["landed"] += 1
@@ -1025,7 +1284,7 @@ def metrics(runs: list[dict], cfg: dict) -> dict:
     for a in agg.values():
         a["tokens_per_fp"] = round(a["tokens"] / a["fp"]) if a["fp"] else None
         a["out_tokens_per_fp"] = round(a["out_tokens"] / a["fp"]) if a["fp"] else None
-        a["cost_per_fp"] = round(a["cost"] / a["fp"], 2) if a["fp"] else None
+        a["cost_per_fp"] = round(a["cost"] / a["fp"], 2) if a["fp"] and a["cost_known"] else None
         a["land_rate"] = round(a["landed"] / a["runs"], 2) if a["runs"] else None
     return agg
 
@@ -1053,7 +1312,17 @@ def build_state(cfg: dict, fresh_usage=False) -> dict:
     queue = [{"id": c["id"], "lane": c["lane"], "size": c["size"], "phase": c["phase"], "title": c["title"], "unlocks": c["unlocks"], "attempts": c["attempts"]}
              for c in candidates(stories, items, cfg)[:25]] if stories else []
     runs = read_runs()
-    verdicts = {b: usage_verdict(cfg, usage, b) for b in ("claude", "codex")}
+    verdicts = {b: usage_verdict(cfg, usage, b) for b in ("claude", "codex", "spark")}
+    ready = candidates(stories, items, cfg) if stories else []
+    eligible = {m: set() for m in MODEL_CATALOG}
+    for i, slot in enumerate(cfg["slots"], 1):
+        if not slot.get("enabled", True):
+            continue
+        for c in candidates(stories, items, cfg, slot):
+            for route in pickup_routes(cfg, usage, c, slot, i, items):
+                eligible[route["model"]].add(c["id"])
+    for q in queue:
+        q["models"] = [m for m, ids in eligible.items() if q["id"] in ids]
     try:
         ev = (CTL / "events.log").read_text().splitlines()[-60:]
     except OSError:
@@ -1070,6 +1339,8 @@ def build_state(cfg: dict, fresh_usage=False) -> dict:
         "queue": queue, "stories": rows, "runs": runs[-80:], "metrics": metrics(runs, cfg), "events": ev, "salvage": salvage, "branches": branch_info,
         "ahead": ahead, "last_promote": read_json(STATE / "promote.json", {}), "roadmap_error": rm_err, "roadmap_hash": (rm["hash"][:8] if stories else ""),
         "supervisor": read_json(STATE / "supervisor.json", {}),
+        "model_catalog": MODEL_CATALOG, "model_eligible": {m: len(ids) for m, ids in eligible.items()},
+        "spark_budget": {**spark_budget(cfg, usage), "suitable_ready": sum(bool(spark_specialty(c, cfg)) for c in ready)},
     }
 
 
@@ -1159,6 +1430,11 @@ def kill_slot(i: int, why: str) -> None:
 
 
 def apply_command(verb: str, arg: str) -> str:
+    with Lock("config.lock"):
+        return _apply_command(verb, arg)
+
+
+def _apply_command(verb: str, arg: str) -> str:
     cfg = load_config()
     if verb == "pause":
         (CTL / "PAUSE").touch()
@@ -1179,7 +1455,10 @@ def apply_command(verb: str, arg: str) -> str:
             s["enabled"] = i < n
         save_config(cfg)
     elif verb == "slot-stop":
-        (CTL / f"STOP-{int(arg)}").touch()
+        i = int(arg)
+        cfg["slots"][i - 1]["enabled"] = False
+        save_config(cfg)
+        (CTL / f"STOP-{i}").touch()
     elif verb == "slot-kill":
         kill_slot(int(arg), "dashboard")
     elif verb == "slot-start":
@@ -1194,9 +1473,19 @@ def apply_command(verb: str, arg: str) -> str:
         save_config(cfg)
     elif verb == "slot-set":  # arg: JSON {slot, backend?, model?, effort?, sizes?, lanes?}
         d = json.loads(arg)
-        s = cfg["slots"][int(d.pop("slot")) - 1]
+        i = int(d.pop("slot"))
+        if not 1 <= i <= len(cfg["slots"]):
+            raise ValueError("slot out of range")
+        s = cfg["slots"][i - 1]
         s.update({k: v for k, v in d.items() if k in ("backend", "model", "effort", "sizes", "lanes")})
         save_config(cfg)
+    elif verb in ("model-enable", "model-disable"):
+        if arg not in MODEL_CATALOG:
+            raise ValueError("unknown model ID")
+        cfg["models"][arg] = verb == "model-enable"
+        save_config(cfg)
+    elif verb == "models":
+        return json.dumps({m: {**meta, "enabled": cfg["models"][m]} for m, meta in MODEL_CATALOG.items()}, indent=2)
     elif verb in ("skip", "unskip", "pin", "unpin"):
         sid, _, reason = arg.partition(" ")
         cmd_set(argparse.Namespace(cmd=verb, id=sid, reason=reason, status=None))
@@ -1234,7 +1523,6 @@ def cmd_serve(a) -> int:
                 event(f"usage poll error: {e}")
             time.sleep(load_config()["usage"]["poll_s"])
     threading.Thread(target=poll, daemon=True).start()
-    page = (HERE / "dashboard.html").read_bytes()
 
     class H(BaseHTTPRequestHandler):
         def log_message(self, *args):  # quiet
@@ -1244,23 +1532,26 @@ def cmd_serve(a) -> int:
             self.send_response(code)
             self.send_header("content-type", ctype)
             self.send_header("cache-control", "no-store")
-            self.send_header("content-security-policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'")
+            self.send_header("content-security-policy", "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'")
             self.send_header("content-length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
 
         def do_GET(self):
             if self.path == "/":
-                return self._send(200, page, "text/html; charset=utf-8")
+                return self._send(200, (HERE / "dashboard.html").read_bytes(), "text/html; charset=utf-8")
+            if self.path in ("/dashboard.css", "/dashboard.js"):
+                kind = "text/css" if self.path.endswith(".css") else "text/javascript"
+                return self._send(200, (HERE / self.path[1:]).read_bytes(), kind + "; charset=utf-8")
             if self.path.startswith("/api/state"):
                 fresh = "fresh=1" in self.path
                 return self._send(200, json.dumps(build_state(load_config(), fresh_usage=fresh), default=str).encode())
             if self.path.startswith("/api/log?"):
-                q = dict(x.split("=", 1) for x in self.path.split("?", 1)[1].split("&") if "=" in x)
-                p = Path(q.get("path", ""))
-                if not str(p).startswith(str(CTL)) or not p.exists():
+                q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+                p = Path(q.get("path", "")).resolve()
+                if not p.is_relative_to(CTL.resolve()) or not p.is_file():
                     return self._send(404, b"{}")
-                data = p.read_bytes()[-int(q.get("bytes", 60000)):]
+                data = p.read_bytes()[-max(1, min(200000, int(q.get("bytes", 60000)))):]
                 return self._send(200, data, "text/plain; charset=utf-8")
             return self._send(404, b"{}")
 
@@ -1298,7 +1589,7 @@ def main() -> int:
         p = sub.add_parser(v); p.add_argument("--id", required=True); p.add_argument("--reason", default=""); p.set_defaults(status=None)
     p = sub.add_parser("set"); p.add_argument("--id", required=True); p.add_argument("--status", required=True); p.add_argument("--reason", default="")
     p = sub.add_parser("render"); p.add_argument("--item", required=True); p.add_argument("--out", required=True); p.add_argument("--journal", required=True); p.add_argument("--worktree", required=True); p.add_argument("--slot", required=True)
-    p = sub.add_parser("result"); p.add_argument("--log", required=True); p.add_argument("--backend", default="claude")
+    p = sub.add_parser("result"); p.add_argument("--log", required=True); p.add_argument("--backend", default="claude"); p.add_argument("--model", default="")
     p = sub.add_parser("usage"); p.add_argument("--fresh", action="store_true")
     p = sub.add_parser("slot-env"); p.add_argument("--slot", required=True)
     p = sub.add_parser("roadmap-sync"); p.add_argument("--file", required=True)
@@ -1337,4 +1628,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # CENTRAL_DISPATCHER_ENTRYPOINT: only pure parser imports remain supported.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "agent-dispatcher"))
+    from dispatcher.legacy_cli import main as central_main
+    raise SystemExit(central_main("dndtools"))
