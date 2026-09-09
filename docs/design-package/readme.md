@@ -337,3 +337,7 @@ Mount in `@dsCard` HTML via `const { Button } = window.DNDToolsDesignSystem_8ae0
   Knowledge, Atlas) and now carries the Characters/Campaign vocabulary (creature, condition, spell,
   campaign groups + the Character Sheet template). The full assembled, click-through application
   lives in the separate **prototype** project — see `SOURCES.md`.
+
+## Supporting component reference
+
+See [supporting primitives](components/missing-primitives.md) for component APIs, keyboard behavior, tests and production screen consumers.

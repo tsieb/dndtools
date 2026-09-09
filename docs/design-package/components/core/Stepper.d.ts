@@ -8,6 +8,9 @@ export interface StepperProps extends React.HTMLAttributes<HTMLOListElement> {
   /** Zero-based index of the active step. Earlier steps render as complete (check). */
   current?: number;
   ariaLabel?: string;
+  orientation?: 'horizontal' | 'vertical';
+  size?: 'sm' | 'md' | 'lg';
+  showLines?: boolean;
 }
 
 export function Stepper(props: StepperProps): React.ReactElement;

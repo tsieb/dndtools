@@ -1,3 +1,4 @@
+import { Kbd } from '../../ds';
 import { useState } from 'react';
 import { getContentItemsForActor, listScenesForActor } from '@dndtools/core';
 import { Icon, Switch } from '../../ds';
@@ -144,7 +145,7 @@ export function SettingsAccessibility() {
 									key={s.id}
 									style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0 }}
 								>
-									<span
+									<Kbd
 										style={{
 											font: `12px ${T.mono}`,
 											color: T.ink,
@@ -156,7 +157,7 @@ export function SettingsAccessibility() {
 										}}
 									>
 										{s.keys}
-									</span>
+									</Kbd>
 									<span
 										style={{
 											minWidth: 0,

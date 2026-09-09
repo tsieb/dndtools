@@ -7,7 +7,7 @@ import {
 	resolveAddWidgetCommand,
 	type WidgetLibraryEntry,
 } from '@dndtools/core';
-import { Button, Card, Icon, IconButton, Popover, Switch, Toaster } from '../ds';
+import { Button, Card, Icon, IconButton, Menu, Callout, Toolbar, Switch, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { widgetRejectionMessage } from '../app/widget-rejection';
 import {
@@ -357,7 +357,8 @@ export function Board() {
 				padding: viewport === 'phone' ? 0 : '16px 28px',
 			}}
 		>
-			<div
+			<Toolbar
+				ariaLabel={t('board.title')}
 				style={{
 					display: 'flex',
 					alignItems: 'center',
@@ -483,7 +484,7 @@ export function Board() {
 				>
 					{editing ? t('board.done') : t('board.editLayout')}
 				</Button>
-			</div>
+			</Toolbar>
 
 			{/* Every board write's confirmation surfaces here, so it has to be a live region (WCAG
 			    4.1.3) — but a polite region must ALREADY be in the DOM for a content change to be
@@ -521,21 +522,9 @@ export function Board() {
 			</div>
 
 			{error && (
-				<div
-					// Rejections get `role="alert"` and the error tone (mirroring SceneEditor) so a failed
-					// write is neither announced politely-and-late nor painted like a confirmation.
-					role="alert"
-					style={{
-						display: 'inline-flex',
-						alignItems: 'center',
-						gap: 6,
-						font: 'var(--text-xs) var(--font-sans)',
-						color: 'var(--color-status-error-text)',
-						flex: '0 0 auto',
-					}}
-				>
-					<Icon name="warning" size="sm" /> {error}
-				</div>
+				<Callout tone="error" role="alert">
+					{error}
+				</Callout>
 			)}
 
 			{/* RC-CAN-3.3/3.4: a widget dragged (or preset-applied) past the board's columns is clamped
@@ -563,7 +552,7 @@ export function Board() {
 					<button
 						type="button"
 						ref={qualityTriggerRef}
-						aria-haspopup="true"
+						aria-haspopup="menu"
 						aria-expanded={qualityOpen}
 						data-testid="board-layout-quality-trigger"
 						onClick={() => setQualityOpen((v) => !v)}
@@ -586,7 +575,7 @@ export function Board() {
 						{t('board.fixLayout')}
 					</Button>
 					{qualityOpen && (
-						<Popover
+						<Menu
 							triggerRef={qualityTriggerRef}
 							title={t('board.layoutIssuesTitle')}
 							onClose={() => setQualityOpen(false)}
@@ -617,13 +606,18 @@ export function Board() {
 														other: titleOf(issue.otherWidgetId!),
 													})}
 										</span>
-										<Button variant="ghost" size="sm" onClick={() => selectIssue(issue.widgetId)}>
+										<Button
+											role="menuitem"
+											variant="ghost"
+											size="sm"
+											onClick={() => selectIssue(issue.widgetId)}
+										>
 											{t('board.selectIssue')}
 										</Button>
 									</li>
 								))}
 							</ul>
-						</Popover>
+						</Menu>
 					)}
 				</Card>
 			)}
