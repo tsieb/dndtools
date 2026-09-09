@@ -141,7 +141,10 @@ public final class DndtoolsAppIntentPlugin extends Plugin {
             }
             String type = declaredType != null ? declaredType : resolver.getType(uri);
             return share(displayName(resolver, uri), type, text);
-        } catch (IOException | SecurityException | RuntimeException error) {
+        } catch (IOException | RuntimeException error) {
+            // `RuntimeException` covers the `SecurityException` a provider throws when it refuses
+            // the read. Naming both is a compile error: javac rejects a multi-catch whose
+            // alternatives are related by subclassing.
             Log.w(LOG_TAG, "Shared file could not be read", error);
             return null;
         }
