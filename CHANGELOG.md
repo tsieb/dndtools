@@ -6,6 +6,57 @@ v1 document-editor have been removed; that application's last state is preserved
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-09-09
+
+The RC loop's second integration batch: 75 stories across maps, audio, knowledge, session play,
+characters, cloud and the platform shells.
+
+- **Maps.** Combat tokens now live on the editor canvas and follow the running fight onto every map
+  surface; range, path and area-of-effect measuring tools; fog the DM lifts fades off the player's
+  own screen; the raster import wizard calibrates the map it imports; generation knobs re-threshold
+  without hammering the generator; a breadcrumb for drilling into nested maps; and a POI can spawn a
+  linked note that previews in its popover.
+- **Audio.** Assets carry duration, a waveform thumbnail and tags. A bundled CC0 starter pack
+  installs on demand. Scene packages link to POIs and export/import as `.dndscene`. Combat music
+  fires automatically on real combat start and end, a natural 20 can make a noise (every sound effect
+  has its own switch), and the assistant can set the atmosphere and suggest one in the prep digest.
+- **Knowledge.** Templates and snippets, filters and saved searches each get a real screen; a saved
+  search runs straight from the command palette, which itself grows actions, contextual rows, a `>`
+  prefix and recents. A campaign calendar can be defined and notes dated against it, notes get typed
+  relationship edges, clusters/momentum/dormant-arc surfacing, and one-click repair for broken
+  wikilinks.
+- **Session.** Rollable tables from the console; conditions carry a duration and run out on the round
+  tick; a stat block opens from a tracker row; encounter builder v2 with counts, saved encounters,
+  map placement and ambush; a continuity check after capture; and a countdown/break timer with lap
+  marks in the quick panel, also operable from a widget tile.
+- **Characters.** Package-driven advancement with party-wide XP and level-up (the assistant can
+  propose a whole level-up and apply it atomically on approval), a downtime journal kind, a history
+  timeline, party stash v2, player-private notes the DM cannot read, and highlight compilation.
+- **Cloud and remote play.** Cross-device merge sync over the ciphertext op-log; connection status,
+  presence and a dictated room + PIN in the host/join panel; the player companion draws the projected
+  map with the DM's fog and tokens; a between-session inbox with a wiki recap feed; opt-in,
+  content-free product analytics; marketplace listing kinds with a `.dndmodule` bundle format and
+  creator tooling (publish checklist, license and changelog); and the Cloud-Enhanced phase-2 KMS key
+  with a plaintext-upload gate.
+- **Platform.** Desktop auto-update through electron-updater and GitHub Releases; Lamplight installs
+  from the browser and keeps working offline; files share into the app and open from a shortcut into
+  a live session; a game system shares as a module file and the shelf filters by kind. The iOS shell
+  is deferred in an ADR, with iOS given its own runtime kind.
+- **Canvas.** Fit / Comfortable / Detail zoom presets and scroll-natural pan on both the board and
+  the scene canvas; the map tile draws the real map, the running fight and the DM's map actions.
+- Fixed on the way in, all found by running the whole browser suite across the batch rather than
+  story by story: a selected point of interest laid a pointer trap across the map editor, so no
+  token or marker could be dragged while one was open; closing the quick-map properties sheet was
+  undone the moment you picked another tool with something selected, and the sheet's scrim then ate
+  the next press on the canvas; the import wizard offered SVG and then refused to let go of one,
+  because it never read the file's size; the combat tile's new Next-turn button filled a phone
+  tile's whole body and clipped every combatant row out of it; the map tile's DM actions sat under
+  the 48dp Android touch floor; and the map tile's zoom cluster could slip under a neighbouring
+  tile on a phone.
+- Internal: the core suite runs in ~20s so the e2e shards are no longer blocked, five oversized
+  `.tsx` files are split back under the file-size gate, and the `js-yaml` override is lifted to
+  4.3.2 for GHSA-2883-xcg3-v3hh.
+
 ## [0.3.5] - 2026-09-07
 
 - Fixed the Android release build: the Gradle wrapper is pinned back to 8.14.3, since Gradle 9.6+
