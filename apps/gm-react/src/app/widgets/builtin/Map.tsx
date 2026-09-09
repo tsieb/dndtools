@@ -343,7 +343,7 @@ export function MapTile({
 				// Keeps a drag-to-pan and a press inside the tile from also reaching the board canvas
 				// underneath, which would deselect or start moving the widget.
 				onPointerDown={interactive ? (e) => e.stopPropagation() : undefined}
-				style={{ flex: 1, minHeight: 64, position: 'relative', borderRadius: 'var(--radius-sm)' }}
+				style={{ flex: 1, minHeight: 64, position: 'relative', borderRadius: T.radius.sm }}
 			>
 				<MapCanvas
 					view={view}
