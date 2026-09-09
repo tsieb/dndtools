@@ -1,5 +1,8 @@
 # RC-DSN-2.2 browser acceptance baseline
 
+Historical comparison at `8c11737f`. The subsequent gate-repair changes address these
+inherited failures; see the latest section of `RC-DSN-2.2.journal.md` for validation.
+
 The implementation is commit `064d3e123208c146c2e12be0898db89148e55f73`.
 Its parent is `75c76bd1` (before any missing-primitives changes).
 

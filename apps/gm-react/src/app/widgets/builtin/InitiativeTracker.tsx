@@ -159,7 +159,7 @@ export function InitiativeTrackerCompact({
 	}
 
 	return (
-		<div style={bodyWrap} data-testid="initiative-tile-compact">
+		<div style={{ ...bodyWrap, overflowY: 'auto' }} data-testid="initiative-tile-compact">
 			<div
 				style={{
 					display: 'flex',
@@ -192,9 +192,8 @@ export function InitiativeTrackerCompact({
 					listStyle: 'none',
 					margin: 0,
 					padding: 0,
-					overflowY: 'auto',
-					minHeight: 0,
-					flex: 1,
+					// Scroll the whole compact tile: a tall header otherwise collapses this list to zero.
+					flex: '0 0 auto',
 				}}
 			>
 				{tracker.combatants.map((c) => {

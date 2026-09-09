@@ -37,3 +37,25 @@ Resume preserved missing-primitives implementation. No agents, dispatcher mutati
 - Verified parent `75c76bd1` with the same dependency/font assets and an isolated Vite server (port 15476): exactly the same six failures, one skip, three passes. Read original diagnostics and completion output for both runs.
 - Added `state/RC-DSN-2.2.browser-baseline.md` with commands, per-test comparison, diagnostics and disposition. The implementation remains intact; no evidence links these reproducible failures to the primitive changes.
 - Browser acceptance remains failed. Two Android bounds failures from the broad gate pass on both revisions in isolation and need suite-order investigation by the central operator.
+
+## Gate repair follow-up
+
+- Latest broad gate repeated the same eight failures. Proceeding with narrow fixes to the inherited gate blockers.
+- Map tile action controls now use the existing board-scale compensation token, preserving touch hit areas when zoomed out.
+- Compact initiative tile scrolls its full content instead of collapsing the combatant list beneath the header.
+- Quick-map tool changes no longer reopen a dismissed details sheet; only a new selection or generation opens it.
+- Equipment preview test now asserts the existing read-only contract and checks that edit controls return after exiting preview; command-level owner/DM/stranger authority assertions remain intact.
+- Targeted browser revalidation running.
+- First repair run: all board touch/axe checks, compact HP interaction and equipment preview tests passed (7 passes, one existing desktop skip); quick-map movement passed and exposed a stale later import step in the same test.
+- Updated quick-map import test to traverse the actual raster alignment, scale and wall-tracing steps before preview, retaining fingerprint, durable import and preservation checks.
+- The raster wizard exposed another inherited blocker: SVG dimensions were explicitly skipped, making its alignment Next button permanently disabled. SVG files now decode through an Image object and a revoked object URL, preserving the image-only rendering boundary and supplying intrinsic dimensions.
+
+## Gate repair validation
+
+- Quick-map full workflow: 2/2 passed on desktop/mobile, including movement, fog, generation, SVG alignment/import and preservation.
+- Full browser run with `DNDTOOLS_E2E_PORT=15475 pnpm e2e --workers=2`: 1,048 passed, 11 existing skips, one failure. All eight original gate failures passed in this run.
+- The one newly exposed failure was mobile map-tile zoom clipping after enlarging its action hit areas. Fixed by scrolling the map tile content and reserving enough map height for all three scale-compensated zoom controls.
+- Final map-layout browser run (port 15477): 16/16 passed across desktop/mobile, covering the previously failing zoom control, map rebinding, overlay toggling, projection, fog, board axe and Android safe-area/touch bounds.
+- Full app suite before the final map-layout adjustment: 114 files, 1,112 tests passed. Final map-tile/token tests, typecheck, lint and production build rechecked after that adjustment.
+- Original full and targeted browser logs retained at `/tmp/rc-dsn-browser-full.log` and `/tmp/rc-dsn-map-layout.log`. The full suite was not rerun after the final layout fix; the final affected suite passed. The central operator retains the full final-tree gate.
+- Changes are limited to four UI implementation files, two existing browser tests, and this journal/baseline note. No test skips or timeout increases added. Equipment command-authority checks remain intact; the preview UI assertion now matches its explicit read-only contract and checks edit controls return after preview.
