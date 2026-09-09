@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, type NavigateFunction } from 'react-router-dom';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { handlePlatformBack } from './backNavigation';
 import {
@@ -46,6 +46,27 @@ export function resetPlatformStateRefreshHandlersForTest(): void {
  * Lives directly under HashRouter. It is inert outside Android and keeps native lifecycle,
  * history, and vault refresh behavior out of feature components.
  */
+/**
+ * RC-PLT-2.2 — where a home-screen shortcut lands, and what Back does from there.
+ *
+ * A shortcut is an ENTRY POINT, not a step in a journey: whatever the DM was doing before, tapping
+ * "Session" on the launcher starts afresh, and one Back out of it belongs at the app root. So the
+ * current entry is REPLACED with the root and the destination pushed on top, leaving exactly
+ * `root → route` above whatever came before.
+ *
+ * Pushing alone made every shortcut a history entry, so Back landed on the shortcut used before it
+ * and the root was only reached after as many Backs as shortcuts tapped that session. Replacing
+ * alone was worse: it overwrote the root entry, so Back fell through into the pre-shortcut history.
+ */
+export function navigateToShortcut(
+	navigate: NavigateFunction,
+	route: string,
+	currentPathname: string,
+): void {
+	if (currentPathname !== '/') navigate('/', { replace: true });
+	navigate(route);
+}
+
 export function PlatformLifecycle() {
 	const runtime = useRuntime();
 	const { t } = useI18n();
@@ -125,7 +146,7 @@ export function PlatformLifecycle() {
 		let removeListeners: (() => Promise<void>) | undefined;
 		void bindAppIntents({
 			onShortcut: (route) => {
-				navigateRef.current(route);
+				navigateToShortcut(navigateRef.current, route, pathnameRef.current);
 			},
 			onShare: (share) => {
 				offerSharedImport(share);

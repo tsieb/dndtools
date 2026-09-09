@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+	navigateToShortcut,
 	refreshPlatformState,
 	registerPlatformStateRefresh,
 	resetPlatformStateRefreshHandlersForTest,
@@ -34,5 +35,30 @@ describe('native resume refresh registry', () => {
 		expect(vault).toHaveBeenCalledTimes(1);
 		release();
 		await Promise.all([resume, active]);
+	});
+});
+
+
+describe('home-screen shortcut navigation (RC-PLT-2.2)', () => {
+	it('leaves the root directly beneath the shortcut, so one Back reaches it', () => {
+		const navigate = vi.fn();
+		// Tapped from somewhere deep in the app: the current entry becomes the root, and the
+		// destination goes on top of it.
+		navigateToShortcut(navigate as never, '/session', '/settings/players');
+		expect(navigate.mock.calls).toEqual([['/', { replace: true }], ['/session']]);
+	});
+
+	it('does not stack a second root when the shortcut is tapped from the root', () => {
+		const navigate = vi.fn();
+		navigateToShortcut(navigate as never, '/play', '/');
+		expect(navigate.mock.calls).toEqual([['/play']]);
+	});
+
+	it('replaces the previous shortcut rather than stacking shortcuts', () => {
+		const navigate = vi.fn();
+		// Session first, then Play: the second must not leave the first under it, or Back out of
+		// Play lands on Session instead of the root.
+		navigateToShortcut(navigate as never, '/play', '/session');
+		expect(navigate.mock.calls).toEqual([['/', { replace: true }], ['/play']]);
 	});
 });
