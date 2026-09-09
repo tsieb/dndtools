@@ -4,7 +4,9 @@ import ts from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import noLiteralJsxText from './scripts/eslint-rules/no-literal-jsx-text.js';
+import noRawStyleValues from './scripts/eslint-rules/no-raw-style-values.js';
 import { allow as literalTextAllow } from './scripts/eslint-rules/no-literal-jsx-text.allow.js';
+import { allow as rawStyleValuesAllow } from './scripts/eslint-rules/no-raw-style-values.allow.js';
 
 // Lint config for the React GM app (`apps/gm-react`), the processing core (`packages/core`),
 // the cloud Lambdas (`packages/cloud-fns`), and repo tooling (`scripts/`, `tests/`). The Svelte
@@ -57,6 +59,17 @@ export default ts.config(
 		plugins: { i18n: { rules: { 'no-literal-jsx-text': noLiteralJsxText } } },
 		rules: {
 			'i18n/no-literal-jsx-text': ['error', { allow: literalTextAllow, root: import.meta.dirname }],
+		},
+	},
+	{
+		// RC-DSN-1.1: inline style values in app and screens should move to tokens:
+		// spacing/radius tokens for layout, and semantic color tokens for raw `#hex`/`rgba(...)`.
+		// The allow-list is intentionally permissive initially and must be reduced file-by-file.
+		files: ['apps/gm-react/src/app/**/*.{ts,tsx}', 'apps/gm-react/src/screens/**/*.{ts,tsx}'],
+		ignores: ['**/*.test.tsx'],
+		plugins: { dsn: { rules: { 'no-raw-style-values': noRawStyleValues } } },
+		rules: {
+			'dsn/no-raw-style-values': ['error', { allow: rawStyleValuesAllow, root: import.meta.dirname }],
 		},
 	},
 	{
