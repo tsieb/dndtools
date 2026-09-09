@@ -90,12 +90,12 @@ html[data-android] a[href] {
 	--operation-touch-target: calc(var(--density-touch-target, 2rem) / var(--scene-board-scale, 1));
 }
 
-/* The compensated size, stated twice on purpose. The blanket `html[data-android] :is(button, …)`
-   rule above out-specifies a bare class, so on Android it clamped these controls to a 48px LAYOUT
-   box — which the board's own transform then painted at half that, i.e. the exact floor the rule
-   exists to enforce, missed. The `html[data-android]` copy carries enough specificity to win there,
-   and asks for the scale-compensated target rather than the flat one. */
-.scene-board-operation,
+/* Android only, and deliberately so. The blanket `html[data-android] :is(button, …)` rule above
+   out-specifies a bare class, so it clamped board operations to a 48px LAYOUT box that the board's
+   own transform then painted at half that — missing the exact floor the rule exists to enforce.
+   This copy carries enough specificity to win there and asks for the scale-compensated target
+   instead. It stays scoped to Android: off it, nothing demands a 48dp floor, and applying the
+   compensation everywhere inflates a tile's own controls far past the space the tile has. */
 html[data-android] :is(button, a[href], input, select, textarea).scene-board-operation {
 	min-width: var(--operation-touch-target);
 	min-height: var(--operation-touch-target);
