@@ -581,10 +581,9 @@ export function Board() {
 							onClose={() => setQualityOpen(false)}
 							style={{ position: 'absolute', top: '100%', left: 0, marginTop: 'var(--space-1)' }}
 						>
-							<ul
+							<div
 								data-testid="board-layout-issue-list"
 								style={{
-									listStyle: 'none',
 									margin: 0,
 									padding: 0,
 									display: 'flex',
@@ -592,31 +591,49 @@ export function Board() {
 									gap: 'var(--space-2)',
 								}}
 							>
-								{layoutIssues.map((issue, index) => (
-									<li
-										key={`${issue.kind}-${issue.widgetId}-${issue.otherWidgetId ?? index}`}
-										style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}
-									>
-										<Icon name={issue.kind === 'overflow' ? 'warning' : 'error'} size="sm" />
-										<span style={{ flex: 1, font: 'var(--text-xs) var(--font-sans)' }}>
-											{issue.kind === 'overflow'
-												? t('board.layoutIssueOverflow', { widget: titleOf(issue.widgetId) })
-												: t('board.layoutIssueOverlap', {
-														widget: titleOf(issue.widgetId),
-														other: titleOf(issue.otherWidgetId!),
-													})}
-										</span>
+								{layoutIssues.map((issue, index) => {
+									const text =
+										issue.kind === 'overflow'
+											? t('board.layoutIssueOverflow', { widget: titleOf(issue.widgetId) })
+											: t('board.layoutIssueOverlap', {
+													widget: titleOf(issue.widgetId),
+													other: titleOf(issue.otherWidgetId!),
+												});
+									return (
 										<Button
+											key={`${issue.kind}-${issue.widgetId}-${issue.otherWidgetId ?? index}`}
 											role="menuitem"
 											variant="ghost"
 											size="sm"
 											onClick={() => selectIssue(issue.widgetId)}
+											style={{
+												width: '100%',
+												justifyContent: 'space-between',
+												textAlign: 'left',
+												gap: 'var(--space-2)',
+											}}
 										>
-											{t('board.selectIssue')}
+											<span
+												style={{
+													display: 'flex',
+													alignItems: 'center',
+													gap: 'var(--space-2)',
+													minWidth: 0,
+												}}
+											>
+												<Icon
+													name={issue.kind === 'overflow' ? 'warning' : 'error'}
+													size="sm"
+												/>
+												<span style={{ flex: 1, font: 'var(--text-xs) var(--font-sans)' }}>{text}</span>
+											</span>
+											<span style={{ font: 'var(--text-xs) var(--font-sans)' }}>
+												{t('board.selectIssue')}
+											</span>
 										</Button>
-									</li>
-								))}
-							</ul>
+									);
+								})}
+							</div>
 						</Menu>
 					)}
 				</Card>
