@@ -33,5 +33,9 @@ Local validation: `pnpm exec vitest run tests/unit/perf-pipeline.test.ts
  tests/unit/perf-baseline.test.ts` (on one line). For runner reproduction, use
 `CI=true RUNNER_TEMP=/path/to/scratch bash scripts/perf/ci.sh` from a full checkout
 with Node, pnpm, and Playwright Chromium installed. Allow up to 180 minutes.
+The reference and candidate dev servers listen on `PERF_REFERENCE_PORT` (5373) and
+`PERF_PORT` (5273). A capture reuses any server already on its port, so on a shared
+host pick ports no other checkout is using. `taskset -c 0-3` approximates the
+4-vCPU hosted runner.
 Actual five-capture CI evidence must come from the workflow artifact; fixture
 unit tests do not establish shared-runner timing stability.
