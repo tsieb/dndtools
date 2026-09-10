@@ -57,3 +57,49 @@
 - Gates run for this pass: `pnpm lint` passed (0 errors, 15 pre-existing warnings; boundary and
   non-text contrast gates green) and the rule's unit suite passed 9/9. No application rendering
   changes were made; browser acceptance is unchanged from the prior pass.
+
+## Fourth pass — rebase onto the moved integration base (2026-09-10)
+
+- Rebased onto `loop/rc` at `fe023479`. It had moved past the `23309972` named in the task, so the
+  branch now also carries RC-ENG-2.4/2.5 (Android preflight, setup-e2e).
+- Dropped `1111f0fb` with `rebase --skip`; it duplicates `23309972`. The only hunk the upstream copy
+  lacks is in `tools/loop/run-loop.sh`, which upstream has since retired to a
+  dispatcher-redirect stub. Nothing was lost.
+- `12c170fd` (browser-acceptance unblock) conflicted in four files. Upstream `64ea76e7` and
+  `3026e0b1` had fixed the same four regressions independently during the v0.3.7 promotion.
+  Resolved per file, taking upstream wherever both fixed the same thing:
+  - `MapEditor.tsx`: took upstream's transition-only dock trigger. My split effect keyed on the
+    `editor.selection` array identity, so it could still reopen the sheet on a re-render.
+  - `widgets/builtin/Map.tsx`: took upstream's `scene-board-operation` class. My inline
+    `mapOperationStyle` applied the scale compensation on every platform, and `3026e0b1`
+    deliberately removed exactly that, because it pushed the zoom cluster under the neighbouring
+    tile on a phone. Keeping mine would have undone their fix, so the style constant, the
+    zoom-row change and the reserved canvas min-height were dropped along with it. The only
+    surviving hunk is the RC-DSN token swap `borderRadius: T.radius.sm`.
+  - `ImportMapDialog.tsx` and `android-quick-map.spec.ts`: took upstream. Upstream now reads SVG
+    dimensions from the markup so SVGs can be calibrated. My SVG-skips-calibration branch would
+    have bypassed that. The spec walks upstream's calibration steps.
+  - `InitiativeTracker.tsx`: took upstream's root-cause fix (`dense` Next-turn chip, centred
+    header). My whole-body scroll was redundant with it.
+  - `equipment.spec.ts`: kept upstream's comment and added my two stronger assertions: inventory
+    stays visible during preview, and the Item field returns after the preview ends.
+- Commit `096428ee` keeps the title "unblock browser acceptance for board controls and map
+  workflows", but after the resolution its only content is the Map.tsx token swap, the
+  equipment assertions and this journal. Its board and map fixes live upstream now.
+- The acceptance still holds on the rebased tree, and upstream did not already satisfy it (no
+  upstream commit adds the `T` groups or the ratchet). `pnpm lint` passed: it printed "Raw style
+  values: 2599 across 261 files", with 0 errors, the 15 pre-existing warnings, and boundary and
+  contrast green. The per-file allow-list needed no regeneration. A grep of `widgets/builtin`,
+  `WidgetPlaceholder.tsx` and `widget-body-kit.tsx` finds no raw hex or rgba, so
+  DEBT-2026-004(a),(d) remain resolved.
+- Other gates run: `pnpm typecheck` passed; `pnpm test:app` passed 103 files and 1098 tests;
+  Prettier and `git diff --check` are clean on the branch delta. The rule's own suite
+  (`tests/unit/no-raw-style-values.test.ts`) passed 9/9 when run directly.
+- `pnpm test:tooling` first failed 10 cases, all in upstream's `check-android.test.ts`, with
+  `ERR_MODULE_NOT_FOUND: saxes`. Upstream added that dependency in the new base, and this
+  worktree's `node_modules` predated it. My only `package.json` change adds the
+  `lint:raw-style-count` script. After `pnpm install --frozen-lockfile` (lockfile unchanged), it
+  passed 24 files and 161 tests.
+- The first browser run of the affected specs, on both profiles, was cut off by a session
+  teardown at about 125 of 218 tests, with no failures up to that point. It is being rerun in
+  full; the result is recorded below.
