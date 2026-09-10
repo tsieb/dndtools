@@ -236,6 +236,136 @@ export function isMaturitySignalReached(
 	return countMaturityMetric(state, signal.metric) >= signal.threshold;
 }
 
+/* ---- RC-UX-3.2 — feature spotlights -------------------------------------------------------------
+ * A spotlight is a one-time, non-blocking pointer at a capability the DM may not have found yet.
+ * Which spotlights exist and when each becomes due is declared DATA here; the app decides WHEN one
+ * appears (an idle moment) and records which have been shown in its device-preferences slice. The
+ * seen record is keyed by vault, so each spotlight shows once per vault, and marking is idempotent
+ * so a shown spotlight never comes back.
+ */
+
+/** What makes a spotlight due. `always` is due from the first idle moment; `maturity-signal` waits
+ * until the DM's own usage earns the surface it points at (the RC-UX-3.5 thresholds above). */
+export type SpotlightTrigger =
+	| { readonly kind: 'always' }
+	| { readonly kind: 'maturity-signal'; readonly signalId: string };
+
+/** A declared feature spotlight. Copy lives in the app's message catalog, keyed by `id`. */
+export interface SpotlightDefinition {
+	readonly id: string;
+	readonly trigger: SpotlightTrigger;
+	/** The route the spotlight's action opens, or null when it only points at a shortcut. */
+	readonly surface: string | null;
+	/** True when the spotlight teaches a keyboard shortcut, so a touch-only device never sees it. */
+	readonly needsKeyboard: boolean;
+}
+
+/** The declared spotlight queue, in the order due spotlights are shown. A surface the DM has just
+ * earned comes first; the evergreen keyboard tips wait behind it. Extend this table to add one. */
+export const FEATURE_SPOTLIGHTS: readonly SpotlightDefinition[] = [
+	{
+		id: 'graph',
+		trigger: { kind: 'maturity-signal', signalId: 'graph' },
+		surface: '/graph',
+		needsKeyboard: false,
+	},
+	{ id: 'command-palette', trigger: { kind: 'always' }, surface: null, needsKeyboard: true },
+	{ id: 'shortcuts', trigger: { kind: 'always' }, surface: null, needsKeyboard: true },
+];
+
+/** Spotlight ids already shown, per vault id. Device-local, never vault or sync state. */
+export type SeenSpotlights = Readonly<Record<string, readonly string[]>>;
+
+/** Reject malformed identifiers without discarding valid vault history. */
+const MAX_ID_LENGTH = 128;
+
+function isSpotlightId(value: unknown): value is string {
+	return typeof value === 'string' && value.length > 0 && value.length <= MAX_ID_LENGTH;
+}
+
+/**
+ * Parse the stored seen record. Anything unreadable parses as "nothing seen": the cost of a corrupt
+ * preference is one more showing of each spotlight, which beats throwing into the app shell.
+ */
+export function parseSeenSpotlights(raw: string | null): SeenSpotlights {
+	if (!raw) return {};
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return {};
+	}
+	if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+	const entries: [string, string[]][] = [];
+	for (const [vaultId, ids] of Object.entries(parsed)) {
+		if (!isSpotlightId(vaultId) || !Array.isArray(ids)) continue;
+		entries.push([vaultId, [...new Set(ids.filter(isSpotlightId))]]);
+	}
+	// `fromEntries` defines own properties, so a stored `__proto__` key stays an inert string key.
+	return Object.fromEntries(entries);
+}
+
+export function serializeSeenSpotlights(seen: SeenSpotlights): string {
+	return JSON.stringify(seen);
+}
+
+/** The spotlight ids already shown in one vault. Own keys only, so `constructor` is just a name. */
+export function spotlightsSeenIn(seen: SeenSpotlights, vaultId: string): readonly string[] {
+	return Object.prototype.hasOwnProperty.call(seen, vaultId) ? (seen[vaultId] ?? []) : [];
+}
+
+/** Record a spotlight as shown in a vault. Pure and idempotent: marking twice changes nothing. */
+export function markSpotlightSeen(
+	seen: SeenSpotlights,
+	vaultId: string,
+	spotlightId: string,
+): SeenSpotlights {
+	const current = spotlightsSeenIn(seen, vaultId);
+	if (current.includes(spotlightId)) return seen;
+	return Object.fromEntries([...Object.entries(seen), [vaultId, [...current, spotlightId]]]);
+}
+
+/**
+ * The vault a state belongs to, as stamped on its durable operations (`CoreEnvironment.vaultId`).
+ * A vault with no operations yet reports `fallback`, which the host passes as its environment's id
+ * so the key does not change once the first operation lands.
+ */
+export function spotlightVaultId(state: CoreStateSlice, fallback: string): string {
+	return state.sync.operations[0]?.vaultId ?? fallback;
+}
+
+function spotlightDue(trigger: SpotlightTrigger, state: CoreStateSlice): boolean {
+	switch (trigger.kind) {
+		case 'always':
+			return true;
+		case 'maturity-signal':
+			return isMaturitySignalReached(trigger.signalId, state);
+	}
+}
+
+/**
+ * The spotlights due for an actor in a vault, in declaration order: the head of this list is the
+ * one the host shows at its next idle moment. DM-only, like first-run setup, so a player (or the
+ * DM previewing as one) is never interrupted. Already-seen spotlights never reappear.
+ */
+export function pendingSpotlights(
+	state: CoreStateSlice,
+	actorId: ActorId,
+	vaultId: string,
+	seen: SeenSpotlights,
+	options: { readonly keyboard: boolean },
+	spotlights: readonly SpotlightDefinition[] = FEATURE_SPOTLIGHTS,
+): SpotlightDefinition[] {
+	if (state.permissions.actors[actorId]?.role !== 'dm') return [];
+	const shown = new Set(spotlightsSeenIn(seen, vaultId));
+	return spotlights.filter(
+		(spotlight) =>
+			!shown.has(spotlight.id) &&
+			(options.keyboard || !spotlight.needsKeyboard) &&
+			spotlightDue(spotlight.trigger, state),
+	);
+}
+
 /**
  * Assemble the onboarding view for an actor. First-run when the vault is fresh; complete once the
  * Command Center exists and the welcome steps are satisfied. The default tier is `core` so a

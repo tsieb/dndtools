@@ -46,6 +46,8 @@ export const PREFERENCE_KEYS = {
 	locale: 'dndtools:locale',
 	/** RC-KNW-2.3 — the command palette's just-run rows, newest first. UI history, not vault state. */
 	paletteRecents: 'dndtools:react:palette-recents',
+	/** RC-UX-3.2 — feature spotlights already shown, per vault (core `parseSeenSpotlights`). */
+	seenSpotlights: 'dndtools:react:seen-spotlights',
 } as const;
 
 export type PreferenceKey = (typeof PREFERENCE_KEYS)[keyof typeof PREFERENCE_KEYS];

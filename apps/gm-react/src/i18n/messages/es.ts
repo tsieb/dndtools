@@ -5828,6 +5828,18 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'help.tip.recoveryKey.title': 'Clave de recuperación',
 	'help.tip.recoveryKey.body':
 		'Las claves de cifrado de tu baúl, selladas con una frase de contraseña que tú eliges. Expórtala una vez y guárdala fuera de este dispositivo. Si pierdes todos los dispositivos con sesión iniciada, es la única forma de volver a abrir tus copias cifradas.',
+	// RC-UX-3.2 — avisos de funciones que se muestran una sola vez.
+	'spotlight.region': 'Consejo',
+	'spotlight.dismiss': 'Descartar consejo',
+	'spotlight.graph.title': 'Tus notas están conectadas',
+	'spotlight.graph.body':
+		'Tus notas ya se enlazan entre sí. El grafo de relaciones muestra esos enlaces para que puedas seguirlos.',
+	'spotlight.graph.action': 'Abrir el grafo',
+	'spotlight.commandPalette.title': 'Ve a cualquier parte',
+	'spotlight.commandPalette.body':
+		'Pulsa {keys} para abrir la paleta de comandos. Escribe unas letras para llegar a cualquier nota, escena o mapa.',
+	'spotlight.shortcuts.title': 'Atajos de teclado',
+	'spotlight.shortcuts.body': 'Pulsa {keys} en cualquier momento para ver todos los atajos.',
 	// RC-CHR-1.1 — economía de recursos de clase.
 	'character.resources.title': 'Recursos de clase',
 	'character.resources.add': 'Añadir un recurso',

@@ -5755,6 +5755,18 @@ export const en = {
 	'help.tip.recoveryKey.title': 'Recovery key',
 	'help.tip.recoveryKey.body':
 		'Your vault’s encryption keys, sealed under a passphrase you choose. Export it once and store it off this device. If every signed-in device is lost, it is the only way back into your encrypted backups.',
+	// RC-UX-3.2 — one-time feature spotlights (`app/help/Spotlight.tsx`), shown at an idle moment.
+	'spotlight.region': 'Tip',
+	'spotlight.dismiss': 'Dismiss tip',
+	'spotlight.graph.title': 'Your notes are connected',
+	'spotlight.graph.body':
+		'Your notes link to each other now. The relationship graph lays those links out so you can follow them.',
+	'spotlight.graph.action': 'Open the graph',
+	'spotlight.commandPalette.title': 'Jump anywhere',
+	'spotlight.commandPalette.body':
+		'Press {keys} to open the command palette. Type a few letters to reach any note, scene or map.',
+	'spotlight.shortcuts.title': 'Keyboard shortcuts',
+	'spotlight.shortcuts.body': 'Press {keys} at any time to see every shortcut.',
 	// RC-CHR-1.1 — the class-resource economy (`app/character/Resources.tsx`), shared by the Player
 	// screen and the player view. Every label the panel frames is package-driven; these are the
 	// words around them.
