@@ -25,3 +25,35 @@
 - Final original-failure plus raster-import rerun: 11 passed / 1 intentional desktop skip. Covers all eight operator failures, SVG commit/preservation, and raster grid/scale/wall commit on both profiles (`/tmp/rc-dsn-acceptance-final.log`).
 - Final map-layout follow-up: 20 passed, including pointer/keyboard zoom, rebinding, projection, fog, board axe, Android touch bounds, and compact map builder (`/tmp/rc-dsn-map-final.log`).
 - Formatting and diff whitespace checks passed. The complete repository browser suite remains for the central operator; no full-suite pass is claimed.
+
+## Third unblock pass — lint coverage defects
+
+- Review of bf3c2356 reported two medium defects in the enforcement/counting rule. Reproduced both
+  with in-memory probes against the rule, plus two adjacent gaps in the same resolution path:
+  - **Traversal-order dependence.** Style buckets were collected into a name map by a
+    `VariableDeclarator` visitor, so `style={s}` resolved only when `const s = {...}` appeared
+    _before_ the JSX. A bucket declared at the bottom of the file scored zero findings; the same
+    file with the declaration moved above the component scored two. Ordering, not content, decided
+    whether the debt was counted.
+  - **Multi-value spacing shorthands escaped detection.** `isPureNumericValue` matched a single
+    token, so `padding: '8px 12px'` and `padding: '7px 0'` were invisible. 570 such literals exist
+    in the scoped trees.
+  - `style={styles.row}` (member access) and `style={compact ? a : b}` / `padding: on ? 8 : 4`
+    (conditionals) resolved to nothing. 15 conditional style attributes exist in the scoped trees.
+- Rewrote resolution to use ESLint scope analysis rather than a traversal-order name map, so
+  bindings resolve regardless of declaration position and shadowed names resolve to the inner
+  binding. Added member access, conditional/logical branches, and spread targets. Findings are now
+  deduplicated by node so a bucket shared across several JSX sites counts once.
+- Widened raw color detection from inline style objects to any string or template literal in the
+  scoped trees, matching the story's wording. This catches canvas fill styles, gradient template
+  strings and the `sceneCardMood` palette table. `.test.ts` joins `.test.tsx` in `ignores` so test
+  fixtures are not counted as product debt.
+- `scripts/raw-style-count.js` gained `--write` to regenerate the ratchet from real counts; the
+  allow-list header now names that command instead of describing hand edits.
+- Count moves 2130 → **2599 findings across 261 files** (was 255) — the 469 newly visible values are
+  the coverage the defects were hiding, not new debt.
+- Verified unchanged: the five `T` groups still map to existing CSS tokens, and built-in widget
+  bodies still contain zero raw hex/rgba, so DEBT-2026-004(a),(d) remain resolved.
+- Gates run for this pass: `pnpm lint` passed (0 errors, 15 pre-existing warnings; boundary and
+  non-text contrast gates green) and the rule's unit suite passed 9/9. No application rendering
+  changes were made; browser acceptance is unchanged from the prior pass.

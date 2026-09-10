@@ -66,10 +66,13 @@ export default ts.config(
 		// spacing/radius tokens for layout, and semantic color tokens for raw `#hex`/`rgba(...)`.
 		// The allow-list is intentionally permissive initially and must be reduced file-by-file.
 		files: ['apps/gm-react/src/app/**/*.{ts,tsx}', 'apps/gm-react/src/screens/**/*.{ts,tsx}'],
-		ignores: ['**/*.test.tsx'],
+		ignores: ['**/*.test.ts', '**/*.test.tsx'],
 		plugins: { dsn: { rules: { 'no-raw-style-values': noRawStyleValues } } },
 		rules: {
-			'dsn/no-raw-style-values': ['error', { allow: rawStyleValuesAllow, root: import.meta.dirname }],
+			'dsn/no-raw-style-values': [
+				'error',
+				{ allow: rawStyleValuesAllow, root: import.meta.dirname },
+			],
 		},
 	},
 	{
