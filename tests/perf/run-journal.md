@@ -1,5 +1,30 @@
 # RC-ENG-1.3 implement retry journal
 
+## 2026-09-10 — tooling gate dependency recovery
+
+Starting candidate: `824eb1e519579e7368a62644ca15ac93af8e1adb`.
+Read the original tooling gate output for attempt
+`0d5d0789-d273-4aa5-b867-0f2453c03341`. Its ten failures were in
+`tests/unit/check-android.test.ts`; the diagnostic was `ERR_MODULE_NOT_FOUND`
+for `saxes`, imported by `scripts/check-android.mjs`. The perf tests passed
+in that same gate run. Both `package.json` and `pnpm-lock.yaml` already declared
+the dependency, while this worktree had no `node_modules/saxes` entry.
+
+Ran `ELECTRON_SKIP_BINARY_DOWNLOAD=1 pnpm install --frozen-lockfile`:
+exit 0, lockfile resolution skipped, `saxes 6.0.0` restored. No tracked files
+changed. Then reran the exact failed command,
+`pnpm test:tooling --maxWorkers=3`: exit 0, **24 files / 158 tests passed**
+(09:03:14 local start, 9.22 seconds). Shell syntax validation for
+`scripts/perf/ci.sh` and `git diff --check` also passed.
+
+This was stale installed dependency state after the branch changed, requiring
+no perf or Android source edit. Refresh dependencies from the frozen lockfile
+before running gates after future branch updates. The supplied wrapper feedback
+reported Typecheck and Lint passing on the starting candidate; those checks were
+not rerun here. This local tooling rerun does not establish hosted performance
+acceptance or a new central wrapper result. No push, promotion, workflow dispatch,
+new loop, or dispatcher control-state edit was performed.
+
 ## 2026-09-10 — hosted acceptance evidence remains pending
 
 Starting candidate: `e1fccabf1dc06f0128e6fae4867fbc83546c7c68`.
