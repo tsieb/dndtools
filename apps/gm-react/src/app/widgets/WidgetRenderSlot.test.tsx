@@ -3,7 +3,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { WidgetErrorBoundary, WidgetPlaceholder } from './WidgetRenderSlot';
+import { WidgetErrorBoundary, WidgetPlaceholder, WidgetStyleScope } from './WidgetRenderSlot';
 import { WIDGET_PLACEHOLDER_COPY } from './resolveRenderer';
 
 /**
@@ -38,6 +38,23 @@ describe('WidgetPlaceholder', () => {
 		expect(text).toContain(WIDGET_PLACEHOLDER_COPY.label);
 		expect(text).toContain('Its widget package is turned off.');
 		expect(text).toContain(WIDGET_PLACEHOLDER_COPY.reassurance);
+	});
+});
+
+describe('WidgetStyleScope', () => {
+	it('sets the declared variables as var() references on a box-less wrapper (RC-WID-2.4)', () => {
+		act(() =>
+			root.render(
+				<WidgetStyleScope variables={{ '--widget-accent': 'var(--color-accent)' }}>
+					<span>Body</span>
+				</WidgetStyleScope>,
+			),
+		);
+		const scope = container.querySelector<HTMLElement>('[data-widget-style-scope]');
+		expect(scope).not.toBeNull();
+		expect(scope!.style.getPropertyValue('--widget-accent')).toBe('var(--color-accent)');
+		expect(scope!.style.display).toBe('contents');
+		expect(scope!.textContent).toBe('Body');
 	});
 });
 

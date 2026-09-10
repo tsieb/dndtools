@@ -1,5 +1,7 @@
 import type React from 'react';
+import { resolveWidgetStyleVariables } from '@dndtools/core';
 import { Badge, Button, Card, Icon, IconButton, Select } from '../../ds';
+import { SEMANTIC_TOKEN_VALUES } from '../../app/widgetBuilder/vocabulary';
 import { WidgetGlyph } from '../../app/SceneBoardCanvas';
 import { isWidgetResizable, TIER_LABEL, type BoardWidget } from '../../app/board-helpers';
 import { PHONE_PANEL_OVERLAY, type Visibility } from './shared';
@@ -41,6 +43,20 @@ export function Inspector({
 	// `visibility` has its own dedicated control; never surface it twice if a widget also declares it.
 	const settingsFields = widget.configFields.filter((f) => f.key !== 'visibility');
 	const resizable = isWidgetResizable(widget);
+	// RC-WID-2.4 — the `--widget-*` tokens the package declared. A system widget's default
+	// accent/text pair is consumed by no host body, so listing it would present knobs that do nothing;
+	// the group shows what a package AUTHOR declared.
+	const styleTokens = widget.tier === 'system' ? [] : (widget.styleTokens ?? []);
+	// Resolved the way the frame resolves them (instance overrides included), and set on the group so
+	// each swatch reads the same `var()` the placed widget does and re-themes with `data-theme`.
+	const styleVariables = resolveWidgetStyleVariables(
+		{ style: { isolation: 'host-scoped', tokens: styleTokens } },
+		widget.configuration,
+	);
+	const tokenValueLabel = (value: string) => {
+		const semantic = SEMANTIC_TOKEN_VALUES.find((option) => option.value === value);
+		return semantic ? t(semantic.label) : value;
+	};
 	return (
 		<Card
 			elevation="overlay"
@@ -128,6 +144,84 @@ export function Inspector({
 							onCommit={(value) => onConfigure(field.key, value)}
 						/>
 					))}
+				</Section>
+			)}
+
+			{styleTokens.length > 0 && (
+				<Section label={t('sceneEditor.style')}>
+					<div
+						role="list"
+						aria-label={t('sceneEditor.styleTokens')}
+						data-testid="widget-inspector-style"
+						style={
+							{
+								display: 'flex',
+								flexDirection: 'column',
+								gap: 'var(--space-2)',
+								...styleVariables,
+							} as React.CSSProperties
+						}
+					>
+						{styleTokens.map((token) => {
+							const variable = `--widget-${token.name}`;
+							return (
+								<div
+									key={token.name}
+									role="listitem"
+									style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}
+								>
+									<span
+										aria-hidden="true"
+										data-testid={`widget-style-swatch-${token.name}`}
+										style={{
+											width: 16,
+											height: 16,
+											flex: '0 0 auto',
+											borderRadius: 'var(--radius-sm)',
+											border: '1px solid var(--color-border)',
+											background: `var(${variable})`,
+										}}
+									/>
+									<div
+										style={{
+											display: 'flex',
+											flexDirection: 'column',
+											gap: 'var(--space-1)',
+											minWidth: 0,
+										}}
+									>
+										<span
+											style={{
+												font: '600 var(--text-2xs) var(--font-mono)',
+												color: 'var(--color-text-primary)',
+												overflowWrap: 'anywhere',
+											}}
+										>
+											{variable}
+										</span>
+										<span
+											style={{
+												font: 'var(--text-2xs) var(--font-sans)',
+												color: 'var(--color-text-secondary)',
+											}}
+										>
+											{tokenValueLabel(styleVariables[variable] ?? token.value)}
+										</span>
+										{token.description && (
+											<span
+												style={{
+													font: 'var(--text-2xs)/1.4 var(--font-sans)',
+													color: 'var(--color-text-tertiary)',
+												}}
+											>
+												{token.description}
+											</span>
+										)}
+									</div>
+								</div>
+							);
+						})}
+					</div>
 				</Section>
 			)}
 

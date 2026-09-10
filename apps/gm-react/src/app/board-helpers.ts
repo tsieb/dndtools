@@ -3,6 +3,7 @@ import type {
 	WidgetConfigField,
 	WidgetDefinition,
 	WidgetInstance,
+	WidgetStyleTokenDefinition,
 } from '@dndtools/core';
 
 /**
@@ -68,6 +69,12 @@ export interface BoardWidget {
 	 * bound. Live bodies resolve the bound entity through the actor-filtered queries from this ref.
 	 */
 	bindingRef: { entityType: string; entityId: string } | null;
+	/**
+	 * The `--widget-*` style tokens the definition DECLARES (`WidgetDefinition.style.tokens`,
+	 * RC-WID-2.4), listed in the scene Inspector's Style group. Optional so hand-built view-models
+	 * (the builder preview, test fixtures) that declare none need not spell out an empty list.
+	 */
+	styleTokens?: WidgetStyleTokenDefinition[];
 }
 
 // WidgetDefinition.author is the closest core analogue to the prototype's four widget "tiers".
@@ -154,6 +161,7 @@ export function boardWidgetsOf(
 			configFields: def?.configFields ?? [],
 			requiresBinding: (def?.requiredBindings?.length ?? 0) > 0,
 			commands: (def?.commands ?? []).map((command) => command.type),
+			styleTokens: def?.style?.tokens ?? [],
 			bindingRef: instance.binding
 				? {
 						entityType: instance.binding.source.entityType,

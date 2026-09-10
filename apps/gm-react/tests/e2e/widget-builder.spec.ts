@@ -350,6 +350,114 @@ test.describe('widget builder: config and commands steps (RC-WID-2.3)', () => {
 	});
 });
 
+test.describe('widget builder: style step (RC-WID-2.4)', () => {
+	// A declared token has to reach the placed widget: the scene Inspector lists it in its Style
+	// group, and the frame carries it as a custom property that still POINTS AT the semantic token —
+	// so swapping `data-theme` re-resolves it rather than keeping the palette it was built under.
+	test('declares a semantic token that the Inspector lists and that re-themes with data-theme', async ({
+		page,
+	}) => {
+		const dialog = await openBuilder(page);
+		await dialog.getByLabel('Name', { exact: true }).fill('Party status');
+
+		await dialog.getByRole('button', { name: 'Style', exact: true }).click();
+		await dialog.getByRole('button', { name: 'Add style token' }).click();
+		await expect(dialog.getByText('--widget-accent-1', { exact: true })).toBeVisible();
+		// Without the custom-stylesheet capability the value is a pick from the semantic list.
+		const value = dialog.getByLabel('Value', { exact: true });
+		await expect(value).toHaveValue('var(--color-accent)');
+		expect(await value.evaluate((el) => el.tagName)).toBe('SELECT');
+		await dialog.getByLabel('Description', { exact: true }).fill('Highlight colour.');
+
+		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await dialog.getByRole('button', { name: 'Install widget' }).click();
+		await expect(dialog).toHaveCount(0);
+
+		const record = await installedPackage(page, PACKAGE_ID);
+		const style = (
+			record!.package.widgets[0] as unknown as {
+				style?: {
+					tokens?: Array<{ name: string; value: string; description?: string }>;
+					cssVariables?: Record<string, string>;
+				};
+			}
+		).style;
+		expect(style?.tokens).toEqual([
+			{ name: 'accent-1', value: 'var(--color-accent)', description: 'Highlight colour.' },
+		]);
+		expect(style?.cssVariables).toEqual({ '--widget-accent-1': 'var(--color-accent)' });
+
+		// ── Enable, place, select.
+		await page.getByRole('switch', { name: 'Enable Party status' }).click();
+		await expect.poll(async () => (await installedPackage(page, PACKAGE_ID))?.enabled).toBe(true);
+
+		const sceneName = `Style Scene ${Date.now()}`;
+		const created = await dispatch(page, {
+			type: 'scene.create',
+			actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+			payload: { name: sceneName, description: '', visibility: 'dm-only', tags: [] },
+		});
+		expect(created.status).toBe('accepted');
+		const sceneId = await page.evaluate(
+			(name) =>
+				Object.values(window.__rt!.state.scenes.scenes).find((s) => s.name === name)?.id ?? null,
+			sceneName,
+		);
+
+		await gotoRoute(page, `/scene/${sceneId}`);
+		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+		await page
+			.getByTestId('scene-add-widget-panel')
+			.getByRole('button', { name: /Party status/ })
+			.click();
+
+		const widgetId = await page.evaluate(
+			(id) =>
+				window.__rt!.state.scenes.scenes[id!]!.widgets.find(
+					(w) => (w as { type: string }).type === 'party-status',
+				)?.id ?? null,
+			sceneId,
+		);
+		expect(widgetId).toBeTruthy();
+		await page.getByTestId(`widget-${widgetId}`).focus();
+		await page.keyboard.press('Enter');
+
+		// ── The Inspector's Style group lists the token, what it points at, and why it exists.
+		const styleGroup = page.getByTestId('widget-inspector').getByTestId('widget-inspector-style');
+		await expect(styleGroup).toBeVisible();
+		await expect(styleGroup.getByText('--widget-accent-1', { exact: true })).toBeVisible();
+		await expect(styleGroup.getByText('Accent', { exact: true })).toBeVisible();
+		await expect(styleGroup.getByText('Highlight colour.', { exact: true })).toBeVisible();
+
+		// ── The frame carries the variable, and it follows the theme on both surfaces.
+		const scope = page.getByTestId(`widget-${widgetId}`).locator('[data-widget-style-scope]');
+		const swatch = styleGroup.getByTestId('widget-style-swatch-accent-1');
+		const underTheme = async (theme: string) => {
+			await page.evaluate(
+				(next) => document.documentElement.setAttribute('data-theme', next),
+				theme,
+			);
+			return {
+				frame: await scope.evaluate((el) =>
+					getComputedStyle(el).getPropertyValue('--widget-accent-1').trim(),
+				),
+				swatch: await swatch.evaluate((el) => getComputedStyle(el).backgroundColor),
+				accent: await page.evaluate(() =>
+					getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim(),
+				),
+			};
+		};
+		const tavern = await underTheme('tavern');
+		const parchment = await underTheme('parchment');
+		// A reference to the theme's accent, not a colour copied out of it at build time.
+		expect(tavern.frame).toBe(tavern.accent);
+		expect(parchment.frame).toBe(parchment.accent);
+		expect(parchment.frame).not.toBe(tavern.frame);
+		expect(parchment.swatch).not.toBe(tavern.swatch);
+	});
+});
+
 test.describe('widget builder: export and new version (RC-WID-2.7)', () => {
 	/** Install the minimal `Party status` package the other tests use, from a fresh vault. */
 	async function installMinimal(page: Page) {

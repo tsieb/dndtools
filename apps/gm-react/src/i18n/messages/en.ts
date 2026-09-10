@@ -4176,6 +4176,8 @@ export const en = {
 	'sceneEditor.saveDetails': 'Save details',
 	'sceneEditor.closeInspector': 'Close inspector',
 	'sceneEditor.settings': 'Settings',
+	'sceneEditor.style': 'Style',
+	'sceneEditor.styleTokens': 'Style tokens',
 	'sceneEditor.fixedMapSource': 'This widget’s map source is fixed and can’t be changed here.',
 	'sceneEditor.fixedDataSource': 'This widget’s data source is fixed and can’t be changed here.',
 	'sceneEditor.visibility': 'Visibility',

@@ -1,5 +1,9 @@
-import { Component, type ComponentType, type ReactNode } from 'react';
-import { findWidgetDefinition, type WidgetTemplateKind } from '@dndtools/core';
+import { Component, type ComponentType, type CSSProperties, type ReactNode } from 'react';
+import {
+	findWidgetDefinition,
+	resolveWidgetStyleVariables,
+	type WidgetTemplateKind,
+} from '@dndtools/core';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { WidgetBody, hasBuiltinBody, type WidgetCommandHandler } from '../widget-bodies';
 import type { BoardWidget } from '../board-helpers';
@@ -96,6 +100,29 @@ export class WidgetErrorBoundary extends Component<
 	}
 }
 
+/**
+ * The widget's declared `--widget-*` custom properties (RC-WID-2.4), set on a wrapper that draws no
+ * box, so every branch's body inherits them without the frame's layout changing. Values stay the
+ * `var()` references the package declared, so they re-resolve under whichever `data-theme` encloses
+ * the frame instead of freezing the palette of the theme that was active when it was placed.
+ *
+ * Always rendered, even with no variables, so a package that gains or loses tokens does not remount
+ * the body under it — a sandboxed widget would reload its frame.
+ */
+export function WidgetStyleScope({
+	variables,
+	children,
+}: {
+	variables: Record<string, string>;
+	children: ReactNode;
+}) {
+	return (
+		<div data-widget-style-scope="" style={{ display: 'contents', ...variables } as CSSProperties}>
+			{children}
+		</div>
+	);
+}
+
 /** Draw one resolved plan. Split out so the resolver's branches map 1:1 onto render calls. */
 function renderPlan(plan: WidgetRenderPlan, props: WidgetRendererProps): ReactNode {
 	switch (plan.kind) {
@@ -152,8 +179,12 @@ export function WidgetRenderSlot({ widget, onCommand }: WidgetRendererProps) {
 		},
 	);
 	return (
-		<WidgetErrorBoundary widgetId={widget.id}>
-			{renderPlan(plan, { widget, onCommand })}
-		</WidgetErrorBoundary>
+		<WidgetStyleScope
+			variables={definition ? resolveWidgetStyleVariables(definition, widget.configuration) : {}}
+		>
+			<WidgetErrorBoundary widgetId={widget.id}>
+				{renderPlan(plan, { widget, onCommand })}
+			</WidgetErrorBoundary>
+		</WidgetStyleScope>
 	);
 }

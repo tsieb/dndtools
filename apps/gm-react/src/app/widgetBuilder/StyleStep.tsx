@@ -32,6 +32,8 @@ type Translate = (key: MessageKey, values?: MessageValues) => string;
  * Values are picked from the app's SEMANTIC tokens rather than typed as hex, so a widget re-themes
  * with `data-theme` instead of freezing one palette into a package. A widget that genuinely needs
  * its own colour space declares the `custom-stylesheet` capability before entering a raw value.
+ * Once placed, the tokens are set on the widget's frame (`WidgetStyleScope`) and listed in the scene
+ * Inspector's Style group.
  */
 
 const isolationOptions = (t: Translate) =>
