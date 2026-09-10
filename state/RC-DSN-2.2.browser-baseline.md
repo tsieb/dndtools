@@ -59,3 +59,14 @@ assertions were relaxed, tests skipped, or unrelated product behavior changed to
 make the missing-primitives task appear green. The central operator has the
 baseline evidence to triage the broad gate separately. The eleven primitives,
 screen integrations, tests and docs remain in `064d3e12`.
+
+
+## 2026-09-10 rebased verification
+
+The historical failed acceptance above is superseded for the affected suites by a fresh run on the
+rebased task: **378 passed, 10 existing skips, zero failures**, desktop/mobile Chromium, isolated
+port 15582. All upstream conflict-related scenarios pass, and the open layout-issues menu has zero
+axe violations with focus/navigation/dismissal coverage. See the journal's "Rebased final validation"
+for the exact twelve-suite command and retained original logs. Static gates, app tests, package
+typechecks, lint, production build and the accessibility report also pass. The full repository
+browser suite is still delegated to the central operator; this is an affected-path validation result.
