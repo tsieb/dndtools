@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import type { WidgetStyleCapability, WidgetStyleIsolation } from '@dndtools/core';
 import { Checkbox, Field, Input, Select } from '../../ds';
 import { T } from '../screen-kit';
@@ -26,12 +27,11 @@ type Translate = (key: MessageKey, values?: MessageValues) => string;
 
 /**
  * Style — the `--widget-*` tokens this widget exposes, and how isolated its styling is
- * (RC-WID-2.1).
+ * (RC-WID-2.4).
  *
  * Values are picked from the app's SEMANTIC tokens rather than typed as hex, so a widget re-themes
  * with `data-theme` instead of freezing one palette into a package. A widget that genuinely needs
- * its own colour space declares the `custom-stylesheet` capability and ships one — RC-WID-2.4
- * carries that further.
+ * its own colour space declares the `custom-stylesheet` capability before entering a raw value.
  */
 
 const isolationOptions = (t: Translate) =>
@@ -45,9 +45,20 @@ const tokenValueOptions = (t: Translate) =>
 
 export function StyleStep({ draft, patch, issues }: StepProps) {
 	const { t } = useI18n();
+	const tokenValuesId = useId();
+	const defaultTokenValue = SEMANTIC_TOKEN_VALUES[0]?.value ?? 'var(--color-accent)';
+	let nextTokenNumber = 1;
+	while (draft.styleTokens.some((token) => token.name === `accent-${nextTokenNumber}`)) {
+		nextTokenNumber += 1;
+	}
 	const allowsRawValue = draft.styleCapabilities.includes('custom-stylesheet');
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+			<datalist id={tokenValuesId}>
+				{tokenValueOptions(t).map((option) => (
+					<option key={option.value} value={option.value} label={option.label} />
+				))}
+			</datalist>
 			<StepHeader title={t('builder.style.title')} help={t('builder.style.help')} />
 			<StepSection title={t('builder.style.tokens')} help={t('builder.style.tokensHelp')}>
 				{issueFor(issues, 'styleTokens', t) && (
@@ -63,8 +74,8 @@ export function StyleStep({ draft, patch, issues }: StepProps) {
 							styleTokens: [
 								...draft.styleTokens,
 								{
-									name: `accent-${draft.styleTokens.length + 1}`,
-									value: SEMANTIC_TOKEN_VALUES[0]?.value ?? 'var(--color-accent)',
+									name: `accent-${nextTokenNumber}`,
+									value: defaultTokenValue,
 								},
 							],
 						})
@@ -92,9 +103,9 @@ export function StyleStep({ draft, patch, issues }: StepProps) {
 									/>
 								</Field>
 								<Field label={t('builder.style.value')}>
-									{allowsRawValue &&
-									!SEMANTIC_TOKEN_VALUES.some((option) => option.value === token.value) ? (
+									{allowsRawValue ? (
 										<Input
+											list={tokenValuesId}
 											value={token.value}
 											onChange={(e: { target: { value: string } }) =>
 												patch({
@@ -164,6 +175,17 @@ export function StyleStep({ draft, patch, issues }: StepProps) {
 							label={t(STYLE_CAPABILITY_LABEL[capability])}
 							onChange={() =>
 								patch({
+									// Revoke custom values together with their capability so the
+									// package cannot retain a palette that stops following the theme.
+									...(capability === 'custom-stylesheet' && allowsRawValue
+										? {
+												styleTokens: draft.styleTokens.map((token) =>
+													SEMANTIC_TOKEN_VALUES.some((option) => option.value === token.value)
+														? token
+														: { ...token, value: defaultTokenValue },
+												),
+											}
+										: {}),
 									styleCapabilities: draft.styleCapabilities.includes(capability)
 										? draft.styleCapabilities.filter(
 												(entry: WidgetStyleCapability) => entry !== capability,
