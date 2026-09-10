@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { PERFORMANCE_BUDGETS } from '@dndtools/core';
+import { interleavedOrder } from '../../scripts/perf/capture';
 import { measureCapture } from '../../scripts/perf/compare';
 import { verifyStability } from '../../scripts/perf/stability';
 
@@ -23,6 +24,22 @@ function report() {
 }
 
 describe('shared runner performance', () => {
+	it('pairs every reference batch with a candidate batch and alternates which runs first', () => {
+		const sides = ['reference', 'candidate'] as const;
+		const order = Array.from({ length: 7 }, (_, repeat) => interleavedOrder(sides, repeat));
+		expect(order.every((pair) => [...pair].sort().join() === 'candidate,reference')).toBe(true);
+		expect(order.map((pair) => pair[0])).toEqual([
+			'reference',
+			'candidate',
+			'reference',
+			'candidate',
+			'reference',
+			'candidate',
+			'reference',
+		]);
+		expect(interleavedOrder(['candidate'], 3)).toEqual(['candidate']);
+		expect(sides).toEqual(['reference', 'candidate']);
+	});
 	it('rejects minority noisy batches without discarding raw tail semantics', () => {
 		const durations = [1000, 1010, 1020, 1030, 1040, 1621, 9000];
 		expect(

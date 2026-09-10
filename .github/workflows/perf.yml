@@ -1,5 +1,6 @@
-# RC-ENG-1.3: measure a pinned reference on the same physical runner, then verify five
-# candidate captures. Raw batches, actual CI baseline, reports and agreement evidence are retained.
+# RC-ENG-1.3: measure a pinned reference and the candidate interleaved, batch by batch, on the same
+# runner, five times over, and verify the five runs agree. Raw batches, the CI baselines, reports and
+# agreement evidence are retained.
 name: Performance
 
 on:
@@ -38,7 +39,8 @@ jobs:
   measure:
     name: capture and compare budgets
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    # Five paired runs measure both revisions every time; GitHub-hosted jobs cap at 360.
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -63,7 +65,7 @@ jobs:
       - name: Set up browser tests
         uses: ./.github/actions/setup-e2e
 
-      - name: Measure CI reference and verify five candidate runs
+      - name: Measure reference and candidate interleaved, five runs
         run: bash scripts/perf/ci.sh
 
       - name: Upload the run and the report

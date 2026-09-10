@@ -32,8 +32,14 @@
  * Usage:
  *   tsx scripts/perf/capture.ts [--out tests/perf/current.json] [--port 5273] [--notes 200]
  *                              [--only app-startup,search] [--skip smoke-ci] [--headed]
+ *                              [--reference-root <dir> --reference-port 5373 --reference-out <file>]
  *
  * `--only` / `--skip` take comma-separated budget ids. With no filter every budget is captured.
+ *
+ * `--reference-root` measures a second checkout ALONGSIDE this one: each revision gets its own dev
+ * server, and every scenario alternates a reference batch with a candidate batch (see
+ * `interleavedOrder`). Both run files then describe the same minutes on the same machine, so a runner
+ * that changes speed mid-job moves both revisions together instead of reading as drift.
  */
 
 import { spawn, spawnSync } from 'node:child_process';
@@ -157,6 +163,10 @@ interface Options {
 	only: Set<string> | null;
 	skip: Set<string>;
 	headed: boolean;
+	/** A second checkout to measure alongside this one, batch by batch; `null` measures this one only. */
+	referenceRoot: string | null;
+	referencePort: number;
+	referenceOut: string | null;
 }
 
 function parseOptions(argv: readonly string[]): Options {
@@ -187,6 +197,9 @@ function parseOptions(argv: readonly string[]): Options {
 		only: flags.has('only') ? list(flags.get('only')) : null,
 		skip: list(flags.get('skip')),
 		headed: bare.has('headed'),
+		referenceRoot: flags.get('reference-root') ?? null,
+		referencePort: Number(flags.get('reference-port') ?? 5373),
+		referenceOut: flags.get('reference-out') ?? null,
 	};
 }
 
@@ -227,15 +240,18 @@ async function waitForPort(port: number, timeoutMs: number): Promise<void> {
  */
 async function ensureDevServer(
 	port: number,
+	root: string,
 ): Promise<{ stop: () => Promise<void>; reused: boolean }> {
 	if (await isPortOpen(port)) return { stop: async () => {}, reused: true };
 	mkdirSync(join(REPO_ROOT, 'tmp'), { recursive: true });
-	const log = createWriteStream(join(REPO_ROOT, 'tmp/perf-dev-server.log'), { flags: 'a' });
+	const log = createWriteStream(join(REPO_ROOT, `tmp/perf-dev-server-${port}.log`), {
+		flags: 'a',
+	});
 	const child = spawn(
 		'pnpm',
 		['--filter', '@dndtools/gm-react', 'exec', 'vite', '--port', String(port)],
 		{
-			cwd: REPO_ROOT,
+			cwd: root,
 			detached: true,
 			stdio: ['ignore', 'pipe', 'pipe'],
 			env: {
@@ -256,8 +272,8 @@ async function ensureDevServer(
 	await waitForPort(port, 120_000);
 	return {
 		reused: false,
-		// Wait for the port to close: a capture that follows (the CI script measures two revisions
-		// back to back) must never reuse this revision's still-exiting server and measure the wrong code.
+		// Wait for the port to close: a capture that follows (the CI script runs five in a row) must
+		// never reuse this revision's still-exiting server and measure the wrong code.
 		stop: async () => {
 			if (child.pid !== undefined) {
 				try {
@@ -389,7 +405,10 @@ interface Scenario {
 
 interface ScenarioContext {
 	readonly browser: Browser;
+	/** `options.port` is the dev server of the revision this batch measures. */
 	readonly options: Options;
+	/** The checkout of the revision this batch measures. */
+	readonly root: string;
 }
 
 /** Round to 3 decimals so run files diff cleanly without pretending to sub-microsecond precision. */
@@ -1071,10 +1090,10 @@ function mapPanZoom(budgetId: string, profile: 'desktop' | 'slim'): Scenario {
  */
 const smokeCi: Scenario = {
 	budgetId: 'smoke-ci',
-	run: async () => {
+	run: async ({ root }) => {
 		const started = Date.now();
 		const result = spawnSync('pnpm', ['test:smoke'], {
-			cwd: REPO_ROOT,
+			cwd: root,
 			encoding: 'utf8',
 			timeout: 15 * 60 * 1000,
 		});
@@ -1140,6 +1159,23 @@ function hostDescription(): PerfRunFile['host'] {
 	};
 }
 
+/** One revision a capture measures: its checkout, the port its dev server uses, and its run file. */
+interface Side {
+	readonly label: 'reference' | 'candidate';
+	readonly root: string;
+	readonly port: number;
+	readonly out: string;
+}
+
+/**
+ * The order the revisions run in on batch `repeat`: as given on even repeats, reversed on odd ones.
+ * Pairing batches in time means a machine that speeds up or slows down mid-job moves both revisions
+ * together, and alternating which goes first cancels any bias from always running second.
+ */
+export function interleavedOrder<T>(sides: readonly T[], repeat: number): T[] {
+	return repeat % 2 === 0 ? [...sides] : [...sides].reverse();
+}
+
 async function main(): Promise<void> {
 	const options = parseOptions(process.argv.slice(2));
 	const selected = SCENARIOS.filter(
@@ -1149,22 +1185,44 @@ async function main(): Promise<void> {
 	);
 	if (selected.length === 0) throw new Error('no scenarios selected; check --only / --skip');
 
-	const needsBrowser = selected.some((scenario) => scenario.budgetId !== 'smoke-ci');
-	const server = needsBrowser
-		? await ensureDevServer(options.port)
-		: { stop: async () => {}, reused: true };
-	if (needsBrowser) {
-		console.log(
-			server.reused
-				? `· reusing the dev server already on :${options.port}`
-				: `· started a dev server on :${options.port}`,
-		);
+	const sides: Side[] = [];
+	if (options.referenceRoot !== null) {
+		if (options.referenceOut === null || options.referencePort === options.port) {
+			throw new Error(
+				'--reference-root needs --reference-out and a --reference-port distinct from --port',
+			);
+		}
+		sides.push({
+			label: 'reference',
+			root: resolve(options.referenceRoot),
+			port: options.referencePort,
+			out: options.referenceOut,
+		});
 	}
+	sides.push({ label: 'candidate', root: REPO_ROOT, port: options.port, out: options.out });
+	const paired = sides.length > 1;
 
+	const needsBrowser = selected.some((scenario) => scenario.budgetId !== 'smoke-ci');
+	const servers: Array<{ stop: () => Promise<void> }> = [];
 	let browser: Browser | null = null;
-	const captured: CapturedBudget[] = [];
+	const captured = new Map<Side['label'], CapturedBudget[]>(sides.map((side) => [side.label, []]));
 	try {
 		if (needsBrowser) {
+			for (const side of sides) {
+				const server = await ensureDevServer(side.port, side.root);
+				servers.push(server);
+				// A reused server could be serving any revision; a paired capture must know which it measures.
+				if (paired && server.reused) {
+					throw new Error(
+						`:${side.port} already had a server listening; a paired capture starts its own.`,
+					);
+				}
+				console.log(
+					server.reused
+						? `· reusing the dev server already on :${side.port}`
+						: `· started a dev server on :${side.port}${paired ? ` (${side.label})` : ''}`,
+				);
+			}
 			const chromium = await loadChromium();
 			browser = await chromium.launch({ headless: !options.headed });
 		}
@@ -1173,66 +1231,88 @@ async function main(): Promise<void> {
 			process.stdout.write(`· ${label} … `);
 			const started = Date.now();
 			try {
-				const batches: Omit<CapturedBudget, 'budgetId'>[] = [];
+				const batches = new Map<Side['label'], Capture[]>(sides.map((side) => [side.label, []]));
 				for (let repeat = 0; repeat < 7; repeat += 1) {
-					const batch = await scenario.run({ browser: browser as Browser, options });
-					if (batch.samples.length === 0) throw new Error(batch.unavailableReason ?? 'empty batch');
-					batches.push(batch);
+					for (const side of interleavedOrder(sides, repeat)) {
+						const batch = await scenario.run({
+							browser: browser as Browser,
+							options: { ...options, port: side.port },
+							root: side.root,
+						});
+						if (batch.samples.length === 0) {
+							throw new Error(`${side.label}: ${batch.unavailableReason ?? 'empty batch'}`);
+						}
+						batches.get(side.label)!.push(batch);
+					}
 				}
-				const capture = {
-					...batches[0],
-					samples: batches.flatMap((batch) => [...batch.samples]),
-					repetitions: batches.map((batch) => batch.samples),
-				};
-				captured.push({ budgetId: label, ...capture });
+				for (const side of sides) {
+					const sideBatches = batches.get(side.label)!;
+					captured.get(side.label)!.push({
+						budgetId: label,
+						...sideBatches[0],
+						samples: sideBatches.flatMap((batch) => [...batch.samples]),
+						repetitions: sideBatches.map((batch) => batch.samples),
+					});
+				}
+				const candidate = batches.get('candidate')!;
 				console.log(
-					capture.samples.length === 0
-						? `no samples (${capture.unavailableReason ?? 'scenario recorded nothing'})`
-						: `${capture.samples.length} samples in ${Math.round((Date.now() - started) / 1000)}s`,
+					`${candidate.flatMap((batch) => batch.samples).length} samples${paired ? ' per revision, interleaved,' : ''} in ${Math.round((Date.now() - started) / 1000)}s`,
 				);
 			} catch (error) {
-				// A scenario that throws records ZERO samples and the reason. It must never be omitted:
-				// a missing budget would silently shrink the report, while an empty one grades `unknown`.
+				// A scenario that throws records ZERO samples and the reason, on every side of a paired
+				// capture, so neither file can grade a half-measured budget. It must never be omitted: a
+				// missing budget would silently shrink the report, while an empty one grades `unknown`.
 				const reason = error instanceof Error ? error.message : String(error);
-				captured.push({
-					budgetId: label,
-					samples: [],
-					scenario: 'Scenario failed before it could record a sample.',
-					fixture: 'n/a',
-					profile: 'node',
-					unavailableReason: reason,
-				});
+				for (const side of sides) {
+					captured.get(side.label)!.push({
+						budgetId: label,
+						samples: [],
+						scenario: 'Scenario failed before it could record a sample.',
+						fixture: 'n/a',
+						profile: 'node',
+						unavailableReason: reason,
+					});
+				}
 				console.log(`FAILED (${reason.split('\n')[0]})`);
 			}
 		}
 	} finally {
 		await browser?.close();
-		await server.stop();
+		for (const server of servers) await server.stop();
 	}
 
-	const run: PerfRunFile = {
-		schemaVersion: 1,
-		capturedAt: new Date().toISOString(),
-		commit: spawnSync('git', ['rev-parse', 'HEAD'], {
-			cwd: REPO_ROOT,
-			encoding: 'utf8',
-		}).stdout.trim(),
-		aggregation: 'median-of-batches-v1',
-		host: hostDescription(),
-		budgets: captured,
-	};
-	mkdirSync(dirname(options.out), { recursive: true });
-	writeFileSync(options.out, `${JSON.stringify(run, null, '\t')}\n`, 'utf8');
-	console.log(`\nWrote ${options.out} (${captured.length} budgets).`);
-	const empty = captured.filter((entry) => entry.samples.length === 0);
-	if (empty.length > 0) {
+	const capturedAt = new Date().toISOString();
+	for (const side of sides) {
+		const budgets = captured.get(side.label)!;
+		const run: PerfRunFile = {
+			schemaVersion: 1,
+			capturedAt,
+			commit: spawnSync('git', ['rev-parse', 'HEAD'], {
+				cwd: side.root,
+				encoding: 'utf8',
+			}).stdout.trim(),
+			aggregation: 'median-of-batches-v1',
+			host: hostDescription(),
+			budgets,
+		};
+		mkdirSync(dirname(side.out), { recursive: true });
+		writeFileSync(side.out, `${JSON.stringify(run, null, '\t')}\n`, 'utf8');
 		console.log(
-			`${empty.length} budget(s) recorded no samples: ${empty.map((entry) => entry.budgetId).join(', ')}`,
+			`\nWrote ${side.out} (${budgets.length} budgets${paired ? `, ${side.label}` : ''}).`,
 		);
+		const empty = budgets.filter((entry) => entry.samples.length === 0);
+		if (empty.length > 0) {
+			console.log(
+				`${empty.length} budget(s) recorded no samples: ${empty.map((entry) => entry.budgetId).join(', ')}`,
+			);
+		}
 	}
 }
 
-main().catch((error: unknown) => {
-	console.error(error);
-	process.exitCode = 1;
-});
+// Run only when executed directly, so the unit tests can import `interleavedOrder`.
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+	main().catch((error: unknown) => {
+		console.error(error);
+		process.exitCode = 1;
+	});
+}

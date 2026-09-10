@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Paired reference/candidate measurements avoid comparing different physical runner hosts.
+# Paired, interleaved measurement: the pinned reference and the candidate are measured batch by
+# batch on the same runner in the same minutes, so a runner that changes speed mid-job moves both.
 set -euo pipefail
 repo_root=$(pwd)
 output="$repo_root/tmp/perf"
@@ -16,19 +17,19 @@ PERF_RUNNER_LABEL=$(node -p "require('./tests/perf/baseline.ci.json').runnerLabe
 [[ "$reference_sha" =~ ^[0-9a-f]{40}$ ]]
 git worktree add --detach "$reference_dir" "$reference_sha"
 trap 'git worktree remove --force "$reference_dir"' EXIT
-# The same measurement implementation must drive both revisions.
-cp scripts/perf/capture.ts "$reference_dir/scripts/perf/capture.ts"
-(
-  cd "$reference_dir"
-  ELECTRON_SKIP_BINARY_DOWNLOAD=1 pnpm install --frozen-lockfile
-  pnpm perf:capture -- --out "$output/reference.json" --port "$reference_port"
-)
-pnpm perf:baseline -- --ci --run "$output/reference.json" --baseline "$output/baseline.ci.json" --tolerance "$tolerance"
+# The reference supplies only its app, dependencies and smoke target; the candidate's capture
+# harness drives both revisions, so a protocol change always applies to both sides.
+(cd "$reference_dir" && ELECTRON_SKIP_BINARY_DOWNLOAD=1 pnpm install --frozen-lockfile)
 failed=0
 for run in 1 2 3 4 5; do
-  pnpm perf:capture -- --out "$output/current-$run.json" --port "$candidate_port"
-  # Complete all five even if a budget breaches, retaining evidence of disagreement.
-  pnpm perf:compare -- --ci --run "$output/current-$run.json" --baseline "$output/baseline.ci.json" \
+  # Complete all five even if one fails, retaining evidence of disagreement. A missing run or
+  # baseline file fails the later steps closed; stability.ts then rejects the set.
+  pnpm perf:capture -- --out "$output/current-$run.json" --port "$candidate_port" \
+    --reference-root "$reference_dir" --reference-port "$reference_port" \
+    --reference-out "$output/reference-$run.json" || failed=1
+  pnpm perf:baseline -- --ci --run "$output/reference-$run.json" \
+    --baseline "$output/baseline-$run.json" --tolerance "$tolerance" || failed=1
+  pnpm perf:compare -- --ci --run "$output/current-$run.json" --baseline "$output/baseline-$run.json" \
     --tolerance "$tolerance" --markdown "$output/report-$run.md" --json "$output/verdict-$run.json" || failed=1
 done
 pnpm exec tsx scripts/perf/stability.ts "$output" || failed=1
