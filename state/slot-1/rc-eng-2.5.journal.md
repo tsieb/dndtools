@@ -106,3 +106,20 @@
   `origin/main`: identical hang, exit 124 (`/tmp/rcloop-main-single.log`). The test arrived with
   main's `e0725d79` and this branch does not touch it. No `pnpm` gate runs the Python suite, so it
   is not the reported gate failure — flagging it for whoever owns `tools/loop`.
+
+## Ownership-claim follow-up
+
+- Feedback: "candidate changes paths outside its claim: pnpm-lock.yaml,
+  state/slot-1/rc-eng-2.5.journal.md, tests/unit/check-android.test.ts". The claim now owns all
+  three. Branch is on `origin/main` `48a82786`; the RC-ENG-2.5 commits touch only owned paths
+  (`DEVELOPMENT.md`, `package.json`, `pnpm-lock.yaml`, `check-android.mjs`, the checker test, this
+  journal). `23309972` is RC-ENG-2.3's carried commit, preserved unchanged.
+- `pnpm-lock.yaml` is needed: `saxes` was already installed as an optional transitive dependency.
+  Promoting it to a root devDependency adds the importer entry and drops `optional: true` from
+  `saxes` and `xmlchars`. `pnpm install --frozen-lockfile`: PASS.
+- Tree `c9db6fd3` is byte-identical to the previously gated candidate `291f8276`. That candidate
+  passed full `pnpm check`, lint, build and format, so those gates were not repeated.
+- Re-verified on this tree: acceptance `729be436` exit 1 (colors.xml 4:45 malformed comment),
+  `ba35b10e` exit 1 (`DndtoolsAppIntentPlugin.java: 144` multi-catch); current tree
+  `pnpm check:android` PASS; checker vitest 15/15; ESLint and Prettier on story files PASS.
+- No code change in this attempt. No push, promotion, dispatcher state edit, or additional agents.
