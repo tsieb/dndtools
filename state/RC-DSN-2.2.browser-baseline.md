@@ -60,7 +60,6 @@ make the missing-primitives task appear green. The central operator has the
 baseline evidence to triage the broad gate separately. The eleven primitives,
 screen integrations, tests and docs remain in `064d3e12`.
 
-
 ## 2026-09-10 rebased verification
 
 The historical failed acceptance above is superseded for the affected suites by a fresh run on the
@@ -70,3 +69,15 @@ axe violations with focus/navigation/dismissal coverage. See the journal's "Reba
 for the exact twelve-suite command and retained original logs. Static gates, app tests, package
 typechecks, lint, production build and the accessibility report also pass. The full repository
 browser suite is still delegated to the central operator; this is an affected-path validation result.
+
+## Central default-port misrouting (2026-09-10)
+
+Central attempt `4e80b26a-242c-4388-9e87-76652072024f` ran `pnpm e2e --workers=2 --retries=2` against the default `http://localhost:5273`. Original log: `/home/trinkle/Programming/agent-dispatcher/.state/attempts/4e80b26a-242c-4388-9e87-76652072024f/output.log`. It recorded 179 failures, 2 flaky tests, 11 skips and 868 passes.
+
+The first failures were missing task-specific UI: `getByRole('menu', { name: 'Layout issues' })` in canvas line 525 and `getByRole('button', { name: 'Remove dungeon', exact: true })` in missing-primitives line 15. Both repeated across retries. Later failures repeatedly report `net::ERR_CONNECTION_REFUSED` at port 5273.
+
+Live diagnosis found the listener on 5273 running from a different task worktree. Fetching its `/src/screens/Board.tsx` and `/src/screens/ScenesCreator.tsx` returned source without the task's Menu and TagInput. The current Playwright configuration permits reuse of any existing server outside CI; its comments already warn that this can silently test another checkout. This establishes the present port collision and supports the historical misrouting diagnosis, although the log does not record historical listener ownership.
+
+An isolated run on port 15631 of the same unchanged Menu and TagInput cases passed on desktop and mobile (4/4, exit 0; `/tmp/rc-dsn22-server-identity-browser.log`). The full isolated command `DNDTOOLS_E2E_PORT=15633 pnpm e2e --workers=2 --retries=2` then passed: **1,049 passed, 11 existing skips, zero failures or retries**, exit 0, 23.2 minutes (`/tmp/rc-dsn22-isolated-full.log`). The complete suite, including both primitive regressions on both profiles, ran against the rebased task tree without changing product code or tests. Static gate results are recorded in the journal.
+
+Operator action: allocate an unused `DNDTOOLS_E2E_PORT` per browser gate and retain that value throughout the run. For example, after confirming 15633 is unused, run `DNDTOOLS_E2E_PORT=15633 pnpm e2e --workers=2 --retries=2`. Do not reuse another task's Vite server. The task has not changed dispatcher control state or the out-of-scope Playwright configuration.
