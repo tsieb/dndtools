@@ -63,3 +63,15 @@ dispatcher mutations, push or promotion.
 - Round 2 static checks after the fixes: typecheck passed; unit tests 6 files / 73 tests passed
   (new density-size case included); ESLint exit 0; raw-style count unchanged (2,596); Prettier
   clean.
+- Browser run 2 (port 15492) was cut off when the previous session ended: it reached 52/228 with no
+  failures and left no summary, so it is not counted as evidence.
+- Gate feedback on the retry: uncommitted work. Committed the implementation as `3211404f`
+  before re-running the browser suite, so another interruption could not strand it again.
+- Browser run 3 on `3211404f` (port 15493; campaign, campaign-relationships, help-tips, help-menu,
+  responsive, ux-audit, a11y-axe-gate, settings, custom-types, systems, widget-trust-review,
+  campaign-calendar, ai-batch-review × desktop/mobile Chromium): 228 passed (4.6m), Playwright
+  exit 0. This covers the fixed `campaign.spec.ts:166`, the new `help-tips.spec.ts` on both
+  projects, and the phone table-controls sheet (reachability, overflow, axe) where the projection
+  tip renders.
+- Removed this task's disposable run logs from `/tmp`. No push, promotion, loop, agent delegation
+  or dispatcher control changes.
