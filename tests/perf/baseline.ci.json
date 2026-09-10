@@ -1,6 +1,6 @@
 {
 	"schemaVersion": 1,
-	"referenceCommit": "75c76bd14b91042ef4af35f0d88662580f4611f9",
+	"referenceCommit": "48a827861616fc3c3f6ccf69f0872edc1c8c771a",
 	"runnerLabel": "github-ubuntu-24.04",
 	"aggregation": "median-of-batches-v1",
 	"tolerance": 0.2,
