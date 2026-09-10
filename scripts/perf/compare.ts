@@ -1,6 +1,7 @@
 /** Grade median-of-seven scenario batches; retain the core's tail statistic inside each batch.
  * CI requires a compatible measured baseline and gates drift. Absolute reference-device targets
  * remain diagnostics in CI; local comparisons continue to gate both targets and drift.
+ * A millisecond budget whose shift stays inside 1.5 frames grades steady (`RESOLUTION_FLOOR_MS`).
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -151,6 +152,37 @@ export function measureCapture(
 	};
 }
 
+/**
+ * Every browser scenario brackets its timing with a painted frame, so millisecond values move in
+ * whole 60 Hz frames (≈16.7ms), and a median of seven can flip between one and two frames on
+ * unchanged code. At a 6ms baseline a 2ms step is +33%, far past any percentage tolerance. A
+ * millisecond budget therefore counts as regressed (or improved) only when it ALSO moved more than
+ * 1.5 frames: more than a one-frame flip plus jitter, less than the ≈33ms two-frame shift that is a
+ * real change. Budgets of 125ms and up are unaffected (20% of them already exceeds this); frame
+ * rates are graded on the percentage alone.
+ */
+export const RESOLUTION_FLOOR_MS = 1.5 * (1000 / 60);
+
+export function applyResolutionFloor(
+	comparison: BaselineComparison,
+	unit: string,
+): BaselineComparison {
+	if (
+		unit !== 'ms' ||
+		(comparison.verdict !== 'regressed' && comparison.verdict !== 'improved') ||
+		comparison.observedValue === null ||
+		comparison.baselineValue === null ||
+		Math.abs(comparison.observedValue - comparison.baselineValue) > RESOLUTION_FLOOR_MS
+	) {
+		return comparison;
+	}
+	return {
+		...comparison,
+		verdict: 'steady',
+		message: `${comparison.message} The shift is within ${RESOLUTION_FLOOR_MS.toFixed(0)}ms (1.5 frames), below what the scenarios resolve, so it grades steady.`,
+	};
+}
+
 function main(): void {
 	const options = parseOptions(process.argv.slice(2));
 	if (!existsSync(options.run)) {
@@ -236,7 +268,11 @@ function main(): void {
 		)
 		.map((entry) => ({ budgetId: entry.budgetId, observedValue: entry.observedValue }));
 	const suite = compareSuiteToBaseline(measurements, baselineEntries, options.tolerance);
-	const comparisonById = new Map(suite.comparisons.map((c) => [c.budgetId, c]));
+	const unitById = new Map(measurements.map((m) => [m.budgetId, m.budget?.metric.unit ?? '']));
+	const comparisons = suite.comparisons.map((comparison) =>
+		applyResolutionFloor(comparison, unitById.get(comparison.budgetId) ?? ''),
+	);
+	const comparisonById = new Map(comparisons.map((c) => [c.budgetId, c]));
 
 	const recordedById = new Map(
 		(baselineFile?.budgets ?? []).map((entry) => [entry.budgetId, entry.observedValue]),
@@ -284,7 +320,7 @@ function main(): void {
 	const breaches = measurements.filter((m) => m.result === 'breach');
 
 	const unmeasured = measurements.filter((m) => m.result === 'unknown' || m.result === 'error');
-	const regressions = suite.comparisons.filter((c) => c.verdict === 'regressed');
+	const regressions = comparisons.filter((c) => c.verdict === 'regressed');
 
 	console.log(
 		`\nPerf run ${run.capturedAt} on ${run.host.runnerLabel} (${run.host.cpuCount}× ${run.host.cpuModel}, ${run.host.os})`,

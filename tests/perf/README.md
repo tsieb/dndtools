@@ -38,6 +38,18 @@ gate verdict**, with numeric drift for all budgets. Agreement alone does not mak
 a regression pass: each comparison must also pass. This is five runs on one runner
 allocation, not evidence of five separate GitHub runner allocations.
 
+Millisecond budgets also need an absolute shift before they count. Every browser
+scenario waits for a painted frame, so its values move in whole 60 Hz frames
+(about 16.7 ms), and a median of seven can flip between one and two frames on
+unchanged code. In one paired run `widget-update` read 29.9 ms on the reference
+and 18.3 ms on the candidate, and `search` moved from 6 to 8 ms, which is +33%
+against a 250 ms target. A millisecond budget is therefore graded steady unless
+it also moved more than 1.5 frames (25 ms). That is more than a one-frame flip
+plus jitter, and less than the two-frame shift (about 33 ms) that is a real
+change. Budgets of 125 ms and up are unaffected, since 20% of them already
+exceeds 25 ms. Frame-rate budgets are graded on the percentage alone. The drift
+column still shows the raw percentage.
+
 To refresh the reference, review the raw evidence and change `referenceCommit` in
 `baseline.ci.json` to the accepted full commit SHA. Never set it dynamically to
 candidate HEAD: that would baseline away the regression under review. The

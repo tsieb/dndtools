@@ -5,7 +5,12 @@ import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { PERFORMANCE_BUDGETS } from '@dndtools/core';
 import { interleavedOrder } from '../../scripts/perf/capture';
-import { measureCapture } from '../../scripts/perf/compare';
+import type { BaselineComparison } from '@dndtools/core';
+import {
+	RESOLUTION_FLOOR_MS,
+	applyResolutionFloor,
+	measureCapture,
+} from '../../scripts/perf/compare';
 import { verifyStability } from '../../scripts/perf/stability';
 
 const commit = 'a'.repeat(40);
@@ -39,6 +44,39 @@ describe('shared runner performance', () => {
 		]);
 		expect(interleavedOrder(['candidate'], 3)).toEqual(['candidate']);
 		expect(sides).toEqual(['reference', 'candidate']);
+	});
+	it('grades a millisecond shift within 1.5 frames steady, whatever percentage it is', () => {
+		const compared = (
+			budgetId: string,
+			observedValue: number,
+			baselineValue: number,
+			verdict: 'regressed' | 'improved',
+		): BaselineComparison => ({
+			budgetId,
+			verdict,
+			observedValue,
+			baselineValue,
+			driftRatio: (observedValue - baselineValue) / baselineValue,
+			message: 'core message.',
+		});
+		expect(RESOLUTION_FLOOR_MS).toBeCloseTo(25, 5);
+		// Observed on unchanged code in one paired run: a 2ms step and a one-frame median flip.
+		const search = applyResolutionFloor(compared('search', 8, 6, 'regressed'), 'ms');
+		expect(search.verdict).toBe('steady');
+		expect(search.driftRatio).toBeCloseTo(1 / 3, 5);
+		expect(
+			applyResolutionFloor(compared('widget-update', 18.3, 29.9, 'improved'), 'ms').verdict,
+		).toBe('steady');
+		// The worst one-frame flip still sits inside the floor; two frames is a real change.
+		expect(
+			applyResolutionFloor(compared('widget-update', 34.4, 17.6, 'regressed'), 'ms').verdict,
+		).toBe('steady');
+		expect(
+			applyResolutionFloor(compared('live-session-delivery', 50, 16.8, 'regressed'), 'ms').verdict,
+		).toBe('regressed');
+		expect(
+			applyResolutionFloor(compared('map-pan-zoom-desktop', 30, 59.9, 'regressed'), 'fps').verdict,
+		).toBe('regressed');
 	});
 	it('rejects minority noisy batches without discarding raw tail semantics', () => {
 		const durations = [1000, 1010, 1020, 1030, 1040, 1621, 9000];
