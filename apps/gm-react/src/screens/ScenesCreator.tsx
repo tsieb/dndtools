@@ -18,7 +18,7 @@ import {
 	Toaster,
 } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
-import { Page } from '../app/screen-kit';
+import { Page, T } from '../app/screen-kit';
 import { sceneStatus, statusLabel } from '../app/scene-helpers';
 import { useI18n } from '../i18n';
 import { useViewport } from '../app/useViewport';
@@ -311,7 +311,7 @@ export function ScenesCreator() {
 							padding="sm"
 							style={{ display: 'flex', flexDirection: 'column' }}
 						>
-							<ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+							<ul style={{ listStyle: 'none', margin: T.space.zero, padding: T.space.zero }}>
 								{scenes.map((scene, i) => {
 									const s = sceneStatus(scene, activeSceneId);
 									const rowEditing = editingId === scene.id;

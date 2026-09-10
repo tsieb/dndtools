@@ -60,7 +60,6 @@ Resume preserved missing-primitives implementation. No agents, dispatcher mutati
 - Original full and targeted browser logs retained at `/tmp/rc-dsn-browser-full.log` and `/tmp/rc-dsn-map-layout.log`. The full suite was not rerun after the final layout fix; the final affected suite passed. The central operator retains the full final-tree gate.
 - Changes are limited to four UI implementation files, two existing browser tests, and this journal/baseline note. No test skips or timeout increases added. Equipment command-authority checks remain intact; the preview UI assertion now matches its explicit read-only contract and checks edit controls return after preview.
 
-
 ## Integration-base recovery (2026-09-10)
 
 - First command was `git rebase loop/rc`; resolved all five conflicts and replayed all four task commits onto `23309972`.
@@ -73,7 +72,6 @@ Resume preserved missing-primitives implementation. No agents, dispatcher mutati
 - Open-menu browser regression passed on desktop and mobile (2/2): zero axe violations, focus enters the first menu action, Home/End navigation, Escape focus return, activation closes the menu, and Fix layout still separates the committed widget positions.
 - Broader affected browser suites running on isolated port 15582 with two workers (388 cases). Original logs: `/tmp/rc-dsn-rebase-browser.log`, `/tmp/rc-dsn-rebase-menu.log`, `/tmp/rc-dsn-rebase-static.log`, `/tmp/rc-dsn-rebase-lint.log`, `/tmp/rc-dsn-rebase-typecheck.log`; per-check static logs in `test-results/validation/logs/`.
 
-
 ## Rebased final validation
 
 - Affected Playwright suites: **378 passed, 10 existing skips, 0 failed** (7.3 minutes), desktop and mobile Chromium. Command: `DNDTOOLS_E2E_PORT=15582 pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/canvas.spec.ts tests/e2e/android-quick-map.spec.ts tests/e2e/equipment.spec.ts tests/e2e/map-tile.spec.ts tests/e2e/combat-tile.spec.ts tests/e2e/responsive.spec.ts tests/e2e/a11y-axe-gate.spec.ts tests/e2e/missing-primitives.spec.ts tests/e2e/settings.spec.ts tests/e2e/shortcuts.spec.ts tests/e2e/atlas.spec.ts tests/e2e/map-editor.spec.ts --workers=2`.
@@ -81,7 +79,6 @@ Resume preserved missing-primitives implementation. No agents, dispatcher mutati
 - `pnpm a11y:report` passed. The full repository browser suite remains the central operator's gate; this run covers the twelve affected suites above.
 - Verified the upstream map importer/editor, map marker pointer handling, widget-body dense chip, NextTurnControl, Popover and Android CSS are unchanged relative to `loop/rc`; the upstream quick-map test is also unchanged. `git merge-base --is-ancestor loop/rc HEAD` and `git diff --check` passed.
 - Final commit adds regression evidence and this journal update; the rebase retains all primitive implementations and the prior Board accessibility repair. No push, promotion, dispatcher state changes or additional agents.
-
 
 ## Review follow-up: interactive ListItem list semantics (2026-09-10)
 
@@ -93,3 +90,14 @@ Resume preserved missing-primitives implementation. No agents, dispatcher mutati
 - Gates on the fixed tree: `pnpm test:app` 114 files / 1,117 tests passed; `pnpm --filter @dndtools/gm-react typecheck` passed; `pnpm lint` passed with 0 errors and the same 15 existing warnings, none in task files; `pnpm format:fix:changed` made no changes; `git diff --check` passed. Logs: `/tmp/rc-dsn-listitem-testapp.log`, `/tmp/rc-dsn-listitem-lint.log`.
 - Browser, desktop and mobile Chromium: `DNDTOOLS_E2E_PORT=15593 pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/missing-primitives.spec.ts tests/e2e/scene-cards.spec.ts tests/e2e/a11y-axe-gate.spec.ts --workers=2` gave **82 passed, 0 failed, exit 0**. That covers scene-tag persistence on the ListItem consumer and every axe-gate route. An earlier background run of the same command (port 15591) was cut off when the session ended at 55 passes with no failures, so it is not counted. Log: `/tmp/rc-dsn-listitem-e2e2.log`. The full repository browser suite remains the central operator's gate.
 - Acceptance is unchanged: all eleven primitives keep their tests, doc entries and production screen consumers. This follow-up only changes ListItem's interactive rendering, its test and its doc/mirror. No push, promotion, dispatcher state changes or additional agents.
+
+## Integration-base recovery #2: RC-DSN-1.1 landed on loop/rc (2026-09-10)
+
+- The dispatcher's automatic rebase stopped at `7cc810ed` (3/6). The brief names `a7651deb` vs `64ea76e7`, but that conflict was resolved in recovery #1 above: `64ea76e7` was already an ancestor of the task branch. The new upstream commits are the eight RC-DSN-1.1 commits `5d3bf1ea..d4f2e5a9` on top of `fe023479` (raw-style lint ratchet, widget placeholder tokens, and `096428ee` board/map browser repairs).
+- First step was `git rebase loop/rc`. One content conflict: `app/widgets/builtin/Map.tsx`, on the map-canvas wrapper style. Upstream `096428ee` changed its `borderRadius` from `'var(--radius-sm)'` to `T.radius.sm`, and task commit `7cc810ed` changed `flex`/`minHeight` on the same object so all three scale-compensated zoom controls fit a short widget. Resolved by keeping both: the task's `flex: '1 0 auto'` and the interactive `minHeight`, with upstream's `T.radius.sm`.
+- `tests/e2e/equipment.spec.ts` auto-merged. The result is byte-identical to `loop/rc`: upstream's read-only preview comment and its two added assertions (Thieves' Tools stays visible, the Item field returns after preview) subsume the task's one-line comment. The other four commits replayed cleanly. `git merge-base --is-ancestor loop/rc HEAD` passes.
+- Upstream fixes survive: of every file `64ea76e7` and `096428ee` touch, only `Map.tsx` and `InitiativeTracker.tsx` differ from `loop/rc`. Those hunks are the task's own (map action hit areas, tile scroll, zoom-control height; compact tile scroll), and upstream's `T.radius.sm`, dense chip, marker pointer-events, importer, editor, Popover and quick-map test are untouched.
+- The new RC-DSN-1.1 ratchet (`dsn/no-raw-style-values`) failed `pnpm lint` on the rebased tree with 4 errors, all interactions with task changes:
+  - `ScenesCreator.tsx` went over its allowance of 2. The task's ListItem `ul` added `margin: 0, padding: 0` (a lone `0` counts as raw); both pre-existing `gap: 6` values are what the allowance covers. Tokenized the `ul` to `T.space.zero` (`--space-0: 0px`, identical rendering), which returns the file to exactly 2.
+  - `Board.tsx` (9 → 8) and `settings/Experience.tsx` (14 → 12) came in _under_ their allowances, because the task's Menu/Callout/Toolbar and settings rewrites removed raw values, and the rule rejects a stale allowance. Lowered both entries in `scripts/eslint-rules/no-raw-style-values.allow.js`. **This file is outside the task's owned paths.** The edit is two lowered numbers and nothing else; the ratchet's own header and error message prescribe exactly this, and the alternative (re-adding raw values to meet stale counts) would reverse the migration. No allowance was raised.
+- Board layout-issues menu (the standing review rejection): the `a4ba9a3a` repair (formerly `1b2d8a21`) replayed unchanged. `Menu` renders `role="menu"` inside the Popover's `role="dialog"`, and every child the Board passes is a `Button role="menuitem"` (behind one role-less layout `div`). No `li`/list wrapper separates a menuitem from its menu, so neither `aria-required-children` nor `aria-required-parent` can fire. The open-menu axe regression in `canvas.spec.ts` (`f3ee8250`) is part of the browser run below.
