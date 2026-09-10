@@ -21,6 +21,7 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - '.github/workflows/perf.yml'
+      - '.github/actions/setup-e2e/**'
   pull_request:
     paths:
       - 'apps/gm-react/**'
@@ -30,6 +31,7 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - '.github/workflows/perf.yml'
+      - '.github/actions/setup-e2e/**'
   workflow_dispatch:
 
 concurrency:

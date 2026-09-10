@@ -82,6 +82,12 @@ jobs:
         run: pnpm lint
       - name: Build production bundles
         run: pnpm build
+      # An older tag (for example a rollback) predates the local action; run this workflow's copy.
+      - name: Use this workflow revision's browser setup action
+        run: |
+          git cat-file -e "$GITHUB_WORKFLOW_SHA^{commit}" 2>/dev/null || git fetch --no-tags origin "$GITHUB_WORKFLOW_SHA"
+          rm -rf .github/actions/setup-e2e
+          git restore --source="$GITHUB_WORKFLOW_SHA" --worktree -- .github/actions/setup-e2e
       - name: Set up browser tests
         uses: ./.github/actions/setup-e2e
       - name: Run browser release suite
