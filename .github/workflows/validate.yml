@@ -43,11 +43,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # Browser-driven checks (e2e / axe / React verify) resolve Playwright from apps/gm-react.
-      # See ci.yml's Install Chromium step: Google's Chrome apt source breaks `apt-get update`,
-      # and `--with-deps` has no use for it. Matched by content — 24.04 uses deb822 `.sources`.
-      - run: |
-          sudo rm -f $(grep -rl 'dl\.google\.com' /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null)
-          pnpm --filter @dndtools/gm-react exec playwright install --with-deps chromium
+      - name: Set up browser tests
+        uses: ./.github/actions/setup-e2e
       - name: Run validation
         env:
           VALIDATION_MODE: ${{ github.event.inputs.mode }}

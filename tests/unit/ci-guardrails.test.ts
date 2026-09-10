@@ -346,6 +346,8 @@ describe('CI guardrails', () => {
 				`${name} is not valid YAML`,
 			).toEqual([]);
 			for (const match of source.matchAll(/^\s*(?:-\s*)?uses:\s*([^\s#]+)\s*(?:#.*)?$/gm)) {
+				// The local action is versioned with the checkout, not a remote tag.
+				if (match[1] === './.github/actions/setup-e2e') continue;
 				expect(match[1], `${name} has a mutable action reference`).toMatch(
 					/^[^@\s]+@[0-9a-f]{40}$/,
 				);

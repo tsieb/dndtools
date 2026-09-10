@@ -82,18 +82,8 @@ jobs:
         run: pnpm lint
       - name: Build production bundles
         run: pnpm build
-      - name: Install Chromium
-        # `--with-deps` runs `apt-get update`, which fails the whole job when ANY configured
-        # source is inconsistent. The runner image ships Google's Chrome repo for its preinstalled
-        # Chrome, and that repo served a Packages.gz whose hash did not match its own Release file
-        # ("Hash Sum mismatch") — which took out every Playwright job here at once, promotion
-        # included. Playwright pulls its Chromium from its own CDN and needs only Ubuntu's repos for
-        # the shared libraries, so that source is dropped first. Matched by CONTENT, not filename:
-        # ubuntu-24.04 writes deb822 `.sources` files, so deleting `google-chrome*.list` removed
-        # nothing and the fetch went right on happening.
-        run: |
-          sudo rm -f $(grep -rl 'dl\.google\.com' /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null)
-          pnpm --filter @dndtools/gm-react exec playwright install --with-deps chromium
+      - name: Set up browser tests
+        uses: ./.github/actions/setup-e2e
       - name: Run browser release suite
         env:
           PLAYWRIGHT_HTML_OPEN: never

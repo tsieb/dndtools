@@ -1,0 +1,19 @@
+name: Set up browser tests
+description: Install Playwright Chromium and its system libraries. Requires pnpm and installed workspace dependencies.
+runs:
+  using: composite
+  steps:
+    # `--with-deps` runs `apt-get update`, which fails the whole job when ANY configured
+    # source is inconsistent. The runner image ships Google's Chrome repo for its preinstalled
+    # Chrome, and that repo served a Packages.gz whose hash did not match its own Release file
+    # ("Hash Sum mismatch") — which took out every Playwright job at once, promotion included.
+    # Playwright pulls its Chromium from its own CDN and needs only Ubuntu's repos for the shared
+    # libraries, so that source is dropped first. Matched by CONTENT, not filename: ubuntu-24.04
+    # writes deb822 `.sources` files, so deleting `google-chrome*.list` removed nothing and the
+    # fetch went right on happening. `test-broken-source.sh` proves this step against real apt.
+    - name: Drop Google's Chrome apt source
+      shell: bash
+      run: sudo rm -f $(grep -rl 'dl\.google\.com' /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null)
+    - name: Install Chromium and system dependencies
+      shell: bash
+      run: pnpm --filter @dndtools/gm-react exec playwright install --with-deps chromium
