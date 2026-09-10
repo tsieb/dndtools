@@ -100,6 +100,39 @@
   worktree's `node_modules` predated it. My only `package.json` change adds the
   `lint:raw-style-count` script. After `pnpm install --frozen-lockfile` (lockfile unchanged), it
   passed 24 files and 161 tests.
-- The first browser run of the affected specs, on both profiles, was cut off by a session
-  teardown at about 125 of 218 tests, with no failures up to that point. It is being rerun in
-  full; the result is recorded below.
+- Session teardowns cut off both of my local runs of the affected specs, on both profiles: at
+  about 125 of 218 tests, then at 31. Neither had a failure before it stopped. The operator's full
+  run below supersedes them.
+
+## Fifth pass — browser acceptance at `66066d5b`
+
+- Operator run `61835210`: 1046 passed, 11 skipped, 1 failed. Every spec this branch touches or
+  depends on passed on both profiles, including equipment, android-quick-map, map-tile,
+  combat-tile, canvas, map-editor, starter-widgets and custom-widgets.
+- The one failure is `combat-audio-automation.spec.ts:57` on mobile, and the same test passed on
+  desktop in that run. The error is `page.evaluate: Execution context was destroyed, most likely
+because of a navigation`, thrown at the first `evaluate` in `goLiveAndStartCombat` (line 12).
+- I conclude this is a pre-existing upstream flake, not a regression from this branch:
+  - The identical failure appears in operator run `859bdabe`, on 2026-09-09 on worktree
+    `034f475f`. That worktree belongs to a different task and predates this rebase; the failure is
+    at the same line, on the same profile and at the same test index (691).
+  - Across the 16 real Playwright gate logs under `.state/attempts` that ran this test, it failed
+    twice: in `859bdabe` and here. Agent transcripts that merely quote gate output were excluded
+    from the count.
+  - The spec never touches this branch's app delta against `loop/rc`: the `screen-kit` `T` groups,
+    the `WidgetPlaceholder` spacing and the `Map.tsx` radius token.
+  - Locally it passed 10/10 (5 repeats on each profile) and then 25/25 on mobile at
+    `--workers=2`.
+- Causes ruled out, from inside and outside my owned paths:
+  - The service-worker reload: in dev it registers only with `?sw=dev`, which the e2e specs never
+    pass.
+  - `App.tsx`'s reload: it fires only after a backup restore.
+  - A Vite reload caused by source edits: every source mtime in this worktree is 09:01–09:03,
+    before the commit at 09:08 and the gate start at about 09:10.
+  - A Vite dependency-optimizer reload: `apps/gm-react/node_modules/.vite` was last written at
+    09:08, and nothing was added to it during the run.
+- The root cause of the navigation is still unknown. The gate's `webServer` doesn't capture
+  Vite's stdout, so the log cannot show more. I did not change the spec or the app to mask it.
+  Hardening it blind could hide a real navigation bug, and the reload triggers live outside this
+  story's owned paths. Recommended follow-up for the RC-AUD-3.1 owner: capture `webServer` stdout
+  and trace the navigation on the mobile project.
