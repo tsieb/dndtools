@@ -8,6 +8,7 @@ import {
 } from '@dndtools/core';
 import { Button, EmptyState, Icon, Toaster } from '../../ds';
 import { BackBar, Page, Panel, T } from '../../app/screen-kit';
+import { HelpBeside } from '../../app/help/ContextHelp';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { CalendarForm } from './CalendarForm';
@@ -147,9 +148,11 @@ export function Calendar() {
 					<Panel
 						title={t('calendar.list.title')}
 						action={
-							<Button variant="primary" size="sm" icon="add" onClick={() => edit(null)}>
-								{t('calendar.new')}
-							</Button>
+							<HelpBeside topic="calendar">
+								<Button variant="primary" size="sm" icon="add" onClick={() => edit(null)}>
+									{t('calendar.new')}
+								</Button>
+							</HelpBeside>
 						}
 					>
 						{calendars.length === 0 ? (

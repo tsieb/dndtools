@@ -28,6 +28,7 @@ import {
 	VisibilityChip,
 } from '../ds';
 import { Page, Panel, T, eb } from '../app/screen-kit';
+import { ContextHelp } from '../app/help/ContextHelp';
 import { useI18n } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import {
@@ -892,8 +893,19 @@ export function Campaign() {
 
 				{tab === 'factions' && (
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-						{canAuthor && !factionEditor && (
-							<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+						{/* One visibility tip for the list, not one per card: every FactionCard carries the
+						    same chip, and a row of identical explain buttons reads as noise (and repeats one
+						    accessible name down the page). Kept for players too — they see the chips. */}
+						<div
+							style={{
+								display: 'flex',
+								justifyContent: 'flex-end',
+								alignItems: 'center',
+								gap: 'var(--space-2)',
+							}}
+						>
+							<ContextHelp topic="visibility" />
+							{canAuthor && !factionEditor && (
 								<Button
 									variant="primary"
 									size="sm"
@@ -902,8 +914,8 @@ export function Campaign() {
 								>
 									{t('campaign.faction.new')}
 								</Button>
-							</div>
-						)}
+							)}
+						</div>
 						{canAuthor && factionEditor && (
 							<FactionEditor
 								key={factionEditor.id ?? 'new'}

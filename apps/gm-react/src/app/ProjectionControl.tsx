@@ -9,6 +9,7 @@ import { Button, Dialog, Select, StatusDot, Toaster } from '../ds';
 import { useI18n, type MessageKey } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { SetRow, T } from './screen-kit';
+import { ContextHelp } from './help/ContextHelp';
 
 // Every core workflow state gets a spoken label so the status pill never shows a raw enum value.
 // Exported so `/session` names the state the same way this control does — it used to call every
@@ -104,6 +105,7 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 					<span style={{ font: `12px ${T.sans}`, color: T.sub, whiteSpace: 'nowrap' }}>
 						{t(WORKFLOW_LABEL[workflow as SessionWorkflowState] ?? 'session.state.standby')}
 					</span>
+					<ContextHelp topic="projection" />
 				</div>
 			)}
 			<Button

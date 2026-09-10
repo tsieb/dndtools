@@ -5718,6 +5718,43 @@ export const en = {
 	'help.whatsNewNone': 'No release notes yet.',
 	'help.keyboardShortcuts': 'Keyboard shortcuts',
 	'help.keyboardShortcutsBody': 'See every shortcut for the shell and the canvas.',
+	/* RC-UX-3.1 — contextual help beside non-obvious controls (`app/help/helpTopics.ts`). */
+	'help.tip.vaultPrivacy.label': 'About vault privacy mode',
+	'help.tip.vaultPrivacy.title': 'Vault privacy mode',
+	'help.tip.vaultPrivacy.body':
+		'Private encrypts the vault on your devices, and only your devices hold the keys. Cloud-Enhanced lets the service read it to power server features like campaign AI and cloud search. Switching either way asks you to type a confirmation first.',
+	'help.tip.projection.label': 'About projection',
+	'help.tip.projection.title': 'Projection',
+	'help.tip.projection.body':
+		'The pill shows where the session stands. Combat, dice, handouts and map projection reach players only while you are live; ending the session returns the table to Standby.',
+	'help.tip.visibility.label': 'What {gm} only and Players mean',
+	'help.tip.visibility.title': 'Visibility',
+	'help.tip.visibility.body':
+		'{gm} only stays on your screen. Players means it can reach player screens once you show or project it. Edit the entry to change who sees it.',
+	'help.tip.stagedProposals.label': 'About staged writes',
+	'help.tip.stagedProposals.title': 'Staged writes',
+	'help.tip.stagedProposals.body':
+		'The count is agent writes waiting on you. Under strict review, nothing an agent proposes reaches the vault until you approve it. Rejecting a proposal writes nothing.',
+	'help.tip.calendar.label': 'About the campaign calendar',
+	'help.tip.calendar.title': 'Campaign calendar',
+	'help.tip.calendar.body':
+		'Define your world’s months, weekdays, moons and holidays once. The Session date, the Story timeline and note date fields all read it, so moon phases and holidays show up on their own.',
+	'help.tip.customTypes.label': 'About custom object types',
+	'help.tip.customTypes.title': 'Custom object types',
+	'help.tip.customTypes.body':
+		'Add a type when the built-in ones don’t fit your world — a ship, a guild contract, a rumor. Give it a few fields and its objects create, validate and list like any other. A type can’t be deleted while it still has objects.',
+	'help.tip.systemPicker.label': 'About rules systems',
+	'help.tip.systemPicker.title': 'Rules system',
+	'help.tip.systemPicker.body':
+		'The system sets the words, attributes, resources, conditions and dice your table plays with. Pick an installed package, or fork one to write house rules. Widgets follow whichever system is active.',
+	'help.tip.widgetTrust.label': 'About trust review',
+	'help.tip.widgetTrust.title': 'Trust review',
+	'help.tip.widgetTrust.body':
+		'An installed package reaches nothing until you review it here. Allow a permission only when its reason makes sense; anything you leave denied stays denied. If the review advises against the package, trusting it takes an extra acknowledgment.',
+	'help.tip.recoveryKey.label': 'About the recovery key',
+	'help.tip.recoveryKey.title': 'Recovery key',
+	'help.tip.recoveryKey.body':
+		'Your vault’s encryption keys, sealed under a passphrase you choose. Export it once and store it off this device. If every signed-in device is lost, it is the only way back into your encrypted backups.',
 	// RC-CHR-1.1 — the class-resource economy (`app/character/Resources.tsx`), shared by the Player
 	// screen and the player view. Every label the panel frames is package-driven; these are the
 	// words around them.

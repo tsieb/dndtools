@@ -6,6 +6,7 @@ import {
 } from '@dndtools/core';
 import { Badge, Button, Checkbox, SegmentedControl, Sheet, Toaster } from '../../ds';
 import { T } from '../../app/screen-kit';
+import { HelpBeside } from '../../app/help/ContextHelp';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useI18n, type MessageKey } from '../../i18n';
 
@@ -192,11 +193,13 @@ export function TrustReviewSheet({
 						background: T.sunken,
 					}}
 				>
-					<Badge status={RECOMMENDATION_TONE[summary.trustRecommendation] ?? 'warning'}>
-						{RECOMMENDATION_LABEL[summary.trustRecommendation]
-							? t(RECOMMENDATION_LABEL[summary.trustRecommendation])
-							: summary.trustRecommendation}
-					</Badge>
+					<HelpBeside topic="widgetTrust">
+						<Badge status={RECOMMENDATION_TONE[summary.trustRecommendation] ?? 'warning'}>
+							{RECOMMENDATION_LABEL[summary.trustRecommendation]
+								? t(RECOMMENDATION_LABEL[summary.trustRecommendation])
+								: summary.trustRecommendation}
+						</Badge>
+					</HelpBeside>
 					<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>
 						{t('extensions.trust.version', { version: record.package.version })} ·{' '}
 						{t(
