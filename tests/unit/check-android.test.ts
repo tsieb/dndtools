@@ -76,6 +76,18 @@ describe('Android static preflight CLI', () => {
 		writeFileSync(join(root, 'package.json'), '{"version":"0.3.6"}');
 		expect(run(root).stderr).toContain('differs from root');
 	});
+	it('fails closed when Gradle stops enforcing the version contract', () => {
+		// The preflight only stands in for Gradle while Gradle still asserts the same shape.
+		// If build.gradle's own regex drifts, say so instead of silently checking the wrong thing.
+		const root = fixture();
+		writeFileSync(
+			join(root, 'apps/gm-react/android/app/build.gradle'),
+			String.raw`def androidVersionParts = (androidVersionName =~ /(\d+)\.(\d+)/)`,
+		);
+		const result = run(root);
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain('expected anchored major.minor.patch version contract');
+	});
 	it('fails closed on a missing Android tree', () => {
 		const root = fixture();
 		rmSync(join(root, 'apps/gm-react/android'), { recursive: true });

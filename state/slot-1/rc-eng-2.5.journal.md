@@ -54,3 +54,55 @@
   Android acceptance remains implemented in `6a905350`; central browser acceptance remains red
   and needs separate renderer repair or operator triage.
 - `pnpm check:android` still passes (18 XML, 11 Java files).
+
+## Rebase onto main (post-rebase gate failure)
+
+- Feedback was "post-rebase gates failed". The branch was still based on `75c76bd1`; `origin/main`
+  had moved 13 commits ahead, so the rebase had never actually been resolved on this tree.
+- Rebased onto `origin/main`. Three conflicts, resolved by deferring to main in every case:
+  - `tools/loop/run-loop.sh` (from RC-ENG-2.3's carried commit): main's `e0725d79` retired the
+    local entrypoint to a four-line stub, so RC-ENG-2.3's `verify_tree_gates` hunk has no file
+    left to patch. Took main's stub. `tests/unit/loop-integration-gate.test.ts` asserts against
+    `.github/workflows/ci.yml`, not this script, so RC-ENG-2.3's gate still has its teeth; its
+    `rcloop.py` and `test_rcloop.py` changes merged cleanly and are preserved.
+  - `DndtoolsAppIntentPlugin.java`: main's `6fda3c33` had already made the identical
+    `IOException | RuntimeException` fix, with a comment explaining why naming both is a compile
+    error. Kept main's version; this story no longer needs to carry the repair.
+  - The previous attempt's `86103f88` (browser-acceptance repairs to `MapEditor`, `Map`,
+    `ImportMapDialog`, `InitiativeTracker` and two e2e specs) was DROPPED with `rebase --skip`.
+    Main's `64ea76e7` and `3026e0b1` fix all six of those items independently and better: the POI
+    wrapper back to `pointerEvents: 'none'` with an opt-in `Popover`, `setMobileDock` on the
+    transition instead of every render, SVG dimensions read from `width`/`height`/`viewBox`,
+    `OpChip` gaining `dense`, the unconditional touch-target inflation removed, and the same two
+    stale e2e expectations updated. Those files are outside this story's owned paths; carrying a
+    second, different workaround for problems main has already solved would only re-break them.
+- Net diff against main is now the owned surface plus RC-ENG-2.3's carried loop work: no app,
+  core, or cloud source is touched by this story.
+- Post-rebase `package.json` is main's `0.3.7` at both root and `apps/gm-react`; the version
+  contract agrees. `pnpm install --frozen-lockfile`: lockfile up to date after the merge.
+- Added the one missing checker branch: a test that a drifted `build.gradle` regex fails closed
+  with `expected anchored major.minor.patch version contract`. The existing fixtures already
+  encode both historical failures as permanent regression cases (`--color-bg` inside a comment,
+  `IOException | SecurityException | RuntimeException`), plus the `0.3.5-alpha.1` suffix class
+  that Android's `versionName` also rejects.
+- Acceptance re-verified on the rebased tree, `git archive` export per introducing commit and
+  `node scripts/check-android.mjs <export>` from this checkout:
+  - `729be436` (07-31 Lamplight rebrand): exit 1 —
+    `apps/gm-react/android/app/src/main/res/values/colors.xml: invalid XML: 4:45: malformed comment.`
+  - `ba35b10e` (RC-PLT-2.2): exit 1, naming the same line javac rejects —
+    `DndtoolsAppIntentPlugin.java: 144: invalid multi-catch: SecurityException extends RuntimeException; remove SecurityException`
+- Gates on the rebased tree: `pnpm check` PASS (exit 0) — `check:android` first, quality gates
+  (pre-existing file-size warnings only), boundary lint, all three typechecks, and 6,411 tests
+  (core 4,760, cloud 405, app 1,098, tooling 148). Log: `/tmp/rc-eng-2.5-check-rebased.log`.
+- Still no JDK 21 on this box, so no Gradle run: the preflight is a static guard and the docs say
+  so. Documented install is unverified here by necessity; only CI or a JDK-equipped box can prove
+  `assembleDebug`.
+- No push, promotion, dispatcher state edit, or additional agents.
+- Ran the carried loop work's own suite to confirm the run-loop.sh resolution did not break it:
+  `python3 -m unittest tools.loop.tests.test_rcloop.RelatedSpecs` PASS (2 tests).
+- FOUND, NOT MINE, NOT FIXED: the whole `tools/loop/tests/test_rcloop.py` suite hangs at
+  `ModelPickup.test_backend_forwards_model_reasoning_and_resume_thread` (no timeout, killed at 90s).
+  Verified pre-existing by running that single test against a clean `git archive` export of
+  `origin/main`: identical hang, exit 124 (`/tmp/rcloop-main-single.log`). The test arrived with
+  main's `e0725d79` and this branch does not touch it. No `pnpm` gate runs the Python suite, so it
+  is not the reported gate failure — flagging it for whoever owns `tools/loop`.
