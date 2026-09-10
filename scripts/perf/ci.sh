@@ -4,6 +4,10 @@ set -euo pipefail
 repo_root=$(pwd)
 output="$repo_root/tmp/perf"
 reference_dir="${RUNNER_TEMP:?}/perf-reference"
+# Separate ports: a capture reuses any server already listening, so the reference revision's dev
+# server must never be mistaken for the candidate's (or another checkout's on a shared host).
+candidate_port="${PERF_PORT:-5273}"
+reference_port="${PERF_REFERENCE_PORT:-5373}"
 mkdir -p "$output"
 reference_sha=$(node -p "require('./tests/perf/baseline.ci.json').referenceCommit")
 tolerance=$(node -p "require('./tests/perf/baseline.ci.json').tolerance")
@@ -17,12 +21,12 @@ cp scripts/perf/capture.ts "$reference_dir/scripts/perf/capture.ts"
 (
   cd "$reference_dir"
   ELECTRON_SKIP_BINARY_DOWNLOAD=1 pnpm install --frozen-lockfile
-  pnpm perf:capture -- --out "$output/reference.json"
+  pnpm perf:capture -- --out "$output/reference.json" --port "$reference_port"
 )
 pnpm perf:baseline -- --ci --run "$output/reference.json" --baseline "$output/baseline.ci.json" --tolerance "$tolerance"
 failed=0
 for run in 1 2 3 4 5; do
-  pnpm perf:capture -- --out "$output/current-$run.json"
+  pnpm perf:capture -- --out "$output/current-$run.json" --port "$candidate_port"
   # Complete all five even if a budget breaches, retaining evidence of disagreement.
   pnpm perf:compare -- --ci --run "$output/current-$run.json" --baseline "$output/baseline.ci.json" \
     --tolerance "$tolerance" --markdown "$output/report-$run.md" --json "$output/verdict-$run.json" || failed=1

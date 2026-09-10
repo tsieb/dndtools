@@ -225,8 +225,10 @@ async function waitForPort(port: number, timeoutMs: number): Promise<void> {
  * `playwright.config.ts` and the validation harness blank them, so a capture can never reach a real
  * Cognito / signaling / sync endpoint.
  */
-async function ensureDevServer(port: number): Promise<{ stop: () => void; reused: boolean }> {
-	if (await isPortOpen(port)) return { stop: () => {}, reused: true };
+async function ensureDevServer(
+	port: number,
+): Promise<{ stop: () => Promise<void>; reused: boolean }> {
+	if (await isPortOpen(port)) return { stop: async () => {}, reused: true };
 	mkdirSync(join(REPO_ROOT, 'tmp'), { recursive: true });
 	const log = createWriteStream(join(REPO_ROOT, 'tmp/perf-dev-server.log'), { flags: 'a' });
 	const child = spawn(
@@ -254,13 +256,19 @@ async function ensureDevServer(port: number): Promise<{ stop: () => void; reused
 	await waitForPort(port, 120_000);
 	return {
 		reused: false,
-		stop: () => {
+		// Wait for the port to close: a capture that follows (the CI script measures two revisions
+		// back to back) must never reuse this revision's still-exiting server and measure the wrong code.
+		stop: async () => {
 			if (child.pid !== undefined) {
 				try {
 					process.kill(-child.pid, 'SIGTERM');
 				} catch {
 					/* already gone */
 				}
+			}
+			const deadline = Date.now() + 15_000;
+			while (Date.now() < deadline && (await isPortOpen(port))) {
+				await new Promise((res) => setTimeout(res, 200));
 			}
 		},
 	};
@@ -1144,7 +1152,7 @@ async function main(): Promise<void> {
 	const needsBrowser = selected.some((scenario) => scenario.budgetId !== 'smoke-ci');
 	const server = needsBrowser
 		? await ensureDevServer(options.port)
-		: { stop: () => {}, reused: true };
+		: { stop: async () => {}, reused: true };
 	if (needsBrowser) {
 		console.log(
 			server.reused
@@ -1199,7 +1207,7 @@ async function main(): Promise<void> {
 		}
 	} finally {
 		await browser?.close();
-		server.stop();
+		await server.stop();
 	}
 
 	const run: PerfRunFile = {
