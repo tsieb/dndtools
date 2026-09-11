@@ -357,13 +357,14 @@ function TileActionMenu({ handle, w, scale, resizable, entityName }: TileMenuPro
 	const source = ref && entityName ? SOURCE_LINK[ref.entityType] : undefined;
 	// Only the scene editor mounts an Inspector for a selection; /board has none to open.
 	const onSceneEditor = globalThis.location.hash.startsWith('#/scene/');
-	// Right-aligned to the trigger and kept on screen, opening toward whichever side has more room.
+	// Right-aligned to the trigger, clamped to the layout viewport as the DS Popover clamps itself.
+	const vp = document.documentElement;
 	const panelStyle = box && {
 		position: 'fixed',
-		left: Math.max(8, Math.min(box.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8)),
-		...(window.innerHeight - box.bottom >= box.top
+		left: Math.max(8, Math.min(box.right - MENU_WIDTH, vp.clientWidth - MENU_WIDTH - 8)),
+		...(vp.clientHeight - box.bottom >= box.top
 			? { top: box.bottom + 4 }
-			: { bottom: window.innerHeight - box.top + 4 }),
+			: { bottom: vp.clientHeight - box.top + 4 }),
 	};
 
 	return (
