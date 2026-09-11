@@ -3031,6 +3031,47 @@ export const en = {
 		'It installs as {id}, so the systems you already have are untouched.',
 	'community.discover.installedModule':
 		'Installed {name} — {count, plural, one {# item} other {# items}} added.',
+	// RC-CLD-4.5 — discovery: search and filters, the featured row, ratings.
+	'community.discover.searchLabel': 'Search modules',
+	'community.discover.searchPlaceholder': 'Search names and summaries',
+	'community.discover.filterSystem': 'System',
+	'community.discover.systemAny': 'Any system',
+	'community.discover.filterLicense': 'License',
+	'community.discover.licenseAny': 'Any license',
+	'community.discover.resultCount': '{count, plural, one {# module} other {# modules}}',
+	'community.discover.emptySearchTitle': 'No modules match',
+	'community.discover.emptySearchBody': 'Try fewer words, or clear a filter.',
+	'community.discover.featured': 'Featured',
+	'community.discover.featuredNote': 'Picked by the marketplace maintainers.',
+	'community.discover.featuredBadge': 'Featured',
+	'community.discover.systemsMeta': 'For {systems}',
+	'community.discover.licenseMeta': 'License: {license}',
+	'community.discover.noRatings': 'No ratings yet',
+	'community.discover.ratingSummary':
+		'{average} ★ · {count, plural, one {# rating} other {# ratings}}',
+	'community.discover.ratingLabel':
+		'Rated {average} out of 5 from {count, plural, one {# rating} other {# ratings}}',
+	'community.discover.ratingsTitle': 'Ratings',
+	'community.discover.rateOwn': 'You published this module, so you can’t rate it.',
+	'community.discover.rateNeedsInstall':
+		'Install this module to rate it. Ratings come only from DMs who installed it.',
+	'community.discover.yourRating': 'Your rating, in stars',
+	'community.discover.reviewNote': 'Review note (optional)',
+	'community.discover.reviewNotePlaceholder': 'What worked at your table?',
+	'community.discover.noteCount': '{count}/{max}',
+	'community.discover.saveRating': 'Save rating',
+	'community.discover.updateRating': 'Update rating',
+	'community.discover.ratingSaved': 'Rating saved.',
+	'community.discover.loadingReviews': 'Loading reviews',
+	'community.discover.reviewsFailed': 'Couldn’t load the reviews for this module.',
+	'community.discover.noReviews': 'No reviews yet.',
+	'community.discover.starsLabel': '{stars, plural, one {# star} other {# stars}} out of 5',
+	'community.discover.report': 'Report',
+	'community.discover.reportLabel': 'Report this review to the maintainers',
+	'community.discover.reported': 'Reported. A maintainer will look at it.',
+	'community.discover.reportedShort': 'Reported',
+	'community.discover.installNotRecorded':
+		'Installed, but the marketplace couldn’t record it, so you can’t rate this module yet.',
 	// RC-CLD-4.1 — the `.dndmodule` bundle as a file: save one, install one, no account needed.
 	'community.moduleFile.title': 'Module files',
 	'community.moduleFile.hint':

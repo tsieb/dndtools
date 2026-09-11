@@ -171,7 +171,7 @@ export const allow = {
 	'apps/gm-react/src/screens/characters/sheet/SheetHeader.tsx': 7,
 	'apps/gm-react/src/screens/characters/sheet/SpellsPanel.tsx': 20,
 	'apps/gm-react/src/screens/CommandCenter.tsx': 33,
-	'apps/gm-react/src/screens/community/Discover.tsx': 12,
+	'apps/gm-react/src/screens/community/Discover.tsx': 11,
 	'apps/gm-react/src/screens/community/Export.tsx': 18,
 	'apps/gm-react/src/screens/community/index.tsx': 1,
 	'apps/gm-react/src/screens/community/ModuleFile.tsx': 7,

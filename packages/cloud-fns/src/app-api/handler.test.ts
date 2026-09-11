@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 
 // The app-api handler backs entitlements (SIMULATED checkout), the plaintext module
@@ -46,6 +46,8 @@ const store = vi.hoisted(() => {
 		failNextTransaction: false,
 		throwAfterNextTransaction: false,
 		tombstoneBeforeNextAccountTransaction: false,
+		// Runs inside the next transaction, before its conditions are checked: a concurrent writer.
+		beforeNextTransaction: null as null | (() => void),
 		nextVersion: () => `version-${versionSeq++}`,
 		resetVersions: () => {
 			versionSeq = 0;
@@ -104,31 +106,87 @@ vi.mock('../lib/aws.ts', () => {
 			}
 		}
 	};
-	const transact = async (items: Array<Record<string, Record<string, unknown>>>) => {
-		const condition = items.find((item) => item.ConditionCheck)?.ConditionCheck as
-			| { Key: Record<string, Av> }
-			| undefined;
+	type Op = {
+		Key?: Record<string, Av>;
+		Item?: Record<string, Av>;
+		ConditionExpression?: string;
+		UpdateExpression?: string;
+		ExpressionAttributeNames?: Record<string, string>;
+		ExpressionAttributeValues?: Record<string, Av>;
+	};
+	const attr = (token: string, op: Op) =>
+		token.startsWith('#') ? (op.ExpressionAttributeNames?.[token] ?? token) : token;
+	const value = (token: string, op: Op) =>
+		op.ExpressionAttributeValues?.[token]?.S ?? op.ExpressionAttributeValues?.[token]?.N;
+	// The condition grammar the handler uses: attribute_(not_)exists(x) and `x = :v`, ANDed.
+	const conditionHolds = (row: Record<string, string> | undefined, op: Op) =>
+		(op.ConditionExpression ?? '')
+			.split(' AND ')
+			.filter((clause) => clause.trim())
+			.every((raw) => {
+				const clause = raw.trim();
+				const exists = /^attribute_(not_)?exists\((.+)\)$/.exec(clause);
+				if (exists) {
+					const present = row?.[attr(exists[2], op)] !== undefined;
+					return exists[1] ? !present : present;
+				}
+				const equals = /^(\S+) = (:\w+)$/.exec(clause);
+				if (equals) return row?.[attr(equals[1], op)] === value(equals[2], op);
+				throw new Error(`fake DynamoDB: unsupported condition ${clause}`);
+			});
+	// `SET a = :x, b = :y ADD c :n, d :m` — the only update shapes the handler sends.
+	const applyUpdate = (row: Record<string, string> | undefined, op: Op) => {
+		const next: Record<string, string> = { ...(row ?? fromItem(op.Key)!) };
+		const expression = op.UpdateExpression ?? '';
+		const set = /SET (.+?)(?= ADD |$)/.exec(expression)?.[1];
+		const add = /ADD (.+)$/.exec(expression)?.[1];
+		for (const part of set?.split(',') ?? []) {
+			const [name, token] = part.split('=').map((s) => s.trim());
+			next[attr(name, op)] = value(token, op)!;
+		}
+		for (const part of add?.split(',') ?? []) {
+			const [name, token] = part.trim().split(/\s+/);
+			const field = attr(name, op);
+			next[field] = String(Number(next[field] ?? 0) + Number(value(token, op)));
+		}
+		return next;
+	};
+	const transact = async (items: Array<Record<string, Op>>) => {
+		const condition = items.find((item) => item.ConditionCheck)?.ConditionCheck;
 		if (condition && store.tombstoneBeforeNextAccountTransaction) {
 			store.tombstoneBeforeNextAccountTransaction = false;
-			const key = avKey(condition.Key);
+			const key = avKey(condition.Key!);
 			const [pk, sk] = key.split('|');
 			store.items.set(key, { pk, sk, deletedAt: '2026-07-14T12:00:00.000Z' });
 		}
-		if (condition && store.items.get(avKey(condition.Key))?.deletedAt) {
-			throw Object.assign(new Error('account deleted'), { name: 'TransactionCanceledException' });
+		const racer = store.beforeNextTransaction;
+		store.beforeNextTransaction = null;
+		racer?.();
+		// All or nothing: every item's condition is checked before any item is applied.
+		for (const item of items) {
+			const op = item.ConditionCheck ?? item.Put ?? item.Delete ?? item.Update;
+			if (!op) continue;
+			const key = op.Item ? flatKey(fromItem(op.Item)!) : avKey(op.Key!);
+			if (!conditionHolds(store.items.get(key), op)) {
+				throw Object.assign(new Error('condition failed'), {
+					name: 'TransactionCanceledException',
+				});
+			}
 		}
 		if (store.failNextTransaction) {
 			store.failNextTransaction = false;
 			throw new Error('simulated transaction failure');
 		}
 		for (const item of items) {
-			const put = item.Put as { Item: Record<string, Av> } | undefined;
-			const del = item.Delete as { Key: Record<string, Av> } | undefined;
-			if (put) {
-				const row = fromItem(put.Item)!;
+			if (item.Put) {
+				const row = fromItem(item.Put.Item)!;
 				store.items.set(flatKey(row), row);
 			}
-			if (del) store.items.delete(avKey(del.Key));
+			if (item.Delete) store.items.delete(avKey(item.Delete.Key!));
+			if (item.Update) {
+				const key = avKey(item.Update.Key!);
+				store.items.set(key, applyUpdate(store.items.get(key), item.Update));
+			}
 		}
 		if (store.throwAfterNextTransaction) {
 			store.throwAfterNextTransaction = false;
@@ -140,7 +198,7 @@ vi.mock('../lib/aws.ts', () => {
 			send: async (command: { input: Record<string, unknown> }) => {
 				const input = command.input;
 				if (Array.isArray(input.TransactItems)) {
-					await transact(input.TransactItems as Array<Record<string, Record<string, unknown>>>);
+					await transact(input.TransactItems as Array<Record<string, Op>>);
 					return {};
 				}
 				const values = input.ExpressionAttributeValues as Record<string, Av>;
@@ -379,6 +437,7 @@ function event(
 		name?: string;
 		body?: unknown;
 		params?: Record<string, string>;
+		query?: Record<string, string>;
 	} = {},
 ) {
 	const [method, rawPath] = routeKey.split(' ');
@@ -395,6 +454,7 @@ function event(
 		rawPath,
 		requestContext: { http: { method }, ...(claims ? { authorizer: { jwt: { claims } } } : {}) },
 		pathParameters: opts.params,
+		queryStringParameters: opts.query,
 		body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
 	} as unknown as APIGatewayProxyEventV2;
 }
@@ -470,6 +530,8 @@ beforeEach(() => {
 	store.failNextTransaction = false;
 	store.throwAfterNextTransaction = false;
 	store.tombstoneBeforeNextAccountTransaction = false;
+	store.beforeNextTransaction = null;
+	delete process.env.MARKETPLACE_MAINTAINER_SUBS;
 	store.cognitoCalls.length = 0;
 	store.cognitoUserNotFound.clear();
 	store.getItemCalls.length = 0;
@@ -1349,6 +1411,431 @@ describe('account', () => {
 		);
 		expect(staleInvite.status).toBe(410);
 		expect([...store.items.keys()].some((key) => key.startsWith('invite#'))).toBe(false);
+	});
+});
+
+// --- RC-CLD-4.5: discovery — search and filters, featured, ratings, moderation --------------------
+describe('discovery (RC-CLD-4.5)', () => {
+	const MAINTAINER = 'maint-1';
+	const ABSENT = '00000000-0000-4000-8000-000000000000';
+	type Listing = { moduleId: string; featured: boolean; [key: string]: unknown };
+	type Review = { reviewId: string; stars: number; mine: boolean; [key: string]: unknown };
+
+	beforeEach(() => {
+		process.env.MARKETPLACE_MAINTAINER_SUBS = MAINTAINER;
+		// Every write below lands one second after the last, so "newest first" is deterministic.
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-09-01T00:00:00.000Z'));
+	});
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	const step = async (e: APIGatewayProxyEventV2) => {
+		vi.setSystemTime(Date.now() + 1000);
+		return call(e);
+	};
+
+	/** Publish a `.dndmodule` as `sub` with the facets a real manifest would carry. */
+	async function publish(
+		sub: string,
+		over: {
+			name?: string;
+			summary?: string;
+			kind?: 'content-module' | 'scene-package';
+			systems?: string[];
+			license?: string;
+		} = {},
+	) {
+		const body = bundleBody(over.kind ?? 'content-module');
+		const manifest = (body.package as { manifest: Record<string, unknown> }).manifest;
+		if (over.systems) manifest.systems = over.systems;
+		if (over.license) manifest.license = over.license;
+		if (over.name) body.name = over.name;
+		if (over.summary) body.summary = over.summary;
+		const res = await step(event('POST /marketplace/modules', { sub, body }));
+		expect(res.status).toBe(200);
+		return res.body.moduleId as string;
+	}
+
+	const install = (sub: string, moduleId: string) =>
+		step(event('POST /listings/{moduleId}/install', { sub, params: { moduleId } }));
+	const rate = (sub: string, moduleId: string, body: unknown) =>
+		step(event('PUT /listings/{moduleId}/review', { sub, params: { moduleId }, body }));
+	const flag = (sub: string, moduleId: string, reviewId: string, body?: unknown) =>
+		step(
+			event('POST /listings/{moduleId}/reviews/{reviewId}/flag', {
+				sub,
+				params: { moduleId, reviewId },
+				body,
+			}),
+		);
+	const reviewsOf = (sub: string, moduleId: string) =>
+		call(event('GET /listings/{moduleId}/reviews', { sub, params: { moduleId } }));
+	const search = async (query: Record<string, string> = {}, sub = 'dm-1') => {
+		const res = await call(event('GET /listings', { sub, query }));
+		expect(res.status).toBe(200);
+		return res.body as {
+			listings: Listing[];
+			total: number;
+			facets: { systems: string[]; licenses: string[] };
+		};
+	};
+	const ids = async (query: Record<string, string>) =>
+		(await search(query)).listings.map((listing) => listing.moduleId);
+
+	describe('GET /listings', () => {
+		it('searches by words, kind, system and licence, newest first, with facets over the whole shelf', async () => {
+			const crypt = await publish('pub-a', {
+				name: 'The Sunken Crypt',
+				summary: 'A three-session delve under a drowned chapel.',
+				systems: ['DnD5e'],
+				license: 'CC-BY-4.0',
+			});
+			const nave = await publish('pub-b', {
+				kind: 'scene-package',
+				name: 'Flooded Nave',
+				summary: 'Battle maps for the drowned chapel.',
+				systems: ['pathfinder-2e'],
+				license: 'cc-by-4.0',
+			});
+			vi.setSystemTime(Date.now() + 1000);
+			const legacy = (
+				await call(event('POST /marketplace/modules', { sub: 'pub-c', body: GOOD_MODULE }))
+			).body.moduleId as string;
+
+			const all = await search();
+			expect(all.listings.map((listing) => listing.moduleId)).toEqual([legacy, nave, crypt]);
+			expect(all.total).toBe(3);
+			expect(all.facets).toEqual({ systems: ['dnd5e', 'pathfinder-2e'], licenses: ['CC-BY-4.0'] });
+			expect(all.listings.find((listing) => listing.moduleId === crypt)).toMatchObject({
+				kind: 'content-module',
+				systems: ['dnd5e'],
+				license: 'CC-BY-4.0',
+				rating: { average: null, count: 0 },
+				featured: false,
+				installed: false,
+				myReview: null,
+				owned: false,
+			});
+			// A legacy bare widget package carries neither facet, and no owner identity is echoed.
+			expect(all.listings[0]).toMatchObject({ kind: 'widget-package', systems: [], license: '' });
+			expect(JSON.stringify(all)).not.toMatch(/pub-[abc]/);
+
+			expect(await ids({ kind: 'scene-package' })).toEqual([nave]);
+			expect(await ids({ system: 'dnd5e' })).toEqual([crypt]);
+			// Case and the builtin:/custom: namespace are folded away, as the facet was at publish.
+			expect(await ids({ system: 'custom:DND5E' })).toEqual([crypt]);
+			expect(await ids({ license: 'CC-BY-4.0' })).toEqual([nave, crypt]);
+			expect(await ids({ q: 'drowned chapel' })).toEqual([nave, crypt]);
+			expect(await ids({ q: 'CRYPT drowned' })).toEqual([crypt]);
+			expect(await ids({ q: 'drowned', kind: 'content-module' })).toEqual([crypt]);
+			expect(await ids({ q: 'nothing like this' })).toEqual([]);
+
+			// Filtering never shrinks the menus it is chosen from.
+			const filtered = await search({ system: 'dnd5e' });
+			expect(filtered.total).toBe(1);
+			expect(filtered.facets.systems).toEqual(['dnd5e', 'pathfinder-2e']);
+		});
+
+		it('rejects a malformed search (400) and an anonymous one (401)', async () => {
+			const status = async (query: Record<string, string>) =>
+				(await call(event('GET /listings', { query }))).status;
+			expect(await status({ kind: 'spell-book' })).toBe(400);
+			expect(await status({ q: 'x'.repeat(101) })).toBe(400);
+			expect(await status({ q: 'a b c d e f g h i' })).toBe(400);
+			expect(await status({ system: 's'.repeat(81) })).toBe(400);
+			expect(await status({ license: 'l'.repeat(81) })).toBe(400);
+			expect((await call(event('GET /listings', { sub: null }))).status).toBe(401);
+		});
+	});
+
+	describe('featured set (GET is open to every account; PUT is maintainer-only)', () => {
+		it('lets only a maintainer set the row, and fails closed with no maintainer configured', async () => {
+			const a = await publish('pub-a', { name: 'Alpha' });
+			const b = await publish('pub-b', { name: 'Beta' });
+			expect((await call(event('GET /listings/featured'))).body).toEqual({ featured: [] });
+
+			const denied = await call(
+				event('PUT /listings/featured', { sub: 'dm-1', body: { moduleIds: [a] } }),
+			);
+			expect(denied.status).toBe(403);
+			expect(denied.body.error).toMatch(/maintainers/);
+			process.env.MARKETPLACE_MAINTAINER_SUBS = '';
+			const noneConfigured = await call(
+				event('PUT /listings/featured', { sub: MAINTAINER, body: { moduleIds: [a] } }),
+			);
+			expect(noneConfigured.status).toBe(403);
+			expect([...store.items.keys()].some((key) => key.startsWith('featured|'))).toBe(false);
+
+			process.env.MARKETPLACE_MAINTAINER_SUBS = ` someone-else , ${MAINTAINER}`;
+			const set = await step(
+				event('PUT /listings/featured', { sub: MAINTAINER, body: { moduleIds: [b, a] } }),
+			);
+			expect(set.status).toBe(200);
+			expect(set.body.featured.map((listing: Listing) => listing.moduleId)).toEqual([b, a]);
+
+			const read = await call(event('GET /listings/featured', { sub: 'dm-1' }));
+			expect(read.body.featured.map((listing: Listing) => listing.moduleId)).toEqual([b, a]);
+			expect(read.body.featured.every((listing: Listing) => listing.featured)).toBe(true);
+			expect((await search()).listings.every((listing) => listing.featured)).toBe(true);
+
+			// PUT replaces the set: what is not named any more leaves the row.
+			await step(event('PUT /listings/featured', { sub: MAINTAINER, body: { moduleIds: [a] } }));
+			const replaced = await call(event('GET /listings/featured'));
+			expect(replaced.body.featured.map((listing: Listing) => listing.moduleId)).toEqual([a]);
+			expect((await search()).listings.find((listing) => listing.moduleId === b)?.featured).toBe(
+				false,
+			);
+
+			// A listing its publisher removes drops out of the row with it.
+			await call(
+				event('DELETE /marketplace/modules/{moduleId}', { sub: 'pub-a', params: { moduleId: a } }),
+			);
+			expect((await call(event('GET /listings/featured'))).body.featured).toEqual([]);
+		});
+
+		it('validates the set: an array of at most 12 distinct, existing listing ids', async () => {
+			const a = await publish('pub-a');
+			const put = (body: unknown) =>
+				call(event('PUT /listings/featured', { sub: MAINTAINER, body }));
+			expect((await put({ moduleIds: a })).status).toBe(400);
+			expect((await put({ moduleIds: [a, a] })).status).toBe(400);
+			expect((await put({ moduleIds: ['not-a-uuid'] })).status).toBe(400);
+			const missing = await put({ moduleIds: [ABSENT] });
+			expect(missing.status).toBe(400);
+			expect(missing.body.error).toMatch(/no listing/);
+			expect((await put({ moduleIds: Array.from({ length: 13 }, () => a) })).status).toBe(400);
+			const cleared = await put({ moduleIds: [] });
+			expect(cleared.status).toBe(200);
+			expect(cleared.body.featured).toEqual([]);
+		});
+	});
+
+	describe('installs and ratings', () => {
+		it('requires an install record before a rating, and never lets a publisher rate their own module', async () => {
+			const moduleId = await publish('pub-a');
+			const early = await rate('dm-1', moduleId, { stars: 5 });
+			expect(early.status).toBe(403);
+			expect(early.body.error).toMatch(/install/i);
+			expect([...store.items.keys()].some((key) => key.includes('review#'))).toBe(false);
+
+			expect((await install('pub-a', moduleId)).status).toBe(200);
+			const self = await rate('pub-a', moduleId, { stars: 5 });
+			expect(self.status).toBe(403);
+			expect(self.body.error).toMatch(/you published/i);
+
+			expect((await install('dm-1', moduleId)).body).toEqual({ ok: true, installed: true });
+			const rated = await rate('dm-1', moduleId, { stars: 4, note: '  Great dungeon.  ' });
+			expect(rated.status).toBe(200);
+			expect(rated.body.review).toMatchObject({ stars: 4, note: 'Great dungeon.' });
+			expect(rated.body.rating).toEqual({ average: 4, count: 1 });
+
+			const [seen] = (await search()).listings;
+			expect(seen).toMatchObject({
+				installed: true,
+				rating: { average: 4, count: 1 },
+				myReview: { reviewId: rated.body.review.reviewId, stars: 4, note: 'Great dungeon.' },
+			});
+			// Another DM sees the same average but none of dm-1's own state.
+			const [other] = (await search({}, 'dm-2')).listings;
+			expect(other).toMatchObject({ installed: false, myReview: null, rating: { average: 4 } });
+		});
+
+		it('validates stars (whole 1–5) and the 280-character note; 404s unknown listings', async () => {
+			const moduleId = await publish('pub-a');
+			await install('dm-1', moduleId);
+			for (const stars of [0, 6, 2.5, '5', null, undefined]) {
+				expect((await rate('dm-1', moduleId, { stars })).status).toBe(400);
+			}
+			expect((await rate('dm-1', moduleId, { stars: 3, note: 'x'.repeat(281) })).status).toBe(400);
+			expect((await rate('dm-1', moduleId, { stars: 3, note: 'x'.repeat(280) })).status).toBe(200);
+			expect((await rate('dm-1', ABSENT, { stars: 3 })).status).toBe(404);
+			expect((await install('dm-1', ABSENT)).status).toBe(404);
+			expect((await install('dm-1', 'not-a-uuid')).status).toBe(400);
+			expect((await reviewsOf('dm-1', ABSENT)).status).toBe(404);
+		});
+
+		it('keeps one rating per DM: an edit moves the average, a second DM adds to the count', async () => {
+			const moduleId = await publish('pub-a');
+			await install('dm-1', moduleId);
+			await install('dm-2', moduleId);
+			const first = await rate('dm-1', moduleId, { stars: 2 });
+			const edited = await rate('dm-1', moduleId, { stars: 5, note: 'Grew on me.' });
+			expect(edited.body.review.reviewId).toBe(first.body.review.reviewId);
+			expect(edited.body.review.createdAt).toBe(first.body.review.createdAt);
+			expect(edited.body.rating).toEqual({ average: 5, count: 1 });
+			const second = await rate('dm-2', moduleId, { stars: 4 });
+			expect(second.body.rating).toEqual({ average: 4.5, count: 2 });
+
+			const listed = await reviewsOf('dm-2', moduleId);
+			expect(listed.status).toBe(200);
+			expect(listed.body.reviews.map((r: Review) => [r.stars, r.mine])).toEqual([
+				[4, true],
+				[5, false],
+			]);
+			expect(listed.body.reviews[1].note).toBe('Grew on me.');
+			expect(listed.body.rating).toEqual({ average: 4.5, count: 2 });
+			// Authorship is a per-caller boolean; no reviewer's sub reaches the response.
+			expect(JSON.stringify(listed.body)).not.toMatch(/dm-1|dm-2/);
+		});
+
+		it('refuses (409) a save that raced another save, leaving the aggregate untouched', async () => {
+			const moduleId = await publish('pub-a');
+			await install('dm-1', moduleId);
+			await rate('dm-1', moduleId, { stars: 3 });
+			const mirrorKey = `account#dm-1|review#${moduleId}`;
+			store.beforeNextTransaction = () => {
+				const mirror = store.items.get(mirrorKey)!;
+				store.items.set(mirrorKey, { ...mirror, updatedAt: '2099-01-01T00:00:00.000Z' });
+			};
+			const raced = await rate('dm-1', moduleId, { stars: 5 });
+			expect(raced.status).toBe(409);
+			expect((await reviewsOf('dm-1', moduleId)).body.rating).toEqual({ average: 3, count: 1 });
+		});
+
+		it('writes no rating once the account is deleted mid-request (410)', async () => {
+			const moduleId = await publish('pub-a');
+			await install('dm-1', moduleId);
+			store.items.set('account#dm-1|entitlement', { pk: 'account#dm-1', sk: 'entitlement' });
+			store.tombstoneBeforeNextAccountTransaction = true;
+			expect((await rate('dm-1', moduleId, { stars: 4 })).status).toBe(410);
+			expect(store.items.has(`account#dm-1|review#${moduleId}`)).toBe(false);
+			expect([...store.items.keys()].some((key) => key.startsWith('listing-ratings|'))).toBe(false);
+		});
+	});
+
+	describe('reports and the moderation queue (maintainer-only)', () => {
+		async function ratedListing() {
+			const moduleId = await publish('pub-a');
+			await install('dm-1', moduleId);
+			await install('dm-2', moduleId);
+			const spam = (await rate('dm-1', moduleId, { stars: 1, note: 'Spam spam spam.' })).body.review
+				.reviewId as string;
+			const fair = (await rate('dm-2', moduleId, { stars: 5 })).body.review.reviewId as string;
+			return { moduleId, spam, fair };
+		}
+
+		it('queues a reported review: one report per DM, never by the reviewer themself', async () => {
+			const { moduleId, spam } = await ratedListing();
+			expect((await flag('dm-1', moduleId, spam)).status).toBe(400);
+			for (const sub of ['dm-2', 'dm-2', 'dm-3']) {
+				expect((await flag(sub, moduleId, spam, { reason: 'Not a review.' })).status).toBe(200);
+			}
+			expect((await flag('dm-2', moduleId, ABSENT)).status).toBe(404);
+			expect((await flag('dm-2', moduleId, 'not-a-uuid')).status).toBe(400);
+			expect((await flag('dm-2', moduleId, spam, { reason: 'r'.repeat(281) })).status).toBe(400);
+
+			expect((await call(event('GET /moderation/reviews', { sub: 'dm-2' }))).status).toBe(403);
+			const queue = await call(event('GET /moderation/reviews', { sub: MAINTAINER }));
+			expect(queue.status).toBe(200);
+			expect(queue.body.reviews).toEqual([
+				expect.objectContaining({
+					moduleId,
+					reviewId: spam,
+					listingName: 'The Sunken Crypt',
+					stars: 1,
+					note: 'Spam spam spam.',
+					flagCount: 2,
+					lastReason: 'Not a review.',
+				}),
+			]);
+			expect(JSON.stringify(queue.body)).not.toMatch(/dm-1/);
+		});
+
+		it('lets only a maintainer resolve: dismiss keeps the review, remove takes it out of the aggregate', async () => {
+			const { moduleId, spam, fair } = await ratedListing();
+			await flag('dm-3', moduleId, spam);
+			await flag('dm-3', moduleId, fair);
+			const resolve = (sub: string, body: unknown) =>
+				step(event('POST /moderation/reviews/resolve', { sub, body }));
+
+			expect((await resolve('dm-3', { moduleId, reviewId: spam, action: 'remove' })).status).toBe(
+				403,
+			);
+			expect((await resolve(MAINTAINER, { moduleId, reviewId: spam, action: 'ban' })).status).toBe(
+				400,
+			);
+			expect(
+				(await resolve(MAINTAINER, { moduleId: 'x', reviewId: spam, action: 'remove' })).status,
+			).toBe(400);
+
+			expect(
+				(await resolve(MAINTAINER, { moduleId, reviewId: fair, action: 'dismiss' })).body,
+			).toEqual({
+				ok: true,
+				action: 'dismiss',
+			});
+			expect(
+				(await resolve(MAINTAINER, { moduleId, reviewId: spam, action: 'remove' })).status,
+			).toBe(200);
+			expect(
+				(await call(event('GET /moderation/reviews', { sub: MAINTAINER }))).body.reviews,
+			).toEqual([]);
+
+			const left = await reviewsOf('dm-3', moduleId);
+			expect(left.body.reviews.map((r: Review) => r.reviewId)).toEqual([fair]);
+			expect(left.body.rating).toEqual({ average: 5, count: 1 });
+			// The reviewer's own copy went with it, so a fresh rating counts once, not twice.
+			expect(store.items.has(`account#dm-1|review#${moduleId}`)).toBe(false);
+			expect((await rate('dm-1', moduleId, { stars: 3 })).body.rating).toEqual({
+				average: 4,
+				count: 2,
+			});
+			expect(
+				(await resolve(MAINTAINER, { moduleId, reviewId: spam, action: 'remove' })).status,
+			).toBe(404);
+		});
+	});
+
+	describe('removal and the account', () => {
+		it('a removed listing takes its ratings, aggregate, featured slot, reports and reviewer copies with it', async () => {
+			const moduleId = await publish('pub-a');
+			await install('dm-1', moduleId);
+			const reviewId = (await rate('dm-1', moduleId, { stars: 2 })).body.review.reviewId as string;
+			await flag('dm-2', moduleId, reviewId);
+			await step(
+				event('PUT /listings/featured', { sub: MAINTAINER, body: { moduleIds: [moduleId] } }),
+			);
+
+			const removed = await call(
+				event('DELETE /marketplace/modules/{moduleId}', { sub: 'pub-a', params: { moduleId } }),
+			);
+			expect(removed.status).toBe(200);
+			// Only the rows that belong to other accounts' own history remain: dm-1's install record
+			// and dm-2's one-report marker, both purged with those accounts.
+			expect([...store.items.keys()].filter((key) => key.includes(moduleId)).sort()).toEqual([
+				`account#dm-1|install#${moduleId}`,
+				`account#dm-2|flag#${moduleId}#${reviewId}`,
+			]);
+		});
+
+		it("exports the caller's ratings and installs; deleting the account withdraws its ratings", async () => {
+			const moduleId = await publish('pub-a');
+			await install('user-1', moduleId);
+			await install('dm-2', moduleId);
+			const own = (await rate('user-1', moduleId, { stars: 2, note: 'Not for me.' })).body.review
+				.reviewId as string;
+			await rate('dm-2', moduleId, { stars: 4 });
+			await flag('dm-2', moduleId, own);
+
+			const exported = await call(event('POST /account/export'));
+			expect(exported.body.reviews).toEqual([
+				expect.objectContaining({ moduleId, stars: 2, note: 'Not for me.' }),
+			]);
+			expect(exported.body.installedModules).toEqual([
+				expect.objectContaining({ moduleId, version: '1.0.0' }),
+			]);
+
+			expect((await call(event('DELETE /account'))).status).toBe(200);
+			const after = await reviewsOf('dm-2', moduleId);
+			expect(after.body.reviews.map((r: Review) => r.stars)).toEqual([4]);
+			expect(after.body.rating).toEqual({ average: 4, count: 1 });
+			expect([...store.items.keys()].some((key) => key.startsWith('review-flags|'))).toBe(false);
+			expect([...store.items.keys()].filter((key) => key.startsWith('account#user-1|'))).toEqual([
+				'account#user-1|entitlement',
+			]);
+		});
 	});
 });
 

@@ -17,6 +17,7 @@ import { GenerateDialog } from '../../app/widgetBuilder/GenerateDialog';
 /* ── RC-WID-1.5: the trust review sheet is opened from each installed package card ───────────── */
 import { TrustReviewSheet } from './TrustReviewSheet';
 import { useI18n, type MessageKey } from '../../i18n';
+import { hasMarketplaceBackend } from '../community/shared';
 
 /**
  * Plugins — the live widget-package registry (`runtime.state.widgets`). The installed list renders
@@ -595,14 +596,18 @@ export function ExtPlugins() {
 					{t('extensions.plugins.installUpgrade')}
 				</Button>
 			</Panel>
-			<Panel
-				title={t('extensions.plugins.marketTitle')}
-				action={<Badge status="neutral">{t('extensions.plugins.marketBadge')}</Badge>}
-			>
-				<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.ter }}>
-					{t('extensions.plugins.marketBody')}
-				</div>
-			</Panel>
+			{/* RC-CLD-4.5 — where the app API exists, the community marketplace is Community › Discover,
+			    so "unavailable" is said only where it is true. */}
+			{!hasMarketplaceBackend() && (
+				<Panel
+					title={t('extensions.plugins.marketTitle')}
+					action={<Badge status="neutral">{t('extensions.plugins.marketBadge')}</Badge>}
+				>
+					<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.ter }}>
+						{t('extensions.plugins.marketBody')}
+					</div>
+				</Panel>
+			)}
 			{builderOpen && (
 				<WidgetBuilder
 					editPackage={
