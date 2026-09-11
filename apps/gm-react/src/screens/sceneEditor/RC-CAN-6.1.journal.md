@@ -39,3 +39,19 @@
 - Final pre-commit checks on the committed tree: Prettier check clean on every changed file, ESLint
   exit 0 (ViewAsControl, sceneEditor/, the spec), app `tsc --noEmit` exit 0, `git diff --check` clean.
 - No delegation, push, promotion or dispatcher state edits.
+
+## Retry — 2026-09-11 ("candidate changes paths outside its claim")
+
+- The flagged paths were `i18n/messages/en.ts`, `i18n/messages/es.ts` and
+  `tests/e2e/player-preview.spec.ts`. Read (not edited) the dispatcher's fence: scopes are the
+  story's `owns` + `journal_paths` + the manifest's `companion_paths`, matched exactly, by prefix, or
+  with fnmatch. The manifest now grants `apps/gm-react/src/i18n/messages/*.ts` and
+  `apps/gm-react/tests/e2e/*.spec.ts` as companion paths (the 2026-09-11 root-cause fix), and the
+  story's `Owns:` now also lists `SceneBoardCanvas.tsx`, `canvas/WidgetFrame.tsx` and `Board.tsx`.
+  Classifying every path in `0c1b0fde..HEAD` with those same rules: all owned or companion, none
+  outside. So the candidate is kept as is. The copy stays in the central EN/ES catalogs rather than
+  moving into a module-local dictionary, and the e2e stays where Playwright's `testDir` finds it.
+- The newly owned canvas files are not needed: the overlay satisfies the story without touching them.
+- Re-run this attempt: `tests/e2e/player-preview.spec.ts`, 4/4 across both profiles, isolated
+  server on port 47015, Playwright exit 0. Source is byte-identical to the validated `d688bf58`;
+  the earlier unit/typecheck/lint/regression results above apply to it unchanged.
