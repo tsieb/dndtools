@@ -47,8 +47,11 @@ jobs:
       # manual dispatch) is an initiative-integration and needs the full gate.
       - name: Determine CI tier
         id: tier
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.base.ref }}" == initiative/* ]]; then
+          if [[ "$EVENT_NAME" == "pull_request" && "$BASE_REF" == initiative/* ]]; then
             echo "tier=smoke" >> "$GITHUB_OUTPUT"
           else
             echo "tier=full" >> "$GITHUB_OUTPUT"
