@@ -23,7 +23,7 @@
 		"@aws-sdk/client-sesv2": "^3.700.0",
 		"@aws-sdk/client-ssm": "^3.1129.0",
 		"@types/aws-lambda": "^8.10.145",
-		"@types/node": "^22.10.0",
+		"@types/node": "^26.4.0",
 		"esbuild": "^0.28.1",
 		"typescript": "^6.0.3"
 	}
