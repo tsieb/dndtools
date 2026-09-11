@@ -4832,6 +4832,12 @@ export const en = {
 	/* Widget bodies › the hand-drawn built-in widget contents on the GM Screen */
 	'widgetBody.sessionOnly': 'Go live in Session first — this reaches the table only during play.',
 	'widgetBody.note.empty': 'Empty note — select the widget to add text.',
+	'widgetBody.note.untitled': 'Untitled note',
+	'widgetBody.note.depthBadge': 'Depth: {depth}',
+	'widgetBody.note.depthTitle': 'Title only',
+	'widgetBody.note.depthSummary': 'Summary',
+	'widgetBody.note.depthFull': 'Full note',
+	'widgetBody.note.region': 'Note text: {title}',
 	'widgetBody.dice.roll': 'Roll',
 	'widgetBody.dice.rollAria': 'Roll {expression}',
 	'widgetBody.dice.dice': 'dice',

@@ -719,7 +719,23 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 			defaultSize: { width: 240, height: 180 },
 			minSize: { width: 160, height: 120 },
 			renderEntrypoint: templateEntrypoint('form-panel'),
-			configFields: [textField('heading', 'Heading'), textareaField('body', 'Body')],
+			// RC-CAN-2.3 — how much of the note the tile shows. `full` is what every note rendered
+			// before depth existed, so it is the default and an already-placed note is unchanged.
+			configFields: [
+				textField('heading', 'Heading'),
+				textareaField('body', 'Body'),
+				selectField(
+					'depth',
+					'Depth',
+					[
+						{ value: 'title', label: 'Title only' },
+						{ value: 'summary', label: 'Summary' },
+						{ value: 'full', label: 'Full note' },
+					],
+					'full',
+					'display',
+				),
+			],
 		}),
 		systemWidget({
 			type: 'map',

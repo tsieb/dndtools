@@ -4882,6 +4882,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'widgetBody.sessionOnly':
 		'Ponte en vivo en Sesión primero — esto solo llega a la mesa durante el juego.',
 	'widgetBody.note.empty': 'Nota vacía — selecciona el widget para añadir texto.',
+	'widgetBody.note.untitled': 'Nota sin título',
+	'widgetBody.note.depthBadge': 'Detalle: {depth}',
+	'widgetBody.note.depthTitle': 'Solo el título',
+	'widgetBody.note.depthSummary': 'Resumen',
+	'widgetBody.note.depthFull': 'Nota completa',
+	'widgetBody.note.region': 'Texto de la nota: {title}',
 	'widgetBody.dice.roll': 'Tirar',
 	'widgetBody.dice.rollAria': 'Tirar {expression}',
 	'widgetBody.dice.dice': 'dados',

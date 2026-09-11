@@ -127,7 +127,6 @@ export const allow = {
 	'apps/gm-react/src/app/widgets/builtin/GettingStartedBody.tsx': 1,
 	'apps/gm-react/src/app/widgets/builtin/InitiativeTracker.tsx': 11,
 	'apps/gm-react/src/app/widgets/builtin/Map.tsx': 4,
-	'apps/gm-react/src/app/widgets/builtin/NoteBody.tsx': 1,
 	'apps/gm-react/src/app/widgets/builtin/PlayerViewsBody.tsx': 1,
 	'apps/gm-react/src/app/widgets/builtin/SearchBody.tsx': 1,
 	'apps/gm-react/src/app/widgets/builtin/SessionBody.tsx': 1,
