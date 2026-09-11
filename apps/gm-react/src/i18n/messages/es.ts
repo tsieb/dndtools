@@ -996,6 +996,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'viewAs.specificPlayers': 'Jugadores concretos',
 	'viewAs.enteredToast': 'Previsualizando como {label} · los cambios son de solo lectura',
 	'viewAs.exitedToast': 'De vuelta a tu vista del DM',
+	'viewAs.sceneTrigger': 'Previsualizar esta escena como otro rol',
+	'viewAs.sceneLabel': 'Vista de jugador',
+	'viewAs.scenePreviewing': 'Vista previa de la escena como {label} — cambiar de rol',
 	'palette.placeholder': 'Buscar notas, mapas, documentos, escenas, personajes…',
 	'palette.group.create': 'Crear',
 	'palette.group.goTo': 'Ir a',
@@ -4292,6 +4295,44 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sceneEditor.autoLayoutOrder': 'Automático (orden de la disposición)',
 	'sceneEditor.position': 'Posición {index}',
 	'sceneEditor.removeWidget': 'Quitar el widget',
+	/* Editor de escenas › la vista previa de jugador sobre el lienzo (RC-CAN-6.1) */
+	'sceneEditor.preview.region': 'Vista previa de jugador como {label}',
+	'sceneEditor.preview.title': 'Lo que ve {label}',
+	'sceneEditor.preview.count': '{delivered} de {total} mosaicos llegan a {label}',
+	'sceneEditor.preview.paused':
+		'La edición está en pausa. Pulsa Escape o Salir de la vista previa para volver a tu vista del DM.',
+	'sceneEditor.preview.exit': 'Salir de la vista previa',
+	'sceneEditor.preview.tiles': 'Mosaicos tal como los ve {label}',
+	'sceneEditor.preview.empty': 'Esta escena aún no tiene mosaicos.',
+	'sceneEditor.preview.blocked':
+		'{label} no puede abrir esta escena, así que no le llega ninguno de sus mosaicos.',
+	'sceneEditor.preview.tone.visible': 'Visible',
+	'sceneEditor.preview.tone.placeholder': 'Marcador',
+	'sceneEditor.preview.tone.hidden': 'Oculto',
+	'sceneEditor.preview.reason.visible': '{label} ve este mosaico.',
+	'sceneEditor.preview.reason.degraded':
+		'{label} ve este mosaico con algunas funciones no disponibles.',
+	'sceneEditor.preview.reason.unbound':
+		'{label} ve un mosaico vacío — todavía no tiene nada vinculado.',
+	'sceneEditor.preview.reason.missing':
+		'{label} ve un marcador — el contenido vinculado ya no existe.',
+	'sceneEditor.preview.reason.conflicted':
+		'{label} ve un marcador hasta que se resuelva el conflicto del vínculo.',
+	'sceneEditor.preview.reason.disabled':
+		'{label} ve un marcador — este paquete de widgets está desactivado.',
+	'sceneEditor.preview.reason.tileDmOnly': 'Oculto — este mosaico es solo para el DM.',
+	'sceneEditor.preview.reason.tileNotShared':
+		'Oculto — este mosaico está compartido, pero no con {label}.',
+	'sceneEditor.preview.reason.bindingDmOnly': 'Oculto — muestra contenido solo para el DM.',
+	'sceneEditor.preview.reason.bindingNotShared':
+		'Oculto — muestra contenido que no se comparte con {label}.',
+	'sceneEditor.preview.reason.bindingFieldHidden':
+		'Oculto — el campo que muestra es solo para el DM.',
+	'sceneEditor.preview.reason.bindingHidden': 'Oculto — su contenido no se muestra a {label}.',
+	'sceneEditor.preview.reason.sceneDmOnly': 'Oculto — toda la escena es solo para el DM.',
+	'sceneEditor.preview.reason.sceneNotShared': 'Oculto — esta escena no se comparte con {label}.',
+	'sceneEditor.preview.reason.outsideSections':
+		'Oculto — está fuera de las secciones que {label} puede ver.',
 	/* Constructor de personajes › el asistente, la importación y los cinco pasos */
 	'charBuilder.addCharacter': 'Añadir un personaje',
 	'charBuilder.addCharacterHint': 'Crea uno desde cero con el asistente guiado de 5e.',

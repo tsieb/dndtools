@@ -968,6 +968,9 @@ export const en = {
 	'viewAs.specificPlayers': 'Specific players',
 	'viewAs.enteredToast': 'Previewing as {label} · changes are read-only',
 	'viewAs.exitedToast': 'Back to your DM view',
+	'viewAs.sceneTrigger': 'Preview this scene as another role',
+	'viewAs.sceneLabel': 'Player view',
+	'viewAs.scenePreviewing': 'Scene preview as {label} — change role',
 	'palette.placeholder': 'Search notes, maps, handouts, scenes, characters…',
 	'palette.group.create': 'Create',
 	'palette.group.goTo': 'Go to',
@@ -4287,6 +4290,39 @@ export const en = {
 	'sceneEditor.autoLayoutOrder': 'Auto (layout order)',
 	'sceneEditor.position': 'Position {index}',
 	'sceneEditor.removeWidget': 'Remove widget',
+	/* Scene editor › the player-view preview overlay (RC-CAN-6.1) */
+	'sceneEditor.preview.region': 'Player view preview as {label}',
+	'sceneEditor.preview.title': 'What {label} sees',
+	'sceneEditor.preview.count': '{delivered} of {total} tiles reach {label}',
+	'sceneEditor.preview.paused':
+		'Editing is paused. Press Escape or Exit preview to return to your DM view.',
+	'sceneEditor.preview.exit': 'Exit preview',
+	'sceneEditor.preview.tiles': 'Tiles as {label} sees them',
+	'sceneEditor.preview.empty': 'This scene has no tiles yet.',
+	'sceneEditor.preview.blocked': '{label} can’t open this scene, so none of its tiles reach them.',
+	'sceneEditor.preview.tone.visible': 'Visible',
+	'sceneEditor.preview.tone.placeholder': 'Placeholder',
+	'sceneEditor.preview.tone.hidden': 'Hidden',
+	'sceneEditor.preview.reason.visible': '{label} sees this tile.',
+	'sceneEditor.preview.reason.degraded': '{label} sees this tile with some features unavailable.',
+	'sceneEditor.preview.reason.unbound': '{label} sees an empty tile — nothing is bound to it yet.',
+	'sceneEditor.preview.reason.missing':
+		'{label} sees a placeholder — the bound content no longer exists.',
+	'sceneEditor.preview.reason.conflicted':
+		'{label} sees a placeholder until the binding conflict is resolved.',
+	'sceneEditor.preview.reason.disabled':
+		'{label} sees a placeholder — this widget package is disabled.',
+	'sceneEditor.preview.reason.tileDmOnly': 'Hidden — this tile is set to DM only.',
+	'sceneEditor.preview.reason.tileNotShared': 'Hidden — this tile is shared, but not with {label}.',
+	'sceneEditor.preview.reason.bindingDmOnly': 'Hidden — it shows DM-only content.',
+	'sceneEditor.preview.reason.bindingNotShared':
+		'Hidden — it shows content that isn’t shared with {label}.',
+	'sceneEditor.preview.reason.bindingFieldHidden': 'Hidden — the field it shows is DM only.',
+	'sceneEditor.preview.reason.bindingHidden': 'Hidden — its content is withheld from {label}.',
+	'sceneEditor.preview.reason.sceneDmOnly': 'Hidden — the whole scene is DM only.',
+	'sceneEditor.preview.reason.sceneNotShared': 'Hidden — this scene isn’t shared with {label}.',
+	'sceneEditor.preview.reason.outsideSections':
+		'Hidden — it sits outside the sections {label} can see.',
 	/* Character builder › the wizard shell, the import path and the five steps */
 	'charBuilder.addCharacter': 'Add a character',
 	'charBuilder.addCharacterHint': 'Build one from scratch with the guided 5e wizard.',
