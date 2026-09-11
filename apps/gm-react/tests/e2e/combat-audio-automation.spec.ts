@@ -25,16 +25,28 @@ async function goLiveAndStartCombat(page: Page): Promise<void> {
 			actorId: rt.defaultActorId,
 			payload: { workflow: 'active', activeSceneId: sceneId },
 		});
-		if (live.status !== 'accepted') return { step: 'go live', ...live };
+		const outcome =
+			live.status !== 'accepted'
+				? { step: 'go live', result: live }
+				: {
+						step: 'start combat',
+						result: await rt.dispatch({
+							type: 'combat.start',
+							actorId: rt.defaultActorId,
+							payload: {
+								combatants: [
+									{ kind: 'monster', name: 'Bog Lurker', ac: 13, initiative: 18, maxHp: 22 },
+								],
+							},
+						}),
+					};
+		// The automation driver queues its play command right behind `combat.start`, so settle from a
+		// fresh task before returning, as `dispatch` in _helpers.ts does (RC-ENG-2.6).
+		await new Promise((resolve) => setTimeout(resolve, 0));
 		return {
-			step: 'start combat',
-			...(await rt.dispatch({
-				type: 'combat.start',
-				actorId: rt.defaultActorId,
-				payload: {
-					combatants: [{ kind: 'monster', name: 'Bog Lurker', ac: 13, initiative: 18, maxHp: 22 }],
-				},
-			})),
+			step: outcome.step,
+			status: outcome.result.status,
+			rejection: outcome.result.rejection,
 		};
 	});
 	expect(result.status, `${result.step}: ${JSON.stringify(result.rejection ?? {})}`).toBe(

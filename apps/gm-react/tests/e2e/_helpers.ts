@@ -50,10 +50,38 @@ declare global {
 const DB_NAME = 'dndtools-v2';
 
 /**
+ * Opt-in diagnostics for navigation races (RC-ENG-2.6). `DNDTOOLS_E2E_CPU_THROTTLE=4` slows the
+ * renderer the way a loaded machine does; `DNDTOOLS_E2E_TRACE_NAV=1` logs every main-frame
+ * navigation, the Vite client's console lines, and the JS stack that started each unload.
+ */
+async function instrument(page: Page): Promise<void> {
+	const rate = Number(process.env.DNDTOOLS_E2E_CPU_THROTTLE);
+	if (Number.isFinite(rate) && rate > 1) {
+		const cdp = await page.context().newCDPSession(page);
+		await cdp.send('Emulation.setCPUThrottlingRate', { rate });
+	}
+	if (process.env.DNDTOOLS_E2E_TRACE_NAV !== '1') return;
+	const start = Date.now();
+	const log = (message: string) => console.log(`[nav +${Date.now() - start}ms] ${message}`);
+	page.on('framenavigated', (frame) => {
+		if (frame === page.mainFrame()) log(`navigated ${frame.url()}`);
+	});
+	page.on('load', () => log('load'));
+	page.on('console', (message) => {
+		const text = message.text();
+		if (text.startsWith('[vite]') || text.startsWith('[unload]')) log(text);
+	});
+	await page.addInitScript(() => {
+		window.addEventListener('beforeunload', () => console.log(`[unload] ${new Error().stack}`));
+	});
+}
+
+/**
  * Bypass the first-run onboarding overlay (it covers every surface on a fresh profile). Must be
  * called BEFORE the first navigation so the init script runs before the app boots.
  */
 export async function markOnboarded(page: Page): Promise<void> {
+	await instrument(page);
 	await page.addInitScript(() => {
 		try {
 			window.localStorage.setItem('dndtools:react:onboarded', 'gate');
@@ -114,9 +142,10 @@ export async function seedFresh(page: Page): Promise<void> {
 	await page.evaluate(
 		(db) =>
 			new Promise<void>((resolve) => {
+				// Settle from a fresh task, as `dispatch` does (RC-ENG-2.6).
+				const settle = () => setTimeout(resolve, 0);
 				const req = indexedDB.deleteDatabase(db);
-				req.onsuccess = req.onerror = () => resolve();
-				req.onblocked = () => resolve();
+				req.onsuccess = req.onerror = req.onblocked = settle;
 			}),
 		DB_NAME,
 	);
@@ -143,7 +172,17 @@ export async function exitPreview(page: Page): Promise<void> {
 	await page.waitForFunction(() => window.__rt?.preview === null, null, { timeout: 5_000 });
 }
 
-/** Dispatch a Core command through the runtime's single write choke point. */
+/**
+ * Dispatch a Core command through the runtime's single write choke point.
+ *
+ * The result settles from a fresh task, not straight off the runtime's promise (RC-ENG-2.6). The
+ * inspector holds an evaluation's promise weakly, and a full GC in the one microtask slot between
+ * that promise settling and the inspector reading it fails the call with "Promise was collected",
+ * which Playwright reports as "Execution context was destroyed, most likely because of a
+ * navigation". Straight off `dispatch`, that slot holds whatever the runtime queued behind the
+ * command; from a fresh task it holds nothing. Only the fields the specs read come back: the
+ * runtime's `nextState` is the whole vault.
+ */
 export function dispatch(
 	page: Page,
 	command: Record<string, unknown>,
@@ -152,5 +191,9 @@ export function dispatch(
 	rejection?: { message?: string };
 	events?: Array<Record<string, unknown>>;
 }> {
-	return page.evaluate((cmd) => window.__rt!.dispatch(cmd), command);
+	return page.evaluate(async (cmd) => {
+		const { status, rejection, events } = await window.__rt!.dispatch(cmd);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		return { status, rejection, events };
+	}, command);
 }
