@@ -621,11 +621,10 @@ export function Board() {
 													minWidth: 0,
 												}}
 											>
-												<Icon
-													name={issue.kind === 'overflow' ? 'warning' : 'error'}
-													size="sm"
-												/>
-												<span style={{ flex: 1, font: 'var(--text-xs) var(--font-sans)' }}>{text}</span>
+												<Icon name={issue.kind === 'overflow' ? 'warning' : 'error'} size="sm" />
+												<span style={{ flex: 1, font: 'var(--text-xs) var(--font-sans)' }}>
+													{text}
+												</span>
 											</span>
 											<span style={{ font: 'var(--text-xs) var(--font-sans)' }}>
 												{t('board.selectIssue')}
