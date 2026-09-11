@@ -38,6 +38,7 @@ v1 document editor is preserved at tag `v1-final` only.
 | Threat model and security controls       | [security/README.md](security/README.md)                                              |
 | What the app does today, with evidence   | [requirements/FEATURE-GAPS.md](requirements/FEATURE-GAPS.md) and `pnpm feature-audit` |
 | The plan to RC1                          | [planning/README.md](planning/README.md) → `planning/RC_ROADMAP.md`                   |
+| Dispatcher run journals                  | [development/run-journals/](development/run-journals/)                                |
 | Decisions                                | [adr/README.md](adr/README.md)                                                        |
 | Open debt                                | [`../DEBT.md`](../DEBT.md)                                                            |
 
@@ -49,3 +50,6 @@ v1 document editor is preserved at tag `v1-final` only.
 - When a contract changes, the doc changes in the same commit. Material runtime, storage, security,
   or platform decisions get an ADR.
 - Keep one home per topic and link to it; do not restate another doc's content.
+- Every file under `docs/` must be reachable from this page through relative links, and every
+  relative link must resolve. `pnpm gates` checks both; see
+  [development/TESTING.md](development/TESTING.md) §6.

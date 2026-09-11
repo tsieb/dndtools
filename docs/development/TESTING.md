@@ -141,3 +141,20 @@ async evaluates in other specs still return straight off app work and carry the 
 Two opt-in switches in `_helpers.ts` help with the next hunt of this kind: `DNDTOOLS_E2E_CPU_THROTTLE=4`
 slows the renderer, and `DNDTOOLS_E2E_TRACE_NAV=1` logs main-frame navigations, the Vite client's
 console lines, and the stack behind each unload.
+
+## 7. Docs check
+
+`pnpm gates` runs `scripts/validate/docs-links.ts` over `docs/` and fails when:
+
+- a relative link (inline, image, or a `[label]: path` definition) points at a missing file or
+  directory. Links inside code spans and fenced blocks are skipped;
+- a file under `docs/` is not reachable from `docs/README.md` through relative links. A directory
+  link covers everything beneath it, which is how `design-package/` and `run-journals/` are reached;
+- a string another tool reads is gone: the four `test:*` script names in this file
+  (`tests/unit/ci-guardrails.test.ts`), or `i18n-catalog.ts export` and `import` in LOCALIZATION.md
+  (`tests/unit/i18n-catalog.test.ts`);
+- an ADR's `- Status:` line differs from its Status cell in `docs/adr/README.md`, or the index and
+  the ADR files disagree about which ADRs exist.
+
+`pnpm gates --docs-root <dir>` runs the same check against another tree, such as a fixture. A new doc
+string that tooling depends on gets an entry in `DOCS_COUPLINGS`.
