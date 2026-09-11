@@ -8,7 +8,6 @@ import {
 	getContentItemsForActor,
 	listCharactersForActor,
 	projectObjectFieldsForRole,
-	type ContentItemView,
 } from '@dndtools/core';
 import {
 	Badge,
@@ -43,6 +42,15 @@ import {
 	optionLabel,
 	options,
 } from './campaignVocab';
+import {
+	bodySummary,
+	objectiveArray,
+	str,
+	strArray,
+	type FactionRow,
+	type QuestObjective,
+	type QuestRow,
+} from './campaignRows';
 
 /**
  * Campaign — the structured-entity / world-model lens, wired to the live Processing Core.
@@ -58,55 +66,6 @@ import {
  * core's CONTENT-013 AC3 projection, not client-side filtering). Campaign-date AUTHORING lives on
  * the Session surface (not here), so this screen never invents an out-of-surface write control.
  */
-
-/** First non-heading body line, marker-stripped — the one-line summary for list cards. */
-function bodySummary(body: string, fallback: string): string {
-	const line = body
-		.split('\n')
-		.map((l) => l.trim())
-		.find((l) => l && !l.startsWith('#'));
-	if (!line) return fallback;
-	return line
-		.replace(/^[>\-*]\s+/, '')
-		.replace(/\*\*([^*]+)\*\*/g, '$1')
-		.replace(/\[\[([^\]]+)\]\]/g, '$1')
-		.slice(0, 180);
-}
-
-const str = (v: unknown): string => (typeof v === 'string' ? v : '');
-const strArray = (v: unknown): string[] =>
-	Array.isArray(v) ? v.filter((entry): entry is string => typeof entry === 'string') : [];
-
-/** A quest objective as declared by the `quest` subtype schema: `{id, text, done}`, in order. */
-interface QuestObjective {
-	id: string;
-	text: string;
-	done: boolean;
-}
-
-const objectiveArray = (v: unknown): QuestObjective[] =>
-	Array.isArray(v)
-		? v.filter(
-				(entry): entry is QuestObjective =>
-					!!entry &&
-					typeof entry === 'object' &&
-					typeof (entry as QuestObjective).id === 'string' &&
-					typeof (entry as QuestObjective).text === 'string' &&
-					typeof (entry as QuestObjective).done === 'boolean',
-			)
-		: [];
-
-/** A quest Vault Object row: the raw item view + its role-projected tracker fields. */
-interface QuestRow {
-	view: ContentItemView;
-	fields: Record<string, unknown>;
-}
-
-/** A faction Vault Object row: the raw item view + its role-projected dossier fields. */
-interface FactionRow {
-	view: ContentItemView;
-	fields: Record<string, unknown>;
-}
 
 /**
  * One quest in the Threads list: the DS QuestCard (status header · hook · objective checklist) with
