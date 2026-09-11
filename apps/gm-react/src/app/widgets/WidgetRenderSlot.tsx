@@ -1,4 +1,10 @@
-import { Component, type ComponentType, type CSSProperties, type ReactNode } from 'react';
+import {
+	Component,
+	useSyncExternalStore,
+	type ComponentType,
+	type CSSProperties,
+	type ReactNode,
+} from 'react';
 import {
 	findWidgetDefinition,
 	resolveWidgetStyleVariables,
@@ -123,8 +129,42 @@ export function WidgetStyleScope({
 	);
 }
 
+function subscribeToTheme(onChange: () => void) {
+	const observer = new MutationObserver(onChange);
+	observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+	return () => observer.disconnect();
+}
+
+const readTheme = () => document.documentElement.getAttribute('data-theme') ?? '';
+const serverTheme = () => '';
+const ignoreTheme = () => () => {};
+
+/**
+ * The sandbox protocol only installs theme variables at initialization. Refresh that host when the
+ * app theme changes so its opaque document receives the new palette. This restarts guest-local JS
+ * state; persisted configuration and bindings are supplied again by SandboxHost. Workers and widgets
+ * without host-theme-tokens do not subscribe or restart. Replace this refresh with a theme message
+ * when the sandbox protocol supports updates without reinitialization.
+ */
+export function ThemeAwareWidgetHost({
+	Host,
+	followsTheme,
+	...props
+}: WidgetRendererProps & { Host: WidgetRenderer; followsTheme: boolean }) {
+	const theme = useSyncExternalStore(
+		followsTheme ? subscribeToTheme : ignoreTheme,
+		followsTheme ? readTheme : serverTheme,
+		serverTheme,
+	);
+	return <Host key={theme} {...props} />;
+}
+
 /** Draw one resolved plan. Split out so the resolver's branches map 1:1 onto render calls. */
-function renderPlan(plan: WidgetRenderPlan, props: WidgetRendererProps): ReactNode {
+function renderPlan(
+	plan: WidgetRenderPlan,
+	props: WidgetRendererProps,
+	followsTheme: boolean,
+): ReactNode {
 	switch (plan.kind) {
 		case 'builtin':
 			return <WidgetBody widget={props.widget} onCommand={props.onCommand} />;
@@ -143,7 +183,11 @@ function renderPlan(plan: WidgetRenderPlan, props: WidgetRendererProps): ReactNo
 			// package that names no sandbox keeps the RC-WID-1.3 behaviour it had.
 			const Host = plan.entrypoint.sandbox === 'worker' ? WORKER_WIDGET_HOST : CUSTOM_WIDGET_HOST;
 			return Host ? (
-				<Host {...props} />
+				<ThemeAwareWidgetHost
+					Host={Host}
+					followsTheme={followsTheme && plan.entrypoint.sandbox !== 'worker'}
+					{...props}
+				/>
 			) : (
 				<WidgetPlaceholder diagnostic={WIDGET_PLACEHOLDER_COPY.customHostUnavailable} />
 			);
@@ -183,7 +227,11 @@ export function WidgetRenderSlot({ widget, onCommand }: WidgetRendererProps) {
 			variables={definition ? resolveWidgetStyleVariables(definition, widget.configuration) : {}}
 		>
 			<WidgetErrorBoundary widgetId={widget.id}>
-				{renderPlan(plan, { widget, onCommand })}
+				{renderPlan(
+					plan,
+					{ widget, onCommand },
+					definition?.style?.capabilities?.includes('host-theme-tokens') ?? false,
+				)}
 			</WidgetErrorBoundary>
 		</WidgetStyleScope>
 	);

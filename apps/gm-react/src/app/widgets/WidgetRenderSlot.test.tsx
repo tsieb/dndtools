@@ -1,9 +1,15 @@
 // @vitest-environment jsdom
 
-import { act } from 'react';
+import { act, useEffect } from 'react';
+import type { BoardWidget } from '../board-helpers';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { WidgetErrorBoundary, WidgetPlaceholder, WidgetStyleScope } from './WidgetRenderSlot';
+import {
+	ThemeAwareWidgetHost,
+	WidgetErrorBoundary,
+	WidgetPlaceholder,
+	WidgetStyleScope,
+} from './WidgetRenderSlot';
 import { WIDGET_PLACEHOLDER_COPY } from './resolveRenderer';
 
 /**
@@ -99,4 +105,52 @@ describe('WidgetErrorBoundary', () => {
 		);
 		expect(container.textContent).toBe('Replacement body');
 	});
+});
+
+describe('ThemeAwareWidgetHost', () => {
+	it.each([true, false])(
+		'refreshes only theme consumers (followsTheme=%s)',
+		async (followsTheme) => {
+			const mounted = vi.fn();
+			const unmounted = vi.fn();
+			function Host() {
+				useEffect(() => {
+					mounted();
+					return unmounted;
+				}, []);
+				return <span>Guest</span>;
+			}
+			const original = document.documentElement.getAttribute('data-theme');
+			try {
+				document.documentElement.setAttribute('data-theme', 'tavern');
+				act(() =>
+					root.render(
+						<ThemeAwareWidgetHost
+							Host={Host}
+							followsTheme={followsTheme}
+							widget={{ id: 'test' } as BoardWidget}
+						/>,
+					),
+				);
+				expect(mounted).toHaveBeenCalledTimes(1);
+				await act(async () => {
+					document.documentElement.setAttribute('data-theme', 'parchment');
+				});
+				expect(mounted).toHaveBeenCalledTimes(followsTheme ? 2 : 1);
+				expect(unmounted).toHaveBeenCalledTimes(followsTheme ? 1 : 0);
+				await act(async () => {
+					document.documentElement.setAttribute('data-theme', 'parchment');
+				});
+				expect(mounted).toHaveBeenCalledTimes(followsTheme ? 2 : 1);
+				act(() => root.render(null));
+				await act(async () => {
+					document.documentElement.setAttribute('data-theme', 'tavern');
+				});
+				expect(mounted).toHaveBeenCalledTimes(followsTheme ? 2 : 1);
+			} finally {
+				if (original === null) document.documentElement.removeAttribute('data-theme');
+				else document.documentElement.setAttribute('data-theme', original);
+			}
+		},
+	);
 });
