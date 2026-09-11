@@ -351,6 +351,22 @@ test.describe('widget builder: config and commands steps (RC-WID-2.3)', () => {
 });
 
 test.describe('widget builder: style step (RC-WID-2.4)', () => {
+	test('requires the custom stylesheet capability for raw token values', async ({ page }) => {
+		const dialog = await openBuilder(page);
+		await dialog.getByRole('button', { name: 'Style', exact: true }).click();
+		await dialog.getByRole('button', { name: 'Add style token' }).click();
+		const value = dialog.getByLabel('Value', { exact: true });
+		const capability = dialog.getByRole('checkbox', { name: 'Custom stylesheet', exact: true });
+		await capability.check();
+		await value.fill('#123456');
+		await expect(value).toHaveValue('#123456');
+		await capability.uncheck();
+		await expect(value).toHaveValue('var(--color-accent)');
+		expect(await value.evaluate((el) => el.tagName)).toBe('SELECT');
+		await capability.check();
+		await expect(value).toHaveValue('var(--color-accent)');
+	});
+
 	// A declared token has to reach the placed widget: the scene Inspector lists it in its Style
 	// group, and the frame carries it as a custom property that still POINTS AT the semantic token —
 	// so swapping `data-theme` re-resolves it rather than keeping the palette it was built under.
