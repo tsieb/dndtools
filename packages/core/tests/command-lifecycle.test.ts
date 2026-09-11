@@ -102,6 +102,8 @@ describe('PLAT-018 AC2: undo only where the command contract supports it', () =>
 			'scene.destroy-widget',
 			// RC-CAN-1.2: destroy is undone by restoring the tombstoned instance.
 			'scene.restore-widget',
+			// RC-CAN-2.4: a duplicate is undone like an add, by destroying the copy.
+			'scene.duplicate-widget',
 			'session.project-player-view',
 			'session.revoke-player-view',
 			'widget.package.install',

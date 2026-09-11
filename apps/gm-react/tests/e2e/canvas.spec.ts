@@ -1572,6 +1572,15 @@ test.describe('canvas: the tile action menu', () => {
 			expect(apart, `the copy overlaps ${other.id}`).toBe(true);
 		}
 		await expect(page.getByText(/^Duplicated /)).toBeVisible();
+		// The core's own copy command made it — not an add carrying settings the client re-sent.
+		const opTypes = await page.evaluate(
+			(path) =>
+				window.__rt!.state.sync.operations
+					.filter((op) => op.path === path)
+					.map((op) => op.opType),
+			`widgets/${copy.id}`,
+		);
+		expect(opTypes).toEqual(['scene.duplicate-widget']);
 		// Focus follows the copy, so the next arrow key moves the new tile rather than the old one.
 		await expect(page.getByTestId(`widget-${copy.id}`)).toBeFocused();
 
@@ -1618,6 +1627,98 @@ test.describe('canvas: the tile action menu', () => {
 		await expect.poll(() => widgetCount(page, sceneId)).toBe(count - 1);
 		await page.getByRole('button', { name: 'Undo', exact: true }).click();
 		await expect.poll(() => widgetCount(page, sceneId)).toBe(count);
+	});
+
+	test('Bind… and Configure… on the board open dialogs that write the tile', async ({ page }) => {
+		const { sceneId } = await editBoard(page);
+		// A Character tile placed unbound, below everything — the way the Add panel places one.
+		const tileId = await page.evaluate(async (id) => {
+			const rt = window.__rt!;
+			const widgets = rt.state.scenes.scenes[id].widgets;
+			const def = Object.values(rt.state.widgets.packages)
+				.flatMap((record) => record.package.widgets)
+				.find((definition) => definition.type === 'character')!;
+			const bottom = Math.max(...widgets.map((w) => w.layout.y + w.layout.h));
+			await rt.dispatch({
+				type: 'scene.add-widget',
+				actorId: rt.defaultActorId,
+				payload: {
+					sceneId: id,
+					widget: {
+						type: 'character',
+						version: def.version,
+						layout: { x: 20, y: bottom + 20, w: def.defaultSize.width, h: def.defaultSize.height },
+						configuration: {},
+						localState: {},
+						binding: null,
+					},
+				},
+			});
+			return rt.state.scenes.scenes[id].widgets.at(-1)!.id;
+		}, sceneId);
+		const frame = page.getByTestId(`widget-${tileId}`);
+		const trigger = frame.getByTestId('tile-actions-trigger');
+		const instance = () =>
+			page.evaluate(
+				({ id, wid }) => {
+					const w = window.__rt!.state.scenes.scenes[id].widgets.find((x) => x.id === wid)!;
+					return { x: w.layout.x, binding: w.binding, configuration: w.configuration };
+				},
+				{ id: sceneId, wid: tileId },
+			);
+		// The tile sits below the fold on a desktop board. Settle the board's scroll before opening the
+		// menu: a fixed menu dismisses itself on any scroll, so one landing late closes it under the click.
+		const menu = page.getByTestId('tile-actions-menu');
+		const openMenu = async () => {
+			await frame.scrollIntoViewIfNeeded();
+			await expect(async () => {
+				if (!(await menu.isVisible())) await trigger.click();
+				await expect(menu).toBeVisible({ timeout: 1_000 });
+			}).toPass();
+		};
+		await expect(frame.getByTestId('tile-binding')).toHaveAttribute('data-binding-state', 'unbound');
+
+		// Bind… offers the characters the DM can read, and binds the one picked.
+		await openMenu();
+		await page.getByRole('menuitem', { name: 'Bind…', exact: true }).click();
+		const bind = page.getByRole('dialog', { name: 'Bind Character', exact: true });
+		await expect(bind).toBeVisible();
+		const accessibility = await new AxeBuilder({ page })
+			.include('[data-testid="tile-bind-dialog"]')
+			.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
+			.analyze();
+		expect(accessibility.violations).toEqual([]);
+		const picker = bind.getByLabel('Character', { exact: true });
+		await picker.selectOption({ index: 1 });
+		const name = (await picker.locator('option:checked').textContent())!.trim();
+		await bind.getByRole('button', { name: 'Bind', exact: true }).click();
+		await expect(bind).toHaveCount(0);
+		await expect(frame).toBeFocused();
+		await expect.poll(async () => (await instance()).binding?.source.entityType).toBe('character');
+		const boundId = (await instance()).binding!.source.entityId;
+		expect(
+			await page.evaluate((cid) => window.__rt!.state.characters.characters[cid]?.name, boundId),
+		).toBe(name);
+		await expect(frame.getByTestId('tile-binding')).toHaveAttribute('data-binding-state', 'bound');
+		await expect(frame.getByTestId('tile-binding')).toContainText(name);
+
+		// Configure… — the board has no Inspector — lists the definition's settings in a dialog.
+		await openMenu();
+		await page.getByRole('menuitem', { name: 'Configure…', exact: true }).click();
+		const configure = page.getByRole('dialog', { name: 'Configure Character', exact: true });
+		const abilities = configure.getByRole('switch', { name: 'Ability scores' });
+		await expect(abilities).toBeChecked();
+		await abilities.click();
+		await expect.poll(async () => (await instance()).configuration.showAbilities).toBe(false);
+		// Keys typed in the dialog stay in it: an arrow does not move the tile, Delete does not remove it.
+		const { x } = await instance();
+		await page.keyboard.press('ArrowRight');
+		await page.keyboard.press('Delete');
+		expect((await instance()).x).toBe(x);
+		await page.keyboard.press('Escape');
+		await expect(configure).toHaveCount(0);
+		await expect(frame).toBeFocused();
+		await expect(frame).toBeVisible();
 	});
 
 	test('Configure… on the scene editor opens the Inspector for that tile', async ({ page }) => {

@@ -13,6 +13,8 @@ import {
 	setWidgetFocusOrderInputSchema,
 	// RC-CAN-1.2 (append-only)
 	restoreWidgetInputSchema,
+	// RC-CAN-2.4 (append-only)
+	duplicateWidgetInputSchema,
 } from '../schemas/commands';
 import { actorCanCoEditScene, hasGrantedCapability } from '../permissions/grants';
 import { evaluateSceneVisibility } from '../permissions/visibility';
@@ -906,6 +908,142 @@ export function handleRestoreWidget(
 				kind: 'scene.widget-restored',
 				sceneId: scene.id,
 				widgetInstanceId: restored.id,
+				actorId: actor.id,
+			},
+		],
+		operationIds: [op.id],
+	};
+}
+
+// --- RC-CAN-2.4 — DUPLICATE A WIDGET INSTANCE (append-only block) --------------------------------
+
+/** Directly below the lowest widget that shares any of the source's columns, at the source's x. */
+function belowColumn(scene: Scene, source: WidgetLayout): { x: number; y: number } {
+	let bottom = source.y + source.h;
+	for (const { layout } of scene.widgets) {
+		if (layout.x < source.x + source.w && source.x < layout.x + layout.w) {
+			bottom = Math.max(bottom, layout.y + layout.h);
+		}
+	}
+	return { x: source.x, y: bottom };
+}
+
+/**
+ * RC-CAN-2.4 — copy a widget instance on its own scene: the same type, version, size, configuration
+ * and binding, joined to the source's section, with a fresh id and fresh local state (a copied timer
+ * is not running, a copied dice tile has no roll history — exactly as a newly placed widget starts).
+ *
+ * Nothing about the copy comes from the caller except where it lands, so a stale client cannot
+ * duplicate settings the scene no longer holds. Fails closed on the same terms as `scene.add-widget`:
+ * the actor must co-edit the scene, the declaring package must be installed and enabled, and the
+ * binding is re-checked against the DUPLICATING actor — a copy never hands anyone a binding they could
+ * not create themselves. A placeholder (its package gone or turned off) or an instance that still needs
+ * a definition upgrade is refused rather than copied as a second broken tile.
+ */
+export function handleDuplicateWidget(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+
+	const parsed = parseInput(duplicateWidgetInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const scene = requireScene(state, parsed.data.sceneId);
+	if ('code' in scene) return reject(scene, state);
+	const sceneEditCheck = requireSceneCoEditor(state, actor, scene);
+	if (sceneEditCheck) return reject(sceneEditCheck, state);
+
+	const source = findWidget(scene, parsed.data.widgetInstanceId);
+	if (!source) {
+		return reject(
+			{
+				code: 'widget-not-found',
+				message: `Widget ${parsed.data.widgetInstanceId} not found on Scene ${scene.id}.`,
+			},
+			state,
+		);
+	}
+	const packageRecord = findPackageRecordForWidgetType(state.widgets, source.type);
+	const definition = findWidgetDefinition(state.widgets, source.type);
+	if (source.disabled || !packageRecord || packageRecord.removedAt || !definition) {
+		return reject(
+			{
+				code: 'invalid-state',
+				message: `Widget ${source.id} is a placeholder and cannot be duplicated.`,
+			},
+			state,
+		);
+	}
+	if (!packageRecord.enabled) {
+		return reject(
+			{
+				code: 'package-disabled',
+				message: `Widget package ${packageRecord.package.id} is disabled.`,
+			},
+			state,
+		);
+	}
+	if (source.version !== definition.version) {
+		return reject(
+			{
+				code: 'invalid-state',
+				message: `Widget ${source.id} must be upgraded to definition version ${definition.version} before it can be duplicated.`,
+			},
+			state,
+		);
+	}
+	const now = env.clock();
+	const bindingCheck = requireBindingCapability(state, actor, source.binding, now);
+	if (bindingCheck) return reject(bindingCheck, state);
+
+	const position = parsed.data.position ?? belowColumn(scene, source.layout);
+	const widget: WidgetInstance = {
+		id: env.ids(),
+		type: source.type,
+		version: source.version,
+		layout: widgetLayoutFromAdd(
+			{ x: position.x, y: position.y, w: source.layout.w, h: source.layout.h },
+			nextZ(scene),
+		),
+		configuration: { ...source.configuration },
+		localState: {},
+		binding: source.binding,
+		disabled: null,
+	};
+
+	const nextSections: SectionLayoutRegion[] = scene.sections.map((section) =>
+		section.widgetInstanceIds.includes(source.id)
+			? { ...section, widgetInstanceIds: [...section.widgetInstanceIds, widget.id] }
+			: section,
+	);
+	const nextScene = bumpRevision(
+		{ ...scene, widgets: [...scene.widgets, widget], sections: nextSections },
+		env,
+	);
+	const nextSceneState = withScene(state.scenes, scene.id, () => nextScene);
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'scene',
+		entityId: scene.id,
+		opType: 'scene.duplicate-widget',
+		path: `widgets/${widget.id}`,
+		value: widget,
+		beforeRevision: scene.ownership.revision,
+		afterRevision: nextScene.ownership.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, scenes: nextSceneState, sync: nextLog },
+		// The same event an add emits: to every reader of the stream a copy IS a newly placed widget.
+		events: [
+			{
+				kind: 'scene.widget-added',
+				sceneId: scene.id,
+				widgetInstanceId: widget.id,
 				actorId: actor.id,
 			},
 		],

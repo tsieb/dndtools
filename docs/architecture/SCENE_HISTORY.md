@@ -27,6 +27,10 @@ the normal `SceneRuntime.dispatch`. Keyboard: `Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z`, 
 `screens/Board.tsx` and `screens/sceneEditor/index.tsx` share the hook through
 `app/SceneBoardCanvas.tsx`.
 
+`scene.duplicate-widget` (RC-CAN-2.4) copies a widget through the core and emits
+`scene.widget-added`. Without a caller-supplied identity its minted ID is absent from
+`stateBefore`, so the inverse builder cannot identify the new instance.
+
 ## 3. Durable tombstones for destroy
 
 `widget.destroy-widget` is a soft delete: the instance, its section membership, and its array
@@ -53,5 +57,6 @@ that never auto-dismisses (`Toast.jsx` pins any toast with an action). The canva
 | Map inverse builder (precedent)   | `packages/core/src/lifecycle/map-undo.ts`                                           |
 | Tombstone type, retention, reader | `packages/core/src/state/scene-state.ts`                                            |
 | `scene.restore-widget`            | `packages/core/src/commands/widget.ts`                                              |
+| `scene.duplicate-widget` | `handleDuplicateWidget` in `packages/core/src/commands/widget.ts` |
 | Undo/redo hook                    | `apps/gm-react/src/app/canvas/useLayoutHistory.ts`                                  |
 | E2E                               | `apps/gm-react/tests/e2e/canvas.spec.ts` (undo a move and a destroy, both profiles) |

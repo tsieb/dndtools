@@ -41,6 +41,8 @@ import type { Scene, WidgetInstance } from '../state/scene-state';
  *     an add-undo to `scene.destroy-widget` using the id off the `scene.widget-added` event it
  *     already received, rather than duplicating a second removal path here.
  *   - `scene.group-widgets` and `scene.add-widget` stay refused for the reasons above.
+ *   - `scene.duplicate-widget` (RC-CAN-2.4) mints the copy's id too, and emits the same
+ *     `scene.widget-added` event, so it is refused on the same terms as an add.
  *
  * RC-CAN-1.2 closed the destroy case: `scene.destroy-widget` now leaves a tombstone carrying the
  * whole instance, so its inverse is `scene.restore-widget` addressed by the SAME instance id — which
@@ -282,6 +284,7 @@ export function buildWidgetInverse(
 
 		// Not undoable — see the module header for why each one is refused rather than guessed at.
 		case 'scene.add-widget':
+		case 'scene.duplicate-widget':
 		case 'scene.group-widgets':
 			return null;
 
