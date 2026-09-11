@@ -1,6 +1,6 @@
 # ADR-027: Stripe Web Billing And The Authoritative Entitlement Write Path
 
-- Status: Proposed
+- Status: Accepted (2026-09-10)
 - Date: 2026-07-23
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA
@@ -16,7 +16,7 @@ plan change, the row is stamped `simulated: true`, and no money moves. That was 
 a personal-scale product, and ADR-020 explicitly deferred real billing to "a payment processor
 integration and an ADR revisiting the entitlement write path."
 
-The cloud-tier roadmap (docs/development/CLOUD_TIER_ROADMAP.md) now defines paid tiers worth paying
+The cloud-tier roadmap (`docs/planning/CLOUD_TIER_ROADMAP.md`) now defines paid tiers worth paying
 for (Lantern/Beacon: cloud backup, internet play, co-DM seats, and — after ADR-026 phase 2 —
 Cloud-Enhanced features). Monetizing them needs a processor decision that honors the roadmap's
 standing decisions: **scale-to-zero cost discipline** (no always-on billing service; idle floor
@@ -26,7 +26,7 @@ entitlements purchased elsewhere to light up on device).
 
 A decision is needed now so the entitlement write path can be reshaped once, not per-feature. This
 ADR is written **before a Stripe account exists**; it is the contract the integration must meet,
-recorded as Proposed until the account and compliance review exist.
+recorded as Proposed until the account existed; Accepted 2026-09-10 on the dev test-mode evidence below.
 
 ## Decision
 
@@ -119,15 +119,36 @@ Lambda replacing the client as the authoritative entitlement writer**:
 
 ## Verification and Evidence
 
-To be produced by the implementation (this ADR is Proposed; no code exists yet):
+**Implementation status 2026-09-10: code complete, deployed to dev, and verified end-to-end against
+the real Stripe account in test mode — `pnpm billing:verify` 24/24 (Checkout + portal URLs, forged
+webhooks rejected, a real `pm_card_visa` subscription granted Lantern via the webhook, cancelling
+revoked it, `DELETE /account` deleted the Stripe customer). Prod stays fail-closed until the prod
+bootstrap runs with a live key (operator; see the runbook's go-live checklist).**
 
-- `packages/cloud-fns/src/app-api/` billing route handlers + tests (signature, idempotency, prod
-  refusal).
-- `infra/app-api/template.yaml` webhook route + SSM SecureString parameters.
-- `apps/gm-react/src/screens/Upgrade.tsx` real-checkout flip behind stage detection.
-- Stripe test-mode live runbook results attached to the PR that flips this ADR to Accepted.
+- Server: `packages/cloud-fns/src/billing/{runtime,entitlements,webhook}.ts` + the
+  `/billing/*` routes in `packages/cloud-fns/src/app-api/handler.ts`. Contract tests in
+  `packages/cloud-fns/src/billing/billing.test.ts` (43: config fail-closed, plan derivation per
+  Stripe status, the two ordering rules, webhook driven with REAL Stripe signatures — forged /
+  tampered / wrong-mode / duplicate / unlinked / unmapped-price / base64 body) and in
+  `packages/cloud-fns/src/app-api/handler.test.ts` (billing block: 503 when unconfigured, customer
+  binding + Checkout session shape, 409 while subscribed, portal gating, preview cannot overwrite a
+  Stripe row, account deletion deletes the Stripe customer first and fails closed without billing).
+- Infra: `infra/app-api/template.yaml` — `BillingWebhookFn` (own role: app table + billing SSM
+  only), routes, prod `BillingWebhookErrorsAlarm`; secrets are SSM SecureStrings read at runtime,
+  not template parameters (deviation from the migration note above, so the operator can turn
+  billing on/off/rotate keys without a deploy).
+- Client: `apps/gm-react/src/cloud/billing.ts` (web-only rule, stripe.com-only navigation guard,
+  Checkout return handling; tests), `screens/Upgrade.tsx` (Checkout dialog, confirming banner,
+  informs-only state), `screens/settings/Subscription.tsx` (lifecycle + Manage billing).
+- Operator tooling: `pnpm billing:bootstrap` (idempotent Stripe catalogue/portal/webhook + SSM),
+  `pnpm billing:verify` (dev, Stripe test mode: real subscription → webhook → plan; cancel → free;
+  delete account → customer deleted). Runbook: `docs/runbooks/stripe-billing.md`.
+- Live check 2026-09-10 (dev, no Stripe parameters): entitlement read reports `billing: null`;
+  Checkout, portal and webhook routes answer 503; no row is written.
 
 ## Blocked On
 
-- Stripe account creation + business/compliance decision (operator action; cannot be automated).
+- Stripe account creation + activation (operator action; cannot be automated) — then
+  `pnpm billing:bootstrap` per stage and `pnpm billing:verify` for the evidence above.
+- A public privacy policy + terms page (Stripe activation and the customer portal ask for them).
 - ADR-026 phase-2 approval only for Beacon's Cloud-Enhanced features — Lantern is sellable without it.

@@ -15,18 +15,16 @@ Unless the user explicitly states otherwise, review only the recently added or c
 
 ## Authoritative Project Requirements (consult FIRST)
 
-This project has binding UX contracts. Before forming opinions, locate and read the relevant docs. Start from `docs/requirements/README.md`, which is the **map** to the corpus, then read the contracts that govern the surface you are reviewing:
+This project has binding UX contracts. Before forming opinions, locate and read the relevant docs. Start from `docs/README.md`, which is the **map** to the corpus, then read the contracts that govern the surface you are reviewing:
 
-- `docs/architecture/INFORMATION_ARCHITECTURE.md` — the canonical seven-section IA (derived from `apps/gm-react/src/app/nav.ts`).
-- `docs/architecture/NAVIGATION_CONTRACT.md` — sections, routes, redundancy rules.
-- `docs/architecture/LAYOUT_TIERS.md` — responsive tiers (sidebar ↔ rail ↔ bottom tab bar) and density behavior.
-- `docs/architecture/TOPBAR_CHARTER.md` — what the top bar owns and what it must never hold.
-- `docs/architecture/DESIGN_TOKENS.md` and `docs/design/` — tokens, components, visual language.
-- `docs/reference/FEATURE_TIERS.md` — progressive disclosure: which features reveal at which experience level.
+- `docs/architecture/NAVIGATION.md` — the IA (from `apps/gm-react/src/app/nav.ts`), navigation layers, viewport tiers and density, the top-bar charter, feature tiers, and the interaction rules engineers enforce.
+- `docs/design/README.md` — design sources, tokens, components, and the vendored `docs/design-package/readme.md` for content voice and visual foundations.
+- `docs/development/ACCESSIBILITY.md` — the gates, the register, the component contract, and the manual checklist.
 - `docs/reference/ICON_VOCABULARY.md` — the semantic icon registry; icons are referenced by registry name, not glyph.
-- `docs/planning/initiatives/` — the I13–I20 UX cluster (IA/nav, adaptive shell, design system, session UX, learnability, accessibility, map- and board-tool UX) carries the functional-requirement detail.
+- `docs/architecture/WIDGETS.md`, `COMBAT_ON_MAP.md`, `SCENE_HISTORY.md` — the canvas, map, and widget interaction models.
+- `docs/planning/RC_ROADMAP.md` §7, §8, §15, §16 and §20 — the CAN, MAP, DSN, and UX workstreams and the per-surface polish checklist.
 
-**Historical note:** the old UX-requirements package at `docs/remake-review/ux-requirements/` (15 surface docs, 244 `UX-*` requirement IDs) was **pruned from the tree** and now exists only in git history. If you need a specific historical `UX-*` requirement, recover it with `git show <commit>:docs/remake-review/ux-requirements/...`. Do not cite `UX-*` IDs as if they were live requirements unless you have actually recovered and read them — the living requirement detail moved to the initiative epics and the contracts above.
+**Historical note:** the `docs/remake-review/` UX-requirements package (244 `UX-*` ids) and the I13–I20 initiative files were retired and exist only in git history. Do not cite `UX-*` or `S<n>.<m>.<k>` ids as live requirements.
 
 Map each surface you review to the contract clauses that govern it and check compliance explicitly. When project requirements conflict with generic best practice, the project requirements win—but call out the tension so the user can decide.
 

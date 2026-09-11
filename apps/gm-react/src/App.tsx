@@ -71,6 +71,8 @@ const Player = lazy(() => import('./screens/player').then((m) => ({ default: m.P
 const Upgrade = lazy(() => import('./screens/Upgrade').then((m) => ({ default: m.Upgrade })));
 const PlayerView = lazy(() => import('./screens/play').then((m) => ({ default: m.PlayerView })));
 const Join = lazy(() => import('./screens/Join').then((m) => ({ default: m.Join })));
+const Privacy = lazy(() => import('./screens/legal/Privacy').then((m) => ({ default: m.Privacy })));
+const Terms = lazy(() => import('./screens/legal/Terms').then((m) => ({ default: m.Terms })));
 const WikiReader = lazy(() =>
 	import('./screens/WikiReader').then((m) => ({ default: m.WikiReader })),
 );
@@ -471,6 +473,24 @@ function Shell() {
 				element={
 					<Suspense fallback={<Boot />}>
 						<WikiReader />
+					</Suspense>
+				}
+			/>
+			{/* public legal pages: chrome-less like /join — Stripe (account activation, the customer
+			    portal, Checkout) and any visitor open these with no account and no onboarding. */}
+			<Route
+				path="/legal/privacy"
+				element={
+					<Suspense fallback={<Boot />}>
+						<Privacy />
+					</Suspense>
+				}
+			/>
+			<Route
+				path="/legal/terms"
+				element={
+					<Suspense fallback={<Boot />}>
+						<Terms />
 					</Suspense>
 				}
 			/>

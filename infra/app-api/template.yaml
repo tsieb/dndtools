@@ -1,17 +1,17 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
+# CloudFormation caps Description at 1024 characters (checked only at changeset creation,
+# not by `sam validate`); tests/unit/ci-guardrails.test.ts enforces it before a deploy does.
 Description: >-
-  dndtools app-api stack — the application backend for account-scoped features that
-  are NOT E2EE vault sync: marketplace module publish/discover, player invites
-  (server-minted join links), the public campaign wiki (player-safe published pages,
-  readable without an account), account/device management, and plan entitlements
-  (explicit simulated preview in dev; production self-service plan changes are disabled).
-  One HTTP API with a native Cognito JWT authorizer, one on-demand
-  single-table DynamoDB (pk/sk + TTL) for accounts/entitlements/invites/listings/wikis,
-  one private S3 bucket for marketplace module payloads and wiki page bundles. Unlike
-  sync-api this stack sees PLAINTEXT payloads (they are published for sharing, not
-  private vault data) — nothing here may ever store vault content. Scale-to-zero:
-  $0 idle. Cross-stack values are read from SSM at deploy time (no ImportValue).
+  dndtools app-api stack — the application backend for account-scoped features that are
+  NOT E2EE vault sync: marketplace publish/discover, player invites, the public campaign
+  wiki, account/device management, plan entitlements (simulated preview in dev only), and
+  Stripe billing (ADR-027: hosted Checkout/portal routes plus a separate signature-verified
+  webhook Lambda that is the only writer of PAID plan rows). One HTTP API with a Cognito
+  JWT authorizer, one on-demand single-table DynamoDB (pk/sk + TTL), one private S3 bucket
+  for module payloads and wiki bundles. Unlike sync-api this stack sees PLAINTEXT payloads
+  (published for sharing) — it must never store vault content. Scale-to-zero, $0 idle.
+  Cross-stack values are read from SSM at deploy time (no ImportValue).
 
 Parameters:
   ProjectName:
@@ -130,7 +130,9 @@ Resources:
   # --- Single-table application data (on-demand) -------------------------------
   # pk / sk layout (tenant isolation by Cognito sub in pk where account-scoped):
   #   account#<sub>            | profile                  — account row
-  #   account#<sub>            | entitlement              — plan row {plan, simulated:true}
+  #   account#<sub>            | entitlement              — plan row {plan, stripe* billing fields (ADR-027)}
+  #   stripe-customer#<cus_id> | account                  — Stripe customer → owning sub (webhook fallback)
+  #   stripe-event#<evt_id>    | processed                — webhook replay marker (TTL 30 days)
   #   account#<sub>            | invite#<inviteId>        — owner's pending invite
   #   invite#<token>           | redeem                   — token → invite lookup (TTL `expiresAt`)
   #   module#<moduleId>        | listing                  — marketplace listing (payload in S3)
@@ -248,9 +250,27 @@ Resources:
           SES_CONFIGURATION_SET: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/identity/email-config-set}}'
           # Fail closed unless the template explicitly identifies a non-production preview.
           ENTITLEMENT_PREVIEW_ENABLED: !If [IsProd, 'false', 'true']
+          # ADR-027: Stripe secrets + price config are read from SSM AT RUNTIME (cached per
+          # container), never baked into the template or the environment. No parameters under
+          # this prefix = billing not configured = every money route fails closed (503).
+          BILLING_SSM_PREFIX: !Sub '/${ProjectName}/${Stage}/billing'
       Policies:
         - DynamoDBCrudPolicy: { TableName: !Ref AppTable }
         - S3CrudPolicy: { BucketName: !Ref ModulesBucket }
+        # ADR-027: read the three billing parameters (two SecureStrings under the AWS-managed
+        # SSM key). Decrypt is allowed only when SSM itself asks on this function's behalf.
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+              Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ProjectName}/${Stage}/billing/*'
+            - Effect: Allow
+              Action: kms:Decrypt
+              Resource: '*'
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub 'ssm.${AWS::Region}.amazonaws.com'
         # Account deletion reads one strongly consistent usage#quota marker from the sync table.
         # No scan, query, write, or wildcard table permission is needed.
         - !If
@@ -340,6 +360,20 @@ Resources:
             ApiId: !Ref AppHttpApi
             Method: POST
             Path: /account/entitlements
+        # Billing (ADR-027) — both authenticated; they return a one-shot URL to a Stripe-hosted
+        # page and write no plan. The webhook below is the only paid-plan writer.
+        CreateCheckoutSession:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: POST
+            Path: /billing/checkout-session
+        CreatePortalSession:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: POST
+            Path: /billing/portal-session
         # Marketplace ---------------------------------------------------------------
         ListModules:
           Type: HttpApi
@@ -479,6 +513,85 @@ Resources:
             # reach it even by accident.
             Auth:
               Authorizer: NONE
+
+  # --- ADR-027: Stripe webhook — the ONLY writer of paid entitlement rows ---------
+  # Its own function and role, like TelemetryFn, because it is the stack's one unauthenticated
+  # WRITE surface (Stripe calls it; there is no Cognito token). Its role holds the app table and
+  # the billing SSM parameters and nothing else — no Cognito, no S3, no SES. Every request must
+  # carry a valid Stripe-Signature over the raw body for this endpoint's secret; the handler
+  # then RE-READS the subscription from Stripe before writing, so replayed or reordered events
+  # converge on the current truth. See packages/cloud-fns/src/billing/webhook.ts.
+  BillingWebhookFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/${ProjectName}/${Stage}/lambda/billing-webhook'
+      RetentionInDays: !Ref LogRetentionDays
+
+  BillingWebhookFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../packages/cloud-fns/build/billing-webhook-handler
+      Handler: index.handler
+      # Stripe waits ~30s for a response; two Stripe API round-trips plus DynamoDB fit well inside.
+      Timeout: 20
+      ReservedConcurrentExecutions: !If [ShouldReserveConcurrency, 5, !Ref 'AWS::NoValue']
+      LoggingConfig:
+        LogFormat: JSON
+        ApplicationLogLevel: INFO
+        SystemLogLevel: WARN
+        LogGroup: !Ref BillingWebhookFunctionLogGroup
+      Environment:
+        Variables:
+          APP_TABLE: !Ref AppTable
+          BILLING_SSM_PREFIX: !Sub '/${ProjectName}/${Stage}/billing'
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref AppTable }
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+              Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ProjectName}/${Stage}/billing/*'
+            - Effect: Allow
+              Action: kms:Decrypt
+              Resource: '*'
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub 'ssm.${AWS::Region}.amazonaws.com'
+      Events:
+        StripeWebhook:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: POST
+            Path: /billing/webhook
+            # Unauthenticated BY DESIGN: Stripe is the caller. Authentication is the HMAC
+            # signature over the raw body, checked in the handler with the endpoint secret.
+            Auth:
+              Authorizer: NONE
+
+  BillingWebhookErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: ShouldCreateAlarms
+    Properties:
+      # A failed webhook means Stripe moved money (or a subscription) and no entitlement
+      # followed. Stripe retries for up to three days; this alarm is what makes the retries
+      # visible before they run out.
+      AlarmDescription: Stripe webhook Lambda failed to apply one or more billing events in five minutes.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref BillingWebhookFn
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/ops/alerts-topic-arn}}'
 
   AppFunctionErrorsAlarm:
     Type: AWS::CloudWatch::Alarm

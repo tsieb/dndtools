@@ -310,6 +310,66 @@ vi.mock('@aws-sdk/client-cognito-identity-provider', () => {
 	};
 });
 
+// Billing runtime fake (ADR-027). `billing.runtime` is null by default — the stage has no Stripe
+// configuration, which is the state every existing test ran in — and individual tests install a
+// fake Stripe API surface that records what the handler asked Stripe to do.
+const billing = vi.hoisted(() => ({
+	runtime: null as null | Record<string, unknown>,
+	customersCreated: [] as Array<Record<string, unknown>>,
+	customersDeleted: [] as string[],
+	checkoutSessions: [] as Array<Record<string, unknown>>,
+	portalSessions: [] as Array<Record<string, unknown>>,
+	deleteThrows: null as null | { code: string },
+}));
+vi.mock('../billing/runtime.ts', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('../billing/runtime.ts')>();
+	return { ...actual, getBillingRuntime: async () => billing.runtime };
+});
+function installFakeStripe(over: { portalConfigurationId?: string; livemode?: boolean } = {}) {
+	billing.runtime = {
+		settings: {
+			version: 1,
+			livemode: over.livemode ?? false,
+			prices: {
+				lantern: { month: 'price_lm', year: 'price_ly' },
+				beacon: { month: 'price_bm', year: 'price_by' },
+			},
+			portalConfigurationId: over.portalConfigurationId,
+		},
+		webhookSecret: 'whsec_test',
+		priceIndex: new Map(),
+		stripe: {
+			customers: {
+				create: async (params: Record<string, unknown>, opts: Record<string, unknown>) => {
+					billing.customersCreated.push({ ...params, opts });
+					return { id: `cus_${billing.customersCreated.length}` };
+				},
+				del: async (id: string) => {
+					if (billing.deleteThrows) throw Object.assign(new Error('x'), billing.deleteThrows);
+					billing.customersDeleted.push(id);
+					return { id, deleted: true };
+				},
+			},
+			checkout: {
+				sessions: {
+					create: async (params: Record<string, unknown>) => {
+						billing.checkoutSessions.push(params);
+						return { id: 'cs_1', url: 'https://checkout.stripe.com/c/pay/cs_1' };
+					},
+				},
+			},
+			billingPortal: {
+				sessions: {
+					create: async (params: Record<string, unknown>) => {
+						billing.portalSessions.push(params);
+						return { url: 'https://billing.stripe.com/p/session/bps_1' };
+					},
+				},
+			},
+		},
+	};
+}
+
 const { handler } = await import('./handler.ts');
 
 function event(
@@ -418,6 +478,12 @@ beforeEach(() => {
 	store.ses.shouldThrow = false;
 	// Restore the default email config (a test may delete it to simulate not-configured).
 	process.env.INVITE_SENDER = 'invites@dndtools.example';
+	billing.runtime = null;
+	billing.customersCreated.length = 0;
+	billing.customersDeleted.length = 0;
+	billing.checkoutSessions.length = 0;
+	billing.portalSessions.length = 0;
+	billing.deleteThrows = null;
 	process.env.WEB_ORIGIN = 'https://app.example.test';
 	process.env.ENTITLEMENT_PREVIEW_ENABLED = 'true';
 });
@@ -1283,5 +1349,264 @@ describe('account', () => {
 		);
 		expect(staleInvite.status).toBe(410);
 		expect([...store.items.keys()].some((key) => key.startsWith('invite#'))).toBe(false);
+	});
+});
+
+// --- ADR-027: Stripe billing routes ---------------------------------------------------------------
+describe('billing (ADR-027 — hosted Checkout + portal; the webhook writes plans)', () => {
+	const ENT_KEY = 'account#user-1|entitlement';
+	const activeStripeRow = (plan = 'lantern') => ({
+		pk: 'account#user-1',
+		sk: 'entitlement',
+		plan,
+		billingProvider: 'stripe',
+		stripeCustomerId: 'cus_existing',
+		stripeSubscriptionId: 'sub_existing',
+		stripeSubscriptionStatus: 'active',
+		stripePriceId: 'price_lm',
+		billingInterval: 'month',
+		currentPeriodEnd: '1800000000',
+		cancelAtPeriodEnd: 'false',
+		billingSyncedAt: '1000',
+		lastStripeEventId: 'evt_1',
+	});
+
+	it('reports billing:null on a stage with no Stripe configuration', async () => {
+		const res = await call(event('GET /account/entitlements'));
+		expect(res.status).toBe(200);
+		expect(res.body.billing).toBeNull();
+	});
+
+	it('fails checkout and portal CLOSED (503) when billing is not configured', async () => {
+		const checkout = await call(
+			event('POST /billing/checkout-session', { body: { plan: 'lantern', interval: 'month' } }),
+		);
+		expect(checkout.status).toBe(503);
+		expect(billing.checkoutSessions).toEqual([]);
+		expect(store.items.has(ENT_KEY)).toBe(false);
+		expect((await call(event('POST /billing/portal-session'))).status).toBe(503);
+	});
+
+	it('fails checkout CLOSED (503) when the stack has no real web origin to return to', async () => {
+		installFakeStripe();
+		const saved = process.env.WEB_ORIGIN;
+		process.env.WEB_ORIGIN = 'https://invalid.example';
+		try {
+			const res = await call(
+				event('POST /billing/checkout-session', { body: { plan: 'lantern', interval: 'month' } }),
+			);
+			expect(res.status).toBe(503);
+			const ent = await call(event('GET /account/entitlements'));
+			expect(ent.body.billing).toMatchObject({ checkoutAvailable: false });
+		} finally {
+			process.env.WEB_ORIGIN = saved;
+		}
+	});
+
+	it('validates plan and interval (400) before touching Stripe', async () => {
+		installFakeStripe();
+		for (const body of [
+			{ plan: 'hearth', interval: 'month' },
+			{ plan: 'platinum', interval: 'month' },
+			{ plan: 'lantern', interval: 'weekly' },
+			{ plan: 'lantern' },
+		]) {
+			expect((await call(event('POST /billing/checkout-session', { body }))).status).toBe(400);
+		}
+		expect(billing.customersCreated).toEqual([]);
+		expect(billing.checkoutSessions).toEqual([]);
+	});
+
+	it('starts hosted Checkout: creates + binds a customer, returns the Stripe URL', async () => {
+		installFakeStripe();
+		const res = await call(
+			event('POST /billing/checkout-session', {
+				body: { plan: 'beacon', interval: 'year' },
+				name: 'Sam Rivers',
+			}),
+		);
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ url: 'https://checkout.stripe.com/c/pay/cs_1' });
+		// One customer, keyed on the account so a double-click cannot create two.
+		expect(billing.customersCreated).toHaveLength(1);
+		expect(billing.customersCreated[0]).toMatchObject({
+			name: 'Sam Rivers',
+			metadata: { cognito_sub: 'user-1' },
+			opts: { idempotencyKey: 'customer:user-1' },
+		});
+		expect(store.items.get(ENT_KEY)).toMatchObject({
+			plan: 'hearth',
+			stripeCustomerId: 'cus_1',
+			billingProvider: 'stripe',
+		});
+		expect(store.items.get('stripe-customer#cus_1|account')).toMatchObject({ sub: 'user-1' });
+		// The session is subscription-mode on the configured price, bound to the account twice,
+		// and returns to the web app's upgrade route in BOTH outcomes.
+		const session = billing.checkoutSessions[0];
+		expect(session).toMatchObject({
+			mode: 'subscription',
+			customer: 'cus_1',
+			client_reference_id: 'user-1',
+			line_items: [{ price: 'price_by', quantity: 1 }],
+			subscription_data: { metadata: { cognito_sub: 'user-1', plan: 'beacon' } },
+			success_url: 'https://app.example.test/#/upgrade?checkout=success',
+			cancel_url: 'https://app.example.test/#/upgrade?checkout=cancelled',
+		});
+		// The plan is NOT written here — only the webhook grants a paid tier.
+		expect(store.items.get(ENT_KEY)?.plan).toBe('hearth');
+	});
+
+	it('reuses the bound customer on a second checkout', async () => {
+		installFakeStripe();
+		await call(
+			event('POST /billing/checkout-session', { body: { plan: 'lantern', interval: 'month' } }),
+		);
+		await call(
+			event('POST /billing/checkout-session', { body: { plan: 'lantern', interval: 'year' } }),
+		);
+		expect(billing.customersCreated).toHaveLength(1);
+		expect(billing.checkoutSessions.map((s) => s.customer)).toEqual(['cus_1', 'cus_1']);
+	});
+
+	it('refuses a second subscription (409) while one is active — the portal changes plans', async () => {
+		installFakeStripe();
+		store.items.set(ENT_KEY, activeStripeRow());
+		const res = await call(
+			event('POST /billing/checkout-session', { body: { plan: 'beacon', interval: 'month' } }),
+		);
+		expect(res.status).toBe(409);
+		expect(res.body.error).toMatch(/Manage billing/);
+		expect(billing.checkoutSessions).toEqual([]);
+	});
+
+	it('allows a fresh checkout after a subscription ended (canceled row keeps the customer)', async () => {
+		installFakeStripe();
+		store.items.set(ENT_KEY, {
+			...activeStripeRow('hearth'),
+			stripeSubscriptionStatus: 'canceled',
+		});
+		const res = await call(
+			event('POST /billing/checkout-session', { body: { plan: 'lantern', interval: 'month' } }),
+		);
+		expect(res.status).toBe(200);
+		expect(billing.customersCreated).toEqual([]); // reused cus_existing
+		expect(billing.checkoutSessions[0].customer).toBe('cus_existing');
+	});
+
+	it('refuses checkout for a deleted account (410) without creating a customer', async () => {
+		installFakeStripe();
+		store.items.set(ENT_KEY, { pk: 'account#user-1', sk: 'entitlement', deletedAt: '2026-07-14' });
+		const res = await call(
+			event('POST /billing/checkout-session', { body: { plan: 'lantern', interval: 'month' } }),
+		);
+		expect(res.status).toBe(410);
+		expect(billing.customersCreated).toEqual([]);
+	});
+
+	it('opens the hosted portal only for an account with a Stripe customer', async () => {
+		installFakeStripe({ portalConfigurationId: 'bpc_configured1' });
+		const none = await call(event('POST /billing/portal-session'));
+		expect(none.status).toBe(400);
+		expect(none.body.error).toMatch(/no billing history/i);
+
+		store.items.set(ENT_KEY, activeStripeRow());
+		const res = await call(event('POST /billing/portal-session'));
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ url: 'https://billing.stripe.com/p/session/bps_1' });
+		expect(billing.portalSessions[0]).toEqual({
+			customer: 'cus_existing',
+			return_url: 'https://app.example.test/#/settings',
+			configuration: 'bpc_configured1',
+		});
+	});
+
+	it('reports the bound subscription in the entitlement read (plan stays the single source)', async () => {
+		installFakeStripe();
+		store.items.set(ENT_KEY, {
+			...activeStripeRow('beacon'),
+			stripeSubscriptionStatus: 'past_due',
+			cancelAtPeriodEnd: 'true',
+		});
+		const res = await call(event('GET /account/entitlements'));
+		expect(res.body.plan).toBe('beacon');
+		expect(res.body.billing).toEqual({
+			provider: 'stripe',
+			checkoutAvailable: true,
+			portalAvailable: true,
+			status: 'past_due',
+			active: true,
+			interval: 'month',
+			currentPeriodEnd: 1800000000,
+			cancelAtPeriodEnd: true,
+			livemode: false,
+		});
+	});
+
+	it('preview plan changes cannot overwrite a live Stripe subscription (409) but keep the binding otherwise', async () => {
+		installFakeStripe();
+		store.items.set(ENT_KEY, activeStripeRow());
+		const refused = await call(event('POST /account/entitlements', { body: { plan: 'hearth' } }));
+		expect(refused.status).toBe(409);
+		expect(store.items.get(ENT_KEY)?.plan).toBe('lantern');
+
+		store.items.set(ENT_KEY, {
+			...activeStripeRow('hearth'),
+			stripeSubscriptionStatus: 'canceled',
+		});
+		const ok = await call(event('POST /account/entitlements', { body: { plan: 'beacon' } }));
+		expect(ok.status).toBe(200);
+		const row = store.items.get(ENT_KEY)!;
+		expect(row).toMatchObject({ plan: 'beacon', stripeCustomerId: 'cus_existing' });
+		// Numeric billing fields survive as NUMBERS (a string would break the webhook's stale guard).
+		expect(row.billingSyncedAt).toBe('1000');
+		expect(ok.body.billing).toMatchObject({
+			portalAvailable: true,
+			status: 'canceled',
+			active: false,
+		});
+	});
+
+	it('account deletion deletes the Stripe customer FIRST (cancelling its subscriptions)', async () => {
+		installFakeStripe();
+		store.items.set(ENT_KEY, activeStripeRow());
+		store.items.set('stripe-customer#cus_existing|account', {
+			pk: 'stripe-customer#cus_existing',
+			sk: 'account',
+			sub: 'user-1',
+		});
+		const res = await call(event('DELETE /account'));
+		expect(res.status).toBe(200);
+		expect(billing.customersDeleted).toEqual(['cus_existing']);
+		expect(store.items.has('stripe-customer#cus_existing|account')).toBe(false);
+	});
+
+	it('account deletion tolerates an already-deleted Stripe customer', async () => {
+		installFakeStripe();
+		billing.deleteThrows = { code: 'resource_missing' };
+		store.items.set(ENT_KEY, activeStripeRow());
+		expect((await call(event('DELETE /account'))).status).toBe(200);
+	});
+
+	it('account deletion fails CLOSED (503) when a customer exists but billing is unreachable', async () => {
+		store.items.set(ENT_KEY, activeStripeRow()); // billing.runtime stays null
+		const res = await call(event('DELETE /account'));
+		expect(res.status).toBe(503);
+		expect(res.body.error).toMatch(/subscription cannot be cancelled/i);
+		// The account is locked (phase 1 tombstone) but nothing else was removed yet.
+		expect(store.items.get(ENT_KEY)?.deletedAt).toBeTruthy();
+		expect(store.cognitoCalls.map((c) => c.name)).not.toContain('AdminDeleteUser');
+	});
+
+	it('export names the Stripe identifiers the account is bound to', async () => {
+		installFakeStripe();
+		store.items.set(ENT_KEY, activeStripeRow());
+		const res = await call(event('POST /account/export'));
+		expect(res.body.billing).toEqual({
+			provider: 'stripe',
+			customerId: 'cus_existing',
+			subscriptionId: 'sub_existing',
+			status: 'active',
+			currentPeriodEnd: 1800000000,
+		});
 	});
 });

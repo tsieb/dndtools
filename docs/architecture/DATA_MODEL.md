@@ -1,219 +1,112 @@
 # Data Model
 
-The domain model is owned by the framework-independent shared core (`packages/core`,
-`@dndtools/core`) and persisted by the React app (`apps/gm-react`) through a single
-IndexedDB adapter. The app never mutates durable state directly — every change flows
-through a core command into a deterministic reducer, and only the resulting state is
-persisted.
+The domain model is owned by `packages/core` and persisted by `apps/gm-react` through one
+IndexedDB adapter. The app never mutates durable state directly: every change is a core command
+reduced deterministically, and only the resulting state is persisted.
 
 ## 1. Where the model lives
 
-- **Schemas & types** — `packages/core/src/state/*.ts` (one file per domain slice, e.g.
-  `scene-state.ts`, `map-state.ts`, `session-state.ts`, `character-state.ts`,
-  `content.ts`, `encounter.ts`, `audio-state.ts`, `permission-state.ts`,
-  `mcp-policy.ts`, `command-center-state.ts`, `widget-package-state.ts`,
-  `system-package.ts`) plus the command/contract schemas in
-  `packages/core/src/schemas/` (`commands.ts`, `scene.ts`, `widget-package.ts`,
-  `system-package.ts`, `platform-service.ts`). All schemas are zod-only.
-- **Commands** — `packages/core/src/commands`. **Reducers** — `packages/core/src/state`.
-  **Permissions / visibility** — `packages/core/src/permissions`. **Actor-scoped
-  queries** — `packages/core/src/queries`. **Source-of-truth registry** —
-  `packages/core/src/constraints/source-of-truth.ts`.
+- Slice schemas and types: `packages/core/src/state/*.ts`, one file per slice (`scene-state.ts`,
+  `map-state.ts`, `session-state.ts`, `character-state.ts`, `content.ts`, `encounter.ts`,
+  `audio-state.ts`, `permission-state.ts`, `mcp-policy.ts`, `command-center-state.ts`,
+  `widget-package-state.ts`, `system-package.ts`), plus command and contract schemas in
+  `packages/core/src/schemas/`. All schemas are zod.
+- Commands `src/commands`, reducers `src/state`, permissions `src/permissions`, queries
+  `src/queries`, source-of-truth registry `src/constraints/source-of-truth.ts`.
 
-There is no `src/lib/types/*` layer and no filesystem markdown-vault model; those
-belonged to the retired v1/Svelte runtimes.
+## 2. Durable slices
 
-## 2. Durable state slices
+`DurableStateDocumentId` (`packages/core/src/migration/schema-versions.ts`) enumerates the twelve
+persisted documents: `scenes`, `maps`, `permissions`, `session`, `widgets`, `commandCenter`,
+`characters`, `content`, `encounters`, `audio`, `mcp` (AI policy, bindings, proposals, audit),
+`systems` (System Packages). The operation log is a thirteenth artifact that is replayed rather
+than migrated; each operation carries its own schema version.
 
-The persisted state is a fixed set of durable documents, enumerated as
-`DurableStateDocumentId` in `packages/core/src/migration/schema-versions.ts`:
+Each slice declares a `schemaVersion`; `TARGET_SCHEMA_VERSIONS` records what the current build
+writes. A lower version is migrated; a higher version fails closed with an upgrade-required
+diagnostic. Cloud-backup restore gates on exact version equality, so additive optional fields are
+preferred over bumps:
 
-`scenes`, `maps`, `permissions`, `session`, `widgets`, `commandCenter`,
-`characters`, `content`, `encounters`, `audio`, `mcp`, `systems`.
+- `Scene.tombstones?: WidgetTombstone[]` (destroyed widgets, 30-day retention, pruned on the next
+  tombstone mutation; [SCENE_HISTORY.md](SCENE_HISTORY.md)).
+- `SessionCombatState.tokens` and `templates` (combat tokens keyed by `combatantId`, AoE templates
+  cleared on `combat.end`; [COMBAT_ON_MAP.md](COMBAT_ON_MAP.md)). `MapState.tokens` still exists
+  beside them pending the MAP_STATE bump ADR-030 calls for.
+- `MapFeature` kinds and `props` (ADR-024), `VaultContentState.customObjectTypes` (ADR-023),
+  `WidgetAuthoringProvenance.promptHash` (ADR-031).
 
-(The `mcp` slice is the in-core AI/MCP **policy** state — `packages/core/src/state/mcp-policy.ts` —
-not the retired v1 Electron MCP sidecar.)
+`systems` hydrates to the built-in D&D 5e package when absent and carries the legacy
+`activeWidgetPackageId` in its own field, so the widget-package and system-package id namespaces
+are never conflated ([SYSTEM_PACKAGES.md](SYSTEM_PACKAGES.md)). Formulas in System Packages and in
+widget `computedFields` share one tiny expression grammar evaluated by the pure `evaluateFormula`.
 
-(The `systems` slice is the SYSTEM PACKAGE model — `packages/core/src/state/system-package.ts` —
-the declarative rules vocabulary the interface reads: words, attributes, resources, conditions,
-dice, turn order, creature fields, advancement, skills and derived values. It holds no code:
-derivations are declared as formulas in a tiny expression grammar and evaluated by the pure
-`evaluateFormula`. A vault with no `systems` document hydrates to the built-in D&D 5e package, and
-`hydrateSystemsState` carries the legacy `widgets.activeSystemPackageId` across into
-`SystemsState.activeWidgetPackageId` — the two are different id namespaces, so they are never
-conflated.)
+## 3. Content
 
-(RC-CAN-1.2/ADR-029 added `Scene.tombstones?: WidgetTombstone[]` — a soft-delete bin a destroyed
-widget's full instance moves into instead of being dropped, so `scene.restore-widget` can put it
-back verbatim. It is OPTIONAL, not a `SCENE_STATE_SCHEMA_VERSION` bump: a scene persisted before
-the field existed hydrates with an empty bin (`sceneTombstones`, `packages/core/src/state/scene-
-state.ts:145`). Each entry expires `WIDGET_TOMBSTONE_RETENTION_DAYS` (30) after `destroyedAt`;
-expiry is checked on read (`isRestorableTombstone`) and pruned on the next tombstone mutation, not
-by a background sweep, so replaying the same op log stays deterministic. See `docs/architecture/
-SCENE_HISTORY.md`.)
+The `content` slice holds `ContentItem`s with `kind: 'note' | 'object'`. Objects carry a subtype
+from `VAULT_OBJECT_SUBTYPES` (`vault-object-schema.ts`: `note`, `character`, `map`, `handout`,
+`calendar-event`, `timeline-event`, `dice-table`, `encounter`, `audio-preset`, `widget-package-ref`,
+`faction`, `quest`, `spell`, `session-log`) or a DM-defined `custom:` type; each has a field schema
+with `dmOnly` fields projected per role. A subtype may also ride on a `note` via
+`fields[VAULT_OBJECT_SUBTYPE_KEY]` (the session-log capture does this). The same slice holds
+`CalendarDefinition`s (`calendar.ts`, schema v2: months, weekdays, epoch label, moons, holidays);
+moon phases and holidays are derived per date, never stored. Templates, snippets, saved searches,
+and relationship edges are content-slice records too.
 
-(RC-SES lane/ADR-030 added `SessionCombatState.tokens: Record<string, CombatToken>` — combat
-token placement keyed by `combatantId`, not by map — so a token survives a map switch and an
-NPC/monster combatant with no `linkedActorId` still gets one. Additive on the already-durable
-`session` slice; no `SESSION_STATE_SCHEMA_VERSION` bump. ADR-030 §"Migration Impact" calls for
-`MapState.tokens`/`MapToken` (`packages/core/src/state/map-annotations.ts:185`) to be removed in a
-follow-on `MAP_STATE_SCHEMA_VERSION` bump once map-screen rendering repoints to the new
-`tokensOnMapForActor` query; as of this writing `MapState.tokens` still exists alongside the new
-slice (`map-state.ts:256`) — the old array has not yet been deleted. See `docs/architecture/
-COMBAT_ON_MAP.md`.)
+## 4. Persistence (Dexie)
 
-(That same expression grammar is the only arithmetic a WIDGET package may declare. A widget's
-`computedFields` reduce its `dataQueries` to one value; a field may carry an optional `formula`
-evaluated by the same `evaluateFormula`, over the four aggregate columns each query exposes
-(`<query>_count`, `_sum`, `_max`, `_active`, named by `widgetQueryFormulaIdentifier`). There is no
-way to name an individual row, and a query withheld from the viewer contributes zeroes — so a
-formula can never become a channel around the query's own audience gate. A formula that names a
-query the package did not declare is rejected at install by `schemas/widget-package.ts`.)
+`coreStore.ts` implements the type-only `StoragePort` contract. Database `dndtools-v2`, version 3:
 
-The sync **operation log** is a thirteenth persisted artifact; it is replayed rather than
-migrated (each operation carries its own schema version), so it is excluded from the
-migration document set.
+| Store              | Key             | Holds                                                 |
+| ------------------ | --------------- | ----------------------------------------------------- |
+| `documents`        | `&key`          | one record per durable slice                          |
+| `operations`       | `&id, sequence` | the append-only operation log                         |
+| `migrationJournal` | `&key`          | write-ahead journal for crash-safe migration recovery |
+| `assetBlobs`       | `&id`           | content-addressed map and audio bytes (ADR-019)       |
 
-Each slice declares a `schemaVersion`. `TARGET_SCHEMA_VERSIONS` records the version the
-current build writes. A document at a lower version is migrated; a document at a _higher_
-version was written by a newer build and fails closed with an upgrade-required
-diagnostic rather than being partially parsed (Contract 2).
+Write path (`persistFullState(previous, next)`): the request is validated at the platform-service
+boundary (named method, payload-size limit); an op-growth guard rejects any write that changed a
+slice without producing an accepted operation; all documents and the new operation tail commit in
+one Dexie transaction, so a reload can never observe state without its operation.
 
-## 3. Content items and vault objects
+Load path (`loadCoreState`): `recoverPendingMigration` rolls back a crashed migration from the
+journal; a missing slice hydrates to its safe, most-restrictive default; a malformed document,
+future schema, or gap, duplicate, or malformed operation rejects the whole load rather than
+producing a partial vault.
 
-The `content` slice (`packages/core/src/state/content.ts`) holds `ContentItem`s. A
-content item has `kind: 'note' | 'object'` (`CONTENT_ITEM_KINDS`). An object item carries
-a vault-object subtype declared in `packages/core/src/state/vault-object-schema.ts`
-(`VAULT_OBJECT_SUBTYPES`): `note`, `character`, `map`, `handout`, `calendar-event`,
-`timeline-event`, `dice-table`, `encounter`, `audio-preset`, `widget-package-ref`,
-`faction`, `quest`, `spell`, `session-log`. Subtype field schemas live in
-`VAULT_OBJECT_SCHEMAS` in the same file. A subtype may also ride on a `note` item (in
-`fields[VAULT_OBJECT_SUBTYPE_KEY]`) when the item is prose the DM reads in Knowledge — the
-RC-SES-4.1 `session-log` capture is written that way.
+`restoreCoreState` validates a decrypted cloud snapshot and atomically replaces documents, log, and
+journal while preserving local media bytes (cloud backup carries metadata only).
+`restoreFullVaultState` validates asset ids and bytes and replaces all four stores.
+`resetCoreStorage` clears them.
 
-### 3.1 The campaign calendar registry (RC-KNW-3.1)
+Packaged desktop builds use the `dndtools://app` origin; a v0.2.0 `file://` vault is migrated once on
+first launch without deleting the source. Android uses the same database inside the WebView; a
+same-signature upgrade preserves it, and uninstall removes it, so users export a vault before an
+alpha upgrade ([../runbooks/android-alpha.md](../runbooks/android-alpha.md)).
 
-The same `content` slice holds a registry of `CalendarDefinition`s
-(`packages/core/src/state/calendar.ts`), keyed by id, which every dated surface interprets dates
-against. A definition carries ordered `months` (each with its own day count), optional `weekdays`,
-an optional `epochLabel` (the era printed after the year), optional `moons` (a cycle length plus an
-offset) and optional `holidays` (an annually recurring ordinal month/day).
+### The player-private store
 
-Moon phase and holiday matching are DERIVED, never stored: `moonPhasesOn` and `holidaysOn` are pure
-functions of (definition, date) over the same absolute day index the rest of the calendar arithmetic
-uses, so they read no clock and no locale and every surface computes the same answer.
+Private notes, annotated bookmarks, and NPC impressions live in `dndtools-private-<characterId>`
+(version 1, stores `notes`, `bookmarks`, `impressions`; `privateStore.ts`), never in
+`CoreStateSlice`, the op log, a backup, a view-model, or an MCP read. The only exit is the player
+explicitly sharing one NPC impression as a `character.add-journal-entry` command request.
+`privateStore.test.ts` holds the three-part leak test ([ADR-035](../adr/035-player-private-device-local-store.md)).
 
-`CALENDAR_SCHEMA_VERSION` is `2`. Version 1 had no `moons`/`holidays`; the upgrade is additive, and
-`migrateCalendarDefinition` re-normalizes a persisted definition on hydration
-(`ensureVaultContentState`), dropping one whose months cannot be interpreted rather than carrying a
-shape the arithmetic cannot read.
+## 5. Cloud artifacts
 
-## 4. Persistence (Dexie / IndexedDB)
+Cloud backup is end-to-end encrypted with client-held per-epoch keys. V2 envelopes authenticate the
+Cognito account, vault, artifact kind, and revision as AES-GCM additional data; the sync-api
+recomputes that context from the verified JWT and route, so ciphertext cannot be transplanted.
+`packages/core/src/sync/cloud-wire.ts` bounds the server-visible metadata (`operation-size`,
+`content-hash`, …) and `assertServerSeesOnlyAllowedMetadata` proves it before upload. Cross-device
+reconciliation compares op-logs by operation id and blocks a push on divergence, recording
+`<entityType>.merge-conflict` operations that resolve through the ordinary conflict lifecycle
+([ADR-037](../adr/037-cross-device-merge-by-op-log-comparison.md)). Legacy v1 envelopes are
+recognized only to show a migration message.
 
-Renderer persistence for VAULT state is implemented once, in
-`apps/gm-react/src/platform/storage/coreStore.ts`; its exported `storagePort` conforms to the
-type-only `StoragePort` contract. Together with the player-private store in §4.1, these are the only
-modules that touch IndexedDB.
+## 6. Integrity rules
 
-Database (`Dexie`): name `dndtools-v2`, version `3`, four object stores:
-
-| Store              | Key schema      | Holds                                                            |
-| ------------------ | --------------- | ---------------------------------------------------------------- |
-| `documents`        | `&key`          | one record per durable slice (`doc` = the serialized slice)      |
-| `operations`       | `&id, sequence` | append-only sync operation log, ordered by `sequence`            |
-| `migrationJournal` | `&key`          | write-ahead journal for crash recovery of an in-flight migration |
-| `assetBlobs`       | `&id`           | content-addressed map/audio bytes, separate from core documents  |
-
-Packaged desktop releases use the secure, persistent `dndtools://app` origin. The v0.2.0 release used
-`file://`; before the normal renderer starts, Electron exports that legacy database through an isolated
-hidden renderer, imports it in bounded binary-safe chunks, recomputes a content digest, and writes a
-completion marker. The source is never deleted. A main-process ownership marker makes an interrupted
-partial target safe to clear and retry, while a pre-existing nonempty target with a different digest
-fails closed. Only explicitly reviewed non-secret preferences migrate; session storage and origin-bound
-folder handles do not.
-
-The Capacitor Android shell uses the same database and transaction path inside the application's
-WebView storage. A same-package, same-signature APK upgrade preserves that app-private data; clearing
-storage or uninstalling removes it. Android system backup is not the portable vault contract, and the
-Keystore-backed secret preferences are explicitly excluded because their key cannot move between
-installations. Users export a full local vault to storage outside the app before alpha upgrades; see
-[`../runbooks/android-alpha.md`](../runbooks/android-alpha.md).
-
-### 4.1 The player-private store (ADR-035)
-
-Player-private records — private notes, annotated bookmarks, NPC impressions — are NOT vault state
-and are deliberately not in `dndtools-v2`. They live in a second family of databases,
-`dndtools-private-<characterId>` (version `1`, stores `notes`, `bookmarks`, `impressions`), owned by
-`apps/gm-react/src/platform/storage/privateStore.ts`.
-
-| Property             | `dndtools-v2`                        | `dndtools-private-<characterId>` |
-| -------------------- | ------------------------------------ | -------------------------------- |
-| Scope                | one per device                       | one per character                |
-| In `CoreStateSlice`  | yes                                  | never                            |
-| In the op log / sync | yes                                  | never                            |
-| In a cloud backup    | yes                                  | never                            |
-| Readable by MCP      | yes (derived from core state)        | never                            |
-| Written by           | commands, through `persistFullState` | the Journal screen, directly     |
-
-The one path from private to shared is the player explicitly sharing a single NPC impression, which
-travels as an ordinary `character.add-journal-entry` command request. `privateStore.test.ts` holds
-the leak test that keeps this true: the persisted core slice and the replicated `buildPlayerData`
-snapshot both contain none of the private text, and an import allowlist proves no module on the
-replication, cloud or MCP path imports the store at all.
-
-Write path (`persistFullState(previous, next)`):
-
-1. The request is validated at the platform-service boundary
-   (`validatePlatformRequest` against a named-method schema with a payload-size limit);
-   an unknown method, oversized, or malformed payload fails closed
-   (`PlatformBoundaryRejectionError`).
-2. An op-growth guard enforces the core discipline: if any durable slice changed but no
-   new accepted operation was produced, the write is rejected. This is what makes
-   "durable state only ever changes through a command" a runtime invariant.
-3. All slice documents and the new operation tail are committed in one Dexie transaction. A clone,
-   quota, or individual-store failure rolls the entire command back, so a reload cannot observe state
-   without its audit operation (or an operation without its state).
-
-Load path (`loadCoreState`) first runs `recoverPendingMigration` (a no-op on a clean
-start; on a crashed migration it rolls back to the journal snapshot). A slice that did not
-exist in an older vault hydrates to a safe empty/most-restrictive default, and known older
-fields pass through their compatibility hydrators. A malformed document, future schema, gap
-or duplicate in the operation sequence, malformed operation, or invalid issue time rejects
-the entire load; invalid history is never silently dropped to produce a partial vault.
-
-`restoreCoreState` validates a decrypted cloud snapshot completely and atomically replaces
-documents, the operation log, and the migration journal. It deliberately preserves local media
-bytes because cloud backup carries metadata only. Local vault import uses
-`restoreFullVaultState`, which validates content-addressed asset ids/bytes and atomically replaces
-all four stores. `resetCoreStorage` atomically clears all four stores.
-
-## 5. Cloud backup artifacts (E2EE)
-
-Cloud backup is end-to-end encrypted. It is a recovery copy with explicit restore, not automatic
-multi-device merge. Current v2 envelopes authenticate the exact Cognito account, vault, artifact
-kind, and revision as AES-GCM additional data and repeat that binding inside the ciphertext. The
-sync service recomputes the expected context from the verified JWT and route metadata; ciphertext
-cannot be transplanted between tenants, vaults, artifact kinds, or revisions. Keys are scoped to the
-account plus vault in the Electron or Android OS credential store. Legacy unbound v1 envelopes are
-recognized only to
-give a migration message and are never restored; the originating local vault must upload a fresh v2
-copy. The wire contract is in
-`packages/core/src/sync/cloud-wire.ts`: the server stores an opaque ciphertext envelope
-plus a bounded set of allowed metadata classes only (e.g. `operation-size`,
-`content-hash` = SHA-256 of the ciphertext) — never plaintext content.
-`assertServerSeesOnlyAllowedMetadata` proves that claim before anything leaves the
-client. The client side (auth, vault key, sync engine) lives in `apps/gm-react/src/cloud`
-(`auth.ts`, `vaultKey.ts`, `syncEngine.ts`, `cloudSync.ts`, `secureStore.ts`,
-`tokenStore.ts`). Related core sync building blocks: `operation-log.ts`,
-`operation-model.ts`, `local-first.ts`, `replay-validation.ts`,
-`cloud-sync-gate.ts` in `packages/core/src/sync`.
-
-## 6. Data integrity requirements
-
-- Every durable slice carries a `schemaVersion`; a schema change must bump it and ship a
-  migration (`packages/core/src/migration`) plus tests.
-- Hydration must be fail-closed: an absent legacy slice may use a documented safe default, but a
-  malformed persisted document or operation log must reject the whole load, never partially parse.
-- A future (higher) schema version must fail closed with an upgrade-required diagnostic.
-- Durable state must never change except through an accepted core operation (enforced by
-  the `persistFullState` op-growth guard).
+- Every persisted-shape change bumps `schemaVersion` and ships a migration with tests, unless it
+  is an optional additive field an older reader can ignore.
+- Hydration is fail-closed: a safe default for an absent legacy slice, rejection for anything
+  malformed.
+- Durable state never changes except through an accepted operation (the op-growth guard).

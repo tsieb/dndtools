@@ -1,6 +1,6 @@
 # ADR-034: Marketplace Listing Kinds and the `.dndmodule` Bundle Format
 
-- Status: Accepted
+- Status: Accepted (amended 2026-09-08)
 - Date: 2026-09-07
 - Deciders: Engineering
 - Consulted: Product, Security

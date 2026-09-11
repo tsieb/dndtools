@@ -82,13 +82,13 @@ Concretely:
 
 ## Rejected Alternatives
 
-| Alternative                                            | Why Rejected                                                                                                                                             |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| A separate custom-object storage + validation subsystem | Duplicates the note-backed substrate, the schema validator, the frontmatter sync, and the visibility projection; two code paths to keep fail-closed.    |
-| Open/free-form objects (no declared schema)            | Loses the fail-closed frontmatter validation that is the whole point of a "type"; can't drive forms/columns; can't enforce DM-only fields.              |
-| Custom types as custom widget packages (existing seam) | Widgets model scene vocabulary, not vault records; no note backing, wikilinks, calendar dates, or content visibility — a different problem.             |
-| Cascade-delete a type's instances with it              | Silent bulk data loss; a fat-fingered type delete would tombstone every tavern. Blocking-while-in-use is the safer, recoverable default.                |
-| Storing definitions in a new top-level state slice      | Unnecessary new document + schema version + hydration seam; the content slice already owns the object model these types extend.                          |
+| Alternative                                             | Why Rejected                                                                                                                                         |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A separate custom-object storage + validation subsystem | Duplicates the note-backed substrate, the schema validator, the frontmatter sync, and the visibility projection; two code paths to keep fail-closed. |
+| Open/free-form objects (no declared schema)             | Loses the fail-closed frontmatter validation that is the whole point of a "type"; can't drive forms/columns; can't enforce DM-only fields.           |
+| Custom types as custom widget packages (existing seam)  | Widgets model scene vocabulary, not vault records; no note backing, wikilinks, calendar dates, or content visibility — a different problem.          |
+| Cascade-delete a type's instances with it               | Silent bulk data loss; a fat-fingered type delete would tombstone every tavern. Blocking-while-in-use is the safer, recoverable default.             |
+| Storing definitions in a new top-level state slice      | Unnecessary new document + schema version + hydration seam; the content slice already owns the object model these types extend.                      |
 
 ## Migration Impact
 
@@ -122,5 +122,4 @@ Concretely:
 - Tests: `packages/core/tests/content-custom-object-type.test.ts` (24 tests: definition validation
   fail-closed, DM-only authority, define/update/delete lifecycle, instance validation fail-closed,
   delete-blocked-while-in-use, DM-only field projection, tolerant hydration).
-- App: `apps/gm-react/src/screens/Extensions.tsx` (`CustomObjectTypes`,
-  `CustomObjectInstanceDialog`).
+- App: `apps/gm-react/src/screens/extensions/CustomTypes.tsx`.

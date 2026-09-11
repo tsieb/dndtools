@@ -46,6 +46,8 @@
 		"security:audit": "pnpm dlx pnpm@11.4.0 --pm-on-fail=ignore audit --audit-level high",
 		"security:secrets": "tsx scripts/secret-scan.ts",
 		"cloud:drift": "bash scripts/check-cloudformation-drift.sh",
+		"billing:bootstrap": "pnpm --filter @dndtools/cloud-fns billing:bootstrap",
+		"billing:verify": "bash infra/verify-billing.sh dev",
 		"dashboard": "node scripts/dashboard/serve.mjs",
 		"cloud:env:validate": "node apps/gm-react/scripts/validate-cloud-env.mjs",
 		"cloud:stage-config:validate": "node scripts/validate-stage-config.mjs",

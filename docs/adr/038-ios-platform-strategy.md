@@ -1,6 +1,6 @@
 # ADR-038: iOS Reach Is the Installable Web App; the Capacitor iOS Shell Is Deferred
 
-- Status: Accepted (the decision recorded here is a rejection of a Capacitor iOS shell for RC1)
+- Status: Accepted
 - Date: 2026-09-08
 - Deciders: Engineering
 - Consulted: Product, Security, QA

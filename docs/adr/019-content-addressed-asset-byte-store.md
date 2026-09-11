@@ -1,6 +1,6 @@
 # ADR-019: Content-Addressed Asset-Byte Store and Source Write-Back Transport
 
-- Status: Accepted
+- Status: Accepted (amended by ADR-035)
 - Date: 2026-07-09
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA

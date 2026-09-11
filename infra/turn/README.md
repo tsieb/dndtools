@@ -229,15 +229,14 @@ paths. They do not run coturn, issue a public certificate or establish a live We
 
 TODO(APP), owners below, target RC1: these handoffs block TLS cutover/acceptance.
 
-| Owner/file                                                                                              | Required work                                                                                     | Risk until complete                               |
-| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Cloud, `packages/cloud-fns/src/lib/turn.ts` and its tests                                               | Emit TCP-only URLs for `turns:`; preserve legacy `turn:` transports                               | TLS credentials include unsupported UDP           |
-| Cloud, `packages/cloud-fns/src/lib/aws.ts` and its tests                                                | Bound secret caching, test expiry/failure, document the maximum age                               | Old keys can be minted indefinitely               |
-| Validation, `infra/verify-turn.sh`                                                                      | Invoke `infra/turn/verify-tls.mjs` with the already minted WS_URL/TOKEN                           | `validate:live` still runs the legacy probe       |
-| Validation, `infra/verify-signaling.mjs`                                                                | Recognize `turns:` credentials                                                                    | Signaling gate rejects TLS URLs                   |
-| Validation, `scripts/validate/cloud-live.ts` and `docs/development/VALIDATION.md`                       | Describe trusted TLS, selected relay paths and delivery; preserve dev-only synthetic auth         | Acceptance description is stale                   |
-| Tooling, `vitest.config.ts` or `package.json`                                                           | Wire the owned Node test runner into automatic tooling gates                                      | Wrapper tooling suite alone misses these tests    |
-| Documentation, `infra/README.md`, `docs/adr/README.md`, `docs/security/cloud-security-audit-2026-07.md` | Link this runbook and register `infra/turn/ADR-TLS.md`; reconcile beta status after rollout       | Central docs still describe the legacy deployment |
-| Operator                                                                                                | DNS, parameter changes, deploy/bootstrap, renewal/rotation/failover drills and live gate evidence | Production readiness remains unproven             |
+| Owner/file                                                                     | Required work                                                                                     | Risk until complete                            |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Cloud, `packages/cloud-fns/src/lib/turn.ts` and its tests                      | Emit TCP-only URLs for `turns:`; preserve legacy `turn:` transports                               | TLS credentials include unsupported UDP        |
+| Cloud, `packages/cloud-fns/src/lib/aws.ts` and its tests                       | Bound secret caching, test expiry/failure, document the maximum age                               | Old keys can be minted indefinitely            |
+| Validation, `infra/verify-turn.sh`                                             | Invoke `infra/turn/verify-tls.mjs` with the already minted WS_URL/TOKEN                           | `validate:live` still runs the legacy probe    |
+| Validation, `infra/verify-signaling.mjs`                                       | Recognize `turns:` credentials                                                                    | Signaling gate rejects TLS URLs                |
+| Validation, `scripts/validate/cloud-live.ts` and `docs/development/TESTING.md` | Describe trusted TLS, selected relay paths and delivery; preserve dev-only synthetic auth         | Acceptance description is stale                |
+| Tooling, `vitest.config.ts` or `package.json`                                  | Wire the owned Node test runner into automatic tooling gates                                      | Wrapper tooling suite alone misses these tests |
+| Operator                                                                       | DNS, parameter changes, deploy/bootstrap, renewal/rotation/failover drills and live gate evidence | Production readiness remains unproven          |
 
-The TLS/rotation/failover choice and upstream references are in [ADR-TLS.md](ADR-TLS.md).
+The TLS, rotation, and failover decision is [ADR-039](../../docs/adr/039-turn-tls-and-secret-rotation.md).

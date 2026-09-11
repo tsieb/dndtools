@@ -97,7 +97,7 @@ record from a mode, so no call site can pair a Private vault with the relaxed re
 Core gains passphrase-sealed keyring export/import
 (`packages/core/src/security/vault-crypto.ts`: PBKDF2-SHA-256 (600k iterations) → AES-256-GCM over
 the serialized `VaultKeyring`), surfaced as **Export/Import recovery key** in Settings
-(`apps/gm-react/src/cloud/vaultKey.ts`, `screens/Settings.tsx`). The release-approved Private-mode
+(`apps/gm-react/src/cloud/vaultKey.ts`, `screens/settings/SyncPrivacy.tsx`). The release-approved Private-mode
 records change `recovery: 'unsupported-by-design'` → `'supported'`; the enable-time UI copy changes
 from "recovery-key export is not available yet" to instructing the user to export and safeguard the
 file. Import merges epochs conservatively (existing local epochs win; the current epoch advances to
@@ -189,8 +189,8 @@ the newer of the two) so a stale recovery file can never roll an active keyring 
   (`pnpm --filter @dndtools/core test`).
 - App: `apps/gm-react/src/cloud/vaultMode.ts` (+ `vaultMode.test.ts`),
   `apps/gm-react/src/app/Onboarding.tsx` (forced steps),
-  `apps/gm-react/src/screens/Settings.tsx` (vault-privacy panel, recovery export/import),
+  `apps/gm-react/src/screens/settings/SyncPrivacy.tsx` (vault-privacy panel, recovery export/import),
   `apps/gm-react/src/cloud/vaultKey.ts` (export/import custody plumbing).
 - E2E: `apps/gm-react/tests/e2e/onboarding-consent.spec.ts` (forced choice cannot be skipped;
   Private requires the typed acknowledgment; both modes complete; bypass flag still honored).
-- Product roadmap this ADR executes: `docs/development/CLOUD_TIER_ROADMAP.md` (P0 #1/#3).
+- Product roadmap this ADR executes: `docs/planning/CLOUD_TIER_ROADMAP.md`.

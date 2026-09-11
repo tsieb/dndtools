@@ -1,6 +1,6 @@
 ---
 name: infra-deploy
-description: Procedural checklist for deploying the dndtools AWS SAM stacks under infra/ — the strict 6-stack order, the dndtools profile and ca-central-1 region, the CloudFormation parameter-default trap on stack updates, and the post-deploy verification scripts. Use when asked to deploy, redeploy, or promote a cloud stack, when a deploy failed (SSM ParameterNotFound, OIDC assume-role denial), or when checking what still needs deploying. For a full drift audit or a review of template changes, use the infra-ops-reviewer agent instead.
+description: Procedural checklist for deploying the dndtools AWS SAM stacks under infra/ — the strict deploy order, the dndtools profile and ca-central-1 region, the CloudFormation parameter-default trap on stack updates, and the post-deploy verification scripts. Use when asked to deploy, redeploy, or promote a cloud stack, when a deploy failed (SSM ParameterNotFound, OIDC assume-role denial), or when checking what still needs deploying. For a full drift audit or a review of template changes, use the infra-ops-reviewer agent instead.
 ---
 
 # Deploying an infra stack
@@ -9,24 +9,25 @@ Read `infra/README.md` first — it is the contract, and it carries the current 
 
 ## Before you touch anything
 
-- **Account:** `dndtools` = `703621193648`, region **`ca-central-1`**. The one exception is CloudFront's ACM certificate, which must live in `us-east-1`.
-- **Profile:** always `--profile dndtools`. The ambient `AWS_PROFILE` on this machine may point at a dead SSO session — never rely on it. Scripts read `DNDTOOLS_PROFILE`, not `AWS_PROFILE`. On `ExpiredToken` or an SSO error, use the `aws-auth` skill; the user must complete a browser login.
+- **Accounts:** dev `dndtools` = `703621193648`, prod `dndtools-prod` = `649320110863`, region **`ca-central-1`**. The one exception is CloudFront's ACM certificate (`edge-cert`), which must live in `us-east-1`.
+- **Profile:** `--profile dndtools` for dev, `--profile dndtools-prod` for prod (`infra/deploy.sh` picks by stage). The ambient `AWS_PROFILE` on this machine may point at a dead SSO session — never rely on it. Scripts read `DNDTOOLS_PROFILE`, not `AWS_PROFILE`. On `ExpiredToken` or an SSO error, use the `aws-auth` skill; the user must complete a browser login.
 - **Deploys are a user decision.** Confirm before running a deploy the user did not explicitly ask for. `prod` always requires explicit confirmation (its `samconfig.toml` sets `confirm_changeset = true`).
 
 ## Deploy order is strict
 
-`foundation` → `identity` → `turn` → `signaling` → `sync-api` → `web-hosting`
+`edge-cert` (once) → `foundation` → `identity` → `turn` → `app-api` → `signaling` → `sync-api` → `web-hosting` → `app-api` again (purge proof) → identity/API origin refresh
 
-Two stacks read other stacks' SSM parameters through `{{resolve:ssm}}`, which resolves **at deploy time**. Deploying either before its upstream exists fails with SSM `ParameterNotFound`:
+Stacks read other stacks' SSM parameters through `{{resolve:ssm}}`, which resolves **at deploy time**. Deploying before an upstream exists fails with SSM `ParameterNotFound`:
 
 | Stack | Reads at deploy time | Therefore requires first |
 |---|---|---|
-| `signaling` | `identity/user-pool-id`, `identity/app-client-id`, `turn/secret-arn`, `turn/uri` | `identity` **and** `turn` |
-| `sync-api` | `identity/user-pool-id`, `identity/app-client-id` | `identity` |
+| `signaling` | `identity/*`, `turn/secret-arn`, `turn/uri`, the `app-api` entitlement table | `identity`, `turn`, `app-api` |
+| `sync-api` | `identity/*`, the `app-api` entitlement table | `identity`, `app-api` |
+| `app-api` (second pass) | `sync/ops-table-name` | `sync-api` |
 
-Everything else is decoupled through SSM under `/dndtools/<stage>/…` rather than `ImportValue`, so any single stack can be *updated* in isolation once its upstream parameters already exist. Beware the tempting shortcut "`identity` has no dependents, so its order is flexible" — it has two.
+Everything else is decoupled through SSM under `/dndtools/<stage>/…` rather than `ImportValue`, so any single stack can be *updated* in isolation once its upstream parameters already exist. A dev `signaling` deploy fails while dev's `turn` is torn down; rebuild `turn` first (`infra/README.md`).
 
-Stacks are named `dndtools-<stage>-<stack>`. Only `turn` costs money while idle (coturn on a `t4g.nano` + Elastic IP, roughly 3–8 USD/month); coturn is **arm64** — a container or AMI change must keep that target.
+Stacks are named `dndtools-<stage>-<stack>`. Only prod's `turn` costs money while idle (coturn on a `t4g.nano` + Elastic IP, ~$7.70/month); coturn is **arm64** — a container or AMI change must keep that target.
 
 ## The command
 
@@ -35,7 +36,7 @@ Stacks are named `dndtools-<stage>-<stack>`. Only `turn` costs money while idle 
 infra/deploy.sh <stack> <stage>        # stage defaults to dev
 ```
 
-`deploy.sh` builds the `@dndtools/cloud-fns` Lambda bundle first for `signaling` and `sync-api` (their Lambdas import `@dndtools/core`). The `sam validate --lint` step is **advisory** — the bundled cfn-lint spec lags AWS, so findings there are worth reading but do not block.
+`deploy.sh` builds the `@dndtools/cloud-fns` Lambda bundle first for `signaling`, `sync-api`, and `app-api` (their Lambdas import `@dndtools/core`). The `sam validate --lint` step is **advisory** — the bundled cfn-lint spec lags AWS, so findings there are worth reading but do not block.
 
 Manual equivalent, if you need to inspect the changeset:
 

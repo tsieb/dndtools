@@ -1,6 +1,6 @@
 # ADR-005: Unified Markdown Pipeline
 
-- Status: Accepted
+- Status: Accepted (amended 2026-09-06)
 - Date: 2026-03-01
 - Deciders: Engineering
 - Consulted: Security, UX
@@ -104,4 +104,4 @@ that does not exist.
 - `packages/core/tests/markdown-inline-roll.test.ts` — the inline-roll grammar, rolls ≠ wikilinks
 - `apps/gm-react/src/app/markdown/RollButton.tsx` — the control, the seed hand-off, the honest chip
 - `apps/gm-react/tests/e2e/inline-roll.spec.ts` — a pressed roll lands in the durable history
-- `docs/architecture/SECURITY.md`
+- `docs/security/README.md`

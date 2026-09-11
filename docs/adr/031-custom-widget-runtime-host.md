@@ -1,6 +1,6 @@
 # ADR-031: Custom-Widget Runtime Host and Authoring Model
 
-- Status: Accepted
+- Status: Accepted (amended 2026-09-06)
 - Date: 2026-09-04
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA
@@ -212,87 +212,24 @@ Generation is an MCP **write** tool (`mcp/tool-registry.ts`), not a special assi
   and packages pinned to a higher version must be refused with a clear diagnostic rather than
   rendered optimistically.
 
-## Amendment — RC-WID-1.4 as built: the worker sandbox (2026-09-06)
+## Amendments as built (RC-WID-1.4 and RC-WID-3.1, 2026-09-06)
 
-Decision 1 says the `worker` sandbox "speaks the identical protocol minus the DOM messages". Building
-it (`app/widgets/WorkerHost.ts`) settled what that means precisely, and added one message.
+Both are documented in `docs/architecture/WIDGETS.md`; the decision is unchanged.
 
-**What is dropped, and what is added.** `resize` is gone: a widget with no DOM has no content height
-to report, so a data-only widget's size is its frame's. `render` / `configChanged` / `bindingChanged`
-in and `ready` / `dispatch` / `requestPermission` / `outbound` / `error` out are unchanged and go
-through the same `hostBridge` decision functions, so there is one policy and not two. The addition is
-**`result`**: a widget with no DOM has no other way to say what it drew. Its payload is projected into
-the same `WidgetTemplateData` the WID-1.2 templates read and drawn through the template kind the
-entrypoint declares (a data table when it declares none) — so a data-only widget's output is rendered
-by code the app shipped, never by markup the package wrote.
-
-**A result is checked, not believed.** `normalizeWorkerResult` is a whitelist over the row shape:
-unknown fields dropped, strings truncated, non-finite numbers omitted, rows with no name discarded,
-the row count clamped. The projected query is never marked `withheld` — a worker is fed props that
-have ALREADY been filtered for the viewing actor, so anything it can echo is something that actor may
-see.
-
-**Every exchange is on a clock, and the clock ends in `terminate()`.** This is the one way a worker is
-more dangerous than a frame: a frame that hangs hangs itself, while a worker that hangs holds a thread
-and never answers again. So the worker gets the same 8s to say `ready` and 3s per render to answer,
-and a missed deadline is not retried or awaited — the worker is terminated, the failure goes through
-`isolateWidgetFailure`, and the widget shows the "disabled, preserved" placeholder with the specific
-reason. The session is final: a failed widget is shown as stopped rather than silently restarted.
-
-**Known gap: the packaged shell has no `worker-src`.** The worker is built from a blob of the
-assembled script, which is the only way to run code that arrived as package data. `buildCsp()` in
-`electron/main.cjs` and the hosted policy in `infra/web-hosting/template.yaml` do not admit `blob:`
-workers yet, so in the packaged app the constructor throws and the widget shows "Background widgets do
-not run on this build yet." — fail closed and visibly, rather than an empty frame. Admitting
-`worker-src 'self' blob:` in both policies is the remaining step.
-
-## Amendment — RC-WID-3.1 as built (2026-09-06)
-
-`widget.package.propose` is implemented exactly as decision 4 above describes — `kind: 'write'`,
-`writeRisk: 'durable'`, `commandType: 'widget.package.install'`, `template` drafts only,
-`authoring.source = 'generated'`, approval installs `unreviewed` with every permission denied. Three
-things the decision did not spell out became load-bearing while building it.
-
-**The provenance gains a prompt fingerprint.** `WidgetAuthoringProvenance` now carries an optional
-`promptHash`: the DM's original ask content-addressed with the map-asset algorithm
-(`fnv1a64-<checksum>`, `hashWidgetPromptText`). The ask itself is never persisted — a prompt is the
-DM's words and can name things they have not shared — but the fingerprint means two packages
-generated from the same ask are recognisably one lineage and a regenerated one is recognisably
-different. The field is additive and optional, so packages written before this parse unchanged and
-no `schemaVersion` bump is needed.
-
-**The narrowing is in the schema, not in a prompt.** The tool's input accepts no html, css, or
-javascript; no `hostPermissions`; no `networkDestinationClasses`; a command declares only `writesTo`
-(scene / session / entity), so the lower-privilege destination classes — player-visible state, a
-player scene, the clipboard, the network, an export — are not expressible; a binding's mode is
-limited to reading and watching; and a data query's `audience` defaults to `dm`. A model cannot
-widen any of these by phrasing, because they are not fields it can send.
-
-**A write tool costs the whole tool surface, not just itself.** The first cut of this tool measured
-5,326 bytes of JSON tool spec — 26% of the entire 27-tool payload and 2.6x the next largest — because
-a widget draft is the most structured input on the surface. Against the live 7B local model
-(`scripts/ai-agent-smoke.ts`, qwen2.5:7b) that had two separate effects, measured by hiding the tool
-and re-running:
-
-- **Mis-selection**, from a description that opened too broadly ("design a widget the DM can place on
-  a scene, from their description of what they want to see"). The model reached for
-  `widget.package.propose` when asked for a random table, an encounter, and a faction. Fixed by
-  opening with what the tool is _for_ (a panel on the DM's screen) and naming the content tools that
-  are _not_ it: the tool now fires only in its own scenario.
-- **Surface pressure**, from the schema's sheer size. With the tool hidden the harness scored 5/6 and
-  every scenario landed in a single call; with it offered the model kept calling tools after a
-  successful staged write until the pass budget ran out. Trimming the schema to 3,968 bytes — by
-  dropping the fields a DM edits in the builder anyway (a binding's entity types and mode, a config
-  field's group/default/placeholder/help, a command's required capability) — moved the harness from
-  2/6 to 3/6.
-
-Two rules follow, and they apply to the whole staged write surface rather than just this tool. A tool
-that answers too many asks is as much a defect as one that answers none, and its description is where
-that is fixed. And a tool's input schema is a cost every other tool pays on every pass, so an
-agent-facing schema should carry only what the model must invent — everything a human can set
-afterwards belongs in the builder, not in the wire format. The residual 3/6 is the harness offering
-all 27 tools to a 7B model that does not reliably stop after a successful write; scoping the
-harness's offered surface per scenario is tracked separately.
+- **Worker sandbox.** `resize` is dropped (no DOM) and a `result` message is added: its payload is
+  whitelisted by `normalizeWorkerResult` and drawn through the template kind the entrypoint declares,
+  so a data-only widget's output is always rendered by app-shipped code. Every exchange is on a
+  clock (8s to `ready`, 3s per render) and a missed deadline calls `terminate()` rather than
+  retrying, because a hung worker holds a thread. The hosted CSP admits `worker-src 'self' blob:`;
+  the packaged Electron shell does not yet, so workers there fail closed with a visible reason.
+- **`widget.package.propose`.** Provenance gains an optional `promptHash` fingerprint (the ask is
+  never persisted). The narrowing is in the input schema, not prompt text: no code, permissions, or
+  network fields, `writesTo` limited to scene, session, entity. Measured against the live 7B model,
+  a too-broad description pulled the model onto this tool for content asks, and the schema's size
+  (5,326 bytes, 26% of the whole tool payload) degraded tool choice across unrelated scenarios;
+  trimming it to 3,968 bytes by dropping fields a DM edits in the builder anyway recovered part of
+  that. Two rules follow for the whole staged write surface: a tool's description says what it is
+  for and names what it is not, and an agent-facing schema carries only what the model must invent.
 
 ## Rejected Alternatives
 

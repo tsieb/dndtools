@@ -25,6 +25,32 @@ export interface FeatureGroup {
 }
 export type FeatureMatrix = FeatureGroup[];
 
+export type PaidPlanId = Exclude<PlanId, 'hearth'>;
+export type BillingInterval = 'month' | 'year';
+
+/**
+ * ADR-027 — Stripe billing state as the SERVER reports it. `null` (or absent) means the stage
+ * has no billing configured: every billing surface renders its labeled "not available" state.
+ * The plan itself is NOT repeated here — `Entitlements.plan` stays the single source of truth.
+ */
+export interface BillingStatus {
+	provider: 'stripe';
+	/** Hosted Checkout can be started from this stage. */
+	checkoutAvailable: boolean;
+	/** This account has a Stripe customer, so the hosted portal can be opened. */
+	portalAvailable: boolean;
+	/** Stripe subscription status, or null when the account has never subscribed. */
+	status: string | null;
+	/** True while the subscription keeps paid features on (active / trialing / past_due). */
+	active: boolean;
+	interval: BillingInterval | null;
+	/** Epoch SECONDS of the current period's end (renewal or expiry), or null. */
+	currentPeriodEnd: number | null;
+	cancelAtPeriodEnd: boolean;
+	/** False means Stripe TEST mode — no real charges (dev stage). */
+	livemode: boolean;
+}
+
 export interface Entitlements {
 	plan: PlanId;
 	/** True only in deployments that explicitly enable the no-payment preview. */
@@ -32,6 +58,8 @@ export interface Entitlements {
 	/** False in production until a real billing/provisioning flow exists. */
 	canChangePlan: boolean;
 	features: FeatureMatrix;
+	/** ADR-027 billing state; absent/null when the stage has no Stripe configuration. */
+	billing?: BillingStatus | null;
 }
 
 export interface ModuleListing {
@@ -229,6 +257,19 @@ export function getEntitlements(): Promise<Entitlements> {
 
 export function setPlan(plan: PlanId): Promise<Entitlements> {
 	return authedFetch<Entitlements>('/account/entitlements', post({ plan }));
+}
+
+// --- Billing (ADR-027) — both return a one-shot URL to a STRIPE-HOSTED page. No card data ever
+// --- passes through the app; the paid plan is granted by the server's webhook, never by the client.
+export function createCheckoutSession(
+	plan: PaidPlanId,
+	interval: BillingInterval,
+): Promise<{ url: string }> {
+	return authedFetch<{ url: string }>('/billing/checkout-session', post({ plan, interval }));
+}
+
+export function createPortalSession(): Promise<{ url: string }> {
+	return authedFetch<{ url: string }>('/billing/portal-session', post({}));
 }
 
 // --- Marketplace --------------------------------------------------------------------------

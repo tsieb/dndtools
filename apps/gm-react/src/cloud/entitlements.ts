@@ -28,11 +28,40 @@ import {
 	getEntitlements as fetchEntitlements,
 	setPlan as pushPlan,
 	PLAN_IDS,
+	type BillingStatus,
 	type FeatureMatrix,
 	type PlanId,
 } from './appApi';
 
-export type { PlanId, FeatureMatrix, FeatureGroup, FeatureRow, FeatureCell } from './appApi';
+export type {
+	PlanId,
+	FeatureMatrix,
+	FeatureGroup,
+	FeatureRow,
+	FeatureCell,
+	BillingStatus,
+} from './appApi';
+
+/** Accept only a well-shaped server billing status; anything else is "no billing" (fail closed). */
+function normalizeBilling(value: unknown): BillingStatus | null {
+	if (!value || typeof value !== 'object') return null;
+	const b = value as Record<string, unknown>;
+	if (b.provider !== 'stripe') return null;
+	return {
+		provider: 'stripe',
+		checkoutAvailable: b.checkoutAvailable === true,
+		portalAvailable: b.portalAvailable === true,
+		status: typeof b.status === 'string' && b.status ? b.status : null,
+		active: b.active === true,
+		interval: b.interval === 'month' || b.interval === 'year' ? b.interval : null,
+		currentPeriodEnd:
+			typeof b.currentPeriodEnd === 'number' && Number.isFinite(b.currentPeriodEnd)
+				? b.currentPeriodEnd
+				: null,
+		cancelAtPeriodEnd: b.cancelAtPeriodEnd === true,
+		livemode: b.livemode === true,
+	};
+}
 export { PLAN_IDS } from './appApi';
 
 export const FREE_PLAN: PlanId = 'hearth';
@@ -171,6 +200,8 @@ interface CachedEntitlements {
 	features: FeatureMatrix;
 	canChangePlan: boolean;
 	simulated: boolean;
+	/** ADR-027 — last known billing status (so Settings can show it offline); null = none. */
+	billing: BillingStatus | null;
 }
 
 function cacheKey(accountId: string): string {
@@ -186,6 +217,7 @@ function readCache(accountId: string): CachedEntitlements | null {
 			features?: unknown;
 			canChangePlan?: unknown;
 			simulated?: unknown;
+			billing?: unknown;
 		};
 		if (!isPlanId(parsed.plan) || !Array.isArray(parsed.features)) return null;
 		return {
@@ -195,6 +227,7 @@ function readCache(accountId: string): CachedEntitlements | null {
 			// a remembered preview still permits account changes.
 			canChangePlan: parsed.canChangePlan === true,
 			simulated: parsed.simulated === true,
+			billing: normalizeBilling(parsed.billing),
 		};
 	} catch {
 		return null;
@@ -226,6 +259,8 @@ export interface EntitlementsValue {
 	canChangePlan: boolean;
 	/** True only for the explicitly enabled no-payment preview. */
 	simulated: boolean;
+	/** ADR-027 — the server's billing status (live or last known); null when not configured. */
+	billing: BillingStatus | null;
 	/** Change the plan: server + cache when server-backed, device-local otherwise. */
 	setPlan(plan: PlanId): Promise<void>;
 	refresh(): Promise<void>;
@@ -245,9 +280,12 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
 	const [loading, setLoading] = useState(serverBacked);
 	const [canChangePlan, setCanChangePlan] = useState(!serverBacked);
 	const [simulated, setSimulated] = useState(!serverBacked);
+	const [billing, setBilling] = useState<BillingStatus | null>(null);
 	const [resolvedAccountId, setResolvedAccountId] = useState<string | null>(null);
 	const activeAccountRef = useRef(accountId);
 	const requestSequenceRef = useRef(0);
+	/** The account whose SERVER answer is currently on screen (null until the first success). */
+	const hydratedAccountRef = useRef<string | null>(null);
 	activeAccountRef.current = accountId;
 
 	const refresh = useCallback(async () => {
@@ -258,19 +296,27 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
 			setSource('local');
 			setCanChangePlan(true);
 			setSimulated(true);
+			setBilling(null);
 			setLoading(false);
 			setResolvedAccountId(null);
 			return;
 		}
 		// A signed-in account never sees the preceding account's answer while its own
 		// request is loading. The render below also derives this fail-closed view before
-		// the effect has had a chance to run.
-		setPlanState(FREE_PLAN);
-		setFeatures(OFFLINE_FALLBACK_MATRIX);
-		setSource('local');
-		setCanChangePlan(false);
-		setSimulated(false);
-		setLoading(true);
+		// the effect has had a chance to run. A BACKGROUND refresh for the SAME account (the
+		// post-Checkout confirmation poll, a manual retry) keeps the last answer on screen
+		// instead — resetting there made every poll flip the surfaces to their fail-closed
+		// copy for the duration of the round trip.
+		const firstLoadForAccount = hydratedAccountRef.current !== accountId;
+		if (firstLoadForAccount) {
+			setPlanState(FREE_PLAN);
+			setFeatures(OFFLINE_FALLBACK_MATRIX);
+			setSource('local');
+			setCanChangePlan(false);
+			setSimulated(false);
+			setBilling(null);
+			setLoading(true);
+		}
 		setResolvedAccountId(accountId);
 		try {
 			const ent = await fetchEntitlements();
@@ -284,12 +330,15 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
 						: OFFLINE_FALLBACK_MATRIX,
 				canChangePlan: ent.canChangePlan === true,
 				simulated: ent.simulated === true,
+				billing: normalizeBilling(ent.billing),
 			};
 			setPlanState(next.plan);
 			setFeatures(next.features);
 			setSource('server');
 			setCanChangePlan(next.canChangePlan);
 			setSimulated(next.simulated);
+			setBilling(next.billing);
+			hydratedAccountRef.current = accountId;
 			writeCache(accountId, next);
 		} catch {
 			if (requestId !== requestSequenceRef.current || activeAccountRef.current !== accountId)
@@ -302,6 +351,7 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
 			setSource(cached ? 'cache' : 'local');
 			setCanChangePlan(cached?.canChangePlan ?? false);
 			setSimulated(cached?.simulated ?? false);
+			setBilling(cached?.billing ?? null);
 		} finally {
 			if (requestId === requestSequenceRef.current && activeAccountRef.current === accountId)
 				setLoading(false);
@@ -335,14 +385,17 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
 					setSource('server');
 					const confirmedCanChange = ent.canChangePlan === true;
 					const confirmedSimulated = ent.simulated === true;
+					const confirmedBilling = normalizeBilling(ent.billing);
 					setCanChangePlan(confirmedCanChange);
 					setSimulated(confirmedSimulated);
+					setBilling(confirmedBilling);
 					setResolvedAccountId(accountId);
 					writeCache(accountId, {
 						plan: confirmed,
 						features: confirmedFeatures,
 						canChangePlan: confirmedCanChange,
 						simulated: confirmedSimulated,
+						billing: confirmedBilling,
 					});
 					return;
 				} finally {
@@ -353,6 +406,7 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
 			setPlanState(next);
 			setCanChangePlan(true);
 			setSimulated(true);
+			setBilling(null);
 			writeLocalPlan(next);
 		},
 		[accountId, canChangePlan],
@@ -365,6 +419,7 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
 	const visibleLoading = loading || changingAccount;
 	const visibleCanChangePlan = changingAccount ? false : canChangePlan;
 	const visibleSimulated = changingAccount ? false : simulated;
+	const visibleBilling = changingAccount ? null : billing;
 
 	const value = useMemo<EntitlementsValue>(
 		() => ({
@@ -375,6 +430,7 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
 			serverBacked,
 			canChangePlan: visibleCanChangePlan,
 			simulated: visibleSimulated,
+			billing: visibleBilling,
 			setPlan,
 			refresh,
 		}),
@@ -386,6 +442,7 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
 			serverBacked,
 			visibleCanChangePlan,
 			visibleSimulated,
+			visibleBilling,
 			setPlan,
 			refresh,
 		],

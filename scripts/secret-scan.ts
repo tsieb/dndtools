@@ -18,7 +18,9 @@ export const SECRET_PATTERNS: ReadonlyArray<{ id: string; pattern: RegExp }> = [
 	},
 	{ id: 'google-api-key', pattern: /\bAIza[0-9A-Za-z_-]{35}\b/g },
 	{ id: 'slack-token', pattern: /\bxox[baprs]-[0-9A-Za-z-]{20,}\b/g },
-	{ id: 'stripe-live-secret', pattern: /\bsk_live_[0-9A-Za-z]{16,}\b/g },
+	{ id: 'stripe-live-secret', pattern: /\b(?:sk|rk)_live_[0-9A-Za-z]{16,}\b/g },
+	// A webhook signing secret is as sensitive as an API key: it lets anyone forge entitlements.
+	{ id: 'stripe-webhook-secret', pattern: /\bwhsec_[0-9A-Za-z]{16,}\b/g },
 	{ id: 'private-key', pattern: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g },
 ];
 

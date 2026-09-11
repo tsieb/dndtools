@@ -1296,6 +1296,27 @@ export const en = {
 	'settings.subscription.storedOnDevice': 'on this device',
 	'settings.subscription.previewBody':
 		'Cloud plans are currently a free preview. Listed prices are planned launch prices; the app does not request a payment method or charge you. Your selection is stored {location} and can be changed from {link}.',
+	/* Settings › Subscription › live billing (ADR-027) */
+	'settings.subscription.sourceAccountLive': 'Your account',
+	'settings.subscription.planLineLive': '{tagline} · {price}',
+	'settings.subscription.pricePerMonth': '{price}/mo',
+	'settings.subscription.pricePerYear': '{price}/yr',
+	'settings.subscription.comparePlans': 'Compare plans',
+	'settings.subscription.subscribe': 'Subscribe',
+	'settings.subscription.billingTitle': 'Billing',
+	'settings.subscription.renewsOn': 'Renews on {date}.',
+	'settings.subscription.endsOn': 'Cancellation scheduled — cloud features stay on until {date}.',
+	'settings.subscription.pastDue':
+		'The last payment failed. Update your card from Manage billing to keep cloud features.',
+	'settings.subscription.endedOn': 'Your subscription has ended. You are on the free plan.',
+	'settings.subscription.noSubscription': 'No active subscription.',
+	'settings.subscription.manageBilling': 'Manage billing',
+	'settings.subscription.manageAt': 'Manage at {host}',
+	'settings.subscription.manageOnWeb': 'Manage your subscription from the web app at {host}.',
+	'settings.subscription.testMode': 'Test mode',
+	'settings.subscription.billingTitleLive': 'Payments and cancellation',
+	'settings.subscription.billingBodyLive':
+		'Payments are processed by Stripe on its secure hosted pages; Lamplight never stores card details. Change or cancel your plan any time from Manage billing. Your local vaults never depend on a cloud plan.',
 
 	/* Settings › Players › Invites */
 	'settings.invites.title': 'Pending invites',
@@ -4487,6 +4508,35 @@ export const en = {
 		'Planned prices are in USD. This release has no billing or payment flow. No account is needed to keep playing locally.',
 	'upgrade.footer.preview':
 		'Planned prices are in USD. Preview access is free: there is no billing, payment method, or charge. No account is needed to keep playing locally.',
+	/* Upgrade › live billing (ADR-027: Stripe-hosted Checkout + portal, web only) */
+	'upgrade.headingLive': 'Local play stays free. Cloud plans are available.',
+	'upgrade.whyLive':
+		'Lamplight keeps your local campaign and core table tools available for free. Lantern and Beacon add optional hosted services: encrypted off-device backup, internet play, and campaign publishing. Payments are handled by Stripe on its secure pages.',
+	'upgrade.subscribeTo': 'Subscribe to {plan}',
+	'upgrade.manageBilling': 'Manage billing',
+	'upgrade.subscribeOnWeb': 'Subscribe at {host}',
+	'upgrade.manageOnWeb': 'Manage at {host}',
+	'upgrade.informsOnly':
+		'Cloud plans are purchased from the web app at {host}. A subscription on your account works here automatically.',
+	'upgrade.showAnnualLive': 'Show annual pricing',
+	'upgrade.annualSavingLive': '2 months free',
+	'upgrade.testMode': 'Test mode — no real charges',
+	'upgrade.dialog.stripeNote':
+		'You will finish on Stripe’s secure checkout page. Lamplight never sees your card details. Renews automatically; cancel any time from Manage billing.',
+	'upgrade.dialog.continueToCheckout': 'Continue to secure checkout',
+	'upgrade.dialog.redirecting': 'Opening checkout…',
+	'upgrade.checkout.failed': 'Could not start checkout.',
+	'upgrade.checkout.confirming': 'Confirming your subscription with Stripe…',
+	'upgrade.checkout.confirmed': 'You are now on {plan}. Thank you!',
+	'upgrade.checkout.pending':
+		'Your payment went through, but the plan has not updated yet. It usually takes a few seconds — refresh this page shortly.',
+	'upgrade.checkout.cancelled': 'Checkout cancelled — nothing was charged.',
+	'upgrade.portal.failed': 'Could not open billing.',
+	'upgrade.note.liveLead': 'Billing is handled by Stripe.',
+	'upgrade.note.liveBody':
+		'Prices are in USD. Subscriptions renew automatically and can be changed or cancelled any time from Manage billing. Your local vaults never depend on a cloud plan.',
+	'upgrade.footer.live':
+		'Prices are in USD, billed by Stripe. Cancel any time; no account is needed to keep playing locally.',
 	/* Scene display › the second-screen presentation window */
 	'sceneDisplay.noScene': 'No scene on display',
 
@@ -4562,6 +4612,17 @@ export const en = {
 		'From there, join your DM’s table with the table name and PIN they share at game time.',
 	'join.tryAgain': 'Try again',
 	'join.goToApp': 'Go to the app',
+	/* Legal › the public Privacy Policy and Terms pages (`#/legal/*`, chrome-less like /join). The
+	   documents themselves are English-only structured content in screens/legal/legalContent.ts;
+	   only the page chrome is translated. */
+	'legal.privacy.title': 'Privacy policy',
+	'legal.terms.title': 'Terms of service',
+	'legal.backToApp': 'Back to Lamplight',
+	'legal.lastUpdated': 'Last updated: {date}',
+	'legal.docNav': 'Legal documents',
+	'settings.about.legal': 'Legal',
+	'settings.about.legalBody':
+		'The privacy policy and terms of service for Lamplight and its online services. Both pages are public and need no account.',
 	/* GM Screen › the home board and its Add / Layouts panels */
 	'board.playerTitle': 'The GM Screen is the DM’s control board',
 	'board.playerBody': 'Only the DM can arrange it. Switch back to the DM view to make changes.',

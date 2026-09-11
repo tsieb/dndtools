@@ -141,7 +141,7 @@ Co-DM-tagged invites, all seat-gated.
   `apps/gm-react/src/screens/play/Elevated.tsx` (Atlas/Bestiary/Assist) — RC-STB-2.2 split the
   former `screens/PlayerView.tsx` into that folder.
 - **Seat entitlement:** `apps/gm-react/src/cloud/entitlements.ts` (`coDmSeatsForPlan`),
-  Settings promote flow + invite role in `apps/gm-react/src/screens/Settings.tsx`.
+  Settings promote flow + invite role in `apps/gm-react/src/screens/settings/Players.tsx`.
 - **Tests:** `packages/core/tests/co-dm-role.test.ts` (19 cases),
   `apps/gm-react/src/net/viewModels.test.ts`, extended
   `apps/gm-react/src/cloud/appApi.test.ts` and `packages/cloud-fns/src/app-api/handler.test.ts`.

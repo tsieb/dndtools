@@ -157,6 +157,7 @@ describe('account-isolated server entitlements', () => {
 			features: MATRIX_B,
 			canChangePlan: true,
 			simulated: true,
+			billing: null,
 		});
 	});
 
@@ -192,6 +193,7 @@ describe('account-isolated server entitlements', () => {
 			features: MATRIX_B,
 			canChangePlan: true,
 			simulated: true,
+			billing: null,
 		});
 	});
 
@@ -207,5 +209,83 @@ describe('account-isolated server entitlements', () => {
 		});
 		await expect(current().setPlan('lantern')).rejects.toThrow(/not available/i);
 		expect(mocks.pushPlan).not.toHaveBeenCalled();
+	});
+});
+
+// --- ADR-027: billing status rides along with the entitlement answer ----------------------------
+describe('billing status (ADR-027)', () => {
+	const BILLING = {
+		provider: 'stripe' as const,
+		checkoutAvailable: true,
+		portalAvailable: true,
+		status: 'active',
+		active: true,
+		interval: 'month' as const,
+		currentPeriodEnd: 1_800_000_000,
+		cancelAtPeriodEnd: false,
+		livemode: false,
+	};
+
+	it('exposes the server billing status and caches it for offline reads', async () => {
+		mocks.fetchEntitlements.mockResolvedValueOnce({
+			...serverAnswer('lantern', MATRIX_A, false),
+			billing: BILLING,
+		});
+		await renderProvider();
+		expect(current().billing).toEqual(BILLING);
+		expect(
+			JSON.parse(window.localStorage.getItem('dndtools:react:entitlements:last:account-a')!),
+		).toMatchObject({
+			plan: 'lantern',
+			billing: BILLING,
+		});
+
+		// Offline: the last known billing status is remembered with the plan.
+		mocks.fetchEntitlements.mockRejectedValueOnce(new Error('offline'));
+		await act(async () => {
+			await current().refresh();
+		});
+		expect(current().source).toBe('cache');
+		expect(current().billing).toEqual(BILLING);
+	});
+
+	it('normalizes anything but a well-shaped stripe status to null (fail closed)', async () => {
+		mocks.fetchEntitlements.mockResolvedValueOnce({
+			...serverAnswer('hearth', MATRIX_A, false),
+			billing: { provider: 'paypal', checkoutAvailable: true },
+		});
+		await renderProvider();
+		expect(current().billing).toBeNull();
+
+		mocks.fetchEntitlements.mockResolvedValueOnce({
+			...serverAnswer('hearth', MATRIX_A, false),
+			billing: {
+				provider: 'stripe',
+				checkoutAvailable: 'yes',
+				status: '',
+				currentPeriodEnd: 'soon',
+			},
+		});
+		await act(async () => {
+			await current().refresh();
+		});
+		expect(current().billing).toEqual({
+			provider: 'stripe',
+			checkoutAvailable: false,
+			portalAvailable: false,
+			status: null,
+			active: false,
+			interval: null,
+			currentPeriodEnd: null,
+			cancelAtPeriodEnd: false,
+			livemode: false,
+		});
+	});
+
+	it('is null when signed out (device-local plans have no billing)', async () => {
+		mocks.auth.current = { status: 'signed-out', user: null };
+		await renderProvider();
+		expect(current().billing).toBeNull();
+		expect(current().serverBacked).toBe(false);
 	});
 });

@@ -1,7 +1,7 @@
 # ADR-012: Progressive Disclosure via Vault Maturity
 
 - Status: Accepted
-- Date: 2026-03-13
+- Date: 2026-03-13 (evidence updated 2026-09-11)
 - Deciders: Engineering
 - Consulted: Product, UX
 - Supersedes: N/A
@@ -17,8 +17,7 @@ Adopt a vault-maturity-driven progressive disclosure system:
 - `VaultMaturitySignals` captures six numeric metrics: note count, link count, tag count, session count, map count, and object note count.
 - `deriveVaultDisclosureState()` computes boolean feature gates from signals against configurable thresholds.
 - Disclosure gates control navigation visibility (knowledge tags, graph link, collections, session section, campaign entities).
-- Thresholds are defined in `maturity-thresholds.ts` and are tunable without code changes.
-- Vault maturity state is reactive via `src/lib/state/vault-maturity.svelte.ts`.
+- Thresholds and gates are declared data (`FEATURE_GATES`, `FEATURE_TIERS` in `packages/core/src/state/onboarding.ts`) resolved by a pure resolver.
 - Advanced features beyond maturity-gated ones require explicit user opt-in.
 
 ## Consequences
@@ -47,7 +46,7 @@ Adopt a vault-maturity-driven progressive disclosure system:
 
 - New navigation entries or feature surfaces must declare their disclosure gate.
 - Threshold changes must be tested against fresh vault, small vault, and large vault scenarios.
-- Feature tier documentation in `docs/reference/FEATURE_TIERS.md` must stay synchronized.
+- The feature-tier section of `docs/architecture/NAVIGATION.md` must stay synchronized.
 
 ## Rollback Plan
 
@@ -58,8 +57,6 @@ Adopt a vault-maturity-driven progressive disclosure system:
 
 ## Verification and Evidence
 
-- `src/lib/domain/vault-maturity.ts`
-- `src/lib/domain/maturity-thresholds.ts`
-- `src/lib/state/vault-maturity.svelte.ts`
-- `src/lib/domain/vault-maturity.test.ts`
-- `docs/reference/FEATURE_TIERS.md`
+- `packages/core/src/state/onboarding.ts` (`FeatureTier`, `FEATURE_GATES`, `visibleFeatures`, `isFeatureVisible`), `packages/core/tests/onboarding.test.ts`
+- `apps/gm-react/src/app/Onboarding.tsx`, `apps/gm-react/tests/e2e/maturity-signals.spec.ts`
+- `docs/architecture/NAVIGATION.md` § Feature tiers

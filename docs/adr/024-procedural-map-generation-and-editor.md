@@ -1,6 +1,6 @@
 # ADR-024: Procedural Map Generation Suite and Editor Rebuild
 
-- Status: Accepted
+- Status: Accepted (amended by ADR-030)
 - Date: 2026-07-14
 - Deciders: Engineering
 - Consulted: Product, Design, Security
