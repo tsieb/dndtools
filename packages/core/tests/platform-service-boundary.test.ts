@@ -112,6 +112,29 @@ describe('PLAT-007 AC2: oversized payloads are rejected before business logic', 
 		expect(result.error.code).toBe('payload-too-large');
 	});
 
+	it('counts bytes, not characters, when multi-byte content fits by length alone', () => {
+		const registry = createPlatformServiceRegistry([
+			{
+				method: 'storage.persistFullState',
+				requestSchema: z.object({ blob: z.string() }).strict(),
+				maxPayloadBytes: 20,
+			},
+		]);
+		// `{"blob":"€€€€"}` is 15 UTF-16 code units, under the limit, but 23 UTF-8 bytes ("€" is 3).
+		const over = validatePlatformRequest(registry, 'storage.persistFullState', {
+			blob: '€'.repeat(4),
+		});
+		expect(over.ok).toBe(false);
+		if (over.ok) throw new Error('expected rejection');
+		expect(over.error.code).toBe('payload-too-large');
+		expect(over.error.sizeBytes).toBe(23);
+		// Three of them is exactly 20 bytes: at the limit, not over it.
+		const atLimit = validatePlatformRequest(registry, 'storage.persistFullState', {
+			blob: '€'.repeat(3),
+		});
+		expect(atLimit.ok).toBe(true);
+	});
+
 	it('size check runs before schema validation (oversized invalid payload reports size)', () => {
 		const registry = createPlatformServiceRegistry([
 			{

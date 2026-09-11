@@ -105,13 +105,19 @@ export function createPlatformServiceRegistry(
 		byMethod.set(def.method, def);
 	}
 	return {
-		get: (method) =>
-			isPlatformServiceMethod(method) ? byMethod.get(method) : undefined,
+		get: (method) => (isPlatformServiceMethod(method) ? byMethod.get(method) : undefined),
 		methods: () => [...byMethod.keys()],
 	};
 }
 
-function serializedByteLength(payload: unknown): number | null {
+/**
+ * Measure a payload against its byte limit: `null` when it is not JSON-serializable, otherwise
+ * whether it fits and, when it does not, its exact UTF-8 size for the error.
+ */
+function measurePayload(
+	payload: unknown,
+	limit: number,
+): { fits: true } | { fits: false; sizeBytes: number } | null {
 	let serialized: string;
 	try {
 		serialized = JSON.stringify(payload);
@@ -120,11 +126,17 @@ function serializedByteLength(payload: unknown): number | null {
 	}
 	// JSON.stringify returns undefined for values like a bare `undefined`.
 	if (serialized === undefined) return null;
+	// UTF-8 spends one to three bytes per UTF-16 code unit (a surrogate pair is two units and four
+	// bytes), so a payload that fits at three bytes per unit fits outright. Only a payload near or
+	// over the limit is encoded to count its bytes exactly: encoding a full copy of every persisted
+	// state just to read its length was most of a durable commit's boundary cost.
+	if (serialized.length * 3 <= limit) return { fits: true };
 	// Count UTF-8 bytes so multi-byte content is measured accurately against the limit.
-	if (typeof TextEncoder !== 'undefined') {
-		return new TextEncoder().encode(serialized).length;
-	}
-	return serialized.length;
+	const sizeBytes =
+		typeof TextEncoder !== 'undefined'
+			? new TextEncoder().encode(serialized).length
+			: serialized.length;
+	return sizeBytes > limit ? { fits: false, sizeBytes } : { fits: true };
 }
 
 /**
@@ -156,8 +168,8 @@ export function validatePlatformRequest<T = unknown>(
 	}
 
 	const limit = definition.maxPayloadBytes ?? DEFAULT_MAX_PAYLOAD_BYTES;
-	const sizeBytes = serializedByteLength(payload);
-	if (sizeBytes === null) {
+	const size = measurePayload(payload, limit);
+	if (size === null) {
 		return {
 			ok: false,
 			error: {
@@ -167,14 +179,14 @@ export function validatePlatformRequest<T = unknown>(
 			},
 		};
 	}
-	if (sizeBytes > limit) {
+	if (!size.fits) {
 		return {
 			ok: false,
 			error: {
 				code: 'payload-too-large',
 				method: definition.method,
-				message: `Payload of ${sizeBytes} bytes exceeds the ${limit} byte limit for ${definition.method}.`,
-				sizeBytes,
+				message: `Payload of ${size.sizeBytes} bytes exceeds the ${limit} byte limit for ${definition.method}.`,
+				sizeBytes: size.sizeBytes,
 				limitBytes: limit,
 			},
 		};

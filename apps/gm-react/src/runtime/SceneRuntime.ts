@@ -357,10 +357,56 @@ export class SceneRuntime {
 		const loaded = await loadCoreState();
 		this.innerState = this.ensureDefaultActor(loaded, seedDemo);
 		// Populate only on initial boot. A restore is authoritative and must not silently add demo data.
-		if (seedDemo && !this.freshVaultChosen()) await seedDemoContent(this);
+		if (seedDemo && !this.freshVaultChosen()) {
+			await this.enqueueMutation(() => this.seedDemoInOneCommit());
+		}
 		this.lifecycle = null;
 		this.error = null;
 		this.isLoaded = true;
+	}
+
+	/**
+	 * First-run demo content lands as ONE durable commit. The seed still issues the same commands a DM
+	 * would, one at a time through the core reducer with this runtime's env, but against a staged state
+	 * that is persisted once at the end: one boundary validation and one IndexedDB transaction instead
+	 * of one per command. The stock demo is ~40 commands, and each separate commit re-serialized,
+	 * re-validated and re-wrote the whole vault before the first scene could render. It runs inside the
+	 * mutation queue, so no other command can persist a half-seeded state or interleave its operations.
+	 * A failed commit leaves the vault as it was; the seed's per-slice emptiness guards retry on the
+	 * next load, exactly as they do for a rejected seed command.
+	 */
+	private async seedDemoInOneCommit(): Promise<void> {
+		const before = this.innerState;
+		const env = this.options.env;
+		const staged = {
+			state: before,
+			defaultActorId: this.defaultActorId,
+			async dispatch(command: CoreCommand): Promise<CommandResult> {
+				const result = dispatchCommand(staged.state, env, command);
+				if (result.status === 'accepted') staged.state = result.nextState;
+				return result;
+			},
+		};
+		await seedDemoContent(staged);
+		const seeded = staged.state;
+		if (seeded === before) return;
+		try {
+			await persistFullState(before, seeded);
+		} catch {
+			return;
+		}
+		this.innerState = seeded;
+		// Same "op-log grew" signal as dispatch, once for the whole seed.
+		const newOperations = seeded.sync.operations.slice(before.sync.operations.length);
+		if (newOperations.length > 0 && this.dispatchListeners.size > 0) {
+			for (const listener of this.dispatchListeners) {
+				try {
+					listener(newOperations, seeded);
+				} catch {
+					// A replication listener failure must not affect the local durable write.
+				}
+			}
+		}
 	}
 
 	private enqueueMutation<T>(operation: () => Promise<T>): Promise<T> {
