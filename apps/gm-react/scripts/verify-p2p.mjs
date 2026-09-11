@@ -1,7 +1,7 @@
 // P2P transport gate: proves the security-critical PURE modules of the LAN remote-player feature —
 // message encryption (AES-GCM seal/open, wrong-key rejection) and the serverless connection-code
 // encode/decode round-trip. These run headless under Node's WebCrypto (no browser, no WebRTC needed);
-// the full WebRTC/loopback + two-device paths are verified separately (see docs/SECURITY.md). Exits
+// the full WebRTC/loopback + two-device paths are verified separately (see docs/security/README.md). Exits
 // non-zero on any failed assertion.
 import { build } from 'esbuild';
 import { fileURLToPath, pathToFileURL } from 'node:url';

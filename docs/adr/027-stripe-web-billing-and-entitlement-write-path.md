@@ -1,6 +1,6 @@
 # ADR-027: Stripe Web Billing And The Authoritative Entitlement Write Path
 
-- Status: Accepted (2026-09-10 — dev verification in Stripe test mode passed 24/24, see Verification)
+- Status: Accepted (2026-09-10)
 - Date: 2026-07-23
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA
@@ -16,7 +16,7 @@ plan change, the row is stamped `simulated: true`, and no money moves. That was 
 a personal-scale product, and ADR-020 explicitly deferred real billing to "a payment processor
 integration and an ADR revisiting the entitlement write path."
 
-The cloud-tier roadmap (docs/development/CLOUD_TIER_ROADMAP.md) now defines paid tiers worth paying
+The cloud-tier roadmap (`docs/planning/CLOUD_TIER_ROADMAP.md`) now defines paid tiers worth paying
 for (Lantern/Beacon: cloud backup, internet play, co-DM seats, and — after ADR-026 phase 2 —
 Cloud-Enhanced features). Monetizing them needs a processor decision that honors the roadmap's
 standing decisions: **scale-to-zero cost discipline** (no always-on billing service; idle floor

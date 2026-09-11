@@ -1,7 +1,7 @@
 # ADR-008: MCP Semantic Bundling Strategy
 
 - Status: Accepted
-- Date: 2026-03-01
+- Date: 2026-03-01 (evidence updated 2026-09-11)
 - Deciders: Engineering
 - Consulted: Product, UX
 - Supersedes: N/A
@@ -57,11 +57,7 @@ Use semantic, algorithmic bundle tools as the default high-level read path:
 
 ## Verification and Evidence
 
-- `mcp/tools/index.ts`
-- `mcp/tools/vault/get-session-prep-bundle.ts`
-- `mcp/tools/vault/get-recap-generation-bundle.ts`
-- `mcp/tools/vault/get-continuity-check-bundle.ts`
-- `mcp/tools/vault/vault-intelligence.ts`
-- `mcp/tools/shared/contracts.ts`
-- `mcp/tools/shared/contract-server.ts`
-- `docs/reference/AGENTIC_NOTES_WORKFLOW.md`
+- `packages/core/src/mcp/semantic-bundles.ts` (the bundle builders: prep, recap, continuity)
+- `packages/core/src/mcp/tool-registry.ts` (the declared, fail-closed tool allowlist)
+- `packages/core/src/mcp/response-contract.ts`, `tool-dispatch.ts`, `agent-dispatch.ts`
+- ADR-002, ADR-021, ADR-025 (the staged-write and transport decisions this composes with)

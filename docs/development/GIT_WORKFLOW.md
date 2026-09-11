@@ -1,294 +1,73 @@
 # Git Workflow
 
-Reference for the tiered branch model, validation gates, PR checklists, and recovery guidance.
-
----
-
-## 1. Branch Model
-
-### 1.1 Stable Branch
-
-`main` is the release-ready branch. Only initiative-integration PRs target `main`.
-
-### 1.2 Initiative Branches
-
-Long-lived initiative branches are created from `main` and collect related epics:
-
-```bash
-git checkout main
-git pull
-git checkout -b initiative/<id>-<slug>
-```
-
-Examples:
-
-```bash
-initiative/I21-realignment
-initiative/I18-accessibility
-```
-
-### 1.3 Epic Branches
-
-Epic branches are short-lived and always branch from their parent initiative branch:
-
-```bash
-git checkout initiative/<id>-<slug>
-git pull
-git checkout -b story/<epic-id>-<slug>
-```
-
-Examples:
-
-```bash
-story/21.1-tiered-ci
-story/21.3-metrics-baselines
-```
-
-### 1.4 Topology
-
-```mermaid
-flowchart LR
-  main["main (full quality gate)"]
-  initiative["initiative/I21-realignment (smoke gate)"]
-  epic1["story/21.1-tiered-ci"]
-  epic2["story/21.2-script-audit"]
-  epic3["story/21.3-metrics-baselines"]
-
-  main --> initiative
-  initiative --> epic1
-  initiative --> epic2
-  initiative --> epic3
-  epic1 --> initiative
-  epic2 --> initiative
-  epic3 --> initiative
-  initiative --> main
-```
-
-### 1.5 Test Tier By Boundary
-
-| Merge boundary     | Branch target           | Required gate                                                                      |
-| ------------------ | ----------------------- | ---------------------------------------------------------------------------------- |
-| Epic PR            | `initiative/*`          | local `pnpm test:smoke` before push                                                |
-| Any PR (CI)        | `main` / `initiative/*` | static + unit + build; runtime changes also run browser/a11y/Electron/Android jobs |
-| Full app rehearsal | before release          | `pnpm validate` plus the Android native/emulator runbook gates                     |
-
----
-
-## 2. Workflow
-
-### Autonomous integration coverage (RC-ENG-2.3)
-
-Every push to `loop/rc` starts full CI, including all browser E2E specs on desktop and mobile
-across three shards. This runs even for changes outside the runtime path filter. Each integration
-run has its own concurrency group so subsequent pushes cannot cancel its browser coverage.
-Browser tests use Vite directly and do not wait for the separate build gate. Failures retain
-Playwright reports, screenshots and retry traces as `browser-e2e-*` artifacts on that commit's run.
-This detects cross-story regressions automatically on the integration branch, before promotion;
-it does not prevent the initial push to `loop/rc`. The existing full-suite promotion gate remains
-required before advancing `main`.
-
-With `gates.e2e_named_specs` enabled, story claims include specs named by stories with overlapping
-owned paths, then specs visiting the same top-level routes. The map editor, quick map and board map
-tile also share a surface group because they reuse map controls across routes. Expansion is one
-hop to avoid navigation smoke tests pulling every route into each story gate. Missing named specs
-fail the wrapper gate. Helper-only or dynamic navigation can escape this heuristic, which is why
-the independent full-suite CI run is required. Update specs when adding a route or shared surface.
-
-The local regression checks are `python3 -m unittest tools/loop/tests/test_rcloop.py` and
-`pnpm exec vitest run tests/unit/loop-integration-gate.test.ts`. The latter injects a failure into
-an unnamed fixture spec and verifies the CI shard command fails while the story's spec stays green.
-It tests the gate locally; the hosted run becomes active when this workflow lands on `loop/rc`.
-
-### 2.1 Epic Work
-
-```bash
-git checkout initiative/<id>-<slug>
-git pull
-git checkout -b story/<epic-id>-<slug>
-```
-
-Push the epic branch and open a PR against the initiative branch:
-
-```bash
-gh pr create \
-  --title "<type>(<scope>): <summary> [Epic X.Y]" \
-  --base initiative/<id>-<slug> \
-  --body "<what changed, why, how validated>"
-gh pr merge --auto --squash
-```
-
-### 2.2 Initiative Integration
-
-When the initiative branch is ready:
-
-```bash
-gh pr create \
-  --title "<type>(<scope>): <summary> [Initiative IXX]" \
-  --base main \
-  --head initiative/<id>-<slug> \
-  --body "<what changed, why, how validated>"
-gh pr merge --auto --squash
-```
-
-### 2.3 Trivial Direct-to-Main Exceptions
-
-Direct commits to `main` are reserved for:
-
-- single-file documentation typo fixes
-- emergency release follow-ups explicitly approved by a human
-
-All feature, fix, refactor, CI, or tooling work uses the initiative/epic model.
-
----
-
-## 3. Validation Gates
-
-### 3.1 Local Discipline
-
-No git hooks are installed in this repo, so these are run by hand — run them before pushing rather than relying on a hook:
-
-| When              | Command                                         |
-| ----------------- | ----------------------------------------------- |
-| Before every push | `pnpm test:smoke` (fast) or `pnpm check` (full) |
-
-### 3.2 Smoke Gate
-
-`pnpm test:smoke` is the fast local gate: `pnpm lint:boundary` + `pnpm typecheck` + the curated
-critical-unit subset (`packages/core/vitest.smoke.config.ts` — schemas, migration, permission
-grants, the cloud/renderer/privacy security boundaries, command dispatch). Runs in well under 60s
-(~30s locally). Use it while iterating; run `pnpm check` before handoff. CI runs the same gate as
-the `smoke-gate` job on every PR into an `initiative/*` branch (see §3.3).
-
-### 3.3 CI Gate
-
-`.github/workflows/ci.yml` is tiered by the PR's **base** branch (the `changes` job's `tier`
-output): a PR into an `initiative/*` branch gets the fast smoke tier; a push to `main`, a PR into
-`main`, or a manual `workflow_dispatch` gets the full tier.
-
-**Smoke tier** (PR base is `initiative/*`):
-
-- `smoke-gate` — `pnpm test:smoke` (lint:boundary + typecheck + the curated critical-unit subset)
-
-**Full tier** (push to `main`, PR into `main`, or `workflow_dispatch`):
-
-- `build-and-test` — credentials scan, quality gates, lint, typecheck, production build, the
-  production bundle budget (RC-ENG-1.2), and all unit suites
-- `browser-e2e` — path-filtered, three-shard Playwright suite with failure diagnostics
-- `accessibility` — path-filtered desktop/mobile axe scan and merged report
-- `desktop-smoke` — path-filtered Electron boot, CSP, and persistence smoke on Linux
-- `android-checks` — path-filtered JDK 21/API 36 renderer sync, Gradle unit/lint, and debug package
-
-The whole-application harness `pnpm validate` and Android native validation run in
-`.github/workflows/validate.yml` (desktop/cloud layers self-skip without a display or AWS creds). See
-`docs/development/VALIDATION.md`.
-
-### 3.4 Manual Checks
-
-Run the domain-appropriate commands before opening a PR:
-
-| When                             | Command                                                                |
-| -------------------------------- | ---------------------------------------------------------------------- |
-| Pre-handoff full gate            | `pnpm check`                                                           |
-| Whole-app rehearsal              | `pnpm validate`                                                        |
-| UI routes or interaction changes | `pnpm e2e`                                                             |
-| Accessibility-affecting changes  | `pnpm a11y:gate`                                                       |
-| Electron desktop changes         | `pnpm desktop:build`                                                   |
-| Android renderer/native changes  | `android:sync` + Gradle unit/lint/package tasks in the Android runbook |
-
----
-
-## 4. Branch Protection Setup
-
-### 4.1 `main`
-
-GitHub Settings -> Branches -> Add rule:
-
-- Branch name pattern: `main`
-- Require a pull request before merging: enabled
-- Require status checks to pass before merging: enabled
-- Required checks:
-  - `build-and-test`
-  - `android-checks`
-- Require branches to be up to date before merging: enabled
-- Do not allow bypassing the above settings
-- Allow force pushes: disabled
-- Allow deletions: disabled
-
-### 4.2 `initiative/*`
-
-GitHub Settings -> Branches -> Add rule:
-
-- Branch name pattern: `initiative/*`
-- Require a pull request before merging: enabled
-- Require status checks to pass before merging: enabled
-- Required checks:
-  - `smoke-gate`
-- Require branches to be up to date before merging: enabled
-- Do not allow bypassing the above settings
-- Allow force pushes: disabled
-- Allow deletions: disabled
-
-### 4.3 Auto-Merge Settings
-
-Repository settings must enable:
-
-- squash merging
-- auto-merge
-- automatically delete head branches
-
----
-
-## 5. Pull Requests
-
-### 5.1 Titles
-
-```text
-<type>(<scope>): <imperative summary> [Epic X.Y]
-```
-
-### 5.2 PR Body
-
-State what changed, why, and how it was validated (which of `check` / `validate` / `e2e` / `a11y:gate` you ran).
-
-### 5.3 Merge Policy
-
-- Every PR merges only after CI `build-and-test` is green.
-- Squash merge is the default strategy.
-
----
-
-## 6. Recovery Guidance
-
-| Situation                              | Action                                                                      |
-| -------------------------------------- | --------------------------------------------------------------------------- |
-| Smoke fails on epic PR                 | Fix on the same `story/*` branch and push again                             |
-| Full gate fails on initiative PR       | Fix on the same initiative branch or merge the needed epic fix first        |
-| Initiative branch drifts behind `main` | Rebase or merge `main`, then re-run `pnpm check`                            |
-| Merged PR requires rollback            | Human decision only; use a new `git revert <sha>` PR                        |
-| Broken local commit not yet pushed     | `git commit --amend` is acceptable only for the immediately previous commit |
-
----
-
-## 7. CI Workflows
-
-- `.github/workflows/ci.yml` — static/unit/build gates plus path-filtered browser, accessibility,
-  Electron smoke, and Android unit/lint/package jobs.
-- `.github/workflows/validate.yml` — whole-app `pnpm validate` harness plus Android API 36 native
-  validation (desktop/cloud layers self-skip without a display or AWS creds).
-- `.github/workflows/deploy.yml` — AWS cloud deploy (OIDC; path-filtered; skips cleanly when unconfigured).
-- `.github/workflows/promote-production.yml` — protected, manual production promotion and safe post-deploy probes.
-- `.github/workflows/cloud-drift.yml` — scheduled dev CloudFormation drift detection.
-- `.github/workflows/release.yml` — complete desktop + Android packaging: permanent-alpha-key signed
-  APK/AAB, unsigned preview or signed production desktop installers, checksums, SPDX, attestations,
-  API 36 launch, and a draft release.
-
----
-
-## 8. Reference
-
-- `docs/development/DEVELOPMENT.md`
-- `docs/development/SCRIPTS.md`
-- `docs/development/VALIDATION.md`
-- `.github/workflows/ci.yml`
-- `.github/workflows/validate.yml`
-- `CLAUDE.md`
+## 1. Branches
+
+- `main` is the release-ready branch and the only branch CI deploys from (dev stage). Direct commits
+  are reserved for single-file doc fixes and human-approved emergency follow-ups.
+- `loop/rc` is the autonomous loop's integration branch. Agents work stories in their own worktrees,
+  the wrapper rebases and pushes to `loop/rc`, and a promotion gate fast-forwards `main` (see
+  `tools/loop/README.md`). Every push to `loop/rc` runs full CI including all browser shards.
+- Human work branches from `main` as `<type>/<slug>` and merges by squash PR. Long-running
+  multi-story efforts may use `initiative/<id>-<slug>` with `story/<id>-<slug>` branches off it;
+  PRs into an `initiative/*` branch get the smoke tier.
+- Rollback is a new `git revert` PR, never a force push. `git commit --amend` only for an unpushed
+  commit.
+
+## 2. Gates
+
+No git hooks are installed; run these by hand.
+
+| When                             | Command                                                       |
+| -------------------------------- | ------------------------------------------------------------- |
+| Before every push                | `pnpm test:smoke` (fast) or `pnpm check` (full)               |
+| Before opening a PR              | `pnpm check`, plus the domain gates below                     |
+| UI routes or interaction changes | `pnpm e2e` on both profiles; the full suite for shared routes |
+| Accessibility-affecting changes  | `pnpm a11y:gate`                                              |
+| Layer-spanning changes           | `pnpm validate`                                               |
+| Electron changes                 | `pnpm desktop:build`, `desktop:smoke`                         |
+| Android changes                  | `android:sync` + the Gradle tasks in the Android runbook      |
+| Infra changes                    | the `infra-ops-reviewer` agent and `pnpm cloud:drift`         |
+
+### Smoke gate
+
+`pnpm test:smoke` = `lint:boundary` + `typecheck` + the curated critical-unit subset in
+`packages/core/vitest.smoke.config.ts` (schemas, migration, permission grants, the cloud, renderer,
+and privacy security boundaries, command dispatch). It is deliberately the load-bearing seams, not
+the fastest tests.
+
+### CI tiers
+
+`.github/workflows/ci.yml` tiers by the PR's base branch: a PR into `initiative/*` runs `smoke-gate`;
+a push to `main`, a PR into `main`, `loop/rc`, or `workflow_dispatch` runs the full tier:
+
+- `build-and-test`: credentials scan, quality gates, lint, typecheck, production build and bundle
+  budget, all unit suites.
+- `browser-e2e`: three Playwright shards with failure artifacts; `accessibility`: axe on both
+  profiles; `desktop-smoke`: Electron boot, CSP, persistence; `android-checks`: JDK 21 / API 36
+  sync, Gradle unit and lint, debug package. All path-filtered on `main` PRs, unconditional on
+  `loop/rc`.
+
+The loop's story gate runs only the specs a story names plus specs sharing its owned paths and
+routes (`gates.e2e_named_specs`), which is why the independent full run on `loop/rc` exists.
+
+Other workflows: `validate.yml` (weekly and manual whole-app harness), `deploy.yml` (dev cloud
+deploy over OIDC, skips cleanly when unconfigured), `promote-production.yml` (manual, protected
+`production` environment), `cloud-drift.yml` (scheduled), `perf.yml` (path-filtered budgets),
+`release.yml` (tag-triggered desktop and Android packaging). Playwright installation is one
+composite action, `.github/actions/setup-e2e`, restored from the workflow SHA when a release tag
+predates it.
+
+## 3. Branch protection
+
+`main`: require a PR, require `build-and-test` and `android-checks`, require up to date, no
+bypass, no force push, no deletion. `initiative/*`: the same with `smoke-gate` as the required
+check. Repository settings enable squash merge, auto-merge, and head-branch deletion.
+
+## 4. Pull requests
+
+Title `<type>(<scope>): <imperative summary>` (append `[RC-XXX-n.m]` for a roadmap story). The body
+states what changed, why, and which of `check` / `validate` / `e2e` / `a11y:gate` you ran, with
+file:line and test names for each acceptance criterion. Any PR touching `src/ds`, tokens, or a
+screen requests the `ux-ui-reviewer` agent; sandbox, host API, package review, private store,
+sync, billing, or cloud paths run `/security-review`; anything under `infra/` runs the
+`infra-ops-reviewer` agent.

@@ -1,6 +1,6 @@
 # ADR-004: StorageAdapter Abstraction Boundary
 
-- Status: Accepted
+- Status: Accepted (amended by ADR-035)
 - Date: 2026-03-01
 - Deciders: Engineering
 - Consulted: Product
@@ -17,10 +17,9 @@ Renderer features need a stable persistence API that is independent of runtime-s
 
 All renderer persistence operations go through a single `StorageAdapter` contract:
 
-- The canonical interface is defined in shared types.
-- Runtime bootstrap resolves the concrete adapter at startup.
-- Desktop implementation is `ElectronStorageAdapter`, which delegates to the preload bridge.
-- UI components and state layers consume storage behavior through the abstraction, not runtime-specific APIs.
+- The canonical contract is the type-only `StoragePort` declared in `@dndtools/core`.
+- The React app implements it once in `apps/gm-react/src/platform/storage/coreStore.ts` (Dexie/IndexedDB) and the platform-service boundary validates every request.
+- UI components and state layers consume storage through `SceneRuntime`, never through runtime-specific APIs.
 
 ## Consequences
 
@@ -59,8 +58,7 @@ All renderer persistence operations go through a single `StorageAdapter` contrac
 
 ## Verification and Evidence
 
-- `src/lib/types/storage.ts`
-- `src/lib/platform/storage/index.ts`
-- `src/lib/platform/storage/electron-adapter.ts`
-- `src/lib/runtime/bootstrap.ts`
-- `src/lib/state/notes.svelte.ts`
+- `packages/core/src/platform/service-boundary.ts`, `packages/core/src/schemas/platform-service.ts`
+- `apps/gm-react/src/platform/storage/coreStore.ts`, `assetStore.ts`, `privateStore.ts`
+- `apps/gm-react/src/runtime/SceneRuntime.ts`; `scripts/boundary-lint.ts`
+- `docs/architecture/DATA_MODEL.md`

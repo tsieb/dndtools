@@ -1,7 +1,7 @@
 # ADR-009: Performance Budget Registry and Telemetry Contract
 
 - Status: Accepted
-- Date: 2026-03-01
+- Date: 2026-03-01 (evidence updated 2026-09-11)
 - Deciders: Engineering
 - Consulted: Product, QA
 - Supersedes: N/A
@@ -21,7 +21,7 @@ Without a stable contract, budgets drift and benchmark coverage becomes inconsis
 
 ## Decision
 
-Adopt a single budget registry and telemetry schema in `src/lib/types/diagnostics.ts`:
+Adopt a single budget registry and telemetry schema (now `packages/core/src/perf/budget-registry.ts` and `measurement.ts`):
 
 - Define canonical `PerformanceOperation` identifiers.
 - Define `PERFORMANCE_BUDGETS` with target and regression-threshold milliseconds.
@@ -70,9 +70,7 @@ Treat budget changes as architecture changes:
 
 ## Verification and Evidence
 
-- `src/lib/types/diagnostics.ts`
-- `electron/diagnostics.ts`
-- `src/routes/settings/+page.svelte`
-- `tests/e2e-desktop/performance.spec.ts`
-- `.github/workflows/performance-regression.yml`
-- `scripts/compare-performance-baseline.ts`
+- `packages/core/src/perf/budget-registry.ts`, `measurement.ts`, `bundle-budget.ts`
+- `scripts/perf/capture.ts`, `scripts/perf/compare.ts`, `tests/perf/baseline.json`
+- `.github/workflows/perf.yml`
+- `docs/development/PERFORMANCE.md`

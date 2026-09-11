@@ -1,6 +1,6 @@
 # ADR-021: Client-Side BYO-Key AI Provider Transport
 
-- Status: Accepted (amended by [ADR-025](./025-agentic-multi-step-assistant-runs.md))
+- Status: Accepted (amended by ADR-025)
 - Date: 2026-07-11
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA
@@ -165,8 +165,7 @@ module `apps/gm-react/src/ai/` (transport layer, alongside `src/cloud` / `src/ne
   Core registry, honest result folding incl. "staged, NOT applied", and the exchange loop routing
   each call through the injected agent pipeline with a bounded tool budget).
 - Runtime seam: `apps/gm-react/src/runtime/SceneRuntime.ts` (`invokeAgentTool`).
-- Entry surface: `apps/gm-react/src/screens/Settings.tsx` (`AiProviderPanel`, `AiRouterPanel`,
-  `AiAssistantPanel`).
+- Entry surface: `apps/gm-react/src/screens/settings/{AiProvider,Ai,AiAssistant}.tsx`.
 - Model router: `apps/gm-react/src/ai/providerConfig.ts` + `providerConfig.test.ts` (backend
   capabilities per model id, the one-reason unavailable states, per-task routing persistence and
   corrupt-table fallback, the keyless local route, and the assistant surface following the route);

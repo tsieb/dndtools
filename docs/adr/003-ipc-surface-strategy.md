@@ -1,7 +1,7 @@
 # ADR-003: IPC Surface Strategy
 
 - Status: Accepted
-- Date: 2026-03-01
+- Date: 2026-03-01 (evidence updated 2026-09-11 for the React app's Electron shell)
 - Deciders: Engineering
 - Consulted: Security
 - Supersedes: N/A
@@ -56,9 +56,8 @@ IPC uses explicit, named channels with runtime schema validation:
 
 ## Verification and Evidence
 
-- `electron/main.ts`
-- `electron/ipc-schemas.ts`
-- `electron/preload.ts`
-- `src/lib/platform/desktop/bridge.ts`
-- `electron/ipc-security.test.ts`
-- `docs/architecture/SECURITY.md`
+- `apps/gm-react/electron/main.cjs` (named `ipcMain.handle` channels, validated inputs, `buildCsp()`)
+- `apps/gm-react/electron/preload.cjs` (the minimal bridge: `dndtoolsUpdates`, secure store, discovery)
+- `apps/gm-react/src/platform/desktopUpdates.ts` and the platform adapters that wrap the bridge
+- `apps/gm-react/scripts/smoke-*.cjs` and the desktop layer of `pnpm validate` (privileged-IPC tripwires)
+- `docs/security/README.md`

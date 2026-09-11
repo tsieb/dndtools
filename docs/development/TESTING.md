@@ -1,96 +1,102 @@
-# Testing
+# Testing and Validation
 
-The full test/validation story lives in one place: **[VALIDATION.md](VALIDATION.md)**. This page is a
-short pointer plus the non-negotiable testing rules.
+## 1. Where the tests are
 
-## Where the tests are
+| Layer              | Command                                                                  | What runs                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| Core unit          | `pnpm test:critical` (`pnpm --filter @dndtools/core test`)               | Vitest suite in `packages/core`                                                                                 |
+| Cloud + transport  | `pnpm test:cloud`                                                        | net, cloud, and transport tests (`vitest.cloud.config.ts`)                                                      |
+| React app unit     | `pnpm test:app`                                                          | non-network app logic, storage, AI, view-models (`vitest.app.config.ts`)                                        |
+| Repo tooling       | `pnpm test:tooling`                                                      | guardrail and tooling tests in `tests/unit/`                                                                    |
+| All of the above   | `pnpm test`                                                              | `test:critical` + `test:cloud` + `test:app` + `test:tooling`                                                    |
+| Core coverage      | `pnpm test:coverage:core`                                                | V8 report with global and `src/security` regression floors                                                      |
+| Smoke gate         | `pnpm test:smoke`                                                        | boundary lint + typecheck + the curated critical subset (`packages/core/vitest.smoke.config.ts`), about 30s     |
+| Browser E2E        | `pnpm e2e`                                                               | Playwright specs in `apps/gm-react/tests/e2e/` on `desktop-chromium` and `mobile-chromium`                      |
+| Accessibility gate | `pnpm a11y:gate`                                                         | non-text contrast lint + axe on both profiles + merged report                                                   |
+| Performance        | `pnpm perf:capture` then `pnpm perf:compare`                             | see [PERFORMANCE.md](PERFORMANCE.md)                                                                            |
+| Android native     | `./gradlew testReleaseUnitTest lintRelease` from `apps/gm-react/android` | Java unit tests and Android lint; the emulator matrix is in the [Android runbook](../runbooks/android-alpha.md) |
+| Whole application  | `pnpm validate`                                                          | the staged, capability-gated harness (§3)                                                                       |
 
-| Layer              | Command                                                    | What runs                                                                         |
-| ------------------ | ---------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Core unit          | `pnpm --filter @dndtools/core test` (`pnpm test:critical`) | Vitest suite in `packages/core`                                                   |
-| Cloud + transport  | `pnpm test:cloud`                                          | net/cloud unit + transport tests (`vitest.cloud.config.ts`)                       |
-| React app unit     | `pnpm test:app`                                            | non-network app logic, storage, AI, and view-model tests (`vitest.app.config.ts`) |
-| Core coverage      | `pnpm test:coverage:core`                                  | V8 HTML/JSON/text report with global and `src/security` regression floors         |
-| Repo tooling       | `pnpm test:tooling`                                        | guardrail/tooling tests in `tests/unit/`                                          |
-| All of the above   | `pnpm test`                                                | `test:critical` + `test:cloud` + `test:app` + `test:tooling`                      |
-| Browser E2E        | `pnpm e2e`                                                 | Playwright specs in `apps/gm-react/tests/e2e/` (desktop + mobile Chromium)        |
-| Accessibility gate | `pnpm a11y:gate`                                           | non-text contrast lint + Playwright axe gate (`a11y-axe-gate.spec.ts`) + report   |
-| Android native     | `./gradlew testReleaseUnitTest lintRelease`                | Java/plugin unit checks + Android lint from `apps/gm-react/android`               |
-| Android acceptance | API 36 signed-APK checklist                                | install, lifecycle, persistence, share/import, upgrade, Back, and Quick Map       |
-| Whole application  | `pnpm validate`                                            | staged, capability-gated harness — see [VALIDATION.md](VALIDATION.md)             |
+Pre-handoff gate: `pnpm check` = Android static preflight + quality gates + boundary lint +
+typecheck + `pnpm test`. Layout-affecting work runs Playwright on both profiles; a change to a
+shared route runs the full suite, because a mobile overflow on one route breaks other specs.
 
-## CI timing budgets (RC-ENG-2.2)
+`DNDTOOLS_TEST_WORKERS` and `DNDTOOLS_PW_WORKERS` cap Vitest and Playwright workers (the loop sets
+them per slot). `DNDTOOLS_E2E_PORT` isolates the Vite port; Playwright otherwise reuses whatever is
+already listening on :5273.
 
-Every number below is wall-clock. The "before" column is GitHub Actions run `34137676927` (`main`,
-2026-09-07, all jobs green); the local columns are this repo's core suite on a 16-core box with
-`DNDTOOLS_TEST_WORKERS=3`. Budgets are what CI is expected to hold; a job that drifts past its
-budget is a regression to investigate, not a number to raise.
+Timing budgets (wall clock; a job past its budget is a regression to investigate, not a number to
+raise): core unit 90s, core coverage 120s, CI `build-and-test` 10 min, one `browser-e2e` shard
+12 min, `accessibility` 5 min. The core suite runs with `isolate: false` because it is framework-free
+and each isolated file re-imported the whole module graph.
 
-| Leg                                       | Before   | Now      | Budget |
-| ----------------------------------------- | -------- | -------- | ------ |
-| Core unit (`pnpm test:critical`, local)   | 62.6 s   | 20.0 s   | 90 s   |
-| Core coverage (`pnpm test:coverage:core`) | —        | 57.4 s   | 120 s  |
-| CI `build-and-test` job (whole job)       | 7 min    | —        | 10 min |
-| CI `browser-e2e`, one shard               | 20.5 min | ~6 min\* | 12 min |
-| CI `accessibility` job                    | 2 min    | —        | 5 min  |
-
-`*` projected, not yet measured: the browser-E2E shard changed on three axes at once — two workers
-per shard instead of one, three shards instead of two, and the `seedFresh` fixture no longer
-reloading a vault that was never written to. The fixture change alone was measured locally at
-`combat.spec.ts` + `knowledge.spec.ts`, both profiles, two workers: **6.5 min → 4.4 min**, same 108
-tests, all passing. Replace the projection with the real number from the first `main` run that
-carries this change.
-
-Where the time went, and what changed:
-
-- **Core unit.** Vitest's default forks one process per test file, so 267 files each re-imported the
-  whole core module graph — 124 s of import against 32 s of tests. The core is framework-free and
-  node-environment, so `isolate: false` (`packages/core/vitest.config.ts`) lets one worker serve
-  many files. Verified identical under `--sequence.shuffle`. The app, cloud, and tooling suites keep
-  isolation: the app suite shares a jsdom DOM and one global `fake-indexeddb`, and measurement
-  showed no meaningful win for the two small ones.
-- **Browser E2E.** CI ran strictly serially, leaving three of a runner's four vCPUs idle; it now runs
-  two Playwright workers per shard across three shards. `DNDTOOLS_PW_WORKERS` still overrides the
-  worker count everywhere, including CI.
-- **Fixtures.** Playwright gives every test a fresh browser context, so the first app boot already
-  starts from an empty IndexedDB and seeds a clean vault. `seedFresh` used to delete that vault and
-  reload anyway — a second full boot in 138 of its 139 call sites. It now skips the wipe when the
-  durable op-log proves nothing has been written since boot, and wipes exactly as before otherwise.
-
-Fast smoke: `pnpm test:smoke` (boundary lint + typecheck). Pre-handoff gate: `pnpm check` (gates +
-boundary lint + typecheck + `pnpm test`). CI also builds the production app, runs full lint, and uses
-path-filtered jobs for sharded browser E2E, axe, and Electron smoke coverage. `validate` remains the
-deep on-demand + scheduled sweep (`.github/workflows/validate.yml`).
-
-The pre-Android baseline is 4,323 unit/tooling tests (core 3,759, cloud/transport 295, React app 196,
-repo tooling 73) plus 29 logical mobile-responsive/map Playwright scenarios. Android capability,
-secure-store, export, lifecycle/Back, notification, AI-provider, responsive, and Quick Map coverage is
-additive; removing or skipping baseline coverage is not an acceptable way to make the alpha green.
-
-Android's Java tests live in `apps/gm-react/android/app/src/test`; Keystore instrumentation lives in
-`apps/gm-react/android/app/src/androidTest`. Renderer platform tests live beside their TypeScript
-modules under `apps/gm-react/src/platform`. The release workflow uses JDK 21, API 36, Gradle 8.14.3,
-and Android Gradle Plugin 8.13, verifies APK/AAB signatures, then installs and cold-launches the signed
-APK on an API 36 emulator. The full emulator acceptance matrix is in the
-[Android alpha runbook](../runbooks/android-alpha.md).
-
-Formatting is incremental: `pnpm format:check:changed` blocks CI when maintained files changed by a
-branch are not Prettier-clean. The historical repo-wide `pnpm format:check` remains visible in the
-validation report while the baseline expands; archived and generated material is excluded.
-
-## Mandatory rules
+## 2. Mandatory rules
 
 - Every bug fix includes a regression test.
-- New domain behavior in `packages/core` includes at least one unit test.
-- User-critical UI changes include Playwright E2E coverage.
-- Storage or sync write-path changes include state-transition/round-trip tests.
-- Android bridge changes include both a renderer contract test and a Java/plugin test where native
-  behavior is involved. Keystore behavior must cover authenticated round-trip and tamper/wrong-key
-  failure.
-- Mobile UI changes cover compact portrait, short landscape, tablet/foldable, 200% text, reduced
-  motion, forced colors, safe areas, and a virtual-keyboard-reduced viewport. Interactive targets are
-  checked at 48px and critical/serious axe findings fail the gate.
-- Quick Map changes cover pan/pinch, explicit edit arming, selection/movement, fog, projection,
-  layers/history/generation, undo/redo, import/export, and preservation of precision geometry authored
-  on desktop.
-- CI or gate changes update this doc and [VALIDATION.md](VALIDATION.md) in the same change set.
+- New domain behaviour in `packages/core` includes a unit test. User-critical UI changes include
+  Playwright coverage. Storage or sync write-path changes include round-trip tests.
+- Android bridge changes include a renderer contract test and a Java test; Keystore behaviour covers
+  the authenticated round trip and a wrong-key failure.
+- Mobile UI changes cover compact portrait, short landscape, tablet, 200% text, reduced motion,
+  forced colors, safe areas, and a keyboard-reduced viewport; targets are checked at 48px.
+- Playwright's `newPage()` is a fresh browser context with no shared IndexedDB.
+- CI or gate changes update this document in the same change.
+
+## 3. `pnpm validate`
+
+One orchestrated pass over every verification the repo has, with a consolidated report. It does not
+replace PR CI (`ci.yml`); it is the deep on-demand and weekly sweep (`validate.yml`).
+
+```bash
+pnpm validate            # static + unit + build + browser + audit
+pnpm validate:fast       # static + unit + audit
+pnpm validate:live       # + live AWS dev-stack checks (needs the dndtools profile)
+pnpm validate --desktop  # + packaged Electron smoke (needs a display)
+pnpm validate:full       # everything, still capability-gated
+pnpm validate:list       # the check catalog
+```
+
+Selectors: `--layer=unit,static`, `--only=e2e,test:core`, `--skip=e2e`, `--jobs=N`, `--no-report`.
+`--only` overrides layer selection; naming `--layer=cloud` turns on that off-by-default layer without
+`--live`.
+
+| Layer   | Checks                                                                                                                                  |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| static  | eslint, boundary lint, quality-gate meta-gate, CI-guardrail audit, text and non-text contrast, typecheck ×3, prettier (warn only)       |
+| unit    | core, app, tooling, cloud suites; P2P crypto gate                                                                                       |
+| build   | core, cloud Lambda bundles, gm-react                                                                                                    |
+| browser | Playwright E2E, axe gate and report, `verify:{routes,roundtrip,canvas,ui}`, live WebRTC handshake (managed `react-dev` server on :5273) |
+| desktop | packaged Electron smoke: `dndtools://app` origin, CORS, CSP, persistence across restart, privileged-IPC tripwires                       |
+| cloud   | SSM resolvable, CloudFront headers, anonymous rejection, Cognito OIDC, signaling, TURN, E2EE round-trip (`infra/verify-*.sh`)           |
+| audit   | feature-inventory drift (warn only)                                                                                                     |
+
+Capabilities (`aws`, `display`, `electron`) are probed up front; a check whose requirement is absent
+is skipped with a reason, never failed. Read the capabilities line before trusting a green run.
+Output lands in `test-results/validation/` (`index.html`, `report.md`, `report.json`,
+`logs/<check>.log`). Exit code is non-zero only when a required check failed. Never fix the
+repo-wide Prettier warn with a bare `pnpm format`; run `pnpm format:fix:changed`.
+
+## 4. Feature-inventory audit
+
+`pnpm feature-audit` parses the tables between the `inventory:start` / `inventory:end` markers in
+`docs/requirements/FEATURE-GAPS.md`. Every honest limit carries an anchor `` `path` › `string` ``; the
+audit fails when the string is gone from that file, so a quietly closed limit breaks the build
+instead of rotting. It also reports stub markers in `apps/gm-react/src` and screens with no
+core-dispatch reference.
+
+## 5. Local LLM verification
+
+`pnpm ai:verify:local` runs the deterministic provider, prompt, and MCP exchange tests, then two real
+Ollama scenarios (a rollable table and an NPC) through the same staged-write pipeline the app uses.
+It fails if Ollama is unreachable, the model is missing, or a scenario yields no schema-valid staged
+proposal. `pnpm ai:smoke` skips instead of failing without Ollama.
+
+```sh
+ollama serve
+ollama pull qwen2.5:7b          # tool-calling model (OLLAMA_MODEL overrides)
+ollama pull nomic-embed-text    # embeddings for semantic search
+pnpm ai:verify:local
+```
+
+Semantic search embeds once per note revision and caches vectors device-local; with no daemon a new
+query reports `lexical-only` rather than failing. Switching embedding models re-embeds the vault.

@@ -1,6 +1,6 @@
 # ADR-002: Staged MCP Write Model
 
-- Status: Accepted
+- Status: Accepted (amended by ADR-031; amended 2026-09-06)
 - Date: 2026-03-01
 - Deciders: Engineering
 - Consulted: Product, Security
@@ -56,19 +56,15 @@ MCP write behavior is staged by default:
 ## Rollback Plan
 
 - Trigger: staged mode causes blocking operational regressions that cannot be fixed quickly.
-- Rollback action: run MCP in direct mode (`--direct` or `DNDTOOLS_MCP_STAGED=0`) while preserving auditability where possible.
+- Rollback action: select the `trusted` policy preset for a specific agent binding while preserving the audit trail; the built-in assistant always passes `forceStageWrites`.
 - Data safety: capture a safety snapshot before switching mode for production vaults.
 - Risk: direct mode increases chance of unintended writes and should be temporary.
 
 ## Verification and Evidence
 
-- `mcp/index.ts`
-- `mcp/staged-storage.ts`
-- `mcp/storage.ts`
-- `mcp/tools/shared/contracts.ts`
-- `mcp/tools/shared/contract-server.ts`
-- `mcp/staged-storage.test.ts`
-- `mcp/tools/all-tools.test.ts`
+- `packages/core/src/mcp/{tool-registry,agent-dispatch,policy,ai-boundary,proposal-conflict}.ts`
+- `packages/core/src/state/mcp-policy.ts` (proposals, audit, `baseSnapshot`), `commands/mcp-policy.ts`
+- `packages/core/tests/mcp-*.test.ts`; `apps/gm-react/tests/e2e/ai-proposal-conflict.spec.ts`
 
 ## As built — RC-AI-2.2: the conflict is resolvable, not merely detected (2026-09-06)
 

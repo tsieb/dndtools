@@ -1,6 +1,6 @@
 # ADR-033: Stage-Scoped Observability and Cost Guardrails
 
-- Status: Accepted
+- Status: Accepted (amended by ADR-036)
 - Date: 2026-09-03
 - Deciders: Engineering
 - Consulted: Platform, Security

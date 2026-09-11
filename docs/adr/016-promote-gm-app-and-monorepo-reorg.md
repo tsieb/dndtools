@@ -1,6 +1,6 @@
 # ADR-016: Promote the GM App to Primary and Reorganize the Monorepo
 
-- Status: Accepted (amended by [ADR-018](./018-promote-react-app-to-primary.md))
+- Status: Accepted (amended by ADR-018)
 - Date: 2026-06-09
 - Deciders: Engineering
 - Consulted: Product, Design
@@ -50,8 +50,8 @@ services/    server/cloud-side runtimes (documented; scaffolded when a boundary 
 ### Commands
 
 Root scripts drop the `v2:` prefix: `pnpm dev`, `pnpm build`, `pnpm test`, `pnpm e2e`,
-`pnpm typecheck`, `pnpm lint`, `pnpm lint:boundary`, `pnpm gates`, `pnpm docs:validate`,
-`pnpm check`, and the `workpack:*` / `ux-workpack:*` planning commands. The root `package.json`
+`pnpm typecheck`, `pnpm lint`, `pnpm lint:boundary`, `pnpm gates`, and `pnpm check` (the
+`docs:validate` and `workpack:*` commands of the time have since been removed). The root `package.json`
 is a pure workspace root (no app, no v1 dependencies).
 
 ### v1 retirement

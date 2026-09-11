@@ -1,7 +1,7 @@
 # ADR-013: Three-Layer Navigation Contract
 
 - Status: Accepted
-- Date: 2026-03-13
+- Date: 2026-03-13 (evidence updated 2026-09-11)
 - Deciders: Engineering
 - Consulted: UX, Accessibility
 - Supersedes: N/A
@@ -18,11 +18,7 @@ Adopt a three-layer navigation contract with lint enforcement:
 - **Local navigation**: Section-scoped browse/filter within the active section. Uses `aria-label="<Section> navigation"`. Must not duplicate global switching. Swaps when section changes.
 - **Contextual navigation**: Content-adjacent links (breadcrumbs, backlinks, cross-links). Uses `aria-label="Breadcrumb"` or content-specific labels. Must not substitute for section switching.
 
-Enforcement:
-
-- `scripts/nav-layer-lint.ts` scans all Svelte files for `<nav>` and `role="navigation"` elements.
-- Every navigation landmark must have an `aria-label` matching one of the permitted patterns.
-- Lint runs via `pnpm lint:navigation` in CI.
+Enforcement: every navigation landmark carries an `aria-label`; the axe gate (`a11y-axe-gate.spec.ts`, rule `landmark-unique`) and the responsive specs check it on every route, and `docs/architecture/NAVIGATION.md` records the layer rules.
 
 ## Consequences
 
@@ -50,7 +46,7 @@ Enforcement:
 
 - All `<nav>` elements must have an `aria-label` matching the contract.
 - New sections must define their local navigation label format.
-- Navigation contract documentation lives at `docs/architecture/NAVIGATION_CONTRACT.md`.
+- The navigation contract lives in `docs/architecture/NAVIGATION.md`.
 
 ## Rollback Plan
 
@@ -61,8 +57,6 @@ Enforcement:
 
 ## Verification and Evidence
 
-- `docs/architecture/NAVIGATION_CONTRACT.md`
-- `scripts/nav-layer-lint.ts`
-- `src/lib/ui/layout/AppShell.svelte`
-- `src/lib/ui/layout/TopBar.svelte`
-- `src/lib/ui/sections/local-nav/KnowledgeLocalNavPanel.svelte`
+- `docs/architecture/NAVIGATION.md`
+- `apps/gm-react/src/app/nav.ts`, `app/AppShell.tsx`, `app/shell/{Sidebar,RailNav,TopBar,Footer,MoreSheet}.tsx`, `app/screen-kit.tsx` (`BackBar`)
+- `apps/gm-react/tests/e2e/a11y-axe-gate.spec.ts`, `responsive.spec.ts`

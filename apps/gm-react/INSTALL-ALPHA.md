@@ -1,115 +1,74 @@
-# Lamplight GM — Alpha Install Guide
+# Lamplight GM: Alpha Install Guide
 
-> This guide applies only to **unsigned preview builds**. Production releases are built through the
-> signing-required release channel and must not ask users to bypass Gatekeeper or SmartScreen.
+This guide covers the **unsigned preview builds**. Signed production releases will not ask you to
+bypass Gatekeeper or SmartScreen.
 
-Thanks for helping test **Lamplight GM**, an offline Game-Master workspace for tabletop RPGs. It runs
-entirely on your machine — **no account, no internet required** — and opens into a ready-to-explore
-sample campaign so you can poke around immediately.
+Lamplight GM is an offline Game-Master workspace for tabletop RPGs. It runs entirely on your
+machine, needs no account or internet connection, and opens into a sample campaign.
 
-These alpha builds are **not code-signed**, so Windows, macOS, and Linux will show a one-time security
-prompt the first time you open the app. That's expected for an unsigned alpha; the steps below get you
-past it.
+## 1. Download
 
----
+From the project's GitHub Releases page:
 
-## 1. Download the right file
+| Your machine                      | File                                     |
+| --------------------------------- | ---------------------------------------- |
+| Windows (10/11, 64-bit)           | `Lamplight-GM-<version>-x64.exe`         |
+| Mac, Apple Silicon (M1 and later) | `Lamplight-GM-<version>-arm64.dmg`       |
+| Mac, Intel                        | `Lamplight-GM-<version>-x64.dmg`         |
+| Linux (x64)                       | `Lamplight-GM-<version>-x86_64.AppImage` |
+| Android                           | `Lamplight-GM-<version>-android.apk`     |
 
-Grab the latest build from the project's **GitHub Releases** page and pick the file for your machine:
+Not sure which Mac you have? Apple menu → About This Mac. Verify downloads with `SHA256SUMS.txt`
+from the same release.
 
-| Your machine                          | File to download                         |
-| ------------------------------------- | ---------------------------------------- |
-| **Windows** (10/11, 64-bit)           | `Lamplight-GM-<version>-x64.exe`         |
-| **Mac — Apple Silicon** (M1/M2/M3/M4) | `Lamplight-GM-<version>-arm64.dmg`       |
-| **Mac — Intel**                       | `Lamplight-GM-<version>-x64.dmg`         |
-| **Linux** (x64)                       | `Lamplight-GM-<version>-x86_64.AppImage` |
+## 2. Install
 
-> Not sure which Mac you have? Apple menu → **About This Mac**. "Apple M…" = Apple Silicon; "Intel" = Intel.
+**Windows.** Run the `.exe`. SmartScreen shows "Windows protected your PC" because the build is not
+code-signed; click More info, then Run anyway. The installer is per-user (no admin prompt) and adds
+Start-menu and desktop shortcuts. Uninstall from Settings → Apps.
 
----
+**macOS.** Drag Lamplight GM to Applications. On first launch right-click the app → Open → Open;
+this is only needed once. If macOS says the app "is damaged", clear the quarantine flag and try
+again:
 
-## 2a. Install on Windows
+```sh
+xattr -cr "/Applications/Lamplight GM.app"
+```
 
-1. Double-click the downloaded `Lamplight-GM-<version>-x64.exe`.
-2. **You'll see a blue "Windows protected your PC" (SmartScreen) box** — this appears for any app that
-   isn't code-signed yet, not because anything is wrong. Click **More info**, then **Run anyway**.
-3. The installer opens. Pick a location (the default is fine — it installs just for your user, so there's
-   no admin password prompt) and click **Install**. It adds a **Start-menu** and **desktop** shortcut and
-   launches when done.
-4. To remove it later: **Settings → Apps → Installed apps → Lamplight GM → Uninstall** (or "Add or remove
-   programs"). Uninstalling does not remove your local workspace, online account, or credentials held by
-   the operating-system credential manager; see the reset section below.
+**Linux.** `chmod +x Lamplight-GM-*-x86_64.AppImage` and run it. If it fails with a FUSE error,
+install FUSE 2 (`sudo apt install libfuse2` or `sudo dnf install fuse`) or run it with
+`--appimage-extract-and-run`.
 
-## 2b. Install on macOS
+**Android.** Open the APK from your file manager and allow "Install unknown apps" for that app only.
+Export a vault before upgrading, and install over the existing app rather than uninstalling. Details:
+`docs/runbooks/android-alpha.md`.
 
-1. Open the downloaded `.dmg` and drag **Lamplight GM** into your **Applications** folder.
-2. **First launch:** in Applications, **right-click** (or Control-click) **Lamplight GM → Open**, then click
-   **Open** in the dialog. This is only needed once — after that you can open it normally.
-   - Doing it this way (instead of double-clicking) is what lets an unsigned app through Gatekeeper's
-     "unidentified developer" block.
-3. **If macOS says the app "is damaged and can't be opened"** (this can happen on Apple Silicon because
-   the download gets a quarantine flag), open **Terminal** and run:
-   ```sh
-   xattr -cr "/Applications/Lamplight GM.app"
-   ```
-   Then open the app again with right-click → Open. It's not actually damaged — this just clears the
-   quarantine flag an unsigned build can't clear on its own.
+## 3. Your data
 
-## 2c. Install on Linux
+Everything you create is local by default. Data leaves your computer only when you enable an online
+feature (cloud backup, internet play, Google Docs, an AI provider), and the app explains the
+destination first.
 
-1. Make the AppImage executable:
-   ```sh
-   chmod +x Lamplight-GM-*-x86_64.AppImage
-   ```
-2. Run it — double-click in your file manager, or from a terminal:
-   ```sh
-   ./Lamplight-GM-*-x86_64.AppImage
-   ```
-3. **If it fails to start with a FUSE error**, either install FUSE 2…
-   - Debian/Ubuntu: `sudo apt install libfuse2`
-   - Fedora: `sudo dnf install fuse`
-     …**or** skip FUSE entirely by running:
-   ```sh
-   ./Lamplight-GM-*-x86_64.AppImage --appimage-extract-and-run
-   ```
+| OS      | Data folder                                   |
+| ------- | --------------------------------------------- |
+| Windows | `%APPDATA%\Lamplight GM\`                     |
+| macOS   | `~/Library/Application Support/Lamplight GM/` |
+| Linux   | `~/.config/Lamplight GM/`                     |
 
----
+To reset the workspace: export a local backup if you may need it, quit the app, delete that folder,
+and relaunch. That does not delete an online account, its encrypted cloud copy, or keys held by the
+operating system's credential manager; remove those from Settings → Account and Settings → AI &
+tools first. When upgrading from v0.2.0, the first launch moves the old vault into the app's new
+secure storage origin, keeps the old copy, and retries if interrupted; locally connected folders must
+be reconnected once.
 
-## 3. Your data — where it lives & how to reset
+## 4. Alpha caveats
 
-Everything you create is **local by default**. Data leaves your computer only when you explicitly
-configure and enable an online feature such as cloud backup, internet play, Google Docs, or an AI
-provider; the app explains the destination before enabling those features.
-
-| OS      | Data folder                                                               |
-| ------- | ------------------------------------------------------------------------- |
-| Windows | `%APPDATA%\Lamplight GM\` (paste that into the File Explorer address bar) |
-| macOS   | `~/Library/Application Support/Lamplight GM/`                             |
-| Linux   | `~/.config/Lamplight GM/`                                                 |
-
-**To reset the local workspace:** first download a local backup if you may need it, fully quit the app,
-delete that folder, and relaunch. The sample campaign will re-seed automatically. Deleting the folder does
-**not** delete an online account or its encrypted cloud copy, and it may not remove tokens, vault keys, or
-AI provider keys held by the operating-system credential manager. Remove online account data from
-**Settings → Account** and saved AI credentials from **Settings → AI & tools** before resetting. If the app
-cannot open, remove any remaining Lamplight entries with your operating system's credential manager.
-
-When upgrading from v0.2.0, the first launch copies the old desktop vault into the app's new secure
-storage origin before the workspace opens. The old copy is retained, the new copy is verified, and a
-failed or interrupted move is retried rather than opening an empty workspace. Locally connected folders
-must be reconnected once after this upgrade because operating-system folder permissions cannot be moved
-between origins.
-
----
-
-## 4. Good to know (alpha caveats)
-
-- **Unsigned build** — hence the one-time security prompt above. A signed release will remove it later.
-- **No auto-update yet** — when a new build is announced, download it from the Releases page and reinstall
-  (your local data in the folder above is untouched by reinstalling).
-- **Cloud backup is a recovery copy, not device sync** — restore is manual and replaces the local vault;
-  it does not merge edits made on different devices. Recovery-key export and automatic key transfer are
-  not available yet, so losing every device that holds the vault key also loses access to the cloud copy.
-  Keep a downloaded local vault backup; unlike the cloud copy, it includes stored media bytes.
-- Found a bug or something confusing? Please send it along with your OS and what you were doing — that
-  feedback is exactly what this alpha is for. 🎲
+- Desktop installers are unsigned, hence the one-time prompts.
+- The desktop app checks GitHub Releases for updates from Settings → About and installs only when
+  you choose to restart; unsigned builds cannot verify a package signature yet, so a download may
+  report an honest failure. Reinstalling from the Releases page keeps your data.
+- Cloud backup is a recovery copy, not device sync by itself. Export a recovery key from Settings →
+  Sync & privacy and keep a local vault backup, which unlike the cloud copy includes your media.
+- Found a bug? Send it along with your OS and what you were doing. That feedback is what this alpha
+  is for.

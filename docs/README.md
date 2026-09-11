@@ -1,95 +1,51 @@
-# DND Tools Documentation
+# Documentation
 
-This docs set is the authoritative engineering reference for this repository.
+Engineering reference for Lamplight: a canvas-first command platform for tabletop RPG play. The
+primary application is the React GM app (`apps/gm-react`); the platform-independent processing
+core (`packages/core`) holds commands, reducers, permissions, and queries and is shared by every
+surface. The earlier SvelteKit app is archived at `archive/gm-svelte` (tag `svelte-gm-final`); the
+v1 document editor is preserved at tag `v1-final` only.
 
-## Scope
+## Map
 
-DND Tools is a canvas-first command platform for tabletop RPG play. The primary application is the
-GM command platform (`apps/gm-react`, `@dndtools/gm-react`); a platform-independent processing core
-(`packages/core`, `@dndtools/core`) holds command validation, reducers, permissions, and queries
-and is shared by every surface. See [reference/PROJECT_STRUCTURE.md](reference/PROJECT_STRUCTURE.md)
-and the [ADRs](adr/README.md) for the repository layout.
+| Question                                 | Read                                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------------------------------- |
+| How is the system built?                 | [architecture/ARCHITECTURE.md](architecture/ARCHITECTURE.md)                          |
+| What is persisted, and how?              | [architecture/DATA_MODEL.md](architecture/DATA_MODEL.md)                              |
+| Routes, shell, layout tiers, top bar     | [architecture/NAVIGATION.md](architecture/NAVIGATION.md)                              |
+| Widgets, sandbox, trust review, builders | [architecture/WIDGETS.md](architecture/WIDGETS.md)                                    |
+| Game systems as data                     | [architecture/SYSTEM_PACKAGES.md](architecture/SYSTEM_PACKAGES.md)                    |
+| Combat tokens, AoE, movement on the map  | [architecture/COMBAT_ON_MAP.md](architecture/COMBAT_ON_MAP.md)                        |
+| Scene undo and reversible destroy        | [architecture/SCENE_HISTORY.md](architecture/SCENE_HISTORY.md)                        |
+| Electron, Android, PWA, auto-update      | [architecture/PLATFORMS.md](architecture/PLATFORMS.md)                                |
+| Design sources, tokens, components       | [design/README.md](design/README.md); the vendored package is `design-package/`       |
+| Icons                                    | [reference/ICON_VOCABULARY.md](reference/ICON_VOCABULARY.md)                          |
+| Terms                                    | [GLOSSARY.md](GLOSSARY.md)                                                            |
+| Setup, standards, boundaries             | [development/DEVELOPMENT.md](development/DEVELOPMENT.md)                              |
+| Branches, gates, CI, PRs                 | [development/GIT_WORKFLOW.md](development/GIT_WORKFLOW.md)                            |
+| Tests and `pnpm validate`                | [development/TESTING.md](development/TESTING.md)                                      |
+| Accessibility gates and manual QA        | [development/ACCESSIBILITY.md](development/ACCESSIBILITY.md)                          |
+| Performance budgets and measurement      | [development/PERFORMANCE.md](development/PERFORMANCE.md)                              |
+| Translations                             | [development/LOCALIZATION.md](development/LOCALIZATION.md)                            |
+| Product analytics                        | [development/PRODUCT_ANALYTICS.md](development/PRODUCT_ANALYTICS.md)                  |
+| Copilot RAG measurement and contract     | [development/COPILOT_RAG_DERISK.md](development/COPILOT_RAG_DERISK.md)                |
+| Cutting a release, promoting prod        | [development/RELEASING.md](development/RELEASING.md)                                  |
+| Android build, signing, acceptance       | [runbooks/android-alpha.md](runbooks/android-alpha.md)                                |
+| Stripe billing                           | [runbooks/stripe-billing.md](runbooks/stripe-billing.md)                              |
+| SES production access                    | [runbooks/ses-production-access.md](runbooks/ses-production-access.md)                |
+| Google OAuth client                      | [runbooks/google-oauth-setup.md](runbooks/google-oauth-setup.md)                      |
+| Cloud stacks, accounts, cost             | [`../infra/README.md`](../infra/README.md); TURN TLS ops in `infra/turn/README.md`    |
+| Threat model and security controls       | [security/README.md](security/README.md)                                              |
+| What the app does today, with evidence   | [requirements/FEATURE-GAPS.md](requirements/FEATURE-GAPS.md) and `pnpm feature-audit` |
+| The plan to RC1                          | [planning/README.md](planning/README.md) → `planning/RC_ROADMAP.md`                   |
+| Decisions                                | [adr/README.md](adr/README.md)                                                        |
+| Open debt                                | [`../DEBT.md`](../DEBT.md)                                                            |
 
-> **History.** The GM app was first built in SvelteKit; it is now maintained in React
-> (`apps/gm-react`). The Svelte app is preserved at `archive/gm-svelte` (git tag `svelte-gm-final`).
-> The earlier v1 document-editor (Electron desktop + Capacitor Android + MCP sidecar) was retired
-> before the remake (tag `v1-final`). Some ADRs predate these pivots and describe older runtimes —
-> they are kept as the decision record, not as current behavior; each carries a status banner.
+## Rules for these docs
 
----
-
-## Quick Navigation
-
-| You want to...                  | Start here                                                               |
-| ------------------------------- | ------------------------------------------------------------------------ |
-| Understand the system design    | [architecture/ARCHITECTURE.md](architecture/ARCHITECTURE.md)             |
-| Onboard as a new contributor    | [CONTRIBUTING.md](CONTRIBUTING.md)                                       |
-| Look up a domain term           | [GLOSSARY.md](GLOSSARY.md)                                               |
-| Read the product requirements   | [requirements/README.md](requirements/README.md)                         |
-| Find the design system + tokens | [design/README.md](design/README.md)                                     |
-| See the roadmap and initiatives | [planning/README.md](planning/README.md)                                 |
-| Check the data model            | [architecture/DATA_MODEL.md](architecture/DATA_MODEL.md)                 |
-| Understand dev standards        | [development/DEVELOPMENT.md](development/DEVELOPMENT.md)                 |
-| Configure git workflow          | [development/GIT_WORKFLOW.md](development/GIT_WORKFLOW.md)               |
-| Understand testing + validation | [development/TESTING.md](development/TESTING.md)                         |
-| Prepare a release or promotion  | [development/RELEASING.md](development/RELEASING.md)                     |
-| Ship a desktop auto-update      | [development/DESKTOP-AUTO-UPDATE.md](development/DESKTOP-AUTO-UPDATE.md) |
-| Work on the installable web app | [development/PWA.md](development/PWA.md)                                 |
-| Build/test/install Android      | [runbooks/android-alpha.md](runbooks/android-alpha.md)                   |
-| Unblock production email (SES)  | [runbooks/ses-production-access.md](runbooks/ses-production-access.md)   |
-| Look up a workspace script      | [development/SCRIPTS.md](development/SCRIPTS.md)                         |
-| Understand the security model   | [security/README.md](security/README.md)                                 |
-| Review architecture decisions   | [adr/README.md](adr/README.md)                                           |
-
----
-
-## Directory Map
-
-```
-docs/
-├── README.md               — this file
-├── GLOSSARY.md             — domain terminology
-├── CONTRIBUTING.md         — onboarding guide
-│
-├── architecture/           — system design, data model, navigation contracts
-├── requirements/           — the centralized product/feature/UX requirements set
-├── design/                 — the design system: sources, tokens, icons, component package
-├── development/            — dev standards, testing/validation, git, performance, a11y, scripts, ownership
-├── planning/               — roadmap, planning tiers, and the initiative breakdown
-├── security/               — threat model + the cloud security audits
-├── runbooks/               — operational setup, release, and recovery procedures
-├── reference/              — project structure, feature tiers, random tables
-└── adr/                    — architecture decision records
-```
-
----
-
-## Documentation Quality Rules (Mandatory)
-
-- Every behavior claim in docs must map to a real file path in the repo.
-- Planned work must be marked as `TODO(APP)` and include: what's missing, why it matters, who owns it, target milestone, risk.
-- Do not present aspirational behavior as if already implemented.
-- When contracts change (types, transport, tools, storage format), update docs in the same change set.
-- Use exact tool names, script names, and type names — never approximations.
-
----
-
-## Current Product Baseline
-
-- `apps/gm-react` (`@dndtools/gm-react`) is a browser-first Vite + React 18 application — the GM
-  command platform. It owns rendering, platform services, remote-play transport, and command
-  dispatch, and additionally ships Electron desktop and Capacitor Android shells and LAN/cloud
-  remote play.
-- Renderer persistence uses a Dexie/IndexedDB storage adapter (`src/platform/storage/coreStore.ts`);
-  the app never mutates durable state directly — all changes flow through commands into the core.
-- Runtime differences are centralized in `src/platform/capabilities.ts`; Android packages the same
-  renderer from `dist`, uses Keystore-backed credential storage and native export/share, and opens Maps
-  in the preservation-safe Quick Map workspace.
-- `packages/core` (`@dndtools/core`) is platform-independent (no React, Svelte, DOM, Node, Electron,
-  Capacitor, cloud, or app-runtime imports) and owns command validation, deterministic reducers,
-  permission/visibility evaluation, actor-scoped queries, and the declared quality-gate, security,
-  and source-of-truth registries. The boundary is enforced by `scripts/boundary-lint.ts`.
-- Quality gates are a declared, owned, time-bounded registry in `@dndtools/core`, enforced by
-  `scripts/quality-gates.ts` (`pnpm gates`) and run in CI.
-- Accessibility is gated: non-text contrast lint (`pnpm a11y:contrast`) plus a Playwright axe gate
-  (`apps/gm-react/tests/e2e/a11y-axe-gate.spec.ts`).
+- Every behaviour claim maps to a real file path; use exact tool, script, and type names.
+- Planned work is marked `TODO(APP)` (what is missing, why, owner, target, risk); never present it
+  as implemented.
+- When a contract changes, the doc changes in the same commit. Material runtime, storage, security,
+  or platform decisions get an ADR.
+- Keep one home per topic and link to it; do not restate another doc's content.

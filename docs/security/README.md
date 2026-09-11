@@ -1,81 +1,111 @@
 # Security
 
-This is the security home for DND Tools. It summarizes the threat model and links to the detailed
-audits and decision records. There is one threat model, described here — do not duplicate it elsewhere.
+The one threat model for Lamplight. Do not duplicate it elsewhere; link here.
 
-## Posture
+## 1. Posture
 
-DND Tools is **local-first**. With no account and no opt-in, the app is fully local-only: campaign
-state lives in the renderer's Dexie/IndexedDB database on browser, Electron, and Android, with no cloud
-storage, no third-party telemetry, and no automatic remote synchronization. Every networked
-capability — LAN remote play, internet remote play, cloud backup, and hosted AI — is **opt-in** and
-additive. Builds without the complete trusted production cloud coordinates remain local-only; partial
-configuration fails closed.
+Lamplight is local-first. With no account and no opt-in, campaign state lives in the renderer's
+Dexie/IndexedDB database on browser, Electron, and Android, with no cloud storage, no telemetry,
+and no remote synchronization. Every networked capability (LAN remote play, internet remote play,
+cloud backup, hosted AI, billing, analytics) is opt-in and additive; a build without complete
+trusted cloud coordinates stays local-only and partial configuration fails closed.
 
-The processing core (`packages/core`) is the single source of authoritative state, and it is
-framework-free (no DOM/Node/network access). Actor-scoped queries in the core strip DM-only/hidden
-content **before** it reaches a view or is replicated to a player.
+The processing core (`packages/core`) is the single source of authoritative state and is
+framework-free. Actor-scoped queries strip DM-only and hidden content before it reaches a view or is
+replicated to a player. Every durable write is a validated command.
 
-## Threat surfaces
+## 2. Threat surfaces
 
-| Surface                                 | Trust model                                                                                                                                                                                                                                                                  | Where it's covered                                                                                                                                                    |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Local device / IndexedDB                | Trusted (the user's own machine); not authoritative until written through a command                                                                                                                                                                                          | `apps/gm-react/src/platform/storage/coreStore.ts`                                                                                                                     |
-| Android native boundary                 | App sandbox and Keystore are trusted; external intents, shared destinations, network origins, and device backup are not                                                                                                                                                      | [ADR-006](../adr/006-multi-platform-approach-electron-capacitor.md), [Android alpha runbook](../runbooks/android-alpha.md)                                            |
-| LAN / serverless remote play (WebRTC)   | LAN assumed hostile; players are non-authoritative and receive only player-safe view-models                                                                                                                                                                                  | [P2P threat model](../SECURITY.md), `apps/gm-react/src/net/`                                                                                                          |
-| Internet remote play (signaling + TURN) | Relay is untrusted; sees only opaque, already-encrypted offer/answer codes and short-lived HMAC TURN credentials                                                                                                                                                             | [P2P threat model](../SECURITY.md), `packages/cloud-fns`, `infra/signaling`, `infra/turn`                                                                             |
-| Cloud backup                            | End-to-end encrypted with **client-held** keys; the server holds no key and never decrypts; tenant-isolated by Cognito `sub`; restore is explicit and does not merge device changes                                                                                          | [ADR-015](../adr/015-v2-cloud-security-model-and-key-custody.md), [ADR-017](../adr/017-concrete-cloud-e2ee-crypto.md), [cloud audit](cloud-security-audit-2026-07.md) |
-| Billing (Stripe, ADR-027)               | Card data never touches our code (Stripe-hosted Checkout/portal, SAQ-A). The webhook is the only paid-entitlement writer: signature-verified, mode-checked, re-reads Stripe before writing; the client can never self-grant a paid plan and only navigates to `*.stripe.com` | [ADR-027](../adr/027-stripe-web-billing-and-entitlement-write-path.md), [runbook](../runbooks/stripe-billing.md), `packages/cloud-fns/src/billing/`                   |
+| Surface                                 | Trust model                                                                                                                                                                                | Where it is covered                                                                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Local device / IndexedDB                | Trusted (the user's machine); not authoritative until written through a command                                                                                                            | `apps/gm-react/src/platform/storage/coreStore.ts`                                                                                        |
+| Player-private store                    | A per-character database that no sync, backup, replication, or MCP path can name; the only exit is one explicit share command                                                              | [ADR-035](../adr/035-player-private-device-local-store.md), `platform/storage/privateStore.ts`                                           |
+| Android native boundary                 | App sandbox and Keystore trusted; intents, share destinations, network origins, and device backup are not                                                                                  | [ADR-006](../adr/006-multi-platform-approach-electron-capacitor.md), [`../runbooks/android-alpha.md`](../runbooks/android-alpha.md)      |
+| LAN remote play (WebRTC)                | LAN assumed hostile; players non-authoritative and receive only player-safe view-models                                                                                                    | §3 below, `apps/gm-react/src/net/`                                                                                                       |
+| Internet remote play (signaling + TURN) | Relay untrusted; sees only ECDH-wrapped offers and short-lived HMAC TURN credentials; admission needs an out-of-band join PIN                                                              | §3 below, `packages/cloud-fns`, `infra/signaling`, `infra/turn`                                                                          |
+| Cloud backup (Private mode)             | End-to-end encrypted with client-held per-epoch keys; the server stores ciphertext plus six metadata classes; tenant-isolated by Cognito `sub`                                             | [ADR-015](../adr/015-v2-cloud-security-model-and-key-custody.md), [ADR-017](../adr/017-concrete-cloud-e2ee-crypto.md)                    |
+| Cloud-Enhanced mode                     | Consented server-readable content under KMS. Phase 1 ships the consent only; the record is `approved: false` and every server-readable path stays gated until the phase-2 review signs off | [ADR-026](../adr/026-opt-in-vault-privacy-modes.md), [`vault-privacy-modes-threat-model.md`](vault-privacy-modes-threat-model.md)        |
+| Custom widgets                          | Third-party script runs in an opaque-origin iframe or a worker; the core decides every permission and outbound request; trust is granted per permission by a DM review                     | [ADR-031](../adr/031-custom-widget-runtime-host.md), [`../architecture/WIDGETS.md`](../architecture/WIDGETS.md)                          |
+| AI providers                            | BYO key held device-local, never in the vault or op log; every model write is a staged proposal a DM approves                                                                              | [ADR-021](../adr/021-client-side-ai-provider-transport.md), [ADR-025](../adr/025-agentic-multi-step-assistant-runs.md)                   |
+| Billing (Stripe)                        | Card data never touches our code (hosted Checkout and portal, SAQ-A). The webhook is the only paid-entitlement writer: signature-verified, mode-checked, re-reads Stripe before writing    | [ADR-027](../adr/027-stripe-web-billing-and-entitlement-write-path.md), [`../runbooks/stripe-billing.md`](../runbooks/stripe-billing.md) |
+| Product analytics                       | Opt-in, closed vocabulary, no identifiers, nothing stored server-side                                                                                                                      | [ADR-036](../adr/036-opt-in-product-analytics.md), [`../development/PRODUCT_ANALYTICS.md`](../development/PRODUCT_ANALYTICS.md)          |
 
-## Key controls
+## 3. Remote play threat model
 
-- **Actor-safety.** DM→player replication sends filtered view-models built from the core's
-  actor-filtered query layer; hidden content never leaves the host. Enforced by the core, not the UI.
-- **E2EE cloud backup.** AES-256-GCM per key epoch, sealed on-device before upload
-  (`packages/core/src/security/vault-crypto.ts`). V2 envelopes authenticate the Cognito account,
-  vault, artifact kind, and revision as additional data; the server independently enforces the same
-  context, so an otherwise valid ciphertext cannot be transplanted. The sync-api stores ciphertext
-  plus a strictly bounded metadata set, proven on every write. Off by default and **fail-closed** behind the
-  `SYNC-017` gate (`packages/core/src/sync/cloud-sync-gate.ts`); offered only on devices with an OS
-  credential store to durably hold the client key.
-- **Recovery limits.** The current product has no recovery-key export or automatic key transfer.
-  Restore therefore requires a device that already holds the account-and-vault key. Users should keep
-  a separate local vault backup, which includes its validated media bytes; cloud backup does not
-  include device-local media bytes.
-- **Credential custody.** Cognito auth/refresh tokens live in Electron `safeStorage` or in
-  AES-GCM-encrypted Android preferences whose non-exportable key is held by Android Keystore. They are
-  session-only on the web and never enter IndexedDB/localStorage, the vault, operation log, or logs
-  (`apps/gm-react/src/cloud/tokenStore.ts`, `secureStore.ts`). Android secure preferences are excluded
-  from backup/device transfer, and uninstall removes both key and ciphertext.
-- **Android network boundary.** Android denies cleartext traffic and mixed WebView content, keeps
-  Safe Browsing enabled, admits hosted AI only over HTTPS, and opens trusted external HTTPS links
-  outside the embedded WebView. Local Ollama/HTTP endpoints remain desktop-only.
-- **Android export boundary.** Native export writes only to a bounded app-cache file, grants a
-  recipient temporary read access through `FileProvider`, and cleans stale files. Users choose the
-  final share/save destination.
-- **Signing custody.** The permanent `dndtools-alpha` key is held outside git and supplied to Actions
-  through encrypted repository secrets. Its identity is required for Android in-place upgrades; see
-  the [Android alpha runbook](../runbooks/android-alpha.md).
-- **Untrusted relay.** The WebRTC signaling relay and coturn TURN never see plaintext session content.
+A DM host holds the single authoritative `SceneRuntime`. Each player joins as a non-authoritative
+view over a WebRTC data channel and sends back only intents (dice rolls, edits to its own character).
+LAN play uses no STUN, TURN, or signaling server; manual codes work everywhere and mDNS discovery is
+Electron-only. Internet play reuses the transport over the signaling relay and coturn.
 
-## Detailed documents
+Guarantees and how they are enforced:
 
-- **LAN P2P remote-play threat model:** [`../SECURITY.md`](../SECURITY.md)
-- **Cloud security audit (2026-07):** [`cloud-security-audit-2026-07.md`](cloud-security-audit-2026-07.md)
-- **Cloud security model + key custody:** [ADR-015](../adr/015-v2-cloud-security-model-and-key-custody.md)
-- **Concrete cloud E2EE crypto:** [ADR-017](../adr/017-concrete-cloud-e2ee-crypto.md)
-- **Android build, signing, backup, and recovery:**
-  [`../runbooks/android-alpha.md`](../runbooks/android-alpha.md)
+1. **Hidden content never leaves the host.** Replication sends view-models built by `buildPlayerData`
+   from the actor-filtered `*ForActor` queries, so a snapshot is player-safe by construction.
+2. **A player cannot impersonate another actor.** Commands carry no trusted `actorId`; the host
+   stamps the authenticated participant id and the core re-checks that actor's authority.
+3. **The player device is never authoritative.** It holds replicated view-models and its private
+   journal; disconnecting cannot corrupt the table.
+4. **Confidentiality and integrity on the wire.** Every message is AES-GCM sealed with a 256-bit
+   per-invitation session key delivered inside the invitation; DTLS is a second layer. The DM revokes
+   a player by dropping the peer; a `rekey` message rotates a live key.
+5. **Online admission needs the PIN.** The cloud bridge wraps offers with ECDH (P-256) → HKDF-SHA256
+   salted by a per-session PIN → AES-256-GCM (`net/cloudCrypto.ts`). The relay never sees the PIN
+   or the session key, `browse` returns only the caller's own rooms, and a joiner without the PIN
+   cannot open the sealed offer.
+6. **Presence never enters durable state** (`collab/presence.ts#assertNoPresenceInOperationLog`).
 
-## Open operational items
+Residual risks: anyone holding an invitation code or join code can join until revoked (treat it like
+a table password); mDNS reveals that a table exists, not its content; a hostile LAN peer can spam
+connection attempts (unmatched frames fail AES-GCM auth and are dropped); player identity is
+"whoever holds the invitation", matching the same-room trust model.
 
-The current templates include exact-origin web CSP, log retention, DynamoDB PITR, immutable coturn
-image pinning, request/concurrency/storage budgets, alarms, dashboards, and bounded account purge.
-They still require an authorized deployment and live smoke verification before those controls can be
-claimed for production. Production-grade internet play also needs TURN TLS, tested rotation, and
-multi-host failover; open self-signup remains a deliberate beta posture that must be monitored for abuse.
+Verification: `apps/gm-react/scripts/verify-p2p.mjs` (AES-GCM round-trip, wrong-key rejection,
+code encode/decode) and the leak assertions in the cloud suite; manual two-instance LAN check with
+the internet disconnected.
 
-## Reporting
+## 4. Key controls
 
-This is a personal, local-first application. Security concerns should be filed as GitHub issues in the
+- **E2EE backup.** AES-256-GCM per key epoch, sealed on-device (`packages/core/src/security/vault-crypto.ts`).
+  V2 envelopes authenticate account, vault, artifact kind, and revision as additional data and the
+  sync-api recomputes that context from the verified JWT, so ciphertext cannot be transplanted.
+  `assertServerSeesOnlyAllowedMetadata` proves the bounded metadata set before upload. Off by default
+  and fail-closed behind the `SYNC-017` gate (`packages/core/src/sync/cloud-sync-gate.ts`); offered
+  only on devices with an OS credential store. Cross-device sync compares op-logs and blocks a push on
+  divergence rather than merging silently ([ADR-037](../adr/037-cross-device-merge-by-op-log-comparison.md)).
+- **Recovery.** A Private-mode keyring can be exported as a passphrase-sealed file (PBKDF2-SHA-256,
+  600k iterations, then AES-256-GCM) and imported on another device; import merges epochs
+  conservatively. Cloud backup carries no device-local media bytes, so a local vault export remains
+  the complete portable backup.
+- **Credential custody.** Cognito tokens and AI keys live in Electron `safeStorage` or Android
+  Keystore-encrypted preferences, session-only on the web, and never in IndexedDB, localStorage, the
+  vault, the op log, or logs (`apps/gm-react/src/cloud/tokenStore.ts`, `secureStore.ts`).
+- **Android boundaries.** Cleartext and mixed content denied, Safe Browsing on, hosted AI over HTTPS
+  only, external links opened outside the WebView, exports through a bounded cache file and
+  `FileProvider`, Keystore preferences excluded from backup.
+- **Signing custody.** The permanent `dndtools-alpha` Android key lives outside git and reaches
+  Actions through encrypted secrets; losing it prevents in-place upgrades.
+- **Regression gates.** `packages/core/src/security/regression-gates.ts` declares the security
+  invariants the test suite proves; `pnpm security:secrets` scans tracked files for credentials.
+
+## 5. Audit history
+
+A three-auditor review of the cloud stacks, Lambdas, and client on 2026-07-06 found and fixed five
+critical or high findings (an escalatable CI deploy role, a coturn secret written to a log, an open
+TURN relay, an unauthorized `offer` relay, and a session key relayed in cleartext) plus a set of
+medium findings; a follow-up on 2026-07-07 added the join PIN and scoped `browse`. The dated report
+was retired from the tree on 2026-09-11 and remains in git history at
+`docs/security/cloud-security-audit-2026-07.md`. RC-ENG-5.1 (whole-app security review) is the next
+scheduled pass.
+
+## 6. Open by design
+
+- Production-grade internet play still needs TURN over TLS in production, tested secret rotation,
+  and multi-host failover ([ADR-039](../adr/039-turn-tls-and-secret-rotation.md), `infra/turn/README.md`).
+- Open self-signup is a monitored beta posture; add a `PreSignUp` allow-list or Cognito threat
+  protection if abuse appears.
+- Cloud-Enhanced remains `approved: false` until the phase-2 checklist is signed.
+
+## 7. Reporting
+
+This is a personal, local-first application. File security concerns as GitHub issues in the
 project repository.

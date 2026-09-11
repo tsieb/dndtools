@@ -1,6 +1,6 @@
 # ADR-025: Agentic Multi-Step Assistant Runs & Expanded Staged Write Surface
 
-- Status: Accepted
+- Status: Accepted (amended by ADR-031; amended 2026-09-05 and 2026-09-08)
 - Date: 2026-07-15
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA
@@ -64,7 +64,7 @@ the model a rich, well-described, fail-closed tool surface and to keep the user 
    receive explicit budget errors and the model gets one final tools-disabled turn, so the transcript
    closes with an assistant summary. The transport (`transport.ts`) is untouched.
 
-4. **Start→completion protocol in the existing panel** (`Settings.tsx`, `AiAssistantPanel`). No new
+4. **Start→completion protocol in the existing panel** (`screens/settings/AiAssistant.tsx`). No new
    screen. A skeleton stands in for the pending answer while the model works; a phase line shows
    "working · step k · <tool>"; a Cancel button aborts; and a completion toast (plus an opt-in,
    permission-gated web `Notification`) fires on the terminal state. Notification opt-in persists only

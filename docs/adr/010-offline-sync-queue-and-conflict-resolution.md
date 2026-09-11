@@ -1,6 +1,6 @@
 # ADR-010: Offline Sync Queue and Conflict Resolution in Renderer
 
-- Status: Accepted
+- Status: Accepted (amended by ADR-037)
 - Date: 2026-03-04
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA
@@ -59,28 +59,7 @@ Implement an offline sync subsystem in the renderer layer with these constraints
 
 ## Migration Impact
 
-Required updates:
-
-- App settings contract extended:
-  - `syncConflictStrategy`
-  - `syncEngineState`
-- IPC key whitelist and per-setting schema validation updated in `electron/ipc-schemas.ts`.
-- Storage normalization paths updated in:
-  - `mcp/storage.ts`
-  - `src/lib/platform/storage/capacitor-adapter.ts`
-- New renderer modules:
-  - `src/lib/state/sync.svelte.ts`
-  - `src/lib/platform/storage/sync-adapter.ts`
-  - `src/lib/domain/sync.ts`
-
-Validation updates:
-
-- Added unit coverage for sync domain and sync storage wrapper behavior.
-- Existing lint/typecheck/test/build gates remain required and were run.
-
-Backward compatibility:
-
-- Missing sync keys in existing vault settings resolve to safe defaults.
+The original Svelte modules were retired with the app. The decision survives in the React app as the sync engine (`apps/gm-react/src/cloud/syncEngine.ts`), the core conflict lifecycle (`packages/core/src/state/conflict-lifecycle.ts`, `queries/conflict-lifecycle.ts`, the DM-only `conflict.resolve` command), and the Settings › Sync conflict UI. Missing sync state resolves to safe defaults.
 
 ## Rollback Plan
 
@@ -105,12 +84,6 @@ Known rollback risks:
 
 ## Verification and Evidence
 
-- Key implementation files:
-  - `src/lib/state/sync.svelte.ts`
-  - `src/lib/platform/storage/sync-adapter.ts`
-  - `src/lib/ui/settings/SyncSettingsPanel.svelte`
-  - `src/lib/ui/layout/TopBar.svelte`
-- Key tests:
-  - `src/lib/domain/sync.test.ts`
-  - `src/lib/platform/storage/sync-adapter.test.ts`
-  - `electron/ipc-security.test.ts`
+- `apps/gm-react/src/cloud/syncEngine.ts`, `screens/settings/Sync.tsx`
+- `packages/core/src/state/conflict-lifecycle.ts`, `packages/core/src/sync/conflict-lifecycle.ts`
+- `apps/gm-react/tests/e2e/sync.spec.ts`; ADR-037 for the cross-device producer

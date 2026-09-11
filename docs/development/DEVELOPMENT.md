@@ -1,152 +1,99 @@
-# Development Standards
+# Development
 
-This document defines the engineering rules that apply to every code change in this repository.
+## 1. Setup
 
-## 1. Prerequisites
-
-- Node.js 22.13+
-- pnpm 10.34.5 (the exact version pinned in `package.json` and CI)
-- Electron desktop is optional; a packaged-app smoke run needs a display.
-- Android work requires JDK 21 plus Android SDK/API 36 and build-tools 36.0.0; use the pinned Gradle
-  8.14.3 wrapper and Android Gradle Plugin 8.13. See
-  [`../runbooks/android-alpha.md`](../runbooks/android-alpha.md).
-
-### Android preflight and local compilation
-
-`pnpm check:android` needs only the installed Node dependencies, so it runs first in `pnpm check`
-without Java or an Android SDK. It parses every XML file under `apps/gm-react/android` (excluding
-`build`, `.gradle`, and `node_modules` output), checks the Gradle `major.minor.patch` contract against
-both root and GM package versions, and requires those versions to agree. It also rejects related
-standard Java exception types in multi-catches, including `SecurityException | RuntimeException`.
-The Java guard covers the standard hierarchy listed in `scripts/check-android.mjs`; it does not
-resolve arbitrary imported or application-defined exception hierarchies or prove Java compilation.
-
-Install a **JDK 21** with both `java` and `javac`. An empty `/usr/lib/jvm/java-21-openjdk` directory
-or a working JRE is insufficient. For Linux, configure the signed repository using the
-[official Adoptium package instructions](https://adoptium.net/installation/linux/), then install:
+- Node.js 22.13+ and pnpm 10.34.5 (pinned in `package.json` and CI, which runs Node 24).
+- Electron is optional; a packaged-app smoke run needs a display.
+- Android needs JDK 21, Android SDK/API 36, build-tools 36.0.0, and the pinned Gradle 8.14.3
+  wrapper. `pnpm check:android` runs without Java: it parses every Android XML file, checks the
+  Gradle version contract against the package versions, and rejects related-exception multi-catches.
+  A real `assembleDebug` still needs the toolchain in the [Android runbook](../runbooks/android-alpha.md).
 
 ```bash
-# Debian/Ubuntu, after configuring the Adoptium repository:
-sudo apt update
-sudo apt install temurin-21-jdk
-# RPM distributions, after configuring the Adoptium repository:
-sudo dnf install temurin-21-jdk
+pnpm install
+pnpm dev            # React app on http://localhost:5273
+pnpm desktop:dev    # the same app inside the Electron shell
 ```
 
-Use the command for your distribution. Set `JAVA_HOME` to the installed JDK directory (find it with
-`dpkg -L temurin-21-jdk` or `rpm -ql temurin-21-jdk`, looking for `bin/javac`), then verify:
+Read next: [`../architecture/ARCHITECTURE.md`](../architecture/ARCHITECTURE.md), [`GIT_WORKFLOW.md`](GIT_WORKFLOW.md),
+[`TESTING.md`](TESTING.md), and [`../GLOSSARY.md`](../GLOSSARY.md). UI work also reads
+[`ACCESSIBILITY.md`](ACCESSIBILITY.md) and [`../design/README.md`](../design/README.md).
 
-```bash
-export JAVA_HOME=/absolute/path/to/installed/jdk-21
-export PATH="$JAVA_HOME/bin:$PATH"
-test -x "$JAVA_HOME/bin/java" && test -x "$JAVA_HOME/bin/javac"
-java -version
-javac -version
-```
+## 2. Commands
 
-Both versions must report 21. Install the SDK/API 36 and build-tools 36.0.0 using the
-[Android runbook](../runbooks/android-alpha.md#local-prerequisites), set `ANDROID_HOME`, and run
-from the repository root:
+| Command                   | Purpose                                                                    |
+| ------------------------- | -------------------------------------------------------------------------- |
+| `pnpm check`              | Android preflight + `gates` + boundary lint + typecheck + `pnpm test`      |
+| `pnpm test:smoke`         | The fast local gate (~30s); run before every push                          |
+| `pnpm validate`           | Whole-application harness; see [TESTING.md](TESTING.md)                    |
+| `pnpm e2e`                | Playwright on desktop and mobile Chromium                                  |
+| `pnpm a11y:gate`          | Contrast lints + axe gate                                                  |
+| `pnpm lint`               | eslint + boundary lint + non-text contrast lint + the i18n literal rule    |
+| `pnpm format:fix:changed` | Prettier on the maintained files this branch changed (never bare `format`) |
+| `pnpm gates`              | The tiered quality-gate registry, including the 800-line file-size gate    |
+| `pnpm feature-audit`      | Feature-inventory drift                                                    |
+| `pnpm perf:capture`       | Measure the budgets; `perf:compare` grades them                            |
+| `pnpm security:secrets`   | Committed-credential scan                                                  |
+| `pnpm security:audit`     | `pnpm audit --audit-level high`                                            |
+| `pnpm cloud:drift`        | CloudFormation drift for a stage                                           |
+| `pnpm dashboard`          | Read-only project status page on 127.0.0.1:4990 (`scripts/dashboard/`)     |
 
-```bash
-pnpm install --frozen-lockfile
-pnpm check:android
-pnpm --filter @dndtools/gm-react android:sync
-cd apps/gm-react/android
-./gradlew --stop
-./gradlew --version
-./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
-```
+Everything else is listed in the root `package.json`; per-package scripts live in
+`apps/gm-react/package.json` and `packages/core/package.json`.
 
-Confirm Gradle reports JDK 21; check any `org.gradle.java.home` override if it does not.
-The debug APK is `apps/gm-react/android/app/build/outputs/apk/debug/app-debug.apk`.
-A passing static preflight is only an early guard; record a successful Gradle run before claiming
-that the native build compiles. Emulator and release-signing acceptance remain in the runbook.
+## 3. Boundaries
 
-For historical regression verification, export an old tree to a temporary directory and run
-`pnpm check:android /absolute/path/to/exported-tree` from the current checkout. This uses the new
-checker against the old Android sources and package versions without changing branches.
+- `packages/core` imports no React, Svelte, DOM, Node, Electron, Capacitor, Android, or cloud APIs
+  (zod only). Enforced by `scripts/boundary-lint.ts`.
+- The renderer (`apps/gm-react/src`) imports no Node-only APIs; Electron code lives under
+  `apps/gm-react/electron`, Android code under `apps/gm-react/android`.
+- Feature code consumes `PlatformCapabilities` from `src/platform/capabilities.ts` and the typed
+  preferences layer in `src/platform/preferences.ts`; it never probes native globals or reads
+  `localStorage` directly. Remaining exceptions are allow-listed in
+  `apps/gm-react/platform-access-exceptions.json`.
+- Screens dispatch commands through `SceneRuntime.dispatch`; nothing mutates durable state directly.
+  Persistence goes only through `src/platform/storage/coreStore.ts` (and the player-private
+  `privateStore.ts`).
+- Reads go through actor-scoped queries so DM-private content never reaches a player.
+- Shared files (`commands/dispatch.ts`, `schemas/commands.ts`, `core/src/index.ts`, `app/nav.ts`)
+  are append-only: add a delimited block, never reorder neighbours.
 
-## 2. Script Surface
+## 4. Coding rules
 
-Canonical references:
+- TypeScript strict; avoid `any` (the remaining sites are in `app/compendium/*`).
+- Single-purpose modules; no `.tsx` under `apps/gm-react/src` over 800 lines (the gate) with 500 as
+  the target.
+- Screens stay thin; business logic lives in core commands, reducers, and queries.
+- Every user-visible string goes through `t()` with a key in `src/i18n/messages/en.ts` and a Spanish
+  entry in `es.ts` in the same commit; the `local/no-literal-jsx-text` rule ratchets the allow-list.
+- Persisted-shape changes bump the slice `schemaVersion` with a migration and test; prefer additive
+  optional fields, because a bump breaks cloud-backup restore of older snapshots.
+- Compose screens from `src/ds` components and semantic tokens; no raw hex, no emoji, Lucide icons
+  only through the registry.
 
-- `docs/development/SCRIPTS.md` - complete script inventory and use cases
-- `docs/development/VALIDATION.md` - test/validation story and the `pnpm validate` harness
-- `docs/development/GIT_WORKFLOW.md` - branch model and CI gates
+## 5. Definition of done
 
-High-signal commands:
+Behaviour implemented; tests added at the right layer; docs updated in the same change; no
+boundary violation; lint, typecheck, and tests green; the affected e2e specs green on both
+profiles; performance budgets not regressed; Android changes pass the runbook's Gradle and
+emulator checks. State what you verified in the PR body.
 
-- `pnpm check` - Android static preflight + `gates` + boundary lint + typecheck + full test suite (pre-handoff gate)
-- `pnpm validate` - whole-application validation harness (see VALIDATION.md)
-- `pnpm test` - core unit + cloud/net + app + repo tooling tests
-- `pnpm e2e` - Playwright (desktop + mobile Chromium) against `apps/gm-react`
-- `pnpm a11y:gate` - contrast + axe accessibility gate
+## 6. Documentation rules
 
-## 3. Required Workflow
+- Every behaviour claim maps to a real file path. Use exact tool, script, and type names.
+- Do not present planned work as implemented. Planned work is `TODO(APP)` with what is missing,
+  why it matters, an owner, a target, and a risk.
+- Contract changes (types, transport, tools, storage format) update the doc in the same change;
+  decisions that materially alter runtime boundaries, storage, security, or platform strategy get
+  an ADR (`docs/adr/000-template.md`, index in `docs/adr/README.md`).
+- Long-lived source TODOs map into [`../../DEBT.md`](../../DEBT.md).
 
-For every non-trivial change:
+## 7. Dependency policy
 
-1. Work in the correct runtime boundary.
-2. Update tests at the correct layer.
-3. Run the smallest validating command that matches the change while iterating.
-4. Run `pnpm check` before handoff.
-5. Run the relevant gates from `docs/development/GIT_WORKFLOW.md` before opening a PR.
-6. Update docs when contracts, workflows, or architecture change.
-
-## 4. Boundary Rules
-
-- Shared core (`packages/core`) is framework-independent: it imports NO React, Svelte, DOM, Node,
-  Electron, Capacitor, Android, or cloud APIs.
-- The renderer (`apps/gm-react/src`) must not import Node-only APIs; Electron main/preload live under `apps/gm-react/electron` and must not import renderer-only modules except shared types.
-- Renderer features consume `PlatformCapabilities` from `apps/gm-react/src/platform/capabilities.ts`;
-  they do not probe native globals. Android Java/plugin code stays under `apps/gm-react/android`.
-- Screens (`apps/gm-react/src/screens`) dispatch commands; they never mutate durable state directly.
-- Durable storage goes only through the Dexie/IndexedDB adapter (`apps/gm-react/src/platform/storage/coreStore.ts`), never from screens or components.
-
-Boundary violations are lint-enforced by `scripts/boundary-lint.ts` (which also forbids React imports in `packages/core`) and fail CI.
-
-## 5. Coding Rules
-
-- TypeScript strict mode is non-negotiable.
-- Avoid `any`; prefer narrow types and runtime validation (zod in core).
-- Keep modules single-purpose.
-- Keep screen/route files thin and push business logic into core commands/reducers.
-
-## 6. Definition of Done
-
-A change is complete only when all are true:
-
-- behavior implemented
-- tests added or updated
-- docs synced
-- no boundary violations introduced
-- no known regressions in lint, typecheck, or tests
-- performance budgets in `packages/core/src/perf/budget-registry.ts` are not regressed
-- Android changes pass the matching Gradle, API 36 emulator, signing, responsive, accessibility, and
-  persistence checks in the Android runbook
-
-## 7. Documentation Rules
-
-- Use exact file paths and script names.
-- Separate implemented behavior from planned work.
-- Every `TODO(APP)` must include `reason`, `risk`, and `target`.
-- Long-lived source TODOs must map into `DEBT.md`.
-
-## 8. Refactor Budget Governance
-
-Technical debt is tracked in `DEBT.md`.
-
-- Every debt entry includes `ID`, `Severity`, `Impact`, `Owner`, and `Resolution Window`.
-- Any PR introducing a long-lived deferment must resolve it immediately or register debt before merge.
-- Quarterly debt review is mandatory.
-
-## 9. Architectural Governance
-
-Major design changes require:
-
-- problem statement
-- alternatives considered
-- migration plan
-- test plan
-- same-change docs update
+`pnpm security:audit` gates on high severity in CI; moderate transitive advisories accumulate
+silently, so run an unscoped `pnpm audit` periodically and pin fixes through `pnpm-workspace.yaml`
+`overrides`. Newly published patches are held by the release-age policy. Deliberately deferred
+majors: React 19 and React Router 7 (which carry the two remaining moderate advisories), Vite 8 with
+plugin-react 6, TypeScript 7, Lucide 1.x, aws-jwt-verify 5. Migrate each with its own typecheck,
+build, and e2e run rather than folding it into release hardening. Native majors (Capacitor, AGP,
+Gradle) need synchronized renderer, Gradle, emulator, and signing validation.

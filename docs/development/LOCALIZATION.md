@@ -1,69 +1,49 @@
 # Localization
 
-Scope: the primary React GM app (`apps/gm-react`, `@dndtools/gm-react`). Covers the message-key
-catalog architecture (ADR-032 — RC-UX-1.1), and the community translation workflow this doc adds
-(RC-UX-1.4): how a locale's catalog leaves the repo for a translation platform and comes back.
+Architecture: [ADR-032](../adr/032-internationalization-architecture.md). This is the operational
+reference for the catalogs and the community translation round trip.
 
-## 1) Catalog architecture (context)
+## 1. Catalogs
 
 - `apps/gm-react/src/i18n/messages/en.ts` is the source of truth and the compile-time key space
-  (`MessageKey = keyof typeof en`). Every user-visible string is a flat key, `<area>.<subject>.<role>`.
-- Every other locale — `apps/gm-react/src/i18n/messages/<code>.ts` — is `Partial<Record<MessageKey, string>>`.
-  An untranslated key renders its English source rather than a blank or a bare identifier
-  (`translate()` in `src/i18n/index.tsx`), so a partly translated locale degrades honestly.
-- A locale's share of the key space translated is `catalogCoverage(locale)` (`src/i18n/index.tsx`);
-  Settings › Language shows it as the status badge described in §3.
+  (`MessageKey = keyof typeof en`). Keys are `<area>.<subject>.<role>`; values use the ICU subset
+  (`{name}`, `plural`, `select`, `number`, `date`, `time`) implemented in `src/i18n/format.ts`.
+- Every other locale (`messages/<code>.ts`) is `Partial<Record<MessageKey, string>>`; an
+  untranslated key renders its English source, never a blank or a bare identifier.
+  `catalogCoverage(locale)` reports the translated share and Settings › Language shows it.
+- `t()` from `useI18n()` is the only path a string reaches the user by; the
+  `local/no-literal-jsx-text` ESLint rule ratchets an allow-list of files with remaining literals.
+- Spanish is held at or above 95% of the English key space by `src/i18n/index.test.ts`; a migration
+  adds its Spanish entry in the same commit.
+- Locale is a device preference (`localStorage`, mirrored onto `<html lang dir>`), not vault state.
+  The core never returns prose; rejections carry machine codes the app maps to keys. Distance units
+  come from the active System Package, not the locale.
 
-## 2) The export/import round trip
+## 2. Export and import
 
-`scripts/i18n-catalog.ts` converts between the TypeScript catalogs above and the flat monolingual
-JSON shape both **Weblate** and **Crowdin** ingest for a "JSON file" translation component, so a
-community translator works entirely on the platform and never touches TypeScript or opens a PR.
+`scripts/i18n-catalog.ts` converts between the TypeScript catalogs and the flat monolingual JSON
+that Weblate and Crowdin ingest, so a translator never touches TypeScript.
 
 ```
 tsx scripts/i18n-catalog.ts export [--dir i18n-export] [--locale es]
 tsx scripts/i18n-catalog.ts import --locale es [--dir i18n-export]
 ```
 
-- **Export** writes `<dir>/en.json` (every key, English value — the source string translators
-  translate from) and one `<dir>/<locale>.json` per translatable locale, containing only the keys
-  that locale has already translated. Uploading `en.json` as the platform's source/base file and
-  `<locale>.json` as that locale's existing translation state seeds a new Weblate/Crowdin project
-  (or resets one) from the repo.
-- **Import** takes a locale's exported JSON back from the platform (after translators have edited
-  it there) and regenerates `apps/gm-react/src/i18n/messages/<locale>.ts`:
-  - a key the upload has that `en.ts` no longer declares is a **hard error** — a removed string
-    never leaks back into the app through a stale translation platform export;
-  - a key `en.ts` still declares but the upload omits is **dropped** from the generated file — a
-    translator (or the platform) deleting a row deletes the translation, the catalog does not
-    silently keep the last-known value;
-  - the generated file keeps `en.ts`'s key ORDER, so a routine sync's diff stays reviewable instead
-    of reordering every line.
-- The generated `<locale>.ts` carries a banner pointing back at this doc: hand-editing it is
-  overwritten by the next import, so a fix belongs in the platform (or in `en.ts` if the source
-  string itself is wrong).
-- Adding a new locale: add it to `SUPPORTED_LOCALES` in `src/i18n/index.tsx` (RC-UX-1.1's file) and
-  the dynamic `loadCatalog` import list, then run `export --locale <code>` once to seed an empty
-  starting point for the platform.
+- **Export** writes `<dir>/en.json` (every key, the source string) and one `<dir>/<locale>.json`
+  per locale containing only the keys it has translated.
+- **Import** regenerates `messages/<locale>.ts` from a platform export: a key `en.ts` no longer
+  declares is a hard error; a key the upload omits is dropped; key order follows `en.ts` so the
+  diff stays reviewable. The generated file carries a banner pointing here; hand edits are
+  overwritten by the next import.
+- New locale: add it to `SUPPORTED_LOCALES` in `src/i18n/index.tsx` and the `loadCatalog` import
+  list, then run `export --locale <code>` once to seed the platform.
 
-Round-trip coverage lives in `tests/unit/i18n-catalog.test.ts` (`pnpm test:tooling`): it exercises
-the pure export/build functions with the real `en`/`es` catalogs and asserts a key set survives
-export → import unchanged, that an unknown key is rejected, and that a dropped key does not survive.
+`tests/unit/i18n-catalog.test.ts` (`pnpm test:tooling`) round-trips the real catalogs and asserts an
+unknown key is rejected and a dropped key does not survive.
 
-## 3) Locale status in Settings
+## 3. Platform setup
 
-Settings › Language (`apps/gm-react/src/screens/settings/Language.tsx`) shows each locale's
-`catalogCoverage()` next to its name (e.g. "Español · 100% translated"), so a DM picking a
-community-maintained locale can see up front how complete it is rather than discovering gaps one
-English fallback string at a time.
-
-## 4) Suggested platform setup (Weblate or Crowdin)
-
-1. Create a project with one JSON-file component per locale, "monolingual" mode (source strings
-   come from a separate base file, not embedded per-locale).
-2. Upload `i18n-export/en.json` as the base/source file.
-3. Upload each `i18n-export/<locale>.json` as that locale's existing translations, if any.
-4. Translators work in the platform UI. Periodically (or via the platform's export webhook/API),
-   download the updated `<locale>.json` and run the `import` command above, then send the
-   regenerated `messages/<locale>.ts` through the normal PR/gate flow like any other code change —
-   the import is a generator, not a bypass of review or `pnpm typecheck`.
+Create a project with one monolingual JSON component per locale, upload `en.json` as the base
+file and each `<locale>.json` as that locale's existing state, let translators work in the UI, then
+periodically download and run `import`, sending the regenerated module through the normal PR gates
+like any other code change.

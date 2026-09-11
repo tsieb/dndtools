@@ -1,6 +1,6 @@
 # ADR-020: App-API Backend for Marketplace, Invites, Account, and Simulated Entitlements
 
-- Status: Accepted (amended by [ADR-026](./026-opt-in-vault-privacy-modes.md); amended by [ADR-027](./027-stripe-web-billing-and-entitlement-write-path.md); amended by [ADR-034](./034-marketplace-listing-kinds-and-module-bundle-format.md))
+- Status: Accepted (amended by ADR-026; amended by ADR-027; amended by ADR-034)
 - Date: 2026-07-09
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA

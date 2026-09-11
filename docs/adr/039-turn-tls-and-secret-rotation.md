@@ -1,9 +1,10 @@
-# ADR-RC-CLD-1.3: Add opt-in TURN TLS and staged secret rotation
+# ADR-039: Opt-In TURN TLS and Staged Secret Rotation
 
 - Status: Accepted
 - Date: 2026-09-08
 - Deciders: Engineering (RC loop)
 - Supersedes: N/A
+- Moved from `infra/turn/ADR-TLS.md` on 2026-09-11; the operating procedure is `infra/turn/README.md`.
 
 ## Context
 
@@ -55,7 +56,7 @@ for the certificate/config files and test the pinned image's UID/GID contract.
 
 ## Migration and rollback
 
-Follow [README.md](README.md) for the two-step DNS/bootstrap rollout, minter/live-verifier
+Follow [`infra/turn/README.md`](../../infra/turn/README.md) for the two-step DNS/bootstrap rollout, minter/live-verifier
 handoffs, explicit TLS publication, staged rotation and manual failover. Existing EC2 user data
 must be applied deliberately; a CloudFormation update alone does not rerun first-boot scripts.
 Before TLS publication, the legacy URI is unchanged. To revert a failed cutover, set

@@ -1,7 +1,7 @@
 # ADR-007: Cloud Backend Architecture (AWS Cognito + S3 + API Gateway)
 
 - Status: Accepted
-- Date: 2026-03-01
+- Date: 2026-03-01 (implemented 2026-07; evidence updated 2026-09-11)
 - Deciders: Engineering
 - Consulted: Product, Security
 - Supersedes: N/A
@@ -10,18 +10,15 @@
 
 Current product behavior is local-only with no user accounts or cloud storage. Future roadmap milestones include opt-in cloud sync and remote collaboration. A backend strategy is needed now to guide interface design, threat modeling updates, and migration sequencing while preserving local-first defaults.
 
-Current implementation status:
-
-- No cloud backend is deployed in the current product baseline.
-- Local-only storage and workflows are the only shipped mode.
+Implementation status: the backend exists as the SAM stacks in `infra/` (identity, turn, app-api, signaling, sync-api, web-hosting) and is deployed to dev and prod. Local-only remains the default and every cloud capability is opt-in.
 
 ## Decision
 
 Adopt AWS Cognito + S3 + API Gateway as the target cloud architecture:
 
 - Cognito for authentication and identity management.
-- S3 for vault object storage and versioned sync artifacts.
-- API Gateway-backed service layer for sync/session APIs.
+- S3 and DynamoDB for versioned, encrypted sync artifacts and account data.
+- API Gateway (HTTP and WebSocket) plus Lambda for sync, signaling, and the app-api.
 - Local-first remains the default; cloud features are opt-in and additive.
 
 ## Consequences
@@ -61,7 +58,7 @@ Adopt AWS Cognito + S3 + API Gateway as the target cloud architecture:
 
 ## Verification and Evidence
 
-- `docs/planning/initiatives/README.md`
-- `docs/architecture/SECURITY.md`
-- `docs/planning/ROADMAP.md`
-- `docs/architecture/ARCHITECTURE.md`
+- `infra/README.md` (stacks, accounts, deploy order)
+- `packages/cloud-fns/src/` (the Lambda handlers)
+- `docs/security/README.md`
+- ADR-015, ADR-017, ADR-020, ADR-026 (the security model and the app-api built on this decision)

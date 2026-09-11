@@ -1,403 +1,168 @@
-# dndtools cloud infrastructure (AWS SAM)
+# Cloud infrastructure (AWS SAM)
 
-Small, independently-deployable CloudFormation/SAM stacks that add opt-in cloud
-capabilities to the local-first app. Everything is pay-per-use / scale-to-zero **except** the
-prod `t4g.nano` running coturn and the prod alerts KMS key. Dev has no always-on compute at all:
-its TURN relay was torn down on 2026-09-03 and is rebuilt on demand. Steady state is roughly
-**$12/mo across both accounts**; see "Observability and what it costs" for how it got to $40 in
-August 2026 and what stops that recurring.
+Small, independently deployable SAM stacks that add opt-in cloud capabilities to the local-first
+app. Everything is pay-per-use except the prod `t4g.nano` running coturn and the prod alerts KMS
+key; dev has no always-on compute. Steady state is roughly $12/month across both accounts.
 
-## Account & identity
+## Accounts, profiles, region
 
-- Shared development account **`dndtools` = `703621193648`** in org `o-fvdpu0124z`.
-- Production must live in a separate AWS member account with its own GitHub OIDC
-  provider, deploy role, SNS topic, SES identities, budget, and audit trail.
-- Local deploys default to the `dndtools` AWS profile. Override by stage with
-  `DNDTOOLS_DEV_PROFILE` / `DNDTOOLS_PROD_PROFILE` (or `DNDTOOLS_PROFILE`) when
-  dev and prod live in different accounts. Region: **`ca-central-1`**
-  (CloudFront's ACM cert is the sole exception — it lives in `us-east-1`).
-- CI deploys use the keyless **GitHub OIDC** role created by the `foundation` stack
-  (no long-lived AWS keys).
+| Stage | Account        | Profile         | Notes                                                           |
+| ----- | -------------- | --------------- | --------------------------------------------------------------- |
+| dev   | `703621193648` | `dndtools`      | org `o-fvdpu0124z`; CI deploys on every push to `main` via OIDC |
+| prod  | `649320110863` | `dndtools-prod` | own OIDC provider, deploy role, SNS topic, SES identity, budget |
 
-> **Branch rename (master → main): foundation redeployed 2026-07-09.** The `foundation`
-> stack's `GitHubBranch` parameter builds the OIDC trust condition
-> `repo:tsieb/dndtools:ref:refs/heads/<branch>`. The **dev** role now trusts
-> `refs/heads/main` (verified). `GitHubBranch=main` is set explicitly in each stack's
-> `samconfig.toml` — a CloudFormation _update_ keeps a parameter's previous value when it
-> is omitted from `parameter_overrides` (the template `Default` only applies on initial
-> _create_), so relying on the default alone would have left the role on `master`.
-> The separate prod account should create its own OIDC provider and API Gateway
-> account logging role. Bootstrap it once with `infra/bootstrap-prod-foundation.sh`,
-> then set `AWS_PROD_DEPLOY_ROLE_ARN` on the protected GitHub `production`
-> environment. The prod role trusts that environment's OIDC subject, not a branch
-> subject.
+Region is `ca-central-1` for everything except the CloudFront certificate (`edge-cert`, `us-east-1`).
+Each stack's `samconfig.toml` names the profile per config-env; `infra/deploy.sh` reads
+`DNDTOOLS_DEV_PROFILE` / `DNDTOOLS_PROD_PROFILE` (never `AWS_PROFILE`). Most stacks deploy happily
+into the wrong account; only `turn` catches it because its `VpcId` exists in one account. So
+`parameter value vpc-… does not exist` on a prod deploy almost always means the profile is wrong.
 
-The already-created dev Cognito pool retains Cognito's immutable, case-sensitive username setting;
-the client canonicalizes email addresses before every auth call so users still get consistent login
-behavior. The new production pool is created case-insensitive. Changing the legacy pool itself would
-require a deliberate user migration or pool replacement, not an in-place stack update.
+The dev CI role trusts `repo:tsieb/dndtools:ref:refs/heads/main`; the prod role trusts the
+`production` GitHub environment. Bootstrap prod once with `infra/bootstrap-prod-foundation.sh`, then
+set `AWS_PROD_DEPLOY_ROLE_ARN` on that environment. The dev Cognito pool keeps Cognito's immutable
+case-sensitive usernames (the client canonicalizes emails); the prod pool is case-insensitive.
 
-## Stacks (deploy order)
+## Stacks, in deploy order
 
-| Order | Stack         | Purpose                                                                                                                                                                                 | Always-on cost                       |
-| ----- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| 0     | `edge-cert`   | **us-east-1** ACM cert for the custom domain (apex + wildcard). Shared by all stages; deploy once                                                                                       | none                                 |
-| 1     | `foundation`  | Budget + cost anomaly alerts, GitHub OIDC deploy role, SSM namespace, alerts topic (+ its KMS key in prod), the stage dashboard                                                         | ~$1/mo (prod only)                   |
-| 2     | `identity`    | Cognito user pool + app client (gates everything) + the SES configuration set all mail is sent through                                                                                  | none                                 |
-| 3     | `turn`        | coturn on EC2 `t4g.nano` + Elastic IP + cred Lambda                                                                                                                                     | ~$7.70/mo (prod only; dev torn down) |
-| 4     | `app-api`     | API GW HTTP + Lambda + DynamoDB (accounts/entitlements/invites/listings, TTL) + S3 (marketplace payloads) + the opt-in analytics ingestion Lambda + the Stripe webhook Lambda (ADR-027) | none                                 |
-| 5     | `signaling`   | API GW WebSocket + Lambdas + DynamoDB (rooms/conns, TTL)                                                                                                                                | none                                 |
-| 6     | `sync-api`    | API GW HTTP + Lambdas + DynamoDB (op index) + S3 (ciphertext)                                                                                                                           | none                                 |
-| 7     | `web-hosting` | S3 (private) + CloudFront (OAC) + CSP header                                                                                                                                            | none                                 |
+| #   | Stack         | Purpose                                                                                                                            | Always-on cost        |
+| --- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| 0   | `edge-cert`   | us-east-1 ACM certificate for the custom domain; deploy once                                                                       | none                  |
+| 1   | `foundation`  | Budget and cost-anomaly alerts, OIDC deploy role, SSM namespace, alerts topic (+ KMS key in prod), the stage dashboard             | ~$1/mo (prod)         |
+| 2   | `identity`    | Cognito user pool and client; the SES configuration set every mail goes through                                                    | none                  |
+| 3   | `turn`        | coturn on EC2 `t4g.nano` + Elastic IP + credential Lambda                                                                          | ~$7.70/mo (prod only) |
+| 4   | `app-api`     | HTTP API + Lambda + DynamoDB (accounts, entitlements, invites, listings) + S3 (modules) + telemetry Lambda + Stripe webhook Lambda | none                  |
+| 5   | `signaling`   | WebSocket API + Lambdas + DynamoDB (rooms, connections, TTL)                                                                       | none                  |
+| 6   | `sync-api`    | HTTP API + Lambdas + DynamoDB (op index) + S3 (ciphertext) + the Cloud-Enhanced KMS key                                            | none                  |
+| 7   | `web-hosting` | Private S3 + CloudFront (OAC) + CSP header                                                                                         | none                  |
 
-> `app-api` publishes the authoritative entitlement table name in SSM; both `signaling` and
-> `sync-api` resolve it at deploy time. Deploy **`app-api` before both dependent stacks**.
-> `signaling` also resolves `turn`'s `/turn/secret-arn` and `/turn/uri`, so **`turn` must be
-> deployed before `signaling`**. Violating either dependency fails with `ParameterNotFound`.
-
-Account deletion has one deliberate reverse lookup without creating a deployment cycle: `sync-api`
-publishes its CloudFormation-generated operations-table name at `/dndtools/<stage>/sync/ops-table-name`,
-then `app-api` is deployed a second time with GetItem-only access to that exact table. The deploy
-workflows perform this refresh automatically. During a brand-new stage's short first pass, account
-deletion fails closed because purge proof cannot yet be verified; normal account and entitlement
-routes remain available. Keeping the generated table name avoids replacing or orphaning existing
-encrypted backups solely to establish cross-stack wiring.
-
-The sync purge marker has no TTL while deletion is incomplete. Once DynamoDB rows and every S3
-object version are gone, sync records a strongly consistent zero-usage proof and schedules it for
-retirement after 45 days. App-api verifies that proof, removes account/public content, schedules its
-own account tombstone for the same retention, then revokes and deletes Cognito last. The retention is
-longer than the one-hour ID-token lifetime and 35-day PITR window without keeping account identifiers
-indefinitely.
-
-The TURN host publishes a one-minute `${ProjectName}/TURN` application heartbeat only when the
-container is running and both UDP/TCP listeners are present. Missing or unhealthy heartbeats alert
-through the stage operations topic; Docker logs are size-rotated so a busy relay cannot fill the root
-volume. EC2 status checks remain a separate host-level alarm.
-
-The current relay is deliberately a single-instance beta service on `turn:` port 3478. WebRTC payloads
-remain end-to-end encrypted, and credentials are short lived, but production-grade restrictive-network
-coverage still requires a DNS name/certificate for `turns:`, tested secret rotation, and a multi-host
-failover design. Treat those as launch prerequisites before promising high-availability internet play.
-
-The hosted CSP needs the exact deployed API ids, while the APIs and Cognito callback lists need the
-final CloudFront origin. A new stage is therefore created in two safe passes: APIs initially use the
-non-routable `https://invalid.example` default and Cognito initially permits the desktop callback,
-`web-hosting` publishes its URL, then identity, sync-api, and app-api are immediately refreshed with
-that origin. Later deploys read the current origin from SSM automatically so an isolated API update
-cannot regress CORS or invite links to the placeholder.
-
-## Which account am I deploying to?
-
-**dev → `703621193648` (`dndtools`), prod → `649320110863` (`dndtools-prod`).** Each stack's
-`samconfig.toml` names the right profile per config-env, and `infra/deploy.sh` defaults
-`DNDTOOLS_PROD_PROFILE` to `dndtools-prod`.
-
-That default used to be `dndtools`, and the failure mode is worth remembering because it is almost
-silent: **most stacks deploy perfectly happily into the wrong account**, producing a full set of
-`dndtools-prod-*` stacks in dev that look correct in isolation. Only `turn` catches it, because its
-`VpcId` names a VPC that exists in the prod account and not in dev. So:
-
-> `parameter value vpc-… does not exist` on a prod deploy almost always means the **profile** is
-> wrong, not the VPC id.
-
-Dev and prod each use their own account's default VPC and `ca-central-1a` subnet. The ids differ
-between stages on purpose; they are not interchangeable.
-
-## Custom domain
-
-**Prod only.** `lamplight.click` is registered through Route53 Domains in the **dev** account
-(auto-renew on, WHOIS privacy on — the registrar stays where it was bought), but its authoritative
-hosted zone is **`Z07658511EFS4B5KGNYUX` in the prod account**, and the registrar's nameservers point
-there. DNS, certificate and records therefore all live in the account that serves the traffic.
-
-| Hostname              | Serves                                                        |
-| --------------------- | ------------------------------------------------------------- |
-| `lamplight.click`     | prod SPA (canonical)                                          |
-| `www.lamplight.click` | prod SPA, 301 → apex via a CloudFront viewer-request function |
-
-**Dev has no custom domain** and stays on its `*.cloudfront.net` URL. That is a deliberate choice,
-not an omission: a CloudFront distribution can only attach a certificate issued in its _own_ account,
-so a dev hostname under this domain would need either a second delegated zone plus a second
-certificate, or cross-account IAM so the dev stack could write into the prod zone. Neither is worth
-it for a dev stage. Dev's domain parameters are explicitly empty rather than absent.
-
-Nothing hardcodes the hostnames. `web-hosting` takes `PrimaryHostName`, `SecondaryHostName`,
-`WebCertificateArn` and `HostedZoneId`; leave them blank and the stack serves on `*.cloudfront.net`.
-**Moving to a different domain is a parameter change, not a template change** — register it,
-redeploy `edge-cert` with the new `DomainName` + `HostedZoneId` (this replaces the certificate and
-revalidates), then update the four parameters in `web-hosting/samconfig.toml` and redeploy prod.
-
-Two things must be set explicitly rather than left to defaults:
-
-- **The certificate is copied, not resolved.** `edge-cert` lives in us-east-1 because CloudFront will
-  only attach a certificate from that region, and SSM parameters cannot be read across regions — so
-  its `CertificateArn` output is pasted into `web-hosting/samconfig.toml`. Re-copy it whenever the
-  certificate is replaced. It must be a certificate in the **same account** as the distribution.
-- **Every domain parameter is repeated in `parameter_overrides`, empty ones included.** A
-  CloudFormation _update_ keeps a parameter's previous value when it is omitted (the template
-  `Default` applies only on _create_), so an omitted `PrimaryHostName` keeps the old hostname rather
-  than clearing it.
-
-After `web-hosting` deploys, `/dndtools/<stage>/web/url` publishes the **custom** origin rather than
-the CloudFront one. The existing second pass then matters more than before: `identity` rebuilds its
-Cognito callback/logout URLs from it and `sync-api` / `app-api` rebuild their CORS allowlist from it.
-Skipping that refresh leaves the APIs trusting the wrong origin, so the app loads on the custom
-domain and then fails every authenticated call.
-
-### Production email (Cognito)
-
-`identity prod` refuses to deploy without a verified SES sender — the template asserts it, so the
-50/day Cognito default cannot silently become the production path. The sender is the domain itself:
-`lamplight.click` is verified as an SES domain identity in the **prod** account's `ca-central-1` with
-Easy DKIM (three `_domainkey` CNAMEs in the prod hosted zone, published out of band and therefore not
-owned by any stack).
-
-> ⚠️ The prod account is still in the **SES sandbox** (`ProductionAccessEnabled: false`), so Cognito
-> can only deliver to individually verified addresses. Signup and password-recovery mail to real
-> users needs a production-access request raised against account `649320110863`.
+Stacks couple through SSM under `/dndtools/<stage>/…`, never `ImportValue`, so any one can be
+updated alone once its inputs exist. Two deploy-time couplings enforce the order: `signaling`
+resolves `turn/secret-arn` and `turn/uri`, and both `signaling` and `sync-api` resolve the
+entitlement table name `app-api` publishes; deploying early fails with `ParameterNotFound`.
+`sync-api` publishes its operations-table name and `app-api` is then deployed a second time with
+GetItem access to it (the workflows do this), so account deletion can verify the purge proof. A new
+stage takes two passes: APIs first use the `https://invalid.example` origin, `web-hosting` publishes
+its URL, then `identity`, `sync-api`, and `app-api` are refreshed with it; later deploys read the
+current origin from SSM.
 
 ```bash
-export DNDTOOLS_COGNITO_EMAIL_SOURCE_ARN='arn:aws:ses:ca-central-1:649320110863:identity/lamplight.click'
-export DNDTOOLS_COGNITO_EMAIL_FROM='Lamplight <accounts@lamplight.click>'
-infra/deploy.sh identity prod
+infra/deploy.sh <stack> <stage>     # validate (blocking), lint (advisory), build, deploy
 ```
 
-The protected GitHub `production` environment reads the same two values from its own variables
-(`COGNITO_EMAIL_SOURCE_ARN`, `COGNITO_EMAIL_FROM`); keep them in step with the above.
+**CloudFormation keeps a parameter's previous value when it is omitted from `parameter_overrides`
+on an update**; the template `Default` applies only on create. Every parameter that matters is set
+explicitly per config-env, empty ones included. This is how the OIDC role once stayed pinned to
+`master` after the branch rename.
 
-Stacks are decoupled via **SSM Parameter Store** under `/dndtools/<stage>/…`
-(each stack writes its outputs; downstream stacks and the client build read them),
-not tight cross-stack `ImportValue` coupling — so any one can be updated in isolation.
+## Custom domain (prod only)
 
-## Deploying
+`lamplight.click` is registered in the dev account (auto-renew, WHOIS privacy) with its hosted zone
+`Z07658511EFS4B5KGNYUX` in prod, where the certificate and records live. `lamplight.click` serves the
+SPA; `www` redirects to the apex. Dev stays on `*.cloudfront.net` on purpose: a distribution can
+only attach a certificate from its own account. Nothing hardcodes hostnames; `web-hosting` takes
+`PrimaryHostName`, `SecondaryHostName`, `WebCertificateArn`, `HostedZoneId`, and the certificate ARN
+is copied from `edge-cert`'s output (SSM cannot be read across regions). After `web-hosting`
+deploys, the origin refresh pass matters: skipping it leaves Cognito callbacks and CORS trusting the
+old origin.
 
-Each stack directory has its own `samconfig.toml` with `dev` / `prod` config-envs.
+Prod `identity` refuses to deploy without a verified SES sender. Set
+`DNDTOOLS_COGNITO_EMAIL_SOURCE_ARN='arn:aws:ses:ca-central-1:649320110863:identity/lamplight.click'`
+and `DNDTOOLS_COGNITO_EMAIL_FROM='Lamplight <accounts@lamplight.click>'` (the `production`
+environment holds the same two values). The prod account is still in the SES sandbox; see
+`docs/runbooks/ses-production-access.md`.
 
-```bash
-# from repo root
-infra/deploy.sh <stack> <stage>      # e.g. infra/deploy.sh foundation dev
-# or manually, from a stack dir:
-cd infra/foundation
-sam validate --lint
-sam build
-sam deploy --config-env dev
-```
+## Observability and cost
 
-Production identity deployment deliberately has no committed sender identity. Set both variables to
-an SES identity already verified in the dedicated prod account's `ca-central-1`; the protected
-production workflow reads the same values from GitHub environment variables named
-`COGNITO_EMAIL_SOURCE_ARN` and `COGNITO_EMAIL_FROM`.
+CloudWatch's free allowance is per organisation and consumed as resource-months: 3 dashboards, 10
+alarms, 5 GB of logs. Eight empty dashboards and twenty-four alarms across two accounts turned a
+$12 bill into $40 in August 2026 ([ADR-033](../docs/adr/033-stage-scoped-observability-and-cost-guardrails.md)).
+Now:
 
-```bash
-export DNDTOOLS_COGNITO_EMAIL_SOURCE_ARN='arn:aws:ses:ca-central-1:ACCOUNT:identity/example.com'
-export DNDTOOLS_COGNITO_EMAIL_FROM='Lamplight <account@example.com>'
-infra/deploy.sh identity prod
-```
+|                                    | dev                          | prod                                                                                                  |
+| ---------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Dashboard (`CreateStageDashboard`) | off                          | one `dndtools-<stage>-overview`, owned by `foundation`, every widget a `SEARCH()` on the stage prefix |
+| Alarms (`CreateAlarms`)            | off                          | on                                                                                                    |
+| Alerts-topic encryption            | none                         | customer-managed KMS key                                                                              |
+| Log retention                      | 14 days                      | 90 days                                                                                               |
+| TURN relay                         | torn down; rebuild on demand | always on                                                                                             |
+| Monthly budget ceiling             | $12                          | $20                                                                                                   |
 
-All commands target the `dndtools` profile / `ca-central-1` via each stack's
-`samconfig.toml`.
+Both stages alert to one confirmed address. A `SEARCH` widget is empty both when idle and when
+broken; alarms carry the signal. Never encrypt the topic with `alias/aws/sns`: its policy cannot
+grant CloudWatch access, alarms transition while every notification fails, and nothing in the alarm
+state reveals it.
 
-After each foundation deployment, confirm the SNS subscription email before relying on alarm
-delivery, and verify it against the topic rather than the stack — see "Observability and what it
-costs" below for why stack status is not evidence here. Weekly drift detection and the production
-promotion workflow treat out-of-band stack changes as failures.
-
-## Observability and what it costs
-
-CloudWatch's free allowances are shared **across the whole organisation**, not granted per
-account, and they are consumed as _resource-months_ rather than counted as a headcount. That
-combination produces a bill which appears in the middle of a month for no visible reason, so it
-is worth stating outright:
-
-| Resource   | Free allowance (whole org) | Price beyond it           |
-| ---------- | -------------------------- | ------------------------- |
-| Dashboards | 3                          | $3.00 / dashboard / month |
-| Alarms     | 10                         | $0.10 / alarm / month     |
-| Logs       | 5 GB ingested              | $0.50 / GB                |
-
-This project learned the mechanic the expensive way, and the shape of the failure is the reason
-the stacks are arranged the way they now are.
-
-Through August 2026 the org held **eight** dashboards (four in dev, three in prod, one in a
-neighbouring account) and **twenty-four** alarms. Eight dashboards exhaust three dashboard-months
-in three-eighths of a month, so CloudWatch billed exactly $0.00 until 12 August and then $0.85/day
-for the rest of it. August came to $40.16 against July's $12.14; $15.89 of the rise was CloudWatch
-and $14.54 of that was dashboards. Every one of them was rendering empty widgets, because neither
-stage has ever served a Lambda invocation. Meanwhile the dev budget's $15 ceiling was breached at
-$19.33 and the alert went to an address nobody was watching.
-
-Three lessons are encoded in the templates now:
-
-1. **Three dashboards is a hard org-wide budget**, not a per-account one. Prod holds one; dev's is
-   off by default; the third slot is deliberately left spare.
-2. **A green alarm is not a delivered alarm.** Dev's thirteen alarms fired into a topic with no
-   confirmed subscriber for their entire life. They were never observability.
-3. **A ceiling you never approach cannot detect a regression.** A 3x cost increase sat entirely
-   inside prod's then-$40 budget without tripping it.
-
-### One dashboard per stage, owned by `foundation`
-
-The four per-stack dashboards (`app-api`, `sync-api`, `signaling`, `identity`) are gone. There is
-now a single `dndtools-<stage>-overview`, defined in `foundation`, carrying every widget the four
-used to carry plus the TURN heartbeat that none of them showed.
-
-It lives in `foundation` because a dashboard is a **stage-level** object: there is one per stage
-however many stacks exist, and `foundation` is the only stack guaranteed to deploy before all of
-them. That ordering is also the design constraint — `foundation` deploys _first_, so it cannot
-look up the service stacks' Lambda names, and those names are CloudFormation-generated
-(`dndtools-dev-app-api-AppFn-u8Pu5Apml7Gx`), so they cannot be hardcoded either.
-
-Every widget therefore uses a metric `SEARCH()` expression matched on the `dndtools-<stage>`
-prefix that all of them share. That buys three things worth keeping:
-
-- no cross-stack lookup, so no deploy-order coupling and no `ParameterNotFound`;
-- a new function, API or queue appears on the dashboard with no template change;
-- deploying it before any service stack exists is fine — a `SEARCH` over an empty namespace
-  renders an empty widget instead of failing.
-
-The cost of that choice: a widget is empty both when the stage is idle and when it is broken.
-**Alarms, not this dashboard, are what tell you something is wrong.**
-
-The one non-`SEARCH`-prefixed widget is "Opt-in product analytics events" (ADR-036), which searches
-the `dndtools/Analytics` namespace the `app-api` stack's `TelemetryFn` emits as EMF, dimensioned
-`{Stage, Event}`. Six custom metrics per stage, about $1.80/month, and only once somebody has
-consented — an empty widget there means nobody opted in, which is the expected steady state.
-See `docs/development/PRODUCT_ANALYTICS.md`.
-
-### The dev/prod split
-
-|                                    | dev                          | prod                     |
-| ---------------------------------- | ---------------------------- | ------------------------ |
-| Dashboard (`CreateStageDashboard`) | off                          | on                       |
-| Alarms (`CreateAlarms`)            | off                          | on                       |
-| Alerts-topic encryption            | none                         | customer-managed KMS key |
-| Log retention                      | 14 days                      | 90 days                  |
-| TURN relay                         | torn down; rebuild on demand | always on                |
-| Monthly budget ceiling             | $12                          | $20                      |
-
-Dev is not unmonitored. It keeps the two controls that catch the failure that actually happened —
-the **Budget** and **Cost Anomaly Detection**, both free, both now pointed at `jade@sieb.net` —
-and drops the ones that were costing money while notifying nobody.
-
-To turn dev observability on for a debugging session, then put it back:
-
-```bash
-DNDTOOLS_CREATE_ALARMS=true infra/deploy.sh app-api dev     # alarms for one stack
-# dashboard: flip CreateStageDashboard=true in infra/foundation/samconfig.toml, deploy, revert
-infra/deploy.sh foundation dev
-```
-
-Leaving either switched on in dev is what the org's spare dashboard slot and alarm headroom are
-for — it is affordable for days, not for months. Put them back when you are done.
-
-### Verifying that an alert can actually leave the account
-
-Confirm the SNS subscription email after every `foundation` deploy. This is necessary but not
-sufficient, and stack status will lie to you about it: an unconfirmed SNS email subscription is
-**deleted by AWS after three days** while CloudFormation still reports the resource
-`CREATE_COMPLETE`. That is exactly the state dev was found in. Check the topic, not the stack:
+An unconfirmed SNS email subscription is deleted by AWS after three days while CloudFormation still
+reports `CREATE_COMPLETE`, so after every `foundation` deploy check the topic, not the stack:
 
 ```bash
 aws sns list-subscriptions-by-topic --topic-arn <arn> --profile <profile> --region ca-central-1
-# a real subscription has a SubscriptionArn; "PendingConfirmation" is not delivery
+aws cloudwatch set-alarm-state --alarm-name <alarm> --state-value ALARM --state-reason test ...
+aws cloudwatch describe-alarm-history --alarm-name <alarm> --history-item-type Action --max-records 1 \
+  --query 'AlarmHistoryItems[].HistoryData' --output text     # expect actionState "Succeeded"
 ```
 
-Then force a transition on a real alarm and confirm the action itself succeeded:
+Turn dev observability on for a debugging session with `DNDTOOLS_CREATE_ALARMS=true infra/deploy.sh
+app-api dev` or `CreateStageDashboard=true` in `foundation/samconfig.toml`, and put it back after.
 
-```bash
-aws cloudwatch set-alarm-state --alarm-name <alarm> --state-value ALARM \
-  --state-reason "delivery test" --profile <profile> --region ca-central-1
-aws cloudwatch describe-alarm-history --alarm-name <alarm> --history-item-type Action \
-  --max-records 1 --profile <profile> --region ca-central-1 \
-  --query 'AlarmHistoryItems[].HistoryData' --output text   # expect actionState "Succeeded"
-aws cloudwatch set-alarm-state --alarm-name <alarm> --state-value OK --state-reason restore ...
-```
+Rebuilding the dev TURN relay: `infra/deploy.sh turn dev` then `infra/deploy.sh signaling dev`. The
+rebuilt relay mints a new secret and Elastic IP that `signaling` bakes in at deploy time, and a
+`signaling` deploy fails with `ParameterNotFound` while `turn` is absent.
 
-### Alerts-topic encryption: the three-way choice
+Alert response: Sev 1 (API 5xx, sign-in outage, TURN down) is checked by request id and release SHA
+in Logs Insights and rolled back by promoting the prior tag after ten minutes of customer impact;
+Sev 2 (Lambda errors or throttles, `BillingWebhookErrorsAlarm`, backup or sync failure, CloudFront
+availability) by route and deployment event; Sev 3 (auth failures, cost anomaly, deploy failure) by
+aggregate counts. Logs are JSON with correlation id, stage, release SHA, operation, error code, and
+latency, and never vault content, prompts, credentials, tokens, emails, or raw IPs. Quarterly:
+restore a synthetic backup, rehearse promoting a previous tag, review OIDC trust and drift, inspect
+cost by tag, validate log redaction.
 
-Prod encrypts the operations topic with the stack's own `AlertsKey`; dev leaves it unencrypted.
-Both deliver. The option that does **not** deliver is the AWS-managed `alias/aws/sns`, whose
-policy cannot grant `cloudwatch.amazonaws.com` access and is not editable — alarms still
-transition to ALARM while every notification fails with "CloudWatch Alarms does not have
-authorization to access the SNS topic encryption key", and nothing in the alarm's state reveals
-it. Encryption was never what was broken; that key's _policy_ was. Never reach for it. The full
-matrix is recorded on `AlertsKey` in `infra/foundation/template.yaml`.
+## Stage configuration
 
-### Rebuilding the dev TURN relay
-
-Dev's `turn` stack was torn down on 2026-09-03 — a `t4g.nano`, an Elastic IP and an 8 GB volume,
-~$7.70/month, running since 1 August for a stage with no traffic. It is a clean rebuild whenever
-LAN/WebRTC work resumes:
-
-```bash
-infra/deploy.sh turn dev
-infra/deploy.sh signaling dev     # REQUIRED after: see below
-```
-
-`signaling` resolves `/dndtools/<stage>/turn/secret-arn` and `/turn/uri` from SSM **at deploy
-time**, so tearing down `turn` deletes parameters that `signaling` needs. The consequences are
-asymmetric and worth knowing before you hit this:
-
-- the already-deployed dev `signaling` stack keeps working — it baked those values in at its last
-  deploy, and holds a secret ARN that no longer resolves;
-- any _new_ dev `signaling` deploy fails with `ParameterNotFound` until `turn` is rebuilt;
-- the rebuilt `turn` mints a **new** shared secret and a **new** Elastic IP, so `signaling` must be
-  redeployed afterwards to pick both up. Dev TURN credentials issued before the teardown are dead.
+Coordinates come only from SSM at `/dndtools/<stage>/...`; credentials and rotation material stay in
+Secrets Manager or protected GitHub environment variables. Feature flags are server-controlled JSON
+at `/dndtools/<stage>/config/feature-flags`, each with an owner and expiry, default off in prod; the
+web bundle only displays the approved capability snapshot and never treats a build-time value as
+authority. `pnpm cloud:stage-config:validate` checks `config/stages/*.json` against
+`config/stage-config.schema.json`. `infra/deploy.sh` passes CLI `--parameter-overrides` for
+`app-api`, which replace the samconfig list wholesale, so values such as `InviteSender` come from SSM
+(`/dndtools/<stage>/app-api/invite-sender`, a bare address) rather than samconfig.
 
 ## Stripe billing parameters (ADR-027)
 
-Billing is switched on per stage by three SSM parameters under `/dndtools/<stage>/billing/`, read
-by the app-api Lambdas **at runtime** (cached five minutes) — nothing about Stripe is baked into a
-template or a deploy. No parameters = billing not configured = every money route answers 503 and
-the app shows its labeled no-payment state. The parameters are written by
-`pnpm billing:bootstrap -- --stage <stage>`, never by hand; the full procedure, cost, and prod
-go-live checklist are in `docs/runbooks/stripe-billing.md`.
-
-| Parameter               | Type         | Purpose                                                    |
-| ----------------------- | ------------ | ---------------------------------------------------------- |
-| `stripe-secret-key`     | SecureString | Stripe API key; its `test`/`live` mode must match `config` |
-| `stripe-webhook-secret` | SecureString | signing secret of the stage's `/billing/webhook` endpoint  |
-| `config`                | String       | JSON: `livemode`, the four price ids, portal configuration |
-
-The stack adds `POST /billing/checkout-session` and `POST /billing/portal-session` (JWT-authed, on
-`AppFn`) and `POST /billing/webhook` (unauthenticated by design — Stripe signs the raw body — on its
-own `BillingWebhookFn` with its own minimal role). Prod carries one extra alarm,
-`BillingWebhookErrorsAlarm`: a failed webhook is money moving without an entitlement. Dev is
-verified end-to-end in Stripe test mode with `infra/verify-billing.sh dev`.
+Billing is switched on per stage by three SSM parameters under `/dndtools/<stage>/billing/`
+(`stripe-secret-key`, `stripe-webhook-secret`, `config`), read by the app-api Lambdas at runtime and
+cached five minutes; nothing about Stripe is in a template. No parameters means every money route
+answers 503. They are written by `pnpm billing:bootstrap -- --stage <stage>`, never by hand
+(`docs/runbooks/stripe-billing.md`). The stack adds `POST /billing/checkout-session` and
+`/billing/portal-session` (JWT) on `AppFn`, `POST /billing/webhook` (Stripe-signed) on its own
+`BillingWebhookFn` with a minimal role, and in prod `BillingWebhookErrorsAlarm`. Dev is verified end
+to end with `infra/verify-billing.sh dev`.
 
 ## Cloud backup security
 
-Cloud backup is opt-in and available only in the desktop app when an OS-backed credential store can
-hold the account-and-vault-scoped client key. Campaign state and operation tails are encrypted before
-upload; v2 AES-GCM envelopes authenticate the account, vault, artifact kind, and revision, and the
-service independently recomputes that context from the verified JWT and route. It stores only bounded
-ciphertext plus approved metadata. DynamoDB points to exact immutable S3 object versions, preventing
-concurrent or stale devices from silently swapping backup ciphertext. Unbound v1 ciphertext must be
-refreshed from its originating local vault and is never restored. Recovery-key export is not available
-yet, so users should keep a local vault backup; losing every authorized device also loses access to the
-cloud copy. Remote play uses separate ephemeral session keys.
+Backup is opt-in and offered only where an OS credential store can hold the client key. V2 AES-GCM
+envelopes authenticate account, vault, artifact kind, and revision, and the service recomputes that
+context from the verified JWT and route. DynamoDB points at exact immutable S3 object versions.
+Unbound v1 ciphertext is never restored. Full model: `docs/security/README.md`.
 
-## Stateful resource lifecycle
+## Stateful resources
 
-CloudFormation retains the app-api table and module/wiki bucket, the sync operation table and
-ciphertext bucket, and the Cognito user pool on both stack deletion and resource replacement. These
-resources contain accounts or customer content; an infrastructure refactor must not also become a
-data-erasure event. Application account deletion remains authoritative and physically purges that
-account's rows, object versions, and Cognito identity before reporting success.
+CloudFormation retains the app-api table and module bucket, the sync operation table and ciphertext
+bucket, and the Cognito user pool on deletion and replacement; a refactor must not become a data
+erasure. Application account deletion stays authoritative and purges rows, object versions, and the
+Cognito identity (sync records a strongly consistent zero-usage proof retired after 45 days; app-api
+verifies it before deleting Cognito last). A retained resource is no longer stack-managed and keeps
+billing until deleted deliberately after the owner and retention requirements are satisfied. The
+signaling tables (TTL session state) and the web-hosting bucket (rebuildable from a release) are
+intentionally not retained; a tooling guardrail inventories every table and bucket so a new one
+cannot skip the decision. These policies protect only CloudFormation operations, not a principal
+with direct delete permissions.
 
-Retention attributes are static CloudFormation metadata, so they apply to both `dev` and `prod`.
-After a replacement or stack deletion, a retained resource is no longer managed by its former stack
-and can continue to incur charges. Record its physical ID, confirm recovery/migration or the approved
-decommission procedure, and delete it explicitly only after the content owner and retention
-requirements have been satisfied. Do not treat a successful stack deletion as proof that retained
-customer data was erased.
+## Post-deploy verification
 
-The signaling connection, room, and attempt tables are intentionally not retained: they contain only
-short-lived TTL session/rate-limit state. The web-hosting bucket is also reconstructable from a signed
-release artifact and is not a customer-data backup. A tooling guardrail inventories every DynamoDB
-table and S3 bucket so a new resource cannot silently bypass this durable-versus-rebuildable decision.
-
-These policies protect only CloudFormation lifecycle operations. They do not stop a principal with
-direct DynamoDB, S3, or Cognito delete permissions; production environment approvals, least-privilege
-deployment credentials, recovery testing, and backups remain separate controls.
+`infra/verify-{signaling,turn,sync,app-api,billing}` exercise the live stacks
+(`pnpm validate:live` runs them for dev; `verify-signaling` refuses prod without `ALLOW_PROD=1`).
+Weekly drift detection (`cloud-drift.yml`) and the promotion workflow treat out-of-band changes as
+failures. TURN TLS, secret rotation, and manual failover: `infra/turn/README.md`.

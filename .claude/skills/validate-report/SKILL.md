@@ -54,11 +54,11 @@ Exit codes: `0` all required checks passed · `1` at least one required check fa
 
 ## Reading `feature-audit` specifically
 
-`pnpm feature-audit` (also the `audit` layer's only check) does three things: extracts the newest "honest stubs remaining" list from the feature-gap ledger, greps live code for stub markers (`TODO/FIXME/XXX/HACK`, "coming soon", …), and flags any React screen with no core-dispatch reference as *presentation-only — verify*.
+`pnpm feature-audit` (also the `audit` layer's only check) does three things: parses the inventory tables in `docs/requirements/FEATURE-GAPS.md` and **fails** on any honest-limit anchor whose string is gone from its file, greps live code for stub markers (`TODO/FIXME/XXX/HACK`, "coming soon", …), and flags any React screen with no core-dispatch reference as *presentation-only — verify*.
 
 The ledger it parses is `docs/requirements/FEATURE-GAPS.md`. If that file cannot be read, the audit sets `gapsMissing: true`, prints a `⚠ Ledger not found` banner, escalates to `warn`, and (as a standalone run) exits non-zero — because an empty declared-stub list must mean *unknown*, never *none*. It previously swallowed the error and silently reported `None declared`, which hid a moved ledger for weeks; if you ever see a suspiciously clean stub list, check `generatedFrom` and `gapsMissing` in `feature-audit.json` first.
 
-A healthy run currently reports ~9 declared stubs. `0 declared stubs` is a signal to investigate, not to celebrate.
+A healthy run reports a few dozen declared limits with `0 stale`. `0 declared` is a signal to investigate, not to celebrate.
 
 ## Before you report a validate run as green
 

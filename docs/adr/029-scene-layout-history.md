@@ -1,6 +1,6 @@
 # ADR-029: Scene Layout History
 
-- Status: Accepted
+- Status: Accepted (amended 2026-09-05)
 - Date: 2026-09-04
 - Deciders: Engineering
 - Consulted: Product, Design, QA
@@ -175,62 +175,19 @@ older builds don't silently drop tombstones they don't know how to read.
 - Known rollback risk: a scene mid-TTL at rollback time keeps its existing tombstones until the next
   edit touches it (same as the normal sweep timing) — cosmetic only, no correctness impact.
 
-## Amendment — RC-CAN-1.2 as built (2026-09-05)
+## Amendments as built (RC-CAN-1.2, RC-CAN-1.3, 2026-09-05)
 
-The tombstone half of §2 shipped with three deliberate departures from the decision above. The
-decision itself — destroy is a durable soft delete, `scene.restore-widget` puts the same instance
-back, retention is bounded — is unchanged.
+The decision stands; four details settled differently and are the shipped contract, documented in
+`docs/architecture/SCENE_HISTORY.md`:
 
-1. **Retention is 30 days, not 7.** `WIDGET_TOMBSTONE_RETENTION_DAYS = 30` in
-   `packages/core/src/state/scene-state.ts`, matching the plan of record
-   (`docs/planning/RC_ROADMAP.md`, RC-CAN-1.2) rather than this ADR's earlier 7. A scene's bin is
-   small (one record per destroyed widget) and a month comfortably covers "we cleaned up before the
-   break and want that back"; the storage argument for 7 days was never load-bearing.
-2. **No `Scene.schemaVersion` bump.** `tombstones` is an OPTIONAL field, so a scene persisted before
-   it existed hydrates as a scene with an empty bin with no migration at all, and a scene whose bin
-   is empty drops the field entirely (`withTombstones`). That is guardrail 3's "prefer additive
-   fields" taken to its conclusion: there is no shape a reader can encounter that it cannot read, so
-   there is nothing for a version bump to protect. Older builds ignore the field rather than
-   silently dropping it, because nothing in the persistence path filters unknown keys.
-3. **Expiry is evaluated on read and pruned on the next tombstone mutation**, not swept from a
-   lifecycle tick. An expired tombstone is never restorable (`isRestorableTombstone` gates the
-   restore handler), and the destroy/restore handlers drop expired records as they pass. This keeps
-   the core free of a background clock, so replaying the same op log against the same environment
-   produces byte-identical state — the §2 "sweep timing is cosmetic" note, made structural.
-
-Also as built: a tombstone stores the widget's `index` in `Scene.widgets` alongside its section, so
-destroy → restore of a middle widget is byte-identical rather than moving it to the end; and a widget
-whose package was removed or disabled while it sat in the bin comes back as the same disabled
-placeholder those commands leave on live instances, so the undo always succeeds without pretending
-the widget works. `buildWidgetInverse` now inverts `scene.destroy-widget` to `scene.restore-widget`
-(it was refused in RC-CAN-1.1 pending this command), and `UNDOABLE_COMMAND_TYPES` maps the pair.
-
-## Amendment — RC-CAN-1.3 as built (2026-09-05)
-
-The app half of §1 shipped, with three departures from the decision above.
-
-1. **The hook is `apps/gm-react/src/app/canvas/useLayoutHistory.ts`, not a hook under
-   `screens/scenes`.** Two screens own a canvas — `screens/Board.tsx` (`/board`, bounded policy) and
-   `screens/sceneEditor/index.tsx` (`/scene/:id`, free canvas) — and they share one engine,
-   `app/SceneBoardCanvas.tsx`. A stack living in either screen would have had to be reinvented in the
-   other. Depth is 50 (`MAX_LAYOUT_HISTORY`), per the plan of record; the ADR named no depth.
-2. **The hook takes the runtime as an argument instead of reading `useRuntime()`.** That is what lets
-   the stack be exercised against a plain Core state holder in `useLayoutHistory.test.tsx` — which is
-   the only place a `scene.resize-widget` undo can be tested at all, because every widget that ships
-   today is `system` tier and the canvas gives system widgets no resize handle and swallows their
-   `Shift+Arrow`. The end-to-end acceptance in `canvas.spec.ts` therefore covers undo of a move and
-   of a destroy on both profiles, and the resize case is covered as a unit.
-3. **Undo of `scene.add-widget` is not wired.** §1 says the app routes an add-undo to
-   `scene.destroy-widget` using the id off the `scene.widget-added` event. The screens' guarded
-   `dispatch` returns only whether the command was accepted, so the minted id is not in reach without
-   widening that seam; `buildWidgetInverse` honestly returns `null`, and the hook records nothing
-   rather than pushing a step that would do the wrong thing. Adding a widget therefore leaves the
-   stack alone. HANDOFF: routing it needs `dispatch` to surface the accepted result's events.
-
-Also as built: removing a widget no longer stages a confirm dialog on either screen. The dialog
-existed because a destroy could not be taken back; RC-CAN-1.2 made it reversible, so the removal
-happens at once and offers "Undo" in a toast that never auto-dismisses (`Toast.jsx` pins any toast
-carrying an action, WCAG 2.2.1), backed by the same `scene.restore-widget` the stack dispatches for
-`Ctrl+Z`. The canvas hosts a permanent `role="status"` region that announces "Undone: moved Timer" /
-"Redone: moved Timer"; it is re-keyed on a sequence number so repeating an identical reversal is
-announced every time rather than being swallowed as an unchanged string.
+1. Retention is 30 days (`WIDGET_TOMBSTONE_RETENTION_DAYS`), not 7, matching the plan of record.
+2. No `Scene.schemaVersion` bump: `tombstones` is an optional field an older reader ignores, so a
+   pre-existing scene hydrates with an empty bin and there is nothing for a bump to protect.
+3. Expiry is evaluated on read and pruned on the next tombstone mutation, not swept by a lifecycle
+   tick, so replaying an op log stays byte-identical. A tombstone also stores the widget's array
+   index, so restore is byte-identical; `buildWidgetInverse` inverts destroy to restore.
+4. The undo hook lives at `apps/gm-react/src/app/canvas/useLayoutHistory.ts` (shared by the board and
+   the scene editor through `SceneBoardCanvas.tsx`), takes the runtime as an argument, and does not
+   wire an undo for `scene.add-widget`, because the screens' guarded `dispatch` does not surface the
+   minted id (HANDOFF: widen `dispatch` to return accepted events). Destroy no longer confirms; it
+   offers Undo in a pinned toast.

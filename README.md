@@ -1,71 +1,52 @@
 # Lamplight
 
-A canvas-first command platform for tabletop RPG play. Content, tools, and AI compose into a
-single spatial workspace — the **Command Center** — where the GM runs sessions, maps, and
-characters.
+A canvas-first command platform for tabletop RPG play. Content, tools, and AI compose into one
+spatial workspace where the GM runs sessions, maps, and characters. Local-first, system-agnostic,
+and playable across a table or across the internet.
 
-This repository is a pnpm workspace. The **GM app** (`apps/gm-react`) is the primary application;
-the platform-independent **processing core** (`packages/core`) is shared by every surface.
-
-## Layout
+This repository is a pnpm workspace:
 
 ```text
-apps/
-  gm-react/    @dndtools/gm-react — the GM command platform (Vite + React 18, browser-first,
-               plus Electron desktop and Capacitor Android shells and LAN/cloud remote play)
-packages/
-  core/        @dndtools/core     — the processing core (commands, reducers, permissions, queries)
-  cloud-fns/   @dndtools/cloud-fns — AWS Lambda handlers for signaling + encrypted backup
-infra/         — AWS SAM stacks for the opt-in cloud backend (see infra/README.md)
-docs/          — architecture, ADRs, requirements, design, development, planning, reference
-scripts/       — workspace tooling (boundary lint, quality gates, a11y/token lints, validate harness)
-tests/         — repo-level tooling/guardrail tests
-archive/       — retired code kept for reference only (the original Svelte GM app); not built
+apps/gm-react/       @dndtools/gm-react — the GM app (Vite + React 18) with Electron desktop and
+                     Capacitor Android shells, LAN and cloud remote play, and the installable web app
+packages/core/       @dndtools/core     — the framework-free processing core (commands, reducers,
+                     permissions, queries, schemas, registries)
+packages/cloud-fns/  @dndtools/cloud-fns — Lambda handlers for signaling, E2EE sync, app-api, billing
+infra/               AWS SAM stacks for the opt-in cloud backend
+docs/                architecture, decisions, design, development, runbooks, planning, security
+scripts/, tests/     workspace tooling, gates, the validate harness, repo guardrail tests
+tools/loop/          the autonomous RC loop's roadmap parser and prompts
+archive/gm-svelte/   the retired SvelteKit app (tag svelte-gm-final); not built
 ```
 
-The repository layout and the decision to make React the primary GM surface are recorded in the
-[ADRs](docs/adr/README.md). See [`docs/README.md`](docs/README.md) for the full documentation map.
-
-> The GM app was first built in SvelteKit. As of the React pivot it is maintained in React
-> (`apps/gm-react`); the Svelte app is preserved at `archive/gm-svelte` and the git tag
-> `svelte-gm-final`. The earlier v1 document-editor is preserved at the tag `v1-final`.
+Start at [`docs/README.md`](docs/README.md). Setup and standards are in
+[`docs/development/DEVELOPMENT.md`](docs/development/DEVELOPMENT.md); the alpha install guide for
+end users is [`apps/gm-react/INSTALL-ALPHA.md`](apps/gm-react/INSTALL-ALPHA.md).
 
 ## Commands
 
 ```bash
-pnpm install          # install the workspace
-pnpm dev              # start the React GM app dev server (:5273)
-pnpm build            # build core, cloud functions, and the React GM app
-pnpm typecheck        # typecheck core, cloud functions, and the React GM app
-pnpm test             # core + cloud/transport + app + repo tooling unit tests
-pnpm e2e              # Playwright (desktop + mobile Chromium) against the React app
-pnpm a11y:gate        # non-text contrast + axe accessibility gate
-pnpm lint             # eslint + boundary lint + non-text contrast lint
-pnpm lint:boundary    # processing/display + platform-primitive boundary lint
-pnpm gates            # tiered quality-gate registry enforcement
-pnpm check            # gates + boundary lint + typecheck + tests
-pnpm validate         # whole-application validation harness (staged, capability-gated)
-pnpm desktop:dev      # run the Electron desktop shell against the dev server
-pnpm --filter @dndtools/gm-react android:sync # build and synchronize the Android project
+pnpm install
+pnpm dev              # React app on :5273
+pnpm build            # core, cloud functions, then the app
+pnpm typecheck
+pnpm test             # core + cloud + app + tooling unit suites
+pnpm e2e              # Playwright on desktop and mobile Chromium
+pnpm a11y:gate        # contrast lints + axe gate
+pnpm lint             # eslint + boundary lint + contrast lint
+pnpm check            # Android preflight + gates + boundary lint + typecheck + tests
+pnpm validate         # whole-application harness
+pnpm desktop:dev      # Electron shell against the dev server
 ```
 
 ## Boundaries
 
-- `@dndtools/core` is platform-independent: no React, Svelte, DOM, Node, Electron, Capacitor,
-  cloud, or app-runtime imports. Enforced mechanically by `scripts/boundary-lint.ts`.
-- `@dndtools/gm-react` owns rendering, platform services (Dexie/IndexedDB), remote-play transport,
-  and command dispatch; it depends on `@dndtools/core` via `workspace:*` and never mutates durable
-  state directly — all changes flow through commands into the processing core.
-- Browser, Electron, and Android consume the centralized `PlatformCapabilities` contract. Native
-  integrations stay in `apps/gm-react/electron` and `apps/gm-react/android`; the shared core never
-  imports them.
+- `@dndtools/core` imports no React, DOM, Node, Electron, Capacitor, or cloud code. Enforced by
+  `scripts/boundary-lint.ts`.
+- The app owns rendering, platform services, transport, and command dispatch; every durable change
+  flows through a command into the core, and every read is actor-scoped so players never see
+  DM-private content.
+- Browser, Electron, and Android consume one `PlatformCapabilities` contract; native code stays
+  under `apps/gm-react/electron` and `apps/gm-react/android`.
 
-Android build, installation, signing, backup, and alpha limitations are documented in the
-[Android alpha runbook](docs/runbooks/android-alpha.md).
-
-## History
-
-The prior v1 document-editor application has been retired (tag `v1-final`). The GM command platform
-was then built as a remake, first in SvelteKit (tag `svelte-gm-final`, now at `archive/gm-svelte`)
-and now in React (`apps/gm-react`). The dated planning, audit, and requirements artifacts from the
-remake have been pruned from the tree and remain recoverable in git history.
+The v1 document editor is preserved at tag `v1-final`; the SvelteKit remake at `svelte-gm-final`.

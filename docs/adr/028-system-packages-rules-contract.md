@@ -1,6 +1,6 @@
 # ADR-028: System Packages as the Rules Contract
 
-- Status: Accepted
+- Status: Accepted (implementation note 2026-09-05)
 - Date: 2026-09-04
 - Deciders: Engineering
 - Consulted: Product, Design
