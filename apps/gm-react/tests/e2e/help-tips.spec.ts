@@ -20,7 +20,8 @@ test.describe('contextual help tips', () => {
 		const trigger = page.getByRole('button', { name: 'About vault privacy mode' });
 		await expect(trigger).toHaveAttribute('aria-expanded', 'false');
 
-		await trigger.click();
+		await trigger.focus();
+		await page.keyboard.press('Enter');
 		const tip = page.getByRole('dialog', { name: 'Vault privacy mode' });
 		await expect(tip).toBeVisible();
 		await expect(tip).toContainText('only your devices hold the keys');
