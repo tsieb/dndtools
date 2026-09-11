@@ -66,3 +66,11 @@ port, so on a shared host pick ports no other checkout is using. `taskset -c 0-3
 approximates the 4-vCPU hosted runner.
 Actual five-run CI evidence must come from the workflow artifact; fixture
 unit tests do not establish shared-runner timing stability.
+
+Push, pull-request and scheduled runs capture the commit that triggered them. To
+get hosted evidence for any other revision, such as a task branch before it
+merges, dispatch the workflow by hand with the `ref` input set to a branch, tag or
+full commit SHA:
+`gh workflow run perf.yml --ref main -f ref=<branch-or-sha>`. The job checks that
+ref out and runs _its_ `ci.sh` and capture harness, so the ref must already contain
+this pipeline. The SHA it measured is the `commit` in every `current-N.json`.

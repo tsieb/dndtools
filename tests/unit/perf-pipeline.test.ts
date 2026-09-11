@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
+import YAML from 'yaml';
 import { PERFORMANCE_BUDGETS } from '@dndtools/core';
 import { interleavedOrder } from '../../scripts/perf/capture';
 import type { BaselineComparison } from '@dndtools/core';
@@ -126,6 +127,17 @@ describe('shared runner performance', () => {
 			expect(() => verifyStability(reports)).toThrow();
 		}
 		expect(() => verifyStability([report()])).toThrow();
+	});
+	it('lets a manual run capture any ref with the full history the reference worktree needs', () => {
+		const perf = YAML.parse(readFileSync('.github/workflows/perf.yml', 'utf8'));
+		const input = perf.on.workflow_dispatch.inputs.ref;
+		expect(input).toMatchObject({ required: false, type: 'string', default: '' });
+		const checkout = perf.jobs.measure.steps.find((step: { uses?: string }) =>
+			step.uses?.startsWith('actions/checkout@'),
+		);
+		expect(checkout.with).toMatchObject({ ref: '${{ inputs.ref }}', 'fetch-depth': 0 });
+		// Two manual runs of different refs must not cancel each other.
+		expect(perf.concurrency.group).toMatch(/^perf-\$\{\{ inputs\.ref \|\| /);
 	});
 	it('writes and grades a real-shaped CI baseline, requires like hardware and detects regression', () => {
 		const dir = mkdtempSync(join(tmpdir(), 'perf-ci-test-'));

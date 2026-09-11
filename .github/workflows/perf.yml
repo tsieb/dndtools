@@ -26,10 +26,17 @@ on:
       - 'pnpm-lock.yaml'
       - '.github/workflows/perf.yml'
       - '.github/actions/setup-e2e/**'
+  # A manual run can capture any ref, so an unmerged candidate gets hosted evidence before it lands.
   workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, tag or full commit SHA to capture as the candidate (blank: the branch run from)'
+        required: false
+        type: string
+        default: ''
 
 concurrency:
-  group: perf-${{ github.event.pull_request.base.ref || github.ref }}
+  group: perf-${{ inputs.ref || github.event.pull_request.base.ref || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -44,7 +51,11 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          # Blank on push, pull_request and schedule, which keeps checkout's own default. The capture
+          # records the checked-out SHA, so every run file names the exact revision it measured.
+          ref: ${{ inputs.ref }}
           persist-credentials: false
+          # Full history: ci.sh checks out the pinned reference SHA into a second worktree.
           fetch-depth: 0
 
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
