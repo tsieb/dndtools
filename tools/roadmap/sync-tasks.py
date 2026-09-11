@@ -21,13 +21,16 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-DISPATCHER = ROOT.parent / "agent-dispatcher"
+DISPATCHER = Path(os.environ.get("AGENT_DISPATCHER", ROOT.parent / "agent-dispatcher"))
+if not DISPATCHER.exists():  # a scratch worktree lives elsewhere; the dispatcher does not move
+    DISPATCHER = Path.home() / "Programming/agent-dispatcher"
 ROADMAP = "docs/planning/RC_ROADMAP.md"
 PREFIXES = ["apps/gm-react/src", "apps/gm-react", "packages/core/src", "packages/core"]
 KNOWN_ROOTS = ("apps/", "packages/", "docs/", "scripts/", "tests/", ".github/", "infra/", "tools/")
