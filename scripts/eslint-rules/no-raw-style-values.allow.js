@@ -267,7 +267,7 @@ export const allow = {
 	'apps/gm-react/src/screens/settings/SyncPrivacy.tsx': 3,
 	'apps/gm-react/src/screens/settings/Tools.tsx': 4,
 	'apps/gm-react/src/screens/settings/Vault.tsx': 5,
-	'apps/gm-react/src/screens/Upgrade.tsx': 58,
+	'apps/gm-react/src/screens/Upgrade.tsx': 56,
 	'apps/gm-react/src/screens/WikiReader.tsx': 21,
 };
 

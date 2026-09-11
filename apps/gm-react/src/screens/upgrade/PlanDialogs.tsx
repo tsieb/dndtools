@@ -108,21 +108,28 @@ export function ChangePlanDialog({
 				</>
 			}
 		>
-			<div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 12 }}>
+			<div
+				style={{
+					display: 'flex',
+					alignItems: 'baseline',
+					gap: T.space.oneHalf,
+					marginBottom: T.space.three,
+				}}
+			>
 				<span style={{ font: `700 28px ${T.mono}`, color: T.ink }}>{price}</span>
 				<span style={{ font: `13px ${T.sans}`, color: T.ter }}>{per}</span>
 				<span style={{ marginLeft: 'auto', font: `12px ${T.sans}`, color: T.sub }}>
 					{target.tagline}
 				</span>
 			</div>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.two }}>
 				{target.features.map((f: string) => (
 					<span
 						key={f}
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 8,
+							gap: T.space.two,
 							font: `12.5px ${T.sans}`,
 							color: T.sub,
 						}}
@@ -137,17 +144,17 @@ export function ChangePlanDialog({
 					style={{
 						display: 'flex',
 						alignItems: 'flex-start',
-						gap: 8,
-						marginTop: 14,
-						padding: '11px 13px',
-						borderRadius: 9,
+						gap: T.space.two,
+						marginTop: T.space.three,
+						padding: `${T.space.three} ${T.space.three}`,
+						borderRadius: T.radius.md,
 						background: 'var(--color-status-warning-subtle)',
 						border: `1px solid ${T.warn}`,
 						font: `12px/1.5 ${T.sans}`,
 						color: T.sub,
 					}}
 				>
-					<span style={{ marginTop: 1 }}>
+					<span style={{ marginTop: T.space.half }}>
 						<Icon name="warning" size={14} color={T.warn} />
 					</span>
 					<span>{t('upgrade.dialog.cloudWarning')}</span>
@@ -158,17 +165,17 @@ export function ChangePlanDialog({
 				style={{
 					display: 'flex',
 					alignItems: 'flex-start',
-					gap: 8,
-					marginTop: 14,
-					padding: '10px 12px',
-					borderRadius: 9,
+					gap: T.space.two,
+					marginTop: T.space.three,
+					padding: `${T.space.two} ${T.space.three}`,
+					borderRadius: T.radius.md,
 					background: T.accSub,
 					border: `1px solid ${T.accBd}`,
 					font: `11.5px/1.5 ${T.sans}`,
 					color: T.sub,
 				}}
 			>
-				<span style={{ marginTop: 1 }}>
+				<span style={{ marginTop: T.space.half }}>
 					<Icon name="info" size={13} color={T.acc} />
 				</span>
 				<span>
@@ -227,18 +234,25 @@ export function CheckoutDialog({
 				</>
 			}
 		>
-			<div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 12 }}>
+			<div
+				style={{
+					display: 'flex',
+					alignItems: 'baseline',
+					gap: T.space.oneHalf,
+					marginBottom: T.space.three,
+				}}
+			>
 				<span style={{ font: `700 28px ${T.mono}`, color: T.ink }}>{price}</span>
 				<span style={{ font: `13px ${T.sans}`, color: T.ter }}>{per}</span>
 			</div>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.two }}>
 				{target.features.map((f: string) => (
 					<span
 						key={f}
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 8,
+							gap: T.space.two,
 							font: `12.5px ${T.sans}`,
 							color: T.sub,
 						}}
@@ -252,17 +266,17 @@ export function CheckoutDialog({
 				style={{
 					display: 'flex',
 					alignItems: 'flex-start',
-					gap: 8,
-					marginTop: 14,
-					padding: '10px 12px',
-					borderRadius: 9,
+					gap: T.space.two,
+					marginTop: T.space.three,
+					padding: `${T.space.two} ${T.space.three}`,
+					borderRadius: T.radius.md,
 					background: T.accSub,
 					border: `1px solid ${T.accBd}`,
 					font: `11.5px/1.5 ${T.sans}`,
 					color: T.sub,
 				}}
 			>
-				<span style={{ marginTop: 1 }}>
+				<span style={{ marginTop: T.space.half }}>
 					<Icon name="ShieldCheck" size={13} color={T.acc} />
 				</span>
 				<span>{t('upgrade.dialog.stripeNote')}</span>
