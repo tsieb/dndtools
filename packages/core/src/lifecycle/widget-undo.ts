@@ -1,3 +1,4 @@
+import { undoableDuplicateWidgetInputSchema } from '../commands/widget';
 import type { ZodType } from 'zod';
 import type { CoreCommand, CoreStateSlice } from '../commands/types';
 import {
@@ -11,6 +12,7 @@ import {
 	setWidgetFocusOrderInputSchema,
 	// RC-CAN-1.2 — destroy is now invertible through the durable restore command.
 	destroyWidgetInputSchema,
+	restoreWidgetInputSchema,
 } from '../schemas/commands';
 import type { Scene, WidgetInstance } from '../state/scene-state';
 
@@ -41,8 +43,8 @@ import type { Scene, WidgetInstance } from '../state/scene-state';
  *     an add-undo to `scene.destroy-widget` using the id off the `scene.widget-added` event it
  *     already received, rather than duplicating a second removal path here.
  *   - `scene.group-widgets` and `scene.add-widget` stay refused for the reasons above.
- *   - `scene.duplicate-widget` (RC-CAN-2.4) mints the copy's id too, and emits the same
- *     `scene.widget-added` event, so it is refused on the same terms as an add.
+ *   - `scene.duplicate-widget` is invertible when the caller supplies a fresh `copyId`.
+ *     Without it the handler mints the id and the builder returns null, as for an add.
  *
  * RC-CAN-1.2 closed the destroy case: `scene.destroy-widget` now leaves a tombstone carrying the
  * whole instance, so its inverse is `scene.restore-widget` addressed by the SAME instance id — which
@@ -282,9 +284,41 @@ export function buildWidgetInverse(
 			);
 		}
 
+		case 'scene.duplicate-widget': {
+			const payload = parse(undoableDuplicateWidgetInputSchema, command.payload);
+			if (!payload?.copyId || !widgetOf(stateBefore, payload.sceneId, payload.widgetInstanceId))
+				return null;
+			if (
+				Object.values(stateBefore.scenes.scenes).some(
+					(scene) =>
+						scene.widgets.some((widget) => widget.id === payload.copyId) ||
+						scene.tombstones?.some((entry) => entry.widget.id === payload.copyId),
+				)
+			)
+				return null;
+			return undoable(
+				{
+					type: 'scene.destroy-widget',
+					actorId,
+					payload: { sceneId: payload.sceneId, widgetInstanceId: payload.copyId },
+				},
+				'Duplicated widget',
+			);
+		}
+		case 'scene.restore-widget': {
+			const payload = parse(restoreWidgetInputSchema, command.payload);
+			if (
+				!payload ||
+				!sceneOf(stateBefore, payload.sceneId)?.tombstones?.some(
+					(entry) => entry.widget.id === payload.widgetInstanceId,
+				)
+			)
+				return null;
+			return undoable({ type: 'scene.destroy-widget', actorId, payload }, 'Restored widget');
+		}
+
 		// Not undoable — see the module header for why each one is refused rather than guessed at.
 		case 'scene.add-widget':
-		case 'scene.duplicate-widget':
 		case 'scene.group-widgets':
 			return null;
 

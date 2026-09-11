@@ -933,13 +933,17 @@ function belowColumn(scene: Scene, source: WidgetLayout): { x: number; y: number
  * and binding, joined to the source's section, with a fresh id and fresh local state (a copied timer
  * is not running, a copied dice tile has no roll history — exactly as a newly placed widget starts).
  *
- * Nothing about the copy comes from the caller except where it lands, so a stale client cannot
- * duplicate settings the scene no longer holds. Fails closed on the same terms as `scene.add-widget`:
+ * The caller supplies placement and optionally a fresh copyId for local undo; all copied settings
+ * come from the live scene, so a stale client cannot duplicate settings the scene no longer holds. Fails closed on the same terms as `scene.add-widget`:
  * the actor must co-edit the scene, the declaring package must be installed and enabled, and the
  * binding is re-checked against the DUPLICATING actor — a copy never hands anyone a binding they could
  * not create themselves. A placeholder (its package gone or turned off) or an instance that still needs
  * a definition upgrade is refused rather than copied as a second broken tile.
  */
+export const undoableDuplicateWidgetInputSchema = duplicateWidgetInputSchema.extend({
+	copyId: duplicateWidgetInputSchema.shape.widgetInstanceId.optional(),
+});
+
 export function handleDuplicateWidget(
 	state: CoreStateSlice,
 	env: CoreEnvironment,
@@ -949,7 +953,7 @@ export function handleDuplicateWidget(
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
 
-	const parsed = parseInput(duplicateWidgetInputSchema, rawPayload);
+	const parsed = parseInput(undoableDuplicateWidgetInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
 
 	const scene = requireScene(state, parsed.data.sceneId);
@@ -1000,9 +1004,19 @@ export function handleDuplicateWidget(
 	const bindingCheck = requireBindingCapability(state, actor, source.binding, now);
 	if (bindingCheck) return reject(bindingCheck, state);
 
+	const copyId = parsed.data.copyId ?? env.ids();
+	if (
+		Object.values(state.scenes.scenes).some(
+			(candidate) =>
+				candidate.widgets.some((widget) => widget.id === copyId) ||
+				candidate.tombstones?.some((entry) => entry.widget.id === copyId),
+		)
+	) {
+		return reject({ code: 'invalid-state', message: `Widget ${copyId} already exists.` }, state);
+	}
 	const position = parsed.data.position ?? belowColumn(scene, source.layout);
 	const widget: WidgetInstance = {
-		id: env.ids(),
+		id: copyId,
 		type: source.type,
 		version: source.version,
 		layout: widgetLayoutFromAdd(

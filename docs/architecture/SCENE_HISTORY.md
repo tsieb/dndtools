@@ -14,7 +14,7 @@ survive a refresh and reach other devices, is durable but bounded.
 `buildWidgetInverse(command, stateBefore)` (`packages/core/src/lifecycle/widget-undo.ts`) mirrors
 the map editor's `buildMapInverse`: given an accepted command and the prior scene state it returns
 the exact inverse, or `null` when inversion is ambiguous. Covered: `widget.move`, `resize`, `layer`,
-`dock`, `pin`, `set-focus-order`, `configure`, `group-widgets`, `move-group`, and
+`dock`, `pin`, `set-focus-order`, `configure`, `move-group`, and
 `scene.destroy-widget` (inverts to `scene.restore-widget`). Not covered: `scene.add-widget` (the
 minted id is not in `stateBefore`, and the screens' guarded `dispatch` does not surface it, so
 adding a widget leaves the stack untouched) and `scene.group-widgets` (a fresh group id with no
@@ -28,8 +28,13 @@ the normal `SceneRuntime.dispatch`. Keyboard: `Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z`, 
 `app/SceneBoardCanvas.tsx`.
 
 `scene.duplicate-widget` (RC-CAN-2.4) copies a widget through the core and emits
-`scene.widget-added`. Without a caller-supplied identity its minted ID is absent from
-`stateBefore`, so the inverse builder cannot identify the new instance.
+`scene.widget-added`. The tile menu allocates `copyId` through `runtime.newId()` and calls
+`history.run`, so the inverse can destroy that exact copy. The handler validates the optional
+ID with an additive schema in `commands/widget.ts` and rejects collisions with live widgets or
+tombstones. Redo restores the tombstone with the same ID, settings, binding and section membership.
+`scene.restore-widget` also has an inverse, so repeated undo/redo remains exact. Callers omitting
+`copyId` retain the handler-minted identity behavior; their inverse is `null` because the new ID
+is absent from `stateBefore`.
 
 ## 3. Durable tombstones for destroy
 
@@ -57,6 +62,6 @@ that never auto-dismisses (`Toast.jsx` pins any toast with an action). The canva
 | Map inverse builder (precedent)   | `packages/core/src/lifecycle/map-undo.ts`                                           |
 | Tombstone type, retention, reader | `packages/core/src/state/scene-state.ts`                                            |
 | `scene.restore-widget`            | `packages/core/src/commands/widget.ts`                                              |
-| `scene.duplicate-widget` | `handleDuplicateWidget` in `packages/core/src/commands/widget.ts` |
+| `scene.duplicate-widget`          | `handleDuplicateWidget` in `packages/core/src/commands/widget.ts`                   |
 | Undo/redo hook                    | `apps/gm-react/src/app/canvas/useLayoutHistory.ts`                                  |
 | E2E                               | `apps/gm-react/tests/e2e/canvas.spec.ts` (undo a move and a destroy, both profiles) |

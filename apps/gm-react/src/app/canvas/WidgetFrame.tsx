@@ -1,3 +1,4 @@
+import type { LayoutHistory } from './useLayoutHistory';
 import { useMemo, useRef } from 'react';
 import { Icon } from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -100,6 +101,7 @@ const BINDING_GLYPH: Record<TileBindingState, { icon: string; label: string; ton
 };
 
 export interface WidgetFrameProps {
+	history?: LayoutHistory;
 	w: BoardWidget;
 	x: number;
 	y: number;
@@ -139,6 +141,7 @@ export function WidgetFrame({
 	onStartMove,
 	onStartResize,
 	onCommand,
+	history,
 }: WidgetFrameProps) {
 	const chip = visibilityChip(w.visibility);
 	const placeholder = w.status !== 'available';
@@ -360,6 +363,7 @@ export function WidgetFrame({
 			{editing && (
 				<TileActionMenu
 					handle={menuRef}
+					history={history}
 					w={w}
 					scale={scale}
 					resizable={resizable}

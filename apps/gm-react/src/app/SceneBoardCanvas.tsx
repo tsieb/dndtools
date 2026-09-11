@@ -560,6 +560,7 @@ export function SceneBoardCanvas({
 		return (
 			<WidgetFrame
 				key={w.id}
+				history={history}
 				w={w}
 				x={pos.x}
 				y={pos.y}

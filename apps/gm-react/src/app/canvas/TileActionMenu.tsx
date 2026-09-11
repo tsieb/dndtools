@@ -1,6 +1,7 @@
+import type { LayoutHistory } from './useLayoutHistory';
 import { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CHARACTER_ENTITY_TYPE, CONTENT_ITEM_ENTITY_TYPE, type CoreEvent } from '@dndtools/core';
+import { CHARACTER_ENTITY_TYPE, CONTENT_ITEM_ENTITY_TYPE, type CoreCommand } from '@dndtools/core';
 import { Button, IconButton, Menu, Toaster } from '../../ds';
 import { ownsEscape, popEscapeLayer, pushEscapeLayer } from '../../platform/escapeLayers';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -47,8 +48,6 @@ const VISIBILITY_ICON: Record<string, string> = {
 };
 
 const SEPARATOR = { height: 1, margin: 'var(--space-1) 0', background: 'var(--color-border)' };
-
-type WidgetAdded = Extract<CoreEvent, { kind: 'scene.widget-added' }>;
 
 /** A duplicate lands a grid step below the lowest tile sharing the source's columns, at the source's
  *  x: never on top of another tile, never past the bounded board's right edge. Everything else about
@@ -104,7 +103,9 @@ function MenuRow(p: RowProps) {
 			aria-label={p.label}
 			data-submenu-parent={p.parent || undefined}
 			tabIndex={-1}
-			onClick={p.onSelect}
+			onClick={() => {
+				if (!p.disabled) p.onSelect();
+			}}
 			style={{ width: '100%', justifyContent: 'flex-start', textAlign: 'left' }}
 		>
 			<span style={{ flex: 1 }}>{p.label}</span>
@@ -113,6 +114,7 @@ function MenuRow(p: RowProps) {
 }
 
 interface TileMenuProps {
+	history?: LayoutHistory;
 	handle: React.Ref<{ open: () => void }>;
 	w: BoardWidget;
 	scale: number;
@@ -131,7 +133,14 @@ interface TileMenuProps {
  * focus; Tab closes and moves on. Portalled to <body>, because inside the canvas's transform layer no
  * z-index can lift it over the canvas's own zoom and history clusters.
  */
-export function TileActionMenu({ handle, w, scale, resizable, entityName }: TileMenuProps) {
+export function TileActionMenu({
+	handle,
+	w,
+	scale,
+	resizable,
+	entityName,
+	history,
+}: TileMenuProps) {
 	const runtime = useRuntime();
 	const anchorRef = useRef<HTMLDivElement | null>(null);
 	const subRef = useRef<HTMLDivElement | null>(null);
@@ -226,24 +235,28 @@ export function TileActionMenu({ handle, w, scale, resizable, entityName }: Tile
 		return result;
 	}
 
-	// A minted id is beyond the undo stack (useLayoutHistory); the copy's own Remove is undoable.
+	// Allocate the identity before dispatch so the existing history can build an exact inverse.
 	async function duplicate() {
 		close();
 		const found = sceneInstance(runtime.state, w.id);
 		if (!found) return;
-		const result = await run({
+		const copyId = runtime.newId();
+		const command: CoreCommand = {
 			type: 'scene.duplicate-widget',
 			actorId: runtime.defaultActorId,
 			payload: {
 				sceneId: found.scene.id,
 				widgetInstanceId: w.id,
 				position: duplicatePosition(found.scene.widgets, found.instance.layout),
+				copyId,
 			},
-		});
-		if (result.status !== 'accepted') return;
+		};
+		const ok = history
+			? await history.run(command, TEXT.duplicated(w.title))
+			: (await run(command)).status === 'accepted';
+		if (!ok) return;
 		Toaster.success(TEXT.duplicated(w.title));
-		const added = result.events.find((e): e is WidgetAdded => e.kind === 'scene.widget-added');
-		if (added) focusWhenMounted(added.widgetInstanceId);
+		focusWhenMounted(copyId);
 	}
 
 	function setVisibility(visibility: string) {
