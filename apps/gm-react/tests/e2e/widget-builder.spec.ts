@@ -387,11 +387,21 @@ test.describe('widget builder: style step (RC-WID-2.4)', () => {
 			await dialog.getByLabel('Description', { exact: true }).fill('Highlight colour.');
 
 			if (custom) {
+				// A second token on a choice outside the bridge's base forwarding list: the frame has
+				// to receive every semantic value the Style step offers, not only the default.
+				await dialog.getByRole('button', { name: 'Add style token' }).click();
+				await dialog
+					.getByLabel('Value', { exact: true })
+					.nth(1)
+					.selectOption('var(--color-surface-sunken)');
 				await dialog.getByRole('button', { name: 'Advanced', exact: true }).click();
 				await dialog.getByRole('radio', { name: 'Custom HTML and JavaScript' }).click();
 				await dialog
 					.getByTestId('widget-builder-code')
-					.fill('<p id="theme-probe" style="color: var(--widget-accent-1)">Theme probe</p>');
+					.fill(
+						'<p id="theme-probe" style="color: var(--widget-accent-1)">Theme probe</p>' +
+							'<p id="theme-probe-sunken" style="color: var(--widget-accent-2)">Sunken probe</p>',
+					);
 			}
 
 			await dialog.getByRole('button', { name: 'Review', exact: true }).click();
@@ -409,8 +419,12 @@ test.describe('widget builder: style step (RC-WID-2.4)', () => {
 			).style;
 			expect(style?.tokens).toEqual([
 				{ name: 'accent-1', value: 'var(--color-accent)', description: 'Highlight colour.' },
+				...(custom ? [{ name: 'accent-2', value: 'var(--color-surface-sunken)' }] : []),
 			]);
-			expect(style?.cssVariables).toEqual({ '--widget-accent-1': 'var(--color-accent)' });
+			expect(style?.cssVariables).toEqual({
+				'--widget-accent-1': 'var(--color-accent)',
+				...(custom ? { '--widget-accent-2': 'var(--color-surface-sunken)' } : {}),
+			});
 
 			// ── Enable, place, select.
 			await page.getByRole('switch', { name: 'Enable Party status' }).click();
@@ -465,9 +479,17 @@ test.describe('widget builder: style step (RC-WID-2.4)', () => {
 				);
 				if (custom) {
 					// Read the guest document, not just the wrapper: iframe CSS does not inherit host CSS.
-					await expect(
-						page.frameLocator(`[data-widget-sandbox="party-status"]`).locator('#theme-probe'),
-					).toHaveCSS('color', await swatch.evaluate((el) => getComputedStyle(el).backgroundColor));
+					const guest = page.frameLocator(`[data-widget-sandbox="party-status"]`);
+					await expect(guest.locator('#theme-probe')).toHaveCSS(
+						'color',
+						await swatch.evaluate((el) => getComputedStyle(el).backgroundColor),
+					);
+					await expect(guest.locator('#theme-probe-sunken')).toHaveCSS(
+						'color',
+						await styleGroup
+							.getByTestId('widget-style-swatch-accent-2')
+							.evaluate((el) => getComputedStyle(el).backgroundColor),
+					);
 				}
 				return {
 					frame: await scope.evaluate((el) =>

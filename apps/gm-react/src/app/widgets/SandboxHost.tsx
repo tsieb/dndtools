@@ -3,12 +3,14 @@ import {
 	findPackageRecordForWidgetType,
 	findWidgetDefinition,
 	resolveCustomWidgetRuntimePolicy,
+	type WidgetDefinition,
 	type WidgetPackageDefinition,
 	type WidgetPackageRecord,
 } from '@dndtools/core';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import type { BoardWidget } from '../board-helpers';
 import type { WidgetCommandHandler } from '../widget-bodies';
+import { SEMANTIC_TOKEN_VALUES } from '../widgetBuilder/vocabulary';
 import { resolveWidgetTemplateData } from './dataEnvironment';
 import { WidgetPlaceholder } from './WidgetPlaceholder';
 import {
@@ -80,6 +82,31 @@ interface SandboxRenderProps {
 
 interface HostFailure {
 	diagnostic: string;
+}
+
+/** The host tokens the builder's Style step offers as `--widget-*` values (`var(--color-…)`). */
+const STYLE_STEP_THEME_TOKENS: readonly string[] = SEMANTIC_TOKEN_VALUES.flatMap(
+	(option) => /^var\((--[a-z0-9-]+)\)$/.exec(option.value)?.[1] ?? [],
+);
+
+/**
+ * The theme variables handed to the frame on `init` (RC-WID-2.4): the bridge's forwarded set, plus
+ * every semantic token the Style step lets a `--widget-*` token point at. A frame does not inherit
+ * host CSS, so a declared `var(--color-surface-sunken)` the bridge's list did not carry would resolve
+ * to nothing inside it. Still gated on `host-theme-tokens`, and still the semantic layer only.
+ */
+export function collectSandboxThemeVariables(
+	definition: WidgetDefinition,
+	read: (token: string) => string,
+): Record<string, string> {
+	const variables = collectThemeVariables(definition, read);
+	if (!(definition.style?.capabilities ?? []).includes('host-theme-tokens')) return variables;
+	for (const token of STYLE_STEP_THEME_TOKENS) {
+		if (token in variables) continue;
+		const value = read(token).trim();
+		if (value !== '') variables[token] = value;
+	}
+	return variables;
 }
 
 export function SandboxHost({
@@ -204,7 +231,7 @@ export function SandboxHost({
 						html: payload.html,
 						css: payload.css,
 						scripts: payload.scripts,
-						themeVariables: collectThemeVariables(definition, (token) =>
+						themeVariables: collectSandboxThemeVariables(definition, (token) =>
 							typeof window === 'undefined'
 								? ''
 								: window.getComputedStyle(document.documentElement).getPropertyValue(token),
