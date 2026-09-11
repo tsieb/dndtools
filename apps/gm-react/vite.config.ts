@@ -2,8 +2,7 @@ import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { OutputBundle } from 'rollup';
-import { defineConfig, loadEnv, type Plugin } from 'vite';
+import { defineConfig, loadEnv, type Plugin, type Rolldown } from 'vite';
 import react from '@vitejs/plugin-react';
 
 const SERVICE_WORKER_SOURCE = fileURLToPath(new URL('./src/sw/service-worker.js', import.meta.url));
@@ -23,7 +22,7 @@ function isPrecachablePublicAsset(fileName: string): boolean {
  * offline. The `.woff` twins of the fonts are left out for the same reason: no browser that can run
  * a service worker asks for them.
  */
-function eagerBundleAssets(bundle: OutputBundle): string[] {
+function eagerBundleAssets(bundle: Rolldown.OutputBundle): string[] {
 	const eager = new Set<string>();
 	const visit = (fileName: string) => {
 		if (eager.has(fileName)) return;
@@ -234,7 +233,9 @@ export default defineConfig(({ mode }) => {
 			// The offline processing core and on-demand monster catalog are intentionally dense but
 			// compress well. Keep warning headroom tight enough to catch a new monolithic route.
 			chunkSizeWarningLimit: 650,
-			rollupOptions: { output: { manualChunks: appManualChunk } },
+			// A single `name()` group is exactly what Rolldown turns the deprecated function-form
+			// `manualChunks` into, so the chunk boundaries are unchanged from the Rollup build.
+			rolldownOptions: { output: { codeSplitting: { groups: [{ name: appManualChunk }] } } },
 		},
 		server: { port: 5273, strictPort: false },
 		preview: { port: 4273, strictPort: false },
