@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -25,7 +26,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 ROADMAP = ROOT / "docs/planning/RC_ROADMAP.md"
-DISPATCHER = ROOT.parent / "agent-dispatcher"
+DISPATCHER = Path(os.environ.get("AGENT_DISPATCHER", ROOT.parent / "agent-dispatcher"))
+if not DISPATCHER.exists():  # a scratch worktree lives elsewhere; the dispatcher does not move
+    DISPATCHER = Path.home() / "Programming/agent-dispatcher"
 ROW = re.compile(r"^\| (RC-[A-Z]+-\d+\.\d+)\s+\|")
 SUMMARY = re.compile(r"^_\d+ stories\. .*_$")
 
