@@ -44,17 +44,56 @@ A green alarm is not proof of delivery — see the operational-alerts history if
 
 ## What to do
 
-1. Open the case in the Support console (the `DescribeCases` API needs a paid support plan, so this
-   cannot be scripted): <https://support.console.aws.amazon.com/support/home#/case/?displayId=178562576600649>
-2. Post the reply below, adjusting anything the verification step contradicts.
-3. AWS typically answers within one business day. On approval, re-check
+**Case `178562576600649` closed unanswered (2026-09-10) and the request is recorded as `DENIED`.**
+A denied request cannot be resubmitted through the API — `aws sesv2 put-account-details
+--production-access-enabled` returns `ConflictException` (aws/aws-cli#6652). It has to go through
+the console.
+
+To get into the prod account's console at all: SSO portal
+<https://d-9d675c34a3.awsapps.com/start> → management account `856108750466` → AdministratorAccess
+→ Management console, then [Switch Role](https://signin.aws.amazon.com/switchrole?roleName=OrganizationAccountAccessRole&account=649320110863&displayName=dndtools-prod)
+into `649320110863`. Prod has no IAM users or SSO assignments of its own.
+
+1. Try, in order, until one works:
+   - Open the old case and choose **Reopen case** if it is offered:
+     <https://support.console.aws.amazon.com/support/home#/case/?displayId=178562576600649>
+   - SES console (ca-central-1) → **Account dashboard** → **Request production access**.
+   - Support Center → **Create case** → **Service limit increase** (free on the Basic plan) →
+     service **SES Sending Limits**, region Canada (Central).
+2. Paste the **Resubmission text** below (verified against live prod 2026-09-10).
+3. AWS typically answers within one business day, and the case closes if left unanswered for 14
+   days — watch `jade-lamplight-admin@sieb.net`. On approval, re-check
    `aws sesv2 get-account --query ProductionAccessEnabled` and then complete one real sign-up on
    lamplight.click with an address that has never been verified in this account — that is the
    acceptance test for RC-CLD-1.1.
 4. If AWS declines again, they will name the specific concern. Do not re-submit the same text;
    answer the concern and update this runbook with what they asked for.
 
-## Reply draft
+## Resubmission text
+
+Plain text, 2,723 characters, every claim checked against prod on 2026-09-10. Note: prod
+`INVITE_SENDER` is still empty, so today only Cognito mail actually goes out; invites start once that
+SSM value is set. The invite Lambda is already bound to the configuration set.
+
+```text
+Lamplight (https://lamplight.click) is a tabletop RPG campaign-management web and desktop app. This is a resubmission. Our previous request (case 178562576600649) asked for detail on volume, list hygiene, and bounce and complaint handling, and it closed before we replied. The answers are below.
+
+WHAT WE SEND. All mail is transactional, and every message is caused by an action someone just took. There are exactly two kinds. (1) Amazon Cognito account mail: a sign-up verification code or a password-reset code, sent only to the address the person typed into our own form seconds earlier. (2) Campaign invitations: a signed-in user enters one friend's address and we send one message with a join link. Each invitation goes to exactly one address, its link expires after 14 days, the message tells the recipient to ignore it if they weren't expecting it, and an account can hold at most 50 active invitations at a time. Invited addresses are not added to any list. We send no marketing, newsletters, digests, or bulk mail. We never buy, rent, harvest, or scrape addresses. An address enters our system only when its owner types it into our form, or when a user invites that one specific person.
+
+VOLUME. Tens of messages per day. The app is in alpha with a small number of users, and the ceiling is structural: one message per registration, per password reset, per invitation. We are asking to leave the sandbox for reachability, not throughput. The 200/day quota is not the problem; the verified-recipients-only restriction is, because new users never receive their sign-up code.
+
+BOUNCES AND COMPLAINTS. This is deployed in this account now, not planned:
+- Configuration set dndtools-prod-email publishes SEND, DELIVERY, BOUNCE, COMPLAINT, REJECT, RENDERING_FAILURE and DELIVERY_DELAY events to CloudWatch, with reputation metrics enabled.
+- Both senders use that set: Cognito through its EmailConfiguration.ConfigurationSet, and our invitation Lambda through ConfigurationSetName on every SendEmail call. Nothing in the account sends outside it.
+- CloudWatch alarms fire at account bounce rate >= 5% and complaint rate >= 0.1%, and notify an SNS topic that has a confirmed human subscriber.
+- Account-level suppression is enabled for BOUNCE and COMPLAINT, so a hard bounce or a complaint stops all further mail to that address automatically.
+
+UNSUBSCRIBE. There is no recurring mail to unsubscribe from. An invitation is declined by ignoring it, account mail stops when the account is deleted, and a complaint permanently suppresses the address.
+
+IDENTITY. The sending domain lamplight.click is verified in this account with Easy DKIM (RSA 2048) and feedback forwarding enabled. The sender is accounts@lamplight.click.
+```
+
+## Reply draft (original, for the closed case)
 
 > Thanks for coming back to us — here are the specifics on volume, list hygiene, and how we handle
 > bounces and complaints.

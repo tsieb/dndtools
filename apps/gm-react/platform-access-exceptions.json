@@ -30,7 +30,23 @@
 			"path": "apps/gm-react/src/screens/WikiReader.test.tsx",
 			"primitives": ["viewport-sniff"],
 			"owner": "WIKI (public reader)",
-			"rationale": "Test-only stub, not product code. Product code no longer needs one: RC-UX-4.1 moved the matchMedia probe behind platform/preferences.ts, which reports false when the capability is absent. This suite still installs a stub deliberately, to DRIVE the resolved profile — setViewportWidth() re-points it per case so the phone/desktop split of the reader nav can be asserted.",
+			"rationale": "Test-only stub, not product code. Product code no longer needs one: RC-UX-4.1 moved the matchMedia probe behind platform/preferences.ts, which reports false when the capability is absent. This suite still installs a stub deliberately, to DRIVE the resolved profile \u2014 setViewportWidth() re-points it per case so the phone/desktop split of the reader nav can be asserted.",
+			"removalCriteria": "Remove when the app test setup supplies a shared, width-controllable matchMedia helper (a setupFiles entry in vitest.app.config.ts) so component tests no longer stub it per file."
+		},
+		{
+			"id": "upgrade-test-jsdom-matchmedia-polyfill",
+			"path": "apps/gm-react/src/screens/Upgrade.test.tsx",
+			"owner": "CLD (billing, ADR-027)",
+			"rationale": "Test-only stub, not product code. jsdom ships no matchMedia; the Upgrade screen's shell reads the resolved platform profile, which probes matchMedia once behind platform/preferences.ts. The suite installs a constant stub so the profile resolves deterministically to desktop across every billing-state case.",
+			"primitives": ["viewport-sniff"],
+			"removalCriteria": "Remove when the app test setup supplies a shared, width-controllable matchMedia helper (a setupFiles entry in vitest.app.config.ts) so component tests no longer stub it per file."
+		},
+		{
+			"id": "subscription-settings-test-jsdom-matchmedia-polyfill",
+			"path": "apps/gm-react/src/screens/settings/Subscription.test.tsx",
+			"owner": "CLD (billing, ADR-027)",
+			"rationale": "Test-only stub, not product code. Same reason as the Upgrade suite: jsdom has no matchMedia and the settings shell resolves the platform profile through platform/preferences.ts, so the suite pins a constant stub for deterministic billing-panel assertions.",
+			"primitives": ["viewport-sniff"],
 			"removalCriteria": "Remove when the app test setup supplies a shared, width-controllable matchMedia helper (a setupFiles entry in vitest.app.config.ts) so component tests no longer stub it per file."
 		}
 	]

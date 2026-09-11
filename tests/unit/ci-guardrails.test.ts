@@ -416,6 +416,16 @@ describe('CI guardrails', () => {
 				document.errors.map((error) => error.message),
 				`${path.relative(repoRoot, template)} is not valid YAML`,
 			).toEqual([]);
+			// CloudFormation rejects a Description over 1024 characters — but only when the changeset
+			// is created, after `sam validate` and `sam build` have both passed. A deploy that fails
+			// there is easy to miss behind a piped tail (it happened to app-api on 2026-09-10).
+			const description = document.toJS()?.Description;
+			if (typeof description === 'string') {
+				expect(
+					description.length,
+					`${path.relative(repoRoot, template)} Description exceeds CloudFormation's 1024-char limit`,
+				).toBeLessThanOrEqual(1024);
+			}
 		}
 	});
 

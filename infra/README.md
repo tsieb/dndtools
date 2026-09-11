@@ -39,16 +39,16 @@ require a deliberate user migration or pool replacement, not an in-place stack u
 
 ## Stacks (deploy order)
 
-| Order | Stack         | Purpose                                                                                                                                           | Always-on cost                       |
-| ----- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| 0     | `edge-cert`   | **us-east-1** ACM cert for the custom domain (apex + wildcard). Shared by all stages; deploy once                                                 | none                                 |
-| 1     | `foundation`  | Budget + cost anomaly alerts, GitHub OIDC deploy role, SSM namespace, alerts topic (+ its KMS key in prod), the stage dashboard                   | ~$1/mo (prod only)                   |
-| 2     | `identity`    | Cognito user pool + app client (gates everything) + the SES configuration set all mail is sent through                                            | none                                 |
-| 3     | `turn`        | coturn on EC2 `t4g.nano` + Elastic IP + cred Lambda                                                                                               | ~$7.70/mo (prod only; dev torn down) |
-| 4     | `app-api`     | API GW HTTP + Lambda + DynamoDB (accounts/entitlements/invites/listings, TTL) + S3 (marketplace payloads) + the opt-in analytics ingestion Lambda | none                                 |
-| 5     | `signaling`   | API GW WebSocket + Lambdas + DynamoDB (rooms/conns, TTL)                                                                                          | none                                 |
-| 6     | `sync-api`    | API GW HTTP + Lambdas + DynamoDB (op index) + S3 (ciphertext)                                                                                     | none                                 |
-| 7     | `web-hosting` | S3 (private) + CloudFront (OAC) + CSP header                                                                                                      | none                                 |
+| Order | Stack         | Purpose                                                                                                                                                                                 | Always-on cost                       |
+| ----- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 0     | `edge-cert`   | **us-east-1** ACM cert for the custom domain (apex + wildcard). Shared by all stages; deploy once                                                                                       | none                                 |
+| 1     | `foundation`  | Budget + cost anomaly alerts, GitHub OIDC deploy role, SSM namespace, alerts topic (+ its KMS key in prod), the stage dashboard                                                         | ~$1/mo (prod only)                   |
+| 2     | `identity`    | Cognito user pool + app client (gates everything) + the SES configuration set all mail is sent through                                                                                  | none                                 |
+| 3     | `turn`        | coturn on EC2 `t4g.nano` + Elastic IP + cred Lambda                                                                                                                                     | ~$7.70/mo (prod only; dev torn down) |
+| 4     | `app-api`     | API GW HTTP + Lambda + DynamoDB (accounts/entitlements/invites/listings, TTL) + S3 (marketplace payloads) + the opt-in analytics ingestion Lambda + the Stripe webhook Lambda (ADR-027) | none                                 |
+| 5     | `signaling`   | API GW WebSocket + Lambdas + DynamoDB (rooms/conns, TTL)                                                                                                                                | none                                 |
+| 6     | `sync-api`    | API GW HTTP + Lambdas + DynamoDB (op index) + S3 (ciphertext)                                                                                                                           | none                                 |
+| 7     | `web-hosting` | S3 (private) + CloudFront (OAC) + CSP header                                                                                                                                            | none                                 |
 
 > `app-api` publishes the authoritative entitlement table name in SSM; both `signaling` and
 > `sync-api` resolve it at deploy time. Deploy **`app-api` before both dependent stacks**.
@@ -344,6 +344,27 @@ asymmetric and worth knowing before you hit this:
 - any _new_ dev `signaling` deploy fails with `ParameterNotFound` until `turn` is rebuilt;
 - the rebuilt `turn` mints a **new** shared secret and a **new** Elastic IP, so `signaling` must be
   redeployed afterwards to pick both up. Dev TURN credentials issued before the teardown are dead.
+
+## Stripe billing parameters (ADR-027)
+
+Billing is switched on per stage by three SSM parameters under `/dndtools/<stage>/billing/`, read
+by the app-api Lambdas **at runtime** (cached five minutes) — nothing about Stripe is baked into a
+template or a deploy. No parameters = billing not configured = every money route answers 503 and
+the app shows its labeled no-payment state. The parameters are written by
+`pnpm billing:bootstrap -- --stage <stage>`, never by hand; the full procedure, cost, and prod
+go-live checklist are in `docs/runbooks/stripe-billing.md`.
+
+| Parameter               | Type         | Purpose                                                    |
+| ----------------------- | ------------ | ---------------------------------------------------------- |
+| `stripe-secret-key`     | SecureString | Stripe API key; its `test`/`live` mode must match `config` |
+| `stripe-webhook-secret` | SecureString | signing secret of the stage's `/billing/webhook` endpoint  |
+| `config`                | String       | JSON: `livemode`, the four price ids, portal configuration |
+
+The stack adds `POST /billing/checkout-session` and `POST /billing/portal-session` (JWT-authed, on
+`AppFn`) and `POST /billing/webhook` (unauthenticated by design — Stripe signs the raw body — on its
+own `BillingWebhookFn` with its own minimal role). Prod carries one extra alarm,
+`BillingWebhookErrorsAlarm`: a failed webhook is money moving without an entitlement. Dev is
+verified end-to-end in Stripe test mode with `infra/verify-billing.sh dev`.
 
 ## Cloud backup security
 

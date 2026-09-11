@@ -6,11 +6,13 @@
 	"description": "AWS Lambda handlers for dndtools cloud stacks (signaling, sync-api). Bundled with esbuild; imports @dndtools/core so server-side validation reuses the exact client security policy.",
 	"scripts": {
 		"typecheck": "tsc -p tsconfig.json --noEmit",
-		"build": "node build.mjs"
+		"build": "node build.mjs",
+		"billing:bootstrap": "node scripts/stripe-bootstrap.mjs"
 	},
 	"dependencies": {
 		"@dndtools/core": "workspace:*",
-		"aws-jwt-verify": "^4.0.1"
+		"aws-jwt-verify": "^4.0.1",
+		"stripe": "22.6.1"
 	},
 	"devDependencies": {
 		"@aws-sdk/client-apigatewaymanagementapi": "^3.700.0",
@@ -19,6 +21,7 @@
 		"@aws-sdk/client-s3": "^3.700.0",
 		"@aws-sdk/client-secrets-manager": "^3.700.0",
 		"@aws-sdk/client-sesv2": "^3.700.0",
+		"@aws-sdk/client-ssm": "^3.1129.0",
 		"@types/aws-lambda": "^8.10.145",
 		"@types/node": "^22.10.0",
 		"esbuild": "^0.28.1",

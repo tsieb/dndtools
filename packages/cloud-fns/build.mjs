@@ -21,6 +21,9 @@ const ENTRYPOINTS = [
 	// RC-CLD-1.4 — opt-in analytics ingestion; its own tiny bundle so the open, unauthenticated
 	// route shares no code path (and no IAM role) with the account-scoped app-api handler.
 	{ name: 'telemetry-handler', entry: 'src/app-api/telemetry.ts' },
+	// ADR-027 — the Stripe webhook: the only writer of paid entitlements. Its own bundle and IAM
+	// role, for the same reason as telemetry — an unauthenticated write surface shares nothing.
+	{ name: 'billing-webhook-handler', entry: 'src/billing/webhook.ts' },
 ];
 
 rmSync(out, { recursive: true, force: true });

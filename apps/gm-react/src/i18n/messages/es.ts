@@ -1323,6 +1323,28 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.subscription.storedOnDevice': 'en este dispositivo',
 	'settings.subscription.previewBody':
 		'Los planes de nube son ahora mismo una vista previa gratuita. Los precios indicados son los previstos para el lanzamiento; la aplicación no pide un método de pago ni te cobra. Tu selección se guarda {location} y se puede cambiar desde {link}.',
+	/* Ajustes › Suscripción › facturación real (ADR-027) */
+	'settings.subscription.sourceAccountLive': 'Tu cuenta',
+	'settings.subscription.planLineLive': '{tagline} · {price}',
+	'settings.subscription.pricePerMonth': '{price}/mes',
+	'settings.subscription.pricePerYear': '{price}/año',
+	'settings.subscription.comparePlans': 'Comparar planes',
+	'settings.subscription.subscribe': 'Suscribirse',
+	'settings.subscription.billingTitle': 'Facturación',
+	'settings.subscription.renewsOn': 'Se renueva el {date}.',
+	'settings.subscription.endsOn':
+		'Cancelación programada — las funciones de nube siguen activas hasta el {date}.',
+	'settings.subscription.pastDue':
+		'El último pago falló. Actualiza tu tarjeta desde Gestionar facturación para conservar las funciones de nube.',
+	'settings.subscription.endedOn': 'Tu suscripción ha terminado. Estás en el plan gratuito.',
+	'settings.subscription.noSubscription': 'Sin suscripción activa.',
+	'settings.subscription.manageBilling': 'Gestionar facturación',
+	'settings.subscription.manageAt': 'Gestionar en {host}',
+	'settings.subscription.manageOnWeb': 'Gestiona tu suscripción desde la aplicación web en {host}.',
+	'settings.subscription.testMode': 'Modo de prueba',
+	'settings.subscription.billingTitleLive': 'Pagos y cancelación',
+	'settings.subscription.billingBodyLive':
+		'Los pagos los procesa Stripe en sus páginas seguras; Lamplight nunca guarda los datos de la tarjeta. Cambia o cancela tu plan cuando quieras desde Gestionar facturación. Tus bóvedas locales nunca dependen de un plan de nube.',
 
 	/* Ajustes › Jugadores › Invitaciones */
 	'settings.invites.title': 'Invitaciones pendientes',
@@ -4527,6 +4549,36 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Los precios previstos están en USD. Esta versión no tiene facturación ni flujo de pago. No hace falta cuenta para seguir jugando en local.',
 	'upgrade.footer.preview':
 		'Los precios previstos están en USD. El acceso en vista previa es gratis: no hay facturación, método de pago ni cargo. No hace falta cuenta para seguir jugando en local.',
+	/* Mejora › facturación real (ADR-027: Checkout y portal alojados por Stripe, solo web) */
+	'upgrade.headingLive':
+		'El juego local sigue siendo gratis. Los planes de nube ya están disponibles.',
+	'upgrade.whyLive':
+		'Lamplight mantiene gratis tu campaña local y las herramientas básicas de mesa. Lantern y Beacon añaden servicios alojados opcionales: copia cifrada fuera del dispositivo, juego por internet y publicación de campañas. Los pagos los gestiona Stripe en sus páginas seguras.',
+	'upgrade.subscribeTo': 'Suscribirse a {plan}',
+	'upgrade.manageBilling': 'Gestionar facturación',
+	'upgrade.subscribeOnWeb': 'Suscríbete en {host}',
+	'upgrade.manageOnWeb': 'Gestionar en {host}',
+	'upgrade.informsOnly':
+		'Los planes de nube se contratan desde la aplicación web en {host}. Una suscripción en tu cuenta funciona aquí automáticamente.',
+	'upgrade.showAnnualLive': 'Mostrar precios anuales',
+	'upgrade.annualSavingLive': '2 meses gratis',
+	'upgrade.testMode': 'Modo de prueba — sin cargos reales',
+	'upgrade.dialog.stripeNote':
+		'Terminarás en la página de pago segura de Stripe. Lamplight nunca ve los datos de tu tarjeta. Se renueva automáticamente; cancela cuando quieras desde Gestionar facturación.',
+	'upgrade.dialog.continueToCheckout': 'Continuar al pago seguro',
+	'upgrade.dialog.redirecting': 'Abriendo el pago…',
+	'upgrade.checkout.failed': 'No se pudo iniciar el pago.',
+	'upgrade.checkout.confirming': 'Confirmando tu suscripción con Stripe…',
+	'upgrade.checkout.confirmed': 'Ya estás en {plan}. ¡Gracias!',
+	'upgrade.checkout.pending':
+		'El pago se realizó, pero el plan aún no se ha actualizado. Suele tardar unos segundos — recarga esta página en breve.',
+	'upgrade.checkout.cancelled': 'Pago cancelado — no se cobró nada.',
+	'upgrade.portal.failed': 'No se pudo abrir la facturación.',
+	'upgrade.note.liveLead': 'La facturación la gestiona Stripe.',
+	'upgrade.note.liveBody':
+		'Los precios están en USD. Las suscripciones se renuevan automáticamente y se pueden cambiar o cancelar en cualquier momento desde Gestionar facturación. Tus bóvedas locales nunca dependen de un plan de nube.',
+	'upgrade.footer.live':
+		'Precios en USD, facturados por Stripe. Cancela cuando quieras; no hace falta cuenta para seguir jugando en local.',
 
 	/* Pantalla de escena › la ventana de presentación en la segunda pantalla */
 	'sceneDisplay.noScene': 'No hay ninguna escena en pantalla',
@@ -4603,6 +4655,15 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Desde allí, únete a la mesa de tu DM con el nombre de mesa y el PIN que comparta a la hora de jugar.',
 	'join.tryAgain': 'Intentar de nuevo',
 	'join.goToApp': 'Ir a la app',
+	/* Legal › las páginas públicas de Política de privacidad y Términos (`#/legal/*`) */
+	'legal.privacy.title': 'Política de privacidad',
+	'legal.terms.title': 'Términos del servicio',
+	'legal.backToApp': 'Volver a Lamplight',
+	'legal.lastUpdated': 'Última actualización: {date}',
+	'legal.docNav': 'Documentos legales',
+	'settings.about.legal': 'Legal',
+	'settings.about.legalBody':
+		'La política de privacidad y los términos del servicio de Lamplight y sus servicios en línea. Ambas páginas son públicas y no requieren cuenta.',
 
 	/* Pantalla del DM › el tablero principal y sus paneles Añadir / Diseños */
 	'board.playerTitle': 'La pantalla del DM es el tablero de control del DM',

@@ -49,6 +49,21 @@ import {
 // RC-CLD-4.1 — the marketplace's listing kinds and the `.dndmodule` bundle format are defined ONCE,
 // in the core, so the server validates a publish against the exact schema the client installs from.
 import { MODULE_KINDS, parseModuleBundle, type ModuleKind } from '@dndtools/core';
+// ADR-027 — Stripe billing. This handler only STARTS money flows (hosted Checkout, hosted portal)
+// and reports billing state; the paid entitlement row is written by the webhook Lambda alone.
+import {
+	BILLING_INTERVALS,
+	PAID_PLANS,
+	getBillingRuntime,
+	type BillingInterval,
+	type PaidPlan,
+} from '../billing/runtime.ts';
+import {
+	GRANTING_STATUSES,
+	SK_STRIPE_ACCOUNT,
+	bindStripeCustomer,
+	stripeCustomerPk,
+} from '../billing/entitlements.ts';
 
 const APP_TABLE = process.env.APP_TABLE!;
 const SYNC_OPS_TABLE = process.env.SYNC_OPS_TABLE!;
@@ -205,6 +220,10 @@ class TooManyRequests extends Error {
 }
 
 class AccountDeleted extends Error {}
+/** A request that conflicts with current billing state (e.g. a second active subscription). */
+class Conflict extends Error {}
+/** Billing is not configured/reachable for this stage — every money flow fails CLOSED. */
+class ServiceUnavailable extends Error {}
 
 function json(statusCode: number, body: unknown, headers: Record<string, string> = {}) {
 	return {
@@ -258,6 +277,8 @@ interface Caller {
 	username: string;
 	/** Display name from the token's standard `name` claim, if the user set one. */
 	displayName: string;
+	/** Verified email from the token, if present — only ever used to prefill Stripe Checkout. */
+	email: string;
 }
 
 type AccountTransactionWrite =
@@ -360,6 +381,10 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 			sub,
 			username: claims?.['cognito:username'] ? String(claims['cognito:username']) : sub,
 			displayName: typeof claims?.name === 'string' && claims.name.trim() ? claims.name.trim() : '',
+			email:
+				typeof claims?.email === 'string' && EMAIL_RE.test(claims.email.trim())
+					? claims.email.trim()
+					: '',
 		};
 		// Account deletion keeps a marker in the entitlement row for 45 days after cleanup. Cognito
 		// sign-out revokes refresh tokens but cannot revoke an already-issued ID token, so every
@@ -378,6 +403,11 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 				return await getEntitlements(caller);
 			case 'POST /account/entitlements':
 				return await setEntitlements(caller, event.body);
+			// Billing (ADR-027: Stripe-hosted Checkout + portal; the webhook writes plans) --
+			case 'POST /billing/checkout-session':
+				return await createCheckoutSession(caller, event.body);
+			case 'POST /billing/portal-session':
+				return await createPortalSession(caller);
 			// Marketplace -----------------------------------------------------------------
 			case 'GET /marketplace/modules':
 				return await listModules(caller);
@@ -424,6 +454,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 		if (err instanceof BadRequest) return json(400, { error: err.message });
 		if (err instanceof Forbidden) return json(403, { error: err.message });
 		if (err instanceof AccountDeleted) return json(410, { error: 'account has been deleted' });
+		if (err instanceof Conflict) return json(409, { error: err.message });
+		if (err instanceof ServiceUnavailable) return json(503, { error: err.message });
 		if (err instanceof TooManyRequests) {
 			return json(429, { error: err.message }, { 'retry-after': String(err.retryAfterSeconds) });
 		}
@@ -471,18 +503,77 @@ function entitlementPreviewEnabled(): boolean {
 	return process.env.ENTITLEMENT_PREVIEW_ENABLED === 'true';
 }
 
-function entitlementResponse(plan: PlanId) {
+/**
+ * Billing state as the client sees it (ADR-027). `null` when this stage has no Stripe
+ * configuration — every consumer then renders its labeled "not available" state. The plan itself
+ * is NOT repeated here; `plan` on the entitlement response is the single source of truth.
+ */
+interface BillingStatus {
+	provider: 'stripe';
+	/** Hosted Checkout can be started from this stage (configured + a real web origin). */
+	checkoutAvailable: boolean;
+	/** The account has a Stripe customer, so the hosted portal can be opened. */
+	portalAvailable: boolean;
+	/** Stripe subscription status, or null when the account has never subscribed. */
+	status: string | null;
+	/** True while the subscription keeps paid features on (active / trialing / past_due). */
+	active: boolean;
+	interval: BillingInterval | null;
+	/** Epoch seconds of the current period's end (renewal or expiry), or null. */
+	currentPeriodEnd: number | null;
+	cancelAtPeriodEnd: boolean;
+	/** The stage is on Stripe LIVE mode; false means test mode (no real charges). */
+	livemode: boolean;
+}
+
+function webOrigin(): string {
+	const origin = process.env.WEB_ORIGIN?.trim() ?? '';
+	// The template's placeholder is not a place a browser can come back to.
+	return origin && !origin.includes('invalid.example') ? origin.replace(/\/$/, '') : '';
+}
+
+async function billingStatus(
+	row: Record<string, string> | undefined,
+): Promise<BillingStatus | null> {
+	const runtime = await getBillingRuntime();
+	if (!runtime) return null;
+	const status = row?.stripeSubscriptionStatus || null;
+	const interval = row?.billingInterval;
+	return {
+		provider: 'stripe',
+		checkoutAvailable: Boolean(webOrigin()),
+		portalAvailable: Boolean(row?.stripeCustomerId),
+		status,
+		active: status !== null && GRANTING_STATUSES.has(status),
+		interval: interval === 'month' || interval === 'year' ? interval : null,
+		currentPeriodEnd: row?.currentPeriodEnd ? Number(row.currentPeriodEnd) || null : null,
+		cancelAtPeriodEnd: row?.cancelAtPeriodEnd === 'true',
+		livemode: runtime.settings.livemode,
+	};
+}
+
+async function entitlementResponse(plan: PlanId, row: Record<string, string> | undefined) {
 	const canChangePlan = entitlementPreviewEnabled();
-	return { plan, simulated: canChangePlan, canChangePlan, features: FEATURE_MATRIX };
+	return {
+		plan,
+		simulated: canChangePlan,
+		canChangePlan,
+		features: FEATURE_MATRIX,
+		billing: await billingStatus(row),
+	};
+}
+
+function planFromRow(row: Record<string, string> | undefined): PlanId {
+	return row && !row.deletedAt && (PLAN_IDS as readonly string[]).includes(row.plan)
+		? (row.plan as PlanId)
+		: DEFAULT_PLAN;
 }
 
 /** The caller's stored plan, failing CLOSED to the free default. */
 async function currentPlan(caller: Caller): Promise<PlanId> {
 	try {
 		const row = await getItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_ENTITLEMENT });
-		return row && !row.deletedAt && (PLAN_IDS as readonly string[]).includes(row.plan)
-			? (row.plan as PlanId)
-			: DEFAULT_PLAN;
+		return planFromRow(row);
 	} catch (err) {
 		// Entitlement availability must never grant paid capabilities. The request-level
 		// account-state check still fails the whole request on a DynamoDB outage; this fallback
@@ -493,8 +584,41 @@ async function currentPlan(caller: Caller): Promise<PlanId> {
 }
 
 async function getEntitlements(caller: Caller) {
-	const plan = await currentPlan(caller);
-	return json(200, entitlementResponse(plan as PlanId));
+	const row = await getItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_ENTITLEMENT });
+	return json(200, await entitlementResponse(planFromRow(row), row));
+}
+
+/**
+ * The Stripe fields a non-webhook write must carry forward unchanged. Numeric fields are
+ * re-typed as numbers: DynamoDB compares N and S attributes as never-equal, so a preview write
+ * that stored `billingSyncedAt` as a string would make every later webhook write look stale.
+ */
+function preservedBillingFields(
+	row: Record<string, string> | undefined,
+): Record<string, string | number | undefined> {
+	if (!row?.stripeCustomerId) return {};
+	const num = (v: string | undefined) => (v === undefined ? undefined : Number(v) || 0);
+	return {
+		billingProvider: 'stripe',
+		stripeCustomerId: row.stripeCustomerId,
+		stripeSubscriptionId: row.stripeSubscriptionId,
+		stripeSubscriptionStatus: row.stripeSubscriptionStatus,
+		stripePriceId: row.stripePriceId,
+		billingInterval: row.billingInterval,
+		currentPeriodEnd: num(row.currentPeriodEnd),
+		cancelAtPeriodEnd: row.cancelAtPeriodEnd,
+		billingSyncedAt: num(row.billingSyncedAt),
+		lastStripeEventId: row.lastStripeEventId,
+	};
+}
+
+/** True when the row is bound to a Stripe subscription that currently grants paid features. */
+function hasActiveStripeSubscription(row: Record<string, string> | undefined): boolean {
+	return Boolean(
+		row?.stripeSubscriptionId &&
+		row.stripeSubscriptionStatus &&
+		GRANTING_STATUSES.has(row.stripeSubscriptionStatus),
+	);
 }
 
 async function setEntitlements(caller: Caller, body: string | undefined) {
@@ -506,9 +630,23 @@ async function setEntitlements(caller: Caller, body: string | undefined) {
 	const { plan } = parseBody(body);
 	if (typeof plan !== 'string' || !(PLAN_IDS as readonly string[]).includes(plan))
 		throw new BadRequest(`plan must be one of: ${PLAN_IDS.join(', ')}`);
+	const existing = await getItem(
+		APP_TABLE,
+		{ pk: accountPk(caller.sub), sk: SK_ENTITLEMENT },
+		true,
+	);
+	// A paid Stripe subscription is authoritative even on a preview stage: the preview must not
+	// overwrite a row the webhook owns (and the webhook would put it straight back anyway).
+	if (hasActiveStripeSubscription(existing)) {
+		throw new Conflict(
+			'This account has an active paid subscription. Change plans from Manage billing instead.',
+		);
+	}
 	const written = await putItemConditional(
 		APP_TABLE,
 		{
+			// Keep the Stripe customer binding (and last subscription history) across preview changes.
+			...preservedBillingFields(existing),
 			pk: accountPk(caller.sub),
 			sk: SK_ENTITLEMENT,
 			plan,
@@ -520,7 +658,139 @@ async function setEntitlements(caller: Caller, body: string | undefined) {
 		},
 	);
 	if (!written) throw new AccountDeleted();
-	return json(200, entitlementResponse(plan as PlanId));
+	return json(200, await entitlementResponse(plan as PlanId, { ...(existing ?? {}), plan }));
+}
+
+// --- Billing (ADR-027) -------------------------------------------------------------------
+// --- Checkout and the customer portal are Stripe-HOSTED pages: no card data is ever seen -----
+// --- here (SAQ-A). These routes return a one-shot URL; the webhook Lambda writes the plan. ----
+async function requireBilling() {
+	const runtime = await getBillingRuntime();
+	if (!runtime) throw new ServiceUnavailable('Billing is not available on this service right now.');
+	const origin = webOrigin();
+	if (!origin) throw new ServiceUnavailable('Billing is not available on this service right now.');
+	return { runtime, origin };
+}
+
+/** The account's Stripe customer id, creating (and binding) one on first use. */
+async function ensureStripeCustomer(
+	caller: Caller,
+	runtime: NonNullable<Awaited<ReturnType<typeof getBillingRuntime>>>,
+	existing: Record<string, string> | undefined,
+): Promise<string> {
+	if (existing?.stripeCustomerId) return existing.stripeCustomerId;
+	const customer = await runtime.stripe.customers.create(
+		{
+			...(caller.email ? { email: caller.email } : {}),
+			...(caller.displayName ? { name: caller.displayName } : {}),
+			metadata: { cognito_sub: caller.sub, app: 'lamplight' },
+		},
+		// One customer per account even if the user double-clicks: Stripe dedupes on this key
+		// for 24 hours, so two concurrent first checkouts share the same customer.
+		{ idempotencyKey: `customer:${caller.sub}` },
+	);
+	await bindStripeCustomer(APP_TABLE, customer.id, caller.sub, nowIso());
+	const bound = await putItemConditional(
+		APP_TABLE,
+		{
+			pk: accountPk(caller.sub),
+			sk: SK_ENTITLEMENT,
+			plan: planFromRow(existing),
+			stripeCustomerId: customer.id,
+			billingProvider: 'stripe',
+			updatedAt: nowIso(),
+		},
+		{
+			// Never clobber a customer id a concurrent request (or the webhook) already bound.
+			expression: 'attribute_not_exists(#deletedAt) AND attribute_not_exists(#cus)',
+			names: { '#deletedAt': 'deletedAt', '#cus': 'stripeCustomerId' },
+		},
+	);
+	if (bound) return customer.id;
+	const after = await getItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_ENTITLEMENT }, true);
+	if (after?.deletedAt) throw new AccountDeleted();
+	return after?.stripeCustomerId || customer.id;
+}
+
+async function createCheckoutSession(caller: Caller, body: string | undefined) {
+	const { plan, interval } = parseBody(body);
+	if (typeof plan !== 'string' || !(PAID_PLANS as readonly string[]).includes(plan))
+		throw new BadRequest(`plan must be one of: ${PAID_PLANS.join(', ')}`);
+	if (typeof interval !== 'string' || !(BILLING_INTERVALS as readonly string[]).includes(interval))
+		throw new BadRequest(`interval must be one of: ${BILLING_INTERVALS.join(', ')}`);
+	const { runtime, origin } = await requireBilling();
+	const existing = await getItem(
+		APP_TABLE,
+		{ pk: accountPk(caller.sub), sk: SK_ENTITLEMENT },
+		true,
+	);
+	if (existing?.deletedAt) throw new AccountDeleted();
+	if (hasActiveStripeSubscription(existing)) {
+		throw new Conflict(
+			'This account already has an active subscription. Change plans from Manage billing instead.',
+		);
+	}
+	const customer = await ensureStripeCustomer(caller, runtime, existing);
+	const price = runtime.settings.prices[plan as PaidPlan][interval as BillingInterval];
+	const session = await runtime.stripe.checkout.sessions.create({
+		mode: 'subscription',
+		customer,
+		// Both carry the Cognito sub so the webhook can bind the subscription to the account
+		// even if one is dropped; subscription_data.metadata lands on the subscription itself.
+		client_reference_id: caller.sub,
+		line_items: [{ price, quantity: 1 }],
+		subscription_data: { metadata: { cognito_sub: caller.sub, plan } },
+		metadata: { cognito_sub: caller.sub, plan },
+		success_url: `${origin}/#/upgrade?checkout=success`,
+		cancel_url: `${origin}/#/upgrade?checkout=cancelled`,
+		allow_promotion_codes: true,
+		billing_address_collection: 'auto',
+		customer_update: { address: 'auto', name: 'auto' },
+	});
+	if (!session.url) throw new Error('stripe checkout session has no url');
+	return json(200, { url: session.url });
+}
+
+async function createPortalSession(caller: Caller) {
+	const { runtime, origin } = await requireBilling();
+	const existing = await getItem(
+		APP_TABLE,
+		{ pk: accountPk(caller.sub), sk: SK_ENTITLEMENT },
+		true,
+	);
+	if (existing?.deletedAt) throw new AccountDeleted();
+	if (!existing?.stripeCustomerId) throw new BadRequest('This account has no billing history yet.');
+	const session = await runtime.stripe.billingPortal.sessions.create({
+		customer: existing.stripeCustomerId,
+		return_url: `${origin}/#/settings`,
+		...(runtime.settings.portalConfigurationId
+			? { configuration: runtime.settings.portalConfigurationId }
+			: {}),
+	});
+	return json(200, { url: session.url });
+}
+
+/**
+ * Account deletion: remove the Stripe customer, which cancels every subscription it holds and
+ * scrubs the billing PII Stripe keeps for us. Idempotent (an already-deleted customer is fine).
+ * Fails CLOSED when billing is unreachable — leaving a live subscription behind a deleted
+ * account is the one outcome worse than a delayed deletion.
+ */
+async function deleteStripeCustomerForAccount(row: Record<string, string> | undefined) {
+	const customerId = row?.stripeCustomerId;
+	if (!customerId) return;
+	const runtime = await getBillingRuntime();
+	if (!runtime) {
+		throw new ServiceUnavailable(
+			'Billing is unavailable right now, so your subscription cannot be cancelled. Try again shortly.',
+		);
+	}
+	try {
+		await runtime.stripe.customers.del(customerId);
+	} catch (err) {
+		if ((err as { code?: string })?.code !== 'resource_missing') throw err;
+	}
+	await deleteItem(APP_TABLE, { pk: stripeCustomerPk(customerId), sk: SK_STRIPE_ACCOUNT });
 }
 
 // --- Marketplace: plaintext `.dndmodule` payloads in S3, listing rows in Dynamo. --------
@@ -1269,6 +1539,16 @@ async function exportAccount(caller: Caller) {
 			simulated: entitlementPreviewEnabled(),
 			canChangePlan: entitlementPreviewEnabled(),
 		},
+		// ADR-027: the Stripe identifiers the account is bound to (no card data exists on our side).
+		billing: data.entitlementRow?.stripeCustomerId
+			? {
+					provider: 'stripe',
+					customerId: data.entitlementRow.stripeCustomerId,
+					subscriptionId: data.entitlementRow.stripeSubscriptionId ?? '',
+					status: data.entitlementRow.stripeSubscriptionStatus ?? '',
+					currentPeriodEnd: Number(data.entitlementRow.currentPeriodEnd ?? 0) || null,
+				}
+			: null,
 		invites: data.inviteRows.map((row) => ({
 			inviteId: row.inviteId,
 			campaignName: row.campaignName,
@@ -1315,9 +1595,17 @@ async function deleteAccount(caller: Caller) {
 	// conditional put retains the original deletion timestamp on every retry. A stale ID
 	// token cannot recreate app data, and sync writes fail their entitlement check; sync
 	// DELETE remains deliberately available so the caller can finish the purge.
+	// The tombstone carries the Stripe binding forward (ADR-027): phase 2 must still be able to
+	// find and delete the customer, and a retry after a lost response reads it from this row.
+	const beforeLock = await getItem(
+		APP_TABLE,
+		{ pk: accountPk(caller.sub), sk: SK_ENTITLEMENT },
+		true,
+	);
 	await putItemConditional(
 		APP_TABLE,
 		{
+			...preservedBillingFields(beforeLock),
 			pk: accountPk(caller.sub),
 			sk: SK_ENTITLEMENT,
 			deletedAt: nowIso(),
@@ -1346,6 +1634,9 @@ async function deleteAccount(caller: Caller) {
 	// Phase 2: proof exists, so remove every app-api row the account owns
 	// (+ marketplace/wiki payloads in S3).
 	const data = await gatherAccountData(caller);
+	// Stripe first (ADR-027): cancel/scrub billing before any row is gone, so a partial failure
+	// below can never leave a charged subscription with no account to show it on.
+	await deleteStripeCustomerForAccount(data.entitlementRow);
 	await deleteItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_PROFILE });
 	for (const row of data.inviteRows) {
 		if (row.token) await deleteItem(APP_TABLE, { pk: redeemPk(row.token), sk: SK_REDEEM });

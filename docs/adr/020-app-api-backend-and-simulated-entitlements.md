@@ -1,6 +1,6 @@
 # ADR-020: App-API Backend for Marketplace, Invites, Account, and Simulated Entitlements
 
-- Status: Accepted (amended by [ADR-026](./026-opt-in-vault-privacy-modes.md); amended by [ADR-027](./027-stripe-web-billing-and-entitlement-write-path.md), Proposed; amended by [ADR-034](./034-marketplace-listing-kinds-and-module-bundle-format.md))
+- Status: Accepted (amended by [ADR-026](./026-opt-in-vault-privacy-modes.md); amended by [ADR-027](./027-stripe-web-billing-and-entitlement-write-path.md); amended by [ADR-034](./034-marketplace-listing-kinds-and-module-bundle-format.md))
 - Date: 2026-07-09
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA
@@ -9,9 +9,10 @@
   Cloud-Enhanced vault-mode capabilities (managed AI/RAG, server search, keyless browser access), which
   this ADR's E2EE-era framing could not offer. The simulated-checkout carve-out and the entitlement
   contract (`simulated: true`) are unchanged; real billing still requires its own ADR.
-- Amended by: ADR-027 (2026-07-23, Proposed) — will replace the simulated-checkout entitlement
-  write path with a Stripe-webhook-authoritative one when real billing activates; the entitlement
-  read contract and plan-gate logic are unchanged.
+- Amended by: ADR-027 (2026-07-23; Accepted 2026-09-10) — replaces the simulated-checkout
+  entitlement write path with a Stripe-webhook-authoritative one wherever a stage has billing
+  configured; the entitlement read contract and plan-gate logic are unchanged (the response gains a
+  `billing` block).
 - Amended by: ADR-034 (2026-09-07) — a marketplace listing gains a **kind** (widget-package |
   system-package | scene-package | content-module) and its payload gains the `.dndmodule` envelope,
   replacing this ADR's "a listing is a bare widget-package definition" framing. The trust posture

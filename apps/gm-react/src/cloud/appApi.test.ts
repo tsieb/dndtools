@@ -391,3 +391,62 @@ describe('resolveInvite (unauthenticated)', () => {
 		await expect(api.resolveInvite('gone')).rejects.toThrow(/invalid or has expired/i);
 	});
 });
+
+// --- ADR-027: billing routes — one-shot URLs to Stripe-hosted pages ------------------------------
+describe('billing (ADR-027)', () => {
+	it('createCheckoutSession posts plan + interval and returns the hosted URL', async () => {
+		configured();
+		const api = await loadApi();
+		fetchMock.mockResolvedValueOnce(
+			jsonResponse(200, { url: 'https://checkout.stripe.com/c/pay/cs_1' }),
+		);
+		await expect(api.createCheckoutSession('lantern', 'year')).resolves.toEqual({
+			url: 'https://checkout.stripe.com/c/pay/cs_1',
+		});
+		const [url, init] = fetchMock.mock.calls[0];
+		expect(url).toBe('https://api.example.com/dev/billing/checkout-session');
+		expect(init.method).toBe('POST');
+		expect(JSON.parse(init.body)).toEqual({ plan: 'lantern', interval: 'year' });
+		expect(init.headers.authorization).toBe('Bearer JWT-TOKEN');
+	});
+
+	it('createPortalSession posts to the portal route', async () => {
+		configured();
+		const api = await loadApi();
+		fetchMock.mockResolvedValueOnce(
+			jsonResponse(200, { url: 'https://billing.stripe.com/p/session/bps_1' }),
+		);
+		await expect(api.createPortalSession()).resolves.toEqual({
+			url: 'https://billing.stripe.com/p/session/bps_1',
+		});
+		expect(fetchMock.mock.calls[0][0]).toBe('https://api.example.com/dev/billing/portal-session');
+	});
+
+	it('surfaces the server’s safe 4xx reason (a 409 while already subscribed) as an AppApiError', async () => {
+		configured();
+		const api = await loadApi();
+		fetchMock.mockResolvedValueOnce(
+			jsonResponse(409, { error: 'This account already has an active subscription.' }),
+		);
+		await expect(api.createCheckoutSession('beacon', 'month')).rejects.toMatchObject({
+			name: 'AppApiError',
+			status: 409,
+			message: 'This account already has an active subscription.',
+		});
+	});
+
+	it('fails closed (503) into a generic message never exposing internals', async () => {
+		configured();
+		const api = await loadApi();
+		fetchMock.mockResolvedValueOnce(jsonResponse(503, { error: 'Billing is not available' }));
+		await expect(api.createPortalSession()).rejects.toMatchObject({ status: 503 });
+	});
+
+	it('is fail-closed when the account backend is not configured', async () => {
+		const api = await loadApi();
+		await expect(api.createCheckoutSession('lantern', 'month')).rejects.toMatchObject({
+			code: 'not-configured',
+		});
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+});

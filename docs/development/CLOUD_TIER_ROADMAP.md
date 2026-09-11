@@ -110,10 +110,10 @@ monetizes). Reject Firebase/Firestore/Cloud Run/GCS as replacements for the hard
 
 ## Blocked-on-external checklist
 
-| Item                   | Blocked on                                                                                  |
-| ---------------------- | ------------------------------------------------------------------------------------------- |
-| P0 #2 prod promotion   | Two operator email clicks (SES verify + SNS confirm), then approve `promote-production.yml` |
-| Stripe billing         | Stripe account + business/compliance decision (contract recorded as ADR-027, Proposed)      |
-| FCM push (#7)          | Firebase project + server key custody decision                                              |
-| Play Billing           | Only if Android monetizes; policy review at build time                                      |
-| Cloud-Enhanced phase 2 | Security review sign-off of `docs/security/vault-privacy-modes-threat-model.md` checklist   |
+| Item                   | Blocked on                                                                                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| P0 #2 prod promotion   | Two operator email clicks (SES verify + SNS confirm), then approve `promote-production.yml`                                                                  |
+| Stripe billing         | Stripe account only — code complete + deployed to dev fail-closed 2026-09-10 (`docs/runbooks/stripe-billing.md`); also needs privacy/terms pages before prod |
+| FCM push (#7)          | Firebase project + server key custody decision                                                                                                               |
+| Play Billing           | Only if Android monetizes; policy review at build time                                                                                                       |
+| Cloud-Enhanced phase 2 | Security review sign-off of `docs/security/vault-privacy-modes-threat-model.md` checklist                                                                    |

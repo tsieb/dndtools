@@ -2,11 +2,11 @@
 
 ## Ownership and alert response
 
-| Severity | Alarm                                                                 | Owner                    | First check                                                           | Rollback threshold                                              |
-| -------- | --------------------------------------------------------------------- | ------------------------ | --------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Sev 1    | API 5xx, sign-in outage, TURN unavailable                             | platform on-call         | CloudWatch Logs Insights by `requestId` and `releaseSha`; X-Ray trace | sustained customer impact for 10 minutes or data-integrity risk |
-| Sev 2    | Lambda errors/throttles, backup/sync failure, CloudFront availability | platform on-call         | dashboard by route/error code and deployment event                    | error rate remains above baseline after mitigation              |
-| Sev 3    | auth failures, cost anomaly, deployment failure                       | feature owner + platform | aggregate counts only; verify config and deploy summary               | no automatic rollback unless customer impact appears            |
+| Severity | Alarm                                                                                                                                                                             | Owner                    | First check                                                           | Rollback threshold                                              |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | --------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Sev 1    | API 5xx, sign-in outage, TURN unavailable                                                                                                                                         | platform on-call         | CloudWatch Logs Insights by `requestId` and `releaseSha`; X-Ray trace | sustained customer impact for 10 minutes or data-integrity risk |
+| Sev 2    | Lambda errors/throttles, Stripe webhook errors (`BillingWebhookErrorsAlarm` — money moved, no entitlement; see `stripe-billing.md`), backup/sync failure, CloudFront availability | platform on-call         | dashboard by route/error code and deployment event                    | error rate remains above baseline after mitigation              |
+| Sev 3    | auth failures, cost anomaly, deployment failure                                                                                                                                   | feature owner + platform | aggregate counts only; verify config and deploy summary               | no automatic rollback unless customer impact appears            |
 
 Logs are JSON and may include correlation/request ID, stage, release SHA, operation, error code and
 latency. They must never include vault contents, prompts, credentials, tokens, email addresses or raw

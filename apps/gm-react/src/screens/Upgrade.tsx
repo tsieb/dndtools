@@ -1,10 +1,12 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Button, Dialog, Icon, Switch, Toaster } from '../ds';
 import { BackBar, Page, T, eb } from '../app/screen-kit';
 import { useAuth } from '../cloud/AuthContext';
 import { isAccountApiConfigured } from '../cloud/config';
 import { useViewport } from '../app/useViewport';
 import { useI18n } from '../i18n';
+import { LegalLinks } from './legal/LegalLinks';
 import {
 	OFFLINE_FALLBACK_MATRIX,
 	PLAN_CARDS,
@@ -12,6 +14,18 @@ import {
 	type PlanCard,
 	type PlanId,
 } from '../cloud/entitlements';
+import {
+	billingConfigured,
+	billingInformsOnly,
+	billingWebHost,
+	canOpenPortal,
+	canStartCheckout,
+	openBillingPortal,
+	readCheckoutReturn,
+	startCheckout,
+	stripCheckoutReturn,
+} from '../cloud/billing';
+import type { PaidPlanId } from '../cloud/appApi';
 
 /**
  * Upgrade — "Plans & cloud", the acquisition surface for a local-first app ("free to play, pay
@@ -193,14 +207,114 @@ function ChangePlanDialog({
 	);
 }
 
+/**
+ * CheckoutDialog — ADR-027. Confirms the plan + billing cycle, then hands the browser to
+ * Stripe's hosted Checkout page. Nothing about a card is asked for here (or anywhere in the app).
+ */
+function CheckoutDialog({
+	toId,
+	annual,
+	busy,
+	onClose,
+	onConfirm,
+}: {
+	toId: PaidPlanId | null;
+	annual: boolean;
+	busy: boolean;
+	onClose: () => void;
+	onConfirm: (id: PaidPlanId) => void;
+}) {
+	const { t } = useI18n();
+	const target = toId ? planById(toId) : null;
+	if (!target) return null;
+	const price = annual ? `$${target.price * 10}` : `$${target.price}`;
+	const per = annual ? t('upgrade.perYear') : t('upgrade.perMonth');
+	return (
+		<Dialog
+			open
+			onClose={onClose}
+			title={t('upgrade.subscribeTo', { plan: target.name })}
+			description={target.tagline}
+			icon="connection"
+			size="md"
+			footer={
+				<>
+					<Button variant="secondary" size="sm" onClick={onClose} disabled={busy}>
+						{t('common.action.cancel')}
+					</Button>
+					<Button
+						variant="primary"
+						size="sm"
+						icon="CreditCard"
+						disabled={busy}
+						onClick={() => onConfirm(target.id as PaidPlanId)}
+					>
+						{busy ? t('upgrade.dialog.redirecting') : t('upgrade.dialog.continueToCheckout')}
+					</Button>
+				</>
+			}
+		>
+			<div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 12 }}>
+				<span style={{ font: `700 28px ${T.mono}`, color: T.ink }}>{price}</span>
+				<span style={{ font: `13px ${T.sans}`, color: T.ter }}>{per}</span>
+			</div>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+				{target.features.map((f: string) => (
+					<span
+						key={f}
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: 8,
+							font: `12.5px ${T.sans}`,
+							color: T.sub,
+						}}
+					>
+						<Icon name="check" size={13} color={T.acc} />
+						{f}
+					</span>
+				))}
+			</div>
+			<div
+				style={{
+					display: 'flex',
+					alignItems: 'flex-start',
+					gap: 8,
+					marginTop: 14,
+					padding: '10px 12px',
+					borderRadius: 9,
+					background: T.accSub,
+					border: `1px solid ${T.accBd}`,
+					font: `11.5px/1.5 ${T.sans}`,
+					color: T.sub,
+				}}
+			>
+				<span style={{ marginTop: 1 }}>
+					<Icon name="ShieldCheck" size={13} color={T.acc} />
+				</span>
+				<span>{t('upgrade.dialog.stripeNote')}</span>
+			</div>
+		</Dialog>
+	);
+}
+
+/** How many refreshes to try after a successful Checkout return, and how far apart. The webhook
+ *  usually lands within a couple of seconds; this covers a slow one without spinning forever. */
+const CHECKOUT_CONFIRM_ATTEMPTS = 12;
+const CHECKOUT_CONFIRM_INTERVAL_MS = 2500;
+
 export function Upgrade() {
 	const viewport = useViewport();
 	const auth = useAuth();
 	const ent = useEntitlements();
 	const { t } = useI18n();
+	const location = useLocation();
+	const navigate = useNavigate();
 	const [annual, setAnnual] = useState(false);
 	const [confirmTo, setConfirmTo] = useState<PlanId | null>(null);
+	const [checkoutTo, setCheckoutTo] = useState<PaidPlanId | null>(null);
 	const [busy, setBusy] = useState(false);
+	const [confirming, setConfirming] = useState(false);
 	const planId = ent.plan;
 	// The feature matrix: the server's copy when reachable (live or last-known cache); the
 	// annotated offline fallback otherwise. Both share the same shape.
@@ -210,7 +324,69 @@ export function Upgrade() {
 	const perStr = (p: PlanCard) =>
 		p.price ? (annual ? t('upgrade.perYear') : t('upgrade.perMonth')) : '';
 	const currentPrice = planById(planId)?.price || 0;
-	const planChangesUnavailable = ent.serverBacked && !ent.loading && !ent.canChangePlan;
+	// ADR-027 — live billing modes. `liveBilling` (the stage has Stripe configured for this
+	// account) takes precedence over the no-payment preview copy on every surface below.
+	const liveBilling = billingConfigured(ent);
+	const checkoutMode = canStartCheckout(ent);
+	const portalMode = canOpenPortal(ent);
+	const informsOnly = billingInformsOnly(ent);
+	const subscribed = liveBilling && ent.billing?.active === true;
+	const planChangesUnavailable =
+		!liveBilling && ent.serverBacked && !ent.loading && !ent.canChangePlan;
+
+	// Coming back from Stripe: `?checkout=success` → poll entitlements until the webhook has
+	// written the plan (or give up honestly); `?checkout=cancelled` → say so, nothing charged.
+	// The marker is removed from the URL so a reload does not replay the toast.
+	const checkoutReturn = readCheckoutReturn(location.search);
+	const handledReturnRef = useRef(false);
+	useEffect(() => {
+		if (!checkoutReturn || handledReturnRef.current) return;
+		handledReturnRef.current = true;
+		navigate(
+			{ pathname: location.pathname, search: stripCheckoutReturn(location.search) },
+			{ replace: true },
+		);
+		if (checkoutReturn === 'cancelled') {
+			Toaster.info(t('upgrade.checkout.cancelled'));
+			return;
+		}
+		setConfirming(true);
+	}, [checkoutReturn, location.pathname, location.search, navigate, t]);
+	const confirmAttemptsRef = useRef(0);
+	useEffect(() => {
+		if (!confirming) return;
+		if (subscribed) {
+			setConfirming(false);
+			Toaster.success(t('upgrade.checkout.confirmed', { plan: planById(planId)?.name ?? '' }));
+			return;
+		}
+		if (confirmAttemptsRef.current >= CHECKOUT_CONFIRM_ATTEMPTS) {
+			setConfirming(false);
+			Toaster.info(t('upgrade.checkout.pending'));
+			return;
+		}
+		const timer = window.setTimeout(() => {
+			confirmAttemptsRef.current += 1;
+			void ent.refresh();
+		}, CHECKOUT_CONFIRM_INTERVAL_MS);
+		return () => window.clearTimeout(timer);
+	}, [confirming, subscribed, planId, ent, t]);
+
+	const beginCheckout = (id: PaidPlanId) => {
+		setBusy(true);
+		startCheckout(id, annual ? 'year' : 'month').catch((e: unknown) => {
+			setBusy(false);
+			Toaster.error(e instanceof Error ? e.message : t('upgrade.checkout.failed'));
+		});
+		// On success the browser is leaving for Stripe; `busy` intentionally stays set.
+	};
+	const openPortal = () => {
+		setBusy(true);
+		openBillingPortal().catch((e: unknown) => {
+			setBusy(false);
+			Toaster.error(e instanceof Error ? e.message : t('upgrade.portal.failed'));
+		});
+	};
 
 	const confirmChange = (id: PlanId) => {
 		if (!ent.canChangePlan) {
@@ -269,12 +445,99 @@ export function Upgrade() {
 						color: T.ink,
 					}}
 				>
-					{planChangesUnavailable ? t('upgrade.headingUnavailable') : t('upgrade.headingPreview')}
+					{liveBilling
+						? t('upgrade.headingLive')
+						: planChangesUnavailable
+							? t('upgrade.headingUnavailable')
+							: t('upgrade.headingPreview')}
 				</h2>
 				<p style={{ font: `14px/1.7 ${T.sans}`, color: T.sub, marginTop: 12 }}>
-					{planChangesUnavailable ? t('upgrade.whyUnavailable') : t('upgrade.whyPreview')}
+					{liveBilling
+						? t('upgrade.whyLive')
+						: planChangesUnavailable
+							? t('upgrade.whyUnavailable')
+							: t('upgrade.whyPreview')}
 				</p>
+				{liveBilling && ent.billing && !ent.billing.livemode && (
+					<span
+						data-testid="billing-test-mode"
+						style={{
+							display: 'inline-flex',
+							alignItems: 'center',
+							gap: 6,
+							marginTop: 10,
+							padding: '4px 10px',
+							borderRadius: 20,
+							background: 'var(--color-status-warning-subtle)',
+							border: `1px solid ${T.warn}`,
+							font: `600 11px ${T.sans}`,
+							color: T.sub,
+						}}
+					>
+						<Icon name="FlaskConical" size={12} color={T.warn} />
+						{t('upgrade.testMode')}
+					</span>
+				)}
 			</div>
+
+			{/* ADR-027: a subscribed account manages everything (plan switch, cancel, card, invoices)
+			    on Stripe's hosted portal — the app ships no billing-management UI of its own. */}
+			{confirming && (
+				<div
+					role="status"
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						justifyContent: 'center',
+						gap: 10,
+						margin: '12px auto 0',
+						maxWidth: 560,
+						padding: '10px 14px',
+						borderRadius: 10,
+						background: T.accSub,
+						border: `1px solid ${T.accBd}`,
+						font: `12.5px ${T.sans}`,
+						color: T.sub,
+					}}
+				>
+					<Icon name="RefreshCw" size={14} color={T.acc} />
+					{t('upgrade.checkout.confirming')}
+				</div>
+			)}
+			{portalMode && (
+				<div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="CreditCard"
+						disabled={busy}
+						onClick={openPortal}
+					>
+						{t('upgrade.manageBilling')}
+					</Button>
+				</div>
+			)}
+			{informsOnly && (
+				<div
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						justifyContent: 'center',
+						gap: 10,
+						margin: '12px auto 0',
+						maxWidth: 560,
+						padding: '10px 14px',
+						borderRadius: 10,
+						background: T.surf,
+						border: `1px solid ${T.bd}`,
+						font: `12.5px ${T.sans}`,
+						color: T.sub,
+					}}
+				>
+					<Icon name="info" size={14} color={T.acc} />
+					{t('upgrade.informsOnly', { host: billingWebHost() })}
+				</div>
+			)}
 
 			{showSignInNudge && (
 				<div
@@ -318,7 +581,7 @@ export function Upgrade() {
 					checked={annual}
 					onChange={() => setAnnual((v) => !v)}
 					label=""
-					aria-label={t('upgrade.showAnnual')}
+					aria-label={liveBilling ? t('upgrade.showAnnualLive') : t('upgrade.showAnnual')}
 				/>
 				<span style={{ font: `12.5px ${T.sans}`, color: annual ? T.ink : T.ter }}>
 					{t('upgrade.annualPrice')}
@@ -333,7 +596,7 @@ export function Upgrade() {
 						padding: '2px 8px',
 					}}
 				>
-					{t('upgrade.annualSaving')}
+					{liveBilling ? t('upgrade.annualSavingLive') : t('upgrade.annualSaving')}
 				</span>
 			</div>
 
@@ -444,11 +707,43 @@ export function Upgrade() {
 									</span>
 								))}
 							</div>
-							{/* Opens the changePlan confirm dialog — a real (simulated-checkout) plan change; server-backed when signed in. */}
+							{/* CTA. Live billing (ADR-027): a paid card starts Stripe Checkout, or — once
+							    subscribed — every change goes through the hosted portal; non-web surfaces
+							    only INFORM (no link, per Play policy). Otherwise the preview/local flow. */}
 							{on ? (
 								<Button variant="secondary" size="md" disabled icon="check">
 									{t('upgrade.currentPlan')}
 								</Button>
+							) : liveBilling ? (
+								subscribed || (portalMode && !pl.cloud) ? (
+									<Button
+										variant={pl.cloud ? 'primary' : 'secondary'}
+										size="md"
+										icon="CreditCard"
+										disabled={busy || !portalMode}
+										onClick={openPortal}
+									>
+										{portalMode
+											? t('upgrade.manageBilling')
+											: t('upgrade.manageOnWeb', { host: billingWebHost() })}
+									</Button>
+								) : pl.cloud ? (
+									<Button
+										variant="primary"
+										size="md"
+										icon="CreditCard"
+										disabled={busy || !checkoutMode}
+										onClick={() => setCheckoutTo(pl.id as PaidPlanId)}
+									>
+										{checkoutMode
+											? t('upgrade.subscribeTo', { plan: pl.name })
+											: t('upgrade.subscribeOnWeb', { host: billingWebHost() })}
+									</Button>
+								) : (
+									<Button variant="secondary" size="md" disabled icon="check">
+										{t('upgrade.currentPlan')}
+									</Button>
+								)
 							) : isUpgrade ? (
 								/* icon="ArrowUp" is the direct Lucide name (like "Sprout" above): it renders correctly whether or not the registry carries an 'arrow-up' alias, unlike unknown kebab names which fall back to a Square glyph. */
 								<Button
@@ -494,7 +789,12 @@ export function Upgrade() {
 			>
 				<Icon name="info" size={17} color={T.acc} />
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					{planChangesUnavailable ? (
+					{liveBilling ? (
+						<>
+							<strong style={{ color: T.ink }}>{t('upgrade.note.liveLead')}</strong>{' '}
+							{t('upgrade.note.liveBody')}
+						</>
+					) : planChangesUnavailable ? (
 						<>
 							<strong style={{ color: T.ink }}>{t('upgrade.note.unavailableLead')}</strong>{' '}
 							{t('upgrade.note.unavailableBody')}
@@ -649,17 +949,29 @@ export function Upgrade() {
 			</div>
 
 			<div style={{ textAlign: 'center', font: `12px ${T.sans}`, color: T.ter, marginTop: 18 }}>
-				{planChangesUnavailable ? t('upgrade.footer.unavailable') : t('upgrade.footer.preview')}
+				{liveBilling
+					? t('upgrade.footer.live')
+					: planChangesUnavailable
+						? t('upgrade.footer.unavailable')
+						: t('upgrade.footer.preview')}
 			</div>
+			<LegalLinks align="center" style={{ marginTop: 8 }} />
 
 			<ChangePlanDialog
-				toId={ent.canChangePlan ? confirmTo : null}
+				toId={ent.canChangePlan && !liveBilling ? confirmTo : null}
 				currentId={planId}
 				annual={annual}
 				serverBacked={ent.serverBacked}
 				busy={busy}
 				onClose={() => setConfirmTo(null)}
 				onConfirm={confirmChange}
+			/>
+			<CheckoutDialog
+				toId={checkoutMode ? checkoutTo : null}
+				annual={annual}
+				busy={busy}
+				onClose={() => setCheckoutTo(null)}
+				onConfirm={beginCheckout}
 			/>
 		</Page>
 	);

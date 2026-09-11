@@ -19,6 +19,7 @@ import { collectPerfMarks } from '../../diagnostics/perfMarks';
 import pkg from '../../../package.json';
 import { AppUpdatesPanel } from './AppUpdates';
 import { errMsg } from './shared';
+import { LegalLinks } from '../legal/LegalLinks';
 
 /* ---- About / Diagnostics (RC-ENG-6.1 — REAL core diagnostics view, wired to the DM/admin
  * `getDmDiagnostics`/`exportSupportBundle` queries in `@dndtools/core`). The screen assembles a
@@ -50,6 +51,19 @@ const STORAGE_CATEGORY_LABEL: Record<StorageCategory, MessageKey> = {
 	'sync-queue': 'settings.about.storageCategory.syncQueue',
 	other: 'settings.about.storageCategory.other',
 };
+
+/** The public Privacy Policy / Terms links — shown to every actor, DM or not. */
+function LegalPanel() {
+	const { t } = useI18n();
+	return (
+		<Panel title={t('settings.about.legal')}>
+			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 8 }}>
+				{t('settings.about.legalBody')}
+			</div>
+			<LegalLinks style={{ font: `13px ${T.sans}` }} />
+		</Panel>
+	);
+}
 
 function formatBytes(bytes: number): string {
 	if (bytes <= 0) return '0 B';
@@ -119,6 +133,7 @@ export function SettingsAbout() {
 				{/* Keeping the app current is not a DM-only concern — a player on this desktop install
 				    still needs to be able to update it. */}
 				<AppUpdatesPanel />
+				<LegalPanel />
 			</div>
 		);
 	}
@@ -265,6 +280,8 @@ export function SettingsAbout() {
 					{t('settings.about.exportButton')}
 				</Button>
 			</Panel>
+
+			<LegalPanel />
 		</div>
 	);
 }
