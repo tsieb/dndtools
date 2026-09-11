@@ -1,6 +1,6 @@
 import type { BoardWidget } from '../../board-helpers';
 import { Muted, type WidgetCommandHandler } from '../../widget-body-kit';
-import { NoteTile } from './Note';
+import { NoteBody } from './NoteBody';
 import { DiceBody } from './DiceBody';
 import { TimerBody } from './TimerBody';
 import { AudioBody } from './AudioBody';
@@ -95,8 +95,7 @@ export function WidgetBody({
 	switch (widget.type) {
 		case 'note':
 		case 'handout':
-			// RC-CAN-2.3 — no `onCommand` is edit mode (see above), where the depth badge shows.
-			return <NoteTile widget={widget} editing={!onCommand} />;
+			return <NoteBody widget={widget} editing={!onCommand} />;
 		case 'dice':
 			return <DiceBody widget={widget} onCommand={onCommand} />;
 		case 'timer':

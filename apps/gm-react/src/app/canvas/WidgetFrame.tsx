@@ -1,6 +1,9 @@
 import type { LayoutHistory } from './useLayoutHistory';
 import { useMemo, useRef } from 'react';
-import { Icon, VisibilityChip } from '../../ds';
+import { Badge, Icon, VisibilityChip } from '../../ds';
+import { useI18n, type MessageKey } from '../../i18n';
+import { noteDepth, type NoteDepth } from '../widgets/builtin/Note';
+import { NoteFrameContext } from '../widgets/builtin/NoteBody';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { TIER_LABEL, type BoardWidget } from '../board-helpers';
 import {
@@ -27,6 +30,12 @@ import { TileActionMenu, TRIGGER_SIZE } from './TileActionMenu';
 // packages created by older builds may still contain an emoji glyph, so retain a decorative legacy
 // fallback instead of replacing persisted package content with a broken square.
 const isRegistryKey = (icon: string) => /^[a-z0-9-]+$/i.test(icon);
+
+const NOTE_DEPTH_LABEL: Record<NoteDepth, MessageKey> = {
+	title: 'widgetBody.note.depthTitle',
+	summary: 'widgetBody.note.depthSummary',
+	full: 'widgetBody.note.depthFull',
+};
 
 export function WidgetGlyph({
 	icon,
@@ -143,6 +152,7 @@ export function WidgetFrame({
 	onCommand,
 	history,
 }: WidgetFrameProps) {
+	const { t } = useI18n();
 	const placeholder = w.status !== 'available';
 	// RC-CAN-2.2 — the header is the tile's identity at a glance: the type's accent rail and tinted
 	// icon, the label, who can see it, and what it is bound to.
@@ -284,6 +294,13 @@ export function WidgetFrame({
 					>
 						{w.typeLabel}
 					</span>
+					{editing &&
+						w.type === 'note' &&
+						w.configFields.some((field) => field.key === 'depth') && (
+							<Badge data-testid="note-depth-badge">
+								{t('widgetBody.note.depthBadge', { depth: t(NOTE_DEPTH_LABEL[noteDepth(w)]) })}
+							</Badge>
+						)}
 					{binding && glyph && (
 						<span
 							data-testid="tile-binding"
@@ -306,7 +323,9 @@ export function WidgetFrame({
 					)}
 				</div>
 				<div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-					<WidgetRenderSlot widget={w} onCommand={onCommand} />
+					<NoteFrameContext.Provider value={true}>
+						<WidgetRenderSlot widget={w} onCommand={onCommand} />
+					</NoteFrameContext.Provider>
 				</div>
 				{w.statusNote && (
 					<div
