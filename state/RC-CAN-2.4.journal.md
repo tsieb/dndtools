@@ -103,5 +103,11 @@ tree was not the cause.
 - No code change: none of the failures reproduce against this tree. The remedy is operator-side and
   outside this task's role: give the Browser acceptance gate a per-worktree `DNDTOOLS_E2E_PORT`, or
   serialize browser gates. This task does not edit the manifest or dispatcher control state.
-- Full suite, exact gate argv, isolated port: `DNDTOOLS_E2E_PORT=5391 pnpm e2e --workers=2
-  --retries=2`. Result below.
+- Full suite on the same tree (`894439d0`, whose app code matches the gated `80481fc7`), exact gate
+  argv on an isolated port: `DNDTOOLS_E2E_PORT=5391 pnpm e2e --workers=2 --retries=2`.
+  - Result: exit 0 in 19.0 min, with 1076 passed, 0 failed, 3 flaky and 11 skipped, and no
+    `ERR_CONNECTION_REFUSED`.
+  - All 10 tile-action-menu tests passed, desktop and mobile.
+  - Flaky, each passed on retry, none in code this task touches: `map-editor.spec.ts:342` (desktop)
+    and `scene-cards.spec.ts:519` (desktop + mobile). The gate run marked `scene-cards.spec.ts:519`
+    flaky as well.
