@@ -17,7 +17,7 @@
 - Built: `playerPreview.ts` (pure model) + unit test, `PlayerPreviewOverlay.tsx`, SceneEditor wiring
   (stage wrapper made `inert` while previewing; toolbar edit controls hidden; a preview-blocked
   scene shows the overlay instead of the "unavailable" card), `ViewAsControl` `placement="scene"`
-  + shared `usePreviewActions`, EN/ES keys, `tests/e2e/player-preview.spec.ts`.
+  - shared `usePreviewActions`, EN/ES keys, `tests/e2e/player-preview.spec.ts`.
 - Editing is suspended, not reset: no UI state is cleared on entry, so an open panel's unsaved draft,
   the selection and the canvas view survive the preview.
 - Validation so far: model unit test 5/5; sceneEditor + i18n Vitest 37/37 (EN/ES coverage gates
@@ -70,3 +70,9 @@
   `player-preview.spec.ts` + `canvas.spec.ts` 74/74 across both profiles on an isolated server
   (`DNDTOOLS_E2E_PORT=55209`), exit 0.
 - Nothing in the dispatcher was edited; the store was opened read-only.
+
+## Retry — 2026-09-12 ("Format (changed)" gate)
+
+- Quality gates passed; `format:check:changed --base loop/rc` failed on this journal only — the one
+  changed file never run through Prettier. Formatted it and re-ran the same script locally before
+  committing. No source changes.
