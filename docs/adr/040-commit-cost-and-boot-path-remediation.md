@@ -1,6 +1,6 @@
 # ADR-040: Commit Cost and Boot Path Remediation
 
-- Status: Accepted
+- Status: Accepted (amends ADR-004, ADR-024)
 - Date: 2026-09-11
 - Deciders: Engineering
 - Consulted: Product
