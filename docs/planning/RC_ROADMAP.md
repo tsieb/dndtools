@@ -2011,8 +2011,10 @@ DEVELOPMENT.md`. This box has no usable JDK 21 (`/usr/lib/jvm/java-21-openjdk` i
   `@vitejs/plugin-react` 4.7 → 6.1; electron 43.1 → 44.1; react-dom + `@types/react-dom`; `@types/node`
   22 → 26 (typecheck fallout); the GitHub Actions group; the gradle wrapper 8.14.3 → 9.7.1 (Android job
   green). A bump that breaks a gate is reverted with the reason in the journal, never forced.
-  Acceptance: every gate green on the merged set; `pnpm audit` clean; PRs #56, #57 and #59–#63 closed
-  as superseded (`gh pr close <n> --comment` naming the integrating commit).
+  Acceptance: every gate green on the merged set; `pnpm audit` clean (react-router, vitest and wait-on's
+  joi all have patched releases). **Acceptance amended 2026-09-12.** Closing PRs #56, #57 and #59–#63
+  as superseded (`gh pr close <n> --comment` naming the integrating commit) cannot happen before
+  integration, so it moves to the loop/rc → main delivery and is not a candidate-review criterion.
 - **RC-ENG-5.1 — Security review v2 (whole app).** `M` · P4 · Owns: `docs/security/
 app-security-review-<date>.md`, fixes. Scope: sandbox host (WID-1.3), host API, package review,
   system packages as data, private player store, PWA cache, auto-update signature, Stripe webhook,
