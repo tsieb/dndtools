@@ -128,6 +128,20 @@ export const T = {
 		slow: 'var(--duration-slow)',
 		crawl: 'var(--duration-crawl)',
 	},
+	// The active `data-density` set (tokens/spacing.css). Read these instead of a fixed size so a
+	// surface follows Standard/Comfortable/Compact and the touch lock.
+	density: {
+		touch: 'var(--density-touch-target)',
+		focus: 'var(--density-focus-target)',
+		nav: 'var(--density-nav-height)',
+		navItem: 'var(--density-nav-item-height)',
+		cardPad: 'var(--density-card-padding)',
+		listGap: 'var(--density-list-gap)',
+		icon: 'var(--density-icon-size)',
+		input: 'var(--density-input-height)',
+		button: 'var(--density-button-height)',
+		font: 'var(--density-font-size)',
+	},
 	// Preserve the previous shadow aliases while migration uses the grouped token form above.
 	smd: 'var(--shadow-md)',
 	ssm: 'var(--shadow-sm)',
@@ -275,19 +289,23 @@ function LoadingProgressMeter({ label, progress }: { label: string; progress: Lo
 	return <ProgressMeter label={label} value={value} max={max} eta={eta} />;
 }
 
+/**
+ * Panel — the app's card. Its padding defaults to the density card padding (16px, 12px compact;
+ * RC-DSN-1.4). The old fixed 18px never followed Settings › Appearance › Density.
+ */
 export function Panel({
 	title,
 	action,
 	children,
 	style,
-	pad = 18,
+	pad = T.density.cardPad,
 	accent,
 }: {
 	title?: ReactNode;
 	action?: ReactNode;
 	children?: ReactNode;
 	style?: CSSProperties;
-	pad?: number;
+	pad?: number | string;
 	accent?: boolean;
 }) {
 	return (

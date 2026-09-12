@@ -502,6 +502,214 @@ test('Settings category navigation stays touch-sized on the rail/tablet profile'
 	}
 });
 
+/**
+ * RC-DSN-1.4 — the audited density sets, comfortable / standard / compact: nav item 48/36/28, card
+ * padding 16/16/12, list gap 8/4/2. Nav rows are measured on the tablet rail, the one profile that
+ * renders the DS NavItem; cards on the Settings › Appearance Panel.
+ */
+const DENSITY_SETS = [
+	{ label: 'Comfortable', value: 'comfortable', navItem: 48, cardPad: 16, listGap: 8 },
+	{ label: 'Standard', value: 'standard', navItem: 36, cardPad: 16, listGap: 4 },
+	{ label: 'Compact', value: 'compact', navItem: 28, cardPad: 12, listGap: 2 },
+] as const;
+
+/** The density tokens as layout resolves them, read off a probe laid out with each one. */
+async function densityTokenMetrics(page: Page) {
+	return page.evaluate(() => {
+		const probe = document.createElement('div');
+		probe.style.cssText =
+			'position:absolute;visibility:hidden;display:flex;row-gap:var(--component-list-gap);' +
+			'padding:var(--component-card-padding);min-height:var(--density-nav-item-height);' +
+			// A gap, not a width: under border-box the card padding would clamp a 24px width to 32px.
+			'column-gap:var(--density-icon-size)';
+		document.body.append(probe);
+		const style = getComputedStyle(probe);
+		const metrics = {
+			navItem: parseFloat(style.minHeight),
+			cardPad: parseFloat(style.paddingTop),
+			listGap: parseFloat(style.rowGap),
+			icon: parseFloat(style.columnGap),
+		};
+		probe.remove();
+		return metrics;
+	});
+}
+
+/** The rail's destinations: the buttons in its scrolling list, not the palette button in its footer. */
+async function railNavItems(page: Page) {
+	return page.locator('nav[aria-label="Primary"] button').evaluateAll((buttons) =>
+		buttons
+			.filter((button) => {
+				const list = button.parentElement;
+				return !!list && getComputedStyle(list).overflowY === 'auto';
+			})
+			.map((button) => {
+				const rect = button.getBoundingClientRect();
+				return {
+					name: button.getAttribute('aria-label') ?? button.tagName,
+					minHeight: parseFloat(getComputedStyle(button).minHeight),
+					width: rect.width,
+					height: rect.height,
+				};
+			}),
+	);
+}
+
+async function targetSizes(page: Page, selector: string) {
+	return page.locator(selector).evaluateAll((controls) =>
+		controls
+			.filter((control) => control.getBoundingClientRect().height > 0)
+			.map((control) => {
+				const rect = control.getBoundingClientRect();
+				const name =
+					control.getAttribute('aria-label') || control.textContent?.trim() || control.tagName;
+				return {
+					name: name.replace(/\s+/g, ' ').slice(0, 40),
+					width: rect.width,
+					height: rect.height,
+				};
+			}),
+	);
+}
+
+test('each density set gives nav items, cards and list gaps their audited target sizes', async ({
+	page,
+}) => {
+	await page.setViewportSize({ width: 800, height: 900 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/settings');
+	await seedFresh(page);
+
+	// Prepaint boots every viewport under 1200px as comfortable, so each set is chosen through the
+	// real Appearance control, which switches `data-density` live.
+	const density = page.getByRole('radiogroup', { name: 'Interface density' });
+	const appearance = density.locator('xpath=ancestor::section[1]');
+	for (const set of DENSITY_SETS) {
+		await density.getByRole('radio', { name: set.label, exact: true }).click();
+		await expect(page.locator('html')).toHaveAttribute('data-density', set.value);
+
+		const items = await railNavItems(page);
+		expect(items.length, 'the rail rendered no destinations').toBeGreaterThan(3);
+		for (const item of items) {
+			expect(item.minHeight, `${item.name} nav item min-height (${set.value})`).toBe(set.navItem);
+			expect(item.height, `${item.name} is shorter than its min-height`).toBeGreaterThanOrEqual(
+				set.navItem - 0.5,
+			);
+			// WCAG 2.5.8's 24px floor holds at every density, compact included.
+			expect(
+				Math.min(item.width, item.height),
+				`${item.name} is under the 24px floor (${set.value})`,
+			).toBeGreaterThanOrEqual(24);
+		}
+
+		await expect(appearance).toHaveCSS('padding-top', `${set.cardPad}px`);
+		expect(await densityTokenMetrics(page)).toMatchObject({
+			navItem: set.navItem,
+			cardPad: set.cardPad,
+			listGap: set.listGap,
+		});
+
+		for (const radio of await targetSizes(
+			page,
+			'[role="radiogroup"][aria-label="Interface density"] [role="radio"]',
+		)) {
+			expect(
+				Math.min(radio.width, radio.height),
+				`density option ${radio.name} is under the 24px floor (${set.value})`,
+			).toBeGreaterThanOrEqual(24);
+		}
+	}
+});
+
+test('a stored density applies from 1200px; narrower viewports boot locked to comfortable', async ({
+	page,
+}) => {
+	await page.addInitScript(() => {
+		try {
+			window.localStorage.setItem('dndtools:react:density', 'compact');
+		} catch {
+			/* storage may be unavailable in some contexts */
+		}
+	});
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/settings');
+	await seedFresh(page);
+
+	await expect(page.locator('html')).toHaveAttribute('data-density', 'compact');
+	expect(await densityTokenMetrics(page)).toMatchObject({ navItem: 28, cardPad: 12, listGap: 2 });
+	await expect(
+		page
+			.getByRole('radiogroup', { name: 'Interface density' })
+			.locator('xpath=ancestor::section[1]'),
+	).toHaveCSS('padding-top', '12px');
+
+	// The same stored choice on a tablet-width boot is overridden: touch profiles get comfortable.
+	await page.setViewportSize({ width: 800, height: 900 });
+	await page.reload({ waitUntil: 'domcontentloaded' });
+	await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
+		timeout: 20_000,
+	});
+	await page.locator('h1').first().waitFor({ state: 'attached', timeout: 20_000 });
+	await expect(page.locator('html')).toHaveAttribute('data-density', 'comfortable');
+	const items = await railNavItems(page);
+	expect(items.length, 'the rail rendered no destinations').toBeGreaterThan(3);
+	for (const item of items) {
+		expect(
+			item.height,
+			`${item.name} is under the 48px comfortable nav item`,
+		).toBeGreaterThanOrEqual(47.5);
+		expect(item.width, `${item.name} is under the 44px touch target`).toBeGreaterThanOrEqual(43.5);
+	}
+});
+
+test('Android holds the comfortable set even with compact stored at a wide viewport', async ({
+	page,
+}) => {
+	await page.addInitScript(() => {
+		(
+			globalThis as typeof globalThis & {
+				__DNDTOOLS_TEST_RUNTIME_KIND__?: 'android';
+			}
+		).__DNDTOOLS_TEST_RUNTIME_KIND__ = 'android';
+		try {
+			window.localStorage.setItem('dndtools:react:density', 'compact');
+		} catch {
+			/* storage may be unavailable in some contexts */
+		}
+	});
+	// 1280px is past prepaint's 1200px line, so the stored `compact` is what boots — a landscape
+	// Android tablet. The lock, not the viewport, has to hold the comfortable set here.
+	await page.setViewportSize({ width: 1280, height: 800 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/settings');
+	await seedFresh(page);
+
+	await expect(page.locator('html')).toHaveAttribute('data-runtime', 'android');
+	await expect(page.locator('html')).toHaveAttribute('data-density', 'compact');
+	expect(await densityTokenMetrics(page)).toEqual({
+		navItem: 48,
+		cardPad: 16,
+		listGap: 8,
+		icon: 24,
+	});
+	await expect(
+		page
+			.getByRole('radiogroup', { name: 'Interface density' })
+			.locator('xpath=ancestor::section[1]'),
+	).toHaveCSS('padding-top', '16px');
+
+	const undersized = [
+		...(await targetSizes(page, 'nav[aria-label="Primary"] button')),
+		...(await targetSizes(
+			page,
+			'[role="radiogroup"][aria-label="Interface density"] [role="radio"]',
+		)),
+		...(await targetSizes(page, 'nav[aria-label="Settings navigation"] button')),
+	].filter((control) => control.width < 47.5 || control.height < 47.5);
+	expect(undersized, 'controls under 48dp with compact stored on Android').toEqual([]);
+});
+
 test('first-run setup remains usable through every step at 375x520', async ({ page }) => {
 	await page.setViewportSize({ width: 375, height: 520 });
 	await openFirstRun(page);
