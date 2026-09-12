@@ -66,3 +66,22 @@ Run the central wrapper gates and independent review against the resulting
 candidate as well. This journal and the local evidence are not wrapper or hosted
 gate success evidence. Do not mark the acceptance criterion complete until the
 hosted artifact has been reviewed.
+
+## 2026-09-12 — ownership repair and amended pre-merge acceptance
+
+Starting branch HEAD: `d20a20ed`. `git range-diff` confirms that the nine
+candidate commits ending at `c5102e4d` are patch-equivalent to the rebased
+series `8fa715b6` through `e2cf5d33`, on base `5e6064d9`. Preserve that rebase
+and the subsequent manual-ref workflow input.
+
+Previous gate feedback identified `tests/unit/perf-pipeline.test.ts` outside
+this task's claim. Move that new test to `tests/perf/perf-pipeline.test.ts`.
+A scoped Vitest config inherits root aliases and worker limits and includes
+the pipeline suite plus the existing baseline tests. The Performance workflow
+runs this configuration before measurement, and the README gives the same
+local command. No changes to the existing root test configuration are needed.
+
+The amended acceptance requires fresh workstation evidence on the candidate;
+the September 10 report is historical evidence only. A new capture and its
+results will be recorded below. Hosted five-run acceptance belongs to
+RC-ENG-1.4 after integration. No hosted run is claimed here.

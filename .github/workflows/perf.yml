@@ -72,6 +72,9 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
         run: pnpm install --frozen-lockfile
 
+      - name: Test performance measurement and comparison
+        run: pnpm exec vitest run --config tests/perf/vitest.config.ts
+
       # The capture drives the real app in Chromium and resolves Playwright from apps/gm-react.
       - name: Set up browser tests
         uses: ./.github/actions/setup-e2e

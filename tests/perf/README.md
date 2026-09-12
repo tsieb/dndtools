@@ -56,8 +56,9 @@ candidate HEAD: that would baseline away the regression under review. The
 candidate's capture harness always drives both revisions, so a protocol change
 applies to both sides.
 
-Local validation: `pnpm exec vitest run tests/unit/perf-pipeline.test.ts
- tests/unit/perf-baseline.test.ts` (on one line). For runner reproduction, use
+Local validation: `pnpm exec vitest run --config tests/perf/vitest.config.ts`.
+This runs the pipeline tests in this directory and the existing baseline unit
+tests; the Performance workflow runs it before capturing. For runner reproduction, use
 `CI=true RUNNER_TEMP=/path/to/scratch bash scripts/perf/ci.sh` from a full checkout
 with Node, pnpm, and Playwright Chromium installed. Allow up to 300 minutes.
 The reference and candidate dev servers listen on `PERF_REFERENCE_PORT` (5373) and
