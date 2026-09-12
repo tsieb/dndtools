@@ -179,9 +179,11 @@ test.describe('ai assistant: client-side BYO-key provider (ADR-021)', () => {
 		const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
 
 		// The staged-write review panel is honestly empty — nothing an agent does commits without the DM.
-		await expect(page.getByText(/Nothing staged\./)).not.toHaveCount(0);
+		await expect(page.getByText(/No changes awaiting review\./)).not.toHaveCount(0);
 		// The page explains that provider access and agent policy are separate gates.
-		await expect(page.getByText(/Each agent also needs an identity and policy/)).not.toHaveCount(0);
+		await expect(
+			page.getByText(/Choose an identity and review rules for each assistant/),
+		).not.toHaveCount(0);
 
 		// Turn on the two Core-side prerequisites the assistant gates on (durable, owner-only writes):
 		// the MCP master switch, and one registered agent binding (names WHICH actor the agent speaks as).

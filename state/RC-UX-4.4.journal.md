@@ -52,3 +52,26 @@
   passed: all 48 anchors match, with zero stale limits and zero unwired screens. All seven
   feature-audit unit tests passed. Changed-file formatting and `git diff --check` passed.
   Independent reviewer sign-off remains pending.
+
+## Browser-acceptance follow-up
+
+- Read the original browser log from attempt `9386ebfd-12ea-4066-8157-f74a1cda7562`, including
+  each first-attempt failure. The 60 failures repeat 30 tests on desktop and mobile; each first
+  failure refers to previous copy. Five other tests passed on retry in the central run.
+- Updating the permitted companion browser specs to the reviewed visible labels and recovery
+  messages. Core status values and behavioral assertions remain unchanged. Browser rerun pending.
+- First targeted browser run: 58 passed / 4 failed (62 cases, no retries). The original failure
+  output identifies two later old-copy expectations on each platform: the batch confirmation
+  (`approved and committed`) and system gallery badge (`Forked`). Updated them to the exact
+  singular confirmation (`1 proposal approved and saved.`) and `Your copy` badge. Re-running
+  all originally failing tests plus the source-panel negative assertions updated in this pass.
+- Final targeted browser validation passed all 64 cases on desktop and mobile with
+  `pnpm e2e --workers=2 --retries=0 --grep <affected test titles>`: all 60 previously failing
+  cases, two widget-builder accessibility cases matched by the same title, and the two
+  connected-source cases whose negative label assertions were also updated. Original output:
+  `/tmp/rc-ux-browser-final.log`. No retries, skips or failures in this targeted run.
+- ESLint passed all 20 changed browser specs; the two subsequent expectation refinements
+  also passed lint. Changed-file formatting and `git diff --check` passed. Application code,
+  catalog copy, fixture protocol values and assertion behavior are unchanged by this follow-up.
+- Full browser-suite revalidation and independent reviewer sign-off remain with the central
+  operator. This run supplies targeted browser evidence, not a claim that the full suite passed.

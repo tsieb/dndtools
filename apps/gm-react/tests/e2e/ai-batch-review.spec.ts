@@ -77,7 +77,7 @@ async function seedBatch(page: Page): Promise<void> {
 function stagedPanel(page: Page) {
 	return page
 		.locator('section')
-		.filter({ has: page.getByRole('heading', { name: 'Staged writes awaiting review' }) });
+		.filter({ has: page.getByRole('heading', { name: 'Proposed changes awaiting review' }) });
 }
 
 test.describe('ai batch review: grouping and filters (RC-AI-2.4)', () => {
@@ -88,7 +88,7 @@ test.describe('ai batch review: grouping and filters (RC-AI-2.4)', () => {
 		await expect(panel.getByText('Prep · 2')).not.toHaveCount(0);
 		await expect(panel.getByText('Scout · 1')).not.toHaveCount(0);
 
-		await panel.getByLabel('Filter staged writes by agent').selectOption('scout-bot');
+		await panel.getByLabel('Filter proposed changes by agent').selectOption('scout-bot');
 		await expect(panel.getByText('Sighting: patrol route')).not.toHaveCount(0);
 		await expect(panel.getByText('Prep · 2')).toHaveCount(0);
 	});
@@ -99,9 +99,9 @@ test.describe('ai batch review: grouping and filters (RC-AI-2.4)', () => {
 
 		// Every baseline write tool is `durable`, so narrowing to low-risk leaves nothing.
 		await panel.getByRole('radio', { name: 'Low risk', exact: true }).click();
-		await expect(panel.getByText('No staged writes match these filters.')).not.toHaveCount(0);
+		await expect(panel.getByText('No proposed changes match these filters.')).not.toHaveCount(0);
 
-		await panel.getByRole('radio', { name: 'Durable', exact: true }).click();
+		await panel.getByRole('radio', { name: 'Changes saved data', exact: true }).click();
 		await expect(panel.getByText('Rumor: bandits on the pass')).not.toHaveCount(0);
 	});
 
@@ -117,7 +117,7 @@ test.describe('ai batch review: grouping and filters (RC-AI-2.4)', () => {
 
 		await panel.getByRole('button', { name: 'Approve selected' }).click();
 
-		await expect(page.getByText(/1 proposals? approved and committed\./)).not.toHaveCount(0);
+		await expect(page.getByText('1 proposal approved and saved.')).not.toHaveCount(0);
 		// Two proposals remain: one Prep note-create, and Scout's.
 		await expect(panel.getByText('Prep · 1')).not.toHaveCount(0);
 		await expect(panel.getByText('Scout · 1')).not.toHaveCount(0);

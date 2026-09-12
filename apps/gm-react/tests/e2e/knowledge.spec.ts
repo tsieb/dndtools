@@ -175,7 +175,7 @@ test.describe('knowledge: notes workbench', () => {
 
 		const alert = page.getByRole('alert');
 		await expect(alert).toBeVisible();
-		await expect(alert).toHaveText('A note needs a title.');
+		await expect(alert).toHaveText('Give the note a title.');
 		// The editor stayed open — the note was NOT written with an empty title.
 		await expect(page.getByRole('button', { name: 'Save note' })).toBeVisible();
 		expect(await findItem(page, `Ledger ${stamp}`)).toBeTruthy();
@@ -184,13 +184,13 @@ test.describe('knowledge: notes workbench', () => {
 		// role=alert: the DS Toaster also uses that role for its success toast.
 		await page.getByPlaceholder('Note title').fill(`Ledger ${stamp} v2`);
 		await page.getByRole('button', { name: 'Save note' }).click();
-		await expect(page.getByText('A note needs a title.')).toHaveCount(0);
+		await expect(page.getByText('Give the note a title.')).toHaveCount(0);
 		await expect(page.getByRole('button', { name: 'Save note' })).toHaveCount(0);
 	});
 
 	// Cancel used to leave the failed save's `err` set. View mode renders that SAME state in its own
 	// role=alert directly above the note body, so backing out of a rejected save left a note that
-	// plainly has a title standing there announced as "A note needs a title."
+	// plainly has a title standing there announced as "Give the note a title."
 	test('cancelling a rejected save clears the message instead of carrying it into view mode', async ({
 		page,
 	}) => {
@@ -202,13 +202,13 @@ test.describe('knowledge: notes workbench', () => {
 
 		await page.getByPlaceholder('Note title').fill('');
 		await page.getByRole('button', { name: 'Save note' }).click();
-		await expect(page.getByText('A note needs a title.')).toBeVisible();
+		await expect(page.getByText('Give the note a title.')).toBeVisible();
 
 		await page.getByRole('button', { name: 'Cancel', exact: true }).click();
 
 		// Back in view mode: the note kept its real title and the stale rejection is gone.
 		await expect(page.getByRole('heading', { name: title })).toBeVisible();
-		await expect(page.getByText('A note needs a title.')).toHaveCount(0);
+		await expect(page.getByText('Give the note a title.')).toHaveCount(0);
 	});
 
 	test('visibility set from the Sharing panel governs the player preview', async ({ page }) => {
@@ -407,7 +407,7 @@ test.describe('knowledge: notes workbench', () => {
 		await page.locator('textarea').fill(archive);
 
 		const before = await ops(page);
-		await page.getByLabel('Import collision policy').selectOption('overwrite');
+		await page.getByLabel('When a note already exists').selectOption('overwrite');
 		await page.getByRole('button', { name: 'Import', exact: true }).click();
 
 		// Nothing has been dispatched yet — the press opens the confirm instead.
@@ -524,9 +524,9 @@ test.describe('knowledge: notes workbench', () => {
 		const unsupported = page.getByText(/this browser doesn’t support it/);
 		expect((await noneConnected.count()) + (await unsupported.count())).toBeGreaterThan(0);
 
-		// No source rows exist, so no Pull/Push transport affordances leak into the panel.
-		await expect(page.getByRole('button', { name: 'Pull', exact: true })).toHaveCount(0);
-		await expect(page.getByRole('button', { name: 'Push', exact: true })).toHaveCount(0);
+		// No source rows exist, so no import/export transport affordances leak into the panel.
+		await expect(page.getByRole('button', { name: 'Import notes', exact: true })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Export notes', exact: true })).toHaveCount(0);
 	});
 	/* ------------------------------------------------------------------------------------------ */
 	/* RC-KNW-1.2 — editor v2: toolbar, [[ autocomplete, / insert menu, live preview, autosave.     */

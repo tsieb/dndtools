@@ -164,7 +164,7 @@ test.describe('ai proposals: three-way conflict (RC-AI-2.2)', () => {
 		await page.getByRole('button', { name: 'Merge both' }).click();
 
 		await expect.poll(() => noteBody(page, NOTE_TITLE)).toBe(MERGED_BODY);
-		await expect(page.getByText(/^Nothing staged\./)).not.toHaveCount(0);
+		await expect(page.getByText(/^No changes awaiting review\./)).not.toHaveCount(0);
 	});
 
 	test('keeping the note as it is discards the rewrite and writes nothing', async ({ page }) => {
@@ -189,9 +189,7 @@ test.describe('ai proposals: three-way conflict (RC-AI-2.2)', () => {
 		await seedConflict(page, HUMAN_SAME_LINE);
 
 		await expect(
-			page.getByText(
-				'The assistant and the note changed the same lines, so there is no merge to offer.',
-			),
+			page.getByText('Both versions changed the same lines. Choose which version to use.'),
 		).not.toHaveCount(0);
 		await expect(page.getByRole('button', { name: 'Merge both' })).toHaveCount(0);
 		await expect(page.getByRole('button', { name: "Keep the assistant's version" })).toHaveCount(1);

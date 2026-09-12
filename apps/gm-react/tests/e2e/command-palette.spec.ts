@@ -129,7 +129,7 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 		// falls back to AC 10.
 		const start = dialog.getByRole('button', { name: 'Start combat' });
 		await dialog.getByLabel('Quick add', { exact: true }).fill('Bandit');
-		await dialog.getByLabel('HP', { exact: true }).fill('');
+		await dialog.getByLabel('Hit points', { exact: true }).fill('');
 		await dialog.getByRole('button', { name: 'Add', exact: true }).click();
 
 		const row = dialog.getByLabel('Bandit quantity');
