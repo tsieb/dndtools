@@ -89,7 +89,7 @@ export const en = {
 	'nav.atlas': 'Atlas',
 	'nav.knowledge': 'Knowledge',
 	'nav.home': 'Home',
-	'nav.graph': 'Graph & Search',
+	'nav.graph': 'Graph & search',
 	'nav.audio': 'Audio',
 	'nav.extensions': 'Extensions',
 	'nav.community': 'Community',
@@ -108,8 +108,8 @@ export const en = {
 	'nav.sub.community': 'Browse · publish',
 	'nav.sub.pricing': 'Compare · preview',
 	'nav.sub.player': 'Your {characterLower} at the table',
-	'section.audio': 'Audio & Atmosphere',
-	'section.extensibility': 'Extensions & Systems',
+	'section.audio': 'Audio & atmosphere',
+	'section.extensibility': 'Extensions & systems',
 	'section.player': '{player}',
 	'section.sub.home': 'Your campaign hub — resume the live scene or jump anywhere',
 	'section.sub.board': 'Your table dashboard — dice, initiative, timers, and trackers',
@@ -119,12 +119,12 @@ export const en = {
 	'section.sub.campaign': 'Threads, factions, NPCs, and the timeline',
 	'section.sub.knowledge': 'Notes, handouts, and read-aloud text',
 	'section.sub.scenes': 'The canvases your table plays on — build, edit, and stage them',
-	'section.sub.graph': 'Every entity and connection visible to your current role',
-	'section.sub.audio': 'Soundboard cues, layered ambience, and scene bindings',
+	'section.sub.graph': 'Explore the notes, places and connections you can see',
+	'section.sub.audio': 'Soundboard cues, layered ambience and audio linked to scenes',
 	'section.sub.extensibility': 'Plugins, the compendium, custom objects, and the rules module',
 	'section.sub.community': 'Browse modules, export your work, and publish the campaign wiki',
 	'section.sub.pricing': 'Local play stays free. Optional hosted plans are in a no-charge preview',
-	'section.sub.player': 'The second persona: your own sheet, resources, and journal',
+	'section.sub.player': 'Your sheet, resources and journal at the table',
 	'section.sub.settings': 'Appearance, players, permissions, and systems',
 	'settings.title': 'Settings',
 	'settings.appearance': 'Appearance',
@@ -137,7 +137,7 @@ export const en = {
 	'settings.vaultConnections': 'Vault connections',
 	'settings.backupHistory': 'Backup & history',
 	'settings.aiTools': 'AI & tools',
-	'settings.profileUpdateFailed': 'Could not update your profile.',
+	'settings.profileUpdateFailed': 'Could not update your profile. Try again.',
 	'settings.players.none': 'No one has joined yet.',
 	'settings.language.title': 'Language & region',
 	'settings.language.label': 'Language',
@@ -220,7 +220,8 @@ export const en = {
 	'sceneDisplay.nextFailed': 'The next card couldn’t be shown — try again.',
 	'sceneDisplay.secondScreen': 'Second screen',
 	'sceneDisplay.secondScreenOpen': 'Open on a second screen',
-	'sceneDisplay.secondScreenUnavailable': 'Second screen is not available on this device',
+	'sceneDisplay.secondScreenUnavailable':
+		'A second screen is unavailable on this device. Use the scene display here.',
 	'sceneDisplay.popupBlocked':
 		'Your browser blocked the display window — allow pop-ups for this site.',
 	'sceneCards.atmosphere': 'Atmosphere',
@@ -248,19 +249,19 @@ export const en = {
 	'sceneCards.queueEmpty':
 		'The queue is empty. Queue cards below, then press Next card (Ctrl+→) to play them in order.',
 	'sceneCards.shortcuts': 'Ctrl+Shift+S fullscreen · Ctrl+→ next card',
-	'sceneCards.secureImageRequired': 'Secure image link required',
+	'sceneCards.secureImageRequired': 'Use an https:// image link',
 	'sceneCards.moveUp': 'Move {title} up',
 	'sceneCards.moveDown': 'Move {title} down',
 	'sceneCards.removeFromQueue': 'Remove {title} from queue',
 	'sceneCards.queued': '{title} is queued',
 	'sceneCards.queue': 'Queue {title}',
-	'sceneCards.makeDmOnly': 'Make {title} DM only',
+	'sceneCards.makeDmOnly': 'Make {title} {gm} only',
 	'sceneCards.makePlayerVisible': 'Make {title} player visible',
 	'sceneCards.edit': 'Edit {title}',
 	'sceneCards.delete': 'Delete {title}',
 	'sceneCards.deleted': '“{title}” deleted',
-	'sceneCards.androidSecureLink': 'On Android, scene images need a secure https:// link.',
-	'sceneCards.androidHttpsOnly': 'On Android, image links must use https://.',
+	'sceneCards.androidSecureLink': 'Use an https:// image link on Android.',
+	'sceneCards.androidHttpsOnly': 'Use an https:// image link on Android.',
 	'sceneCards.androidImageBroken':
 		'This image link doesn’t load on Android. Replace it with an https:// link or clear it.',
 	'sceneCards.createFailed': 'The scene card couldn’t be created — try again.',
@@ -328,55 +329,52 @@ export const en = {
 	'onboarding.step.ready': 'Ready',
 	'onboarding.welcome.title': 'Run a better table.',
 	'onboarding.welcome.body':
-		"Lamplight is a candle-lit command center for live play — combat, dice, maps, party vitals and what your players see, all in one spatial board. Let's get yours set up.",
+		'Run combat, roll dice, manage maps, and control what players see from one board. Set up your table to get started.',
 	'onboarding.welcome.anySystem': 'Any system — D&D 5e, narrative, or your own',
 	'onboarding.welcome.localFirst': 'Local-first, cloud backup only when you choose',
 	'onboarding.welcome.playerSafe': 'Player-safe by design',
 	'onboarding.vault.groupLabel': 'Vault choice',
 	'onboarding.vault.title': 'Where should your world live?',
 	'onboarding.vault.introEmpty':
-		'Your vault lives on this device — every note, map, and character. This device started fresh, so the vault is currently empty.',
+		'Your vault stores your campaign on this device. It is empty and ready for your notes, maps, and characters.',
 	'onboarding.vault.introSample':
-		'Your vault lives on this device — every note, map, and character. The sample campaign is already loaded so nothing starts empty.',
+		'Your vault stores your campaign on this device. The sample campaign is already loaded for you to explore.',
 	'onboarding.vault.loadSample': 'Load the sample campaign',
 	'onboarding.vault.keepSample': 'Keep the sample campaign',
 	'onboarding.vault.sampleDescEmpty':
-		'Loads the sample table — scenes, party, maps and notes — so you can explore with nothing starting empty. Everything is editable or deletable later.',
+		'Load sample scenes, a party, maps and notes to explore. You can edit or delete them later.',
 	'onboarding.vault.sampleDescLoaded':
 		'Explore with a table already set: {scenes} scenes · {pcs} PCs · {npcs} NPCs · {maps, plural, one {# map} other {# maps}} · {notes} notes. Everything is editable or deletable later.',
 	'onboarding.vault.fresh': 'Start fresh',
-	'onboarding.vault.freshDescEmpty':
-		"Keeps this device's vault empty. Your own campaign from a blank page.",
+	'onboarding.vault.freshDescEmpty': 'Keep this device’s vault empty, ready for your campaign.',
 	'onboarding.vault.freshDescLoaded':
-		'Clears the sample campaign from this device and boots an empty vault. Your own campaign from a blank page.',
-	'onboarding.vault.importHint':
-		'Importing from Obsidian, Google Docs or a Roll20 export lives in Settings → Vault connections.',
+		'Clear the sample campaign from this device and start your own in an empty vault.',
+	'onboarding.vault.importHint': 'Import files from Settings → Vault connections.',
 	'onboarding.privacy.groupLabel': 'Vault privacy mode',
 	'onboarding.privacy.title': 'Who can read your world?',
 	'onboarding.privacy.intro':
-		'This decides how your campaign is stored if you ever use cloud features. There is no preset — this choice is yours, and you can change it later in Settings → Sync.',
+		'Choose how your campaign will be stored if you use cloud features. Neither option is selected for you. You can change it later in Settings → Backup & history.',
 	'onboarding.privacy.privateTitle': 'Private vault (end-to-end encrypted)',
 	'onboarding.privacy.privateDesc':
-		'Your campaign is encrypted on your devices before anything leaves them, and only your devices hold the keys — the service can never read it. Server-powered features (campaign AI, cloud search, opening your campaign from any browser) will not be available to this vault.',
+		'Your campaign is encrypted before it leaves your devices. Only your devices hold the keys, so the service cannot read it. Campaign AI, cloud search and access from any browser will be unavailable in this mode.',
 	'onboarding.privacy.cloudTitle': 'Cloud-Enhanced vault',
 	'onboarding.privacy.cloudDesc':
 		'Consent for the service to read your campaign to power server features — campaign AI, cloud search, and access from any browser. Those features are not in this edition: your data stays end-to-end encrypted, and you will be asked again before anything becomes readable.',
 	'onboarding.privacy.noRecoveryTitle': 'No one can recover this for you',
 	'onboarding.privacy.noRecoveryBody':
-		'Cloud backups of a Private vault can only be opened with keys held on your devices. If you lose every device without exporting a recovery key (Settings → Sync), the cloud copy is gone for good — the service cannot reset or restore it.',
+		'Only the keys on your devices can open a Private vault’s cloud backup. Export a recovery key in Settings → Backup & history and store it safely. If you lose every device without that file, the service cannot recover your cloud backup.',
 	'onboarding.privacy.ackPrompt': 'Type {phrase} to confirm you understand.',
 	'onboarding.privacy.ackFieldLabel': 'Type "{phrase}" to confirm',
 	'onboarding.privacy.ackMismatch': 'That does not match — type “{phrase}” exactly.',
 	'onboarding.experience.groupLabel': 'Experience complexity',
 	'onboarding.experience.title': 'How much do you want on screen?',
 	'onboarding.experience.intro':
-		'You can change this any time in Settings. It only affects how much is revealed — never what you can do.',
+		'Choose how many controls you see. All features remain available, and you can change this any time in Settings.',
 	'onboarding.experience.beginner': 'Beginner',
 	'onboarding.experience.beginnerBlurb':
 		'The essentials only. Guided prompts, presets over fields, advanced panels hidden until you ask.',
 	'onboarding.experience.standard': 'Standard',
-	'onboarding.experience.standardBlurb':
-		'The full table toolkit with sensible defaults. Most DMs live here.',
+	'onboarding.experience.standardBlurb': 'The full toolkit for running your table.',
 	'onboarding.experience.expert': 'Expert',
 	'onboarding.experience.expertBlurb':
 		'All advanced controls, automation, permissions, extensions, and diagnostics.',
@@ -396,14 +394,14 @@ export const en = {
 		'Keep all optional AI tools out of sight. No provider or assistant UI appears anywhere outside Settings.',
 	'onboarding.players.title': 'Bring your party.',
 	'onboarding.players.intro':
-		'Optionally note who is at your table. These details stay on this device; onboarding does not send invitations.',
+		'Add player names or emails if you want to keep track of your party. These details stay on this device. Setup does not send invitations.',
 	'onboarding.players.field': 'Player name or email',
 	'onboarding.players.savedOnDevice': 'Saved on this device',
 	'onboarding.players.remove': 'Remove {name}',
 	'onboarding.players.empty': 'No players noted yet — that is fine; you can start with solo prep.',
 	'onboarding.ready.title': "You're ready to run.",
 	'onboarding.ready.intro':
-		'Your table-readiness checklist, read live from the vault — jump to any unfinished item.',
+		'See what is ready in your vault. Select an unfinished item to set it up.',
 	'onboarding.ready.freshWarning':
 		'You chose to start fresh, so finishing setup clears the sample campaign. The items below describe the sample vault you are about to replace.',
 	'onboarding.ready.rowFresh': '{label} — clear the sample campaign, finish setup and open {dest}',
@@ -418,10 +416,10 @@ export const en = {
 		'The board of live-play widgets — session, combat, dice, maps. Everything you run at the table starts here.',
 	'onboarding.ready.tourPaletteTitle': 'Press ⌘K to go anywhere',
 	'onboarding.ready.tourPaletteBody':
-		'Search every entity in your vault — notes, maps, handouts, rolls — without leaving the table.',
+		'Search your vault for notes, maps, handouts and rolls without leaving the table.',
 	'onboarding.ready.tourPlayerSafeTitle': 'Player-safe by design',
 	'onboarding.ready.tourPlayerSafeBody':
-		'Preview as any player from the top bar. DM-only content stays hidden in that player’s view.',
+		'Preview as any player from the top bar. {gm}-only content stays hidden in that player’s view.',
 	'common.action.remove': 'Remove',
 	'session.stage.title': 'Stage',
 	'session.stage.noMaps': 'No maps yet — create one in the Atlas.',
@@ -429,7 +427,7 @@ export const en = {
 	'session.stage.activeMapHelp': 'What you stage for the table.',
 	'session.stage.noneOption': '— none —',
 	'session.stage.project': 'Project to players',
-	'session.stage.previewGone': 'That map is no longer available.',
+	'session.stage.previewGone': 'That map is no longer available. Choose another map.',
 	'session.playerViews.title': 'Player views',
 	'session.playerViews.assignAria': 'Scene projected to {name}',
 	'session.dice.title': 'Dice',
@@ -469,7 +467,7 @@ export const en = {
 	'session.audio.stop': 'Stop',
 	'session.audio.volume': 'Volume',
 	'session.date.title': 'Campaign date',
-	'session.date.noCalendar': 'This campaign has no calendar yet, so there is no date to set.',
+	'session.date.noCalendar': 'Create a campaign calendar before setting a date.',
 	'session.date.none': 'No date set',
 	'session.date.drives': '{calendar} · drives the Campaign timeline',
 	'session.date.advance': '+1 day',
@@ -483,7 +481,7 @@ export const en = {
 	'session.combat.end': 'End combat',
 	'session.combat.build': 'Build encounter',
 	'session.combat.buildBlockedPreview': 'Exit player preview to build an encounter',
-	'session.combat.buildBlockedNotDm': 'Only the {gm} can build an encounter',
+	'session.combat.buildBlockedNotDm': 'Ask your {gm} to build an encounter.',
 	'session.combat.buildBlockedNotLive': 'Go live before building an encounter',
 	'session.combat.buildLabelPreview': 'Build encounter (unavailable — exit player preview first)',
 	'session.combat.buildLabelNotDm': 'Build encounter (unavailable — {gm} only)',
@@ -552,10 +550,10 @@ export const en = {
 	'session.combat.quickRef.action': 'Quick reference',
 	'session.combat.quickRef.title': 'Quick reference — {name}',
 	'session.combat.quickRef.help':
-		'The bound character\u2019s stat block, with live hit points from this combat.',
+		'The linked character’s stat block, with hit points from this combat.',
 	'session.combat.quickRef.fromCharacter': 'From the character sheet for {name}.',
 	'session.combat.quickRef.fromEncounter':
-		'From this encounter row. No character is bound, so only what was entered here is shown.',
+		'Only the details entered for this encounter are shown. No character sheet is linked.',
 	'session.combat.quickRef.actions': 'Actions ({count})',
 	'session.combat.addCondition': 'Add condition',
 	'session.combat.addConditionFor': 'Add condition — {name}',
@@ -646,13 +644,13 @@ export const en = {
 	'session.capture.followUps': 'Follow-ups',
 	'session.capture.followUpsPlaceholder': 'Send the guild’s reply\nName the harbour master',
 	'session.capture.followUpsHelp': 'One follow-up per line.',
-	'session.capture.willDate': 'Saves a DM-only session log note, dated on the campaign timeline.',
+	'session.capture.willDate': 'Saves a {gm}-only session log note, dated on the campaign timeline.',
 	'session.capture.noCampaignDate':
-		'Saves a DM-only session log note. Set the campaign date to place it on the timeline.',
+		'Saves a {gm}-only session log note. Set the campaign date to place it on the timeline.',
 	'session.capture.save': 'Save session log',
 	'session.capture.saved': 'Session log saved',
 	'session.capture.noteFailed':
-		'The recap was saved, but the session log note couldn’t be created.',
+		'The recap was saved, but the session log note was not created. Try saving the session log again.',
 	'session.capture.continuityTitle':
 		'{count, plural, one {# name mentioned without notes} other {# names mentioned without notes}}',
 	'session.capture.continuityName': '{name} — create?',
@@ -680,7 +678,7 @@ export const en = {
 	'session.schedule.title': 'Schedule next session',
 	'session.schedule.notConfigured':
 		'Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at {guide}.',
-	'session.schedule.eventSummary': 'D&D — game session',
+	'session.schedule.eventSummary': 'Lamplight — game session',
 	'session.schedule.scheduledWithInvites':
 		'Session scheduled — {count, plural, one {# invite} other {# invites}} sent.',
 	'session.schedule.scheduled': 'Session scheduled on your calendar.',
@@ -706,13 +704,13 @@ export const en = {
 	'session.header.noScene': 'No active scene',
 	'session.header.phaseLabel': 'Session phase',
 	'session.header.blockedPreview': 'Exit player preview to change the session phase.',
-	'session.header.blockedNotDm': 'Only the {gm} can change the session phase.',
+	'session.header.blockedNotDm': 'Ask your {gm} to change the session phase.',
 	'session.header.playersSee': 'Players see {scene}',
 	'session.header.theScene': 'the scene',
-	'session.phase.standbyReason': 'Standby is not available from here.',
+	'session.phase.standbyReason': 'End the live session to return to Standby.',
 	'session.phase.prepReason': 'Return to Standby before going back to Prep.',
 	'session.phase.liveReason': 'Return to Standby before going live again.',
-	'session.phase.recapReason': 'Recap is only available while a session is live.',
+	'session.phase.recapReason': 'Go live first, then end the session with Recap.',
 	'session.endCombat.title': 'End this combat?',
 	'session.endCombat.body':
 		"Round {round} and the initiative order are discarded, along with every combatant's current HP and conditions. There is no undo — you would have to build the encounter again from your roster.",
@@ -777,8 +775,7 @@ export const en = {
 	'settings.experience.beginnerBlurb':
 		'The essentials only. Advanced panels stay hidden until you ask for them.',
 	'settings.experience.standard': 'Standard',
-	'settings.experience.standardBlurb':
-		'The full table toolkit with sensible defaults. Most DMs live here.',
+	'settings.experience.standardBlurb': 'The full toolkit for running your table.',
 	'settings.experience.expert': 'Expert',
 	'settings.experience.expertBlurb':
 		'Everything on, nothing hidden — permission grants, plugins, systems, diagnostics.',
@@ -792,7 +789,7 @@ export const en = {
 		'Turns off interface animation while keeping every action available.',
 	'settings.a11y.highContrast': 'High-contrast theme',
 	'settings.a11y.highContrastHelp':
-		'Switches to the accessibility-floor theme; turning it off restores the theme you were using.',
+		'Switches to high contrast. Turning it off restores your previous theme.',
 	'settings.a11y.shortcuts': 'Keyboard shortcuts',
 	'settings.a11y.shortcutPalette': 'Open the command palette — search the whole vault',
 	'settings.a11y.shortcutTab': 'Move focus; first press reveals “Skip to content”',
@@ -813,14 +810,15 @@ export const en = {
 	'shortcuts.action.canvasUndoRedo': 'Undo or redo the last canvas change',
 	'settings.a11y.safetyChecks': 'Player-safety checks',
 	'settings.a11y.safetyIntro':
-		'These checks use the same views your players receive and confirm DM-only content stays hidden.',
-	'settings.a11y.checkScenesUnknown': 'DM-only scenes: add a player to run this check',
-	'settings.a11y.checkScenesOk': 'DM-only scenes are hidden from all {count} players',
-	'settings.a11y.checkContentUnknown': 'DM-only notes and handouts: add a player to run this check',
-	'settings.a11y.checkContentOk': 'DM-only notes and handouts are hidden from every player view',
+		'These checks use the same views your players receive and confirm {gm}-only content stays hidden.',
+	'settings.a11y.checkScenesUnknown': '{gm}-only scenes: add a player to run this check',
+	'settings.a11y.checkScenesOk': '{gm}-only scenes are hidden from all {count} players',
+	'settings.a11y.checkContentUnknown':
+		'{gm}-only notes and handouts: add a player to run this check',
+	'settings.a11y.checkContentOk': '{gm}-only notes and handouts are hidden from every player view',
 	'settings.a11y.checkPreview': 'Player preview is read-only, so campaign changes are blocked',
 	'settings.about.title': 'About',
-	'settings.about.denied': 'Diagnostics are visible to the DM only',
+	'settings.about.denied': 'Diagnostics are {gm} only. Ask your {gm} to open them.',
 	'settings.about.health.healthy': 'Healthy',
 	'settings.about.health.degraded': 'Degraded',
 	'settings.about.health.unhealthy': 'Unhealthy',
@@ -859,7 +857,7 @@ export const en = {
 	'settings.about.exportButton': 'Download diagnostics bundle',
 	'settings.about.exportFileTitle': 'Save diagnostics bundle',
 	'settings.about.exported': 'Diagnostics bundle downloaded',
-	'settings.about.exportFailed': "Couldn't export the diagnostics bundle",
+	'settings.about.exportFailed': "Couldn't export the diagnostics bundle. Try again.",
 	'settings.updates.title': 'App updates',
 	'settings.updates.body':
 		'Lamplight checks GitHub Releases for a signed build. Nothing downloads or installs until you ask.',
@@ -884,7 +882,8 @@ export const en = {
 		'Version {version} is ready to download. The package is verified before it can install.',
 	'settings.updates.downloadedBody':
 		'Version {version} is verified and waiting. Restart when your table is between scenes.',
-	'settings.updates.unsupportedBody': 'This build does not update itself.',
+	'settings.updates.unsupportedBody':
+		'This version cannot update itself. Download a newer version from Lamplight’s releases page.',
 	'settings.players.title': 'Players',
 	'settings.players.invite': 'Invite player',
 	'settings.players.inviteUnavailable':
@@ -893,24 +892,24 @@ export const en = {
 		'{count, plural, one {# person} other {# people}} in this campaign. Each person sees only the scenes and tools their role allows.',
 	'settings.players.coDmSeatsUsed': '{used} of {total}',
 	'settings.players.coDmSeats':
-		'Co-DM seats: {seats} used. A Co-DM sees your DM-only content and can run the table, but never manages roles, grants, invites, or the vault.',
-	'settings.players.noCoDmSeats': 'Your plan has no Co-DM seats.',
+		'Co-{gm} seats: {seats} used. A Co-{gm} sees your {gm}-only content and can run the table, but never manages roles, grants, invites, or the vault.',
+	'settings.players.noCoDmSeats': 'Your plan has no Co-{gm} seats.',
 	'settings.players.tryPlanPreview':
 		'You can try the Lantern or Beacon preview at no charge to promote a trusted player.',
 	'settings.players.planChangesUnavailable': 'Plan changes are unavailable in this release.',
-	'settings.players.role.dm': 'Dungeon Master',
-	'settings.players.role.coDm': 'Co-DM',
+	'settings.players.role.dm': '{gm}',
+	'settings.players.role.coDm': 'Co-{gm}',
 	'settings.players.role.player': 'Player',
 	'settings.players.role.observer': 'Observer',
 	'settings.players.roleChanged': '{name} is now {role}.',
-	'settings.players.roleChangeFailed': 'Could not change that role.',
+	'settings.players.roleChangeFailed': 'Could not change that role. Try again.',
 	'settings.players.roleFor': 'Role for {name}',
-	'settings.players.coDmOption': 'Co-DM ({used}/{total})',
-	'settings.players.coDmNoSeats': 'Co-DM (no seats)',
+	'settings.players.coDmOption': 'Co-{gm} ({used}/{total})',
+	'settings.players.coDmNoSeats': 'Co-{gm} (no seats)',
 	'settings.players.rename': 'Rename {name}',
 	'settings.players.renameFor': 'New name for {name}',
 	'settings.players.renamed': 'Renamed to {name}.',
-	'settings.players.renameFailed': 'Could not rename that participant.',
+	'settings.players.renameFailed': 'Could not rename that participant. Try again.',
 	'settings.players.yourNameHint': 'This is you — click the pencil to set your name.',
 	'settings.tools.title': 'Tool preferences',
 	'settings.tools.intro':
@@ -931,12 +930,12 @@ export const en = {
 	'settings.tools.noneToast': 'AI tools are hidden and blocked.',
 	'settings.plugins.title': 'Plugins',
 	'settings.plugins.body':
-		'Installed widget packages — their capabilities, host-permission review, and enable/disable — are managed in {extensions}, backed by the live widget registry.',
+		'Manage installed widget packages in {extensions}. Review their permissions and choose which ones to enable.',
 	'settings.plugins.extensions': 'Extensions',
 	'settings.openExtensions': 'Open Extensions',
 	'settings.systems.title': 'Extensions & systems',
 	'settings.systems.body':
-		'Switching the campaign rules system — including the non-destructive migration dry-run that has to come back clean first — lives in {location}, backed by the live extension registry and the same safe migration check used throughout the app.',
+		'Change the campaign’s rules system in {location}. Lamplight checks the switch before changing your campaign and blocks it if the check finds a problem.',
 	'settings.systems.location': 'Extensions → System',
 	'shell.search': 'Search',
 	'shell.searchShortcut': 'Search (⌘K)',
@@ -1003,7 +1002,7 @@ export const en = {
 	'shell.accountLabel': '{name} · {presence} · open player settings',
 	'shell.breadcrumb': 'Breadcrumb',
 	'shell.help': 'Help',
-	'viewAs.dmView': 'DM view',
+	'viewAs.dmView': '{gm} view',
 	'viewAs.label': 'View as',
 	'viewAs.trigger': 'Preview as another role',
 	'viewAs.previewingAs': 'Previewing as {label}',
@@ -1012,10 +1011,10 @@ export const en = {
 	'viewAs.anyPlayer': 'Any player',
 	'viewAs.player': 'Player',
 	'viewAs.observer': 'Observer',
-	'viewAs.coDm': 'Co-DM',
+	'viewAs.coDm': 'Co-{gm}',
 	'viewAs.specificPlayers': 'Specific players',
 	'viewAs.enteredToast': 'Previewing as {label} · changes are read-only',
-	'viewAs.exitedToast': 'Back to your DM view',
+	'viewAs.exitedToast': 'Back to your {gm} view',
 	'viewAs.sceneTrigger': 'Preview this scene as another role',
 	'viewAs.sceneLabel': 'Player view',
 	'viewAs.scenePreviewing': 'Scene preview as {label} — change role',
@@ -1050,8 +1049,10 @@ export const en = {
 	'palette.canvas.undoKeywords': 'undo revert last change layout tile',
 	'palette.canvas.undoBlocked': 'Nothing to undo yet.',
 	'palette.toast.ran': '{title}: done.',
-	'palette.toast.rejected': "That action couldn't be applied.",
-	'palette.toast.notSaved': "That change couldn't be saved to this device.",
+	'palette.toast.rejected':
+		'That action could not be applied. Open its screen to check what is needed.',
+	'palette.toast.notSaved':
+		'That change could not be saved to this device. Check storage space and try again.',
 	'palette.kind.note': 'Note',
 	'palette.kind.storyEntry': 'Story entry',
 	'palette.kind.poi': 'Point of interest',
@@ -1086,8 +1087,8 @@ export const en = {
 	'play.nav.elevated': 'Elevated',
 	'play.nav.lockedLabel': '{section} — requires the {tier} seat',
 	'play.nav.lockedTitle': '{section} requires {tier}',
-	'play.nav.lockedSeatToast': '{section} needs the {tier} seat — ask your DM to promote you',
-	'play.nav.lockedPermissionToast': '{section} needs {tier} permission',
+	'play.nav.lockedSeatToast': '{section} needs the {tier} seat — ask your {gm} to promote you',
+	'play.nav.lockedPermissionToast': '{section} needs {tier} permission. Ask your {gm} for access.',
 	'play.brand': 'Player view',
 	'play.sessionLive': 'Session live',
 	'play.standby': 'Standby',
@@ -1097,16 +1098,16 @@ export const en = {
 	'play.tier.player': 'Player',
 	'play.tier.playerRole': 'Your own character',
 	'play.tier.playerBlurb':
-		'Run your sheet, roll your dice, and read what the DM shares with the table.',
-	'play.tier.codm': 'Co-DM',
+		'Run your sheet, roll your dice, and read what the {gm} shares with the table.',
+	'play.tier.codm': 'Co-{gm}',
 	'play.tier.codmRole': 'Elevated table tools',
 	'play.tier.codmBlurb':
-		'Granted GM tools — the revealed Atlas, the bestiary, and live combat assist.',
+		'Granted {gm} tools — the revealed Atlas, the bestiary, and live combat assist.',
 	'play.locked.note':
-		'{what} is a {coDm} tool. Your seat is not a Co-DM seat — ask your DM to promote you to Co-DM (a plan with Co-DM seats is required) to unlock it.',
-	'play.locked.coDm': 'Co-DM',
-	'play.locked.sub': 'A Co-DM tool — available on a Co-DM seat',
-	'play.locked.badge': 'Co-DM tool',
+		'{what} is a {coDm} tool. Your seat is not a Co-{gm} seat — ask your {gm} to promote you to Co-{gm} (a plan with Co-{gm} seats is required) to unlock it.',
+	'play.locked.coDm': 'Co-{gm}',
+	'play.locked.sub': 'A Co-{gm} tool — available on a Co-{gm} seat',
+	'play.locked.badge': 'Co-{gm} tool',
 	'play.ability.str': 'Strength',
 	'play.ability.dex': 'Dexterity',
 	'play.ability.con': 'Constitution',
@@ -1116,7 +1117,7 @@ export const en = {
 	'play.kind.npc': 'NPC',
 	'play.kind.character': 'Character',
 	'play.kind.monster': 'Monster',
-	'play.stage.sub': 'Waiting for your DM to start the session',
+	'play.stage.sub': 'Waiting for your {gm} to start the session',
 	'play.stage.subLive': 'The session is live',
 	'play.stage.subScene': '{scene} · projected from the table',
 	'play.stage.nowOnScene': '{mood} · Now on scene',
@@ -1124,11 +1125,11 @@ export const en = {
 	'play.stage.whatTheTableSees': 'What the table sees',
 	'play.stage.map': 'Map: {name}',
 	'play.stage.mapOverlay':
-		'{name} — {fog} hidden areas, {markers} markers, {tokens} tokens, as your DM projected it',
-	'play.stage.projectedByDm': 'Projected to your view by the DM',
+		'{name} — {fog} hidden areas, {markers} markers, {tokens} tokens, as your {gm} projected it',
+	'play.stage.projectedByDm': 'Projected to your view by the {gm}',
 	'play.stage.nothingShown': 'Nothing is being shown yet.',
 	'play.stage.watching': 'Watching the table',
-	'play.stage.dmControls': "Your DM controls what's revealed.",
+	'play.stage.dmControls': "Your {gm} controls what's revealed.",
 	'play.stage.thisTurn': 'This turn',
 	'play.stage.round': 'Round {round}',
 	'play.stage.activeCombatant': 'Active: {name}',
@@ -1147,14 +1148,14 @@ export const en = {
 	'play.initiative.rolledToast': 'Initiative {total}',
 	'play.initiative.declined': 'The table did not take the roll.',
 	'play.sheet.title': 'My character',
-	'play.sheet.unassigned': 'No character has been assigned to you yet.',
+	'play.sheet.unassigned': 'Ask your {gm} to assign you a character.',
 	'play.sheet.adventurer': 'Adventurer',
 	'play.sheet.pc': 'PC',
 	'play.sheet.characterLevel': ' · Level {level}',
-	'play.sheet.hitPoints': 'Hit points',
+	'play.sheet.hitPoints': '{hitPoints}',
 	'play.sheet.armorClass': 'AC',
-	'play.sheet.spellSlots': 'Spell slots',
-	'play.sheet.noSpellSlots': 'No spell slots tracked.',
+	'play.sheet.spellSlots': '{spell} slots',
+	'play.sheet.noSpellSlots': 'No {spellLower} slots tracked.',
 	'play.sheet.slotLevel': 'Level {level}',
 	'play.sheet.conditions': 'Conditions & status',
 	'play.sheet.conditionsHelp':
@@ -1162,7 +1163,7 @@ export const en = {
 	'play.dice.title': 'Dice',
 	'play.dice.sub': "Rolls are recorded to the table's shared session log, attributed to you",
 	'play.dice.needsSession':
-		'Rolling needs a live session — the dice unlock when your DM starts one.',
+		'Rolling needs a live session — the dice unlock when your {gm} starts one.',
 	'play.dice.roll': 'Roll',
 	'play.dice.d20Mode': 'd20 mode',
 	'play.dice.normal': 'Normal',
@@ -1179,7 +1180,7 @@ export const en = {
 	'play.dice.logFillsUp': 'The shared roll log fills up during a live session.',
 	'play.dice.you': 'You',
 	'play.party.title': 'Party',
-	'play.party.sub': 'Live vitals as the DM shares them',
+	'play.party.sub': 'Live vitals as the {gm} shares them',
 	'play.party.members': '{count, plural, one {# member} other {# members}}',
 	'play.party.roster': 'Roster',
 	'play.party.empty': 'No party members are visible to you yet.',
@@ -1193,20 +1194,20 @@ export const en = {
 	'play.party.concCheck': 'Concentration check, DC {dc}',
 	'play.party.deathSaves': 'Death saves {successes}/3 kept, {failures}/3 failed',
 	'play.party.stable': 'Stable',
-	'play.party.slotsSummary': '{available} of {max} spell slots',
-	'play.party.slotsShow': 'Show spell slots for {name}',
-	'play.party.slotsHide': 'Hide spell slots for {name}',
+	'play.party.slotsSummary': '{available} of {max} {spellLower} slots',
+	'play.party.slotsShow': 'Show {spellLower} slots for {name}',
+	'play.party.slotsHide': 'Hide {spellLower} slots for {name}',
 	'play.party.slotLevel': 'Level {level}: {available}/{max}',
 	'play.party.orderPosition': 'Marching #{position}',
 	'play.handouts.title': 'Handouts',
-	'play.handouts.sub': 'Notes and props your DM has revealed to you',
+	'play.handouts.sub': 'Notes and props your {gm} has revealed to you',
 	'play.handouts.shared': '{count} shared',
-	'play.handouts.empty': "Your DM hasn't shared any handouts with you yet.",
+	'play.handouts.empty': "Your {gm} hasn't shared any handouts with you yet.",
 	'play.handouts.updated': 'Updated {date}',
 	'play.journal.title': 'Journal',
-	'play.journal.sub': 'Entries the DM has shared with you',
+	'play.journal.sub': 'Entries the {gm} has shared with you',
 	'play.journal.privateNote':
-		'Shared entries come from your DM. Your own private notes are further down and stay on this device.',
+		'Shared entries come from your {gm}. Your own private notes are further down and stay on this device.',
 	'play.journal.sharedEntries': 'Shared entries ({count})',
 	'play.journal.empty': 'No journal entries have been shared with you.',
 	'play.journal.sceneHistory': 'Scene history ({count})',
@@ -1214,9 +1215,8 @@ export const en = {
 	// RC-CHR-4.1 — player-private journal (device-local; the DM never sees these).
 	'play.journal.private.heading': 'Only you',
 	'play.journal.private.sub':
-		'Everything below stays on this device. It is not shared, not backed up to the table, and the DM cannot read it.',
-	'play.journal.private.locked':
-		'Private notes open once your DM assigns a character to your seat.',
+		'Everything below stays on this device. It is not shared, not backed up to the table, and the {gm} cannot read it.',
+	'play.journal.private.locked': 'Ask your {gm} to assign you a character to use private notes.',
 	'play.journal.private.notes': 'Private notes ({count})',
 	'play.journal.private.notesEmpty':
 		'Write down what your character actually thinks. Only you will read it.',
@@ -1228,7 +1228,7 @@ export const en = {
 	'play.journal.private.deleteNote': 'Delete note: {title}',
 	'play.journal.private.bookmarks': 'Bookmarks ({count})',
 	'play.journal.private.bookmarksEmpty':
-		'Bookmark something the DM shared to keep your own annotation beside it.',
+		'Bookmark something the {gm} shared to keep your own annotation beside it.',
 	'play.journal.private.bookmarkTarget': 'What to bookmark',
 	'play.journal.private.annotation': 'Your annotation',
 	'play.journal.private.saveBookmark': 'Save bookmark',
@@ -1236,19 +1236,20 @@ export const en = {
 	'play.journal.private.noTargets': 'Nothing has been shared with you to bookmark yet.',
 	'play.journal.private.impressions': 'NPC impressions ({count})',
 	'play.journal.private.impressionsEmpty':
-		'Record what your character makes of someone, then choose whether the DM ever sees it.',
+		'Record what your character makes of someone, then choose whether the {gm} ever sees it.',
 	'play.journal.private.impressionWho': 'Who',
 	'play.journal.private.impressionNote': 'Where you met them',
 	'play.journal.private.impressionNoteNone': 'Not from a shared note',
 	'play.journal.private.impressionBody': 'What your character makes of them',
 	'play.journal.private.saveImpression': 'Save impression',
 	'play.journal.private.deleteImpression': 'Delete impression of {name}',
-	'play.journal.private.share': 'Share with the DM',
-	'play.journal.private.shareOne': 'Share your impression of {name} with the DM',
+	'play.journal.private.share': 'Share with the {gm}',
+	'play.journal.private.shareOne': 'Share your impression of {name} with the {gm}',
 	'play.journal.private.shareSent':
-		'The DM now has your impression of {name}. The rest stays private.',
-	'play.journal.private.shareDeclined': 'The table declined the share: {reason}',
-	'play.journal.private.sharedBadge': 'Shared with the DM',
+		'The {gm} now has your impression of {name}. The rest stays private.',
+	'play.journal.private.shareDeclined':
+		'Your impression was not shared: {reason} Ask your {gm} to check access before sharing again.',
+	'play.journal.private.sharedBadge': 'Shared with the {gm}',
 	'play.journal.private.rewritten':
 		'Edited since you shared it. Share again to send the new words.',
 	'play.journal.private.cancel': 'Cancel',
@@ -1264,11 +1265,11 @@ export const en = {
 	'play.inbox.untitledSession': 'Session recap',
 	'play.inbox.archivedOn': 'Archived {date}',
 	'play.atlas.title': 'Maps & scenes',
-	'play.atlas.sub': 'The full atlas — including scenes your DM keeps hidden from the table',
+	'play.atlas.sub': 'The full atlas — including scenes your {gm} keeps hidden from the table',
 	'play.atlas.count': '{count, plural, one {# scene} other {# scenes}}',
 	'play.atlas.empty': 'No scenes have been authored in this campaign yet.',
 	'play.bestiary.title': 'Bestiary',
-	'play.bestiary.sub': 'NPCs and monsters your DM has authored — hidden from players',
+	'play.bestiary.sub': 'NPCs and monsters your {gm} has authored — hidden from players',
 	'play.bestiary.empty': 'No NPCs or monsters have been authored yet.',
 	'play.bestiary.stats': 'HP {hp}/{maxHp} · AC {ac}',
 	'play.assist.title': 'Combat assist',
@@ -1276,7 +1277,7 @@ export const en = {
 	'play.assist.round': 'Round {round}',
 	'play.assist.noCombatBadge': 'No combat',
 	'play.assist.empty':
-		'No combat is running. When the DM starts an encounter the full order appears here.',
+		'No combat is running. When the {gm} starts an encounter the full order appears here.',
 	'play.assist.initiativeOrder': 'Initiative order',
 	'play.assist.hidden': 'Hidden',
 	'play.assist.active': 'Active',
@@ -1287,23 +1288,23 @@ export const en = {
 	'settings.account.loadFailed':
 		'Couldn’t load your profile — check your connection and try again.',
 	'settings.account.displayName': 'Display name',
-	'settings.account.nameLength': 'Display name must be 1–60 characters.',
+	'settings.account.nameLength': 'Enter a display name with 1–60 characters.',
 	'settings.account.nameUpdated': 'Display name updated.',
 	'settings.account.memberSince': 'Member since {date}',
 	'settings.account.dangerZone': 'Danger zone',
 	'settings.account.dangerHeading': 'Download or delete your online account',
 	'settings.account.dangerBody':
-		'The account record includes your profile, preview plan, invites, and published module and wiki metadata. It cannot include encrypted campaign contents; download a local vault backup separately. Deleting the account never deletes campaigns stored on this device.',
+		'The account download includes your profile, preview plan, invitations, and details of published modules and wikis. It does not include encrypted campaign contents. Download a local vault backup separately. Deleting your account leaves campaigns on this device intact.',
 	'settings.account.download': 'Download account record',
 	'settings.account.exportFileTitle': 'Export Lamplight account data',
 	'settings.account.exported': 'Online account record exported.',
-	'settings.account.exportFailed': 'Could not export your account record.',
+	'settings.account.exportFailed': 'Could not export your account record. Try again.',
 	'settings.account.delete': 'Delete account',
 	'settings.account.deleteDialogTitle': 'Delete this account?',
 	'settings.account.deleteDialogDescription':
 		'Permanent: the encrypted cloud copy, invites, published content, plan data, and sign-in are removed.',
 	'settings.account.deleteBody':
-		'Campaigns on this device are not touched. The service first locks the account and removes the encrypted cloud copy; only after that purge is confirmed does it remove account data and the sign-in. If any step cannot be confirmed, deletion stops so you can retry safely. This cannot be undone. Type {phrase} to confirm.',
+		'Campaigns on this device stay intact. The service locks your account, deletes its encrypted cloud copy, then deletes your account data and sign-in. Each step must be confirmed before the next begins. If a step fails, deletion stops so you can retry. This cannot be undone. Type {phrase} to confirm.',
 	'settings.account.deletePhrase': 'delete my account',
 	'settings.account.deletePhraseLabel': 'Type “{phrase}” to confirm',
 	'settings.account.deleting': 'Deleting…',
@@ -1314,7 +1315,7 @@ export const en = {
 	'settings.account.deletedWithWarnings':
 		'Your online account was deleted, but {warnings}. Close and reopen the app to retry queued key removal. If the warning returns, remove the saved Lamplight credential with your operating-system credential manager.',
 	'settings.account.deleted': 'Your account has been deleted. Local vaults stay on this device.',
-	'settings.account.deleteFailed': 'Could not delete your account.',
+	'settings.account.deleteFailed': 'Could not delete your account. Try again.',
 	'settings.account.localOnly': 'Local-only build',
 	'settings.account.localOnlyBody':
 		'Account-management services aren’t available in this edition. Your campaigns and core table tools remain saved locally on this device.',
@@ -1341,7 +1342,7 @@ export const en = {
 	'settings.devices.lastSeen': 'Last seen {when}',
 	'settings.devices.lastSeenUnknown': 'Last seen: unknown',
 	'settings.devices.loading': 'Loading devices',
-	'settings.devices.loadFailed': 'Couldn’t load your devices.',
+	'settings.devices.loadFailed': 'Couldn’t load your devices. Try again.',
 	'settings.devices.emptyTitle': 'No remembered devices yet',
 	'settings.devices.emptyBody': 'Devices appear here after they sign in.',
 	'settings.devices.forget': 'Forget',
@@ -1353,17 +1354,17 @@ export const en = {
 	'settings.devices.forgetDevice': 'Forget device',
 	'settings.devices.forgotten':
 		'Device forgotten. A session already open there may continue until it expires.',
-	'settings.devices.forgetFailed': 'Could not forget that device.',
+	'settings.devices.forgetFailed': 'Could not forget that device. Try again.',
 	'settings.devices.signOutEverywhere': 'Sign out everywhere',
 	'settings.devices.signOutTitle': 'Sign out everywhere?',
 	'settings.devices.signOutDescription':
-		'Stop future token refresh on every device, including this one.',
+		'Prevent sessions from renewing on every device, including this one.',
 	'settings.devices.signOutBody':
-		'This device signs out now. Other devices cannot refresh their sessions, but access tokens already issued to them can remain valid until they expire (normally within an hour).',
+		'This device signs out now. Other devices cannot renew their sessions, but may keep access until their current sign-in expires, normally within an hour.',
 	'settings.devices.signingOut': 'Signing out…',
 	'settings.devices.signedOutEverywhere':
 		'Sign-out requested everywhere. Open sessions may continue until they expire.',
-	'settings.devices.signOutFailed': 'Could not sign out everywhere.',
+	'settings.devices.signOutFailed': 'Could not sign out everywhere. Try again.',
 
 	/* Settings › Subscription */
 	'settings.subscription.sourceAccount': 'Account preview',
@@ -1418,12 +1419,12 @@ export const en = {
 	'settings.invites.unavailableHere':
 		'Online invite links are unavailable here — share a live-table code directly instead.',
 	'settings.invites.loading': 'Loading invites',
-	'settings.invites.loadFailed': 'Couldn’t load your invites.',
+	'settings.invites.loadFailed': 'Couldn’t load your invites. Try again.',
 	'settings.invites.emptyTitle': 'No pending invites',
 	'settings.invites.emptyBody':
 		'“Invite player” creates a shareable join link (it expires after 14 days).',
-	'settings.invites.coDm': 'Co-DM',
-	'settings.invites.coDmNoSeats': 'Co-DM (no seats)',
+	'settings.invites.coDm': 'Co-{gm}',
+	'settings.invites.coDmNoSeats': 'Co-{gm} (no seats)',
 	'settings.invites.expiry': 'expires {date}',
 	'settings.invites.noteAndExpiry': '{note} · expires {date}',
 	'settings.invites.copyLink': 'Copy link',
@@ -1442,7 +1443,7 @@ export const en = {
 	'settings.invites.revoking': 'Revoking…',
 	'settings.invites.revokeInvite': 'Revoke invite',
 	'settings.invites.revoked': 'Invite revoked — its link no longer works.',
-	'settings.invites.revokeFailed': 'Could not revoke that invite.',
+	'settings.invites.revokeFailed': 'Could not revoke that invite. Try again.',
 	'settings.invites.createTitle': 'Invite a player',
 	'settings.invites.createDescription':
 		'Creates a shareable join link — add an email to send it, or share the link yourself.',
@@ -1451,12 +1452,12 @@ export const en = {
 		'Send this link however you like — it works for 14 days or until you revoke it.',
 	'settings.invites.creating': 'Creating…',
 	'settings.invites.createInvite': 'Create invite',
-	'settings.invites.createFailed': 'Could not create the invite.',
+	'settings.invites.createFailed': 'Could not create the invite. Try again.',
 	'settings.invites.needName': 'Give the invite a campaign name.',
 	'settings.invites.noSeatsUpgrade':
-		'Try the Lantern or Beacon preview to invite a Co-DM at no charge.',
+		'Try the Lantern or Beacon preview to invite a Co-{gm} at no charge.',
 	'settings.invites.noSeatsLocked':
-		'Your current plan has no Co-DM seats, and plan changes are unavailable in this release.',
+		'Your current plan has no Co-{gm} seats, and plan changes are unavailable in this release.',
 	'settings.invites.badEmail': 'Enter a valid email address, or leave it blank to just get a link.',
 	'settings.invites.emailed': 'Invite emailed to {email}.',
 	'settings.invites.emailSent': 'Emailed to {email}. They can also use the link below.',
@@ -1470,7 +1471,7 @@ export const en = {
 	'settings.invites.seat': 'Seat',
 	'settings.invites.seatPlayer': 'Player',
 	'settings.invites.coDmHelp':
-		'A Co-DM sees your DM-only prep and helps run the table. Finish the promotion from the Players roster once they join your session.',
+		'A Co-{gm} sees your {gm}-only prep and helps run the table. Finish the promotion from the Players roster once they join your session.',
 	'settings.invites.playerHelp':
 		'An ordinary player seat — sees only what you share with the table.',
 	'settings.invites.emailPlaceholder': 'Email invite to… (optional)',
@@ -1515,18 +1516,18 @@ export const en = {
 	'settings.vault.never': 'never',
 	'settings.vault.kindFolder': 'Local folder',
 	'settings.vault.kindDoc': 'Google Doc',
-	'settings.vault.pulledPushed': 'pulled {pulled} · pushed {pushed}',
+	'settings.vault.pulledPushed': 'imported {pulled} · exported {pushed}',
 	'settings.vault.connected': 'connected',
 	'settings.vault.disconnect': 'Disconnect',
 	'settings.vault.readFailedTitle': 'Could not read your connected folders',
 	'settings.vault.readFailedBody':
-		'The vault’s source registry did not answer. Your connections are still stored — this is only the listing.',
+		'Your saved connections could not be listed. Try again to reload the list.',
 	'settings.vault.tryAgain': 'Try again',
 	'settings.vault.emptyTitle': 'No sources connected',
 	'settings.vault.emptyBody':
-		'Connect a local markdown folder from Knowledge → Sources; pull and push live there too.',
+		'Connect a Markdown folder in Knowledge → Sources to import or export notes.',
 	'settings.vault.emptyBodyWithDocs':
-		'Connect a local markdown folder or a Google Doc from Knowledge → Sources; pull and push live there too.',
+		'Connect a Markdown folder or Google Doc in Knowledge → Sources to import or export notes.',
 	'settings.vault.openSources': 'Open Knowledge → Sources',
 	'settings.vault.disconnectTitle': 'Disconnect this folder?',
 	'settings.vault.disconnectDescription':
@@ -1535,7 +1536,7 @@ export const en = {
 		'Disconnecting {name} drops this app’s permission to the folder. Nothing on disk or in your vault is deleted — but reconnecting means picking the folder again in Knowledge → Sources.',
 	'settings.vault.folderDisconnected':
 		'“{name}” disconnected — reconnect it any time from Knowledge → Sources.',
-	'settings.vault.disconnectFailed': 'Could not disconnect that folder.',
+	'settings.vault.disconnectFailed': 'Could not disconnect that folder. Try again.',
 	'settings.vault.docDisconnected': '“{name}” disconnected.',
 	'settings.vault.docReconnected': '“{name}” reconnected.',
 	'settings.vault.noFolderSupport':
@@ -1557,10 +1558,11 @@ export const en = {
 	'settings.sync.helpNotInPlanLocked':
 		'Not included in your current plan. Self-service plan changes are unavailable in this release.',
 	'settings.sync.help':
-		'Campaign state is encrypted on this device before upload, so the online service stores only unreadable data. Device-local media bytes are not uploaded. Off by default. Export a recovery key below and keep it somewhere safe: without your devices or that exported file, the cloud copy cannot be opened.',
+		'Cloud backup is off by default. Your campaign is encrypted on this device before upload, so the service cannot read it. Media files stay on this device. Export a recovery key below and keep it safe: you need one of your devices or that file to open the cloud copy.',
 	'settings.sync.helpNoCustody':
-		'Unavailable on this device: encrypted cloud backup needs an OS credential store to protect your key (available in the desktop and Android apps).',
-	'settings.sync.helpUnavailable': 'Secure cloud backup is not available on this device.',
+		'This device cannot store a backup key securely. Use the desktop or Android app for encrypted cloud backup, or download a local backup below.',
+	'settings.sync.helpUnavailable':
+		'Cloud backup is unavailable on this device. Download a local backup below.',
 	'settings.sync.stateBusy': 'Backing up…',
 	'settings.sync.stateError': 'Backup error',
 	'settings.sync.stateUpToDate': 'Backup up to date',
@@ -1572,13 +1574,13 @@ export const en = {
 	'settings.sync.turnedOn': 'Cloud backup enabled.',
 	'settings.sync.turnedOff': 'Cloud backup turned off.',
 	'settings.sync.noSnapshot': 'No cloud backup found for this account yet.',
-	'settings.sync.cloudFailed': 'Cloud backup failed.',
+	'settings.sync.cloudFailed': 'Cloud backup failed. Check your connection and try again.',
 	'settings.sync.restoreDevice': 'Restore this device',
 	'settings.sync.restoreTitle': 'Replace this device’s vault?',
 	'settings.sync.restoreDescription':
 		'Restore the latest encrypted cloud copy using this device’s existing key.',
 	'settings.sync.restoreBody':
-		'This overwrites the campaign data currently stored on this device. Export a local backup first if you may need to return to it. The cloud copy can only be opened with the key already held by this device. It does not contain media bytes; only matching media already stored on this device remains available.',
+		'Restore replaces the campaign data on this device. Export a local backup first if you may need it later. This device must already hold the key to open the cloud copy. The cloud copy has no media files; matching files already on this device remain available.',
 	'settings.sync.replaceLocal': 'Replace local vault',
 	'settings.sync.restored': 'Restored from the cloud backup.',
 	'settings.sync.recentChanges': 'Recent changes',
@@ -1601,7 +1603,7 @@ export const en = {
 		'Another device changed this campaign too, on different items. Restore this device from the cloud copy, or back that device up first.',
 	'settings.sync.conflictsTitle': 'Sync conflicts',
 	'settings.sync.conflictsBody':
-		'Two devices changed the same item after they last matched. Pick the version to keep. DM only.',
+		'Two devices changed the same item after they last matched. Pick the version to keep. {gm} only.',
 	'settings.sync.conflictEntity': '{entity} · {path}',
 	'settings.sync.conflictWhole': '{entity}',
 	'settings.sync.conflictFound': 'Found {when}',
@@ -1610,14 +1612,14 @@ export const en = {
 	'settings.sync.keepThisDevice': 'Keep this device’s version',
 	'settings.sync.keepOtherDevice': 'Keep the other device’s version',
 	'settings.sync.conflictResolved': 'Version chosen.',
-	'settings.sync.conflictFailed': 'The version could not be chosen.',
+	'settings.sync.conflictFailed': 'The version could not be chosen. Try again.',
 	'settings.sync.noConflicts': 'No sync conflicts.',
 
 	/* Settings › Backup & history › Local backup */
 	'settings.backup.title': 'Local backup',
 	'settings.backup.heading': 'Back up or restore this device’s vault',
 	'settings.backup.body':
-		'One JSON file with campaign data and stored media bytes. It does not include app preferences, connected-folder permissions, account credentials, or AI provider keys. Restoring replaces the current vault on this device.',
+		'One JSON file with campaign data and stored media files. It excludes app preferences, connected-folder permissions, account credentials and AI provider keys. Restoring replaces this device’s vault.',
 	'settings.backup.download': 'Download backup',
 	'settings.backup.restore': 'Restore from backup…',
 	'settings.backup.fileTitle': 'Save Lamplight vault backup',
@@ -1625,8 +1627,9 @@ export const en = {
 		'Backup downloaded — {count, plural, one {# media asset} other {# media assets}} included.',
 	'settings.backup.exported':
 		'Backup exported — {count, plural, one {# media asset} other {# media assets}} included.',
-	'settings.backup.exportFailed': 'Could not build or export the backup.',
-	'settings.backup.invalidFile': 'That file is not a valid vault backup.',
+	'settings.backup.exportFailed': 'Could not build or export the backup. Try again.',
+	'settings.backup.invalidFile':
+		'That file is not a vault backup. Choose a file saved with Download backup.',
 	'settings.backup.replaceTitle': 'Replace this vault?',
 	'settings.backup.replaceDescription':
 		'The backup replaces all campaign data and stored media in this vault.',
@@ -1673,30 +1676,31 @@ export const en = {
 
 	/* Settings › Backup & history › Recovery key */
 	'settings.recovery.title': 'Recovery key',
-	'settings.recovery.custody': 'Backup key custody',
+	'settings.recovery.custody': 'Backup key storage',
 	'settings.recovery.helpSignedOut':
 		'Sign in to export or import the recovery key for your account’s encrypted cloud backups.',
 	'settings.recovery.help':
-		'The recovery key is your vault’s encryption keyring sealed under a passphrase you choose. Export it once and keep it safe: it is the only way to open your encrypted cloud backup if every signed-in device is lost. Import it on a new device to restore access.',
+		'The recovery file holds your vault’s encryption keys, protected by a passphrase you choose. Export it and keep it safe. If you lose every signed-in device, you need this file to open your encrypted cloud backup. Import it on a new device to restore access.',
 	'settings.recovery.helpNoCustody':
-		'Recovery keys need the operating-system credential store (desktop and Android apps). This device cannot durably hold a vault key.',
+		'This device cannot store a vault key securely. Use the desktop or Android app to import or export a recovery key.',
 	'settings.recovery.export': 'Export…',
 	'settings.recovery.import': 'Import…',
 	'settings.recovery.exportTitle': 'Export recovery key',
 	'settings.recovery.importTitle': 'Import recovery key',
 	'settings.recovery.exportDescription':
-		'Seal your vault keyring under a passphrase and save the file.',
+		'Protect your vault’s encryption keys with a passphrase and save the file.',
 	'settings.recovery.importDescription':
 		'Unlock a recovery file and install its keys on this device.',
 	'settings.recovery.exportBody':
-		'The file alone is useless without the passphrase — but the pair is equivalent to your vault key, so store them separately. Use at least {min} characters; a stronger passphrase is the whole defense against someone who steals the file.',
+		'Store the file and passphrase separately. Someone with both can open your vault; the file alone cannot open it. Use a strong passphrase with at least {min} characters to protect the file if it is stolen.',
 	'settings.recovery.importBody':
 		'Enter the passphrase you chose when this recovery file was exported, then pick the file.',
 	'settings.recovery.passphrase': 'Recovery passphrase',
 	'settings.recovery.repeat': 'Repeat passphrase',
 	'settings.recovery.repeatLabel': 'Repeat recovery passphrase',
 	'settings.recovery.tooShort': 'Use at least {min} characters — {remaining} to go.',
-	'settings.recovery.mismatch': 'The two passphrases don’t match.',
+	'settings.recovery.mismatch':
+		'The passphrases do not match. Enter the same passphrase in both fields.',
 	'settings.recovery.needPassphrase': 'Enter a passphrase of at least {min} characters, twice.',
 	'settings.recovery.exportFile': 'Export file',
 	'settings.recovery.chooseFile': 'Choose file & import',
@@ -1705,36 +1709,37 @@ export const en = {
 		'Recovery key downloaded — store the file and its passphrase separately and safely.',
 	'settings.recovery.exported':
 		'Recovery key exported — store the file and its passphrase separately and safely.',
-	'settings.recovery.exportFailed': 'Recovery-key export failed.',
+	'settings.recovery.exportFailed': 'Recovery-key export failed. Try again.',
 	'settings.recovery.imported':
 		'Recovery key imported — this device can now open your encrypted cloud backups.',
-	'settings.recovery.importFailed': 'Recovery-key import failed.',
+	'settings.recovery.importFailed':
+		'Recovery key import failed. Check the file and passphrase, then try again.',
 
 	/* Settings › Permissions */
 	'settings.permissions.roles': 'Roles',
-	'settings.permissions.role.dm': 'Dungeon Master',
+	'settings.permissions.role.dm': '{gm}',
 	'settings.permissions.role.dmDesc':
 		'Full authority — authors content, grants, and the live session.',
-	'settings.permissions.role.coDm': 'Co-DM',
+	'settings.permissions.role.coDm': 'Co-{gm}',
 	'settings.permissions.role.coDmDesc':
-		'Sees DM-only content and runs the table, but never manages roles, grants, invites, or the vault.',
+		'Sees {gm}-only content and runs the table, but never manages roles, grants, invites, or the vault.',
 	'settings.permissions.role.player': 'Player',
-	'settings.permissions.role.playerDesc': 'Owns their character; sees only what the DM shares.',
+	'settings.permissions.role.playerDesc': 'Owns their character; sees only what the {gm} shares.',
 	'settings.permissions.role.observer': 'Observer',
 	'settings.permissions.role.observerDesc': 'Read-only; never holds character data.',
 	'settings.permissions.grantTitle': 'Grant scene access',
 	'settings.permissions.grantIntro':
-		'Choose what a player can do in a specific scene. Their role still sets the maximum access they can receive, and only the DM can change these grants.',
+		'Choose what a player can do in a specific scene. Their role still sets the maximum access they can receive, and only the {gm} can change these grants.',
 	'settings.permissions.needPlayer': 'Add a player before granting scene access.',
 	'settings.permissions.needScene': 'Create a scene before granting access.',
 	'settings.permissions.player': 'Player',
 	'settings.permissions.scene': 'Scene',
-	'settings.permissions.capabilitySet': 'Capability set',
+	'settings.permissions.capabilitySet': 'Scene access',
 	'settings.permissions.grant': 'Grant',
 	'settings.permissions.activeGrants': 'Active grants',
 	'settings.permissions.colAccess': 'Access',
 	'settings.permissions.colType': 'Type',
-	'settings.permissions.colEntity': 'Entity',
+	'settings.permissions.colEntity': 'Item',
 	'settings.permissions.colGrantedTo': 'Granted to',
 	'settings.permissions.colExpires': 'Expires',
 	'settings.permissions.revoke': 'Revoke',
@@ -1744,35 +1749,34 @@ export const en = {
 	'settings.permissions.granted': 'Access granted to {name}.',
 	'settings.permissions.revoked': 'Access revoked for {name}.',
 	'settings.permissions.regranted': 'Access re-granted to {name}.',
-	'settings.permissions.grantFailed': 'Could not grant that access.',
-	'settings.permissions.revokeFailed': 'Could not revoke that grant.',
+	'settings.permissions.grantFailed': 'Could not grant that access. Try again.',
+	'settings.permissions.revokeFailed': 'Could not revoke that grant. Try again.',
 
 	/* Settings › AI & tools */
 	'settings.ai.title': 'AI & agent access',
 	'settings.ai.switchLabel': 'AI and agent access',
 	'settings.ai.enabled': 'Enabled',
 	'settings.ai.off': 'Off',
-	'settings.ai.dmOnly':
-		'Agent access is DM-only and cannot be changed while previewing as a player.',
+	'settings.ai.dmOnly': 'Agent access is {gm} only. Exit preview or ask your {gm} to change it.',
 	'settings.ai.intro':
-		'This switch controls every assistant connection for this campaign. Turning it off immediately blocks all campaign tool access, regardless of the saved provider key or individual agent policy.',
+		'Control every assistant connection for this campaign. Turning this off immediately blocks access to campaign tools, even if a provider key is saved or an assistant has permission to use them.',
 	'settings.ai.providerNote':
-		'The built-in assistant uses the provider configured below. Each agent also needs an identity and policy, so you stay in control of what it can read and whether proposed changes need review.',
+		'The built-in assistant uses the provider below. Choose an identity and review rules for each assistant to control what it can read and which changes need approval.',
 	'settings.ai.turnedOn': 'Agent access turned on — the policies below now apply.',
 	'settings.ai.turnedOff': 'Agent access turned off.',
-	'settings.ai.commandFailed': 'The command failed.',
+	'settings.ai.commandFailed': 'That change could not be applied. Try again.',
 	'settings.ai.mode.disabled': 'Disabled',
 	'settings.ai.mode.strictReview': 'Strict review',
 	'settings.ai.mode.balanced': 'Balanced',
 	'settings.ai.mode.trustedDirect': 'Trusted direct',
-	'settings.ai.defaultPosture': 'Default posture for new agents',
+	'settings.ai.defaultPosture': 'Review policy for new agents',
 	'settings.ai.defaultPostureHelp':
 		'The starting policy for a new connection. New agents can be disabled or require review; they never start with direct write access.',
-	'settings.ai.defaultPostureAria': 'Vault default agent posture',
+	'settings.ai.defaultPostureAria': 'Default review policy for new agents',
 	'settings.ai.defaultChanged': 'New agents now default to {mode}.',
 	'settings.ai.connections': 'Agent connections',
 	'settings.ai.connectionsIntro':
-		'Each connection uses one campaign identity and gains no permissions of its own. It can never see or do more than that identity, and its policy decides whether changes require review.',
+		'Each connection uses one campaign identity and has only that identity’s permissions. Its review rules decide which changes need approval.',
 	'settings.ai.noConnections':
 		'No agent connections registered yet — register one below to author its policy ahead of time.',
 	'settings.ai.policySaved': 'Policy saved',
@@ -1798,13 +1802,13 @@ export const en = {
 		'Give the agent connection an id and choose the campaign identity it should use.',
 	'settings.ai.registered':
 		'Registered {agent} — it starts with the campaign default ({mode}) until you set a policy.',
-	'settings.ai.stagedTitle': 'Staged writes awaiting review',
+	'settings.ai.stagedTitle': 'Proposed changes awaiting review',
 	'settings.ai.nothingStaged':
-		'Nothing staged. Under strict review, every agent write lands here as a proposal you approve or reject — nothing an agent does commits without you.',
+		'No changes awaiting review. Under strict review, every change an agent proposes waits for you to approve or reject it.',
 	'settings.ai.proposalMeta': '{agent} as {actor} · {tool} · {risk}',
 	'settings.ai.approve': 'Approve',
 	'settings.ai.reject': 'Reject',
-	'settings.ai.proposalApproved': 'Proposal approved and committed through the normal dispatch.',
+	'settings.ai.proposalApproved': 'Proposal approved and saved.',
 	'settings.ai.proposalRejected': 'Proposal rejected — nothing was written.',
 	/* RC-AI-2.1 — the semantic diff preview a DM reads before approving a staged write. */
 	'settings.ai.previewSummary.create': 'Creates {target}.',
@@ -1827,7 +1831,7 @@ export const en = {
 	'settings.ai.previewWarn.noBaseline':
 		'The target is not available to this agent, so there is nothing to compare against.',
 	'settings.ai.previewWarn.staleBase':
-		'The target changed after this was staged. Approving it would be rejected as a conflict.',
+		'This entry changed after the proposal was made. Resolve the conflict before approving.',
 	'settings.ai.previewWarn.diffBounded':
 		'The note is too long to compare line by line, so only the totals are shown.',
 	'settings.ai.previewWarn.backlinksBounded':
@@ -1854,26 +1858,25 @@ export const en = {
 	'settings.ai.conflictResolved': 'Conflict resolved.',
 	'settings.ai.conflictTitleRow': 'Title',
 	'settings.ai.conflictWarn.noBaseSnapshot':
-		'This proposal was staged without a baseline, so the two edits cannot be merged.',
+		'The original version was not kept. Choose which version to use.',
 	'settings.ai.conflictWarn.overlappingEdits':
-		'The assistant and the note changed the same lines, so there is no merge to offer.',
-	'settings.ai.conflictWarn.titleConflict':
-		'The assistant and the note give this entry different titles.',
+		'Both versions changed the same lines. Choose which version to use.',
+	'settings.ai.conflictWarn.titleConflict': 'The titles differ. Choose which version to use.',
 	'settings.ai.conflictWarn.diffBounded':
-		'The note is too long to compare line by line, so it cannot be merged here.',
+		'This note is too long to merge here. Choose which version to use.',
 	'settings.ai.conflictWarn.hunksBounded':
 		'Only the first differing passages are listed. The note has more.',
-	'settings.ai.registryTitle': 'Tool registry (baseline)',
+	'settings.ai.registryTitle': 'Available tools',
 	'settings.ai.registryIntro':
-		'The campaign tools an agent may be granted. Read results respect its chosen identity, and changes wait for review unless you explicitly choose a more permissive policy.',
+		'Choose which campaign tools an assistant can use. It can read only what its chosen identity can see. Changes wait for review unless you explicitly allow changes without approval.',
 
 	/* Settings › AI & tools › Batch review (RC-AI-2.4) */
-	'settings.ai.batchFilterAgent': 'Filter staged writes by agent',
+	'settings.ai.batchFilterAgent': 'Filter proposed changes by agent',
 	'settings.ai.batchFilterAgentAll': 'All agents',
 	'settings.ai.batchFilterRisk': 'Filter by risk',
 	'settings.ai.batchFilterRiskAll': 'All',
 	'settings.ai.batchFilterRiskLow': 'Low risk',
-	'settings.ai.batchFilterRiskDurable': 'Durable',
+	'settings.ai.batchFilterRiskDurable': 'Changes saved data',
 	'settings.ai.batchSelectGroup': 'Select all staged by {agent}',
 	'settings.ai.batchSelectedCount': '{count} selected',
 	'settings.ai.batchApproveSelected': 'Approve selected',
@@ -1881,42 +1884,44 @@ export const en = {
 	'settings.ai.batchNothingApprovable':
 		'The selected proposals each need their conflict resolved first.',
 	'settings.ai.batchApproveAllOk':
-		'{ok, plural, one {# proposal} other {# proposals}} approved and committed.',
-	'settings.ai.batchApproveResult': '{ok} approved, {failed} could not be approved.',
+		'{ok, plural, one {# proposal} other {# proposals}} approved and saved.',
+	'settings.ai.batchApproveResult':
+		'{ok} approved, {failed} could not be approved. Review the remaining proposals individually.',
 	'settings.ai.batchRejectAllOk': '{ok, plural, one {# proposal} other {# proposals}} rejected.',
-	'settings.ai.batchRejectResult': '{ok} rejected, {failed} could not be rejected.',
-	'settings.ai.batchNoMatch': 'No staged writes match these filters.',
+	'settings.ai.batchRejectResult':
+		'{ok} rejected, {failed} could not be rejected. Review the remaining proposals individually.',
+	'settings.ai.batchNoMatch': 'No proposed changes match these filters.',
 	'settings.ai.batchGroupHeading': '{agent} · {count}',
 	'settings.ai.selectProposalAria': 'Select the {tool} proposal from {agent}',
 
 	/* Settings › AI & tools › Audit browser (RC-AI-2.3) */
 	'settings.ai.auditTitle': 'Audit trail',
 	'settings.ai.auditIntro':
-		'Every agent write attempt, staged or direct or denied. Export takes the full trail, not just what the filters below are showing.',
+		'See every change an agent attempted, including proposals, saved changes and denied requests. Export includes the full history, even when filters are applied.',
 	'settings.ai.auditFilterMode': 'Filter by outcome',
 	'settings.ai.auditFilterAll': 'All',
 	'settings.ai.auditFilterAgent': 'Filter audit trail by agent',
 	'settings.ai.auditFilterAgentAll': 'All agents',
-	'settings.ai.auditMode.staged': 'Staged',
-	'settings.ai.auditMode.direct': 'Committed',
+	'settings.ai.auditMode.staged': 'Awaiting review',
+	'settings.ai.auditMode.direct': 'Saved',
 	'settings.ai.auditMode.denied': 'Denied',
 	'settings.ai.auditAsActor': 'as {actor}',
 	'settings.ai.auditExport': 'Export audit trail',
 	'settings.ai.auditExported': 'Audit trail exported.',
-	'settings.ai.auditExportFailed': 'Could not export the audit trail.',
+	'settings.ai.auditExportFailed': 'Could not export the audit trail. Try again.',
 	'settings.ai.auditEmpty': 'No agent activity yet.',
 	'settings.ai.auditNoMatch': 'No activity matches these filters.',
 
 	/* Settings › AI & tools › Assistant */
 	'settings.assistant.title': 'Assistant',
 	'settings.assistant.intro':
-		'Ask about the campaign. The assistant sees only what the identity you choose is allowed to see, and it works autonomously — it may take several steps to finish. Any change it suggests lands in the review panel below and waits for your approval.',
+		'Ask about your campaign. The assistant can read only what your chosen identity can see. It may take several steps to finish a request. Review its proposed changes below; each one waits for your approval.',
 	'settings.assistant.transcript': 'Assistant transcript',
 	'settings.assistant.youSaid': 'You said:',
 	'settings.assistant.assistantSaid': 'Assistant said:',
 	'settings.assistant.outcome.read': 'read',
-	'settings.assistant.outcome.staged': 'staged',
-	'settings.assistant.outcome.committed': 'committed',
+	'settings.assistant.outcome.staged': 'awaiting review',
+	'settings.assistant.outcome.committed': 'saved',
 	'settings.assistant.outcome.denied': 'denied',
 	'settings.assistant.outcome.failed': 'failed',
 	'settings.assistant.blockerNoKey': 'Add a provider API key above to turn the assistant on.',
@@ -1924,7 +1929,8 @@ export const en = {
 		'Enable agent access above to let the assistant use campaign tools.',
 	'settings.assistant.blockerNoAgent':
 		'Register an agent connection below and choose the campaign identity it should use.',
-	'settings.assistant.blockerNotDm': 'The assistant is DM-only and unavailable while previewing.',
+	'settings.assistant.blockerNotDm':
+		'The assistant is {gm} only. Exit player preview or ask your {gm} to use it.',
 	'settings.assistant.starting': 'Starting…',
 	'settings.assistant.working': 'Working — step {pass} of {total}',
 	'settings.assistant.workingOnTool': 'Working — step {pass} of {total} · {tool}',
@@ -1938,7 +1944,7 @@ export const en = {
 	'settings.assistant.notifyLabel': 'Notify me on this device when a run finishes.',
 	'settings.assistant.notifyUnavailable': 'Notifications are unavailable.',
 	'settings.assistant.notifyDenied':
-		'Notifications were not enabled because permission was not granted.',
+		'Notifications are blocked. Allow notifications for Lamplight in your browser or device settings.',
 	'settings.assistant.finished':
 		'Assistant finished{staged, plural, =0 {} one { — # change staged for your review below} other { — # changes staged for your review below}}.',
 	'settings.assistant.finishedTitle': 'Assistant finished',
@@ -1956,67 +1962,69 @@ export const en = {
 	/* Settings › AI & tools › Model routing */
 	'settings.router.title': 'Model routing',
 	'settings.router.intro':
-		'Choose which model runner serves each job. A backend that cannot do a job, or is not ready, says so here rather than failing when the assistant runs.',
-	'settings.router.backendsHeading': 'Backends',
+		'Choose a model service for each job. Check which services are ready and what they can do.',
+	'settings.router.backendsHeading': 'Model services',
 	'settings.router.backend.provider': 'Configured provider',
 	'settings.router.backend.local': 'Local runner',
 	'settings.router.backend.localHelp':
-		'An Ollama daemon on this device. Nothing leaves the machine, and no key is needed.',
+		'Ollama running on this device. No key is needed, and requests stay here.',
 	'settings.router.ready': 'Ready',
 	'settings.router.notReady': 'Not ready',
 	'settings.router.reason.consentOff': 'Turn on complete AI use above to reach any model.',
-	'settings.router.reason.platformUnsupported':
-		'Local model runners need the desktop app — this platform blocks loopback requests.',
+	'settings.router.reason.platformUnsupported': 'Use the desktop app to connect to a local model.',
 	'settings.router.reason.incompleteSettings': 'Finish the provider settings above.',
 	'settings.router.reason.noKey': 'Save a provider API key above.',
-	'settings.router.reason.taskOff': 'This job is turned off.',
-	'settings.router.reason.capabilityMissing': 'This backend does not offer that capability.',
+	'settings.router.reason.taskOff': 'This job is off. Choose a service to turn it on.',
+	'settings.router.reason.capabilityMissing':
+		'This service cannot do that job. Choose another service.',
 	'settings.router.capability.generation': 'Writes text',
-	'settings.router.capability.embeddings': 'Makes search vectors',
-	'settings.router.capability.noEmbeddings': 'No search vectors',
+	'settings.router.capability.embeddings': 'Supports search by meaning',
+	'settings.router.capability.noEmbeddings': 'No search by meaning',
 	'settings.router.capability.context': 'Context {tokens} tokens',
 	'settings.router.capability.contextUndeclared': 'Context not declared',
 	'settings.router.modelRow': 'Local model',
 	'settings.router.modelHelp': 'The model id to ask the local runner for, for example {model}.',
 	'settings.router.modelAria': 'Local runner model id',
 	'settings.router.assistantRow': 'Assistant',
-	'settings.router.assistantHelp': 'The backend that answers assistant runs and calls tools.',
-	'settings.router.assistantAria': 'Assistant backend',
+	'settings.router.assistantHelp': 'The service that answers requests and uses campaign tools.',
+	'settings.router.assistantAria': 'Assistant service',
 	'settings.router.routeOff': 'Off',
 	'settings.router.embeddingsRow': 'Semantic search',
 	'settings.router.embeddingsHelp':
-		'Search still runs on keywords only. When vector search arrives it will use this backend.',
+		'Search currently uses keywords. Choose the service to use when search by meaning becomes available.',
 	'settings.router.embeddingsReady': 'Ready on {backend}',
-	'settings.router.routeSaved': 'Assistant backend set to {backend}.',
-	'settings.router.routeSavedOff': 'Assistant backend turned off.',
+	'settings.router.routeSaved': 'Assistant service set to {backend}.',
+	'settings.router.routeSavedOff': 'Assistant service turned off.',
 	'settings.router.localModelSaved': 'Local model set to {model}.',
 
 	/* Settings › AI & tools › Local models */
 	'settings.localModels.title': 'Local models',
 	'settings.localModels.intro':
-		'Models pulled onto the Ollama daemon on this device. Pulling and deleting happen here; the model the assistant and search actually use is set above.',
+		'Download or delete models on this device through Ollama. Choose which model the assistant uses above.',
 	'settings.localModels.refresh': 'Refresh',
 	'settings.localModels.refreshing': 'Refreshing…',
-	'settings.localModels.refreshHint': 'Check what is pulled and how much disk it uses.',
+	'settings.localModels.refreshHint': 'Check downloaded models and the space they use.',
 	'settings.localModels.listFailed':
 		'Could not list local models — check that `ollama serve` is running.',
-	'settings.localModels.empty': 'No models pulled yet.',
+	'settings.localModels.empty': 'No models downloaded yet.',
 	'settings.localModels.diskTotal': '{size} on disk',
 	'settings.localModels.pullPlaceholder': 'Model name, for example {model}',
-	'settings.localModels.pullAria': 'Model name to pull',
-	'settings.localModels.pull': 'Pull',
-	'settings.localModels.pulling': 'Pulling…',
+	'settings.localModels.pullAria': 'Model name to download',
+	'settings.localModels.pull': 'Download',
+	'settings.localModels.pulling': 'Downloading…',
 	'settings.localModels.pullStarting': 'Starting…',
 	'settings.localModels.pullProgress': '{status} · {percent}%',
-	'settings.localModels.pulled': 'Pulled {model}.',
-	'settings.localModels.pullFailed': 'Could not pull {model}.',
+	'settings.localModels.pulled': 'Downloaded {model}.',
+	'settings.localModels.pullFailed':
+		'Could not download {model}. Check that Ollama is running and try again.',
 	'settings.localModels.deleteTitle': 'Delete this model?',
 	'settings.localModels.deleteDescription': 'This frees the disk space it uses on this device.',
 	'settings.localModels.deleteBody':
-		'{model} will be removed from this device. Pull it again any time.',
+		'{model} will be removed from this device. You can download it again later.',
 	'settings.localModels.deleting': 'Deleting…',
 	'settings.localModels.deleted': 'Deleted {model}.',
-	'settings.localModels.deleteFailed': 'Could not delete {model}.',
+	'settings.localModels.deleteFailed':
+		'Could not delete {model}. Check that Ollama is running and try again.',
 
 	/* Settings › AI & tools › Provider */
 	'settings.provider.title': 'AI provider',
@@ -2041,8 +2049,7 @@ export const en = {
 	'settings.provider.checkOllama': 'Check for local Ollama',
 	'settings.provider.detectionNote':
 		'Detection contacts only http://localhost:11434 after you choose to check.',
-	'settings.provider.lockedPlatform':
-		'Local model runners need the desktop app — this platform blocks loopback requests.',
+	'settings.provider.lockedPlatform': 'Use the desktop app to connect to a local model.',
 	'settings.provider.forgetBeforeSwitch': 'Forget the current key before switching providers.',
 	'settings.provider.forgetBeforeChange':
 		'Forget the current key before changing its provider or destination.',
@@ -2088,14 +2095,15 @@ export const en = {
 	'settings.provider.saving': 'Saving…',
 	'settings.provider.forgetKey': 'Forget key',
 	'settings.provider.forgetting': 'Forgetting…',
-	'settings.provider.keyTooLong': 'That API key is too long. The limit is {max} characters.',
+	'settings.provider.keyTooLong':
+		'That API key exceeds {max} characters. Check that you pasted only the key.',
 	'settings.provider.keySavedDurable': 'API key saved in OS-encrypted storage.',
 	'settings.provider.keySavedNoDurable':
 		'Saved for this session, but OS-encrypted storage is unavailable.',
 	'settings.provider.keySavedSession': 'API key saved for this browser session.',
 	'settings.provider.keyForgotten': 'API key forgotten.',
 	'settings.provider.forgetDurableFailed':
-		'Could not remove the key from OS-encrypted storage. It remains available in this session.',
+		'The saved key could not be removed. It remains available in this session. Try Forget key again.',
 	'settings.provider.forgetRaced': 'The key changed before it could be forgotten. Try again.',
 	'settings.provider.confirmTitle': 'Confirm credential destination',
 	'settings.provider.confirmDescription':
@@ -2124,7 +2132,7 @@ export const en = {
 	'player.switchCharacter': 'Switch character',
 	'player.identity.adventurer': 'Adventurer',
 	'player.identity.background': '{name} background',
-	'player.hp.label': 'HIT POINTS',
+	'player.hp.label': '{hitPoints}',
 	'player.hp.amountLabel': 'Hit point change amount',
 	'player.hp.damageBy': 'Damage {amount}',
 	'player.hp.healBy': 'Heal {amount}',
@@ -2187,7 +2195,7 @@ export const en = {
 	'player.vitals.shortRest': 'Short rest',
 	'player.vitals.longRest': 'Long rest',
 	'player.vitals.restHelp':
-		'A short rest recovers short-rest resources; a long rest restores spell slots, long-rest resources, and clears conditions.',
+		'A short rest recovers short-rest resources; a long rest restores {spellLower} slots, long-rest resources, and clears conditions.',
 	'player.vitals.preparedSpells': 'Prepared {spellPlural} ({count})',
 	'player.vitals.noSpellsTitle': 'No {spellPluralLower} tracked',
 	'player.vitals.noSpellsBody':
@@ -2376,7 +2384,7 @@ export const en = {
 	'character.levelUp.noUnlocks': 'The active system grants nothing new at this level.',
 	'character.levelUp.noResourceChange': 'No resource maximum moves at this level.',
 	'character.levelUp.slotsAreAuthored':
-		'Spell slots stay as authored on the sheet — set them on the Resources tab.',
+		'Set {spellLower} slots on the Resources tab. They stay as entered on the sheet.',
 	'character.levelUp.fromToValue': '{from} → {to}',
 	'character.levelUp.notChosen': 'Not chosen',
 	'character.levelUp.choose': 'Choose',
@@ -2401,7 +2409,7 @@ export const en = {
 		'These definitions control the fields and columns shown wherever each object type appears. Counts reflect the campaign items visible to you now.',
 	'extensions.objects.builtIn': 'Built-in',
 	'extensions.objects.dmOnlyFields':
-		'{count, plural, one {# DM-only field} other {# DM-only fields}}',
+		'{count, plural, one {# {gm}-only field} other {# {gm}-only fields}}',
 	'extensions.objects.schemaMeta':
 		'· defaults to {visibility} · {required, plural, one {# required field} other {# required fields}}',
 	'extensions.objects.inVault': '{count} in vault',
@@ -2412,9 +2420,9 @@ export const en = {
 	'extensions.theme.parchmentDesc': 'Warm vellum light',
 	'extensions.theme.scholarDesc': 'Cool paper for long writing',
 	'extensions.theme.dungeonDesc': 'Near-black for dim tables',
-	'extensions.theme.highContrastDesc': 'The accessibility floor',
+	'extensions.theme.highContrastDesc': 'High contrast for easier reading',
 	'extensions.theme.presetHelp':
-		'The preset choice is real and persists (the same setting as Settings → Appearance). Presets are the theming architecture — per-token overrides aren’t supported, so the rows below are the live, read-only token values of the active preset.',
+		'Choose a theme here or in Settings → Appearance. Your choice is saved. The values below show the active theme for reference; individual values cannot be edited.',
 	'extensions.theme.groupSurfaces': 'Surfaces',
 	'extensions.theme.groupText': 'Text',
 	'extensions.theme.groupAccent': 'Accent & status',
@@ -2451,7 +2459,8 @@ export const en = {
 		'Decide what this package may reach. Everything is denied until you allow it.',
 	'extensions.trust.denyPackage': 'Deny package',
 	'extensions.trust.trustPackage': 'Trust package',
-	'extensions.trust.readOnly': 'Reviewing a package is DM only and read-only while previewing.',
+	'extensions.trust.readOnly':
+		'Package review is {gm} only. Exit preview or ask your {gm} to review this package.',
 	'extensions.trust.trusted': 'Trusted {name} with the permissions you allowed.',
 	'extensions.trust.denied': 'Denied {name} — it is disabled and its placed widgets are paused.',
 	'extensions.trust.recommend.trusted': 'Safe to trust after review',
@@ -2467,7 +2476,7 @@ export const en = {
 	'extensions.trust.perm.filesystem': 'Filesystem',
 	'extensions.trust.perm.clipboard': 'Clipboard',
 	'extensions.trust.perm.network': 'Network',
-	'extensions.trust.perm.sourceAdapter': 'Source adapter',
+	'extensions.trust.perm.sourceAdapter': 'Connected sources',
 	'extensions.trust.perm.asset': 'Assets',
 	'extensions.trust.perm.externalLink': 'External links',
 	'extensions.trust.meaning.filesystem': 'Read and write files you choose on this device.',
@@ -2476,7 +2485,7 @@ export const en = {
 	'extensions.trust.meaning.sourceAdapter': 'Read your configured content sources.',
 	'extensions.trust.meaning.asset': 'Read images and audio from your campaign assets.',
 	'extensions.trust.meaning.externalLink': 'Open links outside Lamplight.',
-	'extensions.trust.meaning.other': 'Reaches a host capability.',
+	'extensions.trust.meaning.other': 'Uses a feature of this device or app.',
 	'extensions.trust.askedFor': 'Asked for by {who}.',
 	'extensions.trust.thisPackage': 'this package',
 	'extensions.trust.permissionControl': '{permission} permission',
@@ -2495,7 +2504,8 @@ export const en = {
 		'The campaign system controls which widget types are available throughout the app. Before switching, Lamplight checks the campaign without changing it. Unsafe switches are blocked, and any switch that would remove live widgets requires your explicit confirmation.',
 	'extensions.system.noActive':
 		'No explicit system package is set yet; the built-in scene widgets act as the default until you switch.',
-	'extensions.system.readOnly': 'Switching is DM-only and read-only while previewing.',
+	'extensions.system.readOnly':
+		'Changing systems is {gm} only. Exit preview or ask your {gm} to change the system.',
 	'extensions.system.active': 'Active',
 	'extensions.system.disabled': 'disabled',
 	'extensions.system.declares':
@@ -2503,47 +2513,48 @@ export const en = {
 	'extensions.system.current': 'Current system',
 	'extensions.system.previewSwitch': 'Preview switch',
 	'extensions.system.notListed':
-		'Want a system that isn’t listed? Install its widget package on the Plugins tab (starter library or package JSON) — every installed, enabled package can be previewed as the active system.',
+		'Install another system’s widget package from the starter library or a package JSON file on the Plugins tab. You can preview any installed, enabled package as the active system.',
 	'extensions.system.switchTo': 'Switch to {name}',
 	'extensions.system.switchPreview':
-		'Preview of switching to {id} — nothing changes until you apply',
+		'Preview the system switch. Nothing changes until you apply it.',
 	'extensions.system.switching': 'Switching…',
 	'extensions.system.applySwitch': 'Apply switch',
 	'extensions.system.unavailable': '{reason} Nothing was changed.',
-	'extensions.system.reason.notFound': 'That package is not installed.',
+	'extensions.system.reason.notFound':
+		'That package is not installed. Install it from the Plugins tab first.',
 	'extensions.system.reason.removed': 'That package has been removed — reinstall it first.',
 	'extensions.system.reason.disabled':
 		'That package is disabled — enable it on the Plugins tab first.',
 	'extensions.system.reason.alreadyActive': 'That package is already the active system.',
-	'extensions.system.reason.other': 'The switch is unavailable.',
-	'extensions.system.blocked': 'This campaign cannot be migrated safely, so the switch is blocked.',
-	'extensions.system.safetyPassed': 'The campaign passed its migration safety check.',
-	'extensions.system.noChanges':
-		'No widget-vocabulary changes — the current system declares no types the target lacks.',
+	'extensions.system.reason.other': 'The switch is unavailable. Choose another system.',
+	'extensions.system.blocked':
+		'The switch would leave this campaign unusable. Keep the current system or choose another.',
+	'extensions.system.safetyPassed': 'The campaign can use this system.',
+	'extensions.system.noChanges': 'All current widget types are available in the new system.',
 	'extensions.system.finding.keep': 'Kept',
 	'extensions.system.finding.remap': 'Remapped',
 	'extensions.system.finding.drop': 'Dropped',
 	'extensions.system.destructiveBody':
-		'Dropped types above have live widgets on your scenes — they would be disabled (recoverable by switching back). The command fails closed unless you acknowledge this.',
+		'Widgets of the types listed above would be disabled in your scenes. Switching back restores them. Confirm that you understand before applying this change.',
 	'extensions.system.understand': 'I understand',
 	'extensions.system.clean': 'Nothing is lost — the switch applies cleanly.',
 	'extensions.system.switched': 'Active system switched to {name}.',
 	/* RC-SYS-3.1 — the system package picker (the front door) */
 	'extensions.system.pickerTitle': 'Choose a system',
 	'extensions.system.pickerIntro':
-		'The rules your table plays — attributes, resources, conditions, dice — come from a system package. Pick one of the packages installed here, or fork one and make it yours. The same widgets render against whichever you choose.',
+		'A system package supplies your table’s attributes, resources, conditions and dice rules. Choose an installed package or make a copy to customize. Your widgets use the system you choose.',
 	'extensions.system.activePackage': 'Active package',
 	'extensions.system.activeSystem': 'Active system',
 	'extensions.system.allSystems': 'All systems',
 	'extensions.system.declaresHeading': 'What this package declares',
 	'extensions.system.runningNow': 'This is the system your campaign is running.',
 	'extensions.system.previewSelect': 'Preview this system',
-	'extensions.system.forkAction': 'Fork and customize',
+	'extensions.system.forkAction': 'Copy and customize',
 	'extensions.system.editAction': 'Edit this system',
 	'extensions.system.dryRunNote':
-		'Moving off {name} runs a dry run first: it shows what maps, what carries over and what is dropped before anything changes.',
+		'Preview switching from {name} to see what carries over and what becomes unavailable before anything changes.',
 	'extensions.system.tier.builtIn': 'Built-in',
-	'extensions.system.tier.custom': 'Forked · yours',
+	'extensions.system.tier.custom': 'Your copy',
 	'extensions.system.chip.attributes': '{count, plural, one {# attribute} other {# attributes}}',
 	'extensions.system.chip.resources': '{count, plural, one {# resource} other {# resources}}',
 	'extensions.system.chip.conditions': '{count, plural, one {# condition} other {# conditions}}',
@@ -2570,16 +2581,16 @@ export const en = {
 	'extensions.system.category.skill': 'Skill',
 	'extensions.system.select.title': 'Switch to {name}',
 	'extensions.system.select.description':
-		'A dry run of switching to {name} — nothing changes until you apply it.',
+		'Preview switching to {name}. Nothing changes until you apply it.',
 	'extensions.system.select.apply': 'Switch system',
 	'extensions.system.select.applying': 'Switching…',
 	'extensions.system.select.safe': 'Every attribute, resource and condition in play carries over.',
 	'extensions.system.select.destructive':
 		'{count, plural, one {# piece of character data is left behind by this switch.} other {# pieces of character data are left behind by this switch.}}',
 	'extensions.system.select.destructiveBody':
-		'Dropped keys above are still stored on the characters, but the new system cannot read them until you switch back. The command fails closed unless you acknowledge this.',
+		'The details listed above stay saved on your characters, but this system cannot use them. Switch back to use them again. Confirm that you understand before changing systems.',
 	'extensions.system.select.noFindings':
-		'The current system declares nothing the target system would have to map.',
+		'There are no current attributes, resources or conditions to carry over.',
 	'extensions.system.select.clean': 'Nothing is lost — the switch applies cleanly.',
 	'extensions.system.select.nothingChanged': 'Nothing was changed.',
 	'extensions.system.select.done': 'Now playing {name}.',
@@ -2592,14 +2603,14 @@ export const en = {
 	'extensions.system.build.title': 'Build your own',
 	'extensions.system.build.body':
 		'Start from the system you are reading and give the copy its own name — then rename its roles, attributes and resources.',
-	'extensions.system.fork.title': 'Fork a system',
+	'extensions.system.fork.title': 'Copy a system',
 	'extensions.system.fork.description':
-		'The copy starts as {name} declares it and is yours to edit. The original is untouched.',
+		'Create an editable copy of {name}. The original stays unchanged.',
 	'extensions.system.fork.nameLabel': 'Name your system',
 	'extensions.system.fork.defaultName': '{name} (my table)',
-	'extensions.system.fork.create': 'Create the fork',
+	'extensions.system.fork.create': 'Create copy',
 	'extensions.system.fork.note':
-		'The fork lands in the gallery straight away and opens in the system builder, where you can edit it field by field.',
+		'Your copy appears in the gallery and opens in the system builder, ready to edit.',
 	'extensions.system.fork.done': '{name} is ready to edit.',
 	/* RC-SYS-3.5 — sample systems: they ship with the build but install rather than come built in.
 	   Not called the "starter library" — that name already belongs to the WIDGET starter library. */
@@ -2618,16 +2629,17 @@ export const en = {
 	'systemBuilder.needsAttention': 'Needs attention',
 	'systemBuilder.editing': 'Editing',
 	'systemBuilder.creating': 'New system',
-	'systemBuilder.readOnly': 'Editing a system is DM-only and read-only while previewing.',
+	'systemBuilder.readOnly':
+		'Editing systems is {gm} only. Exit preview or ask your {gm} to edit this system.',
 	'systemBuilder.saved': '{name} is saved.',
 	'systemBuilder.issue.duplicateKey':
-		'Another entry already uses the key {key}. Keys have to be unique — a formula and a character sheet both read this one.',
+		'The key {key} is already used. Choose a different key so formulas can tell the entries apart.',
 	'systemBuilder.step.identity': 'Identity and vocabulary',
 	'systemBuilder.step.attributes': 'Attributes',
 	'systemBuilder.step.resources': 'Resources',
 	'systemBuilder.step.conditions': 'Conditions',
 	'systemBuilder.step.dice': 'Dice and turns',
-	'systemBuilder.step.creature': 'Creature schema',
+	'systemBuilder.step.creature': 'Creature fields',
 	'systemBuilder.step.advancement': 'Advancement',
 	'systemBuilder.step.review': 'Review',
 	'systemBuilder.field.label': 'Name',
@@ -2789,8 +2801,8 @@ export const en = {
 	'systemBuilder.review.help':
 		'What this package came from, what is still wrong with it, and what will be saved.',
 	'systemBuilder.review.origin': 'Where it came from',
-	'systemBuilder.review.forkedFrom': 'Forked from',
-	'systemBuilder.review.noOrigin': 'Not recorded — this package was not forked here.',
+	'systemBuilder.review.forkedFrom': 'Copied from',
+	'systemBuilder.review.noOrigin': 'Original system not recorded.',
 	'systemBuilder.review.identity': '{id} · version {version}',
 	'systemBuilder.review.issues': 'Before it can be saved',
 	'systemBuilder.review.clean': 'Ready',
@@ -2803,11 +2815,12 @@ export const en = {
 	'systemBuilder.review.saving': 'Saving…',
 	'systemBuilder.review.activateNote':
 		'Saving does not switch your campaign. Choose it in the gallery when you are ready.',
-	'systemBuilder.review.readOnly': 'Saving is DM-only and read-only while previewing.',
+	'systemBuilder.review.readOnly':
+		'Saving systems is {gm} only. Exit preview or ask your {gm} to save this system.',
 	/* Extensions › compendium browse, statblocks and custom object types */
 	'extensions.compendium.title': 'Open5e compendium',
 	'extensions.compendium.readOnly':
-		'Importing is DM-only and read-only while previewing — browsing works, the import buttons are disabled.',
+		'You can browse here. To import, exit preview or ask your {gm}.',
 	'extensions.compendium.searching': 'searching…',
 	'extensions.compendium.sourceLive': 'Live · Open5e API',
 	'extensions.compendium.sourceOffline': 'Offline — bundled SRD',
@@ -2853,7 +2866,7 @@ export const en = {
 		'Showing the first {shown} of {total} matches — refine the search to narrow it down.',
 	'extensions.compendium.entryDetails': 'Entry details',
 	'extensions.compendium.selectPrompt':
-		'Select an entry to review its statblock before importing. Monsters land in the roster as DM-only quick-create characters (usable in the Encounter Builder); spells become DM-only vault objects on the Knowledge screen.',
+		'Select an entry to review its stats before importing. Monsters become {gm}-only characters in your roster, ready for the encounter builder. Imported spells appear in Knowledge and are {gm} only.',
 	'extensions.compendium.import': 'Import',
 	'extensions.compendium.importing': 'Importing…',
 	'extensions.compendium.importAgain': 'Import again',
@@ -2861,15 +2874,17 @@ export const en = {
 	'extensions.compendium.importCopy': 'Import copy',
 	'extensions.compendium.keep': 'Keep',
 	'extensions.compendium.open': 'Open',
-	'extensions.compendium.importFailed': '{name} was not imported: {reason}',
+	'extensions.compendium.importFailed':
+		'{name} was not imported: {reason} Review the import details before trying again.',
 	// RC-SYS-2.5 — the import field report: what the active rules system can hold of a 5e statblock.
 	'extensions.compendium.fitPartial':
 		'Your rules system has no place for {count} of these details.',
 	'extensions.compendium.fitUnmapped': 'Not imported: {fields}.',
-	'extensions.compendium.fitRefused': 'Your rules system cannot hold this creature.',
+	'extensions.compendium.fitRefused':
+		'Your system cannot import this creature. Review the required fields below.',
 	'extensions.compendium.fitMissing': 'It requires: {fields}.',
-	'extensions.compendium.monsterImported': '{name} added to the roster (DM only)',
-	'extensions.compendium.spellImported': '{name} saved to the vault (DM only)',
+	'extensions.compendium.monsterImported': '{name} added to the roster ({gm} only)',
+	'extensions.compendium.spellImported': '{name} saved to the vault ({gm} only)',
 	'extensions.compendium.armorClass': 'Armor class',
 	'extensions.compendium.hitPoints': 'Hit points',
 	'extensions.compendium.speed': 'Speed',
@@ -2895,7 +2910,7 @@ export const en = {
 	'extensions.customTypes.title': 'Custom object types',
 	'extensions.customTypes.definedCount': '{count, plural, one {# defined} other {# defined}}',
 	'extensions.customTypes.intro':
-		'Define your own vault-object types with a small field schema. A custom type is first-class — its objects create, validate, and list alongside the built-in types above. Deleting a type is blocked while any of its objects still exist.',
+		'Create a type of vault object and choose its fields. You can add and manage its objects alongside the built-in types. Delete all objects of a type before deleting the type itself.',
 	'extensions.customTypes.empty': 'No custom types yet.',
 	'extensions.customTypes.custom': 'Custom',
 	'extensions.customTypes.summaryMeta':
@@ -2909,7 +2924,7 @@ export const en = {
 	'extensions.customTypes.editType': 'Edit type · {id}',
 	'extensions.customTypes.defineTitle': 'Define a new type',
 	'extensions.customTypes.exitPreview': 'Exit preview to author types.',
-	'extensions.customTypes.dmOnly': 'Only the DM may define custom object types.',
+	'extensions.customTypes.dmOnly': 'Ask your {gm} to define a custom object type.',
 	'extensions.customTypes.label': 'Label',
 	'extensions.customTypes.labelPlaceholder': 'e.g. Tavern',
 	'extensions.customTypes.labelField': 'Custom type label',
@@ -2919,9 +2934,9 @@ export const en = {
 	'extensions.customTypes.fieldKind': 'Field {index} kind',
 	'extensions.customTypes.removeField': 'Remove field {index}',
 	'extensions.customTypes.required': 'Required',
-	'extensions.customTypes.dmOnlyField': 'DM only',
+	'extensions.customTypes.dmOnlyField': '{gm} only',
 	'extensions.customTypes.requiredWord': 'required',
-	'extensions.customTypes.dmOnlyWord': 'DM only',
+	'extensions.customTypes.dmOnlyWord': '{gm} only',
 	'extensions.customTypes.addField': 'Add field',
 	'extensions.customTypes.saving': 'Saving…',
 	'extensions.customTypes.saveChanges': 'Save changes',
@@ -2929,20 +2944,20 @@ export const en = {
 	'extensions.customTypes.cancelEdit': 'Cancel edit',
 	'extensions.customTypes.kind.string': 'Text',
 	'extensions.customTypes.kind.number': 'Number',
-	'extensions.customTypes.kind.boolean': 'Boolean',
+	'extensions.customTypes.kind.boolean': 'Yes or no',
 	'extensions.customTypes.kind.stringArray': 'Text list',
 	'extensions.customTypes.kind.object': 'Object',
 	'extensions.customTypes.kind.objectArray': 'Object list',
 	'extensions.customTypes.newInstance': 'New {label}',
 	'extensions.customTypes.creating': 'Creating…',
-	'extensions.customTypes.instanceCreated': 'Created {title} (DM only)',
+	'extensions.customTypes.instanceCreated': 'Created {title} ({gm} only)',
 	'extensions.customTypes.objectTitle': 'Object title',
 	'extensions.customTypes.true': 'True',
 	'extensions.customTypes.false': 'False',
 	'extensions.customTypes.commaSeparated': 'comma-separated',
 	/* Extensions › plugins (the widget-package registry) */
 	'extensions.plugins.readOnly':
-		'Package management is DM only and read-only while previewing — the controls below are disabled.',
+		'Managing packages is {gm} only. Exit preview or ask your {gm} to make changes.',
 	'extensions.plugins.installedTitle': 'Installed packages',
 	'extensions.plugins.installedCount': '{count, plural, one {# installed} other {# installed}}',
 	'extensions.plugins.installedIntro':
@@ -2954,7 +2969,7 @@ export const en = {
 	'extensions.plugins.recommendTrust': 'Trust after review',
 	'extensions.plugins.needsReview': 'Needs review',
 	'extensions.plugins.customCode': 'Custom code',
-	'extensions.plugins.migrationFailed': 'Migration failed',
+	'extensions.plugins.migrationFailed': 'Update failed — review the package',
 	'extensions.plugins.cardMeta':
 		'v{version} · {widgets, plural, one {# widget} other {# widgets}} · {recommendation}',
 	'extensions.plugins.noPerms': 'No host permissions',
@@ -2969,7 +2984,7 @@ export const en = {
 	'extensions.plugins.starterTitle': 'Starter library',
 	'extensions.plugins.starterBadge': 'bundled · no network',
 	'extensions.plugins.starterIntro':
-		'These packages are bundled with Lamplight and need no network connection. Each installs disabled with all host permissions blocked; review it in the installed list before enabling it.',
+		'These packages come with Lamplight and work without a network connection. Each installs disabled with all permissions denied. Review it in the installed list before enabling it.',
 	'extensions.plugins.sandboxed': 'sandboxed',
 	'extensions.plugins.starterNoCode': 'no code',
 	'extensions.plugins.installed': 'Installed',
@@ -2981,7 +2996,7 @@ export const en = {
 		'Describe a widget step by step — what it shows, what it can do, how it looks — and Lamplight builds the package for you. It installs disabled, like any other package.',
 	'extensions.plugins.jsonTitle': 'Install or upgrade from JSON',
 	'extensions.plugins.jsonIntro':
-		'Paste a widget-package definition (or an export from a card above). A new id installs; an already-installed id upgrades in place. Lamplight validates the package and safely runs any declared upgrade steps.',
+		'Paste a widget package or an export from a card above. Lamplight checks the package before installing it. If the same package is already installed, it is updated and any included upgrade steps are checked and run.',
 	'extensions.plugins.jsonPlaceholder':
 		'{ "id": "my-package", "version": "1.0.0", "displayName": "My package", "widgets": [ … ] }',
 	'extensions.plugins.jsonField': 'Widget package definition JSON',
@@ -2990,24 +3005,24 @@ export const en = {
 	'extensions.plugins.marketBadge': 'Unavailable',
 	'extensions.plugins.marketBody':
 		'The community marketplace is not available in this edition. Install from the starter library or add a trusted package file above instead.',
-	'extensions.plugins.enabled': 'Enabled {id}.',
-	'extensions.plugins.disabled': 'Disabled {id} — its placed widgets are paused until re-enabled.',
-	'extensions.plugins.removed':
-		'Removed {id} — its placed widgets remain as disabled placeholders.',
+	'extensions.plugins.enabled': 'Package enabled.',
+	'extensions.plugins.disabled':
+		'Package disabled. Its placed widgets are paused until you enable it again.',
+	'extensions.plugins.removed': 'Package removed. Its widgets remain in place but are disabled.',
 	'extensions.plugins.installedStarter':
 		'Installed {name} in a disabled, restricted state. Review it above before enabling it.',
-	'extensions.plugins.installedPackage':
-		'Installed {id} in a disabled, restricted state. Review it above before enabling it.',
-	'extensions.plugins.upgraded': 'Upgraded {id} and updated its placed widgets.',
-	'extensions.plugins.exportFailed': 'Package {id} could not be exported ({reason}).',
+	'extensions.plugins.installedPackage': 'Package installed. Review it above before enabling it.',
+	'extensions.plugins.upgraded': 'Package updated, including its placed widgets.',
+	'extensions.plugins.exportFailed': 'The package could not be exported: {reason} Try again.',
 	'extensions.plugins.exportTitle': 'Export {name}',
-	'extensions.plugins.exported': 'Downloaded the package file for {id}.',
-	'extensions.plugins.tooLarge': 'That package file is too large. The limit is 1 MB.',
-	'extensions.plugins.badJson': 'Not valid JSON: {reason}',
+	'extensions.plugins.exported': 'Package file downloaded.',
+	'extensions.plugins.tooLarge': 'That package exceeds 1 MB. Choose a smaller package file.',
+	'extensions.plugins.badJson':
+		'The package JSON could not be read: {reason} Correct it before installing.',
 	'extensions.plugins.missingId':
 		'Package JSON needs a top-level "id" (or an export wrapper with "package.id").',
 	'extensions.plugins.systemLocked':
-		'Built-in system packages cannot be replaced with a package file.',
+		'Built-in systems cannot be replaced here. Copy one from the System tab to customize it.',
 	/* Community › shell, marketplace gate, export, discover, publish and the campaign wiki */
 	'community.sections': 'Community sections',
 	'community.tab.discover': 'Discover',
@@ -3033,12 +3048,12 @@ export const en = {
 	'community.export.counts': '(current campaign counts)',
 	'community.export.empty': 'Nothing to export yet — create notes and content in Knowledge first.',
 	'community.export.includeKind': 'Include {kind} in module export',
-	'community.export.includeDmOnly': 'Include DM-only content',
+	'community.export.includeDmOnly': 'Include {gm}-only content',
 	'community.export.includeDmOnlyHelp':
-		'Off: a player-safe export with secrets redacted. On: a full DM backup.',
+		'Off: a player-safe export with secrets redacted. On: a full {gm} backup.',
 	'community.export.saveTitle': 'Export campaign content',
-	'community.export.tally': '{total} vault items · {player} player-visible · {dmOnly} DM only',
-	'community.export.modeBackup': 'Full DM backup',
+	'community.export.tally': '{total} vault items · {player} player-visible · {dmOnly} {gm} only',
+	'community.export.modeBackup': 'Full {gm} backup',
 	'community.export.modePortable': 'Player-safe export',
 	'community.export.allTypes': 'all types',
 	'community.export.someTypes': '{selected}/{total} types',
@@ -3060,10 +3075,12 @@ export const en = {
 	'community.scenePackage.exportAction': 'Export .dndscene',
 	'community.scenePackage.importAction': 'Import .dndscene',
 	'community.scenePackage.exportDone': 'Downloaded “{title}” as a scene package.',
-	'community.scenePackage.exportError': 'Could not export the scene package.',
-	'community.scenePackage.importDone': 'Imported “{title}” as a new DM-only scene card.',
-	'community.scenePackage.importError': 'Could not import the scene package.',
-	'community.scenePackage.importInvalidJson': 'That file is not valid JSON.',
+	'community.scenePackage.exportError': 'Could not export the scene package. Try again.',
+	'community.scenePackage.importDone': 'Imported “{title}” as a new {gm}-only scene card.',
+	'community.scenePackage.importError':
+		'Could not import the scene package. Check the file and try again.',
+	'community.scenePackage.importInvalidJson':
+		'That file could not be read. Choose a .dndscene file exported from Lamplight.',
 
 	'community.discover.modules': 'Modules',
 	'community.discover.loadFailed': 'Couldn’t load the marketplace',
@@ -3071,17 +3088,16 @@ export const en = {
 	'community.discover.loading': 'Loading modules',
 	'community.discover.emptyTitle': 'No modules published yet',
 	'community.discover.emptyBody':
-		'Anything you publish from the Publish tab appears here for every signed-in player and DM.',
+		'Anything you publish from the Publish tab appears here for every signed-in player and {gm}.',
 	'community.discover.yours': 'Yours',
 	'community.discover.listingMeta': 'published {date} · {size} · fingerprint {fingerprint}…',
 	'community.discover.installNote':
-		'Installing runs the standard package review flow: the package arrives disabled and unreviewed, with every host permission denied until you enable it in Extensions → Plugins.',
+		'Packages install disabled with all permissions denied. Review the package and its permissions in Extensions → Plugins before enabling it.',
 	'community.discover.installToVault': 'Install to vault',
 	'community.discover.removeListing': 'Remove listing',
 	'community.discover.removing': 'Removing…',
 	'community.discover.removeTitle': 'Remove this listing?',
-	'community.discover.removeDescription':
-		'Deleted from the marketplace server-side — this cannot be undone.',
+	'community.discover.removeDescription': 'Permanently removes the listing from the marketplace.',
 	'community.discover.removeBody':
 		'disappears from Discover for everyone. Copies already installed in vaults keep working — you can publish it again later.',
 	'community.discover.installTitle': 'Install this package?',
@@ -3094,21 +3110,22 @@ export const en = {
 	'community.discover.widgetCount': '{count, plural, one {# widget} other {# widgets}}',
 	'community.discover.packageId': 'package id',
 	'community.discover.upgradeNote':
-		'This upgrades your installed copy — declared migrations run against every placed widget.',
+		'This updates your installed copy and every widget placed from it.',
 	'community.discover.installDisabledNote':
 		'It will be installed disabled, with all host permissions blocked until you review and enable it.',
-	'community.discover.notAPackage': 'This module is not a valid widget package.',
+	'community.discover.notAPackage':
+		'This module cannot be installed as a widget package. Choose another module.',
 	'community.discover.clashesWithSystem':
-		'This module clashes with a code-defined system package and can’t be installed.',
-	'community.discover.installFailed': 'Could not install that package.',
-	'community.discover.upgraded': 'Upgraded {id} — declared migrations ran against placed widgets.',
+		'This module conflicts with a built-in system. Choose another module.',
+	'community.discover.installFailed': 'Could not install that package. Try again.',
+	'community.discover.upgraded': 'Package updated, including its placed widgets.',
 	'community.discover.installed':
-		'Installed {id} in a disabled, restricted state. Review its permissions in Extensions → Plugins before enabling it.',
+		'Package installed. Review its permissions in Extensions → Plugins before enabling it.',
 	'community.discover.listingRemoved': 'Listing removed from the marketplace.',
 
 	'community.publish.title': 'Publish an installed package',
 	'community.publish.intro':
-		'Publishing shares one of your installed widget packages (its full exported definition) with every signed-in user. System packages are code-defined and can’t be published.',
+		'Publish an installed widget package to share its full contents with every signed-in user. System packages cannot be published here.',
 	'community.publish.emptyTitle': 'No publishable packages',
 	'community.publish.emptyBody':
 		'Install or author a widget package in Extensions → Plugins first — system packages stay private.',
@@ -3129,7 +3146,7 @@ export const en = {
 	'community.publish.summaryPlaceholder': 'What does this add to a table? (required)',
 	'community.publish.version': 'Module version',
 	'community.publish.versionPlaceholder': 'Version (e.g. 1.0.0)',
-	'community.publish.allRequired': 'Name, summary and version are all required.',
+	'community.publish.allRequired': 'Enter a name, summary and version before publishing.',
 	'community.publish.published': 'Published {name} to the marketplace.',
 	'community.discover.kindWidget': 'Widget package',
 	'community.discover.kindSystem': 'System package',
@@ -3140,7 +3157,7 @@ export const en = {
 	'community.discover.contentFileCount': '{count, plural, one {# note} other {# notes}}',
 	'community.discover.moreFiles': 'and {count} more',
 	'community.discover.contentInstallNote':
-		'Notes are added to your vault as DM only. Anything whose title already exists is skipped, never overwritten.',
+		'Notes are added to your vault as {gm} only. Anything whose title already exists is skipped, never overwritten.',
 	'community.discover.systemPackageNote': 'One game system',
 	'community.discover.systemInstallNote':
 		'The system is added to your library. Selecting it for a campaign stays a separate, explicit step.',
@@ -3207,11 +3224,14 @@ export const en = {
 	'community.moduleFile.saveAction': 'Save .dndmodule',
 	'community.moduleFile.saveTitle': 'Save content module',
 	'community.moduleFile.saved': 'Saved {file}.',
-	'community.moduleFile.saveError': 'Could not save the module file.',
+	'community.moduleFile.saveError': 'Could not save the module file. Try again.',
 	'community.moduleFile.installAction': 'Install .dndmodule…',
-	'community.moduleFile.invalidJson': 'That file is not valid JSON.',
-	'community.moduleFile.notAModule': 'That file is not a valid module.',
-	'community.moduleFile.openError': 'Could not read that module file.',
+	'community.moduleFile.invalidJson':
+		'That file could not be read. Choose a .dndmodule file exported from Lamplight.',
+	'community.moduleFile.notAModule':
+		'That file is not a module. Choose a .dndmodule file exported from Lamplight.',
+	'community.moduleFile.openError':
+		'Could not read that module file. Choose it again or ask its author for a new copy.',
 	'community.moduleFile.reviewTitle': 'Install this module?',
 	'community.moduleFile.reviewDescription':
 		'Review what the module would add before anything enters your vault.',
@@ -3226,11 +3246,11 @@ export const en = {
 	'community.moduleFile.systemLabel': 'System to save',
 	'community.moduleFile.systemSaveAction': 'Save system package',
 	'community.moduleFile.systemSaveTitle': 'Save system package',
-	'community.moduleFile.systemSaveError': 'Could not save that system package.',
-	'community.moduleFile.installFailed': 'Could not install that module.',
+	'community.moduleFile.systemSaveError': 'Could not save that system package. Try again.',
+	'community.moduleFile.installFailed': 'Could not install that module. Try again.',
 	'community.publish.contentModuleTitle': 'Your campaign content',
 	'community.publish.contentModuleNote':
-		'Publishes player-visible notes only. DM only content is left out, and secrets are scrubbed.',
+		'Publishes player-visible notes only. {gm} only content is left out, and secrets are scrubbed.',
 	'community.publish.contentEmpty':
 		'There is no player-visible content to publish yet. Share some notes first.',
 	// RC-CLD-4.3 — creator tooling: license + changelog fields, and the pre-publish checklist.
@@ -3267,7 +3287,7 @@ export const en = {
 	'community.wiki.access': 'Access',
 	'community.wiki.accessField': 'Wiki access',
 	'community.wiki.accessPublic': 'Public',
-	'community.wiki.accessPublicNote': 'Anyone with the link; fine to index',
+	'community.wiki.accessPublicNote': 'Anyone with the link; search engines may list it',
 	'community.wiki.accessUnlisted': 'Unlisted',
 	'community.wiki.accessUnlistedNote': 'Direct link only — relies on the link’s secrecy',
 	'community.wiki.accessPassword': 'Password',
@@ -3296,7 +3316,7 @@ export const en = {
 	'community.wiki.passwordPlaceholder': 'Reader password (min 6 characters)',
 	'community.wiki.passwordField': 'Wiki password',
 	'community.wiki.publishNote':
-		'Only player-visible notes publish — DM-only notes never leave the vault. Readers need no account.',
+		'Only player-visible notes publish — {gm}-only notes never leave the vault. Readers need no account.',
 	'community.wiki.publishWiki': 'Publish wiki',
 	'community.wiki.previewTitle': 'Reading preview',
 	'community.wiki.previewFallbackTitle': 'Your campaign wiki',
@@ -3307,7 +3327,7 @@ export const en = {
 		'No player-visible notes yet — mark notes player-visible in Knowledge to include them.',
 	'community.wiki.previewMore': '… and {count} more',
 	'community.wiki.previewNote':
-		'Only player-visible notes appear. DM-only blocks are stripped from the published page.',
+		'Only player-visible notes appear. {gm}-only blocks are stripped from the published page.',
 	'community.wiki.eligiblePages': 'Eligible pages',
 	'community.wiki.theme': 'Theme',
 	'community.wiki.noPublicUrl': 'Public wiki links are not configured for this desktop build.',
@@ -3315,14 +3335,14 @@ export const en = {
 	'community.wiki.needsPages':
 		'Mark at least one note player-visible in Knowledge before publishing.',
 	'community.wiki.needsTitle': 'Give the wiki a title.',
-	'community.wiki.needsPassword': 'A password wiki needs a password of at least 6 characters.',
+	'community.wiki.needsPassword': 'Enter at least 6 characters for the wiki password.',
 	'community.wiki.updated': 'Wiki updated — the public link is unchanged.',
 	'community.wiki.published': 'Wiki published — share the public link.',
 	'community.wiki.unpublished': 'Wiki unpublished — the public link no longer works.',
 	'community.wiki.linkCopied': 'Public link copied.',
 	'community.wiki.copyFailed': 'Could not copy — copy the link manually.',
 	/* Widget builder › vocabulary, steps, validation and preview */
-	'builder.audience.dm': 'DM only',
+	'builder.audience.dm': '{gm} only',
 	'builder.audience.players': 'Player visible',
 	'builder.audience.shared': 'Shared',
 	'builder.capability.manager': 'Campaign manager',
@@ -3353,7 +3373,7 @@ export const en = {
 	'builder.resize.axisLocked': 'Resize on one axis',
 	'builder.resize.fixed': 'Fixed size',
 	'builder.resize.free': 'Resize freely',
-	'builder.source.binding': 'A declared binding',
+	'builder.source.binding': 'A linked item',
 	'builder.source.contentObjects': 'Vault objects',
 	'builder.source.currentCombatants': 'Current combatants',
 	'builder.source.maps': 'Maps',
@@ -3381,9 +3401,10 @@ export const en = {
 	'builder.templateHelp.actionPanel': 'Buttons that fire this widget’s declared commands.',
 	'builder.templateHelp.chart': 'A bar chart over one query’s measure column.',
 	'builder.templateHelp.dataTable': 'Rows and columns from one data query.',
-	'builder.templateHelp.formPanel': 'Fields the DM fills in, submitted through a declared command.',
+	'builder.templateHelp.formPanel':
+		'Fields the {gm} fills in, submitted through a declared command.',
 	'builder.templateHelp.sceneMessage': 'A short block of text for the table to read.',
-	'builder.templateHelp.statBlock': 'One entity’s key numbers and traits.',
+	'builder.templateHelp.statBlock': 'One character’s key numbers and traits.',
 	'builder.templateHelp.statusList':
 		'A list of names with a status line each, for combatants or party members.',
 	'builder.templateHelp.tracker': 'One measure drawn as a meter, for a countdown or a resource.',
@@ -3399,7 +3420,7 @@ export const en = {
 	'builder.token.textPrimary': 'Text, primary',
 	'builder.token.textSecondary': 'Text, secondary',
 	'builder.token.textTertiary': 'Text, tertiary',
-	'builder.writesTo.entity': 'A bound entity',
+	'builder.writesTo.entity': 'A linked item',
 	'builder.writesTo.scene': 'The scene',
 	'builder.writesTo.session': 'The session',
 
@@ -3425,33 +3446,35 @@ export const en = {
 	'builder.issue.typeIdShape':
 		'Use lowercase letters, numbers, dots and hyphens, for example party-status.',
 	'builder.issue.version': 'Use a three-part version, for example 1.0.0.',
-	'builder.issue.surfaces': 'Choose at least one surface.',
-	'builder.issue.profiles': 'Choose at least one device profile.',
-	'builder.issue.defaultWidth': 'Default width must be greater than zero.',
-	'builder.issue.defaultHeight': 'Default height must be greater than zero.',
-	'builder.issue.minWidth': 'Minimum width must be greater than zero.',
-	'builder.issue.minHeight': 'Minimum height must be greater than zero.',
-	'builder.issue.minWidthTooLarge': 'Minimum width cannot be larger than the default width.',
-	'builder.issue.minHeightTooLarge': 'Minimum height cannot be larger than the default height.',
+	'builder.issue.surfaces': 'Choose at least one place where the widget can appear.',
+	'builder.issue.profiles': 'Choose at least one supported device.',
+	'builder.issue.defaultWidth': 'Set the default width to a number greater than zero.',
+	'builder.issue.defaultHeight': 'Set the default height to a number greater than zero.',
+	'builder.issue.minWidth': 'Set the minimum width to a number greater than zero.',
+	'builder.issue.minHeight': 'Set the minimum height to a number greater than zero.',
+	'builder.issue.minWidthTooLarge': 'Set the minimum width at or below the default width.',
+	'builder.issue.minHeightTooLarge': 'Set the minimum height at or below the default height.',
 	'builder.issue.bindingId': 'Every binding needs an id.',
-	'builder.issue.bindingDuplicate': 'Binding {id} is declared more than once.',
+	'builder.issue.bindingDuplicate': 'Link {id} is listed twice. Rename or remove one.',
 	'builder.issue.bindingIdShape': 'Binding id {id} must be lowercase words joined by hyphens.',
-	'builder.issue.bindingEntityTypes': 'Binding {id} needs at least one entity type.',
+	'builder.issue.bindingEntityTypes': 'Choose at least one item type for link {id}.',
 	'builder.issue.queryId': 'Every data query needs an id.',
-	'builder.issue.queryDuplicate': 'Data query {id} is declared more than once.',
-	'builder.issue.queryUndeclaredBinding': 'Data query {id} reads a binding that is not declared.',
+	'builder.issue.queryDuplicate': 'Data query {id} is listed twice. Rename or remove one.',
+	'builder.issue.queryUndeclaredBinding':
+		'Data query {id} uses a missing link. Add the link above or choose an existing one.',
 	'builder.issue.queryIdentifierClash':
 		'Data queries {owner} and {id} would share one name in a formula. Make the ids differ by more than punctuation.',
-	'builder.issue.computedMissingQuery': 'Computed field {id} reads a query that is gone.',
-	'builder.issue.computedEmptyFormula': 'Computed field {id} has an empty formula.',
+	'builder.issue.computedMissingQuery':
+		'Calculated field {id} uses a missing query. Choose an existing query.',
+	'builder.issue.computedEmptyFormula': 'Enter a formula for calculated field {id}.',
 	'builder.issue.computedBadFormula':
 		'Computed field {id} has a formula that cannot be read. Use the names listed under the formula.',
 	'builder.issue.configKey': 'Every config field needs a key.',
-	'builder.issue.configDuplicate': 'Config key {key} is declared more than once.',
+	'builder.issue.configDuplicate': 'Setting key {key} is listed twice. Rename or remove one.',
 	'builder.issue.commandType': 'Every command needs a type.',
-	'builder.issue.commandDuplicate': 'Command {type} is declared more than once.',
+	'builder.issue.commandDuplicate': 'Action {type} is listed twice. Rename or remove one.',
 	'builder.issue.tokenName': 'Every style token needs a name.',
-	'builder.issue.tokenDuplicate': 'Style token {name} is declared more than once.',
+	'builder.issue.tokenDuplicate': 'Style token {name} is listed twice. Rename or remove one.',
 	'builder.issue.customCodeEmpty':
 		'Write the widget’s markup or its script before installing it. A custom widget with neither draws nothing.',
 	'builder.issue.networkDestinations':
@@ -3460,7 +3483,7 @@ export const en = {
 		'Ask for the network permission, or clear the destinations. Without the permission they grant nothing.',
 
 	'builder.identity.help':
-		'Name the widget and say where it belongs. The ids are how the campaign refers to it forever, so they are slug-checked here.',
+		'Name the widget and choose where it can be used. Its identifiers stay with the campaign, so follow the format shown below.',
 	'builder.identity.nameSection': 'Name and description',
 	'builder.identity.name': 'Name',
 	'builder.identity.namePlaceholder': 'Party status',
@@ -3488,8 +3511,8 @@ export const en = {
 	'builder.identity.widgetIcon': 'Widget icon',
 	'builder.identity.noIconMatch': 'No icon in the vocabulary matches that.',
 	'builder.identity.whereSection': 'Where it can go',
-	'builder.identity.surfaces': 'Surfaces',
-	'builder.identity.profiles': 'Supported device profiles',
+	'builder.identity.surfaces': 'Where it appears',
+	'builder.identity.profiles': 'Supported devices',
 	'builder.identity.libraryListed': 'List it in the Add widget library',
 
 	'builder.layout.title': 'Layout',
@@ -3510,12 +3533,12 @@ export const en = {
 		'Saved as a display setting on every placed copy. The scene canvas is free-form and leaves it alone.',
 
 	'builder.data.help':
-		'Choose how the widget draws itself, then declare what it reads. Lamplight resolves each query per viewer, so a DM-only query never reaches a player.',
+		'Choose how the widget looks and what data it reads. Lamplight checks each viewer’s access, so data marked {gm} only never reaches players.',
 	'builder.data.template': 'Template',
 	'builder.data.templateKind': 'Template kind',
-	'builder.data.bindings': 'Bindings',
+	'builder.data.bindings': 'Links to campaign items',
 	'builder.data.bindingsHelp':
-		'The entities a placed copy is pointed at. A required binding makes the widget wait until the DM points it at something; an optional one is extra.',
+		'Choose which campaign items a placed widget uses. Required links must be set by the {gm} before the widget can work. Optional links can be left empty.',
 	'builder.data.queries': 'Data queries',
 	'builder.data.queriesHelp':
 		'Each query names one source and who it is for. The first query is what a single-source template draws.',
@@ -3530,7 +3553,7 @@ export const en = {
 	'builder.data.declareBindingFirst': 'Declare a binding above first.',
 	'builder.data.computed': 'Computed fields',
 	'builder.data.computedHelp':
-		'A value worked out from one or more queries. A withheld query contributes nothing, so a player’s total is never derived from rows they never received.',
+		'Calculate a value from one or more data requests. Data hidden from a player is excluded from their calculation, so their total cannot reveal hidden information.',
 	'builder.data.noComputed': 'No computed fields.',
 	'builder.data.addComputed': 'Add computed field',
 	'builder.data.removeComputed': 'Remove computed field {name}',
@@ -3553,7 +3576,7 @@ export const en = {
 
 	'builder.binding.label': 'Label',
 	'builder.binding.id': 'Id',
-	'builder.binding.entityTypes': 'Entity types',
+	'builder.binding.entityTypes': 'Item types',
 	'builder.binding.entityTypesHelp':
 		'What it may be pointed at, separated by commas — for example character, npc.',
 	'builder.binding.mode': 'Mode',
@@ -3573,14 +3596,14 @@ export const en = {
 	'builder.bindingMode.observe': 'Watch it for changes',
 
 	'builder.config.help':
-		'What the DM can change on each placed copy. Every field here becomes a control in the scene Inspector.',
+		'What the {gm} can change on each placed copy. Every field here becomes a control in the scene Inspector.',
 	'builder.config.fields': 'Fields',
 	'builder.config.empty': 'No settings yet. A widget with none is the same on every scene.',
 	'builder.config.addField': 'Add config field',
 	'builder.config.removeField': 'Remove config field {name}',
 	'builder.config.label': 'Label',
 	'builder.config.key': 'Key',
-	'builder.config.reservedKey': 'That key is reserved for the dock preference.',
+	'builder.config.reservedKey': 'That key is used for dock preference. Choose another key.',
 	'builder.config.control': 'Control',
 	'builder.config.group': 'Group',
 	'builder.config.startsOn': 'Starts switched on',
@@ -3604,7 +3627,7 @@ export const en = {
 	'builder.commands.remove': 'Remove command {name}',
 	'builder.commands.name': 'Name',
 	'builder.commands.type': 'Type',
-	'builder.commands.typeHelp': 'The dotted id the core dispatches.',
+	'builder.commands.typeHelp': 'The action’s identifier, with words separated by dots.',
 	'builder.commands.writesTo': 'Writes to',
 	'builder.commands.destination': 'Destination',
 	'builder.commands.destinationHelp': 'What class of data this command reaches.',
@@ -3623,10 +3646,10 @@ export const en = {
 	'builder.config.unset': 'Any',
 	'builder.config.placeholder': 'Placeholder',
 	'builder.config.placeholderHelp': 'Greyed-out example text shown while the box is empty.',
-	'builder.config.rangeInverted': 'The least is above the most.',
-	'builder.config.defaultBelowMin': 'The default is below the least.',
-	'builder.config.defaultAboveMax': 'The default is above the most.',
-	'builder.config.defaultNotAChoice': 'The default is not one of the choices.',
+	'builder.config.rangeInverted': 'Set the minimum at or below the maximum.',
+	'builder.config.defaultBelowMin': 'Raise the default value to at least the minimum.',
+	'builder.config.defaultAboveMax': 'Lower the default value to the maximum or less.',
+	'builder.config.defaultNotAChoice': 'Choose a default value from the listed choices.',
 	'builder.config.choicesEmpty': 'Add at least one choice.',
 	'builder.catalog.draw': 'Draw',
 	'builder.catalog.start': 'Start',
@@ -3693,7 +3716,7 @@ export const en = {
 	'builder.advanced.api.onConfigChanged': 'Called when a setting on the placed widget changes.',
 	'builder.advanced.api.onBindingChanged': 'Called when the widget is pointed at something else.',
 	'builder.advanced.api.dispatch':
-		'Asks the host to run one of the commands this widget declares. The core decides whether it may.',
+		'Requests an action declared by this widget. Lamplight checks permissions before applying it.',
 	'builder.advanced.api.requestPermission':
 		'Asks for a host permission. Denied unless a reviewer approved it for this package.',
 	'builder.advanced.api.outbound':
@@ -3714,7 +3737,7 @@ export const en = {
 	'builder.advanced.destinationHelp.assetCdn': 'the asset store images and maps are served from.',
 	'builder.advanced.destinationHelp.widgetDeclared':
 		'an address the package names and a reviewer approves at install.',
-	'builder.advanced.destinationHelp.analytics': 'the first-party telemetry sink, when it is on.',
+	'builder.advanced.destinationHelp.analytics': 'Lamplight’s usage-count service, when enabled.',
 	'builder.advanced.noDestinations': 'None requested',
 	'builder.advanced.securityTitle': 'Security summary',
 	'builder.advanced.securityHelp':
@@ -3728,7 +3751,7 @@ export const en = {
 	'builder.advanced.notesPlaceholder': 'Needs the party roster to be populated.',
 
 	'builder.review.helpInstall':
-		'Check what is about to be installed. It lands disabled with every host permission denied — enable it from Installed packages when you are happy with it.',
+		'Review the package before installing. It installs disabled with all permissions denied. When you are ready, enable it from Installed packages.',
 	'builder.review.helpUpgrade':
 		'This id is already installed, so this saves a new version and migrates every copy already placed on a scene.',
 	'builder.review.fixFirst': 'Fix these first',
@@ -3746,7 +3769,8 @@ export const en = {
 	'builder.review.playerVisibleWrites': 'Writes players can see: {count}.',
 	'builder.review.placedCopies': 'Placed copies',
 	'builder.review.changelog': 'Changelog',
-	'builder.review.changelogHelp': 'What changed in this version, kept with the migration record.',
+	'builder.review.changelogHelp':
+		'Describe what changed in this version. It stays with the update history.',
 	'builder.review.changelogPlaceholder': 'What changed in this version?',
 	'builder.review.migrationFromTo': 'Every copy on version {from} moves to {to}',
 	'builder.review.migrationGains': ', and gains the new settings {settings}.',
@@ -3755,26 +3779,26 @@ export const en = {
 	'builder.review.saveVersion': 'Save new version',
 	'builder.review.install': 'Install widget',
 	'builder.review.readOnly':
-		'Building widgets is DM only, and read-only while previewing as someone else.',
+		'Building widgets is {gm} only. Exit preview or ask your {gm} to build this widget.',
 
 	'builder.preview.untitled': 'Untitled widget',
 	'builder.preview.custom': 'Custom',
 	'builder.preview.audience': 'Preview audience',
-	'builder.preview.asDm': 'Preview as DM',
+	'builder.preview.asDm': 'Preview as {gm}',
 	'builder.preview.asPlayer': 'Preview as player',
 	'builder.preview.typeIdTaken':
 		'A built-in widget already uses the type id {type}. Choose another id on the Identity step.',
-	'builder.preview.nothingDraws': 'Nothing can draw this yet.',
+	'builder.preview.nothingDraws': 'No preview yet. Choose a template or add widget code.',
 	'builder.preview.drawnAsPlayer':
-		'Drawn with this campaign’s own data, as a player with no grants would receive it.',
+		'Shown with campaign data visible to a player without extra permissions.',
 	'builder.preview.drawnAsActor':
-		'Drawn with this campaign’s own data, for the actor you are viewing as.',
+		'Shown with campaign data visible to the person you are previewing.',
 	'builder.preview.emptyQueries':
 		'{list} has nothing to show right now, so the widget’s empty state is what appears.',
 	'builder.preview.drawnInSandbox':
 		'The widget’s own code, running in the sandboxed frame with every host permission denied, as it will after install.',
 	'builder.preview.customDmOnly':
-		'A widget running its own code previews as the DM. Place it on a scene to see what a player receives.',
+		'A widget running its own code previews as the {gm}. Place it on a scene to see what a player receives.',
 	/* Knowledge › the notes vault, its importer and the note viewer */
 	'knowledge.notes': 'Notes',
 	'knowledge.note': 'Note',
@@ -3787,10 +3811,11 @@ export const en = {
 	'knowledge.emptyDmBody':
 		'Notes, handouts and read-aloud text live here. Backlinks connect them automatically.',
 	'knowledge.emptyPlayer': 'Nothing shared with you yet',
-	'knowledge.emptyPlayerBody': 'Notes and handouts your DM shares with the table will appear here.',
+	'knowledge.emptyPlayerBody':
+		'Notes and handouts your {gm} shares with the table will appear here.',
 	'knowledge.emptyNote': 'Empty note',
 	'knowledge.noteEmpty': 'This note is empty.',
-	'knowledge.brokenLink': 'This link does not point at a note you can open',
+	'knowledge.brokenLink': 'This note cannot be opened. Search for its title in Knowledge.',
 	'knowledge.updated': 'updated {when}',
 	'knowledge.noteUpdated': 'Note · updated {when}',
 	'knowledge.createFailed': 'The note couldn’t be created — try again.',
@@ -3882,8 +3907,8 @@ export const en = {
 	'knowledge.importField': 'Markdown or JSON to import',
 	'knowledge.importPlaceholder':
 		'===== Lore/The Pier.md =====\nBrackish water laps at rotting planks…',
-	'knowledge.importPolicy': 'Import collision policy',
-	'knowledge.policySkip': 'Skip collisions',
+	'knowledge.importPolicy': 'When a note already exists',
+	'knowledge.policySkip': 'Skip existing notes',
 	'knowledge.policyOverwrite': 'Overwrite existing',
 	'knowledge.policyKeepBoth': 'Keep both',
 	'knowledge.import': 'Import',
@@ -3893,14 +3918,14 @@ export const en = {
 	'knowledge.overwrite': 'Overwrite',
 	'knowledge.overwriteTitle': 'Overwrite existing notes?',
 	'knowledge.overwriteBody':
-		'Every note this archive collides with has its body replaced, and its player visibility reset to whatever the file says — anything you are currently sharing may be hidden again. This can’t be undone. Choose “Skip collisions” to import only the new notes.',
+		'For each note that already exists, this import replaces its text and uses the player visibility saved in the file. Content you are sharing may become hidden again. This cannot be undone. Choose “Skip existing notes” to import only new notes.',
 
 	'knowledge.noteTitle': 'Note title',
 	'knowledge.noteBody': 'Note body',
 	'knowledge.notePlaceholder': 'Write your note…',
 	'knowledge.markdownHint':
 		'Markdown supported — ## headings, > read-aloud, - lists, [[wikilinks]].',
-	'knowledge.needsTitle': 'A note needs a title.',
+	'knowledge.needsTitle': 'Give the note a title.',
 	'knowledge.saveNote': 'Save note',
 	'knowledge.saveFailed': 'The note couldn’t be saved — try again.',
 	'knowledge.changeFailed': 'The change couldn’t be saved — try again.',
@@ -3917,7 +3942,7 @@ export const en = {
 	'knowledge.visPlayers': 'Players',
 	'knowledge.push': 'Push to players',
 	'knowledge.share': 'Share',
-	'knowledge.sharedByDm': 'Shared with you by the DM.',
+	'knowledge.sharedByDm': 'Shared with you by the {gm}.',
 	'knowledge.backlinks': 'Backlinks',
 	'knowledge.noBacklinks': 'No notes link here yet.',
 	'knowledge.related': 'Related',
@@ -3925,7 +3950,7 @@ export const en = {
 	'knowledge.revealTitle': 'Show “{title}” to players?',
 	'knowledge.revealBody':
 		'Players can read this note from the moment you share it. Hiding it again later does not un-read what they have already seen.',
-	'knowledge.keepDmOnly': 'Keep DM only',
+	'knowledge.keepDmOnly': 'Keep {gm} only',
 	/* Audio › the now-playing strip, soundboard, tracks, ambience, output, presets and automation */
 	'audio.sections': 'Audio sections',
 	'audio.tab.playback': 'Playback',
@@ -3940,19 +3965,19 @@ export const en = {
 	'audio.resume': 'Resume',
 	'audio.stop': 'Stop',
 	'audio.masterVolume': 'Master volume',
-	'audio.changeFailed': 'That change could not be saved.',
+	'audio.changeFailed': 'That change could not be saved. Try again.',
 	'audio.imported': '“{title}” imported to the soundboard.',
 	'audio.importDeduped':
-		'“{title}” was already in the library — metadata refreshed, bytes deduped.',
+		'“{title}” was already in the library. Its details were updated without storing another copy.',
 	'audio.importNoLicense':
 		'“{title}” has no declared license — review it before sharing or export.',
-	'audio.importFailed': 'That audio file could not be imported.',
+	'audio.importFailed': 'That audio file could not be imported. Check the file and try again.',
 	'audio.addError.desktopBlocksStreams':
 		'The desktop app blocks remote streams. Import the audio file instead.',
-	'audio.addError.needsUrl': 'A web stream needs a stream URL.',
+	'audio.addError.needsUrl': 'Enter the audio stream’s URL.',
 	'audio.addError.androidHttps':
 		'Android audio streams must use a valid HTTPS URL. Import the file or use an encrypted host.',
-	'audio.unbound': 'Audio unbound from “{name}”.',
+	'audio.unbound': 'Audio unlinked from “{name}”.',
 	'audio.layerRemoved': '“{name}” ambience layer removed.',
 	// RC-AUD-3.3 — the opt-in web-embed (YouTube/SoundCloud) source.
 	'audio.embed.addHint': 'Detected {provider} — plays in a sandboxed frame and is never cached.',
@@ -3960,7 +3985,7 @@ export const en = {
 	'audio.embed.online': 'Online',
 	'audio.embed.offline': 'Offline — playing local ambience layers instead.',
 	'audio.embed.frameTitle': '{provider} player',
-	'audio.embed.badUrl': 'This link could not be resolved to a playable embed.',
+	'audio.embed.badUrl': 'This link cannot play here. Use a YouTube or SoundCloud link.',
 	'audio.embed.failover': 'No network — playing local ambience layers instead.',
 
 	'audio.sourceKind.webStream': 'Web stream (URL)',
@@ -3980,7 +4005,7 @@ export const en = {
 	'audio.trigger.poiPartyEnter': 'Party enters a linked POI',
 	'audio.sfx.heading': 'Sound effects',
 	'audio.sfx.intro':
-		'Choose which table moments play a sound. Turning an event off keeps its rules, so turning it back on plays them again. DM only.',
+		'Choose which table moments play a sound. Turning an event off keeps its rules, so turning it back on plays them again. {gm} only.',
 	'audio.sfx.toggle': 'Play a sound on {event}',
 	'audio.sfx.rulesArmed': '{count} rules on this event',
 	'audio.sfx.noRules': 'No rules on this event yet',
@@ -4006,7 +4031,8 @@ export const en = {
 	'audio.soundboard.emptyBody':
 		'Import a local audio file to build your soundboard, or add a stream track below — either becomes real session audio.',
 	'audio.soundboard.checkingDevice': 'Checking this device…',
-	'audio.soundboard.bytesMissing': 'File bytes missing on this device — re-import to restore',
+	'audio.soundboard.bytesMissing':
+		'Audio file missing on this device — import it again to restore playback',
 	'audio.soundboard.reviewLicense': 'Review license',
 
 	// RC-AUD-1.3 — the bundled CC0 starter pack, installed on demand (never on first run).
@@ -4018,7 +4044,7 @@ export const en = {
 	'audio.starter.alreadyPresent': 'The starter pack is already in this library.',
 	'audio.starter.partial':
 		'{count, plural, one {# starter track} other {# starter tracks}} could not be added. {reason}',
-	'audio.starter.failed': 'The starter pack could not be added.',
+	'audio.starter.failed': 'The starter pack could not be added. Try again.',
 
 	'audio.tracks.title': 'Tracks & sources',
 	'audio.tracks.count': '{count, plural, one {# source} other {# sources}}',
@@ -4030,14 +4056,14 @@ export const en = {
 	'audio.tracks.urlHelp': 'A direct audio URL — the stream is the track, no file import needed.',
 	'audio.tracks.urlHelpAndroid': 'A direct HTTPS audio URL. Android blocks cleartext HTTP streams.',
 	'audio.tracks.urlHelpLocal':
-		'Only web streams take a URL. For local files, use “Import audio…” above — it stores the bytes and creates the source in one step.',
+		'For local files, use Import audio above to save the file and add it to your library. Only web streams need a URL.',
 	'audio.tracks.desktopBlocksRemote':
 		'The desktop app blocks remote audio links. Import audio above to keep playback local and available offline.',
 	'audio.tracks.add': 'Add track',
 	'audio.tracks.adding': 'Adding…',
 	'audio.tracks.added': '“{name}” added',
-	'audio.tracks.dmOnly': 'Audio configuration is DM only.',
-	'audio.tracks.dmOnlyPreviewing': 'Audio configuration is DM only — exit preview to add tracks.',
+	'audio.tracks.dmOnly': 'Ask your {gm} to configure audio.',
+	'audio.tracks.dmOnlyPreviewing': 'Audio configuration is {gm} only — exit preview to add tracks.',
 	'audio.tracks.blockedDesktop': 'Blocked on desktop',
 	'audio.tracks.httpsRequired': 'HTTPS required',
 	'audio.tracks.playbackReady': 'Playback ready',
@@ -4045,7 +4071,8 @@ export const en = {
 	'audio.tracks.playAction': 'Play',
 	'audio.tracks.importInstead': 'Import instead',
 	'audio.tracks.viaSoundboard': 'Via soundboard',
-	'audio.tracks.remoteBlockedTitle': 'Remote streams are blocked by the desktop security policy.',
+	'audio.tracks.remoteBlockedTitle':
+		'The desktop app blocks remote streams. Import the audio file instead.',
 	'audio.tracks.viaSoundboardTitle': 'Play this source’s imported files from the soundboard above.',
 
 	'audio.ambience.title': 'Ambience mixer',
@@ -4080,17 +4107,18 @@ export const en = {
 	'audio.output.unnamed': 'Output device {index}',
 	'audio.output.needsPermission':
 		'Device names appear once the browser has granted media permission; unnamed outputs still work.',
-	'audio.output.enumerateFailed': 'Output devices could not be enumerated on this browser.',
+	'audio.output.enumerateFailed':
+		'Audio outputs could not be listed. Use your device settings to choose an output.',
 
-	'audio.bindings.title': 'Scene bindings',
+	'audio.bindings.title': 'Scene audio',
 	'audio.bindings.emptyTitle': 'No scenes yet.',
 	'audio.bindings.emptyBody':
 		'Create a scene in the Scenes section — each one can carry its own ambience cue.',
 	'audio.bindings.cues': '{count, plural, one {# cue} other {# cues}}',
-	'audio.bindings.bind': 'Bind',
-	'audio.bindings.bindTo': 'Bind audio to {name}',
-	'audio.bindings.unbind': 'Unbind',
-	'audio.bindings.unbindFrom': 'Unbind audio from {name}',
+	'audio.bindings.bind': 'Link',
+	'audio.bindings.bindTo': 'Link audio to {name}',
+	'audio.bindings.unbind': 'Unlink',
+	'audio.bindings.unbindFrom': 'Unlink audio from {name}',
 	'audio.bindings.desktopUnavailable':
 		'Remote stream scene bindings are unavailable in the desktop app.',
 	'audio.bindings.needsStreamTrack': 'Add a web-stream track (in Tracks & sources) to bind scenes.',
@@ -4105,8 +4133,8 @@ export const en = {
 	'audio.presets.saving': 'Saving…',
 	'audio.presets.saveCurrent': 'Save current audio',
 	'audio.presets.nothingToCapture': 'Play a track or add an ambience layer to capture.',
-	'audio.presets.dmOnly': 'Presets are DM-only.',
-	'audio.presets.dmOnlyPreviewing': 'Presets are DM-only — exit preview to save or apply.',
+	'audio.presets.dmOnly': 'Ask your {gm} to save or apply an audio preset.',
+	'audio.presets.dmOnlyPreviewing': 'Presets are {gm}-only — exit preview to save or apply.',
 	'audio.presets.emptyTitle': 'No scene packages yet.',
 	'audio.presets.emptyBody':
 		'Set up a track and some ambience, then save it here to re-apply the whole atmosphere later.',
@@ -4116,12 +4144,12 @@ export const en = {
 	'audio.presets.delete': 'Delete {name}',
 	'audio.presets.libraryTitle': 'Atmosphere library',
 	'audio.presets.libraryIntro':
-		'Shipped atmosphere recipes, grouped by scene type. Apply one once its layers are bound to your own sources — otherwise the app tells you what to bind, never guesses a track.',
+		'Choose an included atmosphere by scene type. Link each layer to your own audio before applying it. If a link is missing, Lamplight tells you which one to add.',
 
 	'audio.automation.title': 'Automation rules',
 	'audio.automation.count': '{count, plural, one {# rule} other {# rules}}',
 	'audio.automation.intro':
-		'Each rule maps a session event to a declared audio command. The status below is the core resolver’s deterministic verdict against the current library and this device’s real file availability — a blocked rule is flagged, never silently bypassed.',
+		'Choose an audio action for each session event. The status below shows whether each rule can run with your current library and the files available on this device. Blocked rules are flagged so you can fix them.',
 	'audio.automation.emptyTitle': 'No automation rules.',
 	'audio.automation.emptyBody':
 		'Map a session event — combat starting, a scene activating — to an audio cue with the form beside.',
@@ -4151,8 +4179,8 @@ export const en = {
 	'audio.automation.noAsset': '— none (stream is the track) —',
 	'audio.automation.addRule': 'Add rule',
 	'audio.automation.needsSource': 'Add a track or import audio first — a rule needs a source.',
-	'audio.automation.dmOnly': 'Automation is DM only.',
-	'audio.automation.dmOnlyPreviewing': 'Automation is DM only — exit preview to edit rules.',
+	'audio.automation.dmOnly': 'Ask your {gm} to edit audio rules.',
+	'audio.automation.dmOnlyPreviewing': 'Automation is {gm} only — exit preview to edit rules.',
 	/* Characters › the roster, the sheet header and its panels */
 	'characters.title': 'Characters',
 	'characters.breadcrumb': 'Breadcrumb',
@@ -4172,7 +4200,7 @@ export const en = {
 	'characters.emptyRoster': 'Your roster is empty',
 	'characters.emptyRosterBody': 'Add the party’s heroes, then the NPCs they’ll meet.',
 	'characters.noMatches': 'No one matches this filter',
-	'characters.noMatchesBody': 'No characters match this filter.',
+	'characters.noMatchesBody': 'Clear a filter to see more characters.',
 	'characters.filters': 'Filter characters',
 	'characters.filter.owner': 'Owner',
 	'characters.filter.anyOwner': 'Anyone',
@@ -4183,7 +4211,7 @@ export const en = {
 	'characters.resultCount': 'Showing {shown} of {total}',
 	'characters.gridHint': 'Use the arrow keys to move between characters and Enter to open one.',
 	'characters.levelShort': 'Lv {level}',
-	'characters.hpLabel': 'HP',
+	'characters.hpLabel': '{hitPoints}',
 	'characters.hpUnset': 'HP not set',
 	'characters.moreConditions': '+{count} more',
 	'characters.playedBy': 'Played by {names}',
@@ -4197,7 +4225,8 @@ export const en = {
 	'characters.saveTags': 'Save tags',
 	'characters.tagsSaved': 'Tags saved.',
 	'characters.unavailableTitle': 'Character unavailable',
-	'characters.unavailableBody': 'This character is not visible to you.',
+	'characters.unavailableBody':
+		'This character is not visible to you. Return to Characters to choose another.',
 	'characters.rename': 'Rename character',
 	'characters.ac': 'AC',
 	'characters.level': 'Level',
@@ -4211,7 +4240,7 @@ export const en = {
 	'characters.speed': 'Speed',
 	'characters.feet': '{value} ft',
 	'characters.armorClass': 'Armor class',
-	'characters.hitPoints': 'Hit points',
+	'characters.hitPoints': '{hitPoints}',
 	'characters.tempHp': 'Temp HP',
 	'characters.visibleTo': 'Visible to',
 	'characters.dmNotes': '{gm} notes',
@@ -4294,7 +4323,7 @@ export const en = {
 	'atlas.zoomIn': 'Zoom in',
 	'atlas.zoomOut': 'Zoom out',
 	'atlas.fit': 'Fit',
-	'atlas.mapUnavailable': 'This map is unavailable to you.',
+	'atlas.mapUnavailable': 'This map is unavailable to you. Choose another map in Atlas.',
 	'atlas.fogOfWar': 'Fog of war',
 	'atlas.projectToPlayers': 'Project to players',
 	'atlas.fogChanges': '{count, plural, one {# change} other {# changes}}',
@@ -4316,7 +4345,7 @@ export const en = {
 	'atlas.showLayer': 'Show {name} on the map',
 	'atlas.noLayers': 'No layers are visible to you',
 	'atlas.visibilityToggleTitle':
-		'Visibility: {visibility} — click to toggle DM only ↔ player visible',
+		'Visibility: {visibility} — click to toggle {gm} only ↔ player visible',
 	'atlas.visibilityToggleLabel': '{name} visibility: {visibility} — toggle',
 	'atlas.noMapsDm': 'No maps yet.',
 	'atlas.noMapsPlayer': 'No maps are visible to you.',
@@ -4344,8 +4373,8 @@ export const en = {
 
 	/* Scene editor › the canvas toolbar, the inspector and the two side panels */
 	'sceneEditor.unavailable': 'Scene unavailable',
-	'sceneEditor.cannotOpen': 'Cannot open this scene: {reason}.',
-	'sceneEditor.noLongerExists': 'This scene no longer exists.',
+	'sceneEditor.cannotOpen': 'Cannot open this scene: {reason}. Return to Scenes to choose another.',
+	'sceneEditor.noLongerExists': 'This scene no longer exists. Return to Scenes to choose another.',
 	'sceneEditor.backToScenes': 'Back to scenes',
 	'sceneEditor.widgetSummary':
 		'{count, plural, one {# widget} other {# widgets}} · pan and zoom to explore',
@@ -4469,7 +4498,7 @@ export const en = {
 	'charBuilder.startBuilding': 'Start building',
 	'charBuilder.importFile': 'Import character file (JSON)',
 	'charBuilder.importFileDesc':
-		'A D&D Beyond character export or a dndtools character JSON. You review exactly what maps — and what doesn’t — before anything is created.',
+		'Import a D&D Beyond export or a Lamplight character file. Review which details can be imported before creating the character.',
 	'charBuilder.chooseFile': 'Choose a file',
 
 	'charBuilder.importTitle': 'Import character file',
@@ -4477,7 +4506,7 @@ export const en = {
 	'charBuilder.importUnreadable':
 		'The file couldn’t be read — check that it’s a character export and try again.',
 	'charBuilder.sourceDndBeyond': 'D&D Beyond export',
-	'charBuilder.sourceDndtools': 'dndtools JSON',
+	'charBuilder.sourceDndtools': 'Lamplight JSON',
 	'charBuilder.countAbilityScores':
 		'{count, plural, one {# ability score} other {# ability scores}}',
 	'charBuilder.countSkills': '{count, plural, one {# skill} other {# skills}}',
@@ -4625,16 +4654,16 @@ export const en = {
 
 	'charBuilder.bio': 'Bio',
 	'charBuilder.bioPlaceholder': 'Who are they, and why are they here?',
-	'charBuilder.dmNotes': 'DM notes',
+	'charBuilder.dmNotes': '{gm} notes',
 	'charBuilder.dmNotesHint': 'Never shown to players',
 	'charBuilder.dmNotesPlaceholder': 'Secrets, leverage, how you’ll play them.',
 	'charBuilder.dmNotesUnavailable':
-		'DM-only notes aren’t available on a guided PC yet — a PC is shared with its owning player, and a field can’t be made DM-only after creation.',
+		'{gm}-only notes aren’t available on a guided PC yet — a PC is shared with its owning player, and a field can’t be made {gm}-only after creation.',
 	'charBuilder.visibility': 'Visibility',
 	'charBuilder.pcSharedBefore': 'A new PC starts',
 	'charBuilder.pcSharedEmphasis': 'shared with its owning player',
 	'charBuilder.pcSharedAfter':
-		'— the core’s guided-flow rule (CHAR-002). The DM can widen who sees it afterwards from the character sheet’s Sharing controls.',
+		'— you can change who else sees it from Sharing on the character sheet.',
 	'charBuilder.playersCanSee': 'Players can see',
 	'charBuilder.playersCanSeeSub': 'On the party roster and shared scenes',
 	'charBuilder.dmOnlySub': 'Hidden until you reveal them',
@@ -4699,7 +4728,7 @@ export const en = {
 	'campaign.quest.new': 'New quest',
 	'campaign.quest.save': 'Save quest',
 	'campaign.quest.create': 'Create quest',
-	'campaign.quest.needsTitle': 'A quest needs a title.',
+	'campaign.quest.needsTitle': 'Give the quest a title.',
 	'campaign.quest.noHook': 'No hook written yet.',
 	'campaign.quest.titlePlaceholder': 'Wake of the Drowned God',
 	'campaign.quest.objectives': 'Objectives',
@@ -4718,15 +4747,15 @@ export const en = {
 	'campaign.faction.new': 'New faction',
 	'campaign.faction.save': 'Save faction',
 	'campaign.faction.create': 'Create faction',
-	'campaign.faction.needsName': 'A faction needs a name.',
+	'campaign.faction.needsName': 'Give the faction a name.',
 	'campaign.faction.noDossier': 'No dossier written yet.',
 	'campaign.faction.ledBy': 'led by {name}',
 	'campaign.faction.goals': 'Goals',
 	'campaign.faction.goalsHelp': 'One goal per line.',
 	'campaign.faction.goalsPlaceholder':
 		'Wake what sleeps below the vaults\nKeep the shipment route open',
-	'campaign.faction.secret': 'DM secret',
-	'campaign.faction.secretHelp': 'Visible only to DMs; it never appears in a player view.',
+	'campaign.faction.secret': '{gm} secret',
+	'campaign.faction.secretHelp': 'Visible only to the {gm}; it never appears in a player view.',
 	'campaign.faction.secretPlaceholder': 'Sild translates for the cult rather than leading it.',
 	'campaign.faction.name': 'Name',
 	'campaign.faction.namePlaceholder': 'The Brine Hand',
@@ -4769,7 +4798,7 @@ export const en = {
 	'campaign.relationships.added': 'Relationship added.',
 	'campaign.relationships.removed': 'Relationship removed.',
 	'campaign.relationships.remove': 'Remove: {source} → {target}',
-	'campaign.relationships.saveFailed': "Couldn't save this relationship.",
+	'campaign.relationships.saveFailed': "Couldn't save this relationship. Try again.",
 
 	/* Upgrade › plans and cloud */
 	'upgrade.included': 'Included',
@@ -4793,7 +4822,7 @@ export const en = {
 	'upgrade.changeUnavailable': 'Self-service cloud plan changes are not available in this release.',
 	'upgrade.nowPreviewing': 'Now trying the {plan} preview — no payment taken.',
 	'upgrade.nowOnDevice': 'Now on {plan} on this device.',
-	'upgrade.changeFailed': 'Could not change the plan.',
+	'upgrade.changeFailed': 'Could not change the plan. Try again.',
 	'upgrade.localFirst': 'Local-first · your table runs offline',
 	'upgrade.headingUnavailable': 'Local play stays free. Cloud plan sign-up is not available yet.',
 	'upgrade.headingPreview': 'Local play stays free. Cloud plans are in preview.',
@@ -4842,13 +4871,13 @@ export const en = {
 		'You will finish on Stripe’s secure checkout page. Lamplight never sees your card details. Renews automatically; cancel any time from Manage billing.',
 	'upgrade.dialog.continueToCheckout': 'Continue to secure checkout',
 	'upgrade.dialog.redirecting': 'Opening checkout…',
-	'upgrade.checkout.failed': 'Could not start checkout.',
+	'upgrade.checkout.failed': 'Could not start checkout. Try again.',
 	'upgrade.checkout.confirming': 'Confirming your subscription with Stripe…',
-	'upgrade.checkout.confirmed': 'You are now on {plan}. Thank you!',
+	'upgrade.checkout.confirmed': 'You are now on {plan}.',
 	'upgrade.checkout.pending':
 		'Your payment went through, but the plan has not updated yet. It usually takes a few seconds — refresh this page shortly.',
 	'upgrade.checkout.cancelled': 'Checkout cancelled — nothing was charged.',
-	'upgrade.portal.failed': 'Could not open billing.',
+	'upgrade.portal.failed': 'Could not open billing. Try again.',
 	'upgrade.note.liveLead': 'Billing is handled by Stripe.',
 	'upgrade.note.liveBody':
 		'Prices are in USD. Subscriptions renew automatically and can be changed or cancelled any time from Manage billing. Your local vaults never depend on a cloud plan.',
@@ -4871,13 +4900,13 @@ export const en = {
 	'home.observerMode': 'Observer mode',
 	'home.playerView': 'Player view',
 	'home.readOnlyView': 'Your read-only view of the live table.',
-	'home.liveView': 'Your live view of the table — what the DM is sharing right now.',
+	'home.liveView': 'Your live view of the table — what the {gm} is sharing right now.',
 	'home.sessionLive': 'Session live',
 	'home.yourCampaign': 'Your campaign',
 	'home.liveSubtitle': 'Combat, initiative & rolls run inside the scene',
 	'home.idleSubtitle': 'Resume or open a scene to run live play',
 	'home.partyCount': '{count, plural, one {# in the party} other {# in the party}}',
-	'home.enterGmScreen': 'Enter GM Screen',
+	'home.enterGmScreen': 'Open {gm} screen',
 	'home.enterScene': 'Enter scene',
 	'home.openScene': 'Open scene',
 	'home.newScene': 'New scene',
@@ -4894,13 +4923,13 @@ export const en = {
 	'home.create.map': 'New map',
 	'home.create.mapSub': 'Battle map or region',
 	'home.create.widget': 'New widget',
-	'home.create.widgetSub': 'A GM Screen tracker',
+	'home.create.widgetSub': 'A tracker for your {gm} screen',
 	'home.create.note': 'New note',
 	'home.create.noteSub': 'Lore, quest, or handout',
 	'home.manage.players': 'Players',
 	'home.manage.playersMeta': 'Roster & invites',
 	'home.manage.permissions': 'Permissions',
-	'home.manage.permissionsMeta': 'Roles & capability grants',
+	'home.manage.permissionsMeta': 'Roles & access',
 	'home.manage.vault': 'Vault connections',
 	'home.manage.vaultMeta': 'Connected note sources',
 	'home.count.characters': '{pcs} PCs · {npcs} NPCs',
@@ -4914,19 +4943,19 @@ export const en = {
 	'join.heading': 'You’re invited',
 	'join.checking': 'Checking your invite…',
 	'join.incomplete':
-		'This join link is incomplete. Ask your DM to copy the full link from Settings → Players and send it again.',
+		'This join link is incomplete. Ask your {gm} to copy the full link from Settings → Players and send it again.',
 	'join.checkFailed': 'This invite link could not be checked — try again.',
 	'join.invitedYouToJoin': 'invited you to join',
 	'join.asA': 'as a',
-	'join.coDm': 'Co-DM',
+	'join.coDm': 'Co-{gm}',
 	'join.coDmNote':
-		'A Co-DM seat sees the DM’s prep and helps run the table. Your DM finishes the promotion when you join their live session.',
+		'A Co-{gm} seat sees the {gm}’s prep and helps run the table. Your {gm} finishes the promotion when you join their live session.',
 	'join.expires': 'Invite expires {date}.',
 	'join.signInPrompt':
 		'Sign in (or create a free account) first if your table plays over the internet.',
 	'join.openPlayerApp': 'Open the player app',
 	'join.playerAppHint':
-		'From there, join your DM’s table with the table name and PIN they share at game time.',
+		'From there, join your {gm}’s table with the table name and PIN they share at game time.',
 	'join.tryAgain': 'Try again',
 	'join.goToApp': 'Go to the app',
 	/* Legal › the public Privacy Policy and Terms pages (`#/legal/*`, chrome-less like /join). The
@@ -4941,9 +4970,9 @@ export const en = {
 	'settings.about.legalBody':
 		'The privacy policy and terms of service for Lamplight and its online services. Both pages are public and need no account.',
 	/* GM Screen › the home board and its Add / Layouts panels */
-	'board.playerTitle': 'The GM Screen is the DM’s control board',
-	'board.playerBody': 'Only the DM can arrange it. Switch back to the DM view to make changes.',
-	'board.title': 'GM Screen',
+	'board.playerTitle': 'The {gm} screen is the {gm}’s control board',
+	'board.playerBody': 'Only the {gm} can arrange it. Switch back to the {gm} view to make changes.',
+	'board.title': '{gm} screen',
 	'board.widgetCount': '{count, plural, one {# widget} other {# widgets}} · your home board',
 	'board.snap': 'Snap',
 	'board.add': 'Add',
@@ -4951,12 +4980,12 @@ export const en = {
 	'board.done': 'Done',
 	'board.editLayout': 'Edit layout',
 	'board.emptyHint': 'Press Edit layout, then Add to place a widget.',
-	'board.preparingHint': 'Preparing your GM Screen…',
+	'board.preparingHint': 'Preparing your {gm} screen…',
 	'board.addFirstTile': 'Add your first tile',
 	'board.applyTemplate': 'Apply a template',
 	'board.emptySceneTitle': 'An empty scene',
-	'board.emptyTitle': 'Your GM Screen is empty',
-	'board.preparingTitle': 'Setting up your GM Screen',
+	'board.emptyTitle': 'Your {gm} screen is empty',
+	'board.preparingTitle': 'Setting up your {gm} screen',
 	'board.addWidget': 'Add widget',
 	'board.emptyTemplatesHint': 'Your board is empty. Start from a ready-made layout:',
 	'board.useTemplate': 'Use a template',
@@ -4998,7 +5027,7 @@ export const en = {
 	'graph.focus.enter': 'Focus neighborhood',
 	'graph.focus.exit': 'Show full graph',
 	'graph.walkHelp': 'Use arrow keys to walk nodes, Enter to select, Escape to clear.',
-	'graph.view.dm': 'DM view',
+	'graph.view.dm': '{gm} view',
 	'graph.view.player': 'Player view',
 	'graph.needPlayer': 'Add a player in Settings to preview the player viewpoint.',
 	'graph.showing':
@@ -5048,12 +5077,13 @@ export const en = {
 	'graph.repair.empty': 'No broken links found.',
 	'graph.repair.broken': 'Broken link: “{target}”',
 	'graph.repair.blockedBadge': 'Blocked',
-	'graph.repair.unsupportedSource': 'Links in {source} notes can’t be rewritten here.',
-	'graph.repair.noCandidate': 'No matching note found to fix this to.',
+	'graph.repair.unsupportedSource':
+		'Links in {source} notes cannot be changed here. Edit the original note.',
+	'graph.repair.noCandidate': 'No matching note found. Edit the link or create the missing note.',
 	'graph.repair.fixTo': 'Fix to “{title}”',
 	'graph.repair.ambiguous': 'More than one note matches — choose one:',
 	'graph.repair.fixed': 'Fixed the link in “{title}”.',
-	'graph.repair.fixFailed': 'Couldn’t fix the link in “{title}”.',
+	'graph.repair.fixFailed': 'Couldn’t fix the link in “{title}”. Try again.',
 	/* Scenes › the create form, the scene list and the delete confirm */
 	'scenes.create': 'Create',
 	'scenes.newScene': 'New scene',
@@ -5069,9 +5099,9 @@ export const en = {
 	'scenes.createScene': 'Create scene',
 	'scenes.saved': '“{name}” was saved.',
 	'scenes.saveFailed': 'Couldn’t save — try again',
-	'scenes.metaSaveFailed': 'The scene details could not be saved.',
-	'scenes.deleteFailed': 'The scene could not be deleted.',
-	'scenes.restoreFailed': 'The scene could not be restored.',
+	'scenes.metaSaveFailed': 'The scene details could not be saved. Try again.',
+	'scenes.deleteFailed': 'The scene could not be deleted. Try again.',
+	'scenes.restoreFailed': 'The scene could not be restored. Try again.',
 	'scenes.deleted': '“{name}” deleted',
 	'scenes.restored': '“{name}” restored',
 	'scenes.count': 'Scenes · {count}',
@@ -5088,7 +5118,7 @@ export const en = {
 	'scenes.deleting': 'Deleting…',
 	'scenes.deleteScene': 'Delete scene',
 	'scenes.deleteRefused':
-		'The live scene and the Command Center home scene can’t be deleted — if this is one of those, the delete is refused and nothing changes.',
+		'The live scene and home board cannot be deleted. End the live session before deleting its scene; choose another scene if this is the home board.',
 	'scenes.saving': 'Saving…',
 	'scenes.saveDetails': 'Save details',
 
@@ -5197,7 +5227,7 @@ export const en = {
 		'Start combat in Session first — there is no turn to advance.',
 	'widgetBody.initiative.turn': 'Turn',
 	'widgetBody.initiative.spotlight': 'Spotlight',
-	'widgetBody.initiative.hp': 'HP',
+	'widgetBody.initiative.hp': '{hitPoints}',
 	'widgetBody.initiative.noneHpShown': 'No combat running · HP shown',
 	'widgetBody.initiative.noneHpHidden': 'No combat running · HP hidden',
 	'widgetBody.initiative.compactHeading': 'Round {round} · initiative order',
@@ -5212,7 +5242,7 @@ export const en = {
 	'widgetBody.map.noBinding': 'No map linked — choose a map to show its layers.',
 	'widgetBody.map.missingDm':
 		'The linked map is missing or was removed. Choose another map in edit mode.',
-	'widgetBody.map.missingPlayer': 'The linked map isn’t available to you.',
+	'widgetBody.map.missingPlayer': 'This map is unavailable to you. Ask your {gm} to share a map.',
 	// RC-CAN-4.5 — the map tile: the real map with pan/zoom, the running fight on it, and the DM
 	// actions that used to mean leaving the board.
 	'widgetBody.map.viewRegion':
@@ -5230,7 +5260,7 @@ export const en = {
 	'widgetBody.map.following': 'Following the party',
 	'widgetBody.list.notesEmpty': 'No notes visible yet — prep notes appear here as you write them.',
 	'widgetBody.list.objectsEmpty':
-		'No reference objects visible yet — imported spells and objects appear here.',
+		'No reference objects visible yet — imported {spellPluralLower} and objects appear here.',
 	'widgetBody.list.count': '{shown} of {total} {unit}',
 	'widgetBody.list.unitNotes': 'prep notes',
 	'widgetBody.list.unitObjects': 'reference rows',
@@ -5245,11 +5275,11 @@ export const en = {
 	'widgetBody.gettingStarted.tier.core': 'Core',
 	'widgetBody.gettingStarted.tier.intermediate': 'Intermediate',
 	'widgetBody.gettingStarted.tier.advanced': 'Advanced',
-	'widgetBody.gettingStarted.participant': 'Setup is DM only — your view is ready to use.',
-	'widgetBody.gettingStarted.complete': 'Setup is done — raise the depth to unlock more surfaces.',
+	'widgetBody.gettingStarted.participant': 'Setup is {gm} only — your view is ready to use.',
+	'widgetBody.gettingStarted.complete': 'Setup is done. Choose a higher depth to show more tools.',
 	'widgetBody.tools.widgets': 'Widgets',
 	'widgetBody.tools.layouts': 'Layouts',
-	'widgetBody.tools.noLayouts': 'Save a layout from the GM Screen toolbar to restore it later.',
+	'widgetBody.tools.noLayouts': 'Save a layout from the {gm} screen toolbar to restore it later.',
 	'widgetBody.tools.safePoint': 'A safe point is stored — restore it from Layouts.',
 	'widgetBody.dataHub.scenes': 'Scenes',
 	'widgetBody.dataHub.parties': 'Party',
@@ -5262,11 +5292,11 @@ export const en = {
 	'widgetBody.atlas.maps': 'Maps',
 	'widgetBody.atlas.sharing': 'Sharing',
 	'widgetBody.atlas.noOne': 'No one',
-	'widgetBody.atlas.queued': 'Waiting to reach {count} player(s).',
+	'widgetBody.atlas.queued': 'Waiting to reach {count, plural, one {# player} other {# players}}.',
 	'widgetBody.characters.empty': 'No characters yet — create one to build the party.',
 	'widgetBody.characters.party': 'Party',
 	'widgetBody.characters.others': 'Others',
-	'widgetBody.playerViews.dmOnly': 'Player views are DM only.',
+	'widgetBody.playerViews.dmOnly': 'Player views are {gm} only.',
 	'widgetBody.playerViews.empty': 'No players yet — invite one to assign them a view.',
 	'widgetBody.playerViews.players': 'Players',
 	'widgetBody.playerViews.assigned': 'Assigned',
@@ -5309,7 +5339,7 @@ export const en = {
 	'encounter.hpAc': 'HP {hp} · AC {ac}',
 	'encounter.quickAdd': 'Quick add',
 	'encounter.quickAddPlaceholder': 'e.g. Brine Cultist',
-	'encounter.hp': 'HP',
+	'encounter.hp': '{hitPoints}',
 	'encounter.ac': 'AC',
 	'encounter.add': 'Add',
 	'encounter.combatants': 'Combatants · {count}',
@@ -5359,20 +5389,18 @@ export const en = {
 	'encounter.placeOnMap': 'Place tokens on the map',
 	'encounter.placeOnMapNote':
 		'Starting the fight puts a token for every combatant on the active map. Turn this off to run it without tokens.',
-	'encounter.placeOnMapNoMap':
-		'No active map in this session, so there is nowhere to place tokens yet.',
+	'encounter.placeOnMapNoMap': 'Choose an active map in Session to place combat tokens.',
 	/* Connected sources › local folders and Google Docs on the Settings vault pane */
 	'sources.title': 'Connected sources',
-	'sources.policyLabel': 'Import collision policy',
-	'sources.policy.skip': 'Pull: skip collisions',
-	'sources.policy.overwrite': 'Pull: overwrite existing',
-	'sources.policy.keepBoth': 'Pull: keep both',
+	'sources.policyLabel': 'When a note already exists',
+	'sources.policy.skip': 'Import: skip existing notes',
+	'sources.policy.overwrite': 'Import: overwrite existing notes',
+	'sources.policy.keepBoth': 'Import: keep both',
 	'sources.never': 'never',
 	'sources.connectFolder': 'Connect folder…',
 	'sources.intro':
-		'Pull imports Markdown into your campaign. Push writes selected notes back to their source, and asks for confirmation before a format change could leave out structured details.',
-	'sources.folderConnected':
-		'Connected. Pull walks its .md files into the vault; Push writes notes back.',
+		'Import brings Markdown into your campaign. Export saves selected notes back to their source. You will be asked to confirm before exporting could remove formatting or details.',
+	'sources.folderConnected': 'Folder connected. Import its .md files or export notes back to it.',
 	'sources.readDenied':
 		'Folder access was denied or revoked. Disconnect and reconnect the folder to grant it again.',
 	'sources.writeDenied':
@@ -5385,28 +5413,28 @@ export const en = {
 		'Imported {created} new, {over} overwritten — stopped at {max} files (partial import).',
 	'sources.importedFromDoc': 'Imported {created} new from the Doc.',
 	'sources.importedFromDocOverwrites': 'Imported {created} new, {over} overwritten from the Doc.',
-	'sources.noNotesToPush': 'No notes to push yet.',
+	'sources.noNotesToPush': 'No notes to export yet. Write a note first.',
 	'sources.pushEntryError': '“{title}”: {message}',
 	'sources.pushed':
-		'Pushed {written} of {total, plural, one {# note} other {# notes}} to “{label}”.',
+		'Exported {written} of {total, plural, one {# note} other {# notes}} to “{label}”.',
 	'sources.pushedWithProblem':
-		'Pushed {written} of {total, plural, one {# note} other {# notes}} to “{label}” — first problem: {problem}',
-	'sources.googleSignedIn': 'Signed in. Create a Doc below, then push a note into it.',
-	'sources.googleSignInFailed': 'Google sign-in failed.',
-	'sources.googleNoDocId': 'Google returned no document id.',
-	'sources.docCreated': 'Created “{title}”. Push a note into it below.',
+		'Exported {written} of {total, plural, one {# note} other {# notes}} to “{label}”. Review the remaining notes: {problem}',
+	'sources.googleSignedIn': 'Signed in. Create a Doc below, then export a note to it.',
+	'sources.googleSignInFailed': 'Google sign-in failed. Try signing in again.',
+	'sources.googleNoDocId': 'Google did not return a document. Try creating it again.',
+	'sources.docCreated': 'Created “{title}”. Export a note to it below.',
 	'sources.docEmpty': 'The Doc is empty — nothing to import.',
-	'sources.pickNote': 'Pick which note to push into this Doc first.',
-	'sources.signInExpired': 'Google sign-in expired — sign in again to push.',
+	'sources.pickNote': 'Choose a note to export to this Doc first.',
+	'sources.signInExpired': 'Google sign-in expired. Sign in again to export notes.',
 	'sources.disconnected': 'Disconnected “{name}”',
 	'sources.chooseNote': 'Choose a note…',
 	'sources.pushLossyTitle':
-		'Pushing to “{label}” loses some formatting on {lossy} of {total, plural, one {# note} other {# notes}}',
-	'sources.pushDmOnlyTitle': 'Push a DM-only note to “{label}”?',
-	'sources.acknowledgePush': 'Acknowledge loss & push',
-	'sources.pushAnyway': 'Push anyway',
+		'Exporting to “{label}” changes formatting in {lossy} of {total, plural, one {# note} other {# notes}}',
+	'sources.pushDmOnlyTitle': 'Export a {gm}-only note to “{label}”?',
+	'sources.acknowledgePush': 'Accept changes & export',
+	'sources.pushAnyway': 'Export anyway',
 	'sources.dmOnlyWarning':
-		'This note is DM-only. Pushing copies it into an external Google Doc — anyone that document is shared with can read it there.',
+		'This note is {gm} only. Exporting copies it to a Google Doc. Anyone the Doc is shared with can read the exported note.',
 	'sources.dropped': 'Dropped (cannot be represented): {features}.',
 	'sources.downgraded': 'Downgraded: {features}.',
 	'sources.vaultUntouched': 'Your notes in the vault are untouched either way.',
@@ -5421,12 +5449,12 @@ export const en = {
 	'sources.disconnect': 'Disconnect',
 	'sources.noFsSupport':
 		'This browser cannot connect a local folder. Use the desktop app or a supported Chromium browser instead.',
-	'sources.folderMeta': 'Local folder · pulled {pulled} · pushed {pushed}',
-	'sources.docMeta': 'Google Doc · pulled {pulled} · pushed {pushed}',
+	'sources.folderMeta': 'Local folder · imported {pulled} · exported {pushed}',
+	'sources.docMeta': 'Google Doc · imported {pulled} · exported {pushed}',
 	'sources.connected': 'connected',
 	'sources.needsSignIn': 'needs sign-in',
-	'sources.pullNotes': 'Pull notes',
-	'sources.pushNotes': 'Push notes',
+	'sources.pullNotes': 'Import notes',
+	'sources.pushNotes': 'Export notes',
 	'sources.noFolders':
 		'No folders connected yet. Connect an Obsidian vault or any markdown folder.',
 	'sources.googleDocs': 'Google Docs',
@@ -5441,8 +5469,8 @@ export const en = {
 	'sources.newDocTitle': 'Title for a new Google Doc',
 	'sources.createDoc': 'Create new Doc',
 	'sources.existingDocsNote':
-		'Existing Docs cannot be connected in this release because the limited Google scope requires a Picker grant. Lamplight does not request broader Drive access.',
-	'sources.noteToPushTo': 'Note to push to {title}',
+		'This version cannot connect existing Google Docs. Connecting them needs a Google file picker that is not available here. Lamplight does not request access to the rest of your Drive.',
+	'sources.noteToPushTo': 'Note to export to {title}',
 	/* Map editor dock › the Layers, Assets and History panels */
 	'mapDock.layers': 'Layers · {count}',
 	'mapDock.addLayer': 'Add layer',
@@ -5533,9 +5561,9 @@ export const en = {
 	'mapInspector.notes': 'Notes',
 	'mapInspector.notesHelp': 'A player only ever sees a player-visible POI’s notes.',
 	'mapInspector.link': 'Link',
-	'mapInspector.entityType': 'Entity type',
+	'mapInspector.entityType': 'Linked item type',
 	'mapInspector.entityTypePlaceholder': 'e.g. note, character',
-	'mapInspector.entityId': 'Entity id',
+	'mapInspector.entityId': 'Linked item identifier',
 	'mapInspector.entityIdPlaceholder': 'id',
 	'mapInspector.saveLink': 'Save link',
 	// RC-AUD-2.2 — link this POI to a scene package; it auto-plays when the party marker enters here.
@@ -5548,14 +5576,14 @@ export const en = {
 	'mapPoiNote.create': 'Create note here',
 	'mapPoiNote.dialogTitle': 'Create a note here',
 	'mapPoiNote.dialogDesc':
-		'The note is created DM only and linked to this point of interest. Share it later from the note itself.',
+		'The note is created {gm} only and linked to this point of interest. Share it later from the note itself.',
 	'mapPoiNote.title': 'Title',
 	'mapPoiNote.type': 'Type',
 	'mapPoiNote.confirm': 'Create and link',
 	'mapPoiNote.starter': 'Starting body',
 	'mapPoiNote.starterHelp': 'A starting point you can rewrite once the note opens.',
 	'mapPoiNote.linkFailed':
-		'The note was created but could not be linked to this point of interest.',
+		'The note was created but not linked. Select this point of interest and use Save link to link the existing note.',
 	'mapPoiNote.type.location': 'Location',
 	'mapPoiNote.type.locationDesc': 'A place on the map.',
 	'mapPoiNote.type.npc': 'NPC',
@@ -5572,8 +5600,8 @@ export const en = {
 	'mapInspector.token': 'Token',
 	'mapInspector.size': 'Size',
 	'mapInspector.tokenSize': 'Token size',
-	'mapInspector.linkedActor': 'Linked to an actor.',
-	'mapInspector.notLinkedActor': 'Not linked to an actor.',
+	'mapInspector.linkedActor': 'Linked to a participant.',
+	'mapInspector.notLinkedActor': 'Not linked to a participant.',
 	'mapInspector.deleteToken': 'Delete token',
 	'mapInspector.tokenDeleted': 'Token “{label}” deleted.',
 	'mapInspector.selectedCount': '{count} selected',
@@ -5733,9 +5761,10 @@ export const en = {
 		'Choose the format that created this file. Unsupported formats are left untouched.',
 	'mapImport.elements': 'Elements the file contains',
 	'mapImport.declareHint':
-		'Scene files are not parsed in this build — declare what the file contains and the adapter classifies each element. Unsupported elements are reported, never silently dropped.',
+		'This version cannot read scene files automatically. Describe what your file contains to check which parts can be imported. Unsupported parts are listed so you can review them.',
 	'mapImport.preview': 'Preview',
-	'mapImport.cannotImport': 'This file can’t be imported.',
+	'mapImport.cannotImport':
+		'This file cannot be imported. Review the report or choose another file.',
 	'mapImport.meta.filename': 'Filename',
 	'mapImport.meta.mime': 'MIME type',
 	'mapImport.meta.unknown': 'unknown',
@@ -5745,7 +5774,7 @@ export const en = {
 	'mapImport.pixels': '{width} × {height} px',
 	'mapImport.kilobytes': '{kb} KB',
 	'mapImport.support.importable': 'Importable',
-	'mapImport.support.lossy': 'Lossy',
+	'mapImport.support.lossy': 'Some details omitted',
 	'mapImport.support.unsupported': 'Unsupported',
 	'mapImport.support.blocked': 'Blocked',
 	'mapImport.dropped':
@@ -5756,9 +5785,9 @@ export const en = {
 	'mapImport.importing': 'Importing…',
 	'mapImport.import': 'Import',
 	'mapImport.failed': 'The import couldn’t be completed — try again.',
-	'mapImport.committed': 'Import committed to “{name}”',
-	'mapImport.assetDeduped': 'Asset {id} (deduped — identical bytes already imported)',
-	'mapImport.assetRecorded': 'Asset {id} recorded',
+	'mapImport.committed': 'Imported to “{name}”',
+	'mapImport.assetDeduped': 'Image already imported — using the existing copy',
+	'mapImport.assetRecorded': 'Image recorded',
 	'mapImport.sceneRecorded': 'Scene elements recorded',
 	'mapImport.droppedCount':
 		' · {count, plural, one {# unsupported element} other {# unsupported elements}} reported & dropped',
@@ -5808,7 +5837,7 @@ export const en = {
 		'{walls, plural, one {# wall} other {# walls}} · {points, plural, one {# point} other {# points}}',
 	'mapImport.walls.previewLabel': 'Preview of {count} traced wall outlines',
 	'mapImport.walls.previewNote':
-		'Nothing is saved yet. Importing adds these to a DM only layer called Traced walls, where you can edit or delete them.',
+		'Nothing is saved yet. Importing adds these to a {gm} only layer called Traced walls, where you can edit or delete them.',
 	'mapImport.walls.layerName': 'Traced walls',
 	'mapImport.result.grid': 'Grid set to {count} squares across, {units} {unit} per square.',
 	'mapImport.result.scale': 'Scale set to {amount} {unit} across the map.',
@@ -5833,8 +5862,8 @@ export const en = {
 	'mapGenerate.accept': 'Accept',
 	'mapGenerate.again': 'Again',
 	'mapGenerate.added': 'Added',
-	'mapGenerate.generatorFailed': 'The generator failed to run.',
-	'mapGenerate.noGenerator': 'No generator selected.',
+	'mapGenerate.generatorFailed': 'The generator could not run. Check its settings and try again.',
+	'mapGenerate.noGenerator': 'Choose a generator first.',
 	'mapGenerate.derived': 'Derived walls, doors, and lights from the generated floors.',
 	'mapGenerate.fixSetting': 'Fix the highlighted setting to preview.',
 	'mapGenerate.ghostPreview':
@@ -5891,7 +5920,7 @@ export const en = {
 	'mapTool.fog.label': 'Fog',
 	'mapTool.fog.hint': 'Reveal or conceal areas. Rectangle, polygon, or brush in the options bar.',
 	'mapTool.token.label': 'Token',
-	'mapTool.token.hint': 'Place a combat token. Link it to an actor in the inspector.',
+	'mapTool.token.hint': 'Place a combat token. Link it to a participant in the inspector.',
 	'mapTool.token.hint.combat':
 		'Combat is running. Click a combatant to select them, or drag to move them.',
 	'mapCombat.layer': 'Combat tokens',
@@ -5900,7 +5929,7 @@ export const en = {
 	'mapCombat.status.active': 'Active turn',
 	'mapCombat.status.down': 'Down',
 	'mapCombat.moved': 'Moved {name}.',
-	'mapCombat.cannotMove': 'You cannot move {name}.',
+	'mapCombat.cannotMove': 'You cannot move {name}. Ask your {gm} to move them.',
 	'mapCombat.moreConditions': '+{count}',
 	'mapCombat.overlay': 'Combat tokens: {names}',
 	// RC-MAP-2.2 — the range/path overlay and the area-of-effect tool.
@@ -5909,7 +5938,7 @@ export const en = {
 	'mapCombat.moveSurfaceNoOne': 'Select a combatant to move.',
 	'mapCombat.areaSurface': 'Place a {shape}. Click the map, or use the arrow keys and Enter.',
 	'mapCombat.areaPlaced': 'Placed a {label}.',
-	'mapCombat.outOfRange': '{name} cannot reach that cell.',
+	'mapCombat.outOfRange': '{name} cannot reach that cell. Choose a highlighted cell.',
 	'mapCombat.areaReadout': 'Area of effect',
 	'mapCombat.areaCells': '{label} · {count} cells',
 	'mapCombat.areaAffects': 'Affects {names}',
@@ -5920,15 +5949,15 @@ export const en = {
 	'mapInspector.combatOffMap': 'Not on this map',
 	'mapInspector.combatClear': 'Clear combatant selection',
 	'mapInspector.combatant': 'Combatant',
-	'mapInspector.combatantHp': 'Hit points',
+	'mapInspector.combatantHp': '{hitPoints}',
 	'mapInspector.combatantAt': 'At {x}, {y} on this map',
 	'mapInspector.combatantNoToken': 'This combatant is not on this map.',
 	'mapTool.poi.label': 'Point of interest',
-	'mapTool.poi.hint': 'Drop a labelled pin. Link it to a note or an entity in the inspector.',
+	'mapTool.poi.hint': 'Place a pin. Link it to a campaign entry in the inspector.',
 	'mapTool.route.label': 'Route',
 	'mapTool.route.hint': 'Click waypoints to draw a travel route. Enter finishes.',
 	'mapTool.text.label': 'Label',
-	'mapTool.text.hint': 'Place a map label. Type, then click away to commit.',
+	'mapTool.text.hint': 'Place a map label. Type, then click away to save.',
 	// RC-MAP-2.2 — the Combat group: move a combatant, drop an area of effect, measure a distance.
 	'mapTool.group.combat': 'Combat',
 	'mapTool.combatMove.label': 'Move',
@@ -5950,7 +5979,7 @@ export const en = {
 
 	/* Map editor › the shell: header, docks, notices and the shortcut overlay */
 	'mapEditor.dialogLabel': 'Map editor',
-	'mapEditor.unavailable': 'This map is unavailable to you.',
+	'mapEditor.unavailable': 'This map is unavailable to you. Return to Atlas to choose another.',
 	'mapEditor.backToAtlas': 'Back to Atlas',
 	'mapEditor.panelsLabel': 'Map editor panels',
 	'mapEditor.dock.inspector': 'Selected',
@@ -5978,8 +6007,8 @@ export const en = {
 	'mapGraph.selectedRoom': 'Selected {name}.',
 	'mapGraph.keyed': 'Keyed {name} as {kind}.',
 	'mapGraph.cleared': 'Cleared the key on {name}.',
-	'mapGraph.gone': 'That room is no longer on the map.',
-	'mapGraph.dmOnly': 'Only the DM can key a room.',
+	'mapGraph.gone': 'That room is no longer on the map. Select another room.',
+	'mapGraph.dmOnly': 'Ask your {gm} to set what is in this room.',
 	'mapEditor.breadcrumb': 'Breadcrumb',
 	'mapEditor.atlas': 'Atlas',
 	'mapEditor.goToMap': 'Go to {name}',
@@ -6095,7 +6124,7 @@ export const en = {
 	'mapList.category.roads': 'Roads',
 	'mapList.category.poi': 'Points of interest',
 	'mapList.category.fog': 'Fog',
-	'mapList.category.dmAnnotations': 'DM notes',
+	'mapList.category.dmAnnotations': '{gm} notes',
 	'mapList.category.playerOverlay': 'Player overlay',
 	// RC-WID-3.2 — the "Generate a widget" dialog (canvas + widget builder). The assistant drafts a
 	// widget package; the manual builder reviews it; only the DM installs it.
@@ -6114,8 +6143,9 @@ export const en = {
 	'widgetGen.finishing': 'Finishing…',
 	'widgetGen.reviewNote': 'Nothing is installed until you press Install in the builder.',
 	'widgetGen.noWidget': 'The assistant did not draft a widget. Try describing it in more detail.',
-	'widgetGen.noWidgetDetail': 'The assistant did not draft a widget: {detail}',
-	'widgetGen.blockerNotDm': 'Only the DM can generate a widget.',
+	'widgetGen.noWidgetDetail':
+		'The assistant did not draft a widget: {detail} Try describing it in more detail.',
+	'widgetGen.blockerNotDm': 'Ask your {gm} to generate a widget.',
 	'widgetGen.blockerNoKey':
 		'Add a provider API key in Settings, AI and tools, to generate a widget.',
 	'widgetGen.blockerDisabled':
@@ -6140,14 +6170,14 @@ export const en = {
 	'help.title': 'Help',
 	'help.gettingStarted': 'Getting started',
 	'help.gettingStartedProgress': '{done} of {total} set up',
-	'help.gettingStartedParticipant': 'Setup is DM only — your view is ready to use.',
-	'help.gettingStartedComplete': 'Setup is done. Raise the depth in Settings to unlock more.',
+	'help.gettingStartedParticipant': 'Setup is {gm} only — your view is ready to use.',
+	'help.gettingStartedComplete': 'Setup is done. Open Settings to show more tools.',
 	'help.whatsNew': "What's new",
 	'help.whatsNewBadgeLabel': 'New release notes',
 	'help.whatsNewVersion': 'Version {version}',
 	'help.whatsNewNone': 'No release notes yet.',
 	'help.keyboardShortcuts': 'Keyboard shortcuts',
-	'help.keyboardShortcutsBody': 'See every shortcut for the shell and the canvas.',
+	'help.keyboardShortcutsBody': 'See shortcuts for navigation and the canvas.',
 	/* RC-UX-3.1 — contextual help beside non-obvious controls (`app/help/helpTopics.ts`). */
 	'help.tip.vaultPrivacy.label': 'About vault privacy mode',
 	'help.tip.vaultPrivacy.title': 'Vault privacy mode',
@@ -6156,31 +6186,31 @@ export const en = {
 	'help.tip.projection.label': 'About projection',
 	'help.tip.projection.title': 'Projection',
 	'help.tip.projection.body':
-		'The pill shows where the session stands. Combat, dice, handouts and map projection reach players only while you are live; ending the session returns the table to Standby.',
+		'Check the session status to see whether you are live. Combat, dice, handouts and map projection reach players only during a live session. Ending it returns the table to Standby.',
 	'help.tip.visibility.label': 'What {gm} only and Players mean',
 	'help.tip.visibility.title': 'Visibility',
 	'help.tip.visibility.body':
 		'{gm} only stays on your screen. Players means it can reach player screens once you show or project it. Edit the entry to change who sees it.',
-	'help.tip.stagedProposals.label': 'About staged writes',
-	'help.tip.stagedProposals.title': 'Staged writes',
+	'help.tip.stagedProposals.label': 'About proposed changes',
+	'help.tip.stagedProposals.title': 'Proposed changes',
 	'help.tip.stagedProposals.body':
-		'The count is agent writes waiting on you. Under strict review, nothing an agent proposes reaches the vault until you approve it. Rejecting a proposal writes nothing.',
+		'The count shows assistant changes waiting for review. With strict review, each change waits for your approval before it reaches the vault. Reject a proposal to leave the vault unchanged.',
 	'help.tip.calendar.label': 'About the campaign calendar',
 	'help.tip.calendar.title': 'Campaign calendar',
 	'help.tip.calendar.body':
-		'Define your world’s months, weekdays, moons and holidays once. The Session date, the Story timeline and note date fields all read it, so moon phases and holidays show up on their own.',
+		'Set up your world’s months, weekdays, moons and holidays. The session date, Story timeline and note dates use this calendar. Moon phases and holidays appear automatically.',
 	'help.tip.customTypes.label': 'About custom object types',
 	'help.tip.customTypes.title': 'Custom object types',
 	'help.tip.customTypes.body':
-		'Add a type when the built-in ones don’t fit your world — a ship, a guild contract, a rumor. Give it a few fields and its objects create, validate and list like any other. A type can’t be deleted while it still has objects.',
+		'Add a type for something your world needs, such as ships or guild contracts. Choose its fields, then create and manage its objects alongside other vault objects. Delete its objects before deleting the type.',
 	'help.tip.systemPicker.label': 'About rules systems',
 	'help.tip.systemPicker.title': 'Rules system',
 	'help.tip.systemPicker.body':
-		'The system sets the words, attributes, resources, conditions and dice your table plays with. Pick an installed package, or fork one to write house rules. Widgets follow whichever system is active.',
+		'The system supplies your table’s vocabulary, attributes, resources, conditions and dice. Choose an installed package or make a copy for your house rules. Widgets use whichever system is active.',
 	'help.tip.widgetTrust.label': 'About trust review',
 	'help.tip.widgetTrust.title': 'Trust review',
 	'help.tip.widgetTrust.body':
-		'An installed package reaches nothing until you review it here. Allow a permission only when its reason makes sense; anything you leave denied stays denied. If the review advises against the package, trusting it takes an extra acknowledgment.',
+		'Review a package before giving it access. Read why it requests each permission and allow only those you accept. Denied permissions stay blocked. If the review advises against a package, trusting it requires an extra confirmation.',
 	'help.tip.recoveryKey.label': 'About the recovery key',
 	'help.tip.recoveryKey.title': 'Recovery key',
 	'help.tip.recoveryKey.body':
@@ -6200,9 +6230,9 @@ export const en = {
 	// RC-CHR-1.1 — the class-resource economy (`app/character/Resources.tsx`), shared by the Player
 	// screen and the player view. Every label the panel frames is package-driven; these are the
 	// words around them.
-	'character.resources.title': 'Class resources',
+	'character.resources.title': 'Character resources',
 	'character.resources.add': 'Add a resource',
-	'character.resources.emptyTitle': 'No class resources',
+	'character.resources.emptyTitle': 'No character resources',
 	'character.resources.emptyBody':
 		'This character carries no resources from the active system yet. Add one the system offers, or write your own.',
 	'character.resources.recoversShort': 'Recovers on a short rest',
@@ -6227,7 +6257,7 @@ export const en = {
 	'character.resources.recoverOne': 'Recover one {name}',
 	// RC-KNW-1.1 — the shared markdown renderer (callouts, tables, figures, links).
 	'markdown.empty': 'Nothing written here yet.',
-	'markdown.brokenLink': 'This link does not point at a note you can open',
+	'markdown.brokenLink': 'This note cannot be opened. Search for its title in Knowledge.',
 	'markdown.opensExternally': 'Opens in a new tab',
 	'markdown.tableLabel': 'Table',
 	'markdown.imageUnavailable': 'Image not available',
@@ -6235,15 +6265,15 @@ export const en = {
 	'markdown.calloutWarning': 'Warning',
 	'markdown.calloutTip': 'Tip',
 	'markdown.calloutSecret': 'Secret',
-	'markdown.dmOnly': 'DM only',
+	'markdown.dmOnly': '{gm} only',
 	'markdown.showSecret': 'Show',
 	'markdown.hideSecret': 'Hide',
-	'markdown.secretWithheld': 'Part of this note is DM only.',
+	'markdown.secretWithheld': 'Part of this note is {gm} only.',
 	'markdown.rollTitle': 'Roll {expression}',
 	'markdown.rollAria': 'Roll {expression}',
-	'markdown.rollInvalid': 'That is not a dice expression.',
+	'markdown.rollInvalid': 'Enter a dice expression such as 3d6+2.',
 	'markdown.rollRecorded': 'Recorded in the session log.',
-	'markdown.rollNotRecorded': 'Not recorded — no session is running.',
+	'markdown.rollNotRecorded': 'Not recorded. Start a live session to record future rolls.',
 	'markdown.rollLocal': 'not recorded',
 	// RC-CHR-1.2 — the rest workflow: the per-character rest dialog and the DM's party-wide call.
 	'character.rest.title': 'Rest — {name}',
@@ -6274,7 +6304,7 @@ export const en = {
 	'session.rest.description':
 		'Every player character takes this rest. Players spend their own hit dice from the character sheet.',
 	'session.rest.applies': 'Applies to {count} player characters.',
-	'session.rest.noParty': 'No player characters are in the roster yet, so there is nobody to rest.',
+	'session.rest.noParty': 'Add player characters to the roster before calling a rest.',
 	'session.rest.confirm': 'Call the rest',
 	'session.rest.cancel': 'Cancel',
 	'session.rest.called': 'Rest called for {count} characters',
@@ -6320,7 +6350,7 @@ export const en = {
 	'editor.slashCalloutTip': 'Tip callout',
 	'editor.slashCalloutSecret': 'Secret callout',
 	'editor.slashCalloutHint': 'A titled aside beside the prose',
-	'editor.slashCalloutSecretHint': 'DM only — removed from every player copy',
+	'editor.slashCalloutSecretHint': '{gm} only — removed from every player copy',
 	'editor.slashRoll': 'Dice roll',
 	'editor.slashRollHint': 'An inline dice expression',
 	'editor.slashDate': 'Today’s date',
@@ -6329,8 +6359,8 @@ export const en = {
 	'calendar.title': 'Campaign calendar',
 	'calendar.back': 'Story',
 	'calendar.blurb':
-		'Define the months, weekdays, moons and holidays your world runs on. Every dated surface — the Session date, the Story timeline, note date fields — reads this definition.',
-	'calendar.readOnly': 'Only the DM can edit the campaign calendar.',
+		'Set up your world’s months, weekdays, moons and holidays. This calendar is used for the session date, the Story timeline and dates in notes.',
+	'calendar.readOnly': 'Ask your {gm} to edit the campaign calendar.',
 	'calendar.list.title': 'Calendars',
 	'calendar.new': 'New calendar',
 	'calendar.edit': 'Edit',
@@ -6425,8 +6455,9 @@ export const en = {
 	'share.import.title': 'Import shared file',
 	'share.import.description':
 		'A file was shared with Lamplight. Nothing is added to your world until you import it.',
-	'share.import.notJson': 'That file is not JSON, so there is nothing to import from it.',
-	'share.import.notAPackage': 'That file is not a Lamplight module.',
+	'share.import.notJson': 'That file could not be read. Share a Lamplight module file instead.',
+	'share.import.notAPackage':
+		'That file is not a Lamplight module. Choose a module exported from Lamplight.',
 	'share.import.kindWidget': 'Widget package',
 	'share.import.kindContent': 'Content module',
 	'share.import.kindSystem': 'System package',

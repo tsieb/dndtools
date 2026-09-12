@@ -421,7 +421,7 @@ describe('returning from Checkout', () => {
 			mocks.store.set(ent({ plan: 'lantern', billing: subscribedStatus() }));
 		});
 		expect(confirmingBanner()).toBeUndefined();
-		expect(container.textContent).toContain('You are now on Lantern. Thank you!');
+		expect(container.textContent).toContain('You are now on Lantern.');
 		expect(named('Manage billing').length).toBeGreaterThan(0);
 		// Polling stops once confirmed.
 		await act(async () => {

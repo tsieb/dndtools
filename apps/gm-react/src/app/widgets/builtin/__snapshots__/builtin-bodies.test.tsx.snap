@@ -4,7 +4,7 @@ exports[`every system widget type has a body > atlas renders a body the DM can r
 
 exports[`every system widget type has a body > audio renders a body the DM can read 1`] = `"Nothing playing — cue a track from the session audio controls."`;
 
-exports[`every system widget type has a body > character renders a body the DM can read 1`] = `"HP— / —AC—STRDEXCONINTWISCHA"`;
+exports[`every system widget type has a body > character renders a body the DM can read 1`] = `"Hit points— / —AC—STRDEXCONINTWISCHA"`;
 
 exports[`every system widget type has a body > characters renders a body the DM can read 1`] = `"Party1Others1Brannor 18/24Ysolde 0/0"`;
 
@@ -18,7 +18,7 @@ exports[`every system widget type has a body > getting-started renders a body th
 
 exports[`every system widget type has a body > handout renders a body the DM can read 1`] = `"Empty note — select the widget to add text."`;
 
-exports[`every system widget type has a body > initiative-tracker renders a body the DM can read 1`] = `"Round1TurnBrannorHP24 / 24 Next turnBrannor"`;
+exports[`every system widget type has a body > initiative-tracker renders a body the DM can read 1`] = `"Round1TurnBrannorHit points24 / 24 Next turnBrannor"`;
 
 exports[`every system widget type has a body > map renders a body the DM can read 1`] = `"No map linked — choose a map to show its layers."`;
 
@@ -38,4 +38,4 @@ exports[`every system widget type has a body > session renders a body the DM can
 
 exports[`every system widget type has a body > timer renders a body the DM can read 1`] = `"1:00 Start"`;
 
-exports[`every system widget type has a body > tools renders a body the DM can read 1`] = `"Widgets7Layouts0Save a layout from the GM Screen toolbar to restore it later."`;
+exports[`every system widget type has a body > tools renders a body the DM can read 1`] = `"Widgets7Layouts0Save a layout from the DM screen toolbar to restore it later."`;

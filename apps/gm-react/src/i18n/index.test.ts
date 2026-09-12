@@ -90,6 +90,10 @@ describe('message catalogs', () => {
 		expect(catalogCoverage('es')).toBeGreaterThan(0.9);
 	});
 
+	it('includes Spanish for every key reviewed in the copy pass', () => {
+		expect(Object.keys(es).sort()).toEqual(Object.keys(en).sort());
+	});
+
 	// RC-UX-1.2's second acceptance criterion. Migrating a screen adds English keys, so this is the
 	// check that stops the Spanish catalog quietly falling behind as the app grows: a key added
 	// without a translation shows Spanish readers English, and enough of them makes the locale a

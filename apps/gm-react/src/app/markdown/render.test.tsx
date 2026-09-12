@@ -278,6 +278,6 @@ describe('RC-SES-2.2 renderer — inline rolls', () => {
 			(body.querySelector('button') as HTMLButtonElement).click();
 		});
 		const chip = body.querySelector('[role="status"]') as HTMLElement;
-		expect(chip.textContent).toContain('not a dice expression');
+		expect(chip.textContent).toContain('Enter a dice expression such as 3d6+2.');
 	});
 });

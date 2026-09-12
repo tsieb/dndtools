@@ -102,14 +102,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'section.sub.campaign': 'Tramas, facciones, PNJ y la cronología',
 	'section.sub.knowledge': 'Notas, documentos y texto para leer en voz alta',
 	'section.sub.scenes': 'Los lienzos donde juega tu mesa: créalos, edítalos y prepáralos',
-	'section.sub.graph': 'Cada entidad y conexión visible para tu rol actual',
-	'section.sub.audio': 'Pistas de la mesa de sonido, ambiente por capas y vínculos de escena',
+	'section.sub.graph': 'Explora las notas, los lugares y las conexiones que puedes ver',
+	'section.sub.audio': 'Pistas de sonido, ambiente por capas y audio vinculado a escenas',
 	'section.sub.extensibility':
 		'Complementos, el compendio, objetos personalizados y el módulo de reglas',
 	'section.sub.community': 'Explora módulos, exporta tu trabajo y publica la wiki de la campaña',
 	'section.sub.pricing':
 		'El juego local sigue siendo gratis. Los planes alojados están en vista previa sin cargo',
-	'section.sub.player': 'La segunda persona: tu propia hoja, recursos y diario',
+	'section.sub.player': 'Tu hoja, recursos y diario en la mesa',
 	'section.sub.settings': 'Apariencia, jugadores, permisos y sistemas',
 	'settings.title': 'Configuración',
 	'settings.appearance': 'Apariencia',
@@ -122,7 +122,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.vaultConnections': 'Conexiones de bóveda',
 	'settings.backupHistory': 'Copia de seguridad e historial',
 	'settings.aiTools': 'IA y herramientas',
-	'settings.profileUpdateFailed': 'No se pudo actualizar tu perfil.',
+	'settings.profileUpdateFailed': 'No se pudo actualizar tu perfil. Inténtalo de nuevo.',
 	'settings.players.none': 'Aún no se ha unido nadie.',
 	'settings.language.title': 'Idioma y región',
 	'settings.language.label': 'Idioma',
@@ -210,7 +210,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sceneDisplay.popupBlocked':
 		'Tu navegador bloqueó la ventana de pantalla — permite las ventanas emergentes de este sitio.',
 	'sceneDisplay.secondScreenUnavailable':
-		'La segunda pantalla no está disponible en este dispositivo',
+		'La segunda pantalla no está disponible en este dispositivo. Usa aquí la pantalla de escena.',
 	'sceneCards.atmosphere': 'Atmósfera',
 	'sceneCards.title': 'Cartas de escena',
 	'sceneCards.new': 'Nueva carta de escena',
@@ -239,20 +239,19 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sceneCards.queueEmpty':
 		'La cola está vacía. Añade cartas abajo y pulsa Siguiente carta (Ctrl+→) para reproducirlas en orden.',
 	'sceneCards.shortcuts': 'Ctrl+Shift+S pantalla completa · Ctrl+→ siguiente carta',
-	'sceneCards.secureImageRequired': 'Se requiere un enlace de imagen seguro',
+	'sceneCards.secureImageRequired': 'Usa un enlace de imagen https://',
 	'sceneCards.moveUp': 'Subir {title}',
 	'sceneCards.moveDown': 'Bajar {title}',
 	'sceneCards.removeFromQueue': 'Quitar {title} de la cola',
 	'sceneCards.queued': '{title} está en cola',
 	'sceneCards.queue': 'Poner {title} en cola',
-	'sceneCards.makeDmOnly': 'Hacer {title} solo para el DJ',
+	'sceneCards.makeDmOnly': 'Hacer {title} solo para el {gm}',
 	'sceneCards.makePlayerVisible': 'Hacer {title} visible para jugadores',
 	'sceneCards.edit': 'Editar {title}',
 	'sceneCards.delete': 'Eliminar {title}',
 	'sceneCards.deleted': '«{title}» eliminada',
-	'sceneCards.androidSecureLink':
-		'En Android, las imágenes de escena necesitan un enlace seguro https://.',
-	'sceneCards.androidHttpsOnly': 'En Android, los enlaces de imagen deben usar https://.',
+	'sceneCards.androidSecureLink': 'Usa un enlace de imagen https:// en Android.',
+	'sceneCards.androidHttpsOnly': 'Usa un enlace de imagen https:// en Android.',
 	'sceneCards.androidImageBroken':
 		'Este enlace de imagen no carga en Android. Reemplázalo por un enlace https:// o bórralo.',
 	'sceneCards.createFailed': 'La carta de escena no se pudo crear — inténtalo de nuevo.',
@@ -307,14 +306,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'onboarding.getStarted': 'Empezar',
 	'onboarding.continue': 'Continuar',
 	'onboarding.chooseToContinue': 'Elige una opción para continuar',
-	'onboarding.blockedNoPrivacy': 'Elige cómo guarda este baúl tu campaña para poder continuar',
+	'onboarding.blockedNoPrivacy': 'Elige cómo guarda esta bóveda tu campaña para poder continuar',
 	'onboarding.blockedNoAck': 'Escribe “{phrase}” exactamente para continuar',
-	'onboarding.clearingVault': 'Vaciando el baúl…',
+	'onboarding.clearingVault': 'Vaciando la bóveda…',
 	'onboarding.restoringSample': 'Restaurando el ejemplo…',
 	'onboarding.clearAndStartFresh': 'Borrar el ejemplo y empezar de cero',
-	'onboarding.enterCommandCenter': 'Entrar al Centro de mando',
+	'onboarding.enterCommandCenter': 'Entrar al Centro de comandos',
 	'onboarding.step.welcome': 'Bienvenida',
-	'onboarding.step.vault': 'Tu baúl',
+	'onboarding.step.vault': 'Tu bóveda',
 	'onboarding.step.privacy': 'Privacidad',
 	'onboarding.step.experience': 'Experiencia',
 	'onboarding.step.tools': 'Herramientas',
@@ -322,62 +321,60 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'onboarding.step.ready': 'Listo',
 	'onboarding.welcome.title': 'Dirige una mesa mejor.',
 	'onboarding.welcome.body':
-		'Lamplight es un centro de mando a la luz de las velas para el juego en vivo — combate, dados, mapas, constantes del grupo y lo que ven tus jugadores, todo en un mismo tablero espacial. Vamos a preparar el tuyo.',
+		'Dirige combates, tira dados, gestiona mapas y controla lo que ven los jugadores desde un mismo tablero. Configura tu mesa para empezar.',
 	'onboarding.welcome.anySystem': 'Cualquier sistema — D&D 5e, narrativo o el tuyo propio',
 	'onboarding.welcome.localFirst': 'Local primero; copia en la nube solo si tú lo eliges',
 	'onboarding.welcome.playerSafe': 'Seguro para jugadores desde el diseño',
-	'onboarding.vault.groupLabel': 'Elección de baúl',
+	'onboarding.vault.groupLabel': 'Elección de bóveda',
 	'onboarding.vault.title': '¿Dónde debe vivir tu mundo?',
 	'onboarding.vault.introEmpty':
-		'Tu baúl vive en este dispositivo — cada nota, mapa y personaje. Este dispositivo empezó de cero, así que el baúl está vacío por ahora.',
+		'Tu bóveda guarda la campaña en este dispositivo. Está vacía y lista para tus notas, mapas y personajes.',
 	'onboarding.vault.introSample':
-		'Tu baúl vive en este dispositivo — cada nota, mapa y personaje. La campaña de ejemplo ya está cargada, así que nada empieza vacío.',
+		'Tu bóveda guarda la campaña en este dispositivo. La campaña de ejemplo ya está cargada para que puedas explorarla.',
 	'onboarding.vault.loadSample': 'Cargar la campaña de ejemplo',
 	'onboarding.vault.keepSample': 'Conservar la campaña de ejemplo',
 	'onboarding.vault.sampleDescEmpty':
-		'Carga la mesa de ejemplo — escenas, grupo, mapas y notas — para que explores sin que nada empiece vacío. Todo se puede editar o eliminar después.',
+		'Carga escenas, un grupo, mapas y notas de ejemplo para explorar. Puedes editarlos o eliminarlos después.',
 	'onboarding.vault.sampleDescLoaded':
 		'Explora con una mesa ya montada: {scenes} escenas · {pcs} PJ · {npcs} PNJ · {maps, plural, one {# mapa} other {# mapas}} · {notes} notas. Todo se puede editar o eliminar después.',
 	'onboarding.vault.fresh': 'Empezar de cero',
 	'onboarding.vault.freshDescEmpty':
-		'Deja vacío el baúl de este dispositivo. Tu propia campaña desde una página en blanco.',
+		'Deja vacía la bóveda de este dispositivo, lista para tu campaña.',
 	'onboarding.vault.freshDescLoaded':
-		'Borra la campaña de ejemplo de este dispositivo y arranca un baúl vacío. Tu propia campaña desde una página en blanco.',
-	'onboarding.vault.importHint':
-		'Importar desde Obsidian, Google Docs o una exportación de Roll20 está en Ajustes → Conexiones del baúl.',
-	'onboarding.privacy.groupLabel': 'Modo de privacidad del baúl',
+		'Borra la campaña de ejemplo de este dispositivo y empieza la tuya en una bóveda vacía.',
+	'onboarding.vault.importHint': 'Importa archivos desde Configuración → Conexiones de bóveda.',
+	'onboarding.privacy.groupLabel': 'Modo de privacidad de la bóveda',
 	'onboarding.privacy.title': '¿Quién puede leer tu mundo?',
 	'onboarding.privacy.intro':
-		'Esto decide cómo se guarda tu campaña si algún día usas funciones en la nube. No hay valor por defecto — la elección es tuya y puedes cambiarla después en Ajustes → Sincronización.',
-	'onboarding.privacy.privateTitle': 'Baúl privado (cifrado de extremo a extremo)',
+		'Elige cómo se guardará tu campaña si usas funciones en la nube. No hay ninguna opción seleccionada. Puedes cambiarla después en Configuración → Copia de seguridad e historial.',
+	'onboarding.privacy.privateTitle': 'Bóveda privada (cifrado de extremo a extremo)',
 	'onboarding.privacy.privateDesc':
-		'Tu campaña se cifra en tus dispositivos antes de que nada salga de ellos, y solo tus dispositivos tienen las claves — el servicio nunca puede leerla. Las funciones que dependen del servidor (IA de campaña, búsqueda en la nube, abrir tu campaña desde cualquier navegador) no estarán disponibles para este baúl.',
-	'onboarding.privacy.cloudTitle': 'Baúl mejorado con la nube',
+		'Tu campaña se cifra antes de salir de tus dispositivos. Solo tus dispositivos tienen las claves, así que el servicio no puede leerla. La IA de campaña, la búsqueda en la nube y el acceso desde cualquier navegador no estarán disponibles en este modo.',
+	'onboarding.privacy.cloudTitle': 'Bóveda mejorada con la nube',
 	'onboarding.privacy.cloudDesc':
 		'Consentimiento para que el servicio lea tu campaña y ofrezca funciones de servidor: IA de campaña, búsqueda en la nube y acceso desde cualquier navegador. Esas funciones no están disponibles en esta edición: tus datos siguen cifrados de extremo a extremo y se te volverá a preguntar antes de que nada sea legible.',
 	'onboarding.privacy.noRecoveryTitle': 'Nadie puede recuperar esto por ti',
 	'onboarding.privacy.noRecoveryBody':
-		'Las copias en la nube de un baúl privado solo se pueden abrir con claves guardadas en tus dispositivos. Si pierdes todos tus dispositivos sin exportar una clave de recuperación (Ajustes → Sincronización), la copia en la nube se pierde para siempre — el servicio no puede restablecerla ni restaurarla.',
+		'Solo las claves de tus dispositivos pueden abrir la copia en la nube de una bóveda privada. Exporta una clave de recuperación en Configuración → Copia de seguridad e historial y guárdala bien. Si pierdes todos los dispositivos sin ese archivo, el servicio no puede recuperar tu copia en la nube.',
 	'onboarding.privacy.ackPrompt': 'Escribe {phrase} para confirmar que lo entiendes.',
 	'onboarding.privacy.ackFieldLabel': 'Escribe “{phrase}” para confirmar',
 	'onboarding.privacy.ackMismatch': 'Eso no coincide — escribe “{phrase}” exactamente.',
 	'onboarding.experience.groupLabel': 'Complejidad de la experiencia',
 	'onboarding.experience.title': '¿Cuánto quieres ver en pantalla?',
 	'onboarding.experience.intro':
-		'Puedes cambiarlo cuando quieras en Ajustes. Solo afecta a cuánto se muestra — nunca a lo que puedes hacer.',
+		'Elige cuántos controles quieres ver. Todas las funciones siguen disponibles y puedes cambiarlo cuando quieras en Configuración.',
 	'onboarding.experience.beginner': 'Principiante',
 	'onboarding.experience.beginnerBlurb':
 		'Solo lo esencial. Indicaciones guiadas, ajustes preestablecidos en vez de campos y paneles avanzados ocultos hasta que los pidas.',
 	'onboarding.experience.standard': 'Estándar',
-	'onboarding.experience.standardBlurb':
-		'El equipo completo de mesa con valores sensatos. Aquí vive la mayoría de DM.',
+	'onboarding.experience.standardBlurb': 'Todas las herramientas para dirigir tu mesa.',
 	'onboarding.experience.expert': 'Experto',
 	'onboarding.experience.expertBlurb':
 		'Todos los controles avanzados, automatización, permisos, extensiones y diagnósticos.',
 	'onboarding.tools.groupLabel': 'Herramientas opcionales',
 	'onboarding.tools.title': '¿Qué herramientas opcionales quieres?',
 	'onboarding.tools.intro':
-		'Elige qué pertenece a tu espacio de trabajo. Después solo podrás cambiarlo desde Ajustes.',
+		'Elige qué pertenece a tu espacio de trabajo. Después solo podrás cambiarlo desde Configuración.',
 	'onboarding.tools.completeTitle': 'Asistente y generadores',
 	'onboarding.tools.completeDesc':
 		'Muestra el asistente de campaña opcional y su configuración, junto a los generadores aleatorios integrados.',
@@ -387,10 +384,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'onboarding.tools.noneTitle': 'Ninguna',
 	'onboarding.tools.noneBadge': 'Privado por defecto',
 	'onboarding.tools.noneDesc':
-		'Mantén todas las herramientas de IA opcionales fuera de la vista. No aparece ninguna interfaz de proveedor ni de asistente fuera de Ajustes.',
+		'Mantén todas las herramientas de IA opcionales fuera de la vista. No aparece ninguna interfaz de proveedor ni de asistente fuera de Configuración.',
 	'onboarding.players.title': 'Trae a tu grupo.',
 	'onboarding.players.intro':
-		'Si quieres, anota quién está en tu mesa. Estos datos se quedan en este dispositivo; la configuración inicial no envía invitaciones.',
+		'Añade nombres o correos de jugadores si quieres llevar una lista del grupo. Estos datos se quedan en este dispositivo. La configuración no envía invitaciones.',
 	'onboarding.players.field': 'Nombre o correo del jugador',
 	'onboarding.players.savedOnDevice': 'Guardado en este dispositivo',
 	'onboarding.players.remove': 'Quitar a {name}',
@@ -398,9 +395,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Todavía no has anotado jugadores — no pasa nada; puedes empezar preparando en solitario.',
 	'onboarding.ready.title': 'Ya puedes dirigir.',
 	'onboarding.ready.intro':
-		'Tu lista de preparación de mesa, leída en vivo desde el baúl — salta a cualquier punto pendiente.',
+		'Consulta qué está listo en tu bóveda. Selecciona un punto pendiente para prepararlo.',
 	'onboarding.ready.freshWarning':
-		'Elegiste empezar de cero, así que terminar la configuración borra la campaña de ejemplo. Los puntos de abajo describen el baúl de ejemplo que estás a punto de reemplazar.',
+		'Elegiste empezar de cero, así que terminar la configuración borra la campaña de ejemplo. Los puntos de abajo describen la bóveda de ejemplo que estás a punto de reemplazar.',
 	'onboarding.ready.rowFresh':
 		'{label} — borrar la campaña de ejemplo, terminar la configuración y abrir {dest}',
 	'onboarding.ready.row': '{label} — terminar la configuración y abrir {dest}',
@@ -409,15 +406,15 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'onboarding.ready.mapInAtlas': 'Hay un mapa en el atlas',
 	'onboarding.ready.notesStarted': 'Notas de sesión empezadas',
 	'onboarding.ready.goLive': 'Entrar en vivo desde Sesión',
-	'onboarding.ready.tourBoardTitle': 'Este es tu Centro de mando',
+	'onboarding.ready.tourBoardTitle': 'Este es tu Centro de comandos',
 	'onboarding.ready.tourBoardBody':
 		'El tablero de widgets de juego en vivo — sesión, combate, dados, mapas. Todo lo que diriges en la mesa empieza aquí.',
 	'onboarding.ready.tourPaletteTitle': 'Pulsa ⌘K para ir a cualquier sitio',
 	'onboarding.ready.tourPaletteBody':
-		'Busca cualquier entidad de tu baúl — notas, mapas, documentos, tiradas — sin salir de la mesa.',
+		'Busca notas, mapas, documentos y tiradas en tu bóveda sin salir de la mesa.',
 	'onboarding.ready.tourPlayerSafeTitle': 'Seguro para jugadores desde el diseño',
 	'onboarding.ready.tourPlayerSafeBody':
-		'Previsualiza como cualquier jugador desde la barra superior. El contenido solo para el DM sigue oculto en la vista de ese jugador.',
+		'Previsualiza como cualquier jugador desde la barra superior. El contenido solo para el {gm} sigue oculto en la vista de ese jugador.',
 	'common.action.remove': 'Quitar',
 	'session.stage.title': 'Escenario',
 	'session.stage.noMaps': 'Aún no hay mapas — crea uno en el Atlas.',
@@ -425,7 +422,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.stage.activeMapHelp': 'Lo que preparas para la mesa.',
 	'session.stage.noneOption': '— ninguno —',
 	'session.stage.project': 'Proyectar a los jugadores',
-	'session.stage.previewGone': 'Ese mapa ya no está disponible.',
+	'session.stage.previewGone': 'Ese mapa ya no está disponible. Elige otro.',
 	'session.playerViews.title': 'Vistas de jugadores',
 	'session.playerViews.assignAria': 'Escena proyectada a {name}',
 	'session.dice.title': 'Dados',
@@ -467,8 +464,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.audio.stop': 'Detener',
 	'session.audio.volume': 'Volumen',
 	'session.date.title': 'Fecha de campaña',
-	'session.date.noCalendar':
-		'Esta campaña aún no tiene calendario, así que no hay fecha que fijar.',
+	'session.date.noCalendar': 'Crea un calendario de campaña antes de fijar una fecha.',
 	'session.date.none': 'Sin fecha',
 	'session.date.drives': '{calendar} · guía la cronología de la campaña',
 	'session.date.advance': '+1 día',
@@ -483,7 +479,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.combat.build': 'Montar el encuentro',
 	'session.combat.buildBlockedPreview':
 		'Sal de la vista previa de jugador para montar un encuentro',
-	'session.combat.buildBlockedNotDm': 'Solo el {gm} puede montar un encuentro',
+	'session.combat.buildBlockedNotDm': 'Pide a tu {gm} que prepare un encuentro.',
 	'session.combat.buildBlockedNotLive': 'Entra en vivo antes de montar un encuentro',
 	'session.combat.buildLabelPreview':
 		'Montar el encuentro (no disponible — sal primero de la vista previa de jugador)',
@@ -555,10 +551,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.combat.quickRef.action': 'Referencia rápida',
 	'session.combat.quickRef.title': 'Referencia rápida — {name}',
 	'session.combat.quickRef.help':
-		'El bloque de estadísticas del personaje vinculado, con los puntos de golpe en vivo de este combate.',
+		'El bloque de estadísticas del personaje vinculado, con sus puntos de golpe de este combate.',
 	'session.combat.quickRef.fromCharacter': 'De la hoja de personaje de {name}.',
 	'session.combat.quickRef.fromEncounter':
-		'De esta fila del encuentro. No hay personaje vinculado, así que solo se muestra lo que se introdujo aquí.',
+		'Solo se muestran los datos de este encuentro. No hay una hoja de personaje vinculada.',
 	'session.combat.quickRef.actions': 'Acciones ({count})',
 	'session.combat.addCondition': 'Añadir estado',
 	'session.combat.addConditionFor': 'Añadir estado — {name}',
@@ -653,13 +649,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Enviar la respuesta del gremio\nDar nombre al capitán del puerto',
 	'session.capture.followUpsHelp': 'Un pendiente por línea.',
 	'session.capture.willDate':
-		'Guarda una nota de registro de sesión solo para el DM, fechada en la cronología de la campaña.',
+		'Guarda una nota de registro de sesión solo para el {gm}, fechada en la cronología de la campaña.',
 	'session.capture.noCampaignDate':
-		'Guarda una nota de registro de sesión solo para el DM. Fija la fecha de campaña para situarla en la cronología.',
+		'Guarda una nota de registro de sesión solo para el {gm}. Fija la fecha de campaña para situarla en la cronología.',
 	'session.capture.save': 'Guardar el registro',
 	'session.capture.saved': 'Registro de sesión guardado',
 	'session.capture.noteFailed':
-		'El resumen se guardó, pero no se pudo crear la nota del registro de sesión.',
+		'El resumen se guardó, pero no se creó la nota del registro. Vuelve a guardar el registro de sesión.',
 	'session.capture.continuityTitle':
 		'{count, plural, one {# nombre mencionado sin notas} other {# nombres mencionados sin notas}}',
 	'session.capture.continuityName': '{name} — ¿crear?',
@@ -687,7 +683,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.schedule.title': 'Programar la próxima sesión',
 	'session.schedule.notConfigured':
 		'La programación con Google Calendar no está configurada en esta instalación. Una configuración única en Google Cloud la habilita — consulta la guía en {guide}.',
-	'session.schedule.eventSummary': 'D&D — sesión de juego',
+	'session.schedule.eventSummary': 'Lamplight — sesión de juego',
 	'session.schedule.scheduledWithInvites':
 		'Sesión programada — {count, plural, one {# invitación enviada} other {# invitaciones enviadas}}.',
 	'session.schedule.scheduled': 'Sesión programada en tu calendario.',
@@ -705,7 +701,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Las invitaciones van a {count, plural, one {# correo de la lista} other {# correos de la lista}}.',
 	'session.schedule.noRosterEmails':
 		'Aún no hay correos en la lista — el evento se crea solo en tu calendario.',
-	'session.schedule.metadataOnly': 'Solo el título, la hora y esta nota salen del baúl.',
+	'session.schedule.metadataOnly': 'Solo el título, la hora y esta nota salen de la bóveda.',
 	'session.schedule.scheduling': 'Programando…',
 	'session.schedule.create': 'Crear el evento de calendario',
 	'session.schedule.openInCalendar': 'Abrir en Google Calendar',
@@ -714,13 +710,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.header.phaseLabel': 'Fase de la sesión',
 	'session.header.blockedPreview':
 		'Sal de la vista previa de jugador para cambiar la fase de la sesión.',
-	'session.header.blockedNotDm': 'Solo el {gm} puede cambiar la fase de la sesión.',
+	'session.header.blockedNotDm': 'Pide a tu {gm} que cambie la fase de la sesión.',
 	'session.header.playersSee': 'Los jugadores ven {scene}',
 	'session.header.theScene': 'la escena',
-	'session.phase.standbyReason': 'En espera no está disponible desde aquí.',
+	'session.phase.standbyReason': 'Termina la sesión en vivo para volver a En espera.',
 	'session.phase.prepReason': 'Vuelve a En espera antes de regresar a Preparación.',
 	'session.phase.liveReason': 'Vuelve a En espera antes de entrar en vivo otra vez.',
-	'session.phase.recapReason': 'Resumen solo está disponible mientras la sesión está en vivo.',
+	'session.phase.recapReason': 'Inicia una sesión en vivo y luego termínala con Resumen.',
 	'session.endCombat.title': '¿Terminar este combate?',
 	'session.endCombat.body':
 		'La ronda {round} y el orden de iniciativa se descartan, junto con los PG actuales y los estados de cada combatiente. No hay deshacer — tendrías que volver a montar el encuentro desde tu lista.',
@@ -735,8 +731,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.nav.subscription': 'Suscripción',
 	'settings.nav.players': 'Jugadores',
 	'settings.nav.permissions': 'Permisos',
-	'settings.nav.vault': 'Conexiones del baúl',
-	'settings.nav.sync': 'Copias e historial',
+	'settings.nav.vault': 'Conexiones de bóveda',
+	'settings.nav.sync': 'Copia de seguridad e historial',
 	'settings.nav.tools': 'Preferencias de herramientas',
 	'settings.nav.ai': 'IA y herramientas',
 	'settings.nav.plugins': 'Complementos',
@@ -786,8 +782,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.experience.beginnerBlurb':
 		'Solo lo esencial. Los paneles avanzados siguen ocultos hasta que los pidas.',
 	'settings.experience.standard': 'Estándar',
-	'settings.experience.standardBlurb':
-		'El equipo completo de mesa con valores sensatos. Aquí vive la mayoría de DM.',
+	'settings.experience.standardBlurb': 'Todas las herramientas para dirigir tu mesa.',
 	'settings.experience.expert': 'Experto',
 	'settings.experience.expertBlurb':
 		'Todo activo, nada oculto — concesiones de permisos, complementos, sistemas y diagnósticos.',
@@ -800,9 +795,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Desactiva la animación de la interfaz sin quitar ninguna acción.',
 	'settings.a11y.highContrast': 'Tema de alto contraste',
 	'settings.a11y.highContrastHelp':
-		'Cambia al tema del mínimo de accesibilidad; al desactivarlo se restaura el tema que usabas.',
+		'Activa el alto contraste. Al desactivarlo, vuelve tu tema anterior.',
 	'settings.a11y.shortcuts': 'Atajos de teclado',
-	'settings.a11y.shortcutPalette': 'Abrir la paleta de comandos — busca en todo el baúl',
+	'settings.a11y.shortcutPalette': 'Abrir la paleta de comandos — busca en toda la bóveda',
 	'settings.a11y.shortcutTab': 'Mover el foco; la primera pulsación revela “Saltar al contenido”',
 	'settings.a11y.shortcutArrows':
 		'Moverse entre los widgets del lienzo; mover el widget seleccionado durante la edición',
@@ -823,19 +818,19 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'shortcuts.action.canvasUndoRedo': 'Deshacer o rehacer el último cambio del lienzo',
 	'settings.a11y.safetyChecks': 'Comprobaciones de seguridad para jugadores',
 	'settings.a11y.safetyIntro':
-		'Estas comprobaciones usan las mismas vistas que reciben tus jugadores y confirman que el contenido solo para el DM sigue oculto.',
+		'Estas comprobaciones usan las mismas vistas que reciben tus jugadores y confirman que el contenido solo para el {gm} sigue oculto.',
 	'settings.a11y.checkScenesUnknown':
-		'Escenas solo para el DM: añade un jugador para ejecutar esta comprobación',
+		'Escenas solo para el {gm}: añade un jugador para ejecutar esta comprobación',
 	'settings.a11y.checkScenesOk':
-		'Las escenas solo para el DM están ocultas para los {count} jugadores',
+		'Las escenas solo para el {gm} están ocultas para los {count} jugadores',
 	'settings.a11y.checkContentUnknown':
-		'Notas y documentos solo para el DM: añade un jugador para ejecutar esta comprobación',
+		'Notas y documentos solo para el {gm}: añade un jugador para ejecutar esta comprobación',
 	'settings.a11y.checkContentOk':
-		'Las notas y documentos solo para el DM están ocultos en todas las vistas de jugador',
+		'Las notas y documentos solo para el {gm} están ocultos en todas las vistas de jugador',
 	'settings.a11y.checkPreview':
 		'La vista previa de jugador es de solo lectura, así que se bloquean los cambios en la campaña',
 	'settings.about.title': 'Acerca de',
-	'settings.about.denied': 'El diagnóstico solo es visible para el DM',
+	'settings.about.denied': 'El diagnóstico es solo para {gm}. Pide a tu {gm} que lo abra.',
 	'settings.about.health.healthy': 'Saludable',
 	'settings.about.health.degraded': 'Degradado',
 	'settings.about.health.unhealthy': 'No saludable',
@@ -874,7 +869,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.about.exportButton': 'Descargar paquete de diagnóstico',
 	'settings.about.exportFileTitle': 'Guardar paquete de diagnóstico',
 	'settings.about.exported': 'Paquete de diagnóstico descargado',
-	'settings.about.exportFailed': 'No se pudo exportar el paquete de diagnóstico',
+	'settings.about.exportFailed':
+		'No se pudo exportar el paquete de diagnóstico. Inténtalo de nuevo.',
 	'settings.updates.title': 'Actualizaciones de la aplicación',
 	'settings.updates.body':
 		'Lamplight consulta GitHub Releases para buscar una versión firmada. Nada se descarga ni se instala hasta que lo pidas.',
@@ -899,7 +895,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'La versión {version} está lista para descargar. El paquete se verifica antes de poder instalarse.',
 	'settings.updates.downloadedBody':
 		'La versión {version} está verificada y esperando. Reinicia cuando tu mesa esté entre escenas.',
-	'settings.updates.unsupportedBody': 'Esta versión no se actualiza sola.',
+	'settings.updates.unsupportedBody':
+		'Esta versión no se actualiza sola. Descarga una versión más reciente desde la página de versiones de Lamplight.',
 	'settings.players.title': 'Jugadores',
 	'settings.players.invite': 'Invitar a un jugador',
 	'settings.players.inviteUnavailable':
@@ -908,25 +905,25 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'{count, plural, one {# persona} other {# personas}} en esta campaña. Cada persona solo ve las escenas y herramientas que permite su rol.',
 	'settings.players.coDmSeatsUsed': '{used} de {total}',
 	'settings.players.coDmSeats':
-		'Plazas de Co-DM: {seats} en uso. Un Co-DM ve tu contenido solo para el DM y puede dirigir la mesa, pero nunca gestiona roles, concesiones, invitaciones ni el baúl.',
-	'settings.players.noCoDmSeats': 'Tu plan no tiene plazas de Co-DM.',
+		'Plazas de Co-{gm}: {seats} en uso. Un Co-{gm} ve tu contenido solo para el {gm} y puede dirigir la mesa, pero nunca gestiona roles, concesiones, invitaciones ni la bóveda.',
+	'settings.players.noCoDmSeats': 'Tu plan no tiene plazas de Co-{gm}.',
 	'settings.players.tryPlanPreview':
 		'Puedes probar la vista previa de Lantern o Beacon sin coste para ascender a un jugador de confianza.',
 	'settings.players.planChangesUnavailable':
 		'Los cambios de plan no están disponibles en esta versión.',
-	'settings.players.role.dm': 'Director de juego',
-	'settings.players.role.coDm': 'Co-DM',
+	'settings.players.role.dm': '{gm}',
+	'settings.players.role.coDm': 'Co-{gm}',
 	'settings.players.role.player': 'Jugador',
 	'settings.players.role.observer': 'Observador',
 	'settings.players.roleChanged': '{name} ahora es {role}.',
-	'settings.players.roleChangeFailed': 'No se pudo cambiar ese rol.',
+	'settings.players.roleChangeFailed': 'No se pudo cambiar ese rol. Inténtalo de nuevo.',
 	'settings.players.roleFor': 'Rol de {name}',
-	'settings.players.coDmOption': 'Co-DM ({used}/{total})',
-	'settings.players.coDmNoSeats': 'Co-DM (sin plazas)',
+	'settings.players.coDmOption': 'Co-{gm} ({used}/{total})',
+	'settings.players.coDmNoSeats': 'Co-{gm} (sin plazas)',
 	'settings.players.rename': 'Renombrar a {name}',
 	'settings.players.renameFor': 'Nuevo nombre para {name}',
 	'settings.players.renamed': 'Renombrado a {name}.',
-	'settings.players.renameFailed': 'No se pudo renombrar a ese participante.',
+	'settings.players.renameFailed': 'No se pudo renombrar a ese participante. Inténtalo de nuevo.',
 	'settings.players.yourNameHint': 'Este eres tú: pulsa el lápiz para poner tu nombre.',
 	'settings.tools.title': 'Preferencias de herramientas',
 	'settings.tools.intro':
@@ -940,20 +937,20 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Conserva los generadores integrados sin conexión. El asistente y los controles de modelo quedan ocultos.',
 	'settings.tools.noneTitle': 'Ninguna',
 	'settings.tools.noneDesc':
-		'Oculta y bloquea todas las herramientas de IA opcionales. Solo este control de Ajustes puede volver a activarlas.',
+		'Oculta y bloquea todas las herramientas de IA opcionales. Solo este control de Configuración puede volver a activarlas.',
 	'settings.tools.completeToast':
-		'Asistente activado. IA y herramientas ya está disponible en Ajustes.',
+		'Asistente activado. IA y herramientas ya está disponible en Configuración.',
 	'settings.tools.generatorsToast':
 		'La generación aleatoria sigue disponible. Las herramientas de IA quedan ocultas y bloqueadas.',
 	'settings.tools.noneToast': 'Las herramientas de IA quedan ocultas y bloqueadas.',
 	'settings.plugins.title': 'Complementos',
 	'settings.plugins.body':
-		'Los paquetes de widgets instalados — sus capacidades, la revisión de permisos del anfitrión y su activación — se gestionan en {extensions}, respaldados por el registro de widgets en vivo.',
+		'Gestiona los paquetes de widgets instalados en {extensions}. Revisa sus permisos y elige cuáles activar.',
 	'settings.plugins.extensions': 'Extensiones',
 	'settings.openExtensions': 'Abrir Extensiones',
 	'settings.systems.title': 'Extensiones y sistemas',
 	'settings.systems.body':
-		'Cambiar el sistema de reglas de la campaña — incluida la simulación de migración no destructiva que antes debe salir limpia — está en {location}, respaldado por el registro de extensiones en vivo y la misma comprobación de migración segura que usa toda la app.',
+		'Cambia el sistema de reglas de la campaña en {location}. Lamplight comprueba el cambio antes de modificar tu campaña y lo bloquea si encuentra un problema.',
 	'settings.systems.location': 'Extensiones → Sistema',
 	'shell.search': 'Buscar',
 	'shell.searchShortcut': 'Buscar (⌘K)',
@@ -971,7 +968,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'shell.countNotes': '{count, plural, one {# nota} other {# notas}}',
 	'shell.navPrimary': 'Principal',
 	'shell.navShortcuts': 'Atajos',
-	'shell.navSettings': 'Ajustes',
+	'shell.navSettings': 'Configuración',
 	'shell.groupRunTable': 'Dirigir la mesa',
 	'shell.groupScenes': 'Escenas',
 	'shell.groupLibrary': 'Biblioteca',
@@ -1014,11 +1011,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'shell.noScenes': 'Aún no hay escenas.',
 	'shell.showFewer': 'Mostrar menos',
 	'shell.allScenes': 'Todas las escenas ({count})',
-	'shell.accountOpen': 'Tu asiento: abre Ajustes › Jugadores para cambiar tu nombre',
+	'shell.accountOpen': 'Tu asiento: abre Configuración › Jugadores para cambiar tu nombre',
 	'shell.accountLabel': '{name} · {presence} · abrir ajustes de jugadores',
 	'shell.breadcrumb': 'Ruta de navegación',
 	'shell.help': 'Ayuda',
-	'viewAs.dmView': 'Vista del DM',
+	'viewAs.dmView': 'Vista del {gm}',
 	'viewAs.label': 'Ver como',
 	'viewAs.trigger': 'Previsualizar como otro rol',
 	'viewAs.previewingAs': 'Previsualizando como {label}',
@@ -1027,10 +1024,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'viewAs.anyPlayer': 'Cualquier jugador',
 	'viewAs.player': 'Jugador',
 	'viewAs.observer': 'Observador',
-	'viewAs.coDm': 'Co-DM',
+	'viewAs.coDm': 'Co-{gm}',
 	'viewAs.specificPlayers': 'Jugadores concretos',
 	'viewAs.enteredToast': 'Previsualizando como {label} · los cambios son de solo lectura',
-	'viewAs.exitedToast': 'De vuelta a tu vista del DM',
+	'viewAs.exitedToast': 'De vuelta a tu vista del {gm}',
 	'viewAs.sceneTrigger': 'Previsualizar esta escena como otro rol',
 	'viewAs.sceneLabel': 'Vista de jugador',
 	'viewAs.scenePreviewing': 'Vista previa de la escena como {label} — cambiar de rol',
@@ -1061,8 +1058,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'palette.canvas.undoKeywords': 'deshacer revertir último cambio diseño mosaico',
 	'palette.canvas.undoBlocked': 'Aún no hay nada que deshacer.',
 	'palette.toast.ran': '{title}: listo.',
-	'palette.toast.rejected': 'Esa acción no se pudo aplicar.',
-	'palette.toast.notSaved': 'Ese cambio no se pudo guardar en este dispositivo.',
+	'palette.toast.rejected':
+		'No se pudo aplicar esa acción. Abre su pantalla para comprobar qué falta.',
+	'palette.toast.notSaved':
+		'No se pudo guardar ese cambio en este dispositivo. Comprueba el espacio libre e inténtalo de nuevo.',
 	'palette.kind.note': 'Nota',
 	'palette.kind.storyEntry': 'Entrada de la historia',
 	'palette.kind.poi': 'Punto de interés',
@@ -1098,8 +1097,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.nav.lockedLabel': '{section} — requiere la plaza de {tier}',
 	'play.nav.lockedTitle': '{section} requiere {tier}',
 	'play.nav.lockedSeatToast':
-		'{section} necesita la plaza de {tier} — pide a tu DM que te ascienda',
-	'play.nav.lockedPermissionToast': '{section} necesita permiso de {tier}',
+		'{section} necesita la plaza de {tier} — pide a tu {gm} que te ascienda',
+	'play.nav.lockedPermissionToast': '{section} necesita permiso de {tier}. Pide acceso a tu {gm}.',
 	'play.brand': 'Vista de jugador',
 	'play.sessionLive': 'Sesión en vivo',
 	'play.standby': 'En espera',
@@ -1108,16 +1107,17 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.tier.observerBlurb': 'Puedes ver lo que ve la mesa y leer los documentos compartidos.',
 	'play.tier.player': 'Jugador',
 	'play.tier.playerRole': 'Tu propio personaje',
-	'play.tier.playerBlurb': 'Lleva tu hoja, tira tus dados y lee lo que el DM comparte con la mesa.',
-	'play.tier.codm': 'Co-DM',
+	'play.tier.playerBlurb':
+		'Lleva tu hoja, tira tus dados y lee lo que el {gm} comparte con la mesa.',
+	'play.tier.codm': 'Co-{gm}',
 	'play.tier.codmRole': 'Herramientas elevadas de mesa',
 	'play.tier.codmBlurb':
-		'Herramientas de DM concedidas — el Atlas revelado, el bestiario y el asistente de combate en vivo.',
+		'Herramientas de {gm} concedidas — el Atlas revelado, el bestiario y el asistente de combate en vivo.',
 	'play.locked.note':
-		'{what} es una herramienta de {coDm}. Tu plaza no es de Co-DM — pide a tu DM que te ascienda a Co-DM (hace falta un plan con plazas de Co-DM) para desbloquearla.',
-	'play.locked.coDm': 'Co-DM',
-	'play.locked.sub': 'Una herramienta de Co-DM — disponible en una plaza de Co-DM',
-	'play.locked.badge': 'Herramienta de Co-DM',
+		'{what} es una herramienta de {coDm}. Tu plaza no es de Co-{gm} — pide a tu {gm} que te ascienda a Co-{gm} (hace falta un plan con plazas de Co-{gm}) para desbloquearla.',
+	'play.locked.coDm': 'Co-{gm}',
+	'play.locked.sub': 'Una herramienta de Co-{gm} — disponible en una plaza de Co-{gm}',
+	'play.locked.badge': 'Herramienta de Co-{gm}',
 	'play.ability.str': 'Fuerza',
 	'play.ability.dex': 'Destreza',
 	'play.ability.con': 'Constitución',
@@ -1127,7 +1127,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.kind.npc': 'PNJ',
 	'play.kind.character': 'Personaje',
 	'play.kind.monster': 'Monstruo',
-	'play.stage.sub': 'Esperando a que tu DM empiece la sesión',
+	'play.stage.sub': 'Esperando a que tu {gm} empiece la sesión',
 	'play.stage.subLive': 'La sesión está en vivo',
 	'play.stage.subScene': '{scene} · proyectado desde la mesa',
 	'play.stage.nowOnScene': '{mood} · Escena actual',
@@ -1135,11 +1135,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.stage.whatTheTableSees': 'Lo que ve la mesa',
 	'play.stage.map': 'Mapa: {name}',
 	'play.stage.mapOverlay':
-		'{name}: {fog} zonas ocultas, {markers} marcadores, {tokens} fichas, tal como lo proyecta tu DM',
-	'play.stage.projectedByDm': 'Proyectado a tu vista por el DM',
+		'{name}: {fog} zonas ocultas, {markers} marcadores, {tokens} fichas, tal como lo proyecta tu {gm}',
+	'play.stage.projectedByDm': 'Proyectado a tu vista por el {gm}',
 	'play.stage.nothingShown': 'Todavía no se muestra nada.',
 	'play.stage.watching': 'Observando la mesa',
-	'play.stage.dmControls': 'Tu DM controla lo que se revela.',
+	'play.stage.dmControls': 'Tu {gm} controla lo que se revela.',
 	'play.stage.thisTurn': 'Este turno',
 	'play.stage.round': 'Ronda {round}',
 	'play.stage.activeCombatant': 'Activo: {name}',
@@ -1159,14 +1159,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.initiative.declined': 'La mesa no aceptó la tirada.',
 	'play.stage.nothingShared': 'Todavía no se ha compartido nada contigo.',
 	'play.sheet.title': 'Mi personaje',
-	'play.sheet.unassigned': 'Todavía no se te ha asignado ningún personaje.',
+	'play.sheet.unassigned': 'Pide a tu {gm} que te asigne un personaje.',
 	'play.sheet.adventurer': 'Aventurero',
 	'play.sheet.pc': 'PJ',
 	'play.sheet.characterLevel': ' · Nivel {level}',
-	'play.sheet.hitPoints': 'Puntos de golpe',
+	'play.sheet.hitPoints': '{hitPoints}',
 	'play.sheet.armorClass': 'CA',
-	'play.sheet.spellSlots': 'Espacios de conjuro',
-	'play.sheet.noSpellSlots': 'No se registran espacios de conjuro.',
+	'play.sheet.spellSlots': 'Espacios de {spell}',
+	'play.sheet.noSpellSlots': 'No se registran espacios de {spellLower}.',
 	'play.sheet.slotLevel': 'Nivel {level}',
 	'play.sheet.conditions': 'Estados y situación',
 	'play.sheet.conditionsHelp':
@@ -1175,7 +1175,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.dice.sub':
 		'Las tiradas se registran en el registro de sesión compartido de la mesa, a tu nombre',
 	'play.dice.needsSession':
-		'Para tirar hace falta una sesión en vivo — los dados se desbloquean cuando tu DM empiece una.',
+		'Para tirar hace falta una sesión en vivo — los dados se desbloquean cuando tu {gm} empiece una.',
 	'play.dice.roll': 'Tirar',
 	'play.dice.d20Mode': 'Modo de d20',
 	'play.dice.normal': 'Normal',
@@ -1192,7 +1192,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.dice.logFillsUp': 'El registro compartido de tiradas se llena durante una sesión en vivo.',
 	'play.dice.you': 'Tú',
 	'play.party.title': 'Grupo',
-	'play.party.sub': 'Constantes en vivo según las comparte el DM',
+	'play.party.sub': 'Constantes en vivo según las comparte el {gm}',
 	'play.party.members': '{count, plural, one {# miembro} other {# miembros}}',
 	'play.party.roster': 'Lista',
 	'play.party.empty': 'Todavía no puedes ver a ningún miembro del grupo.',
@@ -1206,20 +1206,20 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.party.concCheck': 'Prueba de concentración, CD {dc}',
 	'play.party.deathSaves': 'Salvaciones de muerte: {successes}/3 superadas, {failures}/3 falladas',
 	'play.party.stable': 'Estable',
-	'play.party.slotsSummary': '{available} de {max} espacios de conjuro',
-	'play.party.slotsShow': 'Mostrar los espacios de conjuro de {name}',
-	'play.party.slotsHide': 'Ocultar los espacios de conjuro de {name}',
+	'play.party.slotsSummary': '{available} de {max} espacios de {spellLower}',
+	'play.party.slotsShow': 'Mostrar los espacios de {spellLower} de {name}',
+	'play.party.slotsHide': 'Ocultar los espacios de {spellLower} de {name}',
 	'play.party.slotLevel': 'Nivel {level}: {available}/{max}',
 	'play.party.orderPosition': 'Marcha n.º {position}',
 	'play.handouts.title': 'Documentos',
-	'play.handouts.sub': 'Notas y objetos que tu DM te ha revelado',
+	'play.handouts.sub': 'Notas y objetos que tu {gm} te ha revelado',
 	'play.handouts.shared': '{count} compartidos',
-	'play.handouts.empty': 'Tu DM todavía no ha compartido ningún documento contigo.',
+	'play.handouts.empty': 'Tu {gm} todavía no ha compartido ningún documento contigo.',
 	'play.handouts.updated': 'Actualizado {date}',
 	'play.journal.title': 'Diario',
-	'play.journal.sub': 'Entradas que el DM ha compartido contigo',
+	'play.journal.sub': 'Entradas que el {gm} ha compartido contigo',
 	'play.journal.privateNote':
-		'Las entradas compartidas vienen de tu DM. Tus notas privadas están más abajo y se quedan en este dispositivo.',
+		'Las entradas compartidas vienen de tu {gm}. Tus notas privadas están más abajo y se quedan en este dispositivo.',
 	'play.journal.sharedEntries': 'Entradas compartidas ({count})',
 	'play.journal.empty': 'No se ha compartido contigo ninguna entrada del diario.',
 	'play.journal.sceneHistory': 'Historial de escenas ({count})',
@@ -1227,9 +1227,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	// RC-CHR-4.1 — diario privado del jugador (solo en este dispositivo; el DM nunca lo ve).
 	'play.journal.private.heading': 'Solo tú',
 	'play.journal.private.sub':
-		'Todo lo de abajo se queda en este dispositivo. No se comparte, no se respalda en la mesa y el DM no puede leerlo.',
+		'Todo lo de abajo se queda en este dispositivo. No se comparte, no se respalda en la mesa y el {gm} no puede leerlo.',
 	'play.journal.private.locked':
-		'Las notas privadas se abren cuando el DM asigne un personaje a tu puesto.',
+		'Pide a tu {gm} que te asigne un personaje para usar notas privadas.',
 	'play.journal.private.notes': 'Notas privadas ({count})',
 	'play.journal.private.notesEmpty':
 		'Anota lo que tu personaje piensa de verdad. Solo tú lo leerás.',
@@ -1241,7 +1241,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.journal.private.deleteNote': 'Eliminar la nota: {title}',
 	'play.journal.private.bookmarks': 'Marcadores ({count})',
 	'play.journal.private.bookmarksEmpty':
-		'Marca algo que el DM haya compartido para guardar tu propia anotación al lado.',
+		'Marca algo que el {gm} haya compartido para guardar tu propia anotación al lado.',
 	'play.journal.private.bookmarkTarget': 'Qué marcar',
 	'play.journal.private.annotation': 'Tu anotación',
 	'play.journal.private.saveBookmark': 'Guardar marcador',
@@ -1249,19 +1249,20 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.journal.private.noTargets': 'Todavía no se ha compartido nada contigo para marcar.',
 	'play.journal.private.impressions': 'Impresiones de PNJ ({count})',
 	'play.journal.private.impressionsEmpty':
-		'Registra lo que tu personaje opina de alguien y luego decide si el DM llega a verlo.',
+		'Registra lo que tu personaje opina de alguien y luego decide si el {gm} llega a verlo.',
 	'play.journal.private.impressionWho': 'Quién',
 	'play.journal.private.impressionNote': 'Dónde lo conociste',
 	'play.journal.private.impressionNoteNone': 'No viene de una nota compartida',
 	'play.journal.private.impressionBody': 'Lo que tu personaje opina de esa persona',
 	'play.journal.private.saveImpression': 'Guardar impresión',
 	'play.journal.private.deleteImpression': 'Eliminar la impresión sobre {name}',
-	'play.journal.private.share': 'Compartir con el DM',
-	'play.journal.private.shareOne': 'Compartir con el DM tu impresión sobre {name}',
+	'play.journal.private.share': 'Compartir con el {gm}',
+	'play.journal.private.shareOne': 'Compartir con el {gm} tu impresión sobre {name}',
 	'play.journal.private.shareSent':
-		'El DM ya tiene tu impresión sobre {name}. Lo demás sigue siendo privado.',
-	'play.journal.private.shareDeclined': 'La mesa rechazó el envío: {reason}',
-	'play.journal.private.sharedBadge': 'Compartido con el DM',
+		'El {gm} ya tiene tu impresión sobre {name}. Lo demás sigue siendo privado.',
+	'play.journal.private.shareDeclined':
+		'Tu impresión no se compartió: {reason} Pide a tu {gm} que revise el acceso antes de volver a compartirla.',
+	'play.journal.private.sharedBadge': 'Compartido con el {gm}',
 	'play.journal.private.rewritten':
 		'Lo editaste después de compartirlo. Compártelo otra vez para enviar el texto nuevo.',
 	'play.journal.private.cancel': 'Cancelar',
@@ -1277,11 +1278,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.inbox.untitledSession': 'Resumen de sesión',
 	'play.inbox.archivedOn': 'Archivado el {date}',
 	'play.atlas.title': 'Mapas y escenas',
-	'play.atlas.sub': 'El atlas completo — incluidas las escenas que tu DM oculta a la mesa',
+	'play.atlas.sub': 'El atlas completo — incluidas las escenas que tu {gm} oculta a la mesa',
 	'play.atlas.count': '{count, plural, one {# escena} other {# escenas}}',
 	'play.atlas.empty': 'Todavía no se ha creado ninguna escena en esta campaña.',
 	'play.bestiary.title': 'Bestiario',
-	'play.bestiary.sub': 'PNJ y monstruos que ha creado tu DM — ocultos a los jugadores',
+	'play.bestiary.sub': 'PNJ y monstruos que ha creado tu {gm} — ocultos a los jugadores',
 	'play.bestiary.empty': 'Todavía no se ha creado ningún PNJ ni monstruo.',
 	'play.bestiary.stats': 'PG {hp}/{maxHp} · CA {ac}',
 	'play.assist.title': 'Asistente de combate',
@@ -1290,7 +1291,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.assist.round': 'Ronda {round}',
 	'play.assist.noCombatBadge': 'Sin combate',
 	'play.assist.empty':
-		'No hay combate en curso. Cuando el DM empiece un encuentro aparecerá aquí el orden completo.',
+		'No hay combate en curso. Cuando el {gm} empiece un encuentro aparecerá aquí el orden completo.',
 	'play.assist.initiativeOrder': 'Orden de iniciativa',
 	'play.assist.hidden': 'Oculto',
 	'play.assist.active': 'Activo',
@@ -1301,23 +1302,24 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.account.loadFailed':
 		'No se pudo cargar tu perfil: comprueba la conexión e inténtalo de nuevo.',
 	'settings.account.displayName': 'Nombre visible',
-	'settings.account.nameLength': 'El nombre visible debe tener entre 1 y 60 caracteres.',
+	'settings.account.nameLength': 'Escribe un nombre visible de entre 1 y 60 caracteres.',
 	'settings.account.nameUpdated': 'Nombre visible actualizado.',
 	'settings.account.memberSince': 'Miembro desde {date}',
 	'settings.account.dangerZone': 'Zona de riesgo',
 	'settings.account.dangerHeading': 'Descarga o elimina tu cuenta en línea',
 	'settings.account.dangerBody':
-		'El registro de la cuenta incluye tu perfil, el plan de vista previa, las invitaciones y los metadatos de los módulos y wikis publicados. No puede incluir el contenido cifrado de las campañas; descarga aparte una copia local del baúl. Eliminar la cuenta nunca elimina las campañas guardadas en este dispositivo.',
+		'La descarga de la cuenta incluye tu perfil, el plan de prueba, las invitaciones y los detalles de módulos y wikis publicados. No incluye el contenido cifrado de las campañas. Descarga una copia local de la bóveda por separado. Eliminar tu cuenta conserva las campañas de este dispositivo.',
 	'settings.account.download': 'Descargar registro de la cuenta',
 	'settings.account.exportFileTitle': 'Exportar los datos de la cuenta de Lamplight',
 	'settings.account.exported': 'Registro de la cuenta en línea exportado.',
-	'settings.account.exportFailed': 'No se pudo exportar el registro de tu cuenta.',
+	'settings.account.exportFailed':
+		'No se pudo exportar el registro de tu cuenta. Inténtalo de nuevo.',
 	'settings.account.delete': 'Eliminar cuenta',
 	'settings.account.deleteDialogTitle': '¿Eliminar esta cuenta?',
 	'settings.account.deleteDialogDescription':
 		'Permanente: se eliminan la copia cifrada en la nube, las invitaciones, el contenido publicado, los datos del plan y el inicio de sesión.',
 	'settings.account.deleteBody':
-		'Las campañas de este dispositivo no se tocan. El servicio bloquea primero la cuenta y elimina la copia cifrada en la nube; solo cuando esa purga se confirma elimina los datos de la cuenta y el inicio de sesión. Si algún paso no se puede confirmar, la eliminación se detiene para que puedas reintentarlo sin riesgo. Esto no se puede deshacer. Escribe {phrase} para confirmar.',
+		'Las campañas de este dispositivo se conservan. El servicio bloquea tu cuenta, elimina su copia cifrada en la nube y después borra los datos de la cuenta y el acceso. Cada paso debe confirmarse antes de empezar el siguiente. Si un paso falla, la eliminación se detiene para que puedas reintentarlo. Esto no se puede deshacer. Escribe {phrase} para confirmar.',
 	'settings.account.deletePhrase': 'eliminar mi cuenta',
 	'settings.account.deletePhraseLabel': 'Escribe «{phrase}» para confirmar',
 	'settings.account.deleting': 'Eliminando…',
@@ -1328,8 +1330,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.account.deletedWithWarnings':
 		'Tu cuenta en línea se eliminó, pero {warnings}. Cierra y vuelve a abrir la aplicación para reintentar la eliminación de claves pendiente. Si el aviso vuelve a aparecer, elimina la credencial guardada de Lamplight con el gestor de credenciales de tu sistema operativo.',
 	'settings.account.deleted':
-		'Tu cuenta se ha eliminado. Los baúles locales permanecen en este dispositivo.',
-	'settings.account.deleteFailed': 'No se pudo eliminar tu cuenta.',
+		'Tu cuenta se ha eliminado. Las bóvedas locales permanecen en este dispositivo.',
+	'settings.account.deleteFailed': 'No se pudo eliminar tu cuenta. Inténtalo de nuevo.',
 	'settings.account.localOnly': 'Edición local',
 	'settings.account.localOnlyBody':
 		'Los servicios de gestión de cuentas no están disponibles en esta edición. Tus campañas y las herramientas básicas de mesa siguen guardadas localmente en este dispositivo.',
@@ -1356,7 +1358,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.devices.lastSeen': 'Visto por última vez {when}',
 	'settings.devices.lastSeenUnknown': 'Visto por última vez: se desconoce',
 	'settings.devices.loading': 'Cargando dispositivos',
-	'settings.devices.loadFailed': 'No se pudieron cargar tus dispositivos.',
+	'settings.devices.loadFailed': 'No se pudieron cargar tus dispositivos. Inténtalo de nuevo.',
 	'settings.devices.emptyTitle': 'Todavía no hay dispositivos recordados',
 	'settings.devices.emptyBody': 'Los dispositivos aparecen aquí después de iniciar sesión.',
 	'settings.devices.forget': 'Olvidar',
@@ -1369,17 +1371,18 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.devices.forgetDevice': 'Olvidar dispositivo',
 	'settings.devices.forgotten':
 		'Dispositivo olvidado. Una sesión ya abierta allí puede continuar hasta que caduque.',
-	'settings.devices.forgetFailed': 'No se pudo olvidar ese dispositivo.',
+	'settings.devices.forgetFailed': 'No se pudo olvidar ese dispositivo. Inténtalo de nuevo.',
 	'settings.devices.signOutEverywhere': 'Cerrar sesión en todas partes',
 	'settings.devices.signOutTitle': '¿Cerrar sesión en todas partes?',
 	'settings.devices.signOutDescription':
-		'Impide la renovación de tokens en todos los dispositivos, incluido este.',
+		'Impide que se renueven las sesiones en todos los dispositivos, incluido este.',
 	'settings.devices.signOutBody':
-		'Este dispositivo cierra la sesión ahora. Los demás dispositivos no pueden renovar sus sesiones, pero los tokens de acceso ya emitidos pueden seguir siendo válidos hasta que caduquen (normalmente en menos de una hora).',
+		'Este dispositivo cierra la sesión ahora. Los demás no pueden renovar sus sesiones, pero pueden conservar el acceso hasta que caduque su sesión actual, normalmente en menos de una hora.',
 	'settings.devices.signingOut': 'Cerrando sesión…',
 	'settings.devices.signedOutEverywhere':
 		'Cierre de sesión solicitado en todas partes. Las sesiones abiertas pueden continuar hasta que caduquen.',
-	'settings.devices.signOutFailed': 'No se pudo cerrar la sesión en todas partes.',
+	'settings.devices.signOutFailed':
+		'No se pudo cerrar la sesión en todas partes. Inténtalo de nuevo.',
 
 	/* Ajustes › Suscripción */
 	'settings.subscription.sourceAccount': 'Vista previa de la cuenta',
@@ -1436,12 +1439,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.invites.unavailableHere':
 		'Los enlaces de invitación en línea no están disponibles aquí: comparte directamente un código de mesa en vivo.',
 	'settings.invites.loading': 'Cargando invitaciones',
-	'settings.invites.loadFailed': 'No se pudieron cargar tus invitaciones.',
+	'settings.invites.loadFailed': 'No se pudieron cargar tus invitaciones. Inténtalo de nuevo.',
 	'settings.invites.emptyTitle': 'No hay invitaciones pendientes',
 	'settings.invites.emptyBody':
 		'«Invitar jugador» crea un enlace para unirse que puedes compartir (caduca a los 14 días).',
-	'settings.invites.coDm': 'Co-DM',
-	'settings.invites.coDmNoSeats': 'Co-DM (sin plazas)',
+	'settings.invites.coDm': 'Co-{gm}',
+	'settings.invites.coDmNoSeats': 'Co-{gm} (sin plazas)',
 	'settings.invites.expiry': 'caduca el {date}',
 	'settings.invites.noteAndExpiry': '{note} · caduca el {date}',
 	'settings.invites.copyLink': 'Copiar enlace',
@@ -1462,7 +1465,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.invites.revoking': 'Revocando…',
 	'settings.invites.revokeInvite': 'Revocar invitación',
 	'settings.invites.revoked': 'Invitación revocada: su enlace ya no funciona.',
-	'settings.invites.revokeFailed': 'No se pudo revocar esa invitación.',
+	'settings.invites.revokeFailed': 'No se pudo revocar esa invitación. Inténtalo de nuevo.',
 	'settings.invites.createTitle': 'Invitar a un jugador',
 	'settings.invites.createDescription':
 		'Crea un enlace para unirse que puedes compartir: añade un correo para enviarlo o comparte tú el enlace.',
@@ -1471,12 +1474,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Envía este enlace como prefieras: funciona durante 14 días o hasta que lo revoques.',
 	'settings.invites.creating': 'Creando…',
 	'settings.invites.createInvite': 'Crear invitación',
-	'settings.invites.createFailed': 'No se pudo crear la invitación.',
+	'settings.invites.createFailed': 'No se pudo crear la invitación. Inténtalo de nuevo.',
 	'settings.invites.needName': 'Ponle a la invitación un nombre de campaña.',
 	'settings.invites.noSeatsUpgrade':
-		'Prueba la vista previa Lantern o Beacon para invitar a un Co-DM sin coste.',
+		'Prueba la vista previa Lantern o Beacon para invitar a un Co-{gm} sin coste.',
 	'settings.invites.noSeatsLocked':
-		'Tu plan actual no tiene plazas de Co-DM y en esta versión no se pueden cambiar los planes.',
+		'Tu plan actual no tiene plazas de Co-{gm} y en esta versión no se pueden cambiar los planes.',
 	'settings.invites.badEmail':
 		'Escribe una dirección de correo válida o déjala en blanco para obtener solo un enlace.',
 	'settings.invites.emailed': 'Invitación enviada por correo a {email}.',
@@ -1492,7 +1495,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.invites.seat': 'Plaza',
 	'settings.invites.seatPlayer': 'Jugador',
 	'settings.invites.coDmHelp':
-		'Un Co-DM ve tu preparación solo para el DM y ayuda a dirigir la mesa. Termina el ascenso desde la lista de Jugadores cuando se una a tu sesión.',
+		'Un Co-{gm} ve tu preparación solo para el {gm} y ayuda a dirigir la mesa. Termina el ascenso desde la lista de Jugadores cuando se una a tu sesión.',
 	'settings.invites.playerHelp':
 		'Una plaza de jugador normal: solo ve lo que compartes con la mesa.',
 	'settings.invites.emailPlaceholder': 'Enviar la invitación por correo a… (opcional)',
@@ -1501,32 +1504,32 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Deja el correo en blanco para obtener solo un enlace para compartir y un código QR. Si lo rellenas, también enviaremos la invitación por correo si esta aplicación tiene configurado el envío.',
 
 	/* Ajustes › Conexiones del baúl */
-	'settings.vault.title': 'Conexiones del baúl',
+	'settings.vault.title': 'Conexiones de bóveda',
 	'settings.vault.manageInKnowledge': 'Gestionar en Conocimiento',
-	'settings.vault.loading': 'Cargando las conexiones del baúl',
+	'settings.vault.loading': 'Cargando las conexiones de la bóveda',
 	'settings.vault.never': 'nunca',
 	'settings.vault.kindFolder': 'Carpeta local',
 	'settings.vault.kindDoc': 'Documento de Google',
-	'settings.vault.pulledPushed': 'traído {pulled} · enviado {pushed}',
+	'settings.vault.pulledPushed': 'importado {pulled} · exportado {pushed}',
 	'settings.vault.connected': 'conectado',
 	'settings.vault.disconnect': 'Desconectar',
 	'settings.vault.readFailedTitle': 'No se pudieron leer tus carpetas conectadas',
 	'settings.vault.readFailedBody':
-		'El registro de fuentes del baúl no respondió. Tus conexiones siguen guardadas: esto es solo el listado.',
+		'No se pudieron listar tus conexiones guardadas. Inténtalo de nuevo para cargar la lista.',
 	'settings.vault.tryAgain': 'Reintentar',
 	'settings.vault.emptyTitle': 'No hay fuentes conectadas',
 	'settings.vault.emptyBody':
-		'Conecta una carpeta local de markdown desde Conocimiento → Fuentes; traer y enviar también se hacen allí.',
+		'Conecta una carpeta de Markdown en Conocimiento → Fuentes para importar o exportar notas.',
 	'settings.vault.emptyBodyWithDocs':
-		'Conecta una carpeta local de markdown o un documento de Google desde Conocimiento → Fuentes; traer y enviar también se hacen allí.',
+		'Conecta una carpeta de Markdown o un Google Doc en Conocimiento → Fuentes para importar o exportar notas.',
 	'settings.vault.openSources': 'Abrir Conocimiento → Fuentes',
 	'settings.vault.disconnectTitle': '¿Desconectar esta carpeta?',
 	'settings.vault.disconnectDescription': 'La carpeta y todo lo ya importado quedan intactos.',
 	'settings.vault.disconnectBody':
-		'Al desconectar {name} esta aplicación pierde el permiso sobre la carpeta. No se borra nada del disco ni de tu baúl, pero volver a conectarla significa elegir la carpeta otra vez en Conocimiento → Fuentes.',
+		'Al desconectar {name} esta aplicación pierde el permiso sobre la carpeta. No se borra nada del disco ni de tu bóveda, pero volver a conectarla significa elegir la carpeta otra vez en Conocimiento → Fuentes.',
 	'settings.vault.folderDisconnected':
 		'«{name}» desconectada: vuelve a conectarla cuando quieras desde Conocimiento → Fuentes.',
-	'settings.vault.disconnectFailed': 'No se pudo desconectar esa carpeta.',
+	'settings.vault.disconnectFailed': 'No se pudo desconectar esa carpeta. Inténtalo de nuevo.',
 	'settings.vault.docDisconnected': '«{name}» desconectado.',
 	'settings.vault.docReconnected': '«{name}» reconectado.',
 	'settings.vault.noFolderSupport':
@@ -1549,11 +1552,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.sync.helpNotInPlanLocked':
 		'No está incluida en tu plan actual. En esta versión no se pueden cambiar los planes por tu cuenta.',
 	'settings.sync.help':
-		'El estado de la campaña se cifra en este dispositivo antes de subirlo, así que el servicio en línea solo guarda datos ilegibles. Los archivos multimedia locales no se suben. Desactivada por defecto. Exporta abajo una clave de recuperación y guárdala en un lugar seguro: sin tus dispositivos ni ese archivo exportado, la copia en la nube no se puede abrir.',
+		'La copia en la nube está desactivada por defecto. Tu campaña se cifra en este dispositivo antes de subirla, así que el servicio no puede leerla. Los archivos multimedia se quedan aquí. Exporta abajo una clave de recuperación y guárdala bien: necesitas uno de tus dispositivos o ese archivo para abrir la copia en la nube.',
 	'settings.sync.helpNoCustody':
-		'No disponible en este dispositivo: la copia cifrada en la nube necesita un almacén de credenciales del sistema para proteger tu clave (disponible en las aplicaciones de escritorio y Android).',
+		'Este dispositivo no puede guardar la clave de copia de forma segura. Usa la aplicación de escritorio o Android para la copia cifrada en la nube, o descarga una copia local abajo.',
 	'settings.sync.helpUnavailable':
-		'La copia segura en la nube no está disponible en este dispositivo.',
+		'La copia en la nube no está disponible en este dispositivo. Descarga una copia local abajo.',
 	'settings.sync.stateBusy': 'Copiando…',
 	'settings.sync.stateError': 'Error en la copia',
 	'settings.sync.stateUpToDate': 'Copia al día',
@@ -1565,14 +1568,15 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.sync.turnedOn': 'Copia en la nube activada.',
 	'settings.sync.turnedOff': 'Copia en la nube desactivada.',
 	'settings.sync.noSnapshot': 'Todavía no hay ninguna copia en la nube para esta cuenta.',
-	'settings.sync.cloudFailed': 'La copia en la nube falló.',
+	'settings.sync.cloudFailed':
+		'La copia en la nube falló. Comprueba tu conexión e inténtalo de nuevo.',
 	'settings.sync.restoreDevice': 'Restaurar este dispositivo',
-	'settings.sync.restoreTitle': '¿Sustituir el baúl de este dispositivo?',
+	'settings.sync.restoreTitle': '¿Sustituir la bóveda de este dispositivo?',
 	'settings.sync.restoreDescription':
 		'Restaura la última copia cifrada en la nube con la clave que ya tiene este dispositivo.',
 	'settings.sync.restoreBody':
-		'Esto sobrescribe los datos de campaña guardados ahora en este dispositivo. Exporta antes una copia local por si necesitas volver a ella. La copia en la nube solo se puede abrir con la clave que ya tiene este dispositivo. No contiene archivos multimedia; solo sigue disponible el material que ya esté guardado aquí.',
-	'settings.sync.replaceLocal': 'Sustituir el baúl local',
+		'Restaurar sustituye los datos de campaña de este dispositivo. Exporta antes una copia local por si la necesitas después. Este dispositivo debe tener ya la clave para abrir la copia en la nube. Esa copia no contiene archivos multimedia; los archivos correspondientes que ya estén aquí siguen disponibles.',
+	'settings.sync.replaceLocal': 'Sustituir la bóveda local',
 	'settings.sync.restored': 'Restaurado desde la copia en la nube.',
 	'settings.sync.recentChanges': 'Cambios recientes',
 	'settings.sync.noChanges': 'Todavía no se ha registrado ningún cambio.',
@@ -1594,7 +1598,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Otro dispositivo también cambió esta campaña, en otros elementos. Restaura este dispositivo desde la copia en la nube, o haz primero la copia de ese dispositivo.',
 	'settings.sync.conflictsTitle': 'Conflictos de sincronización',
 	'settings.sync.conflictsBody':
-		'Dos dispositivos cambiaron el mismo elemento después de coincidir por última vez. Elige la versión que quieres conservar. Solo DM.',
+		'Dos dispositivos cambiaron el mismo elemento después de coincidir por última vez. Elige la versión que quieres conservar. Solo {gm}.',
 	'settings.sync.conflictEntity': '{entity} · {path}',
 	'settings.sync.conflictWhole': '{entity}',
 	'settings.sync.conflictFound': 'Detectado el {when}',
@@ -1603,48 +1607,49 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.sync.keepThisDevice': 'Conservar la versión de este dispositivo',
 	'settings.sync.keepOtherDevice': 'Conservar la versión del otro dispositivo',
 	'settings.sync.conflictResolved': 'Versión elegida.',
-	'settings.sync.conflictFailed': 'No se pudo elegir la versión.',
+	'settings.sync.conflictFailed': 'No se pudo elegir la versión. Inténtalo de nuevo.',
 	'settings.sync.noConflicts': 'Sin conflictos de sincronización.',
 
 	/* Ajustes › Copias e historial › Copia local */
 	'settings.backup.title': 'Copia local',
-	'settings.backup.heading': 'Copiar o restaurar el baúl de este dispositivo',
+	'settings.backup.heading': 'Copiar o restaurar la bóveda de este dispositivo',
 	'settings.backup.body':
-		'Un único archivo JSON con los datos de campaña y los archivos multimedia guardados. No incluye las preferencias de la aplicación, los permisos de carpetas conectadas, las credenciales de la cuenta ni las claves de proveedores de IA. Restaurar sustituye el baúl actual de este dispositivo.',
+		'Un archivo JSON con los datos de campaña y los archivos multimedia guardados. No incluye las preferencias, los permisos de carpetas conectadas, las credenciales de cuenta ni las claves de proveedores de IA. Restaurar sustituye la bóveda de este dispositivo.',
 	'settings.backup.download': 'Descargar copia',
 	'settings.backup.restore': 'Restaurar desde una copia…',
-	'settings.backup.fileTitle': 'Guardar la copia del baúl de Lamplight',
+	'settings.backup.fileTitle': 'Guardar la copia de la bóveda de Lamplight',
 	'settings.backup.downloaded':
 		'Copia descargada: {count, plural, one {# archivo multimedia incluido} other {# archivos multimedia incluidos}}.',
 	'settings.backup.exported':
 		'Copia exportada: {count, plural, one {# archivo multimedia incluido} other {# archivos multimedia incluidos}}.',
-	'settings.backup.exportFailed': 'No se pudo crear ni exportar la copia.',
-	'settings.backup.invalidFile': 'Ese archivo no es una copia válida del baúl.',
-	'settings.backup.replaceTitle': '¿Sustituir este baúl?',
+	'settings.backup.exportFailed': 'No se pudo crear ni exportar la copia. Inténtalo de nuevo.',
+	'settings.backup.invalidFile':
+		'Ese archivo no es una copia de la bóveda. Elige uno guardado con Descargar copia.',
+	'settings.backup.replaceTitle': '¿Sustituir esta bóveda?',
 	'settings.backup.replaceDescription':
-		'La copia sustituye todos los datos de campaña y los archivos multimedia de este baúl.',
+		'La copia sustituye todos los datos de campaña y los archivos multimedia de esta bóveda.',
 	'settings.backup.replaceBody':
-		'Copia del {when} con {count, plural, one {# archivo multimedia} other {# archivos multimedia}}. El archivo se comprueba por completo antes de sustituir juntos los datos de campaña y el material; una restauración fallida deja este baúl sin cambios. Descarga antes una copia del baúl actual por si necesitas volver a ella.',
+		'Copia del {when} con {count, plural, one {# archivo multimedia} other {# archivos multimedia}}. El archivo se comprueba por completo antes de sustituir juntos los datos de campaña y el material; una restauración fallida deja esta bóveda sin cambios. Descarga antes una copia de la bóveda actual por si necesitas volver a ella.',
 	'settings.backup.restoring': 'Restaurando…',
-	'settings.backup.replaceReload': 'Sustituir el baúl y recargar',
+	'settings.backup.replaceReload': 'Sustituir la bóveda y recargar',
 	'settings.backup.restoreFailed':
 		'La restauración no terminó. Recarga la aplicación antes de hacer más cambios.',
 
 	/* Ajustes › Copias e historial › Privacidad del baúl (ADR-026) */
-	'settings.privacy.title': 'Modo de privacidad del baúl',
+	'settings.privacy.title': 'Modo de privacidad de la bóveda',
 	'settings.privacy.badgePrivate': 'Privado (cifrado de extremo a extremo)',
 	'settings.privacy.badgeCloud': 'Mejorado por la nube',
-	'settings.privacy.rowPrivate': 'Baúl privado (cifrado de extremo a extremo)',
-	'settings.privacy.rowCloud': 'Baúl mejorado por la nube',
+	'settings.privacy.rowPrivate': 'Bóveda privada (cifrado de extremo a extremo)',
+	'settings.privacy.rowCloud': 'Bóveda mejorada por la nube',
 	'settings.privacy.youChose': 'Elegiste',
-	'settings.privacy.thisVaultUses': 'Este baúl usa',
+	'settings.privacy.thisVaultUses': 'Esta bóveda usa',
 	'settings.privacy.helpPrivate':
-		'{chose} el modelo Privado: todo se cifra en tus dispositivos antes de salir de ellos y solo tus dispositivos tienen las claves. Las funciones que dependen del servidor (IA de campaña, búsqueda en la nube, acceso desde el navegador sin tu clave) no están disponibles para este baúl.',
+		'{chose} el modelo Privado: todo se cifra en tus dispositivos antes de salir de ellos y solo tus dispositivos tienen las claves. Las funciones que dependen del servidor (IA de campaña, búsqueda en la nube, acceso desde el navegador sin tu clave) no están disponibles para esta bóveda.',
 	'settings.privacy.helpCloud':
 		'Este baúl está en modo Mejorado por la nube: consentimiento para que el servicio lea su contenido y ofrezca funciones de servidor (IA de campaña, búsqueda en la nube, acceso desde el navegador sin tu clave). Esas funciones no están disponibles en esta edición, así que nada es legible por el servidor: tus datos siguen viajando y guardándose cifrados de extremo a extremo, igual que un baúl privado.',
 	'settings.privacy.switchToCloud': 'Cambiar a Mejorado por la nube…',
 	'settings.privacy.switchToPrivate': 'Cambiar a Privado…',
-	'settings.privacy.dialogPrivateTitle': '¿Hacer privado este baúl?',
+	'settings.privacy.dialogPrivateTitle': '¿Hacer privada esta bóveda?',
 	'settings.privacy.dialogCloudTitle': '¿Cambiar a Mejorado por la nube?',
 	'settings.privacy.dialogPrivateDescription':
 		'A partir de ahora solo tus dispositivos tendrán las claves.',
@@ -1655,42 +1660,43 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.privacy.bodyToCloud':
 		'Mejorado por la nube significa que el servicio puede leer el contenido de este baúl para ofrecer funciones de servidor: es una ampliación real de confianza. Esas funciones no están disponibles en esta edición: el baúl sigue cifrado de extremo a extremo y nada pasa a ser legible por el servidor. Si se añaden más adelante, se te volverá a preguntar antes de que nada tuyo sea legible.',
 	'settings.privacy.phrasePrivate': 'yo tengo las llaves',
-	'settings.privacy.phraseCloud': 'lee mi baúl',
+	'settings.privacy.phraseCloud': 'lee mi bóveda',
 	'settings.privacy.ackPrompt': 'Escribe {phrase} para confirmar.',
 	'settings.privacy.ackFieldLabel': 'Escribe "{phrase}" para confirmar',
 	'settings.privacy.makePrivate': 'Hacerlo privado',
 	'settings.privacy.recordConsent': 'Registrar mi consentimiento',
 	'settings.privacy.nowPrivate':
-		'Este baúl ya es privado: cifrado de extremo a extremo solo con tus claves.',
+		'Esta bóveda ya es privada: cifrada de extremo a extremo solo con tus claves.',
 	'settings.privacy.consentRecorded':
 		'Mejorado por la nube registrado. Sus funciones de servidor no están disponibles en esta edición, así que este baúl sigue cifrado de extremo a extremo.',
 
 	/* Ajustes › Copias e historial › Clave de recuperación */
 	'settings.recovery.title': 'Clave de recuperación',
-	'settings.recovery.custody': 'Custodia de la clave de copia',
+	'settings.recovery.custody': 'Almacenamiento de la clave de copia',
 	'settings.recovery.helpSignedOut':
 		'Inicia sesión para exportar o importar la clave de recuperación de las copias cifradas en la nube de tu cuenta.',
 	'settings.recovery.help':
-		'La clave de recuperación es el llavero de cifrado de tu baúl sellado con una contraseña que eliges tú. Expórtala una vez y guárdala bien: es la única forma de abrir tu copia cifrada en la nube si pierdes todos los dispositivos con sesión iniciada. Impórtala en un dispositivo nuevo para recuperar el acceso.',
+		'El archivo de recuperación contiene las claves de cifrado de tu bóveda, protegidas por una contraseña que eliges tú. Expórtalo y guárdalo bien. Si pierdes todos los dispositivos con sesión iniciada, necesitas este archivo para abrir la copia cifrada en la nube. Impórtalo en un dispositivo nuevo para recuperar el acceso.',
 	'settings.recovery.helpNoCustody':
-		'Las claves de recuperación necesitan el almacén de credenciales del sistema operativo (aplicaciones de escritorio y Android). Este dispositivo no puede guardar de forma duradera una clave del baúl.',
+		'Este dispositivo no puede guardar una clave de la bóveda de forma segura. Usa la aplicación de escritorio o Android para importar o exportar una clave de recuperación.',
 	'settings.recovery.export': 'Exportar…',
 	'settings.recovery.import': 'Importar…',
 	'settings.recovery.exportTitle': 'Exportar la clave de recuperación',
 	'settings.recovery.importTitle': 'Importar una clave de recuperación',
 	'settings.recovery.exportDescription':
-		'Sella el llavero de tu baúl con una contraseña y guarda el archivo.',
+		'Protege las claves de cifrado de tu bóveda con una contraseña y guarda el archivo.',
 	'settings.recovery.importDescription':
 		'Abre un archivo de recuperación e instala sus claves en este dispositivo.',
 	'settings.recovery.exportBody':
-		'El archivo por sí solo no sirve de nada sin la contraseña, pero el par equivale a la clave de tu baúl, así que guárdalos por separado. Usa al menos {min} caracteres; una contraseña más fuerte es toda la defensa frente a quien robe el archivo.',
+		'Guarda el archivo y la contraseña por separado. Quien tenga ambos puede abrir tu bóveda; el archivo solo no basta. Usa una contraseña segura de al menos {min} caracteres para proteger el archivo si lo roban.',
 	'settings.recovery.importBody':
 		'Escribe la contraseña que elegiste al exportar este archivo de recuperación y luego elige el archivo.',
 	'settings.recovery.passphrase': 'Contraseña de recuperación',
 	'settings.recovery.repeat': 'Repite la contraseña',
 	'settings.recovery.repeatLabel': 'Repite la contraseña de recuperación',
 	'settings.recovery.tooShort': 'Usa al menos {min} caracteres: faltan {remaining}.',
-	'settings.recovery.mismatch': 'Las dos contraseñas no coinciden.',
+	'settings.recovery.mismatch':
+		'Las frases de contraseña no coinciden. Escribe la misma en ambos campos.',
 	'settings.recovery.needPassphrase':
 		'Escribe dos veces una contraseña de al menos {min} caracteres.',
 	'settings.recovery.exportFile': 'Exportar el archivo',
@@ -1700,37 +1706,39 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Clave de recuperación descargada: guarda el archivo y su contraseña por separado y a buen recaudo.',
 	'settings.recovery.exported':
 		'Clave de recuperación exportada: guarda el archivo y su contraseña por separado y a buen recaudo.',
-	'settings.recovery.exportFailed': 'Falló la exportación de la clave de recuperación.',
+	'settings.recovery.exportFailed':
+		'Falló la exportación de la clave de recuperación. Inténtalo de nuevo.',
 	'settings.recovery.imported':
 		'Clave de recuperación importada: este dispositivo ya puede abrir tus copias cifradas en la nube.',
-	'settings.recovery.importFailed': 'Falló la importación de la clave de recuperación.',
+	'settings.recovery.importFailed':
+		'No se pudo importar la clave de recuperación. Revisa el archivo y la frase de contraseña e inténtalo de nuevo.',
 
 	/* Ajustes › Permisos */
 	'settings.permissions.roles': 'Roles',
-	'settings.permissions.role.dm': 'Director de juego',
+	'settings.permissions.role.dm': '{gm}',
 	'settings.permissions.role.dmDesc':
 		'Autoridad total: crea el contenido, los permisos y la sesión en vivo.',
-	'settings.permissions.role.coDm': 'Co-DM',
+	'settings.permissions.role.coDm': 'Co-{gm}',
 	'settings.permissions.role.coDmDesc':
-		'Ve el contenido solo para el DM y dirige la mesa, pero nunca gestiona roles, permisos, invitaciones ni el baúl.',
+		'Ve el contenido solo para el {gm} y dirige la mesa, pero nunca gestiona roles, permisos, invitaciones ni la bóveda.',
 	'settings.permissions.role.player': 'Jugador',
 	'settings.permissions.role.playerDesc':
-		'Es dueño de su personaje; solo ve lo que el DM comparte.',
+		'Es dueño de su personaje; solo ve lo que el {gm} comparte.',
 	'settings.permissions.role.observer': 'Observador',
 	'settings.permissions.role.observerDesc': 'Solo lectura; nunca guarda datos de personaje.',
 	'settings.permissions.grantTitle': 'Conceder acceso a una escena',
 	'settings.permissions.grantIntro':
-		'Elige qué puede hacer un jugador en una escena concreta. Su rol sigue marcando el acceso máximo que puede recibir y solo el DM puede cambiar estos permisos.',
+		'Elige qué puede hacer un jugador en una escena concreta. Su rol sigue marcando el acceso máximo que puede recibir y solo el {gm} puede cambiar estos permisos.',
 	'settings.permissions.needPlayer': 'Añade un jugador antes de conceder acceso a una escena.',
 	'settings.permissions.needScene': 'Crea una escena antes de conceder acceso.',
 	'settings.permissions.player': 'Jugador',
 	'settings.permissions.scene': 'Escena',
-	'settings.permissions.capabilitySet': 'Conjunto de capacidades',
+	'settings.permissions.capabilitySet': 'Acceso a la escena',
 	'settings.permissions.grant': 'Conceder',
 	'settings.permissions.activeGrants': 'Permisos activos',
 	'settings.permissions.colAccess': 'Acceso',
 	'settings.permissions.colType': 'Tipo',
-	'settings.permissions.colEntity': 'Entidad',
+	'settings.permissions.colEntity': 'Elemento',
 	'settings.permissions.colGrantedTo': 'Concedido a',
 	'settings.permissions.colExpires': 'Caduca',
 	'settings.permissions.revoke': 'Revocar',
@@ -1740,8 +1748,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.permissions.granted': 'Acceso concedido a {name}.',
 	'settings.permissions.revoked': 'Acceso revocado a {name}.',
 	'settings.permissions.regranted': 'Acceso concedido de nuevo a {name}.',
-	'settings.permissions.grantFailed': 'No se pudo conceder ese acceso.',
-	'settings.permissions.revokeFailed': 'No se pudo revocar ese permiso.',
+	'settings.permissions.grantFailed': 'No se pudo conceder ese acceso. Inténtalo de nuevo.',
+	'settings.permissions.revokeFailed': 'No se pudo revocar ese permiso. Inténtalo de nuevo.',
 
 	/* Ajustes › IA y herramientas */
 	'settings.ai.title': 'IA y acceso de agentes',
@@ -1749,26 +1757,26 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.ai.enabled': 'Activado',
 	'settings.ai.off': 'Desactivado',
 	'settings.ai.dmOnly':
-		'El acceso de agentes es solo para el DM y no se puede cambiar mientras previsualizas como jugador.',
+		'El acceso de agentes es solo para {gm}. Sal de la vista previa o pide a tu {gm} que lo cambie.',
 	'settings.ai.intro':
-		'Este interruptor controla todas las conexiones de asistente de esta campaña. Al desactivarlo se bloquea de inmediato todo el acceso a las herramientas de la campaña, sin importar la clave del proveedor guardada ni la política de cada agente.',
+		'Controla todas las conexiones de asistente de esta campaña. Al desactivarlo se bloquea de inmediato el acceso a las herramientas de campaña, aunque haya una clave guardada o un asistente tenga permiso para usarlas.',
 	'settings.ai.providerNote':
-		'El asistente integrado usa el proveedor configurado abajo. Cada agente necesita además una identidad y una política, así que tú controlas qué puede leer y si los cambios propuestos necesitan revisión.',
+		'El asistente integrado usa el proveedor de abajo. Elige una identidad y reglas de revisión para cada asistente para controlar qué puede leer y qué cambios necesitan aprobación.',
 	'settings.ai.turnedOn': 'Acceso de agentes activado: ya se aplican las políticas de abajo.',
 	'settings.ai.turnedOff': 'Acceso de agentes desactivado.',
-	'settings.ai.commandFailed': 'El comando falló.',
+	'settings.ai.commandFailed': 'No se pudo aplicar ese cambio. Inténtalo de nuevo.',
 	'settings.ai.mode.disabled': 'Desactivado',
 	'settings.ai.mode.strictReview': 'Revisión estricta',
 	'settings.ai.mode.balanced': 'Equilibrado',
 	'settings.ai.mode.trustedDirect': 'Escritura directa de confianza',
-	'settings.ai.defaultPosture': 'Postura por defecto de los agentes nuevos',
+	'settings.ai.defaultPosture': 'Política de revisión para nuevos agentes',
 	'settings.ai.defaultPostureHelp':
 		'La política inicial de una conexión nueva. Los agentes nuevos pueden estar desactivados o exigir revisión; nunca empiezan con acceso de escritura directa.',
-	'settings.ai.defaultPostureAria': 'Postura por defecto del baúl para los agentes',
+	'settings.ai.defaultPostureAria': 'Política de revisión predeterminada para nuevos agentes',
 	'settings.ai.defaultChanged': 'Los agentes nuevos usarán ahora {mode} por defecto.',
 	'settings.ai.connections': 'Conexiones de agentes',
 	'settings.ai.connectionsIntro':
-		'Cada conexión usa una identidad de campaña y no gana permisos propios. Nunca puede ver ni hacer más que esa identidad, y su política decide si los cambios necesitan revisión.',
+		'Cada conexión usa una identidad de campaña y solo tiene los permisos de esa identidad. Sus reglas de revisión deciden qué cambios necesitan aprobación.',
 	'settings.ai.noConnections':
 		'Todavía no hay conexiones de agente registradas: registra una abajo para definir su política de antemano.',
 	'settings.ai.policySaved': 'Política guardada',
@@ -1795,13 +1803,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Dale un id a la conexión de agente y elige la identidad de campaña que debe usar.',
 	'settings.ai.registered':
 		'{agent} registrado: empieza con el valor por defecto de la campaña ({mode}) hasta que definas una política.',
-	'settings.ai.stagedTitle': 'Escrituras preparadas a la espera de revisión',
+	'settings.ai.stagedTitle': 'Cambios propuestos pendientes de revisión',
 	'settings.ai.nothingStaged':
-		'No hay nada preparado. Con revisión estricta, cada escritura de un agente llega aquí como propuesta que apruebas o rechazas: nada de lo que hace un agente se confirma sin ti.',
+		'No hay cambios pendientes de revisión. Con revisión estricta, cada cambio que propone un agente espera a que lo apruebes o rechaces.',
 	'settings.ai.proposalMeta': '{agent} como {actor} · {tool} · {risk}',
 	'settings.ai.approve': 'Aprobar',
 	'settings.ai.reject': 'Rechazar',
-	'settings.ai.proposalApproved': 'Propuesta aprobada y confirmada por el envío normal.',
+	'settings.ai.proposalApproved': 'Propuesta aprobada y guardada.',
 	'settings.ai.proposalRejected': 'Propuesta rechazada: no se escribió nada.',
 	/* RC-AI-2.1 — la vista previa de cambios que el DM lee antes de aprobar una escritura preparada. */
 	'settings.ai.previewSummary.create': 'Crea {target}.',
@@ -1824,7 +1832,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.ai.previewWarn.noBaseline':
 		'El destino no está disponible para este agente, así que no hay nada con lo que comparar.',
 	'settings.ai.previewWarn.staleBase':
-		'El destino cambió después de prepararse. Aprobarlo se rechazaría como conflicto.',
+		'Esta entrada cambió después de la propuesta. Resuelve el conflicto antes de aprobarla.',
 	'settings.ai.previewWarn.diffBounded':
 		'La nota es demasiado larga para compararla línea a línea, así que solo se muestran los totales.',
 	'settings.ai.previewWarn.backlinksBounded':
@@ -1852,26 +1860,25 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.ai.conflictResolved': 'Conflicto resuelto.',
 	'settings.ai.conflictTitleRow': 'Título',
 	'settings.ai.conflictWarn.noBaseSnapshot':
-		'Esta propuesta se preparó sin una base, así que las dos ediciones no se pueden combinar.',
+		'No se conservó la versión original. Elige qué versión usar.',
 	'settings.ai.conflictWarn.overlappingEdits':
-		'El asistente y la nota cambiaron las mismas líneas, así que no hay combinación que ofrecer.',
-	'settings.ai.conflictWarn.titleConflict':
-		'El asistente y la nota dan títulos distintos a esta entrada.',
+		'Ambas versiones cambiaron las mismas líneas. Elige qué versión usar.',
+	'settings.ai.conflictWarn.titleConflict': 'Los títulos son distintos. Elige qué versión usar.',
 	'settings.ai.conflictWarn.diffBounded':
-		'La nota es demasiado larga para compararla línea a línea, así que no se puede combinar aquí.',
+		'Esta nota es demasiado larga para combinarla aquí. Elige qué versión usar.',
 	'settings.ai.conflictWarn.hunksBounded':
 		'Solo se listan los primeros pasajes divergentes. La nota tiene más.',
-	'settings.ai.registryTitle': 'Registro de herramientas (básico)',
+	'settings.ai.registryTitle': 'Herramientas disponibles',
 	'settings.ai.registryIntro':
-		'Las herramientas de campaña que se pueden conceder a un agente. Los resultados de lectura respetan la identidad elegida y los cambios esperan revisión salvo que elijas explícitamente una política más permisiva.',
+		'Elige qué herramientas de campaña puede usar un asistente. Solo puede leer lo que ve la identidad elegida. Los cambios esperan revisión salvo que permitas expresamente aplicarlos sin aprobación.',
 
 	/* Ajustes › IA y herramientas › Revisión por lotes (RC-AI-2.4) */
-	'settings.ai.batchFilterAgent': 'Filtrar propuestas en espera por agente',
+	'settings.ai.batchFilterAgent': 'Filtrar cambios propuestos por agente',
 	'settings.ai.batchFilterAgentAll': 'Todos los agentes',
 	'settings.ai.batchFilterRisk': 'Filtrar por riesgo',
 	'settings.ai.batchFilterRiskAll': 'Todos',
 	'settings.ai.batchFilterRiskLow': 'Riesgo bajo',
-	'settings.ai.batchFilterRiskDurable': 'Duradero',
+	'settings.ai.batchFilterRiskDurable': 'Modifica datos guardados',
 	'settings.ai.batchSelectGroup': 'Seleccionar todo lo puesto en espera por {agent}',
 	'settings.ai.batchSelectedCount': '{count} seleccionadas',
 	'settings.ai.batchApproveSelected': 'Aprobar seleccionadas',
@@ -1879,43 +1886,46 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.ai.batchNothingApprovable':
 		'Cada propuesta seleccionada necesita primero que se resuelva su conflicto.',
 	'settings.ai.batchApproveAllOk':
-		'{ok, plural, one {# propuesta aprobada y confirmada} other {# propuestas aprobadas y confirmadas}}.',
-	'settings.ai.batchApproveResult': '{ok} aprobadas, {failed} no se pudieron aprobar.',
+		'{ok, plural, one {# propuesta aprobada y guardada} other {# propuestas aprobadas y guardadas}}.',
+	'settings.ai.batchApproveResult':
+		'{ok} aprobadas; {failed} no se pudieron aprobar. Revisa las propuestas restantes una por una.',
 	'settings.ai.batchRejectAllOk':
 		'{ok, plural, one {# propuesta rechazada} other {# propuestas rechazadas}}.',
-	'settings.ai.batchRejectResult': '{ok} rechazadas, {failed} no se pudieron rechazar.',
-	'settings.ai.batchNoMatch': 'Ninguna escritura en espera coincide con estos filtros.',
+	'settings.ai.batchRejectResult':
+		'{ok} rechazadas; {failed} no se pudieron rechazar. Revisa las propuestas restantes una por una.',
+	'settings.ai.batchNoMatch': 'Ningún cambio propuesto coincide con estos filtros.',
 	'settings.ai.batchGroupHeading': '{agent} · {count}',
 	'settings.ai.selectProposalAria': 'Seleccionar la propuesta de {tool} de {agent}',
 
 	/* Ajustes › IA y herramientas › Explorador de auditoría (RC-AI-2.3) */
 	'settings.ai.auditTitle': 'Registro de auditoría',
 	'settings.ai.auditIntro':
-		'Cada intento de escritura de un agente: puesto en espera, confirmado directo o denegado. La exportación toma el registro completo, no solo lo que muestran los filtros de abajo.',
+		'Consulta cada cambio que intentó un agente, incluidas las propuestas, los cambios guardados y las peticiones denegadas. La exportación incluye todo el historial, aunque haya filtros.',
 	'settings.ai.auditFilterMode': 'Filtrar por resultado',
 	'settings.ai.auditFilterAll': 'Todos',
 	'settings.ai.auditFilterAgent': 'Filtrar el registro de auditoría por agente',
 	'settings.ai.auditFilterAgentAll': 'Todos los agentes',
-	'settings.ai.auditMode.staged': 'En espera',
-	'settings.ai.auditMode.direct': 'Confirmado',
+	'settings.ai.auditMode.staged': 'Pendiente de revisión',
+	'settings.ai.auditMode.direct': 'Guardado',
 	'settings.ai.auditMode.denied': 'Denegado',
 	'settings.ai.auditAsActor': 'como {actor}',
 	'settings.ai.auditExport': 'Exportar registro de auditoría',
 	'settings.ai.auditExported': 'Registro de auditoría exportado.',
-	'settings.ai.auditExportFailed': 'No se pudo exportar el registro de auditoría.',
+	'settings.ai.auditExportFailed':
+		'No se pudo exportar el registro de auditoría. Inténtalo de nuevo.',
 	'settings.ai.auditEmpty': 'Aún no hay actividad de agentes.',
 	'settings.ai.auditNoMatch': 'Ninguna actividad coincide con estos filtros.',
 
 	/* Ajustes › IA y herramientas › Asistente */
 	'settings.assistant.title': 'Asistente',
 	'settings.assistant.intro':
-		'Pregunta sobre la campaña. El asistente solo ve lo que la identidad que elijas puede ver y trabaja de forma autónoma: puede necesitar varios pasos para terminar. Cualquier cambio que proponga llega al panel de revisión de abajo y espera tu aprobación.',
+		'Pregunta sobre tu campaña. El asistente solo puede leer lo que ve la identidad elegida. Puede necesitar varios pasos para terminar una petición. Revisa abajo los cambios que propone; cada uno espera tu aprobación.',
 	'settings.assistant.transcript': 'Transcripción del asistente',
 	'settings.assistant.youSaid': 'Dijiste:',
 	'settings.assistant.assistantSaid': 'El asistente dijo:',
 	'settings.assistant.outcome.read': 'lectura',
-	'settings.assistant.outcome.staged': 'preparado',
-	'settings.assistant.outcome.committed': 'confirmado',
+	'settings.assistant.outcome.staged': 'pendiente de revisión',
+	'settings.assistant.outcome.committed': 'guardado',
 	'settings.assistant.outcome.denied': 'denegado',
 	'settings.assistant.outcome.failed': 'fallido',
 	'settings.assistant.blockerNoKey':
@@ -1925,7 +1935,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.assistant.blockerNoAgent':
 		'Registra abajo una conexión de agente y elige la identidad de campaña que debe usar.',
 	'settings.assistant.blockerNotDm':
-		'El asistente es solo para el DM y no está disponible mientras previsualizas.',
+		'El asistente es solo para {gm}. Sal de la vista previa de jugador o pide a tu {gm} que lo use.',
 	'settings.assistant.starting': 'Empezando…',
 	'settings.assistant.working': 'Trabajando: paso {pass} de {total}',
 	'settings.assistant.workingOnTool': 'Trabajando: paso {pass} de {total} · {tool}',
@@ -1940,7 +1950,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.assistant.notifyLabel': 'Avísame en este dispositivo cuando termine una ejecución.',
 	'settings.assistant.notifyUnavailable': 'Las notificaciones no están disponibles.',
 	'settings.assistant.notifyDenied':
-		'No se activaron las notificaciones porque no se concedió el permiso.',
+		'Las notificaciones están bloqueadas. Permítelas para Lamplight en la configuración del navegador o dispositivo.',
 	'settings.assistant.finished':
 		'El asistente terminó{staged, plural, =0 {} one { — # cambio preparado para tu revisión abajo} other { — # cambios preparados para tu revisión abajo}}.',
 	'settings.assistant.finishedTitle': 'El asistente terminó',
@@ -1959,25 +1969,27 @@ export const es: Partial<Record<MessageKey, string>> = {
 	/* Ajustes › IA y herramientas › Proveedor */
 	'settings.router.title': 'Enrutado de modelos',
 	'settings.router.intro':
-		'Elige qué motor de modelos atiende cada tarea. Un motor que no puede hacer una tarea, o que no está listo, lo indica aquí en vez de fallar al ejecutar el asistente.',
-	'settings.router.backendsHeading': 'Motores',
+		'Elige un servicio de modelos para cada tarea. Comprueba cuáles están listos y qué pueden hacer.',
+	'settings.router.backendsHeading': 'Servicios de modelos',
 	'settings.router.backend.provider': 'Proveedor configurado',
 	'settings.router.backend.local': 'Motor local',
 	'settings.router.backend.localHelp':
-		'Un servicio Ollama en este dispositivo. Nada sale de la máquina y no hace falta clave.',
+		'Ollama en este dispositivo. No necesita clave y las peticiones se quedan aquí.',
 	'settings.router.ready': 'Listo',
 	'settings.router.notReady': 'No está listo',
 	'settings.router.reason.consentOff':
 		'Activa el uso completo de IA arriba para alcanzar un modelo.',
 	'settings.router.reason.platformUnsupported':
-		'Los motores locales necesitan la aplicación de escritorio: esta plataforma bloquea las peticiones de bucle local.',
+		'Usa la aplicación de escritorio para conectarte a un modelo local.',
 	'settings.router.reason.incompleteSettings': 'Completa los ajustes del proveedor de arriba.',
 	'settings.router.reason.noKey': 'Guarda una clave de API del proveedor arriba.',
-	'settings.router.reason.taskOff': 'Esta tarea está desactivada.',
-	'settings.router.reason.capabilityMissing': 'Este motor no ofrece esa capacidad.',
+	'settings.router.reason.taskOff':
+		'Esta tarea está desactivada. Elige un servicio para activarla.',
+	'settings.router.reason.capabilityMissing':
+		'Este servicio no puede realizar esa tarea. Elige otro servicio.',
 	'settings.router.capability.generation': 'Escribe texto',
-	'settings.router.capability.embeddings': 'Crea vectores de búsqueda',
-	'settings.router.capability.noEmbeddings': 'Sin vectores de búsqueda',
+	'settings.router.capability.embeddings': 'Admite búsquedas por significado',
+	'settings.router.capability.noEmbeddings': 'Sin búsquedas por significado',
 	'settings.router.capability.context': 'Contexto {tokens} tokens',
 	'settings.router.capability.contextUndeclared': 'Contexto no declarado',
 	'settings.router.modelRow': 'Modelo local',
@@ -1986,44 +1998,46 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.router.modelAria': 'Identificador del modelo local',
 	'settings.router.assistantRow': 'Asistente',
 	'settings.router.assistantHelp':
-		'El motor que responde a las ejecuciones del asistente y llama a las herramientas.',
-	'settings.router.assistantAria': 'Motor del asistente',
+		'El servicio que responde a las peticiones y usa las herramientas de campaña.',
+	'settings.router.assistantAria': 'Servicio del asistente',
 	'settings.router.routeOff': 'Desactivado',
 	'settings.router.embeddingsRow': 'Búsqueda semántica',
 	'settings.router.embeddingsHelp':
-		'La búsqueda todavía funciona solo por palabras clave. Cuando llegue la búsqueda vectorial usará este motor.',
+		'La búsqueda usa palabras clave por ahora. Elige el servicio para cuando esté disponible la búsqueda por significado.',
 	'settings.router.embeddingsReady': 'Listo en {backend}',
-	'settings.router.routeSaved': 'Motor del asistente fijado en {backend}.',
-	'settings.router.routeSavedOff': 'Motor del asistente desactivado.',
+	'settings.router.routeSaved': 'Servicio del asistente cambiado a {backend}.',
+	'settings.router.routeSavedOff': 'Servicio del asistente desactivado.',
 	'settings.router.localModelSaved': 'Modelo local fijado en {model}.',
 
 	/* Ajustes › IA y herramientas › Modelos locales */
 	'settings.localModels.title': 'Modelos locales',
 	'settings.localModels.intro':
-		'Modelos descargados al servicio Ollama de este dispositivo. Descargar y eliminar se hace aquí; el modelo que usan de verdad el asistente y la búsqueda se fija arriba.',
+		'Descarga o elimina modelos en este dispositivo con Ollama. Elige arriba qué modelo usa el asistente.',
 	'settings.localModels.refresh': 'Actualizar',
 	'settings.localModels.refreshing': 'Actualizando…',
-	'settings.localModels.refreshHint': 'Comprueba qué está descargado y cuánto disco usa.',
+	'settings.localModels.refreshHint': 'Consulta los modelos descargados y el espacio que ocupan.',
 	'settings.localModels.listFailed':
 		'No se pudieron listar los modelos locales: comprueba que `ollama serve` esté en marcha.',
-	'settings.localModels.empty': 'Todavía no hay modelos descargados.',
+	'settings.localModels.empty': 'Aún no hay modelos descargados.',
 	'settings.localModels.diskTotal': '{size} en disco',
 	'settings.localModels.pullPlaceholder': 'Nombre del modelo, por ejemplo {model}',
-	'settings.localModels.pullAria': 'Nombre del modelo a descargar',
+	'settings.localModels.pullAria': 'Nombre del modelo que quieres descargar',
 	'settings.localModels.pull': 'Descargar',
 	'settings.localModels.pulling': 'Descargando…',
 	'settings.localModels.pullStarting': 'Empezando…',
 	'settings.localModels.pullProgress': '{status} · {percent}%',
-	'settings.localModels.pulled': 'Descargado {model}.',
-	'settings.localModels.pullFailed': 'No se pudo descargar {model}.',
+	'settings.localModels.pulled': '{model} descargado.',
+	'settings.localModels.pullFailed':
+		'No se pudo descargar {model}. Comprueba que Ollama esté en marcha e inténtalo de nuevo.',
 	'settings.localModels.deleteTitle': '¿Eliminar este modelo?',
 	'settings.localModels.deleteDescription':
 		'Esto libera el espacio de disco que usa en este dispositivo.',
 	'settings.localModels.deleteBody':
-		'{model} se eliminará de este dispositivo. Puedes volver a descargarlo cuando quieras.',
+		'{model} se eliminará de este dispositivo. Puedes descargarlo de nuevo más adelante.',
 	'settings.localModels.deleting': 'Eliminando…',
 	'settings.localModels.deleted': 'Eliminado {model}.',
-	'settings.localModels.deleteFailed': 'No se pudo eliminar {model}.',
+	'settings.localModels.deleteFailed':
+		'No se pudo eliminar {model}. Comprueba que Ollama esté en marcha e inténtalo de nuevo.',
 
 	'settings.provider.title': 'Proveedor de IA',
 	'settings.provider.configured': 'Configurado',
@@ -2049,7 +2063,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.provider.detectionNote':
 		'La detección contacta solo con http://localhost:11434 después de que elijas comprobarlo.',
 	'settings.provider.lockedPlatform':
-		'Los ejecutores de modelos locales necesitan la aplicación de escritorio: esta plataforma bloquea las peticiones al bucle local.',
+		'Usa la aplicación de escritorio para conectarte a un modelo local.',
 	'settings.provider.forgetBeforeSwitch': 'Olvida la clave actual antes de cambiar de proveedor.',
 	'settings.provider.forgetBeforeChange':
 		'Olvida la clave actual antes de cambiar su proveedor o su destino.',
@@ -2095,7 +2109,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.provider.forgetKey': 'Olvidar la clave',
 	'settings.provider.forgetting': 'Olvidando…',
 	'settings.provider.keyTooLong':
-		'Esa clave de API es demasiado larga. El límite son {max} caracteres.',
+		'Esa clave API supera los {max} caracteres. Comprueba que hayas pegado solo la clave.',
 	'settings.provider.keySavedDurable':
 		'Clave de API guardada en el almacenamiento cifrado del sistema.',
 	'settings.provider.keySavedNoDurable':
@@ -2103,7 +2117,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.provider.keySavedSession': 'Clave de API guardada para esta sesión del navegador.',
 	'settings.provider.keyForgotten': 'Clave de API olvidada.',
 	'settings.provider.forgetDurableFailed':
-		'No se pudo eliminar la clave del almacenamiento cifrado del sistema. Sigue disponible en esta sesión.',
+		'No se pudo eliminar la clave guardada. Sigue disponible en esta sesión. Vuelve a pulsar Olvidar la clave.',
 	'settings.provider.forgetRaced': 'La clave cambió antes de poder olvidarla. Inténtalo de nuevo.',
 	'settings.provider.confirmTitle': 'Confirma el destino de la credencial',
 	'settings.provider.confirmDescription':
@@ -2132,7 +2146,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'player.switchCharacter': 'Cambiar de personaje',
 	'player.identity.adventurer': 'Aventurero',
 	'player.identity.background': 'Trasfondo: {name}',
-	'player.hp.label': 'PUNTOS DE GOLPE',
+	'player.hp.label': '{hitPoints}',
 	'player.hp.amountLabel': 'Cantidad de puntos de golpe a cambiar',
 	'player.hp.damageBy': 'Daño de {amount}',
 	'player.hp.healBy': 'Curar {amount}',
@@ -2197,7 +2211,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'player.vitals.shortRest': 'Descanso corto',
 	'player.vitals.longRest': 'Descanso largo',
 	'player.vitals.restHelp':
-		'Un descanso corto recupera los recursos de descanso corto; un descanso largo restaura los espacios de conjuro, los recursos de descanso largo y elimina las condiciones.',
+		'Un descanso corto recupera los recursos de descanso corto; un descanso largo restaura los espacios de {spellLower}, los recursos de descanso largo y elimina las condiciones.',
 	'player.vitals.preparedSpells': '{spellPlural} preparados ({count})',
 	'player.vitals.noSpellsTitle': 'Sin {spellPluralLower} registrados',
 	'player.vitals.noSpellsBody':
@@ -2387,7 +2401,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'character.levelUp.noUnlocks': 'El sistema activo no concede nada nuevo en este nivel.',
 	'character.levelUp.noResourceChange': 'Ningún máximo de recurso cambia en este nivel.',
 	'character.levelUp.slotsAreAuthored':
-		'Los espacios de conjuro quedan como están en la hoja: ajústalos en la pestaña Recursos.',
+		'Ajusta los espacios de {spellLower} en la pestaña Recursos. Se conservan tal como los introduzcas en la hoja.',
 	'character.levelUp.fromToValue': '{from} → {to}',
 	'character.levelUp.notChosen': 'Sin elegir',
 	'character.levelUp.choose': 'Elegir',
@@ -2413,7 +2427,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Estas definiciones controlan los campos y las columnas que se muestran allí donde aparece cada tipo de objeto. Los recuentos reflejan los elementos de la campaña visibles para ti ahora.',
 	'extensions.objects.builtIn': 'Integrado',
 	'extensions.objects.dmOnlyFields':
-		'{count, plural, one {# campo solo DM} other {# campos solo DM}}',
+		'{count, plural, one {# campo solo {gm}} other {# campos solo {gm}}}',
 	'extensions.objects.schemaMeta':
 		'· por defecto {visibility} · {required, plural, one {# campo obligatorio} other {# campos obligatorios}}',
 	'extensions.objects.inVault': '{count} en la bóveda',
@@ -2424,9 +2438,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.theme.parchmentDesc': 'Vitela cálida y clara',
 	'extensions.theme.scholarDesc': 'Papel frío para textos largos',
 	'extensions.theme.dungeonDesc': 'Casi negro para mesas con poca luz',
-	'extensions.theme.highContrastDesc': 'El mínimo de accesibilidad',
+	'extensions.theme.highContrastDesc': 'Alto contraste para facilitar la lectura',
 	'extensions.theme.presetHelp':
-		'La elección del preajuste es real y persiste (el mismo ajuste que Configuración → Apariencia). Los preajustes son la arquitectura de temas — no se admiten anulaciones por token, así que las filas de abajo son los valores en vivo, de solo lectura, del preajuste activo.',
+		'Elige un tema aquí o en Configuración → Apariencia. Tu elección se guarda. Los valores de abajo muestran el tema activo como referencia; no se pueden editar por separado.',
 	'extensions.theme.groupSurfaces': 'Superficies',
 	'extensions.theme.groupText': 'Texto',
 	'extensions.theme.groupAccent': 'Acento y estado',
@@ -2465,7 +2479,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.trust.denyPackage': 'Denegar paquete',
 	'extensions.trust.trustPackage': 'Confiar en el paquete',
 	'extensions.trust.readOnly':
-		'Revisar un paquete es solo para el DM y es de solo lectura durante la vista previa.',
+		'La revisión de paquetes es solo para {gm}. Sal de la vista previa o pide a tu {gm} que revise este paquete.',
 	'extensions.trust.trusted': 'Se confía en {name} con los permisos que permitiste.',
 	'extensions.trust.denied':
 		'Se denegó {name} — queda desactivado y sus widgets colocados están en pausa.',
@@ -2482,7 +2496,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.trust.perm.filesystem': 'Sistema de archivos',
 	'extensions.trust.perm.clipboard': 'Portapapeles',
 	'extensions.trust.perm.network': 'Red',
-	'extensions.trust.perm.sourceAdapter': 'Adaptador de fuentes',
+	'extensions.trust.perm.sourceAdapter': 'Fuentes conectadas',
 	'extensions.trust.perm.asset': 'Recursos',
 	'extensions.trust.perm.externalLink': 'Enlaces externos',
 	'extensions.trust.meaning.filesystem':
@@ -2492,7 +2506,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.trust.meaning.sourceAdapter': 'Leer tus fuentes de contenido configuradas.',
 	'extensions.trust.meaning.asset': 'Leer imágenes y audio de los recursos de tu campaña.',
 	'extensions.trust.meaning.externalLink': 'Abrir enlaces fuera de Lamplight.',
-	'extensions.trust.meaning.other': 'Llega a una capacidad del anfitrión.',
+	'extensions.trust.meaning.other': 'Usa una función de este dispositivo o aplicación.',
 	'extensions.trust.askedFor': 'Solicitado por {who}.',
 	'extensions.trust.thisPackage': 'este paquete',
 	'extensions.trust.permissionControl': 'Permiso de {permission}',
@@ -2512,7 +2526,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.system.noActive':
 		'Todavía no hay ningún paquete de sistema explícito; los widgets de escena integrados actúan como predeterminados hasta que cambies.',
 	'extensions.system.readOnly':
-		'Cambiar es solo para el DM y es de solo lectura durante la vista previa.',
+		'Cambiar de sistema es solo para {gm}. Sal de la vista previa o pide a tu {gm} que cambie el sistema.',
 	'extensions.system.active': 'Activo',
 	'extensions.system.disabled': 'desactivado',
 	'extensions.system.declares':
@@ -2520,48 +2534,49 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.system.current': 'Sistema actual',
 	'extensions.system.previewSwitch': 'Ver el cambio',
 	'extensions.system.notListed':
-		'¿Quieres un sistema que no está en la lista? Instala su paquete de widgets en la pestaña Complementos (biblioteca inicial o JSON del paquete) — cualquier paquete instalado y activado puede verse como sistema activo.',
+		'Instala el paquete de widgets de otro sistema desde la biblioteca inicial o un archivo JSON en la pestaña Complementos. Puedes previsualizar como sistema activo cualquier paquete instalado y activado.',
 	'extensions.system.switchTo': 'Cambiar a {name}',
 	'extensions.system.switchPreview':
-		'Vista previa del cambio a {id} — nada cambia hasta que lo apliques',
+		'Revisa el cambio de sistema. Nada cambia hasta que lo apliques.',
 	'extensions.system.switching': 'Cambiando…',
 	'extensions.system.applySwitch': 'Aplicar el cambio',
 	'extensions.system.unavailable': '{reason} No se cambió nada.',
-	'extensions.system.reason.notFound': 'Ese paquete no está instalado.',
+	'extensions.system.reason.notFound':
+		'Ese paquete no está instalado. Instálalo primero desde la pestaña Complementos.',
 	'extensions.system.reason.removed': 'Ese paquete se ha quitado — vuelve a instalarlo primero.',
 	'extensions.system.reason.disabled':
 		'Ese paquete está desactivado — actívalo primero en la pestaña Complementos.',
 	'extensions.system.reason.alreadyActive': 'Ese paquete ya es el sistema activo.',
-	'extensions.system.reason.other': 'El cambio no está disponible.',
+	'extensions.system.reason.other': 'No se puede cambiar a ese sistema. Elige otro.',
 	'extensions.system.blocked':
-		'Esta campaña no se puede migrar de forma segura, así que el cambio está bloqueado.',
-	'extensions.system.safetyPassed': 'La campaña superó su comprobación de seguridad de migración.',
+		'El cambio dejaría esta campaña inutilizable. Conserva el sistema actual o elige otro.',
+	'extensions.system.safetyPassed': 'La campaña puede usar este sistema.',
 	'extensions.system.noChanges':
-		'Sin cambios en el vocabulario de widgets — el sistema actual no declara ningún tipo que le falte al destino.',
+		'Todos los tipos de widget actuales están disponibles en el nuevo sistema.',
 	'extensions.system.finding.keep': 'Conservado',
 	'extensions.system.finding.remap': 'Reasignado',
 	'extensions.system.finding.drop': 'Descartado',
 	'extensions.system.destructiveBody':
-		'Los tipos descartados de arriba tienen widgets en uso en tus escenas — quedarían desactivados (se recuperan volviendo a cambiar). El comando falla de forma cerrada a menos que lo confirmes.',
+		'Los widgets de los tipos indicados arriba se desactivarán en tus escenas. Volver al sistema anterior los restaura. Confirma que lo entiendes antes de aplicar el cambio.',
 	'extensions.system.understand': 'Lo entiendo',
 	'extensions.system.clean': 'No se pierde nada — el cambio se aplica limpiamente.',
 	'extensions.system.switched': 'El sistema activo cambió a {name}.',
 	/* RC-SYS-3.1 — el selector de paquetes de sistema */
 	'extensions.system.pickerTitle': 'Elige un sistema',
 	'extensions.system.pickerIntro':
-		'Las reglas de tu mesa —atributos, recursos, estados, dados— vienen de un paquete de sistema. Elige uno de los paquetes instalados o bifurca uno y hazlo tuyo. Los mismos widgets se dibujan con el que elijas.',
+		'Un paquete de sistema aporta los atributos, recursos, estados y reglas de dados de tu mesa. Elige un paquete instalado o crea una copia para adaptarlo. Tus widgets usan el sistema que elijas.',
 	'extensions.system.activePackage': 'Paquete activo',
 	'extensions.system.activeSystem': 'Sistema activo',
 	'extensions.system.allSystems': 'Todos los sistemas',
 	'extensions.system.declaresHeading': 'Lo que declara este paquete',
 	'extensions.system.runningNow': 'Este es el sistema que usa tu campaña.',
 	'extensions.system.previewSelect': 'Previsualizar este sistema',
-	'extensions.system.forkAction': 'Bifurcar y personalizar',
+	'extensions.system.forkAction': 'Copiar y personalizar',
 	'extensions.system.editAction': 'Editar este sistema',
 	'extensions.system.dryRunNote':
-		'Salir de {name} ejecuta primero una simulación: muestra qué se asigna, qué se conserva y qué se descarta antes de cambiar nada.',
+		'Previsualiza el cambio desde {name} para ver qué se conserva y qué deja de estar disponible antes de cambiar nada.',
 	'extensions.system.tier.builtIn': 'Incluido',
-	'extensions.system.tier.custom': 'Bifurcado · tuyo',
+	'extensions.system.tier.custom': 'Tu copia',
 	'extensions.system.chip.attributes': '{count, plural, one {# atributo} other {# atributos}}',
 	'extensions.system.chip.resources': '{count, plural, one {# recurso} other {# recursos}}',
 	'extensions.system.chip.conditions': '{count, plural, one {# estado} other {# estados}}',
@@ -2588,16 +2603,16 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.system.category.skill': 'Habilidad',
 	'extensions.system.select.title': 'Cambiar a {name}',
 	'extensions.system.select.description':
-		'Simulación del cambio a {name}: nada cambia hasta que lo apliques.',
+		'Previsualiza el cambio a {name}. Nada cambia hasta que lo apliques.',
 	'extensions.system.select.apply': 'Cambiar de sistema',
 	'extensions.system.select.applying': 'Cambiando…',
 	'extensions.system.select.safe': 'Todos los atributos, recursos y estados en juego se conservan.',
 	'extensions.system.select.destructive':
 		'{count, plural, one {# dato de personaje queda fuera de este cambio.} other {# datos de personaje quedan fuera de este cambio.}}',
 	'extensions.system.select.destructiveBody':
-		'Las claves descartadas siguen guardadas en los personajes, pero el sistema nuevo no puede leerlas hasta que vuelvas. El comando falla de forma segura si no lo confirmas.',
+		'Los datos indicados arriba siguen guardados en tus personajes, pero este sistema no puede usarlos. Vuelve al sistema anterior para usarlos de nuevo. Confirma que lo entiendes antes de cambiar de sistema.',
 	'extensions.system.select.noFindings':
-		'El sistema actual no declara nada que el sistema destino deba asignar.',
+		'No hay atributos, recursos ni estados actuales que trasladar.',
 	'extensions.system.select.clean': 'No se pierde nada: el cambio se aplica sin más.',
 	'extensions.system.select.nothingChanged': 'No se cambió nada.',
 	'extensions.system.select.done': 'Ahora juegas {name}.',
@@ -2610,14 +2625,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.system.build.title': 'Crea el tuyo',
 	'extensions.system.build.body':
 		'Parte del sistema que estás leyendo y dale su propio nombre; después renombra sus roles, atributos y recursos.',
-	'extensions.system.fork.title': 'Bifurcar un sistema',
+	'extensions.system.fork.title': 'Copiar un sistema',
 	'extensions.system.fork.description':
-		'La copia empieza tal como la declara {name} y es tuya para editarla. El original no se toca.',
+		'Crea una copia editable de {name}. El original se conserva sin cambios.',
 	'extensions.system.fork.nameLabel': 'Nombra tu sistema',
 	'extensions.system.fork.defaultName': '{name} (mi mesa)',
-	'extensions.system.fork.create': 'Crear la bifurcación',
+	'extensions.system.fork.create': 'Crear copia',
 	'extensions.system.fork.note':
-		'La bifurcación aparece en la galería enseguida y se abre en el constructor de sistemas, donde puedes editarla campo a campo.',
+		'Tu copia aparece en la galería y se abre en el constructor de sistemas, lista para editar.',
 	'extensions.system.fork.done': '{name} está lista para editar.',
 	/* RC-SYS-3.5 — sistemas de muestra: se instalan, no vienen integrados */
 	'extensions.system.library.title': 'Sistemas de muestra',
@@ -2636,16 +2651,16 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'systemBuilder.editing': 'Editando',
 	'systemBuilder.creating': 'Sistema nuevo',
 	'systemBuilder.readOnly':
-		'Editar un sistema es solo para el DM y es de solo lectura en vista previa.',
+		'Editar sistemas es solo para {gm}. Sal de la vista previa o pide a tu {gm} que edite este sistema.',
 	'systemBuilder.saved': '{name} se guardó.',
 	'systemBuilder.issue.duplicateKey':
-		'Otra entrada ya usa la clave {key}. Las claves deben ser únicas: una fórmula y una hoja de personaje leen esta misma.',
+		'La clave {key} ya está en uso. Elige otra para que las fórmulas puedan distinguir las entradas.',
 	'systemBuilder.step.identity': 'Identidad y vocabulario',
 	'systemBuilder.step.attributes': 'Atributos',
 	'systemBuilder.step.resources': 'Recursos',
 	'systemBuilder.step.conditions': 'Estados',
 	'systemBuilder.step.dice': 'Dados y turnos',
-	'systemBuilder.step.creature': 'Esquema de criaturas',
+	'systemBuilder.step.creature': 'Campos de criaturas',
 	'systemBuilder.step.advancement': 'Progresión',
 	'systemBuilder.step.review': 'Revisión',
 	'systemBuilder.field.label': 'Nombre',
@@ -2809,8 +2824,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'systemBuilder.review.help':
 		'De dónde viene este paquete, qué le falta todavía y qué se va a guardar.',
 	'systemBuilder.review.origin': 'De dónde viene',
-	'systemBuilder.review.forkedFrom': 'Bifurcado de',
-	'systemBuilder.review.noOrigin': 'Sin registro: este paquete no se bifurcó aquí.',
+	'systemBuilder.review.forkedFrom': 'Copiado de',
+	'systemBuilder.review.noOrigin': 'No se registró el sistema original.',
 	'systemBuilder.review.identity': '{id} · versión {version}',
 	'systemBuilder.review.issues': 'Antes de poder guardarlo',
 	'systemBuilder.review.clean': 'Listo',
@@ -2824,11 +2839,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'systemBuilder.review.activateNote':
 		'Guardar no cambia tu campaña. Elígelo en la galería cuando quieras.',
 	'systemBuilder.review.readOnly':
-		'Guardar es solo para el DM y es de solo lectura en vista previa.',
+		'Guardar sistemas es solo para {gm}. Sal de la vista previa o pide a tu {gm} que guarde este sistema.',
 	/* Extensiones › compendio, bloques de estadísticas y tipos de objeto personalizados */
 	'extensions.compendium.title': 'Compendio Open5e',
 	'extensions.compendium.readOnly':
-		'Importar es solo para el DM y es de solo lectura durante la vista previa — puedes navegar, pero los botones de importar están desactivados.',
+		'Puedes explorar aquí. Para importar, sal de la vista previa o pídeselo a tu {gm}.',
 	'extensions.compendium.searching': 'buscando…',
 	'extensions.compendium.sourceLive': 'En vivo · API de Open5e',
 	'extensions.compendium.sourceOffline': 'Sin conexión — SRD incluido',
@@ -2874,7 +2889,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Mostrando las primeras {shown} de {total} coincidencias — afina la búsqueda para reducirlas.',
 	'extensions.compendium.entryDetails': 'Detalles de la entrada',
 	'extensions.compendium.selectPrompt':
-		'Selecciona una entrada para revisar su bloque de estadísticas antes de importarla. Los monstruos llegan a la lista como personajes de creación rápida solo para el DM (utilizables en el Constructor de encuentros); los conjuros se convierten en objetos de bóveda solo para el DM en la pantalla Conocimiento.',
+		'Selecciona una entrada para revisar sus estadísticas antes de importarla. Los monstruos se añaden a tu lista como personajes solo para {gm}, listos para el constructor de encuentros. Las entradas importadas de conjuros aparecen en Conocimiento y son solo para {gm}.',
 	'extensions.compendium.import': 'Importar',
 	'extensions.compendium.importing': 'Importando…',
 	'extensions.compendium.importAgain': 'Importar otra vez',
@@ -2882,15 +2897,17 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.compendium.importCopy': 'Importar una copia',
 	'extensions.compendium.keep': 'Conservar',
 	'extensions.compendium.open': 'Abrir',
-	'extensions.compendium.importFailed': 'No se importó {name}: {reason}',
+	'extensions.compendium.importFailed':
+		'No se importó {name}: {reason} Revisa los datos de importación antes de intentarlo de nuevo.',
 	// RC-SYS-2.5 — el informe de campos de la importación.
 	'extensions.compendium.fitPartial':
 		'Tu sistema de reglas no tiene lugar para {count} de estos datos.',
 	'extensions.compendium.fitUnmapped': 'Sin importar: {fields}.',
-	'extensions.compendium.fitRefused': 'Tu sistema de reglas no puede contener esta criatura.',
+	'extensions.compendium.fitRefused':
+		'Tu sistema no puede importar esta criatura. Revisa abajo los campos obligatorios.',
 	'extensions.compendium.fitMissing': 'Requiere: {fields}.',
-	'extensions.compendium.monsterImported': '{name} se añadió a la lista (solo DJ)',
-	'extensions.compendium.spellImported': '{name} se guardó en la bóveda (solo DJ)',
+	'extensions.compendium.monsterImported': '{name} se añadió a la lista (solo {gm})',
+	'extensions.compendium.spellImported': '{name} se guardó en la bóveda (solo {gm})',
 	'extensions.compendium.armorClass': 'Clase de armadura',
 	'extensions.compendium.hitPoints': 'Puntos de golpe',
 	'extensions.compendium.speed': 'Velocidad',
@@ -2916,7 +2933,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.customTypes.title': 'Tipos de objeto personalizados',
 	'extensions.customTypes.definedCount': '{count, plural, one {# definido} other {# definidos}}',
 	'extensions.customTypes.intro':
-		'Define tus propios tipos de objeto de bóveda con un pequeño esquema de campos. Un tipo personalizado es de primera clase — sus objetos se crean, se validan y se listan junto a los tipos integrados de arriba. Borrar un tipo se bloquea mientras exista alguno de sus objetos.',
+		'Crea un tipo de objeto de la bóveda y elige sus campos. Puedes añadir y gestionar sus objetos junto a los tipos integrados. Elimina todos los objetos de un tipo antes de borrar el tipo.',
 	'extensions.customTypes.empty': 'Todavía no hay tipos personalizados.',
 	'extensions.customTypes.custom': 'Personalizado',
 	'extensions.customTypes.summaryMeta':
@@ -2930,7 +2947,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.customTypes.editType': 'Editar tipo · {id}',
 	'extensions.customTypes.defineTitle': 'Definir un tipo nuevo',
 	'extensions.customTypes.exitPreview': 'Sal de la vista previa para crear tipos.',
-	'extensions.customTypes.dmOnly': 'Solo el DJ puede definir tipos de objeto personalizados.',
+	'extensions.customTypes.dmOnly': 'Pide a tu {gm} que defina un tipo de objeto personalizado.',
 	'extensions.customTypes.label': 'Etiqueta',
 	'extensions.customTypes.labelPlaceholder': 'p. ej. Taberna',
 	'extensions.customTypes.labelField': 'Etiqueta del tipo personalizado',
@@ -2940,9 +2957,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.customTypes.fieldKind': 'Tipo del campo {index}',
 	'extensions.customTypes.removeField': 'Quitar el campo {index}',
 	'extensions.customTypes.required': 'Obligatorio',
-	'extensions.customTypes.dmOnlyField': 'Solo DJ',
+	'extensions.customTypes.dmOnlyField': 'Solo {gm}',
 	'extensions.customTypes.requiredWord': 'obligatorio',
-	'extensions.customTypes.dmOnlyWord': 'solo DJ',
+	'extensions.customTypes.dmOnlyWord': 'solo {gm}',
 	'extensions.customTypes.addField': 'Añadir campo',
 	'extensions.customTypes.saving': 'Guardando…',
 	'extensions.customTypes.saveChanges': 'Guardar los cambios',
@@ -2950,20 +2967,20 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.customTypes.cancelEdit': 'Cancelar la edición',
 	'extensions.customTypes.kind.string': 'Texto',
 	'extensions.customTypes.kind.number': 'Número',
-	'extensions.customTypes.kind.boolean': 'Booleano',
+	'extensions.customTypes.kind.boolean': 'Sí o no',
 	'extensions.customTypes.kind.stringArray': 'Lista de texto',
 	'extensions.customTypes.kind.object': 'Objeto',
 	'extensions.customTypes.kind.objectArray': 'Lista de objetos',
 	'extensions.customTypes.newInstance': 'Nuevo: {label}',
 	'extensions.customTypes.creating': 'Creando…',
-	'extensions.customTypes.instanceCreated': 'Se creó {title} (solo DJ)',
+	'extensions.customTypes.instanceCreated': 'Se creó {title} (solo {gm})',
 	'extensions.customTypes.objectTitle': 'Título del objeto',
 	'extensions.customTypes.true': 'Verdadero',
 	'extensions.customTypes.false': 'Falso',
 	'extensions.customTypes.commaSeparated': 'separado por comas',
 	/* Extensiones › complementos (el registro de paquetes de widgets) */
 	'extensions.plugins.readOnly':
-		'Gestionar paquetes es solo para el DJ y es de solo lectura durante la vista previa — los controles de abajo están desactivados.',
+		'Gestionar paquetes es solo para {gm}. Sal de la vista previa o pide a tu {gm} que haga los cambios.',
 	'extensions.plugins.installedTitle': 'Paquetes instalados',
 	'extensions.plugins.installedCount': '{count, plural, one {# instalado} other {# instalados}}',
 	'extensions.plugins.installedIntro':
@@ -2975,7 +2992,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.plugins.recommendTrust': 'Confiar tras la revisión',
 	'extensions.plugins.needsReview': 'Necesita revisión',
 	'extensions.plugins.customCode': 'Código propio',
-	'extensions.plugins.migrationFailed': 'La migración falló',
+	'extensions.plugins.migrationFailed': 'La actualización falló: revisa el paquete',
 	'extensions.plugins.cardMeta':
 		'v{version} · {widgets, plural, one {# widget} other {# widgets}} · {recommendation}',
 	'extensions.plugins.noPerms': 'Sin permisos del anfitrión',
@@ -2990,7 +3007,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.plugins.starterTitle': 'Biblioteca inicial',
 	'extensions.plugins.starterBadge': 'incluida · sin red',
 	'extensions.plugins.starterIntro':
-		'Estos paquetes vienen con Lamplight y no necesitan conexión a la red. Cada uno se instala desactivado y con todos los permisos del anfitrión bloqueados; revísalo en la lista de instalados antes de activarlo.',
+		'Estos paquetes vienen con Lamplight y funcionan sin conexión. Se instalan desactivados y con todos los permisos denegados. Revisa cada uno en la lista de instalados antes de activarlo.',
 	'extensions.plugins.sandboxed': 'aislado',
 	'extensions.plugins.starterNoCode': 'sin código',
 	'extensions.plugins.installed': 'Instalado',
@@ -3002,7 +3019,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Describe un widget paso a paso — qué muestra, qué puede hacer, qué aspecto tiene — y Lamplight crea el paquete por ti. Se instala desactivado, como cualquier otro paquete.',
 	'extensions.plugins.jsonTitle': 'Instalar o actualizar desde JSON',
 	'extensions.plugins.jsonIntro':
-		'Pega la definición de un paquete de widgets (o una exportación de una tarjeta de arriba). Un id nuevo se instala; un id ya instalado se actualiza en el sitio. Lamplight valida el paquete y ejecuta con seguridad los pasos de actualización declarados.',
+		'Pega un paquete de widgets o una exportación de una tarjeta de arriba. Lamplight comprueba el paquete antes de instalarlo. Si ya está instalado, lo actualiza y comprueba y ejecuta los pasos de actualización que incluya.',
 	'extensions.plugins.jsonPlaceholder':
 		'{ "id": "mi-paquete", "version": "1.0.0", "displayName": "Mi paquete", "widgets": [ … ] }',
 	'extensions.plugins.jsonField': 'JSON de la definición del paquete de widgets',
@@ -3011,25 +3028,26 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.plugins.marketBadge': 'No disponible',
 	'extensions.plugins.marketBody':
 		'El mercado de la comunidad no está disponible en esta edición. Instala desde la biblioteca inicial o añade arriba un archivo de paquete de confianza.',
-	'extensions.plugins.enabled': 'Se activó {id}.',
+	'extensions.plugins.enabled': 'Paquete activado.',
 	'extensions.plugins.disabled':
-		'Se desactivó {id} — sus widgets colocados quedan en pausa hasta que vuelvas a activarlo.',
+		'Paquete desactivado. Sus widgets quedan en pausa hasta que lo actives de nuevo.',
 	'extensions.plugins.removed':
-		'Se quitó {id} — sus widgets colocados quedan como marcadores desactivados.',
+		'Paquete eliminado. Sus widgets siguen en su sitio, pero están desactivados.',
 	'extensions.plugins.installedStarter':
 		'Se instaló {name} desactivado y restringido. Revísalo arriba antes de activarlo.',
-	'extensions.plugins.installedPackage':
-		'Se instaló {id} desactivado y restringido. Revísalo arriba antes de activarlo.',
-	'extensions.plugins.upgraded': 'Se actualizó {id} y se actualizaron sus widgets colocados.',
-	'extensions.plugins.exportFailed': 'No se pudo exportar el paquete {id} ({reason}).',
+	'extensions.plugins.installedPackage': 'Paquete instalado. Revísalo arriba antes de activarlo.',
+	'extensions.plugins.upgraded': 'Paquete actualizado, incluidos sus widgets ya colocados.',
+	'extensions.plugins.exportFailed': 'No se pudo exportar el paquete: {reason} Inténtalo de nuevo.',
 	'extensions.plugins.exportTitle': 'Exportar {name}',
-	'extensions.plugins.exported': 'Se descargó el archivo del paquete {id}.',
-	'extensions.plugins.tooLarge': 'Ese archivo de paquete es demasiado grande. El límite es 1 MB.',
-	'extensions.plugins.badJson': 'El JSON no es válido: {reason}',
+	'extensions.plugins.exported': 'Archivo del paquete descargado.',
+	'extensions.plugins.tooLarge':
+		'Ese paquete supera 1 MB. Elige un archivo de paquete más pequeño.',
+	'extensions.plugins.badJson':
+		'No se pudo leer el JSON del paquete: {reason} Corrígelo antes de instalarlo.',
 	'extensions.plugins.missingId':
 		'El JSON del paquete necesita un "id" de primer nivel (o un envoltorio de exportación con "package.id").',
 	'extensions.plugins.systemLocked':
-		'Los paquetes de sistema integrados no se pueden reemplazar con un archivo de paquete.',
+		'Los sistemas integrados no se pueden reemplazar aquí. Copia uno desde la pestaña Sistema para personalizarlo.',
 	/* Comunidad › estructura, mercado, exportación, descubrir, publicar y el wiki de campaña */
 	'community.sections': 'Secciones de comunidad',
 	'community.tab.discover': 'Descubrir',
@@ -3056,13 +3074,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.export.empty':
 		'Todavía no hay nada que exportar — crea notas y contenido en Conocimiento primero.',
 	'community.export.includeKind': 'Incluir {kind} en la exportación del módulo',
-	'community.export.includeDmOnly': 'Incluir contenido solo del DJ',
+	'community.export.includeDmOnly': 'Incluir contenido solo del {gm}',
 	'community.export.includeDmOnlyHelp':
-		'Desactivado: una exportación segura para jugadores con los secretos ocultos. Activado: una copia de seguridad completa del DJ.',
+		'Desactivado: una exportación segura para jugadores con los secretos ocultos. Activado: una copia de seguridad completa del {gm}.',
 	'community.export.saveTitle': 'Exportar el contenido de la campaña',
 	'community.export.tally':
-		'{total} elementos de la bóveda · {player} visibles para jugadores · {dmOnly} solo DJ',
-	'community.export.modeBackup': 'Copia de seguridad completa del DJ',
+		'{total} elementos de la bóveda · {player} visibles para jugadores · {dmOnly} solo {gm}',
+	'community.export.modeBackup': 'Copia de seguridad completa del {gm}',
 	'community.export.modePortable': 'Exportación segura para jugadores',
 	'community.export.allTypes': 'todos los tipos',
 	'community.export.someTypes': '{selected}/{total} tipos',
@@ -3084,11 +3102,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.scenePackage.exportAction': 'Exportar .dndscene',
 	'community.scenePackage.importAction': 'Importar .dndscene',
 	'community.scenePackage.exportDone': 'Se descargó “{title}” como paquete de escena.',
-	'community.scenePackage.exportError': 'No se pudo exportar el paquete de escena.',
+	'community.scenePackage.exportError':
+		'No se pudo exportar el paquete de escena. Inténtalo de nuevo.',
 	'community.scenePackage.importDone':
-		'Se importó “{title}” como nueva carta de escena solo del DJ.',
-	'community.scenePackage.importError': 'No se pudo importar el paquete de escena.',
-	'community.scenePackage.importInvalidJson': 'Ese archivo no es JSON válido.',
+		'Se importó “{title}” como nueva carta de escena solo del {gm}.',
+	'community.scenePackage.importError':
+		'No se pudo importar el paquete de escena. Revisa el archivo e inténtalo de nuevo.',
+	'community.scenePackage.importInvalidJson':
+		'No se pudo leer ese archivo. Elige un archivo .dndscene exportado desde Lamplight.',
 
 	'community.discover.modules': 'Módulos',
 	'community.discover.loadFailed': 'No se pudo cargar el mercado',
@@ -3096,17 +3117,16 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.discover.loading': 'Cargando módulos',
 	'community.discover.emptyTitle': 'Todavía no hay módulos publicados',
 	'community.discover.emptyBody':
-		'Todo lo que publiques desde la pestaña Publicar aparece aquí para cada jugador y DJ con sesión iniciada.',
+		'Todo lo que publiques desde la pestaña Publicar aparece aquí para cada jugador y {gm} con sesión iniciada.',
 	'community.discover.yours': 'Tuyo',
 	'community.discover.listingMeta': 'publicado el {date} · {size} · huella {fingerprint}…',
 	'community.discover.installNote':
-		'Instalar sigue el flujo de revisión de paquetes habitual: el paquete llega desactivado y sin revisar, con todos los permisos del anfitrión denegados hasta que lo actives en Extensiones → Complementos.',
+		'Los paquetes se instalan desactivados y con todos los permisos denegados. Revisa el paquete y sus permisos en Extensiones → Complementos antes de activarlo.',
 	'community.discover.installToVault': 'Instalar en la bóveda',
 	'community.discover.removeListing': 'Quitar la publicación',
 	'community.discover.removing': 'Quitando…',
 	'community.discover.removeTitle': '¿Quitar esta publicación?',
-	'community.discover.removeDescription':
-		'Se borra del servidor del mercado — esto no se puede deshacer.',
+	'community.discover.removeDescription': 'Elimina la publicación del mercado de forma permanente.',
 	'community.discover.removeBody':
 		'desaparece de Descubrir para todos. Las copias ya instaladas en bóvedas siguen funcionando — puedes volver a publicarlo más adelante.',
 	'community.discover.installTitle': '¿Instalar este paquete?',
@@ -3119,22 +3139,22 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.discover.widgetCount': '{count, plural, one {# widget} other {# widgets}}',
 	'community.discover.packageId': 'id del paquete',
 	'community.discover.upgradeNote':
-		'Esto actualiza tu copia instalada — las migraciones declaradas se ejecutan sobre cada widget colocado.',
+		'Esto actualiza tu copia instalada y todos los widgets que hayas colocado con ella.',
 	'community.discover.installDisabledNote':
 		'Se instalará desactivado, con todos los permisos del anfitrión bloqueados hasta que lo revises y lo actives.',
-	'community.discover.notAPackage': 'Este módulo no es un paquete de widgets válido.',
+	'community.discover.notAPackage':
+		'Este módulo no se puede instalar como paquete de widgets. Elige otro módulo.',
 	'community.discover.clashesWithSystem':
-		'Este módulo choca con un paquete de sistema definido en código y no se puede instalar.',
-	'community.discover.installFailed': 'No se pudo instalar ese paquete.',
-	'community.discover.upgraded':
-		'Se actualizó {id} — las migraciones declaradas se ejecutaron sobre los widgets colocados.',
+		'Este módulo entra en conflicto con un sistema integrado. Elige otro módulo.',
+	'community.discover.installFailed': 'No se pudo instalar ese paquete. Inténtalo de nuevo.',
+	'community.discover.upgraded': 'Paquete actualizado, incluidos sus widgets ya colocados.',
 	'community.discover.installed':
-		'Se instaló {id} desactivado y restringido. Revisa sus permisos en Extensiones → Complementos antes de activarlo.',
+		'Paquete instalado. Revisa sus permisos en Extensiones → Complementos antes de activarlo.',
 	'community.discover.listingRemoved': 'La publicación se quitó del mercado.',
 
 	'community.publish.title': 'Publicar un paquete instalado',
 	'community.publish.intro':
-		'Publicar comparte uno de tus paquetes de widgets instalados (su definición exportada completa) con todos los usuarios que hayan iniciado sesión. Los paquetes de sistema están definidos en código y no se pueden publicar.',
+		'Publica un paquete de widgets instalado para compartir todo su contenido con quienes hayan iniciado sesión. Los paquetes de sistema no se pueden publicar aquí.',
 	'community.publish.emptyTitle': 'No hay paquetes publicables',
 	'community.publish.emptyBody':
 		'Instala o crea un paquete de widgets en Extensiones → Complementos primero — los paquetes de sistema siguen siendo privados.',
@@ -3155,7 +3175,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.publish.summaryPlaceholder': '¿Qué aporta esto a una mesa? (obligatorio)',
 	'community.publish.version': 'Versión del módulo',
 	'community.publish.versionPlaceholder': 'Versión (p. ej. 1.0.0)',
-	'community.publish.allRequired': 'El nombre, el resumen y la versión son obligatorios.',
+	'community.publish.allRequired': 'Escribe un nombre, un resumen y una versión antes de publicar.',
 	'community.publish.published': 'Se publicó {name} en el mercado.',
 	'community.discover.kindWidget': 'Paquete de widgets',
 	'community.discover.kindSystem': 'Paquete de sistema',
@@ -3166,7 +3186,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.discover.contentFileCount': '{count, plural, one {# nota} other {# notas}}',
 	'community.discover.moreFiles': 'y {count} más',
 	'community.discover.contentInstallNote':
-		'Las notas se añaden a tu bóveda como Solo DM. Lo que ya exista con el mismo título se omite, nunca se sobrescribe.',
+		'Las notas se añaden a tu bóveda como Solo {gm}. Lo que ya exista con el mismo título se omite, nunca se sobrescribe.',
 	'community.discover.systemPackageNote': 'Un sistema de juego',
 	'community.discover.systemInstallNote':
 		'El sistema se añade a tu biblioteca. Elegirlo para una campaña sigue siendo un paso aparte y explícito.',
@@ -3232,11 +3252,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.moduleFile.saveAction': 'Guardar .dndmodule',
 	'community.moduleFile.saveTitle': 'Guardar módulo de contenido',
 	'community.moduleFile.saved': 'Se guardó {file}.',
-	'community.moduleFile.saveError': 'No se pudo guardar el archivo del módulo.',
+	'community.moduleFile.saveError': 'No se pudo guardar el archivo del módulo. Inténtalo de nuevo.',
 	'community.moduleFile.installAction': 'Instalar .dndmodule…',
-	'community.moduleFile.invalidJson': 'Ese archivo no es JSON válido.',
-	'community.moduleFile.notAModule': 'Ese archivo no es un módulo válido.',
-	'community.moduleFile.openError': 'No se pudo leer ese archivo de módulo.',
+	'community.moduleFile.invalidJson':
+		'No se pudo leer ese archivo. Elige un archivo .dndmodule exportado desde Lamplight.',
+	'community.moduleFile.notAModule':
+		'Ese archivo no es un módulo. Elige un archivo .dndmodule exportado desde Lamplight.',
+	'community.moduleFile.openError':
+		'No se pudo leer ese módulo. Elígelo de nuevo o pide otra copia a su autor.',
 	'community.moduleFile.reviewTitle': '¿Instalar este módulo?',
 	'community.moduleFile.reviewDescription':
 		'Revisa qué añadiría el módulo antes de que algo entre en tu bóveda.',
@@ -3251,11 +3274,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.moduleFile.systemLabel': 'Sistema para guardar',
 	'community.moduleFile.systemSaveAction': 'Guardar paquete de sistema',
 	'community.moduleFile.systemSaveTitle': 'Guardar paquete de sistema',
-	'community.moduleFile.systemSaveError': 'No se pudo guardar ese paquete de sistema.',
-	'community.moduleFile.installFailed': 'No se pudo instalar ese módulo.',
+	'community.moduleFile.systemSaveError':
+		'No se pudo guardar ese paquete de sistema. Inténtalo de nuevo.',
+	'community.moduleFile.installFailed': 'No se pudo instalar ese módulo. Inténtalo de nuevo.',
 	'community.publish.contentModuleTitle': 'El contenido de tu campaña',
 	'community.publish.contentModuleNote':
-		'Publica solo las notas visibles para jugadores. El contenido Solo DM se excluye y los secretos se depuran.',
+		'Publica solo las notas visibles para jugadores. El contenido Solo {gm} se excluye y los secretos se depuran.',
 	'community.publish.contentEmpty':
 		'Todavía no hay contenido visible para jugadores que publicar. Comparte algunas notas primero.',
 	'community.publish.license': 'Licencia',
@@ -3269,7 +3293,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.publish.checklistBrokenLinks': 'Enlaces',
 	'community.publish.checklistMissingAssets': 'Recursos',
 
-	'community.wiki.settingsTitle': 'Ajustes de publicación',
+	'community.wiki.settingsTitle': 'Configuración de publicación',
 	'community.wiki.defaultTitle': 'Mi wiki de campaña',
 	'community.wiki.localOnlyBody':
 		'El alojamiento de wikis públicos no está disponible en esta edición. La vista previa de lectura sigue mostrando exactamente qué notas de la campaña se incluirían.',
@@ -3291,7 +3315,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.wiki.access': 'Acceso',
 	'community.wiki.accessField': 'Acceso del wiki',
 	'community.wiki.accessPublic': 'Público',
-	'community.wiki.accessPublicNote': 'Cualquiera con el enlace; se puede indexar',
+	'community.wiki.accessPublicNote': 'Cualquiera con el enlace; puede aparecer en buscadores',
 	'community.wiki.accessUnlisted': 'No listado',
 	'community.wiki.accessUnlistedNote':
 		'Solo con el enlace directo — depende del secreto del enlace',
@@ -3321,7 +3345,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.wiki.passwordPlaceholder': 'Contraseña de lectura (mínimo 6 caracteres)',
 	'community.wiki.passwordField': 'Contraseña del wiki',
 	'community.wiki.publishNote':
-		'Solo se publican las notas visibles para jugadores — las notas solo del DJ nunca salen de la bóveda. Los lectores no necesitan cuenta.',
+		'Solo se publican las notas visibles para jugadores — las notas solo del {gm} nunca salen de la bóveda. Los lectores no necesitan cuenta.',
 	'community.wiki.publishWiki': 'Publicar el wiki',
 	'community.wiki.previewTitle': 'Vista previa de lectura',
 	'community.wiki.previewFallbackTitle': 'Tu wiki de campaña',
@@ -3332,7 +3356,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Todavía no hay notas visibles para jugadores — marca notas como visibles para jugadores en Conocimiento para incluirlas.',
 	'community.wiki.previewMore': '… y {count} más',
 	'community.wiki.previewNote':
-		'Solo aparecen las notas visibles para jugadores. Los bloques solo del DJ se quitan de la página publicada.',
+		'Solo aparecen las notas visibles para jugadores. Los bloques solo del {gm} se quitan de la página publicada.',
 	'community.wiki.eligiblePages': 'Páginas aptas',
 	'community.wiki.theme': 'Tema',
 	'community.wiki.noPublicUrl':
@@ -3341,15 +3365,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.wiki.needsPages':
 		'Marca al menos una nota como visible para jugadores en Conocimiento antes de publicar.',
 	'community.wiki.needsTitle': 'Ponle un título al wiki.',
-	'community.wiki.needsPassword':
-		'Un wiki con contraseña necesita una contraseña de al menos 6 caracteres.',
+	'community.wiki.needsPassword': 'Escribe al menos 6 caracteres para la contraseña de la wiki.',
 	'community.wiki.updated': 'Wiki actualizado — el enlace público no cambia.',
 	'community.wiki.published': 'Wiki publicado — comparte el enlace público.',
 	'community.wiki.unpublished': 'Wiki despublicado — el enlace público ya no funciona.',
 	'community.wiki.linkCopied': 'Se copió el enlace público.',
 	'community.wiki.copyFailed': 'No se pudo copiar — copia el enlace a mano.',
 	/* Constructor de widgets › vocabulario, pasos, validación y vista previa */
-	'builder.audience.dm': 'Solo DJ',
+	'builder.audience.dm': 'Solo {gm}',
 	'builder.audience.players': 'Visible para jugadores',
 	'builder.audience.shared': 'Compartido',
 	'builder.capability.manager': 'Gestor de campaña',
@@ -3380,7 +3403,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.resize.axisLocked': 'Redimensionar en un eje',
 	'builder.resize.fixed': 'Tamaño fijo',
 	'builder.resize.free': 'Redimensionar libremente',
-	'builder.source.binding': 'Un vínculo declarado',
+	'builder.source.binding': 'Un elemento vinculado',
 	'builder.source.contentObjects': 'Objetos de la bóveda',
 	'builder.source.currentCombatants': 'Combatientes actuales',
 	'builder.source.maps': 'Mapas',
@@ -3394,7 +3417,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.styleCapability.customStylesheet': 'Hoja de estilos propia',
 	'builder.styleCapability.hostThemeTokens': 'Tokens del tema del anfitrión',
 	'builder.styleCapability.responsiveLayout': 'Diseño adaptable',
-	'builder.surface.commandCenter': 'Centro de mando',
+	'builder.surface.commandCenter': 'Centro de comandos',
 	'builder.surface.playerView': 'Vista de jugador',
 	'builder.surface.scene': 'Lienzo de escena',
 	'builder.template.actionPanel': 'Panel de acciones',
@@ -3409,9 +3432,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.templateHelp.chart': 'Un gráfico de barras sobre la columna de medida de una consulta.',
 	'builder.templateHelp.dataTable': 'Filas y columnas de una consulta de datos.',
 	'builder.templateHelp.formPanel':
-		'Campos que rellena el DJ y se envían mediante un comando declarado.',
+		'Campos que rellena el {gm} y se envían mediante un comando declarado.',
 	'builder.templateHelp.sceneMessage': 'Un bloque corto de texto para que lo lea la mesa.',
-	'builder.templateHelp.statBlock': 'Los números y rasgos clave de una entidad.',
+	'builder.templateHelp.statBlock': 'Las cifras y rasgos principales de un personaje.',
 	'builder.templateHelp.statusList':
 		'Una lista de nombres con una línea de estado cada uno, para combatientes o miembros del grupo.',
 	'builder.templateHelp.tracker':
@@ -3428,7 +3451,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.token.textPrimary': 'Texto, principal',
 	'builder.token.textSecondary': 'Texto, secundario',
 	'builder.token.textTertiary': 'Texto, terciario',
-	'builder.writesTo.entity': 'Una entidad vinculada',
+	'builder.writesTo.entity': 'Un elemento vinculado',
 	'builder.writesTo.scene': 'La escena',
 	'builder.writesTo.session': 'La sesión',
 
@@ -3454,38 +3477,38 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.issue.typeIdShape':
 		'Usa minúsculas, números, puntos y guiones, por ejemplo party-status.',
 	'builder.issue.version': 'Usa una versión de tres partes, por ejemplo 1.0.0.',
-	'builder.issue.surfaces': 'Elige al menos una superficie.',
-	'builder.issue.profiles': 'Elige al menos un perfil de dispositivo.',
-	'builder.issue.defaultWidth': 'El ancho predeterminado debe ser mayor que cero.',
-	'builder.issue.defaultHeight': 'El alto predeterminado debe ser mayor que cero.',
-	'builder.issue.minWidth': 'El ancho mínimo debe ser mayor que cero.',
-	'builder.issue.minHeight': 'El alto mínimo debe ser mayor que cero.',
-	'builder.issue.minWidthTooLarge':
-		'El ancho mínimo no puede ser mayor que el ancho predeterminado.',
-	'builder.issue.minHeightTooLarge':
-		'El alto mínimo no puede ser mayor que el alto predeterminado.',
+	'builder.issue.surfaces': 'Elige al menos un lugar donde pueda aparecer el widget.',
+	'builder.issue.profiles': 'Elige al menos un dispositivo compatible.',
+	'builder.issue.defaultWidth': 'Indica un ancho predeterminado mayor que cero.',
+	'builder.issue.defaultHeight': 'Indica un alto predeterminado mayor que cero.',
+	'builder.issue.minWidth': 'Indica un ancho mínimo mayor que cero.',
+	'builder.issue.minHeight': 'Indica un alto mínimo mayor que cero.',
+	'builder.issue.minWidthTooLarge': 'Indica un ancho mínimo igual o inferior al predeterminado.',
+	'builder.issue.minHeightTooLarge': 'Indica un alto mínimo igual o inferior al predeterminado.',
 	'builder.issue.bindingId': 'Cada vínculo necesita un id.',
-	'builder.issue.bindingDuplicate': 'El vínculo {id} está declarado más de una vez.',
+	'builder.issue.bindingDuplicate': 'El vínculo {id} aparece dos veces. Renombra o quita uno.',
 	'builder.issue.bindingIdShape':
 		'El id de vínculo {id} debe ser palabras en minúscula unidas por guiones.',
-	'builder.issue.bindingEntityTypes': 'El vínculo {id} necesita al menos un tipo de entidad.',
+	'builder.issue.bindingEntityTypes': 'Elige al menos un tipo de elemento para el vínculo {id}.',
 	'builder.issue.queryId': 'Cada consulta de datos necesita un id.',
-	'builder.issue.queryDuplicate': 'La consulta de datos {id} está declarada más de una vez.',
+	'builder.issue.queryDuplicate': 'La consulta {id} aparece dos veces. Renombra o quita una.',
 	'builder.issue.queryUndeclaredBinding':
-		'La consulta de datos {id} lee un vínculo que no está declarado.',
+		'La consulta {id} usa un vínculo que falta. Añádelo arriba o elige uno existente.',
 	'builder.issue.queryIdentifierClash':
 		'Las consultas de datos {owner} e {id} compartirían un nombre en una fórmula. Haz que los ids se diferencien en algo más que la puntuación.',
 	'builder.issue.computedMissingQuery':
-		'El campo calculado {id} lee una consulta que ya no existe.',
-	'builder.issue.computedEmptyFormula': 'El campo calculado {id} tiene una fórmula vacía.',
+		'El campo calculado {id} usa una consulta que falta. Elige una consulta existente.',
+	'builder.issue.computedEmptyFormula': 'Escribe una fórmula para el campo calculado {id}.',
 	'builder.issue.computedBadFormula':
 		'El campo calculado {id} tiene una fórmula que no se puede leer. Usa los nombres que aparecen bajo la fórmula.',
 	'builder.issue.configKey': 'Cada campo de ajuste necesita una clave.',
-	'builder.issue.configDuplicate': 'La clave de ajuste {key} está declarada más de una vez.',
+	'builder.issue.configDuplicate':
+		'La clave de ajuste {key} aparece dos veces. Renombra o quita una.',
 	'builder.issue.commandType': 'Cada comando necesita un tipo.',
-	'builder.issue.commandDuplicate': 'El comando {type} está declarado más de una vez.',
+	'builder.issue.commandDuplicate': 'La acción {type} aparece dos veces. Renombra o quita una.',
 	'builder.issue.tokenName': 'Cada token de estilo necesita un nombre.',
-	'builder.issue.tokenDuplicate': 'El token de estilo {name} está declarado más de una vez.',
+	'builder.issue.tokenDuplicate':
+		'El token de estilo {name} aparece dos veces. Renombra o quita uno.',
 	'builder.issue.customCodeEmpty':
 		'Escribe el marcado del widget o su script antes de instalarlo. Un widget propio sin ninguno no dibuja nada.',
 	'builder.issue.networkDestinations':
@@ -3494,7 +3517,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Pide el permiso de red o quita los destinos. Sin el permiso no conceden nada.',
 
 	'builder.identity.help':
-		'Ponle nombre al widget y di dónde va. Los ids son la forma en que la campaña se refiere a él para siempre, así que aquí se comprueban.',
+		'Pon nombre al widget y elige dónde se puede usar. Sus identificadores se conservan en la campaña; sigue el formato de abajo.',
 	'builder.identity.nameSection': 'Nombre y descripción',
 	'builder.identity.name': 'Nombre',
 	'builder.identity.namePlaceholder': 'Estado del grupo',
@@ -3522,8 +3545,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.identity.widgetIcon': 'Icono del widget',
 	'builder.identity.noIconMatch': 'Ningún icono del vocabulario coincide con eso.',
 	'builder.identity.whereSection': 'Dónde puede ir',
-	'builder.identity.surfaces': 'Superficies',
-	'builder.identity.profiles': 'Perfiles de dispositivo admitidos',
+	'builder.identity.surfaces': 'Dónde aparece',
+	'builder.identity.profiles': 'Dispositivos compatibles',
 	'builder.identity.libraryListed': 'Listarlo en la biblioteca de Añadir widget',
 
 	'builder.layout.title': 'Disposición',
@@ -3544,12 +3567,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Se guarda como un ajuste de presentación en cada copia colocada. El lienzo de escena es libre y no lo tiene en cuenta.',
 
 	'builder.data.help':
-		'Elige cómo se dibuja el widget y luego declara qué lee. Lamplight resuelve cada consulta por espectador, así que una consulta solo del DJ nunca llega a un jugador.',
+		'Elige el aspecto del widget y qué datos lee. Lamplight comprueba el acceso de cada persona, así que los datos solo para {gm} nunca llegan a los jugadores.',
 	'builder.data.template': 'Plantilla',
 	'builder.data.templateKind': 'Tipo de plantilla',
-	'builder.data.bindings': 'Vínculos',
+	'builder.data.bindings': 'Vínculos a elementos de campaña',
 	'builder.data.bindingsHelp':
-		'Las entidades a las que apunta una copia colocada. Un vínculo obligatorio hace que el widget espere hasta que el DJ lo apunte a algo; uno opcional es un extra.',
+		'Elige qué elementos de la campaña usa un widget colocado. El {gm} debe definir los vínculos obligatorios para que funcione. Los opcionales pueden quedar vacíos.',
 	'builder.data.queries': 'Consultas de datos',
 	'builder.data.queriesHelp':
 		'Cada consulta nombra una fuente y para quién es. La primera consulta es lo que dibuja una plantilla de una sola fuente.',
@@ -3564,7 +3587,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.data.declareBindingFirst': 'Declara un vínculo arriba primero.',
 	'builder.data.computed': 'Campos calculados',
 	'builder.data.computedHelp':
-		'Un valor obtenido de una o varias consultas. Una consulta retenida no aporta nada, así que el total de un jugador nunca se deriva de filas que nunca recibió.',
+		'Calcula un valor a partir de una o varias consultas de datos. Los datos ocultos para un jugador se excluyen de su cálculo, así que el total no puede revelar información oculta.',
 	'builder.data.noComputed': 'No hay campos calculados.',
 	'builder.data.addComputed': 'Añadir campo calculado',
 	'builder.data.removeComputed': 'Quitar el campo calculado {name}',
@@ -3587,7 +3610,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 
 	'builder.binding.label': 'Etiqueta',
 	'builder.binding.id': 'Id',
-	'builder.binding.entityTypes': 'Tipos de entidad',
+	'builder.binding.entityTypes': 'Tipos de elemento',
 	'builder.binding.entityTypesHelp':
 		'A qué puede apuntar, separado por comas — por ejemplo character, npc.',
 	'builder.binding.mode': 'Modo',
@@ -3607,7 +3630,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.bindingMode.observe': 'Vigilar sus cambios',
 
 	'builder.config.help':
-		'Lo que el DJ puede cambiar en cada copia colocada. Cada campo de aquí se convierte en un control del inspector de escena.',
+		'Lo que el {gm} puede cambiar en cada copia colocada. Cada campo de aquí se convierte en un control del inspector de escena.',
 	'builder.config.fields': 'Campos',
 	'builder.config.empty':
 		'Todavía no hay ajustes. Un widget sin ninguno es igual en todas las escenas.',
@@ -3615,7 +3638,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.config.removeField': 'Quitar el campo de ajuste {name}',
 	'builder.config.label': 'Etiqueta',
 	'builder.config.key': 'Clave',
-	'builder.config.reservedKey': 'Esa clave está reservada para la preferencia de acople.',
+	'builder.config.reservedKey': 'Esa clave se usa para la preferencia de anclaje. Elige otra.',
 	'builder.config.control': 'Control',
 	'builder.config.group': 'Grupo',
 	'builder.config.startsOn': 'Empieza activado',
@@ -3640,7 +3663,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.commands.remove': 'Quitar el comando {name}',
 	'builder.commands.name': 'Nombre',
 	'builder.commands.type': 'Tipo',
-	'builder.commands.typeHelp': 'El id con puntos que despacha el núcleo.',
+	'builder.commands.typeHelp': 'El identificador de la acción, con palabras separadas por puntos.',
 	'builder.commands.writesTo': 'Escribe en',
 	'builder.commands.destination': 'Destino',
 	'builder.commands.destinationHelp': 'A qué clase de datos llega este comando.',
@@ -3659,10 +3682,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.config.unset': 'Cualquiera',
 	'builder.config.placeholder': 'Texto de ejemplo',
 	'builder.config.placeholderHelp': 'Texto atenuado que se muestra mientras la casilla está vacía.',
-	'builder.config.rangeInverted': 'El mínimo está por encima del máximo.',
-	'builder.config.defaultBelowMin': 'El valor por defecto está por debajo del mínimo.',
-	'builder.config.defaultAboveMax': 'El valor por defecto está por encima del máximo.',
-	'builder.config.defaultNotAChoice': 'El valor por defecto no es una de las opciones.',
+	'builder.config.rangeInverted': 'Indica un mínimo igual o inferior al máximo.',
+	'builder.config.defaultBelowMin': 'Aumenta el valor predeterminado hasta el mínimo o más.',
+	'builder.config.defaultAboveMax': 'Reduce el valor predeterminado hasta el máximo o menos.',
+	'builder.config.defaultNotAChoice': 'Elige un valor predeterminado de la lista de opciones.',
 	'builder.config.choicesEmpty': 'Añade al menos una opción.',
 	'builder.catalog.draw': 'Robar',
 	'builder.catalog.start': 'Iniciar',
@@ -3732,7 +3755,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.advanced.api.onConfigChanged': 'Se llama cuando cambia un ajuste del widget colocado.',
 	'builder.advanced.api.onBindingChanged': 'Se llama cuando el widget apunta a otra cosa.',
 	'builder.advanced.api.dispatch':
-		'Pide al anfitrión ejecutar uno de los comandos que este widget declara. El núcleo decide si puede.',
+		'Solicita una acción declarada por este widget. Lamplight comprueba los permisos antes de aplicarla.',
 	'builder.advanced.api.requestPermission':
 		'Pide un permiso del anfitrión. Denegado salvo que un revisor lo apruebe para este paquete.',
 	'builder.advanced.api.outbound':
@@ -3757,7 +3780,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.advanced.destinationHelp.widgetDeclared':
 		'una dirección que el paquete nombra y un revisor aprueba al instalar.',
 	'builder.advanced.destinationHelp.analytics':
-		'el destino de telemetría propia, cuando está activo.',
+		'el servicio de recuentos de uso de Lamplight, cuando está activado.',
 	'builder.advanced.noDestinations': 'Ninguno solicitado',
 	'builder.advanced.securityTitle': 'Resumen de seguridad',
 	'builder.advanced.securityHelp':
@@ -3771,7 +3794,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.advanced.notesPlaceholder': 'Necesita que la lista del grupo esté rellena.',
 
 	'builder.review.helpInstall':
-		'Revisa lo que está a punto de instalarse. Llega desactivado y con todos los permisos del anfitrión denegados — actívalo desde Paquetes instalados cuando estés conforme.',
+		'Revisa el paquete antes de instalarlo. Se instala desactivado y con todos los permisos denegados. Cuando esté listo, actívalo desde Paquetes instalados.',
 	'builder.review.helpUpgrade':
 		'Este id ya está instalado, así que esto guarda una versión nueva y migra cada copia ya colocada en una escena.',
 	'builder.review.fixFirst': 'Arregla esto primero',
@@ -3791,7 +3814,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.review.placedCopies': 'Copias colocadas',
 	'builder.review.changelog': 'Registro de cambios',
 	'builder.review.changelogHelp':
-		'Qué cambió en esta versión, guardado junto con el registro de migración.',
+		'Describe qué cambió en esta versión. Se conserva en el historial de actualizaciones.',
 	'builder.review.changelogPlaceholder': '¿Qué cambió en esta versión?',
 	'builder.review.migrationFromTo': 'Cada copia en la versión {from} pasa a {to}',
 	'builder.review.migrationGains': ', y gana los ajustes nuevos {settings}.',
@@ -3800,26 +3823,27 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.review.saveVersion': 'Guardar la versión nueva',
 	'builder.review.install': 'Instalar el widget',
 	'builder.review.readOnly':
-		'Crear widgets es solo para el DJ, y es de solo lectura mientras ves la vista previa como otra persona.',
+		'Crear widgets es solo para {gm}. Sal de la vista previa o pide a tu {gm} que cree este widget.',
 
 	'builder.preview.untitled': 'Widget sin título',
 	'builder.preview.custom': 'Personalizado',
 	'builder.preview.audience': 'Público de la vista previa',
-	'builder.preview.asDm': 'Ver como DJ',
+	'builder.preview.asDm': 'Ver como {gm}',
 	'builder.preview.asPlayer': 'Ver como jugador',
 	'builder.preview.typeIdTaken':
 		'Un widget integrado ya usa el id de tipo {type}. Elige otro id en el paso Identidad.',
-	'builder.preview.nothingDraws': 'Todavía no hay nada que pueda dibujar esto.',
+	'builder.preview.nothingDraws':
+		'Aún no hay vista previa. Elige una plantilla o añade código al widget.',
 	'builder.preview.drawnAsPlayer':
-		'Dibujado con los datos de esta campaña, tal como los recibiría un jugador sin permisos.',
+		'Se muestra con los datos de campaña visibles para un jugador sin permisos adicionales.',
 	'builder.preview.drawnAsActor':
-		'Dibujado con los datos de esta campaña, para el actor con el que estás viendo.',
+		'Se muestra con los datos de campaña visibles para la persona que previsualizas.',
 	'builder.preview.emptyQueries':
 		'{list} no tiene nada que mostrar ahora mismo, así que aparece el estado vacío del widget.',
 	'builder.preview.drawnInSandbox':
 		'El código propio del widget, ejecutándose en el marco aislado con todos los permisos del anfitrión denegados, como quedará tras instalarlo.',
 	'builder.preview.customDmOnly':
-		'Un widget con código propio se previsualiza como DM. Colócalo en una escena para ver lo que recibe un jugador.',
+		'Un widget con código propio se previsualiza como {gm}. Colócalo en una escena para ver lo que recibe un jugador.',
 	/* Conocimiento › la bóveda de notas, su importador y el visor de notas */
 	'knowledge.notes': 'Notas',
 	'knowledge.note': 'Nota',
@@ -3833,10 +3857,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Aquí viven las notas, los documentos y el texto para leer en voz alta. Los retroenlaces los conectan automáticamente.',
 	'knowledge.emptyPlayer': 'Todavía no se ha compartido nada contigo',
 	'knowledge.emptyPlayerBody':
-		'Aquí aparecerán las notas y los documentos que tu DJ comparta con la mesa.',
+		'Aquí aparecerán las notas y los documentos que tu {gm} comparta con la mesa.',
 	'knowledge.emptyNote': 'Nota vacía',
 	'knowledge.noteEmpty': 'Esta nota está vacía.',
-	'knowledge.brokenLink': 'Este enlace no apunta a una nota que puedas abrir',
+	'knowledge.brokenLink': 'No se puede abrir esta nota. Busca su título en Conocimiento.',
 	'knowledge.updated': 'actualizada el {when}',
 	'knowledge.noteUpdated': 'Nota · actualizada el {when}',
 	'knowledge.createFailed': 'No se pudo crear la nota — inténtalo de nuevo.',
@@ -3851,8 +3875,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'knowledge.importField': 'Markdown o JSON para importar',
 	'knowledge.importPlaceholder':
 		'===== Saber/El Muelle.md =====\nEl agua salobre lame los tablones podridos…',
-	'knowledge.importPolicy': 'Política de colisiones al importar',
-	'knowledge.policySkip': 'Saltar las colisiones',
+	'knowledge.importPolicy': 'Cuando una nota ya existe',
+	'knowledge.policySkip': 'Omitir notas existentes',
 	'knowledge.policyOverwrite': 'Sobrescribir lo existente',
 	'knowledge.policyKeepBoth': 'Conservar ambas',
 	'knowledge.import': 'Importar',
@@ -3863,14 +3887,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'knowledge.overwrite': 'Sobrescribir',
 	'knowledge.overwriteTitle': '¿Sobrescribir las notas existentes?',
 	'knowledge.overwriteBody':
-		'Cada nota con la que choque este archivo tendrá su cuerpo reemplazado y su visibilidad para jugadores restablecida a lo que diga el archivo — puede que se vuelva a ocultar algo que estés compartiendo ahora. Esto no se puede deshacer. Elige «Saltar las colisiones» para importar solo las notas nuevas.',
+		'Para cada nota que ya exista, esta importación sustituye su texto y usa la visibilidad para jugadores guardada en el archivo. El contenido que compartes puede volver a quedar oculto. Esto no se puede deshacer. Elige «Omitir notas existentes» para importar solo notas nuevas.',
 
 	'knowledge.noteTitle': 'Título de la nota',
 	'knowledge.noteBody': 'Cuerpo de la nota',
 	'knowledge.notePlaceholder': 'Escribe tu nota…',
 	'knowledge.markdownHint':
 		'Se admite markdown — ## encabezados, > lectura en voz alta, - listas, [[enlaces]].',
-	'knowledge.needsTitle': 'Una nota necesita un título.',
+	'knowledge.needsTitle': 'Ponle un título a la nota.',
 	'knowledge.saveNote': 'Guardar la nota',
 	'knowledge.saveFailed': 'No se pudo guardar la nota — inténtalo de nuevo.',
 	'knowledge.changeFailed': 'No se pudo guardar el cambio — inténtalo de nuevo.',
@@ -3887,7 +3911,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'knowledge.visPlayers': 'Jugadores',
 	'knowledge.push': 'Enviar a los jugadores',
 	'knowledge.share': 'Compartir',
-	'knowledge.sharedByDm': 'El DJ la ha compartido contigo.',
+	'knowledge.sharedByDm': 'El {gm} la ha compartido contigo.',
 	'knowledge.backlinks': 'Retroenlaces',
 	'knowledge.noBacklinks': 'Todavía no hay notas que enlacen aquí.',
 	'knowledge.related': 'Relacionadas',
@@ -3895,7 +3919,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'knowledge.revealTitle': '¿Mostrar «{title}» a los jugadores?',
 	'knowledge.revealBody':
 		'Los jugadores pueden leer esta nota desde el momento en que la compartas. Volver a ocultarla después no deshace lo que ya han leído.',
-	'knowledge.keepDmOnly': 'Mantener solo para el DJ',
+	'knowledge.keepDmOnly': 'Mantener solo para el {gm}',
 	/* Audio › reproducción, tablero de sonidos, pistas, ambiente, salida, preajustes y automatización */
 	'audio.sections': 'Secciones de audio',
 	'audio.tab.playback': 'Reproducción',
@@ -3910,19 +3934,19 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'audio.resume': 'Reanudar',
 	'audio.stop': 'Detener',
 	'audio.masterVolume': 'Volumen general',
-	'audio.changeFailed': 'No se pudo guardar ese cambio.',
+	'audio.changeFailed': 'No se pudo guardar ese cambio. Inténtalo de nuevo.',
 	'audio.imported': 'Se importó «{title}» al tablero de sonidos.',
 	'audio.importDeduped':
-		'«{title}» ya estaba en la biblioteca — se actualizaron los metadatos y se dedujeron los bytes.',
+		'«{title}» ya estaba en la biblioteca. Se actualizaron sus datos sin guardar otra copia.',
 	'audio.importNoLicense':
 		'«{title}» no declara licencia — revísala antes de compartirla o exportarla.',
-	'audio.importFailed': 'No se pudo importar ese archivo de audio.',
+	'audio.importFailed': 'No se pudo importar ese audio. Revisa el archivo e inténtalo de nuevo.',
 	'audio.addError.desktopBlocksStreams':
 		'La aplicación de escritorio bloquea las emisiones remotas. Importa el archivo de audio en su lugar.',
-	'audio.addError.needsUrl': 'Una emisión web necesita una URL.',
+	'audio.addError.needsUrl': 'Escribe la URL de la transmisión de audio.',
 	'audio.addError.androidHttps':
 		'Las emisiones de audio en Android deben usar una URL HTTPS válida. Importa el archivo o usa un servidor cifrado.',
-	'audio.unbound': 'Se desvinculó el audio de «{name}».',
+	'audio.unbound': 'Audio desvinculado de «{name}».',
 	'audio.layerRemoved': 'Se quitó la capa de ambiente «{name}».',
 	'audio.embed.addHint':
 		'Detectado {provider}: se reproduce en un marco aislado y nunca se guarda en caché.',
@@ -3930,7 +3954,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'audio.embed.online': 'En línea',
 	'audio.embed.offline': 'Sin conexión: se reproducen las capas de ambiente locales.',
 	'audio.embed.frameTitle': 'Reproductor de {provider}',
-	'audio.embed.badUrl': 'Este enlace no se pudo convertir en contenido incrustado reproducible.',
+	'audio.embed.badUrl':
+		'Este enlace no se puede reproducir aquí. Usa un enlace de YouTube o SoundCloud.',
 	'audio.embed.failover': 'Sin red: se reproducen las capas de ambiente locales.',
 
 	'audio.sourceKind.webStream': 'Emisión web (URL)',
@@ -3950,7 +3975,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'audio.trigger.poiPartyEnter': 'El grupo entra en un POI vinculado',
 	'audio.sfx.heading': 'Efectos de sonido',
 	'audio.sfx.intro':
-		'Elige qué momentos de la mesa suenan. Apagar un evento conserva sus reglas, así que al volver a encenderlo suenan de nuevo. Solo DM.',
+		'Elige qué momentos de la mesa suenan. Apagar un evento conserva sus reglas, así que al volver a encenderlo suenan de nuevo. Solo {gm}.',
 	'audio.sfx.toggle': 'Reproducir un sonido en {event}',
 	'audio.sfx.rulesArmed': '{count} reglas en este evento',
 	'audio.sfx.noRules': 'Aún no hay reglas en este evento',
@@ -3977,7 +4002,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Importa un archivo de audio local para armar tu tablero de sonidos, o añade abajo una pista en emisión — cualquiera de los dos se convierte en audio real de la sesión.',
 	'audio.soundboard.checkingDevice': 'Comprobando este dispositivo…',
 	'audio.soundboard.bytesMissing':
-		'Faltan los bytes del archivo en este dispositivo — vuelve a importarlo para recuperarlo',
+		'Falta el archivo de audio en este dispositivo: impórtalo de nuevo para reproducirlo',
 	'audio.soundboard.reviewLicense': 'Revisar la licencia',
 
 	// RC-AUD-1.3 — el paquete inicial CC0 incluido, instalado bajo demanda.
@@ -3989,7 +4014,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'audio.starter.alreadyPresent': 'El paquete inicial ya está en esta biblioteca.',
 	'audio.starter.partial':
 		'{count, plural, one {# pista inicial no se pudo añadir} other {# pistas iniciales no se pudieron añadir}}. {reason}',
-	'audio.starter.failed': 'No se pudo añadir el paquete inicial.',
+	'audio.starter.failed': 'No se pudo añadir el paquete inicial. Inténtalo de nuevo.',
 
 	'audio.tracks.title': 'Pistas y fuentes',
 	'audio.tracks.count': '{count, plural, one {# fuente} other {# fuentes}}',
@@ -4003,15 +4028,15 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'audio.tracks.urlHelpAndroid':
 		'Una URL de audio HTTPS directa. Android bloquea las emisiones HTTP sin cifrar.',
 	'audio.tracks.urlHelpLocal':
-		'Solo las emisiones web llevan URL. Para archivos locales usa «Importar audio…» arriba — guarda los bytes y crea la fuente en un solo paso.',
+		'Para archivos locales, usa Importar audio arriba para guardar el archivo y añadirlo a tu biblioteca. Solo las emisiones web necesitan una URL.',
 	'audio.tracks.desktopBlocksRemote':
 		'La aplicación de escritorio bloquea los enlaces de audio remotos. Importa audio arriba para que la reproducción sea local y esté disponible sin conexión.',
 	'audio.tracks.add': 'Añadir pista',
 	'audio.tracks.adding': 'Añadiendo…',
 	'audio.tracks.added': 'Se añadió «{name}»',
-	'audio.tracks.dmOnly': 'La configuración de audio es solo para el DJ.',
+	'audio.tracks.dmOnly': 'Pide a tu {gm} que configure el audio.',
 	'audio.tracks.dmOnlyPreviewing':
-		'La configuración de audio es solo para el DJ — sal de la vista previa para añadir pistas.',
+		'La configuración de audio es solo para el {gm} — sal de la vista previa para añadir pistas.',
 	'audio.tracks.blockedDesktop': 'Bloqueado en escritorio',
 	'audio.tracks.httpsRequired': 'Se requiere HTTPS',
 	'audio.tracks.playbackReady': 'Lista para reproducir',
@@ -4020,7 +4045,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'audio.tracks.importInstead': 'Impórtalo en su lugar',
 	'audio.tracks.viaSoundboard': 'Desde el tablero',
 	'audio.tracks.remoteBlockedTitle':
-		'La política de seguridad de escritorio bloquea las emisiones remotas.',
+		'La aplicación de escritorio bloquea las transmisiones remotas. Importa el archivo de audio.',
 	'audio.tracks.viaSoundboardTitle':
 		'Reproduce los archivos importados de esta fuente desde el tablero de sonidos de arriba.',
 
@@ -4062,9 +4087,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'audio.output.needsPermission':
 		'Los nombres de los dispositivos aparecen cuando el navegador concede permiso de medios; las salidas sin nombre siguen funcionando.',
 	'audio.output.enumerateFailed':
-		'No se pudieron enumerar los dispositivos de salida en este navegador.',
+		'No se pudieron listar las salidas de audio. Elige una en la configuración del dispositivo.',
 
-	'audio.bindings.title': 'Vínculos de escena',
+	'audio.bindings.title': 'Audio de escenas',
 	'audio.bindings.emptyTitle': 'Todavía no hay escenas.',
 	'audio.bindings.emptyBody':
 		'Crea una escena en la sección Escenas — cada una puede llevar su propia señal de ambiente.',
@@ -4072,7 +4097,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'audio.bindings.bind': 'Vincular',
 	'audio.bindings.bindTo': 'Vincular audio a {name}',
 	'audio.bindings.unbind': 'Desvincular',
-	'audio.bindings.unbindFrom': 'Desvincular el audio de {name}',
+	'audio.bindings.unbindFrom': 'Desvincular audio de {name}',
 	'audio.bindings.desktopUnavailable':
 		'Los vínculos de escena con emisiones remotas no están disponibles en la aplicación de escritorio.',
 	'audio.bindings.needsStreamTrack':
@@ -4089,9 +4114,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'audio.presets.saveCurrent': 'Guardar el audio actual',
 	'audio.presets.nothingToCapture':
 		'Reproduce una pista o añade una capa de ambiente para capturarlo.',
-	'audio.presets.dmOnly': 'Los preajustes son solo para el DJ.',
+	'audio.presets.dmOnly': 'Pide a tu {gm} que guarde o aplique un preajuste de audio.',
 	'audio.presets.dmOnlyPreviewing':
-		'Los preajustes son solo para el DJ — sal de la vista previa para guardar o aplicar.',
+		'Los preajustes son solo para el {gm} — sal de la vista previa para guardar o aplicar.',
 	'audio.presets.emptyTitle': 'Todavía no hay paquetes de escena.',
 	'audio.presets.emptyBody':
 		'Prepara una pista y algo de ambiente y guárdalo aquí para volver a aplicar toda la atmósfera más tarde.',
@@ -4101,12 +4126,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'audio.presets.delete': 'Borrar {name}',
 	'audio.presets.libraryTitle': 'Biblioteca de atmósferas',
 	'audio.presets.libraryIntro':
-		'Recetas de atmósfera incluidas, agrupadas por tipo de escena. Aplica una cuando sus capas estén vinculadas a tus propias fuentes — si no, la aplicación te dice qué vincular y nunca adivina una pista.',
+		'Elige una ambientación incluida por tipo de escena. Vincula cada capa a tu propio audio antes de aplicarla. Si falta un vínculo, Lamplight te indica cuál debes añadir.',
 
 	'audio.automation.title': 'Reglas de automatización',
 	'audio.automation.count': '{count, plural, one {# regla} other {# reglas}}',
 	'audio.automation.intro':
-		'Cada regla asigna un evento de la sesión a un comando de audio declarado. El estado de abajo es el veredicto determinista del resolutor del núcleo frente a la biblioteca actual y a la disponibilidad real de archivos en este dispositivo — una regla bloqueada se señala, nunca se salta en silencio.',
+		'Elige una acción de audio para cada evento de sesión. El estado de abajo indica si cada regla puede ejecutarse con tu biblioteca actual y los archivos disponibles en este dispositivo. Las reglas bloqueadas se señalan para que puedas corregirlas.',
 	'audio.automation.emptyTitle': 'No hay reglas de automatización.',
 	'audio.automation.emptyBody':
 		'Asigna un evento de la sesión — que empiece el combate, que se active una escena — a una señal de audio con el formulario de al lado.',
@@ -4137,9 +4162,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'audio.automation.addRule': 'Añadir regla',
 	'audio.automation.needsSource':
 		'Añade una pista o importa audio primero — una regla necesita una fuente.',
-	'audio.automation.dmOnly': 'La automatización es solo para el DJ.',
+	'audio.automation.dmOnly': 'Pide a tu {gm} que edite las reglas de audio.',
 	'audio.automation.dmOnlyPreviewing':
-		'La automatización es solo para el DJ — sal de la vista previa para editar reglas.',
+		'La automatización es solo para el {gm} — sal de la vista previa para editar reglas.',
 	/* Personajes › la lista, la cabecera de la hoja y sus paneles */
 	'characters.title': 'Personajes',
 	'characters.breadcrumb': 'Ruta de navegación',
@@ -4160,7 +4185,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'characters.emptyRosterBody':
 		'Añade a los héroes del grupo y después a los PNJ que se encontrarán.',
 	'characters.noMatches': 'Nadie coincide con este filtro',
-	'characters.noMatchesBody': 'Ningún personaje coincide con este filtro.',
+	'characters.noMatchesBody': 'Borra un filtro para ver más personajes.',
 	'characters.filters': 'Filtrar personajes',
 	'characters.filter.owner': 'Propietario',
 	'characters.filter.anyOwner': 'Cualquiera',
@@ -4171,7 +4196,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'characters.resultCount': 'Mostrando {shown} de {total}',
 	'characters.gridHint': 'Usa las flechas para moverte entre personajes e Intro para abrir uno.',
 	'characters.levelShort': 'Nv. {level}',
-	'characters.hpLabel': 'PG',
+	'characters.hpLabel': '{hitPoints}',
 	'characters.hpUnset': 'PG sin definir',
 	'characters.moreConditions': '+{count} más',
 	'characters.playedBy': 'Lo juega {names}',
@@ -4185,7 +4210,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'characters.saveTags': 'Guardar etiquetas',
 	'characters.tagsSaved': 'Etiquetas guardadas.',
 	'characters.unavailableTitle': 'Personaje no disponible',
-	'characters.unavailableBody': 'Este personaje no es visible para ti.',
+	'characters.unavailableBody':
+		'Este personaje no es visible para ti. Vuelve a Personajes para elegir otro.',
 	'characters.rename': 'Cambiar el nombre del personaje',
 	'characters.ac': 'CA',
 	'characters.level': 'Nivel',
@@ -4199,7 +4225,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'characters.speed': 'Velocidad',
 	'characters.feet': '{value} pies',
 	'characters.armorClass': 'Clase de armadura',
-	'characters.hitPoints': 'Puntos de golpe',
+	'characters.hitPoints': '{hitPoints}',
 	'characters.tempHp': 'PG temporales',
 	'characters.visibleTo': 'Visible para',
 	'characters.dmNotes': 'Notas del {gm}',
@@ -4282,7 +4308,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'atlas.zoomIn': 'Acercar',
 	'atlas.zoomOut': 'Alejar',
 	'atlas.fit': 'Ajustar',
-	'atlas.mapUnavailable': 'Este mapa no está disponible para ti.',
+	'atlas.mapUnavailable': 'Este mapa no está disponible para ti. Elige otro en Atlas.',
 	'atlas.fogOfWar': 'Niebla de guerra',
 	'atlas.projectToPlayers': 'Proyectar a los jugadores',
 	'atlas.fogChanges': '{count, plural, one {# cambio} other {# cambios}}',
@@ -4304,7 +4330,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'atlas.showLayer': 'Mostrar {name} en el mapa',
 	'atlas.noLayers': 'No hay capas visibles para ti',
 	'atlas.visibilityToggleTitle':
-		'Visibilidad: {visibility} — pulsa para cambiar entre solo DJ ↔ visible para jugadores',
+		'Visibilidad: {visibility} — pulsa para cambiar entre solo {gm} ↔ visible para jugadores',
 	'atlas.visibilityToggleLabel': 'Visibilidad de {name}: {visibility} — cambiar',
 	'atlas.noMapsDm': 'Todavía no hay mapas.',
 	'atlas.noMapsPlayer': 'No hay mapas visibles para ti.',
@@ -4332,8 +4358,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 
 	/* Editor de escenas › la barra del lienzo, el inspector y los dos paneles laterales */
 	'sceneEditor.unavailable': 'Escena no disponible',
-	'sceneEditor.cannotOpen': 'No se puede abrir esta escena: {reason}.',
-	'sceneEditor.noLongerExists': 'Esta escena ya no existe.',
+	'sceneEditor.cannotOpen':
+		'No se puede abrir esta escena: {reason}. Vuelve a Escenas para elegir otra.',
+	'sceneEditor.noLongerExists': 'Esta escena ya no existe. Vuelve a Escenas para elegir otra.',
 	'sceneEditor.backToScenes': 'Volver a las escenas',
 	'sceneEditor.widgetSummary':
 		'{count, plural, one {# widget} other {# widgets}} · desplaza y haz zoom para explorar',
@@ -4360,7 +4387,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sceneEditor.tagsPlaceholder': 'mazmorra, combate',
 	'sceneEditor.saveDetails': 'Guardar los detalles',
 	'sceneEditor.closeInspector': 'Cerrar el inspector',
-	'sceneEditor.settings': 'Ajustes',
+	'sceneEditor.settings': 'Configuración',
 	'sceneEditor.fixedMapSource':
 		'La fuente de mapa de este widget es fija y no se puede cambiar aquí.',
 	'sceneEditor.fixedDataSource':
@@ -4467,7 +4494,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'charBuilder.startBuilding': 'Empezar a crear',
 	'charBuilder.importFile': 'Importar archivo de personaje (JSON)',
 	'charBuilder.importFileDesc':
-		'Una exportación de personaje de D&D Beyond o un JSON de personaje de dndtools. Revisas exactamente qué se corresponde — y qué no — antes de crear nada.',
+		'Importa una exportación de D&D Beyond o un archivo de personaje de Lamplight. Revisa qué datos se pueden importar antes de crear el personaje.',
 	'charBuilder.chooseFile': 'Elegir un archivo',
 
 	'charBuilder.importTitle': 'Importar archivo de personaje',
@@ -4475,7 +4502,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'charBuilder.importUnreadable':
 		'No se pudo leer el archivo — comprueba que sea una exportación de personaje e inténtalo de nuevo.',
 	'charBuilder.sourceDndBeyond': 'Exportación de D&D Beyond',
-	'charBuilder.sourceDndtools': 'JSON de dndtools',
+	'charBuilder.sourceDndtools': 'JSON de Lamplight',
 	'charBuilder.countAbilityScores':
 		'{count, plural, one {# puntuación de característica} other {# puntuaciones de característica}}',
 	'charBuilder.countSkills': '{count, plural, one {# habilidad} other {# habilidades}}',
@@ -4627,16 +4654,16 @@ export const es: Partial<Record<MessageKey, string>> = {
 
 	'charBuilder.bio': 'Biografía',
 	'charBuilder.bioPlaceholder': '¿Quiénes son y por qué están aquí?',
-	'charBuilder.dmNotes': 'Notas del DJ',
+	'charBuilder.dmNotes': 'Notas del {gm}',
 	'charBuilder.dmNotesHint': 'Nunca se muestran a los jugadores',
 	'charBuilder.dmNotesPlaceholder': 'Secretos, bazas, cómo vas a interpretarlos.',
 	'charBuilder.dmNotesUnavailable':
-		'Las notas solo del DJ todavía no están disponibles en un PJ guiado — un PJ se comparte con su jugador propietario, y un campo no se puede marcar como solo del DJ después de crearlo.',
+		'Las notas solo del {gm} todavía no están disponibles en un PJ guiado — un PJ se comparte con su jugador propietario, y un campo no se puede marcar como solo del {gm} después de crearlo.',
 	'charBuilder.visibility': 'Visibilidad',
 	'charBuilder.pcSharedBefore': 'Un PJ nuevo empieza',
 	'charBuilder.pcSharedEmphasis': 'compartido con su jugador propietario',
 	'charBuilder.pcSharedAfter':
-		'— la regla del flujo guiado del núcleo (CHAR-002). El DJ puede ampliar después quién lo ve desde los controles de Uso compartido de la hoja de personaje.',
+		'; puedes elegir quién más lo ve en Compartir, en la hoja de personaje.',
 	'charBuilder.playersCanSee': 'Los jugadores pueden verlo',
 	'charBuilder.playersCanSeeSub': 'En la lista del grupo y en las escenas compartidas',
 	'charBuilder.dmOnlySub': 'Oculto hasta que lo reveles',
@@ -4702,7 +4729,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'campaign.quest.new': 'Nueva misión',
 	'campaign.quest.save': 'Guardar misión',
 	'campaign.quest.create': 'Crear misión',
-	'campaign.quest.needsTitle': 'Una misión necesita un título.',
+	'campaign.quest.needsTitle': 'Ponle un título a la misión.',
 	'campaign.quest.noHook': 'Todavía no hay gancho escrito.',
 	'campaign.quest.titlePlaceholder': 'La estela del dios ahogado',
 	'campaign.quest.objectives': 'Objetivos',
@@ -4721,15 +4748,16 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'campaign.faction.new': 'Nueva facción',
 	'campaign.faction.save': 'Guardar facción',
 	'campaign.faction.create': 'Crear facción',
-	'campaign.faction.needsName': 'Una facción necesita un nombre.',
+	'campaign.faction.needsName': 'Ponle un nombre a la facción.',
 	'campaign.faction.noDossier': 'Todavía no hay dosier escrito.',
 	'campaign.faction.ledBy': 'liderada por {name}',
 	'campaign.faction.goals': 'Metas',
 	'campaign.faction.goalsHelp': 'Una meta por línea.',
 	'campaign.faction.goalsPlaceholder':
 		'Despertar lo que duerme bajo las criptas\nMantener abierta la ruta de los cargamentos',
-	'campaign.faction.secret': 'Secreto del DM',
-	'campaign.faction.secretHelp': 'Visible solo para el DM; nunca aparece en una vista de jugador.',
+	'campaign.faction.secret': 'Secreto del {gm}',
+	'campaign.faction.secretHelp':
+		'Visible solo para el {gm}; nunca aparece en una vista de jugador.',
 	'campaign.faction.secretPlaceholder': 'Sild traduce para el culto en vez de liderarlo.',
 	'campaign.faction.name': 'Nombre',
 	'campaign.faction.namePlaceholder': 'La Mano de Salmuera',
@@ -4772,7 +4800,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'campaign.relationships.added': 'Relación añadida.',
 	'campaign.relationships.removed': 'Relación eliminada.',
 	'campaign.relationships.remove': 'Eliminar: {source} → {target}',
-	'campaign.relationships.saveFailed': 'No se pudo guardar esta relación.',
+	'campaign.relationships.saveFailed': 'No se pudo guardar esta relación. Inténtalo de nuevo.',
 
 	/* Mejora › planes y nube */
 	'upgrade.included': 'Incluido',
@@ -4797,7 +4825,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'El cambio de plan en la nube por cuenta propia no está disponible en esta versión.',
 	'upgrade.nowPreviewing': 'Ahora pruebas la vista previa de {plan} — no se cobró nada.',
 	'upgrade.nowOnDevice': 'Ahora usas {plan} en este dispositivo.',
-	'upgrade.changeFailed': 'No se pudo cambiar el plan.',
+	'upgrade.changeFailed': 'No se pudo cambiar el plan. Inténtalo de nuevo.',
 	'upgrade.localFirst': 'Local primero · tu mesa funciona sin conexión',
 	'upgrade.headingUnavailable':
 		'El juego local sigue siendo gratis. El alta en planes de nube todavía no está disponible.',
@@ -4851,13 +4879,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Terminarás en la página de pago segura de Stripe. Lamplight nunca ve los datos de tu tarjeta. Se renueva automáticamente; cancela cuando quieras desde Gestionar facturación.',
 	'upgrade.dialog.continueToCheckout': 'Continuar al pago seguro',
 	'upgrade.dialog.redirecting': 'Abriendo el pago…',
-	'upgrade.checkout.failed': 'No se pudo iniciar el pago.',
+	'upgrade.checkout.failed': 'No se pudo iniciar el pago. Inténtalo de nuevo.',
 	'upgrade.checkout.confirming': 'Confirmando tu suscripción con Stripe…',
-	'upgrade.checkout.confirmed': 'Ya estás en {plan}. ¡Gracias!',
+	'upgrade.checkout.confirmed': 'Ahora tienes el plan {plan}.',
 	'upgrade.checkout.pending':
 		'El pago se realizó, pero el plan aún no se ha actualizado. Suele tardar unos segundos — recarga esta página en breve.',
 	'upgrade.checkout.cancelled': 'Pago cancelado — no se cobró nada.',
-	'upgrade.portal.failed': 'No se pudo abrir la facturación.',
+	'upgrade.portal.failed': 'No se pudo abrir la facturación. Inténtalo de nuevo.',
 	'upgrade.note.liveLead': 'La facturación la gestiona Stripe.',
 	'upgrade.note.liveBody':
 		'Los precios están en USD. Las suscripciones se renuevan automáticamente y se pueden cambiar o cancelar en cualquier momento desde Gestionar facturación. Tus bóvedas locales nunca dependen de un plan de nube.',
@@ -4881,13 +4909,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'home.observerMode': 'Modo observador',
 	'home.playerView': 'Vista de jugador',
 	'home.readOnlyView': 'Tu vista de solo lectura de la mesa en vivo.',
-	'home.liveView': 'Tu vista en vivo de la mesa — lo que el DM comparte ahora mismo.',
+	'home.liveView': 'Tu vista en vivo de la mesa — lo que el {gm} comparte ahora mismo.',
 	'home.sessionLive': 'Sesión en vivo',
 	'home.yourCampaign': 'Tu campaña',
 	'home.liveSubtitle': 'El combate, la iniciativa y las tiradas ocurren dentro de la escena',
 	'home.idleSubtitle': 'Retoma o abre una escena para jugar en vivo',
 	'home.partyCount': '{count, plural, one {# en el grupo} other {# en el grupo}}',
-	'home.enterGmScreen': 'Entrar en la pantalla del DM',
+	'home.enterGmScreen': 'Abrir pantalla del {gm}',
 	'home.enterScene': 'Entrar en la escena',
 	'home.openScene': 'Abrir escena',
 	'home.newScene': 'Nueva escena',
@@ -4904,13 +4932,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'home.create.map': 'Nuevo mapa',
 	'home.create.mapSub': 'Mapa de batalla o de región',
 	'home.create.widget': 'Nuevo widget',
-	'home.create.widgetSub': 'Un rastreador de la pantalla del DM',
+	'home.create.widgetSub': 'Un contador para tu pantalla del {gm}',
 	'home.create.note': 'Nueva nota',
 	'home.create.noteSub': 'Trasfondo, misión o documento',
 	'home.manage.players': 'Jugadores',
 	'home.manage.playersMeta': 'Lista e invitaciones',
 	'home.manage.permissions': 'Permisos',
-	'home.manage.permissionsMeta': 'Roles y concesiones de capacidades',
+	'home.manage.permissionsMeta': 'Roles y acceso',
 	'home.manage.vault': 'Conexiones de bóveda',
 	'home.manage.vaultMeta': 'Fuentes de notas conectadas',
 	'home.count.characters': '{pcs} PJ · {npcs} PNJ',
@@ -4924,19 +4952,19 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'join.heading': 'Te han invitado',
 	'join.checking': 'Comprobando tu invitación…',
 	'join.incomplete':
-		'Este enlace para unirse está incompleto. Pide a tu DM que copie el enlace completo desde Ajustes → Jugadores y lo envíe de nuevo.',
+		'Este enlace para unirse está incompleto. Pide a tu {gm} que copie el enlace completo desde Configuración → Jugadores y lo envíe de nuevo.',
 	'join.checkFailed': 'No se pudo comprobar este enlace de invitación — inténtalo de nuevo.',
 	'join.invitedYouToJoin': 'te invitó a unirte a',
 	'join.asA': 'como',
-	'join.coDm': 'Co-DM',
+	'join.coDm': 'Co-{gm}',
 	'join.coDmNote':
-		'Un puesto de Co-DM ve la preparación del DM y ayuda a llevar la mesa. Tu DM completa la promoción cuando te unes a su sesión en vivo.',
+		'Un puesto de Co-{gm} ve la preparación del {gm} y ayuda a llevar la mesa. Tu {gm} completa la promoción cuando te unes a su sesión en vivo.',
 	'join.expires': 'La invitación caduca el {date}.',
 	'join.signInPrompt':
 		'Inicia sesión (o crea una cuenta gratuita) primero si tu mesa juega por internet.',
 	'join.openPlayerApp': 'Abrir la app de jugador',
 	'join.playerAppHint':
-		'Desde allí, únete a la mesa de tu DM con el nombre de mesa y el PIN que comparta a la hora de jugar.',
+		'Desde allí, únete a la mesa de tu {gm} con el nombre de mesa y el PIN que comparta a la hora de jugar.',
 	'join.tryAgain': 'Intentar de nuevo',
 	'join.goToApp': 'Ir a la app',
 	/* Legal › las páginas públicas de Política de privacidad y Términos (`#/legal/*`) */
@@ -4950,9 +4978,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'La política de privacidad y los términos del servicio de Lamplight y sus servicios en línea. Ambas páginas son públicas y no requieren cuenta.',
 
 	/* Pantalla del DM › el tablero principal y sus paneles Añadir / Diseños */
-	'board.playerTitle': 'La pantalla del DM es el tablero de control del DM',
-	'board.playerBody': 'Solo el DM puede organizarla. Vuelve a la vista de DM para hacer cambios.',
-	'board.title': 'Pantalla del DM',
+	'board.playerTitle': 'La pantalla del {gm} es el tablero de control del {gm}',
+	'board.playerBody':
+		'Solo el {gm} puede organizarla. Vuelve a la vista de {gm} para hacer cambios.',
+	'board.title': 'Pantalla del {gm}',
 	'board.widgetCount': '{count, plural, one {# widget} other {# widgets}} · tu tablero principal',
 	'board.snap': 'Ajustar',
 	'board.add': 'Añadir',
@@ -4960,12 +4989,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'board.done': 'Listo',
 	'board.editLayout': 'Editar el diseño',
 	'board.emptyHint': 'Pulsa Editar el diseño y luego Añadir para colocar un widget.',
-	'board.preparingHint': 'Preparando tu pantalla del DM…',
+	'board.preparingHint': 'Preparando tu pantalla del {gm}…',
 	'board.addFirstTile': 'Añade tu primera ficha',
 	'board.applyTemplate': 'Aplicar una plantilla',
 	'board.emptySceneTitle': 'Una escena vacía',
-	'board.emptyTitle': 'Tu pantalla del DM está vacía',
-	'board.preparingTitle': 'Configurando tu pantalla del DM',
+	'board.emptyTitle': 'Tu pantalla del {gm} está vacía',
+	'board.preparingTitle': 'Configurando tu pantalla del {gm}',
 	'board.addWidget': 'Añadir widget',
 	'board.emptyTemplatesHint': 'Tu tablero está vacío. Empieza con un diseño ya preparado:',
 	'board.useTemplate': 'Usar una plantilla',
@@ -5008,10 +5037,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'graph.focus.exit': 'Mostrar grafo completo',
 	'graph.walkHelp':
 		'Usa las flechas para recorrer los nodos, Intro para seleccionar y Escape para borrar la selección.',
-	'graph.view.dm': 'Vista de DM',
+	'graph.view.dm': 'Vista de {gm}',
 	'graph.view.player': 'Vista de jugador',
 	'graph.needPlayer':
-		'Añade un jugador en Ajustes para previsualizar el punto de vista del jugador.',
+		'Añade un jugador en Configuración para previsualizar el punto de vista del jugador.',
 	'graph.showing':
 		'Se muestran {shown} de {total, plural, one {# nodo visible} other {# nodos visibles}}',
 	'graph.partial': ' · algunas fuentes todavía no están cargadas del todo',
@@ -5060,12 +5089,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'graph.repair.broken': 'Enlace roto: «{target}»',
 	'graph.repair.blockedBadge': 'Bloqueado',
 	'graph.repair.unsupportedSource':
-		'Los enlaces en notas de {source} no se pueden reescribir aquí.',
-	'graph.repair.noCandidate': 'No se encontró ninguna nota coincidente para corregirlo.',
+		'Los enlaces de las notas de {source} no se pueden cambiar aquí. Edita la nota original.',
+	'graph.repair.noCandidate':
+		'No hay ninguna nota que coincida. Edita el enlace o crea la nota que falta.',
 	'graph.repair.fixTo': 'Corregir a «{title}»',
 	'graph.repair.ambiguous': 'Coinciden varias notas — elige una:',
 	'graph.repair.fixed': 'Se corrigió el enlace en «{title}».',
-	'graph.repair.fixFailed': 'No se pudo corregir el enlace en «{title}».',
+	'graph.repair.fixFailed': 'No se pudo corregir el enlace en «{title}». Inténtalo de nuevo.',
 
 	/* Escenas › el formulario de creación, la lista y la confirmación de borrado */
 	'scenes.create': 'Crear',
@@ -5082,9 +5112,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'scenes.createScene': 'Crear escena',
 	'scenes.saved': 'Se guardó «{name}».',
 	'scenes.saveFailed': 'No se pudo guardar — inténtalo de nuevo',
-	'scenes.metaSaveFailed': 'No se pudieron guardar los detalles de la escena.',
-	'scenes.deleteFailed': 'No se pudo eliminar la escena.',
-	'scenes.restoreFailed': 'No se pudo restaurar la escena.',
+	'scenes.metaSaveFailed': 'No se pudieron guardar los detalles de la escena. Inténtalo de nuevo.',
+	'scenes.deleteFailed': 'No se pudo eliminar la escena. Inténtalo de nuevo.',
+	'scenes.restoreFailed': 'No se pudo restaurar la escena. Inténtalo de nuevo.',
 	'scenes.deleted': '«{name}» eliminada',
 	'scenes.restored': '«{name}» restaurada',
 	'scenes.count': 'Escenas · {count}',
@@ -5101,7 +5131,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'scenes.deleting': 'Eliminando…',
 	'scenes.deleteScene': 'Eliminar la escena',
 	'scenes.deleteRefused':
-		'La escena en vivo y la escena principal del centro de mando no se pueden eliminar — si es una de ellas, el borrado se rechaza y no cambia nada.',
+		'No se pueden eliminar la escena en vivo ni el tablero de inicio. Termina la sesión antes de eliminar su escena; si es el tablero de inicio, elige otra escena.',
 	'scenes.saving': 'Guardando…',
 	'scenes.saveDetails': 'Guardar los detalles',
 
@@ -5215,7 +5245,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Inicia el combate en Sesión primero: no hay turno que avanzar.',
 	'widgetBody.initiative.turn': 'Turno',
 	'widgetBody.initiative.spotlight': 'Protagonismo',
-	'widgetBody.initiative.hp': 'PG',
+	'widgetBody.initiative.hp': '{hitPoints}',
 	'widgetBody.initiative.noneHpShown': 'No hay combate en curso · PG visibles',
 	'widgetBody.initiative.noneHpHidden': 'No hay combate en curso · PG ocultos',
 	'widgetBody.initiative.compactHeading': 'Ronda {round} · orden de iniciativa',
@@ -5233,7 +5263,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'No hay ningún mapa vinculado — elige un mapa para mostrar sus capas.',
 	'widgetBody.map.missingDm':
 		'El mapa vinculado no está o se eliminó. Elige otro mapa en el modo de edición.',
-	'widgetBody.map.missingPlayer': 'El mapa vinculado no está disponible para ti.',
+	'widgetBody.map.missingPlayer':
+		'Este mapa no está disponible para ti. Pide a tu {gm} que comparta un mapa.',
 	// RC-CAN-4.5
 	'widgetBody.map.viewRegion':
 		'Vista del mapa — {name}. Las flechas desplazan, más y menos amplían, cero reencuadra.',
@@ -5251,7 +5282,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'widgetBody.list.notesEmpty':
 		'Todavía no hay notas visibles — las notas de preparación aparecen aquí a medida que las escribes.',
 	'widgetBody.list.objectsEmpty':
-		'Todavía no hay objetos de referencia visibles — los conjuros y objetos importados aparecen aquí.',
+		'Todavía no hay objetos de referencia visibles — los {spellPluralLower} y objetos importados aparecen aquí.',
 	'widgetBody.list.count': '{shown} de {total} {unit}',
 	'widgetBody.list.unitNotes': 'notas de preparación',
 	'widgetBody.list.unitObjects': 'filas de referencia',
@@ -5267,13 +5298,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'widgetBody.gettingStarted.tier.intermediate': 'Intermedia',
 	'widgetBody.gettingStarted.tier.advanced': 'Avanzada',
 	'widgetBody.gettingStarted.participant':
-		'La configuración es solo para el DM: tu vista ya está lista.',
+		'La configuración es solo para el {gm}: tu vista ya está lista.',
 	'widgetBody.gettingStarted.complete':
-		'Configuración completa: sube la profundidad para abrir más superficies.',
+		'La configuración está lista. Elige una profundidad mayor para mostrar más herramientas.',
 	'widgetBody.tools.widgets': 'Widgets',
 	'widgetBody.tools.layouts': 'Diseños',
 	'widgetBody.tools.noLayouts':
-		'Guarda un diseño desde la barra de la Pantalla del DM para restaurarlo después.',
+		'Guarda un diseño desde la barra de la Pantalla del {gm} para restaurarlo después.',
 	'widgetBody.tools.safePoint': 'Hay un punto seguro guardado: restáuralo desde Diseños.',
 	'widgetBody.dataHub.scenes': 'Escenas',
 	'widgetBody.dataHub.parties': 'Grupo',
@@ -5286,11 +5317,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'widgetBody.atlas.maps': 'Mapas',
 	'widgetBody.atlas.sharing': 'Compartido',
 	'widgetBody.atlas.noOne': 'Nadie',
-	'widgetBody.atlas.queued': 'Esperando llegar a {count} jugador(es).',
+	'widgetBody.atlas.queued':
+		'Esperando llegar a {count, plural, one {# jugador} other {# jugadores}}.',
 	'widgetBody.characters.empty': 'Aún no hay personajes: crea uno para formar el grupo.',
 	'widgetBody.characters.party': 'Grupo',
 	'widgetBody.characters.others': 'Otros',
-	'widgetBody.playerViews.dmOnly': 'Las vistas de jugador son solo para el DM.',
+	'widgetBody.playerViews.dmOnly': 'Las vistas de jugador son solo para el {gm}.',
 	'widgetBody.playerViews.empty': 'Aún no hay jugadores: invita a uno para asignarle una vista.',
 	'widgetBody.playerViews.players': 'Jugadores',
 	'widgetBody.playerViews.assigned': 'Asignadas',
@@ -5334,7 +5366,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'encounter.hpAc': 'PG {hp} · CA {ac}',
 	'encounter.quickAdd': 'Añadido rápido',
 	'encounter.quickAddPlaceholder': 'p. ej. Cultista de la salmuera',
-	'encounter.hp': 'PG',
+	'encounter.hp': '{hitPoints}',
 	'encounter.ac': 'CA',
 	'encounter.add': 'Añadir',
 	'encounter.combatants': 'Combatientes · {count}',
@@ -5384,21 +5416,19 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'encounter.placeOnMap': 'Colocar fichas en el mapa',
 	'encounter.placeOnMapNote':
 		'Al empezar el combate se coloca una ficha por combatiente en el mapa activo. Desactívalo para jugar sin fichas.',
-	'encounter.placeOnMapNoMap':
-		'No hay mapa activo en esta sesión, así que todavía no hay dónde colocar fichas.',
+	'encounter.placeOnMapNoMap': 'Elige un mapa activo en Sesión para colocar fichas de combate.',
 
 	/* Fuentes conectadas › carpetas locales y Google Docs en el panel de bóveda de Ajustes */
 	'sources.title': 'Fuentes conectadas',
-	'sources.policyLabel': 'Política de colisiones al importar',
-	'sources.policy.skip': 'Importar: omitir las colisiones',
-	'sources.policy.overwrite': 'Importar: sobrescribir lo existente',
-	'sources.policy.keepBoth': 'Importar: conservar ambos',
+	'sources.policyLabel': 'Cuando una nota ya existe',
+	'sources.policy.skip': 'Importar: omitir notas existentes',
+	'sources.policy.overwrite': 'Importar: sobrescribir notas existentes',
+	'sources.policy.keepBoth': 'Importar: conservar ambas',
 	'sources.never': 'nunca',
 	'sources.connectFolder': 'Conectar una carpeta…',
 	'sources.intro':
-		'Importar trae Markdown a tu campaña. Enviar escribe las notas seleccionadas de vuelta a su fuente y pide confirmación antes de que un cambio de formato pueda dejar fuera detalles estructurados.',
-	'sources.folderConnected':
-		'Conectada. Importar recorre sus archivos .md hacia la bóveda; Enviar devuelve las notas.',
+		'Importar trae Markdown a tu campaña. Exportar guarda las notas seleccionadas en su fuente. Se pide confirmación antes de una exportación que pueda perder formato o detalles.',
+	'sources.folderConnected': 'Carpeta conectada. Importa sus archivos .md o exporta notas a ella.',
 	'sources.readDenied':
 		'Se denegó o se revocó el acceso a la carpeta. Desconecta y vuelve a conectar la carpeta para concederlo de nuevo.',
 	'sources.writeDenied':
@@ -5413,28 +5443,30 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sources.importedFromDoc': 'Se importaron {created} nuevas desde el Doc.',
 	'sources.importedFromDocOverwrites':
 		'Se importaron {created} nuevas y se sobrescribieron {over} desde el Doc.',
-	'sources.noNotesToPush': 'Todavía no hay notas que enviar.',
+	'sources.noNotesToPush': 'Aún no hay notas que exportar. Escribe una nota primero.',
 	'sources.pushEntryError': '«{title}»: {message}',
 	'sources.pushed':
-		'Se enviaron {written} de {total, plural, one {# nota} other {# notas}} a «{label}».',
+		'Se exportaron {written} de {total, plural, one {# nota} other {# notas}} a «{label}».',
 	'sources.pushedWithProblem':
-		'Se enviaron {written} de {total, plural, one {# nota} other {# notas}} a «{label}» — primer problema: {problem}',
-	'sources.googleSignedIn': 'Sesión iniciada. Crea un Doc abajo y luego envíale una nota.',
-	'sources.googleSignInFailed': 'No se pudo iniciar sesión con Google.',
-	'sources.googleNoDocId': 'Google no devolvió ningún id de documento.',
-	'sources.docCreated': 'Se creó «{title}». Envíale una nota desde abajo.',
+		'Se exportaron {written} de {total, plural, one {# nota} other {# notas}} a «{label}». Revisa las notas restantes: {problem}',
+	'sources.googleSignedIn': 'Sesión iniciada. Crea un Doc abajo y exporta una nota a él.',
+	'sources.googleSignInFailed':
+		'El inicio de sesión en Google falló. Intenta iniciar sesión de nuevo.',
+	'sources.googleNoDocId': 'Google no devolvió ningún documento. Intenta crearlo de nuevo.',
+	'sources.docCreated': 'Se creó «{title}». Exporta una nota a él abajo.',
 	'sources.docEmpty': 'El Doc está vacío — no hay nada que importar.',
-	'sources.pickNote': 'Elige primero qué nota enviar a este Doc.',
-	'sources.signInExpired': 'La sesión de Google caducó — inicia sesión otra vez para enviar.',
+	'sources.pickNote': 'Elige primero una nota para exportar a este Doc.',
+	'sources.signInExpired':
+		'Tu sesión de Google caducó. Inicia sesión de nuevo para exportar notas.',
 	'sources.disconnected': 'Se desconectó «{name}»',
 	'sources.chooseNote': 'Elige una nota…',
 	'sources.pushLossyTitle':
-		'Enviar a «{label}» pierde algo de formato en {lossy} de {total, plural, one {# nota} other {# notas}}',
-	'sources.pushDmOnlyTitle': '¿Enviar una nota solo para el DM a «{label}»?',
-	'sources.acknowledgePush': 'Aceptar la pérdida y enviar',
-	'sources.pushAnyway': 'Enviar de todos modos',
+		'Exportar a «{label}» cambia el formato de {lossy} de {total, plural, one {# nota} other {# notas}}',
+	'sources.pushDmOnlyTitle': '¿Exportar una nota solo para {gm} a «{label}»?',
+	'sources.acknowledgePush': 'Aceptar cambios y exportar',
+	'sources.pushAnyway': 'Exportar de todos modos',
 	'sources.dmOnlyWarning':
-		'Esta nota es solo para el DM. Al enviarla se copia a un Google Doc externo — cualquiera con quien se comparta ese documento podrá leerla allí.',
+		'Esta nota es solo para {gm}. Al exportarla se copia a un Google Doc. Quien tenga acceso al documento podrá leer la nota exportada.',
 	'sources.dropped': 'Se descartó (no se puede representar): {features}.',
 	'sources.downgraded': 'Se simplificó: {features}.',
 	'sources.vaultUntouched': 'Tus notas de la bóveda no se tocan en ningún caso.',
@@ -5449,12 +5481,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sources.disconnect': 'Desconectar',
 	'sources.noFsSupport':
 		'Este navegador no puede conectar una carpeta local. Usa la app de escritorio o un navegador Chromium compatible.',
-	'sources.folderMeta': 'Carpeta local · importada {pulled} · enviada {pushed}',
-	'sources.docMeta': 'Google Doc · importado {pulled} · enviado {pushed}',
+	'sources.folderMeta': 'Carpeta local · importado {pulled} · exportado {pushed}',
+	'sources.docMeta': 'Google Doc · importado {pulled} · exportado {pushed}',
 	'sources.connected': 'conectada',
 	'sources.needsSignIn': 'falta iniciar sesión',
 	'sources.pullNotes': 'Importar notas',
-	'sources.pushNotes': 'Enviar notas',
+	'sources.pushNotes': 'Exportar notas',
 	'sources.noFolders':
 		'Todavía no hay carpetas conectadas. Conecta una bóveda de Obsidian o cualquier carpeta con markdown.',
 	'sources.googleDocs': 'Google Docs',
@@ -5469,8 +5501,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sources.newDocTitle': 'Título de un Google Doc nuevo',
 	'sources.createDoc': 'Crear un Doc nuevo',
 	'sources.existingDocsNote':
-		'Los Docs existentes no se pueden conectar en esta versión porque el ámbito limitado de Google requiere una concesión del Picker. Lamplight no pide un acceso más amplio a Drive.',
-	'sources.noteToPushTo': 'Nota que enviar a {title}',
+		'Esta versión no puede conectar Google Docs existentes. Para conectarlos hace falta un selector de archivos de Google que no está disponible aquí. Lamplight no solicita acceso al resto de tu Drive.',
+	'sources.noteToPushTo': 'Nota que exportar a {title}',
 
 	/* Panel del editor de mapas › los paneles Capas, Objetos e Historial */
 	'mapDock.layers': 'Capas · {count}',
@@ -5565,9 +5597,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapInspector.notes': 'Notas',
 	'mapInspector.notesHelp': 'Un jugador solo ve las notas de un PDI visible para jugadores.',
 	'mapInspector.link': 'Enlace',
-	'mapInspector.entityType': 'Tipo de entidad',
+	'mapInspector.entityType': 'Tipo de elemento vinculado',
 	'mapInspector.entityTypePlaceholder': 'p. ej. nota, personaje',
-	'mapInspector.entityId': 'Id de entidad',
+	'mapInspector.entityId': 'Identificador del elemento vinculado',
 	'mapInspector.entityIdPlaceholder': 'id',
 	'mapInspector.saveLink': 'Guardar el enlace',
 	// RC-AUD-2.2 — vincular este PDI a un paquete de escena; se activa al entrar el grupo aquí.
@@ -5580,13 +5612,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapPoiNote.create': 'Crear una nota aquí',
 	'mapPoiNote.dialogTitle': 'Crear una nota aquí',
 	'mapPoiNote.dialogDesc':
-		'La nota se crea solo para el DM y se enlaza con este punto de interés. Puedes compartirla más tarde desde la propia nota.',
+		'La nota se crea solo para el {gm} y se enlaza con este punto de interés. Puedes compartirla más tarde desde la propia nota.',
 	'mapPoiNote.title': 'Título',
 	'mapPoiNote.type': 'Tipo',
 	'mapPoiNote.confirm': 'Crear y enlazar',
 	'mapPoiNote.starter': 'Cuerpo inicial',
 	'mapPoiNote.starterHelp': 'Un punto de partida que puedes reescribir al abrir la nota.',
-	'mapPoiNote.linkFailed': 'Se creó la nota, pero no se pudo enlazar con este punto de interés.',
+	'mapPoiNote.linkFailed':
+		'La nota se creó, pero no se vinculó. Selecciona este punto de interés y usa Guardar el enlace para enlazar la nota existente.',
 	'mapPoiNote.type.location': 'Lugar',
 	'mapPoiNote.type.locationDesc': 'Un sitio del mapa.',
 	'mapPoiNote.type.npc': 'PNJ',
@@ -5603,8 +5636,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapInspector.token': 'Ficha',
 	'mapInspector.size': 'Tamaño',
 	'mapInspector.tokenSize': 'Tamaño de la ficha',
-	'mapInspector.linkedActor': 'Vinculada a un actor.',
-	'mapInspector.notLinkedActor': 'No está vinculada a ningún actor.',
+	'mapInspector.linkedActor': 'Vinculado a un participante.',
+	'mapInspector.notLinkedActor': 'Sin vínculo a un participante.',
 	'mapInspector.deleteToken': 'Eliminar la ficha',
 	'mapInspector.tokenDeleted': 'Se eliminó la ficha «{label}».',
 	'mapInspector.selectedCount': '{count} seleccionados',
@@ -5764,9 +5797,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Elige el formato que creó este archivo. Los formatos no admitidos se dejan intactos.',
 	'mapImport.elements': 'Elementos que contiene el archivo',
 	'mapImport.declareHint':
-		'Esta versión no analiza los archivos de escena — declara lo que contiene el archivo y el adaptador clasifica cada elemento. Los elementos no admitidos se informan, nunca se descartan en silencio.',
+		'Esta versión no puede leer archivos de escena automáticamente. Describe el contenido del archivo para comprobar qué partes se pueden importar. Las partes no compatibles se muestran para que puedas revisarlas.',
 	'mapImport.preview': 'Vista previa',
-	'mapImport.cannotImport': 'Este archivo no se puede importar.',
+	'mapImport.cannotImport':
+		'Este archivo no se puede importar. Revisa el informe o elige otro archivo.',
 	'mapImport.meta.filename': 'Nombre de archivo',
 	'mapImport.meta.mime': 'Tipo MIME',
 	'mapImport.meta.unknown': 'desconocido',
@@ -5776,7 +5810,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapImport.pixels': '{width} × {height} px',
 	'mapImport.kilobytes': '{kb} KB',
 	'mapImport.support.importable': 'Importable',
-	'mapImport.support.lossy': 'Con pérdida',
+	'mapImport.support.lossy': 'Se omiten algunos detalles',
 	'mapImport.support.unsupported': 'No admitido',
 	'mapImport.support.blocked': 'Bloqueado',
 	'mapImport.dropped':
@@ -5787,9 +5821,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapImport.importing': 'Importando…',
 	'mapImport.import': 'Importar',
 	'mapImport.failed': 'No se pudo completar la importación — inténtalo de nuevo.',
-	'mapImport.committed': 'Importación aplicada a «{name}»',
-	'mapImport.assetDeduped': 'Recurso {id} (duplicado — esos bytes ya estaban importados)',
-	'mapImport.assetRecorded': 'Recurso {id} registrado',
+	'mapImport.committed': 'Importado a «{name}»',
+	'mapImport.assetDeduped': 'Imagen ya importada: se usa la copia existente',
+	'mapImport.assetRecorded': 'Imagen registrada',
 	'mapImport.sceneRecorded': 'Elementos de escena registrados',
 	'mapImport.droppedCount':
 		' · {count, plural, one {# elemento no admitido} other {# elementos no admitidos}} informados y descartados',
@@ -5838,7 +5872,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'{walls, plural, one {# muro} other {# muros}} · {points, plural, one {# punto} other {# puntos}}',
 	'mapImport.walls.previewLabel': 'Vista previa de {count} contornos de muro trazados',
 	'mapImport.walls.previewNote':
-		'Todavía no se ha guardado nada. Al importar se añaden a una capa solo para DM llamada Muros trazados, donde puedes editarlos o borrarlos.',
+		'Todavía no se ha guardado nada. Al importar se añaden a una capa solo para {gm} llamada Muros trazados, donde puedes editarlos o borrarlos.',
 	'mapImport.walls.layerName': 'Muros trazados',
 	'mapImport.result.grid':
 		'Cuadrícula ajustada a {count} casillas de ancho, {units} {unit} por casilla.',
@@ -5853,7 +5887,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapGenerate.generate': 'Generar',
 	'mapGenerate.category': 'Categoría',
 	'mapGenerate.bestFor': 'Ideal para:',
-	'mapGenerate.presets': 'Ajustes preestablecidos',
+	'mapGenerate.presets': 'Configuración preestablecidos',
 	'mapGenerate.seed': 'Semilla',
 	'mapGenerate.seedLabel': 'Semilla de generación',
 	'mapGenerate.reroll': 'Volver a tirar',
@@ -5864,8 +5898,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapGenerate.accept': 'Aceptar',
 	'mapGenerate.again': 'Otra vez',
 	'mapGenerate.added': 'Añadido',
-	'mapGenerate.generatorFailed': 'El generador no se pudo ejecutar.',
-	'mapGenerate.noGenerator': 'No hay ningún generador seleccionado.',
+	'mapGenerate.generatorFailed':
+		'No se pudo ejecutar el generador. Revisa sus ajustes e inténtalo de nuevo.',
+	'mapGenerate.noGenerator': 'Elige primero un generador.',
 	'mapGenerate.derived': 'Se derivaron los muros, las puertas y las luces de los suelos generados.',
 	'mapGenerate.fixSetting': 'Corrige el ajuste marcado para ver la vista previa.',
 	'mapGenerate.ghostPreview':
@@ -5926,7 +5961,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapTool.fog.hint':
 		'Revela u oculta zonas. Rectángulo, polígono o pincel en la barra de opciones.',
 	'mapTool.token.label': 'Ficha',
-	'mapTool.token.hint': 'Coloca una ficha de combate. Vincúlala a un actor en el inspector.',
+	'mapTool.token.hint': 'Coloca una ficha de combate. Vincúlala a un participante en el inspector.',
 	'mapTool.token.hint.combat':
 		'El combate está en marcha. Haz clic en un combatiente para seleccionarlo o arrástralo para moverlo.',
 	'mapCombat.layer': 'Fichas de combate',
@@ -5935,7 +5970,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapCombat.status.active': 'Turno activo',
 	'mapCombat.status.down': 'Caído',
 	'mapCombat.moved': 'Se movió a {name}.',
-	'mapCombat.cannotMove': 'No puedes mover a {name}.',
+	'mapCombat.cannotMove': 'No puedes mover a {name}. Pide a tu {gm} que lo haga.',
 	'mapCombat.moreConditions': '+{count}',
 	'mapCombat.overlay': 'Fichas de combate: {names}',
 	// RC-MAP-2.2 — la capa de alcance/ruta y la herramienta de área de efecto.
@@ -5944,7 +5979,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapCombat.moveSurfaceNoOne': 'Selecciona un combatiente para moverlo.',
 	'mapCombat.areaSurface': 'Colocar un {shape}. Haz clic en el mapa, o usa las flechas y Enter.',
 	'mapCombat.areaPlaced': 'Colocaste un {label}.',
-	'mapCombat.outOfRange': '{name} no puede llegar a esa casilla.',
+	'mapCombat.outOfRange': '{name} no llega a esa casilla. Elige una casilla resaltada.',
 	'mapCombat.areaReadout': 'Área de efecto',
 	'mapCombat.areaCells': '{label} · {count} casillas',
 	'mapCombat.areaAffects': 'Afecta a {names}',
@@ -5955,16 +5990,15 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapInspector.combatOffMap': 'No está en este mapa',
 	'mapInspector.combatClear': 'Quitar la selección del combatiente',
 	'mapInspector.combatant': 'Combatiente',
-	'mapInspector.combatantHp': 'Puntos de golpe',
+	'mapInspector.combatantHp': '{hitPoints}',
 	'mapInspector.combatantAt': 'En {x}, {y} de este mapa',
 	'mapInspector.combatantNoToken': 'Este combatiente no está en este mapa.',
 	'mapTool.poi.label': 'Punto de interés',
-	'mapTool.poi.hint':
-		'Suelta un pin con etiqueta. Vincúlalo a una nota o a una entidad en el inspector.',
+	'mapTool.poi.hint': 'Coloca un marcador. Vincúlalo a una entrada de campaña en el inspector.',
 	'mapTool.route.label': 'Ruta',
 	'mapTool.route.hint': 'Pulsa puntos de paso para dibujar una ruta de viaje. Intro termina.',
 	'mapTool.text.label': 'Etiqueta',
-	'mapTool.text.hint': 'Coloca una etiqueta de mapa. Escribe y luego pulsa fuera para fijarla.',
+	'mapTool.text.hint': 'Coloca una etiqueta en el mapa. Escribe y pulsa fuera para guardar.',
 	// RC-MAP-2.2 — el grupo Combate: mover a un combatiente, colocar un área de efecto, medir.
 	'mapTool.group.combat': 'Combate',
 	'mapTool.combatMove.label': 'Mover',
@@ -5991,7 +6025,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 
 	/* Editor de mapas › el marco: cabecera, paneles, avisos y los atajos */
 	'mapEditor.dialogLabel': 'Editor de mapas',
-	'mapEditor.unavailable': 'Este mapa no está disponible para ti.',
+	'mapEditor.unavailable': 'Este mapa no está disponible para ti. Vuelve a Atlas para elegir otro.',
 	'mapEditor.backToAtlas': 'Volver al Atlas',
 	'mapEditor.panelsLabel': 'Paneles del editor de mapas',
 	'mapEditor.dock.inspector': 'Seleccionado',
@@ -6020,8 +6054,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapGraph.selectedRoom': '{name} seleccionada.',
 	'mapGraph.keyed': '{name} marcada como {kind}.',
 	'mapGraph.cleared': 'Contenido de {name} borrado.',
-	'mapGraph.gone': 'Esa sala ya no está en el mapa.',
-	'mapGraph.dmOnly': 'Solo el DM puede marcar el contenido de una sala.',
+	'mapGraph.gone': 'Esa sala ya no está en el mapa. Selecciona otra.',
+	'mapGraph.dmOnly': 'Pide a tu {gm} que defina el contenido de esta sala.',
 	'mapEditor.breadcrumb': 'Ruta de navegación',
 	'mapEditor.atlas': 'Atlas',
 	'mapEditor.goToMap': 'Ir a {name}',
@@ -6138,7 +6172,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapList.category.roads': 'Caminos',
 	'mapList.category.poi': 'Puntos de interés',
 	'mapList.category.fog': 'Niebla',
-	'mapList.category.dmAnnotations': 'Notas del DM',
+	'mapList.category.dmAnnotations': 'Notas del {gm}',
 	'mapList.category.playerOverlay': 'Capa de jugadores',
 	// RC-WID-3.2 — el diálogo "Generar un widget".
 	'widgetGen.title': 'Generar un widget',
@@ -6156,14 +6190,15 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'widgetGen.finishing': 'Terminando…',
 	'widgetGen.reviewNote': 'No se instala nada hasta que pulses Instalar en el constructor.',
 	'widgetGen.noWidget': 'El asistente no redactó un widget. Descríbelo con más detalle.',
-	'widgetGen.noWidgetDetail': 'El asistente no redactó un widget: {detail}',
-	'widgetGen.blockerNotDm': 'Solo el DM puede generar un widget.',
+	'widgetGen.noWidgetDetail':
+		'El asistente no creó un widget: {detail} Prueba a describirlo con más detalle.',
+	'widgetGen.blockerNotDm': 'Pide a tu {gm} que genere un widget.',
 	'widgetGen.blockerNoKey':
-		'Añade una clave de API del proveedor en Ajustes, IA y herramientas, para generar un widget.',
+		'Añade una clave de API del proveedor en Configuración, IA y herramientas, para generar un widget.',
 	'widgetGen.blockerDisabled':
-		'Activa el acceso de agentes en Ajustes, IA y herramientas, para generar un widget.',
+		'Activa el acceso de agentes en Configuración, IA y herramientas, para generar un widget.',
 	'widgetGen.blockerNoAgent':
-		'Permite la herramienta de widgets a un agente en Ajustes, IA y herramientas, para generar un widget.',
+		'Permite la herramienta de widgets a un agente en Configuración, IA y herramientas, para generar un widget.',
 	'extensions.plugins.generated': 'Generado',
 	'widgetIterate.entry': 'Pedir al asistente que lo cambie…',
 	'widgetIterate.title': 'Pedir al asistente que cambie este widget',
@@ -6181,51 +6216,51 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'help.title': 'Ayuda',
 	'help.gettingStarted': 'Primeros pasos',
 	'help.gettingStartedProgress': '{done} de {total} configurados',
-	'help.gettingStartedParticipant': 'La configuración es solo del DM: tu vista ya está lista.',
+	'help.gettingStartedParticipant': 'La configuración es solo del {gm}: tu vista ya está lista.',
 	'help.gettingStartedComplete':
-		'La configuración está lista. Sube la profundidad en Ajustes para desbloquear más.',
+		'La configuración está lista. Abre Configuración para mostrar más herramientas.',
 	'help.whatsNew': 'Novedades',
 	'help.whatsNewBadgeLabel': 'Nuevas notas de la versión',
 	'help.whatsNewVersion': 'Versión {version}',
 	'help.whatsNewNone': 'Aún no hay notas de versión.',
 	'help.keyboardShortcuts': 'Atajos de teclado',
-	'help.keyboardShortcutsBody': 'Consulta todos los atajos del panel y del lienzo.',
-	'help.tip.vaultPrivacy.label': 'Acerca del modo de privacidad del baúl',
-	'help.tip.vaultPrivacy.title': 'Modo de privacidad del baúl',
+	'help.keyboardShortcutsBody': 'Consulta los atajos de navegación y del lienzo.',
+	'help.tip.vaultPrivacy.label': 'Acerca del modo de privacidad de la bóveda',
+	'help.tip.vaultPrivacy.title': 'Modo de privacidad de la bóveda',
 	'help.tip.vaultPrivacy.body':
 		'Privado: solo tus dispositivos guardan las claves. Mejorado por la nube es tu consentimiento para que el servicio lea el baúl y ofrezca funciones de servidor como la IA de campaña; no están disponibles en esta edición, así que el baúl sigue cifrado de extremo a extremo. Cambiar en cualquier sentido te pide escribir una confirmación antes.',
 	'help.tip.projection.label': 'Acerca de la proyección',
 	'help.tip.projection.title': 'Proyección',
 	'help.tip.projection.body':
-		'La etiqueta muestra en qué punto está la sesión. El combate, los dados, los documentos y la proyección del mapa solo llegan a los jugadores mientras estás en vivo; al terminar la sesión, la mesa vuelve a En espera.',
+		'Consulta el estado de la sesión para saber si estás en vivo. El combate, los dados, los documentos y la proyección del mapa solo llegan a los jugadores durante una sesión en vivo. Al terminarla, la mesa vuelve a En espera.',
 	'help.tip.visibility.label': 'Qué significan Solo {gm} y Jugadores',
 	'help.tip.visibility.title': 'Visibilidad',
 	'help.tip.visibility.body':
 		'Solo {gm} se queda en tu pantalla. Jugadores significa que puede llegar a sus pantallas en cuanto lo muestres o proyectes. Edita la entrada para cambiar quién la ve.',
-	'help.tip.stagedProposals.label': 'Acerca de las escrituras preparadas',
-	'help.tip.stagedProposals.title': 'Escrituras preparadas',
+	'help.tip.stagedProposals.label': 'Acerca de los cambios propuestos',
+	'help.tip.stagedProposals.title': 'Cambios propuestos',
 	'help.tip.stagedProposals.body':
-		'El número son las escrituras de agentes que esperan tu decisión. Con revisión estricta, nada de lo que propone un agente llega al baúl hasta que lo apruebas. Rechazar una propuesta no escribe nada.',
+		'El número indica los cambios del asistente pendientes de revisión. Con revisión estricta, cada cambio espera tu aprobación antes de aplicarse a la bóveda. Rechaza una propuesta para dejar la bóveda sin cambios.',
 	'help.tip.calendar.label': 'Acerca del calendario de campaña',
 	'help.tip.calendar.title': 'Calendario de campaña',
 	'help.tip.calendar.body':
-		'Define una vez los meses, días de la semana, lunas y festividades de tu mundo. La fecha de la sesión, la línea temporal de la historia y los campos de fecha de las notas lo leen, así que las fases lunares y las festividades aparecen solas.',
+		'Configura los meses, días de la semana, lunas y festividades de tu mundo. La fecha de sesión, la cronología de Historia y las fechas de las notas usan este calendario. Las fases lunares y las festividades aparecen automáticamente.',
 	'help.tip.customTypes.label': 'Acerca de los tipos de objeto personalizados',
 	'help.tip.customTypes.title': 'Tipos de objeto personalizados',
 	'help.tip.customTypes.body':
-		'Añade un tipo cuando los integrados no encajen con tu mundo: un barco, un contrato de gremio, un rumor. Dale unos pocos campos y sus objetos se crean, se validan y se listan como los demás. Un tipo no se puede eliminar mientras aún tenga objetos.',
+		'Añade un tipo para algo que necesite tu mundo, como barcos o contratos de gremio. Elige sus campos y después crea y gestiona sus objetos junto a los demás objetos de la bóveda. Elimina sus objetos antes de borrar el tipo.',
 	'help.tip.systemPicker.label': 'Acerca de los sistemas de reglas',
 	'help.tip.systemPicker.title': 'Sistema de reglas',
 	'help.tip.systemPicker.body':
-		'El sistema define las palabras, atributos, recursos, estados y dados con los que juega tu mesa. Elige un paquete instalado o bifurca uno para escribir tus reglas de la casa. Los widgets siguen al sistema que esté activo.',
+		'El sistema aporta el vocabulario, los atributos, recursos, estados y dados de tu mesa. Elige un paquete instalado o crea una copia para tus reglas de la casa. Los widgets usan el sistema activo.',
 	'help.tip.widgetTrust.label': 'Acerca de la revisión de confianza',
 	'help.tip.widgetTrust.title': 'Revisión de confianza',
 	'help.tip.widgetTrust.body':
-		'Un paquete instalado no alcanza nada hasta que lo revisas aquí. Permite un permiso solo cuando su motivo tenga sentido; lo que dejes denegado sigue denegado. Si la revisión desaconseja el paquete, confiar en él exige una confirmación adicional.',
+		'Revisa un paquete antes de darle acceso. Lee por qué pide cada permiso y concede solo los que aceptes. Los permisos denegados siguen bloqueados. Si la revisión desaconseja un paquete, confiar en él requiere una confirmación adicional.',
 	'help.tip.recoveryKey.label': 'Acerca de la clave de recuperación',
 	'help.tip.recoveryKey.title': 'Clave de recuperación',
 	'help.tip.recoveryKey.body':
-		'Las claves de cifrado de tu baúl, selladas con una frase de contraseña que tú eliges. Expórtala una vez y guárdala fuera de este dispositivo. Si pierdes todos los dispositivos con sesión iniciada, es la única forma de volver a abrir tus copias cifradas.',
+		'Las claves de cifrado de tu bóveda, selladas con una frase de contraseña que tú eliges. Expórtala una vez y guárdala fuera de este dispositivo. Si pierdes todos los dispositivos con sesión iniciada, es la única forma de volver a abrir tus copias cifradas.',
 	// RC-UX-3.2 — avisos de funciones que se muestran una sola vez.
 	'spotlight.region': 'Consejo',
 	'spotlight.dismiss': 'Descartar consejo',
@@ -6239,9 +6274,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'spotlight.shortcuts.title': 'Atajos de teclado',
 	'spotlight.shortcuts.body': 'Pulsa {keys} en cualquier momento para ver todos los atajos.',
 	// RC-CHR-1.1 — economía de recursos de clase.
-	'character.resources.title': 'Recursos de clase',
+	'character.resources.title': 'Recursos de personaje',
 	'character.resources.add': 'Añadir un recurso',
-	'character.resources.emptyTitle': 'Sin recursos de clase',
+	'character.resources.emptyTitle': 'Sin recursos de personaje',
 	'character.resources.emptyBody':
 		'Este personaje aún no tiene recursos del sistema activo. Añade uno que ofrezca el sistema, o crea el tuyo.',
 	'character.resources.recoversShort': 'Se recupera con un descanso corto',
@@ -6266,7 +6301,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'character.resources.recoverOne': 'Recuperar un {name}',
 	// RC-KNW-1.1 — el renderizador de markdown compartido.
 	'markdown.empty': 'Aún no hay nada escrito aquí.',
-	'markdown.brokenLink': 'Este enlace no apunta a una nota que puedas abrir',
+	'markdown.brokenLink': 'No se puede abrir esta nota. Busca su título en Conocimiento.',
 	'markdown.opensExternally': 'Se abre en una pestaña nueva',
 	'markdown.tableLabel': 'Tabla',
 	'markdown.imageUnavailable': 'Imagen no disponible',
@@ -6274,15 +6309,16 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'markdown.calloutWarning': 'Advertencia',
 	'markdown.calloutTip': 'Consejo',
 	'markdown.calloutSecret': 'Secreto',
-	'markdown.dmOnly': 'Solo DM',
+	'markdown.dmOnly': 'Solo {gm}',
 	'markdown.showSecret': 'Mostrar',
 	'markdown.hideSecret': 'Ocultar',
-	'markdown.secretWithheld': 'Parte de esta nota es solo para el DM.',
+	'markdown.secretWithheld': 'Parte de esta nota es solo para el {gm}.',
 	'markdown.rollTitle': 'Tirar {expression}',
 	'markdown.rollAria': 'Tirar {expression}',
-	'markdown.rollInvalid': 'Esto no es una expresión de dados.',
+	'markdown.rollInvalid': 'Escribe una expresión de dados, como 3d6+2.',
 	'markdown.rollRecorded': 'Registrado en el historial de la sesión.',
-	'markdown.rollNotRecorded': 'Sin registrar: no hay ninguna sesión en curso.',
+	'markdown.rollNotRecorded':
+		'Sin registrar. Inicia una sesión en vivo para registrar las próximas tiradas.',
 	'markdown.rollLocal': 'sin registrar',
 	// RC-CHR-1.2 — el flujo de descanso: el diálogo por personaje y la llamada del DM a todo el grupo.
 	'character.rest.title': 'Descanso — {name}',
@@ -6315,8 +6351,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.rest.description':
 		'Todos los personajes jugadores toman este descanso. Cada jugador gasta sus dados de golpe desde su hoja.',
 	'session.rest.applies': 'Se aplica a {count} personajes jugadores.',
-	'session.rest.noParty':
-		'Aún no hay personajes jugadores en la lista, así que no hay a quién descansar.',
+	'session.rest.noParty': 'Añade personajes jugadores a la lista antes de convocar un descanso.',
 	'session.rest.confirm': 'Convocar el descanso',
 	'session.rest.cancel': 'Cancelar',
 	'session.rest.called': 'Descanso convocado para {count} personajes',
@@ -6364,7 +6399,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'editor.slashCalloutTip': 'Aviso de consejo',
 	'editor.slashCalloutSecret': 'Aviso secreto',
 	'editor.slashCalloutHint': 'Un apunte con título junto al texto',
-	'editor.slashCalloutSecretHint': 'Solo DM: se elimina de toda copia para jugadores',
+	'editor.slashCalloutSecretHint': 'Solo {gm}: se elimina de toda copia para jugadores',
 	'editor.slashRoll': 'Tirada de dados',
 	'editor.slashRollHint': 'Una expresión de dados en línea',
 	'editor.slashDate': 'Fecha de hoy',
@@ -6373,8 +6408,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'calendar.title': 'Calendario de campaña',
 	'calendar.back': 'Historia',
 	'calendar.blurb':
-		'Define los meses, los días de la semana, las lunas y las festividades de tu mundo. Cada superficie con fechas — la fecha de la sesión, la cronología de Historia, los campos de fecha de las notas — lee esta definición.',
-	'calendar.readOnly': 'Solo el DM puede editar el calendario de campaña.',
+		'Configura los meses, días de la semana, lunas y festividades de tu mundo. Este calendario se usa para la fecha de sesión, la cronología de Historia y las fechas de las notas.',
+	'calendar.readOnly': 'Pide a tu {gm} que edite el calendario de campaña.',
 	'calendar.list.title': 'Calendarios',
 	'calendar.new': 'Nuevo calendario',
 	'calendar.edit': 'Editar',
@@ -6469,8 +6504,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'share.import.title': 'Importar archivo compartido',
 	'share.import.description':
 		'Se compartió un archivo con Lamplight. No se añade nada a tu mundo hasta que lo importes.',
-	'share.import.notJson': 'Ese archivo no es JSON, así que no hay nada que importar.',
-	'share.import.notAPackage': 'Ese archivo no es un módulo de Lamplight.',
+	'share.import.notJson':
+		'No se pudo leer ese archivo. Comparte un archivo de módulo de Lamplight.',
+	'share.import.notAPackage':
+		'Ese archivo no es un módulo de Lamplight. Elige un módulo exportado desde Lamplight.',
 	'share.import.kindWidget': 'Paquete de widgets',
 	'share.import.kindContent': 'Módulo de contenido',
 	'share.import.kindSystem': 'Paquete de sistema',
@@ -6534,4 +6571,84 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'atlas.library.party': 'Grupo aquí',
 	'atlas.library.live': 'En directo para jugadores',
 	'atlas.library.onScreen': 'En tu pantalla',
+	// RC-UX-4.4 — saved searches and note templates.
+	'palette.group.savedSearches': 'Búsquedas guardadas',
+	'palette.savedSearch.keywords': 'buscar búsquedas guardadas filtro filtros bóveda',
+	'palette.savedSearch.matches': '{count, plural, one {# coincidencia} other {# coincidencias}}',
+	'knowledge.filters.open': 'Buscar',
+	'knowledge.filters.query': 'Palabras que buscar',
+	'knowledge.filters.queryPlaceholder': 'Buscar en títulos y textos…',
+	'knowledge.filters.types': 'Tipos',
+	'knowledge.filters.typeNote': 'Notas',
+	'knowledge.filters.typeObject': 'Entradas de la historia',
+	'knowledge.filters.typeOnMap': 'En el mapa',
+	'knowledge.filters.typeHandout': 'Documentos',
+	'knowledge.filters.typeRoll': 'Tiradas',
+	'knowledge.filters.tags': 'Etiquetas',
+	'knowledge.filters.tagsHelp':
+		'Separa las etiquetas con comas. Los resultados deben tenerlas todas.',
+	'knowledge.filters.folder': 'Carpeta',
+	'knowledge.filters.linkedTo': 'Vinculado a',
+	'knowledge.filters.linkedToHelp': 'Muestra solo lo que esté vinculado a esta entrada.',
+	'knowledge.filters.linkedToAny': 'Cualquier entrada',
+	'knowledge.filters.calendar': 'Calendario',
+	'knowledge.filters.calendarAny': 'Sin intervalo de fechas',
+	'knowledge.filters.noCalendar': 'Define un calendario para filtrar por fecha del mundo.',
+	'knowledge.filters.dateFrom': 'Desde',
+	'knowledge.filters.dateTo': 'Hasta',
+	'knowledge.filters.year': 'Año',
+	'knowledge.filters.month': 'Mes',
+	'knowledge.filters.day': 'Día',
+	'knowledge.filters.matches': '{count, plural, one {# coincidencia} other {# coincidencias}}',
+	'knowledge.filters.facetsApplied':
+		'{count, plural, =0 {No hay filtros} one {# filtro} other {# filtros}}',
+	'knowledge.filters.clear': 'Borrar filtros',
+	'knowledge.filters.saveName': 'Nombre de esta búsqueda',
+	'knowledge.filters.saveVisibility': 'Quién puede verla',
+	'knowledge.filters.savePin': 'Fijar en el Centro de comandos',
+	'knowledge.filters.save': 'Guardar esta búsqueda',
+	'knowledge.filters.saved': 'Búsquedas guardadas',
+	'knowledge.filters.savedEmpty': 'Aún no hay búsquedas guardadas.',
+	'knowledge.filters.apply': 'Aplicar',
+	'knowledge.filters.pin': 'Fijar',
+	'knowledge.filters.unpin': 'Desfijar',
+	'knowledge.filters.rename': 'Renombrar',
+	'knowledge.filters.saveFailed': 'No se pudo guardar la búsqueda. Inténtalo de nuevo.',
+	'knowledge.filters.renameFailed': 'No se pudo renombrar la búsqueda. Inténtalo de nuevo.',
+	'knowledge.filters.pinFailed': 'No se pudo cambiar la fijación. Inténtalo de nuevo.',
+	'knowledge.filters.deleteFailed': 'No se pudo eliminar la búsqueda. Inténtalo de nuevo.',
+	'knowledge.templates': 'Plantillas',
+	'knowledge.templates.sections': 'Secciones de plantillas',
+	'knowledge.templates.tabCreate': 'Nueva desde plantilla',
+	'knowledge.templates.tabManage': 'Tus plantillas',
+	'knowledge.templates.tabSnippets': 'Fragmentos',
+	'knowledge.templates.pick': 'Plantilla',
+	'knowledge.templates.yourTemplateOption': '{name} · tuya',
+	'knowledge.templates.defaultsTo': 'Valor inicial: {value}',
+	'knowledge.templates.createNote': 'Crear nota',
+	'knowledge.templates.createFailed': 'No se pudo crear la nota. Inténtalo de nuevo.',
+	'knowledge.templates.noneYet':
+		'Aún no has guardado ninguna plantilla. Rellena los campos de abajo para añadir una.',
+	'knowledge.templates.name': 'Nombre de la plantilla',
+	'knowledge.templates.description': 'Descripción',
+	'knowledge.templates.titleTemplate': 'Título de la nota',
+	'knowledge.templates.bodyTemplate': 'Texto de la nota',
+	'knowledge.templates.bodyHelp':
+		'Escribe {{variable}} donde quieras rellenar un dato. Define cada variable abajo.',
+	'knowledge.templates.visibility': 'Visibilidad inicial de las notas',
+	'knowledge.templates.variableName': 'Variable',
+	'knowledge.templates.variableLabel': 'Etiqueta',
+	'knowledge.templates.addVariable': 'Añadir variable',
+	'knowledge.templates.removeVariable': 'Quitar variable',
+	'knowledge.templates.saveTemplate': 'Guardar plantilla',
+	'knowledge.templates.saveChanges': 'Guardar cambios',
+	'knowledge.templates.saveFailed': 'No se pudo guardar la plantilla. Inténtalo de nuevo.',
+	'knowledge.templates.snippet': 'Fragmento',
+	'knowledge.templates.snippetNote': 'Añadir a',
+	'knowledge.templates.snippetPickNote': 'Elige una nota…',
+	'knowledge.templates.snippetIntro':
+		'El fragmento se añade al final de la nota elegida. Conserva la visibilidad de esa nota.',
+	'knowledge.templates.insertSnippet': 'Insertar fragmento',
+	'knowledge.templates.insertFailed': 'No se pudo insertar el fragmento. Inténtalo de nuevo.',
+	'graph.searchVault': 'Buscar en la bóveda',
 };
