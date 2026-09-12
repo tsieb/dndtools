@@ -48,8 +48,8 @@ describe('PLAT-007 AC1: unknown methods and malformed payloads fail closed', () 
 
 	it('rejects a structurally invalid persistFullState payload', () => {
 		const result = validatePlatformRequest(registry, 'storage.persistFullState', {
-			previous: { scenes: { schemaVersion: 1 } }, // missing required documents
-			next: 42,
+			next: { scenes: { schemaVersion: 1 } }, // missing required documents
+			appended: 42,
 		});
 		expect(result.ok).toBe(false);
 		if (result.ok) throw new Error('expected rejection');
@@ -65,15 +65,53 @@ describe('PLAT-007 AC1: unknown methods and malformed payloads fail closed', () 
 	});
 
 	it('accepts a well-formed persistFullState payload from real core state', () => {
-		const previous = buildInitialState();
 		const next = buildInitialState();
 		const result = validatePlatformRequest(registry, 'storage.persistFullState', {
-			previous,
 			next,
+			appended: [],
 		});
 		expect(result.ok).toBe(true);
 		if (!result.ok) throw new Error(result.error.message);
 		expect(result.method).toBe('storage.persistFullState');
+	});
+
+	it('validates every appended operation entry by entry, and rejects a malformed one', () => {
+		const next = buildInitialState();
+		const operation = {
+			id: 'op-1',
+			vaultId: 'vault',
+			sourceId: 'device',
+			actorId: 'dm',
+			entityType: 'scene',
+			entityId: 'scene-1',
+			opType: 'scene.create',
+			dependencies: [],
+			issuedAt: '2026-01-01T00:00:00.000Z',
+			schemaVersion: 1,
+		};
+		const ok = validatePlatformRequest(registry, 'storage.persistFullState', {
+			next,
+			appended: [operation],
+		});
+		expect(ok.ok).toBe(true);
+		const malformed = validatePlatformRequest(registry, 'storage.persistFullState', {
+			next,
+			appended: [{ ...operation, entityId: '' }],
+		});
+		expect(malformed.ok).toBe(false);
+		if (malformed.ok) throw new Error('expected rejection');
+		expect(malformed.error.code).toBe('invalid-payload');
+	});
+
+	it('rejects a previous-state payload: only the next state and the appended tail cross the boundary', () => {
+		const result = validatePlatformRequest(registry, 'storage.persistFullState', {
+			previous: buildInitialState(),
+			next: buildInitialState(),
+			appended: [],
+		});
+		expect(result.ok).toBe(false);
+		if (result.ok) throw new Error('expected rejection');
+		expect(result.error.code).toBe('invalid-payload');
 	});
 });
 

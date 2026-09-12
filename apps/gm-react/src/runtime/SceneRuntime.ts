@@ -45,7 +45,6 @@ import {
 } from '@dndtools/core';
 import { loadCoreState, persistFullState } from '../platform/storage/coreStore';
 import { MAP_IMPORT_ADAPTERS } from './environment';
-import { seedDemoContent } from './demo-seed';
 
 /** Seat name minted for a vault whose DM never introduced themselves; surfaces that mean "you"
  * (the sidebar account block, the Players roster hint) treat it as unnamed. */
@@ -387,6 +386,9 @@ export class SceneRuntime {
 				return result;
 			},
 		};
+		// The seed module (its fixtures and the command sequence) is only needed by a vault that has
+		// never been seeded, so a returning DM's boot never loads it.
+		const { seedDemoContent } = await import('./demo-seed');
 		await seedDemoContent(staged);
 		const seeded = staged.state;
 		if (seeded === before) return;
@@ -523,8 +525,9 @@ export class SceneRuntime {
 		}
 		const before = this.innerState;
 		let lifecycle = markPending(createCommandLifecycle(command.type));
+		// Recorded, not emitted: the state is unchanged until the command commits, and no subscriber
+		// renders the pending phase, so an emit here only re-rendered every consumer once per command.
 		this.lifecycle = lifecycle;
-		this.emit();
 		const result = dispatchCommand(before, this.options.env, command);
 		if (result.status === 'accepted') {
 			this.innerState = result.nextState;
