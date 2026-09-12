@@ -23,6 +23,13 @@
             android:name="android.webkit.WebView.EnableSafeBrowsing"
             android:value="true" />
 
+        <!-- Reuse the updates channel created by NotificationChannels.java at startup.
+             Metadata alone enables no Firebase registration or delivery. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="lamplight-updates" />
+        <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />
+
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"

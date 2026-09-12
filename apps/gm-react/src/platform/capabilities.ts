@@ -28,6 +28,7 @@ export interface PlatformCapabilities {
 	fileExport: CapabilityAvailability & { nativeShareSheet: boolean };
 	localDiscovery: CapabilityAvailability;
 	notifications: CapabilityAvailability;
+	pushNotifications: CapabilityAvailability;
 	windowManagement: CapabilityAvailability;
 	secondScreen: CapabilityAvailability;
 	externalLinks: CapabilityAvailability;
@@ -152,6 +153,11 @@ export function capabilitiesForRuntime(
 				: ios
 					? 'Notifications on iPhone and iPad need Lamplight added to the Home Screen.'
 					: 'Notifications are unavailable in this browser.',
+		},
+		pushNotifications: {
+			available: false,
+			unavailableMessage:
+				'Push reminders are not delivered on this build. Opt-in queues a local preview only; delivery will require a separate permission when available.',
 		},
 		windowManagement: {
 			available: windowManagementAvailable,

@@ -22,6 +22,19 @@ export const en = {
 	'mapEditor.coach.dockCompactBody':
 		'Open Panels in the highlighted rail to inspect selections, manage layers and browse assets. Press ? for map shortcuts.',
 	'mapEditor.coach.skip': 'Skip tour',
+	'settings.push.title': 'Push notifications',
+	'settings.push.unavailable':
+		'Push reminders are not delivered on this build. Opt-in queues a local preview only; delivery will require a separate permission when available.',
+	'settings.push.previews': 'Session reminder previews',
+	'settings.push.help':
+		'Only on this device. Schedule a session in Google Calendar from the Session screen to queue its reminder. Previews last for this app session.',
+	'settings.push.optIn': 'Opt in to reminder previews on this device',
+	'settings.push.saveFailed': 'Could not save this device preference. Reminders are off.',
+	'settings.push.queued':
+		'{count, plural, one {# queued reminder in local preview} other {# queued reminders in local preview}}',
+	'settings.push.queueLabel': 'Queued reminder previews',
+	'settings.push.reminder': '{body} — reminder at {time}',
+
 	'common.action.save': 'Save',
 	'common.action.cancel': 'Cancel',
 	'common.action.close': 'Close',

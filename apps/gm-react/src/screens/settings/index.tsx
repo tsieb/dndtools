@@ -20,6 +20,7 @@ import { SettingsPlugins, SettingsSystems, SettingsToolPreferences } from './Too
 import { SettingsAI } from './Ai';
 import { SettingsAccessibility } from './Accessibility';
 import { SettingsAbout } from './About';
+import { SettingsNotifications } from './Notifications';
 
 /**
  * Settings — the category-rail section. The subpages now split by how much of the app Core backs:
@@ -63,7 +64,12 @@ const SETTINGS_NAV: { id: string; label: MessageKey; icon: string }[] = [
 const SUBPAGES: Record<string, () => JSX.Element> = {
 	appearance: SettingsAppearance,
 	language: SettingsLanguage,
-	account: SettingsAccount,
+	account: () => (
+		<>
+			<SettingsAccount />
+			<SettingsNotifications />
+		</>
+	),
 	subscription: SettingsSubscription,
 	players: SettingsPlayers,
 	permissions: SettingsPermissions,

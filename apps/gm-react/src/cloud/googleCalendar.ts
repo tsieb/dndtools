@@ -1,3 +1,4 @@
+import { pushClient } from './push';
 /**
  * googleCalendar — client-side session scheduling (cloud-tier roadmap P2 #8, the Calendar half).
  * Creates a real-world Google Calendar event for the next play session — attendee invites plus a
@@ -235,13 +236,14 @@ export interface CreatedCalendarEvent {
 export async function createSessionEvent(input: SessionEventInput): Promise<CreatedCalendarEvent> {
 	const token = readToken();
 	if (!token) throw new GoogleCalendarError('auth', 'Google Calendar sign-in has expired.');
+	const payload = buildSessionEventPayload(input);
 	const response = await fetch(`${CALENDAR_API_BASE}?sendUpdates=all`, {
 		method: 'POST',
 		headers: {
 			authorization: `Bearer ${token.accessToken}`,
 			'content-type': 'application/json',
 		},
-		body: JSON.stringify(buildSessionEventPayload(input)),
+		body: JSON.stringify(payload),
 	});
 	if (response.status === 401) {
 		signOutGoogleCalendar();
@@ -256,5 +258,11 @@ export async function createSessionEvent(input: SessionEventInput): Promise<Crea
 		throw new GoogleCalendarError('api', `Calendar request failed (${response.status}).`);
 	const data = (await response.json()) as { id?: string; htmlLink?: string };
 	if (!data.id) throw new GoogleCalendarError('api', 'Calendar returned no event id.');
+	pushClient.recordSession({
+		id: data.id,
+		summary: payload.summary,
+		startIso: payload.start.dateTime,
+		reminderMinutes: payload.reminders.overrides?.[0]?.minutes ?? 0,
+	});
 	return { id: data.id, htmlLink: data.htmlLink ?? '' };
 }
