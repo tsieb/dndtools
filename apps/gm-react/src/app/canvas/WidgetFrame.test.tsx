@@ -14,6 +14,7 @@ import {
 import { DM_ACTOR, PLAYER_ACTOR, buildInitialState, makeEnvironment } from '@dndtools/core/testing';
 import type { BoardWidget } from '../board-helpers';
 import { I18nProvider } from '../../i18n';
+import { PREFERENCE_KEYS, removePreference } from '../../platform/preferences';
 
 /**
  * RC-CAN-2.2 — the tile header, per system widget type, in every theme.
@@ -57,6 +58,7 @@ let root: Root;
 let container: HTMLDivElement;
 
 beforeEach(() => {
+	removePreference(PREFERENCE_KEYS.markGmOnly);
 	container = document.createElement('div');
 	document.body.appendChild(container);
 	root = createRoot(container);
@@ -281,6 +283,8 @@ describe('tile header identity snapshots', () => {
 			expect(readout.rail.value, `${readout.rail.token} in ${theme}`).not.toBeNull();
 			expect(readout.icon.size).toBe('16px');
 			expect(readout.icon.stroke).toBe(`var(${readout.rail.token})`);
+			expect(readout.visibility).toBeNull();
+			expect(frame.querySelector('[data-testid="visibility-badge"]')).toBeNull();
 			expect(readout).toMatchSnapshot();
 		});
 	});

@@ -28,3 +28,17 @@
 - Final targeted ESLint passed. The HEAD-based format wrapper skipped uncommitted files, so
   formatting is checked directly over all changed files before commit. Full operator gates and
   independent review remain external.
+
+## Attempt 2 — app gate snapshot repair
+
+- Read the original app-gate log for run `ef2d9172-a80a-4a35-8bc1-462ec72331a1`.
+  All 60 failures are WidgetFrame header snapshots: expected `visibility: "DM only"`, received
+  `visibility: null`. The other 125 test files passed. These expectations predate the intentional
+  default badge removal.
+- Reset the device preference before each WidgetFrame test, assert the absence of the badge
+  explicitly, and update the 60 snapshots across the three themes. Reviewed the exact snapshot
+  diff programmatically: only the 60 visibility fields changed from "DM only" to null.
+- Targeted snapshot run: 67/67 tests passed. Full gate command `pnpm test:app --maxWorkers=3`:
+  exit 0, 126 files and 1334 tests passed (35.47 seconds).
+- Prettier check, targeted ESLint, and `git diff --check` passed.
+- No product changes, dispatcher mutations, push, or promotion in this repair.
