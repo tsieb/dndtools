@@ -103,3 +103,15 @@ restore with `git branch <name> refs/archive/<name>`):
   ENG-2.3/2.4/2.5, UX-3.1/3.2, one ci-recovery), all integrated; kept as `refs/archive/dispatch/<hash>`.
 - Worktrees removed: `~/Programming/dndtools-loop/wt-1..5`, `~/Programming/dndtools-review-loop`.
 - Open dependabot PRs #56, #57, #59–#63 are superseded by RC-ENG-4.4 and closed when it lands.
+
+Second pass (2026-09-11, evening), after `loop/rc` through `5e6064d9` was merged into `main`:
+
+- Every live `dispatch/dndtools/<hash>` tip is also kept as `refs/archive/dispatch/<hash>`, and
+  RC-ENG-4.4's uncommitted `package.json`/`pnpm-lock.yaml` edits as
+  `refs/archive/dispatch/a127e092d50a35118a0a-wip` (a stash commit; `git stash apply <ref>`).
+- Deleted: the worktrees and branches of the two cancelled ci-recovery tasks, `4a335b1e…` (805d8646)
+  and `de0f3813…` (3682f366). Their demo-seed commit is the same patch as `ecc21717` on `main` (PR
+  #68) and their `Board.tsx` Prettier fix is `703d5443`; only their run journals are archive-only.
+- Kept on purpose: the 12 worktrees of blocked or in-review tasks (CAN-2.3/2.4/4.1/5.1/6.1,
+  CLD-2.2/4.5, DOC-2.2, ENG-1.3/2.6/4.4, WID-2.4). The dispatcher re-creates a missing worktree with
+  `git worktree add -b`, so removing one while its task is open breaks that task.
