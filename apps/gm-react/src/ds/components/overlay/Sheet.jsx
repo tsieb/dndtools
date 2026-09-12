@@ -1,4 +1,5 @@
 import React from 'react';
+import { tabbableElements } from './focus.js';
 import { Icon } from '../core/Icon.jsx';
 import { registerBackHandler } from '../../../platform/backNavigation';
 import { isolateModalSiblings } from '../../../platform/modalIsolation';
@@ -16,8 +17,7 @@ import { restoreReturnFocus } from '../../../platform/returnFocus';
  * close. Corners use `--radius-xl` (the sheet radius) on the exposed edges only. Renders inline
  * (fixed, token z-index) — no portal.
  */
-const FOCUSABLE =
-	'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 const SIDE_SIZE = { bottom: '88vh', side: 440 };
 
 export function Sheet({
@@ -51,14 +51,13 @@ export function Sheet({
 		const restoreIsolation = panelRef.current ? isolateModalSiblings(panelRef.current) : () => {};
 		const t = setTimeout(() => {
 			const panel = panelRef.current;
-			if (!panel) return;
+			if (!panel || !ownsEscape(escapeToken)) return;
 			// Query the CONTENT before the panel. The header (which owns Close) renders before
 			// `children`, so a plain DOM-order `querySelector(FOCUSABLE)` opened every sheet — the phone
 			// "All sections" nav among them — focused on Close, i.e. on the way out. Same defect, and
 			// the same fix, as ds/components/core/Popover.jsx.
 			const f =
-				(bodyRef.current && bodyRef.current.querySelector(FOCUSABLE)) ||
-				panel.querySelector(FOCUSABLE);
+				(bodyRef.current && tabbableElements(bodyRef.current)[0]) || tabbableElements(panel)[0];
 			(f || panel).focus();
 		}, 0);
 		const escapeToken = pushEscapeLayer(() => panelRef.current);
@@ -71,12 +70,10 @@ export function Sheet({
 				onCloseRef.current && onCloseRef.current();
 				return;
 			}
-			if (e.key !== 'Tab') return;
+			if (e.key !== 'Tab' || !ownsEscape(escapeToken)) return;
 			const panel = panelRef.current;
 			if (!panel) return;
-			const nodes = Array.from(panel.querySelectorAll(FOCUSABLE)).filter(
-				(n) => n.offsetParent !== null || n === panel,
-			);
+			const nodes = tabbableElements(panel);
 			if (nodes.length === 0) {
 				e.preventDefault();
 				panel.focus();
@@ -84,10 +81,16 @@ export function Sheet({
 			}
 			const first = nodes[0];
 			const last = nodes[nodes.length - 1];
-			if (e.shiftKey && document.activeElement === first) {
+			if (
+				e.shiftKey &&
+				(document.activeElement === first || !nodes.includes(document.activeElement))
+			) {
 				e.preventDefault();
 				last.focus();
-			} else if (!e.shiftKey && document.activeElement === last) {
+			} else if (
+				!e.shiftKey &&
+				(document.activeElement === last || !nodes.includes(document.activeElement))
+			) {
 				e.preventDefault();
 				first.focus();
 			}

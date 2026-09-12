@@ -1,4 +1,5 @@
 import js from '@eslint/js';
+import noPositiveTabindex from './scripts/eslint-rules/no-positive-tabindex.js';
 import prettier from 'eslint-config-prettier';
 import ts from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
@@ -75,6 +76,24 @@ export default ts.config(
 			],
 		},
 	},
+	{
+		// JSX was previously outside lint coverage. Audit tabindex there without imposing
+		// the unrelated JS/TS migration backlog on this accessibility gate.
+		files: ['**/*.jsx'],
+		rules: Object.fromEntries(
+			[js.configs.recommended, ...ts.configs.recommended]
+				.flatMap((config) => Object.keys(config.rules ?? {}))
+				.map((name) => [name, 'off']),
+		),
+	},
+
+	{
+		files: ['**/*.{js,jsx,ts,tsx}'],
+		languageOptions: { parserOptions: { ecmaFeatures: { jsx: true } } },
+		plugins: { a11y: { rules: { 'no-positive-tabindex': noPositiveTabindex } } },
+		rules: { 'a11y/no-positive-tabindex': 'error' },
+	},
+
 	{
 		// CommonJS node scripts (Electron smoke harness, etc.) legitimately use require().
 		files: ['**/*.cjs'],

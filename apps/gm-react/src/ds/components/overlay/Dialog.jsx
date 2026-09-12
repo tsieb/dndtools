@@ -1,4 +1,5 @@
 import React from 'react';
+import { tabbableElements } from './focus.js';
 import { Icon } from '../core/Icon.jsx';
 import { registerBackHandler } from '../../../platform/backNavigation';
 import { isolateModalSiblings } from '../../../platform/modalIsolation';
@@ -40,9 +41,6 @@ const TONE_COLOR = {
 	info: 'var(--color-status-info)',
 };
 
-const FOCUSABLE =
-	'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
 export function Dialog({
 	open = false,
 	onClose,
@@ -80,7 +78,7 @@ export function Dialog({
 
 		const focusFirst = () => {
 			const panel = panelRef.current;
-			if (!panel) return;
+			if (!panel || !ownsEscape(escapeToken)) return;
 			let preferred = null;
 			if (initialFocusRef.current) {
 				try {
@@ -98,7 +96,7 @@ export function Dialog({
 			const f =
 				preferred && !preferred.disabled
 					? preferred
-					: (body && body.querySelector(FOCUSABLE)) || panel.querySelector(FOCUSABLE);
+					: (body && tabbableElements(body)[0]) || tabbableElements(panel)[0];
 			(f || panel).focus();
 		};
 		const t = setTimeout(focusFirst, 0);
@@ -113,12 +111,10 @@ export function Dialog({
 				onCloseRef.current && onCloseRef.current();
 				return;
 			}
-			if (e.key !== 'Tab') return;
+			if (e.key !== 'Tab' || !ownsEscape(escapeToken)) return;
 			const panel = panelRef.current;
 			if (!panel) return;
-			const nodes = Array.from(panel.querySelectorAll(FOCUSABLE)).filter(
-				(n) => n.offsetParent !== null || n === panel,
-			);
+			const nodes = tabbableElements(panel);
 			if (nodes.length === 0) {
 				e.preventDefault();
 				panel.focus();
@@ -126,10 +122,16 @@ export function Dialog({
 			}
 			const first = nodes[0];
 			const last = nodes[nodes.length - 1];
-			if (e.shiftKey && document.activeElement === first) {
+			if (
+				e.shiftKey &&
+				(document.activeElement === first || !nodes.includes(document.activeElement))
+			) {
 				e.preventDefault();
 				last.focus();
-			} else if (!e.shiftKey && document.activeElement === last) {
+			} else if (
+				!e.shiftKey &&
+				(document.activeElement === last || !nodes.includes(document.activeElement))
+			) {
 				e.preventDefault();
 				first.focus();
 			}
