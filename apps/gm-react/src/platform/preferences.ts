@@ -51,9 +51,27 @@ export const PREFERENCE_KEYS = {
 	paletteRecents: 'dndtools:react:palette-recents',
 	/** RC-UX-3.2 — feature spotlights already shown, per vault (core `parseSeenSpotlights`). */
 	seenSpotlights: 'dndtools:react:seen-spotlights',
+	/** Reading width for prose surfaces: comfortable / wide / full. */
+	proseWidth: 'dndtools:react:prose-width',
 } as const;
 
 export type PreferenceKey = (typeof PREFERENCE_KEYS)[keyof typeof PREFERENCE_KEYS];
+
+export const PROSE_WIDTH_OPTIONS = ['comfortable', 'wide', 'full'] as const;
+export type ProseWidth = (typeof PROSE_WIDTH_OPTIONS)[number];
+
+/** Whether a string is one of the valid reading-width values. */
+export function isProseWidth(value: string | null): value is ProseWidth {
+	return value !== null && (PROSE_WIDTH_OPTIONS as readonly string[]).includes(value);
+}
+
+/** Resolve the active prose-width preference from DOM attr then localStorage with a safe fallback. */
+export function readProseWidthPreference(fallback: ProseWidth = 'comfortable'): ProseWidth {
+	const candidate =
+		(typeof document !== 'undefined' ? document.documentElement.getAttribute('data-prose-width') : null) ??
+		readPreference(PREFERENCE_KEYS.proseWidth);
+	return isProseWidth(candidate) ? candidate : fallback;
+}
 
 /** Read a device preference. `null` when unset, unreadable (private mode) or off-browser. */
 export function readPreference(key: PreferenceKey): string | null {

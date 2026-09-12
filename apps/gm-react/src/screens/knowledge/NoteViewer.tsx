@@ -14,6 +14,7 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import { VIS_CHIP, visibilityOptions } from './shared';
 import { useI18n } from '../../i18n';
 import { formatStamp, mdToNodes, parseWikilink } from './markdown';
+import { readProseWidthPreference } from '../../platform/preferences';
 
 /** How many switcher hits are examined before the resolvable ones are kept (RC-KNW-1.2). */
 const WIKILINK_CANDIDATE_LIMIT = 40;
@@ -90,6 +91,7 @@ export function NoteViewer({
 	const [editing, setEditing] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [err, setErr] = useState<string | null>(null);
+	const proseWidth = readProseWidthPreference();
 	// Widening DM-only content to players is the one visibility move you cannot take back — players
 	// may read it the instant it lands — so it stages here and waits for an explicit confirm.
 	const [pendingReveal, setPendingReveal] = useState<string | null>(null);
@@ -386,7 +388,9 @@ export function NoteViewer({
 							{/* `canAuthor` is DM authority (RC-KNW-1.1): it governs the `[!Secret]` blur-until-shown
 							    affordance only. A player's copy of the body never carries the secret — the core
 							    strips it before the projection reaches this screen. */}
-							<div>{mdToNodes(note.body, t, resolveLink, canAuthor, logInlineRoll)}</div>
+							<div className="knowledge-prose" data-prose-width={proseWidth}>
+								{mdToNodes(note.body, t, resolveLink, canAuthor, logInlineRoll)}
+							</div>
 						</>
 					)}
 				</Panel>

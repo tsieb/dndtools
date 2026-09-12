@@ -42,4 +42,69 @@
 	--tracking-normal: 0em;
 	--tracking-wide: 0.05em; /* small caps eyebrows */
 	--tracking-wider: 0.08em; /* widget eyebrows / section labels */
+
+	/* --- Reading preference tokens (prose-only) ------------------------------------------- */
+	--prose-width-comfortable: min(62ch, 100%);
+	--prose-width-wide: min(76ch, 100%);
+	--prose-width-full: 100%;
+	--prose-font-size-comfortable: var(--text-base);
+	--prose-font-size-wide: 1rem;
+	--prose-font-size-full: var(--text-md);
+	--prose-line-height-comfortable: var(--leading-body);
+	--prose-line-height-wide: var(--leading-relaxed);
+	--prose-line-height-full: var(--leading-relaxed);
+	--prose-heading-compact: 1.05;
+	--prose-heading-wide: 1.07;
+	--prose-heading-full: 1.08;
+}
+
+.knowledge-prose {
+	--knowledge-prose-width: var(--prose-width-comfortable);
+	--knowledge-prose-font-size: var(--prose-font-size-comfortable);
+	--knowledge-prose-line-height: var(--prose-line-height-comfortable);
+	--knowledge-prose-heading-scale: var(--prose-heading-compact);
+	width: min(100%, var(--knowledge-prose-width));
+	margin-inline: auto;
+	overflow-wrap: anywhere;
+}
+
+.knowledge-prose[data-prose-width='comfortable'] {
+	--knowledge-prose-width: var(--prose-width-comfortable);
+	--knowledge-prose-font-size: var(--prose-font-size-comfortable);
+	--knowledge-prose-line-height: var(--prose-line-height-comfortable);
+	--knowledge-prose-heading-scale: var(--prose-heading-compact);
+}
+
+.knowledge-prose[data-prose-width='wide'] {
+	--knowledge-prose-width: var(--prose-width-wide);
+	--knowledge-prose-font-size: var(--prose-font-size-wide);
+	--knowledge-prose-line-height: var(--prose-line-height-wide);
+	--knowledge-prose-heading-scale: var(--prose-heading-wide);
+}
+
+.knowledge-prose[data-prose-width='full'] {
+	--knowledge-prose-width: var(--prose-width-full);
+	--knowledge-prose-font-size: var(--prose-font-size-full);
+	--knowledge-prose-line-height: var(--prose-line-height-full);
+	--knowledge-prose-heading-scale: var(--prose-heading-full);
+}
+
+.knowledge-prose > * {
+	max-width: 100%;
+}
+
+.knowledge-prose :where(h2, h3, h4, h5, h6) {
+	font-size: calc(var(--knowledge-prose-font-size) * var(--knowledge-prose-heading-scale)) !important;
+	line-height: 1.25 !important;
+	font-family: var(--font-display) !important;
+}
+
+.knowledge-prose :where(p, li, blockquote p, figure, figcaption, aside, pre, code, th, td) {
+	font-size: var(--knowledge-prose-font-size) !important;
+	line-height: var(--knowledge-prose-line-height) !important;
+}
+
+.knowledge-prose :where(button, a, span, em, strong) {
+	font-size: inherit !important;
+	line-height: inherit !important;
 }

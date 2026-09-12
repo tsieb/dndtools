@@ -6,6 +6,7 @@ import { Panel, Seg, SetRow, T } from '../../app/screen-kit';
 import { PREV_THEME_KEY, setDocAttr, writeLocal } from './shared';
 import { ExperienceComplexity } from './Experience';
 import { readThemePreference } from '../../platform/theme';
+import { PREFERENCE_KEYS, readProseWidthPreference } from '../../platform/preferences';
 /* ---- Appearance (PERSISTED DISPLAY PREFS — theme/density/motion `data-*` attrs) ----------------- */
 export function SettingsAppearance() {
 	const { t } = useI18n();
@@ -19,6 +20,7 @@ export function SettingsAppearance() {
 	const [motion, setMotion] = useState<string>(
 		document.documentElement.getAttribute('data-motion') || 'full',
 	);
+	const [proseWidth, setProseWidth] = useState<string>(readProseWidthPreference());
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<Panel title={t('settings.appearance.title')} style={{ gap: 0 }}>
@@ -68,6 +70,25 @@ export function SettingsAppearance() {
 								{ value: 'standard', label: t('settings.appearance.densityStandard') },
 								{ value: 'comfortable', label: t('settings.appearance.densityComfortable') },
 								{ value: 'compact', label: t('settings.appearance.densityCompact') },
+							]}
+						/>
+					}
+				/>
+				<SetRow
+					label="Reading width"
+					help="Choose a wider line measure for knowledge notes only."
+					control={
+						<Seg
+							value={proseWidth}
+							ariaLabel="Reading width"
+							onChange={(v) => {
+								setProseWidth(v);
+								setDocAttr('data-prose-width', PREFERENCE_KEYS.proseWidth, v);
+							}}
+							options={[
+								{ value: 'comfortable', label: 'Comfortable' },
+								{ value: 'wide', label: 'Wide' },
+								{ value: 'full', label: 'Full' },
 							]}
 						/>
 					}
