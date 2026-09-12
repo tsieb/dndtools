@@ -117,8 +117,8 @@ tree was not the cause.
 Gate feedback on `9ff97aa4`: every gate passed except Browser acceptance (run `fc71de7d`: 703
 passed, 374 failed, 4 flaky, 9 skipped, 23.5 min).
 
-- Same cause as attempt 4, and worse. Over a thousand `page.goto: net::ERR_CONNECTION_REFUSED at
-http://localhost:5273/…` errors, across every route.
+- Same cause as attempt 4, and worse: over a thousand `ERR_CONNECTION_REFUSED` errors from
+  `page.goto` against `localhost:5273`, across every route.
 - Overlapping runs on the shared :5273:
   - `a127e092`'s attempt `8be78ea5` (1789195585 → 1789196683) ended inside this gate's window
     (1789196072 → 1789197483), which took the shared server down;
@@ -132,4 +132,14 @@ http://localhost:5273/…` errors, across every route.
   9/9 commits, no conflicts; no code change was needed. This worktree's derived port is 5835.
 - On the rebased tree: `pnpm gates` exit 0; `pnpm format:check:changed --base loop/rc` exit 0.
 - Full suite exactly as the gate runs it, with `DNDTOOLS_E2E_PORT` and `CI` unset so the new
-  per-worktree port is what gets exercised: `pnpm e2e --workers=2 --retries=2`. Result below.
+  per-worktree port is what gets exercised: `pnpm e2e --workers=2 --retries=2`.
+  - Isolation, checked while the suite ran: vite listened on `[::1]:5835` with its cwd in this
+    worktree's `apps/gm-react`, and nothing listened on 5273.
+  - Result: Playwright exit 0 in 19.1 min, with 1090 tests: 1077 passed, 0 failed, 2 flaky and 11
+    skipped, and zero `ERR_CONNECTION_REFUSED`.
+  - All 10 tile-action-menu tests passed, desktop and mobile.
+  - Flaky, passed on retry, outside this task's code: `knowledge-filters.spec.ts:101` (desktop and
+    mobile). The first gate run (`6d9a5236`) had already marked it flaky.
+- Committing with `set -o pipefail`. The first attempt-5 journal commit went through with a
+  Prettier warning, because piping `prettier --check` into `tail` masked its exit code. `33ed65b7`
+  fixed it.
