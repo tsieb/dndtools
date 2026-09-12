@@ -38,6 +38,7 @@ import {
 	type CoreStateSlice,
 	type McpAgentInvocation,
 	type McpAgentToolResult,
+	type MapGeneratorRegistry,
 	type McpToolRegistry,
 	type PreviewSelection,
 	type ResolvedPreview,
@@ -45,7 +46,6 @@ import {
 } from '@dndtools/core';
 import { loadCoreState, persistFullState } from '../platform/storage/coreStore';
 import { MAP_IMPORT_ADAPTERS } from './environment';
-import { seedDemoContent } from './demo-seed';
 
 /** Seat name minted for a vault whose DM never introduced themselves; surfaces that mean "you"
  * (the sidebar account block, the Players roster hint) treat it as unnamed. */
@@ -183,6 +183,8 @@ export class SceneRuntime {
 	private loadAttempt: Promise<void> | null = null;
 	// The Core's declared MCP tool allowlist — built once; construction fails closed on wiring errors.
 	private readonly mcpToolRegistry: McpToolRegistry = createBaselineMcpToolRegistry();
+	/** The procedural map generators, loaded the first time a `map.generate` command is dispatched. */
+	private mapGenerators: MapGeneratorRegistry | null = null;
 
 	constructor(options: RuntimeOptions) {
 		this.options = options;
@@ -357,10 +359,59 @@ export class SceneRuntime {
 		const loaded = await loadCoreState();
 		this.innerState = this.ensureDefaultActor(loaded, seedDemo);
 		// Populate only on initial boot. A restore is authoritative and must not silently add demo data.
-		if (seedDemo && !this.freshVaultChosen()) await seedDemoContent(this);
+		if (seedDemo && !this.freshVaultChosen()) {
+			await this.enqueueMutation(() => this.seedDemoInOneCommit());
+		}
 		this.lifecycle = null;
 		this.error = null;
 		this.isLoaded = true;
+	}
+
+	/**
+	 * First-run demo content lands as ONE durable commit. The seed still issues the same commands a DM
+	 * would, one at a time through the core reducer with this runtime's env, but against a staged state
+	 * that is persisted once at the end: one boundary validation and one IndexedDB transaction instead
+	 * of one per command. The stock demo is ~40 commands, and each separate commit re-serialized,
+	 * re-validated and re-wrote the whole vault before the first scene could render. It runs inside the
+	 * mutation queue, so no other command can persist a half-seeded state or interleave its operations.
+	 * A failed commit leaves the vault as it was; the seed's per-slice emptiness guards retry on the
+	 * next load, exactly as they do for a rejected seed command.
+	 */
+	private async seedDemoInOneCommit(): Promise<void> {
+		const before = this.innerState;
+		const env = this.options.env;
+		const staged = {
+			state: before,
+			defaultActorId: this.defaultActorId,
+			async dispatch(command: CoreCommand): Promise<CommandResult> {
+				const result = dispatchCommand(staged.state, env, command);
+				if (result.status === 'accepted') staged.state = result.nextState;
+				return result;
+			},
+		};
+		// The seed module (its fixtures and the command sequence) is only needed by a vault that has
+		// never been seeded, so a returning DM's boot never loads it.
+		const { seedDemoContent } = await import('./demo-seed');
+		await seedDemoContent(staged);
+		const seeded = staged.state;
+		if (seeded === before) return;
+		try {
+			await persistFullState(before, seeded);
+		} catch {
+			return;
+		}
+		this.innerState = seeded;
+		// Same "op-log grew" signal as dispatch, once for the whole seed.
+		const newOperations = seeded.sync.operations.slice(before.sync.operations.length);
+		if (newOperations.length > 0 && this.dispatchListeners.size > 0) {
+			for (const listener of this.dispatchListeners) {
+				try {
+					listener(newOperations, seeded);
+				} catch {
+					// A replication listener failure must not affect the local durable write.
+				}
+			}
+		}
 	}
 
 	private enqueueMutation<T>(operation: () => Promise<T>): Promise<T> {
@@ -475,11 +526,14 @@ export class SceneRuntime {
 			this.emit();
 			return { status: 'rejected', rejection, nextState: this.innerState };
 		}
+		// Inside the mutation queue, so the state read below cannot move while the generators load.
+		const env = await this.environmentFor(command);
 		const before = this.innerState;
 		let lifecycle = markPending(createCommandLifecycle(command.type));
+		// Recorded, not emitted: the state is unchanged until the command commits, and no subscriber
+		// renders the pending phase, so an emit here only re-rendered every consumer once per command.
 		this.lifecycle = lifecycle;
-		this.emit();
-		const result = dispatchCommand(before, this.options.env, command);
+		const result = dispatchCommand(before, env, command);
 		if (result.status === 'accepted') {
 			this.innerState = result.nextState;
 			try {
@@ -515,6 +569,17 @@ export class SceneRuntime {
 		this.lifecycle = lifecycle;
 		this.emit();
 		return result;
+	}
+
+	/**
+	 * The environment a command runs in. Only `map.generate` needs the procedural generators, the
+	 * largest optional part of the core, so they are fetched on the first such command and cached;
+	 * every other command runs with the base environment and never loads them.
+	 */
+	private async environmentFor(command: CoreCommand): Promise<CoreEnvironment> {
+		if (command.type !== 'map.generate') return this.options.env;
+		this.mapGenerators ??= (await import('@dndtools/core/map-generators')).MAP_GENERATOR_REGISTRY;
+		return { ...this.options.env, mapGenerators: this.mapGenerators };
 	}
 
 	/**

@@ -57,7 +57,70 @@ transcribe `FeatureShape.tsx` (same tints, opacities, strokes, tokens), so a bak
 in frame rate. `BakeLayer.test.ts` runs the generator at its densest and grades it with
 `measureMapPanZoom`: unbaked breaches `map-pan-zoom-slim`, baked passes both.
 
-## 4. When a budget matters to a change
+## 4. The commit path and the boot path (ADR-040)
+
+Two costs decide most of the budgets above, and both were remediated on 2026-09-11.
+
+**A durable commit writes what changed.** `apps/gm-react/src/platform/storage/coreStore.ts`
+remembers, per slice, the object reference last committed to IndexedDB and skips a slice whose
+reference is unchanged (reducers are immutable). The map is filled only by a committed transaction and
+emptied by every other writer of the documents table (load, restore, reset, migration recovery, the
+test seams); a new writer must call `forgetPersistedSlices()`. The PLAT-007 boundary request is
+`{ next, appended }`: the appended operations are validated entry by entry, the rest of the log by
+shape, and the previous state never crosses. `coreStore.test.ts` pins the write set per commit. The
+first-run demo seed runs ~42 commands through the reducer and commits once
+(`SceneRuntime.seedDemoInOneCommit`). A command re-renders subscribers once: the pending-phase emit
+is gone.
+
+**The boot path loads what a boot uses.** The sign-in dialog, the Cognito SDK, the onboarding
+overlay, the command palette, the host dialog, the AI key store and `CHANGELOG.md` load on first use;
+the map generators are the `@dndtools/core/map-generators` entry, supplied to the reducer through
+`CoreEnvironment.mapGenerators` by `SceneRuntime` on the first `map.generate`, and Vite keeps them
+in their own chunk. Two traps when extending this: the Vite `manualChunks` rule in `vite.config.ts`
+folds every core module into `processing-core`, so a core module can only defer if that rule routes
+it elsewhere; and the dev server the perf pipeline measures has no tree-shaking, so anything the
+`@dndtools/core` barrel re-exports is fetched on every cold boot whether or not the app uses it.
+Removing an export from the barrel is what makes a core module leave the dev-mode boot.
+
+## 5. Measuring a change honestly on a busy machine
+
+The 2026-09-11 numbers were taken while the dispatcher fleet held the load average between 8 and 14,
+which inflates every absolute figure. Compare A/B, interleaved, on the same machine and never against
+a baseline recorded when it was idle:
+
+```bash
+git worktree add /tmp/main-wt main                     # symlink node_modules per entry, NOT wholesale:
+                                                       # apps/gm-react/node_modules/@dndtools/core must
+                                                       # point at the worktree's own packages/core
+# start a dev server per tree on its own port, then alternate main/branch runs at 1x and 4x CPU
+# throttle (CDP Emulation.setCPUThrottlingRate); a cold browser context per sample.
+```
+
+| Cold boot to a painted `/#/board` (dev server) | `main`       | `perf/remediation-2026-09` |
+| ---------------------------------------------- | ------------ | -------------------------- |
+| 1× CPU, two interleaved rounds                 | 1876–2066 ms | 1696–1776 ms               |
+| 4× CPU (slow-runner reproduction)              | 4873–4967 ms | 2668–3566 ms               |
+| `scene.move-widget` dispatch, median / p95     | 17 / 24 ms   | 9 / 14 ms                  |
+| Eager production JS (unminified)               | 2172 KiB     | 1863 KiB                   |
+
+On GitHub's `ubuntu-latest` runners (the Performance workflow, targets only, `main` figures are the
+six 2026-09-10/11 runs, the branch figure is PR #68 run 34664744164):
+
+| Budget               | `main` on CI      | PR #68 on CI | Target  |
+| -------------------- | ----------------- | ------------ | ------- |
+| `scene-first-render` | 1514–1725 ms ✗    | 1132 ms      | 1500 ms |
+| `app-startup`        | 1177–1390 ms      | 963 ms       | 2000 ms |
+| `vault-open`         | 726–942 ms        | 684 ms       | 3000 ms |
+| `widget-update` p95  | 33–42 ms          | 24 ms        | 100 ms  |
+| `graph-indexing`     | (not in extracts) | 158 ms       | 500 ms  |
+
+Per-command cost at 4× throttle before the change, from a CDP CPU profile of the boot: ~420 ms in
+Dexie, ~270 ms serializing states at the boundary, ~240 ms in zod, across the 43 seed commits. After
+it, the largest own-time function per command is the boundary's `JSON.stringify` of the next state
+(~1 ms at 1× on a 200-note vault; it scales with vault size, and the 5 MiB payload ceiling now
+measures one state rather than two).
+
+## 6. When a budget matters to a change
 
 If a change touches a budgeted workflow, add or update the measurement in `perf/measurement.ts` and
 the scenario in `scripts/perf/capture.ts` rather than scattering ad hoc timings, and run

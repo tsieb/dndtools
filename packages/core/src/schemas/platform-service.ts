@@ -15,9 +15,7 @@ import {
 
 const schemaVersionField = z.number().int().nonnegative();
 
-const durableDocumentEnvelope = z
-	.object({ schemaVersion: schemaVersionField })
-	.loose();
+const durableDocumentEnvelope = z.object({ schemaVersion: schemaVersionField }).loose();
 
 /** A single durable operation-log entry, as appended by accepted commands. */
 const syncOperationSchema = z
@@ -62,45 +60,44 @@ export const putAssetBytesRequestSchema = z
 	})
 	.strict();
 
-export const getAssetBytesRequestSchema = z
-	.object({ id: z.string().min(1).max(120) })
-	.strict();
+export const getAssetBytesRequestSchema = z.object({ id: z.string().min(1).max(120) }).strict();
 
 export const deleteAssetBytesRequestSchema = getAssetBytesRequestSchema;
 
 /**
- * persistFullState receives the previous and next durable state slices the runtime is
- * about to write. The boundary only enforces structural shape and the size budget; the
- * adapter still enforces the "no durable change without an accepted operation" invariant.
+ * The durable state a commit writes: the twelve slice documents plus the operation log's shape.
+ * The log itself is validated by REFERENCE to its length only — every entry already in it was
+ * validated when it was appended (and again, fail-closed, when the vault was loaded), so re-parsing
+ * the whole history on every command made the boundary cost grow with the age of the vault.
+ */
+const durableStateEnvelope = z
+	.object({
+		scenes: durableDocumentEnvelope,
+		maps: durableDocumentEnvelope,
+		permissions: durableDocumentEnvelope,
+		session: durableDocumentEnvelope,
+		widgets: durableDocumentEnvelope,
+		commandCenter: durableDocumentEnvelope,
+		characters: durableDocumentEnvelope,
+		content: durableDocumentEnvelope,
+		sync: z.object({ operations: z.array(z.unknown()) }).loose(),
+	})
+	.loose();
+
+/**
+ * persistFullState receives the NEXT durable state slice the runtime is about to write and the
+ * operations that commit APPENDS to the log (`next.sync.operations` past the previously persisted
+ * length). The appended tail is validated entry by entry — those are the records that reach
+ * IndexedDB — while the rest of the log is only checked for shape, so validation is proportional to
+ * the commit, not to the vault's history. The boundary enforces structural shape and the size
+ * budget; the adapter still enforces the "no durable change without an accepted operation"
+ * invariant against the previous state it holds, which never crosses the boundary (it was the
+ * `next` of the last accepted commit and was validated then).
  */
 export const persistFullStateRequestSchema = z
 	.object({
-		previous: z
-			.object({
-				scenes: durableDocumentEnvelope,
-				maps: durableDocumentEnvelope,
-				permissions: durableDocumentEnvelope,
-				session: durableDocumentEnvelope,
-				widgets: durableDocumentEnvelope,
-				commandCenter: durableDocumentEnvelope,
-				characters: durableDocumentEnvelope,
-				content: durableDocumentEnvelope,
-				sync: z.object({ operations: z.array(syncOperationSchema) }).loose(),
-			})
-			.loose(),
-		next: z
-			.object({
-				scenes: durableDocumentEnvelope,
-				maps: durableDocumentEnvelope,
-				permissions: durableDocumentEnvelope,
-				session: durableDocumentEnvelope,
-				widgets: durableDocumentEnvelope,
-				commandCenter: durableDocumentEnvelope,
-				characters: durableDocumentEnvelope,
-				content: durableDocumentEnvelope,
-				sync: z.object({ operations: z.array(syncOperationSchema) }).loose(),
-			})
-			.loose(),
+		next: durableStateEnvelope,
+		appended: z.array(syncOperationSchema),
 	})
 	.strict();
 

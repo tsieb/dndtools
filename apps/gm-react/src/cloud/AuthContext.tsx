@@ -4,7 +4,9 @@
 // in, otherwise opens the auth modal and resolves once the user signs in (or false
 // if they dismiss it). The provider renders the auth modal itself.
 import {
+	Suspense,
 	createContext,
+	lazy,
 	useCallback,
 	useContext,
 	useEffect,
@@ -27,7 +29,10 @@ import {
 	getIdToken as doGetIdToken,
 	type AuthUser,
 } from './auth';
-import { AuthModal } from './AuthModal';
+
+// The sign-in dialog (and its forms) is fetched the first time it opens, then stays mounted so its
+// view state survives a close, exactly as before.
+const AuthModal = lazy(() => import('./AuthModal').then((m) => ({ default: m.AuthModal })));
 
 export type AuthStatus = 'loading' | 'unconfigured' | 'signed-out' | 'signed-in' | 'storage-error';
 
@@ -58,6 +63,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	const [user, setUser] = useState<AuthUser | null>(null);
 	const [storageError, setStorageError] = useState<string | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
+	const [modalMounted, setModalMounted] = useState(false);
+	useEffect(() => {
+		if (modalOpen) setModalMounted(true);
+	}, [modalOpen]);
 	const gateResolvers = useRef<Array<(ok: boolean) => void>>([]);
 
 	useEffect(() => {
@@ -179,17 +188,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 					Online account paused — {storageError}
 				</div>
 			)}
-			{isAuthConfigured && (
-				<AuthModal
-					open={modalOpen}
-					onClose={closeModal}
-					signIn={signIn}
-					signUp={doSignUp}
-					confirm={doConfirm}
-					resend={doResend}
-					requestPasswordReset={doRequestPasswordReset}
-					confirmPasswordReset={doConfirmPasswordReset}
-				/>
+			{isAuthConfigured && modalMounted && (
+				<Suspense fallback={null}>
+					<AuthModal
+						open={modalOpen}
+						onClose={closeModal}
+						signIn={signIn}
+						signUp={doSignUp}
+						confirm={doConfirm}
+						resend={doResend}
+						requestPasswordReset={doRequestPasswordReset}
+						confirmPasswordReset={doConfirmPasswordReset}
+					/>
+				</Suspense>
 			)}
 		</AuthContext.Provider>
 	);

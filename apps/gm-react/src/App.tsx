@@ -25,7 +25,7 @@ import { ensureSfxEvents } from './runtime/sfx-events';
 import { ensureCombatAudioAutomation } from './runtime/combat-audio-automation';
 import { AppShell } from './app/AppShell';
 import { AppSystemProvider } from './app/SystemContext';
-import { Onboarding } from './app/Onboarding';
+import { ONBOARDED_KEY, REPLAY_EVENT, readStorage } from './app/onboarding/shared';
 import { CommandCenter } from './screens/CommandCenter';
 import { SceneDisplay } from './screens/SceneDisplay';
 import { PlatformLifecycle } from './platform/PlatformLifecycle';
@@ -35,6 +35,9 @@ import { registerBackHandler } from './platform/backNavigation';
 // the boot bundle carries only the shell + hub and each surface loads on first visit (all behind
 // the one <Suspense> below — same Boot fallback everywhere). `/play` (PlayerView) brings its OWN
 // chrome, so it mounts OUTSIDE <AppShell>; `/player` is the in-shell player section.
+// The first-run overlay (its steps, copy and consent screens) is loaded only for a vault that has
+// not completed setup, or when Settings fires "Replay setup"; a returning DM's boot never fetches it.
+const Onboarding = lazy(() => import('./app/Onboarding').then((m) => ({ default: m.Onboarding })));
 const ScenesCreator = lazy(() =>
 	import('./screens/ScenesCreator').then((m) => ({ default: m.ScenesCreator })),
 );
@@ -389,10 +392,27 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 /** Every routed section that lives inside the DM shell (sidebar + topbar). The first-run
  * onboarding overlay mounts here (not around `/play`) so a joining player never sees DM setup;
  * it self-gates on its localStorage flag and renders null once completed or skipped. */
+/** Mounts the onboarding overlay only while a first run (or a replay) needs it. The overlay keeps
+ * its own open/closed state once mounted; this gate only decides whether its module is loaded. */
+function OnboardingGate() {
+	const [needed, setNeeded] = useState(() => readStorage(ONBOARDED_KEY) === null);
+	useEffect(() => {
+		const onReplay = () => setNeeded(true);
+		window.addEventListener(REPLAY_EVENT, onReplay);
+		return () => window.removeEventListener(REPLAY_EVENT, onReplay);
+	}, []);
+	if (!needed) return null;
+	return (
+		<Suspense fallback={null}>
+			<Onboarding />
+		</Suspense>
+	);
+}
+
 function ShelledRoutes() {
 	return (
 		<AppShell>
-			<Onboarding />
+			<OnboardingGate />
 			<Suspense fallback={<Boot />}>
 				<Routes>
 					<Route path="/" element={<CommandCenter />} />

@@ -423,6 +423,7 @@ export async function recoverPendingMigration(): Promise<RecoveryDecision> {
 		}
 		// Recovery itself must be crash-safe. Restoring documents and clearing the journal in one
 		// transaction prevents a quota/clone failure from leaving another partial rollback behind.
+		forgetPersistedSlices();
 		await database.transaction('rw', database.documents, database.migrationJournal, async () => {
 			await Promise.all([
 				database.documents.bulkDelete(absent),
@@ -438,6 +439,8 @@ export async function recoverPendingMigration(): Promise<RecoveryDecision> {
 
 export async function loadCoreState(): Promise<CoreStateSlice> {
 	const database = db();
+	// What the runtime holds after this load is freshly hydrated; nothing of it is known to be on disk.
+	forgetPersistedSlices();
 	// Recover any migration that died mid-write before trusting persisted documents
 	// (PLAT-008 AC2). On a clean start this is a no-op.
 	await recoverPendingMigration();
@@ -621,52 +624,42 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	};
 }
 
-async function persistSceneState(scenes: SceneState): Promise<void> {
-	await db().documents.put({ key: SCENE_STATE_KEY, doc: scenes });
-}
+/** The durable slice documents a commit may write, in the order they are declared on the slice. */
+type DurableSliceKey = Exclude<keyof CoreStateSlice, 'sync'>;
+const DURABLE_SLICE_DOCUMENTS: ReadonlyArray<{
+	readonly key: DurableSliceKey;
+	readonly documentKey: string;
+}> = [
+	{ key: 'scenes', documentKey: SCENE_STATE_KEY },
+	{ key: 'maps', documentKey: MAP_STATE_KEY },
+	{ key: 'permissions', documentKey: PERMISSION_STATE_KEY },
+	{ key: 'session', documentKey: SESSION_STATE_KEY },
+	{ key: 'widgets', documentKey: WIDGET_PACKAGE_STATE_KEY },
+	{ key: 'commandCenter', documentKey: COMMAND_CENTER_STATE_KEY },
+	{ key: 'characters', documentKey: CHARACTER_STATE_KEY },
+	{ key: 'content', documentKey: CONTENT_STATE_KEY },
+	{ key: 'encounters', documentKey: ENCOUNTER_STATE_KEY },
+	{ key: 'audio', documentKey: AUDIO_STATE_KEY },
+	{ key: 'mcp', documentKey: MCP_POLICY_STATE_KEY },
+	{ key: 'systems', documentKey: SYSTEMS_STATE_KEY },
+];
 
-async function persistMapState(maps: MapState): Promise<void> {
-	await db().documents.put({ key: MAP_STATE_KEY, doc: maps });
-}
+/**
+ * The slice object each document on disk was written FROM, by slice. Reducers are immutable, so a
+ * slice whose reference is still the one last committed is byte-for-byte the document already in
+ * IndexedDB and is not rewritten: a command that moves a widget writes the scene document and the
+ * operation tail, not all twelve documents (each `put` structured-clones its whole document).
+ *
+ * The map is only ever filled by a COMMITTED `persistFullState` transaction, and it is emptied by
+ * every other path that touches the documents table (load, restore, reset, migration recovery, the
+ * test seams), so an entry can never claim a document is on disk when something else replaced it.
+ * A slice missing from the map is always written.
+ */
+const persistedSliceRefs = new Map<DurableSliceKey, unknown>();
 
-async function persistPermissionState(permissions: PermissionState): Promise<void> {
-	await db().documents.put({ key: PERMISSION_STATE_KEY, doc: permissions });
-}
-
-async function persistSessionState(session: SessionState): Promise<void> {
-	await db().documents.put({ key: SESSION_STATE_KEY, doc: session });
-}
-
-async function persistWidgetPackageState(widgets: WidgetPackageState): Promise<void> {
-	await db().documents.put({ key: WIDGET_PACKAGE_STATE_KEY, doc: widgets });
-}
-
-async function persistCommandCenterState(commandCenter: CommandCenterState): Promise<void> {
-	await db().documents.put({ key: COMMAND_CENTER_STATE_KEY, doc: commandCenter });
-}
-
-async function persistCharacterState(characters: CharacterState): Promise<void> {
-	await db().documents.put({ key: CHARACTER_STATE_KEY, doc: characters });
-}
-
-async function persistContentState(content: VaultContentState): Promise<void> {
-	await db().documents.put({ key: CONTENT_STATE_KEY, doc: content });
-}
-
-async function persistEncounterState(encounters: EncounterState): Promise<void> {
-	await db().documents.put({ key: ENCOUNTER_STATE_KEY, doc: encounters });
-}
-
-async function persistAudioState(audio: AudioState): Promise<void> {
-	await db().documents.put({ key: AUDIO_STATE_KEY, doc: audio });
-}
-
-async function persistMcpPolicyState(mcp: McpPolicyState): Promise<void> {
-	await db().documents.put({ key: MCP_POLICY_STATE_KEY, doc: mcp });
-}
-
-async function persistSystemsState(systems: SystemsState): Promise<void> {
-	await db().documents.put({ key: SYSTEMS_STATE_KEY, doc: systems });
+/** Forget which slice documents are on disk; the next commit rewrites every slice. */
+function forgetPersistedSlices(): void {
+	persistedSliceRefs.clear();
 }
 
 export async function appendOperations(operations: SyncOperation[]): Promise<void> {
@@ -711,11 +704,15 @@ export async function persistFullState(
 	previous: CoreStateSlice,
 	next: CoreStateSlice,
 ): Promise<void> {
+	// The operations this commit appends: everything past the previously persisted log length. Only
+	// these reach the operations table, so only these are validated entry by entry at the boundary.
+	const newOperations = next.sync.operations.slice(previous.sync.operations.length);
 	// Validate the request crossing the boundary first: unknown method, oversized, or
-	// malformed payloads fail closed before we touch IndexedDB (PLAT-007 AC1/AC2).
+	// malformed payloads fail closed before we touch IndexedDB (PLAT-007 AC1/AC2). The previous
+	// state does not cross: it was the `next` of the last accepted commit and was validated then.
 	const validated = validatePlatformRequest(platformRegistry, 'storage.persistFullState', {
-		previous,
 		next,
+		appended: newOperations,
 	});
 	if (!validated.ok) {
 		throw new PlatformBoundaryRejectionError(
@@ -724,44 +721,31 @@ export async function persistFullState(
 			validated.error.message,
 		);
 	}
-	const newOperations = next.sync.operations.slice(previous.sync.operations.length);
-	const durableStateChanged =
-		sliceChanged(previous.scenes, next.scenes) ||
-		sliceChanged(previous.maps, next.maps) ||
-		sliceChanged(previous.permissions, next.permissions) ||
-		sliceChanged(previous.session, next.session) ||
-		sliceChanged(previous.widgets, next.widgets) ||
-		sliceChanged(previous.commandCenter, next.commandCenter) ||
-		sliceChanged(previous.characters, next.characters) ||
-		sliceChanged(previous.content, next.content) ||
-		sliceChanged(previous.encounters, next.encounters) ||
-		sliceChanged(previous.audio, next.audio) ||
-		sliceChanged(previous.mcp, next.mcp) ||
-		sliceChanged(previous.systems, next.systems);
+	const durableStateChanged = DURABLE_SLICE_DOCUMENTS.some((slice) =>
+		sliceChanged(previous[slice.key], next[slice.key]),
+	);
 	if (durableStateChanged && newOperations.length === 0) {
 		throw new Error('Durable state changed without an accepted Processing Core operation.');
 	}
+	// Slices whose reference is not the one on disk. After a load, a restore or a reset nothing is
+	// known to be on disk, so the first commit writes all twelve documents.
+	const pending = DURABLE_SLICE_DOCUMENTS.filter(
+		(slice) => persistedSliceRefs.get(slice.key) !== next[slice.key],
+	);
 	const database = db();
 	// State documents and the operation tail are one logical command commit. Dexie rolls the whole
 	// transaction back if quota, cloning, or any individual store write fails, so reload can never see
 	// a new slice without its audit operation (or vice versa).
 	await database.transaction('rw', database.documents, database.operations, async () => {
 		await Promise.all([
-			persistSceneState(next.scenes),
-			persistMapState(next.maps),
-			persistPermissionState(next.permissions),
-			persistSessionState(next.session),
-			persistWidgetPackageState(next.widgets),
-			persistCommandCenterState(next.commandCenter),
-			persistCharacterState(next.characters),
-			persistContentState(next.content),
-			persistEncounterState(next.encounters),
-			persistAudioState(next.audio),
-			persistMcpPolicyState(next.mcp),
-			persistSystemsState(next.systems),
+			...pending.map((slice) =>
+				database.documents.put({ key: slice.documentKey, doc: next[slice.key] }),
+			),
 			appendOperations(newOperations),
 		]);
 	});
+	// Only a committed transaction records what is on disk; a failed one leaves the map as it was.
+	for (const slice of pending) persistedSliceRefs.set(slice.key, next[slice.key]);
 }
 
 const RESTORE_STATE_KEYS = [
@@ -983,6 +967,7 @@ export function validateRestoredCoreState(candidate: unknown): CoreStateSlice {
 export async function restoreCoreState(candidate: unknown): Promise<void> {
 	const slice = validateRestoredCoreState(candidate);
 	const database = db();
+	forgetPersistedSlices();
 	const { documents, operations } = restoredRecords(slice);
 	// One IndexedDB transaction makes the replacement all-or-nothing. If any document or operation
 	// write fails, the preceding clears roll back too and the current local vault remains intact.
@@ -1076,6 +1061,7 @@ export async function restoreFullVaultState(
 		seen.add(id);
 	}
 	const database = db();
+	forgetPersistedSlices();
 	const { documents, operations } = restoredRecords(slice);
 	await database.transaction(
 		'rw',
@@ -1102,6 +1088,7 @@ export async function restoreFullVaultState(
 /** Full wipe (onboarding "start fresh"): durable state AND asset bytes. */
 export async function resetCoreStorage(): Promise<void> {
 	const database = db();
+	forgetPersistedSlices();
 	await database.transaction(
 		'rw',
 		database.documents,
@@ -1142,17 +1129,22 @@ export const storagePort: StoragePort = {
 
 export const __testing = {
 	closeDb: async (): Promise<void> => {
+		forgetPersistedSlices();
 		if (dbInstance) {
 			await dbInstance.close();
 			dbInstance = null;
 		}
 	},
 	setDb: (mock: V2Database | null): void => {
+		forgetPersistedSlices();
 		dbInstance = mock;
 	},
+	/** Test-only: the live Dexie instance, so a suite can observe which tables a commit writes. */
+	getDb: (): V2Database => db(),
 	// Test-only: write a raw persisted document, bypassing the command-operation guard, to
 	// simulate a corrupting mid-write before recovery runs.
 	putRawDocument: async (key: string, doc: unknown): Promise<void> => {
+		forgetPersistedSlices();
 		await db().documents.put({ key, doc });
 	},
 	putRawOperation: async (id: string, sequence: number, op: unknown): Promise<void> => {

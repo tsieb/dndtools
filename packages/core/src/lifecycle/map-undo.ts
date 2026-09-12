@@ -1,5 +1,5 @@
 import type { ZodType } from 'zod';
-import type { CoreCommand, CoreStateSlice } from '../commands/types';
+import type { CoreCommand, MapGeneratorRegistry, CoreStateSlice } from '../commands/types';
 import { buildInverseMapEditCommand } from '../commands/map-editing';
 import {
 	addMapFeaturesInputSchema,
@@ -42,7 +42,6 @@ import {
 import type { MapEntity, MapFeature, MapLayer } from '../state/map-state';
 import { MODE_PREREQUISITES } from '../state/map-overlay-modes';
 import { createRngStreams } from '../state/prng';
-import { getGenerator } from '../generation/registry';
 import { resolveParams } from '../generation/types';
 
 /**
@@ -132,6 +131,12 @@ function undoable(command: CoreCommand, label: string): UndoableMapCommand {
 export function buildMapInverse(
 	command: CoreCommand,
 	stateBefore: CoreStateSlice,
+	/**
+	 * The generators a `map.generate` inverse re-runs to learn the ids it produced (the same registry
+	 * the command was dispatched with). Without one, a generate is reported as not undoable (`null`)
+	 * rather than guessed at.
+	 */
+	generators?: MapGeneratorRegistry,
 ): UndoableMapCommand | null {
 	const actorId = command.actorId;
 
@@ -224,7 +229,7 @@ export function buildMapInverse(
 			if (!payload) return null;
 			const map = mapOf(stateBefore, payload.mapId);
 			if (!map) return null;
-			const definition = getGenerator(payload.generatorId);
+			const definition = generators?.getGenerator(payload.generatorId);
 			if (!definition) return null;
 			const resolved = resolveParams(definition, payload.params);
 			if ('error' in resolved) return null;

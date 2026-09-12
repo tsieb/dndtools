@@ -1,10 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-	GENERATOR_GROUPS,
 	createRngStreams,
-	generatorsByGroup,
-	getGenerator,
-	isImmediateParamChange,
 	resolveParams,
 	type GeneratorDefinition,
 	type GeneratorGroup,
@@ -12,6 +8,12 @@ import {
 	type MapLayer,
 	type ParamValue,
 } from '@dndtools/core';
+import {
+	GENERATOR_GROUPS,
+	generatorsByGroup,
+	getGenerator,
+	isImmediateParamChange,
+} from '@dndtools/core/map-generators';
 import { Button, Chip, Icon, Input } from '../../../ds';
 import { T, eb } from '../../screen-kit';
 import type { MapEditorApi } from '../useMapEditor';

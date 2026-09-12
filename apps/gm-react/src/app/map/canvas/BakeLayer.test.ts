@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
 	createRngStreams,
-	getGenerator,
 	measureMapPanZoom,
 	resolveParams,
 	type GeneratorOutput,
@@ -10,6 +9,7 @@ import {
 	type MapRenderComplexity,
 	type ParamValue,
 } from '@dndtools/core';
+import { getGenerator } from '@dndtools/core/map-generators';
 import { BAKE_FEATURE_THRESHOLD, bakeOps, isBakeable, planBake, type BakeGroup } from './BakeLayer';
 
 /**

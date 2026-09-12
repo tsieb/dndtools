@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { GENERATORS, exportUvttJson, getMapBreadcrumbForActor } from '@dndtools/core';
+import { exportUvttJson, getMapBreadcrumbForActor } from '@dndtools/core';
+import { GENERATORS } from '@dndtools/core/map-generators';
 import {
 	Button,
 	CommandPalette,
@@ -17,8 +18,7 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import { ImportMapDialog } from './ImportMapDialog';
 import { VIS_CHIP } from './mapVisibility';
 import { useMapEditor, type FogMode, type MapNoticeTone } from './useMapEditor';
-import type { ToolId } from './tools';
-import { TOOLS_BY_ID } from './tools';
+import { TOOLS_BY_ID, type ToolId } from './tools';
 import { useI18n } from '../../i18n';
 import { useMapKeyboard } from './keyboard';
 import { ToolRail } from './ToolRail';

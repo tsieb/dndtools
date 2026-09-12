@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { resolveOnboarding } from '@dndtools/core';
-import changelogRaw from '../../../../../CHANGELOG.md?raw';
 import { Button, Dialog, Icon } from '../../ds';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { readTier } from '../../screens/settings/shared';
 import { T } from '../screen-kit';
 import { PREFERENCE_KEYS, readPreference, writePreference } from '../../platform/preferences';
-import { latestRelease, parseChangelog } from './changelog';
+import { appVersion } from '../../platform/appVersion';
+import { latestRelease, parseChangelog, type ReleaseNote } from './changelog';
 import { ShortcutsDialog } from './ShortcutsDialog';
 
 /** Device-local: the last "What's new" version the DM has opened. A display preference, not a
@@ -27,9 +27,20 @@ function markWhatsNewSeen(version: string): void {
  * dot badge on the Help trigger (RC-UX-3.4). Pure so it is trivially testable and reused by both
  * the trigger and the menu body. */
 export function hasUnseenWhatsNew(): boolean {
-	const latest = latestRelease(parseChangelog(changelogRaw));
+	// The shipped version stands in for the changelog's latest release (changelog.test.ts pins the
+	// two to agree), so the badge needs no changelog parse on every shell render.
+	const latest = appVersion();
 	if (!latest) return false;
-	return readSeenWhatsNewVersion() !== latest.version;
+	return readSeenWhatsNewVersion() !== latest;
+}
+
+/**
+ * The repo's CHANGELOG.md, parsed, loaded the first time the menu opens. The raw markdown is a
+ * separate chunk: nothing on the boot path needs release notes.
+ */
+async function loadLatestRelease(): Promise<ReleaseNote | null> {
+	const { default: markdown } = await import('../../../../../CHANGELOG.md?raw');
+	return latestRelease(parseChangelog(markdown));
 }
 
 /**
@@ -44,12 +55,26 @@ export function HelpMenu({ open, onClose }: { open: boolean; onClose: () => void
 	const [shortcutsOpen, setShortcutsOpen] = useState(false);
 	const view = resolveOnboarding(runtime.state, runtime.defaultActorId, readTier());
 	const done = view.steps.filter((step) => step.done).length;
-	const latest = latestRelease(parseChangelog(changelogRaw));
+	const [latest, setLatest] = useState<ReleaseNote | null>(null);
 
-	// A side effect (marking the version seen), not a render-time computation — runs once per open.
+	// Opening the menu is what "seeing" the release means: mark the shipped version seen (the badge's
+	// own source) and fetch the release notes for the body. Both are side effects, once per open.
 	useEffect(() => {
-		if (latest && open) markWhatsNewSeen(latest.version);
-	}, [latest, open]);
+		if (!open) return;
+		const version = appVersion();
+		if (version) markWhatsNewSeen(version);
+		let live = true;
+		void loadLatestRelease().then((release) => {
+			if (!live) return;
+			setLatest(release);
+			// A build without an injected version (or one whose changelog ran ahead) still marks what it
+			// actually showed as seen.
+			if (!version && release) markWhatsNewSeen(release.version);
+		});
+		return () => {
+			live = false;
+		};
+	}, [open]);
 
 	return (
 		<>

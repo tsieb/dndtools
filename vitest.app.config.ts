@@ -16,6 +16,9 @@ export default defineConfig({
 			'@dndtools/core/testing': fileURLToPath(
 				new URL('./packages/core/src/testing/index.ts', import.meta.url),
 			),
+			'@dndtools/core/map-generators': fileURLToPath(
+				new URL('./packages/core/src/generation/registry.ts', import.meta.url),
+			),
 			'@dndtools/core': fileURLToPath(new URL('./packages/core/src/index.ts', import.meta.url)),
 		},
 	},

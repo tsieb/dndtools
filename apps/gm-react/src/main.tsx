@@ -3,8 +3,8 @@ import type { ReactNode } from 'react';
 import './styles/index.css';
 import { Toaster } from './ds';
 import { App } from './App';
-import { hydrateAiProviderKey } from './ai/providerConfig';
 import { bindWindowChromeTheme } from './platform/windowChrome';
+import { getPlatformCapabilities } from './platform/capabilities';
 import { registerServiceWorker } from './platform/serviceWorker';
 import { StandaloneSceneDisplay } from './screens/SceneDisplay';
 import { I18nProvider, translate, initialLocale, LOCALE_STORAGE_KEY } from './i18n';
@@ -64,7 +64,13 @@ const render = (app: ReactNode) =>
 // The operation is a no-op on the web and handles its own failure, so startup never depends on a
 // credential store; this only prevents a returning desktop user from briefly seeing “Not configured.”
 if (nativeDisplay) render(<StandaloneSceneDisplay />);
-else {
+else if (!getPlatformCapabilities().secureStorage.available) {
+	// The web has no OS-encrypted store to hydrate from, so there is nothing to wait for and nothing
+	// to load: the provider-key module stays off the boot path entirely.
+	render(<App />);
+} else {
 	const hydrationTimeout = new Promise<void>((resolve) => window.setTimeout(resolve, 3000));
-	void Promise.race([hydrateAiProviderKey(), hydrationTimeout]).finally(() => render(<App />));
+	// Fetched here, off the eager graph, and still bounded by the same timeout as before.
+	const hydrateKey = import('./ai/providerConfig').then((m) => m.hydrateAiProviderKey());
+	void Promise.race([hydrateKey, hydrationTimeout]).finally(() => render(<App />));
 }

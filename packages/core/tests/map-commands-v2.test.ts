@@ -4,7 +4,6 @@ import {
 	buildMapInverse,
 	createDemoMapState,
 	dispatchCommand,
-	getGenerator,
 	getMapViewForActor,
 	queryMapLayers,
 	type CommandResult,
@@ -19,6 +18,7 @@ import {
 	buildInitialState,
 	makeEnvironment,
 } from '../src/testing/fixtures';
+import { MAP_GENERATOR_REGISTRY, getGenerator } from '../src/generation/registry';
 
 /**
  * MAP-021 — the generator-fleet ↔ editor bridge.
@@ -1761,8 +1761,9 @@ describe('MAP-021 buildMapInverse — every undoable map command round-trips EXA
 			JSON.stringify(stripVolatile(stateBefore.maps)),
 		);
 
-		// The inverse is built from the command + the state BEFORE it applied. Nothing else.
-		const inverse = buildMapInverse(command, stateBefore);
+		// The inverse is built from the command + the state BEFORE it applied (+ the generators a
+		// `map.generate` re-runs to learn the ids it produced). Nothing else.
+		const inverse = buildMapInverse(command, stateBefore, MAP_GENERATOR_REGISTRY);
 		expect(inverse).not.toBeNull();
 		expect(inverse!.label).toBe(label);
 
@@ -1815,7 +1816,7 @@ describe('MAP-021 buildMapInverse — every undoable map command round-trips EXA
 		const forward = accept(run(before, GENERATE));
 		expect(mapOf(forward.nextState).pois.length).toBeGreaterThan(mapOf(before).pois.length);
 
-		const inverse = buildMapInverse(GENERATE, before)!;
+		const inverse = buildMapInverse(GENERATE, before, MAP_GENERATOR_REGISTRY)!;
 		const undone = accept(run(forward.nextState, inverse.command)).nextState;
 		expect(mapOf(undone).layers.some((l) => l.id.startsWith('gen1'))).toBe(false);
 		expect(mapOf(undone).pois.map((p) => p.id)).toEqual(mapOf(before).pois.map((p) => p.id));
@@ -1902,5 +1903,23 @@ describe('MAP-021 map.restore-layers', () => {
 		expect(op.afterRevision).toBe(mapOf(before).revision + 1);
 		// Orders are repacked densely, exactly as every other layer reducer leaves them.
 		expect(mapOf(result.nextState).layers.map((l) => l.order)).toEqual([0, 1]);
+	});
+});
+
+describe('MAP-021 generators are supplied by the host environment', () => {
+	it('rejects map.generate fail-closed when the environment carries no generators', () => {
+		const before = stateWithMaps();
+		const result = dispatchCommand(before, makeEnvironment({ mapGenerators: undefined }), GENERATE);
+		expect(result.status).toBe('rejected');
+		if (result.status !== 'rejected') throw new Error('expected rejection');
+		expect(result.rejection.code).toBe('generator-not-found');
+		expect(result.rejection.message).toMatch(/not available/);
+		expect(result.nextState).toBe(before);
+	});
+
+	it('reports a generate as not undoable when the inverse builder is given no generators', () => {
+		const before = stateWithMaps();
+		expect(buildMapInverse(GENERATE, before)).toBeNull();
+		expect(buildMapInverse(GENERATE, before, MAP_GENERATOR_REGISTRY)).not.toBeNull();
 	});
 });

@@ -17,7 +17,6 @@ import {
 import type { MapLayerMutationKind } from '../state/map-layers';
 import type { MapPoi } from '../state/map-annotations';
 import { createRngStreams } from '../state/prng';
-import { getGenerator } from '../generation/registry';
 import { resolveParams, type GeneratorContext, type GeneratorOutput } from '../generation/types';
 import { deriveAll, featureRing, type DeriveOptions } from '../generation/derive';
 import { appendOperationDraft, parseInput, reject, requireActor, requireDm } from './helpers';
@@ -325,7 +324,18 @@ export function handleGenerateMap(
 	const pre = preamble(state, actorId, parsed.data.mapId);
 	if ('rejection' in pre) return pre.rejection;
 
-	const definition = getGenerator(parsed.data.generatorId);
+	if (!env.mapGenerators) {
+		return reject(
+			{
+				code: 'generator-not-found',
+				message:
+					'Map generators are not available in this environment, so no map was generated. ' +
+					'The host must supply `mapGenerators` before dispatching map.generate.',
+			},
+			state,
+		);
+	}
+	const definition = env.mapGenerators.getGenerator(parsed.data.generatorId);
 	if (!definition) {
 		return reject(
 			{
@@ -776,10 +786,7 @@ export function handleRestoreMapLayers(
 	);
 	const merged = [...kept, ...restored];
 	if (merged.length === 0) {
-		return reject(
-			{ code: 'invalid-state', message: 'A map must keep at least one layer.' },
-			state,
-		);
+		return reject({ code: 'invalid-state', message: 'A map must keep at least one layer.' }, state);
 	}
 
 	const orderMap = parsed.data.order;

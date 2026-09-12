@@ -979,6 +979,7 @@ export type {
 	CommandResult,
 	CoreCommand,
 	CoreEnvironment,
+	MapGeneratorRegistry,
 	CoreEvent,
 	CoreStateSlice,
 	RejectionCode,
@@ -5331,14 +5332,9 @@ export {
 	stringParam,
 	tagsParam,
 } from './generation/types';
-export {
-	GENERATOR_GROUPS,
-	GENERATORS,
-	generatorsByGroup,
-	generatorsByScale,
-	getGenerator,
-	isImmediateParamChange,
-} from './generation/registry';
+// The generator REGISTRY (`GENERATORS`, `getGenerator`, the picker groups) is deliberately not
+// re-exported here: it is the `@dndtools/core/map-generators` entry, loaded by the host on demand
+// and handed to the reducer through `CoreEnvironment.mapGenerators` (see commands/types.ts).
 
 // RC-MAP-3.1 — the prop/stamp catalogue. Data, not GUI: the Assets panel, the canvas renderer and the
 // scatter generators all read the same entries, so a stamped chest and a generated chest are one thing.

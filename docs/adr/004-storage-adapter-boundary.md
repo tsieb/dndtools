@@ -1,13 +1,16 @@
 # ADR-004: StorageAdapter Abstraction Boundary
 
-- Status: Accepted (amended by ADR-035)
+- Status: Accepted (amended by ADR-035; amended by ADR-040)
 - Date: 2026-03-01
 - Deciders: Engineering
 - Consulted: Product
 - Supersedes: N/A
 - Amended by: [ADR-035](./035-player-private-device-local-store.md) — the adapter boundary now covers a
   second, per-character database (`dndtools-private-<characterId>`) that is deliberately outside the
-  sync, backup and MCP surfaces.
+  sync, backup and MCP surfaces. [ADR-040](./040-commit-cost-and-boot-path-remediation.md) — the
+  `storage.persistFullState` boundary request is `{ next, appended }` (the appended op tail is
+  validated entry by entry, the previous state no longer crosses), and a commit writes only the slice
+  documents whose reference changed since the last committed transaction.
 
 ## Context
 

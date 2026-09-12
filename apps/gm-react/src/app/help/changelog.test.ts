@@ -9,6 +9,7 @@ import { latestRelease, parseChangelog } from './changelog';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_CHANGELOG = join(HERE, '..', '..', '..', '..', '..', 'CHANGELOG.md');
+const APP_PACKAGE_JSON = join(HERE, '..', '..', '..', 'package.json');
 
 const FIXTURE = `# Changelog
 
@@ -71,5 +72,16 @@ describe('the real CHANGELOG.md', () => {
 		const latest = latestRelease(releases);
 		expect(latest).not.toBeNull();
 		expect(latest!.items.length).toBeGreaterThan(0);
+	});
+});
+
+describe("the shipped version is the changelog's latest release", () => {
+	// The Help trigger's "unseen release" badge compares the seen version against the BUILT version
+	// (`__APP_VERSION__`, from package.json) so the shell never parses the changelog at boot; the menu
+	// body shows the changelog's latest release. This keeps the two sources honest with each other.
+	it('agree, so the badge and the release notes name the same version', () => {
+		const latest = latestRelease(parseChangelog(readFileSync(REPO_CHANGELOG, 'utf8')));
+		const { version } = JSON.parse(readFileSync(APP_PACKAGE_JSON, 'utf8')) as { version: string };
+		expect(latest?.version).toBe(version);
 	});
 });
