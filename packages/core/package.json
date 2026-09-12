@@ -8,6 +8,7 @@
 	"types": "./src/index.ts",
 	"exports": {
 		".": "./src/index.ts",
+		"./map-generators": "./src/generation/registry.ts",
 		"./testing": "./src/testing/index.ts"
 	},
 	"scripts": {

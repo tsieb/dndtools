@@ -38,6 +38,7 @@ import {
 	type CoreStateSlice,
 	type McpAgentInvocation,
 	type McpAgentToolResult,
+	type MapGeneratorRegistry,
 	type McpToolRegistry,
 	type PreviewSelection,
 	type ResolvedPreview,
@@ -182,6 +183,8 @@ export class SceneRuntime {
 	private loadAttempt: Promise<void> | null = null;
 	// The Core's declared MCP tool allowlist — built once; construction fails closed on wiring errors.
 	private readonly mcpToolRegistry: McpToolRegistry = createBaselineMcpToolRegistry();
+	/** The procedural map generators, loaded the first time a `map.generate` command is dispatched. */
+	private mapGenerators: MapGeneratorRegistry | null = null;
 
 	constructor(options: RuntimeOptions) {
 		this.options = options;
@@ -523,12 +526,14 @@ export class SceneRuntime {
 			this.emit();
 			return { status: 'rejected', rejection, nextState: this.innerState };
 		}
+		// Inside the mutation queue, so the state read below cannot move while the generators load.
+		const env = await this.environmentFor(command);
 		const before = this.innerState;
 		let lifecycle = markPending(createCommandLifecycle(command.type));
 		// Recorded, not emitted: the state is unchanged until the command commits, and no subscriber
 		// renders the pending phase, so an emit here only re-rendered every consumer once per command.
 		this.lifecycle = lifecycle;
-		const result = dispatchCommand(before, this.options.env, command);
+		const result = dispatchCommand(before, env, command);
 		if (result.status === 'accepted') {
 			this.innerState = result.nextState;
 			try {
@@ -564,6 +569,17 @@ export class SceneRuntime {
 		this.lifecycle = lifecycle;
 		this.emit();
 		return result;
+	}
+
+	/**
+	 * The environment a command runs in. Only `map.generate` needs the procedural generators, the
+	 * largest optional part of the core, so they are fetched on the first such command and cached;
+	 * every other command runs with the base environment and never loads them.
+	 */
+	private async environmentFor(command: CoreCommand): Promise<CoreEnvironment> {
+		if (command.type !== 'map.generate') return this.options.env;
+		this.mapGenerators ??= (await import('@dndtools/core/map-generators')).MAP_GENERATOR_REGISTRY;
+		return { ...this.options.env, mapGenerators: this.mapGenerators };
 	}
 
 	/**

@@ -29,6 +29,7 @@ import type {
 	TravelPace,
 	TravelPaceKey,
 } from '@dndtools/core';
+import { MAP_GENERATOR_REGISTRY } from '@dndtools/core/map-generators';
 import {
 	DEFAULT_TRAVEL_PACE,
 	buildMapInverse,
@@ -368,7 +369,7 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 				if (result.status === 'accepted') {
 					setNotice(null);
 					if (opts?.undoable !== false) {
-						const inverse = buildMapInverse(command, stateBefore);
+						const inverse = buildMapInverse(command, stateBefore, MAP_GENERATOR_REGISTRY);
 						if (inverse) {
 							writeHistory((prev) =>
 								[
@@ -470,7 +471,7 @@ export function useMapEditor(mapId: string, initialTool: ToolId = 'select'): Map
 			if (result.status === 'accepted') {
 				// Re-derive the inverse against the current state (revisions have moved on since the
 				// original forward ran), so a subsequent undo is exact.
-				const inverse = buildMapInverse(entry.forward, stateBefore);
+				const inverse = buildMapInverse(entry.forward, stateBefore, MAP_GENERATOR_REGISTRY);
 				writeRedo((prev) => prev.slice(0, -1));
 				writeHistory((prev) =>
 					[

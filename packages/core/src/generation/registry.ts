@@ -1,4 +1,5 @@
 import type { GeneratorDefinition, GeneratorGroup, GeneratorScale, ParamValue } from './types';
+import type { MapGeneratorRegistry } from '../commands/types';
 import { DUNGEON_GENERATORS } from './dungeon';
 import { CAVE_GENERATORS } from './cave';
 import { SCATTER_GENERATORS } from './scatter';
@@ -36,6 +37,14 @@ const BY_ID: ReadonlyMap<string, GeneratorDefinition> = new Map(
 );
 
 /** Look up a generator by id. Returns undefined for an unknown id — callers must fail closed. */
+/**
+ * The registry as the reducer consumes it (`CoreEnvironment.mapGenerators`). Hosts load this module
+ * on demand — it is the `@dndtools/core/map-generators` entry — and pass this object through.
+ */
+export const MAP_GENERATOR_REGISTRY: MapGeneratorRegistry = Object.freeze({
+	getGenerator: (id: string) => getGenerator(id),
+});
+
 export function getGenerator(id: string): GeneratorDefinition | undefined {
 	return BY_ID.get(id);
 }

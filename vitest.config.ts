@@ -25,6 +25,12 @@ export default defineConfig({
 		alias: [
 			{ find: /^@dndtools\/core$/, replacement: coreSrc },
 			{ find: /^@dndtools\/core\/testing$/, replacement: coreTesting },
+			{
+				find: /^@dndtools\/core\/map-generators$/,
+				replacement: fileURLToPath(
+					new URL('./packages/core/src/generation/registry.ts', import.meta.url),
+				),
+			},
 		],
 	},
 });

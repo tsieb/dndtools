@@ -1,4 +1,5 @@
 import type { Clock, IdGenerator } from '../state/ids';
+import { MAP_GENERATOR_REGISTRY } from '../generation/registry';
 import type { Actor, PermissionState } from '../state/permission-state';
 import { PERMISSION_STATE_SCHEMA_VERSION } from '../state/permission-state';
 import { EMPTY_CHARACTER_STATE } from '../state/character-state';
@@ -41,6 +42,8 @@ export function makeEnvironment(overrides: Partial<CoreEnvironment> = {}): CoreE
 		clock: overrides.clock ?? fixedClock(),
 		// MAP-002 / MAP-020: pass through declared import adapters when a test supplies them.
 		...(overrides.mapImportAdapters ? { mapImportAdapters: overrides.mapImportAdapters } : {}),
+		// MAP-021: the shipped generators, unless a test injects its own (or none, to prove fail-closed).
+		mapGenerators: 'mapGenerators' in overrides ? overrides.mapGenerators : MAP_GENERATOR_REGISTRY,
 	};
 }
 

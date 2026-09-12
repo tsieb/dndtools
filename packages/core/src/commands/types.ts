@@ -6,6 +6,7 @@ import type { CommandCenterState } from '../state/command-center-state';
 import type { MapState } from '../state/map-state';
 import type { MapLayerMutationKind } from '../state/map-layers';
 import type { MapImportAdapterRegistry } from '../state/map-import';
+import type { GeneratorDefinition } from '../generation/types';
 import type { ActorRole, PermissionState } from '../state/permission-state';
 import type { SceneState } from '../state/scene-state';
 import type {
@@ -81,6 +82,21 @@ export interface CoreEnvironment {
 	 * adapter.
 	 */
 	mapImportAdapters?: MapImportAdapterRegistry;
+	/**
+	 * MAP-021 — the procedural map generators `map.generate` may run. Optional, and supplied by the
+	 * host rather than imported by the reducer: the generators are the largest part of the core that
+	 * a session never touches unless a DM generates a map, so the host loads them on demand (see
+	 * `@dndtools/core/map-generators`). Absent, `map.generate` is rejected fail-closed with
+	 * `generator-not-found`; it never fabricates a map. Replay determinism is unchanged — the op
+	 * still records `{generatorId, generatorVersion, seed, params}` and the same registry produces
+	 * the same geometry on every device.
+	 */
+	mapGenerators?: MapGeneratorRegistry;
+}
+
+/** The lookup `map.generate` (and the undo inverse builder) resolve a generator id through. */
+export interface MapGeneratorRegistry {
+	getGenerator(id: string): GeneratorDefinition | undefined;
 }
 
 export type CoreCommand =

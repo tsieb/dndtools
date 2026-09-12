@@ -213,6 +213,17 @@ export default defineConfig(({ mode }) => {
 		plugins: [react(), electronNetworkPolicy(env), lamplightServiceWorker()],
 		define: {
 			'import.meta.env.VITE_DEMO_MODE': JSON.stringify(mode === 'demo' ? '1' : ''),
+			// The shipped release version, so the shell can tell "unseen release" apart from the seen
+			// one without parsing CHANGELOG.md at boot (the Help menu loads the changelog on demand).
+			__APP_VERSION__: JSON.stringify(
+				(
+					JSON.parse(
+						readFileSync(fileURLToPath(new URL('./package.json', import.meta.url)), 'utf8'),
+					) as {
+						version: string;
+					}
+				).version,
+			),
 			// `amazon-cognito-identity-js` pulls in `buffer@4.x`, whose module init reads a bare
 			// `global` — undefined in the browser, so the whole app (AuthProvider wraps the root)
 			// throws `global is not defined` and never mounts. Map it to `globalThis` at build time
