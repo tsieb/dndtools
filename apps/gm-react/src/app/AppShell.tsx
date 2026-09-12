@@ -1,8 +1,7 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
 import { Toaster, ToastViewport } from '../ds';
 import { useI18n } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
-import { CommandPalette } from './CommandPalette';
 import { useCompactTopBar, useViewport } from './useViewport';
 import { T } from './screen-kit';
 import { SceneDisplayOverlay, useSceneDisplayBroadcast } from './SceneDisplayOverlay';
@@ -15,6 +14,12 @@ import { SessionRail } from './shell/SessionRail';
 import { SessionQuickSheet } from './session/QuickPanel';
 import { ShortcutsDialog } from './help/ShortcutsDialog';
 import { matchesShortcut } from './shortcuts/registry';
+
+// The palette (its command registry, search and the DS palette widget) is fetched the first time it
+// opens and stays mounted afterwards, so re-opening is instant and its recent-commands state holds.
+const CommandPalette = lazy(() =>
+	import('./CommandPalette').then((m) => ({ default: m.CommandPalette })),
+);
 
 /**
  * AppShell — the React port of the online prototype's shell (app.jsx Sidebar + Topbar): a 264px
@@ -35,6 +40,10 @@ import { matchesShortcut } from './shortcuts/registry';
 export function AppShell({ children }: { children: ReactNode }) {
 	const { t } = useI18n();
 	const [paletteOpen, setPaletteOpen] = useState(false);
+	const [paletteMounted, setPaletteMounted] = useState(false);
+	useEffect(() => {
+		if (paletteOpen) setPaletteMounted(true);
+	}, [paletteOpen]);
 	// I11 S11.2.2 — the in-window fullscreen scene display (Ctrl+Shift+S toggles; Escape exits).
 	const [displayOpen, setDisplayOpen] = useState(false);
 	// RC-UX-3.3 — the `?` overlay, printed from the shortcut registry these handlers fire on.
@@ -237,7 +246,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 			{viewport !== 'desktop' && (
 				<SessionQuickSheet bottomOffset={viewport === 'phone' ? 92 : 16} />
 			)}
-			<CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+			{paletteMounted && (
+				<Suspense fallback={null}>
+					<CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+				</Suspense>
+			)}
 			<SceneDisplayOverlay open={displayOpen} onClose={() => setDisplayOpen(false)} />
 			{shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
 			{/* On phone the tab bar owns the bottom edge (52px buttons + --space-1 padding + 1px

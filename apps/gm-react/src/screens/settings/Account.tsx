@@ -15,7 +15,7 @@ import {
 } from '../../cloud/appApi';
 import { downloadJsonFile, fileDateStamp } from '../../platform/download';
 import { removePreference } from '../../platform/preferences';
-import { ONBOARDED_KEY, REPLAY_EVENT } from '../../app/Onboarding';
+import { ONBOARDED_KEY, REPLAY_EVENT } from '../../app/onboarding/shared';
 import { errMsg } from './shared';
 import { AccountDevicesPanel } from './AccountDevices';
 /* ---- Account — REAL app-api backend when configured + signed in (profile edit, devices,

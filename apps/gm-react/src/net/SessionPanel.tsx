@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { Icon } from '../ds';
 import { T } from '../app/screen-kit';
 import { useAuth } from '../cloud/AuthContext';
@@ -6,7 +6,9 @@ import { useSession } from './SessionContext';
 import { MAX_CONNECTION_CODE_CHARS } from './signaling';
 import { MAX_ONLINE_JOIN_CODE_CHARS, encodeJoinCode } from './cloudCrypto';
 import { connectionState, rosterPresence } from './sessionStatus';
-import { HostModal } from './HostModal';
+
+// The host dialog (invitation, QR code, peer roster) is only fetched when the DM opens it.
+const HostModal = lazy(() => import('./HostModal').then((m) => ({ default: m.HostModal })));
 import {
 	btn,
 	ConnectionBanner,
@@ -117,7 +119,11 @@ export function HostSessionButton({ compact = false }: { compact?: boolean } = {
 							? `Hosting · ${session.peers.filter((p) => p.connected).length}`
 							: 'Host')}
 			</button>
-			{open && <HostModal onClose={() => setOpen(false)} />}
+			{open && (
+				<Suspense fallback={null}>
+					<HostModal onClose={() => setOpen(false)} />
+				</Suspense>
+			)}
 		</>
 	);
 }

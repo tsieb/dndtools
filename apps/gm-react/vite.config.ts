@@ -154,6 +154,17 @@ function electronNetworkPolicy(env: Record<string, string>): Plugin {
 /** Stable cache boundaries for startup dependencies shared by every lazy route. */
 function appManualChunk(id: string): string | undefined {
 	const normalized = id.replaceAll('\\', '/');
+	// The procedural map generators are the one part of the core no boot path reaches: the reducer
+	// takes them from `CoreEnvironment.mapGenerators`, which the runtime fills by importing
+	// `@dndtools/core/map-generators` on the first `map.generate`. Keeping them out of the core chunk
+	// is what lets that import defer them; the shared geometry contracts (`types`, `derive`, the prop
+	// catalogue) stay with the core because eager reducers and renderers import them.
+	if (
+		/\/packages\/core\/src\/generation\//.test(normalized) &&
+		!/\/generation\/(?:types|derive|props)\.ts$/.test(normalized)
+	) {
+		return 'processing-generators';
+	}
 	if (normalized.includes('/packages/core/src/')) return 'processing-core';
 	if (!normalized.includes('/node_modules/')) return undefined;
 	if (

@@ -3,13 +3,7 @@
 // cognito-idp.<region>. Tokens are held by the custom secure tokenStore (memory +
 // OS-encrypted durable mirror). This module is pure logic; React state lives in
 // AuthContext. No-ops safely when identity isn't configured (local-first).
-import {
-	CognitoUserPool,
-	CognitoUser,
-	AuthenticationDetails,
-	CognitoUserAttribute,
-	type CognitoUserSession,
-} from 'amazon-cognito-identity-js';
+import type { CognitoUser, CognitoUserPool, CognitoUserSession } from 'amazon-cognito-identity-js';
 import { cloudConfig, isAuthConfigured } from './config';
 import { tokenStore } from './tokenStore';
 
@@ -18,23 +12,36 @@ export interface AuthUser {
 	email: string;
 }
 
+type CognitoSdk = typeof import('amazon-cognito-identity-js');
+
+let sdkLoad: Promise<CognitoSdk> | null = null;
+/**
+ * The Cognito SDK, fetched the first time identity is actually used. It (with the `buffer` polyfill
+ * it drags in) is not on the boot path of a local-first vault, and a build with no identity
+ * configured never loads it at all. Fails closed, as before, when identity is unconfigured.
+ */
+function cognitoSdk(): Promise<CognitoSdk> {
+	if (!isAuthConfigured) return Promise.reject(new Error('Cloud identity is not configured.'));
+	sdkLoad ??= import('amazon-cognito-identity-js');
+	return sdkLoad;
+}
+
 let pool: CognitoUserPool | null = null;
-function userPool(): CognitoUserPool {
-	if (!isAuthConfigured) throw new Error('Cloud identity is not configured.');
-	if (!pool) {
-		pool = new CognitoUserPool({
-			UserPoolId: cloudConfig.userPoolId,
-			ClientId: cloudConfig.userPoolClientId,
-			Storage: tokenStore,
-		});
-	}
+async function userPool(): Promise<CognitoUserPool> {
+	const sdk = await cognitoSdk();
+	pool ??= new sdk.CognitoUserPool({
+		UserPoolId: cloudConfig.userPoolId,
+		ClientId: cloudConfig.userPoolClientId,
+		Storage: tokenStore,
+	});
 	return pool;
 }
 
-function cognitoUser(email: string): CognitoUser {
-	return new CognitoUser({
+async function cognitoUser(email: string): Promise<CognitoUser> {
+	const sdk = await cognitoSdk();
+	return new sdk.CognitoUser({
 		Username: email.trim().toLowerCase(),
-		Pool: userPool(),
+		Pool: await userPool(),
 		Storage: tokenStore,
 	});
 }
@@ -44,27 +51,31 @@ export async function hydrateAuth(): Promise<void> {
 	await tokenStore.hydrate();
 }
 
-export function signUp(email: string, password: string): Promise<void> {
+export async function signUp(email: string, password: string): Promise<void> {
+	const sdk = await cognitoSdk();
+	const userPoolInstance = await userPool();
 	return new Promise((resolve, reject) => {
-		userPool().signUp(
+		userPoolInstance.signUp(
 			email.trim().toLowerCase(),
 			password,
-			[new CognitoUserAttribute({ Name: 'email', Value: email })],
+			[new sdk.CognitoUserAttribute({ Name: 'email', Value: email })],
 			[],
 			(err) => (err ? reject(err) : resolve()),
 		);
 	});
 }
 
-export function confirmSignUp(email: string, code: string): Promise<void> {
+export async function confirmSignUp(email: string, code: string): Promise<void> {
+	const user = await cognitoUser(email);
 	return new Promise((resolve, reject) => {
-		cognitoUser(email).confirmRegistration(code, true, (err) => (err ? reject(err) : resolve()));
+		user.confirmRegistration(code, true, (err) => (err ? reject(err) : resolve()));
 	});
 }
 
-export function resendCode(email: string): Promise<void> {
+export async function resendCode(email: string): Promise<void> {
+	const user = await cognitoUser(email);
 	return new Promise((resolve, reject) => {
-		cognitoUser(email).resendConfirmationCode((err) => (err ? reject(err) : resolve()));
+		user.resendConfirmationCode((err) => (err ? reject(err) : resolve()));
 	});
 }
 
@@ -99,10 +110,11 @@ const UNUSABLE_RESET_CODE_ERRORS = new Set([
  * signal delivery through either callback; account-state errors resolve identically to successful
  * delivery so callers always present the same next step and wording.
  */
-export function requestPasswordReset(email: string): Promise<void> {
+export async function requestPasswordReset(email: string): Promise<void> {
+	const user = await cognitoUser(email);
 	return new Promise((resolve, reject) => {
 		const complete = () => resolve();
-		cognitoUser(email).forgotPassword({
+		user.forgotPassword({
 			onSuccess: complete,
 			inputVerificationCode: complete,
 			onFailure: (error) => {
@@ -119,13 +131,14 @@ export function requestPasswordReset(email: string): Promise<void> {
 }
 
 /** Confirm a reset code, exposing only recovery-safe errors rather than raw Cognito details. */
-export function confirmPasswordReset(
+export async function confirmPasswordReset(
 	email: string,
 	code: string,
 	newPassword: string,
 ): Promise<void> {
+	const user = await cognitoUser(email);
 	return new Promise((resolve, reject) => {
-		cognitoUser(email).confirmPassword(code, newPassword, {
+		user.confirmPassword(code, newPassword, {
 			onSuccess: () => resolve(),
 			onFailure: (error) => {
 				const errorCode = cognitoErrorCode(error);
@@ -175,11 +188,13 @@ function userFromSession(session: CognitoUserSession): AuthUser {
 	};
 }
 
-export function signIn(email: string, password: string): Promise<AuthUser> {
+export async function signIn(email: string, password: string): Promise<AuthUser> {
 	const username = email.trim().toLowerCase();
+	const sdk = await cognitoSdk();
+	const user = await cognitoUser(username);
 	return new Promise((resolve, reject) => {
-		cognitoUser(username).authenticateUser(
-			new AuthenticationDetails({ Username: username, Password: password }),
+		user.authenticateUser(
+			new sdk.AuthenticationDetails({ Username: username, Password: password }),
 			{
 				onSuccess: (session) => resolve(userFromSession(session)),
 				onFailure: (err) => reject(err),
@@ -193,9 +208,9 @@ export function signIn(email: string, password: string): Promise<AuthUser> {
 }
 
 /** Current signed-in user (from a valid/refreshable session), or null. */
-export function currentUser(): Promise<AuthUser | null> {
-	const user = userPool().getCurrentUser();
-	if (!user) return Promise.resolve(null);
+export async function currentUser(): Promise<AuthUser | null> {
+	const user = (await userPool()).getCurrentUser();
+	if (!user) return null;
 	return new Promise((resolve) => {
 		user.getSession((err: Error | null, session: CognitoUserSession | null) => {
 			if (err || !session || !session.isValid()) return resolve(null);
@@ -205,9 +220,9 @@ export function currentUser(): Promise<AuthUser | null> {
 }
 
 /** A valid Cognito ID token (auto-refreshed), or null if signed out. */
-export function getIdToken(): Promise<string | null> {
-	const user = userPool().getCurrentUser();
-	if (!user) return Promise.resolve(null);
+export async function getIdToken(): Promise<string | null> {
+	const user = (await userPool()).getCurrentUser();
+	if (!user) return null;
 	return new Promise((resolve) => {
 		user.getSession((err: Error | null, session: CognitoUserSession | null) => {
 			if (err || !session || !session.isValid()) return resolve(null);
@@ -217,7 +232,7 @@ export function getIdToken(): Promise<string | null> {
 }
 
 export async function signOut(): Promise<void> {
-	const user = userPool().getCurrentUser();
+	const user = (await userPool()).getCurrentUser();
 	if (user) {
 		await new Promise<void>((resolve) => {
 			user.signOut(() => resolve());

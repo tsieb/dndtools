@@ -1,5 +1,9 @@
 /// <reference types="vite/client" />
 
+// The release version (`package.json` `version`), injected by `define` in vite.config.ts. Read it
+// through `platform/appVersion.ts`, which also handles the unit-test runtime where it is undefined.
+declare const __APP_VERSION__: string;
+
 // The design-package DS components ship as ESM JSX (untyped). Allow importing them as modules;
 // they are vendored design source consumed loosely (props validated at runtime), not app code.
 declare module '*.jsx';
