@@ -13,6 +13,7 @@
 | Smoke gate         | `pnpm test:smoke`                                                        | boundary lint + typecheck + the curated critical subset (`packages/core/vitest.smoke.config.ts`), about 30s     |
 | Browser E2E        | `pnpm e2e`                                                               | Playwright specs in `apps/gm-react/tests/e2e/` on `desktop-chromium` and `mobile-chromium`                      |
 | Accessibility gate | `pnpm a11y:gate`                                                         | non-text contrast lint + axe on both profiles + merged report                                                   |
+| Visual regression  | `apps/gm-react/tests/visual/run-in-container.sh`                         | golden-route screenshots, every theme × desktop/rail/phone, in the pinned Playwright image (§8)                 |
 | Performance        | `pnpm perf:capture` then `pnpm perf:compare`                             | see [PERFORMANCE.md](PERFORMANCE.md)                                                                            |
 | Android native     | `./gradlew testReleaseUnitTest lintRelease` from `apps/gm-react/android` | Java unit tests and Android lint; the emulator matrix is in the [Android runbook](../runbooks/android-alpha.md) |
 | Whole application  | `pnpm validate`                                                          | the staged, capability-gated harness (§3)                                                                       |
@@ -27,7 +28,7 @@ already listening on :5273.
 
 Timing budgets (wall clock; a job past its budget is a regression to investigate, not a number to
 raise): core unit 90s, core coverage 120s, CI `build-and-test` 10 min, one `browser-e2e` shard
-12 min, `accessibility` 5 min. The core suite runs with `isolate: false` because it is framework-free
+12 min, `accessibility` 5 min, `visual-regression` 10 min. The core suite runs with `isolate: false` because it is framework-free
 and each isolated file re-imported the whole module graph.
 
 ## 2. Mandatory rules
@@ -158,3 +159,70 @@ console lines, and the stack behind each unload.
 
 `pnpm gates --docs-root <dir>` runs the same check against another tree, such as a fixture. A new doc
 string that tooling depends on gets an entry in `DOCS_COUPLINGS`.
+
+## 8. Visual regression (golden routes)
+
+`apps/gm-react/tests/visual/golden-routes.spec.ts` (RC-DSN-4.1) screenshots the golden routes:
+Command Center, `/board`, `/scenes`, `/characters`, `/knowledge`, `/campaign`, `/session`,
+`/player`, `/settings`, `/scene/:id`, `/atlas` with the map editor open, `/play`, `/display`,
+`/wiki`, and the DS gallery once RC-DSN-2.3 builds `#/__ds` (until then that test reports itself
+skipped). Each is captured in every theme in the spec's `THEMES` on three projects, one per
+`useViewport` tier: `visual-desktop` (1280×800), `visual-rail` (834×1112) and `visual-phone`
+(393×851, touch), all at a device scale factor of 1. Every capture is a `toHaveScreenshot`
+comparison against a PNG committed under `apps/gm-react/tests/visual/__screenshots__/<project>/`.
+
+The visual projects exist only when `DNDTOOLS_VISUAL=1`, and then they replace the functional ones,
+so `pnpm e2e` and the browser-E2E shards never compare pixels. What holds a capture still: a fixed
+clock (`page.clock.setFixedTime`), a seeded `Math.random`, UTC and en-US, reduced motion,
+animations and the caret disabled, fonts awaited, font hinting, subpixel positioning and LCD text
+off, sRGB output, service workers blocked, and the fresh first-run vault. Up to 40 differing pixels
+per image are tolerated for canvas anti-aliasing; more than that fails.
+
+Baselines are rendered in one place only: the pinned `mcr.microsoft.com/playwright:v1.61.1-noble`
+image. Font rasterisation differs between distributions, so a baseline written on a Fedora host
+diffs on every Ubuntu CI run. The config refuses a visual run outside the image (the image sets
+`PLAYWRIGHT_BROWSERS_PATH=/ms-playwright`) unless `DNDTOOLS_VISUAL_HOST=1`, which is for local
+iteration only; never commit what a host run writes.
+
+```bash
+pnpm install                                                                  # once; the container reuses node_modules
+apps/gm-react/tests/visual/run-in-container.sh                                # compare with the baselines
+apps/gm-react/tests/visual/run-in-container.sh --update-snapshots=changed     # re-baseline what changed
+apps/gm-react/tests/visual/run-in-container.sh --project=visual-phone -g board
+node apps/gm-react/tests/visual/check-baseline-budget.mjs                     # the size budget CI enforces
+```
+
+The script uses podman or docker (`CONTAINER_ENGINE` overrides the choice), mounts the checkout at
+its own path, and passes its arguments to `playwright test`. After a failure,
+`apps/gm-react/test-results/` holds the `-actual`, `-expected` and `-diff` PNG for each screenshot.
+
+**Updating baselines.** A change that moves pixels on purpose re-baselines in the same PR. Run the
+update command, open every rewritten PNG (`git status` lists them), and commit them with the change;
+the reviewer reads a baseline diff as part of the change. Without a container engine, run the CI
+workflow by hand on the branch (Actions › CI › Run workflow) with **update-visual-baselines**
+ticked. The `visual-regression` job then rewrites the changed baselines and uploads them as the
+`visual-baselines` artifact; unpack it over `apps/gm-react/tests/visual/__screenshots__/` and
+commit.
+
+**CI.** The `visual-regression` job in `ci.yml` runs in the same image, pinned by digest, whenever
+`apps/gm-react/src`, `public`, `index.html`, the Vite or Playwright config, the app's
+`package.json`, `packages/core` (the first-run seed), the lockfile, the suite itself or `ci.yml`
+changes, and on every manual dispatch. It checks the size budget and then compares with
+`--update-snapshots=none`, so a diff or a missing baseline fails the job and blocks the merge. The
+`visual-regression-report` artifact holds the HTML report and the diff images.
+
+**Size budget.** The repo does not use Git LFS, so baselines live in ordinary history and every
+re-baseline adds its full size again. `check-baseline-budget.mjs` caps a single PNG at 320 KiB and
+the whole set at 32 MiB, which fits the three current themes with room for RC-DSN-1.2's five.
+Captures stay viewport-sized: a full-page capture or a device scale factor above 1 is what the
+per-file cap catches.
+
+**Adding a surface or a theme.** Add the route to `SHELLED_ROUTES` (or give it its own test) or the
+theme to `THEMES`, run the update command, and commit the new PNGs with the change. RC-DSN-1.2 adds
+Scholar and Dungeon; RC-DSN-2.3's route turns the DS gallery test on. Delete a surface's PNGs when
+the surface goes: Playwright never removes orphaned baselines.
+
+**Bumping Playwright.** The image carries exactly one browser build. Bump `@playwright/test`, the
+image tag and digest in `ci.yml`, and `run-in-container.sh` together, then re-baseline everything
+with `--update-snapshots=all`, because a new Chromium usually moves text by a pixel. A mismatched
+pair fails loudly with "Executable doesn't exist".

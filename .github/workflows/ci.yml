@@ -7,6 +7,11 @@ on:
       - loop/rc
   pull_request:
   workflow_dispatch:
+    inputs:
+      update-visual-baselines:
+        description: Rewrite the changed golden-route baselines and upload them as an artifact (RC-DSN-4.1)
+        type: boolean
+        default: false
 
 concurrency:
   # Every integration push gets a complete run, even while other slots keep landing work.
@@ -22,6 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       runtime: ${{ steps.filter.outputs.runtime }}
+      visual: ${{ steps.filter.outputs.visual }}
       tier: ${{ steps.tier.outputs.tier }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -42,6 +48,18 @@ jobs:
               - '.github/workflows/ci.yml'
               - '.github/workflows/release.yml'
               - '.github/actions/setup-e2e/**'
+            # RC-DSN-4.1 — anything that can move a golden-route pixel, and the suite itself.
+            visual:
+              - 'apps/gm-react/src/**'
+              - 'apps/gm-react/public/**'
+              - 'apps/gm-react/index.html'
+              - 'apps/gm-react/vite.config.*'
+              - 'apps/gm-react/package.json'
+              - 'apps/gm-react/playwright.config.ts'
+              - 'apps/gm-react/tests/visual/**'
+              - 'packages/core/**'
+              - 'pnpm-lock.yaml'
+              - '.github/workflows/ci.yml'
       # RC-ENG-2.1 — tiered branch model (GIT_WORKFLOW.md §3.3, §1.5): a PR into an `initiative/*`
       # branch is epic-level work and only needs the fast smoke gate; a push/PR into `main` (or a
       # manual dispatch) is an initiative-integration and needs the full gate.
@@ -239,6 +257,66 @@ jobs:
             tmp/a11y
           if-no-files-found: warn
           retention-days: 14
+
+  visual-regression:
+    name: visual regression (golden routes)
+    # RC-DSN-4.1 — path-filtered: only a change that can move pixels pays for the golden set. The
+    # job runs inside the pinned Playwright image, the one environment the committed baselines
+    # describe (docs/development/TESTING.md §8). Keep the tag and digest in step with
+    # @playwright/test and apps/gm-react/tests/visual/run-in-container.sh.
+    needs: [changes]
+    if: needs.changes.outputs.tier == 'full' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.visual == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-noble@sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: pnpm install --frozen-lockfile
+      - name: Enforce the visual baseline size budget
+        run: node apps/gm-react/tests/visual/check-baseline-budget.mjs
+      - name: Compare the golden routes with the committed baselines
+        env:
+          DNDTOOLS_VISUAL: '1'
+          PLAYWRIGHT_HTML_OPEN: never
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report
+          # Every run fails on a diff or a missing baseline, except a manual dispatch that asks
+          # for new baselines, which rewrites what changed and uploads it below.
+          UPDATE_SNAPSHOTS: ${{ inputs.update-visual-baselines && 'changed' || 'none' }}
+        run: >-
+          pnpm --filter @dndtools/gm-react exec playwright test
+          --update-snapshots="$UPDATE_SNAPSHOTS" --reporter=line,html
+      - name: Upload visual diffs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: visual-regression-report
+          path: |
+            apps/gm-react/playwright-report
+            apps/gm-react/test-results
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload rewritten baselines
+        if: inputs.update-visual-baselines
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: visual-baselines
+          path: apps/gm-react/tests/visual/__screenshots__
+          if-no-files-found: error
+          retention-days: 7
 
   desktop-smoke:
     name: Electron smoke (Linux)
