@@ -17,6 +17,99 @@ import {
 	type GdocConnection,
 } from '../../cloud/googleDocs';
 import { errMsg } from './shared';
+import { collectStoragePressure, type StoragePressure } from '../../diagnostics/storageUsage';
+import {
+	listQuarantinedDocuments,
+	type QuarantinedDocument,
+} from '../../platform/storage/coreStore';
+import { pruneAssetCache } from '../../platform/storage/assetStore';
+
+function VaultIntegrity() {
+	const { t } = useI18n();
+	const [pressure, setPressure] = useState<StoragePressure | null>(null);
+	const [quarantined, setQuarantined] = useState<QuarantinedDocument[]>([]);
+	const [busy, setBusy] = useState(false);
+	useEffect(() => {
+		let active = true;
+		const refresh = () => {
+			void collectStoragePressure().then((value) => {
+				if (active) setPressure(value);
+			});
+			void listQuarantinedDocuments()
+				.then((value) => {
+					if (active) setQuarantined(value);
+				})
+				.catch(() => {
+					if (active) Toaster.error(t('settings.vault.recoveryReadFailed'));
+				});
+		};
+		refresh();
+		const timer = window.setInterval(refresh, 30_000);
+		window.addEventListener('focus', refresh);
+		return () => {
+			active = false;
+			window.clearInterval(timer);
+			window.removeEventListener('focus', refresh);
+		};
+	}, [t]);
+	const prune = async () => {
+		setBusy(true);
+		try {
+			const result = await pruneAssetCache();
+			setPressure(await collectStoragePressure());
+			Toaster.success(t('settings.vault.pruned', { bytes: result.freedBytes.toLocaleString() }));
+		} catch {
+			Toaster.error(t('settings.vault.pruneFailed'));
+		} finally {
+			setBusy(false);
+		}
+	};
+	const exportItem = (item: QuarantinedDocument) => {
+		try {
+			const url = URL.createObjectURL(
+				new Blob([JSON.stringify(item, null, 2)], { type: 'application/json' }),
+			);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = `${item.documentKey}-recovery.json`;
+			link.click();
+			window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+		} catch {
+			Toaster.error(t('settings.vault.recoveryExportFailed'));
+		}
+	};
+	return (
+		<>
+			{pressure?.pressured && (
+				<Panel title={t('settings.vault.pressureTitle')}>
+					<div role="alert">
+						<p>{t('settings.vault.pressureBody', { percent: Math.floor(pressure.ratio * 100) })}</p>
+						<p>{t('settings.vault.pressureGuidance')}</p>
+						<Button variant="secondary" disabled={busy} onClick={() => void prune()}>
+							{t('settings.vault.freeSpace')}
+						</Button>
+					</div>
+				</Panel>
+			)}
+			{quarantined.length > 0 && (
+				<Panel title={t('settings.vault.quarantineTitle')}>
+					<p>{t('settings.vault.quarantineBody')}</p>
+					<ul>
+						{quarantined.map((item) => (
+							<li key={item.key}>
+								<span>{item.documentKey}</span>{' '}
+								<Button variant="secondary" size="sm" onClick={() => exportItem(item)}>
+									{t('settings.vault.exportRecovery', { name: item.documentKey })}
+								</Button>
+							</li>
+						))}
+					</ul>
+				</Panel>
+			)}
+		</>
+	);
+}
+
 /* ---- Vault (REAL — the connected-source registry; pull/push/manage lives in Knowledge → Sources) ---- */
 export function SettingsVault() {
 	const { t, formatDate } = useI18n();
@@ -100,6 +193,7 @@ export function SettingsVault() {
 	];
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+			<VaultIntegrity />
 			<Panel
 				title={t('settings.vault.title')}
 				action={

@@ -1388,6 +1388,23 @@ export const en = {
 		'Leave email blank to just get a shareable link + QR code. When set, we’ll also email the invite if this app has email delivery configured.',
 
 	/* Settings › Vault connections */
+	'settings.vault.recoveryReadFailed':
+		'Recovery records could not be read. Reopen the vault to try again.',
+	'settings.vault.pruneFailed':
+		'Could not free space. Export a backup before removing campaign media.',
+	'settings.vault.recoveryExportFailed':
+		'This recovery record could not be exported. Its original remains stored on this device.',
+	'settings.vault.pressureTitle': 'Storage almost full',
+	'settings.vault.pressureBody':
+		'{percent}% of browser storage is in use. Free space before adding more content.',
+	'settings.vault.pressureGuidance':
+		"Clear cached search data below. If more space is needed, export a vault backup, then remove unneeded campaign media. Keep this site's data to preserve your vault.",
+	'settings.vault.freeSpace': 'Free space',
+	'settings.vault.quarantineTitle': 'Quarantined documents',
+	'settings.vault.quarantineBody':
+		'These documents could not be read. The rest of your vault is available. Export each original for recovery; keep it until you have restored your content.',
+	'settings.vault.exportRecovery': 'Export {name} for recovery',
+	'settings.vault.pruned': 'Freed {bytes} bytes of cached search data.',
 	'settings.vault.title': 'Vault connections',
 	'settings.vault.manageInKnowledge': 'Manage in Knowledge',
 	'settings.vault.loading': 'Loading vault connections',

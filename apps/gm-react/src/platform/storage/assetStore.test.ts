@@ -26,6 +26,7 @@ import {
 	PlatformBoundaryRejectionError,
 	__testing,
 	loadCoreState,
+	listQuarantinedDocuments,
 	persistFullState,
 	resetCoreStorage,
 	restoreCoreState,
@@ -267,10 +268,13 @@ describe('fail-closed persisted-state hydration', () => {
 		await expect(loadCoreState()).rejects.toThrow(/newer app version/i);
 	});
 
-	it('refuses a damaged document instead of partially loading the vault', async () => {
+	it('quarantines a damaged document while loading the rest of the vault', async () => {
 		await __testing.putRawDocument(__testing.SCENE_STATE_KEY, { scenes: {} });
 
-		await expect(loadCoreState()).rejects.toThrow(/state is damaged/i);
+		expect((await loadCoreState()).scenes.scenes).toEqual({});
+		expect(await listQuarantinedDocuments()).toEqual([
+			expect.objectContaining({ documentKey: 'scene-state', original: { scenes: {} } }),
+		]);
 	});
 
 	it('refuses malformed operation history instead of dropping the invalid entry', async () => {

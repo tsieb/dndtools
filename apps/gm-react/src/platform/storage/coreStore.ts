@@ -1,5 +1,9 @@
 import Dexie, { type Table } from 'dexie';
 import {
+	beginMigration,
+	markCommitting,
+	markCommitted,
+	planMigration,
 	DURABLE_STATE_DOCUMENT_IDS,
 	MAX_ASSET_BLOB_BYTES,
 	assetId,
@@ -437,6 +441,124 @@ export async function recoverPendingMigration(): Promise<RecoveryDecision> {
 	return decision;
 }
 
+/** Dry runs execute the same migrator on detached data; failures restore the durable snapshot. */
+export async function migrateStoredDocuments(
+	migrator: (documents: Record<DurableStateDocumentId, unknown>) => void,
+	options: { dryRun: boolean },
+): Promise<void> {
+	if (options.dryRun) {
+		if (recoverFromJournal(await readMigrationJournal()).action === 'roll-back') {
+			throw new Error('Open the vault to recover its pending migration before a dry run.');
+		}
+	} else {
+		await recoverPendingMigration();
+	}
+	const database = db();
+	const records = await database.documents.bulkGet(
+		DURABLE_STATE_DOCUMENT_IDS.map((id) => DOCUMENT_KEY_BY_ID[id]),
+	);
+	const versions = DURABLE_STATE_DOCUMENT_IDS.map((documentId, index) => {
+		const record = records[index];
+		trustedPersistedDocument(record, documentId);
+		return {
+			documentId,
+			present: !!record,
+			schemaVersion: record
+				? Number((record.doc as { schemaVersion: number }).schemaVersion)
+				: null,
+		};
+	});
+	if (!planMigration(versions).canMigrate) throw new Error('Migration is blocked.');
+	const documents = Object.fromEntries(
+		DURABLE_STATE_DOCUMENT_IDS.map((id, index) => [id, records[index]?.doc]),
+	) as Record<DurableStateDocumentId, unknown>;
+	const entry = beginMigration({
+		migrationId: crypto.randomUUID(),
+		snapshotId: crypto.randomUUID(),
+		startedAt: new Date().toISOString(),
+		fromVersions: Object.fromEntries(
+			versions.map((v) => [v.documentId, v.schemaVersion]),
+		) as Record<DurableStateDocumentId, number | null>,
+		targetVersions: { ...TARGET_SCHEMA_VERSIONS },
+		documents,
+	});
+	const candidate = structuredClone(documents);
+	if (!options.dryRun) await writeMigrationJournal(markCommitting(entry));
+	try {
+		migrator(candidate);
+		const migrated = DURABLE_STATE_DOCUMENT_IDS.flatMap((id) => {
+			if (candidate[id] === undefined) return [];
+			const record = { key: DOCUMENT_KEY_BY_ID[id], doc: candidate[id] };
+			trustedPersistedDocument(record, id);
+			return [record];
+		});
+		if (options.dryRun) return;
+		forgetPersistedSlices();
+		await database.transaction('rw', database.documents, database.migrationJournal, async () => {
+			await database.documents.bulkDelete(
+				DURABLE_STATE_DOCUMENT_IDS.map((id) => DOCUMENT_KEY_BY_ID[id]),
+			);
+			await database.documents.bulkPut(migrated);
+			await writeMigrationJournal(markCommitted(entry, new Date().toISOString()));
+		});
+		await clearMigrationJournal();
+	} catch (error) {
+		if (!options.dryRun) await recoverPendingMigration();
+		throw error;
+	}
+}
+
+export interface QuarantinedDocument {
+	key: string;
+	documentKey: string;
+	quarantinedAt: string;
+	reason: string;
+	original: unknown;
+}
+
+const QUARANTINE_PREFIX = 'quarantine:';
+
+export async function listQuarantinedDocuments(): Promise<QuarantinedDocument[]> {
+	const records = await db().documents.where('key').startsWith(QUARANTINE_PREFIX).toArray();
+	return records.map((record) => record.doc as QuarantinedDocument);
+}
+
+/** Keep the original structured-clone payload until the DM explicitly resets the vault. */
+async function quarantineDamagedDocuments(): Promise<void> {
+	const database = db();
+	await database.transaction('rw', database.documents, async () => {
+		const damaged: Array<{ record: DocumentRecord; reason: string }> = [];
+		for (const id of DURABLE_STATE_DOCUMENT_IDS) {
+			const record = await database.documents.get(DOCUMENT_KEY_BY_ID[id]);
+			// A future version is an upgrade requirement, never corruption to replace with defaults.
+			if (
+				record &&
+				plainRecord(record.doc) &&
+				Number(record.doc.schemaVersion) > TARGET_SCHEMA_VERSIONS[id]
+			) {
+				trustedPersistedDocument(record, id);
+			}
+			try {
+				trustedPersistedDocument(record, id);
+			} catch (error) {
+				if (record) damaged.push({ record, reason: String(error) });
+			}
+		}
+		for (const { record, reason } of damaged) {
+			const key = `${QUARANTINE_PREFIX}${crypto.randomUUID()}`;
+			const item: QuarantinedDocument = {
+				key,
+				documentKey: record.key,
+				quarantinedAt: new Date().toISOString(),
+				reason,
+				original: record.doc,
+			};
+			await database.documents.add({ key, doc: item });
+			await database.documents.delete(record.key);
+		}
+	});
+}
+
 export async function loadCoreState(): Promise<CoreStateSlice> {
 	const database = db();
 	// What the runtime holds after this load is freshly hydrated; nothing of it is known to be on disk.
@@ -444,6 +566,8 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	// Recover any migration that died mid-write before trusting persisted documents
 	// (PLAT-008 AC2). On a clean start this is a no-op.
 	await recoverPendingMigration();
+	trustedPersistedOperations(await database.operations.orderBy('sequence').toArray());
+	await quarantineDamagedDocuments();
 	const [sceneDoc, permissionDoc, operationRecords] = await Promise.all([
 		database.documents.get(SCENE_STATE_KEY),
 		database.documents.get(PERMISSION_STATE_KEY),
@@ -978,7 +1102,7 @@ export async function restoreCoreState(candidate: unknown): Promise<void> {
 		database.migrationJournal,
 		async () => {
 			await Promise.all([
-				database.documents.clear(),
+				database.documents.filter((record) => !record.key.startsWith(QUARANTINE_PREFIX)).delete(),
 				database.operations.clear(),
 				database.migrationJournal.clear(),
 			]);
@@ -1071,7 +1195,7 @@ export async function restoreFullVaultState(
 		database.assetBlobs,
 		async () => {
 			await Promise.all([
-				database.documents.clear(),
+				database.documents.filter((record) => !record.key.startsWith(QUARANTINE_PREFIX)).delete(),
 				database.operations.clear(),
 				database.migrationJournal.clear(),
 				database.assetBlobs.clear(),

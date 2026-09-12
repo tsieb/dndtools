@@ -38,3 +38,31 @@ export async function collectStorageUsage(): Promise<RawStorageUsageEntry[]> {
 
 	return entries;
 }
+
+export interface StoragePressure {
+	usage: number;
+	quota: number;
+	ratio: number;
+	pressured: boolean;
+}
+
+/** Unknown/denied estimates never pretend the device has free space. */
+export async function collectStoragePressure(): Promise<StoragePressure | null> {
+	try {
+		const estimate = await navigator.storage.estimate();
+		const { usage, quota } = estimate;
+		if (
+			typeof usage !== 'number' ||
+			typeof quota !== 'number' ||
+			!Number.isFinite(usage) ||
+			!Number.isFinite(quota) ||
+			usage < 0 ||
+			quota <= 0
+		)
+			return null;
+		const ratio = usage / quota;
+		return { usage, quota, ratio, pressured: ratio >= 0.8 };
+	} catch {
+		return null;
+	}
+}

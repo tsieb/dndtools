@@ -338,3 +338,8 @@ export async function embeddingCacheUsage(): Promise<AssetUsage> {
 		totalBytes: embeddings.reduce((sum, r) => sum + r.byteLength, 0),
 	};
 }
+
+/** Pressure cleanup only removes rebuildable vectors, never campaign media or recovery data. */
+export async function pruneAssetCache(): Promise<GarbageCollectionResult> {
+	return pruneEmbeddingVectors([], '');
+}
