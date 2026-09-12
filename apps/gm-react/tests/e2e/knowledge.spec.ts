@@ -116,6 +116,44 @@ test.describe('knowledge: notes workbench', () => {
 		await expect(page.getByText(title)).not.toHaveCount(0);
 	});
 
+	test('history restores the first edit as a new durable revision', async ({ page }) => {
+		const id = await createNoteViaCore(page, 'History restore journal', 'Original', 'dm-only');
+		await gotoRoute(page, `/knowledge/${id}`);
+		for (const body of ['First edit', 'Second edit']) {
+			await page.getByRole('button', { name: 'Edit', exact: true }).click();
+			await page.locator('textarea').fill(body);
+			await page.getByRole('button', { name: 'Save note', exact: true }).click();
+			await expect(page.getByRole('heading', { name: 'History restore journal' })).toBeVisible();
+		}
+		const before = await page.evaluate((id) => window.__rt!.state.content.items[id]!.revision, id);
+		await page.getByRole('button', { name: 'Show history', exact: true }).click();
+		const history = page.getByRole('list', { name: 'History', exact: true });
+		await expect(history.getByRole('listitem')).toHaveCount(3);
+		await history
+			.getByRole('listitem')
+			.nth(1)
+			.getByRole('button', { name: 'Restore', exact: true })
+			.click();
+		await expect
+			.poll(() =>
+				page.evaluate(
+					(id) => ({
+						body: window.__rt!.state.content.items[id]!.body,
+						revision: window.__rt!.state.content.items[id]!.revision,
+					}),
+					id,
+				),
+			)
+			.toEqual({ body: 'First edit', revision: before + 1 });
+		await expect(history.getByRole('listitem')).toHaveCount(4);
+		await page.reload();
+		await waitReady(page);
+		await expect(page.getByRole('heading', { name: 'History restore journal' })).toBeVisible();
+		expect(await page.evaluate((id) => window.__rt!.state.content.items[id]!.body, id)).toBe(
+			'First edit',
+		);
+	});
+
 	test('the editor updates title and body through content.update-item', async ({ page }) => {
 		const stamp = Date.now();
 		const noteId = await createNoteViaCore(

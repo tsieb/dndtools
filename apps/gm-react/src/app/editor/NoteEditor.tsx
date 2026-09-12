@@ -539,3 +539,45 @@ export function NoteEditor({
 		</div>
 	);
 }
+
+/** Restore goes through the same conflict-aware write as an ordinary editor save. */
+export function RestoreNoteRevision({
+	snapshot,
+	revision,
+	busy,
+	onSave,
+}: {
+	snapshot: { title: string; body: string };
+	revision: number;
+	busy: boolean;
+	onSave: NoteEditorProps['onSave'];
+}) {
+	const { t } = useI18n();
+	const [error, setError] = useState<string | null>(null);
+	return (
+		<>
+			<Button
+				size="sm"
+				variant="secondary"
+				disabled={busy}
+				onClick={async () => {
+					setError(null);
+					try {
+						const result = await onSave({
+							title: snapshot.title,
+							body: snapshot.body,
+							baseRevision: revision,
+						});
+						if (result.status === 'conflict') setError(t('editor.conflictBody'));
+						else if (result.status === 'rejected') setError(result.message);
+					} catch (cause) {
+						setError(cause instanceof Error ? cause.message : t('knowledge.saveFailed'));
+					}
+				}}
+			>
+				{t('knowledge.historyRestore')}
+			</Button>
+			{error && <span role="alert">{error}</span>}
+		</>
+	);
+}

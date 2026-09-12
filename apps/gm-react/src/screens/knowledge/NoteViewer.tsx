@@ -1,13 +1,14 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
 	buildQuickSwitcher,
+	getContentHistoryForActor,
 	getNoteRelationshipsForActor,
 	resolveWikilinkForActor,
 	type ContentItemView,
 } from '@dndtools/core';
 import { Button, Dialog, Icon, IconButton, Toaster, VisibilityChip } from '../../ds';
 import { BackBar, Page, Panel, Seg, T, useSingleColumn } from '../../app/screen-kit';
-import { NoteEditor, type NoteSaveOutcome } from '../../app/editor/NoteEditor';
+import { NoteEditor, RestoreNoteRevision, type NoteSaveOutcome } from '../../app/editor/NoteEditor';
 import type { WikilinkSuggestion } from '../../app/editor/Autocomplete';
 import { widgetProfileForRuntime } from '../../platform/capabilities';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -88,6 +89,21 @@ export function NoteViewer({
 	// One column on a phone AND in the rail tier's detail pane (RC-UX-4.3): the 280px side column
 	// beside the note body would leave the body ~160px wide there.
 	const isPhone = useSingleColumn();
+	const [showHistory, setShowHistory] = useState(false);
+	const history = useMemo(
+		() =>
+			showHistory
+				? getContentHistoryForActor(
+						runtime.state.content,
+						runtime.state.permissions,
+						runtime.state.sync,
+						actorId,
+						note.id,
+						new Date().toISOString(),
+					)
+				: [],
+		[showHistory, runtime.state, actorId, note.id],
+	);
 	const [editing, setEditing] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [err, setErr] = useState<string | null>(null);
@@ -442,6 +458,53 @@ export function NoteViewer({
 						{/* no core command — real-time multi-user editing PRESENCE (the prototype's live-collab
 						    panel) is not modeled by the Processing Core; this panel surfaces the real,
 						    backed visibility/sharing controls instead of a faked presence list. */}
+					</Panel>
+
+					<Panel title={t('knowledge.history')}>
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => setShowHistory(!showHistory)}
+							aria-expanded={showHistory}
+						>
+							{t(showHistory ? 'knowledge.historyHide' : 'knowledge.historyShow')}
+						</Button>
+						{showHistory && (
+							<>
+								<p>{t('knowledge.historyLimit')}</p>
+								{history.length === 0 && <p>{t('knowledge.historyEmpty')}</p>}
+								<ol aria-label={t('knowledge.history')}>
+									{history.map((entry) => (
+										<li key={entry.revision}>
+											<p>{t('knowledge.historyRevision', { revision: entry.revision })}</p>
+											<p>
+												<time dateTime={entry.issuedAt}>
+													{formatDate(new Date(entry.issuedAt), {
+														dateStyle: 'medium',
+														timeStyle: 'short',
+													})}
+												</time>{' '}
+												· {entry.actorId}
+											</p>
+											<p>
+												{t('knowledge.historyDelta', {
+													added: entry.lineDelta.added,
+													removed: entry.lineDelta.removed,
+												})}
+											</p>
+											{canAuthor && entry.revision !== note.revision && (
+												<RestoreNoteRevision
+													snapshot={entry}
+													revision={note.revision}
+													busy={busy || editing}
+													onSave={saveDraft}
+												/>
+											)}
+										</li>
+									))}
+								</ol>
+							</>
+						)}
 					</Panel>
 
 					<Panel title={t('knowledge.backlinks')}>

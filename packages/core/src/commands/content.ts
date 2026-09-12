@@ -245,7 +245,7 @@ export function handleCreateContentItem(
 		entityId: item.id,
 		opType: 'content.create-item',
 		path: `content/items/${item.id}`,
-		value: { kind: item.kind, visibility: item.visibility },
+		value: { kind: item.kind, visibility: item.visibility, snapshot: item },
 		afterRevision: item.revision,
 	});
 
@@ -395,7 +395,7 @@ export function handleUpdateContentItem(
 		entityId: updated.id,
 		opType: 'content.update-item',
 		path: `content/items/${updated.id}`,
-		value: { kind: updated.kind },
+		value: { kind: updated.kind, snapshot: updated },
 		beforeRevision: existing.revision,
 		afterRevision: updated.revision,
 	});
@@ -489,7 +489,7 @@ export function handleSetContentItemVisibility(
 		entityId: updated.id,
 		opType: 'content.set-item-visibility',
 		path: `content/items/${updated.id}`,
-		value: { from: before.visibility, to: updated.visibility },
+		value: { from: before.visibility, to: updated.visibility, snapshot: updated },
 		beforeRevision: before.revision,
 		afterRevision: updated.revision,
 	});
@@ -563,7 +563,7 @@ export function handleRemoveContentItem(
 		entityId: parsed.data.itemId,
 		opType: 'content.remove-item',
 		path: `content/items/${parsed.data.itemId}`,
-		value: { itemId: parsed.data.itemId, softDelete: true },
+		value: { itemId: parsed.data.itemId, softDelete: true, snapshot: updated },
 		beforeRevision: before.revision,
 		afterRevision: updated.revision,
 	});
@@ -641,7 +641,7 @@ export function handleRestoreContentItem(
 		entityId: updated.id,
 		opType: 'content.restore-item',
 		path: `content/items/${updated.id}`,
-		value: { itemId: updated.id },
+		value: { itemId: updated.id, snapshot: updated },
 		beforeRevision: before.revision,
 		afterRevision: updated.revision,
 	});

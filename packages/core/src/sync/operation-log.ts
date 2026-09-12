@@ -53,3 +53,24 @@ export function findOperationByIdempotencyKey(
 ): SyncOperation | undefined {
 	return log.operations.find((op) => operationIdempotencyKey(op) === idempotencyKey);
 }
+
+/** Stable entity replay order, independent of delivery order and duplicate delivery. */
+export function operationsForEntity(
+	log: OperationLog,
+	entityType: string,
+	entityId: string,
+): SyncOperation[] {
+	const sorted = log.operations
+		.filter((op) => op.entityType === entityType && op.entityId === entityId)
+		.slice()
+		.sort(
+			(a, b) =>
+				(a.afterRevision ?? 0) - (b.afterRevision ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+		);
+	const seen = new Set<string>();
+	return sorted.filter((op) => {
+		if (seen.has(op.id)) return false;
+		seen.add(op.id);
+		return true;
+	});
+}

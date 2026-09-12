@@ -6035,3 +6035,6 @@ export {
 } from './commands/scene';
 export type { ScreenListEntry, ScreenListOptions } from './queries/screens';
 export { listPinnedScreensForActor, listScreensForActor } from './queries/screens';
+
+export { getContentHistoryForActor } from './queries/content-history';
+export type { ContentRevisionView } from './queries/content-history';
