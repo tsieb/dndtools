@@ -46,3 +46,17 @@ paths outside its claim` listing `tests/e2e/canvas.spec.ts`, `commands/dispatch.
   pattern with submenu; Duplicate followed by toolbar Undo (copy gone, "Undone: duplicated …") and
   Redo (same id back), then the reload check; Move/Visibility/Remove; Bind…/Configure….
 - Not run here: the full Playwright suite (the operator's Browser acceptance gate runs it).
+
+## Attempt 3 (2026-09-11)
+
+Gate feedback on the rebased head `08f73b4e`: Quality gates passed, and `Format (changed)`
+(`pnpm format:check:changed --base loop/rc`) failed on `apps/gm-react/src/app/canvas/TileDialogs.tsx`.
+Attempt 2 only ran Prettier on the files it edited itself, and this owned file from the earlier
+commit `aa2d5c4e` was never formatted.
+
+- `prettier --write` on `TileDialogs.tsx` rewrapped two long `.map(…)` callbacks: whitespace only, no
+  behaviour change.
+- `pnpm format:check:changed --base loop/rc`: all 15 changed files pass. `eslint TileDialogs.tsx`:
+  exit 0.
+- Lesson: before committing, run the gate's own command over the whole branch, not Prettier over the
+  files touched in this attempt.

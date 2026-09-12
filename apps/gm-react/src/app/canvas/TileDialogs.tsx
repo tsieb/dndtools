@@ -67,7 +67,10 @@ const READERS: Record<string, (state: CoreStateSlice, actorId: string) => Named[
 	map: (s, a) =>
 		listMapsForActor(s.maps, s.permissions, a).map((map) => ({ id: map.id, label: map.name })),
 	[CHARACTER_ENTITY_TYPE]: (s, a) =>
-		listCharactersForActor(s.characters, s.permissions, a).map((c) => ({ id: c.id, label: c.name })),
+		listCharactersForActor(s.characters, s.permissions, a).map((c) => ({
+			id: c.id,
+			label: c.name,
+		})),
 	[CONTENT_ITEM_ENTITY_TYPE]: (s, a) =>
 		getContentItemsForActor(s.content, s.permissions, a).map((i) => ({ id: i.id, label: i.title })),
 };
@@ -80,7 +83,10 @@ export function TileBindDialog({ w, onClose }: { w: BoardWidget; onClose: () => 
 	const found = bindingSlot(runtime.state.widgets, w.type);
 	const types = found?.slot.entityTypes ?? [];
 	const candidates = types.flatMap((entityType) =>
-		(READERS[entityType]?.(runtime.state, actorId) ?? []).map((entry) => ({ ...entry, entityType })),
+		(READERS[entityType]?.(runtime.state, actorId) ?? []).map((entry) => ({
+			...entry,
+			entityType,
+		})),
 	);
 	const ref = w.bindingRef;
 	const current = ref
