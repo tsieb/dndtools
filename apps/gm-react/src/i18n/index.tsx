@@ -32,12 +32,23 @@ export {
  * vault can read it in different languages (ADR-032 §6). */
 export const LOCALE_STORAGE_KEY = PREFERENCE_KEYS.locale;
 
-export const SUPPORTED_LOCALES = [
-	{ code: 'en', label: 'English', nativeLabel: 'English' },
-	{ code: 'es', label: 'Spanish', nativeLabel: 'Español' },
-] as const;
-
-export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]['code'];
+// Catalog filenames are the registry: adding a language needs no loader or picker edit.
+const catalogModules = import.meta.glob('./messages/*.ts');
+export type SupportedLocale = string;
+export const SUPPORTED_LOCALES = Object.keys(catalogModules).map((path) => {
+	const code = path.split('/').pop()!.replace(/\.ts$/, '');
+	return {
+		code,
+		label: new Intl.DisplayNames(['en'], { type: 'language' }).of(code) ?? code,
+		nativeLabel: new Intl.DisplayNames([code], { type: 'language' }).of(code) ?? code,
+	};
+});
+if (import.meta.env.DEV)
+	SUPPORTED_LOCALES.push({
+		code: 'qps-ploc',
+		label: 'Pseudo locale',
+		nativeLabel: 'Pseudo locale',
+	});
 
 /** Loaded catalogs. English is the source locale and is always present; the others arrive from
  * their own chunk, so a locale nobody selected costs nothing at startup. */
@@ -48,7 +59,14 @@ const CATALOGS: Partial<Record<SupportedLocale, MessageCatalog>> = { en };
 export async function loadCatalog(locale: SupportedLocale): Promise<void> {
 	if (CATALOGS[locale]) return;
 	try {
-		if (locale === 'es') CATALOGS.es = (await import('./messages/es')).es;
+		if (import.meta.env.DEV && locale === 'qps-ploc') {
+			CATALOGS[locale] = (await import('./dev/qps-ploc')).default;
+			return;
+		}
+		const module = (await catalogModules[`./messages/${locale}.ts`]?.()) as
+			| Record<string, MessageCatalog>
+			| undefined;
+		if (module) CATALOGS[locale] = module[locale];
 	} catch {
 		// Fall through: `translate` degrades to the English source text for every key.
 	}
@@ -56,7 +74,9 @@ export async function loadCatalog(locale: SupportedLocale): Promise<void> {
 
 export function normalizeLocale(value: string | null | undefined): SupportedLocale | null {
 	if (!value) return null;
-	const language = value.toLowerCase().split('-')[0];
+	const normalized = value.toLowerCase();
+	if (SUPPORTED_LOCALES.some((locale) => locale.code === normalized)) return normalized;
+	const language = normalized.split('-')[0];
 	return SUPPORTED_LOCALES.some((locale) => locale.code === language)
 		? (language as SupportedLocale)
 		: null;

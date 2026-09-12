@@ -21,13 +21,13 @@ describe('locale selection', () => {
 	});
 
 	it('falls back to English when neither the preference nor the system offers a supported locale', () => {
-		expect(initialLocale(null, ['fr-CA', 'de'])).toBe('en');
+		expect(initialLocale(null, ['de', 'ja'])).toBe('en');
 		expect(initialLocale(null, [])).toBe('en');
 	});
 
 	it('normalizes only supported language tags', () => {
 		expect(normalizeLocale('EN-gb')).toBe('en');
-		expect(normalizeLocale('fr-CA')).toBeNull();
+		expect(normalizeLocale('fr-CA')).toBe('fr');
 	});
 });
 
@@ -194,5 +194,22 @@ describe('Intl formatting helpers', () => {
 
 	it('renders a unit argument inside a message', () => {
 		expect(formatMessage('en', 'Speed {feet, unit, foot}', { feet: 30 })).toBe('Speed 30 ft');
+	});
+});
+
+describe('additional catalogs', () => {
+	it('discovers the empty French scaffold and falls back to English', async () => {
+		await loadCatalog('fr');
+		expect(catalogCoverage('fr')).toBe(0);
+		expect(translate('fr', 'common.action.save')).toBe('Save');
+	});
+	it('loads the DEV pseudo locale including plural branches', async () => {
+		expect(normalizeLocale('qps-ploc')).toBe('qps-ploc');
+		await loadCatalog('qps-ploc');
+		expect(catalogCoverage('qps-ploc')).toBe(1);
+		expect(translate('qps-ploc', 'common.action.save')).toBe('[Šáṽé~~]');
+		expect(translate('qps-ploc', 'projection.pushed', { title: 'Map', count: 3 })).toContain(
+			'3 ƥľáýéŕš',
+		);
 	});
 });

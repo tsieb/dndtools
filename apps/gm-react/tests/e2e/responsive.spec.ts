@@ -2173,3 +2173,32 @@ for (const viewport of [
 		}
 	});
 }
+
+// Run in both configured profiles; full navigations avoid measuring the previous lazy route.
+test('pseudo locale keeps eight primary routes free of clipping and overflow', async ({ page }) => {
+	await markOnboarded(page);
+	await page.addInitScript(() => localStorage.setItem('dndtools:locale', 'qps-ploc'));
+	await gotoRoute(page, '/');
+	await seedFresh(page);
+	for (const route of [
+		'/',
+		'/session',
+		'/scenes',
+		'/characters',
+		'/atlas',
+		'/campaign',
+		'/knowledge',
+		'/graph',
+	]) {
+		await gotoRoute(page, route);
+		await expect(page.locator('html')).toHaveAttribute('lang', 'qps-ploc');
+		// Assert translated content actually loaded, rather than auditing the English fallback.
+		await expect(page.locator('h1').first()).toHaveText(/\[.*\]/);
+		// The shell heading can precede the lazy screen; wait for its translated body too.
+		await expect(page.locator('#main-content')).toContainText('[');
+		await page.evaluate(() => document.fonts.ready);
+		await expectNoHorizontalOverflow(page, route);
+		await expectNoHorizontalOverflow(page, route, '#main-content');
+		expect(await clippedControls(page), `${route} clipped a pseudo-localized control`).toEqual([]);
+	}
+});

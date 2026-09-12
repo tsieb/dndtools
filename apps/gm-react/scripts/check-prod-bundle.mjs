@@ -117,7 +117,7 @@ function checkProductionBundle(outDir) {
 	// Registry component source links are forbidden even if the data module leaks on its own.
 	// Require a category and component filename: production gate metadata includes DS test paths.
 	const forbidden =
-		/__rt\b|__ds\b|DsGallery|lamplight-ds-gallery|apps\/gm-react\/src\/ds\/components\/[a-z]+\/[A-Z]\w*\.[jt]sx/;
+		/qps-ploc|ƀçďéƒğ|\[Šáṽé~~\]|__rt\b|__ds\b|DsGallery|lamplight-ds-gallery|apps\/gm-react\/src\/ds\/components\/[a-z]+\/[A-Z]\w*\.[jt]sx/;
 	const offenders = [];
 	for (const f of files) {
 		const src = readFileSync(join(assetsDir, f), 'utf8');
@@ -126,13 +126,13 @@ function checkProductionBundle(outDir) {
 
 	if (offenders.length > 0) {
 		console.error(
-			`check-prod-bundle: DEV-only runtime seam or component gallery leaked into production bundle(s): ${offenders.join(', ')}\n` +
+			`check-prod-bundle: DEV-only runtime seam, pseudo locale or component gallery leaked into production bundle(s): ${offenders.join(', ')}\n` +
 				'Check the import.meta.env.DEV gates in src/runtime/RuntimeContext.tsx and src/App.tsx.',
 		);
 		process.exit(1);
 	}
 	console.log(
-		`check-prod-bundle: OK — __rt and component gallery absent from ${files.length} JS asset(s) in ${assetsDir}`,
+		`check-prod-bundle: OK — __rt, pseudo locale and component gallery absent from ${files.length} JS asset(s) in ${assetsDir}`,
 	);
 }
 
