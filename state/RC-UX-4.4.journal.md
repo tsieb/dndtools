@@ -39,3 +39,16 @@
 - No browser acceptance run or independent reviewer sign-off in this implementation stage.
   Central validation and independent review remain pending. Intended commit contains the two
   catalogs, directly affected companion tests/snapshots and this journal only.
+
+## Requirements-audit follow-up
+
+- Read the original failed requirements-audit log from attempt
+  `ae63513f-1e8b-495b-b0b1-90f93e3f3a56`. It reports exactly two stale literal anchors in
+  `docs/requirements/FEATURE-GAPS.md`: Session standby and Settings cloud backup.
+- Updated those inventory anchors to the revised English messages, and clarified that the
+  live session must end before returning to Standby. The inventory remains intact; no audit
+  logic or checks were weakened. The manifest explicitly permits this companion document.
+- English and Spanish catalogs remain as committed in `d2a046cd`. Requirements audit
+  passed: all 48 anchors match, with zero stale limits and zero unwired screens. All seven
+  feature-audit unit tests passed. Changed-file formatting and `git diff --check` passed.
+  Independent reviewer sign-off remains pending.
