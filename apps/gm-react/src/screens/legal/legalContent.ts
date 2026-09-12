@@ -37,15 +37,24 @@ export interface LegalDocument {
 /** Matches a `[BRACKETED PLACEHOLDER]`: upper-case words, digits, spaces and hyphens in brackets. */
 export const PLACEHOLDER_PATTERN = /\[[A-Z][A-Z0-9 -]*\]/g;
 
-/** The only placeholders either document may contain — the operator's fill-in checklist. */
-export const LEGAL_PLACEHOLDERS = [
-	'[LEGAL ENTITY NAME]',
-	'[MAILING ADDRESS]',
-	'[CONTACT EMAIL]',
-	'[GOVERNING LAW JURISDICTION]',
-	'[EFFECTIVE DATE]',
-	'[POST-CANCELLATION CLOUD RETENTION PERIOD]',
-] as const;
+/** Dev identity stays visibly unfinished. Replace the complete prod override after review. */
+const DEV_IDENTITY = {
+	entityName: '[LEGAL ENTITY NAME]',
+	mailingAddress: '[MAILING ADDRESS]',
+	contactEmail: '[CONTACT EMAIL]',
+	governingLaw: '[GOVERNING LAW JURISDICTION]',
+	effectiveDate: '[EFFECTIVE DATE]',
+	cloudRetention: '[POST-CANCELLATION CLOUD RETENTION PERIOD]',
+};
+
+/** A complete object is required: partial production identities must not silently ship. */
+const PROD_IDENTITY: typeof DEV_IDENTITY = DEV_IDENTITY;
+
+export const LEGAL_IDENTITY =
+	import.meta.env.VITE_CLOUD_STAGE === 'prod' ? PROD_IDENTITY : DEV_IDENTITY;
+
+/** The dev fill-in checklist, also used by the component tests. */
+export const LEGAL_PLACEHOLDERS = /* @__PURE__ */ Object.values(DEV_IDENTITY);
 
 /** Every distinct placeholder token that appears anywhere in a document, in first-seen order. */
 export function collectPlaceholders(doc: LegalDocument): string[] {
@@ -64,12 +73,12 @@ export function collectPlaceholders(doc: LegalDocument): string[] {
 	return [...seen];
 }
 
-const OPERATOR = '[LEGAL ENTITY NAME]';
-const CONTACT = '[CONTACT EMAIL]';
+const OPERATOR = LEGAL_IDENTITY.entityName;
+const CONTACT = LEGAL_IDENTITY.contactEmail;
 
 export const PRIVACY_POLICY: LegalDocument = {
 	id: 'privacy',
-	lastUpdated: '[EFFECTIVE DATE]',
+	lastUpdated: LEGAL_IDENTITY.effectiveDate,
 	sections: [
 		{
 			heading: 'Who this covers',
@@ -223,14 +232,14 @@ export const PRIVACY_POLICY: LegalDocument = {
 		},
 		{
 			heading: 'Contact',
-			blocks: [`${OPERATOR}`, '[MAILING ADDRESS]', `${CONTACT}`],
+			blocks: [OPERATOR, LEGAL_IDENTITY.mailingAddress, CONTACT],
 		},
 	],
 };
 
 export const TERMS_OF_SERVICE: LegalDocument = {
 	id: 'terms',
-	lastUpdated: '[EFFECTIVE DATE]',
+	lastUpdated: LEGAL_IDENTITY.effectiveDate,
 	sections: [
 		{
 			heading: 'The agreement',
@@ -263,11 +272,11 @@ export const TERMS_OF_SERVICE: LegalDocument = {
 						"You can cancel at any time from Settings → Subscription → Manage billing, which opens the Stripe billing portal. Cancelling takes effect at the end of the current period: you keep the plan's features until then and are not charged again.",
 						"If we change a plan's price, the new price applies from your next renewal after we have told you, and you can cancel before then.",
 						'If a renewal payment fails, Stripe retries it for a while; if it still fails, the subscription is cancelled and your account returns to the free plan.',
-						'Refunds are handled case by case. If something went wrong, write to us at [CONTACT EMAIL] with the email address on your account and we will look at it.',
+						`Refunds are handled case by case. If something went wrong, write to us at ${LEGAL_IDENTITY.contactEmail} with the email address on your account and we will look at it.`,
 						'Subscribing is available in the web app only. The desktop and Android apps show your plan but do not sell anything; a plan bought on the web is active on every device you sign in to.',
 					],
 				},
-				'When a paid plan ends, features that need it stop working and the local app keeps working exactly as before. The encrypted cloud copy of your vault is kept for [POST-CANCELLATION CLOUD RETENTION PERIOD] after the plan ends and then deleted, unless you subscribe again or delete your account sooner. Keep a local backup; the app can export one at any time.',
+				`When a paid plan ends, features that need it stop working and the local app keeps working exactly as before. The encrypted cloud copy of your vault is kept for ${LEGAL_IDENTITY.cloudRetention} after the plan ends and then deleted, unless you subscribe again or delete your account sooner. Keep a local backup; the app can export one at any time.`,
 			],
 		},
 		{
@@ -334,12 +343,12 @@ export const TERMS_OF_SERVICE: LegalDocument = {
 		{
 			heading: 'Governing law',
 			blocks: [
-				'These terms are governed by the laws of [GOVERNING LAW JURISDICTION], without regard to its conflict-of-law rules, and any dispute will be brought in the courts there. If you are a consumer, you keep any protections the law of the place where you live gives you that cannot be waived by agreement.',
+				`These terms are governed by the laws of ${LEGAL_IDENTITY.governingLaw}, without regard to its conflict-of-law rules, and any dispute will be brought in the courts there. If you are a consumer, you keep any protections the law of the place where you live gives you that cannot be waived by agreement.`,
 			],
 		},
 		{
 			heading: 'Contact',
-			blocks: [`${OPERATOR}`, '[MAILING ADDRESS]', `${CONTACT}`],
+			blocks: [OPERATOR, LEGAL_IDENTITY.mailingAddress, CONTACT],
 		},
 	],
 };

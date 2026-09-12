@@ -80,7 +80,11 @@ jobs:
       - name: Reject high-severity dependency advisories
         run: pnpm security:audit
       - name: Build production bundles
+        env:
+          VITE_CLOUD_STAGE: prod
         run: pnpm build
+      - name: Reject unresolved legal placeholders
+        run: node scripts/check-legal-placeholders.mjs
       # A rollback tag predates the local action; run this workflow's copy.
       - name: Use this workflow revision's browser setup action
         run: |
@@ -203,7 +207,11 @@ jobs:
           node --env-file=apps/gm-react/.env.local
           apps/gm-react/scripts/validate-cloud-env.mjs --required
       - name: Build production web app
+        env:
+          VITE_CLOUD_STAGE: prod
         run: pnpm --filter @dndtools/gm-react build
+      - name: Reject unresolved legal placeholders before upload
+        run: node scripts/check-legal-placeholders.mjs
       - name: Resolve production hosting target
         id: target
         run: |

@@ -1,7 +1,7 @@
 # Runbook: Stripe billing (ADR-027)
 
 **Status (2026-09-10): code complete, deployed to dev, verified end to end in test mode, and
-fail-closed. Prod is blocked on one thing only: a Stripe account, which a human has to open.** Until
+fail-closed. Prod requires a Stripe account opened by a human and a reviewed production legal identity.** Until
 a stage's SSM billing parameters exist, every money route answers 503, the entitlement read reports
 `billing: null`, and the app shows its labelled no-payment preview (dev) or "not available" (prod).
 
@@ -36,9 +36,28 @@ parameters, and in prod one alarm.
    Never write it into the repo; `pnpm security:secrets` blocks live keys and webhook secrets.
 
 Launch prerequisite: the privacy policy and terms pages exist at `/#/legal/privacy` and
-`/#/legal/terms`, but their bracketed placeholders in
-`apps/gm-react/src/screens/legal/legalContent.ts` (entity, contact, address, effective date,
-governing law, retention) must be filled before prod; a test enforces the exact placeholder set.
+`/#/legal/terms`. In `apps/gm-react/src/screens/legal/legalContent.ts`, replace
+`PROD_IDENTITY`'s `DEV_IDENTITY` value with a complete reviewed object containing `entityName`,
+`mailingAddress`, `contactEmail`, `governingLaw`, `effectiveDate`, and `cloudRetention`.
+These are public legal details, not secrets. Leave `DEV_IDENTITY` unchanged: dev keeps the
+original six bracketed placeholders and its component tests enforce that checklist.
+`LEGAL_IDENTITY` selects the production override only when `VITE_CLOUD_STAGE=prod`.
+Until that override is supplied, production deliberately retains placeholders and fails the gate.
+
+Build and check locally before tagging:
+
+```sh
+VITE_CLOUD_STAGE=prod pnpm build
+pnpm check:legal-placeholders
+```
+
+The check scans emitted web assets (including nested chunks) for any `[LEGAL …]` token and
+all five other legacy tokens. Missing or incomplete build output also fails. An optional
+positional directory checks an alternate build: `pnpm check:legal-placeholders /path/to/dist`.
+Ordinary dev builds do not run this production-only check. The promotion workflow sets the
+production stage and checks the preflight bundle before the deploy job can start, then checks
+the rebuilt production web app again before uploading assets. A rollback release must also
+include the guard script and resolved identity; older tags fail closed.
 
 ## 2. Bootstrap a stage (idempotent)
 
