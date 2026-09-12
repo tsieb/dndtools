@@ -26,6 +26,10 @@ import { TileActionMenu, TRIGGER_SIZE } from './TileActionMenu';
  * existing importers (Board, Inspector, AddWidgetPanel) keep their import path.
  */
 
+// Kept with the tile chrome copy, like TileActionMenu's local TEXT catalog.
+const RESIZE_HELP =
+	'Click to cycle small, medium and large. Focus and use arrow keys to resize; Escape returns to the tile.';
+
 // Widget definition icons are normally semantic registry keys ('map', 'dice', …). Third-party
 // packages created by older builds may still contain an emoji glyph, so retain a decorative legacy
 // fallback instead of replacing persisted package content with a broken square.
@@ -128,6 +132,8 @@ export interface WidgetFrameProps {
 	registerRef: (el: HTMLDivElement | null) => void;
 	onStartMove: (e: React.PointerEvent) => void;
 	onStartResize: (e: React.PointerEvent) => void;
+	onCycleSize?: () => void;
+	onResizeStep?: (dx: number, dy: number) => void;
 	/** VIEW-mode operate dispatch, pre-bound to this widget instance. Absent while editing. */
 	onCommand?: WidgetCommandHandler;
 }
@@ -149,6 +155,8 @@ export function WidgetFrame({
 	registerRef,
 	onStartMove,
 	onStartResize,
+	onCycleSize,
+	onResizeStep,
 	onCommand,
 	history,
 }: WidgetFrameProps) {
@@ -394,15 +402,43 @@ export function WidgetFrame({
 						<span style={{ opacity: 0.85, fontWeight: 500 }}>· {TIER_LABEL[w.tier]}</span>
 					</div>
 					{resizable && (
-						<div
+						<button
+							type="button"
+							aria-label={`Resize ${w.title}`}
+							title={RESIZE_HELP}
+							aria-description={RESIZE_HELP}
+							onClick={(e) => {
+								e.stopPropagation();
+								if (e.detail === 0) onCycleSize?.();
+							}}
+							onKeyDown={(e) => {
+								const delta: Record<string, [number, number]> = {
+									ArrowLeft: [-1, 0],
+									ArrowRight: [1, 0],
+									ArrowUp: [0, -1],
+									ArrowDown: [0, 1],
+								};
+								if (delta[e.key]) {
+									e.preventDefault();
+									e.stopPropagation();
+									onResizeStep?.(...delta[e.key]);
+								}
+								if (e.key === 'Escape') {
+									e.preventDefault();
+									e.stopPropagation();
+									e.currentTarget.closest<HTMLElement>('[role="group"]')?.focus();
+								}
+							}}
 							onPointerDown={onStartResize}
 							style={{
 								position: 'absolute',
 								right: -5,
 								bottom: -5,
-								width: 14,
-								height: 14,
-								borderRadius: 4,
+								width: 24,
+								height: 24,
+								padding: 0,
+								touchAction: 'none',
+								borderRadius: 'var(--radius-sm)',
 								background: 'var(--color-accent)',
 								border: '2px solid var(--color-bg)',
 								cursor: 'nwse-resize',

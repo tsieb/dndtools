@@ -75,6 +75,8 @@ export interface BoardWidget {
 	 * (the builder preview, test fixtures) that declare none need not spell out an empty list.
 	 */
 	styleTokens?: WidgetStyleTokenDefinition[];
+	defaultSize?: { width: number; height: number };
+	minSize?: { width: number; height: number };
 }
 
 // WidgetDefinition.author is the closest core analogue to the prototype's four widget "tiers".
@@ -162,6 +164,8 @@ export function boardWidgetsOf(
 			requiresBinding: (def?.requiredBindings?.length ?? 0) > 0,
 			commands: (def?.commands ?? []).map((command) => command.type),
 			styleTokens: def?.style?.tokens ?? [],
+			defaultSize: def?.defaultSize,
+			minSize: def?.minSize,
 			bindingRef: instance.binding
 				? {
 						entityType: instance.binding.source.entityType,
@@ -324,4 +328,23 @@ export function repackBoardColumns(
 		for (let col = bestCol; col < bestCol + span; col++) columnBottoms[col] = rowBottom;
 	}
 	return next;
+}
+
+/** Small is the declared minimum, medium the default, large 150% of the default. */
+export function widgetSizePresets(widget: BoardWidget) {
+	const min = widget.minSize ?? { width: 180, height: 120 };
+	const base = widget.defaultSize ?? { width: 280, height: 220 };
+	return [
+		min,
+		{ width: Math.max(min.width, base.width), height: Math.max(min.height, base.height) },
+		{
+			width: Math.max(min.width, Math.round(base.width * 1.5)),
+			height: Math.max(min.height, Math.round(base.height * 1.5)),
+		},
+	]
+		.map(({ width, height }) => ({ w: width, h: height }))
+		.filter(
+			(size, index, sizes) =>
+				sizes.findIndex((other) => other.w === size.w && other.h === size.h) === index,
+		);
 }

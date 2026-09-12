@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../ds';
-import { isWidgetResizable, type BoardWidget } from './board-helpers';
+import { isWidgetResizable, widgetSizePresets, type BoardWidget } from './board-helpers';
 import { HistoryBtn, WidgetFrame } from './canvas/WidgetFrame';
 import { ZoomCluster } from './canvas/ZoomCluster';
 import {
@@ -34,37 +34,14 @@ import { useI18n } from '../i18n';
  *     scroll region rather than a transform view. No free zoom.
  *   • 'canvas'  (custom scenes / `/scene/:id`): free pan + zoom over a transform `view`.
  *
- * ZOOM (RC-CAN-3.1). Both policies share three NAMED presets — Fit, Comfortable, Detail — reachable
- * with the `0`/`1`/`2` keys and cycled with `+`/`-` while focus is inside the canvas. Fit scales the
- * authored extent to the pane but never below `FIT_FLOOR`: past that point widget labels stop being
- * readable, so the surface scrolls instead of shrinking further. The bounded board is exactly those
- * three steps (its host screen renders the control); the free canvas keeps its continuous wheel and
- * button zoom and treats the presets as anchors it can be returned to.
- *
- * PAN (RC-CAN-3.2). Both policies read the same "scroll-natural" gesture set: a plain wheel/trackpad
- * scrolls, Shift+wheel goes horizontal (re-routing `deltaY` when a plain mouse wheel never reports a
- * `deltaX` of its own), a middle-mouse-button drag or a two-finger trackpad pan works from anywhere in
- * the canvas, and a single touch-finger scrolls. The board gets all of this from native
- * `overflow:auto` + `touch-action` for everything except the middle-button drag, which has no native
- * ancestor to piggyback on and scrolls the wrap element's real `scrollLeft`/`scrollTop` directly
- * (`scroll-pan` in the `Drag` union below) instead of the free canvas's transform `view`. Pinch-zoom
- * is never offered on the board: its `touch-action` only ever grants `pan-x`/`pan-y`, never
- * `pinch-zoom`.
- *
  * It is wired to the REAL Processing Core, not the prototype's local state: every move/resize is
  * committed through the parent's dispatch on pointer-UP only (one `scene.move-widget` /
  * `scene.resize-widget` per gesture — never per pointer-move, which would hammer IndexedDB). While a
  * gesture is in flight an optimistic local draft drives the frame; the draft is dropped the moment
  * the core-confirmed layout catches up, so there is no snap-back flicker.
  *
- * KEYBOARD OPERATION (CANVAS-016). Widget frames are focusable with a roving tabindex that follows
- * the core-computed scene focus order (`SceneSummary.focusOrder`, passed as `focusOrder`): Tab enters
- * the canvas at the selected (else last-focused, else first) widget, and plain arrow keys walk the
- * focus order. Enter/Space selects the focused widget (opening the inspector where the host screen
- * mounts one); Escape deselects. In EDIT mode, arrows on the SELECTED widget commit one grid step
- * per key press through `onMove` (`scene.move-widget`), Shift+arrows one resize step through
- * `onResize`, and Delete removes via `onRemove` — each key press is ONE discrete core op, exactly
- * like a pointer gesture's pointer-up. The pointer paths are untouched.
+ * Keyboard: arrows traverse unselected frames or move selected tiles; Shift+Arrow resizes.
+ * The resize handle uses plain arrows, Enter/Space cycles presets, and Escape returns to the tile.
  */
 
 export function SceneBoardCanvas({
@@ -89,6 +66,26 @@ export function SceneBoardCanvas({
 	const wrapRef = useRef<HTMLDivElement | null>(null);
 	const [wrapWidth, setWrapWidth] = useState(0);
 	const dragRef = useRef<Drag | null>(null);
+	const resizeMoved = useRef(false);
+	const [sizeNotice, setSizeNotice] = useState('');
+	const resizeWidget = useCallback(
+		(w: BoardWidget, width: number, height: number) => {
+			const nextW = Math.max(w.minSize?.width ?? 180, width);
+			const nextH = Math.max(w.minSize?.height ?? 120, height);
+			void onResize(w.id, nextW, nextH);
+			setSizeNotice(`${w.title}, size ${nextW} by ${nextH}`);
+		},
+		[onResize],
+	);
+	const cycleSize = useCallback(
+		(w: BoardWidget) => {
+			const sizes = widgetSizePresets(w);
+			const index = sizes.findIndex((size) => size.w === w.w && size.h === w.h);
+			const next = sizes[(index + 1) % sizes.length];
+			resizeWidget(w, next.w, next.h);
+		},
+		[resizeWidget],
+	);
 	// Keyboard roving-tabindex state: live frame elements by id + the last-focused widget.
 	const frameRefs = useRef(new Map<string, HTMLDivElement>());
 	const [focusedId, setFocusedId] = useState<string | null>(null);
@@ -279,6 +276,8 @@ export function SceneBoardCanvas({
 		document.body.style.userSelect = 'none';
 	};
 	const startResize = (e: React.PointerEvent, w: BoardWidget) => {
+		if (e.button !== 0) return;
+		resizeMoved.current = false;
 		e.stopPropagation();
 		capture(e);
 		const cur = sizeDraft[w.id] ?? { w: w.w, h: w.h };
@@ -355,11 +354,14 @@ export function SceneBoardCanvas({
 					},
 				}));
 			} else {
+				if (!resizeMoved.current && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 4) return;
+				resizeMoved.current = true;
+				const widget = widgets.find((w) => w.id === d.id);
 				setSizeDraft((prev) => ({
 					...prev,
 					[d.id]: {
-						w: Math.max(180, snapTo(d.ow + dx, snap)),
-						h: Math.max(120, snapTo(d.oh + dy, snap)),
+						w: Math.max(widget?.minSize?.width ?? 180, snapTo(d.ow + dx, snap)),
+						h: Math.max(widget?.minSize?.height ?? 120, snapTo(d.oh + dy, snap)),
 					},
 				}));
 			}
@@ -374,7 +376,11 @@ export function SceneBoardCanvas({
 				if (p) void onMove(d.id, p.x, p.y);
 			} else if (d.mode === 'resize') {
 				const s = sizeDraftRef.current[d.id];
-				if (s) void onResize(d.id, s.w, s.h);
+				const widget = widgets.find((w) => w.id === d.id);
+				if (widget) {
+					if (!resizeMoved.current) cycleSize(widget);
+					else if (s) resizeWidget(widget, s.w, s.h);
+				}
 			}
 		};
 		// `pointerup` was the ONLY terminator. When the browser takes the gesture over — which the
@@ -399,7 +405,7 @@ export function SceneBoardCanvas({
 			window.removeEventListener('pointerup', up);
 			window.removeEventListener('pointercancel', cancel);
 		};
-	}, [scale, snap, onMove, onResize]);
+	}, [scale, snap, onMove, widgets, cycleSize, resizeWidget]);
 
 	const onWheel = useCallback(
 		(e: React.WheelEvent) => {
@@ -490,11 +496,7 @@ export function SceneBoardCanvas({
 			if (e.shiftKey) {
 				const resizable = canResize ? canResize(w) : isWidgetResizable(w);
 				if (!resizable) return;
-				void onResize(
-					w.id,
-					Math.max(180, size.w + delta[0] * GRID),
-					Math.max(120, size.h + delta[1] * GRID),
-				);
+				resizeWidget(w, size.w + delta[0] * GRID, size.h + delta[1] * GRID);
 			} else {
 				void onMove(
 					w.id,
@@ -588,6 +590,8 @@ export function SceneBoardCanvas({
 				}}
 				onStartMove={(e) => startMove(e, w)}
 				onStartResize={(e) => startResize(e, w)}
+				onCycleSize={() => cycleSize(w)}
+				onResizeStep={(dx, dy) => resizeWidget(w, size.w + dx * GRID, size.h + dy * GRID)}
 				onCommand={
 					!editing && onWidgetCommand
 						? (commandType, payload) => onWidgetCommand(w.id, commandType, payload)
@@ -748,6 +752,9 @@ export function SceneBoardCanvas({
 				/>
 			)}
 
+			<div role="status" aria-live="polite" aria-atomic="true" style={srOnly}>
+				{sizeNotice}
+			</div>
 			{widgets.length === 0 && (
 				<div
 					style={{

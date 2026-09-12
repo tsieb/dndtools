@@ -287,3 +287,64 @@ test.describe('custom widgets: the sandbox host', () => {
 		await waitReady(page);
 	});
 });
+
+test('keyboard resize and handle presets persist the declared widget sizes', async ({ page }) => {
+	await page.setViewportSize({ width: 1280, height: 900 });
+	await openScene(page);
+	await installAndEnable(page, TORCH_PACKAGE, PACKAGE_ID);
+	const sceneId = await createScene(page, 'Resize scene');
+	await placeWidget(page, sceneId, 'torchlight', 40);
+	const id = await instanceId(page, sceneId, 'torchlight');
+	await gotoRoute(page, `/scene/${sceneId}`);
+	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+	const tile = page.getByTestId(`widget-${id}`);
+	await tile.focus();
+	await tile.press('Enter');
+	const handle = tile.getByRole('button', { name: 'Resize Torchlight', exact: true });
+	await handle.focus();
+	await handle.press('ArrowRight');
+	await expect(tile).toHaveCSS('width', '340px');
+	await handle.press('ArrowDown');
+	await expect(tile).toHaveCSS('height', '220px');
+	await expect(
+		page.getByRole('status').filter({ hasText: 'Torchlight, size 340 by 220' }),
+	).toBeVisible();
+	await handle.press('Escape');
+	await expect(tile).toBeFocused();
+	await tile.press('Shift+ArrowLeft');
+	await expect(tile).toHaveCSS('width', '320px');
+	// A custom size starts at S; further clicks cycle M, L, S.
+	await handle.click();
+	await expect(tile).toHaveCSS('width', '200px');
+	await expect(tile).toHaveCSS('height', '120px');
+	await handle.press('ArrowLeft');
+	await handle.press('ArrowUp');
+	await expect(tile).toHaveCSS('width', '200px');
+	await expect(tile).toHaveCSS('height', '120px');
+	await handle.click();
+	await expect(tile).toHaveCSS('width', '320px');
+	await expect(tile).toHaveCSS('height', '200px');
+	await handle.click();
+	await expect(tile).toHaveCSS('width', '480px');
+	await expect(tile).toHaveCSS('height', '300px');
+	await handle.click();
+	await expect(tile).toHaveCSS('width', '200px');
+	// A drag commits its geometry and must not also activate the click preset.
+	const bounds = await handle.boundingBox();
+	expect(bounds).toBeTruthy();
+	await page.mouse.move(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2);
+	await page.mouse.down();
+	await page.mouse.move(bounds!.x + bounds!.width / 2 + 40, bounds!.y + bounds!.height / 2 + 40, {
+		steps: 4,
+	});
+	await page.mouse.up();
+	await expect(tile).toHaveCSS('width', '240px');
+	await expect(tile).toHaveCSS('height', '160px');
+	// Enter is the keyboard equivalent of activating the preset button.
+	await handle.press('Enter');
+	await expect(tile).toHaveCSS('width', '200px');
+	await page.reload();
+	await waitReady(page);
+	await expect(tile).toHaveCSS('width', '200px');
+	await expect(tile).toHaveCSS('height', '120px');
+});
