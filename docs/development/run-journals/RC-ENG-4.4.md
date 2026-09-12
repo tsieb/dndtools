@@ -89,3 +89,15 @@ is reverted and the reason is recorded here.
 - Browser acceptance: not rerun for this commit. Nothing under `apps/gm-react/src` imports
   `electron`; only `electron/*.cjs` and one tooling test do. So the Chromium suite runs the same
   bundle as step 1's. The full suite runs again on the React commits and on the final merged set.
+- Committed as `5eff0d8f`.
+
+### 5. `@types/node` → 26 in `packages/core` (was ^24.12.4) and `packages/cloud-fns` (was ^22.10.0) (#59)
+
+- pnpm wrote `^26.5.1`, the newest 26.x the release-age rule allows. That satisfies #59's
+  `^26.4.0`. The lockfile keeps `@types/node@24.12.4` only because electron depends on it.
+- The expected typecheck fallout didn't happen: `pnpm typecheck` passes for core, cloud-fns and
+  gm-react with no source changes.
+- Gate: `gates`, `format:check:changed`, `lint` (0 errors), core tests 272 / 4769, cloud 36 / 482,
+  tooling 24 / 162, `build` (includes the cloud-fns esbuild bundle) and `feature-audit` pass.
+  Browser acceptance's path filter is `apps/gm-react/*`, which this commit doesn't touch, and
+  `@types` packages are compile-time only.
