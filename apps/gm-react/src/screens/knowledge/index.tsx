@@ -6,8 +6,9 @@ import { Page, T } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { ConnectedSourcesPanel } from '../../app/ConnectedSources';
 import { VIS_CHIP } from './shared';
-import { formatStamp, parseArchive, snippetOf } from './markdown';
+import { parseArchive, snippetOf } from './markdown';
 import { useI18n } from '../../i18n';
+import { NoteListMetadata } from './NoteListMetadata';
 import { NoteViewer } from './NoteViewer';
 import { Composer } from './Composer';
 import { ImportPanel } from './ImportPanel';
@@ -28,7 +29,7 @@ export { parseWikilink } from './markdown';
  */
 
 export function Knowledge() {
-	const { t, formatDate } = useI18n();
+	const { t, formatDate, formatRelativeTime } = useI18n();
 	const runtime = useRuntime();
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -356,6 +357,7 @@ export function Knowledge() {
 					{notes.map((n) => (
 						<Card
 							key={n.id}
+							style={{ minWidth: 0, overflowWrap: 'anywhere' }}
 							elevation="flat"
 							interactive
 							onClick={() => navigate(`/knowledge/${n.id}`)}
@@ -378,6 +380,7 @@ export function Knowledge() {
 								<VisibilityChip level={VIS_CHIP[n.visibility] || 'dm-only'} compact />
 							</div>
 							<div style={{ font: `600 14.5px ${T.sans}`, marginBottom: 5 }}>{n.title}</div>
+							<NoteListMetadata note={n} />
 							<div
 								style={{
 									font: `12.5px/1.55 ${T.sans}`,
@@ -391,7 +394,15 @@ export function Knowledge() {
 								{snippetOf(n.body, t)}
 							</div>
 							<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 9 }}>
-								{t('knowledge.updated', { when: formatStamp(n.updatedAt, formatDate) })}
+								<time
+									dateTime={n.updatedAt}
+									title={formatDate(new Date(n.updatedAt), {
+										dateStyle: 'long',
+										timeStyle: 'short',
+									})}
+								>
+									{t('knowledge.updated', { when: formatRelativeTime(new Date(n.updatedAt)) })}
+								</time>
 							</div>
 						</Card>
 					))}
