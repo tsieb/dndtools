@@ -2275,6 +2275,7 @@ export {
 // first-run Command Center setup — modeled in the core so the GUI renders from query results.
 export type {
 	FeatureGate,
+	SectionFeatureGate,
 	FeatureTier,
 	FirstRunStep,
 	HelpSurface,
@@ -2290,6 +2291,7 @@ export type {
 export {
 	DEFAULT_FEATURE_TIER,
 	FEATURE_GATES,
+	SECTION_FEATURE_GATES,
 	FEATURE_SPOTLIGHTS,
 	FEATURE_TIERS,
 	HELP_SURFACES,

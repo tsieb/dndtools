@@ -1,4 +1,9 @@
-import { DEFAULT_FEATURE_TIER, FEATURE_TIERS, type FeatureTier } from '@dndtools/core';
+import {
+	DEFAULT_FEATURE_TIER,
+	FEATURE_TIERS,
+	SECTION_FEATURE_GATES,
+	type FeatureTier,
+} from '@dndtools/core';
 import {
 	PREFERENCE_KEYS,
 	readPreference,
@@ -49,4 +54,18 @@ export const errMsg = (e: unknown, fallback: string) =>
 export function humanizeEntity(entityType: string): string {
 	const readable = entityType.replace(/[._-]+/g, ' ').trim();
 	return readable ? readable.charAt(0).toUpperCase() + readable.slice(1) : 'Campaign item';
+}
+
+/** RC-UX-5.1 — section metadata for Settings consumers. A tab's tier describes its entry point;
+ * each section has its own tier, so a core tab can contain advanced controls. Anchors are stable
+ * logical identifiers for future disclosure/deep-link adapters, not existing DOM element IDs.
+ * This inventory does not replace permission checks or the existing tab enforcement policy. */
+export const SETTINGS_FEATURE_GATES = SECTION_FEATURE_GATES.filter((gate) =>
+	gate.surface.startsWith('/settings?tab='),
+);
+
+export function settingsFeatureGate(tab: string, sectionAnchor: string) {
+	return SETTINGS_FEATURE_GATES.find(
+		(gate) => gate.surface === `/settings?tab=${tab}` && gate.sectionAnchor === sectionAnchor,
+	);
 }
