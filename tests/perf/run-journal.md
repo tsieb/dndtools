@@ -183,3 +183,20 @@ The reviewed perf implementation and exact-byte measurement archive are preserve
 This retry commits only the journal and provenance clarification. Validation is
 still blocked; no push, promotion, workflow dispatch, additional loop, dispatcher
 control-state edit, or sub-agent was used.
+
+### Repeated dispatch on unchanged blocker
+
+Read original tooling output for `70d183fb-e01d-42fd-a8ac-537ae36fcec3`
+on `47c9be520e9729fd46310a970e8091127b521d9a`. It confirms the identical
+line-147 expected-two/received-three assertion: 161 tests pass, one fails.
+The tree was clean and both implicated files still have an empty diff against
+`ac99ca7b`. There is no new source change or diagnostic justifying another
+identical test run or a fresh performance capture yet.
+
+Concrete minimal base repair: change the expected guarded-window count from
+2 to 3 in `tests/unit/electron-hardening.test.ts:147`, retaining the guard
+pattern and all other security assertions. That file is outside this task's
+owned paths. The operator must assign that repair to its owner or explicitly
+expand this task's ownership before it can be applied here. Then rerun the
+full tooling gate and capture fresh workstation evidence for the resulting
+candidate. No gate bypass or out-of-scope change was made on this dispatch.
