@@ -10,9 +10,16 @@ import {
 } from '../platform/sceneDisplayChannel';
 import { Button, IconButton, Toaster } from '../ds';
 import { useI18n } from '../i18n';
+import { createAssetObjectUrl, type AssetObjectUrlHandle } from '../platform/assetUrl';
 import { registerBackHandler } from '../platform/backNavigation';
 import { usePlatformCapabilities } from '../platform/capabilities';
 import { isolateModalSiblings } from '../platform/modalIsolation';
+
+declare global {
+	interface Window {
+		dndtoolsSceneDisplayControl?: { open: () => Promise<boolean> };
+	}
+}
 
 const FOCUSABLE =
 	'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -25,15 +32,38 @@ const FOCUSABLE =
 export function useSceneDisplayBroadcast(runtime: SceneRuntime): void {
 	const seq = useRef(0);
 	useEffect(() => {
-		function publish() {
+		let generation = 0;
+		let hero: AssetObjectUrlHandle | null = null;
+		async function publish() {
+			const current = ++generation;
 			const view = getSceneDisplayForActor(
 				runtime.state.session,
 				runtime.state.permissions,
 				runtime.defaultActorId,
 			);
+			let resolved: AssetObjectUrlHandle | null = null;
+			if (view.active?.heroImage?.kind === 'vault-asset') {
+				try {
+					resolved = await createAssetObjectUrl(view.active.heroImage.ref);
+				} catch {
+					/* Missing image leaves the mood backdrop. */
+				}
+			}
+			if (current !== generation) {
+				resolved?.revoke();
+				return;
+			}
+			hero?.revoke();
+			hero = resolved;
 			seq.current += 1;
 			postSceneDisplay({
-				active: view.active,
+				active:
+					view.active && resolved
+						? {
+								...view.active,
+								heroImage: { ...view.active.heroImage!, kind: 'url', ref: resolved.url },
+							}
+						: view.active,
 				transitionStyle: view.transitionStyle,
 				seq: seq.current,
 			});
@@ -42,6 +72,8 @@ export function useSceneDisplayBroadcast(runtime: SceneRuntime): void {
 		const stopDispatch = runtime.onDispatched(() => publish());
 		const stopRequests = subscribeSceneDisplayRequests(publish);
 		return () => {
+			generation += 1;
+			hero?.revoke();
 			stopDispatch();
 			stopRequests();
 		};
@@ -234,7 +266,15 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 					onClick={() => {
 						// window.open returns null when the browser blocks the popup — pressing the button
 						// then did nothing at all, with no explanation anywhere.
-						if (!openSecondScreen()) Toaster.error(t('sceneDisplay.popupBlocked'));
+						if (!capabilities.secondScreen.available) return;
+						if (window.dndtoolsSceneDisplayControl) {
+							void window.dndtoolsSceneDisplayControl
+								.open()
+								.then((opened) => {
+									if (!opened) Toaster.error('Could not open the scene display. Try again.');
+								})
+								.catch(() => Toaster.error('Could not open the scene display. Try again.'));
+						} else if (!openSecondScreen()) Toaster.error(t('sceneDisplay.popupBlocked'));
 					}}
 				>
 					{t('sceneDisplay.secondScreen')}

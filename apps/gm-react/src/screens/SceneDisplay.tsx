@@ -25,7 +25,11 @@ function useHeroImageUrl(card: SceneCardView | null, resolveVaultAssets: boolean
 	const resolved = useAssetObjectUrl(vaultAssetId);
 	if (!card?.heroImage) return null;
 	if (card.heroImage.kind === 'url') {
-		if (isNativeDesktopRuntime()) return null;
+		if (
+			isNativeDesktopRuntime() &&
+			!card.heroImage.ref.startsWith(`blob:${window.location.origin}/`)
+		)
+			return null;
 		if (
 			capabilities.runtimeKind === 'android' &&
 			!isNetworkDestinationAllowed(card.heroImage.ref, capabilities.runtimeKind)
@@ -94,6 +98,7 @@ export function SceneDisplaySurface({
 			>
 				{heroUrl ? (
 					<img
+						className="scene-display__hero"
 						src={heroUrl}
 						alt=""
 						style={{
@@ -105,6 +110,11 @@ export function SceneDisplaySurface({
 						}}
 					/>
 				) : null}
+				<div
+					className="scene-display__wash"
+					aria-hidden="true"
+					style={{ background: `linear-gradient(135deg, ${theme.to}88, ${theme.accent}33)` }}
+				/>
 				{/* Bottom scrim so title/flavor stay legible over any image. */}
 				<div
 					style={{
@@ -213,7 +223,7 @@ export function SceneDisplay() {
 /**
  * Electron projector receiver. It deliberately has no RuntimeProvider, vault, auth, backup, session,
  * or audio tree; the primary window sends only the already-filtered scene-display DTO. Vault-backed
- * hero bytes are omitted in this isolated surface until they can travel over a dedicated byte channel.
+ * images arrive as same-origin object URLs owned and released by the primary broadcaster.
  */
 export function StandaloneSceneDisplay() {
 	const [payload, setPayload] = useState<SceneDisplayPayload | null>(null);
